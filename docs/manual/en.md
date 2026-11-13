@@ -567,7 +567,8 @@ freemapper run dammheide --pdf-candidates
   `freemapper.toml` sets the interval yourself; then run `derive` and `export --force`. The margin names the
   interval ("Äquidistanz 2,5 m").
 - Buildings, water, walls, fences, power lines, railways and out-of-bounds areas (520) come as on the sprint map.
-  Trees from tree cadastres and single OSM trees are left out. Only a tree tagged `denotation=natural_monument`
+  Benches, bollards, street lamps and other street furniture, trees from tree cadastres and single OSM trees are
+  left out. Only a tree tagged `denotation=natural_monument`
   becomes candidate 417.
 
 For a quick training the candidates PDF (`--pdf-candidates`) is enough: it shows the map and the candidates at the
@@ -845,7 +846,8 @@ The symbols in the OCAD file are placeholders with the right number and colour, 
 Load the official symbol set in OCAD:
 
 1. Choose *Symbol › Load Colors and Symbols from …*.
-2. Pick the set: ISSprOM 2019 for sprint maps, the IOF school set 2019 for schoolyard maps.
+2. Pick the set: ISSprOM 2019 for sprint maps, the IOF school set 2019 for schoolyard maps, ISOM 2017-2 for
+   forest maps.
 
 OCAD then replaces the placeholders by number. The OCAD output has not been checked in every OCAD
 version yet; feedback is welcome (chapter 16).

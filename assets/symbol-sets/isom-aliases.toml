@@ -1,7 +1,7 @@
 # The ISSprOM 2019 codes the build modules of freemapper draw, and the ISOM 2017-2 code that draws
 # the same thing on a forest map (spec 2026-11-13). `SymbolSet::id_for_code` asks this table
 # before the set's own codes, so a code both norms use with different meanings (501.1 is a step
-# in ISSprOM and the motorway in ISOM) gets the right symbol. Each alias keeps the symbol type: a
+# line in ISSprOM and the paved-area fill in ISOM) gets the right symbol. Each alias keeps the symbol type: a
 # line stays a line, an area an area (or the combined symbol that draws it).
 
 # Codes ISOM 2017-2 has no symbol for: the object is left out of a forest map.

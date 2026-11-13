@@ -1355,6 +1355,20 @@ mod tests {
                 .map(|m| m.code)
         };
         assert_eq!(tree(&[("natural", "tree")]), None);
+        // Street furniture and lamps are left out (spec 2026-11-13); a mast stays a tower.
+        for furniture in [
+            ("amenity", "bench"),
+            ("barrier", "bollard"),
+            ("amenity", "waste_basket"),
+            ("amenity", "bicycle_parking"),
+            ("highway", "street_lamp"),
+        ] {
+            assert_eq!(tree(&[furniture]), None, "{furniture:?}");
+        }
+        assert_eq!(
+            tree(&[("man_made", "mast"), ("height", "25")]),
+            Some("524".into())
+        );
         assert_eq!(
             tree(&[("natural", "tree"), ("denotation", "natural_monument")]),
             Some("417".into())

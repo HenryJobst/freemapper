@@ -27,7 +27,9 @@ The suite contract had the kind `forest` without drawing scales (freemapper-core
 - **Kind and scales.** `MapKind::Forest`, name `forest`, at 1:15 000 (default), 1:10 000 and 1:7500, from
   freemapper-core 0.23.0 (`MapKind::Forest.drawing_scales()`, written by freemapper). `symbol_enlargement` and
   `symbol_set` take the scale: the ISOM symbols are drawn at 100 %, 150 % and 200 %, as ISOM 2017-2 says for
-  enlarged maps, so every paper distance (point gaps, wall pairs, north lines, stair widths) follows the scale.
+  enlarged maps, so the paper distances between symbols (point gaps, wall pairs, north lines, stair widths, the
+  reach of walls and paths) follow the scale. The minimum sizes on paper (buildings, areas, contour rings,
+  slivers) scale with the scale denominator only, as for the school set.
   Default buffer 100 m, contour smoothing 3 m, relief smoothing 8 m, landforms from 1 m.
 - **Symbol set.** `ISOM 2017-2_15000.omap` from OpenOrienteering Mapper (same commit as the ISSprOM set) with the
   colour table of IOF Rev. 4 by the rules of ADR 0044; 1:10 000 and 1:7500 enlarge it (`SymbolSet::isom_2017_2`),
@@ -37,7 +39,7 @@ The suite contract had the kind `forest` without drawing scales (freemapper-core
   symbol type (505.1 → 505, 505.2 → 504, 532.6–532.9 → 532, 509.1/509.2 → 509, 513.1/513.2 → 513, 410 → 411,
   301.6 → 301.4, 501.x areas → 501, paved paths 501.6/501.7 → 505 and 501.8/501.9 → 503, 601 → 601.1) or leaves the
   object out (321, 410.1, 501.1, 541–545, 990). `id_for_code` asks the aliases first, because some codes mean
-  different things in the two norms (501.1 is a step in ISSprOM and the motorway in ISOM).
+  different things in the two norms (501.1 is a step line in ISSprOM and the paved-area fill in ISOM).
 - **Paths from OSM, on the map.** A `forest` column in `assets/rules/osm-candidates.toml`, before the sprint rules:
   502 for main roads and wide residential roads, 503 for the other public roads, 504 for tracks of grade 1 and 2 or
   at least 3 m wide and for unpaved roads, 505 for the other tracks, cycleways and firm or wide paths, 506 for the
@@ -50,10 +52,15 @@ The suite contract had the kind `forest` without drawing scales (freemapper-core
   `forest = "-"`. OSM parks draw nothing on a forest map; OSM meadows, grassland, heath and clearings are 401 and
   403 candidates, scrub 406 and dense scrub 408 candidates. That is all the green: none from the nDSM.
 - **What else.** A forest map takes the sprint build otherwise: buildings, water, walls and fences, power lines,
-  railways, out-of-bounds land as 520 (never 709), control sites, and the Berlin and NAS layers of the sprint map.
-  Register trees and plain OSM trees stay off; a tree tagged `denotation=natural_monument|landmark` is a 417
+  railways, out-of-bounds land as 520 (never 709), and the Berlin and NAS layers of the sprint map. Street
+  furniture and lamps (OSM benches, bollards, waste baskets, bicycle stands, street lamps, the Berlin survey's
+  benches, bollards and masts, the lighting cadastre), register trees and plain OSM trees stay off; a tree tagged `denotation=natural_monument|landmark` is a 417
   candidate. ALKIS street parcels are no paved areas: ISOM draws roads as lines. The map area outline of the
-  candidates uses the sheet line 994, as the ISOM set has no 501.1.
+  candidates uses the sheet line 994, as the ISOM set has no thin line under that code. OSM paths that the
+  aliases give the symbols of the sprint map's firm-gravel ways (505, 503) are not cut at paving or shortened.
+- **OCAD.** The OCAD export numbers the ISOM codes by the decimal rule (`301.1` = 301.100); the ISSprOM
+  exceptions of `ocd/symbols.rs` do not apply. In OCAD the forest map gets the ISOM 2017-2 set.
+- **Area page.** The page selects each kind's default scale (`default_scales`), 1:15 000 for a forest map.
 - **Contour interval from the relief.** `derive::contours::contour_interval_for`: a forest map gets 2.5 m when the
   5th to 95th percentile of the smoothed terrain inside the map area spans less than 15 m, else 5 m; every fifth line
   is an index contour. `contour_interval_m` in `freemapper.toml` wins; 0, a negative value or NaN is refused when

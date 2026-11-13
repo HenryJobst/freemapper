@@ -28,12 +28,15 @@ const NUMBERS: [(&str, i32); 11] = [
 
 /// The OCAD number of a freemapper symbol code. OCAD reads the part after the dot as a three-place
 /// decimal ("501.1" = 501.100); the hedge is 411.002 in ISSprOM 2019-2 but 410.002 in the school
-/// set, which follows the first 2019 edition.
+/// set, which follows the first 2019 edition. The exceptions of [`NUMBERS`] belong to the ISSprOM
+/// sets; a forest map's ISOM codes follow the decimal rule.
 pub fn ocad_number(code: &str, kind: MapKind) -> Option<i32> {
     if code == "410.1" && kind == MapKind::Schoolyard {
         return Some(410_002);
     }
-    if let Some(&(_, number)) = NUMBERS.iter().find(|(c, _)| *c == code) {
+    if kind != MapKind::Forest
+        && let Some(&(_, number)) = NUMBERS.iter().find(|(c, _)| *c == code)
+    {
         return Some(number);
     }
     let (main, sub) = code.split_once('.').unwrap_or((code, ""));
@@ -504,6 +507,10 @@ mod tests {
     #[test]
     fn hedge_number_depends_on_kind() {
         assert_eq!(ocad_number("410.1", MapKind::Sprint), Some(411_002));
+        // A forest map has ISOM codes: the decimal rule, not the ISSprOM exceptions.
+        assert_eq!(ocad_number("301.1", MapKind::Forest), Some(301_100));
+        assert_eq!(ocad_number("521.1", MapKind::Forest), Some(521_100));
+        assert_eq!(ocad_number("505", MapKind::Forest), Some(505_000));
         assert_eq!(ocad_number("410.1", MapKind::Schoolyard), Some(410_002));
     }
 

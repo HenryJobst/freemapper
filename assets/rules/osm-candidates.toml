@@ -35,6 +35,7 @@ schoolyard = "321"
 when = ["amenity=bench"]
 draw = "point"
 sprint = "531"
+forest = "-"
 
 [[rule]]
 when = ["amenity=bench"]
@@ -56,16 +57,19 @@ sprint = "526"
 when = ["barrier=bollard"]
 draw = "point"
 sprint = "531"
+forest = "-"
 
 [[rule]]
 when = ["amenity=waste_basket"]
 draw = "point"
 sprint = "531"
+forest = "-"
 
 [[rule]]
 when = ["amenity=bicycle_parking"]
 draw = "point"
 sprint = "531"
+forest = "-"
 
 [[rule]]
 when = ["leisure=picnic_table"]
@@ -82,6 +86,7 @@ when = ["highway=street_lamp"]
 draw = "point"
 schoolyard = "545"
 sprint = "531"
+forest = "-"
 
 [[rule]]
 when = ["man_made=flagpole"]
@@ -211,7 +216,8 @@ draw = "area"
 schoolyard = "401"
 sprint = "401"
 
-# Forest maps (ISOM 2017-2), spec 2026-11-13. The OSM paths are the path network of a forest map
+# Forest maps (ISOM 2017-2), spec 2026-11-13. Street furniture and lamps further up have
+# `forest = "-"`: ISOM draws none of them. The OSM paths are the path network of a forest map
 # and go onto the map as they are, private ones included (ISOM has no closed way; an area that
 # shall not be entered is 520 from the rules further down). Nothing is merged or moved. These
 # rules have no sprint or schoolyard code, so the other map kinds skip them.

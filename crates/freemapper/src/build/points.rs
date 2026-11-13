@@ -1176,11 +1176,7 @@ pub(crate) mod test_support {
     }
 
     pub(crate) fn fixture(kind: MapKind) -> Fixture {
-        let scale = if kind == MapKind::Schoolyard {
-            1000
-        } else {
-            4000
-        };
+        let scale = kind.default_scale();
         let georef = Georeferencing::new(
             LatLon {
                 lat: 52.4876,

@@ -592,7 +592,8 @@ freemapper run dammheide --pdf-candidates
   anderen Wert über 0) in der `freemapper.toml` legen Sie den Abstand selbst fest; danach `derive` und
   `export --force`. Der Kartenrand nennt den Abstand („Äquidistanz 2,5 m“).
 - Gebäude, Gewässer, Mauern, Zäune, Stromleitungen, Bahnlinien und Sperrgebiete (520) kommen wie bei der
-  Sprintkarte. Bäume aus Baumkatastern und einzelne OSM-Bäume fehlen. Nur ein Baum mit
+  Sprintkarte. Bänke, Poller, Laternen und anderes Stadtmobiliar fehlen, ebenso Bäume aus Baumkatastern und
+  einzelne OSM-Bäume. Nur ein Baum mit
   `denotation=natural_monument` wird Kandidat 417.
 
 Für ein schnelles Training reicht das Kandidaten-PDF (`--pdf-candidates`): Es zeigt Karte und Kandidaten im
@@ -875,7 +876,8 @@ Die Symbole in der OCAD-Datei sind Platzhalter mit richtiger Nummer und Farbe, a
 Laden Sie in OCAD den offiziellen Symbolsatz:
 
 1. *Symbol › Farben und Symbole laden aus …* wählen.
-2. Den Satz wählen: ISSprOM 2019 für Sprint, den IOF-Schulsatz 2019 für Schulhofkarten.
+2. Den Satz wählen: ISSprOM 2019 für Sprint, den IOF-Schulsatz 2019 für Schulhofkarten, ISOM 2017-2 für
+   Waldkarten.
 
 OCAD ersetzt die Platzhalter dann nach Nummer. Die OCAD-Ausgabe ist noch nicht in jeder OCAD-Version
 geprüft. Rückmeldungen sind willkommen (Kapitel 16).

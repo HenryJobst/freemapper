@@ -288,6 +288,11 @@ impl SymbolSet {
             .map(|(_, id)| *id)
     }
 
+    /// Whether an alias of this set answers the code: the set has no symbol of its own for it.
+    pub fn is_aliased(&self, code: &str) -> bool {
+        self.aliases.iter().any(|(from, _)| from == code)
+    }
+
     /// Whether an alias of this set leaves the code out (a code the norm has no symbol for).
     pub fn leaves_out(&self, code: &str) -> bool {
         self.aliases
@@ -381,7 +386,7 @@ mod tests {
         assert_eq!(set.id_for_code("505.1"), set.id_for_code("505"));
         assert_eq!(set.id_for_code("505.2"), set.id_for_code("504"));
         assert_eq!(set.id_for_code("532.7"), set.id_for_code("532"));
-        // 501.1 is a step in ISSprOM and the motorway in ISOM: the alias wins.
+        // 501.1 is a step line in ISSprOM and the paved-area fill in ISOM: the alias wins.
         assert_eq!(set.id_for_code("501.1"), None);
         assert!(set.leaves_out("501.1"));
         assert_eq!(set.id_for_code("990"), None);
