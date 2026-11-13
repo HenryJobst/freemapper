@@ -711,6 +711,7 @@ dependencies = [
  "freemapper-contract",
  "freemapper-fs",
  "freemapper-georef",
+ "freemapper-render",
  "freemapper-sources",
  "freemapper-text",
  "fs4",
@@ -810,8 +811,8 @@ dependencies = [
 
 [[package]]
 name = "freemapper-contract"
-version = "0.25.0"
-source = "git+https://github.com/HenryJobst/freemapper-core?tag=v0.25.0#599add0dd1880fa94019e5af1979fc32ba3ed308"
+version = "0.26.0"
+source = "git+https://github.com/HenryJobst/freemapper-core?tag=v0.26.0#c246c52962f0264de13c2664994c4b15ba8ea8ad"
 dependencies = [
  "freemapper-omap",
  "serde",
@@ -820,17 +821,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "freemapper-course"
+version = "0.26.0"
+source = "git+https://github.com/HenryJobst/freemapper-core?tag=v0.26.0#c246c52962f0264de13c2664994c4b15ba8ea8ad"
+dependencies = [
+ "freemapper-georef",
+ "freemapper-omap",
+ "quick-xml",
+ "serde",
+ "thiserror 2.0.21",
+]
+
+[[package]]
 name = "freemapper-fs"
-version = "0.25.0"
-source = "git+https://github.com/HenryJobst/freemapper-core?tag=v0.25.0#599add0dd1880fa94019e5af1979fc32ba3ed308"
+version = "0.26.0"
+source = "git+https://github.com/HenryJobst/freemapper-core?tag=v0.26.0#c246c52962f0264de13c2664994c4b15ba8ea8ad"
 dependencies = [
  "same-file",
 ]
 
 [[package]]
 name = "freemapper-georef"
-version = "0.25.0"
-source = "git+https://github.com/HenryJobst/freemapper-core?tag=v0.25.0#599add0dd1880fa94019e5af1979fc32ba3ed308"
+version = "0.26.0"
+source = "git+https://github.com/HenryJobst/freemapper-core?tag=v0.26.0#c246c52962f0264de13c2664994c4b15ba8ea8ad"
 
 [[package]]
 name = "freemapper-manifest"
@@ -851,11 +864,28 @@ dependencies = [
 
 [[package]]
 name = "freemapper-omap"
-version = "0.25.0"
-source = "git+https://github.com/HenryJobst/freemapper-core?tag=v0.25.0#599add0dd1880fa94019e5af1979fc32ba3ed308"
+version = "0.26.0"
+source = "git+https://github.com/HenryJobst/freemapper-core?tag=v0.26.0#c246c52962f0264de13c2664994c4b15ba8ea8ad"
 dependencies = [
  "quick-xml",
  "thiserror 2.0.21",
+]
+
+[[package]]
+name = "freemapper-render"
+version = "0.26.0"
+source = "git+https://github.com/HenryJobst/freemapper-core?tag=v0.26.0#c246c52962f0264de13c2664994c4b15ba8ea8ad"
+dependencies = [
+ "freemapper-course",
+ "freemapper-omap",
+ "image",
+ "miniz_oxide 0.9.1",
+ "pdf-writer",
+ "quick-xml",
+ "serde",
+ "subsetter",
+ "thiserror 2.0.21",
+ "ttf-parser",
 ]
 
 [[package]]
@@ -887,8 +917,8 @@ dependencies = [
 
 [[package]]
 name = "freemapper-text"
-version = "0.25.0"
-source = "git+https://github.com/HenryJobst/freemapper-core?tag=v0.25.0#599add0dd1880fa94019e5af1979fc32ba3ed308"
+version = "0.26.0"
+source = "git+https://github.com/HenryJobst/freemapper-core?tag=v0.26.0#c246c52962f0264de13c2664994c4b15ba8ea8ad"
 dependencies = [
  "fluent-bundle",
  "fluent-syntax",
@@ -897,8 +927,8 @@ dependencies = [
 
 [[package]]
 name = "freemapper-update"
-version = "0.25.0"
-source = "git+https://github.com/HenryJobst/freemapper-core?tag=v0.25.0#599add0dd1880fa94019e5af1979fc32ba3ed308"
+version = "0.26.0"
+source = "git+https://github.com/HenryJobst/freemapper-core?tag=v0.26.0#c246c52962f0264de13c2664994c4b15ba8ea8ad"
 dependencies = [
  "flate2",
  "freemapper-fs",
@@ -912,8 +942,8 @@ dependencies = [
 
 [[package]]
 name = "freemapper-web"
-version = "0.25.0"
-source = "git+https://github.com/HenryJobst/freemapper-core?tag=v0.25.0#599add0dd1880fa94019e5af1979fc32ba3ed308"
+version = "0.26.0"
+source = "git+https://github.com/HenryJobst/freemapper-core?tag=v0.26.0#c246c52962f0264de13c2664994c4b15ba8ea8ad"
 dependencies = [
  "axum",
  "getrandom 0.4.3",
@@ -2466,6 +2496,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7da8b5736845d9f2fcb837ea5d9e2628564b3b043a70948a3f0b778838c5fb4f"
 
 [[package]]
+name = "subsetter"
+version = "0.2.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "38803281d1c23166c5ebcb455439a5d2afe711cc909cf88af72448c297756ad6"
+dependencies = [
+ "rustc-hash 2.1.3",
+]
+
+[[package]]
 name = "subtle"
 version = "2.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2768,6 +2807,12 @@ checksum = "db97caf9d906fbde555dd62fa95ddba9eecfd14cb388e4f491a66d74cd5fb79a"
 dependencies = [
  "once_cell",
 ]
+
+[[package]]
+name = "ttf-parser"
+version = "0.25.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d2df906b07856748fa3f6e0ad0cbaa047052d4a7dd609e231c4f72cee8c36f31"
 
 [[package]]
 name = "type-map"

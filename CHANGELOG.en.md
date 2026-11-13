@@ -8,6 +8,7 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ### Changed
 
+- Smaller PDFs: `--pdf` and `--pdf-candidates` write their paths with the compact path writer of freemapper-core 0.26.0 (freemapper-core decision 0033). Path coordinates are rounded to 1/1000 point. Small shapes of four points or more within 7 mm, such as the dots of point symbols, are written relative to their first point, so repeated symbols compress well. The 26 PDFs of the 12 example maps with data (Dammheide left out) shrink by 22 to 79 %, from 16.9 MB to 8.3 MB together; Sanssouci's map goes from 1.45 MB to 304 KB. The maps look the same: rasterised at 150 dpi with poppler, 6 of 113 million pixels differ by more than 12 %. Texts, fonts, colours, page size and the clip to the map area stay as they were. A shape with a coordinate that is not a finite number is left out instead of breaking the page. All libraries of freemapper-core move to v0.26.0; 0.26.0 changes nothing else for freemapper.
 - Internal: lengths on paper now have a type (ADR 0118). A paper measure (`PaperMm`) holds on the printed sheet, a symbol measure (`SymbolMm`) grows with the symbol enlargement of the map kind and cannot be converted without it. The roughly 45 hand-written conversions to ground metres and map coordinates are replaced; the norm's line gap, line widths and point sizes are written down once in `build/symbol_measures.rs`. No measure changes, the maps stay the same.
 
 ## [0.17.0] - 2026-11-13
