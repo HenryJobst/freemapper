@@ -8,8 +8,8 @@ freemapper makes a starter project for an orienteering map from official geodata
 OpenStreetMap: a georeferenced OpenOrienteering Mapper map (`.omap`) with buildings, paved areas, paths and other
 reliable objects already drawn, templates (orthophoto, hillshade, slope, local relief, nDSM), a candidates map to check, and on
 request an OCAD starting point, printable PDFs and permit notes (who is in charge of the area, a hint, not legal
-advice). Map kinds: `schoolyard` (1:1000) and `sprint` (ISSprOM 2019,
-1:4000 or 1:5000).
+advice). Map kinds: `schoolyard` (1:1000), `sprint` (ISSprOM 2019, 1:4000 or 1:5000) and `forest` (ISOM 2017-2,
+1:15000, 1:10000 or 1:7500; the OSM paths on the map, for a quick training in a small forest).
 
 Supported states: Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein,
 Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony, Rhineland-Palatinate and
@@ -98,7 +98,7 @@ freemapper run <dir> --pdf
 | Command | Purpose |
 |---|---|
 | `find <query>` | Lists up to 5 OpenStreetMap places for a name, areas first, one per line with its id (`way/<id>`, `relation/<id>`), and ends with the `init --osm` command for the first area. A place marked `no area` cannot be a map area. `--json` prints the array of MCP `find_place` instead. Nothing found exits with 1, but with `--json` it prints `[]` and exits with 0. |
-| `init <dir>` with `--geojson <file>`, `--osm way/<id>` (plus `--part <n>`) or `--place <name>` | Creates the project. `--kind schoolyard\|sprint`, `--scale`, `--title`. The GeoJSON holds one polygon in EPSG:4326. |
+| `init <dir>` with `--geojson <file>`, `--osm way/<id>` (plus `--part <n>`) or `--place <name>` | Creates the project. `--kind schoolyard\|sprint\|forest`, `--scale`, `--title`. The GeoJSON holds one polygon in EPSG:4326. |
 | `select <dir>` | Opens the area page in the browser for the user. `--no-browser` only prints the address. A person must draw and save; you cannot do it for them. |
 | `run <dir>` | `fetch`, `derive` and `export` in one go. |
 | `fetch <dir>` | Downloads into the shared cache. `--offline` uses the cache only. |
@@ -145,7 +145,7 @@ the update itself after a successful command and says so on stdout.
 
 Workflow:
 
-1. Ask what the map is for (school, park, sprint training) and which place.
+1. Ask what the map is for (school, park, sprint training, forest training) and which place.
 2. Create the project. Run `freemapper find "<name>"`, show the person the matches and let them pick one, then
    `init <dir> --osm <id>` with its id. When the name is unambiguous, `init --place "<name>"` is the shortcut: it
    takes the best match with an area without listing the others. If no match fits, let the person draw the area
@@ -193,7 +193,7 @@ states such as `running` or `finished` are the same in both languages. This file
 | Tool | Parameters | What it does |
 |---|---|---|
 | `find_place` | `query` | Searches a school, park or other place by name (OpenStreetMap Nominatim). Use a result with `has_area`; its `osm_id` becomes the map area. |
-| `create_project` | `dir`; `osm_id` or `geojson`; optional `part`, `kind`, `scale`, `title`, `content`, `content_set` | Creates the project folder with `freemapper.toml`. `kind`: `schoolyard` (default) or `sprint`. `scale`: schoolyard 1000; sprint 4000 (default) or 5000. For 1:3000 use 4000; freemapper-print enlarges when printing. |
+| `create_project` | `dir`; `osm_id` or `geojson`; optional `part`, `kind`, `scale`, `title`, `content`, `content_set` | Creates the project folder with `freemapper.toml`. `kind`: `schoolyard` (default), `sprint` or `forest`. `scale`: schoolyard 1000; sprint 4000 (default) or 5000; forest 15000 (default), 10000 or 7500. For 1:3000 use 4000; freemapper-print enlarges when printing. |
 | `estimate_download` | `dir` | What `start_pipeline` will download, with sizes and what is already cached. |
 | `start_pipeline` | `dir`; optional `force`, `offline`, `ocad`, `pdf`, `pdf_candidates`, `pdf_scale_bar`, `pdf_sources`, `permits`, `content`, `content_set` | Fetches, derives and writes the project in the background. Returns a job id. With `permits: true` it writes the permit notes after the map; a failure there is a warning, not a failed job. |
 | `project_status` | `job_id` | `running`, `finished` or `failed`, with the last progress lines, the warnings, the written files (`files`: kind, path, bytes) and the result or the error. A finished `permits_for_area` job also carries `permits_md`, the text of `permits.md`. |
@@ -206,7 +206,7 @@ states such as `running` or `finished` are the same in both languages. This file
 
 ### Workflow
 
-1. Ask what the map is for (school, park, sprint training) and which place. Then `find_place`.
+1. Ask what the map is for (school, park, sprint training, forest training) and which place. Then `find_place`.
 2. If one result with an area fits, `create_project` with its `osm_id`. If several fit, ask the user. If none fits
    or the user wants to draw the area, call `open_area_selector`, give the user the address and wait until they
    say they saved; saving creates the project.

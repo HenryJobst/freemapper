@@ -422,6 +422,7 @@ pub fn render_markdown(notes: &PermitNotes, lang: &Lang) -> String {
     let kind = match notes.map_kind {
         MapKind::Schoolyard => "schoolyard",
         MapKind::Sprint => "sprint",
+        MapKind::Forest => "forest",
     };
     let mut blocks = vec![
         format!("# {}", t(lang, "permits-title", &[])),

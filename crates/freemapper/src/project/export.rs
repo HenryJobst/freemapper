@@ -5,7 +5,7 @@
 //! file the build reads.
 
 use super::*;
-use crate::build::assembly::{Built, Surroundings};
+use crate::build::assembly::{Built, Drawn, Resolved, Surroundings, resolve};
 use crate::build::content::LANDFORM_KEY;
 use crate::build::ticks::read_terrain;
 
@@ -137,7 +137,8 @@ pub(super) fn stored_osm_objects(
     )?)
 }
 
-/// 101/102 candidate objects for the contour lines from `derive`; none when there are none.
+/// 101/102 candidate objects for the contour lines from `derive`, none when there are none, and
+/// the interval they were traced at (stored with them, else the project's, else the kind's).
 /// They stop at the drawn ALKIS `water`: ISSprOM shows no contours in uncrossable water.
 pub(super) fn stored_contour_objects(
     dir: &Path,
@@ -147,18 +148,25 @@ pub(super) fn stored_contour_objects(
     water: &geo_types::MultiPolygon<f64>,
     georef: &Georeferencing,
     symbol_set: &SymbolSet,
-) -> Result<Vec<MapObject>, ProjectError> {
+) -> Result<(Vec<MapObject>, f64), ProjectError> {
     use geo::{Contains as _, Distance as _, InteriorPoint as _};
     let path = dir.join(CONTOURS_RELPATH);
+    let interval_of = |stored: Option<f64>| {
+        stored
+            .or(project.contour_interval_m)
+            .unwrap_or_else(|| project.map_kind.contour_interval_m())
+    };
     if !path.exists() {
-        return Ok(Vec::new());
+        return Ok((Vec::new(), interval_of(None)));
     }
     let text = std::fs::read_to_string(&path).map_err(|e| ProjectError::Io(path.clone(), e))?;
-    let lines = contours_from_geojson(&text).map_err(|e| ProjectError::StoredCandidates {
-        path: path.clone(),
-        message: e.to_string(),
-    })?;
-    let index_every = f64::from(5 * project.map_kind.contour_interval_m());
+    let (lines, stored) =
+        contours_from_geojson(&text).map_err(|e| ProjectError::StoredCandidates {
+            path: path.clone(),
+            message: e.to_string(),
+        })?;
+    let interval = interval_of(stored);
+    let index_every = 5.0 * interval;
     let (source, currency) = terrain_provenance(project)?;
     let id = |code: &str| {
         symbol_set
@@ -175,7 +183,7 @@ pub(super) fn stored_contour_objects(
             .interior_point()
             .is_some_and(|p| footprints.iter().any(|f| f.contains(&p)))
     };
-    lines
+    let objects = lines
         .iter()
         .filter(|line| {
             let ls = geo_types::LineString::from(line.points.clone());
@@ -226,7 +234,8 @@ pub(super) fn stored_contour_objects(
                 tags,
             })
         })
-        .collect()
+        .collect::<Result<_, ProjectError>>()?;
+    Ok((objects, interval))
 }
 
 /// ISSprOM contour and index contour.
@@ -603,7 +612,7 @@ pub(super) fn map_lacks_buildings(dir: &Path, map_text: &str) -> Result<bool, Pr
         project.scale_denominator,
         project.declination_date,
     )?;
-    let symbol_set = project.map_kind.symbol_set();
+    let symbol_set = project.map_kind.symbol_set(project.scale_denominator);
     let stored = read_stored_buildings(dir)?;
     Ok(
         !stored_building_objects(&project, stored.as_ref(), &area, &georef, &symbol_set)?
@@ -629,7 +638,7 @@ pub(super) fn map_lacks_canopies(dir: &Path, map_text: &str) -> Result<bool, Pro
         project.scale_denominator,
         project.declination_date,
     )?;
-    let symbol_set = project.map_kind.symbol_set();
+    let symbol_set = project.map_kind.symbol_set(project.scale_denominator);
     let stored = read_stored_buildings(dir)?;
     let footprints = stored.as_ref().map_or_else(Vec::new, |b| b.footprints());
     let map_area = area.projected_polygon_in(project.crs());
@@ -1133,6 +1142,8 @@ pub fn project_fingerprint(project: &ProjectFile) -> Result<String, ProjectError
         map_area: &'a serde_json::Value,
         crs: u32,
         provider: &'a Option<AdapterId>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        contour_interval_m: &'a Option<f64>,
     }
     let ProjectFile {
         map_kind,
@@ -1143,6 +1154,7 @@ pub fn project_fingerprint(project: &ProjectFile) -> Result<String, ProjectError
         map_area,
         crs,
         provider,
+        contour_interval_m,
         title: _,
         tiles: _,
         buildings: _,
@@ -1168,6 +1180,7 @@ pub fn project_fingerprint(project: &ProjectFile) -> Result<String, ProjectError
         map_area,
         crs: *crs,
         provider,
+        contour_interval_m,
     };
     let text = toml::to_string(&counted).map_err(|e| ProjectError::Toml(e.to_string()))?;
     Ok(sha2::Sha256::digest(text.as_bytes())
@@ -1355,7 +1368,7 @@ pub fn build_project(dir: &Path) -> Result<BuiltProject, ProjectError> {
         project.scale_denominator,
         project.declination_date,
     )?;
-    let symbol_set = project.map_kind.symbol_set();
+    let symbol_set = project.map_kind.symbol_set(project.scale_denominator);
 
     // Buildings first: they are the map's own objects, candidates only a template.
     let stored_buildings = read_stored_buildings(dir)?;
@@ -1371,7 +1384,7 @@ pub fn build_project(dir: &Path) -> Result<BuiltProject, ProjectError> {
     )?;
     let berlin_layers = stored_berlin_layers(dir, &project)?;
     let nas_layers = stored_nas_layers(dir, &project)?;
-    let mut structures = stored_berlin_structures(
+    let structures = stored_berlin_structures(
         dir,
         &project,
         &berlin_layers,
@@ -1394,29 +1407,9 @@ pub fn build_project(dir: &Path) -> Result<BuiltProject, ProjectError> {
     )?;
     let clip = project.bbox()?;
     let water = water_objects(&land_use, &clip, &georef, &symbol_set)?;
-    // OSM ponds inside the drawn ALKIS water would only duplicate it, and fountain points in
-    // water are mostly the jets of a basin.
-    let osm_objects = |target| -> Result<Vec<MapObject>, ProjectError> {
-        let kept = drop_covered_water(
-            stored_osm_objects(target, osm.as_ref(), &project, &area, &georef, &symbol_set)?,
-            &water.union,
-            &clip,
-            &georef,
-            &symbol_set,
-        );
-        Ok(drop_points_in_water(
-            kept,
-            &water.union,
-            &georef,
-            &symbol_set,
-        ))
-    };
     // The candidates of the cadastres, registers and the survey: Berlin first, then the state
-    // passages and the full ALKIS (NAS). Duplicates go by rank (`build/dedup.rs`): register >
-    // ALKIS > survey > OSM. A register knows the crown: an OSM tree at a register tree is the
-    // same tree. ALKIS surveyed the fences, walls and hedges: an OSM line along one with its
-    // symbol is the same.
-    let mut cadastre_candidates = stored_berlin_objects(
+    // passages, the full ALKIS (NAS) and the tree cadastres.
+    let mut cadastre = stored_berlin_objects(
         &project,
         &berlin_layers,
         stored_buildings.as_ref(),
@@ -1424,77 +1417,35 @@ pub fn build_project(dir: &Path) -> Result<BuiltProject, ProjectError> {
         &georef,
         &symbol_set,
     )?;
-    cadastre_candidates.extend(stored_state_objects(
+    cadastre.extend(stored_state_objects(
         &project,
         stored_buildings.as_ref(),
         &area,
         &georef,
         &symbol_set,
     )?);
-    cadastre_candidates.extend(stored_nas_objects(
+    cadastre.extend(stored_nas_objects(
         &nas_layers,
         &project,
         &area,
         &georef,
         &symbol_set,
     )?);
-    cadastre_candidates.extend(stored_tree_objects(
-        &stored_tree_layers(dir, &project)?,
-        &project,
-        &area,
-        &georef,
-        &symbol_set,
-    )?);
-    // A survey line along an ALKIS line goes first, then an OSM line along either.
-    let mut cadastre_candidates =
-        drop_cadastre_lines_by_rank(cadastre_candidates, &symbol_set, georef.scale_denominator);
-    let (osm_candidates, cadastre_candidates_kept) = drop_trees_by_rank(
-        osm_objects(Target::Candidates)?,
-        cadastre_candidates,
-        &symbol_set,
-        georef.scale_denominator,
-    );
-    cadastre_candidates = cadastre_candidates_kept;
-    let osm_candidates = drop_osm_lines_near_cadastre(
-        osm_candidates,
-        &mut cadastre_candidates,
-        &symbol_set,
-        georef.scale_denominator,
-    );
-    // The lighting cadastre and the fountain registers beat the survey and OSM points at the same
-    // place, and the survey furniture beats OSM; a cadastre, register or survey fountain in drawn
-    // water is a jet like an OSM one.
-    let (osm_candidates, cadastre_candidates) = drop_points_near_registers(
-        osm_candidates,
-        cadastre_candidates,
-        &symbol_set,
-        georef.scale_denominator,
-    );
-    let cadastre_candidates =
-        drop_points_in_water(cadastre_candidates, &water.union, &georef, &symbol_set);
-    // The same in an OSM fountain basin, which the basin names in `freemapper:also` (ADR 0087).
-    let mut osm_candidates = osm_candidates;
-    let cadastre_candidates = drop_fountains_in_osm_basins(
-        cadastre_candidates,
-        &mut osm_candidates,
-        &georef,
-        &symbol_set,
-    );
-    // A surveyed bus shelter under an ALKIS canopy is that canopy.
-    let cadastre_candidates =
-        drop_shelters_under_canopies(cadastre_candidates, &mut structures.canopies);
-    // Walls, fences and hedges of any symbol that overlap on paper keep the stronger line, those
-    // along a building outline go, and a tree in a hedge is the hedge (`build/barriers.rs`).
-    let (osm_candidates, cadastre_candidates) = resolve_barrier_overlaps(
-        osm_candidates,
-        cadastre_candidates,
-        &footprints,
-        project.map_kind,
-        &georef,
-        &symbol_set,
-    )?;
-    // Parks, meadows and woods of the land use: 401, 403 and 405 (`build/open_land.rs`). Where
-    // they are map objects, the OSM parks and lawns go.
+    // A forest map draws no register trees (spec 2026-11-13).
+    if project.map_kind != MapKind::Forest {
+        cadastre.extend(stored_tree_objects(
+            &stored_tree_layers(dir, &project)?,
+            &project,
+            &area,
+            &georef,
+            &symbol_set,
+        )?);
+    }
+    // Parks, meadows and woods of the land use: 401, 403 and 405 (`build/open_land.rs`).
+    let osm_forest = match (&osm, project.map_kind) {
+        (Some((features, _)), MapKind::Forest) => osm_forest_polygons(features, project.crs()),
+        _ => Vec::new(),
+    };
     let open_land = open_land_objects(
         &land_use,
         &area.projected_polygon_in(project.crs()),
@@ -1502,57 +1453,62 @@ pub fn build_project(dir: &Path) -> Result<BuiltProject, ProjectError> {
         project.map_kind,
         &georef,
         &symbol_set,
+        &osm_forest,
     )?;
-    let osm_candidates = drop_open_land_under_alkis(osm_candidates, &open_land.map, &symbol_set);
-    // The point symbols keep the norm's gap, dense tree groups become 501.3 on paving, else 402
-    // or 405 (on a white base off open land with a 416 boundary; open land: the parks, the 401
-    // green strips of the paved build, the OSM pitches among the candidates), cut at paving and
-    // paths, and no point stands in a 520 area (`build/points.rs`). The OSM candidates stay
-    // before the others.
-    let mut out_of_bounds =
+    let out_of_bounds =
         stored_out_of_bounds_objects(&land_use, &project, &area, &georef, &symbol_set)?;
-    let mut points = osm_candidates;
-    points.extend(cadastre_candidates);
-    // An area that two sources give (a passage in OSM and in ALKIS or the Berlin building parts,
-    // a private strip in OSM inside an ALKIS area that shall not be entered, an OSM bridge over
-    // the ALKIS one) is kept once, by rank (`build/dedup.rs`).
-    let mut points = drop_areas_by_rank(
-        points,
-        &mut [&mut out_of_bounds, &mut structures.canopies],
-        &symbol_set,
-    );
-    // A passage no runner can reach is left out of the training map (`build/passages.rs`).
-    hide_unreachable_passages(
-        &mut points,
-        &out_of_bounds,
-        &footprints,
-        &water.union,
-        &clip,
-        &georef,
-        &symbol_set,
-    );
-    // The firm-gravel ways (501.6 to 501.9) are map objects; where ALKIS or the survey draws the
-    // paving they are the same object (ADR 0079).
-    let ground: Vec<MapObject> = paved
-        .candidates
-        .iter()
-        .chain(&open_land.map)
-        .chain(&open_land.candidates)
-        .cloned()
-        .collect();
-    let generalized = generalize_points(
-        points,
-        cut_firm_paths(osm_objects(Target::Map)?, &paved, &georef, &symbol_set),
-        &out_of_bounds,
-        &paved.map,
-        &ground,
-        &footprints,
-        &water.union,
-        &clip,
-        project.map_kind,
+    let osm_candidates = stored_osm_objects(
+        Target::Candidates,
+        osm.as_ref(),
+        &project,
+        &area,
         &georef,
         &symbol_set,
     )?;
+    let osm_map = stored_osm_objects(
+        Target::Map,
+        osm.as_ref(),
+        &project,
+        &area,
+        &georef,
+        &symbol_set,
+    )?;
+    let surroundings = Surroundings {
+        map_kind: project.map_kind,
+        georef,
+        symbol_set,
+        footprints,
+        water: water.union,
+        clip,
+        terrain: read_terrain(dir),
+    };
+    // The duplicates between the sources go and the points are generalized
+    // (`build/assembly.rs`).
+    let Resolved {
+        points: generalized,
+        canopies,
+        out_of_bounds,
+        paved,
+        open_land,
+    } = resolve(
+        Drawn {
+            osm_candidates,
+            osm_map,
+            cadastre,
+            canopies: structures.canopies,
+            out_of_bounds,
+            paved,
+            open_land,
+        },
+        &surroundings,
+    )?;
+    let Surroundings {
+        georef,
+        symbol_set,
+        footprints,
+        water: water_union,
+        ..
+    } = &surroundings;
     let mut point_candidates = generalized.candidates;
     point_candidates.extend(generalized.areas);
     // A register is named once its points (or trees merged into a group area) are among the
@@ -1560,19 +1516,20 @@ pub fn build_project(dir: &Path) -> Result<BuiltProject, ProjectError> {
     let registers = drawn_registers(&point_candidates);
     let attribution_text = attribution_lines(&project, &registers).join("\n");
     let notes = format!("{attribution_text}\n{FREEMAPPER_CREDIT}");
+    let (contour_objects, contour_interval_m) = stored_contour_objects(
+        dir,
+        &project,
+        footprints,
+        &area,
+        water_union,
+        georef,
+        symbol_set,
+    )?;
     let mut candidates: Vec<MapObject> =
-        std::iter::once(map_area_outline(&area, &georef, &symbol_set, &project)?)
+        std::iter::once(map_area_outline(&area, georef, symbol_set, &project)?)
             .chain(point_candidates)
             .chain(structures.stairs)
-            .chain(stored_contour_objects(
-                dir,
-                &project,
-                &footprints,
-                &area,
-                &water.union,
-                &georef,
-                &symbol_set,
-            )?)
+            .chain(contour_objects)
             .chain(paved.candidates)
             .chain(open_land.candidates)
             .chain(water.candidates)
@@ -1611,13 +1568,16 @@ pub fn build_project(dir: &Path) -> Result<BuiltProject, ProjectError> {
         opacity: 0.7,
         behind_map: false,
     });
-    let content = PaperRect::of_bbox(&project.bbox()?, &georef)?;
+    let content = PaperRect::of_bbox(&project.bbox()?, georef)?;
     // North lines first: within their black they lie under walls and fences.
-    let spacing_mm = NORTH_LINE_SPACING_MM * project.map_kind.symbol_enlargement();
-    let mut map_objects = north_lines(&content, spacing_mm, &symbol_set);
+    let spacing_mm = NORTH_LINE_SPACING_MM
+        * project
+            .map_kind
+            .symbol_enlargement(project.scale_denominator);
+    let mut map_objects = north_lines(&content, spacing_mm, symbol_set);
     map_objects.extend(building_objects);
     // Canopies after the buildings; their Black 20 % lies under the building fill anyway.
-    map_objects.extend(structures.canopies);
+    map_objects.extend(canopies);
     // Parks under everything but the walkable area: colour priority puts yellow low.
     map_objects.extend(open_land.map);
     map_objects.extend(paved.map);
@@ -1633,24 +1593,24 @@ pub fn build_project(dir: &Path) -> Result<BuiltProject, ProjectError> {
     let landforms = stored_landform_objects(
         dir,
         &project,
-        &footprints,
+        footprints,
         &land_use,
         &area,
-        &water.union,
+        water_union,
         &drawn,
-        &georef,
-        &symbol_set,
+        georef,
+        symbol_set,
     )?;
     candidates.extend(landforms);
     // The vegetation from the point clouds, where the user chose it (group `vegetation`).
     let vegetation = stored_vegetation_objects(
         dir,
         &project,
-        &footprints,
-        &water.union,
+        footprints,
+        water_union,
         &map_objects,
-        &georef,
-        &symbol_set,
+        georef,
+        symbol_set,
     )?;
     candidates.extend(vegetation);
     let mut attribution = vec![OSM_ATTRIBUTION_DE.to_string()];
@@ -1659,34 +1619,21 @@ pub fn build_project(dir: &Path) -> Result<BuiltProject, ProjectError> {
     let info = PeripheralInfo {
         title: project.display_title(dir),
         scale_denominator: project.scale_denominator,
-        contour_interval_m: project.map_kind.contour_interval_m(),
+        contour_interval_m,
         attribution,
     };
     // The walkable area (sprint only, ADR 0069) in its own part, written first.
-    let base_part = walkable_base(&content, project.map_kind, &symbol_set).map(|base| MapPart {
+    let base_part = walkable_base(&content, project.map_kind, symbol_set).map(|base| MapPart {
         name: BASE_PART.to_string(),
         objects: vec![base],
     });
     let sheet_part = MapPart {
         name: SHEET_PART.to_string(),
-        objects: info_block(&content, &info, &symbol_set),
+        objects: info_block(&content, &info, symbol_set),
     };
     let saved_content = content_settings(&project);
     let fingerprint = project_fingerprint(&project)?;
-    let objects = Built::new(
-        Surroundings {
-            map_kind: project.map_kind,
-            georef,
-            symbol_set,
-            footprints,
-            water: water.union,
-            clip,
-            terrain: read_terrain(dir),
-        },
-        map_objects,
-        candidates,
-        &saved_content,
-    );
+    let objects = Built::new(surroundings, map_objects, candidates, &saved_content);
 
     Ok(BuiltProject {
         fingerprint,
@@ -1763,6 +1710,9 @@ pub(crate) const CANDIDATES_RELPATH: &str = "templates/candidates.omap";
 
 /// Line symbol used for the map area outline in the candidates template map.
 pub(super) const OUTLINE_SYMBOL_CODE: &str = "501.1";
+/// The outline of a set without 501.1 (ISOM 2017-2 has no step line): the thin black line of the
+/// sheet symbols.
+const OUTLINE_FALLBACK_CODE: &str = "994";
 
 /// The exterior ring of the map area as a closed path object.
 pub(super) fn map_area_outline(
@@ -1790,7 +1740,8 @@ pub(super) fn map_area_outline(
     Ok(MapObject {
         symbol_id: symbol_set
             .id_for_code(OUTLINE_SYMBOL_CODE)
-            .expect("symbol set defines 501.1"),
+            .or_else(|| symbol_set.id_for_code(OUTLINE_FALLBACK_CODE))
+            .expect("symbol set defines 501.1 or the sheet symbols"),
         kind: MapObjectKind::Path,
         coords: closed_ring(&points),
         tags,

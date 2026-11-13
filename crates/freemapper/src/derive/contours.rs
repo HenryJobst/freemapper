@@ -2,6 +2,7 @@
 
 use geo::{Length as _, Simplify as _};
 
+use crate::project::MapKind;
 use crate::raster::Raster;
 
 /// Simplification tolerance and shortest kept line, on paper.
@@ -217,8 +218,72 @@ pub fn generalize(lines: Vec<ContourLine>, scale_denominator: u32) -> Vec<Contou
         .collect()
 }
 
-/// The lines as GeoJSON LineStrings in EPSG:25833 with a `height` property.
-pub fn contours_to_geojson(lines: &[ContourLine]) -> String {
+/// A forest map gets half the interval where the map area is this flat: the 5th to the 95th
+/// percentile of its heights span less (spec 2026-11-13).
+const FLAT_FOREST_RANGE_M: f64 = 15.0;
+const FLAT_FOREST_INTERVAL_M: f64 = 2.5;
+
+/// The contour interval of a map of `kind` over `heights_in_area` (the smoothed DTM inside the
+/// map area): a forest map 2.5 m where it is flat, the kind's interval otherwise and without
+/// heights. `NaN` heights are skipped.
+pub fn contour_interval_for(kind: MapKind, heights_in_area: &[f32]) -> f64 {
+    let default = kind.contour_interval_m();
+    if kind != MapKind::Forest {
+        return default;
+    }
+    let mut heights: Vec<f32> = heights_in_area
+        .iter()
+        .copied()
+        .filter(|h| h.is_finite())
+        .collect();
+    if heights.is_empty() {
+        return default;
+    }
+    heights.sort_by(f32::total_cmp);
+    let at = |share: usize| f64::from(heights[(heights.len() - 1) * share / 100]);
+    if at(95) - at(5) < FLAT_FOREST_RANGE_M {
+        FLAT_FOREST_INTERVAL_M
+    } else {
+        default
+    }
+}
+
+/// The heights of the cells of `raster` whose centre lies in `area` (same CRS), `NaN` included.
+pub fn heights_inside(raster: &Raster<f32>, area: &geo_types::Polygon<f64>) -> Vec<f32> {
+    use geo::{BoundingRect as _, Contains as _};
+    let Some(bounds) = area.bounding_rect() else {
+        return Vec::new();
+    };
+    let grid = raster.grid;
+    let column = |e: f64| ((e - grid.west) / grid.pixel_size).floor();
+    let row = |n: f64| ((grid.north - n) / grid.pixel_size).floor();
+    let clamp = |v: f64, size: u32| v.clamp(0.0, f64::from(size) - 1.0) as u32;
+    let (x0, x1) = (
+        clamp(column(bounds.min().x), grid.width),
+        clamp(column(bounds.max().x), grid.width),
+    );
+    let (y0, y1) = (
+        clamp(row(bounds.max().y), grid.height),
+        clamp(row(bounds.min().y), grid.height),
+    );
+    let mut heights = Vec::new();
+    for y in y0..=y1 {
+        for x in x0..=x1 {
+            let centre = geo_types::Point::new(
+                grid.west + (f64::from(x) + 0.5) * grid.pixel_size,
+                grid.north - (f64::from(y) + 0.5) * grid.pixel_size,
+            );
+            if area.contains(&centre) {
+                heights.push(raster.get(x, y));
+            }
+        }
+    }
+    heights
+}
+
+/// The lines as GeoJSON LineStrings in EPSG:25833 with a `height` property; the interval they
+/// were traced at as the member `interval_m` when it is not the map kind's.
+pub fn contours_to_geojson(lines: &[ContourLine], interval_m: Option<f64>) -> String {
     let features: Vec<serde_json::Value> = lines
         .iter()
         .map(|l| {
@@ -232,17 +297,22 @@ pub fn contours_to_geojson(lines: &[ContourLine]) -> String {
             })
         })
         .collect();
-    serde_json::json!({ "type": "FeatureCollection", "features": features }).to_string()
+    let mut collection = serde_json::json!({ "type": "FeatureCollection", "features": features });
+    if let Some(interval) = interval_m {
+        collection["interval_m"] = serde_json::json!(interval);
+    }
+    collection.to_string()
 }
 
-/// Reads lines written by [`contours_to_geojson`].
-pub fn contours_from_geojson(text: &str) -> Result<Vec<ContourLine>, ContourError> {
+/// Reads lines and interval written by [`contours_to_geojson`].
+pub fn contours_from_geojson(text: &str) -> Result<(Vec<ContourLine>, Option<f64>), ContourError> {
     let collection: serde_json::Value =
         serde_json::from_str(text).map_err(|e| ContourError(e.to_string()))?;
     let features = collection["features"]
         .as_array()
         .ok_or_else(|| ContourError("no features".to_string()))?;
-    features
+    let interval = collection["interval_m"].as_f64();
+    let lines = features
         .iter()
         .map(|f| {
             let height = f["properties"]["height"]
@@ -257,7 +327,8 @@ pub fn contours_from_geojson(text: &str) -> Result<Vec<ContourLine>, ContourErro
                 .ok_or_else(|| ContourError("invalid coordinate".to_string()))?;
             Ok(ContourLine { height, points })
         })
-        .collect()
+        .collect::<Result<_, _>>()?;
+    Ok((lines, interval))
 }
 
 #[cfg(test)]
@@ -412,8 +483,66 @@ mod tests {
     fn geojson_roundtrip() {
         let lines = contour_lines(&dtm(|e, _| (e / 10.0) as f32), 1.0);
         assert_eq!(
-            contours_from_geojson(&contours_to_geojson(&lines)).unwrap(),
-            lines
+            contours_from_geojson(&contours_to_geojson(&lines, None)).unwrap(),
+            (lines, None)
         );
+    }
+
+    #[test]
+    fn the_interval_is_stored_with_the_contours() {
+        let lines = contour_lines(&dtm(|e, _| (e / 4.0) as f32), 2.5);
+        let text = contours_to_geojson(&lines, Some(2.5));
+        assert!(text.contains(r#""interval_m":2.5"#), "{text}");
+        assert_eq!(contours_from_geojson(&text).unwrap(), (lines, Some(2.5)));
+        // Without a stored interval the file is as before (the golden net).
+        assert!(!contours_to_geojson(&[], None).contains("interval_m"));
+    }
+
+    #[test]
+    fn flat_forest_gets_2_5_m_and_hilly_5_m() {
+        let range = |low: f32, high: f32| -> Vec<f32> {
+            (0..=100)
+                .map(|i| low + (high - low) * i as f32 / 100.0)
+                .collect()
+        };
+        assert_eq!(
+            contour_interval_for(MapKind::Forest, &range(40.0, 52.0)),
+            2.5
+        );
+        assert_eq!(
+            contour_interval_for(MapKind::Forest, &range(40.0, 80.0)),
+            5.0
+        );
+        // A few outliers (a deep pit, a tower of noise) do not decide: the 5th to 95th percentile.
+        let mut flat = range(40.0, 50.0);
+        flat.extend([10.0, 120.0, f32::NAN]);
+        assert_eq!(contour_interval_for(MapKind::Forest, &flat), 2.5);
+        assert_eq!(contour_interval_for(MapKind::Forest, &[]), 5.0);
+        assert_eq!(
+            contour_interval_for(MapKind::Sprint, &range(40.0, 41.0)),
+            2.0
+        );
+        assert_eq!(
+            contour_interval_for(MapKind::Schoolyard, &range(40.0, 80.0)),
+            1.0
+        );
+    }
+
+    #[test]
+    fn heights_inside_take_the_cells_whose_centre_lies_in_the_area() {
+        let raster = dtm(|e, _| e as f32);
+        let area = geo_types::Polygon::new(
+            geo_types::LineString::from(vec![
+                (0.0, 0.0),
+                (10.0, 0.0),
+                (10.0, 50.0),
+                (0.0, 50.0),
+                (0.0, 0.0),
+            ]),
+            vec![],
+        );
+        let heights = heights_inside(&raster, &area);
+        assert_eq!(heights.len(), 10 * 50);
+        assert!(heights.iter().all(|h| *h < 10.0));
     }
 }

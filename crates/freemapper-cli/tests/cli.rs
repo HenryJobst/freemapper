@@ -901,6 +901,31 @@ fn init_refuses_scales_print_would_refuse() {
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(stdout.contains("not in the sprint norm"), "{stdout}");
 }
+
+#[test]
+fn init_writes_a_forest_project_and_refuses_sprint_scales_for_it() {
+    let dir = tempfile::tempdir().unwrap();
+    let init = |name: &str, scale: &str| {
+        let project = dir.path().join(name);
+        let output = freemapper()
+            .args(["init", project.to_str().unwrap(), "--geojson", FIXTURE])
+            .args(["--kind", "forest", "--scale", scale, "--lang", "en"])
+            .output()
+            .unwrap();
+        (project, output)
+    };
+    let (project, output) = init("forest", "10000");
+    assert!(output.status.success(), "{output:?}");
+    let written = std::fs::read_to_string(project.join("freemapper.toml")).unwrap();
+    assert!(written.contains(r#"map_kind = "forest""#), "{written}");
+    assert!(written.contains("scale_denominator = 10000"), "{written}");
+    let (project, output) = init("forest4000", "4000");
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(!output.status.success());
+    assert!(stderr.contains("1:7500, 1:10000, 1:15000"), "{stderr}");
+    assert!(!project.join("freemapper.toml").exists());
+}
+
 /// A lock file as another freemapper process would have left it.
 fn write_lock(project: &std::path::Path, who: &str) -> std::path::PathBuf {
     let started = std::time::SystemTime::now()

@@ -114,9 +114,15 @@ pub struct ExtraLayer {
     pub operating_only: bool,
 }
 
-const BOTH_KINDS: &[MapKind] = &[MapKind::Sprint, MapKind::Schoolyard];
-const SPRINT_ONLY: &[MapKind] = &[MapKind::Sprint];
+// A forest map takes what a sprint map takes (spec 2026-11-13).
+const BOTH_KINDS: &[MapKind] = &[MapKind::Sprint, MapKind::Schoolyard, MapKind::Forest];
+const SPRINT_ONLY: &[MapKind] = &[MapKind::Sprint, MapKind::Forest];
 const SCHOOLYARD_ONLY: &[MapKind] = &[MapKind::Schoolyard];
+/// A forest map draws no street or park trees of the register, no street furniture and no lamps
+/// (spec 2026-11-13).
+const TREE_KINDS: &[MapKind] = &[MapKind::Sprint, MapKind::Schoolyard];
+const FURNITURE_KINDS: &[MapKind] = &[MapKind::Sprint, MapKind::Schoolyard];
+const SPRINT_FURNITURE: &[MapKind] = &[MapKind::Sprint];
 const TREE_SERVICE: &str = "https://gdi.berlin.de/services/wfs/baumbestand";
 /// The street survey of 2014–2016 (Straßenbefahrung).
 const SURVEY_SERVICE: &str = "https://gdi.berlin.de/services/wfs/strassenbefahrung";
@@ -179,12 +185,12 @@ pub const EXTRA_LAYERS: [ExtraLayer; 18] = [
     plain(
         "strassenbaeume",
         TREE_SERVICE,
-        &[ty("baumbestand:strassenbaeume", BOTH_KINDS)],
+        &[ty("baumbestand:strassenbaeume", TREE_KINDS)],
     ),
     plain(
         "anlagenbaeume",
         TREE_SERVICE,
-        &[ty("baumbestand:anlagenbaeume", BOTH_KINDS)],
+        &[ty("baumbestand:anlagenbaeume", TREE_KINDS)],
     ),
     survey(
         "sb-gruenflaeche",
@@ -222,18 +228,18 @@ pub const EXTRA_LAYERS: [ExtraLayer; 18] = [
     survey(
         "sb-moebel",
         &[
-            ty("strassenbefahrung:bj_sitzbank", BOTH_KINDS),
+            ty("strassenbefahrung:bj_sitzbank", FURNITURE_KINDS),
             ty("strassenbefahrung:aq_hydrant", SCHOOLYARD_ONLY),
-            ty("strassenbefahrung:av_poller", BOTH_KINDS),
-            ty("strassenbefahrung:as_mast", BOTH_KINDS),
-            ty("strassenbefahrung:am_fahnenmast", BOTH_KINDS),
+            ty("strassenbefahrung:av_poller", FURNITURE_KINDS),
+            ty("strassenbefahrung:as_mast", FURNITURE_KINDS),
+            ty("strassenbefahrung:am_fahnenmast", FURNITURE_KINDS),
             ty("strassenbefahrung:aw_spielgeraet", SCHOOLYARD_ONLY),
         ],
     ),
     survey(
         "sb-objekte",
         &[
-            ty("strassenbefahrung:ag_werbesaeule", SPRINT_ONLY),
+            ty("strassenbefahrung:ag_werbesaeule", SPRINT_FURNITURE),
             ty("strassenbefahrung:br_fahrgastunterstand", BOTH_KINDS),
             ty("strassenbefahrung:af_wasserpumpen_brunnen", BOTH_KINDS),
             ty("strassenbefahrung:bv_springbrunnen_zierbrunnen", BOTH_KINDS),
@@ -249,7 +255,7 @@ pub const EXTRA_LAYERS: [ExtraLayer; 18] = [
         ..plain(
             "beleuchtung",
             "https://gdi.berlin.de/services/wfs/beleuchtung",
-            &[ty("beleuchtung:beleuchtung", BOTH_KINDS)],
+            &[ty("beleuchtung:beleuchtung", FURNITURE_KINDS)],
         )
     },
     ExtraLayer {
@@ -791,6 +797,37 @@ pub mod test_support {
             "zierbrunnen:bez_zierbrunnen" => ZIERBRUNNEN,
             "ua_gebaeudehoehen:gebaeudehoehen" => GEBAEUDEHOEHEN,
             _ => EMPTY,
+        }
+    }
+}
+
+#[cfg(test)]
+mod forest_tests {
+    use super::*;
+
+    /// A forest map takes no street furniture, lamps or register trees (spec 2026-11-13).
+    #[test]
+    fn a_forest_map_takes_no_street_furniture_lamps_or_trees() {
+        let left_out = [
+            "strassenbefahrung:bj_sitzbank",
+            "strassenbefahrung:av_poller",
+            "strassenbefahrung:as_mast",
+            "strassenbefahrung:am_fahnenmast",
+            "strassenbefahrung:ag_werbesaeule",
+            "beleuchtung:beleuchtung",
+            "baumbestand:strassenbaeume",
+            "baumbestand:anlagenbaeume",
+        ];
+        for layer in &EXTRA_LAYERS {
+            for ty in layer.types {
+                let forest = ty.kinds.contains(&MapKind::Forest);
+                if left_out.contains(&ty.name) {
+                    assert!(!forest, "{}", ty.name);
+                } else if ty.kinds.contains(&MapKind::Sprint) {
+                    // Everything else of the sprint map comes along.
+                    assert!(forest, "{}", ty.name);
+                }
+            }
         }
     }
 }

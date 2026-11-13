@@ -116,6 +116,11 @@ impl Localize for ProjectError {
                 text(lang, "error-project-already-exists", &[path(dir)])
             }
             ProjectError::MapExists(map) => text(lang, "error-project-map-exists", &[path(map)]),
+            ProjectError::InvalidContourInterval(interval) => text(
+                lang,
+                "error-project-invalid-contour-interval",
+                &[("interval", v(interval))],
+            ),
             ProjectError::InvalidScale(scale) => {
                 text(lang, "error-project-invalid-scale", &[("scale", v(scale))])
             }
@@ -128,6 +133,7 @@ impl Localize for ProjectError {
                 let kind = match *kind {
                     "schoolyard" => text(lang, "word-kind-schoolyard", &[]),
                     "sprint" => text(lang, "word-kind-sprint", &[]),
+                    "forest" => text(lang, "word-kind-forest", &[]),
                     other => other.to_owned(),
                 };
                 let args = [

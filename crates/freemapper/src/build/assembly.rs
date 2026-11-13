@@ -1,23 +1,35 @@
 //! The map assembly (ADR 0115): the objects of all sources, put together to the map and the
 //! candidates in a fixed order of steps.
 //!
-//! The assembly reads no file. It gets the objects as the build made them ([`Built`]) and places
-//! them by the content settings ([`Built::place`], ADR 0100): `route` sends each object to the
-//! map, to the candidates or leaves it out, and the steps that look at both lists follow. The
-//! project (`project/export.rs`) reads the stored data, calls the assembly and makes the
-//! documents from what it returns.
+//! The assembly reads no file. It gets what the sources drew ([`Drawn`]), resolves the
+//! duplicates between them and generalizes the points ([`resolve`]). It gets the objects as the
+//! build made them ([`Built`]) and places them by the content settings ([`Built::place`],
+//! ADR 0100): `route` sends each object to the map, to the candidates or leaves it out, and the
+//! steps that look at both lists follow. The project (`project/export.rs`) reads the stored
+//! data, calls the assembly and makes the documents from what it returns.
 
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
 use geo_types::{MultiPolygon, Polygon};
 
 use crate::build::barrier_gaps::move_points_off_barriers;
+use crate::build::barriers::resolve_barrier_overlaps;
+use crate::build::berlin::drop_shelters_under_canopies;
 use crate::build::content::{ContentSettings, route};
+use crate::build::dedup::{
+    drop_areas_by_rank, drop_cadastre_lines_by_rank, drop_osm_lines_near_cadastre,
+    drop_points_near_registers, drop_trees_by_rank,
+};
+use crate::build::firm_paths::cut_firm_paths;
 use crate::build::line_cuts::{CONTOUR_CODES, NORTH_LINE_CODES, cut_lines_at_ways};
+use crate::build::open_land::{OpenLandObjects, drop_open_land_under_alkis};
+use crate::build::passages::hide_unreachable as hide_unreachable_passages;
+use crate::build::paved::PavedObjects;
 use crate::build::paved_borders::{border_input, paved_borders as paved_borders_of};
-use crate::build::points::way_footprints;
+use crate::build::points::{GeneralizedPoints, generalize_points, way_footprints};
 use crate::build::ticks::orient_ticks;
 use crate::build::vegetation::cut_vegetation_at_out_of_bounds;
+use crate::build::water::{drop_covered_water, drop_fountains_in_osm_basins, drop_points_in_water};
 use crate::crs::BoundingBox;
 use crate::georef::{GeorefError, Georeferencing};
 use crate::omap::{MapObject, SymbolSet};
@@ -34,6 +46,162 @@ pub struct Surroundings {
     pub water: MultiPolygon<f64>,
     pub clip: BoundingBox,
     pub terrain: Option<Raster<f32>>,
+}
+
+/// What the sources drew, before the duplicates between them are resolved ([`resolve`]).
+pub struct Drawn {
+    /// The OSM objects of the candidates rules and of the map rules (the firm-gravel ways).
+    pub osm_candidates: Vec<MapObject>,
+    pub osm_map: Vec<MapObject>,
+    /// The candidates of the cadastres, the registers and the survey, in the order of their
+    /// sources: Berlin first, then the state passages, the full ALKIS (NAS) and the tree
+    /// cadastres.
+    pub cadastre: Vec<MapObject>,
+    /// The 522 canopies.
+    pub canopies: Vec<MapObject>,
+    /// The areas that shall not be entered (520) of the land use.
+    pub out_of_bounds: Vec<MapObject>,
+    /// The paved areas and the open land of the land use; they are only looked at.
+    pub paved: PavedObjects,
+    pub open_land: OpenLandObjects,
+}
+
+/// What [`resolve`] leaves of the [`Drawn`] objects.
+pub struct Resolved {
+    /// The candidates of OSM (first) and of the cadastres, the group areas and the OSM map
+    /// objects, after the point generalization.
+    pub points: GeneralizedPoints,
+    pub canopies: Vec<MapObject>,
+    pub out_of_bounds: Vec<MapObject>,
+    pub paved: PavedObjects,
+    pub open_land: OpenLandObjects,
+}
+
+/// Resolves the duplicates between the sources and generalizes the points.
+///
+/// Duplicates go by rank (`build/dedup.rs`): register > ALKIS > survey > OSM. A register knows
+/// the crown: an OSM tree at a register tree is the same tree. ALKIS surveyed the fences, walls
+/// and hedges: an OSM line along one with its symbol is the same.
+pub fn resolve(drawn: Drawn, surroundings: &Surroundings) -> Result<Resolved, GeorefError> {
+    let Surroundings {
+        map_kind,
+        georef,
+        symbol_set,
+        footprints,
+        water,
+        clip,
+        ..
+    } = surroundings;
+    let Drawn {
+        osm_candidates,
+        osm_map,
+        cadastre,
+        mut canopies,
+        mut out_of_bounds,
+        paved,
+        open_land,
+    } = drawn;
+    // OSM ponds inside the drawn ALKIS water would only duplicate it, and fountain points in
+    // water are mostly the jets of a basin.
+    let off_water = |objects: Vec<MapObject>| {
+        let kept = drop_covered_water(objects, water, clip, georef, symbol_set);
+        drop_points_in_water(kept, water, georef, symbol_set)
+    };
+    let osm_candidates = off_water(osm_candidates);
+    let osm_map = off_water(osm_map);
+    // A survey line along an ALKIS line goes first, then an OSM line along either.
+    let cadastre = drop_cadastre_lines_by_rank(cadastre, symbol_set, georef.scale_denominator);
+    let (osm_candidates, mut cadastre) = drop_trees_by_rank(
+        osm_candidates,
+        cadastre,
+        symbol_set,
+        georef.scale_denominator,
+    );
+    let osm_candidates = drop_osm_lines_near_cadastre(
+        osm_candidates,
+        &mut cadastre,
+        symbol_set,
+        georef.scale_denominator,
+    );
+    // The lighting cadastre and the fountain registers beat the survey and OSM points at the same
+    // place, and the survey furniture beats OSM; a cadastre, register or survey fountain in drawn
+    // water is a jet like an OSM one.
+    let (osm_candidates, cadastre) = drop_points_near_registers(
+        osm_candidates,
+        cadastre,
+        symbol_set,
+        georef.scale_denominator,
+    );
+    let cadastre = drop_points_in_water(cadastre, water, georef, symbol_set);
+    // The same in an OSM fountain basin, which the basin names in `freemapper:also` (ADR 0087).
+    let mut osm_candidates = osm_candidates;
+    let cadastre = drop_fountains_in_osm_basins(cadastre, &mut osm_candidates, georef, symbol_set);
+    // A surveyed bus shelter under an ALKIS canopy is that canopy.
+    let cadastre = drop_shelters_under_canopies(cadastre, &mut canopies);
+    // Walls, fences and hedges of any symbol that overlap on paper keep the stronger line, those
+    // along a building outline go, and a tree in a hedge is the hedge (`build/barriers.rs`).
+    let (osm_candidates, cadastre) = resolve_barrier_overlaps(
+        osm_candidates,
+        cadastre,
+        footprints,
+        *map_kind,
+        georef,
+        symbol_set,
+    )?;
+    // Where the parks, meadows and woods of the land use are map objects, the OSM parks and
+    // lawns go (`build/open_land.rs`).
+    let osm_candidates = drop_open_land_under_alkis(osm_candidates, &open_land.map, symbol_set);
+    // The point symbols keep the norm's gap, dense tree groups become 501.3 on paving, else 402
+    // or 405 (on a white base off open land with a 416 boundary; open land: the parks, the 401
+    // green strips of the paved build, the OSM pitches among the candidates), cut at paving and
+    // paths, and no point stands in a 520 area (`build/points.rs`). The OSM candidates stay
+    // before the others.
+    let mut points = osm_candidates;
+    points.extend(cadastre);
+    // An area that two sources give (a passage in OSM and in ALKIS or the Berlin building parts,
+    // a private strip in OSM inside an ALKIS area that shall not be entered, an OSM bridge over
+    // the ALKIS one) is kept once, by rank (`build/dedup.rs`).
+    let mut points =
+        drop_areas_by_rank(points, &mut [&mut out_of_bounds, &mut canopies], symbol_set);
+    // A passage no runner can reach is left out of the training map (`build/passages.rs`).
+    hide_unreachable_passages(
+        &mut points,
+        &out_of_bounds,
+        footprints,
+        water,
+        clip,
+        georef,
+        symbol_set,
+    );
+    // The firm-gravel ways (501.6 to 501.9) are map objects; where ALKIS or the survey draws the
+    // paving they are the same object (ADR 0079).
+    let ground: Vec<MapObject> = paved
+        .candidates
+        .iter()
+        .chain(&open_land.map)
+        .chain(&open_land.candidates)
+        .cloned()
+        .collect();
+    let points = generalize_points(
+        points,
+        cut_firm_paths(osm_map, &paved, georef, symbol_set),
+        &out_of_bounds,
+        &paved.map,
+        &ground,
+        footprints,
+        water,
+        clip,
+        *map_kind,
+        georef,
+        symbol_set,
+    )?;
+    Ok(Resolved {
+        points,
+        canopies,
+        out_of_bounds,
+        paved,
+        open_land,
+    })
 }
 
 /// Every object of a map before the content settings place them ([`Built::place`]): the
@@ -173,7 +341,12 @@ impl Built {
         );
         // Then the points keep the norm's gap to walls and fences, on the tick side with room for
         // the ticks (`build/barrier_gaps.rs`).
-        move_points_off_barriers(&mut [&mut map, &mut candidates], self.map_kind, symbol_set);
+        move_points_off_barriers(
+            &mut [&mut map, &mut candidates],
+            self.map_kind,
+            georef.scale_denominator,
+            symbol_set,
+        );
         Ok(Placed { map, candidates })
     }
 
@@ -345,22 +518,76 @@ mod tests {
         o
     }
 
-    /// A built map of the sprint fixture with these objects and no buildings, water or terrain.
+    /// The fixture without buildings, water or terrain.
+    fn surroundings(f: &Fixture) -> Surroundings {
+        Surroundings {
+            map_kind: f.kind,
+            georef: f.georef.clone(),
+            symbol_set: f.set.clone(),
+            footprints: Vec::new(),
+            water: MultiPolygon::new(Vec::new()),
+            clip: f.clip,
+            terrain: None,
+        }
+    }
+
+    /// A built map of the sprint fixture with these objects.
     fn built(f: &Fixture, map: Vec<MapObject>, candidates: Vec<MapObject>) -> Built {
         Built::new(
-            Surroundings {
-                map_kind: f.kind,
-                georef: f.georef.clone(),
-                symbol_set: f.set.clone(),
-                footprints: Vec::new(),
-                water: MultiPolygon::new(Vec::new()),
-                clip: f.clip,
-                terrain: None,
-            },
+            surroundings(f),
             map,
             candidates,
             &ContentSettings::with_profile(Profile::Safe),
         )
+    }
+
+    fn source_ids(objects: &[MapObject]) -> Vec<&str> {
+        objects
+            .iter()
+            .filter_map(|o| {
+                o.tags
+                    .iter()
+                    .find(|(k, _)| k == "freemapper:source_id")
+                    .map(|(_, v)| v.as_str())
+            })
+            .collect()
+    }
+
+    #[test]
+    fn a_tree_of_two_sources_is_kept_once_and_the_osm_candidates_come_first() {
+        let f = fixture(MapKind::Sprint);
+        let garden = square(&f, "520", (200.0, 200.0), 30.0);
+        let lawn = square(&f, "401", (-200.0, -200.0), 30.0);
+        let drawn = Drawn {
+            osm_candidates: vec![
+                // Half a metre from the register tree: the same tree.
+                f.tree("418", "osm", "node/1", (10.5, 10.0), None),
+                f.tree("418", "osm", "node/2", (60.0, 10.0), None),
+            ],
+            osm_map: Vec::new(),
+            cadastre: vec![f.tree(
+                "418",
+                "trees/strassenbaeume",
+                "tree1",
+                (10.0, 10.0),
+                Some(6.0),
+            )],
+            canopies: Vec::new(),
+            out_of_bounds: vec![garden.clone()],
+            paved: PavedObjects::default(),
+            open_land: OpenLandObjects {
+                map: vec![lawn.clone()],
+                candidates: Vec::new(),
+            },
+        };
+        let resolved = resolve(drawn, &surroundings(&f)).unwrap();
+        assert_eq!(source_ids(&resolved.points.candidates), ["node/2", "tree1"]);
+        assert!(resolved.points.areas.is_empty());
+        assert!(resolved.points.map.is_empty());
+        // What is only looked at comes back as it was.
+        assert_eq!(resolved.out_of_bounds, [garden]);
+        assert_eq!(resolved.open_land.map, [lawn]);
+        assert!(resolved.canopies.is_empty());
     }
 
     fn count(objects: &[MapObject], id: u32) -> usize {

@@ -44,9 +44,10 @@ pub const MOVED: &str = "gap to a wall or fence (ISSprOM 3.3)";
 pub fn move_points_off_barriers(
     lists: &mut [&mut Vec<MapObject>],
     kind: MapKind,
+    scale: u32,
     symbol_set: &SymbolSet,
 ) -> usize {
-    let enlarge = kind.symbol_enlargement();
+    let enlarge = kind.symbol_enlargement(scale);
     // The reach of each line symbol in map units (1/1000 mm).
     let reach: Vec<(u32, f64, f64)> = LINES
         .iter()
@@ -63,7 +64,7 @@ pub fn move_points_off_barriers(
         .filter_map(|&(code, _, _)| {
             Some((
                 symbol_set.id_for_code(code)?,
-                point_size_mm(code, kind)? * 1000.0 / 2.0,
+                point_size_mm(code, kind, scale)? * 1000.0 / 2.0,
             ))
         })
         .collect();
@@ -288,7 +289,8 @@ mod tests {
 
     fn run(f: &Fixture, objects: Vec<MapObject>) -> (usize, Vec<MapObject>) {
         let mut objects = objects;
-        let n = move_points_off_barriers(&mut [&mut objects], f.kind, &f.set);
+        let n =
+            move_points_off_barriers(&mut [&mut objects], f.kind, f.kind.default_scale(), &f.set);
         (n, objects)
     }
 
