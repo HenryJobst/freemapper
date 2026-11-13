@@ -16,6 +16,7 @@ use crate::build::geometry::object_polygon;
 use crate::build::out_of_bounds::area_object;
 use crate::derive::vegetation::{VegetationClass, min_area_m2};
 use crate::georef::{GeorefError, Georeferencing};
+use crate::measure::SymbolScale;
 use crate::omap::coord::MapCoord;
 use crate::omap::{MapObject, SymbolSet};
 
@@ -27,7 +28,6 @@ const OUT_OF_BOUNDS_CODE: &str = "520";
 pub fn cut_vegetation_at_out_of_bounds(
     map: &mut Vec<MapObject>,
     candidates: &mut Vec<MapObject>,
-    scale_denominator: u32,
     georef: &Georeferencing,
     symbol_set: &SymbolSet,
 ) -> Result<usize, GeorefError> {
@@ -54,7 +54,10 @@ pub fn cut_vegetation_at_out_of_bounds(
     let on_map = olive_of(map);
     let mut with_candidates = olive_of(candidates);
     with_candidates.extend(on_map.iter().cloned());
-    let min_area = min_area_m2(scale_denominator);
+    let min_area = min_area_m2(SymbolScale::drawn_with(
+        symbol_set,
+        georef.scale_denominator,
+    ));
     let mut changed = 0;
     for (list, olive) in [(map, on_map), (candidates, with_candidates)] {
         if olive.is_empty() || !list.iter().any(is_vegetation) {
@@ -133,7 +136,10 @@ pub fn vegetation_objects(
         source,
         currency,
     } = vegetation;
-    let min_area = min_area_m2(georef.scale_denominator);
+    let min_area = min_area_m2(SymbolScale::drawn_with(
+        symbol_set,
+        georef.scale_denominator,
+    ));
     let projected = |polygon: geo_types::Polygon<f64>| {
         polygon.map_coords(|c| {
             let p = georef.map_to_projected(crate::omap::coord::MapCoord::new(
@@ -225,7 +231,7 @@ mod tests {
     }
 
     fn run(f: &Fixture, map: &mut Vec<MapObject>, candidates: &mut Vec<MapObject>) -> usize {
-        cut_vegetation_at_out_of_bounds(map, candidates, 4000, &f.georef, &f.set).unwrap()
+        cut_vegetation_at_out_of_bounds(map, candidates, &f.georef, &f.set).unwrap()
     }
 
     #[test]

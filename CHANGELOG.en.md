@@ -13,6 +13,7 @@ All notable changes to freemapper are listed here, newest first. The format foll
 =======
 ### Changed
 
+- School and forest maps: the minimum sizes of the norm now grow with the symbols (ADR 0118). On a school map (symbols at 125 %) the smallest building or canopy is 0.625 mm instead of 0.5 mm, on a forest map at 1:10 000 (150 %) 0.75 mm; likewise the shortest line by ISSprOM 4.5, the smallest areas of out-of-bounds land, paving, green, open land and water, the shortest contour and the smallest contour ring, landforms and the smallest vegetation area. Such maps show a little less small detail. Sprint maps (100 %) stay the same. The contours, landforms and vegetation of an existing project change only when `derive` runs again.
 - Internal: lengths on paper now have a type (ADR 0118). A paper measure (`PaperMm`) holds on the printed sheet, a symbol measure (`SymbolMm`) grows with the symbol enlargement of the map kind and cannot be converted without it. The roughly 45 hand-written conversions to ground metres and map coordinates are replaced; the norm's line gap, line widths and point sizes are written down once in `build/symbol_measures.rs`. No measure changes, the maps stay the same.
 >>>>>>> origin/main
 
