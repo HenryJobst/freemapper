@@ -412,11 +412,9 @@ use freemapper_adapter_api::rasters::{
     DeriveEnv, HeightInput, OrthophotoInput, RasterArea, RasterBackend, StoredRasters,
 };
 use freemapper_adapters_de::berlin::BERLIN_REGISTERS;
-/// The id of the adapter whose registers and K5 the engine fetches itself.
-const BERLIN: &str = freemapper_adapters_de::states::State::Berlin.id();
 // The steps of a raster fetch that name no state, and the files they write.
+use freemapper_adapter_api::records::on_grid;
 pub use freemapper_adapter_api::records::{NdsmRecord, TileRecord, WcsRecord, WmsRecord};
-use freemapper_adapter_api::records::{on_grid, stored_bbox};
 #[cfg(test)]
 use freemapper_sources::raster_fetch::UNDATED_ORTHOPHOTO_MAX_AGE_DAYS;
 pub(crate) use freemapper_sources::raster_fetch::{
@@ -779,9 +777,9 @@ pub(crate) const RELIEF_RELPATH: &str = "templates/relief.png";
 pub(crate) const NDSM_RELPATH: &str = "templates/ndsm.png";
 /// The Berlin K5 map (1:5000) as fetched; a template the mapper draws on, optional.
 pub(crate) const K5_RELPATH: &str = "templates/k5.png";
-/// The date of the K5 dataset (catalogue `karte-von-berlin-1-5000-k5-farbausgabe-9f3ecf8d`); the
-/// WMS gives no date of its own.
-const K5_DATASET_DATE: &str = "2026-01-02";
+/// The key of the raster template whose record the project file keeps in `k5` and whose file
+/// is [`K5_RELPATH`]: the one template there is. A second one needs a field of its own.
+const K5_TEMPLATE: &str = "k5";
 /// The terrain mosaic of a tile provider (LGB, GeoSN) cut to the map area plus buffer, with its
 /// world file. `derive` writes it only where the extra Berlin layers have stair areas: the export
 /// reads their walking direction from it, offline and without the tile cache.
@@ -1447,54 +1445,20 @@ fn fetch_k5_into(
     bbox: &BoundingBox,
     progress: &mut dyn FnMut(Note),
 ) {
-    if mode == FetchMode::Offline {
-        return;
-    }
-    let path = dir.join(K5_RELPATH);
-    let remove = |project: &mut ProjectFile| {
-        for file in [path.clone(), path.with_extension("pgw")] {
-            freemapper_fs::remove_inside(dir, &file);
-        }
-        project.k5 = None;
-    };
-    if !berlin::near_berlin(region_bbox) || project.crs() != Crs::Utm33 {
-        remove(project);
-        return;
-    }
-    if skip {
-        // The disk plan already said that the template is left out.
-        remove(project);
-        return;
-    }
-    let pixel = crate::sources::wms::K5_PIXEL_M;
-    let unchanged =
-        project.k5.as_ref().is_some_and(|r| r.covers(bbox)) && check_template(&path, bbox).is_ok();
-    if unchanged {
-        progress(note!("progress-k-five-unchanged"));
-        return;
-    }
-    progress(note!("progress-k-five-download"));
-    // The K5 is a service of Berlin: asked through the hosts Berlin declares.
-    let fetched = crate::adapters::asking_for(BERLIN, fetcher, |fetcher| {
-        crate::sources::wms::fetch_k5(fetcher, bbox, pixel, dir, &path)
-    });
-    match fetched {
-        Ok(()) => {
-            project.k5 = Some(WmsRecord {
-                flight: Some(K5_DATASET_DATE.to_string()),
-                flight_label: Some("K5 dataset".to_string()),
-                fetched: crate::clock::today(),
-                bbox: stored_bbox(bbox),
-            });
-        }
-        Err(e) => {
-            progress(note!(
-                "warning-k-five-unavailable",
-                detail = crate::fetch::one_line(&e.to_string(), 300)
-            ));
-            remove(project);
-        }
-    }
+    let map_crs = project.crs();
+    extras::fetch_template_key_into(
+        registry(),
+        K5_TEMPLATE,
+        dir,
+        fetcher,
+        mode,
+        skip,
+        map_crs,
+        region_bbox,
+        bbox,
+        &mut project.k5,
+        progress,
+    );
 }
 
 /// Reads the candidate features of the map area plus buffer from every OSM extract the area needs

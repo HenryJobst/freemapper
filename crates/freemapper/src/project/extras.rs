@@ -12,10 +12,10 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use chrono::NaiveDate;
-use freemapper_adapter_api::extras::ExtraSet;
+use freemapper_adapter_api::extras::{ExtraSet, RasterTemplate};
 use freemapper_adapter_api::geometry::touches_region_in;
 use freemapper_adapter_api::policy::PolicyFetcher;
-use freemapper_adapter_api::records::AdapterId;
+use freemapper_adapter_api::records::{AdapterId, WmsRecord, stored_bbox};
 use serde_json::Value;
 
 use super::{
@@ -23,7 +23,7 @@ use super::{
     berlin, trees,
 };
 use crate::adapters::{RegionAdapter, Registry};
-use crate::crs::BoundingBox;
+use crate::crs::{BoundingBox, Crs};
 use crate::fetch::{FetchError, FetchMode, Fetcher, write_inside};
 use crate::note::Note;
 
@@ -265,6 +265,108 @@ pub(crate) fn fetch_set_into(
                 .collect()
         },
     )
+}
+
+/// The adapter of `registry` that has a raster template with `key`, and the template. A
+/// template whose key is no plain name is no template for the engine.
+pub(crate) fn template_in<'a>(
+    registry: &'a Registry,
+    key: &str,
+) -> Option<(&'a dyn RegionAdapter, &'a dyn RasterTemplate)> {
+    if !plain(key) {
+        return None;
+    }
+    registry.adapters().find_map(|adapter| {
+        let template = adapter
+            .templates()
+            .iter()
+            .find(|template| template.info().key == key)?;
+        Some((adapter, template.as_ref()))
+    })
+}
+
+/// The file of the raster template `key` of a project; its world file lies beside it.
+pub(crate) fn template_path(dir: &Path, key: &str) -> PathBuf {
+    dir.join("templates").join(format!("{key}.png"))
+}
+
+/// Fetches the raster template `key` of the adapter of `registry` that has it over `bbox`
+/// (the map area with its buffer, in the CRS of the map) and keeps `record` in step with the
+/// file. A template never fails a fetch: one that cannot be fetched is a warning and is
+/// removed.
+///
+/// The template is fetched for an area that touches the region of its adapter
+/// (`region_bbox`, EPSG:25833) and for a map in the CRS of the template (`map_crs`), through
+/// the hosts the adapter is held to; otherwise, and when the disk plan left it out (`skip`),
+/// its file and record go. A stored template that still covers the area stays as it is.
+/// Offline nothing changes. When no adapter of the run has the template (the check of one
+/// adapter on its own), nothing of it is known and nothing is touched.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn fetch_template_key_into(
+    registry: &Registry,
+    key: &str,
+    dir: &Path,
+    fetcher: &dyn Fetcher,
+    mode: FetchMode,
+    skip: bool,
+    map_crs: Crs,
+    region_bbox: &BoundingBox,
+    bbox: &BoundingBox,
+    record: &mut Option<WmsRecord>,
+    progress: &mut dyn FnMut(Note),
+) {
+    let Some((adapter, template)) = template_in(registry, key) else {
+        return;
+    };
+    if mode == FetchMode::Offline {
+        return;
+    }
+    let info = template.info();
+    let path = template_path(dir, key);
+    let remove = |record: &mut Option<WmsRecord>| {
+        for file in [path.clone(), path.with_extension("pgw")] {
+            freemapper_fs::remove_inside(dir, &file);
+        }
+        *record = None;
+    };
+    if !touches_region_in(adapter, region_bbox) || map_crs != info.crs {
+        remove(record);
+        return;
+    }
+    if skip {
+        // The disk plan already said that the template is left out.
+        remove(record);
+        return;
+    }
+    let unchanged = record.as_ref().is_some_and(|r| r.covers(bbox))
+        && super::check_template(&path, bbox).is_ok();
+    if unchanged {
+        progress(Note::new(info.notes.unchanged));
+        return;
+    }
+    progress(Note::new(info.notes.download));
+    let fetch = |fetcher: &dyn Fetcher| template.fetch(fetcher, bbox, dir, &path);
+    let fetched = match adapter.policy() {
+        Some(policy) => fetch(&PolicyFetcher::new(fetcher, policy)),
+        None => fetch(fetcher),
+    };
+    match fetched {
+        Ok(()) => {
+            *record = Some(WmsRecord {
+                flight: Some(info.dataset_date.to_string()),
+                flight_label: Some(info.dataset_label.to_string()),
+                fetched: crate::clock::today(),
+                bbox: stored_bbox(bbox),
+            });
+        }
+        Err(e) => {
+            progress(
+                Note::new(info.notes.unavailable)
+                    .with("detail", crate::fetch::one_line(&e.to_string(), 300)),
+            );
+            remove(record);
+        }
+    }
 }
 
 /// One layer as fetched; an empty list of features is a layer without objects in the area.
@@ -1226,6 +1328,200 @@ mod tests {
         #[test]
         fn of_berlin_lies_in_the_folder_the_engine_names() {
             assert_eq!(berlin().dir, crate::project::BERLIN_LAYERS_DIR);
+        }
+    }
+
+    /// A raster template of an adapter the engine has never heard of: fetched for an area its
+    /// region touches and a map in its CRS, through the hosts of its adapter, recorded with
+    /// the date of its dataset, and removed when the area or the plan no longer wants it.
+    mod a_template_of_an_adapter {
+        use freemapper_adapter_api::extras::{
+            ExtraEstimate, RasterTemplate, RasterTemplateInfo, TemplateNotes,
+        };
+        use freemapper_adapter_api::records::WmsRecord;
+
+        use super::*;
+        use crate::adapters::test_support::{SQUARE, square, square_with_templates};
+        use crate::crs::Crs;
+        use crate::fetch::Fetcher;
+        use crate::fetch::test_support::MapFetcher;
+
+        /// The sea chart of a made-up coast.
+        struct Chart;
+
+        static INFO: RasterTemplateInfo = RasterTemplateInfo {
+            key: "chart",
+            crs: Crs::Utm33,
+            dataset_date: "2001-02-03",
+            dataset_label: "chart edition",
+            notes: TemplateNotes {
+                unchanged: "progress-k-five-unchanged",
+                download: "progress-k-five-download",
+                unavailable: "warning-k-five-unavailable",
+            },
+            estimate: ExtraEstimate {
+                what: "sea chart",
+                megabytes_per_km2: 1.0,
+            },
+        };
+
+        impl RasterTemplate for Chart {
+            fn info(&self) -> &RasterTemplateInfo {
+                &INFO
+            }
+
+            fn fetch(
+                &self,
+                fetcher: &dyn Fetcher,
+                _bbox: &BoundingBox,
+                root: &Path,
+                out: &Path,
+            ) -> Result<(), FetchError> {
+                let image = fetcher.get("https://charts.example.org/chart.png")?;
+                write_inside(root, out, &image)?;
+                write_inside(root, &out.with_extension("pgw"), b"world")
+            }
+        }
+
+        const INSIDE: BoundingBox = BoundingBox {
+            min_e: 4_000.0,
+            min_n: 4_000.0,
+            max_e: 4_300.0,
+            max_n: 4_200.0,
+        };
+        const FAR: BoundingBox = BoundingBox {
+            min_e: 50_000.0,
+            min_n: 50_000.0,
+            max_e: 50_300.0,
+            max_n: 50_200.0,
+        };
+
+        struct Run {
+            dir: tempfile::TempDir,
+            fetcher: MapFetcher,
+            record: Option<WmsRecord>,
+            said: Vec<String>,
+        }
+
+        impl Run {
+            fn new() -> Self {
+                let fetcher = MapFetcher::default();
+                fetcher.insert("https://charts.example.org/chart.png", b"image".to_vec());
+                Self {
+                    dir: tempfile::tempdir().unwrap(),
+                    fetcher,
+                    record: None,
+                    said: Vec::new(),
+                }
+            }
+
+            fn fetch(&mut self, registry: &Registry, bbox: &BoundingBox, crs: Crs, skip: bool) {
+                fetch_template_key_into(
+                    registry,
+                    "chart",
+                    self.dir.path(),
+                    &self.fetcher,
+                    FetchMode::Online,
+                    skip,
+                    crs,
+                    bbox,
+                    bbox,
+                    &mut self.record,
+                    &mut |note: Note| self.said.push(note.to_string()),
+                );
+            }
+
+            fn files(&self) -> (bool, bool) {
+                let image = template_path(self.dir.path(), "chart");
+                (image.exists(), image.with_extension("pgw").exists())
+            }
+        }
+
+        #[test]
+        fn is_fetched_recorded_and_removed_through_the_registry() {
+            let registry =
+                square_with_templates(Some(&["charts.example.org"]), vec![Box::new(Chart)]);
+            let (adapter, _) = template_in(&registry, "chart").expect("the square has it");
+            assert_eq!(adapter.info().id, SQUARE);
+            assert!(template_in(&registry, "k5").is_none());
+            assert!(template_in(&registry, "../chart").is_none());
+            let mut run = Run::new();
+            assert_eq!(
+                template_path(run.dir.path(), "chart"),
+                run.dir.path().join("templates/chart.png")
+            );
+            run.fetch(&registry, &INSIDE, Crs::Utm33, false);
+            assert_eq!(run.files(), (true, true));
+            assert_eq!(
+                run.record,
+                Some(WmsRecord {
+                    flight: Some("2001-02-03".to_string()),
+                    flight_label: Some("chart edition".to_string()),
+                    fetched: crate::clock::today(),
+                    bbox: [4_000.0, 4_000.0, 4_300.0, 4_200.0],
+                })
+            );
+            assert_eq!(
+                run.said,
+                ["downloading the K5 map (1:5000) from the Geoportal Berlin WMS"]
+            );
+            // Far from the region the template goes, and nothing is asked.
+            let calls = run.fetcher.calls.get();
+            run.fetch(&registry, &FAR, Crs::Utm33, false);
+            assert_eq!((run.files(), &run.record), ((false, false), &None));
+            // A map in another CRS gets none, and neither does one the disk plan left it out of.
+            for (crs, skip) in [(Crs::Utm32, false), (Crs::Utm33, true)] {
+                run.fetch(&registry, &INSIDE, Crs::Utm33, false);
+                assert_eq!(run.files(), (true, true));
+                let calls = run.fetcher.calls.get();
+                run.fetch(&registry, &INSIDE, crs, skip);
+                assert_eq!((run.files(), &run.record), ((false, false), &None));
+                assert_eq!(run.fetcher.calls.get(), calls);
+            }
+            assert_eq!(run.fetcher.calls.get(), calls + 2);
+        }
+
+        /// A template that cannot be fetched is a warning; a refused host is such a failure.
+        #[test]
+        fn that_fails_is_a_warning_and_is_held_to_the_hosts_of_its_adapter() {
+            let registry =
+                square_with_templates(Some(&["other.example.org"]), vec![Box::new(Chart)]);
+            let mut run = Run::new();
+            run.fetch(&registry, &INSIDE, Crs::Utm33, false);
+            assert_eq!(run.fetcher.calls.get(), 0, "the request never left");
+            assert_eq!((run.files(), &run.record), ((false, false), &None));
+            assert!(
+                run.said[1].starts_with("warning: the K5 map template is unavailable (")
+                    && run.said[1].ends_with("); skipped"),
+                "{}",
+                run.said[1]
+            );
+        }
+
+        /// The file of the template recorded in `k5` is the one the engine lists and removes.
+        #[test]
+        fn of_berlin_is_the_file_the_engine_names() {
+            let dir = Path::new("project");
+            assert_eq!(
+                template_path(dir, "k5"),
+                dir.join(crate::project::K5_RELPATH)
+            );
+        }
+
+        /// A run whose registry has no adapter with the template leaves it alone.
+        #[test]
+        fn is_left_alone_by_a_run_without_its_adapter() {
+            let with = square_with_templates(None, vec![Box::new(Chart)]);
+            let without = square(None, None);
+            let mut run = Run::new();
+            run.fetch(&with, &INSIDE, Crs::Utm33, false);
+            let (record, calls) = (run.record.clone(), run.fetcher.calls.get());
+            run.said.clear();
+            run.fetch(&without, &FAR, Crs::Utm32, true);
+            assert_eq!(run.files(), (true, true));
+            assert_eq!(run.record, record);
+            assert_eq!(run.fetcher.calls.get(), calls);
+            assert!(run.said.is_empty(), "{:?}", run.said);
         }
     }
 }

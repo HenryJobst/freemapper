@@ -9,6 +9,7 @@ use std::collections::HashSet;
 use chrono::{Datelike, NaiveDate};
 use freemapper_adapter_api::extras::{
     ExtraEstimate, ExtraLayerInfo, ExtraNotes, ExtraSet, ExtraSetInfo, FetchedExtra,
+    RasterTemplate, RasterTemplateInfo, TemplateNotes,
 };
 use serde_json::{Map, Value};
 
@@ -333,6 +334,46 @@ impl ExtraSet for Registers {
                 features: fetched.features,
             })
             .collect()
+    }
+}
+
+/// The Berlin map 1:5000 in colour (K5) as the raster template of Berlin's adapter.
+pub struct K5;
+
+/// What the engine stores and reports of [`K5`].
+static K5_TEMPLATE: RasterTemplateInfo = RasterTemplateInfo {
+    key: "k5",
+    crs: crate::crs::Crs::Utm33,
+    // The date of the K5 dataset (catalogue `karte-von-berlin-1-5000-k5-farbausgabe-9f3ecf8d`);
+    // the WMS gives no date of its own.
+    dataset_date: "2026-01-02",
+    dataset_label: "K5 dataset",
+    notes: TemplateNotes {
+        unchanged: "progress-k-five-unchanged",
+        download: "progress-k-five-download",
+        unavailable: "warning-k-five-unavailable",
+    },
+    // The PNG at 0.25 m per pixel, per km² (measured 9.1 MB around a park and 17 MB in dense
+    // blocks, 2026-11-09).
+    estimate: ExtraEstimate {
+        what: "Berlin K5 map (1:5000) template",
+        megabytes_per_km2: 15.0,
+    },
+};
+
+impl RasterTemplate for K5 {
+    fn info(&self) -> &RasterTemplateInfo {
+        &K5_TEMPLATE
+    }
+
+    fn fetch(
+        &self,
+        fetcher: &dyn Fetcher,
+        bbox: &BoundingBox,
+        root: &std::path::Path,
+        out: &std::path::Path,
+    ) -> Result<(), FetchError> {
+        crate::sources::wms::fetch_k5(fetcher, bbox, crate::sources::wms::K5_PIXEL_M, root, out)
     }
 }
 

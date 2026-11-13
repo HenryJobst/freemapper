@@ -119,6 +119,14 @@ is settled in step 3 with the rank. 2d is the next pull request.
   the pixel size, the date of the dataset, its item of the estimate; `fetch_k5_into` becomes generic; the record
   stays in `k5`.
 
+2d as built: `trait RasterTemplate { info() -> &RasterTemplateInfo; fetch(fetcher, bbox, root, out) }` with
+`RasterTemplateInfo { key, crs, dataset_date, dataset_label, notes: TemplateNotes, estimate }` and
+`RegionAdapter::templates()`; `berlin::K5` over `freemapper_sources::wms::fetch_k5`; the engine has
+`extras::{template_in, template_path, fetch_template_key_into}`, and `fetch_k5_into` calls it with the key of the
+template recorded in `k5` (`K5_TEMPLATE`). A run without the adapter of the template leaves it alone, as for a
+set. The constant `BERLIN` of `project.rs` has no user left and is gone. `K5_WMS` and `fetch_k5` still live in
+`freemapper-sources`; they move to the adapter crate in step 3.
+
 ### Step 3: the engine names no region
 
 **Files:** `crates/freemapper/src/{project.rs,project/export.rs,layers.rs,sources/region.rs,sources/berlin.rs}`,
