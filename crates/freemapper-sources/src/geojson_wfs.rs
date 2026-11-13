@@ -13,6 +13,10 @@ const PAGE_SIZE: usize = 500;
 /// The largest answer read; a larger one is a misbehaving server.
 const MAX_BYTES: u64 = 50 * 1024 * 1024;
 
+/// The most pages read for one type (10 000 features); more is a service that ignores
+/// `startIndex`, or a box far larger than a map area.
+const MAX_PAGES: usize = 20;
+
 /// A box in WGS 84 degrees.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct LatLonBox {
@@ -62,8 +66,9 @@ pub(crate) fn query_url(
 }
 
 /// All features of `type_name` inside `bbox`, in the order the service gives them. Pages of
-/// 500 until one has fewer. Each answer streams into the file `part` (removed afterwards), so
-/// one over 50 MB is stopped while it is read and refused with the URL.
+/// 500 until one has fewer, at most 20: a 20th full page is an error with its URL. Each answer
+/// streams into the file `part` (removed afterwards), so one over 50 MB is stopped while it is
+/// read and refused with the URL.
 pub fn get_features(
     fetcher: &dyn Fetcher,
     service: &GeoJsonWfs,
@@ -72,7 +77,7 @@ pub fn get_features(
     part: &Path,
 ) -> Result<Vec<Value>, FetchError> {
     let mut features = Vec::new();
-    loop {
+    for page_number in 1..=MAX_PAGES {
         let url = query_url(service, type_name, bbox, features.len());
         let page = get_limited_with_retries(fetcher, &url, part, MAX_BYTES, |bytes| {
             read_page(&url, bytes)
@@ -82,7 +87,17 @@ pub fn get_features(
         if short {
             return Ok(features);
         }
+        if page_number == MAX_PAGES {
+            return Err(FetchError::Http {
+                url,
+                message: format!(
+                    "the service sent more than {MAX_PAGES} full pages ({} features); stopped",
+                    MAX_PAGES * PAGE_SIZE
+                ),
+            });
+        }
     }
+    unreachable!("the last page returns")
 }
 
 /// The `features` of a GeoJSON FeatureCollection.
@@ -180,6 +195,21 @@ mod tests {
         let features = get_features(&fetcher, &BFN, "t", &BOX, &part()).unwrap();
         assert_eq!(features.len(), 503);
         assert_eq!(fetcher.calls.get(), 2);
+    }
+
+    /// A service that ignores `startIndex` sends the same full page again and again.
+    #[test]
+    fn paging_stops_after_twenty_pages() {
+        let fetcher = MapFetcher::default();
+        fetcher.insert_prefix("https://", collection(500));
+        let err = get_features(&fetcher, &BFN, "t", &BOX, &part()).unwrap_err();
+        assert_eq!(fetcher.calls.get(), 20);
+        let last = query_url(&BFN, "t", &BOX, 19 * 500);
+        assert!(
+            matches!(&err, FetchError::Http { url, .. } if *url == last),
+            "{err:?}"
+        );
+        assert!(err.to_string().contains("10000 features"), "{err}");
     }
 
     #[test]
