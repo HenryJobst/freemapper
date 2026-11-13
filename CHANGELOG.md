@@ -18,6 +18,10 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 - Schul- und Waldkarten: Die Mindestgrößen der Norm wachsen jetzt mit den Symbolen (ADR 0118). Auf der Schulkarte (Symbole 125 %) ist das kleinste Gebäude oder Dach 0,625 mm statt 0,5 mm groß, auf der Waldkarte 1:10 000 (150 %) 0,75 mm; ebenso die kürzeste Linie nach ISSprOM 4.5, die kleinsten Flächen von Sperrgebiet, Pflaster, Grün, offenem Land und Gewässern, die kürzeste Höhenlinie und der kleinste Höhenlinienring, Geländeformen und die kleinste Vegetationsfläche. Solche Karten zeigen damit etwas weniger Kleinteiliges. Sprintkarten (100 %) bleiben gleich. Höhenlinien, Geländeformen und Vegetation eines bestehenden Projekts ändern sich erst, wenn `derive` neu läuft. Das Beispiel Dammheide ist damit neu gebaut: 1147 statt 1387 Kartenobjekte und 134 statt 170 Kandidaten. Weggefallen sind vor allem kleine Gebäude und Überdachungen in den Siedlungen, kurze Zählkurven und kleine Sperrflächen.
 - Intern: Maße auf dem Papier haben jetzt einen Typ (ADR 0118). Ein Papiermaß (`PaperMm`) gilt auf dem gedruckten Blatt, ein Symbolmaß (`SymbolMm`) wächst mit der Symbolvergrößerung der Kartenart und lässt sich ohne sie nicht umrechnen. Die rund 45 von Hand geschriebenen Umrechnungen in Geländemeter und Kartenkoordinaten sind ersetzt; Linienabstand, Linienbreiten und Punktgrößen der Norm stehen einmal in `build/symbol_measures.rs`. Kein Maß ändert sich, die Karten bleiben gleich.
 
+### Behoben
+
+- OCAD-Hinweis nach `--ocad`: Bei einer Waldkarte empfahl freemapper, in OCAD den Symbolsatz ISSprOM 2019 oder den Schulsymbolsatz zu laden. Jetzt nennt der Hinweis den Satz der Kartenart: ISOM 2017-2 für Waldkarten, ISSprOM 2019 für Sprintkarten, den IOF-Schulsatz 2019 für Schulhofkarten. Das gilt auch für die Zusammenfassung über MCP und auf der Gebietsseite. Auch die README nennt jetzt ISOM 2017-2.
+
 ## [0.17.0] - 2026-11-13
 
 ### Hinzugefügt

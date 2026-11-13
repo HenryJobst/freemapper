@@ -338,7 +338,7 @@ also writes the folder `ocad/`:
 
 The symbols in the `.ocd` are placeholders: right number, name and main colour, but simple graphics.
 In OCAD, load the official set (*Symbol › Load Colors and Symbols From…*: ISSprOM 2019 for sprint, the
-IOF school symbol set 2019 for schoolyards); it replaces the placeholders by number.
+IOF school symbol set 2019 for schoolyards, ISOM 2017-2 for forest maps); it replaces the placeholders by number.
 - The numbers follow OCAD's official sets, e.g. 501.001 for paved area and 505.000/505.001 for paths.
 - An existing `.ocd` is only replaced with `--force` (the old one is kept as `.ocd.bak`); with `--ocad`
   an existing OOM map stays as it is unless `--force` is given.

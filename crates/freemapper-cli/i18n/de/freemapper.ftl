@@ -44,7 +44,11 @@ cli-ocad-wrote = { $count ->
        *[other] { $path } geschrieben ({ $count } Objekte)
     }
 cli-ocad-left-out = Nicht in der OCAD-Karte: { $skipped } Objekte (kein Symbol für OCAD, keine Fläche oder außerhalb der Zeichenfläche von OCAD von ±2 m) und { $dropped } entartete Linienteile oder Löcher.
-cli-ocad-load-symbols = Wählen Sie in OCAD Symbol > Farben und Symbole laden von … und nehmen Sie den offiziellen Symbolsatz ISSprOM 2019 oder den Schulsymbolsatz; er ersetzt die Platzhaltersymbole von freemapper anhand der Nummern.
+cli-ocad-load-symbols = Wählen Sie in OCAD Symbol > Farben und Symbole laden von … und nehmen Sie den offiziellen Symbolsatz{ $kind ->
+        [forest] {" "}ISOM 2017-2
+        [schoolyard] , den IOF-Schulsatz 2019
+       *[other] {" "}ISSprOM 2019
+    }; er ersetzt die Platzhaltersymbole von freemapper anhand der Nummern.
 
 ## select
 
@@ -649,7 +653,11 @@ cli-summary-ocad-left-out = In der OCAD-Karte fehlen: { $skipped ->
         [one] 1 entarteter Teil
        *[other] { $dropped } entartete Teile
     }
-cli-summary-ocad-symbols = Wählen Sie in OCAD Symbol > Farben und Symbole laden von … und nehmen Sie den offiziellen Symbolsatz ISSprOM 2019 oder den Schulsymbolsatz; er ersetzt die Platzhaltersymbole nach ihrer Nummer.
+cli-summary-ocad-symbols = Wählen Sie in OCAD Symbol > Farben und Symbole laden von … und nehmen Sie den offiziellen Symbolsatz{ $kind ->
+        [forest] {" "}ISOM 2017-2
+        [schoolyard] , den IOF-Schulsatz 2019
+       *[other] {" "}ISSprOM 2019
+    }; er ersetzt die Platzhaltersymbole nach ihrer Nummer.
 cli-summary-ocad-failed = OCAD-Export fehlgeschlagen: { $error }
 cli-summary-pdf-without-credits = PDF ohne Quellenangaben: ODbL und dl-de/by-2-0 verlangen, dass Sie die Quellen nennen, wenn Sie die Karte weitergeben; siehe ATTRIBUTION.txt
 cli-summary-wrote-pdf = Karte { $path } geschrieben (ohne Kandidaten)
