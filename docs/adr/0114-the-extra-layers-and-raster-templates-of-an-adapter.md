@@ -52,9 +52,10 @@ The user asked on 2026-11-12 to take Berlin out of the engine.
   (`data/berlin/`, `templates/k5.png`).
 - **A region can warn of an area without buildings** (`RegionAdapter::no_buildings_warning`), which replaces the
   one question about Berlin that `derive` asked.
-- **A test holds the result.** It reads the engine's code that is no test and fails on the id of a built-in
-  adapter or on a constant of a state outside the draw rules, the names the tests go by and the key of the set
-  recorded in `berlin_layers`.
+- **A test holds the result.** It reads the engine's code that is no test, outside the draw rules and the two
+  modules of names the tests go by, and fails on the id of a built-in adapter, on a constant of a state, and on
+  any path into the adapter crate. What still reaches there is a list in the test, line by line with its
+  reason; a new line fails.
 
 ## Consequences
 
@@ -83,3 +84,11 @@ The user asked on 2026-11-12 to take Berlin out of the engine.
   removes the table instead of moving it.
 - **Names.** The functions of the engine that feed the Berlin rules keep "berlin" in their names. They read and
   fill the field `berlin_layers` and the folder `data/berlin`.
+- **What the engine still takes from the adapter crate by name**, as the list of the test has it: the table of
+  Berlin's layers for the inputs of the draw rules; the tile download and the tile names of the tile providers
+  (`tile_fetch`, `lgb::ProductTiles`), which `fetch.rs` re-exports for its tests and `derive` reads; the endpoints
+  of the cadastre of two states in `sources/alkis.rs`. None of them decides by a region; each is a move of its
+  own.
+- **The tree cadastres look their adapter up by id** (`sources/trees.rs`) and would ask without host rules if the
+  registry did not have it. The pattern that `adapters::asking` removed for sets, templates and point clouds is
+  still there for them.
