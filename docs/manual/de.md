@@ -370,6 +370,10 @@ Unter den Einstellungen steht der Block „Karte erzeugen“. Er braucht kein Te
    ein, wie `--content` und `--content-set`. Eine Gruppe auf „Wie im Profil“ folgt dem Profil. Wechseln Sie das
    Profil, bleiben Ihre Ausnahmen stehen, und Sie können sie einzeln zurücknehmen. Die Seite speichert die Wahl
    mit dem Gebiet; was die Profile tun, steht in [Abschnitt 8](#8-was-die-vorlagen-zeigen).
+
+   ![Der Abschnitt „Was auf die Karte kommt“, aufgeklappt](images/content-groups.webp)
+
+   *Das Profil und die Gruppen. Die Vegetation aus Laserpunktwolken ist aus, bis Sie sie wählen.*
 3. **„Karte erzeugen“ drücken.** Haben sich das Gebiet oder die Inhaltseinstellungen seit dem letzten Speichern geändert, speichert die Seite sie
    zuerst. „Vorhandene Karte ersetzen“ erscheint nur, wenn es schon eine Karte gibt, und ist nie vorgewählt.
    Ist sie angehakt, fragt ein Dialog nach; „Abbrechen“ ist dort vorgewählt. Die alte Karte bleibt als

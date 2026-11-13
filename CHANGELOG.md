@@ -14,6 +14,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Geändert
 
+- Die Bilder der Gebietsseite im Handbuch sind neu aufgenommen (Gebietsauswahl, Optionen, Fortschritt), dazu ein Bild des Abschnitts „Was auf die Karte kommt“ mit allen Gruppen. Der Hinweis zum Profil „Ausgewogen“ auf der Seite nennt jetzt, was das Profil tut: Höhenlinien und die Sperrgebiete an Bahngleisen kommen auf die Karte, Treppen, Böschungen, Denkmäler und Durchgänge auch aus OpenStreetMap.
 - Die Beispiele Sanssouci, Viktoriapark, Monschau und Cochem sind mit `--content-set vegetation=candidates` neu gebaut: Ihre Trainingskarten zeigen jetzt die Vegetation aus den Punktwolken. Die Kartenobjekte sind unverändert. Saarlouis und Bautzen bleiben ohne Vegetation; die Beispielübersicht nennt die Gründe.
 - Die Grenzen von Niedersachsen und Schleswig-Holstein überlappen sich in der Elbmündung nicht mehr. Die Kataster beider Bundesländer führen dieselben 89 km² Wasser vor Cuxhaven; freemapper teilt die Fläche jetzt an der Linie gleichen Abstands zu den beiden Anspruchslinien (ADR 0113). Für Karten ändert sich nichts, dort ist offenes Wasser.
 - Intern: Die Module in `freemapper::sources`, die nur noch weiterreichten, was seit dem Adapter-Umbau in `freemapper-adapters-de` und `freemapper-sources` liegt, sind entfernt, ebenso der nicht mehr genutzte Rasterabruf für Sachsen-Anhalt im Programmcode. Das Bundesland ruft weiter über die Dienste ab, die sein Manifest nennt; an Karten und Abrufen ändert sich nichts.
