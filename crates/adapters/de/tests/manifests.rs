@@ -10,7 +10,7 @@ use freemapper_adapters_de::states::alkis::{
     BUILDINGS_ENDPOINT, LAND_USE_ENDPOINT, MV_BUILDINGS_ENDPOINT, MV_LAND_USE_ENDPOINT,
 };
 use freemapper_adapters_de::states::{State, StateAdapter, StateFiles};
-use freemapper_adapters_de::{lgl_bw, lgv, lvgl, states};
+use freemapper_adapters_de::{geobremen, lgl_bw, lgv, lvgl, states};
 use freemapper_georef::crs::Crs;
 use freemapper_manifest::adapter::{ManifestAdapter, Parse};
 use freemapper_manifest::model::Alkis;
@@ -109,9 +109,20 @@ fn potsdam_tree_dataset_from_manifest_equals_the_constant() {
     );
     assert_eq!(brandenburg.nas.len(), 1);
     assert_eq!(extras::nas_service(&brandenburg.nas[0], &region), LGB_NAS);
-    // No other state has such sources.
+    // Bremen brings the layers of its full ALKIS as well, from the service its buildings and
+    // land use come from. No other state has such sources.
+    let bremen = manifest("bremen");
+    assert_eq!(bremen.nas.len(), 1);
+    let service = extras::nas_service(&bremen.nas[0], &"bremen".parse().unwrap());
+    assert_eq!(service.url, geobremen::ALKIS_URL);
+    assert_eq!(service.crs, Crs::Utm32);
+    assert_eq!(
+        (service.max_count, service.max_bytes),
+        (geobremen::ALKIS.max_count, geobremen::ALKIS.max_bytes)
+    );
+    assert!(bremen.trees.is_empty());
     for state in State::ALL {
-        if state != State::Brandenburg {
+        if !matches!(state, State::Brandenburg | State::Bremen) {
             let manifest = manifest(state.id());
             assert!(
                 manifest.nas.is_empty() && manifest.trees.is_empty(),
@@ -144,7 +155,7 @@ fn hosts_in(trace: &str) -> Vec<String> {
 
 /// The hosts a fetch of `state` asked when the golden net recorded it: for the eleven states
 /// of the net `g1-hosts.txt`, which keeps them for the states that are no longer recorded.
-/// Saarland and Baden-Württemberg came after the net: their hosts are those of the addresses
+/// Saarland, Baden-Württemberg and Bremen came after the net: their hosts are those of the addresses
 /// their backend and their WFS are written with.
 fn recorded_hosts(state: State) -> Vec<String> {
     let written: &[&str] = match state {
@@ -158,6 +169,11 @@ fn recorded_hosts(state: State) -> Vec<String> {
             lgl_bw::FLIGHTS,
             lgl_bw::FILES,
             lgl_bw::ALKIS.url.as_ref(),
+        ],
+        State::Bremen => &[
+            geobremen::ORTHOPHOTOS,
+            geobremen::FILES,
+            geobremen::ALKIS_URL,
         ],
         _ => &[],
     };
@@ -254,7 +270,10 @@ fn builtin_manifests_pass_the_validator_and_policy() {
                 "{id} does not declare {host}"
             );
         }
-        if matches!(state, State::Saarland | State::BadenWuerttemberg) {
+        if matches!(
+            state,
+            State::Saarland | State::BadenWuerttemberg | State::Bremen
+        ) {
             // No more than it asks, either: nothing recorded could hide a host here.
             assert_eq!(manifest.hosts.len(), asked.len(), "{id}");
         }
@@ -279,8 +298,11 @@ fn builtin_manifests_pass_the_validator_and_policy() {
             .unwrap_or_else(|findings| panic!("{id}: {findings:?}"));
         assert!(!adapter.boundary().0.is_empty(), "{id}");
         assert!(adapter.rasters().is_some(), "{id}");
-        // Berlin and Baden-Württemberg read their ALKIS with code of their own.
-        let own_alkis = matches!(state, State::Berlin | State::BadenWuerttemberg);
+        // Berlin, Baden-Württemberg and Bremen read their ALKIS with code.
+        let own_alkis = matches!(
+            state,
+            State::Berlin | State::BadenWuerttemberg | State::Bremen
+        );
         assert_eq!(adapter.alkis().is_some(), !own_alkis, "{id}");
     }
 }
@@ -306,8 +328,8 @@ fn every_manifest_names_its_state() {
         assert_eq!(from_file.bounds(), built_in.bounds(), "{}", state.id());
         assert!(built_in.alkis().is_some(), "{}", state.id());
     }
-    assert_eq!(State::ALL.len(), 13);
-    assert_eq!(states::adapters().len(), 13);
+    assert_eq!(State::ALL.len(), 14);
+    assert_eq!(states::adapters().len(), 14);
 }
 
 /// Saarland asks the WFS of the geoportal with the type names of its ArcGIS server and

@@ -1,0 +1,58 @@
+# Bremen: the rasters of the Landesamt GeoInformation Bremen through code (a WMS whose layers are
+# named by flight year and city, heights out of one archive per city). The state serves no
+# simplified ALKIS; its full ALKIS, which the LGLN of Lower Saxony runs, is read by code, and its
+# surveyed lines come as the layers of the full ALKIS.
+format = 1
+
+[adapter]
+id = "bremen"
+provider = "geobremen"
+revision = 1
+min_freemapper = "0.13.0"
+crs = 25832
+object_id_prefix = "DEHB"
+names = { en = "Bremen", de = "Bremen" }
+agency = "GeoBremen"
+maintainers = ["github:HenryJobst"]
+last_verified = "2026-11-13"
+
+[net]
+hosts = ["geodienste.bremen.de", "gdi2.geo.bremen.de", "opendata.lgln.niedersachsen.de"]
+
+[boundary]
+file = "boundary.geojson"
+crs = 25833
+
+[[osm.extract]]
+geofabrik = "europe/germany/bremen"
+megabytes = 20.3
+label = "Bremen"
+
+[attribution]
+licence = "cc-by-4.0"
+text = "© GeoBasis-DE / Landesamt GeoInformation Bremen ({year}), CC BY 4.0, Daten geändert"
+note = "Lizenz CC BY 4.0 (Namensnennung 4.0 International): https://creativecommons.org/licenses/by/4.0/"
+
+[orthophoto]
+backend = "geobremen"
+
+[terrain]
+backend = "geobremen"
+
+[surface]
+backend = "geobremen"
+
+[[extra.nas]]
+name = "GeoBremen ALKIS (NAS)"
+url = "https://opendata.lgln.niedersachsen.de/doorman/noauth/alkishb_wfs_sf"
+max_count = 100000
+max_bytes = 268435456
+
+# A preview is one layer, and the service has one per city: the area page shows the aerial photo
+# of the city of Bremen, and none of Bremerhaven.
+[preview]
+wms = "https://geodienste.bremen.de/wms_dop_lb"
+layer = "dop10_2025_HB"
+format = "image/jpeg"
+attribution = "© GeoBasis-DE / Landesamt GeoInformation Bremen, CC BY 4.0"
+agency = "GeoBremen"

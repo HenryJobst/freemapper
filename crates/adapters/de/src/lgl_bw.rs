@@ -23,18 +23,17 @@ use std::collections::btree_map::Entry;
 use std::path::PathBuf;
 
 use crate::crs::{BoundingBox, Crs};
-use crate::fetch::{CacheDir, FetchError, FetchMode, Fetcher, write_cache_file};
+use crate::fetch::{CacheDir, FetchError, FetchMode, Fetcher};
 use crate::note::note;
 use crate::raster::{GridSpec, Raster};
 use crate::sources::alkis_wfs::{WfsService, fetch_wfs_by};
-use crate::sources::float_tiff::{decode_float_tiff, encode_float_geotiff, write_float_raster};
-use crate::sources::height_model::{HeightModel, centre_tile, names, read_cached, whole_tile};
+use crate::sources::float_tiff::{decode_float_tiff, write_float_raster};
+use crate::sources::height_model::{HeightModel, centre_tile, names, whole_tile};
 use crate::sources::region::{BADEN_WUERTTEMBERG, tile_centre_in};
 use crate::sources::wms::WmsService;
-use crate::sources::zip_range::{
-    Member, cached_member, find_member, parse_directory, read_directory_bytes, read_member, refused,
-};
+use crate::sources::zip_range::{Member, cached_member, find_member, read_member, refused};
 use crate::tiles::{TileId, tiles_covering};
+use crate::xyz_archive::{kept_directory, not_cached, xyz_tile};
 
 /// The orthophoto WMS (20 cm, cut at the state border). Its capabilities promise 15 000 px;
 /// from 6 144 px on it answers a white image with status 200, so the pieces stay at 4 000.
@@ -318,32 +317,13 @@ fn directory(
     model: Model,
     block: TileId,
 ) -> Result<Vec<Member>, FetchError> {
-    let url = model.archive_url(block);
-    // The member count (u16, little-endian), then the central directory.
     let file = model.cache_folder(cache).join(format!(
         "directory-{:03}_{:04}.bin",
         block.east_km, block.north_km
     ));
-    match mode {
-        FetchMode::Online => match read_directory_bytes(fetcher, &url) {
-            Ok((directory, count)) => {
-                let members =
-                    parse_directory(&directory, count).map_err(|message| refused(&url, message))?;
-                // Kept only once it parsed, so a broken answer never replaces a good copy.
-                write_cache_file(&file, &[&count.to_le_bytes()[..], &directory].concat())?;
-                Ok(members)
-            }
-            Err(FetchError::NotFound(_)) => Ok(Vec::new()),
-            Err(e) => Err(e),
-        },
-        FetchMode::Offline => {
-            let kept = || -> Option<Vec<Member>> {
-                let cached = std::fs::read(&file).ok()?;
-                let (count, directory) = cached.split_at_checked(2)?;
-                parse_directory(directory, u16::from_le_bytes([count[0], count[1]])).ok()
-            };
-            Ok(kept().unwrap_or_default())
-        }
+    match kept_directory(fetcher, mode, &model.archive_url(block), &file) {
+        Err(FetchError::NotFound(_)) => Ok(Vec::new()),
+        members => members,
     }
 }
 
@@ -363,35 +343,16 @@ fn tile_heights(
         model
             .cache_folder(cache)
             .join(format!("{}{:08x}.tif", model.cache_name(tile), member.crc));
-    let offline = || {
-        refused(
-            &url,
-            format!(
-                "offline and not cached: {}; run `freemapper fetch` online",
-                member.name
-            ),
-        )
-    };
-    let wrong = |message: String| refused(&url, format!("{}: {message}", member.name));
     match model {
         Model::Ndom1 => {
+            let offline = || not_cached(&url, member);
             let bytes = cached_member(fetcher, mode, &url, member, &file, offline)?;
             decode_float_tiff(&bytes)
                 .and_then(|raster| whole_tile(raster, tile, &[1.0]))
-                .map_err(wrong)
+                .map_err(|message| refused(&url, format!("{}: {message}", member.name)))
         }
         // The XYZ text of a tile has 29 MB; the cache keeps its heights as a GeoTIFF.
-        Model::Dgm1 => {
-            if let Some(part) = read_cached(&file, tile) {
-                return Ok(part);
-            }
-            if mode == FetchMode::Offline {
-                return Err(offline());
-            }
-            let part = parse_xyz(&read_member(fetcher, &url, member)?, tile).map_err(wrong)?;
-            write_cache_file(&file, &encode_float_geotiff(&part).map_err(wrong)?)?;
-            Ok(part)
-        }
+        Model::Dgm1 => xyz_tile(fetcher, mode, (&url, member), &file, tile, parse_xyz),
     }
 }
 
