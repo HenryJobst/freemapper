@@ -123,8 +123,15 @@ pub const OUTLINE_SYMBOL_CODE: &str = "501.1";
 /// The outline of a symbol set without 501.1 (the forest map): the sheet symbol 994, which no
 /// content group claims.
 const OUTLINE_FALLBACK_CODE: &str = "994";
-/// The distance of the north lines on paper at symbol size 100 %.
-const NORTH_LINE_SPACING_MM: SymbolMm = SymbolMm(30.0);
+/// The distance of the north lines on paper at symbol size 100 %. ISOM 2017-2 (symbol 601) says
+/// 20 mm, which is 300 m on the ground at 1:15 000 (ISOM 2000 had 30 mm); ISSprOM 2019 and the
+/// school symbol set keep 30 mm.
+fn north_line_spacing(kind: MapKind) -> SymbolMm {
+    match kind {
+        MapKind::Schoolyard | MapKind::Sprint => SymbolMm(30.0),
+        MapKind::Forest => SymbolMm(20.0),
+    }
+}
 
 /// The exterior ring of the map area as a closed path object.
 pub fn map_area_outline(
@@ -534,7 +541,7 @@ pub fn build(frame: Frame, stored: Stored, saved: &ContentSettings) -> Result<Bu
     let content = PaperRect::of_bbox(clip, georef)?;
     // North lines first: within their black they lie under walls and fences.
     let spacing =
-        NORTH_LINE_SPACING_MM.on_paper(SymbolScale::new(map_kind, georef.scale_denominator));
+        north_line_spacing(map_kind).on_paper(SymbolScale::new(map_kind, georef.scale_denominator));
     let mut map_objects = north_lines(&content, spacing, symbol_set);
     map_objects.extend(building_objects);
     // Canopies after the buildings; their Black 20 % lies under the building fill anyway.
@@ -1090,6 +1097,30 @@ mod tests {
             buffer_m: 50.0,
             clip: f.clip,
         }
+    }
+
+    #[test]
+    fn forest_north_lines_are_20_mm_at_1_to_15000_and_300_m_on_the_ground() {
+        let at = |kind, scale| {
+            let s = SymbolScale::new(kind, scale);
+            let spacing = north_line_spacing(kind);
+            (spacing.on_paper(s).0, spacing.metres(s))
+        };
+        let (mm, m) = at(MapKind::Forest, 15_000);
+        assert!(
+            (mm - 20.0).abs() < 1e-9 && (m - 300.0).abs() < 1e-6,
+            "{mm} {m}"
+        );
+        let (mm, m) = at(MapKind::Forest, 10_000);
+        assert!(
+            (mm - 30.0).abs() < 1e-9 && (m - 300.0).abs() < 1e-6,
+            "{mm} {m}"
+        );
+        let (mm, m) = at(MapKind::Sprint, 4_000);
+        assert!(
+            (mm - 30.0).abs() < 1e-9 && (m - 120.0).abs() < 1e-6,
+            "{mm} {m}"
+        );
     }
 
     #[test]
