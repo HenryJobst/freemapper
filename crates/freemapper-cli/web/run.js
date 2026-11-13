@@ -13,7 +13,7 @@ function tOr(id, fallback, args = {}) {
   return text === id ? fallback : text;
 }
 
-/** The seven options of a run from the form inside `root`; the PDF-only ones are off without a PDF. */
+/** The eight options of a run from the form inside `root`; the PDF-only ones are off without a PDF. */
 function optionsFromForm(root) {
   const field = (id) => root.querySelector(`#${RUN_ID_PREFIX}${id}`);
   const anyPdf = field("pdf").checked || field("pdf-candidates").checked;
@@ -26,6 +26,7 @@ function optionsFromForm(root) {
     pdf_candidates: field("pdf-candidates").checked,
     pdf_scale_bar: anyPdf && field("pdf-scale-bar").checked,
     pdf_sources: anyPdf ? field("pdf-sources").value : "auto",
+    permits: field("permits").checked,
   };
 }
 
@@ -96,7 +97,7 @@ function refresh() {
   $r("run-pdf-sources").disabled = running || !anyPdf;
   $r("run-pdf-hint").hidden = anyPdf;
   $r("run-sources-warning").hidden = !(anyPdf && $r("run-pdf-sources").value === "credit-only");
-  for (const id of ["ocad", "pdf", "pdf-candidates", "offline", "force"]) {
+  for (const id of ["ocad", "pdf", "pdf-candidates", "permits", "offline", "force"]) {
     $r(`${RUN_ID_PREFIX}${id}`).disabled = running;
   }
   // The area on the page became saved or unsaved: that decides whether live images may come.
@@ -575,6 +576,7 @@ function init(project) {
   $r("run-pdf-candidates").checked = !!defaults.pdf_candidates;
   $r("run-pdf-scale-bar").checked = !!defaults.pdf_scale_bar;
   $r("run-pdf-sources").value = defaults.pdf_sources || "auto";
+  $r("run-permits").checked = !!defaults.permits;
   $r("run-offline").checked = !!defaults.offline;
   // `force` is never preset: replacing a map is a decision of the moment.
   $r("run-force").checked = false;
@@ -586,7 +588,7 @@ function init(project) {
   loadPreviewState().then(() => decidePreview(0));
 }
 
-for (const id of ["ocad", "pdf", "pdf-candidates", "pdf-scale-bar", "pdf-sources", "offline", "force"]) {
+for (const id of ["ocad", "pdf", "pdf-candidates", "pdf-scale-bar", "pdf-sources", "permits", "offline", "force"]) {
   $r(`${RUN_ID_PREFIX}${id}`).addEventListener("change", refresh);
 }
 $r("run-start").addEventListener("click", startRun);

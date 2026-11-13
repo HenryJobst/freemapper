@@ -273,9 +273,45 @@ fn run_js_names_no_path_field() {
         "pdf_candidates",
         "pdf_scale_bar",
         "pdf_sources",
+        "permits",
     ] {
         assert!(body.contains(key), "{key}");
     }
+}
+
+/// The permit notes are an output switch like the PDF and OCAD ones: off unless the page was
+/// opened with them, and sent as `permits` only as the state of the box (ADR 0115).
+#[test]
+fn the_permits_box_is_an_output_switch() {
+    let html = asset("index.html");
+    let options = options_section(&html);
+    let at = options
+        .find("<input id=\"run-permits\"")
+        .expect("a box run-permits among the run options");
+    let tag = &options[at..at + options[at..].find('>').unwrap()];
+    assert!(tag.contains("type=\"checkbox\""), "{tag}");
+    assert!(!tag.contains("checked"), "off by default: {tag}");
+    let label = &options[at..at + options[at..].find("</label>").unwrap()];
+    assert!(label.contains("data-text=\"page-opt-permits\""), "{label}");
+    let run = asset("run.js");
+    let start = run.find("function optionsFromForm").unwrap();
+    let body = &run[start..start + run[start..].find("\n}\n").unwrap()];
+    assert!(
+        body.contains("permits: field(\"permits\").checked"),
+        "{body}"
+    );
+    assert!(
+        run.contains("$r(\"run-permits\").checked = !!defaults.permits;"),
+        "the box starts as the page was opened"
+    );
+    assert_eq!(
+        TEXTS.text(&Lang::english(), "page-opt-permits", &[]),
+        "Permit notes"
+    );
+    assert_eq!(
+        TEXTS.text(&de(), "page-opt-permits", &[]),
+        "Hinweise zu Genehmigungen"
+    );
 }
 
 #[test]

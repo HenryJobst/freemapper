@@ -47,6 +47,7 @@ pub struct RunRequest {
     pub pdf_candidates: Option<bool>,
     pub pdf_scale_bar: Option<bool>,
     pub pdf_sources: Option<String>,
+    pub permits: Option<bool>,
 }
 
 /// Checks a request and fills in the defaults of the command line.
@@ -71,7 +72,7 @@ pub fn parse(request: RunRequest, lang: &Lang) -> Result<RunOptions, String> {
         pdf_candidates: request.pdf_candidates.unwrap_or(false),
         pdf_scale_bar: request.pdf_scale_bar.unwrap_or(false),
         pdf_sources,
-        permits: false,
+        permits: request.permits.unwrap_or(false),
         fail_fast: false,
     })
 }
@@ -157,6 +158,8 @@ pub struct RunReport {
     pub files: Vec<ResultFile>,
     /// An existing map was left alone.
     pub kept_map: bool,
+    /// The text of `permits.md`, for a job of the MCP tool `permits_for_area` alone.
+    pub permits_md: Option<String>,
 }
 
 /// Lets a caller stop a run from another thread. The run looks at the flag before each step,
@@ -479,6 +482,67 @@ pub fn run(
         warnings: warnings.into_inner(),
         files,
         kept_map,
+        permits_md: None,
+    })
+}
+
+/// The permit notes alone, as the MCP tool `permits_for_area` runs them as a job: one step, the
+/// files and the text of `permits.md` in the report. The caller holds the folder lock.
+pub fn permits_job(
+    dir: &Path,
+    offline: bool,
+    cache: &Cache,
+    fetcher: &dyn Fetcher,
+    control: &RunControl,
+    progress: &mut dyn FnMut(Event),
+) -> Result<RunReport, anyhow::Error> {
+    if control.is_cancelled() {
+        return Err(anyhow::Error::new(Cancelled { kept: Vec::new() }));
+    }
+    progress(Event::Phase {
+        step: Step::Permits,
+        index: 1,
+        total: 1,
+    });
+    let mut warnings = Vec::new();
+    let written = {
+        let mut on_note = |note: freemapper::note::Note| {
+            let text = line(&note);
+            if note.is_warning() {
+                progress(Event::Warning(&text));
+                warnings.push(text);
+            } else {
+                progress(Event::Line(&text));
+            }
+        };
+        crate::permits::write_permits(
+            dir,
+            offline,
+            cache,
+            fetcher,
+            &crate::text::lang(),
+            &mut on_note,
+        )?
+    };
+    for warning in &written.warnings {
+        progress(Event::Warning(warning));
+        warnings.push(warning.clone());
+    }
+    progress(Event::Written(Written::Permits(&written.markdown)));
+    let markdown = std::fs::read_to_string(&written.markdown)?;
+    let files = [&written.markdown, &written.json]
+        .into_iter()
+        .filter_map(|path| file_entry(dir, "permits", path))
+        .collect();
+    Ok(RunReport {
+        summary: text(
+            "cli-summary-wrote-permits",
+            &[("path", v(written.markdown.display()))],
+        ),
+        warnings,
+        files,
+        kept_map: false,
+        permits_md: Some(markdown),
     })
 }
 
@@ -632,6 +696,17 @@ mod tests {
                 expected
             );
         }
+    }
+
+    #[test]
+    fn parse_reads_permits() {
+        assert!(!all_off().permits);
+        let request = RunRequest {
+            permits: Some(true),
+            ..RunRequest::default()
+        };
+        assert!(parse(request, &Lang::english()).unwrap().permits);
+        assert!(serde_json::from_str::<RunRequest>(r#"{"permits":true}"#).is_ok());
     }
 
     #[test]
