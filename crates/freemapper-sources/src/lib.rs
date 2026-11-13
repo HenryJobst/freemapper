@@ -7,6 +7,7 @@
 pub mod aaa;
 pub mod alkis_source;
 pub mod bfn;
+pub mod citygml;
 pub mod dates;
 pub mod float_tiff;
 pub mod geojson_wfs;
