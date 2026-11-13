@@ -78,7 +78,17 @@ pub fn fetch_tree_layers(
     area: &FetchArea,
     part: PartFile,
 ) -> Vec<FetchedTreeLayer> {
-    needed_in(registry(), &area.region_bbox)
+    fetch_tree_layers_in(registry(), fetcher, area, part)
+}
+
+/// [`fetch_tree_layers`] with the adapters of `registry`.
+fn fetch_tree_layers_in(
+    registry: &'static Registry,
+    fetcher: &dyn Fetcher,
+    area: &FetchArea,
+    part: PartFile,
+) -> Vec<FetchedTreeLayer> {
+    needed_in(registry, &area.region_bbox)
         .map(|(adapter, dataset)| fetch_tree_layer(adapter, fetcher, dataset, area, part))
         .collect()
 }
@@ -282,9 +292,8 @@ mod tests {
         }
     }
 
-    /// A tree cadastre is asked by the rules of the adapter that brings it, whatever region its
-    /// row names: a row that names a region the registry does not hold is no way around the
-    /// hosts of its adapter.
+    /// One dataset is asked by the rules of the adapter it is asked for, whatever region its row
+    /// names: the row is not looked up.
     #[test]
     fn a_tree_cadastre_is_held_to_the_hosts_of_the_adapter_that_brings_it() {
         use crate::adapters::test_support::{SQUARE, square};
@@ -310,6 +319,66 @@ mod tests {
             layer.features
         );
         assert_eq!(fetcher.calls.get(), 0);
+    }
+
+    /// A row that names another adapter of the registry does not move the dataset there: the
+    /// area needs it on the ground of the adapter that brings it, and that adapter's hosts
+    /// decide whether the request leaves.
+    #[test]
+    fn a_row_that_names_another_adapter_goes_by_the_one_that_brings_it() {
+        use crate::adapters::test_support::{FAR, square_and_far};
+        let dataset = TreeDataset {
+            region: FAR,
+            envelope: BoundingBox {
+                min_e: 0.0,
+                min_n: 0.0,
+                max_e: 30_000.0,
+                max_n: 10_000.0,
+            },
+            ..POTSDAM
+        };
+        let scratch = tempfile::tempdir().unwrap();
+        let part_path = scratch.path().join("answer.geojson.part");
+        let part = || -> Result<PathBuf, FetchError> { Ok(part_path.clone()) };
+        let from = |min_e: f64| {
+            let bbox = BoundingBox {
+                min_e,
+                min_n: 4_000.0,
+                max_e: min_e + 500.0,
+                max_n: 4_500.0,
+            };
+            FetchArea::new(bbox, Crs::Utm33)
+        };
+        // The far region may ask the host of the dataset: that must not help the square.
+        let fetched = |hosts: &[&str], area: &FetchArea| {
+            let registry: &'static Registry = Box::leak(Box::new(square_and_far(
+                vec![dataset.clone()],
+                hosts,
+                &["opendata.potsdam.de"],
+            )));
+            let fetcher = MapFetcher::default();
+            fetcher.insert_prefix(
+                "https://",
+                br#"{"type":"FeatureCollection","features":[]}"#.to_vec(),
+            );
+            let layers = fetch_tree_layers_in(registry, &fetcher, area, &part);
+            (layers, fetcher.calls.get())
+        };
+        // On the ground of the far region nothing needs the dataset of the square.
+        let (layers, calls) = fetched(&["geo.example.org"], &from(24_000.0));
+        assert!(layers.is_empty(), "{layers:?}");
+        assert_eq!(calls, 0);
+        // On the ground of the square the area needs it, and the hosts of the square decide.
+        let (layers, calls) = fetched(&["geo.example.org"], &from(4_000.0));
+        assert_eq!(layers.len(), 1);
+        assert!(
+            matches!(layers[0].features, Err(FetchError::NotAllowed { .. })),
+            "{layers:?}"
+        );
+        assert_eq!(calls, 0);
+        let (layers, calls) = fetched(&["opendata.potsdam.de"], &from(4_000.0));
+        assert!(layers[0].features.is_ok(), "{layers:?}");
+        assert_eq!(calls, 3);
     }
 
     #[test]

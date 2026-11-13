@@ -8,7 +8,7 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ### Changed
 
-- Internal: a tree cadastre is asked under the host rules of the adapter that brings it and counts for that adapter's ground. Before, the engine looked the adapter up by the id in the row of the cadastre and would have asked without host rules if the registry did not know that id. No adapter of today was affected: a manifest always writes its own id (update in ADR 0114).
+- Internal: a tree cadastre is asked under the host rules of the adapter that brings it and counts for that adapter's ground. Before, the engine looked the adapter up by the id in the row of the cadastre. Had the row named another adapter of the registry, the cadastre would have been asked for that adapter's ground and under its host rules; with an unknown id it was left out. No adapter of today was affected: a manifest always writes its own id (update in ADR 0114).
 
 ## [0.16.0] - 2026-11-13
 

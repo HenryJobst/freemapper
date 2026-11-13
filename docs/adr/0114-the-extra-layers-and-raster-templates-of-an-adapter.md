@@ -96,5 +96,7 @@ The user asked on 2026-11-12 to take Berlin out of the engine.
 Update 2026-11-13: the tree cadastres no longer look their adapter up by id. `sources/trees.rs` walks the
 registry and keeps each dataset with the adapter that brings it; whether an area needs the dataset goes by the
 ground of that adapter, and the request goes through `adapters::asking` with it. The region a row names only
-fills the record of what was fetched. No adapter of today was affected: a manifest writes its own id into the
-row.
+fills the record of what was fetched. The point above names the wrong risk: with an id the registry did not hold,
+the dataset was left out and nothing was asked. A row that named another adapter of the registry would have been
+asked for that adapter's ground and under its hosts. No adapter of today was affected: a manifest writes its own
+id into the row.
