@@ -114,15 +114,22 @@ fn arg(value: impl ToString) -> FluentValue<'static> {
     FluentValue::from(value.to_string())
 }
 
-/// Text from the data (a name, a title) with the characters that Markdown would read as markup
-/// escaped.
+/// Text from the data (a name, a title, the reason a server gave) with the characters that
+/// Markdown would read as markup escaped, and line breaks as spaces: it stays on its line and
+/// cannot start a list item or a rule. A leading `-` or `+` is escaped too, since a name can
+/// open a list line.
 fn md(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
-    for c in text.chars() {
+    for (i, c) in text.chars().enumerate() {
+        if c == '\r' || c == '\n' {
+            out.push(' ');
+            continue;
+        }
         if matches!(
             c,
             '\\' | '`' | '*' | '_' | '[' | ']' | '<' | '>' | '|' | '#'
-        ) {
+        ) || (i == 0 && matches!(c, '-' | '+'))
+        {
             out.push('\\');
         }
         out.push(c);
@@ -130,9 +137,9 @@ fn md(text: &str) -> String {
     out
 }
 
-/// A table cell of a trusted text (a credit line, a reason): only the column bar is escaped.
+/// A table cell of a trusted text (a credit line): only the column bar is escaped.
 fn cell(text: &str) -> String {
-    text.replace('|', "\\|").replace('\n', " ")
+    text.replace('|', "\\|").replace(['\r', '\n'], " ")
 }
 
 /// A link from the data: an autolink when it is a plain web address.
@@ -397,7 +404,7 @@ fn sources_table(lang: &Lang, notes: &PermitNotes) -> String {
             ("unreachable", _) => t(
                 lang,
                 "permits-state-unreachable",
-                &[("reason", arg(s.reason.as_deref().unwrap_or_default()))],
+                &[("reason", arg(md(s.reason.as_deref().unwrap_or_default())))],
             ),
             _ => t(lang, "permits-state-not-read", &[]),
         };
@@ -409,7 +416,8 @@ fn sources_table(lang: &Lang, notes: &PermitNotes) -> String {
             "| {}: {} | {} | {} |",
             cell(&source_name(lang, &s.id)),
             cell(&what),
-            cell(&state),
+            // The reason in it is escaped already; the catalog text has no bar.
+            state,
             cell(&credit)
         ));
     }
@@ -967,6 +975,64 @@ mod tests {
             english.contains("for the map area of a forest map (41.2 ha)."),
             "{english}"
         );
+    }
+
+    /// The column bars of a table row that Markdown reads as bars (not escaped).
+    fn column_bars(row: &str) -> usize {
+        let mut bars = 0;
+        let mut escaped = false;
+        for c in row.chars() {
+            if c == '|' && !escaped {
+                bars += 1;
+            }
+            escaped = c == '\\' && !escaped;
+        }
+        bars
+    }
+
+    /// The reason of a failure can be text of the server (an OGC exception, a redirect
+    /// target).
+    #[test]
+    fn a_failure_reason_stays_one_cell_of_plain_text() {
+        let mut notes = buckow();
+        notes.protected.clear();
+        notes.sources[1] = SourceStatus {
+            id: "bfn".into(),
+            state: "unreachable".into(),
+            fetched: None,
+            reason: Some("a | b <b>bold</b>\r\nnext [x](y)".into()),
+            credit: None,
+        };
+        for lang in [Lang::english(), de()] {
+            let text = render_markdown(&notes, &lang);
+            let rows: Vec<&str> = text.lines().filter(|l| l.starts_with("| BfN:")).collect();
+            assert_eq!(rows.len(), 1, "{text}");
+            assert_eq!(column_bars(rows[0]), 4, "{}", rows[0]);
+            assert!(
+                rows[0].contains(r"a \| b \<b\>bold\</b\>  next \[x\](y)"),
+                "{}",
+                rows[0]
+            );
+            assert!(!text.contains("<b>") && !text.contains("[x](y)"), "{text}");
+        }
+    }
+
+    #[test]
+    fn a_newline_in_a_name_starts_no_list_item() {
+        let mut notes = buckow();
+        notes.osm_protected[0].item.name = Some("Alte Eichen\n- fake".into());
+        notes.operators[0].name = "Kirche\r\n- fake\n\n---".into();
+        notes.operators[1].name = "- fake".into();
+        for lang in [Lang::english(), de()] {
+            let text = render_markdown(&notes, &lang);
+            for line in text.lines() {
+                let line = line.trim_start();
+                assert!(!line.starts_with("- fake"), "{line}");
+                assert!(!line.starts_with("- - "), "{line}");
+                assert_ne!(line, "---", "{text}");
+            }
+            assert!(text.contains("Alte Eichen - fake"), "{text}");
+        }
     }
 
     #[test]
