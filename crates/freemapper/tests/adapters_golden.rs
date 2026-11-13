@@ -1405,7 +1405,7 @@ fn g5_examples_roundtrip() {
         );
         checked += 1;
     }
-    assert_eq!(checked, 12, "one example per state");
+    assert_eq!(checked, 13, "one example per state and the forest map");
 }
 
 /// A project of a colleague with an adapter that is not installed here: the error names the
