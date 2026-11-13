@@ -300,7 +300,7 @@ freemapper run vorstadt
 | Rheinland-Pfalz | LVermGeo RP | DOM1 − DGM1, 1 m (Laserscan) | Karte in UTM-Zone 32 (EPSG:25832); Luftbild im Sommer beflogen, als Flugdatum gilt das Erstellungsdatum; Luftbild jenseits der Landesgrenze weiß |
 | Saarland | LVGL | DOM1 − DGM1, 1 m (Laserscan 2025) | Karte in UTM-Zone 32 (EPSG:25832); Höhenmodelle als 1-km-Kacheln aus den Landkreis-Archiven; Vorlagen jenseits der Landesgrenze leer |
 | Baden-Württemberg | LGL | nDOM1, 1 m (aus den Luftbildern eines Sommerflugs) | Karte in UTM-Zone 32 (EPSG:25832); Höhenmodelle als 1-km-Kacheln aus den 2-km-Archiven; Luftbild jenseits der Landesgrenze weiß; das Kataster kennt keine Überdachungen |
-| Bremen | Landesamt GeoInformation Bremen, auch das vollständige ALKIS | DOM1 − DGM1, 1 m (Laserscan 2017, Bremerhaven 2015) | Karte in UTM-Zone 32 (EPSG:25832); Höhenmodelle acht bis zehn Jahre älter als das Luftbild; Treppen, Stützmauern, Böschungen und Brücken aus dem vollständigen ALKIS |
+| Bremen | Landesamt GeoInformation Bremen, auch das vollständige ALKIS | DOM1 − DGM1, 1 m (Laserscan 2017, Bremerhaven 2015) | Karte in UTM-Zone 32 (EPSG:25832); Höhenmodelle acht bis zehn Jahre älter als das Luftbild; Luftbild jenseits der Landesgrenze weiß, Vorlagen dort leer; Treppen, Stützmauern, Böschungen und Brücken aus dem vollständigen ALKIS |
 
 In jedem Bundesland außer Sachsen und Sachsen-Anhalt sind die ALKIS-Überdachungen Kartenobjekte und die
 Durchfahrten Kandidaten. An einer Grenze zwischen Bundesländern fragt freemapper das Kataster beider Bundesländer ab und liest beide

@@ -292,7 +292,7 @@ freemapper run vorstadt
 | Rhineland-Palatinate | LVermGeo RP | DOM1 − DGM1, 1 m (laser scan) | map in UTM zone 32 (EPSG:25832); orthophoto flown in summer, its date of creation counts as the flight date; orthophoto white beyond the state border |
 | Saarland | LVGL | DOM1 − DGM1, 1 m (laser scan of 2025) | map in UTM zone 32 (EPSG:25832); height models as 1 km tiles out of the district archives; templates empty beyond the state border |
 | Baden-Württemberg | LGL | nDOM1, 1 m (from the aerial images of a summer flight) | map in UTM zone 32 (EPSG:25832); height models as 1 km tiles out of the 2 km archives; orthophoto white beyond the state border; the cadastre has no canopies |
-| Bremen | Landesamt GeoInformation Bremen, also the full ALKIS | DOM1 − DGM1, 1 m (laser scan of 2017, Bremerhaven 2015) | map in UTM zone 32 (EPSG:25832); height models eight to ten years older than the orthophoto; stairs, retaining walls, embankments and bridges from the full ALKIS |
+| Bremen | Landesamt GeoInformation Bremen, also the full ALKIS | DOM1 − DGM1, 1 m (laser scan of 2017, Bremerhaven 2015) | map in UTM zone 32 (EPSG:25832); height models eight to ten years older than the orthophoto; orthophoto white and templates empty beyond the state border; stairs, retaining walls, embankments and bridges from the full ALKIS |
 
 In every state except Saxony and Saxony-Anhalt, the ALKIS canopies are map objects and the building passages
 candidates. At a state border freemapper queries the cadastre of both states and reads both OSM extracts; the
