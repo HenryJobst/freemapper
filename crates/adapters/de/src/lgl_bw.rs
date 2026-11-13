@@ -19,6 +19,7 @@ use serde_json::Value;
 
 use std::borrow::Cow;
 use std::collections::BTreeMap;
+use std::collections::btree_map::Entry;
 use std::path::PathBuf;
 
 use crate::crs::{BoundingBox, Crs};
@@ -412,10 +413,11 @@ fn mosaic(
     let mut read = 0;
     for tile in tiles_covering(bbox) {
         let block = block_of(tile);
-        if !blocks.contains_key(&block) {
-            blocks.insert(block, directory(fetcher, cache, mode, model, block)?);
-        }
-        let Some(member) = model.member_of(&blocks[&block], tile, model.extension()) else {
+        let members = match blocks.entry(block) {
+            Entry::Occupied(read) => read.into_mut(),
+            Entry::Vacant(unread) => unread.insert(directory(fetcher, cache, mode, model, block)?),
+        };
+        let Some(member) = model.member_of(members, tile, model.extension()) else {
             if tile_centre_in(tile, BADEN_WUERTTEMBERG) {
                 found.missing.push(tile);
             }

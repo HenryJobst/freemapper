@@ -48,15 +48,16 @@ fn boundary_files(keep: fn(&str) -> bool) -> Vec<std::path::PathBuf> {
 #[test]
 fn region_boundaries_are_valid() {
     let files = boundary_files(|name| name == "boundary.geojson");
-    assert_eq!(files.len(), 12, "{files:?}");
+    assert_eq!(files.len(), 13, "{files:?}");
     files.iter().for_each(|file| check_boundary(file));
 }
 
 #[test]
 fn osm_extract_boundaries_are_valid() {
-    // The five North Rhine-Westphalia government district extracts.
+    // The government district extracts: five of North Rhine-Westphalia, four of
+    // Baden-Württemberg.
     let files = boundary_files(|name| name.starts_with("osm-") && name.ends_with(".geojson"));
-    assert_eq!(files.len(), 5, "{files:?}");
+    assert_eq!(files.len(), 9, "{files:?}");
     files.iter().for_each(|file| check_boundary(file));
 }
 

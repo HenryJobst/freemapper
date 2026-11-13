@@ -148,9 +148,10 @@ pub mod ids {
         pub const NIEDERSACHSEN: AdapterId = AdapterId::built_in("niedersachsen");
         pub const RHEINLAND_PFALZ: AdapterId = AdapterId::built_in("rheinlandpfalz");
         pub const SAARLAND: AdapterId = AdapterId::built_in("saarland");
+        pub const BADEN_WUERTTEMBERG: AdapterId = AdapterId::built_in("badenwuerttemberg");
 
         /// All regions, in the order of the registry.
-        pub const ALL: [AdapterId; 12] = [
+        pub const ALL: [AdapterId; 13] = [
             BRANDENBURG,
             BERLIN,
             SAXONY,
@@ -163,11 +164,12 @@ pub mod ids {
             NIEDERSACHSEN,
             RHEINLAND_PFALZ,
             SAARLAND,
+            BADEN_WUERTTEMBERG,
         ];
 
         /// The eleven regions that were code before they became adapters: the regions of the
         /// golden net, which proves that the move changed nothing. A state added since
-        /// (Saarland) has no recording there.
+        /// (Saarland, Baden-Württemberg) has no recording there.
         pub const LEGACY: [AdapterId; 11] = [
             BRANDENBURG,
             BERLIN,
@@ -203,6 +205,7 @@ pub mod ids {
         pub const LGLN: AdapterId = AdapterId::built_in("lgln");
         pub const LVERM_GEO_RP: AdapterId = AdapterId::built_in("lvermgeorp");
         pub const LVGL: AdapterId = AdapterId::built_in("lvgl");
+        pub const LGL_BW: AdapterId = AdapterId::built_in("lglbw");
     }
 
     /// What the registry says about the region or the provider with an id.
@@ -328,6 +331,7 @@ pub mod golden {
             "niedersachsen" => ("DENI", 9.6971, 52.388),
             "rheinlandpfalz" => ("DERP", 7.165, 50.1443),
             "saarland" => ("DESL", 6.7515, 49.3155),
+            "badenwuerttemberg" => ("DEBW", 8.7150, 49.4115),
             other => panic!("no built-in region {other}"),
         }
     }
@@ -358,6 +362,7 @@ pub mod golden {
             "lvermgeorp" => "lvermgeo_rp",
             "laivmv" => "laiv_mv",
             "lvgl" => "lvgl",
+            "lglbw" => "lglbw",
             "lvermgeo" | "lgln" => return None,
             other => panic!("no built-in provider {other}"),
         };
@@ -1124,6 +1129,44 @@ mod tests {
         let homburg_edge = around_lonlat(49.3170, 7.3990, 400.0);
         let both = regions_for(&homburg_edge);
         assert!(both.contains(&regions::SAARLAND), "{both:?}");
+    }
+
+    /// Baden-Württemberg: Stuttgart, Freiburg (west of the zero meridian of zone 33, where
+    /// eastings are negative) and Mannheim lie in it, in zone 32, with rasters fetched per area
+    /// by the LGL. Across the Rhine Ludwigshafen is Rhineland-Palatinate, Viernheim is Hesse,
+    /// and Neu-Ulm across the Danube lies in Bavaria, which no adapter covers.
+    #[test]
+    fn stuttgart_freiburg_and_mannheim_lie_in_baden_wuerttemberg() {
+        for (lat, lon) in [(48.78741, 9.16135), (47.99046, 7.84076), (49.4870, 8.4660)] {
+            let place = around_lonlat(lat, lon, 200.0);
+            assert_eq!(
+                regions_for(&place),
+                vec![regions::BADEN_WUERTTEMBERG],
+                "{lat} {lon}"
+            );
+            assert_eq!(raster_region(&place), Some(regions::BADEN_WUERTTEMBERG));
+            assert_eq!(crate::project::map_crs(&place), crate::crs::Crs::Utm32);
+        }
+        assert!(around_lonlat(47.99046, 7.84076, 200.0).min_e < 0.0);
+        assert_eq!(regions::BADEN_WUERTTEMBERG.provider(), providers::LGL_BW);
+        assert!(providers::LGL_BW.per_area());
+        assert_eq!(regions::BADEN_WUERTTEMBERG.object_id_prefix(), "DEBW");
+        assert_eq!(
+            region_of_object_id("DEBWL52210003w4m"),
+            Some(regions::BADEN_WUERTTEMBERG)
+        );
+        let ludwigshafen = around_lonlat(49.4770, 8.4350, 200.0);
+        assert_eq!(regions_for(&ludwigshafen), vec![regions::RHEINLAND_PFALZ]);
+        let viernheim = around_lonlat(49.5400, 8.5790, 200.0);
+        assert_eq!(regions_for(&viernheim), vec![regions::HESSEN]);
+        let neu_ulm = around_lonlat(48.3890, 10.0200, 200.0);
+        assert_eq!(regions_for(&neu_ulm), Vec::<AdapterId>::new());
+        assert_eq!(raster_region(&neu_ulm), None);
+        // On the Rhine both states are asked, as at every border.
+        let harbour = around_lonlat(49.4870, 8.4480, 400.0);
+        let both = regions_for(&harbour);
+        assert!(both.contains(&regions::BADEN_WUERTTEMBERG), "{both:?}");
+        assert!(both.contains(&regions::RHEINLAND_PFALZ), "{both:?}");
     }
 
     #[test]
