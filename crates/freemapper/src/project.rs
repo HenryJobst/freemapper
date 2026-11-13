@@ -2734,7 +2734,7 @@ fn check_template(image: &Path, bbox: &BoundingBox) -> Result<(), ProjectError> 
     if matches { Ok(()) } else { Err(outdated()) }
 }
 
-const OSM_ATTRIBUTION: &str = "© OpenStreetMap contributors, ODbL";
+pub(crate) const OSM_ATTRIBUTION: &str = "© OpenStreetMap contributors, ODbL";
 /// [`OSM_ATTRIBUTION`] for the German peripheral information.
 const OSM_ATTRIBUTION_DE: &str = "© OpenStreetMap-Mitwirkende, ODbL";
 /// [`FREEMAPPER_CREDIT`] for the German peripheral information.
