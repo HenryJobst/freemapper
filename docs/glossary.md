@@ -30,8 +30,8 @@ Orienteering Maps 2019 (IOF).
 | Symbolnummer | symbol code | Nummer des Symbols in der Norm, z. B. „521“ (Gebäude), „501.5“. | `SymbolCode` |
 | Symbolsatz | symbol set | Sammlung aller Symbole einer Norm in einem Maßstab, z. B. „ISSprOM 2019“ in OOM. | `SymbolSet` |
 | Symbolvergrößerung | symbol enlargement | Faktor, um den alle Symbolmaße vergrößert werden (Schulkarte: 1,25). | `symbol_enlargement` |
-| Symbolmaß | symbol measure | Länge eines Symbols, wie die Norm es bei 100 % zeichnet, in mm. Wächst auf dem Blatt mit der Symbolvergrößerung; lässt sich nur mit Maßstab und Vergrößerung (`SymbolScale`) in Geländemeter oder Kartenkoordinaten umrechnen (ADR 0118). | `SymbolMm`, `SymbolMm2`, `build::symbol_measures` |
-| Papiermaß | paper measure | Länge auf dem gedruckten Blatt in mm, unabhängig von der Symbolvergrößerung, z. B. eine Mindestgröße oder die Maßstabsleiste (ADR 0118). | `PaperMm`, `PaperMm2` |
+| Symbolmaß | symbol measure | Länge eines Symbols, wie die Norm es bei 100 % zeichnet, in mm. Wächst auf dem Blatt mit der Symbolvergrößerung, auch die Mindestgrößen der Norm (kleinstes Gebäude 0,5 mm: auf der Schulkarte 0,625 mm); lässt sich nur mit Maßstab und Vergrößerung (`SymbolScale`) in Geländemeter oder Kartenkoordinaten umrechnen (ADR 0118). | `SymbolMm`, `SymbolMm2`, `build::symbol_measures` |
+| Papiermaß | paper measure | Länge auf dem gedruckten Blatt in mm, unabhängig von der Symbolvergrößerung, z. B. eine Vereinfachungstoleranz oder die Maßstabsleiste. Mindestgrößen der Norm sind Symbolmaße (ADR 0118). | `PaperMm`, `PaperMm2` |
 | Symbolzuordnung | symbol mapping | Regel, welche Quelldaten zu welchem Symbol werden. | `SymbolMapping` |
 | Kartenobjekt | map object | Einzelnes gezeichnetes Element mit Symbol und Geometrie. | `MapObject` |
 | Kartenteil | map part | Gruppe von Kartenobjekten in OOM (Ebene). | `MapPart` |

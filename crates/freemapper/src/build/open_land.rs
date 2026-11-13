@@ -15,7 +15,7 @@ use crate::build::out_of_bounds::{
 use crate::build::peripheral::PaperRect;
 use crate::crs::{BoundingBox, Crs, LatLon};
 use crate::georef::{GeorefError, Georeferencing};
-use crate::measure::PaperMm;
+use crate::measure::{SymbolMm, SymbolScale};
 use crate::omap::{MapCoord, MapObject, SymbolSet, closed_ring};
 use crate::project::MapKind;
 use crate::sources::alkis::LandUse;
@@ -101,7 +101,10 @@ pub fn open_land_objects(
     osm_forest: &[Polygon<f64>],
 ) -> Result<OpenLandObjects, GeorefError> {
     let forest = (kind == MapKind::Forest).then(|| forest_cover(land_use, osm_forest, clip));
-    let clip = LandClip::new(clip, georef);
+    let clip = LandClip::new(
+        clip,
+        SymbolScale::drawn_with(symbol_set, georef.scale_denominator),
+    );
     let mut objects = OpenLandObjects::default();
     for land in land_use {
         let Some(class) = open_land_class(land) else {
@@ -194,8 +197,9 @@ pub fn osm_forest_polygons(features: &[OsmFeature], crs: Crs) -> Vec<Polygon<f64
         .collect()
 }
 
-/// A piece of open land below (`MIN_PIECE_SIDE_MM`)² or narrower than it on paper is a sliver.
-const MIN_PIECE_SIDE_MM: PaperMm = PaperMm(1.0);
+/// A piece of open land below (`MIN_PIECE_SIDE_MM`)² or narrower than it, enlarged like the
+/// symbols, is a sliver.
+const MIN_PIECE_SIDE_MM: SymbolMm = SymbolMm(1.0);
 
 /// The OSM open land candidates (401 areas among `candidates`) minus the open land map objects
 /// (`alkis`, any 401, 403 or 405): where ALKIS knows the park, OSM adds nothing. A piece below
@@ -204,6 +208,7 @@ const MIN_PIECE_SIDE_MM: PaperMm = PaperMm(1.0);
 pub fn drop_open_land_under_alkis(
     candidates: Vec<MapObject>,
     alkis: &[MapObject],
+    georef: &Georeferencing,
     symbol_set: &SymbolSet,
 ) -> Vec<MapObject> {
     let Some(open_id) = symbol_set.id_for_code(OPEN_LAND_CODE) else {
@@ -213,7 +218,10 @@ pub fn drop_open_land_under_alkis(
     if alkis.is_empty() {
         return candidates;
     }
-    let min_side = MIN_PIECE_SIDE_MM.map_units();
+    let min_side = MIN_PIECE_SIDE_MM.map_units(SymbolScale::drawn_with(
+        symbol_set,
+        georef.scale_denominator,
+    ));
     let min_area = min_side * min_side;
     let mut kept = Vec::with_capacity(candidates.len());
     for object in candidates {
@@ -613,7 +621,7 @@ mod tests {
             // Not open land: unchanged even inside.
             map_square(&f, "501.5", 10.0, 10.0, 20.0, &set),
         ];
-        let kept = drop_open_land_under_alkis(candidates.clone(), &alkis, &set);
+        let kept = drop_open_land_under_alkis(candidates.clone(), &alkis, &f.georef, &set);
         assert_eq!(kept.len(), 3);
         let area = |o: &MapObject| object_polygon(o).unwrap().unsigned_area();
         let metre = 1e6 / 4000.0;

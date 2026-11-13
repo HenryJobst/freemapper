@@ -5,7 +5,7 @@ use geo_types::Polygon;
 
 use crate::crs::{BoundingBox, ProjectedPoint};
 use crate::georef::{GeorefError, Georeferencing};
-use crate::measure::PaperMm;
+use crate::measure::{SymbolMm, SymbolScale};
 use crate::omap::{MapObject, MapObjectKind, SymbolSet, closed_ring};
 use crate::project::MapKind;
 use crate::sources::alkis::LandUse;
@@ -22,9 +22,9 @@ const PRIVATE_LAND_USES: [&str; 4] = [
 ];
 /// On the schoolyard map, parts at least this much inside the map area are the school's land.
 const OWN_LAND_SHARE: f64 = 0.5;
-/// Pieces smaller than (1 mm)² or narrower than 1 mm on paper are slivers along parcel
-/// boundaries and at the clip edge.
-const MIN_SIDE_MM: PaperMm = PaperMm(1.0);
+/// Pieces smaller than (1 mm)² or narrower than 1 mm, enlarged like the symbols, are slivers
+/// along parcel boundaries and at the clip edge.
+const MIN_SIDE_MM: SymbolMm = SymbolMm(1.0);
 
 /// The `bez` of the sports and recreation land use that is private ground: allotment gardens.
 const ALLOTMENT_BEZ: &str = "Kleingarten";
@@ -48,7 +48,10 @@ pub fn out_of_bounds_objects(
     let symbol_id = symbol_set
         .id_for_code(OUT_OF_BOUNDS_CODE)
         .expect("symbol set defines 520");
-    let clip = LandClip::new(clip, georef);
+    let clip = LandClip::new(
+        clip,
+        SymbolScale::drawn_with(symbol_set, georef.scale_denominator),
+    );
     let mut objects = Vec::new();
     for land in land_use {
         for part in &land.footprint.0 {
@@ -90,17 +93,17 @@ pub(crate) struct LandClip {
 }
 
 impl LandClip {
-    pub(crate) fn new(clip: &BoundingBox, georef: &Georeferencing) -> Self {
-        Self::with_min_side(clip, georef, MIN_SIDE_MM)
+    pub(crate) fn new(clip: &BoundingBox, scale: SymbolScale) -> Self {
+        Self::with_min_side(clip, scale, MIN_SIDE_MM)
     }
 
-    /// The clip window with slivers below `min_side_mm` on paper instead of [`MIN_SIDE_MM`].
+    /// The clip window with slivers below `min_side_mm` instead of [`MIN_SIDE_MM`].
     pub(crate) fn with_min_side(
         clip: &BoundingBox,
-        georef: &Georeferencing,
-        min_side_mm: PaperMm,
+        scale: SymbolScale,
+        min_side_mm: SymbolMm,
     ) -> Self {
-        let min_side = min_side_mm.metres(georef.scale_denominator);
+        let min_side = min_side_mm.metres(scale);
         Self {
             polygon: geo_types::Rect::new(
                 geo_types::coord! { x: clip.min_e, y: clip.min_n },
@@ -451,6 +454,20 @@ mod tests {
             vec![Polygon::new(ring(e + 55.0, n, 0.5, 0.5), vec![])],
         );
         assert!(objects(&f, &[sliver], MapKind::Schoolyard).0.is_empty());
+    }
+
+    #[test]
+    fn the_sliver_limit_grows_with_the_symbols() {
+        // 1 mm square of the norm: 1 m² at 1:1000 with symbols at 100 %, 1.5625 m² on the school
+        // map (125 %).
+        let f = fixture();
+        let (e, n) = f.centre;
+        let piece = Polygon::new(ring(e, n, 1.1, 1.1), vec![]);
+        let sliver = |kind: MapKind| {
+            LandClip::new(&f.clip, SymbolScale::new(kind, 1000)).is_sliver(&piece, 0.0)
+        };
+        assert!(!sliver(MapKind::Sprint));
+        assert!(sliver(MapKind::Schoolyard));
     }
 
     #[test]

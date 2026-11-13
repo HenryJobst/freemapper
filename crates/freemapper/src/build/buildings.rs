@@ -5,7 +5,7 @@ use geo_types::Polygon;
 
 use crate::crs::ProjectedPoint;
 use crate::georef::{GeorefError, Georeferencing};
-use crate::measure::PaperMm;
+use crate::measure::{PaperMm, SymbolMm, SymbolScale};
 use crate::omap::{MapCoord, MapObject, MapObjectKind, SymbolSet, closed_ring};
 use crate::sources::alkis::Building;
 
@@ -13,8 +13,9 @@ use crate::sources::alkis::Building;
 const BUILDING_SYMBOL_CODE: &str = "521";
 /// `gebnutzbez` of real buildings; parts and structures (chimneys …) are not mapped.
 const BUILDING_KIND: &str = "Gebäude";
-/// Footprints and holes with an area below (`MIN_SIDE_MM`)² on paper are dropped.
-const MIN_SIDE_MM: PaperMm = PaperMm(0.5);
+/// Footprints and holes with an area below (`MIN_SIDE_MM`)² are dropped: the smallest building
+/// of the norm, which grows with the symbols (ADR 0118).
+const MIN_SIDE_MM: SymbolMm = SymbolMm(0.5);
 /// Outline simplification tolerance on paper.
 const SIMPLIFY_MM: PaperMm = PaperMm(0.1);
 
@@ -56,7 +57,8 @@ pub fn building_objects(
     let symbol_id = symbol_set
         .id_for_code(BUILDING_SYMBOL_CODE)
         .expect("symbol set defines 521");
-    let min_area = MIN_SIDE_MM.metres(georef.scale_denominator).powi(2);
+    let scale = SymbolScale::drawn_with(symbol_set, georef.scale_denominator);
+    let min_area = MIN_SIDE_MM.metres(scale).powi(2);
     let tolerance = SIMPLIFY_MM.metres(georef.scale_denominator);
 
     let mut objects = Vec::new();
@@ -241,16 +243,22 @@ mod tests {
 
     #[test]
     fn tiny_building_is_dropped() {
+        // The smallest building of the norm is 0.5 mm square. The school map draws its symbols
+        // at 125 %, so its limit is 0.625 mm: 0.625 m at 1:1000.
         let f = fixture();
         let (e, n) = centre(&f);
-        assert_eq!(
-            objects(&f, &[building("Gebäude", vec![rect(e, n, 0.4, 0.4)])]).len(),
-            0
-        );
-        assert_eq!(
-            objects(&f, &[building("Gebäude", vec![rect(e, n, 0.6, 0.6)])]).len(),
-            1
-        );
+        let kept = |f: &Fixture, side: f64| {
+            objects(f, &[building("Gebäude", vec![rect(e, n, side, side)])]).len()
+        };
+        assert_eq!(kept(&f, 0.6), 0);
+        assert_eq!(kept(&f, 0.7), 1);
+        // The same ground drawn with symbols at 100 %: the limit is 0.5 m.
+        let plain = Fixture {
+            symbols: SymbolSet::issprom_2019(),
+            ..fixture()
+        };
+        assert_eq!(kept(&plain, 0.4), 0);
+        assert_eq!(kept(&plain, 0.6), 1);
     }
 
     #[test]

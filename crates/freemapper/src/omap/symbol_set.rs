@@ -21,6 +21,9 @@ pub struct SymbolSet {
     /// Codes of another norm and the code of this set that draws them, `None` for a code this
     /// set leaves out (`isom-aliases.toml`); asked before `codes`.
     aliases: Vec<(String, Option<String>)>,
+    /// The factor its symbols are enlarged by against the norm (ISSprOM 2019 at 1:4000, ISOM
+    /// 2017-2 at 1:15000); 1 for a set read as it is.
+    enlargement: f64,
 }
 
 const SCHOOL_2019_ADDITIONS: &str =
@@ -120,6 +123,7 @@ impl SymbolSet {
             grid_xml: grid.unwrap_or_default(),
             codes,
             aliases: Vec::new(),
+            enlargement: 1.0,
         })
     }
 
@@ -154,6 +158,7 @@ impl SymbolSet {
             .collect();
         Self {
             aliases,
+            enlargement,
             ..Self::from_omap_xml(&map).expect("generated ISOM 2017-2 symbol set is valid")
         }
     }
@@ -198,9 +203,11 @@ impl SymbolSet {
                 r#"<georeferencing scale="1000""#,
                 1,
             );
-        Self::from_omap_xml(&map)
-            .expect("generated school symbol set is valid")
-            .with_additions(SCHOOL_2019_ADDITIONS)
+        Self {
+            enlargement: SCHOOL_SYMBOL_ENLARGEMENT,
+            ..Self::from_omap_xml(&map).expect("generated school symbol set is valid")
+        }
+        .with_additions(SCHOOL_2019_ADDITIONS)
     }
 
     /// This set plus the freemapper sheet symbols for the peripheral information (991–994).
@@ -271,8 +278,15 @@ impl SymbolSet {
         );
         Self {
             aliases: self.aliases.clone(),
+            enlargement: self.enlargement,
             ..Self::from_omap_xml(&map).expect("symbol set with additions is valid")
         }
+    }
+
+    /// The factor the symbols of this set are enlarged by against the norm: what a symbol
+    /// measure ([`crate::measure::SymbolMm`]) grows by on a map drawn with it.
+    pub fn enlargement(&self) -> f64 {
+        self.enlargement
     }
 
     /// Id of the first top-level symbol with the given code, or with the code an alias names
