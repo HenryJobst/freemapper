@@ -25,21 +25,10 @@ use crate::tiles::TileId;
 use freemapper_adapters_de::lgb::Product;
 /// Typical download sizes in MB.
 const ALKIS_MB: f64 = 0.5;
-/// The Berlin vector layers in the centre, per km²: the ALKIS structure layers, relief, hedges
-/// and the tree cadastre 4 MB (measured 3.7 to 3.8 MB in Kreuzberg and 4.6 MB in Prenzlauer Berg),
-/// the street survey and point layers 5 MB (measured 3.2 MB at Viktoriapark, plus 0.8 MB per km²
-/// there for the furniture and lamps that sprint maps fetch too since ADR 0077; a street area
-/// with 2 392 bollards per km² takes about 1.4 MB) and the building heights 3 MB (measured 2.7 MB
-/// there), live runs of 2026-11-09 and 2026-11-10. Each share is rounded up to the next half MB,
-/// so the disk check errs on the safe side; Viktoriapark measured 9.8 MB in all, before the
-/// furniture.
-const BERLIN_LAYERS_MB_PER_KM2: f64 = 12.0;
 /// The K5 map (1:5000) PNG template at 0.25 m per pixel, per km² (measured 9.1 MB around a park
 /// and 17 MB in dense blocks, 2026-11-09).
 const K5_MB_PER_KM2: f64 = 15.0;
-/// Names of the Berlin items in the estimate.
-pub(crate) const BERLIN_LAYERS_ITEM: &str =
-    "Berlin ALKIS structures, tree cadastre, street survey and point layers";
+/// Name of the K5 item in the estimate.
 pub(crate) const BERLIN_K5_ITEM: &str = "Berlin K5 map (1:5000) template";
 /// The NAS layers (full ALKIS) per km² where a state with a NAS service is touched. The live run
 /// at Sanssouci (0.74 km² fetch box, 2026-11-09) stored 0.58 MB of GeoJSON (0.8 MB per km²); the
@@ -160,18 +149,21 @@ pub(crate) fn estimate_area(
         part: Part::MapData,
         store: Store::Project,
     });
-    // Areas that touch Berlin also get the extra Berlin layers and the K5 template.
-    let near_berlin = regions_for(bbox)
-        .iter()
-        .any(|region| region.as_str() == freemapper_adapters_de::boundaries::BERLIN);
-    if near_berlin {
-        items.push(per_km2_item(
-            bbox,
-            BERLIN_LAYERS_ITEM,
-            BERLIN_LAYERS_MB_PER_KM2,
-            Part::BerlinLayers,
-        ));
-        items.push(per_km2_item(bbox, BERLIN_K5_ITEM, K5_MB_PER_KM2, Part::K5));
+    // The adapters the area touches bring the sets of extra layers they fetch themselves
+    // (Berlin's registers and surveys), each with its item; with Berlin comes the K5 template.
+    for adapter in freemapper_adapter_api::geometry::regions_for_in(registry(), bbox) {
+        for set in adapter.extras() {
+            let estimate = &set.info().estimate;
+            items.push(per_km2_item(
+                bbox,
+                estimate.what,
+                estimate.megabytes_per_km2,
+                Part::BerlinLayers,
+            ));
+        }
+        if adapter.info().id.as_str() == freemapper_adapters_de::boundaries::BERLIN {
+            items.push(per_km2_item(bbox, BERLIN_K5_ITEM, K5_MB_PER_KM2, Part::K5));
+        }
     }
     if !crate::sources::alkis_nas::nas_services_for(bbox).is_empty() {
         items.push(per_km2_item(
@@ -464,6 +456,10 @@ fn small_png(image: &image::DynamicImage, max_px: u32) -> Result<Vec<u8>, Projec
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The item of Berlin's set of extra layers, as its adapter words it.
+    const BERLIN_LAYERS_ITEM: &str =
+        "Berlin ALKIS structures, tree cadastre, street survey and point layers";
     use crate::fetch::test_support::{MapFetcher, serve_synthetic_ndsm, serve_synthetic_tile};
     use crate::fetch::{Cache, FetchMode};
     use crate::project::{MapKind, derive_project, fetch_project, init_project};

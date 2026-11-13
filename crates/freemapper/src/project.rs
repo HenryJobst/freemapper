@@ -10538,7 +10538,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             .unwrap();
         serve_berlin_layers(&fetcher, &region_bbox);
         fetch(dir.path(), &fetcher, &cache);
-        let berlin = crate::layers::BERLIN_LAYERS_ITEM;
+        let berlin = "Berlin ALKIS structures, tree cadastre, street survey and point layers";
         assert!(item(dir.path(), &cache, berlin).cached);
         let mut project = ProjectFile::load(dir.path()).unwrap();
         moved(&mut project.berlin_layers);
