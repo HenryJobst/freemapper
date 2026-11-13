@@ -779,7 +779,7 @@ pub(crate) const NDSM_RELPATH: &str = "templates/ndsm.png";
 pub(crate) const K5_RELPATH: &str = "templates/k5.png";
 /// The key of the raster template whose record the project file keeps in `k5` and whose file
 /// is [`K5_RELPATH`]: the one template there is. A second one needs a field of its own.
-const K5_TEMPLATE: &str = "k5";
+pub(crate) const K5_TEMPLATE: &str = "k5";
 /// The terrain mosaic of a tile provider (LGB, GeoSN) cut to the map area plus buffer, with its
 /// world file. `derive` writes it only where the extra Berlin layers have stair areas: the export
 /// reads their walking direction from it, offline and without the tile cache.
@@ -1428,12 +1428,14 @@ fn raster_backend(region_bbox: &BoundingBox) -> Result<&'static dyn RasterBacken
         .ok_or(ProjectError::OutsideCoverage)
 }
 
-/// The Berlin K5 map as the template [`K5_RELPATH`] (PNG + world file) over `bbox`, the map area
-/// plus buffer in the map's CRS. Optional like the Berlin layers: a failed request or a full disk
-/// (`skip`) leaves the template out with a warning, never fails the fetch. A stored template
-/// that covers the area (same grid, see `check_template`) is kept. Outside Berlin (`region_bbox`), and in
-/// any CRS but UTM zone 33 that the service is asked for, nothing is requested and an earlier
-/// template is removed. Offline the stored template stays.
+/// The raster template recorded in `k5` as the file [`K5_RELPATH`] (PNG and world file) over
+/// `bbox`, the map area plus buffer in the map's CRS: the template of the adapter that has it
+/// ([`extras::fetch_template_key_into`]). Optional like the extra layers: a failed request or a
+/// full disk (`skip`) leaves the template out with a warning, never fails the fetch. A stored
+/// template that covers the area (same grid, see `check_template`) is kept. Outside the region
+/// of the adapter (`region_bbox`), and for a map in another CRS than the template is served in,
+/// nothing is requested and an earlier template is removed. Offline the stored template stays,
+/// and so it does in a run whose registry has no adapter with the template.
 #[allow(clippy::too_many_arguments)]
 fn fetch_k5_into(
     dir: &Path,
@@ -2822,7 +2824,7 @@ fn used_sources<'a>(project: &'a ProjectFile, registers: &'a [&'a str]) -> UsedS
             .iter()
             .map(|(file, record)| (file.as_str(), record.count))
             .collect(),
-        extra_templates: project.k5.iter().map(|_| "k5").collect(),
+        extra_templates: project.k5.iter().map(|_| K5_TEMPLATE).collect(),
         drawn_registers: registers,
     }
 }

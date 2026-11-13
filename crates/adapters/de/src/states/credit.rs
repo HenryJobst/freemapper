@@ -153,7 +153,7 @@ fn berlin(used: &UsedSources<'_>) -> Vec<String> {
     if used.has_alkis_of(State::Berlin.id()) {
         lines.push(BERLIN_ATTRIBUTION.to_string());
     }
-    if used.extra_templates.contains(&"k5") {
+    if used.extra_templates.contains(&crate::berlin::K5_KEY) {
         lines.push(BERLIN_K5_ATTRIBUTION.to_string());
     }
     // A stored layer without features contributed nothing (a tree layer without trees draws no

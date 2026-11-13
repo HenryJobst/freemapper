@@ -1498,14 +1498,18 @@ mod tests {
             );
         }
 
-        /// The file of the template recorded in `k5` is the one the engine lists and removes.
+        /// The template recorded in `k5`: an adapter of the program has it under the key the
+        /// engine looks for, its file is the one the engine lists and removes, and its credit
+        /// goes by the same key.
         #[test]
-        fn of_berlin_is_the_file_the_engine_names() {
+        fn of_berlin_is_the_one_the_engine_records() {
+            use crate::project::{K5_RELPATH, K5_TEMPLATE};
+            let (adapter, template) =
+                template_in(crate::adapters::registry(), K5_TEMPLATE).expect("built in");
+            assert_eq!(adapter.info().id.as_str(), "berlin");
+            assert_eq!(template.info().key, freemapper_adapters_de::berlin::K5_KEY);
             let dir = Path::new("project");
-            assert_eq!(
-                template_path(dir, "k5"),
-                dir.join(crate::project::K5_RELPATH)
-            );
+            assert_eq!(template_path(dir, K5_TEMPLATE), dir.join(K5_RELPATH));
         }
 
         /// A run whose registry has no adapter with the template leaves it alone.

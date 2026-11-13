@@ -19,7 +19,7 @@ use crate::project::{
     check_area, check_size, map_crs, map_path,
 };
 use crate::sources::osm::{MAX_EXTRACT_AGE_DAYS, cached_extract_date, extracts_for};
-use crate::sources::region::{provider_tiles_in, raster_region_in, regions_for};
+use crate::sources::region::{provider_tiles_in, raster_region_in};
 use crate::space::{Part, Store};
 use crate::tiles::TileId;
 use freemapper_adapters_de::lgb::Product;
@@ -331,9 +331,9 @@ const RASTER_LAYERS: [(&str, &str, &str); 6] = [
     ),
 ];
 
-/// Whether the K5 template belongs to the project in `dir`: its area touches Berlin, the only
-/// state that publishes it, or the folder has the file. A folder without a readable project file
-/// lists it, as before.
+/// Whether the K5 template belongs to the project in `dir`: its area touches the region of the
+/// adapter that has the template (Berlin, the only state that publishes it), or the folder has
+/// the file. A folder without a readable project file lists it, as before.
 fn has_k5(dir: &Path) -> bool {
     if dir.join(K5_RELPATH).exists() {
         return true;
@@ -341,9 +341,10 @@ fn has_k5(dir: &Path) -> bool {
     ProjectFile::load(dir)
         .and_then(|project| project.region_bbox())
         .map_or(true, |bbox| {
-            regions_for(&bbox)
+            freemapper_adapter_api::geometry::regions_for_in(registry(), &bbox)
                 .iter()
-                .any(|region| region.as_str() == freemapper_adapters_de::boundaries::BERLIN)
+                .flat_map(|adapter| adapter.templates())
+                .any(|template| template.info().key == crate::project::K5_TEMPLATE)
         })
 }
 

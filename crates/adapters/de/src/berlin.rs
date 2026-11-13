@@ -340,9 +340,12 @@ impl ExtraSet for Registers {
 /// The Berlin map 1:5000 in colour (K5) as the raster template of Berlin's adapter.
 pub struct K5;
 
+/// The key of the [`K5`] template: its file, its record and its credit go by it.
+pub const K5_KEY: &str = "k5";
+
 /// What the engine stores and reports of [`K5`].
 static K5_TEMPLATE: RasterTemplateInfo = RasterTemplateInfo {
-    key: "k5",
+    key: K5_KEY,
     crs: crate::crs::Crs::Utm33,
     // The date of the K5 dataset (catalogue `karte-von-berlin-1-5000-k5-farbausgabe-9f3ecf8d`);
     // the WMS gives no date of its own.
