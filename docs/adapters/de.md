@@ -60,6 +60,16 @@ Drei Grenzen von Format 1, die eine Region zu einem Backend schicken:
 - Ein Datum kommt aus einem Dienst, den das Format kennt (ein WFS mit GeoJSON, eine STAC-API, die
   Feature-Info des WMS), oder gar nicht.
 
+Ein Code-Adapter kann zwei weitere Dinge mitbringen, und nur er: Sätze von Zusatzebenen
+(`RegionAdapter::extras`) und Rastervorlagen (`RegionAdapter::templates`). Berlin hat von beidem eines: seine
+Register und Straßenbefahrungen, je Ebene eine Datei unter `data/berlin/`, und die Karte von Berlin 1:5000 als
+`templates/k5.png`. freemapper speichert sie, behält eine gespeicherte, solange sie das Gebiet abdeckt, entfernt,
+was eine Karte nicht mehr braucht, und fragt nur die Hosts ab, die der Adapter deklariert. Um aus einer solchen
+Ebene etwas zu zeichnen, braucht freemapper weiterhin eigene Zeichenregeln; die kann ein Adapter noch nicht
+mitbringen. Die Projektdatei hat heute Platz für einen Satz und eine Vorlage. Ein zweiter ändert das Dateiformat,
+das auch freemapper-print und freemapper-courseplan lesen; legen Sie deshalb zuerst ein Issue an
+([ADR 0114](../adr/0114-the-extra-layers-and-raster-templates-of-an-adapter.md)).
+
 ## 3. Den Ordner anlegen
 
 Dafür gibt es noch keinen Befehl. Von Hand:
