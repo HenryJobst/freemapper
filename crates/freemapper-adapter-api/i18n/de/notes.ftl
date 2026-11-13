@@ -100,6 +100,14 @@ progress-osm-candidates = { $count ->
        *[other] { $count } OSM-Objekte als Kandidaten
     }
 
+## Genehmigungshinweise
+
+progress-permits-fetch = Daten von { $source } für die Genehmigungshinweise werden geholt
+progress-permits-osm = OSM-Auszug { $region } vom { $date } wird für die Genehmigungshinweise gelesen
+progress-permits-stored = Die gespeicherten Daten der Genehmigungshinweise werden gelesen
+warning-permits-source-unreachable = { $source } ließ sich nicht lesen, die Genehmigungshinweise lassen die Quelle aus: { $error }
+warning-permits-osm-no-extract = Für dieses Kartengebiet ist kein OSM-Auszug im Zwischenspeicher, die Genehmigungshinweise lassen OSM aus; `freemapper fetch` lädt ihn
+
 ## ALKIS
 
 warning-alkis-coverage-unknown = Unbekannt, welches Gebiet die ALKIS-Gebäude abdecken; rufen Sie `freemapper fetch` mit Netzverbindung auf, damit es vermerkt wird

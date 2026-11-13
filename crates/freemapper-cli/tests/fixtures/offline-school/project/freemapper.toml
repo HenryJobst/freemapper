@@ -1,0 +1,69 @@
+map_kind = "schoolyard"
+scale_denominator = 1000
+declination_date = "2026-11-07"
+buffer_m = 20.0
+map_area_source_id = "way/992423119"
+crs = 25833
+provider = "lgb"
+title = "Offline school"
+
+[map_area]
+coordinates = [[[13.8433089, 52.5388259], [13.8435234, 52.5390078], [13.8446151, 52.5400586], [13.8456815, 52.541085], [13.8451098, 52.54133], [13.8438756, 52.5401768], [13.8427017, 52.53908], [13.8431744, 52.5388752], [13.8433089, 52.5388259]]]
+type = "Polygon"
+
+[[tiles]]
+product = "orthophoto"
+tile = "33421-5821"
+url = "https://data.geobasis-bb.de/geobasis/daten/dop/rgb_jpg/dop_33421-5821.zip"
+currency = "2018-11-27"
+published = "2026-01-26"
+
+[[tiles]]
+product = "dtm"
+tile = "33421-5821"
+url = "https://data.geobasis-bb.de/geobasis/daten/dgm/tif/dgm_33421-5821.zip"
+currency = "2018-11-27"
+published = "2026-01-26"
+
+[buildings]
+bbox = [421490.0, 5821579.0, 421736.0, 5821896.0]
+fetched = "2026-11-13"
+latest_update = "2023-05-04"
+count = 1
+regions = ["brandenburg"]
+
+[land_use]
+bbox = [421490.0, 5821579.0, 421736.0, 5821896.0]
+fetched = "2026-11-13"
+latest_update = "2025-09-30"
+count = 2
+regions = ["brandenburg"]
+
+[nas_layers.bauwerk-gewaesser]
+bbox = [421490.0, 5821579.0, 421736.0, 5821896.0]
+fetched = "2026-11-13"
+count = 0
+regions = ["brandenburg"]
+
+[nas_layers.sonstiges-bauwerk]
+bbox = [421490.0, 5821579.0, 421736.0, 5821896.0]
+fetched = "2026-11-13"
+count = 0
+regions = ["brandenburg"]
+
+[nas_layers.untergeordnetes-gewaesser]
+bbox = [421490.0, 5821579.0, 421736.0, 5821896.0]
+fetched = "2026-11-13"
+count = 0
+regions = ["brandenburg"]
+
+[nas_layers.vegetationsmerkmal]
+bbox = [421490.0, 5821579.0, 421736.0, 5821896.0]
+fetched = "2026-11-13"
+count = 0
+regions = ["brandenburg"]
+
+[osm]
+extract = "2026-11-06"
+area = [52.53864624, 13.8424063, 52.54150966, 13.8459769]
+count = 7

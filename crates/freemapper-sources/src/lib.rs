@@ -5,19 +5,24 @@
 //! Terms follow `docs/glossary.md`.
 
 pub mod alkis_source;
+pub mod bfn;
 pub mod dates;
 pub mod float_tiff;
+pub mod geojson_wfs;
 pub mod height_model;
 pub mod layer_file;
 pub mod metalink;
 pub mod nas;
 pub mod ogc_api;
+#[cfg(test)]
+mod permits_test_support;
 pub mod raster;
 pub mod raster_fetch;
 pub mod replay;
 #[cfg(any(test, feature = "testing"))]
 pub mod testing;
 pub mod trees;
+pub mod vg250;
 pub mod wcs;
 pub mod wfs;
 pub mod wms;

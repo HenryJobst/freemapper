@@ -1,6 +1,6 @@
 //! The pipeline behind `freemapper run`, the MCP tool `start_pipeline` and the run button of the
-//! selection page: fetch, derive, write the map, then the optional OCAD and PDF outputs. One
-//! function, so the three callers cannot drift apart (ADR 0090).
+//! selection page: fetch, derive, write the map, then the optional OCAD and PDF outputs and the
+//! permit notes. One function, so the three callers cannot drift apart (ADR 0090).
 
 use crate::text::{Lang, TEXTS, n, text, v};
 use std::cell::RefCell;
@@ -28,6 +28,9 @@ pub struct RunOptions {
     pub pdf_candidates: bool,
     pub pdf_scale_bar: bool,
     pub pdf_sources: PdfSources,
+    /// Also write the permit notes after the map (ADR 0117). A failure there is a warning and
+    /// never fails the run.
+    pub permits: bool,
     /// Stop with the first failing OCAD or PDF output (the command line). Without it the failure
     /// is written into the summary and the other outputs still run (MCP and the page).
     pub fail_fast: bool,
@@ -44,6 +47,7 @@ pub struct RunRequest {
     pub pdf_candidates: Option<bool>,
     pub pdf_scale_bar: Option<bool>,
     pub pdf_sources: Option<String>,
+    pub permits: Option<bool>,
 }
 
 /// Checks a request and fills in the defaults of the command line.
@@ -68,6 +72,7 @@ pub fn parse(request: RunRequest, lang: &Lang) -> Result<RunOptions, String> {
         pdf_candidates: request.pdf_candidates.unwrap_or(false),
         pdf_scale_bar: request.pdf_scale_bar.unwrap_or(false),
         pdf_sources,
+        permits: request.permits.unwrap_or(false),
         fail_fast: false,
     })
 }
@@ -90,6 +95,7 @@ pub enum Step {
     Ocad,
     Pdf,
     PdfCandidates,
+    Permits,
 }
 
 impl Step {
@@ -102,6 +108,7 @@ impl Step {
             Step::Ocad => "step-ocad",
             Step::Pdf => "step-pdf",
             Step::PdfCandidates => "step-pdf-candidates",
+            Step::Permits => "step-permits",
         }
     }
 }
@@ -128,6 +135,8 @@ pub enum Written<'a> {
     Ocad(&'a OcadOutcome),
     Pdf(&'a Path),
     PdfCandidates(&'a Path),
+    /// `permits.md`.
+    Permits(&'a Path),
 }
 
 /// A file a run produced, relative to the project folder.
@@ -149,6 +158,8 @@ pub struct RunReport {
     pub files: Vec<ResultFile>,
     /// An existing map was left alone.
     pub kept_map: bool,
+    /// The text of `permits.md`, for a job of the MCP tool `permits_for_area` alone.
+    pub permits_md: Option<String>,
 }
 
 /// Lets a caller stop a run from another thread. The run looks at the flag before each step,
@@ -241,6 +252,9 @@ fn selected_steps(options: &RunOptions) -> Vec<Step> {
     if options.pdf_candidates {
         steps.push(Step::PdfCandidates);
     }
+    if options.permits {
+        steps.push(Step::Permits);
+    }
     steps
 }
 
@@ -283,21 +297,25 @@ pub fn run(
     };
     let progress = RefCell::new(progress);
     let warnings = RefCell::new(Vec::new());
+    let warn = |text: String| {
+        (progress.borrow_mut())(Event::Warning(&text));
+        warnings.borrow_mut().push(text);
+    };
+    let on_note = |note: freemapper::note::Note| {
+        let text = line(&note);
+        if note.is_warning() {
+            warn(text);
+        } else {
+            (progress.borrow_mut())(Event::Line(&text));
+        }
+    };
     let outcome = run_project_steps_cancellable(
         dir,
         fetcher,
         cache,
         mode,
         options.force,
-        &mut |note| {
-            let text = line(&note);
-            if note.is_warning() {
-                (progress.borrow_mut())(Event::Warning(&text));
-                warnings.borrow_mut().push(text);
-            } else {
-                (progress.borrow_mut())(Event::Line(&text));
-            }
-        },
+        &mut |note| on_note(note),
         &mut |stage| {
             let step = match stage {
                 RunStage::Fetch => Step::Fetch,
@@ -323,7 +341,7 @@ pub fn run(
                 pdf_candidates: &Option<Result<PathBuf, String>>| {
         control.is_cancelled().then(|| {
             anyhow::Error::new(Cancelled {
-                kept: result_files(dir, &outcome, ocad, pdf, pdf_candidates),
+                kept: result_files(dir, &outcome, ocad, pdf, pdf_candidates, None),
             })
         })
     };
@@ -411,13 +429,120 @@ pub fn run(
             pdf_candidates = Some(result);
         }
     }
+    // The permit notes come last: they ask other services, and the map is whole without them. A
+    // failure is a warning, also on the command line (ruling of ADR 0117).
+    let mut permits = None;
+    if options.permits {
+        if let Some(cancelled) = stop(&ocad, &pdf, &pdf_candidates) {
+            return Err(cancelled);
+        }
+        (progress.borrow_mut())(phase(Step::Permits));
+        match crate::permits::write_permits(
+            dir,
+            options.offline,
+            cache,
+            fetcher,
+            &crate::text::lang(),
+            &mut |note| on_note(note),
+        ) {
+            Ok(written) => {
+                for warning in &written.warnings {
+                    warn(warning.clone());
+                }
+                (progress.borrow_mut())(Event::Written(Written::Permits(&written.markdown)));
+                summary.push('\n');
+                summary.push_str(&text(
+                    "cli-summary-wrote-permits",
+                    &[("path", v(written.markdown.display()))],
+                ));
+                permits = Some(written);
+            }
+            Err(e) => {
+                let warning = crate::text::warning(&text(
+                    "cli-permits-failed",
+                    &[("error", v(describe(e.as_ref())))],
+                ));
+                summary.push('\n');
+                summary.push_str(&warning);
+                warn(warning);
+            }
+        }
+    }
     let kept_map = matches!(outcome.map, MapOutcome::Kept { .. });
-    let files = result_files(dir, &outcome, &ocad, &pdf, &pdf_candidates);
+    let files = result_files(
+        dir,
+        &outcome,
+        &ocad,
+        &pdf,
+        &pdf_candidates,
+        permits.as_ref(),
+    );
     Ok(RunReport {
         summary,
         warnings: warnings.into_inner(),
         files,
         kept_map,
+        permits_md: None,
+    })
+}
+
+/// The permit notes alone, as the MCP tool `permits_for_area` runs them as a job: one step, the
+/// files and the text of `permits.md` in the report. The caller holds the folder lock.
+pub fn permits_job(
+    dir: &Path,
+    offline: bool,
+    cache: &Cache,
+    fetcher: &dyn Fetcher,
+    control: &RunControl,
+    progress: &mut dyn FnMut(Event),
+) -> Result<RunReport, anyhow::Error> {
+    if control.is_cancelled() {
+        return Err(anyhow::Error::new(Cancelled { kept: Vec::new() }));
+    }
+    progress(Event::Phase {
+        step: Step::Permits,
+        index: 1,
+        total: 1,
+    });
+    let mut warnings = Vec::new();
+    let written = {
+        let mut on_note = |note: freemapper::note::Note| {
+            let text = line(&note);
+            if note.is_warning() {
+                progress(Event::Warning(&text));
+                warnings.push(text);
+            } else {
+                progress(Event::Line(&text));
+            }
+        };
+        crate::permits::write_permits(
+            dir,
+            offline,
+            cache,
+            fetcher,
+            &crate::text::lang(),
+            &mut on_note,
+        )?
+    };
+    for warning in &written.warnings {
+        progress(Event::Warning(warning));
+        warnings.push(warning.clone());
+    }
+    progress(Event::Written(Written::Permits(&written.markdown)));
+    let markdown = std::fs::read_to_string(&written.markdown)?;
+    let files = [&written.markdown, &written.json]
+        .into_iter()
+        .filter_map(|path| file_entry(dir, "permits", path))
+        .collect();
+    Ok(RunReport {
+        summary: text(
+            "cli-summary-wrote-permits",
+            &[("path", v(written.markdown.display()))],
+        ),
+        warnings,
+        files,
+        kept_map: false,
+        permits_md: Some(markdown),
     })
 }
 
@@ -428,6 +553,7 @@ fn result_files(
     ocad: &Option<Result<OcadOutcome, String>>,
     pdf: &Option<Result<PathBuf, String>>,
     pdf_candidates: &Option<Result<PathBuf, String>>,
+    permits: Option<&crate::permits::PermitsWritten>,
 ) -> Vec<ResultFile> {
     let mut candidates: Vec<(&'static str, PathBuf)> = vec![("map", map_path(dir))];
     // Only a preview written with the map: one left next to a kept map belongs to an older run.
@@ -446,6 +572,10 @@ fn result_files(
     }
     if matches!(pdf_candidates, Some(Ok(_))) {
         candidates.push(("pdf-candidates", pdf_path(dir, true)));
+    }
+    if let Some(written) = permits {
+        candidates.push(("permits", written.markdown.clone()));
+        candidates.push(("permits", written.json.clone()));
     }
     candidates
         .into_iter()
@@ -569,6 +699,17 @@ mod tests {
     }
 
     #[test]
+    fn parse_reads_permits() {
+        assert!(!all_off().permits);
+        let request = RunRequest {
+            permits: Some(true),
+            ..RunRequest::default()
+        };
+        assert!(parse(request, &Lang::english()).unwrap().permits);
+        assert!(serde_json::from_str::<RunRequest>(r#"{"permits":true}"#).is_ok());
+    }
+
+    #[test]
     fn parse_refuses_unknown_fields() {
         assert!(serde_json::from_str::<RunRequest>(r#"{"force":true,"dir":"/x"}"#).is_err());
         assert!(serde_json::from_str::<RunRequest>(r#"{"force":true}"#).is_ok());
@@ -657,7 +798,7 @@ mod tests {
             preview: None,
         };
         let pdf = Some(Ok(pdf_path(dir.path(), false)));
-        let files = result_files(dir.path(), &outcome, &None, &pdf, &None);
+        let files = result_files(dir.path(), &outcome, &None, &pdf, &None, None);
         // The PDF was not written, the template is absent: only the map is listed.
         assert_eq!(files.len(), 1, "{files:?}");
         assert_eq!(files[0].kind, "map");
@@ -668,10 +809,10 @@ mod tests {
         // not listed; the one written with the map is, right after it.
         let preview = map_preview_path(dir.path());
         std::fs::write(&preview, "123").unwrap();
-        let files = result_files(dir.path(), &outcome, &None, &pdf, &None);
+        let files = result_files(dir.path(), &outcome, &None, &pdf, &None, None);
         assert_eq!(files.len(), 1, "{files:?}");
         outcome.preview = Some(preview.clone());
-        let files = result_files(dir.path(), &outcome, &None, &pdf, &None);
+        let files = result_files(dir.path(), &outcome, &None, &pdf, &None, None);
         assert_eq!(files.len(), 2, "{files:?}");
         assert_eq!(files[0].kind, "map");
         assert_eq!(files[1].kind, "preview");
@@ -851,6 +992,131 @@ mod tests {
         assert_eq!(error, format!("cancelled; kept: {name}, {preview_name}"));
     }
 
+    /// Records every URL. Answers the currency lists of the LGB from the cache of the fixture,
+    /// ALKIS and the national services with an empty collection, and refuses everything else.
+    #[derive(Default)]
+    struct Recording {
+        cache: PathBuf,
+        urls: RefCell<Vec<String>>,
+    }
+
+    impl Fetcher for Recording {
+        fn get(&self, url: &str) -> Result<Vec<u8>, freemapper::fetch::FetchError> {
+            self.urls.borrow_mut().push(url.to_string());
+            let product = if url.ends_with("bb_dop_aktualitaet.csv") {
+                Some("dop20rgb")
+            } else if url.ends_with("bb_dgm_aktualitaet.csv") {
+                Some("dgm1")
+            } else {
+                None
+            };
+            if url.starts_with("https://ogc-api.geobasis-bb.de/")
+                || NATIONAL_HOSTS
+                    .iter()
+                    .any(|host| url.starts_with(&format!("https://{host}/")))
+            {
+                return Ok(br#"{"type":"FeatureCollection","features":[]}"#.to_vec());
+            }
+            match product {
+                Some(product) => Ok(std::fs::read(
+                    self.cache.join("lgb").join(product).join("currency.csv"),
+                )
+                .unwrap()),
+                // Refused, not retried: the test does not wait for the backoff.
+                None => Err(freemapper::fetch::FetchError::Refused {
+                    url: url.to_string(),
+                    status: 403,
+                    detail: None,
+                }),
+            }
+        }
+    }
+
+    fn copy_tree(from: &Path, to: &Path) {
+        std::fs::create_dir_all(to).unwrap();
+        for entry in std::fs::read_dir(from).unwrap().flatten() {
+            let target = to.join(entry.file_name());
+            if entry.file_type().unwrap().is_dir() {
+                copy_tree(&entry.path(), &target);
+            } else {
+                std::fs::copy(entry.path(), target).unwrap();
+            }
+        }
+    }
+
+    /// `UrlPolicy::NATIONAL_HOSTS`, the hosts of the BfN and the BKG.
+    const NATIONAL_HOSTS: [&str; 2] = ["geodienste.bfn.de", "sgx.geodatenzentrum.de"];
+
+    fn asks_a_national_host(urls: &[String]) -> bool {
+        urls.iter()
+            .any(|url| NATIONAL_HOSTS.iter().any(|host| url.contains(host)))
+    }
+
+    /// An online run asks the BfN and the BKG only for the permit notes: without `permits` no
+    /// request goes to them (ADR 0117, opt-in). MCP `start_pipeline` and the page run through
+    /// this function with `RunRequest::permits` false by default.
+    #[test]
+    fn an_online_run_without_permits_asks_no_national_host() {
+        let dir = tempfile::tempdir().unwrap();
+        let fixture = Path::new(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/fixtures/offline-school"
+        ));
+        let (project, cache_dir) = (dir.path().join("school"), dir.path().join("cache"));
+        copy_tree(&fixture.join("project"), &project);
+        copy_tree(&fixture.join("cache"), &cache_dir);
+        let cache = Cache::new(cache_dir.clone());
+        let online = RunOptions {
+            offline: false,
+            ..all_off()
+        };
+        let fetcher = Recording {
+            cache: cache_dir.clone(),
+            ..Recording::default()
+        };
+        let report = run(
+            &project,
+            &online,
+            &cache,
+            &fetcher,
+            &RunControl::default(),
+            &mut |_| {},
+        );
+        assert!(report.is_ok(), "the map run gets to its end: {report:?}");
+        assert!(
+            !asks_a_national_host(&fetcher.urls.borrow()),
+            "{:?}",
+            fetcher.urls.borrow()
+        );
+
+        // The same run with the notes does ask them, so the run above did get that far.
+        let with_permits = RunOptions {
+            permits: true,
+            force: true,
+            ..online
+        };
+        let fetcher = Recording {
+            cache: cache_dir.clone(),
+            ..Recording::default()
+        };
+        run(
+            &project,
+            &with_permits,
+            &cache,
+            &fetcher,
+            &RunControl::default(),
+            &mut |_| {},
+        )
+        .unwrap();
+        assert!(
+            asks_a_national_host(&fetcher.urls.borrow()),
+            "{:?}",
+            fetcher.urls.borrow()
+        );
+        let parsed = parse(RunRequest::default(), &Lang::english()).unwrap();
+        assert!(!parsed.permits, "MCP and the page default to no notes");
+    }
+
     #[test]
     fn step_labels_are_distinct() {
         let keys: std::collections::HashSet<_> = [
@@ -860,9 +1126,10 @@ mod tests {
             Step::Ocad,
             Step::Pdf,
             Step::PdfCandidates,
+            Step::Permits,
         ]
         .map(Step::label_key)
         .into();
-        assert_eq!(keys.len(), 6);
+        assert_eq!(keys.len(), 7);
     }
 }

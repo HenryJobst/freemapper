@@ -125,11 +125,24 @@ struct StartPipeline {
     /// Groups sent somewhere else than the profile says, as "group=place" with place map,
     /// candidates or off, e.g. "fences=candidates". Saved in the project.
     content_set: Option<Vec<String>>,
+    /// Also write the permit notes (permits.md and permits.json) after the map: administrative
+    /// units, protected areas and who runs the land. A failure there is a warning, not a failed
+    /// job. Default false.
+    permits: Option<bool>,
+}
+
+#[derive(Deserialize, rmcp::schemars::JsonSchema)]
+struct PermitsForArea {
+    /// Project folder (absolute path or starting with ~).
+    dir: String,
+    /// Read only the data stored in the project by an earlier run, without network access.
+    /// Default false.
+    offline: Option<bool>,
 }
 
 #[derive(Deserialize, rmcp::schemars::JsonSchema)]
 struct ProjectStatus {
-    /// Job id from start_pipeline, e.g. "job-1".
+    /// Job id from start_pipeline or permits_for_area, e.g. "job-1".
     job_id: String,
 }
 
@@ -160,6 +173,8 @@ struct OpenAreaSelector {
     /// Source lines on the PDFs the panel starts with: "auto" (default), "full" or
     /// "credit-only", as for start_pipeline.
     pdf_sources: Option<String>,
+    /// The run panel starts with the permit notes ticked. Default false.
+    permits: Option<bool>,
 }
 
 #[derive(Deserialize, rmcp::schemars::JsonSchema)]
@@ -578,6 +593,7 @@ impl FreemapperServer {
                 pdf_candidates: req.pdf_candidates,
                 pdf_scale_bar: req.pdf_scale_bar,
                 pdf_sources: req.pdf_sources,
+                permits: req.permits,
             },
             &crate::text::lang(),
         ) {
@@ -614,8 +630,76 @@ impl FreemapperServer {
     }
 
     #[tool(
-        description = "State of a pipeline job: running, finished or failed, the last progress \
-                       lines, warnings, and the result or the error."
+        description = "Make the permit notes of a project: the administrative units of the map \
+                       area, the protected areas in it and who runs the land there, with the \
+                       authorities to ask; a hint, not legal advice. Writes permits.md and \
+                       permits.json into the folder. Runs in the background and returns a \
+                       job_id; poll project_status, whose answer carries the text of permits.md \
+                       as permits_md when the job is finished. One job runs at a time."
+    )]
+    async fn permits_for_area(
+        &self,
+        Parameters(req): Parameters<PermitsForArea>,
+    ) -> Result<CallToolResult, McpError> {
+        let dir = match project_dir(&req.dir) {
+            Ok(dir) => dir,
+            Err(e) => return failure(e),
+        };
+        if let Err(e) = ProjectFile::load(&dir) {
+            return failure(describe(&e));
+        }
+        let page_open = self
+            .selectors
+            .lock()
+            .await
+            .get(&folder_key(&dir))
+            .is_some_and(Selector::is_running);
+        if page_open {
+            return failure(t("mcp-error-page-open", &[]));
+        }
+        // Held for as long as the job runs (the closure owns it), also against a terminal.
+        let lock = match crate::lock::acquire(&dir, crate::lock::Who::Mcp) {
+            Ok(lock) => lock,
+            Err(e) => return failure(e.to_string()),
+        };
+        let offline = req.offline.unwrap_or(false);
+        let cache = self.cache.clone();
+        let job_dir = dir.clone();
+        let started = self.jobs.start(
+            &dir,
+            Box::new(move |control, progress| {
+                let _lock = lock;
+                pipeline::permits_job(
+                    &job_dir,
+                    offline,
+                    &cache,
+                    &HttpFetcher::new(),
+                    control,
+                    progress,
+                )
+                .map_err(|e| describe(e.as_ref()))
+            }),
+        );
+        let id = match started {
+            Ok(id) => id,
+            Err(e) => return failure(e),
+        };
+        text(
+            json!({
+                "job_id": id,
+                "dir": dir,
+                "state": "running",
+                "next": t("mcp-permits-next", &[]),
+            })
+            .to_string(),
+        )
+    }
+
+    #[tool(
+        description = "State of a job of start_pipeline or permits_for_area: running, finished \
+                       or failed, the last progress lines, warnings, the files written, and the \
+                       result or the error. A finished permits_for_area job also carries the \
+                       text of permits.md as permits_md."
     )]
     async fn project_status(
         &self,
@@ -685,6 +769,7 @@ impl FreemapperServer {
                 pdf_candidates: req.pdf_candidates,
                 pdf_scale_bar: req.pdf_scale_bar,
                 pdf_sources: req.pdf_sources,
+                permits: req.permits,
                 ..Default::default()
             },
             &crate::text::lang(),

@@ -162,3 +162,4 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0114](0114-the-extra-layers-and-raster-templates-of-an-adapter.md) | The extra layers and raster templates of an adapter, as built | Accepted | 2026-11-13 |
 | [0115](0115-the-map-assembly-reads-no-file.md) | The map assembly reads no file | Accepted | 2026-11-13 |
 | [0116](0116-forest-map-kind.md) | Forest map kind | Accepted | 2026-11-13 |
+| [0117](0117-permit-notes-from-national-sources.md) | Permit notes from national sources | Accepted | 2026-11-13 |

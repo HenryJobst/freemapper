@@ -1,5 +1,5 @@
 //! The run routes of the selection page: start a run, follow it, cancel it and open the project
-//! folder (ADR 0090). The page sends the seven options and nothing else; the folder, the cache,
+//! folder (ADR 0090). The page sends the eight options and nothing else; the folder, the cache,
 //! kind, scale and title are the ones the selector started with and the saved project holds.
 
 use std::ffi::OsString;
@@ -29,7 +29,7 @@ use crate::select::{AppState, page_lang, saved_project};
 use crate::text::{FluentValue, Lang, TEXTS, v};
 use crate::tiles::TileProxy;
 
-/// Largest body of the run, cancel and open-folder requests: seven options fit in far less.
+/// Largest body of the run, cancel and open-folder requests: eight options fit in far less.
 pub(crate) const MAX_BODY_SMALL: usize = 4096;
 
 /// What a run does. The real one is `pipeline::run`; tests pass a quick stand-in.
@@ -307,7 +307,7 @@ fn prepare(state: &AppState, mut options: RunOptions, lang: &Lang) -> Result<Pre
     })
 }
 
-/// `POST api/run`: starts the pipeline for the project folder with the seven options.
+/// `POST api/run`: starts the pipeline for the project folder with the eight options.
 pub(crate) async fn run(
     State(state): State<Arc<AppState>>,
     headers: HeaderMap,

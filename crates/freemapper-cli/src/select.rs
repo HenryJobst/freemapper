@@ -396,6 +396,7 @@ fn run_defaults_json(options: &RunOptions) -> Value {
         "pdf_candidates": options.pdf_candidates,
         "pdf_scale_bar": options.pdf_scale_bar,
         "pdf_sources": crate::pipeline::pdf_sources_name(options.pdf_sources),
+        "permits": options.permits,
     })
 }
 
@@ -1439,6 +1440,7 @@ pub(crate) mod tests {
             pdf_scale_bar: true,
             pdf_sources: freemapper::project::PdfSources::CreditOnly,
             offline: true,
+            permits: true,
             ..Default::default()
         };
         let defaults = Defaults {
@@ -1457,6 +1459,7 @@ pub(crate) mod tests {
                 "pdf_candidates": true,
                 "pdf_scale_bar": true,
                 "pdf_sources": "credit-only",
+                "permits": true,
             })
         );
         // Without flags every option is off and the sources are automatic.
@@ -1464,6 +1467,7 @@ pub(crate) mod tests {
         let answer = project_json(&selector).await;
         assert_eq!(answer["run_defaults"]["pdf_sources"], "auto");
         assert_eq!(answer["run_defaults"]["pdf"], false);
+        assert_eq!(answer["run_defaults"]["permits"], false);
     }
 
     #[tokio::test(flavor = "multi_thread")]
