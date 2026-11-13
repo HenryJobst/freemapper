@@ -6,6 +6,8 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+## [0.18.0] - 2026-11-13
+
 ### Hinzugefügt
 
 - Baden-Württemberg (ADR 0119): Karten in Baden-Württemberg, in UTM-Zone 32. Das Luftbild kommt aus dem Kartendienst des LGL, mit dem Flugdatum der Kachel in der Gebietsmitte. Das Geländemodell (DGM1) und das Oberflächenmodell liest freemapper kachelweise aus den 2-km-Archiven des LGL, je Kachel etwa 3,5 MB. Als Oberfläche dient das nDOM1 aus den Luftbildern eines Sommerflugs: Es zeigt die Bäume belaubt und stammt meist vom selben Flug wie das Luftbild oder vom Flug davor. Gebäude und Nutzungsflächen kommen aus dem ALKIS-Dienst des LGL. Er kennt nur ganze Gebäude, also keine Überdachungen, und Straßenflächen schließen das Grün daneben ein. OSM kommt aus den Auszügen der vier Regierungsbezirke (130 bis 215 MB). Quellenvermerk: `Datenquelle: LGL, www.lgl-bw.de, dl-de/by-2-0 (Daten geändert, <Jahr>)`. Beispiel: Altstadt und Schloss Heidelberg.

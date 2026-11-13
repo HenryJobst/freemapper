@@ -6,6 +6,8 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-11-13
+
 ### Added
 
 - Baden-Württemberg (ADR 0119): maps in Baden-Württemberg, in UTM zone 32. The orthophoto comes from the map service of the LGL, with the flight date of the tile at the centre of the area. freemapper reads the terrain model (DGM1) and the surface model tile by tile out of the 2 km archives of the LGL, about 3.5 MB per tile. The surface is the nDOM1 from the aerial images of a summer flight: it shows the trees in leaf and usually comes from the flight of the orthophoto or the one before it. Buildings and land use come from the ALKIS service of the LGL. It holds whole buildings only, so no canopies, and street areas include the green beside them. OSM comes from the extracts of the four Regierungsbezirke (130 to 215 MB). Credit: `Datenquelle: LGL, www.lgl-bw.de, dl-de/by-2-0 (Daten geändert, <year>)`. Example: Heidelberg old town and castle.
