@@ -7,6 +7,8 @@
 
 use geo_types::MultiPolygon;
 use serde::{Deserialize, Serialize};
+use std::path::Path;
+
 use serde_json::Value;
 
 use crate::fetch::{FetchError, Fetcher};
@@ -83,17 +85,19 @@ pub fn parse_vg250(level: AdminLevel, feature: &Value) -> Option<AdminUnit> {
 }
 
 /// The features of every level inside `bbox`, one answer per level in the order of
-/// [`AdminLevel::ALL`]. The features stay raw so the caller can store them.
+/// [`AdminLevel::ALL`]. The features stay raw so the caller can store them; `part` is the
+/// file each answer streams into.
 pub fn fetch_vg250(
     fetcher: &dyn Fetcher,
     bbox: &LatLonBox,
+    part: &Path,
 ) -> Vec<(AdminLevel, Result<Vec<Value>, FetchError>)> {
     AdminLevel::ALL
         .into_iter()
         .map(|level| {
             (
                 level,
-                get_features(fetcher, &VG250, level.type_name(), bbox),
+                get_features(fetcher, &VG250, level.type_name(), bbox, part),
             )
         })
         .collect()
@@ -199,7 +203,11 @@ mod tests {
             assert!(url.ends_with(",urn:ogc:def:crs:EPSG::4326"));
             fetcher.insert(&url, empty.clone());
         }
-        let answers = fetch_vg250(&fetcher, &STRAUSBERG);
+        let answers = fetch_vg250(
+            &fetcher,
+            &STRAUSBERG,
+            &tempfile::tempdir().unwrap().path().join("page.part"),
+        );
         let levels: Vec<AdminLevel> = answers.iter().map(|(l, _)| *l).collect();
         assert_eq!(levels, AdminLevel::ALL);
         assert!(answers.iter().all(|(_, a)| a.as_ref().unwrap().is_empty()));
@@ -211,7 +219,11 @@ mod tests {
         let fetcher = live_fetcher();
         let policy = freemapper_adapter_api::policy::UrlPolicy::national();
         let fetcher = freemapper_adapter_api::policy::PolicyFetcher::new(&fetcher, &policy);
-        let answers = fetch_vg250(&fetcher, &STRAUSBERG);
+        let answers = fetch_vg250(
+            &fetcher,
+            &STRAUSBERG,
+            &tempfile::tempdir().unwrap().path().join("page.part"),
+        );
         let (_, gem) = answers
             .iter()
             .find(|(level, _)| *level == AdminLevel::Gemeinde)

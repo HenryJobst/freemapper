@@ -1,9 +1,11 @@
 //! Features from a WFS 2.0 that answers GeoJSON (the BfN protected areas, the BKG state borders
 //! VG250), asked by a box in WGS 84 and read page by page.
 
+use std::path::Path;
+
 use serde_json::Value;
 
-use crate::fetch::{FetchError, Fetcher, get_with_retries, too_large};
+use crate::fetch::{FetchError, Fetcher, get_limited_with_retries};
 
 /// Features asked for per request.
 const PAGE_SIZE: usize = 500;
@@ -60,20 +62,19 @@ pub(crate) fn query_url(
 }
 
 /// All features of `type_name` inside `bbox`, in the order the service gives them. Pages of
-/// 500 until one has fewer; an answer over 50 MB is refused with the URL.
+/// 500 until one has fewer. Each answer streams into the file `part` (removed afterwards), so
+/// one over 50 MB is stopped while it is read and refused with the URL.
 pub fn get_features(
     fetcher: &dyn Fetcher,
     service: &GeoJsonWfs,
     type_name: &str,
     bbox: &LatLonBox,
+    part: &Path,
 ) -> Result<Vec<Value>, FetchError> {
     let mut features = Vec::new();
     loop {
         let url = query_url(service, type_name, bbox, features.len());
-        let page = get_with_retries(fetcher, &url, |bytes| {
-            if bytes.len() as u64 > MAX_BYTES {
-                return Err(too_large(&url, MAX_BYTES));
-            }
+        let page = get_limited_with_retries(fetcher, &url, part, MAX_BYTES, |bytes| {
             read_page(&url, bytes)
         })?;
         let short = page.len() < PAGE_SIZE;
@@ -126,6 +127,12 @@ mod tests {
     use super::*;
     use crate::fetch::test_support::MapFetcher;
 
+    /// A part file in a fresh temporary folder (kept alive for the test run).
+    fn part() -> std::path::PathBuf {
+        let dir = tempfile::tempdir().unwrap().keep();
+        dir.join("page.part")
+    }
+
     const BFN: GeoJsonWfs = GeoJsonWfs {
         base: "https://geodienste.bfn.de/ogc/wfs/schutzgebiet",
         output_format: "application/json",
@@ -170,7 +177,7 @@ mod tests {
         let fetcher = MapFetcher::default();
         fetcher.insert(&query_url(&BFN, "t", &BOX, 0), collection(500));
         fetcher.insert(&query_url(&BFN, "t", &BOX, 500), collection(3));
-        let features = get_features(&fetcher, &BFN, "t", &BOX).unwrap();
+        let features = get_features(&fetcher, &BFN, "t", &BOX, &part()).unwrap();
         assert_eq!(features.len(), 503);
         assert_eq!(fetcher.calls.get(), 2);
     }
@@ -180,7 +187,7 @@ mod tests {
         let fetcher = MapFetcher::default();
         let url = query_url(&BFN, "t", &BOX, 0);
         fetcher.insert(&url, vec![b' '; 50 * 1024 * 1024 + 1]);
-        let err = get_features(&fetcher, &BFN, "t", &BOX).unwrap_err();
+        let err = get_features(&fetcher, &BFN, "t", &BOX, &part()).unwrap_err();
         assert!(matches!(err, FetchError::TooLarge { .. }));
         assert!(err.to_string().contains(&url));
     }

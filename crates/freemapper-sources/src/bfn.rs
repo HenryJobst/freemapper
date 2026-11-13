@@ -7,6 +7,8 @@
 use chrono::NaiveDate;
 use geo_types::MultiPolygon;
 use serde::{Deserialize, Serialize};
+use std::path::Path;
+
 use serde_json::Value;
 
 use crate::fetch::{FetchError, Fetcher};
@@ -110,7 +112,8 @@ pub fn parse_bfn(kind: ProtectedKind, feature: &Value) -> Option<ProtectedArea> 
         name,
         legal_date: property_text(feature, "LEG_DATE").and_then(|d| legal_date(&d)),
         legal_title: property_text(feature, "LEG_TITEL"),
-        legal_link: property_text(feature, "LEG_LINK"),
+        // FFH and bird areas link their Natura 2000 page in `LINK`.
+        legal_link: property_text(feature, "LEG_LINK").or_else(|| property_text(feature, "LINK")),
         year: year(feature.get("properties").and_then(|p| p.get("JAHR"))),
         geometry,
     })
@@ -135,14 +138,21 @@ fn year(value: Option<&Value>) -> Option<i32> {
 }
 
 /// The features of every kind inside `bbox`, one answer per kind in the order of
-/// [`ProtectedKind::ALL`]. The features stay raw so the caller can store them.
+/// [`ProtectedKind::ALL`]. The features stay raw so the caller can store them; `part` is the
+/// file each answer streams into.
 pub fn fetch_bfn(
     fetcher: &dyn Fetcher,
     bbox: &LatLonBox,
+    part: &Path,
 ) -> Vec<(ProtectedKind, Result<Vec<Value>, FetchError>)> {
     ProtectedKind::ALL
         .into_iter()
-        .map(|kind| (kind, get_features(fetcher, &BFN, kind.type_name(), bbox)))
+        .map(|kind| {
+            (
+                kind,
+                get_features(fetcher, &BFN, kind.type_name(), bbox, part),
+            )
+        })
         .collect()
 }
 
@@ -312,7 +322,11 @@ mod tests {
                 empty.clone(),
             );
         }
-        let answers = fetch_bfn(&fetcher, &STRAUSBERG);
+        let answers = fetch_bfn(
+            &fetcher,
+            &STRAUSBERG,
+            &tempfile::tempdir().unwrap().path().join("page.part"),
+        );
         assert_eq!(answers.len(), 9);
         for ((kind, answer), expected) in answers.iter().zip(ProtectedKind::ALL) {
             assert_eq!(*kind, expected);
@@ -330,7 +344,11 @@ mod tests {
         let fetcher = live_fetcher();
         let policy = freemapper_adapter_api::policy::UrlPolicy::national();
         let fetcher = freemapper_adapter_api::policy::PolicyFetcher::new(&fetcher, &policy);
-        let answers = fetch_bfn(&fetcher, &STRAUSBERG);
+        let answers = fetch_bfn(
+            &fetcher,
+            &STRAUSBERG,
+            &tempfile::tempdir().unwrap().path().join("page.part"),
+        );
         let (_, nsg) = answers
             .iter()
             .find(|(kind, _)| *kind == ProtectedKind::Naturschutzgebiet)
