@@ -12,40 +12,27 @@ use serde::{Deserialize, Serialize};
 use crate::adapters::{RegionAdapter, registry};
 use crate::area::GeoBox;
 use crate::area::{AreaError, MapArea};
-use crate::build::barriers::resolve_barrier_overlaps;
 use crate::build::berlin::{
     BUILDING_PARTS_LAYER, LayerInput, berlin_objects, building_part_features,
-    drop_shelters_under_canopies,
 };
 use crate::build::buildings::{Rule, building_objects, classify};
 use crate::build::candidates::{Rules, Target, osm_objects};
 use crate::build::canopy::{CANOPY_LAYER, CanopyInput, canopy_objects};
 use crate::build::content::ContentSettings;
-use crate::build::dedup::{
-    drop_areas_by_rank, drop_cadastre_lines_by_rank, drop_osm_lines_near_cadastre,
-    drop_points_near_registers, drop_trees_by_rank,
-};
-use crate::build::firm_paths::cut_firm_paths;
-use crate::build::open_land::{
-    BASE_PART, drop_open_land_under_alkis, open_land_objects, osm_forest_polygons, walkable_base,
-};
+use crate::build::open_land::{BASE_PART, open_land_objects, osm_forest_polygons, walkable_base};
 use crate::build::out_of_bounds::out_of_bounds_objects;
-use crate::build::passages::hide_unreachable as hide_unreachable_passages;
 use crate::build::paved::{
     GREEN_LAYER, PavedObjects, SURFACE_LAYER, StreetSurvey, paved_area_objects, unpaved_streets,
 };
 use crate::build::peripheral::{PaperRect, PeripheralInfo, info_block, is_scale_bar, north_lines};
-use crate::build::points::{GENERALIZATION_SOURCE, HIDDEN_KEY, generalize_points};
+use crate::build::points::{GENERALIZATION_SOURCE, HIDDEN_KEY};
 use crate::build::source_block;
 use crate::build::stairs::{
     NAS_STAIR_LAYER, STEP_EDGE_LAYER, SURVEY_STAIR_LAYER, StairInput, has_nas_stairs_without_edge,
     has_stairs, stair_objects,
 };
 use crate::build::state::{NasInput, TreeInput, nas_objects, state_objects, tree_objects};
-use crate::build::water::{
-    drop_covered_water, drop_fountains_in_osm_basins, drop_points_in_water, outside_water,
-    water_objects,
-};
+use crate::build::water::{outside_water, water_objects};
 use crate::crs::ProjectedPoint;
 use crate::crs::{BoundingBox, Crs, LatLon};
 use crate::derive::contours::{

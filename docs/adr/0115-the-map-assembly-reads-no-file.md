@@ -38,8 +38,10 @@ The review called the candidate "map pipeline". The glossary has "pipeline" for 
   file):
   1. Placing: `place` and the store of the paved borders move to the assembly. `BuiltProject` keeps its name and
      its public functions and holds the objects as `assembly::Built`.
-  2. The duplicates: the block of `build_project` between the candidates of the registers and the point
-     generalization becomes a function of the assembly.
+  2. The duplicates: the block of `build_project` from the candidates of the registers to the point
+     generalization becomes a function of the assembly, `resolve(Drawn, &Surroundings) -> Resolved`. The project
+     draws the sources first (OSM, the cadastres, canopies, areas that shall not be entered, paving, open land)
+     and hands them over; what `resolve` only looks at comes back as it was.
   3. Reading: each `stored_*` function is split into reading its file and drawing its objects; the readers fill
      `Stored`, the assembly draws.
 - **Not chosen:** a trait for the stored data with a folder and a memory adapter. It would have some 14 methods
