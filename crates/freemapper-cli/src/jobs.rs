@@ -72,10 +72,17 @@ pub struct JobStatus {
 }
 
 impl JobStatus {
-    /// The MCP status: the last lines, the summary as `result`, and the phase.
+    /// The MCP status: the last lines, the summary as `result`, the files, and the phase. A job
+    /// of `permits_for_area` adds the text of `permits.md` as `permits_md`.
     pub fn to_json(&self) -> Value {
         let first = self.lines.len().saturating_sub(MCP_LINES);
-        json!({
+        let files: Vec<Value> = self
+            .report
+            .iter()
+            .flat_map(|report| &report.files)
+            .map(|f| json!({ "kind": f.kind, "path": f.relative_path, "bytes": f.bytes }))
+            .collect();
+        let mut status = json!({
             "job_id": self.job_id,
             "dir": self.dir,
             "state": self.state.name(),
@@ -86,8 +93,13 @@ impl JobStatus {
             "next": self.next,
             "warnings": self.warnings,
             "result": self.report.as_ref().map(|r| r.summary.as_str()),
+            "files": files,
             "error": self.error,
-        })
+        });
+        if let Some(markdown) = self.report.as_ref().and_then(|r| r.permits_md.as_deref()) {
+            status["permits_md"] = Value::from(markdown);
+        }
+        status
     }
 }
 
@@ -319,6 +331,7 @@ mod tests {
             warnings: Vec::new(),
             files: Vec::new(),
             kept_map: false,
+            permits_md: None,
         }
     }
 
@@ -368,6 +381,32 @@ mod tests {
         assert_eq!(status["state"], "finished");
         assert_eq!(status["warnings"].as_array().unwrap().len(), 1);
         assert_eq!(status["result"], "Wrote the map");
+    }
+
+    #[test]
+    fn status_lists_the_files_and_the_permit_notes() {
+        let hub = JobHub::default();
+        let id = hub.register(Path::new("/p")).unwrap();
+        assert_eq!(hub.status(&id, 0).unwrap().to_json()["files"], json!([]));
+        let mut done = report("Wrote the permit notes /p/permits.md");
+        done.files.push(crate::pipeline::ResultFile {
+            kind: "permits",
+            relative_path: "permits.md".into(),
+            bytes: 12,
+        });
+        hub.finish(&id, Ok(done.clone()));
+        let status = hub.status(&id, 0).unwrap().to_json();
+        assert_eq!(
+            status["files"],
+            json!([{ "kind": "permits", "path": "permits.md", "bytes": 12 }])
+        );
+        // Only a job that made the notes alone carries their text.
+        assert!(status.get("permits_md").is_none(), "{status}");
+        let id = hub.register(Path::new("/p")).unwrap();
+        done.permits_md = Some("# Permit notes\n".into());
+        hub.finish(&id, Ok(done));
+        let status = hub.status(&id, 0).unwrap().to_json();
+        assert_eq!(status["permits_md"], "# Permit notes\n");
     }
 
     #[test]

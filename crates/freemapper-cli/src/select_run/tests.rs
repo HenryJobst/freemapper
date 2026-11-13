@@ -66,6 +66,7 @@ impl PipelineRunner for StubRunner {
                 bytes: 10,
             }],
             kept_map: options.force,
+            permits_md: None,
         })
     }
 }
@@ -306,6 +307,26 @@ async fn run_accepts_an_empty_body_as_all_defaults() {
     page.release.send(()).unwrap();
     page.wait_for("done").await;
     assert_eq!(page.runner.seen.lock().unwrap()[0], RunOptions::default());
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn run_asks_for_the_permit_notes_only_when_ticked() {
+    let page = Page::new(true).await;
+    for (body, permits) in [
+        (r#"{"permits":true}"#, true),
+        (r#"{"permits":false}"#, false),
+    ] {
+        let (status, answer) = page.post("api/run", body).await;
+        assert_eq!(status, 202, "{answer}");
+        page.release.send(()).unwrap();
+        page.wait_for("done").await;
+        assert_eq!(
+            page.runner.seen.lock().unwrap().last().unwrap().permits,
+            permits
+        );
+    }
+    let (status, _) = page.post("api/run", r#"{"permits":"yes"}"#).await;
+    assert_eq!(status, 400);
 }
 
 #[tokio::test(flavor = "multi_thread")]

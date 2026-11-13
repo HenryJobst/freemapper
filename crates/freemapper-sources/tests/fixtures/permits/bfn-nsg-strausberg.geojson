@@ -1,0 +1,175 @@
+{
+ "type": "FeatureCollection",
+ "crs": {
+  "type": "name",
+  "properties": {
+   "name": "EPSG:4326"
+  }
+ },
+ "features": [
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "MultiPolygon",
+    "coordinates": [
+     [
+      [
+       [
+        13.90954574,
+        52.55629896
+       ],
+       [
+        13.90255257,
+        52.55627193
+       ],
+       [
+        13.89577851,
+        52.55474347
+       ],
+       [
+        13.89062483,
+        52.55636186
+       ],
+       [
+        13.88247288,
+        52.55776586
+       ],
+       [
+        13.87007309,
+        52.55245296
+       ],
+       [
+        13.86504373,
+        52.54470266
+       ],
+       [
+        13.85824726,
+        52.53545241
+       ],
+       [
+        13.86018121,
+        52.53102988
+       ],
+       [
+        13.87443942,
+        52.53660491
+       ],
+       [
+        13.8819823,
+        52.54309556
+       ],
+       [
+        13.8972826,
+        52.54787401
+       ],
+       [
+        13.90954574,
+        52.55629896
+       ]
+      ]
+     ]
+    ]
+   },
+   "properties": {
+    "GmlID": "Naturschutzgebiete.108",
+    "OBJECTID": 108,
+    "NAME": "Herrensee, Lange-Damm-Wiesen und Barnim-Hänge",
+    "BFN_ID": 30376,
+    "BL": "BB",
+    "ID": "bb_1528",
+    "LEG_DATE": "10/1/2005",
+    "LEG_LINK": null,
+    "LEG_TITEL": "RV über die Erklärung von Landschaftsteilen zum LSG \\\"Strausberger Sander-, Os- und Barnimhang-Landschaft\\\" sowie zu den NSG \\\"Herrensee, Lange-Damm-Wiesen und Barnim-Hänge\\\" sowie \\\"Zimmersee\\\" des Landkreises Märkisch-Oderland vom 13.09.2005",
+    "natda_id": 389601,
+    "IUCN_KAT": "IV",
+    "JAHR": 2005,
+    "MAJ_ECO_T": "T",
+    "MARIN_AREA": 0,
+    "FLAECHE": 1079.21,
+    "STATUS": 1
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "MultiPolygon",
+    "coordinates": [
+     [
+      [
+       [
+        13.84405736,
+        52.52994618
+       ],
+       [
+        13.84427956,
+        52.53009077
+       ],
+       [
+        13.84446758,
+        52.53020917
+       ],
+       [
+        13.84465113,
+        52.53034893
+       ],
+       [
+        13.84508653,
+        52.53064675
+       ],
+       [
+        13.84500387,
+        52.5306843
+       ],
+       [
+        13.84435058,
+        52.53099974
+       ],
+       [
+        13.84416756,
+        52.53106218
+       ],
+       [
+        13.84397444,
+        52.53106387
+       ],
+       [
+        13.84354179,
+        52.53060648
+       ],
+       [
+        13.84325654,
+        52.5302806
+       ],
+       [
+        13.84404946,
+        52.52994104
+       ],
+       [
+        13.84405736,
+        52.52994618
+       ]
+      ]
+     ]
+    ]
+   },
+   "properties": {
+    "GmlID": "Naturschutzgebiete.144",
+    "OBJECTID": 144,
+    "NAME": "Lange Dammwiesen und Unteres Annatal",
+    "BFN_ID": 30111,
+    "BL": "BB",
+    "ID": "bb_1134",
+    "LEG_DATE": "5/16/1990",
+    "LEG_LINK": null,
+    "LEG_TITEL": "Beschluß Nr. 130 des Bezirkstages Frankfurt/Oder vom 14.03.1990",
+    "natda_id": 164339,
+    "IUCN_KAT": "IV",
+    "JAHR": 1990,
+    "MAJ_ECO_T": "T",
+    "MARIN_AREA": 0,
+    "FLAECHE": 1.95,
+    "STATUS": 1
+   }
+  }
+ ]
+}

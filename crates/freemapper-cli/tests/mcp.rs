@@ -6,6 +6,9 @@ use std::process::{Child, ChildStderr, ChildStdin, ChildStdout, Command, Stdio};
 mod isolation;
 use isolation::isolated;
 
+mod offline_school;
+use offline_school::{offline_school, store_permit_inputs};
+
 use serde_json::{Value, json};
 
 #[cfg(all(feature = "test-stub", debug_assertions))]
@@ -197,6 +200,7 @@ fn mcp_lists_the_tools() {
             "install_update",
             "list_layers",
             "open_area_selector",
+            "permits_for_area",
             "preview_layer",
             "project_status",
             "start_pipeline"
@@ -617,6 +621,252 @@ fn mcp_create_project_checks_the_scale_per_kind() {
     assert!(!error, "{text}");
     assert!(text.contains("not in the sprint norm"), "{text}");
 }
+/// Polls `project_status` for `job_id` until the job ends and returns its last status.
+fn wait_for_job(session: &mut Session, job_id: &str) -> Value {
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(120);
+    loop {
+        assert!(std::time::Instant::now() < deadline, "job still running");
+        let (error, text) = session.call("project_status", json!({ "job_id": job_id }));
+        assert!(!error, "{text}");
+        let status: Value = serde_json::from_str(&text).unwrap();
+        if status["state"] != "running" {
+            return status;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(100));
+    }
+}
+
+/// The job id of a tool answer that started a job.
+fn started_job(text: &str) -> String {
+    let answer: Value = serde_json::from_str(text).unwrap_or_else(|e| panic!("{e}: {text}"));
+    assert_eq!(answer["state"], "running", "{answer}");
+    answer["job_id"].as_str().unwrap().to_string()
+}
+
+/// The paths of the files a finished job lists.
+fn listed_files(status: &Value) -> Vec<(String, String)> {
+    status["files"]
+        .as_array()
+        .unwrap_or_else(|| panic!("no files: {status}"))
+        .iter()
+        .map(|f| {
+            (
+                f["kind"].as_str().unwrap().to_string(),
+                f["path"].as_str().unwrap().to_string(),
+            )
+        })
+        .collect()
+}
+
+/// `permits_for_area` is a job like `start_pipeline` (ADR 0117): it answers at once with a job
+/// id, and the finished status carries the text of permits.md. Without stored inputs offline it
+/// fails with the reason and leaves nothing behind.
+#[test]
+fn permits_for_area_returns_the_notes() {
+    let dir = tempfile::tempdir().unwrap();
+    let (project, cache) = offline_school(dir.path());
+    let mut session = Session::start(&cache);
+    let (error, text) = session.call(
+        "permits_for_area",
+        json!({ "dir": project, "offline": true }),
+    );
+    assert!(!error, "{text}");
+    let answer: Value = serde_json::from_str(&text).unwrap();
+    assert!(
+        answer["next"].as_str().unwrap().contains("project_status"),
+        "{answer}"
+    );
+    let job_id = started_job(&text);
+    let status = wait_for_job(&mut session, &job_id);
+    assert_eq!(status["state"], "failed", "{status}");
+    assert!(
+        status["error"]
+            .as_str()
+            .unwrap()
+            .contains("no source of the permit notes could be read"),
+        "{status}"
+    );
+    assert!(!project.join("permits.md").exists());
+    assert!(!project.join(".freemapper-run.lock").exists());
+
+    store_permit_inputs(&project);
+    let (error, text) = session.call(
+        "permits_for_area",
+        json!({ "dir": project, "offline": true }),
+    );
+    assert!(!error, "{text}");
+    let status = wait_for_job(&mut session, &started_job(&text));
+    assert_eq!(status["state"], "finished", "{status}");
+    let markdown = status["permits_md"].as_str().unwrap();
+    assert_eq!(
+        markdown,
+        std::fs::read_to_string(project.join("permits.md")).unwrap()
+    );
+    assert!(
+        markdown.starts_with("# Permit notes\n\nA hint, not legal advice."),
+        "{markdown}"
+    );
+    assert!(
+        markdown.contains("Landkreis Märkisch-Oderland"),
+        "{markdown}"
+    );
+    assert_eq!(
+        listed_files(&status),
+        [
+            ("permits".to_string(), "permits.md".to_string()),
+            ("permits".to_string(), "permits.json".to_string()),
+        ]
+    );
+    assert!(
+        status["warnings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|w| w.as_str().unwrap().contains("leave out BfN")),
+        "{status}"
+    );
+    assert_eq!(status["phase"]["step"], "step-permits", "{status}");
+    assert!(
+        status["result"]
+            .as_str()
+            .unwrap()
+            .contains("Wrote the permit notes"),
+        "{status}"
+    );
+    assert!(!project.join(".freemapper-run.lock").exists());
+}
+
+#[test]
+fn permits_for_area_refuses_a_relative_path() {
+    let cache = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let mut session = Session::start(cache.path());
+    let (error, text) = session.call("permits_for_area", json!({ "dir": "projects/school" }));
+    assert!(error);
+    assert!(text.contains("relative"), "{text}");
+    let (error, text) = session.call(
+        "permits_for_area",
+        json!({ "dir": dir.path().join("missing"), "offline": true }),
+    );
+    assert!(error);
+    assert!(text.contains("create_project"), "{text}");
+    // A folder another run holds is refused at once, not in the job.
+    let (project, _) = offline_school(dir.path());
+    let started = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+    std::fs::write(
+        project.join(".freemapper-run.lock"),
+        format!(r#"{{"pid":1,"started":{started},"who":"cli"}}"#),
+    )
+    .unwrap();
+    let (error, text) = session.call(
+        "permits_for_area",
+        json!({ "dir": project, "offline": true }),
+    );
+    assert!(error, "{text}");
+    assert!(
+        text.contains("another freemapper run is using this folder"),
+        "{text}"
+    );
+}
+
+/// `start_pipeline` with `permits` writes the notes after the map and lists both files.
+#[test]
+fn start_pipeline_with_permits_lists_the_file() {
+    let dir = tempfile::tempdir().unwrap();
+    let (project, cache) = offline_school(dir.path());
+    store_permit_inputs(&project);
+    let mut session = Session::start(&cache);
+    let (error, text) = session.call(
+        "start_pipeline",
+        json!({ "dir": project, "offline": true, "permits": true }),
+    );
+    assert!(!error, "{text}");
+    let status = wait_for_job(&mut session, &started_job(&text));
+    assert_eq!(status["state"], "finished", "{status}");
+    let files = listed_files(&status);
+    assert_eq!(files[0], ("map".to_string(), "school.omap".to_string()));
+    let permits: Vec<&str> = files
+        .iter()
+        .filter(|(kind, _)| kind == "permits")
+        .map(|(_, path)| path.as_str())
+        .collect();
+    assert_eq!(permits, ["permits.md", "permits.json"], "{status}");
+    assert!(
+        status["result"]
+            .as_str()
+            .unwrap()
+            .contains("Wrote the permit notes"),
+        "{status}"
+    );
+    // A pipeline job carries no notes text; the file is in the folder.
+    assert!(status.get("permits_md").is_none(), "{status}");
+    assert!(project.join("permits.md").is_file());
+}
+
+/// A failure of the notes in `start_pipeline` is a warning; the map is written and the job
+/// finishes.
+#[test]
+fn start_pipeline_without_permit_data_still_finishes() {
+    let dir = tempfile::tempdir().unwrap();
+    let (project, cache) = offline_school(dir.path());
+    let mut session = Session::start(&cache);
+    let (error, text) = session.call(
+        "start_pipeline",
+        json!({ "dir": project, "offline": true, "permits": true }),
+    );
+    assert!(!error, "{text}");
+    let status = wait_for_job(&mut session, &started_job(&text));
+    assert_eq!(status["state"], "finished", "{status}");
+    assert!(
+        status["warnings"].as_array().unwrap().iter().any(|w| w
+            .as_str()
+            .unwrap()
+            .starts_with("warning: the permit notes could not be written")),
+        "{status}"
+    );
+    assert!(project.join("school.omap").is_file());
+    assert!(
+        !listed_files(&status)
+            .iter()
+            .any(|(kind, _)| kind == "permits")
+    );
+}
+
+/// `open_area_selector` with `permits` makes the page start with the box ticked.
+#[test]
+fn open_area_selector_passes_permits_to_the_page() {
+    let cache = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let mut session = Session::start(cache.path());
+    let agent: ureq::Agent = ureq::Agent::config_builder()
+        .http_status_as_error(false)
+        .build()
+        .into();
+    for (name, permits) in [("with", Some(true)), ("without", None)] {
+        let mut arguments = json!({ "dir": dir.path().join(name), "open_browser": false });
+        if let Some(permits) = permits {
+            arguments["permits"] = json!(permits);
+        }
+        let (error, text) = session.call("open_area_selector", arguments);
+        assert!(!error, "{text}");
+        let url = serde_json::from_str::<Value>(&text).unwrap()["url"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        let mut response = agent.get(&format!("{url}api/project")).call().unwrap();
+        let state: Value =
+            serde_json::from_str(&response.body_mut().read_to_string().unwrap()).unwrap();
+        assert_eq!(
+            state["run_defaults"]["permits"],
+            permits.unwrap_or(false),
+            "{state}"
+        );
+    }
+}
+
 #[test]
 fn mcp_pipeline_refuses_a_folder_another_run_holds() {
     let cache = tempfile::tempdir().unwrap();
@@ -1084,7 +1334,7 @@ mod update {
         let stub = UpdateStub::with_fixture();
         let mut session = Session::start_with(checking(program(), &stub, dir.path()), &cache);
         let tools = session.request("tools/list", json!({}));
-        assert_eq!(tools["tools"].as_array().unwrap().len(), 10);
+        assert_eq!(tools["tools"].as_array().unwrap().len(), 11);
         let mut notes = 0;
         let mut count = |texts: &[String]| {
             notes += texts.iter().filter(|text| **text == note()).count();

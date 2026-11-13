@@ -310,6 +310,8 @@ page-need-pdf = Maßstabsleiste und Quellenangabe gelten nur, wenn eine PDF ents
 page-opt-offline = Nur Zwischenspeicher, kein Netz
 page-opt-force = Vorhandene Karte ersetzen
 page-help-force = Die alte Datei bleibt als .omap.bak.
+page-opt-permits = Hinweise zu Genehmigungen
+page-help-permits = Verwaltungseinheiten, Schutzgebiete und wen man fragt, in permits.md. Ein Hinweis, keine Rechtsauskunft.
 page-run-start = Karte erzeugen
 page-run-again = Nochmal erzeugen
 page-run-cancel = Abbrechen
@@ -328,6 +330,7 @@ page-step-map = Karte schreiben
 page-step-ocad = OCAD-Projekt schreiben
 page-step-pdf = PDF schreiben
 page-step-pdf-candidates = Trainings-PDF schreiben
+page-step-permits = Genehmigungshinweise schreiben
 page-step-line = Schritt { $index } von { $total }: { $label }
 page-starting = Der Lauf startet …
 page-file-kind-map = Karte
@@ -337,6 +340,7 @@ page-file-kind-ocad-candidates = OCAD-Kandidaten
 page-file-kind-pdf = PDF
 page-file-kind-pdf-candidates = Trainings-PDF
 page-file-kind-preview = Kartenvorschau
+page-file-kind-permits = Genehmigungshinweise
 page-file-line = { $path } ({ $kind }, { $size })
 page-result-done = Fertig. Die Dateien sind geschrieben.
 page-result-failed = Der Lauf ist fehlgeschlagen: { $error }
@@ -661,7 +665,7 @@ mcp-error-unknown-kind = Unbekannte Kartenart { $kind }; möglich sind "schoolya
 mcp-error-reading = { $path } lässt sich nicht lesen: { $error }
 mcp-error-one-area-source = Geben Sie genau eines an: osm_id (aus find_place) oder geojson
 mcp-error-page-open = Die Seite zur Gebietsauswahl für dieses Projekt ist noch offen; bitten Sie die Nutzerin oder den Nutzer, das Gebiet zu speichern und auf der Seite „Fertig“ zu drücken, und starten Sie dann die Pipeline
-mcp-error-no-job = Keinen Job { $job } gefunden; start_pipeline gibt die Job-IDs dieser Sitzung zurück
+mcp-error-no-job = Keinen Job { $job } gefunden; start_pipeline und permits_for_area geben die Job-IDs dieser Sitzung zurück
 mcp-error-job-running = { $job } läuft noch für { $path }; es läuft immer nur eine Pipeline, weil sich die Projekte den Zwischenspeicher teilen. Starten Sie diese, wenn project_status finished oder failed meldet
 mcp-error-page-start = Die Seite lässt sich nicht starten: { $error }
 mcp-created-project = Projekt { $path } für { $area } angelegt ({ $kind ->
@@ -677,7 +681,8 @@ mcp-created-project-given-area = Projekt { $path } für das angegebene Gebiet an
 mcp-page-already-open = Die Seite für diesen Ordner ist schon offen; sie behält die Einstellungen, mit denen sie geöffnet wurde.
 mcp-page-next = Bitten Sie die Nutzerin oder den Nutzer, das Gebiet auf der Seite zu wählen und dann „Speichern“ und „Fertig“ zu drücken.
 mcp-preview-of = Vorschau von { $layer }
-mcp-instructions = freemapper erzeugt Startprojekte für OpenOrienteering Mapper für Orientierungslaufkarten (Schulhof 1:1000, Sprint 1:4000, Wald 1:15000) aus amtlichen Geodaten von { $states } sowie aus OSM. Ablauf: find_place (die Schule oder das Gebiet nach Namen suchen; ein Ergebnis mit has_area wählen) → create_project (ein neuer Ordner, absoluter Pfad, mit der osm_id) → estimate_download (der Nutzerin oder dem Nutzer sagen, wie viel geladen wird) → start_pipeline (gibt eine Job-ID zurück; das Laden kann Minuten dauern) → project_status (alle paar Sekunden abfragen, bis der Zustand finished oder failed ist) → list_layers und preview_layer (die Kartenvorlagen zeigen). Danach öffnet die Nutzerin oder der Nutzer die Kartendatei in OpenOrienteering Mapper. Passt kein Ort oder soll das Gebiet gezeichnet werden, öffnet open_area_selector eine Seite im Browser, auf der das Gebiet gezeichnet oder gewählt und gespeichert wird (das legt das Projekt an); weiter mit estimate_download, sobald es gespeichert ist. Pfade müssen absolut sein oder mit ~ beginnen. Es läuft immer nur eine Pipeline. check_update sagt, ob es eine neuere Version von freemapper gibt; install_update installiert sie, nur mit confirm: true nach Zustimmung der Nutzerin oder des Nutzers, und danach startet der Assistent den freemapper-Server neu.
+mcp-permits-next = Die Genehmigungshinweise werden erstellt. Fragen Sie project_status mit dieser job_id ab; ist der Job fertig, enthält permits_md den Text von permits.md. Geben Sie ihn als Hinweis weiter, nicht als Rechtsauskunft.
+mcp-instructions = freemapper erzeugt Startprojekte für OpenOrienteering Mapper für Orientierungslaufkarten (Schulhof 1:1000, Sprint 1:4000, Wald 1:15000) aus amtlichen Geodaten von { $states } sowie aus OSM. Ablauf: find_place (die Schule oder das Gebiet nach Namen suchen; ein Ergebnis mit has_area wählen) → create_project (ein neuer Ordner, absoluter Pfad, mit der osm_id) → estimate_download (der Nutzerin oder dem Nutzer sagen, wie viel geladen wird) → start_pipeline (gibt eine Job-ID zurück; das Laden kann Minuten dauern) → project_status (alle paar Sekunden abfragen, bis der Zustand finished oder failed ist) → list_layers und preview_layer (die Kartenvorlagen zeigen). Danach öffnet die Nutzerin oder der Nutzer die Kartendatei in OpenOrienteering Mapper. Passt kein Ort oder soll das Gebiet gezeichnet werden, öffnet open_area_selector eine Seite im Browser, auf der das Gebiet gezeichnet oder gewählt und gespeichert wird (das legt das Projekt an); weiter mit estimate_download, sobald es gespeichert ist. Pfade müssen absolut sein oder mit ~ beginnen. Es läuft immer nur eine Pipeline. permits_for_area erstellt die Genehmigungshinweise eines Projekts (Verwaltungseinheiten, Schutzgebiete, wer die Flächen betreibt; ein Hinweis, keine Rechtsauskunft) als Job wie start_pipeline. check_update sagt, ob es eine neuere Version von freemapper gibt; install_update installiert sie, nur mit confirm: true nach Zustimmung der Nutzerin oder des Nutzers, und danach startet der Assistent den freemapper-Server neu.
 mcp-tool-check-update = Ob es eine neuere Version von freemapper gibt: ihre Versionsnummer, ihr Erscheinungsdatum, die Versionshinweise und die Downloadgröße, oder dass diese Version aktuell ist. Installiert nichts.
 mcp-tool-create-project = Legt einen Projektordner für ein Kartengebiet an. Geben Sie osm_id (aus find_place) oder eine GeoJSON-Datei an. kind ist schoolyard (1:1000, Standard), sprint (1:4000) oder forest (1:15000).
 mcp-param-create-project-dir = Neuer Projektordner (absoluter Pfad oder mit ~ beginnend).
@@ -705,13 +710,17 @@ mcp-param-open-area-selector-pdf = Im Lauf-Block ist die druckfertige PDF vorgew
 mcp-param-open-area-selector-pdf-candidates = Im Lauf-Block ist die Trainings-PDF (jeder Kandidat) vorgewählt. Standard false.
 mcp-param-open-area-selector-pdf-scale-bar = Im Lauf-Block ist die Maßstabsleiste auf den PDFs vorgewählt. Standard false.
 mcp-param-open-area-selector-pdf-sources = Quellenzeilen auf den PDFs, mit denen der Block startet: "auto" (Standard), "full" oder "credit-only", wie bei start_pipeline.
+mcp-param-open-area-selector-permits = Im Lauf-Block sind die Hinweise zu Genehmigungen vorgewählt. Standard false.
 mcp-param-open-area-selector-scale = Maßstabszahl eines neuen Projekts: Schulhof 1000 (Standard); Sprint 4000 (Standard) oder 5000; Wald 15000 (Standard), 10000 oder 7500. Andere Werte werden abgelehnt.
 mcp-param-open-area-selector-title = Kartentitel eines neuen Projekts.
 mcp-tool-preview-layer = Eine PNG-Vorschau (höchstens 800 px) einer Ebene: map (das Bild der Kartenobjekte, das der letzte Lauf geschrieben hat, ohne die Kandidaten) oder eine Rastervorlage: orthophoto, hillshade, slope, relief, ndsm, in Berlin auch k5.
 mcp-param-preview-layer-dir = Projektordner (absoluter Pfad oder mit ~ beginnend).
 mcp-param-preview-layer-layer = "map", "orthophoto", "hillshade", "slope", "relief", "ndsm" oder "k5" (nur in Berlin).
-mcp-tool-project-status = Zustand eines Pipeline-Jobs: running, finished oder failed, die letzten Fortschrittszeilen, die Warnungen und das Ergebnis oder der Fehler.
-mcp-param-project-status-job-id = Job-ID aus start_pipeline, z. B. "job-1".
+mcp-tool-project-status = Zustand eines Jobs von start_pipeline oder permits_for_area: running, finished oder failed, die letzten Fortschrittszeilen, die Warnungen, die geschriebenen Dateien und das Ergebnis oder der Fehler. Ein fertiger Job von permits_for_area enthält außerdem den Text von permits.md als permits_md.
+mcp-param-project-status-job-id = Job-ID aus start_pipeline oder permits_for_area, z. B. "job-1".
+mcp-tool-permits-for-area = Erstellt die Genehmigungshinweise eines Projekts: die Verwaltungseinheiten des Kartengebiets, die Schutzgebiete darin und wer die Flächen dort betreibt, mit den Behörden, die zu fragen sind; ein Hinweis, keine Rechtsauskunft. Schreibt permits.md und permits.json in den Ordner. Läuft im Hintergrund und gibt eine job_id zurück; fragen Sie project_status ab, dessen Antwort den Text von permits.md als permits_md enthält, sobald der Job fertig ist. Es läuft immer nur ein Job.
+mcp-param-permits-for-area-dir = Projektordner (absoluter Pfad oder mit ~ beginnend).
+mcp-param-permits-for-area-offline = Nur die Daten lesen, die ein früherer Lauf im Projekt gespeichert hat, ohne Netzzugriff. Standard false.
 mcp-tool-start-pipeline = Lädt die Daten, berechnet die Kartenvorlagen und schreibt das Startprojekt (fetch, derive, export). Läuft im Hintergrund und gibt eine job_id zurück; fragen Sie project_status ab. Es läuft immer nur eine Pipeline. Eine vorhandene Karte bleibt, außer force ist true.
 mcp-param-start-pipeline-dir = Projektordner (absoluter Pfad oder mit ~ beginnend).
 mcp-param-start-pipeline-force = Eine vorhandene Kartendatei ersetzen und die alte als .omap.bak behalten. Standard false.
@@ -721,6 +730,7 @@ mcp-param-start-pipeline-pdf = Zusätzlich <name>.pdf schreiben, die druckfertig
 mcp-param-start-pipeline-pdf-candidates = Zusätzlich <name>-candidates.pdf schreiben, die Trainingskarte (die Karte und jeder Kandidat als Kartenobjekt; im Gelände prüfen). Standard false.
 mcp-param-start-pipeline-pdf-scale-bar = Die Maßstabsleiste auf die PDFs zeichnen. Standard false (deutsche Karten haben meist keine; die Maßstabszahl bleibt im Titelblock).
 mcp-param-start-pipeline-pdf-sources = Quellenzeilen auf den PDFs: "auto" (Standard; die ganze Liste, gekürzt nur, wenn sie mehr als 5 Zeilen braucht), "full" (nie gekürzt) oder "credit-only" (nur die freemapper-Zeile; ODbL und dl-de/by-2-0 verlangen dann, die Quellen zu nennen, wenn die Karte weitergegeben wird). ATTRIBUTION.txt nennt immer jede Quelle.
+mcp-param-start-pipeline-permits = Nach der Karte zusätzlich die Genehmigungshinweise schreiben (permits.md und permits.json): Verwaltungseinheiten, Schutzgebiete und wer die Flächen betreibt. Ein Fehler dort ist eine Warnung, kein gescheiterter Job. Standard false.
 
 cli-content-saved = Inhaltseinstellung in freemapper.toml gespeichert: { $summary }
 cli-content-invalid = Die Inhaltseinstellung ist nicht lesbar: { $detail }
@@ -731,3 +741,115 @@ mcp-param-create-project-content-set = Gruppen, die anders als das Profil behand
 mcp-param-start-pipeline-content = Vor dem Lauf ändern, was direkt auf die Karte kommt: "safe", "balanced" oder "full". Wird im Projekt gespeichert. Standard: die Einstellung des Projekts, sonst balanced.
 mcp-param-start-pipeline-content-set = Gruppen, die anders als das Profil behandelt werden, als "gruppe=ort" mit dem Ort map, candidates oder off, z. B. "fences=candidates". Wird im Projekt gespeichert.
 mcp-error-content = Die Inhaltseinstellung ist nicht lesbar: { $detail }
+
+## Genehmigungshinweise (`freemapper permits`, `run --permits`, ADR 0117). Die Kennungen
+## `permits-hint-*` sind die Schlüssel, die die Engine in permits.json speichert; `src/permits.rs`
+## prüft, dass jede Kennung `permits-*` verwendet wird. Das Zitat „Nicht für Planungszwecke
+## geeignet.“ ist der Wortlaut des BfN und bleibt in jeder Sprache deutsch.
+
+help-permits = Die Genehmigungshinweise eines Projekts schreiben (permits.md und permits.json): die Verwaltungseinheiten, Schutzgebiete und Betreiber, die das Kartengebiet berührt, und wen man dann meist fragt. Fragt das BfN und das BKG und liest den OSM-Auszug, der schon im Zwischenspeicher liegt; --offline nimmt die früher geholten Daten
+help-permits-dir = Projektordner
+help-permits-offline = Nur die früher geholten Daten verwenden, ohne Netzzugriff
+help-run-permits = Nach der Karte zusätzlich die Genehmigungshinweise schreiben (permits.md und permits.json); fragt das BfN und das BKG. Ein Fehler dort ist eine Warnung, die Karte bleibt
+cli-wrote-permits = Genehmigungshinweise { $path } geschrieben
+cli-summary-wrote-permits = Genehmigungshinweise { $path } geschrieben
+cli-permits-failed = Die Genehmigungshinweise ließen sich nicht schreiben: { $error }
+cli-permits-source-left-out = Die Genehmigungshinweise lassen { $source } aus: { $reason }
+cli-permits-not-read = Die Quelle wurde nicht gelesen
+error-permits-stored = { $path }: { $message }; holen Sie die Genehmigungshinweise online neu
+error-permits-nothing-read = Keine Quelle der Genehmigungshinweise ließ sich lesen ({ $missing }); holen Sie sie zuerst online
+error-permits-missing-not-read = { $source }: nicht gelesen
+
+permits-title = Hinweise zu Genehmigungen
+permits-disclaimer = Hinweis, keine Rechtsauskunft. Maßgeblich sind die zuständigen Behörden. Datenstand und Genauigkeit siehe Tabelle unter „Quellen und Datenstand“; Flächen können fehlen oder veraltet sein (BfN: jährliche Zusammenführung, „Nicht für Planungszwecke geeignet.“).
+permits-bfn-merge = Das BfN führt die Daten der Bundesländer einmal im Jahr zusammen und weist sie als nicht für Planungszwecke geeignet aus. Maßgeblich sind die Landesbehörden.
+permits-created = Erstellt am { $date } für das Kartengebiet einer { $kind ->
+        [schoolyard] Schulhofkarte
+        [forest] Waldkarte
+       *[other] Sprintkarte
+    } ({ $area } ha).
+permits-section-admin = Verwaltung
+permits-section-protected = Schutzgebiete (BfN)
+permits-section-osm-protected = Weitere Schutzgebiete aus OpenStreetMap
+permits-section-operators = Betreiber und Eigentümer laut OpenStreetMap
+permits-section-hints = Hinweise
+permits-section-sources = Quellen und Datenstand
+permits-none-admin = VG250 nennt für das Kartengebiet keine Verwaltungseinheit.
+permits-none-protected = Im Kartengebiet liegt laut BfN kein Schutzgebiet.
+permits-none-osm-protected = OpenStreetMap nennt im Kartengebiet kein Schutzgebiet, das das BfN nicht schon führt.
+permits-none-operators = OpenStreetMap nennt für das Kartengebiet keinen Betreiber und keinen Eigentümer.
+permits-none-hints = Keine Hinweise.
+permits-section-not-read = Die Daten von { $source } wurden nicht gelesen. Der Abschnitt ist deshalb leer, auch wenn es Einträge geben kann.
+permits-source = { $source ->
+        [vg250] VG250 (BKG)
+        [bfn] BfN
+       *[osm] OpenStreetMap
+    }
+permits-source-what = { $source ->
+        [vg250] Verwaltungsgebiete 1:250 000 (VG250) des BKG
+        [bfn] Schutzgebiete in Deutschland des BfN
+       *[osm] OpenStreetMap, aus dem Auszug, den freemapper im Zwischenspeicher hält
+    }
+permits-level = { $level ->
+        [land] Bundesland
+        [kreis] Kreis
+        [verwaltungsgemeinschaft] Amt oder Verwaltungsgemeinschaft
+       *[gemeinde] Gemeinde
+    }
+permits-admin-line = { $level }: { $name }, { $share }
+permits-share = { $percent } %
+permits-share-below-one = < 1 %
+permits-at-edge = Am Rand berührt (weniger als 0,5 % des Kartengebiets):
+permits-at-edge-generalised = VG250 ist auf den Maßstab 1:250 000 generalisiert. Eine Einheit, die nur den Rand berührt, kann davon kommen.
+permits-kind = { $kind ->
+        [nationalpark] Nationalpark
+        [nationales-naturmonument] Nationales Naturmonument
+        [naturschutzgebiet] Naturschutzgebiet
+        [ffh] FFH-Gebiet (Natura 2000)
+        [vogelschutzgebiet] Vogelschutzgebiet (Natura 2000)
+        [biosphaerenreservat] Biosphärenreservat
+        [biosphaerenreservat-zone] Zone eines Biosphärenreservats
+        [landschaftsschutzgebiet] Landschaftsschutzgebiet
+       *[naturpark] Naturpark
+    }
+permits-protected-line = { $kind } „{ $name }“, { $share }
+permits-protected-date = Festgesetzt am { $date }
+permits-protected-title = Rechtsgrundlage: { $title }
+permits-protected-link = Rechtstext: { $url }
+permits-protected-site-link = Gebietsseite (Natura 2000): { $url }
+permits-protected-year = Datenstand beim BfN: { $year }
+permits-osm-line = { $kind }: { $name }, { $share } (OSM { $id })
+permits-osm-protect-class = Schutzklasse { $class }
+permits-quoted = „{ $text }“
+permits-osm-unnamed = ohne Namen
+permits-osm-operator = Betreiber laut OSM: { $operator }
+permits-osm-enclosing-gap = OpenStreetMap-Flächen, die das ganze Kartengebiet umschließen und keine Ecke darin haben, können hier fehlen, ebenso Schutzgebiete, die in OSM als Relation mit `type=boundary` erfasst sind. Die Angaben von BfN und VG250 sind davon nicht betroffen.
+permits-operator-line = { $name } ({ $roles ->
+        [operator] Betreiber
+        [owner] Eigentümer
+       *[both] Betreiber und Eigentümer
+    }): { $objects }
+permits-column-source = Quelle
+permits-column-state = Stand
+permits-column-credit = Quellenvermerk und Lizenz
+permits-state-read = gelesen, abgerufen am { $date }
+permits-state-read-osm = gelesen, OSM-Auszug vom { $date }
+permits-state-unreachable = nicht erreichbar ({ $reason })
+permits-state-not-read = nicht gelesen
+permits-no-credit = nicht verwendet
+permits-hint-city-state = Das Kartengebiet liegt in Berlin oder Hamburg. Dort ist meist das Bezirksamt oder eine Landesbehörde zuständig. Den Bezirk bestimmen diese Hinweise noch nicht.
+permits-hint-nature-authority = { $kreisfrei ->
+        [yes] Schutzgebiete betreffen die untere Naturschutzbehörde. Hier ist das die Stadt { $kreis } selbst.
+        [no] Schutzgebiete betreffen die untere Naturschutzbehörde (meist der { $kreis }).
+       *[unknown] Schutzgebiete betreffen die zuständige untere Naturschutzbehörde (meist Landkreis oder kreisfreie Stadt).
+    }
+permits-hint-national-park = Im Nationalpark gelten eigene Regeln. Fragen Sie früh bei der Nationalparkverwaltung nach.
+permits-hint-nsg-paths = Im Naturschutzgebiet gilt meist ein Wegegebot. Für einen Lauf abseits der Wege fragen Sie die Naturschutzbehörde.
+permits-hint-natura2000 = Ein FFH-Gebiet oder ein Vogelschutzgebiet (Natura 2000) berührt das Kartengebiet. Für eine Veranstaltung kann die Naturschutzbehörde eine Prüfung der Verträglichkeit verlangen.
+permits-hint-order-office = { $amt ->
+        [none] Für Straßen, Plätze und andere öffentliche Flächen ist meist das Ordnungsamt der Gemeinde { $gemeinde } zuständig.
+       *[other] Für Straßen, Plätze und andere öffentliche Flächen ist meist das Ordnungsamt zuständig: { $amt }, für die Gemeinde { $gemeinde }.
+    }
+permits-hint-park-operator = Betreiber eines Parks oder Gartens im Kartengebiet laut OpenStreetMap: { $operator }. Fragen Sie dort nach, bevor Sie ihn nutzen.
+permits-hint-school-operator = Träger oder Betreiber der Schule oder Einrichtung laut OpenStreetMap: { $operator }. Für das Gelände fragen Sie die Schulleitung oder diesen Träger.
+permits-hint-owners-unknown = Eigentümer dieser Flächen sind aus offenen Daten nicht bestimmbar. Bei berechtigtem Interesse (z. B. Veranstalter) kann beim Grundbuchamt ein Grundbuchauszug beantragt werden; für öffentliche Flächen hilft das zuständige Ordnungs- oder Grünflächenamt.

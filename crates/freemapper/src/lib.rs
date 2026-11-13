@@ -15,6 +15,7 @@ pub mod layers;
 pub mod note;
 pub mod ocd;
 pub mod omap;
+pub mod permits;
 pub mod places;
 pub mod project;
 pub mod raster;
