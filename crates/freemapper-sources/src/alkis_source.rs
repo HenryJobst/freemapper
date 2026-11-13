@@ -186,6 +186,16 @@ pub fn normalise_land_use(feature: Value) -> Value {
     normalise(feature, "nutzart", &LAND_USE_CLASSES)
 }
 
+/// The land use class `text` in the LGB spelling (`Strassenverkehr` → `Straßenverkehr`); an
+/// unknown class as it is.
+pub fn land_use_class(text: &str) -> String {
+    let key = spelling_key(text);
+    LAND_USE_CLASSES
+        .iter()
+        .find(|name| spelling_key(name) == key)
+        .map_or_else(|| text.to_string(), |name| (*name).to_string())
+}
+
 /// `feature` with `property` replaced by the entry of `names` it spells in ASCII.
 fn normalise(mut feature: Value, property: &str, names: &[&str]) -> Value {
     let Some(value) = feature
