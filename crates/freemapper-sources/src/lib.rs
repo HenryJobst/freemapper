@@ -8,6 +8,7 @@ pub mod alkis_source;
 pub mod dates;
 pub mod float_tiff;
 pub mod height_model;
+pub mod layer_file;
 pub mod metalink;
 pub mod nas;
 pub mod ogc_api;

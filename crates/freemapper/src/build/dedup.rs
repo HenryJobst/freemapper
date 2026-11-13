@@ -6,7 +6,7 @@
 
 use std::collections::HashMap;
 
-use crate::build::berlin::object_polygon;
+use crate::build::geometry::object_polygon;
 use crate::omap::{MapObject, MapObjectKind, SymbolSet};
 
 /// How much a source is trusted for a duplicate, lowest first.

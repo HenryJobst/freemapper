@@ -9,7 +9,7 @@ use freemapper_adapter_api::credit::{AlkisUse, CreditLine, UsedSources, lines_wi
 use freemapper_adapter_api::records::AdapterId;
 use serde::{Deserialize, Serialize};
 
-use crate::adapters::registry;
+use crate::adapters::{RegionAdapter, registry};
 use crate::area::GeoBox;
 use crate::area::{AreaError, MapArea};
 use crate::build::barriers::resolve_barrier_overlaps;
@@ -65,6 +65,7 @@ use crate::derive::vegetation::{
     BuildingMask, CELL_M as VEGETATION_CELL_M, CellCounts, vegetation_areas, vegetation_to_geojson,
 };
 use crate::derive::{DeriveError, MAX_RASTER_SIDE_PX};
+use crate::fetch::Product;
 use crate::fetch::{Cache, FetchError, FetchMode, Fetcher, write_inside};
 use crate::georef::{GeorefError, Georeferencing};
 use crate::ocd::convert::{Background, WorldFile, map_to_ocd};
@@ -76,19 +77,19 @@ use crate::omap::{
 use crate::raster::{GridSpec, Raster};
 use crate::sources::alkis::{FetchArea, LandUse, fetch_land_use_in, parse_land_use};
 use crate::sources::alkis::{fetch_buildings_in, parse_building_features, parse_buildings};
+use crate::sources::alkis_nas;
 use crate::sources::osm::{
     OsmFeature, cached_extract_date, extracts_for, features_from_geojson, features_to_geojson,
     fetch_extract, read_extract,
 };
 use crate::sources::region::{
-    overlaps_in, raster_provider, raster_region_in, region_of_object_id, terrain_source,
-    touches_berlin,
+    no_buildings_warnings, overlaps_in, raster_provider, raster_region_in, region_of_object_id,
+    terrain_source,
 };
 use crate::sources::trees;
-use crate::sources::{alkis_nas, berlin};
 use crate::space::{Part, SpacePlan};
 use crate::tiles::TileId;
-use freemapper_adapters_de::lgb::Product;
+use freemapper_adapters_de::berlin;
 
 mod export;
 mod extras;
@@ -779,7 +780,7 @@ pub(crate) const NDSM_RELPATH: &str = "templates/ndsm.png";
 pub(crate) const K5_RELPATH: &str = "templates/k5.png";
 /// The key of the raster template whose record the project file keeps in `k5` and whose file
 /// is [`K5_RELPATH`]: the one template there is. A second one needs a field of its own.
-const K5_TEMPLATE: &str = "k5";
+pub(crate) const K5_TEMPLATE: &str = "k5";
 /// The terrain mosaic of a tile provider (LGB, GeoSN) cut to the map area plus buffer, with its
 /// world file. `derive` writes it only where the extra Berlin layers have stair areas: the export
 /// reads their walking direction from it, offline and without the tile cache.
@@ -1325,9 +1326,19 @@ fn point_cloud_backend(
     project: &ProjectFile,
     region_bbox: &BoundingBox,
 ) -> Option<&'static dyn PointCloudBackend> {
-    raster_region_in(registry(), region_bbox)
-        .and_then(|adapter| adapter.point_cloud())
-        .filter(|backend| project.wants_vegetation() && backend.info().epsg == project.crs().epsg())
+    point_cloud_source(project, region_bbox).map(|(_, backend)| backend)
+}
+
+/// [`point_cloud_backend`] with the adapter it belongs to, whose hosts its requests are held to.
+fn point_cloud_source(
+    project: &ProjectFile,
+    region_bbox: &BoundingBox,
+) -> Option<(&'static dyn RegionAdapter, &'static dyn PointCloudBackend)> {
+    let region = raster_region_in(registry(), region_bbox)?;
+    let backend = region.point_cloud().filter(|backend| {
+        project.wants_vegetation() && backend.info().epsg == project.crs().epsg()
+    })?;
+    Some((region, backend))
 }
 
 /// The point-cloud tiles under `area.bbox` (the map area plus buffer in the map's CRS) for the
@@ -1344,7 +1355,7 @@ fn fetch_point_clouds_into(
     area: &FetchArea,
     progress: &mut dyn FnMut(Note),
 ) {
-    let Some(backend) = point_cloud_backend(project, &area.region_bbox) else {
+    let Some((region, backend)) = point_cloud_source(project, &area.region_bbox) else {
         // The choice has no effect here: say so once rather than leave the map maker waiting.
         if project.wants_vegetation() {
             progress(note!("progress-no-point-clouds"));
@@ -1364,10 +1375,7 @@ fn fetch_point_clouds_into(
         return;
     }
     // Like every request for a state, only to the hosts its manifest declares.
-    let region = raster_region_in(registry(), &area.region_bbox)
-        .map(|adapter| adapter.info().id.as_str().to_string())
-        .unwrap_or_default();
-    let fetched = crate::adapters::asking_for(&region, fetcher, |fetcher| {
+    let fetched = crate::adapters::asking(region, fetcher, |fetcher| {
         let mut env = AdapterEnv {
             fetcher,
             regions: registry(),
@@ -1428,12 +1436,14 @@ fn raster_backend(region_bbox: &BoundingBox) -> Result<&'static dyn RasterBacken
         .ok_or(ProjectError::OutsideCoverage)
 }
 
-/// The Berlin K5 map as the template [`K5_RELPATH`] (PNG + world file) over `bbox`, the map area
-/// plus buffer in the map's CRS. Optional like the Berlin layers: a failed request or a full disk
-/// (`skip`) leaves the template out with a warning, never fails the fetch. A stored template
-/// that covers the area (same grid, see `check_template`) is kept. Outside Berlin (`region_bbox`), and in
-/// any CRS but UTM zone 33 that the service is asked for, nothing is requested and an earlier
-/// template is removed. Offline the stored template stays.
+/// The raster template recorded in `k5` as the file [`K5_RELPATH`] (PNG and world file) over
+/// `bbox`, the map area plus buffer in the map's CRS: the template of the adapter that has it
+/// ([`extras::fetch_template_key_into`]). Optional like the extra layers: a failed request or a
+/// full disk (`skip`) leaves the template out with a warning, never fails the fetch. A stored
+/// template that covers the area (same grid, see `check_template`) is kept. Outside the region
+/// of the adapter (`region_bbox`), and for a map in another CRS than the template is served in,
+/// nothing is requested and an earlier template is removed. Offline the stored template stays,
+/// and so it does in a run whose registry has no adapter with the template.
 #[allow(clippy::too_many_arguments)]
 fn fetch_k5_into(
     dir: &Path,
@@ -1973,7 +1983,7 @@ pub(crate) fn stored_berlin_layers(
     };
     let region_bbox = project.region_bbox()?;
     let mut layers = Vec::new();
-    for layer in berlin::extra_layers(project.map_kind) {
+    for layer in berlin::extra_layers(project.map_kind.contract()) {
         if let Some(stored) = extras::stored(
             &registers,
             dir,
@@ -2461,8 +2471,12 @@ pub fn derive_project_cancellable(
     };
 
     let mut written = vec![orthophoto, hillshade_path, slope_path, relief_path];
-    if project.buildings.as_ref().is_some_and(|b| b.count == 0) && touches_berlin(&region_bbox) {
-        progress(note!("warning-berlin-buildings-missing"));
+    if project.buildings.as_ref().is_some_and(|b| b.count == 0) {
+        // A region whose buildings come from a service of their own says so when the area lies
+        // on its ground and none is stored.
+        for warning in no_buildings_warnings(&region_bbox) {
+            progress(Note::new(warning));
+        }
     }
     let dsm_recorded = match &inputs.dsm {
         Some(Ok(HeightInput::Stored)) => stored_model(&project.surface, SURFACE_RELPATH),
@@ -2818,7 +2832,7 @@ fn used_sources<'a>(project: &'a ProjectFile, registers: &'a [&'a str]) -> UsedS
             .iter()
             .map(|(file, record)| (file.as_str(), record.count))
             .collect(),
-        extra_templates: project.k5.iter().map(|_| "k5").collect(),
+        extra_templates: project.k5.iter().map(|_| K5_TEMPLATE).collect(),
         drawn_registers: registers,
     }
 }
@@ -7375,14 +7389,14 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         let tile = crate::tiles::TileId::parse("33392-5820").unwrap();
         serve_synthetic_tile(fetcher, tile, "2026-01-26");
         fetcher.insert_prefix(
-            crate::sources::berlin::BUILDINGS_SERVICE,
-            crate::sources::berlin::test_support::BUILDINGS
+            freemapper_adapters_de::berlin::BUILDINGS_SERVICE,
+            freemapper_adapters_de::berlin::test_support::BUILDINGS
                 .as_bytes()
                 .to_vec(),
         );
         fetcher.insert_prefix(
-            crate::sources::berlin::LAND_USE_SERVICE,
-            crate::sources::berlin::test_support::LAND_USE
+            freemapper_adapters_de::berlin::LAND_USE_SERVICE,
+            freemapper_adapters_de::berlin::test_support::LAND_USE
                 .as_bytes()
                 .to_vec(),
         );
@@ -9145,7 +9159,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
     /// Serves the extra Berlin layer fixtures for exactly `bbox` (an empty answer for the types
     /// without a fixture).
     fn serve_berlin_layers(fetcher: &MapFetcher, bbox: &BoundingBox) {
-        use crate::sources::berlin::{EXTRA_LAYERS, test_support::answer, wfs_url};
+        use freemapper_adapters_de::berlin::{EXTRA_LAYERS, test_support::answer, wfs_url};
         for layer in &EXTRA_LAYERS {
             for t in layer.types {
                 fetcher.insert(
@@ -9314,8 +9328,11 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
 
     /// Serves a K5 map for the template area of a Berlin project (the pieces `fetch_k5` asks for).
     fn serve_k5(fetcher: &MapFetcher, project: &ProjectFile) {
-        let grid = GridSpec::covering(&project.bbox().unwrap(), crate::sources::wms::K5_PIXEL_M);
-        for (piece, url) in crate::sources::wms::k5_pieces(&grid) {
+        let grid = GridSpec::covering(
+            &project.bbox().unwrap(),
+            freemapper_adapters_de::berlin::K5_PIXEL_M,
+        );
+        for (piece, url) in freemapper_adapters_de::berlin::k5_pieces(&grid) {
             let mut png = Vec::new();
             image::RgbImage::from_pixel(piece.width, piece.height, image::Rgb([230, 220, 200]))
                 .write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png)
@@ -9448,7 +9465,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
                     serde_json::json!({
                         "type": "Feature", "id": format!("{layer}.1"),
                         "geometry": {"type": "Point", "coordinates": [e, n]},
-                        "properties": {"id": "1", crate::sources::berlin::TYPE_KEY: layer}
+                        "properties": {"id": "1", freemapper_adapters_de::berlin::TYPE_KEY: layer}
                     })
                 })
                 .collect();
@@ -9538,8 +9555,11 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let project = ProjectFile::load(dir.path()).unwrap();
         serve_berlin_layers(&fetcher, &project.region_bbox().unwrap());
         // The K5 service fails: the fetch goes on, the template is left out.
-        let grid = GridSpec::covering(&project.bbox().unwrap(), crate::sources::wms::K5_PIXEL_M);
-        for (_, url) in crate::sources::wms::k5_pieces(&grid) {
+        let grid = GridSpec::covering(
+            &project.bbox().unwrap(),
+            freemapper_adapters_de::berlin::K5_PIXEL_M,
+        );
+        for (_, url) in freemapper_adapters_de::berlin::k5_pieces(&grid) {
             fetcher.failing.borrow_mut().push(url);
         }
         let (project, messages) = fetch(dir.path(), &fetcher, &cache);
@@ -10185,11 +10205,11 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             .region_bbox()
             .unwrap();
         serve_berlin_layers(&fetcher, &region_bbox);
-        let lines = &crate::sources::berlin::EXTRA_LAYERS[1];
+        let lines = &freemapper_adapters_de::berlin::EXTRA_LAYERS[1];
         fetcher
             .failing
             .borrow_mut()
-            .push(crate::sources::berlin::wfs_url(
+            .push(freemapper_adapters_de::berlin::wfs_url(
                 lines.service,
                 lines.types[0].name,
                 &region_bbox,
@@ -10288,7 +10308,12 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let stored =
             std::fs::read_to_string(dir.path().join("data/alkis-nas/sonstiges-bauwerk.geojson"))
                 .unwrap();
-        assert_eq!(berlin::parse_layer(&stored).unwrap().len(), 5);
+        assert_eq!(
+            freemapper_sources::layer_file::parse_layer(&stored)
+                .unwrap()
+                .len(),
+            5
+        );
         assert!(
             !dir.path()
                 .join("data/alkis-nas/vegetationsmerkmal.geojson")
@@ -10626,7 +10651,12 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         );
         let stored =
             std::fs::read_to_string(dir.path().join("data/trees/potsdam.geojson")).unwrap();
-        assert_eq!(berlin::parse_layer(&stored).unwrap().len(), 3);
+        assert_eq!(
+            freemapper_sources::layer_file::parse_layer(&stored)
+                .unwrap()
+                .len(),
+            3
+        );
 
         // The endpoints fail next time: the stored file stays, with a warning.
         let failing = MapFetcher::default();
@@ -11214,7 +11244,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let fetcher = MapFetcher::default();
         let (dir, _cache_dir, cache) = berlin_school(&fetcher);
         fetcher.insert_prefix(
-            crate::sources::berlin::BUILDINGS_SERVICE,
+            freemapper_adapters_de::berlin::BUILDINGS_SERVICE,
             crate::sources::alkis::test_support::page(&[], None),
         );
         fetch(dir.path(), &fetcher, &cache);
@@ -12760,7 +12790,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
 
     #[test]
     fn vegetation_candidates_stay_near_the_area_and_leave_buildings_water_paving_and_the_park() {
-        use crate::build::berlin::object_polygon;
+        use crate::build::geometry::object_polygon;
         use crate::build::out_of_bounds::area_object;
         use crate::derive::vegetation::{VegetationClass, vegetation_to_geojson};
         use geo::Area as _;

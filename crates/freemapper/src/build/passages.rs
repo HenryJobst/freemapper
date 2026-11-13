@@ -10,7 +10,7 @@ use geo::{
 };
 use geo_types::{MultiPolygon, Polygon, Rect};
 
-use crate::build::berlin::object_polygon;
+use crate::build::geometry::object_polygon;
 use crate::build::points::{HIDDEN_KEY, OUT_OF_BOUNDS_CODE, projected};
 use crate::crs::BoundingBox;
 use crate::georef::Georeferencing;

@@ -8,7 +8,7 @@
 use geo::{Area as _, BooleanOps as _, BoundingRect as _, Intersects as _};
 use geo_types::{MultiPolygon, Polygon};
 
-use crate::build::berlin::object_polygon;
+use crate::build::geometry::object_polygon;
 use crate::build::out_of_bounds::{
     LandClip, area_object, clipped_pieces, is_out_of_bounds_part, land_tags, mean_width,
 };

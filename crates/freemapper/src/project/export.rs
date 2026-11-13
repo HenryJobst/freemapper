@@ -45,15 +45,17 @@ pub(super) fn read_stored_buildings(dir: &Path) -> Result<Option<StoredBuildings
         return Ok(None);
     }
     let text = std::fs::read_to_string(&path).map_err(|e| ProjectError::Io(path.clone(), e))?;
-    let mut features = berlin::parse_layer(&text).map_err(|e| ProjectError::StoredBuildings {
-        path: path.clone(),
-        message: e.to_string(),
+    let mut features = freemapper_sources::layer_file::parse_layer(&text).map_err(|e| {
+        ProjectError::StoredBuildings {
+            path: path.clone(),
+            message: e.to_string(),
+        }
     })?;
     // Berlin buildings carry no date; the 2022 height layer, if stored, gives their footprint
     // date. It is an optional source: an unreadable file leaves the buildings undated.
     if let Some(layer) = known_berlin_layer("gebaeudehoehen")
         && let Ok(text) = std::fs::read_to_string(berlin_layer_path(dir, layer))
-        && let Ok(heights) = berlin::parse_layer(&text)
+        && let Ok(heights) = freemapper_sources::layer_file::parse_layer(&text)
     {
         berlin::join_footprint_dates(&mut features, &heights);
     }
@@ -314,8 +316,8 @@ pub(super) fn stored_vegetation_objects(
     georef: &Georeferencing,
     symbol_set: &SymbolSet,
 ) -> Result<Vec<MapObject>, ProjectError> {
-    use crate::build::berlin::object_polygon;
     use crate::build::content::POINT_CLOUD_KEY;
+    use crate::build::geometry::object_polygon;
     use crate::build::out_of_bounds::area_object;
     use crate::derive::vegetation::{min_area_m2, vegetation_from_geojson};
     /// The paved area of ISSprOM.

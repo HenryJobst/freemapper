@@ -4,6 +4,7 @@
 //! `rellage`, `nutzart`, `bez`), so the stored files and the build rules stay the same for both
 //! states.
 
+use std::borrow::Cow;
 use std::collections::HashSet;
 
 use chrono::{Datelike, NaiveDate};
@@ -16,8 +17,10 @@ use serde_json::{Map, Value};
 use crate::crs::BoundingBox;
 use crate::fetch::{FetchError, Fetcher, get_with_retries};
 use crate::project::MapKind;
+use crate::raster::GridSpec;
 use crate::sources::alkis::invalid;
 use crate::sources::region::{BERLIN, touches};
+use crate::sources::wms::WmsService;
 
 pub const BUILDINGS_SERVICE: &str = "https://gdi.berlin.de/services/wfs/alkis_gebaeude";
 pub const BUILDINGS_TYPE: &str = "alkis_gebaeude:gebaeude";
@@ -337,12 +340,55 @@ impl ExtraSet for Registers {
     }
 }
 
+/// The Berlin 1:5000 map in colour (K5), template only: PNG pieces, not an orthophoto.
+pub const K5_WMS: WmsService = WmsService {
+    url: Cow::Borrowed("https://gdi.berlin.de/services/wms/k5_farbe"),
+    layer: Cow::Borrowed("k5_farbe"),
+    crs: crate::crs::Crs::Utm33,
+    extra: Cow::Borrowed(""),
+    max_px: 4000,
+};
+/// Pixel size of the K5 template on both map kinds: a 1:5000 map is fully resolved at this.
+pub const K5_PIXEL_M: f64 = 0.25;
+/// Longest side of the K5 image in pixels (about 108 MB while stitching); a larger area gets
+/// coarser pixels.
+const K5_MAX_SIDE_PX: f64 = 6_000.0;
+
+/// The GetMap requests covering `grid` for the K5 map (PNG).
+pub fn k5_pieces(grid: &GridSpec) -> Vec<(GridSpec, String)> {
+    crate::sources::wms::png_pieces(&K5_WMS, grid)
+}
+
+/// Downloads the K5 map over `bbox` (EPSG:25833) from the Berlin WMS, stitched at `pixel_size`
+/// (made coarser when the image would pass [`K5_MAX_SIDE_PX`]), as `out` (PNG) with its world
+/// file (`.pgw`), on the template grid of `bbox`.
+pub fn fetch_k5(
+    fetcher: &dyn Fetcher,
+    bbox: &BoundingBox,
+    pixel_size: f64,
+    root: &std::path::Path,
+    out: &std::path::Path,
+) -> Result<(), FetchError> {
+    crate::sources::wms::fetch_png_template(
+        fetcher,
+        &K5_WMS,
+        bbox,
+        pixel_size,
+        K5_MAX_SIDE_PX,
+        root,
+        out,
+    )
+}
+
 /// The Berlin map 1:5000 in colour (K5) as the raster template of Berlin's adapter.
 pub struct K5;
 
+/// The key of the [`K5`] template: its file, its record and its credit go by it.
+pub const K5_KEY: &str = "k5";
+
 /// What the engine stores and reports of [`K5`].
 static K5_TEMPLATE: RasterTemplateInfo = RasterTemplateInfo {
-    key: "k5",
+    key: K5_KEY,
     crs: crate::crs::Crs::Utm33,
     // The date of the K5 dataset (catalogue `karte-von-berlin-1-5000-k5-farbausgabe-9f3ecf8d`);
     // the WMS gives no date of its own.
@@ -373,7 +419,7 @@ impl RasterTemplate for K5 {
         root: &std::path::Path,
         out: &std::path::Path,
     ) -> Result<(), FetchError> {
-        crate::sources::wms::fetch_k5(fetcher, bbox, crate::sources::wms::K5_PIXEL_M, root, out)
+        fetch_k5(fetcher, bbox, K5_PIXEL_M, root, out)
     }
 }
 
@@ -513,19 +559,8 @@ pub fn split_multipoint(feature: Value) -> Vec<Value> {
         .collect()
 }
 
-/// `features` as the GeoJSON FeatureCollection stored for a layer (an empty one for no feature).
-pub fn layer_to_geojson(features: &[Value]) -> String {
-    serde_json::json!({ "type": "FeatureCollection", "features": features }).to_string()
-}
-
-/// The features of a stored layer file.
-pub fn parse_layer(text: &str) -> Result<Vec<Value>, serde_json::Error> {
-    let collection: Value = serde_json::from_str(text)?;
-    Ok(collection["features"]
-        .as_array()
-        .cloned()
-        .unwrap_or_default())
-}
+// A stored layer is read and written by `freemapper-sources`, for every family of layers.
+pub use freemapper_sources::layer_file::{layer_to_geojson, parse_layer};
 
 /// URL of the first page of `type_name` features of `service` in `bbox`, rounded outward.
 pub fn wfs_url(service: &str, type_name: &str, bbox: &BoundingBox) -> String {

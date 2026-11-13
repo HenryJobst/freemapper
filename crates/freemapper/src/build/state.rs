@@ -600,10 +600,10 @@ mod tests {
         assert!(canopies(Crs::Utm33, &all).is_empty());
         // The stored Berlin fixture, as the Berlin source normalises it, yields nothing.
         let text = include_str!("../../../../tests/fixtures/berlin-building-parts.json");
-        let stored: Vec<Value> = crate::sources::berlin::parse_layer(text)
+        let stored: Vec<Value> = freemapper_sources::layer_file::parse_layer(text)
             .unwrap()
             .iter()
-            .map(crate::sources::berlin::normalise_building)
+            .map(freemapper_adapters_de::berlin::normalise_building)
             .collect();
         assert!(!stored.is_empty());
         assert!(passages(Crs::Utm33, MapKind::Sprint, &stored).is_empty());

@@ -14,13 +14,12 @@ use std::path::{Path, PathBuf};
 use chrono::NaiveDate;
 use freemapper_adapter_api::extras::{ExtraSet, RasterTemplate};
 use freemapper_adapter_api::geometry::touches_region_in;
-use freemapper_adapter_api::policy::PolicyFetcher;
 use freemapper_adapter_api::records::{AdapterId, WmsRecord, stored_bbox};
 use serde_json::Value;
 
 use super::{
     AlkisRecord, MapKind, NAS_LAYERS_DIR, ProjectError, SKIPPED_SHOWN, TREE_LAYERS_DIR, alkis_nas,
-    berlin, trees,
+    trees,
 };
 use crate::adapters::{RegionAdapter, Registry};
 use crate::crs::{BoundingBox, Crs};
@@ -247,22 +246,19 @@ pub(crate) fn fetch_set_into(
         previous,
         progress,
         |_| {
-            let fetch = |fetcher: &dyn Fetcher| set.fetch(fetcher, region_bbox, kind.contract());
-            let layers = match adapter.policy() {
-                Some(policy) => fetch(&PolicyFetcher::new(fetcher, policy)),
-                None => fetch(fetcher),
-            };
-            layers
-                .into_iter()
-                .map(|fetched| Fetched {
-                    key: fetched.key.to_string(),
-                    features: fetched.features.map(|features| Features {
-                        features,
-                        skipped: Vec::new(),
-                        regions: vec![adapter.info().id.clone()],
-                    }),
-                })
-                .collect()
+            crate::adapters::asking(adapter, fetcher, |fetcher| {
+                set.fetch(fetcher, region_bbox, kind.contract())
+            })
+            .into_iter()
+            .map(|fetched| Fetched {
+                key: fetched.key.to_string(),
+                features: fetched.features.map(|features| Features {
+                    features,
+                    skipped: Vec::new(),
+                    regions: vec![adapter.info().id.clone()],
+                }),
+            })
+            .collect()
         },
     )
 }
@@ -345,11 +341,9 @@ pub(crate) fn fetch_template_key_into(
         return;
     }
     progress(Note::new(info.notes.download));
-    let fetch = |fetcher: &dyn Fetcher| template.fetch(fetcher, bbox, dir, &path);
-    let fetched = match adapter.policy() {
-        Some(policy) => fetch(&PolicyFetcher::new(fetcher, policy)),
-        None => fetch(fetcher),
-    };
+    let fetched = crate::adapters::asking(adapter, fetcher, |fetcher| {
+        template.fetch(fetcher, bbox, dir, &path)
+    });
     match fetched {
         Ok(()) => {
             *record = Some(WmsRecord {
@@ -522,7 +516,7 @@ fn store(
                 if !freemapper_fs::stays_inside(dir, &file) {
                     return Err(format!("{} leads out of the project folder", family.dir));
                 }
-                let geojson = berlin::layer_to_geojson(&fetched.features);
+                let geojson = freemapper_sources::layer_file::layer_to_geojson(&fetched.features);
                 write_inside(dir, &file, geojson.as_bytes()).map_err(|e| e.to_string())?;
                 Ok(fetched)
             });
@@ -624,9 +618,11 @@ pub(crate) fn stored(
         return Ok(None);
     };
     let text = std::fs::read_to_string(&file).map_err(|e| ProjectError::Io(file.clone(), e))?;
-    let features = berlin::parse_layer(&text).map_err(|e| ProjectError::StoredCandidates {
-        path: file.clone(),
-        message: e.to_string(),
+    let features = freemapper_sources::layer_file::parse_layer(&text).map_err(|e| {
+        ProjectError::StoredCandidates {
+            path: file.clone(),
+            message: e.to_string(),
+        }
     })?;
     Ok(Some(Stored {
         features,
@@ -675,7 +671,11 @@ mod tests {
     fn write(dir: &Path, family: &Family, key: &str, features: &[Value]) {
         let file = path(dir, family, key);
         std::fs::create_dir_all(file.parent().unwrap()).unwrap();
-        std::fs::write(file, berlin::layer_to_geojson(features)).unwrap();
+        std::fs::write(
+            file,
+            freemapper_sources::layer_file::layer_to_geojson(features),
+        )
+        .unwrap();
     }
 
     fn failed(key: &str) -> Fetched {
@@ -1131,7 +1131,10 @@ mod tests {
                         FetchedExtra {
                             key: layer.key,
                             features: fetcher.get(&url).map(|bytes| {
-                                berlin::parse_layer(&String::from_utf8_lossy(&bytes)).unwrap()
+                                freemapper_sources::layer_file::parse_layer(
+                                    &String::from_utf8_lossy(&bytes),
+                                )
+                                .unwrap()
                             }),
                         }
                     })
@@ -1170,11 +1173,12 @@ mod tests {
             let fetcher = MapFetcher::default();
             fetcher.insert(
                 "https://wrecks.example.org/hulls",
-                berlin::layer_to_geojson(&[json!({"hull": 1})]).into_bytes(),
+                freemapper_sources::layer_file::layer_to_geojson(&[json!({"hull": 1})])
+                    .into_bytes(),
             );
             fetcher.insert(
                 "https://wrecks.example.org/anchors",
-                berlin::layer_to_geojson(&[]).into_bytes(),
+                freemapper_sources::layer_file::layer_to_geojson(&[]).into_bytes(),
             );
             let mut said = Vec::new();
             let mut fetch = |bbox: &BoundingBox, kind, previous: &BTreeMap<String, AlkisRecord>| {
@@ -1373,13 +1377,25 @@ mod tests {
             fn fetch(
                 &self,
                 fetcher: &dyn Fetcher,
-                _bbox: &BoundingBox,
+                bbox: &BoundingBox,
                 root: &Path,
                 out: &Path,
             ) -> Result<(), FetchError> {
-                let image = fetcher.get("https://charts.example.org/chart.png")?;
-                write_inside(root, out, &image)?;
-                write_inside(root, &out.with_extension("pgw"), b"world")
+                // The server is asked; the image is a white sheet on the template grid.
+                fetcher.get("https://charts.example.org/chart.png")?;
+                let grid = crate::raster::GridSpec::covering(bbox, 1.0);
+                let sheet =
+                    image::RgbImage::from_pixel(grid.width, grid.height, image::Rgb([255; 3]));
+                let mut png = Vec::new();
+                sheet
+                    .write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png)
+                    .expect("a PNG in memory");
+                write_inside(root, out, &png)?;
+                write_inside(
+                    root,
+                    &out.with_extension("pgw"),
+                    grid.world_file().as_bytes(),
+                )
             }
         }
 
@@ -1399,6 +1415,7 @@ mod tests {
         struct Run {
             dir: tempfile::TempDir,
             fetcher: MapFetcher,
+            mode: FetchMode,
             record: Option<WmsRecord>,
             said: Vec<String>,
         }
@@ -1410,6 +1427,7 @@ mod tests {
                 Self {
                     dir: tempfile::tempdir().unwrap(),
                     fetcher,
+                    mode: FetchMode::Online,
                     record: None,
                     said: Vec::new(),
                 }
@@ -1421,7 +1439,7 @@ mod tests {
                     "chart",
                     self.dir.path(),
                     &self.fetcher,
-                    FetchMode::Online,
+                    self.mode,
                     skip,
                     crs,
                     bbox,
@@ -1481,6 +1499,47 @@ mod tests {
             assert_eq!(run.fetcher.calls.get(), calls + 2);
         }
 
+        /// A stored template that still covers the area is not fetched again; one whose files
+        /// no longer form the grid of the area is.
+        #[test]
+        fn that_covers_the_area_stays_as_it_is() {
+            let registry = square_with_templates(None, vec![Box::new(Chart)]);
+            let mut run = Run::new();
+            run.fetch(&registry, &INSIDE, Crs::Utm33, false);
+            let (record, calls) = (run.record.clone(), run.fetcher.calls.get());
+            run.fetch(&registry, &INSIDE, Crs::Utm33, false);
+            assert_eq!(run.fetcher.calls.get(), calls);
+            assert_eq!(run.record, record);
+            assert_eq!(
+                run.said.last().map(String::as_str),
+                Some("K5 template unchanged")
+            );
+            // The world file of another grid: the pair is fetched anew.
+            let world = template_path(run.dir.path(), "chart").with_extension("pgw");
+            std::fs::write(&world, "2\n0\n0\n-2\n4001\n4199\n").unwrap();
+            run.fetch(&registry, &INSIDE, Crs::Utm33, false);
+            assert_eq!(run.fetcher.calls.get(), calls + 1);
+            assert_eq!(run.files(), (true, true));
+        }
+
+        /// Offline nothing is asked and nothing goes, wherever the area lies.
+        #[test]
+        fn is_left_alone_offline() {
+            let registry = square_with_templates(None, vec![Box::new(Chart)]);
+            let mut run = Run::new();
+            run.fetch(&registry, &INSIDE, Crs::Utm33, false);
+            let (record, calls) = (run.record.clone(), run.fetcher.calls.get());
+            run.said.clear();
+            run.mode = FetchMode::Offline;
+            for (bbox, crs, skip) in [(&INSIDE, Crs::Utm33, false), (&FAR, Crs::Utm32, true)] {
+                run.fetch(&registry, bbox, crs, skip);
+                assert_eq!(run.files(), (true, true));
+                assert_eq!(run.record, record);
+            }
+            assert_eq!(run.fetcher.calls.get(), calls);
+            assert!(run.said.is_empty(), "{:?}", run.said);
+        }
+
         /// A template that cannot be fetched is a warning; a refused host is such a failure.
         #[test]
         fn that_fails_is_a_warning_and_is_held_to_the_hosts_of_its_adapter() {
@@ -1498,14 +1557,18 @@ mod tests {
             );
         }
 
-        /// The file of the template recorded in `k5` is the one the engine lists and removes.
+        /// The template recorded in `k5`: an adapter of the program has it under the key the
+        /// engine looks for, its file is the one the engine lists and removes, and its credit
+        /// goes by the same key.
         #[test]
-        fn of_berlin_is_the_file_the_engine_names() {
+        fn of_berlin_is_the_one_the_engine_records() {
+            use crate::project::{K5_RELPATH, K5_TEMPLATE};
+            let (adapter, template) =
+                template_in(crate::adapters::registry(), K5_TEMPLATE).expect("built in");
+            assert_eq!(adapter.info().id.as_str(), "berlin");
+            assert_eq!(template.info().key, freemapper_adapters_de::berlin::K5_KEY);
             let dir = Path::new("project");
-            assert_eq!(
-                template_path(dir, "k5"),
-                dir.join(crate::project::K5_RELPATH)
-            );
+            assert_eq!(template_path(dir, K5_TEMPLATE), dir.join(K5_RELPATH));
         }
 
         /// A run whose registry has no adapter with the template leaves it alone.

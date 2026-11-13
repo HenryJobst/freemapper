@@ -450,6 +450,10 @@ impl RegionAdapter for StateAdapter {
         &self.templates
     }
 
+    fn no_buildings_warning(&self) -> Option<&'static str> {
+        (self.state == State::Berlin).then_some("warning-berlin-buildings-missing")
+    }
+
     fn attribution(&self, used: &UsedSources<'_>) -> Vec<CreditLine> {
         match self.state {
             State::Brandenburg | State::Berlin | State::Saxony => credit::lines(self.state, used),
@@ -588,6 +592,21 @@ mod tests {
             }
             assert!(set.has("gebaeudehoehen"));
             assert!(!set.has("notes"));
+        }
+    }
+
+    /// Berlin's buildings come from a service of its own, which a fetch can miss while the
+    /// rest arrives: Berlin alone has a warning for an area of its ground without buildings.
+    #[test]
+    fn berlin_alone_warns_of_an_area_without_buildings() {
+        for adapter in adapters() {
+            let berlin = adapter.info().id.as_str() == "berlin";
+            assert_eq!(
+                adapter.no_buildings_warning(),
+                berlin.then_some("warning-berlin-buildings-missing"),
+                "{}",
+                adapter.info().id
+            );
         }
     }
 
