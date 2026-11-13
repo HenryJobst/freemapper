@@ -818,7 +818,7 @@ mod tests {
 
     fn set() -> SymbolSet {
         // The schoolyard set has the furniture (544, 545) and every line of the dedup.
-        MapKind::Schoolyard.symbol_set()
+        MapKind::Schoolyard.symbol_set(1000)
     }
 
     fn object(
@@ -1267,7 +1267,7 @@ mod tests {
     }
 
     fn sprint() -> SymbolSet {
-        MapKind::Sprint.symbol_set()
+        MapKind::Sprint.symbol_set(4000)
     }
 
     /// A closed rectangle `w` by `h` metres with its corner at (`e`, `n`) metres, from `source`.

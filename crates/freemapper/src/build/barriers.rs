@@ -197,7 +197,7 @@ pub fn resolve_barrier_overlaps(
         .collect();
     // Map coordinates are 1/1000 mm on paper: one ground metre is 10^6 / scale of them.
     let metre = 1e6 / f64::from(georef.scale_denominator);
-    let paper = 1000.0 * kind.symbol_enlargement();
+    let paper = 1000.0 * kind.symbol_enlargement(georef.scale_denominator);
     let xy = |c: &MapCoord| (f64::from(c.x), f64::from(c.y));
     let length = |o: &MapObject| -> f64 {
         o.coords

@@ -26,7 +26,7 @@ in OOM oder OCAD.
   KI-Agenten (MCP-Server).
 - Regionen: Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg, Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern, Nordrhein-Westfalen, Niedersachsen, Rheinland-Pfalz und Saarland (Open Data von LGB,
   Geoportal Berlin, GeoSN, LVermGeo, LGV, HVBG, LVermGeo SH, LAiV M-V, Geobasis NRW, LGLN, LVermGeo RP und LVGL);
-  Schulhofkarten 1:1000 und Sprintkarten 1:4000.
+  Schulhofkarten 1:1000, Sprintkarten 1:4000 und Waldkarten 1:15 000, 1:10 000 oder 1:7500.
 - Beispiele: je Bundesland ein fertiges Projekt mit OOM-Karte, OCAD-Ausgangsstand und PDF, siehe
   [Beispiele](#beispiele).
 
@@ -251,7 +251,9 @@ Der Zwischenspeicher liegt im Cache-Ordner des Systems (macOS `~/Library/Caches/
 `~/.cache/freemapper`, Windows `%LOCALAPPDATA%\freemapper`) und wird von allen Projekten geteilt;
 `--cache-dir` wählt einen anderen Ordner.
 
-Kartenarten: `schoolyard` (Schulhofkarte, 1:1000) und `sprint` (Sprintkarte, ISSprOM 2019, 1:4000).
+Kartenarten: `schoolyard` (Schulhofkarte, 1:1000), `sprint` (Sprintkarte, ISSprOM 2019, 1:4000) und `forest`
+(Waldkarte, ISOM 2017-2, 1:15 000, 1:10 000 oder 1:7500). Was die Waldkarte zeichnet, steht im
+[Handbuch](docs/manual/de.md#waldkarten).
 
 Die Sprintkarte enthält zusätzlich, als fertige Kartenobjekte:
 

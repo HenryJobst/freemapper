@@ -59,8 +59,9 @@ pub struct NasLayer {
     pub kinds: &'static [MapKind],
 }
 
-const BOTH_KINDS: &[MapKind] = &[MapKind::Sprint, MapKind::Schoolyard];
-const SPRINT_ONLY: &[MapKind] = &[MapKind::Sprint];
+// A forest map takes what a sprint map takes (spec 2026-11-13).
+const BOTH_KINDS: &[MapKind] = &[MapKind::Sprint, MapKind::Schoolyard, MapKind::Forest];
+const SPRINT_ONLY: &[MapKind] = &[MapKind::Sprint, MapKind::Forest];
 
 /// The NAS layers in fetch order. `AX_BoeschungKliff` has no geometry property (the services
 /// answer an exception), and `AX_Bauteil` is not fetched: its parts are the vereinfacht building

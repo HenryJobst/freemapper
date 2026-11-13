@@ -539,7 +539,7 @@ mod tests {
         land_use: &[LandUse],
         survey: &StreetSurvey,
     ) -> (PavedObjects, SymbolSet) {
-        let set = MapKind::Sprint.symbol_set();
+        let set = MapKind::Sprint.symbol_set(4000);
         let objects = paved_area_objects(land_use, &[], survey, &f.clip, &f.georef, &set).unwrap();
         (objects, set)
     }
@@ -674,7 +674,7 @@ mod tests {
         let f = fixture();
         let (e, n) = f.centre;
         let sand_road = LineString::from(vec![(e - 80.0, n), (e + 80.0, n)]);
-        let set = MapKind::Sprint.symbol_set();
+        let set = MapKind::Sprint.symbol_set(4000);
         let land_use = [land("Straßenverkehr", None, &f)];
         let objects = paved_area_objects(
             &land_use,

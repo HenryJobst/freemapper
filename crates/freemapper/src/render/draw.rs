@@ -518,7 +518,7 @@ mod tests {
 
     #[test]
     fn sprint_paint_order_walkable_area_park_forest_then_paths() {
-        let s = crate::project::MapKind::Sprint.symbol_set();
+        let s = crate::project::MapKind::Sprint.symbol_set(4000);
         let r = RenderSymbols::from_set(&s);
         // Painted highest priority number first, so a larger number lies lower.
         let lowest = |code: &str| {

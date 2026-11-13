@@ -552,14 +552,15 @@ $("clear").addEventListener("click", () => {
 
 // --- Settings, save, done --------------------------------------------------------------------
 
-// Fills the scale list for `kind` from the server's table (`allowed_scales`, ADR 0085; the first
-// is the default); a stored scale outside the table stays selectable.
+// Fills the scale list for `kind` from the server's table (`allowed_scales`, ADR 0085) and selects
+// the kind's default (`default_scales`); a stored scale outside the table stays selectable.
 function fillScales(kind, current) {
   const table = (project && project.allowed_scales) || {};
+  const defaults = (project && project.default_scales) || {};
   const list = [...(table[kind] || (current ? [current] : []))];
   if (current && !list.includes(current)) list.push(current);
   $("scale").replaceChildren(...list.map((s) => new Option(String(s), String(s))));
-  $("scale").value = String(current || list[0]);
+  $("scale").value = String(current || defaults[kind] || list[0]);
 }
 
 $("kind").addEventListener("change", () => {

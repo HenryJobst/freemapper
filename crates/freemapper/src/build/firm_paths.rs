@@ -34,8 +34,11 @@ pub fn cut_firm_paths(
     georef: &Georeferencing,
     symbol_set: &SymbolSet,
 ) -> Vec<MapObject> {
+    // A set that answers these codes through aliases (ISOM) draws ordinary paths and roads with
+    // the same symbols; it has no firm-gravel forms to cut.
     let firm: Vec<u32> = FIRM_PATH_CODES
         .iter()
+        .filter(|code| !symbol_set.is_aliased(code))
         .filter_map(|code| symbol_set.id_for_code(code))
         .collect();
     let is_firm = |o: &MapObject| {
@@ -232,6 +235,23 @@ mod tests {
         let out = cut_firm_paths(vec![stub, ok], &PavedObjects::default(), &f.georef, &f.set);
         assert_eq!(lengths_m(&f, &out).len(), 1);
         assert_eq!(lengths_m(&f, &out)[0].0, "way/2");
+    }
+
+    /// On a forest map 505 and 503 are the OSM footpaths and roads, not the firm-gravel forms the
+    /// ISSprOM codes alias to: a short piece of a split way stays.
+    #[test]
+    fn short_osm_paths_stay_on_a_forest_map() {
+        let f = fixture(MapKind::Forest);
+        // 1 mm at 1:15000 is 15 m.
+        let footpath = osm_line(&f, "505", "way/1", (0.0, 0.0), (5.0, 0.0));
+        let road = osm_line(&f, "503", "way/2", (0.0, 20.0), (5.0, 20.0));
+        let out = cut_firm_paths(
+            vec![footpath, road],
+            &PavedObjects::default(),
+            &f.georef,
+            &f.set,
+        );
+        assert_eq!(out.len(), 2);
     }
 
     #[test]

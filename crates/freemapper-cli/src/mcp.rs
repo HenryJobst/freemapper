@@ -69,10 +69,11 @@ struct CreateProject {
     geojson: Option<String>,
     /// With osm_id: which part of an area of several separate parts to use (1 is the largest).
     part: Option<usize>,
-    /// "schoolyard" (default, 1:1000) or "sprint" (1:4000).
+    /// "schoolyard" (default, 1:1000), "sprint" (1:4000) or "forest" (1:15000).
     kind: Option<String>,
-    /// Scale denominator: schoolyard 1000 (default); sprint 4000 (default) or 5000. Other values
-    /// are refused; for 1:3000 draw at 4000, freemapper-print enlarges when printing.
+    /// Scale denominator: schoolyard 1000 (default); sprint 4000 (default) or 5000; forest 15000
+    /// (default), 10000 or 7500. Other values are refused; for 1:3000 draw at 4000,
+    /// freemapper-print enlarges when printing.
     scale: Option<u32>,
     /// Map title for the peripheral information (default: the folder name).
     title: Option<String>,
@@ -136,10 +137,11 @@ struct ProjectStatus {
 struct OpenAreaSelector {
     /// Project folder (absolute path or starting with ~); created when the user saves.
     dir: String,
-    /// Map kind of a new project: "schoolyard" (default, 1:1000) or "sprint" (1:4000).
+    /// Map kind of a new project: "schoolyard" (default, 1:1000), "sprint" (1:4000) or "forest"
+    /// (1:15000).
     kind: Option<String>,
     /// Scale denominator of a new project: schoolyard 1000 (default); sprint 4000 (default) or
-    /// 5000. Other values are refused.
+    /// 5000; forest 15000 (default), 10000 or 7500. Other values are refused.
     scale: Option<u32>,
     /// Map title of a new project.
     title: Option<String>,
@@ -437,7 +439,8 @@ impl FreemapperServer {
 
     #[tool(
         description = "Create a project folder for a map area. Give osm_id (from find_place) or a \
-                       GeoJSON file. kind is schoolyard (1:1000, default) or sprint (1:4000)."
+                       GeoJSON file. kind is schoolyard (1:1000, default), sprint (1:4000) or forest \
+                       (1:15000)."
     )]
     async fn create_project(
         &self,

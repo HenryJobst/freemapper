@@ -83,12 +83,12 @@ const PAVED_MIN_TREES: usize = 9;
 
 /// The size of the point symbol `code` on paper (mm) for the map kind: [`POINT_SIZES_MM`]
 /// enlarged by [`MapKind::symbol_enlargement`] (§3.1), the native school symbols as they are.
-pub fn point_size_mm(code: &str, kind: MapKind) -> Option<f64> {
+pub fn point_size_mm(code: &str, kind: MapKind, scale: u32) -> Option<f64> {
     let &(_, size, native) = POINT_SIZES_MM.iter().find(|(c, _, _)| *c == code)?;
     Some(if native {
         size
     } else {
-        size * kind.symbol_enlargement()
+        size * kind.symbol_enlargement(scale)
     })
 }
 
@@ -429,7 +429,7 @@ fn group_areas(
     context: &GroupContext<'_>,
 ) -> Result<(Vec<MapObject>, Vec<usize>), GeorefError> {
     let georef = context.georef;
-    let enlargement = context.kind.symbol_enlargement();
+    let enlargement = context.kind.symbol_enlargement(georef.scale_denominator);
     let metres_per_mm = f64::from(georef.scale_denominator) / 1000.0;
     let centre = |spot: &Spot| {
         let p = georef.map_to_projected(MapCoord::new(spot.xy.0 as i32, spot.xy.1 as i32));
@@ -642,7 +642,8 @@ pub(crate) fn way_footprints(
     let half_widths: HashMap<u32, f64> = PATH_WIDTHS_MM
         .iter()
         .filter_map(|&(code, width)| {
-            let half = width * kind.symbol_enlargement() * metres_per_mm / 2.0;
+            let half =
+                width * kind.symbol_enlargement(georef.scale_denominator) * metres_per_mm / 2.0;
             Some((symbol_set.id_for_code(code)?, half))
         })
         .collect();
@@ -922,7 +923,10 @@ pub fn generalize_points(
         .filter_map(|&(code, _, _)| {
             Some((
                 symbol_set.id_for_code(code)?,
-                (code, point_size_mm(code, kind)? * 1000.0),
+                (
+                    code,
+                    point_size_mm(code, kind, georef.scale_denominator)? * 1000.0,
+                ),
             ))
         })
         .collect();
@@ -930,29 +934,30 @@ pub fn generalize_points(
     // it goes (ADR 0076). Trees stay: the cadastre footprint of a building often takes in the
     // trees at its wall, and a group of them is cut at the building later. Map points and the
     // schoolyard map keep theirs.
-    let candidates: Vec<MapObject> = if kind == MapKind::Sprint && !footprints.is_empty() {
-        let buildings = Indexed::new(footprints.to_vec(), GRID_CELL_M);
-        candidates
-            .into_iter()
-            .filter(|o| {
-                let inside = is_point(o)
-                    && sizes
-                        .get(&o.symbol_id)
-                        .is_some_and(|(code, _)| !TREE_CODES.contains(code))
-                    && o.coords.first().is_some_and(|c| {
-                        let p = georef.map_to_projected(*c);
-                        buildings.contains(Point::new(p.easting, p.northing))
-                    });
-                !inside
-            })
-            .collect()
-    } else {
-        candidates
-    };
+    let candidates: Vec<MapObject> =
+        if matches!(kind, MapKind::Sprint | MapKind::Forest) && !footprints.is_empty() {
+            let buildings = Indexed::new(footprints.to_vec(), GRID_CELL_M);
+            candidates
+                .into_iter()
+                .filter(|o| {
+                    let inside = is_point(o)
+                        && sizes
+                            .get(&o.symbol_id)
+                            .is_some_and(|(code, _)| !TREE_CODES.contains(code))
+                        && o.coords.first().is_some_and(|c| {
+                            let p = georef.map_to_projected(*c);
+                            buildings.contains(Point::new(p.easting, p.northing))
+                        });
+                    !inside
+                })
+                .collect()
+        } else {
+            candidates
+        };
     // Control sites (ADR 0074, 0077): the ones of OSM, the street survey and the lighting
     // cadastre are thinned together, once the duplicates of the sources are gone and the sites
     // in buildings with them, so a site in a building does not take a neighbour out.
-    let candidates = if kind == MapKind::Sprint {
+    let candidates = if matches!(kind, MapKind::Sprint | MapKind::Forest) {
         drop_ambiguous_control_sites(candidates, georef.scale_denominator)
     } else {
         candidates
@@ -1005,7 +1010,8 @@ pub fn generalize_points(
                 .filter_map(|(i, o)| spot(false, i, o)),
         )
         .collect();
-    let gap = POINT_GAP_MM * kind.symbol_enlargement() * 1000.0;
+    let enlarge = kind.symbol_enlargement(georef.scale_denominator);
+    let gap = POINT_GAP_MM * enlarge * 1000.0;
 
     // 2. Dense groups of candidate trees become group areas.
     let trees: Vec<usize> = (0..spots.len())
@@ -1014,8 +1020,8 @@ pub fn generalize_points(
     let mut merged = vec![false; spots.len()];
     let mut areas = Vec::new();
     // A row (an avenue) stays points and is thinned.
-    let close = GROUP_CLOSE_MM * kind.symbol_enlargement() * 1000.0;
-    let spacing = GROUP_LINK_MM * kind.symbol_enlargement() * 1000.0;
+    let close = GROUP_CLOSE_MM * enlarge * 1000.0;
+    let spacing = GROUP_LINK_MM * enlarge * 1000.0;
     let clusters: Vec<Vec<usize>> = tree_clusters(&spots, &trees, gap, (close, spacing), metre)
         .into_iter()
         .filter(|c| !is_row(c, &spots, metre))
@@ -1170,11 +1176,7 @@ pub(crate) mod test_support {
     }
 
     pub(crate) fn fixture(kind: MapKind) -> Fixture {
-        let scale = if kind == MapKind::Schoolyard {
-            1000
-        } else {
-            4000
-        };
+        let scale = kind.default_scale();
         let georef = Georeferencing::new(
             LatLon {
                 lat: 52.4876,
@@ -1187,7 +1189,7 @@ pub(crate) mod test_support {
         let (e, n) = (georef.ref_projected.easting, georef.ref_projected.northing);
         Fixture {
             kind,
-            set: kind.symbol_set(),
+            set: kind.symbol_set(kind.default_scale()),
             clip: BoundingBox {
                 min_e: e - 500.0,
                 min_n: n - 500.0,
@@ -2450,21 +2452,22 @@ mod tests {
     #[test]
     fn point_sizes_cover_the_drawn_symbols() {
         for kind in [MapKind::Sprint, MapKind::Schoolyard] {
-            let set = kind.symbol_set();
+            let scale = kind.default_scale();
+            let set = kind.symbol_set(scale);
             for (code, _, _) in POINT_SIZES_MM {
                 if set.id_for_code(code).is_none() {
                     continue;
                 }
-                let size = point_size_mm(code, kind).expect("in the table");
+                let size = point_size_mm(code, kind, scale).expect("in the table");
                 let drawn = drawn_extent_mm(&set, code);
                 // The enlarged school set rounds to whole micrometres.
                 assert!(size >= drawn - 0.002, "{kind:?} {code}: {size} < {drawn}");
             }
         }
         // 417 at the norm's white mask, not the bundled 1.2 mm.
-        assert!((point_size_mm("417", MapKind::Sprint).unwrap() - 1.4).abs() < 1e-9);
-        assert!((point_size_mm("417", MapKind::Schoolyard).unwrap() - 1.75).abs() < 1e-9);
-        assert!((point_size_mm("544", MapKind::Schoolyard).unwrap() - 1.1).abs() < 1e-9);
+        assert!((point_size_mm("417", MapKind::Sprint, 4000).unwrap() - 1.4).abs() < 1e-9);
+        assert!((point_size_mm("417", MapKind::Schoolyard, 1000).unwrap() - 1.75).abs() < 1e-9);
+        assert!((point_size_mm("544", MapKind::Schoolyard, 1000).unwrap() - 1.1).abs() < 1e-9);
         use crate::build::candidates::Rules;
         for rules in [Rules::embedded(), Rules::berlin(), Rules::states()] {
             for code in rules.point_codes() {

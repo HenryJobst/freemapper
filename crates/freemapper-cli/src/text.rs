@@ -277,6 +277,8 @@ mod tests {
             ("dir", v("/p")),
             ("index", v(1)),
             ("total", v(3)),
+            // An invalid contour interval in freemapper.toml.
+            ("interval", v(0.0)),
             // The content setting (`--content`).
             ("summary", v("balanced, walls=map")),
             ("detail", v("unknown profile `huge`")),

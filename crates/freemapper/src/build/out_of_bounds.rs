@@ -264,7 +264,7 @@ mod tests {
     }
 
     fn objects(f: &Fixture, land_use: &[LandUse], kind: MapKind) -> (Vec<MapObject>, SymbolSet) {
-        let set = kind.symbol_set();
+        let set = kind.symbol_set(kind.default_scale());
         let objects =
             out_of_bounds_objects(land_use, &f.area, &f.clip, kind, &f.georef, &set).unwrap();
         (objects, set)

@@ -28,7 +28,7 @@ Stand mit Brandenburg, Berlin und Sachsen.
 ## 1. Was freemapper macht
 
 freemapper holt die amtlichen Geodaten eines Gebiets und baut daraus den **Ausgangsstand** für eine
-Schulhofkarte (1:1000) oder Sprintkarte (1:4000). Zu den Geodaten gehören Luftbild, Geländemodell,
+Schulhofkarte (1:1000), Sprintkarte (1:4000) oder Waldkarte (1:15 000 bis 1:7500). Zu den Geodaten gehören Luftbild, Geländemodell,
 Gebäude und Flächennutzung aus dem Liegenschaftskataster (ALKIS). Dazu kommen Daten aus
 OpenStreetMap (OSM).
 
@@ -301,7 +301,7 @@ nächste. Die äußeren Wege einer solchen Relation tragen oft keine Tags. Nomin
 als GeoJSON und nutzen Sie `--geojson`.
 
 **Maßstab.** `--scale` nimmt nur Werte an, die freemapper-print druckt: bei Schulhofkarten 1000, bei
-Sprintkarten 4000 (Standard) oder 5000. Mit 5000 warnt freemapper-print, weil der Maßstab nicht in der Norm steht; die
+Sprintkarten 4000 (Standard) oder 5000, bei Waldkarten 15000 (Standard), 10000 oder 7500. Mit 5000 warnt freemapper-print, weil der Maßstab nicht in der Norm steht; die
 Symbole bleiben bei 100 %. Einen Sprintkarten-Maßstab 3000 lehnt `init` ab. Zeichnen Sie bei 1:4000, freemapper-print
 vergrößert beim Drucken auf 1:3000. Ein Projekt, dessen `freemapper.toml` einen anderen Maßstab nennt, lässt sich
 weiter laden; freemapper warnt, und freemapper-print druckt die Karte nicht.
@@ -564,6 +564,41 @@ verdecken, etwa Steine, Wegenden oder Mauerecken.
 Wie das Ergebnis aussieht, zeigen die Beispielprojekte im Repository, eines je Bundesland:
 [`examples/`](https://github.com/HenryJobst/freemapper/blob/main/examples/README.md). Dort liegen OOM-Karte, OCAD-Ausgangsstand und PDF.
 
+### Waldkarten
+
+Eine Waldkarte (`--kind forest`) folgt ISOM 2017-2. Sie ist für kleine Waldstücke gedacht, für die Sie schnell
+eine Trainingskarte brauchen. Der Maßstab ist 1:15 000 (Standard), 1:10 000 oder 1:7500. Bei 1:10 000 zeichnet
+freemapper die Symbole auf 150 %, bei 1:7500 auf 200 %, so wie die Norm vergrößerte Karten vorsieht.
+
+```sh
+freemapper init dammheide --osm relation/4513841 --kind forest --scale 10000
+freemapper run dammheide --pdf-candidates
+```
+
+- **Wege** kommen aus OSM und stehen gleich in der Karte: Hauptstraßen als 502, andere Straßen als 503,
+  Wirtschaftswege der Güte 1 und 2 oder ab 3 m Breite als 504, die übrigen Wirtschaftswege, Radwege und breite
+  oder befestigte Fußwege als 505, schmale Pfade als 506, undeutliche Pfade (`trail_visibility=bad` oder
+  `informal=yes`) als 507 und Treppen als 532. Private Wege bleiben Wege. Gehwege an Straßen, Überwege, Zufahrten
+  und Gassen auf Parkplätzen fehlen. freemapper verschiebt und verbindet nichts. Was in OSM ungenau ist,
+  korrigieren Sie in OOM.
+- **Wald** ist das weiße Papier. Wo OSM oder ALKIS Wald angeben, zeichnet freemapper kein offenes Gelände,
+  auch wenn ALKIS die Fläche als Park oder Erholungsfläche führt.
+- **Grün** gibt es nur, wo OSM es angibt: Gebüsch (`natural=scrub`) wird Kandidat 406, dichtes Gebüsch 408.
+  Wiesen und Grasland werden Kandidaten 401, Heide und Lichtungen 403. Aus dem nDOM leitet freemapper kein Grün
+  ab. Die Vegetation aus Laserpunktwolken (Gruppe `vegetation`) können Sie wie bei Sprintkarten einschalten; in
+  Berlin wurde ohne Laub beflogen, dort findet sie wenig.
+- **Höhenlinien** liegen alle 5 m, in flachem Gelände alle 2,5 m. Flach ist ein Gebiet, wenn zwischen dem 5.
+  und dem 95. Perzentil seiner Geländehöhen weniger als 15 m liegen. Mit `contour_interval_m = 2.5` (oder einem
+  anderen Wert über 0) in der `freemapper.toml` legen Sie den Abstand selbst fest; danach `derive` und
+  `export --force`. Der Kartenrand nennt den Abstand („Äquidistanz 2,5 m“).
+- Gebäude, Gewässer, Mauern, Zäune, Stromleitungen, Bahnlinien und Sperrgebiete (520) kommen wie bei der
+  Sprintkarte. Bänke, Poller, Laternen und anderes Stadtmobiliar fehlen, ebenso Bäume aus Baumkatastern und
+  einzelne OSM-Bäume. Nur ein Baum mit
+  `denotation=natural_monument` wird Kandidat 417.
+
+Für ein schnelles Training reicht das Kandidaten-PDF (`--pdf-candidates`): Es zeigt Karte und Kandidaten im
+gewählten Maßstab. Zum Kartieren nehmen Sie die `.omap` wie bei den anderen Kartenarten.
+
 ## 8. Was die Vorlagen zeigen
 
 Die Beispiele zeigen das Kreuzgymnasium Dresden. Luftbild, Gelände- und Oberflächenmodell:
@@ -575,10 +610,11 @@ Quelle: GeoSN, dl-de/by-2-0, Daten geändert.
 | **nDOM (Höhe über Grund):** gelb 0,3–1 m (Mauern, Bänke, Autos), orange 1–2,5 m (Hecken, Zäune, Spielgeräte), hellgrün 2,5–8 m (Büsche, Schuppen), dunkelgrün über 8 m (Bäume, Häuser). Zeigt, was steht, auch unter Bäumen. | ![nDOM über dem Luftbild](images/ndsm.jpg) |
 | **Schummerung:** das Gelände wie von Nordwesten beleuchtet. Zeigt Böschungen, Mulden und Wälle. | ![Schummerung](images/hillshade.jpg) |
 | **Hangneigung:** je dunkler, desto steiler. Hilft bei Böschungen und Treppen. | ![Hangneigung](images/slope.jpg) |
-| **Lokales Relief:** das Gelände minus sein geglättetes Mittel (über etwa 5 m auf Sprintkarten, 3 m auf Schulhofkarten). Hell ist höher als die Umgebung, dunkel tiefer; das allgemeine Gefälle ist weg. Zeigt Hügel, Mulden, Böschungen und Gräben, die die Schummerung am Hang verschluckt. | – |
+| **Lokales Relief:** das Gelände minus sein geglättetes Mittel (über etwa 5 m auf Sprintkarten, 3 m auf Schulhofkarten, 8 m auf Waldkarten). Hell ist höher als die Umgebung, dunkel tiefer; das allgemeine Gefälle ist weg. Zeigt Hügel, Mulden, Böschungen und Gräben, die die Schummerung am Hang verschluckt. | – |
 
 Dazu kommen die **Höhenlinien** in der Kandidaten-Karte: auf Schulhofkarten alle 1 m, auf Sprintkarten
-alle 2 m, jede fünfte als Zählkurve. Sie sind aus dem Geländemodell berechnet und geglättet. Für die
+alle 2 m, auf Waldkarten alle 5 m oder in flachem Gelände alle 2,5 m ([Waldkarten](#waldkarten)), jede fünfte als
+Zählkurve. Sie sind aus dem Geländemodell berechnet und geglättet. Für die
 Karte sind sie ein Entwurf, kein fertiges Ergebnis.
 
 Aus dem Geländemodell kommen weitere Kandidaten, die die Höhenlinien nicht zeigen:
@@ -840,7 +876,8 @@ Die Symbole in der OCAD-Datei sind Platzhalter mit richtiger Nummer und Farbe, a
 Laden Sie in OCAD den offiziellen Symbolsatz:
 
 1. *Symbol › Farben und Symbole laden aus …* wählen.
-2. Den Satz wählen: ISSprOM 2019 für Sprint, den IOF-Schulsatz 2019 für Schulhofkarten.
+2. Den Satz wählen: ISSprOM 2019 für Sprint, den IOF-Schulsatz 2019 für Schulhofkarten, ISOM 2017-2 für
+   Waldkarten.
 
 OCAD ersetzt die Platzhalter dann nach Nummer. Die OCAD-Ausgabe ist noch nicht in jeder OCAD-Version
 geprüft. Rückmeldungen sind willkommen (Kapitel 16).

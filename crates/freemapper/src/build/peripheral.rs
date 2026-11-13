@@ -65,7 +65,7 @@ impl PaperRect {
 pub struct PeripheralInfo {
     pub title: String,
     pub scale_denominator: u32,
-    pub contour_interval_m: u32,
+    pub contour_interval_m: f64,
     /// Attribution lines, the freemapper credit line last.
     pub attribution: Vec<String>,
 }
@@ -205,7 +205,8 @@ pub fn info_block(
         (x0, y),
         format!(
             "Maßstab 1:{} · Äquidistanz {} m",
-            info.scale_denominator, info.contour_interval_m
+            info.scale_denominator,
+            german_number(info.contour_interval_m)
         ),
         ALIGN_LEFT,
     ));
@@ -232,6 +233,15 @@ pub fn info_block(
     objects
 }
 
+/// `2` or `2,5`: a whole number without decimals, else with the German decimal comma.
+fn german_number(value: f64) -> String {
+    if value.fract() == 0.0 {
+        format!("{value:.0}")
+    } else {
+        value.to_string().replace('.', ",")
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -251,7 +261,7 @@ mod tests {
         SymbolSet::school_2019().with_sheet_symbols()
     }
 
-    fn info(scale_denominator: u32, contour_interval_m: u32) -> PeripheralInfo {
+    fn info(scale_denominator: u32, contour_interval_m: f64) -> PeripheralInfo {
         PeripheralInfo {
             title: "Clara-Zetkin-Schule".to_string(),
             scale_denominator,
@@ -307,7 +317,7 @@ mod tests {
             rect_mm(-5.0, -5.0, 5.0, 5.0),
             rect_mm(-400.0, -300.0, 400.0, 300.0),
         ] {
-            for o in info_block(&content, &info(1000, 1), &school_set()) {
+            for o in info_block(&content, &info(1000, 1.0), &school_set()) {
                 assert!(o.coords.iter().all(|c| c.y > content.max_y), "{o:?}");
             }
         }
@@ -316,7 +326,7 @@ mod tests {
     #[test]
     fn info_block_texts_schoolyard() {
         let set = school_set();
-        let objects = info_block(&rect_mm(-50.0, -50.0, 50.0, 50.0), &info(1000, 1), &set);
+        let objects = info_block(&rect_mm(-50.0, -50.0, 50.0, 50.0), &info(1000, 1.0), &set);
         assert_eq!(
             texts(&objects),
             [
@@ -337,12 +347,14 @@ mod tests {
     #[test]
     fn bar_scale_sprint() {
         let set = school_set();
-        let objects = info_block(&rect_mm(-50.0, -50.0, 50.0, 50.0), &info(4000, 2), &set);
+        let objects = info_block(&rect_mm(-50.0, -50.0, 50.0, 50.0), &info(4000, 2.0), &set);
         let all = texts(&objects);
         assert_eq!(
             &all[1..6],
             ["Maßstab 1:4000 · Äquidistanz 2 m", "0", "100", "200", "m"]
         );
+        let flat = info_block(&rect_mm(-50.0, -50.0, 50.0, 50.0), &info(10000, 2.5), &set);
+        assert_eq!(texts(&flat)[1], "Maßstab 1:10000 · Äquidistanz 2,5 m");
         let bar = set.id_for_code("994");
         let longest = objects
             .iter()
@@ -366,7 +378,7 @@ mod tests {
     fn bar_unit_is_its_own_text() {
         let set = school_set();
         let content = rect_mm(-50.0, -50.0, 50.0, 50.0);
-        let objects = info_block(&content, &info(1000, 1), &set);
+        let objects = info_block(&content, &info(1000, 1.0), &set);
         let label = |t: &str| {
             objects
                 .iter()
