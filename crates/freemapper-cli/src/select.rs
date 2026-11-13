@@ -483,6 +483,11 @@ async fn project(State(state): State<Arc<AppState>>, headers: HeaderMap) -> Resp
         .map(|kind| (kind.name().to_string(), json!(kind.allowed_scales())))
         .collect::<serde_json::Map<_, _>>()
         .into();
+    answer["default_scales"] = MapKind::ALL
+        .into_iter()
+        .map(|kind| (kind.name().to_string(), json!(kind.default_scale())))
+        .collect::<serde_json::Map<_, _>>()
+        .into();
     answer["running"] = crate::select_run::running_json(&state);
     answer["revision"] = revision.map_or(Value::Null, Value::from);
     Json(answer).into_response()
@@ -1470,7 +1475,13 @@ pub(crate) mod tests {
             json!({
                 "schoolyard": MapKind::Schoolyard.allowed_scales(),
                 "sprint": MapKind::Sprint.allowed_scales(),
+                "forest": MapKind::Forest.allowed_scales(),
             })
+        );
+        // The page selects the default, which is not the first entry for every kind.
+        assert_eq!(
+            answer["default_scales"],
+            json!({ "schoolyard": 1000, "sprint": 4000, "forest": 15000 })
         );
     }
 

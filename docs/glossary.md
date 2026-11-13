@@ -17,6 +17,7 @@ Orienteering Maps 2019 (IOF).
 | Orientierungslauf (OL) | orienteering | Laufsportart mit Karte und Kompass. | – |
 | OL-Karte | orienteering map | Karte nach IOF-Norm (ISOM/ISSprOM). | `Map` |
 | Sprintkarte | sprint map | OL-Karte nach ISSprOM, typisch 1:4000 oder 1:3000, städtisches Gelände. | `MapKind::Sprint` |
+| Waldkarte | forest map | OL-Karte nach ISOM 2017-2 für Wald, 1:15 000 (Symbole 100 %), 1:10 000 (150 %) oder 1:7500 (200 %). Wege aus OSM als Kartenobjekte, Wald als weißes Papier, Höhenlinien alle 5 m oder in flachem Gelände 2,5 m. Die ISSprOM-Codes der Bausteine werden über `isom-aliases.toml` zu ISOM-Codes. | `MapKind::Forest`, `SymbolSet::isom_2017_2` |
 | Schulhofkarte | schoolyard map | OL-Karte für Schulgelände nach „IOF Symbol Set for School Orienteering Maps 2019“, Maßstab 1:1000, ISSprOM-Symbole auf 125 % vergrößert plus 6 Zusatzsymbole. | `MapKind::Schoolyard` |
 | Waldkarte | forest map | OL-Karte nach ISOM, typisch 1:15000/1:10000. | `MapKind::Forest` |
 | Kartenart | map kind | Sprint- oder Waldkarte; bestimmt Norm, Symbolsatz und Maßstab. | `MapKind` |

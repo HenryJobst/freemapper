@@ -137,7 +137,8 @@ pub(super) fn stored_osm_objects(
     )?)
 }
 
-/// 101/102 candidate objects for the contour lines from `derive`; none when there are none.
+/// 101/102 candidate objects for the contour lines from `derive`, none when there are none, and
+/// the interval they were traced at (stored with them, else the project's, else the kind's).
 /// They stop at the drawn ALKIS `water`: ISSprOM shows no contours in uncrossable water.
 pub(super) fn stored_contour_objects(
     dir: &Path,
@@ -147,18 +148,25 @@ pub(super) fn stored_contour_objects(
     water: &geo_types::MultiPolygon<f64>,
     georef: &Georeferencing,
     symbol_set: &SymbolSet,
-) -> Result<Vec<MapObject>, ProjectError> {
+) -> Result<(Vec<MapObject>, f64), ProjectError> {
     use geo::{Contains as _, Distance as _, InteriorPoint as _};
     let path = dir.join(CONTOURS_RELPATH);
+    let interval_of = |stored: Option<f64>| {
+        stored
+            .or(project.contour_interval_m)
+            .unwrap_or_else(|| project.map_kind.contour_interval_m())
+    };
     if !path.exists() {
-        return Ok(Vec::new());
+        return Ok((Vec::new(), interval_of(None)));
     }
     let text = std::fs::read_to_string(&path).map_err(|e| ProjectError::Io(path.clone(), e))?;
-    let lines = contours_from_geojson(&text).map_err(|e| ProjectError::StoredCandidates {
-        path: path.clone(),
-        message: e.to_string(),
-    })?;
-    let index_every = f64::from(5 * project.map_kind.contour_interval_m());
+    let (lines, stored) =
+        contours_from_geojson(&text).map_err(|e| ProjectError::StoredCandidates {
+            path: path.clone(),
+            message: e.to_string(),
+        })?;
+    let interval = interval_of(stored);
+    let index_every = 5.0 * interval;
     let (source, currency) = terrain_provenance(project)?;
     let id = |code: &str| {
         symbol_set
@@ -175,7 +183,7 @@ pub(super) fn stored_contour_objects(
             .interior_point()
             .is_some_and(|p| footprints.iter().any(|f| f.contains(&p)))
     };
-    lines
+    let objects = lines
         .iter()
         .filter(|line| {
             let ls = geo_types::LineString::from(line.points.clone());
@@ -226,7 +234,8 @@ pub(super) fn stored_contour_objects(
                 tags,
             })
         })
-        .collect()
+        .collect::<Result<_, ProjectError>>()?;
+    Ok((objects, interval))
 }
 
 /// ISSprOM contour and index contour.
@@ -603,7 +612,7 @@ pub(super) fn map_lacks_buildings(dir: &Path, map_text: &str) -> Result<bool, Pr
         project.scale_denominator,
         project.declination_date,
     )?;
-    let symbol_set = project.map_kind.symbol_set();
+    let symbol_set = project.map_kind.symbol_set(project.scale_denominator);
     let stored = read_stored_buildings(dir)?;
     Ok(
         !stored_building_objects(&project, stored.as_ref(), &area, &georef, &symbol_set)?
@@ -629,7 +638,7 @@ pub(super) fn map_lacks_canopies(dir: &Path, map_text: &str) -> Result<bool, Pro
         project.scale_denominator,
         project.declination_date,
     )?;
-    let symbol_set = project.map_kind.symbol_set();
+    let symbol_set = project.map_kind.symbol_set(project.scale_denominator);
     let stored = read_stored_buildings(dir)?;
     let footprints = stored.as_ref().map_or_else(Vec::new, |b| b.footprints());
     let map_area = area.projected_polygon_in(project.crs());
@@ -1133,6 +1142,8 @@ pub fn project_fingerprint(project: &ProjectFile) -> Result<String, ProjectError
         map_area: &'a serde_json::Value,
         crs: u32,
         provider: &'a Option<AdapterId>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        contour_interval_m: &'a Option<f64>,
     }
     let ProjectFile {
         map_kind,
@@ -1143,6 +1154,7 @@ pub fn project_fingerprint(project: &ProjectFile) -> Result<String, ProjectError
         map_area,
         crs,
         provider,
+        contour_interval_m,
         title: _,
         tiles: _,
         buildings: _,
@@ -1168,6 +1180,7 @@ pub fn project_fingerprint(project: &ProjectFile) -> Result<String, ProjectError
         map_area,
         crs: *crs,
         provider,
+        contour_interval_m,
     };
     let text = toml::to_string(&counted).map_err(|e| ProjectError::Toml(e.to_string()))?;
     Ok(sha2::Sha256::digest(text.as_bytes())
@@ -1355,7 +1368,7 @@ pub fn build_project(dir: &Path) -> Result<BuiltProject, ProjectError> {
         project.scale_denominator,
         project.declination_date,
     )?;
-    let symbol_set = project.map_kind.symbol_set();
+    let symbol_set = project.map_kind.symbol_set(project.scale_denominator);
 
     // Buildings first: they are the map's own objects, candidates only a template.
     let stored_buildings = read_stored_buildings(dir)?;
@@ -1438,13 +1451,16 @@ pub fn build_project(dir: &Path) -> Result<BuiltProject, ProjectError> {
         &georef,
         &symbol_set,
     )?);
-    cadastre_candidates.extend(stored_tree_objects(
-        &stored_tree_layers(dir, &project)?,
-        &project,
-        &area,
-        &georef,
-        &symbol_set,
-    )?);
+    // A forest map draws no register trees (spec 2026-11-13).
+    if project.map_kind != MapKind::Forest {
+        cadastre_candidates.extend(stored_tree_objects(
+            &stored_tree_layers(dir, &project)?,
+            &project,
+            &area,
+            &georef,
+            &symbol_set,
+        )?);
+    }
     // A survey line along an ALKIS line goes first, then an OSM line along either.
     let mut cadastre_candidates =
         drop_cadastre_lines_by_rank(cadastre_candidates, &symbol_set, georef.scale_denominator);
@@ -1495,6 +1511,10 @@ pub fn build_project(dir: &Path) -> Result<BuiltProject, ProjectError> {
     )?;
     // Parks, meadows and woods of the land use: 401, 403 and 405 (`build/open_land.rs`). Where
     // they are map objects, the OSM parks and lawns go.
+    let osm_forest = match (&osm, project.map_kind) {
+        (Some((features, _)), MapKind::Forest) => osm_forest_polygons(features, project.crs()),
+        _ => Vec::new(),
+    };
     let open_land = open_land_objects(
         &land_use,
         &area.projected_polygon_in(project.crs()),
@@ -1502,6 +1522,7 @@ pub fn build_project(dir: &Path) -> Result<BuiltProject, ProjectError> {
         project.map_kind,
         &georef,
         &symbol_set,
+        &osm_forest,
     )?;
     let osm_candidates = drop_open_land_under_alkis(osm_candidates, &open_land.map, &symbol_set);
     // The point symbols keep the norm's gap, dense tree groups become 501.3 on paving, else 402
@@ -1560,19 +1581,20 @@ pub fn build_project(dir: &Path) -> Result<BuiltProject, ProjectError> {
     let registers = drawn_registers(&point_candidates);
     let attribution_text = attribution_lines(&project, &registers).join("\n");
     let notes = format!("{attribution_text}\n{FREEMAPPER_CREDIT}");
+    let (contour_objects, contour_interval_m) = stored_contour_objects(
+        dir,
+        &project,
+        &footprints,
+        &area,
+        &water.union,
+        &georef,
+        &symbol_set,
+    )?;
     let mut candidates: Vec<MapObject> =
         std::iter::once(map_area_outline(&area, &georef, &symbol_set, &project)?)
             .chain(point_candidates)
             .chain(structures.stairs)
-            .chain(stored_contour_objects(
-                dir,
-                &project,
-                &footprints,
-                &area,
-                &water.union,
-                &georef,
-                &symbol_set,
-            )?)
+            .chain(contour_objects)
             .chain(paved.candidates)
             .chain(open_land.candidates)
             .chain(water.candidates)
@@ -1613,7 +1635,10 @@ pub fn build_project(dir: &Path) -> Result<BuiltProject, ProjectError> {
     });
     let content = PaperRect::of_bbox(&project.bbox()?, &georef)?;
     // North lines first: within their black they lie under walls and fences.
-    let spacing_mm = NORTH_LINE_SPACING_MM * project.map_kind.symbol_enlargement();
+    let spacing_mm = NORTH_LINE_SPACING_MM
+        * project
+            .map_kind
+            .symbol_enlargement(project.scale_denominator);
     let mut map_objects = north_lines(&content, spacing_mm, &symbol_set);
     map_objects.extend(building_objects);
     // Canopies after the buildings; their Black 20 % lies under the building fill anyway.
@@ -1659,7 +1684,7 @@ pub fn build_project(dir: &Path) -> Result<BuiltProject, ProjectError> {
     let info = PeripheralInfo {
         title: project.display_title(dir),
         scale_denominator: project.scale_denominator,
-        contour_interval_m: project.map_kind.contour_interval_m(),
+        contour_interval_m,
         attribution,
     };
     // The walkable area (sprint only, ADR 0069) in its own part, written first.
@@ -1763,6 +1788,9 @@ pub(crate) const CANDIDATES_RELPATH: &str = "templates/candidates.omap";
 
 /// Line symbol used for the map area outline in the candidates template map.
 pub(super) const OUTLINE_SYMBOL_CODE: &str = "501.1";
+/// The outline of a set without 501.1 (ISOM 2017-2 has no step line): the thin black line of the
+/// sheet symbols.
+const OUTLINE_FALLBACK_CODE: &str = "994";
 
 /// The exterior ring of the map area as a closed path object.
 pub(super) fn map_area_outline(
@@ -1790,7 +1818,8 @@ pub(super) fn map_area_outline(
     Ok(MapObject {
         symbol_id: symbol_set
             .id_for_code(OUTLINE_SYMBOL_CODE)
-            .expect("symbol set defines 501.1"),
+            .or_else(|| symbol_set.id_for_code(OUTLINE_FALLBACK_CODE))
+            .expect("symbol set defines 501.1 or the sheet symbols"),
         kind: MapObjectKind::Path,
         coords: closed_ring(&points),
         tags,

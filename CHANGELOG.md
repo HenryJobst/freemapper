@@ -6,8 +6,13 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+### Hinzugefügt
+
+- Waldkarten (ADR 0116): `--kind forest` legt eine Karte nach ISOM 2017-2 an, im Maßstab 1:15 000 (Standard), 1:10 000 oder 1:7500 mit Symbolen auf 100, 150 oder 200 %. Gedacht ist sie für ein schnelles Training in kleinen Waldstücken. Die Wege kommen aus OSM und stehen gleich in der Karte, sortiert nach den Wegklassen 502 bis 507; Treppen werden 532. Gehwege an Straßen, Überwege, Zufahrten und Gassen auf Parkplätzen fehlen. Wald bleibt weißes Papier: Wo OSM oder ALKIS Wald angeben, zeichnet freemapper kein offenes Gelände, auch nicht über ALKIS-Parks. Grün gibt es nur aus OSM-Gebüsch, als Kandidat. Die Höhenlinien liegen alle 5 m, in flachem Gelände alle 2,5 m; `contour_interval_m` in der `freemapper.toml` legt den Abstand fest. Der Symbolsatz ist ISOM 2017-2 aus OpenOrienteering Mapper mit den Farben der IOF Rev. 4. Erprobt an der Dammheide und der Mittelheide in Berlin. Kartenart, Maßstäbe und Fehlermeldungen stehen auch in der Hilfe, im MCP-Server und auf der Gebietsseite.
+
 ### Geändert
 
+- freemapper-core 0.23.0: Der Vertrag der Suite kennt die Maßstäbe der Waldkarte, und freemapper schreibt sie.
 - Intern: Das Platzieren der Objekte nach den Inhaltseinstellungen liegt jetzt im neuen Modul „Kartenaufbau“ (`build/assembly.rs`, ADR 0115) statt zwischen den Dateizugriffen des Projekts. Es liest keine Datei und lässt sich mit wenigen Objekten im Speicher testen. Erster von drei Schritten; die Karten bleiben Byte für Byte gleich.
 - Intern: Welche Berliner Ebenen Register sind, steht nur noch an einer Stelle, im Berliner Adapter. Die Rangfolge bei doppelten Objekten, die Zeichenregeln für Bäume und die Quellenangabe lesen von dort statt aus eigenen Listen. An Karten und Quellenangaben ändert sich nichts (Nachtrag in ADR 0114).
 - Intern: Ein Baumkataster wird mit den Host-Regeln des Adapters abgefragt, der es mitbringt, und gilt für dessen Gebiet. Bisher suchte der Kern den Adapter über die Kennung, die in der Zeile des Katasters steht. Hätte die Zeile einen anderen Adapter der Registry genannt, wäre das Kataster für dessen Gebiet und unter dessen Host-Regeln abgefragt worden; mit einer unbekannten Kennung fiel es weg. Kein heutiger Adapter war betroffen: Ein Manifest trägt immer die eigene Kennung ein (Nachtrag in ADR 0114).

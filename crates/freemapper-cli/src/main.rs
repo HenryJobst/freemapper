@@ -68,7 +68,8 @@ enum Commands {
         #[arg(long, value_enum, default_value_t = Kind::Schoolyard)]
         kind: Kind,
         /// Scale denominator of a new project: schoolyard 1000 (default); sprint 4000 (default)
-        /// or 5000. Other values are refused, because freemapper-print refuses them.
+        /// or 5000; forest 15000 (default), 10000 or 7500. Other values are refused, because
+        /// freemapper-print refuses them.
         #[arg(long, value_parser = clap::value_parser!(u32).range(1..))]
         scale: Option<u32>,
         /// Map title for the peripheral information (default: the folder name).
@@ -178,7 +179,8 @@ enum Commands {
         #[arg(long, value_enum, default_value_t = Kind::Schoolyard)]
         kind: Kind,
         /// Scale denominator of a new project: schoolyard 1000 (default); sprint 4000 (default)
-        /// or 5000. Other values are refused, because freemapper-print refuses them.
+        /// or 5000; forest 15000 (default), 10000 or 7500. Other values are refused, because
+        /// freemapper-print refuses them.
         #[arg(long, value_parser = clap::value_parser!(u32).range(1..))]
         scale: Option<u32>,
         /// Map title of a new project.
@@ -624,6 +626,7 @@ impl From<UpdateMode> for freemapper_update::Mode {
 enum Kind {
     Schoolyard,
     Sprint,
+    Forest,
 }
 
 impl From<Kind> for MapKind {
@@ -631,6 +634,7 @@ impl From<Kind> for MapKind {
         match kind {
             Kind::Schoolyard => MapKind::Schoolyard,
             Kind::Sprint => MapKind::Sprint,
+            Kind::Forest => MapKind::Forest,
         }
     }
 }

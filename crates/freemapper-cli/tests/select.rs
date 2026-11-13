@@ -907,14 +907,14 @@ fn refusals_come_in_the_language_of_the_page() {
     assert_ne!(german, english, "{german}");
     let (status, german) = post(
         "api/save",
-        json!({ "area": school_area(), "kind": "forest" }),
+        json!({ "area": school_area(), "kind": "gym" }),
         "de",
     );
     assert_eq!(
         (status, german.as_str()),
         (
             400,
-            "Unbekannte Kartenart „forest“. Möglich sind schoolyard und sprint."
+            "Unbekannte Kartenart „gym“. Möglich sind schoolyard, sprint und forest."
         )
     );
 }

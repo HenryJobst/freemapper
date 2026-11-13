@@ -185,7 +185,7 @@ mod tests {
         (
             georef,
             rect(e - 100.0, n - 100.0, 200.0, 200.0),
-            kind.symbol_set(),
+            kind.symbol_set(kind.default_scale()),
         )
     }
 
@@ -240,7 +240,7 @@ mod tests {
             area("DEBE00YY0000FAR", "Überdachung", (300.0, 0.0), (5.0, 4.0)),
         ];
         for kind in [MapKind::Sprint, MapKind::Schoolyard] {
-            let set = kind.symbol_set();
+            let set = kind.symbol_set(kind.default_scale());
             let found = objects(kind, &features, &[]);
             assert_eq!(found.len(), 2, "{kind:?}");
             assert!(
@@ -366,7 +366,7 @@ mod tests {
         (
             georef,
             rect(e - 2000.0, n - 2000.0, 4000.0, 4000.0),
-            kind.symbol_set(),
+            kind.symbol_set(kind.default_scale()),
         )
     }
 
@@ -392,7 +392,7 @@ mod tests {
     fn vereinfacht_canopies_are_map_objects() {
         let features = mv_features();
         for kind in [MapKind::Sprint, MapKind::Schoolyard] {
-            let set = kind.symbol_set();
+            let set = kind.symbol_set(kind.default_scale());
             let found = state_canopies(kind, &features, &[]);
             // The roof is 3.7 m²: below the 0.5 mm minimum side (4 m²) at 1:4000.
             let expected = if kind == MapKind::Sprint { 1 } else { 2 };

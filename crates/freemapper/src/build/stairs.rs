@@ -488,7 +488,8 @@ pub fn stair_objects(
 ) -> Result<Vec<MapObject>, GeorefError> {
     let crs = Crs::from_epsg(georef.epsg).unwrap_or(Crs::Utm33);
     // Ground metres per paper millimetre at 100 % symbol size.
-    let metres_per_mm = f64::from(georef.scale_denominator) / 1000.0 * kind.symbol_enlargement();
+    let metres_per_mm = f64::from(georef.scale_denominator) / 1000.0
+        * kind.symbol_enlargement(georef.scale_denominator);
     let mut stairs = StairWriter {
         georef,
         symbol_set,
@@ -716,7 +717,11 @@ mod tests {
             (e - 100.0, n + 100.0),
             (e - 100.0, n - 100.0),
         ];
-        (georef, Polygon::new(ring.into(), vec![]), kind.symbol_set())
+        (
+            georef,
+            Polygon::new(ring.into(), vec![]),
+            kind.symbol_set(kind.default_scale()),
+        )
     }
 
     /// A 1 m DGM around the reference point with height `h(e, n)` (metres from the reference
@@ -854,7 +859,7 @@ mod tests {
     }
 
     fn code(kind: MapKind, object: &MapObject) -> String {
-        let set = kind.symbol_set();
+        let set = kind.symbol_set(kind.default_scale());
         ["532.6", "532.7", "532.8", "532.9"]
             .into_iter()
             .find(|c| set.id_for_code(c) == Some(object.symbol_id))
@@ -1458,7 +1463,7 @@ mod tests {
             &area,
             20.0,
             &georef,
-            &kind.symbol_set(),
+            &kind.symbol_set(kind.default_scale()),
             "2026-11-09".parse().unwrap(),
         )
         .unwrap();
