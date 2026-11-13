@@ -104,7 +104,7 @@ file and the PDF. Two of them here; clicking a picture opens the PDF:
 | Rhineland-Palatinate | [Reichsburg and Cochem old town](https://github.com/HenryJobst/freemapper/tree/main/examples/rheinland-pfalz-cochem/) | <a href="examples/rheinland-pfalz-cochem/rheinland-pfalz-cochem-candidates.pdf"><img src="examples/rheinland-pfalz-cochem/preview.webp" width="220" alt=""></a> |
 
 All examples with previews, how the areas were chosen and how many objects each map has are in the
-[examples overview](https://github.com/HenryJobst/freemapper/blob/main/examples/README.en.md). The same area in the three content profiles
+[examples overview](https://github.com/HenryJobst/freemapper/blob/main/examples/README.en.md), with a forest map too (Dammheide in Berlin, 1:10 000). The same area in the three content profiles
 `safe`, `balanced` and `full` is on the [comparison page](https://github.com/HenryJobst/freemapper/blob/main/examples/compare.en.md).
 
 ## Choosing the area in the browser

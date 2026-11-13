@@ -779,6 +779,7 @@ pub fn project_fingerprint(project: &ProjectFile) -> Result<String, ProjectError
         ndsm_tiles: _,
         point_clouds: _,
         content: _,
+        contours: _,
     } = project;
     let counted = Counted {
         map_kind,
