@@ -218,7 +218,8 @@ fn adapters_endpoint_lists_the_states_with_previews() {
             "niedersachsen",
             "rheinlandpfalz",
             "saarland",
-            "badenwuerttemberg"
+            "badenwuerttemberg",
+            "bremen"
         ]
     );
     assert_eq!(
@@ -240,7 +241,7 @@ fn adapters_endpoint_lists_the_states_with_previews() {
         }
     }
     assert_eq!(adapters[0]["preview"], adapters[1]["preview"]);
-    assert_eq!(services.len(), 12);
+    assert_eq!(services.len(), 13);
     assert_eq!(adapters[4]["preview"]["params"], json!({ "time": "2026" }));
     assert!(
         adapters[10]["preview"]["attribution"]
@@ -248,7 +249,7 @@ fn adapters_endpoint_lists_the_states_with_previews() {
             .unwrap()
             .contains("LVermGeoRP{year},")
     );
-    // The policy names the hosts of those twelve services, in that order, and no other.
+    // The policy names the hosts of those thirteen services, in that order, and no other.
     let response = selector.agent.get(&selector.url).call().unwrap();
     let policy = response
         .headers()
@@ -265,7 +266,8 @@ fn adapters_endpoint_lists_the_states_with_previews() {
          https://geodienste.hamburg.de https://www.gds-srv.hessen.de https://dienste.gdi-sh.de \
          https://www.geodaten-mv.de https://www.wms.nrw.de \
          https://opendata.lgln.niedersachsen.de https://geo4.service24.rlp.de \
-         https://geoportal.saarland.de https://owsproxy.lgl-bw.de; \
+         https://geoportal.saarland.de https://owsproxy.lgl-bw.de \
+         https://geodienste.bremen.de; \
          frame-ancestors 'none'"
     );
     for service in services {
