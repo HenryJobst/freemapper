@@ -26,17 +26,27 @@ use crate::note::Note;
 pub(crate) struct Family {
     /// The folder of the stored layers under the project folder.
     pub dir: &'static str,
-    /// Whether `key` is a layer of the family's table. A path is only ever built from such a
-    /// key, never from a name read from the project file (ADR 0059).
+    /// Whether `key` is a layer of the family's table. A file is only ever read, written or
+    /// removed under such a key, never under a name read from the project file (ADR 0059):
+    /// [`stored`], [`is_stored`], [`remove`] and the storing of a fetch ask this first.
     pub known: fn(&str) -> bool,
     /// The name the notes give the key of a layer under.
     pub key_arg: &'static str,
-    /// The file an answer streams into before it becomes a layer (ADR 0060); `None`: the
-    /// answers of the family are held in memory.
-    pub part: Option<&'static str>,
+    /// Where an answer streams into before it becomes a layer (ADR 0060); `None`: the answers
+    /// of the family are held in memory.
+    pub part: Option<Part>,
     /// The property of a feature that dates it; `None`: the features carry no date.
     pub dated_by: Option<&'static str>,
     pub notes: Notes,
+}
+
+/// The part file of a family whose answers are streamed.
+pub(crate) struct Part {
+    /// The name of the answer file, which gets a fresh name per download.
+    pub answer: &'static str,
+    /// The message when the folder of the layers leads out of the project folder: nothing is
+    /// asked then, and the family has no layers.
+    pub folder_outside: &'static str,
 }
 
 /// The message ids of a family.
@@ -45,8 +55,6 @@ pub(crate) struct Notes {
     pub none_stored: &'static str,
     /// The area left the reach of the family and stored layers go.
     pub removing: &'static str,
-    /// The folder of the layers leads out of the project folder (families with a part file).
-    pub folder_outside: Option<&'static str>,
     pub download: &'static str,
     /// A layer was stored: its count and key.
     pub features: &'static str,
@@ -59,7 +67,7 @@ pub(crate) struct Notes {
 }
 
 fn known_berlin(key: &str) -> bool {
-    berlin::EXTRA_LAYERS.iter().any(|layer| layer.file == key)
+    super::known_berlin_layer(key).is_some()
 }
 
 fn known_nas(key: &str) -> bool {
@@ -80,7 +88,6 @@ pub(crate) const BERLIN: Family = Family {
     notes: Notes {
         none_stored: "progress-berlin-none-stored",
         removing: "progress-berlin-removing",
-        folder_outside: None,
         download: "progress-berlin-download",
         features: "progress-berlin-features",
         skipped: None,
@@ -94,12 +101,14 @@ pub(crate) const NAS: Family = Family {
     dir: NAS_LAYERS_DIR,
     known: known_nas,
     key_arg: "file",
-    part: Some("answer.gml"),
+    part: Some(Part {
+        answer: "answer.gml",
+        folder_outside: "warning-nas-folder-outside",
+    }),
     dated_by: Some("beginnt"),
     notes: Notes {
         none_stored: "progress-nas-none-stored",
         removing: "progress-nas-removing",
-        folder_outside: Some("warning-nas-folder-outside"),
         download: "progress-nas-download",
         features: "progress-nas-features",
         skipped: Some("progress-nas-skipped"),
@@ -113,12 +122,14 @@ pub(crate) const TREES: Family = Family {
     dir: TREE_LAYERS_DIR,
     known: known_trees,
     key_arg: "id",
-    part: Some("answer.geojson"),
+    part: Some(Part {
+        answer: "answer.geojson",
+        folder_outside: "warning-trees-folder-outside",
+    }),
     dated_by: Some("tree_date"),
     notes: Notes {
         none_stored: "progress-trees-none-stored",
         removing: "progress-trees-removing",
-        folder_outside: Some("warning-trees-folder-outside"),
         download: "progress-trees-download",
         features: "progress-trees-count",
         skipped: Some("progress-trees-skipped"),
@@ -150,9 +161,16 @@ pub(crate) struct Stored {
     pub fetched: NaiveDate,
 }
 
-/// The path of the stored layer `key` of `family`. `key` is one of the family's table.
+/// The path of the stored layer `key` of `family`. It does not ask whether `key` is a layer of
+/// the table: a caller takes the key from the table, or uses [`stored`], [`is_stored`] and
+/// [`remove`], which ask.
 pub(crate) fn path(dir: &Path, family: &Family, key: &str) -> PathBuf {
     dir.join(family.dir).join(format!("{key}.geojson"))
+}
+
+/// Whether the layer `key` of `family` has a stored file.
+pub(crate) fn is_stored(dir: &Path, family: &Family, key: &str) -> bool {
+    (family.known)(key) && path(dir, family, key).exists()
 }
 
 /// Removes the stored layer the project file records under `key`: only a layer of the table,
@@ -204,24 +222,23 @@ pub(crate) fn fetch_into(
         return previous.clone();
     }
     let layers_dir = dir.join(family.dir);
-    if let Some(answer) = family.part {
+    if let Some(part) = &family.part {
         // Answers stream into a part file beside the layers with a fresh name, its folder
         // checked right before each download (ADR 0060), removed after each one.
         if crate::fsutil::check_folder_inside(dir, &layers_dir).is_err() {
-            if let Some(id) = family.notes.folder_outside {
-                progress(Note::new(id).with("folder", family.dir));
-            }
+            progress(Note::new(part.folder_outside).with("folder", family.dir));
             return BTreeMap::new();
         }
         // Only after the check: a linked folder never has its part files removed.
         crate::fsutil::remove_stale_parts_inside(dir, &layers_dir, crate::fetch::STALE_PART_AGE);
-        let part = || -> Result<PathBuf, FetchError> {
-            let part = crate::fsutil::fresh_part_name(&layers_dir.join(answer));
-            crate::fsutil::check_inside(dir, &part).map_err(|(path, e)| FetchError::Io(path, e))?;
-            Ok(part)
+        let fresh = || -> Result<PathBuf, FetchError> {
+            let fresh = crate::fsutil::fresh_part_name(&layers_dir.join(part.answer));
+            crate::fsutil::check_inside(dir, &fresh)
+                .map_err(|(path, e)| FetchError::Io(path, e))?;
+            Ok(fresh)
         };
         progress(Note::new(family.notes.download));
-        store(family, dir, bbox, previous, progress, fetch(&part))
+        store(family, dir, bbox, previous, progress, fetch(&fresh))
     } else {
         // A family that holds its answers in memory asks for no part file.
         let part = || -> Result<PathBuf, FetchError> {
@@ -254,6 +271,15 @@ fn store(
     let mut records = BTreeMap::new();
     for fetched in layers {
         let key = fetched.key.as_str();
+        if !(family.known)(key) {
+            // No file is written under a name that is no layer of the table.
+            progress(
+                Note::new(family.notes.dropped)
+                    .with(family.key_arg, key)
+                    .with("detail", format!("not a layer of {}", family.dir)),
+            );
+            continue;
+        }
         let file = path(dir, family, key);
         let stored = fetched
             .features
@@ -353,6 +379,9 @@ pub(crate) fn stored(
     bbox: &BoundingBox,
     key: &str,
 ) -> Result<Option<Stored>, ProjectError> {
+    if !(family.known)(key) {
+        return Ok(None);
+    }
     let file = path(dir, family, key);
     let Some(record) = records
         .get(key)
@@ -630,31 +659,163 @@ mod tests {
     #[test]
     fn a_stored_layer_is_read_when_its_record_covers_the_area() {
         let dir = tempfile::tempdir().unwrap();
-        write(
-            dir.path(),
-            &TREES,
-            "berlin-strassenbaeume",
-            &[json!({"t": 1})],
-        );
+        write(dir.path(), &BERLIN, "relief", &[json!({"t": 1})]);
+        write(dir.path(), &BERLIN, "bauwerke-linien", &[]);
         let records = BTreeMap::from([
-            ("berlin-strassenbaeume".to_string(), covering()),
-            ("elsewhere".to_string(), beside()),
-            ("gone".to_string(), covering()),
+            ("relief".to_string(), covering()),
+            ("bauwerke-linien".to_string(), beside()),
+            ("bauwerke-flaechen".to_string(), covering()),
         ]);
-        let read = |key| stored(&TREES, dir.path(), &records, &AREA, key);
-        let layer = read("berlin-strassenbaeume").unwrap().unwrap();
+        let read = |key| stored(&BERLIN, dir.path(), &records, &AREA, key);
+        let layer = read("relief").unwrap().unwrap();
         assert_eq!(layer.features, [json!({"t": 1})]);
         assert_eq!(layer.fetched, covering().fetched);
         // No record, a record of another area, a record without its file.
-        write(dir.path(), &TREES, "elsewhere", &[]);
-        assert!(read("unknown").unwrap().is_none());
-        assert!(read("elsewhere").unwrap().is_none());
-        assert!(read("gone").unwrap().is_none());
+        assert!(read("vegetation-linien").unwrap().is_none());
+        assert!(read("bauwerke-linien").unwrap().is_none());
+        assert!(read("bauwerke-flaechen").unwrap().is_none());
         // A file that is no layer is an error of the project, with its path.
-        std::fs::write(path(dir.path(), &TREES, "gone"), "{").unwrap();
+        std::fs::write(path(dir.path(), &BERLIN, "bauwerke-flaechen"), "{").unwrap();
         assert!(matches!(
-            read("gone"),
+            read("bauwerke-flaechen"),
             Err(ProjectError::StoredCandidates { .. })
         ));
+    }
+
+    /// ADR 0059: a path is built from a key of the table only. A name the project file brings
+    /// along is never read, stored under or removed, whatever lies at its place.
+    #[test]
+    fn a_key_that_is_no_layer_of_the_table_names_no_file() {
+        let dir = tempfile::tempdir().unwrap();
+        write(dir.path(), &BERLIN, "notes", &[json!({"t": 1})]);
+        let records = BTreeMap::from([("notes".to_string(), covering())]);
+        assert!(
+            stored(&BERLIN, dir.path(), &records, &AREA, "notes")
+                .unwrap()
+                .is_none()
+        );
+        assert!(!is_stored(dir.path(), &BERLIN, "notes"));
+        write(dir.path(), &BERLIN, "relief", &[]);
+        assert!(is_stored(dir.path(), &BERLIN, "relief"));
+        assert!(!is_stored(dir.path(), &BERLIN, "bauwerke-linien"));
+        // A fetch that hands over such a key stores nothing under it.
+        let mut said = Vec::new();
+        let records = fetch_into(
+            &BERLIN,
+            dir.path(),
+            true,
+            FetchMode::Online,
+            false,
+            &AREA,
+            &BTreeMap::new(),
+            &mut |note: Note| said.push(note.to_string()),
+            |_| {
+                vec![Fetched {
+                    key: "../outside".to_string(),
+                    features: Ok(Features {
+                        features: vec![json!({"a": 1})],
+                        skipped: Vec::new(),
+                        regions: Vec::new(),
+                    }),
+                }]
+            },
+        );
+        assert!(records.is_empty());
+        assert!(!dir.path().join("data/outside.geojson").exists());
+        assert_eq!(
+            said[1..],
+            ["warning: Berlin ../outside unavailable (not a layer of data/berlin); layer skipped"]
+        );
+    }
+
+    #[test]
+    fn a_long_list_of_skipped_features_is_cut() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut said = Vec::new();
+        fetch_into(
+            &NAS,
+            dir.path(),
+            true,
+            FetchMode::Online,
+            false,
+            &AREA,
+            &BTreeMap::new(),
+            &mut |note: Note| said.push(note.to_string()),
+            |_| {
+                vec![Fetched {
+                    key: "sonstiges-bauwerk".to_string(),
+                    features: Ok(Features {
+                        features: Vec::new(),
+                        skipped: (1..=7).map(|n| format!("f{n}")).collect(),
+                        regions: Vec::new(),
+                    }),
+                }]
+            },
+        );
+        assert_eq!(
+            said[2],
+            "skipped 7 ALKIS NAS sonstiges-bauwerk features: f1; f2; f3; f4; f5; …"
+        );
+    }
+
+    /// A folder of layers that is a link out of the project folder: a family with a part file
+    /// asks nothing and says so; one without writes nothing through the link.
+    #[cfg(unix)]
+    #[test]
+    fn a_folder_that_leads_out_of_the_project_is_not_written_to() {
+        let dir = tempfile::tempdir().unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(dir.path().join("data")).unwrap();
+        for family in [&TREES, &BERLIN] {
+            std::os::unix::fs::symlink(outside.path(), dir.path().join(family.dir)).unwrap();
+        }
+        let previous = BTreeMap::from([("potsdam".to_string(), covering())]);
+        let mut said = Vec::new();
+        let records = fetch_into(
+            &TREES,
+            dir.path(),
+            true,
+            FetchMode::Online,
+            false,
+            &AREA,
+            &previous,
+            &mut |note: Note| said.push(note.to_string()),
+            never,
+        );
+        assert!(records.is_empty());
+        assert_eq!(
+            said,
+            ["warning: city tree cadastres skipped (data/trees leads out of the project folder)"]
+        );
+        said.clear();
+        let records = fetch_into(
+            &BERLIN,
+            dir.path(),
+            true,
+            FetchMode::Online,
+            false,
+            &AREA,
+            &BTreeMap::new(),
+            &mut |note: Note| said.push(note.to_string()),
+            |_| {
+                vec![Fetched {
+                    key: "relief".to_string(),
+                    features: Ok(Features {
+                        features: vec![json!({"a": 1})],
+                        skipped: Vec::new(),
+                        regions: Vec::new(),
+                    }),
+                }]
+            },
+        );
+        assert!(records.is_empty());
+        assert_eq!(
+            said[1..],
+            [
+                "warning: Berlin relief unavailable (data/berlin leads out of the project \
+                 folder); layer skipped"
+            ]
+        );
+        assert_eq!(std::fs::read_dir(outside.path()).unwrap().count(), 0);
     }
 }
