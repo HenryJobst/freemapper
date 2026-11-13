@@ -8,7 +8,8 @@ use freemapper_adapter_api::project::RasterProject;
 use freemapper_adapter_api::rasters::{ProviderInfo, RasterBackend, RasterKind};
 use freemapper_adapter_api::records::{AdapterId, WcsRecord, stored_bbox};
 use freemapper_sources::raster_fetch::{
-    SURFACE_RELPATH, TERRAIN_RELPATH, fetch_wms_orthophoto, keep_stored_surface, warn_beyond_state,
+    SURFACE_RELPATH, TERRAIN_RELPATH, fetch_wms_orthophoto, keep_stored_surface, keep_surface,
+    warn_beyond_state,
 };
 use freemapper_sources::wms::OrthophotoSource;
 
@@ -371,11 +372,7 @@ fn fetch_rasters(
             let old = project.records().surface.clone();
             *project.records().surface = Some(record(Model::Bdom, &old));
         }
-        Err(e) => (env.progress)(note!(
-            "warning-model-unavailable",
-            model = crate::note::model(Model::Bdom.label()),
-            error = Arg::error(e)
-        )),
+        Err(e) => keep_surface(env, project, bbox, Model::Bdom.label(), Arg::error(e)),
     }
     project.save()?;
     Ok(())

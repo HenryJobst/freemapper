@@ -1,5 +1,6 @@
 //! Building map objects from source data, following the symbol mapping rules.
 
+pub mod assembly;
 pub mod barrier_gaps;
 pub mod barriers;
 pub mod berlin;
