@@ -6,6 +6,10 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+### Behoben
+
+- Saarland: In Waldgebieten fehlten die ALKIS-Nutzungsflächen mit der Warnung „LVGL ALKIS returned 22 of 26 features in the area“, auch nach einem neuen `fetch`. Der Dienst führt eine Waldfläche einmal je Vegetationsmerkmal (etwa Laubholz und Kurzumtriebsplantage), mit derselben Objektkennung und derselben Geometrie. freemapper behält davon eine Zeile, zählt die übrigen jetzt aber zu den Treffern des Dienstes. Eine Wiederholung auf einer späteren Seite bleibt ein Fehler. An der Saarschleife bei Mettlach kommen so 684 Nutzungsflächen an und 132 Kandidaten für Sperrgebiet dazu.
+
 ## [0.18.0] - 2026-11-13
 
 ### Hinzugefügt

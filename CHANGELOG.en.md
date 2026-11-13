@@ -6,6 +6,10 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
+### Fixed
+
+- Saarland: in forest areas the ALKIS land use was missing with the warning "LVGL ALKIS returned 22 of 26 features in the area", also after a new `fetch`. The service lists a forest once per vegetation feature (such as deciduous wood and short-rotation coppice), with the same object id and the same geometry. freemapper keeps one row of them and now counts the others towards the service's matches. A feature repeated on a later page is still an error. At the Saarschleife near Mettlach this brings 684 land use areas and 132 more out-of-bounds candidates.
+
 ## [0.18.0] - 2026-11-13
 
 ### Added

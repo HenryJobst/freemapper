@@ -434,29 +434,36 @@ pub fn fetch_wfs_by(
     ))?);
     let mut features = Vec::new();
     let mut seen = std::collections::HashSet::new();
+    // Rows that repeat a feature of their own page: the Saarland lists a forest once per
+    // vegetation feature, with one oid and one geometry. numberMatched counts them; a feature
+    // repeated on a later page is the paging going wrong and does not count.
+    let mut rows = 0;
     let mut start = 0;
     loop {
         let url = service.page_url(type_name, bbox, start, key);
         let page = parse_gml(&get(&url)?).map_err(FetchError::Alkis)?;
         let full = page.len() >= PAGE_COUNT;
         let mut new = false;
+        let mut on_page = std::collections::HashSet::new();
         for feature in page {
-            let fresh = match feature["properties"][key].as_str() {
-                Some(id) => seen.insert(id.to_string()),
-                None => true,
+            let (fresh, repeated_on_page) = match feature["properties"][key].as_str() {
+                Some(id) => (seen.insert(id.to_string()), !on_page.insert(id.to_string())),
+                None => (true, false),
             };
             if fresh {
                 new = true;
                 features.push(feature);
+            } else if repeated_on_page {
+                rows += 1;
             }
         }
-        let all = matched.is_some_and(|m| features.len() >= m);
+        let all = matched.is_some_and(|m| features.len() + rows >= m);
         if all || !new || !full {
             break;
         }
         start += PAGE_COUNT;
     }
-    if let Some(matched) = matched.filter(|&m| features.len() < m) {
+    if let Some(matched) = matched.filter(|&m| features.len() + rows < m) {
         return Err(FetchError::Alkis(invalid(format!(
             "{name} returned {} of {matched} features in the area; run `freemapper fetch` again",
             features.len()
@@ -1033,6 +1040,32 @@ mod tests {
         );
         let err = fetch_wfs(&fetcher, &GEOSN, &GEOSN.buildings_type, &SCHOOL).unwrap_err();
         assert!(err.to_string().contains("3 of 5"), "{err}");
+    }
+
+    #[test]
+    fn rows_of_one_object_count_towards_the_matches() {
+        // The Saarland lists a forest once per vegetation feature: two rows of one page with
+        // the same oid and geometry, both counted in numberMatched.
+        let first = BUILDINGS
+            .split("<wfs:member>")
+            .nth(1)
+            .unwrap()
+            .split("</wfs:member>")
+            .next()
+            .unwrap();
+        let doubled = BUILDINGS.replacen(
+            "<wfs:member>",
+            &format!("<wfs:member>{first}</wfs:member><wfs:member>"),
+            1,
+        );
+        let fetcher = MapFetcher::default();
+        fetcher.insert_prefix(&GEOSN.url, doubled.into_bytes());
+        fetcher.insert_prefix(
+            &format!("{}&RESULTTYPE=hits", GEOSN.wfs_url(&GEOSN.buildings_type, &SCHOOL, 0).split("&SORTBY").next().unwrap()),
+            br#"<wfs:FeatureCollection xmlns:wfs="http://www.opengis.net/wfs/2.0" numberReturned="0" numberMatched="4"/>"#.to_vec(),
+        );
+        let features = fetch_wfs(&fetcher, &GEOSN, &GEOSN.buildings_type, &SCHOOL).unwrap();
+        assert_eq!(features.len(), 3);
     }
 
     #[test]
