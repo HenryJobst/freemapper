@@ -68,7 +68,7 @@ fn has_text(ids: &BTreeSet<String>, id: &str) -> bool {
 
 /// The kinds of the files a run reports (`pipeline.rs`); the run panel names each with
 /// `page-file-kind-<kind>`.
-const FILE_KINDS: [&str; 7] = [
+const FILE_KINDS: [&str; 8] = [
     "map",
     "preview",
     "template",
@@ -76,6 +76,7 @@ const FILE_KINDS: [&str; 7] = [
     "ocad-candidates",
     "pdf",
     "pdf-candidates",
+    "permits",
 ];
 
 /// The steps of a run; the run panel names each with `page-<label key>`.
@@ -88,6 +89,7 @@ fn step_ids() -> Vec<String> {
         Step::Ocad,
         Step::Pdf,
         Step::PdfCandidates,
+        Step::Permits,
     ]
     .into_iter()
     .map(|step| format!("page-{}", step.label_key()))

@@ -9,8 +9,12 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use chrono::{Datelike as _, NaiveDate};
-use freemapper_sources::bfn::{BFN_CREDIT, ProtectedArea, ProtectedKind};
-use freemapper_sources::vg250::{AdminLevel, AdminUnit, BKG_CREDIT};
+use freemapper_sources::bfn::{BFN_CREDIT, ProtectedArea};
+use freemapper_sources::vg250::{AdminUnit, BKG_CREDIT};
+
+/// The levels and kinds the entries name, for the writers of the notes.
+pub use freemapper_sources::bfn::ProtectedKind;
+pub use freemapper_sources::vg250::AdminLevel;
 use geo_types::{LineString, MultiPolygon, Polygon};
 use serde::{Deserialize, Serialize};
 
@@ -209,7 +213,7 @@ pub fn assemble(
         .iter()
         .map(|p| plane.project(&p.geometry))
         .collect();
-    let admin = admin_shares(&plane, inputs.admin.items());
+    let admin = without_own_vwg(admin_shares(&plane, inputs.admin.items()));
     let protected = protected_shares(&plane, inputs.protected.items(), &bfn);
     let osm: Vec<(&OsmFinding, MultiPolygon<f64>, f64)> = inputs
         .osm
@@ -380,6 +384,25 @@ fn admin_shares(plane: &Plane, units: &[AdminUnit]) -> Vec<Share<AdminEntry>> {
     measured
         .into_iter()
         .map(|(share, entry)| Share::new(entry, share))
+        .collect()
+}
+
+/// `units` without the `vg250_vwg` entries that are no Verwaltungsgemeinschaft: VG250 lists an
+/// amtsfreie or verbandsfreie Gemeinde (and a kreisfreie Stadt, as "Amtsfreie Gemeinde") there
+/// too, under the Gemeinde's own name.
+fn without_own_vwg(units: Vec<Share<AdminEntry>>) -> Vec<Share<AdminEntry>> {
+    let gemeinden: BTreeSet<String> = units
+        .iter()
+        .filter(|s| s.item.level == AdminLevel::Gemeinde)
+        .map(|s| s.item.name.clone())
+        .collect();
+    units
+        .into_iter()
+        .filter(|s| {
+            s.item.level != AdminLevel::Verwaltungsgemeinschaft
+                || !(s.item.kind.to_lowercase().contains("frei")
+                    || gemeinden.contains(&s.item.name))
+        })
         .collect()
 }
 
@@ -1185,6 +1208,102 @@ mod tests {
             hint(&amtsfrei, hint_key::ORDER_OFFICE)[0].args,
             args(&[("gemeinde", "Strausberg")])
         );
+    }
+
+    /// VG250 lists an amtsfreie Gemeinde and a kreisfreie Stadt in `vg250_vwg` too, under the
+    /// name of the Gemeinde (live for Sanssouci: "Amtsfreie Gemeinde Potsdam"). That is no
+    /// Verwaltungsgemeinschaft and is left out of the list.
+    #[test]
+    fn an_amtsfreie_gemeinde_is_no_verwaltungsgemeinschaft() {
+        let all = || square(12.9, 51.9, 13.2, 52.2);
+        let levels = |found: &PermitNotes| -> Vec<(AdminLevel, String)> {
+            found
+                .admin
+                .iter()
+                .map(|s| (s.item.level, s.item.name.clone()))
+                .collect()
+        };
+        let found = notes(
+            MapKind::Sprint,
+            &inputs(
+                vec![
+                    brandenburg(),
+                    unit(
+                        AdminLevel::Kreis,
+                        "Potsdam",
+                        "Kreisfreie Stadt",
+                        "12054",
+                        all(),
+                    ),
+                    unit(
+                        AdminLevel::Verwaltungsgemeinschaft,
+                        "Potsdam",
+                        "Amtsfreie Gemeinde",
+                        "120540000",
+                        all(),
+                    ),
+                    unit(AdminLevel::Gemeinde, "Potsdam", "Stadt", "12054000", all()),
+                ],
+                vec![],
+                vec![],
+            ),
+        );
+        assert_eq!(
+            levels(&found),
+            [
+                (AdminLevel::Land, "Brandenburg".to_string()),
+                (AdminLevel::Kreis, "Potsdam".to_string()),
+                (AdminLevel::Gemeinde, "Potsdam".to_string()),
+            ]
+        );
+        // A kind with "frei" alone is enough, and so is the name of a Gemeinde on the map.
+        let found = notes(
+            MapKind::Sprint,
+            &inputs(
+                vec![
+                    unit(
+                        AdminLevel::Verwaltungsgemeinschaft,
+                        "Irgendwo",
+                        "Verbandsfreie Gemeinde",
+                        "1",
+                        all(),
+                    ),
+                    unit(
+                        AdminLevel::Verwaltungsgemeinschaft,
+                        "Buckow",
+                        "Gemeinde",
+                        "2",
+                        all(),
+                    ),
+                    unit(AdminLevel::Gemeinde, "Buckow", "Stadt", "3", all()),
+                ],
+                vec![],
+                vec![],
+            ),
+        );
+        assert_eq!(
+            levels(&found),
+            [(AdminLevel::Gemeinde, "Buckow".to_string())]
+        );
+        // A real Amt stays.
+        let found = notes(
+            MapKind::Sprint,
+            &inputs(
+                vec![
+                    unit(
+                        AdminLevel::Verwaltungsgemeinschaft,
+                        "Märkische Schweiz",
+                        "Amt",
+                        "12064",
+                        all(),
+                    ),
+                    unit(AdminLevel::Gemeinde, "Buckow", "Stadt", "3", all()),
+                ],
+                vec![],
+                vec![],
+            ),
+        );
+        assert_eq!(found.admin.len(), 2);
     }
 
     #[test]

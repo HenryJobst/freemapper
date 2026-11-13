@@ -11,6 +11,7 @@ mod jobs;
 mod lock;
 mod mcp;
 mod nominatim;
+mod permits;
 mod pipeline;
 mod select;
 mod select_page;
@@ -162,12 +163,29 @@ enum Commands {
         /// you pass the map on). ATTRIBUTION.txt always lists every source.
         #[arg(long, value_enum, default_value_t = SourcesArg::Auto)]
         pdf_sources: SourcesArg,
+        /// Also write the permit notes (permits.md and permits.json) after the map; asks the
+        /// BfN and the BKG. A failure there is a warning and the map stays.
+        #[arg(long)]
+        permits: bool,
         #[command(flatten)]
         content: ContentArgs,
         #[command(flatten)]
         cache: CacheArgs,
         #[command(flatten)]
         adapters: AdapterArgs,
+    },
+    /// Write the permit notes of a project (permits.md and permits.json): the administrative
+    /// units, protected areas and operators the map area touches, and whom that usually means
+    /// asking. It asks the BfN and the BKG and reads the OSM extract already cached; --offline
+    /// uses what was fetched before.
+    Permits {
+        /// Project folder.
+        dir: PathBuf,
+        /// Use the data fetched before only, without network access.
+        #[arg(long)]
+        offline: bool,
+        #[command(flatten)]
+        cache: CacheArgs,
     },
     /// Choose the map area in the browser by drawing it or picking a place. Saving writes
     /// freemapper.toml and creates the project folder if needed.
@@ -423,6 +441,7 @@ impl Commands {
             )),
             Commands::Fetch { offline, cache, .. }
             | Commands::Run { offline, cache, .. }
+            | Commands::Permits { offline, cache, .. }
             | Commands::Select { offline, cache, .. } => Some((cache.folder(), *offline)),
             Commands::Export { .. }
             | Commands::Derive { .. }
@@ -519,6 +538,7 @@ fn print_written(written: pipeline::Written, sources: PdfSources) {
         pipeline::Written::Ocad(outcome) => report_ocad(outcome),
         pipeline::Written::Pdf(path) => report_pdf(path, false, sources),
         pipeline::Written::PdfCandidates(path) => report_pdf(path, true, sources),
+        pipeline::Written::Permits(path) => wrote_permits(path),
     }
 }
 
@@ -529,6 +549,14 @@ fn report(message: &str) {
 /// Prints a progress line or a warning of the engine in the language of the run.
 fn report_note(note: freemapper::note::Note) {
     report(&pipeline::line(&note));
+}
+
+/// Says that the permit notes are in `path`.
+fn wrote_permits(path: &std::path::Path) {
+    println!(
+        "{}",
+        text("cli-wrote-permits", &[("path", v(path.display()))])
+    );
 }
 
 /// Says that `path` was written.
@@ -839,6 +867,7 @@ fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
             pdf_candidates,
             pdf_scale_bar,
             pdf_sources,
+            permits,
             content,
             cache,
             adapters: _,
@@ -853,6 +882,7 @@ fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
                 pdf_candidates,
                 pdf_scale_bar,
                 pdf_sources: pdf_sources.into(),
+                permits,
                 fail_fast: true,
             };
             pipeline::run(
@@ -869,6 +899,25 @@ fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
                     }
                 },
             )?;
+        }
+        Commands::Permits {
+            dir,
+            offline,
+            cache,
+        } => {
+            let written = permits::run_permits(
+                &dir,
+                offline,
+                &cache.cache()?,
+                &HttpFetcher::new(),
+                lock::Who::Cli,
+                &text::lang(),
+                &mut report_note,
+            )?;
+            for warning in &written.warnings {
+                report(warning);
+            }
+            wrote_permits(&written.markdown);
         }
         Commands::Select {
             dir,

@@ -327,6 +327,7 @@ page-step-map = Writing the map
 page-step-ocad = Writing the OCAD project
 page-step-pdf = Writing the PDF
 page-step-pdf-candidates = Writing the training PDF
+page-step-permits = Writing the permit notes
 page-step-line = Step { $index } of { $total }: { $label }
 page-starting = The run is starting …
 page-file-kind-map = map
@@ -336,6 +337,7 @@ page-file-kind-ocad-candidates = OCAD candidates
 page-file-kind-pdf = PDF
 page-file-kind-pdf-candidates = training PDF
 page-file-kind-preview = map preview
+page-file-kind-permits = permit notes
 page-file-line = { $path } ({ $kind }, { $size })
 page-result-done = Done. The files are written.
 page-result-failed = The run failed: { $error }
@@ -711,3 +713,113 @@ mcp-param-create-project-content-set = Groups sent somewhere else than the profi
 mcp-param-start-pipeline-content = Change what goes straight onto the map before the run: "safe", "balanced" or "full". Saved in the project. Default: the project's setting, else balanced.
 mcp-param-start-pipeline-content-set = Groups sent somewhere else than the profile says, as "group=place" with place map, candidates or off, e.g. "fences=candidates". Saved in the project.
 mcp-error-content = Cannot read the content setting: { $detail }
+
+## Permit notes (`freemapper permits`, `run --permits`, ADR 0115). The ids `permits-hint-*`
+## are the keys the engine stores in permits.json; `src/permits.rs` checks that every
+## `permits-*` id is used. The quote "Nicht für Planungszwecke geeignet." is the BfN's own
+## wording and stays German in every language.
+
+help-permits = Write the permit notes of a project (permits.md and permits.json): the administrative units, protected areas and operators the map area touches, and whom that usually means asking. It asks the BfN and the BKG and reads the OSM extract already cached; --offline uses what was fetched before
+help-permits-dir = Project folder
+help-permits-offline = Use the data fetched before only, without network access
+help-run-permits = Also write the permit notes (permits.md and permits.json) after the map; asks the BfN and the BKG. A failure there is a warning and the map stays
+cli-wrote-permits = Wrote the permit notes { $path }
+cli-summary-wrote-permits = Wrote the permit notes { $path }
+cli-permits-failed = the permit notes could not be written: { $error }
+cli-permits-source-left-out = the permit notes leave out { $source }: { $reason }
+cli-permits-not-read = it was not read
+error-permits-stored = { $path }: { $message }; fetch the permit notes again online
+error-permits-nothing-read = no source of the permit notes could be read ({ $missing }); fetch them online first
+error-permits-missing-not-read = { $source }: not read
+
+permits-title = Permit notes
+permits-disclaimer = A hint, not legal advice. The competent authorities decide. For the data date and accuracy see the table under "Sources and data date"; areas can be missing or out of date (BfN: merged once a year, "Nicht für Planungszwecke geeignet.", that is, not suitable for planning).
+permits-bfn-merge = The BfN merges the data of the states once a year and marks them as not suitable for planning. The authorities of the state decide.
+permits-created = Made on { $date } for the map area of a { $kind ->
+        [schoolyard] schoolyard map
+       *[other] sprint map
+    } ({ $area } ha).
+permits-section-admin = Administrative units
+permits-section-protected = Protected areas (BfN)
+permits-section-osm-protected = More protected areas from OpenStreetMap
+permits-section-operators = Operators and owners according to OpenStreetMap
+permits-section-hints = Hints
+permits-section-sources = Sources and data date
+permits-none-admin = VG250 names no administrative unit for the map area.
+permits-none-protected = According to the BfN, no protected area lies in the map area.
+permits-none-osm-protected = OpenStreetMap names no protected area in the map area that the BfN does not list already.
+permits-none-operators = OpenStreetMap names no operator and no owner for the map area.
+permits-none-hints = No hints.
+permits-section-not-read = The data of { $source } were not read, so this section is empty, although there may be entries.
+permits-source = { $source ->
+        [vg250] VG250 (BKG)
+        [bfn] BfN
+       *[osm] OpenStreetMap
+    }
+permits-source-what = { $source ->
+        [vg250] Administrative areas 1:250 000 (VG250) of the BKG
+        [bfn] Protected areas in Germany of the BfN
+       *[osm] OpenStreetMap, from the extract freemapper keeps in its cache
+    }
+permits-level = { $level ->
+        [land] State
+        [kreis] District (Kreis)
+        [verwaltungsgemeinschaft] Amt or Verwaltungsgemeinschaft
+       *[gemeinde] Municipality (Gemeinde)
+    }
+permits-admin-line = { $level }: { $name }, { $share }
+permits-share = { $percent }%
+permits-share-below-one = < 1%
+permits-at-edge = Touched at the edge (less than 0.5% of the map area):
+permits-at-edge-generalised = VG250 is generalised to the scale 1:250 000. A unit that only touches the edge can be an effect of that.
+permits-kind = { $kind ->
+        [nationalpark] National park
+        [nationales-naturmonument] National natural monument
+        [naturschutzgebiet] Nature reserve (Naturschutzgebiet)
+        [ffh] FFH area (Natura 2000)
+        [vogelschutzgebiet] Bird protection area (Natura 2000)
+        [biosphaerenreservat] Biosphere reserve
+        [biosphaerenreservat-zone] Zone of a biosphere reserve
+        [landschaftsschutzgebiet] Landscape protection area (Landschaftsschutzgebiet)
+       *[naturpark] Nature park
+    }
+permits-protected-line = { $kind } "{ $name }", { $share }
+permits-protected-date = Designated on { $date }
+permits-protected-title = Legal basis: { $title }
+permits-protected-link = Legal text: { $url }
+permits-protected-year = Data year at the BfN: { $year }
+permits-osm-line = { $kind }: { $name }, { $share } (OSM { $id })
+permits-osm-protect-class = protect class { $class }
+permits-quoted = "{ $text }"
+permits-osm-unnamed = without a name
+permits-osm-operator = Operator according to OSM: { $operator }
+permits-osm-enclosing-gap = OpenStreetMap areas that enclose the whole map area without a corner inside it can be missing here. The parts from the BfN and VG250 are not affected.
+permits-operator-line = { $name } ({ $roles ->
+        [operator] operator
+        [owner] owner
+       *[both] operator and owner
+    }): { $objects }
+permits-column-source = Source
+permits-column-state = State
+permits-column-credit = Credit and licence
+permits-state-read = read, fetched on { $date }
+permits-state-read-osm = read, OSM extract of { $date }
+permits-state-unreachable = not reachable ({ $reason })
+permits-state-not-read = not read
+permits-no-credit = not used
+permits-hint-city-state = The map area lies in Berlin or Hamburg. There the Bezirksamt (district office) or an authority of the state is usually in charge. These notes do not determine the Bezirk yet.
+permits-hint-nature-authority = { $kreisfrei ->
+        [yes] Protected areas concern the lower nature conservation authority (untere Naturschutzbehörde). Here that is the city of { $kreis } itself.
+        [no] Protected areas concern the lower nature conservation authority (untere Naturschutzbehörde), usually the { $kreis }.
+       *[unknown] Protected areas concern the competent lower nature conservation authority (untere Naturschutzbehörde), usually the Landkreis or the kreisfreie Stadt.
+    }
+permits-hint-national-park = A national park has rules of its own. Ask the national park administration early.
+permits-hint-nsg-paths = In a nature reserve you usually have to keep to the paths. For a run off the paths, ask the nature conservation authority.
+permits-hint-natura2000 = An FFH area or a bird protection area (Natura 2000) touches the map area. For an event the nature conservation authority may ask for an assessment of its effects.
+permits-hint-order-office = { $amt ->
+        [none] For streets, squares and other public land the Ordnungsamt (public order office) of the Gemeinde { $gemeinde } is usually in charge.
+       *[other] For streets, squares and other public land the Ordnungsamt (public order office) is usually in charge: { $amt }, for the Gemeinde { $gemeinde }.
+    }
+permits-hint-park-operator = Operator of a park or garden in the map area according to OpenStreetMap: { $operator }. Ask them before you use it.
+permits-hint-school-operator = Operator of the school or institution according to OpenStreetMap: { $operator }. For its grounds, ask the head of the school or this body.
+permits-hint-owners-unknown = The owners of these areas cannot be found from open data. With a legitimate interest (an organiser, for example) you can ask the land registry (Grundbuchamt) for an extract; for public land the competent Ordnungsamt or parks department helps.

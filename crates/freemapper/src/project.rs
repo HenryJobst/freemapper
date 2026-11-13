@@ -6812,6 +6812,36 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         (dir, cache_dir, cache)
     }
 
+    /// Writes the fixture of the CLI tests that run offline (`crates/freemapper-cli/tests/
+    /// fixtures/offline-school/`): the fetched synthetic school project and its cache. Run it
+    /// again when the layout of the project or the cache changes: `cargo test -p freemapper
+    /// --lib write_the_offline_cli_fixture -- --ignored`.
+    #[test]
+    #[ignore = "a tool for the fixture of the CLI tests, not a test"]
+    fn write_the_offline_cli_fixture() {
+        fn copy_tree(from: &Path, to: &Path) {
+            std::fs::create_dir_all(to).unwrap();
+            for entry in std::fs::read_dir(from).unwrap().flatten() {
+                let target = to.join(entry.file_name());
+                if entry.file_type().unwrap().is_dir() {
+                    copy_tree(&entry.path(), &target);
+                } else {
+                    std::fs::copy(entry.path(), target).unwrap();
+                }
+            }
+        }
+        let out = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../freemapper-cli/tests/fixtures/offline-school");
+        let _ = std::fs::remove_dir_all(&out);
+        let fetcher = MapFetcher::default();
+        let (dir, cache_dir, _cache) = fetched_school(&fetcher);
+        let mut project = ProjectFile::load(dir.path()).unwrap();
+        project.title = Some("Offline school".to_string());
+        project.save(dir.path()).unwrap();
+        copy_tree(dir.path(), &out.join("project"));
+        copy_tree(cache_dir.path(), &out.join("cache"));
+    }
+
     /// `cache` on one volume (with the project folder) that is `short` bytes too small for the
     /// next fetch of the project in `dir`: its downloads, the files derived from them and the
     /// reserve.

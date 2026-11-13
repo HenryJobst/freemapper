@@ -327,6 +327,7 @@ page-step-map = Karte schreiben
 page-step-ocad = OCAD-Projekt schreiben
 page-step-pdf = PDF schreiben
 page-step-pdf-candidates = Trainings-PDF schreiben
+page-step-permits = Genehmigungshinweise schreiben
 page-step-line = Schritt { $index } von { $total }: { $label }
 page-starting = Der Lauf startet …
 page-file-kind-map = Karte
@@ -336,6 +337,7 @@ page-file-kind-ocad-candidates = OCAD-Kandidaten
 page-file-kind-pdf = PDF
 page-file-kind-pdf-candidates = Trainings-PDF
 page-file-kind-preview = Kartenvorschau
+page-file-kind-permits = Genehmigungshinweise
 page-file-line = { $path } ({ $kind }, { $size })
 page-result-done = Fertig. Die Dateien sind geschrieben.
 page-result-failed = Der Lauf ist fehlgeschlagen: { $error }
@@ -726,3 +728,113 @@ mcp-param-create-project-content-set = Gruppen, die anders als das Profil behand
 mcp-param-start-pipeline-content = Vor dem Lauf ändern, was direkt auf die Karte kommt: "safe", "balanced" oder "full". Wird im Projekt gespeichert. Standard: die Einstellung des Projekts, sonst balanced.
 mcp-param-start-pipeline-content-set = Gruppen, die anders als das Profil behandelt werden, als "gruppe=ort" mit dem Ort map, candidates oder off, z. B. "fences=candidates". Wird im Projekt gespeichert.
 mcp-error-content = Die Inhaltseinstellung ist nicht lesbar: { $detail }
+
+## Genehmigungshinweise (`freemapper permits`, `run --permits`, ADR 0115). Die Kennungen
+## `permits-hint-*` sind die Schlüssel, die die Engine in permits.json speichert; `src/permits.rs`
+## prüft, dass jede Kennung `permits-*` verwendet wird. Das Zitat „Nicht für Planungszwecke
+## geeignet.“ ist der Wortlaut des BfN und bleibt in jeder Sprache deutsch.
+
+help-permits = Die Genehmigungshinweise eines Projekts schreiben (permits.md und permits.json): die Verwaltungseinheiten, Schutzgebiete und Betreiber, die das Kartengebiet berührt, und wen man dann meist fragt. Fragt das BfN und das BKG und liest den OSM-Auszug, der schon im Zwischenspeicher liegt; --offline nimmt die früher geholten Daten
+help-permits-dir = Projektordner
+help-permits-offline = Nur die früher geholten Daten verwenden, ohne Netzzugriff
+help-run-permits = Nach der Karte zusätzlich die Genehmigungshinweise schreiben (permits.md und permits.json); fragt das BfN und das BKG. Ein Fehler dort ist eine Warnung, die Karte bleibt
+cli-wrote-permits = Genehmigungshinweise { $path } geschrieben
+cli-summary-wrote-permits = Genehmigungshinweise { $path } geschrieben
+cli-permits-failed = Die Genehmigungshinweise ließen sich nicht schreiben: { $error }
+cli-permits-source-left-out = Die Genehmigungshinweise lassen { $source } aus: { $reason }
+cli-permits-not-read = Die Quelle wurde nicht gelesen
+error-permits-stored = { $path }: { $message }; holen Sie die Genehmigungshinweise online neu
+error-permits-nothing-read = Keine Quelle der Genehmigungshinweise ließ sich lesen ({ $missing }); holen Sie sie zuerst online
+error-permits-missing-not-read = { $source }: nicht gelesen
+
+permits-title = Hinweise zu Genehmigungen
+permits-disclaimer = Hinweis, keine Rechtsauskunft. Maßgeblich sind die zuständigen Behörden. Datenstand und Genauigkeit siehe Tabelle unter „Quellen und Datenstand“; Flächen können fehlen oder veraltet sein (BfN: jährliche Zusammenführung, „Nicht für Planungszwecke geeignet.“).
+permits-bfn-merge = Das BfN führt die Daten der Bundesländer einmal im Jahr zusammen und weist sie als nicht für Planungszwecke geeignet aus. Maßgeblich sind die Landesbehörden.
+permits-created = Erstellt am { $date } für das Kartengebiet einer { $kind ->
+        [schoolyard] Schulhofkarte
+       *[other] Sprintkarte
+    } ({ $area } ha).
+permits-section-admin = Verwaltung
+permits-section-protected = Schutzgebiete (BfN)
+permits-section-osm-protected = Weitere Schutzgebiete aus OpenStreetMap
+permits-section-operators = Betreiber und Eigentümer laut OpenStreetMap
+permits-section-hints = Hinweise
+permits-section-sources = Quellen und Datenstand
+permits-none-admin = VG250 nennt für das Kartengebiet keine Verwaltungseinheit.
+permits-none-protected = Im Kartengebiet liegt laut BfN kein Schutzgebiet.
+permits-none-osm-protected = OpenStreetMap nennt im Kartengebiet kein Schutzgebiet, das das BfN nicht schon führt.
+permits-none-operators = OpenStreetMap nennt für das Kartengebiet keinen Betreiber und keinen Eigentümer.
+permits-none-hints = Keine Hinweise.
+permits-section-not-read = Die Daten von { $source } wurden nicht gelesen. Der Abschnitt ist deshalb leer, auch wenn es Einträge geben kann.
+permits-source = { $source ->
+        [vg250] VG250 (BKG)
+        [bfn] BfN
+       *[osm] OpenStreetMap
+    }
+permits-source-what = { $source ->
+        [vg250] Verwaltungsgebiete 1:250 000 (VG250) des BKG
+        [bfn] Schutzgebiete in Deutschland des BfN
+       *[osm] OpenStreetMap, aus dem Auszug, den freemapper im Zwischenspeicher hält
+    }
+permits-level = { $level ->
+        [land] Bundesland
+        [kreis] Kreis
+        [verwaltungsgemeinschaft] Amt oder Verwaltungsgemeinschaft
+       *[gemeinde] Gemeinde
+    }
+permits-admin-line = { $level }: { $name }, { $share }
+permits-share = { $percent } %
+permits-share-below-one = < 1 %
+permits-at-edge = Am Rand berührt (weniger als 0,5 % des Kartengebiets):
+permits-at-edge-generalised = VG250 ist auf den Maßstab 1:250 000 generalisiert. Eine Einheit, die nur den Rand berührt, kann davon kommen.
+permits-kind = { $kind ->
+        [nationalpark] Nationalpark
+        [nationales-naturmonument] Nationales Naturmonument
+        [naturschutzgebiet] Naturschutzgebiet
+        [ffh] FFH-Gebiet (Natura 2000)
+        [vogelschutzgebiet] Vogelschutzgebiet (Natura 2000)
+        [biosphaerenreservat] Biosphärenreservat
+        [biosphaerenreservat-zone] Zone eines Biosphärenreservats
+        [landschaftsschutzgebiet] Landschaftsschutzgebiet
+       *[naturpark] Naturpark
+    }
+permits-protected-line = { $kind } „{ $name }“, { $share }
+permits-protected-date = Festgesetzt am { $date }
+permits-protected-title = Rechtsgrundlage: { $title }
+permits-protected-link = Rechtstext: { $url }
+permits-protected-year = Datenstand beim BfN: { $year }
+permits-osm-line = { $kind }: { $name }, { $share } (OSM { $id })
+permits-osm-protect-class = Schutzklasse { $class }
+permits-quoted = „{ $text }“
+permits-osm-unnamed = ohne Namen
+permits-osm-operator = Betreiber laut OSM: { $operator }
+permits-osm-enclosing-gap = OpenStreetMap-Flächen, die das ganze Kartengebiet umschließen und keine Ecke darin haben, können hier fehlen. Die Angaben von BfN und VG250 sind davon nicht betroffen.
+permits-operator-line = { $name } ({ $roles ->
+        [operator] Betreiber
+        [owner] Eigentümer
+       *[both] Betreiber und Eigentümer
+    }): { $objects }
+permits-column-source = Quelle
+permits-column-state = Stand
+permits-column-credit = Quellenvermerk und Lizenz
+permits-state-read = gelesen, abgerufen am { $date }
+permits-state-read-osm = gelesen, OSM-Auszug vom { $date }
+permits-state-unreachable = nicht erreichbar ({ $reason })
+permits-state-not-read = nicht gelesen
+permits-no-credit = nicht verwendet
+permits-hint-city-state = Das Kartengebiet liegt in Berlin oder Hamburg. Dort ist meist das Bezirksamt oder eine Landesbehörde zuständig. Den Bezirk bestimmen diese Hinweise noch nicht.
+permits-hint-nature-authority = { $kreisfrei ->
+        [yes] Schutzgebiete betreffen die untere Naturschutzbehörde. Hier ist das die Stadt { $kreis } selbst.
+        [no] Schutzgebiete betreffen die untere Naturschutzbehörde (meist der { $kreis }).
+       *[unknown] Schutzgebiete betreffen die zuständige untere Naturschutzbehörde (meist Landkreis oder kreisfreie Stadt).
+    }
+permits-hint-national-park = Im Nationalpark gelten eigene Regeln. Fragen Sie früh bei der Nationalparkverwaltung nach.
+permits-hint-nsg-paths = Im Naturschutzgebiet gilt meist ein Wegegebot. Für einen Lauf abseits der Wege fragen Sie die Naturschutzbehörde.
+permits-hint-natura2000 = Ein FFH-Gebiet oder ein Vogelschutzgebiet (Natura 2000) berührt das Kartengebiet. Für eine Veranstaltung kann die Naturschutzbehörde eine Prüfung der Verträglichkeit verlangen.
+permits-hint-order-office = { $amt ->
+        [none] Für Straßen, Plätze und andere öffentliche Flächen ist meist das Ordnungsamt der Gemeinde { $gemeinde } zuständig.
+       *[other] Für Straßen, Plätze und andere öffentliche Flächen ist meist das Ordnungsamt zuständig: { $amt }, für die Gemeinde { $gemeinde }.
+    }
+permits-hint-park-operator = Betreiber eines Parks oder Gartens im Kartengebiet laut OpenStreetMap: { $operator }. Fragen Sie dort nach, bevor Sie ihn nutzen.
+permits-hint-school-operator = Träger oder Betreiber der Schule oder Einrichtung laut OpenStreetMap: { $operator }. Für das Gelände fragen Sie die Schulleitung oder diesen Träger.
+permits-hint-owners-unknown = Eigentümer dieser Flächen sind aus offenen Daten nicht bestimmbar. Bei berechtigtem Interesse (z. B. Veranstalter) kann beim Grundbuchamt ein Grundbuchauszug beantragt werden; für öffentliche Flächen hilft das zuständige Ordnungs- oder Grünflächenamt.

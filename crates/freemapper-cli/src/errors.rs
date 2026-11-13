@@ -15,6 +15,7 @@ use freemapper::fetch::{FetchError, Remedy};
 use freemapper::georef::GeorefError;
 use freemapper::ocd::file::OcdBuildError;
 use freemapper::omap::OmapError;
+use freemapper::permits::PermitsError;
 use freemapper::places::PlaceError;
 use freemapper::project::{MAX_AREA_SIDE_M, ProjectError};
 use freemapper::raster::RasterError;
@@ -73,6 +74,7 @@ fn line(error: &(dyn Error + 'static), lang: &Lang) -> String {
         Shortfall,
         Cancelled,
         LockError,
+        PermitsError,
     );
     error.to_string()
 }
@@ -585,6 +587,41 @@ impl Localize for OcdBuildError {
     }
 }
 
+impl Localize for PermitsError {
+    fn localize(&self, lang: &Lang) -> String {
+        match self {
+            PermitsError::Project(e) => e.localize(lang),
+            PermitsError::Io(file, e) => io(lang, file, e),
+            PermitsError::Stored {
+                path: file,
+                message,
+            } => text(
+                lang,
+                "error-permits-stored",
+                &[path(file), ("message", v(message))],
+            ),
+            PermitsError::NothingRead { missing } => {
+                let missing: Vec<String> = missing
+                    .iter()
+                    .map(|m| match &m.reason {
+                        Some(_) => m.to_string(),
+                        None => text(
+                            lang,
+                            "error-permits-missing-not-read",
+                            &[("source", v(&m.source))],
+                        ),
+                    })
+                    .collect();
+                text(
+                    lang,
+                    "error-permits-nothing-read",
+                    &[("missing", v(missing.join("; ")))],
+                )
+            }
+        }
+    }
+}
+
 impl Localize for Cancelled {
     fn localize(&self, lang: &Lang) -> String {
         let names: Vec<&str> = self.kept.iter().map(|f| f.relative_path.as_str()).collect();
@@ -1002,6 +1039,46 @@ mod tests {
             "https://cdn.example.net/x: freemapper sendet keine Anfragen an diese Adresse: Der \
              Adapter hessen nennt den Host cdn.example.net nicht. Ist der Dienst dorthin \
              umgezogen, tragen Sie den Host in `[net] hosts` seines Manifests ein"
+        );
+    }
+
+    /// The errors of the permit notes: in English the library's text, in German worded anew.
+    #[test]
+    fn permits_errors_follow_the_language() {
+        use freemapper::permits::{Missing, PermitsError};
+        let nothing = PermitsError::NothingRead {
+            missing: vec![
+                Missing {
+                    source: "vg250".into(),
+                    reason: None,
+                },
+                Missing {
+                    source: "bfn".into(),
+                    reason: Some("HTTP 503".into()),
+                },
+                Missing {
+                    source: "osm".into(),
+                    reason: None,
+                },
+            ],
+        };
+        let stored = PermitsError::Stored {
+            path: PathBuf::from("/p/data/permits/sources.json"),
+            message: "expected value".into(),
+        };
+        let io = PermitsError::Io(PathBuf::from("/p/permits.md"), missing());
+        for error in [&nothing, &stored, &io] {
+            assert_eq!(error.localize(&Lang::english()), error.to_string());
+        }
+        assert_eq!(
+            nothing.localize(&de()),
+            "Keine Quelle der Genehmigungshinweise ließ sich lesen (vg250: nicht gelesen; bfn: \
+             HTTP 503; osm: nicht gelesen); holen Sie sie zuerst online"
+        );
+        assert_eq!(
+            stored.localize(&de()),
+            "/p/data/permits/sources.json: expected value; holen Sie die Genehmigungshinweise \
+             online neu"
         );
     }
 

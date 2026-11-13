@@ -1085,6 +1085,229 @@ fn warnings_of_the_engine_follow_the_language() {
     );
 }
 
+// The permit notes (ADR 0115). The fixture `offline-school` is a fetched synthetic school
+// project with its cache, so a run works offline; the freemapper crate writes it
+// (`write_the_offline_cli_fixture`).
+
+const OFFLINE_SCHOOL: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/offline-school");
+
+fn copy_tree(from: &std::path::Path, to: &std::path::Path) {
+    std::fs::create_dir_all(to).unwrap();
+    for entry in std::fs::read_dir(from).unwrap().flatten() {
+        let target = to.join(entry.file_name());
+        if entry.file_type().unwrap().is_dir() {
+            copy_tree(&entry.path(), &target);
+        } else {
+            std::fs::copy(entry.path(), target).unwrap();
+        }
+    }
+}
+
+/// The offline school in `dir`: its project folder and its cache.
+fn offline_school(dir: &std::path::Path) -> (std::path::PathBuf, std::path::PathBuf) {
+    let fixture = std::path::Path::new(OFFLINE_SCHOOL);
+    let (project, cache) = (dir.join("school"), dir.join("cache"));
+    copy_tree(&fixture.join("project"), &project);
+    copy_tree(&fixture.join("cache"), &cache);
+    (project, cache)
+}
+
+/// Stored inputs of the permit notes as a fetch leaves them: VG250 read (Brandenburg and a
+/// Gemeinde around the school), the BfN down, OSM not read.
+fn store_permit_inputs(project: &std::path::Path) {
+    let folder = project.join("data/permits");
+    std::fs::create_dir_all(&folder).unwrap();
+    let feature = |name: &str, kind: &str, ags: &str| {
+        serde_json::json!({
+            "type": "Feature",
+            "properties": { "gen": name, "bez": kind, "ags": ags },
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [[[13.8, 52.5], [13.9, 52.5], [13.9, 52.6], [13.8, 52.6], [13.8, 52.5]]]
+            }
+        })
+    };
+    let collection = |features: Vec<serde_json::Value>| {
+        serde_json::json!({ "type": "FeatureCollection", "features": features }).to_string()
+    };
+    for (level, features) in [
+        ("land", vec![feature("Brandenburg", "Land", "12")]),
+        (
+            "kreis",
+            vec![feature("Märkisch-Oderland", "Landkreis", "12064")],
+        ),
+        ("verwaltungsgemeinschaft", vec![]),
+        ("gemeinde", vec![feature("Strausberg", "Stadt", "12064472")]),
+    ] {
+        std::fs::write(
+            folder.join(format!("vg250-{level}.geojson")),
+            collection(features),
+        )
+        .unwrap();
+    }
+    let sources = serde_json::json!({
+        "schema": 1,
+        "bbox": [13.84, 52.53, 13.85, 52.55],
+        "vg250": { "state": "read", "fetched": "2026-11-13", "count": 3 },
+        "bfn": { "state": "unreachable", "reason": "HTTP 503 Service Unavailable" },
+        "osm": { "state": "not-read" }
+    });
+    std::fs::write(folder.join("sources.json"), sources.to_string()).unwrap();
+}
+
+/// Without stored data `permits --offline` says what is missing and exits with 1.
+#[test]
+fn permits_offline_without_data_exits_with_1() {
+    let dir = tempfile::tempdir().unwrap();
+    let project = dir.path().join("p");
+    init_school(&project);
+    let cache = dir.path().join("cache");
+    let permits = |command: &mut Command| {
+        command
+            .arg("permits")
+            .arg(&project)
+            .arg("--offline")
+            .arg("--cache-dir")
+            .arg(&cache)
+            .output()
+            .unwrap()
+    };
+    let output = permits(&mut freemapper());
+    assert_eq!(output.status.code(), Some(1), "{output:?}");
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(
+        stderr.contains(
+            "error: no source of the permit notes could be read (vg250: not read; bfn: not \
+             read; osm: not read); fetch them online first"
+        ),
+        "{stderr}"
+    );
+    assert!(!project.join("permits.md").exists());
+    assert!(!project.join("permits.json").exists());
+    let german = permits(&mut freemapper_in(&[("FREEMAPPER_LANG", "de")]));
+    assert_eq!(german.status.code(), Some(1));
+    let stderr = String::from_utf8(german.stderr).unwrap();
+    assert!(
+        stderr.contains("Keine Quelle der Genehmigungshinweise ließ sich lesen"),
+        "{stderr}"
+    );
+    // The folder lock is gone again.
+    assert!(!project.join(".freemapper-run.lock").exists());
+}
+
+/// The permit notes never fail a run: without their data the map is still written, a warning
+/// says why the notes are missing, and the run exits with 0.
+#[test]
+fn run_with_permits_offline_still_writes_the_map() {
+    let dir = tempfile::tempdir().unwrap();
+    let (project, cache) = offline_school(dir.path());
+    let output = freemapper()
+        .arg("run")
+        .arg(&project)
+        .args(["--offline", "--permits", "--cache-dir"])
+        .arg(&cache)
+        .output()
+        .unwrap();
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert_eq!(output.status.code(), Some(0), "{stderr}");
+    assert!(project.join("school.omap").exists());
+    assert!(
+        stderr.contains(
+            "warning: the permit notes could not be written: no source of the permit notes \
+             could be read (vg250: not read; bfn: not read; osm: not read); fetch them online \
+             first"
+        ),
+        "{stderr}"
+    );
+    assert!(!project.join("permits.md").exists());
+    // Without the switch nothing about the notes is said.
+    let output = freemapper()
+        .arg("run")
+        .arg(&project)
+        .args(["--offline", "--cache-dir"])
+        .arg(&cache)
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    assert!(!String::from_utf8(output.stderr).unwrap().contains("permit"));
+}
+
+/// With stored data the run writes the notes after the map and names them with the files it
+/// wrote; a source that was down is a warning, not a failure.
+#[test]
+fn permits_appears_in_the_written_files() {
+    let dir = tempfile::tempdir().unwrap();
+    let (project, cache) = offline_school(dir.path());
+    store_permit_inputs(&project);
+    let output = freemapper()
+        .arg("run")
+        .arg(&project)
+        .args(["--offline", "--permits", "--cache-dir"])
+        .arg(&cache)
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert_eq!(output.status.code(), Some(0), "{stderr}");
+    let markdown = project.join("permits.md");
+    let map_line = format!("Wrote {}", project.join("school.omap").display());
+    let notes_line = format!("Wrote the permit notes {}", markdown.display());
+    let map_at = stdout.find(&map_line).expect(&stdout);
+    let notes_at = stdout.find(&notes_line).expect(&stdout);
+    assert!(map_at < notes_at, "the notes come after the map: {stdout}");
+    for line in [
+        "warning: the permit notes leave out BfN: HTTP 503 Service Unavailable",
+        "warning: the permit notes leave out OpenStreetMap: it was not read",
+    ] {
+        assert!(stderr.contains(line), "{stderr}");
+    }
+    let text = std::fs::read_to_string(&markdown).unwrap();
+    assert!(
+        text.starts_with("# Permit notes\n\nA hint, not legal advice."),
+        "{text}"
+    );
+    assert!(text.contains("- State: Land Brandenburg, 100%"), "{text}");
+    assert!(text.contains("Landkreis Märkisch-Oderland"), "{text}");
+    assert!(
+        text.contains("Ordnungsamt (public order office) of the Gemeinde Strausberg"),
+        "{text}"
+    );
+    let json: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(project.join("permits.json")).unwrap())
+            .unwrap();
+    assert_eq!(json["schema"], 1);
+    assert_eq!(json["sources"][1]["state"], "unreachable");
+
+    // `freemapper permits` alone writes the same notes, here in German, and exits with 0.
+    std::fs::remove_file(&markdown).unwrap();
+    let output = freemapper_in(&[("FREEMAPPER_LANG", "de")])
+        .arg("permits")
+        .arg(&project)
+        .args(["--offline", "--cache-dir"])
+        .arg(&cache)
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert_eq!(output.status.code(), Some(0), "{stderr}");
+    assert!(
+        stdout.contains(&format!(
+            "Genehmigungshinweise {} geschrieben",
+            markdown.display()
+        )),
+        "{stdout}"
+    );
+    assert!(
+        stderr.contains("Warnung: Die Genehmigungshinweise lassen BfN aus: HTTP 503"),
+        "{stderr}"
+    );
+    let text = std::fs::read_to_string(&markdown).unwrap();
+    assert!(
+        text.starts_with("# Hinweise zu Genehmigungen\n\nHinweis, keine Rechtsauskunft."),
+        "{text}"
+    );
+}
+
 // `freemapper update` (spec 3.5). The tests that reach the update code need a build with the
 // `test-stub` feature and talk to the stub of `tests/support`.
 

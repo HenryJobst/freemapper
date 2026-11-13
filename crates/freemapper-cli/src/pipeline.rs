@@ -1,6 +1,6 @@
 //! The pipeline behind `freemapper run`, the MCP tool `start_pipeline` and the run button of the
-//! selection page: fetch, derive, write the map, then the optional OCAD and PDF outputs. One
-//! function, so the three callers cannot drift apart (ADR 0090).
+//! selection page: fetch, derive, write the map, then the optional OCAD and PDF outputs and the
+//! permit notes. One function, so the three callers cannot drift apart (ADR 0090).
 
 use crate::text::{Lang, TEXTS, n, text, v};
 use std::cell::RefCell;
@@ -28,6 +28,9 @@ pub struct RunOptions {
     pub pdf_candidates: bool,
     pub pdf_scale_bar: bool,
     pub pdf_sources: PdfSources,
+    /// Also write the permit notes after the map (ADR 0115). A failure there is a warning and
+    /// never fails the run.
+    pub permits: bool,
     /// Stop with the first failing OCAD or PDF output (the command line). Without it the failure
     /// is written into the summary and the other outputs still run (MCP and the page).
     pub fail_fast: bool,
@@ -68,6 +71,7 @@ pub fn parse(request: RunRequest, lang: &Lang) -> Result<RunOptions, String> {
         pdf_candidates: request.pdf_candidates.unwrap_or(false),
         pdf_scale_bar: request.pdf_scale_bar.unwrap_or(false),
         pdf_sources,
+        permits: false,
         fail_fast: false,
     })
 }
@@ -90,6 +94,7 @@ pub enum Step {
     Ocad,
     Pdf,
     PdfCandidates,
+    Permits,
 }
 
 impl Step {
@@ -102,6 +107,7 @@ impl Step {
             Step::Ocad => "step-ocad",
             Step::Pdf => "step-pdf",
             Step::PdfCandidates => "step-pdf-candidates",
+            Step::Permits => "step-permits",
         }
     }
 }
@@ -128,6 +134,8 @@ pub enum Written<'a> {
     Ocad(&'a OcadOutcome),
     Pdf(&'a Path),
     PdfCandidates(&'a Path),
+    /// `permits.md`.
+    Permits(&'a Path),
 }
 
 /// A file a run produced, relative to the project folder.
@@ -241,6 +249,9 @@ fn selected_steps(options: &RunOptions) -> Vec<Step> {
     if options.pdf_candidates {
         steps.push(Step::PdfCandidates);
     }
+    if options.permits {
+        steps.push(Step::Permits);
+    }
     steps
 }
 
@@ -283,21 +294,25 @@ pub fn run(
     };
     let progress = RefCell::new(progress);
     let warnings = RefCell::new(Vec::new());
+    let warn = |text: String| {
+        (progress.borrow_mut())(Event::Warning(&text));
+        warnings.borrow_mut().push(text);
+    };
+    let on_note = |note: freemapper::note::Note| {
+        let text = line(&note);
+        if note.is_warning() {
+            warn(text);
+        } else {
+            (progress.borrow_mut())(Event::Line(&text));
+        }
+    };
     let outcome = run_project_steps_cancellable(
         dir,
         fetcher,
         cache,
         mode,
         options.force,
-        &mut |note| {
-            let text = line(&note);
-            if note.is_warning() {
-                (progress.borrow_mut())(Event::Warning(&text));
-                warnings.borrow_mut().push(text);
-            } else {
-                (progress.borrow_mut())(Event::Line(&text));
-            }
-        },
+        &mut |note| on_note(note),
         &mut |stage| {
             let step = match stage {
                 RunStage::Fetch => Step::Fetch,
@@ -323,7 +338,7 @@ pub fn run(
                 pdf_candidates: &Option<Result<PathBuf, String>>| {
         control.is_cancelled().then(|| {
             anyhow::Error::new(Cancelled {
-                kept: result_files(dir, &outcome, ocad, pdf, pdf_candidates),
+                kept: result_files(dir, &outcome, ocad, pdf, pdf_candidates, None),
             })
         })
     };
@@ -411,8 +426,54 @@ pub fn run(
             pdf_candidates = Some(result);
         }
     }
+    // The permit notes come last: they ask other services, and the map is whole without them. A
+    // failure is a warning, also on the command line (ruling of ADR 0115).
+    let mut permits = None;
+    if options.permits {
+        if let Some(cancelled) = stop(&ocad, &pdf, &pdf_candidates) {
+            return Err(cancelled);
+        }
+        (progress.borrow_mut())(phase(Step::Permits));
+        match crate::permits::write_permits(
+            dir,
+            options.offline,
+            cache,
+            fetcher,
+            &crate::text::lang(),
+            &mut |note| on_note(note),
+        ) {
+            Ok(written) => {
+                for warning in &written.warnings {
+                    warn(warning.clone());
+                }
+                (progress.borrow_mut())(Event::Written(Written::Permits(&written.markdown)));
+                summary.push('\n');
+                summary.push_str(&text(
+                    "cli-summary-wrote-permits",
+                    &[("path", v(written.markdown.display()))],
+                ));
+                permits = Some(written);
+            }
+            Err(e) => {
+                let warning = crate::text::warning(&text(
+                    "cli-permits-failed",
+                    &[("error", v(describe(e.as_ref())))],
+                ));
+                summary.push('\n');
+                summary.push_str(&warning);
+                warn(warning);
+            }
+        }
+    }
     let kept_map = matches!(outcome.map, MapOutcome::Kept { .. });
-    let files = result_files(dir, &outcome, &ocad, &pdf, &pdf_candidates);
+    let files = result_files(
+        dir,
+        &outcome,
+        &ocad,
+        &pdf,
+        &pdf_candidates,
+        permits.as_ref(),
+    );
     Ok(RunReport {
         summary,
         warnings: warnings.into_inner(),
@@ -428,6 +489,7 @@ fn result_files(
     ocad: &Option<Result<OcadOutcome, String>>,
     pdf: &Option<Result<PathBuf, String>>,
     pdf_candidates: &Option<Result<PathBuf, String>>,
+    permits: Option<&crate::permits::PermitsWritten>,
 ) -> Vec<ResultFile> {
     let mut candidates: Vec<(&'static str, PathBuf)> = vec![("map", map_path(dir))];
     // Only a preview written with the map: one left next to a kept map belongs to an older run.
@@ -446,6 +508,10 @@ fn result_files(
     }
     if matches!(pdf_candidates, Some(Ok(_))) {
         candidates.push(("pdf-candidates", pdf_path(dir, true)));
+    }
+    if let Some(written) = permits {
+        candidates.push(("permits", written.markdown.clone()));
+        candidates.push(("permits", written.json.clone()));
     }
     candidates
         .into_iter()
@@ -657,7 +723,7 @@ mod tests {
             preview: None,
         };
         let pdf = Some(Ok(pdf_path(dir.path(), false)));
-        let files = result_files(dir.path(), &outcome, &None, &pdf, &None);
+        let files = result_files(dir.path(), &outcome, &None, &pdf, &None, None);
         // The PDF was not written, the template is absent: only the map is listed.
         assert_eq!(files.len(), 1, "{files:?}");
         assert_eq!(files[0].kind, "map");
@@ -668,10 +734,10 @@ mod tests {
         // not listed; the one written with the map is, right after it.
         let preview = map_preview_path(dir.path());
         std::fs::write(&preview, "123").unwrap();
-        let files = result_files(dir.path(), &outcome, &None, &pdf, &None);
+        let files = result_files(dir.path(), &outcome, &None, &pdf, &None, None);
         assert_eq!(files.len(), 1, "{files:?}");
         outcome.preview = Some(preview.clone());
-        let files = result_files(dir.path(), &outcome, &None, &pdf, &None);
+        let files = result_files(dir.path(), &outcome, &None, &pdf, &None, None);
         assert_eq!(files.len(), 2, "{files:?}");
         assert_eq!(files[0].kind, "map");
         assert_eq!(files[1].kind, "preview");
@@ -860,9 +926,10 @@ mod tests {
             Step::Ocad,
             Step::Pdf,
             Step::PdfCandidates,
+            Step::Permits,
         ]
         .map(Step::label_key)
         .into();
-        assert_eq!(keys.len(), 6);
+        assert_eq!(keys.len(), 7);
     }
 }

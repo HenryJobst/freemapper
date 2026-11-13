@@ -290,6 +290,22 @@ mod tests {
             ("state", v("Brandenburg/Berlin")),
             ("agency", v("LGB")),
             ("adapter", v("czfoo")),
+            // The permit notes (`permits.rs`, `errors.rs`).
+            ("missing", v("bfn: HTTP 503")),
+            ("level", v("land")),
+            ("share", v("100 %")),
+            ("percent", v(100)),
+            ("year", v(2024)),
+            ("title", v("Verordnung")),
+            ("class", v("4")),
+            ("operator", v("Stadt Buckow")),
+            ("roles", v("both")),
+            ("objects", v("`leisure=park`")),
+            ("kreisfrei", v("no")),
+            ("kreis", v("Landkreis Märkisch-Oderland")),
+            ("amt", v("Amt Märkische Schweiz")),
+            ("gemeinde", v("Buckow")),
+            ("text", v("Alte Eichen")),
             // The adapter warnings the MCP server passes on.
             (
                 "lines",
@@ -319,6 +335,7 @@ mod tests {
             include_str!("errors.rs"),
             include_str!("find.rs"),
             include_str!("pipeline.rs"),
+            include_str!("permits.rs"),
             include_str!("estimate.rs"),
             include_str!("help.rs"),
             include_str!("mcp.rs"),
@@ -346,6 +363,7 @@ mod tests {
             include_str!("errors.rs"),
             include_str!("find.rs"),
             include_str!("pipeline.rs"),
+            include_str!("permits.rs"),
             include_str!("estimate.rs"),
             include_str!("help.rs"),
             include_str!("mcp.rs"),
@@ -360,10 +378,19 @@ mod tests {
         .collect();
         // The help and the MCP descriptions are looked up by name; `help.rs` and `mcp.rs` test
         // those. The area page's texts are used by its scripts; `select_page.rs` tests those.
+        // The texts of the permit notes are partly named by the engine's hints; `permits.rs`
+        // tests those.
         for id in english.iter().filter(|id| {
-            !["help-", "mcp-tool-", "mcp-param-", "page-", "suite-"]
-                .iter()
-                .any(|p| id.starts_with(p))
+            ![
+                "help-",
+                "mcp-tool-",
+                "mcp-param-",
+                "page-",
+                "suite-",
+                "permits-",
+            ]
+            .iter()
+            .any(|p| id.starts_with(p))
         }) {
             assert!(used.contains(id), "{id} is in the catalog but not used");
         }
