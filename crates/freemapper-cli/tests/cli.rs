@@ -1113,7 +1113,7 @@ fn warnings_of_the_engine_follow_the_language() {
     );
 }
 
-// The permit notes (ADR 0116). The fixture `offline-school` is a fetched synthetic school
+// The permit notes (ADR 0117). The fixture `offline-school` is a fetched synthetic school
 // project with its cache, so a run works offline; the freemapper crate writes it
 // (`write_the_offline_cli_fixture`).
 

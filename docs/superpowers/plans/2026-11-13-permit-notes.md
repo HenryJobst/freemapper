@@ -153,9 +153,9 @@
 ### Task 8: Documentation
 
 **Files:**
-- Create: `docs/adr/0116-permit-notes-from-national-sources.md`; Modify: `docs/adr/README.md`, `docs/glossary.md`, `docs/manual/{de,en}.md` (new section), `README.md`, `README.en.md` (the "Geplant" paragraph), `AGENTS.md` (command table, MCP tools, project folder files), `CHANGELOG.md`, `CHANGELOG.en.md` (Hinzugefügt/Added, under Unveröffentlicht/Unreleased)
+- Create: `docs/adr/0117-permit-notes-from-national-sources.md`; Modify: `docs/adr/README.md`, `docs/glossary.md`, `docs/manual/{de,en}.md` (new section), `README.md`, `README.en.md` (the "Geplant" paragraph), `AGENTS.md` (command table, MCP tools, project folder files), `CHANGELOG.md`, `CHANGELOG.en.md` (Hinzugefügt/Added, under Unveröffentlicht/Unreleased)
 
 - [ ] Step 1: write the ADR (context, decision with the spec's calls, the BfN wording as Claude's, consequences, later steps); index line.
 - [ ] Step 2: manual, README, AGENTS.md, glossary (Genehmigungshinweise / permit notes, Schutzgebiet / protected area, Verwaltungseinheit / administrative unit), changelog; run unslop and humanizer over the user prose.
 - [ ] Step 3: `cargo fmt --all --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace --locked`, `scripts/golden.sh test`; all green, golden unchanged.
-- [ ] Step 4: commit `docs: permit notes (ADR 0116), manual, README, AGENTS.md, changelog`; push branch; open PR with the run of the live tests and the timing in the description.
+- [ ] Step 4: commit `docs: permit notes (ADR 0117), manual, README, AGENTS.md, changelog`; push branch; open PR with the run of the live tests and the timing in the description.

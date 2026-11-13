@@ -1,5 +1,5 @@
 //! The fixture `offline-school`: a fetched synthetic school project with its cache, so a run
-//! works offline, and the stored inputs of the permit notes (ADR 0116).
+//! works offline, and the stored inputs of the permit notes (ADR 0117).
 #![allow(dead_code)] // Each test crate uses a part.
 
 pub const OFFLINE_SCHOOL: &str =

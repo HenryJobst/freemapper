@@ -280,7 +280,7 @@ fn run_js_names_no_path_field() {
 }
 
 /// The permit notes are an output switch like the PDF and OCAD ones: off unless the page was
-/// opened with them, and sent as `permits` only as the state of the box (ADR 0116).
+/// opened with them, and sent as `permits` only as the state of the box (ADR 0117).
 #[test]
 fn the_permits_box_is_an_output_switch() {
     let html = asset("index.html");

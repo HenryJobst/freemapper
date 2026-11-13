@@ -28,7 +28,7 @@ pub struct RunOptions {
     pub pdf_candidates: bool,
     pub pdf_scale_bar: bool,
     pub pdf_sources: PdfSources,
-    /// Also write the permit notes after the map (ADR 0116). A failure there is a warning and
+    /// Also write the permit notes after the map (ADR 0117). A failure there is a warning and
     /// never fails the run.
     pub permits: bool,
     /// Stop with the first failing OCAD or PDF output (the command line). Without it the failure
@@ -430,7 +430,7 @@ pub fn run(
         }
     }
     // The permit notes come last: they ask other services, and the map is whole without them. A
-    // failure is a warning, also on the command line (ruling of ADR 0116).
+    // failure is a warning, also on the command line (ruling of ADR 0117).
     let mut permits = None;
     if options.permits {
         if let Some(cancelled) = stop(&ocad, &pdf, &pdf_candidates) {

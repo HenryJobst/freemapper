@@ -742,7 +742,7 @@ mcp-param-start-pipeline-content = Vor dem Lauf ändern, was direkt auf die Kart
 mcp-param-start-pipeline-content-set = Gruppen, die anders als das Profil behandelt werden, als "gruppe=ort" mit dem Ort map, candidates oder off, z. B. "fences=candidates". Wird im Projekt gespeichert.
 mcp-error-content = Die Inhaltseinstellung ist nicht lesbar: { $detail }
 
-## Genehmigungshinweise (`freemapper permits`, `run --permits`, ADR 0116). Die Kennungen
+## Genehmigungshinweise (`freemapper permits`, `run --permits`, ADR 0117). Die Kennungen
 ## `permits-hint-*` sind die Schlüssel, die die Engine in permits.json speichert; `src/permits.rs`
 ## prüft, dass jede Kennung `permits-*` verwendet wird. Das Zitat „Nicht für Planungszwecke
 ## geeignet.“ ist der Wortlaut des BfN und bleibt in jeder Sprache deutsch.
@@ -765,6 +765,7 @@ permits-disclaimer = Hinweis, keine Rechtsauskunft. Maßgeblich sind die zustän
 permits-bfn-merge = Das BfN führt die Daten der Bundesländer einmal im Jahr zusammen und weist sie als nicht für Planungszwecke geeignet aus. Maßgeblich sind die Landesbehörden.
 permits-created = Erstellt am { $date } für das Kartengebiet einer { $kind ->
         [schoolyard] Schulhofkarte
+        [forest] Waldkarte
        *[other] Sprintkarte
     } ({ $area } ha).
 permits-section-admin = Verwaltung

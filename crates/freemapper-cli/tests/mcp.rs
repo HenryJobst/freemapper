@@ -658,7 +658,7 @@ fn listed_files(status: &Value) -> Vec<(String, String)> {
         .collect()
 }
 
-/// `permits_for_area` is a job like `start_pipeline` (ADR 0116): it answers at once with a job
+/// `permits_for_area` is a job like `start_pipeline` (ADR 0117): it answers at once with a job
 /// id, and the finished status carries the text of permits.md. Without stored inputs offline it
 /// fails with the reason and leaves nothing behind.
 #[test]

@@ -725,7 +725,7 @@ mcp-param-start-pipeline-content = Change what goes straight onto the map before
 mcp-param-start-pipeline-content-set = Groups sent somewhere else than the profile says, as "group=place" with place map, candidates or off, e.g. "fences=candidates". Saved in the project.
 mcp-error-content = Cannot read the content setting: { $detail }
 
-## Permit notes (`freemapper permits`, `run --permits`, ADR 0116). The ids `permits-hint-*`
+## Permit notes (`freemapper permits`, `run --permits`, ADR 0117). The ids `permits-hint-*`
 ## are the keys the engine stores in permits.json; `src/permits.rs` checks that every
 ## `permits-*` id is used. The quote "Nicht für Planungszwecke geeignet." is the BfN's own
 ## wording and stays German in every language.
@@ -748,6 +748,7 @@ permits-disclaimer = A hint, not legal advice. The competent authorities decide.
 permits-bfn-merge = The BfN merges the data of the states once a year and marks them as not suitable for planning. The authorities of the state decide.
 permits-created = Made on { $date } for the map area of a { $kind ->
         [schoolyard] schoolyard map
+        [forest] forest map
        *[other] sprint map
     } ({ $area } ha).
 permits-section-admin = Administrative units

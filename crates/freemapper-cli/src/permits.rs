@@ -1,4 +1,4 @@
-//! The permit notes as Markdown (`permits.md`, ADR 0116), and the command that fetches and
+//! The permit notes as Markdown (`permits.md`, ADR 0117), and the command that fetches and
 //! writes them: `freemapper permits`, `run --permits` and, later, the MCP tool.
 //!
 //! The engine assembles the notes (`freemapper::permits`); this file words them in the language
@@ -949,6 +949,22 @@ mod tests {
         notes.operators[0].name = "A | B *C* [x](y)".into();
         let text = render_markdown(&notes, &Lang::english());
         assert!(text.contains(r"A \| B \*C\* \[x\](y)"), "{text}");
+    }
+
+    #[test]
+    fn a_forest_map_is_named_as_such() {
+        let mut notes = buckow();
+        notes.map_kind = MapKind::Forest;
+        let german = render_markdown(&notes, &de());
+        assert!(
+            german.contains("für das Kartengebiet einer Waldkarte (41,2 ha)."),
+            "{german}"
+        );
+        let english = render_markdown(&notes, &Lang::english());
+        assert!(
+            english.contains("for the map area of a forest map (41.2 ha)."),
+            "{english}"
+        );
     }
 
     #[test]
