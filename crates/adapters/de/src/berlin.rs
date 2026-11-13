@@ -7,6 +7,10 @@
 use std::collections::HashSet;
 
 use chrono::{Datelike, NaiveDate};
+use freemapper_adapter_api::extras::{
+    ExtraEstimate, ExtraLayerInfo, ExtraNotes, ExtraSet, ExtraSetInfo, FetchedExtra,
+    RasterTemplate, RasterTemplateInfo, TemplateNotes,
+};
 use serde_json::{Map, Value};
 
 use crate::crs::BoundingBox;
@@ -271,6 +275,106 @@ pub fn extra_layers(kind: MapKind) -> impl Iterator<Item = &'static ExtraLayer> 
     EXTRA_LAYERS
         .iter()
         .filter(move |l| l.types_for(kind).next().is_some())
+}
+
+/// Berlin's registers, surveys and point layers as the set of extra layers of its adapter.
+pub struct Registers;
+
+/// What the engine stores and reports of [`Registers`].
+static REGISTERS: ExtraSetInfo = ExtraSetInfo {
+    key: "berlin",
+    crs: crate::crs::Crs::Utm33,
+    notes: ExtraNotes {
+        none_stored: "progress-berlin-none-stored",
+        removing: "progress-berlin-removing",
+        download: "progress-berlin-download",
+        features: "progress-berlin-features",
+        kept: "warning-berlin-layer-kept",
+        dropped: "warning-berlin-layer-skipped",
+    },
+    // The vector layers in the centre, per km²: the ALKIS structure layers, relief, hedges and
+    // the tree cadastre 4 MB (measured 3.7 to 3.8 MB in Kreuzberg and 4.6 MB in Prenzlauer Berg),
+    // the street survey and point layers 5 MB (measured 3.2 MB at Viktoriapark, plus 0.8 MB per
+    // km² there for the furniture and lamps that sprint maps fetch too since ADR 0077; a street
+    // area with 2 392 bollards per km² takes about 1.4 MB) and the building heights 3 MB
+    // (measured 2.7 MB there), live runs of 2026-11-09 and 2026-11-10. Each share is rounded up
+    // to the next half MB, so the disk check errs on the safe side; Viktoriapark measured
+    // 9.8 MB in all, before the furniture.
+    estimate: ExtraEstimate {
+        what: "Berlin ALKIS structures, tree cadastre, street survey and point layers",
+        megabytes_per_km2: 12.0,
+    },
+};
+
+impl ExtraSet for Registers {
+    fn info(&self) -> &ExtraSetInfo {
+        &REGISTERS
+    }
+
+    fn layers(&self, kind: MapKind) -> Vec<ExtraLayerInfo> {
+        extra_layers(kind)
+            .map(|layer| ExtraLayerInfo { key: layer.file })
+            .collect()
+    }
+
+    fn has(&self, key: &str) -> bool {
+        EXTRA_LAYERS.iter().any(|layer| layer.file == key)
+    }
+
+    fn fetch(
+        &self,
+        fetcher: &dyn Fetcher,
+        region_bbox: &BoundingBox,
+        kind: MapKind,
+    ) -> Vec<FetchedExtra> {
+        fetch_extra_layers(fetcher, region_bbox, kind)
+            .into_iter()
+            .map(|fetched| FetchedExtra {
+                key: fetched.layer.file,
+                features: fetched.features,
+            })
+            .collect()
+    }
+}
+
+/// The Berlin map 1:5000 in colour (K5) as the raster template of Berlin's adapter.
+pub struct K5;
+
+/// What the engine stores and reports of [`K5`].
+static K5_TEMPLATE: RasterTemplateInfo = RasterTemplateInfo {
+    key: "k5",
+    crs: crate::crs::Crs::Utm33,
+    // The date of the K5 dataset (catalogue `karte-von-berlin-1-5000-k5-farbausgabe-9f3ecf8d`);
+    // the WMS gives no date of its own.
+    dataset_date: "2026-01-02",
+    dataset_label: "K5 dataset",
+    notes: TemplateNotes {
+        unchanged: "progress-k-five-unchanged",
+        download: "progress-k-five-download",
+        unavailable: "warning-k-five-unavailable",
+    },
+    // The PNG at 0.25 m per pixel, per km² (measured 9.1 MB around a park and 17 MB in dense
+    // blocks, 2026-11-09).
+    estimate: ExtraEstimate {
+        what: "Berlin K5 map (1:5000) template",
+        megabytes_per_km2: 15.0,
+    },
+};
+
+impl RasterTemplate for K5 {
+    fn info(&self) -> &RasterTemplateInfo {
+        &K5_TEMPLATE
+    }
+
+    fn fetch(
+        &self,
+        fetcher: &dyn Fetcher,
+        bbox: &BoundingBox,
+        root: &std::path::Path,
+        out: &std::path::Path,
+    ) -> Result<(), FetchError> {
+        crate::sources::wms::fetch_k5(fetcher, bbox, crate::sources::wms::K5_PIXEL_M, root, out)
+    }
 }
 
 /// One extra layer as fetched; an empty `features` is a layer without objects in the area.

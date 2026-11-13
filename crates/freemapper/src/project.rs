@@ -91,6 +91,7 @@ use crate::tiles::TileId;
 use freemapper_adapters_de::lgb::Product;
 
 mod export;
+mod extras;
 pub use export::*;
 
 pub const PROJECT_FILE_NAME: &str = freemapper_contract::tags::SIDECAR_FILE;
@@ -411,11 +412,9 @@ use freemapper_adapter_api::rasters::{
     DeriveEnv, HeightInput, OrthophotoInput, RasterArea, RasterBackend, StoredRasters,
 };
 use freemapper_adapters_de::berlin::BERLIN_REGISTERS;
-/// The id of the adapter whose registers and K5 the engine fetches itself.
-const BERLIN: &str = freemapper_adapters_de::states::State::Berlin.id();
 // The steps of a raster fetch that name no state, and the files they write.
+use freemapper_adapter_api::records::on_grid;
 pub use freemapper_adapter_api::records::{NdsmRecord, TileRecord, WcsRecord, WmsRecord};
-use freemapper_adapter_api::records::{on_grid, stored_bbox};
 #[cfg(test)]
 use freemapper_sources::raster_fetch::UNDATED_ORTHOPHOTO_MAX_AGE_DAYS;
 pub(crate) use freemapper_sources::raster_fetch::{
@@ -553,12 +552,18 @@ impl ProjectFile {
             ));
             false
         };
-        self.berlin_layers
-            .retain(|key, _| keep("Berlin", key, known_berlin_layer(key).is_some()));
+        let registers = registers();
+        self.berlin_layers.retain(|key, _| {
+            keep(
+                "Berlin",
+                key,
+                registers.as_ref().is_some_and(|family| family.has(key)),
+            )
+        });
         self.nas_layers
-            .retain(|key, _| keep("NAS", key, known_nas_layer(key).is_some()));
+            .retain(|key, _| keep("NAS", key, extras::NAS.has(key)));
         self.tree_layers
-            .retain(|key, _| keep("tree", key, known_tree_dataset(key).is_some()));
+            .retain(|key, _| keep("tree", key, extras::TREES.has(key)));
     }
 
     /// The title without control characters, or the folder name of `dir` with each
@@ -644,16 +649,18 @@ impl ProjectFile {
         self.point_clouds.clear();
         self.buildings = None;
         self.land_use = None;
-        for key in self.berlin_layers.keys() {
-            remove_berlin_layer(dir, key);
+        if let Some(registers) = registers() {
+            for key in self.berlin_layers.keys() {
+                extras::remove(dir, &registers, key);
+            }
         }
         self.berlin_layers.clear();
         for key in self.nas_layers.keys() {
-            remove_nas_layer(dir, key);
+            extras::remove(dir, &extras::NAS, key);
         }
         self.nas_layers.clear();
         for key in self.tree_layers.keys() {
-            remove_tree_layer(dir, key);
+            extras::remove(dir, &extras::TREES, key);
         }
         self.tree_layers.clear();
         self.osm = None;
@@ -770,9 +777,9 @@ pub(crate) const RELIEF_RELPATH: &str = "templates/relief.png";
 pub(crate) const NDSM_RELPATH: &str = "templates/ndsm.png";
 /// The Berlin K5 map (1:5000) as fetched; a template the mapper draws on, optional.
 pub(crate) const K5_RELPATH: &str = "templates/k5.png";
-/// The date of the K5 dataset (catalogue `karte-von-berlin-1-5000-k5-farbausgabe-9f3ecf8d`); the
-/// WMS gives no date of its own.
-const K5_DATASET_DATE: &str = "2026-01-02";
+/// The key of the raster template whose record the project file keeps in `k5` and whose file
+/// is [`K5_RELPATH`]: the one template there is. A second one needs a field of its own.
+const K5_TEMPLATE: &str = "k5";
 /// The terrain mosaic of a tile provider (LGB, GeoSN) cut to the map area plus buffer, with its
 /// world file. `derive` writes it only where the extra Berlin layers have stair areas: the export
 /// reads their walking direction from it, offline and without the tile cache.
@@ -1228,20 +1235,22 @@ pub(crate) fn mark_stored(
     let k5 = project.k5.as_ref().is_some_and(|r| r.covers(bbox)) && dir.join(K5_RELPATH).exists();
     // Stored layers count only when every record covers the area and its file is there: an
     // area moved within the state is downloaded again.
+    let registers = registers();
     let berlin_layers = !project.berlin_layers.is_empty()
         && project.berlin_layers.iter().all(|(key, record)| {
             record.covers(bbox)
-                && known_berlin_layer(key).is_some_and(|l| berlin_layer_path(dir, l).exists())
+                && registers
+                    .as_ref()
+                    .is_some_and(|family| extras::is_stored(dir, family, key))
         });
     let nas_layers = !project.nas_layers.is_empty()
-        && project.nas_layers.iter().all(|(key, record)| {
-            record.covers(bbox)
-                && known_nas_layer(key).is_some_and(|l| nas_layer_path(dir, l).exists())
-        });
+        && project
+            .nas_layers
+            .iter()
+            .all(|(key, record)| record.covers(bbox) && extras::is_stored(dir, &extras::NAS, key));
     let tree_layers = !project.tree_layers.is_empty()
         && project.tree_layers.iter().all(|(key, record)| {
-            record.covers(bbox)
-                && known_tree_dataset(key).is_some_and(|d| tree_layer_path(dir, d).exists())
+            record.covers(bbox) && extras::is_stored(dir, &extras::TREES, key)
         });
     if orthophoto || k5 || berlin_layers || nas_layers || tree_layers {
         for item in &mut estimate.items {
@@ -1436,54 +1445,20 @@ fn fetch_k5_into(
     bbox: &BoundingBox,
     progress: &mut dyn FnMut(Note),
 ) {
-    if mode == FetchMode::Offline {
-        return;
-    }
-    let path = dir.join(K5_RELPATH);
-    let remove = |project: &mut ProjectFile| {
-        for file in [path.clone(), path.with_extension("pgw")] {
-            freemapper_fs::remove_inside(dir, &file);
-        }
-        project.k5 = None;
-    };
-    if !berlin::near_berlin(region_bbox) || project.crs() != Crs::Utm33 {
-        remove(project);
-        return;
-    }
-    if skip {
-        // The disk plan already said that the template is left out.
-        remove(project);
-        return;
-    }
-    let pixel = crate::sources::wms::K5_PIXEL_M;
-    let unchanged =
-        project.k5.as_ref().is_some_and(|r| r.covers(bbox)) && check_template(&path, bbox).is_ok();
-    if unchanged {
-        progress(note!("progress-k-five-unchanged"));
-        return;
-    }
-    progress(note!("progress-k-five-download"));
-    // The K5 is a service of Berlin: asked through the hosts Berlin declares.
-    let fetched = crate::adapters::asking_for(BERLIN, fetcher, |fetcher| {
-        crate::sources::wms::fetch_k5(fetcher, bbox, pixel, dir, &path)
-    });
-    match fetched {
-        Ok(()) => {
-            project.k5 = Some(WmsRecord {
-                flight: Some(K5_DATASET_DATE.to_string()),
-                flight_label: Some("K5 dataset".to_string()),
-                fetched: crate::clock::today(),
-                bbox: stored_bbox(bbox),
-            });
-        }
-        Err(e) => {
-            progress(note!(
-                "warning-k-five-unavailable",
-                detail = crate::fetch::one_line(&e.to_string(), 300)
-            ));
-            remove(project);
-        }
-    }
+    let map_crs = project.crs();
+    extras::fetch_template_key_into(
+        registry(),
+        K5_TEMPLATE,
+        dir,
+        fetcher,
+        mode,
+        skip,
+        map_crs,
+        region_bbox,
+        bbox,
+        &mut project.k5,
+        progress,
+    );
 }
 
 /// Reads the candidate features of the map area plus buffer from every OSM extract the area needs
@@ -1735,26 +1710,14 @@ fn fetch_land_use_into(
     }
 }
 
-/// The NAS layer the project file records under `key`, from the static table; `None` for a key
-/// no layer has.
-fn known_nas_layer(key: &str) -> Option<&'static alkis_nas::NasLayer> {
-    alkis_nas::NAS_LAYERS.iter().find(|layer| layer.file == key)
-}
+/// The key of the set of extra layers whose records the project file keeps in `berlin_layers`:
+/// the one set there is. A second one needs a field of its own.
+const REGISTERS_SET: &str = "berlin";
 
-/// Path of the stored NAS `layer`: from a layer of the table, never from a name read from the
-/// project file (ADR 0059).
-fn nas_layer_path(dir: &Path, layer: &alkis_nas::NasLayer) -> PathBuf {
-    dir.join(NAS_LAYERS_DIR)
-        .join(format!("{}.geojson", layer.file))
-}
-
-/// Removes the stored NAS layer the project file records under `key`: only a layer of the
-/// table, and only when its file lies inside the project folder.
-fn remove_nas_layer(dir: &Path, key: &str) {
-    let Some(layer) = known_nas_layer(key) else {
-        return;
-    };
-    freemapper_fs::remove_inside(dir, &nas_layer_path(dir, layer));
+/// The family of the set of extra layers recorded in `berlin_layers`, from the adapter of the
+/// registry that has it; `None` when no adapter of this run has it.
+fn registers() -> Option<extras::Family<'static>> {
+    extras::set_in(registry(), REGISTERS_SET).map(|(_, set)| extras::of_set(set))
 }
 
 /// The extra Berlin layer the project file records under `key`, from the static table; `None`
@@ -1768,16 +1731,6 @@ fn known_berlin_layer(key: &str) -> Option<&'static berlin::ExtraLayer> {
 fn berlin_layer_path(dir: &Path, layer: &berlin::ExtraLayer) -> PathBuf {
     dir.join(BERLIN_LAYERS_DIR)
         .join(format!("{}.geojson", layer.file))
-}
-
-/// Removes the stored layer the project file records under `key`: only a layer of the table, and
-/// only when its file lies inside the project folder (no link leads out of it).
-fn remove_berlin_layer(dir: &Path, key: &str) {
-    let Some(layer) = known_berlin_layer(key) else {
-        return;
-    };
-    let path = berlin_layer_path(dir, layer);
-    freemapper_fs::remove_inside(dir, &path);
 }
 
 /// Downloads the extra Berlin layers of `kind` in `region_bbox` to [`BERLIN_LAYERS_DIR`] and
@@ -1798,97 +1751,18 @@ fn fetch_berlin_layers_into(
     previous: &BTreeMap<String, AlkisRecord>,
     progress: &mut dyn FnMut(Note),
 ) -> BTreeMap<String, AlkisRecord> {
-    if mode == FetchMode::Offline {
-        if berlin::near_berlin(region_bbox) && previous.is_empty() {
-            progress(note!("progress-berlin-none-stored"));
-        }
-        return previous.clone();
-    }
-    if !berlin::near_berlin(region_bbox) {
-        if !previous.is_empty() {
-            progress(note!("progress-berlin-removing"));
-            for key in previous.keys() {
-                remove_berlin_layer(dir, key);
-            }
-        }
-        return BTreeMap::new();
-    }
-    if skip {
-        // The disk plan already said that the layers are left out; stored ones stay.
-        return previous.clone();
-    }
-    progress(note!("progress-berlin-download"));
-    let bbox = [
-        region_bbox.min_e.floor(),
-        region_bbox.min_n.floor(),
-        region_bbox.max_e.ceil(),
-        region_bbox.max_n.ceil(),
-    ];
-    let mut records = BTreeMap::new();
-    // The registers are services of Berlin: asked through the hosts Berlin declares.
-    let layers = crate::adapters::asking_for(BERLIN, fetcher, |fetcher| {
-        berlin::fetch_extra_layers(fetcher, region_bbox, kind)
-    });
-    for fetched in layers {
-        let file = fetched.layer.file;
-        let path = berlin_layer_path(dir, fetched.layer);
-        let stored = fetched
-            .features
-            .map_err(|e| crate::fetch::one_line(&e.to_string(), 300))
-            .and_then(|features| {
-                if !freemapper_fs::stays_inside(dir, &path) {
-                    return Err(format!(
-                        "{BERLIN_LAYERS_DIR} leads out of the project folder"
-                    ));
-                }
-                write_inside(dir, &path, berlin::layer_to_geojson(&features).as_bytes())
-                    .map_err(|e| e.to_string())?;
-                Ok(features.len())
-            });
-        match stored {
-            Ok(count) => {
-                progress(note!(
-                    "progress-berlin-features",
-                    count = count,
-                    file = file
-                ));
-                records.insert(
-                    file.to_string(),
-                    AlkisRecord {
-                        bbox,
-                        fetched: crate::clock::today(),
-                        latest_update: None,
-                        count,
-                        regions: vec![AdapterId::built_in(
-                            freemapper_adapters_de::boundaries::BERLIN,
-                        )],
-                    },
-                );
-            }
-            Err(e) => match previous
-                .get(file)
-                .filter(|r| path.exists() && r.covers(region_bbox))
-            {
-                Some(record) => {
-                    progress(note!("warning-berlin-layer-kept", file = file, detail = e));
-                    records.insert(file.to_string(), record.clone());
-                }
-                None => {
-                    // Nothing was written for it; a stale file is removed with the unused layers.
-                    progress(note!(
-                        "warning-berlin-layer-skipped",
-                        file = file,
-                        detail = e
-                    ));
-                }
-            },
-        }
-    }
-    // Layers the map kind no longer uses.
-    for key in previous.keys().filter(|f| !records.contains_key(*f)) {
-        remove_berlin_layer(dir, key);
-    }
-    records
+    extras::fetch_key_into(
+        registry(),
+        REGISTERS_SET,
+        dir,
+        fetcher,
+        region_bbox,
+        kind,
+        mode,
+        skip,
+        previous,
+        progress,
+    )
 }
 
 /// Downloads the NAS layers (full ALKIS) of `kind` for `area` to [`NAS_LAYERS_DIR`] and returns
@@ -1910,119 +1784,29 @@ fn fetch_nas_layers_into(
     progress: &mut dyn FnMut(Note),
 ) -> BTreeMap<String, AlkisRecord> {
     let in_nas_state = !alkis_nas::nas_services_for(&area.region_bbox).is_empty();
-    if mode == FetchMode::Offline {
-        if in_nas_state && previous.is_empty() {
-            progress(note!("progress-nas-none-stored"));
-        }
-        return previous.clone();
-    }
-    if !in_nas_state {
-        if !previous.is_empty() {
-            progress(note!("progress-nas-removing"));
-            for key in previous.keys() {
-                remove_nas_layer(dir, key);
-            }
-        }
-        return BTreeMap::new();
-    }
-    if skip {
-        // The disk plan already said that the layers are left out; stored ones stay.
-        return previous.clone();
-    }
-    // Answers stream into a part file beside the layers with a fresh name, its folder checked
-    // right before each download (ADR 0060), removed after each one.
-    let layers_dir = dir.join(NAS_LAYERS_DIR);
-    if crate::fsutil::check_folder_inside(dir, &layers_dir).is_err() {
-        progress(note!("warning-nas-folder-outside", folder = NAS_LAYERS_DIR));
-        return BTreeMap::new();
-    }
-    // Only after the check: a linked folder never has its part files removed.
-    crate::fsutil::remove_stale_parts_inside(dir, &layers_dir, crate::fetch::STALE_PART_AGE);
-    let part = || -> Result<PathBuf, FetchError> {
-        let part = crate::fsutil::fresh_part_name(&layers_dir.join("answer.gml"));
-        crate::fsutil::check_inside(dir, &part).map_err(|(path, e)| FetchError::Io(path, e))?;
-        Ok(part)
-    };
-    progress(note!("progress-nas-download"));
-    let bbox = &area.bbox;
-    let rounded = [
-        bbox.min_e.floor(),
-        bbox.min_n.floor(),
-        bbox.max_e.ceil(),
-        bbox.max_n.ceil(),
-    ];
-    let mut records = BTreeMap::new();
-    for fetched in alkis_nas::fetch_nas_layers(fetcher, area, kind, &part) {
-        let file = fetched.layer.file;
-        let path = nas_layer_path(dir, fetched.layer);
-        let stored = fetched
-            .features
-            .map_err(|e| crate::fetch::one_line(&e.to_string(), 300))
-            .and_then(|fetched| {
-                if !freemapper_fs::stays_inside(dir, &path) {
-                    return Err(format!("{NAS_LAYERS_DIR} leads out of the project folder"));
-                }
-                let geojson = berlin::layer_to_geojson(&fetched.features);
-                write_inside(dir, &path, geojson.as_bytes()).map_err(|e| e.to_string())?;
-                Ok(fetched)
-            });
-        match stored {
-            Ok(fetched) => {
-                let count = fetched.features.len();
-                progress(note!("progress-nas-features", count = count, file = file));
-                if !fetched.skipped.is_empty() {
-                    let shown = fetched.skipped.iter().take(SKIPPED_SHOWN);
-                    let more = fetched.skipped.len() > SKIPPED_SHOWN;
-                    progress(note!(
-                        "progress-nas-skipped",
-                        count = fetched.skipped.len(),
-                        file = file,
-                        list = format!(
-                            "{}{}",
-                            shown
-                                .map(|s| crate::fetch::one_line(s, 120))
-                                .collect::<Vec<_>>()
-                                .join("; "),
-                            if more { "; …" } else { "" }
-                        )
-                    ));
-                }
-                let latest_update = fetched
-                    .features
-                    .iter()
-                    .filter_map(|f| f["properties"]["beginnt"].as_str()?.parse().ok())
-                    .max();
-                records.insert(
-                    file.to_string(),
-                    AlkisRecord {
-                        bbox: rounded,
-                        fetched: crate::clock::today(),
-                        latest_update,
-                        count,
-                        regions: fetched.regions.clone(),
-                    },
-                );
-            }
-            Err(e) => match previous
-                .get(file)
-                .filter(|r| path.exists() && r.covers(bbox))
-            {
-                Some(record) => {
-                    progress(note!("warning-nas-layer-kept", file = file, detail = e));
-                    records.insert(file.to_string(), record.clone());
-                }
-                None => {
-                    // Nothing was written for it; a stale file is removed with the unused layers.
-                    progress(note!("warning-nas-layer-skipped", file = file, detail = e));
-                }
-            },
-        }
-    }
-    // Layers the map kind no longer uses, and failed ones that no longer cover the area.
-    for key in previous.keys().filter(|f| !records.contains_key(*f)) {
-        remove_nas_layer(dir, key);
-    }
-    records
+    extras::fetch_into(
+        &extras::NAS,
+        dir,
+        in_nas_state,
+        mode,
+        skip,
+        &area.bbox,
+        previous,
+        progress,
+        |part| {
+            alkis_nas::fetch_nas_layers(fetcher, area, kind, part)
+                .into_iter()
+                .map(|fetched| extras::Fetched {
+                    key: fetched.layer.file.to_string(),
+                    features: fetched.features.map(|fetched| extras::Features {
+                        features: fetched.features,
+                        skipped: fetched.skipped,
+                        regions: fetched.regions,
+                    }),
+                })
+                .collect()
+        },
+    )
 }
 
 /// One stored NAS layer (full ALKIS).
@@ -2047,48 +1831,17 @@ pub fn stored_nas_layers(
     let bbox = project.bbox()?;
     let mut layers = Vec::new();
     for layer in alkis_nas::nas_layers(project.map_kind) {
-        let path = nas_layer_path(dir, layer);
-        let Some(record) = project
-            .nas_layers
-            .get(layer.file)
-            .filter(|r| path.exists() && r.covers(&bbox))
-        else {
-            continue;
-        };
-        let text = std::fs::read_to_string(&path).map_err(|e| ProjectError::Io(path.clone(), e))?;
-        let features = berlin::parse_layer(&text).map_err(|e| ProjectError::StoredCandidates {
-            path: path.clone(),
-            message: e.to_string(),
-        })?;
-        layers.push(StoredNasLayer {
-            layer,
-            features,
-            fetched: record.fetched,
-        });
+        if let Some(stored) =
+            extras::stored(&extras::NAS, dir, &project.nas_layers, &bbox, layer.file)?
+        {
+            layers.push(StoredNasLayer {
+                layer,
+                features: stored.features,
+                fetched: stored.fetched,
+            });
+        }
     }
     Ok(layers)
-}
-
-/// The tree dataset the project file records under `key`, from the datasets of the adapters;
-/// `None` for a key no dataset has.
-fn known_tree_dataset(key: &str) -> Option<&'static trees::TreeDataset> {
-    trees::all_tree_datasets().find(|dataset| dataset.id == key)
-}
-
-/// Path of the stored tree `dataset`: from a dataset of the table, never from a name read from
-/// the project file (ADR 0059).
-fn tree_layer_path(dir: &Path, dataset: &trees::TreeDataset) -> PathBuf {
-    dir.join(TREE_LAYERS_DIR)
-        .join(format!("{}.geojson", dataset.id))
-}
-
-/// Removes the stored tree dataset the project file records under `key`: only a dataset of the
-/// table, and only when its file lies inside the project folder.
-fn remove_tree_layer(dir: &Path, key: &str) {
-    let Some(dataset) = known_tree_dataset(key) else {
-        return;
-    };
-    freemapper_fs::remove_inside(dir, &tree_layer_path(dir, dataset));
 }
 
 /// Downloads the city tree cadastres for `area` to [`TREE_LAYERS_DIR`] and returns the records
@@ -2108,116 +1861,29 @@ fn fetch_tree_layers_into(
     progress: &mut dyn FnMut(Note),
 ) -> BTreeMap<String, AlkisRecord> {
     let in_city = !trees::tree_datasets_for(&area.region_bbox).is_empty();
-    if mode == FetchMode::Offline {
-        if in_city && previous.is_empty() {
-            progress(note!("progress-trees-none-stored"));
-        }
-        return previous.clone();
-    }
-    if !in_city {
-        if !previous.is_empty() {
-            progress(note!("progress-trees-removing"));
-            for key in previous.keys() {
-                remove_tree_layer(dir, key);
-            }
-        }
-        return BTreeMap::new();
-    }
-    if skip {
-        // The disk plan already said that the datasets are left out; stored ones stay.
-        return previous.clone();
-    }
-    // Answers stream into a part file beside the datasets, as for the NAS layers (ADR 0060).
-    let trees_dir = dir.join(TREE_LAYERS_DIR);
-    if crate::fsutil::check_folder_inside(dir, &trees_dir).is_err() {
-        progress(note!(
-            "warning-trees-folder-outside",
-            folder = TREE_LAYERS_DIR
-        ));
-        return BTreeMap::new();
-    }
-    crate::fsutil::remove_stale_parts_inside(dir, &trees_dir, crate::fetch::STALE_PART_AGE);
-    let part = || -> Result<PathBuf, FetchError> {
-        let part = crate::fsutil::fresh_part_name(&trees_dir.join("answer.geojson"));
-        crate::fsutil::check_inside(dir, &part).map_err(|(path, e)| FetchError::Io(path, e))?;
-        Ok(part)
-    };
-    progress(note!("progress-trees-download"));
-    let bbox = &area.bbox;
-    let rounded = [
-        bbox.min_e.floor(),
-        bbox.min_n.floor(),
-        bbox.max_e.ceil(),
-        bbox.max_n.ceil(),
-    ];
-    let mut records = BTreeMap::new();
-    for fetched in trees::fetch_tree_layers(fetcher, area, &part) {
-        let id: &str = &fetched.dataset.id;
-        let path = tree_layer_path(dir, fetched.dataset);
-        let stored = fetched
-            .features
-            .map_err(|e| crate::fetch::one_line(&e.to_string(), 300))
-            .and_then(|fetched| {
-                if !freemapper_fs::stays_inside(dir, &path) {
-                    return Err(format!("{TREE_LAYERS_DIR} leads out of the project folder"));
-                }
-                let geojson = berlin::layer_to_geojson(&fetched.features);
-                write_inside(dir, &path, geojson.as_bytes()).map_err(|e| e.to_string())?;
-                Ok(fetched)
-            });
-        match stored {
-            Ok(fetched) => {
-                let count = fetched.features.len();
-                progress(note!("progress-trees-count", count = count, id = id));
-                if !fetched.skipped.is_empty() {
-                    let shown = fetched.skipped.iter().take(SKIPPED_SHOWN);
-                    let more = fetched.skipped.len() > SKIPPED_SHOWN;
-                    progress(note!(
-                        "progress-trees-skipped",
-                        count = fetched.skipped.len(),
-                        id = id,
-                        list = format!(
-                            "{}{}",
-                            shown
-                                .map(|s| crate::fetch::one_line(s, 120))
-                                .collect::<Vec<_>>()
-                                .join("; "),
-                            if more { "; …" } else { "" }
-                        )
-                    ));
-                }
-                let latest_update = fetched
-                    .features
-                    .iter()
-                    .filter_map(|f| f["properties"]["tree_date"].as_str()?.parse().ok())
-                    .max();
-                records.insert(
-                    id.to_string(),
-                    AlkisRecord {
-                        bbox: rounded,
-                        fetched: crate::clock::today(),
-                        latest_update,
-                        count,
-                        regions: fetched.regions.clone(),
-                    },
-                );
-            }
-            Err(e) => match previous.get(id).filter(|r| path.exists() && r.covers(bbox)) {
-                Some(record) => {
-                    progress(note!("warning-trees-kept", id = id, detail = e));
-                    records.insert(id.to_string(), record.clone());
-                }
-                None => {
-                    progress(note!("warning-trees-skipped", id = id, detail = e));
-                }
-            },
-        }
-    }
-    // Datasets of an earlier area, and failed ones that no longer cover the area.
-    for key in previous.keys().filter(|f| !records.contains_key(*f)) {
-        remove_tree_layer(dir, key);
-    }
-    records
+    extras::fetch_into(
+        &extras::TREES,
+        dir,
+        in_city,
+        mode,
+        skip,
+        &area.bbox,
+        previous,
+        progress,
+        |part| {
+            trees::fetch_tree_layers(fetcher, area, part)
+                .into_iter()
+                .map(|fetched| extras::Fetched {
+                    key: fetched.dataset.id.to_string(),
+                    features: fetched.features.map(|fetched| extras::Features {
+                        features: fetched.features,
+                        skipped: fetched.skipped,
+                        regions: fetched.regions,
+                    }),
+                })
+                .collect()
+        },
+    )
 }
 
 /// One stored tree dataset.
@@ -2241,24 +1907,19 @@ pub fn stored_tree_layers(
     let bbox = project.bbox()?;
     let mut layers = Vec::new();
     for dataset in trees::all_tree_datasets() {
-        let path = tree_layer_path(dir, dataset);
-        let Some(record) = project
-            .tree_layers
-            .get(dataset.id.as_ref())
-            .filter(|r| path.exists() && r.covers(&bbox))
-        else {
-            continue;
-        };
-        let text = std::fs::read_to_string(&path).map_err(|e| ProjectError::Io(path.clone(), e))?;
-        let features = berlin::parse_layer(&text).map_err(|e| ProjectError::StoredCandidates {
-            path: path.clone(),
-            message: e.to_string(),
-        })?;
-        layers.push(StoredTreeLayer {
-            dataset,
-            features,
-            fetched: record.fetched,
-        });
+        if let Some(stored) = extras::stored(
+            &extras::TREES,
+            dir,
+            &project.tree_layers,
+            &bbox,
+            &dataset.id,
+        )? {
+            layers.push(StoredTreeLayer {
+                dataset,
+                features: stored.features,
+                fetched: stored.fetched,
+            });
+        }
     }
     Ok(layers)
 }
@@ -2307,27 +1968,25 @@ pub(crate) fn stored_berlin_layers(
     dir: &Path,
     project: &ProjectFile,
 ) -> Result<Vec<StoredBerlinLayer>, ProjectError> {
+    let Some(registers) = registers() else {
+        return Ok(Vec::new());
+    };
     let region_bbox = project.region_bbox()?;
     let mut layers = Vec::new();
     for layer in berlin::extra_layers(project.map_kind) {
-        let path = berlin_layer_path(dir, layer);
-        let Some(record) = project
-            .berlin_layers
-            .get(layer.file)
-            .filter(|r| path.exists() && r.covers(&region_bbox))
-        else {
-            continue;
-        };
-        let text = std::fs::read_to_string(&path).map_err(|e| ProjectError::Io(path.clone(), e))?;
-        let features = berlin::parse_layer(&text).map_err(|e| ProjectError::StoredCandidates {
-            path: path.clone(),
-            message: e.to_string(),
-        })?;
-        layers.push(StoredBerlinLayer {
-            layer,
-            features,
-            fetched: record.fetched,
-        });
+        if let Some(stored) = extras::stored(
+            &registers,
+            dir,
+            &project.berlin_layers,
+            &region_bbox,
+            layer.file,
+        )? {
+            layers.push(StoredBerlinLayer {
+                layer,
+                features: stored.features,
+                fetched: stored.fetched,
+            });
+        }
     }
     Ok(layers)
 }
@@ -10839,7 +10498,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             .unwrap();
         serve_berlin_layers(&fetcher, &region_bbox);
         fetch(dir.path(), &fetcher, &cache);
-        let berlin = crate::layers::BERLIN_LAYERS_ITEM;
+        let berlin = "Berlin ALKIS structures, tree cadastre, street survey and point layers";
         assert!(item(dir.path(), &cache, berlin).cached);
         let mut project = ProjectFile::load(dir.path()).unwrap();
         moved(&mut project.berlin_layers);

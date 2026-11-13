@@ -13,7 +13,7 @@ use freemapper_adapter_api::alkis::AlkisSource;
 use freemapper_adapter_api::credit::{CreditLine, UsedSources};
 use freemapper_adapter_api::error::Remedy;
 use freemapper_adapter_api::estimate::{EstimateArea, EstimateEnv};
-use freemapper_adapter_api::extras::{NasService, TreeDataset};
+use freemapper_adapter_api::extras::{ExtraSet, NasService, RasterTemplate, TreeDataset};
 use freemapper_adapter_api::geometry::Outline;
 #[cfg(test)]
 use freemapper_adapter_api::info::PreviewInfo;
@@ -347,6 +347,10 @@ pub struct StateAdapter {
     manifest: ManifestAdapter,
     /// The ALKIS source where the manifest declares none (Berlin).
     alkis: Option<Box<dyn AlkisSource>>,
+    /// The sets of extra layers the state fetches with code (Berlin's registers and surveys).
+    extras: Vec<Box<dyn ExtraSet>>,
+    /// The raster templates the state fetches with code (Berlin's K5).
+    templates: Vec<Box<dyn RasterTemplate>>,
 }
 
 impl StateAdapter {
@@ -385,9 +389,19 @@ impl StateAdapter {
                 policy: Arc::new(policy),
             }) as Box<dyn AlkisSource>
         });
+        let extras: Vec<Box<dyn ExtraSet>> = match state {
+            State::Berlin => vec![Box::new(crate::berlin::Registers)],
+            _ => Vec::new(),
+        };
+        let templates: Vec<Box<dyn RasterTemplate>> = match state {
+            State::Berlin => vec![Box::new(crate::berlin::K5)],
+            _ => Vec::new(),
+        };
         Self {
             state,
             alkis,
+            extras,
+            templates,
             manifest,
         }
     }
@@ -426,6 +440,14 @@ impl RegionAdapter for StateAdapter {
 
     fn tree_datasets(&self) -> &[TreeDataset] {
         self.manifest.tree_datasets()
+    }
+
+    fn extras(&self) -> &[Box<dyn ExtraSet>] {
+        &self.extras
+    }
+
+    fn templates(&self) -> &[Box<dyn RasterTemplate>] {
+        &self.templates
     }
 
     fn attribution(&self, used: &UsedSources<'_>) -> Vec<CreditLine> {
@@ -532,6 +554,63 @@ mod tests {
         }
         assert_eq!(services.len(), 11);
         assert_eq!(previews[0], previews[1]);
+    }
+
+    /// Berlin fetches its registers and surveys with code of its own: one set of extra layers,
+    /// with the layers of each map kind in the order they are fetched. No other state has one.
+    #[test]
+    fn berlin_alone_has_a_set_of_extra_layers() {
+        use crate::project::MapKind;
+        for adapter in adapters() {
+            let sets = adapter.extras();
+            if adapter.info().id.as_str() != "berlin" {
+                assert!(sets.is_empty(), "{}", adapter.info().id);
+                continue;
+            }
+            assert_eq!(sets.len(), 1);
+            let set = &sets[0];
+            let info = set.info();
+            assert_eq!(info.key, "berlin");
+            assert_eq!(info.crs, crate::crs::Crs::Utm33);
+            assert_eq!(
+                info.estimate.what,
+                "Berlin ALKIS structures, tree cadastre, street survey and point layers"
+            );
+            assert_eq!(info.estimate.megabytes_per_km2, 12.0);
+            assert_eq!(info.notes.download, "progress-berlin-download");
+            for kind in [MapKind::Sprint, MapKind::Schoolyard] {
+                let keys: Vec<&str> = set.layers(kind).iter().map(|layer| layer.key).collect();
+                let files: Vec<&str> = crate::berlin::extra_layers(kind)
+                    .map(|layer| layer.file)
+                    .collect();
+                assert_eq!(keys, files, "{kind:?}");
+                assert!(!keys.is_empty());
+            }
+            assert!(set.has("gebaeudehoehen"));
+            assert!(!set.has("notes"));
+        }
+    }
+
+    /// Berlin has a map of its own to lay under a map: the K5 (1:5000) is its one raster
+    /// template. No other state has one.
+    #[test]
+    fn berlin_alone_has_a_raster_template() {
+        for adapter in adapters() {
+            let templates = adapter.templates();
+            if adapter.info().id.as_str() != "berlin" {
+                assert!(templates.is_empty(), "{}", adapter.info().id);
+                continue;
+            }
+            assert_eq!(templates.len(), 1);
+            let info = templates[0].info();
+            assert_eq!(info.key, "k5");
+            assert_eq!(info.crs, crate::crs::Crs::Utm33);
+            assert_eq!(info.dataset_date, "2026-01-02");
+            assert_eq!(info.dataset_label, "K5 dataset");
+            assert_eq!(info.estimate.what, "Berlin K5 map (1:5000) template");
+            assert_eq!(info.estimate.megabytes_per_km2, 15.0);
+            assert_eq!(info.notes.download, "progress-k-five-download");
+        }
     }
 
     /// Saxony-Anhalt has no raster code: its manifest declares the services. Every other

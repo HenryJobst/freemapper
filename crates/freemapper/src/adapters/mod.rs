@@ -53,7 +53,7 @@ pub fn install_registry(registry: Registry) -> Result<(), Registry> {
 
 /// What `work` comes to when it asks for the adapter `id` of the registry: through `fetcher`,
 /// behind the policy of the adapter ([`RegionAdapter::policy`]) when it has one. For what the
-/// engine fetches itself for one region (the registers and the K5 of Berlin).
+/// engine fetches itself for one region (the point clouds of the raster region).
 pub(crate) fn asking_for<T>(
     id: &str,
     fetcher: &dyn crate::fetch::Fetcher,
@@ -87,7 +87,7 @@ pub fn region_names(german: bool) -> Vec<&'static str> {
 pub(crate) mod test_support {
     use std::sync::Arc;
 
-    use freemapper_adapter_api::extras::{NasService, TreeDataset};
+    use freemapper_adapter_api::extras::{ExtraSet, NasService, RasterTemplate, TreeDataset};
     use freemapper_adapter_api::info::{Names, RegionInfo};
     use freemapper_adapter_api::policy::UrlPolicy;
     use freemapper_adapter_api::records::AdapterId;
@@ -104,6 +104,8 @@ pub(crate) mod test_support {
         boundary: geo_types::MultiPolygon<f64>,
         nas: Option<NasService>,
         policy: Option<UrlPolicy>,
+        extras: Vec<Box<dyn ExtraSet>>,
+        templates: Vec<Box<dyn RasterTemplate>>,
     }
 
     impl RegionAdapter for Square {
@@ -131,6 +133,14 @@ pub(crate) mod test_support {
             &[]
         }
 
+        fn extras(&self) -> &[Box<dyn ExtraSet>] {
+            &self.extras
+        }
+
+        fn templates(&self) -> &[Box<dyn RasterTemplate>] {
+            &self.templates
+        }
+
         fn rasters(&self) -> Option<&dyn freemapper_adapter_api::rasters::RasterBackend> {
             None
         }
@@ -155,6 +165,32 @@ pub(crate) mod test_support {
     /// the NAS service `nas`. `hosts`: the hosts its requests are held to, as for an adapter
     /// from a folder; `None`: it asks as a built-in adapter does.
     pub(crate) fn square(nas: Option<NasService>, hosts: Option<&[&str]>) -> Registry {
+        square_with(nas, hosts, Vec::new())
+    }
+
+    /// [`square`] with the sets of extra layers `extras`.
+    pub(crate) fn square_with(
+        nas: Option<NasService>,
+        hosts: Option<&[&str]>,
+        extras: Vec<Box<dyn ExtraSet>>,
+    ) -> Registry {
+        square_of(nas, hosts, extras, Vec::new())
+    }
+
+    /// [`square`] with the raster templates `templates`.
+    pub(crate) fn square_with_templates(
+        hosts: Option<&[&str]>,
+        templates: Vec<Box<dyn RasterTemplate>>,
+    ) -> Registry {
+        square_of(None, hosts, Vec::new(), templates)
+    }
+
+    fn square_of(
+        nas: Option<NasService>,
+        hosts: Option<&[&str]>,
+        extras: Vec<Box<dyn ExtraSet>>,
+        templates: Vec<Box<dyn RasterTemplate>>,
+    ) -> Registry {
         let mut registry = Registry::new();
         registry
             .add(Arc::new(Square {
@@ -180,6 +216,8 @@ pub(crate) mod test_support {
                 ]),
                 nas,
                 policy: hosts.map(|hosts| UrlPolicy::new(hosts.iter().copied()).unwrap()),
+                extras,
+                templates,
             }))
             .unwrap();
         registry
