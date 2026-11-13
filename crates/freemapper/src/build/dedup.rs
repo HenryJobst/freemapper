@@ -6,7 +6,7 @@
 
 use std::collections::HashMap;
 
-use crate::build::geometry::object_polygon;
+use crate::build::geometry::{distance_to_segment, object_polygon, xy};
 use crate::measure::{PaperMm, map_units_per_metre};
 use crate::omap::{MapObject, MapObjectKind, SymbolSet};
 
@@ -140,7 +140,6 @@ fn drop_lines_near(
     let line = |o: &MapObject| {
         matches!(o.kind, MapObjectKind::Path) && o.coords.len() >= 2 && codes.contains(&o.symbol_id)
     };
-    let xy = |c: &crate::omap::MapCoord| (f64::from(c.x), f64::from(c.y));
     let metre = map_units_per_metre(scale_denominator);
     let limit = LINE_DEDUP_M * metre;
     let cell = |(x, y): (f64, f64)| ((x / limit).floor() as i64, (y / limit).floor() as i64);
@@ -177,16 +176,6 @@ fn drop_lines_near(
     if segments.is_empty() {
         return losers;
     }
-    let distance = |p: (f64, f64), a: (f64, f64), b: (f64, f64)| {
-        let (dx, dy) = (b.0 - a.0, b.1 - a.1);
-        let length2 = dx * dx + dy * dy;
-        let t = if length2 > 0.0 {
-            (((p.0 - a.0) * dx + (p.1 - a.1) * dy) / length2).clamp(0.0, 1.0)
-        } else {
-            0.0
-        };
-        (p.0 - a.0 - t * dx).hypot(p.1 - a.1 - t * dy)
-    };
     // The winner nearest to `p` within `limit`, among the segments with `symbol`. A segment
     // within `limit` of `p` has a sample cell within two cells of `p`'s.
     let nearest = |symbol: u32, p: (f64, f64)| -> Option<usize> {
@@ -196,7 +185,7 @@ fn drop_lines_near(
             for j in cy - 2..=cy + 2 {
                 for &id in grid.get(&(symbol, i, j)).into_iter().flatten() {
                     let (_, (index, a, b)) = segments[id];
-                    let d = distance(p, a, b);
+                    let d = distance_to_segment(p, a, b);
                     if d <= limit && best.is_none_or(|(e, _)| d < e) {
                         best = Some((d, index));
                     }

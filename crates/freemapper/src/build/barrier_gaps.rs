@@ -10,6 +10,7 @@
 //! `freemapper:generalized`. A moved point carries `freemapper:moved`. It runs after the ticks are turned
 //! (`build/ticks.rs`), because the tick side needs more room.
 
+use crate::build::geometry::xy;
 use crate::build::points::{HIDDEN_KEY, POINT_GAP_MM};
 use crate::build::symbol_measures::{
     FENCE_MM, FENCE_TICK_MM, POINT_SIZES_MM, RETAINED_WALL_LINE_MM, RETAINED_WALL_TICK_MM, WALL_MM,
@@ -75,7 +76,6 @@ pub fn move_points_off_barriers(
         })
         .collect();
     let gap = POINT_GAP_MM.map_units(scale);
-    let xy = |c: &crate::omap::MapCoord| (f64::from(c.x), f64::from(c.y));
 
     // (left, right, a, b) of every segment of a wall or fence.
     let mut segments: Vec<Segment> = Vec::new();

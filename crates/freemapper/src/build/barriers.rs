@@ -13,6 +13,7 @@ use std::collections::HashMap;
 use geo_types::Polygon;
 
 use crate::build::dedup::{Rank, add_also, rank};
+use crate::build::geometry::{distance_to_segment, xy};
 use crate::build::symbol_measures::{FENCE_MM, HEDGE_MM, LINE_GAP_MM, RETAINED_WALL_MM, WALL_MM};
 use crate::crs::ProjectedPoint;
 use crate::georef::{GeorefError, Georeferencing};
@@ -72,17 +73,6 @@ fn name(object: &MapObject) -> String {
         tag(object, "freemapper:source").unwrap_or_default(),
         tag(object, "freemapper:source_id").unwrap_or_default()
     )
-}
-
-fn distance_to_segment(p: P, a: P, b: P) -> f64 {
-    let (dx, dy) = (b.0 - a.0, b.1 - a.1);
-    let length2 = dx * dx + dy * dy;
-    let t = if length2 > 0.0 {
-        (((p.0 - a.0) * dx + (p.1 - a.1) * dy) / length2).clamp(0.0, 1.0)
-    } else {
-        0.0
-    };
-    (p.0 - a.0 - t * dx).hypot(p.1 - a.1 - t * dy)
 }
 
 /// Whether the directions `u` and `v` are at most 30° apart, either way round.
@@ -202,7 +192,6 @@ pub fn resolve_barrier_overlaps(
     // `SymbolMm::map_units` enlarges first, which moves three of them by the last bit on a forest
     // map at 1:10000, and a limit decides between lines whose distance is a whole number.
     let paper = scale.map_units_per_symbol_mm();
-    let xy = |c: &MapCoord| (f64::from(c.x), f64::from(c.y));
     let length = |o: &MapObject| -> f64 {
         o.coords
             .windows(2)
@@ -453,7 +442,6 @@ fn drop_trees_on_lines(
     let limit = TREE_ON_LINE_M * metre;
     let mut lists = [osm, cadastre];
     let mut hedges = Segments::new(limit.max(1.0));
-    let xy = |c: &MapCoord| (f64::from(c.x), f64::from(c.y));
     let mut owners: Vec<(usize, usize)> = Vec::new();
     for (list, objects) in lists.iter().enumerate() {
         for (index, o) in objects.iter().enumerate() {
