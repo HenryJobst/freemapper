@@ -35,7 +35,7 @@ use crate::build::dedup::{
 };
 use crate::build::firm_paths::cut_firm_paths;
 use crate::build::landforms::{Landforms, landform_objects};
-use crate::build::line_cuts::{CONTOUR_CODES, NORTH_LINE_CODES, cut_lines_at_ways};
+use crate::build::line_cuts::{CONTOUR_CODES, MIN_PIECE_MM, NORTH_LINE_CODES, cut_lines_at_ways};
 use crate::build::open_land::{
     OpenLandObjects, drop_open_land_under_alkis, open_land_objects, osm_forest_polygons,
 };
@@ -58,6 +58,7 @@ use crate::build::water::{
 };
 use crate::crs::{BoundingBox, LatLon};
 use crate::georef::{GeorefError, Georeferencing};
+use crate::measure::{SymbolMm, SymbolScale};
 use crate::omap::{MapObject, MapObjectKind, SymbolSet, closed_ring};
 use crate::project::MapKind;
 use crate::raster::Raster;
@@ -123,7 +124,7 @@ pub const OUTLINE_SYMBOL_CODE: &str = "501.1";
 /// content group claims.
 const OUTLINE_FALLBACK_CODE: &str = "994";
 /// The distance of the north lines on paper at symbol size 100 %.
-const NORTH_LINE_SPACING_MM: f64 = 30.0;
+const NORTH_LINE_SPACING_MM: SymbolMm = SymbolMm(30.0);
 
 /// The exterior ring of the map area as a closed path object.
 pub fn map_area_outline(
@@ -532,8 +533,9 @@ pub fn build(frame: Frame, stored: Stored, saved: &ContentSettings) -> Result<Bu
         .collect();
     let content = PaperRect::of_bbox(clip, georef)?;
     // North lines first: within their black they lie under walls and fences.
-    let spacing_mm = NORTH_LINE_SPACING_MM * map_kind.symbol_enlargement(georef.scale_denominator);
-    let mut map_objects = north_lines(&content, spacing_mm, symbol_set);
+    let spacing =
+        NORTH_LINE_SPACING_MM.on_paper(SymbolScale::new(map_kind, georef.scale_denominator));
+    let mut map_objects = north_lines(&content, spacing, symbol_set);
     map_objects.extend(building_objects);
     // Canopies after the buildings; their Black 20 % lies under the building fill anyway.
     map_objects.extend(canopies);
@@ -858,7 +860,7 @@ impl Built {
         )?;
         // Contours and north lines stop at paving and paths (`build/line_cuts.rs`).
         let ways = way_footprints(&map, &candidates, &map, self.map_kind, georef, symbol_set);
-        let min_piece_m = f64::from(georef.scale_denominator) / 1000.0;
+        let min_piece_m = MIN_PIECE_MM.metres(georef.scale_denominator);
         for list in [&mut candidates, &mut map] {
             cut_lines_at_ways(list, &CONTOUR_CODES, &ways, min_piece_m, georef, symbol_set);
         }

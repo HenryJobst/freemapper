@@ -15,6 +15,7 @@ use crate::build::out_of_bounds::{
 use crate::build::peripheral::PaperRect;
 use crate::crs::{BoundingBox, Crs, LatLon};
 use crate::georef::{GeorefError, Georeferencing};
+use crate::measure::PaperMm;
 use crate::omap::{MapCoord, MapObject, SymbolSet, closed_ring};
 use crate::project::MapKind;
 use crate::sources::alkis::LandUse;
@@ -193,6 +194,9 @@ pub fn osm_forest_polygons(features: &[OsmFeature], crs: Crs) -> Vec<Polygon<f64
         .collect()
 }
 
+/// A piece of open land below (`MIN_PIECE_SIDE_MM`)² or narrower than it on paper is a sliver.
+const MIN_PIECE_SIDE_MM: PaperMm = PaperMm(1.0);
+
 /// The OSM open land candidates (401 areas among `candidates`) minus the open land map objects
 /// (`alkis`, any 401, 403 or 405): where ALKIS knows the park, OSM adds nothing. A piece below
 /// (1 mm)² or narrower than 1 mm on paper goes; the rest keeps its tags. Other objects stay as
@@ -209,8 +213,8 @@ pub fn drop_open_land_under_alkis(
     if alkis.is_empty() {
         return candidates;
     }
-    // Map coordinates are 1/1000 mm on paper.
-    let (min_side, min_area) = (1000.0, 1000.0 * 1000.0);
+    let min_side = MIN_PIECE_SIDE_MM.map_units();
+    let min_area = min_side * min_side;
     let mut kept = Vec::with_capacity(candidates.len());
     for object in candidates {
         let polygon = (object.symbol_id == open_id)

@@ -17,57 +17,29 @@ use crate::build::buildings::footprint_coords;
 use crate::build::control_sites::{CONTROL_KEY, drop_ambiguous as drop_ambiguous_control_sites};
 use crate::build::dedup::{Rank, rank};
 use crate::build::geometry::object_polygon;
+use crate::build::symbol_measures::{LINE_GAP_MM, POINT_SIZES_MM, point_size_mm};
 use crate::crs::{BoundingBox, ProjectedPoint};
 use crate::georef::{GeorefError, Georeferencing};
+use crate::measure::{PaperMm, SymbolMm, SymbolMm2, SymbolScale, map_units_per_metre};
 use crate::omap::{MapCoord, MapObject, MapObjectKind, SymbolSet, closed_ring};
 use crate::project::MapKind;
 
-/// The point symbols the build emits and their size on paper at ISSprOM 1:4000 (mm): the larger
-/// of the norm's outer measure and the drawn extent (the larger side of its box) of the bundled
-/// symbol. `true`: a native
-/// school symbol, whose size is already the school size and is not enlarged.
-pub const POINT_SIZES_MM: [(&str, f64, bool); 13] = [
-    // Small fountain or well: OM 0.9.
-    ("311", 0.90, false),
-    // Spring: OM 1.2 × 0.6, the longer side.
-    ("312", 1.20, false),
-    // Prominent water feature: OM 1.2, drawn 1.45.
-    ("313", 1.45, false),
-    // Hydrant (school set).
-    ("321", 1.30, true),
-    // Prominent large tree: the white mask of the 2022 errata (1.4), the bundled set draws 1.2.
-    ("417", 1.40, false),
-    // Prominent bush or small tree.
-    ("418", 0.80, false),
-    // High tower: OM 2.1, drawn 2.35.
-    ("524", 2.35, false),
-    // Small tower: OM 1.5, drawn 1.72.
-    ("525", 1.72, false),
-    // Cairn, memorial or small monument: OM 1.0.
-    ("526", 1.00, false),
-    // Prominent man-made feature – x: OM 1.2, drawn 1.264.
-    ("531", 1.27, false),
-    // Table, pole or small pylon, lamppost (school set).
-    ("542", 1.72, true),
-    ("544", 1.10, true),
-    ("545", 1.40, true),
-];
 /// The gap between the outer edges of two point symbols on paper (mm), whatever their colours.
 /// The norm names no gap between point symbols; this is its gap between line symbols (§3.3).
-pub const POINT_GAP_MM: f64 = 0.15;
+pub const POINT_GAP_MM: SymbolMm = LINE_GAP_MM;
 /// The crown diameter (ground metres) of a tree whose source gives none: the Berlin rule draws a
 /// crown of 10 m or more as 417 (ADR 0051).
 pub const DEFAULT_CROWN_M: [(&str, f64); 2] = [("417", 12.0), ("418", 5.0)];
 /// Two trees whose crowns come closer than this on paper (mm) belong to one group: their crowns
 /// touch or nearly touch, a closed canopy, which ISSprOM maps as forest (§4.4, 405). The group
 /// region is closed by the same distance.
-pub const GROUP_CLOSE_MM: f64 = 0.5;
+pub const GROUP_CLOSE_MM: SymbolMm = SymbolMm(0.5);
 /// Two trees closer than this on paper (mm, centre to centre) also belong to one group, and each
 /// tree claims a disc of half this diameter (or its crown, if larger) for the group region. It is
 /// the side of the smallest 402 (6.25 mm², §4.4): trees closer than that read as a dot field, not
 /// as single features, and their group is at least as large as the smallest 402. At 1:4000 it is
 /// 10 m. The norm names no spacing; this is a ruling (2026-11-10).
-pub const GROUP_LINK_MM: f64 = 2.5;
+pub const GROUP_LINK_MM: SymbolMm = SymbolMm(2.5);
 /// The opening of a group region is at least this many times the mean claim diameter of its
 /// trees: a single row (one claim wide) joined to a group falls out of the area and stays points.
 const ROW_OPENING: f64 = 1.2;
@@ -80,17 +52,6 @@ pub const GROUP_MIN_TREES: usize = 3;
 /// A 501.3 takes in at least this many trees (a square planted three by three): the few large
 /// street trees whose crowns meet over a pavement stay points.
 const PAVED_MIN_TREES: usize = 9;
-
-/// The size of the point symbol `code` on paper (mm) for the map kind: [`POINT_SIZES_MM`]
-/// enlarged by [`MapKind::symbol_enlargement`] (§3.1), the native school symbols as they are.
-pub fn point_size_mm(code: &str, kind: MapKind, scale: u32) -> Option<f64> {
-    let &(_, size, native) = POINT_SIZES_MM.iter().find(|(c, _, _)| *c == code)?;
-    Some(if native {
-        size
-    } else {
-        size * kind.symbol_enlargement(scale)
-    })
-}
 
 /// The kept objects of [`generalize_points`].
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -118,7 +79,7 @@ const LARGE_TREE_CODE: &str = "417";
 /// Corners of a crown disc.
 const CROWN_SEGMENTS: usize = 32;
 /// Outline simplification tolerance on paper, as for the canopies.
-const SIMPLIFY_MM: f64 = 0.1;
+const SIMPLIFY_MM: PaperMm = PaperMm(0.1);
 /// A group region with at least this share on a drawn paved area is 501.3.
 const PAVED_SHARE: f64 = 0.5;
 /// Off paving, a group region with at least this share on open land ([`OPEN_LAND_CODES`]) is a
@@ -143,25 +104,25 @@ const ROW_MAX_WIDTH_CROWNS: f64 = 2.0;
 const VEGETATION_BOUNDARY_CODE: &str = "416";
 /// The shortest 416 piece on paper (mm): the norm's minimum length of an isolated 416, five
 /// dots (2.65 mm, §4.4).
-const BOUNDARY_MIN_MM: f64 = 2.65;
+const BOUNDARY_MIN_MM: SymbolMm = SymbolMm(2.65);
 /// No 416 is drawn within this distance on paper (mm) of an edge where the area was cut (a
 /// building, water, a 520 area, a paved area, the clip window): there the cut feature is the
 /// boundary.
-const BOUNDARY_CUT_MM: f64 = 0.1;
+const BOUNDARY_CUT_MM: SymbolMm = SymbolMm(0.1);
 /// The paths a 402 or 405 is cut at, with their width on paper (mm) at 1:4000: the line of the
 /// bundled symbol and, for 505, the 501 footprints and the 509.1 railway, its two 0.1 mm border
 /// lines. A forest never
 /// covers a path (ADR 0069).
-const PATH_WIDTHS_MM: [(&str, f64); 9] = [
-    ("505.1", 0.55),
-    ("505.2", 0.70),
-    ("506", 0.27),
-    ("507", 0.27),
-    ("501.6", 0.55),
-    ("501.7", 0.70),
-    ("501.8", 1.0),
-    ("501.9", 1.2),
-    ("509.1", 0.55),
+const PATH_WIDTHS_MM: [(&str, SymbolMm); 9] = [
+    ("505.1", SymbolMm(0.55)),
+    ("505.2", SymbolMm(0.70)),
+    ("506", SymbolMm(0.27)),
+    ("507", SymbolMm(0.27)),
+    ("501.6", SymbolMm(0.55)),
+    ("501.7", SymbolMm(0.70)),
+    ("501.8", SymbolMm(1.0)),
+    ("501.9", SymbolMm(1.2)),
+    ("509.1", SymbolMm(0.55)),
 ];
 /// The paved areas among the candidates a 402 or 405 is cut at, like the drawn paving.
 const PAVED_AREA_CODES: [&str; 5] = ["501", "501.5", "501.10", "501.11", "501.3"];
@@ -173,35 +134,35 @@ const GRID_MAX_CELLS: i64 = 4096;
 /// A group symbol and its minimum area (mm²) and width (mm) on paper at 1:4000.
 struct GroupSymbol {
     code: &'static str,
-    min_area_mm2: f64,
-    min_width_mm: f64,
+    min_area_mm2: SymbolMm2,
+    min_width_mm: SymbolMm,
 }
 
 /// 402 open land with scattered trees.
 const SCATTERED_TREES: GroupSymbol = GroupSymbol {
     code: "402",
-    min_area_mm2: 6.25,
-    min_width_mm: 2.2,
+    min_area_mm2: SymbolMm2(6.25),
+    min_width_mm: SymbolMm(2.2),
 };
 /// 405 forest: the stricter minimum (openings in screens of other colours), as the build does
 /// not know the surrounding screen.
 const FOREST: GroupSymbol = GroupSymbol {
     code: "405",
-    min_area_mm2: 1.0,
-    min_width_mm: 0.3,
+    min_area_mm2: SymbolMm2(1.0),
+    min_width_mm: SymbolMm(0.3),
 };
 /// 405 forest on the white base, outlined by a 416 dotted line: the smallest area a dotted line
 /// may enclose, 1.5 mm across (§3.3), so 1.77 mm² and 1.5 mm wide.
 const BOUNDED_FOREST: GroupSymbol = GroupSymbol {
     code: "405",
-    min_area_mm2: 1.77,
-    min_width_mm: 1.5,
+    min_area_mm2: SymbolMm2(1.77),
+    min_width_mm: SymbolMm(1.5),
 };
 /// 501.3 paved area with scattered trees.
 const PAVED_WITH_TREES: GroupSymbol = GroupSymbol {
     code: "501.3",
-    min_area_mm2: 6.25,
-    min_width_mm: 2.2,
+    min_area_mm2: SymbolMm2(6.25),
+    min_width_mm: SymbolMm(2.2),
 };
 
 /// A point symbol taking part in the generalization.
@@ -429,8 +390,7 @@ fn group_areas(
     context: &GroupContext<'_>,
 ) -> Result<(Vec<MapObject>, Vec<usize>), GeorefError> {
     let georef = context.georef;
-    let enlargement = context.kind.symbol_enlargement(georef.scale_denominator);
-    let metres_per_mm = f64::from(georef.scale_denominator) / 1000.0;
+    let scale = SymbolScale::new(context.kind, georef.scale_denominator);
     let centre = |spot: &Spot| {
         let p = georef.map_to_projected(MapCoord::new(spot.xy.0 as i32, spot.xy.1 as i32));
         Coord {
@@ -445,7 +405,7 @@ fn group_areas(
     let union = unary_union(&crowns);
     // Each tree claims at least half the link distance round it, so that scattered trees make
     // one region too.
-    let close = GROUP_CLOSE_MM * enlargement * metres_per_mm;
+    let close = GROUP_CLOSE_MM.metres(scale);
     let region_of = |reach: f64| {
         let radii: Vec<f64> = cluster
             .iter()
@@ -459,7 +419,7 @@ fn group_areas(
         let region = unary_union(&claims).buffer(close).buffer(-close);
         (region, radii)
     };
-    let (mut region, mut radii) = region_of(GROUP_LINK_MM * enlargement * metres_per_mm / 2.0);
+    let (mut region, mut radii) = region_of(GROUP_LINK_MM.metres(scale) / 2.0);
     let Some(bounds) = region
         .bounding_rect()
         .filter(|_| region.unsigned_area() > 0.0)
@@ -525,12 +485,12 @@ fn group_areas(
     if !obstacles.0.is_empty() {
         cut = cut.difference(&obstacles);
     }
-    let min_area = symbol.min_area_mm2 * (enlargement * metres_per_mm).powi(2);
+    let min_area = symbol.min_area_mm2.square_metres(scale);
     // The opening is at least as wide as a single row of the cluster's trees (its mean claim
     // times [`ROW_OPENING`]), so that a row joined to a group stays out of the area.
     let row = ROW_OPENING * 2.0 * radii.iter().sum::<f64>() / radii.len() as f64;
-    let half_width = (symbol.min_width_mm * enlargement * metres_per_mm).max(row) / 2.0;
-    let tolerance = SIMPLIFY_MM * metres_per_mm;
+    let half_width = symbol.min_width_mm.metres(scale).max(row) / 2.0;
+    let tolerance = SIMPLIFY_MM.metres(georef.scale_denominator);
     // The opening: what is left after eroding and dilating by half the minimum width.
     let pieces = cut.0.into_iter().flat_map(|part| {
         let opened = part.buffer(-half_width).buffer(half_width);
@@ -538,7 +498,7 @@ fn group_areas(
         opened.0.into_iter().map(move |piece| (part.clone(), piece))
     });
     // Where the boundary is a cut: within reach of an obstacle or of the clip window's edge.
-    let reach = BOUNDARY_CUT_MM * enlargement * metres_per_mm;
+    let reach = BOUNDARY_CUT_MM.metres(scale);
     let no_boundary = boundary_id.map(|_| {
         let rim = MultiPolygon(vec![context.clip.clone()])
             .difference(&MultiPolygon(vec![context.clip.clone()]).buffer(-reach));
@@ -602,7 +562,7 @@ fn group_areas(
             ),
         ));
         if let (Some(boundary_id), Some(no_boundary)) = (boundary_id, &no_boundary) {
-            let length = BOUNDARY_MIN_MM * enlargement * metres_per_mm;
+            let length = BOUNDARY_MIN_MM.metres(scale);
             for line in boundary_lines(&piece, no_boundary, length, tolerance) {
                 areas.push(MapObject {
                     symbol_id: boundary_id,
@@ -638,13 +598,11 @@ pub(crate) fn way_footprints(
         .iter()
         .filter_map(|code| symbol_set.id_for_code(code))
         .collect();
-    let metres_per_mm = f64::from(georef.scale_denominator) / 1000.0;
+    let scale = SymbolScale::new(kind, georef.scale_denominator);
     let half_widths: HashMap<u32, f64> = PATH_WIDTHS_MM
         .iter()
         .filter_map(|&(code, width)| {
-            let half =
-                width * kind.symbol_enlargement(georef.scale_denominator) * metres_per_mm / 2.0;
-            Some((symbol_set.id_for_code(code)?, half))
+            Some((symbol_set.id_for_code(code)?, width.metres(scale) / 2.0))
         })
         .collect();
     let mut footprints: Vec<Polygon<f64>> = areas
@@ -885,7 +843,8 @@ pub fn generalize_points(
     // 1. A 520 map object removes the points in it; a 520 candidate only hides the candidate
     //    points (they stay in the candidates, marked, and take no part below).
     let fence_id = symbol_set.id_for_code(OUT_OF_BOUNDS_CODE);
-    let metre = 1e6 / f64::from(georef.scale_denominator);
+    let metre = map_units_per_metre(georef.scale_denominator);
+    let scale = SymbolScale::new(kind, georef.scale_denominator);
     let fences = |objects: &mut dyn Iterator<Item = &MapObject>| {
         let polygons: Vec<Polygon<f64>> = objects
             .filter(|o| Some(o.symbol_id) == fence_id)
@@ -923,10 +882,7 @@ pub fn generalize_points(
         .filter_map(|&(code, _, _)| {
             Some((
                 symbol_set.id_for_code(code)?,
-                (
-                    code,
-                    point_size_mm(code, kind, georef.scale_denominator)? * 1000.0,
-                ),
+                (code, point_size_mm(code, scale)?.map_units()),
             ))
         })
         .collect();
@@ -1010,8 +966,7 @@ pub fn generalize_points(
                 .filter_map(|(i, o)| spot(false, i, o)),
         )
         .collect();
-    let enlarge = kind.symbol_enlargement(georef.scale_denominator);
-    let gap = POINT_GAP_MM * enlarge * 1000.0;
+    let gap = POINT_GAP_MM.map_units(scale);
 
     // 2. Dense groups of candidate trees become group areas.
     let trees: Vec<usize> = (0..spots.len())
@@ -1020,8 +975,8 @@ pub fn generalize_points(
     let mut merged = vec![false; spots.len()];
     let mut areas = Vec::new();
     // A row (an avenue) stays points and is thinned.
-    let close = GROUP_CLOSE_MM * enlarge * 1000.0;
-    let spacing = GROUP_LINK_MM * enlarge * 1000.0;
+    let close = GROUP_CLOSE_MM.map_units(scale);
+    let spacing = GROUP_LINK_MM.map_units(scale);
     let clusters: Vec<Vec<usize>> = tree_clusters(&spots, &trees, gap, (close, spacing), metre)
         .into_iter()
         .filter(|c| !is_row(c, &spots, metre))
@@ -1203,7 +1158,7 @@ pub(crate) mod test_support {
     impl Fixture {
         /// Map coordinates per ground metre.
         pub(crate) fn metre(&self) -> f64 {
-            1e6 / f64::from(self.georef.scale_denominator)
+            map_units_per_metre(self.georef.scale_denominator)
         }
 
         /// The map coordinate `de` m right of and `dn` m above the reference point.
@@ -2458,16 +2413,21 @@ mod tests {
                 if set.id_for_code(code).is_none() {
                     continue;
                 }
-                let size = point_size_mm(code, kind, scale).expect("in the table");
+                let PaperMm(size) =
+                    point_size_mm(code, SymbolScale::new(kind, scale)).expect("in the table");
                 let drawn = drawn_extent_mm(&set, code);
                 // The enlarged school set rounds to whole micrometres.
                 assert!(size >= drawn - 0.002, "{kind:?} {code}: {size} < {drawn}");
             }
         }
         // 417 at the norm's white mask, not the bundled 1.2 mm.
-        assert!((point_size_mm("417", MapKind::Sprint, 4000).unwrap() - 1.4).abs() < 1e-9);
-        assert!((point_size_mm("417", MapKind::Schoolyard, 1000).unwrap() - 1.75).abs() < 1e-9);
-        assert!((point_size_mm("544", MapKind::Schoolyard, 1000).unwrap() - 1.1).abs() < 1e-9);
+        let size = |code, kind, scale| {
+            let PaperMm(size) = point_size_mm(code, SymbolScale::new(kind, scale)).unwrap();
+            size
+        };
+        assert!((size("417", MapKind::Sprint, 4000) - 1.4).abs() < 1e-9);
+        assert!((size("417", MapKind::Schoolyard, 1000) - 1.75).abs() < 1e-9);
+        assert!((size("544", MapKind::Schoolyard, 1000) - 1.1).abs() < 1e-9);
         use crate::build::candidates::Rules;
         for rules in [Rules::embedded(), Rules::berlin(), Rules::states()] {
             for code in rules.point_codes() {

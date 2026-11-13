@@ -3,6 +3,7 @@
 use geo::{Contains as _, Distance as _, InteriorPoint as _};
 use geo_types::{MultiPolygon, Polygon};
 
+use crate::build::line_cuts::MIN_PIECE_MM;
 use crate::build::water::outside_water;
 use crate::crs::ProjectedPoint;
 use crate::derive::contours::ContourLine;
@@ -47,8 +48,8 @@ pub fn contour_objects(
             .expect("symbol set defines contours")
     };
     let (contour, index) = (id(CONTOUR_CODE), id(INDEX_CONTOUR_CODE));
-    // Stubs of a cut contour along the shore shorter than 1 mm on paper are noise.
-    let min_piece_m = f64::from(georef.scale_denominator) / 1000.0;
+    // Stubs of a cut contour along the shore are noise.
+    let min_piece_m = MIN_PIECE_MM.metres(georef.scale_denominator);
     // DGM1 is interpolated under buildings: closed rings there are artefacts.
     let on_a_building = |ring: &geo_types::LineString<f64>| {
         geo_types::Polygon::new(ring.clone(), vec![])

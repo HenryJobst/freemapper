@@ -13,9 +13,11 @@ use std::collections::HashMap;
 use geo_types::Polygon;
 
 use crate::build::dedup::{Rank, add_also, rank};
-use crate::build::points::POINT_GAP_MM;
+use crate::build::geometry::{distance_to_segment, xy};
+use crate::build::symbol_measures::{FENCE_MM, HEDGE_MM, LINE_GAP_MM, RETAINED_WALL_MM, WALL_MM};
 use crate::crs::ProjectedPoint;
 use crate::georef::{GeorefError, Georeferencing};
+use crate::measure::{SymbolMm, SymbolScale, map_units_per_metre};
 use crate::omap::{MapCoord, MapObject, MapObjectKind, SymbolSet};
 use crate::project::MapKind;
 
@@ -26,11 +28,11 @@ use crate::project::MapKind;
 /// 0.21 mm with half dots of 0.6 mm). A solid construction beats a fence, a fence beats
 /// vegetation, and what must not be crossed beats what may be crossed: a runner never gets an
 /// opening that a more trusted line closes.
-pub const BARRIER_SYMBOLS: [(&str, f64, bool); 4] = [
-    ("515", 0.40, true),
-    ("518", 0.40, true),
-    ("410.1", 0.40, false),
-    ("513.2", 0.60, true),
+pub const BARRIER_SYMBOLS: [(&str, SymbolMm, bool); 4] = [
+    ("515", WALL_MM, true),
+    ("518", FENCE_MM, true),
+    ("410.1", HEDGE_MM, false),
+    ("513.2", RETAINED_WALL_MM, true),
 ];
 /// Lines of two sources this close (ground metres) are one object whatever their symbols: the
 /// tolerance of the same-symbol duplicates (`build/dedup.rs`).
@@ -44,7 +46,7 @@ const PARALLEL_COS: f64 = 0.866;
 const STEP_M: f64 = 0.25;
 /// A piece left over after the cut must be at least this long on paper (mm): the norm's opening
 /// of fences and walls (§3.3, 1.0 mm), so no stub shorter than a gap remains.
-pub const PIECE_MIN_MM: f64 = 1.0;
+pub const PIECE_MIN_MM: SymbolMm = SymbolMm(1.0);
 /// A tree whose centre lies this close (ground metres) to a hedge (410.1) is part of the hedge;
 /// on a wall or fence its symbol covers the line (at 1:4000 1 m is 0.25 mm, less than half the
 /// 0.8 mm tree symbol), and the uncrossable line matters more to a runner.
@@ -71,17 +73,6 @@ fn name(object: &MapObject) -> String {
         tag(object, "freemapper:source").unwrap_or_default(),
         tag(object, "freemapper:source_id").unwrap_or_default()
     )
-}
-
-fn distance_to_segment(p: P, a: P, b: P) -> f64 {
-    let (dx, dy) = (b.0 - a.0, b.1 - a.1);
-    let length2 = dx * dx + dy * dy;
-    let t = if length2 > 0.0 {
-        (((p.0 - a.0) * dx + (p.1 - a.1) * dy) / length2).clamp(0.0, 1.0)
-    } else {
-        0.0
-    };
-    (p.0 - a.0 - t * dx).hypot(p.1 - a.1 - t * dy)
 }
 
 /// Whether the directions `u` and `v` are at most 30° apart, either way round.
@@ -155,7 +146,7 @@ struct Barrier {
     rank: Option<Rank>,
     /// Position in [`BARRIER_SYMBOLS`], 0 the strongest.
     strength: usize,
-    width_mm: f64,
+    width_mm: SymbolMm,
     black: bool,
     length: f64,
     name: String,
@@ -188,17 +179,19 @@ pub fn resolve_barrier_overlaps(
     symbol_set: &SymbolSet,
 ) -> Result<(Vec<MapObject>, Vec<MapObject>), GeorefError> {
     let mut lists = [osm, cadastre];
-    let symbols: Vec<(u32, usize, f64, bool)> = BARRIER_SYMBOLS
+    let symbols: Vec<(u32, usize, SymbolMm, bool)> = BARRIER_SYMBOLS
         .iter()
         .enumerate()
         .filter_map(|(strength, &(code, width, black))| {
             Some((symbol_set.id_for_code(code)?, strength, width, black))
         })
         .collect();
-    // Map coordinates are 1/1000 mm on paper: one ground metre is 10^6 / scale of them.
-    let metre = 1e6 / f64::from(georef.scale_denominator);
-    let paper = 1000.0 * kind.symbol_enlargement(georef.scale_denominator);
-    let xy = |c: &MapCoord| (f64::from(c.x), f64::from(c.y));
+    let metre = map_units_per_metre(georef.scale_denominator);
+    let scale = SymbolScale::new(kind, georef.scale_denominator);
+    // The limits below take the map coordinates per symbol millimetre as one factor:
+    // `SymbolMm::map_units` enlarges first, which moves three of them by the last bit on a forest
+    // map at 1:10000, and a limit decides between lines whose distance is a whole number.
+    let paper = scale.map_units_per_symbol_mm();
     let length = |o: &MapObject| -> f64 {
         o.coords
             .windows(2)
@@ -241,8 +234,8 @@ pub fn resolve_barrier_overlaps(
     });
 
     // The widest reach of a pair: two ranks, the widest symbols.
-    let widest = BARRIER_SYMBOLS.iter().map(|s| s.1).fold(0.0, f64::max);
-    let reach = ((POINT_GAP_MM + widest) * paper).max(SOURCE_TOLERANCE_M * metre);
+    let widest = SymbolMm(BARRIER_SYMBOLS.iter().map(|s| s.1.0).fold(0.0, f64::max));
+    let reach = ((LINE_GAP_MM + widest).0 * paper).max(SOURCE_TOLERANCE_M * metre);
     let mut segments = Segments::new(reach.max(BUILDING_EDGE_M * metre));
     for footprint in footprints {
         for ring in std::iter::once(footprint.exterior()).chain(footprint.interiors()) {
@@ -264,7 +257,7 @@ pub fn resolve_barrier_overlaps(
     }
 
     let step = STEP_M * metre;
-    let piece_min = PIECE_MIN_MM * paper;
+    let piece_min = PIECE_MIN_MM.map_units(scale);
     let building = BUILDING_EDGE_M * metre;
     // The kept pieces of each line, by its position in `barriers`.
     let mut pieces: Vec<Option<Vec<Vec<MapCoord>>>> = (0..barriers.len()).map(|_| None).collect();
@@ -277,11 +270,11 @@ pub fn resolve_barrier_overlaps(
         let limit = |other: &Barrier| -> Option<f64> {
             // Lines of one colour keep the gap of §3.3; lines of two colours must not overlap.
             let gap = if b.black == other.black {
-                POINT_GAP_MM
+                LINE_GAP_MM
             } else {
-                0.0
+                SymbolMm(0.0)
             };
-            let gap = (gap + (b.width_mm + other.width_mm) / 2.0) * paper;
+            let gap = (gap + (b.width_mm + other.width_mm) / 2.0).0 * paper;
             if other.rank != b.rank {
                 Some(gap.max(SOURCE_TOLERANCE_M * metre))
             } else if other.strength != b.strength {
@@ -449,7 +442,6 @@ fn drop_trees_on_lines(
     let limit = TREE_ON_LINE_M * metre;
     let mut lists = [osm, cadastre];
     let mut hedges = Segments::new(limit.max(1.0));
-    let xy = |c: &MapCoord| (f64::from(c.x), f64::from(c.y));
     let mut owners: Vec<(usize, usize)> = Vec::new();
     for (list, objects) in lists.iter().enumerate() {
         for (index, o) in objects.iter().enumerate() {

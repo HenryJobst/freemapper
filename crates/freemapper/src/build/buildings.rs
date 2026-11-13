@@ -5,6 +5,7 @@ use geo_types::Polygon;
 
 use crate::crs::ProjectedPoint;
 use crate::georef::{GeorefError, Georeferencing};
+use crate::measure::PaperMm;
 use crate::omap::{MapCoord, MapObject, MapObjectKind, SymbolSet, closed_ring};
 use crate::sources::alkis::Building;
 
@@ -13,9 +14,9 @@ const BUILDING_SYMBOL_CODE: &str = "521";
 /// `gebnutzbez` of real buildings; parts and structures (chimneys …) are not mapped.
 const BUILDING_KIND: &str = "Gebäude";
 /// Footprints and holes with an area below (`MIN_SIDE_MM`)² on paper are dropped.
-const MIN_SIDE_MM: f64 = 0.5;
+const MIN_SIDE_MM: PaperMm = PaperMm(0.5);
 /// Outline simplification tolerance on paper.
-const SIMPLIFY_MM: f64 = 0.1;
+const SIMPLIFY_MM: PaperMm = PaperMm(0.1);
 
 /// What a building becomes on the map.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -55,9 +56,8 @@ pub fn building_objects(
     let symbol_id = symbol_set
         .id_for_code(BUILDING_SYMBOL_CODE)
         .expect("symbol set defines 521");
-    let metres_per_mm = f64::from(georef.scale_denominator) / 1000.0;
-    let min_area = (MIN_SIDE_MM * metres_per_mm).powi(2);
-    let tolerance = SIMPLIFY_MM * metres_per_mm;
+    let min_area = MIN_SIDE_MM.metres(georef.scale_denominator).powi(2);
+    let tolerance = SIMPLIFY_MM.metres(georef.scale_denominator);
 
     let mut objects = Vec::new();
     for building in buildings.iter().filter(|b| classify(b) == Rule::Object) {
