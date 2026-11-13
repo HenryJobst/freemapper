@@ -230,7 +230,9 @@ page-sprint = Sprint map (1:4000)
 page-forest = Forest map (1:15000)
 page-scale = Scale 1:
 page-map-title = Title
-page-settings-fixed = The project exists already; map kind, scale and title are in freemapper.toml.
+page-contour-interval = Contour interval
+page-contour-auto = automatic
+page-settings-fixed = The project exists already; map kind, scale and title are in freemapper.toml. The contour interval can still be changed.
 page-save = Save
 page-saving = Saving …
 page-saved = Saved to freemapper.toml.
@@ -715,14 +717,19 @@ mcp-param-start-pipeline-pdf-sources = Source lines on the PDFs: "auto" (default
 mcp-param-start-pipeline-permits = Also write the permit notes (permits.md and permits.json) after the map: administrative units, protected areas and who runs the land. A failure there is a warning, not a failed job. Default false.
 mcp-instructions = freemapper makes OpenOrienteering Mapper starter projects for orienteering maps (schoolyard 1:1000, sprint 1:4000, forest 1:15000) from official geodata of { $states }, and from OSM. Workflow: find_place (search the school or area by name; pick a result with has_area) → create_project (a new folder, absolute path, with the osm_id) → estimate_download (tell the user how much will be downloaded) → start_pipeline (returns a job id; downloading can take minutes) → project_status (poll every few seconds until the state is finished or failed) → list_layers and preview_layer (show the user the templates). The user then opens the map file in OpenOrienteering Mapper. When no place fits or the user wants to draw the area, open_area_selector opens a page in the browser where the user draws or picks the area and saves it (this creates the project); continue with estimate_download once the user says it is saved. Paths must be absolute or start with ~. One pipeline runs at a time. permits_for_area makes the permit notes of a project (administrative units, protected areas, who runs the land; a hint, not legal advice) as a job like start_pipeline. check_update tells whether a newer freemapper exists; install_update installs it, only with confirm: true after the person agreed, and the assistant then restarts the freemapper server.
 
+cli-contour-interval-saved = Contour interval saved in freemapper.toml: { $interval } m; derive traces the contours at it
+cli-contour-interval-auto = Contour interval in freemapper.toml: automatic (the map kind's; a forest map in flat land gets 2.5 m)
+help-arg-contour-interval = Contour interval in metres, e.g. `2.5`, or `auto` for the map kind's (a forest map: 5 m, 2.5 m where it is flat). Saved in freemapper.toml; derive traces the contours at it
 cli-content-saved = Content setting saved in freemapper.toml: { $summary }
 cli-content-invalid = Cannot read the content setting: { $detail }
 help-arg-content = What goes straight onto the map: `safe` leaves every object where the build puts it, `balanced` (default) puts the objects of the cadastre and the registers on the map, `full` puts everything on the map. The choice is saved in freemapper.toml
 help-arg-content-set = Send a group of objects to `map`, `candidates` or `off`, as `GROUP=PLACE`, e.g. `walls=map`; may be repeated. Groups: walls, fences, hedges, slopes, stairs, trees, water-features, monuments, furniture, passages, contours, landforms, vegetation, out-of-bounds, paths, streets. Saved in freemapper.toml
 mcp-param-create-project-content = What goes straight onto the map: "safe", "balanced" (default) or "full". Saved in the project. balanced puts the objects of the cadastre and the registers on the map, full puts everything on it.
 mcp-param-create-project-content-set = Groups sent somewhere else than the profile says, as "group=place" with place map, candidates or off, e.g. "walls=map". Groups: walls, fences, hedges, slopes, stairs, trees, water-features, monuments, furniture, passages, contours, landforms, vegetation, out-of-bounds, paths, streets.
+mcp-param-create-project-contour-interval = Contour interval in metres, e.g. 2.5; 0 goes back to the automatic choice (the map kind's; a forest map in flat land gets 2.5 m). Saved in the project; the next derive traces the contours at it.
 mcp-param-start-pipeline-content = Change what goes straight onto the map before the run: "safe", "balanced" or "full". Saved in the project. Default: the project's setting, else balanced.
 mcp-param-start-pipeline-content-set = Groups sent somewhere else than the profile says, as "group=place" with place map, candidates or off, e.g. "fences=candidates". Saved in the project.
+mcp-param-start-pipeline-contour-interval = Contour interval in metres, e.g. 2.5; 0 goes back to the automatic choice (the map kind's; a forest map in flat land gets 2.5 m). Saved in the project; the next derive traces the contours at it.
 mcp-error-content = Cannot read the content setting: { $detail }
 
 ## Permit notes (`freemapper permits`, `run --permits`, ADR 0117). The ids `permits-hint-*`

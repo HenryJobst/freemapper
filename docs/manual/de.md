@@ -592,9 +592,10 @@ freemapper run dammheide --pdf-candidates
   ab. Die Vegetation aus Laserpunktwolken (Gruppe `vegetation`) können Sie wie bei Sprintkarten einschalten; in
   Berlin wurde ohne Laub beflogen, dort findet sie wenig.
 - **Höhenlinien** liegen alle 5 m, in flachem Gelände alle 2,5 m. Flach ist ein Gebiet, wenn zwischen dem 5.
-  und dem 95. Perzentil seiner Geländehöhen weniger als 15 m liegen. Mit `contour_interval_m = 2.5` (oder einem
-  anderen Wert über 0) in der `freemapper.toml` legen Sie den Abstand selbst fest; danach `derive` und
-  `export --force`. Der Kartenrand nennt den Abstand („Äquidistanz 2,5 m“). Weicht er vom Standard ab, steht er
+  und dem 95. Perzentil seiner Geländehöhen weniger als 15 m liegen. Den Abstand legen Sie selbst fest
+  mit `--contour-interval 2.5` bei `init`, `derive` oder `run`, auf der Gebietsseite im Feld „Äquidistanz“ oder
+  als `contour_interval_m = 2.5` in der `freemapper.toml`; `auto` (auf der Seite „automatisch“) gibt die Wahl
+  zurück. Bei einer fertigen Karte danach `freemapper run <ordner> --force` (oder `derive` und `export --force`). Der Kartenrand nennt den Abstand („Äquidistanz 2,5 m“). Weicht er vom Standard ab, steht er
   nach `derive` auch als `[contours] interval_m` in der `freemapper.toml`; freemapper-print liest ihn dort.
 - Gebäude, Gewässer, Mauern, Zäune, Stromleitungen, Bahnlinien und Sperrgebiete (520) kommen wie bei der
   Sprintkarte. Bänke, Poller, Laternen und anderes Stadtmobiliar fehlen, ebenso Bäume aus Baumkatastern und

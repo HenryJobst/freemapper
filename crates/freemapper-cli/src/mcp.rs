@@ -11,7 +11,9 @@ use freemapper::build::content::ContentSettings;
 use freemapper::fetch::{Cache, HttpFetcher};
 use freemapper::layers::{LayerRole, estimate_download, list_layers, preview_png};
 use freemapper::places::{find_places, place_area};
-use freemapper::project::{MapKind, ProjectFile, init_project, set_content};
+use freemapper::project::{
+    MapKind, ProjectFile, check_contour_interval, init_project, set_content, set_contour_interval,
+};
 use rmcp::handler::server::tool::ToolCallContext;
 use rmcp::handler::server::{router::tool::ToolRouter, wrapper::Parameters};
 use rmcp::model::{
@@ -41,6 +43,16 @@ const PREVIEW_PX: u32 = 800;
 struct FindPlace {
     /// Name of the school or place, e.g. "Clara-Zetkin-Schule Strausberg".
     query: String,
+}
+
+/// Saves the contour interval a call asks for (`0`: the automatic choice); nothing without one.
+fn save_contour_interval(dir: &std::path::Path, asked: Option<f64>) -> Result<(), String> {
+    let Some(asked) = asked else {
+        return Ok(());
+    };
+    let interval = (asked != 0.0).then_some(asked);
+    set_contour_interval(dir, interval).map_err(|e| describe(&e))?;
+    Ok(())
 }
 
 /// Saves the content setting a call asks for in the project of `dir` (nothing when it asks for
@@ -86,6 +98,10 @@ struct CreateProject {
     /// water-features, monuments, furniture, passages, contours, landforms, vegetation,
     /// out-of-bounds, paths, streets.
     content_set: Option<Vec<String>>,
+    /// Contour interval in metres, e.g. 2.5; 0 goes back to the automatic choice (the map
+    /// kind's; a forest map in flat land gets 2.5 m). Saved in the project; the next derive
+    /// traces the contours at it.
+    contour_interval: Option<f64>,
 }
 
 #[derive(Deserialize, rmcp::schemars::JsonSchema)]
@@ -125,6 +141,10 @@ struct StartPipeline {
     /// Groups sent somewhere else than the profile says, as "group=place" with place map,
     /// candidates or off, e.g. "fences=candidates". Saved in the project.
     content_set: Option<Vec<String>>,
+    /// Contour interval in metres, e.g. 2.5; 0 goes back to the automatic choice (the map
+    /// kind's; a forest map in flat land gets 2.5 m). Saved in the project; the next derive
+    /// traces the contours at it.
+    contour_interval: Option<f64>,
     /// Also write the permit notes (permits.md and permits.json) after the map: administrative
     /// units, protected areas and who runs the land. A failure there is a warning, not a failed
     /// job. Default false.
@@ -495,6 +515,11 @@ impl FreemapperServer {
             Ok(area) => area,
             Err(e) => return failure(e),
         };
+        if let Some(interval) = req.contour_interval.filter(|i| *i != 0.0)
+            && let Err(e) = check_contour_interval(interval)
+        {
+            return failure(describe(&e));
+        }
         let today = chrono::Local::now().date_naive();
         match init_project(&dir, &area, kind, req.scale, today, req.title) {
             Ok(project) => {
@@ -502,7 +527,9 @@ impl FreemapperServer {
                     &dir,
                     req.content.as_deref(),
                     req.content_set.as_deref().unwrap_or_default(),
-                ) {
+                )
+                .and_then(|()| save_contour_interval(&dir, req.contour_interval))
+                {
                     return failure(e);
                 }
                 let kind = kind.name();
@@ -581,7 +608,9 @@ impl FreemapperServer {
             &dir,
             req.content.as_deref(),
             req.content_set.as_deref().unwrap_or_default(),
-        ) {
+        )
+        .and_then(|()| save_contour_interval(&dir, req.contour_interval))
+        {
             return failure(e);
         }
         let options = match pipeline::parse(

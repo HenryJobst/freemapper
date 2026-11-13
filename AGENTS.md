@@ -22,7 +22,7 @@ freemapper is one executable without an installer and without dependencies. Do n
 the user asks; the release archives are ready to run.
 
 1. Find the newest version: `https://api.github.com/repos/HenryJobst/freemapper/releases/latest` returns JSON with
-   `tag_name`, for example `v0.16.0`. The release page is
+   `tag_name`, for example `v0.17.0`. The release page is
    <https://github.com/HenryJobst/freemapper/releases/latest>.
 2. Pick the archive for the system. The name is `freemapper-<tag>-<platform>` plus the extension:
 
@@ -40,7 +40,7 @@ the user asks; the release archives are ready to run.
 3. Download, check and unpack. macOS and Linux, for example in `~/Applications` or `~/opt`:
 
    ```sh
-   tag=v0.16.0; platform=macos-arm64
+   tag=v0.17.0; platform=macos-arm64
    base="https://github.com/HenryJobst/freemapper/releases/download/$tag"
    curl -fLO "$base/freemapper-$tag-$platform.tar.gz"
    curl -fLO "$base/freemapper-$tag-$platform.tar.gz.sha256"
@@ -51,7 +51,7 @@ the user asks; the release archives are ready to run.
    Windows (PowerShell):
 
    ```powershell
-   $tag = "v0.16.0"; $name = "freemapper-$tag-windows-x86_64.zip"
+   $tag = "v0.17.0"; $name = "freemapper-$tag-windows-x86_64.zip"
    $base = "https://github.com/HenryJobst/freemapper/releases/download/$tag"
    Invoke-WebRequest "$base/$name" -OutFile $name
    Invoke-WebRequest "$base/$name.sha256" -OutFile "$name.sha256"
@@ -116,7 +116,9 @@ Output switches for `run` and `export`: `--ocad`, `--pdf`, `--pdf-candidates`, `
 `permits` does; a failure there is the warning `warning: the permit notes could not be written: …` and the exit code
 stays that of the map run. `export` has no `--permits`. `init`, `export` and `run` also take `--content safe|balanced|full` (what goes
 straight onto the map; default `balanced`: the objects of the cadastre and the registers) and `--content-set
-<group>=map|candidates|off`, repeatable; the choice is saved in `freemapper.toml`. All commands that download take `--cache-dir <folder>`.
+<group>=map|candidates|off`, repeatable; the choice is saved in `freemapper.toml`. `init`, `derive` and `run` take
+`--contour-interval <metres>|auto` (saved in `freemapper.toml`; `auto`: the map kind's, a forest map in flat land
+gets 2.5 m); the next derive traces the contours at it. All commands that download take `--cache-dir <folder>`.
 
 `adapters check <dir>` checks the folder of one adapter and asks no server: exit code 0 when it would load
 (warnings or not), 1 with findings, 2 when the check cannot run. `--json` prints `passed`, `adapter`, `findings`
@@ -138,7 +140,7 @@ exists, also one that must be installed by hand, and with 0 when this one is cur
 
 At most once a day, `find`, `init`, `select`, `fetch`, `run` and `permits` also check for a newer release. When they find one, a
 last line follows the command's output on stderr, also after an `error:` line:
-`freemapper 0.16.0 is available (you have 0.15.0). Update with: freemapper update`. It does not change the exit
+`freemapper 0.17.0 is available (you have 0.16.0). Update with: freemapper update`. It does not change the exit
 code. Pass it on and ask the person before you run `freemapper update --yes`. With `--offline`, with `CI` set or
 after `freemapper update --mode off` there is no check. If the person chose mode `install`, freemapper installs
 the update itself after a successful command and says so on stdout.
@@ -193,9 +195,9 @@ states such as `running` or `finished` are the same in both languages. This file
 | Tool | Parameters | What it does |
 |---|---|---|
 | `find_place` | `query` | Searches a school, park or other place by name (OpenStreetMap Nominatim). Use a result with `has_area`; its `osm_id` becomes the map area. |
-| `create_project` | `dir`; `osm_id` or `geojson`; optional `part`, `kind`, `scale`, `title`, `content`, `content_set` | Creates the project folder with `freemapper.toml`. `kind`: `schoolyard` (default), `sprint` or `forest`. `scale`: schoolyard 1000; sprint 4000 (default) or 5000; forest 15000 (default), 10000 or 7500. For 1:3000 use 4000; freemapper-print enlarges when printing. |
+| `create_project` | `dir`; `osm_id` or `geojson`; optional `part`, `kind`, `scale`, `title`, `content`, `content_set`, `contour_interval` | Creates the project folder with `freemapper.toml`. `kind`: `schoolyard` (default), `sprint` or `forest`. `scale`: schoolyard 1000; sprint 4000 (default) or 5000; forest 15000 (default), 10000 or 7500. For 1:3000 use 4000; freemapper-print enlarges when printing. |
 | `estimate_download` | `dir` | What `start_pipeline` will download, with sizes and what is already cached. |
-| `start_pipeline` | `dir`; optional `force`, `offline`, `ocad`, `pdf`, `pdf_candidates`, `pdf_scale_bar`, `pdf_sources`, `permits`, `content`, `content_set` | Fetches, derives and writes the project in the background. Returns a job id. With `permits: true` it writes the permit notes after the map; a failure there is a warning, not a failed job. |
+| `start_pipeline` | `dir`; optional `force`, `offline`, `ocad`, `pdf`, `pdf_candidates`, `pdf_scale_bar`, `pdf_sources`, `permits`, `content`, `content_set`, `contour_interval` (metres, 0: automatic; saved in the project) | Fetches, derives and writes the project in the background. Returns a job id. With `permits: true` it writes the permit notes after the map; a failure there is a warning, not a failed job. |
 | `project_status` | `job_id` | `running`, `finished` or `failed`, with the last progress lines, the warnings, the written files (`files`: kind, path, bytes) and the result or the error. A finished `permits_for_area` job also carries `permits_md`, the text of `permits.md`. |
 | `permits_for_area` | `dir`; optional `offline` | Makes the permit notes of a project (`permits.md`, `permits.json`) in the background. Returns a job id; poll `project_status`. `offline: true` reads only the data an earlier run stored in the project. |
 | `list_layers` | `dir` | The layers of a project: map, candidates, raster templates. |
@@ -236,7 +238,7 @@ Rules:
 - An existing map is kept, because it may hold the user's own work. Pass `force: true` only after asking; the old
   file stays as `<name>.omap.bak`.
 - The server checks for a newer release once a day. When it knows one, the next tool result carries one extra
-  text block at its end, the note `Note for the person: freemapper 0.16.0 is available (this is 0.15.0). Ask them
+  text block at its end, the note `Note for the person: freemapper 0.17.0 is available (this is 0.16.0). Ask them
   before calling install_update.` It comes once per server process. Calling `check_update` or `install_update`
   takes its place: after a successful call of either the note does not come; after a failed one it still can.
   Pass the note on to the person.

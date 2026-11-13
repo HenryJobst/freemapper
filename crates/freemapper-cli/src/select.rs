@@ -29,8 +29,8 @@ use freemapper::fetch::{Cache, HttpFetcher};
 use freemapper::layers::{AreaPreview, preview_area};
 use freemapper::places::{find_places, lookup_url, place_area};
 use freemapper::project::{
-    MAX_AREA_SIDE_M, MapKind, ProjectFile, init_project_with_content, map_path,
-    set_map_area_with_content,
+    MAX_AREA_SIDE_M, MapKind, ProjectFile, check_contour_interval, init_project_with_content,
+    map_path, set_contour_interval, set_map_area_with_content,
 };
 pub use freemapper_web::open_browser;
 use freemapper_web::{LocalServer, ServeOptions, embedded};
@@ -461,6 +461,7 @@ async fn project(State(state): State<Arc<AppState>>, headers: HeaderMap) -> Resp
             "max_side_m": MAX_AREA_SIDE_M,
             "from_agent": state.defaults.from_agent,
             "content": content_json(project.content.as_ref()),
+            "contour_interval_m": project.contour_interval_m,
         }),
         None => json!({
             "exists": false,
@@ -475,6 +476,7 @@ async fn project(State(state): State<Arc<AppState>>, headers: HeaderMap) -> Resp
             "max_side_m": MAX_AREA_SIDE_M,
             "from_agent": state.defaults.from_agent,
             "content": null,
+            "contour_interval_m": null,
         }),
     };
     answer["content_options"] = content_options_json();
@@ -670,6 +672,16 @@ async fn save(
         }
         let content =
             content_of(&body, &lang, "cli-save-bad-content").map_err(SaveError::Refused)?;
+        // `contour_interval_m`: absent keeps the setting, null goes back to the automatic choice.
+        let contour = match body.get("contour_interval_m") {
+            None => None,
+            Some(Value::Null) => Some(None),
+            Some(value) => {
+                let interval = value.as_f64().unwrap_or(f64::NAN);
+                check_contour_interval(interval).map_err(|e| message(&e, &lang))?;
+                Some(Some(interval))
+            }
+        };
         let area = area_of(&body, &lang)?;
         let created = !dir.join("freemapper.toml").exists();
         let mut zone_changed = false;
@@ -700,6 +712,9 @@ async fn save(
                 set_map_area_with_content(dir, &area, content).map_err(|e| message(&e, &lang))?;
             zone_changed = saved.zone_changed;
             provider_changed = saved.provider_changed;
+        }
+        if let Some(interval) = contour {
+            set_contour_interval(dir, interval).map_err(|e| message(&e, &lang))?;
         }
         Ok(json!({
             "saved": true,
