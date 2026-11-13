@@ -18,6 +18,10 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 - Intern: Die Zusatzebenen eines Projekts (Berliner Register, volles ALKIS, Baumkataster) werden an einer Stelle abgerufen, gespeichert, entfernt und gelesen statt in drei gleichen Kopien. Erster Schritt dazu, dass der Kern kein Bundesland mehr beim Namen nennt; an Karten, Meldungen und Dateien ändert sich nichts.
 - Intern: Die Module in `freemapper::sources`, die nur noch weiterreichten, was seit dem Adapter-Umbau in `freemapper-adapters-de` und `freemapper-sources` liegt, sind entfernt, ebenso der nicht mehr genutzte Rasterabruf für Sachsen-Anhalt im Programmcode. Das Bundesland ruft weiter über die Dienste ab, die sein Manifest nennt; an Karten und Abrufen ändert sich nichts.
 
+### Behoben
+
+- Saarland: Der WFS des LVGL schreibt die Nutzungsarten `Strassenverkehr` und `Fliessgewässer`. freemapper kannte nur `Straßenverkehr` und `Fließgewässer`, deshalb fehlten auf Saarländer Karten die Straßenflächen aus ALKIS, die Flüsse aus ALKIS und alles, was an ihnen hängt; die Vegetation aus der Punktwolke legte offenes Gelände auf die Straßen. Jede Nutzungsart aus einem WFS wird jetzt in die LGB-Schreibweise gebracht, wie schon bei Hamburg; in Rheinland-Pfalz heißt `Unland, Vegetationslose Fläche` dadurch wie überall `Unland/Vegetationslose Fläche`.
+
 ## [0.15.0] - 2026-11-12
 
 ### Hinzugefügt

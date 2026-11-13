@@ -470,7 +470,10 @@ pub fn fetch_land_use(
         .collect())
 }
 
-fn normalise_land_use(mut feature: Value, square_bez: Option<&str>) -> Value {
+/// `feature` with its class in the LGB spelling (Saarland writes `Strassenverkehr`), and a
+/// square without `bez` with `square_bez`.
+fn normalise_land_use(feature: Value, square_bez: Option<&str>) -> Value {
+    let mut feature = crate::alkis_source::normalise_land_use(feature);
     let properties = &mut feature["properties"];
     if let Some(square_bez) = square_bez
         && properties["nutzart"] == "Platz"
@@ -577,6 +580,40 @@ mod tests {
         .unwrap();
         assert_eq!(parsed.buildings.len(), 2);
         assert_eq!(parsed.buildings[0].oid, "DESLALKI4T001GlcBL");
+    }
+
+    /// Saarland's server writes `Strassenverkehr` and `Fliessgewässer`: the rules know the
+    /// classes in the LGB spellings, so the streets and the rivers would be missing.
+    #[test]
+    fn land_use_classes_get_the_lgb_spellings() {
+        let feature = |nutzart: &str| serde_json::json!({ "type": "Feature", "properties": { "nutzart": nutzart } });
+        for (served, known) in [
+            ("Strassenverkehr", "Straßenverkehr"),
+            ("Fliessgewässer", "Fließgewässer"),
+            ("Straßenverkehr", "Straßenverkehr"),
+            ("Wohnbaufläche", "Wohnbaufläche"),
+            ("Irgendwas Neues", "Irgendwas Neues"),
+        ] {
+            let normalised = normalise_land_use(feature(served), None);
+            assert_eq!(normalised["properties"]["nutzart"], known, "{served}");
+        }
+    }
+
+    /// A project fetched before the classes were normalised has `Strassenverkehr` stored: it is
+    /// read in the LGB spelling too.
+    #[test]
+    fn stored_land_use_is_read_in_the_lgb_spellings() {
+        let stored = serde_json::json!({
+            "type": "FeatureCollection",
+            "features": [{
+                "type": "Feature",
+                "properties": { "oid": "DESLALKI1", "nutzart": "Strassenverkehr" },
+                "geometry": { "type": "Polygon", "coordinates":
+                    [[[0.0, 0.0], [10.0, 0.0], [10.0, 10.0], [0.0, 0.0]]] }
+            }]
+        });
+        let land = crate::ogc_api::parse_land_use(&stored.to_string()).unwrap();
+        assert_eq!(land[0].nutzart, "Straßenverkehr");
     }
 
     #[test]
@@ -1256,7 +1293,8 @@ mod tests {
             "Fließgewässer",
             "Stehendes Gewässer",
             "Hafenbecken",
-            "Unland, Vegetationslose Fläche",
+            // RP writes "Unland, Vegetationslose Fläche"; it is read in the LGB spelling.
+            "Unland/Vegetationslose Fläche",
         ] {
             assert!(nutzarten.contains(&want), "{want} in {nutzarten:?}");
         }
