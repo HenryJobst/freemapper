@@ -4,7 +4,7 @@
 use chrono::Datelike as _;
 use freemapper_adapter_api::credit::{CreditLine, UsedSources};
 
-use crate::berlin::BERLIN_REGISTERS;
+use crate::berlin::{BERLIN_REGISTERS, TREE_REGISTERS};
 use crate::sources::lgb::{ProductTiles as _, TileProvider, attribution, attribution_with_berlin};
 use crate::states::{Agency, State};
 
@@ -163,7 +163,7 @@ fn berlin(used: &UsedSources<'_>) -> Vec<String> {
             .iter()
             .any(|&(file, count)| count > 0 && keep(file))
     };
-    if has(&|file| ["strassenbaeume", "anlagenbaeume"].contains(&file)) {
+    if has(&|file| TREE_REGISTERS.contains(&file)) {
         lines.push(BERLIN_TREES_ATTRIBUTION.to_string());
     }
     if has(&|file| file.starts_with("sb-")) {
