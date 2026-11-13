@@ -20,6 +20,7 @@ mod permits_test_support;
 pub mod raster;
 pub mod raster_fetch;
 pub mod replay;
+pub mod shapefile;
 #[cfg(any(test, feature = "testing"))]
 pub mod testing;
 pub mod trees;
