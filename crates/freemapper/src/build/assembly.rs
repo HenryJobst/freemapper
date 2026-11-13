@@ -1073,6 +1073,79 @@ mod tests {
         o
     }
 
+    /// The frame of the fixture: a map area of about 200 m around the reference point, taken
+    /// from `way/1`, with a buffer of 50 m.
+    fn frame(f: &Fixture) -> Frame {
+        let (lat, lon) = (52.4876, 13.3801);
+        let ring: Vec<(f64, f64)> = [(-1.0, -1.0), (1.0, -1.0), (1.0, 1.0), (-1.0, 1.0)]
+            .iter()
+            .map(|(x, y)| (lon + x * 0.0015, lat + y * 0.001))
+            .collect();
+        Frame {
+            map_kind: f.kind,
+            georef: f.georef.clone(),
+            symbol_set: f.set.clone(),
+            area: MapArea {
+                polygon: Polygon::new(ring.into(), vec![]),
+                source_id: None,
+            },
+            area_source_id: Some("way/1".to_string()),
+            buffer_m: 50.0,
+            clip: f.clip,
+        }
+    }
+
+    #[test]
+    fn nothing_stored_gives_the_outline_and_the_north_lines() {
+        let f = fixture(MapKind::Sprint);
+        let safe = ContentSettings::with_profile(Profile::Safe);
+        let built = build(frame(&f), Stored::default(), &safe).unwrap();
+        assert!(built.point_candidates().is_empty());
+        let placed = built.place(&safe).unwrap();
+        // The candidates: the outline of the map area, from the OSM object the frame names.
+        assert_eq!(placed.candidates.len(), 1);
+        assert_eq!(placed.candidates[0].symbol_id, f.id(OUTLINE_SYMBOL_CODE));
+        assert_eq!(source_ids(&placed.candidates), ["way/1"]);
+        // The map: north lines and nothing else.
+        assert!(!placed.map.is_empty());
+        assert_eq!(count(&placed.map, f.id("601")), placed.map.len());
+    }
+
+    #[test]
+    fn the_land_use_is_drawn_after_the_north_lines_without_a_project_folder() {
+        let f = fixture(MapKind::Sprint);
+        let (e, n) = (
+            f.georef.ref_projected.easting,
+            f.georef.ref_projected.northing,
+        );
+        let wood: Vec<(f64, f64)> = vec![
+            (e - 30.0, n - 30.0),
+            (e + 30.0, n - 30.0),
+            (e + 30.0, n + 30.0),
+            (e - 30.0, n + 30.0),
+            (e - 30.0, n - 30.0),
+        ];
+        let stored = Stored {
+            land_use: vec![LandUse {
+                oid: "DEBE00YY0000001".to_string(),
+                nutzart: "Wald".to_string(),
+                bez: None,
+                updated: "2025-09-30".parse().ok(),
+                footprint: MultiPolygon(vec![Polygon::new(wood.into(), vec![])]),
+            }],
+            ..Stored::default()
+        };
+        let safe = ContentSettings::with_profile(Profile::Safe);
+        let built = build(frame(&f), stored, &safe).unwrap();
+        // North lines first, the wood of the land use behind them.
+        let (north, forest) = (f.id("601"), f.id("405"));
+        assert_eq!(built.map.first().map(|o| o.symbol_id), Some(north));
+        let first_forest = built.map.iter().position(|o| o.symbol_id == forest);
+        let last_north = built.map.iter().rposition(|o| o.symbol_id == north);
+        assert!(first_forest > last_north, "{first_forest:?} {last_north:?}");
+        assert!(first_forest.is_some());
+    }
+
     /// The fixture without buildings, water or terrain.
     fn surroundings(f: &Fixture) -> Surroundings {
         Surroundings {

@@ -261,7 +261,7 @@ Orienteering Maps 2019 (IOF).
 | Textkatalog | catalog | Die Programmtexte in allen Sprachen als Fluent-Dateien, Englisch als Referenz (`i18n/<Sprache>/freemapper.ftl`). | `text::TEXTS` |
 | Ableiten | derive | Hilfsprodukte berechnen (Schummerung, Höhenlinien, nDOM …). | `derive` |
 | Erzeugen | build | Kartenobjekte, Kandidaten und Vorlagen erstellen. | `build` |
-| Kartenaufbau | map assembly | Die Objekte aller Quellen in fester Schrittfolge zu Karte und Kandidaten zusammensetzen: Doppel auflösen, Punkte generalisieren, nach den Inhaltseinstellungen platzieren. Liest keine Datei (ADR 0115). | `build::assembly`, `Built`, `Placed` |
+| Kartenaufbau | map assembly | Die Objekte aller Quellen in fester Schrittfolge zu Karte und Kandidaten zusammensetzen: Doppel auflösen, Punkte generalisieren, nach den Inhaltseinstellungen platzieren. Bekommt die Angaben der Projektdatei (`Frame`) und die gelesenen gespeicherten Daten (`Stored`), liest selbst keine Datei (ADR 0115). | `build::assembly`, `build`, `Frame`, `Stored`, `Built`, `Placed` |
 | Exportieren | export | OOM-Datei und Vorlagen in den Projektordner schreiben. | `export` |
 | Karten-PDF | map PDF | Druckfertige PDF-Karte mit genau den Objekten der OOM-Karte, ohne Kandidaten und standardmäßig ohne Maßstabsleiste (ADR 0080). | `export_pdf` |
 | Trainingskarte | training map | Voll generierte, druckfertige PDF-Karte, in der alle Kandidaten als Kartenobjekte gezeichnet sind (`<name>-candidates.pdf`). | `export_candidates_pdf` |
