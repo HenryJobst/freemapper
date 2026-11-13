@@ -1364,11 +1364,12 @@ fn fetch_point_clouds_into(
         project.point_clouds = still_cached(&project.point_clouds);
         return;
     }
-    // Like every request for a state, only to the hosts its manifest declares.
-    let region = raster_region_in(registry(), &area.region_bbox)
-        .map(|adapter| adapter.info().id.as_str().to_string())
-        .unwrap_or_default();
-    let fetched = crate::adapters::asking_for(&region, fetcher, |fetcher| {
+    // Like every request for a state, only to the hosts its manifest declares. The backend is
+    // that of the raster region, so the region is there.
+    let Some(region) = raster_region_in(registry(), &area.region_bbox) else {
+        return;
+    };
+    let fetched = crate::adapters::asking(region, fetcher, |fetcher| {
         let mut env = AdapterEnv {
             fetcher,
             regions: registry(),

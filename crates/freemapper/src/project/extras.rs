@@ -14,7 +14,6 @@ use std::path::{Path, PathBuf};
 use chrono::NaiveDate;
 use freemapper_adapter_api::extras::{ExtraSet, RasterTemplate};
 use freemapper_adapter_api::geometry::touches_region_in;
-use freemapper_adapter_api::policy::PolicyFetcher;
 use freemapper_adapter_api::records::{AdapterId, WmsRecord, stored_bbox};
 use serde_json::Value;
 
@@ -247,22 +246,19 @@ pub(crate) fn fetch_set_into(
         previous,
         progress,
         |_| {
-            let fetch = |fetcher: &dyn Fetcher| set.fetch(fetcher, region_bbox, kind.contract());
-            let layers = match adapter.policy() {
-                Some(policy) => fetch(&PolicyFetcher::new(fetcher, policy)),
-                None => fetch(fetcher),
-            };
-            layers
-                .into_iter()
-                .map(|fetched| Fetched {
-                    key: fetched.key.to_string(),
-                    features: fetched.features.map(|features| Features {
-                        features,
-                        skipped: Vec::new(),
-                        regions: vec![adapter.info().id.clone()],
-                    }),
-                })
-                .collect()
+            crate::adapters::asking(adapter, fetcher, |fetcher| {
+                set.fetch(fetcher, region_bbox, kind.contract())
+            })
+            .into_iter()
+            .map(|fetched| Fetched {
+                key: fetched.key.to_string(),
+                features: fetched.features.map(|features| Features {
+                    features,
+                    skipped: Vec::new(),
+                    regions: vec![adapter.info().id.clone()],
+                }),
+            })
+            .collect()
         },
     )
 }
@@ -345,11 +341,9 @@ pub(crate) fn fetch_template_key_into(
         return;
     }
     progress(Note::new(info.notes.download));
-    let fetch = |fetcher: &dyn Fetcher| template.fetch(fetcher, bbox, dir, &path);
-    let fetched = match adapter.policy() {
-        Some(policy) => fetch(&PolicyFetcher::new(fetcher, policy)),
-        None => fetch(fetcher),
-    };
+    let fetched = crate::adapters::asking(adapter, fetcher, |fetcher| {
+        template.fetch(fetcher, bbox, dir, &path)
+    });
     match fetched {
         Ok(()) => {
             *record = Some(WmsRecord {
@@ -1383,13 +1377,25 @@ mod tests {
             fn fetch(
                 &self,
                 fetcher: &dyn Fetcher,
-                _bbox: &BoundingBox,
+                bbox: &BoundingBox,
                 root: &Path,
                 out: &Path,
             ) -> Result<(), FetchError> {
-                let image = fetcher.get("https://charts.example.org/chart.png")?;
-                write_inside(root, out, &image)?;
-                write_inside(root, &out.with_extension("pgw"), b"world")
+                // The server is asked; the image is a white sheet on the template grid.
+                fetcher.get("https://charts.example.org/chart.png")?;
+                let grid = crate::raster::GridSpec::covering(bbox, 1.0);
+                let sheet =
+                    image::RgbImage::from_pixel(grid.width, grid.height, image::Rgb([255; 3]));
+                let mut png = Vec::new();
+                sheet
+                    .write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png)
+                    .expect("a PNG in memory");
+                write_inside(root, out, &png)?;
+                write_inside(
+                    root,
+                    &out.with_extension("pgw"),
+                    grid.world_file().as_bytes(),
+                )
             }
         }
 
@@ -1409,6 +1415,7 @@ mod tests {
         struct Run {
             dir: tempfile::TempDir,
             fetcher: MapFetcher,
+            mode: FetchMode,
             record: Option<WmsRecord>,
             said: Vec<String>,
         }
@@ -1420,6 +1427,7 @@ mod tests {
                 Self {
                     dir: tempfile::tempdir().unwrap(),
                     fetcher,
+                    mode: FetchMode::Online,
                     record: None,
                     said: Vec::new(),
                 }
@@ -1431,7 +1439,7 @@ mod tests {
                     "chart",
                     self.dir.path(),
                     &self.fetcher,
-                    FetchMode::Online,
+                    self.mode,
                     skip,
                     crs,
                     bbox,
@@ -1489,6 +1497,47 @@ mod tests {
                 assert_eq!(run.fetcher.calls.get(), calls);
             }
             assert_eq!(run.fetcher.calls.get(), calls + 2);
+        }
+
+        /// A stored template that still covers the area is not fetched again; one whose files
+        /// no longer form the grid of the area is.
+        #[test]
+        fn that_covers_the_area_stays_as_it_is() {
+            let registry = square_with_templates(None, vec![Box::new(Chart)]);
+            let mut run = Run::new();
+            run.fetch(&registry, &INSIDE, Crs::Utm33, false);
+            let (record, calls) = (run.record.clone(), run.fetcher.calls.get());
+            run.fetch(&registry, &INSIDE, Crs::Utm33, false);
+            assert_eq!(run.fetcher.calls.get(), calls);
+            assert_eq!(run.record, record);
+            assert_eq!(
+                run.said.last().map(String::as_str),
+                Some("K5 template unchanged")
+            );
+            // The world file of another grid: the pair is fetched anew.
+            let world = template_path(run.dir.path(), "chart").with_extension("pgw");
+            std::fs::write(&world, "2\n0\n0\n-2\n4001\n4199\n").unwrap();
+            run.fetch(&registry, &INSIDE, Crs::Utm33, false);
+            assert_eq!(run.fetcher.calls.get(), calls + 1);
+            assert_eq!(run.files(), (true, true));
+        }
+
+        /// Offline nothing is asked and nothing goes, wherever the area lies.
+        #[test]
+        fn is_left_alone_offline() {
+            let registry = square_with_templates(None, vec![Box::new(Chart)]);
+            let mut run = Run::new();
+            run.fetch(&registry, &INSIDE, Crs::Utm33, false);
+            let (record, calls) = (run.record.clone(), run.fetcher.calls.get());
+            run.said.clear();
+            run.mode = FetchMode::Offline;
+            for (bbox, crs, skip) in [(&INSIDE, Crs::Utm33, false), (&FAR, Crs::Utm32, true)] {
+                run.fetch(&registry, bbox, crs, skip);
+                assert_eq!(run.files(), (true, true));
+                assert_eq!(run.record, record);
+            }
+            assert_eq!(run.fetcher.calls.get(), calls);
+            assert!(run.said.is_empty(), "{:?}", run.said);
         }
 
         /// A template that cannot be fetched is a warning; a refused host is such a failure.

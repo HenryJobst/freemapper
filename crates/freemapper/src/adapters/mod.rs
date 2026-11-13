@@ -51,15 +51,15 @@ pub fn install_registry(registry: Registry) -> Result<(), Registry> {
     REGISTRY.set(registry)
 }
 
-/// What `work` comes to when it asks for the adapter `id` of the registry: through `fetcher`,
-/// behind the policy of the adapter ([`RegionAdapter::policy`]) when it has one. For what the
-/// engine fetches itself for one region (the point clouds of the raster region).
-pub(crate) fn asking_for<T>(
-    id: &str,
+/// What `work` comes to when it asks for `adapter`: through `fetcher`, behind the policy of
+/// the adapter ([`RegionAdapter::policy`]) when it has one. For what the engine fetches for
+/// one adapter: its sets of extra layers, its raster templates, its point clouds.
+pub(crate) fn asking<T>(
+    adapter: &dyn RegionAdapter,
     fetcher: &dyn crate::fetch::Fetcher,
     work: impl FnOnce(&dyn crate::fetch::Fetcher) -> T,
 ) -> T {
-    match registry().get(id).and_then(|adapter| adapter.policy()) {
+    match adapter.policy() {
         Some(policy) => work(&freemapper_adapter_api::policy::PolicyFetcher::new(
             fetcher, policy,
         )),
@@ -291,17 +291,18 @@ mod tests {
         );
     }
 
-    /// What the engine fetches itself for one region goes through that region's hosts: a
-    /// request off them is not sent, one on them reaches the fetcher, and an id the registry
-    /// does not have is asked plainly.
+    /// What the engine fetches for one adapter goes through that adapter's hosts: a request
+    /// off them is not sent, one on them reaches the fetcher. The caller names the adapter
+    /// itself, so there is no id that could miss the registry and be asked plainly.
     #[test]
-    fn asking_for_an_adapter_keeps_to_its_hosts() {
+    fn asking_an_adapter_keeps_to_its_hosts() {
         use crate::fetch::FetchError;
         use crate::fetch::test_support::MapFetcher;
         let fetcher = MapFetcher::default();
         fetcher.insert_prefix("https://", b"ok".to_vec());
+        let berlin = registry().get("berlin").expect("built in");
         let elsewhere = "https://geo.example.org/wms?token=abc";
-        let refused = asking_for("berlin", &fetcher, |fetcher| fetcher.get(elsewhere));
+        let refused = asking(berlin, &fetcher, |fetcher| fetcher.get(elsewhere));
         let Err(FetchError::HostNotNamed(refused)) = refused else {
             panic!("{refused:?}");
         };
@@ -309,8 +310,12 @@ mod tests {
         assert_eq!(refused.adapter, "berlin");
         assert_eq!(fetcher.calls.get(), 0);
         let own = "https://gdi.berlin.de/services/wms/k5";
-        assert!(asking_for("berlin", &fetcher, |fetcher| fetcher.get(own)).is_ok());
-        assert!(asking_for("nowhere", &fetcher, |fetcher| fetcher.get(elsewhere)).is_ok());
+        assert!(asking(berlin, &fetcher, |fetcher| fetcher.get(own)).is_ok());
+        assert_eq!(fetcher.calls.get(), 1);
+        // An adapter that is held to no hosts (none of the program is) asks as the fetcher does.
+        let free = test_support::square(None, None);
+        let square = free.get("square").unwrap();
+        assert!(asking(square, &fetcher, |fetcher| fetcher.get(elsewhere)).is_ok());
         assert_eq!(fetcher.calls.get(), 2);
     }
 
