@@ -500,10 +500,8 @@ impl ProjectFile {
         let text = std::fs::read_to_string(&path).map_err(|e| ProjectError::Io(path, e))?;
         let mut project: Self =
             toml::from_str(&text).map_err(|e| ProjectError::Toml(e.to_string()))?;
-        if let Some(interval) = project.contour_interval_m
-            && !(interval.is_finite() && interval > 0.0)
-        {
-            return Err(ProjectError::InvalidContourInterval(interval));
+        if let Some(interval) = project.contour_interval_m {
+            check_contour_interval(interval)?;
         }
         project.check_adapters()?;
         project.drop_unknown_names(progress);
@@ -900,6 +898,45 @@ pub fn set_content(
     check_folders(dir, &WRITTEN_FOLDERS)?;
     project.content = content;
     project.save(dir)?;
+    Ok(project)
+}
+
+/// Refuses a contour interval that is no positive number.
+pub fn check_contour_interval(interval_m: f64) -> Result<(), ProjectError> {
+    if interval_m.is_finite() && interval_m > 0.0 {
+        Ok(())
+    } else {
+        Err(ProjectError::InvalidContourInterval(interval_m))
+    }
+}
+
+/// A contour interval as a person writes it: `auto` (the choice of `derive`, `None`) or metres
+/// with a dot or a comma, such as `2,5`.
+pub fn parse_contour_interval(text: &str) -> Result<Option<f64>, ProjectError> {
+    let text = text.trim();
+    if text.eq_ignore_ascii_case("auto") {
+        return Ok(None);
+    }
+    let interval: f64 = text.replace(',', ".").parse().unwrap_or(f64::NAN);
+    check_contour_interval(interval)?;
+    Ok(Some(interval))
+}
+
+/// Sets the contour interval of the project in `dir`; `None` gives the choice back to `derive`
+/// (the map kind's interval, 2.5 m in a flat forest). The next `derive` traces at it.
+pub fn set_contour_interval(
+    dir: &Path,
+    interval_m: Option<f64>,
+) -> Result<ProjectFile, ProjectError> {
+    if let Some(interval) = interval_m {
+        check_contour_interval(interval)?;
+    }
+    let mut project = ProjectFile::load(dir)?;
+    check_folders(dir, &WRITTEN_FOLDERS)?;
+    if project.contour_interval_m != interval_m {
+        project.contour_interval_m = interval_m;
+        project.save(dir)?;
+    }
     Ok(project)
 }
 
@@ -11559,6 +11596,35 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         assert!(fetches_tree_registers(MapKind::Sprint));
         assert!(fetches_tree_registers(MapKind::Schoolyard));
         assert!(!fetches_tree_registers(MapKind::Forest));
+    }
+
+    #[test]
+    fn the_contour_interval_is_read_and_set() {
+        assert_eq!(parse_contour_interval("auto").unwrap(), None);
+        assert_eq!(parse_contour_interval(" 2,5 ").unwrap(), Some(2.5));
+        assert_eq!(parse_contour_interval("5").unwrap(), Some(5.0));
+        for bad in ["0", "-1", "nan", "inf", "fünf", ""] {
+            assert!(parse_contour_interval(bad).is_err(), "{bad}");
+        }
+        let dir = tempfile::tempdir().unwrap();
+        school_project(dir.path());
+        let before = std::fs::read(dir.path().join(PROJECT_FILE_NAME)).unwrap();
+        let project = set_contour_interval(dir.path(), Some(2.5)).unwrap();
+        assert_eq!(project.contour_interval_m, Some(2.5));
+        assert_eq!(
+            ProjectFile::load(dir.path()).unwrap().contour_interval_m,
+            Some(2.5)
+        );
+        assert!(matches!(
+            set_contour_interval(dir.path(), Some(0.0)),
+            Err(ProjectError::InvalidContourInterval(_))
+        ));
+        // Back to the automatic choice: the file is as before.
+        set_contour_interval(dir.path(), None).unwrap();
+        assert_eq!(
+            std::fs::read(dir.path().join(PROJECT_FILE_NAME)).unwrap(),
+            before
+        );
     }
 
     #[test]

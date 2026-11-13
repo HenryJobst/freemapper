@@ -162,6 +162,8 @@ let preview = null;
 // Answers to older preview requests are dropped.
 let previewRequest = 0;
 let savedHere = false;
+/** The contour interval chosen on the page in metres; `null` is the automatic choice. */
+let contourInterval = null;
 // True while a run goes on: the area, the settings and "Save" are locked.
 let busy = false;
 // The area and source as last saved or loaded; a different one needs a save before a run.
@@ -171,7 +173,7 @@ let savedSignature = null;
 let conflict = false;
 
 function signature() {
-  return JSON.stringify({ area, sourceId, content: contentKey(content) });
+  return JSON.stringify({ area, sourceId, content: contentKey(content), contour: contourInterval });
 }
 
 /** The signature of the area that `project` holds, as `signature()` gives it once shown. */
@@ -181,6 +183,7 @@ function savedSignatureOf(project) {
     area: saved,
     sourceId: saved ? project.source_id : null,
     content: contentKey(contentOf(project)),
+    contour: project ? (project.contour_interval_m ?? null) : null,
   });
 }
 
@@ -203,6 +206,7 @@ function updateControls() {
   }
   $("search").querySelector("button").disabled = busy;
   for (const id of ["kind", "scale", "title"]) $(id).disabled = busy || (project && project.exists);
+  $("contour").disabled = busy;
   for (const control of $("content-section").querySelectorAll("input, select")) {
     control.disabled = busy;
   }
@@ -563,6 +567,27 @@ function fillScales(kind, current) {
   $("scale").value = String(current || defaults[kind] || list[0]);
 }
 
+// The contour intervals offered on the page (ADR 0116); a stored other one stays selectable.
+const CONTOUR_INTERVALS = [1, 2, 2.5, 5];
+
+/** Fills the contour interval list and selects `current` (`null`: automatic). */
+function fillContours(current) {
+  const list = [...CONTOUR_INTERVALS];
+  if (current != null && !list.includes(current)) list.push(current);
+  const metres = (m) => `${m.toLocaleString(language())} m`;
+  $("contour").replaceChildren(
+    new Option(t("page-contour-auto"), "auto"),
+    ...list.map((m) => new Option(metres(m), String(m))),
+  );
+  $("contour").value = current == null ? "auto" : String(current);
+  contourInterval = current ?? null;
+}
+
+$("contour").addEventListener("change", () => {
+  contourInterval = $("contour").value === "auto" ? null : Number($("contour").value);
+  notifyRun();
+});
+
 $("kind").addEventListener("change", () => {
   fillScales($("kind").value);
   // The buffer depends on the map kind.
@@ -608,6 +633,7 @@ async function saveArea(explicit = false) {
     const body = { area: areaInput || area, source_id: sourceId };
     // Only a choice that differs from the file; without one the stored settings stay as they are.
     if (contentKey(content) !== contentKey(contentOf(project))) body.content = contentBody(content);
+    if (contourInterval !== (project.contour_interval_m ?? null)) body.contour_interval_m = contourInterval;
     if (!project.exists) {
       body.kind = $("kind").value;
       body.scale = Number($("scale").value) || undefined;
@@ -618,6 +644,7 @@ async function saveArea(explicit = false) {
     savedHere = true;
     savedSignature = signature();
     loadedContent = contentOf({ content_options: project.content_options, content: contentBody(content) });
+    project.contour_interval_m = contourInterval;
     setMessage(
       t(
         answer.zone_changed
@@ -699,6 +726,7 @@ function showSettings() {
   $("kind").value = project.kind;
   fillScales(project.kind, project.scale);
   $("title").value = project.title || "";
+  fillContours(project.contour_interval_m ?? null);
   updateControls();
   $("settings-fixed").hidden = !project.exists;
 }

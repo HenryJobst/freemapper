@@ -567,8 +567,10 @@ freemapper run dammheide --pdf-candidates
   vegetation from laser point clouds (group `vegetation`) can be switched on as for sprint maps; Berlin was flown
   without leaves, so it finds little there.
 - **Contours** lie every 5 m, every 2.5 m in flat land. An area is flat when its terrain heights between the 5th
-  and the 95th percentile span less than 15 m. `contour_interval_m = 2.5` (or another value above 0) in
-  `freemapper.toml` sets the interval yourself; then run `derive` and `export --force`. The margin names the
+  and the 95th percentile span less than 15 m. You set the interval yourself with
+  `--contour-interval 2.5` on `init`, `derive` or `run`, in the field "Contour interval" on the area page, or as
+  `contour_interval_m = 2.5` in `freemapper.toml`; `auto` ("automatic" on the page) gives the choice back. For a
+  finished map then run `freemapper run <folder> --force` (or `derive` and `export --force`). The margin names the
   interval ("Äquidistanz 2,5 m"). When it is not the default, `derive` also writes it into `freemapper.toml` as
   `[contours] interval_m`, where freemapper-print reads it.
 - Buildings, water, walls, fences, power lines, railways and out-of-bounds areas (520) come as on the sprint map.
