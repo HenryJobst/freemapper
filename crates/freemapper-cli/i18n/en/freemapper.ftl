@@ -859,6 +859,7 @@ permits-green-space-dedication = dedication: { $dedication }
 permits-playgrounds-none = No public playground lies in the map area.
 permits-playgrounds-one = One public playground lies in the map area. It is not listed on its own.
 permits-playgrounds-many = { $count } public playgrounds lie in the map area. They are not listed one by one.
+permits-owner-other = Other public owners
 permits-owners-rest = For the rest of the area the data name no owner.
 permits-monuments-total = Monuments wholly or partly in the map area: { $count }. The links lead to their entries in the list of monuments.
 permits-monuments-links-left = { $count } more entries are only counted here, without a link.
@@ -873,7 +874,10 @@ permits-source-note = { $source }: "{ $note }"
 permits-hint-district-office = For streets, squares and green spaces in the Bezirk { $district }, the Ordnungsamt (public order office) and the Straßen- und Grünflächenamt (roads and parks office) of the Bezirksamt { $district } are usually in charge.
 permits-hint-monument-authority = For the monuments in the Bezirk { $district }, the lower monument authority (untere Denkmalschutzbehörde) of the Bezirksamt { $district } is in charge.
 permits-hint-nature-object-authority = For natural monuments and protected landscape features in the Bezirk { $district }, the lower nature conservation authority (untere Naturschutzbehörde) of the Bezirksamt { $district } is in charge.
-permits-hint-owner-share = According to the open data of the state, { $share } of the map area belongs to the owner "{ $owner }".
+permits-hint-owner-share = { $unnamed ->
+        [yes] According to the open data of the state, { $share } of the map area belongs to other public owners.
+       *[no] According to the open data of the state, { $share } of the map area belongs to the owner "{ $owner }".
+    }
 permits-hint-owners-unknown = { $rest ->
         [yes] The owners of the rest of the area cannot be found from open data. With a legitimate interest (an organiser, for example) you can ask the land registry (Grundbuchamt) for an extract; for public land the competent Ordnungsamt or parks department helps.
        *[no] The owners of these areas cannot be found from open data. With a legitimate interest (an organiser, for example) you can ask the land registry (Grundbuchamt) for an extract; for public land the competent Ordnungsamt or parks department helps.

@@ -1299,14 +1299,17 @@ mod tests {
             .collect();
         assert_eq!(districts[0], "Friedrichshain-Kreuzberg", "{districts:?}");
         assert!(districts.contains(&"Tempelhof-Schöneberg"), "{districts:?}");
-        let owners: Vec<&str> = part
+        let owners: Vec<Option<&str>> = part
             .owners
             .as_ref()
             .unwrap()
             .iter()
-            .map(|s| s.item.owner.as_str())
+            .map(|s| s.item.owner.as_deref())
             .collect();
-        assert_eq!(owners, ["Land Berlin", "Bundesrepublik Deutschland"]);
+        assert_eq!(
+            owners,
+            [Some("Land Berlin"), Some("Bundesrepublik Deutschland")]
+        );
         let monuments = part.monuments.as_ref().unwrap();
         assert!(monuments.total >= 40, "{}", monuments.total);
         assert!(

@@ -311,6 +311,7 @@ mod tests {
             ("district", v("Friedrichshain-Kreuzberg")),
             ("owner", v("Land Berlin")),
             ("rest", v("yes")),
+            ("unnamed", v("no")),
             ("dedication", v("gewidmet")),
             (
                 "note",

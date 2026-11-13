@@ -42,6 +42,11 @@ const LABEL: Wording = Wording {
     de: "Geoportal Berlin",
 };
 
+/// The owners the Liegenschaftsplan is named for. A parcel of any other owner counts as one of
+/// another public owner, without its name: the notes never carry what the data might hold
+/// beyond these two.
+const NAMED_OWNERS: [&str; 2] = ["Land Berlin", "Bundesrepublik Deutschland"];
+
 /// The link of a monument goes into this list; another link is not taken.
 const MONUMENT_LIST: &str = "https://denkmaldatenbank.berlin.de/";
 
@@ -264,9 +269,12 @@ fn finding(reading: Reading, feature: &Value) -> Option<PermitFinding> {
             dedication: text(feature, "widmung"),
         },
         Reading::Playground => FindingKind::Playground,
-        Reading::Owner => FindingKind::OwnerShare {
-            owner: text(feature, "sch")?,
-        },
+        Reading::Owner => {
+            let owner = text(feature, "sch")?;
+            FindingKind::OwnerShare {
+                owner: NAMED_OWNERS.contains(&owner.as_str()).then_some(owner),
+            }
+        }
         Reading::Monument => FindingKind::Monument {
             kind: text(feature, "typ")?,
             link: text(feature, "link").filter(|link| {
@@ -623,12 +631,61 @@ mod tests {
         let owner = |name: &str| {
             found
                 .iter()
-                .filter(|f| f.kind == FindingKind::OwnerShare { owner: name.into() })
+                .filter(|f| {
+                    f.kind
+                        == FindingKind::OwnerShare {
+                            owner: Some(name.into()),
+                        }
+                })
                 .count()
         };
         assert_eq!(owner("Land Berlin"), 58);
         assert_eq!(owner("Bundesrepublik Deutschland"), 2);
         assert_eq!(found.len(), 60);
+    }
+
+    /// Only "Land Berlin" and "Bundesrepublik Deutschland" are named as owners; any other
+    /// value counts as another public owner, without its text (review finding 8).
+    #[test]
+    fn only_the_land_and_the_bund_are_named_as_owners() {
+        let parcel = |owner: &str| {
+            serde_json::json!({
+                "type": "Feature",
+                "geometry": {"type": "Polygon", "coordinates": [[[13.38, 52.49], [13.381, 52.49], [13.381, 52.491], [13.38, 52.49]]]},
+                "properties": {"sch": owner}
+            })
+        };
+        let parcels: Vec<Value> = [
+            " Land Berlin ",
+            "Bundesrepublik Deutschland",
+            "Muster Grundbesitz GmbH",
+            "Land Berlin, Beispielverwaltung",
+        ]
+        .map(parcel)
+        .into();
+        let found = source("liegenschaftsplan").findings("liegenschaftsplan", &parcels);
+        assert_eq!(found.len(), 4);
+        let debug = format!("{found:?}");
+        assert!(
+            !debug.contains("Muster") && !debug.contains("Beispiel"),
+            "{debug}"
+        );
+        let owners: Vec<Option<&str>> = found
+            .iter()
+            .map(|f| match &f.kind {
+                FindingKind::OwnerShare { owner } => owner.as_deref(),
+                other => panic!("{other:?}"),
+            })
+            .collect();
+        assert_eq!(
+            owners,
+            [
+                Some("Land Berlin"),
+                Some("Bundesrepublik Deutschland"),
+                None,
+                None
+            ]
+        );
     }
 
     #[test]
@@ -818,7 +875,7 @@ mod tests {
         let owners = |name: &str| {
             found["liegenschaftsplan"]
                 .iter()
-                .filter(|f| matches!(&f.kind, FindingKind::OwnerShare { owner } if owner == name))
+                .filter(|f| matches!(&f.kind, FindingKind::OwnerShare { owner } if owner.as_deref() == Some(name)))
                 .count()
         };
         // The probe of 2026-11-13 found 58 and 2 parcels in the EPSG:25833 box; the box in

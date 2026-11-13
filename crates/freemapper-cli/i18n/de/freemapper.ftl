@@ -876,6 +876,7 @@ permits-green-space-dedication = Widmung: { $dedication }
 permits-playgrounds-none = Im Kartengebiet liegt kein öffentlicher Spielplatz.
 permits-playgrounds-one = Im Kartengebiet liegt ein öffentlicher Spielplatz. Er ist nicht einzeln aufgeführt.
 permits-playgrounds-many = Im Kartengebiet liegen { $count } öffentliche Spielplätze. Sie sind nicht einzeln aufgeführt.
+permits-owner-other = Andere öffentliche Eigentümer
 permits-owners-rest = Für die übrigen Flächen nennen die Daten keinen Eigentümer.
 permits-monuments-total = Denkmale ganz oder zum Teil im Kartengebiet: { $count }. Die Links führen zu ihren Einträgen in der Denkmalliste.
 permits-monuments-links-left = Weitere { $count } Einträge sind hier ohne Link nur gezählt.
@@ -890,7 +891,10 @@ permits-source-note = { $source }: „{ $note }“
 permits-hint-district-office = Für Straßen, Plätze und Grünanlagen im Bezirk { $district } sind meist das Ordnungsamt und das Straßen- und Grünflächenamt des Bezirksamts { $district } zuständig.
 permits-hint-monument-authority = Für die Denkmale im Bezirk { $district } ist die untere Denkmalschutzbehörde des Bezirksamts { $district } zuständig.
 permits-hint-nature-object-authority = Für Naturdenkmale und geschützte Landschaftsbestandteile im Bezirk { $district } ist die untere Naturschutzbehörde des Bezirksamts { $district } zuständig.
-permits-hint-owner-share = Laut den offenen Daten des Bundeslandes gehören { $share } des Kartengebiets dem Eigentümer „{ $owner }“.
+permits-hint-owner-share = { $unnamed ->
+        [yes] Laut den offenen Daten des Bundeslandes gehören { $share } des Kartengebiets anderen öffentlichen Eigentümern.
+       *[no] Laut den offenen Daten des Bundeslandes gehören { $share } des Kartengebiets dem Eigentümer „{ $owner }“.
+    }
 permits-hint-owners-unknown = { $rest ->
         [yes] Die Eigentümer der übrigen Flächen sind aus offenen Daten nicht bestimmbar. Bei berechtigtem Interesse (z. B. Veranstalter) kann beim Grundbuchamt ein Grundbuchauszug beantragt werden; für öffentliche Flächen hilft das zuständige Ordnungs- oder Grünflächenamt.
        *[no] Eigentümer dieser Flächen sind aus offenen Daten nicht bestimmbar. Bei berechtigtem Interesse (z. B. Veranstalter) kann beim Grundbuchamt ein Grundbuchauszug beantragt werden; für öffentliche Flächen hilft das zuständige Ordnungs- oder Grünflächenamt.

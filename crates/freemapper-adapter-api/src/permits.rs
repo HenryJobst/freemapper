@@ -106,9 +106,11 @@ pub enum FindingKind {
     },
     /// A public playground; the notes count them.
     Playground,
-    /// A parcel with its owner, as the data write it ("Land Berlin"). Only public owners: a
-    /// source never gives the name of a person.
-    OwnerShare { owner: String },
+    /// A parcel of a public owner. `owner` is the name as the data write it ("Land Berlin")
+    /// for an owner the source names; `None` for another public owner, whose name the notes
+    /// leave out. A source names only owners from a fixed list of public bodies, so the notes
+    /// never carry the name of a person, whatever the data hold.
+    OwnerShare { owner: Option<String> },
     /// A listed monument.
     Monument {
         /// The kind as the data write it ("Baudenkmal", "Gartendenkmal").

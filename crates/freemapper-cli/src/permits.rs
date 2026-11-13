@@ -395,6 +395,9 @@ fn hint_text(lang: &Lang, notes: &PermitNotes, hint: &Hint) -> String {
         args.push(("rest".into(), "no".into()));
     }
     if hint.key == hint_key::OWNER_SHARE {
+        if !has(&args, "unnamed") {
+            args.push(("unnamed".into(), "no".into()));
+        }
         let percent = hint.args.get("percent").and_then(|p| p.parse::<f64>().ok());
         args.retain(|(k, _)| k != "percent");
         args.push(("share".into(), share_text(lang, percent.unwrap_or(0.0))));
@@ -684,13 +687,17 @@ fn regional_blocks(lang: &Lang, part: &RegionalNotes) -> Vec<String> {
             let lines: Vec<String> = owners
                 .iter()
                 .map(|s| {
+                    let name = match &s.item.owner {
+                        Some(owner) => md(owner),
+                        None => t(lang, "permits-owner-other", &[]),
+                    };
                     format!(
                         "- {}",
                         t(
                             lang,
                             "permits-share-line",
                             &[
-                                ("name", arg(md(&s.item.owner))),
+                                ("name", arg(name)),
                                 ("share", arg(share_text(lang, s.percent))),
                             ],
                         )
@@ -1243,13 +1250,13 @@ mod tests {
                 owners: Some(vec![
                     share(
                         OwnerEntry {
-                            owner: "Land Berlin".into(),
+                            owner: Some("Land Berlin".into()),
                         },
                         41.3,
                     ),
                     share(
                         OwnerEntry {
-                            owner: "Bundesrepublik Deutschland".into(),
+                            owner: Some("Bundesrepublik Deutschland".into()),
                         },
                         0.4,
                     ),
@@ -1360,6 +1367,47 @@ mod tests {
         );
         assert!(
             !text.contains("Den Bezirk bestimmen diese Hinweise noch nicht"),
+            "{text}"
+        );
+    }
+
+    /// Owners the source does not name share one line and one hint, without a name (review
+    /// finding 8).
+    #[test]
+    fn other_public_owners_have_one_line_without_a_name() {
+        use freemapper::permits::regional::OwnerEntry;
+        let mut notes = viktoriapark();
+        notes.regional[0]
+            .owners
+            .as_mut()
+            .unwrap()
+            .push(share(OwnerEntry { owner: None }, 2.0));
+        notes.hints.insert(
+            6,
+            hint(
+                hint_key::OWNER_SHARE,
+                &[("unnamed", "yes"), ("percent", "2.0")],
+            ),
+        );
+        let text = render_markdown(&notes, &de());
+        assert!(
+            text.contains(
+                "- Land Berlin: 41 %\n- Bundesrepublik Deutschland: < 1 %\n- Andere öffentliche Eigentümer: 2 %\n"
+            ),
+            "{text}"
+        );
+        assert!(
+            text.contains("gehören 2 % des Kartengebiets anderen öffentlichen Eigentümern."),
+            "{text}"
+        );
+        assert!(
+            text.contains("gehören 41 % des Kartengebiets dem Eigentümer „Land Berlin“."),
+            "{text}"
+        );
+        let text = render_markdown(&notes, &Lang::english());
+        assert!(text.contains("- Other public owners: 2%\n"), "{text}");
+        assert!(
+            text.contains("2% of the map area belongs to other public owners."),
             "{text}"
         );
     }

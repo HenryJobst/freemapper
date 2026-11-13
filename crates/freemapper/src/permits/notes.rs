@@ -718,15 +718,22 @@ fn hints(
             ));
         }
     }
-    let owners: Vec<&(String, f64)> = regional
+    let owners: Vec<&(Option<String>, f64)> = regional
         .iter()
         .flat_map(|f| f.owners.iter().flatten())
         .collect();
     for (owner, percent) in &owners {
-        hints.push(Hint::new(
-            hint_key::OWNER_SHARE,
-            &[("owner", owner), ("percent", &format!("{percent:.1}"))],
-        ));
+        let percent = format!("{percent:.1}");
+        hints.push(match owner {
+            Some(owner) => Hint::new(
+                hint_key::OWNER_SHARE,
+                &[("owner", owner), ("percent", &percent)],
+            ),
+            None => Hint::new(
+                hint_key::OWNER_SHARE,
+                &[("unnamed", "yes"), ("percent", &percent)],
+            ),
+        });
     }
     hints.push(if owners.is_empty() {
         Hint::new(hint_key::OWNERS_UNKNOWN, &[])
@@ -2058,7 +2065,9 @@ mod tests {
 
     #[test]
     fn owner_shares_are_one_line_per_owner() {
-        let owner = |name: &str| FindingKind::OwnerShare { owner: name.into() };
+        let owner = |name: &str| FindingKind::OwnerShare {
+            owner: Some(name.into()),
+        };
         let parcels = vec![
             area(owner("Land Berlin"), square(13.0, 52.0, 13.02, 52.1)),
             area(owner("Land Berlin"), square(13.02, 52.0, 13.05, 52.1)),
@@ -2081,7 +2090,7 @@ mod tests {
             .as_ref()
             .unwrap()
             .iter()
-            .map(|s| (s.item.owner.as_str(), s.percent))
+            .map(|s| (s.item.owner.as_deref().unwrap(), s.percent))
             .collect();
         assert_eq!(owners.len(), 2, "{owners:?}");
         assert!(
@@ -2103,6 +2112,61 @@ mod tests {
         // The notes name no parcel.
         let json = serde_json::to_string(&found).unwrap();
         assert!(!json.contains("coordinates"), "{json}");
+    }
+
+    /// The owners a source does not name are summed into one entry without a name, and their
+    /// hint carries no name either (review finding 8).
+    #[test]
+    fn unnamed_owners_are_one_entry_without_a_name() {
+        let parcels = vec![
+            area(
+                FindingKind::OwnerShare {
+                    owner: Some("Land Berlin".into()),
+                },
+                square(13.0, 52.0, 13.05, 52.1),
+            ),
+            area(
+                FindingKind::OwnerShare { owner: None },
+                square(13.05, 52.0, 13.07, 52.1),
+            ),
+            area(
+                FindingKind::OwnerShare { owner: None },
+                square(13.07, 52.0, 13.08, 52.1),
+            ),
+        ];
+        let found = notes(
+            MapKind::Sprint,
+            &with_regional(
+                vec![],
+                vec![regional("liegenschaften", PermitSection::Owners, parcels)],
+            ),
+        );
+        let owners: Vec<(Option<&str>, f64)> = found.regional[0]
+            .owners
+            .as_ref()
+            .unwrap()
+            .iter()
+            .map(|s| (s.item.owner.as_deref(), s.percent))
+            .collect();
+        assert_eq!(owners.len(), 2, "{owners:?}");
+        assert!(
+            owners[0].0 == Some("Land Berlin") && near(owners[0].1, 50.0),
+            "{owners:?}"
+        );
+        assert!(
+            owners[1].0.is_none() && near(owners[1].1, 30.0),
+            "{owners:?}"
+        );
+        let shares = hint(&found, hint_key::OWNER_SHARE);
+        assert_eq!(shares.len(), 2);
+        assert_eq!(shares[0].args["owner"], "Land Berlin");
+        assert_eq!(
+            shares[1].args,
+            args(&[
+                ("unnamed", "yes"),
+                ("percent", &format!("{:.1}", owners[1].1))
+            ])
+        );
     }
 
     #[test]

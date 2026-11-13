@@ -108,9 +108,11 @@ pub struct GreenSpaceEntry {
     pub dedication: Option<String>,
 }
 
+/// A public owner. `owner` is `None` for the other public owners, whose names the source
+/// leaves out; they share one entry.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct OwnerEntry {
-    pub owner: String,
+    pub owner: Option<String>,
 }
 
 /// The monuments on the map, counted per kind.
@@ -162,8 +164,9 @@ pub(crate) struct HintFacts {
     /// The districts that hold a protected object the lower nature conservation authority
     /// looks after, chosen as for the monuments.
     pub nature_districts: Vec<String>,
-    /// The public owners with their share in percent; `None` when no owner section was read.
-    pub owners: Option<Vec<(String, f64)>>,
+    /// The public owners with their share in percent (`None` as owner: the other public
+    /// owners); `None` when no owner section was read.
+    pub owners: Option<Vec<(Option<String>, f64)>>,
 }
 
 /// A finding in the plane of the map.
@@ -414,9 +417,10 @@ fn green_spaces(on_map: &[(&Placed<'_>, f64)]) -> GreenSpaces {
     }
 }
 
-/// The share of the map each owner holds: the sum of the shares of its parcels.
+/// The share of the map each owner holds: the sum of the shares of its parcels. The owners
+/// the source does not name are summed into one entry.
 fn owners(on_map: &[(&Placed<'_>, f64)]) -> Vec<Share<OwnerEntry>> {
-    let mut summed: BTreeMap<String, f64> = BTreeMap::new();
+    let mut summed: BTreeMap<Option<String>, f64> = BTreeMap::new();
     for (p, share) in on_map {
         if let FindingKind::OwnerShare { owner } = p.kind {
             *summed.entry(owner.clone()).or_default() += share;
