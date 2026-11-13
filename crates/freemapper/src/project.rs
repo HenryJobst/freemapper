@@ -7270,6 +7270,48 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         assert!(dir.path().join(SURFACE_RELPATH).exists());
     }
 
+    /// Hamburg reads the surface model for the area. When that fails, a stored one that covers
+    /// the area stays and the warning says so; one of another area goes with its file.
+    #[test]
+    fn hamburg_bdom_failure_keeps_a_covering_surface_and_drops_another() {
+        use freemapper_adapters_de::lgv::Model;
+        for shrink in [false, true] {
+            let fetcher = MapFetcher::default();
+            let (dir, _cache_dir, cache) = eppendorf_school(&fetcher);
+            fetch(dir.path(), &fetcher, &cache);
+            if shrink {
+                let mut project = ProjectFile::load(dir.path()).unwrap();
+                project.surface.as_mut().unwrap().bbox[2] -= 50.0;
+                project.save(dir.path()).unwrap();
+            }
+            // A fresh cache: the bDOM must be read again, and its archive fails.
+            let cache_dir = tempfile::tempdir().unwrap();
+            let cache = Cache::new(cache_dir.path().to_path_buf());
+            fetcher
+                .failing
+                .borrow_mut()
+                .push(Model::Bdom.archive_url().to_string());
+            let (project, messages) = fetch(dir.path(), &fetcher, &cache);
+            let unavailable = format!("warning: {} unavailable", Model::Bdom.label());
+            let warning = messages
+                .iter()
+                .find(|m| m.starts_with(&unavailable))
+                .unwrap_or_else(|| panic!("{messages:?}"));
+            if shrink {
+                assert!(warning.ends_with("no nDSM template"), "{warning}");
+                assert!(project.surface.is_none());
+                assert!(!dir.path().join(SURFACE_RELPATH).exists());
+            } else {
+                assert!(
+                    warning.contains("kept the surface model fetched on"),
+                    "{warning}"
+                );
+                assert!(project.surface.is_some());
+                assert!(dir.path().join(SURFACE_RELPATH).exists());
+            }
+        }
+    }
+
     /// With everything of the area fetched nothing is left to download: 0 MB, not the -0.0
     /// that the sum of nothing is.
     #[test]

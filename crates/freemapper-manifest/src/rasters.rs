@@ -16,7 +16,7 @@ use freemapper_georef::crs::{BoundingBox, Crs};
 use freemapper_sources::float_tiff::write_float_raster;
 use freemapper_sources::raster::{GridSpec, Raster};
 use freemapper_sources::raster_fetch::{
-    SURFACE_RELPATH, TERRAIN_RELPATH, fetch_wms_orthophoto, keep_stored_surface,
+    SURFACE_RELPATH, TERRAIN_RELPATH, fetch_wms_orthophoto, keep_stored_surface, keep_surface,
     stored_surface_or_drop, warn_beyond_state,
 };
 use freemapper_sources::wcs::{WcsOrthophoto, WcsService};
@@ -261,11 +261,7 @@ impl RasterBackend for DeclaredRasters {
                     Ok(()) => {
                         *project.records().surface = Some(record(date_of(&surface.date)));
                     }
-                    Err(e) => (env.progress)(freemapper_adapter_api::note!(
-                        "warning-model-unavailable",
-                        model = note::model(&surface.label),
-                        error = Arg::error(e)
-                    )),
+                    Err(e) => keep_surface(env, project, bbox, &surface.label, Arg::error(e)),
                 }
             }
             FetchMode::Offline => {

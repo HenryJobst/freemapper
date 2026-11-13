@@ -8,8 +8,14 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ### Changed
 
+- Internal: placing the objects by the content settings now lives in the new module "map assembly" (`build/assembly.rs`, ADR 0115) instead of between the file reads of the project. It reads no file and can be tested with a few objects in memory. First of three steps; the maps stay byte for byte.
+- Internal: resolving the duplicates between the sources (register before ALKIS before survey before OSM) and the point generalization now live in the map assembly too (`assembly::resolve`, ADR 0115, step 2). The project draws the sources and hands them over; the order of the steps is in one place.
 - Internal: which of Berlin's layers are registers is said in one place only, in Berlin's adapter. The rank of duplicate objects, the draw rules for trees and the credit read it from there instead of from lists of their own. Maps and credits do not change (update in ADR 0114).
 - Internal: a tree cadastre is asked under the host rules of the adapter that brings it and counts for that adapter's ground. Before, the engine looked the adapter up by the id in the row of the cadastre. Had the row named another adapter of the registry, the cadastre would have been asked for that adapter's ground and under its host rules; with an unknown id it was left out. No adapter of today was affected: a manifest always writes its own id (update in ADR 0114).
+
+### Fixed
+
+- Hamburg, Saarland, Saxony-Anhalt and adapters from folders: when the surface model cannot be fetched, a model stored earlier stays only if it covers the map area, and the warning names the day it is from. Before, the model of another area stayed in the project with its record, and the warning spoke of a missing nDSM template in every case, even when `derive` still made one from the old model. The other states already behaved this way.
 
 ## [0.16.0] - 2026-11-13
 
@@ -29,8 +35,6 @@ All notable changes to freemapper are listed here, newest first. The format foll
 - Internal: an adapter can name raster templates it fetches with code of its own (`RegionAdapter::templates`). Berlin's map 1:5000 (K5) is the first: the engine asks the adapter of the registry and takes the date, the messages and the item of the estimate from there. The template, the messages and the estimate do not change.
 - Internal: an adapter can name sets of extra layers it fetches with code of its own (`RegionAdapter::extras`). Berlin's registers and surveys are the first such set: the engine asks the adapter of the registry instead of calling the Berlin module, and takes the item of the estimate from there too. Maps, messages, files and estimates do not change; the one exception is under "Fixed".
 - Internal: the extra layers of a project (Berlin's registers, the full ALKIS, the tree cadastres) are fetched, stored, removed and read in one place instead of in three equal copies. A first step towards an engine that names no state; maps, messages and files do not change.
-- Internal: placing the objects by the content settings now lives in the new module "map assembly" (`build/assembly.rs`, ADR 0115) instead of between the file reads of the project. It reads no file and can be tested with a few objects in memory. First of three steps; the maps stay byte for byte.
-- Internal: resolving the duplicates between the sources (register before ALKIS before survey before OSM) and the point generalization now live in the map assembly too (`assembly::resolve`, ADR 0115, step 2). The project draws the sources and hands them over; the order of the steps is in one place.
 - Internal: the modules in `freemapper::sources` that only passed on what has lived in `freemapper-adapters-de` and `freemapper-sources` since the adapter work are removed, and so is the raster fetch for Saxony-Anhalt in program code that nothing used any more. The state still fetches through the services its manifest names; maps and requests do not change.
 
 ### Fixed
