@@ -5,12 +5,9 @@
 //! file the build reads.
 
 use super::*;
-use crate::build::barrier_gaps::move_points_off_barriers;
-use crate::build::content::{LANDFORM_KEY, route};
-use crate::build::line_cuts::{CONTOUR_CODES, NORTH_LINE_CODES, cut_lines_at_ways};
-use crate::build::paved_borders::{border_input, paved_borders as paved_borders_of};
-use crate::build::points::way_footprints;
-use crate::build::ticks::{orient_ticks, read_terrain};
+use crate::build::assembly::{Built, Surroundings};
+use crate::build::content::LANDFORM_KEY;
+use crate::build::ticks::read_terrain;
 
 /// The stored ALKIS buildings, read once per export: parsed, and the raw features (the Berlin
 /// building parts are picked from these).
@@ -1323,17 +1320,8 @@ pub struct BuiltProject {
     fingerprint: String,
     /// The content settings of that project file.
     saved_content: ContentSettings,
-    map_kind: MapKind,
-    scale_denominator: u32,
-    georef: Georeferencing,
-    symbol_set: SymbolSet,
-    footprints: Vec<geo_types::Polygon<f64>>,
-    water: geo_types::MultiPolygon<f64>,
-    clip: BoundingBox,
-    terrain: std::sync::Arc<Option<Raster<f32>>>,
-    /// The objects of the map part and the candidates map, as the build put them.
-    map_objects: Vec<MapObject>,
-    candidates: MapDocument,
+    /// The objects of the map and the candidates, as the build put them (`build/assembly.rs`).
+    objects: Built,
     notes: String,
     templates: Vec<TemplateRef>,
     attribution_text: String,
@@ -1342,7 +1330,6 @@ pub struct BuiltProject {
     /// The walkable area (sprint only) and the sheet, which no content setting changes.
     base_part: Option<MapPart>,
     sheet_part: MapPart,
-    paved_borders: PavedBorders,
 }
 
 impl BuiltProject {
@@ -1354,90 +1341,7 @@ impl BuiltProject {
     /// How many times the paved borders were computed for it (and its clones).
     #[cfg(test)]
     pub(super) fn borders_computed(&self) -> usize {
-        self.paved_borders.computed()
-    }
-}
-
-/// The 501.1 borders of the paved areas, by what they are computed from
-/// ([`border_input`]): 3.1 of 3.7 s of the steps after `route` on Viktoriapark.
-///
-/// They depend on the content settings, so they cannot be built once for all: `route` moves the
-/// 501.5 areas and the kerbs (501.1 of the survey and the cadastre) of the streets group between
-/// the map and the candidates or drops them, which changes which areas are bordered in which list
-/// and which edges are there already. No other group holds a 501.5 or a 501.1, and nothing
-/// between `route` and the borders changes one (the line cuts only touch contours and north
-/// lines). So the borders follow the streets group and the profile only, and a placement whose
-/// paved areas and kerbs equal those of an earlier one gets that one's borders. The build
-/// computes them for the project's own settings; others are computed when first asked for and
-/// kept (a handful at most: the streets group has few outcomes; the least recently used goes
-/// first).
-#[derive(Clone, Default)]
-struct PavedBorders(std::sync::Arc<std::sync::Mutex<BorderStore>>);
-
-/// The border inputs and the borders they give, per list, the one used last at the end; and how
-/// many were computed.
-#[derive(Default)]
-struct BorderStore {
-    entries: Vec<BorderEntry>,
-    computed: usize,
-}
-
-impl BorderStore {
-    /// The borders of `input`, if kept, which then count as used last (the least recently used
-    /// entry is the first to go).
-    fn take_up(&mut self, input: &[Vec<MapObject>]) -> Option<Vec<Vec<MapObject>>> {
-        let at = self.entries.iter().position(|(known, _)| known == input)?;
-        let entry = self.entries.remove(at);
-        let borders = entry.1.clone();
-        self.entries.push(entry);
-        Some(borders)
-    }
-}
-
-/// A border input and the borders it gives, per list.
-type BorderEntry = (Vec<Vec<MapObject>>, Vec<Vec<MapObject>>);
-
-/// How many border results a built project keeps.
-const KEPT_BORDERS: usize = 8;
-
-impl PavedBorders {
-    fn lock(&self) -> std::sync::MutexGuard<'_, BorderStore> {
-        self.0
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-    }
-
-    fn get_or_compute(
-        &self,
-        input: Vec<Vec<MapObject>>,
-        compute: impl FnOnce(&[Vec<MapObject>]) -> Vec<Vec<MapObject>>,
-    ) -> Vec<Vec<MapObject>> {
-        if let Some(borders) = self.lock().take_up(&input) {
-            return borders;
-        }
-        // Computed without the lock: another placement may store the same input meanwhile.
-        let borders = compute(&input);
-        let mut store = self.lock();
-        store.computed += 1;
-        if store.take_up(&input).is_none() {
-            if store.entries.len() >= KEPT_BORDERS {
-                store.entries.remove(0);
-            }
-            store.entries.push((input, borders.clone()));
-        }
-        borders
-    }
-
-    /// How many borders were computed.
-    #[cfg(test)]
-    fn computed(&self) -> usize {
-        self.lock().computed
-    }
-
-    /// How many inputs are kept.
-    #[cfg(test)]
-    fn len(&self) -> usize {
-        self.lock().entries.len()
+        self.objects.borders_computed()
     }
 }
 
@@ -1656,32 +1560,24 @@ pub fn build_project(dir: &Path) -> Result<BuiltProject, ProjectError> {
     let registers = drawn_registers(&point_candidates);
     let attribution_text = attribution_lines(&project, &registers).join("\n");
     let notes = format!("{attribution_text}\n{FREEMAPPER_CREDIT}");
-    let mut candidates = MapDocument {
-        notes: notes.clone(),
-        georef: georef.clone(),
-        symbol_set: symbol_set.clone(),
-        parts: vec![MapPart {
-            name: "candidates".to_string(),
-            objects: std::iter::once(map_area_outline(&area, &georef, &symbol_set, &project)?)
-                .chain(point_candidates)
-                .chain(structures.stairs)
-                .chain(stored_contour_objects(
-                    dir,
-                    &project,
-                    &footprints,
-                    &area,
-                    &water.union,
-                    &georef,
-                    &symbol_set,
-                )?)
-                .chain(paved.candidates)
-                .chain(open_land.candidates)
-                .chain(water.candidates)
-                .chain(out_of_bounds)
-                .collect(),
-        }],
-        templates: Vec::new(),
-    };
+    let mut candidates: Vec<MapObject> =
+        std::iter::once(map_area_outline(&area, &georef, &symbol_set, &project)?)
+            .chain(point_candidates)
+            .chain(structures.stairs)
+            .chain(stored_contour_objects(
+                dir,
+                &project,
+                &footprints,
+                &area,
+                &water.union,
+                &georef,
+                &symbol_set,
+            )?)
+            .chain(paved.candidates)
+            .chain(open_land.candidates)
+            .chain(water.candidates)
+            .chain(out_of_bounds)
+            .collect();
     let crs_spec = format!("+init=epsg:{}", georef.epsg);
     let mut templates: Vec<TemplateRef> = [
         (ORTHOPHOTO_RELPATH, true, 1.0),
@@ -1733,10 +1629,7 @@ pub fn build_project(dir: &Path) -> Result<BuiltProject, ProjectError> {
     // Knolls, depressions, banks and cliffs from the terrain, where nothing drawn shows them yet.
     // Before the routing, so that the content settings move the banks and cliffs (group `slopes`)
     // like the contours; with no source rank, `balanced` leaves them candidates.
-    let drawn: Vec<&MapObject> = map_objects
-        .iter()
-        .chain(&candidates.parts[0].objects)
-        .collect();
+    let drawn: Vec<&MapObject> = map_objects.iter().chain(&candidates).collect();
     let landforms = stored_landform_objects(
         dir,
         &project,
@@ -1748,7 +1641,7 @@ pub fn build_project(dir: &Path) -> Result<BuiltProject, ProjectError> {
         &georef,
         &symbol_set,
     )?;
-    candidates.parts[0].objects.extend(landforms);
+    candidates.extend(landforms);
     // The vegetation from the point clouds, where the user chose it (group `vegetation`).
     let vegetation = stored_vegetation_objects(
         dir,
@@ -1759,7 +1652,7 @@ pub fn build_project(dir: &Path) -> Result<BuiltProject, ProjectError> {
         &georef,
         &symbol_set,
     )?;
-    candidates.parts[0].objects.extend(vegetation);
+    candidates.extend(vegetation);
     let mut attribution = vec![OSM_ATTRIBUTION_DE.to_string()];
     attribution.extend(sheet_credit_lines(&project, &registers));
     attribution.push(FREEMAPPER_CREDIT_DE.to_string());
@@ -1778,39 +1671,27 @@ pub fn build_project(dir: &Path) -> Result<BuiltProject, ProjectError> {
         name: SHEET_PART.to_string(),
         objects: info_block(&content, &info, &symbol_set),
     };
-    // The borders for the project's own settings, from the paved areas and kerbs `route` leaves
-    // ([`PavedBorders`]): it sends each 501.x object by the object alone and keeps the order, so
-    // routing these gives the ones of the routed lists.
     let saved_content = content_settings(&project);
-    let paved_borders = PavedBorders::default();
-    let mut input = border_input(&[&map_objects, &candidates.parts[0].objects], &symbol_set);
-    if let [map, candidates] = &mut input[..] {
-        route(&saved_content, map, candidates, &symbol_set);
-    }
-    paved_borders.get_or_compute(input, |input| {
-        paved_borders_of(
-            input,
-            &footprints,
-            &water.union,
-            &clip,
-            &georef,
-            &symbol_set,
-        )
-    });
-
-    Ok(BuiltProject {
-        fingerprint: project_fingerprint(&project)?,
-        saved_content,
-        map_kind: project.map_kind,
-        scale_denominator: project.scale_denominator,
-        georef,
-        symbol_set,
-        footprints,
-        water: water.union,
-        clip,
-        terrain: std::sync::Arc::new(read_terrain(dir)),
+    let fingerprint = project_fingerprint(&project)?;
+    let objects = Built::new(
+        Surroundings {
+            map_kind: project.map_kind,
+            georef,
+            symbol_set,
+            footprints,
+            water: water.union,
+            clip,
+            terrain: read_terrain(dir),
+        },
         map_objects,
         candidates,
+        &saved_content,
+    );
+
+    Ok(BuiltProject {
+        fingerprint,
+        saved_content,
+        objects,
         notes,
         templates,
         attribution_text,
@@ -1818,7 +1699,6 @@ pub fn build_project(dir: &Path) -> Result<BuiltProject, ProjectError> {
         info,
         base_part,
         sheet_part,
-        paved_borders,
     })
 }
 
@@ -1829,88 +1709,22 @@ pub fn place(
     built: &BuiltProject,
     content: &ContentSettings,
 ) -> Result<StarterDocuments, ProjectError> {
-    let BuiltProject {
-        georef, symbol_set, ..
-    } = built;
-    let mut map_objects = built.map_objects.clone();
-    let mut candidates = built.candidates.clone();
-    // What goes onto the map and what stays a candidate, by the content settings
-    // (`build/content.rs`): the objects of the cadastre and the registers go to the map by
-    // default.
-    route(
-        content,
-        &mut map_objects,
-        &mut candidates.parts[0].objects,
-        symbol_set,
-    );
-    // Vegetation from the point clouds stops at the areas that shall not be entered drawn with
-    // it (`build/vegetation.rs`); after the routing, which decides where both end up.
-    crate::build::vegetation::cut_vegetation_at_out_of_bounds(
-        &mut map_objects,
-        &mut candidates.parts[0].objects,
-        built.scale_denominator,
-        georef,
-        symbol_set,
-    )?;
-    // Contours and north lines stop at paving and paths (`build/line_cuts.rs`).
-    let ways = way_footprints(
-        &map_objects,
-        &candidates.parts[0].objects,
-        &map_objects,
-        built.map_kind,
-        georef,
-        symbol_set,
-    );
-    let min_piece_m = f64::from(built.scale_denominator) / 1000.0;
-    for list in [&mut candidates.parts[0].objects, &mut map_objects] {
-        cut_lines_at_ways(list, &CONTOUR_CODES, &ways, min_piece_m, georef, symbol_set);
-    }
-    cut_lines_at_ways(
-        &mut map_objects,
-        &NORTH_LINE_CODES,
-        &ways,
-        min_piece_m,
-        georef,
-        symbol_set,
-    );
-    // The border of the paved areas, 501.1 (`build/paved_borders.rs`), computed once per input
-    // ([`PavedBorders`]).
-    let input = border_input(&[&map_objects, &candidates.parts[0].objects], symbol_set);
-    let borders = built.paved_borders.get_or_compute(input, |input| {
-        paved_borders_of(
-            input,
-            &built.footprints,
-            &built.water,
-            &built.clip,
-            georef,
-            symbol_set,
-        )
-    });
-    for (list, added) in [&mut map_objects, &mut candidates.parts[0].objects]
-        .into_iter()
-        .zip(borders)
-    {
-        list.extend(added);
-    }
-    // The last step on the lines: the ticks of fences point to the olive green area beside them,
-    // those of earth banks down the slope (`build/ticks.rs`).
-    orient_ticks(
-        &mut [&mut map_objects, &mut candidates.parts[0].objects],
-        built.terrain.as_ref().as_ref(),
-        georef,
-        symbol_set,
-    );
-    // Then the points keep the norm's gap to walls and fences, on the tick side with room for
-    // the ticks (`build/barrier_gaps.rs`).
-    move_points_off_barriers(
-        &mut [&mut map_objects, &mut candidates.parts[0].objects],
-        built.map_kind,
-        symbol_set,
-    );
+    let placed = built.objects.place(content)?;
+    let (georef, symbol_set) = (built.objects.georef(), built.objects.symbol_set());
+    let candidates = MapDocument {
+        notes: built.notes.clone(),
+        georef: georef.clone(),
+        symbol_set: symbol_set.clone(),
+        parts: vec![MapPart {
+            name: "candidates".to_string(),
+            objects: placed.candidates,
+        }],
+        templates: Vec::new(),
+    };
     let mut parts: Vec<MapPart> = built.base_part.iter().cloned().collect();
     parts.push(MapPart {
         name: "default part".to_string(),
-        objects: map_objects,
+        objects: placed.map,
     });
     parts.push(built.sheet_part.clone());
     let map = MapDocument {
@@ -2010,57 +1824,4 @@ pub(super) fn back_up(dir: &Path, map: &Path, backup: &Path) -> Result<(), Proje
             ProjectError::Io(path, e)
         }
     })
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// A border input that differs by `n`.
-    fn input(n: i32) -> Vec<Vec<MapObject>> {
-        vec![vec![MapObject {
-            symbol_id: 1,
-            kind: MapObjectKind::Path,
-            coords: vec![MapCoord::new(n, 0), MapCoord::new(n, 1)],
-            tags: Vec::new(),
-        }]]
-    }
-
-    /// Asks `store` for `n` and says whether it computed the borders.
-    fn computes(store: &PavedBorders, n: i32) -> bool {
-        let mut computed = false;
-        let borders = store.get_or_compute(input(n), |i| {
-            computed = true;
-            i.to_vec()
-        });
-        assert_eq!(borders, input(n));
-        computed
-    }
-
-    #[test]
-    fn the_border_store_keeps_what_was_used_last() {
-        let store = PavedBorders::default();
-        for n in 0..KEPT_BORDERS as i32 {
-            assert!(computes(&store, n));
-        }
-        // The first one used again, then one more: the second goes, the first stays.
-        assert!(!computes(&store, 0));
-        assert!(computes(&store, 100));
-        assert!(!computes(&store, 0));
-        assert!(computes(&store, 1));
-        assert_eq!(store.computed(), KEPT_BORDERS + 2);
-    }
-
-    #[test]
-    fn the_border_store_keeps_an_input_once() {
-        let store = PavedBorders::default();
-        let other = store.clone();
-        // Another placement stores the same input while this one computes it.
-        store.get_or_compute(input(7), |i| {
-            assert!(computes(&other, 7));
-            i.to_vec()
-        });
-        assert_eq!(store.len(), 1);
-        assert!(!computes(&store, 7));
-    }
 }
