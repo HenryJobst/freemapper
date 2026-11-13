@@ -15,7 +15,9 @@
 # `corridor_m`: with `draw = "line"`, a way becomes an area, a strip along it of this width in
 # metres (its `width` tag if it has one; 1.5 to 12 m). The symbol must be an area symbol.
 #
-# Codes refer to ISSprOM 2019 and the IOF school symbol set 2019.
+# Codes refer to ISSprOM 2019 and the IOF school symbol set 2019; `forest` codes to ISOM 2017-2. A
+# rule without `forest` gives a forest map its sprint code, which the ISOM set answers through
+# `assets/symbol-sets/isom-aliases.toml`; `forest = "-"` leaves the feature out of a forest map.
 
 # Underground hydrants are not visible on the ground.
 [[rule]]
@@ -193,12 +195,157 @@ when = ["leisure=park"]
 draw = "area"
 schoolyard = "401"
 sprint = "401"
+# A park in a forest is forest; its lawns are tagged as such.
+forest = "-"
 
 [[rule]]
 when = ["landuse=grass|meadow|village_green|recreation_ground"]
 draw = "area"
 schoolyard = "401"
 sprint = "401"
+
+# Forest maps (ISOM 2017-2), spec 2026-11-13. The OSM paths are the path network of a forest map
+# and go onto the map as they are, private ones included (ISOM has no closed way; an area that
+# shall not be entered is 520 from the rules further down). Nothing is merged or moved. These
+# rules have no sprint or schoolyard code, so the other map kinds skip them.
+
+# What ISOM does not draw at 1:15000: sidewalks, crossings, driveways and parking aisles.
+[[rule]]
+when = ["highway=*", "footway=sidewalk|crossing", "area!=yes", "indoor!=yes"]
+draw = "line"
+forest = "-"
+
+[[rule]]
+when = ["highway=*", "cycleway=sidewalk|crossing", "area!=yes", "indoor!=yes"]
+draw = "line"
+forest = "-"
+
+[[rule]]
+when = ["highway=service", "service=driveway|parking_aisle", "area!=yes", "indoor!=yes"]
+draw = "line"
+forest = "-"
+
+# 532 stairway.
+[[rule]]
+when = ["highway=steps", "area!=yes", "indoor!=yes"]
+draw = "line"
+target = "map"
+forest = "532"
+
+# 507 less distinct small path.
+[[rule]]
+when = ["highway=path|footway|bridleway", "trail_visibility=bad|horrible|no", "area!=yes", "indoor!=yes"]
+draw = "line"
+target = "map"
+forest = "507"
+
+[[rule]]
+when = ["highway=path|footway|bridleway", "informal=yes", "area!=yes", "indoor!=yes"]
+draw = "line"
+target = "map"
+forest = "507"
+
+# 502 wide road, 503 road: the public roads; an unpaved one is a vehicle track (504).
+[[rule]]
+when = ["highway=motorway|motorway_link|trunk|trunk_link|primary|primary_link|secondary|secondary_link|tertiary|tertiary_link", "area!=yes", "indoor!=yes"]
+draw = "line"
+target = "map"
+forest = "502"
+
+[[rule]]
+when = ["highway=residential|unclassified", "width>=5", "area!=yes", "indoor!=yes"]
+draw = "line"
+target = "map"
+forest = "502"
+
+[[rule]]
+when = ["highway=residential|unclassified|living_street|service|road", "surface=unpaved|dirt|earth|ground|grass|gravel|fine_gravel|sand|woodchips|mud|pebblestone", "area!=yes", "indoor!=yes"]
+draw = "line"
+target = "map"
+forest = "504"
+
+[[rule]]
+when = ["highway=residential|unclassified|living_street|service|road", "area!=yes", "indoor!=yes"]
+draw = "line"
+target = "map"
+forest = "503"
+
+# 504 vehicle track: tracks of grade 1 and 2 or at least 3 m wide; 505 the other tracks.
+[[rule]]
+when = ["highway=track", "tracktype=grade1|grade2", "area!=yes", "indoor!=yes"]
+draw = "line"
+target = "map"
+forest = "504"
+
+[[rule]]
+when = ["highway=track", "width>=3", "area!=yes", "indoor!=yes"]
+draw = "line"
+target = "map"
+forest = "504"
+
+[[rule]]
+when = ["highway=track", "area!=yes", "indoor!=yes"]
+draw = "line"
+target = "map"
+forest = "505"
+
+# 505 footpath: cycleways, pedestrian ways and paths at least 1.5 m wide or with a firm surface;
+# 506 small path: the other paths.
+[[rule]]
+when = ["highway=cycleway|pedestrian", "area!=yes", "indoor!=yes"]
+draw = "line"
+target = "map"
+forest = "505"
+
+[[rule]]
+when = ["highway=path|footway|bridleway", "width>=1.5", "area!=yes", "indoor!=yes"]
+draw = "line"
+target = "map"
+forest = "505"
+
+[[rule]]
+when = ["highway=path|footway|bridleway", "surface=asphalt|chipseal|concrete|concrete:plates|concrete:lanes|paved|paving_stones|sett|cobblestone|bricks|compacted|fine_gravel|gravel", "area!=yes", "indoor!=yes"]
+draw = "line"
+target = "map"
+forest = "505"
+
+[[rule]]
+when = ["highway=path|footway|bridleway", "area!=yes", "indoor!=yes"]
+draw = "line"
+target = "map"
+forest = "506"
+
+# Land cover of a forest map, as candidates: open land, rough open land and the green that OSM
+# says. Forest itself (`landuse=forest`, `natural=wood`) is the white paper and has no rule.
+[[rule]]
+when = ["natural=grassland"]
+draw = "area"
+forest = "401"
+
+[[rule]]
+when = ["natural=heath"]
+draw = "area"
+forest = "403"
+
+[[rule]]
+when = ["landuse=clearing"]
+draw = "area"
+forest = "403"
+
+[[rule]]
+when = ["natural=scrub", "density=dense"]
+draw = "area"
+forest = "408"
+
+[[rule]]
+when = ["landcover=scrub", "density=dense"]
+draw = "area"
+forest = "408"
+
+[[rule]]
+when = ["natural=scrub"]
+draw = "area"
+forest = "406"
 
 # Closed ways (sprint only, ADR 0073): a private or closed way is no path to run on but part of an
 # area that shall not be entered (ISSprOM 4.5, 520). The way is the centre line, the strip along it

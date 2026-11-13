@@ -79,6 +79,9 @@ struct RuleEntry {
     target: Target,
     schoolyard: Option<String>,
     sprint: Option<String>,
+    /// The ISOM code of a forest map, [`SKIP`] to leave the feature out; without it a forest
+    /// map takes the sprint code (the ISOM set answers it through its aliases).
+    forest: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -108,6 +111,24 @@ struct Rule {
     target: Target,
     schoolyard: Option<String>,
     sprint: Option<String>,
+    /// The ISOM code of a forest map, [`SKIP`] to leave the feature out; without it a forest
+    /// map takes the sprint code (the ISOM set answers it through its aliases).
+    forest: Option<String>,
+}
+
+/// The `forest` value of a rule that matches and draws nothing: the feature is left out of a
+/// forest map, later rules are not asked.
+const SKIP: &str = "-";
+
+impl Rule {
+    /// The code of this rule for `kind`, `None` when the rule does not take part.
+    fn code_for(&self, kind: MapKind) -> Option<&String> {
+        match kind {
+            MapKind::Schoolyard => self.schoolyard.as_ref(),
+            MapKind::Sprint => self.sprint.as_ref(),
+            MapKind::Forest => self.forest.as_ref().or(self.sprint.as_ref()),
+        }
+    }
 }
 
 /// Candidate rules: OSM tags → symbol codes per map kind.
@@ -223,7 +244,10 @@ impl Rules {
                     .collect::<Result<Vec<_>, RulesError>>()?;
                 let problem = if !when.iter().any(|c| !c.negated) {
                     Some("needs a condition that is not negated")
-                } else if entry.schoolyard.is_none() && entry.sprint.is_none() {
+                } else if entry.schoolyard.is_none()
+                    && entry.sprint.is_none()
+                    && entry.forest.is_none()
+                {
                     Some("has no symbol for any map kind")
                 } else if entry.point_as_short_line_mm.is_some() && entry.draw != DrawKind::Line {
                     Some("point_as_short_line_mm needs draw = \"line\"")
@@ -247,6 +271,7 @@ impl Rules {
                     target: entry.target,
                     schoolyard: entry.schoolyard,
                     sprint: entry.sprint,
+                    forest: entry.forest,
                 })
             })
             .collect::<Result<_, _>>()
@@ -259,8 +284,9 @@ impl Rules {
         self.0
             .iter()
             .filter(|r| r.draw == DrawKind::Point)
-            .flat_map(|r| [r.schoolyard.clone(), r.sprint.clone()])
+            .flat_map(|r| [r.schoolyard.clone(), r.sprint.clone(), r.forest.clone()])
             .flatten()
+            .filter(|code| code != SKIP)
             .collect()
     }
 
@@ -269,10 +295,7 @@ impl Rules {
         let tags = tags.to_vec();
         self.0
             .iter()
-            .filter(|r| match kind {
-                MapKind::Schoolyard => r.schoolyard.is_some(),
-                MapKind::Sprint | MapKind::Forest => r.sprint.is_some(),
-            })
+            .filter(|r| r.code_for(kind).is_some())
             .any(|r| r.when.iter().all(|c| c.holds(&tags)))
     }
 
@@ -283,11 +306,7 @@ impl Rules {
             matches!(geometry, OsmGeometry::Line(p) if p.len() > 3 && p.first() == p.last());
         let rule = self.0.iter().find_map(|rule| {
             // A rule without a symbol for this map kind does not take part (as in `wants`).
-            let has_symbol = match kind {
-                MapKind::Schoolyard => rule.schoolyard.is_some(),
-                MapKind::Sprint | MapKind::Forest => rule.sprint.is_some(),
-            };
-            if !has_symbol || !rule.when.iter().all(|c| c.holds(tags)) {
+            if rule.code_for(kind).is_none() || !rule.when.iter().all(|c| c.holds(tags)) {
                 return None;
             }
             let draw = match (rule.draw, geometry) {
@@ -306,10 +325,7 @@ impl Rules {
             Some((rule, draw))
         })?;
         let (rule, draw) = rule;
-        let code = match kind {
-            MapKind::Schoolyard => rule.schoolyard.clone(),
-            MapKind::Sprint | MapKind::Forest => rule.sprint.clone(),
-        }?;
+        let code = rule.code_for(kind).filter(|code| *code != SKIP)?.clone();
         let matched = rule
             .when
             .iter()
@@ -1156,8 +1172,9 @@ mod tests {
             for (code, kind) in [
                 (&rule.schoolyard, MapKind::Schoolyard),
                 (&rule.sprint, MapKind::Sprint),
+                (&rule.forest, MapKind::Forest),
             ] {
-                if let Some(code) = code {
+                if let Some(code) = code.as_ref().filter(|code| *code != SKIP) {
                     assert!(
                         kind.symbol_set(kind.default_scale())
                             .id_for_code(code)
@@ -1230,6 +1247,168 @@ mod tests {
 
     fn way() -> OsmGeometry {
         OsmGeometry::Line(vec![at(0.0, 0.0), at(0.0005, 0.0005)])
+    }
+
+    /// Code and layer of the forest symbol for a way, or a closed way, with these tags.
+    fn forest_symbol(t: &[(&str, &str)], closed: bool) -> Option<(String, Target)> {
+        let geometry = if closed {
+            OsmGeometry::Line(vec![
+                at(0.0, 0.0),
+                at(0.0005, 0.0),
+                at(0.0005, 0.0005),
+                at(0.0, 0.0),
+            ])
+        } else {
+            way()
+        };
+        Rules::embedded()
+            .symbol_for(&tags(t), &geometry, MapKind::Forest)
+            .map(|m| (m.code, m.target))
+    }
+
+    #[test]
+    fn forest_paths_follow_the_isom_classes() {
+        let path = |t: &[(&str, &str)]| forest_symbol(t, false);
+        let map = |code: &str| Some((code.to_string(), Target::Map));
+        assert_eq!(path(&[("highway", "tertiary")]), map("502"));
+        assert_eq!(path(&[("highway", "primary_link")]), map("502"));
+        assert_eq!(
+            path(&[("highway", "residential"), ("width", "6")]),
+            map("502")
+        );
+        assert_eq!(path(&[("highway", "residential")]), map("503"));
+        assert_eq!(
+            path(&[("highway", "service"), ("surface", "asphalt")]),
+            map("503")
+        );
+        assert_eq!(
+            path(&[("highway", "service"), ("surface", "gravel")]),
+            map("504")
+        );
+        assert_eq!(
+            path(&[("highway", "track"), ("tracktype", "grade1")]),
+            map("504")
+        );
+        assert_eq!(
+            path(&[("highway", "track"), ("tracktype", "grade2")]),
+            map("504")
+        );
+        assert_eq!(path(&[("highway", "track"), ("width", "3.5")]), map("504"));
+        assert_eq!(
+            path(&[("highway", "track"), ("tracktype", "grade4")]),
+            map("505")
+        );
+        assert_eq!(path(&[("highway", "track")]), map("505"));
+        assert_eq!(path(&[("highway", "path"), ("width", "2")]), map("505"));
+        assert_eq!(
+            path(&[("highway", "footway"), ("surface", "compacted")]),
+            map("505")
+        );
+        assert_eq!(path(&[("highway", "cycleway")]), map("505"));
+        assert_eq!(path(&[("highway", "path")]), map("506"));
+        assert_eq!(
+            path(&[("highway", "bridleway"), ("surface", "ground")]),
+            map("506")
+        );
+        assert_eq!(
+            path(&[("highway", "path"), ("trail_visibility", "bad")]),
+            map("507")
+        );
+        assert_eq!(
+            path(&[("highway", "path"), ("informal", "yes")]),
+            map("507")
+        );
+        // ISOM 2017-2 has a stairway (532), as ISSprOM.
+        assert_eq!(path(&[("highway", "steps")]), map("532"));
+        // A private way stays a path on a forest map (spec 2026-11-13), not a 520 strip.
+        assert_eq!(
+            path(&[("highway", "path"), ("access", "private")]),
+            map("506")
+        );
+        assert_eq!(path(&[("highway", "track"), ("access", "no")]), map("505"));
+        // What ISOM does not draw at 1:15000.
+        assert_eq!(
+            path(&[("highway", "footway"), ("footway", "sidewalk")]),
+            None
+        );
+        assert_eq!(
+            path(&[("highway", "footway"), ("footway", "crossing")]),
+            None
+        );
+        assert_eq!(
+            path(&[("highway", "cycleway"), ("cycleway", "sidewalk")]),
+            None
+        );
+        assert_eq!(
+            path(&[("highway", "service"), ("service", "driveway")]),
+            None
+        );
+        assert_eq!(
+            path(&[("highway", "service"), ("service", "parking_aisle")]),
+            None
+        );
+        // An area tag is no line.
+        assert_eq!(path(&[("natural", "scrub")]), None);
+    }
+
+    #[test]
+    fn forest_land_cover_is_open_land_heath_and_scrub() {
+        let area = |t: &[(&str, &str)]| forest_symbol(t, true);
+        let candidate = |code: &str| Some((code.to_string(), Target::Candidates));
+        assert_eq!(area(&[("landuse", "meadow")]), candidate("401"));
+        assert_eq!(area(&[("natural", "grassland")]), candidate("401"));
+        assert_eq!(area(&[("natural", "heath")]), candidate("403"));
+        assert_eq!(area(&[("landuse", "clearing")]), candidate("403"));
+        assert_eq!(area(&[("natural", "scrub")]), candidate("406"));
+        assert_eq!(
+            area(&[("natural", "scrub"), ("density", "dense")]),
+            candidate("408")
+        );
+        assert_eq!(
+            area(&[("landcover", "scrub"), ("density", "dense")]),
+            candidate("408")
+        );
+        // The forest is the white paper; a park is no open land on a forest map.
+        assert_eq!(area(&[("landuse", "forest")]), None);
+        assert_eq!(area(&[("natural", "wood")]), None);
+        assert_eq!(area(&[("leisure", "park")]), None);
+    }
+
+    /// The forest rules come first in the file; sprint and schoolyard skip them.
+    #[test]
+    fn sprint_and_schoolyard_rules_do_not_change() {
+        assert_eq!(
+            sprint_way(&[("highway", "track"), ("tracktype", "grade4")]),
+            Some(("505.2".into(), Target::Candidates))
+        );
+        assert_eq!(
+            sprint_way(&[("highway", "path"), ("access", "private")]),
+            Some(("520".into(), Target::Candidates))
+        );
+        assert_eq!(sprint_way(&[("highway", "steps")]).unwrap().0, "532.6");
+        assert_eq!(
+            sprint_way(&[("highway", "footway"), ("footway", "sidewalk")]),
+            None
+        );
+        let rules = Rules::embedded();
+        let ring = OsmGeometry::Line(vec![
+            at(0.0, 0.0),
+            at(0.0005, 0.0),
+            at(0.0005, 0.0005),
+            at(0.0, 0.0),
+        ]);
+        for kind in [MapKind::Sprint, MapKind::Schoolyard] {
+            assert_eq!(
+                rules.symbol_for(&tags(&[("natural", "scrub")]), &ring, kind),
+                None
+            );
+            assert_eq!(
+                rules
+                    .symbol_for(&tags(&[("leisure", "park")]), &ring, kind)
+                    .map(|m| m.code),
+                Some("401".into())
+            );
+        }
     }
 
     /// Code and layer of the sprint symbol for a way with these tags.
