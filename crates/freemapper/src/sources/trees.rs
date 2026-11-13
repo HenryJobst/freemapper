@@ -3,13 +3,12 @@
 
 pub use freemapper_sources::trees::*;
 
-use crate::adapters::{Registry, registry};
+use crate::adapters::{RegionAdapter, Registry, asking, registry};
 use crate::crs::{BoundingBox, Crs};
 use crate::fetch::Fetcher;
 use crate::sources::alkis::FetchArea;
 use crate::sources::alkis_nas::PartFile;
 use crate::sources::region::touches_region_in;
-use freemapper_adapter_api::policy::PolicyFetcher;
 
 /// The tree cadastres of every adapter, in the order of the registry.
 pub fn all_tree_datasets() -> impl Iterator<Item = &'static TreeDataset> {
@@ -18,31 +17,42 @@ pub fn all_tree_datasets() -> impl Iterator<Item = &'static TreeDataset> {
         .flat_map(|adapter| adapter.tree_datasets())
 }
 
-/// Whether the region `dataset` lies in is within the margin of `bbox` (EPSG:25833).
-fn touches_region_of(dataset: &TreeDataset, bbox: &BoundingBox) -> bool {
-    registry()
-        .get(dataset.region.as_str())
-        .is_some_and(|adapter| touches_region_in(adapter, bbox))
-}
-
 /// The datasets a map area needs: those whose envelope the part of the area inside their state
 /// intersects (the envelope of Potsdam reaches into Berlin, which has its own register).
 /// `region_bbox` is the area in EPSG:25833.
 pub fn tree_datasets_for(region_bbox: &BoundingBox) -> Vec<&'static TreeDataset> {
-    all_tree_datasets()
-        .filter(|d| needs(d, region_bbox))
+    needed_in(registry(), region_bbox)
+        .map(|(_, dataset)| dataset)
         .collect()
 }
 
-/// Whether the area in `region_bbox` (EPSG:25833) needs `dataset`.
-fn needs(dataset: &TreeDataset, region_bbox: &BoundingBox) -> bool {
+/// The datasets of `registry` the area in `region_bbox` (EPSG:25833) needs, each with the
+/// adapter that brings it, in the order of the registry.
+fn needed_in<'a, 'b>(
+    registry: &'a Registry,
+    region_bbox: &'b BoundingBox,
+) -> impl Iterator<Item = (&'a dyn RegionAdapter, &'a TreeDataset)> + use<'a, 'b> {
+    registry
+        .adapters()
+        .flat_map(|adapter| {
+            adapter
+                .tree_datasets()
+                .iter()
+                .map(move |dataset| (adapter, dataset))
+        })
+        .filter(move |(adapter, dataset)| needs(*adapter, dataset, region_bbox))
+}
+
+/// Whether the area in `region_bbox` (EPSG:25833) needs `dataset` of `adapter`. The state is
+/// the adapter that brings the dataset, not what its row names.
+fn needs(adapter: &dyn RegionAdapter, dataset: &TreeDataset, region_bbox: &BoundingBox) -> bool {
     let area = FetchArea::new(*region_bbox, Crs::Utm33).bbox_for(dataset.crs);
     if !intersects(&area, &dataset.envelope) {
         return false;
     }
     // The state's boundary is in EPSG:25833: clip the area to the envelope there.
     if dataset.crs != Crs::Utm33 {
-        return touches_region_of(dataset, region_bbox);
+        return touches_region_in(adapter, region_bbox);
     }
     let e = &dataset.envelope;
     let clip = BoundingBox {
@@ -51,7 +61,7 @@ fn needs(dataset: &TreeDataset, region_bbox: &BoundingBox) -> bool {
         max_e: area.max_e.min(e.max_e),
         max_n: area.max_n.min(e.max_n),
     };
-    touches_region_of(dataset, &clip)
+    touches_region_in(adapter, &clip)
 }
 
 fn intersects(a: &BoundingBox, b: &BoundingBox) -> bool {
@@ -68,28 +78,34 @@ pub fn fetch_tree_layers(
     area: &FetchArea,
     part: PartFile,
 ) -> Vec<FetchedTreeLayer> {
-    tree_datasets_for(&area.region_bbox)
-        .into_iter()
-        .map(|dataset| fetch_tree_layer_in(registry(), fetcher, dataset, area, part))
+    fetch_tree_layers_in(registry(), fetcher, area, part)
+}
+
+/// [`fetch_tree_layers`] with the adapters of `registry`.
+fn fetch_tree_layers_in(
+    registry: &'static Registry,
+    fetcher: &dyn Fetcher,
+    area: &FetchArea,
+    part: PartFile,
+) -> Vec<FetchedTreeLayer> {
+    needed_in(registry, &area.region_bbox)
+        .map(|(adapter, dataset)| fetch_tree_layer(adapter, fetcher, dataset, area, part))
         .collect()
 }
 
-/// `dataset` for `area`. The dataset of an adapter of `registry` that is held to its declared
-/// hosts ([`crate::adapters::RegionAdapter::policy`]) is asked through that policy.
-fn fetch_tree_layer_in(
-    registry: &Registry,
+/// `dataset` of `adapter` for `area`, asked as the adapter asks: one that is held to its
+/// declared hosts ([`crate::adapters::RegionAdapter::policy`]) through that policy. The adapter
+/// is the one that brings the dataset; the region its row names decides nothing here.
+fn fetch_tree_layer(
+    adapter: &dyn RegionAdapter,
     fetcher: &dyn Fetcher,
     dataset: &'static TreeDataset,
     area: &FetchArea,
     part: PartFile,
 ) -> FetchedTreeLayer {
-    let policy = registry
-        .get(dataset.region.as_str())
-        .and_then(|adapter| adapter.policy());
-    let features = match policy {
-        Some(policy) => fetch_dataset(&PolicyFetcher::new(fetcher, policy), dataset, area, part),
-        None => fetch_dataset(fetcher, dataset, area, part),
-    };
+    let features = asking(adapter, fetcher, |fetcher| {
+        fetch_dataset(fetcher, dataset, area, part)
+    });
     FetchedTreeLayer { dataset, features }
 }
 
@@ -259,7 +275,8 @@ mod tests {
                 "https://",
                 br#"{"type":"FeatureCollection","features":[]}"#.to_vec(),
             );
-            let layer = fetch_tree_layer_in(&registry, &fetcher, dataset, &area, &part);
+            let adapter = registry.get(SQUARE.as_str()).unwrap();
+            let layer = fetch_tree_layer(adapter, &fetcher, dataset, &area, &part);
             (layer.features, fetcher.calls.get())
         };
         let (features, calls) = fetched(Some(&["geo.example.org"]));
@@ -273,6 +290,95 @@ mod tests {
             assert!(features.is_ok(), "{features:?}");
             assert_eq!(calls, 3);
         }
+    }
+
+    /// One dataset is asked by the rules of the adapter it is asked for, whatever region its row
+    /// names: the row is not looked up.
+    #[test]
+    fn a_tree_cadastre_is_held_to_the_hosts_of_the_adapter_that_brings_it() {
+        use crate::adapters::test_support::{SQUARE, square};
+        let dataset: &'static TreeDataset = Box::leak(Box::new(TreeDataset {
+            region: AdapterId::built_in("elsewhere"),
+            ..POTSDAM
+        }));
+        let scratch = tempfile::tempdir().unwrap();
+        let part_path = scratch.path().join("answer.geojson.part");
+        let part = || -> Result<PathBuf, FetchError> { Ok(part_path.clone()) };
+        let area = FetchArea::new(sanssouci(), Crs::Utm33);
+        let registry = square(None, Some(&["geo.example.org"]));
+        let fetcher = MapFetcher::default();
+        fetcher.insert_prefix(
+            "https://",
+            br#"{"type":"FeatureCollection","features":[]}"#.to_vec(),
+        );
+        let adapter = registry.get(SQUARE.as_str()).unwrap();
+        let layer = fetch_tree_layer(adapter, &fetcher, dataset, &area, &part);
+        assert!(
+            matches!(layer.features, Err(FetchError::NotAllowed { .. })),
+            "{:?}",
+            layer.features
+        );
+        assert_eq!(fetcher.calls.get(), 0);
+    }
+
+    /// A row that names another adapter of the registry does not move the dataset there: the
+    /// area needs it on the ground of the adapter that brings it, and that adapter's hosts
+    /// decide whether the request leaves.
+    #[test]
+    fn a_row_that_names_another_adapter_goes_by_the_one_that_brings_it() {
+        use crate::adapters::test_support::{FAR, square_and_far};
+        let dataset = TreeDataset {
+            region: FAR,
+            envelope: BoundingBox {
+                min_e: 0.0,
+                min_n: 0.0,
+                max_e: 30_000.0,
+                max_n: 10_000.0,
+            },
+            ..POTSDAM
+        };
+        let scratch = tempfile::tempdir().unwrap();
+        let part_path = scratch.path().join("answer.geojson.part");
+        let part = || -> Result<PathBuf, FetchError> { Ok(part_path.clone()) };
+        let from = |min_e: f64| {
+            let bbox = BoundingBox {
+                min_e,
+                min_n: 4_000.0,
+                max_e: min_e + 500.0,
+                max_n: 4_500.0,
+            };
+            FetchArea::new(bbox, Crs::Utm33)
+        };
+        // The far region may ask the host of the dataset: that must not help the square.
+        let fetched = |hosts: &[&str], area: &FetchArea| {
+            let registry: &'static Registry = Box::leak(Box::new(square_and_far(
+                vec![dataset.clone()],
+                hosts,
+                &["opendata.potsdam.de"],
+            )));
+            let fetcher = MapFetcher::default();
+            fetcher.insert_prefix(
+                "https://",
+                br#"{"type":"FeatureCollection","features":[]}"#.to_vec(),
+            );
+            let layers = fetch_tree_layers_in(registry, &fetcher, area, &part);
+            (layers, fetcher.calls.get())
+        };
+        // On the ground of the far region nothing needs the dataset of the square.
+        let (layers, calls) = fetched(&["geo.example.org"], &from(24_000.0));
+        assert!(layers.is_empty(), "{layers:?}");
+        assert_eq!(calls, 0);
+        // On the ground of the square the area needs it, and the hosts of the square decide.
+        let (layers, calls) = fetched(&["geo.example.org"], &from(4_000.0));
+        assert_eq!(layers.len(), 1);
+        assert!(
+            matches!(layers[0].features, Err(FetchError::NotAllowed { .. })),
+            "{layers:?}"
+        );
+        assert_eq!(calls, 0);
+        let (layers, calls) = fetched(&["opendata.potsdam.de"], &from(4_000.0));
+        assert!(layers[0].features.is_ok(), "{layers:?}");
+        assert_eq!(calls, 3);
     }
 
     #[test]
@@ -316,24 +422,28 @@ mod tests {
             max_e: 374_800.0,
             max_n: 5_817_250.0,
         };
-        let row = |region: AdapterId, min_e, max_e| TreeDataset {
-            region: region.id().parse().unwrap(),
-            envelope: BoundingBox {
-                min_e,
-                min_n: 5_816_000.0,
-                max_e,
-                max_n: 5_819_000.0,
-            },
-            ..POTSDAM
+        // A dataset of the adapter `region` with this envelope. Its row names Brandenburg
+        // whichever adapter brings it: the state is the adapter's.
+        let needed = |region: AdapterId, min_e, max_e| {
+            let dataset = TreeDataset {
+                envelope: BoundingBox {
+                    min_e,
+                    min_n: 5_816_000.0,
+                    max_e,
+                    max_n: 5_819_000.0,
+                },
+                ..POTSDAM
+            };
+            needs(registry().get(region.id()).unwrap(), &dataset, &area)
         };
         // The area touches both states, but the envelope covers only the Berlin side.
-        let berlin_side = |region| row(region, 374_300.0, 374_700.0);
-        assert!(needs(&berlin_side(regions::BERLIN), &area));
-        assert!(!needs(&berlin_side(regions::BRANDENBURG), &area));
+        let berlin_side = |region| needed(region, 374_300.0, 374_700.0);
+        assert!(berlin_side(regions::BERLIN));
+        assert!(!berlin_side(regions::BRANDENBURG));
         // And only the Brandenburg side.
-        let brandenburg_side = |region| row(region, 373_000.0, 373_400.0);
-        assert!(needs(&brandenburg_side(regions::BRANDENBURG), &area));
-        assert!(!needs(&brandenburg_side(regions::BERLIN), &area));
+        let brandenburg_side = |region| needed(region, 373_000.0, 373_400.0);
+        assert!(brandenburg_side(regions::BRANDENBURG));
+        assert!(!brandenburg_side(regions::BERLIN));
     }
 
     #[test]

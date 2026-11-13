@@ -96,6 +96,8 @@ pub(crate) mod test_support {
 
     /// The id of the region of [`square`].
     pub(crate) const SQUARE: AdapterId = AdapterId::built_in("square");
+    /// The id of the second region of [`square_and_far`].
+    pub(crate) const FAR: AdapterId = AdapterId::built_in("far");
 
     /// A square region with a NAS service and the hosts its requests are held to, as an
     /// adapter from a folder has them.
@@ -104,6 +106,7 @@ pub(crate) mod test_support {
         boundary: geo_types::MultiPolygon<f64>,
         nas: Option<NasService>,
         policy: Option<UrlPolicy>,
+        trees: Vec<TreeDataset>,
         extras: Vec<Box<dyn ExtraSet>>,
         templates: Vec<Box<dyn RasterTemplate>>,
     }
@@ -130,7 +133,7 @@ pub(crate) mod test_support {
         }
 
         fn tree_datasets(&self) -> &[TreeDataset] {
-            &[]
+            &self.trees
         }
 
         fn extras(&self) -> &[Box<dyn ExtraSet>] {
@@ -185,6 +188,26 @@ pub(crate) mod test_support {
         square_of(None, hosts, Vec::new(), templates)
     }
 
+    /// A registry of two regions: [`SQUARE`] with the tree cadastres `trees`, held to `hosts`,
+    /// and [`FAR`], E from 20 to 30 km, held to `far_hosts`.
+    pub(crate) fn square_and_far(
+        trees: Vec<TreeDataset>,
+        hosts: &[&str],
+        far_hosts: &[&str],
+    ) -> Registry {
+        let mut registry = Registry::new();
+        registry
+            .add(Arc::new(Square {
+                trees,
+                ..region(SQUARE, 0.0, Some(hosts))
+            }))
+            .unwrap();
+        registry
+            .add(Arc::new(region(FAR, 20_000.0, Some(far_hosts))))
+            .unwrap();
+        registry
+    }
+
     fn square_of(
         nas: Option<NasService>,
         hosts: Option<&[&str]>,
@@ -194,33 +217,45 @@ pub(crate) mod test_support {
         let mut registry = Registry::new();
         registry
             .add(Arc::new(Square {
-                info: RegionInfo {
-                    id: SQUARE,
-                    provider: SQUARE,
-                    names: Names {
-                        en: "Square".to_string(),
-                        de: "Quadrat".to_string(),
-                    },
-                    crs: crate::crs::Crs::Utm33,
-                    object_id_prefix: None,
-                    osm: Vec::new(),
-                    credit_short: None,
-                    preview: None,
-                },
-                boundary: geo_types::MultiPolygon(vec![
-                    geo_types::Rect::new(
-                        geo_types::coord! { x: 0.0, y: 0.0 },
-                        geo_types::coord! { x: 10_000.0, y: 10_000.0 },
-                    )
-                    .to_polygon(),
-                ]),
                 nas,
-                policy: hosts.map(|hosts| UrlPolicy::new(hosts.iter().copied()).unwrap()),
                 extras,
                 templates,
+                ..region(SQUARE, 0.0, hosts)
             }))
             .unwrap();
         registry
+    }
+
+    /// The region `id`, a square of 10 km from E `min_e` and N 0 (EPSG:25833), held to `hosts`,
+    /// with no service.
+    fn region(id: AdapterId, min_e: f64, hosts: Option<&[&str]>) -> Square {
+        Square {
+            info: RegionInfo {
+                id: id.clone(),
+                provider: id,
+                names: Names {
+                    en: "Square".to_string(),
+                    de: "Quadrat".to_string(),
+                },
+                crs: crate::crs::Crs::Utm33,
+                object_id_prefix: None,
+                osm: Vec::new(),
+                credit_short: None,
+                preview: None,
+            },
+            boundary: geo_types::MultiPolygon(vec![
+                geo_types::Rect::new(
+                    geo_types::coord! { x: min_e, y: 0.0 },
+                    geo_types::coord! { x: min_e + 10_000.0, y: 10_000.0 },
+                )
+                .to_polygon(),
+            ]),
+            nas: None,
+            policy: hosts.map(|hosts| UrlPolicy::new(hosts.iter().copied()).unwrap()),
+            trees: Vec::new(),
+            extras: Vec::new(),
+            templates: Vec::new(),
+        }
     }
 }
 

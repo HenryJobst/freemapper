@@ -6,6 +6,10 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+### Geändert
+
+- Intern: Ein Baumkataster wird mit den Host-Regeln des Adapters abgefragt, der es mitbringt, und gilt für dessen Gebiet. Bisher suchte der Kern den Adapter über die Kennung, die in der Zeile des Katasters steht. Hätte die Zeile einen anderen Adapter der Registry genannt, wäre das Kataster für dessen Gebiet und unter dessen Host-Regeln abgefragt worden; mit einer unbekannten Kennung fiel es weg. Kein heutiger Adapter war betroffen: Ein Manifest trägt immer die eigene Kennung ein (Nachtrag in ADR 0114).
+
 ## [0.16.0] - 2026-11-13
 
 ### Hinzugefügt
