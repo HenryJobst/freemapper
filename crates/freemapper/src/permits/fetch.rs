@@ -956,6 +956,59 @@ mod tests {
         }
     }
 
+    /// The fixture file the fetcher of [`serve_berlin`] answers for a layer of Berlin's sources;
+    /// the other layers answer empty.
+    const BERLIN_LAYER_FILES: [(&str, &str); 6] = [
+        ("bezirksgrenzen", "bezirksgrenzen.geojson"),
+        ("gruenanlagen", "gruenanlagen.geojson"),
+        ("spielplaetze", "spielplaetze.geojson"),
+        ("liegenschaftsplan", "liegenschaftsplan.geojson"),
+        ("denkmale", "denkmale.geojson"),
+        ("a-nd", "naturdenkmale.geojson"),
+    ];
+
+    /// The findings of `source` as the adapter parses the fixture files themselves, without
+    /// the fetch and the store in between.
+    fn fixture_findings(source: &dyn PermitSource) -> Vec<PermitFinding> {
+        source
+            .info()
+            .layers
+            .iter()
+            .flat_map(|layer| {
+                let features: Vec<Value> = BERLIN_LAYER_FILES
+                    .iter()
+                    .find(|(l, _)| l == layer)
+                    .map(|(_, file)| {
+                        let text =
+                            std::fs::read_to_string(format!("{BERLIN_FIXTURES}{file}")).unwrap();
+                        let mut value: Value = serde_json::from_str(&text).unwrap();
+                        match value["features"].take() {
+                            Value::Array(features) => features,
+                            other => panic!("{file}: {other:?}"),
+                        }
+                    })
+                    .unwrap_or_default();
+                source.findings(layer, &features)
+            })
+            .collect()
+    }
+
+    /// Berlin's regional inputs as the adapter parses the fixtures, read on `fetched`.
+    fn berlin_from_fixtures(fetched: NaiveDate) -> Vec<RegionalInput> {
+        berlin()
+            .permit_sources()
+            .iter()
+            .map(|source| RegionalInput {
+                adapter: "berlin".into(),
+                source: RegionalSource::from(source.info()),
+                findings: SourceInput::Read {
+                    items: fixture_findings(source.as_ref()),
+                    fetched,
+                },
+            })
+            .collect()
+    }
+
     fn regional_state(inputs: &Inputs) -> Vec<(&str, bool)> {
         inputs
             .regional
@@ -1287,7 +1340,14 @@ mod tests {
             .0
             .unwrap();
         let today = date("2026-11-13");
-        let notes = write_permit_notes(dir.path(), &project, &online, today).unwrap();
+        // The notes as the adapter's own parse of the served files gives them, not read back
+        // from the store: the fetch and the store must not change a finding.
+        let direct = Inputs {
+            regional: berlin_from_fixtures(today),
+            ..online.clone()
+        };
+        assert_eq!(online.regional, direct.regional);
+        let notes = write_permit_notes(dir.path(), &project, &direct, today).unwrap();
         let part = &notes.regional[0];
         assert_eq!(part.adapter, "berlin");
         let districts: Vec<&str> = part
@@ -1323,6 +1383,10 @@ mod tests {
         let green = part.green_spaces.as_ref().unwrap();
         assert!(green.entries.iter().any(|s| s.item.name == "Viktoriapark"));
         assert!(green.playgrounds >= 3, "{}", green.playgrounds);
+        assert_eq!(
+            green.playgrounds, 4,
+            "every playground of the fixture is on the map"
+        );
         let keys: Vec<&str> = notes.hints.iter().map(|h| h.key.as_str()).collect();
         assert!(!keys.contains(&crate::permits::notes::hint_key::CITY_STATE));
 
@@ -1351,7 +1415,8 @@ mod tests {
         assert_eq!(old.admin, online.admin);
     }
 
-    /// A finding the engine reads back is what the adapter parsed from the stored file.
+    /// The findings the engine reads back from the store, online and offline, are the ones the
+    /// adapter parses from the same fixture files itself (review finding 11).
     #[test]
     fn stored_berlin_layers_parse_as_the_adapter_parses_them() {
         let (dir, project) = viktoriapark();
@@ -1361,6 +1426,22 @@ mod tests {
         let inputs = fetch(&project, dir.path(), &fetcher, &cache, false)
             .0
             .unwrap();
+        let offline = fetch(&project, dir.path(), &fetcher, &cache, true)
+            .0
+            .unwrap();
+        let expected = berlin_from_fixtures(date("2026-11-13"));
+        assert_eq!(inputs.regional.len(), expected.len());
+        for ((online, offline), expected) in
+            inputs.regional.iter().zip(&offline.regional).zip(&expected)
+        {
+            assert_eq!(online.source.key, expected.source.key);
+            let SourceInput::Read { items, .. } = &online.findings else {
+                panic!("{:?}", online.findings);
+            };
+            assert!(!items.is_empty(), "{}", online.source.key);
+            assert_eq!(online, expected, "{}", expected.source.key);
+            assert_eq!(offline, expected, "{}", expected.source.key);
+        }
         let bezirke: &RegionalInput = &inputs.regional[0];
         let SourceInput::Read { items, .. } = &bezirke.findings else {
             panic!("{:?}", bezirke.findings);
