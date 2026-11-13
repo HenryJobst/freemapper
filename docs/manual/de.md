@@ -968,7 +968,8 @@ Ein Abschnitt, dessen Quelle nicht gelesen wurde, sagt das.
 - VG250 ist auf den Maßstab 1:250 000 generalisiert. Eine Gemeinde oder ein Kreis am Rand eines kleinen Gebiets
   kann nur deshalb auftauchen.
 - Eine OSM-Fläche, die das ganze Kartengebiet umschließt und keine Ecke darin hat, etwa ein großer Wald, kann
-  fehlen. Die Angaben von BfN und VG250 betrifft das nicht.
+  fehlen. Das gilt auch für ein OSM-Schutzgebiet, das als Relation vom Typ `boundary` erfasst ist. Die Angaben
+  von BfN und VG250 betrifft das nicht.
 - Berlin und Hamburg sind in VG250 je eine Einheit. Den Bezirk bestimmen die Hinweise noch nicht.
 - Eigentümer von Grundstücken stehen nicht in offenen Daten. Die Hinweise sagen, wie man einen
   Grundbuchauszug bekommt.

@@ -822,7 +822,7 @@ permits-osm-protect-class = Schutzklasse { $class }
 permits-quoted = „{ $text }“
 permits-osm-unnamed = ohne Namen
 permits-osm-operator = Betreiber laut OSM: { $operator }
-permits-osm-enclosing-gap = OpenStreetMap-Flächen, die das ganze Kartengebiet umschließen und keine Ecke darin haben, können hier fehlen. Die Angaben von BfN und VG250 sind davon nicht betroffen.
+permits-osm-enclosing-gap = OpenStreetMap-Flächen, die das ganze Kartengebiet umschließen und keine Ecke darin haben, können hier fehlen, ebenso Schutzgebiete, die in OSM als Relation mit `type=boundary` erfasst sind. Die Angaben von BfN und VG250 sind davon nicht betroffen.
 permits-operator-line = { $name } ({ $roles ->
         [operator] Betreiber
         [owner] Eigentümer

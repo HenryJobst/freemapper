@@ -805,7 +805,7 @@ permits-osm-protect-class = protect class { $class }
 permits-quoted = "{ $text }"
 permits-osm-unnamed = without a name
 permits-osm-operator = Operator according to OSM: { $operator }
-permits-osm-enclosing-gap = OpenStreetMap areas that enclose the whole map area without a corner inside it can be missing here. The parts from the BfN and VG250 are not affected.
+permits-osm-enclosing-gap = OpenStreetMap areas that enclose the whole map area without a corner inside it can be missing here, and so can protected areas mapped in OSM as a relation with `type=boundary`. The parts from the BfN and VG250 are not affected.
 permits-operator-line = { $name } ({ $roles ->
         [operator] operator
         [owner] owner

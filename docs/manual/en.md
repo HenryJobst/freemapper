@@ -936,7 +936,8 @@ A section whose source was not read says so.
 - VG250 is generalised to the scale 1:250 000. A Gemeinde or Kreis at the edge of a small area can show up only
   because of that.
 - An OSM area that encloses the whole map area without a corner inside it, a large wood for example, can be
-  missing. The parts from the BfN and VG250 are not affected.
+  missing. So can an OSM protected area mapped as a relation of the type `boundary`. The parts from the BfN and
+  VG250 are not affected.
 - Berlin and Hamburg are one unit each in VG250. The notes do not determine the Bezirk yet.
 - Owners of land are not in open data. The notes say how to get an extract from the land register.
 - Forest administrations, water protection areas and monuments are not in yet. They come in later versions.

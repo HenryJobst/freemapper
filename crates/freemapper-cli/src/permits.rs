@@ -940,6 +940,8 @@ mod tests {
             let text = render_markdown(&sanssouci(), &lang);
             let gap = TEXTS.text(&lang, "permits-osm-enclosing-gap", &[]);
             assert_eq!(text.matches(&gap).count(), 2, "{text}");
+            // The extract reader keeps multipolygon relations only.
+            assert!(gap.contains("`type=boundary`"), "{gap}");
         }
     }
 

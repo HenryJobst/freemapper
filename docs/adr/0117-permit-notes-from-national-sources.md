@@ -110,6 +110,9 @@ set; both send whole polygons of 25 to 700 KB.
   - The extract reader keeps a way only when one of its nodes lies in the box. An OSM area that encloses the
     whole map area without a corner inside it is missed. Both OSM sections say so; the BfN and VG250 parts are not
     affected. A test of the box against all nodes of a way would close it.
+  - The extract reader keeps multipolygon relations only. An OSM protected area mapped as a `type=boundary`
+    relation (common for `boundary=protected_area` and `boundary=national_park`) is not read. The same sentence
+    in both OSM sections says so; the BfN part usually lists such areas anyway.
   - VG250 is generalised to 1:250 000. A unit may touch the edge of a small area only because of that; such units
     stand in the edge list with a sentence that says it.
   - The BfN merges the data of the states once a year. A protected area set up or changed since then is missing
