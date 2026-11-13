@@ -6,6 +6,8 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-11-13
+
 ### Added
 
 - Forest map example: [Dammheide in Berlin](examples/berlin-dammheide/), 1:10 000, with the OOM map, the OCAD starting point and the candidates PDF (ADR 0116).

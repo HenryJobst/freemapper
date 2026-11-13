@@ -6,6 +6,8 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+## [0.17.0] - 2026-11-13
+
 ### Hinzugefügt
 
 - Beispiel Waldkarte: [Dammheide in Berlin](examples/berlin-dammheide/), 1:10 000, mit OOM-Karte, OCAD-Ausgangsstand und Kandidaten-PDF (ADR 0116).
