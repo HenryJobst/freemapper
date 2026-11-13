@@ -186,6 +186,29 @@ impl Model {
         cache.provider_dir(PROVIDER).join(self.prefix())
     }
 
+    /// The start of the name of every cache file of `tile`; the checksum of the member the
+    /// tile was read from follows.
+    fn cache_name(self, tile: TileId) -> String {
+        format!(
+            "{}_32_{:03}_{:04}_",
+            self.prefix(),
+            tile.east_km,
+            tile.north_km
+        )
+    }
+
+    /// Whether the cache holds `tile` of this model, read from whichever member.
+    pub fn is_cached(self, cache: &CacheDir, tile: TileId) -> bool {
+        let start = self.cache_name(tile);
+        std::fs::read_dir(self.cache_folder(cache)).is_ok_and(|files| {
+            files.flatten().any(|file| {
+                let name = file.file_name();
+                let name = name.to_string_lossy();
+                name.starts_with(&start) && name.ends_with(".tif")
+            })
+        })
+    }
+
     /// The member of `tile` with the ending `extension` among `members`. The terrain members
     /// carry the year of their last update after the tile, so the name comes from the
     /// directory and is never built.
@@ -334,13 +357,10 @@ fn tile_heights(
     member: &Member,
 ) -> Result<Raster<f32>, FetchError> {
     let url = model.archive_url(block_of(tile));
-    let file = model.cache_folder(cache).join(format!(
-        "{}_32_{:03}_{:04}_{:08x}.tif",
-        model.prefix(),
-        tile.east_km,
-        tile.north_km,
-        member.crc
-    ));
+    let file =
+        model
+            .cache_folder(cache)
+            .join(format!("{}{:08x}.tif", model.cache_name(tile), member.crc));
     let offline = || {
         refused(
             &url,

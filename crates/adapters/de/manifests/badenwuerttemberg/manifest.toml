@@ -1,0 +1,72 @@
+# Baden-Württemberg: the rasters of the LGL through code (a WMS orthophoto dated by a WFS of the
+# flight tiles, heights out of the 2 km archives of the file server). Its ALKIS WFS serves
+# GeoServer views that are not the simplified schema, so the ALKIS is code as well.
+format = 1
+
+[adapter]
+id = "badenwuerttemberg"
+provider = "lglbw"
+revision = 1
+min_freemapper = "0.13.0"
+crs = 25832
+object_id_prefix = "DEBW"
+names = { en = "Baden-Württemberg", de = "Baden-Württemberg" }
+agency = "LGL"
+maintainers = ["github:HenryJobst"]
+last_verified = "2026-11-13"
+
+[net]
+hosts = ["owsproxy.lgl-bw.de", "opengeodata.lgl-bw.de"]
+
+[boundary]
+file = "boundary.geojson"
+crs = 25833
+
+[[osm.extract]]
+geofabrik = "europe/germany/baden-wuerttemberg/freiburg-regbez"
+megabytes = 160.5
+label = "Baden-Württemberg, Freiburg"
+boundary = "osm-freiburg.geojson"
+cache_prefix = "bw-freiburg"
+
+[[osm.extract]]
+geofabrik = "europe/germany/baden-wuerttemberg/karlsruhe-regbez"
+megabytes = 155.3
+label = "Baden-Württemberg, Karlsruhe"
+boundary = "osm-karlsruhe.geojson"
+cache_prefix = "bw-karlsruhe"
+
+[[osm.extract]]
+geofabrik = "europe/germany/baden-wuerttemberg/stuttgart-regbez"
+megabytes = 212.5
+label = "Baden-Württemberg, Stuttgart"
+boundary = "osm-stuttgart.geojson"
+cache_prefix = "bw-stuttgart"
+
+[[osm.extract]]
+geofabrik = "europe/germany/baden-wuerttemberg/tuebingen-regbez"
+megabytes = 128.6
+label = "Baden-Württemberg, Tübingen"
+boundary = "osm-tuebingen.geojson"
+cache_prefix = "bw-tuebingen"
+
+[attribution]
+licence = "dl-de/by-2-0"
+text = "Datenquelle: LGL, www.lgl-bw.de, dl-de/by-2-0 (Daten geändert, {year})"
+note = "Lizenz dl-de/by-2-0 (Datenlizenz Deutschland – Namensnennung – Version 2.0): https://www.govdata.de/dl-de/by-2-0"
+
+[orthophoto]
+backend = "lgl-bw"
+
+[terrain]
+backend = "lgl-bw"
+
+[surface]
+backend = "lgl-bw"
+
+[preview]
+wms = "https://owsproxy.lgl-bw.de/owsproxy/ows/WMS_LGL-BW_ATKIS_DOP_20_C"
+layer = "IMAGES_DOP_20_RGB"
+format = "image/jpeg"
+attribution = "Datenquelle: LGL, www.lgl-bw.de, dl-de/by-2-0"
+agency = "LGL"

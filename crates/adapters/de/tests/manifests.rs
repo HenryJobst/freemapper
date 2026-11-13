@@ -10,7 +10,7 @@ use freemapper_adapters_de::states::alkis::{
     BUILDINGS_ENDPOINT, LAND_USE_ENDPOINT, MV_BUILDINGS_ENDPOINT, MV_LAND_USE_ENDPOINT,
 };
 use freemapper_adapters_de::states::{State, StateAdapter, StateFiles};
-use freemapper_adapters_de::{lgv, lvgl, states};
+use freemapper_adapters_de::{lgl_bw, lgv, lvgl, states};
 use freemapper_georef::crs::Crs;
 use freemapper_manifest::adapter::{ManifestAdapter, Parse};
 use freemapper_manifest::model::Alkis;
@@ -144,19 +144,29 @@ fn hosts_in(trace: &str) -> Vec<String> {
 
 /// The hosts a fetch of `state` asked when the golden net recorded it: for the eleven states
 /// of the net `g1-hosts.txt`, which keeps them for the states that are no longer recorded.
-/// Saarland came after the net: its hosts are those of the addresses its backend and its WFS
-/// are written with.
+/// Saarland and Baden-Württemberg came after the net: their hosts are those of the addresses
+/// their backend and their WFS are written with.
 fn recorded_hosts(state: State) -> Vec<String> {
-    if state == State::Saarland {
-        let mut hosts: Vec<String> = [
+    let written: &[&str] = match state {
+        State::Saarland => &[
             lvgl::WMS.url.as_ref(),
             lvgl::SHARE,
             lvgl::ALKIS.url.as_ref(),
-        ]
-        .iter()
-        .filter_map(|url| url.strip_prefix("https://")?.split('/').next())
-        .map(str::to_string)
-        .collect();
+        ],
+        State::BadenWuerttemberg => &[
+            lgl_bw::WMS.url.as_ref(),
+            lgl_bw::FLIGHTS,
+            lgl_bw::FILES,
+            lgl_bw::ALKIS.url.as_ref(),
+        ],
+        _ => &[],
+    };
+    if !written.is_empty() {
+        let mut hosts: Vec<String> = written
+            .iter()
+            .filter_map(|url| url.strip_prefix("https://")?.split('/').next())
+            .map(str::to_string)
+            .collect();
         hosts.sort();
         hosts.dedup();
         return hosts;
@@ -244,7 +254,7 @@ fn builtin_manifests_pass_the_validator_and_policy() {
                 "{id} does not declare {host}"
             );
         }
-        if state == State::Saarland {
+        if matches!(state, State::Saarland | State::BadenWuerttemberg) {
             // No more than it asks, either: nothing recorded could hide a host here.
             assert_eq!(manifest.hosts.len(), asked.len(), "{id}");
         }
@@ -269,7 +279,9 @@ fn builtin_manifests_pass_the_validator_and_policy() {
             .unwrap_or_else(|findings| panic!("{id}: {findings:?}"));
         assert!(!adapter.boundary().0.is_empty(), "{id}");
         assert!(adapter.rasters().is_some(), "{id}");
-        assert_eq!(adapter.alkis().is_some(), state != State::Berlin, "{id}");
+        // Berlin and Baden-Württemberg read their ALKIS with code of their own.
+        let own_alkis = matches!(state, State::Berlin | State::BadenWuerttemberg);
+        assert_eq!(adapter.alkis().is_some(), !own_alkis, "{id}");
     }
 }
 
@@ -294,8 +306,8 @@ fn every_manifest_names_its_state() {
         assert_eq!(from_file.bounds(), built_in.bounds(), "{}", state.id());
         assert!(built_in.alkis().is_some(), "{}", state.id());
     }
-    assert_eq!(State::ALL.len(), 12);
-    assert_eq!(states::adapters().len(), 12);
+    assert_eq!(State::ALL.len(), 13);
+    assert_eq!(states::adapters().len(), 13);
 }
 
 /// Saarland asks the WFS of the geoportal with the type names of its ArcGIS server and
