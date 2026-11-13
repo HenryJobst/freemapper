@@ -40,6 +40,9 @@ pub enum Arg {
     Count(i64),
     /// A text of its own, rendered in the same language.
     Note(Note),
+    /// A text a source brings in each language of the program, such as the name of a service
+    /// of a region adapter: German in a German run, else English.
+    Words { en: String, de: String },
     /// An error. The caller of [`Note::text`] words it.
     Error(Arc<dyn Error + Send + Sync>),
 }
@@ -170,6 +173,9 @@ impl Note {
                     Arg::Text(text) => FluentValue::from(text.clone()),
                     Arg::Count(count) => FluentValue::from(*count),
                     Arg::Note(note) => FluentValue::from(note.body_text(lang, error)),
+                    Arg::Words { en, de } => {
+                        FluentValue::from(if lang.code() == "de" { de } else { en }.clone())
+                    }
                     Arg::Error(e) => FluentValue::from(error(e.as_ref(), lang)),
                 };
                 (*name, value)
@@ -336,6 +342,20 @@ mod tests {
         );
         let german = note.text(&de(), &|e, _| e.to_string());
         assert!(german.contains("UTM-Zone 32 (EPSG:25832)"), "{german}");
+    }
+
+    #[test]
+    fn words_are_taken_in_the_language_of_the_run() {
+        let note = note!(
+            "progress-permits-fetch",
+            source = Arg::Words {
+                en: "district borders".into(),
+                de: "Bezirksgrenzen".into(),
+            }
+        );
+        assert!(note.to_string().contains("district borders"), "{note}");
+        let german = note.text(&de(), &|e, _| e.to_string());
+        assert!(german.contains("Bezirksgrenzen"), "{german}");
     }
 
     #[test]

@@ -211,8 +211,12 @@ fn regional_answers(
             if !plain_key(info.key) || !info.layers.iter().all(|l| plain_key(l)) {
                 continue;
             }
-            let label = format!("{}: {}", info.label.en, info.what.en);
-            progress(note!("progress-permits-fetch", source = label.as_str()));
+            // The publisher and what the source holds, in the language of the run.
+            let label = || Arg::Words {
+                en: format!("{}: {}", info.label.en, info.what.en),
+                de: format!("{}: {}", info.label.de, info.what.de),
+            };
+            progress(note!("progress-permits-fetch", source = label()));
             let answer = crate::adapters::asking(adapter, fetcher, |fetcher| {
                 source.fetch(fetcher, &rect, part)
             });
@@ -238,7 +242,7 @@ fn regional_answers(
                     let reason = e.to_string();
                     progress(note!(
                         "warning-permits-source-unreachable",
-                        source = label.as_str(),
+                        source = label(),
                         error = Arg::error(e)
                     ));
                     SourceInput::Unreachable { reason }
@@ -1225,6 +1229,52 @@ mod tests {
         assert!(!stored.join("denkmale-denkmale.geojson").exists());
         let (offline, _) = fetch(&project, dir.path(), &fetcher, &cache, true);
         assert_eq!(offline.unwrap(), inputs);
+    }
+
+    /// The progress and warning lines name a source of an adapter in the language of the run
+    /// (review finding 7).
+    #[test]
+    fn regional_sources_are_named_in_the_language_of_the_run() {
+        let (dir, project) = viktoriapark();
+        let fetcher = MapFetcher::default();
+        serve_berlin(&fetcher, &project);
+        fetcher
+            .refusing
+            .borrow_mut()
+            .push("https://gdi.berlin.de/services/wfs/denkmale".to_string());
+        let (_root, cache) = empty_cache();
+        let mut notes: Vec<Note> = Vec::new();
+        fetch_inputs(&project, dir.path(), &fetcher, &cache, false, &mut |n| {
+            notes.push(n)
+        })
+        .unwrap();
+        let de = crate::note::NOTES.parse_lang_arg("de").unwrap();
+        let german: Vec<String> = notes
+            .iter()
+            .map(|n| n.text(&de, &|e, _| e.to_string()))
+            .collect();
+        assert!(
+            german
+                .iter()
+                .any(|l| l.contains("Geoportal Berlin: Bezirksgrenzen (ALKIS Berlin)")),
+            "{german:#?}"
+        );
+        assert!(
+            german.iter().any(|l| l.starts_with("Warnung: ")
+                && l.contains("Geoportal Berlin: Denkmale (Denkmalkarte)")),
+            "{german:#?}"
+        );
+        assert!(
+            !german.iter().any(|l| l.contains("Bezirk borders")),
+            "{german:#?}"
+        );
+        let english: Vec<String> = notes.iter().map(ToString::to_string).collect();
+        assert!(
+            english
+                .iter()
+                .any(|l| l.contains("Geoportal Berlin: Bezirk borders (ALKIS Berlin)")),
+            "{english:#?}"
+        );
     }
 
     #[test]
