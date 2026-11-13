@@ -151,7 +151,16 @@ impl WfsService {
     /// URL of the page of `type_name` features in `bbox` (in [`WfsService::crs`]) starting at
     /// feature `start`.
     pub fn wfs_url(&self, type_name: &str, bbox: &BoundingBox, start: usize) -> String {
-        let sort = if self.sorted { "&SORTBY=oid" } else { "" };
+        self.page_url(type_name, bbox, start, "oid")
+    }
+
+    /// [`Self::wfs_url`] with the pages sorted by the attribute `key`.
+    fn page_url(&self, type_name: &str, bbox: &BoundingBox, start: usize, key: &str) -> String {
+        let sort = if self.sorted {
+            format!("&SORTBY={key}")
+        } else {
+            String::new()
+        };
         format!(
             "{}{sort}&COUNT={PAGE_COUNT}&STARTINDEX={start}",
             self.query_url(type_name, bbox)
@@ -369,9 +378,9 @@ fn attribute(name: &str) -> String {
 }
 
 /// Whether the child `name` of a feature holds its geometry: `geometrie` in the schema,
-/// `SHAPE` from an ArcGIS server.
+/// `SHAPE` from an ArcGIS server, `geom` in the views of Baden-Württemberg.
 fn is_geometry(name: &str) -> bool {
-    matches!(attribute(name).as_str(), "geometrie" | "shape")
+    matches!(attribute(name).as_str(), "geometrie" | "shape" | "geom")
 }
 
 /// The element name without its namespace prefix.
@@ -387,6 +396,20 @@ pub fn fetch_wfs(
     service: &WfsService,
     type_name: &str,
     bbox: &BoundingBox,
+) -> Result<Vec<Value>, FetchError> {
+    fetch_wfs_by(fetcher, service, type_name, bbox, "oid")
+}
+
+/// [`fetch_wfs`] for a service outside the simplified schema: `key` is the attribute that
+/// names a feature there (`gml_id` in Baden-Württemberg), by which the pages are sorted and a
+/// repeated feature is known. The features keep the attributes of the service; who asks turns
+/// them into the schema.
+pub fn fetch_wfs_by(
+    fetcher: &dyn Fetcher,
+    service: &WfsService,
+    type_name: &str,
+    bbox: &BoundingBox,
+    key: &str,
 ) -> Result<Vec<Value>, FetchError> {
     let name = &service.name;
     let get = |url: &str| -> Result<String, FetchError> {
@@ -413,13 +436,13 @@ pub fn fetch_wfs(
     let mut seen = std::collections::HashSet::new();
     let mut start = 0;
     loop {
-        let url = service.wfs_url(type_name, bbox, start);
+        let url = service.page_url(type_name, bbox, start, key);
         let page = parse_gml(&get(&url)?).map_err(FetchError::Alkis)?;
         let full = page.len() >= PAGE_COUNT;
         let mut new = false;
         for feature in page {
-            let fresh = match feature["properties"]["oid"].as_str() {
-                Some(oid) => seen.insert(oid.to_string()),
+            let fresh = match feature["properties"][key].as_str() {
+                Some(id) => seen.insert(id.to_string()),
                 None => true,
             };
             if fresh {
@@ -442,8 +465,8 @@ pub fn fetch_wfs(
     if !service.sorted {
         // The order the service did not give: two runs over one area write the same.
         features.sort_by(|a, b| {
-            let oid = |feature: &Value| feature["properties"]["oid"].as_str().map(str::to_string);
-            oid(a).cmp(&oid(b))
+            let id = |feature: &Value| feature["properties"][key].as_str().map(str::to_string);
+            id(a).cmp(&id(b))
         });
     }
     Ok(features)
@@ -515,6 +538,13 @@ pub mod test_support {
     pub const SL_BUILDINGS: &str =
         include_str!("../../../tests/fixtures/saarland-wfs-gebaeude.gml");
     pub const SL_LAND_USE: &str = include_str!("../../../tests/fixtures/saarland-wfs-nutzung.gml");
+    /// Three buildings and three land use areas at a school in Stuttgart, from the ALKIS WFS of
+    /// the LGL (GeoServer views, not the simplified schema): the id in `gml_id`, the geometry
+    /// in `geom`, names of their own for the attributes.
+    pub const BW_BUILDINGS: &str =
+        include_str!("../../../tests/fixtures/baden-wuerttemberg-buildings.gml");
+    pub const BW_LAND_USE: &str =
+        include_str!("../../../tests/fixtures/baden-wuerttemberg-land-use.gml");
 }
 
 #[cfg(test)]
@@ -713,6 +743,85 @@ mod tests {
                 "DESLALKI4T001GlcBL",
                 "DESLALKI4T00third"
             ]
+        );
+    }
+
+    /// The views of Baden-Württemberg call the geometry `geom`. It is read like `geometrie`;
+    /// the attributes keep the names the service gives them.
+    #[test]
+    fn a_geometry_named_geom_is_read() {
+        let buildings = parse_gml(BW_BUILDINGS).unwrap();
+        assert_eq!(buildings.len(), 3);
+        let garage = &buildings[0];
+        assert_eq!(garage["properties"]["gml_id"], "DEBWL52210003w2f");
+        assert_eq!(garage["properties"]["gebaeudefunktion_name"], "Tiefgarage");
+        assert!(garage["properties"].get("geom").is_none());
+        assert_eq!(garage["geometry"]["type"], "MultiPolygon");
+        assert_eq!(
+            garage["geometry"]["coordinates"][0][0][0],
+            serde_json::json!([511909.38, 5403830.2])
+        );
+        let land_use = parse_gml(BW_LAND_USE).unwrap();
+        assert_eq!(land_use.len(), 3);
+        assert_eq!(
+            land_use[1]["properties"]["unterart_name"],
+            "Öffentliche Zwecke"
+        );
+        assert_eq!(land_use[1]["geometry"]["type"], "MultiPolygon");
+    }
+
+    /// A service outside the simplified schema has no `oid`. Its pages are sorted by the
+    /// attribute that names a feature there, and a feature repeated on a later page is kept
+    /// once by that attribute.
+    #[test]
+    fn a_service_with_a_key_of_its_own_is_paged_by_it() {
+        let bbox = BoundingBox {
+            min_e: 511_780.0,
+            min_n: 5_403_760.0,
+            max_e: 511_920.0,
+            max_n: 5_403_930.0,
+        };
+        let service = WfsService {
+            url: "https://owsproxy.lgl-bw.de/owsproxy/wfs/WFS_LGL-BW_ALKIS".into(),
+            ..LVERMGEO_RP
+        };
+        let type_name = "nora:v_al_gebaeude";
+        let members: Vec<&str> = BW_BUILDINGS
+            .split("<wfs:member>")
+            .skip(1)
+            .map(|rest| rest.split("</wfs:member>").next().unwrap())
+            .collect();
+        let head = BW_BUILDINGS.split("<wfs:member>").next().unwrap();
+        let page = |members: &[&str]| {
+            let body: String = members
+                .iter()
+                .map(|member| format!("<wfs:member>{member}</wfs:member>"))
+                .collect();
+            format!("{head}{body}</wfs:FeatureCollection>").into_bytes()
+        };
+        let query = service.query_url(type_name, &bbox);
+        let fetcher = MapFetcher::default();
+        fetcher.insert_prefix(
+            &format!("{query}&RESULTTYPE=hits"),
+            format!("{head}</wfs:FeatureCollection>").into_bytes(),
+        );
+        fetcher.insert(
+            &format!("{query}&SORTBY=gml_id&COUNT={PAGE_COUNT}&STARTINDEX=0"),
+            page(&members[..2]),
+        );
+        // The second page repeats a feature of the first.
+        fetcher.insert(
+            &format!("{query}&SORTBY=gml_id&COUNT={PAGE_COUNT}&STARTINDEX={PAGE_COUNT}"),
+            page(&members[1..]),
+        );
+        let features = fetch_wfs_by(&fetcher, &service, type_name, &bbox, "gml_id").unwrap();
+        let ids: Vec<&str> = features
+            .iter()
+            .map(|feature| feature["properties"]["gml_id"].as_str().unwrap())
+            .collect();
+        assert_eq!(
+            ids,
+            ["DEBWL52210003w2f", "DEBWL52210003w4m", "DEBWL52210003xQ7"]
         );
     }
 

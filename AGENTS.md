@@ -12,8 +12,8 @@ advice). Map kinds: `schoolyard` (1:1000), `sprint` (ISSprOM 2019, 1:4000 or 1:5
 1:15000, 1:10000 or 1:7500; the OSM paths on the map, for a quick training in a small forest).
 
 Supported states: Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein,
-Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony, Rhineland-Palatinate and
-Saarland. Bremen, Thuringia, Bavaria and Baden-Württemberg have no data sources yet; an area there fails with a message that says so. Tell the
+Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony, Rhineland-Palatinate,
+Saarland and Baden-Württemberg. Bremen, Thuringia and Bavaria have no data sources yet; an area there fails with a message that says so. Tell the
 user before you start if the place lies outside these states.
 
 ## Install

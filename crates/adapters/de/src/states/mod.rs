@@ -52,6 +52,7 @@ pub enum State {
     Niedersachsen,
     RheinlandPfalz,
     Saarland,
+    BadenWuerttemberg,
 }
 
 /// Who serves the rasters of a state (orthophoto, terrain and surface models).
@@ -79,6 +80,8 @@ pub enum Agency {
     LvermGeoRp,
     /// LVGL, Saarland (EPSG:25832).
     Lvgl,
+    /// LGL, Baden-Württemberg (EPSG:25832).
+    LglBw,
 }
 
 impl Agency {
@@ -96,6 +99,7 @@ impl Agency {
             Self::Lgln => "lgln",
             Self::LvermGeoRp => "lvermgeorp",
             Self::Lvgl => "lvgl",
+            Self::LglBw => "lglbw",
         }
     }
 
@@ -113,6 +117,7 @@ impl Agency {
             Self::Lgln => "lgln-dgm1",
             Self::LvermGeoRp => "lvermgeo-rp-dgm1",
             Self::Lvgl => "lvgl-dgm1",
+            Self::LglBw => "lgl-bw-dgm1",
         }
     }
 
@@ -130,13 +135,14 @@ impl Agency {
                 | Self::Lgln
                 | Self::LvermGeoRp
                 | Self::Lvgl
+                | Self::LglBw
         )
     }
 }
 
 impl State {
     /// All states, in the order they are listed and queried.
-    pub const ALL: [Self; 12] = [
+    pub const ALL: [Self; 13] = [
         Self::Brandenburg,
         Self::Berlin,
         Self::Saxony,
@@ -149,6 +155,7 @@ impl State {
         Self::Niedersachsen,
         Self::RheinlandPfalz,
         Self::Saarland,
+        Self::BadenWuerttemberg,
     ];
 
     /// The id of the adapter of the state: its name in the project file.
@@ -166,6 +173,7 @@ impl State {
             Self::Niedersachsen => "niedersachsen",
             Self::RheinlandPfalz => "rheinlandpfalz",
             Self::Saarland => "saarland",
+            Self::BadenWuerttemberg => "badenwuerttemberg",
         }
     }
 
@@ -184,6 +192,7 @@ impl State {
             Self::Niedersachsen => "DENI",
             Self::RheinlandPfalz => "DERP",
             Self::Saarland => "DESL",
+            Self::BadenWuerttemberg => "DEBW",
         }
     }
 
@@ -200,6 +209,7 @@ impl State {
             Self::Niedersachsen => Agency::Lgln,
             Self::RheinlandPfalz => Agency::LvermGeoRp,
             Self::Saarland => Agency::Lvgl,
+            Self::BadenWuerttemberg => Agency::LglBw,
         }
     }
 
@@ -213,7 +223,8 @@ impl State {
             | Self::NordrheinWestfalen
             | Self::Niedersachsen
             | Self::RheinlandPfalz
-            | Self::Saarland => Crs::Utm32,
+            | Self::Saarland
+            | Self::BadenWuerttemberg => Crs::Utm32,
             _ => Crs::Utm33,
         }
     }
@@ -222,7 +233,7 @@ impl State {
 /// The manifests of the states, in the order of [`State::ALL`]. A manifest holds what a state
 /// declares: who it is, its OSM extracts, its ALKIS service, its credit, its preview and which
 /// code fetches its rasters.
-const MANIFESTS: [&str; 12] = [
+const MANIFESTS: [&str; 13] = [
     include_str!("../../manifests/brandenburg/manifest.toml"),
     include_str!("../../manifests/berlin/manifest.toml"),
     include_str!("../../manifests/saxony/manifest.toml"),
@@ -235,6 +246,7 @@ const MANIFESTS: [&str; 12] = [
     include_str!("../../manifests/niedersachsen/manifest.toml"),
     include_str!("../../manifests/rheinlandpfalz/manifest.toml"),
     include_str!("../../manifests/saarland/manifest.toml"),
+    include_str!("../../manifests/badenwuerttemberg/manifest.toml"),
 ];
 
 /// The boundaries of the five OSM extracts of North Rhine-Westphalia: Geofabrik's
@@ -263,6 +275,28 @@ const NRW_EXTRACT_BOUNDARIES: [(&str, &str); 5] = [
     ),
 ];
 
+/// The boundaries of the four OSM extracts of Baden-Württemberg: Geofabrik's
+/// `<district>-regbez.poly` in EPSG:25833, simplified 25 m (ODbL). Together they cover the
+/// state; none reaches across the Rhine or into Bavaria.
+const BW_EXTRACT_BOUNDARIES: [(&str, &str); 4] = [
+    (
+        "osm-freiburg.geojson",
+        include_str!("../../manifests/badenwuerttemberg/osm-freiburg.geojson"),
+    ),
+    (
+        "osm-karlsruhe.geojson",
+        include_str!("../../manifests/badenwuerttemberg/osm-karlsruhe.geojson"),
+    ),
+    (
+        "osm-stuttgart.geojson",
+        include_str!("../../manifests/badenwuerttemberg/osm-stuttgart.geojson"),
+    ),
+    (
+        "osm-tuebingen.geojson",
+        include_str!("../../manifests/badenwuerttemberg/osm-tuebingen.geojson"),
+    ),
+];
+
 /// The text of the manifest of `state`.
 pub fn manifest_text(state: State) -> &'static str {
     let index = State::ALL
@@ -277,13 +311,18 @@ pub struct StateFiles(pub State);
 
 impl AdapterFiles for StateFiles {
     fn read(&self, name: &str) -> Result<Cow<'static, str>, String> {
+        // The boundaries of the OSM extracts of the states that have more than one.
+        let extracts: &[(&str, &str)] = match self.0 {
+            State::NordrheinWestfalen => &NRW_EXTRACT_BOUNDARIES,
+            State::BadenWuerttemberg => &BW_EXTRACT_BOUNDARIES,
+            _ => &[],
+        };
         let text = match name {
             "boundary.geojson" => boundary_text(self.0.id()),
-            _ if self.0 == State::NordrheinWestfalen => NRW_EXTRACT_BOUNDARIES
+            _ => extracts
                 .iter()
                 .find(|(file, _)| *file == name)
                 .map(|(_, text)| *text),
-            _ => None,
         };
         text.map(Cow::Borrowed)
             .ok_or_else(|| "the file is not built in".to_string())
@@ -305,11 +344,12 @@ pub fn backend_name(agency: Agency) -> Option<&'static str> {
         Agency::Lgln => Some("lgln"),
         Agency::LvermGeoRp => Some("lvermgeo-rp"),
         Agency::Lvgl => Some("lvgl"),
+        Agency::LglBw => Some("lgl-bw"),
     }
 }
 
 /// The agencies whose rasters code of this crate fetches, in the order of the states.
-const AGENCIES: [Agency; 11] = [
+const AGENCIES: [Agency; 12] = [
     Agency::Lgb,
     Agency::GeoSn,
     Agency::LvermGeo,
@@ -321,6 +361,7 @@ const AGENCIES: [Agency; 11] = [
     Agency::Lgln,
     Agency::LvermGeoRp,
     Agency::Lvgl,
+    Agency::LglBw,
 ];
 
 /// Adds the raster backends of this crate to `registry`, each under the name the manifests
@@ -339,14 +380,14 @@ pub fn register_backends(registry: &mut Registry) -> Result<(), DuplicateBackend
 /// From the manifest come the identity, the OSM extracts and their boundaries, the ALKIS
 /// service, the full ALKIS and the tree cadastres, the raster backend (by name, or the services
 /// the manifest declares) and the credit of the states whose credit is one line with a year.
-/// Code are the ALKIS of Berlin, the credits of Brandenburg, Berlin and Saxony (they depend on
+/// Code are the ALKIS of Berlin and of Baden-Württemberg, the credits of Brandenburg, Berlin and Saxony (they depend on
 /// tiles, on the neighbour and on the layers that drew objects) and the download estimate.
 /// Whatever is asked for the state, by its manifest or by its code, stays on the hosts the
 /// manifest declares.
 pub struct StateAdapter {
     state: State,
     manifest: ManifestAdapter,
-    /// The ALKIS source where the manifest declares none (Berlin).
+    /// The ALKIS source where the manifest declares none (Berlin, Baden-Württemberg).
     alkis: Option<Box<dyn AlkisSource>>,
     /// The sets of extra layers the state fetches with code (Berlin's registers and surveys).
     extras: Vec<Box<dyn ExtraSet>>,
@@ -568,7 +609,7 @@ mod tests {
                 services.push((&one.wms, &one.layer));
             }
         }
-        assert_eq!(services.len(), 11);
+        assert_eq!(services.len(), 12);
         assert_eq!(previews[0], previews[1]);
     }
 
@@ -608,7 +649,7 @@ mod tests {
     }
 
     /// Berlin brings the five services of the Geoportal Berlin for the permit notes (ADR
-    /// 0118), all on hosts of its manifest. No other state brings one yet.
+    /// 0120), all on hosts of its manifest. No other state brings one yet.
     #[test]
     fn berlin_alone_brings_permit_sources() {
         for adapter in adapters() {
@@ -694,7 +735,7 @@ mod tests {
         }
         let mut registry = Registry::new();
         register(&mut registry).unwrap();
-        assert_eq!(registry.len(), 12);
+        assert_eq!(registry.len(), 13);
         assert_eq!(
             registry.backend_names().collect::<Vec<_>>(),
             [
@@ -703,6 +744,7 @@ mod tests {
                 "hvbg",
                 "laiv-mv",
                 "lgb",
+                "lgl-bw",
                 "lgln",
                 "lgv",
                 "lvermgeo-rp",

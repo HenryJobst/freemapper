@@ -9,16 +9,16 @@ use geo::{Area as _, Contains as _, Simplify as _};
 
 use super::contours::{contour_lines, gaussian_smooth};
 use super::terrain::gradient;
-use crate::measure::PaperMm;
+use crate::measure::{SymbolMm, SymbolScale};
 use crate::raster::{GridSpec, Raster};
 
 /// Smoothing before knolls and depressions are looked for: DGM1 noise makes false tops.
 const KNOLL_SIGMA_M: f64 = 1.0;
 /// Step of the fine contours that outline a knoll.
 const RING_STEP_M: f64 = 0.25;
-/// Widest knoll or depression, on paper and at least on the ground: wider ones are shown by
-/// the contours.
-const MAX_DIAMETER_MM: PaperMm = PaperMm(5.0);
+/// Widest knoll or depression, on paper (enlarged like the symbols) and at least on the
+/// ground: wider ones are shown by the contours.
+const MAX_DIAMETER_MM: SymbolMm = SymbolMm(5.0);
 const MAX_DIAMETER_M: f64 = 10.0;
 /// Narrowest knoll or depression on the ground.
 const MIN_DIAMETER_M: f64 = 2.0;
@@ -36,8 +36,8 @@ const STEEP_GRADIENT: f64 = 0.5;
 const DROP_REACH_M: f64 = 3.0;
 /// A bank holds most of the drop of twice the reach; a plain slope only half.
 const MIN_DROP_SHARE: f64 = 0.7;
-/// Shortest bank on paper, and on the ground.
-const MIN_BANK_MM: PaperMm = PaperMm(2.0);
+/// Shortest bank on paper (enlarged like the symbols), and on the ground.
+const MIN_BANK_MM: SymbolMm = SymbolMm(2.0);
 const MIN_BANK_M: f64 = 4.0;
 /// A steep patch at least this much longer than wide is a bank; a rounder one is a hillside.
 const MIN_BANK_ELONGATION: f64 = 2.0;
@@ -116,13 +116,11 @@ pub struct LandformError(String);
 /// contours of the map do not show them.
 pub fn knolls_and_depressions(
     dtm: &Raster<f32>,
-    scale_denominator: u32,
+    scale: SymbolScale,
     min_height_m: f64,
 ) -> Vec<Landform> {
     let smoothed = gaussian_smooth(dtm, KNOLL_SIGMA_M);
-    let max_diameter_m = MAX_DIAMETER_MM
-        .metres(scale_denominator)
-        .max(MAX_DIAMETER_M);
+    let max_diameter_m = MAX_DIAMETER_MM.metres(scale).max(MAX_DIAMETER_M);
     let limits = FormLimits {
         min_height_m,
         min_area_m2: std::f64::consts::PI * (MIN_DIAMETER_M / 2.0).powi(2),
@@ -303,7 +301,7 @@ fn cell_centre(grid: &GridSpec, x: i64, y: i64) -> (f64, f64) {
 
 /// Earth banks and cliffs: steep, long and narrow patches of the DTM whose drop is at least
 /// `min_height_m` and lies mostly within the patch.
-pub fn height_jumps(dtm: &Raster<f32>, scale_denominator: u32, min_height_m: f64) -> Vec<Landform> {
+pub fn height_jumps(dtm: &Raster<f32>, scale: SymbolScale, min_height_m: f64) -> Vec<Landform> {
     let grid = dtm.grid;
     let (w, h) = (grid.width as usize, grid.height as usize);
     let px = grid.pixel_size;
@@ -320,7 +318,7 @@ pub fn height_jumps(dtm: &Raster<f32>, scale_denominator: u32, min_height_m: f64
         .iter()
         .map(|g| g.is_some_and(|(de, dn)| de.hypot(dn) >= STEEP_GRADIENT))
         .collect();
-    let min_length_m = MIN_BANK_MM.metres(scale_denominator).max(MIN_BANK_M);
+    let min_length_m = MIN_BANK_MM.metres(scale).max(MIN_BANK_M);
     // The height at a point, `None` off the raster or on a cell without data.
     let height_at = |(e, n): (f64, f64)| -> Option<f64> {
         let x = ((e - grid.west) / px).floor();
@@ -628,7 +626,11 @@ pub fn landforms_from_geojson(text: &str) -> Result<Vec<Landform>, LandformError
 mod tests {
     use super::*;
 
-    const SPRINT: u32 = 4000;
+    use crate::project::MapKind;
+
+    fn sprint() -> SymbolScale {
+        SymbolScale::new(MapKind::Sprint, 4000)
+    }
 
     /// `size` × `size` DTM with 1 m pixels, west 0, north `size`; `z(e, n)` at pixel centres.
     fn dtm(size: u32, z: impl Fn(f64, f64) -> f64) -> Raster<f32> {
@@ -664,7 +666,7 @@ mod tests {
     #[test]
     fn a_two_metre_bump_is_a_knoll() {
         let b = bump(30.0, 30.0, 2.0, 2.5, 2.5);
-        let forms = knolls_and_depressions(&dtm(60, |e, n| 40.0 + b(e, n)), SPRINT, 1.0);
+        let forms = knolls_and_depressions(&dtm(60, |e, n| 40.0 + b(e, n)), sprint(), 1.0);
         assert_eq!(forms.len(), 1, "{forms:?}");
         assert_eq!(forms[0].kind, LandformKind::Knoll);
         assert!(near(forms[0].points[0], (30.0, 30.0), 1.0), "{forms:?}");
@@ -677,11 +679,15 @@ mod tests {
     #[test]
     fn a_low_bump_is_no_knoll() {
         let b = bump(30.0, 30.0, 0.6, 2.5, 2.5);
-        let forms = knolls_and_depressions(&dtm(60, |e, n| 40.0 + b(e, n)), SPRINT, 1.0);
+        let forms = knolls_and_depressions(&dtm(60, |e, n| 40.0 + b(e, n)), sprint(), 1.0);
         assert!(forms.is_empty(), "{forms:?}");
         // On a schoolyard map half a metre is enough.
         let b = bump(30.0, 30.0, 1.2, 2.0, 2.0);
-        let forms = knolls_and_depressions(&dtm(60, |e, n| 40.0 + b(e, n)), 1000, 0.5);
+        let forms = knolls_and_depressions(
+            &dtm(60, |e, n| 40.0 + b(e, n)),
+            SymbolScale::new(MapKind::Sprint, 1000),
+            0.5,
+        );
         assert_eq!(forms.len(), 1, "{forms:?}");
     }
 
@@ -689,7 +695,7 @@ mod tests {
     fn a_wide_hill_is_no_knoll() {
         // 3 m high and some 40 m across: the 2 m contours show it.
         let b = bump(50.0, 50.0, 3.0, 10.0, 10.0);
-        let forms = knolls_and_depressions(&dtm(100, |e, n| 40.0 + b(e, n)), SPRINT, 1.0);
+        let forms = knolls_and_depressions(&dtm(100, |e, n| 40.0 + b(e, n)), sprint(), 1.0);
         assert!(forms.is_empty(), "{forms:?}");
     }
 
@@ -697,7 +703,7 @@ mod tests {
     fn an_elongated_bump_has_its_rotation() {
         // Long along the north-south axis.
         let b = bump(30.0, 30.0, 2.0, 1.5, 4.0);
-        let forms = knolls_and_depressions(&dtm(60, |e, n| 40.0 + b(e, n)), SPRINT, 1.0);
+        let forms = knolls_and_depressions(&dtm(60, |e, n| 40.0 + b(e, n)), sprint(), 1.0);
         assert_eq!(forms.len(), 1, "{forms:?}");
         assert_eq!(forms[0].kind, LandformKind::ElongatedKnoll);
         assert!((forms[0].rotation_deg - 90.0).abs() < 10.0, "{forms:?}");
@@ -706,7 +712,7 @@ mod tests {
     #[test]
     fn a_pit_is_a_depression() {
         let b = bump(30.0, 30.0, 1.8, 2.5, 2.5);
-        let forms = knolls_and_depressions(&dtm(60, |e, n| 40.0 - b(e, n)), SPRINT, 1.0);
+        let forms = knolls_and_depressions(&dtm(60, |e, n| 40.0 - b(e, n)), sprint(), 1.0);
         assert_eq!(forms.len(), 1, "{forms:?}");
         assert_eq!(forms[0].kind, LandformKind::Depression);
         assert!(near(forms[0].points[0], (30.0, 30.0), 1.0), "{forms:?}");
@@ -718,14 +724,16 @@ mod tests {
             bump(20.0, 30.0, 2.0, 2.0, 2.0),
             bump(42.0, 30.0, 1.8, 2.0, 2.0),
         );
-        let forms = knolls_and_depressions(&dtm(60, |e, n| 40.0 + a(e, n) + b(e, n)), SPRINT, 1.0);
+        let forms =
+            knolls_and_depressions(&dtm(60, |e, n| 40.0 + a(e, n) + b(e, n)), sprint(), 1.0);
         assert_eq!(forms.len(), 2, "{forms:?}");
     }
 
     #[test]
     fn a_knoll_on_a_slope_is_found() {
         let b = bump(30.0, 30.0, 2.0, 2.5, 2.5);
-        let forms = knolls_and_depressions(&dtm(60, |e, n| 40.0 + 0.05 * e + b(e, n)), SPRINT, 1.0);
+        let forms =
+            knolls_and_depressions(&dtm(60, |e, n| 40.0 + 0.05 * e + b(e, n)), sprint(), 1.0);
         assert_eq!(forms.len(), 1, "{forms:?}");
     }
 
@@ -734,8 +742,8 @@ mod tests {
         // A few centimetres of DGM1 noise on a gentle slope.
         let noise = |e: f64, n: f64| 0.05 * ((e * 12.9898 + n * 78.233).sin() * 43758.5453).fract();
         let terrain = dtm(80, |e, n| 40.0 + 0.03 * n + noise(e, n));
-        assert!(knolls_and_depressions(&terrain, SPRINT, 1.0).is_empty());
-        assert!(height_jumps(&terrain, SPRINT, 1.0).is_empty());
+        assert!(knolls_and_depressions(&terrain, sprint(), 1.0).is_empty());
+        assert!(height_jumps(&terrain, sprint(), 1.0).is_empty());
     }
 
     /// A step of `drop` metres down to the east at e = 30, spread over two metres.
@@ -745,7 +753,7 @@ mod tests {
 
     #[test]
     fn a_step_is_a_bank_with_the_low_side_right() {
-        let jumps = height_jumps(&dtm(60, step(1.5)), SPRINT, 1.0);
+        let jumps = height_jumps(&dtm(60, step(1.5)), sprint(), 1.0);
         assert_eq!(jumps.len(), 1, "{jumps:?}");
         let bank = &jumps[0];
         assert_eq!(bank.kind, LandformKind::Bank);
@@ -766,7 +774,7 @@ mod tests {
             let edge = 30.0 + 2.0 * ((n / 2.0).floor() as i64 % 2) as f64;
             40.0 + 1.5 / (1.0 + (-(e - edge) * 3.0).exp())
         };
-        let jumps = height_jumps(&dtm(60, ragged), SPRINT, 1.0);
+        let jumps = height_jumps(&dtm(60, ragged), sprint(), 1.0);
         assert_eq!(jumps.len(), 1, "{jumps:?}");
         let points = &jumps[0].points;
         assert!(points.len() <= 4, "{points:?}");
@@ -815,7 +823,7 @@ mod tests {
         // (0, 30), and they meet at a corner.
         let jumps = height_jumps(
             &dtm(60, terrace(|e, n| (30.0 - e).min(30.0 - n))),
-            SPRINT,
+            sprint(),
             1.0,
         );
         follow(
@@ -830,7 +838,7 @@ mod tests {
         // A channel 20 m wide sunk into a terrace, open to the south.
         let jumps = height_jumps(
             &dtm(60, terrace(|e, n| (20.0 - e).max(e - 40.0).max(n - 35.0))),
-            SPRINT,
+            sprint(),
             1.0,
         );
         follow(
@@ -856,25 +864,25 @@ mod tests {
 
     #[test]
     fn a_high_step_is_a_cliff() {
-        let jumps = height_jumps(&dtm(60, step(4.0)), SPRINT, 1.0);
+        let jumps = height_jumps(&dtm(60, step(4.0)), sprint(), 1.0);
         assert_eq!(jumps.len(), 1, "{jumps:?}");
         assert_eq!(jumps[0].kind, LandformKind::Cliff);
     }
 
     #[test]
     fn a_low_step_is_no_bank() {
-        assert!(height_jumps(&dtm(60, step(0.6)), SPRINT, 1.0).is_empty());
+        assert!(height_jumps(&dtm(60, step(0.6)), sprint(), 1.0).is_empty());
     }
 
     #[test]
     fn a_gentle_slope_gives_nothing() {
-        assert!(height_jumps(&dtm(60, |e, _| 40.0 + 0.3 * e), SPRINT, 1.0).is_empty());
+        assert!(height_jumps(&dtm(60, |e, _| 40.0 + 0.3 * e), sprint(), 1.0).is_empty());
     }
 
     #[test]
     fn a_wide_steep_hillside_gives_nothing() {
         // A uniform 40° slope: steep everywhere, but no jump.
-        assert!(height_jumps(&dtm(60, |e, _| 40.0 + 0.85 * e), SPRINT, 1.0).is_empty());
+        assert!(height_jumps(&dtm(60, |e, _| 40.0 + 0.85 * e), sprint(), 1.0).is_empty());
     }
 
     #[test]
@@ -885,7 +893,7 @@ mod tests {
                 terrain.set(x, y, f32::NAN);
             }
         }
-        assert!(height_jumps(&terrain, SPRINT, 1.0).is_empty());
+        assert!(height_jumps(&terrain, sprint(), 1.0).is_empty());
     }
 
     #[test]

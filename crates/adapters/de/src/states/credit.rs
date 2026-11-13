@@ -24,7 +24,8 @@ pub const BERLIN_SURVEY_ATTRIBUTION: &str =
 /// The building heights (footprint dates), once their layer has features.
 pub const BERLIN_HEIGHTS_ATTRIBUTION: &str =
     "Geoportal Berlin / Gebäudehöhen (Umweltatlas), dl-de/zero-2-0";
-/// The licence text the dl-de/by-2-0 credits of Rhineland-Palatinate and Saarland refer to
+/// The licence text the dl-de/by-2-0 credits of Rhineland-Palatinate, Saarland and
+/// Baden-Württemberg refer to
 /// (added to the project notes only).
 pub const DL_DE_BY_LICENCE_NOTE: &str = "Lizenz dl-de/by-2-0 (Datenlizenz Deutschland – Namensnennung – Version 2.0): https://www.govdata.de/dl-de/by-2-0";
 
@@ -103,6 +104,15 @@ pub fn lines(state: State, used: &UsedSources<'_>) -> Vec<CreditLine> {
         State::Saarland => year().map(|year| {
             CreditLine::with_licence(
                 format!("© GeoBasis DE/LVGL-SL ({year}), dl-de/by-2-0, Daten geändert"),
+                DL_DE_BY_LICENCE_NOTE,
+            )
+        }),
+        // The line the open-data page of the LGL prescribes, „Datenquelle: LGL, www.lgl-bw.de,
+        // dl-de/by-2-0“, kept whole; after it the note of changes and the year of the download,
+        // which the capabilities of the services ask for.
+        State::BadenWuerttemberg => year().map(|year| {
+            CreditLine::with_licence(
+                format!("Datenquelle: LGL, www.lgl-bw.de, dl-de/by-2-0 (Daten geändert, {year})"),
                 DL_DE_BY_LICENCE_NOTE,
             )
         }),

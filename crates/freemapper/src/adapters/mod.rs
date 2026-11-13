@@ -600,8 +600,8 @@ mod tests {
             crate::project::ProjectError::OutsideCoverage.to_string(),
             "the map area lies outside the supported states (Brandenburg, Berlin, Saxony, \
              Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, Mecklenburg-Vorpommern, \
-             North Rhine-Westphalia, Lower Saxony, Rhineland-Palatinate, Saarland); freemapper \
-             has data sources for those only so far"
+             North Rhine-Westphalia, Lower Saxony, Rhineland-Palatinate, Saarland, \
+             Baden-Württemberg); freemapper has data sources for those only so far"
         );
         assert_eq!(region_names(true)[2], "Sachsen");
     }
@@ -618,19 +618,19 @@ mod tests {
     }
 
     #[test]
-    fn registry_lists_the_twelve() {
+    fn registry_lists_the_thirteen() {
         let built_in = builtin();
         let ids: Vec<&str> = built_in.adapters().map(|a| a.info().id.as_str()).collect();
         let all: Vec<String> = regions::ALL.iter().map(ToString::to_string).collect();
         assert_eq!(ids, all);
-        assert_eq!(ids.len(), 12);
+        assert_eq!(ids.len(), 13);
         // The eleven that were code first, in the order the region functions always went
         // through them; a state added since comes after them.
         let legacy: Vec<String> = regions::LEGACY.iter().map(ToString::to_string).collect();
         assert_eq!(ids[..11], legacy);
-        assert_eq!(ids[11], "saarland");
+        assert_eq!(ids[11..], ["saarland", "badenwuerttemberg"]);
         // The registry of the process is the built-in one unless another was installed.
-        assert_eq!(registry().len(), 12);
+        assert_eq!(registry().len(), 13);
     }
 
     /// G1 records what the enums of v0.12.0 answered; the adapters must say the same.

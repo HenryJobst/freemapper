@@ -9,6 +9,7 @@
 
 use std::ops::{Add, Div};
 
+use crate::omap::SymbolSet;
 use crate::project::MapKind;
 
 /// Map coordinates (1/1000 mm on paper) per millimetre on paper.
@@ -38,6 +39,16 @@ impl SymbolScale {
         Self {
             scale_denominator,
             enlargement: kind.symbol_enlargement(scale_denominator),
+        }
+    }
+
+    /// The scale of a map at `scale_denominator` drawn with `symbol_set`, for a rule that gets
+    /// the symbol set and not the map kind. [`MapKind::symbol_set`] builds the set with the
+    /// enlargement of the kind, so both ways give the same scale.
+    pub fn drawn_with(symbol_set: &SymbolSet, scale_denominator: u32) -> Self {
+        Self {
+            scale_denominator,
+            enlargement: symbol_set.enlargement(),
         }
     }
 
@@ -171,6 +182,19 @@ mod tests {
         assert_eq!(SymbolMm(0.4).metres(school), 0.5);
         assert_eq!(SymbolMm(0.4).metres(forest), 6.0);
         assert_eq!(SymbolMm(0.4).map_units(school), 500.0);
+    }
+
+    #[test]
+    fn the_symbol_set_of_a_kind_carries_the_enlargement_of_the_kind() {
+        for kind in [MapKind::Schoolyard, MapKind::Sprint, MapKind::Forest] {
+            for &scale in kind.allowed_scales() {
+                assert_eq!(
+                    SymbolScale::drawn_with(&kind.symbol_set(scale), scale),
+                    SymbolScale::new(kind, scale),
+                    "{kind:?} 1:{scale}"
+                );
+            }
+        }
     }
 
     #[test]
