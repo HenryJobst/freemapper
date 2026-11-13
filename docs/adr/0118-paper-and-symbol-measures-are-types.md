@@ -55,23 +55,35 @@ wide, 0.60 mm with its half dots.
   the last bit on a forest map at 1:10000, and such a limit decides between lines whose distance is a whole
   number of map coordinates. Bringing the two in line is a change of the output and not part of this record.
 
-## Open: measures that do not grow with the symbols today
+## Addendum 2026-11-13: the norm's minimum sizes grow with the symbols
 
-These are `PaperMm` because the code did not enlarge them. Sprint maps are not affected (100 %); on a school
-map and a forest map they are smaller, relative to the symbols, than on a sprint map. Which of them the norm
-means as symbol measures is the user's decision; each change alters school and forest maps.
+The first step left every measure as it was and listed those that did not grow with the symbols. The user
+decided the same day: **what the norm names as a minimum size is a symbol measure; a tolerance of the
+computation is not.** Sprint maps draw their symbols at 100 % and stay as they were (the golden net passes
+without a blessed file). School maps (125 %) and forest maps at 1:10000 and 1:7500 (150 %, 200 %) keep fewer
+small objects.
 
-| Measure | Value | Where |
-|---|---|---|
-| Smallest building and canopy | 0.5 mm × 0.5 mm | `build/buildings.rs`, `build/canopy.rs` |
-| Shortest line of a line symbol by ISSprOM 4.5 (railway, power line, 528, 529) | 2.2 to 4 mm | `build/candidates.rs` |
-| Shortest line piece after a cut or a clip | 1 mm | `build/candidates.rs`, `build/line_cuts.rs`, `build/paved_borders.rs` |
-| Smallest piece of out-of-bounds land, paving, green and open land | 1 mm × 1 mm | `build/out_of_bounds.rs`, `build/paved.rs`, `build/open_land.rs` |
-| Tolerance of the area duplicates ("one thin line width") | 0.25 mm | `build/dedup.rs`, `build/firm_paths.rs`, `build/water.rs` |
-| Fountains of two sources are one | 0.75 mm, at least 3 m | `build/dedup.rs` |
-| Reach of a passage | 0.5 mm | `build/passages.rs` |
-| Contours: shortest line, smallest ring | 2 mm, 1.5 mm² | `derive/contours.rs` |
-| Landforms: largest knoll, shortest bank | 5 mm, 2 mm | `derive/landforms.rs` |
-| Smallest vegetation area | 1.5 mm × 1.5 mm | `derive/vegetation.rs` |
-| Simplification of outlines | 0.1 mm | buildings, canopies, tree groups, contours |
-| Longest bar scale | 60 mm | `build/peripheral.rs` (a measure of the sheet) |
+| Measure | Value at 100 % | Now | Where |
+|---|---|---|---|
+| Smallest building and canopy | 0.5 mm × 0.5 mm | grows | `build/buildings.rs`, `build/canopy.rs` |
+| Shortest line of a line symbol by ISSprOM 4.5 (railway, power line, 528, 529) | 2.2 to 4 mm | grows | `build/candidates.rs` |
+| Smallest piece of out-of-bounds land, paving, green, open land and water | 1 mm × 1 mm | grows | `build/out_of_bounds.rs`, `build/paved.rs`, `build/open_land.rs`, `build/water.rs` |
+| Contours: shortest line, smallest ring | 2 mm, 1.5 mm² | grows | `derive/contours.rs` |
+| Landforms: largest knoll, shortest bank | 5 mm, 2 mm | grows | `derive/landforms.rs` |
+| Smallest vegetation area | 1.5 mm × 1.5 mm | grows | `derive/vegetation.rs` |
+| Simplification of outlines | 0.1 mm | stays | buildings, canopies, tree groups, contours |
+| Tolerance of the area duplicates | 0.25 mm | stays | `build/dedup.rs`, `build/firm_paths.rs`, `build/water.rs` |
+| Fountains of two sources are one | 0.75 mm, at least 3 m | stays | `build/dedup.rs` |
+| Reach of a passage | 0.5 mm | stays | `build/passages.rs` |
+| Shortest line piece after a cut or a clip | 1 mm | stays, not decided | `build/candidates.rs`, `build/line_cuts.rs`, `build/paved_borders.rs` |
+| Longest bar scale | 60 mm | stays (a measure of the sheet) | `build/peripheral.rs` |
+
+- **The symbol set carries its enlargement** (`SymbolSet::enlargement`). Most of these rules get the symbol set
+  and not the map kind; `SymbolScale::drawn_with(symbol_set, scale)` gives them the scale without passing the
+  kind through some 15 functions. `MapKind::symbol_set` builds the set with the enlargement of the kind, and a
+  test holds the two together for every kind and scale.
+- The derive steps (contours, landforms, vegetation) take a `SymbolScale` instead of the scale denominator.
+  Their files in a project folder are as the derive step of that time wrote them: a school or forest project
+  gets the new limits when it is derived again.
+- The stubs of a cut line (1 mm) were in neither list of the decision and stay; they are a paper measure until
+  someone decides otherwise.
