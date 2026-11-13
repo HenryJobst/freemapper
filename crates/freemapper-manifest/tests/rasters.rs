@@ -351,6 +351,29 @@ fn the_surface_model_may_be_missing_and_the_terrain_model_may_not() {
     assert!(project.terrain.is_none());
 }
 
+/// When the service of the surface model fails, a stored model that covers the area stays, and
+/// one of another area goes with its file.
+#[test]
+fn a_failing_surface_model_keeps_a_covering_one_and_drops_another() {
+    let backend = DeclaredRasters::new(&valid("saxonyanhalt")).unwrap();
+    for covers in [true, false] {
+        let dir = tempfile::tempdir().unwrap();
+        let fetcher = MapFetcher::default();
+        serve(&fetcher);
+        let mut project = TestProject::new(dir.path());
+        fetch(&backend, &fetcher, &mut project, FetchMode::Online, false).unwrap();
+        let surface = dir.path().join("data/dom1.tif");
+        assert!(project.surface.is_some() && surface.exists());
+        if !covers {
+            project.surface.as_mut().unwrap().bbox[2] -= 50.0;
+        }
+        fetcher.refusing.borrow_mut().push(DOM.to_string());
+        fetch(&backend, &fetcher, &mut project, FetchMode::Online, false).unwrap();
+        assert_eq!(project.surface.is_some(), covers);
+        assert_eq!(surface.exists(), covers);
+    }
+}
+
 /// A manifest without a surface model: two rasters, no warning about a third.
 #[test]
 fn a_manifest_without_a_surface_model_fetches_two_rasters() {
