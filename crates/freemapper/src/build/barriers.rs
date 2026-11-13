@@ -188,10 +188,6 @@ pub fn resolve_barrier_overlaps(
         .collect();
     let metre = map_units_per_metre(georef.scale_denominator);
     let scale = SymbolScale::new(kind, georef.scale_denominator);
-    // The limits below take the map coordinates per symbol millimetre as one factor:
-    // `SymbolMm::map_units` enlarges first, which moves three of them by the last bit on a forest
-    // map at 1:10000, and a limit decides between lines whose distance is a whole number.
-    let paper = scale.map_units_per_symbol_mm();
     let length = |o: &MapObject| -> f64 {
         o.coords
             .windows(2)
@@ -235,7 +231,9 @@ pub fn resolve_barrier_overlaps(
 
     // The widest reach of a pair: two ranks, the widest symbols.
     let widest = SymbolMm(BARRIER_SYMBOLS.iter().map(|s| s.1.0).fold(0.0, f64::max));
-    let reach = ((LINE_GAP_MM + widest).0 * paper).max(SOURCE_TOLERANCE_M * metre);
+    let reach = (LINE_GAP_MM + widest)
+        .map_units(scale)
+        .max(SOURCE_TOLERANCE_M * metre);
     let mut segments = Segments::new(reach.max(BUILDING_EDGE_M * metre));
     for footprint in footprints {
         for ring in std::iter::once(footprint.exterior()).chain(footprint.interiors()) {
@@ -274,7 +272,7 @@ pub fn resolve_barrier_overlaps(
             } else {
                 SymbolMm(0.0)
             };
-            let gap = (gap + (b.width_mm + other.width_mm) / 2.0).0 * paper;
+            let gap = (gap + (b.width_mm + other.width_mm) / 2.0).map_units(scale);
             if other.rank != b.rank {
                 Some(gap.max(SOURCE_TOLERANCE_M * metre))
             } else if other.strength != b.strength {

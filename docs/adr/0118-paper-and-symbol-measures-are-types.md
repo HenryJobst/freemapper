@@ -87,3 +87,18 @@ small objects.
   gets the new limits when it is derived again.
 - The stubs of a cut line (1 mm) were in neither list of the decision and stay; they are a paper measure until
   someone decides otherwise.
+
+## Addendum 2026-11-13: the line stubs stay, the barrier limits convert like the rest
+
+Two points the record left open are closed.
+
+- **The shortest line piece after a cut or a clip stays 1 mm on the sheet** (`MIN_LINE_MM` in
+  `build/candidates.rs`, `MIN_PIECE_MM` in `build/line_cuts.rs`, `MIN_BORDER_MM` in `build/paved_borders.rs`).
+  The user decided it: the stub is what is left of a line the map cut itself, a limit of legibility on the
+  sheet and no minimum size of a symbol. The row "stays, not decided" of the table above reads "stays".
+- **The limits of the barrier overlaps convert with `SymbolMm::map_units`** like every other rule;
+  `SymbolScale::map_units_per_symbol_mm` is gone. On a forest map at 1:10000 (symbols at 150 %) two limits move
+  up by the last bit: 0.4 mm for a wall or fence beside a hedge (600 map coordinates) and 0.65 mm for a wall
+  or fence beside a retained wall (975). A line at exactly that distance now counts as too close. Sprint and
+  school maps and the other forest scales compute the same numbers as before; the golden net passes without
+  a blessed file, and the Dammheide example (forest, 1:10000) is rebuilt byte for byte.
