@@ -1,6 +1,7 @@
 //! The raster backend of each agency.
 
 use crate::geobasis_nrw::GeobasisNrwBackend;
+use crate::geobremen::GeoBremenBackend;
 use crate::geosn::GeosnBackend;
 use crate::hvbg::HvbgBackend;
 use crate::laiv_mv::LaivMvBackend;
@@ -31,5 +32,6 @@ pub fn backend(agency: Agency) -> Option<Box<dyn RasterBackend>> {
         Agency::LvermGeoRp => Box::new(LvermgeoRpBackend::new()),
         Agency::Lvgl => Box::new(LvglBackend::new()),
         Agency::LglBw => Box::new(LglBwBackend::new()),
+        Agency::GeoBremen => Box::new(GeoBremenBackend::new()),
     })
 }

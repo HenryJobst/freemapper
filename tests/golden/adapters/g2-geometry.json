@@ -1753,7 +1753,8 @@
   {
     "name": "border:ni-hb:0",
     "regions": [
-      "niedersachsen"
+      "niedersachsen",
+      "bremen"
     ],
     "raster_region": "niedersachsen",
     "provider_tiles": [],
@@ -1767,20 +1768,32 @@
         "centre_in": [
           "33484-5877"
         ]
+      },
+      {
+        "region": "bremen",
+        "touched": [
+          "33483-5877",
+          "33484-5877"
+        ],
+        "centre_in": [
+          "33483-5877"
+        ]
       }
     ],
-    "beyond_coverage": true,
+    "beyond_coverage": false,
     "extracts": [
-      "Lower Saxony"
+      "Lower Saxony",
+      "Bremen"
     ],
     "warnings": []
   },
   {
     "name": "border:ni-hb:1",
     "regions": [
-      "niedersachsen"
+      "niedersachsen",
+      "bremen"
     ],
-    "raster_region": null,
+    "raster_region": "bremen",
     "provider_tiles": [],
     "zone_32": [
       {
@@ -1793,20 +1806,36 @@
         "centre_in": [
           "33484-5877"
         ]
+      },
+      {
+        "region": "bremen",
+        "touched": [
+          "33484-5877",
+          "33484-5878",
+          "33485-5877",
+          "33485-5878"
+        ],
+        "centre_in": [
+          "33484-5878",
+          "33485-5877",
+          "33485-5878"
+        ]
       }
     ],
-    "beyond_coverage": true,
+    "beyond_coverage": false,
     "extracts": [
-      "Lower Saxony"
+      "Lower Saxony",
+      "Bremen"
     ],
     "warnings": []
   },
   {
     "name": "border:ni-hb:2",
     "regions": [
-      "niedersachsen"
+      "niedersachsen",
+      "bremen"
     ],
-    "raster_region": null,
+    "raster_region": "bremen",
     "provider_tiles": [],
     "zone_32": [
       {
@@ -1818,18 +1847,31 @@
         "centre_in": [
           "33485-5876"
         ]
+      },
+      {
+        "region": "bremen",
+        "touched": [
+          "33485-5876",
+          "33485-5877"
+        ],
+        "centre_in": [
+          "33485-5876",
+          "33485-5877"
+        ]
       }
     ],
-    "beyond_coverage": true,
+    "beyond_coverage": false,
     "extracts": [
-      "Lower Saxony"
+      "Lower Saxony",
+      "Bremen"
     ],
     "warnings": []
   },
   {
     "name": "border:ni-hb:3",
     "regions": [
-      "niedersachsen"
+      "niedersachsen",
+      "bremen"
     ],
     "raster_region": "niedersachsen",
     "provider_tiles": [],
@@ -1845,18 +1887,30 @@
           "33484-5876",
           "33484-5877"
         ]
+      },
+      {
+        "region": "bremen",
+        "touched": [
+          "33484-5877",
+          "33484-5878"
+        ],
+        "centre_in": [
+          "33484-5878"
+        ]
       }
     ],
-    "beyond_coverage": true,
+    "beyond_coverage": false,
     "extracts": [
-      "Lower Saxony"
+      "Lower Saxony",
+      "Bremen"
     ],
     "warnings": []
   },
   {
     "name": "border:ni-hb:4",
     "regions": [
-      "niedersachsen"
+      "niedersachsen",
+      "bremen"
     ],
     "raster_region": "niedersachsen",
     "provider_tiles": [],
@@ -1877,20 +1931,38 @@
           "33484-5877",
           "33485-5876"
         ]
+      },
+      {
+        "region": "bremen",
+        "touched": [
+          "33483-5876",
+          "33483-5877",
+          "33484-5877",
+          "33485-5876",
+          "33485-5877"
+        ],
+        "centre_in": [
+          "33483-5876",
+          "33483-5877",
+          "33485-5876",
+          "33485-5877"
+        ]
       }
     ],
-    "beyond_coverage": true,
+    "beyond_coverage": false,
     "extracts": [
-      "Lower Saxony"
+      "Lower Saxony",
+      "Bremen"
     ],
     "warnings": []
   },
   {
     "name": "border:ni-hb:5",
     "regions": [
-      "niedersachsen"
+      "niedersachsen",
+      "bremen"
     ],
-    "raster_region": null,
+    "raster_region": "bremen",
     "provider_tiles": [],
     "zone_32": [
       {
@@ -1900,20 +1972,37 @@
           "33497-5879"
         ],
         "centre_in": []
+      },
+      {
+        "region": "bremen",
+        "touched": [
+          "33496-5878",
+          "33496-5879",
+          "33497-5878",
+          "33497-5879"
+        ],
+        "centre_in": [
+          "33496-5878",
+          "33496-5879",
+          "33497-5878",
+          "33497-5879"
+        ]
       }
     ],
-    "beyond_coverage": true,
+    "beyond_coverage": false,
     "extracts": [
-      "Lower Saxony"
+      "Lower Saxony",
+      "Bremen"
     ],
     "warnings": []
   },
   {
     "name": "border:ni-hb:6",
     "regions": [
-      "niedersachsen"
+      "niedersachsen",
+      "bremen"
     ],
-    "raster_region": null,
+    "raster_region": "bremen",
     "provider_tiles": [],
     "zone_32": [
       {
@@ -1923,20 +2012,37 @@
           "33497-5879"
         ],
         "centre_in": []
+      },
+      {
+        "region": "bremen",
+        "touched": [
+          "33496-5878",
+          "33496-5879",
+          "33497-5878",
+          "33497-5879"
+        ],
+        "centre_in": [
+          "33496-5878",
+          "33496-5879",
+          "33497-5878",
+          "33497-5879"
+        ]
       }
     ],
-    "beyond_coverage": true,
+    "beyond_coverage": false,
     "extracts": [
-      "Lower Saxony"
+      "Lower Saxony",
+      "Bremen"
     ],
     "warnings": []
   },
   {
     "name": "border:ni-hb:7",
     "regions": [
-      "niedersachsen"
+      "niedersachsen",
+      "bremen"
     ],
-    "raster_region": "niedersachsen",
+    "raster_region": "bremen",
     "provider_tiles": [],
     "zone_32": [
       {
@@ -1951,18 +2057,32 @@
           "33498-5878",
           "33498-5879"
         ]
+      },
+      {
+        "region": "bremen",
+        "touched": [
+          "33497-5878",
+          "33497-5879",
+          "33498-5878"
+        ],
+        "centre_in": [
+          "33497-5878",
+          "33497-5879"
+        ]
       }
     ],
-    "beyond_coverage": true,
+    "beyond_coverage": false,
     "extracts": [
-      "Lower Saxony"
+      "Lower Saxony",
+      "Bremen"
     ],
     "warnings": []
   },
   {
     "name": "border:ni-hb:8",
     "regions": [
-      "niedersachsen"
+      "niedersachsen",
+      "bremen"
     ],
     "raster_region": "niedersachsen",
     "provider_tiles": [],
@@ -1977,20 +2097,36 @@
         "centre_in": [
           "33498-5878"
         ]
+      },
+      {
+        "region": "bremen",
+        "touched": [
+          "33497-5877",
+          "33497-5878",
+          "33498-5877",
+          "33498-5878"
+        ],
+        "centre_in": [
+          "33497-5877",
+          "33497-5878",
+          "33498-5877"
+        ]
       }
     ],
-    "beyond_coverage": true,
+    "beyond_coverage": false,
     "extracts": [
-      "Lower Saxony"
+      "Lower Saxony",
+      "Bremen"
     ],
     "warnings": []
   },
   {
     "name": "border:ni-hb:9",
     "regions": [
-      "niedersachsen"
+      "niedersachsen",
+      "bremen"
     ],
-    "raster_region": null,
+    "raster_region": "bremen",
     "provider_tiles": [],
     "zone_32": [
       {
@@ -2003,20 +2139,41 @@
         "centre_in": [
           "33497-5880"
         ]
+      },
+      {
+        "region": "bremen",
+        "touched": [
+          "33496-5878",
+          "33496-5879",
+          "33496-5880",
+          "33497-5878",
+          "33497-5879",
+          "33497-5880"
+        ],
+        "centre_in": [
+          "33496-5878",
+          "33496-5879",
+          "33496-5880",
+          "33497-5878",
+          "33497-5879",
+          "33497-5880"
+        ]
       }
     ],
-    "beyond_coverage": true,
+    "beyond_coverage": false,
     "extracts": [
-      "Lower Saxony"
+      "Lower Saxony",
+      "Bremen"
     ],
     "warnings": []
   },
   {
     "name": "border:ni-hb:10",
     "regions": [
-      "niedersachsen"
+      "niedersachsen",
+      "bremen"
     ],
-    "raster_region": null,
+    "raster_region": "bremen",
     "provider_tiles": [],
     "zone_32": [
       {
@@ -2033,18 +2190,36 @@
           "33473-5891",
           "33474-5890"
         ]
+      },
+      {
+        "region": "bremen",
+        "touched": [
+          "33473-5891",
+          "33473-5892",
+          "33474-5890",
+          "33474-5891",
+          "33474-5892"
+        ],
+        "centre_in": [
+          "33473-5891",
+          "33473-5892",
+          "33474-5891",
+          "33474-5892"
+        ]
       }
     ],
-    "beyond_coverage": true,
+    "beyond_coverage": false,
     "extracts": [
-      "Lower Saxony"
+      "Lower Saxony",
+      "Bremen"
     ],
     "warnings": []
   },
   {
     "name": "border:ni-hb:11",
     "regions": [
-      "niedersachsen"
+      "niedersachsen",
+      "bremen"
     ],
     "raster_region": "niedersachsen",
     "provider_tiles": [],
@@ -2062,20 +2237,34 @@
           "33473-5891",
           "33474-5890"
         ]
+      },
+      {
+        "region": "bremen",
+        "touched": [
+          "33473-5891",
+          "33474-5890",
+          "33474-5891"
+        ],
+        "centre_in": [
+          "33473-5891",
+          "33474-5891"
+        ]
       }
     ],
-    "beyond_coverage": true,
+    "beyond_coverage": false,
     "extracts": [
-      "Lower Saxony"
+      "Lower Saxony",
+      "Bremen"
     ],
     "warnings": []
   },
   {
     "name": "border:ni-hb:12",
     "regions": [
-      "niedersachsen"
+      "niedersachsen",
+      "bremen"
     ],
-    "raster_region": null,
+    "raster_region": "bremen",
     "provider_tiles": [],
     "zone_32": [
       {
@@ -2087,18 +2276,30 @@
         "centre_in": [
           "33474-5890"
         ]
+      },
+      {
+        "region": "bremen",
+        "touched": [
+          "33474-5890",
+          "33474-5891"
+        ],
+        "centre_in": [
+          "33474-5891"
+        ]
       }
     ],
-    "beyond_coverage": true,
+    "beyond_coverage": false,
     "extracts": [
-      "Lower Saxony"
+      "Lower Saxony",
+      "Bremen"
     ],
     "warnings": []
   },
   {
     "name": "border:ni-hb:13",
     "regions": [
-      "niedersachsen"
+      "niedersachsen",
+      "bremen"
     ],
     "raster_region": "niedersachsen",
     "provider_tiles": [],
@@ -2113,20 +2314,31 @@
           "33473-5890",
           "33473-5891"
         ]
+      },
+      {
+        "region": "bremen",
+        "touched": [
+          "33473-5891"
+        ],
+        "centre_in": [
+          "33473-5891"
+        ]
       }
     ],
-    "beyond_coverage": true,
+    "beyond_coverage": false,
     "extracts": [
-      "Lower Saxony"
+      "Lower Saxony",
+      "Bremen"
     ],
     "warnings": []
   },
   {
     "name": "border:ni-hb:14",
     "regions": [
-      "niedersachsen"
+      "niedersachsen",
+      "bremen"
     ],
-    "raster_region": null,
+    "raster_region": "bremen",
     "provider_tiles": [],
     "zone_32": [
       {
@@ -2138,24 +2350,48 @@
         "centre_in": [
           "33473-5891"
         ]
+      },
+      {
+        "region": "bremen",
+        "touched": [
+          "33473-5891",
+          "33473-5892"
+        ],
+        "centre_in": [
+          "33473-5891",
+          "33473-5892"
+        ]
       }
     ],
-    "beyond_coverage": true,
+    "beyond_coverage": false,
     "extracts": [
-      "Lower Saxony"
+      "Lower Saxony",
+      "Bremen"
     ],
     "warnings": []
   },
   {
     "name": "border:ni-hb:15",
     "regions": [
-      "niedersachsen"
+      "niedersachsen",
+      "bremen"
     ],
     "raster_region": "niedersachsen",
     "provider_tiles": [],
     "zone_32": [
       {
         "region": "niedersachsen",
+        "touched": [
+          "33476-5932",
+          "33476-5933"
+        ],
+        "centre_in": [
+          "33476-5932",
+          "33476-5933"
+        ]
+      },
+      {
+        "region": "bremen",
         "touched": [
           "33476-5932",
           "33476-5933"
@@ -2168,16 +2404,18 @@
     ],
     "beyond_coverage": false,
     "extracts": [
-      "Lower Saxony"
+      "Lower Saxony",
+      "Bremen"
     ],
     "warnings": []
   },
   {
     "name": "border:ni-hb:16",
     "regions": [
-      "niedersachsen"
+      "niedersachsen",
+      "bremen"
     ],
-    "raster_region": null,
+    "raster_region": "bremen",
     "provider_tiles": [],
     "zone_32": [
       {
@@ -2191,20 +2429,37 @@
           "33476-5932",
           "33476-5933"
         ]
+      },
+      {
+        "region": "bremen",
+        "touched": [
+          "33475-5932",
+          "33475-5933",
+          "33476-5932",
+          "33476-5933"
+        ],
+        "centre_in": [
+          "33475-5932",
+          "33475-5933",
+          "33476-5932",
+          "33476-5933"
+        ]
       }
     ],
-    "beyond_coverage": true,
+    "beyond_coverage": false,
     "extracts": [
-      "Lower Saxony"
+      "Lower Saxony",
+      "Bremen"
     ],
     "warnings": []
   },
   {
     "name": "border:ni-hb:17",
     "regions": [
-      "niedersachsen"
+      "niedersachsen",
+      "bremen"
     ],
-    "raster_region": null,
+    "raster_region": "bremen",
     "provider_tiles": [],
     "zone_32": [
       {
@@ -2222,18 +2477,38 @@
           "33476-5933",
           "33476-5934"
         ]
+      },
+      {
+        "region": "bremen",
+        "touched": [
+          "33475-5932",
+          "33475-5933",
+          "33475-5934",
+          "33476-5932",
+          "33476-5933",
+          "33476-5934"
+        ],
+        "centre_in": [
+          "33475-5932",
+          "33475-5933",
+          "33475-5934",
+          "33476-5932",
+          "33476-5933"
+        ]
       }
     ],
-    "beyond_coverage": true,
+    "beyond_coverage": false,
     "extracts": [
-      "Lower Saxony"
+      "Lower Saxony",
+      "Bremen"
     ],
     "warnings": []
   },
   {
     "name": "border:ni-hb:18",
     "regions": [
-      "niedersachsen"
+      "niedersachsen",
+      "bremen"
     ],
     "raster_region": "niedersachsen",
     "provider_tiles": [],
@@ -2252,18 +2527,31 @@
           "33477-5932",
           "33477-5933"
         ]
+      },
+      {
+        "region": "bremen",
+        "touched": [
+          "33476-5932",
+          "33476-5933"
+        ],
+        "centre_in": [
+          "33476-5932",
+          "33476-5933"
+        ]
       }
     ],
-    "beyond_coverage": true,
+    "beyond_coverage": false,
     "extracts": [
-      "Lower Saxony"
+      "Lower Saxony",
+      "Bremen"
     ],
     "warnings": []
   },
   {
     "name": "border:ni-hb:19",
     "regions": [
-      "niedersachsen"
+      "niedersachsen",
+      "bremen"
     ],
     "raster_region": "niedersachsen",
     "provider_tiles": [],
@@ -2279,11 +2567,23 @@
           "33476-5933",
           "33477-5933"
         ]
+      },
+      {
+        "region": "bremen",
+        "touched": [
+          "33475-5933",
+          "33476-5933"
+        ],
+        "centre_in": [
+          "33475-5933",
+          "33476-5933"
+        ]
       }
     ],
-    "beyond_coverage": true,
+    "beyond_coverage": false,
     "extracts": [
-      "Lower Saxony"
+      "Lower Saxony",
+      "Bremen"
     ],
     "warnings": []
   },

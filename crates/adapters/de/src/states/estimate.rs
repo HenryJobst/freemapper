@@ -8,8 +8,8 @@ use freemapper_adapter_api::estimate::{
 use freemapper_adapter_api::records::{EstimateItem, Part, Store};
 
 use crate::boundaries::{
-    BADEN_WUERTTEMBERG, BERLIN, BRANDENBURG, HAMBURG, NORDRHEIN_WESTFALEN, SAARLAND, SAXONY,
-    SCHLESWIG_HOLSTEIN, provider_tiles, states_touching, tile_touches,
+    BADEN_WUERTTEMBERG, BERLIN, BRANDENBURG, BREMEN, HAMBURG, NORDRHEIN_WESTFALEN, SAARLAND,
+    SAXONY, SCHLESWIG_HOLSTEIN, provider_tiles, states_touching, tile_touches,
 };
 use crate::crs::BoundingBox;
 use crate::sources::lgb::{Product, ProductTiles as _};
@@ -57,6 +57,7 @@ pub fn items(state: State, area: &EstimateArea, env: &EstimateEnv<'_>) -> Vec<Es
         Agency::LvermGeoRp => rp_items(bbox, &area.map_bbox, cache),
         Agency::Lvgl => lvgl_items(bbox, cache),
         Agency::LglBw => lgl_bw_items(bbox, cache),
+        Agency::GeoBremen => geobremen_items(bbox, cache),
     }
 }
 
@@ -207,6 +208,40 @@ fn lgl_bw_items(bbox: &BoundingBox, cache: &CacheDir) -> Vec<EstimateItem> {
         ),
         model_item(Model::Dgm1, Part::Terrain),
         model_item(Model::Ndom1, Part::Surface),
+    ]
+}
+
+/// GeoBremen: the WMS orthophoto and the height model tiles of the area, read out of the
+/// archive of their city (≈3.5 MB per 1 km tile touched for the DGM1 and for the DOM1, those
+/// already cached left out).
+fn geobremen_items(bbox: &BoundingBox, cache: &CacheDir) -> Vec<EstimateItem> {
+    use crate::geobremen::Model;
+    let tiles: Vec<TileId> = zone_32_tiles(bbox)
+        .into_iter()
+        .filter(|t| tile_touches(*t, BREMEN))
+        .collect();
+    let model_item = |model: Model, part: Part| {
+        let open = tiles
+            .iter()
+            .filter(|t| !model.is_cached(cache, **t))
+            .count();
+        EstimateItem {
+            what: model.label().to_string(),
+            megabytes: open as f64 * 3.5,
+            cached: open == 0,
+            part,
+            store: Store::Cache,
+        }
+    };
+    vec![
+        per_km2_item(
+            bbox,
+            "orthophoto (GeoBremen WMS)",
+            ORTHOPHOTO_MB_PER_KM2,
+            Part::Orthophoto,
+        ),
+        model_item(Model::Dgm1, Part::Terrain),
+        model_item(Model::Dom1, Part::Surface),
     ]
 }
 
@@ -618,6 +653,51 @@ mod tests {
         assert_eq!(
             (items[1].megabytes, items[1].cached, items[2].megabytes),
             (0.0, true, 3.5)
+        );
+    }
+    /// Bremen: the orthophoto by the area, and 3.5 MB per 1 km tile of either model that is
+    /// not in the cache yet.
+    #[test]
+    fn bremen_counts_the_tiles_that_are_not_cached() {
+        // 100 m at the main station of Bremen, inside the tile 487/5881 of zone 32.
+        let corner = |easting: f64, northing: f64| {
+            Crs::Utm33
+                .reproject(Crs::Utm32, ProjectedPoint { easting, northing })
+                .unwrap()
+        };
+        let (low, high) = (
+            corner(487_400.0, 5_881_600.0),
+            corner(487_500.0, 5_881_700.0),
+        );
+        let bbox = BoundingBox {
+            min_e: low.easting.min(high.easting),
+            min_n: low.northing.min(high.northing),
+            max_e: low.easting.max(high.easting),
+            max_n: low.northing.max(high.northing),
+        };
+        let dir = tempfile::tempdir().unwrap();
+        let cache = CacheDir::new(dir.path().to_path_buf());
+        let items = geobremen_items(&bbox, &cache);
+        let sizes: Vec<(&str, f64, bool, Part)> = items
+            .iter()
+            .map(|item| (item.what.as_str(), item.megabytes, item.cached, item.part))
+            .collect();
+        assert_eq!(sizes[0].0, "orthophoto (GeoBremen WMS)");
+        assert_eq!(sizes[0].3, Part::Orthophoto);
+        assert_eq!(
+            sizes[1..],
+            [
+                ("terrain model (GeoBremen DGM1)", 3.5, false, Part::Terrain),
+                ("surface model (GeoBremen DOM1)", 3.5, false, Part::Surface),
+            ]
+        );
+        let folder = dir.path().join("geobremen").join("dom1");
+        std::fs::create_dir_all(&folder).unwrap();
+        std::fs::write(folder.join("dom1_32_487_5881_06e2076b.tif"), b"tile").unwrap();
+        let items = geobremen_items(&bbox, &cache);
+        assert_eq!(
+            (items[1].megabytes, items[2].megabytes, items[2].cached),
+            (3.5, 0.0, true)
         );
     }
 }

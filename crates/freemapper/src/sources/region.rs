@@ -149,9 +149,10 @@ pub mod ids {
         pub const RHEINLAND_PFALZ: AdapterId = AdapterId::built_in("rheinlandpfalz");
         pub const SAARLAND: AdapterId = AdapterId::built_in("saarland");
         pub const BADEN_WUERTTEMBERG: AdapterId = AdapterId::built_in("badenwuerttemberg");
+        pub const BREMEN: AdapterId = AdapterId::built_in("bremen");
 
         /// All regions, in the order of the registry.
-        pub const ALL: [AdapterId; 13] = [
+        pub const ALL: [AdapterId; 14] = [
             BRANDENBURG,
             BERLIN,
             SAXONY,
@@ -165,11 +166,12 @@ pub mod ids {
             RHEINLAND_PFALZ,
             SAARLAND,
             BADEN_WUERTTEMBERG,
+            BREMEN,
         ];
 
         /// The eleven regions that were code before they became adapters: the regions of the
         /// golden net, which proves that the move changed nothing. A state added since
-        /// (Saarland, Baden-Württemberg) has no recording there.
+        /// (Saarland, Baden-Württemberg, Bremen) has no recording there.
         pub const LEGACY: [AdapterId; 11] = [
             BRANDENBURG,
             BERLIN,
@@ -206,6 +208,7 @@ pub mod ids {
         pub const LVERM_GEO_RP: AdapterId = AdapterId::built_in("lvermgeorp");
         pub const LVGL: AdapterId = AdapterId::built_in("lvgl");
         pub const LGL_BW: AdapterId = AdapterId::built_in("lglbw");
+        pub const GEO_BREMEN: AdapterId = AdapterId::built_in("geobremen");
     }
 
     /// What the registry says about the region or the provider with an id.
@@ -332,6 +335,7 @@ pub mod golden {
             "rheinlandpfalz" => ("DERP", 7.165, 50.1443),
             "saarland" => ("DESL", 6.7515, 49.3155),
             "badenwuerttemberg" => ("DEBW", 8.7125, 49.4112),
+            "bremen" => ("DEHB", 8.805, 53.07825),
             other => panic!("no built-in region {other}"),
         }
     }
@@ -363,6 +367,7 @@ pub mod golden {
             "laivmv" => "laiv_mv",
             "lvgl" => "lvgl",
             "lglbw" => "lglbw",
+            "geobremen" => "geobremen",
             "lvermgeo" | "lgln" => return None,
             other => panic!("no built-in provider {other}"),
         };
@@ -518,7 +523,7 @@ mod tests {
                 region.provider().id()
             );
         }
-        assert_eq!(regions::from_id("bremen"), None);
+        assert_eq!(regions::from_id("thueringen"), None);
     }
 
     fn around(e: f64, n: f64, half: f64) -> BoundingBox {
@@ -626,8 +631,13 @@ mod tests {
 
     #[test]
     fn coverage_gaps_are_found_beyond_the_supported_states_only() {
-        // Bremen probe, tile 32 485 5876 (Stuhr-Brinkum / Bremen-Huchting, 44 % Bremen).
-        assert!(reaches_beyond_coverage(&around(
+        // Teistungen in Thuringia, 2 km south of Gerblingerode in Lower Saxony.
+        assert!(reaches_beyond_coverage(&around_lonlat(
+            51.470, 10.272, 300.0
+        )));
+        // The tile 32 485 5876 (Stuhr-Brinkum / Bremen-Huchting, 44 % Bremen) was such a gap
+        // until Bremen became a region.
+        assert!(!reaches_beyond_coverage(&around(
             83_417.0,
             5_894_566.0,
             300.0
@@ -1034,14 +1044,16 @@ mod tests {
         );
     }
 
+    /// Bremen: the market square, the university and the centre of Bremerhaven lie in it, in zone 32, with rasters fetched per area from GeoBremen. They
+    /// are holes in the boundary of Lower Saxony, which surrounds both cities: Delmenhorst and
+    /// Verden are Lower Saxony.
     #[test]
-    fn bremen_is_not_niedersachsen() {
-        // Bremen market square and Bremerhaven town centre are holes in the Niedersachsen
-        // boundary and have no region of their own yet.
-        for (lat, lon) in [(53.0758, 8.8072), (53.5396, 8.5809)] {
+    fn bremen_and_bremerhaven_lie_in_bremen() {
+        for (lat, lon) in [(53.0758, 8.8072), (53.1069, 8.8530), (53.5396, 8.5809)] {
             let area = around_lonlat(lat, lon, 300.0);
-            assert!(regions_for(&area).is_empty(), "{lat} {lon}");
-            assert_eq!(raster_region(&area), None);
+            assert_eq!(regions_for(&area), vec![regions::BREMEN], "{lat} {lon}");
+            assert_eq!(raster_region(&area), Some(regions::BREMEN));
+            assert_eq!(crate::project::map_crs(&area), crate::crs::Crs::Utm32);
             let p = crate::crs::utm33_forward(crate::crs::LatLon { lat, lon });
             assert!(!contains_point(
                 regions::NIEDERSACHSEN,
@@ -1049,9 +1061,25 @@ mod tests {
                 p.northing
             ));
         }
-        // Verden (an der Aller), 30 km south-east of Bremen, is Niedersachsen.
+        assert_eq!(regions::BREMEN.provider(), providers::GEO_BREMEN);
+        assert!(providers::GEO_BREMEN.per_area());
+        assert_eq!(regions::BREMEN.object_id_prefix(), "DEHB");
+        assert_eq!(
+            region_of_object_id("DEHB01ALT0001hlZBL"),
+            Some(regions::BREMEN)
+        );
+        let delmenhorst = around_lonlat(53.0511, 8.6317, 300.0);
+        assert_eq!(regions_for(&delmenhorst), vec![regions::NIEDERSACHSEN]);
+        // Verden (an der Aller), 30 km south-east of Bremen.
         let verden = around_lonlat(52.9227, 9.2287, 300.0);
         assert_eq!(regions_for(&verden), vec![regions::NIEDERSACHSEN]);
+        // Stuhr-Brinkum on the border to Bremen-Huchting: both states are asked, as at every
+        // border, and the rasters come from the state the centre lies in.
+        let border = around(83_417.0, 5_894_566.0, 300.0);
+        let both = regions_for(&border);
+        assert!(both.contains(&regions::BREMEN), "{both:?}");
+        assert!(both.contains(&regions::NIEDERSACHSEN), "{both:?}");
+        assert_eq!(raster_region(&border), Some(regions::NIEDERSACHSEN));
     }
 
     #[test]

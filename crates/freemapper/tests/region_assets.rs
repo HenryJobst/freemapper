@@ -48,7 +48,7 @@ fn boundary_files(keep: fn(&str) -> bool) -> Vec<std::path::PathBuf> {
 #[test]
 fn region_boundaries_are_valid() {
     let files = boundary_files(|name| name == "boundary.geojson");
-    assert_eq!(files.len(), 13, "{files:?}");
+    assert_eq!(files.len(), 14, "{files:?}");
     files.iter().for_each(|file| check_boundary(file));
 }
 

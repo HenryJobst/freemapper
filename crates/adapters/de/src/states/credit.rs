@@ -30,7 +30,7 @@ pub const BERLIN_HEIGHTS_ATTRIBUTION: &str =
 pub const DL_DE_BY_LICENCE_NOTE: &str = "Lizenz dl-de/by-2-0 (Datenlizenz Deutschland – Namensnennung – Version 2.0): https://www.govdata.de/dl-de/by-2-0";
 
 /// The licence text the CC BY credits (Schleswig-Holstein, Mecklenburg-Vorpommern,
-/// Niedersachsen) refer to (added to the project notes only).
+/// Niedersachsen, Bremen) refer to (added to the project notes only).
 pub const CC_BY_LICENCE_NOTE: &str = "Lizenz CC BY 4.0 (Namensnennung 4.0 International): https://creativecommons.org/licenses/by/4.0/";
 /// The LVermGeo SH credit the licence prescribes for changed data.
 pub const SH_ATTRIBUTION: &str = "© GeoBasis-DE/LVermGeo SH/CC BY 4.0 (Quelle verändert)";
@@ -114,6 +114,16 @@ pub fn lines(state: State, used: &UsedSources<'_>) -> Vec<CreditLine> {
             CreditLine::with_licence(
                 format!("Datenquelle: LGL, www.lgl-bw.de, dl-de/by-2-0 (Daten geändert, {year})"),
                 DL_DE_BY_LICENCE_NOTE,
+            )
+        }),
+        // The source note the open-data page of the agency prescribes, `© GeoBasis-DE /
+        // Landesamt GeoInformation Bremen (Jahr)`, with the licence and the note of changes.
+        State::Bremen => year().map(|year| {
+            CreditLine::with_licence(
+                format!(
+                    "© GeoBasis-DE / Landesamt GeoInformation Bremen ({year}), CC BY 4.0, Daten geändert"
+                ),
+                CC_BY_LICENCE_NOTE,
             )
         }),
     };

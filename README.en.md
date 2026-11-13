@@ -3,7 +3,7 @@
 [Deutsche Version](README.md) · [User manual](docs/manual/en.md) · [Glossary](docs/glossary.md) · [Changes](CHANGELOG.en.md)
 
 <!-- claude-cost:start -->
-[![AI effort (Claude API): $2,329](https://img.shields.io/badge/AI%20effort%20%28Claude%20API%29-%242%2C329-8A2BE2)](docs/ai-cost/history.csv)
+[![AI effort (Claude API): $2,390](https://img.shields.io/badge/AI%20effort%20%28Claude%20API%29-%242%2C390-8A2BE2)](docs/ai-cost/history.csv)
 <!-- claude-cost:end -->
 
 <p align="center"><a href="examples/berlin-viktoriapark/berlin-viktoriapark-candidates.pdf"><img src="examples/berlin-viktoriapark/preview.webp" alt="Sprint map of Viktoriapark, Berlin-Kreuzberg, made by freemapper" width="760"></a><br><sub>Viktoriapark, Berlin-Kreuzberg (sprint 1:4000), made by freemapper from open data. Click to open the PDF; more under <a href="examples/README.en.md">examples</a>.</sub></p>
@@ -22,8 +22,9 @@ the mapper has to judge. Drawing and field checking stay in OOM or OCAD.
 - Use it from the command line, through a page in the browser where you choose the map area and create the
   map with all options (see [Choosing the area in the browser](#choosing-the-area-in-the-browser)), or
   through AI agents (MCP server).
-- Regions: Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony, Rhineland-Palatinate, Saarland and Baden-Württemberg (open data from LGB,
-  Geoportal Berlin, GeoSN, LVermGeo, LGV, HVBG, LVermGeo SH, LAiV M-V, Geobasis NRW, LGLN, LVermGeo RP, LVGL and LGL);
+- Regions: Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony, Rhineland-Palatinate, Saarland, Baden-Württemberg and Bremen (open data from LGB,
+  Geoportal Berlin, GeoSN, LVermGeo, LGV, HVBG, LVermGeo SH, LAiV M-V, Geobasis NRW, LGLN, LVermGeo RP, LVGL, LGL and
+  the Landesamt GeoInformation Bremen);
   schoolyard maps 1:1000, sprint maps 1:4000 and forest maps 1:15 000, 1:10 000 or 1:7500.
 - Examples: one finished project per state with the OOM map, the OCAD starting point and the PDF, see
   [Examples](#examples).
@@ -51,9 +52,9 @@ The current version is [v0.17.0](https://github.com/HenryJobst/freemapper/releas
 13 November 2026 (see the [changes](CHANGELOG.en.md) for what is new).
 
 freemapper makes schoolyard and
-sprint maps for thirteen states: Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse,
+sprint maps for fourteen states: Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse,
 Schleswig-Holstein, Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony,
-Rhineland-Palatinate, Saarland and Baden-Württemberg (new since v0.17.0, not released yet). All maps show water, and the colours follow the IOF printing definitions of
+Rhineland-Palatinate, Saarland, Baden-Württemberg and Bremen (the last two new since v0.17.0, not released yet). All maps show water, and the colours follow the IOF printing definitions of
 2024. On request freemapper also makes an OCAD starting point (`--ocad`) and a PDF map
 (`--pdf`, with candidates `--pdf-candidates`). Before downloading, freemapper
 checks the free disk space. Berlin maps get canopies, stairs, walls, fences, hedges, trees and the
@@ -75,7 +76,7 @@ standard ones can be added as a folder with a manifest, without Rust; the
 further states,
 first Saxony (water axes, hedges and tree rows from the Basis-DLM, the trees of Leipzig and Dresden), then
 Saxony-Anhalt and Hamburg. Later come gym maps for indoor orienteering, the last English remains in the German program texts (`--lang de`),
-and the remaining states with open geodata (Bremen, Bavaria). Thuringia follows once its height-data server is
+and Bavaria, the last state with open geodata that is still missing. Thuringia follows once its height-data server is
 back. Forest maps and the neighbouring countries come later. Design:
 [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](https://github.com/HenryJobst/freemapper/blob/main/docs/superpowers/specs/2026-11-07-freemapper-design.md).
 
@@ -287,10 +288,11 @@ freemapper run vorstadt
 | Schleswig-Holstein | LVermGeo SH | bDOM − DGM1, 1 m (image-based) | map in UTM zone 32 (EPSG:25832); orthophoto leaf-off or leaf-on depending on the area; surface model in whole tiles (105 MB per km²) |
 | Mecklenburg-Vorpommern | LAiV M-V | DOM1 − DGM1, 1 m | orthophoto as a colour palette (256 colours); height models only inside the state tiles |
 | North Rhine-Westphalia | Geobasis NRW | DOM1 − DGM1, 1 m (laser scan) | map in UTM zone 32 (EPSG:25832); OSM from the extracts of the Regierungsbezirke |
-| Lower Saxony | LGLN | DOM1 − DGM1, 1 m (laser scan) | map in UTM zone 32 (EPSG:25832); surface model often years older than the orthophoto; Bremen not included yet |
+| Lower Saxony | LGLN | DOM1 − DGM1, 1 m (laser scan) | map in UTM zone 32 (EPSG:25832); surface model often years older than the orthophoto |
 | Rhineland-Palatinate | LVermGeo RP | DOM1 − DGM1, 1 m (laser scan) | map in UTM zone 32 (EPSG:25832); orthophoto flown in summer, its date of creation counts as the flight date; orthophoto white beyond the state border |
 | Saarland | LVGL | DOM1 − DGM1, 1 m (laser scan of 2025) | map in UTM zone 32 (EPSG:25832); height models as 1 km tiles out of the district archives; templates empty beyond the state border |
 | Baden-Württemberg | LGL | nDOM1, 1 m (from the aerial images of a summer flight) | map in UTM zone 32 (EPSG:25832); height models as 1 km tiles out of the 2 km archives; orthophoto white beyond the state border; the cadastre has no canopies |
+| Bremen | Landesamt GeoInformation Bremen, also the full ALKIS | DOM1 − DGM1, 1 m (laser scan of 2017, Bremerhaven 2015) | map in UTM zone 32 (EPSG:25832); height models eight to ten years older than the orthophoto; stairs, retaining walls, embankments and bridges from the full ALKIS |
 
 In every state except Saxony and Saxony-Anhalt, the ALKIS canopies are map objects and the building passages
 candidates. At a state border freemapper queries the cadastre of both states and reads both OSM extracts; the

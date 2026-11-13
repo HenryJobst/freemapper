@@ -1,6 +1,7 @@
 //! The ALKIS services of the states: which service serves which state, in which CRS, with which
 //! fallback. The readers are those of `freemapper-sources`; Berlin keeps its own (Geoportal
-//! Berlin WFS), and so does Baden-Württemberg (the views of the LGL).
+//! Berlin WFS), and so does Baden-Württemberg (the views of the LGL). Bremen has no simplified
+//! ALKIS: its full ALKIS is read as one.
 
 use std::borrow::Cow;
 
@@ -12,7 +13,7 @@ use freemapper_sources::alkis_source::{Normaliser, OgcApiAlkis, WfsAlkis};
 use crate::crs::Crs;
 use crate::sources::alkis_wfs;
 use crate::states::State;
-use crate::{berlin, lgl_bw, lgv};
+use crate::{berlin, geobremen, lgl_bw, lgv};
 
 /// LGB's OGC API, buildings and structures (`gebaeude_bauwerk`).
 pub const BUILDINGS_ENDPOINT: &str =
@@ -64,6 +65,8 @@ pub fn source(state: State) -> Box<dyn AlkisSource> {
         State::Saarland => wfs(crate::lvgl::ALKIS),
         // The views of the LGL are not the simplified schema; the source turns them into it.
         State::BadenWuerttemberg => Box::new(lgl_bw::LglBwAlkis),
+        // The state serves the full ALKIS only; the source turns it into the simplified schema.
+        State::Bremen => Box::new(geobremen::alkis()),
     }
 }
 
@@ -137,6 +140,7 @@ mod tests {
             State::RheinlandPfalz => wfs(alkis_wfs::LVERMGEO_RP),
             State::Saarland => wfs(crate::lvgl::ALKIS),
             State::BadenWuerttemberg => wfs(lgl_bw::ALKIS),
+            State::Bremen => api(geobremen::ALKIS_URL, geobremen::ALKIS_URL, Crs::Utm32),
         };
         // Kassel, a place both UTM zones can hold.
         let area = FetchArea::new(
@@ -148,7 +152,9 @@ mod tests {
             },
             Crs::Utm33,
         );
-        let cache = CacheDir::new("no-cache".into());
+        // Bremen streams its answers through a file in the cache.
+        let scratch = tempfile::tempdir().unwrap();
+        let cache = CacheDir::new(scratch.path().join("cache"));
         let mut registry = freemapper_adapter_api::registry::Registry::new();
         for adapter in crate::states::adapters() {
             registry.add(adapter).unwrap();

@@ -2818,7 +2818,7 @@ pub mod golden {
 
 #[cfg(test)]
 mod tests {
-    const BEYOND_COVERAGE_WARNING: &str = "warning: part of the map area lies outside the supported states. It lies abroad, at sea or in a state freemapper does not support yet, such as Bremen or Thuringia. The states have no data there, so the orthophoto can be white and ALKIS gives no buildings or land use";
+    const BEYOND_COVERAGE_WARNING: &str = "warning: part of the map area lies outside the supported states. It lies abroad, at sea or in a state freemapper does not support yet, such as Bavaria or Thuringia. The states have no data there, so the orthophoto can be white and ALKIS gives no buildings or land use";
 
     use super::*;
     use crate::build::paved::{GREEN_LAYER, SURFACE_LAYER};
@@ -8341,12 +8341,63 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         );
     }
 
+    /// Stuhr-Brinkum on the border to Bremen-Huchting (tile 32 485 5876, 44 % Bremen): the
+    /// rasters come from Lower Saxony, where the centre lies; buildings, land use and the
+    /// layers of the full ALKIS are asked from Bremen as well. Until Bremen became a region
+    /// this area got the warning of a part outside the supported states.
     #[test]
-    fn ni_area_reaching_into_bremen_is_warned() {
-        // The Bremen probe, tile 32 485 5876 (Stuhr-Brinkum / Bremen-Huchting, 44 % Bremen): the
-        // first 600 m area south of the tile centre whose centre lies in Niedersachsen.
-        let (e, n) = (0..40)
-            .map(|step| (485_500.0, 5_876_500.0 - f64::from(step) * 50.0))
+    fn ni_area_reaching_into_bremen_asks_both_states() {
+        use freemapper_adapters_de::geobremen;
+        let area = utm32_area_at(485_500.0, 5_876_500.0, 300.0);
+        assert_eq!(
+            raster_region(&area.projected_bbox()),
+            Some(regions::NIEDERSACHSEN)
+        );
+        let fetcher = MapFetcher::default();
+        // The full ALKIS of Bremen answers every type with no object.
+        fetcher.insert_prefix(
+            geobremen::ALKIS_URL,
+            freemapper_sources::nas::test_support::EMPTY
+                .as_bytes()
+                .to_vec(),
+        );
+        let (dir, _cache_dir, cache) = ni_project_of(&fetcher, &area);
+        let (project, messages) = fetch(dir.path(), &fetcher, &cache);
+        assert_eq!(project.provider, Some(providers::LGLN));
+        assert!(
+            !messages.iter().any(|m| m == BEYOND_COVERAGE_WARNING),
+            "{messages:?}"
+        );
+        assert!(
+            messages
+                .iter()
+                .any(|m| m.contains("reaches beyond the state border")),
+            "{messages:?}"
+        );
+        let asked = fetcher.log.borrow();
+        for type_name in [
+            "adv:AX_Gebaeude",
+            "adv:AX_Platz",
+            "adv:AX_Vegetationsmerkmal",
+        ] {
+            let wanted = format!(
+                "{}?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES={type_name}&",
+                geobremen::ALKIS_URL
+            );
+            assert!(
+                asked.iter().any(|url| url.starts_with(&wanted)),
+                "{type_name}"
+            );
+        }
+    }
+
+    #[test]
+    fn ni_area_reaching_into_thuringia_is_warned() {
+        // Gerblingerode in Lower Saxony, on the border to Teistungen in Thuringia, which is no
+        // region yet: the first 600 m area north of Teistungen whose centre lies in
+        // Niedersachsen.
+        let (e, n) = (0..60)
+            .map(|step| (588_349.0, 5_702_860.0 + f64::from(step) * 50.0))
             .find(|&(e, n)| {
                 raster_region(&utm32_area_at(e, n, 300.0).projected_bbox())
                     == Some(regions::NIEDERSACHSEN)
@@ -8364,7 +8415,8 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             1,
             "{messages:?}"
         );
-        // Bremen is not a region: the border message between two supported states stays out.
+        // Thuringia is not a region: the border message between two supported states stays
+        // out.
         assert!(
             !messages
                 .iter()

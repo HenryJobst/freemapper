@@ -9,6 +9,7 @@ pub mod berlin_als;
 pub mod berlin_permits;
 pub mod boundaries;
 pub mod geobasis_nrw;
+pub mod geobremen;
 pub mod geosn;
 pub mod hvbg;
 pub mod laiv_mv;
@@ -27,6 +28,7 @@ pub mod lvgl_las;
 pub mod nrw_3dm;
 pub mod states;
 pub mod tile_fetch;
+mod xyz_archive;
 
 // The state modules were written inside `freemapper`. These private modules give them the paths
 // they use there, so the files moved without a change to what they import.
