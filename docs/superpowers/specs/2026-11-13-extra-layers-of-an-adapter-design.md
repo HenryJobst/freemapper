@@ -1,8 +1,8 @@
 # The extra layers of an adapter: Berlin leaves the engine
 
 Date: 2026-11-13
-Status: Draft, for the user's approval. Reviewed by session "freemapper-d3" on 2026-11-13 (owner of `build/`);
-its points are worked in.
+Status: Approved by the user on 2026-11-13 ("ja" to both questions at the end). Reviewed by session
+"freemapper-d3" on 2026-11-13 (owner of `build/`); its points are worked in.
 
 The user asked on 2026-11-12 for three restructurings left over from the adapter work (ADR 0082). Two are done
 (PR 57, the dead code; PR 59, the mouth of the Elbe). This is the third: "Berlin aus dem Kern lösen".
@@ -129,7 +129,7 @@ move); session "freemapper-d3" sees each pull request before it merges.
 The names of the generic functions and of the description type; whether `ExtraSet::fetch` returns features or
 writes through a sink; the order of the sub-steps inside step 1.
 
-## Questions for the user
+## Questions for the user (answered "ja" on 2026-11-13)
 
-1. Is the limit right: the draw rules of Berlin stay in the engine until adapters can ship rules?
-2. Four pull requests over the shared files, each announced to the other sessions: go ahead in this order?
+1. Is the limit right: the draw rules of Berlin stay in the engine until adapters can ship rules? Yes.
+2. Four pull requests over the shared files, each announced to the other sessions: go ahead in this order? Yes.
