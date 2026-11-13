@@ -191,9 +191,10 @@ impl Group {
             // draw open land and forest with the same symbols.
             Group::Vegetation => &[],
             Group::OutOfBounds => &["520"],
+            // 502 to 505 are the ISOM path classes of a forest map; ISSprOM has none of them.
             Group::Paths => &[
                 "501.6", "501.7", "501.8", "501.9", "505.1", "505.2", "506", "507", "509.1",
-                "509.2",
+                "509.2", "502", "503", "504", "505",
             ],
             Group::Streets => &["501.5", "501.10", "501.11"],
         }
@@ -575,12 +576,29 @@ mod tests {
 
     #[test]
     fn every_group_has_codes_the_symbol_set_knows() {
-        for kind in [MapKind::Sprint, MapKind::Schoolyard] {
+        for kind in [MapKind::Sprint, MapKind::Schoolyard, MapKind::Forest] {
             let f = fixture(kind);
             for g in Group::ALL {
                 let known = g.codes().iter().any(|c| f.set.id_for_code(c).is_some());
-                assert!(known || g == Group::Vegetation, "{kind:?} {}", g.name());
+                // ISOM has no hedge line (410.1 is left out of a forest map).
+                let none_drawn =
+                    g == Group::Vegetation || (kind == MapKind::Forest && g == Group::Hedges);
+                assert!(known || none_drawn, "{kind:?} {}", g.name());
             }
+        }
+    }
+
+    /// Every path class of a forest map is in the paths group, so `paths=candidates` moves them all.
+    #[test]
+    fn the_isom_path_classes_are_paths() {
+        let f = fixture(MapKind::Forest);
+        let ids: Vec<u32> = Group::Paths
+            .codes()
+            .iter()
+            .filter_map(|c| f.set.id_for_code(c))
+            .collect();
+        for code in ["502", "503", "504", "505", "506", "507"] {
+            assert!(ids.contains(&f.set.id_for_code(code).unwrap()), "{code}");
         }
     }
 

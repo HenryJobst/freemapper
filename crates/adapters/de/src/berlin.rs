@@ -123,6 +123,8 @@ const SCHOOLYARD_ONLY: &[MapKind] = &[MapKind::Schoolyard];
 const TREE_KINDS: &[MapKind] = &[MapKind::Sprint, MapKind::Schoolyard];
 const FURNITURE_KINDS: &[MapKind] = &[MapKind::Sprint, MapKind::Schoolyard];
 const SPRINT_FURNITURE: &[MapKind] = &[MapKind::Sprint];
+/// The survey's paving: only the sprint map draws paved areas from the street parcels.
+const SPRINT_PAVING: &[MapKind] = &[MapKind::Sprint];
 const TREE_SERVICE: &str = "https://gdi.berlin.de/services/wfs/baumbestand";
 /// The street survey of 2014–2016 (Straßenbefahrung).
 const SURVEY_SERVICE: &str = "https://gdi.berlin.de/services/wfs/strassenbefahrung";
@@ -194,23 +196,23 @@ pub const EXTRA_LAYERS: [ExtraLayer; 18] = [
     ),
     survey(
         "sb-gruenflaeche",
-        &[ty("strassenbefahrung:ce_gruenflaeche", SPRINT_ONLY)],
+        &[ty("strassenbefahrung:ce_gruenflaeche", SPRINT_PAVING)],
     ),
     survey(
         "sb-flaechen",
         &[
-            ty("strassenbefahrung:cm_fahrbahn", SPRINT_ONLY),
-            ty("strassenbefahrung:cl_gehweg", SPRINT_ONLY),
-            ty("strassenbefahrung:ch_radweg", SPRINT_ONLY),
-            ty("strassenbefahrung:ck_parkflaeche", SPRINT_ONLY),
-            ty("strassenbefahrung:ci_oeffentlicher_platz", SPRINT_ONLY),
-            ty("strassenbefahrung:cj_fussgaengerzone", SPRINT_ONLY),
-            ty("strassenbefahrung:by_gehwegueberfahrt", SPRINT_ONLY),
+            ty("strassenbefahrung:cm_fahrbahn", SPRINT_PAVING),
+            ty("strassenbefahrung:cl_gehweg", SPRINT_PAVING),
+            ty("strassenbefahrung:ch_radweg", SPRINT_PAVING),
+            ty("strassenbefahrung:ck_parkflaeche", SPRINT_PAVING),
+            ty("strassenbefahrung:ci_oeffentlicher_platz", SPRINT_PAVING),
+            ty("strassenbefahrung:cj_fussgaengerzone", SPRINT_PAVING),
+            ty("strassenbefahrung:by_gehwegueberfahrt", SPRINT_PAVING),
         ],
     ),
     survey(
         "sb-bordstein",
-        &[ty("strassenbefahrung:bd_bordstein", SPRINT_ONLY)],
+        &[ty("strassenbefahrung:bd_bordstein", SPRINT_PAVING)],
     ),
     survey(
         "sb-treppe",
@@ -817,6 +819,16 @@ mod forest_tests {
             "beleuchtung:beleuchtung",
             "baumbestand:strassenbaeume",
             "baumbestand:anlagenbaeume",
+            // The survey's paving: a forest map draws no paved areas from the street parcels.
+            "strassenbefahrung:ce_gruenflaeche",
+            "strassenbefahrung:cm_fahrbahn",
+            "strassenbefahrung:cl_gehweg",
+            "strassenbefahrung:ch_radweg",
+            "strassenbefahrung:ck_parkflaeche",
+            "strassenbefahrung:ci_oeffentlicher_platz",
+            "strassenbefahrung:cj_fussgaengerzone",
+            "strassenbefahrung:by_gehwegueberfahrt",
+            "strassenbefahrung:bd_bordstein",
         ];
         for layer in &EXTRA_LAYERS {
             for ty in layer.types {
