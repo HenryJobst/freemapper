@@ -483,8 +483,8 @@ pub fn osm_objects(
             (OsmGeometry::Line(points), Draw::Line) => {
                 let mut coords = points.iter().map(to_map).collect::<Result<Vec<_>, _>>()?;
                 // A stairway runs uphill; OSM's `incline=down` counts along the way.
-                if found.code.starts_with("532.") && value(&feature.tags, "incline") == Some("down")
-                {
+                let stairway = found.code == "532" || found.code.starts_with("532.");
+                if stairway && value(&feature.tags, "incline") == Some("down") {
                     coords.reverse();
                 }
                 let closed = coords.len() > 3 && coords.first() == coords.last();
@@ -992,6 +992,25 @@ mod tests {
         )
         .unwrap();
         (objects, set)
+    }
+
+    /// A forest stairway (ISOM 532) runs uphill as the sprint one does.
+    #[test]
+    fn forest_stairs_tagged_down_are_turned_round() {
+        let stairs = line(
+            "way/9",
+            &[("highway", "steps"), ("incline", "down")],
+            vec![at(0.0, 0.0), at(0.0002, 0.0002)],
+        );
+        let (sprint, _) = objects_of(
+            std::slice::from_ref(&stairs),
+            MapKind::Sprint,
+            Target::Candidates,
+        );
+        let (forest, _) = objects_of(&[stairs], MapKind::Forest, Target::Map);
+        assert_eq!(sprint.len(), 1);
+        assert_eq!(forest.len(), 1);
+        assert_eq!(forest[0].coords, sprint[0].coords);
     }
 
     #[test]
@@ -2314,11 +2333,14 @@ mod tests {
             .chain(&Rules::states().0)
         {
             for (code, kind) in [
-                (&rule.schoolyard, MapKind::Schoolyard),
-                (&rule.sprint, MapKind::Sprint),
+                (rule.schoolyard.as_ref(), MapKind::Schoolyard),
+                (rule.sprint.as_ref(), MapKind::Sprint),
+                (rule.code_for(MapKind::Forest), MapKind::Forest),
             ] {
-                let Some(code) = code else { continue };
                 let set = kind.symbol_set(kind.default_scale());
+                let Some(code) = code.filter(|code| *code != SKIP && !set.leaves_out(code)) else {
+                    continue;
+                };
                 let symbol_type = set.symbol_type(set.id_for_code(code).unwrap());
                 let fits: &[u32] = match rule.draw {
                     DrawKind::Point => &[1],

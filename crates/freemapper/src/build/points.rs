@@ -2451,7 +2451,7 @@ mod tests {
 
     #[test]
     fn point_sizes_cover_the_drawn_symbols() {
-        for kind in [MapKind::Sprint, MapKind::Schoolyard] {
+        for kind in [MapKind::Sprint, MapKind::Schoolyard, MapKind::Forest] {
             let scale = kind.default_scale();
             let set = kind.symbol_set(scale);
             for (code, _, _) in POINT_SIZES_MM {
