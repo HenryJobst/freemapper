@@ -92,6 +92,14 @@ warning-osm-extract-missing-kept = no OSM extract cached; keeping the stored OSM
 progress-osm-extract-read = reading OSM extract { $region } from { $date }
 progress-osm-candidates = { $count } OSM candidate features
 
+## Permit notes
+
+progress-permits-fetch = fetching { $source } data for the permit notes
+progress-permits-osm = reading OSM extract { $region } from { $date } for the permit notes
+progress-permits-stored = reading the stored data of the permit notes
+warning-permits-source-unreachable = { $source } could not be read, so the permit notes leave it out: { $error }
+warning-permits-osm-no-extract = no OSM extract is cached for this map area, so the permit notes leave OSM out; `freemapper fetch` downloads it
+
 ## ALKIS
 
 warning-alkis-coverage-unknown = ALKIS buildings coverage unknown; run `freemapper fetch` online to record it
