@@ -3,12 +3,14 @@
 | File | Source | Licence |
 |---|---|---|
 | `ISSprOM 2019_4000.omap` | OpenOrienteering Mapper, `symbol sets/4000/ISSprOM 2019_4000.omap`, commit `eae21b05851495923ac245fdf4b89cf575df38ce` (2025-05-18), https://github.com/OpenOrienteering/mapper; colour table changed by freemapper (see below) | GPL-3.0-or-later (OpenOrienteering Mapper) |
+| `ISOM 2017-2_15000.omap` | OpenOrienteering Mapper, `symbol sets/15000/ISOM 2017-2_15000.omap`, commit `eae21b05851495923ac245fdf4b89cf575df38ce` (2025-05-18), https://github.com/OpenOrienteering/mapper; colour table changed by freemapper (see below) | GPL-3.0-or-later (OpenOrienteering Mapper) |
+| `isom-aliases.toml` | freemapper: the ISSprOM codes of the build modules and the ISOM 2017-2 code that draws them on a forest map | GPL-3.0-or-later |
 | `school-2019-additions.xml` | freemapper, drawn after the IOF "Symbol Set for School Orienteering Maps 2019" | GPL-3.0-or-later |
 | `sheet-additions.xml` | freemapper: the sheet symbols 991 to 994 of the peripheral information | GPL-3.0-or-later |
 | `walkable-area-additions.xml` | freemapper: 990 "Walkable area (base fill)" of the sprint map, in a colour that `SymbolSet::with_walkable_area` appends at priority 32 with the values of Lower brown 30% (ADR 0069) | GPL-3.0-or-later |
 
-The International Orienteering Federation (IOF) publishes the symbol specifications ISSprOM 2019-2 and the school
-symbol set 2019 as well as the "Printing and Colour Definitions".
+The International Orienteering Federation (IOF) publishes the symbol specifications ISSprOM 2019-2, ISOM 2017-2 and
+the school symbol set 2019 as well as the "Printing and Colour Definitions".
 
 ## Changes to `ISSprOM 2019_4000.omap`
 
@@ -33,3 +35,15 @@ The colour values follow the IOF
 SHA-256 of the OOM original: `c278c36545e22114b7dd1146d311687ea9677eda63b8c10f8604d754679ea225`
 
 SHA-256 of the changed file: `77d01a34bcc2b9ab30e6a9c96a6b050e03d1c9003e670ea9432acee57d6cc69d`
+
+## Changes to `ISOM 2017-2_15000.omap`
+
+The colour table follows IOF Rev. 4 by the same rules as for ISSprOM: Brown 100% 25/75/100/0 and Green 100%
+80/0/100/0; custom CMYK for Upper brown 50% and Lower brown 50% (10/35/50/0), Yellow 100%/Green 50% (38/27/100/0)
+and Yellow 50% (0/14/40/0); every other tint is computed from the spot colours as OOM does it. The symbols are
+unchanged; 521 already uses Black 65%, as ISOM 2017-2 says. The 1:10000 and 1:7500 sets are this file enlarged to
+150 % and 200 % (`SymbolSet::isom_2017_2`), not OOM's separate 1:10000 file.
+
+SHA-256 of the OOM original: `104c95907a269460c87178bfcb18b2a4d4f2893c70b274a0e024c44b96efb9ab`
+
+SHA-256 of the changed file: `fc22868d9b02f8ef293dd1c9bcafc01ddaca5eb83840faf0b26452f815be492f`

@@ -1125,6 +1125,26 @@ mod tests {
         assert_eq!(value(&found[0].tags, "freemapper:currency_guessed"), None);
     }
 
+    /// A forest map draws the sprint rules through the aliases of the ISOM set: every sprint code
+    /// has an ISOM symbol or is left out on purpose.
+    #[test]
+    fn every_code_freemapper_draws_has_an_isom_answer() {
+        let isom = MapKind::Forest.symbol_set(15000);
+        for rule in Rules::embedded()
+            .0
+            .iter()
+            .chain(&Rules::berlin().0)
+            .chain(&Rules::states().0)
+        {
+            if let Some(code) = &rule.sprint {
+                assert!(
+                    isom.id_for_code(code).is_some() || isom.leaves_out(code),
+                    "{code} has no ISOM answer"
+                );
+            }
+        }
+    }
+
     #[test]
     fn embedded_rule_codes_exist_in_the_symbol_sets() {
         for rule in Rules::embedded()

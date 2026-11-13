@@ -281,8 +281,7 @@ impl MapKind {
                 .with_sheet_symbols()
                 .with_walkable_area(),
             Self::Forest => {
-                let _ = scale;
-                SymbolSet::issprom_2019().with_sheet_symbols()
+                SymbolSet::isom_2017_2(self.symbol_enlargement(scale)).with_sheet_symbols()
             }
         }
     }

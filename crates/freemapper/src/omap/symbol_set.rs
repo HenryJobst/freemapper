@@ -18,6 +18,9 @@ pub struct SymbolSet {
     pub symbols_xml: String,
     pub grid_xml: String,
     codes: Vec<(SymbolCode, u32)>,
+    /// Codes of another norm and the code of this set that draws them, `None` for a code this
+    /// set leaves out (`isom-aliases.toml`); asked before `codes`.
+    aliases: Vec<(String, Option<String>)>,
 }
 
 const SCHOOL_2019_ADDITIONS: &str =
@@ -36,6 +39,16 @@ pub const SCHOOL_SYMBOL_ENLARGEMENT: f64 = 1.25;
 
 const ISSPROM_2019_4000: &str =
     include_str!("../../../../assets/symbol-sets/ISSprOM 2019_4000.omap");
+const ISOM_2017_2_15000: &str =
+    include_str!("../../../../assets/symbol-sets/ISOM 2017-2_15000.omap");
+const ISOM_ALIASES: &str = include_str!("../../../../assets/symbol-sets/isom-aliases.toml");
+
+/// `isom-aliases.toml`.
+#[derive(serde::Deserialize)]
+struct AliasTable {
+    drop: Vec<String>,
+    alias: std::collections::BTreeMap<String, String>,
+}
 
 impl SymbolSet {
     /// Extracts colours, symbols, grid and the code → id table from an OOM map file.
@@ -106,12 +119,43 @@ impl SymbolSet {
             symbols_xml: symbols.ok_or(OmapError::MissingElement("symbols"))?,
             grid_xml: grid.unwrap_or_default(),
             codes,
+            aliases: Vec::new(),
         })
     }
 
     /// ISSprOM 2019 at 1:4000 as shipped with OOM, with the colours of IOF Rev. 4.
     pub fn issprom_2019() -> Self {
         Self::from_omap_xml(ISSPROM_2019_4000).expect("embedded ISSprOM 2019 symbol set is valid")
+    }
+
+    /// ISOM 2017-2 as shipped with OOM for 1:15000, with the colours of IOF Rev. 4, its symbols
+    /// enlarged by `enlargement` (1.5 for 1:10000, 2.0 for 1:7500). It answers the ISSprOM codes
+    /// the build modules use through `isom-aliases.toml`.
+    pub fn isom_2017_2(enlargement: f64) -> Self {
+        let isom = Self::from_omap_xml(ISOM_2017_2_15000)
+            .expect("embedded ISOM 2017-2 symbol set is valid");
+        let symbols = enlarge_symbols(&isom.symbols_xml, enlargement)
+            .expect("embedded ISOM 2017-2 symbols are valid XML");
+        let scale = (f64::from(isom.scale_denominator) / enlargement).round();
+        let map = ISOM_2017_2_15000
+            .replacen(&isom.symbols_xml, &symbols, 1)
+            .replacen(
+                r#"<georeferencing scale="15000""#,
+                &format!(r#"<georeferencing scale="{scale}""#),
+                1,
+            );
+        let table: AliasTable =
+            toml::from_str(ISOM_ALIASES).expect("embedded isom-aliases.toml is valid");
+        let aliases = table
+            .drop
+            .into_iter()
+            .map(|code| (code, None))
+            .chain(table.alias.into_iter().map(|(from, to)| (from, Some(to))))
+            .collect();
+        Self {
+            aliases,
+            ..Self::from_omap_xml(&map).expect("generated ISOM 2017-2 symbol set is valid")
+        }
     }
 
     /// IOF symbol set for school orienteering maps 2019 at 1:1000.
@@ -225,15 +269,30 @@ impl SymbolSet {
             r#"<map><georeferencing scale="{}"/>{}<barrier>{symbols}<view>{}</view></barrier></map>"#,
             self.scale_denominator, self.colors_xml, self.grid_xml
         );
-        Self::from_omap_xml(&map).expect("symbol set with additions is valid")
+        Self {
+            aliases: self.aliases.clone(),
+            ..Self::from_omap_xml(&map).expect("symbol set with additions is valid")
+        }
     }
 
-    /// Id of the first top-level symbol with the given code.
+    /// Id of the first top-level symbol with the given code, or with the code an alias names
+    /// for it; `None` for a code the set has not or leaves out.
     pub fn id_for_code(&self, code: &str) -> Option<u32> {
+        let code = match self.aliases.iter().find(|(from, _)| from == code) {
+            Some((_, to)) => to.as_deref()?,
+            None => code,
+        };
         self.codes
             .iter()
             .find(|(c, _)| c.0 == code)
             .map(|(_, id)| *id)
+    }
+
+    /// Whether an alias of this set leaves the code out (a code the norm has no symbol for).
+    pub fn leaves_out(&self, code: &str) -> bool {
+        self.aliases
+            .iter()
+            .any(|(from, to)| from == code && to.is_none())
     }
 
     /// OOM type of the top-level symbol `id` (1 point, 2 line, 4 area, 8 text, 16 combined).
@@ -307,6 +366,73 @@ mod tests {
 
     fn first_attr<'a>(xml: &'a str, anchor: &str, name: &str) -> &'a str {
         first_attribute_after(xml, anchor, name).unwrap_or_else(|| panic!("{anchor} {name}"))
+    }
+
+    #[test]
+    fn the_isom_set_has_the_path_classes_and_answers_issprom_codes() {
+        let set = SymbolSet::isom_2017_2(1.0);
+        assert_eq!(set.name, "ISOM 2017-2");
+        assert_eq!(set.scale_denominator, 15000);
+        for code in [
+            "101", "102", "502", "503", "504", "505", "506", "507", "508", "520", "521", "532",
+        ] {
+            assert!(set.id_for_code(code).is_some(), "{code}");
+        }
+        assert_eq!(set.id_for_code("505.1"), set.id_for_code("505"));
+        assert_eq!(set.id_for_code("505.2"), set.id_for_code("504"));
+        assert_eq!(set.id_for_code("532.7"), set.id_for_code("532"));
+        // 501.1 is a step in ISSprOM and the motorway in ISOM: the alias wins.
+        assert_eq!(set.id_for_code("501.1"), None);
+        assert!(set.leaves_out("501.1"));
+        assert_eq!(set.id_for_code("990"), None);
+        assert!(!set.leaves_out("505"));
+        // The sheet symbols keep the aliases.
+        let sheet = set.with_sheet_symbols();
+        assert!(sheet.id_for_code("991").is_some());
+        assert_eq!(sheet.id_for_code("505.1"), set.id_for_code("505"));
+    }
+
+    #[test]
+    fn the_isom_set_at_1_to_10000_and_7500_is_enlarged() {
+        let base = SymbolSet::isom_2017_2(1.0);
+        let width = |set: &SymbolSet| -> f64 {
+            first_attr(&set.symbols_xml, r#" code="505""#, "line_width")
+                .parse()
+                .unwrap()
+        };
+        for (enlargement, scale) in [(1.5, 10000), (2.0, 7500)] {
+            let set = SymbolSet::isom_2017_2(enlargement);
+            assert_eq!(set.scale_denominator, scale);
+            assert_eq!(width(&set), (width(&base) * enlargement).round());
+        }
+    }
+
+    /// An alias keeps the kind of geometry: a line code answers with a line symbol, an area code
+    /// with an area or a combined symbol.
+    #[test]
+    fn isom_aliases_keep_the_symbol_type() {
+        let issprom = SymbolSet::issprom_2019();
+        let isom = SymbolSet::isom_2017_2(1.0);
+        let table: AliasTable = toml::from_str(ISOM_ALIASES).unwrap();
+        for (from, to) in &table.alias {
+            let before = issprom
+                .symbol_type(
+                    issprom
+                        .id_for_code(from)
+                        .unwrap_or_else(|| panic!("{from}")),
+                )
+                .unwrap();
+            let after = isom
+                .symbol_type(isom.id_for_code(to).unwrap_or_else(|| panic!("{to}")))
+                .unwrap();
+            assert!(
+                before == after || after == 16,
+                "{from} (type {before}) -> {to} (type {after})"
+            );
+        }
+        for code in &table.drop {
+            assert!(isom.leaves_out(code));
+        }
     }
 
     #[test]
@@ -605,8 +731,37 @@ mod tests {
     }
 
     #[test]
+    fn isom_colours_follow_iof_rev4() {
+        let table = colour_table(&SymbolSet::isom_2017_2(1.0).colors_xml);
+        let cmyk = |name: &str| {
+            let c = table.iter().find(|c| c.name == name).unwrap();
+            c.cmyk.map(|v| (v * 1000.0).round() / 10.0)
+        };
+        for (name, expected) in [
+            ("Green 100%", [80.0, 0.0, 100.0, 0.0]),
+            ("Green 60%", [48.0, 0.0, 60.0, 0.0]),
+            ("Brown 100%", [25.0, 75.0, 100.0, 0.0]),
+            ("Upper brown 50%", [10.0, 35.0, 50.0, 0.0]),
+            ("Lower brown 50%", [10.0, 35.0, 50.0, 0.0]),
+            ("Yellow 100%/Green 50%", [38.0, 27.0, 100.0, 0.0]),
+            ("Yellow", [0.0, 27.0, 79.0, 0.0]),
+            ("Yellow 50%", [0.0, 14.0, 40.0, 0.0]),
+            ("Blue 100%", [100.0, 0.0, 0.0, 0.0]),
+            ("Black 65%", [0.0, 0.0, 0.0, 65.0]),
+        ] {
+            assert_eq!(cmyk(name), expected, "{name}");
+        }
+    }
+
+    #[test]
     fn colour_table_is_what_oom_computes() {
-        let table = colour_table(&SymbolSet::issprom_2019().colors_xml);
+        for set in [SymbolSet::issprom_2019(), SymbolSet::isom_2017_2(1.0)] {
+            colour_table_matches_oom(&set.colors_xml);
+        }
+    }
+
+    fn colour_table_matches_oom(colors_xml: &str) {
+        let table = colour_table(colors_xml);
         for c in &table {
             // OOM recomputes these on load (MapColor::cmykFromSpotColors, rgbFromSpotColors).
             let mut cmyk = [0.0; 4];

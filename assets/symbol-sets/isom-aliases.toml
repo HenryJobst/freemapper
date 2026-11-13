@@ -1,0 +1,42 @@
+# The ISSprOM 2019 codes the build modules of freemapper draw, and the ISOM 2017-2 code that draws
+# the same thing on a forest map (spec 2026-11-13). `SymbolSet::id_for_code` asks this table
+# before the set's own codes, so a code both norms use with different meanings (501.1 is a step
+# in ISSprOM and the motorway in ISOM) gets the right symbol. Each alias keeps the symbol type: a
+# line stays a line, an area an area (or the combined symbol that draws it).
+
+# Codes ISOM 2017-2 has no symbol for: the object is left out of a forest map.
+drop = [
+    "321",   # school set: hydrant
+    "410.1", # impassable hedge as a line; ISOM draws impassable vegetation as an area only
+    "501.1", # step or edge of a paved area
+    "541",   # school set
+    "542",
+    "543",
+    "544",
+    "545",
+    "990",   # walkable area, the base fill of a sprint map
+]
+
+[alias]
+"104.1" = "104"   # very high earth bank
+"301.6" = "301.4" # bank line of uncrossable water
+"410" = "411"     # impassable vegetation
+"501.3" = "501"   # paved area with scattered trees
+"501.5" = "501"   # paved area, light traffic
+"501.6" = "505"   # paved path 1.4 m: footpath
+"501.7" = "505"   # paved path 2 m: footpath
+"501.8" = "503"   # paved way 3 m: road
+"501.9" = "503"   # paved way 4 m: road
+"501.10" = "501"  # paved area, heavy traffic
+"501.11" = "501"
+"505.1" = "505"   # unpaved footpath 1.4 m
+"505.2" = "504"   # unpaved track 2 m: vehicle track
+"509.1" = "509"   # railway
+"509.2" = "509"   # tramway
+"513.1" = "513"   # passable wall
+"513.2" = "513"   # passable retained wall
+"532.6" = "532"   # stairway
+"532.7" = "532"
+"532.8" = "532"
+"532.9" = "532"
+"601" = "601.1"   # magnetic north line
