@@ -222,6 +222,9 @@ Orienteering Maps 2019 (IOF).
 | Kleingarten | allotment garden | ALKIS-Nutzung „Sport-, Freizeit- und Erholungsfläche / Kleingarten“; privates Gelände, in jedem Bundesland ein Kandidat für 520 (verbotenes Gebiet). | `is_private` |
 | K5 | K5 (Karte von Berlin 1:5000) | Die Berlin-Karte 1:5000 in Farbe (WMS `k5_farbe`), als Vorlage `templates/k5.png` mit Weltdatei gespeichert (0,25 m je Pixel, gröber bei Gebieten über 1,5 km Seitenlänge). | `K5_RELPATH`, `K5_WMS` |
 | OpenStreetMap (OSM) | OpenStreetMap (OSM) | Freie, gemeinschaftlich erstellte Geodaten. | `Osm` |
+| Genehmigungshinweise | permit notes | Dokument neben der Karte (`permits.md`, `permits.json`): welche Verwaltungseinheiten, Schutzgebiete und Betreiber das Kartengebiet berührt und wen man dann meist fragt. Nur auf Wunsch (`freemapper permits`, `run --permits`, MCP `permits_for_area`). Ein Hinweis, keine Rechtsauskunft (ADR 0116). | `permits`, `PermitNotes` |
+| Schutzgebiet | protected area | Fläche, die nach Naturschutzrecht geschützt ist: Nationalpark, Nationales Naturmonument, Naturschutzgebiet, FFH-Gebiet, Vogelschutzgebiet, Biosphärenreservat (mit Zonen), Landschaftsschutzgebiet, Naturpark. Die Genehmigungshinweise lesen sie aus dem WFS des BfN, dazu Schutzgebiete aus OSM, die das BfN nicht führt. | `ProtectedArea`, `ProtectedKind` |
+| Verwaltungseinheit | administrative unit | Bundesland, Kreis (oder kreisfreie Stadt), Amt oder Verwaltungsgemeinschaft und Gemeinde, aus VG250 des BKG (generalisiert auf 1:250 000). Die Genehmigungshinweise nennen jede mit ihrem Anteil am Kartengebiet. | `AdminUnit`, `AdminLevel` |
 
 ## Koordinaten & Georeferenzierung / coordinates & georeferencing
 

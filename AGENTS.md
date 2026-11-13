@@ -7,7 +7,8 @@ map. It ships in every release archive next to the program. People read [README.
 freemapper makes a starter project for an orienteering map from official geodata of a German state and from
 OpenStreetMap: a georeferenced OpenOrienteering Mapper map (`.omap`) with buildings, paved areas, paths and other
 reliable objects already drawn, templates (orthophoto, hillshade, slope, local relief, nDSM), a candidates map to check, and on
-request an OCAD starting point and printable PDFs. Map kinds: `schoolyard` (1:1000) and `sprint` (ISSprOM 2019,
+request an OCAD starting point, printable PDFs and permit notes (who is in charge of the area, a hint, not legal
+advice). Map kinds: `schoolyard` (1:1000) and `sprint` (ISSprOM 2019,
 1:4000 or 1:5000).
 
 Supported states: Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein,
@@ -103,6 +104,7 @@ freemapper run <dir> --pdf
 | `fetch <dir>` | Downloads into the shared cache. `--offline` uses the cache only. |
 | `derive <dir>` | Computes templates and contours. |
 | `export <dir>` | Writes the map. `--force` replaces an existing map (old one as `.bak`). |
+| `permits <dir>` | Writes the permit notes `permits.md` and `permits.json`: administrative units, protected areas and operators of the map area, and whom that usually means asking. Asks `geodienste.bfn.de` and `sgx.geodatenzentrum.de` and reads the OSM extract already cached (it downloads none). `--offline` reads only what an earlier run stored in `data/permits/`. Exit code 0 when the notes are written, also when a source is left out (a `warning:` line names it); 1 when no source could be read or the folder is held by another run. Takes about half a minute. |
 | `update` | Installs the newest freemapper release over this program. `--check` only checks, `--yes` installs without asking (needed without a terminal, so always for you), `--version <x.y.z>` picks a release, `--rollback` goes back to the replaced version, `--mode notify\|install\|off` stores what the daily check does. |
 | `adapters allow-host <adapter> <host>` | Allows a built-in state one more host, after a message said its adapter does not name that host. Only after the person agreed (see Troubleshooting). The hosts are in `allowed-hosts.toml` of the person's configuration folder. |
 | `adapters disallow-host <adapter> <host>` | Takes back a host that `allow-host` allowed. |
@@ -110,7 +112,9 @@ freemapper run <dir> --pdf
 | `adapters check <dir>` | Checks the folder of one adapter without asking a server: whether it would load, with every finding. Exit code 0: passes, 1: findings, 2: could not run. `--live --bbox` also asks its services; only when the person asks for it. Details below the table. |
 
 Output switches for `run` and `export`: `--ocad`, `--pdf`, `--pdf-candidates`, `--pdf-scale-bar`,
-`--pdf-sources auto|full|credit-only`. `init`, `export` and `run` also take `--content safe|balanced|full` (what goes
+`--pdf-sources auto|full|credit-only`. `run` also takes `--permits`: after the map it writes the permit notes as
+`permits` does; a failure there is the warning `warning: the permit notes could not be written: …` and the exit code
+stays that of the map run. `export` has no `--permits`. `init`, `export` and `run` also take `--content safe|balanced|full` (what goes
 straight onto the map; default `balanced`: the objects of the cadastre and the registers) and `--content-set
 <group>=map|candidates|off`, repeatable; the choice is saved in `freemapper.toml`. All commands that download take `--cache-dir <folder>`.
 
@@ -132,7 +136,7 @@ passing on. On failure the program prints one line `error: <message>` to stderr 
 usage error exits with code 2. Exit code 0 means success. `update --check` exits with 10 when a newer version
 exists, also one that must be installed by hand, and with 0 when this one is current.
 
-At most once a day, `find`, `init`, `select`, `fetch` and `run` also check for a newer release. When they find one, a
+At most once a day, `find`, `init`, `select`, `fetch`, `run` and `permits` also check for a newer release. When they find one, a
 last line follows the command's output on stderr, also after an `error:` line:
 `freemapper 0.16.0 is available (you have 0.15.0). Update with: freemapper update`. It does not change the exit
 code. Pass it on and ask the person before you run `freemapper update --yes`. With `--offline`, with `CI` set or
@@ -149,9 +153,10 @@ Workflow:
 3. Tell the person the download size before a large first download: the first project in a state
    downloads its OSM extract (about 50 to 500 MB, kept for 7 days); later projects are much smaller.
 4. `freemapper run <dir>` with the outputs the person wants (`--pdf` to print, `--ocad` for OCAD, `--pdf-candidates`
-   for a quick training map). It takes from one to several minutes, longer on the first download, which can
-   be longer than your default command timeout: give the call a longer timeout or run it in the background and
-   wait for it to end. Pass on warnings, not every progress line.
+   for a quick training map, `--permits` for the permit notes when they plan an event there). It takes from one
+   to several minutes, longer on the first download, which can be longer than your default command timeout:
+   give the call a longer timeout or run it in the background and wait for it to end. Pass on warnings, not
+   every progress line.
 5. Tell the person which files are in the folder and what to check (see "What to tell the user").
 
 The rules of the MCP section apply here too: an existing map is replaced only with `--force` after asking, and one
@@ -190,11 +195,12 @@ states such as `running` or `finished` are the same in both languages. This file
 | `find_place` | `query` | Searches a school, park or other place by name (OpenStreetMap Nominatim). Use a result with `has_area`; its `osm_id` becomes the map area. |
 | `create_project` | `dir`; `osm_id` or `geojson`; optional `part`, `kind`, `scale`, `title`, `content`, `content_set` | Creates the project folder with `freemapper.toml`. `kind`: `schoolyard` (default) or `sprint`. `scale`: schoolyard 1000; sprint 4000 (default) or 5000. For 1:3000 use 4000; freemapper-print enlarges when printing. |
 | `estimate_download` | `dir` | What `start_pipeline` will download, with sizes and what is already cached. |
-| `start_pipeline` | `dir`; optional `force`, `offline`, `ocad`, `pdf`, `pdf_candidates`, `pdf_scale_bar`, `pdf_sources`, `content`, `content_set` | Fetches, derives and writes the project in the background. Returns a job id. |
-| `project_status` | `job_id` | `running`, `finished` or `failed`, with the last progress line or the error. |
+| `start_pipeline` | `dir`; optional `force`, `offline`, `ocad`, `pdf`, `pdf_candidates`, `pdf_scale_bar`, `pdf_sources`, `permits`, `content`, `content_set` | Fetches, derives and writes the project in the background. Returns a job id. With `permits: true` it writes the permit notes after the map; a failure there is a warning, not a failed job. |
+| `project_status` | `job_id` | `running`, `finished` or `failed`, with the last progress lines, the warnings, the written files (`files`: kind, path, bytes) and the result or the error. A finished `permits_for_area` job also carries `permits_md`, the text of `permits.md`. |
+| `permits_for_area` | `dir`; optional `offline` | Makes the permit notes of a project (`permits.md`, `permits.json`) in the background. Returns a job id; poll `project_status`. `offline: true` reads only the data an earlier run stored in the project. |
 | `list_layers` | `dir` | The layers of a project: map, candidates, raster templates. |
 | `preview_layer` | `dir`, `layer` | A PNG preview (at most 800 px) of `map` (the map objects as the last run drew them, without the candidates), `orthophoto`, `hillshade`, `slope`, `relief`, `ndsm`, or `k5` in Berlin. |
-| `open_area_selector` | `dir`; optional `kind`, `scale`, `title`, `open_browser`, and the same output switches as `start_pipeline` | Opens a page in the browser on this computer where the user draws or picks the area and saves it. Returns the address. |
+| `open_area_selector` | `dir`; optional `kind`, `scale`, `title`, `open_browser`, and the same output switches as `start_pipeline`, `permits` among them (ticks the box "Permit notes") | Opens a page in the browser on this computer where the user draws or picks the area and saves it. Returns the address. |
 | `check_update` | none | Whether a newer freemapper release exists: version, release date, release notes link and download size, or that this one is up to date. Installs nothing. |
 | `install_update` | `confirm` | Installs the newest release over the program the server runs from. Without `confirm: true` it installs nothing and returns an error. The new version applies once the MCP server is restarted. |
 
@@ -213,6 +219,10 @@ states such as `running` or `finished` are the same in both languages. This file
    longer on the first download. Pass the progress on in short lines, not every line.
 6. On `finished`: `list_layers`, show the `map` preview and one template with `preview_layer`, and tell the user
    which files are in the folder and what to check (see "What to tell the user").
+7. If the person plans an event or training there, or asks whom to ask for permission: `permits_for_area` (or
+   `permits: true` on `start_pipeline`). Poll `project_status` until `finished`, about half a minute; then pass on
+   `permits_md`, in full or its main points, as a hint, not legal advice. It reads the OSM extract a map run
+   fetched; without one the notes leave OSM out and say so.
 
 Rules:
 
@@ -220,7 +230,8 @@ Rules:
 - The server reads the person's adapter folder and their allowed hosts once, when it starts. After `adapters
   allow-host`, or after an adapter was put into the adapter folder or changed there, restart the server; until
   then it answers as before.
-- One pipeline runs at a time per server, and one run per project folder across all processes. A second run on
+- One job (`start_pipeline` or `permits_for_area`) runs at a time per server, and one run per project folder across
+  all processes. Both are refused while the area page of that folder is open. A second run on
   the same folder fails until the first ends; a lock left by a crashed run is taken over after 60 seconds.
 - An existing map is kept, because it may hold the user's own work. Pass `force: true` only after asking; the old
   file stays as `<name>.omap.bak`.
@@ -253,6 +264,10 @@ Rules:
   is not the map and has no candidates.
 - `ATTRIBUTION.txt`: every data source with its licence.
 - `freemapper.toml`: map area, kind, scale and the data used. `data/`: the downloaded features.
+- `permits.md` and `permits.json` (with `permits`, `--permits` or `permits_for_area`): the permit notes, Markdown in
+  the program language and the same content as JSON (`"schema": 1`). `data/permits/`: the stored answers of the
+  BfN and VG250 and the OSM findings, read by `--offline`. They do not change `freemapper.toml` or `ATTRIBUTION.txt`;
+  `permits.md` carries its own credit lines.
 
 The cache is shared by all projects: macOS `~/Library/Caches/freemapper`, Linux `~/.cache/freemapper`, Windows
 `%LOCALAPPDATA%\freemapper`. It can grow to several GB; check free disk space before the first run in a new state.
@@ -269,6 +284,8 @@ The cache is shared by all projects: macOS `~/Library/Caches/freemapper`, Linux 
 - The maps carry the credit lines the data licences require. Keep them when the map is passed on. With
   `pdf_sources: "credit-only"` the PDF shows only the freemapper line, and the user must name the sources in
   another way (ATTRIBUTION.txt lists them).
+- The permit notes are a hint, not legal advice and not a permit. The authorities decide; the BfN data are merged
+  once a year and "Nicht für Planungszwecke geeignet." (not suitable for planning). Say this when you pass them on.
 
 ## Troubleshooting
 
@@ -293,6 +310,9 @@ The cache is shared by all projects: macOS `~/Library/Caches/freemapper`, Linux 
   the local network, not https, more than 3 redirects): nothing to allow. Report it if it is a built-in state.
 - "another freemapper run is using this folder" or "a run is already going on": another run holds the project
   folder. Wait for it, or use another folder.
+- "no source of the permit notes could be read": with `offline` nothing is stored yet, or it was stored for another
+  map area; online, the services were down and no OSM extract is cached. Run it online; `fetch` (or a map run)
+  downloads the OSM extract. A `warning:` that the notes leave out one source is no failure: the file is written.
 - "map already exists": the folder has a map, which may hold the user's work. Ask before passing `force`.
 - "cannot write to the program folder": the update cannot replace the program there and does not ask for
   administrator rights. Unpack the new release by hand, or move freemapper to a folder the person owns and
@@ -300,7 +320,7 @@ The cache is shared by all projects: macOS `~/Library/Caches/freemapper`, Linux 
 - "the release could not be verified": the signature does not match; nothing was installed. Do not work around
   it. Tell the person and try again later.
 - `warning: the newest freemapper release could not be verified (…); nothing was installed` as the last line of
-  `find`, `init`, `select`, `fetch` or `run`: the daily check found a release whose signature does not match. It
+  `find`, `init`, `select`, `fetch`, `run` or `permits`: the daily check found a release whose signature does not match. It
   comes at most once a day and does not change the exit code. The MCP server gives the same news once, as the note
   `Note for the person: the newest freemapper release could not be verified …`. Tell the person; do not install
   that release another way.

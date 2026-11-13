@@ -6,6 +6,10 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+### Hinzugefügt
+
+- Hinweise zu Genehmigungen (ADR 0116): `freemapper permits <ordner>` und `run --permits` schreiben `permits.md` und `permits.json` neben die Karte. Die Datei nennt für das Kartengebiet Bundesland, Kreis, Amt und Gemeinde aus VG250 des BKG, die Schutzgebiete des BfN, weitere Schutzgebiete sowie Betreiber und Eigentümer aus OpenStreetMap, jeweils mit Anteil am Gebiet, und sagt, wen man meist fragt. Sie ist ein Hinweis und keine Rechtsauskunft. Die Hinweise entstehen nur auf Wunsch; nur dann fragt freemapper `geodienste.bfn.de` und `sgx.geodatenzentrum.de`. Den OSM-Auszug liest es aus dem Zwischenspeicher, und `--offline` nimmt die in `data/permits/` gespeicherten Daten. Auf der Gebietsseite gibt es dafür die Option „Hinweise zu Genehmigungen“, im MCP-Server das Werkzeug `permits_for_area` (ein Job; `project_status` liefert den Text als `permits_md`) und `permits` für `start_pipeline` und `open_area_selector`. `project_status` nennt jetzt bei jedem Job die geschriebenen Dateien (`files`). Karte, `freemapper.toml` und `ATTRIBUTION.txt` bleiben unverändert. Beschrieben im Handbuch, Kapitel 12; die folgenden Kapitel rücken um eins weiter.
+
 ### Geändert
 
 - Intern: Das Platzieren der Objekte nach den Inhaltseinstellungen liegt jetzt im neuen Modul „Kartenaufbau“ (`build/assembly.rs`, ADR 0115) statt zwischen den Dateizugriffen des Projekts. Es liest keine Datei und lässt sich mit wenigen Objekten im Speicher testen. Erster von drei Schritten; die Karten bleiben Byte für Byte gleich.

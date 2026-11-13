@@ -161,3 +161,4 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0113](0113-the-mouth-of-the-elbe-is-split-at-the-line-of-equal-distance.md) | The mouth of the Elbe is split at the line of equal distance | Accepted | 2026-11-13 |
 | [0114](0114-the-extra-layers-and-raster-templates-of-an-adapter.md) | The extra layers and raster templates of an adapter, as built | Accepted | 2026-11-13 |
 | [0115](0115-the-map-assembly-reads-no-file.md) | The map assembly reads no file | Accepted | 2026-11-13 |
+| [0116](0116-permit-notes-from-national-sources.md) | Permit notes from national sources | Accepted | 2026-11-13 |

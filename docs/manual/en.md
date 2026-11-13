@@ -18,11 +18,12 @@ geodata or the command line. It describes the current state, with Brandenburg, B
 9. [What to check in the terrain](#9-what-to-check-in-the-terrain)
 10. [Map as PDF](#10-map-as-pdf)
 11. [OCAD](#11-ocad)
-12. [Regions and border areas](#12-regions-and-border-areas)
-13. [Working on later](#13-working-on-later)
-14. [Messages and what to do](#14-messages-and-what-to-do)
-15. [Attribution](#15-attribution)
-16. [Help and bug reports](#16-help-and-bug-reports)
+12. [Permit notes](#12-permit-notes)
+13. [Regions and border areas](#13-regions-and-border-areas)
+14. [Working on later](#14-working-on-later)
+15. [Messages and what to do](#15-messages-and-what-to-do)
+16. [Attribution](#16-attribution)
+17. [Help and bug reports](#17-help-and-bug-reports)
 
 ## 1. What freemapper does
 
@@ -123,7 +124,7 @@ then only says to update it with `git pull` and `cargo build --release --locked`
 
 #### The daily check
 
-After `find`, `init`, `select`, `fetch` and `run`, which go online anyway, freemapper checks at most once a day
+After `find`, `init`, `select`, `fetch`, `run` and `permits`, which go online anyway, freemapper checks at most once a day
 whether a newer release exists. `derive` and `export` work offline and do not check. The check runs while the command
 works. If it finds a newer version, one line follows the command's own output on the error output (stderr):
 
@@ -318,7 +319,7 @@ contributors.*
   - the estimated download;
   - the free disk space and how much of it the download needs. In the list "What is downloaded",
     anything that does not fit is marked "does not fit on the disk". Above it the page shows the
-    messages from chapter 14 and whether freemapper leaves the part out or stops.
+    messages from chapter 15 and whether freemapper leaves the part out or stops.
 - Set **map kind, scale and title**, then click *Save*. After that you can create the map right on the
   page (next section), or close it with *Done* and start `freemapper run` in a terminal.
 
@@ -345,6 +346,7 @@ screenshot shows the German page.*
    | Training PDF with every candidate | `--pdf-candidates` |
    | Scale bar on the PDFs | `--pdf-scale-bar` |
    | Source lines on the PDFs: automatic, full, freemapper only | `--pdf-sources auto`, `full`, `credit-only` |
+   | Permit notes | `--permits` (chapter 12) |
    | Cache only, no network | `--offline` |
    | Replace the existing map | `--force` |
 
@@ -403,9 +405,10 @@ on, the new one does not start, because the projects share the cache.
 **Defaults** are set when the page starts: `freemapper select my-schoolyard --pdf --ocad` ticks the two
 options already. The switches are `--ocad`, `--pdf`, `--pdf-candidates`, `--pdf-scale-bar`,
 `--pdf-sources auto|full|credit-only` and `--offline`; the AI assistant can pass the same fields to
-`open_area_selector`. "Replace the existing map" has no default.
+`open_area_selector`. Only the AI assistant can preset "Permit notes" (`permits`); `select` has no switch for
+it. "Replace the existing map" has no default.
 
-The page speaks German or English: the language of the program (chapter 14), else that of the browser. It calls no address outside your computer,
+The page speaks German or English: the language of the program (chapter 15), else that of the browser. It calls no address outside your computer,
 apart from the background map tiles (through the local server) and the orthophoto services when you switch
 them on.
 
@@ -416,13 +419,14 @@ Among other files, the project folder then holds:
 | File | What it is |
 |---|---|
 | `<name>.omap` | the map for OpenOrienteering Mapper, georeferenced, with buildings, canopies, water and the peripheral information |
-| `templates/` | the templates: orthophoto, hillshade, slope, local relief, nDSM and the candidates map, in Berlin also the K5 (chapter 12) |
+| `templates/` | the templates: orthophoto, hillshade, slope, local relief, nDSM and the candidates map, in Berlin also the K5 (chapter 13) |
 | `ocad/` | with `--ocad`: the OCAD map and its templates |
 | `<name>.pdf` | with `--pdf`: the print-ready map without candidates |
 | `<name>-candidates.pdf` | with `--pdf-candidates`: the training map with every candidate |
 | `<name>-preview.webp` | an image of the map objects (no candidates, no sheet), written together with the `.omap`; the area page shows it |
 | `ATTRIBUTION.txt` | the attribution of the data sources |
 | `freemapper.toml` | the project's settings and data currency |
+| `permits.md`, `permits.json` | with `--permits` or `freemapper permits`: the permit notes (chapter 12) |
 
 Open the `.omap` file in OOM. The templates are already linked; show and hide them in the *Templates*
 menu. The **candidates** (`templates/candidates.omap`) are a separate map on top: fences, hedges,
@@ -533,7 +537,7 @@ Sea that is not in the cadastre stays white. freemapper does not read the OSM co
   stays, because it adds extent.
 
 Below the map is the **peripheral information**: title, scale, contour interval, scale bar and the
-attribution. Keep the attribution on printed maps (chapter 15). The **north lines** belong to the map and sit
+attribution. Keep the attribution on printed maps (chapter 16). The **north lines** belong to the map and sit
 in the map part "default part". Break them in OOM where they hide small objects, such as boulders, path ends
 or wall corners.
 
@@ -648,16 +652,16 @@ freemapper saves you drawing the base, not the walk through the terrain. Check a
   - Are new buildings missing, or demolished ones still there?
   - Each building's data currency is in its object tags.
 - **Paved areas** (sprint): in Saxony, street areas include the grass and tree strips at their edges. In
-  Berlin freemapper cuts out the surveyed green strips (chapter 12); tree pits and green that the street
+  Berlin freemapper cuts out the surveyed green strips (chapter 13); tree pits and green that the street
   survey does not know stay inside. In both states squares are only candidates.
 - **Canopies and passages:** in every state except Saxony and Saxony-Anhalt, canopies and carports from
-  ALKIS are map objects (522), and building passages and arcades are candidates (chapter 12). Are the canopies
+  ALKIS are map objects (522), and building passages and arcades are candidates (chapter 13). Are the canopies
   still there? Is a passage open, or does it have a gate?
 - **Fences, walls, hedges:** they come from OSM and the nDSM, in Berlin also from ALKIS and the street
   survey, in Brandenburg also from the full ALKIS. Can they be crossed? Are there gates?
 - **Out-of-bounds areas:** private grounds, allotment gardens, railway land, and on schoolyard maps
   everything outside the school grounds.
-- **Berlin** (chapter 12):
+- **Berlin** (chapter 13):
   - Canopies and carports from ALKIS are map objects (522). Are they still there? Where a canopy meets a
     building, freemapper cuts it at the wall. This can leave narrow slivers.
   - Building passages and arcades are only candidates. Is the passage open, or does it have a gate?
@@ -697,7 +701,7 @@ freemapper saves you drawing the base, not the walk through the terrain. Check a
     water that you can wade through becomes a crossable body of water (302).
   - Water from OSM comes as candidates only. Are the pond and the fountain still there? Does the ditch
     carry water?
-- **Brandenburg** (chapter 12):
+- **Brandenburg** (chapter 13):
   - The full ALKIS often records a wall as its two edges (`Mauerkante, links` and `Mauerkante, rechts`).
     Where both edges face each other, run nearly parallel and lie closer than 0.55 mm on paper (2.2 m at
     1:4000), freemapper draws one 515 line in the middle. It carries `freemapper:alkis=Mauer (Mauerkanten
@@ -815,9 +819,106 @@ Load the official symbol set in OCAD:
 2. Pick the set: ISSprOM 2019 for sprint maps, the IOF school set 2019 for schoolyard maps.
 
 OCAD then replaces the placeholders by number. The OCAD output has not been checked in every OCAD
-version yet; feedback is welcome (chapter 16).
+version yet; feedback is welcome (chapter 17).
 
-## 12. Regions and border areas
+## 12. Permit notes
+
+Whoever plans a race or a training on a map asks for permission first: the municipality for streets and
+squares, the lower nature conservation authority in a protected area, the operator of a school, a park or a
+palace garden. On request freemapper writes the file `permits.md` for this. For the map area it names the
+administrative units, the protected areas and the known operators, and whom that usually means asking.
+
+The file is a hint, not legal advice. The competent authorities decide. You still need their permit, and you
+still have to ask them.
+
+### Making the notes
+
+The notes are made only when you ask for them, and only then does freemapper ask the BfN and the BKG.
+
+- In the terminal, after the map was fetched once:
+
+  ```sh
+  ./freemapper permits kreuzgymnasium
+  ```
+
+  Or together with the map: `./freemapper run kreuzgymnasium --permits`. If something fails there, `run`
+  prints a warning and the map stays.
+- On the area page, tick "Permit notes" among the options (chapter 6).
+- Tell the AI assistant, for example: "Also make the permit notes for the project." It shows you the text
+  once it is done.
+
+`permits` asks the two federal services and reads the OSM extract that is already in the cache. It does not
+download an extract. Without one the notes leave OpenStreetMap out and say so; `freemapper fetch` downloads
+it. It all takes about half a minute, most of it for reading the OSM extract.
+
+With `--offline`, `permits` reads only the data an earlier run stored in the project and writes the same text.
+If you changed the area since then, the stored data no longer fit and the command stops. `permits` ends with an
+error (exit code 1) when not a single source could be read. If only one source is missing, the file is written
+all the same and a warning names the missing source.
+
+The project folder then holds:
+
+| File | What it is |
+|---|---|
+| `permits.md` | the notes to read, in the program language |
+| `permits.json` | the same content for programs |
+| `data/permits/` | the answers of the services and the OSM findings, for `--offline` |
+
+A new fetch replaces the files. `freemapper.toml` and `ATTRIBUTION.txt` do not change, and nothing of it
+shows on the map, in the candidates or in the PDFs.
+
+### What the file holds
+
+It starts with the note that it is not legal advice. Six sections follow:
+
+- "Administrative units" names the state, the Kreis or kreisfreie Stadt, the Amt or Verwaltungsgemeinschaft
+  where there is one, and the Gemeinde, each with its share of the map area in percent. A unit that touches
+  less than 0.5 % of the area stands in a list of its own, "Touched at the edge".
+- "Protected areas (BfN)" names national parks, national natural monuments, nature reserves, FFH areas, bird
+  protection areas, biosphere reserves with their zones, landscape protection areas and nature parks. Each
+  comes with its share, the date it was designated, the legal basis, the link to the legal text where the BfN
+  has one, and the data year.
+- "More protected areas from OpenStreetMap" names protected areas the BfN does not list, such as a protected
+  landscape feature.
+- "Operators and owners according to OpenStreetMap" names who runs or owns parks, gardens, sports grounds,
+  schools, churches, cemeteries, woods, railway land, attractions and historic places. freemapper does not read
+  residential land, houses or private gardens, and no phone numbers or e-mail addresses either.
+- "Hints" says whom a finding usually concerns, for example: "Protected areas concern the lower nature
+  conservation authority (untere Naturschutzbehörde), usually the Landkreis Märkisch-Oderland." or "In a
+  nature reserve you usually have to keep to the paths." The hints name the kind of office and the unit, never
+  a person or an address.
+- "Sources and data date" says for each source whether and when it was read, with its credit line and licence.
+
+A section whose source was not read says so.
+
+### Limits
+
+- The BfN merges the protected areas of the states once a year and marks the data "Nicht für Planungszwecke
+  geeignet." (not suitable for planning). A new or changed protected area can be missing. The authorities of
+  the state decide.
+- VG250 is generalised to the scale 1:250 000. A Gemeinde or Kreis at the edge of a small area can show up only
+  because of that.
+- An OSM area that encloses the whole map area without a corner inside it, a large wood for example, can be
+  missing. The parts from the BfN and VG250 are not affected.
+- Berlin and Hamburg are one unit each in VG250. The notes do not determine the Bezirk yet.
+- Owners of land are not in open data. The notes say how to get an extract from the land register.
+- Forest administrations, water protection areas and monuments are not in yet. They come in later versions.
+
+### Data sources and licences
+
+| Source | Service | Credit line in the notes |
+|---|---|---|
+| Administrative areas 1:250 000 (VG250) of the Federal Agency for Cartography and Geodesy (BKG) | `sgx.geodatenzentrum.de` | `© BKG (<year>) dl-de/by-2-0, Datenquellen: https://sg.geodatenzentrum.de/web_public/gdz/datenquellen/datenquellen_vg_nuts.pdf` |
+| Protected areas in Germany of the Federal Agency for Nature Conservation (BfN) | `geodienste.bfn.de` | `© Bundesamt für Naturschutz (BfN) (<year>), Schutzgebiete in Deutschland; Nutzungsbestimmungen für die Bereitstellung von Geodaten des Bundes (GeoNutzV). Nicht für Planungszwecke geeignet.` |
+| OpenStreetMap | extract in the cache | `© OpenStreetMap contributors, ODbL` |
+
+`<year>` is the year of the fetch. The BfN gives no credit line of its own; freemapper built this one from the
+name of the service, its terms of use and its access note. Keep the lines when you pass `permits.md` on.
+
+freemapper sends the two federal services only the rectangle around the map area and its fixed name
+(User-Agent). It asks no other server for the notes. `adapters allow-host` does not apply to these services.
+
+## 13. Regions and border areas
 
 | State | Data from | Particulars |
 |---|---|---|
@@ -1063,7 +1164,7 @@ DNS name; an IP address, `localhost`, a name of the local network, a wildcard or
 allowed host, too, freemapper connects to servers on the internet only. `freemapper adapters list` shows the
 allowed hosts per state, and `freemapper adapters disallow-host hessen new-server.hessen.de` takes one back.
 
-## 13. Working on later
+## 14. Working on later
 
 - **Your map is safe:** running `run` again (or "please fetch again") leaves an existing map unchanged.
   It only updates the templates and candidates. If buildings or canopies are missing from the map,
@@ -1079,7 +1180,7 @@ allowed hosts per state, and `freemapper adapters disallow-host hessen new-serve
 - **Data currency:** freemapper only downloads what was republished. If a provider changes a tile, you
   get a "changed upstream" warning.
 
-## 14. Messages and what to do
+## 15. Messages and what to do
 
 freemapper has German and English texts. The language comes from `--lang de` or `--lang en`, else from the
 environment variable `FREEMAPPER_LANG`, else from the system language (`LANG`), else it is English. On Windows
@@ -1113,12 +1214,12 @@ language. The most important messages, in their English wording:
 | `download of … failed` or `invalid ALKIS data` | A server was unreachable or sent nonsense. | Try again later. Data fetched before is kept. |
 | Area selection: "access blocked" / 403 from OpenStreetMap, or the base map stays grey | The base map comes from `tile.openstreetmap.org`. Its tile policy asks for an identifiable application (`User-Agent`) or a valid `Referer`; the browser sends no `Referer` here. Up to 0.9.1 the browser loaded the tiles itself and got 403. Since 0.9.2 the local server fetches the tiles with `User-Agent: freemapper/<version> (+https://github.com/HenryJobst/freemapper)` and passes them to the browser. | Update freemapper. The computer needs internet access. If the server answers 502, the reason is in the response (for example HTTP 403 or no connection). The state aerial images are not affected. |
 | `… refused the request (HTTP 400)` | A service refuses the request. | Try again. If it persists, report a bug. |
-| `…: freemapper does not send requests to this address: the adapter of … does not name the host …` | For a state freemapper asks only the servers its adapter names. A service moved to another server, redirected there or pointed there in its answer. The message starts with the refused address and ends with the command that allows the host. | If you trust the server (it plainly belongs to the agency of the state): run the command from the message, `freemapper adapters allow-host <adapter> <host>`, repeat the run and report the move (chapter 16). See "When a service moves" in chapter 12. For an adapter of your own, add the host to `[net] hosts` of its manifest. |
+| `…: freemapper does not send requests to this address: the adapter of … does not name the host …` | For a state freemapper asks only the servers its adapter names. A service moved to another server, redirected there or pointed there in its answer. The message starts with the refused address and ends with the command that allows the host. | If you trust the server (it plainly belongs to the agency of the state): run the command from the message, `freemapper adapters allow-host <adapter> <host>`, repeat the run and report the move (chapter 17). See "When a service moves" in chapter 13. For an adapter of your own, add the host to `[net] hosts` of its manifest. |
 | `…: freemapper does not send requests to this address: …` with another reason | freemapper never connects to an address of this computer or of the local network, follows at most three redirects in a row and no redirect to `http`. | Nothing to allow. For a built-in state, report a bug. |
 | `… ignored the byte range` | The server (height models of Hamburg or Hesse) sends the whole archive instead of the tile; freemapper stops rather than download over 1 GB. | Try again later, otherwise report a bug. |
 | `download of … is larger than … MB; stopped` | A server (the OSM extract, the Downloadportal of Schleswig-Holstein, the full ALKIS or the Potsdam tree cadastre) sends far more than the file can be; freemapper stops and removes the partial download. For the trees it stands in the brackets of `warning: potsdam tree cadastre unavailable`. | Try again later, otherwise report a bug. |
 | `no tile of the … covers the map area` | Hamburg: the statewide archive has no tile for the area; it was probably renamed. Saarland: none of the district archives has a tile for the area; the LVGL probably replaced them with a newer survey. Hesse: the Downloadcenter may have changed. Schleswig-Holstein and Mecklenburg-Vorpommern: the Downloadportal may have changed. North Rhine-Westphalia: the tile list of Geobasis NRW names no tile for the area. Rhineland-Palatinate: after the colon follows the reason for each tile, for example `not on the server (404)`, `not in LVermGeo RP's tile list` or `no flight year in LVermGeo RP's tile list (Laserbefliegung)`. | Report a bug. |
-| `warning: … an archive could not be read (…); it was passed over …` / `…; its directory kept from an earlier run is used …` | Saarland: one of the six district archives of the height model could not be read; the address in brackets names it. In the first case the tiles of your area were in other archives, and the map is complete. In the second case freemapper used the list of tiles it kept from an earlier run of yours; the tiles in the cache fit that list, but a tile the LVGL replaced since would not be noticed. | Nothing, if it happens once. If it stays, the LVGL renamed the archive: report it (chapter 16). |
+| `warning: … an archive could not be read (…); it was passed over …` / `…; its directory kept from an earlier run is used …` | Saarland: one of the six district archives of the height model could not be read; the address in brackets names it. In the first case the tiles of your area were in other archives, and the map is complete. In the second case freemapper used the list of tiles it kept from an earlier run of yours; the tiles in the cache fit that list, but a tile the LVGL replaced since would not be noticed. | Nothing, if it happens once. If it stays, the LVGL renamed the archive: report it (chapter 17). |
 | `warning: the … has no tile(s) … inside Hamburg` | Single tiles are missing from the archive. | The templates stay empty there. |
 | `warning: the … has no tile(s) … inside Hesse` | Single tiles are missing from the municipality's Downloadcenter archive. | The templates stay empty there. |
 | `warning: the Downloadcenter has no file for "…"` | The Downloadcenter has no file for the place (e.g. an unincorporated area). The tiles it names after `;` (if any) stayed empty because no other municipality's file holds them. | Tiles taken from neighbouring municipalities need no action; the named tiles stay empty. |
@@ -1210,8 +1311,11 @@ language. The most important messages, in their English wording:
 | `there is no previous version to go back to` | `--rollback` finds no `freemapper.previous`, because no update ran yet or the file was deleted. | Nothing to undo. Install an older version with `freemapper update --version <x.y.z>` if needed. |
 | `the update failed: …` | Another error during the update, for example a download that broke off. The old program stays. | Try again later. |
 | `warning: freemapper … was not installed: …` | In mode `install` the install after the command failed. The command itself ran and keeps its exit code. | Try `freemapper update` by hand; the reason follows the colon. |
+| `no source of the permit notes could be read (…)` | `freemapper permits` got data neither from VG250 nor from the BfN nor from OSM. With `--offline` there are no stored data yet, or they belong to another map area. | Run it again without `--offline` and with network. Without an OSM extract, run `freemapper fetch` first. |
+| `warning: … could not be read, so the permit notes leave it out: …` / `warning: the permit notes leave out …: …` | A federal service could not be reached, or no OSM extract was in the cache. The file is written all the same and names the missing source. | Run `freemapper permits` again later. For OSM, run `freemapper fetch` first. |
+| `warning: the permit notes could not be written: …` | With `run --permits` the notes failed. The map is written and the run counts as a success. | Read the reason after the colon and run `freemapper permits` on its own later. |
 
-## 15. Attribution
+## 16. Attribution
 
 The geodata is under open licences, but they require attribution. freemapper writes it into the
 peripheral information, the map notes and `ATTRIBUTION.txt`, for example:
@@ -1244,7 +1348,10 @@ peripheral information, the map notes and `ATTRIBUTION.txt`, for example:
 
 Keep these lines on printed and published maps.
 
-## 16. Help and bug reports
+The permit notes name their sources in `permits.md` themselves (chapter 12). `ATTRIBUTION.txt` does not list
+the BfN and the BKG, because nothing of theirs goes onto the map.
+
+## 17. Help and bug reports
 
 Please report questions, bugs and wishes as an
 [issue on GitHub](https://github.com/HenryJobst/freemapper/issues). It helps to include:

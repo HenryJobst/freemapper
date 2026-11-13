@@ -79,7 +79,7 @@ and the remaining states with open geodata (Baden-Württemberg, Bremen, Bavaria)
 back. Forest maps and the neighbouring countries come later. Design:
 [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](https://github.com/HenryJobst/freemapper/blob/main/docs/superpowers/specs/2026-11-07-freemapper-design.md).
 
-Planned: permits and contacts. For every map area freemapper should also show who has to be asked: for forest maps the protected areas it touches (nature reserves, landscape protection, FFH, national parks) and the responsible forest authority; for sprint maps the municipality or borough, the road traffic and parks departments, heritage and palace administrations and, where open data allows, public landowners. The result would be a report `permits.md` next to the map, each entry with its source and data date. It is a pointer, not legal advice, and owners of private land are not in open data. The research is in [`docs/research`](https://github.com/HenryJobst/freemapper/blob/main/docs/research/wald-und-sprint-behoerden/waldschutz-forstbehoerden-recherche.md).
+On request freemapper writes permit notes next to the map, into the file `permits.md` (`freemapper permits`, `run --permits`, on the area page or through the AI assistant). For the map area it names the state, Kreis, Amt and Gemeinde from the BKG's VG250, the protected areas of the BfN and operators from OpenStreetMap, each with its share, source and data date, and says whom one usually asks. It is a hint, not legal advice. The details are in the [user manual, chapter 12](docs/manual/en.md#12-permit-notes). Still planned are the forest administrations for forest maps and, for Berlin sprint maps, boroughs, parks, public land and monuments; the research is in [`docs/research`](https://github.com/HenryJobst/freemapper/blob/main/docs/research/wald-und-sprint-behoerden/waldschutz-forstbehoerden-recherche.md).
 
 ## User manual
 
@@ -91,7 +91,7 @@ experience needed. The chapters people use most:
   [without one](docs/manual/en.md#5-route-b-without-an-assistant)
 - [Choosing the map area in the browser](docs/manual/en.md#6-choosing-the-map-area-in-the-browser)
 - [What to check in the terrain](docs/manual/en.md#9-what-to-check-in-the-terrain)
-- [Messages and what to do](docs/manual/en.md#14-messages-and-what-to-do)
+- [Messages and what to do](docs/manual/en.md#15-messages-and-what-to-do)
 
 ## Examples
 
@@ -148,7 +148,7 @@ freemapper is a single program without an installer. You do not need to build it
 
 `freemapper update` asks, then downloads the newest release and puts it in place of the program, at
 the same path. It checks the release's signature first, and the old program stays for
-`freemapper update --rollback`. After `find`, `init`, `select`, `fetch` and `run` freemapper looks at most once a
+`freemapper update --rollback`. After `find`, `init`, `select`, `fetch`, `run` and `permits` freemapper looks at most once a
 day for a newer release and reports it in one line; `freemapper update --mode off` switches that off. Versions 0.11.0 and
 older cannot update themselves yet; replace them once by hand as above. Details are in the
 [user manual](docs/manual/en.md#updating).
@@ -292,7 +292,7 @@ freemapper run vorstadt
 In every state except Saxony and Saxony-Anhalt, the ALKIS canopies are map objects and the building passages
 candidates. At a state border freemapper queries the cadastre of both states and reads both OSM extracts; the
 orthophoto and terrain come from the state holding the centre of the map area. More in the
-[user manual, chapter 12](docs/manual/en.md#12-regions-and-border-areas). One example project per state is in
+[user manual, chapter 13](docs/manual/en.md#13-regions-and-border-areas). One example project per state is in
 [`examples/`](https://github.com/HenryJobst/freemapper/blob/main/examples/README.en.md).
 
 ## Map as PDF
@@ -381,6 +381,10 @@ The workflow the agent follows:
 When no search result fits or the user wants to draw the area, `open_area_selector` opens the area
 selection in the browser and returns its address; after saving, continue with step 3.
 
+`permits_for_area` writes the permit notes in the background and returns a job id; once the job is finished,
+`project_status` carries the text of `permits.md`. `start_pipeline` and `open_area_selector` take
+`permits: true` for them.
+
 `check_update` tells whether a newer freemapper exists. `install_update` installs it, only with `confirm: true`
 after the user agreed; the assistant then restarts the server.
 
@@ -394,5 +398,5 @@ sources, e.g. `© GeoBasis-DE/LGB <year>, dl-de/by-2-0, Daten geändert` and
 `© GeoBasis-DE/LGB <year>, dl-de/by-2-0; © Geoportal Berlin, dl-de/zero-2-0, Daten geändert`; when
 Berlin ALKIS data was fetched, `© Geoportal Berlin / ALKIS Berlin, dl-de/zero-2-0, Daten geändert` is added,
 and the K5 and the tree cadastre get a line each. The Potsdam trees add `Landeshauptstadt Potsdam / Bäume der
-Stadtkarte, dl-de/zero-2-0` (see the [user manual, chapter 15](docs/manual/en.md#15-attribution)).
+Stadtkarte, dl-de/zero-2-0` (see the [user manual, chapter 16](docs/manual/en.md#16-attribution)).
 In Saxony the line is `Quelle: GeoSN, dl-de/by-2-0, Daten geändert`.

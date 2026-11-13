@@ -6,6 +6,10 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
+### Added
+
+- Permit notes (ADR 0116): `freemapper permits <dir>` and `run --permits` write `permits.md` and `permits.json` next to the map. For the map area the file names the state, Kreis, Amt and Gemeinde from the BKG's VG250, the protected areas of the BfN, further protected areas and the operators and owners from OpenStreetMap, each with its share of the area, and says whom one usually asks. It is a hint, not legal advice. The notes are made only on request; only then does freemapper ask `geodienste.bfn.de` and `sgx.geodatenzentrum.de`. It reads the OSM extract from the cache, and `--offline` takes the data stored in `data/permits/`. The area page has the option "Permit notes" for it, the MCP server the tool `permits_for_area` (a job; `project_status` carries the text as `permits_md`) and `permits` on `start_pipeline` and `open_area_selector`. `project_status` now lists the written files (`files`) of every job. The map, `freemapper.toml` and `ATTRIBUTION.txt` stay unchanged. Described in the user manual, chapter 12; the chapters after it move up by one.
+
 ### Changed
 
 - Internal: placing the objects by the content settings now lives in the new module "map assembly" (`build/assembly.rs`, ADR 0115) instead of between the file reads of the project. It reads no file and can be tested with a few objects in memory. First of three steps; the maps stay byte for byte.
