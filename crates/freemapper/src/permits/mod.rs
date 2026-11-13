@@ -4,6 +4,7 @@
 pub mod fetch;
 pub mod notes;
 pub mod osm;
+pub mod regional;
 pub mod store;
 
 use std::path::PathBuf;

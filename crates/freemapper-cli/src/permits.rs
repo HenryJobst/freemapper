@@ -15,6 +15,10 @@ use freemapper::permits::notes::{
     AdminEntry, AdminLevel, Hint, OperatorEntry, OperatorRole, OsmEntry, PermitNotes,
     ProtectedEntry, Share, SourceStatus, hint_key,
 };
+use freemapper::permits::regional::{
+    GreenSpaceEntry, ProtectedObjectEntry, ProtectedObjectKind, RegionalNotes, RegionalStatus,
+    Words,
+};
 use freemapper::permits::store::{PERMITS_JSON, PERMITS_MD, write_permit_notes};
 use freemapper::project::{MapKind, ProjectFile};
 
@@ -84,11 +88,18 @@ pub fn write_permits(
 
 /// A warning line for each source the notes had to leave out.
 fn left_out(notes: &PermitNotes, lang: &Lang) -> Vec<String> {
+    let regional = notes
+        .regional
+        .iter()
+        .flat_map(|r| &r.sources)
+        .map(|r| (regional_name(lang, r), &r.status));
     notes
         .sources
         .iter()
-        .filter(|s| s.state != "read")
-        .map(|s| {
+        .map(|s| (source_name(lang, &s.id), s))
+        .chain(regional)
+        .filter(|(_, s)| s.state != "read")
+        .map(|(name, s)| {
             let reason = match &s.reason {
                 Some(reason) if s.state == "unreachable" => reason.clone(),
                 _ => t(lang, "cli-permits-not-read", &[]),
@@ -96,10 +107,7 @@ fn left_out(notes: &PermitNotes, lang: &Lang) -> Vec<String> {
             let body = t(
                 lang,
                 "cli-permits-source-left-out",
-                &[
-                    ("source", source_name(lang, &s.id).into()),
-                    ("reason", reason.into()),
-                ],
+                &[("source", name.into()), ("reason", reason.into())],
             );
             NOTES.text(lang, "note-warning", &[("text", body.into())])
         })
@@ -383,6 +391,17 @@ fn hint_text(lang: &Lang, notes: &PermitNotes, hint: &Hint) -> String {
     if hint.key == hint_key::ORDER_OFFICE && !has(&args, "amt") {
         args.push(("amt".into(), "none".into()));
     }
+    if hint.key == hint_key::OWNERS_UNKNOWN && !has(&args, "rest") {
+        args.push(("rest".into(), "no".into()));
+    }
+    if hint.key == hint_key::OWNER_SHARE {
+        if !has(&args, "unnamed") {
+            args.push(("unnamed".into(), "no".into()));
+        }
+        let percent = hint.args.get("percent").and_then(|p| p.parse::<f64>().ok());
+        args.retain(|(k, _)| k != "percent");
+        args.push(("share".into(), share_text(lang, percent.unwrap_or(0.0))));
+    }
     let args: Vec<(&str, FluentValue)> = args.iter().map(|(k, v)| (k.as_str(), arg(v))).collect();
     t(lang, &hint.key, &args)
 }
@@ -424,7 +443,326 @@ fn sources_table(lang: &Lang, notes: &PermitNotes) -> String {
             cell(&credit)
         ));
     }
+    rows.extend(regional_rows(lang, notes));
     rows.join("\n")
+}
+
+/// A text of the notes in `lang`.
+fn words<'a>(lang: &Lang, words: &'a Words) -> &'a str {
+    if lang.code() == "de" {
+        &words.de
+    } else {
+        &words.en
+    }
+}
+
+/// The name of a regional source in a warning: its publisher and what it holds.
+fn regional_name(lang: &Lang, r: &RegionalStatus) -> String {
+    format!(
+        "{}: {}",
+        words(lang, &r.source.label),
+        words(lang, &r.source.what)
+    )
+}
+
+/// The state of one source in the table.
+fn state_text(lang: &Lang, s: &SourceStatus) -> String {
+    match (s.state.as_str(), s.fetched) {
+        ("read", Some(date)) => t(lang, "permits-state-read", &[("date", arg(date))]),
+        ("unreachable", _) => t(
+            lang,
+            "permits-state-unreachable",
+            &[("reason", arg(md(s.reason.as_deref().unwrap_or_default())))],
+        ),
+        _ => t(lang, "permits-state-not-read", &[]),
+    }
+}
+
+/// One row per publisher and credit of the regional sources: the sources of one portal share
+/// a line, and a source that was not read is named in it.
+fn regional_rows(lang: &Lang, notes: &PermitNotes) -> Vec<String> {
+    let mut groups: Vec<(String, String, Vec<&RegionalStatus>)> = Vec::new();
+    for r in notes.regional.iter().flat_map(|r| &r.sources) {
+        let label = words(lang, &r.source.label).to_string();
+        match groups
+            .iter_mut()
+            .find(|(l, c, _)| *l == label && *c == r.source.credit)
+        {
+            Some((_, _, members)) => members.push(r),
+            None => groups.push((label, r.source.credit.clone(), vec![r])),
+        }
+    }
+    groups
+        .into_iter()
+        .map(|(label, credit, members)| {
+            let what: Vec<String> = members
+                .iter()
+                .map(|m| md(words(lang, &m.source.what)))
+                .collect();
+            let states: Vec<String> = members
+                .iter()
+                .map(|m| state_text(lang, &m.status))
+                .collect();
+            let state = if states.iter().all(|s| *s == states[0]) {
+                states[0].clone()
+            } else {
+                members
+                    .iter()
+                    .zip(&states)
+                    .map(|(m, s)| format!("{}: {s}", md(words(lang, &m.source.what))))
+                    .collect::<Vec<_>>()
+                    .join("; ")
+            };
+            let read = members.iter().any(|m| m.status.state == "read");
+            let credit = if read {
+                cell(&credit)
+            } else {
+                t(lang, "permits-no-credit", &[])
+            };
+            format!(
+                "| {}: {} | {} | {} |",
+                cell(&md(&label)),
+                cell(&what.join(", ")),
+                state,
+                credit
+            )
+        })
+        .collect()
+}
+
+/// The notes of the publishers on what their data are worth, verbatim, below the table.
+fn regional_source_notes(lang: &Lang, notes: &PermitNotes) -> Vec<String> {
+    let mut lines: Vec<String> = Vec::new();
+    for r in notes.regional.iter().flat_map(|r| &r.sources) {
+        if let Some(note) = r
+            .source
+            .note
+            .as_deref()
+            .filter(|_| r.status.state == "read")
+        {
+            let line = t(
+                lang,
+                "permits-source-note",
+                &[
+                    ("source", arg(md(&regional_name(lang, r)))),
+                    ("note", arg(md(note))),
+                ],
+            );
+            if !lines.contains(&line) {
+                lines.push(line);
+            }
+        }
+    }
+    lines
+}
+
+/// The publisher of the sources of a regional part, for its headings.
+fn regional_label(lang: &Lang, part: &RegionalNotes) -> String {
+    part.sources
+        .first()
+        .map(|r| md(words(lang, &r.source.label)))
+        .unwrap_or_default()
+}
+
+fn green_space_line(lang: &Lang, s: &Share<GreenSpaceEntry>) -> String {
+    let g = &s.item;
+    let name = if g.name.trim().is_empty() {
+        t(lang, "permits-osm-unnamed", &[])
+    } else {
+        t(lang, "permits-quoted", &[("text", arg(md(&g.name)))])
+    };
+    let mut details = Vec::new();
+    if let Some(district) = &g.district {
+        details.push(t(
+            lang,
+            "permits-green-space-district",
+            &[("district", arg(md(district)))],
+        ));
+    }
+    if let Some(dedication) = &g.dedication {
+        details.push(t(
+            lang,
+            "permits-green-space-dedication",
+            &[("dedication", arg(md(dedication)))],
+        ));
+    }
+    let name = if details.is_empty() {
+        name
+    } else {
+        format!("{name} ({})", details.join("; "))
+    };
+    format!(
+        "- {}",
+        t(
+            lang,
+            "permits-share-line",
+            &[
+                ("name", arg(name)),
+                ("share", arg(share_text(lang, s.percent))),
+            ],
+        )
+    )
+}
+
+fn object_kind(lang: &Lang, kind: ProtectedObjectKind) -> String {
+    t(
+        lang,
+        "permits-object-kind",
+        &[("kind", arg(serde_name(kind)))],
+    )
+}
+
+fn object_line(lang: &Lang, o: &ProtectedObjectEntry) -> String {
+    let mut text = object_kind(lang, o.kind);
+    if let Some(name) = o.name.as_deref().filter(|n| !n.trim().is_empty()) {
+        text = format!(
+            "{text} {}",
+            t(lang, "permits-quoted", &[("text", arg(md(name)))])
+        );
+    }
+    match o.percent {
+        Some(percent) => format!("- {text}, {}", share_text(lang, percent)),
+        None if o.count > 1 => format!(
+            "- {text}, {}",
+            t(lang, "permits-object-count", &[("count", arg(o.count))])
+        ),
+        None => format!("- {text}"),
+    }
+}
+
+/// The sections of one regional part; a section whose source was not read is left out.
+fn regional_blocks(lang: &Lang, part: &RegionalNotes) -> Vec<String> {
+    let source = regional_label(lang, part);
+    let heading = |id: &str| format!("## {}", t(lang, id, &[("source", arg(&source))]));
+    let none = |id: &str| t(lang, id, &[("source", arg(&source))]);
+    let mut blocks = Vec::new();
+    if let Some(districts) = &part.districts {
+        blocks.push(heading("permits-section-districts"));
+        if districts.is_empty() {
+            blocks.push(none("permits-none-districts"));
+        } else {
+            blocks.extend(with_edge(
+                lang,
+                districts,
+                |s| {
+                    format!(
+                        "- {}",
+                        t(
+                            lang,
+                            "permits-share-line",
+                            &[
+                                ("name", arg(md(&s.item.name))),
+                                ("share", arg(share_text(lang, s.percent))),
+                            ],
+                        )
+                    )
+                },
+                None,
+            ));
+        }
+    }
+    if let Some(green) = &part.green_spaces {
+        blocks.push(heading("permits-section-green-spaces"));
+        if green.entries.is_empty() {
+            blocks.push(none("permits-none-green-spaces"));
+        } else {
+            blocks.extend(with_edge(
+                lang,
+                &green.entries,
+                |s| green_space_line(lang, s),
+                None,
+            ));
+        }
+        blocks.push(match green.playgrounds {
+            0 => t(lang, "permits-playgrounds-none", &[]),
+            1 => t(lang, "permits-playgrounds-one", &[]),
+            n => t(lang, "permits-playgrounds-many", &[("count", arg(n))]),
+        });
+    }
+    if let Some(owners) = &part.owners {
+        blocks.push(heading("permits-section-owners"));
+        if owners.is_empty() {
+            blocks.push(none("permits-none-owners"));
+        } else {
+            let lines: Vec<String> = owners
+                .iter()
+                .map(|s| {
+                    let name = match &s.item.owner {
+                        Some(owner) => md(owner),
+                        None => t(lang, "permits-owner-other", &[]),
+                    };
+                    format!(
+                        "- {}",
+                        t(
+                            lang,
+                            "permits-share-line",
+                            &[
+                                ("name", arg(name)),
+                                ("share", arg(share_text(lang, s.percent))),
+                            ],
+                        )
+                    )
+                })
+                .collect();
+            blocks.push(lines.join("\n"));
+            blocks.push(t(lang, "permits-owners-rest", &[]));
+        }
+    }
+    if let Some(monuments) = &part.monuments {
+        blocks.push(heading("permits-section-monuments"));
+        if monuments.total == 0 {
+            blocks.push(none("permits-none-monuments"));
+        } else {
+            blocks.push(t(
+                lang,
+                "permits-monuments-total",
+                &[("count", arg(monuments.total))],
+            ));
+            let mut lines = Vec::new();
+            for group in &monuments.groups {
+                lines.push(format!(
+                    "- {}",
+                    t(
+                        lang,
+                        "permits-count-line",
+                        &[("name", arg(md(&group.kind))), ("count", arg(group.count))],
+                    )
+                ));
+                for url in &group.links {
+                    lines.push(format!("  - {}", link(url)));
+                }
+            }
+            blocks.push(lines.join("\n"));
+            if monuments.links_left > 0 {
+                blocks.push(t(
+                    lang,
+                    "permits-monuments-links-left",
+                    &[("count", arg(monuments.links_left))],
+                ));
+            }
+        }
+    }
+    if let Some(objects) = &part.protected_objects {
+        blocks.push(heading("permits-section-protected-objects"));
+        if objects.is_empty() {
+            blocks.push(none("permits-none-protected-objects"));
+        } else {
+            let lines: Vec<String> = objects.iter().map(|o| object_line(lang, o)).collect();
+            blocks.push(lines.join("\n"));
+            let mut citations: Vec<&str> = Vec::new();
+            for c in objects.iter().filter_map(|o| o.citation.as_deref()) {
+                if !citations.contains(&c) {
+                    citations.push(c);
+                }
+            }
+            if !citations.is_empty() {
+                blocks.push(t(lang, "permits-object-citations", &[]));
+                let lines: Vec<String> = citations.iter().map(|c| format!("- {}", md(c))).collect();
+                blocks.push(lines.join("\n"));
+            }
+        }
+    }
+    blocks
 }
 
 /// The notes as Markdown in `lang`. The disclaimer is the first paragraph after the title.
@@ -462,6 +800,10 @@ pub fn render_markdown(notes: &PermitNotes, lang: &Lang) -> String {
             |s| admin_line(lang, s),
             Some(t(lang, "permits-at-edge-generalised", &[])),
         ));
+    }
+
+    for part in &notes.regional {
+        blocks.extend(regional_blocks(lang, part));
     }
 
     blocks.push(heading("permits-section-protected"));
@@ -528,6 +870,7 @@ pub fn render_markdown(notes: &PermitNotes, lang: &Lang) -> String {
 
     blocks.push(heading("permits-section-sources"));
     blocks.push(sources_table(lang, notes));
+    blocks.extend(regional_source_notes(lang, notes));
 
     let mut text = blocks.join("\n\n");
     text.push('\n');
@@ -550,6 +893,10 @@ fn used_ids() -> Vec<String> {
             hint_key::ORDER_OFFICE,
             hint_key::PARK_OPERATOR,
             hint_key::SCHOOL_OPERATOR,
+            hint_key::DISTRICT_OFFICE,
+            hint_key::MONUMENT_AUTHORITY,
+            hint_key::NATURE_OBJECT_AUTHORITY,
+            hint_key::OWNER_SHARE,
             hint_key::OWNERS_UNKNOWN,
         ]
         .map(String::from),
@@ -724,6 +1071,7 @@ mod tests {
                 source("bfn", date(2026, 11, 13), BFN),
                 source("osm", date(2026, 11, 6), OSM),
             ],
+            regional: Vec::new(),
         }
     }
 
@@ -762,7 +1110,364 @@ mod tests {
                 source("bfn", date(2026, 11, 13), BFN),
                 source("osm", date(2026, 11, 6), OSM),
             ],
+            regional: Vec::new(),
         }
+    }
+
+    const LICENCE: &str = "Für die Nutzung der Daten ist die Datenlizenz Deutschland - Zero - \
+        Version 2.0 anzuwenden. Die Lizenz ist über https://www.govdata.de/dl-de/zero-2-0 abrufbar.";
+    const ANALOGUE: &str = "Nur diese amtlichen analogen Karten sind rechtsverbindlich.";
+
+    fn regional_status(key: &str, what: &str, note: Option<&str>) -> RegionalStatus {
+        RegionalStatus {
+            source: freemapper::permits::regional::RegionalSource {
+                key: key.into(),
+                label: Words {
+                    en: "Geoportal Berlin".into(),
+                    de: "Geoportal Berlin".into(),
+                },
+                what: Words {
+                    en: what.into(),
+                    de: what.into(),
+                },
+                credit: LICENCE.into(),
+                note: note.map(str::to_string),
+                sections: Vec::new(),
+            },
+            status: SourceStatus {
+                id: key.into(),
+                ..source(key, date(2026, 11, 13), LICENCE)
+            },
+        }
+    }
+
+    /// A sprint map at the Viktoriapark, Berlin, as the fixtures of the Geoportal Berlin give
+    /// it: two Bezirke, the park, land of the Land Berlin and of the Bund, monuments and trees.
+    pub(crate) fn viktoriapark() -> PermitNotes {
+        use freemapper::permits::regional::{
+            DistrictEntry, GreenSpaces, MonumentGroup, Monuments, OwnerEntry,
+        };
+        let green = |name: &str, district: &str, percent: f64| {
+            share(
+                GreenSpaceEntry {
+                    name: name.into(),
+                    district: Some(district.into()),
+                    dedication: Some("gewidmet".into()),
+                },
+                percent,
+            )
+        };
+        let tree = |name: &str, count: usize| ProtectedObjectEntry {
+            kind: ProtectedObjectKind::NaturalMonument,
+            name: Some(name.into()),
+            citation: Some(
+                "Verordnung zum Schutz von Naturdenkmalen in Berlin vom 20.05.2021 (GVBl.S. 536)"
+                    .into(),
+            ),
+            count,
+            percent: None,
+            at_edge: false,
+        };
+        let links = |n: usize, from: u32| -> Vec<String> {
+            (0..n as u32)
+                .map(|i| {
+                    format!(
+                        "https://denkmaldatenbank.berlin.de/daobj.php?obj_dok_nr={:08}",
+                        9_030_000 + from + i
+                    )
+                })
+                .collect()
+        };
+        PermitNotes {
+            schema: 1,
+            created: date(2026, 11, 13),
+            map_kind: MapKind::Sprint,
+            area_m2: 664_000.0,
+            admin: vec![
+                admin(AdminLevel::Land, "Land", "Berlin", 100.0),
+                admin(AdminLevel::Kreis, "Kreisfreie Stadt", "Berlin", 100.0),
+                admin(AdminLevel::Gemeinde, "Stadt", "Berlin", 100.0),
+            ],
+            protected: vec![],
+            osm_protected: vec![],
+            operators: vec![],
+            hints: vec![
+                hint(
+                    hint_key::DISTRICT_OFFICE,
+                    &[("district", "Friedrichshain-Kreuzberg")],
+                ),
+                hint(
+                    hint_key::DISTRICT_OFFICE,
+                    &[("district", "Tempelhof-Schöneberg")],
+                ),
+                hint(
+                    hint_key::MONUMENT_AUTHORITY,
+                    &[("district", "Friedrichshain-Kreuzberg")],
+                ),
+                hint(
+                    hint_key::NATURE_OBJECT_AUTHORITY,
+                    &[("district", "Friedrichshain-Kreuzberg")],
+                ),
+                hint(
+                    hint_key::OWNER_SHARE,
+                    &[("owner", "Land Berlin"), ("percent", "41.3")],
+                ),
+                hint(
+                    hint_key::OWNER_SHARE,
+                    &[("owner", "Bundesrepublik Deutschland"), ("percent", "0.4")],
+                ),
+                hint(hint_key::OWNERS_UNKNOWN, &[("rest", "yes")]),
+            ],
+            sources: vec![
+                source("vg250", date(2026, 11, 13), BKG),
+                source("bfn", date(2026, 11, 13), BFN),
+                source("osm", date(2026, 11, 6), OSM),
+            ],
+            regional: vec![RegionalNotes {
+                adapter: "berlin".into(),
+                districts: Some(vec![
+                    share(
+                        DistrictEntry {
+                            name: "Friedrichshain-Kreuzberg".into(),
+                        },
+                        86.0,
+                    ),
+                    share(
+                        DistrictEntry {
+                            name: "Tempelhof-Schöneberg".into(),
+                        },
+                        14.0,
+                    ),
+                ]),
+                green_spaces: Some(GreenSpaces {
+                    entries: vec![
+                        green("Viktoriapark", "Friedrichshain-Kreuzberg", 18.7),
+                        green("Dora-Duncker-Park", "Tempelhof-Schöneberg", 3.1),
+                        green("Mehringdamm 90", "Friedrichshain-Kreuzberg", 0.3),
+                    ],
+                    playgrounds: 4,
+                }),
+                owners: Some(vec![
+                    share(
+                        OwnerEntry {
+                            owner: Some("Land Berlin".into()),
+                        },
+                        41.3,
+                    ),
+                    share(
+                        OwnerEntry {
+                            owner: Some("Bundesrepublik Deutschland".into()),
+                        },
+                        0.4,
+                    ),
+                ]),
+                monuments: Some(Monuments {
+                    total: 42,
+                    groups: vec![
+                        MonumentGroup {
+                            kind: "Baudenkmal".into(),
+                            count: 29,
+                            links: links(7, 0),
+                        },
+                        MonumentGroup {
+                            kind: "Gesamtanlage".into(),
+                            count: 8,
+                            links: links(8, 100),
+                        },
+                        MonumentGroup {
+                            kind: "Ensemble".into(),
+                            count: 4,
+                            links: links(4, 200),
+                        },
+                        MonumentGroup {
+                            kind: "Gartendenkmal".into(),
+                            count: 1,
+                            links: vec![
+                                "https://denkmaldatenbank.berlin.de/daobj.php?obj_dok_nr=09046157"
+                                    .into(),
+                            ],
+                        },
+                    ],
+                    links_left: 22,
+                }),
+                protected_objects: Some(vec![
+                    tree("Ahornblättrige Platane", 3),
+                    tree("Amerikanischer Zürgelbaum", 3),
+                    tree("Gewöhnliche Rosskastanie", 1),
+                    tree("Weisse Maulbeere", 1),
+                ]),
+                sources: vec![
+                    regional_status("bezirke", "Bezirksgrenzen (ALKIS Berlin)", None),
+                    regional_status("gruenanlagen", "Grünanlagenbestand", None),
+                    regional_status("liegenschaftsplan", "Liegenschaftsplan", None),
+                    regional_status("denkmale", "Denkmale (Denkmalkarte)", None),
+                    regional_status(
+                        "schutzgebiete",
+                        "Schutzobjekte nach Naturschutzrecht",
+                        Some(ANALOGUE),
+                    ),
+                ],
+            }],
+        }
+    }
+
+    #[test]
+    fn berlin_sections_follow_the_administrative_units() {
+        let text = render_markdown(&viktoriapark(), &de());
+        let at = |needle: &str| {
+            text.find(needle)
+                .unwrap_or_else(|| panic!("{needle}\n{text}"))
+        };
+        assert!(at("## Verwaltung") < at("## Bezirke (Geoportal Berlin)"));
+        assert!(at("## Bezirke (Geoportal Berlin)") < at("## Grünanlagen (Geoportal Berlin)"));
+        assert!(at("## Denkmale (Geoportal Berlin)") < at("## Schutzgebiete (BfN)"));
+        assert!(
+            text.contains("- Friedrichshain-Kreuzberg: 86 %\n"),
+            "{text}"
+        );
+        assert!(
+            text.contains(
+                "- „Viktoriapark“ (Bezirk Friedrichshain-Kreuzberg; Widmung: gewidmet): 19 %\n"
+            ),
+            "{text}"
+        );
+        assert!(
+            text.contains("Im Kartengebiet liegen 4 öffentliche Spielplätze."),
+            "{text}"
+        );
+        assert!(
+            text.contains("- Land Berlin: 41 %\n- Bundesrepublik Deutschland: < 1 %\n"),
+            "{text}"
+        );
+        assert!(text.contains("- Gartendenkmal: 1\n  - <https://denkmaldatenbank.berlin.de/daobj.php?obj_dok_nr=09046157>"), "{text}");
+        assert!(text.contains("Weitere 22 Einträge"), "{text}");
+        assert!(
+            text.contains("- Naturdenkmal „Ahornblättrige Platane“, 3 Objekte\n"),
+            "{text}"
+        );
+        assert_eq!(
+            text.matches("Verordnung zum Schutz von Naturdenkmalen")
+                .count(),
+            1
+        );
+        // The hints name the Bezirksamt and the owners.
+        assert!(
+            text.contains("des Bezirksamts Friedrichshain-Kreuzberg zuständig."),
+            "{text}"
+        );
+        assert!(
+            text.contains("gehören 41 % des Kartengebiets dem Eigentümer „Land Berlin“."),
+            "{text}"
+        );
+        assert!(
+            text.contains(
+                "Die Eigentümer der übrigen Flächen sind aus offenen Daten nicht bestimmbar."
+            ),
+            "{text}"
+        );
+        assert!(
+            !text.contains("Den Bezirk bestimmen diese Hinweise noch nicht"),
+            "{text}"
+        );
+    }
+
+    /// Owners the source does not name share one line and one hint, without a name (review
+    /// finding 8).
+    #[test]
+    fn other_public_owners_have_one_line_without_a_name() {
+        use freemapper::permits::regional::OwnerEntry;
+        let mut notes = viktoriapark();
+        notes.regional[0]
+            .owners
+            .as_mut()
+            .unwrap()
+            .push(share(OwnerEntry { owner: None }, 2.0));
+        notes.hints.insert(
+            6,
+            hint(
+                hint_key::OWNER_SHARE,
+                &[("unnamed", "yes"), ("percent", "2.0")],
+            ),
+        );
+        let text = render_markdown(&notes, &de());
+        assert!(
+            text.contains(
+                "- Land Berlin: 41 %\n- Bundesrepublik Deutschland: < 1 %\n- Andere öffentliche Eigentümer: 2 %\n"
+            ),
+            "{text}"
+        );
+        assert!(
+            text.contains("gehören 2 % des Kartengebiets anderen öffentlichen Eigentümern."),
+            "{text}"
+        );
+        assert!(
+            text.contains("gehören 41 % des Kartengebiets dem Eigentümer „Land Berlin“."),
+            "{text}"
+        );
+        let text = render_markdown(&notes, &Lang::english());
+        assert!(text.contains("- Other public owners: 2%\n"), "{text}");
+        assert!(
+            text.contains("2% of the map area belongs to other public owners."),
+            "{text}"
+        );
+    }
+
+    #[test]
+    fn the_geoportal_has_one_line_with_its_licence_verbatim() {
+        for lang in [de(), Lang::english()] {
+            let text = render_markdown(&viktoriapark(), &lang);
+            let rows: Vec<&str> = text
+                .lines()
+                .filter(|l| l.starts_with("| Geoportal Berlin:"))
+                .collect();
+            assert_eq!(rows.len(), 1, "{text}");
+            assert!(rows[0].contains(LICENCE), "{}", rows[0]);
+            assert_eq!(column_bars(rows[0]), 4, "{}", rows[0]);
+            assert!(
+                rows[0].contains("Bezirksgrenzen (ALKIS Berlin), Grünanlagenbestand"),
+                "{}",
+                rows[0]
+            );
+            assert!(text.contains(ANALOGUE), "{text}");
+        }
+        // A service that was down is named in the line, and its section drops.
+        let mut notes = viktoriapark();
+        notes.regional[0].monuments = None;
+        notes.regional[0].sources[3].status = SourceStatus {
+            id: "denkmale".into(),
+            state: "unreachable".into(),
+            fetched: None,
+            reason: Some("HTTP 503".into()),
+            credit: None,
+        };
+        let text = render_markdown(&notes, &de());
+        assert!(!text.contains("## Denkmale"), "{text}");
+        assert!(
+            text.contains("Denkmale (Denkmalkarte): nicht erreichbar (HTTP 503)"),
+            "{text}"
+        );
+        assert!(
+            text.contains("Bezirksgrenzen (ALKIS Berlin): gelesen, abgerufen am 2026-11-13"),
+            "{text}"
+        );
+    }
+
+    #[test]
+    fn berlin_names_cannot_break_the_markdown() {
+        let mut notes = viktoriapark();
+        let part = &mut notes.regional[0];
+        part.districts.as_mut().unwrap()[0].item.name = "A | *B*\n- fake".into();
+        part.protected_objects.as_mut().unwrap()[0].citation = Some("[x](y) <b>".into());
+        part.monuments.as_mut().unwrap().groups[0].kind = "# Kind".into();
+        let text = render_markdown(&notes, &Lang::english());
+        assert!(text.contains(r"- A \| \*B\* - fake: 86%"), "{text}");
+        assert!(text.contains(r"- \[x\](y) \<b\>"), "{text}");
+        assert!(text.contains(r"- \# Kind: 29"), "{text}");
+        for line in text.lines() {
+            assert!(!line.trim_start().starts_with("- fake"), "{line}");
+        }
+        assert!(!text.contains('—'), "{text}");
+        assert!(!render_markdown(&viktoriapark(), &de()).contains('—'));
     }
 
     #[test]
@@ -1091,6 +1796,10 @@ mod tests {
             hint_key::ORDER_OFFICE,
             hint_key::PARK_OPERATOR,
             hint_key::SCHOOL_OPERATOR,
+            hint_key::DISTRICT_OFFICE,
+            hint_key::MONUMENT_AUTHORITY,
+            hint_key::NATURE_OBJECT_AUTHORITY,
+            hint_key::OWNER_SHARE,
             hint_key::OWNERS_UNKNOWN,
         ] {
             assert!(english.contains(key), "{key}");
@@ -1104,6 +1813,9 @@ mod tests {
     fn print_the_sample_notes() {
         for lang in [de(), Lang::english()] {
             println!("{}\n-----", render_markdown(&buckow(), &lang));
+        }
+        for lang in [de(), Lang::english()] {
+            println!("{}\n-----", render_markdown(&viktoriapark(), &lang));
         }
     }
 }
