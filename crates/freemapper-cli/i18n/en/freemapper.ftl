@@ -722,7 +722,7 @@ mcp-param-start-pipeline-content = Change what goes straight onto the map before
 mcp-param-start-pipeline-content-set = Groups sent somewhere else than the profile says, as "group=place" with place map, candidates or off, e.g. "fences=candidates". Saved in the project.
 mcp-error-content = Cannot read the content setting: { $detail }
 
-## Permit notes (`freemapper permits`, `run --permits`, ADR 0115). The ids `permits-hint-*`
+## Permit notes (`freemapper permits`, `run --permits`, ADR 0116). The ids `permits-hint-*`
 ## are the keys the engine stores in permits.json; `src/permits.rs` checks that every
 ## `permits-*` id is used. The quote "Nicht für Planungszwecke geeignet." is the BfN's own
 ## wording and stays German in every language.

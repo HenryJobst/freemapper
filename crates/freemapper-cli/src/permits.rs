@@ -1,4 +1,4 @@
-//! The permit notes as Markdown (`permits.md`, ADR 0115), and the command that fetches and
+//! The permit notes as Markdown (`permits.md`, ADR 0116), and the command that fetches and
 //! writes them: `freemapper permits`, `run --permits` and, later, the MCP tool.
 //!
 //! The engine assembles the notes (`freemapper::permits`); this file words them in the language

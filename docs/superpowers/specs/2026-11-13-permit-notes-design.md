@@ -84,7 +84,7 @@ package (Bezirke, Grünanlagen, Liegenschaftsplan, Denkmale) come in later steps
   `allow-host` does not apply to it (it is for built-in state adapters).
 - No new heavy dependencies. GeoJSON parsing and polygon intersection with what the workspace already
   uses (`serde_json`, `geo`).
-- One ADR (next free number, 0115). Changelog DE+EN. Manual DE+EN (new section), README DE+EN (the
+- One ADR (next free number, 0116). Changelog DE+EN. Manual DE+EN (new section), README DE+EN (the
   "Geplant" paragraph becomes a description of what exists and what is still planned), AGENTS.md
   (command, MCP tool, files in the project folder).
 - Work goes in as a GitHub pull request; CI on Linux, label `all-systems` only if the change touches
