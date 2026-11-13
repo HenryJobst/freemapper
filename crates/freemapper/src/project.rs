@@ -400,6 +400,17 @@ pub struct ProjectFile {
     /// profile when absent.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub content: Option<ContentSettings>,
+    /// The contour interval of the last `derive` when it is not the map kind's (a contract key,
+    /// `[contours] interval_m`: freemapper-print names it); absent otherwise (ADR 0116).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub contours: Option<ContourRecord>,
+}
+
+/// The `[contours]` record of `freemapper.toml`.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct ContourRecord {
+    /// The interval the contours were traced at, in metres.
+    pub interval_m: f64,
 }
 
 // The tile and raster records live in `freemapper-adapter-api` (ADR 0082); the old paths stay.
@@ -741,6 +752,7 @@ pub fn init_project_with_content(
         map_area: area.to_geojson_value(),
         title: title.as_deref().and_then(clean_title),
         contour_interval_m: None,
+        contours: None,
         tiles: Vec::new(),
         buildings: None,
         land_use: None,
@@ -2048,7 +2060,7 @@ pub fn derive_project_cancellable(
     cancelled: &dyn Fn() -> bool,
 ) -> Result<Vec<PathBuf>, ProjectError> {
     stop_if(cancelled)?;
-    let project = ProjectFile::load_reporting(dir, progress)?;
+    let mut project = ProjectFile::load_reporting(dir, progress)?;
     check_folders(dir, &WRITTEN_FOLDERS)?;
     if project.tiles.is_empty() && project.terrain.is_none() {
         return Err(ProjectError::NotFetched);
@@ -2176,6 +2188,12 @@ pub fn derive_project_cancellable(
         &contours_path,
         contours_to_geojson(&lines, stored_interval).as_bytes(),
     )?;
+    // The sidecar names it for the suite; a project at the kind's interval keeps its file as it was.
+    let record = stored_interval.map(|interval_m| ContourRecord { interval_m });
+    if project.contours != record {
+        project.contours = record;
+        project.save(dir)?;
+    }
     progress(note!("progress-writing", path = LANDFORMS_RELPATH));
     stop_if(cancelled)?;
     let min_height_m = project.map_kind.landform_min_height_m();
@@ -2693,6 +2711,7 @@ pub mod golden {
             provider: None,
             title: None,
             contour_interval_m: None,
+            contours: None,
             tiles: Vec::new(),
             buildings: None,
             land_use: None,
@@ -5044,6 +5063,7 @@ mod tests {
             provider: Some(providers::LGB),
             title: Some("Clara-Zetkin-Schule".to_string()),
             contour_interval_m: None,
+            contours: None,
             tiles: vec![TileRecord {
                 product: Product::Dtm,
                 tile: "33421-5821".to_string(),
@@ -11465,6 +11485,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         assert_eq!(interval, None);
         assert!(!lines.is_empty());
         assert!(lines.iter().all(|l| (l.height / 5.0).fract() == 0.0));
+        assert_eq!(ProjectFile::load(dir.path()).unwrap().contours, None);
         project.contour_interval_m = Some(2.5);
         project.save(dir.path()).unwrap();
         assert!(
@@ -11476,6 +11497,18 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let (lines, interval) = stored();
         assert_eq!(interval, Some(2.5), "the project's interval wins");
         assert!(lines.iter().any(|l| (l.height / 5.0).fract() != 0.0));
+        // The suite reads the traced interval from the sidecar (`[contours] interval_m`).
+        let sidecar = std::fs::read_to_string(dir.path().join(PROJECT_FILE_NAME)).unwrap();
+        assert!(
+            sidecar.contains("[contours]\ninterval_m = 2.5"),
+            "{sidecar}"
+        );
+        assert_eq!(
+            ProjectFile::load(dir.path()).unwrap().contours,
+            Some(ContourRecord { interval_m: 2.5 })
+        );
+        let read = freemapper_contract::Sidecar::parse(&sidecar).unwrap();
+        assert_eq!(read.contour_interval_m(), Some(2.5));
         for bad in ["0.0", "-2.5", "nan"] {
             let text = std::fs::read_to_string(dir.path().join(PROJECT_FILE_NAME))
                 .unwrap()

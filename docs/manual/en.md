@@ -569,7 +569,8 @@ freemapper run dammheide --pdf-candidates
 - **Contours** lie every 5 m, every 2.5 m in flat land. An area is flat when its terrain heights between the 5th
   and the 95th percentile span less than 15 m. `contour_interval_m = 2.5` (or another value above 0) in
   `freemapper.toml` sets the interval yourself; then run `derive` and `export --force`. The margin names the
-  interval ("Äquidistanz 2,5 m").
+  interval ("Äquidistanz 2,5 m"). When it is not the default, `derive` also writes it into `freemapper.toml` as
+  `[contours] interval_m`, where freemapper-print reads it.
 - Buildings, water, walls, fences, power lines, railways and out-of-bounds areas (520) come as on the sprint map.
   Benches, bollards, street lamps and other street furniture, trees from tree cadastres and single OSM trees are
   left out. Only a tree tagged `denotation=natural_monument`
