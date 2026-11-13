@@ -222,6 +222,8 @@ pub fn generalize(lines: Vec<ContourLine>, scale_denominator: u32) -> Vec<Contou
 /// percentile of its heights span less (spec 2026-11-13).
 const FLAT_FOREST_RANGE_M: f64 = 15.0;
 const FLAT_FOREST_INTERVAL_M: f64 = 2.5;
+/// The flatness test samples the terrain at about this spacing; a percentile needs no more.
+const HEIGHT_SAMPLE_M: f64 = 5.0;
 
 /// The contour interval of a map of `kind` over `heights_in_area` (the smoothed DTM inside the
 /// map area): a forest map 2.5 m where it is flat, the kind's interval otherwise and without
@@ -248,7 +250,8 @@ pub fn contour_interval_for(kind: MapKind, heights_in_area: &[f32]) -> f64 {
     }
 }
 
-/// The heights of the cells of `raster` whose centre lies in `area` (same CRS), `NaN` included.
+/// The heights of every cell about [`HEIGHT_SAMPLE_M`] apart of `raster` whose centre lies in
+/// `area` (same CRS), `NaN` included.
 pub fn heights_inside(raster: &Raster<f32>, area: &geo_types::Polygon<f64>) -> Vec<f32> {
     use geo::{BoundingRect as _, Contains as _};
     let Some(bounds) = area.bounding_rect() else {
@@ -266,9 +269,10 @@ pub fn heights_inside(raster: &Raster<f32>, area: &geo_types::Polygon<f64>) -> V
         clamp(row(bounds.max().y), grid.height),
         clamp(row(bounds.min().y), grid.height),
     );
+    let step = ((HEIGHT_SAMPLE_M / grid.pixel_size).round() as usize).max(1);
     let mut heights = Vec::new();
-    for y in y0..=y1 {
-        for x in x0..=x1 {
+    for y in (y0..=y1).step_by(step) {
+        for x in (x0..=x1).step_by(step) {
             let centre = geo_types::Point::new(
                 grid.west + (f64::from(x) + 0.5) * grid.pixel_size,
                 grid.north - (f64::from(y) + 0.5) * grid.pixel_size,
@@ -529,7 +533,7 @@ mod tests {
     }
 
     #[test]
-    fn heights_inside_take_the_cells_whose_centre_lies_in_the_area() {
+    fn heights_inside_sample_the_cells_whose_centre_lies_in_the_area() {
         let raster = dtm(|e, _| e as f32);
         let area = geo_types::Polygon::new(
             geo_types::LineString::from(vec![
@@ -542,7 +546,8 @@ mod tests {
             vec![],
         );
         let heights = heights_inside(&raster, &area);
-        assert_eq!(heights.len(), 10 * 50);
+        // Every 5th cell of a 1 m raster: 2 columns × 10 rows.
+        assert_eq!(heights.len(), 2 * 10);
         assert!(heights.iter().all(|h| *h < 10.0));
     }
 }

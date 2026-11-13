@@ -21,6 +21,7 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ### Fixed
 
+- Forest maps (ADR 0116): impassable vegetation is ISOM 2017-2 410 instead of the first edition's 411. The path classes 502 to 505 belong to the content group `paths`, so `--content-set paths=candidates` moves every path. Stairs tagged `incline=down` run uphill as on sprint maps. A forest map no longer fetches the areas and kerbs of the Berlin street survey or the city tree cadastres, which it does not draw. The test whether an area is flat reads the terrain model every 5 m only. The margin names the interval the contours were traced at, also when `contour_interval_m` was changed since.
 - Hamburg, Saarland, Saxony-Anhalt and adapters from folders: when the surface model cannot be fetched, a model stored earlier stays only if it covers the map area, and the warning names the day it is from. Before, the model of another area stayed in the project with its record, and the warning spoke of a missing nDSM template in every case, even when `derive` still made one from the old model. The other states already behaved this way.
 
 ## [0.16.0] - 2026-11-13

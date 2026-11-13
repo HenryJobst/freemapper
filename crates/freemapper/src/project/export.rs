@@ -84,9 +84,9 @@ pub(super) fn stored_osm_features(
     Ok(Some((features, record.extract)))
 }
 
-/// The contour lines `derive` stored, with the interval they were traced at (stored with them,
-/// else the project's, else the kind's) and the terrain model they come from; none when there
-/// are none.
+/// The contour lines `derive` stored, with the interval they were traced at and the terrain
+/// model they come from; none when there are none. The derive stores an interval that is not
+/// the kind's; without one the lines are at the kind's, whatever freemapper.toml says now.
 pub(super) fn read_stored_contours(
     dir: &Path,
     project: &ProjectFile,
@@ -104,18 +104,10 @@ pub(super) fn read_stored_contours(
     let (source, currency) = terrain_provenance(project)?;
     Ok(Some(Contours {
         lines,
-        interval: contour_interval(project, stored),
+        interval: stored.unwrap_or_else(|| project.map_kind.contour_interval_m()),
         source,
         currency,
     }))
-}
-
-/// The contour interval of the map: the one stored with the contours, else the project's, else
-/// the kind's.
-pub(super) fn contour_interval(project: &ProjectFile, stored: Option<f64>) -> f64 {
-    stored
-        .or(project.contour_interval_m)
-        .unwrap_or_else(|| project.map_kind.contour_interval_m())
 }
 
 /// The terrain model the derived candidates come from (that of the area's raster provider) and
@@ -987,8 +979,14 @@ pub fn build_project(dir: &Path) -> Result<BuiltProject, ProjectError> {
     )?;
     let symbol_set = project.map_kind.symbol_set(project.scale_denominator);
     let stored = read_stored(dir, &project, &area)?;
+    // The interval of the sheet: that of the stored contours; without lines it is the one the
+    // next derive takes.
     let contour_interval_m = stored.contours.as_ref().map_or_else(
-        || contour_interval(&project, None),
+        || {
+            project
+                .contour_interval_m
+                .unwrap_or_else(|| project.map_kind.contour_interval_m())
+        },
         |contours| contours.interval,
     );
     let saved_content = content_settings(&project);
