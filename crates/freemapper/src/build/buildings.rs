@@ -34,6 +34,15 @@ pub fn classify(b: &Building) -> Rule {
     }
 }
 
+/// The 521 footprints (buildings that become map objects), in the map's CRS.
+pub fn object_footprints(buildings: &[Building]) -> Vec<Polygon<f64>> {
+    buildings
+        .iter()
+        .filter(|b| classify(b) == Rule::Object)
+        .flat_map(|b| b.footprint.0.iter().cloned())
+        .collect()
+}
+
 /// 521 area objects for the buildings within `buffer_m` of `map_area` (both in EPSG:25833),
 /// generalized for the map scale. Each footprint part becomes one object.
 pub fn building_objects(

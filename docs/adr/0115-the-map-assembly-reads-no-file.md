@@ -55,8 +55,28 @@ The review called the candidate "map pipeline". The glossary has "pipeline" for 
   routing). The tests of `project.rs` that only try the order can move there over time; those that try the
   reading stay.
 - A new step of the build has one place, and its neighbours say what it may look at.
-- Until step 3, `build_project` still reads and draws in one function and builds a `Built` from its lists
-  (`Built::new` with the `Surroundings`: kind, georeferencing, symbol set, buildings, water, clip window,
-  terrain). After step 3 the assembly builds it itself and `Built::new` is no longer public.
 - The source and the rank of an object stay tags (`freemapper:source`, `dedup::rank`); a module for them is
   another candidate of the review and not part of this.
+
+## As built (step 3)
+
+- `assembly::build(Frame, Stored, &ContentSettings) -> Built` holds what stood in `build_project` between the
+  reads and the documents. `Frame` is what the project file says about the map (kind, georeferencing, symbol set,
+  map area with the id of its OSM object, buffer, clip window). `Stored` is the stored data, read: the buildings
+  with the date of their fetch, the layers of Berlin, the full ALKIS and the tree cadastres (name, features,
+  fetch date), the land use, the OSM features with the date of their extract, the terrain for the stair
+  direction and for the ticks, the contours, landforms and vegetation of `derive`.
+- `build_project` reads the folder in one function (`read_stored`), calls `build` and makes the documents:
+  notes, templates, sheet, credit lines. For the credit lines `Built::point_candidates` gives the candidates a
+  register is named by.
+- What a reader checks stays in the reader with its error: a fetch of the buildings or of OSM that does not
+  cover the area, a file that does not parse. The terrain for the stairs is read only when a layer gives stairs,
+  the tree cadastres are not read for a forest map.
+- The drawing of contours, landforms and vegetation left `project/export.rs` for `build/contours.rs`,
+  `build/landforms.rs` and `build/vegetation.rs`; the thin wrappers `stored_*_objects` of `project.rs` are gone,
+  the assembly calls the drawing functions of `build/` itself.
+- `resolve`, `Drawn`, `Resolved`, `Surroundings` and `Built::new` are inner steps of the module and no longer
+  public.
+- Left in the project: `map_lacks_buildings` and `map_lacks_canopies` draw the buildings and the canopies on
+  their own to say whether a written map lacks them. They read a written map, which the assembly does not, and
+  stay where they are.

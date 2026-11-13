@@ -7,13 +7,14 @@
 //! the map those of the map, in the candidates those of the map and of the candidates, as the
 //! candidates PDF draws both. What is left smaller than the smallest vegetation area is dropped.
 
+use chrono::NaiveDate;
 use geo::{Area as _, BooleanOps as _, BoundingRect as _, Intersects as _, MapCoords as _};
 use geo_types::{MultiPolygon, Polygon};
 
 use crate::build::content::POINT_CLOUD_KEY;
 use crate::build::geometry::object_polygon;
 use crate::build::out_of_bounds::area_object;
-use crate::derive::vegetation::min_area_m2;
+use crate::derive::vegetation::{VegetationClass, min_area_m2};
 use crate::georef::{GeorefError, Georeferencing};
 use crate::omap::coord::MapCoord;
 use crate::omap::{MapObject, SymbolSet};
@@ -97,6 +98,89 @@ pub fn cut_vegetation_at_out_of_bounds(
         *list = kept;
     }
     Ok(changed)
+}
+
+/// The paved area of ISSprOM.
+const PAVED_AREA_CODE: &str = "501.5";
+
+/// The vegetation areas of `derive` (ADR 0105), with the source of their point cloud and the
+/// newest date it was published.
+pub struct Vegetation {
+    pub areas: Vec<(VegetationClass, MultiPolygon<f64>)>,
+    pub source: String,
+    pub currency: Option<NaiveDate>,
+}
+
+/// The vegetation areas as candidates, within `buffer_m` of `map_area`: cut at the buildings,
+/// the water and the paved areas of the map (parked cars look like bushes), and where the map
+/// already has an area of the same symbol (an ALKIS park, a wood) only the part that differs.
+/// Patches smaller than the minimum area of the scale go; a class the symbol set lacks is left
+/// out.
+#[allow(clippy::too_many_arguments)]
+pub fn vegetation_objects(
+    vegetation: &Vegetation,
+    footprints: &[Polygon<f64>],
+    water: &MultiPolygon<f64>,
+    map_objects: &[MapObject],
+    map_area: &Polygon<f64>,
+    buffer_m: f64,
+    georef: &Georeferencing,
+    symbol_set: &SymbolSet,
+) -> Result<Vec<MapObject>, GeorefError> {
+    use geo::Buffer as _;
+    let Vegetation {
+        areas,
+        source,
+        currency,
+    } = vegetation;
+    let min_area = min_area_m2(georef.scale_denominator);
+    let projected = |polygon: geo_types::Polygon<f64>| {
+        polygon.map_coords(|c| {
+            let p = georef.map_to_projected(crate::omap::coord::MapCoord::new(
+                c.x.round() as i32,
+                c.y.round() as i32,
+            ));
+            geo_types::coord! { x: p.easting, y: p.northing }
+        })
+    };
+    let areas_of = |code: &str| -> Vec<geo_types::Polygon<f64>> {
+        let Some(id) = symbol_set.id_for_code(code) else {
+            return Vec::new();
+        };
+        map_objects
+            .iter()
+            .filter(|o| o.symbol_id == id)
+            .filter_map(object_polygon)
+            .map(projected)
+            .collect()
+    };
+    let paved = areas_of(PAVED_AREA_CODE);
+    let reach = map_area.buffer(buffer_m);
+    let blocked = geo::unary_union(footprints.iter().chain(&water.0).chain(&paved));
+    let mut objects = Vec::new();
+    for (class, area) in areas {
+        let Some(symbol_id) = symbol_set.id_for_code(class.code()) else {
+            continue;
+        };
+        let drawn = areas_of(class.code());
+        // Like the other candidates, only within the buffer around the map area: the derive
+        // classifies the whole box around it.
+        let mut rest = area.intersection(&reach).difference(&blocked);
+        if !drawn.is_empty() {
+            rest = rest.difference(&geo::unary_union(&drawn));
+        }
+        for piece in rest.0.iter().filter(|p| p.unsigned_area() >= min_area) {
+            let mut tags = vec![
+                ("freemapper:source".to_string(), source.clone()),
+                (POINT_CLOUD_KEY.to_string(), source.clone()),
+            ];
+            if let Some(currency) = currency {
+                tags.push(("freemapper:currency".to_string(), currency.to_string()));
+            }
+            objects.push(area_object(piece, symbol_id, tags, georef)?);
+        }
+    }
+    Ok(objects)
 }
 
 #[cfg(test)]

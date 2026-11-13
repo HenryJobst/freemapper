@@ -12,36 +12,24 @@ use serde::{Deserialize, Serialize};
 use crate::adapters::{RegionAdapter, registry};
 use crate::area::GeoBox;
 use crate::area::{AreaError, MapArea};
-use crate::build::berlin::{
-    BUILDING_PARTS_LAYER, LayerInput, berlin_objects, building_part_features,
-};
-use crate::build::buildings::{Rule, building_objects, classify};
-use crate::build::candidates::{Rules, Target, osm_objects};
+use crate::build::buildings::building_objects;
+use crate::build::candidates::Rules;
 use crate::build::canopy::{CANOPY_LAYER, CanopyInput, canopy_objects};
 use crate::build::content::ContentSettings;
-use crate::build::open_land::{BASE_PART, open_land_objects, osm_forest_polygons, walkable_base};
-use crate::build::out_of_bounds::out_of_bounds_objects;
-use crate::build::paved::{
-    GREEN_LAYER, PavedObjects, SURFACE_LAYER, StreetSurvey, paved_area_objects, unpaved_streets,
-};
-use crate::build::peripheral::{PaperRect, PeripheralInfo, info_block, is_scale_bar, north_lines};
+use crate::build::open_land::{BASE_PART, walkable_base};
+use crate::build::peripheral::{PaperRect, PeripheralInfo, info_block, is_scale_bar};
 use crate::build::points::{GENERALIZATION_SOURCE, HIDDEN_KEY};
 use crate::build::source_block;
 use crate::build::stairs::{
-    NAS_STAIR_LAYER, STEP_EDGE_LAYER, SURVEY_STAIR_LAYER, StairInput, has_nas_stairs_without_edge,
-    has_stairs, stair_objects,
+    NAS_STAIR_LAYER, STEP_EDGE_LAYER, SURVEY_STAIR_LAYER, has_nas_stairs_without_edge, has_stairs,
 };
-use crate::build::state::{NasInput, TreeInput, nas_objects, state_objects, tree_objects};
-use crate::build::water::{outside_water, water_objects};
-use crate::crs::ProjectedPoint;
-use crate::crs::{BoundingBox, Crs, LatLon};
+use crate::crs::{BoundingBox, Crs};
 use crate::derive::contours::{
     contour_interval_for, contour_lines, contours_from_geojson, contours_to_geojson,
     gaussian_smooth, generalize, heights_inside,
 };
 use crate::derive::landforms::{
-    LandformKind, height_jumps, knolls_and_depressions, landforms_from_geojson,
-    landforms_to_geojson,
+    height_jumps, knolls_and_depressions, landforms_from_geojson, landforms_to_geojson,
 };
 use crate::derive::ndsm::{fill_from_dsm, rasterize, write_ndsm_png};
 use crate::derive::orthophoto::{build_orthophoto, build_orthophoto_from_image};
@@ -57,10 +45,9 @@ use crate::fetch::Product;
 use crate::fetch::{Cache, FetchError, FetchMode, Fetcher, write_inside};
 use crate::georef::{GeorefError, Georeferencing};
 use crate::ocd::convert::{Background, WorldFile, map_to_ocd};
-use crate::omap::MapCoord;
 use crate::omap::{
-    MapDocument, MapObject, MapObjectKind, MapPart, OmapError, SymbolSet, TemplateKind,
-    TemplateRef, XmlFormat, closed_ring, write_map,
+    MapDocument, MapObject, MapPart, OmapError, SymbolSet, TemplateKind, TemplateRef, XmlFormat,
+    write_map,
 };
 use crate::raster::{GridSpec, Raster};
 use crate::sources::alkis::{FetchArea, LandUse, fetch_land_use_in, parse_land_use};
@@ -784,9 +771,6 @@ const STALE_TEMPLATE_PART_AGE: std::time::Duration = std::time::Duration::from_s
 
 /// Largest side of map area plus buffer: [`MAX_RASTER_SIDE_PX`] orthophoto pixels of 0.2 m.
 pub const MAX_AREA_SIDE_M: f64 = MAX_RASTER_SIDE_PX as f64 * 0.2;
-
-/// ISSprOM spacing of magnetic north lines on paper, before the norm's symbol enlargement.
-const NORTH_LINE_SPACING_MM: f64 = 30.0;
 
 /// Products fetched for every project, in this order.
 pub(crate) const ORTHOPHOTO_RELPATH: &str = "templates/orthophoto.jpg";
@@ -1957,32 +1941,6 @@ pub fn stored_tree_layers(
     Ok(layers)
 }
 
-/// The tree candidates of the stored city tree cadastres; none outside the cities of the table.
-fn stored_tree_objects(
-    layers: &[StoredTreeLayer],
-    project: &ProjectFile,
-    area: &MapArea,
-    georef: &Georeferencing,
-    symbol_set: &SymbolSet,
-) -> Result<Vec<MapObject>, ProjectError> {
-    let inputs: Vec<TreeInput<'_>> = layers
-        .iter()
-        .map(|l| TreeInput {
-            dataset: &l.dataset.id,
-            features: &l.features,
-            fetched: l.fetched,
-        })
-        .collect();
-    Ok(tree_objects(
-        &inputs,
-        project.map_kind,
-        &area.projected_polygon_in(project.crs()),
-        project.buffer_m,
-        georef,
-        symbol_set,
-    )?)
-}
-
 /// One stored extra Berlin layer.
 // Read by the Berlin rules and the canopy, stair and tree builders (Berlin plus 1).
 #[derive(Debug, Clone)]
@@ -2024,203 +1982,12 @@ pub(crate) fn stored_berlin_layers(
     Ok(layers)
 }
 
-/// Candidates from the stored extra Berlin layers and the building parts of the stored buildings
-/// (passages), through the Berlin rules. None outside Berlin.
-fn stored_berlin_objects(
-    project: &ProjectFile,
-    layers: &[StoredBerlinLayer],
-    buildings: Option<&StoredBuildings>,
-    area: &MapArea,
-    georef: &Georeferencing,
-    symbol_set: &SymbolSet,
-) -> Result<Vec<MapObject>, ProjectError> {
-    let mut inputs: Vec<(&str, &[serde_json::Value], NaiveDate)> = layers
+/// Whether a layer that gives stairs is stored: the stair terrain is read only then.
+fn stair_layers_stored(layers: &[StoredBerlinLayer], nas: &[StoredNasLayer]) -> bool {
+    layers
         .iter()
-        .map(|l| (l.layer.file, l.features.as_slice(), l.fetched))
-        .collect();
-    // The building parts are in the buildings file (`bauart` is set by the Berlin source only).
-    let parts = match (&project.buildings, buildings) {
-        (Some(record), Some(stored)) => {
-            Some((building_part_features(&stored.features), record.fetched))
-        }
-        _ => None,
-    };
-    if let Some((features, fetched)) = &parts {
-        inputs.push((BUILDING_PARTS_LAYER, features.as_slice(), *fetched));
-    }
-    let inputs: Vec<LayerInput<'_>> = inputs
-        .into_iter()
-        .map(|(file, features, currency)| LayerInput {
-            file,
-            features,
-            currency,
-        })
-        .collect();
-    Ok(berlin_objects(
-        &inputs,
-        project.map_kind,
-        &area.projected_polygon_in(project.crs()),
-        project.buffer_m,
-        georef,
-        symbol_set,
-    )?)
-}
-
-/// The 522 canopy map objects and the 532.x stair candidates of the stored Berlin
-/// `bauwerke-flaechen` layer (canopies, stair areas) and `bauwerke-linien` layer (step edges);
-/// none outside Berlin.
-struct BerlinStructures {
-    canopies: Vec<MapObject>,
-    stairs: Vec<MapObject>,
-}
-
-#[allow(clippy::too_many_arguments)]
-fn stored_berlin_structures(
-    dir: &Path,
-    project: &ProjectFile,
-    layers: &[StoredBerlinLayer],
-    nas: &[StoredNasLayer],
-    buildings: Option<&StoredBuildings>,
-    footprints: &[geo_types::Polygon<f64>],
-    area: &MapArea,
-    georef: &Georeferencing,
-    symbol_set: &SymbolSet,
-) -> Result<BerlinStructures, ProjectError> {
-    // The stair areas are in the same layer as the canopies; the step edges are lines.
-    let areas = layers.iter().find(|l| l.layer.file == CANOPY_LAYER);
-    let edges = layers.iter().find(|l| l.layer.file == STEP_EDGE_LAYER);
-    let survey = layers.iter().find(|l| l.layer.file == SURVEY_STAIR_LAYER);
-    // The NAS stair areas and bottom edges are in one layer.
-    let nas = nas.iter().find(|l| l.layer.file == NAS_STAIR_LAYER);
-    let map_area = area.projected_polygon_in(project.crs());
-    // Canopies are cut at the 521 footprints; flat entrance steps face them.
-    let mut canopies = match areas {
-        Some(layer) => canopy_objects(
-            &[CanopyInput::Berlin(&layer.features)],
-            footprints,
-            &map_area,
-            project.buffer_m,
-            georef,
-            symbol_set,
-            layer.fetched,
-        )?,
-        None => Vec::new(),
-    };
-    canopies.extend(stored_state_canopies(
-        project, buildings, footprints, &map_area, georef, symbol_set,
-    )?);
-    if areas.is_none() && edges.is_none() && survey.is_none() && nas.is_none() {
-        return Ok(BerlinStructures {
-            canopies,
-            stairs: Vec::new(),
-        });
-    }
-    let terrain = stored_stair_terrain(dir, project)?;
-    fn features(layer: Option<&StoredBerlinLayer>) -> &[serde_json::Value] {
-        layer.map_or(&[], |l| &l.features)
-    }
-    let nas_fetched = nas.map(|l| l.fetched);
-    // Both layers come from one fetch; the later date stands for the currency.
-    let fetched = areas
-        .iter()
-        .chain(edges.iter())
-        .chain(survey.iter())
-        .map(|l| l.fetched)
-        .chain(nas_fetched)
-        .max()
-        .expect("one of the layers is stored");
-    let stairs = stair_objects(
-        &StairInput {
-            features: features(areas),
-            step_edges: features(edges),
-            survey: features(survey),
-            nas: nas.map_or(&[], |l| &l.features),
-            terrain: terrain.as_ref(),
-            buildings: footprints,
-        },
-        project.map_kind,
-        &map_area,
-        project.buffer_m,
-        georef,
-        symbol_set,
-        fetched,
-    )?;
-    Ok(BerlinStructures { canopies, stairs })
-}
-
-/// The 522 canopy map objects among the stored ALKIS vereinfacht features of any state
-/// (`Überdachung`, `Carport`); none without stored buildings.
-fn stored_state_canopies(
-    project: &ProjectFile,
-    stored: Option<&StoredBuildings>,
-    footprints: &[geo_types::Polygon<f64>],
-    map_area: &geo_types::Polygon<f64>,
-    georef: &Georeferencing,
-    symbol_set: &SymbolSet,
-) -> Result<Vec<MapObject>, ProjectError> {
-    let (Some(stored), Some(record)) = (stored, &project.buildings) else {
-        return Ok(Vec::new());
-    };
-    Ok(canopy_objects(
-        &[CanopyInput::Buildings(&stored.features)],
-        footprints,
-        map_area,
-        project.buffer_m,
-        georef,
-        symbol_set,
-        record.fetched,
-    )?)
-}
-
-/// 522 candidates for the building passages of the stored ALKIS vereinfacht features of any
-/// state; none without stored buildings. Berlin building parts (`bauart`) go through the Berlin
-/// rules instead.
-fn stored_state_objects(
-    project: &ProjectFile,
-    stored: Option<&StoredBuildings>,
-    area: &MapArea,
-    georef: &Georeferencing,
-    symbol_set: &SymbolSet,
-) -> Result<Vec<MapObject>, ProjectError> {
-    let (Some(stored), Some(record)) = (stored, &project.buildings) else {
-        return Ok(Vec::new());
-    };
-    Ok(state_objects(
-        &stored.features,
-        project.map_kind,
-        &area.projected_polygon_in(project.crs()),
-        project.buffer_m,
-        georef,
-        symbol_set,
-        record.fetched,
-    )?)
-}
-
-/// The candidates of the stored full ALKIS (NAS) layers: walls, fences, hedges, monuments,
-/// bridges, embankment tops and ditches; none outside the states with a NAS service.
-fn stored_nas_objects(
-    layers: &[StoredNasLayer],
-    project: &ProjectFile,
-    area: &MapArea,
-    georef: &Georeferencing,
-    symbol_set: &SymbolSet,
-) -> Result<Vec<MapObject>, ProjectError> {
-    let inputs: Vec<NasInput<'_>> = layers
-        .iter()
-        .map(|l| NasInput {
-            file: l.layer.file,
-            features: &l.features,
-            fetched: l.fetched,
-        })
-        .collect();
-    Ok(nas_objects(
-        &inputs,
-        project.map_kind,
-        &area.projected_polygon_in(project.crs()),
-        project.buffer_m,
-        georef,
-        symbol_set,
-    )?)
+        .any(|l| [CANOPY_LAYER, STEP_EDGE_LAYER, SURVEY_STAIR_LAYER].contains(&l.layer.file))
+        || nas.iter().any(|l| l.layer.file == NAS_STAIR_LAYER)
 }
 
 /// The terrain model for the stair direction, in the map's CRS: the stored DGM1 of a per-area
@@ -2259,56 +2026,6 @@ fn stored_land_use(dir: &Path, project: &ProjectFile) -> Result<Vec<LandUse>, Pr
         path: path.clone(),
         message: e.to_string(),
     })
-}
-
-/// 520 candidates for the private land around the map area; none without stored land use.
-fn stored_out_of_bounds_objects(
-    land_use: &[LandUse],
-    project: &ProjectFile,
-    area: &MapArea,
-    georef: &Georeferencing,
-    symbol_set: &SymbolSet,
-) -> Result<Vec<MapObject>, ProjectError> {
-    Ok(out_of_bounds_objects(
-        land_use,
-        &area.projected_polygon_in(project.crs()),
-        &project.bbox()?,
-        project.map_kind,
-        georef,
-        symbol_set,
-    )?)
-}
-
-/// 501.5 paved areas from the stored land use; sprint maps only (spec §4.5). In Berlin the
-/// stored Straßenbefahrung cuts its green strips out and adds its paving as candidates.
-fn stored_paved_objects(
-    land_use: &[LandUse],
-    osm: Option<&(Vec<OsmFeature>, NaiveDate)>,
-    berlin_layers: &[StoredBerlinLayer],
-    project: &ProjectFile,
-    georef: &Georeferencing,
-    symbol_set: &SymbolSet,
-) -> Result<PavedObjects, ProjectError> {
-    if project.map_kind != MapKind::Sprint {
-        return Ok(PavedObjects::default());
-    }
-    let streets = osm.map(|(features, _)| unpaved_streets(features, georef.crs()));
-    let layer = |file: &str| {
-        berlin_layers
-            .iter()
-            .find(|l| l.layer.file == file)
-            .map_or(&[][..], |l| l.features.as_slice())
-    };
-    let survey =
-        StreetSurvey::from_features(layer(GREEN_LAYER), layer(SURFACE_LAYER), georef.crs());
-    Ok(paved_area_objects(
-        land_use,
-        streets.as_deref().unwrap_or_default(),
-        &survey,
-        &project.bbox()?,
-        georef,
-        symbol_set,
-    )?)
 }
 
 /// Writes orthophoto, hillshade and slope templates from the fetched tiles and returns the
@@ -3049,7 +2766,10 @@ mod tests {
     const BEYOND_COVERAGE_WARNING: &str = "warning: part of the map area lies outside the supported states. It lies abroad, at sea or in a state freemapper does not support yet, such as Bremen or Thuringia. The states have no data there, so the orthophoto can be white and ALKIS gives no buildings or land use";
 
     use super::*;
+    use crate::build::paved::{GREEN_LAYER, SURFACE_LAYER};
+    use crate::crs::LatLon;
     use crate::fetch::TilePaths as _;
+    use crate::omap::{MapCoord, MapObjectKind};
     #[allow(unused_imports)]
     use crate::sources::region::ids::{IdFacts as _, providers, regions};
     use crate::sources::region::raster_region;
@@ -13210,12 +12930,17 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         .unwrap();
         let map_objects = [park, paved];
         let build = |project: &ProjectFile| {
-            export::stored_vegetation_objects(
-                dir.path(),
-                project,
+            let Some(vegetation) = export::read_stored_vegetation(dir.path(), project).unwrap()
+            else {
+                return Vec::new();
+            };
+            crate::build::vegetation::vegetation_objects(
+                &vegetation,
                 std::slice::from_ref(&building),
                 &water,
                 &map_objects,
+                &project.area().unwrap().projected_polygon_in(project.crs()),
+                project.buffer_m,
                 &georef,
                 &symbol_set,
             )
@@ -13733,11 +13458,11 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let project =
             init_project(dir.path(), &area, MapKind::Schoolyard, None, date, None).unwrap();
         let georef = Georeferencing::new(area.centroid(), 1000, date).unwrap();
-        let outline = map_area_outline(
+        let outline = crate::build::assembly::map_area_outline(
             &area,
+            project.map_area_source_id.as_deref(),
             &georef,
             &MapKind::Schoolyard.symbol_set(1000),
-            &project,
         )
         .unwrap();
 
