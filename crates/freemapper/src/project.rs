@@ -9320,8 +9320,11 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
 
     /// Serves a K5 map for the template area of a Berlin project (the pieces `fetch_k5` asks for).
     fn serve_k5(fetcher: &MapFetcher, project: &ProjectFile) {
-        let grid = GridSpec::covering(&project.bbox().unwrap(), crate::sources::wms::K5_PIXEL_M);
-        for (piece, url) in crate::sources::wms::k5_pieces(&grid) {
+        let grid = GridSpec::covering(
+            &project.bbox().unwrap(),
+            freemapper_adapters_de::berlin::K5_PIXEL_M,
+        );
+        for (piece, url) in freemapper_adapters_de::berlin::k5_pieces(&grid) {
             let mut png = Vec::new();
             image::RgbImage::from_pixel(piece.width, piece.height, image::Rgb([230, 220, 200]))
                 .write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png)
@@ -9544,8 +9547,11 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let project = ProjectFile::load(dir.path()).unwrap();
         serve_berlin_layers(&fetcher, &project.region_bbox().unwrap());
         // The K5 service fails: the fetch goes on, the template is left out.
-        let grid = GridSpec::covering(&project.bbox().unwrap(), crate::sources::wms::K5_PIXEL_M);
-        for (_, url) in crate::sources::wms::k5_pieces(&grid) {
+        let grid = GridSpec::covering(
+            &project.bbox().unwrap(),
+            freemapper_adapters_de::berlin::K5_PIXEL_M,
+        );
+        for (_, url) in freemapper_adapters_de::berlin::k5_pieces(&grid) {
             fetcher.failing.borrow_mut().push(url);
         }
         let (project, messages) = fetch(dir.path(), &fetcher, &cache);

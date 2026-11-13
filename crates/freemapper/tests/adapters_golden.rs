@@ -155,7 +155,7 @@ fn g1_credit_lines_match_for_all_year_and_record_combinations() {
 #[test]
 fn g1_service_constants_are_unchanged() {
     use freemapper::raster::GridSpec;
-    use freemapper::sources::{alkis_nas, trees, wms};
+    use freemapper::sources::{alkis_nas, trees};
     use freemapper_adapters_de::{
         geobasis_nrw, geosn, hvbg, laiv_mv, lgln, lgv, lvermgeo, lvermgeo_rp, lvermgeo_sh,
     };
@@ -195,7 +195,7 @@ fn g1_service_constants_are_unchanged() {
         ("geosn::WMS", geosn::WMS),
         ("geobasis_nrw::WMS", geobasis_nrw::WMS),
         ("lvermgeo::WMS", lvermgeo::WMS),
-        ("wms::K5_WMS", wms::K5_WMS),
+        ("wms::K5_WMS", freemapper_adapters_de::berlin::K5_WMS),
     ] {
         let urls = grids.iter().map(|g| service.piece_url(g)).collect();
         add(name, format!("{service:?}"), urls);

@@ -10,6 +10,7 @@ mod tests {
     use crate::crs::BoundingBox;
     use crate::fetch::test_support::{MapFetcher, solid_jpeg};
     use crate::raster::GridSpec;
+    use freemapper_adapters_de::berlin::{K5_PIXEL_M, fetch_k5, k5_pieces};
     use freemapper_adapters_de::{geosn, hvbg, lgv, lvermgeo};
 
     fn grid(width: u32, height: u32) -> GridSpec {
