@@ -89,6 +89,7 @@ pub(crate) mod test_support {
 
     use freemapper_adapter_api::extras::{ExtraSet, NasService, RasterTemplate, TreeDataset};
     use freemapper_adapter_api::info::{Names, RegionInfo};
+    use freemapper_adapter_api::permits::PermitSource;
     use freemapper_adapter_api::policy::UrlPolicy;
     use freemapper_adapter_api::records::AdapterId;
 
@@ -109,6 +110,7 @@ pub(crate) mod test_support {
         trees: Vec<TreeDataset>,
         extras: Vec<Box<dyn ExtraSet>>,
         templates: Vec<Box<dyn RasterTemplate>>,
+        permits: Vec<Box<dyn PermitSource>>,
     }
 
     impl RegionAdapter for Square {
@@ -142,6 +144,10 @@ pub(crate) mod test_support {
 
         fn templates(&self) -> &[Box<dyn RasterTemplate>] {
             &self.templates
+        }
+
+        fn permit_sources(&self) -> &[Box<dyn PermitSource>] {
+            &self.permits
         }
 
         fn rasters(&self) -> Option<&dyn freemapper_adapter_api::rasters::RasterBackend> {
@@ -255,7 +261,28 @@ pub(crate) mod test_support {
             trees: Vec::new(),
             extras: Vec::new(),
             templates: Vec::new(),
+            permits: Vec::new(),
         }
+    }
+
+    /// A registry with the one region [`SQUARE`] around Potsdam and Berlin (E 300 to 420 km,
+    /// N 5750 to 5880 km, EPSG:25833), held to `hosts`, with the permit sources `permits`.
+    pub(crate) fn square_with_permits(
+        hosts: &[&str],
+        permits: Vec<Box<dyn PermitSource>>,
+    ) -> Registry {
+        let mut square = region(SQUARE, 0.0, Some(hosts));
+        square.boundary = geo_types::MultiPolygon(vec![
+            geo_types::Rect::new(
+                geo_types::coord! { x: 300_000.0, y: 5_750_000.0 },
+                geo_types::coord! { x: 420_000.0, y: 5_880_000.0 },
+            )
+            .to_polygon(),
+        ]);
+        square.permits = permits;
+        let mut registry = Registry::new();
+        registry.add(Arc::new(square)).unwrap();
+        registry
     }
 }
 

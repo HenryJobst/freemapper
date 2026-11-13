@@ -8,6 +8,7 @@ use crate::credit::{CreditLine, UsedSources};
 use crate::estimate::{EstimateArea, EstimateEnv};
 use crate::extras::{ExtraSet, NasService, RasterTemplate, TreeDataset};
 use crate::info::{Declared, RegionInfo};
+use crate::permits::PermitSource;
 use crate::pointcloud::PointCloudBackend;
 use crate::policy::UrlPolicy;
 use crate::rasters::RasterBackend;
@@ -60,6 +61,13 @@ pub trait RegionAdapter: Send + Sync {
 
     /// The sets of extra layers the adapter fetches with code of its own; empty for most.
     fn extras(&self) -> &[Box<dyn ExtraSet>] {
+        &[]
+    }
+
+    /// The services of the region that give findings for the permit notes (ADR 0120); empty
+    /// for most. The engine asks them only for permit notes of a map area that touches the
+    /// region, behind [`Self::policy`].
+    fn permit_sources(&self) -> &[Box<dyn PermitSource>] {
         &[]
     }
 

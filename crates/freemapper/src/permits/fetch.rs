@@ -2,10 +2,15 @@
 //! the policy of the national sources, the OSM findings from the extract already cached. What
 //! was fetched is stored in the project (`data/permits/`) and read back from there, so a later
 //! offline run gives the same notes.
+//!
+//! The sources of a region adapter (ADR 0120) are asked only when the map area lies on the
+//! adapter's ground, and through [`crate::adapters::asking`], so the adapter's own hosts hold
+//! for them and the policy of the national sources does not.
 
 use std::collections::HashSet;
 use std::path::Path;
 
+use freemapper_adapter_api::permits::plain_key;
 use freemapper_adapter_api::policy::{PolicyFetcher, UrlPolicy};
 use freemapper_sources::bfn::{BFN, ProtectedKind};
 use freemapper_sources::geojson_wfs::{GeoJsonWfs, LatLonBox, get_features};
@@ -13,14 +18,17 @@ use freemapper_sources::vg250::{AdminLevel, VG250};
 use geo::Intersects as _;
 use serde_json::Value;
 
+use crate::adapters::{RegionAdapter, Registry};
 use crate::area::MapArea;
 use crate::clock;
 use crate::fetch::{Cache, Fetcher};
 use crate::note::{Arg, Note, note};
 use crate::permits::notes::{Inputs, SourceInput};
 use crate::permits::osm::{OsmFinding, findings, wants};
+use crate::permits::regional::RegionalSource;
 use crate::permits::store::{
-    PERMITS_DIR, RawInputs, area_key, load_inputs, something_fetched, store_inputs, stored_for,
+    PERMITS_DIR, RawInputs, RawRegional, area_key, load_inputs_in, something_fetched,
+    store_inputs_in, stored_for,
 };
 use crate::permits::{Missing, PermitsError};
 use crate::project::ProjectFile;
@@ -39,8 +47,32 @@ const PART: &str = "wfs.part";
 /// stored and the earlier data stay. Offline, the stored inputs are read, but only when they
 /// were fetched for exactly this map area polygon.
 ///
+/// The sources of the region adapters of the registry whose ground the map area touches are
+/// asked behind the hosts of their adapter, and stored and read back the same way.
+///
 /// [`PermitsError::NothingRead`] when no source gave anything.
 pub fn fetch_inputs(
+    project: &ProjectFile,
+    dir: &Path,
+    fetcher: &dyn Fetcher,
+    cache: &Cache,
+    offline: bool,
+    progress: &mut dyn FnMut(Note),
+) -> Result<Inputs, PermitsError> {
+    fetch_inputs_in(
+        crate::adapters::registry(),
+        project,
+        dir,
+        fetcher,
+        cache,
+        offline,
+        progress,
+    )
+}
+
+/// [`fetch_inputs`] with the region adapters of `registry`.
+pub fn fetch_inputs_in(
+    registry: &Registry,
     project: &ProjectFile,
     dir: &Path,
     fetcher: &dyn Fetcher,
@@ -67,7 +99,7 @@ pub fn fetch_inputs(
                     .into(),
             });
         }
-        return load_inputs(dir);
+        return load_inputs_in(registry, dir);
     }
     let today = clock::today();
     let folder = dir.join(PERMITS_DIR);
@@ -113,17 +145,117 @@ pub fn fetch_inputs(
         &ProtectedKind::ALL,
     );
     let osm = osm_findings(project, &area, cache, progress)?;
+    let regional = regional_answers(registry, &area, &bbox, dir, fetcher, &part, progress);
     let raw = RawInputs {
         bbox,
         area: area_key(&area),
         admin,
         protected,
         osm,
+        regional,
     };
     // When nothing was read, the data of an earlier fetch stay for `--offline`.
     something_fetched(&raw)?;
-    store_inputs(dir, &raw).map_err(|e| PermitsError::Io(folder, e))?;
-    load_inputs(dir)
+    store_inputs_in(registry, dir, &raw).map_err(|e| PermitsError::Io(folder, e))?;
+    load_inputs_in(registry, dir)
+}
+
+/// Whether the map area polygon lies on the ground of `adapter` (its boundary, without the
+/// margin the downloads have): only then are its permit sources asked.
+fn on_ground(adapter: &dyn RegionAdapter, area: &MapArea) -> bool {
+    use geo::Intersects as _;
+    let projected: geo_types::LineString<f64> = area
+        .polygon
+        .exterior()
+        .0
+        .iter()
+        .map(|c| {
+            let p = crate::crs::Crs::Utm33.forward(crate::crs::LatLon { lat: c.y, lon: c.x });
+            geo_types::coord! { x: p.easting, y: p.northing }
+        })
+        .collect();
+    let polygon = geo_types::Polygon::new(projected, vec![]);
+    let bounds = adapter.bounds();
+    let rect = geo_types::Rect::new(
+        geo_types::coord! { x: bounds.min_e, y: bounds.min_n },
+        geo_types::coord! { x: bounds.max_e, y: bounds.max_n },
+    );
+    polygon.intersects(&rect) && adapter.boundary().intersects(&polygon)
+}
+
+/// The answers of the permit sources of every adapter of `registry` whose ground the map area
+/// touches, each asked through [`crate::adapters::asking`]. A source that fails is
+/// `Unreachable`; the others are asked all the same.
+fn regional_answers(
+    registry: &Registry,
+    area: &MapArea,
+    bbox: &LatLonBox,
+    dir: &Path,
+    fetcher: &dyn Fetcher,
+    part: &Path,
+    progress: &mut dyn FnMut(Note),
+) -> Vec<RawRegional> {
+    let today = clock::today();
+    let rect = geo_types::Rect::new(
+        geo_types::coord! { x: bbox.min_lon, y: bbox.min_lat },
+        geo_types::coord! { x: bbox.max_lon, y: bbox.max_lat },
+    );
+    let mut answers = Vec::new();
+    for adapter in registry
+        .adapters()
+        .filter(|a| !a.permit_sources().is_empty() && on_ground(*a, area))
+    {
+        for source in adapter.permit_sources() {
+            let info = source.info();
+            // The keys become file names.
+            if !plain_key(info.key) || !info.layers.iter().all(|l| plain_key(l)) {
+                continue;
+            }
+            // The publisher and what the source holds, in the language of the run.
+            let label = || Arg::Words {
+                en: format!("{}: {}", info.label.en, info.what.en),
+                de: format!("{}: {}", info.label.de, info.what.de),
+            };
+            progress(note!("progress-permits-fetch", source = label()));
+            let answer = crate::adapters::asking(adapter, fetcher, |fetcher| {
+                source.fetch(fetcher, &rect, part)
+            });
+            freemapper_fs::remove_inside(dir, part);
+            let layers = match answer {
+                Ok(lists) if lists.len() == info.layers.len() => SourceInput::Read {
+                    items: info
+                        .layers
+                        .iter()
+                        .map(|l| l.to_string())
+                        .zip(lists)
+                        .collect(),
+                    fetched: today,
+                },
+                Ok(lists) => SourceInput::Unreachable {
+                    reason: format!(
+                        "the source gave {} layers instead of {}",
+                        lists.len(),
+                        info.layers.len()
+                    ),
+                },
+                Err(e) => {
+                    let reason = e.to_string();
+                    progress(note!(
+                        "warning-permits-source-unreachable",
+                        source = label(),
+                        error = Arg::error(e)
+                    ));
+                    SourceInput::Unreachable { reason }
+                }
+            };
+            answers.push(RawRegional {
+                adapter: adapter.info().id.as_str().to_string(),
+                source: RegionalSource::from(info),
+                layers,
+            });
+        }
+    }
+    answers
 }
 
 /// The features of every type of `service`, one list per type in the order of `types`. Stops
@@ -237,6 +369,7 @@ mod tests {
     use chrono::NaiveDate;
     use freemapper_sources::bfn::fetch_bfn;
     use freemapper_sources::vg250::fetch_vg250;
+    use serde_json::Value;
     use tempfile::TempDir;
 
     const FIXTURES: &str = concat!(
@@ -721,5 +854,603 @@ mod tests {
             .0
             .unwrap();
         assert_eq!(offline.osm, online.osm);
+    }
+
+    // The sources of the region adapters (ADR 0120).
+
+    use crate::adapters::registry;
+    use crate::permits::regional::RegionalInput;
+    use freemapper_adapter_api::permits::{
+        FindingKind, PermitFinding, PermitSection, PermitSource, PermitSourceInfo, Wording,
+    };
+
+    const BERLIN_FIXTURES: &str = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../tests/fixtures/permits-berlin/"
+    );
+
+    fn berlin() -> &'static dyn RegionAdapter {
+        registry().get("berlin").expect("built in")
+    }
+
+    /// A sprint map over the box of the live probe at the Viktoriapark, Berlin
+    /// (389613,5816190 to 390529,5816909 in EPSG:25833).
+    fn viktoriapark() -> (TempDir, ProjectFile) {
+        project_in_25833(389_613.0, 5_816_190.0, 390_529.0, 5_816_909.0)
+    }
+
+    /// A sprint map over a box in EPSG:25833: min easting, min northing, max easting, max
+    /// northing.
+    fn project_in_25833(min_e: f64, min_n: f64, max_e: f64, max_n: f64) -> (TempDir, ProjectFile) {
+        let dir = tempfile::tempdir().unwrap();
+        let corner = |e: f64, n: f64| {
+            let p = crate::crs::Crs::Utm33
+                .inverse(crate::crs::ProjectedPoint {
+                    easting: e,
+                    northing: n,
+                })
+                .unwrap();
+            [p.lon, p.lat]
+        };
+        let ring = [
+            corner(min_e, min_n),
+            corner(max_e, min_n),
+            corner(max_e, max_n),
+            corner(min_e, max_n),
+            corner(min_e, min_n),
+        ];
+        let coordinates: Vec<String> = ring.iter().map(|[x, y]| format!("[{x},{y}]")).collect();
+        let geojson = format!(
+            r#"{{"type":"Polygon","coordinates":[[{}]]}}"#,
+            coordinates.join(",")
+        );
+        let area = MapArea::from_geojson(&geojson).unwrap();
+        let project = init_project(
+            dir.path(),
+            &area,
+            MapKind::Sprint,
+            None,
+            date("2026-11-13"),
+            None,
+        )
+        .unwrap();
+        (dir, project)
+    }
+
+    /// The trimmed answers of the Geoportal Berlin by WFS type; the other Berlin types and the
+    /// national services answer empty.
+    fn serve_berlin(fetcher: &MapFetcher, project: &ProjectFile) {
+        let probe = MapFetcher::default();
+        probe.insert_prefix("https://", empty_collection());
+        let scratch = tempfile::tempdir().unwrap();
+        let part = scratch.path().join("probe.part");
+        let b = map_box(&project.area().unwrap());
+        let rect = geo_types::Rect::new(
+            geo_types::coord! { x: b.min_lon, y: b.min_lat },
+            geo_types::coord! { x: b.max_lon, y: b.max_lat },
+        );
+        for source in berlin().permit_sources() {
+            source.fetch(&probe, &rect, &part).unwrap();
+        }
+        let by_type = [
+            ("alkis_bezirke:bezirksgrenzen", "bezirksgrenzen.geojson"),
+            ("gruenanlagen:gruenanlagen", "gruenanlagen.geojson"),
+            ("gruenanlagen:spielplaetze", "spielplaetze.geojson"),
+            (
+                "liegenschaftsplan:liegenschaftsplan",
+                "liegenschaftsplan.geojson",
+            ),
+            ("denkmale:denkmale", "denkmale.geojson"),
+            ("schutzgebiete:a_nd", "naturdenkmale.geojson"),
+        ];
+        for url in probe.log.borrow().iter() {
+            let body = by_type
+                .iter()
+                .find(|(t, _)| url.contains(&format!("typeNames={t}&")))
+                .map(|(_, file)| std::fs::read(format!("{BERLIN_FIXTURES}{file}")).unwrap())
+                .unwrap_or_else(empty_collection);
+            fetcher.insert(url, body);
+        }
+        for host in UrlPolicy::NATIONAL_HOSTS {
+            fetcher.insert_prefix(&format!("https://{host}/"), empty_collection());
+        }
+    }
+
+    /// The fixture file the fetcher of [`serve_berlin`] answers for a layer of Berlin's sources;
+    /// the other layers answer empty.
+    const BERLIN_LAYER_FILES: [(&str, &str); 6] = [
+        ("bezirksgrenzen", "bezirksgrenzen.geojson"),
+        ("gruenanlagen", "gruenanlagen.geojson"),
+        ("spielplaetze", "spielplaetze.geojson"),
+        ("liegenschaftsplan", "liegenschaftsplan.geojson"),
+        ("denkmale", "denkmale.geojson"),
+        ("a-nd", "naturdenkmale.geojson"),
+    ];
+
+    /// The findings of `source` as the adapter parses the fixture files themselves, without
+    /// the fetch and the store in between.
+    fn fixture_findings(source: &dyn PermitSource) -> Vec<PermitFinding> {
+        source
+            .info()
+            .layers
+            .iter()
+            .flat_map(|layer| {
+                let features: Vec<Value> = BERLIN_LAYER_FILES
+                    .iter()
+                    .find(|(l, _)| l == layer)
+                    .map(|(_, file)| {
+                        let text =
+                            std::fs::read_to_string(format!("{BERLIN_FIXTURES}{file}")).unwrap();
+                        let mut value: Value = serde_json::from_str(&text).unwrap();
+                        match value["features"].take() {
+                            Value::Array(features) => features,
+                            other => panic!("{file}: {other:?}"),
+                        }
+                    })
+                    .unwrap_or_default();
+                source.findings(layer, &features)
+            })
+            .collect()
+    }
+
+    /// Berlin's regional inputs as the adapter parses the fixtures, read on `fetched`.
+    fn berlin_from_fixtures(fetched: NaiveDate) -> Vec<RegionalInput> {
+        berlin()
+            .permit_sources()
+            .iter()
+            .map(|source| RegionalInput {
+                adapter: "berlin".into(),
+                source: RegionalSource::from(source.info()),
+                findings: SourceInput::Read {
+                    items: fixture_findings(source.as_ref()),
+                    fetched,
+                },
+            })
+            .collect()
+    }
+
+    fn regional_state(inputs: &Inputs) -> Vec<(&str, bool)> {
+        inputs
+            .regional
+            .iter()
+            .map(|r| (r.source.key.as_str(), is_read(&r.findings)))
+            .collect()
+    }
+
+    #[test]
+    fn a_map_outside_berlin_asks_no_berlin_service() {
+        let (dir, project) = project();
+        let fetcher = MapFetcher::default();
+        fetcher.insert_prefix("https://", empty_collection());
+        let (_root, cache) = cache_with_extract();
+        let inputs = fetch(&project, dir.path(), &fetcher, &cache, false)
+            .0
+            .unwrap();
+        assert!(inputs.regional.is_empty());
+        let log = fetcher.log.borrow();
+        assert!(!log.is_empty());
+        assert!(log.iter().all(|u| !u.contains("berlin.de")), "{log:#?}");
+        assert!(!dir.path().join(PERMITS_DIR).join("berlin").exists());
+    }
+
+    /// A map area 100 to 300 m west of Berlin's westernmost point lies off Berlin's ground and
+    /// does not touch it: no Berlin service is asked, as there is no margin (review finding 4).
+    #[test]
+    fn a_map_just_outside_berlin_asks_no_berlin_service() {
+        let west = geo::CoordsIter::coords_iter(berlin().boundary())
+            .min_by(|a, b| a.x.total_cmp(&b.x))
+            .unwrap();
+        let (dir, project) = project_in_25833(
+            west.x - 300.0,
+            west.y - 100.0,
+            west.x - 100.0,
+            west.y + 100.0,
+        );
+        assert!(!on_ground(berlin(), &project.area().unwrap()));
+        let fetcher = MapFetcher::default();
+        fetcher.insert_prefix("https://", empty_collection());
+        let (_root, cache) = empty_cache();
+        let inputs = fetch(&project, dir.path(), &fetcher, &cache, false)
+            .0
+            .unwrap();
+        assert!(inputs.regional.is_empty());
+        let log = fetcher.log.borrow();
+        assert!(!log.is_empty());
+        assert!(log.iter().all(|u| !u.contains("berlin.de")), "{log:#?}");
+
+        // 100 m further east the area reaches into Berlin, and Berlin is asked.
+        let (_dir, inside) = project_in_25833(
+            west.x - 200.0,
+            west.y - 100.0,
+            west.x + 100.0,
+            west.y + 100.0,
+        );
+        assert!(on_ground(berlin(), &inside.area().unwrap()));
+    }
+
+    /// With the national services down and no OSM extract, Berlin's sources alone are enough:
+    /// the notes are written, online and offline (review finding 10).
+    #[test]
+    fn berlin_sources_alone_write_the_notes() {
+        let (dir, project) = viktoriapark();
+        let fetcher = MapFetcher::default();
+        serve_berlin(&fetcher, &project);
+        fetcher
+            .refusing
+            .borrow_mut()
+            .extend(UrlPolicy::NATIONAL_HOSTS.map(|h| format!("https://{h}")));
+        let (_root, cache) = empty_cache();
+        let inputs = fetch(&project, dir.path(), &fetcher, &cache, false)
+            .0
+            .unwrap();
+        assert!(matches!(inputs.admin, SourceInput::Unreachable { .. }));
+        assert!(matches!(inputs.protected, SourceInput::Unreachable { .. }));
+        assert_eq!(inputs.osm, SourceInput::NotRead);
+        assert!(inputs.regional.iter().all(|r| is_read(&r.findings)));
+        let today = date("2026-11-13");
+        let notes = write_permit_notes(dir.path(), &project, &inputs, today).unwrap();
+        assert!(dir.path().join(PERMITS_JSON).exists());
+        assert!(notes.regional[0].districts.is_some());
+        let (offline, _) = fetch(&project, dir.path(), &fetcher, &cache, true);
+        assert_eq!(offline.unwrap(), inputs);
+    }
+
+    /// A permit source that asks one address and gives nothing.
+    struct Asking {
+        info: PermitSourceInfo,
+        url: &'static str,
+    }
+
+    impl PermitSource for Asking {
+        fn info(&self) -> &PermitSourceInfo {
+            &self.info
+        }
+
+        fn fetch(
+            &self,
+            fetcher: &dyn crate::fetch::Fetcher,
+            _bbox: &geo_types::Rect<f64>,
+            _part: &Path,
+        ) -> Result<Vec<Vec<Value>>, crate::fetch::FetchError> {
+            fetcher.get(self.url)?;
+            Ok(vec![Vec::new()])
+        }
+
+        fn findings(&self, _layer: &str, _features: &[Value]) -> Vec<PermitFinding> {
+            Vec::new()
+        }
+    }
+
+    fn asking(key: &'static str, url: &'static str) -> Box<dyn PermitSource> {
+        Box::new(Asking {
+            info: PermitSourceInfo {
+                key,
+                label: Wording {
+                    en: "Own",
+                    de: "Eigen",
+                },
+                what: Wording { en: key, de: key },
+                credit: "open",
+                note: None,
+                layers: &["all"],
+                sections: &[PermitSection::Districts],
+            },
+            url,
+        })
+    }
+
+    #[test]
+    fn berlin_requests_go_through_the_berlin_policy() {
+        // Berlin's own sources are read, though their host is no national one: they are asked
+        // behind Berlin's hosts.
+        let (dir, project) = viktoriapark();
+        let fetcher = MapFetcher::default();
+        serve_berlin(&fetcher, &project);
+        let (_root, cache) = empty_cache();
+        let inputs = fetch(&project, dir.path(), &fetcher, &cache, false)
+            .0
+            .unwrap();
+        assert_eq!(
+            regional_state(&inputs),
+            [
+                ("bezirke", true),
+                ("gruenanlagen", true),
+                ("liegenschaftsplan", true),
+                ("denkmale", true),
+                ("schutzgebiete", true),
+            ]
+        );
+        let policy = berlin().policy().unwrap();
+        let log = fetcher.log.borrow();
+        let berlin_urls: Vec<&String> = log.iter().filter(|u| u.contains("berlin.de")).collect();
+        assert_eq!(berlin_urls.len(), 9, "{berlin_urls:#?}");
+        for url in &berlin_urls {
+            assert!(
+                url.starts_with("https://gdi.berlin.de/services/wfs/"),
+                "{url}"
+            );
+            assert!(policy.check_url(url).is_ok(), "{url}");
+            assert!(UrlPolicy::national().check_url(url).is_err(), "{url}");
+        }
+        drop(log);
+
+        // A source of an adapter is held to that adapter's hosts: a request off them is not
+        // sent, and the national hosts do not count for it.
+        let (dir, project) = self::project();
+        let fetcher = MapFetcher::default();
+        fetcher.insert_prefix("https://", empty_collection());
+        let registry = crate::adapters::test_support::square_with_permits(
+            &["own.example"],
+            vec![
+                asking("own", "https://own.example/wfs"),
+                asking("other", "https://other.example/wfs"),
+                asking("national", "https://geodienste.bfn.de/ogc/wfs/schutzgebiet"),
+            ],
+        );
+        let (_root, cache) = empty_cache();
+        let inputs = fetch_inputs_in(
+            &registry,
+            &project,
+            dir.path(),
+            &fetcher,
+            &cache,
+            false,
+            &mut |_| {},
+        )
+        .unwrap();
+        let states: Vec<(&str, &str)> = inputs
+            .regional
+            .iter()
+            .map(|r| {
+                let state = match &r.findings {
+                    SourceInput::Read { .. } => "read",
+                    SourceInput::Unreachable { .. } => "refused",
+                    other => panic!("{other:?}"),
+                };
+                (r.source.key.as_str(), state)
+            })
+            .collect();
+        assert_eq!(
+            states,
+            [
+                ("own", "read"),
+                ("other", "refused"),
+                ("national", "refused")
+            ]
+        );
+        let log = fetcher.log.borrow();
+        assert!(log.iter().any(|u| u == "https://own.example/wfs"));
+        assert!(!log.iter().any(|u| u.contains("other.example")), "{log:#?}");
+        assert!(
+            !log.iter()
+                .any(|u| u == "https://geodienste.bfn.de/ogc/wfs/schutzgebiet"),
+            "{log:#?}"
+        );
+    }
+
+    #[test]
+    fn a_down_berlin_service_keeps_the_rest() {
+        let (dir, project) = viktoriapark();
+        let fetcher = MapFetcher::default();
+        serve_berlin(&fetcher, &project);
+        fetcher
+            .refusing
+            .borrow_mut()
+            .push("https://gdi.berlin.de/services/wfs/denkmale".to_string());
+        let (_root, cache) = empty_cache();
+        let (inputs, ids) = fetch(&project, dir.path(), &fetcher, &cache, false);
+        let inputs = inputs.unwrap();
+        assert_eq!(
+            regional_state(&inputs),
+            [
+                ("bezirke", true),
+                ("gruenanlagen", true),
+                ("liegenschaftsplan", true),
+                ("denkmale", false),
+                ("schutzgebiete", true),
+            ]
+        );
+        assert!(is_read(&inputs.admin) && is_read(&inputs.protected));
+        assert_eq!(
+            ids.iter()
+                .filter(|id| **id == "warning-permits-source-unreachable")
+                .count(),
+            1,
+            "{ids:?}"
+        );
+        let asked = fetcher
+            .log
+            .borrow()
+            .iter()
+            .filter(|u| u.contains("/wfs/denkmale"))
+            .count();
+        assert_eq!(asked, 1);
+        let notes = write_permit_notes(dir.path(), &project, &inputs, date("2026-11-13")).unwrap();
+        let part = &notes.regional[0];
+        assert!(part.monuments.is_none(), "the monuments section drops");
+        assert!(part.districts.is_some() && part.owners.is_some());
+        assert_eq!(part.sources[3].status.state, "unreachable");
+        // The Bezirk is still known, so its offices are named.
+        assert!(
+            notes
+                .hints
+                .iter()
+                .any(|h| h.key == crate::permits::notes::hint_key::DISTRICT_OFFICE)
+        );
+        let stored = dir.path().join(PERMITS_DIR).join("berlin");
+        assert!(stored.join("bezirke-bezirksgrenzen.geojson").exists());
+        assert!(!stored.join("denkmale-denkmale.geojson").exists());
+        let (offline, _) = fetch(&project, dir.path(), &fetcher, &cache, true);
+        assert_eq!(offline.unwrap(), inputs);
+    }
+
+    /// The progress and warning lines name a source of an adapter in the language of the run
+    /// (review finding 7).
+    #[test]
+    fn regional_sources_are_named_in_the_language_of_the_run() {
+        let (dir, project) = viktoriapark();
+        let fetcher = MapFetcher::default();
+        serve_berlin(&fetcher, &project);
+        fetcher
+            .refusing
+            .borrow_mut()
+            .push("https://gdi.berlin.de/services/wfs/denkmale".to_string());
+        let (_root, cache) = empty_cache();
+        let mut notes: Vec<Note> = Vec::new();
+        fetch_inputs(&project, dir.path(), &fetcher, &cache, false, &mut |n| {
+            notes.push(n)
+        })
+        .unwrap();
+        let de = crate::note::NOTES.parse_lang_arg("de").unwrap();
+        let german: Vec<String> = notes
+            .iter()
+            .map(|n| n.text(&de, &|e, _| e.to_string()))
+            .collect();
+        assert!(
+            german
+                .iter()
+                .any(|l| l.contains("Geoportal Berlin: Bezirksgrenzen (ALKIS Berlin)")),
+            "{german:#?}"
+        );
+        assert!(
+            german.iter().any(|l| l.starts_with("Warnung: ")
+                && l.contains("Geoportal Berlin: Denkmale (Denkmalkarte)")),
+            "{german:#?}"
+        );
+        assert!(
+            !german.iter().any(|l| l.contains("Bezirk borders")),
+            "{german:#?}"
+        );
+        let english: Vec<String> = notes.iter().map(ToString::to_string).collect();
+        assert!(
+            english
+                .iter()
+                .any(|l| l.contains("Geoportal Berlin: Bezirk borders (ALKIS Berlin)")),
+            "{english:#?}"
+        );
+    }
+
+    #[test]
+    fn offline_berlin_notes_match_online() {
+        let (dir, project) = viktoriapark();
+        let fetcher = MapFetcher::default();
+        serve_berlin(&fetcher, &project);
+        let (_root, cache) = empty_cache();
+        let online = fetch(&project, dir.path(), &fetcher, &cache, false)
+            .0
+            .unwrap();
+        let today = date("2026-11-13");
+        // The notes as the adapter's own parse of the served files gives them, not read back
+        // from the store: the fetch and the store must not change a finding.
+        let direct = Inputs {
+            regional: berlin_from_fixtures(today),
+            ..online.clone()
+        };
+        assert_eq!(online.regional, direct.regional);
+        let notes = write_permit_notes(dir.path(), &project, &direct, today).unwrap();
+        let part = &notes.regional[0];
+        assert_eq!(part.adapter, "berlin");
+        let districts: Vec<&str> = part
+            .districts
+            .as_ref()
+            .unwrap()
+            .iter()
+            .map(|s| s.item.name.as_str())
+            .collect();
+        assert_eq!(districts[0], "Friedrichshain-Kreuzberg", "{districts:?}");
+        assert!(districts.contains(&"Tempelhof-Schöneberg"), "{districts:?}");
+        let owners: Vec<Option<&str>> = part
+            .owners
+            .as_ref()
+            .unwrap()
+            .iter()
+            .map(|s| s.item.owner.as_deref())
+            .collect();
+        assert_eq!(
+            owners,
+            [Some("Land Berlin"), Some("Bundesrepublik Deutschland")]
+        );
+        let monuments = part.monuments.as_ref().unwrap();
+        assert!(monuments.total >= 40, "{}", monuments.total);
+        assert!(
+            monuments
+                .groups
+                .iter()
+                .any(|g| g.kind == "Gartendenkmal" && g.links.len() == 1)
+        );
+        let objects = part.protected_objects.as_ref().unwrap();
+        assert!(!objects.is_empty());
+        let green = part.green_spaces.as_ref().unwrap();
+        assert!(green.entries.iter().any(|s| s.item.name == "Viktoriapark"));
+        assert!(green.playgrounds >= 3, "{}", green.playgrounds);
+        assert_eq!(
+            green.playgrounds, 4,
+            "every playground of the fixture is on the map"
+        );
+        let keys: Vec<&str> = notes.hints.iter().map(|h| h.key.as_str()).collect();
+        assert!(!keys.contains(&crate::permits::notes::hint_key::CITY_STATE));
+
+        let calls = fetcher.calls.get();
+        let offline = fetch(&project, dir.path(), &fetcher, &cache, true)
+            .0
+            .unwrap();
+        assert_eq!(fetcher.calls.get(), calls, "offline asks no server");
+        assert_eq!(offline, online);
+        assert_eq!(
+            write_permit_notes(dir.path(), &project, &offline, today).unwrap(),
+            notes
+        );
+
+        // A record of step 1 has no regional part; it still reads, without Berlin.
+        let sources = dir.path().join(PERMITS_DIR).join("sources.json");
+        let mut record: Value =
+            serde_json::from_str(&std::fs::read_to_string(&sources).unwrap()).unwrap();
+        assert!(record["regional"].is_array());
+        record.as_object_mut().unwrap().remove("regional");
+        std::fs::write(&sources, serde_json::to_vec(&record).unwrap()).unwrap();
+        let old = fetch(&project, dir.path(), &fetcher, &cache, true)
+            .0
+            .unwrap();
+        assert!(old.regional.is_empty());
+        assert_eq!(old.admin, online.admin);
+    }
+
+    /// The findings the engine reads back from the store, online and offline, are the ones the
+    /// adapter parses from the same fixture files itself (review finding 11).
+    #[test]
+    fn stored_berlin_layers_parse_as_the_adapter_parses_them() {
+        let (dir, project) = viktoriapark();
+        let fetcher = MapFetcher::default();
+        serve_berlin(&fetcher, &project);
+        let (_root, cache) = empty_cache();
+        let inputs = fetch(&project, dir.path(), &fetcher, &cache, false)
+            .0
+            .unwrap();
+        let offline = fetch(&project, dir.path(), &fetcher, &cache, true)
+            .0
+            .unwrap();
+        let expected = berlin_from_fixtures(date("2026-11-13"));
+        assert_eq!(inputs.regional.len(), expected.len());
+        for ((online, offline), expected) in
+            inputs.regional.iter().zip(&offline.regional).zip(&expected)
+        {
+            assert_eq!(online.source.key, expected.source.key);
+            let SourceInput::Read { items, .. } = &online.findings else {
+                panic!("{:?}", online.findings);
+            };
+            assert!(!items.is_empty(), "{}", online.source.key);
+            assert_eq!(online, expected, "{}", expected.source.key);
+            assert_eq!(offline, expected, "{}", expected.source.key);
+        }
+        let bezirke: &RegionalInput = &inputs.regional[0];
+        let SourceInput::Read { items, .. } = &bezirke.findings else {
+            panic!("{:?}", bezirke.findings);
+        };
+        assert!(
+            items
+                .iter()
+                .all(|f| matches!(f.kind, FindingKind::District { .. }))
+        );
+        assert_eq!(items.len(), 2);
     }
 }

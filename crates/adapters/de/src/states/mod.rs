@@ -18,6 +18,7 @@ use freemapper_adapter_api::geometry::Outline;
 #[cfg(test)]
 use freemapper_adapter_api::info::PreviewInfo;
 use freemapper_adapter_api::info::{Declared, RegionInfo};
+use freemapper_adapter_api::permits::PermitSource;
 use freemapper_adapter_api::pointcloud::PointCloudBackend;
 use freemapper_adapter_api::policy::UrlPolicy;
 use freemapper_adapter_api::rasters::RasterBackend;
@@ -351,6 +352,8 @@ pub struct StateAdapter {
     extras: Vec<Box<dyn ExtraSet>>,
     /// The raster templates the state fetches with code (Berlin's K5).
     templates: Vec<Box<dyn RasterTemplate>>,
+    /// The sources of the permit notes the state brings (Berlin's Geoportal, ADR 0120).
+    permits: Vec<Box<dyn PermitSource>>,
 }
 
 impl StateAdapter {
@@ -397,11 +400,16 @@ impl StateAdapter {
             State::Berlin => vec![Box::new(crate::berlin::K5)],
             _ => Vec::new(),
         };
+        let permits = match state {
+            State::Berlin => crate::berlin_permits::sources(),
+            _ => Vec::new(),
+        };
         Self {
             state,
             alkis,
             extras,
             templates,
+            permits,
             manifest,
         }
     }
@@ -448,6 +456,10 @@ impl RegionAdapter for StateAdapter {
 
     fn templates(&self) -> &[Box<dyn RasterTemplate>] {
         &self.templates
+    }
+
+    fn permit_sources(&self) -> &[Box<dyn PermitSource>] {
+        &self.permits
     }
 
     fn no_buildings_warning(&self) -> Option<&'static str> {
@@ -592,6 +604,36 @@ mod tests {
             }
             assert!(set.has("gebaeudehoehen"));
             assert!(!set.has("notes"));
+        }
+    }
+
+    /// Berlin brings the five services of the Geoportal Berlin for the permit notes (ADR
+    /// 0118), all on hosts of its manifest. No other state brings one yet.
+    #[test]
+    fn berlin_alone_brings_permit_sources() {
+        for adapter in adapters() {
+            let sources = adapter.permit_sources();
+            if adapter.info().id.as_str() != "berlin" {
+                assert!(sources.is_empty(), "{}", adapter.info().id);
+                continue;
+            }
+            let keys: Vec<&str> = sources.iter().map(|s| s.info().key).collect();
+            assert_eq!(
+                keys,
+                [
+                    "bezirke",
+                    "gruenanlagen",
+                    "liegenschaftsplan",
+                    "denkmale",
+                    "schutzgebiete"
+                ]
+            );
+            let policy = adapter.policy().unwrap();
+            assert!(
+                policy
+                    .check_url("https://gdi.berlin.de/services/wfs/denkmale")
+                    .is_ok()
+            );
         }
     }
 

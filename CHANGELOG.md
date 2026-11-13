@@ -6,10 +6,16 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+<<<<<<< HEAD
+### Hinzugefügt
+
+- Hinweise zu Genehmigungen in Berlin (ADR 0120): Liegt das Kartengebiet in Berlin, nennen `permits.md` und `permits.json` zusätzlich die Bezirke mit ihrem Anteil, die Grünanlagen mit Bezirk und Widmung, die Zahl der öffentlichen Spielplätze, den Anteil des Bundeslandes Berlin und des Bundes am Gebiet (eine Zeile je Eigentümer; andere Eigentümer nennt freemapper nicht, sie teilen sich die Zeile „Andere öffentliche Eigentümer“), die Denkmale je Art mit bis zu 20 Links in die Denkmaldatenbank sowie Naturdenkmale, geschützte Landschaftsbestandteile und Flächen mit besonderer Regelung. Die Hinweise nennen dann für jeden Bezirk, der mehr als den Rand des Gebiets berührt, das Ordnungsamt, das Straßen- und Grünflächenamt, die untere Denkmalschutzbehörde und die untere Naturschutzbehörde des Bezirksamts. Die Daten kommen aus fünf Diensten des Geoportals Berlin (dl-de/zero-2-0, Lizenztext wörtlich in der Quellentabelle). freemapper fragt sie nur, wenn Hinweise gewünscht sind und das Gebiet in Berlin liegt, und nur über die Hosts von Berlins Adapter. Ein Dienst, der ausfällt, nimmt nur seinen Abschnitt mit. Ein Regionsadapter kann solche Quellen jetzt mitbringen (`RegionAdapter::permit_sources`). `permits.json` bleibt bei Schema 1, ältere Dateien und `data/permits/sources.json` lesen sich weiter. Beschrieben im Handbuch, Kapitel 12.
+=======
 ### Geändert
 
 - Kleinere PDFs: `--pdf` und `--pdf-candidates` schreiben ihre Pfade mit dem kompakten Pfadschreiber aus freemapper-core 0.26.0 (Entscheidung 0033 in freemapper-core). Die Koordinaten der Pfade werden auf 1/1000 Punkt gerundet. Kleine Formen mit mindestens vier Punkten innerhalb von 7 mm, etwa die Punkte der Punktsymbole, stehen relativ zu ihrem ersten Punkt, sodass sich wiederholte Symbole gut komprimieren lassen. Die 26 PDFs der 12 Beispielkarten mit Daten (ohne die Dammheide) schrumpfen um 22 bis 79 %, zusammen von 16,9 MB auf 8,3 MB; die Karte von Sanssouci von 1,45 MB auf 304 KB. Die Karten sehen gleich aus: mit poppler bei 150 dpi gerastert, weichen 6 von 113 Millionen Pixeln um mehr als 12 % ab. Texte, Schriften, Farben, Seitengröße und der Zuschnitt auf das Kartengebiet bleiben, wie sie waren. Eine Form mit einer Koordinate, die keine endliche Zahl ist, wird ausgelassen, statt die Seite zu beschädigen. Alle Bibliotheken aus freemapper-core sind auf v0.26.0 angehoben; sonst ändert 0.26.0 für freemapper nichts.
 - Intern: Maße auf dem Papier haben jetzt einen Typ (ADR 0118). Ein Papiermaß (`PaperMm`) gilt auf dem gedruckten Blatt, ein Symbolmaß (`SymbolMm`) wächst mit der Symbolvergrößerung der Kartenart und lässt sich ohne sie nicht umrechnen. Die rund 45 von Hand geschriebenen Umrechnungen in Geländemeter und Kartenkoordinaten sind ersetzt; Linienabstand, Linienbreiten und Punktgrößen der Norm stehen einmal in `build/symbol_measures.rs`. Kein Maß ändert sich, die Karten bleiben gleich.
+>>>>>>> origin/main
 
 ## [0.17.0] - 2026-11-13
 
