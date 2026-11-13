@@ -83,7 +83,7 @@ There are two open sources, both files.
 
 **LoD2** (what the adapter reads): CityGML 1.0 in the AdV profile, one file per 2 km tile,
 `https://download1.bayernwolke.de/a/lod2/citygml/<E>_<N>.gml`, `<E>` and `<N>` even, the south-west corner in km.
-Sizes: 2.8 MB in the country, 161.6 MB for `690_5334` (centre of Munich). The root is `CityModel` (default
+Sizes: 2.8 MB in the country, 61 to 108 MB in Regensburg, 161.6 MB for `690_5334` (centre of Munich). The root is `CityModel` (default
 namespace `http://www.opengis.net/citygml/1.0`), each building a `cityObjectMember` with one `bldg:Building`:
 
 - `gml:id` (`DEBY_LOD2_27318`), and the ALKIS object id in `externalReference/externalObject/name`
@@ -95,8 +95,8 @@ namespace `http://www.opengis.net/citygml/1.0`), each building a `cityObjectMemb
 - `bldg:boundedBy/bldg:GroundSurface` with one `gml:Polygon` whose `gml:posList` has three values per point
   (`srsDimension="3"` stands on the `gml:MultiSurface` above it), the outline of the building at ground level.
 
-The envelope names `urn:adv:crs:ETRS89_UTM32*DE_DHHN2016_NH`. Not seen in the first 131 KB of one country tile:
-a name, a flag for underground buildings, `bldg:BuildingPart`, an object type other than `31001`.
+The envelope names `urn:adv:crs:ETRS89_UTM32*DE_DHHN2016_NH`. There is no name and no flag for underground
+buildings. What else the tiles hold: see "LoD2 against the Hausumringe".
 
 **Hausumringe** (not read): one Shape zip per Regierungsbezirk
 (`https://geodaten.bayern.de/odd/m/3/daten/hausumringe/bezirk/data/091_Oberbayern_Hausumringe.zip`), 66 to 174 MB,
@@ -137,6 +137,27 @@ Geofabrik has `europe/germany/bayern` (818 MB) and seven extracts by Regierungsb
 | `europe/germany/bayern/oberpfalz` | 81 |
 | `europe/germany/bayern/schwaben` | 122 |
 | `europe/germany/bayern/unterfranken` | 99 |
+
+## LoD2 against the Hausumringe
+
+Checked on 2026-11-13 in a box of 2 × 2 km around the Steinerne Brücke in Regensburg (the four LoD2 tiles
+`724_5432`, `724_5434`, `726_5432`, `726_5434`, 61 to 108 MB each, changed 2026-09-29; the Hausumringe of the
+Oberpfalz, changed 2026-10-01).
+
+- Of the 5 258 Hausumringe with at least 10 m², 5 242 have their inner point in a LoD2 ground surface:
+  **99.70 %**. The 16 without one: seven of 10–20 m², seven of 20–50 m², two larger. 445 Hausumringe below 10 m²
+  were not counted.
+- The box holds 5 783 LoD2 objects. Every one has an ALKIS id and exactly one ground polygon; 72 ground polygons
+  have inner rings. `bldg:BuildingPart` does not occur.
+- The object types of `bldg:function`: 5 269 buildings (`31001_…`, 24 functions; 2 739 `31001_1000`, 1 697
+  `31001_2000`, 510 `31001_2463` Garage, 109 `31001_9998`), **482 `51009_1610` (Überdachung)**, 9 `51009_1700`
+  (Mauer), 8 `51007_1500`, 14 `53001_1800` (bridges), 1 `52003_1020`. So LoD2 holds roofed structures, and it
+  holds structures that are no buildings at all.
+- Five objects are `31001_2465` (Tiefgarage), with measured heights of 1.7 to 3.9 m and areas of 29 to 197 m²:
+  what LoD2 holds of an underground garage is the part that stands above the ground.
+- A tile without buildings exists as a file of 1 085 bytes: a `core:CityModel` with its envelope and no member
+  (`714_5332`, Ebersberger Forst; `672_5306`, Starnberger See; both of 2022). Note the prefix: the root is
+  `core:CityModel` there and `CityModel` in the tiles with buildings. Only a tile outside the state answers 404.
 
 ## Open, and left for later
 

@@ -111,15 +111,12 @@ Why LoD2:
 - **The unit.** A schoolyard or a village downloads 3 to 20 MB, not the 66 to 174 MB of its Regierungsbezirk.
 - **Identity.** The ALKIS id is the `oid` the engine keeps an object by (an object two sources deliver is kept
   once; the map object carries it as a tag), and the outline has a date. A Hausumring has neither.
-- **Underground garages.** The engine leaves a building out only when its `rellage` says "Unter der
-  Erdoberfläche" (`build/buildings.rs`). Bavaria publishes no such attribute anywhere; with the function the
-  adapter can at least mark a Tiefgarage (below). From the Hausumringe an underground garage would be drawn as
-  a building, with no way to tell.
+- **The kind.** LoD2 says what an object is. A Hausumring of a canopy looks like one of a house.
 
-What LoD2 does not buy, to be honest about it: the engine reads the function of a building only as a tag today,
-and canopies come only from roofed structures (`funktion` Überdachung or Carport, `build/canopy.rs`). The live
-check saw no object type other than `31001` in one country tile. If the gate finds no `51009` objects either,
-Bavaria has no canopies from the cadastre; that is a limit the ADR and the manual state, not a reason to stop.
+What the gate found (2026-11-13, Regensburg; numbers in the reference): LoD2 holds 99.70 % of the Hausumringe;
+it holds the roofed structures (`51009_1610`, 482 in the box), so Bavaria has canopies; it also holds bridges,
+walls and other structures that are no buildings. The engine reads the function of a building only as a tag;
+what it needs from this source is the kind (building or roofed structure) and the id.
 
 The price is a CityGML reader and large tiles in city centres.
 
@@ -128,21 +125,26 @@ per `bldg:Building`: the ground surface polygons without their heights, the func
 and the date of the outline. The adapter turns them into the simplified schema the engine knows:
 
 - `31001_<code>`: `gebnutzbez` "Gebäude", `funktion` the label of the AdV code list the Bremen adapter already
-  uses (`assets/rules/adv-codes.toml`, `AX_Gebaeude.gebaeudefunktion`).
-- `51009_1610` and `51009_1611` (Überdachung, Carport), should they occur: a structure, as Bremen writes them.
-- anything else, or no function: a building without `funktion`.
+  uses (`assets/rules/adv-codes.toml`, `AX_Gebaeude.gebaeudefunktion`); a code the list does not know leaves
+  the `funktion` out. No function at all: a building too.
+- `51009_1610` and `51009_1611` (Überdachung, Carport): a structure, as Bremen writes them; the engine draws
+  them as canopies.
+- any other object type (walls `51009_1700`, bridges `53001_…`, `51007_…`, `52003_…`): left out, as the Bremen
+  adapter leaves out the structures that are no roofs. (Changed after the gate: the first draft made them
+  buildings, which would have drawn bridges as houses.)
 - `oid`: the ALKIS id with the suffix `BL`, as the simplified services write it; without an ALKIS id the `gml:id`.
 - `aktualit`: `Grundrissaktualitaet`.
-- `rellage`: "Unter der Erdoberfläche" for the function `31001_2465` (Tiefgarage), else none (Claude's call:
-  the data has no position to the surface, and a garage drawn as a building where people walk over it is the
-  worse mistake; the engine is not touched).
+- No `rellage`. (Changed after the gate: the first draft marked a Tiefgarage, `31001_2465`, as underground. The
+  five in the box have measured heights of 1.7 to 3.9 m; what LoD2 holds of an underground garage stands above
+  the ground, so it is drawn.)
 
 The features of a tile are cached as GeoJSON; the CityGML file is deleted after reading. A building two tiles
 hold is kept once.
 
-A LoD2 tile the server does not have (404) means "no buildings there": a tile of forest or water has no file.
-Inside Bavaria the run says so in a progress line per tile and goes on; it is no warning, or every forest map
-would warn. (The gate asks for one such tile and records what the server sends.)
+A tile without buildings exists on the server as an empty `CityModel`; the reader gives no building for it.
+A LoD2 tile the server does not have (404) is silent when its centre lies outside Bavaria, and a warning inside:
+there it means the file was moved or renamed, and the map would lack buildings without anyone noticing.
+(Changed after the gate, which showed that tiles of forest and water do have a file.)
 
 **Gate before the build** (first task of the plan): on the tiles of the Regensburg example, compare LoD2 with
 the Hausumringe of the same box (one download of the Oberpfalz zip, 71 MB, into a scratch folder). The measure:
