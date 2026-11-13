@@ -2,7 +2,6 @@
 
 pub mod alkis;
 pub mod alkis_nas;
-pub mod berlin;
 #[cfg(test)]
 mod hvbg;
 #[cfg(test)]

@@ -76,6 +76,7 @@ use crate::omap::{
 use crate::raster::{GridSpec, Raster};
 use crate::sources::alkis::{FetchArea, LandUse, fetch_land_use_in, parse_land_use};
 use crate::sources::alkis::{fetch_buildings_in, parse_building_features, parse_buildings};
+use crate::sources::alkis_nas;
 use crate::sources::osm::{
     OsmFeature, cached_extract_date, extracts_for, features_from_geojson, features_to_geojson,
     fetch_extract, read_extract,
@@ -85,9 +86,9 @@ use crate::sources::region::{
     terrain_source,
 };
 use crate::sources::trees;
-use crate::sources::{alkis_nas, berlin};
 use crate::space::{Part, SpacePlan};
 use crate::tiles::TileId;
+use freemapper_adapters_de::berlin;
 use freemapper_adapters_de::lgb::Product;
 
 mod export;
@@ -1975,7 +1976,7 @@ pub(crate) fn stored_berlin_layers(
     };
     let region_bbox = project.region_bbox()?;
     let mut layers = Vec::new();
-    for layer in berlin::extra_layers(project.map_kind) {
+    for layer in berlin::extra_layers(project.map_kind.contract()) {
         if let Some(stored) = extras::stored(
             &registers,
             dir,
@@ -7381,14 +7382,14 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         let tile = crate::tiles::TileId::parse("33392-5820").unwrap();
         serve_synthetic_tile(fetcher, tile, "2026-01-26");
         fetcher.insert_prefix(
-            crate::sources::berlin::BUILDINGS_SERVICE,
-            crate::sources::berlin::test_support::BUILDINGS
+            freemapper_adapters_de::berlin::BUILDINGS_SERVICE,
+            freemapper_adapters_de::berlin::test_support::BUILDINGS
                 .as_bytes()
                 .to_vec(),
         );
         fetcher.insert_prefix(
-            crate::sources::berlin::LAND_USE_SERVICE,
-            crate::sources::berlin::test_support::LAND_USE
+            freemapper_adapters_de::berlin::LAND_USE_SERVICE,
+            freemapper_adapters_de::berlin::test_support::LAND_USE
                 .as_bytes()
                 .to_vec(),
         );
@@ -9151,7 +9152,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
     /// Serves the extra Berlin layer fixtures for exactly `bbox` (an empty answer for the types
     /// without a fixture).
     fn serve_berlin_layers(fetcher: &MapFetcher, bbox: &BoundingBox) {
-        use crate::sources::berlin::{EXTRA_LAYERS, test_support::answer, wfs_url};
+        use freemapper_adapters_de::berlin::{EXTRA_LAYERS, test_support::answer, wfs_url};
         for layer in &EXTRA_LAYERS {
             for t in layer.types {
                 fetcher.insert(
@@ -9457,7 +9458,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
                     serde_json::json!({
                         "type": "Feature", "id": format!("{layer}.1"),
                         "geometry": {"type": "Point", "coordinates": [e, n]},
-                        "properties": {"id": "1", crate::sources::berlin::TYPE_KEY: layer}
+                        "properties": {"id": "1", freemapper_adapters_de::berlin::TYPE_KEY: layer}
                     })
                 })
                 .collect();
@@ -10197,11 +10198,11 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             .region_bbox()
             .unwrap();
         serve_berlin_layers(&fetcher, &region_bbox);
-        let lines = &crate::sources::berlin::EXTRA_LAYERS[1];
+        let lines = &freemapper_adapters_de::berlin::EXTRA_LAYERS[1];
         fetcher
             .failing
             .borrow_mut()
-            .push(crate::sources::berlin::wfs_url(
+            .push(freemapper_adapters_de::berlin::wfs_url(
                 lines.service,
                 lines.types[0].name,
                 &region_bbox,
@@ -11236,7 +11237,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let fetcher = MapFetcher::default();
         let (dir, _cache_dir, cache) = berlin_school(&fetcher);
         fetcher.insert_prefix(
-            crate::sources::berlin::BUILDINGS_SERVICE,
+            freemapper_adapters_de::berlin::BUILDINGS_SERVICE,
             crate::sources::alkis::test_support::page(&[], None),
         );
         fetch(dir.path(), &fetcher, &cache);

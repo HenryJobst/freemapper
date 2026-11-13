@@ -19,8 +19,8 @@ use crate::crs::{BoundingBox, Crs};
 use crate::georef::{GeorefError, Georeferencing};
 use crate::omap::{MapObject, SymbolSet};
 use crate::sources::alkis::LandUse;
-use crate::sources::berlin::TYPE_KEY;
 use crate::sources::osm::{OsmFeature, OsmGeometry};
+use freemapper_adapters_de::berlin::TYPE_KEY;
 
 /// ISSprOM 501.5 paved area, light traffic, without border: a parcel boundary is no visible edge,
 /// and ALKIS does not tell the traffic volume.

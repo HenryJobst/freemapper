@@ -165,7 +165,7 @@ pub(crate) fn survey_currency(feature: &Value) -> (NaiveDate, bool) {
     let guessed = properties["survey_date_guessed"] == "yes";
     match date {
         Some(date) => (date, guessed),
-        None => (crate::sources::berlin::SURVEY_DATASET_DATE, true),
+        None => (freemapper_adapters_de::berlin::SURVEY_DATASET_DATE, true),
     }
 }
 
@@ -194,12 +194,12 @@ fn feature_tags(layer: &str, feature: &Value) -> Vec<(String, String)> {
     let properties = feature["properties"].as_object();
     // A file with several WFS types names the type per feature.
     let layer = properties
-        .and_then(|p| p.get(crate::sources::berlin::TYPE_KEY))
+        .and_then(|p| p.get(freemapper_adapters_de::berlin::TYPE_KEY))
         .and_then(Value::as_str)
         .unwrap_or(layer);
     let mut tags = vec![("berlin:layer".to_string(), layer.to_string())];
     for (key, value) in properties.into_iter().flatten() {
-        if key == crate::sources::berlin::TYPE_KEY || key == "layer" {
+        if key == freemapper_adapters_de::berlin::TYPE_KEY || key == "layer" {
             continue;
         }
         let text = match value {
@@ -588,8 +588,8 @@ mod tests {
     };
     use crate::crs::ProjectedPoint;
     use crate::omap::MapCoord;
-    use crate::sources::berlin::normalise_building;
-    use crate::sources::berlin::test_support::*;
+    use freemapper_adapters_de::berlin::normalise_building;
+    use freemapper_adapters_de::berlin::test_support::*;
 
     fn features(collection: &str) -> Vec<Value> {
         serde_json::from_str::<Value>(collection).unwrap()["features"]
@@ -678,8 +678,8 @@ mod tests {
     /// A stored Straßenbefahrung feature: `freemapper:layer` and the survey date stamped as
     /// the download does.
     fn survey_feature(layer: &str, mut feature: Value) -> Value {
-        feature["properties"][crate::sources::berlin::TYPE_KEY] = layer.into();
-        crate::sources::berlin::stamp_survey_date(&mut feature);
+        feature["properties"][freemapper_adapters_de::berlin::TYPE_KEY] = layer.into();
+        freemapper_adapters_de::berlin::stamp_survey_date(&mut feature);
         feature
     }
 
@@ -948,7 +948,7 @@ mod tests {
         let mut railings = stored("bf_gelaender", SB_GELAENDER);
         railings.extend(stored("bb_verkehrsschutzgitter", SB_VERKEHRSSCHUTZGITTER));
         let mut barrier = railings[0].clone();
-        barrier["properties"][crate::sources::berlin::TYPE_KEY] = "bg_leitplanke".into();
+        barrier["properties"][freemapper_adapters_de::berlin::TYPE_KEY] = "bg_leitplanke".into();
         railings.push(barrier);
         for kind in [MapKind::Sprint, MapKind::Schoolyard] {
             let found = survey_objects("sb-gelaender", &railings, kind);
@@ -1666,7 +1666,7 @@ mod tests {
         serde_json::json!({
             "type": "Feature", "id": format!("{layer}.{id}"),
             "geometry": {"type": "Point", "coordinates": [at.0, at.1]},
-            "properties": {"id": id, crate::sources::berlin::TYPE_KEY: layer}
+            "properties": {"id": id, freemapper_adapters_de::berlin::TYPE_KEY: layer}
         })
     }
 

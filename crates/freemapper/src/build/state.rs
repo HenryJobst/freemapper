@@ -603,7 +603,7 @@ mod tests {
         let stored: Vec<Value> = freemapper_sources::layer_file::parse_layer(text)
             .unwrap()
             .iter()
-            .map(crate::sources::berlin::normalise_building)
+            .map(freemapper_adapters_de::berlin::normalise_building)
             .collect();
         assert!(!stored.is_empty());
         assert!(passages(Crs::Utm33, MapKind::Sprint, &stored).is_empty());
