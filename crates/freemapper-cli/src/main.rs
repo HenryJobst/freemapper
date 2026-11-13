@@ -32,8 +32,8 @@ use freemapper::places::{find_places, place_area};
 use freemapper::project::{
     MapKind, MapOutcome, OcadOutcome, PdfSources, ProjectFile, derive_project,
     export_candidates_pdf_from, export_map_preview_or_warn, export_ocad_from, export_pdf_from,
-    export_starter_project_from, fetch_project, init_project, map_path, set_content,
-    starter_documents,
+    export_starter_project_from, fetch_project, init_project, map_path, parse_contour_interval,
+    set_content, set_contour_interval, starter_documents,
 };
 
 use text::{n, text, v};
@@ -78,6 +78,8 @@ enum Commands {
         title: Option<String>,
         #[command(flatten)]
         content: ContentArgs,
+        #[command(flatten)]
+        contours: ContourArgs,
         #[command(flatten)]
         adapters: AdapterArgs,
     },
@@ -132,6 +134,8 @@ enum Commands {
         /// Project folder.
         dir: PathBuf,
         #[command(flatten)]
+        contours: ContourArgs,
+        #[command(flatten)]
         cache: CacheArgs,
         #[command(flatten)]
         adapters: AdapterArgs,
@@ -170,6 +174,8 @@ enum Commands {
         permits: bool,
         #[command(flatten)]
         content: ContentArgs,
+        #[command(flatten)]
+        contours: ContourArgs,
         #[command(flatten)]
         cache: CacheArgs,
         #[command(flatten)]
@@ -616,6 +622,34 @@ impl ContentArgs {
     }
 }
 
+/// The contour interval (ADR 0116): saved in `freemapper.toml`, used by the next derive.
+#[derive(clap::Args)]
+struct ContourArgs {
+    /// Contour interval in metres, e.g. `2.5`, or `auto` for the map kind's (a forest map: 5 m,
+    /// 2.5 m where it is flat). Saved in freemapper.toml; derive traces the contours at it
+    #[arg(long = "contour-interval", value_name = "METRES")]
+    contour_interval: Option<String>,
+}
+
+impl ContourArgs {
+    /// Saves the interval asked for in the project of `dir`; nothing when none was asked.
+    fn save(&self, dir: &std::path::Path) -> anyhow::Result<()> {
+        let Some(asked) = &self.contour_interval else {
+            return Ok(());
+        };
+        let interval = parse_contour_interval(asked)?;
+        set_contour_interval(dir, interval)?;
+        match interval {
+            Some(interval) => println!(
+                "{}",
+                text("cli-contour-interval-saved", &[("interval", v(interval))])
+            ),
+            None => println!("{}", text("cli-contour-interval-auto", &[])),
+        }
+        Ok(())
+    }
+}
+
 #[derive(Clone, Copy, ValueEnum)]
 enum SourcesArg {
     Auto,
@@ -769,9 +803,14 @@ fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
             scale,
             title,
             content,
+            contours,
             adapters: _,
         } => {
             let area = area.area(part.map(|p| p as usize))?;
+            // A bad interval is refused before the folder is made.
+            if let Some(asked) = &contours.contour_interval {
+                parse_contour_interval(asked)?;
+            }
             let today = chrono::Local::now().date_naive();
             let project = init_project(&dir, &area, kind.into(), scale, today, title)?;
             println!(
@@ -779,6 +818,7 @@ fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
                 text("cli-created-project", &[("path", v(dir.display()))])
             );
             content.save(&dir)?;
+            contours.save(&dir)?;
             if let Some(note) = project.map_kind.scale_note(project.scale_denominator) {
                 println!("{}", pipeline::line(&note));
             }
@@ -854,10 +894,12 @@ fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
         }
         Commands::Derive {
             dir,
+            contours,
             cache,
             adapters: _,
         } => {
             let _lock = lock_folder(&dir)?;
+            contours.save(&dir)?;
             for path in derive_project(&dir, &cache.cache()?, &mut report_note)? {
                 wrote(&path);
             }
@@ -873,11 +915,13 @@ fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
             pdf_sources,
             permits,
             content,
+            contours,
             cache,
             adapters: _,
         } => {
             let _lock = lock_folder(&dir)?;
             content.save(&dir)?;
+            contours.save(&dir)?;
             let options = pipeline::RunOptions {
                 force,
                 offline,

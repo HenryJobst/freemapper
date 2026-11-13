@@ -425,6 +425,31 @@ fn page_on_a_project() -> (
 }
 
 #[test]
+fn the_page_sets_and_clears_the_contour_interval() {
+    let (_dir, _cache, project, selector) = page_on_a_project();
+    assert_eq!(selector.project()["contour_interval_m"], Value::Null);
+    let save = |interval: Value| {
+        let seen = selector.project()["revision"].as_str().unwrap().to_owned();
+        selector.post_with_revision(
+            "api/save",
+            json!({ "area": school_area(), "contour_interval_m": interval }),
+            Some(&seen),
+        )
+    };
+    let (status, saved) = save(json!(2.5));
+    assert_eq!(status, 200, "{saved}");
+    let text = std::fs::read_to_string(project.join("freemapper.toml")).unwrap();
+    assert!(text.contains("contour_interval_m = 2.5"), "{text}");
+    assert_eq!(selector.project()["contour_interval_m"], 2.5);
+    let (status, _) = save(json!(0));
+    assert_eq!(status, 400);
+    let (status, saved) = save(Value::Null);
+    assert_eq!(status, 200, "{saved}");
+    let text = std::fs::read_to_string(project.join("freemapper.toml")).unwrap();
+    assert!(!text.contains("contour_interval_m"), "{text}");
+}
+
+#[test]
 fn save_with_a_stale_revision_is_refused_and_writes_nothing() {
     let (_dir, _cache, project, selector) = page_on_a_project();
     let file = project.join("freemapper.toml");

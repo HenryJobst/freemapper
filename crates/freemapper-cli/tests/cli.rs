@@ -926,6 +926,49 @@ fn init_writes_a_forest_project_and_refuses_sprint_scales_for_it() {
     assert!(!project.join("freemapper.toml").exists());
 }
 
+#[test]
+fn init_saves_the_contour_interval_and_refuses_a_bad_one() {
+    let dir = tempfile::tempdir().unwrap();
+    let project = dir.path().join("forest");
+    let output = freemapper()
+        .args(["init", project.to_str().unwrap(), "--geojson", FIXTURE])
+        .args([
+            "--kind",
+            "forest",
+            "--contour-interval",
+            "2,5",
+            "--lang",
+            "en",
+        ])
+        .output()
+        .unwrap();
+    assert!(output.status.success(), "{output:?}");
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(
+        stdout.contains("Contour interval saved in freemapper.toml: 2.5 m"),
+        "{stdout}"
+    );
+    let written = std::fs::read_to_string(project.join("freemapper.toml")).unwrap();
+    assert!(written.contains("contour_interval_m = 2.5"), "{written}");
+    let bad = dir.path().join("bad");
+    let output = freemapper()
+        .args(["init", bad.to_str().unwrap(), "--geojson", FIXTURE])
+        .args([
+            "--kind",
+            "forest",
+            "--contour-interval",
+            "0",
+            "--lang",
+            "en",
+        ])
+        .output()
+        .unwrap();
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(!output.status.success());
+    assert!(stderr.contains("invalid contour interval"), "{stderr}");
+    assert!(!bad.exists(), "a refused interval creates no project");
+}
+
 /// A lock file as another freemapper process would have left it.
 fn write_lock(project: &std::path::Path, who: &str) -> std::path::PathBuf {
     let started = std::time::SystemTime::now()
