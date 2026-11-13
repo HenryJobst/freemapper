@@ -948,8 +948,10 @@ Am Anfang steht der Hinweis, dass es keine Rechtsauskunft ist. Dann folgen sechs
 - „Weitere Schutzgebiete aus OpenStreetMap“ nennt Schutzgebiete, die das BfN nicht führt, etwa einen
   geschützten Landschaftsbestandteil.
 - „Betreiber und Eigentümer laut OpenStreetMap“ nennt, wer Parks, Gärten, Sportanlagen, Schulen, Kirchen,
-  Friedhöfe, Wald, Bahnflächen, Sehenswürdigkeiten und historische Orte betreibt oder besitzt. Wohngrundstücke,
-  Häuser und private Gärten liest freemapper nicht, Telefonnummern und E-Mail-Adressen auch nicht.
+  Friedhöfe, Wald, Bahnflächen, Sehenswürdigkeiten und historische Orte betreibt oder besitzt. Wohngrundstücke
+  und Häuser liest freemapper nicht, auch denkmalgeschützte Häuser nicht, und keine Gärten, die zu einem
+  Wohnhaus gehören oder nicht öffentlich sind (`garden:type=residential` oder `private`, `access=private` oder
+  `no`). Telefonnummern und E-Mail-Adressen liest es auch nicht.
 - „Hinweise“ sagt, wen ein Fund meist betrifft, zum Beispiel: „Schutzgebiete betreffen die untere
   Naturschutzbehörde (meist der Landkreis Märkisch-Oderland).“ oder „Im Naturschutzgebiet gilt meist ein
   Wegegebot.“ Die Hinweise nennen die Art der Stelle und die Einheit, nie eine Person oder eine Adresse.

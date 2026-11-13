@@ -917,7 +917,9 @@ It starts with the note that it is not legal advice. Six sections follow:
   landscape feature.
 - "Operators and owners according to OpenStreetMap" names who runs or owns parks, gardens, sports grounds,
   schools, churches, cemeteries, woods, railway land, attractions and historic places. freemapper does not read
-  residential land, houses or private gardens, and no phone numbers or e-mail addresses either.
+  residential land or houses, listed houses included, and no gardens that belong to a home or are closed to the
+  public (`garden:type=residential` or `private`, `access=private` or `no`). It reads no phone numbers or e-mail
+  addresses either.
 - "Hints" says whom a finding usually concerns, for example: "Protected areas concern the lower nature
   conservation authority (untere Naturschutzbehörde), usually the Landkreis Märkisch-Oderland." or "In a
   nature reserve you usually have to keep to the paths." The hints name the kind of office and the unit, never

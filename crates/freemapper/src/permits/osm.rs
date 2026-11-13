@@ -1,7 +1,8 @@
 //! The OSM objects that tell who runs or protects an area.
 //!
 //! Only areas count: closed ways and multipolygon relations, decided by the geometry. The
-//! selection is the list of the spec ("OSM selection"); nothing else is read. Contact tags
+//! selection is the list of the spec ("OSM selection"); nothing else is read. A private garden
+//! and a historic house are left out, since their owner is often a person. Contact tags
 //! (`email`, `phone`, `website`, `contact:*`) are never copied.
 
 use crate::sources::osm::{OsmFeature, OsmGeometry};
@@ -83,6 +84,28 @@ fn tag<'a>(tags: &'a [(String, String)], key: &str) -> Option<&'a str> {
         .filter(|v| !v.is_empty())
 }
 
+/// `garden:type` values of a garden that belongs to a home.
+const PRIVATE_GARDEN_TYPES: &[&str] = &["residential", "private"];
+
+/// `access` values that close a garden to the public.
+const CLOSED_ACCESS: &[&str] = &["private", "no"];
+
+/// `building` values of a home: a `historic=*` object with one of them is a house.
+const HOME_BUILDINGS: &[&str] = &[
+    "house",
+    "residential",
+    "detached",
+    "semidetached_house",
+    "farm",
+    "apartments",
+];
+
+/// A garden of a home or one closed to the public; its owner can be a person.
+fn is_private_garden(tags: &[(String, String)]) -> bool {
+    tag(tags, "garden:type").is_some_and(|v| PRIVATE_GARDEN_TYPES.contains(&v))
+        || tag(tags, "access").is_some_and(|v| CLOSED_ACCESS.contains(&v))
+}
+
 /// The kind and `key=value` an object matches, or `None` when it is not in the selection.
 fn classify(tags: &[(String, String)]) -> Option<(OsmFindingKind, String)> {
     for (key, value) in PROTECTED {
@@ -95,8 +118,14 @@ fn classify(tags: &[(String, String)]) -> Option<(OsmFindingKind, String)> {
     }
     for (key, values) in OPERATED {
         if let Some(found) = tag(tags, key).filter(|v| values.contains(v)) {
+            if *key == "leisure" && found == "garden" && is_private_garden(tags) {
+                return None;
+            }
             return Some((OsmFindingKind::Operated, format!("{key}={found}")));
         }
+    }
+    if tag(tags, "building").is_some_and(|v| HOME_BUILDINGS.contains(&v)) {
+        return None;
     }
     tag(tags, "historic").map(|v| (OsmFindingKind::Operated, format!("historic={v}")))
 }
@@ -213,6 +242,67 @@ mod tests {
     #[test]
     fn historic_any_value_is_wanted() {
         assert!(wants(&tags(&[("historic", "ruins"), ("owner", "Land X")])));
+    }
+
+    /// A private garden can carry the name of a person as its owner (ADR 0117, anti-goals).
+    #[test]
+    fn a_private_garden_is_not_wanted() {
+        for private in [
+            ("garden:type", "residential"),
+            ("garden:type", "private"),
+            ("access", "private"),
+            ("access", "no"),
+        ] {
+            let pairs = [("leisure", "garden"), ("owner", "Erika Beispiel"), private];
+            assert!(!wants(&tags(&pairs)), "{private:?}");
+            assert!(
+                findings(vec![feature("way/7", &pairs, square())]).is_empty(),
+                "{private:?}"
+            );
+        }
+        // A public garden stays.
+        assert!(wants(&tags(&[
+            ("leisure", "garden"),
+            ("garden:type", "botanical"),
+            ("access", "yes"),
+            ("operator", "Stiftung Beispielgärten")
+        ])));
+        // Access on another kind is not read: a school is often access=private.
+        assert!(wants(&tags(&[
+            ("amenity", "school"),
+            ("access", "private"),
+            ("operator", "Landkreis Beispiel")
+        ])));
+    }
+
+    /// A listed house is `historic=*` too, and its owner is often a person.
+    #[test]
+    fn a_historic_house_is_not_wanted() {
+        for building in [
+            "house",
+            "residential",
+            "detached",
+            "semidetached_house",
+            "farm",
+            "apartments",
+        ] {
+            let pairs = [
+                ("historic", "building"),
+                ("building", building),
+                ("owner", "Erika Beispiel"),
+            ];
+            assert!(!wants(&tags(&pairs)), "{building}");
+            assert!(
+                findings(vec![feature("way/8", &pairs, square())]).is_empty(),
+                "{building}"
+            );
+        }
+        // A historic church or castle stays.
+        assert!(wants(&tags(&[
+            ("historic", "castle"),
+            ("building", "castle"),
+            ("owner", "Land X")
+        ])));
     }
 
     #[test]

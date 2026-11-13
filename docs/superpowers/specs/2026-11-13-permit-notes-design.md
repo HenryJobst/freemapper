@@ -140,7 +140,9 @@ BKG VG250 `https://sgx.geodatenzentrum.de/wfs_vg250`, WFS 2.0.0 (GeoServer):
   `protect_class`, `protection_title`, `operator`); and `operator`/`owner` of `leisure=park|garden|
   sports_centre|pitch|stadium`, `amenity=school|university|college|kindergarten|place_of_worship|
   hospital`, `landuse=forest|railway|cemetery|religious|military|education`, `natural=wood`,
-  `tourism=attraction|zoo|theme_park`, `historic=*`. Nothing else.
+  `tourism=attraction|zoo|theme_park`, `historic=*`. Nothing else. Left out (fix round 1): a
+  `leisure=garden` with `garden:type=residential|private` or `access=private|no`, and a `historic=*`
+  object with `building=house|residential|detached|semidetached_house|farm|apartments`.
 - **Hints are text templates**, chosen by finding and map kind, in the Fluent files. They name the
   kind of office and the unit, never a person or an address. They are deliberately cautious where
   the competence differs between Bundesländer: "die untere Naturschutzbehörde (meist der Landkreis

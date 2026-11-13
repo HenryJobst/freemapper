@@ -63,7 +63,9 @@ set; both send whole polygons of 25 to 700 KB.
   sports_centre|pitch|stadium`, `amenity=school|university|college|kindergarten|place_of_worship|hospital`,
   `landuse=forest|railway|cemetery|religious|military|education`, `natural=wood`,
   `tourism=attraction|zoo|theme_park` and `historic=*`. Nothing else, so no residential land, houses or private
-  gardens, and no `contact:*`, `email` or `phone`. An OSM protected area is left out only when one BfN area and it
+  gardens, and no `contact:*`, `email` or `phone`. A `leisure=garden` with `garden:type=residential|private` or
+  `access=private|no` is left out, and so is a `historic=*` object with
+  `building=house|residential|detached|semidetached_house|farm|apartments`: their owner is often a person. An OSM protected area is left out only when one BfN area and it
   cover each other mostly (overlap / larger area ≥ 0.5). A small OSM area inside a large LSG or Naturpark, such
   as a Geschützter Landschaftsbestandteil, stays. The findings are stored in `data/permits/osm.geojson`,
   because the extract leaves the cache after 7 days.
