@@ -5,7 +5,7 @@
 Für jedes unterstützte Bundesland gibt es ein Beispiel: ein Gebiet, aus dem freemapper besonders viel ableiten kann
 (Altstadt, Schloss oder Park mit Relief, dichte Bebauung, Treppen, Mauern und Hecken). Alle Beispiele sind
 Sprintkarten im Maßstab 1:4000 (ISSprOM 2019), erzeugt mit `freemapper run --pdf --pdf-candidates --ocad` und dem
-Standard-Inhaltsprofil `balanced`; Sanssouci, Viktoriapark, Monschau und Cochem zusätzlich mit
+Standard-Inhaltsprofil `balanced`; Sanssouci, Viktoriapark, Monschau, Cochem und Saarlouis zusätzlich mit
 `--content-set vegetation=candidates`. Das PDF jedes Beispiels ist die Trainingskarte mit allen Kandidaten, denn sie zeigt,
 was freemapper ableiten kann. Die Karte allein zeigt weniger; dasselbe Gebiet in den drei Inhaltsprofilen zeigt die
 [Gegenüberstellung](vergleich.md).
@@ -23,7 +23,7 @@ was freemapper ableiten kann. Die Karte allein zeigt weniger; dasselbe Gebiet in
 | Nordrhein-Westfalen | [Altstadt Monschau](nordrhein-westfalen-monschau/): Fachwerk-Altstadt im tief eingeschnittenen Rurtal | 2456 | 1299 | 40 | <a href="nordrhein-westfalen-monschau/nordrhein-westfalen-monschau-candidates.pdf"><img src="nordrhein-westfalen-monschau/preview.webp" width="220" alt=""></a> |
 | Niedersachsen | [Großer Garten Herrenhausen, Hannover](niedersachsen-herrenhausen/): Barockgarten mit Hecken, Parterres und Brunnenbecken, daneben der Georgengarten | 2400 | 333 | 38 | <a href="niedersachsen-herrenhausen/niedersachsen-herrenhausen-candidates.pdf"><img src="niedersachsen-herrenhausen/preview.webp" width="220" alt=""></a> |
 | Rheinland-Pfalz | [Reichsburg und Altstadt Cochem](rheinland-pfalz-cochem/): Burgberg mit der Reichsburg, Altstadt am steilen Moselufer, gegenüber Cond | 2862 | 1024 | 44 | <a href="rheinland-pfalz-cochem/rheinland-pfalz-cochem-candidates.pdf"><img src="rheinland-pfalz-cochem/preview.webp" width="220" alt=""></a> |
-| Saarland | [Altstadt und Festung Saarlouis](saarland-saarlouis/): die sechseckige Festungsstadt Vaubans, Saar-Altarm mit der Vauban-Insel, Wälle im Stadtgarten | 1465 | 336 | 35 | <a href="saarland-saarlouis/saarland-saarlouis-candidates.pdf"><img src="saarland-saarlouis/preview.webp" width="220" alt=""></a> |
+| Saarland | [Altstadt und Festung Saarlouis](saarland-saarlouis/): die sechseckige Festungsstadt Vaubans, Saar-Altarm mit der Vauban-Insel, Wälle im Stadtgarten | 1688 | 799 | 40 | <a href="saarland-saarlouis/saarland-saarlouis-candidates.pdf"><img src="saarland-saarlouis/preview.webp" width="220" alt=""></a> |
 
 **Kartenobjekte** sind die Objekte der OOM-Karte. Mit `balanced` sind das die Objekte aus Kataster, Registern und
 Straßenbefahrung (Gebäude, Straßen mit Bordsteinen, Gewässer, Parks, Wald, Überdachungen und Durchfahrten), dazu
@@ -35,16 +35,16 @@ aus ALKIS und aus dem Geländemodell, in Berlin zusätzlich aus dem Geoportal Be
 Stadtkarte. **Symbole** zählt die verschiedenen Symbole in beiden zusammen. Höhenlinien und Nordlinien enden an
 Wegen und zählen deshalb in Stücken.
 
-Die Gruppe `vegetation` ist in jedem Profil aus, denn die Punktwolken sind groß. Vier Beispiele schalten sie als
-Kandidaten ein: Sanssouci, Viktoriapark, Monschau und Cochem. Dort zeigt die Trainingskarte, was die Laserpunkte
+Die Gruppe `vegetation` ist in jedem Profil aus, denn die Punktwolken sind groß. Fünf Beispiele schalten sie als
+Kandidaten ein: Sanssouci, Viktoriapark, Monschau, Cochem und Saarlouis. Dort zeigt die Trainingskarte, was die Laserpunkte
 über den Bewuchs sagen: gut belaufbaren Wald (405) unter den Baumkronen, offenes Gelände (401) und die
 Grünabstufungen 406, 408 und 410. In Sanssouci sind das 153 Waldflächen, 78 Flächen offenes Gelände und 74 grüne
-Flächen, in Monschau 290, 218 und 264, in Cochem 218, 115 und 186, im Viktoriapark 56, 51 und 47. Der Park wird
-dadurch weiß, wo Bäume stehen, und bleibt gelb, wo Wiese ist. Die Berliner Befliegung von 2021 fand ohne Laub statt,
-deshalb fallen die Grünabstufungen dort schwächer aus. In Sperrflächen (520) gibt es keine Vegetation: Die Flächen enden an ihnen. Die
-Kartenobjekte ändern sich durch die Gruppe nicht. Saarlouis bleibt ohne Vegetation: Die Karte führt die Straßen der Altstadt dort nicht
-als Pflasterflächen, und die Punktwolke unterscheidet Pflaster nicht von Rasen, also würden die Straßen zu offenem
-Gelände. Sachsen bietet zurzeit keine Punktwolken an, für die übrigen Bundesländer liest freemapper noch keine.
+Flächen, in Monschau 290, 218 und 264, in Cochem 218, 115 und 186, in Saarlouis 286, 105 und 90, im Viktoriapark
+56, 51 und 47. Der Park wird dadurch weiß, wo Bäume stehen, und bleibt gelb, wo Wiese ist. Die Berliner Befliegung
+von 2021 fand ohne Laub statt, deshalb fallen die Grünabstufungen dort schwächer aus. In Sperrflächen (520) gibt es
+keine Vegetation: Die Flächen enden an ihnen, ebenso an Gebäuden, Wasser und Pflasterflächen. Die Kartenobjekte
+ändern sich durch die Gruppe nicht. Sachsen bietet zurzeit keine Punktwolken an, für die übrigen Bundesländer liest
+freemapper noch keine.
 
 Flüsse, Kanäle, Teiche und Hafenbecken aus ALKIS stehen als unpassierbares Gewässer (301.1) mit Uferlinie (301.6) in
 der Karte. Teiche, Brunnen, Quellen und Bäche aus OSM kommen mit `balanced` ebenfalls in die Karte, Brücken aus OSM
@@ -151,8 +151,9 @@ Koblenz zeigt Rhein und Mosel am Deutschen Eck, kam aber nur auf 23 Symbole und 
 Im Saarland liefen zwei Rechtecke, beide in Saarlouis. Das zweite liegt 180 m weiter westlich und nimmt die
 Vauban-Insel im Saar-Altarm und die Wälle im Stadtgarten mit. Saarlouis war das erste Beispiel mit dem
 Inhaltsprofil `balanced`, das die Objekte aus Kataster und Registern gleich in die Karte zeichnet. Seine Karte hat
-30 Symbole, darunter 21 Treppen aus OpenStreetMap, und es bleiben 336 Kandidaten. Seitdem sind alle Beispiele mit
-diesem Profil neu gebaut.
+31 Symbole, darunter 21 Treppen aus OpenStreetMap, und es bleiben 799 Kandidaten, die meisten davon Vegetation.
+Seit die Nutzungsarten des Saarlands in beiden Schreibweisen gelesen werden, stehen 109 Straßenflächen und die Saar
+aus ALKIS in der Karte. Inzwischen sind alle Beispiele mit diesem Profil neu gebaut.
 
 ## Lizenzen
 

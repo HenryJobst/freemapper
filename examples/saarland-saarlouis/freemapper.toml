@@ -13,14 +13,14 @@ type = "Polygon"
 
 [buildings]
 bbox = [335872.0, 5464571.0, 336863.0, 5465309.0]
-fetched = "2026-11-12"
+fetched = "2026-11-13"
 latest_update = "2026-08-13"
 count = 758
 regions = ["saarland"]
 
 [land_use]
 bbox = [335872.0, 5464571.0, 336863.0, 5465309.0]
-fetched = "2026-11-12"
+fetched = "2026-11-13"
 latest_update = "2026-08-13"
 count = 359
 regions = ["saarland"]
@@ -37,11 +37,35 @@ fetched = "2026-11-12"
 bbox = [335872.557, 5464571.505, 336862.842, 5465308.876]
 
 [terrain]
-fetched = "2026-11-12"
+fetched = "2026-11-13"
 bbox = [335872.557, 5464571.505, 336862.842, 5465308.876]
 date = "2025"
 
 [surface]
-fetched = "2026-11-12"
+fetched = "2026-11-13"
 bbox = [335872.557, 5464571.505, 336862.842, 5465308.876]
 date = "2025"
+
+[[point_clouds]]
+tile = "32335-5464"
+url = "https://www.shop.lvgl.saarland.de/cloud/public.php/dav/files/NK8ndP55qAqGEZD/OD_LIDAR_Punktwolke_2025_laz_LK"
+published = "2026-01-16"
+
+[[point_clouds]]
+tile = "32335-5465"
+url = "https://www.shop.lvgl.saarland.de/cloud/public.php/dav/files/NK8ndP55qAqGEZD/OD_LIDAR_Punktwolke_2025_laz_LK"
+published = "2026-01-16"
+
+[[point_clouds]]
+tile = "32336-5464"
+url = "https://www.shop.lvgl.saarland.de/cloud/public.php/dav/files/NK8ndP55qAqGEZD/OD_LIDAR_Punktwolke_2025_laz_LK"
+published = "2026-01-16"
+
+[[point_clouds]]
+tile = "32336-5465"
+url = "https://www.shop.lvgl.saarland.de/cloud/public.php/dav/files/NK8ndP55qAqGEZD/OD_LIDAR_Punktwolke_2025_laz_LK"
+published = "2026-01-16"
+
+[content]
+profile = "balanced"
+vegetation = "candidates"

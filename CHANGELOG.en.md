@@ -15,13 +15,14 @@ All notable changes to freemapper are listed here, newest first. The format foll
 ### Changed
 
 - The manual's pictures of the area page are taken again (area selection, options, progress), with a new picture of the section "What goes onto the map" and all its groups. The hint of the profile "Balanced" on the page now says what the profile does: contours and the areas that shall not be entered along railway tracks go onto the map, and stairs, banks, monuments and passages also come from OpenStreetMap.
-- The examples Sanssouci, Viktoriapark, Monschau and Cochem are rebuilt with `--content-set vegetation=candidates`: their training maps now show the vegetation from the point clouds. The map objects are unchanged. Saarlouis and Bautzen stay without vegetation; the examples page says why.
+- The examples Sanssouci, Viktoriapark, Monschau, Cochem and Saarlouis are rebuilt with `--content-set vegetation=candidates`: their training maps now show the vegetation from the point clouds. The map objects of the first four are unchanged; Saarlouis has 109 street areas instead of 32 and the Saar from ALKIS, through the fix of the land uses. Bautzen stays without vegetation, because Saxony offers no point clouds at present.
 - The boundaries of Lower Saxony and Schleswig-Holstein no longer overlap in the mouth of the Elbe. The cadastres of both states hold the same 89 km² of water off Cuxhaven; freemapper now splits that area at the line of equal distance from the two claim lines (ADR 0113). Maps do not change, the area is open water.
 - Internal: the modules in `freemapper::sources` that only passed on what has lived in `freemapper-adapters-de` and `freemapper-sources` since the adapter work are removed, and so is the raster fetch for Saxony-Anhalt in program code that nothing used any more. The state still fetches through the services its manifest names; maps and requests do not change.
 
 ### Fixed
 
 - Vegetation from point clouds stops at areas that shall not be entered (520). Before, the forest candidates punched white holes into the olive green private gardens and courtyards of the candidates map and the training PDF, because the white of the forest lies above the olive green in the colour order. On the map this holds for the areas of the map, in the candidates for those of the map and of the candidates (ADR 0105).
+- Saarland: the WFS of LVGL writes the land use classes `Strassenverkehr` and `Fliessgewässer`. freemapper knew only `Straßenverkehr` and `Fließgewässer`, so Saarland maps lacked the street areas from ALKIS, the rivers from ALKIS and everything that depends on them, and the vegetation from the point cloud put open land on the streets. Every land use class from a WFS is now brought into the LGB spelling, as for Hamburg already; in Rhineland-Palatinate `Unland, Vegetationslose Fläche` thereby reads `Unland/Vegetationslose Fläche` as everywhere else.
 
 ## [0.15.0] - 2026-11-12
 
