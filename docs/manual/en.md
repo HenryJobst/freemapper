@@ -358,6 +358,11 @@ screenshot shows the German page.*
    the same as `--content` and `--content-set`. A group set to "As in the profile" follows the profile. If you
    change the profile, your exceptions stay and you can reset them one by one. The page saves the choice with
    the area; what the profiles do is explained in [section 8](#8-what-the-templates-show).
+
+   ![The section "What goes onto the map", opened](images/content-groups.webp)
+
+   *The profile and the groups (German interface). The vegetation from laser point clouds is off until you
+   choose it.*
 3. **Press "Create map".** If the area or the content settings changed since the last save, the page saves them first. "Replace the
    existing map" appears only when a map exists, and is never ticked in advance. When it is ticked, a dialog
    asks first; "Cancel" has the focus there. The old map stays in the project folder as `.omap.bak`.

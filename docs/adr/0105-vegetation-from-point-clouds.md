@@ -116,6 +116,12 @@ the crowns, so it does not help.
   index falls back to the cached tiles; a stop asked for ends the fetch instead of counting as a failing tile.
   Withheld points are left out, a return count of 0 is no single echo, and a chunk is capped at 64 MB whatever
   record length a header claims. The large tiles already use the two-hour body timeout of `download_to`.
+- After the rebuild of the examples (2026-11-13): a vegetation area stops at the areas that shall not be entered
+  (520) drawn with it (`build/vegetation.rs`, in `place` right after the routing). ISSprOM shows no vegetation
+  in a 520, and the white of the forest (405, "White over green") lies above the olive green in the colour order,
+  so the forest candidates punched white holes into the private gardens and courtyards of the candidates PDF. On
+  the map the areas are cut at the 520 of the map, in the candidates at those of the map and of the candidates;
+  what is left below the minimum area goes. A 520 that the content settings switch off cuts nothing.
 - No code is copied from omapmaker; karttapullautin is not a dependency (see ADR 0104).
 
 ## Consequences

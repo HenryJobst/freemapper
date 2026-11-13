@@ -1843,6 +1843,15 @@ pub fn place(
         &mut candidates.parts[0].objects,
         symbol_set,
     );
+    // Vegetation from the point clouds stops at the areas that shall not be entered drawn with
+    // it (`build/vegetation.rs`); after the routing, which decides where both end up.
+    crate::build::vegetation::cut_vegetation_at_out_of_bounds(
+        &mut map_objects,
+        &mut candidates.parts[0].objects,
+        built.scale_denominator,
+        georef,
+        symbol_set,
+    )?;
     // Contours and north lines stop at paving and paths (`build/line_cuts.rs`).
     let ways = way_footprints(
         &map_objects,

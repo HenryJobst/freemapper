@@ -24,5 +24,6 @@ pub mod stairs;
 pub mod state;
 pub mod tagged;
 pub mod ticks;
+pub mod vegetation;
 pub mod walls;
 pub mod water;

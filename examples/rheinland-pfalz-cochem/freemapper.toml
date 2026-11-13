@@ -13,14 +13,14 @@ type = "Polygon"
 
 [buildings]
 bbox = [368380.0, 5555926.0, 369397.0, 5556648.0]
-fetched = "2026-11-12"
+fetched = "2026-11-13"
 latest_update = "2026-09-01"
 count = 1266
 regions = ["rheinlandpfalz"]
 
 [land_use]
 bbox = [368380.0, 5555926.0, 369397.0, 5556648.0]
-fetched = "2026-11-12"
+fetched = "2026-11-13"
 latest_update = "2026-09-15"
 count = 400
 regions = ["rheinlandpfalz"]
@@ -37,11 +37,35 @@ fetched = "2026-11-12"
 bbox = [368380.879, 5555926.139, 369396.95, 5556647.537]
 
 [terrain]
-fetched = "2026-11-12"
+fetched = "2026-11-13"
 bbox = [368380.879, 5555926.139, 369396.95, 5556647.537]
 date = "2024-04-06"
 
 [surface]
-fetched = "2026-11-12"
+fetched = "2026-11-13"
 bbox = [368380.879, 5555926.139, 369396.95, 5556647.537]
 date = "2024-04-06"
+
+[[point_clouds]]
+tile = "32368-5555"
+url = "https://geobasis-rlp.de/data/las/current/las/lpolpg_32_368_5555_1_rp.laz"
+published = "2024-03-15"
+
+[[point_clouds]]
+tile = "32368-5556"
+url = "https://geobasis-rlp.de/data/las/current/las/lpolpg_32_368_5556_1_rp.laz"
+published = "2024-03-15"
+
+[[point_clouds]]
+tile = "32369-5555"
+url = "https://geobasis-rlp.de/data/las/current/las/lpolpg_32_369_5555_1_rp.laz"
+published = "2024-03-15"
+
+[[point_clouds]]
+tile = "32369-5556"
+url = "https://geobasis-rlp.de/data/las/current/las/lpolpg_32_369_5556_1_rp.laz"
+published = "2024-03-15"
+
+[content]
+profile = "balanced"
+vegetation = "candidates"

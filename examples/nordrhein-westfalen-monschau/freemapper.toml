@@ -13,14 +13,14 @@ type = "Polygon"
 
 [buildings]
 bbox = [304038.0, 5603614.0, 304962.0, 5604344.0]
-fetched = "2026-11-12"
+fetched = "2026-11-13"
 latest_update = "2026-08-28"
 count = 705
 regions = ["nordrheinwestfalen"]
 
 [land_use]
 bbox = [304038.0, 5603614.0, 304962.0, 5604344.0]
-fetched = "2026-11-12"
+fetched = "2026-11-13"
 latest_update = "2026-09-07"
 count = 1539
 regions = ["nordrheinwestfalen"]
@@ -36,11 +36,25 @@ fetched = "2026-11-12"
 bbox = [304038.069, 5603614.132, 304961.474, 5604343.149]
 
 [terrain]
-fetched = "2026-11-12"
+fetched = "2026-11-13"
 bbox = [304038.069, 5603614.132, 304961.474, 5604343.149]
 date = "2021-12-21"
 
 [surface]
-fetched = "2026-11-12"
+fetched = "2026-11-13"
 bbox = [304038.069, 5603614.132, 304961.474, 5604343.149]
 date = "2021-12-21"
+
+[[point_clouds]]
+tile = "32304-5603"
+url = "https://www.opengeodata.nrw.de/produkte/geobasis/hm/3dm_l_las/3dm_l_las/3dm_32_304_5603_1_nw.laz"
+published = "2022-11-18"
+
+[[point_clouds]]
+tile = "32304-5604"
+url = "https://www.opengeodata.nrw.de/produkte/geobasis/hm/3dm_l_las/3dm_l_las/3dm_32_304_5604_1_nw.laz"
+published = "2022-11-10"
+
+[content]
+profile = "balanced"
+vegetation = "candidates"

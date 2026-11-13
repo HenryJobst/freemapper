@@ -4,24 +4,25 @@
 
 Each supported state has an example: an area from which freemapper can derive a lot (an old town, a palace or a
 park with relief, dense buildings, stairs, walls and hedges). All examples are sprint maps at 1:4000 (ISSprOM 2019),
-made with `freemapper run --pdf --pdf-candidates --ocad` and the default content profile `balanced`. The PDF of each
+made with `freemapper run --pdf --pdf-candidates --ocad` and the default content profile `balanced`; Sanssouci,
+Viktoriapark, Monschau, Cochem and Saarlouis also with `--content-set vegetation=candidates`. The PDF of each
 example is the training map with every candidate, because it shows what freemapper can derive. The map alone shows
 less; the [comparison page](compare.en.md) shows the same area in the three content profiles.
 
 | State | Area | Map objects | Candidates | Symbols | Preview |
 |---|---|---:|---:|---:|---|
-| Brandenburg | [Park Sanssouci, Potsdam](brandenburg-sanssouci/): vineyard terraces, parterres and hedges, palace | 2676 | 318 | 34 | <a href="brandenburg-sanssouci/brandenburg-sanssouci-candidates.pdf"><img src="brandenburg-sanssouci/preview.webp" width="220" alt=""></a> |
-| Berlin | [Viktoriapark, Kreuzberg](berlin-viktoriapark/): the Kreuzberg hill with its waterfall, 19th-century blocks | 3443 | 470 | 43 | <a href="berlin-viktoriapark/berlin-viktoriapark-candidates.pdf"><img src="berlin-viktoriapark/preview.webp" width="220" alt=""></a> |
+| Brandenburg | [Park Sanssouci, Potsdam](brandenburg-sanssouci/): vineyard terraces, parterres and hedges, palace | 2676 | 623 | 39 | <a href="brandenburg-sanssouci/brandenburg-sanssouci-candidates.pdf"><img src="brandenburg-sanssouci/preview.webp" width="220" alt=""></a> |
+| Berlin | [Viktoriapark, Kreuzberg](berlin-viktoriapark/): the Kreuzberg hill with its waterfall, 19th-century blocks | 3443 | 624 | 45 | <a href="berlin-viktoriapark/berlin-viktoriapark-candidates.pdf"><img src="berlin-viktoriapark/preview.webp" width="220" alt=""></a> |
 | Saxony | [Bautzen old town](sachsen-bautzen/): the old town on the rock above the Spree, steep valley sides | 2527 | 988 | 39 | <a href="sachsen-bautzen/sachsen-bautzen-candidates.pdf"><img src="sachsen-bautzen/preview.webp" width="220" alt=""></a> |
 | Saxony-Anhalt | [Schlossberg Quedlinburg](sachsen-anhalt-quedlinburg/): World Heritage old town, castle hill, narrow lanes | 2947 | 585 | 38 | <a href="sachsen-anhalt-quedlinburg/sachsen-anhalt-quedlinburg-candidates.pdf"><img src="sachsen-anhalt-quedlinburg/preview.webp" width="220" alt=""></a> |
 | Hamburg | [Treppenviertel Blankenese](hamburg-blankenese/): the steep Elbe bank, stairs and lanes | 1780 | 992 | 31 | <a href="hamburg-blankenese/hamburg-blankenese-candidates.pdf"><img src="hamburg-blankenese/preview.webp" width="220" alt=""></a> |
 | Hesse | [Marburg old town and castle](hessen-marburg/): the steep upper town with stepped lanes, castle hill | 3051 | 1015 | 35 | <a href="hessen-marburg/hessen-marburg-candidates.pdf"><img src="hessen-marburg/preview.webp" width="220" alt=""></a> |
 | Schleswig-Holstein | [Lübeck old town and Holstentor](schleswig-holstein-luebeck/): the medieval old-town island with its passages and courtyards | 3345 | 1365 | 35 | <a href="schleswig-holstein-luebeck/schleswig-holstein-luebeck-candidates.pdf"><img src="schleswig-holstein-luebeck/preview.webp" width="220" alt=""></a> |
 | Mecklenburg-Vorpommern | [Wismar old town](mecklenburg-vorpommern-wismar/): World Heritage old town with St. George's church and the market square | 3396 | 1416 | 35 | <a href="mecklenburg-vorpommern-wismar/mecklenburg-vorpommern-wismar-candidates.pdf"><img src="mecklenburg-vorpommern-wismar/preview.webp" width="220" alt=""></a> |
-| North Rhine-Westphalia | [Monschau old town](nordrhein-westfalen-monschau/): half-timbered old town in the deep Rur valley | 2456 | 527 | 37 | <a href="nordrhein-westfalen-monschau/nordrhein-westfalen-monschau-candidates.pdf"><img src="nordrhein-westfalen-monschau/preview.webp" width="220" alt=""></a> |
+| North Rhine-Westphalia | [Monschau old town](nordrhein-westfalen-monschau/): half-timbered old town in the deep Rur valley | 2456 | 1299 | 40 | <a href="nordrhein-westfalen-monschau/nordrhein-westfalen-monschau-candidates.pdf"><img src="nordrhein-westfalen-monschau/preview.webp" width="220" alt=""></a> |
 | Lower Saxony | [Großer Garten Herrenhausen, Hanover](niedersachsen-herrenhausen/): baroque garden with hedges, parterres and fountain basins, next to the Georgengarten | 2400 | 333 | 38 | <a href="niedersachsen-herrenhausen/niedersachsen-herrenhausen-candidates.pdf"><img src="niedersachsen-herrenhausen/preview.webp" width="220" alt=""></a> |
-| Rhineland-Palatinate | [Reichsburg and Cochem old town](rheinland-pfalz-cochem/): the castle hill with the Reichsburg, the old town on the steep Moselle bank, Cond across the river | 2862 | 505 | 40 | <a href="rheinland-pfalz-cochem/rheinland-pfalz-cochem-candidates.pdf"><img src="rheinland-pfalz-cochem/preview.webp" width="220" alt=""></a> |
-| Saarland | [Saarlouis old town and fortress](saarland-saarlouis/): Vauban's hexagonal fortress town, the old arm of the Saar with the Vauban island, ramparts in the Stadtgarten | 1465 | 336 | 35 | <a href="saarland-saarlouis/saarland-saarlouis-candidates.pdf"><img src="saarland-saarlouis/preview.webp" width="220" alt=""></a> |
+| Rhineland-Palatinate | [Reichsburg and Cochem old town](rheinland-pfalz-cochem/): the castle hill with the Reichsburg, the old town on the steep Moselle bank, Cond across the river | 2862 | 1024 | 44 | <a href="rheinland-pfalz-cochem/rheinland-pfalz-cochem-candidates.pdf"><img src="rheinland-pfalz-cochem/preview.webp" width="220" alt=""></a> |
+| Saarland | [Saarlouis old town and fortress](saarland-saarlouis/): Vauban's hexagonal fortress town, the old arm of the Saar with the Vauban island, ramparts in the Stadtgarten | 1688 | 799 | 40 | <a href="saarland-saarlouis/saarland-saarlouis-candidates.pdf"><img src="saarland-saarlouis/preview.webp" width="220" alt=""></a> |
 
 **Map objects** are the objects of the OOM map. With `balanced` these are the objects of the cadastre, the registers
 and the street survey (buildings, streets with curbs, water, parks, forest, canopies and passages), plus walls,
@@ -30,8 +31,18 @@ mostly out-of-bounds areas (520) and control sites (531), plus banks, cliffs and
 `landforms`). They come as a separate template (`templates/candidates.omap`). The PDF `<name>-candidates.pdf` draws
 them too; `<name>.pdf` from `--pdf` shows only the map objects. Both come from OSM, from ALKIS and from the terrain
 model, in Berlin also from the Geoportal Berlin, and in Potsdam from the city map tree points (Bäume der Stadtkarte).
-The group `vegetation` is off in every profile, and no example uses it. **Symbols** counts the distinct symbols in
+**Symbols** counts the distinct symbols in
 both together. Contours and north lines stop at ways, so they count in pieces.
+
+The group `vegetation` is off in every profile, because the point clouds are large. Five examples switch it on as
+candidates: Sanssouci, Viktoriapark, Monschau, Cochem and Saarlouis. There the training map shows what the laser points say
+about the vegetation: runnable forest (405) under the tree crowns, open land (401) and the green shades 406, 408
+and 410. Sanssouci has 153 forest areas, 78 areas of open land and 74 green areas, Monschau 290, 218 and 264,
+Cochem 218, 115 and 186, Saarlouis 286, 105 and 90, Viktoriapark 56, 51 and 47. The park turns white where trees
+stand and stays yellow where there is lawn. Berlin's flight of 2021 was flown without leaves, so the green shades
+are weaker there. Areas that shall not be entered (520) hold no vegetation: the areas end at them, as they do at
+buildings, water and paved areas. The group does not change the map objects. Saxony offers no point clouds at
+present, and freemapper does not read any for the other states yet.
 
 Rivers, canals, ponds and harbour basins from ALKIS are on the map as uncrossable water (301.1) with a bank line
 (301.6). Ponds, fountains, springs and streams from OSM go onto the map with `balanced` too; bridges from OSM stay
@@ -133,8 +144,9 @@ little relief.
 In Saarland two rectangles ran, both in Saarlouis. The second lies 180 m further west and takes in the Vauban
 island in the old arm of the Saar and the ramparts in the Stadtgarten. Saarlouis was the first example made with
 the content profile `balanced`, which draws the objects of the cadastre and the registers straight onto the map. Its
-map has 30 symbols, among them 21 stairs from OpenStreetMap, and 336 candidates are left. All examples have been
-rebuilt with this profile since.
+map has 31 symbols, among them 21 stairs from OpenStreetMap, and 799 candidates are left, most of them vegetation.
+Since the land uses of Saarland are read in both spellings, 109 street areas and the Saar from ALKIS are on the
+map. All examples have been rebuilt with this profile since.
 
 ## Licences
 
