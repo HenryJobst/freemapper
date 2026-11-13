@@ -66,6 +66,9 @@
     <label><span data-text="page-map-title"></span>
       <input id="title" type="text">
     </label>
+    <label><span data-text="page-contour-interval"></span>
+      <select id="contour"></select>
+    </label>
     <p id="settings-fixed" class="hint" data-text="page-settings-fixed" hidden></p>
   </section>
 
@@ -98,6 +101,9 @@
         </select></label>
       <p id="run-sources-warning" class="hint warning-note" data-text="page-warn-credit-only" hidden></p>
       <p id="run-pdf-hint" class="hint" data-text="page-need-pdf" hidden></p>
+      <label class="option"><input id="run-permits" type="checkbox">
+        <span data-text="page-opt-permits"></span></label>
+      <p class="hint option-help" data-text="page-help-permits"></p>
       <label class="option"><input id="run-offline" type="checkbox">
         <span data-text="page-opt-offline"></span></label>
       <div id="run-force-row" hidden>

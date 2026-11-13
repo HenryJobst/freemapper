@@ -327,6 +327,15 @@ impl UrlPolicy {
         Self::new(Self::CORE_HOSTS).expect("the core hosts are DNS names")
     }
 
+    /// The hosts of the national sources (protected areas of the BfN, state borders of the
+    /// BKG) that belong to no adapter.
+    pub const NATIONAL_HOSTS: [&'static str; 2] = ["geodienste.bfn.de", "sgx.geodatenzentrum.de"];
+
+    /// The policy of the national sources ([`UrlPolicy::NATIONAL_HOSTS`]).
+    pub fn national() -> Self {
+        Self::new(Self::NATIONAL_HOSTS).expect("the national hosts are DNS names")
+    }
+
     /// The policy with `hosts` added.
     pub fn with_hosts<'a>(
         mut self,
@@ -421,6 +430,22 @@ mod tests {
     use std::cell::RefCell;
 
     use super::*;
+
+    #[test]
+    fn national_policy_allows_only_the_two_hosts() {
+        let policy = UrlPolicy::national();
+        assert!(
+            policy
+                .check_url("https://geodienste.bfn.de/ogc/wfs/schutzgebiet")
+                .is_ok()
+        );
+        assert!(
+            policy
+                .check_url("https://sgx.geodatenzentrum.de/wfs_vg250")
+                .is_ok()
+        );
+        assert!(policy.check_url("https://example.org/x").is_err());
+    }
 
     /// A fetcher that writes down what it was asked, and one bound to a policy that writes
     /// into the same list with `bound:` before the URL.

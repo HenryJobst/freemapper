@@ -400,6 +400,17 @@ pub struct ProjectFile {
     /// profile when absent.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub content: Option<ContentSettings>,
+    /// The contour interval of the last `derive` when it is not the map kind's (a contract key,
+    /// `[contours] interval_m`: freemapper-print names it); absent otherwise (ADR 0116).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub contours: Option<ContourRecord>,
+}
+
+/// The `[contours]` record of `freemapper.toml`.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct ContourRecord {
+    /// The interval the contours were traced at, in metres.
+    pub interval_m: f64,
 }
 
 // The tile and raster records live in `freemapper-adapter-api` (ADR 0082); the old paths stay.
@@ -489,10 +500,8 @@ impl ProjectFile {
         let text = std::fs::read_to_string(&path).map_err(|e| ProjectError::Io(path, e))?;
         let mut project: Self =
             toml::from_str(&text).map_err(|e| ProjectError::Toml(e.to_string()))?;
-        if let Some(interval) = project.contour_interval_m
-            && !(interval.is_finite() && interval > 0.0)
-        {
-            return Err(ProjectError::InvalidContourInterval(interval));
+        if let Some(interval) = project.contour_interval_m {
+            check_contour_interval(interval)?;
         }
         project.check_adapters()?;
         project.drop_unknown_names(progress);
@@ -741,6 +750,7 @@ pub fn init_project_with_content(
         map_area: area.to_geojson_value(),
         title: title.as_deref().and_then(clean_title),
         contour_interval_m: None,
+        contours: None,
         tiles: Vec::new(),
         buildings: None,
         land_use: None,
@@ -888,6 +898,45 @@ pub fn set_content(
     check_folders(dir, &WRITTEN_FOLDERS)?;
     project.content = content;
     project.save(dir)?;
+    Ok(project)
+}
+
+/// Refuses a contour interval that is no positive number.
+pub fn check_contour_interval(interval_m: f64) -> Result<(), ProjectError> {
+    if interval_m.is_finite() && interval_m > 0.0 {
+        Ok(())
+    } else {
+        Err(ProjectError::InvalidContourInterval(interval_m))
+    }
+}
+
+/// A contour interval as a person writes it: `auto` (the choice of `derive`, `None`) or metres
+/// with a dot or a comma, such as `2,5`.
+pub fn parse_contour_interval(text: &str) -> Result<Option<f64>, ProjectError> {
+    let text = text.trim();
+    if text.eq_ignore_ascii_case("auto") {
+        return Ok(None);
+    }
+    let interval: f64 = text.replace(',', ".").parse().unwrap_or(f64::NAN);
+    check_contour_interval(interval)?;
+    Ok(Some(interval))
+}
+
+/// Sets the contour interval of the project in `dir`; `None` gives the choice back to `derive`
+/// (the map kind's interval, 2.5 m in a flat forest). The next `derive` traces at it.
+pub fn set_contour_interval(
+    dir: &Path,
+    interval_m: Option<f64>,
+) -> Result<ProjectFile, ProjectError> {
+    if let Some(interval) = interval_m {
+        check_contour_interval(interval)?;
+    }
+    let mut project = ProjectFile::load(dir)?;
+    check_folders(dir, &WRITTEN_FOLDERS)?;
+    if project.contour_interval_m != interval_m {
+        project.contour_interval_m = interval_m;
+        project.save(dir)?;
+    }
     Ok(project)
 }
 
@@ -2048,7 +2097,7 @@ pub fn derive_project_cancellable(
     cancelled: &dyn Fn() -> bool,
 ) -> Result<Vec<PathBuf>, ProjectError> {
     stop_if(cancelled)?;
-    let project = ProjectFile::load_reporting(dir, progress)?;
+    let mut project = ProjectFile::load_reporting(dir, progress)?;
     check_folders(dir, &WRITTEN_FOLDERS)?;
     if project.tiles.is_empty() && project.terrain.is_none() {
         return Err(ProjectError::NotFetched);
@@ -2176,6 +2225,12 @@ pub fn derive_project_cancellable(
         &contours_path,
         contours_to_geojson(&lines, stored_interval).as_bytes(),
     )?;
+    // The sidecar names it for the suite; a project at the kind's interval keeps its file as it was.
+    let record = stored_interval.map(|interval_m| ContourRecord { interval_m });
+    if project.contours != record {
+        project.contours = record;
+        project.save(dir)?;
+    }
     progress(note!("progress-writing", path = LANDFORMS_RELPATH));
     stop_if(cancelled)?;
     let min_height_m = project.map_kind.landform_min_height_m();
@@ -2489,7 +2544,7 @@ fn check_template(image: &Path, bbox: &BoundingBox) -> Result<(), ProjectError> 
     if matches { Ok(()) } else { Err(outdated()) }
 }
 
-const OSM_ATTRIBUTION: &str = "© OpenStreetMap contributors, ODbL";
+pub(crate) const OSM_ATTRIBUTION: &str = "© OpenStreetMap contributors, ODbL";
 /// [`OSM_ATTRIBUTION`] for the German peripheral information.
 const OSM_ATTRIBUTION_DE: &str = "© OpenStreetMap-Mitwirkende, ODbL";
 /// [`FREEMAPPER_CREDIT`] for the German peripheral information.
@@ -2693,6 +2748,7 @@ pub mod golden {
             provider: None,
             title: None,
             contour_interval_m: None,
+            contours: None,
             tiles: Vec::new(),
             buildings: None,
             land_use: None,
@@ -5044,6 +5100,7 @@ mod tests {
             provider: Some(providers::LGB),
             title: Some("Clara-Zetkin-Schule".to_string()),
             contour_interval_m: None,
+            contours: None,
             tiles: vec![TileRecord {
                 product: Product::Dtm,
                 tile: "33421-5821".to_string(),
@@ -6590,6 +6647,36 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         serve_synthetic_tile(fetcher, school_tile(), "2026-01-26");
         fetch(dir.path(), fetcher, &cache);
         (dir, cache_dir, cache)
+    }
+
+    /// Writes the fixture of the CLI tests that run offline (`crates/freemapper-cli/tests/
+    /// fixtures/offline-school/`): the fetched synthetic school project and its cache. Run it
+    /// again when the layout of the project or the cache changes: `cargo test -p freemapper
+    /// --lib write_the_offline_cli_fixture -- --ignored`.
+    #[test]
+    #[ignore = "a tool for the fixture of the CLI tests, not a test"]
+    fn write_the_offline_cli_fixture() {
+        fn copy_tree(from: &Path, to: &Path) {
+            std::fs::create_dir_all(to).unwrap();
+            for entry in std::fs::read_dir(from).unwrap().flatten() {
+                let target = to.join(entry.file_name());
+                if entry.file_type().unwrap().is_dir() {
+                    copy_tree(&entry.path(), &target);
+                } else {
+                    std::fs::copy(entry.path(), target).unwrap();
+                }
+            }
+        }
+        let out = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../freemapper-cli/tests/fixtures/offline-school");
+        let _ = std::fs::remove_dir_all(&out);
+        let fetcher = MapFetcher::default();
+        let (dir, cache_dir, _cache) = fetched_school(&fetcher);
+        let mut project = ProjectFile::load(dir.path()).unwrap();
+        project.title = Some("Offline school".to_string());
+        project.save(dir.path()).unwrap();
+        copy_tree(dir.path(), &out.join("project"));
+        copy_tree(cache_dir.path(), &out.join("cache"));
     }
 
     /// `cache` on one volume (with the project folder) that is `short` bytes too small for the
@@ -11435,6 +11522,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         assert_eq!(interval, None);
         assert!(!lines.is_empty());
         assert!(lines.iter().all(|l| (l.height / 5.0).fract() == 0.0));
+        assert_eq!(ProjectFile::load(dir.path()).unwrap().contours, None);
         project.contour_interval_m = Some(2.5);
         project.save(dir.path()).unwrap();
         assert!(
@@ -11446,6 +11534,18 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let (lines, interval) = stored();
         assert_eq!(interval, Some(2.5), "the project's interval wins");
         assert!(lines.iter().any(|l| (l.height / 5.0).fract() != 0.0));
+        // The suite reads the traced interval from the sidecar (`[contours] interval_m`).
+        let sidecar = std::fs::read_to_string(dir.path().join(PROJECT_FILE_NAME)).unwrap();
+        assert!(
+            sidecar.contains("[contours]\ninterval_m = 2.5"),
+            "{sidecar}"
+        );
+        assert_eq!(
+            ProjectFile::load(dir.path()).unwrap().contours,
+            Some(ContourRecord { interval_m: 2.5 })
+        );
+        let read = freemapper_contract::Sidecar::parse(&sidecar).unwrap();
+        assert_eq!(read.contour_interval_m(), Some(2.5));
         for bad in ["0.0", "-2.5", "nan"] {
             let text = std::fs::read_to_string(dir.path().join(PROJECT_FILE_NAME))
                 .unwrap()
@@ -11496,6 +11596,35 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         assert!(fetches_tree_registers(MapKind::Sprint));
         assert!(fetches_tree_registers(MapKind::Schoolyard));
         assert!(!fetches_tree_registers(MapKind::Forest));
+    }
+
+    #[test]
+    fn the_contour_interval_is_read_and_set() {
+        assert_eq!(parse_contour_interval("auto").unwrap(), None);
+        assert_eq!(parse_contour_interval(" 2,5 ").unwrap(), Some(2.5));
+        assert_eq!(parse_contour_interval("5").unwrap(), Some(5.0));
+        for bad in ["0", "-1", "nan", "inf", "fünf", ""] {
+            assert!(parse_contour_interval(bad).is_err(), "{bad}");
+        }
+        let dir = tempfile::tempdir().unwrap();
+        school_project(dir.path());
+        let before = std::fs::read(dir.path().join(PROJECT_FILE_NAME)).unwrap();
+        let project = set_contour_interval(dir.path(), Some(2.5)).unwrap();
+        assert_eq!(project.contour_interval_m, Some(2.5));
+        assert_eq!(
+            ProjectFile::load(dir.path()).unwrap().contour_interval_m,
+            Some(2.5)
+        );
+        assert!(matches!(
+            set_contour_interval(dir.path(), Some(0.0)),
+            Err(ProjectError::InvalidContourInterval(_))
+        ));
+        // Back to the automatic choice: the file is as before.
+        set_contour_interval(dir.path(), None).unwrap();
+        assert_eq!(
+            std::fs::read(dir.path().join(PROJECT_FILE_NAME)).unwrap(),
+            before
+        );
     }
 
     #[test]

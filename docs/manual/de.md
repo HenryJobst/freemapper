@@ -19,11 +19,12 @@ Stand mit Brandenburg, Berlin und Sachsen.
 9. [Was im Gelände zu prüfen ist](#9-was-im-gelände-zu-prüfen-ist)
 10. [Karte als PDF](#10-karte-als-pdf)
 11. [OCAD](#11-ocad)
-12. [Regionen und Grenzgebiete](#12-regionen-und-grenzgebiete)
-13. [Später weiterarbeiten](#13-später-weiterarbeiten)
-14. [Meldungen und was zu tun ist](#14-meldungen-und-was-zu-tun-ist)
-15. [Namensnennung](#15-namensnennung)
-16. [Hilfe und Fehler melden](#16-hilfe-und-fehler-melden)
+12. [Hinweise zu Genehmigungen](#12-hinweise-zu-genehmigungen)
+13. [Regionen und Grenzgebiete](#13-regionen-und-grenzgebiete)
+14. [Später weiterarbeiten](#14-später-weiterarbeiten)
+15. [Meldungen und was zu tun ist](#15-meldungen-und-was-zu-tun-ist)
+16. [Namensnennung](#16-namensnennung)
+17. [Hilfe und Fehler melden](#17-hilfe-und-fehler-melden)
 
 ## 1. Was freemapper macht
 
@@ -132,7 +133,7 @@ und die tägliche Prüfung entfällt.
 
 #### Die tägliche Prüfung
 
-Nach `find`, `init`, `select`, `fetch` und `run`, die ohnehin ins Netz gehen, prüft freemapper höchstens einmal am
+Nach `find`, `init`, `select`, `fetch`, `run` und `permits`, die ohnehin ins Netz gehen, prüft freemapper höchstens einmal am
 Tag, ob es eine neuere Version gibt. `derive` und `export` arbeiten ohne Netz und prüfen nicht. Die Prüfung läuft,
 während der Befehl arbeitet. Findet sie eine neuere Version, folgt nach der Ausgabe des Befehls eine Zeile auf der
 Fehlerausgabe (stderr):
@@ -330,7 +331,7 @@ freemapper-courseplan zeigen so denselben Titel. Ändern Sie ihn bei Bedarf in d
   - den geschätzten Download;
   - den freien Speicherplatz und wie viel davon der Download braucht. Was nicht auf den Datenträger
     passt, trägt in der Liste „Was geladen wird“ den Vermerk „passt nicht auf den Datenträger“.
-    Darüber stehen die Meldungen aus Kapitel 14 und ob freemapper den Teil auslässt oder abbricht.
+    Darüber stehen die Meldungen aus Kapitel 15 und ob freemapper den Teil auslässt oder abbricht.
 - **Kartenart, Maßstab und Titel** einstellen, dann *Speichern*. Danach können Sie die Karte gleich auf
   der Seite erzeugen (nächster Abschnitt) oder mit *Fertig* schließen und `freemapper run` im Terminal
   starten.
@@ -357,6 +358,7 @@ Unter den Einstellungen steht der Block „Karte erzeugen“. Er braucht kein Te
    | Trainings-PDF mit allen Kandidaten | `--pdf-candidates` |
    | Maßstabsleiste in die PDFs | `--pdf-scale-bar` |
    | Quellenangabe in den PDFs: automatisch, vollständig, nur freemapper | `--pdf-sources auto`, `full`, `credit-only` |
+   | Hinweise zu Genehmigungen | `--permits` (Kapitel 12) |
    | Nur Zwischenspeicher, kein Netz | `--offline` |
    | Vorhandene Karte ersetzen | `--force` |
 
@@ -420,9 +422,10 @@ Zwischenspeicher.
 **Voreinstellungen** setzen Sie beim Start der Seite: `freemapper select mein-schulhof --pdf --ocad` hakt
 die beiden Optionen schon an. Es gibt `--ocad`, `--pdf`, `--pdf-candidates`, `--pdf-scale-bar`,
 `--pdf-sources auto|full|credit-only` und `--offline`; der KI-Assistent kann dieselben Felder an
-`open_area_selector` übergeben. „Vorhandene Karte ersetzen“ hat keine Voreinstellung.
+`open_area_selector` übergeben. „Hinweise zu Genehmigungen“ wählt nur der KI-Assistent vor (`permits`);
+`select` hat dafür keinen Schalter. „Vorhandene Karte ersetzen“ hat keine Voreinstellung.
 
-Die Seite spricht Deutsch oder Englisch: in der Sprache des Programms (Kapitel 14), sonst in der des Browsers. Sie ruft keine Adresse außerhalb Ihres
+Die Seite spricht Deutsch oder Englisch: in der Sprache des Programms (Kapitel 15), sonst in der des Browsers. Sie ruft keine Adresse außerhalb Ihres
 Rechners auf, außer den Kartenkacheln im Hintergrund (über den lokalen Server) und den Luftbild-Diensten,
 wenn Sie sie einschalten.
 
@@ -433,13 +436,14 @@ Im Projektordner liegen danach unter anderem:
 | Datei | Was sie ist |
 |---|---|
 | `<name>.omap` | die Karte für OpenOrienteering Mapper, georeferenziert, mit Gebäuden, Überdachungen, Gewässern und Randangaben |
-| `templates/` | die Vorlagen: Luftbild, Schummerung, Hangneigung, lokales Relief, nDOM und die Kandidaten-Karte, in Berlin auch die K5 (Kapitel 12) |
+| `templates/` | die Vorlagen: Luftbild, Schummerung, Hangneigung, lokales Relief, nDOM und die Kandidaten-Karte, in Berlin auch die K5 (Kapitel 13) |
 | `ocad/` | mit `--ocad`: die OCAD-Karte und ihre Vorlagen |
 | `<name>.pdf` | mit `--pdf`: die druckfertige Karte ohne Kandidaten |
 | `<name>-candidates.pdf` | mit `--pdf-candidates`: die Trainingskarte mit allen Kandidaten |
 | `<name>-preview.webp` | ein Bild der Kartenobjekte (ohne Kandidaten, ohne Blattrand), zusammen mit der `.omap` geschrieben; die Gebietsseite zeigt es |
 | `ATTRIBUTION.txt` | die Namensnennung der Datenquellen |
 | `freemapper.toml` | die Einstellungen und der Datenstand des Projekts |
+| `permits.md`, `permits.json` | mit `--permits` oder `freemapper permits`: die Hinweise zu Genehmigungen (Kapitel 12) |
 
 Öffnen Sie die `.omap`-Datei in OOM. Die Vorlagen sind schon eingebunden; im Menü *Vorlagen* blenden Sie
 sie ein und aus. Die **Kandidaten** (`templates/candidates.omap`) liegen als eigene Karte darüber. Dort
@@ -557,7 +561,7 @@ Meer, das nicht im Kataster steht, bleibt weiß. freemapper liest die Küstenlin
   OSM-Streifen, der viel größer ist als das Katasterpolygon, das er bedeckt, bleibt, denn er liefert Ausdehnung.
 
 Unter der Karte stehen die **Randangaben**: Titel, Maßstab, Äquidistanz, Maßstabsleiste und die
-Namensnennung. Lassen Sie die Namensnennung auf der gedruckten Karte stehen (Kapitel 15). Die **Nordlinien**
+Namensnennung. Lassen Sie die Namensnennung auf der gedruckten Karte stehen (Kapitel 16). Die **Nordlinien**
 gehören zur Karte und liegen im Kartenteil „default part“. Unterbrechen Sie sie in OOM, wo sie kleine Objekte
 verdecken, etwa Steine, Wegenden oder Mauerecken.
 
@@ -588,9 +592,11 @@ freemapper run dammheide --pdf-candidates
   ab. Die Vegetation aus Laserpunktwolken (Gruppe `vegetation`) können Sie wie bei Sprintkarten einschalten; in
   Berlin wurde ohne Laub beflogen, dort findet sie wenig.
 - **Höhenlinien** liegen alle 5 m, in flachem Gelände alle 2,5 m. Flach ist ein Gebiet, wenn zwischen dem 5.
-  und dem 95. Perzentil seiner Geländehöhen weniger als 15 m liegen. Mit `contour_interval_m = 2.5` (oder einem
-  anderen Wert über 0) in der `freemapper.toml` legen Sie den Abstand selbst fest; danach `derive` und
-  `export --force`. Der Kartenrand nennt den Abstand („Äquidistanz 2,5 m“).
+  und dem 95. Perzentil seiner Geländehöhen weniger als 15 m liegen. Den Abstand legen Sie selbst fest
+  mit `--contour-interval 2.5` bei `init`, `derive` oder `run`, auf der Gebietsseite im Feld „Äquidistanz“ oder
+  als `contour_interval_m = 2.5` in der `freemapper.toml`; `auto` (auf der Seite „automatisch“) gibt die Wahl
+  zurück. Bei einer fertigen Karte danach `freemapper run <ordner> --force` (oder `derive` und `export --force`). Der Kartenrand nennt den Abstand („Äquidistanz 2,5 m“). Weicht er vom Standard ab, steht er
+  nach `derive` auch als `[contours] interval_m` in der `freemapper.toml`; freemapper-print liest ihn dort.
 - Gebäude, Gewässer, Mauern, Zäune, Stromleitungen, Bahnlinien und Sperrgebiete (520) kommen wie bei der
   Sprintkarte. Bänke, Poller, Laternen und anderes Stadtmobiliar fehlen, ebenso Bäume aus Baumkatastern und
   einzelne OSM-Bäume. Nur ein Baum mit
@@ -711,16 +717,16 @@ freemapper spart das Zeichnen der Grundlage, nicht den Gang ins Gelände. Prüfe
   - Fehlen Neubauten, gibt es abgerissene Gebäude noch?
   - Der Datenstand steht bei jedem Gebäude in den Objekt-Tags.
 - **Befestigte Flächen** (Sprint): In Sachsen enthalten Straßenflächen auch Grün- und Baumstreifen am Rand.
-  In Berlin schneidet freemapper die vermessenen Grünstreifen aus (Kapitel 12); Baumscheiben und Grün, das
+  In Berlin schneidet freemapper die vermessenen Grünstreifen aus (Kapitel 13); Baumscheiben und Grün, das
   die Straßenbefahrung nicht kennt, bleiben darin. In beiden Bundesländern sind Plätze nur Kandidaten.
 - **Überdachungen und Durchfahrten:** In jedem Bundesland außer Sachsen und Sachsen-Anhalt sind Überdachungen und
-  Carports aus ALKIS Kartenobjekte (522), Durchfahrten und Arkaden Kandidaten (Kapitel 12). Gibt es die
+  Carports aus ALKIS Kartenobjekte (522), Durchfahrten und Arkaden Kandidaten (Kapitel 13). Gibt es die
   Überdachungen noch? Ist eine Durchfahrt offen, oder hat sie ein Tor?
 - **Zäune, Mauern, Hecken:** Sie stammen aus OSM und dem nDOM, in Berlin auch aus ALKIS und der
   Straßenbefahrung, in Brandenburg auch aus dem vollständigen ALKIS. Sind sie passierbar? Gibt es Tore?
 - **Sperrgebiete:** Privatgrundstücke, Kleingärten, Bahngelände, auf Schulhofkarten alles außerhalb des
   Schulgeländes.
-- **Berlin** (Kapitel 12):
+- **Berlin** (Kapitel 13):
   - Überdachungen und Carports aus ALKIS sind Kartenobjekte (522). Gibt es sie noch? Wo eine Überdachung an
     ein Gebäude stößt, schneidet freemapper sie an der Wand ab. Dabei können schmale Reste bleiben.
   - Durchfahrten und Arkaden sind nur Kandidaten. Ist der Durchgang offen, oder hat er ein Tor?
@@ -761,7 +767,7 @@ freemapper spart das Zeichnen der Grundlage, nicht den Gang ins Gelände. Prüfe
     Flaches Wasser, das man durchqueren kann, wird passierbares Gewässer (302).
   - Gewässer aus OSM sind nur Kandidaten. Gibt es den Teich und den Brunnen noch? Führt der Graben
     Wasser?
-- **Brandenburg** (Kapitel 12):
+- **Brandenburg** (Kapitel 13):
   - Das vollständige ALKIS führt eine Mauer oft als ihre zwei Kanten (`Mauerkante, links` und `Mauerkante,
     rechts`). Wo beide Kanten einander zugewandt sind, fast parallel laufen und auf dem Papier näher als
     0,55 mm liegen (2,2 m bei 1:4000), zeichnet freemapper eine Linie 515 in der Mitte. Sie trägt
@@ -880,9 +886,116 @@ Laden Sie in OCAD den offiziellen Symbolsatz:
    Waldkarten.
 
 OCAD ersetzt die Platzhalter dann nach Nummer. Die OCAD-Ausgabe ist noch nicht in jeder OCAD-Version
-geprüft. Rückmeldungen sind willkommen (Kapitel 16).
+geprüft. Rückmeldungen sind willkommen (Kapitel 17).
 
-## 12. Regionen und Grenzgebiete
+## 12. Hinweise zu Genehmigungen
+
+Wer auf einer Karte einen Lauf oder ein Training plant, fragt vorher um Erlaubnis: die Gemeinde für Straßen
+und Plätze, die untere Naturschutzbehörde in einem Schutzgebiet, den Betreiber einer Schule, eines Parks oder
+eines Schlossgartens. Auf Wunsch schreibt freemapper dafür die Datei `permits.md`. Sie nennt für das
+Kartengebiet die Verwaltungseinheiten, die Schutzgebiete und die bekannten Betreiber, und wen man dann meist
+fragt.
+
+Die Datei ist ein Hinweis und keine Rechtsauskunft. Maßgeblich sind die zuständigen Behörden. Die Genehmigung
+brauchen Sie weiter, und fragen müssen Sie auch.
+
+### Hinweise erstellen
+
+Die Hinweise entstehen nur auf Ihren Wunsch, und nur dann fragt freemapper das BfN und das BKG.
+
+- Im Terminal, nachdem die Karte einmal geladen wurde:
+
+  ```sh
+  ./freemapper permits kreuzgymnasium
+  ```
+
+  Oder gleich mit der Karte: `./freemapper run kreuzgymnasium --permits`. Scheitert dabei etwas an den
+  Hinweisen, gibt `run` eine Warnung aus, und die Karte bleibt.
+- Auf der Gebietsseite haken Sie unter den Optionen „Hinweise zu Genehmigungen“ an (Kapitel 6).
+- Dem KI-Assistenten sagen Sie zum Beispiel: „Erstelle für das Projekt auch die Hinweise zu Genehmigungen.“
+  Er zeigt Ihnen den Text, sobald er fertig ist.
+
+`permits` fragt die beiden Dienste des Bundes und liest den OSM-Auszug, der schon im Zwischenspeicher liegt.
+Einen Auszug lädt der Befehl nicht. Fehlt er, lassen die Hinweise OpenStreetMap aus und sagen das;
+`freemapper fetch` lädt ihn. Das Ganze dauert etwa eine halbe Minute, den größten Teil davon braucht das Lesen
+des OSM-Auszugs.
+
+Mit `--offline` liest `permits` nur die Daten, die ein früherer Lauf im Projekt gespeichert hat, und schreibt
+denselben Text. freemapper speichert das Kartengebiet mit den Daten. Ist das Gebiet nicht mehr genau dasselbe
+Polygon, auch wenn es nur kleiner wurde, bricht der Befehl ab: Die Daten gehören dann zu einem anderen
+Kartengebiet. `permits` hört mit einem Fehler auf (Exit-Code 1), wenn sich keine einzige Quelle lesen ließ. Fehlt
+nur eine Quelle, entsteht die Datei trotzdem, und eine Warnung nennt die fehlende Quelle.
+
+Im Projektordner liegen danach:
+
+| Datei | Was sie ist |
+|---|---|
+| `permits.md` | die Hinweise zum Lesen, in der Sprache des Programms |
+| `permits.json` | derselbe Inhalt für Programme |
+| `data/permits/` | die Antworten der Dienste und die Funde aus OSM, für `--offline` |
+
+Ein neuer Abruf ersetzt die Dateien. Liest er keine einzige Quelle, bleiben sie, wie sie waren. `freemapper.toml`
+und `ATTRIBUTION.txt` ändern sich nicht, und auf der Karte, in den Kandidaten und in den PDFs erscheint nichts
+davon.
+
+### Was in der Datei steht
+
+Am Anfang steht der Hinweis, dass es keine Rechtsauskunft ist. Dann folgen sechs Abschnitte:
+
+- „Verwaltung“ nennt Bundesland, Kreis oder kreisfreie Stadt, Amt oder Verwaltungsgemeinschaft, wo es eine
+  gibt, und Gemeinde, jeweils mit ihrem Anteil am Kartengebiet in Prozent. Eine Einheit, die weniger als 0,5 %
+  des Gebiets berührt, steht in einer eigenen Liste „Am Rand berührt“.
+- „Schutzgebiete (BfN)“ nennt Nationalparke, Nationale Naturmonumente, Naturschutzgebiete, FFH-Gebiete,
+  Vogelschutzgebiete, Biosphärenreservate mit ihren Zonen, Landschaftsschutzgebiete und Naturparke. Zu jedem
+  stehen der Anteil, das Datum der Festsetzung, die Rechtsgrundlage, der Link zum Rechtstext, wo das BfN einen
+  hat, bei FFH- und Vogelschutzgebieten der Link zu ihrer Natura-2000-Gebietsseite, und der Datenstand.
+- „Weitere Schutzgebiete aus OpenStreetMap“ nennt Schutzgebiete, die das BfN nicht führt, etwa einen
+  geschützten Landschaftsbestandteil.
+- „Betreiber und Eigentümer laut OpenStreetMap“ nennt, wer Parks, Gärten, Sportanlagen, Schulen, Kirchen,
+  Friedhöfe, Wald, Bahnflächen, Sehenswürdigkeiten und historische Orte betreibt oder besitzt. Wohngrundstücke
+  und Häuser liest freemapper nicht, auch denkmalgeschützte Häuser nicht, und keine Gärten, die zu einem
+  Wohnhaus gehören oder nicht öffentlich sind (`garden:type=residential` oder `private`, `access=private` oder
+  `no`). Telefonnummern und E-Mail-Adressen liest es auch nicht.
+- „Hinweise“ sagt, wen ein Fund meist betrifft, zum Beispiel: „Schutzgebiete betreffen die untere
+  Naturschutzbehörde (meist der Landkreis Märkisch-Oderland).“ oder „Im Naturschutzgebiet gilt meist ein
+  Wegegebot.“ Die Hinweise nennen die Art der Stelle und die Einheit, nie eine Person oder eine Adresse.
+- „Quellen und Datenstand“ sagt je Quelle, ob und wann sie gelesen wurde, mit ihrem Quellenvermerk und ihrer
+  Lizenz.
+
+Ein Abschnitt, dessen Quelle nicht gelesen wurde, sagt das.
+
+### Grenzen
+
+- Das BfN führt die Schutzgebiete der Bundesländer einmal im Jahr zusammen und weist die Daten als „Nicht für
+  Planungszwecke geeignet.“ aus. Ein neues oder geändertes Schutzgebiet kann deshalb fehlen. Maßgeblich sind
+  die Landesbehörden.
+- VG250 ist auf den Maßstab 1:250 000 generalisiert. Eine Gemeinde oder ein Kreis am Rand eines kleinen Gebiets
+  kann nur deshalb auftauchen.
+- Eine OSM-Fläche, die das ganze Kartengebiet umschließt und keine Ecke darin hat, etwa ein großer Wald, kann
+  fehlen. Das gilt auch für ein OSM-Schutzgebiet, das als Relation vom Typ `boundary` erfasst ist. Die Angaben
+  von BfN und VG250 betrifft das nicht.
+- Berlin und Hamburg sind in VG250 je eine Einheit. Den Bezirk bestimmen die Hinweise noch nicht.
+- Eigentümer von Grundstücken stehen nicht in offenen Daten. Die Hinweise sagen, wie man einen
+  Grundbuchauszug bekommt.
+- Forstverwaltungen, Wasserschutzgebiete und Denkmale fehlen noch. Sie kommen in späteren Versionen.
+
+### Datenquellen und Lizenzen
+
+| Quelle | Dienst | Quellenvermerk in den Hinweisen |
+|---|---|---|
+| Verwaltungsgebiete 1:250 000 (VG250) des Bundesamts für Kartographie und Geodäsie (BKG) | `sgx.geodatenzentrum.de` | `© BKG (<Jahr>) dl-de/by-2-0, Datenquellen: https://sg.geodatenzentrum.de/web_public/gdz/datenquellen/datenquellen_vg_nuts.pdf` |
+| Schutzgebiete in Deutschland des Bundesamts für Naturschutz (BfN) | `geodienste.bfn.de` | `© Bundesamt für Naturschutz (BfN) (<Jahr>), Schutzgebiete in Deutschland; Nutzungsbestimmungen für die Bereitstellung von Geodaten des Bundes (GeoNutzV). Nicht für Planungszwecke geeignet.` |
+| OpenStreetMap | Auszug im Zwischenspeicher | `© OpenStreetMap contributors, ODbL` |
+
+`<Jahr>` ist das Jahr des Abrufs. Das BfN gibt keinen eigenen Quellenvermerk vor; diese Zeile hat freemapper
+aus dem Namen des Dienstes, seinen Nutzungsbestimmungen und seinem Zugriffshinweis gebildet. Lassen Sie die
+Zeilen stehen, wenn Sie `permits.md` weitergeben.
+
+An die beiden Dienste des Bundes sendet freemapper nur das Rechteck um das Kartengebiet und seine feste
+Kennung (User-Agent). Andere Server fragt es für die Hinweise nicht. `adapters allow-host` gilt für diese
+Dienste nicht.
+
+## 13. Regionen und Grenzgebiete
 
 | Bundesland | Daten von | Besonderheiten |
 |---|---|---|
@@ -1128,7 +1241,7 @@ gescheitert, schließen Sie die Seite (oder beenden Sie den Assistenten) und sta
 bis dahin lehnt sie den Host weiter ab.
 
 Nehmen Sie den Host aus der Meldung und prüfen Sie, dass er zum Amt des Bundeslands gehört. Melden Sie den Umzug
-(Kapitel 16), damit die nächste Version den Host mitbringt. Bringt eine neue Version den Host
+(Kapitel 17), damit die nächste Version den Host mitbringt. Bringt eine neue Version den Host
 mit, sagt das nächste `find`, `init`, `fetch`, `derive`, `export` oder `run` in einer Warnung, dass Ihr Eintrag
 überflüssig ist, und entfernt ihn. Die Gebietsseite und der KI-Assistent über MCP ändern die Datei nie.
 
@@ -1142,7 +1255,7 @@ Platzhalter oder ein Port werden abgelehnt. Auch für einen freigegebenen Host g
 nur mit Servern im Internet. `freemapper adapters list` zeigt die freigegebenen Hosts je Bundesland, `freemapper
 adapters disallow-host hessen neuer-server.hessen.de` nimmt einen zurück.
 
-## 13. Später weiterarbeiten
+## 14. Später weiterarbeiten
 
 - **Ihre Karte ist sicher:** Ein erneutes `run` (oder „bitte neu laden“) ändert eine vorhandene Karte
   nicht. Es aktualisiert nur die Vorlagen und die Kandidaten. Fehlen in der Karte Gebäude oder
@@ -1159,7 +1272,7 @@ adapters disallow-host hessen neuer-server.hessen.de` nimmt einen zurück.
 - **Datenstand:** freemapper lädt nur neu, was neu veröffentlicht wurde. Ändert sich eine Kachel beim
   Anbieter, gibt es eine Warnung „changed upstream“.
 
-## 14. Meldungen und was zu tun ist
+## 15. Meldungen und was zu tun ist
 
 freemapper kennt Deutsch und Englisch. Die Sprache kommt aus `--lang de` oder `--lang en`, sonst aus der
 Umgebungsvariable `FREEMAPPER_LANG`, sonst aus der Sprache des Systems (`LANG`), sonst ist sie Englisch. Unter
@@ -1196,12 +1309,12 @@ Sprachen so: Das sind Einzelheiten zu Servern und Dateiformaten. Die wichtigsten
 | `Das Herunterladen von … ist gescheitert` / `ungültige ALKIS-Daten` (englisch: `download of … failed` oder `invalid ALKIS data`) | Ein Server war nicht erreichbar oder hat Unsinn geschickt. | Später erneut versuchen. Bereits geladene Daten bleiben erhalten. |
 | Gebietsauswahl: „access blocked“ / 403 von OpenStreetMap, oder die Hintergrundkarte bleibt grau | Die Hintergrundkarte kommt von `tile.openstreetmap.org`. Dessen Kachelrichtlinie verlangt eine erkennbare Anwendung (`User-Agent`) oder ein gültiges `Referer`; der Browser schickt hier keinen `Referer`. Bis 0.9.1 lud der Browser die Kacheln selbst und bekam deshalb 403. Seit 0.9.2 holt der lokale Server die Kacheln mit `User-Agent: freemapper/<Version> (+https://github.com/HenryJobst/freemapper)` und gibt sie an den Browser weiter. | freemapper aktualisieren. Der Rechner braucht Internet. Antwortet der Server mit 502, steht der Grund in der Antwort (z. B. HTTP 403 oder keine Verbindung). Die Luftbilder der Bundesländer sind nicht betroffen. |
 | `…: Der Server hat die Anfrage abgelehnt (HTTP 400)` (englisch: `… refused the request (HTTP 400)`) | Ein Dienst lehnt die Anfrage ab. | Erneut versuchen. Bleibt es dabei, einen Fehler melden. |
-| `…: freemapper sendet keine Anfragen an diese Adresse: Der Adapter für … nennt den Host … nicht` (englisch: `… freemapper does not send requests to this address: the adapter of … does not name the host …`) | freemapper fragt für ein Bundesland nur die Server an, die dessen Adapter nennt. Ein Dienst ist auf einen anderen Server umgezogen, hat dorthin weitergeleitet oder in seiner Antwort dorthin verwiesen. Die Meldung beginnt mit der abgelehnten Adresse und endet mit dem Kommando, das den Host freigibt. | Wenn Sie dem Server vertrauen (er gehört erkennbar zum Amt des Bundeslands): das Kommando aus der Meldung ausführen, `freemapper adapters allow-host <Adapter> <Host>`, den Lauf wiederholen und den Umzug melden (Kapitel 16). Siehe „Wenn ein Dienst umzieht“ in Kapitel 12. Bei einem eigenen Adapter den Host in `[net] hosts` des Manifests eintragen. |
+| `…: freemapper sendet keine Anfragen an diese Adresse: Der Adapter für … nennt den Host … nicht` (englisch: `… freemapper does not send requests to this address: the adapter of … does not name the host …`) | freemapper fragt für ein Bundesland nur die Server an, die dessen Adapter nennt. Ein Dienst ist auf einen anderen Server umgezogen, hat dorthin weitergeleitet oder in seiner Antwort dorthin verwiesen. Die Meldung beginnt mit der abgelehnten Adresse und endet mit dem Kommando, das den Host freigibt. | Wenn Sie dem Server vertrauen (er gehört erkennbar zum Amt des Bundeslands): das Kommando aus der Meldung ausführen, `freemapper adapters allow-host <Adapter> <Host>`, den Lauf wiederholen und den Umzug melden (Kapitel 17). Siehe „Wenn ein Dienst umzieht“ in Kapitel 13. Bei einem eigenen Adapter den Host in `[net] hosts` des Manifests eintragen. |
 | `…: freemapper sendet keine Anfragen an diese Adresse: …` mit einem anderen Grund (englisch: `… freemapper does not send requests to this address: …`) | freemapper verbindet sich nie mit einer Adresse dieses Rechners oder des lokalen Netzes, folgt höchstens drei Weiterleitungen in Folge und keiner Weiterleitung auf `http`. | Nichts freizugeben. Bei einem eingebauten Bundesland einen Fehler melden. |
 | `…: Der Server hat den Bytebereich … nicht beachtet` (englisch: `… ignored the byte range`) | Der Server (Höhenmodelle von Hamburg oder Hessen) schickt das ganze Archiv statt der Kachel; freemapper bricht ab, statt über 1 GB zu laden. | Später erneut versuchen, sonst einen Fehler melden. |
 | `Die Datei von … ist größer als … MB; abgebrochen` (englisch: `download of … is larger than … MB; stopped`) | Ein Server (OSM-Auszug, Downloadportal Schleswig-Holstein, vollständiges ALKIS oder Potsdamer Baumkataster) schickt weit mehr, als die Datei groß sein kann; freemapper bricht ab und löscht den Teil-Download. Bei den Bäumen steht die Meldung in den Klammern von `warning: potsdam tree cadastre unavailable`. | Später erneut versuchen, sonst einen Fehler melden. |
 | `no tile of the … covers the map area` | Hamburg: Das landesweite Archiv enthält keine Kachel für das Gebiet; vermutlich wurde es umbenannt. Saarland: Keines der Landkreis-Archive enthält eine Kachel für das Gebiet; vermutlich hat das LVGL sie durch eine neuere Befliegung ersetzt. Baden-Württemberg: Keines der 2-km-Archive enthält eine Kachel für das Gebiet; vermutlich hat das LGL die Archive umbenannt. Hessen: Das Downloadcenter hat sich vermutlich geändert. Schleswig-Holstein und Mecklenburg-Vorpommern: Das Downloadportal hat sich vermutlich geändert. Nordrhein-Westfalen: Die Kachelliste von Geobasis NRW nennt keine Kachel für das Gebiet. Rheinland-Pfalz: Nach dem Doppelpunkt steht für jede Kachel der Grund, z. B. `not on the server (404)`, `not in LVermGeo RP's tile list` oder `no flight year in LVermGeo RP's tile list (Laserbefliegung)`. | Einen Fehler melden. |
-| `Warnung: … Ein Archiv ließ sich nicht lesen (…); es wurde übergangen …` / `…; verwendet wird sein Verzeichnis aus einem früheren Lauf …` (englisch: `warning: … an archive could not be read (…); it was passed over …` / `…; its directory kept from an earlier run is used …`) | Saarland: Eines der sechs Landkreis-Archive des Höhenmodells ließ sich nicht lesen; die Adresse in der Klammer nennt es. Im ersten Fall lagen die Kacheln Ihres Gebiets in anderen Archiven, und die Karte ist vollständig. Im zweiten Fall hat freemapper die Kachelliste verwendet, die es von einem früheren Lauf aufgehoben hat; die Kacheln im Zwischenspeicher passen dazu, aber eine Kachel, die das LVGL seither ersetzt hat, fiele nicht auf. | Nichts, wenn es einmal vorkommt. Bleibt es dabei, hat das LVGL das Archiv umbenannt: bitte melden (Kapitel 16). |
+| `Warnung: … Ein Archiv ließ sich nicht lesen (…); es wurde übergangen …` / `…; verwendet wird sein Verzeichnis aus einem früheren Lauf …` (englisch: `warning: … an archive could not be read (…); it was passed over …` / `…; its directory kept from an earlier run is used …`) | Saarland: Eines der sechs Landkreis-Archive des Höhenmodells ließ sich nicht lesen; die Adresse in der Klammer nennt es. Im ersten Fall lagen die Kacheln Ihres Gebiets in anderen Archiven, und die Karte ist vollständig. Im zweiten Fall hat freemapper die Kachelliste verwendet, die es von einem früheren Lauf aufgehoben hat; die Kacheln im Zwischenspeicher passen dazu, aber eine Kachel, die das LVGL seither ersetzt hat, fiele nicht auf. | Nichts, wenn es einmal vorkommt. Bleibt es dabei, hat das LVGL das Archiv umbenannt: bitte melden (Kapitel 17). |
 | `Warnung: …: In Hamburg fehlt die Kachel …` (englisch: `warning: the … has no tile(s) … inside Hamburg`) | Im Archiv fehlen einzelne Kacheln. | Die Vorlagen bleiben dort leer. |
 | `Warnung: …: In Hessen fehlt die Kachel …` (englisch: `warning: the … has no tile(s) … inside Hesse`) | Im Downloadcenter-Archiv der Gemeinde fehlen einzelne Kacheln. | Die Vorlagen bleiben dort leer. |
 | `Warnung: Das Downloadcenter hat keine Datei für "…"` (englisch: `warning: the Downloadcenter has no file for "…"`) | Für den Ort (z. B. ein gemeindefreies Gebiet) gibt es im Downloadcenter keine Datei. Die Kacheln, die danach nach einem Semikolon genannt werden (falls vorhanden), blieben leer, weil keine andere Gemeinde sie enthält. | Kacheln aus Nachbargemeinden brauchen nichts; die genannten Kacheln bleiben leer. |
@@ -1293,8 +1406,11 @@ Sprachen so: Das sind Einzelheiten zu Servern und Dateiformaten. Die wichtigsten
 | `Es gibt keine vorherige Version, zu der zurückgekehrt werden kann` (englisch: `there is no previous version to go back to`) | `--rollback` findet kein `freemapper.previous`, weil noch keine Aktualisierung lief oder die Datei gelöscht wurde. | Nichts rückgängig zu machen. Eine ältere Version bei Bedarf mit `freemapper update --version <x.y.z>` installieren. |
 | `Die Aktualisierung ist fehlgeschlagen: …` (englisch: `the update failed: …`) | Ein anderer Fehler bei der Aktualisierung, etwa ein abgebrochener Download. Das alte Programm bleibt. | Später erneut versuchen. |
 | `Warnung: freemapper … wurde nicht installiert: …` (englisch: `warning: freemapper … was not installed: …`) | Im Modus `install` ist die Installation nach dem Befehl gescheitert. Der Befehl selbst lief und behält seinen Exit-Code. | `freemapper update` von Hand versuchen; der Grund steht nach dem Doppelpunkt. |
+| `Keine Quelle der Genehmigungshinweise ließ sich lesen (…)` (englisch: `no source of the permit notes could be read (…)`) | `freemapper permits` bekam weder von VG250 noch vom BfN noch aus OSM Daten. Mit `--offline` gibt es noch keine gespeicherten Daten, oder sie gehören zu einem anderen Kartengebiet. | Ohne `--offline` und mit Netz erneut aufrufen. Fehlt der OSM-Auszug, zuerst `freemapper fetch`. |
+| `Warnung: … ließ sich nicht lesen, die Genehmigungshinweise lassen die Quelle aus: …` / `Warnung: Die Genehmigungshinweise lassen … aus: …` (englisch: `warning: … could not be read, so the permit notes leave it out: …` / `warning: the permit notes leave out …: …`) | Ein Dienst des Bundes war nicht erreichbar, oder es lag kein OSM-Auszug im Zwischenspeicher. Die Datei ist trotzdem geschrieben und nennt die fehlende Quelle. | Später erneut `freemapper permits` aufrufen. Für OSM zuerst `freemapper fetch`. |
+| `Warnung: Die Genehmigungshinweise ließen sich nicht schreiben: …` (englisch: `warning: the permit notes could not be written: …`) | Bei `run --permits` scheiterten die Hinweise. Die Karte ist geschrieben, der Lauf gilt als gelungen. | Den Grund nach dem Doppelpunkt lesen und `freemapper permits` später allein aufrufen. |
 
-## 15. Namensnennung
+## 16. Namensnennung
 
 Die Geodaten stehen unter offenen Lizenzen, verlangen aber eine Namensnennung. freemapper schreibt sie
 in die Randangaben, in die Kartennotizen und in `ATTRIBUTION.txt`, z. B.:
@@ -1328,7 +1444,10 @@ in die Randangaben, in die Kartennotizen und in `ATTRIBUTION.txt`, z. B.:
 
 Lassen Sie diese Zeilen auf gedruckten und veröffentlichten Karten stehen.
 
-## 16. Hilfe und Fehler melden
+Die Hinweise zu Genehmigungen nennen ihre Quellen in `permits.md` selbst (Kapitel 12). `ATTRIBUTION.txt` führt
+BfN und BKG nicht, denn auf die Karte kommt nichts von ihnen.
+
+## 17. Hilfe und Fehler melden
 
 Fragen, Fehler und Wünsche bitte als [Issue auf GitHub](https://github.com/HenryJobst/freemapper/issues).
 Hilfreich sind:

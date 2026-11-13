@@ -11,6 +11,7 @@ mod jobs;
 mod lock;
 mod mcp;
 mod nominatim;
+mod permits;
 mod pipeline;
 mod select;
 mod select_page;
@@ -31,8 +32,8 @@ use freemapper::places::{find_places, place_area};
 use freemapper::project::{
     MapKind, MapOutcome, OcadOutcome, PdfSources, ProjectFile, derive_project,
     export_candidates_pdf_from, export_map_preview_or_warn, export_ocad_from, export_pdf_from,
-    export_starter_project_from, fetch_project, init_project, map_path, set_content,
-    starter_documents,
+    export_starter_project_from, fetch_project, init_project, map_path, parse_contour_interval,
+    set_content, set_contour_interval, starter_documents,
 };
 
 use text::{n, text, v};
@@ -77,6 +78,8 @@ enum Commands {
         title: Option<String>,
         #[command(flatten)]
         content: ContentArgs,
+        #[command(flatten)]
+        contours: ContourArgs,
         #[command(flatten)]
         adapters: AdapterArgs,
     },
@@ -131,6 +134,8 @@ enum Commands {
         /// Project folder.
         dir: PathBuf,
         #[command(flatten)]
+        contours: ContourArgs,
+        #[command(flatten)]
         cache: CacheArgs,
         #[command(flatten)]
         adapters: AdapterArgs,
@@ -163,12 +168,31 @@ enum Commands {
         /// you pass the map on). ATTRIBUTION.txt always lists every source.
         #[arg(long, value_enum, default_value_t = SourcesArg::Auto)]
         pdf_sources: SourcesArg,
+        /// Also write the permit notes (permits.md and permits.json) after the map; asks the
+        /// BfN and the BKG. A failure there is a warning and the map stays.
+        #[arg(long)]
+        permits: bool,
         #[command(flatten)]
         content: ContentArgs,
+        #[command(flatten)]
+        contours: ContourArgs,
         #[command(flatten)]
         cache: CacheArgs,
         #[command(flatten)]
         adapters: AdapterArgs,
+    },
+    /// Write the permit notes of a project (permits.md and permits.json): the administrative
+    /// units, protected areas and operators the map area touches, and whom that usually means
+    /// asking. It asks the BfN and the BKG and reads the OSM extract already cached; --offline
+    /// uses what was fetched before.
+    Permits {
+        /// Project folder.
+        dir: PathBuf,
+        /// Use the data fetched before only, without network access.
+        #[arg(long)]
+        offline: bool,
+        #[command(flatten)]
+        cache: CacheArgs,
     },
     /// Choose the map area in the browser by drawing it or picking a place. Saving writes
     /// freemapper.toml and creates the project folder if needed.
@@ -425,6 +449,7 @@ impl Commands {
             )),
             Commands::Fetch { offline, cache, .. }
             | Commands::Run { offline, cache, .. }
+            | Commands::Permits { offline, cache, .. }
             | Commands::Select { offline, cache, .. } => Some((cache.folder(), *offline)),
             Commands::Export { .. }
             | Commands::Derive { .. }
@@ -521,6 +546,7 @@ fn print_written(written: pipeline::Written, sources: PdfSources) {
         pipeline::Written::Ocad(outcome) => report_ocad(outcome),
         pipeline::Written::Pdf(path) => report_pdf(path, false, sources),
         pipeline::Written::PdfCandidates(path) => report_pdf(path, true, sources),
+        pipeline::Written::Permits(path) => wrote_permits(path),
     }
 }
 
@@ -531,6 +557,14 @@ fn report(message: &str) {
 /// Prints a progress line or a warning of the engine in the language of the run.
 fn report_note(note: freemapper::note::Note) {
     report(&pipeline::line(&note));
+}
+
+/// Says that the permit notes are in `path`.
+fn wrote_permits(path: &std::path::Path) {
+    println!(
+        "{}",
+        text("cli-wrote-permits", &[("path", v(path.display()))])
+    );
 }
 
 /// Says that `path` was written.
@@ -583,6 +617,34 @@ impl ContentArgs {
             let summary = settings.summary();
             set_content(dir, Some(settings))?;
             println!("{}", text("cli-content-saved", &[("summary", v(summary))]));
+        }
+        Ok(())
+    }
+}
+
+/// The contour interval (ADR 0116): saved in `freemapper.toml`, used by the next derive.
+#[derive(clap::Args)]
+struct ContourArgs {
+    /// Contour interval in metres, e.g. `2.5`, or `auto` for the map kind's (a forest map: 5 m,
+    /// 2.5 m where it is flat). Saved in freemapper.toml; derive traces the contours at it
+    #[arg(long = "contour-interval", value_name = "METRES")]
+    contour_interval: Option<String>,
+}
+
+impl ContourArgs {
+    /// Saves the interval asked for in the project of `dir`; nothing when none was asked.
+    fn save(&self, dir: &std::path::Path) -> anyhow::Result<()> {
+        let Some(asked) = &self.contour_interval else {
+            return Ok(());
+        };
+        let interval = parse_contour_interval(asked)?;
+        set_contour_interval(dir, interval)?;
+        match interval {
+            Some(interval) => println!(
+                "{}",
+                text("cli-contour-interval-saved", &[("interval", v(interval))])
+            ),
+            None => println!("{}", text("cli-contour-interval-auto", &[])),
         }
         Ok(())
     }
@@ -741,9 +803,14 @@ fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
             scale,
             title,
             content,
+            contours,
             adapters: _,
         } => {
             let area = area.area(part.map(|p| p as usize))?;
+            // A bad interval is refused before the folder is made.
+            if let Some(asked) = &contours.contour_interval {
+                parse_contour_interval(asked)?;
+            }
             let today = chrono::Local::now().date_naive();
             let project = init_project(&dir, &area, kind.into(), scale, today, title)?;
             println!(
@@ -751,6 +818,7 @@ fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
                 text("cli-created-project", &[("path", v(dir.display()))])
             );
             content.save(&dir)?;
+            contours.save(&dir)?;
             if let Some(note) = project.map_kind.scale_note(project.scale_denominator) {
                 println!("{}", pipeline::line(&note));
             }
@@ -826,10 +894,12 @@ fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
         }
         Commands::Derive {
             dir,
+            contours,
             cache,
             adapters: _,
         } => {
             let _lock = lock_folder(&dir)?;
+            contours.save(&dir)?;
             for path in derive_project(&dir, &cache.cache()?, &mut report_note)? {
                 wrote(&path);
             }
@@ -843,12 +913,15 @@ fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
             pdf_candidates,
             pdf_scale_bar,
             pdf_sources,
+            permits,
             content,
+            contours,
             cache,
             adapters: _,
         } => {
             let _lock = lock_folder(&dir)?;
             content.save(&dir)?;
+            contours.save(&dir)?;
             let options = pipeline::RunOptions {
                 force,
                 offline,
@@ -857,6 +930,7 @@ fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
                 pdf_candidates,
                 pdf_scale_bar,
                 pdf_sources: pdf_sources.into(),
+                permits,
                 fail_fast: true,
             };
             pipeline::run(
@@ -873,6 +947,25 @@ fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
                     }
                 },
             )?;
+        }
+        Commands::Permits {
+            dir,
+            offline,
+            cache,
+        } => {
+            let written = permits::run_permits(
+                &dir,
+                offline,
+                &cache.cache()?,
+                &HttpFetcher::new(),
+                lock::Who::Cli,
+                &text::lang(),
+                &mut report_note,
+            )?;
+            for warning in &written.warnings {
+                report(warning);
+            }
+            wrote_permits(&written.markdown);
         }
         Commands::Select {
             dir,

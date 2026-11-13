@@ -68,6 +68,14 @@ The suite contract had the kind `forest` without drawing scales (freemapper-core
   reads for the index contours and the margin ("Äquidistanz 2,5 m"). Files of schoolyard and sprint projects stay
   byte for byte as before.
 
+## Addendum (2026-11-13): the interval in the sidecar
+
+freemapper-print printed the Dammheide map and proposed 5 m, because the interval was only in `contours.geojson`.
+`derive` now also writes it into `freemapper.toml` as the record `[contours] interval_m`, under the same rule (only
+when it is not the kind's), next to the setting `contour_interval_m`, which stays the person's choice. The record is
+a contract key from freemapper-core 0.25.0 on (`Sidecar::contour_interval_m`); a project at the kind's interval keeps
+its file byte for byte.
+
 ## Consequences
 
 - `freemapper init <dir> --kind forest --scale 10000` and `run --pdf-candidates` give the quick training map; the

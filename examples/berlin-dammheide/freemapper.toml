@@ -1,0 +1,230 @@
+map_kind = "forest"
+scale_denominator = 10000
+declination_date = "2026-11-13"
+buffer_m = 100.0
+map_area_source_id = "relation/4513841"
+crs = 25833
+provider = "lgb"
+title = "Dammheide"
+
+[map_area]
+coordinates = [[[13.5719666, 52.4762169], [13.5734205, 52.4754443], [13.5759838, 52.4741458], [13.5759689, 52.4740471], [13.5758949, 52.4737828], [13.5758897, 52.4735361], [13.5758678, 52.4733648], [13.5757739, 52.4731313], [13.5765728, 52.4730363], [13.5773789, 52.4730275], [13.5776775, 52.4730243], [13.5779788, 52.4730198], [13.5785277, 52.4729391], [13.5788217, 52.4728766], [13.5790581, 52.4727685], [13.5792032, 52.4726599], [13.5793327, 52.4725631], [13.5794653, 52.4724639], [13.57951, 52.4723162], [13.5793479, 52.4720772], [13.5787145, 52.4719177], [13.5785986, 52.4717835], [13.5773546, 52.470219], [13.5809822, 52.4697086], [13.5813652, 52.4706672], [13.5814582, 52.4707232], [13.5815564, 52.4707494], [13.5816518, 52.4707469], [13.5820397, 52.4706821], [13.5820473, 52.4706945], [13.5822581, 52.4710391], [13.5824892, 52.4713926], [13.5825996, 52.4714793], [13.5835987, 52.4722643], [13.5835802, 52.4724772], [13.5831683, 52.472675], [13.5832556, 52.4727321], [13.5840643, 52.4733679], [13.5841854, 52.4734631], [13.5845781, 52.4737658], [13.5904424, 52.4709789], [13.590583, 52.4709146], [13.5911611, 52.4712325], [13.5914386, 52.4713567], [13.5919573, 52.4715619], [13.5925848, 52.4718025], [13.5940133, 52.4723644], [13.5954581, 52.4727986], [13.5973671, 52.4733362], [13.5974255, 52.4732683], [13.5985616, 52.4735883], [13.5988343, 52.4736961], [13.5992723, 52.473929], [13.5995856, 52.4741915], [13.5996744, 52.4743576], [13.598639, 52.4749739], [13.5977466, 52.4742943], [13.5961627, 52.4750777], [13.5962153, 52.4751191], [13.5959871, 52.4752785], [13.596668, 52.4758061], [13.5964992, 52.4759531], [13.5966339, 52.4760603], [13.5952246, 52.4768014], [13.5946509, 52.477068], [13.5939439, 52.4773827], [13.5938287, 52.4774423], [13.5921582, 52.4783209], [13.5908368, 52.478984], [13.5906354, 52.4790616], [13.5901037, 52.4793608], [13.5893425, 52.4797399], [13.587622, 52.4805425], [13.5863447, 52.4811215], [13.5861991, 52.4810836], [13.583491, 52.4803792], [13.583288, 52.4803264], [13.5818651, 52.4799673], [13.5811154, 52.4803396], [13.580915, 52.4804373], [13.579715, 52.4810222], [13.5786414, 52.480632], [13.5777656, 52.4803137], [13.5760377, 52.4797677], [13.5758262, 52.4797017], [13.5751191, 52.4794812], [13.5746067, 52.4778591], [13.5732679, 52.4767366], [13.5719666, 52.4762169]], [[13.5811275, 52.4738418], [13.5825509, 52.4749801], [13.5845374, 52.4740372], [13.5830938, 52.4729091], [13.5823052, 52.473279], [13.5812627, 52.4737772], [13.5811275, 52.4738418]]]
+type = "Polygon"
+
+[[tiles]]
+product = "orthophoto"
+tile = "33402-5814"
+url = "https://data.geobasis-bb.de/geobasis/daten/dop/rgb_jpg/dop_33402-5814.zip"
+currency = "2026-03-05"
+published = "2026-07-29"
+
+[[tiles]]
+product = "orthophoto"
+tile = "33402-5815"
+url = "https://data.geobasis-bb.de/geobasis/daten/dop/rgb_jpg/dop_33402-5815.zip"
+currency = "2026-03-05"
+published = "2026-07-29"
+
+[[tiles]]
+product = "orthophoto"
+tile = "33403-5814"
+url = "https://data.geobasis-bb.de/geobasis/daten/dop/rgb_jpg/dop_33403-5814.zip"
+currency = "2026-03-05"
+published = "2026-07-29"
+
+[[tiles]]
+product = "orthophoto"
+tile = "33403-5815"
+url = "https://data.geobasis-bb.de/geobasis/daten/dop/rgb_jpg/dop_33403-5815.zip"
+currency = "2026-03-05"
+published = "2026-07-29"
+
+[[tiles]]
+product = "orthophoto"
+tile = "33404-5814"
+url = "https://data.geobasis-bb.de/geobasis/daten/dop/rgb_jpg/dop_33404-5814.zip"
+currency = "2023-05-04"
+published = "2023-12-19"
+
+[[tiles]]
+product = "orthophoto"
+tile = "33404-5815"
+url = "https://data.geobasis-bb.de/geobasis/daten/dop/rgb_jpg/dop_33404-5815.zip"
+currency = "2023-05-04"
+published = "2023-12-19"
+
+[[tiles]]
+product = "dtm"
+tile = "33402-5814"
+url = "https://data.geobasis-bb.de/geobasis/daten/dgm/tif/dgm_33402-5814.zip"
+currency = "2025-12-01"
+published = "2026-01-26"
+
+[[tiles]]
+product = "dtm"
+tile = "33402-5815"
+url = "https://data.geobasis-bb.de/geobasis/daten/dgm/tif/dgm_33402-5815.zip"
+currency = "2025-12-01"
+published = "2026-01-26"
+
+[[tiles]]
+product = "dtm"
+tile = "33403-5814"
+url = "https://data.geobasis-bb.de/geobasis/daten/dgm/tif/dgm_33403-5814.zip"
+currency = "2025-12-01"
+published = "2026-01-26"
+
+[[tiles]]
+product = "dtm"
+tile = "33403-5815"
+url = "https://data.geobasis-bb.de/geobasis/daten/dgm/tif/dgm_33403-5815.zip"
+currency = "2025-12-01"
+published = "2026-01-26"
+
+[[tiles]]
+product = "dtm"
+tile = "33404-5814"
+url = "https://data.geobasis-bb.de/geobasis/daten/dgm/tif/dgm_33404-5814.zip"
+currency = "2025-12-01"
+published = "2026-01-26"
+
+[[tiles]]
+product = "dtm"
+tile = "33404-5815"
+url = "https://data.geobasis-bb.de/geobasis/daten/dgm/tif/dgm_33404-5815.zip"
+currency = "2025-12-01"
+published = "2026-01-26"
+
+[[tiles]]
+product = "imagedsm"
+tile = "33402-5814"
+url = "https://data.geobasis-bb.de/geobasis/daten/bdom/tif/bdom_33402-5814.zip"
+currency = "2026-03-05"
+published = "2026-09-10"
+
+[[tiles]]
+product = "imagedsm"
+tile = "33402-5815"
+url = "https://data.geobasis-bb.de/geobasis/daten/bdom/tif/bdom_33402-5815.zip"
+currency = "2026-03-05"
+published = "2026-09-10"
+
+[[tiles]]
+product = "imagedsm"
+tile = "33403-5814"
+url = "https://data.geobasis-bb.de/geobasis/daten/bdom/tif/bdom_33403-5814.zip"
+currency = "2026-03-05"
+published = "2026-09-10"
+
+[[tiles]]
+product = "imagedsm"
+tile = "33403-5815"
+url = "https://data.geobasis-bb.de/geobasis/daten/bdom/tif/bdom_33403-5815.zip"
+currency = "2026-03-05"
+published = "2026-09-10"
+
+[[tiles]]
+product = "imagedsm"
+tile = "33404-5814"
+url = "https://data.geobasis-bb.de/geobasis/daten/bdom/tif/bdom_33404-5814.zip"
+currency = "2026-03-05"
+published = "2026-09-10"
+
+[[tiles]]
+product = "imagedsm"
+tile = "33404-5815"
+url = "https://data.geobasis-bb.de/geobasis/daten/bdom/tif/bdom_33404-5815.zip"
+currency = "2026-03-05"
+published = "2026-09-10"
+
+[buildings]
+bbox = [402910.0, 5814129.0, 404989.0, 5815592.0]
+fetched = "2026-11-13"
+count = 3341
+regions = ["berlin"]
+
+[land_use]
+bbox = [402910.0, 5814129.0, 404989.0, 5815592.0]
+fetched = "2026-11-13"
+count = 366
+regions = ["berlin"]
+
+[berlin_layers.bauwerke-flaechen]
+bbox = [402910.0, 5814129.0, 404989.0, 5815592.0]
+fetched = "2026-11-13"
+count = 569
+regions = ["berlin"]
+
+[berlin_layers.bauwerke-linien]
+bbox = [402910.0, 5814129.0, 404989.0, 5815592.0]
+fetched = "2026-11-13"
+count = 505
+regions = ["berlin"]
+
+[berlin_layers.gebaeudehoehen]
+bbox = [402910.0, 5814129.0, 404989.0, 5815592.0]
+fetched = "2026-11-13"
+count = 3910
+regions = ["berlin"]
+
+[berlin_layers.relief]
+bbox = [402910.0, 5814129.0, 404989.0, 5815592.0]
+fetched = "2026-11-13"
+count = 20
+regions = ["berlin"]
+
+[berlin_layers.sb-gelaender]
+bbox = [402910.0, 5814129.0, 404989.0, 5815592.0]
+fetched = "2026-11-13"
+count = 60
+regions = ["berlin"]
+
+[berlin_layers.sb-mauer]
+bbox = [402910.0, 5814129.0, 404989.0, 5815592.0]
+fetched = "2026-11-13"
+count = 0
+regions = ["berlin"]
+
+[berlin_layers.sb-objekte]
+bbox = [402910.0, 5814129.0, 404989.0, 5815592.0]
+fetched = "2026-11-13"
+count = 13
+regions = ["berlin"]
+
+[berlin_layers.sb-treppe]
+bbox = [402910.0, 5814129.0, 404989.0, 5815592.0]
+fetched = "2026-11-13"
+count = 0
+regions = ["berlin"]
+
+[berlin_layers.trinkwasserbrunnen]
+bbox = [402910.0, 5814129.0, 404989.0, 5815592.0]
+fetched = "2026-11-13"
+count = 0
+regions = ["berlin"]
+
+[berlin_layers.vegetation-linien]
+bbox = [402910.0, 5814129.0, 404989.0, 5815592.0]
+fetched = "2026-11-13"
+count = 0
+regions = ["berlin"]
+
+[berlin_layers.zierbrunnen]
+bbox = [402910.0, 5814129.0, 404989.0, 5815592.0]
+fetched = "2026-11-13"
+count = 0
+regions = ["berlin"]
+
+[osm]
+extract = "2026-11-06"
+area = [52.46881029, 13.57049179, 52.48201981, 13.60114921]
+count = 1470
+
+[k5]
+flight = "2026-01-02"
+flight_label = "K5 dataset"
+fetched = "2026-11-13"
+bbox = [402910.991, 5814129.307, 404988.74, 5815591.543]
+
+[contours]
+interval_m = 2.5

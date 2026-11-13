@@ -663,7 +663,7 @@ pub fn cached_extract_date(cache: &Cache, source: &ExtractRef) -> Option<NaiveDa
 }
 
 /// Cached extracts, newest first.
-fn cached_extracts(cache: &Cache, source: &ExtractRef) -> Vec<Extract> {
+pub(crate) fn cached_extracts(cache: &Cache, source: &ExtractRef) -> Vec<Extract> {
     let mut extracts: Vec<Extract> = std::fs::read_dir(cache.osm_dir())
         .into_iter()
         .flatten()

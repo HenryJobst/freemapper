@@ -108,6 +108,19 @@ Tribünen am Stadion erscheinen als parallele Linien 532.9 mit dem Tag `freemapp
 ALKIS und OSM beide haben, stehen nur einmal in der Karte: als ALKIS-Linie, die die OSM-Linie im Tag
 `freemapper:also` nennt.
 
+## Waldkarte
+
+Ein Beispiel der Kartenart `forest` (ISOM 2017-2), für ein schnelles Training im Wald:
+
+| Bundesland | Gebiet | Kartenobjekte | Kandidaten | Symbole | Vorschau |
+|---|---|---:|---:|---:|---|
+| Berlin | [Dammheide, Treptow-Köpenick](berlin-dammheide/): kleiner flacher Wald mit dichtem Wegenetz, Siedlungen rundherum | 1387 | 170 | 27 | <a href="berlin-dammheide/berlin-dammheide-candidates.pdf"><img src="berlin-dammheide/preview.webp" width="220" alt=""></a> |
+
+Erzeugt mit `freemapper init berlin-dammheide --osm relation/4513841 --kind forest --scale 10000 --title Dammheide`
+und `run --pdf-candidates --ocad`. Die Wege kommen aus OSM und stehen in den Wegklassen 502 bis 507 in der Karte;
+der Wald ist weißes Papier. Siedlungen und Gärten sind olivgrün (520, nicht zu betreten). Das Gebiet ist flach,
+deshalb liegen die Höhenlinien alle 2,5 m; die `freemapper.toml` nennt das als `[contours] interval_m`.
+
 ## Inhalt eines Beispiels
 
 | Datei | Inhalt |

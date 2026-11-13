@@ -1,0 +1,93 @@
+{
+ "type": "FeatureCollection",
+ "crs": {
+  "type": "name",
+  "properties": {
+   "name": "EPSG:4326"
+  }
+ },
+ "features": [
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "MultiPolygon",
+    "coordinates": [
+     [
+      [
+       [
+        12.96104393,
+        52.46750244
+       ],
+       [
+        12.85663611,
+        52.40820853
+       ],
+       [
+        12.90388407,
+        52.38868405
+       ],
+       [
+        12.93613576,
+        52.37930197
+       ],
+       [
+        12.92010007,
+        52.36721503
+       ],
+       [
+        12.91016883,
+        52.34258222
+       ],
+       [
+        12.98985318,
+        52.26032231
+       ],
+       [
+        13.03098556,
+        52.30837231
+       ],
+       [
+        13.06095119,
+        52.35696202
+       ],
+       [
+        13.05214426,
+        52.37731842
+       ],
+       [
+        13.00942181,
+        52.38967247
+       ],
+       [
+        12.99490378,
+        52.41119936
+       ],
+       [
+        12.96104393,
+        52.46750244
+       ]
+      ]
+     ]
+    ]
+   },
+   "properties": {
+    "GmlID": "Landschaftsschutzgebiete.49",
+    "OBJECTID": 49,
+    "NAME": "Potsdamer Havelseengebiet",
+    "BFN_ID": 21509,
+    "BL": "BB",
+    "ID": "bb_2038",
+    "LEG_DATE": "8/1/1966",
+    "LEG_LINK": null,
+    "LEG_TITEL": "Beschluß Nr. 149-14/66 des Rates des Bezirkes Potsdam vom 20.07.1966",
+    "natda_id": 555701511,
+    "IUCN_KAT": "V",
+    "JAHR": 1966,
+    "MAJ_ECO_T": "T",
+    "MARIN_AREA": 0,
+    "FLAECHE": 19372.26,
+    "STATUS": 1
+   }
+  }
+ ]
+}

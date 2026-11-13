@@ -49,13 +49,13 @@ nach in einer festen Version ein, statt den Code zu kopieren.
 
 ## Status
 
-Aktuelle Version ist [v0.16.0](https://github.com/HenryJobst/freemapper/releases/tag/v0.16.0) vom
+Aktuelle Version ist [v0.17.0](https://github.com/HenryJobst/freemapper/releases/tag/v0.17.0) vom
 13. November 2026 (was sich geändert hat, steht in den [Änderungen](CHANGELOG.md)).
 
 freemapper erzeugt
 Schulhof- und Sprintkarten für dreizehn Bundesländer: Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg,
 Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern, Nordrhein-Westfalen, Niedersachsen,
-Rheinland-Pfalz, Saarland und Baden-Württemberg (neu seit v0.16.0, noch nicht veröffentlicht). Gewässer stehen auf allen Karten, die Farben folgen den IOF-Druckvorgaben von 2024.
+Rheinland-Pfalz, Saarland und Baden-Württemberg (neu seit v0.17.0, noch nicht veröffentlicht). Gewässer stehen auf allen Karten, die Farben folgen den IOF-Druckvorgaben von 2024.
 Auf Wunsch erzeugt freemapper dazu einen Ausgangsstand für OCAD (`--ocad`) und eine
 PDF-Karte (`--pdf`, mit Kandidaten `--pdf-candidates`). Vor dem Laden prüft
 freemapper den freien Speicherplatz. Berliner Karten bekommen aus weiteren Daten des Geoportals Berlin
@@ -81,7 +81,7 @@ Bayern). Thüringen folgt, sobald sein Server für die
 Höhendaten wieder erreichbar ist. Waldkarten und die Nachbarländer kommen später. Design:
 [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](https://github.com/HenryJobst/freemapper/blob/main/docs/superpowers/specs/2026-11-07-freemapper-design.md).
 
-Geplant: Genehmigungen und Ansprechpartner. Zu jedem Kartenbereich soll freemapper künftig auch zeigen, wer gefragt werden muss: bei Waldkarten die berührten Schutzgebiete (Naturschutz, Landschaftsschutz, FFH, Nationalpark) und die zuständige Forstverwaltung, bei Sprintkarten Gemeinde oder Bezirk, Straßenverkehrs- und Grünflächenamt, Denkmal- und Schlösserverwaltungen und, wo offene Daten es hergeben, die Grundstückseigentümer der öffentlichen Hand. Das Ergebnis wäre ein Bericht `permits.md` neben der Karte, jeweils mit Quelle und Datenstand. Er ist ein Hinweis und keine Rechtsauskunft, und Eigentümer privater Flächen stehen nicht in offenen Daten. Die Recherche dazu steht in [`docs/research`](https://github.com/HenryJobst/freemapper/blob/main/docs/research/wald-und-sprint-behoerden/waldschutz-forstbehoerden-recherche.md).
+Auf Wunsch schreibt freemapper Hinweise zu Genehmigungen neben die Karte, in die Datei `permits.md` (`freemapper permits`, `run --permits`, auf der Gebietsseite oder über den KI-Assistenten). Sie nennt für das Kartengebiet Bundesland, Kreis, Amt und Gemeinde aus VG250 des BKG, die Schutzgebiete des BfN und Betreiber aus OpenStreetMap, jeweils mit Anteil, Quelle und Datenstand, und sagt, wen man meist fragt. Sie ist ein Hinweis und keine Rechtsauskunft. Einzelheiten stehen im [Handbuch, Kapitel 12](docs/manual/de.md#12-hinweise-zu-genehmigungen). Geplant sind noch die Forstverwaltungen für Waldkarten und für Berliner Sprintkarten Bezirke, Grünanlagen, Liegenschaften und Denkmale; die Recherche dazu steht in [`docs/research`](https://github.com/HenryJobst/freemapper/blob/main/docs/research/wald-und-sprint-behoerden/waldschutz-forstbehoerden-recherche.md).
 
 ## Handbuch
 
@@ -93,7 +93,7 @@ mit der Kommandozeile. Die meistgebrauchten Kapitel:
   [ohne Assistent](docs/manual/de.md#5-weg-b-ohne-assistent)
 - [Das Kartengebiet im Browser wählen](docs/manual/de.md#6-das-kartengebiet-im-browser-wählen)
 - [Was im Gelände zu prüfen ist](docs/manual/de.md#9-was-im-gelände-zu-prüfen-ist)
-- [Meldungen und was zu tun ist](docs/manual/de.md#14-meldungen-und-was-zu-tun-ist)
+- [Meldungen und was zu tun ist](docs/manual/de.md#15-meldungen-und-was-zu-tun-ist)
 
 ## Beispiele
 
@@ -106,7 +106,7 @@ OCAD-Datei und PDF. Zwei Beispiele vorab, ein Klick auf das Bild öffnet das PDF
 | Rheinland-Pfalz | [Reichsburg und Altstadt Cochem](https://github.com/HenryJobst/freemapper/tree/main/examples/rheinland-pfalz-cochem/) | <a href="examples/rheinland-pfalz-cochem/rheinland-pfalz-cochem-candidates.pdf"><img src="examples/rheinland-pfalz-cochem/preview.webp" width="220" alt=""></a> |
 
 Alle Beispiele mit Vorschau, wie die Gebiete ausgewählt wurden und wie viele Objekte jede Karte hat, stehen in
-der [Beispielübersicht](https://github.com/HenryJobst/freemapper/blob/main/examples/README.md). Dasselbe Gebiet in den drei Inhaltsprofilen
+der [Beispielübersicht](https://github.com/HenryJobst/freemapper/blob/main/examples/README.md), dort auch eine Waldkarte (Dammheide in Berlin, 1:10 000). Dasselbe Gebiet in den drei Inhaltsprofilen
 `safe`, `balanced` und `full` zeigt die [Gegenüberstellung](https://github.com/HenryJobst/freemapper/blob/main/examples/vergleich.md).
 
 ## Gebiet im Browser wählen
@@ -152,7 +152,7 @@ freemapper ist ein einzelnes Programm ohne Installer. Es muss nicht selbst gebau
 
 `freemapper update` lädt nach einer Rückfrage die neueste Version und ersetzt das Programm an
 derselben Stelle. Vorher prüft es die Signatur der Version, und das alte Programm bleibt für
-`freemapper update --rollback` liegen. Nach `find`, `init`, `select`, `fetch` und `run` sieht freemapper höchstens
+`freemapper update --rollback` liegen. Nach `find`, `init`, `select`, `fetch`, `run` und `permits` sieht freemapper höchstens
 einmal am Tag nach, ob es eine neuere Version gibt, und meldet sie in einer Zeile; `freemapper update --mode off`
 schaltet das ab. Die Versionen bis 0.11.0 können sich noch nicht selbst aktualisieren und werden einmal von Hand ersetzt,
 wie oben beschrieben. Einzelheiten stehen im [Handbuch](docs/manual/de.md#aktualisieren).
@@ -304,7 +304,7 @@ freemapper run vorstadt
 In jedem Bundesland außer Sachsen und Sachsen-Anhalt sind die ALKIS-Überdachungen Kartenobjekte und die
 Durchfahrten Kandidaten. An einer Grenze zwischen Bundesländern fragt freemapper das Kataster beider Bundesländer ab und liest beide
 OSM-Auszüge; Luftbild und Gelände kommen aus dem Bundesland, in dem die Mitte des Kartengebiets liegt. Mehr dazu im
-[Handbuch, Kapitel 12](docs/manual/de.md#12-regionen-und-grenzgebiete). Ein Beispielprojekt je Bundesland liegt unter
+[Handbuch, Kapitel 13](docs/manual/de.md#13-regionen-und-grenzgebiete). Ein Beispielprojekt je Bundesland liegt unter
 [`examples/`](https://github.com/HenryJobst/freemapper/tree/main/examples/).
 
 ## Karte als PDF
@@ -399,6 +399,10 @@ Ablauf, wie der Agent ihn geht:
 Passt kein Suchtreffer oder will man das Gebiet selbst zeichnen, öffnet `open_area_selector` die
 Gebietsauswahl im Browser und gibt die Adresse zurück; nach dem Speichern geht es mit Schritt 3 weiter.
 
+`permits_for_area` schreibt die Hinweise zu Genehmigungen im Hintergrund und gibt eine Job-ID zurück; ist der Job
+fertig, liefert `project_status` den Text von `permits.md` mit. `start_pipeline` und `open_area_selector` nehmen dafür
+`permits: true`.
+
 `check_update` sagt, ob es eine neuere freemapper-Version gibt. `install_update` installiert sie, aber nur mit
 `confirm: true`, nachdem die Nutzerin oder der Nutzer zugestimmt hat; danach startet der Assistent den Server neu.
 
@@ -412,5 +416,5 @@ Datenquellen, z. B. `© GeoBasis-DE/LGB <Jahr>, dl-de/by-2-0, Daten geändert` u
 `© GeoBasis-DE/LGB <Jahr>, dl-de/by-2-0; © Geoportal Berlin, dl-de/zero-2-0, Daten geändert`; wurden
 Berliner ALKIS-Daten geladen, kommt `© Geoportal Berlin / ALKIS Berlin, dl-de/zero-2-0, Daten geändert` hinzu,
 für K5 und Baumkataster je eine eigene Zeile. Die Potsdamer Bäume ergänzen `Landeshauptstadt Potsdam / Bäume
-der Stadtkarte, dl-de/zero-2-0` (siehe [Handbuch, Kapitel 15](docs/manual/de.md#15-namensnennung)).
+der Stadtkarte, dl-de/zero-2-0` (siehe [Handbuch, Kapitel 16](docs/manual/de.md#16-namensnennung)).
 In Sachsen lautet der Vermerk `Quelle: GeoSN, dl-de/by-2-0, Daten geändert`.

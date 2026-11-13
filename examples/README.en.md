@@ -102,6 +102,19 @@ In the Viktoriapark the stairs on the plinth of the Nationaldenkmal lead up to t
 stands at the stadium come as parallel 532.9 lines tagged `freemapper:size=wide`. Fences and walls that both ALKIS and
 OSM have appear once on the map, as the ALKIS line, which names the OSM line in the tag `freemapper:also`.
 
+## Forest map
+
+One example of the map kind `forest` (ISOM 2017-2), for a quick training in a forest:
+
+| State | Area | Map objects | Candidates | Symbols | Preview |
+|---|---|---:|---:|---:|---|
+| Berlin | [Dammheide, Treptow-Köpenick](berlin-dammheide/): a small flat forest with a dense path network, settlements around it | 1387 | 170 | 27 | <a href="berlin-dammheide/berlin-dammheide-candidates.pdf"><img src="berlin-dammheide/preview.webp" width="220" alt=""></a> |
+
+Made with `freemapper init berlin-dammheide --osm relation/4513841 --kind forest --scale 10000 --title Dammheide`
+and `run --pdf-candidates --ocad`. The paths come from OSM and go onto the map in the path classes 502 to 507; the
+forest is white paper. Settlements and gardens are olive green (520, not to be entered). The area is flat, so the
+contours lie every 2.5 m; `freemapper.toml` names this as `[contours] interval_m`.
+
 ## What an example contains
 
 | File | Content |
