@@ -291,20 +291,34 @@ mod tests {
         );
     }
 
-    /// The lines of `source` before its tests that name a region: the id of an adapter of
-    /// `ids` as a text, or a constant of the boundaries, a state or an agency of the adapter
-    /// crate. Comments do not count.
-    fn naming_a_region(source: &str, ids: &[&str]) -> Vec<String> {
+    /// The lines of `source` that name a region or reach into the adapter crate: the id of an
+    /// adapter of `ids` as a text; a constant of the boundaries, a state or an agency; a path
+    /// into the adapter crate; a path into one of its `modules` (`berlin::`, `lgb::`). Tests do
+    /// not count (everything from the first test module on), nor do comments, nor the modules
+    /// `ids` and `golden`, which hold the names the tests go by.
+    fn naming_a_region(source: &str, ids: &[&str], modules: &[String]) -> Vec<String> {
         let names_one = |line: &str| {
-            let enum_of = |name: &str| {
+            let followed_by_upper = |name: &str| {
                 line.match_indices(name).any(|(at, _)| {
                     line[at + name.len()..].starts_with(|c: char| c.is_ascii_uppercase())
                 })
             };
+            // `berlin::` as a path of its own: not the end of a longer name, and not the
+            // engine's own `build::berlin`, the draw rules.
+            let path_into = |module: &String| {
+                let path = format!("{module}::");
+                line.match_indices(&path).any(|(at, _)| {
+                    let before = &line[..at];
+                    !before.ends_with(|c: char| c.is_ascii_alphanumeric() || c == '_')
+                        && !before.ends_with("build::")
+                })
+            };
             ids.iter().any(|id| line.contains(&format!("\"{id}\"")))
-                || enum_of("boundaries::")
-                || enum_of("State::")
-                || enum_of("Agency::")
+                || followed_by_upper("boundaries::")
+                || followed_by_upper("State::")
+                || followed_by_upper("Agency::")
+                || line.contains("freemapper_adapters_de::")
+                || modules.iter().any(path_into)
         };
         let lines: Vec<&str> = source.lines().collect();
         let tests = lines
@@ -319,59 +333,173 @@ mod tests {
                             .is_some_and(|next| next.trim_start().contains("mod ")))
             })
             .unwrap_or(lines.len());
-        lines[..tests]
-            .iter()
-            .filter(|line| !line.trim_start().starts_with("//") && names_one(line))
-            .map(|line| line.trim().to_string())
-            .collect()
+        let mut found = Vec::new();
+        // Inside `pub mod ids {` or `pub mod golden {`: how many braces are open.
+        let mut names: Option<i32> = None;
+        for line in &lines[..tests] {
+            let trimmed = line.trim_start();
+            if names.is_none()
+                && (trimmed.starts_with("pub mod ids {") || trimmed.starts_with("pub mod golden {"))
+            {
+                names = Some(0);
+            }
+            if let Some(open) = names.as_mut() {
+                *open += line.matches('{').count() as i32 - line.matches('}').count() as i32;
+                if *open <= 0 {
+                    names = None;
+                }
+                continue;
+            }
+            if !trimmed.starts_with("//") && names_one(line) {
+                found.push(line.trim().to_string());
+            }
+        }
+        found
     }
 
-    /// The engine asks the adapters of the registry and names no region itself (ADR 0082,
-    /// and the extra layers of an adapter). Three places may: the draw rules (`build/`), which
-    /// read the layers of Berlin by name until adapters bring rules; the names the tests go
-    /// by (`sources::region::ids`); and the key of the one set of extra layers the project
-    /// file has a field for.
+    /// What the engine still takes from the adapter crate by name: the file and a part of the
+    /// line, each with its reason. A line that is not here fails
+    /// [`the_engine_names_no_region`].
+    const STILL_NAMED: &[(&str, &str)] = &[
+        // The adapters built into the program are linked here.
+        (
+            "adapters/mod.rs",
+            "freemapper_adapters_de::states::register_with_hosts(",
+        ),
+        (
+            "adapters/mod.rs",
+            "freemapper_adapters_de::states::register_backends(",
+        ),
+        // The key of the one set of extra layers the project file has a field for.
+        ("project.rs", "const REGISTERS_SET: &str = \"berlin\";"),
+        // The table of Berlin's layers, typed, for the inputs of the draw rules (naming a layer
+        // is allowed; the rules leave when adapters bring rules).
+        ("project.rs", "use freemapper_adapters_de::berlin;"),
+        ("project.rs", "berlin::ExtraLayer"),
+        ("project.rs", "berlin::EXTRA_LAYERS"),
+        (
+            "project.rs",
+            "berlin::extra_layers(project.map_kind.contract())",
+        ),
+        ("project/export.rs", "berlin::join_footprint_dates("),
+        // Which registers drew objects, for the credit: open with the rank of `dedup` (ADR 0114).
+        (
+            "project.rs",
+            "use freemapper_adapters_de::berlin::BERLIN_REGISTERS;",
+        ),
+        // The tile download of the tile providers, re-exported for the engine's tests of it.
+        ("fetch.rs", "pub use freemapper_adapters_de::tile_fetch::{"),
+        // How a product names its tiles, a trait of the tile providers that `derive` reads.
+        (
+            "derive/orthophoto.rs",
+            "use freemapper_adapters_de::lgb::ProductTiles as _;",
+        ),
+        (
+            "derive/terrain.rs",
+            "use freemapper_adapters_de::lgb::ProductTiles as _;",
+        ),
+        // The endpoints of the cadastre of two states, for the helpers the engine's tests use.
+        (
+            "sources/alkis.rs",
+            "pub use freemapper_adapters_de::states::alkis::{",
+        ),
+    ];
+
+    /// The engine asks the adapters of the registry and decides nothing by the name of a
+    /// region (ADR 0082, ADR 0114). Outside the draw rules (`build/`, which read the layers of
+    /// Berlin by name until adapters bring rules), its code that is no test names no region
+    /// and reaches into the adapter crate only at the lines of [`STILL_NAMED`].
     #[test]
     fn the_engine_names_no_region() {
         let ids: Vec<&str> = registry()
             .adapters()
             .map(|adapter| adapter.info().id.as_str())
             .collect();
+        let manifest = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+        // The modules of the adapter crate, from its `lib.rs`.
+        let modules: Vec<String> =
+            std::fs::read_to_string(manifest.join("../adapters/de/src/lib.rs"))
+                .unwrap()
+                .lines()
+                .filter_map(|line| line.strip_prefix("pub mod ")?.strip_suffix(';'))
+                .map(str::to_string)
+                .collect();
+        assert!(
+            modules.iter().any(|module| module == "berlin"),
+            "{modules:?}"
+        );
         // The detector finds what it is for.
         let sample = "let a = x == \"hessen\";\n// \"berlin\" in a comment\nuse b::State::Berlin;\n\
-                      let c = boundaries::BERLIN;\nlet plain = boundaries::outline(id);\n\
-                      #[cfg(test)]\nmod tests {\n    let d = \"saxony\";\n}\n";
+                      let c = boundaries::BERLIN;\nlet near = berlin::near_berlin(&bbox);\n\
+                      use crate::build::berlin::LayerInput;\nuse freemapper_adapters_de::lgb::Product;\n\
+                      let plain = boundaries_of(id);\npub mod ids {\n    pub const B: &str = \"berlin\";\n}\n\
+                      let d = lgb::Product::Dop;\n#[cfg(test)]\nmod tests {\n    let e = \"saxony\";\n}\n";
         assert_eq!(
-            naming_a_region(sample, &ids),
+            naming_a_region(sample, &ids, &modules),
             [
                 "let a = x == \"hessen\";",
                 "use b::State::Berlin;",
-                "let c = boundaries::BERLIN;"
+                "let c = boundaries::BERLIN;",
+                "let near = berlin::near_berlin(&bbox);",
+                "use freemapper_adapters_de::lgb::Product;",
+                "let d = lgb::Product::Dop;",
             ]
         );
-        fn visit(dir: &std::path::Path, ids: &[&str], found: &mut Vec<String>) {
+        /// Whether the module `file` is declared for tests only (`#[cfg(test)] mod name;`).
+        fn for_tests_only(file: &std::path::Path) -> bool {
+            let (Some(dir), Some(name)) = (file.parent(), file.file_stem()) else {
+                return false;
+            };
+            let declaration = format!("#[cfg(test)]\nmod {};", name.to_string_lossy());
+            [dir.join("mod.rs"), dir.with_extension("rs")]
+                .iter()
+                .filter_map(|parent| std::fs::read_to_string(parent).ok())
+                // A Windows checkout may turn LF into CRLF.
+                .any(|parent| parent.replace("\r\n", "\n").contains(&declaration))
+        }
+        fn visit(
+            dir: &std::path::Path,
+            ids: &[&str],
+            modules: &[String],
+            found: &mut Vec<(String, String)>,
+        ) {
             for entry in std::fs::read_dir(dir).unwrap() {
                 let path = entry.unwrap().path();
                 if path.is_dir() {
                     if path.file_name().is_some_and(|name| name != "build") {
-                        visit(&path, ids, found);
+                        visit(&path, ids, modules, found);
                     }
-                } else if path.extension().is_some_and(|e| e == "rs")
-                    && !path.ends_with("sources/region.rs")
-                {
+                } else if path.extension().is_some_and(|e| e == "rs") && !for_tests_only(&path) {
                     let source = std::fs::read_to_string(&path).unwrap();
-                    for line in naming_a_region(&source, ids) {
-                        found.push(format!("{}: {line}", path.display()));
+                    for line in naming_a_region(&source, ids, modules) {
+                        found.push((path.to_string_lossy().replace('\\', "/"), line));
                     }
                 }
             }
         }
-        let src = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
         let mut found = Vec::new();
-        visit(&src, &ids, &mut found);
-        let allowed = |line: &String| line.ends_with("const REGISTERS_SET: &str = \"berlin\";");
-        found.retain(|line| !allowed(line));
-        assert!(found.is_empty(), "{found:#?}");
+        visit(&manifest.join("src"), &ids, &modules, &mut found);
+        let known = |file: &str, line: &str| {
+            STILL_NAMED.iter().any(|(suffix, part)| {
+                file.ends_with(&format!("/src/{suffix}")) && line.contains(part)
+            })
+        };
+        let new: Vec<String> = found
+            .iter()
+            .filter(|(file, line)| !known(file, line))
+            .map(|(file, line)| format!("{file}: {line}"))
+            .collect();
+        assert!(new.is_empty(), "{new:#?}");
+        // And the list holds nothing that is gone.
+        for (suffix, part) in STILL_NAMED {
+            assert!(
+                found
+                    .iter()
+                    .any(|(file, line)| file.ends_with(&format!("/src/{suffix}"))
+                        && line.contains(part)),
+                "{suffix}: {part} is no longer there; take it off the list"
+            );
+        }
     }
 
     /// What the engine fetches for one adapter goes through that adapter's hosts: a request

@@ -152,8 +152,15 @@ test in the engine fails when a non-test line names a state id.
 - `sources::berlin` of the engine is gone. `object_polygon` is `build/geometry.rs`, unchanged.
 - `asking_for(id, …)` became `asking(adapter, …)`: no lookup by id and no silent fall back to a fetcher without
   host rules; the sets, the templates and the point clouds go through it.
-- A test scans the engine's code that is no test and fails on the id of a built-in adapter or a constant of a
-  state outside `build/`, `sources::region::ids` and the key of the set recorded in `berlin_layers`.
+- A test scans the engine's code that is no test, outside `build/` and the modules `ids` and `golden` of names,
+  and fails on the id of a built-in adapter as a text, on a constant of a state, an agency or a boundary, and on
+  any path into the adapter crate or one of its modules. What still reaches into the adapter crate is a list in
+  the test, line by line with its reason (the registration, the key of the set, Berlin's table for the inputs of
+  the rules, the register list for the credit, the tile download and tile names of the tile providers, two
+  endpoints of the cadastre); a new line fails. After the review of "freemapper": the first version left all of
+  `sources/region.rs` out and knew no module paths, so it would not have seen `touches_berlin` come back.
+- `Product` comes from the api crate (`crate::fetch::Product`), and the point cloud fetch gets its adapter with
+  its backend (`point_cloud_source`), so the return that could not be reached is gone.
 
 Left open, on purpose:
 

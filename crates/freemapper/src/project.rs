@@ -9,7 +9,7 @@ use freemapper_adapter_api::credit::{AlkisUse, CreditLine, UsedSources, lines_wi
 use freemapper_adapter_api::records::AdapterId;
 use serde::{Deserialize, Serialize};
 
-use crate::adapters::registry;
+use crate::adapters::{RegionAdapter, registry};
 use crate::area::GeoBox;
 use crate::area::{AreaError, MapArea};
 use crate::build::barriers::resolve_barrier_overlaps;
@@ -65,6 +65,7 @@ use crate::derive::vegetation::{
     BuildingMask, CELL_M as VEGETATION_CELL_M, CellCounts, vegetation_areas, vegetation_to_geojson,
 };
 use crate::derive::{DeriveError, MAX_RASTER_SIDE_PX};
+use crate::fetch::Product;
 use crate::fetch::{Cache, FetchError, FetchMode, Fetcher, write_inside};
 use crate::georef::{GeorefError, Georeferencing};
 use crate::ocd::convert::{Background, WorldFile, map_to_ocd};
@@ -89,7 +90,6 @@ use crate::sources::trees;
 use crate::space::{Part, SpacePlan};
 use crate::tiles::TileId;
 use freemapper_adapters_de::berlin;
-use freemapper_adapters_de::lgb::Product;
 
 mod export;
 mod extras;
@@ -1326,9 +1326,19 @@ fn point_cloud_backend(
     project: &ProjectFile,
     region_bbox: &BoundingBox,
 ) -> Option<&'static dyn PointCloudBackend> {
-    raster_region_in(registry(), region_bbox)
-        .and_then(|adapter| adapter.point_cloud())
-        .filter(|backend| project.wants_vegetation() && backend.info().epsg == project.crs().epsg())
+    point_cloud_source(project, region_bbox).map(|(_, backend)| backend)
+}
+
+/// [`point_cloud_backend`] with the adapter it belongs to, whose hosts its requests are held to.
+fn point_cloud_source(
+    project: &ProjectFile,
+    region_bbox: &BoundingBox,
+) -> Option<(&'static dyn RegionAdapter, &'static dyn PointCloudBackend)> {
+    let region = raster_region_in(registry(), region_bbox)?;
+    let backend = region.point_cloud().filter(|backend| {
+        project.wants_vegetation() && backend.info().epsg == project.crs().epsg()
+    })?;
+    Some((region, backend))
 }
 
 /// The point-cloud tiles under `area.bbox` (the map area plus buffer in the map's CRS) for the
@@ -1345,7 +1355,7 @@ fn fetch_point_clouds_into(
     area: &FetchArea,
     progress: &mut dyn FnMut(Note),
 ) {
-    let Some(backend) = point_cloud_backend(project, &area.region_bbox) else {
+    let Some((region, backend)) = point_cloud_source(project, &area.region_bbox) else {
         // The choice has no effect here: say so once rather than leave the map maker waiting.
         if project.wants_vegetation() {
             progress(note!("progress-no-point-clouds"));
@@ -1364,11 +1374,7 @@ fn fetch_point_clouds_into(
         project.point_clouds = still_cached(&project.point_clouds);
         return;
     }
-    // Like every request for a state, only to the hosts its manifest declares. The backend is
-    // that of the raster region, so the region is there.
-    let Some(region) = raster_region_in(registry(), &area.region_bbox) else {
-        return;
-    };
+    // Like every request for a state, only to the hosts its manifest declares.
     let fetched = crate::adapters::asking(region, fetcher, |fetcher| {
         let mut env = AdapterEnv {
             fetcher,

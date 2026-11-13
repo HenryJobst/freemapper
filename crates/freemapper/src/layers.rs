@@ -13,6 +13,7 @@ use crate::adapters::registry;
 use crate::area::MapArea;
 use crate::crs::{BoundingBox, LatLon, ProjectedPoint, utm33_inverse};
 use crate::fetch::Cache;
+use crate::fetch::Product;
 use crate::project::{
     BUILDINGS_RELPATH, CANDIDATES_RELPATH, HILLSHADE_RELPATH, K5_RELPATH, LAND_USE_RELPATH,
     NDSM_RELPATH, ORTHOPHOTO_RELPATH, ProjectError, ProjectFile, RELIEF_RELPATH, SLOPE_RELPATH,
@@ -22,7 +23,6 @@ use crate::sources::osm::{MAX_EXTRACT_AGE_DAYS, cached_extract_date, extracts_fo
 use crate::sources::region::{provider_tiles_in, raster_region_in};
 use crate::space::{Part, Store};
 use crate::tiles::TileId;
-use freemapper_adapters_de::lgb::Product;
 /// Typical download sizes in MB.
 const ALKIS_MB: f64 = 0.5;
 /// The NAS layers (full ALKIS) per km² where a state with a NAS service is touched. The live run
