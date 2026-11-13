@@ -335,7 +335,7 @@ pub mod golden {
             "rheinlandpfalz" => ("DERP", 7.165, 50.1443),
             "saarland" => ("DESL", 6.7515, 49.3155),
             "badenwuerttemberg" => ("DEBW", 8.7125, 49.4112),
-            "bremen" => ("DEHB", 8.8072, 53.0758),
+            "bremen" => ("DEHB", 8.805, 53.07825),
             other => panic!("no built-in region {other}"),
         }
     }

@@ -13,7 +13,7 @@ advice). Map kinds: `schoolyard` (1:1000), `sprint` (ISSprOM 2019, 1:4000 or 1:5
 
 Supported states: Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein,
 Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony, Rhineland-Palatinate,
-Saarland and Baden-Württemberg. Bremen, Thuringia and Bavaria have no data sources yet; an area there fails with a message that says so. Tell the
+Saarland, Baden-Württemberg and Bremen. Thuringia and Bavaria have no data sources yet; an area there fails with a message that says so. Tell the
 user before you start if the place lies outside these states.
 
 ## Install
@@ -153,7 +153,7 @@ Workflow:
    takes the best match with an area without listing the others. If no match fits, let the person draw the area
    with `select <dir>` (it prints or opens the page address; wait until they say they saved).
 3. Tell the person the download size before a large first download: the first project in a state
-   downloads its OSM extract (about 50 to 500 MB, kept for 7 days); later projects are much smaller.
+   downloads its OSM extract (about 20 to 500 MB, kept for 7 days); later projects are much smaller.
 4. `freemapper run <dir>` with the outputs the person wants (`--pdf` to print, `--ocad` for OCAD, `--pdf-candidates`
    for a quick training map, `--permits` for the permit notes when they plan an event there). It takes from one
    to several minutes, longer on the first download, which can be longer than your default command timeout:
@@ -213,7 +213,7 @@ states such as `running` or `finished` are the same in both languages. This file
    or the user wants to draw the area, call `open_area_selector`, give the user the address and wait until they
    say they saved; saving creates the project.
 3. `estimate_download` and tell the user the size. The first project in a state downloads the state's OSM extract
-   (about 50 to 500 MB, kept for 7 days); later projects in the same state are much smaller. Wait for an okay
+   (about 20 to 500 MB, kept for 7 days); later projects in the same state are much smaller. Wait for an okay
    before a large download.
 4. `start_pipeline`. Set `pdf: true` if the user wants something to print, `ocad: true` if they edit in OCAD,
    `pdf_candidates: true` for a quick training map that draws every uncertain object too.

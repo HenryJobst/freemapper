@@ -14,7 +14,7 @@ Samples (tiny test responses only) are in `work/<state>/` next to this file; all
 | Rheinland-Pfalz | ready | medium | `ave:` WFS on a different server (no `NutzungFlurstueck`, uses `ave:Nutzung`); DGM1/DOM1 1 km tif tiles; DOP via WMS or 155 MB JP2; dl-de/by-2-0 |
 | Baden-Wuerttemberg | done 2026-11-13 (ADR 0119, `baden-wuerttemberg-reference.md`) | medium-high | The row of 2026-11-08 was wrong in four points: there is an open ALKIS WFS with buildings and land use (GeoServer views, not the simplified schema), the 2 km zips are deflated and still readable by range per member, DGM1 is XYZ text, and the flight date of the orthophoto is in an open WFS. Orthophoto from the WMS, DGM1 and nDOM1 from the zips |
 | Bayern | partly | high | DOP20/DGM1/DOM20 open, but buildings (Hausumringe) and land use (TN) only as bulk downloads (Shape per Regierungsbezirk, 5 GB GPKG); no WFS |
-| Bremen | partly | medium | DOP20 WMS and Hausumringe WFS open; DGM1 only as 1.09 GB XYZ zip; DOM1 only as rendered WMS; no land-use service found |
+| Bremen | done 2026-11-13 (ADR 0121, `bremen-reference.md`) | medium | The row of 2026-11-08 was wrong in three points: the full ALKIS with buildings and land use is open as a WFS on the LGLN's server, DOM1 has a download next to the rendered WMS, and both height archives are read by range per tile. Orthophoto from a WMS with a layer per flight and city |
 | Saarland | done 2026-11-12 (ADR 0111, `saarland-reference.md`) | medium | All services answered on 2026-11-12. DOP20, DGM1, DOM1 and ALKIS simplified are dl-de/by-2-0 by the LVGL catalogue; heights come as district zips with 1 km tiles (range requests), ALKIS from a WFS with upper-case attribute names. The line of 2026-11-08 below is kept as found then |
 
 Recommended order: NRW, Niedersachsen, Rheinland-Pfalz, Baden-Wuerttemberg, Bremen, Bayern, Saarland.
@@ -86,7 +86,7 @@ Effort medium-high: needs a zip-tile reader with ranges, an INSPIRE building par
 Licence source (portal FAQ `https://www.geodaten.bayern.de/odd/m/3/html/faq.html`, WMS `AccessConstraints: CC BY 4.0`, Fees: kostenfrei): attribution "Geobasisdaten: Bayerische Vermessungsverwaltung - www.geodaten.bayern.de (Daten veraendert), Lizenz: CC BY 4.0" (the "Daten veraendert" part when modified).
 Effort high: needs a Metalink/tile index, big bulk downloads (build a pre-cut regional extract of Hausumringe and TN, as done for OSM), and no WFS. DOP date works through the WMS info layer.
 
-## Bremen (partly)
+## Bremen (done; the findings below are of 2026-11-08 and partly superseded, see `bremen-reference.md`)
 
 | Product | Open? | Verified service / URL | CRS | Licence | Blockers / notes |
 |---|---|---|---|---|---|
