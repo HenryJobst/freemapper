@@ -554,12 +554,18 @@ impl ProjectFile {
             ));
             false
         };
-        self.berlin_layers
-            .retain(|key, _| keep("Berlin", key, (extras::BERLIN.known)(key)));
+        let registers = registers();
+        self.berlin_layers.retain(|key, _| {
+            keep(
+                "Berlin",
+                key,
+                registers.as_ref().is_some_and(|family| family.has(key)),
+            )
+        });
         self.nas_layers
-            .retain(|key, _| keep("NAS", key, (extras::NAS.known)(key)));
+            .retain(|key, _| keep("NAS", key, extras::NAS.has(key)));
         self.tree_layers
-            .retain(|key, _| keep("tree", key, (extras::TREES.known)(key)));
+            .retain(|key, _| keep("tree", key, extras::TREES.has(key)));
     }
 
     /// The title without control characters, or the folder name of `dir` with each
@@ -645,8 +651,10 @@ impl ProjectFile {
         self.point_clouds.clear();
         self.buildings = None;
         self.land_use = None;
-        for key in self.berlin_layers.keys() {
-            extras::remove(dir, &extras::BERLIN, key);
+        if let Some(registers) = registers() {
+            for key in self.berlin_layers.keys() {
+                extras::remove(dir, &registers, key);
+            }
         }
         self.berlin_layers.clear();
         for key in self.nas_layers.keys() {
@@ -1229,9 +1237,13 @@ pub(crate) fn mark_stored(
     let k5 = project.k5.as_ref().is_some_and(|r| r.covers(bbox)) && dir.join(K5_RELPATH).exists();
     // Stored layers count only when every record covers the area and its file is there: an
     // area moved within the state is downloaded again.
+    let registers = registers();
     let berlin_layers = !project.berlin_layers.is_empty()
         && project.berlin_layers.iter().all(|(key, record)| {
-            record.covers(bbox) && extras::is_stored(dir, &extras::BERLIN, key)
+            record.covers(bbox)
+                && registers
+                    .as_ref()
+                    .is_some_and(|family| extras::is_stored(dir, family, key))
         });
     let nas_layers = !project.nas_layers.is_empty()
         && project
@@ -1734,6 +1746,16 @@ fn fetch_land_use_into(
     }
 }
 
+/// The key of the set of extra layers whose records the project file keeps in `berlin_layers`:
+/// the one set there is. A second one needs a field of its own.
+const REGISTERS_SET: &str = "berlin";
+
+/// The family of the set of extra layers recorded in `berlin_layers`, from the adapter of the
+/// registry that has it; `None` when no adapter of this run has it.
+fn registers() -> Option<extras::Family<'static>> {
+    extras::set_in(registry(), REGISTERS_SET).map(|(_, set)| extras::of_set(set))
+}
+
 /// The extra Berlin layer the project file records under `key`, from the static table; `None`
 /// for a key no layer has.
 fn known_berlin_layer(key: &str) -> Option<&'static berlin::ExtraLayer> {
@@ -1743,7 +1765,8 @@ fn known_berlin_layer(key: &str) -> Option<&'static berlin::ExtraLayer> {
 /// Path of the stored extra Berlin `layer`. It takes a layer of the table, never a name read from
 /// the project file, so the path is always one freemapper built (ADR 0059).
 fn berlin_layer_path(dir: &Path, layer: &berlin::ExtraLayer) -> PathBuf {
-    extras::path(dir, &extras::BERLIN, layer.file)
+    dir.join(BERLIN_LAYERS_DIR)
+        .join(format!("{}.geojson", layer.file))
 }
 
 /// Downloads the extra Berlin layers of `kind` in `region_bbox` to [`BERLIN_LAYERS_DIR`] and
@@ -1764,33 +1787,21 @@ fn fetch_berlin_layers_into(
     previous: &BTreeMap<String, AlkisRecord>,
     progress: &mut dyn FnMut(Note),
 ) -> BTreeMap<String, AlkisRecord> {
-    extras::fetch_into(
-        &extras::BERLIN,
+    let Some((adapter, set)) = extras::set_in(registry(), REGISTERS_SET) else {
+        // No adapter of this run has the set: nothing of it is known, nothing is touched.
+        return previous.clone();
+    };
+    extras::fetch_set_into(
+        adapter,
+        set,
         dir,
-        berlin::near_berlin(region_bbox),
+        fetcher,
+        region_bbox,
+        kind,
         mode,
         skip,
-        region_bbox,
         previous,
         progress,
-        |_| {
-            // The registers are services of Berlin: asked through the hosts Berlin declares.
-            crate::adapters::asking_for(BERLIN, fetcher, |fetcher| {
-                berlin::fetch_extra_layers(fetcher, region_bbox, kind)
-            })
-            .into_iter()
-            .map(|fetched| extras::Fetched {
-                key: fetched.layer.file.to_string(),
-                features: fetched.features.map(|features| extras::Features {
-                    features,
-                    skipped: Vec::new(),
-                    regions: vec![AdapterId::built_in(
-                        freemapper_adapters_de::boundaries::BERLIN,
-                    )],
-                }),
-            })
-            .collect()
-        },
     )
 }
 
@@ -1997,11 +2008,14 @@ pub(crate) fn stored_berlin_layers(
     dir: &Path,
     project: &ProjectFile,
 ) -> Result<Vec<StoredBerlinLayer>, ProjectError> {
+    let Some(registers) = registers() else {
+        return Ok(Vec::new());
+    };
     let region_bbox = project.region_bbox()?;
     let mut layers = Vec::new();
     for layer in berlin::extra_layers(project.map_kind) {
         if let Some(stored) = extras::stored(
-            &extras::BERLIN,
+            &registers,
             dir,
             &project.berlin_layers,
             &region_bbox,

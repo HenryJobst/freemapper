@@ -87,7 +87,7 @@ pub fn region_names(german: bool) -> Vec<&'static str> {
 pub(crate) mod test_support {
     use std::sync::Arc;
 
-    use freemapper_adapter_api::extras::{NasService, TreeDataset};
+    use freemapper_adapter_api::extras::{ExtraSet, NasService, TreeDataset};
     use freemapper_adapter_api::info::{Names, RegionInfo};
     use freemapper_adapter_api::policy::UrlPolicy;
     use freemapper_adapter_api::records::AdapterId;
@@ -104,6 +104,7 @@ pub(crate) mod test_support {
         boundary: geo_types::MultiPolygon<f64>,
         nas: Option<NasService>,
         policy: Option<UrlPolicy>,
+        extras: Vec<Box<dyn ExtraSet>>,
     }
 
     impl RegionAdapter for Square {
@@ -131,6 +132,10 @@ pub(crate) mod test_support {
             &[]
         }
 
+        fn extras(&self) -> &[Box<dyn ExtraSet>] {
+            &self.extras
+        }
+
         fn rasters(&self) -> Option<&dyn freemapper_adapter_api::rasters::RasterBackend> {
             None
         }
@@ -155,6 +160,15 @@ pub(crate) mod test_support {
     /// the NAS service `nas`. `hosts`: the hosts its requests are held to, as for an adapter
     /// from a folder; `None`: it asks as a built-in adapter does.
     pub(crate) fn square(nas: Option<NasService>, hosts: Option<&[&str]>) -> Registry {
+        square_with(nas, hosts, Vec::new())
+    }
+
+    /// [`square`] with the sets of extra layers `extras`.
+    pub(crate) fn square_with(
+        nas: Option<NasService>,
+        hosts: Option<&[&str]>,
+        extras: Vec<Box<dyn ExtraSet>>,
+    ) -> Registry {
         let mut registry = Registry::new();
         registry
             .add(Arc::new(Square {
@@ -180,6 +194,7 @@ pub(crate) mod test_support {
                 ]),
                 nas,
                 policy: hosts.map(|hosts| UrlPolicy::new(hosts.iter().copied()).unwrap()),
+                extras,
             }))
             .unwrap();
         registry

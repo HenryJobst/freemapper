@@ -7,29 +7,34 @@
 //! not be fetched keeps its stored file while that still covers the area, and is left out
 //! otherwise; each case is reported.
 
+use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use chrono::NaiveDate;
+use freemapper_adapter_api::extras::ExtraSet;
+use freemapper_adapter_api::geometry::touches_region_in;
+use freemapper_adapter_api::policy::PolicyFetcher;
 use freemapper_adapter_api::records::AdapterId;
 use serde_json::Value;
 
 use super::{
-    AlkisRecord, BERLIN_LAYERS_DIR, NAS_LAYERS_DIR, ProjectError, SKIPPED_SHOWN, TREE_LAYERS_DIR,
-    alkis_nas, berlin, trees,
+    AlkisRecord, MapKind, NAS_LAYERS_DIR, ProjectError, SKIPPED_SHOWN, TREE_LAYERS_DIR, alkis_nas,
+    berlin, trees,
 };
+use crate::adapters::{RegionAdapter, Registry};
 use crate::crs::BoundingBox;
-use crate::fetch::{FetchError, FetchMode, write_inside};
+use crate::fetch::{FetchError, FetchMode, Fetcher, write_inside};
 use crate::note::Note;
 
 /// What the engine knows of one family of extra layers.
-pub(crate) struct Family {
+pub(crate) struct Family<'a> {
     /// The folder of the stored layers under the project folder.
-    pub dir: &'static str,
-    /// Whether `key` is a layer of the family's table. A file is only ever read, written or
-    /// removed under such a key, never under a name read from the project file (ADR 0059):
-    /// [`stored`], [`is_stored`], [`remove`] and the storing of a fetch ask this first.
-    pub known: fn(&str) -> bool,
+    pub dir: Cow<'a, str>,
+    /// The table of the family's layers. A file is only ever read, written or removed under a
+    /// key of it, never under a name read from the project file (ADR 0059): [`stored`],
+    /// [`is_stored`], [`remove`] and the storing of a fetch ask it first ([`Family::has`]).
+    pub table: Table<'a>,
     /// The name the notes give the key of a layer under.
     pub key_arg: &'static str,
     /// Where an answer streams into before it becomes a layer (ADR 0060); `None`: the answers
@@ -38,6 +43,24 @@ pub(crate) struct Family {
     /// The property of a feature that dates it; `None`: the features carry no date.
     pub dated_by: Option<&'static str>,
     pub notes: Notes,
+}
+
+/// The layers a family has.
+pub(crate) enum Table<'a> {
+    /// A table of the engine, for a family fed by data of the adapters.
+    Fixed(fn(&str) -> bool),
+    /// The layers of a set an adapter fetches itself.
+    Set(&'a dyn ExtraSet),
+}
+
+impl Family<'_> {
+    /// Whether `key` is a layer of the family.
+    pub(crate) fn has(&self, key: &str) -> bool {
+        match self.table {
+            Table::Fixed(known) => known(key),
+            Table::Set(set) => set.has(key),
+        }
+    }
 }
 
 /// The part file of a family whose answers are streamed.
@@ -66,10 +89,6 @@ pub(crate) struct Notes {
     pub dropped: &'static str,
 }
 
-fn known_berlin(key: &str) -> bool {
-    super::known_berlin_layer(key).is_some()
-}
-
 fn known_nas(key: &str) -> bool {
     alkis_nas::NAS_LAYERS.iter().any(|layer| layer.file == key)
 }
@@ -78,28 +97,10 @@ fn known_trees(key: &str) -> bool {
     trees::all_tree_datasets().any(|dataset| dataset.id == key)
 }
 
-/// Berlin's registers, surveys and point layers.
-pub(crate) const BERLIN: Family = Family {
-    dir: BERLIN_LAYERS_DIR,
-    known: known_berlin,
-    key_arg: "file",
-    part: None,
-    dated_by: None,
-    notes: Notes {
-        none_stored: "progress-berlin-none-stored",
-        removing: "progress-berlin-removing",
-        download: "progress-berlin-download",
-        features: "progress-berlin-features",
-        skipped: None,
-        kept: "warning-berlin-layer-kept",
-        dropped: "warning-berlin-layer-skipped",
-    },
-};
-
 /// The full ALKIS (NAS) of the states that serve it.
-pub(crate) const NAS: Family = Family {
-    dir: NAS_LAYERS_DIR,
-    known: known_nas,
+pub(crate) const NAS: Family<'static> = Family {
+    dir: Cow::Borrowed(NAS_LAYERS_DIR),
+    table: Table::Fixed(known_nas),
     key_arg: "file",
     part: Some(Part {
         answer: "answer.gml",
@@ -118,9 +119,9 @@ pub(crate) const NAS: Family = Family {
 };
 
 /// The tree cadastres of cities.
-pub(crate) const TREES: Family = Family {
-    dir: TREE_LAYERS_DIR,
-    known: known_trees,
+pub(crate) const TREES: Family<'static> = Family {
+    dir: Cow::Borrowed(TREE_LAYERS_DIR),
+    table: Table::Fixed(known_trees),
     key_arg: "id",
     part: Some(Part {
         answer: "answer.geojson",
@@ -137,6 +138,86 @@ pub(crate) const TREES: Family = Family {
         dropped: "warning-trees-skipped",
     },
 };
+
+/// The adapter of `registry` that has a set of extra layers with `key`, and the set.
+pub(crate) fn set_in<'a>(
+    registry: &'a Registry,
+    key: &str,
+) -> Option<(&'a dyn RegionAdapter, &'a dyn ExtraSet)> {
+    registry.adapters().find_map(|adapter| {
+        let set = adapter.extras().iter().find(|set| set.info().key == key)?;
+        Some((adapter, set.as_ref()))
+    })
+}
+
+/// The family of a set of extra layers an adapter fetches itself: its layers lie in the folder
+/// `data/<key>`, held in memory while they are fetched, without a date of their own.
+pub(crate) fn of_set(set: &dyn ExtraSet) -> Family<'_> {
+    let info = set.info();
+    Family {
+        dir: Cow::Owned(format!("data/{}", info.key)),
+        table: Table::Set(set),
+        key_arg: "file",
+        part: None,
+        dated_by: None,
+        notes: Notes {
+            none_stored: info.notes.none_stored,
+            removing: info.notes.removing,
+            download: info.notes.download,
+            features: info.notes.features,
+            skipped: None,
+            kept: info.notes.kept,
+            dropped: info.notes.dropped,
+        },
+    }
+}
+
+/// Fetches the layers of `set`, a set of `adapter`, for a map of `kind` into its folder and
+/// returns the records that replace `previous`, as [`fetch_into`] does for any family. The set
+/// is in reach of an area that touches the region of its adapter, and it is asked through the
+/// hosts the adapter is held to.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn fetch_set_into(
+    adapter: &dyn RegionAdapter,
+    set: &dyn ExtraSet,
+    dir: &Path,
+    fetcher: &dyn Fetcher,
+    region_bbox: &BoundingBox,
+    kind: MapKind,
+    mode: FetchMode,
+    skip: bool,
+    previous: &BTreeMap<String, AlkisRecord>,
+    progress: &mut dyn FnMut(Note),
+) -> BTreeMap<String, AlkisRecord> {
+    fetch_into(
+        &of_set(set),
+        dir,
+        touches_region_in(adapter, region_bbox),
+        mode,
+        skip,
+        region_bbox,
+        previous,
+        progress,
+        |_| {
+            let fetch = |fetcher: &dyn Fetcher| set.fetch(fetcher, region_bbox, kind.contract());
+            let layers = match adapter.policy() {
+                Some(policy) => fetch(&PolicyFetcher::new(fetcher, policy)),
+                None => fetch(fetcher),
+            };
+            layers
+                .into_iter()
+                .map(|fetched| Fetched {
+                    key: fetched.key.to_string(),
+                    features: fetched.features.map(|features| Features {
+                        features,
+                        skipped: Vec::new(),
+                        regions: vec![adapter.info().id.clone()],
+                    }),
+                })
+                .collect()
+        },
+    )
+}
 
 /// One layer as fetched; an empty list of features is a layer without objects in the area.
 pub(crate) struct Fetched {
@@ -165,18 +246,18 @@ pub(crate) struct Stored {
 /// the table: a caller takes the key from the table, or uses [`stored`], [`is_stored`] and
 /// [`remove`], which ask.
 pub(crate) fn path(dir: &Path, family: &Family, key: &str) -> PathBuf {
-    dir.join(family.dir).join(format!("{key}.geojson"))
+    dir.join(family.dir.as_ref()).join(format!("{key}.geojson"))
 }
 
 /// Whether the layer `key` of `family` has a stored file.
 pub(crate) fn is_stored(dir: &Path, family: &Family, key: &str) -> bool {
-    (family.known)(key) && path(dir, family, key).exists()
+    family.has(key) && path(dir, family, key).exists()
 }
 
 /// Removes the stored layer the project file records under `key`: only a layer of the table,
 /// and only when its file lies inside the project folder (no link leads out of it).
 pub(crate) fn remove(dir: &Path, family: &Family, key: &str) {
-    if (family.known)(key) {
+    if family.has(key) {
         freemapper_fs::remove_inside(dir, &path(dir, family, key));
     }
 }
@@ -221,12 +302,12 @@ pub(crate) fn fetch_into(
         // The disk plan already said that the layers are left out; stored ones stay.
         return previous.clone();
     }
-    let layers_dir = dir.join(family.dir);
+    let layers_dir = dir.join(family.dir.as_ref());
     if let Some(part) = &family.part {
         // Answers stream into a part file beside the layers with a fresh name, its folder
         // checked right before each download (ADR 0060), removed after each one.
         if crate::fsutil::check_folder_inside(dir, &layers_dir).is_err() {
-            progress(Note::new(part.folder_outside).with("folder", family.dir));
+            progress(Note::new(part.folder_outside).with("folder", family.dir.as_ref()));
             return BTreeMap::new();
         }
         // Only after the check: a linked folder never has its part files removed.
@@ -271,12 +352,15 @@ fn store(
     let mut records = BTreeMap::new();
     for fetched in layers {
         let key = fetched.key.as_str();
-        if !(family.known)(key) {
+        if !family.has(key) {
             // No file is written under a name that is no layer of the table.
             progress(
                 Note::new(family.notes.dropped)
                     .with(family.key_arg, key)
-                    .with("detail", format!("not a layer of {}", family.dir)),
+                    .with(
+                        "detail",
+                        Note::new("error-extra-layer-unknown").with("folder", family.dir.as_ref()),
+                    ),
             );
             continue;
         }
@@ -379,7 +463,7 @@ pub(crate) fn stored(
     bbox: &BoundingBox,
     key: &str,
 ) -> Result<Option<Stored>, ProjectError> {
-    if !(family.known)(key) {
+    if !family.has(key) {
         return Ok(None);
     }
     let file = path(dir, family, key);
@@ -404,6 +488,13 @@ pub(crate) fn stored(
 mod tests {
     use super::*;
     use serde_json::json;
+
+    /// The family of Berlin's registers and surveys, the one set there is.
+    fn berlin() -> Family<'static> {
+        static SET: freemapper_adapters_de::berlin::Registers =
+            freemapper_adapters_de::berlin::Registers;
+        of_set(&SET)
+    }
 
     const AREA: BoundingBox = BoundingBox {
         min_e: 390_000.4,
@@ -457,7 +548,7 @@ mod tests {
         let mut said = Vec::new();
         let mut fetch = |near, previous: &BTreeMap<String, AlkisRecord>| {
             fetch_into(
-                &BERLIN,
+                &berlin(),
                 dir.path(),
                 near,
                 FetchMode::Offline,
@@ -485,16 +576,16 @@ mod tests {
     #[test]
     fn the_layers_of_an_area_out_of_reach_are_removed() {
         let dir = tempfile::tempdir().unwrap();
-        write(dir.path(), &BERLIN, "relief", &[]);
+        write(dir.path(), &berlin(), "relief", &[]);
         // A key that is no layer of the table names no file of freemapper: it stays.
-        write(dir.path(), &BERLIN, "notes", &[]);
+        write(dir.path(), &berlin(), "notes", &[]);
         let previous = BTreeMap::from([
             ("relief".to_string(), covering()),
             ("notes".to_string(), covering()),
         ]);
         let mut said = Vec::new();
         let records = fetch_into(
-            &BERLIN,
+            &berlin(),
             dir.path(),
             false,
             FetchMode::Online,
@@ -509,8 +600,8 @@ mod tests {
             said,
             ["removing the stored Berlin layers: the map area is no longer near Berlin"]
         );
-        assert!(!path(dir.path(), &BERLIN, "relief").exists());
-        assert!(path(dir.path(), &BERLIN, "notes").exists());
+        assert!(!path(dir.path(), &berlin(), "relief").exists());
+        assert!(path(dir.path(), &berlin(), "notes").exists());
     }
 
     #[test]
@@ -519,7 +610,7 @@ mod tests {
         let previous = BTreeMap::from([("relief".to_string(), covering())]);
         let mut said = Vec::new();
         let records = fetch_into(
-            &BERLIN,
+            &berlin(),
             dir.path(),
             true,
             FetchMode::Online,
@@ -537,7 +628,7 @@ mod tests {
     fn a_layer_that_fails_stays_while_its_file_covers_the_area() {
         let dir = tempfile::tempdir().unwrap();
         for key in ["bauwerke-flaechen", "bauwerke-linien", "relief"] {
-            write(dir.path(), &BERLIN, key, &[json!({"old": key})]);
+            write(dir.path(), &berlin(), key, &[json!({"old": key})]);
         }
         let previous = BTreeMap::from([
             ("bauwerke-flaechen".to_string(), covering()),
@@ -547,7 +638,7 @@ mod tests {
         let berlin_id = AdapterId::built_in("berlin");
         let mut said = Vec::new();
         let records = fetch_into(
-            &BERLIN,
+            &berlin(),
             dir.path(),
             true,
             FetchMode::Online,
@@ -600,7 +691,7 @@ mod tests {
                 ),
             ])
         );
-        let file = |key| path(dir.path(), &BERLIN, key);
+        let file = |key| path(dir.path(), &berlin(), key);
         assert!(file("bauwerke-flaechen").exists());
         // The failed layer whose file is of another area, and the layer no longer fetched.
         assert!(!file("bauwerke-linien").exists());
@@ -659,14 +750,14 @@ mod tests {
     #[test]
     fn a_stored_layer_is_read_when_its_record_covers_the_area() {
         let dir = tempfile::tempdir().unwrap();
-        write(dir.path(), &BERLIN, "relief", &[json!({"t": 1})]);
-        write(dir.path(), &BERLIN, "bauwerke-linien", &[]);
+        write(dir.path(), &berlin(), "relief", &[json!({"t": 1})]);
+        write(dir.path(), &berlin(), "bauwerke-linien", &[]);
         let records = BTreeMap::from([
             ("relief".to_string(), covering()),
             ("bauwerke-linien".to_string(), beside()),
             ("bauwerke-flaechen".to_string(), covering()),
         ]);
-        let read = |key| stored(&BERLIN, dir.path(), &records, &AREA, key);
+        let read = |key| stored(&berlin(), dir.path(), &records, &AREA, key);
         let layer = read("relief").unwrap().unwrap();
         assert_eq!(layer.features, [json!({"t": 1})]);
         assert_eq!(layer.fetched, covering().fetched);
@@ -675,7 +766,7 @@ mod tests {
         assert!(read("bauwerke-linien").unwrap().is_none());
         assert!(read("bauwerke-flaechen").unwrap().is_none());
         // A file that is no layer is an error of the project, with its path.
-        std::fs::write(path(dir.path(), &BERLIN, "bauwerke-flaechen"), "{").unwrap();
+        std::fs::write(path(dir.path(), &berlin(), "bauwerke-flaechen"), "{").unwrap();
         assert!(matches!(
             read("bauwerke-flaechen"),
             Err(ProjectError::StoredCandidates { .. })
@@ -687,21 +778,21 @@ mod tests {
     #[test]
     fn a_key_that_is_no_layer_of_the_table_names_no_file() {
         let dir = tempfile::tempdir().unwrap();
-        write(dir.path(), &BERLIN, "notes", &[json!({"t": 1})]);
+        write(dir.path(), &berlin(), "notes", &[json!({"t": 1})]);
         let records = BTreeMap::from([("notes".to_string(), covering())]);
         assert!(
-            stored(&BERLIN, dir.path(), &records, &AREA, "notes")
+            stored(&berlin(), dir.path(), &records, &AREA, "notes")
                 .unwrap()
                 .is_none()
         );
-        assert!(!is_stored(dir.path(), &BERLIN, "notes"));
-        write(dir.path(), &BERLIN, "relief", &[]);
-        assert!(is_stored(dir.path(), &BERLIN, "relief"));
-        assert!(!is_stored(dir.path(), &BERLIN, "bauwerke-linien"));
+        assert!(!is_stored(dir.path(), &berlin(), "notes"));
+        write(dir.path(), &berlin(), "relief", &[]);
+        assert!(is_stored(dir.path(), &berlin(), "relief"));
+        assert!(!is_stored(dir.path(), &berlin(), "bauwerke-linien"));
         // A fetch that hands over such a key stores nothing under it.
         let mut said = Vec::new();
         let records = fetch_into(
-            &BERLIN,
+            &berlin(),
             dir.path(),
             true,
             FetchMode::Online,
@@ -766,8 +857,9 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let outside = tempfile::tempdir().unwrap();
         std::fs::create_dir_all(dir.path().join("data")).unwrap();
-        for family in [&TREES, &BERLIN] {
-            std::os::unix::fs::symlink(outside.path(), dir.path().join(family.dir)).unwrap();
+        for family in [&TREES, &berlin()] {
+            std::os::unix::fs::symlink(outside.path(), dir.path().join(family.dir.as_ref()))
+                .unwrap();
         }
         let previous = BTreeMap::from([("potsdam".to_string(), covering())]);
         let mut said = Vec::new();
@@ -789,7 +881,7 @@ mod tests {
         );
         said.clear();
         let records = fetch_into(
-            &BERLIN,
+            &berlin(),
             dir.path(),
             true,
             FetchMode::Online,
@@ -817,5 +909,203 @@ mod tests {
             ]
         );
         assert_eq!(std::fs::read_dir(outside.path()).unwrap().count(), 0);
+    }
+
+    /// A set of extra layers of an adapter the engine has never heard of. It is asked through
+    /// the hosts its adapter is held to, only for an area its region touches, and its layers
+    /// are stored, kept and removed like those of any family.
+    mod a_set_of_an_adapter {
+        use std::sync::Mutex;
+
+        use freemapper_adapter_api::extras::{
+            ExtraEstimate, ExtraLayerInfo, ExtraNotes, ExtraSet, ExtraSetInfo, FetchedExtra,
+        };
+
+        use super::*;
+        use crate::adapters::test_support::{SQUARE, square_with};
+        use crate::crs::Crs;
+        use crate::fetch::Fetcher;
+        use crate::fetch::test_support::MapFetcher;
+        use crate::project::MapKind;
+
+        /// The wrecks of a made-up coast, one layer for sprint maps and one for both kinds.
+        struct Wrecks {
+            asked: std::sync::Arc<Mutex<Vec<String>>>,
+        }
+
+        static INFO: ExtraSetInfo = ExtraSetInfo {
+            key: "berlin",
+            crs: Crs::Utm33,
+            notes: ExtraNotes {
+                none_stored: "progress-berlin-none-stored",
+                removing: "progress-berlin-removing",
+                download: "progress-berlin-download",
+                features: "progress-berlin-features",
+                kept: "warning-berlin-layer-kept",
+                dropped: "warning-berlin-layer-skipped",
+            },
+            estimate: ExtraEstimate {
+                what: "wrecks",
+                megabytes_per_km2: 1.0,
+            },
+        };
+
+        impl ExtraSet for Wrecks {
+            fn info(&self) -> &ExtraSetInfo {
+                &INFO
+            }
+
+            fn layers(&self, kind: freemapper_contract::MapKind) -> Vec<ExtraLayerInfo> {
+                let mut layers = vec![ExtraLayerInfo { key: "hulls" }];
+                if kind == freemapper_contract::MapKind::Sprint {
+                    layers.push(ExtraLayerInfo { key: "anchors" });
+                }
+                layers
+            }
+
+            fn has(&self, key: &str) -> bool {
+                matches!(key, "hulls" | "anchors")
+            }
+
+            fn fetch(
+                &self,
+                fetcher: &dyn Fetcher,
+                _region_bbox: &BoundingBox,
+                kind: freemapper_contract::MapKind,
+            ) -> Vec<FetchedExtra> {
+                self.layers(kind)
+                    .into_iter()
+                    .map(|layer| {
+                        let url = format!("https://wrecks.example.org/{}", layer.key);
+                        self.asked.lock().unwrap().push(url.clone());
+                        FetchedExtra {
+                            key: layer.key,
+                            features: fetcher.get(&url).map(|bytes| {
+                                berlin::parse_layer(&String::from_utf8_lossy(&bytes)).unwrap()
+                            }),
+                        }
+                    })
+                    .collect()
+            }
+        }
+
+        /// An area inside the square region, and one far from it.
+        const INSIDE: BoundingBox = BoundingBox {
+            min_e: 4_000.0,
+            min_n: 4_000.0,
+            max_e: 4_300.0,
+            max_n: 4_200.0,
+        };
+        const FAR: BoundingBox = BoundingBox {
+            min_e: 50_000.0,
+            min_n: 50_000.0,
+            max_e: 50_300.0,
+            max_n: 50_200.0,
+        };
+
+        #[test]
+        fn is_fetched_stored_and_removed_through_the_registry() {
+            let asked = std::sync::Arc::new(Mutex::new(Vec::new()));
+            let registry = square_with(
+                None,
+                Some(&["wrecks.example.org"]),
+                vec![Box::new(Wrecks {
+                    asked: asked.clone(),
+                })],
+            );
+            let (adapter, set) = set_in(&registry, "berlin").expect("the square has the set");
+            assert_eq!(adapter.info().id, SQUARE);
+            assert!(set_in(&registry, "wrecks").is_none());
+            let dir = tempfile::tempdir().unwrap();
+            let fetcher = MapFetcher::default();
+            fetcher.insert(
+                "https://wrecks.example.org/hulls",
+                berlin::layer_to_geojson(&[json!({"hull": 1})]).into_bytes(),
+            );
+            fetcher.insert(
+                "https://wrecks.example.org/anchors",
+                berlin::layer_to_geojson(&[]).into_bytes(),
+            );
+            let mut said = Vec::new();
+            let mut fetch = |bbox: &BoundingBox, kind, previous: &BTreeMap<String, AlkisRecord>| {
+                fetch_set_into(
+                    adapter,
+                    set,
+                    dir.path(),
+                    &fetcher,
+                    bbox,
+                    kind,
+                    FetchMode::Online,
+                    false,
+                    previous,
+                    &mut |note: Note| said.push(note.to_string()),
+                )
+            };
+            let sprint = fetch(&INSIDE, MapKind::Sprint, &BTreeMap::new());
+            assert_eq!(
+                sprint.keys().collect::<Vec<_>>(),
+                ["anchors", "hulls"],
+                "both layers of a sprint map"
+            );
+            assert_eq!(sprint["hulls"].count, 1);
+            assert_eq!(sprint["hulls"].regions, [SQUARE]);
+            let family = of_set(set);
+            assert!(path(dir.path(), &family, "hulls").exists());
+            assert_eq!(
+                path(dir.path(), &family, "hulls"),
+                dir.path().join("data/berlin/hulls.geojson")
+            );
+            // A schoolyard map uses one layer: the other goes.
+            let schoolyard = fetch(&INSIDE, MapKind::Schoolyard, &sprint);
+            assert_eq!(schoolyard.keys().collect::<Vec<_>>(), ["hulls"]);
+            assert!(!path(dir.path(), &family, "anchors").exists());
+            // Far from the region nothing is asked and what is stored goes.
+            let before = asked.lock().unwrap().len();
+            let far = fetch(&FAR, MapKind::Sprint, &schoolyard);
+            assert!(far.is_empty());
+            assert_eq!(asked.lock().unwrap().len(), before);
+            assert!(!path(dir.path(), &family, "hulls").exists());
+            assert_eq!(
+                said.last().map(String::as_str),
+                Some("removing the stored Berlin layers: the map area is no longer near Berlin")
+            );
+        }
+
+        /// The set asks through the hosts of its adapter: a layer on another host is refused
+        /// and reported as any layer that fails.
+        #[test]
+        fn asks_only_the_hosts_of_its_adapter() {
+            let asked = std::sync::Arc::new(Mutex::new(Vec::new()));
+            let registry = square_with(
+                None,
+                Some(&["other.example.org"]),
+                vec![Box::new(Wrecks { asked })],
+            );
+            let (adapter, set) = set_in(&registry, "berlin").unwrap();
+            let dir = tempfile::tempdir().unwrap();
+            let fetcher = MapFetcher::default();
+            fetcher.insert("https://wrecks.example.org/hulls", b"{}".to_vec());
+            let mut said = Vec::new();
+            let records = fetch_set_into(
+                adapter,
+                set,
+                dir.path(),
+                &fetcher,
+                &INSIDE,
+                MapKind::Schoolyard,
+                FetchMode::Online,
+                false,
+                &BTreeMap::new(),
+                &mut |note: Note| said.push(note.to_string()),
+            );
+            assert!(records.is_empty());
+            assert_eq!(fetcher.calls.get(), 0, "the request never left");
+            assert!(
+                said[1].starts_with("warning: Berlin hulls unavailable (")
+                    && said[1].contains("does not send requests to this address"),
+                "{}",
+                said[1]
+            );
+        }
     }
 }

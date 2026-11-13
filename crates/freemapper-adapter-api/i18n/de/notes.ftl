@@ -135,6 +135,7 @@ progress-berlin-features = { $count ->
     } in der Berliner Ebene { $file }
 warning-berlin-layer-kept = Berliner Ebene { $file } nicht verfügbar ({ $detail }); die gespeicherte Ebene bleibt
 warning-berlin-layer-skipped = Berliner Ebene { $file } nicht verfügbar ({ $detail }); Ebene übersprungen
+error-extra-layer-unknown = keine Ebene von { $folder }
 warning-berlin-buildings-missing = Für dieses Gebiet in Berlin sind keine ALKIS-Gebäude gespeichert; rufen Sie `freemapper fetch` auf, um sie vom Geoportal Berlin zu laden
 
 ## Die vollständigen ALKIS-Ebenen (NAS)
