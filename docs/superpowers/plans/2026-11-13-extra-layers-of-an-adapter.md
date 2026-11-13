@@ -33,8 +33,12 @@ this Berlin?" go and two general helpers leave the Berlin modules.
 4. The folder of a family is a link that leads out of the project folder: nothing is written or removed there.
 5. A cancelled fetch between two layers: what is on disk and in the project file is what the old code left.
 
-Tests for 1 to 3 are in `project/extras.rs`; 4 and 5 are held by the existing tests of `project.rs`
-(`*_folder_outside*`, the interrupted fetches of G3).
+Tests for 1 to 4 are in `project/extras.rs` (4 for a family with a part file and for one without, on
+systems with symbolic links); 5 is held by the interrupted fetches of G3.
+
+After the review of step 1 (session "freemapper"): `stored`, `is_stored`, `remove` and the storing of a fetch ask
+the table before they touch a file (ADR 0059 is no longer a matter of the callers); each table has one lookup; a
+family with a part file cannot be described without its message for a folder that leads out (`Part`).
 
 ---
 

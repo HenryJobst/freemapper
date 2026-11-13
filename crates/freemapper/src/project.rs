@@ -555,11 +555,11 @@ impl ProjectFile {
             false
         };
         self.berlin_layers
-            .retain(|key, _| keep("Berlin", key, known_berlin_layer(key).is_some()));
+            .retain(|key, _| keep("Berlin", key, (extras::BERLIN.known)(key)));
         self.nas_layers
-            .retain(|key, _| keep("NAS", key, known_nas_layer(key).is_some()));
+            .retain(|key, _| keep("NAS", key, (extras::NAS.known)(key)));
         self.tree_layers
-            .retain(|key, _| keep("tree", key, known_tree_dataset(key).is_some()));
+            .retain(|key, _| keep("tree", key, (extras::TREES.known)(key)));
     }
 
     /// The title without control characters, or the folder name of `dir` with each
@@ -1231,18 +1231,16 @@ pub(crate) fn mark_stored(
     // area moved within the state is downloaded again.
     let berlin_layers = !project.berlin_layers.is_empty()
         && project.berlin_layers.iter().all(|(key, record)| {
-            record.covers(bbox)
-                && known_berlin_layer(key).is_some_and(|l| berlin_layer_path(dir, l).exists())
+            record.covers(bbox) && extras::is_stored(dir, &extras::BERLIN, key)
         });
     let nas_layers = !project.nas_layers.is_empty()
-        && project.nas_layers.iter().all(|(key, record)| {
-            record.covers(bbox)
-                && known_nas_layer(key).is_some_and(|l| nas_layer_path(dir, l).exists())
-        });
+        && project
+            .nas_layers
+            .iter()
+            .all(|(key, record)| record.covers(bbox) && extras::is_stored(dir, &extras::NAS, key));
     let tree_layers = !project.tree_layers.is_empty()
         && project.tree_layers.iter().all(|(key, record)| {
-            record.covers(bbox)
-                && known_tree_dataset(key).is_some_and(|d| tree_layer_path(dir, d).exists())
+            record.covers(bbox) && extras::is_stored(dir, &extras::TREES, key)
         });
     if orthophoto || k5 || berlin_layers || nas_layers || tree_layers {
         for item in &mut estimate.items {
@@ -1736,18 +1734,6 @@ fn fetch_land_use_into(
     }
 }
 
-/// The NAS layer the project file records under `key`, from the static table; `None` for a key
-/// no layer has.
-fn known_nas_layer(key: &str) -> Option<&'static alkis_nas::NasLayer> {
-    alkis_nas::NAS_LAYERS.iter().find(|layer| layer.file == key)
-}
-
-/// Path of the stored NAS `layer`: from a layer of the table, never from a name read from the
-/// project file (ADR 0059).
-fn nas_layer_path(dir: &Path, layer: &alkis_nas::NasLayer) -> PathBuf {
-    extras::path(dir, &extras::NAS, layer.file)
-}
-
 /// The extra Berlin layer the project file records under `key`, from the static table; `None`
 /// for a key no layer has.
 fn known_berlin_layer(key: &str) -> Option<&'static berlin::ExtraLayer> {
@@ -1885,18 +1871,6 @@ pub fn stored_nas_layers(
         }
     }
     Ok(layers)
-}
-
-/// The tree dataset the project file records under `key`, from the datasets of the adapters;
-/// `None` for a key no dataset has.
-fn known_tree_dataset(key: &str) -> Option<&'static trees::TreeDataset> {
-    trees::all_tree_datasets().find(|dataset| dataset.id == key)
-}
-
-/// Path of the stored tree `dataset`: from a dataset of the table, never from a name read from
-/// the project file (ADR 0059).
-fn tree_layer_path(dir: &Path, dataset: &trees::TreeDataset) -> PathBuf {
-    extras::path(dir, &extras::TREES, &dataset.id)
 }
 
 /// Downloads the city tree cadastres for `area` to [`TREE_LAYERS_DIR`] and returns the records
