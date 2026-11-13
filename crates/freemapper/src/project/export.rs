@@ -5,11 +5,12 @@
 //! file the build reads.
 
 use super::*;
-use crate::build::assembly::{Built, Drawn, Resolved, Surroundings, resolve};
-use crate::build::contours::{Contours, contour_objects};
-use crate::build::landforms::{Landforms, landform_objects};
+use crate::build::assembly::{Buildings, Built, Frame, Layer, Stored, build};
+use crate::build::buildings::object_footprints;
+use crate::build::contours::Contours;
+use crate::build::landforms::Landforms;
 use crate::build::ticks::read_terrain;
-use crate::build::vegetation::{Vegetation, vegetation_objects};
+use crate::build::vegetation::Vegetation;
 
 /// The stored ALKIS buildings, read once per export: parsed, and the raw features (the Berlin
 /// building parts are picked from these).
@@ -21,11 +22,7 @@ pub(super) struct StoredBuildings {
 impl StoredBuildings {
     /// The 521 footprints (buildings that become map objects), in the map's CRS.
     fn footprints(&self) -> Vec<geo_types::Polygon<f64>> {
-        self.buildings
-            .iter()
-            .filter(|b| classify(b) == Rule::Object)
-            .flat_map(|b| b.footprint.0.iter().cloned())
-            .collect()
+        object_footprints(&self.buildings)
     }
 
     /// The footprints of every building, canopies and the other non-map buildings included.
@@ -65,32 +62,6 @@ pub(super) fn read_stored_buildings(dir: &Path) -> Result<Option<StoredBuildings
     }))
 }
 
-/// 521 objects for the stored ALKIS buildings; none when no buildings were fetched. Fails when the
-/// recorded fetch does not cover the current map area plus buffer.
-pub(super) fn stored_building_objects(
-    project: &ProjectFile,
-    stored: Option<&StoredBuildings>,
-    area: &MapArea,
-    georef: &Georeferencing,
-    symbol_set: &SymbolSet,
-) -> Result<Vec<MapObject>, ProjectError> {
-    let Some(stored) = stored else {
-        return Ok(Vec::new());
-    };
-    if let Some(record) = &project.buildings
-        && !record.covers(&project.bbox()?)
-    {
-        return Err(ProjectError::BuildingsNotFetched);
-    }
-    Ok(building_objects(
-        &stored.buildings,
-        &area.projected_polygon_in(project.crs()),
-        project.buffer_m,
-        georef,
-        symbol_set,
-    )?)
-}
-
 /// The stored OSM features and the date of their extract; none when no features were stored.
 /// Fails when the recorded read does not cover the current map area plus buffer.
 pub(super) fn stored_osm_features(
@@ -111,32 +82,6 @@ pub(super) fn stored_osm_features(
         message: e.to_string(),
     })?;
     Ok(Some((features, record.extract)))
-}
-
-/// Objects for the stored OSM features whose rule has `target`.
-pub(super) fn stored_osm_objects(
-    target: Target,
-    osm: Option<&(Vec<OsmFeature>, NaiveDate)>,
-    project: &ProjectFile,
-    area: &MapArea,
-    georef: &Georeferencing,
-    symbol_set: &SymbolSet,
-) -> Result<Vec<MapObject>, ProjectError> {
-    let Some((features, extract)) = osm else {
-        return Ok(Vec::new());
-    };
-    Ok(osm_objects(
-        features,
-        &Rules::embedded(),
-        target,
-        project.map_kind,
-        &area.projected_polygon_in(project.crs()),
-        project.buffer_m,
-        georef,
-        symbol_set,
-        "osm",
-        *extract,
-    )?)
 }
 
 /// The contour lines `derive` stored, with the interval they were traced at (stored with them,
@@ -269,11 +214,22 @@ pub(super) fn map_lacks_buildings(dir: &Path, map_text: &str) -> Result<bool, Pr
         project.declination_date,
     )?;
     let symbol_set = project.map_kind.symbol_set(project.scale_denominator);
-    let stored = read_stored_buildings(dir)?;
-    Ok(
-        !stored_building_objects(&project, stored.as_ref(), &area, &georef, &symbol_set)?
-            .is_empty(),
-    )
+    let Some(stored) = read_stored_buildings(dir)? else {
+        return Ok(false);
+    };
+    if let Some(record) = &project.buildings
+        && !record.covers(&project.bbox()?)
+    {
+        return Err(ProjectError::BuildingsNotFetched);
+    }
+    Ok(!building_objects(
+        &stored.buildings,
+        &area.projected_polygon_in(project.crs()),
+        project.buffer_m,
+        &georef,
+        &symbol_set,
+    )?
+    .is_empty())
 }
 
 /// How a building object's provenance appears in the map file.
@@ -312,13 +268,18 @@ pub(super) fn map_lacks_canopies(dir: &Path, map_text: &str) -> Result<bool, Pro
     {
         return Ok(true);
     }
-    Ok(!stored_state_canopies(
-        &project,
-        stored.as_ref(),
+    // The canopies among the ALKIS buildings of any state (`Überdachung`, `Carport`).
+    let (Some(stored), Some(record)) = (&stored, &project.buildings) else {
+        return Ok(false);
+    };
+    Ok(!canopy_objects(
+        &[CanopyInput::Buildings(&stored.features)],
         &footprints,
         &map_area,
+        project.buffer_m,
         &georef,
         &symbol_set,
+        record.fetched,
     )?
     .is_empty())
 }
@@ -1025,187 +986,32 @@ pub fn build_project(dir: &Path) -> Result<BuiltProject, ProjectError> {
         project.declination_date,
     )?;
     let symbol_set = project.map_kind.symbol_set(project.scale_denominator);
-
-    // Buildings first: they are the map's own objects, candidates only a template.
-    let stored_buildings = read_stored_buildings(dir)?;
-    let footprints = stored_buildings
-        .as_ref()
-        .map_or_else(Vec::new, StoredBuildings::footprints);
-    let building_objects = stored_building_objects(
-        &project,
-        stored_buildings.as_ref(),
-        &area,
-        &georef,
-        &symbol_set,
-    )?;
-    let berlin_layers = stored_berlin_layers(dir, &project)?;
-    let nas_layers = stored_nas_layers(dir, &project)?;
-    // The terrain for the stair direction, read only when a layer gives stairs.
-    let stair_terrain = if stair_layers_stored(&berlin_layers, &nas_layers) {
-        stored_stair_terrain(dir, &project)?
-    } else {
-        None
-    };
-    let structures = stored_berlin_structures(
-        stair_terrain.as_ref(),
-        &project,
-        &berlin_layers,
-        &nas_layers,
-        stored_buildings.as_ref(),
-        &footprints,
-        &area,
-        &georef,
-        &symbol_set,
-    )?;
-    let land_use = stored_land_use(dir, &project)?;
-    let osm = stored_osm_features(dir, &project, &area)?;
-    let paved = stored_paved_objects(
-        &land_use,
-        osm.as_ref(),
-        &berlin_layers,
-        &project,
-        &georef,
-        &symbol_set,
-    )?;
-    let clip = project.bbox()?;
-    let water = water_objects(&land_use, &clip, &georef, &symbol_set)?;
-    // The candidates of the cadastres, registers and the survey: Berlin first, then the state
-    // passages, the full ALKIS (NAS) and the tree cadastres.
-    let mut cadastre = stored_berlin_objects(
-        &project,
-        &berlin_layers,
-        stored_buildings.as_ref(),
-        &area,
-        &georef,
-        &symbol_set,
-    )?;
-    cadastre.extend(stored_state_objects(
-        &project,
-        stored_buildings.as_ref(),
-        &area,
-        &georef,
-        &symbol_set,
-    )?);
-    cadastre.extend(stored_nas_objects(
-        &nas_layers,
-        &project,
-        &area,
-        &georef,
-        &symbol_set,
-    )?);
-    // A forest map draws no register trees (spec 2026-11-13).
-    if project.map_kind != MapKind::Forest {
-        cadastre.extend(stored_tree_objects(
-            &stored_tree_layers(dir, &project)?,
-            &project,
-            &area,
-            &georef,
-            &symbol_set,
-        )?);
-    }
-    // Parks, meadows and woods of the land use: 401, 403 and 405 (`build/open_land.rs`).
-    let osm_forest = match (&osm, project.map_kind) {
-        (Some((features, _)), MapKind::Forest) => osm_forest_polygons(features, project.crs()),
-        _ => Vec::new(),
-    };
-    let open_land = open_land_objects(
-        &land_use,
-        &area.projected_polygon_in(project.crs()),
-        &clip,
-        project.map_kind,
-        &georef,
-        &symbol_set,
-        &osm_forest,
-    )?;
-    let out_of_bounds =
-        stored_out_of_bounds_objects(&land_use, &project, &area, &georef, &symbol_set)?;
-    let osm_candidates = stored_osm_objects(
-        Target::Candidates,
-        osm.as_ref(),
-        &project,
-        &area,
-        &georef,
-        &symbol_set,
-    )?;
-    let osm_map = stored_osm_objects(
-        Target::Map,
-        osm.as_ref(),
-        &project,
-        &area,
-        &georef,
-        &symbol_set,
-    )?;
-    let surroundings = Surroundings {
-        map_kind: project.map_kind,
-        georef,
-        symbol_set,
-        footprints,
-        water: water.union,
-        clip,
-        terrain: read_terrain(dir),
-    };
-    // The duplicates between the sources go and the points are generalized
-    // (`build/assembly.rs`).
-    let Resolved {
-        points: generalized,
-        canopies,
-        out_of_bounds,
-        paved,
-        open_land,
-    } = resolve(
-        Drawn {
-            osm_candidates,
-            osm_map,
-            cadastre,
-            canopies: structures.canopies,
-            out_of_bounds,
-            paved,
-            open_land,
-        },
-        &surroundings,
-    )?;
-    let Surroundings {
-        georef,
-        symbol_set,
-        footprints,
-        water: water_union,
-        ..
-    } = &surroundings;
-    let mut point_candidates = generalized.candidates;
-    point_candidates.extend(generalized.areas);
-    // A register is named once its points (or trees merged into a group area) are among the
-    // candidates; OSM is named anyway.
-    let registers = drawn_registers(&point_candidates);
-    let attribution_text = attribution_lines(&project, &registers).join("\n");
-    let notes = format!("{attribution_text}\n{FREEMAPPER_CREDIT}");
-    let map_area = area.projected_polygon_in(project.crs());
-    let contours = read_stored_contours(dir, &project)?;
-    let contour_objects = match &contours {
-        Some(contours) => contour_objects(
-            contours,
-            footprints,
-            water_union,
-            &map_area,
-            project.buffer_m,
-            georef,
-            symbol_set,
-        )?,
-        None => Vec::new(),
-    };
-    let contour_interval_m = contours.map_or_else(
+    let stored = read_stored(dir, &project, &area)?;
+    let contour_interval_m = stored.contours.as_ref().map_or_else(
         || contour_interval(&project, None),
         |contours| contours.interval,
     );
-    let mut candidates: Vec<MapObject> =
-        std::iter::once(map_area_outline(&area, georef, symbol_set, &project)?)
-            .chain(point_candidates)
-            .chain(structures.stairs)
-            .chain(contour_objects)
-            .chain(paved.candidates)
-            .chain(open_land.candidates)
-            .chain(water.candidates)
-            .chain(out_of_bounds)
-            .collect();
+    let saved_content = content_settings(&project);
+    // The objects of the map and the candidates (`build/assembly.rs`).
+    let objects = build(
+        Frame {
+            map_kind: project.map_kind,
+            georef,
+            symbol_set,
+            area,
+            area_source_id: project.map_area_source_id.clone(),
+            buffer_m: project.buffer_m,
+            clip: project.bbox()?,
+        },
+        stored,
+        &saved_content,
+    )?;
+    let (georef, symbol_set) = (objects.georef(), objects.symbol_set());
+    // A register is named once its points (or trees merged into a group area) are among the
+    // candidates; OSM is named anyway.
+    let registers = drawn_registers(objects.point_candidates());
+    let attribution_text = attribution_lines(&project, &registers).join("\n");
+    let notes = format!("{attribution_text}\n{FREEMAPPER_CREDIT}");
     let crs_spec = format!("+init=epsg:{}", georef.epsg);
     let mut templates: Vec<TemplateRef> = [
         (ORTHOPHOTO_RELPATH, true, 1.0),
@@ -1240,55 +1046,6 @@ pub fn build_project(dir: &Path) -> Result<BuiltProject, ProjectError> {
         behind_map: false,
     });
     let content = PaperRect::of_bbox(&project.bbox()?, georef)?;
-    // North lines first: within their black they lie under walls and fences.
-    let spacing_mm = NORTH_LINE_SPACING_MM
-        * project
-            .map_kind
-            .symbol_enlargement(project.scale_denominator);
-    let mut map_objects = north_lines(&content, spacing_mm, symbol_set);
-    map_objects.extend(building_objects);
-    // Canopies after the buildings; their Black 20 % lies under the building fill anyway.
-    map_objects.extend(canopies);
-    // Parks under everything but the walkable area: colour priority puts yellow low.
-    map_objects.extend(open_land.map);
-    map_objects.extend(paved.map);
-    map_objects.extend(water.map);
-    map_objects.extend(generalized.map);
-    // New object builders go here (landform candidates, vegetation): they see every object built
-    // so far (`map_objects`, `candidates`), `water.union`, `footprints`, `area` and `georef`, and
-    // what they add is placed by the content settings like the rest.
-    // Knolls, depressions, banks and cliffs from the terrain, where nothing drawn shows them yet.
-    // Before the routing, so that the content settings move the banks and cliffs (group `slopes`)
-    // like the contours; with no source rank, `balanced` leaves them candidates.
-    let drawn: Vec<&MapObject> = map_objects.iter().chain(&candidates).collect();
-    if let Some(landforms) = read_stored_landforms(dir, &project)? {
-        let landforms = landform_objects(
-            &landforms,
-            footprints,
-            &land_use,
-            water_union,
-            &drawn,
-            &map_area,
-            project.buffer_m,
-            georef,
-            symbol_set,
-        )?;
-        candidates.extend(landforms);
-    }
-    // The vegetation from the point clouds, where the user chose it (group `vegetation`).
-    if let Some(vegetation) = read_stored_vegetation(dir, &project)? {
-        let vegetation = vegetation_objects(
-            &vegetation,
-            footprints,
-            water_union,
-            &map_objects,
-            &map_area,
-            project.buffer_m,
-            georef,
-            symbol_set,
-        )?;
-        candidates.extend(vegetation);
-    }
     let mut attribution = vec![OSM_ATTRIBUTION_DE.to_string()];
     attribution.extend(sheet_credit_lines(&project, &registers));
     attribution.push(FREEMAPPER_CREDIT_DE.to_string());
@@ -1307,9 +1064,7 @@ pub fn build_project(dir: &Path) -> Result<BuiltProject, ProjectError> {
         name: SHEET_PART.to_string(),
         objects: info_block(&content, &info, symbol_set),
     };
-    let saved_content = content_settings(&project);
     let fingerprint = project_fingerprint(&project)?;
-    let objects = Built::new(surroundings, map_objects, candidates, &saved_content);
 
     Ok(BuiltProject {
         fingerprint,
@@ -1322,6 +1077,74 @@ pub fn build_project(dir: &Path) -> Result<BuiltProject, ProjectError> {
         info,
         base_part,
         sheet_part,
+    })
+}
+
+/// Reads the stored data of the project in `dir`: the one place the build reads the folder. A
+/// source that was not fetched or does not cover the map area is left empty (`fetch` reports
+/// it); the buildings and the OSM features fail instead when their recorded fetch does not cover
+/// the current map area plus buffer.
+fn read_stored(dir: &Path, project: &ProjectFile, area: &MapArea) -> Result<Stored, ProjectError> {
+    let buildings = read_stored_buildings(dir)?;
+    if buildings.is_some()
+        && let Some(record) = &project.buildings
+        && !record.covers(&project.bbox()?)
+    {
+        return Err(ProjectError::BuildingsNotFetched);
+    }
+    let berlin_layers = stored_berlin_layers(dir, project)?;
+    let nas_layers = stored_nas_layers(dir, project)?;
+    // The terrain for the stair direction, read only when a layer gives stairs.
+    let stair_terrain = if stair_layers_stored(&berlin_layers, &nas_layers) {
+        stored_stair_terrain(dir, project)?
+    } else {
+        None
+    };
+    let land_use = stored_land_use(dir, project)?;
+    let osm = stored_osm_features(dir, project, area)?;
+    // Not read for a forest map, which draws no register trees.
+    let tree_layers = if project.map_kind != MapKind::Forest {
+        stored_tree_layers(dir, project)?
+    } else {
+        Vec::new()
+    };
+    Ok(Stored {
+        buildings: buildings.map(|stored| Buildings {
+            buildings: stored.buildings,
+            features: stored.features,
+            fetched: project.buildings.as_ref().map(|record| record.fetched),
+        }),
+        berlin: berlin_layers
+            .into_iter()
+            .map(|l| Layer {
+                name: l.layer.file.to_string(),
+                features: l.features,
+                fetched: l.fetched,
+            })
+            .collect(),
+        nas: nas_layers
+            .into_iter()
+            .map(|l| Layer {
+                name: l.layer.file.to_string(),
+                features: l.features,
+                fetched: l.fetched,
+            })
+            .collect(),
+        trees: tree_layers
+            .into_iter()
+            .map(|l| Layer {
+                name: l.dataset.id.to_string(),
+                features: l.features,
+                fetched: l.fetched,
+            })
+            .collect(),
+        land_use,
+        osm,
+        stair_terrain,
+        terrain: read_terrain(dir),
+        contours: read_stored_contours(dir, project)?,
+        landforms: read_stored_landforms(dir, project)?,
+        vegetation: read_stored_vegetation(dir, project)?,
     })
 }
 
@@ -1383,46 +1206,6 @@ fn content_settings(project: &ProjectFile) -> crate::build::content::ContentSett
 }
 
 pub(crate) const CANDIDATES_RELPATH: &str = "templates/candidates.omap";
-
-/// Line symbol used for the map area outline in the candidates template map.
-pub(super) const OUTLINE_SYMBOL_CODE: &str = "501.1";
-/// The outline of a set without 501.1 (ISOM 2017-2 has no step line): the thin black line of the
-/// sheet symbols.
-const OUTLINE_FALLBACK_CODE: &str = "994";
-
-/// The exterior ring of the map area as a closed path object.
-pub(super) fn map_area_outline(
-    area: &MapArea,
-    georef: &Georeferencing,
-    symbol_set: &SymbolSet,
-    project: &ProjectFile,
-) -> Result<MapObject, GeorefError> {
-    let points = area
-        .polygon
-        .exterior()
-        .points()
-        .map(|p| {
-            let c = georef.geographic_to_map(LatLon {
-                lat: p.y(),
-                lon: p.x(),
-            })?;
-            Ok((c.x, c.y))
-        })
-        .collect::<Result<Vec<_>, _>>()?;
-    let mut tags = vec![("freemapper:source".to_string(), "osm".to_string())];
-    if let Some(id) = &project.map_area_source_id {
-        tags.push(("freemapper:source_id".to_string(), id.clone()));
-    }
-    Ok(MapObject {
-        symbol_id: symbol_set
-            .id_for_code(OUTLINE_SYMBOL_CODE)
-            .or_else(|| symbol_set.id_for_code(OUTLINE_FALLBACK_CODE))
-            .expect("symbol set defines 501.1 or the sheet symbols"),
-        kind: MapObjectKind::Path,
-        coords: closed_ring(&points),
-        tags,
-    })
-}
 
 pub(super) fn write_document(
     dir: &Path,

@@ -1,44 +1,590 @@
 //! The map assembly (ADR 0115): the objects of all sources, put together to the map and the
 //! candidates in a fixed order of steps.
 //!
-//! The assembly reads no file. It gets what the sources drew ([`Drawn`]), resolves the
-//! duplicates between them and generalizes the points ([`resolve`]). It gets the objects as the
-//! build made them ([`Built`]) and places them by the content settings ([`Built::place`],
-//! ADR 0100): `route` sends each object to the map, to the candidates or leaves it out, and the
-//! steps that look at both lists follow. The project (`project/export.rs`) reads the stored
-//! data, calls the assembly and makes the documents from what it returns.
+//! The assembly reads no file. It gets what the project file says about the map ([`Frame`])
+//! and the stored data, read ([`Stored`]), and builds every object once ([`build`]): it draws
+//! the sources, resolves the duplicates between them, generalizes the points and puts the
+//! lists of the map and of the candidates in their order. The result ([`Built`]) is placed by
+//! the content settings as often as asked ([`Built::place`], ADR 0100): `route` sends each
+//! object to the map, to the candidates or leaves it out, and the steps that look at both
+//! lists follow. The project (`project/export.rs`) reads the folder, calls the assembly and
+//! makes the documents from what it returns.
 
+use std::ops::Range;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
+use chrono::NaiveDate;
 use geo_types::{MultiPolygon, Polygon};
+use serde_json::Value;
 
+use crate::area::MapArea;
 use crate::build::barrier_gaps::move_points_off_barriers;
 use crate::build::barriers::resolve_barrier_overlaps;
-use crate::build::berlin::drop_shelters_under_canopies;
+use crate::build::berlin::{
+    BUILDING_PARTS_LAYER, LayerInput, berlin_objects, building_part_features,
+    drop_shelters_under_canopies,
+};
+use crate::build::buildings::{building_objects, object_footprints};
+use crate::build::candidates::{Rules, Target, osm_objects};
+use crate::build::canopy::{CANOPY_LAYER, CanopyInput, canopy_objects};
 use crate::build::content::{ContentSettings, route};
+use crate::build::contours::{Contours, contour_objects};
 use crate::build::dedup::{
     drop_areas_by_rank, drop_cadastre_lines_by_rank, drop_osm_lines_near_cadastre,
     drop_points_near_registers, drop_trees_by_rank,
 };
 use crate::build::firm_paths::cut_firm_paths;
+use crate::build::landforms::{Landforms, landform_objects};
 use crate::build::line_cuts::{CONTOUR_CODES, NORTH_LINE_CODES, cut_lines_at_ways};
-use crate::build::open_land::{OpenLandObjects, drop_open_land_under_alkis};
+use crate::build::open_land::{
+    OpenLandObjects, drop_open_land_under_alkis, open_land_objects, osm_forest_polygons,
+};
+use crate::build::out_of_bounds::out_of_bounds_objects;
 use crate::build::passages::hide_unreachable as hide_unreachable_passages;
-use crate::build::paved::PavedObjects;
+use crate::build::paved::{
+    GREEN_LAYER, PavedObjects, SURFACE_LAYER, StreetSurvey, paved_area_objects, unpaved_streets,
+};
 use crate::build::paved_borders::{border_input, paved_borders as paved_borders_of};
+use crate::build::peripheral::{PaperRect, north_lines};
 use crate::build::points::{GeneralizedPoints, generalize_points, way_footprints};
+use crate::build::stairs::{
+    NAS_STAIR_LAYER, STEP_EDGE_LAYER, SURVEY_STAIR_LAYER, StairInput, stair_objects,
+};
+use crate::build::state::{NasInput, TreeInput, nas_objects, state_objects, tree_objects};
 use crate::build::ticks::orient_ticks;
-use crate::build::vegetation::cut_vegetation_at_out_of_bounds;
-use crate::build::water::{drop_covered_water, drop_fountains_in_osm_basins, drop_points_in_water};
-use crate::crs::BoundingBox;
+use crate::build::vegetation::{Vegetation, cut_vegetation_at_out_of_bounds, vegetation_objects};
+use crate::build::water::{
+    drop_covered_water, drop_fountains_in_osm_basins, drop_points_in_water, water_objects,
+};
+use crate::crs::{BoundingBox, LatLon};
 use crate::georef::{GeorefError, Georeferencing};
-use crate::omap::{MapObject, SymbolSet};
+use crate::omap::{MapObject, MapObjectKind, SymbolSet, closed_ring};
 use crate::project::MapKind;
 use crate::raster::Raster;
+use crate::sources::alkis::{Building, LandUse};
+use crate::sources::osm::OsmFeature;
+
+/// What the project file says about the map.
+pub struct Frame {
+    pub map_kind: MapKind,
+    pub georef: Georeferencing,
+    pub symbol_set: SymbolSet,
+    /// The map area and the id of the OSM object it was taken from, if known.
+    pub area: MapArea,
+    pub area_source_id: Option<String>,
+    /// Objects are drawn up to this far around the map area (ground metres).
+    pub buffer_m: f64,
+    /// The map area plus buffer, in the map's CRS.
+    pub clip: BoundingBox,
+}
+
+/// The stored ALKIS buildings: parsed, and the raw features (the canopies, the passages and the
+/// Berlin building parts are picked from these).
+pub struct Buildings {
+    pub buildings: Vec<Building>,
+    pub features: Vec<Value>,
+    /// The date of their fetch, if the project records one; the canopies, passages and building
+    /// parts are drawn only then.
+    pub fetched: Option<NaiveDate>,
+}
+
+/// One stored layer of extra data: its file name (for a tree cadastre the dataset), its features
+/// and the date of its fetch, which stands in for the currency of a feature without a date.
+pub struct Layer {
+    pub name: String,
+    pub features: Vec<Value>,
+    pub fetched: NaiveDate,
+}
+
+/// The stored data of a project, read: what [`build`] draws from. A source that was not fetched
+/// or does not cover the map area is empty.
+#[derive(Default)]
+pub struct Stored {
+    pub buildings: Option<Buildings>,
+    /// The extra layers of Berlin, the full ALKIS (NAS) and the tree cadastres, in table order.
+    pub berlin: Vec<Layer>,
+    pub nas: Vec<Layer>,
+    pub trees: Vec<Layer>,
+    pub land_use: Vec<LandUse>,
+    /// The OSM features and the date of their extract.
+    pub osm: Option<(Vec<OsmFeature>, NaiveDate)>,
+    /// The terrain model for the stair direction, in the map's CRS.
+    pub stair_terrain: Option<Raster<f32>>,
+    /// The terrain model the ticks of earth banks follow.
+    pub terrain: Option<Raster<f32>>,
+    pub contours: Option<Contours>,
+    pub landforms: Option<Landforms>,
+    pub vegetation: Option<Vegetation>,
+}
+
+/// Line symbol used for the map area outline in the candidates template map.
+pub const OUTLINE_SYMBOL_CODE: &str = "501.1";
+/// The outline of a symbol set without 501.1 (the forest map): the sheet symbol 994, which no
+/// content group claims.
+const OUTLINE_FALLBACK_CODE: &str = "994";
+/// The distance of the north lines on paper at symbol size 100 %.
+const NORTH_LINE_SPACING_MM: f64 = 30.0;
+
+/// The exterior ring of the map area as a closed path object.
+pub fn map_area_outline(
+    area: &MapArea,
+    source_id: Option<&str>,
+    georef: &Georeferencing,
+    symbol_set: &SymbolSet,
+) -> Result<MapObject, GeorefError> {
+    let points = area
+        .polygon
+        .exterior()
+        .points()
+        .map(|p| {
+            let c = georef.geographic_to_map(LatLon {
+                lat: p.y(),
+                lon: p.x(),
+            })?;
+            Ok((c.x, c.y))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    let mut tags = vec![("freemapper:source".to_string(), "osm".to_string())];
+    if let Some(id) = source_id {
+        tags.push(("freemapper:source_id".to_string(), id.to_string()));
+    }
+    Ok(MapObject {
+        symbol_id: symbol_set
+            .id_for_code(OUTLINE_SYMBOL_CODE)
+            .or_else(|| symbol_set.id_for_code(OUTLINE_FALLBACK_CODE))
+            .expect("symbol set defines 501.1 or the sheet symbols"),
+        kind: MapObjectKind::Path,
+        coords: closed_ring(&points),
+        tags,
+    })
+}
+
+/// The layer `name` of `layers`, if stored.
+fn layer<'a>(layers: &'a [Layer], name: &str) -> Option<&'a Layer> {
+    layers.iter().find(|l| l.name == name)
+}
+
+/// The 522 canopy map objects and the 532.x stair candidates.
+struct Structures {
+    canopies: Vec<MapObject>,
+    stairs: Vec<MapObject>,
+}
+
+/// The canopies of the Berlin `bauwerke-flaechen` layer and of the ALKIS buildings of any
+/// state, and the stairs of the Berlin layers (stair areas, step edges, the survey) and of the
+/// full ALKIS.
+fn structures(
+    stored: &Stored,
+    footprints: &[Polygon<f64>],
+    map_area: &Polygon<f64>,
+    frame: &Frame,
+) -> Result<Structures, GeorefError> {
+    let Frame {
+        map_kind,
+        georef,
+        symbol_set,
+        buffer_m,
+        ..
+    } = frame;
+    // The stair areas are in the same layer as the canopies; the step edges are lines.
+    let areas = layer(&stored.berlin, CANOPY_LAYER);
+    let edges = layer(&stored.berlin, STEP_EDGE_LAYER);
+    let survey = layer(&stored.berlin, SURVEY_STAIR_LAYER);
+    // The NAS stair areas and bottom edges are in one layer.
+    let nas = layer(&stored.nas, NAS_STAIR_LAYER);
+    // Canopies are cut at the 521 footprints; flat entrance steps face them.
+    let mut canopies = match areas {
+        Some(layer) => canopy_objects(
+            &[CanopyInput::Berlin(&layer.features)],
+            footprints,
+            map_area,
+            *buffer_m,
+            georef,
+            symbol_set,
+            layer.fetched,
+        )?,
+        None => Vec::new(),
+    };
+    // The canopies among the ALKIS buildings of any state (`Überdachung`, `Carport`).
+    if let Some((buildings, fetched)) = dated(&stored.buildings) {
+        canopies.extend(canopy_objects(
+            &[CanopyInput::Buildings(&buildings.features)],
+            footprints,
+            map_area,
+            *buffer_m,
+            georef,
+            symbol_set,
+            fetched,
+        )?);
+    }
+    if areas.is_none() && edges.is_none() && survey.is_none() && nas.is_none() {
+        return Ok(Structures {
+            canopies,
+            stairs: Vec::new(),
+        });
+    }
+    fn features(layer: Option<&Layer>) -> &[Value] {
+        layer.map_or(&[], |l| &l.features)
+    }
+    // Both layers come from one fetch; the later date stands for the currency.
+    let fetched = [areas, edges, survey, nas]
+        .into_iter()
+        .flatten()
+        .map(|l| l.fetched)
+        .max()
+        .expect("one of the layers is stored");
+    let stairs = stair_objects(
+        &StairInput {
+            features: features(areas),
+            step_edges: features(edges),
+            survey: features(survey),
+            nas: features(nas),
+            terrain: stored.stair_terrain.as_ref(),
+            buildings: footprints,
+        },
+        *map_kind,
+        map_area,
+        *buffer_m,
+        georef,
+        symbol_set,
+        fetched,
+    )?;
+    Ok(Structures { canopies, stairs })
+}
+
+/// The buildings with the date of their fetch, when the project records one.
+fn dated(buildings: &Option<Buildings>) -> Option<(&Buildings, NaiveDate)> {
+    let buildings = buildings.as_ref()?;
+    Some((buildings, buildings.fetched?))
+}
+
+/// The candidates of the cadastres, the registers and the survey: Berlin first, then the state
+/// passages, the full ALKIS (NAS) and the tree cadastres.
+fn cadastre_candidates(
+    stored: &Stored,
+    map_area: &Polygon<f64>,
+    frame: &Frame,
+) -> Result<Vec<MapObject>, GeorefError> {
+    let Frame {
+        map_kind,
+        georef,
+        symbol_set,
+        buffer_m,
+        ..
+    } = frame;
+    let buildings = dated(&stored.buildings);
+    // The Berlin layers and the building parts of the buildings (passages), through the Berlin
+    // rules. The building parts are in the buildings file (`bauart` is set by the Berlin source
+    // only).
+    let parts = buildings.map(|(b, fetched)| (building_part_features(&b.features), fetched));
+    let mut inputs: Vec<LayerInput<'_>> = stored
+        .berlin
+        .iter()
+        .map(|l| LayerInput {
+            file: &l.name,
+            features: &l.features,
+            currency: l.fetched,
+        })
+        .collect();
+    if let Some((features, fetched)) = &parts {
+        inputs.push(LayerInput {
+            file: BUILDING_PARTS_LAYER,
+            features,
+            currency: *fetched,
+        });
+    }
+    let mut cadastre = berlin_objects(&inputs, *map_kind, map_area, *buffer_m, georef, symbol_set)?;
+    // 522 candidates for the building passages of the ALKIS buildings of any state. Berlin
+    // building parts (`bauart`) go through the Berlin rules instead.
+    if let Some((buildings, fetched)) = buildings {
+        cadastre.extend(state_objects(
+            &buildings.features,
+            *map_kind,
+            map_area,
+            *buffer_m,
+            georef,
+            symbol_set,
+            fetched,
+        )?);
+    }
+    // The full ALKIS: walls, fences, hedges, monuments, bridges, embankment tops and ditches.
+    let nas: Vec<NasInput<'_>> = stored
+        .nas
+        .iter()
+        .map(|l| NasInput {
+            file: &l.name,
+            features: &l.features,
+            fetched: l.fetched,
+        })
+        .collect();
+    cadastre.extend(nas_objects(
+        &nas, *map_kind, map_area, *buffer_m, georef, symbol_set,
+    )?);
+    // A forest map draws no register trees (spec 2026-11-13).
+    if *map_kind != MapKind::Forest {
+        let trees: Vec<TreeInput<'_>> = stored
+            .trees
+            .iter()
+            .map(|l| TreeInput {
+                dataset: &l.name,
+                features: &l.features,
+                fetched: l.fetched,
+            })
+            .collect();
+        cadastre.extend(tree_objects(
+            &trees, *map_kind, map_area, *buffer_m, georef, symbol_set,
+        )?);
+    }
+    Ok(cadastre)
+}
+
+/// 501.5 paved areas from the land use; sprint maps only (spec §4.5). In Berlin the
+/// Straßenbefahrung cuts its green strips out and adds its paving as candidates.
+fn paved(stored: &Stored, frame: &Frame) -> Result<PavedObjects, GeorefError> {
+    let Frame {
+        map_kind,
+        georef,
+        symbol_set,
+        clip,
+        ..
+    } = frame;
+    if *map_kind != MapKind::Sprint {
+        return Ok(PavedObjects::default());
+    }
+    let streets = stored
+        .osm
+        .as_ref()
+        .map(|(features, _)| unpaved_streets(features, georef.crs()));
+    let features =
+        |name: &str| layer(&stored.berlin, name).map_or(&[][..], |l| l.features.as_slice());
+    let survey =
+        StreetSurvey::from_features(features(GREEN_LAYER), features(SURFACE_LAYER), georef.crs());
+    paved_area_objects(
+        &stored.land_use,
+        streets.as_deref().unwrap_or_default(),
+        &survey,
+        clip,
+        georef,
+        symbol_set,
+    )
+}
+
+/// Objects for the OSM features whose rule has `target`.
+fn osm(
+    target: Target,
+    stored: &Stored,
+    map_area: &Polygon<f64>,
+    frame: &Frame,
+) -> Result<Vec<MapObject>, GeorefError> {
+    let Some((features, extract)) = &stored.osm else {
+        return Ok(Vec::new());
+    };
+    osm_objects(
+        features,
+        &Rules::embedded(),
+        target,
+        frame.map_kind,
+        map_area,
+        frame.buffer_m,
+        &frame.georef,
+        &frame.symbol_set,
+        "osm",
+        *extract,
+    )
+}
+
+/// Builds every object of the map `frame` describes from the `stored` data ([`Built`]): draws
+/// the sources, resolves the duplicates between them ([`resolve`]) and puts the lists of the map
+/// and of the candidates in their order. `saved` are the content settings of the project.
+pub fn build(frame: Frame, stored: Stored, saved: &ContentSettings) -> Result<Built, GeorefError> {
+    let map_area = frame.area.projected_polygon_in(frame.georef.crs());
+    // Buildings first: they are the map's own objects, candidates only a template.
+    let footprints = stored
+        .buildings
+        .as_ref()
+        .map_or_else(Vec::new, |b| object_footprints(&b.buildings));
+    let building_objects = match &stored.buildings {
+        Some(stored) => building_objects(
+            &stored.buildings,
+            &map_area,
+            frame.buffer_m,
+            &frame.georef,
+            &frame.symbol_set,
+        )?,
+        None => Vec::new(),
+    };
+    let structures = structures(&stored, &footprints, &map_area, &frame)?;
+    let paved = paved(&stored, &frame)?;
+    let water = water_objects(
+        &stored.land_use,
+        &frame.clip,
+        &frame.georef,
+        &frame.symbol_set,
+    )?;
+    let cadastre = cadastre_candidates(&stored, &map_area, &frame)?;
+    // Parks, meadows and woods of the land use: 401, 403 and 405 (`build/open_land.rs`).
+    let osm_forest = match (&stored.osm, frame.map_kind) {
+        (Some((features, _)), MapKind::Forest) => osm_forest_polygons(features, frame.georef.crs()),
+        _ => Vec::new(),
+    };
+    let open_land = open_land_objects(
+        &stored.land_use,
+        &map_area,
+        &frame.clip,
+        frame.map_kind,
+        &frame.georef,
+        &frame.symbol_set,
+        &osm_forest,
+    )?;
+    // 520 candidates for the private land around the map area.
+    let out_of_bounds = out_of_bounds_objects(
+        &stored.land_use,
+        &map_area,
+        &frame.clip,
+        frame.map_kind,
+        &frame.georef,
+        &frame.symbol_set,
+    )?;
+    let osm_candidates = osm(Target::Candidates, &stored, &map_area, &frame)?;
+    let osm_map = osm(Target::Map, &stored, &map_area, &frame)?;
+    let outline = map_area_outline(
+        &frame.area,
+        frame.area_source_id.as_deref(),
+        &frame.georef,
+        &frame.symbol_set,
+    )?;
+    let Stored {
+        land_use,
+        terrain,
+        contours,
+        landforms,
+        vegetation,
+        ..
+    } = stored;
+    let Frame {
+        map_kind,
+        georef,
+        symbol_set,
+        buffer_m,
+        clip,
+        ..
+    } = frame;
+    let surroundings = Surroundings {
+        map_kind,
+        georef,
+        symbol_set,
+        footprints,
+        water: water.union,
+        clip,
+        terrain,
+    };
+    // The duplicates between the sources go and the points are generalized.
+    let Resolved {
+        points: generalized,
+        canopies,
+        out_of_bounds,
+        paved,
+        open_land,
+    } = resolve(
+        Drawn {
+            osm_candidates,
+            osm_map,
+            cadastre,
+            canopies: structures.canopies,
+            out_of_bounds,
+            paved,
+            open_land,
+        },
+        &surroundings,
+    )?;
+    let Surroundings {
+        georef,
+        symbol_set,
+        footprints,
+        water: water_union,
+        clip,
+        ..
+    } = &surroundings;
+    let mut point_candidates = generalized.candidates;
+    point_candidates.extend(generalized.areas);
+    // The outline first, then the points: the project names a register by them.
+    let points = 1..1 + point_candidates.len();
+    let contour_objects = match &contours {
+        Some(contours) => contour_objects(
+            contours,
+            footprints,
+            water_union,
+            &map_area,
+            buffer_m,
+            georef,
+            symbol_set,
+        )?,
+        None => Vec::new(),
+    };
+    let mut candidates: Vec<MapObject> = std::iter::once(outline)
+        .chain(point_candidates)
+        .chain(structures.stairs)
+        .chain(contour_objects)
+        .chain(paved.candidates)
+        .chain(open_land.candidates)
+        .chain(water.candidates)
+        .chain(out_of_bounds)
+        .collect();
+    let content = PaperRect::of_bbox(clip, georef)?;
+    // North lines first: within their black they lie under walls and fences.
+    let spacing_mm = NORTH_LINE_SPACING_MM * map_kind.symbol_enlargement(georef.scale_denominator);
+    let mut map_objects = north_lines(&content, spacing_mm, symbol_set);
+    map_objects.extend(building_objects);
+    // Canopies after the buildings; their Black 20 % lies under the building fill anyway.
+    map_objects.extend(canopies);
+    // Parks under everything but the walkable area: colour priority puts yellow low.
+    map_objects.extend(open_land.map);
+    map_objects.extend(paved.map);
+    map_objects.extend(water.map);
+    map_objects.extend(generalized.map);
+    // New object builders go here (landform candidates, vegetation): they see every object built
+    // so far (`map_objects`, `candidates`), `water_union`, `footprints`, `map_area` and `georef`,
+    // and what they add is placed by the content settings like the rest.
+    // Knolls, depressions, banks and cliffs from the terrain, where nothing drawn shows them yet.
+    // Before the routing, so that the content settings move the banks and cliffs (group `slopes`)
+    // like the contours; with no source rank, `balanced` leaves them candidates.
+    if let Some(landforms) = &landforms {
+        let drawn: Vec<&MapObject> = map_objects.iter().chain(&candidates).collect();
+        let landforms = landform_objects(
+            landforms,
+            footprints,
+            &land_use,
+            water_union,
+            &drawn,
+            &map_area,
+            buffer_m,
+            georef,
+            symbol_set,
+        )?;
+        candidates.extend(landforms);
+    }
+    // The vegetation from the point clouds, where the user chose it (group `vegetation`).
+    if let Some(vegetation) = &vegetation {
+        let vegetation = vegetation_objects(
+            vegetation,
+            footprints,
+            water_union,
+            &map_objects,
+            &map_area,
+            buffer_m,
+            georef,
+            symbol_set,
+        )?;
+        candidates.extend(vegetation);
+    }
+    let mut built = Built::new(surroundings, map_objects, candidates, saved);
+    built.points = points;
+    Ok(built)
+}
 
 /// What the steps of the assembly look at besides the objects: the kind and the frame of the
 /// map, the buildings, the drawn water, the clip window and the terrain.
-pub struct Surroundings {
+struct Surroundings {
     pub map_kind: MapKind,
     pub georef: Georeferencing,
     pub symbol_set: SymbolSet,
@@ -49,7 +595,7 @@ pub struct Surroundings {
 }
 
 /// What the sources drew, before the duplicates between them are resolved ([`resolve`]).
-pub struct Drawn {
+struct Drawn {
     /// The OSM objects of the candidates rules and of the map rules (the firm-gravel ways).
     pub osm_candidates: Vec<MapObject>,
     pub osm_map: Vec<MapObject>,
@@ -67,7 +613,7 @@ pub struct Drawn {
 }
 
 /// What [`resolve`] leaves of the [`Drawn`] objects.
-pub struct Resolved {
+struct Resolved {
     /// The candidates of OSM (first) and of the cadastres, the group areas and the OSM map
     /// objects, after the point generalization.
     pub points: GeneralizedPoints,
@@ -82,7 +628,7 @@ pub struct Resolved {
 /// Duplicates go by rank (`build/dedup.rs`): register > ALKIS > survey > OSM. A register knows
 /// the crown: an OSM tree at a register tree is the same tree. ALKIS surveyed the fences, walls
 /// and hedges: an OSM line along one with its symbol is the same.
-pub fn resolve(drawn: Drawn, surroundings: &Surroundings) -> Result<Resolved, GeorefError> {
+fn resolve(drawn: Drawn, surroundings: &Surroundings) -> Result<Resolved, GeorefError> {
     let Surroundings {
         map_kind,
         georef,
@@ -219,6 +765,8 @@ pub struct Built {
     /// The objects of the map and of the candidates, as the build put them.
     map: Vec<MapObject>,
     candidates: Vec<MapObject>,
+    /// Where the point candidates stand among `candidates` ([`Built::point_candidates`]).
+    points: Range<usize>,
     paved_borders: PavedBorders,
 }
 
@@ -232,7 +780,7 @@ impl Built {
     /// The objects `map` and `candidates` as the build put them, in `surroundings`. `saved` are
     /// the content settings of the project: the borders of the paved areas are computed for
     /// them here, so that the first placement finds them.
-    pub fn new(
+    fn new(
         surroundings: Surroundings,
         map: Vec<MapObject>,
         candidates: Vec<MapObject>,
@@ -268,8 +816,15 @@ impl Built {
             terrain: Arc::new(terrain),
             map,
             candidates,
+            points: 0..0,
             paved_borders,
         }
+    }
+
+    /// The candidates of OSM, the cadastres and the registers after the point generalization,
+    /// with the group areas made from them: the project names a register by them.
+    pub fn point_candidates(&self) -> &[MapObject] {
+        &self.candidates[self.points.clone()]
     }
 
     pub fn georef(&self) -> &Georeferencing {
