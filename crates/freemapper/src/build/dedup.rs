@@ -6,7 +6,8 @@
 
 use std::collections::HashMap;
 
-use crate::build::geometry::object_polygon;
+use crate::build::geometry::{distance_to_segment, object_polygon, xy};
+use crate::measure::{PaperMm, map_units_per_metre};
 use crate::omap::{MapObject, MapObjectKind, SymbolSet};
 
 /// How much a source is trusted for a duplicate, lowest first.
@@ -139,9 +140,7 @@ fn drop_lines_near(
     let line = |o: &MapObject| {
         matches!(o.kind, MapObjectKind::Path) && o.coords.len() >= 2 && codes.contains(&o.symbol_id)
     };
-    let xy = |c: &crate::omap::MapCoord| (f64::from(c.x), f64::from(c.y));
-    // Map coordinates are 1/1000 mm on paper: one ground metre is 10^6 / scale of them.
-    let metre = 1e6 / f64::from(scale_denominator);
+    let metre = map_units_per_metre(scale_denominator);
     let limit = LINE_DEDUP_M * metre;
     let cell = |(x, y): (f64, f64)| ((x / limit).floor() as i64, (y / limit).floor() as i64);
     // The winning segments by symbol, in a grid of `limit`-sized cells along each segment.
@@ -177,16 +176,6 @@ fn drop_lines_near(
     if segments.is_empty() {
         return losers;
     }
-    let distance = |p: (f64, f64), a: (f64, f64), b: (f64, f64)| {
-        let (dx, dy) = (b.0 - a.0, b.1 - a.1);
-        let length2 = dx * dx + dy * dy;
-        let t = if length2 > 0.0 {
-            (((p.0 - a.0) * dx + (p.1 - a.1) * dy) / length2).clamp(0.0, 1.0)
-        } else {
-            0.0
-        };
-        (p.0 - a.0 - t * dx).hypot(p.1 - a.1 - t * dy)
-    };
     // The winner nearest to `p` within `limit`, among the segments with `symbol`. A segment
     // within `limit` of `p` has a sample cell within two cells of `p`'s.
     let nearest = |symbol: u32, p: (f64, f64)| -> Option<usize> {
@@ -196,7 +185,7 @@ fn drop_lines_near(
             for j in cy - 2..=cy + 2 {
                 for &id in grid.get(&(symbol, i, j)).into_iter().flatten() {
                     let (_, (index, a, b)) = segments[id];
-                    let d = distance(p, a, b);
+                    let d = distance_to_segment(p, a, b);
                     if d <= limit && best.is_none_or(|(e, _)| d < e) {
                         best = Some((d, index));
                     }
@@ -285,8 +274,7 @@ pub fn drop_trees_by_rank(
     if trees.is_empty() {
         return (osm, cadastre);
     }
-    // Map coordinates are 1/1000 mm on paper: one ground metre is 10^6 / scale of them.
-    let limit = TREE_DEDUP_M * 1e6 / f64::from(scale_denominator);
+    let limit = TREE_DEDUP_M * map_units_per_metre(scale_denominator);
     // A grid of `limit`-sized cells: a tree within `limit` lies in the same or a neighbouring cell.
     let cell = |(x, y): (f64, f64)| ((x / limit).floor() as i64, (y / limit).floor() as i64);
     let mut grid: HashMap<(i64, i64), Vec<Tree>> = HashMap::new();
@@ -320,7 +308,7 @@ const AREA_DEDUPS: [(&str, f64); 3] = [("522", 0.5), ("520", 0.8), ("501.5", 0.5
 /// The agreement of two areas is judged with the higher-ranked one widened by this much on
 /// paper (mm): one thin line width, at which two outlines of the same object still read as one.
 /// A ruling (2026-11-10). At 1:4000 it is 1 m, at 1:5000 1.25 m.
-pub const AREA_DEDUP_TOLERANCE_MM: f64 = 0.25;
+pub const AREA_DEDUP_TOLERANCE_MM: PaperMm = PaperMm(0.25);
 
 /// Whether `object`, which has the area symbol `code`, may be dropped as a duplicate: every
 /// 522 and 520, but of the 501.5 only an OSM bridge, because the other 501.5 candidates are
@@ -364,7 +352,7 @@ pub fn drop_areas_by_rank(
         .filter_map(|&(code, share)| Some((symbol_set.id_for_code(code)?, code, share)))
         .collect();
     let code_of = |o: &MapObject| codes.iter().find(|(id, _, _)| *id == o.symbol_id).copied();
-    let tolerance = AREA_DEDUP_TOLERANCE_MM * 1000.0;
+    let tolerance = AREA_DEDUP_TOLERANCE_MM.map_units();
     struct Winner {
         slot: usize,
         index: usize,
@@ -512,8 +500,8 @@ const FURNITURE_DEDUP_M: Limit = Limit::Metres(2.0);
 /// symbols touch, and never under 3 m on the ground (1:1000), because the sources place the same
 /// fountain a few metres apart whatever the scale. The measured pairs lie at 0.05 to 0.5 m, the
 /// next point of another source 9.8 m away.
-const FOUNTAIN_DEDUP: Limit = Limit::PaperMm {
-    mm: 0.75,
+const FOUNTAIN_DEDUP: Limit = Limit::Paper {
+    mm: PaperMm(0.75),
     at_least_m: 3.0,
 };
 
@@ -524,16 +512,16 @@ enum Limit {
     Metres(f64),
     /// Millimetres on paper, as what the printed map shows twice, but at least `at_least_m`
     /// ground metres: the positional error of the sources does not shrink with the scale.
-    PaperMm { mm: f64, at_least_m: f64 },
+    Paper { mm: PaperMm, at_least_m: f64 },
 }
 
 impl Limit {
     /// The limit in map coordinates (1/1000 mm on paper) at `scale_denominator`.
     fn map_units(self, scale_denominator: u32) -> f64 {
-        let metre = 1e6 / f64::from(scale_denominator);
+        let metre = map_units_per_metre(scale_denominator);
         match self {
             Self::Metres(m) => m * metre,
-            Self::PaperMm { mm, at_least_m } => (mm * 1000.0).max(at_least_m * metre),
+            Self::Paper { mm, at_least_m } => mm.map_units().max(at_least_m * metre),
         }
     }
 }

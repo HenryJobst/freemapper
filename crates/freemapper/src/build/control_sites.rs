@@ -9,6 +9,7 @@
 
 use std::collections::HashMap;
 
+use crate::measure::map_units_per_metre;
 use crate::omap::{MapObject, MapObjectKind};
 
 /// The tag that names the kind of a control site (`bollard`, `street_lamp`, `waste_basket`,
@@ -35,7 +36,7 @@ fn tag<'a>(object: &'a MapObject, key: &str) -> Option<&'a str> {
 /// Other objects, and all objects of a map without control sites, pass unchanged and in order.
 /// `scale_denominator` turns map units (1/1000 mm on paper) into ground metres.
 pub fn drop_ambiguous(objects: Vec<MapObject>, scale_denominator: u32) -> Vec<MapObject> {
-    let metre = 1e6 / f64::from(scale_denominator);
+    let metre = map_units_per_metre(scale_denominator);
     let reach = SAME_KIND_M * metre;
     let sites: Vec<(usize, &str, (f64, f64))> = objects
         .iter()

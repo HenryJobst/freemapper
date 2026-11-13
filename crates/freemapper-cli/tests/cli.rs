@@ -1313,6 +1313,68 @@ fn permits_appears_in_the_written_files() {
     );
 }
 
+/// With VG250 and the BfN down and OSM not read, a read source of Berlin alone is enough:
+/// `permits` writes the notes and exits with 0 (review finding 10).
+#[test]
+fn permits_with_only_a_berlin_source_read_exits_with_0() {
+    let dir = tempfile::tempdir().unwrap();
+    let (project, cache) = offline_school(dir.path());
+    let folder = project.join("data/permits");
+    std::fs::create_dir_all(folder.join("berlin")).unwrap();
+    let bezirk = serde_json::json!({
+        "type": "FeatureCollection",
+        "features": [{
+            "type": "Feature",
+            "properties": { "namgem": "Mitte" },
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [[[13.8, 52.5], [13.9, 52.5], [13.9, 52.6], [13.8, 52.6], [13.8, 52.5]]]
+            }
+        }]
+    });
+    std::fs::write(
+        folder.join("berlin/bezirke-bezirksgrenzen.geojson"),
+        bezirk.to_string(),
+    )
+    .unwrap();
+    let sources = serde_json::json!({
+        "schema": 1,
+        "bbox": [13.84, 52.53, 13.85, 52.55],
+        "vg250": { "state": "unreachable", "reason": "HTTP 503 Service Unavailable" },
+        "bfn": { "state": "unreachable", "reason": "HTTP 503 Service Unavailable" },
+        "osm": { "state": "not-read" },
+        "regional": [{
+            "adapter": "berlin",
+            "source": "bezirke",
+            "state": "read",
+            "fetched": "2026-11-13",
+            "count": 1
+        }]
+    });
+    std::fs::write(folder.join("sources.json"), sources.to_string()).unwrap();
+    let output = freemapper()
+        .arg("permits")
+        .arg(&project)
+        .args(["--offline", "--cache-dir"])
+        .arg(&cache)
+        .output()
+        .unwrap();
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert_eq!(output.status.code(), Some(0), "{stderr}");
+    for line in [
+        "warning: the permit notes leave out VG250 (BKG): HTTP 503 Service Unavailable",
+        "warning: the permit notes leave out BfN: HTTP 503 Service Unavailable",
+    ] {
+        assert!(stderr.contains(line), "{stderr}");
+    }
+    let text = std::fs::read_to_string(project.join("permits.md")).unwrap();
+    assert!(
+        text.contains("## Bezirke (districts, Geoportal Berlin)\n\n- Mitte: 100%"),
+        "{text}"
+    );
+    assert!(project.join("permits.json").exists());
+}
+
 // `freemapper update` (spec 3.5). The tests that reach the update code need a build with the
 // `test-stub` feature and talk to the stub of `tests/support`.
 

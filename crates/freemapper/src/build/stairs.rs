@@ -39,9 +39,11 @@ use crate::build::berlin::{
 };
 use crate::build::dedup::add_also;
 use crate::build::state::{NAS_SOURCE, nas_feature_tags};
+use crate::build::symbol_measures::LINE_GAP_MM;
 use crate::crs::{Crs, ProjectedPoint};
 use crate::derive::ndsm::bilinear;
 use crate::georef::{GeorefError, Georeferencing};
+use crate::measure::{SymbolMm, SymbolScale};
 use crate::omap::{MapObject, MapObjectKind, SymbolSet};
 use crate::project::MapKind;
 use crate::raster::Raster;
@@ -58,12 +60,12 @@ pub const STAIR_MIN_RISE_M: f64 = 0.3;
 const FOOTPRINTS: [(f64, &str); 3] = [(0.45, "532.6"), (0.625, "532.7"), (0.875, "532.8")];
 const WIDEST_FOOTPRINT: &str = "532.9";
 /// Paper width of 532.9 (mm, at 100 %).
-const WIDEST_FOOTPRINT_MM: f64 = 1.0;
+const WIDEST_FOOTPRINT_MM: SymbolMm = SymbolMm(1.0);
 /// A stair wider than this many 532.9 widths is drawn as parallel lines across its width.
 const WIDE_STAIR_FACTOR: f64 = 3.0;
 /// Paper gap (mm) kept between the ticks of two neighbouring lines of a wide stair: the
 /// minimum gap between two line symbols of one colour (ISSprOM 3.2, 0.15 mm).
-const WIDE_LINE_GAP_MM: f64 = 0.15;
+const WIDE_LINE_GAP_MM: SymbolMm = LINE_GAP_MM;
 /// At most this many parallel lines for one wide stair; wider ones get them farther apart.
 const MAX_WIDE_LINES: usize = 100;
 /// A flat stair whose side lies this close to a building or monument faces it.
@@ -487,13 +489,10 @@ pub fn stair_objects(
     currency: NaiveDate,
 ) -> Result<Vec<MapObject>, GeorefError> {
     let crs = Crs::from_epsg(georef.epsg).unwrap_or(Crs::Utm33);
-    // Ground metres per paper millimetre at 100 % symbol size.
-    let metres_per_mm = f64::from(georef.scale_denominator) / 1000.0
-        * kind.symbol_enlargement(georef.scale_denominator);
     let mut stairs = StairWriter {
         georef,
         symbol_set,
-        metres_per_mm,
+        scale: SymbolScale::new(kind, georef.scale_denominator),
         objects: Vec::new(),
     };
     // Flat stairs face the buildings and the monuments they lie at.
@@ -636,7 +635,7 @@ fn same_stair(a: &Polygon<f64>, b: &Polygon<f64>) -> bool {
 struct StairWriter<'a> {
     georef: &'a Georeferencing,
     symbol_set: &'a SymbolSet,
-    metres_per_mm: f64,
+    scale: SymbolScale,
     objects: Vec<MapObject>,
 }
 
@@ -651,19 +650,19 @@ impl StairWriter<'_> {
                 northing: c.y,
             })
         };
-        let widest_m = WIDEST_FOOTPRINT_MM * self.metres_per_mm;
+        let widest_m = WIDEST_FOOTPRINT_MM.metres(self.scale);
         let wide = axis.width > WIDE_STAIR_FACTOR * widest_m;
         let code = if wide {
             WIDEST_FOOTPRINT
         } else {
-            footprint_code(axis.width / self.metres_per_mm)
+            footprint_code(axis.width / self.scale.metres_per_symbol_mm())
         };
         let symbol_id = self
             .symbol_set
             .id_for_code(code)
             .expect("symbol set defines 532.6-532.9");
         let offsets: Vec<f64> = if wide {
-            let gap_m = WIDE_LINE_GAP_MM * self.metres_per_mm;
+            let gap_m = WIDE_LINE_GAP_MM.metres(self.scale);
             let step = widest_m + gap_m;
             let count = (((axis.width + gap_m) / step).floor() as usize).clamp(1, MAX_WIDE_LINES);
             let spacing = step.max(axis.width / MAX_WIDE_LINES as f64);

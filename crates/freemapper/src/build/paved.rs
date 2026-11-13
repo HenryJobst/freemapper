@@ -17,6 +17,7 @@ use crate::build::berlin::{feature_polygons, survey_currency, survey_tags};
 use crate::build::out_of_bounds::{LandClip, area_object, clipped_pieces, land_tags};
 use crate::crs::{BoundingBox, Crs};
 use crate::georef::{GeorefError, Georeferencing};
+use crate::measure::PaperMm;
 use crate::omap::{MapObject, SymbolSet};
 use crate::sources::alkis::LandUse;
 use crate::sources::osm::{OsmFeature, OsmGeometry};
@@ -53,9 +54,9 @@ const GREEN_CODE: &str = "401";
 /// parcel boundary disagree, or the green is too narrow to show. The 401 candidates are the
 /// strips minus every 501.5 object and candidate that stays, so a green candidate never lies on
 /// paving that was not cut.
-const GREEN_MIN_SIDE_MM: f64 = 1.0;
+const GREEN_MIN_SIDE_MM: PaperMm = PaperMm(1.0);
 /// Surveyed paving outside the parcels smaller than (1 mm)² is a sliver.
-const SURVEYED_PAVED_MIN_SIDE_MM: f64 = 1.0;
+const SURVEYED_PAVED_MIN_SIDE_MM: PaperMm = PaperMm(1.0);
 /// A survey candidate, a cut green strip and a remnant of the cut are no sliver down to this
 /// width on the ground, even where 1 mm on paper is more (4 m at 1:4000): a 3 m park path stays a
 /// candidate, a 3.5 m sidewalk beyond a verge stays paved, and the strips where the survey and

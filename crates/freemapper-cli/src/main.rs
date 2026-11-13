@@ -169,7 +169,8 @@ enum Commands {
         #[arg(long, value_enum, default_value_t = SourcesArg::Auto)]
         pdf_sources: SourcesArg,
         /// Also write the permit notes (permits.md and permits.json) after the map; asks the
-        /// BfN and the BKG. A failure there is a warning and the map stays.
+        /// BfN and the BKG, in Berlin also the Geoportal Berlin (gdi.berlin.de). A failure there
+        /// is a warning and the map stays.
         #[arg(long)]
         permits: bool,
         #[command(flatten)]
@@ -183,8 +184,9 @@ enum Commands {
     },
     /// Write the permit notes of a project (permits.md and permits.json): the administrative
     /// units, protected areas and operators the map area touches, and whom that usually means
-    /// asking. It asks the BfN and the BKG and reads the OSM extract already cached; --offline
-    /// uses what was fetched before.
+    /// asking. It asks the BfN and the BKG, for a map area in Berlin also the Geoportal Berlin
+    /// (gdi.berlin.de) through the hosts of Berlin's adapter, and reads the OSM extract already
+    /// cached; --offline uses what was fetched before.
     Permits {
         /// Project folder.
         dir: PathBuf,

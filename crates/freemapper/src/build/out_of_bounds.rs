@@ -5,6 +5,7 @@ use geo_types::Polygon;
 
 use crate::crs::{BoundingBox, ProjectedPoint};
 use crate::georef::{GeorefError, Georeferencing};
+use crate::measure::PaperMm;
 use crate::omap::{MapObject, MapObjectKind, SymbolSet, closed_ring};
 use crate::project::MapKind;
 use crate::sources::alkis::LandUse;
@@ -23,7 +24,7 @@ const PRIVATE_LAND_USES: [&str; 4] = [
 const OWN_LAND_SHARE: f64 = 0.5;
 /// Pieces smaller than (1 mm)² or narrower than 1 mm on paper are slivers along parcel
 /// boundaries and at the clip edge.
-const MIN_SIDE_MM: f64 = 1.0;
+const MIN_SIDE_MM: PaperMm = PaperMm(1.0);
 
 /// The `bez` of the sports and recreation land use that is private ground: allotment gardens.
 const ALLOTMENT_BEZ: &str = "Kleingarten";
@@ -97,17 +98,17 @@ impl LandClip {
     pub(crate) fn with_min_side(
         clip: &BoundingBox,
         georef: &Georeferencing,
-        min_side_mm: f64,
+        min_side_mm: PaperMm,
     ) -> Self {
-        let metres_per_mm = f64::from(georef.scale_denominator) / 1000.0;
+        let min_side = min_side_mm.metres(georef.scale_denominator);
         Self {
             polygon: geo_types::Rect::new(
                 geo_types::coord! { x: clip.min_e, y: clip.min_n },
                 geo_types::coord! { x: clip.max_e, y: clip.max_n },
             )
             .to_polygon(),
-            min_area: (min_side_mm * metres_per_mm).powi(2),
-            min_width: min_side_mm * metres_per_mm,
+            min_area: min_side.powi(2),
+            min_width: min_side,
         }
     }
 

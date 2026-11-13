@@ -19,6 +19,7 @@ use crate::build::buildings::footprint_coords;
 use crate::build::state::{SOURCE, STRUCTURE, vereinfacht_function};
 use crate::crs::Crs;
 use crate::georef::{GeorefError, Georeferencing};
+use crate::measure::PaperMm;
 use crate::omap::{MapObject, MapObjectKind, SymbolSet};
 use crate::sources::alkis::parse_building_features;
 
@@ -30,9 +31,9 @@ pub const CANOPY_LAYER: &str = "bauwerke-flaechen";
 const CANOPY_KINDS: [&str; 2] = ["Überdachung", "Carport"];
 /// Canopies and holes with an area below (`CANOPY_MIN_SIDE_MM`)² on paper are dropped, as in
 /// `buildings.rs`.
-const CANOPY_MIN_SIDE_MM: f64 = 0.5;
+const CANOPY_MIN_SIDE_MM: PaperMm = PaperMm(0.5);
 /// Outline simplification tolerance on paper, as in `buildings.rs`.
-const SIMPLIFY_MM: f64 = 0.1;
+const SIMPLIFY_MM: PaperMm = PaperMm(0.1);
 /// A canopy of which at least this share lies in building footprints is inside a building.
 const INSIDE_BUILDING_SHARE: f64 = 0.9;
 
@@ -68,9 +69,8 @@ pub fn canopy_objects(
         .id_for_code(CANOPY_SYMBOL_CODE)
         .expect("symbol set defines 522");
     let crs = Crs::from_epsg(georef.epsg).unwrap_or(Crs::Utm33);
-    let metres_per_mm = f64::from(georef.scale_denominator) / 1000.0;
-    let min_area = (CANOPY_MIN_SIDE_MM * metres_per_mm).powi(2);
-    let tolerance = SIMPLIFY_MM * metres_per_mm;
+    let min_area = CANOPY_MIN_SIDE_MM.metres(georef.scale_denominator).powi(2);
+    let tolerance = SIMPLIFY_MM.metres(georef.scale_denominator);
 
     // Every canopy, with its tags, in the map's CRS.
     let mut canopies: Vec<(Polygon<f64>, Tags)> = Vec::new();

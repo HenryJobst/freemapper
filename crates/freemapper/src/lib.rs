@@ -12,6 +12,7 @@ pub mod fetch;
 mod fsutil;
 pub mod georef;
 pub mod layers;
+pub mod measure;
 pub mod note;
 pub mod ocd;
 pub mod omap;

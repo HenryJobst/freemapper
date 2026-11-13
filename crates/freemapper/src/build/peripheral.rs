@@ -2,6 +2,7 @@
 
 use crate::crs::{BoundingBox, ProjectedPoint};
 use crate::georef::{GeorefError, Georeferencing};
+use crate::measure::PaperMm;
 use crate::omap::{MapCoord, MapObject, MapObjectKind, SymbolSet};
 
 /// ISSprOM 601 magnetic north line.
@@ -16,7 +17,7 @@ const SHEET_ROLE_KEY: &str = freemapper_contract::tags::ROLE_KEY;
 const SCALE_BAR_ROLE: &str = freemapper_contract::tags::ROLE_SCALE_BAR;
 const BAR_LINE_CODE: &str = "994";
 /// Longest bar scale on paper; the bar is the longest round ground distance that fits.
-const BAR_MAX_MM: f64 = 60.0;
+const BAR_MAX_MM: PaperMm = PaperMm(60.0);
 /// Text alignments as in OOM.
 const ALIGN_LEFT: u8 = 0;
 const ALIGN_CENTRE: u8 = 1;
@@ -122,12 +123,16 @@ fn mm(v: f64) -> i32 {
     (v * 1000.0).round() as i32
 }
 
-/// Vertical magnetic north lines `spacing_mm` apart across `content`, one through x = 0.
+/// Vertical magnetic north lines `spacing` apart across `content`, one through x = 0.
 /// They are map content, tagged `freemapper:source=north-lines`: the mapper breaks them at
 /// small objects.
-pub fn north_lines(content: &PaperRect, spacing_mm: f64, symbol_set: &SymbolSet) -> Vec<MapObject> {
+pub fn north_lines(
+    content: &PaperRect,
+    spacing: PaperMm,
+    symbol_set: &SymbolSet,
+) -> Vec<MapObject> {
     let id = symbol(symbol_set, NORTH_LINE_CODE);
-    let spacing = spacing_mm * 1000.0;
+    let spacing = spacing.map_units();
     let first = (f64::from(content.min_x) / spacing).ceil() as i64;
     let last = (f64::from(content.max_x) / spacing).floor() as i64;
     (first..=last)
@@ -152,7 +157,7 @@ fn metres_label(metres: f64) -> String {
 
 /// Longest ground distance of 1, 2 or 5 × 10ⁿ m whose bar is at most [`BAR_MAX_MM`] on paper.
 fn bar_length_m(scale_denominator: u32) -> f64 {
-    let max_m = BAR_MAX_MM * f64::from(scale_denominator) / 1000.0;
+    let max_m = BAR_MAX_MM.metres(scale_denominator);
     let decade = 10f64.powi(max_m.log10().floor() as i32);
     [5.0, 2.0, 1.0]
         .into_iter()
@@ -165,7 +170,7 @@ fn bar_length_m(scale_denominator: u32) -> f64 {
 fn bar_scale(origin: (i32, i32), scale_denominator: u32, bar: u32, small: u32) -> Vec<MapObject> {
     let (x0, y) = origin;
     let length_m = bar_length_m(scale_denominator);
-    let length_mm = length_m * 1000.0 / f64::from(scale_denominator);
+    let PaperMm(length_mm) = PaperMm::of_metres(length_m, scale_denominator);
     let bar_end = x0 + mm(length_mm);
     let mut objects = vec![line(bar, (x0, y), (bar_end, y))];
     for fraction in [0.0, 0.5, 1.0] {
@@ -284,7 +289,7 @@ mod tests {
     fn north_lines_cover_content() {
         let content = rect_mm(-100.0, -80.0, 120.0, 60.0);
         let set = school_set();
-        let lines = north_lines(&content, 37.5, &set);
+        let lines = north_lines(&content, PaperMm(37.5), &set);
         let xs: Vec<i32> = lines.iter().map(|l| l.coords[0].x).collect();
         assert_eq!(xs, [-75_000, -37_500, 0, 37_500, 75_000, 112_500]);
         for line in &lines {
@@ -304,7 +309,7 @@ mod tests {
     fn north_line_spacing_sprint() {
         let content = rect_mm(-10.0, -10.0, 40.0, 10.0);
         let sprint = SymbolSet::issprom_2019().with_sheet_symbols();
-        let xs: Vec<i32> = north_lines(&content, 30.0, &sprint)
+        let xs: Vec<i32> = north_lines(&content, PaperMm(30.0), &sprint)
             .iter()
             .map(|l| l.coords[0].x)
             .collect();

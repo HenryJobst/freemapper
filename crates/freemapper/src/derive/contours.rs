@@ -2,14 +2,15 @@
 
 use geo::{Length as _, Simplify as _};
 
+use crate::measure::{PaperMm, PaperMm2};
 use crate::project::MapKind;
 use crate::raster::Raster;
 
 /// Simplification tolerance and shortest kept line, on paper.
-const SIMPLIFY_MM: f64 = 0.1;
-const MIN_LENGTH_MM: f64 = 2.0;
+const SIMPLIFY_MM: PaperMm = PaperMm(0.1);
+const MIN_LENGTH_MM: PaperMm = PaperMm(2.0);
 /// Closed rings enclosing less than this on paper are noise at a 1 m interval.
-const MIN_RING_AREA_MM2: f64 = 1.5;
+const MIN_RING_AREA_MM2: PaperMm2 = PaperMm2(1.5);
 
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
 #[error("invalid contours: {0}")]
@@ -197,23 +198,22 @@ fn usable_runs(ring: &[(f64, f64)], unusable: &dyn Fn(f64, f64) -> bool) -> Vec<
 /// enclosing less than 1.5 mm² on paper.
 pub fn generalize(lines: Vec<ContourLine>, scale_denominator: u32) -> Vec<ContourLine> {
     use geo::Area as _;
-    let metres_per_mm = f64::from(scale_denominator) / 1000.0;
     lines
         .into_iter()
         .filter_map(|line| {
             let ls = geo_types::LineString::from(line.points.clone());
-            let simplified = ls.simplify(SIMPLIFY_MM * metres_per_mm);
+            let simplified = ls.simplify(SIMPLIFY_MM.metres(scale_denominator));
             let closed = simplified.0.len() > 3 && simplified.is_closed();
             let ring_area = geo_types::Polygon::new(simplified.clone(), vec![]).unsigned_area();
-            if closed && ring_area < MIN_RING_AREA_MM2 * metres_per_mm * metres_per_mm {
+            if closed && ring_area < MIN_RING_AREA_MM2.square_metres(scale_denominator) {
                 return None;
             }
-            (geo::Euclidean.length(&simplified) >= MIN_LENGTH_MM * metres_per_mm).then(|| {
-                ContourLine {
+            (geo::Euclidean.length(&simplified) >= MIN_LENGTH_MM.metres(scale_denominator)).then(
+                || ContourLine {
                     height: line.height,
                     points: simplified.0.iter().map(|c| (c.x, c.y)).collect(),
-                }
-            })
+                },
+            )
         })
         .collect()
 }

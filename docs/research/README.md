@@ -8,7 +8,7 @@ Hier liegen die Recherchen, auf denen Entscheidungen und Pläne von freemapper b
 | [osm-sprint-census](osm-sprint-census/osm-census-report.md) | Welche OSM-Daten ein Sprintkarte nutzt und welche nicht (Viktoriapark gegen Lübeck), Empfehlungen | 9.11.2026 |
 | [states-plus](states-plus/STATES-PLUS-SURVEY.md) | Weitere Datenquellen für Sprintkarten je Bundesland (Roadmap und Läufe) | 9.11.2026 |
 | [berlin-plus](berlin-plus/BERLIN-PLUS-REFERENCE.md) | Zusätzliche Berliner Geoportal-Daten für Sprintkarten | 9.11.2026 |
-| [baden-wuerttemberg](baden-wuerttemberg/BW-REFERENCE.md) | Datenquellen und Dienste für Baden-Württemberg. Der Adapter ist gebaut (ADR 0118); der geprüfte Stand mit dem Abschnitt „As built“ steht in [`docs/regions/baden-wuerttemberg-reference.md`](../regions/baden-wuerttemberg-reference.md) | 8.11.2026 |
+| [baden-wuerttemberg](baden-wuerttemberg/BW-REFERENCE.md) | Datenquellen und Dienste für Baden-Württemberg. Der Adapter ist gebaut (ADR 0119); der geprüfte Stand mit dem Abschnitt „As built“ steht in [`docs/regions/baden-wuerttemberg-reference.md`](../regions/baden-wuerttemberg-reference.md) | 8.11.2026 |
 | [gym](gym/GYM-REFERENCE.md) | Hallenkarten (Gym): Symbole, Geräte, Antworten von print und courseplan | 9.11.2026 |
 
 Der ISSprOM-Normtext und die IOF-Druckvorgaben liegen nicht im Repository, weil sie urheberrechtlich geschützt sind.

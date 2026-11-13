@@ -13,6 +13,7 @@ use geo::{Area as _, BoundingRect as _, Contains as _, Simplify as _};
 use super::DeriveError;
 use super::contours::contour_lines;
 use crate::crs::BoundingBox;
+use crate::measure::PaperMm2;
 use crate::raster::{GridSpec, Raster};
 
 /// Cell of the classification.
@@ -36,7 +37,7 @@ const IMPASSABLE_INDEX: f64 = 0.8;
 const UNDERGROWTH_SLOW: f64 = 0.35;
 const UNDERGROWTH_WALK: f64 = 0.56;
 /// Smallest area on paper (1.5 mm × 1.5 mm); smaller patches are left out, smaller holes filled.
-const MIN_AREA_MM2: f64 = 2.25;
+const MIN_AREA_MM2: PaperMm2 = PaperMm2(2.25);
 /// Outlines are simplified to this, on the ground.
 const SIMPLIFY_M: f64 = 1.5;
 
@@ -408,8 +409,7 @@ pub fn majority(classes: &Raster<Option<VegetationClass>>) -> Raster<Option<Vege
 
 /// The smallest area in ground m² at 1:`scale_denominator`: 1.5 mm × 1.5 mm on paper.
 pub fn min_area_m2(scale_denominator: u32) -> f64 {
-    let metres_per_mm = f64::from(scale_denominator) / 1000.0;
-    MIN_AREA_MM2 * metres_per_mm * metres_per_mm
+    MIN_AREA_MM2.square_metres(scale_denominator)
 }
 
 /// The areas of every class, after the majority filter, simplified, without patches and holes

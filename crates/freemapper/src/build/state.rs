@@ -248,7 +248,7 @@ pub fn nas_objects(
 ) -> Result<Vec<MapObject>, GeorefError> {
     let rules = Rules::states();
     let distance = pair_distance_m(kind, georef.scale_denominator);
-    let min_length = f64::from(georef.scale_denominator) / 1000.0 * MIN_LINE_MM;
+    let min_length = MIN_LINE_MM.metres(georef.scale_denominator);
     let mut objects = Vec::new();
     for layer in layers {
         let source = format!("{NAS_SOURCE}/{}", layer.file);

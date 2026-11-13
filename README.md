@@ -3,7 +3,7 @@
 [English version](README.en.md) · [Handbuch](docs/manual/de.md) · [Glossar](docs/glossary.md) · [Änderungen](CHANGELOG.md)
 
 <!-- claude-cost:start -->
-[![KI-Aufwand (Claude API): 2.255 $](https://img.shields.io/badge/KI--Aufwand%20%28Claude%20API%29-2.255%20%24-8A2BE2)](docs/ai-cost/history.csv)
+[![KI-Aufwand (Claude API): 2.329 $](https://img.shields.io/badge/KI--Aufwand%20%28Claude%20API%29-2.329%20%24-8A2BE2)](docs/ai-cost/history.csv)
 <!-- claude-cost:end -->
 
 <p align="center"><a href="examples/berlin-viktoriapark/berlin-viktoriapark-candidates.pdf"><img src="examples/berlin-viktoriapark/preview.webp" alt="Sprintkarte Viktoriapark, Berlin-Kreuzberg, von freemapper erzeugt" width="760"></a><br><sub>Viktoriapark, Berlin-Kreuzberg (Sprint 1:4000), von freemapper aus offenen Daten erzeugt. Ein Klick öffnet das PDF; mehr unter <a href="examples/README.md">Beispiele</a>.</sub></p>
@@ -81,7 +81,7 @@ Bayern). Thüringen folgt, sobald sein Server für die
 Höhendaten wieder erreichbar ist. Waldkarten und die Nachbarländer kommen später. Design:
 [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](https://github.com/HenryJobst/freemapper/blob/main/docs/superpowers/specs/2026-11-07-freemapper-design.md).
 
-Auf Wunsch schreibt freemapper Hinweise zu Genehmigungen neben die Karte, in die Datei `permits.md` (`freemapper permits`, `run --permits`, auf der Gebietsseite oder über den KI-Assistenten). Sie nennt für das Kartengebiet Bundesland, Kreis, Amt und Gemeinde aus VG250 des BKG, die Schutzgebiete des BfN und Betreiber aus OpenStreetMap, jeweils mit Anteil, Quelle und Datenstand, und sagt, wen man meist fragt. Sie ist ein Hinweis und keine Rechtsauskunft. Einzelheiten stehen im [Handbuch, Kapitel 12](docs/manual/de.md#12-hinweise-zu-genehmigungen). Geplant sind noch die Forstverwaltungen für Waldkarten und für Berliner Sprintkarten Bezirke, Grünanlagen, Liegenschaften und Denkmale; die Recherche dazu steht in [`docs/research`](https://github.com/HenryJobst/freemapper/blob/main/docs/research/wald-und-sprint-behoerden/waldschutz-forstbehoerden-recherche.md).
+Auf Wunsch schreibt freemapper Hinweise zu Genehmigungen neben die Karte, in die Datei `permits.md` (`freemapper permits`, `run --permits`, auf der Gebietsseite oder über den KI-Assistenten). Sie nennt für das Kartengebiet Bundesland, Kreis, Amt und Gemeinde aus VG250 des BKG, die Schutzgebiete des BfN und Betreiber aus OpenStreetMap, jeweils mit Anteil, Quelle und Datenstand, und sagt, wen man meist fragt. Sie ist ein Hinweis und keine Rechtsauskunft. Einzelheiten stehen im [Handbuch, Kapitel 12](docs/manual/de.md#12-hinweise-zu-genehmigungen). In Berlin kommen Bezirk, Grünanlagen, Eigentum von Bundesland und Bund, Denkmale und Naturdenkmale aus dem Geoportal Berlin dazu. Geplant sind noch die Forstverwaltungen für Waldkarten; die Recherche dazu steht in [`docs/research`](https://github.com/HenryJobst/freemapper/blob/main/docs/research/wald-und-sprint-behoerden/waldschutz-forstbehoerden-recherche.md).
 
 ## Handbuch
 

@@ -163,4 +163,6 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0115](0115-the-map-assembly-reads-no-file.md) | The map assembly reads no file | Accepted | 2026-11-13 |
 | [0116](0116-forest-map-kind.md) | Forest map kind | Accepted | 2026-11-13 |
 | [0117](0117-permit-notes-from-national-sources.md) | Permit notes from national sources | Accepted | 2026-11-13 |
-| [0118](0118-baden-wuerttemberg-ndom-on-the-terrain-and-alkis-by-code.md) | Baden-Württemberg: the nDOM1 on the terrain, and the ALKIS of the views by code | Accepted | 2026-11-13 |
+| [0118](0118-paper-and-symbol-measures-are-types.md) | Paper and symbol measures are types | Accepted | 2026-11-13 |
+| [0119](0119-baden-wuerttemberg-ndom-on-the-terrain-and-alkis-by-code.md) | Baden-Württemberg: the nDOM1 on the terrain, and the ALKIS of the views by code | Accepted | 2026-11-13 |
+| [0120](0120-permit-sources-of-region-adapters.md) | Permit sources of region adapters | Accepted | 2026-11-13 |

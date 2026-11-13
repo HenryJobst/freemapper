@@ -308,6 +308,15 @@ mod tests {
             ("amt", v("Amt Märkische Schweiz")),
             ("gemeinde", v("Buckow")),
             ("text", v("Alte Eichen")),
+            ("district", v("Friedrichshain-Kreuzberg")),
+            ("owner", v("Land Berlin")),
+            ("rest", v("yes")),
+            ("unnamed", v("no")),
+            ("dedication", v("gewidmet")),
+            (
+                "note",
+                v("Nur diese amtlichen analogen Karten sind rechtsverbindlich."),
+            ),
             // The adapter warnings the MCP server passes on.
             (
                 "lines",
