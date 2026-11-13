@@ -95,10 +95,14 @@ pub fn reaches_beyond_coverage(bbox: &BoundingBox) -> bool {
     reaches_beyond_coverage_in(registry(), bbox)
 }
 
-/// Whether `bbox` itself (without the fetch margin) overlaps Berlin.
-pub fn touches_berlin(bbox: &BoundingBox) -> bool {
-    adapter(freemapper_adapters_de::boundaries::BERLIN)
-        .is_some_and(|adapter| overlaps_in(adapter, bbox))
+/// The warnings of the regions `bbox` itself (without the fetch margin) lies on for a project
+/// without buildings ([`RegionAdapter::no_buildings_warning`]), in registry order.
+pub fn no_buildings_warnings(bbox: &BoundingBox) -> Vec<&'static str> {
+    registry()
+        .adapters()
+        .filter(|adapter| overlaps_in(*adapter, bbox))
+        .filter_map(|adapter| adapter.no_buildings_warning())
+        .collect()
 }
 
 /// The region an ALKIS object id belongs to, by the prefix its adapter names (`DEBB…`,
@@ -752,7 +756,7 @@ mod tests {
         let west = around(-5_000.0, 5_564_000.0, 200.0);
         assert_eq!(regions_for(&west), vec![regions::HESSEN]);
         assert_eq!(raster_region(&west), Some(regions::HESSEN));
-        assert!(!touches_berlin(&west));
+        assert!(no_buildings_warnings(&west).is_empty());
         // A per-area provider never has a 25833 tile grid.
         assert!(provider_tiles(&west, providers::HVBG, 1).is_empty());
         assert!(provider_tiles(&west, providers::HVBG, 2).is_empty());
@@ -988,7 +992,7 @@ mod tests {
             -128_141.0,
             5_662_838.0
         ));
-        assert!(!touches_berlin(&aachen));
+        assert!(no_buildings_warnings(&aachen).is_empty());
         assert_eq!(crate::project::map_crs(&aachen), crate::crs::Crs::Utm32);
         assert!(provider_tiles(&aachen, providers::GEOBASIS_NRW, 1).is_empty());
         assert!(provider_tiles(&aachen, providers::GEOBASIS_NRW, 2).is_empty());
@@ -1207,8 +1211,11 @@ mod tests {
     #[test]
     fn touching_berlin_needs_no_margin() {
         // 50 m south of the boundary: within the fetch margin, but not in Berlin.
-        assert!(!touches_berlin(&around(407_850.0, 5_799_424.0, 40.0)));
-        assert!(touches_berlin(&around(407_850.0, 5_799_524.0, 40.0)));
+        assert!(no_buildings_warnings(&around(407_850.0, 5_799_424.0, 40.0)).is_empty());
+        assert_eq!(
+            no_buildings_warnings(&around(407_850.0, 5_799_524.0, 40.0)),
+            ["warning-berlin-buildings-missing"]
+        );
     }
 
     #[test]

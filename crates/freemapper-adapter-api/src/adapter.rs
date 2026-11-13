@@ -63,6 +63,14 @@ pub trait RegionAdapter: Send + Sync {
         &[]
     }
 
+    /// The id of the warning for a map area on the ground of the region whose project has no
+    /// building stored, a text of the catalog of this crate. `None`, as for most: the region
+    /// has nothing to say then. For a region whose buildings come from a service of their own
+    /// and can be missing while the rest arrived.
+    fn no_buildings_warning(&self) -> Option<&'static str> {
+        None
+    }
+
     /// The raster templates the adapter fetches with code of its own; empty for most.
     fn templates(&self) -> &[Box<dyn RasterTemplate>] {
         &[]

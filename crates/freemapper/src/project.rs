@@ -81,8 +81,8 @@ use crate::sources::osm::{
     fetch_extract, read_extract,
 };
 use crate::sources::region::{
-    overlaps_in, raster_provider, raster_region_in, region_of_object_id, terrain_source,
-    touches_berlin,
+    no_buildings_warnings, overlaps_in, raster_provider, raster_region_in, region_of_object_id,
+    terrain_source,
 };
 use crate::sources::trees;
 use crate::sources::{alkis_nas, berlin};
@@ -2461,8 +2461,12 @@ pub fn derive_project_cancellable(
     };
 
     let mut written = vec![orthophoto, hillshade_path, slope_path, relief_path];
-    if project.buildings.as_ref().is_some_and(|b| b.count == 0) && touches_berlin(&region_bbox) {
-        progress(note!("warning-berlin-buildings-missing"));
+    if project.buildings.as_ref().is_some_and(|b| b.count == 0) {
+        // A region whose buildings come from a service of their own says so when the area lies
+        // on its ground and none is stored.
+        for warning in no_buildings_warnings(&region_bbox) {
+            progress(Note::new(warning));
+        }
     }
     let dsm_recorded = match &inputs.dsm {
         Some(Ok(HeightInput::Stored)) => stored_model(&project.surface, SURFACE_RELPATH),
