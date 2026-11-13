@@ -955,6 +955,7 @@ Am Anfang steht der Hinweis, dass es keine Rechtsauskunft ist. Dann folgen sechs
   und Häuser liest freemapper nicht, auch denkmalgeschützte Häuser nicht, und keine Gärten, die zu einem
   Wohnhaus gehören oder nicht öffentlich sind (`garden:type=residential` oder `private`, `access=private` oder
   `no`). Telefonnummern und E-Mail-Adressen liest es auch nicht.
+- In Berlin folgen nach „Verwaltung“ bis zu fünf Abschnitte aus dem Geoportal Berlin (siehe unten, „Berlin“).
 - „Hinweise“ sagt, wen ein Fund meist betrifft, zum Beispiel: „Schutzgebiete betreffen die untere
   Naturschutzbehörde (meist der Landkreis Märkisch-Oderland).“ oder „Im Naturschutzgebiet gilt meist ein
   Wegegebot.“ Die Hinweise nennen die Art der Stelle und die Einheit, nie eine Person oder eine Adresse.
@@ -962,6 +963,33 @@ Am Anfang steht der Hinweis, dass es keine Rechtsauskunft ist. Dann folgen sechs
   Lizenz.
 
 Ein Abschnitt, dessen Quelle nicht gelesen wurde, sagt das.
+
+### Berlin
+
+Liegt das Kartengebiet in Berlin, fragt freemapper zusätzlich fünf Dienste des Geoportals Berlin
+(`gdi.berlin.de`). Die Abschnitte stehen nach „Verwaltung“:
+
+- „Bezirke“ nennt jeden Bezirk mit seinem Anteil am Kartengebiet.
+- „Grünanlagen“ nennt die öffentlichen Grünanlagen mit Bezirk, Widmung und Anteil. Die Teile eines Parks
+  zählen zum Park („Viktoriapark, Rosengarten“ zählt als „Viktoriapark“). Öffentliche Spielplätze werden nur
+  gezählt.
+- „Eigentum des Landes und des Bundes“ nennt aus dem Liegenschaftsplan, welcher Anteil des Kartengebiets dem
+  Land Berlin und welcher dem Bund gehört. Es gibt eine Zeile je Eigentümer, nie eine Liste der Flurstücke.
+- „Denkmale“ zählt die Denkmale je Art (Baudenkmal, Gesamtanlage, Ensemble, Gartendenkmal) und verlinkt bis zu
+  20 Einträge der Denkmaldatenbank Berlin. Seltene Arten bekommen ihre Links zuerst, die übrigen Einträge
+  werden gezählt.
+- „Naturdenkmale und andere Schutzobjekte“ nennt Naturdenkmale (Bäume und Findlinge als Punkte, auch
+  flächige), geschützte Landschaftsbestandteile und Flächen mit besonderer Regelung, mit der Verordnung, wo die
+  Daten sie nennen. Ein Baum zählt, wenn er im Kartengebiet steht.
+
+Die Hinweise nennen dann das Bezirksamt: Ordnungsamt sowie Straßen- und Grünflächenamt für jeden Bezirk, die
+untere Denkmalschutzbehörde für jeden Bezirk mit einem Denkmal im Gebiet und die untere Naturschutzbehörde für
+jeden Bezirk mit einem Naturdenkmal oder geschützten Landschaftsbestandteil. Der Hinweis zu den Eigentümern nennt
+die Anteile des Landes und des Bundes; für den Rest bleibt es beim Grundbuchauszug.
+
+Fällt ein Dienst aus, fehlt nur sein Abschnitt, und die Tabelle der Quellen nennt ihn „nicht erreichbar“. Fehlen
+die Bezirke, steht wieder der allgemeine Hinweis für Berlin und Hamburg da. Die NSG, LSG, FFH-Gebiete,
+Vogelschutzgebiete und den Naturpark nimmt freemapper weiter vom BfN, nicht aus dem Geoportal.
 
 ### Grenzen
 
@@ -973,10 +1001,14 @@ Ein Abschnitt, dessen Quelle nicht gelesen wurde, sagt das.
 - Eine OSM-Fläche, die das ganze Kartengebiet umschließt und keine Ecke darin hat, etwa ein großer Wald, kann
   fehlen. Das gilt auch für ein OSM-Schutzgebiet, das als Relation vom Typ `boundary` erfasst ist. Die Angaben
   von BfN und VG250 betrifft das nicht.
-- Berlin und Hamburg sind in VG250 je eine Einheit. Den Bezirk bestimmen die Hinweise noch nicht.
-- Eigentümer von Grundstücken stehen nicht in offenen Daten. Die Hinweise sagen, wie man einen
-  Grundbuchauszug bekommt.
-- Forstverwaltungen, Wasserschutzgebiete und Denkmale fehlen noch. Sie kommen in späteren Versionen.
+- Berlin und Hamburg sind in VG250 je eine Einheit. Für Berlin nennen die Hinweise den Bezirk aus dem Geoportal
+  Berlin, für Hamburg noch nicht.
+- Laut Geoportal Berlin sind bei den Schutzobjekten nur die amtlichen analogen Karten rechtsverbindlich. Die
+  Hinweise geben diesen Satz unter der Tabelle der Quellen wörtlich wieder.
+- Eigentümer von Grundstücken stehen nicht in offenen Daten, außer in Berlin für Land und Bund. Die Hinweise
+  sagen, wie man einen Grundbuchauszug bekommt.
+- Forstverwaltungen, Wasserschutzgebiete und Denkmale außerhalb Berlins fehlen noch. Sie kommen in späteren
+  Versionen.
 
 ### Datenquellen und Lizenzen
 
@@ -985,14 +1017,16 @@ Ein Abschnitt, dessen Quelle nicht gelesen wurde, sagt das.
 | Verwaltungsgebiete 1:250 000 (VG250) des Bundesamts für Kartographie und Geodäsie (BKG) | `sgx.geodatenzentrum.de` | `© BKG (<Jahr>) dl-de/by-2-0, Datenquellen: https://sg.geodatenzentrum.de/web_public/gdz/datenquellen/datenquellen_vg_nuts.pdf` |
 | Schutzgebiete in Deutschland des Bundesamts für Naturschutz (BfN) | `geodienste.bfn.de` | `© Bundesamt für Naturschutz (BfN) (<Jahr>), Schutzgebiete in Deutschland; Nutzungsbestimmungen für die Bereitstellung von Geodaten des Bundes (GeoNutzV). Nicht für Planungszwecke geeignet.` |
 | OpenStreetMap | Auszug im Zwischenspeicher | `© OpenStreetMap contributors, ODbL` |
+| Geoportal Berlin: Bezirksgrenzen, Grünanlagenbestand, Liegenschaftsplan, Denkmale, Schutzobjekte nach Naturschutzrecht (nur in Berlin) | `gdi.berlin.de` | `Für die Nutzung der Daten ist die Datenlizenz Deutschland - Zero - Version 2.0 anzuwenden. Die Lizenz ist über https://www.govdata.de/dl-de/zero-2-0 abrufbar.` |
 
 `<Jahr>` ist das Jahr des Abrufs. Das BfN gibt keinen eigenen Quellenvermerk vor; diese Zeile hat freemapper
 aus dem Namen des Dienstes, seinen Nutzungsbestimmungen und seinem Zugriffshinweis gebildet. Lassen Sie die
 Zeilen stehen, wenn Sie `permits.md` weitergeben.
 
-An die beiden Dienste des Bundes sendet freemapper nur das Rechteck um das Kartengebiet und seine feste
-Kennung (User-Agent). Andere Server fragt es für die Hinweise nicht. `adapters allow-host` gilt für diese
-Dienste nicht.
+An die beiden Dienste des Bundes und an das Geoportal Berlin sendet freemapper nur das Rechteck um das
+Kartengebiet und seine feste Kennung (User-Agent). Andere Server fragt es für die Hinweise nicht. Das Geoportal
+fragt es nur für ein Kartengebiet in Berlin und nur über die Hosts, die Berlins Adapter nennt. `adapters
+allow-host` gilt für die Dienste des Bundes nicht.
 
 ## 13. Regionen und Grenzgebiete
 

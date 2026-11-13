@@ -852,4 +852,39 @@ permits-hint-order-office = { $amt ->
     }
 permits-hint-park-operator = Betreiber eines Parks oder Gartens im Kartengebiet laut OpenStreetMap: { $operator }. Fragen Sie dort nach, bevor Sie ihn nutzen.
 permits-hint-school-operator = Träger oder Betreiber der Schule oder Einrichtung laut OpenStreetMap: { $operator }. Für das Gelände fragen Sie die Schulleitung oder diesen Träger.
-permits-hint-owners-unknown = Eigentümer dieser Flächen sind aus offenen Daten nicht bestimmbar. Bei berechtigtem Interesse (z. B. Veranstalter) kann beim Grundbuchamt ein Grundbuchauszug beantragt werden; für öffentliche Flächen hilft das zuständige Ordnungs- oder Grünflächenamt.
+permits-section-districts = Bezirke ({ $source })
+permits-section-green-spaces = Grünanlagen ({ $source })
+permits-section-owners = Eigentum des Landes und des Bundes ({ $source })
+permits-section-monuments = Denkmale ({ $source })
+permits-section-protected-objects = Naturdenkmale und andere Schutzobjekte ({ $source })
+permits-none-districts = Laut { $source } liegt das Kartengebiet in keinem Bezirk.
+permits-none-green-spaces = Laut { $source } liegt im Kartengebiet keine öffentliche Grünanlage.
+permits-none-owners = Laut { $source } liegt im Kartengebiet kein Grundstück des Landes oder des Bundes.
+permits-none-monuments = Laut { $source } liegt im Kartengebiet kein Denkmal.
+permits-none-protected-objects = Laut { $source } liegt im Kartengebiet kein Naturdenkmal, kein geschützter Landschaftsbestandteil und keine Fläche mit besonderer Regelung.
+permits-share-line = { $name }: { $share }
+permits-count-line = { $name }: { $count }
+permits-green-space-district = Bezirk { $district }
+permits-green-space-dedication = Widmung: { $dedication }
+permits-playgrounds-none = Im Kartengebiet liegt kein öffentlicher Spielplatz.
+permits-playgrounds-one = Im Kartengebiet liegt ein öffentlicher Spielplatz. Er ist nicht einzeln aufgeführt.
+permits-playgrounds-many = Im Kartengebiet liegen { $count } öffentliche Spielplätze. Sie sind nicht einzeln aufgeführt.
+permits-owners-rest = Für die übrigen Flächen nennen die Daten keinen Eigentümer.
+permits-monuments-total = Denkmale ganz oder zum Teil im Kartengebiet: { $count }. Die Links führen zu ihren Einträgen in der Denkmalliste.
+permits-monuments-links-left = Weitere { $count } Einträge sind hier ohne Link nur gezählt.
+permits-object-kind = { $kind ->
+        [natural-monument] Naturdenkmal
+        [protected-landscape-part] Geschützter Landschaftsbestandteil
+       *[special-rules] Fläche mit besonderer Regelung
+    }
+permits-object-count = { $count } Objekte
+permits-object-citations = Rechtsgrundlagen:
+permits-source-note = { $source }: „{ $note }“
+permits-hint-district-office = Für Straßen, Plätze und Grünanlagen im Bezirk { $district } sind meist das Ordnungsamt und das Straßen- und Grünflächenamt des Bezirksamts { $district } zuständig.
+permits-hint-monument-authority = Für die Denkmale im Bezirk { $district } ist die untere Denkmalschutzbehörde des Bezirksamts { $district } zuständig.
+permits-hint-nature-object-authority = Für Naturdenkmale und geschützte Landschaftsbestandteile im Bezirk { $district } ist die untere Naturschutzbehörde des Bezirksamts { $district } zuständig.
+permits-hint-owner-share = Laut den offenen Daten des Bundeslandes gehören { $share } des Kartengebiets dem Eigentümer „{ $owner }“.
+permits-hint-owners-unknown = { $rest ->
+        [yes] Die Eigentümer der übrigen Flächen sind aus offenen Daten nicht bestimmbar. Bei berechtigtem Interesse (z. B. Veranstalter) kann beim Grundbuchamt ein Grundbuchauszug beantragt werden; für öffentliche Flächen hilft das zuständige Ordnungs- oder Grünflächenamt.
+       *[no] Eigentümer dieser Flächen sind aus offenen Daten nicht bestimmbar. Bei berechtigtem Interesse (z. B. Veranstalter) kann beim Grundbuchamt ein Grundbuchauszug beantragt werden; für öffentliche Flächen hilft das zuständige Ordnungs- oder Grünflächenamt.
+    }

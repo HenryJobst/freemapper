@@ -922,6 +922,7 @@ It starts with the note that it is not legal advice. Six sections follow:
   residential land or houses, listed houses included, and no gardens that belong to a home or are closed to the
   public (`garden:type=residential` or `private`, `access=private` or `no`). It reads no phone numbers or e-mail
   addresses either.
+- In Berlin up to five sections from the Geoportal Berlin follow "Administrative units" (see "Berlin" below).
 - "Hints" says whom a finding usually concerns, for example: "Protected areas concern the lower nature
   conservation authority (untere Naturschutzbehörde), usually the Landkreis Märkisch-Oderland." or "In a
   nature reserve you usually have to keep to the paths." The hints name the kind of office and the unit, never
@@ -929,6 +930,32 @@ It starts with the note that it is not legal advice. Six sections follow:
 - "Sources and data date" says for each source whether and when it was read, with its credit line and licence.
 
 A section whose source was not read says so.
+
+### Berlin
+
+When the map area lies in Berlin, freemapper also asks five services of the Geoportal Berlin (`gdi.berlin.de`).
+Their sections follow "Administrative units":
+
+- "Bezirke" names each district (Bezirk) with its share of the map area.
+- "Green spaces" names the public green spaces with their Bezirk, dedication (Widmung) and share. The parts of a
+  park count as the park ("Viktoriapark, Rosengarten" counts as "Viktoriapark"). Public playgrounds are only
+  counted.
+- "Land of the state and of the Bund" says from the Liegenschaftsplan what share of the map area belongs to the
+  Land Berlin and what share to the Bund. There is one line per owner, never a list of parcels.
+- "Monuments" counts the monuments per kind (Baudenkmal, Gesamtanlage, Ensemble, Gartendenkmal) and links up to
+  20 entries of the Denkmaldatenbank Berlin. Rare kinds get their links first; the other entries are counted.
+- "Natural monuments and other protected objects" names natural monuments (trees and boulders as points, and
+  areas), protected landscape features and areas with special rules, with the ordinance where the data name it.
+  A tree counts when it stands in the map area.
+
+The hints then name the Bezirksamt: the Ordnungsamt and the Straßen- und Grünflächenamt for each Bezirk, the
+lower monument authority for each Bezirk with a monument in the area, and the lower nature conservation authority
+for each Bezirk with a natural monument or protected landscape feature. The owner hint gives the shares of the
+Land and the Bund; for the rest it stays with the extract from the land register.
+
+If a service is down, only its section is missing, and the table of sources says "not reachable". Without the
+Bezirke the general hint for Berlin and Hamburg comes back. Nature reserves, landscape protection areas, FFH and
+bird protection areas and the nature park still come from the BfN, not from the Geoportal.
 
 ### Limits
 
@@ -940,9 +967,14 @@ A section whose source was not read says so.
 - An OSM area that encloses the whole map area without a corner inside it, a large wood for example, can be
   missing. So can an OSM protected area mapped as a relation of the type `boundary`. The parts from the BfN and
   VG250 are not affected.
-- Berlin and Hamburg are one unit each in VG250. The notes do not determine the Bezirk yet.
-- Owners of land are not in open data. The notes say how to get an extract from the land register.
-- Forest administrations, water protection areas and monuments are not in yet. They come in later versions.
+- Berlin and Hamburg are one unit each in VG250. For Berlin the notes name the Bezirk from the Geoportal Berlin,
+  for Hamburg not yet.
+- The Geoportal Berlin says that for the protected objects only the official analogue maps are legally binding.
+  The notes quote that sentence word for word below the table of sources.
+- Owners of land are not in open data, except the Land and the Bund in Berlin. The notes say how to get an
+  extract from the land register.
+- Forest administrations, water protection areas and monuments outside Berlin are not in yet. They come in later
+  versions.
 
 ### Data sources and licences
 
@@ -951,12 +983,15 @@ A section whose source was not read says so.
 | Administrative areas 1:250 000 (VG250) of the Federal Agency for Cartography and Geodesy (BKG) | `sgx.geodatenzentrum.de` | `© BKG (<year>) dl-de/by-2-0, Datenquellen: https://sg.geodatenzentrum.de/web_public/gdz/datenquellen/datenquellen_vg_nuts.pdf` |
 | Protected areas in Germany of the Federal Agency for Nature Conservation (BfN) | `geodienste.bfn.de` | `© Bundesamt für Naturschutz (BfN) (<year>), Schutzgebiete in Deutschland; Nutzungsbestimmungen für die Bereitstellung von Geodaten des Bundes (GeoNutzV). Nicht für Planungszwecke geeignet.` |
 | OpenStreetMap | extract in the cache | `© OpenStreetMap contributors, ODbL` |
+| Geoportal Berlin: Bezirk borders, green spaces, Liegenschaftsplan, monuments, protected objects (Berlin only) | `gdi.berlin.de` | `Für die Nutzung der Daten ist die Datenlizenz Deutschland - Zero - Version 2.0 anzuwenden. Die Lizenz ist über https://www.govdata.de/dl-de/zero-2-0 abrufbar.` |
 
 `<year>` is the year of the fetch. The BfN gives no credit line of its own; freemapper built this one from the
 name of the service, its terms of use and its access note. Keep the lines when you pass `permits.md` on.
 
-freemapper sends the two federal services only the rectangle around the map area and its fixed name
-(User-Agent). It asks no other server for the notes. `adapters allow-host` does not apply to these services.
+freemapper sends the two federal services and the Geoportal Berlin only the rectangle around the map area and
+its fixed name (User-Agent). It asks no other server for the notes. It asks the Geoportal only for a map area in
+Berlin and only through the hosts Berlin's adapter names. `adapters allow-host` does not apply to the federal
+services.
 
 ## 13. Regions and border areas
 

@@ -8,6 +8,10 @@
 //! MultiPolygon), and `sources.json` (per source its state, fetch date, count or failure, the
 //! box the sources were asked for and the key of the map area polygon). A source that was not
 //! read has no files.
+//!
+//! The sources of the region adapters (ADR 0118) lie in a folder per adapter,
+//! `<adapter id>/<source key>-<layer key>.geojson`, the features as the service gave them;
+//! `sources.json` records their state in `regional`, which older records do not have.
 
 use std::io;
 use std::path::{Path, PathBuf};
@@ -20,9 +24,11 @@ use geo_types::{Coord, LineString, MultiPolygon, Polygon};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
+use crate::adapters::Registry;
 use crate::area::MapArea;
 use crate::permits::notes::{Inputs, PermitNotes, SourceInput, assemble};
 use crate::permits::osm::OsmFinding;
+use crate::permits::regional::{RegionalInput, RegionalSource};
 use crate::permits::{Missing, PermitsError};
 use crate::project::ProjectFile;
 
@@ -53,6 +59,16 @@ pub struct RawInputs {
     /// The features of every BfN kind, in the order of [`ProtectedKind::ALL`].
     pub protected: SourceInput<(ProtectedKind, Vec<Value>)>,
     pub osm: SourceInput<OsmFinding>,
+    /// The sources of the region adapters, in the order of the registry.
+    pub regional: Vec<RawRegional>,
+}
+
+/// What one source of a region adapter answered: the features per layer key.
+#[derive(Debug, Clone, PartialEq)]
+pub struct RawRegional {
+    pub adapter: String,
+    pub source: RegionalSource,
+    pub layers: SourceInput<(String, Vec<Value>)>,
 }
 
 /// `sources.json`.
@@ -67,6 +83,18 @@ struct Record {
     vg250: SourceRecord,
     bfn: SourceRecord,
     osm: SourceRecord,
+    /// The sources of the region adapters; missing in a record written before they existed.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    regional: Vec<RegionalRecord>,
+}
+
+/// The state of one source of a region adapter.
+#[derive(Debug, Serialize, Deserialize)]
+struct RegionalRecord {
+    adapter: String,
+    source: String,
+    #[serde(flatten)]
+    record: SourceRecord,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -133,10 +161,22 @@ fn with_path((path, e): (PathBuf, io::Error)) -> io::Error {
     io::Error::new(e.kind(), format!("{}: {e}", path.display()))
 }
 
+/// The file of the layer `layer` of the regional source `source`, inside the folder of its
+/// adapter.
+fn regional_file(source: &str, layer: &str) -> String {
+    format!("{source}-{layer}.geojson")
+}
+
 /// Stores `raw` in [`PERMITS_DIR`] of the project folder `dir`, replacing everything an
 /// earlier call stored: the files of a source that was not read are removed. `sources.json`
 /// goes first and comes back last, so a write cut short leaves no record of half the files.
 pub fn store_inputs(dir: &Path, raw: &RawInputs) -> io::Result<()> {
+    store_inputs_in(crate::adapters::registry(), dir, raw)
+}
+
+/// [`store_inputs`] with the regional sources of `registry`: their files are removed and
+/// written only under the keys the adapters name.
+pub fn store_inputs_in(registry: &Registry, dir: &Path, raw: &RawInputs) -> io::Result<()> {
     let folder = dir.join(PERMITS_DIR);
     freemapper_fs::check_folder_inside(dir, &folder).map_err(with_path)?;
     std::fs::create_dir_all(&folder)?;
@@ -149,6 +189,15 @@ pub fn store_inputs(dir: &Path, raw: &RawInputs) -> io::Result<()> {
         remove(&bfn_file(kind));
     }
     remove(OSM_GEOJSON);
+    for adapter in registry.adapters() {
+        let own = folder.join(adapter.info().id.as_str());
+        for source in adapter.permit_sources() {
+            let info = source.info();
+            for layer in info.layers {
+                freemapper_fs::remove_inside(dir, &own.join(regional_file(info.key, layer)));
+            }
+        }
+    }
     let write = |name: &str, bytes: &[u8]| {
         freemapper_fs::write_inside(dir, &folder.join(name), bytes).map_err(with_path)
     };
@@ -166,6 +215,31 @@ pub fn store_inputs(dir: &Path, raw: &RawInputs) -> io::Result<()> {
         let features: Vec<Value> = items.iter().map(osm_feature).collect();
         write(OSM_GEOJSON, &collection(&features))?;
     }
+    let mut regional = Vec::new();
+    for input in &raw.regional {
+        // Only a source of the registry, and only its own layers, get a file.
+        let Some(info) = regional_info(registry, &input.adapter, &input.source.key) else {
+            continue;
+        };
+        if let SourceInput::Read { items, .. } = &input.layers {
+            let own = folder.join(&input.adapter);
+            freemapper_fs::check_folder_inside(dir, &own).map_err(with_path)?;
+            std::fs::create_dir_all(&own)?;
+            for (layer, features) in items {
+                if !info.layers.contains(&layer.as_str()) {
+                    continue;
+                }
+                let path = own.join(regional_file(info.key, layer));
+                freemapper_fs::write_inside(dir, &path, &collection(features))
+                    .map_err(with_path)?;
+            }
+        }
+        regional.push(RegionalRecord {
+            adapter: input.adapter.clone(),
+            source: input.source.key.clone(),
+            record: source_record(&input.layers, features::<String>),
+        });
+    }
     let record = Record {
         schema: STORE_SCHEMA,
         bbox: [
@@ -178,6 +252,7 @@ pub fn store_inputs(dir: &Path, raw: &RawInputs) -> io::Result<()> {
         vg250: source_record(&raw.admin, features::<AdminLevel>),
         bfn: source_record(&raw.protected, features::<ProtectedKind>),
         osm: source_record(&raw.osm, <[OsmFinding]>::len),
+        regional,
     };
     let mut text = serde_json::to_string_pretty(&record).map_err(io::Error::other)?;
     text.push('\n');
@@ -343,9 +418,40 @@ fn load_source<T>(
     })
 }
 
+/// The facts of the source `key` of the adapter `adapter` of `registry`, if it has one.
+fn regional_info<'a>(
+    registry: &'a Registry,
+    adapter: &str,
+    key: &str,
+) -> Option<&'a freemapper_adapter_api::permits::PermitSourceInfo> {
+    regional_source(registry, adapter, key).map(|s| s.info())
+}
+
+fn regional_source<'a>(
+    registry: &'a Registry,
+    adapter: &str,
+    key: &str,
+) -> Option<&'a dyn freemapper_adapter_api::permits::PermitSource> {
+    if !freemapper_adapter_api::permits::plain_key(key) {
+        return None;
+    }
+    registry
+        .get(adapter)?
+        .permit_sources()
+        .iter()
+        .find(|s| s.info().key == key)
+        .map(AsRef::as_ref)
+}
+
 /// The inputs stored in [`PERMITS_DIR`] of the project folder `dir`, parsed.
 /// [`PermitsError::NothingRead`] when nothing is stored or no source was read.
 pub fn load_inputs(dir: &Path) -> Result<Inputs, PermitsError> {
+    load_inputs_in(crate::adapters::registry(), dir)
+}
+
+/// [`load_inputs`] with the regional sources of `registry`, which parse their stored layers.
+/// A stored source that no adapter of `registry` has any more is left out.
+pub fn load_inputs_in(registry: &Registry, dir: &Path) -> Result<Inputs, PermitsError> {
     let Some(record) = read_record(dir)? else {
         return Err(nothing_read([Some(""); 3]));
     };
@@ -379,10 +485,32 @@ pub fn load_inputs(dir: &Path) -> Result<Inputs, PermitsError> {
             })
             .collect()
     })?;
+    let mut regional = Vec::new();
+    for stored in &record.regional {
+        let Some(source) = regional_source(registry, &stored.adapter, &stored.source) else {
+            continue;
+        };
+        let info = source.info();
+        let own = folder.join(&stored.adapter);
+        let findings = load_source(&stored.record, &sources, || {
+            let mut findings = Vec::new();
+            for layer in info.layers {
+                let features = read_collection(&own.join(regional_file(info.key, layer)))?;
+                findings.extend(source.findings(layer, &features));
+            }
+            Ok(findings)
+        })?;
+        regional.push(RegionalInput {
+            adapter: stored.adapter.clone(),
+            source: RegionalSource::from(info),
+            findings,
+        });
+    }
     let inputs = Inputs {
         admin,
         protected,
         osm,
+        regional,
     };
     something_read(&inputs)?;
     Ok(inputs)
@@ -390,6 +518,13 @@ pub fn load_inputs(dir: &Path) -> Result<Inputs, PermitsError> {
 
 /// [`PermitsError::NothingRead`] when no source of `inputs` was read.
 fn something_read(inputs: &Inputs) -> Result<(), PermitsError> {
+    if inputs
+        .regional
+        .iter()
+        .any(|r| matches!(r.findings, SourceInput::Read { .. }))
+    {
+        return Ok(());
+    }
     check_states([
         state_of(&inputs.admin),
         state_of(&inputs.protected),
@@ -400,6 +535,13 @@ fn something_read(inputs: &Inputs) -> Result<(), PermitsError> {
 /// [`PermitsError::NothingRead`] when no source of `raw` was read: then there is nothing to
 /// store, and what an earlier fetch stored stays.
 pub(crate) fn something_fetched(raw: &RawInputs) -> Result<(), PermitsError> {
+    if raw
+        .regional
+        .iter()
+        .any(|r| matches!(r.layers, SourceInput::Read { .. }))
+    {
+        return Ok(());
+    }
     check_states([
         state_of(&raw.admin),
         state_of(&raw.protected),
