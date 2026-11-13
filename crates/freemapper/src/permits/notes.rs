@@ -1916,6 +1916,75 @@ mod tests {
         assert_eq!(keys(&found)[0], hint_key::CITY_STATE);
     }
 
+    /// The parts of a park are one entry with the sum of their shares (review finding 1).
+    #[test]
+    fn the_parts_of_a_park_are_summed() {
+        let park = || FindingKind::GreenSpace {
+            name: "Viktoriapark".into(),
+            district: Some("West".into()),
+            dedication: Some("gewidmet".into()),
+        };
+        let parts = vec![
+            // 10 % and 9 % of the map.
+            area(park(), square(13.0, 52.0, 13.01, 52.1)),
+            area(park(), square(13.01, 52.0, 13.019, 52.1)),
+        ];
+        let found = notes(
+            MapKind::Sprint,
+            &with_regional(
+                vec![],
+                vec![regional("gruen", PermitSection::GreenSpaces, parts)],
+            ),
+        );
+        let entries = &found.regional[0].green_spaces.as_ref().unwrap().entries;
+        let shares: Vec<(&str, f64)> = entries
+            .iter()
+            .map(|s| (s.item.name.as_str(), s.percent))
+            .collect();
+        assert_eq!(shares.len(), 1, "{shares:?}");
+        assert!(
+            shares[0].0 == "Viktoriapark" && (shares[0].1 - 19.0).abs() < 0.3,
+            "{shares:?}"
+        );
+    }
+
+    /// A Bezirk that comes as two features is one entry with the sum of both (review finding 9).
+    #[test]
+    fn a_bezirk_in_two_features_is_summed() {
+        let found = notes(
+            MapKind::Sprint,
+            &with_regional(
+                city_state(),
+                vec![regional(
+                    "bezirke",
+                    PermitSection::Districts,
+                    vec![
+                        // 30 % and 20 % of the map.
+                        district("West", square(12.9, 51.9, 13.03, 52.2)),
+                        district("West", square(13.03, 51.9, 13.05, 52.2)),
+                        district("Ost", square(13.05, 51.9, 13.2, 52.2)),
+                    ],
+                )],
+            ),
+        );
+        let shares: Vec<(&str, f64)> = found.regional[0]
+            .districts
+            .as_ref()
+            .unwrap()
+            .iter()
+            .map(|s| (s.item.name.as_str(), s.percent))
+            .collect();
+        assert_eq!(shares.len(), 2, "{shares:?}");
+        assert!(
+            shares[0].0 == "West" && (shares[0].1 - 50.0).abs() < 0.5,
+            "{shares:?}"
+        );
+        assert!(
+            shares[1].0 == "Ost" && (shares[1].1 - 50.0).abs() < 0.5,
+            "{shares:?}"
+        );
+    }
+
     #[test]
     fn owner_shares_are_one_line_per_owner() {
         let owner = |name: &str| FindingKind::OwnerShare { owner: name.into() };

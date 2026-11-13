@@ -872,6 +872,12 @@ mod tests {
     /// A sprint map over the box of the live probe at the Viktoriapark, Berlin
     /// (389613,5816190 to 390529,5816909 in EPSG:25833).
     fn viktoriapark() -> (TempDir, ProjectFile) {
+        project_in_25833(389_613.0, 5_816_190.0, 390_529.0, 5_816_909.0)
+    }
+
+    /// A sprint map over a box in EPSG:25833: min easting, min northing, max easting, max
+    /// northing.
+    fn project_in_25833(min_e: f64, min_n: f64, max_e: f64, max_n: f64) -> (TempDir, ProjectFile) {
         let dir = tempfile::tempdir().unwrap();
         let corner = |e: f64, n: f64| {
             let p = crate::crs::Crs::Utm33
@@ -883,11 +889,11 @@ mod tests {
             [p.lon, p.lat]
         };
         let ring = [
-            corner(389_613.0, 5_816_190.0),
-            corner(390_529.0, 5_816_190.0),
-            corner(390_529.0, 5_816_909.0),
-            corner(389_613.0, 5_816_909.0),
-            corner(389_613.0, 5_816_190.0),
+            corner(min_e, min_n),
+            corner(max_e, min_n),
+            corner(max_e, max_n),
+            corner(min_e, max_n),
+            corner(min_e, min_n),
         ];
         let coordinates: Vec<String> = ring.iter().map(|[x, y]| format!("[{x},{y}]")).collect();
         let geojson = format!(
@@ -968,6 +974,68 @@ mod tests {
         assert!(!log.is_empty());
         assert!(log.iter().all(|u| !u.contains("berlin.de")), "{log:#?}");
         assert!(!dir.path().join(PERMITS_DIR).join("berlin").exists());
+    }
+
+    /// A map area 100 to 300 m west of Berlin's westernmost point lies off Berlin's ground and
+    /// does not touch it: no Berlin service is asked, as there is no margin (review finding 4).
+    #[test]
+    fn a_map_just_outside_berlin_asks_no_berlin_service() {
+        let west = geo::CoordsIter::coords_iter(berlin().boundary())
+            .min_by(|a, b| a.x.total_cmp(&b.x))
+            .unwrap();
+        let (dir, project) = project_in_25833(
+            west.x - 300.0,
+            west.y - 100.0,
+            west.x - 100.0,
+            west.y + 100.0,
+        );
+        assert!(!on_ground(berlin(), &project.area().unwrap()));
+        let fetcher = MapFetcher::default();
+        fetcher.insert_prefix("https://", empty_collection());
+        let (_root, cache) = empty_cache();
+        let inputs = fetch(&project, dir.path(), &fetcher, &cache, false)
+            .0
+            .unwrap();
+        assert!(inputs.regional.is_empty());
+        let log = fetcher.log.borrow();
+        assert!(!log.is_empty());
+        assert!(log.iter().all(|u| !u.contains("berlin.de")), "{log:#?}");
+
+        // 100 m further east the area reaches into Berlin, and Berlin is asked.
+        let (_dir, inside) = project_in_25833(
+            west.x - 200.0,
+            west.y - 100.0,
+            west.x + 100.0,
+            west.y + 100.0,
+        );
+        assert!(on_ground(berlin(), &inside.area().unwrap()));
+    }
+
+    /// With the national services down and no OSM extract, Berlin's sources alone are enough:
+    /// the notes are written, online and offline (review finding 10).
+    #[test]
+    fn berlin_sources_alone_write_the_notes() {
+        let (dir, project) = viktoriapark();
+        let fetcher = MapFetcher::default();
+        serve_berlin(&fetcher, &project);
+        fetcher
+            .refusing
+            .borrow_mut()
+            .extend(UrlPolicy::NATIONAL_HOSTS.map(|h| format!("https://{h}")));
+        let (_root, cache) = empty_cache();
+        let inputs = fetch(&project, dir.path(), &fetcher, &cache, false)
+            .0
+            .unwrap();
+        assert!(matches!(inputs.admin, SourceInput::Unreachable { .. }));
+        assert!(matches!(inputs.protected, SourceInput::Unreachable { .. }));
+        assert_eq!(inputs.osm, SourceInput::NotRead);
+        assert!(inputs.regional.iter().all(|r| is_read(&r.findings)));
+        let today = date("2026-11-13");
+        let notes = write_permit_notes(dir.path(), &project, &inputs, today).unwrap();
+        assert!(dir.path().join(PERMITS_JSON).exists());
+        assert!(notes.regional[0].districts.is_some());
+        let (offline, _) = fetch(&project, dir.path(), &fetcher, &cache, true);
+        assert_eq!(offline.unwrap(), inputs);
     }
 
     /// A permit source that asks one address and gives nothing.

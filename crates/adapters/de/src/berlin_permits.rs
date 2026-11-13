@@ -562,6 +562,46 @@ mod tests {
         );
     }
 
+    /// A park is the whole name before the first comma: parks whose names start with the same
+    /// words stay apart, the parts of one park come together (review finding 5).
+    #[test]
+    fn parks_with_the_same_first_words_stay_apart() {
+        let space = |name: &str| {
+            serde_json::json!({
+                "type": "Feature",
+                "geometry": {"type": "Polygon", "coordinates": [[[13.38, 52.49], [13.381, 52.49], [13.381, 52.491], [13.38, 52.49]]]},
+                "properties": {"namenr": name, "bezirkname": "Mitte", "widmung": "gewidmet"}
+            })
+        };
+        let spaces: Vec<Value> = [
+            "Park am Gleisdreieck, Ostpark",
+            "Park am Gleisdreieck, Westpark",
+            "Park am Weinberg, Spielwiese",
+            "Volkspark Friedrichshain",
+            "Volkspark Humboldthain, Nord",
+        ]
+        .map(space)
+        .into();
+        let names: Vec<String> = source("gruenanlagen")
+            .findings("gruenanlagen", &spaces)
+            .into_iter()
+            .map(|f| match f.kind {
+                FindingKind::GreenSpace { name, .. } => name,
+                other => panic!("{other:?}"),
+            })
+            .collect();
+        assert_eq!(
+            names,
+            [
+                "Park am Gleisdreieck",
+                "Park am Gleisdreieck",
+                "Park am Weinberg",
+                "Volkspark Friedrichshain",
+                "Volkspark Humboldthain",
+            ]
+        );
+    }
+
     #[test]
     fn playgrounds_are_findings_without_a_name() {
         let found = read(
