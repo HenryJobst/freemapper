@@ -10,8 +10,8 @@
 use geo::{Area as _, BooleanOps as _, BoundingRect as _, Intersects as _, MapCoords as _};
 use geo_types::{MultiPolygon, Polygon};
 
-use crate::build::berlin::object_polygon;
 use crate::build::content::POINT_CLOUD_KEY;
+use crate::build::geometry::object_polygon;
 use crate::build::out_of_bounds::area_object;
 use crate::derive::vegetation::min_area_m2;
 use crate::georef::{GeorefError, Georeferencing};

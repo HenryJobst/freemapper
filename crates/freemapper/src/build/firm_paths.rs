@@ -13,9 +13,9 @@
 use geo::{BooleanOps as _, Buffer as _, Euclidean, Intersects as _, Length as _, unary_union};
 use geo_types::{Coord, LineString, MultiLineString, MultiPolygon};
 
-use crate::build::berlin::object_polygon;
 use crate::build::candidates::MIN_LINE_MM;
 use crate::build::dedup::AREA_DEDUP_TOLERANCE_MM;
+use crate::build::geometry::object_polygon;
 use crate::build::paved::PavedObjects;
 use crate::build::points::projected;
 use crate::georef::Georeferencing;

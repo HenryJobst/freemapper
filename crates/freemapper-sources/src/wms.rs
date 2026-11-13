@@ -62,23 +62,10 @@ impl WmsService {
     }
 }
 
-/// The Berlin 1:5000 map in colour (K5), template only: PNG pieces, not an orthophoto.
-pub const K5_WMS: WmsService = WmsService {
-    url: Cow::Borrowed("https://gdi.berlin.de/services/wms/k5_farbe"),
-    layer: Cow::Borrowed("k5_farbe"),
-    crs: Crs::Utm33,
-    extra: Cow::Borrowed(""),
-    max_px: 4000,
-};
-/// Pixel size of the K5 template on both map kinds: a 1:5000 map is fully resolved at this.
-pub const K5_PIXEL_M: f64 = 0.25;
-/// Longest side of the K5 image in pixels (about 108 MB while stitching); a larger area gets
-/// coarser pixels.
-const K5_MAX_SIDE_PX: f64 = 6_000.0;
-
-/// The GetMap requests covering `grid` for the K5 map (PNG).
-pub fn k5_pieces(grid: &GridSpec) -> Vec<(GridSpec, String)> {
-    pieces_as(&K5_WMS, grid, "image/png")
+/// The GetMap requests of the map `service` as PNG pieces covering `grid`: a map to lay under
+/// the map as a template, not an orthophoto.
+pub fn png_pieces(service: &WmsService, grid: &GridSpec) -> Vec<(GridSpec, String)> {
+    pieces_as(service, grid, "image/png")
 }
 
 /// Where the orthophoto comes from.
@@ -295,20 +282,23 @@ pub fn fetch_orthophoto_from(
     Ok(())
 }
 
-/// Downloads the K5 map over `bbox` (EPSG:25833) from the Berlin WMS, stitched at `pixel_size`
-/// (made coarser when the image would pass [`K5_MAX_SIDE_PX`]), as `out` (PNG) with its world
-/// file (`.pgw`), on the template grid of `bbox`.
-pub fn fetch_k5(
+/// Downloads the map `service` over `bbox` (in the CRS of the service), stitched from PNG pieces
+/// at `pixel_size` (made coarser when the image would have more than `max_side_px` pixels on
+/// its longest side), as `out` (PNG) with its world file (`.pgw`), on the template grid of
+/// `bbox`.
+pub fn fetch_png_template(
     fetcher: &dyn Fetcher,
+    service: &WmsService,
     bbox: &BoundingBox,
     pixel_size: f64,
+    max_side_px: f64,
     root: &Path,
     out: &Path,
 ) -> Result<(), FetchError> {
     let longest = bbox.width().max(bbox.height());
-    let grid = GridSpec::covering(bbox, pixel_size.max(longest / K5_MAX_SIDE_PX));
+    let grid = GridSpec::covering(bbox, pixel_size.max(longest / max_side_px));
     let mut mosaic = image::RgbImage::from_pixel(grid.width, grid.height, image::Rgb([255; 3]));
-    for (piece, url) in k5_pieces(&grid) {
+    for (piece, url) in png_pieces(service, &grid) {
         // A WMS reports errors as HTTP 200 with an XML document; that would come again.
         let answer = get_with_retries(fetcher, &url, |bytes| {
             let refused = |message: String| FetchError::Http {
@@ -351,7 +341,7 @@ pub fn fetch_k5(
     mosaic
         .write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png)
         .map_err(|e| FetchError::Http {
-            url: K5_WMS.url.to_string(),
+            url: service.url.to_string(),
             message: e.to_string(),
         })?;
     write_inside(root, out, &png)?;

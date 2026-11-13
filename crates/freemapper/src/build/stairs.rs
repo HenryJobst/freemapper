@@ -111,7 +111,7 @@ fn is_step_edge(feature: &Value) -> bool {
 }
 
 fn is_survey_stair(feature: &Value) -> bool {
-    feature["properties"][crate::sources::berlin::TYPE_KEY] == "cc_treppe"
+    feature["properties"][freemapper_adapters_de::berlin::TYPE_KEY] == "cc_treppe"
 }
 
 fn nas_code(feature: &Value) -> Option<&str> {
@@ -1208,7 +1208,7 @@ mod tests {
             "properties": {"bezeichnun": "Treppe", "gis_id": gis_id, "trs": trs, "material": "08",
                            "freemapper:layer": "cc_treppe"}
         });
-        crate::sources::berlin::stamp_survey_date(&mut feature);
+        freemapper_adapters_de::berlin::stamp_survey_date(&mut feature);
         feature
     }
 

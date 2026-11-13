@@ -13,8 +13,8 @@ use std::collections::HashMap;
 use geo::Contains as _;
 use serde::{Deserialize, Serialize};
 
-use crate::build::berlin::object_polygon;
 use crate::build::dedup::{Rank, rank};
+use crate::build::geometry::object_polygon;
 use crate::build::points::{GENERALIZATION_SOURCE, HIDDEN_KEY};
 use crate::omap::{MapObject, MapObjectKind, SymbolSet};
 

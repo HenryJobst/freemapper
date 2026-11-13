@@ -13,10 +13,10 @@ use geo::{
 };
 use geo_types::{Coord, LineString, MultiLineString, MultiPolygon, Point, Polygon, Rect};
 
-use crate::build::berlin::object_polygon;
 use crate::build::buildings::footprint_coords;
 use crate::build::control_sites::{CONTROL_KEY, drop_ambiguous as drop_ambiguous_control_sites};
 use crate::build::dedup::{Rank, rank};
+use crate::build::geometry::object_polygon;
 use crate::crs::{BoundingBox, ProjectedPoint};
 use crate::georef::{GeorefError, Georeferencing};
 use crate::omap::{MapCoord, MapObject, MapObjectKind, SymbolSet, closed_ring};
@@ -1395,7 +1395,7 @@ mod tests {
 
     /// The area of an area object in ground m², and its ring in the map's CRS.
     fn projected(f: &Fixture, object: &MapObject) -> Polygon<f64> {
-        let polygon = crate::build::berlin::object_polygon(object).expect("an area");
+        let polygon = crate::build::geometry::object_polygon(object).expect("an area");
         let ring: Vec<(f64, f64)> = polygon
             .exterior()
             .coords()

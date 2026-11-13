@@ -141,7 +141,42 @@ register; its signature stays. `sources::berlin` goes.
 Test: `grep -ri berlin crates/freemapper/src` outside `build/`, `#[cfg(test)]` and the note ids finds nothing; a
 test in the engine fails when a non-test line names a state id.
 
+#### Step 3 as built (2026-11-13)
+
+- `touches_berlin` is gone: an adapter can name a warning for an area of its ground without buildings
+  (`RegionAdapter::no_buildings_warning`), and `derive` asks the regions the area lies on.
+- `list_layers` lists the K5 where an adapter the area touches has the template; the key has one name per crate
+  (`K5_TEMPLATE`, `berlin::K5_KEY`) and a test ties them.
+- `parse_layer` and `layer_to_geojson` are `freemapper_sources::layer_file`. The K5 service, its pixel size and its
+  fetch are in the Berlin module; `freemapper-sources` has `png_pieces` and `fetch_png_template` over any WMS.
+- `sources::berlin` of the engine is gone. `object_polygon` is `build/geometry.rs`, unchanged.
+- `asking_for(id, …)` became `asking(adapter, …)`: no lookup by id and no silent fall back to a fetcher without
+  host rules; the sets, the templates and the point clouds go through it.
+- A test scans the engine's code that is no test, outside `build/` and the modules `ids` and `golden` of names,
+  and fails on the id of a built-in adapter as a text, on a constant of a state, an agency or a boundary, and on
+  any path into the adapter crate or one of its modules. What still reaches into the adapter crate is a list in
+  the test, line by line with its reason (the registration, the key of the set, Berlin's table for the inputs of
+  the rules, the register list for the credit, the tile download and tile names of the tile providers, two
+  endpoints of the cadastre); a new line fails. After the review of "freemapper": the first version left all of
+  `sources/region.rs` out and knew no module paths, so it would not have seen `touches_berlin` come back.
+- `Product` comes from the api crate (`crate::fetch::Product`), and the point cloud fetch gets its adapter with
+  its backend (`point_cloud_source`), so the return that could not be reached is gone.
+
+Left open, on purpose:
+
+- `dedup::rank` keeps its table of five register layers and the adapter crate its three for the credit. The rank
+  goes by `freemapper:source`; how a rank comes to an object is the question of a candidate of the architecture
+  review of session "freemapper-d3" ("provenance as a module"), where the table falls away instead of moving.
+- `drawn_registers` in `project.rs` still reads the register list of the Berlin module and the source prefix
+  `geoportal-berlin/` to tell the credit which registers drew objects. It belongs to the same question.
+- The functions and types of the engine that feed the Berlin rules keep "berlin" in their names
+  (`stored_berlin_layers`, `fetch_berlin_layers_into`, `Part::BerlinLayers`): they read and fill the field
+  `berlin_layers` and the folder `data/berlin`.
+
 ### Step 4: records
 
 ADR "The extra layers of an adapter, as built"; a paragraph in `docs/adapters/{en,de}.md` on what a code adapter
 can add; the open point of ADR 0082 and of the adapter plan closed; changelog in both languages.
+
+Done: ADR 0114; the paragraph at the end of section 2 of the guide in both languages; the note at C13 in the
+adapter plan. The changelog entries came with each step.

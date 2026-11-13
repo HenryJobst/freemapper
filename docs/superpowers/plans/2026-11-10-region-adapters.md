@@ -436,7 +436,8 @@ tasks above and the code differ, the code and the ADRs hold:
   the boundaries are embedded by `freemapper-adapters-de`; the clock is in the api crate; no fallback to LGB for
   an area without a raster region (`check_area` refuses it before).
 - C13: no `ExtraLayer` trait and no `extras()`; `nas()` and `tree_datasets()` are data of the adapter; the preview
-  has an `agency` and its credit a `{year}` placeholder.
+  has an `agency` and its credit a `{year}` placeholder. (Since 2026-11-13 an adapter has `extras()` and
+  `templates()` for what it fetches with code of its own, and the engine no longer names Berlin: ADR 0114.)
 - C14: the adapters of the states are `StateAdapter` in `freemapper-adapters-de::states`, keyed by the crate's own
   enums `State` and `Agency`; the tests name regions through `sources::region::ids` (constants of `AdapterId`).
 

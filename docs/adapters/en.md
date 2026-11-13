@@ -55,6 +55,15 @@ Three limits of format 1 that send a region to a backend:
 - A date comes from a service the format knows (a WFS with GeoJSON, a STAC API, the feature info of the WMS)
   or not at all.
 
+A code adapter can bring two more things, and only a code adapter can: sets of extra layers
+(`RegionAdapter::extras`) and raster templates (`RegionAdapter::templates`). Berlin has one of each: its registers
+and street surveys, stored one file per layer under `data/berlin/`, and the city's map 1:5000 as
+`templates/k5.png`. freemapper stores them, keeps a stored one while it covers the area, removes what a map no
+longer uses, and asks only the hosts the adapter declares. To draw something from such a layer, freemapper still
+needs draw rules of its own; an adapter cannot bring those yet. The project file has room for one set and one
+template today. A second one is a change to the file format that freemapper-print and freemapper-courseplan
+read, so open an issue first ([ADR 0114](../adr/0114-the-extra-layers-and-raster-templates-of-an-adapter.md)).
+
 ## 3. Create the folder
 
 There is no command for this yet. By hand:

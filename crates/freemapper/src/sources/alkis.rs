@@ -468,8 +468,8 @@ mod tests {
         );
         fetcher.insert_prefix(BUILDINGS_ENDPOINT, page(&[lgb], None));
         fetcher.insert_prefix(
-            crate::sources::berlin::BUILDINGS_SERVICE,
-            crate::sources::berlin::test_support::BUILDINGS
+            freemapper_adapters_de::berlin::BUILDINGS_SERVICE,
+            freemapper_adapters_de::berlin::test_support::BUILDINGS
                 .as_bytes()
                 .to_vec(),
         );
@@ -495,8 +495,8 @@ mod tests {
         );
         fetcher.insert_prefix(LAND_USE_ENDPOINT, page(&[lgb], None));
         fetcher.insert_prefix(
-            crate::sources::berlin::LAND_USE_SERVICE,
-            crate::sources::berlin::test_support::LAND_USE
+            freemapper_adapters_de::berlin::LAND_USE_SERVICE,
+            freemapper_adapters_de::berlin::test_support::LAND_USE
                 .as_bytes()
                 .to_vec(),
         );
@@ -1273,8 +1273,8 @@ mod tests {
         for area in areas {
             let fetcher = MapFetcher::default();
             fetcher.insert_prefix(
-                crate::sources::berlin::BUILDINGS_SERVICE,
-                crate::sources::berlin::test_support::BUILDINGS
+                freemapper_adapters_de::berlin::BUILDINGS_SERVICE,
+                freemapper_adapters_de::berlin::test_support::BUILDINGS
                     .as_bytes()
                     .to_vec(),
             );
@@ -1284,9 +1284,9 @@ mod tests {
                 .log
                 .borrow()
                 .iter()
-                .any(|u| u.starts_with(crate::sources::berlin::BUILDINGS_SERVICE));
+                .any(|u| u.starts_with(freemapper_adapters_de::berlin::BUILDINGS_SERVICE));
             assert_eq!(
-                crate::sources::berlin::near_berlin(&area),
+                freemapper_adapters_de::berlin::near_berlin(&area),
                 asked_berlin,
                 "{area:?}"
             );
@@ -1299,8 +1299,8 @@ mod tests {
     fn berlin_area_makes_no_brandenburg_request() {
         let fetcher = MapFetcher::default();
         fetcher.insert_prefix(
-            crate::sources::berlin::BUILDINGS_SERVICE,
-            crate::sources::berlin::test_support::BUILDINGS
+            freemapper_adapters_de::berlin::BUILDINGS_SERVICE,
+            freemapper_adapters_de::berlin::test_support::BUILDINGS
                 .as_bytes()
                 .to_vec(),
         );
