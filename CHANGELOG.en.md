@@ -6,6 +6,8 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-11-13
+
 ### Added
 
 - Vegetation from laser point clouds in Saarland too (ADR 0105): LVGL offers the 2025 point cloud in six large zip64 archives by district, on the same share as the height models. freemapper reads only the tiles of the map area out of them by byte ranges, about 40 MB per square kilometre, and checks them against the archive's CRC. The scan was made in February without leaves, and the point cloud is thinned to one point per 0.5 m; freemapper still finds the crowns. Checked on the old town of Saarlouis. Saxony gets no point clouds for now: GeoSN took them off its download area in November 2026.

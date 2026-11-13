@@ -6,6 +6,8 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+## [0.16.0] - 2026-11-13
+
 ### Hinzugefügt
 
 - Vegetation aus Laserpunktwolken auch im Saarland (ADR 0105): Das LVGL bietet die Punktwolke von 2025 in sechs großen ZIP64-Archiven nach Landkreisen an, auf derselben Freigabe wie die Höhenmodelle. freemapper liest daraus per Byte-Bereich nur die Kacheln des Kartengebiets, etwa 40 MB je Quadratkilometer, und prüft sie gegen die CRC des Archivs. Die Befliegung war im Februar ohne Laub, und die Punktwolke ist auf einen Punkt je 0,5 m ausgedünnt; die Kronen erkennt freemapper trotzdem. Geprüft an der Altstadt von Saarlouis. Sachsen bekommt vorerst keine Punktwolken: Das GeoSN hat sie im November 2026 aus dem Downloadbereich genommen.
