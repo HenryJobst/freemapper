@@ -164,9 +164,9 @@ record stays a candidate instead of becoming a paved map object. The file of a K
 fetch (all 96 exist).
 
 Which Kreise a map area touches comes from `kreise.geojson` in the manifest folder: the 96 outlines with their
-five-digit key, made once from the agency's index KML, simplified, in the form of the `osm-*.geojson` files. A
-Kreis is read when its outline comes within 100 m of the map area; the simplification stays well below that.
-An object two Kreise hold is kept once.
+five-digit key, made once from the agency's administrative units, simplified 100 m, in the form of the
+`osm-*.geojson` files (680 KB; at 40 m it was 1.3 MB). A Kreis is read when its outline comes within 500 m of
+the map area; the outlines lie at most 181 m from the source. An object two Kreise hold is kept once.
 
 ### Freshness of the files (all four products)
 
@@ -203,7 +203,6 @@ The surface model is the heavy part. The run already leaves it out when the disk
 ## Left to the builder
 
 - Names of private functions, the split of `ldbv.rs` into files if it grows past the size of its neighbours.
-- The exact simplification of `kreise.geojson` (limit: 500 KB, error below 50 m).
 - The fixtures: cut from fresh answers, a few objects each, public data only.
 - The ADR's wording. Its decisions are the two calls above: LoD2 for buildings, files instead of a service.
 

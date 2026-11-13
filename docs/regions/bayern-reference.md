@@ -138,6 +138,45 @@ Geofabrik has `europe/germany/bayern` (818 MB) and seven extracts by Regierungsb
 | `europe/germany/bayern/schwaben` | 122 |
 | `europe/germany/bayern/unterfranken` | 99 |
 
+## Boundary
+
+Made on 2026-11-14 from the administrative units of the agency
+(`https://geodaten.bayern.de/odd/m/4/verwaltung/alkis-verwaltung.zip`, 63.6 MB, of 2026-10-01, CC BY 4.0): one
+Shapefile `VerwaltungsEinheit` in EPSG:25832 with 3 871 units, among them the unit `Bundesland` (1), `Kreis /
+kreisfreie Stadt` (96) and `Regierungsbezirk` (7). Tools: Python with shapely 2.2.0, pyproj 3.8.0 and pyshp, in a
+scratch folder; nothing of them is in the repository.
+
+**The state** (`boundary.geojson`): the unit `Bundesland`, moved to EPSG:25833, simplified 25 m keeping the
+topology, on a 1 m grid, the exterior clockwise, in the layout of the file of Baden-Württemberg.
+
+- The source is one part of 70 612.87 km² with 164 099 vertices and three holes: Jungholz (7.07 km², Austria,
+  which touches the rest of Austria in a single point) and two degenerate holes (15 m² and 0 m², one of them
+  1.2 km long). Holes below 1 ha are left out; with them the simplification kept the topology by widening them
+  to 3 422 m².
+- The file: 10 663 vertices, 180 890 bytes, area 70 613.00 km², the outline at most 25.4 m from the source.
+  Extent E 68 891 … 414 735, N 5 246 260 … 5 612 804 (EPSG:25833).
+- Against the neighbours that have a boundary (shared border = within 150 m; gap = within 60 m of both lines
+  and in neither):
+
+  | Neighbour | Shared border | Overlap | Gap |
+  |---|---|---|---|
+  | Baden-Württemberg | 812.4 km | 105 344 m² in 144 pieces (largest 14 671 m²) | 104 940 m² |
+  | Hesse | 256.0 km | 50 005 m² in 86 pieces (largest 6 891 m²) | 86 281 m² |
+  | Saxony | 39.9 km | 4 500 m² in 4 pieces (largest 2 441 m²) | 12 080 m² |
+
+  That is the size of what the other borders show (Baden-Württemberg against Hesse: 79 633 m² and 135 291 m²);
+  the margin of the region check absorbs it. Thuringia has no boundary yet.
+
+**The Kreise** (`kreise.geojson`): the 96 units `Kreis / kreisfreie Stadt` with their key (`ags`, five digits,
+the same as in `tn_<key>.zip`) and name, moved to EPSG:25833, simplified 100 m. 679 660 bytes, 39 372 vertices;
+the outlines lie at most 181 m from the source, and of the 151 parts one of 178 m² fell away. The adapter reads
+the file of a Kreis whose outline comes within 500 m of the map area, so the simplification loses no object. (At
+40 m the file was 1.3 MB.) The index KML of the land use product was not needed.
+
+**The OSM extracts** (`osm-<name>.geojson`): Geofabrik's `europe/germany/bayern/<name>.poly` of 2026-11-14,
+moved to EPSG:25833, simplified 25 m, in the layout of the files of Baden-Württemberg (ODbL). Together they
+leave 0.019 km² of the state uncovered; there the nearest extract is taken.
+
 ## LoD2 against the Hausumringe
 
 Checked on 2026-11-13 in a box of 2 × 2 km around the Steinerne Brücke in Regensburg (the four LoD2 tiles

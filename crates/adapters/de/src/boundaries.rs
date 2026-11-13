@@ -28,6 +28,7 @@ pub const RHEINLAND_PFALZ: &str = "rheinlandpfalz";
 pub const SAARLAND: &str = "saarland";
 pub const BADEN_WUERTTEMBERG: &str = "badenwuerttemberg";
 pub const BREMEN: &str = "bremen";
+pub const BAYERN: &str = "bayern";
 
 /// Brandenburg from LGB ALKIS `verwaltungseinheit` DE12, with Berlin as a hole (dl-de/by-2-0).
 const BRANDENBURG_BOUNDARY: &str = include_str!("../manifests/brandenburg/boundary.geojson");
@@ -81,9 +82,15 @@ const BADEN_WUERTTEMBERG_BOUNDARY: &str =
 /// reaches 8 km² into the Weser, which the cadastre of Lower Saxony holds too; that water is
 /// left to the boundary of Lower Saxony.
 const BREMEN_BOUNDARY: &str = include_str!("../manifests/bremen/boundary.geojson");
+/// Bavaria from the administrative units of the Bayerische Vermessungsverwaltung
+/// (`alkis-verwaltung.zip`, the unit `Bundesland`; simplified 25 m, EPSG:25833; CC BY 4.0): one
+/// part with one hole, Jungholz, which is Austria and touches Austria in a single point. Two
+/// degenerate holes of the source (15 m² and less) are left out. The largest state: its
+/// eastings in EPSG:25833 run from 69 km to 415 km.
+const BAYERN_BOUNDARY: &str = include_str!("../manifests/bayern/boundary.geojson");
 
 /// The states in the order of the registry, each with its boundary.
-const STATES: [(&str, &str); 14] = [
+const STATES: [(&str, &str); 15] = [
     (BRANDENBURG, BRANDENBURG_BOUNDARY),
     (BERLIN, BERLIN_BOUNDARY),
     (SAXONY, SAXONY_BOUNDARY),
@@ -98,6 +105,7 @@ const STATES: [(&str, &str); 14] = [
     (SAARLAND, SAARLAND_BOUNDARY),
     (BADEN_WUERTTEMBERG, BADEN_WUERTTEMBERG_BOUNDARY),
     (BREMEN, BREMEN_BOUNDARY),
+    (BAYERN, BAYERN_BOUNDARY),
 ];
 
 /// The outline of a state: its boundary and the box around it.
@@ -126,7 +134,8 @@ pub fn boundary_text(id: &str) -> Option<&'static str> {
 
 /// The outline of the state `id`, parsed once.
 pub fn outline(id: &str) -> Option<&'static StateOutline> {
-    static OUTLINES: [OnceLock<StateOutline>; 14] = [
+    static OUTLINES: [OnceLock<StateOutline>; 15] = [
+        OnceLock::new(),
         OnceLock::new(),
         OnceLock::new(),
         OnceLock::new(),
@@ -237,5 +246,36 @@ mod tests {
             contains_point(HAMBURG, e, n),
             !contains_point(SCHLESWIG_HOLSTEIN, e, n)
         );
+    }
+
+    fn tile(east_km: u32, north_km: u32) -> TileId {
+        TileId { east_km, north_km }
+    }
+
+    #[test]
+    fn bavaria_holds_its_cities_and_not_its_neighbours() {
+        // Tiles of EPSG:25832, also east of 12° E: Munich, Passau, Regensburg, Aschaffenburg.
+        for (east, north) in [(691, 5334), (828, 5389), (726, 5434), (510, 5536)] {
+            assert!(tile_centre_in(tile(east, north), BAYERN), "{east}_{north}");
+        }
+        // Erfurt, far inside Thuringia.
+        assert!(!tile_centre_in(tile(642, 5649), BAYERN));
+        // Points of EPSG:25833: Salzburg and Sonneberg lie beyond the border.
+        assert!(contains_point(BAYERN, 245_242.0, 5_337_223.0), "Munich");
+        assert!(contains_point(BAYERN, 287_791.0, 5_434_039.0), "Regensburg");
+        assert!(!contains_point(BAYERN, 353_606.0, 5_295_922.0), "Salzburg");
+        assert!(!contains_point(BAYERN, 227_887.0, 5_585_548.0), "Sonneberg");
+    }
+
+    #[test]
+    fn neu_ulm_and_ulm_lie_on_two_sides() {
+        // Neu-Ulm, south of the Danube.
+        let (e, n) = (130_733.0, 5_372_017.0);
+        assert!(contains_point(BAYERN, e, n));
+        assert!(!contains_point(BADEN_WUERTTEMBERG, e, n));
+        // Ulm, north of it.
+        let (e, n) = (129_337.0, 5_372_711.0);
+        assert!(!contains_point(BAYERN, e, n));
+        assert!(contains_point(BADEN_WUERTTEMBERG, e, n));
     }
 }
