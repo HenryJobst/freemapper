@@ -15,12 +15,13 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 ### Geändert
 
 - Die Grenzen von Niedersachsen und Schleswig-Holstein überlappen sich in der Elbmündung nicht mehr. Die Kataster beider Bundesländer führen dieselben 89 km² Wasser vor Cuxhaven; freemapper teilt die Fläche jetzt an der Linie gleichen Abstands zu den beiden Anspruchslinien (ADR 0113). Für Karten ändert sich nichts, dort ist offenes Wasser.
-- Intern: Ein Adapter kann Sätze von Zusatzebenen melden, die er mit eigenem Code abruft (`RegionAdapter::extras`). Die Berliner Register und Befahrungsdaten sind der erste solche Satz: Der Kern fragt den Adapter aus der Registry, statt das Berlin-Modul direkt aufzurufen, und nimmt auch den Posten der Schätzung von dort. An Karten, Meldungen, Dateien und Schätzungen ändert sich nichts.
+- Intern: Ein Adapter kann Sätze von Zusatzebenen melden, die er mit eigenem Code abruft (`RegionAdapter::extras`). Die Berliner Register und Befahrungsdaten sind der erste solche Satz: Der Kern fragt den Adapter aus der Registry, statt das Berlin-Modul direkt aufzurufen, und nimmt auch den Posten der Schätzung von dort. An Karten, Meldungen, Dateien und Schätzungen ändert sich nichts; die eine Ausnahme steht unter „Behoben“.
 - Intern: Die Zusatzebenen eines Projekts (Berliner Register, volles ALKIS, Baumkataster) werden an einer Stelle abgerufen, gespeichert, entfernt und gelesen statt in drei gleichen Kopien. Erster Schritt dazu, dass der Kern kein Bundesland mehr beim Namen nennt; an Karten, Meldungen und Dateien ändert sich nichts.
 - Intern: Die Module in `freemapper::sources`, die nur noch weiterreichten, was seit dem Adapter-Umbau in `freemapper-adapters-de` und `freemapper-sources` liegt, sind entfernt, ebenso der nicht mehr genutzte Rasterabruf für Sachsen-Anhalt im Programmcode. Das Bundesland ruft weiter über die Dienste ab, die sein Manifest nennt; an Karten und Abrufen ändert sich nichts.
 
 ### Behoben
 
+- `freemapper adapters check --live` für ein Gebiet nahe Berlin ruft die Berliner Register nicht mehr ab, wenn ein anderer Adapter geprüft wird. Bisher gingen diese Anfragen dabei ohne die Host-Regeln des Berliner Adapters hinaus, und der nächste Befehl verwarf die Einträge wieder.
 - Saarland: Der WFS des LVGL schreibt die Nutzungsarten `Strassenverkehr` und `Fliessgewässer`. freemapper kannte nur `Straßenverkehr` und `Fließgewässer`, deshalb fehlten auf Saarländer Karten die Straßenflächen aus ALKIS, die Flüsse aus ALKIS und alles, was an ihnen hängt; die Vegetation aus der Punktwolke legte offenes Gelände auf die Straßen. Jede Nutzungsart aus einem WFS wird jetzt in die LGB-Schreibweise gebracht, wie schon bei Hamburg; in Rheinland-Pfalz heißt `Unland, Vegetationslose Fläche` dadurch wie überall `Unland/Vegetationslose Fläche`.
 
 ## [0.15.0] - 2026-11-12

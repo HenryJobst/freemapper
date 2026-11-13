@@ -1787,13 +1787,9 @@ fn fetch_berlin_layers_into(
     previous: &BTreeMap<String, AlkisRecord>,
     progress: &mut dyn FnMut(Note),
 ) -> BTreeMap<String, AlkisRecord> {
-    let Some((adapter, set)) = extras::set_in(registry(), REGISTERS_SET) else {
-        // No adapter of this run has the set: nothing of it is known, nothing is touched.
-        return previous.clone();
-    };
-    extras::fetch_set_into(
-        adapter,
-        set,
+    extras::fetch_key_into(
+        registry(),
+        REGISTERS_SET,
         dir,
         fetcher,
         region_bbox,

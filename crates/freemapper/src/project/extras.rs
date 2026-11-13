@@ -58,7 +58,8 @@ impl Family<'_> {
     pub(crate) fn has(&self, key: &str) -> bool {
         match self.table {
             Table::Fixed(known) => known(key),
-            Table::Set(set) => set.has(key),
+            // A set is not taken on trust: the key becomes a file name.
+            Table::Set(set) => plain(key) && set.has(key),
         }
     }
 }
@@ -139,15 +140,62 @@ pub(crate) const TREES: Family<'static> = Family {
     },
 };
 
-/// The adapter of `registry` that has a set of extra layers with `key`, and the set.
+/// Whether `name` can be the name of a folder or a file of freemapper: lower-case letters,
+/// digits, `-` and `_`, starting with a letter or a digit. The key of a set becomes a folder
+/// and the key of a layer a file; a name with a dot or a separator would leave its place.
+fn plain(name: &str) -> bool {
+    name.starts_with(|c: char| c.is_ascii_lowercase() || c.is_ascii_digit())
+        && name
+            .chars()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || matches!(c, '-' | '_'))
+}
+
+/// The adapter of `registry` that has a set of extra layers with `key`, and the set. A set
+/// whose key is no plain name is no set for the engine.
 pub(crate) fn set_in<'a>(
     registry: &'a Registry,
     key: &str,
 ) -> Option<(&'a dyn RegionAdapter, &'a dyn ExtraSet)> {
+    if !plain(key) {
+        return None;
+    }
     registry.adapters().find_map(|adapter| {
         let set = adapter.extras().iter().find(|set| set.info().key == key)?;
         Some((adapter, set.as_ref()))
     })
+}
+
+/// [`fetch_set_into`] for the set with `key` of the adapter of `registry` that has it. When no
+/// adapter of the run has the set (the check of one adapter on its own), nothing of it is
+/// known: nothing is asked or touched, and `previous` stays.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn fetch_key_into(
+    registry: &Registry,
+    key: &str,
+    dir: &Path,
+    fetcher: &dyn Fetcher,
+    region_bbox: &BoundingBox,
+    kind: MapKind,
+    mode: FetchMode,
+    skip: bool,
+    previous: &BTreeMap<String, AlkisRecord>,
+    progress: &mut dyn FnMut(Note),
+) -> BTreeMap<String, AlkisRecord> {
+    match set_in(registry, key) {
+        Some((adapter, set)) => fetch_set_into(
+            adapter,
+            set,
+            dir,
+            fetcher,
+            region_bbox,
+            kind,
+            mode,
+            skip,
+            previous,
+            progress,
+        ),
+        None => previous.clone(),
+    }
 }
 
 /// The family of a set of extra layers an adapter fetches itself: its layers lie in the folder
@@ -934,7 +982,7 @@ mod tests {
         }
 
         static INFO: ExtraSetInfo = ExtraSetInfo {
-            key: "berlin",
+            key: "wrecks",
             crs: Crs::Utm33,
             notes: ExtraNotes {
                 none_stored: "progress-berlin-none-stored",
@@ -1013,9 +1061,9 @@ mod tests {
                     asked: asked.clone(),
                 })],
             );
-            let (adapter, set) = set_in(&registry, "berlin").expect("the square has the set");
+            let (adapter, set) = set_in(&registry, "wrecks").expect("the square has the set");
             assert_eq!(adapter.info().id, SQUARE);
-            assert!(set_in(&registry, "wrecks").is_none());
+            assert!(set_in(&registry, "berlin").is_none());
             let dir = tempfile::tempdir().unwrap();
             let fetcher = MapFetcher::default();
             fetcher.insert(
@@ -1053,7 +1101,7 @@ mod tests {
             assert!(path(dir.path(), &family, "hulls").exists());
             assert_eq!(
                 path(dir.path(), &family, "hulls"),
-                dir.path().join("data/berlin/hulls.geojson")
+                dir.path().join("data/wrecks/hulls.geojson")
             );
             // A schoolyard map uses one layer: the other goes.
             let schoolyard = fetch(&INSIDE, MapKind::Schoolyard, &sprint);
@@ -1081,7 +1129,7 @@ mod tests {
                 Some(&["other.example.org"]),
                 vec![Box::new(Wrecks { asked })],
             );
-            let (adapter, set) = set_in(&registry, "berlin").unwrap();
+            let (adapter, set) = set_in(&registry, "wrecks").unwrap();
             let dir = tempfile::tempdir().unwrap();
             let fetcher = MapFetcher::default();
             fetcher.insert("https://wrecks.example.org/hulls", b"{}".to_vec());
@@ -1106,6 +1154,78 @@ mod tests {
                 "{}",
                 said[1]
             );
+        }
+
+        /// A run whose registry has no adapter with the set (the check of one adapter on its
+        /// own): nothing is asked, nothing is said, and what is recorded stays.
+        #[test]
+        fn is_left_alone_by_a_run_without_its_adapter() {
+            let registry = square_with(None, None, Vec::new());
+            let dir = tempfile::tempdir().unwrap();
+            let fetcher = MapFetcher::default();
+            let previous = BTreeMap::from([("hulls".to_string(), covering())]);
+            let mut said = Vec::new();
+            let records = fetch_key_into(
+                &registry,
+                "wrecks",
+                dir.path(),
+                &fetcher,
+                &INSIDE,
+                MapKind::Sprint,
+                FetchMode::Online,
+                false,
+                &previous,
+                &mut |note: Note| said.push(note.to_string()),
+            );
+            assert_eq!(records, previous);
+            assert_eq!(fetcher.calls.get(), 0);
+            assert!(said.is_empty(), "{said:?}");
+        }
+
+        /// The engine builds a folder from the key of a set and a file from the key of a layer.
+        /// Neither is taken on trust: a key that is no plain name is no set and no layer.
+        #[test]
+        fn is_named_by_plain_names_only() {
+            struct Rogue(ExtraSetInfo);
+            impl ExtraSet for Rogue {
+                fn info(&self) -> &ExtraSetInfo {
+                    &self.0
+                }
+                fn layers(&self, _: freemapper_contract::MapKind) -> Vec<ExtraLayerInfo> {
+                    Vec::new()
+                }
+                fn has(&self, _: &str) -> bool {
+                    true
+                }
+                fn fetch(
+                    &self,
+                    _: &dyn Fetcher,
+                    _: &BoundingBox,
+                    _: freemapper_contract::MapKind,
+                ) -> Vec<FetchedExtra> {
+                    Vec::new()
+                }
+            }
+            let named = |key: &'static str| -> Box<dyn ExtraSet> {
+                Box::new(Rogue(ExtraSetInfo {
+                    key,
+                    ..INFO.clone()
+                }))
+            };
+            let registry = square_with(None, None, vec![named("../up"), named("wrecks")]);
+            assert!(set_in(&registry, "../up").is_none());
+            let (_, set) = set_in(&registry, "wrecks").unwrap();
+            let family = of_set(set);
+            assert!(family.has("hulls") && family.has("old_hulls-2"));
+            for key in ["../x", "a/b", "a\\b", ".hidden", "", "x.geojson", "Ä"] {
+                assert!(!family.has(key), "{key:?}");
+            }
+        }
+
+        /// The folder of Berlin's set is the one the engine reads the building heights from.
+        #[test]
+        fn of_berlin_lies_in_the_folder_the_engine_names() {
+            assert_eq!(berlin().dir, crate::project::BERLIN_LAYERS_DIR);
         }
     }
 }

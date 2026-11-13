@@ -545,8 +545,6 @@ mod tests {
         assert_eq!(previews[0], previews[1]);
     }
 
-    /// Saxony-Anhalt has no raster code: its manifest declares the services. Every other
-    /// state names a backend of this crate, and Brandenburg and Berlin name the same.
     /// Berlin fetches its registers and surveys with code of its own: one set of extra layers,
     /// with the layers of each map kind in the order they are fetched. No other state has one.
     #[test]
@@ -582,6 +580,8 @@ mod tests {
         }
     }
 
+    /// Saxony-Anhalt has no raster code: its manifest declares the services. Every other
+    /// state names a backend of this crate, and Brandenburg and Berlin name the same.
     #[test]
     fn every_state_has_its_rasters() {
         let adapters = adapters();

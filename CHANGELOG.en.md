@@ -15,12 +15,13 @@ All notable changes to freemapper are listed here, newest first. The format foll
 ### Changed
 
 - The boundaries of Lower Saxony and Schleswig-Holstein no longer overlap in the mouth of the Elbe. The cadastres of both states hold the same 89 km² of water off Cuxhaven; freemapper now splits that area at the line of equal distance from the two claim lines (ADR 0113). Maps do not change, the area is open water.
-- Internal: an adapter can name sets of extra layers it fetches with code of its own (`RegionAdapter::extras`). Berlin's registers and surveys are the first such set: the engine asks the adapter of the registry instead of calling the Berlin module, and takes the item of the estimate from there too. Maps, messages, files and estimates do not change.
+- Internal: an adapter can name sets of extra layers it fetches with code of its own (`RegionAdapter::extras`). Berlin's registers and surveys are the first such set: the engine asks the adapter of the registry instead of calling the Berlin module, and takes the item of the estimate from there too. Maps, messages, files and estimates do not change; the one exception is under "Fixed".
 - Internal: the extra layers of a project (Berlin's registers, the full ALKIS, the tree cadastres) are fetched, stored, removed and read in one place instead of in three equal copies. A first step towards an engine that names no state; maps, messages and files do not change.
 - Internal: the modules in `freemapper::sources` that only passed on what has lived in `freemapper-adapters-de` and `freemapper-sources` since the adapter work are removed, and so is the raster fetch for Saxony-Anhalt in program code that nothing used any more. The state still fetches through the services its manifest names; maps and requests do not change.
 
 ### Fixed
 
+- `freemapper adapters check --live` for an area near Berlin no longer fetches Berlin's registers when another adapter is checked. Before, those requests went out without the host rules of Berlin's adapter, and the next command dropped the records again.
 - Saarland: the WFS of LVGL writes the land use classes `Strassenverkehr` and `Fliessgewässer`. freemapper knew only `Straßenverkehr` and `Fließgewässer`, so Saarland maps lacked the street areas from ALKIS, the rivers from ALKIS and everything that depends on them, and the vegetation from the point cloud put open land on the streets. Every land use class from a WFS is now brought into the LGB spelling, as for Hamburg already; in Rhineland-Palatinate `Unland, Vegetationslose Fläche` thereby reads `Unland/Vegetationslose Fläche` as everywhere else.
 
 ## [0.15.0] - 2026-11-12
