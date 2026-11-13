@@ -2160,7 +2160,7 @@ mod tests {
         assert_eq!(objects[0].coords.len(), 10);
         assert_eq!(objects[0].coords[4].flags, FLAG_HOLE | FLAG_CLOSE);
         assert_eq!(objects[0].coords[9].flags, FLAG_HOLE | FLAG_CLOSE);
-        let polygon = crate::build::berlin::object_polygon(&objects[0]).unwrap();
+        let polygon = crate::build::geometry::object_polygon(&objects[0]).unwrap();
         assert_eq!(polygon.interiors().len(), 1);
         assert!(
             objects[0]

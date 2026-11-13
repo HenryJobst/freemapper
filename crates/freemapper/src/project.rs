@@ -12783,7 +12783,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
 
     #[test]
     fn vegetation_candidates_stay_near_the_area_and_leave_buildings_water_paving_and_the_park() {
-        use crate::build::berlin::object_polygon;
+        use crate::build::geometry::object_polygon;
         use crate::build::out_of_bounds::area_object;
         use crate::derive::vegetation::{VegetationClass, vegetation_to_geojson};
         use geo::Area as _;

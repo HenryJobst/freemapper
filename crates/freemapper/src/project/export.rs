@@ -316,8 +316,8 @@ pub(super) fn stored_vegetation_objects(
     georef: &Georeferencing,
     symbol_set: &SymbolSet,
 ) -> Result<Vec<MapObject>, ProjectError> {
-    use crate::build::berlin::object_polygon;
     use crate::build::content::POINT_CLOUD_KEY;
+    use crate::build::geometry::object_polygon;
     use crate::build::out_of_bounds::area_object;
     use crate::derive::vegetation::{min_area_m2, vegetation_from_geojson};
     /// The paved area of ISSprOM.

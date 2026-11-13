@@ -12,11 +12,12 @@ use serde_json::Value;
 
 use crate::build::candidates::{Rules, Target, osm_objects};
 use crate::build::dedup::add_also;
+use crate::build::geometry::object_polygon;
 use crate::build::tagged::{self, position};
 use crate::crs::{Crs, LatLon};
 use crate::georef::{GeorefError, Georeferencing};
 use crate::omap::coord::FLAG_CURVE_START;
-use crate::omap::{MapObject, MapObjectKind, SymbolSet};
+use crate::omap::{MapObject, SymbolSet};
 use crate::project::MapKind;
 use crate::sources::osm::{OsmFeature, OsmGeometry};
 
@@ -486,28 +487,6 @@ fn runs_along(points: &[(f64, f64)], i: usize, j: usize, chord: f64) -> bool {
 /// A survey bus shelter with at least this share of its roof under ALKIS canopies is one of them.
 const SHELTER_UNDER_CANOPY_SHARE: f64 = 0.5;
 
-/// The area of a map object in map coordinates: the first closed run of coordinates is the
-/// exterior, the others are holes. `None` for a point or a line too short for a ring.
-pub(crate) fn object_polygon(object: &MapObject) -> Option<geo_types::Polygon<f64>> {
-    use crate::omap::coord::FLAG_CLOSE;
-    if !matches!(object.kind, MapObjectKind::Path) {
-        return None;
-    }
-    let mut rings: Vec<geo_types::LineString<f64>> = Vec::new();
-    let mut ring = Vec::new();
-    for c in &object.coords {
-        ring.push((f64::from(c.x), f64::from(c.y)));
-        if c.flags & FLAG_CLOSE != 0 {
-            rings.push(std::mem::take(&mut ring).into());
-        }
-    }
-    if !ring.is_empty() {
-        rings.push(ring.into());
-    }
-    let mut rings = rings.into_iter().filter(|r| r.0.len() >= 3);
-    Some(geo_types::Polygon::new(rings.next()?, rings.collect()))
-}
-
 /// ALKIS wins over the survey for roofs too: a survey bus shelter (`br_fahrgastunterstand`, a
 /// 522 candidate) with at least [`SHELTER_UNDER_CANOPY_SHARE`] of its area under the ALKIS
 /// `canopies` (522 map objects) is dropped, and the canopy with the largest share names it in
@@ -588,6 +567,7 @@ mod tests {
     };
     use crate::crs::ProjectedPoint;
     use crate::omap::MapCoord;
+    use crate::omap::MapObjectKind;
     use freemapper_adapters_de::berlin::normalise_building;
     use freemapper_adapters_de::berlin::test_support::*;
 

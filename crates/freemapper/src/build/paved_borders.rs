@@ -12,7 +12,7 @@
 use geo::{BooleanOps as _, Buffer as _, unary_union};
 use geo_types::{LineString, MultiPolygon, Polygon, Rect};
 
-use crate::build::berlin::object_polygon;
+use crate::build::geometry::object_polygon;
 use crate::build::points::{GENERALIZATION_SOURCE, boundary_lines, line_coords, projected};
 use crate::crs::BoundingBox;
 use crate::georef::Georeferencing;
