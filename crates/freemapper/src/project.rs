@@ -32,16 +32,14 @@ use crate::build::stairs::{
     has_stairs, stair_objects,
 };
 use crate::build::state::{NasInput, TreeInput, nas_objects, state_objects, tree_objects};
-use crate::build::water::{outside_water, water_objects};
-use crate::crs::ProjectedPoint;
+use crate::build::water::water_objects;
 use crate::crs::{BoundingBox, Crs, LatLon};
 use crate::derive::contours::{
     contour_interval_for, contour_lines, contours_from_geojson, contours_to_geojson,
     gaussian_smooth, generalize, heights_inside,
 };
 use crate::derive::landforms::{
-    LandformKind, height_jumps, knolls_and_depressions, landforms_from_geojson,
-    landforms_to_geojson,
+    height_jumps, knolls_and_depressions, landforms_from_geojson, landforms_to_geojson,
 };
 use crate::derive::ndsm::{fill_from_dsm, rasterize, write_ndsm_png};
 use crate::derive::orthophoto::{build_orthophoto, build_orthophoto_from_image};
@@ -57,7 +55,6 @@ use crate::fetch::Product;
 use crate::fetch::{Cache, FetchError, FetchMode, Fetcher, write_inside};
 use crate::georef::{GeorefError, Georeferencing};
 use crate::ocd::convert::{Background, WorldFile, map_to_ocd};
-use crate::omap::MapCoord;
 use crate::omap::{
     MapDocument, MapObject, MapObjectKind, MapPart, OmapError, SymbolSet, TemplateKind,
     TemplateRef, XmlFormat, closed_ring, write_map,
@@ -2069,9 +2066,18 @@ struct BerlinStructures {
     stairs: Vec<MapObject>,
 }
 
+/// Whether a layer that gives stairs is stored: the stair terrain is read only then.
+fn stair_layers_stored(layers: &[StoredBerlinLayer], nas: &[StoredNasLayer]) -> bool {
+    layers
+        .iter()
+        .any(|l| [CANOPY_LAYER, STEP_EDGE_LAYER, SURVEY_STAIR_LAYER].contains(&l.layer.file))
+        || nas.iter().any(|l| l.layer.file == NAS_STAIR_LAYER)
+}
+
+/// `terrain` gives the stair direction ([`stored_stair_terrain`]).
 #[allow(clippy::too_many_arguments)]
 fn stored_berlin_structures(
-    dir: &Path,
+    terrain: Option<&Raster<f32>>,
     project: &ProjectFile,
     layers: &[StoredBerlinLayer],
     nas: &[StoredNasLayer],
@@ -2110,7 +2116,6 @@ fn stored_berlin_structures(
             stairs: Vec::new(),
         });
     }
-    let terrain = stored_stair_terrain(dir, project)?;
     fn features(layer: Option<&StoredBerlinLayer>) -> &[serde_json::Value] {
         layer.map_or(&[], |l| &l.features)
     }
@@ -2130,7 +2135,7 @@ fn stored_berlin_structures(
             step_edges: features(edges),
             survey: features(survey),
             nas: nas.map_or(&[], |l| &l.features),
-            terrain: terrain.as_ref(),
+            terrain,
             buildings: footprints,
         },
         project.map_kind,
@@ -3045,6 +3050,7 @@ mod tests {
 
     use super::*;
     use crate::fetch::TilePaths as _;
+    use crate::omap::MapCoord;
     #[allow(unused_imports)]
     use crate::sources::region::ids::{IdFacts as _, providers, regions};
     use crate::sources::region::raster_region;
@@ -13176,12 +13182,17 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         .unwrap();
         let map_objects = [park, paved];
         let build = |project: &ProjectFile| {
-            export::stored_vegetation_objects(
-                dir.path(),
-                project,
+            let Some(vegetation) = export::read_stored_vegetation(dir.path(), project).unwrap()
+            else {
+                return Vec::new();
+            };
+            crate::build::vegetation::vegetation_objects(
+                &vegetation,
                 std::slice::from_ref(&building),
                 &water,
                 &map_objects,
+                &project.area().unwrap().projected_polygon_in(project.crs()),
+                project.buffer_m,
                 &georef,
                 &symbol_set,
             )
