@@ -1334,7 +1334,7 @@ mod update {
         let stub = UpdateStub::with_fixture();
         let mut session = Session::start_with(checking(program(), &stub, dir.path()), &cache);
         let tools = session.request("tools/list", json!({}));
-        assert_eq!(tools["tools"].as_array().unwrap().len(), 10);
+        assert_eq!(tools["tools"].as_array().unwrap().len(), 11);
         let mut notes = 0;
         let mut count = |texts: &[String]| {
             notes += texts.iter().filter(|text| **text == note()).count();
