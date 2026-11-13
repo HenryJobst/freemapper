@@ -6,6 +6,10 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+### Geändert
+
+- Intern: Maße auf dem Papier haben jetzt einen Typ (ADR 0118). Ein Papiermaß (`PaperMm`) gilt auf dem gedruckten Blatt, ein Symbolmaß (`SymbolMm`) wächst mit der Symbolvergrößerung der Kartenart und lässt sich ohne sie nicht umrechnen. Die rund 45 von Hand geschriebenen Umrechnungen in Geländemeter und Kartenkoordinaten sind ersetzt; Linienabstand, Linienbreiten und Punktgrößen der Norm stehen einmal in `build/symbol_measures.rs`. Kein Maß ändert sich, die Karten bleiben gleich.
+
 ## [0.17.0] - 2026-11-13
 
 ### Hinzugefügt

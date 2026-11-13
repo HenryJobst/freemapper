@@ -6,6 +6,10 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
+### Changed
+
+- Internal: lengths on paper now have a type (ADR 0118). A paper measure (`PaperMm`) holds on the printed sheet, a symbol measure (`SymbolMm`) grows with the symbol enlargement of the map kind and cannot be converted without it. The roughly 45 hand-written conversions to ground metres and map coordinates are replaced; the norm's line gap, line widths and point sizes are written down once in `build/symbol_measures.rs`. No measure changes, the maps stay the same.
+
 ## [0.17.0] - 2026-11-13
 
 ### Added
