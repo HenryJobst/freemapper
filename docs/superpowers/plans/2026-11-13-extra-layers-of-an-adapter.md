@@ -110,6 +110,11 @@ Sub-steps, one commit each, golden unchanged after each:
   fetches, stores and removes its layers without naming it.
 - **2c, the estimate.** `layers.rs` builds the item of a set from `ExtraSetInfo::estimate` in the place and order
   of today's Berlin item (G2 holds it).
+2a to 2c are one pull request (done: the trait and Berlin's set; the engine fetches the set of the registry; the
+estimate asks the set). `ExtraLayerInfo` carries the key only: whether a layer is a register is a question of
+`dedup::rank` about the `freemapper:source` of an object, which names a type inside a file for some layers, so it
+is settled in step 3 with the rank. 2d is the next pull request.
+
 - **2d, raster templates.** `RegionAdapter::templates(&self) -> &[RasterTemplate]` for the K5: the WMS, the file,
   the pixel size, the date of the dataset, its item of the estimate; `fetch_k5_into` becomes generic; the record
   stays in `k5`.
