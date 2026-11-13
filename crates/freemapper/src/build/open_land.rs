@@ -6,18 +6,19 @@
 //! objects; OSM parks and lawns are candidates where no ALKIS area of this kind lies.
 
 use geo::{Area as _, BooleanOps as _, BoundingRect as _, Intersects as _};
-use geo_types::{MultiPolygon, Polygon};
+use geo_types::{LineString, MultiPolygon, Polygon};
 
 use crate::build::geometry::object_polygon;
 use crate::build::out_of_bounds::{
     LandClip, area_object, clipped_pieces, is_out_of_bounds_part, land_tags, mean_width,
 };
 use crate::build::peripheral::PaperRect;
-use crate::crs::BoundingBox;
+use crate::crs::{BoundingBox, Crs, LatLon};
 use crate::georef::{GeorefError, Georeferencing};
 use crate::omap::{MapCoord, MapObject, SymbolSet, closed_ring};
 use crate::project::MapKind;
 use crate::sources::alkis::LandUse;
+use crate::sources::osm::{OsmFeature, OsmGeometry};
 use freemapper_sources::alkis_source::spelling_key;
 
 /// ISSprOM 401 open land.
@@ -87,7 +88,8 @@ pub struct OpenLandObjects {
 /// 401, 403 and 405 areas for the land uses of [`open_land_class`], clipped to `clip` (map area
 /// plus buffer, the map's CRS), slivers dropped, tagged with the land use's provenance. On the
 /// schoolyard map the land off the school grounds is out of bounds (a 520 candidate) and gets
-/// none.
+/// none. On a forest map the forest is the white paper: woods get no object, and no open land
+/// is drawn where an ALKIS wood or one of `osm_forest` (the map's CRS) lies (spec 2026-11-13).
 pub fn open_land_objects(
     land_use: &[LandUse],
     map_area: &Polygon<f64>,
@@ -95,13 +97,18 @@ pub fn open_land_objects(
     kind: MapKind,
     georef: &Georeferencing,
     symbol_set: &SymbolSet,
+    osm_forest: &[Polygon<f64>],
 ) -> Result<OpenLandObjects, GeorefError> {
+    let forest = (kind == MapKind::Forest).then(|| forest_cover(land_use, osm_forest, clip));
     let clip = LandClip::new(clip, georef);
     let mut objects = OpenLandObjects::default();
     for land in land_use {
         let Some(class) = open_land_class(land) else {
             continue;
         };
+        if forest.is_some() && class.code == FOREST_CODE {
+            continue;
+        }
         let Some(symbol_id) = symbol_set.id_for_code(class.code) else {
             continue;
         };
@@ -114,12 +121,76 @@ pub fn open_land_objects(
             } else {
                 &mut objects.candidates
             };
-            for piece in clipped_pieces(part, &clip, f64::INFINITY) {
-                target.push(area_object(&piece, symbol_id, land_tags(land), georef)?);
+            let open = match &forest {
+                Some(forest) if !forest.0.is_empty() => {
+                    MultiPolygon(vec![part.clone()]).difference(forest).0
+                }
+                _ => vec![part.clone()],
+            };
+            for open in &open {
+                for piece in clipped_pieces(open, &clip, f64::INFINITY) {
+                    target.push(area_object(&piece, symbol_id, land_tags(land), georef)?);
+                }
             }
         }
     }
     Ok(objects)
+}
+
+/// The forest over the clip window: the ALKIS woods ([`open_land_class`] 405) and `osm_forest`.
+fn forest_cover(
+    land_use: &[LandUse],
+    osm_forest: &[Polygon<f64>],
+    clip: &BoundingBox,
+) -> MultiPolygon<f64> {
+    let window = geo_types::Rect::new(
+        geo_types::coord! { x: clip.min_e, y: clip.min_n },
+        geo_types::coord! { x: clip.max_e, y: clip.max_n },
+    );
+    let woods = land_use
+        .iter()
+        .filter(|land| open_land_class(land).is_some_and(|c| c.code == FOREST_CODE))
+        .flat_map(|land| land.footprint.0.iter());
+    let near: Vec<&Polygon<f64>> = woods
+        .chain(osm_forest)
+        .filter(|p| p.bounding_rect().is_some_and(|r| r.intersects(&window)))
+        .collect();
+    geo::unary_union(near)
+}
+
+/// The OSM forest (`landuse=forest`, `natural=wood`) of `features` as polygons in `crs`: closed
+/// ways and multipolygons. A forest map keeps these features for it (rules with `forest = "-"`).
+pub fn osm_forest_polygons(features: &[OsmFeature], crs: Crs) -> Vec<Polygon<f64>> {
+    let is_forest = |f: &OsmFeature| {
+        f.tags
+            .iter()
+            .any(|(k, v)| (k == "landuse" && v == "forest") || (k == "natural" && v == "wood"))
+    };
+    let ring = |points: &[LatLon]| {
+        LineString::from(
+            points
+                .iter()
+                .map(|p| {
+                    let q = crs.forward(*p);
+                    (q.easting, q.northing)
+                })
+                .collect::<Vec<_>>(),
+        )
+    };
+    features
+        .iter()
+        .filter(|f| is_forest(f))
+        .flat_map(|f| match &f.geometry {
+            OsmGeometry::Line(points) if points.len() > 3 && points.first() == points.last() => {
+                vec![Polygon::new(ring(points), vec![])]
+            }
+            OsmGeometry::Area(polygons) => polygons
+                .iter()
+                .map(|p| Polygon::new(ring(&p.outer), p.holes.iter().map(|h| ring(h)).collect()))
+                .collect(),
+            _ => vec![],
+        })
+        .collect()
 }
 
 /// The OSM open land candidates (401 areas among `candidates`) minus the open land map objects
@@ -223,8 +294,6 @@ pub fn walkable_base(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::crs::LatLon;
-    use geo_types::LineString;
 
     struct Fixture {
         georef: Georeferencing,
@@ -336,6 +405,7 @@ mod tests {
             MapKind::Sprint,
             &f.georef,
             &set,
+            &[],
         )
         .unwrap();
         assert_eq!(found.map.len(), 1);
@@ -370,6 +440,7 @@ mod tests {
             MapKind::Schoolyard,
             &f.georef,
             &set,
+            &[],
         )
         .unwrap();
         assert!(found.map.is_empty() && found.candidates.is_empty());
@@ -386,9 +457,124 @@ mod tests {
             MapKind::Schoolyard,
             &f.georef,
             &set,
+            &[],
         )
         .unwrap();
         assert_eq!(found.map.len(), 1);
+    }
+
+    #[test]
+    fn forest_wins_over_an_alkis_park_on_a_forest_map() {
+        let f = fixture();
+        let park = land(
+            "Sport-, Freizeit- und Erholungsfläche",
+            Some("Park"),
+            vec![square(&f, -100.0, -100.0, 120.0)],
+        );
+        let wood = land("Wald", None, vec![square(&f, 50.0, 50.0, 60.0)]);
+        // OSM forest over the west half of the park.
+        let forest = [
+            square(&f, -100.0, -100.0, 60.0),
+            square(&f, -100.0, -40.0, 60.0),
+        ];
+        for (kind, scale) in [(MapKind::Forest, 10000), (MapKind::Sprint, 4000)] {
+            let georef = Georeferencing::new(
+                f.georef.ref_geographic,
+                scale,
+                "2026-11-09".parse().unwrap(),
+            )
+            .unwrap();
+            let set = kind.symbol_set(scale);
+            let found = open_land_objects(
+                &[park.clone(), wood.clone()],
+                &f.area,
+                &f.clip,
+                kind,
+                &georef,
+                &set,
+                &forest,
+            )
+            .unwrap();
+            let open: Vec<_> = found
+                .map
+                .iter()
+                .filter(|o| Some(o.symbol_id) == set.id_for_code("401"))
+                .collect();
+            let woods = found
+                .map
+                .iter()
+                .filter(|o| Some(o.symbol_id) == set.id_for_code("405"))
+                .count();
+            let m = 1e6 / f64::from(scale);
+            let area: f64 = open
+                .iter()
+                .map(|o| object_polygon(o).unwrap().unsigned_area() / (m * m))
+                .sum();
+            if kind == MapKind::Forest {
+                // The east 60 m of the park stay open land; the wood is the white paper.
+                assert!((area / (60.0 * 120.0) - 1.0).abs() < 0.01, "{area}");
+                assert_eq!(woods, 0);
+            } else {
+                assert!((area / (120.0 * 120.0) - 1.0).abs() < 0.01, "{area}");
+                assert_eq!(woods, 1);
+            }
+        }
+    }
+
+    #[test]
+    fn osm_forest_polygons_are_woods_and_forests() {
+        use crate::sources::osm::OsmPolygon;
+        let ring = |dlat: f64| {
+            vec![
+                LatLon {
+                    lat: 52.48 + dlat,
+                    lon: 13.38,
+                },
+                LatLon {
+                    lat: 52.48 + dlat,
+                    lon: 13.381,
+                },
+                LatLon {
+                    lat: 52.481 + dlat,
+                    lon: 13.381,
+                },
+                LatLon {
+                    lat: 52.48 + dlat,
+                    lon: 13.38,
+                },
+            ]
+        };
+        let feature = |tags: &[(&str, &str)], geometry| OsmFeature {
+            id: "way/1".to_string(),
+            tags: tags
+                .iter()
+                .map(|(k, v)| (k.to_string(), v.to_string()))
+                .collect(),
+            geometry,
+        };
+        let features = [
+            feature(&[("landuse", "forest")], OsmGeometry::Line(ring(0.0))),
+            feature(
+                &[("natural", "wood")],
+                OsmGeometry::Area(vec![OsmPolygon {
+                    outer: ring(0.01),
+                    holes: vec![],
+                }]),
+            ),
+            feature(&[("landuse", "meadow")], OsmGeometry::Line(ring(0.02))),
+            // An open way is no area.
+            feature(
+                &[("landuse", "forest")],
+                OsmGeometry::Line(ring(0.03)[..3].to_vec()),
+            ),
+        ];
+        let found = osm_forest_polygons(&features, f_crs());
+        assert_eq!(found.len(), 2);
+        assert!(found.iter().all(|p| p.unsigned_area() > 1000.0));
+    }
+
+    fn f_crs() -> crate::crs::Crs {
+        fixture().georef.crs()
     }
 
     fn map_square(

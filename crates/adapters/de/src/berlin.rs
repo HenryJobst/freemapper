@@ -114,9 +114,12 @@ pub struct ExtraLayer {
     pub operating_only: bool,
 }
 
-const BOTH_KINDS: &[MapKind] = &[MapKind::Sprint, MapKind::Schoolyard];
-const SPRINT_ONLY: &[MapKind] = &[MapKind::Sprint];
+// A forest map takes what a sprint map takes (spec 2026-11-13).
+const BOTH_KINDS: &[MapKind] = &[MapKind::Sprint, MapKind::Schoolyard, MapKind::Forest];
+const SPRINT_ONLY: &[MapKind] = &[MapKind::Sprint, MapKind::Forest];
 const SCHOOLYARD_ONLY: &[MapKind] = &[MapKind::Schoolyard];
+/// A forest map draws no street or park trees of the register (spec 2026-11-13).
+const TREE_KINDS: &[MapKind] = &[MapKind::Sprint, MapKind::Schoolyard];
 const TREE_SERVICE: &str = "https://gdi.berlin.de/services/wfs/baumbestand";
 /// The street survey of 2014–2016 (Straßenbefahrung).
 const SURVEY_SERVICE: &str = "https://gdi.berlin.de/services/wfs/strassenbefahrung";
@@ -179,12 +182,12 @@ pub const EXTRA_LAYERS: [ExtraLayer; 18] = [
     plain(
         "strassenbaeume",
         TREE_SERVICE,
-        &[ty("baumbestand:strassenbaeume", BOTH_KINDS)],
+        &[ty("baumbestand:strassenbaeume", TREE_KINDS)],
     ),
     plain(
         "anlagenbaeume",
         TREE_SERVICE,
-        &[ty("baumbestand:anlagenbaeume", BOTH_KINDS)],
+        &[ty("baumbestand:anlagenbaeume", TREE_KINDS)],
     ),
     survey(
         "sb-gruenflaeche",

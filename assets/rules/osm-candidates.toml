@@ -121,11 +121,18 @@ draw = "line"
 point_as_short_line_mm = 1.8
 schoolyard = "541"
 
+# A forest map draws a single tree only when it is a landmark (ISOM 417).
+[[rule]]
+when = ["natural=tree", "denotation=natural_monument|landmark"]
+draw = "point"
+forest = "417"
+
 [[rule]]
 when = ["natural=tree"]
 draw = "point"
 schoolyard = "418"
 sprint = "418"
+forest = "-"
 
 [[rule]]
 when = ["barrier=hedge"]
@@ -316,7 +323,18 @@ target = "map"
 forest = "506"
 
 # Land cover of a forest map, as candidates: open land, rough open land and the green that OSM
-# says. Forest itself (`landuse=forest`, `natural=wood`) is the white paper and has no rule.
+# says. Forest itself is the white paper: its rules draw nothing, but a forest map keeps the
+# features, so that no open land is drawn under them (`build/open_land.rs`).
+[[rule]]
+when = ["landuse=forest"]
+draw = "area"
+forest = "-"
+
+[[rule]]
+when = ["natural=wood"]
+draw = "area"
+forest = "-"
+
 [[rule]]
 when = ["natural=grassland"]
 draw = "area"

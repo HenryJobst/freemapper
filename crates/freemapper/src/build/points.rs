@@ -934,29 +934,30 @@ pub fn generalize_points(
     // it goes (ADR 0076). Trees stay: the cadastre footprint of a building often takes in the
     // trees at its wall, and a group of them is cut at the building later. Map points and the
     // schoolyard map keep theirs.
-    let candidates: Vec<MapObject> = if kind == MapKind::Sprint && !footprints.is_empty() {
-        let buildings = Indexed::new(footprints.to_vec(), GRID_CELL_M);
-        candidates
-            .into_iter()
-            .filter(|o| {
-                let inside = is_point(o)
-                    && sizes
-                        .get(&o.symbol_id)
-                        .is_some_and(|(code, _)| !TREE_CODES.contains(code))
-                    && o.coords.first().is_some_and(|c| {
-                        let p = georef.map_to_projected(*c);
-                        buildings.contains(Point::new(p.easting, p.northing))
-                    });
-                !inside
-            })
-            .collect()
-    } else {
-        candidates
-    };
+    let candidates: Vec<MapObject> =
+        if matches!(kind, MapKind::Sprint | MapKind::Forest) && !footprints.is_empty() {
+            let buildings = Indexed::new(footprints.to_vec(), GRID_CELL_M);
+            candidates
+                .into_iter()
+                .filter(|o| {
+                    let inside = is_point(o)
+                        && sizes
+                            .get(&o.symbol_id)
+                            .is_some_and(|(code, _)| !TREE_CODES.contains(code))
+                        && o.coords.first().is_some_and(|c| {
+                            let p = georef.map_to_projected(*c);
+                            buildings.contains(Point::new(p.easting, p.northing))
+                        });
+                    !inside
+                })
+                .collect()
+        } else {
+            candidates
+        };
     // Control sites (ADR 0074, 0077): the ones of OSM, the street survey and the lighting
     // cadastre are thinned together, once the duplicates of the sources are gone and the sites
     // in buildings with them, so a site in a building does not take a neighbour out.
-    let candidates = if kind == MapKind::Sprint {
+    let candidates = if matches!(kind, MapKind::Sprint | MapKind::Forest) {
         drop_ambiguous_control_sites(candidates, georef.scale_denominator)
     } else {
         candidates

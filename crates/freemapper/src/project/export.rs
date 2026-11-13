@@ -1438,13 +1438,16 @@ pub fn build_project(dir: &Path) -> Result<BuiltProject, ProjectError> {
         &georef,
         &symbol_set,
     )?);
-    cadastre_candidates.extend(stored_tree_objects(
-        &stored_tree_layers(dir, &project)?,
-        &project,
-        &area,
-        &georef,
-        &symbol_set,
-    )?);
+    // A forest map draws no register trees (spec 2026-11-13).
+    if project.map_kind != MapKind::Forest {
+        cadastre_candidates.extend(stored_tree_objects(
+            &stored_tree_layers(dir, &project)?,
+            &project,
+            &area,
+            &georef,
+            &symbol_set,
+        )?);
+    }
     // A survey line along an ALKIS line goes first, then an OSM line along either.
     let mut cadastre_candidates =
         drop_cadastre_lines_by_rank(cadastre_candidates, &symbol_set, georef.scale_denominator);
@@ -1495,6 +1498,10 @@ pub fn build_project(dir: &Path) -> Result<BuiltProject, ProjectError> {
     )?;
     // Parks, meadows and woods of the land use: 401, 403 and 405 (`build/open_land.rs`). Where
     // they are map objects, the OSM parks and lawns go.
+    let osm_forest = match (&osm, project.map_kind) {
+        (Some((features, _)), MapKind::Forest) => osm_forest_polygons(features, project.crs()),
+        _ => Vec::new(),
+    };
     let open_land = open_land_objects(
         &land_use,
         &area.projected_polygon_in(project.crs()),
@@ -1502,6 +1509,7 @@ pub fn build_project(dir: &Path) -> Result<BuiltProject, ProjectError> {
         project.map_kind,
         &georef,
         &symbol_set,
+        &osm_forest,
     )?;
     let osm_candidates = drop_open_land_under_alkis(osm_candidates, &open_land.map, &symbol_set);
     // The point symbols keep the norm's gap, dense tree groups become 501.3 on paving, else 402
@@ -1766,6 +1774,9 @@ pub(crate) const CANDIDATES_RELPATH: &str = "templates/candidates.omap";
 
 /// Line symbol used for the map area outline in the candidates template map.
 pub(super) const OUTLINE_SYMBOL_CODE: &str = "501.1";
+/// The outline of a set without 501.1 (ISOM 2017-2 has no step line): the thin black line of the
+/// sheet symbols.
+const OUTLINE_FALLBACK_CODE: &str = "994";
 
 /// The exterior ring of the map area as a closed path object.
 pub(super) fn map_area_outline(
@@ -1793,7 +1804,8 @@ pub(super) fn map_area_outline(
     Ok(MapObject {
         symbol_id: symbol_set
             .id_for_code(OUTLINE_SYMBOL_CODE)
-            .expect("symbol set defines 501.1"),
+            .or_else(|| symbol_set.id_for_code(OUTLINE_FALLBACK_CODE))
+            .expect("symbol set defines 501.1 or the sheet symbols"),
         kind: MapObjectKind::Path,
         coords: closed_ring(&points),
         tags,

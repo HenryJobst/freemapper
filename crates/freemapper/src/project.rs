@@ -27,7 +27,7 @@ use crate::build::dedup::{
 };
 use crate::build::firm_paths::cut_firm_paths;
 use crate::build::open_land::{
-    BASE_PART, drop_open_land_under_alkis, open_land_objects, walkable_base,
+    BASE_PART, drop_open_land_under_alkis, open_land_objects, osm_forest_polygons, walkable_base,
 };
 use crate::build::out_of_bounds::out_of_bounds_objects;
 use crate::build::passages::hide_unreachable as hide_unreachable_passages;
@@ -11633,6 +11633,88 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         )
         .unwrap();
         (dir, cache_dir)
+    }
+
+    /// A forest project at 1:10000 over the school fixture with these OSM ways (two points each
+    /// from the centre of the map area) and no land use.
+    fn forest_with_ways(
+        fetcher: &MapFetcher,
+        ways: &[(&str, &[(&str, &str)])],
+    ) -> (tempfile::TempDir, tempfile::TempDir) {
+        use crate::sources::alkis::test_support::page;
+        let (dir, cache_dir, _) = fetched_school(fetcher);
+        let mut project = ProjectFile::load(dir.path()).unwrap();
+        project.map_kind = MapKind::Forest;
+        project.scale_denominator = 10000;
+        project.save(dir.path()).unwrap();
+        let c = fixture_area().centroid();
+        let points = vec![
+            c,
+            LatLon {
+                lat: c.lat + 0.0003,
+                lon: c.lon + 0.0003,
+            },
+        ];
+        let features: Vec<_> = ways
+            .iter()
+            .map(|(id, tags)| crate::sources::osm::OsmFeature {
+                id: id.to_string(),
+                tags: tags
+                    .iter()
+                    .map(|(k, v)| (k.to_string(), v.to_string()))
+                    .collect(),
+                geometry: crate::sources::osm::OsmGeometry::Line(points.clone()),
+            })
+            .collect();
+        std::fs::write(
+            dir.path().join(OSM_CANDIDATES_RELPATH),
+            crate::sources::osm::features_to_geojson(&features),
+        )
+        .unwrap();
+        std::fs::write(dir.path().join(LAND_USE_RELPATH), page(&[], None)).unwrap();
+        (dir, cache_dir)
+    }
+
+    #[test]
+    fn a_forest_map_without_paths_or_land_use_is_written() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir) = forest_with_ways(&fetcher, &[]);
+        let map =
+            std::fs::read_to_string(export_starter_project(dir.path(), false).unwrap()).unwrap();
+        assert!(map.contains(r#"id="ISOM 2017-2""#), "the ISOM set");
+        assert!(map.contains(r#"<georeferencing scale="10000""#));
+        assert!(!map.contains(r#" code="990""#), "no walkable area");
+        let candidates =
+            std::fs::read_to_string(dir.path().join("templates/candidates.omap")).unwrap();
+        assert!(candidates.contains(r#"id="ISOM 2017-2""#));
+    }
+
+    #[test]
+    fn a_forest_map_draws_the_osm_paths_in_isom_classes() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir) = forest_with_ways(
+            &fetcher,
+            &[
+                ("way/1", &[("highway", "path")]),
+                ("way/2", &[("highway", "track"), ("tracktype", "grade1")]),
+                ("way/3", &[("highway", "footway"), ("footway", "sidewalk")]),
+            ],
+        );
+        let map =
+            std::fs::read_to_string(export_starter_project(dir.path(), false).unwrap()).unwrap();
+        let set = MapKind::Forest.symbol_set(10000);
+        for code in ["506", "504"] {
+            let id = set.id_for_code(code).unwrap();
+            assert!(
+                map.contains(&format!(r#"<object type="1" symbol="{id}""#)),
+                "{code}"
+            );
+        }
+        assert!(map.contains(r#"<t k="freemapper:source_id">way/1</t>"#));
+        assert!(!map.contains("way/3"), "a sidewalk is left out");
+        let candidates =
+            std::fs::read_to_string(dir.path().join("templates/candidates.omap")).unwrap();
+        assert!(!candidates.contains("way/3"));
     }
 
     /// Replaces the stored land use with one carriageway (`Straßenverkehr`) and one way (`Weg`)

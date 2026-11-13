@@ -590,7 +590,7 @@ pub fn osm_objects(
         }
         // A control site (ADR 0074) names its kind for the course planner.
         if source == "osm"
-            && kind == MapKind::Sprint
+            && matches!(kind, MapKind::Sprint | MapKind::Forest)
             && let Some(site) = if found.code == CONTROL_CODE {
                 control_kind(&feature.tags)
             } else if TOWER_CODES.contains(&found.code.as_str()) {
@@ -604,7 +604,7 @@ pub fn osm_objects(
         // A control site of the street survey and the lighting cadastre names its kind the same
         // way (ADR 0077).
         if source.starts_with("geoportal-berlin/")
-            && kind == MapKind::Sprint
+            && matches!(kind, MapKind::Sprint | MapKind::Forest)
             && found.code == CONTROL_CODE
             && let Some(site) = berlin_control_kind(&feature.tags)
         {
@@ -1349,6 +1349,16 @@ mod tests {
         );
         // An area tag is no line.
         assert_eq!(path(&[("natural", "scrub")]), None);
+        let tree = |t: &[(&str, &str)]| {
+            Rules::embedded()
+                .symbol_for(&tags(t), &OsmGeometry::Point(at(0.0, 0.0)), MapKind::Forest)
+                .map(|m| m.code)
+        };
+        assert_eq!(tree(&[("natural", "tree")]), None);
+        assert_eq!(
+            tree(&[("natural", "tree"), ("denotation", "natural_monument")]),
+            Some("417".into())
+        );
     }
 
     #[test]
