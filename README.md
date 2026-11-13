@@ -53,9 +53,9 @@ Aktuelle Version ist [v0.16.0](https://github.com/HenryJobst/freemapper/releases
 13. November 2026 (was sich geändert hat, steht in den [Änderungen](CHANGELOG.md)).
 
 freemapper erzeugt
-Schulhof- und Sprintkarten für zwölf Bundesländer: Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg,
+Schulhof- und Sprintkarten für dreizehn Bundesländer: Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg,
 Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern, Nordrhein-Westfalen, Niedersachsen,
-Rheinland-Pfalz und Saarland. Gewässer stehen auf allen Karten, die Farben folgen den IOF-Druckvorgaben von 2024.
+Rheinland-Pfalz, Saarland und Baden-Württemberg (neu seit v0.16.0, noch nicht veröffentlicht). Gewässer stehen auf allen Karten, die Farben folgen den IOF-Druckvorgaben von 2024.
 Auf Wunsch erzeugt freemapper dazu einen Ausgangsstand für OCAD (`--ocad`) und eine
 PDF-Karte (`--pdf`, mit Kandidaten `--pdf-candidates`). Vor dem Laden prüft
 freemapper den freien Speicherplatz. Berliner Karten bekommen aus weiteren Daten des Geoportals Berlin
