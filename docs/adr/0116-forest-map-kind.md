@@ -85,3 +85,12 @@ its file byte for byte.
   schoolyard and sprint.
 - An ISSprOM code that gets drawn some day without an alias is caught by `every_code_freemapper_draws_has_an_isom_answer`
   for the OSM rules; a code used only in Rust needs its alias added by hand.
+
+## Update 2026-11-13: north line spacing
+
+The north lines (symbol 601) of a forest map are 20 mm apart at symbol size 100 %, not 30 mm. ISOM 2017-2 changed
+this against ISOM 2000: "Their spacing on the map shall be 20 mm on the map which represents 300 m on the ground at
+the scale of 1:15 000" (OMapWiki, symbol 601). British Orienteering's letter to the federations on ISOM 2017 says:
+"ISOM201X 601: The distance between the magnetic north lines has been adjusted so that it will be reasonable when
+enlarged to 1:10000". At 1:10 000 the symbols are enlarged by 150 %, so the lines are 30 mm apart on paper; both
+scales give 300 m on the ground. Sprint (ISSprOM 2019) and schoolyard maps keep 30 mm.
