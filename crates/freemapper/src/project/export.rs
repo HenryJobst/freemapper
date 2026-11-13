@@ -137,7 +137,8 @@ pub(super) fn stored_osm_objects(
     )?)
 }
 
-/// 101/102 candidate objects for the contour lines from `derive`; none when there are none.
+/// 101/102 candidate objects for the contour lines from `derive`, none when there are none, and
+/// the interval they were traced at (stored with them, else the project's, else the kind's).
 /// They stop at the drawn ALKIS `water`: ISSprOM shows no contours in uncrossable water.
 pub(super) fn stored_contour_objects(
     dir: &Path,
@@ -147,18 +148,25 @@ pub(super) fn stored_contour_objects(
     water: &geo_types::MultiPolygon<f64>,
     georef: &Georeferencing,
     symbol_set: &SymbolSet,
-) -> Result<Vec<MapObject>, ProjectError> {
+) -> Result<(Vec<MapObject>, f64), ProjectError> {
     use geo::{Contains as _, Distance as _, InteriorPoint as _};
     let path = dir.join(CONTOURS_RELPATH);
+    let interval_of = |stored: Option<f64>| {
+        stored
+            .or(project.contour_interval_m)
+            .unwrap_or_else(|| project.map_kind.contour_interval_m())
+    };
     if !path.exists() {
-        return Ok(Vec::new());
+        return Ok((Vec::new(), interval_of(None)));
     }
     let text = std::fs::read_to_string(&path).map_err(|e| ProjectError::Io(path.clone(), e))?;
-    let lines = contours_from_geojson(&text).map_err(|e| ProjectError::StoredCandidates {
-        path: path.clone(),
-        message: e.to_string(),
-    })?;
-    let index_every = 5.0 * project.map_kind.contour_interval_m();
+    let (lines, stored) =
+        contours_from_geojson(&text).map_err(|e| ProjectError::StoredCandidates {
+            path: path.clone(),
+            message: e.to_string(),
+        })?;
+    let interval = interval_of(stored);
+    let index_every = 5.0 * interval;
     let (source, currency) = terrain_provenance(project)?;
     let id = |code: &str| {
         symbol_set
@@ -175,7 +183,7 @@ pub(super) fn stored_contour_objects(
             .interior_point()
             .is_some_and(|p| footprints.iter().any(|f| f.contains(&p)))
     };
-    lines
+    let objects = lines
         .iter()
         .filter(|line| {
             let ls = geo_types::LineString::from(line.points.clone());
@@ -226,7 +234,8 @@ pub(super) fn stored_contour_objects(
                 tags,
             })
         })
-        .collect()
+        .collect::<Result<_, ProjectError>>()?;
+    Ok((objects, interval))
 }
 
 /// ISSprOM contour and index contour.
@@ -1133,6 +1142,8 @@ pub fn project_fingerprint(project: &ProjectFile) -> Result<String, ProjectError
         map_area: &'a serde_json::Value,
         crs: u32,
         provider: &'a Option<AdapterId>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        contour_interval_m: &'a Option<f64>,
     }
     let ProjectFile {
         map_kind,
@@ -1143,6 +1154,7 @@ pub fn project_fingerprint(project: &ProjectFile) -> Result<String, ProjectError
         map_area,
         crs,
         provider,
+        contour_interval_m,
         title: _,
         tiles: _,
         buildings: _,
@@ -1168,6 +1180,7 @@ pub fn project_fingerprint(project: &ProjectFile) -> Result<String, ProjectError
         map_area,
         crs: *crs,
         provider,
+        contour_interval_m,
     };
     let text = toml::to_string(&counted).map_err(|e| ProjectError::Toml(e.to_string()))?;
     Ok(sha2::Sha256::digest(text.as_bytes())
@@ -1568,19 +1581,20 @@ pub fn build_project(dir: &Path) -> Result<BuiltProject, ProjectError> {
     let registers = drawn_registers(&point_candidates);
     let attribution_text = attribution_lines(&project, &registers).join("\n");
     let notes = format!("{attribution_text}\n{FREEMAPPER_CREDIT}");
+    let (contour_objects, contour_interval_m) = stored_contour_objects(
+        dir,
+        &project,
+        &footprints,
+        &area,
+        &water.union,
+        &georef,
+        &symbol_set,
+    )?;
     let mut candidates: Vec<MapObject> =
         std::iter::once(map_area_outline(&area, &georef, &symbol_set, &project)?)
             .chain(point_candidates)
             .chain(structures.stairs)
-            .chain(stored_contour_objects(
-                dir,
-                &project,
-                &footprints,
-                &area,
-                &water.union,
-                &georef,
-                &symbol_set,
-            )?)
+            .chain(contour_objects)
             .chain(paved.candidates)
             .chain(open_land.candidates)
             .chain(water.candidates)
@@ -1670,7 +1684,7 @@ pub fn build_project(dir: &Path) -> Result<BuiltProject, ProjectError> {
     let info = PeripheralInfo {
         title: project.display_title(dir),
         scale_denominator: project.scale_denominator,
-        contour_interval_m: project.map_kind.contour_interval_m(),
+        contour_interval_m,
         attribution,
     };
     // The walkable area (sprint only, ADR 0069) in its own part, written first.

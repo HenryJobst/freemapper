@@ -421,6 +421,7 @@ error-io-disk-full = the disk is full, so freemapper could not write { $path }. 
 error-project-already-exists = project already exists: { $path }
 error-project-map-exists = map already exists (it may contain your work); use --force to replace it: { $path }
 error-project-invalid-scale = invalid scale 1:{ $scale }
+error-project-invalid-contour-interval = invalid contour interval { $interval } m in freemapper.toml; it must be more than 0
 error-project-scale-not-allowed = scale 1:{ $scale } is not allowed for { $kind } maps; use { $allowed }
 error-project-scale-not-allowed-enlarge = scale 1:{ $scale } is not allowed for { $kind } maps; use { $allowed }. Draw at 1:4000, freemapper-print enlarges to 1:3000 when printing
 word-kind-schoolyard = schoolyard

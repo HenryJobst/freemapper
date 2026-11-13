@@ -49,7 +49,8 @@ use crate::build::water::{
 use crate::crs::ProjectedPoint;
 use crate::crs::{BoundingBox, Crs, LatLon};
 use crate::derive::contours::{
-    contour_lines, contours_from_geojson, contours_to_geojson, gaussian_smooth, generalize,
+    contour_interval_for, contour_lines, contours_from_geojson, contours_to_geojson,
+    gaussian_smooth, generalize, heights_inside,
 };
 use crate::derive::landforms::{
     LandformKind, height_jumps, knolls_and_depressions, landforms_from_geojson,
@@ -107,6 +108,8 @@ pub enum ProjectError {
     MapExists(PathBuf),
     #[error("invalid scale 1:{0}")]
     InvalidScale(u32),
+    #[error("invalid contour interval {0} m; it must be more than 0")]
+    InvalidContourInterval(f64),
     #[error("scale 1:{scale} is not allowed for {kind} maps; use {allowed}{hint}")]
     ScaleNotAllowed {
         kind: &'static str,
@@ -368,6 +371,10 @@ pub struct ProjectFile {
     /// Map title for the peripheral information; the folder name when absent.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
+    /// Contour interval in metres; without it `derive` picks the one of the map kind and the
+    /// relief (`derive::contours::contour_interval_for`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub contour_interval_m: Option<f64>,
     /// Tiles used by the last `fetch`.
     #[serde(default)]
     pub tiles: Vec<TileRecord>,
@@ -508,6 +515,11 @@ impl ProjectFile {
         let text = std::fs::read_to_string(&path).map_err(|e| ProjectError::Io(path, e))?;
         let mut project: Self =
             toml::from_str(&text).map_err(|e| ProjectError::Toml(e.to_string()))?;
+        if let Some(interval) = project.contour_interval_m
+            && !(interval.is_finite() && interval > 0.0)
+        {
+            return Err(ProjectError::InvalidContourInterval(interval));
+        }
         project.check_adapters()?;
         project.drop_unknown_names(progress);
         if project
@@ -754,6 +766,7 @@ pub fn init_project_with_content(
         map_area_source_id: area.source_id.clone(),
         map_area: area.to_geojson_value(),
         title: title.as_deref().and_then(clean_title),
+        contour_interval_m: None,
         tiles: Vec::new(),
         buildings: None,
         land_use: None,
@@ -2432,13 +2445,28 @@ pub fn derive_project_cancellable(
     progress(note!("progress-writing", path = CONTOURS_RELPATH));
     stop_if(cancelled)?;
     let smoothed = gaussian_smooth(&dtm, project.map_kind.contour_sigma_m());
-    let interval = project.map_kind.contour_interval_m();
+    let kind_interval = project.map_kind.contour_interval_m();
+    let interval = match project.contour_interval_m {
+        Some(interval) => interval,
+        None if project.map_kind == MapKind::Forest => {
+            let map_area = project.area()?.projected_polygon_in(project.crs());
+            contour_interval_for(project.map_kind, &heights_inside(&smoothed, &map_area))
+        }
+        None => kind_interval,
+    };
     let lines = generalize(
         contour_lines(&smoothed, interval),
         project.scale_denominator,
     );
     let contours_path = dir.join(CONTOURS_RELPATH);
-    write_inside(dir, &contours_path, contours_to_geojson(&lines).as_bytes())?;
+    // The interval is stored where it is not the kind's, so the export draws index contours and
+    // names it right; the files of the other projects stay as they were.
+    let stored_interval = (interval != kind_interval).then_some(interval);
+    write_inside(
+        dir,
+        &contours_path,
+        contours_to_geojson(&lines, stored_interval).as_bytes(),
+    )?;
     progress(note!("progress-writing", path = LANDFORMS_RELPATH));
     stop_if(cancelled)?;
     let min_height_m = project.map_kind.landform_min_height_m();
@@ -2955,6 +2983,7 @@ pub mod golden {
             crs: Crs::Utm33.epsg(),
             provider: None,
             title: None,
+            contour_interval_m: None,
             tiles: Vec::new(),
             buildings: None,
             land_use: None,
@@ -4805,7 +4834,7 @@ mod tests {
         };
         std::fs::write(
             dir.path().join(CONTOURS_RELPATH),
-            crate::derive::contours::contours_to_geojson(&[line]),
+            crate::derive::contours::contours_to_geojson(&[line], None),
         )
         .unwrap();
         export_starter_project(dir.path(), true).unwrap();
@@ -5302,6 +5331,7 @@ mod tests {
             crs: 25833,
             provider: Some(providers::LGB),
             title: Some("Clara-Zetkin-Schule".to_string()),
+            contour_interval_m: None,
             tiles: vec![TileRecord {
                 product: Product::Dtm,
                 tile: "33421-5821".to_string(),
@@ -11676,6 +11706,123 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
     }
 
     #[test]
+    fn an_explicit_interval_wins_and_zero_is_refused() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = fetched_school(&fetcher);
+        let mut project = ProjectFile::load(dir.path()).unwrap();
+        project.map_kind = MapKind::Forest;
+        project.scale_denominator = 10000;
+        project.save(dir.path()).unwrap();
+        derive_project(dir.path(), &cache, &mut |_| {}).unwrap();
+        let stored = || {
+            let text = std::fs::read_to_string(dir.path().join(CONTOURS_RELPATH)).unwrap();
+            crate::derive::contours::contours_from_geojson(&text).unwrap()
+        };
+        // The synthetic terrain rises 1 m in 10 m: hilly, 5 m, the forest interval (not stored).
+        let (lines, interval) = stored();
+        assert_eq!(interval, None);
+        assert!(!lines.is_empty());
+        assert!(lines.iter().all(|l| (l.height / 5.0).fract() == 0.0));
+        project.contour_interval_m = Some(2.5);
+        project.save(dir.path()).unwrap();
+        assert!(
+            std::fs::read_to_string(dir.path().join(PROJECT_FILE_NAME))
+                .unwrap()
+                .contains("contour_interval_m = 2.5")
+        );
+        derive_project(dir.path(), &cache, &mut |_| {}).unwrap();
+        let (lines, interval) = stored();
+        assert_eq!(interval, Some(2.5), "the project's interval wins");
+        assert!(lines.iter().any(|l| (l.height / 5.0).fract() != 0.0));
+        for bad in ["0.0", "-2.5", "nan"] {
+            let text = std::fs::read_to_string(dir.path().join(PROJECT_FILE_NAME))
+                .unwrap()
+                .replace(
+                    "contour_interval_m = 2.5",
+                    &format!("contour_interval_m = {bad}"),
+                );
+            std::fs::write(dir.path().join(PROJECT_FILE_NAME), text).unwrap();
+            let err = ProjectFile::load(dir.path()).unwrap_err();
+            assert!(
+                matches!(err, ProjectError::InvalidContourInterval(_)),
+                "{bad}: {err:?}"
+            );
+            let text = std::fs::read_to_string(dir.path().join(PROJECT_FILE_NAME))
+                .unwrap()
+                .replace(
+                    &format!("contour_interval_m = {bad}"),
+                    "contour_interval_m = 2.5",
+                );
+            std::fs::write(dir.path().join(PROJECT_FILE_NAME), text).unwrap();
+        }
+    }
+
+    #[test]
+    fn a_project_file_without_the_key_round_trips() {
+        let dir = tempfile::tempdir().unwrap();
+        school_project(dir.path());
+        let before = std::fs::read(dir.path().join(PROJECT_FILE_NAME)).unwrap();
+        let project = ProjectFile::load(dir.path()).unwrap();
+        assert_eq!(project.contour_interval_m, None);
+        project.save(dir.path()).unwrap();
+        assert_eq!(
+            std::fs::read(dir.path().join(PROJECT_FILE_NAME)).unwrap(),
+            before
+        );
+    }
+
+    #[test]
+    fn index_contours_every_fifth_at_2_5_m() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir) = forest_with_ways(&fetcher, &[]);
+        let c = fixture_area().centroid();
+        let crs = ProjectFile::load(dir.path()).unwrap().crs();
+        let p = crs.forward(c);
+        let lines: Vec<_> = [12.5, 15.0, 25.0]
+            .iter()
+            .enumerate()
+            .map(|(i, height)| crate::derive::contours::ContourLine {
+                height: *height,
+                points: vec![
+                    (p.easting - 40.0, p.northing + 10.0 * i as f64),
+                    (p.easting + 40.0, p.northing + 10.0 * i as f64),
+                ],
+            })
+            .collect();
+        std::fs::write(
+            dir.path().join(CONTOURS_RELPATH),
+            crate::derive::contours::contours_to_geojson(&lines, Some(2.5)),
+        )
+        .unwrap();
+        let map =
+            std::fs::read_to_string(export_starter_project(dir.path(), false).unwrap()).unwrap();
+        assert!(map.contains("Äquidistanz 2,5 m"), "the margin names 2.5 m");
+        let candidates =
+            std::fs::read_to_string(dir.path().join("templates/candidates.omap")).unwrap();
+        let set = MapKind::Forest.symbol_set(10000);
+        let (contour, index) = (
+            set.id_for_code("101").unwrap(),
+            set.id_for_code("102").unwrap(),
+        );
+        let symbol_of = |height: &str| {
+            let tag = format!(r#"<t k="freemapper:height">{height}</t>"#);
+            let at = candidates.find(&tag).unwrap_or_else(|| panic!("{height}"));
+            let open = candidates[..at].rfind("<object ").unwrap();
+            let symbol = &candidates[open..at];
+            if symbol.contains(&format!(r#"symbol="{index}""#)) {
+                "index"
+            } else if symbol.contains(&format!(r#"symbol="{contour}""#)) {
+                "contour"
+            } else {
+                "other"
+            }
+        };
+        assert_eq!(symbol_of("12.5"), "index");
+        assert_eq!(symbol_of("15"), "contour");
+        assert_eq!(symbol_of("25"), "index");
+    }
+
+    #[test]
     fn a_forest_map_without_paths_or_land_use_is_written() {
         let fetcher = MapFetcher::default();
         let (dir, _cache_dir) = forest_with_ways(&fetcher, &[]);
@@ -12791,7 +12938,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
     fn derive_writes_contours_and_ndsm() {
         let (dir, _cache_dir, _) = derived_school_with_ndsm();
         let text = std::fs::read_to_string(dir.path().join(CONTOURS_RELPATH)).unwrap();
-        let lines = crate::derive::contours::contours_from_geojson(&text).unwrap();
+        let (lines, _) = crate::derive::contours::contours_from_geojson(&text).unwrap();
         assert!(lines.len() >= 10, "{} contour lines", lines.len());
         assert!(
             lines.iter().all(|l| l.height.fract() == 0.0),
@@ -13218,7 +13365,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         lines.push(kept_line);
         std::fs::write(
             dir.path().join(CONTOURS_RELPATH),
-            crate::derive::contours::contours_to_geojson(&lines),
+            crate::derive::contours::contours_to_geojson(&lines, None),
         )
         .unwrap();
         export_starter_project(dir.path(), false).unwrap();
@@ -13449,7 +13596,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         ];
         std::fs::write(
             dir.path().join(CONTOURS_RELPATH),
-            crate::derive::contours::contours_to_geojson(&lines),
+            crate::derive::contours::contours_to_geojson(&lines, None),
         )
         .unwrap();
         let documents = starter_documents(dir.path()).unwrap();

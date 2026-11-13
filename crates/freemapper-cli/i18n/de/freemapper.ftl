@@ -421,6 +421,7 @@ error-io-disk-full = Der Datenträger ist voll, deshalb konnte freemapper { $pat
 error-project-already-exists = Das Projekt gibt es schon: { $path }
 error-project-map-exists = Die Karte gibt es schon (sie kann Ihre Arbeit enthalten); --force ersetzt sie: { $path }
 error-project-invalid-scale = ungültiger Maßstab 1:{ $scale }
+error-project-invalid-contour-interval = ungültige Äquidistanz { $interval } m in freemapper.toml; sie muss größer als 0 sein
 error-project-scale-not-allowed = Der Maßstab 1:{ $scale } ist für { $kind } nicht erlaubt; nehmen Sie { $allowed }
 error-project-scale-not-allowed-enlarge = Der Maßstab 1:{ $scale } ist für { $kind } nicht erlaubt; nehmen Sie { $allowed }. Zeichnen Sie in 1:4000, freemapper-print vergrößert beim Drucken auf 1:3000
 word-kind-schoolyard = Schulhofkarten

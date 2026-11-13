@@ -205,7 +205,8 @@ pub fn info_block(
         (x0, y),
         format!(
             "Maßstab 1:{} · Äquidistanz {} m",
-            info.scale_denominator, info.contour_interval_m
+            info.scale_denominator,
+            german_number(info.contour_interval_m)
         ),
         ALIGN_LEFT,
     ));
@@ -230,6 +231,15 @@ pub fn info_block(
         y += mm(2.5);
     }
     objects
+}
+
+/// `2` or `2,5`: a whole number without decimals, else with the German decimal comma.
+fn german_number(value: f64) -> String {
+    if value.fract() == 0.0 {
+        format!("{value:.0}")
+    } else {
+        value.to_string().replace('.', ",")
+    }
 }
 
 #[cfg(test)]
@@ -343,6 +353,8 @@ mod tests {
             &all[1..6],
             ["Maßstab 1:4000 · Äquidistanz 2 m", "0", "100", "200", "m"]
         );
+        let flat = info_block(&rect_mm(-50.0, -50.0, 50.0, 50.0), &info(10000, 2.5), &set);
+        assert_eq!(texts(&flat)[1], "Maßstab 1:10000 · Äquidistanz 2,5 m");
         let bar = set.id_for_code("994");
         let longest = objects
             .iter()
