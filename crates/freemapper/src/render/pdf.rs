@@ -1,6 +1,8 @@
 //! Drawing primitives as a one-page PDF: DeviceCMYK colours, painted by colour priority, texts in
-//! the standard fonts Helvetica / Helvetica-Bold with WinAnsi encoding.
+//! the standard fonts Helvetica / Helvetica-Bold with WinAnsi encoding. Paths go through the
+//! compact path writer of freemapper-core (`freemapper_render::pdf_path`, core ADR 0033).
 
+use freemapper_render::pdf_path::{Paint, write_path};
 use pdf_writer::types::{LineCapStyle, LineJoinStyle};
 use pdf_writer::{Content, Filter, Finish, Name, Pdf, Rect, Ref, Str, TextStr};
 
@@ -92,18 +94,17 @@ impl Transform {
     }
 }
 
-fn path(content: &mut Content, t: &Transform, points: &[Pt], close: bool) {
-    for (i, &p) in points.iter().enumerate() {
-        let (x, y) = t.pt(p);
-        if i == 0 {
-            content.move_to(x, y);
-        } else {
-            content.line_to(x, y);
-        }
-    }
-    if close {
-        content.close_path();
-    }
+/// Writes the rings of one fill or stroke with core's compact path writer (core ADR 0033): numbers
+/// rounded to 1/1000 pt, a small shape relative to its first point inside `q … Q`, then `paint`.
+/// A primitive with a coordinate that is not finite is left out; `write_pdf` has no error path and
+/// a PDF number cannot hold it (before, `NaN` went into the content stream and broke the page).
+fn path(content: &mut Content, t: &Transform, rings: &[&[Pt]], closed: bool, paint: Paint) {
+    let rings: Vec<Vec<(f32, f32)>> = rings
+        .iter()
+        .map(|ring| ring.iter().map(|&p| t.pt(p)).collect())
+        .collect();
+    // Err(NotFinite) wrote nothing: the primitive is skipped on purpose.
+    let _ = write_path(content, &rings, closed, paint);
 }
 
 fn paint(content: &mut Content, t: &Transform, p: &Primitive, colours: &[RenderColour]) {
@@ -115,10 +116,8 @@ fn paint(content: &mut Content, t: &Transform, p: &Primitive, colours: &[RenderC
     match &p.shape {
         Shape::Fill { rings } => {
             content.set_fill_cmyk(c, m, y, k);
-            for ring in rings {
-                path(content, t, ring, true);
-            }
-            content.fill_even_odd();
+            let rings: Vec<&[Pt]> = rings.iter().map(Vec::as_slice).collect();
+            path(content, t, &rings, true, Paint::FillEvenOdd);
         }
         Shape::Stroke {
             path: points,
@@ -140,8 +139,7 @@ fn paint(content: &mut Content, t: &Transform, p: &Primitive, colours: &[RenderC
                 Join::Bevel => LineJoinStyle::BevelJoin,
             });
             content.set_miter_limit(MITER_LIMIT);
-            path(content, t, points, *closed);
-            content.stroke();
+            path(content, t, &[points], *closed, Paint::Stroke);
         }
         Shape::Text {
             origin,
@@ -383,6 +381,149 @@ mod tests {
         let clips = content.windows(5).filter(|w| w == b"re\nW\n").count();
         assert_eq!(clips, 1, "one clip block for a run of map primitives");
         assert!(find(&content, b"0 0 0 0.6 k").is_some());
+    }
+
+    fn fill(priority: i32, ring: Vec<Pt>) -> Primitive {
+        Primitive {
+            priority,
+            shape: Shape::Fill { rings: vec![ring] },
+        }
+    }
+
+    /// The text between the first `start` and the next `end` after it.
+    fn between<'a>(haystack: &'a [u8], start: &[u8], end: &[u8]) -> Option<&'a [u8]> {
+        let from = find(haystack, start)?;
+        let to = from + find(&haystack[from..], end)? + end.len();
+        Some(&haystack[from..to])
+    }
+
+    #[test]
+    fn path_numbers_have_at_most_three_decimals() {
+        // Odd coordinates, one large ring and one small, filled and stroked.
+        let ring = vec![
+            (10.123_457, 13.765_432),
+            (61.987_654, 14.111_111),
+            (59.333_333, 70.777_777),
+        ];
+        let dot = vec![
+            (30.123_457, 40.765_432),
+            (31.111_111, 40.765_432),
+            (31.111_111, 41.333_333),
+            (30.123_457, 41.333_333),
+        ];
+        let line = Primitive {
+            priority: 2,
+            shape: Shape::Stroke {
+                path: ring.clone(),
+                closed: false,
+                width: 0.35,
+                cap: Cap::Flat,
+                join: Join::Miter,
+            },
+        };
+        let pdf = content_of(&write_pdf(
+            &[fill(9, ring), fill(2, dot), line],
+            &[],
+            clip(),
+            &colours(),
+            "Test",
+        ));
+        let text = String::from_utf8(pdf).expect("ASCII content");
+        let path_lines: Vec<&str> = text
+            .lines()
+            .filter(|l| l.ends_with(" m") || l.ends_with(" l") || l.ends_with(" cm"))
+            .collect();
+        assert!(path_lines.len() >= 10, "{text}");
+        for line in path_lines {
+            for number in line.split(' ').filter(|n| n.parse::<f32>().is_ok()) {
+                let decimals = number.split_once('.').map_or(0, |(_, d)| d.len());
+                assert!(decimals <= 3, "{number} in {line:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn small_shapes_are_written_relative_with_their_paint_inside() {
+        // A dot of 1 mm, four points: filled, and stroked as a closed ring.
+        let dot = vec![(30.0, 40.0), (31.0, 40.0), (31.0, 41.0), (30.0, 41.0)];
+        let ring = Primitive {
+            priority: 9,
+            shape: Shape::Stroke {
+                path: dot.clone(),
+                closed: true,
+                width: 0.1,
+                cap: Cap::Flat,
+                join: Join::Miter,
+            },
+        };
+        let pdf = content_of(&write_pdf(
+            &[fill(2, dot), ring],
+            &[],
+            clip(),
+            &colours(),
+            "Test",
+        ));
+        let blocks: Vec<&[u8]> = [&b"0 0 0 0.6 K\n"[..], &b"0 0 0 1 k\n"[..]]
+            .iter()
+            .map(|colour| {
+                let after = &pdf[find(&pdf, colour).expect("colour")..];
+                between(after, b"q\n1 0 0 1 ", b"\nQ").expect("a relative block")
+            })
+            .collect();
+        let (stroke, fill) = (blocks[0], blocks[1]);
+        for (block, paint) in [(stroke, &b"h\nS\nQ"[..]), (fill, &b"h\nf*\nQ"[..])] {
+            assert!(find(block, b" cm\n0 0 m\n").is_some(), "{block:?}");
+            assert!(
+                block.ends_with(paint),
+                "{:?}",
+                String::from_utf8_lossy(block)
+            );
+            // 1 mm right is 2.835 pt; 1 mm down on paper is 2.835 pt down on the page.
+            assert!(find(block, b"\n2.835 0 l\n2.835 -2.835 l\n0 -2.835 l\n").is_some());
+        }
+    }
+
+    #[test]
+    fn large_shapes_are_written_absolute() {
+        let pdf = content_of(&write_pdf(&[square(9)], &[], clip(), &colours(), "Test"));
+        assert!(find(&pdf, b" cm").is_none(), "no translation");
+        // (10, 10) mm on the A4 page, 55 mm and 98.5 mm in from its edges: 65 mm right, 188.5 mm up.
+        assert!(find(&pdf, b"184.252 534.331 m\n").is_some());
+        assert!(find(&pdf, b"h\nf*\n").is_some());
+    }
+
+    #[test]
+    fn clip_paths_are_never_relative() {
+        // A clip box of 3 mm, smaller than the 7 mm of a small shape.
+        let tiny = PaperBox {
+            min: (30.0, 40.0),
+            max: (33.0, 43.0),
+        };
+        let pdf = content_of(&write_pdf(&[square(9)], &[], tiny, &colours(), "Test"));
+        let clip_end = find(&pdf, b"re\nW\nn\n").expect("clip") + 7;
+        assert!(pdf.starts_with(b"q\n"), "the clip's own graphics state");
+        assert!(
+            find(&pdf[..clip_end], b" cm").is_none(),
+            "clip not translated"
+        );
+    }
+
+    #[test]
+    fn primitives_with_coordinates_that_are_not_finite_are_left_out() {
+        let broken = fill(
+            9,
+            vec![(f64::NAN, 10.0), (20.0, 10.0), (20.0, 20.0), (10.0, 20.0)],
+        );
+        let pdf = content_of(&write_pdf(
+            &[broken, square(2)],
+            &[],
+            clip(),
+            &colours(),
+            "Test",
+        ));
+        let text = String::from_utf8_lossy(&pdf);
+        assert!(!text.to_lowercase().contains("nan"), "{text}");
+        assert_eq!(text.matches("f*").count(), 1, "only the finite square");
     }
 
     #[test]

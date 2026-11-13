@@ -24,6 +24,7 @@ freemapper-sources.workspace = true
 freemapper-georef.workspace = true
 freemapper-contract.workspace = true
 freemapper-text.workspace = true
+freemapper-render.workspace = true
 fs4.workspace = true
 geo.workspace = true
 geo-types.workspace = true
