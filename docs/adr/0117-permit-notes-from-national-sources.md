@@ -119,6 +119,8 @@ set; both send whole polygons of 25 to 700 KB.
   - The BfN merges the data of the states once a year. A protected area set up or changed since then is missing
     or out of date. Each protected area shows its data year.
   - Berlin and Hamburg are one unit each in VG250. The Bezirk is not determined yet; the hint says so.
+  - The hint on the nature authority names the Kreis with the largest share of the map, not the Kreis the
+    protected area lies in. On a map across two Kreise it can name the wrong one; the hint says "meist".
 - `run --permits` reads the extract a second time, about 20 s on a large state. Merging the permit filter into
   the candidate pass would save it.
 - The notes depend on two services the project cannot control. A changed axis order would give empty answers
