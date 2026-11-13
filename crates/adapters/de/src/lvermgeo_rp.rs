@@ -750,6 +750,7 @@ pub fn fetch_model(
             let start = String::from_utf8_lossy(&bytes[..bytes.len().min(1000)]);
             Err(format!("not a GeoTIFF: {}", one_line(&start, 200)))
         },
+        prepare: &crate::sources::height_model::as_delivered,
         explain_empty: true,
     };
     let missing = mosaic_tiles(fetcher, mode, bbox, &store, area, root, out, &mut warnings)?;

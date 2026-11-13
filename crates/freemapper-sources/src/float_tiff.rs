@@ -333,6 +333,21 @@ pub fn require_stored(out: &Path, area: &BoundingBox, label: &str) -> Result<(),
     })
 }
 
+/// The TIFF tag GDAL writes its metadata into, as XML.
+const GDAL_METADATA: u16 = 42112;
+
+/// The `<Item name="…">` of the tag GDAL_METADATA (42112) of a TIFF, such as the flight date
+/// the LDBV writes into its tiles; `None` when the file is no TIFF or has no such item.
+pub fn gdal_metadata_item(bytes: &[u8], name: &str) -> Option<String> {
+    let mut decoder = tiff::decoder::Decoder::new(std::io::Cursor::new(bytes)).ok()?;
+    let xml = decoder
+        .get_tag_ascii_string(tiff::tags::Tag::Unknown(GDAL_METADATA))
+        .ok()?;
+    let item = &xml[xml.find(&format!("<Item name=\"{name}\""))?..];
+    let value = &item[item.find('>')? + 1..];
+    Some(value[..value.find("</Item>")?].trim().to_string())
+}
+
 /// `raster` as an LZW Float32 GeoTIFF with ModelPixelScale and ModelTiepoint, which
 /// [`decode_float_tiff`] reads back (for caching; no world file).
 pub fn encode_float_geotiff(raster: &Raster<f32>) -> Result<Vec<u8>, String> {
@@ -697,5 +712,45 @@ mod tests {
         assert_eq!((raster.grid.width, raster.grid.height), (1000, 1000));
         assert_eq!((min, max), (0.32, 16.98));
         assert!(raster.data.iter().all(|z| z.is_finite()));
+    }
+
+    /// A 2 × 2 Float32 TIFF, with the GDAL metadata `xml` if given.
+    fn tiff_with_metadata(xml: Option<&str>) -> Vec<u8> {
+        let mut tiff = std::io::Cursor::new(Vec::new());
+        {
+            let mut encoder = tiff::encoder::TiffEncoder::new(&mut tiff).unwrap();
+            let mut image = encoder
+                .new_image::<tiff::encoder::colortype::Gray32Float>(2, 2)
+                .unwrap();
+            if let Some(xml) = xml {
+                image
+                    .encoder()
+                    .write_tag(tiff::tags::Tag::Unknown(42112), xml)
+                    .unwrap();
+            }
+            image.write_data(&[1.0_f32, 2.0, 3.0, 4.0]).unwrap();
+        }
+        tiff.into_inner()
+    }
+
+    #[test]
+    fn the_bildflug_item_is_read_from_the_gdal_metadata() {
+        let xml = "<GDALMetadata>\n  <Item name=\"BILDFLUG_DATUM\">29.06.2024</Item>\n  \
+                   <Item name=\"STATISTICS_MAXIMUM\" sample=\"0\">434.45</Item>\n</GDALMetadata>\n";
+        let bytes = tiff_with_metadata(Some(xml));
+        assert_eq!(
+            gdal_metadata_item(&bytes, "BILDFLUG_DATUM").as_deref(),
+            Some("29.06.2024")
+        );
+        assert_eq!(
+            gdal_metadata_item(&bytes, "STATISTICS_MAXIMUM").as_deref(),
+            Some("434.45")
+        );
+        assert_eq!(gdal_metadata_item(&bytes, "BILDFLUG_NUMMER"), None);
+        assert_eq!(
+            gdal_metadata_item(&tiff_with_metadata(None), "BILDFLUG_DATUM"),
+            None
+        );
+        assert_eq!(gdal_metadata_item(b"<html>", "BILDFLUG_DATUM"), None);
     }
 }
