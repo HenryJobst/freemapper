@@ -14,6 +14,7 @@ pub mod laiv_mv;
 mod las_files;
 pub mod lgb;
 pub mod lgb_als;
+pub mod lgl_bw;
 pub mod lgln;
 pub mod lgv;
 pub mod lvermgeo;
