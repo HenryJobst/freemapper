@@ -11,7 +11,8 @@ use freemapper_adapter_api::project::RasterProject;
 use freemapper_adapter_api::rasters::{ProviderInfo, RasterBackend, RasterKind};
 use freemapper_adapter_api::records::{AdapterId, WcsRecord, stored_bbox};
 use freemapper_sources::raster_fetch::{
-    SURFACE_RELPATH, TERRAIN_RELPATH, fetch_wms_orthophoto, keep_stored_surface, warn_beyond_state,
+    SURFACE_RELPATH, TERRAIN_RELPATH, fetch_wms_orthophoto, keep_stored_surface, keep_surface,
+    warn_beyond_state,
 };
 use freemapper_sources::wms::OrthophotoSource;
 
@@ -434,7 +435,7 @@ impl RasterBackend for LvglBackend {
 
 /// The LVGL rasters of `bbox` (EPSG:25832): the orthophoto from the WMS (2025), DGM1 and DOM1
 /// (2025) read out of the district archives. The DOM1 is only a template: an unavailable one
-/// costs a warning.
+/// costs a warning, and a stored one stays while it covers the area ([`keep_surface`]).
 fn fetch_rasters(
     env: &mut AdapterEnv<'_>,
     project: &mut dyn RasterProject,
@@ -520,11 +521,7 @@ fn fetch_rasters(
             let old = project.records().surface.clone();
             *project.records().surface = Some(record(Model::Dom1, &old));
         }
-        Err(e) => (env.progress)(note!(
-            "warning-model-unavailable",
-            model = crate::note::model(Model::Dom1.label()),
-            error = Arg::error(e)
-        )),
+        Err(e) => keep_surface(env, project, bbox, Model::Dom1.label(), Arg::error(e)),
     }
     project.save()?;
     Ok(())
@@ -1042,6 +1039,114 @@ mod tests {
               &INFO_FORMAT=text/html"
             ]
         );
+    }
+
+    /// A project folder with its raster records.
+    struct TestProject {
+        dir: PathBuf,
+        tiles: Vec<freemapper_adapter_api::records::TileRecord>,
+        ndsm_tiles: Vec<freemapper_adapter_api::records::NdsmRecord>,
+        orthophoto: Option<freemapper_adapter_api::records::WmsRecord>,
+        terrain: Option<WcsRecord>,
+        surface: Option<WcsRecord>,
+    }
+
+    impl RasterProject for TestProject {
+        fn records(&mut self) -> freemapper_adapter_api::project::RasterRecords<'_> {
+            freemapper_adapter_api::project::RasterRecords {
+                tiles: &mut self.tiles,
+                ndsm_tiles: &mut self.ndsm_tiles,
+                orthophoto: &mut self.orthophoto,
+                terrain: &mut self.terrain,
+                surface: &mut self.surface,
+            }
+        }
+
+        fn save(&mut self) -> Result<(), AdapterError> {
+            Ok(())
+        }
+
+        fn dir(&self) -> &Path {
+            &self.dir
+        }
+
+        fn region_bbox(&self) -> BoundingBox {
+            saarbruecken()
+        }
+
+        fn crs(&self) -> Crs {
+            Crs::Utm32
+        }
+    }
+
+    /// The surface model cannot be read (its archives are gone). A stored one that covers the
+    /// area stays, and the warning says so; one of another area goes with its file, as with
+    /// every provider that reads the models for the area.
+    #[test]
+    fn a_surface_model_that_fails_keeps_a_covering_one_and_drops_another() {
+        use crate::fetch::test_support::solid_jpeg;
+        let bbox = saarbruecken();
+        for covers in [true, false] {
+            let scratch = tempfile::tempdir().unwrap();
+            let cache = Cache::new(scratch.path().join("cache"));
+            let fetcher = MapFetcher::default();
+            // The terrain model and the orthophoto answer; the surface model does not.
+            serve(&fetcher, &[("NK", 353, 5455, 6.0), ("NK", 354, 5455, 8.0)]);
+            let photo = GridSpec::covering(&bbox, crate::sources::wms::ORTHOPHOTO_PIXEL_M);
+            for (piece, url) in crate::sources::wms::pieces(&WMS, &photo) {
+                fetcher.insert(&url, solid_jpeg(piece.width, piece.height, [90, 110, 70]));
+            }
+            let dir = scratch.path().join("project");
+            let surface = dir.join(SURFACE_RELPATH);
+            std::fs::create_dir_all(surface.parent().unwrap()).unwrap();
+            std::fs::write(&surface, b"an earlier surface model").unwrap();
+            let mut stored = stored_bbox(&bbox);
+            if !covers {
+                stored[2] -= 50.0;
+            }
+            let mut project = TestProject {
+                dir,
+                tiles: Vec::new(),
+                ndsm_tiles: Vec::new(),
+                orthophoto: None,
+                terrain: None,
+                surface: Some(WcsRecord {
+                    fetched: "2026-11-01".parse().unwrap(),
+                    bbox: stored,
+                    date: None,
+                }),
+            };
+            let registry = freemapper_adapter_api::registry::Registry::new();
+            let mut notes = Vec::new();
+            let mut env = AdapterEnv {
+                fetcher: &fetcher,
+                regions: &registry,
+                cache: &cache,
+                mode: FetchMode::Online,
+                today: "2026-11-13".parse().unwrap(),
+                skip_surface: false,
+                progress: &mut |n| notes.push(n.to_string()),
+            };
+            fetch_rasters(&mut env, &mut project, &bbox).unwrap();
+            let unavailable = format!("warning: {} unavailable", Model::Dom1.label());
+            let warning = notes
+                .iter()
+                .find(|n| n.starts_with(&unavailable))
+                .unwrap_or_else(|| panic!("{notes:?}"));
+            assert!(project.terrain.is_some());
+            if covers {
+                assert!(
+                    warning.ends_with("kept the surface model fetched on 2026-11-01"),
+                    "{warning}"
+                );
+                assert!(project.surface.is_some());
+                assert!(surface.exists());
+            } else {
+                assert!(warning.ends_with("no nDSM template"), "{warning}");
+                assert!(project.surface.is_none());
+                assert!(!surface.exists());
+            }
+        }
     }
 
     #[test]
