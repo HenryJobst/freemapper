@@ -516,19 +516,8 @@ pub fn split_multipoint(feature: Value) -> Vec<Value> {
         .collect()
 }
 
-/// `features` as the GeoJSON FeatureCollection stored for a layer (an empty one for no feature).
-pub fn layer_to_geojson(features: &[Value]) -> String {
-    serde_json::json!({ "type": "FeatureCollection", "features": features }).to_string()
-}
-
-/// The features of a stored layer file.
-pub fn parse_layer(text: &str) -> Result<Vec<Value>, serde_json::Error> {
-    let collection: Value = serde_json::from_str(text)?;
-    Ok(collection["features"]
-        .as_array()
-        .cloned()
-        .unwrap_or_default())
-}
+// A stored layer is read and written by `freemapper-sources`, for every family of layers.
+pub use freemapper_sources::layer_file::{layer_to_geojson, parse_layer};
 
 /// URL of the first page of `type_name` features of `service` in `bbox`, rounded outward.
 pub fn wfs_url(service: &str, type_name: &str, bbox: &BoundingBox) -> String {

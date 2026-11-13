@@ -20,7 +20,7 @@ use serde_json::Value;
 
 use super::{
     AlkisRecord, MapKind, NAS_LAYERS_DIR, ProjectError, SKIPPED_SHOWN, TREE_LAYERS_DIR, alkis_nas,
-    berlin, trees,
+    trees,
 };
 use crate::adapters::{RegionAdapter, Registry};
 use crate::crs::{BoundingBox, Crs};
@@ -522,7 +522,7 @@ fn store(
                 if !freemapper_fs::stays_inside(dir, &file) {
                     return Err(format!("{} leads out of the project folder", family.dir));
                 }
-                let geojson = berlin::layer_to_geojson(&fetched.features);
+                let geojson = freemapper_sources::layer_file::layer_to_geojson(&fetched.features);
                 write_inside(dir, &file, geojson.as_bytes()).map_err(|e| e.to_string())?;
                 Ok(fetched)
             });
@@ -624,9 +624,11 @@ pub(crate) fn stored(
         return Ok(None);
     };
     let text = std::fs::read_to_string(&file).map_err(|e| ProjectError::Io(file.clone(), e))?;
-    let features = berlin::parse_layer(&text).map_err(|e| ProjectError::StoredCandidates {
-        path: file.clone(),
-        message: e.to_string(),
+    let features = freemapper_sources::layer_file::parse_layer(&text).map_err(|e| {
+        ProjectError::StoredCandidates {
+            path: file.clone(),
+            message: e.to_string(),
+        }
     })?;
     Ok(Some(Stored {
         features,
@@ -675,7 +677,11 @@ mod tests {
     fn write(dir: &Path, family: &Family, key: &str, features: &[Value]) {
         let file = path(dir, family, key);
         std::fs::create_dir_all(file.parent().unwrap()).unwrap();
-        std::fs::write(file, berlin::layer_to_geojson(features)).unwrap();
+        std::fs::write(
+            file,
+            freemapper_sources::layer_file::layer_to_geojson(features),
+        )
+        .unwrap();
     }
 
     fn failed(key: &str) -> Fetched {
@@ -1131,7 +1137,10 @@ mod tests {
                         FetchedExtra {
                             key: layer.key,
                             features: fetcher.get(&url).map(|bytes| {
-                                berlin::parse_layer(&String::from_utf8_lossy(&bytes)).unwrap()
+                                freemapper_sources::layer_file::parse_layer(
+                                    &String::from_utf8_lossy(&bytes),
+                                )
+                                .unwrap()
                             }),
                         }
                     })
@@ -1170,11 +1179,12 @@ mod tests {
             let fetcher = MapFetcher::default();
             fetcher.insert(
                 "https://wrecks.example.org/hulls",
-                berlin::layer_to_geojson(&[json!({"hull": 1})]).into_bytes(),
+                freemapper_sources::layer_file::layer_to_geojson(&[json!({"hull": 1})])
+                    .into_bytes(),
             );
             fetcher.insert(
                 "https://wrecks.example.org/anchors",
-                berlin::layer_to_geojson(&[]).into_bytes(),
+                freemapper_sources::layer_file::layer_to_geojson(&[]).into_bytes(),
             );
             let mut said = Vec::new();
             let mut fetch = |bbox: &BoundingBox, kind, previous: &BTreeMap<String, AlkisRecord>| {

@@ -10294,7 +10294,12 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let stored =
             std::fs::read_to_string(dir.path().join("data/alkis-nas/sonstiges-bauwerk.geojson"))
                 .unwrap();
-        assert_eq!(berlin::parse_layer(&stored).unwrap().len(), 5);
+        assert_eq!(
+            freemapper_sources::layer_file::parse_layer(&stored)
+                .unwrap()
+                .len(),
+            5
+        );
         assert!(
             !dir.path()
                 .join("data/alkis-nas/vegetationsmerkmal.geojson")
@@ -10632,7 +10637,12 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         );
         let stored =
             std::fs::read_to_string(dir.path().join("data/trees/potsdam.geojson")).unwrap();
-        assert_eq!(berlin::parse_layer(&stored).unwrap().len(), 3);
+        assert_eq!(
+            freemapper_sources::layer_file::parse_layer(&stored)
+                .unwrap()
+                .len(),
+            3
+        );
 
         // The endpoints fail next time: the stored file stays, with a warning.
         let failing = MapFetcher::default();
