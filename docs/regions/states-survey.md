@@ -12,7 +12,7 @@ Samples (tiny test responses only) are in `work/<state>/` next to this file; all
 | NRW | ready | low | Same AAA-suite `ave:` WFS as Hesse/Saxony; DGM1/DOM1 GeoTIFF tiles by plain HTTP; WMS+WCS; dl-de/zero (no attribution) |
 | Niedersachsen | ready | low-medium | Same AAA-suite `ave:` WFS; DOP/DGM1/DOM1 are Cloud-Optimized GeoTIFFs found via STAC (range reads); CC BY 4.0 |
 | Rheinland-Pfalz | ready | medium | `ave:` WFS on a different server (no `NutzungFlurstueck`, uses `ave:Nutzung`); DGM1/DOM1 1 km tif tiles; DOP via WMS or 155 MB JP2; dl-de/by-2-0 |
-| Baden-Wuerttemberg | partly | medium-high | DOP/DGM1/DOM1/nDOM1 open as 2 km zip tiles (stored, range-able) and DOP WMS; buildings only as INSPIRE `bu-core2d` WFS; land use only a 2.4 GB GPKG (the land-cover WFS is paid) |
+| Baden-Wuerttemberg | done 2026-11-13 (ADR 0118, `baden-wuerttemberg-reference.md`) | medium-high | The row of 2026-11-08 was wrong in four points: there is an open ALKIS WFS with buildings and land use (GeoServer views, not the simplified schema), the 2 km zips are deflated and still readable by range per member, DGM1 is XYZ text, and the flight date of the orthophoto is in an open WFS. Orthophoto from the WMS, DGM1 and nDOM1 from the zips |
 | Bayern | partly | high | DOP20/DGM1/DOM20 open, but buildings (Hausumringe) and land use (TN) only as bulk downloads (Shape per Regierungsbezirk, 5 GB GPKG); no WFS |
 | Bremen | partly | medium | DOP20 WMS and Hausumringe WFS open; DGM1 only as 1.09 GB XYZ zip; DOM1 only as rendered WMS; no land-use service found |
 | Saarland | done 2026-11-12 (ADR 0111, `saarland-reference.md`) | medium | All services answered on 2026-11-12. DOP20, DGM1, DOM1 and ALKIS simplified are dl-de/by-2-0 by the LVGL catalogue; heights come as district zips with 1 km tiles (range requests), ALKIS from a WFS with upper-case attribute names. The line of 2026-11-08 below is kept as found then |
@@ -60,7 +60,7 @@ Effort low-medium: WFS identical to Hesse/NRW; new part is a STAC client + COG r
 Licence source (open-data page `https://lvermgeo.rlp.de/geodaten-geoshop/open-data/`): "Datenlizenz Deutschland - Namensnennung - Version 2.0 ... Namensnennung ... `(c)GeoBasis-DE / LVermGeoRP<Jahr des Datenbezugs>, dl-de/by-2-0, www.lvermgeo.rlp.de [Daten bearbeitet]`". WMS Fees text: "geldleistungsfrei, Datenlizenz Deutschland - Namensnennung - Version 2.0".
 Effort medium: WFS schema is `ave:` but the server and Nutzung type differ (paging, no oid-sort assumption), tiles are plain HTTP like Brandenburg.
 
-## Baden-Wuerttemberg (partly)
+## Baden-Wuerttemberg (done; the findings below are of 2026-11-08 and partly superseded, see `baden-wuerttemberg-reference.md`)
 
 | Product | Open? | Verified service / URL | CRS | Licence | Blockers / notes |
 |---|---|---|---|---|---|

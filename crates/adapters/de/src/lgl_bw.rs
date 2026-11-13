@@ -125,8 +125,9 @@ fn element<'a>(text: &'a str, name: &str) -> Option<&'a str> {
 pub enum Model {
     /// DGM1, the terrain from the laser scan, as XYZ text.
     Dgm1,
-    /// nDOM1, the height above the terrain of the surface matched from the aerial images
-    /// (leaf-on, the flight before that of the orthophoto at most), as GeoTIFF.
+    /// nDOM1, the height above the terrain of the surface matched from the aerial images of a
+    /// summer flight (leaf-on; usually the flight of the orthophoto or the one before), as
+    /// GeoTIFF.
     Ndom1,
 }
 

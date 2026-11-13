@@ -331,7 +331,7 @@ pub mod golden {
             "niedersachsen" => ("DENI", 9.6971, 52.388),
             "rheinlandpfalz" => ("DERP", 7.165, 50.1443),
             "saarland" => ("DESL", 6.7515, 49.3155),
-            "badenwuerttemberg" => ("DEBW", 8.7150, 49.4115),
+            "badenwuerttemberg" => ("DEBW", 8.7125, 49.4112),
             other => panic!("no built-in region {other}"),
         }
     }

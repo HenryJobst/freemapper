@@ -22,8 +22,8 @@ the mapper has to judge. Drawing and field checking stay in OOM or OCAD.
 - Use it from the command line, through a page in the browser where you choose the map area and create the
   map with all options (see [Choosing the area in the browser](#choosing-the-area-in-the-browser)), or
   through AI agents (MCP server).
-- Regions: Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony, Rhineland-Palatinate and Saarland (open data from LGB,
-  Geoportal Berlin, GeoSN, LVermGeo, LGV, HVBG, LVermGeo SH, LAiV M-V, Geobasis NRW, LGLN, LVermGeo RP and LVGL);
+- Regions: Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony, Rhineland-Palatinate, Saarland and Baden-Württemberg (open data from LGB,
+  Geoportal Berlin, GeoSN, LVermGeo, LGV, HVBG, LVermGeo SH, LAiV M-V, Geobasis NRW, LGLN, LVermGeo RP, LVGL and LGL);
   schoolyard maps 1:1000, sprint maps 1:4000 and forest maps 1:15 000, 1:10 000 or 1:7500.
 - Examples: one finished project per state with the OOM map, the OCAD starting point and the PDF, see
   [Examples](#examples).
@@ -75,7 +75,7 @@ standard ones can be added as a folder with a manifest, without Rust; the
 further states,
 first Saxony (water axes, hedges and tree rows from the Basis-DLM, the trees of Leipzig and Dresden), then
 Saxony-Anhalt and Hamburg. Later come gym maps for indoor orienteering, the last English remains in the German program texts (`--lang de`),
-and the remaining states with open geodata (Baden-Württemberg, Bremen, Bavaria). Thuringia follows once its height-data server is
+and the remaining states with open geodata (Bremen, Bavaria). Thuringia follows once its height-data server is
 back. Forest maps and the neighbouring countries come later. Design:
 [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](https://github.com/HenryJobst/freemapper/blob/main/docs/superpowers/specs/2026-11-07-freemapper-design.md).
 
@@ -290,6 +290,7 @@ freemapper run vorstadt
 | Lower Saxony | LGLN | DOM1 − DGM1, 1 m (laser scan) | map in UTM zone 32 (EPSG:25832); surface model often years older than the orthophoto; Bremen not included yet |
 | Rhineland-Palatinate | LVermGeo RP | DOM1 − DGM1, 1 m (laser scan) | map in UTM zone 32 (EPSG:25832); orthophoto flown in summer, its date of creation counts as the flight date; orthophoto white beyond the state border |
 | Saarland | LVGL | DOM1 − DGM1, 1 m (laser scan of 2025) | map in UTM zone 32 (EPSG:25832); height models as 1 km tiles out of the district archives; templates empty beyond the state border |
+| Baden-Württemberg | LGL | nDOM1, 1 m (from the aerial images of a summer flight) | map in UTM zone 32 (EPSG:25832); height models as 1 km tiles out of the 2 km archives; orthophoto white beyond the state border; the cadastre has no canopies |
 
 In every state except Saxony and Saxony-Anhalt, the ALKIS canopies are map objects and the building passages
 candidates. At a state border freemapper queries the cadastre of both states and reads both OSM extracts; the

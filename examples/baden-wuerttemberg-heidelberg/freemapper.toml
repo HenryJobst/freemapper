@@ -1,0 +1,46 @@
+map_kind = "sprint"
+scale_denominator = 4000
+declination_date = "2026-11-13"
+buffer_m = 50.0
+crs = 25832
+provider = "lglbw"
+title = "Altstadt und Schloss Heidelberg"
+tiles = []
+
+[map_area]
+coordinates = [[[8.7066, 49.4087], [8.7184, 49.4087], [8.7184, 49.4137], [8.7066, 49.4137], [8.7066, 49.4087]]]
+type = "Polygon"
+
+[buildings]
+bbox = [478666.0, 5472878.0, 479625.0, 5473538.0]
+fetched = "2026-11-13"
+latest_update = "2025-01-22"
+count = 982
+regions = ["badenwuerttemberg"]
+
+[land_use]
+bbox = [478666.0, 5472878.0, 479625.0, 5473538.0]
+fetched = "2026-11-13"
+latest_update = "2026-09-21"
+count = 858
+regions = ["badenwuerttemberg"]
+
+[osm]
+extract = "2026-11-12"
+area = [49.40825084, 8.70590966, 49.41414916, 8.71909034]
+count = 1992
+
+[orthophoto]
+flight = "2026-07-29"
+fetched = "2026-11-13"
+bbox = [478666.133, 5472878.757, 479624.204, 5473537.884]
+
+[terrain]
+fetched = "2026-11-13"
+bbox = [478666.133, 5472878.757, 479624.204, 5473537.884]
+date = "2022-02-13"
+
+[surface]
+fetched = "2026-11-13"
+bbox = [478666.133, 5472878.757, 479624.204, 5473537.884]
+date = "2024-06-26"

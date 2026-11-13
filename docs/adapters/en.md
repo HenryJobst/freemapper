@@ -32,8 +32,9 @@ Go through the questions in order.
    (`oid`, `gebnutzbez`, `funktion` for buildings; `nutzart`, `bez` for land use)?
    - Yes: the manifest declares it. Go on with 2.
    - No (another schema, another country's cadastre, files to download): the region needs a **code adapter**
-     in Rust that turns its data into that schema. Berlin is one. Open an issue before you start; this is more
-     than a manifest.
+     in Rust that turns its data into that schema. Berlin is one. Baden-Württemberg has a manifest and a
+     backend like the others, and code for the cadastre alone, because its WFS serves views with names of
+     their own. Open an issue before you start; this is more than a manifest.
 2. Does the orthophoto come from a WMS or a WCS, and does each height model come from a WCS 2.0 that answers a
    GeoTIFF with heights at 1 m?
    - Yes: **manifest only**. Saxony-Anhalt is the example, and the tutorial rebuilds it. Such an adapter works

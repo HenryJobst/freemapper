@@ -23,6 +23,7 @@ less; the [comparison page](compare.en.md) shows the same area in the three cont
 | Lower Saxony | [Großer Garten Herrenhausen, Hanover](niedersachsen-herrenhausen/): baroque garden with hedges, parterres and fountain basins, next to the Georgengarten | 2400 | 333 | 38 | <a href="niedersachsen-herrenhausen/niedersachsen-herrenhausen-candidates.pdf"><img src="niedersachsen-herrenhausen/preview.webp" width="220" alt=""></a> |
 | Rhineland-Palatinate | [Reichsburg and Cochem old town](rheinland-pfalz-cochem/): the castle hill with the Reichsburg, the old town on the steep Moselle bank, Cond across the river | 2862 | 1024 | 44 | <a href="rheinland-pfalz-cochem/rheinland-pfalz-cochem-candidates.pdf"><img src="rheinland-pfalz-cochem/preview.webp" width="220" alt=""></a> |
 | Saarland | [Saarlouis old town and fortress](saarland-saarlouis/): Vauban's hexagonal fortress town, the old arm of the Saar with the Vauban island, ramparts in the Stadtgarten | 1688 | 799 | 40 | <a href="saarland-saarlouis/saarland-saarlouis-candidates.pdf"><img src="saarland-saarlouis/preview.webp" width="220" alt=""></a> |
+| Baden-Württemberg | [Heidelberg old town and castle](baden-wuerttemberg-heidelberg/): the old town on the Neckar with the Old Bridge, the castle and its garden on the steep slope of the Königstuhl | 2858 | 899 | 43 | <a href="baden-wuerttemberg-heidelberg/baden-wuerttemberg-heidelberg-candidates.pdf"><img src="baden-wuerttemberg-heidelberg/preview.webp" width="220" alt=""></a> |
 
 **Map objects** are the objects of the OOM map. With `balanced` these are the objects of the cadastre, the registers
 and the street survey (buildings, streets with curbs, water, parks, forest, canopies and passages), plus walls,
@@ -148,6 +149,11 @@ map has 31 symbols, among them 21 stairs from OpenStreetMap, and 799 candidates 
 Since the land uses of Saarland are read in both spellings, 109 street areas and the Saar from ALKIS are on the
 map. All examples have been rebuilt with this profile since.
 
+In Baden-Württemberg three rectangles ran: Heidelberg, the old town of Freiburg with the Schlossberg, and the old
+town of Tübingen with its castle and the island in the Neckar. Tübingen had the most map objects (3910), Heidelberg
+the most symbols on the map (40) and the most candidates (903). Heidelberg won because its area shows the widest
+range: the castle with its terraces and garden on the steep slope, below it the dense old town and the Neckar.
+
 ## Licences
 
 The maps contain derived official geodata and OpenStreetMap data. The attribution is in each `ATTRIBUTION.txt`, in
@@ -156,6 +162,6 @@ the PDFs' peripheral information and in the map notes:
 - OpenStreetMap: © OpenStreetMap contributors, ODbL;
 - Brandenburg: © GeoBasis-DE/LGB, dl-de/by-2-0; Potsdam: Landeshauptstadt Potsdam / Bäume der Stadtkarte, dl-de/zero-2-0; Berlin: © Geoportal Berlin, dl-de/zero-2-0;
 - Saxony: GeoSN, dl-de/by-2-0; Saxony-Anhalt: © GeoBasis-DE / LVermGeo ST, dl-de/by-2-0;
-- Hamburg: Freie und Hansestadt Hamburg, LGV, dl-de/by-2-0; Hesse: © HVBG, dl-de/zero-2-0; Schleswig-Holstein: © GeoBasis-DE/LVermGeo SH, CC BY 4.0; Mecklenburg-Vorpommern: ©GeoBasis-DE/MV/CC BY 4.0 (Quelle verändert); North Rhine-Westphalia: © Geobasis NRW, dl-de/zero-2-0; Lower Saxony: © GeoBasis-DE/LGLN, Daten geändert, CC BY 4.0; Rhineland-Palatinate: ©GeoBasis-DE / LVermGeoRP, dl-de/by-2-0, [Daten bearbeitet]; Saarland: © GeoBasis DE/LVGL-SL, dl-de/by-2-0, Daten geändert.
+- Hamburg: Freie und Hansestadt Hamburg, LGV, dl-de/by-2-0; Hesse: © HVBG, dl-de/zero-2-0; Schleswig-Holstein: © GeoBasis-DE/LVermGeo SH, CC BY 4.0; Mecklenburg-Vorpommern: ©GeoBasis-DE/MV/CC BY 4.0 (Quelle verändert); North Rhine-Westphalia: © Geobasis NRW, dl-de/zero-2-0; Lower Saxony: © GeoBasis-DE/LGLN, Daten geändert, CC BY 4.0; Rhineland-Palatinate: ©GeoBasis-DE / LVermGeoRP, dl-de/by-2-0, [Daten bearbeitet]; Saarland: © GeoBasis DE/LVGL-SL, dl-de/by-2-0, Daten geändert; Baden-Württemberg: Datenquelle: LGL, www.lgl-bw.de, dl-de/by-2-0, Daten geändert.
 
 Created with freemapper – https://github.com/HenryJobst/freemapper
