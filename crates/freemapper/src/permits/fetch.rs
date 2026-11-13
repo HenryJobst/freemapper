@@ -20,7 +20,7 @@ use crate::note::{Arg, Note, note};
 use crate::permits::notes::{Inputs, SourceInput};
 use crate::permits::osm::{OsmFinding, findings, wants};
 use crate::permits::store::{
-    PERMITS_DIR, RawInputs, load_inputs, something_fetched, store_inputs, stored_box,
+    PERMITS_DIR, RawInputs, area_key, load_inputs, something_fetched, store_inputs, stored_for,
 };
 use crate::permits::{Missing, PermitsError};
 use crate::project::ProjectFile;
@@ -36,7 +36,8 @@ const PART: &str = "wfs.part";
 /// each region the map needs (never downloaded here: without one, OSM is not read). Everything
 /// is stored in [`PERMITS_DIR`], replacing what an earlier fetch stored; a source that fails is
 /// `Unreachable` and keeps none of its earlier data. When no source gives anything, nothing is
-/// stored and the earlier data stay. Offline, the stored inputs are read.
+/// stored and the earlier data stay. Offline, the stored inputs are read, but only when they
+/// were fetched for exactly this map area polygon.
 ///
 /// [`PermitsError::NothingRead`] when no source gave anything.
 pub fn fetch_inputs(
@@ -51,8 +52,11 @@ pub fn fetch_inputs(
     let bbox = map_box(&area);
     if offline {
         progress(note!("progress-permits-stored"));
-        if let Some(stored) = stored_box(dir)?
-            && !covers(&stored, &bbox)
+        // Stored for another polygon (also one inside the old box): the OSM findings were
+        // filtered against the old one. A record without a key falls back to the box.
+        if let Some(stored) = stored_for(dir)?
+            && (!covers(&stored.bbox, &bbox)
+                || stored.area.is_some_and(|key| key != area_key(&area)))
         {
             return Err(PermitsError::NothingRead {
                 missing: ["vg250", "bfn", "osm"]
@@ -111,6 +115,7 @@ pub fn fetch_inputs(
     let osm = osm_findings(project, &area, cache, progress)?;
     let raw = RawInputs {
         bbox,
+        area: area_key(&area),
         admin,
         protected,
         osm,
@@ -485,6 +490,68 @@ mod tests {
             matches!(result, Err(PermitsError::NothingRead { .. })),
             "{result:?}"
         );
+    }
+
+    /// A changed area inside the stored box: the stored OSM findings were filtered against the
+    /// old polygon, so the stored data do not fit (fix round 1).
+    #[test]
+    fn offline_data_of_a_changed_area_inside_the_box_is_not_used() {
+        let (dir, project) = project();
+        let fetcher = MapFetcher::default();
+        serve_sources(&fetcher, &project);
+        let (_root, cache) = cache_with_extract();
+        fetch(&project, dir.path(), &fetcher, &cache, false)
+            .0
+            .unwrap();
+        // A triangle inside the box of the first area.
+        let other = tempfile::tempdir().unwrap();
+        let [w, s, e, n] = AREA;
+        let geojson = format!(
+            r#"{{"type":"Polygon","coordinates":[[[{w},{s}],[{e},{s}],[{w},{n}],[{w},{s}]]]}}"#
+        );
+        let area = MapArea::from_geojson(&geojson).unwrap();
+        let changed = init_project(
+            other.path(),
+            &area,
+            MapKind::Sprint,
+            None,
+            date("2026-11-13"),
+            None,
+        )
+        .unwrap();
+        let to = other.path().join(PERMITS_DIR);
+        std::fs::create_dir_all(&to).unwrap();
+        for name in stored_files(dir.path()) {
+            std::fs::copy(dir.path().join(PERMITS_DIR).join(&name), to.join(&name)).unwrap();
+        }
+        let (result, _) = fetch(&changed, other.path(), &fetcher, &cache, true);
+        match result {
+            Err(PermitsError::NothingRead { missing }) => assert!(
+                missing
+                    .iter()
+                    .all(|m| m.reason.as_deref() == Some("stored for another map area")),
+                "{missing:?}"
+            ),
+            other => panic!("{other:?}"),
+        }
+        // The same area in another folder still reads them.
+        let same = tempfile::tempdir().unwrap();
+        let copy = init_project(
+            same.path(),
+            &project.area().unwrap(),
+            MapKind::Sprint,
+            None,
+            date("2026-11-13"),
+            None,
+        )
+        .unwrap();
+        let to = same.path().join(PERMITS_DIR);
+        std::fs::create_dir_all(&to).unwrap();
+        for name in stored_files(dir.path()) {
+            std::fs::copy(dir.path().join(PERMITS_DIR).join(&name), to.join(&name)).unwrap();
+        }
+        let (result, _) = fetch(&copy, same.path(), &fetcher, &cache, true);
+        assert!(result.is_ok(), "{result:?}");
     }
 
     #[test]

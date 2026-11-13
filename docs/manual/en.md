@@ -887,9 +887,10 @@ download an extract. Without one the notes leave OpenStreetMap out and say so; `
 it. It all takes about half a minute, most of it for reading the OSM extract.
 
 With `--offline`, `permits` reads only the data an earlier run stored in the project and writes the same text.
-If you changed the area since then, the stored data no longer fit and the command stops. `permits` ends with an
-error (exit code 1) when not a single source could be read. If only one source is missing, the file is written
-all the same and a warning names the missing source.
+freemapper stores the map area with the data. If the area is no longer exactly the same polygon, even when it only
+got smaller, the command stops: the data were stored for another map area. `permits` ends with an error (exit code
+1) when not a single source could be read. If only one source is missing, the file is written all the same and a
+warning names the missing source.
 
 The project folder then holds:
 

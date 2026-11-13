@@ -5,8 +5,9 @@
 //! `bfn-<kind>.geojson` for each BfN kind (the features as the service gave them, in a
 //! FeatureCollection; the names are the serde names of [`AdminLevel`] and [`ProtectedKind`]),
 //! `osm.geojson` (the OSM findings: the fields of [`OsmFinding`] as properties, the area as a
-//! MultiPolygon), and `sources.json` (per source its state, fetch date, count or failure, and
-//! the box the sources were asked for). A source that was not read has no files.
+//! MultiPolygon), and `sources.json` (per source its state, fetch date, count or failure, the
+//! box the sources were asked for and the key of the map area polygon). A source that was not
+//! read has no files.
 
 use std::io;
 use std::path::{Path, PathBuf};
@@ -19,6 +20,7 @@ use geo_types::{Coord, LineString, MultiPolygon, Polygon};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
+use crate::area::MapArea;
 use crate::permits::notes::{Inputs, PermitNotes, SourceInput, assemble};
 use crate::permits::osm::OsmFinding;
 use crate::permits::{Missing, PermitsError};
@@ -44,6 +46,8 @@ const STORE_SCHEMA: u32 = 1;
 pub struct RawInputs {
     /// The box the sources were asked for (the map area's in WGS 84).
     pub bbox: LatLonBox,
+    /// [`area_key`] of the map area the inputs belong to.
+    pub area: String,
     /// The features of every VG250 level, in the order of [`AdminLevel::ALL`].
     pub admin: SourceInput<(AdminLevel, Vec<Value>)>,
     /// The features of every BfN kind, in the order of [`ProtectedKind::ALL`].
@@ -57,6 +61,9 @@ struct Record {
     schema: u32,
     /// The box asked for: min lon, min lat, max lon, max lat.
     bbox: [f64; 4],
+    /// [`area_key`] of the map area; missing in a record written before it existed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    area: Option<String>,
     vg250: SourceRecord,
     bfn: SourceRecord,
     osm: SourceRecord,
@@ -167,6 +174,7 @@ pub fn store_inputs(dir: &Path, raw: &RawInputs) -> io::Result<()> {
             raw.bbox.max_lon,
             raw.bbox.max_lat,
         ],
+        area: Some(raw.area.clone()),
         vg250: source_record(&raw.admin, features::<AdminLevel>),
         bfn: source_record(&raw.protected, features::<ProtectedKind>),
         osm: source_record(&raw.osm, <[OsmFinding]>::len),
@@ -260,15 +268,42 @@ fn read_record(dir: &Path) -> Result<Option<Record>, PermitsError> {
     Ok(Some(record))
 }
 
-/// The box the stored inputs were asked for, or `None` when nothing was stored.
-pub(crate) fn stored_box(dir: &Path) -> Result<Option<LatLonBox>, PermitsError> {
+/// A key of the map area polygon: the SHA-256 of the bits of its coordinates, exterior ring
+/// first, then the holes. Two areas have the same key only when every corner is the same.
+pub fn area_key(area: &MapArea) -> String {
+    use sha2::{Digest as _, Sha256};
+    let mut hash = Sha256::new();
+    let polygon = &area.polygon;
+    for ring in std::iter::once(polygon.exterior()).chain(polygon.interiors()) {
+        hash.update((ring.0.len() as u64).to_le_bytes());
+        for c in &ring.0 {
+            hash.update(c.x.to_bits().to_le_bytes());
+            hash.update(c.y.to_bits().to_le_bytes());
+        }
+    }
+    hash.finalize().iter().map(|b| format!("{b:02x}")).collect()
+}
+
+/// What the stored inputs were fetched for.
+pub(crate) struct StoredFor {
+    /// The box the sources were asked for.
+    pub bbox: LatLonBox,
+    /// [`area_key`] of the map area; `None` in a record written before it existed.
+    pub area: Option<String>,
+}
+
+/// What the stored inputs were fetched for, or `None` when nothing was stored.
+pub(crate) fn stored_for(dir: &Path) -> Result<Option<StoredFor>, PermitsError> {
     Ok(read_record(dir)?.map(|r| {
         let [min_lon, min_lat, max_lon, max_lat] = r.bbox;
-        LatLonBox {
-            min_lat,
-            min_lon,
-            max_lat,
-            max_lon,
+        StoredFor {
+            bbox: LatLonBox {
+                min_lat,
+                min_lon,
+                max_lat,
+                max_lon,
+            },
+            area: r.area,
         }
     }))
 }

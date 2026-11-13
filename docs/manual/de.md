@@ -919,9 +919,10 @@ Einen Auszug lädt der Befehl nicht. Fehlt er, lassen die Hinweise OpenStreetMap
 des OSM-Auszugs.
 
 Mit `--offline` liest `permits` nur die Daten, die ein früherer Lauf im Projekt gespeichert hat, und schreibt
-denselben Text. Haben Sie das Gebiet seitdem geändert, passen die gespeicherten Daten nicht mehr, und der
-Befehl bricht ab. `permits` hört mit einem Fehler auf (Exit-Code 1), wenn sich keine einzige Quelle lesen
-ließ. Fehlt nur eine Quelle, entsteht die Datei trotzdem, und eine Warnung nennt die fehlende Quelle.
+denselben Text. freemapper speichert das Kartengebiet mit den Daten. Ist das Gebiet nicht mehr genau dasselbe
+Polygon, auch wenn es nur kleiner wurde, bricht der Befehl ab: Die Daten gehören dann zu einem anderen
+Kartengebiet. `permits` hört mit einem Fehler auf (Exit-Code 1), wenn sich keine einzige Quelle lesen ließ. Fehlt
+nur eine Quelle, entsteht die Datei trotzdem, und eine Warnung nennt die fehlende Quelle.
 
 Im Projektordner liegen danach:
 
