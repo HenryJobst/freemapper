@@ -743,6 +743,7 @@ name = "freemapper-adapter-api"
 version = "0.15.0"
 dependencies = [
  "chrono",
+ "freemapper-contract",
  "freemapper-fs",
  "freemapper-georef",
  "freemapper-text",

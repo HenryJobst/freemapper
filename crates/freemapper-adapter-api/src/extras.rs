@@ -1,12 +1,93 @@
 //! Extra sources a region may have beside rasters and ALKIS vereinfacht: a full ALKIS (NAS)
-//! service and the tree cadastres of its cities. The readers are in `freemapper-sources`; an
-//! adapter names the services as data.
+//! service and the tree cadastres of its cities, which an adapter names as data (the readers are
+//! in `freemapper-sources`), and sets of layers an adapter fetches with code of its own
+//! ([`ExtraSet`]).
 
 use std::borrow::Cow;
 
+use freemapper_contract::MapKind;
 use freemapper_georef::crs::{BoundingBox, Crs, ProjectedPoint};
+use serde_json::Value;
 
+use crate::error::FetchError;
+use crate::fetch::Fetcher;
 use crate::records::AdapterId;
+
+/// A set of extra layers an adapter fetches with code of its own, such as the registers and
+/// surveys of a city. The set says which layers there are and fetches them; the engine stores
+/// them one file per layer under `data/<key>/`, keeps the file of a layer that could not be
+/// fetched while it covers the area, removes what is no longer used and reads the layers back
+/// for the rules that draw from them.
+pub trait ExtraSet: Send + Sync {
+    /// What the engine needs to store the layers and to report on them.
+    fn info(&self) -> &ExtraSetInfo;
+
+    /// The layers a map of `kind` uses, in the order they are fetched and read.
+    fn layers(&self, kind: MapKind) -> Vec<ExtraLayerInfo>;
+
+    /// Whether `key` is a layer of the set, for any map kind. The engine touches a file only
+    /// under such a key.
+    fn has(&self, key: &str) -> bool;
+
+    /// The layers of `kind` for `region_bbox` (EPSG:25833), in the order of [`Self::layers`]. A
+    /// layer that fails does not stop the others.
+    fn fetch(
+        &self,
+        fetcher: &dyn Fetcher,
+        region_bbox: &BoundingBox,
+        kind: MapKind,
+    ) -> Vec<FetchedExtra>;
+}
+
+/// The facts of an [`ExtraSet`].
+#[derive(Debug, Clone, PartialEq)]
+pub struct ExtraSetInfo {
+    /// The key of the set; its layers are stored in the folder `data/<key>` of a project.
+    pub key: &'static str,
+    /// The CRS the features of the stored layers are in.
+    pub crs: Crs,
+    pub notes: ExtraNotes,
+    pub estimate: ExtraEstimate,
+}
+
+/// The message ids of a set, texts of the catalog of this crate. The messages about one layer
+/// name it as `file`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ExtraNotes {
+    /// Offline, the area is in reach of the set, and nothing is stored.
+    pub none_stored: &'static str,
+    /// The area left the reach of the set and the stored layers go.
+    pub removing: &'static str,
+    pub download: &'static str,
+    /// A layer was stored: `count` and `file`.
+    pub features: &'static str,
+    /// A layer failed and its stored file stays: `file` and `detail`.
+    pub kept: &'static str,
+    /// A layer failed and nothing of it is stored: `file` and `detail`.
+    pub dropped: &'static str,
+}
+
+/// The item of a set in the download estimate.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ExtraEstimate {
+    pub what: &'static str,
+    pub megabytes_per_km2: f64,
+}
+
+/// One layer of an [`ExtraSet`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ExtraLayerInfo {
+    /// The name of the stored file without its extension.
+    pub key: &'static str,
+}
+
+/// One layer as fetched; an empty list is a layer without objects in the area.
+#[derive(Debug)]
+pub struct FetchedExtra {
+    pub key: &'static str,
+    /// The features in the CRS of the set, or why the layer could not be fetched.
+    pub features: Result<Vec<Value>, FetchError>,
+}
 
 /// A NAS WFS of one state.
 #[derive(Debug, Clone, PartialEq, Eq)]
