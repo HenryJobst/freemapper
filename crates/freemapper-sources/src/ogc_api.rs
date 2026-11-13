@@ -255,10 +255,10 @@ pub fn parse_land_use(geojson: &str) -> Result<Vec<LandUse>, AlkisError> {
             let properties = &feature["properties"];
             Some(LandUse {
                 oid,
-                nutzart: properties["nutzart"]
-                    .as_str()
-                    .unwrap_or_default()
-                    .to_string(),
+                // Also a file stored before the classes were normalised.
+                nutzart: crate::alkis_source::land_use_class(
+                    properties["nutzart"].as_str().unwrap_or_default(),
+                ),
                 bez: properties["bez"].as_str().map(str::to_string),
                 updated,
                 footprint,

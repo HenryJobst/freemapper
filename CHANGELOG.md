@@ -17,6 +17,10 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 - Die Grenzen von Niedersachsen und Schleswig-Holstein überlappen sich in der Elbmündung nicht mehr. Die Kataster beider Bundesländer führen dieselben 89 km² Wasser vor Cuxhaven; freemapper teilt die Fläche jetzt an der Linie gleichen Abstands zu den beiden Anspruchslinien (ADR 0113). Für Karten ändert sich nichts, dort ist offenes Wasser.
 - Intern: Die Module in `freemapper::sources`, die nur noch weiterreichten, was seit dem Adapter-Umbau in `freemapper-adapters-de` und `freemapper-sources` liegt, sind entfernt, ebenso der nicht mehr genutzte Rasterabruf für Sachsen-Anhalt im Programmcode. Das Bundesland ruft weiter über die Dienste ab, die sein Manifest nennt; an Karten und Abrufen ändert sich nichts.
 
+### Behoben
+
+- Saarland: Der WFS des LVGL schreibt die Nutzungsarten `Strassenverkehr` und `Fliessgewässer`. freemapper kannte nur `Straßenverkehr` und `Fließgewässer`, deshalb fehlten auf Saarländer Karten die Straßenflächen aus ALKIS, die Flüsse aus ALKIS und alles, was an ihnen hängt; die Vegetation aus der Punktwolke legte offenes Gelände auf die Straßen. Jede Nutzungsart aus einem WFS wird jetzt in die LGB-Schreibweise gebracht, wie schon bei Hamburg; in Rheinland-Pfalz heißt `Unland, Vegetationslose Fläche` dadurch wie überall `Unland/Vegetationslose Fläche`.
+
 ## [0.15.0] - 2026-11-12
 
 ### Hinzugefügt
