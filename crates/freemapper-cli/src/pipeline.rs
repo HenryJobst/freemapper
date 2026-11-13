@@ -647,13 +647,17 @@ fn ocad_summary(outcome: &OcadOutcome) -> String {
         "cli-wrote",
         &[("path", v(outcome.candidates.display()))],
     ));
-    lines.push(text("cli-summary-ocad-symbols", &[]));
+    lines.push(text(
+        "cli-summary-ocad-symbols",
+        &[("kind", v(outcome.map_kind.name()))],
+    ));
     lines.iter().map(|line| format!("\n{line}")).collect()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use freemapper::project::MapKind;
 
     fn all_off() -> RunOptions {
         parse(RunRequest::default(), &Lang::english()).unwrap()
@@ -756,14 +760,47 @@ mod tests {
                 freemapper::note::Note::new("warning-ocad-no-background")
                     .with("error", "no hillshade"),
             ],
+            map_kind: MapKind::Sprint,
         };
         assert_eq!(
             ocad_summary(&ocad),
             "\nWrote the OCAD map /p/ocad/p.ocd (7 objects)\nwarning: no hillshade; the OCAD map gets no background from it\n\
              Left out of the OCAD map: 1 objects and 2 degenerate parts\n\
              Wrote /p/ocad/candidates.omap\nIn OCAD, choose Symbol > Load Colors and Symbols \
-             From… and pick the official ISSprOM 2019 or school symbol set; it replaces the \
-             placeholder symbols by number."
+             From… and pick the official symbol set ISSprOM 2019; it replaces the placeholder \
+             symbols by number."
+        );
+    }
+
+    #[test]
+    fn ocad_summary_names_the_symbol_set_of_the_map_kind() {
+        let summary = |map_kind| {
+            ocad_summary(&OcadOutcome {
+                map: PathBuf::from("/p/ocad/p.ocd"),
+                kept: false,
+                candidates: PathBuf::from("/p/ocad/p-candidates.ocd"),
+                objects: 1,
+                skipped: 0,
+                dropped_parts: 0,
+                warnings: Vec::new(),
+                map_kind,
+            })
+        };
+        let forest = summary(MapKind::Forest);
+        assert!(
+            forest.contains("the official symbol set ISOM 2017-2;"),
+            "{forest}"
+        );
+        assert!(!forest.contains("ISSprOM"), "{forest}");
+        let sprint = summary(MapKind::Sprint);
+        assert!(
+            sprint.contains("the official symbol set ISSprOM 2019;"),
+            "{sprint}"
+        );
+        let school = summary(MapKind::Schoolyard);
+        assert!(
+            school.contains("the official symbol set, the IOF school set 2019;"),
+            "{school}"
         );
     }
 

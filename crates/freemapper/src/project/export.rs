@@ -358,6 +358,8 @@ pub struct OcadOutcome {
     pub dropped_parts: usize,
     /// Templates left out of the OCAD map.
     pub warnings: Vec<Note>,
+    /// The kind of the map, which names the official symbol set to load in OCAD.
+    pub map_kind: MapKind,
 }
 
 /// The world file next to an image: `.jpg` → `.jgw`, `.png` → `.pgw`.
@@ -422,6 +424,7 @@ pub fn export_ocad_from(
         skipped: report.skipped,
         dropped_parts: report.dropped_parts,
         warnings,
+        map_kind: project.map_kind,
     })
 }
 

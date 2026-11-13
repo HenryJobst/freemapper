@@ -348,7 +348,7 @@ schreibt zusätzlich den Ordner `ocad/`:
 
 Die Symbole in der `.ocd` sind Platzhalter: richtige Nummer, Name und Hauptfarbe, aber einfache
 Grafik. In OCAD lädt man den offiziellen Satz (*Symbol › Farben und Symbole laden aus…*, ISSprOM 2019
-für Sprint, IOF-Schulsatz 2019 für Schulhof), der die Platzhalter nach Nummer ersetzt.
+für Sprint, IOF-Schulsatz 2019 für Schulhof, ISOM 2017-2 für Waldkarten), der die Platzhalter nach Nummer ersetzt.
 - Die Nummern folgen OCADs offiziellen Sätzen, z. B. 501.001 für befestigte Fläche und 505.000/505.001
   für Wege.
 - Eine vorhandene `.ocd` wird nur mit `--force` ersetzt (die alte bleibt als `.ocd.bak`); eine
