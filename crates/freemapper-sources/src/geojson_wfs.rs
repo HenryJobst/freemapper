@@ -100,6 +100,27 @@ fn read_page(url: &str, bytes: &[u8]) -> Result<Vec<Value>, FetchError> {
     }
 }
 
+/// The area of `feature` as x = longitude, y = latitude, the order both services answer in;
+/// `None` when it has no Polygon or MultiPolygon with at least one ring.
+pub(crate) fn area_geometry(feature: &Value) -> Option<geo_types::MultiPolygon<f64>> {
+    let geometry =
+        serde_json::from_value::<geojson::Geometry>(feature.get("geometry")?.clone()).ok()?;
+    let area = match geo_types::Geometry::<f64>::try_from(geometry).ok()? {
+        geo_types::Geometry::Polygon(p) => geo_types::MultiPolygon(vec![p]),
+        geo_types::Geometry::MultiPolygon(mp) => mp,
+        _ => return None,
+    };
+    let usable = area.0.iter().any(|p| p.exterior().0.len() >= 4);
+    usable.then_some(area)
+}
+
+/// The text of property `key`, trimmed; `None` when it is missing, not text or blank (the BfN
+/// writes a single space for an empty value). A quote written as `\"` becomes a plain quote.
+pub(crate) fn property_text(feature: &Value, key: &str) -> Option<String> {
+    let text = feature.get("properties")?.get(key)?.as_str()?.trim();
+    (!text.is_empty()).then(|| text.replace("\\\"", "\""))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
