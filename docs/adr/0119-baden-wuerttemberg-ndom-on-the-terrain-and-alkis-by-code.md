@@ -42,8 +42,9 @@ manifest knows:
 - The terrain is read from the XYZ member of each tile. Cells without a line stay empty; a point that is no cell
   centre of the tile is an error. The cache keeps each tile as a GeoTIFF named after the tile and the CRC-32 of
   its member, so a tile the LGL replaces is read anew.
-- A block without an archive (HTTP 404) holds no tile of the state. Any other failure of an archive stops the
-  fetch of the terrain; for the surface it costs a warning, as with every provider.
+- A block without an archive (HTTP 404) holds no tile of the state when none of its four tiles has its centre
+  inside the state. A 404 for a block with such a tile, and any other failure of an archive, stops the fetch of
+  the terrain with the address of the archive; for the surface it costs a warning, as with every provider.
 - The orthophoto comes from the WMS in pieces of at most 4 000 px, dated by the WFS of the flight tiles.
 - OSM comes from Geofabrik's four extracts by Regierungsbezirk (128 to 213 MB instead of 653 MB), as in North
   Rhine-Westphalia ([0028](0028-nrw-osm-extracts-per-regierungsbezirk.md)).
