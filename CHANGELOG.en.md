@@ -13,7 +13,7 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ### Changed
 
-- freemapper-core 0.23.0: the suite contract knows the scales of the forest map, and freemapper writes them.
+- freemapper-core 0.25.0: the suite contract knows the scales of the forest map (0.23.0) and the contour interval in `[contours] interval_m` (0.25.0), and freemapper writes both.
 - Internal: placing the objects by the content settings now lives in the new module "map assembly" (`build/assembly.rs`, ADR 0115) instead of between the file reads of the project. It reads no file and can be tested with a few objects in memory. First of three steps; the maps stay byte for byte.
 - Internal: resolving the duplicates between the sources (register before ALKIS before survey before OSM) and the point generalization now live in the map assembly too (`assembly::resolve`, ADR 0115, step 2). The project draws the sources and hands them over; the order of the steps is in one place.
 - Internal: the map assembly now builds the whole map from the data that was read (`assembly::build`, ADR 0115, step 3). The project reads the folder in one place and makes the documents from the result; contours, landforms and vegetation are drawn in modules of their own under `build/`. A test can build a map without a project folder.

@@ -11477,6 +11477,8 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             ProjectFile::load(dir.path()).unwrap().contours,
             Some(ContourRecord { interval_m: 2.5 })
         );
+        let read = freemapper_contract::Sidecar::parse(&sidecar).unwrap();
+        assert_eq!(read.contour_interval_m(), Some(2.5));
         for bad in ["0.0", "-2.5", "nan"] {
             let text = std::fs::read_to_string(dir.path().join(PROJECT_FILE_NAME))
                 .unwrap()

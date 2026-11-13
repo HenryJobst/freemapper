@@ -13,7 +13,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Geändert
 
-- freemapper-core 0.23.0: Der Vertrag der Suite kennt die Maßstäbe der Waldkarte, und freemapper schreibt sie.
+- freemapper-core 0.25.0: Der Vertrag der Suite kennt die Maßstäbe der Waldkarte (0.23.0) und die Äquidistanz in `[contours] interval_m` (0.25.0), und freemapper schreibt beide.
 - Intern: Das Platzieren der Objekte nach den Inhaltseinstellungen liegt jetzt im neuen Modul „Kartenaufbau“ (`build/assembly.rs`, ADR 0115) statt zwischen den Dateizugriffen des Projekts. Es liest keine Datei und lässt sich mit wenigen Objekten im Speicher testen. Erster von drei Schritten; die Karten bleiben Byte für Byte gleich.
 - Intern: Auch die Auflösung der Doppel zwischen den Quellen (Register vor ALKIS vor Befahrung vor OSM) und die Punktgeneralisierung liegen jetzt im Kartenaufbau (`assembly::resolve`, ADR 0115, Schritt 2). Das Projekt zeichnet die Quellen und übergibt sie; die Reihenfolge der Schritte steht an einer Stelle.
 - Intern: Der Kartenaufbau baut jetzt die ganze Karte aus den gelesenen Daten (`assembly::build`, ADR 0115, Schritt 3). Das Projekt liest den Ordner an einer Stelle und macht aus dem Ergebnis die Dokumente; Höhenlinien, Geländeformen und Vegetation werden in eigenen Modulen unter `build/` gezeichnet. Eine Karte lässt sich damit im Test ohne Projektordner bauen.

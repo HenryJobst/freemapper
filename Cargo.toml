@@ -18,16 +18,16 @@ freemapper-manifest = { path = "crates/freemapper-manifest" }
 freemapper-sources = { path = "crates/freemapper-sources" }
 # Shared crates of the suite, all pinned to one release tag of freemapper-core (ADR 0067), so the
 # lock file holds a single copy of the core workspace.
-freemapper-fs = { git = "https://github.com/HenryJobst/freemapper-core", tag = "v0.23.0" }
-freemapper-georef = { git = "https://github.com/HenryJobst/freemapper-core", tag = "v0.23.0" }
-freemapper-web = { git = "https://github.com/HenryJobst/freemapper-core", tag = "v0.23.0" }
+freemapper-fs = { git = "https://github.com/HenryJobst/freemapper-core", tag = "v0.25.0" }
+freemapper-georef = { git = "https://github.com/HenryJobst/freemapper-core", tag = "v0.25.0" }
+freemapper-web = { git = "https://github.com/HenryJobst/freemapper-core", tag = "v0.25.0" }
 # Program texts with Fluent and the language detection of the suite (ADR 0092).
-freemapper-text = { git = "https://github.com/HenryJobst/freemapper-core", tag = "v0.23.0" }
+freemapper-text = { git = "https://github.com/HenryJobst/freemapper-core", tag = "v0.25.0" }
 # The suite contract (ADR 0095): the program links the shared types only (map kinds, reserved words); the
 # tests add the fixtures, the vocabulary and the rules.
-freemapper-contract = { git = "https://github.com/HenryJobst/freemapper-core", tag = "v0.23.0", default-features = false }
+freemapper-contract = { git = "https://github.com/HenryJobst/freemapper-core", tag = "v0.25.0", default-features = false }
 # The self-update: manifest, signature check, version order and the swap; no network (ADR 0067).
-freemapper-update = { git = "https://github.com/HenryJobst/freemapper-core", tag = "v0.23.0" }
+freemapper-update = { git = "https://github.com/HenryJobst/freemapper-core", tag = "v0.25.0" }
 anyhow = "1.0.104"
 axum = "0.8.9"
 base64 = "0.23.1"
