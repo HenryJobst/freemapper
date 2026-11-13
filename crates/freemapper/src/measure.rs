@@ -66,11 +66,6 @@ impl SymbolScale {
     pub fn metres_per_symbol_mm(self) -> f64 {
         self.enlargement * metres_per_mm(self.scale_denominator)
     }
-
-    /// Map coordinates per millimetre of a symbol at 100 %.
-    pub fn map_units_per_symbol_mm(self) -> f64 {
-        MAP_UNITS_PER_MM * self.enlargement
-    }
 }
 
 /// A length on the printed sheet (mm), the same whatever the size of the symbols.
@@ -219,6 +214,6 @@ mod tests {
             PaperMm((0.15 + 0.2) * 1.25)
         );
         assert_eq!(school.metres_per_symbol_mm(), 1.25);
-        assert_eq!(school.map_units_per_symbol_mm(), 1250.0);
+        assert_eq!(SymbolMm(1.0).map_units(school), 1250.0);
     }
 }
