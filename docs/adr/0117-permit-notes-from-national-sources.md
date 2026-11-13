@@ -54,16 +54,18 @@ set; both send whole polygons of 25 to 700 KB.
 - **Order.** Administrative units top down (Land, Kreis, Amt or Verwaltungsgemeinschaft, Gemeinde). Protected
   areas by type in the order Nationalpark, Nationales Naturmonument, NSG, FFH, Vogelschutzgebiet,
   Biosphärenreservat (each zone after its reserve), LSG, Naturpark; within a type by share. A `vg250_vwg` entry
-  that is an amtsfreie or verbandsfreie Gemeinde (its kind contains "frei", or it has the name of a Gemeinde on
-  the list) is left out: it only repeats the Gemeinde.
+  that is an amtsfreie or verbandsfreie Gemeinde (its kind contains "frei") is left out: it only repeats the
+  Gemeinde. The name does not decide: an Amt, a Verbandsgemeinde or a Samtgemeinde often carries the name of one
+  of its Gemeinden (Amt Brück, Stadt Brück), and it stays.
 - **OSM selection.** Areas only (closed ways and multipolygons that meet the map area), read from the state's
   Geofabrik extract already cached; `permits` downloads no extract. Protected areas: `boundary=protected_area`,
   `leisure=nature_reserve`, `boundary=national_park`. `operator` and `owner` only of `leisure=park|garden|
   sports_centre|pitch|stadium`, `amenity=school|university|college|kindergarten|place_of_worship|hospital`,
   `landuse=forest|railway|cemetery|religious|military|education`, `natural=wood`,
   `tourism=attraction|zoo|theme_park` and `historic=*`. Nothing else, so no residential land, houses or private
-  gardens, and no `contact:*`, `email` or `phone`. An OSM protected area is listed only when no BfN area covers
-  at least half of it (overlap / smaller area ≥ 0.5). The findings are stored in `data/permits/osm.geojson`,
+  gardens, and no `contact:*`, `email` or `phone`. An OSM protected area is left out only when one BfN area and it
+  cover each other mostly (overlap / larger area ≥ 0.5). A small OSM area inside a large LSG or Naturpark, such
+  as a Geschützter Landschaftsbestandteil, stays. The findings are stored in `data/permits/osm.geojson`,
   because the extract leaves the cache after 7 days.
 - **Hints are cautious text templates.** Chosen by finding and map kind in the Fluent files, they name the kind
   of office and the unit, never a person or an address, and say "usually": "die untere Naturschutzbehörde (meist
@@ -115,8 +117,10 @@ set; both send whole polygons of 25 to 700 KB.
   the candidate pass would save it.
 - The notes depend on two services the project cannot control. A changed axis order would give empty answers
   without an error; one ignored live test per service checks Strausberg against known areas.
-- The amtsfrei rule for `vg250_vwg` was written from the `bez` values seen (Sanssouci) and not checked against
-  every state.
+- The amtsfrei rule for `vg250_vwg` reads only the kind (`bez` contains "frei"). It was written from the `bez`
+  values seen (Sanssouci, Brück) and not checked against every state.
+- An OSM protected area and a BfN area count as the same only when their footprints mostly match. The same area
+  mapped very differently in OSM can therefore stand in both sections.
 
 ## Later steps
 

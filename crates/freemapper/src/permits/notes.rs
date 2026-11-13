@@ -29,8 +29,8 @@ pub const SCHEMA: u32 = 1;
 /// Below this share of the map area a unit or protected area only touches the map at its edge.
 const EDGE_SHARE: f64 = 0.005;
 
-/// An OSM protected area is left out when a BfN area covers at least this part of the smaller
-/// of the two.
+/// An OSM protected area is left out when its overlap with a BfN area is at least this part of
+/// the larger of the two: the two footprints mostly match.
 const COVERED_BY_BFN: f64 = 0.5;
 
 /// Overlaps smaller than this are noise of the floating point arithmetic, not a touch.
@@ -389,21 +389,19 @@ fn admin_shares(plane: &Plane, units: &[AdminUnit]) -> Vec<Share<AdminEntry>> {
 
 /// `units` without the `vg250_vwg` entries that are no Verwaltungsgemeinschaft: VG250 lists an
 /// amtsfreie or verbandsfreie Gemeinde (and a kreisfreie Stadt, as "Amtsfreie Gemeinde") there
-/// too, under the Gemeinde's own name.
+/// too. Only the kind tells them apart: an Amt or a Verbandsgemeinde often carries the name of
+/// one of its Gemeinden.
 fn without_own_vwg(units: Vec<Share<AdminEntry>>) -> Vec<Share<AdminEntry>> {
-    let gemeinden: BTreeSet<String> = units
-        .iter()
-        .filter(|s| s.item.level == AdminLevel::Gemeinde)
-        .map(|s| s.item.name.clone())
-        .collect();
     units
         .into_iter()
-        .filter(|s| {
-            s.item.level != AdminLevel::Verwaltungsgemeinschaft
-                || !(s.item.kind.to_lowercase().contains("frei")
-                    || gemeinden.contains(&s.item.name))
-        })
+        .filter(|s| s.item.level != AdminLevel::Verwaltungsgemeinschaft || !is_free(&s.item))
         .collect()
+}
+
+/// A `vg250_vwg` entry that is a Gemeinde of its own ("Amtsfreie Gemeinde", "Verbandsfreie
+/// Gemeinde").
+fn is_free(unit: &AdminEntry) -> bool {
+    unit.kind.to_lowercase().contains("frei")
 }
 
 /// The BfN areas on the map in the order of the spec, within a kind by share, descending; the
@@ -465,8 +463,9 @@ fn protected_shares(
         .collect()
 }
 
-/// The OSM protected areas on the map that no BfN area covers: a BfN area covers one when
-/// their overlap is at least half of the smaller of the two. By share, descending.
+/// The OSM protected areas on the map that the BfN does not list: one is the same as a BfN area
+/// when their overlap is at least half of the larger of the two. A small OSM area inside a large
+/// LSG or Naturpark stays. By share, descending.
 fn osm_protected(
     on_map: &[(&OsmFinding, MultiPolygon<f64>, f64)],
     bfn: &[MultiPolygon<f64>],
@@ -479,8 +478,8 @@ fn osm_protected(
         .filter(|(_, geometry, _)| {
             let own = geometry.unsigned_area();
             !bfn.iter().any(|(b, area)| {
-                let smaller = own.min(*area);
-                smaller > 0.0 && overlap(geometry, b) / smaller >= COVERED_BY_BFN
+                let larger = own.max(*area);
+                larger > 0.0 && overlap(geometry, b) / larger >= COVERED_BY_BFN
             })
         })
         .map(|(f, _, share)| {
@@ -601,9 +600,10 @@ fn hints(
         hints.push(Hint::new(hint_key::NATURA2000, &[]));
     }
     if let Some(gemeinde) = largest(AdminLevel::Gemeinde) {
-        // An amtsfreie Gemeinde is its own unit in `vg250_vwg`, under its own name.
+        // `without_own_vwg` has left out the amtsfreie Gemeinden; an Amt may carry the name
+        // of the Gemeinde.
         let amt = largest(AdminLevel::Verwaltungsgemeinschaft)
-            .filter(|v| v.name != gemeinde.name && !v.kind.to_lowercase().contains("frei"))
+            .filter(|v| !is_free(v))
             .map(|v| format!("{} {}", v.kind, v.name).trim().to_string());
         let mut args = vec![("gemeinde", gemeinde.name.as_str())];
         if let Some(amt) = &amt {
@@ -978,14 +978,49 @@ mod tests {
                     ),
                 ],
                 vec![
-                    // The NSG again, slightly shifted.
+                    // The NSG again, slightly shifted: the two cover each other mostly.
                     osm_protected("way/1", square(13.001, 52.0, 13.051, 52.1)),
-                    // A small area inside the large LSG: covered completely.
-                    osm_protected("way/2", square(13.06, 52.05, 13.07, 52.06)),
                 ],
             ),
         );
         assert!(found.osm_protected.is_empty(), "{:?}", found.osm_protected);
+    }
+
+    /// The BfN merges large areas (LSG, Naturpark) that hold small ones it does not list, such
+    /// as a Geschützter Landschaftsbestandteil. Those stay, and so does a large OSM area around
+    /// a small BfN one: only footprints that mostly match are the same area.
+    #[test]
+    fn a_small_osm_area_inside_a_large_lsg_stays() {
+        let found = notes(
+            MapKind::Sprint,
+            &inputs(
+                vec![],
+                vec![
+                    protected(
+                        ProtectedKind::Landschaftsschutzgebiet,
+                        "LSG groß",
+                        square(13.055, 51.0, 14.0, 53.0),
+                    ),
+                    protected(
+                        ProtectedKind::Naturschutzgebiet,
+                        "NSG klein",
+                        square(13.01, 52.01, 13.02, 52.02),
+                    ),
+                ],
+                vec![
+                    // A small area inside the large LSG.
+                    osm_protected("way/2", square(13.06, 52.05, 13.07, 52.06)),
+                    // A large area around the small NSG.
+                    osm_protected("way/5", square(13.0, 52.0, 13.05, 52.05)),
+                ],
+            ),
+        );
+        let ids: Vec<&str> = found
+            .osm_protected
+            .iter()
+            .map(|s| s.item.osm_id.as_str())
+            .collect();
+        assert_eq!(ids, ["way/5", "way/2"], "{:?}", found.osm_protected);
     }
 
     #[test]
@@ -1256,7 +1291,8 @@ mod tests {
                 (AdminLevel::Gemeinde, "Potsdam".to_string()),
             ]
         );
-        // A kind with "frei" alone is enough, and so is the name of a Gemeinde on the map.
+        // A kind with "frei" alone is enough. The name of a Gemeinde on the map is not: the
+        // entry of kind "Gemeinde" stays (fix round 1; see an_amt_named_after_its_gemeinde_stays).
         let found = notes(
             MapKind::Sprint,
             &inputs(
@@ -1283,7 +1319,10 @@ mod tests {
         );
         assert_eq!(
             levels(&found),
-            [(AdminLevel::Gemeinde, "Buckow".to_string())]
+            [
+                (AdminLevel::Verwaltungsgemeinschaft, "Buckow".to_string()),
+                (AdminLevel::Gemeinde, "Buckow".to_string())
+            ]
         );
         // A real Amt stays.
         let found = notes(
@@ -1304,6 +1343,49 @@ mod tests {
             ),
         );
         assert_eq!(found.admin.len(), 2);
+    }
+
+    /// An Amt can carry the name of one of its Gemeinden (live VG250 near Brück: the Amt Brück
+    /// holds the Stadt Brück). It is a real Verwaltungsgemeinschaft and stays, and the order
+    /// office is that of the Amt.
+    #[test]
+    fn an_amt_named_after_its_gemeinde_stays() {
+        let all = || square(12.9, 51.9, 13.2, 52.2);
+        let found = notes(
+            MapKind::Sprint,
+            &inputs(
+                vec![
+                    brandenburg(),
+                    unit(
+                        AdminLevel::Verwaltungsgemeinschaft,
+                        "Brück",
+                        "Amt",
+                        "120695",
+                        all(),
+                    ),
+                    unit(AdminLevel::Gemeinde, "Brück", "Stadt", "12069052", all()),
+                ],
+                vec![],
+                vec![],
+            ),
+        );
+        let levels: Vec<(AdminLevel, &str, &str)> = found
+            .admin
+            .iter()
+            .map(|s| (s.item.level, s.item.kind.as_str(), s.item.name.as_str()))
+            .collect();
+        assert_eq!(
+            levels,
+            [
+                (AdminLevel::Land, "Land", "Brandenburg"),
+                (AdminLevel::Verwaltungsgemeinschaft, "Amt", "Brück"),
+                (AdminLevel::Gemeinde, "Stadt", "Brück"),
+            ]
+        );
+        assert_eq!(
+            hint(&found, hint_key::ORDER_OFFICE)[0].args,
+            args(&[("amt", "Amt Brück"), ("gemeinde", "Brück")])
+        );
     }
 
     #[test]

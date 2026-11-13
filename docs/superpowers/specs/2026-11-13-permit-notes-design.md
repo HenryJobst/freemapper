@@ -148,14 +148,17 @@ BKG VG250 `https://sgx.geodatenzentrum.de/wfs_vg250`, WFS 2.0.0 (GeoServer):
   Stadt", or Land = Gemeinde as in Berlin and Hamburg) is itself named as the authority; in Berlin
   and Hamburg the hint adds that the Bezirksamt or a Landesbehörde is in charge and that the Bezirk
   is not determined yet. Where an Amt or a Verwaltungsgemeinschaft exists (`vg250_vwg`), the
-  Ordnungsamt hint names it ("Amt Märkische Schweiz, für die Gemeinde Buckow"). No per-Bundesland
+  Ordnungsamt hint names it ("Amt Märkische Schweiz, für die Gemeinde Buckow"), also when the Amt
+  carries the name of the Gemeinde ("Amt Brück"). A `vg250_vwg` entry is left out only when its
+  `bez` contains "frei" (Amtsfreie or Verbandsfreie Gemeinde; fix round 1). No per-Bundesland
   competence table in this step.
 - **The yearly merge of the BfN** is said once per notes file, not guessed per Bundesland: "Das BfN
   führt die Daten der Länder einmal im Jahr zusammen und weist sie als nicht für Planungszwecke
   geeignet aus; maßgeblich sind die Landesbehörden." Each protected area shows its `JAHR`.
-- **OSM protected areas against BfN ones.** An OSM protected area is listed only when no BfN area
-  covers at least half of it (area of the overlap / area of the smaller of the two ≥ 0.5). Those
-  that remain go into an own section "Weitere Schutzgebiete aus OpenStreetMap" after the BfN types,
+- **OSM protected areas against BfN ones.** An OSM protected area is left out only when one BfN
+  area and the OSM area cover each other mostly (area of the overlap / area of the larger of the
+  two ≥ 0.5; fix round 1). A small OSM area inside a large LSG or Naturpark stays, and so does a
+  large OSM area around a small BfN one. Those that remain go into an own section "Weitere Schutzgebiete aus OpenStreetMap" after the BfN types,
   with `protection_title` or `protect_class` as their kind.
 - **Credit.** The notes carry the credit lines of the sources they used. `ATTRIBUTION.txt` does not
   change: it lists the sources of the map, and nothing of the BfN or the BKG goes onto the map.
