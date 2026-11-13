@@ -796,12 +796,13 @@ mod tests {
                 "2015-04-16",
                 &ring(e - 50.0, n + 5.7, 30.0, 8.0),
             ),
-            // A 2 m strip is below 1 mm on paper: not cut, and no candidate either.
+            // A 1.5 m strip is below the 2 m limit of survey pieces: not cut, and no candidate
+            // either.
             survey_feature(
                 "ce_gruenflaeche",
                 "Fl_20150416_4",
                 "2015-04-16",
-                &ring(e - 45.0, n - 1.0, 10.0, 2.0),
+                &ring(e - 45.0, n - 1.0, 10.0, 1.5),
             ),
         ];
         // A market square cut by one strip whose `gis_id` gave no date.

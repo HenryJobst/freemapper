@@ -10,7 +10,7 @@ use geo_types::{LineString, MultiPolygon, Polygon};
 
 use crate::build::geometry::object_polygon;
 use crate::build::out_of_bounds::{
-    LandClip, area_object, clipped_pieces, is_out_of_bounds_part, land_tags, mean_width,
+    LandClip, area_object, clipped_pieces, is_out_of_bounds_part, land_tags, short_side,
 };
 use crate::build::peripheral::PaperRect;
 use crate::crs::{BoundingBox, Crs, LatLon};
@@ -197,14 +197,14 @@ pub fn osm_forest_polygons(features: &[OsmFeature], crs: Crs) -> Vec<Polygon<f64
         .collect()
 }
 
-/// A piece of open land below (`MIN_PIECE_SIDE_MM`)² or narrower than it, enlarged like the
-/// symbols, is a sliver.
+/// A piece of open land below (`MIN_PIECE_SIDE_MM`)² or with a short side (`short_side`) under
+/// it, enlarged like the symbols, is a sliver.
 const MIN_PIECE_SIDE_MM: SymbolMm = SymbolMm(1.0);
 
 /// The OSM open land candidates (401 areas among `candidates`) minus the open land map objects
 /// (`alkis`, any 401, 403 or 405): where ALKIS knows the park, OSM adds nothing. A piece below
-/// (1 mm)² or narrower than 1 mm on paper goes; the rest keeps its tags. Other objects stay as
-/// they are.
+/// (1 mm)² or with a short side under 1 mm on paper goes; the rest keeps its tags. Other objects
+/// stay as they are.
 pub fn drop_open_land_under_alkis(
     candidates: Vec<MapObject>,
     alkis: &[MapObject],
@@ -243,7 +243,7 @@ pub fn drop_open_land_under_alkis(
         }
         let rest = MultiPolygon(vec![polygon]).difference(&geo::unary_union(near));
         for piece in rest.0 {
-            if piece.unsigned_area() < min_area || mean_width(&piece) < min_side {
+            if piece.unsigned_area() < min_area || short_side(&piece) < min_side {
                 continue;
             }
             kept.push(MapObject {
