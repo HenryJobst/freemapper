@@ -19,7 +19,7 @@ use crate::build::buildings::footprint_coords;
 use crate::build::state::{SOURCE, STRUCTURE, vereinfacht_function};
 use crate::crs::Crs;
 use crate::georef::{GeorefError, Georeferencing};
-use crate::measure::PaperMm;
+use crate::measure::{PaperMm, SymbolMm, SymbolScale};
 use crate::omap::{MapObject, MapObjectKind, SymbolSet};
 use crate::sources::alkis::parse_building_features;
 
@@ -29,9 +29,10 @@ const CANOPY_SYMBOL_CODE: &str = "522";
 pub const CANOPY_LAYER: &str = "bauwerke-flaechen";
 /// `bezbwf` of the Berlin canopies, `funktion` of the vereinfacht ones.
 const CANOPY_KINDS: [&str; 2] = ["Überdachung", "Carport"];
-/// Canopies and holes with an area below (`CANOPY_MIN_SIDE_MM`)² on paper are dropped, as in
+/// Canopies and holes with an area below (`CANOPY_MIN_SIDE_MM`)², enlarged like the symbols, are
+/// dropped, as in
 /// `buildings.rs`.
-const CANOPY_MIN_SIDE_MM: PaperMm = PaperMm(0.5);
+const CANOPY_MIN_SIDE_MM: SymbolMm = SymbolMm(0.5);
 /// Outline simplification tolerance on paper, as in `buildings.rs`.
 const SIMPLIFY_MM: PaperMm = PaperMm(0.1);
 /// A canopy of which at least this share lies in building footprints is inside a building.
@@ -69,7 +70,8 @@ pub fn canopy_objects(
         .id_for_code(CANOPY_SYMBOL_CODE)
         .expect("symbol set defines 522");
     let crs = Crs::from_epsg(georef.epsg).unwrap_or(Crs::Utm33);
-    let min_area = CANOPY_MIN_SIDE_MM.metres(georef.scale_denominator).powi(2);
+    let scale = SymbolScale::drawn_with(symbol_set, georef.scale_denominator);
+    let min_area = CANOPY_MIN_SIDE_MM.metres(scale).powi(2);
     let tolerance = SIMPLIFY_MM.metres(georef.scale_denominator);
 
     // Every canopy, with its tags, in the map's CRS.
@@ -277,7 +279,8 @@ mod tests {
 
     #[test]
     fn tiny_canopy_is_dropped() {
-        // 0.5 mm on paper: 2 m at 1:4000, 0.5 m at 1:1000.
+        // 0.5 mm of the norm: 2 m at 1:4000, and 0.625 m on the school map at 1:1000, whose
+        // symbols are enlarged to 125 %.
         let small = [area(
             "DEBE00YY000SMALL",
             "Überdachung",
@@ -295,6 +298,15 @@ mod tests {
         assert_eq!(objects(MapKind::Sprint, &large, &[]).len(), 1);
         assert_eq!(objects(MapKind::Schoolyard, &small, &[]).len(), 1);
         assert!(objects(MapKind::Schoolyard, &tiny, &[]).is_empty());
+        let under = [area(
+            "DEBE00YY000UNDER",
+            "Überdachung",
+            (0.0, 0.0),
+            (0.6, 0.6),
+        )];
+        let over = [area("DEBE00YY0000OVER", "Carport", (0.0, 0.0), (0.7, 0.7))];
+        assert!(objects(MapKind::Schoolyard, &under, &[]).is_empty());
+        assert_eq!(objects(MapKind::Schoolyard, &over, &[]).len(), 1);
     }
 
     #[test]

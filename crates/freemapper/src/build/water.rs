@@ -19,6 +19,7 @@ use crate::build::dedup::AREA_DEDUP_TOLERANCE_MM;
 use crate::build::out_of_bounds::{LandClip, mean_width, nutzart_label};
 use crate::crs::{BoundingBox, ProjectedPoint};
 use crate::georef::{GeorefError, Georeferencing};
+use crate::measure::SymbolScale;
 use crate::omap::{MapCoord, MapObject, MapObjectKind, SymbolSet, closed_ring};
 use crate::sources::alkis::LandUse;
 
@@ -90,7 +91,10 @@ pub fn water_objects(
             .id_for_code(BANK_CODE)
             .expect("ISSprOM defines 301.6"),
     };
-    let land_clip = LandClip::new(clip, georef);
+    let land_clip = LandClip::new(
+        clip,
+        SymbolScale::drawn_with(symbol_set, georef.scale_denominator),
+    );
     let near = Rect::new(
         coord! { x: clip.min_e - NEAR_WINDOW_M, y: clip.min_n - NEAR_WINDOW_M },
         coord! { x: clip.max_e + NEAR_WINDOW_M, y: clip.max_n + NEAR_WINDOW_M },
@@ -481,7 +485,11 @@ pub fn drop_covered_water(
     if union.0.is_empty() {
         return objects;
     }
-    let window = LandClip::new(clip, georef).polygon;
+    let window = LandClip::new(
+        clip,
+        SymbolScale::drawn_with(symbol_set, georef.scale_denominator),
+    )
+    .polygon;
     objects
         .into_iter()
         .filter(|object| {

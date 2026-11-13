@@ -13,7 +13,7 @@ use geo::{Area as _, BoundingRect as _, Contains as _, Simplify as _};
 use super::DeriveError;
 use super::contours::contour_lines;
 use crate::crs::BoundingBox;
-use crate::measure::PaperMm2;
+use crate::measure::{SymbolMm2, SymbolScale};
 use crate::raster::{GridSpec, Raster};
 
 /// Cell of the classification.
@@ -36,8 +36,9 @@ const IMPASSABLE_INDEX: f64 = 0.8;
 /// Undergrowth share (undergrowth / (undergrowth + ground)) from which runnable forest is 407, 409.
 const UNDERGROWTH_SLOW: f64 = 0.35;
 const UNDERGROWTH_WALK: f64 = 0.56;
-/// Smallest area on paper (1.5 mm × 1.5 mm); smaller patches are left out, smaller holes filled.
-const MIN_AREA_MM2: PaperMm2 = PaperMm2(2.25);
+/// Smallest area (1.5 mm × 1.5 mm, enlarged like the symbols); smaller patches are left out,
+/// smaller holes filled.
+const MIN_AREA_MM2: SymbolMm2 = SymbolMm2(2.25);
 /// Outlines are simplified to this, on the ground.
 const SIMPLIFY_M: f64 = 1.5;
 
@@ -407,19 +408,20 @@ pub fn majority(classes: &Raster<Option<VegetationClass>>) -> Raster<Option<Vege
     out
 }
 
-/// The smallest area in ground m² at 1:`scale_denominator`: 1.5 mm × 1.5 mm on paper.
-pub fn min_area_m2(scale_denominator: u32) -> f64 {
-    MIN_AREA_MM2.square_metres(scale_denominator)
+/// The smallest area in ground m² on a map at `scale`: 1.5 mm × 1.5 mm, enlarged like the
+/// symbols.
+pub fn min_area_m2(scale: SymbolScale) -> f64 {
+    MIN_AREA_MM2.square_metres(scale)
 }
 
 /// The areas of every class, after the majority filter, simplified, without patches and holes
 /// smaller than 1.5 mm × 1.5 mm on paper.
 pub fn vegetation_areas(
     classes: &Raster<Option<VegetationClass>>,
-    scale_denominator: u32,
+    scale: SymbolScale,
 ) -> Vec<(VegetationClass, geo_types::MultiPolygon<f64>)> {
     let smoothed = majority(classes);
-    let min_area_m2 = min_area_m2(scale_denominator);
+    let min_area_m2 = min_area_m2(scale);
     VegetationClass::ALL
         .into_iter()
         .filter_map(|class| {
@@ -569,6 +571,7 @@ fn outlines(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::project::MapKind;
 
     fn grid(cells: u32) -> GridSpec {
         GridSpec {
@@ -865,7 +868,7 @@ mod tests {
                 classes.set(x, y, Some(VegetationClass::Open));
             }
         }
-        let areas = vegetation_areas(&classes, 4000);
+        let areas = vegetation_areas(&classes, SymbolScale::new(MapKind::Sprint, 4000));
         let thicket = &areas
             .iter()
             .find(|(c, _)| *c == VegetationClass::Impassable)
@@ -885,6 +888,21 @@ mod tests {
     }
 
     #[test]
+    fn the_smallest_area_grows_with_the_symbols() {
+        // 1.5 mm × 1.5 mm of the norm: 36 m² at 1:4000; on the school map (125 %, 1:1000)
+        // 1.875 m square; on a forest map at 1:10000 (150 %) 22.5 m square.
+        assert_eq!(min_area_m2(SymbolScale::new(MapKind::Sprint, 4000)), 36.0);
+        assert_eq!(
+            min_area_m2(SymbolScale::new(MapKind::Schoolyard, 1000)),
+            1.875 * 1.875
+        );
+        assert_eq!(
+            min_area_m2(SymbolScale::new(MapKind::Forest, 10000)),
+            22.5 * 22.5
+        );
+    }
+
+    #[test]
     fn patches_below_the_minimum_area_are_left_out() {
         let g = grid(10);
         let mut classes = Raster::filled(g, Some(VegetationClass::Forest));
@@ -893,7 +911,7 @@ mod tests {
         classes.set(5, 5, Some(VegetationClass::Walk));
         classes.set(5, 6, Some(VegetationClass::Walk));
         assert!(
-            vegetation_areas(&classes, 4000)
+            vegetation_areas(&classes, SymbolScale::new(MapKind::Sprint, 4000))
                 .iter()
                 .all(|(c, _)| *c != VegetationClass::Walk)
         );
@@ -901,7 +919,7 @@ mod tests {
             classes.set(x, y, Some(VegetationClass::Walk));
         }
         assert!(
-            vegetation_areas(&classes, 1000)
+            vegetation_areas(&classes, SymbolScale::new(MapKind::Sprint, 1000))
                 .iter()
                 .any(|(c, _)| *c == VegetationClass::Walk)
         );

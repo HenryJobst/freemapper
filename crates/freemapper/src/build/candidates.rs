@@ -9,7 +9,7 @@ use serde::Deserialize;
 use crate::build::control_sites::CONTROL_KEY;
 use crate::crs::{LatLon, ProjectedPoint};
 use crate::georef::{GeorefError, Georeferencing};
-use crate::measure::PaperMm;
+use crate::measure::{PaperMm, SymbolMm, SymbolScale};
 use crate::omap::{MapCoord, MapObject, MapObjectKind, SymbolSet, closed_ring};
 use crate::project::MapKind;
 use crate::sources::osm::{OsmFeature, OsmGeometry, OsmPolygon, Tags};
@@ -381,6 +381,7 @@ pub fn osm_objects(
         )
     });
     let min_length = MIN_LINE_MM.metres(georef.scale_denominator);
+    let scale = SymbolScale::new(kind, georef.scale_denominator);
     let mut objects = Vec::new();
     // The cadastre cuts a wall into short segments; the length limit holds for the whole wall.
     let joined;
@@ -415,7 +416,7 @@ pub fn osm_objects(
             continue;
         }
         // The norm's minimum length of the line symbol, if it sets one the rules must keep.
-        let norm_min = norm_min_line_mm(&found.code).map(|mm| mm.metres(georef.scale_denominator));
+        let norm_min = norm_min_line_mm(&found.code).map(|mm| mm.metres(scale));
         let pieces = match (&feature.geometry, found.draw) {
             (OsmGeometry::Line(points), Draw::Line)
                 if norm_min.is_some_and(|min| {
@@ -631,7 +632,7 @@ pub fn osm_objects(
 /// The minimum length on paper (mm) that ISSprOM 4.5 sets for a line symbol of the OSM rules:
 /// 509.1 railway 4 mm, 510 and 511 power lines 3.75 mm, 528 prominent line feature 2.2 mm, 529
 /// prominent uncrossable line feature 3 mm. A shorter line is not drawn.
-fn norm_min_line_mm(code: &str) -> Option<PaperMm> {
+fn norm_min_line_mm(code: &str) -> Option<SymbolMm> {
     let mm = match code {
         "509.1" => 4.0,
         "510" | "511" => 3.75,
@@ -639,7 +640,7 @@ fn norm_min_line_mm(code: &str) -> Option<PaperMm> {
         "529" => 3.0,
         _ => return None,
     };
-    Some(PaperMm(mm))
+    Some(SymbolMm(mm))
 }
 
 /// The symbol of the control sites ([`control_kind`]): 531 prominent man-made feature, x.

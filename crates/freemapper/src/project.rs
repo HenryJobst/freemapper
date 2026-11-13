@@ -44,6 +44,7 @@ use crate::derive::{DeriveError, MAX_RASTER_SIDE_PX};
 use crate::fetch::Product;
 use crate::fetch::{Cache, FetchError, FetchMode, Fetcher, write_inside};
 use crate::georef::{GeorefError, Georeferencing};
+use crate::measure::SymbolScale;
 use crate::ocd::convert::{Background, WorldFile, map_to_ocd};
 use crate::omap::{
     MapDocument, MapObject, MapPart, OmapError, SymbolSet, TemplateKind, TemplateRef, XmlFormat,
@@ -2212,10 +2213,8 @@ pub fn derive_project_cancellable(
         }
         None => kind_interval,
     };
-    let lines = generalize(
-        contour_lines(&smoothed, interval),
-        project.scale_denominator,
-    );
+    let scale = SymbolScale::new(project.map_kind, project.scale_denominator);
+    let lines = generalize(contour_lines(&smoothed, interval), scale);
     let contours_path = dir.join(CONTOURS_RELPATH);
     // The interval is stored where it is not the kind's, so the export draws index contours and
     // names it right; the files of the other projects stay as they were.
@@ -2234,8 +2233,8 @@ pub fn derive_project_cancellable(
     progress(note!("progress-writing", path = LANDFORMS_RELPATH));
     stop_if(cancelled)?;
     let min_height_m = project.map_kind.landform_min_height_m();
-    let mut landforms = knolls_and_depressions(&dtm, project.scale_denominator, min_height_m);
-    landforms.extend(height_jumps(&dtm, project.scale_denominator, min_height_m));
+    let mut landforms = knolls_and_depressions(&dtm, scale, min_height_m);
+    landforms.extend(height_jumps(&dtm, scale, min_height_m));
     let landforms_path = dir.join(LANDFORMS_RELPATH);
     write_inside(
         dir,
@@ -2271,7 +2270,7 @@ pub fn derive_project_cancellable(
                 ));
             }
         }
-        let areas = vegetation_areas(&counts.classes(), project.scale_denominator);
+        let areas = vegetation_areas(&counts.classes(), scale);
         write_inside(
             dir,
             &vegetation_path,

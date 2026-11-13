@@ -698,7 +698,8 @@ fn resolve(drawn: Drawn, surroundings: &Surroundings) -> Result<Resolved, Georef
     )?;
     // Where the parks, meadows and woods of the land use are map objects, the OSM parks and
     // lawns go (`build/open_land.rs`).
-    let osm_candidates = drop_open_land_under_alkis(osm_candidates, &open_land.map, symbol_set);
+    let osm_candidates =
+        drop_open_land_under_alkis(osm_candidates, &open_land.map, georef, symbol_set);
     // The point symbols keep the norm's gap, dense tree groups become 501.3 on paving, else 402
     // or 405 (on a white base off open land with a 416 boundary; open land: the parks, the 401
     // green strips of the paved build, the OSM pitches among the candidates), cut at paving and
@@ -851,13 +852,7 @@ impl Built {
         route(content, &mut map, &mut candidates, symbol_set);
         // Vegetation from the point clouds stops at the areas that shall not be entered drawn with
         // it (`build/vegetation.rs`); after the routing, which decides where both end up.
-        cut_vegetation_at_out_of_bounds(
-            &mut map,
-            &mut candidates,
-            georef.scale_denominator,
-            georef,
-            symbol_set,
-        )?;
+        cut_vegetation_at_out_of_bounds(&mut map, &mut candidates, georef, symbol_set)?;
         // Contours and north lines stop at paving and paths (`build/line_cuts.rs`).
         let ways = way_footprints(&map, &candidates, &map, self.map_kind, georef, symbol_set);
         let min_piece_m = MIN_PIECE_MM.metres(georef.scale_denominator);

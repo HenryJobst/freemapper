@@ -2,15 +2,15 @@
 
 use geo::{Length as _, Simplify as _};
 
-use crate::measure::{PaperMm, PaperMm2};
+use crate::measure::{PaperMm, SymbolMm, SymbolMm2, SymbolScale};
 use crate::project::MapKind;
 use crate::raster::Raster;
 
 /// Simplification tolerance and shortest kept line, on paper.
 const SIMPLIFY_MM: PaperMm = PaperMm(0.1);
-const MIN_LENGTH_MM: PaperMm = PaperMm(2.0);
+const MIN_LENGTH_MM: SymbolMm = SymbolMm(2.0);
 /// Closed rings enclosing less than this on paper are noise at a 1 m interval.
-const MIN_RING_AREA_MM2: PaperMm2 = PaperMm2(1.5);
+const MIN_RING_AREA_MM2: SymbolMm2 = SymbolMm2(1.5);
 
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
 #[error("invalid contours: {0}")]
@@ -195,25 +195,25 @@ fn usable_runs(ring: &[(f64, f64)], unusable: &dyn Fn(f64, f64) -> bool) -> Vec<
 }
 
 /// Simplifies the lines for the map scale and drops lines shorter than 2 mm and closed rings
-/// enclosing less than 1.5 mm² on paper.
-pub fn generalize(lines: Vec<ContourLine>, scale_denominator: u32) -> Vec<ContourLine> {
+/// enclosing less than 1.5 mm², both enlarged like the symbols.
+pub fn generalize(lines: Vec<ContourLine>, scale: SymbolScale) -> Vec<ContourLine> {
     use geo::Area as _;
     lines
         .into_iter()
         .filter_map(|line| {
             let ls = geo_types::LineString::from(line.points.clone());
-            let simplified = ls.simplify(SIMPLIFY_MM.metres(scale_denominator));
+            let simplified = ls.simplify(SIMPLIFY_MM.metres(scale.scale_denominator()));
             let closed = simplified.0.len() > 3 && simplified.is_closed();
             let ring_area = geo_types::Polygon::new(simplified.clone(), vec![]).unsigned_area();
-            if closed && ring_area < MIN_RING_AREA_MM2.square_metres(scale_denominator) {
+            if closed && ring_area < MIN_RING_AREA_MM2.square_metres(scale) {
                 return None;
             }
-            (geo::Euclidean.length(&simplified) >= MIN_LENGTH_MM.metres(scale_denominator)).then(
-                || ContourLine {
+            (geo::Euclidean.length(&simplified) >= MIN_LENGTH_MM.metres(scale)).then(|| {
+                ContourLine {
                     height: line.height,
                     points: simplified.0.iter().map(|c| (c.x, c.y)).collect(),
-                },
-            )
+                }
+            })
         })
         .collect()
 }
@@ -461,9 +461,17 @@ mod tests {
             ],
         };
         // At 1:1000, 1.5 mm² on paper are 1.5 m²: a 1 m square ring goes, a 2 m one stays.
-        let kept = generalize(vec![ring(1.0), ring(2.0)], 1000);
+        let kept = generalize(
+            vec![ring(1.0), ring(2.0)],
+            SymbolScale::new(MapKind::Sprint, 1000),
+        );
         assert_eq!(kept.len(), 1);
         assert_eq!(kept[0].points[1], (2.0, 0.0));
+        // The school map enlarges the limit like its symbols: 1.5 mm² × 1.25² are 2.34 m².
+        let sprint = SymbolScale::new(MapKind::Sprint, 1000);
+        let school = SymbolScale::new(MapKind::Schoolyard, 1000);
+        assert_eq!(generalize(vec![ring(1.4)], sprint).len(), 1);
+        assert!(generalize(vec![ring(1.4)], school).is_empty());
     }
 
     #[test]
@@ -478,9 +486,21 @@ mod tests {
                 points: vec![(0.0, 0.0), (1.0, 0.05), (3.0, 0.0)],
             },
         ];
-        let kept = generalize(lines, 1000);
+        let kept = generalize(lines, SymbolScale::new(MapKind::Sprint, 1000));
         assert_eq!(kept.len(), 1, "1 m is shorter than 2 mm at 1:1000");
         assert_eq!(kept[0].points, [(0.0, 0.0), (3.0, 0.0)], "simplified");
+        // 2 mm of the norm are 2.5 mm on the school map (125 %): 2.5 m at 1:1000.
+        let line = || {
+            vec![ContourLine {
+                height: 1.0,
+                points: vec![(0.0, 0.0), (2.2, 0.0)],
+            }]
+        };
+        assert_eq!(
+            generalize(line(), SymbolScale::new(MapKind::Sprint, 1000)).len(),
+            1
+        );
+        assert!(generalize(line(), SymbolScale::new(MapKind::Schoolyard, 1000)).is_empty());
     }
 
     #[test]
