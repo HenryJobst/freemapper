@@ -15,6 +15,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 ### Geändert
 
 - Die Grenzen von Niedersachsen und Schleswig-Holstein überlappen sich in der Elbmündung nicht mehr. Die Kataster beider Bundesländer führen dieselben 89 km² Wasser vor Cuxhaven; freemapper teilt die Fläche jetzt an der Linie gleichen Abstands zu den beiden Anspruchslinien (ADR 0113). Für Karten ändert sich nichts, dort ist offenes Wasser.
+- Intern: Ein Adapter kann Sätze von Zusatzebenen melden, die er mit eigenem Code abruft (`RegionAdapter::extras`). Die Berliner Register und Befahrungsdaten sind der erste solche Satz: Der Kern fragt den Adapter aus der Registry, statt das Berlin-Modul direkt aufzurufen, und nimmt auch den Posten der Schätzung von dort. An Karten, Meldungen, Dateien und Schätzungen ändert sich nichts.
 - Intern: Die Zusatzebenen eines Projekts (Berliner Register, volles ALKIS, Baumkataster) werden an einer Stelle abgerufen, gespeichert, entfernt und gelesen statt in drei gleichen Kopien. Erster Schritt dazu, dass der Kern kein Bundesland mehr beim Namen nennt; an Karten, Meldungen und Dateien ändert sich nichts.
 - Intern: Die Module in `freemapper::sources`, die nur noch weiterreichten, was seit dem Adapter-Umbau in `freemapper-adapters-de` und `freemapper-sources` liegt, sind entfernt, ebenso der nicht mehr genutzte Rasterabruf für Sachsen-Anhalt im Programmcode. Das Bundesland ruft weiter über die Dienste ab, die sein Manifest nennt; an Karten und Abrufen ändert sich nichts.
 
