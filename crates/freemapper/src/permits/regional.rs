@@ -1,4 +1,4 @@
-//! The part of the permit notes that region adapters bring (ADR 0118): districts, green spaces,
+//! The part of the permit notes that region adapters bring (ADR 0120): districts, green spaces,
 //! public land, monuments and protected objects, from the [`PermitSource`]s of the adapters
 //! whose ground the map area touches.
 //!

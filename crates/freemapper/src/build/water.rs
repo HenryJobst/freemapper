@@ -606,7 +606,7 @@ pub fn drop_fountains_in_osm_basins(
     ) else {
         return objects;
     };
-    let tolerance_m = AREA_DEDUP_TOLERANCE_MM * f64::from(georef.scale_denominator) / 1000.0;
+    let tolerance_m = AREA_DEDUP_TOLERANCE_MM.metres(georef.scale_denominator);
     let rings: Vec<(usize, Polygon<f64>)> = basins
         .iter()
         .enumerate()

@@ -1,4 +1,4 @@
-//! Sources of the permit notes a region adapter brings (ADR 0118): services of a state that say
+//! Sources of the permit notes a region adapter brings (ADR 0120): services of a state that say
 //! more about a map area than the national sources do, such as the Bezirk of a city state, its
 //! green spaces, the land the state owns, the monuments and the protected objects.
 //!

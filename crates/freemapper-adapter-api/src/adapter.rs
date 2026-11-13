@@ -64,7 +64,7 @@ pub trait RegionAdapter: Send + Sync {
         &[]
     }
 
-    /// The services of the region that give findings for the permit notes (ADR 0118); empty
+    /// The services of the region that give findings for the permit notes (ADR 0120); empty
     /// for most. The engine asks them only for permit notes of a map area that touches the
     /// region, behind [`Self::policy`].
     fn permit_sources(&self) -> &[Box<dyn PermitSource>] {

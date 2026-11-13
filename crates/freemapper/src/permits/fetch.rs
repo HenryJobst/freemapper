@@ -3,7 +3,7 @@
 //! was fetched is stored in the project (`data/permits/`) and read back from there, so a later
 //! offline run gives the same notes.
 //!
-//! The sources of a region adapter (ADR 0118) are asked only when the map area lies on the
+//! The sources of a region adapter (ADR 0120) are asked only when the map area lies on the
 //! adapter's ground, and through [`crate::adapters::asking`], so the adapter's own hosts hold
 //! for them and the policy of the national sources does not.
 
@@ -856,7 +856,7 @@ mod tests {
         assert_eq!(offline.osm, online.osm);
     }
 
-    // The sources of the region adapters (ADR 0118).
+    // The sources of the region adapters (ADR 0120).
 
     use crate::adapters::registry;
     use crate::permits::regional::RegionalInput;

@@ -25,6 +25,7 @@ pub mod points;
 pub mod source_block;
 pub mod stairs;
 pub mod state;
+pub mod symbol_measures;
 pub mod tagged;
 pub mod ticks;
 pub mod vegetation;

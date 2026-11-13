@@ -11,12 +11,15 @@ use geo_types::{Coord, LineString, MultiPolygon, Polygon};
 use crate::build::water::outside_water;
 use crate::crs::ProjectedPoint;
 use crate::georef::Georeferencing;
+use crate::measure::PaperMm;
 use crate::omap::{MapCoord, MapObject, MapObjectKind, SymbolSet, closed_ring};
 
 /// The contour and the index contour.
 pub const CONTOUR_CODES: [&str; 2] = ["101", "102"];
 /// The magnetic north line.
 pub const NORTH_LINE_CODES: [&str; 1] = ["601"];
+/// Stubs of a cut line shorter than this on paper are noise.
+pub const MIN_PIECE_MM: PaperMm = PaperMm(1.0);
 
 /// Cuts the lines among `objects` drawn with one of the symbols `codes` at `ways` (footprints
 /// in the map's CRS). Pieces shorter than `min_piece_m` ground metres are dropped.

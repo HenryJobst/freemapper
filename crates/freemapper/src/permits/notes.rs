@@ -93,7 +93,7 @@ pub struct Inputs {
     pub protected: SourceInput<ProtectedArea>,
     pub osm: SourceInput<OsmFinding>,
     /// The sources of the region adapters whose ground the map area touches, adapter by
-    /// adapter in the order of the registry (ADR 0118).
+    /// adapter in the order of the registry (ADR 0120).
     pub regional: Vec<RegionalInput>,
 }
 
@@ -117,7 +117,7 @@ pub struct PermitNotes {
     pub hints: Vec<Hint>,
     /// `vg250`, `bfn`, `osm`, in this order.
     pub sources: Vec<SourceStatus>,
-    /// What the region adapters brought, one entry per adapter (ADR 0118). Missing in notes
+    /// What the region adapters brought, one entry per adapter (ADR 0120). Missing in notes
     /// written before it existed and in notes of a map area no adapter brings sources for.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub regional: Vec<RegionalNotes>,
@@ -1738,7 +1738,7 @@ mod tests {
         assert!(!json.contains("coordinates") && !json.contains("geometry"));
     }
 
-    // The regional part (ADR 0118).
+    // The regional part (ADR 0120).
 
     use crate::permits::regional::{RegionalSource, Words};
     use freemapper_adapter_api::permits::{

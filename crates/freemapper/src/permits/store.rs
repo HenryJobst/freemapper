@@ -9,7 +9,7 @@
 //! box the sources were asked for and the key of the map area polygon). A source that was not
 //! read has no files.
 //!
-//! The sources of the region adapters (ADR 0118) lie in a folder per adapter,
+//! The sources of the region adapters (ADR 0120) lie in a folder per adapter,
 //! `<adapter id>/<source key>-<layer key>.geojson`, the features as the service gave them;
 //! `sources.json` records their state in `regional`, which older records do not have.
 

@@ -1,4 +1,4 @@
-# 0118. Permit sources of region adapters
+# 0120. Permit sources of region adapters
 
 Date: 2026-11-13
 Status: Accepted

@@ -52,13 +52,12 @@ pub fn cut_firm_paths(
     if !objects.iter().any(is_firm) {
         return objects;
     }
-    let metres_per_mm = f64::from(georef.scale_denominator) / 1000.0;
-    let min_length = MIN_LINE_MM * metres_per_mm;
+    let min_length = MIN_LINE_MM.metres(georef.scale_denominator);
     let paving = paving_union(
         &paved.map,
         georef,
         symbol_set,
-        AREA_DEDUP_TOLERANCE_MM * metres_per_mm,
+        AREA_DEDUP_TOLERANCE_MM.metres(georef.scale_denominator),
     );
     let mut kept = Vec::with_capacity(objects.len());
     for object in objects {

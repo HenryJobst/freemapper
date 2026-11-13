@@ -352,7 +352,7 @@ pub struct StateAdapter {
     extras: Vec<Box<dyn ExtraSet>>,
     /// The raster templates the state fetches with code (Berlin's K5).
     templates: Vec<Box<dyn RasterTemplate>>,
-    /// The sources of the permit notes the state brings (Berlin's Geoportal, ADR 0118).
+    /// The sources of the permit notes the state brings (Berlin's Geoportal, ADR 0120).
     permits: Vec<Box<dyn PermitSource>>,
 }
 
