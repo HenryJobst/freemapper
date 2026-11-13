@@ -26,6 +26,9 @@ pub const BUILDINGS_SERVICE: &str = "https://gdi.berlin.de/services/wfs/alkis_ge
 pub const BUILDINGS_TYPE: &str = "alkis_gebaeude:gebaeude";
 pub const LAND_USE_SERVICE: &str = "https://gdi.berlin.de/services/wfs/alkis";
 pub const LAND_USE_TYPE: &str = "alkis:tatsaechlichenutzungflaechen";
+/// The tree registers (street trees, park trees): the stored files. They have a credit line of
+/// their own.
+pub const TREE_REGISTERS: [&str; 2] = ["strassenbaeume", "anlagenbaeume"];
 /// The lighting cadastre and the fountain registers: the stored file and the name in the
 /// credit line, in the order of the line.
 pub const BERLIN_REGISTERS: [(&str, &str); 3] = [
@@ -33,6 +36,12 @@ pub const BERLIN_REGISTERS: [(&str, &str); 3] = [
     ("zierbrunnen", "Zierbrunnen"),
     ("trinkwasserbrunnen", "Trinkwasserbrunnen"),
 ];
+
+/// Whether the layer stored as `file` is a register: one of [`TREE_REGISTERS`] or of
+/// [`BERLIN_REGISTERS`]. A register knows its objects better than the cadastre does.
+pub fn is_register(file: &str) -> bool {
+    TREE_REGISTERS.contains(&file) || BERLIN_REGISTERS.iter().any(|&(name, _)| name == file)
+}
 /// Features per page; a 1 km tile in the city centre holds about 1100 buildings.
 const PAGE_COUNT: u32 = 5000;
 /// Property that holds the WFS type of a stored feature (not `layer`: a service may have one).
@@ -792,6 +801,34 @@ mod tests {
 
     use super::test_support::*;
     use super::*;
+
+    /// Which layers are registers is said here once: the two tree registers and the three of
+    /// the credit line. Each is a layer of the table, and no other layer is a register.
+    #[test]
+    fn the_registers_are_five_layers_of_the_table() {
+        let registers: Vec<&str> = EXTRA_LAYERS
+            .iter()
+            .map(|layer| layer.file)
+            .filter(|file| is_register(file))
+            .collect();
+        assert_eq!(
+            registers,
+            [
+                "strassenbaeume",
+                "anlagenbaeume",
+                "beleuchtung",
+                "zierbrunnen",
+                "trinkwasserbrunnen"
+            ]
+        );
+        let named: Vec<&str> = TREE_REGISTERS
+            .iter()
+            .copied()
+            .chain(BERLIN_REGISTERS.iter().map(|&(file, _)| file))
+            .collect();
+        assert_eq!(named, registers);
+        assert!(!is_register("sb-moebel") && !is_register("bauwerke-linien"));
+    }
     use crate::fetch::test_support::MapFetcher;
     use crate::project::MapKind;
     use crate::sources::alkis::{parse_buildings, parse_land_use};

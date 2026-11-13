@@ -8,6 +8,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Geändert
 
+- Intern: Welche Berliner Ebenen Register sind, steht nur noch an einer Stelle, im Berliner Adapter. Die Rangfolge bei doppelten Objekten, die Zeichenregeln für Bäume und die Quellenangabe lesen von dort statt aus eigenen Listen. An Karten und Quellenangaben ändert sich nichts (Nachtrag in ADR 0114).
 - Intern: Ein Baumkataster wird mit den Host-Regeln des Adapters abgefragt, der es mitbringt, und gilt für dessen Gebiet. Bisher suchte der Kern den Adapter über die Kennung, die in der Zeile des Katasters steht. Hätte die Zeile einen anderen Adapter der Registry genannt, wäre das Kataster für dessen Gebiet und unter dessen Host-Regeln abgefragt worden; mit einer unbekannten Kennung fiel es weg. Kein heutiger Adapter war betroffen: Ein Manifest trägt immer die eigene Kennung ein (Nachtrag in ADR 0114).
 
 ## [0.16.0] - 2026-11-13

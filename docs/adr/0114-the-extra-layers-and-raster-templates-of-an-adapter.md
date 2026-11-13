@@ -100,3 +100,11 @@ fills the record of what was fetched. The point above names the wrong risk: with
 the dataset was left out and nothing was asked. A row that named another adapter of the registry would have been
 asked for that adapter's ground and under its hosts. No adapter of today was affected: a manifest writes its own
 id into the row.
+
+Update 2026-11-13: which layers are registers is said once, in the Berlin module of the adapter crate:
+`TREE_REGISTERS` for the two tree registers, `BERLIN_REGISTERS` for the three of the credit line, and
+`is_register` for both. The table of five in `build/dedup.rs`, the pair in `build/berlin.rs` and the pair in the
+credit are gone. The open question stays open: `rank` in `build/dedup.rs` now calls
+`freemapper_adapters_de::berlin::is_register`, so the engine names the Berlin adapter there, as it did by its own
+table before, until the rank is a datum of the layer. `drawn_registers` in `project.rs` still reads
+`BERLIN_REGISTERS` with the source prefix `geoportal-berlin/`.

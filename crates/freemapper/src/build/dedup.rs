@@ -18,20 +18,10 @@ pub enum Rank {
     Survey,
     /// The cadastre: `alkis`, `alkis-nas/…` and the other Geoportal Berlin layers.
     Alkis,
-    /// The registers: the Berlin tree, lighting and fountain registers ([`BERLIN_REGISTERS`]) and
-    /// the tree cadastres (`trees/…`).
+    /// The registers: the Berlin tree, lighting and fountain registers (those the Berlin adapter
+    /// names, `freemapper_adapters_de::berlin::is_register`) and the tree cadastres (`trees/…`).
     Register,
 }
-
-/// The Geoportal Berlin layers that are registers: the tree cadastre, the lighting cadastre and
-/// the fountain registers.
-const BERLIN_REGISTERS: [&str; 5] = [
-    "strassenbaeume",
-    "anlagenbaeume",
-    "beleuchtung",
-    "zierbrunnen",
-    "trinkwasserbrunnen",
-];
 
 /// The rank of an object by its `freemapper:source`; `None` for an object without one or from
 /// a source that takes no part in the duplicates (land use, contours).
@@ -53,7 +43,7 @@ pub fn rank(object: &MapObject) -> Option<Rank> {
     let layer = source.strip_prefix("geoportal-berlin/")?;
     Some(if layer.starts_with("sb-") {
         Rank::Survey
-    } else if BERLIN_REGISTERS.contains(&layer) {
+    } else if freemapper_adapters_de::berlin::is_register(layer) {
         Rank::Register
     } else {
         Rank::Alkis

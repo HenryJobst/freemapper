@@ -24,7 +24,7 @@ use crate::sources::osm::{OsmFeature, OsmGeometry};
 /// Layer name of the building parts (`Durchfahrt im Gebäude` …) in `berlin:layer`.
 pub const BUILDING_PARTS_LAYER: &str = "building-parts";
 /// The tree cadastre layers.
-const TREE_LAYERS: [&str; 2] = ["strassenbaeume", "anlagenbaeume"];
+const TREE_LAYERS: [&str; 2] = freemapper_adapters_de::berlin::TREE_REGISTERS;
 /// The stored kerb layer of the street survey.
 const KERB_LAYER: &str = "sb-bordstein";
 /// The CRS of all Geoportal Berlin layers.
