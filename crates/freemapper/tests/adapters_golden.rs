@@ -436,7 +436,10 @@ fn generated_boxes() -> Vec<GoldenBox> {
             // since (Saarland) is no box of it.
             let legacy =
                 raster_region(&bbox).is_some_and(|region| regions::LEGACY.contains(&region));
-            legacy.then(|| GoldenBox {
+            // One box per state: the example of each state is a sprint map; the forest map of
+            // the Dammheide lies in Berlin, which has its box already.
+            let per_state = project.map_kind == MapKind::Sprint;
+            (legacy && per_state).then(|| GoldenBox {
                 name: format!("example:{name}"),
                 min_e: bbox.min_e.floor() as i64,
                 min_n: bbox.min_n.floor() as i64,
