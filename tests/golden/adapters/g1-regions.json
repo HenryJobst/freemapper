@@ -327,7 +327,7 @@
     "per_area": true,
     "crs_epsg": 25832,
     "object_id_prefix": "DESH",
-    "boundary_sha256": "3912ab131b0ef9277cbfeb2e0ad8d82ef607ee177857abdbaa15276d3f9b2482",
+    "boundary_sha256": "0c976934c9e5f13e7e70e8202f7625633745dfdc08e44bb53c5fb64f9f440955",
     "osm": [
       {
         "url": "https://download.geofabrik.de/europe/germany/schleswig-holstein-latest.osm.pbf",
@@ -522,7 +522,7 @@
     "per_area": true,
     "crs_epsg": 25832,
     "object_id_prefix": "DENI",
-    "boundary_sha256": "4c00a3c9d24118e0df29232de3276fe16c56bf061a4d1c6d460caefa3bb5ec10",
+    "boundary_sha256": "7475a6b0cc771e4896900fa0fb338b30f67a473068cec8e116cdece3066bd2cc",
     "osm": [
       {
         "url": "https://download.geofabrik.de/europe/germany/niedersachsen-latest.osm.pbf",

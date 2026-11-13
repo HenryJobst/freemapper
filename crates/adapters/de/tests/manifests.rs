@@ -186,9 +186,9 @@ fn the_recorded_hosts_are_those_of_the_traces() {
 }
 
 /// No two states share ground. The borders of neighbours were simplified apart and overlap by
-/// strips, and Lower Saxony and Schleswig-Holstein both hold the mouth of the Elbe (89 km² of
-/// water, 0.55 % of Schleswig-Holstein, the largest common area of two states). The measure of
-/// the loader must take none of that for shared ground.
+/// strips; the measure of the loader must not take those for shared ground. The mouth of the
+/// Elbe, which the cadastres of Lower Saxony and Schleswig-Holstein both hold (89 km² of water),
+/// is split between the two boundary files at the line of equal distance from the two claims.
 #[test]
 fn no_two_states_share_ground() {
     use geo::{Area, BooleanOps};
@@ -215,8 +215,8 @@ fn no_two_states_share_ground() {
             }
         }
     }
-    // Room below the hundredth the loader allows: a boundary that changes this is looked at.
-    assert!((0.005..0.007).contains(&largest), "{largest}");
+    // A tenth of the hundredth the loader allows: a boundary that changes this is looked at.
+    assert!(largest < 0.001, "{largest}");
 }
 
 /// Every built-in manifest passes the validator, its boundary files are valid geometries, its
