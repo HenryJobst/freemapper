@@ -4,6 +4,7 @@
 //!
 //! Terms follow `docs/glossary.md`.
 
+pub mod aaa;
 pub mod alkis_source;
 pub mod bfn;
 pub mod dates;

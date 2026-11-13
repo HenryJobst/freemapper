@@ -53,6 +53,7 @@ pub enum State {
     RheinlandPfalz,
     Saarland,
     BadenWuerttemberg,
+    Bremen,
 }
 
 /// Who serves the rasters of a state (orthophoto, terrain and surface models).
@@ -82,6 +83,8 @@ pub enum Agency {
     Lvgl,
     /// LGL, Baden-Württemberg (EPSG:25832).
     LglBw,
+    /// Landesamt GeoInformation Bremen (EPSG:25832).
+    GeoBremen,
 }
 
 impl Agency {
@@ -100,6 +103,7 @@ impl Agency {
             Self::LvermGeoRp => "lvermgeorp",
             Self::Lvgl => "lvgl",
             Self::LglBw => "lglbw",
+            Self::GeoBremen => "geobremen",
         }
     }
 
@@ -118,6 +122,7 @@ impl Agency {
             Self::LvermGeoRp => "lvermgeo-rp-dgm1",
             Self::Lvgl => "lvgl-dgm1",
             Self::LglBw => "lgl-bw-dgm1",
+            Self::GeoBremen => "geobremen-dgm1",
         }
     }
 
@@ -136,13 +141,14 @@ impl Agency {
                 | Self::LvermGeoRp
                 | Self::Lvgl
                 | Self::LglBw
+                | Self::GeoBremen
         )
     }
 }
 
 impl State {
     /// All states, in the order they are listed and queried.
-    pub const ALL: [Self; 13] = [
+    pub const ALL: [Self; 14] = [
         Self::Brandenburg,
         Self::Berlin,
         Self::Saxony,
@@ -156,6 +162,7 @@ impl State {
         Self::RheinlandPfalz,
         Self::Saarland,
         Self::BadenWuerttemberg,
+        Self::Bremen,
     ];
 
     /// The id of the adapter of the state: its name in the project file.
@@ -174,6 +181,7 @@ impl State {
             Self::RheinlandPfalz => "rheinlandpfalz",
             Self::Saarland => "saarland",
             Self::BadenWuerttemberg => "badenwuerttemberg",
+            Self::Bremen => "bremen",
         }
     }
 
@@ -193,6 +201,7 @@ impl State {
             Self::RheinlandPfalz => "DERP",
             Self::Saarland => "DESL",
             Self::BadenWuerttemberg => "DEBW",
+            Self::Bremen => "DEHB",
         }
     }
 
@@ -210,6 +219,7 @@ impl State {
             Self::RheinlandPfalz => Agency::LvermGeoRp,
             Self::Saarland => Agency::Lvgl,
             Self::BadenWuerttemberg => Agency::LglBw,
+            Self::Bremen => Agency::GeoBremen,
         }
     }
 
@@ -224,7 +234,8 @@ impl State {
             | Self::Niedersachsen
             | Self::RheinlandPfalz
             | Self::Saarland
-            | Self::BadenWuerttemberg => Crs::Utm32,
+            | Self::BadenWuerttemberg
+            | Self::Bremen => Crs::Utm32,
             _ => Crs::Utm33,
         }
     }
@@ -233,7 +244,7 @@ impl State {
 /// The manifests of the states, in the order of [`State::ALL`]. A manifest holds what a state
 /// declares: who it is, its OSM extracts, its ALKIS service, its credit, its preview and which
 /// code fetches its rasters.
-const MANIFESTS: [&str; 13] = [
+const MANIFESTS: [&str; 14] = [
     include_str!("../../manifests/brandenburg/manifest.toml"),
     include_str!("../../manifests/berlin/manifest.toml"),
     include_str!("../../manifests/saxony/manifest.toml"),
@@ -247,6 +258,7 @@ const MANIFESTS: [&str; 13] = [
     include_str!("../../manifests/rheinlandpfalz/manifest.toml"),
     include_str!("../../manifests/saarland/manifest.toml"),
     include_str!("../../manifests/badenwuerttemberg/manifest.toml"),
+    include_str!("../../manifests/bremen/manifest.toml"),
 ];
 
 /// The boundaries of the five OSM extracts of North Rhine-Westphalia: Geofabrik's
@@ -345,11 +357,12 @@ pub fn backend_name(agency: Agency) -> Option<&'static str> {
         Agency::LvermGeoRp => Some("lvermgeo-rp"),
         Agency::Lvgl => Some("lvgl"),
         Agency::LglBw => Some("lgl-bw"),
+        Agency::GeoBremen => Some("geobremen"),
     }
 }
 
 /// The agencies whose rasters code of this crate fetches, in the order of the states.
-const AGENCIES: [Agency; 12] = [
+const AGENCIES: [Agency; 13] = [
     Agency::Lgb,
     Agency::GeoSn,
     Agency::LvermGeo,
@@ -362,6 +375,7 @@ const AGENCIES: [Agency; 12] = [
     Agency::LvermGeoRp,
     Agency::Lvgl,
     Agency::LglBw,
+    Agency::GeoBremen,
 ];
 
 /// Adds the raster backends of this crate to `registry`, each under the name the manifests
@@ -380,14 +394,14 @@ pub fn register_backends(registry: &mut Registry) -> Result<(), DuplicateBackend
 /// From the manifest come the identity, the OSM extracts and their boundaries, the ALKIS
 /// service, the full ALKIS and the tree cadastres, the raster backend (by name, or the services
 /// the manifest declares) and the credit of the states whose credit is one line with a year.
-/// Code are the ALKIS of Berlin and of Baden-Württemberg, the credits of Brandenburg, Berlin and Saxony (they depend on
+/// Code are the ALKIS of Berlin, of Baden-Württemberg and of Bremen, the credits of Brandenburg, Berlin and Saxony (they depend on
 /// tiles, on the neighbour and on the layers that drew objects) and the download estimate.
 /// Whatever is asked for the state, by its manifest or by its code, stays on the hosts the
 /// manifest declares.
 pub struct StateAdapter {
     state: State,
     manifest: ManifestAdapter,
-    /// The ALKIS source where the manifest declares none (Berlin, Baden-Württemberg).
+    /// The ALKIS source where the manifest declares none (Berlin, Baden-Württemberg, Bremen).
     alkis: Option<Box<dyn AlkisSource>>,
     /// The sets of extra layers the state fetches with code (Berlin's registers and surveys).
     extras: Vec<Box<dyn ExtraSet>>,
@@ -609,7 +623,7 @@ mod tests {
                 services.push((&one.wms, &one.layer));
             }
         }
-        assert_eq!(services.len(), 12);
+        assert_eq!(services.len(), 13);
         assert_eq!(previews[0], previews[1]);
     }
 
@@ -735,11 +749,12 @@ mod tests {
         }
         let mut registry = Registry::new();
         register(&mut registry).unwrap();
-        assert_eq!(registry.len(), 13);
+        assert_eq!(registry.len(), 14);
         assert_eq!(
             registry.backend_names().collect::<Vec<_>>(),
             [
                 "geobasis-nrw",
+                "geobremen",
                 "geosn",
                 "hvbg",
                 "laiv-mv",

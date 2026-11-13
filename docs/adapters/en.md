@@ -34,7 +34,10 @@ Go through the questions in order.
    - No (another schema, another country's cadastre, files to download): the region needs a **code adapter**
      in Rust that turns its data into that schema. Berlin is one. Baden-Württemberg has a manifest and a
      backend like the others, and code for the cadastre alone, because its WFS serves views with names of
-     their own. Open an issue before you start; this is more than a manifest.
+     their own. Bremen serves the full ALKIS only (the AAA schema of the AdV, one feature type per land use
+     class, codes in place of texts); there is a ready-made source for that,
+     `freemapper_sources::aaa::AaaAlkis`, which any code adapter for such a service can use. Open an issue
+     before you start; this is more than a manifest.
 2. Does the orthophoto come from a WMS or a WCS, and does each height model come from a WCS 2.0 that answers a
    GeoTIFF with heights at 1 m?
    - Yes: **manifest only**. Saxony-Anhalt is the example, and the tutorial rebuilds it. Such an adapter works
