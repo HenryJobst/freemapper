@@ -39,6 +39,7 @@ use crate::build::berlin::{
 };
 use crate::build::dedup::add_also;
 use crate::build::state::{NAS_SOURCE, nas_feature_tags};
+use crate::build::symbol_measures::LINE_GAP_MM;
 use crate::crs::{Crs, ProjectedPoint};
 use crate::derive::ndsm::bilinear;
 use crate::georef::{GeorefError, Georeferencing};
@@ -64,7 +65,7 @@ const WIDEST_FOOTPRINT_MM: SymbolMm = SymbolMm(1.0);
 const WIDE_STAIR_FACTOR: f64 = 3.0;
 /// Paper gap (mm) kept between the ticks of two neighbouring lines of a wide stair: the
 /// minimum gap between two line symbols of one colour (ISSprOM 3.2, 0.15 mm).
-const WIDE_LINE_GAP_MM: SymbolMm = SymbolMm(0.15);
+const WIDE_LINE_GAP_MM: SymbolMm = LINE_GAP_MM;
 /// At most this many parallel lines for one wide stair; wider ones get them farther apart.
 const MAX_WIDE_LINES: usize = 100;
 /// A flat stair whose side lies this close to a building or monument faces it.

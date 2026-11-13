@@ -12,12 +12,13 @@ use geo::Simplify as _;
 use geo_types::LineString;
 use serde_json::Value;
 
+use crate::build::symbol_measures::{LINE_GAP_MM, WALL_MM};
 use crate::measure::{SymbolMm, SymbolScale};
 use crate::project::MapKind;
 
 /// Two wall lines closer than this on paper (mm) are read as one: the 515 line width (0.4 mm)
 /// plus the gap between lines of one colour (§3.3, 0.15 mm).
-pub const WALL_PAIR_MM: SymbolMm = SymbolMm(0.55);
+pub const WALL_PAIR_MM: SymbolMm = SymbolMm(WALL_MM.0 + LINE_GAP_MM.0);
 /// Two edges pair only where they are nearly parallel: at most 20° apart (the cosine).
 const PARALLEL_COS: f64 = 0.9397;
 /// The edges are walked in steps of at most this many ground metres ...

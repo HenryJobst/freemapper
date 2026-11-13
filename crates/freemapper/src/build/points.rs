@@ -17,45 +17,16 @@ use crate::build::buildings::footprint_coords;
 use crate::build::control_sites::{CONTROL_KEY, drop_ambiguous as drop_ambiguous_control_sites};
 use crate::build::dedup::{Rank, rank};
 use crate::build::geometry::object_polygon;
+use crate::build::symbol_measures::{LINE_GAP_MM, POINT_SIZES_MM, point_size_mm};
 use crate::crs::{BoundingBox, ProjectedPoint};
 use crate::georef::{GeorefError, Georeferencing};
 use crate::measure::{PaperMm, SymbolMm, SymbolMm2, SymbolScale, map_units_per_metre};
 use crate::omap::{MapCoord, MapObject, MapObjectKind, SymbolSet, closed_ring};
 use crate::project::MapKind;
 
-/// The point symbols the build emits and their size on paper at ISSprOM 1:4000 (mm): the larger
-/// of the norm's outer measure and the drawn extent (the larger side of its box) of the bundled
-/// symbol. `true`: a native
-/// school symbol, whose size is already the school size and is not enlarged.
-pub const POINT_SIZES_MM: [(&str, f64, bool); 13] = [
-    // Small fountain or well: OM 0.9.
-    ("311", 0.90, false),
-    // Spring: OM 1.2 × 0.6, the longer side.
-    ("312", 1.20, false),
-    // Prominent water feature: OM 1.2, drawn 1.45.
-    ("313", 1.45, false),
-    // Hydrant (school set).
-    ("321", 1.30, true),
-    // Prominent large tree: the white mask of the 2022 errata (1.4), the bundled set draws 1.2.
-    ("417", 1.40, false),
-    // Prominent bush or small tree.
-    ("418", 0.80, false),
-    // High tower: OM 2.1, drawn 2.35.
-    ("524", 2.35, false),
-    // Small tower: OM 1.5, drawn 1.72.
-    ("525", 1.72, false),
-    // Cairn, memorial or small monument: OM 1.0.
-    ("526", 1.00, false),
-    // Prominent man-made feature – x: OM 1.2, drawn 1.264.
-    ("531", 1.27, false),
-    // Table, pole or small pylon, lamppost (school set).
-    ("542", 1.72, true),
-    ("544", 1.10, true),
-    ("545", 1.40, true),
-];
 /// The gap between the outer edges of two point symbols on paper (mm), whatever their colours.
 /// The norm names no gap between point symbols; this is its gap between line symbols (§3.3).
-pub const POINT_GAP_MM: SymbolMm = SymbolMm(0.15);
+pub const POINT_GAP_MM: SymbolMm = LINE_GAP_MM;
 /// The crown diameter (ground metres) of a tree whose source gives none: the Berlin rule draws a
 /// crown of 10 m or more as 417 (ADR 0051).
 pub const DEFAULT_CROWN_M: [(&str, f64); 2] = [("417", 12.0), ("418", 5.0)];
@@ -81,17 +52,6 @@ pub const GROUP_MIN_TREES: usize = 3;
 /// A 501.3 takes in at least this many trees (a square planted three by three): the few large
 /// street trees whose crowns meet over a pavement stay points.
 const PAVED_MIN_TREES: usize = 9;
-
-/// The size of the point symbol `code` on paper (mm) for the map kind: [`POINT_SIZES_MM`]
-/// enlarged by [`MapKind::symbol_enlargement`] (§3.1), the native school symbols as they are.
-pub fn point_size_mm(code: &str, scale: SymbolScale) -> Option<PaperMm> {
-    let &(_, size, native) = POINT_SIZES_MM.iter().find(|(c, _, _)| *c == code)?;
-    Some(if native {
-        PaperMm(size)
-    } else {
-        SymbolMm(size).on_paper(scale)
-    })
-}
 
 /// The kept objects of [`generalize_points`].
 #[derive(Debug, Clone, Default, PartialEq)]

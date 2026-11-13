@@ -13,7 +13,7 @@ use std::collections::HashMap;
 use geo_types::Polygon;
 
 use crate::build::dedup::{Rank, add_also, rank};
-use crate::build::points::POINT_GAP_MM;
+use crate::build::symbol_measures::{FENCE_MM, HEDGE_MM, LINE_GAP_MM, RETAINED_WALL_MM, WALL_MM};
 use crate::crs::ProjectedPoint;
 use crate::georef::{GeorefError, Georeferencing};
 use crate::measure::{SymbolMm, SymbolScale, map_units_per_metre};
@@ -28,10 +28,10 @@ use crate::project::MapKind;
 /// vegetation, and what must not be crossed beats what may be crossed: a runner never gets an
 /// opening that a more trusted line closes.
 pub const BARRIER_SYMBOLS: [(&str, SymbolMm, bool); 4] = [
-    ("515", SymbolMm(0.40), true),
-    ("518", SymbolMm(0.40), true),
-    ("410.1", SymbolMm(0.40), false),
-    ("513.2", SymbolMm(0.60), true),
+    ("515", WALL_MM, true),
+    ("518", FENCE_MM, true),
+    ("410.1", HEDGE_MM, false),
+    ("513.2", RETAINED_WALL_MM, true),
 ];
 /// Lines of two sources this close (ground metres) are one object whatever their symbols: the
 /// tolerance of the same-symbol duplicates (`build/dedup.rs`).
@@ -246,7 +246,7 @@ pub fn resolve_barrier_overlaps(
 
     // The widest reach of a pair: two ranks, the widest symbols.
     let widest = SymbolMm(BARRIER_SYMBOLS.iter().map(|s| s.1.0).fold(0.0, f64::max));
-    let reach = ((POINT_GAP_MM + widest).0 * paper).max(SOURCE_TOLERANCE_M * metre);
+    let reach = ((LINE_GAP_MM + widest).0 * paper).max(SOURCE_TOLERANCE_M * metre);
     let mut segments = Segments::new(reach.max(BUILDING_EDGE_M * metre));
     for footprint in footprints {
         for ring in std::iter::once(footprint.exterior()).chain(footprint.interiors()) {
@@ -281,7 +281,7 @@ pub fn resolve_barrier_overlaps(
         let limit = |other: &Barrier| -> Option<f64> {
             // Lines of one colour keep the gap of §3.3; lines of two colours must not overlap.
             let gap = if b.black == other.black {
-                POINT_GAP_MM
+                LINE_GAP_MM
             } else {
                 SymbolMm(0.0)
             };

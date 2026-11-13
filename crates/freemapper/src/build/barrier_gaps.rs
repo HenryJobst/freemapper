@@ -10,7 +10,11 @@
 //! `freemapper:generalized`. A moved point carries `freemapper:moved`. It runs after the ticks are turned
 //! (`build/ticks.rs`), because the tick side needs more room.
 
-use crate::build::points::{HIDDEN_KEY, POINT_GAP_MM, POINT_SIZES_MM, point_size_mm};
+use crate::build::points::{HIDDEN_KEY, POINT_GAP_MM};
+use crate::build::symbol_measures::{
+    FENCE_MM, FENCE_TICK_MM, POINT_SIZES_MM, RETAINED_WALL_LINE_MM, RETAINED_WALL_TICK_MM, WALL_MM,
+    point_size_mm,
+};
 use crate::measure::{SymbolMm, SymbolScale};
 use crate::omap::{MapObject, MapObjectKind, SymbolSet};
 use crate::project::MapKind;
@@ -19,13 +23,14 @@ use crate::project::MapKind;
 /// to the left and to the right of the way they run. The ticks of the fence and of the retained
 /// wall (`build/ticks.rs`) sit on the right.
 const LINES: [(&str, SymbolMm, SymbolMm); 3] = [
-    // Impassable wall: 0.4 mm wide.
-    ("515", SymbolMm(0.20), SymbolMm(0.20)),
-    // Impassable fence: 0.4 mm wide, ticks 0.65 mm.
-    ("518", SymbolMm(0.20), SymbolMm(0.65)),
-    // Passable retained wall: 0.21 mm wide, ticks 0.3 mm.
-    ("513.2", SymbolMm(0.105), SymbolMm(0.30)),
+    ("515", HALF_WALL_MM, HALF_WALL_MM),
+    ("518", HALF_FENCE_MM, FENCE_TICK_MM),
+    ("513.2", HALF_RETAINED_WALL_MM, RETAINED_WALL_TICK_MM),
 ];
+
+const HALF_WALL_MM: SymbolMm = SymbolMm(WALL_MM.0 / 2.0);
+const HALF_FENCE_MM: SymbolMm = SymbolMm(FENCE_MM.0 / 2.0);
+const HALF_RETAINED_WALL_MM: SymbolMm = SymbolMm(RETAINED_WALL_LINE_MM.0 / 2.0);
 
 type P = (f64, f64);
 
