@@ -35,8 +35,10 @@ Gehen Sie die Fragen der Reihe nach durch.
    vereinfacht“ (`oid`, `gebnutzbez`, `funktion` bei Gebäuden; `nutzart`, `bez` bei der Nutzung)?
    - Ja: Das Manifest deklariert es. Weiter mit 2.
    - Nein (ein anderes Schema, das Kataster eines anderen Landes, Dateien zum Herunterladen): Die Region
-     braucht einen **Code-Adapter** in Rust, der ihre Daten in dieses Schema bringt. Berlin ist einer. Legen
-     Sie ein Issue an, bevor Sie anfangen; das ist mehr als ein Manifest.
+     braucht einen **Code-Adapter** in Rust, der ihre Daten in dieses Schema bringt. Berlin ist einer.
+     Baden-Württemberg hat ein Manifest und ein Backend wie die anderen und nur für das Kataster Code, weil
+     sein WFS Sichten mit eigenen Namen liefert. Legen Sie ein Issue an, bevor Sie anfangen; das ist mehr
+     als ein Manifest.
 2. Kommt das Luftbild aus einem WMS oder WCS, und kommt jedes Höhenmodell aus einem WCS 2.0, der ein GeoTIFF
    mit Höhen im 1-m-Raster liefert?
    - Ja: **nur Manifest**. Sachsen-Anhalt ist das Beispiel, und das Tutorial baut es nach. Ein solcher Adapter

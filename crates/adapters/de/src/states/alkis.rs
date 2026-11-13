@@ -1,6 +1,6 @@
 //! The ALKIS services of the states: which service serves which state, in which CRS, with which
 //! fallback. The readers are those of `freemapper-sources`; Berlin keeps its own (Geoportal
-//! Berlin WFS).
+//! Berlin WFS), and so does Baden-Württemberg (the views of the LGL).
 
 use std::borrow::Cow;
 
@@ -12,7 +12,7 @@ use freemapper_sources::alkis_source::{Normaliser, OgcApiAlkis, WfsAlkis};
 use crate::crs::Crs;
 use crate::sources::alkis_wfs;
 use crate::states::State;
-use crate::{berlin, lgv};
+use crate::{berlin, lgl_bw, lgv};
 
 /// LGB's OGC API, buildings and structures (`gebaeude_bauwerk`).
 pub const BUILDINGS_ENDPOINT: &str =
@@ -62,6 +62,8 @@ pub fn source(state: State) -> Box<dyn AlkisSource> {
         State::Niedersachsen => wfs(alkis_wfs::LGLN),
         State::RheinlandPfalz => wfs(alkis_wfs::LVERMGEO_RP),
         State::Saarland => wfs(crate::lvgl::ALKIS),
+        // The views of the LGL are not the simplified schema; the source turns them into it.
+        State::BadenWuerttemberg => Box::new(lgl_bw::LglBwAlkis),
     }
 }
 
@@ -134,6 +136,7 @@ mod tests {
             State::Niedersachsen => wfs(alkis_wfs::LGLN),
             State::RheinlandPfalz => wfs(alkis_wfs::LVERMGEO_RP),
             State::Saarland => wfs(crate::lvgl::ALKIS),
+            State::BadenWuerttemberg => wfs(lgl_bw::ALKIS),
         };
         // Kassel, a place both UTM zones can hold.
         let area = FetchArea::new(

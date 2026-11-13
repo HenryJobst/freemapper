@@ -6,16 +6,15 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
-<<<<<<< HEAD
 ### Hinzugefügt
 
+- Baden-Württemberg (ADR 0119): Karten in Baden-Württemberg, in UTM-Zone 32. Das Luftbild kommt aus dem Kartendienst des LGL, mit dem Flugdatum der Kachel in der Gebietsmitte. Das Geländemodell (DGM1) und das Oberflächenmodell liest freemapper kachelweise aus den 2-km-Archiven des LGL, je Kachel etwa 3,5 MB. Als Oberfläche dient das nDOM1 aus den Luftbildern eines Sommerflugs: Es zeigt die Bäume belaubt und stammt meist vom selben Flug wie das Luftbild oder vom Flug davor. Gebäude und Nutzungsflächen kommen aus dem ALKIS-Dienst des LGL. Er kennt nur ganze Gebäude, also keine Überdachungen, und Straßenflächen schließen das Grün daneben ein. OSM kommt aus den Auszügen der vier Regierungsbezirke (130 bis 215 MB). Quellenvermerk: `Datenquelle: LGL, www.lgl-bw.de, dl-de/by-2-0 (Daten geändert, <Jahr>)`. Beispiel: Altstadt und Schloss Heidelberg.
 - Hinweise zu Genehmigungen in Berlin (ADR 0120): Liegt das Kartengebiet in Berlin, nennen `permits.md` und `permits.json` zusätzlich die Bezirke mit ihrem Anteil, die Grünanlagen mit Bezirk und Widmung, die Zahl der öffentlichen Spielplätze, den Anteil des Bundeslandes Berlin und des Bundes am Gebiet (eine Zeile je Eigentümer; andere Eigentümer nennt freemapper nicht, sie teilen sich die Zeile „Andere öffentliche Eigentümer“), die Denkmale je Art mit bis zu 20 Links in die Denkmaldatenbank sowie Naturdenkmale, geschützte Landschaftsbestandteile und Flächen mit besonderer Regelung. Die Hinweise nennen dann für jeden Bezirk, der mehr als den Rand des Gebiets berührt, das Ordnungsamt, das Straßen- und Grünflächenamt, die untere Denkmalschutzbehörde und die untere Naturschutzbehörde des Bezirksamts. Die Daten kommen aus fünf Diensten des Geoportals Berlin (dl-de/zero-2-0, Lizenztext wörtlich in der Quellentabelle). freemapper fragt sie nur, wenn Hinweise gewünscht sind und das Gebiet in Berlin liegt, und nur über die Hosts von Berlins Adapter. Ein Dienst, der ausfällt, nimmt nur seinen Abschnitt mit. Ein Regionsadapter kann solche Quellen jetzt mitbringen (`RegionAdapter::permit_sources`). `permits.json` bleibt bei Schema 1, ältere Dateien und `data/permits/sources.json` lesen sich weiter. Beschrieben im Handbuch, Kapitel 12.
-=======
+
 ### Geändert
 
 - Schul- und Waldkarten: Die Mindestgrößen der Norm wachsen jetzt mit den Symbolen (ADR 0118). Auf der Schulkarte (Symbole 125 %) ist das kleinste Gebäude oder Dach 0,625 mm statt 0,5 mm groß, auf der Waldkarte 1:10 000 (150 %) 0,75 mm; ebenso die kürzeste Linie nach ISSprOM 4.5, die kleinsten Flächen von Sperrgebiet, Pflaster, Grün, offenem Land und Gewässern, die kürzeste Höhenlinie und der kleinste Höhenlinienring, Geländeformen und die kleinste Vegetationsfläche. Solche Karten zeigen damit etwas weniger Kleinteiliges. Sprintkarten (100 %) bleiben gleich. Höhenlinien, Geländeformen und Vegetation eines bestehenden Projekts ändern sich erst, wenn `derive` neu läuft.
 - Intern: Maße auf dem Papier haben jetzt einen Typ (ADR 0118). Ein Papiermaß (`PaperMm`) gilt auf dem gedruckten Blatt, ein Symbolmaß (`SymbolMm`) wächst mit der Symbolvergrößerung der Kartenart und lässt sich ohne sie nicht umrechnen. Die rund 45 von Hand geschriebenen Umrechnungen in Geländemeter und Kartenkoordinaten sind ersetzt; Linienabstand, Linienbreiten und Punktgrößen der Norm stehen einmal in `build/symbol_measures.rs`. Kein Maß ändert sich, die Karten bleiben gleich.
->>>>>>> origin/main
 
 ## [0.17.0] - 2026-11-13
 

@@ -24,8 +24,8 @@ in OOM oder OCAD.
 - Bedienung per Kommandozeile, über eine Seite im Browser, auf der man das Kartengebiet wählt und die Karte
   mit allen Optionen gleich erzeugt (siehe [Gebiet im Browser wählen](#gebiet-im-browser-wählen)), oder über
   KI-Agenten (MCP-Server).
-- Regionen: Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg, Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern, Nordrhein-Westfalen, Niedersachsen, Rheinland-Pfalz und Saarland (Open Data von LGB,
-  Geoportal Berlin, GeoSN, LVermGeo, LGV, HVBG, LVermGeo SH, LAiV M-V, Geobasis NRW, LGLN, LVermGeo RP und LVGL);
+- Regionen: Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg, Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern, Nordrhein-Westfalen, Niedersachsen, Rheinland-Pfalz, Saarland und Baden-Württemberg (Open Data von LGB,
+  Geoportal Berlin, GeoSN, LVermGeo, LGV, HVBG, LVermGeo SH, LAiV M-V, Geobasis NRW, LGLN, LVermGeo RP, LVGL und LGL);
   Schulhofkarten 1:1000, Sprintkarten 1:4000 und Waldkarten 1:15 000, 1:10 000 oder 1:7500.
 - Beispiele: je Bundesland ein fertiges Projekt mit OOM-Karte, OCAD-Ausgangsstand und PDF, siehe
   [Beispiele](#beispiele).
@@ -53,9 +53,9 @@ Aktuelle Version ist [v0.17.0](https://github.com/HenryJobst/freemapper/releases
 13. November 2026 (was sich geändert hat, steht in den [Änderungen](CHANGELOG.md)).
 
 freemapper erzeugt
-Schulhof- und Sprintkarten für zwölf Bundesländer: Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg,
+Schulhof- und Sprintkarten für dreizehn Bundesländer: Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg,
 Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern, Nordrhein-Westfalen, Niedersachsen,
-Rheinland-Pfalz und Saarland. Gewässer stehen auf allen Karten, die Farben folgen den IOF-Druckvorgaben von 2024.
+Rheinland-Pfalz, Saarland und Baden-Württemberg (neu seit v0.17.0, noch nicht veröffentlicht). Gewässer stehen auf allen Karten, die Farben folgen den IOF-Druckvorgaben von 2024.
 Auf Wunsch erzeugt freemapper dazu einen Ausgangsstand für OCAD (`--ocad`) und eine
 PDF-Karte (`--pdf`, mit Kandidaten `--pdf-candidates`). Vor dem Laden prüft
 freemapper den freien Speicherplatz. Berliner Karten bekommen aus weiteren Daten des Geoportals Berlin
@@ -76,7 +76,7 @@ Dienste Standarddienste sind, lässt sich als Ordner mit einem Manifest ergänze
 [Anleitung für Beitragende](docs/adapters/de.md) beschreibt den Weg. Als Nächstes folgen genauere Sprintkarten
 für weitere Bundesländer, zuerst Sachsen (Gewässerachsen, Hecken und Baumreihen aus dem Basis-DLM, die Bäume von Leipzig
 und Dresden), dann Sachsen-Anhalt und Hamburg. Später kommen Hallenkarten für Hallen-OL, die letzten englischen
-Reste in den deutschen Programmtexten (`--lang de`) und die übrigen Bundesländer mit offenen Geodaten (Baden-Württemberg, Bremen,
+Reste in den deutschen Programmtexten (`--lang de`) und die übrigen Bundesländer mit offenen Geodaten (Bremen,
 Bayern). Thüringen folgt, sobald sein Server für die
 Höhendaten wieder erreichbar ist. Waldkarten und die Nachbarländer kommen später. Design:
 [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](https://github.com/HenryJobst/freemapper/blob/main/docs/superpowers/specs/2026-11-07-freemapper-design.md).
@@ -299,6 +299,7 @@ freemapper run vorstadt
 | Niedersachsen | LGLN | DOM1 − DGM1, 1 m (Laserscan) | Karte in UTM-Zone 32 (EPSG:25832); Oberflächenmodell oft Jahre älter als das Luftbild; Bremen noch nicht dabei |
 | Rheinland-Pfalz | LVermGeo RP | DOM1 − DGM1, 1 m (Laserscan) | Karte in UTM-Zone 32 (EPSG:25832); Luftbild im Sommer beflogen, als Flugdatum gilt das Erstellungsdatum; Luftbild jenseits der Landesgrenze weiß |
 | Saarland | LVGL | DOM1 − DGM1, 1 m (Laserscan 2025) | Karte in UTM-Zone 32 (EPSG:25832); Höhenmodelle als 1-km-Kacheln aus den Landkreis-Archiven; Vorlagen jenseits der Landesgrenze leer |
+| Baden-Württemberg | LGL | nDOM1, 1 m (aus den Luftbildern eines Sommerflugs) | Karte in UTM-Zone 32 (EPSG:25832); Höhenmodelle als 1-km-Kacheln aus den 2-km-Archiven; Luftbild jenseits der Landesgrenze weiß; das Kataster kennt keine Überdachungen |
 
 In jedem Bundesland außer Sachsen und Sachsen-Anhalt sind die ALKIS-Überdachungen Kartenobjekte und die
 Durchfahrten Kandidaten. An einer Grenze zwischen Bundesländern fragt freemapper das Kataster beider Bundesländer ab und liest beide

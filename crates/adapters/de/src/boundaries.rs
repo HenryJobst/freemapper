@@ -26,6 +26,7 @@ pub const NORDRHEIN_WESTFALEN: &str = "nordrheinwestfalen";
 pub const NIEDERSACHSEN: &str = "niedersachsen";
 pub const RHEINLAND_PFALZ: &str = "rheinlandpfalz";
 pub const SAARLAND: &str = "saarland";
+pub const BADEN_WUERTTEMBERG: &str = "badenwuerttemberg";
 
 /// Brandenburg from LGB ALKIS `verwaltungseinheit` DE12, with Berlin as a hole (dl-de/by-2-0).
 const BRANDENBURG_BOUNDARY: &str = include_str!("../manifests/brandenburg/boundary.geojson");
@@ -67,8 +68,15 @@ const RHEINLAND_PFALZ_BOUNDARY: &str = include_str!("../manifests/rheinlandpfalz
 /// its outline towards Rhineland-Palatinate lie on that state's outline.
 const SAARLAND_BOUNDARY: &str = include_str!("../manifests/saarland/boundary.geojson");
 
+/// Baden-Württemberg from the ALKIS WFS of the LGL, `nora:v_al_land` (simplified 25 m,
+/// EPSG:25833; dl-de/by-2-0): 16 parts with Büsingen and the islands of Lake Constance, the lake
+/// itself not, and one hole, an enclave of Hesse. A sixth of the state has negative eastings in
+/// EPSG:25833. Along the Rhine the line differs from that of Rhineland-Palatinate by up to 30 m.
+const BADEN_WUERTTEMBERG_BOUNDARY: &str =
+    include_str!("../manifests/badenwuerttemberg/boundary.geojson");
+
 /// The states in the order of the registry, each with its boundary.
-const STATES: [(&str, &str); 12] = [
+const STATES: [(&str, &str); 13] = [
     (BRANDENBURG, BRANDENBURG_BOUNDARY),
     (BERLIN, BERLIN_BOUNDARY),
     (SAXONY, SAXONY_BOUNDARY),
@@ -81,6 +89,7 @@ const STATES: [(&str, &str); 12] = [
     (NIEDERSACHSEN, NIEDERSACHSEN_BOUNDARY),
     (RHEINLAND_PFALZ, RHEINLAND_PFALZ_BOUNDARY),
     (SAARLAND, SAARLAND_BOUNDARY),
+    (BADEN_WUERTTEMBERG, BADEN_WUERTTEMBERG_BOUNDARY),
 ];
 
 /// The outline of a state: its boundary and the box around it.
@@ -109,7 +118,8 @@ pub fn boundary_text(id: &str) -> Option<&'static str> {
 
 /// The outline of the state `id`, parsed once.
 pub fn outline(id: &str) -> Option<&'static StateOutline> {
-    static OUTLINES: [OnceLock<StateOutline>; 12] = [
+    static OUTLINES: [OnceLock<StateOutline>; 13] = [
+        OnceLock::new(),
         OnceLock::new(),
         OnceLock::new(),
         OnceLock::new(),

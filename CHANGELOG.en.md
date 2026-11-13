@@ -6,16 +6,15 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
-<<<<<<< HEAD
 ### Added
 
+- Baden-Württemberg (ADR 0119): maps in Baden-Württemberg, in UTM zone 32. The orthophoto comes from the map service of the LGL, with the flight date of the tile at the centre of the area. freemapper reads the terrain model (DGM1) and the surface model tile by tile out of the 2 km archives of the LGL, about 3.5 MB per tile. The surface is the nDOM1 from the aerial images of a summer flight: it shows the trees in leaf and usually comes from the flight of the orthophoto or the one before it. Buildings and land use come from the ALKIS service of the LGL. It holds whole buildings only, so no canopies, and street areas include the green beside them. OSM comes from the extracts of the four Regierungsbezirke (130 to 215 MB). Credit: `Datenquelle: LGL, www.lgl-bw.de, dl-de/by-2-0 (Daten geändert, <year>)`. Example: Heidelberg old town and castle.
 - Permit notes in Berlin (ADR 0120): when the map area lies in Berlin, `permits.md` and `permits.json` also name the Bezirke with their share, the green spaces with their Bezirk and dedication, the number of public playgrounds, the share of the area owned by the state of Berlin and by the Bund (one line per owner; any other owner is not named and shares the line "Other public owners"), the monuments per kind with up to 20 links into the Denkmaldatenbank, and natural monuments, protected landscape features and areas with special rules. The hints then name, for each Bezirk that is more than an edge of the area, the Ordnungsamt, the Straßen- und Grünflächenamt, the lower monument authority and the lower nature conservation authority of the Bezirksamt. The data come from five services of the Geoportal Berlin (dl-de/zero-2-0, the licence text verbatim in the table of sources). freemapper asks them only when permit notes are wanted and the area lies in Berlin, and only through the hosts of Berlin's adapter. A service that is down takes only its own section with it. A region adapter can now bring such sources (`RegionAdapter::permit_sources`). `permits.json` stays at schema 1; older files and `data/permits/sources.json` still read. Described in the user manual, chapter 12.
-=======
+
 ### Changed
 
 - School and forest maps: the minimum sizes of the norm now grow with the symbols (ADR 0118). On a school map (symbols at 125 %) the smallest building or canopy is 0.625 mm instead of 0.5 mm, on a forest map at 1:10 000 (150 %) 0.75 mm; likewise the shortest line by ISSprOM 4.5, the smallest areas of out-of-bounds land, paving, green, open land and water, the shortest contour and the smallest contour ring, landforms and the smallest vegetation area. Such maps show a little less small detail. Sprint maps (100 %) stay the same. The contours, landforms and vegetation of an existing project change only when `derive` runs again.
 - Internal: lengths on paper now have a type (ADR 0118). A paper measure (`PaperMm`) holds on the printed sheet, a symbol measure (`SymbolMm`) grows with the symbol enlargement of the map kind and cannot be converted without it. The roughly 45 hand-written conversions to ground metres and map coordinates are replaced; the norm's line gap, line widths and point sizes are written down once in `build/symbol_measures.rs`. No measure changes, the maps stay the same.
->>>>>>> origin/main
 
 ## [0.17.0] - 2026-11-13
 
