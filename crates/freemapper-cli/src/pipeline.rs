@@ -992,6 +992,131 @@ mod tests {
         assert_eq!(error, format!("cancelled; kept: {name}, {preview_name}"));
     }
 
+    /// Records every URL. Answers the currency lists of the LGB from the cache of the fixture,
+    /// ALKIS and the national services with an empty collection, and refuses everything else.
+    #[derive(Default)]
+    struct Recording {
+        cache: PathBuf,
+        urls: RefCell<Vec<String>>,
+    }
+
+    impl Fetcher for Recording {
+        fn get(&self, url: &str) -> Result<Vec<u8>, freemapper::fetch::FetchError> {
+            self.urls.borrow_mut().push(url.to_string());
+            let product = if url.ends_with("bb_dop_aktualitaet.csv") {
+                Some("dop20rgb")
+            } else if url.ends_with("bb_dgm_aktualitaet.csv") {
+                Some("dgm1")
+            } else {
+                None
+            };
+            if url.starts_with("https://ogc-api.geobasis-bb.de/")
+                || NATIONAL_HOSTS
+                    .iter()
+                    .any(|host| url.starts_with(&format!("https://{host}/")))
+            {
+                return Ok(br#"{"type":"FeatureCollection","features":[]}"#.to_vec());
+            }
+            match product {
+                Some(product) => Ok(std::fs::read(
+                    self.cache.join("lgb").join(product).join("currency.csv"),
+                )
+                .unwrap()),
+                // Refused, not retried: the test does not wait for the backoff.
+                None => Err(freemapper::fetch::FetchError::Refused {
+                    url: url.to_string(),
+                    status: 403,
+                    detail: None,
+                }),
+            }
+        }
+    }
+
+    fn copy_tree(from: &Path, to: &Path) {
+        std::fs::create_dir_all(to).unwrap();
+        for entry in std::fs::read_dir(from).unwrap().flatten() {
+            let target = to.join(entry.file_name());
+            if entry.file_type().unwrap().is_dir() {
+                copy_tree(&entry.path(), &target);
+            } else {
+                std::fs::copy(entry.path(), target).unwrap();
+            }
+        }
+    }
+
+    /// `UrlPolicy::NATIONAL_HOSTS`, the hosts of the BfN and the BKG.
+    const NATIONAL_HOSTS: [&str; 2] = ["geodienste.bfn.de", "sgx.geodatenzentrum.de"];
+
+    fn asks_a_national_host(urls: &[String]) -> bool {
+        urls.iter()
+            .any(|url| NATIONAL_HOSTS.iter().any(|host| url.contains(host)))
+    }
+
+    /// An online run asks the BfN and the BKG only for the permit notes: without `permits` no
+    /// request goes to them (ADR 0117, opt-in). MCP `start_pipeline` and the page run through
+    /// this function with `RunRequest::permits` false by default.
+    #[test]
+    fn an_online_run_without_permits_asks_no_national_host() {
+        let dir = tempfile::tempdir().unwrap();
+        let fixture = Path::new(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/fixtures/offline-school"
+        ));
+        let (project, cache_dir) = (dir.path().join("school"), dir.path().join("cache"));
+        copy_tree(&fixture.join("project"), &project);
+        copy_tree(&fixture.join("cache"), &cache_dir);
+        let cache = Cache::new(cache_dir.clone());
+        let online = RunOptions {
+            offline: false,
+            ..all_off()
+        };
+        let fetcher = Recording {
+            cache: cache_dir.clone(),
+            ..Recording::default()
+        };
+        let report = run(
+            &project,
+            &online,
+            &cache,
+            &fetcher,
+            &RunControl::default(),
+            &mut |_| {},
+        );
+        assert!(report.is_ok(), "the map run gets to its end: {report:?}");
+        assert!(
+            !asks_a_national_host(&fetcher.urls.borrow()),
+            "{:?}",
+            fetcher.urls.borrow()
+        );
+
+        // The same run with the notes does ask them, so the run above did get that far.
+        let with_permits = RunOptions {
+            permits: true,
+            force: true,
+            ..online
+        };
+        let fetcher = Recording {
+            cache: cache_dir.clone(),
+            ..Recording::default()
+        };
+        run(
+            &project,
+            &with_permits,
+            &cache,
+            &fetcher,
+            &RunControl::default(),
+            &mut |_| {},
+        )
+        .unwrap();
+        assert!(
+            asks_a_national_host(&fetcher.urls.borrow()),
+            "{:?}",
+            fetcher.urls.borrow()
+        );
+        let parsed = parse(RunRequest::default(), &Lang::english()).unwrap();
+        assert!(!parsed.permits, "MCP and the page default to no notes");
+    }
+
     #[test]
     fn step_labels_are_distinct() {
         let keys: std::collections::HashSet<_> = [
