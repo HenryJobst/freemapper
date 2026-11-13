@@ -20,6 +20,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Behoben
 
+- Waldkarten: Die Nordlinien liegen jetzt 20 mm (1:15 000) bzw. 30 mm (1:10 000) auseinander, 300 m im Gelände, wie ISOM 2017-2 es verlangt; bisher waren es 450 m nach ISOM 2000.
 - OCAD-Hinweis nach `--ocad`: Bei einer Waldkarte empfahl freemapper, in OCAD den Symbolsatz ISSprOM 2019 oder den Schulsymbolsatz zu laden. Jetzt nennt der Hinweis den Satz der Kartenart: ISOM 2017-2 für Waldkarten, ISSprOM 2019 für Sprintkarten, den IOF-Schulsatz 2019 für Schulhofkarten. Das gilt auch für die Zusammenfassung über MCP und auf der Gebietsseite. Auch die README nennt jetzt ISOM 2017-2.
 
 ## [0.17.0] - 2026-11-13
