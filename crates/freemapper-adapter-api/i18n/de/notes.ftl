@@ -56,6 +56,7 @@ warning-model-tiles-missing = { $model }: { $state ->
         [schleswig-holstein] In Schleswig-Holstein
         [mecklenburg-vorpommern] In Mecklenburg-Vorpommern
         [lower-saxony] In Niedersachsen
+        [bavaria] In Bayern
        *[other] In { $state }
     } { $count ->
         [one] fehlt die Kachel

@@ -1,0 +1,7 @@
+GetFeatureInfo results:
+
+Layer 'by_dop20_info'
+  Feature 43: 
+    nummer = '125039'
+    unr = '0'
+    ua = '11.05.2025'

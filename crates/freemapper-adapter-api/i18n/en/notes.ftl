@@ -54,6 +54,7 @@ warning-model-tiles-missing = the { $model } has no { $count ->
         [schleswig-holstein] Schleswig-Holstein
         [mecklenburg-vorpommern] Mecklenburg-Vorpommern
         [lower-saxony] Lower Saxony
+        [bavaria] Bavaria
        *[other] { $state }
     }; the templates stay empty there
 warning-no-surface-stored = no surface model stored; run `freemapper fetch` online for the nDSM template
