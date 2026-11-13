@@ -19,7 +19,9 @@ use crate::fetch::{Cache, Fetcher};
 use crate::note::{Arg, Note, note};
 use crate::permits::notes::{Inputs, SourceInput};
 use crate::permits::osm::{OsmFinding, findings, wants};
-use crate::permits::store::{PERMITS_DIR, RawInputs, load_inputs, store_inputs, stored_box};
+use crate::permits::store::{
+    PERMITS_DIR, RawInputs, load_inputs, something_fetched, store_inputs, stored_box,
+};
 use crate::permits::{Missing, PermitsError};
 use crate::project::ProjectFile;
 use crate::sources::osm::{cached_extracts, extracts_for, read_extract};
@@ -33,7 +35,8 @@ const PART: &str = "wfs.part";
 /// [`UrlPolicy::national`], and the OSM findings are read from the newest cached extract of
 /// each region the map needs (never downloaded here: without one, OSM is not read). Everything
 /// is stored in [`PERMITS_DIR`], replacing what an earlier fetch stored; a source that fails is
-/// `Unreachable` and keeps none of its earlier data. Offline, the stored inputs are read.
+/// `Unreachable` and keeps none of its earlier data. When no source gives anything, nothing is
+/// stored and the earlier data stay. Offline, the stored inputs are read.
 ///
 /// [`PermitsError::NothingRead`] when no source gave anything.
 pub fn fetch_inputs(
@@ -112,6 +115,8 @@ pub fn fetch_inputs(
         protected,
         osm,
     };
+    // When nothing was read, the data of an earlier fetch stay for `--offline`.
+    something_fetched(&raw)?;
     store_inputs(dir, &raw).map_err(|e| PermitsError::Io(folder, e))?;
     load_inputs(dir)
 }
@@ -526,6 +531,52 @@ mod tests {
         );
         let (offline, _) = fetch(&project, dir.path(), &down, &cache, true);
         assert_eq!(offline.unwrap(), inputs);
+    }
+
+    /// The bytes of every file in the project's permit folder and of `permits.json`.
+    fn snapshot(dir: &Path) -> Vec<(String, Vec<u8>)> {
+        let mut files: Vec<(String, Vec<u8>)> = stored_files(dir)
+            .into_iter()
+            .map(|name| {
+                let bytes = std::fs::read(dir.join(PERMITS_DIR).join(&name)).unwrap();
+                (name, bytes)
+            })
+            .collect();
+        files.push((
+            PERMITS_JSON.to_string(),
+            std::fs::read(dir.join(PERMITS_JSON)).unwrap(),
+        ));
+        files
+    }
+
+    /// An online run where no source gives anything (both services down, no extract) leaves
+    /// what an earlier run stored, so `--offline` still works and the notes stay as they were.
+    #[test]
+    fn an_online_run_that_reads_nothing_keeps_the_stored_data() {
+        let (dir, project) = project();
+        let up = MapFetcher::default();
+        serve_sources(&up, &project);
+        let (_root, cache) = cache_with_extract();
+        let earlier = fetch(&project, dir.path(), &up, &cache, false).0.unwrap();
+        write_permit_notes(dir.path(), &project, &earlier, date("2026-11-13")).unwrap();
+        let before = snapshot(dir.path());
+
+        let down = MapFetcher::default();
+        down.refusing
+            .borrow_mut()
+            .extend(UrlPolicy::NATIONAL_HOSTS.map(|h| format!("https://{h}")));
+        let (_empty_root, empty) = empty_cache();
+        let (result, _) = fetch(&project, dir.path(), &down, &empty, false);
+        match result {
+            Err(PermitsError::NothingRead { missing }) => {
+                let sources: Vec<&str> = missing.iter().map(|m| m.source.as_str()).collect();
+                assert_eq!(sources, ["vg250", "bfn", "osm"]);
+            }
+            other => panic!("{other:?}"),
+        }
+        assert_eq!(snapshot(dir.path()), before);
+        let (offline, _) = fetch(&project, dir.path(), &down, &empty, true);
+        assert_eq!(offline.unwrap(), earlier);
     }
 
     #[test]

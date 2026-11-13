@@ -899,8 +899,8 @@ The project folder then holds:
 | `permits.json` | the same content for programs |
 | `data/permits/` | the answers of the services and the OSM findings, for `--offline` |
 
-A new fetch replaces the files. `freemapper.toml` and `ATTRIBUTION.txt` do not change, and nothing of it
-shows on the map, in the candidates or in the PDFs.
+A new fetch replaces the files. One that reads no source at all leaves them as they were. `freemapper.toml` and
+`ATTRIBUTION.txt` do not change, and nothing of it shows on the map, in the candidates or in the PDFs.
 
 ### What the file holds
 

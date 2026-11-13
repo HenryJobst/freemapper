@@ -931,8 +931,9 @@ Im Projektordner liegen danach:
 | `permits.json` | derselbe Inhalt für Programme |
 | `data/permits/` | die Antworten der Dienste und die Funde aus OSM, für `--offline` |
 
-Ein neuer Abruf ersetzt die Dateien. `freemapper.toml` und `ATTRIBUTION.txt` ändern sich nicht, und auf der
-Karte, in den Kandidaten und in den PDFs erscheint nichts davon.
+Ein neuer Abruf ersetzt die Dateien. Liest er keine einzige Quelle, bleiben sie, wie sie waren. `freemapper.toml`
+und `ATTRIBUTION.txt` ändern sich nicht, und auf der Karte, in den Kandidaten und in den PDFs erscheint nichts
+davon.
 
 ### Was in der Datei steht
 

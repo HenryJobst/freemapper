@@ -88,9 +88,9 @@ set; both send whole polygons of 25 to 700 KB.
   of the fetch.
 - **Storage and offline.** The raw answers go into `data/permits/` of the project (`vg250-<level>.geojson`,
   `bfn-<kind>.geojson`, `osm.geojson`, `sources.json` with the box, state, date and count per source), not into
-  the shared cache. A new fetch replaces them. `--offline` (`offline` in MCP) reads them and gives the same text;
-  stored data of another map area is not used. An online run reads its own files back, so online and offline
-  cannot differ.
+  the shared cache. A new fetch replaces them; one that reads no source at all stores nothing and leaves them.
+  `--offline` (`offline` in MCP) reads them and gives the same text; stored data of another map area is not used.
+  An online run reads its own files back, so online and offline cannot differ.
 - **Failures.** A source that cannot be read is named in the notes and in a warning; its section says the data
   were not read instead of "none". `freemapper permits` exits with 1 only when no source at all could be read.
   In `run --permits` and `start_pipeline` any failure of the notes is a warning, and the map run keeps its exit

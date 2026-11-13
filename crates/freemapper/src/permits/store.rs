@@ -312,11 +312,7 @@ fn load_source<T>(
 /// [`PermitsError::NothingRead`] when nothing is stored or no source was read.
 pub fn load_inputs(dir: &Path) -> Result<Inputs, PermitsError> {
     let Some(record) = read_record(dir)? else {
-        return Err(nothing_read(&Inputs {
-            admin: SourceInput::NotRead,
-            protected: SourceInput::NotRead,
-            osm: SourceInput::NotRead,
-        }));
+        return Err(nothing_read([Some(""); 3]));
     };
     let folder = dir.join(PERMITS_DIR);
     let sources = folder.join(SOURCES_JSON);
@@ -359,15 +355,29 @@ pub fn load_inputs(dir: &Path) -> Result<Inputs, PermitsError> {
 
 /// [`PermitsError::NothingRead`] when no source of `inputs` was read.
 fn something_read(inputs: &Inputs) -> Result<(), PermitsError> {
-    let states = [
+    check_states([
         state_of(&inputs.admin),
         state_of(&inputs.protected),
         state_of(&inputs.osm),
-    ];
+    ])
+}
+
+/// [`PermitsError::NothingRead`] when no source of `raw` was read: then there is nothing to
+/// store, and what an earlier fetch stored stays.
+pub(crate) fn something_fetched(raw: &RawInputs) -> Result<(), PermitsError> {
+    check_states([
+        state_of(&raw.admin),
+        state_of(&raw.protected),
+        state_of(&raw.osm),
+    ])
+}
+
+/// The states of VG250, the BfN and OSM, in this order.
+fn check_states(states: [Option<&str>; 3]) -> Result<(), PermitsError> {
     if states.iter().any(Option::is_none) {
         Ok(())
     } else {
-        Err(nothing_read(inputs))
+        Err(nothing_read(states))
     }
 }
 
@@ -380,16 +390,16 @@ fn state_of<T>(input: &SourceInput<T>) -> Option<&str> {
     }
 }
 
-fn nothing_read(inputs: &Inputs) -> PermitsError {
+fn nothing_read([admin, protected, osm]: [Option<&str>; 3]) -> PermitsError {
     let missing = |source: &str, state: Option<&str>| Missing {
         source: source.to_string(),
         reason: state.filter(|r| !r.is_empty()).map(str::to_string),
     };
     PermitsError::NothingRead {
         missing: vec![
-            missing("vg250", state_of(&inputs.admin)),
-            missing("bfn", state_of(&inputs.protected)),
-            missing("osm", state_of(&inputs.osm)),
+            missing("vg250", admin),
+            missing("bfn", protected),
+            missing("osm", osm),
         ],
     }
 }
