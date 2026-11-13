@@ -132,6 +132,9 @@ pub struct ProtectedEntry {
     pub legal_date: Option<NaiveDate>,
     pub legal_title: Option<String>,
     pub legal_link: Option<String>,
+    /// The Natura 2000 site page of an FFH or bird area.
+    #[serde(default)]
+    pub site_link: Option<String>,
     pub year: Option<i32>,
 }
 
@@ -424,6 +427,7 @@ fn protected_shares(
                     legal_date: p.legal_date,
                     legal_title: p.legal_title.clone(),
                     legal_link: p.legal_link.clone(),
+                    site_link: p.site_link.clone(),
                     year: p.year,
                 },
             ))
@@ -711,6 +715,7 @@ mod tests {
             legal_date: None,
             legal_title: None,
             legal_link: None,
+            site_link: None,
             year: Some(2024),
             geometry: g,
         }
@@ -1560,6 +1565,19 @@ mod tests {
     }
 
     #[test]
+    fn the_site_link_stays_apart_from_the_legal_link() {
+        let mut ffh = protected(ProtectedKind::Ffh, "FFH", square(13.0, 52.0, 13.05, 52.1));
+        ffh.site_link = Some("https://natura2000.example/DE1".into());
+        let found = notes(MapKind::Sprint, &inputs(vec![], vec![ffh], vec![]));
+        let entry = &found.protected[0].item;
+        assert_eq!(entry.legal_link, None);
+        assert_eq!(
+            entry.site_link.as_deref(),
+            Some("https://natura2000.example/DE1")
+        );
+    }
+
+    #[test]
     fn notes_round_trip_through_json() {
         let mut nsg = protected(
             ProtectedKind::Naturschutzgebiet,
@@ -1569,6 +1587,7 @@ mod tests {
         nsg.legal_date = NaiveDate::from_ymd_opt(1966, 8, 1);
         nsg.legal_title = Some("Verordnung".into());
         nsg.legal_link = Some("https://example.org/vo".into());
+        nsg.site_link = Some("https://natura2000.example/DE1".into());
         let mut park = finding(
             OsmFindingKind::Operated,
             "way/9",

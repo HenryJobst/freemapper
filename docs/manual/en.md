@@ -912,7 +912,7 @@ It starts with the note that it is not legal advice. Six sections follow:
 - "Protected areas (BfN)" names national parks, national natural monuments, nature reserves, FFH areas, bird
   protection areas, biosphere reserves with their zones, landscape protection areas and nature parks. Each
   comes with its share, the date it was designated, the legal basis, the link to the legal text where the BfN
-  has one, and the data year.
+  has one, for FFH and bird protection areas the link to their Natura 2000 site page, and the data year.
 - "More protected areas from OpenStreetMap" names protected areas the BfN does not list, such as a protected
   landscape feature.
 - "Operators and owners according to OpenStreetMap" names who runs or owns parks, gardens, sports grounds,

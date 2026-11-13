@@ -816,6 +816,7 @@ permits-protected-line = { $kind } „{ $name }“, { $share }
 permits-protected-date = Festgesetzt am { $date }
 permits-protected-title = Rechtsgrundlage: { $title }
 permits-protected-link = Rechtstext: { $url }
+permits-protected-site-link = Gebietsseite (Natura 2000): { $url }
 permits-protected-year = Datenstand beim BfN: { $year }
 permits-osm-line = { $kind }: { $name }, { $share } (OSM { $id })
 permits-osm-protect-class = Schutzklasse { $class }

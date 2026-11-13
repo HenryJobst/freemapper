@@ -92,6 +92,8 @@ pub struct ProtectedArea {
     pub legal_title: Option<String>,
     /// `LEG_LINK`, a link to the legal text.
     pub legal_link: Option<String>,
+    /// `LINK`, the Natura 2000 site page of an FFH or bird area; no legal text.
+    pub site_link: Option<String>,
     /// `JAHR`, the year the BfN gives the area.
     pub year: Option<i32>,
     /// The area in EPSG:4326, x = longitude, y = latitude.
@@ -112,8 +114,9 @@ pub fn parse_bfn(kind: ProtectedKind, feature: &Value) -> Option<ProtectedArea> 
         name,
         legal_date: property_text(feature, "LEG_DATE").and_then(|d| legal_date(&d)),
         legal_title: property_text(feature, "LEG_TITEL"),
+        legal_link: property_text(feature, "LEG_LINK"),
         // FFH and bird areas link their Natura 2000 page in `LINK`.
-        legal_link: property_text(feature, "LEG_LINK").or_else(|| property_text(feature, "LINK")),
+        site_link: property_text(feature, "LINK"),
         year: year(feature.get("properties").and_then(|p| p.get("JAHR"))),
         geometry,
     })
@@ -252,6 +255,38 @@ mod tests {
         let area = parse_bfn(ProtectedKind::Naturschutzgebiet, &year_as_text).unwrap();
         assert_eq!(area.legal_date, NaiveDate::from_ymd_opt(2005, 10, 1));
         assert_eq!(area.year, Some(2005));
+    }
+
+    /// FFH and bird areas give their Natura 2000 site page in `LINK`; it is no legal text.
+    #[test]
+    fn the_natura2000_link_is_a_site_link() {
+        let feature = |properties: Value| {
+            json!({
+                "type": "Feature",
+                "geometry": {"type": "Polygon", "coordinates": [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]},
+                "properties": properties
+            })
+        };
+        let ffh = parse_bfn(
+            ProtectedKind::Ffh,
+            &feature(json!({"NAME": "X", "LEG_LINK": " ", "LINK": "https://natura2000.example/DE3450301"})),
+        )
+        .unwrap();
+        assert_eq!(ffh.legal_link, None);
+        assert_eq!(
+            ffh.site_link.as_deref(),
+            Some("https://natura2000.example/DE3450301")
+        );
+        let both = parse_bfn(
+            ProtectedKind::Vogelschutzgebiet,
+            &feature(json!({"NAME": "X", "LEG_LINK": "https://example.org/vo", "LINK": "https://natura2000.example/DE3450401"})),
+        )
+        .unwrap();
+        assert_eq!(both.legal_link.as_deref(), Some("https://example.org/vo"));
+        assert_eq!(
+            both.site_link.as_deref(),
+            Some("https://natura2000.example/DE3450401")
+        );
     }
 
     #[test]

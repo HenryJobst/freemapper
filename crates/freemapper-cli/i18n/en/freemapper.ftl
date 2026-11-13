@@ -799,6 +799,7 @@ permits-protected-line = { $kind } "{ $name }", { $share }
 permits-protected-date = Designated on { $date }
 permits-protected-title = Legal basis: { $title }
 permits-protected-link = Legal text: { $url }
+permits-protected-site-link = Site page (Natura 2000): { $url }
 permits-protected-year = Data year at the BfN: { $year }
 permits-osm-line = { $kind }: { $name }, { $share } (OSM { $id })
 permits-osm-protect-class = protect class { $class }

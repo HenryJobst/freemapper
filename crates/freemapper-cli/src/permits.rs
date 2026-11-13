@@ -277,6 +277,9 @@ fn protected_lines(lang: &Lang, s: &Share<ProtectedEntry>) -> String {
     if let Some(url) = p.legal_link.as_deref().filter(|u| !u.trim().is_empty()) {
         sub("permits-protected-link", "url", link(url.trim()));
     }
+    if let Some(url) = p.site_link.as_deref().filter(|u| !u.trim().is_empty()) {
+        sub("permits-protected-site-link", "url", link(url.trim()));
+    }
     if let Some(year) = p.year {
         sub("permits-protected-year", "year", year.to_string());
     }
@@ -608,6 +611,7 @@ mod tests {
                 legal_date: None,
                 legal_title: None,
                 legal_link: None,
+                site_link: None,
                 year: Some(2024),
             },
             percent,
@@ -1033,6 +1037,28 @@ mod tests {
             }
             assert!(text.contains("Alte Eichen - fake"), "{text}");
         }
+    }
+
+    #[test]
+    fn a_natura2000_page_is_no_legal_text() {
+        let mut notes = buckow();
+        notes.protected[1].item.site_link = Some("https://natura2000.example/DE3450301".into());
+        let german = render_markdown(&notes, &de());
+        assert!(
+            german.contains(
+                "  - Gebietsseite (Natura 2000): <https://natura2000.example/DE3450301>\n"
+            ),
+            "{german}"
+        );
+        let english = render_markdown(&notes, &Lang::english());
+        assert!(
+            english
+                .contains("  - Site page (Natura 2000): <https://natura2000.example/DE3450301>\n"),
+            "{english}"
+        );
+        // Only the NSG has a legal text.
+        assert_eq!(english.matches("Legal text:").count(), 1, "{english}");
+        assert_eq!(german.matches("Rechtstext:").count(), 1, "{german}");
     }
 
     #[test]

@@ -26,7 +26,8 @@ package (Bezirke, Grünanlagen, Liegenschaftsplan, Denkmale) come in later steps
    - administrative units: Land, Kreis (or kreisfreie Stadt), Verwaltungsgemeinschaft/Amt where it
      exists, Gemeinde, each with its share of the map area in percent;
    - protected areas of all nine BfN types, each with type, name, share of the map area, legal
-     date and title, link to the legal text where the BfN gives one, data year;
+     date and title, link to the legal text where the BfN gives one (`LEG_LINK`), for FFH and SPA
+     the Natura 2000 site page (`LINK`, labelled as such, never as the legal text), data year;
    - from OSM: protected areas the BfN does not list (`boundary=protected_area`,
      `leisure=nature_reserve`, `boundary=national_park`) and the `operator`/`owner` of public-kind
      areas (list under "OSM selection" below), grouped by name with the kinds of objects;

@@ -945,7 +945,7 @@ Am Anfang steht der Hinweis, dass es keine Rechtsauskunft ist. Dann folgen sechs
 - „Schutzgebiete (BfN)“ nennt Nationalparke, Nationale Naturmonumente, Naturschutzgebiete, FFH-Gebiete,
   Vogelschutzgebiete, Biosphärenreservate mit ihren Zonen, Landschaftsschutzgebiete und Naturparke. Zu jedem
   stehen der Anteil, das Datum der Festsetzung, die Rechtsgrundlage, der Link zum Rechtstext, wo das BfN einen
-  hat, und der Datenstand.
+  hat, bei FFH- und Vogelschutzgebieten der Link zu ihrer Natura-2000-Gebietsseite, und der Datenstand.
 - „Weitere Schutzgebiete aus OpenStreetMap“ nennt Schutzgebiete, die das BfN nicht führt, etwa einen
   geschützten Landschaftsbestandteil.
 - „Betreiber und Eigentümer laut OpenStreetMap“ nennt, wer Parks, Gärten, Sportanlagen, Schulen, Kirchen,
