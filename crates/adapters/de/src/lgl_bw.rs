@@ -308,8 +308,10 @@ fn csv_date(csv: &str, column: &str) -> Option<String> {
 }
 
 /// The members of the archive of `block`: online from the archive, and kept in the cache;
-/// offline from the cache, and none when the directory was never read. A block without an
-/// archive (404) holds no tile: no part of the state lies in it.
+/// offline from the cache, and none when the directory was never read. The LGL publishes an
+/// archive for every block with a tile in the state, so a 404 means no tile only for a block
+/// none of whose tiles has its centre inside the state; otherwise the archive was renamed or
+/// is being replaced, and the 404 is the error that names its address.
 fn directory(
     fetcher: &dyn Fetcher,
     cache: &CacheDir,
@@ -322,9 +324,22 @@ fn directory(
         block.east_km, block.north_km
     ));
     match kept_directory(fetcher, mode, &model.archive_url(block), &file) {
-        Err(FetchError::NotFound(_)) => Ok(Vec::new()),
+        Err(FetchError::NotFound(_)) if !block_in_state(block) => Ok(Vec::new()),
         members => members,
     }
+}
+
+/// Whether one of the four 1 km tiles of the 2 km `block` has its centre inside the state.
+fn block_in_state(block: TileId) -> bool {
+    [(0, 0), (1, 0), (0, 1), (1, 1)].into_iter().any(|(e, n)| {
+        tile_centre_in(
+            TileId {
+                east_km: block.east_km + e,
+                north_km: block.north_km + n,
+            },
+            BADEN_WUERTTEMBERG,
+        )
+    })
 }
 
 /// The heights of `tile` from `member` of the archive of its block, kept in the cache as a
@@ -1162,12 +1177,89 @@ mod tests {
         assert!(found.missing.is_empty(), "{:?}", found.missing);
     }
 
+    /// A block that holds a tile with its centre inside the state has an archive. When the
+    /// server answers 404 for it, the archive was renamed or is being replaced: an error that
+    /// names its address, not a map with a hole where the state has data.
+    #[test]
+    fn a_missing_archive_of_a_block_inside_the_state_is_an_error_with_its_address() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(dir.path().join("cache"));
+        let fetcher = MapFetcher::default();
+        // Stuttgart, across the edge between the blocks 511_5402 (served) and 513_5402 (404).
+        serve_terrain(&fetcher, &[(512, 5403, 400.0)]);
+        let bbox = BoundingBox {
+            min_e: 512_900.0,
+            min_n: 5_403_990.0,
+            max_e: 513_100.0,
+            max_n: 5_404_000.0,
+        };
+        assert!(tile_centre_in(tile(513, 5403), BADEN_WUERTTEMBERG));
+        let err = mosaic(&fetcher, &cache, FetchMode::Online, Model::Dgm1, &bbox).unwrap_err();
+        assert!(matches!(err, FetchError::NotFound(_)), "{err:?}");
+        assert!(
+            err.to_string()
+                .contains("https://opengeodata.lgl-bw.de/data/dgm/dgm1_32_513_5402_2_bw.zip"),
+            "{err}"
+        );
+        // The same when every block of the area is missing.
+        let fetcher = MapFetcher::default();
+        let err = mosaic(
+            &fetcher,
+            &cache,
+            FetchMode::Online,
+            Model::Dgm1,
+            &stuttgart(),
+        )
+        .unwrap_err();
+        assert!(
+            err.to_string()
+                .contains("https://opengeodata.lgl-bw.de/data/dgm/dgm1_32_511_5402_2_bw.zip"),
+            "{err}"
+        );
+    }
+
+    /// A block none of whose tiles has its centre inside the state has no archive: its 404
+    /// gives no tile and no error, and the terrain of the other blocks is read.
+    #[test]
+    fn a_missing_archive_of_a_block_beyond_the_state_holds_no_tile() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(dir.path().join("cache"));
+        let fetcher = MapFetcher::default();
+        // Ludwigshafen (block 455_5480, no archive) and the Mannheim bank (block 457_5480).
+        let block = tile(455, 5480);
+        for (e, n) in [(455, 5480), (456, 5480), (455, 5481), (456, 5481)] {
+            assert_eq!(block_of(tile(e, n)), block);
+            assert!(!tile_centre_in(tile(e, n), BADEN_WUERTTEMBERG), "{e}_{n}");
+        }
+        insert_archive(
+            &fetcher,
+            &Model::Dgm1.archive_url(tile(457, 5480)),
+            &[(
+                "dgm1_32_457_5480_2_bw/dgm1_32_458_5480_1_bw_2023.xyz".to_string(),
+                xyz(458, 5480, 10, 95.0),
+            )],
+        );
+        let bbox = BoundingBox {
+            min_e: 456_900.0,
+            min_n: 5_480_990.0,
+            max_e: 458_100.0,
+            max_n: 5_481_000.0,
+        };
+        let (raster, found) =
+            mosaic(&fetcher, &cache, FetchMode::Online, Model::Dgm1, &bbox).unwrap();
+        assert!(raster.get(50, 5).is_nan());
+        assert_eq!(raster.get(1100, 5), 95.0);
+        assert!(found.missing.is_empty(), "{:?}", found.missing);
+    }
+
     /// No tile at all is an error that names the file server, not an empty raster.
     #[test]
     fn no_tile_at_all_is_an_error() {
         let dir = tempfile::tempdir().unwrap();
         let cache = Cache::new(dir.path().join("cache"));
         let fetcher = MapFetcher::default();
+        // The archive of the block is there, but holds no tile of the area.
+        serve_terrain(&fetcher, &[]);
         let err = mosaic(
             &fetcher,
             &cache,
