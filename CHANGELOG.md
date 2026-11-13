@@ -8,6 +8,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Hinzugefügt
 
+- Waldkarten (ADR 0116, Nachtrag): Weicht die Äquidistanz vom Standard der Kartenart ab, etwa 2,5 m im flachen Wald, schreibt `derive` sie als `[contours] interval_m` in die `freemapper.toml`. freemapper-print liest sie dort über den Vertrag der Suite (freemapper-core 0.25.0) und schlägt nicht mehr 5 m vor. Projekte mit der Standard-Äquidistanz behalten ihre Datei unverändert.
 - Waldkarten (ADR 0116): `--kind forest` legt eine Karte nach ISOM 2017-2 an, im Maßstab 1:15 000 (Standard), 1:10 000 oder 1:7500 mit Symbolen auf 100, 150 oder 200 %. Gedacht ist sie für ein schnelles Training in kleinen Waldstücken. Die Wege kommen aus OSM und stehen gleich in der Karte, sortiert nach den Wegklassen 502 bis 507; Treppen werden 532. Gehwege an Straßen, Überwege, Zufahrten und Gassen auf Parkplätzen fehlen. Wald bleibt weißes Papier: Wo OSM oder ALKIS Wald angeben, zeichnet freemapper kein offenes Gelände, auch nicht über ALKIS-Parks. Grün gibt es nur aus OSM-Gebüsch, als Kandidat. Die Höhenlinien liegen alle 5 m, in flachem Gelände alle 2,5 m; `contour_interval_m` in der `freemapper.toml` legt den Abstand fest. Der Symbolsatz ist ISOM 2017-2 aus OpenOrienteering Mapper mit den Farben der IOF Rev. 4. Erprobt an der Dammheide und der Mittelheide in Berlin. Kartenart, Maßstäbe und Fehlermeldungen stehen auch in der Hilfe, im MCP-Server und auf der Gebietsseite.
 
 ### Geändert

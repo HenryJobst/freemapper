@@ -590,7 +590,8 @@ freemapper run dammheide --pdf-candidates
 - **Höhenlinien** liegen alle 5 m, in flachem Gelände alle 2,5 m. Flach ist ein Gebiet, wenn zwischen dem 5.
   und dem 95. Perzentil seiner Geländehöhen weniger als 15 m liegen. Mit `contour_interval_m = 2.5` (oder einem
   anderen Wert über 0) in der `freemapper.toml` legen Sie den Abstand selbst fest; danach `derive` und
-  `export --force`. Der Kartenrand nennt den Abstand („Äquidistanz 2,5 m“).
+  `export --force`. Der Kartenrand nennt den Abstand („Äquidistanz 2,5 m“). Weicht er vom Standard ab, steht er
+  nach `derive` auch als `[contours] interval_m` in der `freemapper.toml`; freemapper-print liest ihn dort.
 - Gebäude, Gewässer, Mauern, Zäune, Stromleitungen, Bahnlinien und Sperrgebiete (520) kommen wie bei der
   Sprintkarte. Bänke, Poller, Laternen und anderes Stadtmobiliar fehlen, ebenso Bäume aus Baumkatastern und
   einzelne OSM-Bäume. Nur ein Baum mit

@@ -8,6 +8,7 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ### Added
 
+- Forest maps (ADR 0116, addendum): when the contour interval is not the kind's, for example 2.5 m in a flat forest, `derive` writes it into `freemapper.toml` as `[contours] interval_m`. freemapper-print reads it there through the suite contract (freemapper-core 0.25.0) and no longer proposes 5 m. Projects at the kind's interval keep their file unchanged.
 - Forest maps (ADR 0116): `--kind forest` makes a map after ISOM 2017-2 at 1:15 000 (default), 1:10 000 or 1:7500, with the symbols at 100, 150 or 200 %. It is meant for a quick training in small forests. The paths come from OSM and go straight onto the map, sorted into the path classes 502 to 507; stairs become 532. Sidewalks along roads, crossings, driveways and parking aisles are left out. The forest stays white paper: where OSM or ALKIS says forest, freemapper draws no open land, not over ALKIS parks either. The only green is OSM scrub, as a candidate. Contours lie every 5 m, every 2.5 m in flat land; `contour_interval_m` in `freemapper.toml` sets the interval. The symbol set is ISOM 2017-2 from OpenOrienteering Mapper with the colours of IOF Rev. 4. Tried on the Dammheide and the Mittelheide in Berlin. The help, the MCP server and the area page know the kind, its scales and its error messages.
 
 ### Changed
