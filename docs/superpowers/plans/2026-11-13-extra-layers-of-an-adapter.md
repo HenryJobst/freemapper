@@ -141,6 +141,31 @@ register; its signature stays. `sources::berlin` goes.
 Test: `grep -ri berlin crates/freemapper/src` outside `build/`, `#[cfg(test)]` and the note ids finds nothing; a
 test in the engine fails when a non-test line names a state id.
 
+#### Step 3 as built (2026-11-13)
+
+- `touches_berlin` is gone: an adapter can name a warning for an area of its ground without buildings
+  (`RegionAdapter::no_buildings_warning`), and `derive` asks the regions the area lies on.
+- `list_layers` lists the K5 where an adapter the area touches has the template; the key has one name per crate
+  (`K5_TEMPLATE`, `berlin::K5_KEY`) and a test ties them.
+- `parse_layer` and `layer_to_geojson` are `freemapper_sources::layer_file`. The K5 service, its pixel size and its
+  fetch are in the Berlin module; `freemapper-sources` has `png_pieces` and `fetch_png_template` over any WMS.
+- `sources::berlin` of the engine is gone. `object_polygon` is `build/geometry.rs`, unchanged.
+- `asking_for(id, …)` became `asking(adapter, …)`: no lookup by id and no silent fall back to a fetcher without
+  host rules; the sets, the templates and the point clouds go through it.
+- A test scans the engine's code that is no test and fails on the id of a built-in adapter or a constant of a
+  state outside `build/`, `sources::region::ids` and the key of the set recorded in `berlin_layers`.
+
+Left open, on purpose:
+
+- `dedup::rank` keeps its table of five register layers and the adapter crate its three for the credit. The rank
+  goes by `freemapper:source`; how a rank comes to an object is the question of a candidate of the architecture
+  review of session "freemapper-d3" ("provenance as a module"), where the table falls away instead of moving.
+- `drawn_registers` in `project.rs` still reads the register list of the Berlin module and the source prefix
+  `geoportal-berlin/` to tell the credit which registers drew objects. It belongs to the same question.
+- The functions and types of the engine that feed the Berlin rules keep "berlin" in their names
+  (`stored_berlin_layers`, `fetch_berlin_layers_into`, `Part::BerlinLayers`): they read and fill the field
+  `berlin_layers` and the folder `data/berlin`.
+
 ### Step 4: records
 
 ADR "The extra layers of an adapter, as built"; a paragraph in `docs/adapters/{en,de}.md` on what a code adapter

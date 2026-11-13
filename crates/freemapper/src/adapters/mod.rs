@@ -291,6 +291,89 @@ mod tests {
         );
     }
 
+    /// The lines of `source` before its tests that name a region: the id of an adapter of
+    /// `ids` as a text, or a constant of the boundaries, a state or an agency of the adapter
+    /// crate. Comments do not count.
+    fn naming_a_region(source: &str, ids: &[&str]) -> Vec<String> {
+        let names_one = |line: &str| {
+            let enum_of = |name: &str| {
+                line.match_indices(name).any(|(at, _)| {
+                    line[at + name.len()..].starts_with(|c: char| c.is_ascii_uppercase())
+                })
+            };
+            ids.iter().any(|id| line.contains(&format!("\"{id}\"")))
+                || enum_of("boundaries::")
+                || enum_of("State::")
+                || enum_of("Agency::")
+        };
+        let lines: Vec<&str> = source.lines().collect();
+        let tests = lines
+            .iter()
+            .enumerate()
+            .position(|(at, line)| {
+                let line = line.trim_start();
+                line.starts_with("mod tests")
+                    || (line.starts_with("#[cfg(test)]")
+                        && lines
+                            .get(at + 1)
+                            .is_some_and(|next| next.trim_start().contains("mod ")))
+            })
+            .unwrap_or(lines.len());
+        lines[..tests]
+            .iter()
+            .filter(|line| !line.trim_start().starts_with("//") && names_one(line))
+            .map(|line| line.trim().to_string())
+            .collect()
+    }
+
+    /// The engine asks the adapters of the registry and names no region itself (ADR 0082,
+    /// and the extra layers of an adapter). Three places may: the draw rules (`build/`), which
+    /// read the layers of Berlin by name until adapters bring rules; the names the tests go
+    /// by (`sources::region::ids`); and the key of the one set of extra layers the project
+    /// file has a field for.
+    #[test]
+    fn the_engine_names_no_region() {
+        let ids: Vec<&str> = registry()
+            .adapters()
+            .map(|adapter| adapter.info().id.as_str())
+            .collect();
+        // The detector finds what it is for.
+        let sample = "let a = x == \"hessen\";\n// \"berlin\" in a comment\nuse b::State::Berlin;\n\
+                      let c = boundaries::BERLIN;\nlet plain = boundaries::outline(id);\n\
+                      #[cfg(test)]\nmod tests {\n    let d = \"saxony\";\n}\n";
+        assert_eq!(
+            naming_a_region(sample, &ids),
+            [
+                "let a = x == \"hessen\";",
+                "use b::State::Berlin;",
+                "let c = boundaries::BERLIN;"
+            ]
+        );
+        fn visit(dir: &std::path::Path, ids: &[&str], found: &mut Vec<String>) {
+            for entry in std::fs::read_dir(dir).unwrap() {
+                let path = entry.unwrap().path();
+                if path.is_dir() {
+                    if path.file_name().is_some_and(|name| name != "build") {
+                        visit(&path, ids, found);
+                    }
+                } else if path.extension().is_some_and(|e| e == "rs")
+                    && !path.ends_with("sources/region.rs")
+                {
+                    let source = std::fs::read_to_string(&path).unwrap();
+                    for line in naming_a_region(&source, ids) {
+                        found.push(format!("{}: {line}", path.display()));
+                    }
+                }
+            }
+        }
+        let src = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
+        let mut found = Vec::new();
+        visit(&src, &ids, &mut found);
+        let allowed = |line: &String| line.ends_with("const REGISTERS_SET: &str = \"berlin\";");
+        found.retain(|line| !allowed(line));
+        assert!(found.is_empty(), "{found:#?}");
+    }
+
     /// What the engine fetches for one adapter goes through that adapter's hosts: a request
     /// off them is not sent, one on them reaches the fetcher. The caller names the adapter
     /// itself, so there is no id that could miss the registry and be asked plainly.
