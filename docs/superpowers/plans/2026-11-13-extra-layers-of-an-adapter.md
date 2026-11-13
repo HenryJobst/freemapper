@@ -177,3 +177,6 @@ Left open, on purpose:
 
 ADR "The extra layers of an adapter, as built"; a paragraph in `docs/adapters/{en,de}.md` on what a code adapter
 can add; the open point of ADR 0082 and of the adapter plan closed; changelog in both languages.
+
+Done: ADR 0114; the paragraph at the end of section 2 of the guide in both languages; the note at C13 in the
+adapter plan. The changelog entries came with each step.
