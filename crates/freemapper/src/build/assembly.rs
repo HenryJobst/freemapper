@@ -1002,8 +1002,10 @@ mod tests {
     use super::*;
     use crate::build::content::{Group, POINT_CLOUD_KEY, Place, Profile};
     use crate::build::points::test_support::{Fixture, fixture};
+    use crate::derive::landforms::{Landform, LandformKind};
     use crate::omap::MapObjectKind;
     use crate::omap::coord::MapCoord;
+    use crate::sources::osm::OsmGeometry;
 
     /// A border input that differs by `n`.
     fn input(n: i32) -> Vec<Vec<MapObject>> {
@@ -1321,5 +1323,314 @@ mod tests {
         let placed = built.place(&settings).unwrap();
         assert_eq!(count(&placed.candidates, f.id("405")), 0);
         assert_eq!(count(&placed.map, f.id("405")), 0);
+    }
+
+    /// The projected point `de` m east and `dn` m north of the reference point.
+    fn projected(f: &Fixture, (de, dn): (f64, f64)) -> (f64, f64) {
+        let reference = f.georef.ref_projected;
+        (reference.easting + de, reference.northing + dn)
+    }
+
+    /// The geographic position of that point (iterating the forward projection).
+    fn lat_lon(f: &Fixture, at: (f64, f64)) -> LatLon {
+        let (easting, northing) = projected(f, at);
+        let mut p = LatLon {
+            lat: 52.4876,
+            lon: 13.3801,
+        };
+        for _ in 0..6 {
+            let q = crate::crs::utm33_forward(p);
+            p.lat += (northing - q.northing) / 111_200.0;
+            p.lon += (easting - q.easting) / (111_200.0 * p.lat.to_radians().cos());
+        }
+        p
+    }
+
+    /// The ring of a square of `side` m with its south-west corner at `from`.
+    fn ring(f: &Fixture, from: (f64, f64), side: f64) -> Polygon<f64> {
+        let (w, s) = projected(f, from);
+        let ring = vec![
+            (w, s),
+            (w + side, s),
+            (w + side, s + side),
+            (w, s + side),
+            (w, s),
+        ];
+        Polygon::new(ring.into(), vec![])
+    }
+
+    /// A square parcel of the land use.
+    fn parcel(f: &Fixture, oid: &str, nutzart: &str, from: (f64, f64), side: f64) -> LandUse {
+        LandUse {
+            oid: oid.to_string(),
+            nutzart: nutzart.to_string(),
+            bez: None,
+            updated: "2025-09-30".parse().ok(),
+            footprint: MultiPolygon(vec![ring(f, from, side)]),
+        }
+    }
+
+    fn osm_feature(id: &str, tags: &[(&str, &str)], geometry: OsmGeometry) -> OsmFeature {
+        OsmFeature {
+            id: id.to_string(),
+            tags: tags
+                .iter()
+                .map(|(k, v)| (k.to_string(), v.to_string()))
+                .collect(),
+            geometry,
+        }
+    }
+
+    fn osm_line(f: &Fixture, id: &str, tags: &[(&str, &str)], points: &[(f64, f64)]) -> OsmFeature {
+        let points = points.iter().map(|&p| lat_lon(f, p)).collect();
+        osm_feature(id, tags, OsmGeometry::Line(points))
+    }
+
+    /// The stored OSM candidates, as of an extract of 2026-11-01.
+    fn osm_extract(features: Vec<OsmFeature>) -> Option<(Vec<OsmFeature>, NaiveDate)> {
+        Some((features, "2026-11-01".parse().unwrap()))
+    }
+
+    /// The objects of `source_id` among `objects`.
+    fn of_source<'a>(objects: &'a [MapObject], source_id: &str) -> Vec<&'a MapObject> {
+        objects
+            .iter()
+            .filter(|o| source_ids(std::slice::from_ref(o)) == [source_id])
+            .collect()
+    }
+
+    fn symbols_of(objects: &[MapObject], source_id: &str) -> Vec<u32> {
+        of_source(objects, source_id)
+            .iter()
+            .map(|o| o.symbol_id)
+            .collect()
+    }
+
+    /// Builds the sprint fixture from `stored` and places it with the profile `safe`.
+    fn placed_safe(f: &Fixture, stored: Stored) -> Placed {
+        let safe = ContentSettings::with_profile(Profile::Safe);
+        build(frame(f), stored, &safe)
+            .unwrap()
+            .place(&safe)
+            .unwrap()
+    }
+
+    #[test]
+    fn a_firm_gravel_footway_is_cut_at_the_street_of_the_land_use() {
+        let f = fixture(MapKind::Sprint);
+        // A firm-gravel footway (ADR 0079: 501.6, a map object) from the open into a street
+        // parcel 40 to 10 m west of the reference point: east from 80 m to 25 m west of it.
+        let east_end = |land_use: Vec<LandUse>| {
+            let footway = osm_line(
+                &f,
+                "way/5",
+                &[("highway", "footway"), ("surface", "compacted")],
+                &[(-80.0, 5.0), (-25.0, 5.0)],
+            );
+            let placed = placed_safe(
+                &f,
+                Stored {
+                    land_use,
+                    osm: osm_extract(vec![footway]),
+                    ..Stored::default()
+                },
+            );
+            let pieces = of_source(&placed.map, "way/5");
+            assert_eq!(pieces.len(), 1, "one piece, in the open");
+            assert_eq!(pieces[0].symbol_id, f.id("501.6"));
+            pieces[0].coords.last().unwrap().x
+        };
+        let open = east_end(Vec::new());
+        let street = parcel(
+            &f,
+            "DEBBAL0100000030",
+            "Straßenverkehr",
+            (-40.0, -10.0),
+            30.0,
+        );
+        let cut = east_end(vec![street]);
+        // The street starts 15 m before the way's end (3.75 mm on paper at 1:4000): the cut
+        // piece ends clearly before the whole one.
+        assert!(open - cut > 2_000, "{open} {cut}");
+    }
+
+    #[test]
+    fn an_unpaved_street_keeps_its_parcel_a_candidate() {
+        let f = fixture(MapKind::Sprint);
+        let street = || {
+            parcel(
+                &f,
+                "DEBBAL0100000030",
+                "Straßenverkehr",
+                (-40.0, -10.0),
+                30.0,
+            )
+        };
+        let paved = f.id("501.5");
+        let placed = placed_safe(
+            &f,
+            Stored {
+                land_use: vec![street()],
+                ..Stored::default()
+            },
+        );
+        assert_eq!(symbols_of(&placed.map, "DEBBAL0100000030"), [paved]);
+        // A sand road across the parcel: not paved, the parcel is left to check.
+        let road = osm_line(
+            &f,
+            "way/3",
+            &[("highway", "residential"), ("surface", "sand")],
+            &[(-50.0, 5.0), (0.0, 5.0)],
+        );
+        let placed = placed_safe(
+            &f,
+            Stored {
+                land_use: vec![street()],
+                osm: osm_extract(vec![road]),
+                ..Stored::default()
+            },
+        );
+        assert!(symbols_of(&placed.map, "DEBBAL0100000030").is_empty());
+        assert_eq!(symbols_of(&placed.candidates, "DEBBAL0100000030"), [paved]);
+    }
+
+    #[test]
+    fn fountain_jets_in_a_basin_are_left_out_of_the_candidates() {
+        let f = fixture(MapKind::Sprint);
+        // A lake of the land use 40 to 10 m west of the reference point, and an OSM pond 20 to
+        // 30 m east of it, which stays a candidate.
+        let lake = parcel(
+            &f,
+            "DEBBAL0100000040",
+            "Stehendes Gewässer",
+            (-40.0, -10.0),
+            30.0,
+        );
+        let pond = osm_line(
+            &f,
+            "way/11",
+            &[("natural", "water")],
+            &[
+                (20.0, 0.0),
+                (30.0, 0.0),
+                (30.0, 10.0),
+                (20.0, 10.0),
+                (20.0, 0.0),
+            ],
+        );
+        let node = |id: &str, tag: (&str, &str), at: (f64, f64)| {
+            osm_feature(id, &[tag], OsmGeometry::Point(lat_lon(&f, at)))
+        };
+        let placed = placed_safe(
+            &f,
+            Stored {
+                land_use: vec![lake],
+                osm: osm_extract(vec![
+                    pond,
+                    node("node/20", ("amenity", "fountain"), (-25.0, 5.0)),
+                    node("node/21", ("amenity", "fountain"), (25.0, 5.0)),
+                    node("node/22", ("man_made", "water_well"), (26.0, 6.0)),
+                    node("node/23", ("amenity", "fountain"), (5.0, 0.0)),
+                ]),
+                ..Stored::default()
+            },
+        );
+        assert_eq!(symbols_of(&placed.candidates, "way/11"), [f.id("301")]);
+        // In the lake, in the pond, a well in the pond: no fountain. In the open: one.
+        for jet in ["node/20", "node/21", "node/22"] {
+            assert!(symbols_of(&placed.candidates, jet).is_empty(), "{jet}");
+            assert!(symbols_of(&placed.map, jet).is_empty(), "{jet}");
+        }
+        assert_eq!(symbols_of(&placed.candidates, "node/23"), [f.id("311")]);
+    }
+
+    #[test]
+    fn landforms_leave_built_land_buildings_and_roads() {
+        let f = fixture(MapKind::Sprint);
+        // A school 5 to 15 m east and 30 to 40 m north of the reference point, houses west of
+        // it, a street south-east of it.
+        let school = Building {
+            oid: "DEBBAL0100000001".to_string(),
+            kind: "Gebäude".to_string(),
+            function: "Allgemein bildende Schule".to_string(),
+            underground: false,
+            updated: "2025-09-30".parse().ok(),
+            footprint: MultiPolygon(vec![ring(&f, (5.0, 30.0), 10.0)]),
+        };
+        let point = |kind, at: (f64, f64), height_m| Landform {
+            kind,
+            points: vec![projected(&f, at)],
+            rotation_deg: 0.0,
+            height_m,
+        };
+        let cliff = |a: (f64, f64), b: (f64, f64), height_m| Landform {
+            kind: LandformKind::Cliff,
+            points: vec![projected(&f, a), projected(&f, b)],
+            rotation_deg: 0.0,
+            height_m,
+        };
+        let forms = vec![
+            // Among the houses: a heap or a garden mound.
+            point(LandformKind::Knoll, (-30.0, 0.0), 1.1),
+            point(LandformKind::Knoll, (25.0, 0.0), 1.2),
+            // 5 m east of the school: a light well.
+            point(LandformKind::Depression, (20.0, 35.0), 1.3),
+            point(LandformKind::Depression, (32.0, 20.0), 1.4),
+            // Along the north edge of the street: a retaining wall, offered as an impassable
+            // wall (515).
+            cliff((20.0, -29.0), (40.0, -29.0), 3.5),
+            cliff((-20.0, 20.0), (-2.0, 20.0), 3.6),
+        ];
+        let placed = placed_safe(
+            &f,
+            Stored {
+                buildings: Some(Buildings {
+                    buildings: vec![school],
+                    features: Vec::new(),
+                    fetched: "2026-11-01".parse().ok(),
+                }),
+                land_use: vec![
+                    parcel(
+                        &f,
+                        "DEBBAL0100000041",
+                        "Wohnbaufläche",
+                        (-40.0, -10.0),
+                        20.0,
+                    ),
+                    parcel(
+                        &f,
+                        "DEBBAL0100000042",
+                        "Straßenverkehr",
+                        (20.0, -50.0),
+                        20.0,
+                    ),
+                ],
+                landforms: Some(Landforms {
+                    forms,
+                    source: "lgb-dgm1".to_string(),
+                    currency: None,
+                }),
+                ..Stored::default()
+            },
+        );
+        // (height, symbol) of every landform candidate.
+        let mut found: Vec<(&str, u32)> = placed
+            .candidates
+            .iter()
+            .filter_map(|o| {
+                let height = o.tags.iter().find(|(k, _)| k == "freemapper:height")?;
+                Some((height.1.as_str(), o.symbol_id))
+            })
+            .collect();
+        found.sort();
+        assert_eq!(
+            found,
+            [
+                ("1.2", f.id("109")),
+                ("1.4", f.id("111")),
+                ("3.5", f.id("515")),
+                ("3.6", f.id("201")),
+            ]
+        );
     }
 }

@@ -11982,46 +11982,6 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
     }
 
     #[test]
-    fn fountain_jets_in_a_basin_are_left_out_of_the_candidates() {
-        let fetcher = MapFetcher::default();
-        let (dir, _cache_dir) = sprint_with_ways(&fetcher);
-        // The ALKIS lake (421 560–590 E, 5 821 690–720 N) and the OSM pond way/11 outside it
-        // (421 620–630 E, 5 821 700–710 N), which stays a candidate.
-        store_lake_and_ponds(dir.path());
-        let path = dir.path().join(OSM_CANDIDATES_RELPATH);
-        let mut features =
-            crate::sources::osm::features_from_geojson(&std::fs::read_to_string(&path).unwrap())
-                .unwrap();
-        let node = |id: &str, tag: (&str, &str), e: f64, n: f64| crate::sources::osm::OsmFeature {
-            id: id.to_string(),
-            tags: [(tag.0.to_string(), tag.1.to_string())]
-                .into_iter()
-                .collect(),
-            geometry: crate::sources::osm::OsmGeometry::Point(lat_lon_at(e, n)),
-        };
-        features.extend([
-            node("node/20", ("amenity", "fountain"), 421_575.0, 5_821_705.0),
-            node("node/21", ("amenity", "fountain"), 421_625.0, 5_821_705.0),
-            node(
-                "node/22",
-                ("man_made", "water_well"),
-                421_626.0,
-                5_821_706.0,
-            ),
-            node("node/23", ("amenity", "fountain"), 421_605.0, 5_821_700.0),
-        ]);
-        std::fs::write(&path, crate::sources::osm::features_to_geojson(&features)).unwrap();
-        export_starter_project(dir.path(), false).unwrap();
-        let candidates =
-            std::fs::read_to_string(dir.path().join("templates/candidates.omap")).unwrap();
-        let fountain = MapKind::Sprint.symbol_set(4000).id_for_code("311").unwrap();
-        for jet in ["node/20", "node/21", "node/22"] {
-            assert_eq!(symbols_of(&candidates, jet), Vec::<u32>::new(), "{jet}");
-        }
-        assert_eq!(symbols_of(&candidates, "node/23"), [fountain]);
-    }
-
-    #[test]
     fn osm_pond_without_alkis_water_stays_a_candidate() {
         let fetcher = MapFetcher::default();
         let (dir, _cache_dir) = sprint_with_ways(&fetcher);
@@ -12103,40 +12063,6 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
     }
 
     #[test]
-    fn unpaved_street_keeps_its_parcel_a_candidate() {
-        let fetcher = MapFetcher::default();
-        let (dir, _cache_dir) = sprint_with_ways(&fetcher);
-        store_traffic_areas(dir.path());
-        // A sand road across the Straßenverkehr square (421 560–421 590 E, 5 821 690–720 N).
-        let road = crate::sources::osm::OsmFeature {
-            id: "way/3".to_string(),
-            tags: vec![
-                ("highway".to_string(), "residential".to_string()),
-                ("surface".to_string(), "sand".to_string()),
-            ],
-            geometry: crate::sources::osm::OsmGeometry::Line(vec![
-                lat_lon_at(421_550.0, 5_821_705.0),
-                lat_lon_at(421_600.0, 5_821_705.0),
-            ]),
-        };
-        std::fs::write(
-            dir.path().join(OSM_CANDIDATES_RELPATH),
-            crate::sources::osm::features_to_geojson(&[road]),
-        )
-        .unwrap();
-        let map =
-            std::fs::read_to_string(export_starter_project(dir.path(), false).unwrap()).unwrap();
-        assert!(!map.contains("DEBBAL0100000030"), "sand road: not paved");
-        let candidates =
-            std::fs::read_to_string(dir.path().join("templates/candidates.omap")).unwrap();
-        let paved = MapKind::Sprint
-            .symbol_set(4000)
-            .id_for_code("501.5")
-            .unwrap();
-        assert_eq!(symbols_of(&candidates, "DEBBAL0100000030"), [paved]);
-    }
-
-    #[test]
     fn export_puts_unpaved_paths_into_the_sprint_map() {
         let fetcher = MapFetcher::default();
         let (dir, _cache_dir) = sprint_with_ways(&fetcher);
@@ -12189,54 +12115,6 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let candidates =
             std::fs::read_to_string(dir.path().join("templates/candidates.omap")).unwrap();
         assert!(!candidates.contains("way/5<"));
-    }
-
-    /// The x of the last coordinate of the object `source_id` (map units).
-    fn last_x(omap: &str, source_id: &str) -> i32 {
-        let object = omap
-            .split("<object ")
-            .find(|o| o.contains(&format!(r#"<t k="freemapper:source_id">{source_id}</t>"#)))
-            .unwrap();
-        let coords = object.split("<coords").nth(1).unwrap();
-        let coords = coords.split("</coords>").next().unwrap();
-        let last = coords
-            .split(';')
-            .rev()
-            .find(|c| !c.trim().is_empty())
-            .unwrap();
-        last.rsplit('>')
-            .next()
-            .unwrap()
-            .split(' ')
-            .next()
-            .unwrap()
-            .parse()
-            .unwrap()
-    }
-
-    #[test]
-    fn export_cuts_a_firm_gravel_footway_at_the_alkis_street() {
-        let fetcher = MapFetcher::default();
-        let (dir, _cache_dir) = sprint_with_ways(&fetcher);
-        firm_footway_into_the_street(dir.path());
-        let open =
-            std::fs::read_to_string(export_starter_project(dir.path(), false).unwrap()).unwrap();
-        store_traffic_areas(dir.path());
-        let cut =
-            std::fs::read_to_string(export_starter_project(dir.path(), true).unwrap()).unwrap();
-        let firm = MapKind::Sprint
-            .symbol_set(4000)
-            .id_for_code("501.6")
-            .unwrap();
-        assert_eq!(symbols_of(&cut, "way/5"), [firm], "one piece, in the open");
-        // The street starts 15 m before the way's end (4 mm on paper at 1:4000): the cut piece
-        // ends clearly before the whole one.
-        assert!(
-            last_x(&open, "way/5") - last_x(&cut, "way/5") > 2_000,
-            "{} {}",
-            last_x(&open, "way/5"),
-            last_x(&cut, "way/5")
-        );
     }
 
     #[test]
@@ -13394,95 +13272,6 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         content.set(Group::Landforms, Some(Place::Map));
         set_content(dir.path(), Some(content)).unwrap();
         assert_eq!(on_map(dir.path()), (true, true));
-    }
-
-    #[test]
-    fn landforms_leave_built_land_buildings_and_roads() {
-        use crate::derive::landforms::{Landform, LandformKind, landforms_to_geojson};
-        use crate::sources::alkis::test_support::{land_use_feature, page};
-        let (dir, _cache_dir, _) = derived_school_with_ndsm();
-        // Houses west of the school, a street south-east of it.
-        let houses = land_use_feature(
-            "DEBBAL0100000041",
-            "Wohnbaufläche",
-            None,
-            [421_560.0, 5_821_690.0, 20.0],
-        );
-        let street = land_use_feature(
-            "DEBBAL0100000042",
-            "Straßenverkehr",
-            None,
-            [421_620.0, 5_821_650.0, 20.0],
-        );
-        std::fs::write(
-            dir.path().join(LAND_USE_RELPATH),
-            page(&[houses, street], None),
-        )
-        .unwrap();
-        let point = |kind, p: (f64, f64), height_m| Landform {
-            kind,
-            points: vec![p],
-            rotation_deg: 0.0,
-            height_m,
-        };
-        let line = |a: (f64, f64), b: (f64, f64), height_m| Landform {
-            kind: LandformKind::Cliff,
-            points: vec![a, b],
-            rotation_deg: 0.0,
-            height_m,
-        };
-        let forms = [
-            // Among the houses: a heap or a garden mound.
-            point(LandformKind::Knoll, (421_570.0, 5_821_700.0), 1.1),
-            point(LandformKind::Knoll, (421_625.0, 5_821_700.0), 1.2),
-            // 5 m east of the school building (421 605 to 421 615 E): a light well.
-            point(LandformKind::Depression, (421_620.0, 5_821_735.0), 1.3),
-            point(LandformKind::Depression, (421_632.0, 5_821_720.0), 1.4),
-            // Along the north edge of the street: a retaining wall, offered as an impassable wall (515).
-            line((421_620.0, 5_821_671.0), (421_640.0, 5_821_671.0), 3.5),
-            line((421_580.0, 5_821_720.0), (421_598.0, 5_821_720.0), 3.6),
-        ];
-        std::fs::write(
-            dir.path().join(LANDFORMS_RELPATH),
-            landforms_to_geojson(&forms),
-        )
-        .unwrap();
-        export_starter_project(dir.path(), false).unwrap();
-        let candidates =
-            std::fs::read_to_string(dir.path().join("templates/candidates.omap")).unwrap();
-        let symbol_set = ProjectFile::load(dir.path())
-            .unwrap()
-            .map_kind
-            .symbol_set(4000);
-        let code_of = |id: &str| {
-            ["104", "109", "111", "201", "515"]
-                .into_iter()
-                .find(|c| symbol_set.id_for_code(c).unwrap().to_string() == id)
-        };
-        // (height, code) of every landform candidate.
-        let mut found: Vec<(String, &str)> = candidates
-            .split("<object ")
-            .skip(1)
-            .filter_map(|o| {
-                let id = o.split(r#"symbol=""#).nth(1)?.split('"').next()?;
-                let h = o
-                    .split(r#"<t k="freemapper:height">"#)
-                    .nth(1)?
-                    .split('<')
-                    .next()?;
-                (h.contains('.')).then(|| Some((h.to_string(), code_of(id)?)))?
-            })
-            .collect();
-        found.sort();
-        assert_eq!(
-            found,
-            [
-                ("1.2".to_string(), "109"),
-                ("1.4".to_string(), "111"),
-                ("3.5".to_string(), "515"),
-                ("3.6".to_string(), "201"),
-            ]
-        );
     }
 
     #[test]
