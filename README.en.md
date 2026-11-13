@@ -24,7 +24,7 @@ the mapper has to judge. Drawing and field checking stay in OOM or OCAD.
   through AI agents (MCP server).
 - Regions: Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony, Rhineland-Palatinate and Saarland (open data from LGB,
   Geoportal Berlin, GeoSN, LVermGeo, LGV, HVBG, LVermGeo SH, LAiV M-V, Geobasis NRW, LGLN, LVermGeo RP and LVGL);
-  schoolyard maps 1:1000 and sprint maps 1:4000.
+  schoolyard maps 1:1000, sprint maps 1:4000 and forest maps 1:15 000, 1:10 000 or 1:7500.
 - Examples: one finished project per state with the OOM map, the OCAD starting point and the PDF, see
   [Examples](#examples).
 
@@ -243,7 +243,9 @@ The cache lives in the system cache folder (macOS `~/Library/Caches/freemapper`,
 `~/.cache/freemapper`, Windows `%LOCALAPPDATA%\freemapper`) and is shared by all projects;
 `--cache-dir` picks another folder.
 
-Map kinds: `schoolyard` (schoolyard map, 1:1000) and `sprint` (sprint map, ISSprOM 2019, 1:4000).
+Map kinds: `schoolyard` (schoolyard map, 1:1000), `sprint` (sprint map, ISSprOM 2019, 1:4000) and `forest`
+(forest map, ISOM 2017-2, 1:15 000, 1:10 000 or 1:7500). The [manual](docs/manual/en.md#forest-maps) says what a
+forest map draws.
 
 The sprint map also contains, as finished map objects:
 

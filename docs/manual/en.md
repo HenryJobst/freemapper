@@ -27,7 +27,7 @@ geodata or the command line. It describes the current state, with Brandenburg, B
 ## 1. What freemapper does
 
 freemapper fetches the official geodata of an area and builds the **starting point** for a schoolyard
-map (1:1000) or sprint map (1:4000). The geodata includes the orthophoto, the terrain model, and the
+map (1:1000), sprint map (1:4000) or forest map (1:15 000 to 1:7500). The geodata includes the orthophoto, the terrain model, and the
 buildings and land use from the cadastre (ALKIS). Data from OpenStreetMap (OSM) is added.
 
 - **Drawn as finished map objects** is only what is reliable: buildings, water from the cadastre, and on
@@ -289,7 +289,7 @@ ways of such a relation often carry no tags. Nominatim then does not know them, 
 nothing. Use the relation (`--osm relation/…`) instead, or save the outline as GeoJSON and use `--geojson`.
 
 **Scale.** `--scale` takes only values freemapper-print prints: 1000 for schoolyard maps, 4000 (default) or
-5000 for sprint maps. At 5000 freemapper-print warns, because the scale is not in the norm; the symbols stay at 100 %.
+5000 for sprint maps, 15000 (default), 10000 or 7500 for forest maps. At 5000 freemapper-print warns, because the scale is not in the norm; the symbols stay at 100 %.
 `init` refuses a sprint scale of 3000. Draw at 1:4000, and freemapper-print enlarges to 1:3000 when printing. A project
 whose `freemapper.toml` names another scale still loads; freemapper warns, and freemapper-print will not print the map.
 
@@ -540,6 +540,39 @@ or wall corners.
 The example projects in the repository show what the result looks like, one per state:
 [`examples/`](https://github.com/HenryJobst/freemapper/blob/main/examples/README.en.md). Each has the OOM map, the OCAD starting point and the PDF.
 
+### Forest maps
+
+A forest map (`--kind forest`) follows ISOM 2017-2. It is meant for small forests you need a training map of
+quickly. The scale is 1:15 000 (default), 1:10 000 or 1:7500. At 1:10 000 freemapper draws the symbols at 150 %, at
+1:7500 at 200 %, as the norm says for enlarged maps.
+
+```sh
+freemapper init dammheide --osm relation/4513841 --kind forest --scale 10000
+freemapper run dammheide --pdf-candidates
+```
+
+- **Paths** come from OSM and go straight onto the map: main roads as 502, other roads as 503, tracks of grade 1
+  and 2 or at least 3 m wide as 504, the other tracks, cycleways and wide or firm footpaths as 505, narrow paths as
+  506, faint paths (`trail_visibility=bad` or `informal=yes`) as 507 and stairs as 532. Private ways stay paths.
+  Sidewalks along roads, crossings, driveways and parking aisles are left out. freemapper moves and joins nothing;
+  what OSM has wrong, you correct in OOM.
+- **Forest** is the white paper. Where OSM or ALKIS says forest, freemapper draws no open land, even where ALKIS
+  calls the land a park or a recreation area.
+- **Green** comes only where OSM says so: scrub (`natural=scrub`) becomes candidate 406, dense scrub 408. Meadows
+  and grassland become candidates 401, heath and clearings 403. freemapper takes no green from the nDSM. The
+  vegetation from laser point clouds (group `vegetation`) can be switched on as for sprint maps; Berlin was flown
+  without leaves, so it finds little there.
+- **Contours** lie every 5 m, every 2.5 m in flat land. An area is flat when its terrain heights between the 5th
+  and the 95th percentile span less than 15 m. `contour_interval_m = 2.5` (or another value above 0) in
+  `freemapper.toml` sets the interval yourself; then run `derive` and `export --force`. The margin names the
+  interval ("Äquidistanz 2,5 m").
+- Buildings, water, walls, fences, power lines, railways and out-of-bounds areas (520) come as on the sprint map.
+  Trees from tree cadastres and single OSM trees are left out. Only a tree tagged `denotation=natural_monument`
+  becomes candidate 417.
+
+For a quick training the candidates PDF (`--pdf-candidates`) is enough: it shows the map and the candidates at the
+chosen scale. For mapping you take the `.omap`, as for the other map kinds.
+
 ## 8. What the templates show
 
 The examples show the Kreuzgymnasium Dresden. Orthophoto, terrain and surface model: Quelle: GeoSN,
@@ -551,10 +584,10 @@ dl-de/by-2-0, Daten geändert.
 | **nDSM (height above ground):** yellow 0.3–1 m (walls, benches, cars), orange 1–2.5 m (hedges, fences, playground equipment), light green 2.5–8 m (bushes, sheds), dark green above 8 m (trees, houses). Shows what stands, also under trees. | ![nDSM on the orthophoto](images/ndsm.jpg) |
 | **Hillshade:** the terrain as if lit from the north-west. Shows banks, hollows and earth walls. | ![Hillshade](images/hillshade.jpg) |
 | **Slope:** the darker, the steeper. Helps with banks and stairs. | ![Slope](images/slope.jpg) |
-| **Local relief:** the terrain minus its smoothed mean (over about 5 m on sprint maps, 3 m on schoolyard maps). Light is higher than the surroundings, dark lower; the general fall of the ground is gone. Shows mounds, hollows, banks and ditches that the hillshade hides on a slope. | – |
+| **Local relief:** the terrain minus its smoothed mean (over about 5 m on sprint maps, 3 m on schoolyard maps, 8 m on forest maps). Light is higher than the surroundings, dark lower; the general fall of the ground is gone. Shows mounds, hollows, banks and ditches that the hillshade hides on a slope. | – |
 
 The candidates map also holds the **contours**: every 1 m on schoolyard maps, every 2 m on sprint maps,
-every fifth one an index contour. They are computed from the terrain model and smoothed. For the map
+every 5 m or in flat land every 2.5 m on forest maps ([Forest maps](#forest-maps)), every fifth one an index contour. They are computed from the terrain model and smoothed. For the map
 they are a draft, not a finished result.
 
 From the terrain model come further candidates the contours miss:
