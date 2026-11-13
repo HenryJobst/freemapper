@@ -170,6 +170,7 @@ warning-ndsm-no-cached = no cached nDSM for tile { $tile }
 warning-ndsm-tile-unavailable-cached = nDSM tile { $tile } unavailable ({ $reason }); using the cached file
 warning-ndsm-tile-unavailable-skipped = nDSM tile { $tile } unavailable ({ $reason }); skipped
 warning-file-check-failed = could not check whether { $file } is still current ({ $reason }); using the cached file
+warning-ldbv-no-buildings-file = no building file for tile { $tile } on the server; the map may lack buildings there
 progress-ndsm-not-published = no nDSM point cloud published for tile { $tile }
 progress-ndsm-cached = cached nDSM { $tile }
 progress-point-cloud-not-published = no laser point cloud published for tile { $tile }

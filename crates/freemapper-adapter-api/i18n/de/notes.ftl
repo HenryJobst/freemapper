@@ -202,6 +202,7 @@ warning-ndsm-no-cached = Kein nDSM für die Kachel { $tile } im Zwischenspeicher
 warning-ndsm-tile-unavailable-cached = nDSM-Kachel { $tile } nicht verfügbar ({ $reason }); die Datei aus dem Zwischenspeicher wird verwendet
 warning-ndsm-tile-unavailable-skipped = nDSM-Kachel { $tile } nicht verfügbar ({ $reason }); übersprungen
 warning-file-check-failed = Ob { $file } noch aktuell ist, ließ sich nicht prüfen ({ $reason }); die Datei aus dem Zwischenspeicher wird verwendet
+warning-ldbv-no-buildings-file = Für die Kachel { $tile } liegt auf dem Server keine Gebäudedatei; der Karte können dort Gebäude fehlen
 progress-ndsm-not-published = Für die Kachel { $tile } ist keine nDSM-Punktwolke veröffentlicht
 progress-ndsm-cached = nDSM { $tile } aus dem Zwischenspeicher
 progress-point-cloud-not-published = Für die Kachel { $tile } ist keine Laserpunktwolke veröffentlicht

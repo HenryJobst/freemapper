@@ -15,6 +15,7 @@ pub mod hvbg;
 pub mod laiv_mv;
 mod las_files;
 pub mod ldbv;
+pub mod ldbv_alkis;
 pub mod ldbv_files;
 pub mod lgb;
 pub mod lgb_als;
