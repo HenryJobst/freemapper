@@ -6,6 +6,8 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
+## [0.20.0] - 2026-11-14
+
 ### Added
 
 - Permit notes: a new section names the classified roads through the map area (Autobahn, Bundes-, Landes- or Staats-, Kreisstraße, with their number from OpenStreetMap), and per class a hint that the road traffic authority orders a closure or a crossing with marshals and who usually keeps the road (ADR 0133). It works in every state and comes from the OSM extract freemapper reads already.
