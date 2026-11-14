@@ -1,8 +1,8 @@
 //! The laser point clouds of the Bayerische Vermessungsverwaltung (CC BY 4.0): one LAZ file per
-//! km tile in EPSG:25832 under an address that follows from the tile (ADR 0124). No list names
+//! km tile in EPSG:25832 under an address that follows from the tile (ADR 0128). No list names
 //! the tiles, so a tile is kept like Bavaria's other files ([`crate::ldbv_files`]): named by the
 //! day the server last changed it, and one `HEAD` tells whether it is still current. The day of
-//! the flight is in the GPS time of the points.
+//! the flight is in the GPS time of the points, except in older lots with GPS week time.
 //!
 //! The classes are the agency's (September 2023): ground (2), buildings (6), water (9), objects
 //! such as vegetation (20), cellar exits and, until 2020, bridges (22), and synthetic ground
@@ -26,7 +26,7 @@ use crate::boundaries::{BAYERN, tile_centre_in};
 use crate::crs::BoundingBox;
 use crate::fetch::{FetchError, FetchMode};
 use crate::las_files::{
-    download_las, flight_day, parse_utm32_tile_name as parse_tile_name,
+    download_las, flight_day, header_day, parse_utm32_tile_name as parse_tile_name,
     utm32_tile_name as tile_name,
 };
 use crate::ldbv_files::{Checks, Current, Published, cached, current, drop_older};
@@ -93,13 +93,16 @@ impl Default for LdbvLasBackend {
 }
 
 /// The day the cached tile at `path` stands for: the day of its flight where its points tell
-/// it, else the day the server last changed it (in the name of the file), else none.
+/// it (lots with GPS week time do not), else the day its header says it was made, else the day
+/// the server last changed it (in the name of the file), else none.
 fn published(path: &Path, today: NaiveDate) -> Option<NaiveDate> {
-    flight_day(path, today).or_else(|| {
-        let name = path.file_stem()?.to_str()?;
-        let (_, day) = name.rsplit_once('-')?;
-        NaiveDate::parse_from_str(day, "%Y%m%d").ok()
-    })
+    flight_day(path, today)
+        .or_else(|| header_day(path, today))
+        .or_else(|| {
+            let name = path.file_stem()?.to_str()?;
+            let (_, day) = name.rsplit_once('-')?;
+            NaiveDate::parse_from_str(day, "%Y%m%d").ok()
+        })
 }
 
 impl PointCloudBackend for LdbvLasBackend {
@@ -217,7 +220,7 @@ mod tests {
 
     use super::*;
     use crate::fetch::test_support::MapFetcher;
-    use crate::las_files::testing::{gps_noon, laz_with_times};
+    use crate::las_files::testing::{gps_noon, laz_created, laz_with_times};
 
     /// The tile of the Schmausenbuck, and its neighbour to the east.
     const TILE: TileId = TileId {
@@ -387,6 +390,41 @@ mod tests {
         serve(&fetcher, TILE, laz("2021-12-20", false), Some("2023-03-10"));
         let (tiles, _) = fetch(&fetcher, &cache, FetchMode::Online, &inside(TILE));
         assert_eq!(tiles[0].record.published, Some(day("2023-03-10")));
+    }
+
+    #[test]
+    fn a_tile_with_week_time_is_dated_by_its_header() {
+        let (_dir, cache) = cache();
+        let fetcher = MapFetcher::default();
+        // A lot of 2011, processed in 2018 and put on the server in 2023: its points do not
+        // tell the day, and the day it was processed is closer to the flight.
+        let old_lot = |created: &str| {
+            laz_created(
+                &[gps_noon(day("2021-12-20")); 30],
+                false,
+                Some(day(created)),
+            )
+        };
+        serve(&fetcher, TILE, old_lot("2018-08-08"), Some("2023-03-10"));
+        let (tiles, _) = fetch(&fetcher, &cache, FetchMode::Online, &inside(TILE));
+        assert_eq!(tiles[0].record.published, Some(day("2018-08-08")));
+        // A header day after today or before the first flights is no day.
+        for odd in ["2031-01-01", "1980-01-06"] {
+            let (_dir, cache) = self::cache();
+            serve(&fetcher, TILE, old_lot(odd), Some("2023-03-10"));
+            let (tiles, _) = fetch(&fetcher, &cache, FetchMode::Online, &inside(TILE));
+            assert_eq!(tiles[0].record.published, Some(day("2023-03-10")), "{odd}");
+        }
+        // The points win over the header where they tell the day.
+        let (_dir, cache) = self::cache();
+        let flown = laz_created(
+            &[gps_noon(day("2021-12-20")); 30],
+            true,
+            Some(day("2022-05-18")),
+        );
+        serve(&fetcher, TILE, flown, Some("2023-03-10"));
+        let (tiles, _) = fetch(&fetcher, &cache, FetchMode::Online, &inside(TILE));
+        assert_eq!(tiles[0].record.published, Some(day("2021-12-20")));
     }
 
     #[test]

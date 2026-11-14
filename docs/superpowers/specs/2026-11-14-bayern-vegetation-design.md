@@ -67,8 +67,8 @@ candidates of ADR 0105, as in Brandenburg, Berlin, North Rhine-Westphalia, Rhine
   for the other backends. Offline without a cached copy is the warning `warning-point-cloud-no-cached`. Only a
   cancelled fetch is an error.
 - **The record** names the tile as `32<E>-<N>` (as the other states of zone 32), its address, and as
-  `published` the flight day (below); where the points do not tell it, the day in the name of the cached file;
-  where the server named no day either, nothing.
+  `published` the flight day (below); where the points do not tell it, the day the header says the file was
+  made; without that, the day in the name of the cached file; where the server named no day either, nothing.
 - **`cached(record)`** is the newest cached copy of the tile. A project that recorded a tile keeps finding it
   after another project fetched a newer copy.
 - **Estimate**: 250 MB per tile, cached when a copy exists.
@@ -80,6 +80,11 @@ the newest of 16 points spread evenly over the file (the first and the last amon
 from 1980-01-06. A day before 1995 or after today is no day. With GPS week time (older lots may have it) there is
 no day. Reading it costs 16 seeks in the chunk table and is done at every fetch, so nothing is stored beside the
 tile.
+
+Added during the build (2026-11-14): three more tiles showed that a lot of 2011 has GPS week time (tile 610_5480,
+processed 2018, on the server since 2023) and that synthetic ground points (class 24) carry a GPS time of the year
+8416. So a tile whose points do not tell the day is dated by the day in its header (`las_files::header_day`),
+which lies after the flight and closer to it than the day the server got the file; and a time far off is no day.
 
 ### The classes
 
@@ -96,7 +101,7 @@ ground). The other five backends leave the list empty. `derive` hands the list o
 
 ### Texts
 
-ADR 0124 (short: what is different about Bavaria's point clouds). Manual (German and English): the state list
+ADR 0128 (short: what is different about Bavaria's point clouds). Manual (German and English): the state list
 of "Vegetation aus Laserpunktwolken", the size per tile, a sentence on the flight without leaves if the live run
 shows it matters. README (both), the text of the content group on the area page (both languages), the examples
 README (Schmausenbuck with vegetation), changelog (both), the reference. All user texts go through `unslop` and

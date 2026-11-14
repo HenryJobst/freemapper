@@ -74,6 +74,19 @@ pub(crate) fn check_las_file(url: &str, path: &Path) -> Result<(), FetchError> {
     Ok(())
 }
 
+/// Before this day no state flew laser scans; an earlier day in a file is a default.
+fn first_flights() -> Option<NaiveDate> {
+    NaiveDate::from_ymd_opt(1995, 1, 1)
+}
+
+/// The day the header of the LAS/LAZ file at `path` says the file was made: after the flight,
+/// and closer to it than the day a server got the file. Only a day between the first laser
+/// flights and `today` counts.
+pub(crate) fn header_day(path: &Path, today: NaiveDate) -> Option<NaiveDate> {
+    let day = las::Reader::from_path(path).ok()?.header().date()?;
+    (first_flights()?..=today).contains(&day).then_some(day)
+}
+
 /// The day the points of the LAS/LAZ file at `path` were measured, for a provider that names
 /// the flight of a tile nowhere else: the newest day among 16 points spread evenly over the
 /// file. Only a file whose header says adjusted standard GPS time tells it (GPS week time
@@ -89,7 +102,7 @@ pub(crate) fn flight_day(path: &Path, today: NaiveDate) -> Option<NaiveDate> {
     }
     let last = reader.header().number_of_points().checked_sub(1)?;
     let epoch = NaiveDate::from_ymd_opt(1980, 1, 6)?;
-    let first_flights = NaiveDate::from_ymd_opt(1995, 1, 1)?;
+    let first_flights = first_flights()?;
     (0..SAMPLES)
         .filter_map(|i| {
             reader.seek(i * last / (SAMPLES - 1)).ok()?;
@@ -282,11 +295,21 @@ pub(crate) mod testing {
 
     /// A LAZ point cloud (LAS 1.2, point format 1) in EPSG:25832 with one point per entry of
     /// `times`, its GPS time; `standard` says whether the header calls that adjusted standard
-    /// GPS time or GPS week time.
+    /// GPS time or GPS week time. The header names no day the file was made.
     pub(crate) fn laz_with_times(times: &[f64], standard: bool) -> Vec<u8> {
+        laz_created(times, standard, None)
+    }
+
+    /// [`laz_with_times`] with the day the file was made in its header.
+    pub(crate) fn laz_created(
+        times: &[f64],
+        standard: bool,
+        created: Option<NaiveDate>,
+    ) -> Vec<u8> {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("t.laz");
         let mut builder = las::Builder::from((1, 2));
+        builder.date = created;
         builder.point_format = las::point::Format::new(1).unwrap();
         builder.point_format.is_compressed = true;
         builder.gps_time_type = if standard {
@@ -360,6 +383,19 @@ mod tests {
         let mut reversed = two_days();
         reversed.reverse();
         let (_dir, path) = file(&laz_with_times(&reversed, true));
+        assert_eq!(
+            flight_day(&path, day("2026-11-14")),
+            Some(day("2021-12-20"))
+        );
+    }
+
+    #[test]
+    fn flight_day_ignores_a_point_with_a_time_far_off() {
+        // Bavaria's synthetic ground points (class 24) carry a GPS time of the year 8416.
+        let mut times = two_days();
+        times[0] = 2.0e11;
+        times[39] = 2.0e11;
+        let (_dir, path) = file(&laz_with_times(&times, true));
         assert_eq!(
             flight_day(&path, day("2026-11-14")),
             Some(day("2021-12-20"))

@@ -115,7 +115,7 @@
 ### Task 5: Texts
 
 **Files:**
-- Create: `docs/adr/0124-bavaria-vegetation-from-the-point-clouds.md`; Modify: `docs/adr/README.md`, `docs/adr/0105-vegetation-from-point-clouds.md` (one line that names the sixth source and points to 0124)
+- Create: `docs/adr/0128-bavaria-vegetation-from-the-point-clouds.md`; Modify: `docs/adr/README.md`, `docs/adr/0105-vegetation-from-point-clouds.md` (one line that names the sixth source and points to 0128)
 - Modify: `docs/manual/de.md`, `docs/manual/en.md` (section "Vegetation aus Laserpunktwolken" / its English twin)
 - Modify: `README.md`, `README.en.md`, `AGENTS.md` if it lists the states with vegetation
 - Modify: `crates/freemapper-cli/i18n/{de,en}/freemapper.ftl` (`page-content-group-vegetation`) and the tests that quote it
@@ -126,4 +126,4 @@
 - [ ] **Step 1:** Write the texts with the numbers of the live run (sizes, tiles, flight day, counts). The manual says what a tile costs in Bavaria (meist 100 bis 600 MB) and that the date on the candidates is the day of the flight.
 - [ ] **Step 2:** Run `unslop` and `humanizer` over the new user texts.
 - [ ] **Step 3:** `cargo test --workspace --locked`, `cargo fmt --all --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `scripts/golden.sh test` — Expected: PASS.
-- [ ] **Step 4: Commit** `docs: Bavaria's vegetation in the manual, the READMEs and the changelog (ADR 0124)`.
+- [ ] **Step 4: Commit** `docs: Bavaria's vegetation in the manual, the READMEs and the changelog (ADR 0128)`.
