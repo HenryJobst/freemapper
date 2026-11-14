@@ -6,6 +6,10 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+### Geändert
+
+- Vegetation aus Laserpunktwolken (ADR 0136): Die Umrisse folgen jetzt dem Rand der Vegetation statt den 3-m-Stufen der Zellen. freemapper zeichnet sie auf einem dreimal feineren, leicht weichgezeichneten Raster; Ecken werden etwas abgerundet. Die neun Beispiele mit Punktwolken-Vegetation sind neu gebaut.
+
 ## [0.20.0] - 2026-11-14
 
 ### Hinzugefügt

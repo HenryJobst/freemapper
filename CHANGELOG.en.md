@@ -6,6 +6,10 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
+### Changed
+
+- Vegetation from laser point clouds (ADR 0136): the outlines now follow the edge of the vegetation instead of the 3 m steps of the cells. freemapper traces them on a raster three times finer and slightly blurred; corners are rounded a little. The nine examples with point-cloud vegetation are rebuilt.
+
 ## [0.20.0] - 2026-11-14
 
 ### Added
