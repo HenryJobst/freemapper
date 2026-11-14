@@ -566,8 +566,11 @@ freemapper run dammheide --pdf-candidates
   and grassland become candidates 401, heath and clearings 403. freemapper takes no green from the nDSM. The
   vegetation from laser point clouds (group `vegetation`) can be switched on as for sprint maps; Berlin was flown
   without leaves, so it finds little there.
-- **Contours** lie every 5 m, every 2.5 m in flat land. An area is flat when its terrain heights between the 5th
-  and the 95th percentile span less than 15 m. You set the interval yourself with
+- **Contours** lie every 5 m, every 2.5 m in flat land and every 10 m in steep land. An area is flat when its
+  terrain heights between the 5th and the 95th percentile span less than 15 m. It is steep when on more than a
+  tenth of it contours 5 m apart would lie closer than 0.35 mm on the map (enlarged like the symbols), so that they
+  run into a brown area, as in the Bode valley or at the Bastei. The ISOM 2017-2 knows only 5 m and 2.5 m;
+  `derive` names the 10 m in a line, and `--contour-interval 5` keeps 5 m. You set the interval yourself with
   `--contour-interval 2.5` on `init`, `derive` or `run`, in the field "Contour interval" on the area page, or as
   `contour_interval_m = 2.5` in `freemapper.toml`; `auto` ("automatic" on the page) gives the choice back. For a
   finished map then run `freemapper run <folder> --force` (or `derive` and `export --force`). The margin names the
@@ -595,7 +598,7 @@ dl-de/by-2-0, Daten geändert.
 | **Local relief:** the terrain minus its smoothed mean (over about 5 m on sprint maps, 3 m on schoolyard maps, 8 m on forest maps). Light is higher than the surroundings, dark lower; the general fall of the ground is gone. Shows mounds, hollows, banks and ditches that the hillshade hides on a slope. | – |
 
 The candidates map also holds the **contours**: every 1 m on schoolyard maps, every 2 m on sprint maps,
-every 5 m or in flat land every 2.5 m on forest maps ([Forest maps](#forest-maps)), every fifth one an index contour. They are computed from the terrain model and smoothed. For the map
+every 5 m, in flat land every 2.5 m or in steep land every 10 m on forest maps ([Forest maps](#forest-maps)), every fifth one an index contour. They are computed from the terrain model and smoothed. For the map
 they are a draft, not a finished result.
 
 From the terrain model come further candidates the contours miss:

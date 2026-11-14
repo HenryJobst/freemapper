@@ -152,6 +152,7 @@ warning-trees-skipped = { $id } tree cadastre unavailable ({ $detail }); trees s
 ## Deriving the templates
 
 progress-writing = writing { $path }
+progress-contours-steep = contours every { $interval } m: the terrain is so steep that contours every { $default } m would run together; a contour interval of { $default } m in the project keeps them (`--contour-interval { $default }`)
 progress-no-ndsm-recorded = no nDSM recorded; run `freemapper fetch` for the nDSM template
 warning-ndsm-tile-invalid = invalid nDSM tile { $tile } in freemapper.toml; skipped
 warning-ndsm-not-cached = nDSM { $tile } not cached; run `freemapper fetch`
