@@ -148,6 +148,10 @@ fn read_page(url: &str, bytes: &[u8]) -> Result<Vec<Value>, FetchError> {
         .map_err(|e| not_geojson(format!("the answer is not GeoJSON: {e}")))?;
     match value.get_mut("features").map(Value::take) {
         Some(Value::Array(features)) => Ok(features),
+        // Hamburg's services answer an empty box with a collection that has no `features`.
+        None if value.get("type").and_then(Value::as_str) == Some("FeatureCollection") => {
+            Ok(Vec::new())
+        }
         _ => Err(not_geojson(
             "the answer is not a FeatureCollection".to_string(),
         )),
@@ -311,6 +315,28 @@ mod tests {
             matches!(&err, FetchError::Http { url: u, .. } if *u == url),
             "{err:?}"
         );
+    }
+
+    /// A collection without `features` is empty, as Hamburg answers an empty box; anything
+    /// else without them is still an error.
+    #[test]
+    fn a_collection_without_features_is_empty() {
+        let fetcher = MapFetcher::default();
+        fetcher.insert(
+            &query_url(&BFN, "t", &BOX, 0),
+            br#"{"type": "FeatureCollection"}"#.to_vec(),
+        );
+        assert!(
+            get_features(&fetcher, &BFN, "t", &BOX, &part())
+                .unwrap()
+                .is_empty()
+        );
+        let fetcher = MapFetcher::default();
+        fetcher.insert(
+            &query_url(&BFN, "t", &BOX, 0),
+            br#"{"type": "Feature"}"#.to_vec(),
+        );
+        assert!(get_features(&fetcher, &BFN, "t", &BOX, &part()).is_err());
     }
 
     #[test]

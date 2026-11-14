@@ -169,9 +169,9 @@ enum Commands {
         #[arg(long, value_enum, default_value_t = SourcesArg::Auto)]
         pdf_sources: SourcesArg,
         /// Also write the permit notes (permits.md and permits.json) after the map; asks the
-        /// BfN and the BKG, in Berlin also the Geoportal Berlin (gdi.berlin.de), in Brandenburg
-        /// and North Rhine-Westphalia the forest administration. A failure there is a warning
-        /// and the map stays.
+        /// BfN and the BKG, in Berlin and Hamburg also their Geoportal, in Brandenburg and North
+        /// Rhine-Westphalia the forest administration. A failure there is a warning and the map
+        /// stays.
         #[arg(long)]
         permits: bool,
         #[command(flatten)]
@@ -186,7 +186,8 @@ enum Commands {
     /// Write the permit notes of a project (permits.md and permits.json): the administrative
     /// units, protected areas and operators the map area touches, and whom that usually means
     /// asking. It asks the BfN and the BKG, for a map area in Berlin also the Geoportal Berlin
-    /// (gdi.berlin.de), in Brandenburg the Landesbetrieb Forst (www.brandenburg-forst.de), in
+    /// (gdi.berlin.de), in Hamburg the Geoportal Hamburg (geodienste.hamburg.de), in Brandenburg
+    /// the Landesbetrieb Forst (www.brandenburg-forst.de), in
     /// North Rhine-Westphalia Wald und Holz NRW (www.opengeodata.nrw.de, about 17 MB), each
     /// through the hosts of the state's adapter, and reads the OSM extract already cached;
     /// --offline uses what was fetched before.
