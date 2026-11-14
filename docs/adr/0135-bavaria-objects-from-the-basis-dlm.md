@@ -35,11 +35,18 @@ none.
   towers are parts of buildings and stay out, as do canals, power lines and every area.
 - **The lowest rank.** The objects carry `atkis-dlm/<name>` as their source and rank below OpenStreetMap
   (`Rank::Landscape`). The `balanced` profile takes objects from the rank of OpenStreetMap up, so they stay
-  candidates; `full` puts them on the map like everything else.
+  candidates; `full` puts them on the map like everything else. The earth walls, cave entrances and rocks
+  (105, 203, 205) belong to the content group `slopes`: no other source draws these symbols, and without a
+  group `full` would have left them behind.
 - **Never a double.** After the other duplicate rules, an object of the model goes where a source of a higher
   rank has the same object: a point within 15 m of a point with the same symbol, a line with 80 % of its length
   within 10 m of a line of the same kind. All path classes are one kind, because two sources seldom give a path
-  the same class. The object that stays names the dropped one in `freemapper:also`.
+  the same class; the two tree symbols are one kind for the same reason. The cadastre, the OSM candidates and
+  the OSM objects already on the map count as one list, so a path that follows a candidate for one half and
+  an object on the map for the other goes too. The object that stays names the dropped one in
+  `freemapper:also`.
+- **Its own line in the estimate.** The download estimate and the disk plan name the layers "objects of the
+  ATKIS Basis-DLM" and count 0.5 MB per km²; the Schmausenbuck stored 0.08 MB for 1.6 km².
 - Bavaria's manifest names the service; the host was already in it. Revision 3.
 
 ## Consequences

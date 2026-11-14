@@ -111,6 +111,15 @@ both sides are only a few metres accurate.
   the glossary (ATKIS, Basis-DLM), changelog, reference. User texts go through `unslop`.
 - Both Bavarian examples are rebuilt.
 
+### Changed after the review
+
+The whole-branch review of 2026-11-14 found five things the design had not settled; they are built as follows.
+Earth walls, cave entrances and rocks (105, 203, 203.2, 205) belong to the content group `slopes`, so that
+`full` moves them like the rest. The duplicate step sees the cadastre, the OSM candidates and the OSM objects
+on the map as one list, so the 80 % of a line may be spread over them. The two tree symbols count as one kind.
+The download estimate has an item of its own for the model, "objects of the ATKIS Basis-DLM", at 0.5 MB per
+km². An assembly test pins the step.
+
 ## My calls (not the user's)
 
 - Which eight layers, and that power lines and areas stay out; the paths only on forest maps, kept or dropped as a whole object by the 80 % rule.

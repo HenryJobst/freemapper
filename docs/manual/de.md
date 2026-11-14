@@ -664,7 +664,8 @@ Geländemodell hat einen Höhenwert je Meter. Mauern, die schmaler als etwa eine
 und Straßendämme erscheinen als Böschung. Prüfen Sie jeden Kandidaten im Gelände. Eine Böschung kann sich als
 Mauer herausstellen, eine Felswand als Treppe. Alles aus dem Geländemodell gehört zur Gruppe `landforms`
 (siehe unten), auch Böschungen, Felswände und Stützmauern: Mit `full` oder `--content-set landforms=map`
-kommen sie direkt auf die Karte. `slopes=map` holt nur die Böschungen aus ALKIS und OpenStreetMap.
+kommen sie direkt auf die Karte. `slopes=map` holt nur die Böschungen aus ALKIS und OpenStreetMap, in Bayern
+auch die Wälle, Felsen und Höhleneingänge aus dem Landschaftsmodell.
 
 ### Vegetation aus Laserpunktwolken
 
@@ -1208,7 +1209,8 @@ genau. freemapper nimmt daraus Höhleneingänge (203), Quellen (312), benannte F
 (524, 525), Denkmäler und Wegkreuze (526), Brunnen (311), Zäune (518), Dämme und Wälle (105), kleine Wasserläufe
 (305) und benannte Bäume (418), auf Waldkarten auch Wege und Fahrwege (504 bis 507). Diese Objekte bleiben in
 jedem Profil außer `full` Kandidaten. Hat eine andere Quelle dasselbe Objekt, entfällt das aus dem
-Landschaftsmodell: ein Punkt, wenn ein Punkt mit demselben Symbol höchstens 15 m entfernt liegt, eine Linie, wenn
+Landschaftsmodell: ein Punkt, wenn ein Punkt mit demselben Symbol höchstens 15 m entfernt liegt (ein Baum neben
+einem Baum, ob groß oder klein), eine Linie, wenn
 sie zu mindestens 80 % ihrer Länge höchstens 10 m neben einer Linie derselben Art verläuft. Bei Wegen zählt jede
 Wegklasse als dieselbe Art. Ein Weg bleibt oder entfällt dabei als Ganzes. Das Objekt, das bleibt, nennt das
 entfallene in `freemapper:also`. Die Ebenen liegen als `dlm-…` ebenfalls in `data/alkis-nas/`; ihre Objekte
@@ -1570,7 +1572,7 @@ Sprachen so: Das sind Einzelheiten zu Servern und Dateiformaten. Die wichtigsten
 | `Die Karte gibt es schon (sie kann Ihre Arbeit enthalten)` (englisch: `map already exists (it may contain your work)`) | Es gibt schon eine Karte. | `--force` nur benutzen, wenn sie ersetzt werden soll. |
 | `Der Karte fehlen die ALKIS-Überdachungen und Carports (522), die inzwischen Kartenobjekte sind` (englisch: `The map lacks the ALKIS canopies and carports (522) that are now map objects`) | Die Karte stammt aus der Zeit vor den ALKIS-Überdachungen. freemapper hat die Karte behalten, die Überdachungen fehlen darin. | Mit `run --force` neu schreiben. Die alte Karte bleibt als `.omap.bak`. Oder die Überdachungen aus den Kandidaten von Hand übernehmen. |
 | `Warnung: … hat sich beim Anbieter geändert` (englisch: `warning: … changed upstream`) | Der Anbieter hat neue Daten veröffentlicht. | Nichts; die Vorlagen sind jetzt aktuell. |
-| `Warnung: Aus Platzmangel lässt freemapper … weg` (englisch: `warning: freemapper skips the … for lack of disk space`) | Für diesen Teil (Oberflächenmodell, Aktualisierung des OSM-Auszugs, die Berliner Ebenen mit Bauwerken, Bäumen, Straßenbefahrung und Registern, die Berliner K5 oder in Brandenburg das vollständige ALKIS und die Stadtbaumkataster) ist auf dem Datenträger kein Platz, wenn 1 GB frei bleiben soll. freemapper lässt ihn aus. Ein gespeichertes Oberflächenmodell desselben Gebiets bleibt, ebenso der ältere OSM-Auszug und die gespeicherten Berliner Ebenen, Ebenen des vollständigen ALKIS und Bäume. Die Meldung nennt, wie viel der Teil braucht und wie viel frei ist. | Platz schaffen und `freemapper fetch` erneut ausführen. |
+| `Warnung: Aus Platzmangel lässt freemapper … weg` (englisch: `warning: freemapper skips the … for lack of disk space`) | Für diesen Teil (Oberflächenmodell, Aktualisierung des OSM-Auszugs, die Berliner Ebenen mit Bauwerken, Bäumen, Straßenbefahrung und Registern, die Berliner K5, in Brandenburg das vollständige ALKIS und die Stadtbaumkataster oder in Bayern die Objekte des Landschaftsmodells) ist auf dem Datenträger kein Platz, wenn 1 GB frei bleiben soll. freemapper lässt ihn aus. Ein gespeichertes Oberflächenmodell desselben Gebiets bleibt, ebenso der ältere OSM-Auszug und die gespeicherten Berliner Ebenen, Ebenen des vollständigen ALKIS und Bäume. Die Meldung nennt, wie viel der Teil braucht und wie viel frei ist. | Platz schaffen und `freemapper fetch` erneut ausführen. |
 | `freemapper behält das am … geladene Oberflächenmodell für die nDSM-Vorlage` / `freemapper behält das zwischengespeicherte Oberflächenmodell der Kachel(n) … für die nDSM-Vorlage` (englisch: `freemapper keeps the surface model fetched on … for the nDSM template` / `freemapper keeps the cached surface model of tile(s) … for the nDSM template`) | Folgt auf die Meldung davor: Das Oberflächenmodell eines früheren Abrufs (bzw. die genannten Kacheln aus dem Zwischenspeicher) deckt das Gebiet noch ab, die nDOM-Vorlage kommt weiter daraus. | Nichts. |
 | `Der Speicherplatz reicht nicht für …` (englisch: `not enough disk space for the …`) | Für Kartendaten, Geländemodell oder Luftbild ist kein Platz. Ohne sie entsteht keine Karte, deshalb bricht freemapper ab, bevor es etwas lädt. | Platz schaffen oder den Zwischenspeicher mit `--cache-dir` auf ein anderes Laufwerk legen, dann erneut starten. |
 | `Der Datenträger ist voll, deshalb konnte freemapper … nicht schreiben` (englisch: `the disk is full, so freemapper could not write …`) | Der Datenträger lief beim Schreiben voll, etwa weil ein anderes Programm gleichzeitig Platz belegt hat. freemapper löscht die halbe Datei, im Zwischenspeicher bleibt nichts Kaputtes. | Platz schaffen und erneut versuchen. |

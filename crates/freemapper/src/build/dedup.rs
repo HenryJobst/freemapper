@@ -127,7 +127,8 @@ pub fn drop_osm_lines_near_cadastre(
 }
 
 /// Drops the objects of a landscape model (`landscape`, [`Rank::Landscape`]) that `others` have:
-/// a point within [`LANDSCAPE_POINT_DEDUP_M`] of a point of a higher rank with the same symbol,
+/// a point within [`LANDSCAPE_POINT_DEDUP_M`] of a point of a higher rank with the same symbol
+/// (the [`TREE_CODES`] count as one: a tree is the same tree whatever size a source gives it),
 /// and a line with [`LINE_DEDUP_SHARE`] of its length within [`LANDSCAPE_LINE_DEDUP_M`] of such
 /// a line (any line symbol). The object that stays names the dropped one in `freemapper:also`
 /// (`atkis-dlm/<layer>/<id>`). Returns the landscape objects that stay, in their order.
@@ -150,6 +151,18 @@ pub fn drop_landscape_near_others(
     let limit = LANDSCAPE_POINT_DEDUP_M * map_units_per_metre(scale_denominator);
     let is_point =
         |o: &MapObject| matches!(o.kind, MapObjectKind::Point { .. }) && !o.coords.is_empty();
+    let trees: Vec<u32> = TREE_CODES
+        .iter()
+        .filter_map(|c| symbol_set.id_for_code(c))
+        .collect();
+    // The kind of a point: its symbol, or the one kind of all trees.
+    let kind = |o: &MapObject| {
+        if trees.contains(&o.symbol_id) {
+            TREE_KIND
+        } else {
+            o.symbol_id
+        }
+    };
     let mut kept = Vec::with_capacity(lines.len());
     for object in lines {
         if !is_point(&object) {
@@ -160,7 +173,7 @@ pub fn drop_landscape_near_others(
         let nearest = others
             .iter()
             .enumerate()
-            .filter(|(_, o)| is_point(o) && o.symbol_id == object.symbol_id && higher(o))
+            .filter(|(_, o)| is_point(o) && kind(o) == kind(&object) && higher(o))
             .map(|(index, o)| {
                 let q = xy(&o.coords[0]);
                 ((q.0 - p.0).hypot(q.1 - p.1), index)
@@ -173,6 +186,33 @@ pub fn drop_landscape_near_others(
         }
     }
     kept
+}
+
+/// Takes the objects of a landscape model out of `cadastre`, drops those another source has
+/// ([`drop_landscape_near_others`]) and puts the rest back at its end. The other source can be
+/// among the cadastre objects, the OSM candidates or the OSM objects already on the map; the
+/// three count as one list, so a line that follows a candidate for one half and an object on
+/// the map for the other goes too.
+pub fn drop_landscape(
+    cadastre: Vec<MapObject>,
+    osm_candidates: Vec<MapObject>,
+    osm_map: Vec<MapObject>,
+    symbol_set: &SymbolSet,
+    scale_denominator: u32,
+) -> (Vec<MapObject>, Vec<MapObject>, Vec<MapObject>) {
+    let (landscape, mut others): (Vec<_>, Vec<_>) = cadastre
+        .into_iter()
+        .partition(|o| rank(o) == Some(Rank::Landscape));
+    let cadastre_len = others.len();
+    let candidates_len = osm_candidates.len();
+    others.extend(osm_candidates);
+    others.extend(osm_map);
+    let landscape =
+        drop_landscape_near_others(landscape, &mut others, symbol_set, scale_denominator);
+    let osm_map = others.split_off(cadastre_len + candidates_len);
+    let osm_candidates = others.split_off(cadastre_len);
+    others.extend(landscape);
+    (others, osm_candidates, osm_map)
 }
 
 /// `osm/way/1`, `geoportal-berlin/sb-gelaender/Li_…`: the source of `object` and its id in it.
@@ -234,6 +274,9 @@ enum LineKinds<'a> {
 
 /// The key of all path classes in [`LineKinds::AnyWithPaths`]; no symbol has this id.
 const PATH_KIND: u32 = u32::MAX;
+/// The key of both tree symbols among the points of [`drop_landscape_near_others`]; no symbol
+/// has this id.
+const TREE_KIND: u32 = u32::MAX;
 
 /// [`drop_lines_near`] within `limit_m` on the ground, for the lines `kinds` names (a path of
 /// two points or more; the same kind on both sides keeps areas out).
@@ -1804,6 +1847,55 @@ mod tests {
         assert_eq!(
             tag(&others[0], "freemapper:also"),
             Some("atkis-dlm/weg/same")
+        );
+    }
+
+    /// The three lists another source can be in count together: a fence of the model that runs
+    /// half along an OSM candidate and half along an OSM object on the map is in both.
+    #[test]
+    fn a_landscape_line_goes_when_two_lists_share_it() {
+        let set = set();
+        let fence = |source: &str, id: &str, dn: i32, from: i32, to: i32| {
+            object(
+                "518",
+                MapObjectKind::Path,
+                vec![
+                    MapCoord::new(from * M, dn * M),
+                    MapCoord::new(to * M, dn * M),
+                ],
+                &[("freemapper:source", source), ("freemapper:source_id", id)],
+            )
+        };
+        let cadastre = vec![
+            fence("alkis-nas/sonstiges-bauwerk", "far", 80, 0, 30),
+            fence("atkis-dlm/bauwerk", "model", 3, 0, 60),
+            fence("atkis-dlm/bauwerk", "alone", 40, 0, 60),
+        ];
+        let osm_candidates = vec![fence("osm", "way/1", 0, 0, 30)];
+        let osm_map = vec![fence("osm", "way/2", 0, 30, 60)];
+        let (cadastre, osm_candidates, osm_map) =
+            drop_landscape(cadastre, osm_candidates, osm_map, &set, SCALE);
+        assert_eq!(source_ids(&cadastre), ["far", "alone"]);
+        assert_eq!(source_ids(&osm_candidates), ["way/1"]);
+        assert_eq!(source_ids(&osm_map), ["way/2"]);
+        // The one that covers more of it names it (equal shares: the first).
+        assert_eq!(
+            tag(&osm_candidates[0], "freemapper:also"),
+            Some("atkis-dlm/bauwerk/model")
+        );
+    }
+
+    /// A tree is the same tree whatever size a source gives it: on a forest map a landmark
+    /// tree of OpenStreetMap is 417, a named tree of the model 418.
+    #[test]
+    fn a_landscape_tree_goes_beside_a_tree_of_another_class() {
+        let dlm = point("418", "atkis-dlm/vegetation", "linde", 5.0, &[]);
+        let mut others = vec![point("417", "osm", "node/7", 0.0, &[])];
+        let kept = drop_landscape_near_others(vec![dlm], &mut others, &set(), SCALE);
+        assert!(kept.is_empty());
+        assert_eq!(
+            tag(&others[0], "freemapper:also"),
+            Some("atkis-dlm/vegetation/linde")
         );
     }
 

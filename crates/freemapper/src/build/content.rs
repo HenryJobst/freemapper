@@ -186,7 +186,9 @@ impl Group {
             Group::Walls => &["515", "513.2"],
             Group::Fences => &["518"],
             Group::Hedges => &["410.1"],
-            Group::Slopes => &["104", "104.1", "201"],
+            // 105, 203, 203.2 and 205: the earth walls, cave entrances and rocks of a landscape
+            // model (ADR 0135); no other source draws them.
+            Group::Slopes => &["104", "104.1", "201", "105", "203", "203.2", "205"],
             Group::Stairs => &["532.6", "532.7", "532.8", "532.9"],
             Group::Trees => &["417", "418"],
             Group::WaterFeatures => &["301", "305", "306", "311", "312", "313"],
@@ -697,6 +699,31 @@ mod tests {
             vec![with_nutzart("Wohnbaufläche / Mehrfamilienhaus"), lamp],
         );
         assert_eq!((map.len(), cand.len()), (0, 2));
+    }
+
+    /// The objects of a landscape model (the Basis-DLM, ADR 0135) rank below OpenStreetMap:
+    /// `balanced` leaves them candidates, `full` puts them on the map, the caves, rocks and
+    /// earth walls among them.
+    #[test]
+    fn the_landscape_model_stays_a_candidate_until_full() {
+        let f = fixture(MapKind::Sprint);
+        let model = |code: &str| object(&f, code, "atkis-dlm/bauwerk");
+        let candidates = || {
+            vec![
+                model("311"),
+                object(&f, "311", "osm"),
+                model("525"),
+                model("203"),
+                model("205"),
+                model("105"),
+            ]
+        };
+        let (map, cand, _) = run(&f, &ContentSettings::default(), vec![], candidates());
+        assert_eq!((map.len(), cand.len()), (1, 5));
+        assert_eq!(map[0].tags[0].1, "osm");
+        let full = ContentSettings::with_profile(Profile::Full);
+        let (map, cand, _) = run(&f, &full, vec![], candidates());
+        assert_eq!((map.len(), cand.len()), (6, 0));
     }
 
     #[test]

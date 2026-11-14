@@ -635,7 +635,8 @@ kinked step is split into pieces that follow it. The terrain
 model has one height per metre, so it misses walls narrower than about a metre and shows road embankments
 as banks. Check each one in the terrain. A bank may turn out to be a wall, a cliff a staircase. Everything from the terrain model belongs to the group
 `landforms` (see below), banks, cliffs and retaining walls too: with `full` or `--content-set landforms=map` they
-go straight onto the map. `slopes=map` takes only the banks of ALKIS and OpenStreetMap.
+go straight onto the map. `slopes=map` takes only the banks of ALKIS and OpenStreetMap, in Bavaria also the
+earth walls, rocks and cave entrances of the landscape model.
 
 ### Vegetation from laser point clouds
 
@@ -1164,7 +1165,7 @@ entrances (203), springs (312), named rocks (205), free-standing towers (524, 52
 crosses (526), fountains (311), fences (518), dams and walls (105), small watercourses (305) and named trees
 (418) from it, on forest maps also paths and tracks (504 to 507). These objects stay candidates in every profile
 but `full`. Where another source has the same object, the one of the landscape model goes: a point when a point
-with the same symbol lies within 15 m, a line when at least 80 % of its length runs within 10 m of a line of the
+with the same symbol lies within 15 m (a tree beside a tree, large or small), a line when at least 80 % of its length runs within 10 m of a line of the
 same kind. For paths every path class counts as the same kind. A path stays or goes as a whole. The object that
 stays names the dropped one in `freemapper:also`. The layers lie in `data/alkis-nas/` too, as `dlm-…`; their
 objects carry `freemapper:source=atkis-dlm/<layer>`. On the Schmausenbuck 14 of 152 objects stay as candidates,
@@ -1509,7 +1510,7 @@ language. The most important messages, in their English wording:
 | `map already exists (it may contain your work)` | A map exists already. | Use `--force` only if it should be replaced. |
 | `The map lacks the ALKIS canopies and carports (522) that are now map objects` | The map dates from before the ALKIS canopies. freemapper kept the map, and the canopies are not in it. | Write it again with `run --force`. The old map stays as `.omap.bak`. Or copy the canopies over by hand. |
 | `warning: … changed upstream` | The provider published new data. | Nothing; the templates are current now. |
-| `warning: freemapper skips the … for lack of disk space` | The disk has no room for this part (the surface model, the update of the OSM extract, the Berlin layers with structures, trees, street survey and registers, the Berlin K5, or the full ALKIS structures and the tree cadastres in Brandenburg) once 1 GB stays free. freemapper leaves it out. A stored surface model of the same area stays, and so do the older OSM extract and the stored Berlin, full ALKIS and tree layers. The message says how much the part needs and how much is free. | Free some space and run `freemapper fetch` again. |
+| `warning: freemapper skips the … for lack of disk space` | The disk has no room for this part (the surface model, the update of the OSM extract, the Berlin layers with structures, trees, street survey and registers, the Berlin K5, the full ALKIS structures and the tree cadastres in Brandenburg, or the objects of the landscape model in Bavaria) once 1 GB stays free. freemapper leaves it out. A stored surface model of the same area stays, and so do the older OSM extract and the stored Berlin, full ALKIS and tree layers. The message says how much the part needs and how much is free. | Free some space and run `freemapper fetch` again. |
 | `freemapper keeps the surface model fetched on … for the nDSM template` / `freemapper keeps the cached surface model of tile(s) … for the nDSM template` | Follows the message above: the surface model of an earlier fetch (or the named tiles in the cache) still covers the area, and the nDSM template keeps coming from it. | Nothing. |
 | `not enough disk space for the …` | There is no room for the map data, the terrain model or the orthophoto. Without them there is no map, so freemapper stops before it downloads anything. | Free some space, or put the cache on another drive with `--cache-dir`, then start again. |
 | `the disk is full, so freemapper could not write …` | The disk filled up while freemapper wrote a file, for example because another program used space at the same time. freemapper deletes the half-written file, so nothing broken stays in the cache. | Free some space and try again. |

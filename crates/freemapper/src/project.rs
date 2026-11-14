@@ -1313,7 +1313,10 @@ pub(crate) fn mark_stored(
                 (Part::Orthophoto, _) => orthophoto,
                 (Part::K5, _) => k5,
                 (Part::BerlinLayers, _) => berlin_layers,
-                (Part::StateLayers, crate::layers::NAS_LAYERS_ITEM) => nas_layers,
+                (
+                    Part::StateLayers,
+                    crate::layers::NAS_LAYERS_ITEM | crate::layers::DLM_LAYERS_ITEM,
+                ) => nas_layers,
                 (Part::StateLayers, crate::layers::TREE_LAYERS_ITEM) => tree_layers,
                 _ => false,
             };
