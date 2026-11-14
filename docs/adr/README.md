@@ -180,3 +180,4 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0132](0132-statewide-permit-files-in-the-cache.md) | Statewide permit files in the cache | Accepted | 2026-11-14 |
 | [0133](0133-classified-roads-in-the-permit-notes.md) | Classified roads in the permit notes | Accepted | 2026-11-14 |
 | [0134](0134-cliffs-on-the-sprint-map-and-the-terrain-for-every-map.md) | Cliffs on the sprint map, and the terrain for every map | Accepted | 2026-11-14 |
+| [0135](0135-bavaria-objects-from-the-basis-dlm.md) | Bavaria: objects from the ATKIS Basis-DLM | Accepted | 2026-11-14 |

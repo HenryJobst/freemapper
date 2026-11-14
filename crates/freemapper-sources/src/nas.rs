@@ -100,7 +100,7 @@ pub const NAS_LAYERS: [NasLayer; 16] = [
         type_name: "adv:AX_UntergeordnetesGewaesser",
         kinds: BOTH_KINDS,
     },
-    // The landscape model (ATKIS Basis-DLM, ADR 0133): the point and line objects a map can
+    // The landscape model (ATKIS Basis-DLM, ADR 0135): the point and line objects a map can
     // use. Power lines and areas are left out; OpenStreetMap and the land use have them.
     NasLayer {
         file: "dlm-bauwerk",

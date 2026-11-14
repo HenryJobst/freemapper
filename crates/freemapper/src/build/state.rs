@@ -1067,7 +1067,7 @@ mod tests {
     }
 
     /// The objects of the Bavarian Basis-DLM, from answers of the service of 2026-11-14, and
-    /// their symbols (ADR 0133).
+    /// their symbols (ADR 0135).
     #[test]
     fn the_basis_dlm_objects_get_their_symbols() {
         use crate::sources::alkis_nas::parse_nas_gml;

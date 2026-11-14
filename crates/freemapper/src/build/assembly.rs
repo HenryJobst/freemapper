@@ -701,7 +701,7 @@ fn resolve(drawn: Drawn, surroundings: &Surroundings) -> Result<Resolved, Georef
     // A surveyed bus shelter under an ALKIS canopy is that canopy.
     let cadastre = drop_shelters_under_canopies(cadastre, &mut canopies);
     // An object of a landscape model (the Basis-DLM) goes where the cadastre or OpenStreetMap,
-    // on the map or among the candidates, has the same object (ADR 0133).
+    // on the map or among the candidates, has the same object (ADR 0135).
     let (landscape, mut cadastre): (Vec<_>, Vec<_>) = cadastre
         .into_iter()
         .partition(|o| rank(o) == Some(Rank::Landscape));

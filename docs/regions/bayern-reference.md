@@ -302,6 +302,19 @@ Checked live on 2026-11-14 (46 requests). `https://geoservices.bayern.de/wfs/v1/
   small watercourses). The user decided to build the source in all the same; see the design
   `docs/superpowers/specs/2026-11-14-bayern-atkis-design.md`.
 
+### The run with the Basis-DLM
+
+On 2026-11-14 both examples were run with the model built in (ADR 0135), without a warning; an offline run
+wrote the same files. The ten layers are stored as `data/alkis-nas/dlm-….geojson`.
+
+| | Schmausenbuck (forest) | Regensburg (sprint) |
+|---|---|---|
+| Objects of the model | 152: 6 structures, 1 vegetation area, 1 tower, 108 paths, 36 tracks | 35: 14 structures, 2 named trees, 17 towers, 2 watercourse axes |
+| Candidates that stay | 14: 8 pieces of fences, 6 paths (two each of 504, 505, 506) | 10: 5 fountains, 1 monument, 2 named trees, 2 watercourses |
+| Dropped as another source has them | 138 paths, the tower, the fountain; 61 objects name 69 dropped ones | 5 fountains, 3 monuments or crosses |
+| Left out by rule | the vegetation area (no rule) | 15 church towers, a town gate, a tower of kind 9999 |
+| Map objects, candidates, symbols | 651, 150, 37 | 2 959, 463, 39 |
+
 ## Open, and left for later
 
 - **Einzelbäume** (single trees from the point clouds): one GeoPackage per flight lot, hundreds of MB.

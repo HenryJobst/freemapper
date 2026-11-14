@@ -107,7 +107,7 @@ both sides are only a few metres accurate.
 ### Registration and texts
 
 - Manifest of Bavaria: one `[[extra.nas]]` block with `model = "basis-dlm"`, the `namespaces` value, revision 3.
-- ADR 0133. Manual (German and English), README, the adapters guide and the manifest reference (the key `model`),
+- ADR 0135. Manual (German and English), README, the adapters guide and the manifest reference (the key `model`),
   the glossary (ATKIS, Basis-DLM), changelog, reference. User texts go through `unslop`.
 - Both Bavarian examples are rebuilt.
 

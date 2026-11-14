@@ -119,7 +119,7 @@ pub(crate) const NAS: Family<'static> = Family {
 };
 
 /// [`NAS`] where the services of the area serve the landscape model (ATKIS Basis-DLM, ADR
-/// 0133): the same folder and table, notes that name the model.
+/// 0135): the same folder and table, notes that name the model.
 pub(crate) const DLM: Family<'static> = Family {
     dir: Cow::Borrowed(NAS_LAYERS_DIR),
     table: Table::Fixed(known_nas),

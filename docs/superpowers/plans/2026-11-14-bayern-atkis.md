@@ -87,8 +87,8 @@
 
 ### Task 6: Texts
 
-**Files:** Create `docs/adr/0133-bavaria-objects-from-the-basis-dlm.md`; modify `docs/adr/README.md`, `docs/manual/{de,en}.md`, `README.md`, `README.en.md`, `docs/adapters/{en,de}.md`, `docs/glossary.md`, `examples/README.md`, `examples/README.en.md`, `CHANGELOG.md`, `CHANGELOG.en.md`, `docs/regions/bayern-reference.md` (the live run).
+**Files:** Create `docs/adr/0135-bavaria-objects-from-the-basis-dlm.md`; modify `docs/adr/README.md`, `docs/manual/{de,en}.md`, `README.md`, `README.en.md`, `docs/adapters/{en,de}.md`, `docs/glossary.md`, `examples/README.md`, `examples/README.en.md`, `CHANGELOG.md`, `CHANGELOG.en.md`, `docs/regions/bayern-reference.md` (the live run).
 
 - [ ] **Step 1:** Write the texts with the numbers of the live run. Run `unslop` over the user texts.
 - [ ] **Step 2:** All checks again.
-- [ ] **Step 3: Commit** `docs: Bavaria's Basis-DLM objects in the manual, the READMEs and the changelog (ADR 0133)`.
+- [ ] **Step 3: Commit** `docs: Bavaria's Basis-DLM objects in the manual, the READMEs and the changelog (ADR 0135)`.

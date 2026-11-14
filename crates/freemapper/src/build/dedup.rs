@@ -13,7 +13,7 @@ use crate::omap::{MapObject, MapObjectKind, SymbolSet};
 /// How much a source is trusted for a duplicate, lowest first.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Rank {
-    /// A landscape model made for 1:25 000 (`atkis-dlm/…`, the ATKIS Basis-DLM, ADR 0133): its
+    /// A landscape model made for 1:25 000 (`atkis-dlm/…`, the ATKIS Basis-DLM, ADR 0135): its
     /// objects fill gaps and never beat another source.
     Landscape,
     /// OpenStreetMap (`osm`).

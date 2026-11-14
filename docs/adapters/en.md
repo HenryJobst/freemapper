@@ -128,7 +128,8 @@ Fetch a few features of each for a small box and look at them: they need `oid`, 
   asked when the API fails.
 
 If the state also has a WFS with the full ALKIS (NAS), `[[extra.nas]]` adds structures, vegetation features
-and small waters. A city's tree cadastre on an Opendatasoft portal goes into `[[extra.trees]]`.
+and small waters. With `model = "basis-dlm"` the same table names the landscape model of the state (ATKIS
+Basis-DLM) instead: its objects are candidates of the lowest rank. A city's tree cadastre on an Opendatasoft portal goes into `[[extra.trees]]`.
 
 ## 6. The rasters
 

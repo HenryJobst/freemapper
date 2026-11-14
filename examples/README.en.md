@@ -25,7 +25,7 @@ less; the [comparison page](compare.en.md) shows the same area in the three cont
 | Saarland | [Saarlouis old town and fortress](saarland-saarlouis/): Vauban's hexagonal fortress town, the old arm of the Saar with the Vauban island, ramparts in the Stadtgarten | 1693 | 806 | 40 | <a href="saarland-saarlouis/saarland-saarlouis-candidates.pdf"><img src="saarland-saarlouis/preview.webp" width="220" alt=""></a> |
 | Baden-Württemberg | [Heidelberg old town and castle](baden-wuerttemberg-heidelberg/): the old town on the Neckar with the Old Bridge, the castle and its garden on the steep slope of the Königstuhl | 2897 | 1019 | 43 | <a href="baden-wuerttemberg-heidelberg/baden-wuerttemberg-heidelberg-candidates.pdf"><img src="baden-wuerttemberg-heidelberg/preview.webp" width="220" alt=""></a> |
 | Bremen | [Old town of Bremen and Wallanlagen](bremen-altstadt/): the old town between the Weser and the town moat with the market square and the Schlachte, the Wallanlagen with the mill on the rampart, and the Teerhof across the river | 2531 | 551 | 39 | <a href="bremen-altstadt/bremen-altstadt-candidates.pdf"><img src="bremen-altstadt/preview.webp" width="220" alt=""></a> |
-| Bavaria | [Old town of Regensburg with the Stone Bridge](bayern-regensburg/): the World Heritage old town on the Danube with the cathedral and its lanes, the Stone Bridge, the river islands and Stadtamhof on the other bank | 2959 | 453 | 38 | <a href="bayern-regensburg/bayern-regensburg-candidates.pdf"><img src="bayern-regensburg/preview.webp" width="220" alt=""></a> |
+| Bavaria | [Old town of Regensburg with the Stone Bridge](bayern-regensburg/): the World Heritage old town on the Danube with the cathedral and its lanes, the Stone Bridge, the river islands and Stadtamhof on the other bank | 2959 | 463 | 39 | <a href="bayern-regensburg/bayern-regensburg-candidates.pdf"><img src="bayern-regensburg/preview.webp" width="220" alt=""></a> |
 
 **Map objects** are the objects of the OOM map. With `balanced` these are the objects of the cadastre, the registers
 and the street survey (buildings, streets with curbs, water, parks, forest, canopies and passages), plus walls,
@@ -124,7 +124,7 @@ One example of the map kind `forest` (ISOM 2017-2) at 1:10 000 for every state, 
 | Saarland | [Cloef at the Saarschleife](saarland-cloef/): a steep slope with rocks above the Saar loop | 624 | 115 | 27 | <a href="saarland-cloef/saarland-cloef-candidates.pdf"><img src="saarland-cloef/preview.webp" width="220" alt=""></a> |
 | Baden-Württemberg | [Königstuhl, Heidelberg](baden-wuerttemberg-koenigstuhl/): Heidelberg's own mountain, with an observatory and many paths | 843 | 47 | 28 | <a href="baden-wuerttemberg-koenigstuhl/baden-wuerttemberg-koenigstuhl-candidates.pdf"><img src="baden-wuerttemberg-koenigstuhl/preview.webp" width="220" alt=""></a> |
 | Bremen | [Bürgerpark and Stadtwald](bremen-buergerpark/): a flat park and forest with ditches, lakes and a dense path network | 1913 | 420 | 32 | <a href="bremen-buergerpark/bremen-buergerpark-candidates.pdf"><img src="bremen-buergerpark/preview.webp" width="220" alt=""></a> |
-| Bavaria | [Schmausenbuck, Nürnberger Reichswald](bayern-schmausenbuck/): a sandstone hill in the Reichswald above the zoo of Nuremberg, slopes with a dense path network, two power lines | 670 | 120 | 37 | <a href="bayern-schmausenbuck/bayern-schmausenbuck-candidates.pdf"><img src="bayern-schmausenbuck/preview.webp" width="220" alt=""></a> |
+| Bavaria | [Schmausenbuck, Nürnberger Reichswald](bayern-schmausenbuck/): a sandstone hill in the Reichswald above the zoo of Nuremberg, slopes with a dense path network, two power lines | 651 | 150 | 37 | <a href="bayern-schmausenbuck/bayern-schmausenbuck-candidates.pdf"><img src="bayern-schmausenbuck/preview.webp" width="220" alt=""></a> |
 
 The areas are about 1.2 × 0.9 km and were chosen by relief and path network. Made with
 `freemapper init <folder> --geojson <rectangle> --kind forest --scale 10000 --title "<title>"` and
@@ -207,7 +207,9 @@ In Bavaria one rectangle ran for the sprint map, the old town of Regensburg. The
 islands, the Stone Bridge and the dense old town are on one sheet. Bavaria has no service for its cadastre; the
 1821 buildings and 144 canopies come from the LoD2 tiles, the land use from the file of the city of Regensburg.
 The area lies east of 12° E and is in UTM zone 32 like all of Bavaria. For the forest map two rectangles ran at
-the Schmausenbuck; half of the southern one was the zoo.
+the Schmausenbuck; half of the southern one was the zoo. The landscape model of the agency (ATKIS Basis-DLM)
+adds 10 candidates in Regensburg: 5 fountains, a monument, 2 named trees and 2 watercourses. On the Schmausenbuck
+it adds 14: fences and 6 paths OpenStreetMap lacks. OpenStreetMap already has the other 138 paths of the model.
 
 ## Licences
 

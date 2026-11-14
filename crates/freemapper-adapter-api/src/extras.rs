@@ -140,7 +140,7 @@ pub struct TemplateNotes {
 pub enum NasModel {
     /// The cadastre (ALKIS): surveyed, to the decimetre.
     Alkis,
-    /// The landscape model (ATKIS Basis-DLM): made for 1:25 000, to about 3 m (ADR 0133).
+    /// The landscape model (ATKIS Basis-DLM): made for 1:25 000, to about 3 m (ADR 0135).
     BasisDlm,
 }
 

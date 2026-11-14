@@ -139,7 +139,8 @@ Klasse in `nutzart` und `bez`, die Funktion eines Gebäudes in `gebnutzbez` und 
   WFS unter `[alkis.fallback]` wird gefragt, wenn die API ausfällt.
 
 Hat das Bundesland außerdem einen WFS mit dem vollen ALKIS (NAS), ergänzt `[[extra.nas]]` Bauwerke,
-Vegetationsmerkmale und kleine Gewässer. Das Baumkataster einer Stadt auf einem Opendatasoft-Portal gehört in
+Vegetationsmerkmale und kleine Gewässer. Mit `model = "basis-dlm"` nennt dieselbe Tabelle stattdessen das
+Landschaftsmodell des Bundeslands (ATKIS Basis-DLM): Seine Objekte sind Kandidaten mit dem niedrigsten Rang. Das Baumkataster einer Stadt auf einem Opendatasoft-Portal gehört in
 `[[extra.trees]]`.
 
 ## 6. Die Raster

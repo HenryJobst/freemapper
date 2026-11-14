@@ -133,7 +133,7 @@ fn potsdam_tree_dataset_from_manifest_equals_the_constant() {
     }
 }
 
-/// Bavaria has no cadastre service; its NAS service is the landscape model (ADR 0133), asked
+/// Bavaria has no cadastre service; its NAS service is the landscape model (ADR 0135), asked
 /// with the request the research of 2026-11-14 sent.
 #[test]
 fn bavaria_asks_the_basis_dlm() {
