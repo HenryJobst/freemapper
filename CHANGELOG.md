@@ -6,22 +6,11 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
-### Hinzugefügt
-
-- Beispiele: Jedes der 30 Beispiele in `examples/` hat jetzt seine Hinweise zu Genehmigungen (`permits.md` und `permits.json`, auf Deutsch). Sie zeigen, was die Hinweise im jeweiligen Bundesland liefern, von den Bezirken und Denkmalen in Berlin und Hamburg bis zu Forstverwaltung, Wasserschutzgebieten und klassifizierten Straßen.
-
-### Geändert
-
-- Vegetation aus Laserpunktwolken (ADR 0136): Die Umrisse folgen jetzt dem Rand der Vegetation statt den 3-m-Stufen der Zellen. freemapper zeichnet sie auf einem dreimal feineren, leicht weichgezeichneten Raster; Ecken werden etwas abgerundet. Die neun Beispiele mit Punktwolken-Vegetation sind neu gebaut.
-
-### Behoben
-
-- Genehmigungshinweise: Die klassifizierten Straßen fehlten in jedem Abruf. Beim Lesen des OSM-Auszugs behielt freemapper nur Funde, deren Fläche das Kartengebiet schneidet, und eine Straße ist eine Linie. Der Fehler kam mit dem Straßenhinweis und war noch in keiner Version.
-
 ## [0.20.0] - 2026-11-14
 
 ### Hinzugefügt
 
+- Beispiele: Jedes der 30 Beispiele in `examples/` hat jetzt seine Hinweise zu Genehmigungen (`permits.md` und `permits.json`, auf Deutsch). Sie zeigen, was die Hinweise im jeweiligen Bundesland liefern, von den Bezirken und Denkmalen in Berlin und Hamburg bis zu Forstverwaltung, Wasserschutzgebieten und klassifizierten Straßen.
 - Genehmigungshinweise: Ein neuer Abschnitt nennt die klassifizierten Straßen, die durch das Kartengebiet führen (Autobahn, Bundes-, Landes- oder Staats-, Kreisstraße, mit ihrer Nummer aus OpenStreetMap), und je Klasse ein Hinweis, dass die Straßenverkehrsbehörde eine Sperrung oder eine Querung mit Streckenposten anordnet und wer die Straße meist unterhält (ADR 0133). Das gilt in allen Bundesländern und kommt aus dem OSM-Auszug, den freemapper schon liest.
 - Genehmigungshinweise: Die Dateien, die freemapper für ein ganzes Bundesland lädt (in Nordrhein-Westfalen etwa 32 MB, in Brandenburg etwa 4 MB), bleiben im Zwischenspeicher (Ordner `permits`). Ein neuer Abruf fragt nur nach dem Datum und lädt eine Datei nur, wenn der Server eine neuere hat; ist er nicht erreichbar, nimmt freemapper die aufgehobene (ADR 0132).
 - Genehmigungshinweise: Wasserschutzgebiete auch aus Brandenburg (LfU, eine Datei mit etwa 4 MB) und Nordrhein-Westfalen (eine Datei mit etwa 15 MB, auch die geplanten Gebiete, deren Zone den Zusatz „(geplant)“ trägt), beide als Shapefile für das ganze Bundesland (ADR 0131). Ein Abruf in Nordrhein-Westfalen lädt damit etwa 32 MB. Felder einer Shapefile-Tabelle ohne `.cpg` liest freemapper als Latin-1, wenn sie kein UTF-8 sind; Umlaute kamen dort bisher als Ersatzzeichen an.
@@ -34,6 +23,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Geändert
 
+- Vegetation aus Laserpunktwolken (ADR 0136): Die Umrisse folgen jetzt dem Rand der Vegetation statt den 3-m-Stufen der Zellen. freemapper zeichnet sie auf einem dreimal feineren, leicht weichgezeichneten Raster; Ecken werden etwas abgerundet. Die neun Beispiele mit Punktwolken-Vegetation sind neu gebaut.
 - Felswände auf Sprintkarten (ADR 0134): Auch Sprintkarten generalisieren ihre Felswände, nach den Werten der ISSprOM 2019-2 (Mindesthöhe 1,5 m, Mindestlänge 0,9 mm), und ihre Trainings-PDF stärker (Wände ab 3 m, keine Oberkanten ohne Zacken). `derive` behält das Geländemosaik eines Kachel-Bundeslands jetzt für jede Karte; damit zeigen die Zacken von Böschungen und Stützmauern auch dort bergab.
 - Felswände auf Waldkarten (ADR 0126): Die Trainings-PDF generalisiert den Fels stärker als die Karte (Wände ab 5 m über dem Hang, keine Oberkanten ohne Zacken, längere Stücke), auch wenn die Felsen nur Kandidaten sind; die Kandidatenkarte behält alle OSM-Wände. Eine Wand, an der das Orthofoto Fels zeigt, bleibt in der Rangfolge zuerst; dafür schreibt `derive` bei Waldkarten `data/rock-seen.tif`.
 - Genehmigungshinweise richten sich nach dem Kartengebiet, nicht nach der Kartenart (ADR 0127). Die Hinweise zum Wald und der Abschnitt „Forstverwaltung“ kommen, sobald im Gebiet laut OpenStreetMap Wald liegt, auch bei einer Sprint- oder Schulhofkarte, und ebenso, wenn sich das ohne OSM-Auszug nicht sagen lässt. Eine Karte mitten in der Stadt bekommt sie nicht mehr, auch wenn sie in einem Brandenburger Revier liegt. Den Träger einer Schule im Gebiet nennen die Hinweise jetzt bei jeder Kartenart, nicht nur bei Schulhofkarten.
