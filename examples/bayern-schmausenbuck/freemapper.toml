@@ -1,0 +1,45 @@
+map_kind = "forest"
+scale_denominator = 10000
+declination_date = "2026-11-14"
+buffer_m = 100.0
+crs = 25832
+provider = "ldbv"
+title = "Schmausenbuck, Nürnberger Reichswald"
+tiles = []
+
+[map_area]
+coordinates = [[[11.145, 49.4492], [11.1615, 49.4492], [11.1615, 49.4573], [11.145, 49.4573], [11.145, 49.4492]]]
+type = "Polygon"
+
+[buildings]
+bbox = [655343.0, 5479504.0, 656766.0, 5480640.0]
+fetched = "2026-11-14"
+latest_update = "2026-06-30"
+count = 150
+regions = ["bayern"]
+
+[land_use]
+bbox = [655343.0, 5479504.0, 656766.0, 5480640.0]
+fetched = "2026-11-14"
+latest_update = "2026-07-29"
+count = 124
+regions = ["bayern"]
+
+[osm]
+extract = "2026-11-12"
+area = [49.44830169, 11.14361813, 49.45819831, 11.16288187]
+count = 346
+
+[orthophoto]
+flight = "13.06.2025"
+fetched = "2026-11-14"
+bbox = [655343.767, 5479504.885, 656765.225, 5480639.459]
+
+[terrain]
+fetched = "2026-11-14"
+bbox = [655343.767, 5479504.885, 656765.225, 5480639.459]
+
+[surface]
+fetched = "2026-11-14"
+bbox = [655343.767, 5479504.885, 656765.225, 5480639.459]
+date = "2025-06-13"

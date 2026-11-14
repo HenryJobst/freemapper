@@ -26,6 +26,7 @@ was freemapper ableiten kann. Die Karte allein zeigt weniger; dasselbe Gebiet in
 | Saarland | [Altstadt und Festung Saarlouis](saarland-saarlouis/): die sechseckige Festungsstadt Vaubans, Saar-Altarm mit der Vauban-Insel, Wälle im Stadtgarten | 1688 | 799 | 40 | <a href="saarland-saarlouis/saarland-saarlouis-candidates.pdf"><img src="saarland-saarlouis/preview.webp" width="220" alt=""></a> |
 | Baden-Württemberg | [Altstadt und Schloss Heidelberg](baden-wuerttemberg-heidelberg/): Altstadt am Neckar mit der Alten Brücke, das Schloss mit seinem Garten am steilen Hang des Königstuhls | 2858 | 899 | 43 | <a href="baden-wuerttemberg-heidelberg/baden-wuerttemberg-heidelberg-candidates.pdf"><img src="baden-wuerttemberg-heidelberg/preview.webp" width="220" alt=""></a> |
 | Bremen | [Bremer Altstadt und Wallanlagen](bremen-altstadt/): die Altstadt zwischen Weser und Stadtgraben mit Marktplatz und Schlachte, die Wallanlagen mit der Mühle am Wall, gegenüber der Teerhof | 2498 | 534 | 39 | <a href="bremen-altstadt/bremen-altstadt-candidates.pdf"><img src="bremen-altstadt/preview.webp" width="220" alt=""></a> |
+| Bayern | [Altstadt Regensburg mit der Steinernen Brücke](bayern-regensburg/): die Welterbe-Altstadt an der Donau mit Dom und Gassen, die Steinerne Brücke, die Wöhrde und Stadtamhof am anderen Ufer | 2959 | 453 | 38 | <a href="bayern-regensburg/bayern-regensburg-candidates.pdf"><img src="bayern-regensburg/preview.webp" width="220" alt=""></a> |
 
 **Kartenobjekte** sind die Objekte der OOM-Karte. Mit `balanced` sind das die Objekte aus Kataster, Registern und
 Straßenbefahrung (Gebäude, Straßen mit Bordsteinen, Gewässer, Parks, Wald, Überdachungen und Durchfahrten), dazu
@@ -111,16 +112,21 @@ ALKIS und OSM beide haben, stehen nur einmal in der Karte: als ALKIS-Linie, die 
 
 ## Waldkarte
 
-Ein Beispiel der Kartenart `forest` (ISOM 2017-2), für ein schnelles Training im Wald:
+Beispiele der Kartenart `forest` (ISOM 2017-2), für ein schnelles Training im Wald:
 
 | Bundesland | Gebiet | Kartenobjekte | Kandidaten | Symbole | Vorschau |
 |---|---|---:|---:|---:|---|
 | Berlin | [Dammheide, Treptow-Köpenick](berlin-dammheide/): kleiner flacher Wald mit dichtem Wegenetz, Siedlungen rundherum | 1179 | 166 | 27 | <a href="berlin-dammheide/berlin-dammheide-candidates.pdf"><img src="berlin-dammheide/preview.webp" width="220" alt=""></a> |
+| Bayern | [Schmausenbuck, Nürnberger Reichswald](bayern-schmausenbuck/): Sandsteinhügel im Reichswald über dem Tiergarten, Hänge mit dichtem Wegenetz, zwei Stromtrassen | 670 | 81 | 35 | <a href="bayern-schmausenbuck/bayern-schmausenbuck-candidates.pdf"><img src="bayern-schmausenbuck/preview.webp" width="220" alt=""></a> |
 
-Erzeugt mit `freemapper init berlin-dammheide --osm relation/4513841 --kind forest --scale 10000 --title Dammheide`
+Die Dammheide ist erzeugt mit `freemapper init berlin-dammheide --osm relation/4513841 --kind forest --scale 10000 --title Dammheide`
 und `run --pdf-candidates --ocad`. Die Wege kommen aus OSM und stehen in den Wegklassen 502 bis 507 in der Karte;
 der Wald ist weißes Papier. Siedlungen und Gärten sind olivgrün (520, nicht zu betreten). Das Gebiet ist flach,
 deshalb liegen die Höhenlinien alle 2,5 m; die `freemapper.toml` nennt das als `[contours] interval_m`.
+
+Der Schmausenbuck ist ein Rechteck von 1,2 × 0,9 km (`init --geojson`, sonst wie oben). Er ist hügelig, die
+Höhenlinien liegen alle 5 m, und Böschungen und Kuppen aus dem Geländemodell sind Kandidaten. Die Bewuchsstufen
+fehlen: Für Bayern liest freemapper die Punktwolken noch nicht.
 
 ## Inhalt eines Beispiels
 
@@ -181,6 +187,12 @@ meisten Kartenobjekte (2498) und Kandidaten (534). Die Altstadt hat gewonnen: St
 Park mit Höhenlinien und die dichte Bebauung stehen auf einem Blatt, und 64 Treppen, 13 Stützmauern und
 16 Böschungsoberkanten kommen aus dem vollständigen ALKIS, das sonst nur Brandenburg hat.
 
+In Bayern lief für die Sprintkarte ein Rechteck, die Regensburger Altstadt: Donauarme und Wöhrde, die Steinerne
+Brücke und die dichte Bebauung stehen auf einem Blatt. Bayern hat keinen Dienst für sein Kataster; die 1821 Gebäude
+und 144 Überdachungen kommen aus den LoD2-Kacheln, die Nutzung aus der Datei der Stadt Regensburg. Das Gebiet liegt
+östlich von 12° O und steht wie ganz Bayern in der UTM-Zone 32. Für die Waldkarte liefen zwei Rechtecke am
+Schmausenbuck; das südliche bestand zur Hälfte aus dem Tiergarten.
+
 ## Lizenzen
 
 Die Karten enthalten abgeleitete amtliche Geodaten und OpenStreetMap-Daten. Die Namensnennung steht in jeder
@@ -189,6 +201,6 @@ Die Karten enthalten abgeleitete amtliche Geodaten und OpenStreetMap-Daten. Die 
 - OpenStreetMap: © OpenStreetMap-Mitwirkende, ODbL;
 - Brandenburg: © GeoBasis-DE/LGB, dl-de/by-2-0; Potsdam: Landeshauptstadt Potsdam / Bäume der Stadtkarte, dl-de/zero-2-0; Berlin: © Geoportal Berlin, dl-de/zero-2-0;
 - Sachsen: GeoSN, dl-de/by-2-0; Sachsen-Anhalt: © GeoBasis-DE / LVermGeo ST, dl-de/by-2-0;
-- Hamburg: Freie und Hansestadt Hamburg, LGV, dl-de/by-2-0; Hessen: © HVBG, dl-de/zero-2-0; Schleswig-Holstein: © GeoBasis-DE/LVermGeo SH, CC BY 4.0; Mecklenburg-Vorpommern: ©GeoBasis-DE/MV/CC BY 4.0 (Quelle verändert); Nordrhein-Westfalen: © Geobasis NRW, dl-de/zero-2-0; Niedersachsen: © GeoBasis-DE/LGLN, Daten geändert, CC BY 4.0; Rheinland-Pfalz: ©GeoBasis-DE / LVermGeoRP, dl-de/by-2-0, [Daten bearbeitet]; Saarland: © GeoBasis DE/LVGL-SL, dl-de/by-2-0, Daten geändert; Baden-Württemberg: Datenquelle: LGL, www.lgl-bw.de, dl-de/by-2-0, Daten geändert; Bremen: © GeoBasis-DE / Landesamt GeoInformation Bremen, CC BY 4.0, Daten geändert.
+- Hamburg: Freie und Hansestadt Hamburg, LGV, dl-de/by-2-0; Hessen: © HVBG, dl-de/zero-2-0; Schleswig-Holstein: © GeoBasis-DE/LVermGeo SH, CC BY 4.0; Mecklenburg-Vorpommern: ©GeoBasis-DE/MV/CC BY 4.0 (Quelle verändert); Nordrhein-Westfalen: © Geobasis NRW, dl-de/zero-2-0; Niedersachsen: © GeoBasis-DE/LGLN, Daten geändert, CC BY 4.0; Rheinland-Pfalz: ©GeoBasis-DE / LVermGeoRP, dl-de/by-2-0, [Daten bearbeitet]; Saarland: © GeoBasis DE/LVGL-SL, dl-de/by-2-0, Daten geändert; Baden-Württemberg: Datenquelle: LGL, www.lgl-bw.de, dl-de/by-2-0, Daten geändert; Bremen: © GeoBasis-DE / Landesamt GeoInformation Bremen, CC BY 4.0, Daten geändert; Bayern: Geobasisdaten: Bayerische Vermessungsverwaltung – www.geodaten.bayern.de (Daten verändert), Lizenz: CC BY 4.0.
 
 Erstellt mit freemapper – https://github.com/HenryJobst/freemapper

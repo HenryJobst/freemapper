@@ -198,6 +198,27 @@ Oberpfalz, changed 2026-10-01).
   (`714_5332`, Ebersberger Forst; `672_5306`, Starnberger See; both of 2022). Note the prefix: the root is
   `core:CityModel` there and `CityModel` in the tiles with buildings. Only a tile outside the state answers 404.
 
+## Live run
+
+2026-11-14, with the release build of the branch, an empty cache and `CI=1`:
+
+| | Regensburg, old town (sprint 1:4000, 0.9 × 0.8 km) | Schmausenbuck (forest 1:10000, 1.2 × 0.9 km) |
+|---|---|---|
+| Time, first run | 1 min 16 s | not measured |
+| DGM1 | 2 tiles, 1.9 MB each | 4 tiles |
+| DOM20 | 2 tiles, cached reduced with 2.3 MB each; flight 11.05.2025 | 4 tiles; flight 13.06.2025 |
+| LoD2 | `724_5434` 61 MB and `726_5434` 107 MB, cached as 1.5 and 2.6 MB of features | 4 tiles; of the two of the first try `654_5478` had 37 MB and `656_5478` next to nothing |
+| Land use | the city of Regensburg, `tn_09362.zip`, 3.1 MB | the first try, south of the kept area, read the files of two Kreise: the city of Nuremberg and the Nürnberger Land |
+| OSM extract | Oberpfalz, 81 MB | Mittelfranken, 91 MB |
+| Buildings, land use parts | 1 821, 555 | 150, 124 |
+| Map objects, candidates, symbols | 2 959, 453, 38 | 670, 81, 35 |
+
+No warning in either run. A second run of Regensburg with `--offline --force` wrote the same map and the same
+candidates byte for byte, and the same `freemapper.toml`. Of the 2 959 map objects of Regensburg 144 are canopies
+(522) from the roofed structures of LoD2. The estimate takes 40 MB per LoD2 tile; in the old town of Regensburg
+the two tiles had 168 MB, so the estimate of the buildings is low by half in a city centre and high in the
+country.
+
 ## Open, and left for later
 
 - **Point clouds**: `https://geodaten.bayern.de/odd_data/laser/<E>_<N>.laz`, 1 km, LAS 1.2 point format 1, 49 to
