@@ -975,7 +975,7 @@ davon.
 
 ### Was in der Datei steht
 
-Am Anfang steht der Hinweis, dass es keine Rechtsauskunft ist. Dann folgen sechs Abschnitte:
+Am Anfang steht der Hinweis, dass es keine Rechtsauskunft ist. Dann folgen diese Abschnitte:
 
 - „Verwaltung“ nennt Bundesland, Kreis oder kreisfreie Stadt, Amt oder Verwaltungsgemeinschaft, wo es eine
   gibt, und Gemeinde, jeweils mit ihrem Anteil am Kartengebiet in Prozent. Eine Einheit, die weniger als 0,5 %
@@ -991,6 +991,12 @@ Am Anfang steht der Hinweis, dass es keine Rechtsauskunft ist. Dann folgen sechs
   und Häuser liest freemapper nicht, auch denkmalgeschützte Häuser nicht, und keine Gärten, die zu einem
   Wohnhaus gehören oder nicht öffentlich sind (`garden:type=residential` oder `private`, `access=private` oder
   `no`). Telefonnummern und E-Mail-Adressen liest es auch nicht.
+- „Klassifizierte Straßen laut OpenStreetMap“ nennt die Autobahnen, Bundes-, Landes- oder Staats- und
+  Kreisstraßen, die durch das Kartengebiet führen, mit ihrer Nummer (`ref` in OSM, etwa „B 96“ oder „St 2045“).
+  Zu jeder Klasse sagt ein Hinweis, dass die Straßenverkehrsbehörde eine Sperrung oder eine Querung mit
+  Streckenposten anordnet, und wer die Straße meist unterhält. Eine Autobahn darf ein Lauf nur auf Brücken oder
+  durch Unterführungen queren. Gemeindestraßen ohne Nummer nennen die Hinweise nicht; für sie ist die Gemeinde
+  zuständig (siehe den Hinweis zum Ordnungsamt).
 - In Berlin folgen nach „Verwaltung“ bis zu fünf Abschnitte aus dem Geoportal Berlin (siehe unten, „Berlin“).
 - In Hamburg folgen bis zu fünf Abschnitte aus dem Geoportal Hamburg (siehe unten, „Hamburg“).
 - In Brandenburg, Berlin, Hamburg und Nordrhein-Westfalen folgt „Forstverwaltung“, in Nordrhein-Westfalen auch
