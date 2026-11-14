@@ -66,3 +66,42 @@ pub fn geotiff(grid: &crate::raster::GridSpec, values: &[f32]) -> Vec<u8> {
     }
     tiff.into_inner()
 }
+
+/// A Float32 GeoTIFF on `grid` like [`geotiff`], LZW-compressed and with the GDAL metadata
+/// `metadata` (the XML of tag 42112), like the DOM20 tiles of the LDBV.
+pub fn geotiff_with_metadata(
+    grid: &crate::raster::GridSpec,
+    values: &[f32],
+    metadata: &str,
+) -> Vec<u8> {
+    use tiff::tags::Tag;
+    let mut tiff = std::io::Cursor::new(Vec::new());
+    {
+        let mut encoder = tiff::encoder::TiffEncoder::new(&mut tiff)
+            .unwrap()
+            .with_compression(tiff::encoder::Compression::Lzw);
+        let mut image = encoder
+            .new_image::<tiff::encoder::colortype::Gray32Float>(grid.width, grid.height)
+            .unwrap();
+        image
+            .encoder()
+            .write_tag(
+                Tag::ModelPixelScaleTag,
+                &[grid.pixel_size, grid.pixel_size, 0.0][..],
+            )
+            .unwrap();
+        image
+            .encoder()
+            .write_tag(
+                Tag::ModelTiepointTag,
+                &[0.0, 0.0, 0.0, grid.west, grid.north, 0.0][..],
+            )
+            .unwrap();
+        image
+            .encoder()
+            .write_tag(Tag::Unknown(42112), metadata)
+            .unwrap();
+        image.write_data(values).unwrap();
+    }
+    tiff.into_inner()
+}

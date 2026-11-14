@@ -1651,7 +1651,13 @@ mod tests {
     fn preview_flags_outside_coverage() {
         let cache_dir = tempfile::tempdir().unwrap();
         let cache = Cache::new(cache_dir.path().to_path_buf());
-        for (lon, lat) in [(11.57, 48.13), (151.2, -33.87), (-170.0, 52.5), (3.0, 52.5)] {
+        // Erfurt (Thuringia has no data sources), Sydney, the Bering Sea, the North Sea.
+        for (lon, lat) in [
+            (11.03, 50.975),
+            (151.2, -33.87),
+            (-170.0, 52.5),
+            (3.0, 52.5),
+        ] {
             let text = format!(
                 r#"{{"type":"Polygon","coordinates":[[[{lon},{lat}],[{},{lat}],[{},{}],[{lon},{}],[{lon},{lat}]]]}}"#,
                 lon + 0.005,

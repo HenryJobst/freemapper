@@ -25,6 +25,7 @@ less; the [comparison page](compare.en.md) shows the same area in the three cont
 | Saarland | [Saarlouis old town and fortress](saarland-saarlouis/): Vauban's hexagonal fortress town, the old arm of the Saar with the Vauban island, ramparts in the Stadtgarten | 1688 | 799 | 40 | <a href="saarland-saarlouis/saarland-saarlouis-candidates.pdf"><img src="saarland-saarlouis/preview.webp" width="220" alt=""></a> |
 | Baden-Württemberg | [Heidelberg old town and castle](baden-wuerttemberg-heidelberg/): the old town on the Neckar with the Old Bridge, the castle and its garden on the steep slope of the Königstuhl | 2858 | 899 | 43 | <a href="baden-wuerttemberg-heidelberg/baden-wuerttemberg-heidelberg-candidates.pdf"><img src="baden-wuerttemberg-heidelberg/preview.webp" width="220" alt=""></a> |
 | Bremen | [Old town of Bremen and Wallanlagen](bremen-altstadt/): the old town between the Weser and the town moat with the market square and the Schlachte, the Wallanlagen with the mill on the rampart, and the Teerhof across the river | 2498 | 534 | 39 | <a href="bremen-altstadt/bremen-altstadt-candidates.pdf"><img src="bremen-altstadt/preview.webp" width="220" alt=""></a> |
+| Bavaria | [Old town of Regensburg with the Stone Bridge](bayern-regensburg/): the World Heritage old town on the Danube with the cathedral and its lanes, the Stone Bridge, the river islands and Stadtamhof on the other bank | 2959 | 453 | 38 | <a href="bayern-regensburg/bayern-regensburg-candidates.pdf"><img src="bayern-regensburg/preview.webp" width="220" alt=""></a> |
 
 **Map objects** are the objects of the OOM map. With `balanced` these are the objects of the cadastre, the registers
 and the street survey (buildings, streets with curbs, water, parks, forest, canopies and passages), plus walls,
@@ -123,14 +124,16 @@ One example of the map kind `forest` (ISOM 2017-2) at 1:10 000 for every state, 
 | Saarland | [Cloef at the Saarschleife](saarland-cloef/): a steep slope with rocks above the Saar loop | 492 | 56 | 27 | <a href="saarland-cloef/saarland-cloef-candidates.pdf"><img src="saarland-cloef/preview.webp" width="220" alt=""></a> |
 | Baden-Württemberg | [Königstuhl, Heidelberg](baden-wuerttemberg-koenigstuhl/): Heidelberg's own mountain, with an observatory and many paths | 843 | 47 | 28 | <a href="baden-wuerttemberg-koenigstuhl/baden-wuerttemberg-koenigstuhl-candidates.pdf"><img src="baden-wuerttemberg-koenigstuhl/preview.webp" width="220" alt=""></a> |
 | Bremen | [Bürgerpark and Stadtwald](bremen-buergerpark/): a flat park and forest with ditches, lakes and a dense path network | 1913 | 420 | 32 | <a href="bremen-buergerpark/bremen-buergerpark-candidates.pdf"><img src="bremen-buergerpark/preview.webp" width="220" alt=""></a> |
+| Bavaria | [Schmausenbuck, Nürnberger Reichswald](bayern-schmausenbuck/): a sandstone hill in the Reichswald above the zoo of Nuremberg, slopes with a dense path network, two power lines | 670 | 81 | 35 | <a href="bayern-schmausenbuck/bayern-schmausenbuck-candidates.pdf"><img src="bayern-schmausenbuck/preview.webp" width="220" alt=""></a> |
 
-The areas are about 1.2 × 0.9 km and were chosen by relief and path network out of some 30 trial runs. Made with
+The areas are about 1.2 × 0.9 km and were chosen by relief and path network. Made with
 `freemapper init <folder> --geojson <rectangle> --kind forest --scale 10000 --title "<title>"` and
 `run --pdf-candidates --ocad`. Berlin and Bremen take their outline from OSM (`--osm relation/4513841` for the
 Dammheide, `--osm way/664446849` for the Bürgerpark). In Brandenburg, North Rhine-Westphalia and Saarland
 `--content-set vegetation=candidates` was added: the vegetation from laser point clouds is in the candidates map
 there. Rhineland-Palatinate lacks it, because the state office's Metalink file names other sizes and checksums for
-the tiles near Dahn than the files on the server have (November 2026).
+the tiles near Dahn than the files on the server have (November 2026); for Bavaria freemapper does not read the
+point clouds yet.
 
 The paths come from OSM and go onto the map in the path classes 502 to 507; the forest is white paper. Settlements
 and gardens are olive green (520, not to be entered). Rocks, earth banks and knolls from the terrain model are
@@ -195,6 +198,12 @@ map objects (2498) and candidates (534). The old town won: the town moat and the
 with contours and the dense old town are on one sheet, and 64 stairs, 13 retaining walls and 16 embankment tops
 come from the full ALKIS, which only Brandenburg has besides.
 
+In Bavaria one rectangle ran for the sprint map, the old town of Regensburg. The arms of the Danube with their
+islands, the Stone Bridge and the dense old town are on one sheet. Bavaria has no service for its cadastre; the
+1821 buildings and 144 canopies come from the LoD2 tiles, the land use from the file of the city of Regensburg.
+The area lies east of 12° E and is in UTM zone 32 like all of Bavaria. For the forest map two rectangles ran at
+the Schmausenbuck; half of the southern one was the zoo.
+
 ## Licences
 
 The maps contain derived official geodata and OpenStreetMap data. The attribution is in each `ATTRIBUTION.txt`, in
@@ -203,6 +212,6 @@ the PDFs' peripheral information and in the map notes:
 - OpenStreetMap: © OpenStreetMap contributors, ODbL;
 - Brandenburg: © GeoBasis-DE/LGB, dl-de/by-2-0; Potsdam: Landeshauptstadt Potsdam / Bäume der Stadtkarte, dl-de/zero-2-0; Berlin: © Geoportal Berlin, dl-de/zero-2-0;
 - Saxony: GeoSN, dl-de/by-2-0; Saxony-Anhalt: © GeoBasis-DE / LVermGeo ST, dl-de/by-2-0;
-- Hamburg: Freie und Hansestadt Hamburg, LGV, dl-de/by-2-0; Hesse: © HVBG, dl-de/zero-2-0; Schleswig-Holstein: © GeoBasis-DE/LVermGeo SH, CC BY 4.0; Mecklenburg-Vorpommern: ©GeoBasis-DE/MV/CC BY 4.0 (Quelle verändert); North Rhine-Westphalia: © Geobasis NRW, dl-de/zero-2-0; Lower Saxony: © GeoBasis-DE/LGLN, Daten geändert, CC BY 4.0; Rhineland-Palatinate: ©GeoBasis-DE / LVermGeoRP, dl-de/by-2-0, [Daten bearbeitet]; Saarland: © GeoBasis DE/LVGL-SL, dl-de/by-2-0, Daten geändert; Baden-Württemberg: Datenquelle: LGL, www.lgl-bw.de, dl-de/by-2-0, Daten geändert; Bremen: © GeoBasis-DE / Landesamt GeoInformation Bremen, CC BY 4.0, Daten geändert.
+- Hamburg: Freie und Hansestadt Hamburg, LGV, dl-de/by-2-0; Hesse: © HVBG, dl-de/zero-2-0; Schleswig-Holstein: © GeoBasis-DE/LVermGeo SH, CC BY 4.0; Mecklenburg-Vorpommern: ©GeoBasis-DE/MV/CC BY 4.0 (Quelle verändert); North Rhine-Westphalia: © Geobasis NRW, dl-de/zero-2-0; Lower Saxony: © GeoBasis-DE/LGLN, Daten geändert, CC BY 4.0; Rhineland-Palatinate: ©GeoBasis-DE / LVermGeoRP, dl-de/by-2-0, [Daten bearbeitet]; Saarland: © GeoBasis DE/LVGL-SL, dl-de/by-2-0, Daten geändert; Baden-Württemberg: Datenquelle: LGL, www.lgl-bw.de, dl-de/by-2-0, Daten geändert; Bremen: © GeoBasis-DE / Landesamt GeoInformation Bremen, CC BY 4.0, Daten geändert; Bavaria: Geobasisdaten: Bayerische Vermessungsverwaltung – www.geodaten.bayern.de (Daten verändert), Lizenz: CC BY 4.0.
 
 Created with freemapper – https://github.com/HenryJobst/freemapper

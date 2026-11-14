@@ -7,6 +7,7 @@
 pub mod aaa;
 pub mod alkis_source;
 pub mod bfn;
+pub mod citygml;
 pub mod dates;
 pub mod float_tiff;
 pub mod geojson_wfs;
@@ -20,6 +21,7 @@ mod permits_test_support;
 pub mod raster;
 pub mod raster_fetch;
 pub mod replay;
+pub mod shapefile;
 #[cfg(any(test, feature = "testing"))]
 pub mod testing;
 pub mod trees;

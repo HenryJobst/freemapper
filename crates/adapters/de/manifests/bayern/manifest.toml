@@ -1,0 +1,96 @@
+# Bavaria: the rasters of the Bayerische Vermessungsverwaltung through code (a WMS for the
+# orthophoto, 1 km tiles for the terrain model and for the surface model of 20 cm). The state
+# has no service for its cadastre: buildings and land use are read by code out of files, the
+# LoD2 tiles and the Shapefile of each Kreis.
+format = 1
+
+[adapter]
+id = "bayern"
+provider = "ldbv"
+revision = 1
+min_freemapper = "0.13.0"
+crs = 25832
+object_id_prefix = "DEBY"
+names = { en = "Bavaria", de = "Bayern" }
+agency = "LDBV"
+maintainers = ["github:HenryJobst"]
+last_verified = "2026-11-14"
+
+[net]
+hosts = ["geoservices.bayern.de", "download1.bayernwolke.de"]
+
+[boundary]
+file = "boundary.geojson"
+crs = 25833
+
+[[osm.extract]]
+geofabrik = "europe/germany/bayern/mittelfranken"
+megabytes = 91.0
+label = "Bayern, Mittelfranken"
+boundary = "osm-mittelfranken.geojson"
+cache_prefix = "by-mittelfranken"
+
+[[osm.extract]]
+geofabrik = "europe/germany/bayern/niederbayern"
+megabytes = 91.0
+label = "Bayern, Niederbayern"
+boundary = "osm-niederbayern.geojson"
+cache_prefix = "by-niederbayern"
+
+[[osm.extract]]
+geofabrik = "europe/germany/bayern/oberbayern"
+megabytes = 248.0
+label = "Bayern, Oberbayern"
+boundary = "osm-oberbayern.geojson"
+cache_prefix = "by-oberbayern"
+
+[[osm.extract]]
+geofabrik = "europe/germany/bayern/oberfranken"
+megabytes = 90.0
+label = "Bayern, Oberfranken"
+boundary = "osm-oberfranken.geojson"
+cache_prefix = "by-oberfranken"
+
+[[osm.extract]]
+geofabrik = "europe/germany/bayern/oberpfalz"
+megabytes = 81.0
+label = "Bayern, Oberpfalz"
+boundary = "osm-oberpfalz.geojson"
+cache_prefix = "by-oberpfalz"
+
+[[osm.extract]]
+geofabrik = "europe/germany/bayern/schwaben"
+megabytes = 122.0
+label = "Bayern, Schwaben"
+boundary = "osm-schwaben.geojson"
+cache_prefix = "by-schwaben"
+
+[[osm.extract]]
+geofabrik = "europe/germany/bayern/unterfranken"
+megabytes = 99.0
+label = "Bayern, Unterfranken"
+boundary = "osm-unterfranken.geojson"
+cache_prefix = "by-unterfranken"
+
+# The source note the agency's FAQ gives for changed data; it names no year.
+[attribution]
+licence = "cc-by-4.0"
+text = "Geobasisdaten: Bayerische Vermessungsverwaltung – www.geodaten.bayern.de (Daten verändert), Lizenz: CC BY 4.0"
+short = "Bayerische Vermessungsverwaltung"
+note = "Lizenz CC BY 4.0 (Namensnennung 4.0 International): https://creativecommons.org/licenses/by/4.0/"
+
+[orthophoto]
+backend = "ldbv"
+
+[terrain]
+backend = "ldbv"
+
+[surface]
+backend = "ldbv"
+
+[preview]
+wms = "https://geoservices.bayern.de/od/wms/dop/v1/dop20"
+layer = "by_dop20c"
+format = "image/jpeg"
+attribution = "Bayerische Vermessungsverwaltung – www.geodaten.bayern.de, CC BY 4.0"
+agency = "LDBV"

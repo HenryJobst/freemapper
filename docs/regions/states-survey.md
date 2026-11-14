@@ -13,7 +13,7 @@ Samples (tiny test responses only) are in `work/<state>/` next to this file; all
 | Niedersachsen | ready | low-medium | Same AAA-suite `ave:` WFS; DOP/DGM1/DOM1 are Cloud-Optimized GeoTIFFs found via STAC (range reads); CC BY 4.0 |
 | Rheinland-Pfalz | ready | medium | `ave:` WFS on a different server (no `NutzungFlurstueck`, uses `ave:Nutzung`); DGM1/DOM1 1 km tif tiles; DOP via WMS or 155 MB JP2; dl-de/by-2-0 |
 | Baden-Wuerttemberg | done 2026-11-13 (ADR 0119, `baden-wuerttemberg-reference.md`) | medium-high | The row of 2026-11-08 was wrong in four points: there is an open ALKIS WFS with buildings and land use (GeoServer views, not the simplified schema), the 2 km zips are deflated and still readable by range per member, DGM1 is XYZ text, and the flight date of the orthophoto is in an open WFS. Orthophoto from the WMS, DGM1 and nDOM1 from the zips |
-| Bayern | partly | high | DOP20/DGM1/DOM20 open, but buildings (Hausumringe) and land use (TN) only as bulk downloads (Shape per Regierungsbezirk, 5 GB GPKG); no WFS |
+| Bayern | done 2026-11-14 (ADR 0123, `bayern-reference.md`) | high | The cadastre has no service: buildings are read from the LoD2 tiles (CityGML per 2 km), land use from the Shapefile of each Kreis. The row of 2026-11-08 said "no WFS"; that holds for the cadastre, and an open ATKIS WFS exists. The surface model is the DOM20 of 20 cm, cached reduced to 1 m |
 | Bremen | done 2026-11-13 (ADR 0121, `bremen-reference.md`) | medium | The row of 2026-11-08 was wrong in three points: the full ALKIS with buildings and land use is open as a WFS on the LGLN's server, DOM1 has a download next to the rendered WMS, and both height archives are read by range per tile. Orthophoto from a WMS with a layer per flight and city |
 | Saarland | done 2026-11-12 (ADR 0111, `saarland-reference.md`) | medium | All services answered on 2026-11-12. DOP20, DGM1, DOM1 and ALKIS simplified are dl-de/by-2-0 by the LVGL catalogue; heights come as district zips with 1 km tiles (range requests), ALKIS from a WFS with upper-case attribute names. The line of 2026-11-08 below is kept as found then |
 
@@ -73,7 +73,7 @@ Effort medium: WFS schema is `ave:` but the server and Nutzung type differ (pagi
 Licence source (Capabilities): "Es gelten die Lizenzbedingungen 'Datenlizenz Deutschland - Namensnennung - Version 2.0' bzw. 'dl-de/by-2-0' ... Beispiel fuer Quellenvermerk: LGL-BW (2024) Datenlizenz Deutschland - Namensnennung - Version 2.0, www.lgl-bw.de". Fees: "Unentgeltliche Nutzung nach Open Data Lizenz". High-value dataset list (LGL, 29.05.2024): DGM1, DOM1, DOP20, Hausumringe, Landnutzung are open; bDOM free.
 Effort medium-high: needs a zip-tile reader with ranges, an INSPIRE building parser, and an LN GPKG extractor.
 
-## Bayern (partly)
+## Bayern (done; the findings below are of 2026-11-08 and partly superseded, see `bayern-reference.md`)
 
 | Product | Open? | Verified service / URL | CRS | Licence | Blockers / notes |
 |---|---|---|---|---|---|

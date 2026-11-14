@@ -29,6 +29,11 @@ pub struct HeightModel {
     pub warnings: Vec<Note>,
 }
 
+/// A downloaded tile made ready: the 1 m tile that is pasted, and the bytes that are cached.
+pub type Prepared = (Raster<f32>, Vec<u8>);
+/// What makes a downloaded tile ready, or says why it cannot be used.
+pub type Prepare<'a> = dyn Fn(&[u8], TileId) -> Result<Prepared, String> + 'a;
+
 /// How a provider's 1 km zone-32 tiles (named by its tile list) are downloaded, cached and
 /// checked; see [`mosaic_tiles`].
 pub struct TileStore<'a> {
@@ -48,6 +53,10 @@ pub struct TileStore<'a> {
     pub known_missing: &'a dyn Fn(&Path) -> bool,
     /// Refuses a download before it is decoded (an HTML page), with the reason.
     pub precheck: &'a dyn Fn(&[u8]) -> Result<(), String>,
+    /// What a downloaded tile becomes: the 1 m tile that is pasted, and the bytes that are
+    /// cached (a cached file must read back as that 1 m tile). [`as_delivered`] for a
+    /// provider whose tiles are 1 m GeoTIFFs.
+    pub prepare: &'a Prepare<'a>,
     /// Whether the error for an area without any tile says why each tile is missing.
     pub explain_empty: bool,
 }
@@ -84,6 +93,43 @@ pub fn read_cached(path: &Path, tile: TileId) -> Option<Raster<f32>> {
     decode_float_tiff(&bytes)
         .and_then(|raster| whole_tile(raster, tile, &[1.0]))
         .ok()
+}
+
+/// The tile as it was delivered: a 1 m GeoTIFF of exactly the tile, cached unchanged.
+pub fn as_delivered(bytes: &[u8], tile: TileId) -> Result<Prepared, String> {
+    let part = decode_float_tiff(bytes).and_then(|raster| whole_tile(raster, tile, &[1.0]))?;
+    Ok((part, bytes.to_vec()))
+}
+
+/// `raster` with cells `factor` times as wide; each takes the highest of its values, cells
+/// without a value (NaN) are passed over, a cell with none stays NaN.
+pub fn coarsen_max(raster: &Raster<f32>, factor: u32) -> Result<Raster<f32>, String> {
+    let fine = raster.grid;
+    if factor == 0 || !fine.width.is_multiple_of(factor) || !fine.height.is_multiple_of(factor) {
+        return Err(format!(
+            "{} x {} px cannot be reduced by {factor}",
+            fine.width, fine.height
+        ));
+    }
+    let grid = GridSpec {
+        pixel_size: fine.pixel_size * f64::from(factor),
+        width: fine.width / factor,
+        height: fine.height / factor,
+        ..fine
+    };
+    let mut coarse = Raster::filled(grid, f32::NAN);
+    let (width, step) = (fine.width as usize, factor as usize);
+    for (row, cells) in raster.data.chunks_exact(width).enumerate() {
+        let start = (row / step) * grid.width as usize;
+        let target = &mut coarse.data[start..start + grid.width as usize];
+        for (block, highest) in cells.chunks_exact(step).zip(target) {
+            for z in block {
+                // `f32::max` passes over a NaN on either side.
+                *highest = highest.max(*z);
+            }
+        }
+    }
+    Ok(coarse)
 }
 
 /// `raster` if it covers exactly the 1 km `tile` with pixels of one of the `pixels` sizes.
@@ -194,14 +240,12 @@ pub fn mosaic_tiles(
     for (tile, name) in pending {
         let url = (store.url)(&name);
         let downloaded = get_with_retries(fetcher, &url, |bytes| {
-            let part = (store.precheck)(bytes)
-                .and_then(|()| decode_float_tiff(bytes))
-                .and_then(|r| whole_tile(r, tile, &[1.0]))
+            (store.precheck)(bytes)
+                .and_then(|()| (store.prepare)(bytes, tile))
                 .map_err(|message| FetchError::Http {
                     url: url.clone(),
                     message: format!("{} tile {name}: {message}", store.label),
-                })?;
-            Ok((part, bytes.to_vec()))
+                })
         });
         let marker = (store.marker_path)(&name);
         match downloaded {
@@ -356,6 +400,7 @@ mod tests {
             marker_path: &|name| dir.join(format!("{name}.missing")),
             known_missing: &|path| path.exists(),
             precheck: &|_| Ok(()),
+            prepare: &as_delivered,
             explain_empty: true,
         };
         let area = AreaTiles {
@@ -482,5 +527,123 @@ mod tests {
             warnings[1],
             "x: no date, the STAC lists no tile at the centre of the map area"
         );
+    }
+
+    /// A raster of `width` × `height` cells of `pixel` m at the origin, row by row.
+    fn raster(width: u32, height: u32, pixel: f64, data: Vec<f32>) -> Raster<f32> {
+        Raster {
+            grid: GridSpec {
+                west: 1000.0,
+                north: 2000.0,
+                pixel_size: pixel,
+                width,
+                height,
+            },
+            data,
+        }
+    }
+
+    #[test]
+    fn coarsen_max_takes_the_highest_of_each_block() {
+        let fine = raster(4, 4, 0.5, (1..=16).map(|z| z as f32).collect());
+        let coarse = coarsen_max(&fine, 2).unwrap();
+        assert_eq!(coarse.data, [6.0, 8.0, 14.0, 16.0]);
+        assert_eq!(
+            coarse.grid,
+            GridSpec {
+                west: 1000.0,
+                north: 2000.0,
+                pixel_size: 1.0,
+                width: 2,
+                height: 2,
+            }
+        );
+    }
+
+    #[test]
+    fn coarsen_max_passes_over_cells_without_a_value() {
+        let nan = f32::NAN;
+        let fine = raster(4, 2, 0.5, vec![nan, 3.0, nan, nan, nan, nan, nan, nan]);
+        let coarse = coarsen_max(&fine, 2).unwrap();
+        assert_eq!(coarse.data[0], 3.0);
+        assert!(coarse.data[1].is_nan());
+    }
+
+    #[test]
+    fn coarsen_max_refuses_a_size_that_does_not_divide() {
+        let fine = raster(5, 4, 0.5, vec![1.0; 20]);
+        assert!(coarsen_max(&fine, 2).is_err());
+        assert!(coarsen_max(&fine, 0).is_err());
+    }
+
+    #[test]
+    fn a_store_can_cache_another_form_than_it_downloads() {
+        // The tile comes with cells of 0.5 m and is cached with cells of 1 m.
+        let grid = GridSpec {
+            west: f64::from(EAST.east_km) * 1000.0,
+            north: f64::from(EAST.north_km + 1) * 1000.0,
+            pixel_size: 0.5,
+            width: 2000,
+            height: 2000,
+        };
+        let fetcher = MapFetcher::default();
+        fetcher.insert(&url("e"), geotiff(&grid, &vec![7.0; 4_000_000]));
+        let dir = tempfile::tempdir().unwrap();
+        let cache = dir.path().join("e.tif");
+        let reduce = |bytes: &[u8], tile: TileId| {
+            let fine = decode_float_tiff(bytes).and_then(|r| whole_tile(r, tile, &[0.5]))?;
+            let coarse = coarsen_max(&fine, 2)?;
+            let cached = crate::float_tiff::encode_float_geotiff(&coarse)?;
+            Ok((coarse, cached))
+        };
+        let store = TileStore {
+            label: "surface model (test)",
+            list_url: "https://tiles.example/list",
+            source: "https://tiles.example",
+            url: &url,
+            cache_path: &|name| dir.path().join(format!("{name}.tif")),
+            marker_path: &|name| dir.path().join(format!("{name}.missing")),
+            known_missing: &|path| path.exists(),
+            precheck: &|_| Ok(()),
+            prepare: &reduce,
+            explain_empty: true,
+        };
+        let run = |fetcher: &MapFetcher| {
+            let area = AreaTiles {
+                named: vec![(EAST, "e".to_string())],
+                missing: Vec::new(),
+            };
+            let out = dir.path().join("out.tif");
+            let mut warnings = Vec::new();
+            mosaic_tiles(
+                fetcher,
+                FetchMode::Online,
+                &BBOX,
+                &store,
+                area,
+                dir.path(),
+                &out,
+                &mut warnings,
+            )
+            .unwrap();
+            // The mosaic has a world file, no GeoTIFF tags: read its values as they are.
+            let bytes = std::fs::read(&out).unwrap();
+            let mut decoder = tiff::decoder::Decoder::new(std::io::Cursor::new(bytes)).unwrap();
+            let tiff::decoder::DecodingResult::F32(values) = decoder.read_image().unwrap() else {
+                panic!("not float")
+            };
+            values
+        };
+        let mosaic = run(&fetcher);
+        // The east half of the area lies in the tile.
+        assert_eq!(mosaic[100 * 200 + 150], 7.0);
+        assert!(mosaic[100 * 200 + 50].is_nan());
+        let kept = read_cached(&cache, EAST).expect("the cached file is the 1 m tile");
+        assert_eq!((kept.grid.width, kept.grid.height), (1000, 1000));
+        assert!(std::fs::metadata(&cache).unwrap().len() < 1_000_000);
+        // The second run reads the reduced file and asks for nothing.
+        let silent = MapFetcher::default();
+        assert_eq!(run(&silent)[100 * 200 + 150], 7.0);
+        assert_eq!(silent.calls.get(), 0);
     }
 }

@@ -179,7 +179,7 @@ fn fetch(
 }
 
 /// `gebnutzbez` of a structure that is no building.
-const STRUCTURE: &str = "Sonstiges Bauwerk oder sonstige Einrichtung";
+pub const STRUCTURE: &str = "Sonstiges Bauwerk oder sonstige Einrichtung";
 /// The functions of a structure the simplified schema holds as an area: `Überdachung` and
 /// `Carport`. Walls, fences and stairs are lines and points of the full ALKIS layers.
 const ROOFS: [&str; 2] = ["1610", "1611"];
@@ -386,6 +386,27 @@ fn label(nas_type: &str, property: &str, code: &str) -> Option<&'static str> {
         .get(property)?
         .get(code)
         .map(String::as_str)
+}
+
+/// The label of a Gebäudefunktion code of `AX_Gebaeude` (`1010`: Wohnhaus), for a source that
+/// has the code and not the feature of the full ALKIS.
+pub fn building_function(code: &str) -> Option<&'static str> {
+    label("AX_Gebaeude", "gebaeudefunktion", code)
+}
+
+/// The label of a Bauwerksfunktion code of `AX_SonstigesBauwerkOderSonstigeEinrichtung`, for
+/// the two roofs the simplified schema holds as areas (`1610`, `1611`); `None` for any other.
+pub fn roof_function(code: &str) -> Option<&'static str> {
+    ROOFS
+        .contains(&code)
+        .then(|| {
+            label(
+                "AX_SonstigesBauwerkOderSonstigeEinrichtung",
+                "bauwerksfunktion",
+                code,
+            )
+        })
+        .flatten()
 }
 
 /// The label of the code `feature` has as `property`, in the list of `nas_type`.

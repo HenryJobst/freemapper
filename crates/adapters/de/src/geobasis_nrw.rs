@@ -429,6 +429,7 @@ pub fn fetch_model(
         // A new release of the list clears the notes.
         known_missing: &|path| path.exists(),
         precheck: &|_| Ok(()),
+        prepare: &crate::sources::height_model::as_delivered,
         explain_empty: false,
     };
     let missing = mosaic_tiles(fetcher, mode, bbox, &store, area, root, out, &mut warnings)?;

@@ -6,7 +6,7 @@ note-warning = warning: { $text }
 
 warning-other-zone = the map area lies in UTM zone { $zone } (EPSG:{ $epsg }); freemapper fetches everything again in that zone
 warning-other-state = the map area now lies in another state's data; freemapper fetches everything again
-warning-beyond-coverage = part of the map area lies outside the supported states. It lies abroad, at sea or in a state freemapper does not support yet, such as Bavaria or Thuringia. The states have no data there, so the orthophoto can be white and ALKIS gives no buildings or land use
+warning-beyond-coverage = part of the map area lies outside the supported states. It lies abroad, at sea or in a state freemapper does not support yet, such as Thuringia. The states have no data there, so the orthophoto can be white and ALKIS gives no buildings or land use
 # A warning whose text is an error.
 warning-error = { $error }
 
@@ -54,6 +54,7 @@ warning-model-tiles-missing = the { $model } has no { $count ->
         [schleswig-holstein] Schleswig-Holstein
         [mecklenburg-vorpommern] Mecklenburg-Vorpommern
         [lower-saxony] Lower Saxony
+        [bavaria] Bavaria
        *[other] { $state }
     }; the templates stay empty there
 warning-no-surface-stored = no surface model stored; run `freemapper fetch` online for the nDSM template
@@ -168,6 +169,8 @@ warning-tile-cached-older = using cached { $product } tile { $tile } from { $pub
 warning-ndsm-no-cached = no cached nDSM for tile { $tile }
 warning-ndsm-tile-unavailable-cached = nDSM tile { $tile } unavailable ({ $reason }); using the cached file
 warning-ndsm-tile-unavailable-skipped = nDSM tile { $tile } unavailable ({ $reason }); skipped
+warning-file-check-failed = could not check whether { $file } is still current ({ $reason }); using the cached file, and the other cached files of this server without asking
+warning-ldbv-no-buildings-file = no building file for tile { $tile } on the server; the map may lack buildings there
 progress-ndsm-not-published = no nDSM point cloud published for tile { $tile }
 progress-ndsm-cached = cached nDSM { $tile }
 progress-point-cloud-not-published = no laser point cloud published for tile { $tile }

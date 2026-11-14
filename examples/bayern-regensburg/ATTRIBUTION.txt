@@ -1,0 +1,5 @@
+© OpenStreetMap contributors, ODbL
+Geobasisdaten: Bayerische Vermessungsverwaltung – www.geodaten.bayern.de (Daten verändert), Lizenz: CC BY 4.0
+Lizenz CC BY 4.0 (Namensnennung 4.0 International): https://creativecommons.org/licenses/by/4.0/
+
+Created with freemapper – https://github.com/HenryJobst/freemapper

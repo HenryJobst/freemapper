@@ -1408,7 +1408,7 @@ fn g5_examples_roundtrip() {
         );
         checked += 1;
     }
-    assert_eq!(checked, 28, "one sprint and one forest example per state");
+    assert_eq!(checked, 30, "one sprint and one forest example per state");
 }
 
 /// A project of a colleague with an adapter that is not installed here: the error names the

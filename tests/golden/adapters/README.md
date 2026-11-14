@@ -14,9 +14,10 @@ would have paid for them with a new recording. For Saxony, Hamburg, Schleswig-Ho
 Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony and Rhineland-Palatinate nothing
 compares the requests of a fetch or the files of the pipeline with a recording any more: a change
 there shows in G1, G2 and G5, in the unit tests of their backends and in `adapters check --live`.
-Their lines in `g1-hosts.txt` are frozen as recorded. Saarland, Baden-Württemberg and Bremen, added
-after the migration, were never recorded: they have unit tests with synthetic archives and recorded
-answers, and `adapters check --live`. The border boxes of G2 around Bremen name it.
+Their lines in `g1-hosts.txt` are frozen as recorded. Saarland, Baden-Württemberg, Bremen and
+Bavaria, added after the migration, were never recorded: they have unit tests with synthetic
+archives and recorded answers, and `adapters check --live`. The border boxes of G2 around Bremen
+name it; none of the boxes touches Bavaria.
 
 | Layer | Records | Files | Needs |
 |---|---|---|---|

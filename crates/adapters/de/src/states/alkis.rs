@@ -1,7 +1,8 @@
 //! The ALKIS services of the states: which service serves which state, in which CRS, with which
 //! fallback. The readers are those of `freemapper-sources`; Berlin keeps its own (Geoportal
 //! Berlin WFS), and so does Baden-Württemberg (the views of the LGL). Bremen has no simplified
-//! ALKIS: its full ALKIS is read as one.
+//! ALKIS: its full ALKIS is read as one. Bavaria has no service at all: its buildings and its
+//! land use are read out of files.
 
 use std::borrow::Cow;
 
@@ -13,7 +14,7 @@ use freemapper_sources::alkis_source::{Normaliser, OgcApiAlkis, WfsAlkis};
 use crate::crs::Crs;
 use crate::sources::alkis_wfs;
 use crate::states::State;
-use crate::{berlin, geobremen, lgl_bw, lgv};
+use crate::{berlin, geobremen, ldbv_alkis, lgl_bw, lgv};
 
 /// LGB's OGC API, buildings and structures (`gebaeude_bauwerk`).
 pub const BUILDINGS_ENDPOINT: &str =
@@ -67,6 +68,10 @@ pub fn source(state: State) -> Box<dyn AlkisSource> {
         State::BadenWuerttemberg => Box::new(lgl_bw::LglBwAlkis),
         // The state serves the full ALKIS only; the source turns it into the simplified schema.
         State::Bremen => Box::new(geobremen::alkis()),
+        // The state has no service for its cadastre; the source reads the files it publishes.
+        State::Bayern => Box::new(ldbv_alkis::LdbvAlkis {
+            kreise: ldbv_alkis::built_in_kreise(),
+        }),
     }
 }
 
@@ -141,6 +146,7 @@ mod tests {
             State::Saarland => wfs(crate::lvgl::ALKIS),
             State::BadenWuerttemberg => wfs(lgl_bw::ALKIS),
             State::Bremen => api(geobremen::ALKIS_URL, geobremen::ALKIS_URL, Crs::Utm32),
+            State::Bayern => api(crate::ldbv::FILES, crate::ldbv::FILES, Crs::Utm32),
         };
         // Kassel, a place both UTM zones can hold.
         let area = FetchArea::new(
@@ -160,6 +166,12 @@ mod tests {
             registry.add(adapter).unwrap();
         }
         for state in State::ALL {
+            // Bavaria has no service: it asks whether its files changed before it fetches
+            // them, and a file that is not there is no error for the buildings. Its own tests
+            // show the addresses (`ldbv_alkis`).
+            if state == State::Bayern {
+                continue;
+            }
             let (buildings, land_use, crs) = expected(state);
             let source = source(state);
             // Nothing answers: the first request shows where the source asks.
