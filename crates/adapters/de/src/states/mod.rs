@@ -881,8 +881,12 @@ mod tests {
                     &["sachsenforst", "bfg"],
                     "https://www.forsten.sachsen.de/kartendienste/wald/MapServer/WMSServer",
                 ),
-                "bayern" | "niedersachsen" | "bremen" | "mecklenburgvorpommern"
-                | "rheinlandpfalz" | "saxonyanhalt" => (
+                "bayern"
+                | "niedersachsen"
+                | "bremen"
+                | "mecklenburgvorpommern"
+                | "rheinlandpfalz"
+                | "saxonyanhalt" => (
                     &["bfg"],
                     "https://geoportal.bafg.de/arcgis1/rest/services/INSPIRE/AM/MapServer/1/query",
                 ),
