@@ -13,14 +13,14 @@ type = "Polygon"
 
 [buildings]
 bbox = [304038.0, 5603614.0, 304962.0, 5604344.0]
-fetched = "2026-11-13"
+fetched = "2026-11-14"
 latest_update = "2026-08-28"
 count = 705
 regions = ["nordrheinwestfalen"]
 
 [land_use]
 bbox = [304038.0, 5603614.0, 304962.0, 5604344.0]
-fetched = "2026-11-13"
+fetched = "2026-11-14"
 latest_update = "2026-09-07"
 count = 1539
 regions = ["nordrheinwestfalen"]
@@ -32,16 +32,16 @@ count = 411
 
 [orthophoto]
 flight = "07.03.2025"
-fetched = "2026-11-12"
+fetched = "2026-11-14"
 bbox = [304038.069, 5603614.132, 304961.474, 5604343.149]
 
 [terrain]
-fetched = "2026-11-13"
+fetched = "2026-11-14"
 bbox = [304038.069, 5603614.132, 304961.474, 5604343.149]
 date = "2021-12-21"
 
 [surface]
-fetched = "2026-11-13"
+fetched = "2026-11-14"
 bbox = [304038.069, 5603614.132, 304961.474, 5604343.149]
 date = "2021-12-21"
 

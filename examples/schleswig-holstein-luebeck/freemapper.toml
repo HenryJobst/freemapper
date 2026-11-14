@@ -13,14 +13,14 @@ type = "Polygon"
 
 [buildings]
 bbox = [610424.0, 5969571.0, 611440.0, 5970293.0]
-fetched = "2026-11-12"
+fetched = "2026-11-14"
 latest_update = "2026-11-03"
 count = 2933
 regions = ["schleswigholstein"]
 
 [land_use]
 bbox = [610424.0, 5969571.0, 611440.0, 5970293.0]
-fetched = "2026-11-12"
+fetched = "2026-11-14"
 latest_update = "2026-11-03"
 count = 2463
 regions = ["schleswigholstein"]
@@ -31,15 +31,16 @@ area = [53.86285591, 10.67938301, 53.86914409, 10.69461699]
 count = 1181
 
 [orthophoto]
-fetched = "2026-11-12"
+flight = "21.06.2025"
+fetched = "2026-11-14"
 bbox = [610424.193, 5969571.571, 611439.943, 5970292.601]
 
 [terrain]
-fetched = "2026-11-12"
+fetched = "2026-11-14"
 bbox = [610424.193, 5969571.571, 611439.943, 5970292.601]
 date = "2022-01-28"
 
 [surface]
-fetched = "2026-11-12"
+fetched = "2026-11-14"
 bbox = [610424.193, 5969571.571, 611439.943, 5970292.601]
 date = "2023-04-17"
