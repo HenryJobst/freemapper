@@ -16,7 +16,7 @@
 - Layer files, exactly: `dlm-bauwerk`, `dlm-vegetation`, `dlm-felsen`, `dlm-hoehle`, `dlm-gewaessermerkmal`, `dlm-damm`, `dlm-turm`, `dlm-gewaesserachse`. Stored in `data/alkis-nas/`, recorded in `nas_layers`.
 - Source of a DLM object: `atkis-dlm/<file without "dlm-">`. Rank `Landscape`, below `Osm`.
 - Duplicate distances: a point within 15 m, a line with 80 % of its length within 10 m, of an object of a higher rank with the same symbol.
-- Symbols: rock 205; cave 203 (sprint) and 203.2 (forest); spring 312; dam 105; tower 1003 → 525, towers 1001, 1004, 1005, 1006, 1007, 1008, 1010, 1011 → 524; watercourse 305, with `funktion` 8300 → 306. Towers 1002, 1009, 1012 are left out.
+- Symbols: rock 205; cave 203 (sprint) and 203.2 (forest); spring 312; dam 105; tower 1003 → 525, towers 1001, 1004, 1005, 1006, 1007, 1008, 1010, 1011 → 524; watercourse 305; `funktion` 8300 is a canal by the code list (read during the build) and is left out. Towers 1002, 1009, 1012 are left out.
 - No map outside Bavaria changes; a commit that changes a golden file carries `Golden-Bless: <reason>`.
 - `build/cliffs.rs` is not touched.
 - Source code and technical docs English; user docs German and English; German says "Bundesland".

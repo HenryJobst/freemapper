@@ -77,7 +77,7 @@ AAA service, not a second reader:
 | `dlm-gewaessermerkmal` | `AX_Gewaessermerkmal`, `art` 1610 | spring | 312 | 312 |
 | `dlm-damm` | `AX_DammWallDeich` | dam, wall, dike (a line) | 105 | 105 |
 | `dlm-turm` | `AX_Turm` | 1003 observation tower: 525; 1001, 1004 to 1008, 1010, 1011: 524 | 525, 524 | 525, 524 |
-| `dlm-gewaesserachse` | `AX_Gewaesserachse` | small watercourse; `funktion` 8300 (ditch): 306 | 305, 306 | 305, 306 |
+| `dlm-gewaesserachse` | `AX_Gewaesserachse` | small watercourse; `funktion` 8300 is a canal by the code list and is left out | 305 | 305 |
 
 Church towers, town gates and castle towers (1002, 1009, 1012) are parts of buildings and are left out. A rock is
 a point in the data; the peer session that owns the cliffs agreed that DLM rocks stay candidates and that

@@ -146,3 +146,58 @@ when = ["tree:dataset=*", "tree:kind!=Baumstumpf"]
 draw = "point"
 schoolyard = "418"
 sprint = "418"
+
+# --- The landscape model (ATKIS Basis-DLM, ADR 0133) --------------------------------------------
+#
+# The layers `dlm-…` of a NAS service of the model `basis-dlm`. The model is made for 1:25 000:
+# its objects are candidates of the lowest rank and go where another source has the same object.
+# The types the cadastre has too (AX_SonstigesBauwerkOderSonstigeEinrichtung,
+# AX_Vegetationsmerkmal) are drawn by the rules above. Left out: church towers, town gates and
+# castle towers (1002, 1009, 1012: parts of buildings), canals (8300), and the water features
+# other than a spring.
+
+# Rock, boulder, rock needle: a point in the model, often a named natural monument.
+[[rule]]
+when = ["alkis:type=AX_FelsenFelsblockFelsnadel"]
+draw = "point"
+sprint = "205"
+
+# Cave entrance.
+[[rule]]
+when = ["alkis:type=AX_Hoehleneingang"]
+draw = "point"
+sprint = "203"
+forest = "203.2"
+
+# Spring.
+[[rule]]
+when = ["alkis:type=AX_Gewaessermerkmal", "alkis:art=1610"]
+draw = "point"
+schoolyard = "312"
+sprint = "312"
+
+# Dam, wall, dike: the earth wall.
+[[rule]]
+when = ["alkis:type=AX_DammWallDeich"]
+draw = "line"
+sprint = "105"
+
+# Observation tower: the small tower, as for OSM.
+[[rule]]
+when = ["alkis:type=AX_Turm", "alkis:bauwerksfunktion=1003"]
+draw = "point"
+sprint = "525"
+
+# Water tower, control tower, cooling tower, lighthouse, fire watch tower, transmitter, winding
+# tower, drilling rig: the high tower.
+[[rule]]
+when = ["alkis:type=AX_Turm", "alkis:bauwerksfunktion=1001|1004|1005|1006|1007|1008|1010|1011"]
+draw = "point"
+sprint = "524"
+
+# The axis of a watercourse narrower than 12 m: the small crossable watercourse.
+[[rule]]
+when = ["alkis:type=AX_Gewaesserachse", "alkis:funktion!=8300"]
+draw = "line"
+schoolyard = "305"
+sprint = "305"

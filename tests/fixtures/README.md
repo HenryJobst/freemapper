@@ -39,6 +39,9 @@
 | `bayern-lod2.gml` | LDBV LoD2 tile `726_5434` (CityGML 1.0, AdV profile, EPSG:25832 with heights, changed 2026-09-29), Regensburg: the header of the file and 3 whole `cityObjectMember` elements as served (a building `31001_2000`, a building whose ground surface has an inner ring, a roofed structure `51009_1610`), with their wall and roof surfaces | Bayerische Vermessungsverwaltung – www.geodaten.bayern.de, CC BY 4.0 |
 | `bayern-dop-info.txt` | LDBV orthophoto WMS (`…/od/wms/dop/v1/dop20`), GetFeatureInfo answer of the layer `by_dop20_info` as plain text at Regensburg (E 726400, N 5434600, EPSG:25832), 2026-11-14: the flight number and the flight date `ua` | Bayerische Vermessungsverwaltung – www.geodaten.bayern.de, CC BY 4.0 |
 | `bayern-dlm-turm.gml` | LDBV ATKIS Basis-DLM WFS (`…/wfs/v1/ogc_atkis_basisdlm.cgi`), the whole GetFeature answer for `adv:AX_Turm` at the Schmausenbuck (E 655343–656766, N 5479504–5480640, EPSG:25832), 2026-11-14: one tower (`bauwerksfunktion` 1003, with a name), the AAA schema with a default namespace, `numberMatched="unknown"`. CC BY 4.0, Bayerische Vermessungsverwaltung. |
+| `bayern-dlm-bauwerk.gml` | The same service, `adv:AX_SonstigesBauwerkOderSonstigeEinrichtung` at the Schmausenbuck, 2026-11-14: five fences (1740, lines) and a fountain (1780, a point). |
+| `bayern-dlm-hoehle.gml`, `bayern-dlm-felsen.gml`, `bayern-dlm-gewaessermerkmal.gml`, `bayern-dlm-gewaesserachse.gml` | The same service at Tüchersfeld in the Fränkische Schweiz (E 669000–671000, N 5516500–5518500), 2026-11-14: two cave entrances, four rocks (points), a spring (`art` 1610), six watercourse axes. |
+| `bayern-dlm-damm.gml` | The same service, `adv:AX_DammWallDeich` across the Fränkische Schweiz (E 660000–680000, N 5510000–5525000), 2026-11-14: four lines of `funktion` 3004. |
 
 Regenerate the PBF fixture with `python make_osm_fixture.py brandenburg-latest.osm.pbf strausberg-school.osm.pbf`
 (needs `pip install osmium`).
