@@ -1,0 +1,161 @@
+{
+  "schema": 1,
+  "created": "2026-11-14",
+  "map_kind": "sprint",
+  "area_m2": 540433.1521280417,
+  "admin": [
+    {
+      "item": {
+        "level": "land",
+        "name": "Rheinland-Pfalz",
+        "kind": "Land",
+        "ags": "07"
+      },
+      "percent": 100.0,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "level": "kreis",
+        "name": "Cochem-Zell",
+        "kind": "Landkreis",
+        "ags": "07135"
+      },
+      "percent": 100.0,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "level": "verwaltungsgemeinschaft",
+        "name": "Cochem",
+        "kind": "Verbandsgemeinde",
+        "ags": "--------"
+      },
+      "percent": 100.0,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "level": "gemeinde",
+        "name": "Cochem",
+        "kind": "Stadt",
+        "ags": "07135020"
+      },
+      "percent": 100.0,
+      "at_edge": false
+    }
+  ],
+  "protected": [
+    {
+      "item": {
+        "kind": "landschaftsschutzgebiet",
+        "name": "Moselgebiet von Schweich bis Koblenz",
+        "legal_date": "1969-04-29",
+        "legal_title": "Rechtsverordnung zur Sicherstellung des Landschaftschutzgebietes Moseltal mit Seitentäler vom 28.04.1969",
+        "legal_link": "https://fileserver.naturschutz.rlp.de/rvo/lsg/LSG-7100-002.pdf",
+        "site_link": null,
+        "year": 1969
+      },
+      "percent": 100.0,
+      "at_edge": false
+    }
+  ],
+  "osm_protected": [],
+  "operators": [
+    {
+      "name": "Deutsche Bahn AG",
+      "roles": [
+        "operator"
+      ],
+      "objects": [
+        "landuse=railway"
+      ]
+    },
+    {
+      "name": "Realschule plus Cochem",
+      "roles": [
+        "operator"
+      ],
+      "objects": [
+        "leisure=pitch"
+      ]
+    }
+  ],
+  "roads": [
+    {
+      "class": "bundesstrasse",
+      "refs": [
+        "B 49"
+      ]
+    },
+    {
+      "class": "landesstrasse",
+      "refs": [
+        "L 98"
+      ]
+    }
+  ],
+  "hints": [
+    {
+      "key": "permits-hint-nature-authority",
+      "args": {
+        "kreis": "Cochem-Zell",
+        "kreisfrei": "no"
+      }
+    },
+    {
+      "key": "permits-hint-forest-owner",
+      "args": {
+        "office": "unknown"
+      }
+    },
+    {
+      "key": "permits-hint-order-office",
+      "args": {
+        "amt": "Verbandsgemeinde Cochem",
+        "gemeinde": "Cochem"
+      }
+    },
+    {
+      "key": "permits-hint-road-class",
+      "args": {
+        "class": "bundesstrasse",
+        "refs": "B 49"
+      }
+    },
+    {
+      "key": "permits-hint-road-class",
+      "args": {
+        "class": "landesstrasse",
+        "refs": "L 98"
+      }
+    },
+    {
+      "key": "permits-hint-owners-unknown",
+      "args": {}
+    }
+  ],
+  "sources": [
+    {
+      "id": "vg250",
+      "state": "read",
+      "fetched": "2026-11-14",
+      "reason": null,
+      "credit": "© BKG (2026) dl-de/by-2-0, Datenquellen: https://sg.geodatenzentrum.de/web_public/gdz/datenquellen/datenquellen_vg_nuts.pdf"
+    },
+    {
+      "id": "bfn",
+      "state": "read",
+      "fetched": "2026-11-14",
+      "reason": null,
+      "credit": "© Bundesamt für Naturschutz (BfN) (2026), Schutzgebiete in Deutschland; Nutzungsbestimmungen für die Bereitstellung von Geodaten des Bundes (GeoNutzV). Nicht für Planungszwecke geeignet."
+    },
+    {
+      "id": "osm",
+      "state": "read",
+      "fetched": "2026-11-07",
+      "reason": null,
+      "credit": "© OpenStreetMap contributors, ODbL"
+    }
+  ]
+}

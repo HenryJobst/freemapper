@@ -1,0 +1,186 @@
+{
+  "schema": 1,
+  "created": "2026-11-14",
+  "map_kind": "forest",
+  "area_m2": 1080725.7893009172,
+  "admin": [
+    {
+      "item": {
+        "level": "land",
+        "name": "Sachsen",
+        "kind": "Freistaat",
+        "ags": "14"
+      },
+      "percent": 100.0,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "level": "kreis",
+        "name": "Sächsische Schweiz-Osterzgebirge",
+        "kind": "Landkreis",
+        "ags": "14628"
+      },
+      "percent": 100.0,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "level": "verwaltungsgemeinschaft",
+        "name": "Königstein/Sächs.Schw.",
+        "kind": "Verwaltungsgemeinschaft",
+        "ags": "--------"
+      },
+      "percent": 66.9,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "level": "verwaltungsgemeinschaft",
+        "name": "Lohmen/Stadt Wehlen",
+        "kind": "Verwaltungsgemeinschaft",
+        "ags": "--------"
+      },
+      "percent": 32.2,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "level": "verwaltungsgemeinschaft",
+        "name": "Hohnstein",
+        "kind": "Einheitsgemeinde",
+        "ags": "--------"
+      },
+      "percent": 0.9,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "level": "gemeinde",
+        "name": "Rathen",
+        "kind": "Gemeinde",
+        "ags": "14628310"
+      },
+      "percent": 66.9,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "level": "gemeinde",
+        "name": "Lohmen",
+        "kind": "Gemeinde",
+        "ags": "14628240"
+      },
+      "percent": 32.2,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "level": "gemeinde",
+        "name": "Hohnstein",
+        "kind": "Stadt",
+        "ags": "14628190"
+      },
+      "percent": 0.9,
+      "at_edge": false
+    }
+  ],
+  "protected": [
+    {
+      "item": {
+        "kind": "ffh",
+        "name": "Elbtal zwischen Schöna und Mühlberg",
+        "legal_date": null,
+        "legal_title": null,
+        "legal_link": null,
+        "site_link": "https://biodiversity.europa.eu/sites/natura2000/DE4545301",
+        "year": null
+      },
+      "percent": 17.7,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "kind": "landschaftsschutzgebiet",
+        "name": "Sächsische Schweiz",
+        "legal_date": "2003-10-23",
+        "legal_title": "Verordnung des Sächsischen Staatsministeriums für Umwelt und Landwirtschaft vom 23.10.2003 (SächsGVBl. S. 663)",
+        "legal_link": null,
+        "site_link": null,
+        "year": null
+      },
+      "percent": 27.5,
+      "at_edge": false
+    }
+  ],
+  "osm_protected": [],
+  "operators": [],
+  "roads": [
+    {
+      "class": "kreisstrasse",
+      "refs": [
+        "K 8716"
+      ]
+    }
+  ],
+  "hints": [
+    {
+      "key": "permits-hint-nature-authority",
+      "args": {
+        "kreis": "Sächsische Schweiz-Osterzgebirge",
+        "kreisfrei": "no"
+      }
+    },
+    {
+      "key": "permits-hint-natura2000",
+      "args": {}
+    },
+    {
+      "key": "permits-hint-forest-owner",
+      "args": {
+        "office": "unknown"
+      }
+    },
+    {
+      "key": "permits-hint-order-office",
+      "args": {
+        "amt": "Verwaltungsgemeinschaft Königstein/Sächs.Schw.",
+        "gemeinde": "Rathen"
+      }
+    },
+    {
+      "key": "permits-hint-road-class",
+      "args": {
+        "class": "kreisstrasse",
+        "refs": "K 8716"
+      }
+    },
+    {
+      "key": "permits-hint-owners-unknown",
+      "args": {}
+    }
+  ],
+  "sources": [
+    {
+      "id": "vg250",
+      "state": "read",
+      "fetched": "2026-11-14",
+      "reason": null,
+      "credit": "© BKG (2026) dl-de/by-2-0, Datenquellen: https://sg.geodatenzentrum.de/web_public/gdz/datenquellen/datenquellen_vg_nuts.pdf"
+    },
+    {
+      "id": "bfn",
+      "state": "read",
+      "fetched": "2026-11-14",
+      "reason": null,
+      "credit": "© Bundesamt für Naturschutz (BfN) (2026), Schutzgebiete in Deutschland; Nutzungsbestimmungen für die Bereitstellung von Geodaten des Bundes (GeoNutzV). Nicht für Planungszwecke geeignet."
+    },
+    {
+      "id": "osm",
+      "state": "read",
+      "fetched": "2026-11-06",
+      "reason": null,
+      "credit": "© OpenStreetMap contributors, ODbL"
+    }
+  ]
+}

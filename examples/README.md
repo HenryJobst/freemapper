@@ -165,6 +165,7 @@ interval_m`.
 | `<name>.pdf`, `<name>-safe.pdf`, `<name>-full.pdf`, `preview-safe.webp`, `preview-balanced.webp`, `preview-full.webp` | nur in Cochem: dasselbe Gebiet in den drei Inhaltsprofilen, ohne Kandidaten, und die Vorschauen, siehe [Gegenüberstellung](vergleich.md) |
 | `freemapper.toml` | das Projekt: Gebiet, Maßstab und die abgerufenen Datenstände |
 | `ATTRIBUTION.txt` | die Namensnennung der Datenquellen |
+| `permits.md`, `permits.json` | die Hinweise zu Genehmigungen: Verwaltung, Schutzgebiete, Betreiber, klassifizierte Straßen und, wo das Bundesland eigene Dienste hat, Bezirk, Forstverwaltung, Wasserschutzgebiete und Waldfunktionen (erzeugt mit `freemapper permits` am 14. November 2026; ein Hinweis, keine Rechtsauskunft) |
 
 Die Raster-Vorlagen (Luftbild, Schummerung, Hangneigung, nDOM, in Berlin die K5) und die Rohdaten (`data/`) sind
 nicht im Repository, weil sie pro Beispiel über 20 MB groß sind. So holen Sie sie zurück:

@@ -1,0 +1,172 @@
+{
+  "schema": 1,
+  "created": "2026-11-14",
+  "map_kind": "forest",
+  "area_m2": 1080381.926019712,
+  "admin": [
+    {
+      "item": {
+        "level": "land",
+        "name": "Rheinland-Pfalz",
+        "kind": "Land",
+        "ags": "07"
+      },
+      "percent": 100.0,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "level": "kreis",
+        "name": "Südwestpfalz",
+        "kind": "Landkreis",
+        "ags": "07340"
+      },
+      "percent": 100.0,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "level": "verwaltungsgemeinschaft",
+        "name": "Dahner Felsenland",
+        "kind": "Verbandsgemeinde",
+        "ags": "--------"
+      },
+      "percent": 100.0,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "level": "gemeinde",
+        "name": "Dahn",
+        "kind": "Stadt",
+        "ags": "07340004"
+      },
+      "percent": 100.0,
+      "at_edge": false
+    }
+  ],
+  "protected": [
+    {
+      "item": {
+        "kind": "ffh",
+        "name": "Biosphärenreservat Pfälzerwald",
+        "legal_date": null,
+        "legal_title": null,
+        "legal_link": null,
+        "site_link": "https://biodiversity.europa.eu/sites/natura2000/DE6812301",
+        "year": null
+      },
+      "percent": 9.1,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "kind": "vogelschutzgebiet",
+        "name": "Pfälzerwald",
+        "legal_date": null,
+        "legal_title": null,
+        "legal_link": null,
+        "site_link": "https://biodiversity.europa.eu/sites/natura2000/DE6812401",
+        "year": null
+      },
+      "percent": 8.2,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "kind": "biosphaerenreservat",
+        "name": "Pfälzerwald-Nordvogesen",
+        "legal_date": "2020-07-23",
+        "legal_title": "Rechtsverordnung zur Änderung des Naturparkes Naturpark Pfälzerwald vom 22.01.2007",
+        "legal_link": "https://fileserver.naturschutz.rlp.de/rvo/bsr/BSR-7000-001.pdf",
+        "site_link": null,
+        "year": 1998
+      },
+      "percent": 100.0,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "kind": "biosphaerenreservat-zone",
+        "name": "Pfälzerwald-Nordvogesen (Entwicklungszone)",
+        "legal_date": null,
+        "legal_title": null,
+        "legal_link": null,
+        "site_link": null,
+        "year": null
+      },
+      "percent": 76.2,
+      "at_edge": false
+    }
+  ],
+  "osm_protected": [],
+  "operators": [],
+  "roads": [
+    {
+      "class": "bundesstrasse",
+      "refs": [
+        "B 427"
+      ]
+    }
+  ],
+  "hints": [
+    {
+      "key": "permits-hint-nature-authority",
+      "args": {
+        "kreis": "Südwestpfalz",
+        "kreisfrei": "no"
+      }
+    },
+    {
+      "key": "permits-hint-natura2000",
+      "args": {}
+    },
+    {
+      "key": "permits-hint-forest-owner",
+      "args": {
+        "office": "unknown"
+      }
+    },
+    {
+      "key": "permits-hint-order-office",
+      "args": {
+        "amt": "Verbandsgemeinde Dahner Felsenland",
+        "gemeinde": "Dahn"
+      }
+    },
+    {
+      "key": "permits-hint-road-class",
+      "args": {
+        "class": "bundesstrasse",
+        "refs": "B 427"
+      }
+    },
+    {
+      "key": "permits-hint-owners-unknown",
+      "args": {}
+    }
+  ],
+  "sources": [
+    {
+      "id": "vg250",
+      "state": "read",
+      "fetched": "2026-11-14",
+      "reason": null,
+      "credit": "© BKG (2026) dl-de/by-2-0, Datenquellen: https://sg.geodatenzentrum.de/web_public/gdz/datenquellen/datenquellen_vg_nuts.pdf"
+    },
+    {
+      "id": "bfn",
+      "state": "read",
+      "fetched": "2026-11-14",
+      "reason": null,
+      "credit": "© Bundesamt für Naturschutz (BfN) (2026), Schutzgebiete in Deutschland; Nutzungsbestimmungen für die Bereitstellung von Geodaten des Bundes (GeoNutzV). Nicht für Planungszwecke geeignet."
+    },
+    {
+      "id": "osm",
+      "state": "read",
+      "fetched": "2026-11-07",
+      "reason": null,
+      "credit": "© OpenStreetMap contributors, ODbL"
+    }
+  ]
+}

@@ -6,6 +6,10 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+### Hinzugefügt
+
+- Beispiele: Jedes der 30 Beispiele in `examples/` hat jetzt seine Hinweise zu Genehmigungen (`permits.md` und `permits.json`, auf Deutsch). Sie zeigen, was die Hinweise im jeweiligen Bundesland liefern, von den Bezirken und Denkmalen in Berlin und Hamburg bis zu Forstverwaltung, Wasserschutzgebieten und klassifizierten Straßen.
+
 ### Geändert
 
 - Vegetation aus Laserpunktwolken (ADR 0136): Die Umrisse folgen jetzt dem Rand der Vegetation statt den 3-m-Stufen der Zellen. freemapper zeichnet sie auf einem dreimal feineren, leicht weichgezeichneten Raster; Ecken werden etwas abgerundet. Die neun Beispiele mit Punktwolken-Vegetation sind neu gebaut.

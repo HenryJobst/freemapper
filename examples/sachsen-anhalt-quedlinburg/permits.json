@@ -1,0 +1,216 @@
+{
+  "schema": 1,
+  "created": "2026-11-14",
+  "map_kind": "sprint",
+  "area_m2": 480620.2074067693,
+  "admin": [
+    {
+      "item": {
+        "level": "land",
+        "name": "Sachsen-Anhalt",
+        "kind": "Land",
+        "ags": "15"
+      },
+      "percent": 100.0,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "level": "kreis",
+        "name": "Harz",
+        "kind": "Landkreis",
+        "ags": "15085"
+      },
+      "percent": 100.0,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "level": "verwaltungsgemeinschaft",
+        "name": "Quedlinburg",
+        "kind": "Einheitsgemeinde",
+        "ags": "--------"
+      },
+      "percent": 100.0,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "level": "gemeinde",
+        "name": "Quedlinburg",
+        "kind": "Stadt",
+        "ags": "15085235"
+      },
+      "percent": 100.0,
+      "at_edge": false
+    }
+  ],
+  "protected": [
+    {
+      "item": {
+        "kind": "ffh",
+        "name": "Marktkirche Quedlinburg",
+        "legal_date": null,
+        "legal_title": null,
+        "legal_link": null,
+        "site_link": "https://biodiversity.europa.eu/sites/natura2000/DE4232305",
+        "year": null
+      },
+      "percent": 0.0,
+      "at_edge": true
+    },
+    {
+      "item": {
+        "kind": "naturpark",
+        "name": "Harz/Sachsen-Anhalt",
+        "legal_date": null,
+        "legal_title": null,
+        "legal_link": null,
+        "site_link": null,
+        "year": 2003
+      },
+      "percent": 100.0,
+      "at_edge": false
+    }
+  ],
+  "osm_protected": [
+    {
+      "item": {
+        "osm_id": "way/385990581",
+        "object": "boundary=protected_area",
+        "name": "Altstadt Quedlinburg",
+        "operator": null,
+        "protect_class": "98",
+        "protection_title": null
+      },
+      "percent": 70.6,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "osm_id": "way/280102457",
+        "object": "boundary=protected_area",
+        "name": "Schlossberg-Klippen",
+        "operator": null,
+        "protect_class": "7",
+        "protection_title": null
+      },
+      "percent": 0.1,
+      "at_edge": true
+    }
+  ],
+  "operators": [
+    {
+      "name": "Landkreis Harz",
+      "roles": [
+        "operator"
+      ],
+      "objects": [
+        "amenity=school"
+      ]
+    },
+    {
+      "name": "Stadt Quedlinburg",
+      "roles": [
+        "operator"
+      ],
+      "objects": [
+        "amenity=school"
+      ]
+    }
+  ],
+  "roads": [
+    {
+      "class": "landesstrasse",
+      "refs": [
+        "L 85"
+      ]
+    },
+    {
+      "class": "kreisstrasse",
+      "refs": [
+        "K 1360",
+        "K 2356"
+      ]
+    }
+  ],
+  "hints": [
+    {
+      "key": "permits-hint-nature-authority",
+      "args": {
+        "kreis": "Harz",
+        "kreisfrei": "no"
+      }
+    },
+    {
+      "key": "permits-hint-natura2000",
+      "args": {}
+    },
+    {
+      "key": "permits-hint-forest-owner",
+      "args": {
+        "office": "unknown"
+      }
+    },
+    {
+      "key": "permits-hint-order-office",
+      "args": {
+        "amt": "Einheitsgemeinde Quedlinburg",
+        "gemeinde": "Quedlinburg"
+      }
+    },
+    {
+      "key": "permits-hint-road-class",
+      "args": {
+        "class": "landesstrasse",
+        "refs": "L 85"
+      }
+    },
+    {
+      "key": "permits-hint-road-class",
+      "args": {
+        "class": "kreisstrasse",
+        "refs": "K 1360, K 2356"
+      }
+    },
+    {
+      "key": "permits-hint-school-operator",
+      "args": {
+        "operator": "Landkreis Harz"
+      }
+    },
+    {
+      "key": "permits-hint-school-operator",
+      "args": {
+        "operator": "Stadt Quedlinburg"
+      }
+    },
+    {
+      "key": "permits-hint-owners-unknown",
+      "args": {}
+    }
+  ],
+  "sources": [
+    {
+      "id": "vg250",
+      "state": "read",
+      "fetched": "2026-11-14",
+      "reason": null,
+      "credit": "© BKG (2026) dl-de/by-2-0, Datenquellen: https://sg.geodatenzentrum.de/web_public/gdz/datenquellen/datenquellen_vg_nuts.pdf"
+    },
+    {
+      "id": "bfn",
+      "state": "read",
+      "fetched": "2026-11-14",
+      "reason": null,
+      "credit": "© Bundesamt für Naturschutz (BfN) (2026), Schutzgebiete in Deutschland; Nutzungsbestimmungen für die Bereitstellung von Geodaten des Bundes (GeoNutzV). Nicht für Planungszwecke geeignet."
+    },
+    {
+      "id": "osm",
+      "state": "read",
+      "fetched": "2026-11-06",
+      "reason": null,
+      "credit": "© OpenStreetMap contributors, ODbL"
+    }
+  ]
+}

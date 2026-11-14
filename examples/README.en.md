@@ -157,6 +157,7 @@ slopes stay legible), elsewhere every 5 m; `freemapper.toml` names it as `[conto
 | `<name>.pdf`, `<name>-safe.pdf`, `<name>-full.pdf`, `preview-safe.webp`, `preview-balanced.webp`, `preview-full.webp` | only in Cochem: the same area in the three content profiles, without candidates, and the previews, see the [comparison page](compare.en.md) |
 | `freemapper.toml` | the project: area, scale and the fetched data versions |
 | `ATTRIBUTION.txt` | the attribution of the data sources |
+| `permits.md`, `permits.json` | the permit notes, in German: administrative units, protected areas, operators, classified roads and, where the state has services of its own, Bezirk, forest administration, water protection areas and forest functions (made with `freemapper permits` on 14 November 2026; a hint, not legal advice) |
 
 The raster templates (orthophoto, hillshade, slope, nDSM, in Berlin the K5) and the raw data (`data/`) are not in the
 repository, because they take over 20 MB per example. To get them back:

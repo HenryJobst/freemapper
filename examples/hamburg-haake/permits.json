@@ -1,0 +1,377 @@
+{
+  "schema": 1,
+  "created": "2026-11-14",
+  "map_kind": "forest",
+  "area_m2": 1081325.1822080337,
+  "admin": [
+    {
+      "item": {
+        "level": "land",
+        "name": "Hamburg",
+        "kind": "Freie und Hansestadt",
+        "ags": "02"
+      },
+      "percent": 100.0,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "level": "kreis",
+        "name": "Hamburg",
+        "kind": "Kreisfreie Stadt",
+        "ags": "02000"
+      },
+      "percent": 100.0,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "level": "gemeinde",
+        "name": "Hamburg",
+        "kind": "Stadt",
+        "ags": "02000000"
+      },
+      "percent": 100.0,
+      "at_edge": false
+    }
+  ],
+  "protected": [
+    {
+      "item": {
+        "kind": "landschaftsschutzgebiet",
+        "name": "Vahrendorf Forst (Haake), Heimfeld, Eissendorf und Marmstorf",
+        "legal_date": "1955-09-06",
+        "legal_title": "HmbBL I 791-o",
+        "legal_link": "https://www.juris.de/bsha/document/jlr-GemVahrenLSchTSchVHArahmen",
+        "site_link": null,
+        "year": 1955
+      },
+      "percent": 100.0,
+      "at_edge": false
+    }
+  ],
+  "osm_protected": [],
+  "operators": [],
+  "hints": [
+    {
+      "key": "permits-hint-nature-authority",
+      "args": {
+        "kreis": "Hamburg",
+        "kreisfrei": "yes"
+      }
+    },
+    {
+      "key": "permits-hint-water-protection",
+      "args": {
+        "inner": "no",
+        "name": "Süderelbmarsch/Harburger Berge",
+        "zone": "Schutzzone III"
+      }
+    },
+    {
+      "key": "permits-hint-forest-office",
+      "args": {
+        "administration": "Bezirksamt Harburg",
+        "office": "Revierförsterei Hausbruch"
+      }
+    },
+    {
+      "key": "permits-hint-forest-office",
+      "args": {
+        "administration": "Bezirksamt Harburg",
+        "office": "Revierförsterei Eißendorf"
+      }
+    },
+    {
+      "key": "permits-hint-forest-owner",
+      "args": {
+        "office": "known"
+      }
+    },
+    {
+      "key": "permits-hint-forest-function",
+      "args": {
+        "kind": "recreation",
+        "names": "von hoher Bedeutung"
+      }
+    },
+    {
+      "key": "permits-hint-forest-function",
+      "args": {
+        "kind": "protected",
+        "names": "Reiherberg"
+      }
+    },
+    {
+      "key": "permits-hint-district-office",
+      "args": {
+        "district": "Harburg",
+        "offices": "hamburg"
+      }
+    },
+    {
+      "key": "permits-hint-monument-authority",
+      "args": {
+        "offices": "hamburg"
+      }
+    },
+    {
+      "key": "permits-hint-owners-unknown",
+      "args": {}
+    }
+  ],
+  "sources": [
+    {
+      "id": "vg250",
+      "state": "read",
+      "fetched": "2026-11-14",
+      "reason": null,
+      "credit": "© BKG (2026) dl-de/by-2-0, Datenquellen: https://sg.geodatenzentrum.de/web_public/gdz/datenquellen/datenquellen_vg_nuts.pdf"
+    },
+    {
+      "id": "bfn",
+      "state": "read",
+      "fetched": "2026-11-14",
+      "reason": null,
+      "credit": "© Bundesamt für Naturschutz (BfN) (2026), Schutzgebiete in Deutschland; Nutzungsbestimmungen für die Bereitstellung von Geodaten des Bundes (GeoNutzV). Nicht für Planungszwecke geeignet."
+    },
+    {
+      "id": "osm",
+      "state": "read",
+      "fetched": "2026-11-06",
+      "reason": null,
+      "credit": "© OpenStreetMap contributors, ODbL"
+    }
+  ],
+  "regional": [
+    {
+      "adapter": "hamburg",
+      "districts": [
+        {
+          "item": {
+            "name": "Harburg"
+          },
+          "percent": 100.0,
+          "at_edge": false
+        }
+      ],
+      "green_spaces": {
+        "entries": [],
+        "playgrounds": 0
+      },
+      "monuments": {
+        "total": 3,
+        "groups": [
+          {
+            "kind": "Baudenkmal",
+            "count": 2,
+            "links": []
+          },
+          {
+            "kind": "Ensemble",
+            "count": 1,
+            "links": []
+          }
+        ],
+        "links_left": 0
+      },
+      "forest_units": [
+        {
+          "item": {
+            "administration": "Bezirksamt Harburg",
+            "office": "Revierförsterei Hausbruch",
+            "unit": null
+          },
+          "percent": 83.8,
+          "at_edge": false
+        },
+        {
+          "item": {
+            "administration": "Bezirksamt Harburg",
+            "office": "Revierförsterei Eißendorf",
+            "unit": null
+          },
+          "percent": 11.9,
+          "at_edge": false
+        }
+      ],
+      "water_protection": [
+        {
+          "item": {
+            "name": "Süderelbmarsch/Harburger Berge",
+            "zone": "Schutzzone III",
+            "citation": "Verordnung über das Wasserschutzgebiet Süderelbmarsch/Harburger Berge vom 17. August 1993 (HmbGVBl. 1993, S. 22"
+          },
+          "percent": 100.0,
+          "at_edge": false
+        }
+      ],
+      "forest_functions": [
+        {
+          "item": {
+            "kind": "recreation",
+            "name": "von hoher Bedeutung"
+          },
+          "percent": 95.7,
+          "at_edge": false
+        },
+        {
+          "item": {
+            "kind": "protected",
+            "name": "Reiherberg"
+          },
+          "percent": 1.2,
+          "at_edge": false
+        }
+      ],
+      "sources": [
+        {
+          "source": {
+            "key": "bezirke",
+            "label": {
+              "en": "Geoportal Hamburg",
+              "de": "Geoportal Hamburg"
+            },
+            "what": {
+              "en": "Bezirk borders",
+              "de": "Bezirksgrenzen"
+            },
+            "credit": "Datenlizenz Deutschland Namensnennung 2.0, Quellenvermerk: Freie und Hansestadt Hamburg, Landesbetrieb Geoinformation und Vermessung",
+            "sections": [
+              "districts"
+            ],
+            "offices": "hamburg"
+          },
+          "status": {
+            "id": "bezirke",
+            "state": "read",
+            "fetched": "2026-11-14",
+            "reason": null,
+            "credit": "Datenlizenz Deutschland Namensnennung 2.0, Quellenvermerk: Freie und Hansestadt Hamburg, Landesbetrieb Geoinformation und Vermessung"
+          }
+        },
+        {
+          "source": {
+            "key": "gruenanlagen",
+            "label": {
+              "en": "Geoportal Hamburg",
+              "de": "Geoportal Hamburg"
+            },
+            "what": {
+              "en": "list of public green spaces (Grünplan)",
+              "de": "Verzeichnis der öffentlichen Grünanlagen (Grünplan)"
+            },
+            "credit": "Datenlizenz Deutschland Namensnennung 2.0, Quellenvermerk: Freie und Hansestadt Hamburg, Behörde für Umwelt und Energie",
+            "sections": [
+              "green-spaces"
+            ]
+          },
+          "status": {
+            "id": "gruenanlagen",
+            "state": "read",
+            "fetched": "2026-11-14",
+            "reason": null,
+            "credit": "Datenlizenz Deutschland Namensnennung 2.0, Quellenvermerk: Freie und Hansestadt Hamburg, Behörde für Umwelt und Energie"
+          }
+        },
+        {
+          "source": {
+            "key": "denkmale",
+            "label": {
+              "en": "Geoportal Hamburg",
+              "de": "Geoportal Hamburg"
+            },
+            "what": {
+              "en": "monuments (Denkmalschutz)",
+              "de": "Denkmale (Denkmalschutz)"
+            },
+            "credit": "Datenlizenz Deutschland Namensnennung 2.0, Quellenvermerk: Freie und Hansestadt Hamburg, zuständige Behörde",
+            "sections": [
+              "monuments"
+            ]
+          },
+          "status": {
+            "id": "denkmale",
+            "state": "read",
+            "fetched": "2026-11-14",
+            "reason": null,
+            "credit": "Datenlizenz Deutschland Namensnennung 2.0, Quellenvermerk: Freie und Hansestadt Hamburg, zuständige Behörde"
+          }
+        },
+        {
+          "source": {
+            "key": "wald",
+            "label": {
+              "en": "Geoportal Hamburg",
+              "de": "Geoportal Hamburg"
+            },
+            "what": {
+              "en": "forest in Hamburg (Revierförstereien and Bannwald)",
+              "de": "Wald in Hamburg (Revierförstereien und Bannwald)"
+            },
+            "credit": "Datenlizenz Deutschland Namensnennung 2.0, Quellenvermerk: Freie und Hansestadt Hamburg, Behörde für Umwelt, Klima, Energie und Agrarwirtschaft (BUKEA)",
+            "sections": [
+              "forest-units",
+              "forest-functions"
+            ]
+          },
+          "status": {
+            "id": "wald",
+            "state": "read",
+            "fetched": "2026-11-14",
+            "reason": null,
+            "credit": "Datenlizenz Deutschland Namensnennung 2.0, Quellenvermerk: Freie und Hansestadt Hamburg, Behörde für Umwelt, Klima, Energie und Agrarwirtschaft (BUKEA)"
+          }
+        },
+        {
+          "source": {
+            "key": "waldfunktionen",
+            "label": {
+              "en": "Geoportal Hamburg",
+              "de": "Geoportal Hamburg"
+            },
+            "what": {
+              "en": "forest functions (Erholungswald)",
+              "de": "Waldfunktionen (Erholungswald)"
+            },
+            "credit": "Datenlizenz Deutschland Namensnennung 2.0, Quellenvermerk: Freie und Hansestadt Hamburg, Behörde für Umwelt, Klima, Energie und Agrarwirtschaft (BUKEA)",
+            "sections": [
+              "forest-functions"
+            ]
+          },
+          "status": {
+            "id": "waldfunktionen",
+            "state": "read",
+            "fetched": "2026-11-14",
+            "reason": null,
+            "credit": "Datenlizenz Deutschland Namensnennung 2.0, Quellenvermerk: Freie und Hansestadt Hamburg, Behörde für Umwelt, Klima, Energie und Agrarwirtschaft (BUKEA)"
+          }
+        },
+        {
+          "source": {
+            "key": "wasserschutzgebiete",
+            "label": {
+              "en": "Geoportal Hamburg",
+              "de": "Geoportal Hamburg"
+            },
+            "what": {
+              "en": "water protection areas",
+              "de": "Wasserschutzgebiete"
+            },
+            "credit": "Datenlizenz Deutschland Namensnennung 2.0, Quellenvermerk: Freie und Hansestadt Hamburg, Behörde für Umwelt und Energie",
+            "sections": [
+              "water-protection"
+            ]
+          },
+          "status": {
+            "id": "wasserschutzgebiete",
+            "state": "read",
+            "fetched": "2026-11-14",
+            "reason": null,
+            "credit": "Datenlizenz Deutschland Namensnennung 2.0, Quellenvermerk: Freie und Hansestadt Hamburg, Behörde für Umwelt und Energie"
+          }
+        }
+      ]
+    }
+  ]
+}
