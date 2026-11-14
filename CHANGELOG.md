@@ -6,6 +6,8 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+## [0.20.0] - 2026-11-14
+
 ### Hinzugefügt
 
 - Genehmigungshinweise: Ein neuer Abschnitt nennt die klassifizierten Straßen, die durch das Kartengebiet führen (Autobahn, Bundes-, Landes- oder Staats-, Kreisstraße, mit ihrer Nummer aus OpenStreetMap), und je Klasse ein Hinweis, dass die Straßenverkehrsbehörde eine Sperrung oder eine Querung mit Streckenposten anordnet und wer die Straße meist unterhält (ADR 0133). Das gilt in allen Bundesländern und kommt aus dem OSM-Auszug, den freemapper schon liest.
