@@ -60,14 +60,6 @@ const TREND_FAR_M: i32 = 7;
 const SIDE_DECIDES_M: f64 = 1.0;
 /// ISOM 2017-2, 201: the gap to any other impassable feature and the minimum length.
 const CLIFF_GAP_MM: SymbolMm = SymbolMm(0.25);
-const CLIFF_MIN_LENGTH_MM: SymbolMm = SymbolMm(0.6);
-/// Ruling: a piece of a cut cliff is kept from this length; at 0.6 mm it would carry one or two
-/// tags and print as a stub (the tags stand 0.5 mm apart).
-const PIECE_MIN_LENGTH_MM: SymbolMm = SymbolMm(1.0);
-/// Ruling: a top line without tags is kept from this length; shorter ones read as dashes, and
-/// without tags nothing tells them from a wall or a piece of path (tried on the Bastei: at 1 mm
-/// 122 top lines, mostly short strokes).
-const TOP_LINE_MIN_LENGTH_MM: SymbolMm = SymbolMm(2.0);
 /// ISOM 2017-2, 206: the minimum width and area, and the gap between pillars (the contours keep
 /// it too).
 const PILLAR_GAP_MM: SymbolMm = SymbolMm(0.15);
@@ -129,8 +121,8 @@ struct Cliff {
 }
 
 impl Cliff {
-    fn tall(&self) -> bool {
-        tall_profile(self.profile)
+    fn tall(&self, min_drop: f64) -> bool {
+        tall_profile(self.profile, min_drop)
     }
 
     /// The order in which cliffs are kept (ruling): height counts twice, so a high face goes
@@ -160,6 +152,42 @@ enum Room {
     Fin(Coord<f64>),
     /// No room.
     Blocked,
+}
+
+/// How strongly the cliffs are generalized: for the map, which the mapper finishes, or for the
+/// training map, which is printed as it is and must stay readable (ADR 0126).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Level {
+    /// How high a cliff must stand above its slope.
+    pub min_drop_m: f64,
+    /// The shortest whole cliff, piece of a cut cliff and top line without tags; a top line
+    /// shorter than `top_line_min` goes, and none is drawn without `top_lines`.
+    pub min_length: SymbolMm,
+    pub piece_min: SymbolMm,
+    pub top_lines: bool,
+    pub top_line_min: SymbolMm,
+}
+
+impl Level {
+    /// The map: the norm's minimum length; pieces from 1 mm (ruling: at 0.6 mm a piece carries
+    /// one or two tags and prints as a stub); top lines from 2 mm (ruling: shorter ones read as
+    /// dashes; tried on the Bastei, at 1 mm 122 of them, mostly short strokes).
+    pub const MAP: Level = Level {
+        min_drop_m: MIN_DROP_M,
+        min_length: SymbolMm(0.6),
+        piece_min: SymbolMm(1.0),
+        top_lines: true,
+        top_line_min: SymbolMm(2.0),
+    };
+    /// The training map (ruling, the user's wish: the candidates keep more, the training map is
+    /// generalized more): cliffs of 5 m, whole ones from 1 mm, pieces from 2 mm, no top lines.
+    pub const TRAINING: Level = Level {
+        min_drop_m: 5.0,
+        min_length: SymbolMm(1.0),
+        piece_min: SymbolMm(2.0),
+        top_lines: false,
+        top_line_min: SymbolMm(2.0),
+    };
 }
 
 /// The plan shape of a pillar and whether it was enlarged to the norm's minimum.
@@ -194,6 +222,7 @@ pub fn generalize_cliffs(
     map_kind: MapKind,
     georef: &Georeferencing,
     symbol_set: &SymbolSet,
+    level: &Level,
 ) -> Rock {
     let Some(cliff_id) = symbol_set.id_for_code(CLIFF_CODE) else {
         return Rock::default();
@@ -210,12 +239,14 @@ pub fn generalize_cliffs(
     };
     let tolerance = SIMPLIFY_MM.metres(georef.scale_denominator);
     let sigma_m = SMOOTH_SIGMA_MM.metres(scale);
-    let min_length_m = CLIFF_MIN_LENGTH_MM.metres(scale);
+    let min_length_m = level.min_length.metres(scale);
+    let min_drop = level.min_drop_m;
+    let top_line_id = symbol_set.id_for_code(TOP_LINE_CODE);
 
-    // The OSM cliffs, turned by their profile.
+    // The OSM cliffs (and top lines drawn before, for the training map), turned by their profile.
     let mut pieces: Vec<(usize, LineString<f64>, bool, Option<Profile>)> = Vec::new();
     for (index, o) in map.iter().enumerate() {
-        if o.symbol_id != cliff_id
+        if (o.symbol_id != cliff_id && Some(o.symbol_id) != top_line_id)
             || !matches!(o.kind, MapObjectKind::Path)
             || o.tags.iter().any(|(k, _)| k == HIDDEN_KEY)
             || o.coords.len() < 2
@@ -241,7 +272,7 @@ pub fn generalize_cliffs(
         }
         let outline = LineString::new(points);
         let parts = match terrain {
-            Some(t) => stretches(&outline, closed, t, min_length_m),
+            Some(t) => stretches(&outline, closed, t, min_length_m, min_drop),
             None => vec![(outline, closed, None)],
         };
         for (mut line, closed, profile) in parts {
@@ -254,7 +285,7 @@ pub fn generalize_cliffs(
     if pieces.is_empty() {
         return Rock::default();
     }
-    let cliffs: Vec<Cliff> = join_pieces(pieces)
+    let cliffs: Vec<Cliff> = join_pieces(pieces, min_drop)
         .into_iter()
         .filter_map(|(members, outline, closed, first)| {
             // A joined face is measured again as a whole; its side stays that of its pieces.
@@ -353,14 +384,15 @@ pub fn generalize_cliffs(
     let max_area = PILLAR_MAX_AREA_MM2.square_metres(scale);
     let half_width = PILLAR_MIN_WIDTH_MM.metres(scale) / 2.0;
     let pillar_gap_m = PILLAR_GAP_MM.metres(scale);
-    let piece_min_m = PIECE_MIN_LENGTH_MM.metres(scale);
+    let piece_min_m = level.piece_min.metres(scale);
     let mut order: Vec<(&Cliff, Option<Pillar>)> = Vec::new();
     // Where a rock face stands, kept or not: the terrain's knolls there are its tops and clefts.
     let mut mask: Vec<Polygon<f64>> = Vec::new();
     for cliff in &cliffs {
         mark(&mut replaced, cliff);
-        if !cliff.tall() {
-            let reason = format!("cliff lower than {MIN_DROP_M} m above its slope");
+        // A top line drawn before is a cliff again here.
+        if !cliff.tall(min_drop) {
+            let reason = format!("cliff lower than {min_drop} m above its slope");
             added_candidates.push(hide(object_of(cliff, map), reason));
             continue;
         }
@@ -379,8 +411,30 @@ pub fn generalize_cliffs(
     }
     order.sort_by(|a, b| b.0.weight().total_cmp(&a.0.weight()));
     let mut kept: Vec<Kept> = Vec::new();
-    let top_line_id = symbol_set.id_for_code(TOP_LINE_CODE);
     let mut kept_pillars: Vec<Polygon<f64>> = Vec::new();
+    // Pillars and fins drawn before (the map's, when the training map is generalized) keep their
+    // room.
+    if let Some(pillar_id) = pillar_id {
+        for o in map
+            .iter()
+            .filter(|o| o.symbol_id == pillar_id && matches!(o.kind, MapObjectKind::Path))
+        {
+            let ring: Vec<Coord<f64>> = o
+                .coords
+                .iter()
+                .map(|&c| {
+                    let p = georef.map_to_projected(c);
+                    Coord {
+                        x: p.easting,
+                        y: p.northing,
+                    }
+                })
+                .collect();
+            if ring.len() >= 3 {
+                kept_pillars.push(Polygon::new(LineString::new(ring), Vec::new()));
+            }
+        }
+    }
     let mut stops: Vec<Polygon<f64>> = Vec::new();
     let ticks_by_profile = |cliff: &Cliff, object: &mut MapObject| {
         if cliff.profile.is_some_and(|p| p.lower_right.is_some()) {
@@ -428,7 +482,7 @@ pub fn generalize_cliffs(
             continue;
         }
         if cliff.outline_length_m < min_length_m {
-            let reason = format!("cliff shorter than {} mm", CLIFF_MIN_LENGTH_MM.0);
+            let reason = format!("cliff shorter than {} mm", level.min_length.0);
             added_candidates.push(hide(object, reason));
             continue;
         }
@@ -474,7 +528,11 @@ pub fn generalize_cliffs(
         }
         // The rest keeps its tags where they have room and is a top line without tags where
         // only the line has.
-        let top_line_min_m = TOP_LINE_MIN_LENGTH_MM.metres(scale);
+        let top_line_min_m = if level.top_lines {
+            level.top_line_min.metres(scale)
+        } else {
+            f64::INFINITY
+        };
         for (run, tags) in room_pieces(&samples, &rooms, piece_min_m, top_line_min_m, cliff.closed)
         {
             let run = run.simplify(tolerance);
@@ -607,6 +665,7 @@ fn tag(object: &MapObject, key: &str) -> Option<String> {
 #[allow(clippy::type_complexity)]
 fn join_pieces(
     pieces: Vec<(usize, LineString<f64>, bool, Option<Profile>)>,
+    min_drop: f64,
 ) -> Vec<(Vec<usize>, LineString<f64>, bool, Option<Profile>)> {
     let n = pieces.len();
     let direction = |line: &LineString<f64>, at_end: bool| -> Option<(f64, f64)> {
@@ -628,10 +687,10 @@ fn join_pieces(
             continue;
         }
         let end = la.0[la.0.len() - 1];
-        let tall_a = tall_profile(pieces[a].3);
+        let tall_a = tall_profile(pieces[a].3, min_drop);
         for (b, (_, lb, cb, pb)) in pieces.iter().enumerate() {
             // Only stretches of one class join: a tall face and the low ground beside it stay apart.
-            if a == b || *cb || lb.0.len() < 2 || tall_profile(*pb) != tall_a {
+            if a == b || *cb || lb.0.len() < 2 || tall_profile(*pb, min_drop) != tall_a {
                 continue;
             }
             let start = lb.0[0];
@@ -700,8 +759,8 @@ fn join_pieces(
 }
 
 /// Whether a profile counts as tall; without one every cliff does.
-fn tall_profile(profile: Option<Profile>) -> bool {
-    profile.is_none_or(|p| p.excess_m >= MIN_DROP_M)
+fn tall_profile(profile: Option<Profile>, min_drop: f64) -> bool {
+    profile.is_none_or(|p| p.excess_m >= min_drop)
 }
 
 /// Marks every OSM cliff `cliff` is made of as replaced.
@@ -778,6 +837,7 @@ fn stretches(
     closed: bool,
     terrain: &Raster<f32>,
     min_run_m: f64,
+    min_drop: f64,
 ) -> Vec<(LineString<f64>, bool, Option<Profile>)> {
     let samples = profile_samples(outline, terrain);
     if samples.is_empty() {
@@ -788,7 +848,7 @@ fn stretches(
     let mut classes: Vec<(bool, Option<bool>)> = samples
         .iter()
         .map(|&(_, r, l)| {
-            let tall = r.max(l) >= MIN_DROP_M;
+            let tall = r.max(l) >= min_drop;
             let side = ((r - l).abs() >= SIDE_DECIDES_M).then_some(r > l);
             (tall, if tall { side } else { None })
         })
@@ -1424,7 +1484,15 @@ mod tests {
         terrain: Option<&Raster<f32>>,
     ) -> (Vec<MapObject>, Vec<Polygon<f64>>) {
         let mut candidates = Vec::new();
-        let rock = generalize_cliffs(map, &mut candidates, terrain, f.kind, &f.georef, &f.set);
+        let rock = generalize_cliffs(
+            map,
+            &mut candidates,
+            terrain,
+            f.kind,
+            &f.georef,
+            &f.set,
+            &Level::MAP,
+        );
         (candidates, rock.stops)
     }
 
@@ -1816,6 +1884,7 @@ mod tests {
             f.kind,
             &f.georef,
             &f.set,
+            &Level::MAP,
         );
         let knoll = |at: P| MapObject {
             symbol_id: f.id("109"),
@@ -1877,6 +1946,62 @@ mod tests {
             in_rock(&rock, projected(&f, (0.0, 3.0))),
             "no contour in the fin"
         );
+    }
+
+    fn run_at(
+        f: &Fixture,
+        map: &mut Vec<MapObject>,
+        terrain: &Raster<f32>,
+        level: &Level,
+    ) -> Vec<MapObject> {
+        let mut candidates = Vec::new();
+        generalize_cliffs(
+            map,
+            &mut candidates,
+            Some(terrain),
+            f.kind,
+            &f.georef,
+            &f.set,
+            level,
+        );
+        candidates
+    }
+
+    #[test]
+    fn the_training_map_keeps_only_cliffs_of_5_m() {
+        let f = fixture(MapKind::Forest);
+        let ground = terrain(&f, terraces(&[(0.0, 4.0)]));
+        let wall = || vec![cliff(&f, &[(-60.0, 0.0), (60.0, 0.0)])];
+        let mut map = wall();
+        run_at(&f, &mut map, &ground, &Level::MAP);
+        assert_eq!(map.len(), 1, "4 m stays on the map");
+        let mut training = wall();
+        let gone = run_at(&f, &mut training, &ground, &Level::TRAINING);
+        assert!(training.is_empty());
+        assert_eq!(
+            generalized(&gone[0]),
+            Some("cliff lower than 5 m above its slope")
+        );
+    }
+
+    #[test]
+    fn the_training_map_draws_no_top_lines() {
+        // As in the top line test: the upper cliff would point its tags at the lower one.
+        let f = fixture(MapKind::Forest);
+        let ground = terrain(&f, terraces(&[(0.0, 12.0), (10.0, 6.0)]));
+        let walls = || {
+            vec![
+                cliff(&f, &[(-60.0, 0.0), (60.0, 0.0)]),
+                cliff(&f, &[(-60.0, 10.0), (60.0, 10.0)]),
+            ]
+        };
+        let mut map = walls();
+        run_at(&f, &mut map, &ground, &Level::MAP);
+        assert_eq!(of_code(&f, &map, TOP_LINE_CODE).len(), 1);
+        let mut training = walls();
+        run_at(&f, &mut training, &ground, &Level::TRAINING);
+        assert!(of_code(&f, &training, TOP_LINE_CODE).is_empty());
+        assert_eq!(of_code(&f, &training, CLIFF_CODE).len(), 1);
     }
 
     #[test]

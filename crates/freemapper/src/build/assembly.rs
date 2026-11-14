@@ -27,7 +27,7 @@ use crate::build::berlin::{
 use crate::build::buildings::{building_objects, object_footprints};
 use crate::build::candidates::{Rules, Target, osm_objects};
 use crate::build::canopy::{CANOPY_LAYER, CanopyInput, canopy_objects};
-use crate::build::cliffs::{generalize_cliffs, hide_landforms_on_rock};
+use crate::build::cliffs::{Level, generalize_cliffs, hide_landforms_on_rock};
 use crate::build::content::{ContentSettings, route};
 use crate::build::contours::{Contours, contour_objects};
 use crate::build::dedup::{
@@ -871,6 +871,7 @@ impl Built {
             self.map_kind,
             georef,
             symbol_set,
+            &Level::MAP,
         );
         // Contours and north lines stop at paving and paths (`build/line_cuts.rs`).
         let ways = way_footprints(&map, &candidates, &map, self.map_kind, georef, symbol_set);
