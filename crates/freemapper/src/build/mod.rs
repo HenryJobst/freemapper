@@ -8,6 +8,7 @@ pub mod buildings;
 pub mod candidates;
 pub mod canopy;
 pub mod cliffs;
+pub mod conflicts;
 pub mod content;
 pub mod contours;
 pub mod control_sites;
