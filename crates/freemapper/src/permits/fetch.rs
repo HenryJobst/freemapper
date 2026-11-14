@@ -145,7 +145,7 @@ pub fn fetch_inputs_in(
         &ProtectedKind::ALL,
     );
     let osm = osm_findings(project, &area, cache, progress)?;
-    let regional = regional_answers(registry, &area, &bbox, dir, fetcher, &part, progress);
+    let regional = regional_answers(registry, &area, &bbox, dir, fetcher, &part, cache, progress);
     let raw = RawInputs {
         bbox,
         area: area_key(&area),
@@ -186,6 +186,7 @@ fn on_ground(adapter: &dyn RegionAdapter, area: &MapArea) -> bool {
 /// The answers of the permit sources of every adapter of `registry` whose ground the map area
 /// touches, each asked through [`crate::adapters::asking`]. A source that fails is
 /// `Unreachable`; the others are asked all the same.
+#[allow(clippy::too_many_arguments)]
 fn regional_answers(
     registry: &Registry,
     area: &MapArea,
@@ -193,6 +194,7 @@ fn regional_answers(
     dir: &Path,
     fetcher: &dyn Fetcher,
     part: &Path,
+    cache: &Cache,
     progress: &mut dyn FnMut(Note),
 ) -> Vec<RawRegional> {
     let today = clock::today();
@@ -218,7 +220,7 @@ fn regional_answers(
             };
             progress(note!("progress-permits-fetch", source = label()));
             let answer = crate::adapters::asking(adapter, fetcher, |fetcher| {
-                source.fetch(fetcher, &rect, part)
+                source.fetch_cached(fetcher, &rect, part, cache)
             });
             freemapper_fs::remove_inside(dir, part);
             let layers = match answer {

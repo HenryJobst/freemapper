@@ -15,6 +15,7 @@ use geo_types::{Geometry, Rect};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use crate::cache::CacheDir;
 use crate::error::FetchError;
 use crate::fetch::Fetcher;
 
@@ -33,6 +34,19 @@ pub trait PermitSource: Send + Sync {
         bbox: &Rect<f64>,
         part: &Path,
     ) -> Result<Vec<Vec<Value>>, FetchError>;
+
+    /// [`Self::fetch`] with the shared download cache at hand (ADR 0132), what the engine
+    /// calls. A source that downloads a file for the whole state keeps it there and asks the
+    /// server again only for a newer one; every other source fetches as [`Self::fetch`] does.
+    fn fetch_cached(
+        &self,
+        fetcher: &dyn Fetcher,
+        bbox: &Rect<f64>,
+        part: &Path,
+        _cache: &CacheDir,
+    ) -> Result<Vec<Vec<Value>>, FetchError> {
+        self.fetch(fetcher, bbox, part)
+    }
 
     /// The findings of the stored features of the layer `layer` (a key of
     /// [`PermitSourceInfo::layers`]), geometries in WGS 84 with x = longitude. A feature that

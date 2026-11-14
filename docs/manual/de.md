@@ -947,7 +947,9 @@ Nordrhein-Westfalen die Forstverwaltung.
 `permits` fragt die beiden Dienste des Bundes, in Berlin auch das Geoportal Berlin, in Hamburg das Geoportal
 Hamburg, in Brandenburg den Landesbetrieb Forst, und liest den OSM-Auszug, der schon im Zwischenspeicher liegt. In Nordrhein-Westfalen lädt
 es drei Dateien für das ganze Bundesland, zwei von Wald und Holz NRW und die Wasserschutzgebiete, zusammen etwa
-32 MB, bei jedem Abruf neu; in Brandenburg die Wasserschutzgebiete des LfU, etwa 4 MB.
+32 MB; in Brandenburg die Wasserschutzgebiete des LfU, etwa 4 MB. Diese Dateien hebt freemapper im
+Zwischenspeicher auf (Ordner `permits`) und lädt sie nur neu, wenn der Server eine neuere hat. Ist der Server
+nicht erreichbar, nimmt es die aufgehobene.
 Einen Auszug lädt der Befehl nicht. Fehlt er, lassen die Hinweise OpenStreetMap aus und sagen das;
 `freemapper fetch` lädt ihn. Das Ganze dauert etwa eine halbe Minute, den größten Teil davon braucht das Lesen
 des OSM-Auszugs.

@@ -912,8 +912,10 @@ Rhine-Westphalia the forest administration.
 
 `permits` asks the two federal services, in Berlin also the Geoportal Berlin, in Hamburg the Geoportal Hamburg,
 in Brandenburg the Landesbetrieb Forst, and reads the OSM extract that is already in the cache. In North Rhine-Westphalia it downloads two files of
-three files for the whole state, two of Wald und Holz NRW and the water protection areas, about 32 MB together,
-anew on every fetch; in Brandenburg the water protection areas of the LfU, about 4 MB. It does not
+three files for the whole state, two of Wald und Holz NRW and the water protection areas, about 32 MB together;
+in Brandenburg the water protection areas of the LfU, about 4 MB. freemapper keeps these files in the cache
+(folder `permits`) and downloads them again only when the server has a newer one. When the server cannot be
+reached, it uses the kept one. It does not
 download an extract. Without one the notes leave OpenStreetMap out and say so; `freemapper fetch` downloads
 it. It all takes about half a minute, most of it for reading the OSM extract.
 
