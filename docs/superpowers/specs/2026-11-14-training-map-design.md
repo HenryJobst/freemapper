@@ -38,6 +38,14 @@ The user's decisions (2026-11-14):
 9. When everything is finished, the examples in the documentation show the training maps in general, as the
    best readable maps. Only where the text refers to another format specifically, the map of that format is
    shown.
+10. Contours follow the norm on every map: they run as continuous lines through all symbols, buildings, water,
+    ways and paved areas among them, and are cut out only where the norm says so (stairs and the small landform
+    symbols). This takes back the contour cut at ways of ADR 0097, which the norm does not cover.
+11. On the training map no single tree is drawn on a path; such a tree is shifted minimally.
+12. Street furniture (lamps, waste baskets, bicycle stands: the x of symbol 531) stays on the training map
+    only away from street and square areas.
+13. Inside a street area the kerb lines go; the carriageway gets the darker brown for heavy traffic, the
+    pavement the light one.
 
 ## What the Bremen example shows
 
@@ -251,7 +259,18 @@ their `freemapper:hidden=generalized` kept them out of the old training map and 
   cut at the edge. A way (road, path) inside stays in full where it is a crossing: its part inside meets the
   edge at two places or more, none of them barred by an impassable wall or fence. Otherwise its part inside goes,
   except a short beginning at each place where it meets the edge with no impassable wall or fence across it.
-  The length of the beginning and how far inside "on the edge" reaches are the builder's rulings.
+  The length of the beginning and how far inside "on the edge" reaches are the builder's rulings. A passage
+  through a building (522 from a "Durchfahrt") follows the ways: it is drawn only where a way that stays runs
+  through it; roofs and carports stay.
+- **Contours by the norm** (for every map, taking back the contour part of ADR 0097). ISSprOM 2019-2, symbol
+  101: "contour lines shall be represented as continuous lines through all symbols, also Building (521) and
+  Canopy (522)", cut out only where they touch 105, 109, 110, 111, 112, 115 and Stairway (532). ISOM 2017-2 has
+  no such sentence; contours are adapted or broken at 109 and 110 and broken around 108. The colour order of
+  both symbol sets puts black lines, green and line blue over the contour brown, and building grey, paved brown
+  and the blue of water areas under it: fences, walls and brooks lie on a contour, buildings, paved areas and
+  lakes under it. So the contours and index contours are no longer cut at ways and paved areas; they stay cut
+  at stairs, at the small landform symbols and below cliffs (ADR 0126). The north lines keep their cut at ways
+  (ISSprOM §4.6).
 - **Tick sides** (for every map, in `build/ticks.rs`, amending ADR 0097; turning a line moves nothing). The
   norm fixes two cases: the half dot of a retaining wall points to the lower level, and the tags of a fence that
   encloses an area stand inside. Beyond that the side follows the meaning, in this order: towards olive green
@@ -261,8 +280,17 @@ their `freemapper:hidden=generalized` kept them out of the old training map and 
   settle it. The norm lets tags be left out for earth banks close together and for vertical rock faces, not for
   fences, so fence ticks are never left out.
   - *Rock.* `Level::training` of ADR 0126 runs here. The candidates PDF goes back to the map level.
-  - *Contours.* A contour is cut at buildings, as it is at ways today (`build/line_cuts.rs`), and a piece
-    left shorter than the norm's minimum goes.
+  - *Contours* follow the norm (below) and are not cut at buildings, water or ways. A contour piece on an
+    earth bank goes, and a piece below the norm's minimum goes.
+  - *Areas.* The minimum sizes hold for areas too: an area below the norm's minimum for its symbol goes
+    (the small patches of open land and of the green shades).
+  - *Trees.* A tree whose symbol touches a path line, a stair, a building, water or another tree is moved off
+    by the least distance that frees it, within the bound of a shift; where that fails it goes. Trees on street
+    and square areas stay: there is no room to move to, and the norm knows trees on paved areas.
+  - *Street furniture* (531) on a street or square area goes; elsewhere it stays.
+  - *Carriageways* (second half, with the road network): inside a street area the kerb lines (501.1) go, the
+    carriageway is drawn as paved area with heavy traffic (501.10), the pavement as light traffic (501.5).
+    Until that is built the kerb lines stay as they are.
   - *Open land under trees.* Open land that comes from a land use naming no ground cover (park, green space,
     leisure area) is drawn only where the nDSM shows no trees; the rest stays forest. The outline is smoothed
     and kept to the minimum sizes the vegetation areas use (ADR 0136). Without a surface model nothing
@@ -294,10 +322,27 @@ Every row of the Bremen table has its rule; the training map of Bremen Bürgerpa
 | Stairs too short, doubled | minimum size, duplicate step | no 532 below the norm's minimum, none twice |
 | Fences on paths | shift, drop | no 518 inside the gap of a way |
 | Monument points in a row | point generalization | every 526 keeps the norm's gap to points, buildings and ways |
-| Contours as noise | cut at buildings, drop on earth banks, minimum size | no contour through a building, none on an earth bank, none below the minimum |
+| Contours as noise | drop on earth banks, minimum size (through buildings is the norm) | no contour on an earth bank, none below the minimum |
 | Forest drawn yellow | open land under trees | the 401 of the Stadtwald covers only what the nDSM shows open |
 | Details in the gardens around the park | inside olive green | nothing inside a 520 but buildings, water, contours and crossings |
 | Fence ticks on paths | tick sides | no fence tick points to a way that runs along the fence, unless the norm fixes the side |
+
+### What the Viktoriapark example adds
+
+Measured on `examples/berlin-viktoriapark` (sprint, 1:4000), map and candidates together, which is what the
+candidates PDF in the README draws.
+
+| Finding | Number | Rule |
+|---|---|---|
+| Details inside olive green | 239 of 264 canopies and passages, 59 earth banks, 81 trees, 42 path pieces, 39 walls and fences | inside olive green |
+| Passages into yards | 168 "Durchfahrt im Gebäude", nearly all leading into olive green | passages follow the ways |
+| Trees on other symbols | 83 of 1286 touch a path line (16 centres on it), 15 on stairs, 10 at buildings, 9 at water, 17 touch another tree | trees are shifted |
+| Street furniture | 144 x, 119 of them on street areas (91 lamps, 16 waste baskets, 12 pieces of furniture, 9 bicycle stands) | furniture only off street areas |
+| Kerb lines | 270 lines, 7361 mm, two to four side by side in every street | carriageways (second half) |
+| Small patches | under 4 mm²: 23 of 81 open land, 15 of 32 slow running, 6 of 6 walk, 13 of 96 forest | minimum sizes for areas |
+| Stands of the stadium | rows of earth banks, stairs, fence and wall side by side | generalize what is alike, gaps |
+| Contours | 5227 mm; 1456 mm through buildings, 2497 mm in olive green, 38 mm in water | by the norm: they stay |
+| The PDF page | A3 portrait for a landscape map, half the sheet empty | not in this design: an issue of its own |
 
 ### Acceptance
 

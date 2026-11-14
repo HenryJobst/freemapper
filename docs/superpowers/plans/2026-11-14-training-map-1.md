@@ -45,8 +45,8 @@ findings on the training map", "Order" item 1).
 
 ## Order of execution
 
-Tasks 10 and 11 were added after the user's decisions 7 and 8 of the spec. Run the tasks in this order:
-1, 2, 3, 4, 5, 10, 11, 6, 7, 8, 9.
+Tasks 10 to 13 were added after the user's decisions 7, 8 and 10 to 12 of the spec. Run the tasks in this
+order: 1, 2, 3, 4, 5, 10, 13, 11, 12, 6, 7, 8, 9.
 
 ## Review Focus
 
@@ -305,7 +305,7 @@ pub fn minimum_length(&self, id: u32) -> Option<PaperMm>;
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct TrainingReport {
     pub joined: usize, pub gave_way: usize, pub cut: usize, pub too_small: usize,
-    pub open_land_cut: usize,
+    pub open_land_cut: usize, pub furniture: usize,
     /// Conflict length left, mm on paper, by grade (the pairs of one network, left to the second half).
     pub overlap_left: f64, pub gap_left: f64,
 }
@@ -318,8 +318,8 @@ pub fn train(objects: Vec<MapObject>, tree_cover: Option<&Raster<f32>>, kind: Ma
 Order of steps inside `train`, each a private function with its own tests:
 1. `join_lines` on the ids of the classes Road, Path, Railway, Watercourse, EarthBank, Barrier and Contour;
    `sided` = the ids of EarthBank, Cliff and Barrier.
-2. Open contours are cut at the Building objects (`cut_lines_at_ways` with `CONTOUR_CODES`, minimum piece
-   `MIN_LENGTH_MM` of `derive/contours.rs` in ground metres).
+2. Street furniture: a point of symbol 531 whose centre lies on a paved area (the codes of `PAVED_AREA_CODES`
+   in `build/points.rs`) goes; counted in `too_small`'s neighbour `furniture: usize` of the report.
 3. (Task 5 puts its step here.)
 4. Give way: for the conflicts of Apart pairs of both grades (the training map keeps every gap), losers by
    ascending rank: a loser with more than half its length in conflict goes whole; otherwise the stretch is cut
@@ -329,7 +329,10 @@ Order of steps inside `train`, each a private function with its own tests:
    hidden. The step repeats until `conflicts` finds no Apart pair (each round removes geometry, so it ends).
 5. Minimum sizes: a line shorter than its minimum length goes: `SymbolSet::minimum_length` where the set gives
    one, else `MIN_LINE_MM` of `build/candidates.rs`; stairs take the norm's value for 532, quoted in the ADR. A
-   line with an end within `TOUCH_M` of another line of its class continues there and stays.
+   line with an end within `TOUCH_M` of another line of its class continues there and stays. An area of open
+   land (401 to 403), forest (405) or a green shade (406 to 410) below the norm's minimum area for its symbol
+   goes; the values are those the build already uses where it has them (`MIN_AREA_MM2` of
+   `derive/vegetation.rs`, the group minimums of `build/points.rs`), else the norm's, quoted in the ADR.
 6. The report: counts, and the conflict length left by `conflicts` on the result.
 
 - [ ] **Step 1: Failing tests** (ISOM set, 1:10 000, no raster):
@@ -341,7 +344,9 @@ Order of steps inside `train`, each a private function with its own tests:
   - `a_fence_on_a_path_goes_where_it_lies_on_it`: 518 of 20 mm, 8 mm of it on a 505 → one 518 of about 12 mm.
   - `of_two_earth_banks_inside_the_gap_the_shorter_goes`.
   - `a_point_on_a_building_goes`; `a_point_beside_it_stays`.
-  - `a_contour_stops_at_a_building`; `a_contour_on_an_earth_bank_goes`.
+  - `a_contour_runs_through_a_building_and_a_lake` (unchanged); `a_contour_on_an_earth_bank_goes`.
+  - `furniture_on_a_street_goes_and_in_the_park_stays` (531 on a 501.5 area and on white).
+  - `a_patch_of_open_land_below_the_minimum_goes`; `a_patch_above_it_stays`.
   - `a_stair_below_the_minimum_goes`; `a_short_path_that_continues_stays`.
   - `pieces_of_a_path_are_one_object_after` (5 pieces of 505 in a row → 1, `joined == 4`).
   - `carriageways_and_tracks_are_left_alone` (two parallel 502, two parallel 509: unchanged).
@@ -353,7 +358,17 @@ Order of steps inside `train`, each a private function with its own tests:
   - In `omap/symbol_set.rs`: `the_minimum_length_of_an_earth_bank_is_read` (ISOM at 1:10 000: 0.6 mm times the
     enlargement the set already applied; a symbol with 0 gives `None`).
 - [ ] **Step 2: Run and see them fail. Step 3: Implement. Step 4: Run and pass**, clippy.
-- [ ] **Step 5: Commit** `feat(build): the training level joins, gives way and cuts`.
+- [ ] **Step 5: Amend `build/conflicts.rs`** (Task 1, reviewed; the user decided afterwards that contours follow
+  the norm, and the review left minor findings), each with its test:
+  - Contour with Building is Free (the norm draws contours through buildings): the test
+    `a_contour_through_a_building_is_an_overlap` becomes `a_contour_through_a_building_is_free`.
+  - The same-rank tie-break treats lengths within `TOLERANCE_MM` as equal, then the index decides.
+  - Two lines cross only when they meet at 20° or more; a flatter meeting is measured as running side by side
+    (two digitisations of one feature that zigzag across each other must not escape the measure). Test:
+    `a_fence_zigzagging_along_a_path_is_one_conflict`.
+  - `Class::ALL` replaces the hand-written list of the symmetry test; `Grade` gets its doc comment; the test
+    comment that says "footprints" where it means stroke edges is corrected.
+- [ ] **Step 6: Commit** `feat(build): the training level joins, gives way and cuts`.
 
 ### Task 5: Open land under trees
 
@@ -514,7 +529,10 @@ pub const WAY_STUB_MM: PaperMm = PaperMm(1.0);
 Decisions: the olive area is the union of the objects of the symbol 520; `inner` is that union shrunk by
 `OLIVE_EDGE_MM`. Stay untouched: Building, WaterArea, BankLine, Watercourse, Contour, the 520 objects, canopies
 (522), text and sheet objects. Areas of other symbols lose their part inside `inner`; pieces below the minimum the
-open-land step uses go. Points inside `inner` go. Lines of the classes Barrier, EarthBank, Cliff and Stairway are
+open-land step uses go. Points inside `inner` go. A passage through a building (a 522 object whose
+`freemapper:alkis` names a "Durchfahrt" or an "Arkade", or that comes from the OSM passages of
+`build/passages.rs`) goes when no way that this step keeps runs through it; roofs and carports stay. Lines of
+the classes Barrier, EarthBank, Cliff and Stairway are
 cut at `inner` (pieces below their minimum length go). Ways (Road, Path): the parts inside `inner` are taken
 together as they join; such a group is a crossing when it meets the boundary of `inner` at two places or more
 that are not barred. A place is barred when a 515 or 518 object crosses the way within `OLIVE_EDGE_MM` of the
@@ -529,8 +547,8 @@ objects).
   side, leaves on the other); `a_driveway_keeps_only_its_beginning` (dead end: one piece of `WAY_STUB_MM` from
   the edge); `a_driveway_behind_an_impassable_fence_goes_whole` (518 across its entrance: no stub);
   `a_crossing_barred_at_one_end_is_no_crossing` (one entrance free → stub there, nothing at the barred end);
-  `a_passable_fence_does_not_bar` (a 516 across the entrance: the stub is drawn); `without_olive_nothing
-  changes`.
+  `a_passable_fence_does_not_bar` (a 516 across the entrance: the stub is drawn); `a_passage_into_a_yard_goes`
+  and `a_passage_on_a_crossing_stays`; `a_roof_inside_stays`; `without_olive_nothing_changes`.
 - [ ] **Step 2 to 4:** fail, implement, pass, clippy.
 - [ ] **Step 5: Commit** `feat(build): no details inside olive green on the training map`.
 
@@ -567,3 +585,62 @@ same area lies on both sides):
   ticks left).
 - [ ] **Step 2 to 4:** fail, implement, pass; bless the goldens; all checks.
 - [ ] **Step 5: Commit** `feat(build): fence ticks turn away from a way; with the same area on both sides they take the free side` with the `Golden-Bless:` trailer.
+
+### Task 12: Contours by the norm
+
+**Files:**
+- Modify: `crates/freemapper/src/build/assembly.rs` (`Built::place`), `crates/freemapper/src/build/line_cuts.rs`
+  (doc comments), `crates/freemapper/src/build/points.rs` only if a footprint helper is shared.
+
+**What exists:** `Built::place` cuts the contours (`CONTOUR_CODES`) of the map and of the candidates at
+`way_footprints` (paved areas, paths, stairs) with `cut_lines_at_ways` and the minimum piece `MIN_PIECE_MM`
+(ADR 0097), then at the rock stops (ADR 0126), and cuts the north lines of the map at the same ways. The norm
+(spec, "Contours by the norm"): continuous through all symbols; cut out only at 105, 109, 110, 111, 112, 115 and
+Stairway (532).
+
+Decisions: the contours are no longer cut at ways and paved areas, on any map. They are cut at the footprints of
+the stair objects (the codes of the Stairway class) and of the small landform symbols the build writes (109, 110,
+111 and, where the set has them, 105, 112, 115: a point symbol's footprint is its drawn extent), with the same
+minimum piece. The cut at the rock stops and `hide_landforms_on_rock` stay. The north lines keep their cut at
+the ways. The goldens change: bless them.
+
+- [ ] **Step 1: Failing tests** beside the placement tests of `assembly.rs`:
+  `a_contour_runs_across_a_path_and_a_paved_area`; `a_contour_stops_at_a_stair`; `a_contour_stops_at_a_small
+  knoll`; `a_north_line_still_stops_at_a_path`; `the_cut_below_a_cliff_stays`.
+- [ ] **Step 2 to 4:** fail, implement, pass; bless the goldens; all checks.
+- [ ] **Step 5: Commit** `feat(build): contours run through ways and paved areas, as the norm draws them` with the
+  `Golden-Bless:` trailer.
+
+### Task 13: Trees move off ways
+
+**Files:**
+- Modify: `crates/freemapper/src/build/training.rs` (a step before "give way").
+
+**What exists:** `move_points_off_barriers` (`build/barrier_gaps.rs`) moves a point that is closer to a wall or
+fence than the gap straight across the line to that distance, takes the nearest free spot, tags
+`freemapper:moved`, and gives up beyond five symbol sizes. It runs in `Built::place` and knows walls and fences
+only. Without this task the "give way" step of `train` drops a tree that touches a path (Point loses to Path).
+
+**Interfaces:** consumes `Classes`, `Footprints`, `gap`; produces a field `pub trees_moved: usize` in
+`TrainingReport` and
+
+```rust
+/// A shift on the training map moves an object by at most this (spec: 0.5 mm on paper).
+pub const MAX_SHIFT_MM: PaperMm = PaperMm(0.5);
+```
+
+Decisions: a tree is a point of symbol 417 or 418. Its symbol must keep `gap` to the footprints of Path and Road
+lines, Stairway, Building, WaterArea and BankLine objects and to other tree symbols. Paved areas (OtherArea) do
+not count: a tree on a street or square stays where it is. A tree that is too close is moved to the nearest spot
+that keeps `gap` to all of these, straight away from the nearest offender first, within `MAX_SHIFT_MM`; it gets
+`freemapper:moved` as `move_points_off_barriers` writes it. Where no such spot lies within the bound the tree is
+left for "give way" to drop. Of two trees too close to each other the smaller symbol moves (418 before 417, then
+the later one). The result is the same on every system (tolerance as in Task 1).
+
+- [ ] **Step 1: Failing tests:** `a_tree_on_a_path_moves_beside_it` (centre on a 505: after the step the symbol
+  keeps `gap` to the path, moved by less than `MAX_SHIFT_MM`, tagged, `trees_moved == 1`);
+  `a_tree_between_two_close_paths_goes` (no room within the bound: gone after `train`);
+  `a_tree_on_a_square_stays`; `a_tree_at_a_building_moves_off`; `two_trees_touching_the_smaller_moves`;
+  `a_tree_that_keeps_the_gap_is_not_touched`.
+- [ ] **Step 2 to 4:** fail, implement, pass, clippy.
+- [ ] **Step 5: Commit** `feat(build): trees move off ways on the training map`.
