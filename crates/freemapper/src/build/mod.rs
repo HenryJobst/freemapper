@@ -17,6 +17,7 @@ pub mod firm_paths;
 pub mod geometry;
 pub mod landforms;
 pub mod line_cuts;
+pub mod line_join;
 pub mod open_land;
 pub mod out_of_bounds;
 pub mod passages;
