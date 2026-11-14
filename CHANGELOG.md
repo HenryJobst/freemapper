@@ -8,7 +8,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Geändert
 
-- Beispiele: Das Bodetal hat Höhenlinien alle 10 m statt 5 m; an den steilen Hängen liefen sie zu einer braunen Fläche zusammen. Die Felsen der Bastei stammen aus OSM, nicht aus dem Geländemodell, wie die Beispielübersicht bisher sagte.
+- Beispiele: Das Bodetal und die Bastei haben Höhenlinien alle 10 m statt 5 m; an den steilen Hängen liefen sie zu einer braunen Fläche zusammen. Die Felsen der Bastei stammen aus OSM, nicht aus dem Geländemodell, wie die Beispielübersicht bisher sagte.
 
 ## [0.19.0] - 2026-11-14
 
