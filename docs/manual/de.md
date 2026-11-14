@@ -591,8 +591,11 @@ freemapper run dammheide --pdf-candidates
   Wiesen und Grasland werden Kandidaten 401, Heide und Lichtungen 403. Aus dem nDOM leitet freemapper kein Grün
   ab. Die Vegetation aus Laserpunktwolken (Gruppe `vegetation`) können Sie wie bei Sprintkarten einschalten; in
   Berlin wurde ohne Laub beflogen, dort findet sie wenig.
-- **Höhenlinien** liegen alle 5 m, in flachem Gelände alle 2,5 m. Flach ist ein Gebiet, wenn zwischen dem 5.
-  und dem 95. Perzentil seiner Geländehöhen weniger als 15 m liegen. Den Abstand legen Sie selbst fest
+- **Höhenlinien** liegen alle 5 m, in flachem Gelände alle 2,5 m und in steilem alle 10 m. Flach ist ein Gebiet,
+  wenn zwischen dem 5. und dem 95. Perzentil seiner Geländehöhen weniger als 15 m liegen. Steil ist es, wenn
+  Linien im Abstand von 5 m auf mehr als einem Zehntel der Fläche enger als 0,35 mm auf der Karte lägen (vergrößert
+  wie die Symbole) und zu einer braunen Fläche zusammenliefen, wie im Bodetal oder an der Bastei. Die ISOM 2017-2
+  kennt nur 5 m und 2,5 m; `derive` nennt die 10 m in einer Zeile, und `--contour-interval 5` behält 5 m. Den Abstand legen Sie selbst fest
   mit `--contour-interval 2.5` bei `init`, `derive` oder `run`, auf der Gebietsseite im Feld „Äquidistanz“ oder
   als `contour_interval_m = 2.5` in der `freemapper.toml`; `auto` (auf der Seite „automatisch“) gibt die Wahl
   zurück. Bei einer fertigen Karte danach `freemapper run <ordner> --force` (oder `derive` und `export --force`). Der Kartenrand nennt den Abstand („Äquidistanz 2,5 m“). Weicht er vom Standard ab, steht er
@@ -619,7 +622,7 @@ Quelle: GeoSN, dl-de/by-2-0, Daten geändert.
 | **Lokales Relief:** das Gelände minus sein geglättetes Mittel (über etwa 5 m auf Sprintkarten, 3 m auf Schulhofkarten, 8 m auf Waldkarten). Hell ist höher als die Umgebung, dunkel tiefer; das allgemeine Gefälle ist weg. Zeigt Hügel, Mulden, Böschungen und Gräben, die die Schummerung am Hang verschluckt. | – |
 
 Dazu kommen die **Höhenlinien** in der Kandidaten-Karte: auf Schulhofkarten alle 1 m, auf Sprintkarten
-alle 2 m, auf Waldkarten alle 5 m oder in flachem Gelände alle 2,5 m ([Waldkarten](#waldkarten)), jede fünfte als
+alle 2 m, auf Waldkarten alle 5 m, in flachem Gelände alle 2,5 m oder in steilem alle 10 m ([Waldkarten](#waldkarten)), jede fünfte als
 Zählkurve. Sie sind aus dem Geländemodell berechnet und geglättet. Für die
 Karte sind sie ein Entwurf, kein fertiges Ergebnis.
 

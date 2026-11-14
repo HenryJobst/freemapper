@@ -99,8 +99,8 @@ struct CreateProject {
     /// out-of-bounds, paths, streets.
     content_set: Option<Vec<String>>,
     /// Contour interval in metres, e.g. 2.5; 0 goes back to the automatic choice (the map
-    /// kind's; a forest map in flat land gets 2.5 m). Saved in the project; the next derive
-    /// traces the contours at it.
+    /// kind's; a forest map gets 2.5 m in flat land and 10 m in steep land). Saved in the
+    /// project; the next derive traces the contours at it.
     contour_interval: Option<f64>,
 }
 
@@ -142,8 +142,8 @@ struct StartPipeline {
     /// candidates or off, e.g. "fences=candidates". Saved in the project.
     content_set: Option<Vec<String>>,
     /// Contour interval in metres, e.g. 2.5; 0 goes back to the automatic choice (the map
-    /// kind's; a forest map in flat land gets 2.5 m). Saved in the project; the next derive
-    /// traces the contours at it.
+    /// kind's; a forest map gets 2.5 m in flat land and 10 m in steep land). Saved in the
+    /// project; the next derive traces the contours at it.
     contour_interval: Option<f64>,
     /// Also write the permit notes (permits.md and permits.json) after the map: administrative
     /// units, protected areas and who runs the land. A failure there is a warning, not a failed

@@ -6,6 +6,10 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
+### Added
+
+- Forest maps in steep land get contours every 10 m instead of 5 m by themselves (ADR 0124). Steep means: on more than a tenth of the area the 5 m contours would lie closer than 0.35 mm and run into a brown area. `derive` says so in a line; `--contour-interval 5` keeps 5 m. Among the examples it is the Bode valley and the Bastei.
+
 ### Changed
 
 - Examples: the Bode valley and the Bastei have contours every 10 m instead of 5 m; on the steep slopes they ran together into a brown area. The rocks of the Bastei come from OSM, not from the terrain model as the examples overview said so far.

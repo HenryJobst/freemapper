@@ -6,6 +6,10 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+### Hinzugefügt
+
+- Waldkarten in steilem Gelände bekommen automatisch Höhenlinien alle 10 m statt 5 m (ADR 0124). Steil heißt: Auf mehr als einem Zehntel der Fläche lägen die 5-m-Linien enger als 0,35 mm und liefen zu einer braunen Fläche zusammen. `derive` sagt das in einer Zeile; `--contour-interval 5` behält 5 m. Unter den Beispielen trifft es das Bodetal und die Bastei.
+
 ### Geändert
 
 - Beispiele: Das Bodetal und die Bastei haben Höhenlinien alle 10 m statt 5 m; an den steilen Hängen liefen sie zu einer braunen Fläche zusammen. Die Felsen der Bastei stammen aus OSM, nicht aus dem Geländemodell, wie die Beispielübersicht bisher sagte.
