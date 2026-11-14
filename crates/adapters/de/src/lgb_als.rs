@@ -65,6 +65,7 @@ impl LgbAlsBackend {
                 source: "lgb-als".to_string(),
                 epsg: 25833,
                 grid_km: 1,
+                left_out: Vec::new(),
             },
         }
     }

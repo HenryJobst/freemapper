@@ -70,6 +70,7 @@ impl RpLasBackend {
                 source: "lvermgeorp-las".to_string(),
                 epsg: 25832,
                 grid_km: 1,
+                left_out: Vec::new(),
             },
         }
     }
