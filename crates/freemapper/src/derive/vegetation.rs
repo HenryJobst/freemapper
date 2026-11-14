@@ -11,7 +11,7 @@
 use geo::{Area as _, BoundingRect as _, Contains as _, Simplify as _};
 
 use super::DeriveError;
-use super::contours::contour_lines;
+use super::contours::{contour_lines, gaussian_smooth};
 use crate::crs::BoundingBox;
 use crate::measure::{SymbolMm2, SymbolScale};
 use crate::raster::{GridSpec, Raster};
@@ -41,6 +41,14 @@ const UNDERGROWTH_WALK: f64 = 0.56;
 const MIN_AREA_MM2: SymbolMm2 = SymbolMm2(2.25);
 /// Outlines are simplified to this, on the ground.
 const SIMPLIFY_M: f64 = 1.5;
+/// The outlines are traced on a grid this many times finer than the classification, from the
+/// 0/1 raster of a class blurred with a Gaussian of [`SMOOTH_SIGMA_M`] (ADR 0136): traced on the
+/// cells themselves an outline runs in stairs of a whole cell, 16 to 22 % longer than its course.
+/// Ruling: half a cell. The stairs repeat every cell, and a Gaussian of half that damps them to
+/// under 1 %; a whole cell would shrink a block of four cells (6 m × 6 m) below the 0.5 contour.
+/// The blur keeps the course of a straight edge and rounds corners.
+const SMOOTH_SUBCELLS: u32 = 3;
+const SMOOTH_SIGMA_M: f64 = CELL_M / 2.0;
 
 /// One return of the point cloud.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -503,33 +511,47 @@ pub fn vegetation_from_geojson(
         .collect()
 }
 
-/// The cells of `class` as polygons: the 0.5 contour of a 0/1 raster padded by one empty cell,
-/// so every ring closes; a ring inside an odd number of others is a hole.
+/// The cells of `class` as polygons: the 0.5 contour of a 0/1 raster, on a grid
+/// [`SMOOTH_SUBCELLS`] times finer and blurred, padded with empty cells so every ring closes; a
+/// ring inside an odd number of others is a hole.
 fn outlines(
     classes: &Raster<Option<VegetationClass>>,
     class: VegetationClass,
     min_area_m2: f64,
 ) -> geo_types::MultiPolygon<f64> {
     let grid = classes.grid;
+    let k = SMOOTH_SUBCELLS;
+    let fine = grid.pixel_size / f64::from(k);
+    // Empty cells round the raster, as far as the blur reaches and one more.
+    let pad = ((3.0 * SMOOTH_SIGMA_M / grid.pixel_size).ceil() as u32 + 1) * k;
     let padded = GridSpec {
-        west: grid.west - grid.pixel_size,
-        north: grid.north + grid.pixel_size,
-        pixel_size: grid.pixel_size,
-        width: grid.width + 2,
-        height: grid.height + 2,
+        west: grid.west - f64::from(pad) * fine,
+        north: grid.north + f64::from(pad) * fine,
+        pixel_size: fine,
+        width: grid.width * k + 2 * pad,
+        height: grid.height * k + 2 * pad,
     };
-    let mut indicator = Raster::filled(padded, 0.25f32);
+    let mut indicator = Raster::filled(padded, 0.0f32);
     let mut any = false;
     for y in 0..grid.height {
         for x in 0..grid.width {
             if classes.get(x, y) == Some(class) {
-                indicator.set(x + 1, y + 1, 0.75);
+                for dy in 0..k {
+                    for dx in 0..k {
+                        indicator.set(pad + x * k + dx, pad + y * k + dy, 1.0);
+                    }
+                }
                 any = true;
             }
         }
     }
     if !any {
         return geo_types::MultiPolygon(Vec::new());
+    }
+    // Between 0.25 and 0.75, so that the contours at every 0.5 cross only the edge.
+    let mut indicator = gaussian_smooth(&indicator, SMOOTH_SIGMA_M);
+    for v in &mut indicator.data {
+        *v = 0.25 + 0.5 * *v;
     }
     let rings: Vec<geo_types::Polygon<f64>> = contour_lines(&indicator, 0.5)
         .into_iter()
@@ -922,9 +944,10 @@ mod tests {
             .1;
         assert_eq!(thicket.0.len(), 1, "{thicket:?}");
         assert_eq!(thicket.0[0].interiors().len(), 1, "{thicket:?}");
-        // 36 m × 36 m minus the 12 m × 12 m clearing, give or take the cut corners.
+        // 36 m × 36 m minus the 12 m × 12 m clearing, give or take the corners the smoothing
+        // rounds (ADR 0136).
         let area = thicket.unsigned_area();
-        assert!((area - (1296.0 - 144.0)).abs() < 80.0, "{area}");
+        assert!((area - (1296.0 - 144.0)).abs() < 120.0, "{area}");
         let open = &areas
             .iter()
             .find(|(c, _)| *c == VegetationClass::Open)
@@ -945,6 +968,47 @@ mod tests {
         assert_eq!(
             min_area_m2(SymbolScale::new(MapKind::Forest, 10000)),
             22.5 * 22.5
+        );
+    }
+
+    #[test]
+    fn a_stepped_edge_is_traced_nearly_straight() {
+        // Thicket west of x = 10 or 11 cells, alternating row by row: on the cells the edge
+        // steps 3 m back and forth every 3 m; traced on the blurred raster it runs straight.
+        let g = grid(30);
+        let mut classes = Raster::filled(g, Some(VegetationClass::Forest));
+        for y in 0..30 {
+            for x in 0..(10 + y % 2) {
+                classes.set(x, y, Some(VegetationClass::Impassable));
+            }
+        }
+        let areas = vegetation_areas(&classes, SymbolScale::new(MapKind::Sprint, 4000));
+        let thicket = &areas
+            .iter()
+            .find(|(c, _)| *c == VegetationClass::Impassable)
+            .unwrap()
+            .1;
+        // The edge in the middle rows, away from the ends of the strip, every half metre.
+        let east: Vec<f64> = thicket.0[0]
+            .exterior()
+            .lines()
+            .flat_map(|l| {
+                (0..=20).map(move |i| {
+                    let t = f64::from(i) / 20.0;
+                    (l.start.x + l.dx() * t, l.start.y + l.dy() * t)
+                })
+            })
+            .filter(|&(x, y)| y > 20.0 && y < 70.0 && x > 15.0)
+            .map(|(x, _)| x)
+            .collect();
+        assert!(!east.is_empty());
+        let (lo, hi) = east
+            .iter()
+            .fold((f64::MAX, f64::MIN), |(lo, hi), &x| (lo.min(x), hi.max(x)));
+        assert!(hi - lo < 1.0, "the edge wanders from {lo} to {hi}");
+        assert!(
+            (31.0..=32.5).contains(&lo),
+            "halfway between 30 m and 33 m: {lo}"
         );
     }
 

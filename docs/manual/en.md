@@ -644,7 +644,8 @@ the vegetation from the classified laser point clouds of LGB, the Geoportal Berl
 LVGL and the Bayerische Vermessungsverwaltung: open land
 (401), runnable forest (405), the green shades 406, 408 and 410, and undergrowth (407, 409). It counts in every
 3 m cell how many laser returns reach the ground and how many stay at the heights that slow a runner. That
-shows more than the nDSM, which only sees the crowns.
+shows more than the nDSM, which only sees the crowns. The outlines are traced on a raster three times finer and
+slightly blurred, so that they follow the edge of the vegetation instead of the 3 m steps of the cells (ADR 0136).
 
 The group `vegetation` is off in every profile, `full` included, because the point clouds are large. Per square
 kilometre tile freemapper loads about 160 MB in Brandenburg, about 240 MB in Berlin (about 100 MB as LAZ in the
