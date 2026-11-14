@@ -219,6 +219,22 @@ candidates byte for byte, and the same `freemapper.toml`. Of the 2 959 map objec
 the two tiles had 168 MB, so the estimate of the buildings is low by half in a city centre and high in the
 country.
 
+### The vegetation run
+
+On 2026-11-14 the Schmausenbuck was run again with `--content-set vegetation=candidates`: 5 min 19 s with the
+four point-cloud tiles to load (239, 301, 316 and 354 MiB, 1.2 GB), 1 min 30 s offline afterwards, no warning.
+All four tiles were flown on 2021-12-20. Before the export 94.0 % of the classified 1.5 km² are runnable forest
+(405), 5.1 % open land (401) and 0.8 % green classes; the area is about nine tenths forest. The sports field,
+the clearing at the substation and the southern swath of the power line are open. The northern swath, young
+growth of 2 to 5 m, has 45 to 55 % of its returns above 0.9 m (the wires give 3 to 7 %) and comes out as forest,
+because the bare twigs give a green index of 0.31. The candidates map gets 39 vegetation areas (20 of 401, 3 of
+405, 13 of 406, 3 of 410); the example has 670 map objects, 120 candidates and 37 symbols. The offline run wrote
+the same map, candidates and project file.
+
+Three more tiles from other parts of the state: 780_5420 (flown 2017-11-24, 10 points per m², its 40 193 points
+of class 24 carry a GPS time of the year 8416), 691_5335 (flown 2022-02-27, 20 points per m²) and 610_5480 (GPS
+week time, so no day; made 2018-08-08, 9 points per m²).
+
 ## Point clouds
 
 Checked live on 2026-11-14 (24 requests, one tile downloaded). Product "Laserdaten" of the portal, CC BY 4.0,

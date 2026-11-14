@@ -124,16 +124,18 @@ One example of the map kind `forest` (ISOM 2017-2) at 1:10 000 for every state, 
 | Saarland | [Cloef at the Saarschleife](saarland-cloef/): a steep slope with rocks above the Saar loop | 492 | 56 | 27 | <a href="saarland-cloef/saarland-cloef-candidates.pdf"><img src="saarland-cloef/preview.webp" width="220" alt=""></a> |
 | Baden-Württemberg | [Königstuhl, Heidelberg](baden-wuerttemberg-koenigstuhl/): Heidelberg's own mountain, with an observatory and many paths | 843 | 47 | 28 | <a href="baden-wuerttemberg-koenigstuhl/baden-wuerttemberg-koenigstuhl-candidates.pdf"><img src="baden-wuerttemberg-koenigstuhl/preview.webp" width="220" alt=""></a> |
 | Bremen | [Bürgerpark and Stadtwald](bremen-buergerpark/): a flat park and forest with ditches, lakes and a dense path network | 1913 | 420 | 32 | <a href="bremen-buergerpark/bremen-buergerpark-candidates.pdf"><img src="bremen-buergerpark/preview.webp" width="220" alt=""></a> |
-| Bavaria | [Schmausenbuck, Nürnberger Reichswald](bayern-schmausenbuck/): a sandstone hill in the Reichswald above the zoo of Nuremberg, slopes with a dense path network, two power lines | 670 | 81 | 35 | <a href="bayern-schmausenbuck/bayern-schmausenbuck-candidates.pdf"><img src="bayern-schmausenbuck/preview.webp" width="220" alt=""></a> |
+| Bavaria | [Schmausenbuck, Nürnberger Reichswald](bayern-schmausenbuck/): a sandstone hill in the Reichswald above the zoo of Nuremberg, slopes with a dense path network, two power lines | 670 | 120 | 37 | <a href="bayern-schmausenbuck/bayern-schmausenbuck-candidates.pdf"><img src="bayern-schmausenbuck/preview.webp" width="220" alt=""></a> |
 
 The areas are about 1.2 × 0.9 km and were chosen by relief and path network. Made with
 `freemapper init <folder> --geojson <rectangle> --kind forest --scale 10000 --title "<title>"` and
 `run --pdf-candidates --ocad`. Berlin and Bremen take their outline from OSM (`--osm relation/4513841` for the
-Dammheide, `--osm way/664446849` for the Bürgerpark). In Brandenburg, North Rhine-Westphalia and Saarland
-`--content-set vegetation=candidates` was added: the vegetation from laser point clouds is in the candidates map
-there. Rhineland-Palatinate lacks it, because the state office's Metalink file names other sizes and checksums for
-the tiles near Dahn than the files on the server have (November 2026); for Bavaria freemapper does not read the
-point clouds yet.
+Dammheide, `--osm way/664446849` for the Bürgerpark). In Brandenburg, North Rhine-Westphalia, Saarland and
+Bavaria `--content-set vegetation=candidates` was added: the vegetation from laser point clouds is in the
+candidates map there. Rhineland-Palatinate lacks it, because the state office's Metalink file names other sizes
+and checksums for the tiles near Dahn than the files on the server have (November 2026). On the Schmausenbuck
+freemapper loads four tiles for it, 1.2 GB together. The flight of 20 December 2021 was made without leaves, so
+the young growth under the power lines comes out mostly as forest and only in places as 406 or open land. 39
+vegetation candidates are left: 20 of open land (401), 13 areas of 406 and 3 each of 405 and 410.
 
 The paths come from OSM and go onto the map in the path classes 502 to 507; the forest is white paper. Settlements
 and gardens are olive green (520, not to be entered). Rocks, earth banks and knolls from the terrain model are

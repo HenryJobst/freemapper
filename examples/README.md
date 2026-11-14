@@ -131,16 +131,18 @@ Wald:
 | Saarland | [Cloef an der Saarschleife](saarland-cloef/): Steilhang mit Felsen über der Saarschleife | 492 | 56 | 27 | <a href="saarland-cloef/saarland-cloef-candidates.pdf"><img src="saarland-cloef/preview.webp" width="220" alt=""></a> |
 | Baden-Württemberg | [Königstuhl, Heidelberg](baden-wuerttemberg-koenigstuhl/): Hausberg von Heidelberg mit Sternwarte und vielen Wegen | 843 | 47 | 28 | <a href="baden-wuerttemberg-koenigstuhl/baden-wuerttemberg-koenigstuhl-candidates.pdf"><img src="baden-wuerttemberg-koenigstuhl/preview.webp" width="220" alt=""></a> |
 | Bremen | [Bürgerpark und Stadtwald](bremen-buergerpark/): flacher Park und Wald mit Gräben, Seen und dichtem Wegenetz | 1913 | 420 | 32 | <a href="bremen-buergerpark/bremen-buergerpark-candidates.pdf"><img src="bremen-buergerpark/preview.webp" width="220" alt=""></a> |
-| Bayern | [Schmausenbuck, Nürnberger Reichswald](bayern-schmausenbuck/): Sandsteinhügel im Reichswald über dem Tiergarten, Hänge mit dichtem Wegenetz, zwei Stromtrassen | 670 | 81 | 35 | <a href="bayern-schmausenbuck/bayern-schmausenbuck-candidates.pdf"><img src="bayern-schmausenbuck/preview.webp" width="220" alt=""></a> |
+| Bayern | [Schmausenbuck, Nürnberger Reichswald](bayern-schmausenbuck/): Sandsteinhügel im Reichswald über dem Tiergarten, Hänge mit dichtem Wegenetz, zwei Stromtrassen | 670 | 120 | 37 | <a href="bayern-schmausenbuck/bayern-schmausenbuck-candidates.pdf"><img src="bayern-schmausenbuck/preview.webp" width="220" alt=""></a> |
 
 Die Gebiete sind etwa 1,2 × 0,9 km groß und nach Relief und Wegenetz ausgewählt.
 Erzeugt mit `freemapper init <ordner> --geojson <rechteck> --kind forest --scale 10000 --title "<Titel>"` und
 `run --pdf-candidates --ocad`. Berlin und Bremen nehmen den Umriss aus OSM (`--osm relation/4513841` für die
-Dammheide, `--osm way/664446849` für den Bürgerpark). In Brandenburg, Nordrhein-Westfalen und im Saarland kam
-`--content-set vegetation=candidates` dazu: Die Vegetation aus Laserpunktwolken liegt dort in der Kandidatenkarte.
-In Rheinland-Pfalz fehlt sie, weil die Metalink-Datei des Landesamts für die Kacheln bei Dahn andere Größen und
-Prüfsummen nennt als die Dateien auf dem Server (Stand November 2026); in Bayern liest freemapper die Punktwolken
-noch nicht.
+Dammheide, `--osm way/664446849` für den Bürgerpark). In Brandenburg, Nordrhein-Westfalen, im Saarland und in
+Bayern kam `--content-set vegetation=candidates` dazu: Die Vegetation aus Laserpunktwolken liegt dort in der
+Kandidatenkarte. In Rheinland-Pfalz fehlt sie, weil die Metalink-Datei des Landesamts für die Kacheln bei Dahn
+andere Größen und Prüfsummen nennt als die Dateien auf dem Server (Stand November 2026). Am Schmausenbuck lädt
+freemapper dafür vier Kacheln mit zusammen 1,2 GB. Der Flug vom 20.12.2021 war ohne Laub, deshalb erscheint der Jungwuchs
+unter den Stromtrassen überwiegend als Wald und nur stellenweise als 406 oder offenes Gelände. Es bleiben
+39 Vegetationskandidaten, 20 davon offenes Gelände (401), 13 Flächen 406 und je 3 Flächen 405 und 410.
 
 Die Wege kommen aus OSM und stehen in den Wegklassen 502 bis 507 in der Karte; der Wald ist weißes Papier.
 Siedlungen und Gärten sind olivgrün (520, nicht zu betreten). Felsen, Böschungen und Kuppen aus dem Geländemodell
