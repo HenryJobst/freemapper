@@ -10,7 +10,6 @@
 //! lists follow. The project (`project/export.rs`) reads the folder, calls the assembly and
 //! makes the documents from what it returns.
 
-use std::borrow::Cow;
 use std::ops::Range;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
@@ -28,7 +27,7 @@ use crate::build::berlin::{
 use crate::build::buildings::{building_objects, object_footprints};
 use crate::build::candidates::{Rules, Target, osm_objects};
 use crate::build::canopy::{CANOPY_LAYER, CanopyInput, canopy_objects};
-use crate::build::cliffs::generalize_cliffs;
+use crate::build::cliffs::{generalize_cliffs, hide_landforms_on_rock};
 use crate::build::content::{ContentSettings, route};
 use crate::build::contours::{Contours, contour_objects};
 use crate::build::dedup::{
@@ -59,6 +58,7 @@ use crate::build::water::{
     drop_covered_water, drop_fountains_in_osm_basins, drop_points_in_water, water_objects,
 };
 use crate::crs::{BoundingBox, LatLon};
+use crate::derive::contours::MIN_LENGTH_MM as CONTOUR_MIN_LENGTH_MM;
 use crate::georef::{GeorefError, Georeferencing};
 use crate::measure::{SymbolMm, SymbolScale};
 use crate::omap::{MapObject, MapObjectKind, SymbolSet, closed_ring};
@@ -872,25 +872,29 @@ impl Built {
             georef,
             symbol_set,
         );
-        // Contours and north lines stop at paving and paths (`build/line_cuts.rs`), the contours
-        // also at the tall cliffs.
+        // Contours and north lines stop at paving and paths (`build/line_cuts.rs`).
         let ways = way_footprints(&map, &candidates, &map, self.map_kind, georef, symbol_set);
         let min_piece_m = MIN_PIECE_MM.metres(georef.scale_denominator);
-        let contour_stops: Cow<[Polygon<f64>]> = if rock.is_empty() {
-            Cow::Borrowed(&ways)
-        } else {
-            Cow::Owned(ways.iter().cloned().chain(rock).collect())
-        };
         for list in [&mut candidates, &mut map] {
-            cut_lines_at_ways(
-                list,
-                &CONTOUR_CODES,
-                &contour_stops,
-                min_piece_m,
-                georef,
-                symbol_set,
-            );
+            cut_lines_at_ways(list, &CONTOUR_CODES, &ways, min_piece_m, georef, symbol_set);
         }
+        // The contours also stop below the cliffs drawn and at the pillars; a stub shorter than a
+        // contour may be goes. The knolls and depressions of the terrain on the rock are hidden.
+        if !rock.stops.is_empty() {
+            let min_contour_m = CONTOUR_MIN_LENGTH_MM
+                .metres(SymbolScale::new(self.map_kind, georef.scale_denominator));
+            for list in [&mut candidates, &mut map] {
+                cut_lines_at_ways(
+                    list,
+                    &CONTOUR_CODES,
+                    &rock.stops,
+                    min_contour_m,
+                    georef,
+                    symbol_set,
+                );
+            }
+        }
+        hide_landforms_on_rock(&mut map, &mut candidates, &rock.mask, georef);
         cut_lines_at_ways(
             &mut map,
             &NORTH_LINE_CODES,

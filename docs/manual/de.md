@@ -601,13 +601,19 @@ freemapper run dammheide --pdf-candidates
   zurück. Bei einer fertigen Karte danach `freemapper run <ordner> --force` (oder `derive` und `export --force`). Der Kartenrand nennt den Abstand („Äquidistanz 2,5 m“). Weicht er vom Standard ab, steht er
   nach `derive` auch als `[contours] interval_m` in der `freemapper.toml`; freemapper-print liest ihn dort.
 - **Felswände** aus OpenStreetMap werden generalisiert (ADR 0126): Im Felsgebiet stehen sie dort Wand für Wand, an
-  der Bastei mehr als 2000. Eine Wand, an der das Gelände um weniger als 3 m abfällt, eine kürzere als 0,6 mm und
-  eine, die näher als 0,25 mm an einer höheren Wand oder 0,15 mm an einem Felsturm liegt (ISOM 2017-2, 201 und 206;
-  vergrößert wie die Symbole), kommt in die Kandidatenkarte, mit dem Grund im Tag `freemapper:generalized`; die
-  Trainings-PDF lässt sie weg. Die höchsten und längsten Wände bleiben zuerst, geglättet: Ein Knick, kürzer als etwa
-  zwei Zacken Abstand, entfällt. Eine geschlossene Wand um einen Felsturm von 0,3 bis 10 mm² wird zum riesigen Block
-  oder Felsturm 206. Die Höhenlinien enden an den hohen Wänden. Für die Höhen behält eine Waldkarte in einem
-  Bundesland, dessen Geländemodell in Kacheln kommt, es als `data/terrain.tif`.
+  der Bastei mehr als 2000. freemapper liest jede Wand am Geländemodell: wie hoch der Fels über seinem Hang steht
+  und welche Seite tiefer liegt; dorthin zeigen die Zacken. Eine Linie wird abschnittsweise beurteilt, Stücke einer
+  Wand werden verbunden. Ein Abschnitt, der weniger als 3 m über seinem Hang steht, kommt in die Kandidatenkarte.
+  Eine geschlossene Wand mit der tiefen Seite außen ist ein Felsturm und wird zur Fläche 206 (auf die Mindestgröße
+  von 0,3 mm² vergrößert, wo er kleiner ist); mit der tiefen Seite innen ist sie eine Senke und bleibt eine Wand.
+  Die höchsten Wände bleiben zuerst; jede hält 0,25 mm Abstand zwischen den Seiten, die einander zugewandt sind
+  (ISOM 2017-2; vergrößert wie die Symbole). Wo nur ihre Linie Platz hat, steht sie als Oberkante 201.3 ohne Zacken,
+  zwei Wände Rücken an Rücken, die enger stehen, werden eine Felsrippe 206, sonst wird eine Wand gekürzt. Die Wände
+  werden geglättet, damit das Zickzack der OSM-Linien verschwindet. Was wegfällt, liegt in der Kandidatenkarte, mit
+  dem Grund im Tag `freemapper:generalized`; die Trainings-PDF lässt es weg. Die Höhenlinien enden unter den
+  gezeichneten Wänden und laufen sonst weiter; Kuppen und Senken aus dem Geländemodell auf dem Fels werden
+  ausgeblendet. Für die Höhen behält eine Waldkarte in einem Bundesland, dessen Geländemodell in Kacheln kommt, es
+  als `data/terrain.tif`.
 - Gebäude, Gewässer, Mauern, Zäune, Stromleitungen, Bahnlinien und Sperrgebiete (520) kommen wie bei der
   Sprintkarte. Bänke, Poller, Laternen und anderes Stadtmobiliar fehlen, ebenso Bäume aus Baumkatastern und
   einzelne OSM-Bäume. Nur ein Baum mit

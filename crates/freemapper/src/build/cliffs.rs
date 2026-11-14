@@ -24,9 +24,12 @@
 //! around the pillars.
 
 use geo::Simplify as _;
-use geo::{Area as _, BoundingRect as _, Buffer as _, Euclidean, Length as _, unary_union};
+use geo::{
+    Area as _, BoundingRect as _, Buffer as _, Distance as _, Euclidean, Length as _, unary_union,
+};
 use geo_types::{Coord, LineString, MultiPolygon, Polygon, Rect};
 
+use crate::build::content::LANDFORM_KEY;
 use crate::build::points::HIDDEN_KEY;
 use crate::build::symbol_measures::{CLIFF_MM, CLIFF_TICK_MM};
 use crate::crs::ProjectedPoint;
@@ -40,6 +43,8 @@ use crate::raster::Raster;
 
 /// The impassable cliff and the gigantic boulder or rock pillar, in plan shape.
 const CLIFF_CODE: &str = "201";
+/// The top line of an impassable cliff, without tags: the norm lets them go where space is short.
+const TOP_LINE_CODE: &str = "201.3";
 const PILLAR_CODE: &str = "206";
 /// Ruling: a cliff that stands less above its slope is no impassable cliff at forest scale.
 pub const MIN_DROP_M: f64 = 3.0;
@@ -56,6 +61,13 @@ const SIDE_DECIDES_M: f64 = 1.0;
 /// ISOM 2017-2, 201: the gap to any other impassable feature and the minimum length.
 const CLIFF_GAP_MM: SymbolMm = SymbolMm(0.25);
 const CLIFF_MIN_LENGTH_MM: SymbolMm = SymbolMm(0.6);
+/// Ruling: a piece of a cut cliff is kept from this length; at 0.6 mm it would carry one or two
+/// tags and print as a stub (the tags stand 0.5 mm apart).
+const PIECE_MIN_LENGTH_MM: SymbolMm = SymbolMm(1.0);
+/// Ruling: a top line without tags is kept from this length; shorter ones read as dashes, and
+/// without tags nothing tells them from a wall or a piece of path (tried on the Bastei: at 1 mm
+/// 122 top lines, mostly short strokes).
+const TOP_LINE_MIN_LENGTH_MM: SymbolMm = SymbolMm(2.0);
 /// ISOM 2017-2, 206: the minimum width and area, and the gap between pillars (the contours keep
 /// it too).
 const PILLAR_GAP_MM: SymbolMm = SymbolMm(0.15);
@@ -78,8 +90,10 @@ const SIMPLIFY_MM: PaperMm = PaperMm(0.1);
 /// How often along a cliff the profile is read, and the gap tested (ground metres).
 const PROFILE_STEP_M: f64 = 2.0;
 const GAP_STEP_M: f64 = 1.0;
-/// The value of [`HIDDEN_KEY`] on a cliff the generalization took off the map.
+/// The value of [`HIDDEN_KEY`] on a cliff the generalization took off the map, and on a knoll
+/// or depression of the terrain model that stands on the rock.
 pub const GENERALIZED: &str = "generalized";
+pub const ROCK: &str = "rock";
 const GENERALIZED_KEY: &str = "freemapper:generalized";
 /// On a cliff turned by its profile: `orient_ticks` leaves it as it is.
 pub const TICKS_KEY: &str = "freemapper:ticks";
@@ -107,13 +121,16 @@ struct Cliff {
     closed: bool,
     /// `None` without terrain: then every cliff counts as tall and the longest go first.
     profile: Option<Profile>,
+    /// The length of the smoothed line, and of the line as OSM drew it (the minimum length is
+    /// measured on that one: smoothing shortens a crooked face).
     length_m: f64,
+    outline_length_m: f64,
     frame: Rect<f64>,
 }
 
 impl Cliff {
     fn tall(&self) -> bool {
-        self.profile.is_none_or(|p| p.excess_m >= MIN_DROP_M)
+        tall_profile(self.profile)
     }
 
     /// The order in which cliffs are kept (ruling): height counts twice, so a high face goes
@@ -124,14 +141,29 @@ impl Cliff {
     }
 }
 
-/// What becomes of an OSM cliff of the map.
-enum Fate {
-    /// It stays as it is (another map kind, or its new geometry could not be written).
-    Stays,
-    /// Its cliff, pieces or pillar replace it; the replacements are added to the map, and when
-    /// none stays the joined cliff goes to the candidates.
-    Replaced,
+/// A cliff kept on the map: its line, frame, and whether it has its tags (a top line has none).
+struct Kept {
+    line: LineString<f64>,
+    frame: Rect<f64>,
+    tags: bool,
 }
+
+/// How much room a cliff has at one place, against the cliffs and pillars kept before.
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum Room {
+    /// Room for its line and tags.
+    Free,
+    /// Room for its line only: there it is a top line without tags.
+    LineOnly,
+    /// Back to back with a kept cliff, closer than the gap: with it, one rock fin; the point
+    /// of the kept cliff across.
+    Fin(Coord<f64>),
+    /// No room.
+    Blocked,
+}
+
+/// The plan shape of a pillar and whether it was enlarged to the norm's minimum.
+type Pillar = (Polygon<f64>, bool);
 
 /// How far a cliff reaches from its centre line on each side, with the gap the norm keeps:
 /// the line (half its width) on the left, the tags on the right.
@@ -141,9 +173,20 @@ struct Reach {
     gap_m: f64,
 }
 
+/// Where the rock stands, as [`generalize_cliffs`] found it (map CRS).
+#[derive(Debug, Default)]
+pub struct Rock {
+    /// Where the contours stop: below every cliff drawn, from its line to the end of its tags,
+    /// and around the pillars.
+    pub stops: Vec<Polygon<f64>>,
+    /// Around every tall cliff and pillar, drawn or not, as far as the tags reach: the knolls and
+    /// depressions of the terrain model there are the tops and clefts of the rock.
+    pub mask: Vec<Polygon<f64>>,
+}
+
 /// Generalizes the impassable cliffs on the forest map (`map`); the ones that go are moved to
 /// `candidates`. `terrain` is the height model of the project, in the map's CRS; without it every
-/// cliff counts as tall and keeps the way OSM drew it. Returns where the contours stop.
+/// cliff counts as tall and keeps the way OSM drew it. Returns where the rock stands.
 pub fn generalize_cliffs(
     map: &mut Vec<MapObject>,
     candidates: &mut Vec<MapObject>,
@@ -151,12 +194,12 @@ pub fn generalize_cliffs(
     map_kind: MapKind,
     georef: &Georeferencing,
     symbol_set: &SymbolSet,
-) -> Vec<Polygon<f64>> {
+) -> Rock {
     let Some(cliff_id) = symbol_set.id_for_code(CLIFF_CODE) else {
-        return Vec::new();
+        return Rock::default();
     };
     if map_kind != MapKind::Forest {
-        return Vec::new();
+        return Rock::default();
     }
     let scale = SymbolScale::new(map_kind, georef.scale_denominator);
     let per_mm = scale.metres_per_symbol_mm();
@@ -167,6 +210,7 @@ pub fn generalize_cliffs(
     };
     let tolerance = SIMPLIFY_MM.metres(georef.scale_denominator);
     let sigma_m = SMOOTH_SIGMA_MM.metres(scale);
+    let min_length_m = CLIFF_MIN_LENGTH_MM.metres(scale);
 
     // The OSM cliffs, turned by their profile.
     let mut pieces: Vec<(usize, LineString<f64>, bool, Option<Profile>)> = Vec::new();
@@ -195,15 +239,20 @@ pub fn generalize_cliffs(
         if closed && points.first() != points.last() {
             points.push(points[0]);
         }
-        let mut outline = LineString::new(points);
-        let profile = terrain.and_then(|t| profile(&outline, t));
-        if profile.is_some_and(|p| p.lower_right == Some(false)) {
-            outline.0.reverse();
+        let outline = LineString::new(points);
+        let parts = match terrain {
+            Some(t) => stretches(&outline, closed, t, min_length_m),
+            None => vec![(outline, closed, None)],
+        };
+        for (mut line, closed, profile) in parts {
+            if profile.is_some_and(|p| p.lower_right == Some(false)) {
+                line.0.reverse();
+            }
+            pieces.push((index, line, closed, profile));
         }
-        pieces.push((index, outline, closed, profile));
     }
     if pieces.is_empty() {
-        return Vec::new();
+        return Rock::default();
     }
     let cliffs: Vec<Cliff> = join_pieces(pieces)
         .into_iter()
@@ -222,6 +271,7 @@ pub fn generalize_cliffs(
             Some(Cliff {
                 members,
                 length_m: Euclidean.length(&line),
+                outline_length_m: Euclidean.length(&outline),
                 line,
                 outline,
                 closed,
@@ -231,7 +281,9 @@ pub fn generalize_cliffs(
         })
         .collect();
 
-    let mut fates: Vec<Option<Fate>> = (0..map.len()).map(|_| None).collect();
+    // The OSM cliffs the generalization replaced: by the cliffs, pieces and pillars it adds to the
+    // map and the candidates.
+    let mut replaced = vec![false; map.len()];
     let mut added_map: Vec<MapObject> = Vec::new();
     let mut added_candidates: Vec<MapObject> = Vec::new();
     let to_map = |line: &LineString<f64>, closed: bool| -> Option<Vec<MapCoord>> {
@@ -262,10 +314,10 @@ pub fn generalize_cliffs(
     // The object a cliff is written as: its first piece, with the ids of all.
     let object_of = |cliff: &Cliff, map: &[MapObject]| -> MapObject {
         let mut object = map[cliff.members[0]].clone();
+        if let Some(coords) = to_map(&cliff.outline, cliff.closed) {
+            object.coords = coords;
+        }
         if cliff.members.len() > 1 {
-            if let Some(coords) = to_map(&cliff.outline, cliff.closed) {
-                object.coords = coords;
-            }
             let ids: Vec<String> = cliff
                 .members
                 .iter()
@@ -293,99 +345,169 @@ pub fn generalize_cliffs(
         object
     };
 
-    // Low cliffs go; the closed tall ones with the lower side outside become pillars.
+    // Low cliffs go. The tall ones are ranked together, walls and pillars (a closed cliff with the
+    // lower side outside), the highest first: a pillar or a wall that comes too close to one kept
+    // before gives way, a wall by being cut where it comes too close.
     let pillar_id = symbol_set.id_for_code(PILLAR_CODE);
     let min_area = PILLAR_MIN_AREA_MM2.square_metres(scale);
     let max_area = PILLAR_MAX_AREA_MM2.square_metres(scale);
     let half_width = PILLAR_MIN_WIDTH_MM.metres(scale) / 2.0;
-    let mut pillars: Vec<Polygon<f64>> = Vec::new();
+    let pillar_gap_m = PILLAR_GAP_MM.metres(scale);
+    let piece_min_m = PIECE_MIN_LENGTH_MM.metres(scale);
+    let mut order: Vec<(&Cliff, Option<Pillar>)> = Vec::new();
+    // Where a rock face stands, kept or not: the terrain's knolls there are its tops and clefts.
+    let mut mask: Vec<Polygon<f64>> = Vec::new();
     for cliff in &cliffs {
+        mark(&mut replaced, cliff);
         if !cliff.tall() {
             let reason = format!("cliff lower than {MIN_DROP_M} m above its slope");
-            let object = hide(object_of(cliff, map), reason);
-            added_candidates.push(object);
-            mark(&mut fates, cliff, || Fate::Replaced);
+            added_candidates.push(hide(object_of(cliff, map), reason));
             continue;
         }
-        let Some(pillar_id) = pillar_id else { continue };
         // Lower side on the right and the ring counter-clockwise: the rock is inside.
         let shape = Polygon::new(cliff.outline.clone(), Vec::new());
-        let outward = cliff.closed && shape.signed_area() > 0.0;
-        if !outward || shape.unsigned_area() > max_area {
+        let pillar = (pillar_id.is_some()
+            && cliff.closed
+            && shape.signed_area() > 0.0
+            && shape.unsigned_area() <= max_area)
+            .then(|| to_minimum(shape, min_area, half_width));
+        match &pillar {
+            Some((shape, _)) => mask.extend(shape.buffer(reach.tags_m).0),
+            None => mask.extend(cliff.line.buffer(reach.tags_m).0),
+        }
+        order.push((cliff, pillar));
+    }
+    order.sort_by(|a, b| b.0.weight().total_cmp(&a.0.weight()));
+    let mut kept: Vec<Kept> = Vec::new();
+    let top_line_id = symbol_set.id_for_code(TOP_LINE_CODE);
+    let mut kept_pillars: Vec<Polygon<f64>> = Vec::new();
+    let mut stops: Vec<Polygon<f64>> = Vec::new();
+    let ticks_by_profile = |cliff: &Cliff, object: &mut MapObject| {
+        if cliff.profile.is_some_and(|p| p.lower_right.is_some()) {
+            object
+                .tags
+                .push((TICKS_KEY.to_string(), TICKS_BY_PROFILE.to_string()));
+        }
+    };
+    for (cliff, pillar) in order {
+        let object = object_of(cliff, map);
+        if let Some((shape, enlarged)) = pillar {
+            let blocked = resample(shape.exterior(), GAP_STEP_M, true)
+                .into_iter()
+                .any(|(p, _)| kept.iter().any(|k| beside(p, k, &reach)))
+                || kept_pillars
+                    .iter()
+                    .any(|other| Euclidean.distance(&shape, other) < pillar_gap_m);
+            let coords = to_map(shape.exterior(), true);
+            match (blocked, coords, pillar_id) {
+                (false, Some(coords), Some(pillar_id)) => {
+                    let mut object = object;
+                    object.symbol_id = pillar_id;
+                    object.coords = coords;
+                    object.tags.push((
+                        GENERALIZED_KEY.to_string(),
+                        if enlarged {
+                            "rock pillar from a closed cliff, enlarged to the norm's minimum"
+                                .to_string()
+                        } else {
+                            "rock pillar from a closed cliff".to_string()
+                        },
+                    ));
+                    added_map.push(object);
+                    stops.extend(shape.buffer(pillar_gap_m).0);
+                    kept_pillars.push(shape);
+                }
+                _ => {
+                    let reason = format!(
+                        "rock pillar closer than {} mm to a higher cliff or pillar kept before",
+                        CLIFF_GAP_MM.0
+                    );
+                    added_candidates.push(hide(object, reason));
+                }
+            }
             continue;
         }
-        let (shape, enlarged) = to_minimum(shape, min_area, half_width);
-        let Some(coords) = to_map(shape.exterior(), true) else {
-            continue;
-        };
-        let mut object = object_of(cliff, map);
-        object.symbol_id = pillar_id;
-        object.coords = coords;
-        object.tags.push((
-            GENERALIZED_KEY.to_string(),
-            if enlarged {
-                "rock pillar from a closed cliff, enlarged to the norm's minimum".to_string()
-            } else {
-                "rock pillar from a closed cliff".to_string()
-            },
-        ));
-        added_map.push(object);
-        pillars.push(shape);
-        mark(&mut fates, cliff, || Fate::Replaced);
-    }
-
-    // The other tall cliffs keep the gap, the highest first; where one comes too close it is
-    // cut, and its pieces of the minimum length stay.
-    let min_length_m = CLIFF_MIN_LENGTH_MM.metres(scale);
-    let mut order: Vec<&Cliff> = cliffs
-        .iter()
-        .filter(|c| c.members.iter().all(|&i| fates[i].is_none()))
-        .collect();
-    order.sort_by(|a, b| b.weight().total_cmp(&a.weight()));
-    let mut kept: Vec<(LineString<f64>, Rect<f64>)> = Vec::new();
-    for cliff in order {
-        let object = object_of(cliff, map);
-        if cliff.length_m < min_length_m {
+        if cliff.outline_length_m < min_length_m {
             let reason = format!("cliff shorter than {} mm", CLIFF_MIN_LENGTH_MM.0);
             added_candidates.push(hide(object, reason));
-            mark(&mut fates, cliff, || Fate::Replaced);
             continue;
         }
         let samples = resample(&cliff.line, GAP_STEP_M, cliff.closed);
-        let clear: Vec<bool> = samples
+        let rooms: Vec<Room> = samples
             .iter()
-            .map(|&(p, d)| {
-                !kept
-                    .iter()
-                    .any(|(k, frame)| too_close(p, d, k, frame, &reach))
-                    && !pillars
-                        .iter()
-                        .any(|pillar| near_polygon(p, d, pillar, &reach))
-            })
+            .map(|&(p, d)| room(p, d, &kept, &kept_pillars, &reach))
             .collect();
-        if clear.iter().all(|&c| c) {
-            let Some(coords) = to_map(&cliff.line, cliff.closed) else {
-                mark(&mut fates, cliff, || Fate::Stays);
-                continue;
-            };
+        if rooms.iter().all(|r| matches!(r, Room::Free)) {
             let mut object = object;
-            object.coords = coords;
-            if cliff.profile.is_some_and(|p| p.lower_right.is_some()) {
-                object
-                    .tags
-                    .push((TICKS_KEY.to_string(), TICKS_BY_PROFILE.to_string()));
+            if let Some(coords) = to_map(&cliff.line, cliff.closed) {
+                object.coords = coords;
             }
+            ticks_by_profile(cliff, &mut object);
             added_map.push(object);
-            kept.push((cliff.line.clone(), cliff.frame));
-            mark(&mut fates, cliff, || Fate::Replaced);
+            stops.extend(below(&cliff.line, &reach));
+            kept.push(Kept {
+                line: cliff.line.clone(),
+                frame: cliff.frame,
+                tags: true,
+            });
             continue;
         }
-        let runs: Vec<LineString<f64>> = clear_runs(&samples, &clear, cliff.closed)
-            .into_iter()
-            .map(|run| LineString::new(run).simplify(tolerance))
-            .filter(|run| Euclidean.length(run) >= min_length_m)
-            .collect();
-        let reason = if runs.is_empty() {
+        let mut stays = 0;
+        // Back to back with a kept cliff and closer than the gap: the two are one rock fin.
+        for fin in fins(&samples, &rooms, min_length_m) {
+            let (shape, _) = to_minimum(fin, 0.0, half_width);
+            let (Some(pillar_id), Some(coords)) = (pillar_id, to_map(shape.exterior(), true))
+            else {
+                continue;
+            };
+            let mut body = object.clone();
+            body.symbol_id = pillar_id;
+            body.coords = coords;
+            body.tags.push((
+                GENERALIZED_KEY.to_string(),
+                "rock fin between two cliffs back to back".to_string(),
+            ));
+            added_map.push(body);
+            stops.extend(shape.buffer(pillar_gap_m).0);
+            kept_pillars.push(shape);
+            stays += 1;
+        }
+        // The rest keeps its tags where they have room and is a top line without tags where
+        // only the line has.
+        let top_line_min_m = TOP_LINE_MIN_LENGTH_MM.metres(scale);
+        for (run, tags) in room_pieces(&samples, &rooms, piece_min_m, top_line_min_m, cliff.closed)
+        {
+            let run = run.simplify(tolerance);
+            let symbol = if tags { Some(cliff_id) } else { top_line_id };
+            let (Some(symbol), Some(coords), Some(frame)) =
+                (symbol, to_map(&run, false), run.bounding_rect())
+            else {
+                continue;
+            };
+            let mut piece = object.clone();
+            piece.symbol_id = symbol;
+            piece.coords = coords;
+            piece.tags.push((
+                GENERALIZED_KEY.to_string(),
+                if tags {
+                    "piece of a cut cliff".to_string()
+                } else {
+                    "piece of a cut cliff, the top line only: its tags have no room".to_string()
+                },
+            ));
+            if tags {
+                ticks_by_profile(cliff, &mut piece);
+            }
+            added_map.push(piece);
+            stops.extend(below(&run, &reach));
+            kept.push(Kept {
+                line: run,
+                frame,
+                tags,
+            });
+            stays += 1;
+        }
+        let reason = if stays == 0 {
             format!(
                 "cliff closer than {} mm to a cliff or rock pillar kept before",
                 CLIFF_GAP_MM.0
@@ -393,60 +515,79 @@ pub fn generalize_cliffs(
         } else {
             format!(
                 "cliff cut where it came closer than {} mm to a cliff or rock pillar kept \
-                 before; {} piece(s) stay",
-                CLIFF_GAP_MM.0,
-                runs.len()
+                 before; {stays} piece(s) stay",
+                CLIFF_GAP_MM.0
             )
         };
-        for run in runs {
-            let Some(coords) = to_map(&run, false) else {
-                continue;
-            };
-            let Some(frame) = run.bounding_rect() else {
-                continue;
-            };
-            let mut piece = object.clone();
-            piece.coords = coords;
-            piece.tags.push((
-                GENERALIZED_KEY.to_string(),
-                "piece of a cut cliff".to_string(),
-            ));
-            if cliff.profile.is_some_and(|p| p.lower_right.is_some()) {
-                piece
-                    .tags
-                    .push((TICKS_KEY.to_string(), TICKS_BY_PROFILE.to_string()));
-            }
-            added_map.push(piece);
-            kept.push((run, frame));
-        }
         added_candidates.push(hide(object, reason));
-        mark(&mut fates, cliff, || Fate::Replaced);
     }
-
-    // Where the contours stop: below every tall cliff, kept or not (the rock face is there),
-    // from its line to the end of its tags, and around the pillars.
-    let mut rock: Vec<Polygon<f64>> = cliffs
-        .iter()
-        .filter(|c| c.tall() && !(c.closed && pillars.iter().any(|p| p.exterior() == &c.outline)))
-        .flat_map(|c| below(&c.line, &reach))
-        .collect();
-    rock.extend(
-        pillars
-            .iter()
-            .flat_map(|p| p.buffer(PILLAR_GAP_MM.metres(scale)).0),
-    );
 
     let mut kept_map = Vec::with_capacity(map.len());
     for (index, object) in map.drain(..).enumerate() {
-        match fates[index].take() {
-            None | Some(Fate::Stays) => kept_map.push(object),
-            Some(Fate::Replaced) => {}
+        if !replaced[index] {
+            kept_map.push(object);
         }
     }
     kept_map.extend(added_map);
     candidates.extend(added_candidates);
     *map = kept_map;
-    rock
+    Rock { stops, mask }
+}
+
+/// Hides the knolls and depressions of the terrain model (`freemapper:landform`) that stand in
+/// `mask`: in rock country they are the tops of the towers and the clefts between them. One on the
+/// map goes to the candidates; in the candidates it is hidden from the training map
+/// ([`HIDDEN_KEY`]` = rock`). Returns how many.
+pub fn hide_landforms_on_rock(
+    map: &mut Vec<MapObject>,
+    candidates: &mut Vec<MapObject>,
+    mask: &[Polygon<f64>],
+    georef: &Georeferencing,
+) -> usize {
+    use geo::Contains as _;
+    if mask.is_empty() {
+        return 0;
+    }
+    let frames: Vec<Option<Rect<f64>>> = mask.iter().map(|m| m.bounding_rect()).collect();
+    let on_rock = |o: &MapObject| -> bool {
+        if !matches!(o.kind, MapObjectKind::Point { .. })
+            || !o.tags.iter().any(|(k, _)| k == LANDFORM_KEY)
+            || o.tags.iter().any(|(k, _)| k == HIDDEN_KEY)
+        {
+            return false;
+        }
+        let Some(&c) = o.coords.first() else {
+            return false;
+        };
+        let p = georef.map_to_projected(c);
+        let point = geo_types::Point::new(p.easting, p.northing);
+        mask.iter().zip(&frames).any(|(m, frame)| {
+            frame.is_some_and(|f| {
+                f.min().x <= p.easting
+                    && p.easting <= f.max().x
+                    && f.min().y <= p.northing
+                    && p.northing <= f.max().y
+            }) && m.contains(&point)
+        })
+    };
+    let mut hidden = 0;
+    let mark_rock = |o: &mut MapObject| {
+        o.tags.push((HIDDEN_KEY.to_string(), ROCK.to_string()));
+    };
+    let (moved, stay): (Vec<MapObject>, Vec<MapObject>) = map.drain(..).partition(on_rock);
+    *map = stay;
+    for mut o in moved {
+        mark_rock(&mut o);
+        candidates.push(o);
+        hidden += 1;
+    }
+    for o in candidates.iter_mut() {
+        if on_rock(o) {
+            mark_rock(o);
+            hidden += 1;
+        }
+    }
+    hidden
 }
 
 /// The value of `key` on `object`.
@@ -487,8 +628,10 @@ fn join_pieces(
             continue;
         }
         let end = la.0[la.0.len() - 1];
-        for (b, (_, lb, cb, _)) in pieces.iter().enumerate() {
-            if a == b || *cb || lb.0.len() < 2 {
+        let tall_a = tall_profile(pieces[a].3);
+        for (b, (_, lb, cb, pb)) in pieces.iter().enumerate() {
+            // Only stretches of one class join: a tall face and the low ground beside it stay apart.
+            if a == b || *cb || lb.0.len() < 2 || tall_profile(*pb) != tall_a {
                 continue;
             }
             let start = lb.0[0];
@@ -556,19 +699,30 @@ fn join_pieces(
         .collect()
 }
 
-/// Marks every OSM cliff `cliff` is made of with `fate`.
-fn mark(fates: &mut [Option<Fate>], cliff: &Cliff, fate: impl Fn() -> Fate) {
+/// Whether a profile counts as tall; without one every cliff does.
+fn tall_profile(profile: Option<Profile>) -> bool {
+    profile.is_none_or(|p| p.excess_m >= MIN_DROP_M)
+}
+
+/// Marks every OSM cliff `cliff` is made of as replaced.
+fn mark(replaced: &mut [bool], cliff: &Cliff) {
     for &i in &cliff.members {
-        fates[i] = Some(fate());
+        replaced[i] = true;
     }
 }
 
-/// The profile of `line` on `terrain` (see [`Profile`]), from a cross profile every
-/// [`PROFILE_STEP_M`]; `None` where the terrain says nothing.
-fn profile(line: &LineString<f64>, terrain: &Raster<f32>) -> Option<Profile> {
-    let mut right: Vec<f64> = Vec::new();
-    let mut left: Vec<f64> = Vec::new();
+/// The cross profile of `line` on `terrain` every [`PROFILE_STEP_M`]: how far along the line,
+/// and how much more the ground drops to the right and to the left than the slope beside it.
+/// Samples where the terrain says nothing are left out.
+fn profile_samples(line: &LineString<f64>, terrain: &Raster<f32>) -> Vec<(f64, f64, f64)> {
+    let mut out = Vec::new();
+    let mut along = 0.0;
+    let mut last: Option<Coord<f64>> = None;
     for (p, d) in resample(line, PROFILE_STEP_M, false) {
+        if let Some(q) = last {
+            along += (p.x - q.x).hypot(p.y - q.y);
+        }
+        last = Some(p);
         // The right of the way (east, north) is (north, −east).
         let (nx, ny) = (d.1, -d.0);
         let heights: Option<Vec<f64>> = (-PROFILE_M..=PROFILE_M)
@@ -588,15 +742,198 @@ fn profile(line: &LineString<f64>, terrain: &Raster<f32>) -> Option<Profile> {
         // What the slope drops over the same distance to the right, beside the face.
         let trend =
             (at(-TREND_FAR_M) - at(-TREND_NEAR_M) + at(TREND_NEAR_M) - at(TREND_FAR_M)) / 2.0;
-        right.push(down_right - trend.max(0.0));
-        left.push(down_left - (-trend).max(0.0));
+        out.push((
+            along,
+            down_right - trend.max(0.0),
+            down_left - (-trend).max(0.0),
+        ));
     }
-    let (right, left) = (median(right)?, median(left)?);
+    out
+}
+
+/// The [`Profile`] of profile samples: the medians of both sides.
+fn aggregate(samples: &[(f64, f64, f64)]) -> Option<Profile> {
+    let right = median(samples.iter().map(|s| s.1).collect())?;
+    let left = median(samples.iter().map(|s| s.2).collect())?;
     let lower_right = ((right - left).abs() >= SIDE_DECIDES_M).then_some(right > left);
     Some(Profile {
         excess_m: right.max(left),
         lower_right,
     })
+}
+
+/// The profile of `line` on `terrain` (see [`Profile`]); `None` where the terrain says nothing.
+fn profile(line: &LineString<f64>, terrain: &Raster<f32>) -> Option<Profile> {
+    aggregate(&profile_samples(line, terrain))
+}
+
+/// `line` cut into stretches where its height or its lower side changes along it: a way that
+/// runs from a face onto the slope above it, or round a tower and across the ridge behind. A
+/// stretch shorter than `min_run_m` takes the class of its longer neighbour, so the class does
+/// not flicker. Each stretch with its profile, whether closed (only a line of one class that was
+/// closed stays closed).
+#[allow(clippy::type_complexity)]
+fn stretches(
+    outline: &LineString<f64>,
+    closed: bool,
+    terrain: &Raster<f32>,
+    min_run_m: f64,
+) -> Vec<(LineString<f64>, bool, Option<Profile>)> {
+    let samples = profile_samples(outline, terrain);
+    if samples.is_empty() {
+        return vec![(outline.clone(), closed, None)];
+    }
+    // The class of each sample: tall or not, and for a tall one the lower side, which an
+    // undecided sample takes from the decided ones before or after it.
+    let mut classes: Vec<(bool, Option<bool>)> = samples
+        .iter()
+        .map(|&(_, r, l)| {
+            let tall = r.max(l) >= MIN_DROP_M;
+            let side = ((r - l).abs() >= SIDE_DECIDES_M).then_some(r > l);
+            (tall, if tall { side } else { None })
+        })
+        .collect();
+    for pass in 0..2 {
+        let mut last: Option<bool> = None;
+        let indices: Vec<usize> = if pass == 0 {
+            (0..classes.len()).collect()
+        } else {
+            (0..classes.len()).rev().collect()
+        };
+        for i in indices {
+            if !classes[i].0 {
+                last = None;
+                continue;
+            }
+            match classes[i].1 {
+                Some(side) => last = Some(side),
+                None => classes[i].1 = last,
+            }
+        }
+    }
+    // Runs of one class: (first sample, last sample, class); then the short ones merge.
+    let mut runs: Vec<(usize, usize, (bool, Option<bool>))> = Vec::new();
+    for (i, class) in classes.iter().enumerate() {
+        match runs.last_mut() {
+            Some(run) if run.2 == *class => run.1 = i,
+            _ => runs.push((i, i, *class)),
+        }
+    }
+    let span = |run: &(usize, usize, (bool, Option<bool>))| {
+        samples[run.1].0 - samples[run.0].0 + PROFILE_STEP_M
+    };
+    while runs.len() > 1 {
+        let Some((k, _)) = runs
+            .iter()
+            .enumerate()
+            .filter(|(_, r)| span(r) < min_run_m)
+            .min_by(|a, b| span(a.1).total_cmp(&span(b.1)))
+        else {
+            break;
+        };
+        let into = match (k.checked_sub(1), runs.get(k + 1)) {
+            (Some(before), Some(after)) => {
+                if span(&runs[before]) >= span(after) {
+                    before
+                } else {
+                    k + 1
+                }
+            }
+            (Some(before), None) => before,
+            (None, _) => k + 1,
+        };
+        let (lo, hi) = (k.min(into), k.max(into));
+        let class = runs[into].2;
+        runs[lo] = (runs[lo].0, runs[hi].1, class);
+        runs.remove(hi);
+        // Neighbours of one class join.
+        let mut joined: Vec<(usize, usize, (bool, Option<bool>))> = Vec::new();
+        for run in runs.drain(..) {
+            match joined.last_mut() {
+                Some(last) if last.2 == run.2 => last.1 = run.1,
+                _ => joined.push(run),
+            }
+        }
+        runs = joined;
+    }
+    let total = Euclidean.length(outline);
+    let profile_of = |from: usize, to: usize, class: (bool, Option<bool>)| {
+        aggregate(&samples[from..=to]).map(|p| Profile {
+            lower_right: if class.0 { class.1 } else { p.lower_right },
+            ..p
+        })
+    };
+    if runs.len() == 1 {
+        return vec![(
+            outline.clone(),
+            closed,
+            profile_of(0, samples.len() - 1, runs[0].2),
+        )];
+    }
+    // Cut halfway between the last sample of a run and the first of the next.
+    let cut = |k: usize| (samples[runs[k].1].0 + samples[runs[k + 1].0].0) / 2.0;
+    let mut out = Vec::new();
+    let n = runs.len();
+    let wraps = closed && runs[0].2 == runs[n - 1].2;
+    for k in 0..n {
+        let start = if k == 0 { 0.0 } else { cut(k - 1) };
+        let end = if k == n - 1 { total } else { cut(k) };
+        if wraps && k == n - 1 {
+            continue;
+        }
+        let (line, from) = if wraps && k == 0 {
+            let mut coords = substring(outline, cut(n - 2), total).0;
+            coords.extend(substring(outline, 0.0, end).0.into_iter().skip(1));
+            (LineString::new(coords), runs[n - 1].0)
+        } else {
+            (substring(outline, start, end), runs[k].0)
+        };
+        let profile = if wraps && k == 0 {
+            let mut both: Vec<(f64, f64, f64)> = samples[from..].to_vec();
+            both.extend_from_slice(&samples[..=runs[0].1]);
+            aggregate(&both).map(|p| Profile {
+                lower_right: if runs[0].2.0 {
+                    runs[0].2.1
+                } else {
+                    p.lower_right
+                },
+                ..p
+            })
+        } else {
+            profile_of(runs[k].0, runs[k].1, runs[k].2)
+        };
+        if line.0.len() >= 2 {
+            out.push((line, false, profile));
+        }
+    }
+    out
+}
+
+/// The part of `line` from `from` to `to` metres along it.
+fn substring(line: &LineString<f64>, from: f64, to: f64) -> LineString<f64> {
+    let mut out: Vec<Coord<f64>> = Vec::new();
+    let mut along = 0.0;
+    for segment in line.lines() {
+        let length = segment.dx().hypot(segment.dy());
+        let (a, b) = (along, along + length);
+        along = b;
+        if b < from || a > to || length < 1e-9 {
+            continue;
+        }
+        let at = |d: f64| {
+            let t = ((d - a) / length).clamp(0.0, 1.0);
+            Coord {
+                x: segment.start.x + segment.dx() * t,
+                y: segment.start.y + segment.dy() * t,
+            }
+        };
+        if out.is_empty() {
+            out.push(at(from.max(a)));
+        }
+        out.push(at(to.min(b)));
+    }
+    out.dedup();
+    LineString::new(out)
 }
 
 fn median(mut values: Vec<f64>) -> Option<f64> {
@@ -617,16 +954,15 @@ fn to_minimum(shape: Polygon<f64>, min_area: f64, half_width: f64) -> (Polygon<f
         shape = shape.scale((min_area / area).sqrt());
         enlarged = true;
     }
-    if shape.buffer(-half_width).unsigned_area() <= 0.0 {
-        if let Some(wider) = shape
+    if shape.buffer(-half_width).unsigned_area() <= 0.0
+        && let Some(wider) = shape
             .buffer(half_width)
             .0
             .into_iter()
             .max_by(|a, b| a.unsigned_area().total_cmp(&b.unsigned_area()))
-        {
-            shape = wider;
-            enlarged = true;
-        }
+    {
+        shape = wider;
+        enlarged = true;
     }
     (shape, enlarged)
 }
@@ -654,10 +990,8 @@ fn resample(line: &LineString<f64>, step: f64, closed: bool) -> Vec<(Coord<f64>,
             ));
         }
     }
-    if !closed && let Some(last) = line.0.last() {
-        if let Some(&(_, d)) = out.last() {
-            out.push((*last, d));
-        }
+    if !closed && let (Some(last), Some(&(_, d))) = (line.0.last(), out.last()) {
+        out.push((*last, d));
     }
     out
 }
@@ -691,16 +1025,217 @@ fn on_right(from: Coord<f64>, d: (f64, f64), to: Coord<f64>) -> bool {
     (to.x - from.x) * d.1 - (to.y - from.y) * d.0 > 0.0
 }
 
-/// Whether a cliff at `p`, running `d`, comes closer to the kept cliff `kept` than the norm's
-/// gap between the sides that face each other: the line or the tags of each.
-fn too_close(
+/// How much room a cliff at `p`, running `d`, has against the `kept` cliffs and `pillars`: the
+/// norm's gap between the sides that face each other, the line or the tags of each.
+fn room(
     p: Coord<f64>,
     d: (f64, f64),
-    kept: &LineString<f64>,
-    frame: &Rect<f64>,
+    kept: &[Kept],
+    pillars: &[Polygon<f64>],
     reach: &Reach,
-) -> bool {
+) -> Room {
+    use geo::Contains as _;
+    let rank = |r: &Room| match r {
+        Room::Free => 0,
+        Room::LineOnly => 1,
+        Room::Fin(_) => 2,
+        Room::Blocked => 3,
+    };
+    let mut worst = Room::Free;
     let most = reach.gap_m + 2.0 * reach.tags_m;
+    for k in kept {
+        let f = &k.frame;
+        if p.x < f.min().x - most
+            || p.x > f.max().x + most
+            || p.y < f.min().y - most
+            || p.y > f.max().y + most
+        {
+            continue;
+        }
+        let Some((distance, q, e)) = nearest(&k.line, p) else {
+            continue;
+        };
+        let p_below_kept = on_right(q, e, p);
+        let q_below_own = on_right(p, d, q);
+        let kept_side = if k.tags && p_below_kept {
+            reach.tags_m
+        } else {
+            reach.line_m
+        };
+        let own_side = if q_below_own {
+            reach.tags_m
+        } else {
+            reach.line_m
+        };
+        if distance >= reach.gap_m + kept_side + own_side {
+            continue;
+        }
+        let here = if !p_below_kept && !q_below_own {
+            Room::Fin(q)
+        } else if distance >= reach.gap_m + kept_side + reach.line_m {
+            Room::LineOnly
+        } else {
+            Room::Blocked
+        };
+        if rank(&here) > rank(&worst) {
+            worst = here;
+        }
+    }
+    for pillar in pillars {
+        if pillar.contains(&geo_types::Point::from(p)) {
+            return Room::Blocked;
+        }
+        let Some((distance, q, _)) = nearest(pillar.exterior(), p) else {
+            continue;
+        };
+        let own_side = if on_right(p, d, q) {
+            reach.tags_m
+        } else {
+            reach.line_m
+        };
+        if distance >= reach.gap_m + own_side {
+            continue;
+        }
+        let here = if distance >= reach.gap_m + reach.line_m {
+            Room::LineOnly
+        } else {
+            Room::Blocked
+        };
+        if rank(&here) > rank(&worst) {
+            worst = here;
+        }
+    }
+    worst
+}
+
+/// The rock fins along a cliff: runs of [`Room::Fin`] samples at least `min_length_m` long, each
+/// the strip between the cliff and the kept cliff across.
+fn fins(
+    samples: &[(Coord<f64>, (f64, f64))],
+    rooms: &[Room],
+    min_length_m: f64,
+) -> Vec<Polygon<f64>> {
+    let mut out = Vec::new();
+    let mut run: Vec<(Coord<f64>, Coord<f64>)> = Vec::new();
+    let mut close = |run: &mut Vec<(Coord<f64>, Coord<f64>)>| {
+        let length: f64 = run
+            .windows(2)
+            .map(|w| (w[1].0.x - w[0].0.x).hypot(w[1].0.y - w[0].0.y))
+            .sum();
+        if run.len() >= 2 && length >= min_length_m {
+            let mut ring: Vec<Coord<f64>> = run.iter().map(|(p, _)| *p).collect();
+            ring.extend(run.iter().rev().map(|(_, q)| *q));
+            ring.push(ring[0]);
+            let strip = Polygon::new(LineString::new(ring), Vec::new());
+            // A strip that crosses itself is cleaned by a buffer of nothing.
+            if let Some(clean) = strip
+                .buffer(0.0)
+                .0
+                .into_iter()
+                .max_by(|a, b| a.unsigned_area().total_cmp(&b.unsigned_area()))
+            {
+                out.push(clean);
+            }
+        }
+        run.clear();
+    };
+    for (&(p, _), room) in samples.iter().zip(rooms) {
+        match room {
+            Room::Fin(q) => run.push((p, *q)),
+            _ => close(&mut run),
+        }
+    }
+    close(&mut run);
+    out
+}
+
+/// The pieces of a cliff that stay, with or without tags: runs of [`Room::Free`] samples keep
+/// their tags, runs of free and [`Room::LineOnly`] samples are top lines; a run with tags shorter
+/// than `min_m` loses them, and a top line shorter than `top_min_m` goes.
+fn room_pieces(
+    samples: &[(Coord<f64>, (f64, f64))],
+    rooms: &[Room],
+    min_m: f64,
+    top_min_m: f64,
+    closed: bool,
+) -> Vec<(LineString<f64>, bool)> {
+    let n = samples.len();
+    // 2: tags, 1: line only, 0: nothing.
+    let mut level: Vec<u8> = rooms
+        .iter()
+        .map(|r| match r {
+            Room::Free => 2,
+            Room::LineOnly => 1,
+            Room::Fin(_) | Room::Blocked => 0,
+        })
+        .collect();
+    // A closed line is read from a place without room, so that no run goes round its start.
+    let start = if closed {
+        level.iter().position(|&l| l == 0).unwrap_or(0)
+    } else {
+        0
+    };
+    let order: Vec<usize> = (0..n).map(|k| (start + k) % n).collect();
+    let span = |from: usize, to: usize| -> f64 {
+        (from..to)
+            .map(|k| {
+                let (a, b) = (samples[order[k]].0, samples[order[k + 1]].0);
+                (b.x - a.x).hypot(b.y - a.y)
+            })
+            .sum()
+    };
+    // Runs with tags too short to carry them lose them.
+    let mut k = 0;
+    while k < n {
+        let l = level[order[k]];
+        let from = k;
+        while k + 1 < n && level[order[k + 1]] == l {
+            k += 1;
+        }
+        if l == 2 && span(from, k) < min_m {
+            for i in from..=k {
+                level[order[i]] = 1;
+            }
+        }
+        k += 1;
+    }
+    // Runs of any room; inside them, the parts with tags and the parts without.
+    let mut out = Vec::new();
+    let mut k = 0;
+    while k < n {
+        if level[order[k]] == 0 {
+            k += 1;
+            continue;
+        }
+        let from = k;
+        while k + 1 < n && level[order[k + 1]] != 0 {
+            k += 1;
+        }
+        let to = k;
+        k += 1;
+        let mut part = from;
+        while part <= to {
+            let tags = level[order[part]] == 2;
+            let mut end = part;
+            while end < to && (level[order[end + 1]] == 2) == tags {
+                end += 1;
+            }
+            // A piece reaches to the next sample, so the pieces of one run meet.
+            let last = if end < to { end + 1 } else { end };
+            if span(part, last) >= if tags { min_m } else { top_min_m } {
+                let line: LineString<f64> = (part..=last).map(|i| samples[order[i]].0).collect();
+                out.push((line, tags));
+            }
+            part = end + 1;
+        }
+    }
+    out
+}
+/// Whether the edge of a pillar at `p` comes closer to the kept cliff `kept` than the norm's gap
+/// from the side of the cliff that faces it.
+fn beside(p: Coord<f64>, kept: &Kept, reach: &Reach) -> bool {
+    let (frame, line) = (&kept.frame, &kept.line);
+    let most = reach.gap_m + reach.tags_m;
     if p.x < frame.min().x - most
         || p.x > frame.max().x + most
         || p.y < frame.min().y - most
@@ -708,59 +1243,15 @@ fn too_close(
     {
         return false;
     }
-    let Some((distance, q, e)) = nearest(kept, p) else {
+    let Some((distance, q, e)) = nearest(line, p) else {
         return false;
     };
-    let side = |right: bool| if right { reach.tags_m } else { reach.line_m };
-    distance < reach.gap_m + side(on_right(q, e, p)) + side(on_right(p, d, q))
-}
-
-/// Whether a cliff at `p`, running `d`, comes closer to `pillar` than the norm's gap from its
-/// facing side.
-fn near_polygon(p: Coord<f64>, d: (f64, f64), pillar: &Polygon<f64>, reach: &Reach) -> bool {
-    use geo::Contains as _;
-    if pillar.contains(&geo_types::Point::from(p)) {
-        return true;
-    }
-    let Some((distance, q, _)) = nearest(pillar.exterior(), p) else {
-        return false;
-    };
-    let side = if on_right(p, d, q) {
+    let side = if kept.tags && on_right(q, e, p) {
         reach.tags_m
     } else {
         reach.line_m
     };
     distance < reach.gap_m + side
-}
-
-/// The runs of consecutive clear samples, as point lists; on a closed line a run may go round
-/// its start.
-fn clear_runs(
-    samples: &[(Coord<f64>, (f64, f64))],
-    clear: &[bool],
-    closed: bool,
-) -> Vec<Vec<Coord<f64>>> {
-    let n = samples.len();
-    let first_blocked = clear.iter().position(|c| !c);
-    let start = match (closed, first_blocked) {
-        (_, None) => return vec![samples.iter().map(|s| s.0).collect()],
-        (true, Some(i)) => i,
-        (false, Some(_)) => 0,
-    };
-    let mut runs = Vec::new();
-    let mut run: Vec<Coord<f64>> = Vec::new();
-    for k in 0..n {
-        let i = (start + k) % n;
-        if clear[i] {
-            run.push(samples[i].0);
-        } else if !run.is_empty() {
-            runs.push(std::mem::take(&mut run));
-        }
-    }
-    if !run.is_empty() {
-        runs.push(run);
-    }
-    runs.into_iter().filter(|r| r.len() >= 2).collect()
 }
 
 /// Where a cliff stands on the ground with its symbol: from half its line on the left to the
@@ -934,7 +1425,7 @@ mod tests {
     ) -> (Vec<MapObject>, Vec<Polygon<f64>>) {
         let mut candidates = Vec::new();
         let rock = generalize_cliffs(map, &mut candidates, terrain, f.kind, &f.georef, &f.set);
-        (candidates, rock)
+        (candidates, rock.stops)
     }
 
     fn generalized(o: &MapObject) -> Option<&str> {
@@ -1017,8 +1508,8 @@ mod tests {
             generalized(&candidates[0]),
             Some("cliff closer than 0.25 mm to a cliff or rock pillar kept before")
         );
-        // Both are tall: the contours stop below both.
-        assert!(in_rock(&rock, projected(&f, (0.0, -4.0))));
+        // The contours stop below the cliff drawn only.
+        assert!(!in_rock(&rock, projected(&f, (0.0, -4.0))));
         assert!(in_rock(&rock, projected(&f, (0.0, 6.0))));
     }
 
@@ -1257,6 +1748,134 @@ mod tests {
         assert!(
             !in_rock(&rock, projected(&f, (0.0, 6.0))),
             "above, on the top"
+        );
+    }
+
+    #[test]
+    fn a_way_is_cut_where_its_height_changes() {
+        // A face 6 m high west of the reference point, a step of 1 m east of it.
+        let f = fixture(MapKind::Forest);
+        let ground = terrain(&f, |de, dn| {
+            let step = if de < 0.0 { 6.0 } else { 1.0 };
+            if dn > 0.0 { 100.0 + step } else { 100.0 }
+        });
+        let mut map = vec![cliff(&f, &[(-60.0, 0.0), (60.0, 0.0)])];
+        let (candidates, _) = run(&f, &mut map, Some(&ground));
+        assert_eq!(map.len(), 1);
+        let kept = at_metres(&f, &map[0]);
+        let east = kept.iter().map(|p| p.0).fold(f64::NEG_INFINITY, f64::max);
+        assert!(
+            (-6.0..=6.0).contains(&east),
+            "the tall stretch ends near 0: {east}"
+        );
+        assert_eq!(candidates.len(), 1);
+        assert_eq!(
+            generalized(&candidates[0]),
+            Some("cliff lower than 3 m above its slope")
+        );
+        let low = at_metres(&f, &candidates[0]);
+        assert!(low.iter().all(|p| p.0 > -6.0), "{low:?}");
+    }
+
+    #[test]
+    fn a_higher_wall_beats_a_pillar_beside_it() {
+        let f = fixture(MapKind::Forest);
+        // A tower 15 m high, and 10 m north of it a face of 20 m whose tags point at it.
+        let ground = terrain(&f, |de, dn| {
+            if dn > 20.0 {
+                120.0
+            } else if de.abs() < 10.0 && dn.abs() < 10.0 {
+                115.0
+            } else {
+                100.0
+            }
+        });
+        let mut map = vec![
+            cliff(&f, &SQUARE),
+            cliff(&f, &[(-80.0, 20.0), (80.0, 20.0)]),
+        ];
+        let (candidates, _) = run(&f, &mut map, Some(&ground));
+        assert!(of_code(&f, &map, PILLAR_CODE).is_empty());
+        assert_eq!(of_code(&f, &map, CLIFF_CODE).len(), 1);
+        assert_eq!(
+            generalized(&candidates[0]),
+            Some("rock pillar closer than 0.25 mm to a higher cliff or pillar kept before")
+        );
+    }
+
+    #[test]
+    fn knolls_on_the_rock_are_hidden() {
+        let f = fixture(MapKind::Forest);
+        let ground = terrain(&f, terraces(&[(0.0, 8.0)]));
+        let mut map = vec![cliff(&f, &[(-60.0, 0.0), (60.0, 0.0)])];
+        let mut candidates = Vec::new();
+        let rock = generalize_cliffs(
+            &mut map,
+            &mut candidates,
+            Some(&ground),
+            f.kind,
+            &f.georef,
+            &f.set,
+        );
+        let knoll = |at: P| MapObject {
+            symbol_id: f.id("109"),
+            kind: MapObjectKind::Point { rotation_rad: 0.0 },
+            coords: vec![f.at(at)],
+            tags: vec![(LANDFORM_KEY.to_string(), "knoll".to_string())],
+        };
+        let mut landforms = vec![knoll((0.0, 5.0)), knoll((0.0, 40.0))];
+        let hidden = hide_landforms_on_rock(&mut map, &mut landforms, &rock.mask, &f.georef);
+        assert_eq!(hidden, 1);
+        assert_eq!(tag(&landforms[0], HIDDEN_KEY).as_deref(), Some(ROCK));
+        assert_eq!(tag(&landforms[1], HIDDEN_KEY), None);
+    }
+
+    #[test]
+    fn a_cliff_whose_tags_have_no_room_is_a_top_line() {
+        // The lower face is the higher (12 m) and is kept; the upper one (4 m), 10 m north,
+        // would point its tags at it: with tags 15 m are needed, without 9 m.
+        let f = fixture(MapKind::Forest);
+        let ground = terrain(&f, terraces(&[(0.0, 12.0), (10.0, 4.0)]));
+        let mut map = vec![
+            cliff(&f, &[(-60.0, 0.0), (60.0, 0.0)]),
+            cliff(&f, &[(-60.0, 10.0), (60.0, 10.0)]),
+        ];
+        let (candidates, _) = run(&f, &mut map, Some(&ground));
+        assert_eq!(of_code(&f, &map, CLIFF_CODE).len(), 1);
+        let top = of_code(&f, &map, TOP_LINE_CODE);
+        assert_eq!(top.len(), 1);
+        assert_eq!(
+            generalized(top[0]),
+            Some("piece of a cut cliff, the top line only: its tags have no room")
+        );
+        assert_eq!(
+            candidates.len(),
+            1,
+            "the whole cliff, hidden, for the mapper"
+        );
+    }
+
+    #[test]
+    fn two_cliffs_back_to_back_closer_than_the_gap_are_a_rock_fin() {
+        // A fin 6 m wide and 10 m high: back to back the faces need 9 m.
+        let f = fixture(MapKind::Forest);
+        let ground = terrain(&f, |_, dn| if dn > 0.0 && dn < 6.0 { 110.0 } else { 100.0 });
+        let mut map = vec![
+            cliff(&f, &[(-60.0, 0.0), (60.0, 0.0)]),
+            cliff(&f, &[(-60.0, 6.0), (60.0, 6.0)]),
+        ];
+        let (candidates, rock) = run(&f, &mut map, Some(&ground));
+        assert_eq!(of_code(&f, &map, CLIFF_CODE).len(), 1);
+        let fin = of_code(&f, &map, PILLAR_CODE);
+        assert_eq!(fin.len(), 1);
+        assert_eq!(
+            generalized(fin[0]),
+            Some("rock fin between two cliffs back to back")
+        );
+        assert_eq!(candidates.len(), 1);
+        assert!(
+            in_rock(&rock, projected(&f, (0.0, 3.0))),
+            "no contour in the fin"
         );
     }
 

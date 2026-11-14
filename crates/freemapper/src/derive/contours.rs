@@ -8,7 +8,7 @@ use crate::raster::Raster;
 
 /// Simplification tolerance and shortest kept line, on paper.
 const SIMPLIFY_MM: PaperMm = PaperMm(0.1);
-const MIN_LENGTH_MM: SymbolMm = SymbolMm(2.0);
+pub(crate) const MIN_LENGTH_MM: SymbolMm = SymbolMm(2.0);
 /// Closed rings enclosing less than this on paper are noise at a 1 m interval.
 const MIN_RING_AREA_MM2: SymbolMm2 = SymbolMm2(1.5);
 
