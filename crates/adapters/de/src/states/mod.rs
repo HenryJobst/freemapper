@@ -556,6 +556,7 @@ impl StateAdapter {
             State::Hamburg => crate::lgv_permits::sources(),
             State::Saarland => crate::state_permits::saarland(),
             State::Hessen => crate::state_permits::hessen(),
+            State::SchleswigHolstein => crate::state_permits::schleswig_holstein(),
             State::NordrheinWestfalen => crate::wuh_permits::sources(),
             _ => Vec::new(),
         };
@@ -859,6 +860,10 @@ mod tests {
                 "hessen" => (
                     &["wasserschutzgebiete"],
                     "https://geodienste-umwelt.hessen.de/arcgis/services/inspire/bewirtschaftungsgebiete/MapServer/WFSServer",
+                ),
+                "schleswigholstein" => (
+                    &["umwelt"],
+                    "https://umweltgeodienste.schleswig-holstein.de/WFS_UWAT",
                 ),
                 "nordrheinwestfalen" => (
                     &[

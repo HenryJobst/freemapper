@@ -6,6 +6,10 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+### Hinzugefügt
+
+- Genehmigungshinweise für Schleswig-Holstein (ADR 0137): der Landeswald mit seinem Revier der Schleswig-Holsteinischen Landesforsten, der Naturwald und die Wasserschutzgebiete mit Schutzzone, aus dem Umweltportal des Landesamts für Umwelt (CC BY 4.0). Der Dienst liefert nur GML; die Tabellenquelle liest jetzt auch solche Dienste. Namen, die ein Dienst in Großbuchstaben schreibt („HÜTTEN“), schreiben die Hinweise als Namen („Hütten“).
+
 ### Behoben
 
 - Ein Adapter aus einem Ordner, der ein eingebautes Raster-Backend nennt (`backend = "lgb"` und Ähnliches), bekam in der Download-Schätzung kein Luftbild, kein Gelände- und kein Oberflächenmodell. Die eingebauten Backends schätzen jetzt ihre Raster selbst, mit denselben Werten wie die Bundesländer. Die Schätzungen der eingebauten Bundesländer bleiben gleich (Issue #71).
