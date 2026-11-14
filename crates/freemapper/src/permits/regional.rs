@@ -39,6 +39,9 @@ pub struct RegionalSource {
     /// The publisher's note on what the data are worth, verbatim.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub note: Option<String>,
+    /// The source answers only at points (ADR 0139).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub sampled: bool,
     pub sections: Vec<PermitSection>,
     /// Whose offices the hints of the districts of the source name (ADR 0129).
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -57,6 +60,7 @@ impl From<&PermitSourceInfo> for RegionalSource {
             what: words(info.what),
             credit: info.credit.to_string(),
             note: info.note.map(str::to_string),
+            sampled: info.sampled,
             sections: info.sections.to_vec(),
             offices: info.offices,
         }

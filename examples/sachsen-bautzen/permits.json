@@ -58,9 +58,25 @@
   ],
   "hints": [
     {
+      "key": "permits-hint-forest-office",
+      "args": {
+        "administration": "Staatsbetrieb Sachsenforst",
+        "office": "Forstbezirk Neustadt",
+        "units": "Revier Bautzen"
+      }
+    },
+    {
+      "key": "permits-hint-forest-office",
+      "args": {
+        "administration": "Staatsbetrieb Sachsenforst",
+        "office": "Forstbezirk Oberlausitz",
+        "units": "Revier Malschwitz"
+      }
+    },
+    {
       "key": "permits-hint-forest-owner",
       "args": {
-        "office": "unknown"
+        "office": "known"
       }
     },
     {
@@ -103,6 +119,62 @@
       "fetched": "2026-11-06",
       "reason": null,
       "credit": "© OpenStreetMap contributors, ODbL"
+    }
+  ],
+  "regional": [
+    {
+      "adapter": "saxony",
+      "forest_units": [
+        {
+          "item": {
+            "administration": "Staatsbetrieb Sachsenforst",
+            "office": "Forstbezirk Neustadt",
+            "unit": "Revier Bautzen"
+          },
+          "percent": 75.0,
+          "at_edge": false
+        },
+        {
+          "item": {
+            "administration": "Staatsbetrieb Sachsenforst",
+            "office": "Forstbezirk Oberlausitz",
+            "unit": "Revier Malschwitz"
+          },
+          "percent": 25.0,
+          "at_edge": false
+        }
+      ],
+      "water_protection": [],
+      "forest_functions": [],
+      "sources": [
+        {
+          "source": {
+            "key": "sachsenforst",
+            "label": {
+              "en": "Staatsbetrieb Sachsenforst",
+              "de": "Staatsbetrieb Sachsenforst"
+            },
+            "what": {
+              "en": "Forstbezirke and Reviere (in charge in the state forest; for other forest the lower forest authority of the Landkreis), Erholungswald, Naturwaldzellen, Bodenschutzwald, drinking water protection zones in the forest",
+              "de": "Forstbezirke und Reviere (zuständig im Staatswald; für anderen Wald die untere Forstbehörde des Landkreises), Erholungswald, Naturwaldzellen, Bodenschutzwald, Trinkwasserschutzzonen im Wald"
+            },
+            "credit": "Datenlizenz Deutschland 2.0 – Namensnennung (dl-de/by-2-0) unter Angabe der Quelle: \"Geodaten Sachsenforst\"",
+            "sampled": true,
+            "sections": [
+              "forest-units",
+              "forest-functions",
+              "water-protection"
+            ]
+          },
+          "status": {
+            "id": "sachsenforst",
+            "state": "read",
+            "fetched": "2026-11-14",
+            "reason": null,
+            "credit": "Datenlizenz Deutschland 2.0 – Namensnennung (dl-de/by-2-0) unter Angabe der Quelle: \"Geodaten Sachsenforst\""
+          }
+        }
+      ]
     }
   ]
 }

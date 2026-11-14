@@ -69,6 +69,10 @@ pub struct PermitSourceInfo {
     pub credit: &'static str,
     /// A note of the publisher on what the data are worth, verbatim; `None` when it has none.
     pub note: Option<&'static str>,
+    /// The source answers only at points (ADR 0139): its findings are the cells around the
+    /// points it was asked at, so a share is an estimate and what lies between the points can
+    /// be missed. The notes say so.
+    pub sampled: bool,
     /// The keys of the layers (plain names), in the order of [`PermitSource::fetch`].
     pub layers: &'static [&'static str],
     /// The sections of the notes the findings of the source fill. A section is left out of the
