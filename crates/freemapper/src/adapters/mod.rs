@@ -304,7 +304,7 @@ mod tests {
             let brandenburg = id == "brandenburg";
             assert_eq!(
                 adapter.nas().is_some(),
-                brandenburg || id == "bremen",
+                brandenburg || id == "bremen" || id == "bayern",
                 "{}",
                 adapter.info().id
             );

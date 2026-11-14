@@ -2,13 +2,14 @@
 # orthophoto, 1 km tiles for the terrain model and for the surface model of 20 cm). The state
 # has no service for its cadastre: buildings and land use are read by code out of files, the
 # LoD2 tiles and the Shapefile of each Kreis. The laser point clouds for the vegetation lie on a
-# third host.
+# third host. Springs, caves, towers, monuments, fountains and other point and line objects
+# come from the landscape model, the ATKIS Basis-DLM, read like a NAS service.
 format = 1
 
 [adapter]
 id = "bayern"
 provider = "ldbv"
-revision = 2
+revision = 3
 min_freemapper = "0.13.0"
 crs = 25832
 object_id_prefix = "DEBY"
@@ -88,6 +89,14 @@ backend = "ldbv"
 
 [surface]
 backend = "ldbv"
+
+[[extra.nas]]
+name = "LDBV ATKIS Basis-DLM"
+url = "https://geoservices.bayern.de/wfs/v1/ogc_atkis_basisdlm.cgi"
+model = "basis-dlm"
+namespaces = "xmlns(adv,http://www.adv-online.de/namespaces/adv/gid/7.1)"
+max_count = 100000
+max_bytes = 268435456
 
 [preview]
 wms = "https://geoservices.bayern.de/od/wms/dop/v1/dop20"

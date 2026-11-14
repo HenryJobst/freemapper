@@ -194,7 +194,9 @@ impl Part {
             Part::BerlinLayers => {
                 "the Berlin ALKIS structures, tree cadastre, street survey and point layers"
             }
-            Part::StateLayers => "the full ALKIS structures and the tree cadastres",
+            Part::StateLayers => {
+                "the full ALKIS structures, the objects of the landscape model and the tree cadastres"
+            }
         }
     }
 }

@@ -19,6 +19,7 @@ use crate::project::{
     NDSM_RELPATH, ORTHOPHOTO_RELPATH, ProjectError, ProjectFile, RELIEF_RELPATH, SLOPE_RELPATH,
     check_area, check_size, map_crs, map_path,
 };
+use crate::sources::alkis_nas::NasModel;
 use crate::sources::osm::{MAX_EXTRACT_AGE_DAYS, cached_extract_date, extracts_for};
 use crate::sources::region::{provider_tiles_in, raster_region_in};
 use crate::space::{Part, Store};
@@ -32,6 +33,13 @@ const ALKIS_MB: f64 = 0.5;
 const NAS_MB_PER_KM2: f64 = 2.0;
 /// Name of the NAS item in the estimate.
 pub(crate) const NAS_LAYERS_ITEM: &str = "full ALKIS structures (NAS)";
+/// The layers of a landscape model (ATKIS Basis-DLM) per km² where a state serves one. The live
+/// run at the Schmausenbuck (a forest map, 1.6 km², 2026-11-14) stored 0.08 MB of GeoJSON for
+/// 152 objects (0.05 MB per km²). The GML answers were not measured; each lies on the disk as a
+/// part file until it is read, and 0.5 MB per km² leaves room for them.
+const DLM_MB_PER_KM2: f64 = 0.5;
+/// Name of the item of a landscape model (ATKIS Basis-DLM) in the estimate.
+pub(crate) const DLM_LAYERS_ITEM: &str = "objects of the ATKIS Basis-DLM";
 /// The tree cadastres per km² where a dataset envelope is touched: Potsdam stored 424 KB for
 /// 1 964 trees in the 0.74 km² fetch box at Sanssouci (0.57 MB per km²), rounded up; the
 /// answers of the three endpoints (0.26 to 0.28 MB each) pass through a part file one by one.
@@ -166,11 +174,22 @@ pub(crate) fn estimate_area(
             ));
         }
     }
-    if !crate::sources::alkis_nas::nas_services_for(bbox).is_empty() {
+    // A NAS service serves the cadastre or the landscape model; each has its item and its size.
+    let nas_services = crate::sources::alkis_nas::nas_services_for(bbox);
+    let serves = |model| nas_services.iter().any(|service| service.model == model);
+    if serves(NasModel::Alkis) {
         items.push(per_km2_item(
             bbox,
             NAS_LAYERS_ITEM,
             NAS_MB_PER_KM2,
+            Part::StateLayers,
+        ));
+    }
+    if serves(NasModel::BasisDlm) {
+        items.push(per_km2_item(
+            bbox,
+            DLM_LAYERS_ITEM,
+            DLM_MB_PER_KM2,
             Part::StateLayers,
         ));
     }
@@ -1763,6 +1782,34 @@ mod tests {
         );
     }
 
+    /// Bavaria's NAS service is the landscape model: the item says so and counts less.
+    #[test]
+    fn the_landscape_model_has_its_own_estimate() {
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        // The Schmausenbuck: its region box in EPSG:25833 and the map box in zone 32.
+        let area = crate::area::MapArea::from_geojson(
+            r#"{"type":"Polygon","coordinates":[[[11.145,49.449],[11.161,49.449],[11.161,49.457],[11.145,49.457],[11.145,49.449]]]}"#,
+        )
+        .unwrap();
+        let region = area.projected_bbox();
+        let map = area.projected_bbox_in(crate::crs::Crs::Utm32);
+        let estimate = estimate_area(&region, &map, &cache, today(), false, false);
+        assert!(estimate.items.iter().all(|i| i.what != NAS_LAYERS_ITEM));
+        let dlm = estimate
+            .items
+            .iter()
+            .find(|i| i.what == DLM_LAYERS_ITEM)
+            .expect("the landscape model in Bavaria");
+        assert_eq!(dlm.what, "objects of the ATKIS Basis-DLM");
+        assert!(dlm.megabytes > 0.0 && dlm.megabytes < 2.0, "{dlm:?}");
+        assert_eq!((dlm.part, dlm.store), (Part::StateLayers, Store::Project));
+        assert_eq!(
+            Part::StateLayers.label(),
+            "the full ALKIS structures, the objects of the landscape model and the tree cadastres"
+        );
+    }
+
     #[test]
     fn nas_estimate_and_disk_part() {
         let cache_dir = tempfile::tempdir().unwrap();
@@ -1787,10 +1834,6 @@ mod tests {
         assert_eq!((nas.part, nas.store), (Part::StateLayers, Store::Project));
         // Optional: skipped with a warning when there is no room, like the Berlin layers.
         assert!(!Part::StateLayers.required());
-        assert_eq!(
-            Part::StateLayers.label(),
-            "the full ALKIS structures and the tree cadastres"
-        );
         let plan = crate::space::plan(
             &estimate,
             cache_dir.path(),

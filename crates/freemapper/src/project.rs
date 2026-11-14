@@ -1313,7 +1313,10 @@ pub(crate) fn mark_stored(
                 (Part::Orthophoto, _) => orthophoto,
                 (Part::K5, _) => k5,
                 (Part::BerlinLayers, _) => berlin_layers,
-                (Part::StateLayers, crate::layers::NAS_LAYERS_ITEM) => nas_layers,
+                (
+                    Part::StateLayers,
+                    crate::layers::NAS_LAYERS_ITEM | crate::layers::DLM_LAYERS_ITEM,
+                ) => nas_layers,
                 (Part::StateLayers, crate::layers::TREE_LAYERS_ITEM) => tree_layers,
                 _ => false,
             };
@@ -1856,9 +1859,19 @@ fn fetch_nas_layers_into(
     previous: &BTreeMap<String, AlkisRecord>,
     progress: &mut dyn FnMut(Note),
 ) -> BTreeMap<String, AlkisRecord> {
-    let in_nas_state = !alkis_nas::nas_services_for(&area.region_bbox).is_empty();
+    let services = alkis_nas::nas_services_for(&area.region_bbox);
+    let in_nas_state = !services.is_empty();
+    // The notes name the model the services of the area serve.
+    let landscape = in_nas_state
+        && services
+            .iter()
+            .all(|service| service.model == alkis_nas::NasModel::BasisDlm);
     extras::fetch_into(
-        &extras::NAS,
+        if landscape {
+            &extras::DLM
+        } else {
+            &extras::NAS
+        },
         dir,
         in_nas_state,
         mode,

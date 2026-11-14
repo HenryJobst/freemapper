@@ -164,6 +164,23 @@ progress-nas-skipped = { $count ->
 warning-nas-layer-kept = ALKIS-NAS-Ebene { $file } nicht verfügbar ({ $detail }); die gespeicherte Ebene bleibt
 warning-nas-layer-skipped = ALKIS-NAS-Ebene { $file } nicht verfügbar ({ $detail }); Ebene übersprungen
 
+## Die Objekte eines Landschaftsmodells (ATKIS Basis-DLM)
+
+progress-dlm-none-stored = Keine Objekte des ATKIS Basis-DLM gespeichert; rufen Sie `freemapper fetch` mit Netzverbindung auf, um Quellen, Höhlen, Türme, Denkmäler und Brunnen zu erhalten
+progress-dlm-removing = Die gespeicherten Ebenen des ATKIS Basis-DLM werden entfernt: Das Kartengebiet liegt nicht mehr in einem Bundesland, das es anbietet
+warning-dlm-folder-outside = Ebenen des ATKIS Basis-DLM übersprungen ({ $folder } führt aus dem Projektordner hinaus)
+progress-dlm-download = Die Objekte des ATKIS Basis-DLM werden geladen
+progress-dlm-features = { $count ->
+        [one] 1 Objekt
+       *[other] { $count } Objekte
+    } in der Ebene { $file } des ATKIS Basis-DLM
+progress-dlm-skipped = { $count ->
+        [one] 1 Objekt
+       *[other] { $count } Objekte
+    } der Ebene { $file } des ATKIS Basis-DLM übersprungen: { $list }
+warning-dlm-layer-kept = Ebene { $file } des ATKIS Basis-DLM nicht verfügbar ({ $detail }); die gespeicherte Ebene bleibt
+warning-dlm-layer-skipped = Ebene { $file } des ATKIS Basis-DLM nicht verfügbar ({ $detail }); Ebene übersprungen
+
 ## Baumkataster
 
 progress-trees-none-stored = Kein städtisches Baumkataster gespeichert; rufen Sie `freemapper fetch` mit Netzverbindung auf, um die Einzelbäume zu erhalten

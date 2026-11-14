@@ -138,6 +138,17 @@ progress-nas-skipped = skipped { $count } ALKIS NAS { $file } features: { $list 
 warning-nas-layer-kept = ALKIS NAS { $file } unavailable ({ $detail }); keeping the stored layer
 warning-nas-layer-skipped = ALKIS NAS { $file } unavailable ({ $detail }); layer skipped
 
+## The objects of a landscape model (ATKIS Basis-DLM)
+
+progress-dlm-none-stored = no objects of the ATKIS Basis-DLM stored; run `freemapper fetch` online for springs, caves, towers, monuments and fountains
+progress-dlm-removing = removing the stored layers of the ATKIS Basis-DLM: the map area is no longer in a state that serves it
+warning-dlm-folder-outside = layers of the ATKIS Basis-DLM skipped ({ $folder } leads out of the project folder)
+progress-dlm-download = downloading the objects of the ATKIS Basis-DLM
+progress-dlm-features = { $count } ATKIS Basis-DLM { $file } features
+progress-dlm-skipped = skipped { $count } ATKIS Basis-DLM { $file } features: { $list }
+warning-dlm-layer-kept = ATKIS Basis-DLM { $file } unavailable ({ $detail }); keeping the stored layer
+warning-dlm-layer-skipped = ATKIS Basis-DLM { $file } unavailable ({ $detail }); layer skipped
+
 ## Tree cadastres
 
 progress-trees-none-stored = no city tree cadastre stored; run `freemapper fetch` online for the single trees

@@ -30,7 +30,11 @@ pub const CLIFF_TICK_MM: SymbolMm = SymbolMm(0.575);
 /// of the norm's outer measure and the drawn extent (the larger side of its box) of the bundled
 /// symbol. `true`: a native
 /// school symbol, whose size is already the school size and is not enlarged.
-pub const POINT_SIZES_MM: [(&str, f64, bool); 13] = [
+pub const POINT_SIZES_MM: [(&str, f64, bool); 15] = [
+    // Rocky pit or cave: drawn 1.25.
+    ("203", 1.25, false),
+    // Large boulder: OM 0.9.
+    ("205", 0.90, false),
     // Small fountain or well: OM 0.9.
     ("311", 0.90, false),
     // Spring: OM 1.2 × 0.6, the longer side.

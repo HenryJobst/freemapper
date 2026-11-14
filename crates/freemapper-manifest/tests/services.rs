@@ -8,7 +8,7 @@ use chrono::NaiveDate;
 use freemapper_adapter_api::adapter::RegionAdapter;
 use freemapper_adapter_api::credit::{AlkisUse, CreditLine, UsedSources};
 use freemapper_adapter_api::estimate::EstimateArea;
-use freemapper_adapter_api::extras::{TreeFields, TreeFormat};
+use freemapper_adapter_api::extras::{NasModel, TreeFields, TreeFormat};
 use freemapper_adapter_api::records::{Part, Store};
 use freemapper_georef::crs::{BoundingBox, Crs};
 use freemapper_manifest::adapter::{AdapterFiles, ManifestAdapter, Parse};
@@ -243,6 +243,37 @@ fn a_nas_table_names_known_layers_and_there_is_one() {
     let findings = parse(&two, Path::new("sample")).unwrap_err();
     assert_eq!(codes(&findings), ["manifest.value"], "{findings:?}");
     assert_eq!(findings[0].key, "extra.nas");
+}
+
+/// A NAS service names its model: the cadastre (the default) or the landscape model.
+#[test]
+fn the_model_of_a_nas_service_is_read_and_checked() {
+    let region = "sample".parse().unwrap();
+    let plain = parse(&format!("{}{NAS}", sample()), Path::new("sample")).unwrap();
+    assert_eq!(
+        extras::nas_service(&plain.nas[0], &region).model,
+        NasModel::Alkis
+    );
+    let dlm = format!(
+        "{}{NAS}model = \"basis-dlm\"\nlayers = [\"dlm-turm\"]\n",
+        sample()
+    );
+    let manifest = parse(&dlm, Path::new("sample")).unwrap();
+    let service = extras::nas_service(&manifest.nas[0], &region);
+    assert_eq!(service.model, NasModel::BasisDlm);
+    assert!(service.serves("dlm-turm") && !service.serves("dlm-damm"));
+    // A model that is not known, and a layer of the other model.
+    let unknown = format!("{}{NAS}model = \"dlm\"\n", sample());
+    let findings = parse(&unknown, Path::new("sample")).unwrap_err();
+    assert_eq!(codes(&findings), ["manifest.value"], "{findings:?}");
+    assert_eq!(findings[0].key, "extra.nas.model");
+    let other = format!(
+        "{}{NAS}model = \"basis-dlm\"\nlayers = [\"strukturlinie\"]\n",
+        sample()
+    );
+    let findings = parse(&other, Path::new("sample")).unwrap_err();
+    assert_eq!(codes(&findings), ["manifest.value"], "{findings:?}");
+    assert_eq!(findings[0].key, "extra.nas.layers");
 }
 
 fn area() -> EstimateArea {

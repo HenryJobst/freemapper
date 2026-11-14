@@ -198,8 +198,9 @@ kleine Gewässer liest.
 | `crs` | ganze Zahl | nein | Vorgabe: `[adapter] crs`. |
 | `max_count` | ganze Zahl | ja | Objekte je Anfrage, 1 bis 1 000 000. |
 | `max_bytes` | ganze Zahl | ja | Die größte Antwort, die gelesen wird, 1 bis 268 435 456 (256 MiB). |
-| `layers` | Liste von Texten | nein | Die Ebenen, die der Dienst liefert, aus `sonstiges-bauwerk`, `vegetationsmerkmal`, `strukturlinie`, `bauwerk-verkehr`, `bauwerk-gewaesser`, `untergeordnetes-gewaesser`. Vorgabe: alle. |
+| `layers` | Liste von Texten | nein | Die Ebenen, die der Dienst liefert, aus `sonstiges-bauwerk`, `vegetationsmerkmal`, `strukturlinie`, `bauwerk-verkehr`, `bauwerk-gewaesser`, `untergeordnetes-gewaesser`; für das Modell `basis-dlm` aus `dlm-bauwerk`, `dlm-vegetation`, `dlm-felsen`, `dlm-hoehle`, `dlm-gewaessermerkmal`, `dlm-damm`, `dlm-turm`, `dlm-gewaesserachse`, `dlm-weg`, `dlm-fahrweg`. Vorgabe: alle des Modells. |
 | `namespaces` | Text | nein | Der Parameter `NAMESPACES` der Anfragen; höchstens 300. |
+| `model` | Text | nein | `alkis` (Standard): das Kataster. `basis-dlm`: das Landschaftsmodell ATKIS Basis-DLM, dessen Ebenen mit `dlm-` beginnen. Ein Dienst wird nur nach den Ebenen seines Modells gefragt. Objekte des Landschaftsmodells bleiben Kandidaten und entfallen, wo eine andere Quelle dasselbe Objekt hat. |
 
 ## `[[extra.trees]]`
 

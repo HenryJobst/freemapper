@@ -31,7 +31,7 @@ use crate::build::cliffs::{Ground, Level, generalize_cliffs, hide_landforms_on_r
 use crate::build::content::{ContentSettings, route};
 use crate::build::contours::{Contours, contour_objects};
 use crate::build::dedup::{
-    drop_areas_by_rank, drop_cadastre_lines_by_rank, drop_osm_lines_near_cadastre,
+    drop_areas_by_rank, drop_cadastre_lines_by_rank, drop_landscape, drop_osm_lines_near_cadastre,
     drop_points_near_registers, drop_trees_by_rank,
 };
 use crate::build::firm_paths::cut_firm_paths;
@@ -700,6 +700,15 @@ fn resolve(drawn: Drawn, surroundings: &Surroundings) -> Result<Resolved, Georef
     let cadastre = drop_fountains_in_osm_basins(cadastre, &mut osm_candidates, georef, symbol_set);
     // A surveyed bus shelter under an ALKIS canopy is that canopy.
     let cadastre = drop_shelters_under_canopies(cadastre, &mut canopies);
+    // An object of a landscape model (the Basis-DLM) goes where the cadastre or OpenStreetMap,
+    // on the map or among the candidates, has the same object (ADR 0135).
+    let (cadastre, osm_candidates, osm_map) = drop_landscape(
+        cadastre,
+        osm_candidates,
+        osm_map,
+        symbol_set,
+        georef.scale_denominator,
+    );
     // Walls, fences and hedges of any symbol that overlap on paper keep the stronger line, those
     // along a building outline go, and a tree in a hedge is the hedge (`build/barriers.rs`).
     let (osm_candidates, cadastre) = resolve_barrier_overlaps(
@@ -1584,6 +1593,62 @@ mod tests {
             assert!(symbols_of(&placed.map, jet).is_empty(), "{jet}");
         }
         assert_eq!(symbols_of(&placed.candidates, "node/23"), [f.id("311")]);
+    }
+
+    /// A fountain of the landscape model, as the layer `dlm-bauwerk` stores it.
+    fn model_fountain(f: &Fixture, oid: &str, at: (f64, f64)) -> Value {
+        let (easting, northing) = projected(f, at);
+        serde_json::json!({
+            "type": "Feature",
+            "id": oid,
+            "geometry": {"type": "Point", "coordinates": [easting, northing]},
+            "properties": {
+                "bauwerksfunktion": "1780",
+                "beginnt": "2025-07-03",
+                "nas_type": "AX_SonstigesBauwerkOderSonstigeEinrichtung",
+                "oid": oid,
+            },
+        })
+    }
+
+    #[test]
+    fn a_fountain_of_the_landscape_model_goes_beside_the_osm_fountain() {
+        let f = fixture(MapKind::Sprint);
+        // An OSM fountain 5 m east of the reference point; the model has it 8 m further east,
+        // and another fountain 40 m north that no other source has.
+        let fountain = osm_feature(
+            "node/23",
+            &[("amenity", "fountain")],
+            OsmGeometry::Point(lat_lon(&f, (5.0, 0.0))),
+        );
+        let placed = placed_safe(
+            &f,
+            Stored {
+                nas: vec![Layer {
+                    name: "dlm-bauwerk".to_string(),
+                    features: vec![
+                        model_fountain(&f, "DEBYBDLMNO000GU9", (13.0, 0.0)),
+                        model_fountain(&f, "DEBYBDLMNO000GV0", (5.0, 40.0)),
+                    ],
+                    fetched: "2026-11-14".parse().unwrap(),
+                }],
+                osm: osm_extract(vec![fountain]),
+                ..Stored::default()
+            },
+        );
+        let spring = f.id("311");
+        assert!(symbols_of(&placed.candidates, "DEBYBDLMNO000GU9").is_empty());
+        assert_eq!(symbols_of(&placed.candidates, "DEBYBDLMNO000GV0"), [spring]);
+        let kept = of_source(&placed.candidates, "node/23");
+        assert_eq!(kept.len(), 1);
+        assert!(
+            kept[0].tags.contains(&(
+                "freemapper:also".to_string(),
+                "atkis-dlm/bauwerk/DEBYBDLMNO000GU9".to_string()
+            )),
+            "{:?}",
+            kept[0].tags
+        );
     }
 
     #[test]

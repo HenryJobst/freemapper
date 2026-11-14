@@ -234,7 +234,8 @@ pub(crate) fn nas_feature_tags(feature: &Value) -> Vec<(String, String)> {
 }
 
 /// The candidates of the stored NAS `layers` (in the map's CRS) within `buffer_m` of
-/// `map_area`, each tagged `freemapper:source=alkis-nas/<file>`. The point of an area (a
+/// `map_area`, each tagged `freemapper:source=alkis-nas/<file>` (`atkis-dlm/<name>` for a layer
+/// of the landscape model). The point of an area (a
 /// monument) lies on its surface. The two edges of a wall become one centre line
 /// (`build/walls.rs`), then segments of one wall or fence are joined before the 1 mm drop
 /// (`osm_objects`).
@@ -251,7 +252,7 @@ pub fn nas_objects(
     let min_length = MIN_LINE_MM.metres(georef.scale_denominator);
     let mut objects = Vec::new();
     for layer in layers {
-        let source = format!("{NAS_SOURCE}/{}", layer.file);
+        let source = crate::sources::alkis_nas::layer_source(layer.file);
         // The edges of a wall become one centre line here, while each still says on which
         // side the wall lies; the joins below would lose that.
         let paired = pair_wall_edges(layer.features, distance, min_length);
@@ -687,9 +688,10 @@ mod tests {
 
     fn code_of(kind: MapKind, object: &MapObject) -> String {
         let set = kind.symbol_set(kind.default_scale());
+        // 203.2 before 203: on a forest map both name the cave with a distinct entrance.
         let codes = [
-            "104", "305", "306", "311", "410.1", "417", "418", "501.5", "513.2", "515", "518",
-            "522", "526",
+            "104", "105", "203.2", "203", "205", "305", "306", "311", "312", "410.1", "417", "418",
+            "501.5", "504", "505", "506", "507", "513.2", "515", "518", "522", "524", "525", "526",
         ];
         codes
             .into_iter()
@@ -1062,6 +1064,164 @@ mod tests {
                 assert!(nas_run("sonstiges-bauwerk", &[canopy], MapKind::Sprint).is_empty());
             }
         }
+    }
+
+    /// The objects of the Bavarian Basis-DLM, from answers of the service of 2026-11-14, and
+    /// their symbols (ADR 0135).
+    #[test]
+    fn the_basis_dlm_objects_get_their_symbols() {
+        use crate::sources::alkis_nas::parse_nas_gml;
+        const TOWER: &str = include_str!("../../../../tests/fixtures/bayern-dlm-turm.gml");
+        let features = |gml: &str| parse_nas_gml(gml).unwrap().features;
+        let codes = |file: &str, gml: &str, kind: MapKind| {
+            let mut codes: Vec<String> = nas_run(file, &features(gml), kind)
+                .iter()
+                .map(|o| code_of(kind, o))
+                .collect();
+            codes.sort();
+            codes.dedup();
+            codes
+        };
+        for (file, gml, sprint, forest) in [
+            ("dlm-turm", TOWER, vec!["525"], vec!["525"]),
+            (
+                "dlm-hoehle",
+                include_str!("../../../../tests/fixtures/bayern-dlm-hoehle.gml"),
+                vec!["203"],
+                vec!["203.2"],
+            ),
+            (
+                "dlm-felsen",
+                include_str!("../../../../tests/fixtures/bayern-dlm-felsen.gml"),
+                vec!["205"],
+                vec!["205"],
+            ),
+            (
+                "dlm-gewaessermerkmal",
+                include_str!("../../../../tests/fixtures/bayern-dlm-gewaessermerkmal.gml"),
+                vec!["312"],
+                vec!["312"],
+            ),
+            (
+                "dlm-damm",
+                include_str!("../../../../tests/fixtures/bayern-dlm-damm.gml"),
+                vec!["105"],
+                vec!["105"],
+            ),
+            (
+                "dlm-gewaesserachse",
+                include_str!("../../../../tests/fixtures/bayern-dlm-gewaesserachse.gml"),
+                vec!["305"],
+                vec!["305"],
+            ),
+            (
+                "dlm-bauwerk",
+                include_str!("../../../../tests/fixtures/bayern-dlm-bauwerk.gml"),
+                vec!["311", "518"],
+                vec!["311", "518"],
+            ),
+        ] {
+            assert_eq!(codes(file, gml, MapKind::Sprint), sprint, "{file}, sprint");
+            assert_eq!(codes(file, gml, MapKind::Forest), forest, "{file}, forest");
+        }
+        // The source names the landscape model, the id and the date come from the object, and
+        // the label from the code list.
+        let found = nas_run("dlm-turm", &features(TOWER), MapKind::Forest);
+        let tower = &found[0];
+        assert_eq!(tag(tower, "freemapper:source"), Some("atkis-dlm/turm"));
+        assert!(
+            tag(tower, "freemapper:source_id")
+                .unwrap()
+                .starts_with("DEBYBDLM")
+        );
+        assert!(tag(tower, "freemapper:currency").unwrap().starts_with("20"));
+        assert_eq!(tag(tower, "freemapper:alkis"), Some("Aussichtsturm"));
+        // Church towers, town gates and castle towers are parts of buildings; a transmitter is
+        // a high tower.
+        let tower = |code: &str| {
+            let tower = nas(
+                "DEBYBDLM00000001",
+                "AX_Turm",
+                &[("bauwerksfunktion", code)],
+                spot(0.0, 0.0),
+            );
+            nas_run("dlm-turm", &[tower], MapKind::Forest)
+        };
+        for part_of_a_building in ["1002", "1009", "1012", "9999"] {
+            assert!(tower(part_of_a_building).is_empty(), "{part_of_a_building}");
+        }
+        assert_eq!(code_of(MapKind::Forest, &tower("1008")[0]), "524");
+        // A canal is no small watercourse, and only a spring is drawn of the water features.
+        let canal = nas(
+            "DEBYBDLM00000002",
+            "AX_Gewaesserachse",
+            &[("funktion", "8300")],
+            east(0.0, 0.0, 40.0),
+        );
+        assert!(nas_run("dlm-gewaesserachse", &[canal], MapKind::Forest).is_empty());
+        let waterfall = nas(
+            "DEBYBDLM00000003",
+            "AX_Gewaessermerkmal",
+            &[("art", "1620")],
+            spot(0.0, 0.0),
+        );
+        assert!(nas_run("dlm-gewaessermerkmal", &[waterfall], MapKind::Forest).is_empty());
+    }
+
+    /// The paths of the Basis-DLM, for the forest map: tracks by function and surface, paths
+    /// by surface, a climbing path as the less distinct path.
+    #[test]
+    fn the_basis_dlm_paths_get_the_path_classes_of_the_forest_map() {
+        let class = |file: &str, nas_type: &str, properties: &[(&str, &str)]| {
+            let way = nas(
+                "DEBYBDLM00000009",
+                nas_type,
+                properties,
+                east(0.0, 0.0, 60.0),
+            );
+            nas_run(file, &[way], MapKind::Forest)
+                .first()
+                .map(|o| code_of(MapKind::Forest, o))
+        };
+        let track =
+            |properties: &[(&str, &str)]| class("dlm-fahrweg", "AX_Fahrwegachse", properties);
+        let path = |properties: &[(&str, &str)]| class("dlm-weg", "AX_WegPfadSteig", properties);
+        assert_eq!(
+            track(&[("funktion", "5211"), ("befestigung", "2000")]).as_deref(),
+            Some("504")
+        );
+        assert_eq!(
+            track(&[("funktion", "5212"), ("befestigung", "1000")]).as_deref(),
+            Some("504")
+        );
+        assert_eq!(
+            track(&[("funktion", "5212"), ("befestigung", "2000")]).as_deref(),
+            Some("505")
+        );
+        assert_eq!(track(&[("funktion", "5250")]).as_deref(), Some("505"));
+        assert_eq!(
+            path(&[("art", "1103"), ("befestigung", "1000")]).as_deref(),
+            Some("505")
+        );
+        assert_eq!(
+            path(&[("art", "1103"), ("befestigung", "2000")]).as_deref(),
+            Some("506")
+        );
+        assert_eq!(path(&[("art", "1109")]).as_deref(), Some("507"));
+        assert_eq!(path(&[("art", "1110")]).as_deref(), Some("506"));
+        // The label names what the way is.
+        let way = nas(
+            "DEBYBDLM00000009",
+            "AX_Fahrwegachse",
+            &[("funktion", "5212")],
+            east(0.0, 0.0, 60.0),
+        );
+        let found = nas_run("dlm-fahrweg", &[way], MapKind::Forest);
+        assert_eq!(
+            tag(&found[0], "freemapper:source"),
+            Some("atkis-dlm/fahrweg")
+        );
+        assert_eq!(tag(&found[0], "freemapper:alkis"), Some("Wirtschaftsweg"));
     }
 
     #[test]

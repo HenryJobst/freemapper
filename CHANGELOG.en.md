@@ -6,6 +6,10 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
+### Added
+
+- Bavaria: objects from the landscape model of the agency (ATKIS Basis-DLM, ADR 0135). Bavaria has no service for its cadastre; springs, cave entrances, named rocks, free-standing towers, monuments and wayside crosses, fountains, fences, dams, small watercourses and named trees now come from there, on forest maps also paths and tracks. The model is made for 1:25 000 and accurate to about 3 m. Its objects therefore stay candidates and go where OpenStreetMap or another source has the same object: a point within 15 m, a line that runs within 10 m of a line of the same kind for 80 % of its length. On the Schmausenbuck 14 candidates stay, 6 of them paths OpenStreetMap lacks; in the old town of Regensburg 10. Both Bavarian examples are rebuilt. For adapters: a NAS service names its model (`[[extra.nas]] model`, default `alkis`, new `basis-dlm`).
+
 ## [0.20.0] - 2026-11-14
 
 ### Added
