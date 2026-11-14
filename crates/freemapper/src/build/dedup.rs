@@ -1,6 +1,6 @@
 //! Duplicate candidates of several sources (ADR 0047, 0051, 0055): the same wall, tree or lamp
 //! from the cadastre, a register, the survey and OSM is kept once. The rank comes from
-//! `freemapper:source`: register > ALKIS > survey > OSM ([`Rank`]). The source that loses is
+//! `freemapper:source`: register > ALKIS > survey > OSM > landscape model ([`Rank`]). The source that loses is
 //! named in the winner's `freemapper:also` (trees excepted), so a difference in currency stays
 //! visible.
 
@@ -13,6 +13,9 @@ use crate::omap::{MapObject, MapObjectKind, SymbolSet};
 /// How much a source is trusted for a duplicate, lowest first.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Rank {
+    /// A landscape model made for 1:25 000 (`atkis-dlm/…`, the ATKIS Basis-DLM, ADR 0133): its
+    /// objects fill gaps and never beat another source.
+    Landscape,
     /// OpenStreetMap (`osm`).
     Osm,
     /// The Berlin Straßenbefahrung (`geoportal-berlin/sb-…`).
@@ -35,6 +38,9 @@ pub fn rank(object: &MapObject) -> Option<Rank> {
     if source == "osm" {
         return Some(Rank::Osm);
     }
+    if source.starts_with(LANDSCAPE_SOURCE) {
+        return Some(Rank::Landscape);
+    }
     if source == "alkis" || source == "alkis-nutzung" || source.starts_with("alkis-nas/") {
         return Some(Rank::Alkis);
     }
@@ -50,6 +56,14 @@ pub fn rank(object: &MapObject) -> Option<Rank> {
         Rank::Alkis
     })
 }
+
+/// The source of the objects of a landscape model starts with this.
+const LANDSCAPE_SOURCE: &str = "atkis-dlm/";
+/// A point of a landscape model this close to a point of a higher rank with the same symbol is
+/// the same object; a line of one with [`LINE_DEDUP_SHARE`] of its length this close to such a
+/// line too. Wider than the cadastre's distances: both sides are only a few metres accurate.
+const LANDSCAPE_POINT_DEDUP_M: f64 = 15.0;
+const LANDSCAPE_LINE_DEDUP_M: f64 = 10.0;
 
 /// A tree candidate this close to one of a higher rank is the same tree and is dropped.
 const TREE_DEDUP_M: f64 = 2.0;
@@ -112,6 +126,71 @@ pub fn drop_osm_lines_near_cadastre(
     )
 }
 
+/// Drops the objects of a landscape model (`landscape`, [`Rank::Landscape`]) that `others` have:
+/// a point within [`LANDSCAPE_POINT_DEDUP_M`] of a point of a higher rank with the same symbol,
+/// and a line with [`LINE_DEDUP_SHARE`] of its length within [`LANDSCAPE_LINE_DEDUP_M`] of such
+/// a line (any line symbol). The object that stays names the dropped one in `freemapper:also`
+/// (`atkis-dlm/<layer>/<id>`). Returns the landscape objects that stay, in their order.
+pub fn drop_landscape_near_others(
+    landscape: Vec<MapObject>,
+    others: &mut [MapObject],
+    symbol_set: &SymbolSet,
+    scale_denominator: u32,
+) -> Vec<MapObject> {
+    let higher = |o: &MapObject| rank(o) > Some(Rank::Landscape);
+    let lines = drop_lines_within(
+        landscape,
+        others,
+        higher,
+        LANDSCAPE_LINE_DEDUP_M,
+        None,
+        symbol_set,
+        scale_denominator,
+    );
+    let limit = LANDSCAPE_POINT_DEDUP_M * map_units_per_metre(scale_denominator);
+    let is_point =
+        |o: &MapObject| matches!(o.kind, MapObjectKind::Point { .. }) && !o.coords.is_empty();
+    let mut kept = Vec::with_capacity(lines.len());
+    for object in lines {
+        if !is_point(&object) {
+            kept.push(object);
+            continue;
+        }
+        let p = xy(&object.coords[0]);
+        let nearest = others
+            .iter()
+            .enumerate()
+            .filter(|(_, o)| is_point(o) && o.symbol_id == object.symbol_id && higher(o))
+            .map(|(index, o)| {
+                let q = xy(&o.coords[0]);
+                ((q.0 - p.0).hypot(q.1 - p.1), index)
+            })
+            .filter(|(d, _)| *d <= limit)
+            .min_by(|a, b| a.0.total_cmp(&b.0));
+        match nearest {
+            Some((_, index)) => add_also(&mut others[index].tags, &source_and_id(&object)),
+            None => kept.push(object),
+        }
+    }
+    kept
+}
+
+/// `osm/way/1`, `geoportal-berlin/sb-gelaender/Li_…`: the source of `object` and its id in it.
+fn source_and_id(object: &MapObject) -> String {
+    let tag = |key: &str| {
+        object
+            .tags
+            .iter()
+            .find(|(k, _)| k == key)
+            .map_or_else(String::new, |(_, v)| v.clone())
+    };
+    format!(
+        "{}/{}",
+        tag("freemapper:source"),
+        tag("freemapper:source_id")
+    )
+}
+
 /// Adds `also` to the `freemapper:also` tag (`; `-separated, no duplicates).
 pub(crate) fn add_also(tags: &mut Vec<(String, String)>, also: &str) {
     match tags.iter_mut().find(|(k, _)| k == "freemapper:also") {
@@ -133,15 +212,43 @@ fn drop_lines_near(
     symbol_set: &SymbolSet,
     scale_denominator: u32,
 ) -> Vec<MapObject> {
-    let codes: Vec<u32> = LINE_DEDUP_CODES
-        .iter()
-        .filter_map(|c| symbol_set.id_for_code(c))
-        .collect();
+    drop_lines_within(
+        losers,
+        winners,
+        is_winner,
+        LINE_DEDUP_M,
+        Some(&LINE_DEDUP_CODES),
+        symbol_set,
+        scale_denominator,
+    )
+}
+
+/// [`drop_lines_near`] within `limit_m` on the ground, for the line symbols `codes` (`None`:
+/// every path of two points or more; the same symbol on both sides keeps areas out).
+fn drop_lines_within(
+    losers: Vec<MapObject>,
+    winners: &mut [MapObject],
+    is_winner: impl Fn(&MapObject) -> bool,
+    limit_m: f64,
+    codes: Option<&[&str]>,
+    symbol_set: &SymbolSet,
+    scale_denominator: u32,
+) -> Vec<MapObject> {
+    let codes: Option<Vec<u32>> = codes.map(|codes| {
+        codes
+            .iter()
+            .filter_map(|c| symbol_set.id_for_code(c))
+            .collect()
+    });
     let line = |o: &MapObject| {
-        matches!(o.kind, MapObjectKind::Path) && o.coords.len() >= 2 && codes.contains(&o.symbol_id)
+        matches!(o.kind, MapObjectKind::Path)
+            && o.coords.len() >= 2
+            && codes
+                .as_ref()
+                .is_none_or(|codes| codes.contains(&o.symbol_id))
     };
     let metre = map_units_per_metre(scale_denominator);
-    let limit = LINE_DEDUP_M * metre;
+    let limit = limit_m * metre;
     let cell = |(x, y): (f64, f64)| ((x / limit).floor() as i64, (y / limit).floor() as i64);
     // The winning segments by symbol, in a grid of `limit`-sized cells along each segment.
     type Segment = (usize, (f64, f64), (f64, f64));
@@ -228,20 +335,7 @@ fn drop_lines_near(
             .max_by(|a, b| a.1.total_cmp(&b.1).then(b.0.cmp(&a.0)))
             .map(|(index, _)| index)
             .expect("some length is near");
-        // `osm/way/1`, `geoportal-berlin/sb-gelaender/Li_…`: the source and the id in it.
-        let tag = |key: &str| {
-            object
-                .tags
-                .iter()
-                .find(|(k, _)| k == key)
-                .map_or_else(String::new, |(_, v)| v.clone())
-        };
-        let also = format!(
-            "{}/{}",
-            tag("freemapper:source"),
-            tag("freemapper:source_id")
-        );
-        add_also(&mut winners[winner].tags, &also);
+        add_also(&mut winners[winner].tags, &source_and_id(&object));
     }
     kept
 }
@@ -1590,5 +1684,77 @@ mod tests {
         ];
         let kept = drop_osm_lines_near_cadastre(osm, &mut cadastre, &set, SCALE);
         assert!(kept.is_empty());
+    }
+
+    #[test]
+    fn a_landscape_source_ranks_below_osm() {
+        let dlm = point("311", "atkis-dlm/bauwerk", "DEBYBDLM1", 0.0, &[]);
+        let osm = point("311", "osm", "node/1", 0.0, &[]);
+        assert_eq!(rank(&dlm), Some(Rank::Landscape));
+        assert!(rank(&dlm) < rank(&osm));
+    }
+
+    fn source_ids(objects: &[MapObject]) -> Vec<&str> {
+        objects
+            .iter()
+            .filter_map(|o| tag(o, "freemapper:source_id"))
+            .collect()
+    }
+
+    #[test]
+    fn a_landscape_point_goes_when_another_source_has_it() {
+        let dlm = |id: &str, de: f64| point("311", "atkis-dlm/bauwerk", id, de, &[]);
+        let mut others = vec![
+            point("311", "osm", "node/1", 0.0, &[]),
+            point("526", "osm", "node/2", 100.0, &[]),
+        ];
+        // 12 m from the OSM fountain, 20 m from it, and 5 m from a monument.
+        let landscape = vec![dlm("near", 12.0), dlm("far", 20.0), dlm("other", 105.0)];
+        let kept = drop_landscape_near_others(landscape, &mut others, &set(), SCALE);
+        assert_eq!(source_ids(&kept), ["far", "other"]);
+        assert_eq!(
+            tag(&others[0], "freemapper:also"),
+            Some("atkis-dlm/bauwerk/near")
+        );
+        assert_eq!(tag(&others[1], "freemapper:also"), None);
+        // Another object of the landscape model is no reason to go.
+        let mut same = vec![dlm("twin", 1.0)];
+        let kept = drop_landscape_near_others(vec![dlm("one", 0.0)], &mut same, &set(), SCALE);
+        assert_eq!(source_ids(&kept), ["one"]);
+    }
+
+    #[test]
+    fn a_landscape_line_goes_when_it_follows_another_line() {
+        let dlm = |id: &str, dn: f64| line("518", "atkis-dlm/bauwerk", id, dn, &[]);
+        let mut others = vec![line("518", "osm", "way/1", 0.0, &[])];
+        // 8 m beside the OSM fence all along, 12 m beside it, and a wall 1 m beside it.
+        let wall = line("515", "atkis-dlm/bauwerk", "wall", 1.0, &[]);
+        // 60 m long, 3 m beside: half of it runs on past the end of the OSM fence.
+        let longer = object(
+            "518",
+            MapObjectKind::Path,
+            vec![MapCoord::new(0, 3 * M), MapCoord::new(60 * M, 3 * M)],
+            &[
+                ("freemapper:source", "atkis-dlm/bauwerk"),
+                ("freemapper:source_id", "longer"),
+            ],
+        );
+        let landscape = vec![dlm("beside", 8.0), dlm("apart", 12.0), wall, longer];
+        let kept = drop_landscape_near_others(landscape, &mut others, &set(), SCALE);
+        assert_eq!(source_ids(&kept), ["apart", "wall", "longer"]);
+        assert_eq!(
+            tag(&others[0], "freemapper:also"),
+            Some("atkis-dlm/bauwerk/beside")
+        );
+    }
+
+    #[test]
+    fn landscape_objects_never_win() {
+        let set = set();
+        let mut cadastre = vec![line("518", "atkis-dlm/bauwerk", "dlm", 0.5, &[])];
+        let osm = vec![line("518", "osm", "way/1", 0.0, &[])];
+        let kept = drop_osm_lines_near_cadastre(osm, &mut cadastre, &set, SCALE);
+        assert_eq!(source_ids(&kept), ["way/1"]);
+        assert_eq!(tag(&cadastre[0], "freemapper:also"), None);
     }
 }

@@ -31,8 +31,8 @@ use crate::build::cliffs::{Ground, Level, generalize_cliffs, hide_landforms_on_r
 use crate::build::content::{ContentSettings, route};
 use crate::build::contours::{Contours, contour_objects};
 use crate::build::dedup::{
-    drop_areas_by_rank, drop_cadastre_lines_by_rank, drop_osm_lines_near_cadastre,
-    drop_points_near_registers, drop_trees_by_rank,
+    Rank, drop_areas_by_rank, drop_cadastre_lines_by_rank, drop_landscape_near_others,
+    drop_osm_lines_near_cadastre, drop_points_near_registers, drop_trees_by_rank, rank,
 };
 use crate::build::firm_paths::cut_firm_paths;
 use crate::build::landforms::{Landforms, landform_objects};
@@ -700,6 +700,18 @@ fn resolve(drawn: Drawn, surroundings: &Surroundings) -> Result<Resolved, Georef
     let cadastre = drop_fountains_in_osm_basins(cadastre, &mut osm_candidates, georef, symbol_set);
     // A surveyed bus shelter under an ALKIS canopy is that canopy.
     let cadastre = drop_shelters_under_canopies(cadastre, &mut canopies);
+    // An object of a landscape model (the Basis-DLM) goes where the cadastre or OpenStreetMap,
+    // on the map or among the candidates, has the same object (ADR 0133).
+    let (landscape, mut cadastre): (Vec<_>, Vec<_>) = cadastre
+        .into_iter()
+        .partition(|o| rank(o) == Some(Rank::Landscape));
+    let mut osm_map = osm_map;
+    let mut landscape = landscape;
+    for others in [&mut cadastre, &mut osm_candidates, &mut osm_map] {
+        landscape =
+            drop_landscape_near_others(landscape, others, symbol_set, georef.scale_denominator);
+    }
+    cadastre.extend(landscape);
     // Walls, fences and hedges of any symbol that overlap on paper keep the stronger line, those
     // along a building outline go, and a tree in a hedge is the hedge (`build/barriers.rs`).
     let (osm_candidates, cadastre) = resolve_barrier_overlaps(
