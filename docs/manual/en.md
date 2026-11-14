@@ -650,7 +650,7 @@ flights whose day is known were flown between November and February. Without lea
 give few echoes, so on the Schmausenbuck the young growth of 2 to 5 m under a power line comes out mostly as
 runnable forest (405). The date on the Bavarian candidates is the day of the flight, which freemapper reads from
 the laser points (20 December 2021 on the Schmausenbuck). Older flights do not name it; there it is the day the
-file was made. The point
+file was made. When tiles of different days lie under a map, the candidates carry the oldest, in every state. The point
 cloud can be some years older than the orthophoto. Check the areas against the orthophoto and in the terrain. When
 space is short, the point clouds are the first part left out. The other states have no point-cloud source yet. Saxony took its point clouds off its download area in November
 2026.

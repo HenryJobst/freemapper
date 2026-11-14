@@ -24,7 +24,7 @@
 
 ## Review Focus
 
-1. A tile with GPS week time (older lots): `published` must fall back to the day in the file name, never a date near 1980.
+1. A tile with GPS week time (older lots): `published` must fall back to the day in its header and then to the day in the file name, never a date near 1980. (The header day was added during the build.)
 2. A server that sends no `Last-Modified`: the copy is `<E>_<N>-00000000.laz`, `published` is `None`, and the tile is still used.
 3. A download that is cut off or is an HTML page with status 200: nothing stays in the cache, the older copy serves.
 4. Offline with nothing cached, and a 404 inside Bavaria: a note, never an error; the fetch of the map goes on.
@@ -78,7 +78,7 @@
 
 **Interfaces:**
 - Consumes: `ldbv_files::{Published, Checks, Current, current, cached, drop_older}`, `las_files::{download_las, flight_day, utm32_tile_name, parse_utm32_tile_name, check_las_file}`, `boundaries::{tile_centre_in, BAYERN}`, `PointCloudInfo::left_out`.
-- Produces: `pub fn backend() -> &'static dyn PointCloudBackend`, `pub fn tile_url(tile: TileId) -> String`, `pub const MB_PER_TILE: f64 = 250.0`, `pub mod test_support { pub fn laz_tile(tile: TileId, day: NaiveDate) -> Vec<u8>; pub fn serve_point_cloud(fetcher: &MapFetcher, tile: TileId) }`.
+- Produces: `pub fn backend() -> &'static dyn PointCloudBackend`, `pub fn tile_url(tile: TileId) -> String`, `pub const MB_PER_TILE: f64 = 250.0`. (The planned `test_support` module was not built: no engine test uses it; the helpers are `las_files::testing`.)
 
 - [ ] **Step 1: Write the failing tests** in `ldbv_las.rs` (tile 655/5479, a box inside it; `MapFetcher` with `Last-Modified` 2023-03-10; the synthetic tile's points measured on 2021-12-20):
   - `the_address_follows_the_agency`: `tile_url` gives `https://geodaten.bayern.de/odd_data/laser/655_5479.laz`.

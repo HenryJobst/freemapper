@@ -37,7 +37,8 @@ pub struct PointCloudInfo {
 pub struct PointCloudRecord {
     pub tile: String,
     pub url: String,
-    /// The publication date the provider gives; `None` where it gives none.
+    /// The day the tile stands for: the day of the scan where the provider or the tile tells
+    /// it, else the day it was published; `None` where nothing names a day.
     pub published: Option<NaiveDate>,
 }
 

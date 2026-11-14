@@ -18,6 +18,11 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 - Genehmigungshinweise richten sich nach dem Kartengebiet, nicht nach der Kartenart (ADR 0127). Die Hinweise zum Wald und der Abschnitt „Forstverwaltung“ kommen, sobald im Gebiet laut OpenStreetMap Wald liegt, auch bei einer Sprint- oder Schulhofkarte, und ebenso, wenn sich das ohne OSM-Auszug nicht sagen lässt. Eine Karte mitten in der Stadt bekommt sie nicht mehr, auch wenn sie in einem Brandenburger Revier liegt. Den Träger einer Schule im Gebiet nennen die Hinweise jetzt bei jeder Kartenart, nicht nur bei Schulhofkarten.
 - Beispiele: Das Bodetal und die Bastei haben Höhenlinien alle 10 m statt 5 m; an den steilen Hängen liefen sie zu einer braunen Fläche zusammen. Die Felsen der Bastei stammen aus OSM, nicht aus dem Geländemodell, wie die Beispielübersicht bisher sagte.
 
+### Behoben
+
+- Vegetation aus Laserpunktwolken: Liegen Kacheln mit verschiedenem Datum unter einer Karte, tragen die Kandidaten jetzt das älteste Datum statt des jüngsten. Eine Fläche kann auf jeder der Kacheln liegen, also lässt sich nichts Neueres behaupten.
+- Vegetation aus Laserpunktwolken: Laden zwei Läufe zur selben Zeit dieselbe Kachel, hat jeder seine eigene Teildatei. Bisher löschten sie sich die Teildatei gegenseitig und ließen die Kachel mit einer Warnung aus. Das betraf Nordrhein-Westfalen, Rheinland-Pfalz, Berlin, das Saarland und Bayern.
+
 ## [0.19.0] - 2026-11-14
 
 ### Hinzugefügt

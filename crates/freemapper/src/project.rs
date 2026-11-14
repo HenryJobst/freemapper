@@ -1381,6 +1381,15 @@ fn point_cloud_backend(
     point_cloud_source(project, region_bbox).map(|(_, backend)| backend)
 }
 
+/// The classes the provider of the project's point clouds says are no vegetation
+/// ([`PointCloudInfo::left_out`]); none without point clouds.
+///
+/// [`PointCloudInfo::left_out`]: freemapper_adapter_api::pointcloud::PointCloudInfo::left_out
+fn left_out_classes(project: &ProjectFile, region_bbox: &BoundingBox) -> &'static [u8] {
+    point_cloud_backend(project, region_bbox)
+        .map_or(&[], |backend| backend.info().left_out.as_slice())
+}
+
 /// [`point_cloud_backend`] with the adapter it belongs to, whose hosts its requests are held to.
 fn point_cloud_source(
     project: &ProjectFile,
@@ -2268,9 +2277,7 @@ pub fn derive_project_cancellable(
             .flatten()
             .map_or_else(Vec::new, |b| b.all_footprints());
         let mask = BuildingMask::new(&footprints, &bbox);
-        // The classes the provider of the tiles says are no vegetation.
-        let left_out = point_cloud_backend(&project, &region_bbox)
-            .map_or(&[][..], |backend| backend.info().left_out.as_slice());
+        let left_out = left_out_classes(&project, &region_bbox);
         let mut counts = CellCounts::new(GridSpec::covering(&bbox, VEGETATION_CELL_M));
         for (tile, path) in &point_clouds {
             stop_if(cancelled)?;
@@ -6903,6 +6910,48 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
                 );
             }
         }
+    }
+
+    #[test]
+    fn the_vegetation_is_as_old_as_its_oldest_tile() {
+        let record = |tile: &str, published: Option<&str>| PointCloudRecord {
+            tile: tile.to_string(),
+            url: String::new(),
+            published: published.map(|day| day.parse().unwrap()),
+        };
+        // A lot flown in 2021 beside one made in 2018, and a tile that names no day.
+        let tiles = [
+            record("32655-5479", Some("2021-12-20")),
+            record("32656-5479", Some("2018-08-08")),
+            record("32657-5479", None),
+        ];
+        assert_eq!(
+            export::vegetation_currency(&tiles),
+            "2018-08-08".parse().ok()
+        );
+        assert_eq!(export::vegetation_currency(&tiles[2..]), None);
+        assert_eq!(export::vegetation_currency(&[]), None);
+    }
+
+    #[test]
+    fn derive_leaves_out_the_classes_the_provider_of_the_point_clouds_names() {
+        let date = NaiveDate::from_ymd_opt(2026, 11, 14).unwrap();
+        let classes = |e: f64, n: f64, vegetation: bool| {
+            let dir = tempfile::tempdir().unwrap();
+            let area = utm32_area_at(e, n, 100.0);
+            init_project(dir.path(), &area, MapKind::Schoolyard, None, date, None).unwrap();
+            if vegetation {
+                want_vegetation(dir.path());
+            }
+            let project = ProjectFile::load(dir.path()).unwrap();
+            left_out_classes(&project, &project.region_bbox().unwrap()).to_vec()
+        };
+        // The Schmausenbuck in Bavaria: cellar exits and synthetic ground.
+        assert_eq!(classes(655_700.0, 5_479_700.0, true), [22, 23]);
+        // Cologne: Geobasis NRW names no class of its own.
+        assert!(classes(354_700.0, 5_642_650.0, true).is_empty());
+        // Without the vegetation chosen no point clouds are read.
+        assert!(classes(655_700.0, 5_479_700.0, false).is_empty());
     }
 
     /// A state without point clouds: nothing is asked for, no vegetation file, and a line only

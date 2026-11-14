@@ -248,7 +248,7 @@ fn download_tile(
     if let Some(dir) = path.parent() {
         std::fs::create_dir_all(dir).map_err(|e| FetchError::Io(dir.to_path_buf(), e))?;
     }
-    let part = path.with_extension("laz.part");
+    let part = crate::las_files::part_path(path);
     let result = stream_member(env.fetcher, url, member, &part, env.progress)
         .and_then(|()| check_las_file(url, &part))
         .and_then(|()| std::fs::rename(&part, path).map_err(|e| FetchError::Io(path.into(), e)));
