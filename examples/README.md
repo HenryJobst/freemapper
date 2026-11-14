@@ -145,7 +145,7 @@ noch nicht.
 Die Wege kommen aus OSM und stehen in den Wegklassen 502 bis 507 in der Karte; der Wald ist weißes Papier.
 Siedlungen und Gärten sind olivgrün (520, nicht zu betreten). Felsen, Böschungen und Kuppen aus dem Geländemodell
 sind Kandidaten; Felswände aus OSM (`natural=cliff`) stehen in der Karte, generalisiert und geglättet nach der ISOM
-(ADR 0125): An der Bastei bleiben 197 von 2144 Wänden und 39 Felstürme (206); die übrigen liegen ausgeblendet in der
+(ADR 0126): An der Bastei bleiben 197 von 2144 Wänden und 39 Felstürme (206); die übrigen liegen ausgeblendet in der
 Kandidatenkarte. In den flachen Gebieten in Berlin und Bremen liegen die Höhenlinien alle 2,5 m, im steilen Bodetal
 und an der Bastei alle 10 m (`--contour-interval 10`, mehr als die 5 m der ISOM, damit die Hänge lesbar bleiben),
 sonst alle 5 m; die `freemapper.toml` nennt das als `[contours] interval_m`.
