@@ -1,27 +1,29 @@
-//! Cliffs on the forest map (ISOM 2017-2, 201 and 206; ADR 0126).
+//! Cliffs on the forest and the sprint map (ISOM 2017-2 and ISSprOM 2019-2, 201 and 206;
+//! ADR 0126, ADR 0134).
 //!
 //! OpenStreetMap draws rock country cliff by cliff: at the Bastei 2144 lines, up to 127 on one
 //! square centimetre of paper, often several along one face and one face in several ways. The
-//! norm keeps 0.25 mm between impassable features, draws no cliff shorter than 0.6 mm and shows a
-//! rock pillar in plan shape (206). After the content settings placed the objects, the cliffs on
-//! the map are generalized:
+//! norm keeps a gap between impassable features, draws no cliff below a minimum length and shows
+//! a rock pillar in plan shape (206). After the content settings placed the objects, the cliffs on
+//! the map are generalized at a [`Level`] (the map, or the stronger one of the training map), with
+//! the values of the map's norm:
 //!
 //! * Each cliff is measured on the terrain model across it: the largest drop over 5 m within 8 m
 //!   of the line, less what the slope around it drops anyway. That says how high the rock stands
 //!   above its slope and which side is lower; the cliff is turned so that its tags point there.
-//! * Pieces of one face that meet end to end are joined into one cliff.
-//! * A cliff less than [`MIN_DROP_M`] above its slope goes to the candidates.
-//! * A closed cliff with the lower side outside is a rock pillar: up to the norm's minimum it is
-//!   enlarged, up to [`PILLAR_MAX_AREA_MM2`] it becomes the area 206. With the lower side inside
-//!   it is a hollow and stays a cliff.
-//! * The other cliffs are smoothed and kept, the highest first. A cliff keeps the norm's gap to
-//!   those kept before and to the pillars, measured by the sides that face each other (line or
-//!   tags); where it comes closer it is cut, and the pieces of at least 0.6 mm stay.
+//!   A way is judged in stretches; pieces of one face that meet end to end are joined.
+//! * A stretch lower than the level's height above its slope goes to the candidates.
+//! * A closed cliff with the lower side outside is a rock pillar: below the norm's minimum it is
+//!   enlarged, up to a ruled maximum it becomes the area 206. With the lower side inside it is a
+//!   hollow and stays a cliff.
+//! * The other cliffs are smoothed and ranked with the pillars, the highest first (the orthophoto
+//!   adds weight where it shows rock). A cliff keeps the norm's gap to those kept before, by the
+//!   sides that face each other (line or tags); where only its line has room it is a top line
+//!   201.3, back to back with one kept it makes a rock fin 206, elsewhere it is cut.
 //!
-//! The cliffs that go are hidden in the training map ([`HIDDEN_KEY`]` = generalized`), so it shows
-//! the map's choice, and name why in `freemapper:generalized`. Returned is where the contours
-//! stop: below every cliff of at least [`MIN_DROP_M`], kept or not, as far as its tags reach, and
-//! around the pillars.
+//! The cliffs that go are hidden in the training map ([`HIDDEN_KEY`]` = generalized`) and name
+//! why in `freemapper:generalized`. Returned is where the rock stands: the contours stop below the
+//! rock drawn, and the knolls of the terrain on it are hidden.
 
 use geo::Simplify as _;
 use geo::{
@@ -31,7 +33,7 @@ use geo_types::{Coord, LineString, MultiPolygon, Polygon, Rect};
 
 use crate::build::content::LANDFORM_KEY;
 use crate::build::points::HIDDEN_KEY;
-use crate::build::symbol_measures::{CLIFF_MM, CLIFF_TICK_MM};
+use crate::build::symbol_measures::{CLIFF_MM, CLIFF_TICK_MM, LINE_GAP_MM};
 use crate::crs::ProjectedPoint;
 use crate::derive::ndsm::bilinear;
 use crate::georef::Georeferencing;
@@ -48,6 +50,8 @@ const TOP_LINE_CODE: &str = "201.3";
 const PILLAR_CODE: &str = "206";
 /// Ruling: a cliff that stands less above its slope is no impassable cliff at forest scale.
 pub const MIN_DROP_M: f64 = 3.0;
+/// ISSprOM 2019-2, 201: the minimum height.
+pub const SPRINT_MIN_DROP_M: f64 = 1.5;
 /// The cross profile: heights every metre up to this far from the line; the drop is the largest
 /// over [`JUMP_M`]; the slope around it is read between [`TREND_NEAR_M`] and [`TREND_FAR_M`] on
 /// each side, outside the face. A line drawn up to about 2 m off the face still finds it.
@@ -58,16 +62,56 @@ const TREND_FAR_M: i32 = 7;
 /// Below this difference between the two sides the terrain does not decide which side is lower,
 /// and the cliff keeps the way OSM drew it (the top on the left, ticks on the right).
 const SIDE_DECIDES_M: f64 = 1.0;
-/// ISOM 2017-2, 201: the gap to any other impassable feature and the minimum length.
-const CLIFF_GAP_MM: SymbolMm = SymbolMm(0.25);
-/// ISOM 2017-2, 206: the minimum width and area, and the gap between pillars (the contours keep
-/// it too).
-const PILLAR_GAP_MM: SymbolMm = SymbolMm(0.15);
-const PILLAR_MIN_WIDTH_MM: SymbolMm = SymbolMm(0.25);
-const PILLAR_MIN_AREA_MM2: SymbolMm2 = SymbolMm2(0.3);
-/// Ruling: a closed cliff around more is a plateau or a massif, no pillar (about 47 m across at
-/// 1:15 000).
-const PILLAR_MAX_AREA_MM2: SymbolMm2 = SymbolMm2(10.0);
+/// What a norm draws a cliff and a pillar with, in symbol measures at 100 % (ADR 0118).
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct Norm {
+    /// The line of 201 (its width), how far its tags reach from the centre, and the gap a cliff
+    /// keeps to another impassable feature.
+    line: SymbolMm,
+    tags: SymbolMm,
+    gap: SymbolMm,
+    /// 206: the gap between pillars, the minimum width and area; above `pillar_max` a closed
+    /// cliff is a plateau or a massif, no pillar (ruling: 10 mm², about 47 m across at 1:15 000).
+    pillar_gap: SymbolMm,
+    pillar_min_width: SymbolMm,
+    pillar_min_area: SymbolMm2,
+    pillar_max: SymbolMm2,
+}
+
+impl Norm {
+    /// ISOM 2017-2: 201 a line of 0.35 mm, tags to 0.575 mm as the bundled symbol draws them, a
+    /// gap of 0.25 mm; 206 a gap of 0.15 mm, 0.25 mm wide, 0.3 mm².
+    const ISOM: Norm = Norm {
+        line: CLIFF_MM,
+        tags: CLIFF_TICK_MM,
+        gap: SymbolMm(0.25),
+        pillar_gap: SymbolMm(0.15),
+        pillar_min_width: SymbolMm(0.25),
+        pillar_min_area: SymbolMm2(0.3),
+        pillar_max: SymbolMm2(10.0),
+    };
+    /// ISSprOM 2019-2: 201 a line of 0.5 mm, tags to 0.75 mm as the bundled symbol draws them;
+    /// the norm names no gap for 201, so the gap between lines of one colour (§3.3, 0.15 mm,
+    /// ruling); 206 a gap of 0.15 mm, 0.3 mm wide, 0.75 mm².
+    const ISSPROM: Norm = Norm {
+        line: SymbolMm(0.5),
+        tags: SymbolMm(0.75),
+        gap: LINE_GAP_MM,
+        pillar_gap: SymbolMm(0.15),
+        pillar_min_width: SymbolMm(0.3),
+        pillar_min_area: SymbolMm2(0.75),
+        pillar_max: SymbolMm2(10.0),
+    };
+
+    /// The norm of `kind`; the schoolyard keeps its cliffs as they are.
+    fn of(kind: MapKind) -> Option<Norm> {
+        match kind {
+            MapKind::Forest => Some(Norm::ISOM),
+            MapKind::Sprint => Some(Norm::ISSPROM),
+            MapKind::Schoolyard => None,
+        }
+    }
+}
 /// Pieces of one face are joined when the end of one lies this close to the start of the next
 /// and the face turns by less than [`JOIN_MAX_TURN_DEG`] there.
 const JOIN_M: f64 = 1.0;
@@ -184,25 +228,50 @@ pub struct Level {
 }
 
 impl Level {
-    /// The map: the norm's minimum length; pieces from 1 mm (ruling: at 0.6 mm a piece carries
-    /// one or two tags and prints as a stub); top lines from 2 mm (ruling: shorter ones read as
-    /// dashes; tried on the Bastei, at 1 mm 122 of them, mostly short strokes).
-    pub const MAP: Level = Level {
-        min_drop_m: MIN_DROP_M,
-        min_length: SymbolMm(0.6),
-        piece_min: SymbolMm(1.0),
-        top_lines: true,
-        top_line_min: SymbolMm(2.0),
-    };
-    /// The training map (ruling, the user's wish: the candidates keep more, the training map is
-    /// generalized more): cliffs of 5 m, whole ones from 1 mm, pieces from 2 mm, no top lines.
-    pub const TRAINING: Level = Level {
-        min_drop_m: 5.0,
-        min_length: SymbolMm(1.0),
-        piece_min: SymbolMm(2.0),
-        top_lines: false,
-        top_line_min: SymbolMm(2.0),
-    };
+    /// The map of `kind`: the norm's minimum height and length; pieces from 1 mm (ruling: at
+    /// 0.6 mm a piece carries one or two tags and prints as a stub; sprint 1.2 mm, its tags stand
+    /// 0.75 mm apart); top lines from 2 mm (ruling: shorter ones read as dashes; tried on the
+    /// Bastei, at 1 mm 122 of them, mostly short strokes).
+    pub fn map(kind: MapKind) -> Level {
+        match kind {
+            MapKind::Sprint => Level {
+                min_drop_m: SPRINT_MIN_DROP_M,
+                min_length: SymbolMm(0.9),
+                piece_min: SymbolMm(1.2),
+                top_lines: true,
+                top_line_min: SymbolMm(2.0),
+            },
+            _ => Level {
+                min_drop_m: MIN_DROP_M,
+                min_length: SymbolMm(0.6),
+                piece_min: SymbolMm(1.0),
+                top_lines: true,
+                top_line_min: SymbolMm(2.0),
+            },
+        }
+    }
+
+    /// The training map of `kind` (ruling, the user's wish: the candidates keep more, the
+    /// training map is generalized more): forest cliffs of 5 m, whole ones from 1 mm, pieces from
+    /// 2 mm; sprint cliffs of 3 m, from 1.2 and 1.5 mm; no top lines.
+    pub fn training(kind: MapKind) -> Level {
+        match kind {
+            MapKind::Sprint => Level {
+                min_drop_m: 3.0,
+                min_length: SymbolMm(1.2),
+                piece_min: SymbolMm(1.5),
+                top_lines: false,
+                top_line_min: SymbolMm(2.0),
+            },
+            _ => Level {
+                min_drop_m: 5.0,
+                min_length: SymbolMm(1.0),
+                piece_min: SymbolMm(2.0),
+                top_lines: false,
+                top_line_min: SymbolMm(2.0),
+            },
+        }
+    }
 }
 
 /// The plan shape of a pillar and whether it was enlarged to the norm's minimum.
@@ -251,15 +320,15 @@ pub fn generalize_cliffs(
     let Some(cliff_id) = symbol_set.id_for_code(CLIFF_CODE) else {
         return Rock::default();
     };
-    if map_kind != MapKind::Forest {
+    let Some(norm) = Norm::of(map_kind) else {
         return Rock::default();
-    }
+    };
     let scale = SymbolScale::new(map_kind, georef.scale_denominator);
     let per_mm = scale.metres_per_symbol_mm();
     let reach = Reach {
-        line_m: CLIFF_MM.0 / 2.0 * per_mm,
-        tags_m: CLIFF_TICK_MM.0 * per_mm,
-        gap_m: CLIFF_GAP_MM.0 * per_mm,
+        line_m: norm.line.0 / 2.0 * per_mm,
+        tags_m: norm.tags.0 * per_mm,
+        gap_m: norm.gap.0 * per_mm,
     };
     let tolerance = SIMPLIFY_MM.metres(georef.scale_denominator);
     let sigma_m = SMOOTH_SIGMA_MM.metres(scale);
@@ -405,10 +474,10 @@ pub fn generalize_cliffs(
     // lower side outside), the highest first: a pillar or a wall that comes too close to one kept
     // before gives way, a wall by being cut where it comes too close.
     let pillar_id = symbol_set.id_for_code(PILLAR_CODE);
-    let min_area = PILLAR_MIN_AREA_MM2.square_metres(scale);
-    let max_area = PILLAR_MAX_AREA_MM2.square_metres(scale);
-    let half_width = PILLAR_MIN_WIDTH_MM.metres(scale) / 2.0;
-    let pillar_gap_m = PILLAR_GAP_MM.metres(scale);
+    let min_area = norm.pillar_min_area.square_metres(scale);
+    let max_area = norm.pillar_max.square_metres(scale);
+    let half_width = norm.pillar_min_width.metres(scale) / 2.0;
+    let pillar_gap_m = norm.pillar_gap.metres(scale);
     let piece_min_m = level.piece_min.metres(scale);
     let mut order: Vec<(&Cliff, Option<Pillar>)> = Vec::new();
     // Where a rock face stands, kept or not: the terrain's knolls there are its tops and clefts.
@@ -504,7 +573,7 @@ pub fn generalize_cliffs(
                 _ => {
                     let reason = format!(
                         "rock pillar closer than {} mm to a higher cliff or pillar kept before",
-                        CLIFF_GAP_MM.0
+                        norm.gap.0
                     );
                     added_candidates.push(hide(object, reason));
                 }
@@ -598,13 +667,13 @@ pub fn generalize_cliffs(
         let reason = if stays == 0 {
             format!(
                 "cliff closer than {} mm to a cliff or rock pillar kept before",
-                CLIFF_GAP_MM.0
+                norm.gap.0
             )
         } else {
             format!(
                 "cliff cut where it came closer than {} mm to a cliff or rock pillar kept \
                  before; {stays} piece(s) stay",
-                CLIFF_GAP_MM.0
+                norm.gap.0
             )
         };
         added_candidates.push(hide(object, reason));
@@ -1542,7 +1611,7 @@ mod tests {
             f.kind,
             &f.georef,
             &f.set,
-            &Level::MAP,
+            &Level::map(f.kind),
         );
         (candidates, rock.stops)
     }
@@ -1938,7 +2007,7 @@ mod tests {
             f.kind,
             &f.georef,
             &f.set,
-            &Level::MAP,
+            &Level::map(f.kind),
         );
         let knoll = |at: P| MapObject {
             symbol_id: f.id("109"),
@@ -2030,10 +2099,10 @@ mod tests {
         let ground = terrain(&f, terraces(&[(0.0, 4.0)]));
         let wall = || vec![cliff(&f, &[(-60.0, 0.0), (60.0, 0.0)])];
         let mut map = wall();
-        run_at(&f, &mut map, &ground, &Level::MAP);
+        run_at(&f, &mut map, &ground, &Level::map(f.kind));
         assert_eq!(map.len(), 1, "4 m stays on the map");
         let mut training = wall();
-        let gone = run_at(&f, &mut training, &ground, &Level::TRAINING);
+        let gone = run_at(&f, &mut training, &ground, &Level::training(f.kind));
         assert!(training.is_empty());
         assert_eq!(
             generalized(&gone[0]),
@@ -2053,10 +2122,10 @@ mod tests {
             ]
         };
         let mut map = walls();
-        run_at(&f, &mut map, &ground, &Level::MAP);
+        run_at(&f, &mut map, &ground, &Level::map(f.kind));
         assert_eq!(of_code(&f, &map, TOP_LINE_CODE).len(), 1);
         let mut training = walls();
-        run_at(&f, &mut training, &ground, &Level::TRAINING);
+        run_at(&f, &mut training, &ground, &Level::training(f.kind));
         assert!(of_code(&f, &training, TOP_LINE_CODE).is_empty());
         assert_eq!(of_code(&f, &training, CLIFF_CODE).len(), 1);
     }
@@ -2086,7 +2155,7 @@ mod tests {
             f.kind,
             &f.georef,
             &f.set,
-            &Level::MAP,
+            &Level::map(f.kind),
         );
         let kept = of_code(&f, &map, CLIFF_CODE);
         assert_eq!(kept.len(), 1);
@@ -2132,8 +2201,29 @@ mod tests {
     }
 
     #[test]
-    fn a_sprint_map_keeps_its_cliffs() {
+    fn a_sprint_map_keeps_cliffs_of_the_sprint_norm() {
+        // ISSprOM: 1.5 m. A wall of 2 m stays on the sprint map, which the forest map drops.
         let f = fixture(MapKind::Sprint);
+        let ground = terrain(&f, terraces(&[(0.0, 2.0)]));
+        let mut map = vec![cliff(&f, &[(-50.0, 0.0), (50.0, 0.0)])];
+        let (candidates, rock) = run(&f, &mut map, Some(&ground));
+        assert_eq!(map.len(), 1);
+        assert!(candidates.is_empty());
+        assert!(!rock.is_empty());
+        // A step of 1 m is no impassable cliff.
+        let ground = terrain(&f, terraces(&[(0.0, 1.0)]));
+        let mut map = vec![cliff(&f, &[(-50.0, 0.0), (50.0, 0.0)])];
+        let (candidates, _) = run(&f, &mut map, Some(&ground));
+        assert!(map.is_empty());
+        assert_eq!(
+            generalized(&candidates[0]),
+            Some("cliff lower than 1.5 m above its slope")
+        );
+    }
+
+    #[test]
+    fn a_schoolyard_keeps_its_cliffs() {
+        let f = fixture(MapKind::Schoolyard);
         let ground = terrain(&f, terraces(&[(0.0, 1.0)]));
         let mut map = vec![
             cliff(&f, &[(-50.0, 0.0), (50.0, 0.0)]),

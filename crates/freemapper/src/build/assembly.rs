@@ -882,7 +882,7 @@ impl Built {
             self.map_kind,
             georef,
             symbol_set,
-            &Level::MAP,
+            &Level::map(self.map_kind),
         );
         // Contours and north lines stop at paving and paths (`build/line_cuts.rs`).
         let ways = way_footprints(&map, &candidates, &map, self.map_kind, georef, symbol_set);

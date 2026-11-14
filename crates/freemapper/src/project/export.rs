@@ -560,11 +560,13 @@ pub fn export_candidates_pdf_from(
     write_pdf_file(dir, documents, true, scale_bar, sources)
 }
 
-/// The objects of the training map of a forest map, its rock generalized at the training level:
+/// The objects of the training map of a forest or sprint map, its rock generalized at the
+/// training level:
 /// the cliffs of the map and the visible candidates together, the contours cut below the rock
 /// drawn, and the knolls and depressions on the rock left out.
 fn training_rock(
     dir: &Path,
+    kind: MapKind,
     objects: &[&MapObject],
     documents: &StarterDocuments,
 ) -> Vec<MapObject> {
@@ -586,14 +588,14 @@ fn training_rock(
             terrain: terrain.as_ref(),
             rock_seen: rock_seen.as_ref(),
         },
-        MapKind::Forest,
+        kind,
         georef,
         symbol_set,
-        &Level::TRAINING,
+        &Level::training(kind),
     );
     if !rock.stops.is_empty() {
-        let min_contour_m = CONTOUR_MIN_LENGTH_MM
-            .metres(SymbolScale::new(MapKind::Forest, georef.scale_denominator));
+        let min_contour_m =
+            CONTOUR_MIN_LENGTH_MM.metres(SymbolScale::new(kind, georef.scale_denominator));
         cut_lines_at_ways(
             &mut list,
             &CONTOUR_CODES,
@@ -632,8 +634,8 @@ pub(super) fn write_pdf_file(
     let (map, _) = pdf_objects(documents, candidates);
     // The training map of a forest map generalizes its rock more than the map (ADR 0126): it is
     // printed as it is and must stay readable; the candidates keep every cliff.
-    let trained = (candidates && project.map_kind == MapKind::Forest)
-        .then(|| training_rock(dir, &map, documents));
+    let trained = (candidates && matches!(project.map_kind, MapKind::Forest | MapKind::Sprint))
+        .then(|| training_rock(dir, project.map_kind, &map, documents));
     let map: Vec<&MapObject> = match &trained {
         Some(objects) => objects.iter().collect(),
         None => map,
@@ -1202,13 +1204,12 @@ fn read_stored(dir: &Path, project: &ProjectFile, area: &MapArea) -> Result<Stor
         stair_terrain,
         // A forest map measures its cliffs on the terrain (`build/cliffs.rs`): of a tile provider
         // the mosaic `derive` kept for it.
-        terrain: read_terrain(dir).or_else(|| {
-            (project.map_kind == MapKind::Forest)
-                .then(|| read_float_raster(&dir.join(TERRAIN_MOSAIC_RELPATH)).ok())
-                .flatten()
-        }),
+        // The stored DGM1 of a per-area provider, else the mosaic `derive` kept of a tile
+        // provider's (ADR 0126): the ticks of banks and the cliffs follow it.
+        terrain: read_terrain(dir)
+            .or_else(|| read_float_raster(&dir.join(TERRAIN_MOSAIC_RELPATH)).ok()),
         // Where the orthophoto shows rock: the cliffs it confirms go first (ADR 0126).
-        rock_seen: (project.map_kind == MapKind::Forest)
+        rock_seen: matches!(project.map_kind, MapKind::Forest | MapKind::Sprint)
             .then(|| crate::derive::terrain::read_float_raster(&dir.join(ROCK_SEEN_RELPATH)).ok())
             .flatten(),
         contours: read_stored_contours(dir, project)?,
