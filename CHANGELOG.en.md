@@ -6,6 +6,10 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
+### Added
+
+- Permit notes for Schleswig-Holstein (ADR 0137): the state forest with its Revier of the Schleswig-Holsteinische Landesforsten, the Naturwald and the water protection areas with their zone, from the Umweltportal of the Landesamt für Umwelt (CC BY 4.0). The service answers GML only; the table source now reads such services too. Names a service writes in capitals ("HÜTTEN") are written as names in the notes ("Hütten").
+
 ### Fixed
 
 - A folder adapter that names a built-in raster backend (`backend = "lgb"` and the like) got no orthophoto, terrain model or surface model in the download estimate. The built-in backends now estimate their rasters themselves, with the same numbers as the states. The estimates of the built-in states stay as they are (issue #71).

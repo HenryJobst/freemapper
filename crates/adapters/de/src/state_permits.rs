@@ -145,6 +145,78 @@ pub fn hessen() -> Vec<Box<dyn PermitSource>> {
     )]
 }
 
+/// The credit of the environment services of Schleswig-Holstein, as the Umweltportal names it
+/// for the state forest; the service itself gives no conditions (`Fees` NONE).
+const SH_CREDIT: &str = "Quellenvermerk: LfU SH; Lizenz: Creative Commons Namensnennung 4.0 \
+    International (CC BY 4.0)";
+
+/// The administration of the state forest of Schleswig-Holstein.
+const SHLF: &str = "Schleswig-Holsteinische Landesforsten";
+
+/// The one service of Schleswig-Holstein (ADR 0137): a deegree WFS that answers GML 3.2 only,
+/// with the state forest and its Reviere, the Naturwald and the water protection zones.
+pub fn schleswig_holstein() -> Vec<Box<dyn PermitSource>> {
+    vec![crate::wfs_permits::gml_source(
+        "umwelt",
+        Wording {
+            en: "Umweltportal Schleswig-Holstein",
+            de: "Umweltportal Schleswig-Holstein",
+        },
+        Wording {
+            en: "state forest with its Reviere, Naturwald, water protection zones",
+            de: "Landeswald mit seinen Revieren, Naturwald, Wasserschutzgebiete",
+        },
+        SH_CREDIT,
+        &["landeswald", "reviere", "naturwald", "wasserschutzgebiete"],
+        &[
+            PermitSection::StateForest,
+            PermitSection::ForestUnits,
+            PermitSection::ForestFunctions,
+            PermitSection::WaterProtection,
+        ],
+        "https://umweltgeodienste.schleswig-holstein.de/WFS_UWAT",
+        "application%2Fgml%2Bxml%3B%20version%3D3.2",
+        &[
+            (
+                "landeswald",
+                "app:shlf_gesamtflaeche",
+                Reading::StateForest {
+                    owner: "Bundesland Schleswig-Holstein",
+                    prefix: "Schleswig-Holsteinische Landesforsten, Revier ",
+                    office: "reviername",
+                },
+            ),
+            (
+                "reviere",
+                "app:shlf_gesamtflaeche",
+                Reading::Unit {
+                    administration: SHLF,
+                    prefix: "Revier ",
+                    office: "reviername",
+                },
+            ),
+            (
+                "naturwald",
+                "app:shlf_naturwald",
+                Reading::Function {
+                    kind: ForestFunctionKind::Natural,
+                    name: None,
+                },
+            ),
+            (
+                "wasserschutzgebiete",
+                "app:wsg_zonen",
+                Reading::Water {
+                    name: "wsg_name",
+                    zone: "wsg_zone",
+                    citation: None,
+                    planned: None,
+                },
+            ),
+        ],
+    )]
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -429,6 +501,11 @@ mod tests {
             (State::Saarland, "schutzgebiete", [6.8, 49.2, 7.2, 49.5]),
             (State::Saarland, "denkmale", [6.99, 49.23, 7.00, 49.24]),
             (State::Hessen, "wasserschutzgebiete", [8.5, 50.0, 8.8, 50.2]),
+            (
+                State::SchleswigHolstein,
+                "umwelt",
+                [9.55, 54.25, 9.75, 54.45],
+            ),
             // The shapefiles of ADR 0131: about 4 and 15 MB.
             (
                 State::Brandenburg,
@@ -459,6 +536,76 @@ mod tests {
                 .map(|(layer, features)| source.findings(layer, features).len())
                 .sum();
             assert!(found > 0, "{state:?} {key}: no finding");
+        }
+    }
+
+    /// Schleswig-Holstein's GML answers become the state forest with its Revier (the names
+    /// written in capitals come out as names), Naturwald and water zones (ADR 0137).
+    #[test]
+    fn schleswig_holstein_from_its_gml_service() {
+        use crate::fetch::test_support::MapFetcher;
+        use geo_types::{Coord, Rect};
+        let base = "https://umweltgeodienste.schleswig-holstein.de/WFS_UWAT?service=WFS&version=2.0.0\
+                    &request=GetFeature&outputFormat=application%2Fgml%2Bxml%3B%20version%3D3.2\
+                    &srsName=urn:ogc:def:crs:EPSG::4326&typeNames=";
+        let fetcher = MapFetcher::default();
+        for (t, file) in [
+            ("app:shlf_gesamtflaeche", fixture!("sh-landeswald.gml")),
+            ("app:shlf_naturwald", fixture!("sh-naturwald.gml")),
+            ("app:wsg_zonen", fixture!("sh-wsg.gml")),
+        ] {
+            fetcher.insert_prefix(&format!("{base}{t}&"), file.as_bytes().to_vec());
+        }
+        let source = &schleswig_holstein()[0];
+        let part = tempfile::tempdir().unwrap();
+        let bbox = Rect::new(Coord { x: 9.55, y: 54.25 }, Coord { x: 9.75, y: 54.45 });
+        let layers = source
+            .fetch(&fetcher, &bbox, &part.path().join("x.part"))
+            .unwrap();
+        let kinds = |i: usize| -> Vec<FindingKind> {
+            source
+                .findings(source.info().layers[i], &layers[i])
+                .into_iter()
+                .map(|f| f.kind)
+                .collect()
+        };
+        assert_eq!(
+            kinds(0)[0],
+            FindingKind::StateForest {
+                owner: "Bundesland Schleswig-Holstein".into(),
+                office: Some("Schleswig-Holsteinische Landesforsten, Revier Hütten".into()),
+            }
+        );
+        assert_eq!(
+            kinds(1)[0],
+            FindingKind::ForestUnit {
+                administration: "Schleswig-Holsteinische Landesforsten".into(),
+                office: "Revier Hütten".into(),
+                unit: None,
+            }
+        );
+        assert!(kinds(2).iter().all(|k| *k
+            == FindingKind::ForestFunction {
+                kind: ForestFunctionKind::Natural,
+                name: None
+            }));
+        assert_eq!(
+            kinds(3),
+            ["Schutzzone III B", "Schutzzone III A"].map(|zone| FindingKind::WaterProtection {
+                name: Some("Rendsburg".into()),
+                zone: Some(zone.into()),
+                citation: None,
+            })
+        );
+        for layer in &layers {
+            for f in layer {
+                let c = &f["geometry"]["coordinates"][0][0][0];
+                let (lon, lat) = (c[0].as_f64().unwrap(), c[1].as_f64().unwrap());
+                assert!(
+                    (8.0..11.5).contains(&lon) && (53.3..55.1).contains(&lat),
+                    "{c}"
+                );
+            }
         }
     }
 }

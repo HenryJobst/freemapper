@@ -13,7 +13,7 @@ maintainers = ["github:HenryJobst"]
 last_verified = "2026-11-12"
 
 [net]
-hosts = ["dienste.gdi-sh.de", "service.gdi-sh.de", "geodaten.schleswig-holstein.de"]
+hosts = ["dienste.gdi-sh.de", "service.gdi-sh.de", "geodaten.schleswig-holstein.de", "umweltgeodienste.schleswig-holstein.de"]
 
 [boundary]
 file = "boundary.geojson"
