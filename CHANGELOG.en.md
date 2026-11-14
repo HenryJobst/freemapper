@@ -10,6 +10,10 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 - Examples: each of the 30 examples in `examples/` now has its permit notes (`permits.md` and `permits.json`, in German). They show what the notes give in each state, from the Bezirke and monuments of Berlin and Hamburg to the forest administration, water protection areas and classified roads.
 
+### Changed
+
+- Vegetation from laser point clouds (ADR 0136): the outlines now follow the edge of the vegetation instead of the 3 m steps of the cells. freemapper traces them on a raster three times finer and slightly blurred; corners are rounded a little. The nine examples with point-cloud vegetation are rebuilt.
+
 ## [0.20.0] - 2026-11-14
 
 ### Added
