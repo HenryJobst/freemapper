@@ -19,7 +19,7 @@ use serde_json::Value;
 use crate::berlin_permits::geometry;
 use crate::crs::Crs;
 use crate::fetch::{FetchError, Fetcher};
-use crate::shape_permits::{record_feature, shape_records};
+use crate::shape_permits::{cached_shape_records, record_feature, shape_records};
 
 /// The credit the licence asks for: the publisher as GovData names it, and its licence.
 pub const CREDIT: &str = "Landesbetrieb Wald und Holz Nordrhein-Westfalen, Datenlizenz \
@@ -183,6 +183,23 @@ impl PermitSource for WuhPermitSource {
     ) -> Result<Vec<Vec<Value>>, FetchError> {
         let url = format!("{BASE}{}", self.zip);
         let records = shape_records(fetcher, &url, Crs::Utm32, bbox, part)?;
+        Ok(vec![
+            records
+                .iter()
+                .filter_map(|r| record_feature(r, self.layer.kept(), Crs::Utm32))
+                .collect(),
+        ])
+    }
+
+    fn fetch_cached(
+        &self,
+        fetcher: &dyn Fetcher,
+        bbox: &Rect<f64>,
+        part: &Path,
+        cache: &crate::fetch::CacheDir,
+    ) -> Result<Vec<Vec<Value>>, FetchError> {
+        let url = format!("{BASE}{}", self.zip);
+        let records = cached_shape_records(fetcher, &url, Crs::Utm32, bbox, part, cache)?;
         Ok(vec![
             records
                 .iter()
