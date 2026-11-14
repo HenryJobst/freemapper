@@ -49,7 +49,8 @@ use crate::build::paved_borders::{border_input, paved_borders as paved_borders_o
 use crate::build::peripheral::{PaperRect, north_lines};
 use crate::build::points::{GeneralizedPoints, generalize_points, way_footprints};
 use crate::build::stairs::{
-    NAS_STAIR_LAYER, STEP_EDGE_LAYER, SURVEY_STAIR_LAYER, StairInput, stair_objects,
+    NAS_STAIR_LAYER, STEP_EDGE_LAYER, SURVEY_STAIR_LAYER, StairInput, drop_osm_stairs_on_cadastre,
+    stair_objects,
 };
 use crate::build::state::{NasInput, TreeInput, nas_objects, state_objects, tree_objects};
 use crate::build::ticks::orient_ticks;
@@ -496,6 +497,7 @@ pub fn build(frame: Frame, stored: Stored, saved: &ContentSettings) -> Result<Bu
     let Resolved {
         points: generalized,
         canopies,
+        stairs,
         out_of_bounds,
         paved,
         open_land,
@@ -505,6 +507,7 @@ pub fn build(frame: Frame, stored: Stored, saved: &ContentSettings) -> Result<Bu
             osm_map,
             cadastre,
             canopies: structures.canopies,
+            stairs: structures.stairs,
             out_of_bounds,
             paved,
             open_land,
@@ -537,7 +540,7 @@ pub fn build(frame: Frame, stored: Stored, saved: &ContentSettings) -> Result<Bu
     };
     let mut candidates: Vec<MapObject> = std::iter::once(outline)
         .chain(point_candidates)
-        .chain(structures.stairs)
+        .chain(stairs)
         .chain(contour_objects)
         .chain(paved.candidates)
         .chain(open_land.candidates)
@@ -621,6 +624,8 @@ struct Drawn {
     pub cadastre: Vec<MapObject>,
     /// The 522 canopies.
     pub canopies: Vec<MapObject>,
+    /// The 532.x stair candidates of the cadastres and the survey ([`stair_objects`]).
+    pub stairs: Vec<MapObject>,
     /// The areas that shall not be entered (520) of the land use.
     pub out_of_bounds: Vec<MapObject>,
     /// The paved areas and the open land of the land use; they are only looked at.
@@ -634,6 +639,7 @@ struct Resolved {
     /// objects, after the point generalization.
     pub points: GeneralizedPoints,
     pub canopies: Vec<MapObject>,
+    pub stairs: Vec<MapObject>,
     pub out_of_bounds: Vec<MapObject>,
     pub paved: PavedObjects,
     pub open_land: OpenLandObjects,
@@ -659,6 +665,7 @@ fn resolve(drawn: Drawn, surroundings: &Surroundings) -> Result<Resolved, Georef
         osm_map,
         cadastre,
         mut canopies,
+        mut stairs,
         mut out_of_bounds,
         paved,
         open_land,
@@ -671,6 +678,12 @@ fn resolve(drawn: Drawn, surroundings: &Surroundings) -> Result<Resolved, Georef
     };
     let osm_candidates = off_water(osm_candidates);
     let osm_map = off_water(osm_map);
+    // An OSM stair on a stair of the cadastre is that stair, on the map and among the candidates
+    // (`build/stairs.rs`).
+    let scale = SymbolScale::new(*map_kind, georef.scale_denominator);
+    let osm_candidates =
+        drop_osm_stairs_on_cadastre(osm_candidates, &mut stairs, symbol_set, scale);
+    let osm_map = drop_osm_stairs_on_cadastre(osm_map, &mut stairs, symbol_set, scale);
     // A survey line along an ALKIS line goes first, then an OSM line along either.
     let cadastre = drop_cadastre_lines_by_rank(cadastre, symbol_set, georef.scale_denominator);
     let (osm_candidates, mut cadastre) = drop_trees_by_rank(
@@ -770,6 +783,7 @@ fn resolve(drawn: Drawn, surroundings: &Surroundings) -> Result<Resolved, Georef
     Ok(Resolved {
         points,
         canopies,
+        stairs,
         out_of_bounds,
         paved,
         open_land,
@@ -1282,6 +1296,7 @@ mod tests {
                 Some(6.0),
             )],
             canopies: Vec::new(),
+            stairs: Vec::new(),
             out_of_bounds: vec![garden.clone()],
             paved: PavedObjects::default(),
             open_land: OpenLandObjects {

@@ -16,7 +16,9 @@ use geo::{
 use geo_types::{Coord, LineString, MultiLineString, MultiPolygon, Polygon, Rect, coord};
 
 use crate::build::dedup::AREA_DEDUP_TOLERANCE_MM;
+use crate::build::geometry::object_polygon;
 use crate::build::out_of_bounds::{LandClip, mean_width, nutzart_label};
+use crate::build::points::projected;
 use crate::crs::{BoundingBox, ProjectedPoint};
 use crate::georef::{GeorefError, Georeferencing};
 use crate::measure::SymbolScale;
@@ -496,7 +498,9 @@ pub fn drop_covered_water(
             if object.symbol_id != water_id || !from_osm(object) || object.coords.len() < 4 {
                 return true;
             }
-            let area = projected_area(object, georef);
+            let Some(area) = projected_area(object, georef) else {
+                return true;
+            };
             // A self-intersecting ring (a bow tie) has no reliable area: keep it for the mapper.
             if !area.is_valid() {
                 return true;
@@ -572,7 +576,7 @@ pub fn drop_points_in_water(
     let basins: Vec<Polygon<f64>> = objects
         .iter()
         .filter(|o| o.symbol_id == area_id && from_osm(o) && o.coords.len() >= 4)
-        .map(|o| projected_area(o, georef))
+        .filter_map(|o| projected_area(o, georef))
         .collect();
     objects
         .into_iter()
@@ -626,8 +630,8 @@ pub fn drop_fountains_in_osm_basins(
                     k == "freemapper:osm" && crate::build::dedup::tag_holds(v, "amenity=fountain")
                 })
         })
-        .map(|(i, o)| (i, projected_area(o, georef)))
-        .filter(|(_, polygon)| polygon.is_valid())
+        .filter_map(|(i, o)| Some((i, projected_area(o, georef)?)))
+        .filter(|(_, polygon)| polygon.is_valid() && polygon.interiors().is_empty())
         .collect();
     if rings.is_empty() {
         return objects;
@@ -699,20 +703,11 @@ fn from_osm(object: &MapObject) -> bool {
         .any(|(k, v)| k == "freemapper:source" && v == "osm")
 }
 
-/// The ring of an area object in the map's CRS (no holes: OSM areas come from closed ways).
-fn projected_area(object: &MapObject, georef: &Georeferencing) -> Polygon<f64> {
-    let ring: Vec<Coord<f64>> = object
-        .coords
-        .iter()
-        .map(|&c| {
-            let p = georef.map_to_projected(c);
-            Coord {
-                x: p.easting,
-                y: p.northing,
-            }
-        })
-        .collect();
-    Polygon::new(LineString(ring), vec![])
+/// The area of an area object in the map's CRS, with its holes: an OSM multipolygon relation is
+/// one object per outer ring, its holes (the islands) after it (`build/candidates.rs`).
+/// `None` for a point or a line too short for a ring.
+fn projected_area(object: &MapObject, georef: &Georeferencing) -> Option<Polygon<f64>> {
+    object_polygon(object).map(|polygon| projected(&polygon, georef))
 }
 
 #[cfg(test)]
@@ -1578,8 +1573,8 @@ mod tests {
         assert!(objects.candidates.is_empty());
     }
 
-    /// A rectangle of OSM water (301) with its south-west corner at `(e, n)`.
-    fn osm_water(g: &Georeferencing, set: &SymbolSet, e: f64, n: f64, w: f64, h: f64) -> MapObject {
+    /// The ring `w` × `h` m with its south-west corner at `(e, n)`, in map coordinates.
+    fn map_ring(g: &Georeferencing, e: f64, n: f64, w: f64, h: f64) -> Vec<MapCoord> {
         let pts: Vec<(i32, i32)> = ring(e, n, w, h)
             .coords()
             .map(|c| {
@@ -1592,12 +1587,27 @@ mod tests {
                 (m.x, m.y)
             })
             .collect();
+        closed_ring(&pts)
+    }
+
+    /// A rectangle of OSM water (301) with its south-west corner at `(e, n)`.
+    fn osm_water(g: &Georeferencing, set: &SymbolSet, e: f64, n: f64, w: f64, h: f64) -> MapObject {
         MapObject {
             symbol_id: set.id_for_code("301").unwrap(),
             kind: MapObjectKind::Path,
-            coords: closed_ring(&pts),
+            coords: map_ring(g, e, n, w, h),
             tags: vec![("freemapper:source".into(), "osm".into())],
         }
+    }
+
+    /// A 40 × 40 m OSM lake (301) with its south-west corner at `(e, n)` and a 10 × 10 m island
+    /// in its middle, as `build/candidates.rs` writes a multipolygon relation: the outer ring,
+    /// then the hole ring.
+    fn osm_lake_with_island(g: &Georeferencing, set: &SymbolSet, e: f64, n: f64) -> MapObject {
+        let mut lake = osm_water(g, set, e, n, 40.0, 40.0);
+        lake.coords
+            .extend(map_ring(g, e + 15.0, n + 15.0, 10.0, 10.0));
+        lake
     }
 
     #[test]
@@ -1693,6 +1703,49 @@ mod tests {
         bow.coords.swap(1, 2);
         let kept = drop_covered_water(vec![bow.clone()], &union, &f.clip, &f.georef, &set);
         assert_eq!(kept, vec![bow]);
+    }
+
+    /// The ALKIS lake of the island tests: 100 × 100 m around the centre, with the island of
+    /// [`osm_lake_with_island`] at `(-20, -20)` as its hole.
+    fn alkis_lake_with_island(f: &Fixture) -> MultiPolygon<f64> {
+        let (e, n) = f.centre;
+        MultiPolygon(vec![Polygon::new(
+            ring(e - 50.0, n - 50.0, 100.0, 100.0),
+            vec![ring(e - 5.0, n - 5.0, 10.0, 10.0)],
+        )])
+    }
+
+    #[test]
+    fn an_osm_lake_with_an_island_on_alkis_water_is_dropped() {
+        let f = fixture();
+        let set = MapKind::Sprint.symbol_set(4000);
+        let (e, n) = f.centre;
+        let lake = osm_lake_with_island(&f.georef, &set, e - 20.0, n - 20.0);
+        let kept = drop_covered_water(
+            vec![lake],
+            &alkis_lake_with_island(&f),
+            &f.clip,
+            &f.georef,
+            &set,
+        );
+        assert!(kept.is_empty());
+    }
+
+    #[test]
+    fn an_osm_lake_with_an_island_beside_alkis_water_is_kept() {
+        let f = fixture();
+        let set = MapKind::Sprint.symbol_set(4000);
+        let (e, n) = f.centre;
+        // East of the ALKIS lake, which ends at 50 m.
+        let lake = osm_lake_with_island(&f.georef, &set, e + 60.0, n - 20.0);
+        let kept = drop_covered_water(
+            vec![lake.clone()],
+            &alkis_lake_with_island(&f),
+            &f.clip,
+            &f.georef,
+            &set,
+        );
+        assert_eq!(kept, vec![lake]);
     }
 
     /// A 100 × 100 m lake around the origin.

@@ -216,7 +216,7 @@ pub fn drop_landscape(
 }
 
 /// `osm/way/1`, `geoportal-berlin/sb-gelaender/Li_…`: the source of `object` and its id in it.
-fn source_and_id(object: &MapObject) -> String {
+pub(crate) fn source_and_id(object: &MapObject) -> String {
     let tag = |key: &str| {
         object
             .tags

@@ -37,13 +37,14 @@ use serde_json::Value;
 use crate::build::berlin::{
     LAYER_CRS, feature_lines, feature_polygons, provenance_tags, survey_tags,
 };
-use crate::build::dedup::add_also;
+use crate::build::dedup::{Rank, add_also, rank, source_and_id};
+use crate::build::geometry::{distance_to_segment, xy};
 use crate::build::state::{NAS_SOURCE, nas_feature_tags};
-use crate::build::symbol_measures::LINE_GAP_MM;
+use crate::build::symbol_measures::{LINE_GAP_MM, STAIR_FOOTPRINTS_MM};
 use crate::crs::{Crs, ProjectedPoint};
 use crate::derive::ndsm::bilinear;
 use crate::georef::{GeorefError, Georeferencing};
-use crate::measure::{SymbolMm, SymbolScale};
+use crate::measure::{SymbolMm, SymbolScale, map_units_per_metre};
 use crate::omap::{MapObject, MapObjectKind, SymbolSet};
 use crate::project::MapKind;
 use crate::raster::Raster;
@@ -90,8 +91,13 @@ const STEP_PARALLEL_SIN: f64 = 0.26;
 const DUPLICATE_EDGE_M: f64 = 0.05;
 /// The layer file of the surveyed stairs.
 pub const SURVEY_STAIR_LAYER: &str = "sb-treppe";
-/// A surveyed stair covering this share of the smaller of it and an ALKIS stair is the same.
+/// A surveyed stair covering this share of the smaller of it and an ALKIS stair is the same,
+/// and so is an OSM stair with this share of its length on a stair of the cadastre.
 const DUPLICATE_STAIR_SHARE: f64 = 0.5;
+/// An OSM stair is measured in pieces of at most this length (ground metres).
+const STAIR_PIECE_M: f64 = 0.5;
+/// A distance this much (map units, 0.002 mm) over the drawn width still lies within it.
+const STAIR_TOLERANCE: f64 = 2.0;
 
 /// The ISSprOM footprint symbol (532.6 … 532.9) nearest to a stair `paper_mm` wide on paper,
 /// measured at 100 % symbol size (the ground width over metres per mm and the enlargement).
@@ -623,6 +629,130 @@ fn nas_stair_tags(feature: &Value, currency: NaiveDate) -> Vec<(String, String)>
     }
     tags.extend(own);
     tags
+}
+
+/// `osm` without the OSM stairs (any footprint symbol, [`STAIR_FOOTPRINTS_MM`]) that lie on a
+/// stair of the cadastre or the survey among `stairs` (the lines of [`stair_objects`]): at least
+/// [`DUPLICATE_STAIR_SHARE`] of the OSM line no farther from the cadastre line than the drawn
+/// width of its symbol. The cadastre stair nearest to most of the dropped line names it in
+/// `freemapper:also` (`osm/way/…`). An OSM stair that only crosses one stays, and so does every
+/// other object, in its order.
+pub fn drop_osm_stairs_on_cadastre(
+    osm: Vec<MapObject>,
+    stairs: &mut [MapObject],
+    symbol_set: &SymbolSet,
+    scale: SymbolScale,
+) -> Vec<MapObject> {
+    // The drawn width of each stair symbol, the narrowest first: on a set that has one stair
+    // symbol for all footprints (ISOM 532) it is the narrowest.
+    let widths: Vec<(u32, f64)> = STAIR_FOOTPRINTS_MM
+        .iter()
+        .filter_map(|(code, width)| Some((symbol_set.id_for_code(code)?, width.map_units(scale))))
+        .collect();
+    let width = |o: &MapObject| -> Option<f64> {
+        if !matches!(o.kind, MapObjectKind::Path) || o.coords.len() < 2 {
+            return None;
+        }
+        widths
+            .iter()
+            .find(|(id, _)| *id == o.symbol_id)
+            .map(|(_, w)| *w)
+    };
+    let from_osm = |o: &MapObject| rank(o) == Some(Rank::Osm);
+    // The stairs of the cadastre and the survey: the index, the reach (the drawn width and the tolerance) and the
+    // bounding box grown by it.
+    let cadastre: Vec<(usize, f64, [f64; 4])> = stairs
+        .iter()
+        .enumerate()
+        .filter(|(_, o)| rank(o) > Some(Rank::Osm))
+        .filter_map(|(index, o)| {
+            let reach = width(o)? + STAIR_TOLERANCE;
+            let [x0, y0, x1, y1] = bounds(o);
+            Some((
+                index,
+                reach,
+                [x0 - reach, y0 - reach, x1 + reach, y1 + reach],
+            ))
+        })
+        .collect();
+    if cadastre.is_empty() {
+        return osm;
+    }
+    let step = STAIR_PIECE_M * map_units_per_metre(scale.scale_denominator());
+    let mut kept = Vec::with_capacity(osm.len());
+    for object in osm {
+        if !from_osm(&object) || width(&object).is_none() {
+            kept.push(object);
+            continue;
+        }
+        let [x0, y0, x1, y1] = bounds(&object);
+        let near_by: Vec<&(usize, f64, [f64; 4])> = cadastre
+            .iter()
+            .filter(|(_, _, b)| b[0] <= x1 && x0 <= b[2] && b[1] <= y1 && y0 <= b[3])
+            .collect();
+        // Length near each cadastre stair, from the middle of pieces at most `step` long.
+        let mut near: Vec<(usize, f64)> = Vec::new();
+        let mut total = 0.0;
+        for pair in object.coords.windows(2) {
+            let (a, b) = (xy(&pair[0]), xy(&pair[1]));
+            let length = (b.0 - a.0).hypot(b.1 - a.1);
+            let pieces = (length / step).ceil().max(1.0) as usize;
+            let piece = length / pieces as f64;
+            total += length;
+            for i in 0..pieces {
+                let t = (i as f64 + 0.5) / pieces as f64;
+                let p = (a.0 + t * (b.0 - a.0), a.1 + t * (b.1 - a.1));
+                let nearest = near_by
+                    .iter()
+                    .filter_map(|&&(index, reach, _)| {
+                        let d = distance_to_line(p, &stairs[index]);
+                        (d <= reach).then_some((d, index))
+                    })
+                    .min_by(|a, b| a.0.total_cmp(&b.0));
+                if let Some((_, index)) = nearest {
+                    match near.iter_mut().find(|(i, _)| *i == index) {
+                        Some((_, l)) => *l += piece,
+                        None => near.push((index, piece)),
+                    }
+                }
+            }
+        }
+        let covered: f64 = near.iter().map(|(_, l)| l).sum();
+        if total <= 0.0 || covered < DUPLICATE_STAIR_SHARE * total {
+            kept.push(object);
+            continue;
+        }
+        // The first of the longest: `near` is in the order the line meets them.
+        let (winner, _) = near
+            .iter()
+            .fold((usize::MAX, f64::NEG_INFINITY), |best, &(i, l)| {
+                if l > best.1 { (i, l) } else { best }
+            });
+        add_also(&mut stairs[winner].tags, &source_and_id(&object));
+    }
+    kept
+}
+
+/// The bounding box of the coordinates of `object` (min x, min y, max x, max y).
+fn bounds(object: &MapObject) -> [f64; 4] {
+    object.coords.iter().map(xy).fold(
+        [
+            f64::INFINITY,
+            f64::INFINITY,
+            f64::NEG_INFINITY,
+            f64::NEG_INFINITY,
+        ],
+        |[x0, y0, x1, y1], (x, y)| [x0.min(x), y0.min(y), x1.max(x), y1.max(y)],
+    )
+}
+
+/// The distance from `p` to the line of `object` (map units).
+fn distance_to_line(p: (f64, f64), object: &MapObject) -> f64 {
+    object
+        .coords
+        .windows(2)
+        .map(|pair| distance_to_segment(p, xy(&pair[0]), xy(&pair[1])))
+        .fold(f64::INFINITY, f64::min)
 }
 
 /// Whether two stair footprints overlap by [`DUPLICATE_STAIR_SHARE`] of the smaller one.
@@ -1635,5 +1765,126 @@ mod tests {
                 "{p:?} vs {q:?}"
             );
         }
+    }
+
+    /// A line of `code` from `source` (`freemapper:source_id` `id`) through `points` (metres from
+    /// the reference point).
+    fn line(
+        georef: &Georeferencing,
+        set: &SymbolSet,
+        code: &str,
+        (source, id): (&str, &str),
+        points: &[(f64, f64)],
+    ) -> MapObject {
+        MapObject {
+            symbol_id: set.id_for_code(code).unwrap(),
+            kind: MapObjectKind::Path,
+            coords: points
+                .iter()
+                .map(|&(e, n)| {
+                    georef
+                        .projected_to_map(ProjectedPoint {
+                            easting: E + e,
+                            northing: N + n,
+                        })
+                        .unwrap()
+                })
+                .collect(),
+            tags: vec![
+                ("freemapper:source".to_string(), source.to_string()),
+                ("freemapper:source_id".to_string(), id.to_string()),
+            ],
+        }
+    }
+
+    const NAS: (&str, &str) = ("alkis-nas/sonstiges-bauwerk", "DEHBHB0000000001");
+
+    /// [`drop_osm_stairs_on_cadastre`] on a map of `kind` at its default scale.
+    fn drop_on(kind: MapKind, osm: Vec<MapObject>, stairs: &mut [MapObject]) -> Vec<MapObject> {
+        let set = kind.symbol_set(kind.default_scale());
+        drop_osm_stairs_on_cadastre(
+            osm,
+            stairs,
+            &set,
+            SymbolScale::new(kind, kind.default_scale()),
+        )
+    }
+
+    #[test]
+    fn an_osm_stair_on_a_cadastre_stair_is_dropped() {
+        // ISOM 532 is 0.4 mm wide: 6 m at 1:15 000; ISSprOM 532.8 0.75 mm: 3 m at 1:4000. The OSM
+        // stair runs 2 m beside the cadastre stair and 1 m beyond its end, any footprint.
+        for (kind, osm_code, cadastre_code) in [
+            (MapKind::Forest, "532", "532"),
+            (MapKind::Sprint, "532.6", "532.8"),
+        ] {
+            let (georef, _, set) = setup(kind);
+            let mut stairs = vec![line(
+                &georef,
+                &set,
+                cadastre_code,
+                NAS,
+                &[(0.0, 0.0), (0.0, 10.0)],
+            )];
+            let osm = line(
+                &georef,
+                &set,
+                osm_code,
+                ("osm", "way/1"),
+                &[(2.0, 1.0), (2.0, 11.0)],
+            );
+            // A railing along the stair is no stair.
+            let railing = line(
+                &georef,
+                &set,
+                "518",
+                ("osm", "way/2"),
+                &[(1.0, 0.0), (1.0, 10.0)],
+            );
+            let kept = drop_on(kind, vec![osm, railing.clone()], &mut stairs);
+            assert_eq!(kept, vec![railing], "{kind:?}");
+            assert_eq!(
+                tag(&stairs[0], "freemapper:also"),
+                Some("osm/way/1"),
+                "{kind:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn an_osm_stair_that_only_crosses_one_stays() {
+        let kind = MapKind::Forest;
+        let (georef, _, set) = setup(kind);
+        let mut stairs = vec![line(&georef, &set, "532", NAS, &[(0.0, 0.0), (0.0, 10.0)])];
+        // 12 of its 40 m lie within the 6 m of the cadastre stair.
+        let osm = line(
+            &georef,
+            &set,
+            "532",
+            ("osm", "way/1"),
+            &[(-20.0, 5.0), (20.0, 5.0)],
+        );
+        let kept = drop_on(kind, vec![osm.clone()], &mut stairs);
+        assert_eq!(kept, vec![osm]);
+        assert_eq!(tag(&stairs[0], "freemapper:also"), None);
+    }
+
+    #[test]
+    fn an_osm_stair_on_a_map_without_cadastre_stairs_stays() {
+        let kind = MapKind::Forest;
+        let (georef, _, set) = setup(kind);
+        let osm = line(
+            &georef,
+            &set,
+            "532",
+            ("osm", "way/1"),
+            &[(0.0, 0.0), (0.0, 10.0)],
+        );
+        // An OSM stair among the stairs is no cadastre stair either.
+        let mut others = vec![osm.clone()];
+        let kept = drop_on(kind, vec![osm.clone()], &mut others);
+        assert_eq!(kept, vec![osm.clone()]);
+        let kept = drop_on(kind, vec![osm.clone()], &mut []);
+        assert_eq!(kept, vec![osm]);
     }
 }
