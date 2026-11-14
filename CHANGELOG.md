@@ -6,6 +6,10 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+### Behoben
+
+- Ein Adapter aus einem Ordner, der ein eingebautes Raster-Backend nennt (`backend = "lgb"` und Ähnliches), bekam in der Download-Schätzung kein Luftbild, kein Gelände- und kein Oberflächenmodell. Die eingebauten Backends schätzen jetzt ihre Raster selbst, mit denselben Werten wie die Bundesländer. Die Schätzungen der eingebauten Bundesländer bleiben gleich (Issue #71).
+
 ## [0.20.0] - 2026-11-14
 
 ### Hinzugefügt

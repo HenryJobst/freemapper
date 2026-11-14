@@ -432,10 +432,54 @@ const AGENCIES: [Agency; 14] = [
 pub fn register_backends(registry: &mut Registry) -> Result<(), DuplicateBackend> {
     for agency in AGENCIES {
         if let (Some(name), Some(backend)) = (backend_name(agency), rasters::backend(agency)) {
-            registry.add_backend(name, Arc::from(backend))?;
+            let backend = Estimating {
+                inner: backend,
+                agency,
+            };
+            registry.add_backend(name, Arc::new(backend))?;
         }
     }
     Ok(())
+}
+
+/// A built-in raster backend that also answers the download estimate, with the raster items
+/// of its agency (issue #71). A state answers its estimate itself ([`estimate::items`]); an
+/// adapter of a folder that names the backend reaches the numbers only through here.
+struct Estimating {
+    inner: Box<dyn RasterBackend>,
+    agency: Agency,
+}
+
+impl RasterBackend for Estimating {
+    fn provider(&self) -> &freemapper_adapter_api::rasters::ProviderInfo {
+        self.inner.provider()
+    }
+
+    fn fetch(
+        &self,
+        env: &mut freemapper_adapter_api::env::AdapterEnv<'_>,
+        project: &mut dyn freemapper_adapter_api::project::RasterProject,
+        bbox: &BoundingBox,
+    ) -> Result<(), freemapper_adapter_api::error::AdapterError> {
+        self.inner.fetch(env, project, bbox)
+    }
+
+    fn trust(&self) -> Option<&freemapper_adapter_api::trust::TrustAnchors> {
+        self.inner.trust()
+    }
+
+    fn estimate(&self, area: &EstimateArea, env: &EstimateEnv<'_>) -> Vec<EstimateItem> {
+        estimate::raster_items(self.agency, area, env)
+    }
+
+    fn derive_inputs(
+        &self,
+        env: &freemapper_adapter_api::rasters::DeriveEnv<'_>,
+        stored: &freemapper_adapter_api::rasters::StoredRasters<'_>,
+        area: &freemapper_adapter_api::rasters::RasterArea,
+    ) -> freemapper_adapter_api::rasters::DeriveInputs {
+        self.inner.derive_inputs(env, stored, area)
+    }
 }
 
 /// The adapter of one state: its manifest, and what no manifest says.
@@ -717,6 +761,54 @@ mod tests {
             assert!(set.has("gebaeudehoehen"));
             assert!(!set.has("notes"));
         }
+    }
+
+    /// A built-in raster backend answers the estimate with the raster items of its state, so
+    /// an adapter of a folder that names it counts them too (issue #71); the cadastre files of
+    /// Bavaria are no rasters and stay out. The states keep their own estimate.
+    #[test]
+    fn built_in_backends_estimate_their_rasters() {
+        use freemapper_adapter_api::estimate::{EstimateArea, EstimateEnv};
+        use freemapper_adapter_api::records::Part;
+        let mut backends = Registry::new();
+        register_backends(&mut backends).unwrap();
+        let root = tempfile::tempdir().unwrap();
+        let cache = freemapper_adapter_api::cache::CacheDir::new(root.path().to_path_buf());
+        let env = EstimateEnv { cache: &cache };
+        let mut checked = 0;
+        for state in State::ALL {
+            let Some(name) = backend_name(state.agency()) else {
+                continue;
+            };
+            let backend = backends.backend(name).expect("registered");
+            // 2 km around the middle of the state's box (EPSG:25833).
+            let b = outline(state.id()).unwrap().bounds();
+            let (e, n) = ((b.min_e + b.max_e) / 2.0, (b.min_n + b.max_n) / 2.0);
+            let bbox = BoundingBox {
+                min_e: e - 1000.0,
+                min_n: n - 1000.0,
+                max_e: e + 1000.0,
+                max_n: n + 1000.0,
+            };
+            let area = EstimateArea {
+                bbox_25833: bbox,
+                map_bbox: bbox,
+                today: chrono::NaiveDate::from_ymd_opt(2026, 11, 14).unwrap(),
+            };
+            let of_backend = backend.estimate(&area, &env);
+            let rasters: Vec<_> = estimate::items(state, &area, &env)
+                .into_iter()
+                .filter(|i| matches!(i.part, Part::Orthophoto | Part::Terrain | Part::Surface))
+                .collect();
+            assert_eq!(of_backend, rasters, "{}", state.id());
+            assert!(
+                of_backend.iter().any(|i| i.part == Part::Orthophoto),
+                "{}: no orthophoto",
+                state.id()
+            );
+            checked += 1;
+        }
+        assert_eq!(checked, 14, "every state but Saxony-Anhalt names a backend");
     }
 
     /// Berlin brings the six services of the Geoportal Berlin for the permit notes (ADR 0120,

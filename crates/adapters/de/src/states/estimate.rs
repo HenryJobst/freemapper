@@ -38,9 +38,29 @@ const RP_DOM1_TILE_MB: f64 = 3.0;
 
 /// The raster downloads of a map of `area` whose rasters come from `region`.
 pub fn items(state: State, area: &EstimateArea, env: &EstimateEnv<'_>) -> Vec<EstimateItem> {
+    agency_items(state.agency(), area, env)
+}
+
+/// The raster parts of [`agency_items`]: what a raster backend of `agency` downloads, for an
+/// adapter that names the backend instead of being one of the states (issue #71). The files
+/// of the cadastre some agencies list too (Bavaria's LoD2 and land use) are no rasters and
+/// stay out.
+pub fn raster_items(
+    agency: Agency,
+    area: &EstimateArea,
+    env: &EstimateEnv<'_>,
+) -> Vec<EstimateItem> {
+    agency_items(agency, area, env)
+        .into_iter()
+        .filter(|item| matches!(item.part, Part::Orthophoto | Part::Terrain | Part::Surface))
+        .collect()
+}
+
+/// The downloads of a map of `area` from `agency`.
+fn agency_items(agency: Agency, area: &EstimateArea, env: &EstimateEnv<'_>) -> Vec<EstimateItem> {
     let (bbox, cache) = (&area.bbox_25833, env.cache);
     // The tiles of a tile provider's grid (LGB 1 km, GeoSN 2 km) that touch its states.
-    match state.agency() {
+    match agency {
         Agency::Lgb => lgb_items(&provider_tiles(bbox, &[BRANDENBURG, BERLIN], 1), cache),
         Agency::GeoSn => geosn_items(
             &provider_tiles(bbox, &[SAXONY], Product::SaxonyDtm.grid_km()),
