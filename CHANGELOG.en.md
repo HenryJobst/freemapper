@@ -9,6 +9,7 @@ All notable changes to freemapper are listed here, newest first. The format foll
 ### Added
 
 - Permit notes for Schleswig-Holstein (ADR 0137): the state forest with its Revier of the Schleswig-Holsteinische Landesforsten, the Naturwald and the water protection areas with their zone, from the Umweltportal of the Landesamt für Umwelt (CC BY 4.0). The service answers GML only; the table source now reads such services too. Names a service writes in capitals ("HÜTTEN") are written as names in the notes ("Hütten").
+
 ### Changed
 
 - Vegetation from laser point clouds (ADR 0138): the green shades 406, 408 and 410 now follow how much stands in the layer a runner moves through, the laser returns between 0.8 and 3 m among all returns below 3 m (from 20 %, 35 % and 50 %). Before, an index also counted the crowns, and tall forest without undergrowth scored almost as high as a thicket, because every flight the states publish is made without leaves. Measured on the Schmausenbuck against the canopy height of the summer pictures, 71 % of the thickets come out green (29 % before) and 7 % of the tall forest (11 % before). Parks and towns get more green areas (Sanssouci 205 instead of 54); forest maps change less, because their smallest area is larger. Pole stands with a clear stem space stay runnable forest. Existing maps get this with `run --force`. The nine examples with vegetation are rebuilt.
