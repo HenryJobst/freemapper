@@ -193,7 +193,7 @@ small waters.
 | `crs` | whole number | no | Default: `[adapter] crs`. |
 | `max_count` | whole number | yes | Features per request, 1 to 1 000 000. |
 | `max_bytes` | whole number | yes | The largest answer read, 1 to 268 435 456 (256 MiB). |
-| `layers` | list of texts | no | The layers the service serves, of `sonstiges-bauwerk`, `vegetationsmerkmal`, `strukturlinie`, `bauwerk-verkehr`, `bauwerk-gewaesser`, `untergeordnetes-gewaesser`; for the model `basis-dlm` of `dlm-bauwerk`, `dlm-vegetation`, `dlm-felsen`, `dlm-hoehle`, `dlm-gewaessermerkmal`, `dlm-damm`, `dlm-turm`, `dlm-gewaesserachse`. Default: all of the model. |
+| `layers` | list of texts | no | The layers the service serves, of `sonstiges-bauwerk`, `vegetationsmerkmal`, `strukturlinie`, `bauwerk-verkehr`, `bauwerk-gewaesser`, `untergeordnetes-gewaesser`; for the model `basis-dlm` of `dlm-bauwerk`, `dlm-vegetation`, `dlm-felsen`, `dlm-hoehle`, `dlm-gewaessermerkmal`, `dlm-damm`, `dlm-turm`, `dlm-gewaesserachse`, `dlm-weg`, `dlm-fahrweg`. Default: all of the model. |
 | `namespaces` | text | no | The `NAMESPACES` parameter of the requests; at most 300. |
 | `model` | text | no | `alkis` (the default): the cadastre. `basis-dlm`: the landscape model ATKIS Basis-DLM, whose layers start with `dlm-`. A service is asked only for the layers of its model. Objects of the landscape model stay candidates and go where another source has the same object. |
 

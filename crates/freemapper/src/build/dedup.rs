@@ -143,7 +143,7 @@ pub fn drop_landscape_near_others(
         others,
         higher,
         LANDSCAPE_LINE_DEDUP_M,
-        None,
+        LineKinds::AnyWithPaths(crate::build::content::PATH_CODES),
         symbol_set,
         scale_denominator,
     );
@@ -217,36 +217,58 @@ fn drop_lines_near(
         winners,
         is_winner,
         LINE_DEDUP_M,
-        Some(&LINE_DEDUP_CODES),
+        LineKinds::Codes(&LINE_DEDUP_CODES),
         symbol_set,
         scale_denominator,
     )
 }
 
-/// [`drop_lines_near`] within `limit_m` on the ground, for the line symbols `codes` (`None`:
-/// every path of two points or more; the same symbol on both sides keeps areas out).
+/// What makes two lines the same kind of object for [`drop_lines_within`].
+enum LineKinds<'a> {
+    /// The same symbol, among these codes.
+    Codes(&'a [&'a str]),
+    /// The same symbol, or both one of the path classes (`paths`): a path is the same path
+    /// whatever class a source gives it.
+    AnyWithPaths(&'a [&'a str]),
+}
+
+/// The key of all path classes in [`LineKinds::AnyWithPaths`]; no symbol has this id.
+const PATH_KIND: u32 = u32::MAX;
+
+/// [`drop_lines_near`] within `limit_m` on the ground, for the lines `kinds` names (a path of
+/// two points or more; the same kind on both sides keeps areas out).
 fn drop_lines_within(
     losers: Vec<MapObject>,
     winners: &mut [MapObject],
     is_winner: impl Fn(&MapObject) -> bool,
     limit_m: f64,
-    codes: Option<&[&str]>,
+    kinds: LineKinds<'_>,
     symbol_set: &SymbolSet,
     scale_denominator: u32,
 ) -> Vec<MapObject> {
-    let codes: Option<Vec<u32>> = codes.map(|codes| {
+    let ids = |codes: &[&str]| -> Vec<u32> {
         codes
             .iter()
             .filter_map(|c| symbol_set.id_for_code(c))
             .collect()
-    });
-    let line = |o: &MapObject| {
-        matches!(o.kind, MapObjectKind::Path)
-            && o.coords.len() >= 2
-            && codes
-                .as_ref()
-                .is_none_or(|codes| codes.contains(&o.symbol_id))
     };
+    let (only, paths) = match kinds {
+        LineKinds::Codes(codes) => (Some(ids(codes)), Vec::new()),
+        LineKinds::AnyWithPaths(paths) => (None, ids(paths)),
+    };
+    // The kind of a line: its symbol, or the one kind of all paths.
+    let kind = |o: &MapObject| -> Option<u32> {
+        if !matches!(o.kind, MapObjectKind::Path) || o.coords.len() < 2 {
+            return None;
+        }
+        if paths.contains(&o.symbol_id) {
+            return Some(PATH_KIND);
+        }
+        only.as_ref()
+            .is_none_or(|codes| codes.contains(&o.symbol_id))
+            .then_some(o.symbol_id)
+    };
+    let line = |o: &MapObject| kind(o).is_some();
     let metre = map_units_per_metre(scale_denominator);
     let limit = limit_m * metre;
     let cell = |(x, y): (f64, f64)| ((x / limit).floor() as i64, (y / limit).floor() as i64);
@@ -258,10 +280,11 @@ fn drop_lines_within(
         if !(line(object) && is_winner(object)) {
             continue;
         }
+        let object_kind = kind(object).expect("a line has a kind");
         for pair in object.coords.windows(2) {
             let (a, b) = (xy(&pair[0]), xy(&pair[1]));
             let id = segments.len();
-            segments.push((object.symbol_id, (index, a, b)));
+            segments.push((object_kind, (index, a, b)));
             let steps = ((b.0 - a.0).hypot(b.1 - a.1) / (limit / 2.0))
                 .ceil()
                 .max(1.0) as usize;
@@ -273,7 +296,7 @@ fn drop_lines_within(
                 .collect();
             cells.dedup();
             for (cx, cy) in cells {
-                let list = grid.entry((object.symbol_id, cx, cy)).or_default();
+                let list = grid.entry((object_kind, cx, cy)).or_default();
                 if list.last() != Some(&id) {
                     list.push(id);
                 }
@@ -308,6 +331,7 @@ fn drop_lines_within(
             kept.push(object);
             continue;
         }
+        let object_kind = kind(&object).expect("a line has a kind");
         // Length near each winner, from the middle of pieces at most `step` long.
         let mut near: HashMap<usize, f64> = HashMap::new();
         let mut total = 0.0;
@@ -320,7 +344,7 @@ fn drop_lines_within(
             for i in 0..pieces {
                 let t = (i as f64 + 0.5) / pieces as f64;
                 let p = (a.0 + t * (b.0 - a.0), a.1 + t * (b.1 - a.1));
-                if let Some(index) = nearest(object.symbol_id, p) {
+                if let Some(index) = nearest(object_kind, p) {
                     *near.entry(index).or_default() += piece;
                 }
             }
@@ -1745,6 +1769,41 @@ mod tests {
         assert_eq!(
             tag(&others[0], "freemapper:also"),
             Some("atkis-dlm/bauwerk/beside")
+        );
+    }
+
+    /// A path is the same path whatever class the other source gives it.
+    #[test]
+    fn a_landscape_path_goes_when_any_path_is_there() {
+        let set = MapKind::Forest.symbol_set(10_000);
+        const M10: i32 = 100; // one ground metre at 1:10 000
+        let path = |code: &str, source: &str, id: &str, dn: i32, from: i32, to: i32| MapObject {
+            symbol_id: set.id_for_code(code).unwrap(),
+            kind: MapObjectKind::Path,
+            coords: vec![
+                MapCoord::new(from * M10, dn * M10),
+                MapCoord::new(to * M10, dn * M10),
+            ],
+            tags: vec![
+                ("freemapper:source".to_string(), source.to_string()),
+                ("freemapper:source_id".to_string(), id.to_string()),
+            ],
+        };
+        // An OSM small path (506) 100 m long.
+        let mut others = vec![path("506", "osm", "way/1", 0, 0, 100)];
+        let landscape = vec![
+            // A footpath (505) of the model 6 m beside it: the same path, another class.
+            path("505", "atkis-dlm/weg", "same", 6, 0, 100),
+            // One 30 m away: a path OSM lacks.
+            path("505", "atkis-dlm/weg", "missing", 30, 0, 100),
+            // One that follows the OSM path for 40 m and runs on alone for 160 m.
+            path("504", "atkis-dlm/fahrweg", "longer", 4, 60, 260),
+        ];
+        let kept = drop_landscape_near_others(landscape, &mut others, &set, 10_000);
+        assert_eq!(source_ids(&kept), ["missing", "longer"]);
+        assert_eq!(
+            tag(&others[0], "freemapper:also"),
+            Some("atkis-dlm/weg/same")
         );
     }
 

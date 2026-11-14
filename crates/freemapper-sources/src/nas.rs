@@ -63,12 +63,13 @@ pub struct NasLayer {
 // A forest map takes what a sprint map takes (spec 2026-11-13).
 const BOTH_KINDS: &[MapKind] = &[MapKind::Sprint, MapKind::Schoolyard, MapKind::Forest];
 const SPRINT_ONLY: &[MapKind] = &[MapKind::Sprint, MapKind::Forest];
+const FOREST_ONLY: &[MapKind] = &[MapKind::Forest];
 
 /// The NAS layers in fetch order, the six of the cadastre first, then those of the landscape
 /// model (their files start with `dlm-`). `AX_BoeschungKliff` has no geometry property (the services
 /// answer an exception), and `AX_Bauteil` is not fetched: its parts are the vereinfacht building
 /// parts already stored (vereinfacht `oid` = NAS `gml:id` + `BL`).
-pub const NAS_LAYERS: [NasLayer; 14] = [
+pub const NAS_LAYERS: [NasLayer; 16] = [
     NasLayer {
         file: "sonstiges-bauwerk",
         type_name: "adv:AX_SonstigesBauwerkOderSonstigeEinrichtung",
@@ -100,7 +101,7 @@ pub const NAS_LAYERS: [NasLayer; 14] = [
         kinds: BOTH_KINDS,
     },
     // The landscape model (ATKIS Basis-DLM, ADR 0133): the point and line objects a map can
-    // use. Paths, power lines and areas are left out; OpenStreetMap and the land use have them.
+    // use. Power lines and areas are left out; OpenStreetMap and the land use have them.
     NasLayer {
         file: "dlm-bauwerk",
         type_name: "adv:AX_SonstigesBauwerkOderSonstigeEinrichtung",
@@ -140,6 +141,19 @@ pub const NAS_LAYERS: [NasLayer; 14] = [
         file: "dlm-gewaesserachse",
         type_name: "adv:AX_Gewaesserachse",
         kinds: BOTH_KINDS,
+    },
+    // The paths of the model, for the forest map: candidates where OpenStreetMap has no path
+    // (the user's decision of 2026-11-14). In a town OpenStreetMap and the traffic areas of the
+    // land use have them.
+    NasLayer {
+        file: "dlm-weg",
+        type_name: "adv:AX_WegPfadSteig",
+        kinds: FOREST_ONLY,
+    },
+    NasLayer {
+        file: "dlm-fahrweg",
+        type_name: "adv:AX_Fahrwegachse",
+        kinds: FOREST_ONLY,
     },
 ];
 
@@ -1389,7 +1403,7 @@ mod tests {
     }
 
     #[test]
-    fn the_layer_table_has_the_eight_layers_of_the_basis_dlm() {
+    fn the_layer_table_has_the_layers_of_the_basis_dlm() {
         let dlm: Vec<(&str, &str)> = NAS_LAYERS
             .iter()
             .filter(|layer| NasModel::of_layer(layer.file) == NasModel::BasisDlm)
@@ -1409,18 +1423,26 @@ mod tests {
                 ("dlm-damm", "adv:AX_DammWallDeich"),
                 ("dlm-turm", "adv:AX_Turm"),
                 ("dlm-gewaesserachse", "adv:AX_Gewaesserachse"),
+                ("dlm-weg", "adv:AX_WegPfadSteig"),
+                ("dlm-fahrweg", "adv:AX_Fahrwegachse"),
             ]
         );
-        // Every kind of map takes them, and the six layers of the cadastre are as they were.
-        for kind in [MapKind::Sprint, MapKind::Schoolyard, MapKind::Forest] {
-            assert_eq!(
-                nas_layers(kind)
-                    .filter(|layer| layer.file.starts_with("dlm-"))
-                    .count(),
-                8
-            );
-        }
-        assert_eq!(NAS_LAYERS.len(), 14);
+        // Every kind of map takes the first eight; the paths are for the forest map, where
+        // OpenStreetMap is thin. The six layers of the cadastre are as they were.
+        let count = |kind: MapKind| {
+            nas_layers(kind)
+                .filter(|layer| layer.file.starts_with("dlm-"))
+                .count()
+        };
+        assert_eq!(
+            (
+                count(MapKind::Sprint),
+                count(MapKind::Schoolyard),
+                count(MapKind::Forest)
+            ),
+            (8, 8, 10)
+        );
+        assert_eq!(NAS_LAYERS.len(), 16);
     }
 
     #[test]

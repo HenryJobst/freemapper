@@ -126,6 +126,14 @@ pub enum Group {
     Streets,
 }
 
+/// The path classes of the sprint and the forest map: 502 to 505 are the ISOM classes of a
+/// forest map, ISSprOM has none of them. Also what makes two lines of different sources the
+/// same path (`build/dedup.rs`).
+pub(crate) const PATH_CODES: &[&str] = &[
+    "501.6", "501.7", "501.8", "501.9", "505.1", "505.2", "506", "507", "509.1", "509.2", "502",
+    "503", "504", "505",
+];
+
 impl Group {
     pub const ALL: [Group; 16] = [
         Group::Walls,
@@ -192,10 +200,7 @@ impl Group {
             Group::Vegetation => &[],
             Group::OutOfBounds => &["520"],
             // 502 to 505 are the ISOM path classes of a forest map; ISSprOM has none of them.
-            Group::Paths => &[
-                "501.6", "501.7", "501.8", "501.9", "505.1", "505.2", "506", "507", "509.1",
-                "509.2", "502", "503", "504", "505",
-            ],
+            Group::Paths => PATH_CODES,
             Group::Streets => &["501.5", "501.10", "501.11"],
         }
     }

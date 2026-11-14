@@ -167,7 +167,6 @@ sprint = "205"
 when = ["alkis:type=AX_Hoehleneingang"]
 draw = "point"
 sprint = "203"
-forest = "203.2"
 
 # Spring.
 [[rule]]
@@ -201,3 +200,39 @@ when = ["alkis:type=AX_Gewaesserachse", "alkis:funktion!=8300"]
 draw = "line"
 schoolyard = "305"
 sprint = "305"
+
+# The paths of the model, on a forest map only (the layers `dlm-weg` and `dlm-fahrweg` are not
+# fetched for another map). They are candidates where OpenStreetMap has no path within 10 m.
+# Tracks: a main farm or forest track, or one with a firm surface, is a vehicle track (504), the
+# others and the cycle and foot ways a footpath (505).
+[[rule]]
+when = ["alkis:type=AX_Fahrwegachse", "alkis:funktion=5211"]
+draw = "line"
+forest = "504"
+
+[[rule]]
+when = ["alkis:type=AX_Fahrwegachse", "alkis:funktion=5212", "alkis:befestigung=1000"]
+draw = "line"
+forest = "504"
+
+[[rule]]
+when = ["alkis:type=AX_Fahrwegachse"]
+draw = "line"
+forest = "505"
+
+# Paths: a climbing path in the mountains is the less distinct small path (507), a path with a
+# firm surface a footpath (505), the others a small path (506).
+[[rule]]
+when = ["alkis:type=AX_WegPfadSteig", "alkis:art=1109"]
+draw = "line"
+forest = "507"
+
+[[rule]]
+when = ["alkis:type=AX_WegPfadSteig", "alkis:befestigung=1000"]
+draw = "line"
+forest = "505"
+
+[[rule]]
+when = ["alkis:type=AX_WegPfadSteig"]
+draw = "line"
+forest = "506"

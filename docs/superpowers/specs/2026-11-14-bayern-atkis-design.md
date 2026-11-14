@@ -27,8 +27,9 @@ da zukünftig noch mehr Daten. Auch ein paar Daten sind besser als keine Daten."
 
 ## Non-goals
 
-- No paths and no power lines from the DLM: OpenStreetMap has them, and the path classes of the forest map depend
-  on the OSM tags.
+- No power lines from the DLM: OpenStreetMap has them.
+- Paths were a non-goal at first. The user decided on 2026-11-14 to take them too, as candidates where
+  OpenStreetMap has no path within 10 m (see "The paths" below).
 - No areas (forest, heath, quarries, water): the land use files of Bavaria have them.
 - No change to the cliff generalisation (`build/cliffs.rs`, ADR 0126).
 
@@ -83,6 +84,16 @@ Church towers, town gates and castle towers (1002, 1009, 1012) are parts of buil
 a point in the data; the peer session that owns the cliffs agreed that DLM rocks stay candidates and that
 `build/cliffs.rs` is not touched.
 
+### The paths
+
+Added on the user's decision. Two more layers, `dlm-weg` (`AX_WegPfadSteig`) and `dlm-fahrweg`
+(`AX_Fahrwegachse`), fetched for forest maps only: in a town OpenStreetMap and the traffic areas of the land use
+have the ways. Classes: a main track (`funktion` 5211) or a track with a firm surface is 504, the other tracks and
+the cycle and foot ways 505; a path with a firm surface 505, a climbing path (`art` 1109) 507, the other paths
+506. The path classes on the map still come from OpenStreetMap alone; these are candidates. For the duplicate
+step every path class counts as the same kind: a DLM path goes when 80 % of its length lies within 10 m of any
+path of another source, whatever its class.
+
 ### Rank and duplicates
 
 A new lowest rank, `Landscape`, for `atkis-dlm/…`. The `balanced` profile puts objects on the map from the rank
@@ -102,7 +113,7 @@ both sides are only a few metres accurate.
 
 ## My calls (not the user's)
 
-- Which eight layers, and that paths, power lines and areas stay out.
+- Which eight layers, and that power lines and areas stay out; the paths only on forest maps, kept or dropped as a whole object by the 80 % rule.
 - The rank below OpenStreetMap and the distances 15 m and 10 m.
 - Storing the layers in the NAS folder and records instead of a new table in the project file.
 - 205 for a rock point, 105 for a dam.

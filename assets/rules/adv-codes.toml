@@ -191,6 +191,24 @@
 [AX_Gewaesserachse.funktion]
 8300 = "Kanal"
 
+# https://registry.gdi-de.org/codelist/de.adv-online.gid/AX_Funktion_Wegachse
+[AX_Fahrwegachse.funktion]
+5211 = "Hauptwirtschaftsweg"
+5212 = "Wirtschaftsweg"
+5240 = "Radweg"
+5250 = "Rad- und Fußweg"
+
+# https://registry.gdi-de.org/codelist/de.adv-online.gid/AX_Art_WegPfadSteig
+[AX_WegPfadSteig.art]
+1103 = "Fußweg"
+1105 = "Karren- und Ziehweg"
+1106 = "Radweg"
+1107 = "Reitweg"
+1108 = "Wattenweg"
+1109 = "(Kletter-)Steig im Gebirge"
+1110 = "Rad- und Fußweg"
+1111 = "Skaterstrecke"
+
 # https://registry.gdi-de.org/codelist/de.adv-online.gid/AX_Gebaeudefunktion
 [AX_Gebaeude.gebaeudefunktion]
 1000 = "Wohngebäude"

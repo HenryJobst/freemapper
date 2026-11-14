@@ -688,9 +688,10 @@ mod tests {
 
     fn code_of(kind: MapKind, object: &MapObject) -> String {
         let set = kind.symbol_set(kind.default_scale());
+        // 203.2 before 203: on a forest map both name the cave with a distinct entrance.
         let codes = [
-            "104", "105", "203", "203.2", "205", "305", "306", "311", "312", "410.1", "417", "418",
-            "501.5", "513.2", "515", "518", "522", "524", "525", "526",
+            "104", "105", "203.2", "203", "205", "305", "306", "311", "312", "410.1", "417", "418",
+            "501.5", "504", "505", "506", "507", "513.2", "515", "518", "522", "524", "525", "526",
         ];
         codes
             .into_iter()
@@ -1165,6 +1166,62 @@ mod tests {
             spot(0.0, 0.0),
         );
         assert!(nas_run("dlm-gewaessermerkmal", &[waterfall], MapKind::Forest).is_empty());
+    }
+
+    /// The paths of the Basis-DLM, for the forest map: tracks by function and surface, paths
+    /// by surface, a climbing path as the less distinct path.
+    #[test]
+    fn the_basis_dlm_paths_get_the_path_classes_of_the_forest_map() {
+        let class = |file: &str, nas_type: &str, properties: &[(&str, &str)]| {
+            let way = nas(
+                "DEBYBDLM00000009",
+                nas_type,
+                properties,
+                east(0.0, 0.0, 60.0),
+            );
+            nas_run(file, &[way], MapKind::Forest)
+                .first()
+                .map(|o| code_of(MapKind::Forest, o))
+        };
+        let track =
+            |properties: &[(&str, &str)]| class("dlm-fahrweg", "AX_Fahrwegachse", properties);
+        let path = |properties: &[(&str, &str)]| class("dlm-weg", "AX_WegPfadSteig", properties);
+        assert_eq!(
+            track(&[("funktion", "5211"), ("befestigung", "2000")]).as_deref(),
+            Some("504")
+        );
+        assert_eq!(
+            track(&[("funktion", "5212"), ("befestigung", "1000")]).as_deref(),
+            Some("504")
+        );
+        assert_eq!(
+            track(&[("funktion", "5212"), ("befestigung", "2000")]).as_deref(),
+            Some("505")
+        );
+        assert_eq!(track(&[("funktion", "5250")]).as_deref(), Some("505"));
+        assert_eq!(
+            path(&[("art", "1103"), ("befestigung", "1000")]).as_deref(),
+            Some("505")
+        );
+        assert_eq!(
+            path(&[("art", "1103"), ("befestigung", "2000")]).as_deref(),
+            Some("506")
+        );
+        assert_eq!(path(&[("art", "1109")]).as_deref(), Some("507"));
+        assert_eq!(path(&[("art", "1110")]).as_deref(), Some("506"));
+        // The label names what the way is.
+        let way = nas(
+            "DEBYBDLM00000009",
+            "AX_Fahrwegachse",
+            &[("funktion", "5212")],
+            east(0.0, 0.0, 60.0),
+        );
+        let found = nas_run("dlm-fahrweg", &[way], MapKind::Forest);
+        assert_eq!(
+            tag(&found[0], "freemapper:source"),
+            Some("atkis-dlm/fahrweg")
+        );
+        assert_eq!(tag(&found[0], "freemapper:alkis"), Some("Wirtschaftsweg"));
     }
 
     #[test]
