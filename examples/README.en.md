@@ -137,7 +137,7 @@ point clouds yet.
 
 The paths come from OSM and go onto the map in the path classes 502 to 507; the forest is white paper. Settlements
 and gardens are olive green (520, not to be entered). Rocks, earth banks and knolls from the terrain model are
-candidates; cliffs from OSM (`natural=cliff`) are on the map, generalized and smoothed by the ISOM (ADR 0125): at
+candidates; cliffs from OSM (`natural=cliff`) are on the map, generalized and smoothed by the ISOM (ADR 0126): at
 the Bastei 197 of 2144 cliffs and 39 rock pillars (206) stay; the others lie hidden in the candidates map. In the
 flat areas in Berlin and Bremen the contours lie every 2.5 m, in the steep Bode valley and at the Bastei every 10 m
 (`--contour-interval 10`, more than the 5 m of the ISOM, so that the slopes stay legible), elsewhere every 5 m;
