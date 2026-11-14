@@ -1,0 +1,76 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": null,
+      "properties": {
+        "WF_STATUS": "G",
+        "WFZ": "1110",
+        "WF_NAME": "Bodenschutzwald nach SächsWaldG, ohne Detailflächen",
+        "KNM": "§ BODEN",
+        "GNM": "100% Flugsand"
+      },
+      "layerName": "G_1110_Bodenschutzwald_nach_SaechsWaldG_ohne_Detailflaechen"
+    },
+    {
+      "type": "Feature",
+      "geometry": null,
+      "properties": {
+        "WF_STATUS": "G",
+        "WFZ": "4151",
+        "WF_NAME": "Naturwaldzelle nach SächsWaldG",
+        "KNM": "§ NWZ",
+        "GNM": "Wodrich"
+      },
+      "layerName": "G_4151_Naturwaldzelle"
+    },
+    {
+      "type": "Feature",
+      "geometry": null,
+      "properties": {
+        "WF_STATUS": "B",
+        "WFZ": "7212",
+        "WF_NAME": "Wald mit Erholungsfunktion Stufe II",
+        "KNM": "ERH II",
+        "GNM": "null"
+      },
+      "layerName": "B_7212_Erholungsfunktion_Stufe_II"
+    },
+    {
+      "type": "Feature",
+      "geometry": null,
+      "properties": {
+        "WF_STATUS": "G",
+        "WFZ": "21113",
+        "WF_NAME": "Trinkwasserschutzgebiet Grundwasser - Zone III nach SächsWG",
+        "KNM": "§ TW GW Z III",
+        "GNM": "Arnsdorf-Wasserwerk Karswald"
+      },
+      "layerName": "G_21113_TWSG_Grundwasser_Zone_III"
+    },
+    {
+      "type": "Feature",
+      "geometry": null,
+      "properties": {
+        "WF_STATUS": "G",
+        "WFZ": "21133",
+        "WF_NAME": "Trinkwasserschutzgebiet Oberflächenwasser - Talsperren - Zone II A nach SächsWG",
+        "KNM": "§ TW TS Z II A",
+        "GNM": "Talsperre Eibenstock"
+      },
+      "layerName": "G_21133_TWSG_Talsperren_Zone_II_A"
+    },
+    {
+      "type": "Feature",
+      "geometry": null,
+      "properties": {
+        "WF_STATUS": "G",
+        "WFZ": "21111",
+        "KNM": "§ TW GW Z I",
+        "GNM": "Speichersystem Radeburg (WW Rödern)"
+      },
+      "layerName": "G_21111_TWSG_Grundwasser_Zone_I"
+    }
+  ]
+}

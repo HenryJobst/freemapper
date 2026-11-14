@@ -1,0 +1,30 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": null,
+      "properties": {
+        "OBJECTID": "30",
+        "FLAECHE_HA": "1433,11",
+        "REVSADR": "0502",
+        "REV_NAME": "Bühlau",
+        "FBZ_ID": "05",
+        "FBZ_NAME": "Dresden"
+      },
+      "layerName": "Reviere"
+    },
+    {
+      "type": "Feature",
+      "geometry": null,
+      "properties": {
+        "OBJECTID": "61",
+        "REVSADR": "1104",
+        "REV_NAME": "Hohnstein",
+        "FBZ_ID": "11",
+        "FBZ_NAME": "Nationalpark- und Forstverwaltung Sächsi"
+      },
+      "layerName": "Reviere"
+    }
+  ]
+}

@@ -16,7 +16,7 @@ use freemapper::permits::notes::{
     ProtectedEntry, Share, SourceStatus, hint_key,
 };
 use freemapper::permits::regional::{
-    ForestFunctionEntry, ForestUnitEntry, GreenSpaceEntry, ProtectedObjectEntry,
+    ForestFunctionEntry, ForestUnitEntry, GreenSpaceEntry, PermitSection, ProtectedObjectEntry,
     ProtectedObjectKind, RegionalNotes, RegionalStatus, StateForestEntry, WaterProtectionEntry,
     Words,
 };
@@ -759,12 +759,25 @@ fn object_line(lang: &Lang, o: &ProtectedObjectEntry) -> String {
 fn regional_blocks(lang: &Lang, part: &RegionalNotes) -> Vec<String> {
     let source = regional_label(lang, part);
     let heading = |id: &str| format!("## {}", t(lang, id, &[("source", arg(&source))]));
-    let none = |id: &str| t(lang, id, &[("source", arg(&source))]);
+    // A source asked at points cannot say that a section is empty (ADR 0139).
+    let sampled = |section: PermitSection| {
+        part.sources
+            .iter()
+            .any(|s| s.source.sampled && s.source.sections.contains(&section))
+    };
+    let none = |section: PermitSection, id: &str| {
+        let id = if sampled(section) {
+            "permits-none-sampled"
+        } else {
+            id
+        };
+        t(lang, id, &[("source", arg(&source))])
+    };
     let mut blocks = Vec::new();
     if let Some(districts) = &part.districts {
         blocks.push(heading("permits-section-districts"));
         if districts.is_empty() {
-            blocks.push(none("permits-none-districts"));
+            blocks.push(none(PermitSection::Districts, "permits-none-districts"));
         } else {
             blocks.extend(with_edge(
                 lang,
@@ -789,7 +802,10 @@ fn regional_blocks(lang: &Lang, part: &RegionalNotes) -> Vec<String> {
     if let Some(green) = &part.green_spaces {
         blocks.push(heading("permits-section-green-spaces"));
         if green.entries.is_empty() {
-            blocks.push(none("permits-none-green-spaces"));
+            blocks.push(none(
+                PermitSection::GreenSpaces,
+                "permits-none-green-spaces",
+            ));
         } else {
             blocks.extend(with_edge(
                 lang,
@@ -807,7 +823,7 @@ fn regional_blocks(lang: &Lang, part: &RegionalNotes) -> Vec<String> {
     if let Some(owners) = &part.owners {
         blocks.push(heading("permits-section-owners"));
         if owners.is_empty() {
-            blocks.push(none("permits-none-owners"));
+            blocks.push(none(PermitSection::Owners, "permits-none-owners"));
         } else {
             let lines: Vec<String> = owners
                 .iter()
@@ -836,7 +852,7 @@ fn regional_blocks(lang: &Lang, part: &RegionalNotes) -> Vec<String> {
     if let Some(monuments) = &part.monuments {
         blocks.push(heading("permits-section-monuments"));
         if monuments.total == 0 {
-            blocks.push(none("permits-none-monuments"));
+            blocks.push(none(PermitSection::Monuments, "permits-none-monuments"));
         } else {
             blocks.push(t(
                 lang,
@@ -870,7 +886,10 @@ fn regional_blocks(lang: &Lang, part: &RegionalNotes) -> Vec<String> {
     if let Some(objects) = &part.protected_objects {
         blocks.push(heading("permits-section-protected-objects"));
         if objects.is_empty() {
-            blocks.push(none("permits-none-protected-objects"));
+            blocks.push(none(
+                PermitSection::ProtectedObjects,
+                "permits-none-protected-objects",
+            ));
         } else {
             let lines: Vec<String> = objects.iter().map(|o| object_line(lang, o)).collect();
             blocks.push(lines.join("\n"));
@@ -890,7 +909,10 @@ fn regional_blocks(lang: &Lang, part: &RegionalNotes) -> Vec<String> {
     if let Some(units) = &part.forest_units {
         blocks.push(heading("permits-section-forest-units"));
         if units.is_empty() {
-            blocks.push(none("permits-none-forest-units"));
+            blocks.push(none(
+                PermitSection::ForestUnits,
+                "permits-none-forest-units",
+            ));
         } else {
             blocks.extend(with_edge(lang, units, |s| forest_unit_line(lang, s), None));
             blocks.push(t(lang, "permits-forest-units-reach", &[]));
@@ -899,7 +921,10 @@ fn regional_blocks(lang: &Lang, part: &RegionalNotes) -> Vec<String> {
     if let Some(water) = &part.water_protection {
         blocks.push(heading("permits-section-water-protection"));
         if water.is_empty() {
-            blocks.push(none("permits-none-water-protection"));
+            blocks.push(none(
+                PermitSection::WaterProtection,
+                "permits-none-water-protection",
+            ));
         } else {
             blocks.extend(with_edge(lang, water, |s| water_line(lang, s), None));
         }
@@ -907,7 +932,10 @@ fn regional_blocks(lang: &Lang, part: &RegionalNotes) -> Vec<String> {
     if let Some(functions) = &part.forest_functions {
         blocks.push(heading("permits-section-forest-functions"));
         if functions.is_empty() {
-            blocks.push(none("permits-none-forest-functions"));
+            blocks.push(none(
+                PermitSection::ForestFunctions,
+                "permits-none-forest-functions",
+            ));
         } else {
             blocks.extend(with_edge(
                 lang,
@@ -920,7 +948,10 @@ fn regional_blocks(lang: &Lang, part: &RegionalNotes) -> Vec<String> {
     if let Some(forest) = &part.state_forest {
         blocks.push(heading("permits-section-state-forest"));
         if forest.is_empty() {
-            blocks.push(none("permits-none-state-forest"));
+            blocks.push(none(
+                PermitSection::StateForest,
+                "permits-none-state-forest",
+            ));
         } else {
             blocks.extend(with_edge(
                 lang,
@@ -929,6 +960,10 @@ fn regional_blocks(lang: &Lang, part: &RegionalNotes) -> Vec<String> {
                 None,
             ));
         }
+    }
+    for sampled in part.sources.iter().filter(|s| s.source.sampled) {
+        let label = md(words(lang, &sampled.source.label));
+        blocks.push(t(lang, "permits-sampled", &[("source", arg(&label))]));
     }
     blocks
 }
@@ -1335,6 +1370,7 @@ mod tests {
                 },
                 credit: LICENCE.into(),
                 note: note.map(str::to_string),
+                sampled: false,
                 sections: Vec::new(),
                 offices: None,
             },
@@ -1697,6 +1733,44 @@ mod tests {
         ] {
             assert!(text.contains(wanted), "{wanted}\n{text}");
         }
+    }
+
+    /// A source asked at points says that its shares are estimates and does not claim an
+    /// empty section as fact (ADR 0139).
+    #[test]
+    fn a_source_asked_at_points_says_so() {
+        use freemapper::permits::regional::{ForestFunctionEntry, ForestFunctionKind};
+        let mut notes = viktoriapark();
+        notes.regional[0].sources[0].source.sampled = true;
+        notes.regional[0].sources[0].source.sections = vec![
+            PermitSection::WaterProtection,
+            PermitSection::ForestFunctions,
+        ];
+        notes.regional[0].water_protection = Some(Vec::new());
+        notes.regional[0].forest_functions = Some(vec![share(
+            ForestFunctionEntry {
+                kind: ForestFunctionKind::Protected,
+                name: Some("Bodenschutzwald".into()),
+            },
+            58.0,
+        )]);
+        let text = render_markdown(&notes, &de());
+        for wanted in [
+            "## Wasserschutzgebiete (Geoportal Berlin)\n\nAn den abgefragten Punkten nennt Geoportal Berlin hierzu nichts.\n\n",
+            "- Bannwald oder Schutzwald (Bodenschutzwald): 58 %",
+            "Geoportal Berlin gibt nur für einzelne Punkte Auskunft. freemapper hat an einem Raster von Punkten über der Karte gefragt: Die Anteile sind geschätzt, und was zwischen den Punkten liegt, kann fehlen.",
+        ] {
+            assert!(text.contains(wanted), "{wanted}\n{text}");
+        }
+        assert!(
+            !text.contains("liegt im Kartengebiet kein Wasserschutzgebiet"),
+            "{text}"
+        );
+        let english = render_markdown(&notes, &Lang::english());
+        assert!(
+            english.contains("At the points asked, Geoportal Berlin names nothing here."),
+            "{english}"
+        );
     }
 
     /// Hamburg's offices, the water protection zones and the forest functions in words

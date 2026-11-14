@@ -1066,10 +1066,11 @@ die Bezirke, steht der allgemeine Hinweis für Berlin und Hamburg da.
 ### Wasserschutzgebiete und Waldfunktionen
 
 Wasserschutzgebiete mit ihrer Schutzzone kommen aus Berlin, Brandenburg, Hamburg, Hessen, Nordrhein-Westfalen,
-dem Saarland und Schleswig-Holstein; in Nordrhein-Westfalen auch die geplanten, mit dem Zusatz „(geplant)“. Waldfunktionen
+dem Saarland und Schleswig-Holstein, aus Sachsen nur für den Wald; in Nordrhein-Westfalen auch die geplanten, mit dem Zusatz „(geplant)“. Waldfunktionen
 aus Brandenburg (Naturwald, Totalreservat, nicht betretbare Flächen, Erholungswald), Hamburg (Bannwald,
-Erholungswald), Nordrhein-Westfalen (Naturwaldzellen, Wildnisentwicklungsgebiete) und dem Saarland
-(Naturwaldzellen, Urwald), jeweils aus offenen Diensten des Bundeslandes. Im Saarland kommen außerdem die
+Erholungswald), Nordrhein-Westfalen (Naturwaldzellen, Wildnisentwicklungsgebiete), dem Saarland
+(Naturwaldzellen, Urwald), Sachsen (Erholungswald, Naturwaldzellen, Bodenschutzwald) und Schleswig-Holstein
+(Naturwald), jeweils aus offenen Diensten des Bundeslandes. Im Saarland kommen außerdem die
 Baudenkmale dazu. Ein
 Wasserschutzgebiet bekommt einen Hinweis mit seiner Schutzzone: In den Zonen I und II sind Veranstaltungen
 meist ausgeschlossen, in Zone III meist möglich, und die untere Wasserbehörde sagt, was die Verordnung erlaubt.
@@ -1079,7 +1080,7 @@ und gesperrte Waldflächen bekommen je einen Hinweis, wen man fragt oder was man
 ### Forstverwaltung
 
 Für eine Veranstaltung im Wald brauchen Sie die Zustimmung der Waldbesitzer. In mehreren Bundesländern ist eine
-organisierte Veranstaltung im Wald außerdem der Forstbehörde anzuzeigen oder von ihr zu genehmigen. Drei
+organisierte Veranstaltung im Wald außerdem der Forstbehörde anzuzeigen oder von ihr zu genehmigen. Sechs
 Bundesländer veröffentlichen die Bereiche ihrer Forstdienststellen offen:
 
 | Bundesland | Dienststelle und Einheit | Quelle |
@@ -1088,6 +1089,7 @@ Bundesländer veröffentlichen die Bereiche ihrer Forstdienststellen offen:
 | Berlin | Forstamt und Revier der Berliner Forsten | Geoportal Berlin (`gdi.berlin.de`) |
 | Nordrhein-Westfalen | Regionalforstamt und Forstbetriebsbezirk des Landesbetriebs Wald und Holz NRW, dazu der Staatswald | zwei Dateien auf `www.opengeodata.nrw.de` |
 | Saarland | Revier des SaarForst Landesbetriebs (nur im Staatswald) | Geoportal Saarland (`geoportal.saarland.de`) |
+| Sachsen | Forstbezirk und Revier des Staatsbetriebs Sachsenforst (zuständig im Staatswald; für anderen Wald die untere Forstbehörde des Landkreises oder der kreisfreien Stadt) | zwei Kartendienste von Sachsenforst (`www.forsten.sachsen.de`), an Punkten abgefragt |
 | Schleswig-Holstein | Revier der Schleswig-Holsteinischen Landesforsten, dazu der Landeswald (nur im Landeswald) | Umweltportal (`umweltgeodienste.schleswig-holstein.de`) |
 
 Der Abschnitt „Forstverwaltung“ nennt jede Dienststelle mit ihrer Einheit und ihrem Anteil am Kartengebiet. Der
@@ -1125,13 +1127,22 @@ Bezirks, auch in `data/permits/`.
   Hinweise geben diesen Satz unter der Tabelle der Quellen wörtlich wieder.
 - Eigentümer von Grundstücken stehen nicht in offenen Daten, außer in Berlin für das Bundesland und den Bund. Die Hinweise
   sagen, wie man einen Grundbuchauszug bekommt.
-- Forstdienststellen nennen die Hinweise nur in Brandenburg, Berlin, Hamburg, Nordrhein-Westfalen, im Saarland und
-  in Schleswig-Holstein (in den beiden letzten nur für den Staatswald). Sachsen,
-  Sachsen-Anhalt und Mecklenburg-Vorpommern zeigen ihre Forstämter nur als Kartenbild, ohne Flächen, die
-  freemapper lesen könnte. Der Dienst von Rheinland-Pfalz weist freemapper ab. Für die übrigen Bundesländer
-  fand sich kein offener Dienst.
+- Forstdienststellen nennen die Hinweise nur in Brandenburg, Berlin, Hamburg, Nordrhein-Westfalen, im Saarland, in
+  Sachsen und in Schleswig-Holstein (im Saarland und in Schleswig-Holstein nur für den Staatswald). Sachsen-Anhalt
+  und Mecklenburg-Vorpommern haben keinen offenen Dienst mit Flächen, die freemapper lesen darf; ihre
+  Forstverwaltungen sind angefragt. Der Dienst von Rheinland-Pfalz weist freemapper ab. Für die übrigen
+  Bundesländer fand sich kein offener Dienst.
+- Sachsenforst gibt nur für einzelne Punkte Auskunft. freemapper fragt an den Mittelpunkten von bis zu 25 Zellen
+  über der Karte (Zellen von mindestens 50 m, ein Schulhof bekommt also nur wenige), das sind bis zu 50 Anfragen.
+  Jede Antwort gilt für ihre ganze Zelle: Die Anteile sind geschätzt, und eine kleine Naturwaldzelle oder eine
+  innere Wasserschutzzone zwischen zwei Punkten kann fehlen. Das steht unter dem Teil zu Sachsen in den Hinweisen,
+  und bei einem leeren Abschnitt schreiben sie, dass an den abgefragten Punkten nichts genannt ist. Die
+  Trinkwasserschutzzonen des Dienstes liegen nur im Wald. `permits.json` kennzeichnet so eine Quelle mit
+  `"sampled": true`.
 - Wem ein Privat- oder Körperschaftswald gehört, steht in keinen offenen Daten.
-- Wasserschutzgebiete und Denkmale außerhalb Berlins fehlen noch. Sie kommen in späteren Versionen.
+- Wasserschutzgebiete kommen aus Berlin, Brandenburg, Hamburg, Hessen, Nordrhein-Westfalen, dem Saarland,
+  Schleswig-Holstein und, im Wald, aus Sachsen; Denkmale aus Berlin, Hamburg und dem Saarland. Die anderen
+  Bundesländer folgen, sobald sich ein offener Dienst mit Lizenz findet.
 
 ### Datenquellen und Lizenzen
 
@@ -1143,6 +1154,7 @@ Bezirks, auch in `data/permits/`.
 | Geoportal Berlin: Bezirksgrenzen, Grünanlagenbestand, Liegenschaftsplan, Denkmale, Schutzobjekte nach Naturschutzrecht, Forstverwaltung (nur in Berlin) | `gdi.berlin.de` | `Für die Nutzung der Daten ist die Datenlizenz Deutschland - Zero - Version 2.0 anzuwenden. Die Lizenz ist über https://www.govdata.de/dl-de/zero-2-0 abrufbar.` |
 | Geoportal Hamburg: Bezirksgrenzen, Grünplan, Denkmalschutz, Wald in Hamburg, Waldfunktionen, Wasserschutzgebiete (nur in Hamburg) | `geodienste.hamburg.de` | je Dienst `Datenlizenz Deutschland Namensnennung 2.0, Quellenvermerk: Freie und Hansestadt Hamburg, <Behörde>` mit der Behörde, die der Dienst nennt |
 | Umweltportal Schleswig-Holstein: Landeswald mit Revieren, Naturwald, Wasserschutzgebiete (nur in Schleswig-Holstein) | `umweltgeodienste.schleswig-holstein.de` | `Quellenvermerk: LfU SH; Lizenz: Creative Commons Namensnennung 4.0 International (CC BY 4.0)` |
+| Staatsbetrieb Sachsenforst: Forstbezirke und Reviere, Erholungswald, Naturwaldzellen, Bodenschutzwald, Trinkwasserschutzzonen im Wald (nur in Sachsen) | `www.forsten.sachsen.de` | `Datenlizenz Deutschland 2.0 – Namensnennung (dl-de/by-2-0) unter Angabe der Quelle: "Geodaten Sachsenforst"` |
 | Geoportal Saarland: Reviere des Staatswalds, Wasserschutzgebiete, Naturwaldzellen, Urwald, Baudenkmale (nur im Saarland) | `geoportal.saarland.de` | `Quellenvermerk: © GDI-SL (<Jahr>); Lizenz: Creative Commons Namensnennung 4.0 International (CC BY 4.0)` |
 | Landesamt für Umwelt Brandenburg: Wasserschutzgebiete (nur in Brandenburg) | `data.geobasis-bb.de` | `Landesamt für Umwelt Brandenburg (LfU), Creative Commons Namensnennung 4.0 International (CC BY 4.0)` |
 | Land NRW: Wasserschutzgebiete, festgesetzt und geplant (nur in Nordrhein-Westfalen) | `www.opengeodata.nrw.de` | `Land NRW, Datenlizenz Deutschland – Zero – Version 2.0 (https://www.govdata.de/dl-de/zero-2-0)` |
@@ -1157,7 +1169,8 @@ Zeilen stehen, wenn Sie `permits.md` weitergeben.
 
 An die Dienste des Bundes, an die Geoportale Berlin und Hamburg und an den Landesbetrieb Forst Brandenburg sendet
 freemapper nur das Rechteck um das Kartengebiet und seine feste Kennung (User-Agent). Von Wald und Holz NRW lädt
-es die Dateien für das ganze Bundesland und schneidet sie selbst zu; dorthin geht nur die Kennung. Andere Server
+es die Dateien für das ganze Bundesland und schneidet sie selbst zu; dorthin geht nur die Kennung. An Sachsenforst
+gehen statt des Rechtecks die abgefragten Punkte. Andere Server
 fragt es für die Hinweise nicht. Die Dienste eines Bundeslandes fragt es nur für ein Kartengebiet, das dort
 liegt, und nur über die Hosts, die der Adapter dieses Bundeslandes nennt. `adapters
 allow-host` gilt für die Dienste des Bundes nicht.

@@ -506,6 +506,8 @@ mod tests {
                 "umwelt",
                 [9.55, 54.25, 9.75, 54.45],
             ),
+            // The Dresdner Heide, asked at 25 points (ADR 0139).
+            (State::Saxony, "sachsenforst", [13.80, 51.05, 13.83, 51.07]),
             // The shapefiles of ADR 0131: about 4 and 15 MB.
             (
                 State::Brandenburg,

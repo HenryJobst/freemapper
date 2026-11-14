@@ -558,6 +558,7 @@ impl StateAdapter {
             State::Hessen => crate::state_permits::hessen(),
             State::SchleswigHolstein => crate::state_permits::schleswig_holstein(),
             State::NordrheinWestfalen => crate::wuh_permits::sources(),
+            State::Saxony => crate::sbs_permits::sources(),
             _ => Vec::new(),
         };
         Self {
@@ -864,6 +865,10 @@ mod tests {
                 "schleswigholstein" => (
                     &["umwelt"],
                     "https://umweltgeodienste.schleswig-holstein.de/WFS_UWAT",
+                ),
+                "saxony" => (
+                    &["sachsenforst"],
+                    "https://www.forsten.sachsen.de/kartendienste/wald/MapServer/WMSServer",
                 ),
                 "nordrheinwestfalen" => (
                     &[

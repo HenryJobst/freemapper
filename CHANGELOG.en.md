@@ -8,6 +8,7 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ### Added
 
+- Permit notes for Saxony (ADR 0139): the Forstbezirk and the Revier of the Staatsbetrieb Sachsenforst, Erholungswald, Naturwaldzellen, Bodenschutzwald and the drinking water protection zones in the forest, from two map services of Sachsenforst (dl-de/by-2-0, "Geodaten Sachsenforst"). A Revier is in charge in the state forest, the lower forest authority of the Landkreis for other forest; the notes say so. The services answer only for single points, so freemapper asks at up to 25 points over the map, up to 50 requests. The notes then say that the shares are estimates and that something between the points can be missing, and for an empty section they do not say "no water protection area" but that nothing is named at the points asked. The examples Bastei and Bautzen have new notes.
 - Permit notes for Schleswig-Holstein (ADR 0137): the state forest with its Revier of the Schleswig-Holsteinische Landesforsten, the Naturwald and the water protection areas with their zone, from the Umweltportal of the Landesamt für Umwelt (CC BY 4.0). The service answers GML only; the table source now reads such services too. Names a service writes in capitals ("HÜTTEN") are written as names in the notes ("Hütten").
 
 ### Changed
