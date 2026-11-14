@@ -637,7 +637,8 @@ impl ContentArgs {
 #[derive(clap::Args)]
 struct ContourArgs {
     /// Contour interval in metres, e.g. `2.5`, or `auto` for the map kind's (a forest map: 5 m,
-    /// 2.5 m where it is flat). Saved in freemapper.toml; derive traces the contours at it
+    /// 2.5 m where it is flat, 10 m where it is steep). Saved in freemapper.toml; derive traces
+    /// the contours at it
     #[arg(long = "contour-interval", value_name = "METRES")]
     contour_interval: Option<String>,
 }

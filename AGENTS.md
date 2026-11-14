@@ -117,8 +117,9 @@ Output switches for `run` and `export`: `--ocad`, `--pdf`, `--pdf-candidates`, `
 stays that of the map run. `export` has no `--permits`. `init`, `export` and `run` also take `--content safe|balanced|full` (what goes
 straight onto the map; default `balanced`: the objects of the cadastre and the registers) and `--content-set
 <group>=map|candidates|off`, repeatable; the choice is saved in `freemapper.toml`. `init`, `derive` and `run` take
-`--contour-interval <metres>|auto` (saved in `freemapper.toml`; `auto`: the map kind's, a forest map in flat land
-gets 2.5 m); the next derive traces the contours at it. All commands that download take `--cache-dir <folder>`.
+`--contour-interval <metres>|auto` (saved in `freemapper.toml`; `auto`: the map kind's, a forest map gets 2.5 m in
+flat land and 10 m in steep land); the next derive traces the contours at it. When it picks 10 m, `derive` says so in
+a line; `--contour-interval 5` keeps 5 m. All commands that download take `--cache-dir <folder>`.
 
 `adapters check <dir>` checks the folder of one adapter and asks no server: exit code 0 when it would load
 (warnings or not), 1 with findings, 2 when the check cannot run. `--json` prints `passed`, `adapter`, `findings`

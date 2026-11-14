@@ -743,18 +743,18 @@ mcp-param-start-pipeline-pdf-sources = Quellenzeilen auf den PDFs: "auto" (Stand
 mcp-param-start-pipeline-permits = Nach der Karte zusätzlich die Genehmigungshinweise schreiben (permits.md und permits.json): Verwaltungseinheiten, Schutzgebiete und wer die Flächen betreibt. Ein Fehler dort ist eine Warnung, kein gescheiterter Job. Standard false.
 
 cli-contour-interval-saved = Äquidistanz in freemapper.toml gespeichert: { $interval } m; derive rechnet die Höhenlinien damit
-cli-contour-interval-auto = Äquidistanz in freemapper.toml: automatisch (die der Kartenart; eine Waldkarte in flachem Gelände bekommt 2,5 m)
-help-arg-contour-interval = Äquidistanz in Metern, z. B. `2.5`, oder `auto` für die der Kartenart (Waldkarte: 5 m, in flachem Gelände 2,5 m). Wird in der freemapper.toml gespeichert; derive rechnet die Höhenlinien damit
+cli-contour-interval-auto = Äquidistanz in freemapper.toml: automatisch (die der Kartenart; eine Waldkarte bekommt in flachem Gelände 2,5 m, in steilem 10 m)
+help-arg-contour-interval = Äquidistanz in Metern, z. B. `2.5`, oder `auto` für die der Kartenart (Waldkarte: 5 m, in flachem Gelände 2,5 m, in steilem 10 m). Wird in der freemapper.toml gespeichert; derive rechnet die Höhenlinien damit
 cli-content-saved = Inhaltseinstellung in freemapper.toml gespeichert: { $summary }
 cli-content-invalid = Die Inhaltseinstellung ist nicht lesbar: { $detail }
 help-arg-content = Was direkt auf die Karte kommt: `safe` lässt jedes Objekt dort, wo die Erzeugung es hinlegt, `balanced` (Standard) legt die Objekte des Katasters und der Register auf die Karte, `full` legt alles auf die Karte. Die Wahl wird in freemapper.toml gespeichert
 help-arg-content-set = Eine Objektgruppe nach `map`, `candidates` oder `off` schicken, als `GRUPPE=ORT`, z. B. `walls=map`; mehrfach möglich. Gruppen: walls, fences, hedges, slopes, stairs, trees, water-features, monuments, furniture, passages, contours, landforms, vegetation, out-of-bounds, paths, streets. Wird in freemapper.toml gespeichert
 mcp-param-create-project-content = Was direkt auf die Karte kommt: "safe", "balanced" (Standard) oder "full". Wird im Projekt gespeichert. balanced legt die Objekte des Katasters und der Register auf die Karte, full legt alles darauf.
 mcp-param-create-project-content-set = Gruppen, die anders als das Profil behandelt werden, als "gruppe=ort" mit dem Ort map, candidates oder off, z. B. "walls=map". Gruppen: walls, fences, hedges, slopes, stairs, trees, water-features, monuments, furniture, passages, contours, landforms, vegetation, out-of-bounds, paths, streets.
-mcp-param-create-project-contour-interval = Äquidistanz in Metern, z. B. 2.5; 0 stellt die automatische Wahl wieder her (die der Kartenart; eine Waldkarte in flachem Gelände bekommt 2,5 m). Wird im Projekt gespeichert; das nächste derive rechnet die Höhenlinien damit.
+mcp-param-create-project-contour-interval = Äquidistanz in Metern, z. B. 2.5; 0 stellt die automatische Wahl wieder her (die der Kartenart; eine Waldkarte bekommt in flachem Gelände 2,5 m, in steilem 10 m). Wird im Projekt gespeichert; das nächste derive rechnet die Höhenlinien damit.
 mcp-param-start-pipeline-content = Vor dem Lauf ändern, was direkt auf die Karte kommt: "safe", "balanced" oder "full". Wird im Projekt gespeichert. Standard: die Einstellung des Projekts, sonst balanced.
 mcp-param-start-pipeline-content-set = Gruppen, die anders als das Profil behandelt werden, als "gruppe=ort" mit dem Ort map, candidates oder off, z. B. "fences=candidates". Wird im Projekt gespeichert.
-mcp-param-start-pipeline-contour-interval = Äquidistanz in Metern, z. B. 2.5; 0 stellt die automatische Wahl wieder her (die der Kartenart; eine Waldkarte in flachem Gelände bekommt 2,5 m). Wird im Projekt gespeichert; das nächste derive rechnet die Höhenlinien damit.
+mcp-param-start-pipeline-contour-interval = Äquidistanz in Metern, z. B. 2.5; 0 stellt die automatische Wahl wieder her (die der Kartenart; eine Waldkarte bekommt in flachem Gelände 2,5 m, in steilem 10 m). Wird im Projekt gespeichert; das nächste derive rechnet die Höhenlinien damit.
 mcp-error-content = Die Inhaltseinstellung ist nicht lesbar: { $detail }
 
 ## Genehmigungshinweise (`freemapper permits`, `run --permits`, ADR 0117). Die Kennungen
