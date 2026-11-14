@@ -986,11 +986,14 @@ an office can take in towns and fields as well; in Brandenburg every map area li
 (North Rhine-Westphalia only) gives the share of the map area that belongs to the state of North Rhine-Westphalia, with
 the forest office that looks after it.
 
-On a forest map the hints name the office of every area that is more than an edge of the map, with its
-Reviere or districts, and say that the forest owners must agree. In the other states, or when the service could
-not be reached, a forest map gets only the hint on the owners' consent and the forest authority, without an
-office. Schoolyard and sprint maps get none of these hints, but they do get the sections. The state forest is
-among the owner hints on every kind of map.
+The forest hints and the section "Forest administration" come when the map area holds forest: on every forest
+map, on any other map as soon as OpenStreetMap has forest or wood (`landuse=forest`, `natural=wood`) in the area,
+however small, and also when there is no OSM extract and it cannot be told. A schoolyard or sprint map in the
+middle of a town does not get them, even though the area lies in a Revier. The hints then name the office of
+every area that is more than an edge of the map, with its Reviere or districts, and say that the forest owners
+must agree. In the other states, or when the service could not be reached, only the hint on the owners' consent
+and the forest authority remains, without an office. The state forest is among the owner hints on every kind of
+map, whenever it lies in the area.
 
 In North Rhine-Westphalia every row of the district file also names the forester with name, e-mail address and
 phone numbers. freemapper takes none of it: it keeps only the names of the office and the district, also in

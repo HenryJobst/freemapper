@@ -49,7 +49,7 @@ pub mod hint_key {
     pub const ORDER_OFFICE: &str = "permits-hint-order-office";
     /// Arg `operator`.
     pub const PARK_OPERATOR: &str = "permits-hint-park-operator";
-    /// Arg `operator`; schoolyard maps only.
+    /// Arg `operator`: a school or similar on the map.
     pub const SCHOOL_OPERATOR: &str = "permits-hint-school-operator";
     /// Arg `district`: the Ordnungsamt and the Straßen- und Grünflächenamt of its office. In
     /// place of [`CITY_STATE`] and [`ORDER_OFFICE`] when a regional source read the districts.
@@ -65,10 +65,11 @@ pub mod hint_key {
     /// rest of the map area.
     pub const OWNERS_UNKNOWN: &str = "permits-hint-owners-unknown";
     /// Args `office`, `administration` and, where the source names them, `units` (joined with
-    /// ", "): a forest office that is more than an edge of the map. Forest maps only.
+    /// ", "): a forest office that is more than an edge of the map, for a map area with forest
+    /// (ADR 0127).
     pub const FOREST_OFFICE: &str = "permits-hint-forest-office";
-    /// Arg `office`: `known` when a [`FOREST_OFFICE`] hint is there, else `unknown`. Forest maps
-    /// only.
+    /// Arg `office`: `known` when a [`FOREST_OFFICE`] hint is there, else `unknown`. For a map
+    /// area with forest (ADR 0127).
     pub const FOREST_OWNER: &str = "permits-hint-forest-owner";
     /// Args `owner`, `percent` (as for [`OWNER_SHARE`]) and, where known, `office`.
     pub const STATE_FOREST: &str = "permits-hint-state-forest";
@@ -262,8 +263,21 @@ pub fn assemble(
         .map(|(f, _, _)| *f)
         .filter(|f| f.kind == OsmFindingKind::Operated)
         .collect();
-    let (regional, facts) = assemble_regional(&plane, &inputs.regional);
-    let hints = hints(kind, &admin, &protected, &operated, &facts);
+    let (mut regional, facts) = assemble_regional(&plane, &inputs.regional);
+    // Forest hints and the forest offices belong to a map area with forest: a forest map, an
+    // area with forest in OSM, or one where OSM could not tell (ADR 0127). A Revier also covers
+    // towns, so a town without forest gets neither.
+    let forest = kind == MapKind::Forest
+        || !matches!(inputs.osm, SourceInput::Read { .. })
+        || osm.iter().any(|(f, _, share)| {
+            *share > 0.0 && crate::permits::osm::FOREST_OBJECTS.contains(&f.object.as_str())
+        });
+    if !forest {
+        for part in &mut regional {
+            part.forest_units = None;
+        }
+    }
+    let hints = hints(forest, &admin, &protected, &operated, &facts);
     PermitNotes {
         schema: SCHEMA,
         created: today,
@@ -625,7 +639,7 @@ fn runners<'a>(operated: &[&'a OsmFinding], objects: &[&str]) -> BTreeSet<&'a st
 
 /// The hints, in the order of [`hint_key`], each key and args once.
 fn hints(
-    kind: MapKind,
+    forest: bool,
     admin: &[Share<AdminEntry>],
     protected: &[Share<ProtectedEntry>],
     operated: &[&OsmFinding],
@@ -673,8 +687,7 @@ fn hints(
     if any_protected(&|k| matches!(k, ProtectedKind::Ffh | ProtectedKind::Vogelschutzgebiet)) {
         hints.push(Hint::new(hint_key::NATURA2000, &[]));
     }
-    // A Revier covers towns as well: the forest hints are for forest maps alone.
-    if kind == MapKind::Forest {
+    if forest {
         let offices: Vec<_> = regional.iter().flat_map(|f| &f.forest_offices).collect();
         for office in &offices {
             let units = office.units.join(", ");
@@ -733,19 +746,18 @@ fn hints(
             &[("operator", operator)],
         ));
     }
-    if kind == MapKind::Schoolyard {
-        let schools = [
-            "amenity=school",
-            "amenity=kindergarten",
-            "amenity=college",
-            "amenity=university",
-        ];
-        for operator in runners(operated, &schools) {
-            hints.push(Hint::new(
-                hint_key::SCHOOL_OPERATOR,
-                &[("operator", operator)],
-            ));
-        }
+    // A school on the map matters on every kind of map: a sprint on a campus too.
+    let schools = [
+        "amenity=school",
+        "amenity=kindergarten",
+        "amenity=college",
+        "amenity=university",
+    ];
+    for operator in runners(operated, &schools) {
+        hints.push(Hint::new(
+            hint_key::SCHOOL_OPERATOR,
+            &[("operator", operator)],
+        ));
     }
     let owners: Vec<&(Option<String>, f64)> = regional
         .iter()
@@ -1654,12 +1666,15 @@ mod tests {
         let park = hint(&sprint, hint_key::PARK_OPERATOR);
         assert_eq!(park.len(), 1);
         assert_eq!(park[0].args, args(&[("operator", "Grünflächenamt")]));
-        assert!(hint(&sprint, hint_key::SCHOOL_OPERATOR).is_empty());
-
-        let schoolyard = notes(MapKind::Schoolyard, &inputs(vec![], vec![], osm));
-        let school = hint(&schoolyard, hint_key::SCHOOL_OPERATOR);
-        assert_eq!(school.len(), 1);
-        assert_eq!(school[0].args, args(&[("operator", "Stadt X")]));
+        // A school on the map is named on every kind of map (ADR 0127).
+        for map in [
+            &sprint,
+            &notes(MapKind::Schoolyard, &inputs(vec![], vec![], osm)),
+        ] {
+            let school = hint(map, hint_key::SCHOOL_OPERATOR);
+            assert_eq!(school.len(), 1);
+            assert_eq!(school[0].args, args(&[("operator", "Stadt X")]));
+        }
         // Protected OSM areas are not operators.
         assert!(sprint.osm_protected.is_empty());
     }
@@ -2105,13 +2120,44 @@ mod tests {
             .expect("the owner's consent");
         assert_eq!(owner.args.get("office").map(String::as_str), Some("known"));
 
-        // A sprint map keeps the section and has no forest hint: a Revier also covers towns.
+        // A sprint map without forest gets neither the section nor the hints: a Revier also
+        // covers towns (ADR 0127).
         let found = notes(MapKind::Sprint, &with_regional(vec![], vec![units()]));
-        assert!(found.regional[0].forest_units.is_some());
+        assert_eq!(found.regional[0].forest_units, None);
         assert!(
             !keys(&found)
                 .iter()
                 .any(|k| [hint_key::FOREST_OFFICE, hint_key::FOREST_OWNER].contains(k)),
+            "{:?}",
+            found.hints
+        );
+        // A wood on the sprint map, however small, brings both.
+        let wood = finding(
+            OsmFindingKind::Forest,
+            "way/7",
+            "natural=wood",
+            square(13.05, 52.05, 13.051, 52.051),
+        );
+        let inputs = Inputs {
+            osm: read(vec![wood]),
+            ..with_regional(vec![], vec![units()])
+        };
+        let found = notes(MapKind::Sprint, &inputs);
+        assert!(found.regional[0].forest_units.is_some());
+        assert!(
+            keys(&found).contains(&hint_key::FOREST_OFFICE),
+            "{:?}",
+            found.hints
+        );
+        // Without OSM it cannot be told, and the notes rather say too much.
+        let inputs = Inputs {
+            osm: SourceInput::NotRead,
+            ..with_regional(vec![], vec![units()])
+        };
+        let found = notes(MapKind::Schoolyard, &inputs);
+        assert!(found.regional[0].forest_units.is_some());
+        assert!(
+            keys(&found).contains(&hint_key::FOREST_OWNER),
             "{:?}",
             found.hints
         );

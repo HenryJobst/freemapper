@@ -1019,12 +1019,15 @@ Bereich einer Dienststelle kann auch Siedlungen und Felder umfassen; in Brandenb
 einem Revier. „Staatswald“ (nur Nordrhein-Westfalen) nennt den Anteil des Kartengebiets, der dem Bundesland
 Nordrhein-Westfalen gehört, mit dem Forstamt, das ihn betreut.
 
-Bei einer Waldkarte nennen die Hinweise die Dienststelle jedes Bereichs, der mehr als den Rand des Gebiets
-berührt, mit ihren Revieren oder Bezirken, und sagen, dass die Waldbesitzer zustimmen müssen. In den anderen
-Bundesländern, oder wenn der Dienst nicht erreichbar war, bekommt eine Waldkarte nur den Hinweis auf die
-Zustimmung der Waldbesitzer und die Forstbehörde, ohne Dienststelle. Schulhof- und Sprintkarten bekommen keinen
-dieser Hinweise, die Abschnitte schon. Der Staatswald steht bei jeder Kartenart unter den Hinweisen zu den
-Eigentümern.
+Die Hinweise zum Wald und der Abschnitt „Forstverwaltung“ kommen, wenn im Kartengebiet Wald liegt: bei jeder
+Waldkarte, bei jeder anderen Karte, sobald OpenStreetMap im Gebiet Wald oder Gehölz (`landuse=forest`,
+`natural=wood`) verzeichnet, auch ein kleines Stück, und ebenso, wenn kein OSM-Auszug vorliegt und sich das
+nicht sagen lässt. Eine Schulhof- oder Sprintkarte mitten in der Stadt bekommt sie nicht, auch wenn das Gebiet
+in einem Revier liegt. Die Hinweise nennen dann die Dienststelle jedes Bereichs, der mehr als den Rand des
+Gebiets berührt, mit ihren Revieren oder Bezirken, und sagen, dass die Waldbesitzer zustimmen müssen. In den
+anderen Bundesländern, oder wenn der Dienst nicht erreichbar war, bleibt nur der Hinweis auf die Zustimmung der
+Waldbesitzer und die Forstbehörde, ohne Dienststelle. Der Staatswald steht bei jeder Kartenart unter den
+Hinweisen zu den Eigentümern, sobald er im Gebiet liegt.
 
 In Nordrhein-Westfalen nennt jede Zeile der Bezirksdatei auch Namen, E-Mail-Adresse und Telefonnummern der
 Försterin oder des Försters. freemapper übernimmt davon nichts: Es behält nur die Namen des Forstamts und des
