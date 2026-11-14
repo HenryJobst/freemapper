@@ -283,11 +283,21 @@ impl<'a> Table<'a> {
         self.columns
             .iter()
             .filter_map(|(name, offset, length)| {
-                let text = String::from_utf8_lossy(&row[*offset..offset + length]);
+                let text = decode(&row[*offset..offset + length]);
                 let text = text.trim_matches(|c: char| c == ' ' || c == '\0');
                 (!text.is_empty()).then(|| (name.clone(), text.to_string()))
             })
             .collect()
+    }
+}
+
+/// The text of a field: UTF-8 when it is, else Latin-1, the code page of the older tables that
+/// come without a `.cpg` (NRW's water protection areas). One byte is one character there, so
+/// an umlaut survives that UTF-8 would turn into a replacement character.
+fn decode(bytes: &[u8]) -> String {
+    match std::str::from_utf8(bytes) {
+        Ok(text) => text.to_string(),
+        Err(_) => bytes.iter().map(|&b| char::from(b)).collect(),
     }
 }
 
@@ -385,6 +395,13 @@ pub mod test_support {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn a_latin_1_field_keeps_its_umlauts() {
+        assert_eq!(decode(b"D\xfcsterm\xfchle"), "Düstermühle");
+        assert_eq!(decode("Düstermühle".as_bytes()), "Düstermühle");
+    }
+
     use super::test_support::shape_files;
     use super::*;
 

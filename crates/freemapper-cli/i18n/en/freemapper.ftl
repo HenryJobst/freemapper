@@ -745,7 +745,7 @@ mcp-error-content = Cannot read the content setting: { $detail }
 ## `permits-*` id is used. The quote "Nicht für Planungszwecke geeignet." is the BfN's own
 ## wording and stays German in every language.
 
-help-permits = Write the permit notes of a project (permits.md and permits.json): the administrative units, protected areas and operators the map area touches, and whom that usually means asking. It asks the BfN and the BKG and, where the state of the map area has open services of its own, those through the hosts of its adapter (list in the manual, chapter 12); in North Rhine-Westphalia it downloads about 17 MB for this. It reads the OSM extract already cached; --offline uses what was fetched before
+help-permits = Write the permit notes of a project (permits.md and permits.json): the administrative units, protected areas and operators the map area touches, and whom that usually means asking. It asks the BfN and the BKG and, where the state of the map area has open services of its own, those through the hosts of its adapter (list in the manual, chapter 12); in North Rhine-Westphalia it downloads about 32 MB for this, in Brandenburg about 4 MB. It reads the OSM extract already cached; --offline uses what was fetched before
 help-permits-dir = Project folder
 help-permits-offline = Use the data fetched before only, without network access
 help-run-permits = Also write the permit notes (permits.md and permits.json) after the map; asks the BfN, the BKG and the open services of the state (manual, chapter 12). A failure there is a warning and the map stays

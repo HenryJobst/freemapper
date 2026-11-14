@@ -175,3 +175,4 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0128](0128-bavaria-vegetation-from-the-point-clouds.md) | Bavaria: vegetation from the point clouds | Accepted | 2026-11-14 |
 | [0129](0129-permit-notes-for-hamburg-water-protection-and-forest-functions.md) | Permit notes for Hamburg, water protection and forest functions | Accepted | 2026-11-14 |
 | [0130](0130-permit-sources-as-tables.md) | Permit sources as tables of their layers | Accepted | 2026-11-14 |
+| [0131](0131-permit-sources-from-shapefiles.md) | Permit sources from shapefiles of a whole state | Accepted | 2026-11-14 |

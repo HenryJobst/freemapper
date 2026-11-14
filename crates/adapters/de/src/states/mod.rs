@@ -746,7 +746,7 @@ mod tests {
                     "https://gdi.berlin.de/services/wfs/forstverwalt",
                 ),
                 "brandenburg" => (
-                    &["reviere", "waldfunktionen"],
+                    &["reviere", "waldfunktionen", "wasserschutzgebiete"],
                     "https://www.brandenburg-forst.de/geoserver/IWFK/ows",
                 ),
                 "hamburg" => (
@@ -769,7 +769,12 @@ mod tests {
                     "https://geodienste-umwelt.hessen.de/arcgis/services/inspire/bewirtschaftungsgebiete/MapServer/WFSServer",
                 ),
                 "nordrheinwestfalen" => (
-                    &["forstbetriebsbezirke", "staatswald", "linfos"],
+                    &[
+                        "forstbetriebsbezirke",
+                        "staatswald",
+                        "linfos",
+                        "wasserschutzgebiete",
+                    ],
                     "https://www.opengeodata.nrw.de/produkte/umwelt_klima/wald_forst/wald/x.zip",
                 ),
                 _ => {

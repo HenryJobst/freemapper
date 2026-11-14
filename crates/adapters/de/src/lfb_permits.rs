@@ -66,7 +66,36 @@ pub fn sources() -> Vec<Box<dyn PermitSource>> {
             },
         }),
         waldfunktionen(),
+        wasserschutzgebiete(),
     ]
+}
+
+/// The water protection areas of the LfU as one shapefile for the state (ADR 0131, about
+/// 4 MB, on a host of Brandenburg's manifest); GovData: CC BY 4.0.
+fn wasserschutzgebiete() -> Box<dyn PermitSource> {
+    crate::shape_permits::source(
+        "wasserschutzgebiete",
+        Wording {
+            en: "Landesamt für Umwelt Brandenburg",
+            de: "Landesamt für Umwelt Brandenburg",
+        },
+        Wording {
+            en: "water protection areas",
+            de: "Wasserschutzgebiete",
+        },
+        "Landesamt für Umwelt Brandenburg (LfU), Creative Commons Namensnennung 4.0 \
+         International (CC BY 4.0)",
+        &["wasserschutzgebiete"],
+        &[PermitSection::WaterProtection],
+        "https://data.geobasis-bb.de/geofachdaten/Wasser/Gewaesserbewirtschaftung/wsg.zip",
+        crate::crs::Crs::Utm33,
+        Reading::Water {
+            name: "KLARNAME",
+            zone: "SCHUTZZONE",
+            citation: Some("FUNDSTELLE"),
+            planned: None,
+        },
+    )
 }
 
 /// The forest functions of the LFB (ADR 0130), a GeoServer WFS that answers GeoJSON:
