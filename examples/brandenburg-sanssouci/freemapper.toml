@@ -68,62 +68,62 @@ published = "2025-04-08"
 
 [buildings]
 bbox = [366018.0, 5807311.0, 367036.0, 5808036.0]
-fetched = "2026-11-13"
+fetched = "2026-11-14"
 latest_update = "2026-07-13"
 count = 207
 regions = ["brandenburg"]
 
 [land_use]
 bbox = [366018.0, 5807311.0, 367036.0, 5808036.0]
-fetched = "2026-11-13"
+fetched = "2026-11-14"
 latest_update = "2026-05-28"
 count = 186
 regions = ["brandenburg"]
 
 [nas_layers.bauwerk-gewaesser]
 bbox = [366018.0, 5807311.0, 367036.0, 5808036.0]
-fetched = "2026-11-13"
+fetched = "2026-11-14"
 latest_update = "2013-01-29"
 count = 1
 regions = ["brandenburg"]
 
 [nas_layers.bauwerk-verkehr]
 bbox = [366018.0, 5807311.0, 367036.0, 5808036.0]
-fetched = "2026-11-13"
+fetched = "2026-11-14"
 latest_update = "2013-01-29"
 count = 4
 regions = ["brandenburg"]
 
 [nas_layers.sonstiges-bauwerk]
 bbox = [366018.0, 5807311.0, 367036.0, 5808036.0]
-fetched = "2026-11-13"
+fetched = "2026-11-14"
 latest_update = "2026-05-28"
 count = 780
 regions = ["brandenburg"]
 
 [nas_layers.strukturlinie]
 bbox = [366018.0, 5807311.0, 367036.0, 5808036.0]
-fetched = "2026-11-13"
+fetched = "2026-11-14"
 latest_update = "2019-06-28"
 count = 315
 regions = ["brandenburg"]
 
 [nas_layers.untergeordnetes-gewaesser]
 bbox = [366018.0, 5807311.0, 367036.0, 5808036.0]
-fetched = "2026-11-13"
+fetched = "2026-11-14"
 count = 0
 regions = ["brandenburg"]
 
 [nas_layers.vegetationsmerkmal]
 bbox = [366018.0, 5807311.0, 367036.0, 5808036.0]
-fetched = "2026-11-13"
+fetched = "2026-11-14"
 latest_update = "2013-01-29"
 count = 146
 regions = ["brandenburg"]
 
 [tree_layers.potsdam]
 bbox = [366018.0, 5807311.0, 367036.0, 5808036.0]
-fetched = "2026-11-13"
+fetched = "2026-11-14"
 latest_update = "2016-11-22"
 count = 1964
 regions = ["brandenburg"]

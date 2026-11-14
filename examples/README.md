@@ -12,20 +12,20 @@ was freemapper ableiten kann. Die Karte allein zeigt weniger; dasselbe Gebiet in
 
 | Bundesland | Gebiet | Kartenobjekte | Kandidaten | Symbole | Vorschau |
 |---|---|---:|---:|---:|---|
-| Brandenburg | [Park Sanssouci, Potsdam](brandenburg-sanssouci/): Weinbergterrassen, Parterres und Hecken, Schloss | 2676 | 623 | 39 | <a href="brandenburg-sanssouci/brandenburg-sanssouci-candidates.pdf"><img src="brandenburg-sanssouci/preview.webp" width="220" alt=""></a> |
-| Berlin | [Viktoriapark, Kreuzberg](berlin-viktoriapark/): Kreuzberg mit Wasserfall, Gründerzeitblöcke | 3443 | 624 | 45 | <a href="berlin-viktoriapark/berlin-viktoriapark-candidates.pdf"><img src="berlin-viktoriapark/preview.webp" width="220" alt=""></a> |
-| Sachsen | [Altstadt Bautzen](sachsen-bautzen/): Altstadt auf dem Felsen über der Spree, steile Talhänge | 2527 | 988 | 39 | <a href="sachsen-bautzen/sachsen-bautzen-candidates.pdf"><img src="sachsen-bautzen/preview.webp" width="220" alt=""></a> |
-| Sachsen-Anhalt | [Schlossberg Quedlinburg](sachsen-anhalt-quedlinburg/): Welterbe-Altstadt, Schlossberg, enge Gassen | 2947 | 585 | 38 | <a href="sachsen-anhalt-quedlinburg/sachsen-anhalt-quedlinburg-candidates.pdf"><img src="sachsen-anhalt-quedlinburg/preview.webp" width="220" alt=""></a> |
-| Hamburg | [Treppenviertel Blankenese](hamburg-blankenese/): steiler Elbhang, Treppen und Gassen | 1780 | 992 | 31 | <a href="hamburg-blankenese/hamburg-blankenese-candidates.pdf"><img src="hamburg-blankenese/preview.webp" width="220" alt=""></a> |
-| Hessen | [Altstadt und Landgrafenschloss Marburg](hessen-marburg/): steile Oberstadt mit Treppengassen, Schlossberg | 3051 | 1015 | 35 | <a href="hessen-marburg/hessen-marburg-candidates.pdf"><img src="hessen-marburg/preview.webp" width="220" alt=""></a> |
-| Schleswig-Holstein | [Altstadt Lübeck mit Holstentor](schleswig-holstein-luebeck/): mittelalterliche Altstadtinsel mit Gängen und Höfen | 3345 | 1365 | 35 | <a href="schleswig-holstein-luebeck/schleswig-holstein-luebeck-candidates.pdf"><img src="schleswig-holstein-luebeck/preview.webp" width="220" alt=""></a> |
-| Mecklenburg-Vorpommern | [Altstadt Wismar](mecklenburg-vorpommern-wismar/): Welterbe-Altstadt mit Georgenkirche und Marktplatz | 3396 | 1416 | 35 | <a href="mecklenburg-vorpommern-wismar/mecklenburg-vorpommern-wismar-candidates.pdf"><img src="mecklenburg-vorpommern-wismar/preview.webp" width="220" alt=""></a> |
-| Nordrhein-Westfalen | [Altstadt Monschau](nordrhein-westfalen-monschau/): Fachwerk-Altstadt im tief eingeschnittenen Rurtal | 2456 | 1299 | 40 | <a href="nordrhein-westfalen-monschau/nordrhein-westfalen-monschau-candidates.pdf"><img src="nordrhein-westfalen-monschau/preview.webp" width="220" alt=""></a> |
-| Niedersachsen | [Großer Garten Herrenhausen, Hannover](niedersachsen-herrenhausen/): Barockgarten mit Hecken, Parterres und Brunnenbecken, daneben der Georgengarten | 2400 | 333 | 38 | <a href="niedersachsen-herrenhausen/niedersachsen-herrenhausen-candidates.pdf"><img src="niedersachsen-herrenhausen/preview.webp" width="220" alt=""></a> |
-| Rheinland-Pfalz | [Reichsburg und Altstadt Cochem](rheinland-pfalz-cochem/): Burgberg mit der Reichsburg, Altstadt am steilen Moselufer, gegenüber Cond | 2862 | 1024 | 44 | <a href="rheinland-pfalz-cochem/rheinland-pfalz-cochem-candidates.pdf"><img src="rheinland-pfalz-cochem/preview.webp" width="220" alt=""></a> |
-| Saarland | [Altstadt und Festung Saarlouis](saarland-saarlouis/): die sechseckige Festungsstadt Vaubans, Saar-Altarm mit der Vauban-Insel, Wälle im Stadtgarten | 1688 | 799 | 40 | <a href="saarland-saarlouis/saarland-saarlouis-candidates.pdf"><img src="saarland-saarlouis/preview.webp" width="220" alt=""></a> |
-| Baden-Württemberg | [Altstadt und Schloss Heidelberg](baden-wuerttemberg-heidelberg/): Altstadt am Neckar mit der Alten Brücke, das Schloss mit seinem Garten am steilen Hang des Königstuhls | 2858 | 899 | 43 | <a href="baden-wuerttemberg-heidelberg/baden-wuerttemberg-heidelberg-candidates.pdf"><img src="baden-wuerttemberg-heidelberg/preview.webp" width="220" alt=""></a> |
-| Bremen | [Bremer Altstadt und Wallanlagen](bremen-altstadt/): die Altstadt zwischen Weser und Stadtgraben mit Marktplatz und Schlachte, die Wallanlagen mit der Mühle am Wall, gegenüber der Teerhof | 2498 | 534 | 39 | <a href="bremen-altstadt/bremen-altstadt-candidates.pdf"><img src="bremen-altstadt/preview.webp" width="220" alt=""></a> |
+| Brandenburg | [Park Sanssouci, Potsdam](brandenburg-sanssouci/): Weinbergterrassen, Parterres und Hecken, Schloss | 2677 | 625 | 39 | <a href="brandenburg-sanssouci/brandenburg-sanssouci-candidates.pdf"><img src="brandenburg-sanssouci/preview.webp" width="220" alt=""></a> |
+| Berlin | [Viktoriapark, Kreuzberg](berlin-viktoriapark/): Kreuzberg mit Wasserfall, Gründerzeitblöcke | 3445 | 626 | 45 | <a href="berlin-viktoriapark/berlin-viktoriapark-candidates.pdf"><img src="berlin-viktoriapark/preview.webp" width="220" alt=""></a> |
+| Sachsen | [Altstadt Bautzen](sachsen-bautzen/): Altstadt auf dem Felsen über der Spree, steile Talhänge | 2542 | 1042 | 39 | <a href="sachsen-bautzen/sachsen-bautzen-candidates.pdf"><img src="sachsen-bautzen/preview.webp" width="220" alt=""></a> |
+| Sachsen-Anhalt | [Schlossberg Quedlinburg](sachsen-anhalt-quedlinburg/): Welterbe-Altstadt, Schlossberg, enge Gassen | 2964 | 632 | 38 | <a href="sachsen-anhalt-quedlinburg/sachsen-anhalt-quedlinburg-candidates.pdf"><img src="sachsen-anhalt-quedlinburg/preview.webp" width="220" alt=""></a> |
+| Hamburg | [Treppenviertel Blankenese](hamburg-blankenese/): steiler Elbhang, Treppen und Gassen | 1796 | 1016 | 31 | <a href="hamburg-blankenese/hamburg-blankenese-candidates.pdf"><img src="hamburg-blankenese/preview.webp" width="220" alt=""></a> |
+| Hessen | [Altstadt und Landgrafenschloss Marburg](hessen-marburg/): steile Oberstadt mit Treppengassen, Schlossberg | 3080 | 1115 | 35 | <a href="hessen-marburg/hessen-marburg-candidates.pdf"><img src="hessen-marburg/preview.webp" width="220" alt=""></a> |
+| Schleswig-Holstein | [Altstadt Lübeck mit Holstentor](schleswig-holstein-luebeck/): mittelalterliche Altstadtinsel mit Gängen und Höfen | 3367 | 1834 | 35 | <a href="schleswig-holstein-luebeck/schleswig-holstein-luebeck-candidates.pdf"><img src="schleswig-holstein-luebeck/preview.webp" width="220" alt=""></a> |
+| Mecklenburg-Vorpommern | [Altstadt Wismar](mecklenburg-vorpommern-wismar/): Welterbe-Altstadt mit Georgenkirche und Marktplatz | 3430 | 1660 | 35 | <a href="mecklenburg-vorpommern-wismar/mecklenburg-vorpommern-wismar-candidates.pdf"><img src="mecklenburg-vorpommern-wismar/preview.webp" width="220" alt=""></a> |
+| Nordrhein-Westfalen | [Altstadt Monschau](nordrhein-westfalen-monschau/): Fachwerk-Altstadt im tief eingeschnittenen Rurtal | 2507 | 1402 | 40 | <a href="nordrhein-westfalen-monschau/nordrhein-westfalen-monschau-candidates.pdf"><img src="nordrhein-westfalen-monschau/preview.webp" width="220" alt=""></a> |
+| Niedersachsen | [Großer Garten Herrenhausen, Hannover](niedersachsen-herrenhausen/): Barockgarten mit Hecken, Parterres und Brunnenbecken, daneben der Georgengarten | 2406 | 336 | 38 | <a href="niedersachsen-herrenhausen/niedersachsen-herrenhausen-candidates.pdf"><img src="niedersachsen-herrenhausen/preview.webp" width="220" alt=""></a> |
+| Rheinland-Pfalz | [Reichsburg und Altstadt Cochem](rheinland-pfalz-cochem/): Burgberg mit der Reichsburg, Altstadt am steilen Moselufer, gegenüber Cond | 2866 | 1025 | 44 | <a href="rheinland-pfalz-cochem/rheinland-pfalz-cochem-candidates.pdf"><img src="rheinland-pfalz-cochem/preview.webp" width="220" alt=""></a> |
+| Saarland | [Altstadt und Festung Saarlouis](saarland-saarlouis/): die sechseckige Festungsstadt Vaubans, Saar-Altarm mit der Vauban-Insel, Wälle im Stadtgarten | 1693 | 806 | 40 | <a href="saarland-saarlouis/saarland-saarlouis-candidates.pdf"><img src="saarland-saarlouis/preview.webp" width="220" alt=""></a> |
+| Baden-Württemberg | [Altstadt und Schloss Heidelberg](baden-wuerttemberg-heidelberg/): Altstadt am Neckar mit der Alten Brücke, das Schloss mit seinem Garten am steilen Hang des Königstuhls | 2895 | 1019 | 43 | <a href="baden-wuerttemberg-heidelberg/baden-wuerttemberg-heidelberg-candidates.pdf"><img src="baden-wuerttemberg-heidelberg/preview.webp" width="220" alt=""></a> |
+| Bremen | [Bremer Altstadt und Wallanlagen](bremen-altstadt/): die Altstadt zwischen Weser und Stadtgraben mit Marktplatz und Schlachte, die Wallanlagen mit der Mühle am Wall, gegenüber der Teerhof | 2531 | 551 | 39 | <a href="bremen-altstadt/bremen-altstadt-candidates.pdf"><img src="bremen-altstadt/preview.webp" width="220" alt=""></a> |
 | Bayern | [Altstadt Regensburg mit der Steinernen Brücke](bayern-regensburg/): die Welterbe-Altstadt an der Donau mit Dom und Gassen, die Steinerne Brücke, die Wöhrde und Stadtamhof am anderen Ufer | 2959 | 453 | 38 | <a href="bayern-regensburg/bayern-regensburg-candidates.pdf"><img src="bayern-regensburg/preview.webp" width="220" alt=""></a> |
 
 **Kartenobjekte** sind die Objekte der OOM-Karte. Mit `balanced` sind das die Objekte aus Kataster, Registern und
@@ -42,7 +42,7 @@ Die Gruppe `vegetation` ist in jedem Profil aus, denn die Punktwolken sind groß
 Kandidaten ein: Sanssouci, Viktoriapark, Monschau, Cochem und Saarlouis. Dort zeigt die Trainingskarte, was die Laserpunkte
 über den Bewuchs sagen: gut belaufbaren Wald (405) unter den Baumkronen, offenes Gelände (401) und die
 Grünabstufungen 406, 408 und 410. In Sanssouci sind das 153 Waldflächen, 78 Flächen offenes Gelände und 74 grüne
-Flächen, in Monschau 290, 218 und 264, in Cochem 218, 115 und 186, in Saarlouis 286, 105 und 90, im Viktoriapark
+Flächen, in Monschau 283, 212 und 263, in Cochem 218, 115 und 186, in Saarlouis 286, 106 und 90, im Viktoriapark
 56, 51 und 47. Der Park wird dadurch weiß, wo Bäume stehen, und bleibt gelb, wo Wiese ist. Die Berliner Befliegung
 von 2021 fand ohne Laub statt, deshalb fallen die Grünabstufungen dort schwächer aus. In Sperrflächen (520) gibt es
 keine Vegetation: Die Flächen enden an ihnen, ebenso an Gebäuden, Wasser und Pflasterflächen. Die Kartenobjekte
@@ -80,7 +80,7 @@ Stück. Dazu kommt die Karte von Berlin 1:5000 (K5) als Vorlage `templates/k5.pn
 
 Dazu kommen die Straßenbefahrung (aufgenommen 2014 bis 2016), die Register für Beleuchtung, Zierbrunnen und
 Trinkwasserbrunnen und die Gebäudehöhen aus dem Umweltatlas. Mit `balanced` stehen ihre Objekte in der Karte. Im
-Viktoriapark sind das 76 Bordsteine (501.1), 73 vermessene befestigte Flächen (501.5) und fünf kleine Grünstreifen am
+Viktoriapark sind das 76 Bordsteine (501.1), 75 vermessene befestigte Flächen (501.5) und fünf kleine Grünstreifen am
 Bordstein, die freemapper aus einer ALKIS-Straßenfläche ausschneidet. Die Flächen sind fast alles Gehwege und die
 befestigten Wege im Park. Dazu kommen Schutzgitter (518), Mauern (515), Wartehallen (522) sowie Straßenbrunnen und
 Zierbrunnen (311). Litfaßsäulen und Laternen bleiben als Kontrollstandorte (531) Kandidaten. Liegt ein Schutzgitter der
@@ -100,7 +100,7 @@ gemessenen Kronen werden es 42 Wälder 405 und 3 Flächen 402. Von den 1926 Kata
 Punkt, die übrigen liegen in Baumgruppenflächen oder fallen beim Ausdünnen weg.
 
 Parks sind gelbes offenes Gelände (401). Parks, Grünanlagen und Grünland aus ALKIS sind Kartenobjekte, in Sanssouci
-27 Flächen, im Viktoriapark 5. Wald aus ALKIS wird 405, in Monschau 153 Flächen. Unter allem liegt die belaufbare
+27 Flächen, im Viktoriapark 5. Wald aus ALKIS wird 405, in Monschau 164 Flächen. Unter allem liegt die belaufbare
 Fläche, eine braune Fläche über das ganze Blatt (Symbol 990, Kartenteil `base`). Sie füllt alles, was sonst nichts
 zeigt. Punkte in einer Kandidatenfläche 520 zeichnet das PDF mit Kandidaten nicht, in der Vorlage tragen sie
 `freemapper:hidden=520`.
@@ -180,7 +180,7 @@ abwechslungsreiche Bebauung, Relief und viele OSM-Kandidaten.
 In Niedersachsen hat der Große Garten gewonnen, obwohl seine Karte vor den Inhaltsprofilen die wenigsten
 Kartenobjekte hatte. Seine Hecken, Parterres, Baumreihen und Fontänen ergaben die meisten Kandidaten je Kartenobjekt.
 Mit `balanced` stehen sie in der Karte, darunter 368 Hecken (410.1), 1124 Bäume (418) und 17 Brunnen (311), und es
-bleiben 333 Kandidaten.
+bleiben 336 Kandidaten.
 
 In Rheinland-Pfalz liefen acht Rechtecke: Koblenz am Deutschen Eck, Trier, Speyer, Mainz, Bad Kreuznach und Cochem.
 Bad Kreuznach und Cochem liefen zweimal, denn das erste Rechteck in Bad Kreuznach verfehlte die Nahe, das in Cochem
@@ -191,8 +191,8 @@ Koblenz zeigt Rhein und Mosel am Deutschen Eck, kam aber nur auf 23 Symbole und 
 Im Saarland liefen zwei Rechtecke, beide in Saarlouis. Das zweite liegt 180 m weiter westlich und nimmt die
 Vauban-Insel im Saar-Altarm und die Wälle im Stadtgarten mit. Saarlouis war das erste Beispiel mit dem
 Inhaltsprofil `balanced`, das die Objekte aus Kataster und Registern gleich in die Karte zeichnet. Seine Karte hat
-31 Symbole, darunter 21 Treppen aus OpenStreetMap, und es bleiben 799 Kandidaten, die meisten davon Vegetation.
-Seit die Nutzungsarten des Saarlands in beiden Schreibweisen gelesen werden, stehen 109 Straßenflächen und die Saar
+31 Symbole, darunter 21 Treppen aus OpenStreetMap, und es bleiben 806 Kandidaten, die meisten davon Vegetation.
+Seit die Nutzungsarten des Saarlands in beiden Schreibweisen gelesen werden, stehen 118 Straßenflächen und die Saar
 aus ALKIS in der Karte. Inzwischen sind alle Beispiele mit diesem Profil neu gebaut.
 
 In Baden-Württemberg liefen drei Rechtecke: Heidelberg, die Freiburger Altstadt mit dem Schlossberg und die Tübinger

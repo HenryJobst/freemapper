@@ -21,9 +21,9 @@ and `--content full`.
 
 | Profile | Map objects | Candidates |
 |---|---:|---:|
-| `safe` | 1661 | 1689 |
-| `balanced` | 2862 | 505 |
-| `full` | 3280 | 25 |
+| `safe` | 1664 | 1691 |
+| `balanced` | 2866 | 506 |
+| `full` | 3285 | 25 |
 
 All three versions have the same 1156 buildings (521), the forest (405), the Moselle and the railway. The
 difference lies in everything that does not come from the cadastre.
@@ -46,13 +46,13 @@ source:
 | 513.2 passable retaining wall | 29 | 29 |
 | 515 impassable wall | 30 | 11 |
 
-505 objects stay candidates, most of them estimates: 202 out-of-bounds areas (520) from the ALKIS land use, 114
+506 objects stay candidates, most of them estimates: 203 out-of-bounds areas (520) from the ALKIS land use, 114
 earth banks (104) from the terrain model, 78 control sites (531), 46 trees, 24 areas of open land (401), 19 walls
 and 10 cliffs (201).
 
 ## From `balanced` to `full`
 
-`full` puts everything onto the map, as the training map (`--pdf-candidates`) draws it. In Cochem 202
+`full` puts everything onto the map, as the training map (`--pdf-candidates`) draws it. In Cochem 203
 out-of-bounds areas, 114 earth banks, 71 control sites, the other 19 walls and 10 cliffs come in. The plots between
 the houses turn olive green. Some points that were candidates in `balanced` are missing from `full` altogether,
 among them 46 trees and 7 control sites: as map objects they are subject to the ISSprOM minimum distance, and

@@ -13,14 +13,14 @@ type = "Polygon"
 
 [buildings]
 bbox = [483152.0, 5628371.0, 484156.0, 5629074.0]
-fetched = "2026-11-12"
+fetched = "2026-11-14"
 latest_update = "2026-10-29"
 count = 1535
 regions = ["hessen"]
 
 [land_use]
 bbox = [483152.0, 5628371.0, 484156.0, 5629074.0]
-fetched = "2026-11-12"
+fetched = "2026-11-14"
 latest_update = "2026-10-29"
 count = 1286
 regions = ["hessen"]
@@ -32,15 +32,15 @@ count = 821
 
 [orthophoto]
 flight = "27.08.2024"
-fetched = "2026-11-12"
+fetched = "2026-11-14"
 bbox = [483152.574, 5628371.094, 484155.904, 5629073.276]
 
 [terrain]
-fetched = "2026-11-12"
+fetched = "2026-11-14"
 bbox = [483152.574, 5628371.094, 484155.904, 5629073.276]
 date = "2024-03-22"
 
 [surface]
-fetched = "2026-11-12"
+fetched = "2026-11-14"
 bbox = [483152.574, 5628371.094, 484155.904, 5629073.276]
 date = "2024-03-22"

@@ -13,14 +13,14 @@ type = "Polygon"
 
 [buildings]
 bbox = [478666.0, 5472878.0, 479625.0, 5473538.0]
-fetched = "2026-11-13"
+fetched = "2026-11-14"
 latest_update = "2025-01-22"
 count = 982
 regions = ["badenwuerttemberg"]
 
 [land_use]
 bbox = [478666.0, 5472878.0, 479625.0, 5473538.0]
-fetched = "2026-11-13"
+fetched = "2026-11-14"
 latest_update = "2026-09-21"
 count = 858
 regions = ["badenwuerttemberg"]
@@ -32,15 +32,15 @@ count = 1992
 
 [orthophoto]
 flight = "2026-07-29"
-fetched = "2026-11-13"
+fetched = "2026-11-14"
 bbox = [478666.133, 5472878.757, 479624.204, 5473537.884]
 
 [terrain]
-fetched = "2026-11-13"
+fetched = "2026-11-14"
 bbox = [478666.133, 5472878.757, 479624.204, 5473537.884]
 date = "2022-02-13"
 
 [surface]
-fetched = "2026-11-13"
+fetched = "2026-11-14"
 bbox = [478666.133, 5472878.757, 479624.204, 5473537.884]
 date = "2024-06-26"

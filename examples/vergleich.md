@@ -21,9 +21,9 @@ mit `balanced` gebaut; die beiden anderen Fassungen sind mit `freemapper export 
 
 | Profil | Kartenobjekte | Kandidaten |
 |---|---:|---:|
-| `safe` | 1661 | 1689 |
-| `balanced` | 2862 | 505 |
-| `full` | 3280 | 25 |
+| `safe` | 1664 | 1691 |
+| `balanced` | 2866 | 506 |
+| `full` | 3285 | 25 |
 
 In allen drei Fassungen gleich sind die 1156 Gebäude (521), der Wald (405), die Mosel und die Bahn. Der
 Unterschied liegt in allem, was nicht aus dem Kataster kommt.
@@ -46,13 +46,13 @@ Quelle sind:
 | 513.2 überwindbare Stützmauer | 29 | 29 |
 | 515 unüberwindbare Mauer | 30 | 11 |
 
-Kandidaten bleiben 505 Objekte, vor allem Schätzungen: 202 Sperrflächen (520) aus der ALKIS-Nutzung, 114
+Kandidaten bleiben 506 Objekte, vor allem Schätzungen: 203 Sperrflächen (520) aus der ALKIS-Nutzung, 114
 Böschungen (104) aus dem Geländemodell, 78 Kontrollstandorte (531), 46 Bäume, 24 Flächen offenen Landes (401),
 19 Mauern und 10 Felswände (201).
 
 ## Von `balanced` zu `full`
 
-`full` legt alles in die Karte, wie die Trainingskarte (`--pdf-candidates`) es zeichnet. In Cochem kommen 202
+`full` legt alles in die Karte, wie die Trainingskarte (`--pdf-candidates`) es zeichnet. In Cochem kommen 203
 Sperrflächen, 114 Böschungen, 71 Kontrollstandorte, die übrigen 19 Mauern und 10 Felswände dazu. Die Grundstücke zwischen den
 Häusern werden dadurch olivgrün. Einige Punkte, die in `balanced` Kandidaten waren, fehlen in `full` ganz, darunter
 46 Bäume und 7 Kontrollstandorte: Als Kartenobjekte gilt für sie der Mindestabstand der ISSprOM, und freemapper lässt
