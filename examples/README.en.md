@@ -112,8 +112,8 @@ One example of the map kind `forest` (ISOM 2017-2) at 1:10 000 for every state, 
 |---|---|---:|---:|---:|---|
 | Brandenburg | [Rauener Berge and Markgrafensteine](brandenburg-rauener-berge/): moraine hills above the Scharmützelsee with the Markgrafensteine, large erratic boulders | 385 | 37 | 20 | <a href="brandenburg-rauener-berge/brandenburg-rauener-berge-candidates.pdf"><img src="brandenburg-rauener-berge/preview.webp" width="220" alt=""></a> |
 | Berlin | [Dammheide, Treptow-Köpenick](berlin-dammheide/): a small flat forest with a dense path network, settlements around it | 1179 | 166 | 27 | <a href="berlin-dammheide/berlin-dammheide-candidates.pdf"><img src="berlin-dammheide/preview.webp" width="220" alt=""></a> |
-| Saxony | [Bastei, Saxon Switzerland](sachsen-bastei/): sandstone rocks above the Elbe, more than 2000 rock objects from the terrain model | 3847 | 571 | 34 | <a href="sachsen-bastei/sachsen-bastei-candidates.pdf"><img src="sachsen-bastei/preview.webp" width="220" alt=""></a> |
-| Saxony-Anhalt | [Bode valley near Thale](sachsen-anhalt-bodetal/): the deep valley of the Bode in the Harz | 893 | 76 | 31 | <a href="sachsen-anhalt-bodetal/sachsen-anhalt-bodetal-candidates.pdf"><img src="sachsen-anhalt-bodetal/preview.webp" width="220" alt=""></a> |
+| Saxony | [Bastei, Saxon Switzerland](sachsen-bastei/): sandstone rocks above the Elbe, more than 2000 cliffs from OSM | 3349 | 571 | 34 | <a href="sachsen-bastei/sachsen-bastei-candidates.pdf"><img src="sachsen-bastei/preview.webp" width="220" alt=""></a> |
+| Saxony-Anhalt | [Bode valley near Thale](sachsen-anhalt-bodetal/): the deep valley of the Bode in the Harz | 603 | 76 | 31 | <a href="sachsen-anhalt-bodetal/sachsen-anhalt-bodetal-candidates.pdf"><img src="sachsen-anhalt-bodetal/preview.webp" width="220" alt=""></a> |
 | Hamburg | [Haake, Harburger Berge](hamburg-haake/): a hilly forest with a dense path network | 549 | 33 | 23 | <a href="hamburg-haake/hamburg-haake-candidates.pdf"><img src="hamburg-haake/preview.webp" width="220" alt=""></a> |
 | Hesse | [Großer Feldberg, Taunus](hessen-feldberg/): the summit and slopes of the highest mountain of the Taunus | 657 | 39 | 27 | <a href="hessen-feldberg/hessen-feldberg-candidates.pdf"><img src="hessen-feldberg/preview.webp" width="220" alt=""></a> |
 | Schleswig-Holstein | [Hüttener Berge](schleswig-holstein-huettener-berge/): moraine hills with forest, open land and small lakes | 352 | 72 | 24 | <a href="schleswig-holstein-huettener-berge/schleswig-holstein-huettener-berge-candidates.pdf"><img src="schleswig-holstein-huettener-berge/preview.webp" width="220" alt=""></a> |
@@ -137,8 +137,9 @@ point clouds yet.
 
 The paths come from OSM and go onto the map in the path classes 502 to 507; the forest is white paper. Settlements
 and gardens are olive green (520, not to be entered). Rocks, earth banks and knolls from the terrain model are
-candidates. In the flat areas in Berlin and Bremen the contours lie every 2.5 m, elsewhere every 5 m;
-`freemapper.toml` names the 2.5 m as `[contours] interval_m`.
+candidates; cliffs from OSM (`natural=cliff`) are on the map. In the flat areas in Berlin and Bremen the contours lie every 2.5 m, in the steep Bode valley and at the Bastei
+every 10 m (`--contour-interval 10`, more than the 5 m of the ISOM, so that the slopes stay legible), elsewhere every 5 m;
+`freemapper.toml` names it as `[contours] interval_m`.
 
 ## What an example contains
 

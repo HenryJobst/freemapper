@@ -6,6 +6,10 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
+### Changed
+
+- Examples: the Bode valley and the Bastei have contours every 10 m instead of 5 m; on the steep slopes they ran together into a brown area. The rocks of the Bastei come from OSM, not from the terrain model as the examples overview said so far.
+
 ## [0.19.0] - 2026-11-14
 
 ### Added
