@@ -866,6 +866,10 @@ mod tests {
                     &["umwelt"],
                     "https://umweltgeodienste.schleswig-holstein.de/WFS_UWAT",
                 ),
+                "saxony" => (
+                    &["sachsenforst"],
+                    "https://www.forsten.sachsen.de/kartendienste/wald/MapServer/WMSServer",
+                ),
                 "nordrheinwestfalen" => (
                     &[
                         "forstbetriebsbezirke",

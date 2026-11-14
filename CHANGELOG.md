@@ -8,6 +8,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Hinzugefügt
 
+- Genehmigungshinweise für Sachsen (ADR 0139): Forstbezirk und Revier des Staatsbetriebs Sachsenforst, Erholungswald, Naturwaldzellen, Bodenschutzwald und die Trinkwasserschutzzonen im Wald, aus zwei Kartendiensten von Sachsenforst (dl-de/by-2-0, „Geodaten Sachsenforst“). Ein Revier ist im Staatswald zuständig, für anderen Wald die untere Forstbehörde des Landkreises; das steht so in den Hinweisen. Die Dienste geben nur für einzelne Punkte Auskunft. freemapper fragt deshalb an bis zu 25 Punkten über der Karte, das sind bis zu 50 Anfragen. Die Hinweise sagen dann, dass die Anteile geschätzt sind und dass etwas zwischen den Punkten fehlen kann, und schreiben bei einem leeren Abschnitt nicht „kein Wasserschutzgebiet“, sondern dass an den abgefragten Punkten nichts genannt ist. Die Beispiele Bastei und Bautzen haben neue Hinweise.
 - Genehmigungshinweise für Schleswig-Holstein (ADR 0137): der Landeswald mit seinem Revier der Schleswig-Holsteinischen Landesforsten, der Naturwald und die Wasserschutzgebiete mit Schutzzone, aus dem Umweltportal des Landesamts für Umwelt (CC BY 4.0). Der Dienst liefert nur GML; die Tabellenquelle liest jetzt auch solche Dienste. Namen, die ein Dienst in Großbuchstaben schreibt („HÜTTEN“), schreiben die Hinweise als Namen („Hütten“).
 
 ### Geändert
