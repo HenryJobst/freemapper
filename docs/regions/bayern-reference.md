@@ -263,14 +263,47 @@ updated lot by lot ("losweise").
 - **Metalink** per municipality (`https://geodaten.bayern.de/odd/a/laser/meta/kml/gemeinde.kml`) with size and
   hash, as for the other tiles; an area would first have to find its municipalities, so it is not used.
 
+## ATKIS Basis-DLM
+
+Checked live on 2026-11-14 (46 requests). `https://geoservices.bayern.de/wfs/v1/ogc_atkis_basisdlm.cgi`, WFS
+2.0.0, CC BY 4.0, 80 feature types, EPSG:25832 by default.
+
+- **Request**: one type per request. A `BBOX` works only together with
+  `NAMESPACES=xmlns(adv,http://www.adv-online.de/namespaces/adv/gid/7.1)`. The server takes the parentheses and
+  the comma unencoded. No paging (`ImplementsResultPaging` FALSE), `CountDefault` 500 000, `numberMatched` is
+  always `unknown`.
+- **Answer**: the AAA schema in GML 3.2 with a default namespace (no `adv:` prefix on the elements),
+  `wfs:member`, the geometry in `position` as `gml:Point` or `gml:LineString`, the date in
+  `lebenszeitintervall/…/beginnt`, the model in `modellart` (Basis-DLM, DTK25). An answer of 300 km² comes in
+  half a second.
+- **What it holds**, in four areas (the Schmausenbuck, 1.6 km²; Tüchersfeld in the Fränkische Schweiz, 4 km²; the
+  old town of Regensburg, 0.9 km²; the Danube plain at Deggendorf, 100 km²):
+
+| Type | Schmausenbuck | Tüchersfeld | Regensburg | Remarks |
+|---|---:|---:|---:|---|
+| `AX_FelsenFelsblockFelsnadel` | 0 | 4 | | points; 76 in 300 km² of the Fränkische Schweiz, 60 with a name, 36 with the number of a natural monument |
+| `AX_DammWallDeich` | 0 | 0 | 0 | lines; 197 in the Danube plain (`funktion` 3001, 3003, 3004), 4 in 300 km² of the Fränkische Schweiz |
+| `AX_Einschnitt` | 0 | 0 | 0 | none in any area, also not in the 100 and 300 km² |
+| `AX_Hoehleneingang` | 0 | 2 | | points, with a name |
+| `AX_Gewaesserachse` | 0 | 6 | | lines, `breiteDesGewaessers` 3 or 6 |
+| `AX_Gewaessermerkmal` | 0 | 1 | 0 | `art` 1610, a spring |
+| `AX_Vegetationsmerkmal` | 1 | 1 | 2 | `bewuchs` 1012, a named tree (point); one area of 1023 |
+| `AX_Leitung` | 2 | 0 | | `bauwerksfunktion` 1110, the two power lines OSM has too |
+| `AX_Turm` | 1 | 1 | 17 | 1003 is the observation tower of the Schmausenbuck; 1002 church towers, 1009 a town gate |
+| `AX_SonstigesBauwerkOderSonstigeEinrichtung` | 6 | 6 | 14 | 1740 fences (lines), 1750 and 1760 monuments and crosses, 1780 and 1781 fountains |
+| `AX_WegPfadSteig` | 108 | 30 | | `art` 1103, 1109, 1110; `befestigung` 1000 or 2000 |
+| `AX_Fahrwegachse` | 36 | 96 | | `funktion` 5211, 5212, 5250 |
+
+- **Paths against OpenStreetMap** at the Schmausenbuck: the map has 28.4 km of OSM paths, the DLM 16.9 km. Of
+  the DLM length 0.7 km (4 %) has no OSM path within 10 m, 0.3 km within 20 m. Of the OSM length 38 % has no DLM
+  path within 10 m. The DLM adds next to nothing there.
+- **Conclusion**: the hoped-for rocks, embankments and cuttings are not in the data. What a map can use are a
+  few point objects and lines per map (caves, springs, named rocks, towers, monuments, fountains, fences, dams,
+  small watercourses). The user decided to build the source in all the same; see the design
+  `docs/superpowers/specs/2026-11-14-bayern-atkis-design.md`.
+
 ## Open, and left for later
 
-- **ATKIS Basis-DLM as a WFS 2.0**: `https://geoservices.bayern.de/wfs/v1/ogc_atkis_basisdlm.cgi`, 80 feature
-  types, CC BY 4.0, GML 3.2, no paging. A `BBOX` works only together with
-  `NAMESPACES=xmlns(adv,http://www.adv-online.de/namespaces/adv/gid/7.1)`, and one type per request. It has
-  `AX_WegPfadSteig`, `AX_Fahrwegachse`, `AX_Gewaesserachse`, `AX_DammWallDeich`, `AX_Einschnitt`,
-  `AX_FelsenFelsblockFelsnadel`, `AX_Vegetationsmerkmal`; it has no `AX_Gebaeude`, `AX_BoeschungKliff` or
-  `AX_Gelaendekante`. Walls are sparse (9 lines in 14 km² of Munich), steps were not seen.
 - **Einzelbäume** (single trees from the point clouds): one GeoPackage per flight lot, hundreds of MB.
 - **OGC API Features**: the newsletter 02/2026 describes a function of the BayernAtlas viewer. No endpoint of the
   LDBV was found; `https://geoservices.bayern.de/ogcapi/` answers 404.
