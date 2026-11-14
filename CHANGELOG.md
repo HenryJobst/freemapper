@@ -10,6 +10,10 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 - Bayern: Objekte aus dem Landschaftsmodell der Vermessungsverwaltung (ATKIS Basis-DLM, ADR 0135). Bayern hat für sein Kataster keinen Dienst; Quellen, Höhleneingänge, benannte Felsen, frei stehende Türme, Denkmäler und Wegkreuze, Brunnen, Zäune, Dämme, kleine Wasserläufe und benannte Bäume kommen jetzt von dort, auf Waldkarten auch Wege und Fahrwege. Das Modell ist für 1:25 000 gemacht und etwa 3 m genau. Seine Objekte bleiben deshalb Kandidaten und entfallen, wo OpenStreetMap oder eine andere Quelle dasselbe Objekt hat: ein Punkt im Umkreis von 15 m, eine Linie, die zu 80 % höchstens 10 m neben einer Linie derselben Art läuft. Am Schmausenbuck bleiben 14 Kandidaten, darunter 6 Wege, die OpenStreetMap fehlen; in der Regensburger Altstadt 10. Beide bayerischen Beispiele sind neu gebaut. Für Adapter: Ein NAS-Dienst nennt sein Modell (`[[extra.nas]] model`, Standard `alkis`, neu `basis-dlm`).
 
+### Geändert
+
+- Vegetation aus Laserpunktwolken (ADR 0136): Die Umrisse folgen jetzt dem Rand der Vegetation statt den 3-m-Stufen der Zellen. freemapper zeichnet sie auf einem dreimal feineren, leicht weichgezeichneten Raster; Ecken werden etwas abgerundet. Die neun Beispiele mit Punktwolken-Vegetation sind neu gebaut.
+
 ## [0.20.0] - 2026-11-14
 
 ### Hinzugefügt

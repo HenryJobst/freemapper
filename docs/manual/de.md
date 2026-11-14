@@ -674,7 +674,9 @@ Vegetation aus den klassifizierten Laserpunktwolken der LGB, des Geoportals Berl
 RP, vom LVGL bzw. der Bayerischen Vermessungsverwaltung ableiten:
 offenes Gelände (401), gut belaufbaren Wald (405), die Grünabstufungen 406, 408 und 410 sowie Unterwuchs (407,
 409). Gemessen wird, wie viele Laserpunkte in jeder 3-m-Zelle in Bodennähe ankommen und wie viele in den
-Höhen hängen bleiben, die einen Läufer bremsen. Das zeigt mehr als das nDOM, das nur die Kronen sieht.
+Höhen hängen bleiben, die einen Läufer bremsen. Das zeigt mehr als das nDOM, das nur die Kronen sieht. Die Umrisse
+entstehen auf einem dreimal feineren, leicht weichgezeichneten Raster, damit sie dem Rand der Vegetation folgen
+statt den 3-m-Stufen der Zellen (ADR 0136).
 
 Die Gruppe `vegetation` ist in jedem Profil aus, auch in `full`, denn die Punktwolken sind groß. Je
 Quadratkilometer-Kachel lädt freemapper etwa 160 MB in Brandenburg, etwa 240 MB in Berlin (als LAZ im
