@@ -23,6 +23,7 @@ pub fn nas_service(nas: &Nas, region: &AdapterId) -> NasService {
         max_bytes: nas.max_bytes,
         layers: nas.layers.as_deref().map(owned_list),
         namespaces: nas.namespaces.clone().map(Cow::Owned),
+        model: nas.model,
     }
 }
 

@@ -449,6 +449,7 @@ mod tests {
             max_bytes: 256 << 20,
             layers: None,
             namespaces: None,
+            model: crate::nas::NasModel::Alkis,
         }
     }
 

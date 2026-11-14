@@ -179,6 +179,7 @@ pub(crate) struct RawNas {
     pub max_bytes: Spanned<i64>,
     pub layers: Option<Vec<Text>>,
     pub namespaces: Option<Text>,
+    pub model: Option<Text>,
 }
 
 #[derive(Debug, Deserialize)]

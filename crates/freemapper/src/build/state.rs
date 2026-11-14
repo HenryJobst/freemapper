@@ -234,7 +234,8 @@ pub(crate) fn nas_feature_tags(feature: &Value) -> Vec<(String, String)> {
 }
 
 /// The candidates of the stored NAS `layers` (in the map's CRS) within `buffer_m` of
-/// `map_area`, each tagged `freemapper:source=alkis-nas/<file>`. The point of an area (a
+/// `map_area`, each tagged `freemapper:source=alkis-nas/<file>` (`atkis-dlm/<name>` for a layer
+/// of the landscape model). The point of an area (a
 /// monument) lies on its surface. The two edges of a wall become one centre line
 /// (`build/walls.rs`), then segments of one wall or fence are joined before the 1 mm drop
 /// (`osm_objects`).
@@ -251,7 +252,7 @@ pub fn nas_objects(
     let min_length = MIN_LINE_MM.metres(georef.scale_denominator);
     let mut objects = Vec::new();
     for layer in layers {
-        let source = format!("{NAS_SOURCE}/{}", layer.file);
+        let source = crate::sources::alkis_nas::layer_source(layer.file);
         // The edges of a wall become one centre line here, while each still says on which
         // side the wall lies; the joins below would lose that.
         let paired = pair_wall_edges(layer.features, distance, min_length);

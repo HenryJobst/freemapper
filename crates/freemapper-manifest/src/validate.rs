@@ -8,6 +8,7 @@ use std::ops::Range;
 use std::path::{Path, PathBuf};
 
 use chrono::NaiveDate;
+use freemapper_adapter_api::extras::NasModel;
 use freemapper_adapter_api::policy;
 use freemapper_georef::crs::Crs;
 use freemapper_sources::nas::NAS_LAYERS;
@@ -1622,18 +1623,37 @@ impl Check<'_> {
                 1,
                 MAX_ANSWER_BYTES,
             );
+            let model = match &service.model {
+                Some(model) => self
+                    .matching(
+                        model,
+                        "extra.nas.model",
+                        "manifest.value",
+                        |text| matches!(text, "alkis" | "basis-dlm"),
+                        "a model: `alkis` or `basis-dlm`",
+                    )
+                    .map(|model| match model.as_str() {
+                        "basis-dlm" => NasModel::BasisDlm,
+                        _ => NasModel::Alkis,
+                    }),
+                None => Some(NasModel::Alkis),
+            };
+            // A layer of the other model would never be asked for.
+            let served = model.unwrap_or(NasModel::Alkis);
+            let of_model = |file: &str| NasModel::of_layer(file) == served;
             let mut layers = Some(Vec::new());
             for layer in service.layers.iter().flatten() {
                 let layer = self.matching(
                     layer,
                     "extra.nas.layers",
                     "manifest.value",
-                    |text| NAS_LAYERS.iter().any(|known| known.file == text),
+                    |text| of_model(text) && NAS_LAYERS.iter().any(|known| known.file == text),
                     &format!(
-                        "a NAS layer; the layers are {}",
+                        "a NAS layer of the model; its layers are {}",
                         NAS_LAYERS
                             .iter()
                             .map(|known| known.file)
+                            .filter(|file| of_model(file))
                             .collect::<Vec<_>>()
                             .join(", ")
                     ),
@@ -1667,6 +1687,7 @@ impl Check<'_> {
                         None => None,
                     },
                     namespaces: namespaces?,
+                    model: model?,
                 })
             })();
             match built {

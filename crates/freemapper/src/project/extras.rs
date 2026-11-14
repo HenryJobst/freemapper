@@ -118,6 +118,28 @@ pub(crate) const NAS: Family<'static> = Family {
     },
 };
 
+/// [`NAS`] where the services of the area serve the landscape model (ATKIS Basis-DLM, ADR
+/// 0133): the same folder and table, notes that name the model.
+pub(crate) const DLM: Family<'static> = Family {
+    dir: Cow::Borrowed(NAS_LAYERS_DIR),
+    table: Table::Fixed(known_nas),
+    key_arg: "file",
+    part: Some(Part {
+        answer: "answer.gml",
+        folder_outside: "warning-dlm-folder-outside",
+    }),
+    dated_by: Some("beginnt"),
+    notes: Notes {
+        none_stored: "progress-dlm-none-stored",
+        removing: "progress-dlm-removing",
+        download: "progress-dlm-download",
+        features: "progress-dlm-features",
+        skipped: Some("progress-dlm-skipped"),
+        kept: "warning-dlm-layer-kept",
+        dropped: "warning-dlm-layer-skipped",
+    },
+};
+
 /// The tree cadastres of cities.
 pub(crate) const TREES: Family<'static> = Family {
     dir: Cow::Borrowed(TREE_LAYERS_DIR),

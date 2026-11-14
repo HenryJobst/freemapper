@@ -18,7 +18,7 @@ use crate::fetch::{
 };
 use crate::ogc_api::{AlkisError, FetchArea, invalid, reproject_feature};
 use crate::xml::resolve_entity;
-pub use freemapper_adapter_api::extras::NasService;
+pub use freemapper_adapter_api::extras::{NasModel, NasService};
 use freemapper_adapter_api::records::AdapterId;
 use freemapper_contract::MapKind;
 
@@ -36,6 +36,7 @@ pub const LGB_NAS: NasService = NasService {
     max_bytes: MAX_ANSWER_BYTES,
     layers: None,
     namespaces: None,
+    model: NasModel::Alkis,
 };
 
 /// The files in the layer list of `service` that name no NAS layer. A misspelled file would
@@ -63,10 +64,11 @@ pub struct NasLayer {
 const BOTH_KINDS: &[MapKind] = &[MapKind::Sprint, MapKind::Schoolyard, MapKind::Forest];
 const SPRINT_ONLY: &[MapKind] = &[MapKind::Sprint, MapKind::Forest];
 
-/// The NAS layers in fetch order. `AX_BoeschungKliff` has no geometry property (the services
+/// The NAS layers in fetch order, the six of the cadastre first, then those of the landscape
+/// model (their files start with `dlm-`). `AX_BoeschungKliff` has no geometry property (the services
 /// answer an exception), and `AX_Bauteil` is not fetched: its parts are the vereinfacht building
 /// parts already stored (vereinfacht `oid` = NAS `gml:id` + `BL`).
-pub const NAS_LAYERS: [NasLayer; 6] = [
+pub const NAS_LAYERS: [NasLayer; 14] = [
     NasLayer {
         file: "sonstiges-bauwerk",
         type_name: "adv:AX_SonstigesBauwerkOderSonstigeEinrichtung",
@@ -97,7 +99,58 @@ pub const NAS_LAYERS: [NasLayer; 6] = [
         type_name: "adv:AX_UntergeordnetesGewaesser",
         kinds: BOTH_KINDS,
     },
+    // The landscape model (ATKIS Basis-DLM, ADR 0133): the point and line objects a map can
+    // use. Paths, power lines and areas are left out; OpenStreetMap and the land use have them.
+    NasLayer {
+        file: "dlm-bauwerk",
+        type_name: "adv:AX_SonstigesBauwerkOderSonstigeEinrichtung",
+        kinds: BOTH_KINDS,
+    },
+    NasLayer {
+        file: "dlm-vegetation",
+        type_name: "adv:AX_Vegetationsmerkmal",
+        kinds: BOTH_KINDS,
+    },
+    NasLayer {
+        file: "dlm-felsen",
+        type_name: "adv:AX_FelsenFelsblockFelsnadel",
+        kinds: BOTH_KINDS,
+    },
+    NasLayer {
+        file: "dlm-hoehle",
+        type_name: "adv:AX_Hoehleneingang",
+        kinds: BOTH_KINDS,
+    },
+    NasLayer {
+        file: "dlm-gewaessermerkmal",
+        type_name: "adv:AX_Gewaessermerkmal",
+        kinds: BOTH_KINDS,
+    },
+    NasLayer {
+        file: "dlm-damm",
+        type_name: "adv:AX_DammWallDeich",
+        kinds: BOTH_KINDS,
+    },
+    NasLayer {
+        file: "dlm-turm",
+        type_name: "adv:AX_Turm",
+        kinds: BOTH_KINDS,
+    },
+    NasLayer {
+        file: "dlm-gewaesserachse",
+        type_name: "adv:AX_Gewaesserachse",
+        kinds: BOTH_KINDS,
+    },
 ];
+
+/// The `freemapper:source` of the objects of the layer stored as `file`: `alkis-nas/<file>` for
+/// the cadastre, `atkis-dlm/<name>` for the landscape model.
+pub fn layer_source(file: &str) -> String {
+    match file.strip_prefix(NasModel::DLM_PREFIX) {
+        Some(name) => format!("atkis-dlm/{name}"),
+        None => format!("alkis-nas/{file}"),
+    }
+}
 
 /// How often an area is split into quadrants when an answer is cut at the cap: 4 levels, down
 /// to 1/256 of the area.
@@ -1333,5 +1386,83 @@ mod tests {
             ..LGB_NAS
         };
         assert_eq!(unknown_layers(&service), ["vegetationsmerkmale"]);
+    }
+
+    #[test]
+    fn the_layer_table_has_the_eight_layers_of_the_basis_dlm() {
+        let dlm: Vec<(&str, &str)> = NAS_LAYERS
+            .iter()
+            .filter(|layer| NasModel::of_layer(layer.file) == NasModel::BasisDlm)
+            .map(|layer| (layer.file, layer.type_name))
+            .collect();
+        assert_eq!(
+            dlm,
+            [
+                (
+                    "dlm-bauwerk",
+                    "adv:AX_SonstigesBauwerkOderSonstigeEinrichtung"
+                ),
+                ("dlm-vegetation", "adv:AX_Vegetationsmerkmal"),
+                ("dlm-felsen", "adv:AX_FelsenFelsblockFelsnadel"),
+                ("dlm-hoehle", "adv:AX_Hoehleneingang"),
+                ("dlm-gewaessermerkmal", "adv:AX_Gewaessermerkmal"),
+                ("dlm-damm", "adv:AX_DammWallDeich"),
+                ("dlm-turm", "adv:AX_Turm"),
+                ("dlm-gewaesserachse", "adv:AX_Gewaesserachse"),
+            ]
+        );
+        // Every kind of map takes them, and the six layers of the cadastre are as they were.
+        for kind in [MapKind::Sprint, MapKind::Schoolyard, MapKind::Forest] {
+            assert_eq!(
+                nas_layers(kind)
+                    .filter(|layer| layer.file.starts_with("dlm-"))
+                    .count(),
+                8
+            );
+        }
+        assert_eq!(NAS_LAYERS.len(), 14);
+    }
+
+    #[test]
+    fn the_source_of_a_layer_names_its_model() {
+        assert_eq!(
+            layer_source("sonstiges-bauwerk"),
+            "alkis-nas/sonstiges-bauwerk"
+        );
+        assert_eq!(layer_source("dlm-turm"), "atkis-dlm/turm");
+    }
+
+    #[test]
+    fn a_service_is_asked_only_for_the_layers_of_its_model() {
+        let dlm = NasService {
+            model: NasModel::BasisDlm,
+            ..LGB_NAS
+        };
+        assert!(dlm.serves("dlm-turm") && !dlm.serves("strukturlinie"));
+        assert!(LGB_NAS.serves("strukturlinie") && !LGB_NAS.serves("dlm-turm"));
+        // A list narrows the layers of the model further.
+        let narrowed = NasService {
+            layers: Some(Cow::Borrowed(&[Cow::Borrowed("dlm-turm")])),
+            ..dlm.clone()
+        };
+        assert!(narrowed.serves("dlm-turm") && !narrowed.serves("dlm-damm"));
+    }
+
+    /// The answer of the Bavarian Basis-DLM service for the towers at the Schmausenbuck
+    /// (2026-11-14): the AAA schema with a default namespace, `numberMatched="unknown"`.
+    #[test]
+    fn an_answer_of_the_basis_dlm_is_read() {
+        let answer =
+            parse_nas_gml(include_str!("../../../tests/fixtures/bayern-dlm-turm.gml")).unwrap();
+        assert_eq!((answer.matched, answer.returned), (None, 1));
+        assert!(answer.skipped.is_empty(), "{:?}", answer.skipped);
+        let tower = &answer.features[0];
+        let properties = &tower["properties"];
+        assert_eq!(properties["nas_type"], "AX_Turm");
+        assert_eq!(properties["bauwerksfunktion"], "1003");
+        assert_eq!(properties["name"], "Aussichtsturm Schmausenbuck");
+        assert!(properties["oid"].as_str().unwrap().starts_with("DEBYBDLM"));
+        assert!(properties["beginnt"].as_str().unwrap().starts_with("20"));
+        assert_eq!(tower["geometry"]["type"], "Point");
     }
 }

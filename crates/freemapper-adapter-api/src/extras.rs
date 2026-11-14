@@ -134,6 +134,30 @@ pub struct TemplateNotes {
     pub unavailable: &'static str,
 }
 
+/// The AAA model a NAS service serves. The answers have one schema; what differs is what the
+/// objects are worth.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NasModel {
+    /// The cadastre (ALKIS): surveyed, to the decimetre.
+    Alkis,
+    /// The landscape model (ATKIS Basis-DLM): made for 1:25 000, to about 3 m (ADR 0133).
+    BasisDlm,
+}
+
+impl NasModel {
+    /// The files of the layers of the landscape model start with this.
+    pub const DLM_PREFIX: &'static str = "dlm-";
+
+    /// The model of the layer stored as `file`.
+    pub fn of_layer(file: &str) -> Self {
+        if file.starts_with(Self::DLM_PREFIX) {
+            Self::BasisDlm
+        } else {
+            Self::Alkis
+        }
+    }
+}
+
 /// A NAS WFS of one state.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NasService {
@@ -153,14 +177,19 @@ pub struct NasService {
     pub layers: Option<Cow<'static, [Cow<'static, str>]>>,
     /// The `NAMESPACES` parameter, for a server that wants the `adv` prefix declared.
     pub namespaces: Option<Cow<'static, str>>,
+    /// The model the service serves; it is asked only for the layers of that model.
+    pub model: NasModel,
 }
 
 impl NasService {
-    /// Whether the service serves the layer stored as `file`.
+    /// Whether the service serves the layer stored as `file`: a layer of its model, and one of
+    /// its list where it has one.
     pub fn serves(&self, file: &str) -> bool {
-        self.layers
-            .as_ref()
-            .is_none_or(|files| files.iter().any(|served| served == file))
+        NasModel::of_layer(file) == self.model
+            && self
+                .layers
+                .as_ref()
+                .is_none_or(|files| files.iter().any(|served| served == file))
     }
 
     /// The GetFeature of `type_name` features in `bbox` (in [`NasService::crs`]), rounded
