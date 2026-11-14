@@ -457,7 +457,8 @@ pub struct StateAdapter {
     extras: Vec<Box<dyn ExtraSet>>,
     /// The raster templates the state fetches with code (Berlin's K5).
     templates: Vec<Box<dyn RasterTemplate>>,
-    /// The sources of the permit notes the state brings (Berlin's Geoportal, ADR 0120).
+    /// The sources of the permit notes the state brings (Berlin's Geoportal, ADR 0120; the
+    /// forest administrations of Brandenburg and North Rhine-Westphalia, ADR 0124).
     permits: Vec<Box<dyn PermitSource>>,
 }
 
@@ -507,6 +508,8 @@ impl StateAdapter {
         };
         let permits = match state {
             State::Berlin => crate::berlin_permits::sources(),
+            State::Brandenburg => crate::lfb_permits::sources(),
+            State::NordrheinWestfalen => crate::wuh_permits::sources(),
             _ => Vec::new(),
         };
         Self {
@@ -712,33 +715,46 @@ mod tests {
         }
     }
 
-    /// Berlin brings the five services of the Geoportal Berlin for the permit notes (ADR
-    /// 0120), all on hosts of its manifest. No other state brings one yet.
+    /// Berlin brings the six services of the Geoportal Berlin for the permit notes (ADR 0120,
+    /// ADR 0124), Brandenburg the Reviere of its forest administration and North
+    /// Rhine-Westphalia the forest districts and the Staatswald (ADR 0124), all on hosts of
+    /// their manifest. No other state brings one yet.
     #[test]
-    fn berlin_alone_brings_permit_sources() {
+    fn permit_sources_by_state() {
         for adapter in adapters() {
-            let sources = adapter.permit_sources();
-            if adapter.info().id.as_str() != "berlin" {
-                assert!(sources.is_empty(), "{}", adapter.info().id);
-                continue;
-            }
-            let keys: Vec<&str> = sources.iter().map(|s| s.info().key).collect();
-            assert_eq!(
-                keys,
-                [
-                    "bezirke",
-                    "gruenanlagen",
-                    "liegenschaftsplan",
-                    "denkmale",
-                    "schutzgebiete"
-                ]
-            );
-            let policy = adapter.policy().unwrap();
-            assert!(
-                policy
-                    .check_url("https://gdi.berlin.de/services/wfs/denkmale")
-                    .is_ok()
-            );
+            let id = adapter.info().id.as_str();
+            let keys: Vec<&str> = adapter
+                .permit_sources()
+                .iter()
+                .map(|s| s.info().key)
+                .collect();
+            let (expected, url): (&[&str], &str) = match id {
+                "berlin" => (
+                    &[
+                        "bezirke",
+                        "gruenanlagen",
+                        "liegenschaftsplan",
+                        "denkmale",
+                        "schutzgebiete",
+                        "forstverwalt",
+                    ],
+                    "https://gdi.berlin.de/services/wfs/forstverwalt",
+                ),
+                "brandenburg" => (
+                    &["reviere"],
+                    "https://www.brandenburg-forst.de/geoserver/IFUEK/ows",
+                ),
+                "nordrheinwestfalen" => (
+                    &["forstbetriebsbezirke", "staatswald"],
+                    "https://www.opengeodata.nrw.de/produkte/umwelt_klima/wald_forst/wald/x.zip",
+                ),
+                _ => {
+                    assert!(keys.is_empty(), "{id}");
+                    continue;
+                }
+            };
+            assert_eq!(keys, expected, "{id}");
+            assert!(adapter.policy().unwrap().check_url(url).is_ok(), "{id}");
         }
     }
 

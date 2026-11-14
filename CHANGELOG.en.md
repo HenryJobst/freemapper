@@ -8,7 +8,8 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ### Added
 
-- Forest maps in steep land get contours every 10 m instead of 5 m by themselves (ADR 0124). Steep means: on more than a tenth of the area the 5 m contours would lie closer than 0.35 mm and run into a brown area. `derive` says so in a line; `--contour-interval 5` keeps 5 m. Among the examples it is the Bode valley and the Bastei.
+- Permit notes, step 3 (ADR 0124): in Brandenburg, Berlin and North Rhine-Westphalia the notes name the forest administration of the map area, each office with its Revier or district and its share: the Oberförstereien of the Landesbetrieb Forst Brandenburg, the Forstämter of the Berliner Forsten and the Regionalforstämter of Wald und Holz NRW. In North Rhine-Westphalia the share of state forest comes with them. A forest map gets the hint on the office in charge and that the forest owners must agree; in the other states only the second, with the sentence that the notes do not name the office there. In North Rhine-Westphalia a fetch downloads two files of about 17 MB together for this. freemapper takes none of the foresters' names and contact data in those files, not even into `data/permits/`.
+- Forest maps in steep land get contours every 10 m instead of 5 m by themselves (ADR 0125). Steep means: on more than a tenth of the area the 5 m contours would lie closer than 0.35 mm and run into a brown area. `derive` says so in a line; `--contour-interval 5` keeps 5 m. Among the examples it is the Bode valley and the Bastei.
 
 ### Changed
 

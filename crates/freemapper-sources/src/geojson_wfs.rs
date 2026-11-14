@@ -1,11 +1,13 @@
 //! Features from a WFS 2.0 that answers GeoJSON (the BfN protected areas, the BKG state borders
-//! VG250), asked by a box in WGS 84 and read page by page.
+//! VG250), asked by a box in WGS 84 and read page by page; and the same for a WFS that answers
+//! only GML 3.2 (the forest offices of Brandenburg), read into GeoJSON features.
 
 use std::path::Path;
 
 use serde_json::Value;
 
 use crate::fetch::{FetchError, Fetcher, get_limited_with_retries};
+use crate::wfs::parse_gml;
 
 /// Features asked for per request.
 const PAGE_SIZE: usize = 500;
@@ -76,12 +78,37 @@ pub fn get_features(
     bbox: &LatLonBox,
     part: &Path,
 ) -> Result<Vec<Value>, FetchError> {
+    pages(fetcher, service, type_name, bbox, part, read_page)
+}
+
+/// [`get_features`] for a service that answers GML 3.2 (`output_format` names it, `gml32` on a
+/// GeoServer). The features come as GeoJSON features with the polygons of [`parse_gml`] and
+/// their attributes as properties. Positions stay as the service writes them: with the
+/// `srsName` of the query (WGS 84 as an EPSG URN) that is latitude first.
+pub fn get_gml_features(
+    fetcher: &dyn Fetcher,
+    service: &GeoJsonWfs,
+    type_name: &str,
+    bbox: &LatLonBox,
+    part: &Path,
+) -> Result<Vec<Value>, FetchError> {
+    pages(fetcher, service, type_name, bbox, part, read_gml_page)
+}
+
+/// The paging of [`get_features`], with `read` turning one answer into its features.
+fn pages(
+    fetcher: &dyn Fetcher,
+    service: &GeoJsonWfs,
+    type_name: &str,
+    bbox: &LatLonBox,
+    part: &Path,
+    read: fn(&str, &[u8]) -> Result<Vec<Value>, FetchError>,
+) -> Result<Vec<Value>, FetchError> {
     let mut features = Vec::new();
     for page_number in 1..=MAX_PAGES {
         let url = query_url(service, type_name, bbox, features.len());
-        let page = get_limited_with_retries(fetcher, &url, part, MAX_BYTES, |bytes| {
-            read_page(&url, bytes)
-        })?;
+        let page =
+            get_limited_with_retries(fetcher, &url, part, MAX_BYTES, |bytes| read(&url, bytes))?;
         let short = page.len() < PAGE_SIZE;
         features.extend(page);
         if short {
@@ -98,6 +125,17 @@ pub fn get_features(
         }
     }
     unreachable!("the last page returns")
+}
+
+/// The features of a GML 3.2 FeatureCollection.
+fn read_gml_page(url: &str, bytes: &[u8]) -> Result<Vec<Value>, FetchError> {
+    let not_gml = |message: String| FetchError::Http {
+        url: url.to_string(),
+        message,
+    };
+    let text =
+        std::str::from_utf8(bytes).map_err(|e| not_gml(format!("the answer is not UTF-8: {e}")))?;
+    parse_gml(text).map_err(|e| not_gml(e.to_string()))
 }
 
 /// The `features` of a GeoJSON FeatureCollection.
@@ -210,6 +248,69 @@ mod tests {
             "{err:?}"
         );
         assert!(err.to_string().contains("10000 features"), "{err}");
+    }
+
+    const FOREST: GeoJsonWfs = GeoJsonWfs {
+        base: "https://www.brandenburg-forst.de/geoserver/IFUEK/ows",
+        output_format: "gml32",
+        bbox_crs_suffix: true,
+    };
+
+    /// A GML page of `n` features with one attribute and a square each, latitude first.
+    fn gml_collection(n: usize) -> Vec<u8> {
+        let members: String = (0..n)
+            .map(|i| {
+                format!(
+                    "<wfs:member><IFUEK:AM.ForestManagementArea gml:id=\"a.{i}\">\
+                     <IFUEK:rev_name>R{i}</IFUEK:rev_name><IFUEK:shape>\
+                     <gml:Polygon srsName=\"EPSG:4326\"><gml:exterior><gml:LinearRing>\
+                     <gml:posList>52.5 13.8 52.5 13.9 52.6 13.9 52.5 13.8</gml:posList>\
+                     </gml:LinearRing></gml:exterior></gml:Polygon></IFUEK:shape>\
+                     </IFUEK:AM.ForestManagementArea></wfs:member>"
+                )
+            })
+            .collect();
+        format!(
+            "<?xml version=\"1.0\" encoding=\"UTF-8\"?><wfs:FeatureCollection \
+             xmlns:wfs=\"http://www.opengis.net/wfs/2.0\" xmlns:gml=\"http://www.opengis.net/gml/3.2\" \
+             xmlns:IFUEK=\"x\" numberReturned=\"{n}\">{members}</wfs:FeatureCollection>"
+        )
+        .into_bytes()
+    }
+
+    /// A GML service is paged like a GeoJSON one, and its features carry their attributes
+    /// and polygons as the service wrote them.
+    #[test]
+    fn gml_pages_become_geojson_features() {
+        let fetcher = MapFetcher::default();
+        fetcher.insert(&query_url(&FOREST, "t", &BOX, 0), gml_collection(500));
+        fetcher.insert(&query_url(&FOREST, "t", &BOX, 500), gml_collection(2));
+        let features = get_gml_features(&fetcher, &FOREST, "t", &BOX, &part()).unwrap();
+        assert_eq!(features.len(), 502);
+        assert_eq!(fetcher.calls.get(), 2);
+        assert_eq!(features[1]["properties"]["rev_name"], "R1");
+        assert_eq!(features[1]["geometry"]["type"], "MultiPolygon");
+        assert_eq!(
+            features[1]["geometry"]["coordinates"][0][0][0],
+            serde_json::json!([52.5, 13.8])
+        );
+        assert!(query_url(&FOREST, "t", &BOX, 0).contains("outputFormat=gml32"));
+    }
+
+    /// An exception report in place of the features is an error with the URL.
+    #[test]
+    fn a_gml_service_error_is_refused() {
+        let fetcher = MapFetcher::default();
+        let url = query_url(&FOREST, "t", &BOX, 0);
+        fetcher.insert(
+            &url,
+            b"<ows:ExceptionReport><ows:Exception/></ows:ExceptionReport>".to_vec(),
+        );
+        let err = get_gml_features(&fetcher, &FOREST, "t", &BOX, &part()).unwrap_err();
+        assert!(
+            matches!(&err, FetchError::Http { url: u, .. } if *u == url),
+            "{err:?}"
+        );
     }
 
     #[test]

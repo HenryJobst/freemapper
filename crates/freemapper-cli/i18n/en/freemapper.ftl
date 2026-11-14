@@ -745,10 +745,10 @@ mcp-error-content = Cannot read the content setting: { $detail }
 ## `permits-*` id is used. The quote "Nicht für Planungszwecke geeignet." is the BfN's own
 ## wording and stays German in every language.
 
-help-permits = Write the permit notes of a project (permits.md and permits.json): the administrative units, protected areas and operators the map area touches, and whom that usually means asking. It asks the BfN and the BKG, for a map area in Berlin also the Geoportal Berlin (gdi.berlin.de) through the hosts of Berlin's adapter, and reads the OSM extract already cached; --offline uses what was fetched before
+help-permits = Write the permit notes of a project (permits.md and permits.json): the administrative units, protected areas and operators the map area touches, and whom that usually means asking. It asks the BfN and the BKG, for a map area in Berlin also the Geoportal Berlin (gdi.berlin.de), in Brandenburg the Landesbetrieb Forst (www.brandenburg-forst.de), in North Rhine-Westphalia Wald und Holz NRW (www.opengeodata.nrw.de, about 17 MB), each through the hosts of the state's adapter, and reads the OSM extract already cached; --offline uses what was fetched before
 help-permits-dir = Project folder
 help-permits-offline = Use the data fetched before only, without network access
-help-run-permits = Also write the permit notes (permits.md and permits.json) after the map; asks the BfN and the BKG, in Berlin also the Geoportal Berlin (gdi.berlin.de). A failure there is a warning and the map stays
+help-run-permits = Also write the permit notes (permits.md and permits.json) after the map; asks the BfN and the BKG, in Berlin also the Geoportal Berlin (gdi.berlin.de), in Brandenburg and North Rhine-Westphalia the forest administration. A failure there is a warning and the map stays
 cli-wrote-permits = Wrote the permit notes { $path }
 cli-summary-wrote-permits = Wrote the permit notes { $path }
 cli-permits-failed = the permit notes could not be written: { $error }
@@ -889,4 +889,22 @@ permits-hint-owner-share = { $unnamed ->
 permits-hint-owners-unknown = { $rest ->
         [yes] The owners of the rest of the area cannot be found from open data. With a legitimate interest (an organiser, for example) you can ask the land registry (Grundbuchamt) for an extract; for public land the competent Ordnungsamt or parks department helps.
        *[no] The owners of these areas cannot be found from open data. With a legitimate interest (an organiser, for example) you can ask the land registry (Grundbuchamt) for an extract; for public land the competent Ordnungsamt or parks department helps.
+    }
+permits-section-forest-units = Forest administration ({ $source })
+permits-section-state-forest = State forest ({ $source })
+permits-none-forest-units = According to { $source }, the map area lies in the area of no forest office.
+permits-none-state-forest = According to { $source }, no state forest lies in the map area.
+permits-forest-units-reach = A forest office is in charge of the forest in its area. Its area can take in towns and fields as well.
+permits-state-forest-office = in charge: { $office }
+permits-hint-forest-office = { $units ->
+        [none] Forest office in charge of the forest in the map area: { $office } ({ $administration }). Ask there early when you plan an event in the forest.
+       *[other] Forest office in charge of the forest in the map area: { $office } ({ $administration }), { $units }. Ask there early when you plan an event in the forest.
+    }
+permits-hint-forest-owner = { $office ->
+        [known] An event in the forest needs the consent of the forest owners. The forest office can usually say who owns the forest. In several states an organised event in the forest must also be reported to the forest authority or allowed by it.
+       *[unknown] An event in the forest needs the consent of the forest owners. In several states an organised event in the forest must also be reported to the forest authority or allowed by it. These notes do not name the forest office in charge here; the forest administration of the state or the lower forest authority can tell you.
+    }
+permits-hint-state-forest = { $office ->
+        [none] According to the open data of the state, { $share } of the map area is state forest of the owner "{ $owner }".
+       *[other] According to the open data of the state, { $share } of the map area is state forest of the owner "{ $owner }". In charge: { $office }.
     }

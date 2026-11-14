@@ -762,10 +762,10 @@ mcp-error-content = Die Inhaltseinstellung ist nicht lesbar: { $detail }
 ## prüft, dass jede Kennung `permits-*` verwendet wird. Das Zitat „Nicht für Planungszwecke
 ## geeignet.“ ist der Wortlaut des BfN und bleibt in jeder Sprache deutsch.
 
-help-permits = Die Genehmigungshinweise eines Projekts schreiben (permits.md und permits.json): die Verwaltungseinheiten, Schutzgebiete und Betreiber, die das Kartengebiet berührt, und wen man dann meist fragt. Fragt das BfN und das BKG, für ein Kartengebiet in Berlin auch das Geoportal Berlin (gdi.berlin.de) über die Hosts von Berlins Adapter, und liest den OSM-Auszug, der schon im Zwischenspeicher liegt; --offline nimmt die früher geholten Daten
+help-permits = Die Genehmigungshinweise eines Projekts schreiben (permits.md und permits.json): die Verwaltungseinheiten, Schutzgebiete und Betreiber, die das Kartengebiet berührt, und wen man dann meist fragt. Fragt das BfN und das BKG, für ein Kartengebiet in Berlin auch das Geoportal Berlin (gdi.berlin.de), in Brandenburg den Landesbetrieb Forst (www.brandenburg-forst.de), in Nordrhein-Westfalen Wald und Holz NRW (www.opengeodata.nrw.de, etwa 17 MB), jeweils über die Hosts des Adapters des Bundeslandes, und liest den OSM-Auszug, der schon im Zwischenspeicher liegt; --offline nimmt die früher geholten Daten
 help-permits-dir = Projektordner
 help-permits-offline = Nur die früher geholten Daten verwenden, ohne Netzzugriff
-help-run-permits = Nach der Karte zusätzlich die Genehmigungshinweise schreiben (permits.md und permits.json); fragt das BfN und das BKG, in Berlin auch das Geoportal Berlin (gdi.berlin.de). Ein Fehler dort ist eine Warnung, die Karte bleibt
+help-run-permits = Nach der Karte zusätzlich die Genehmigungshinweise schreiben (permits.md und permits.json); fragt das BfN und das BKG, in Berlin auch das Geoportal Berlin (gdi.berlin.de), in Brandenburg und Nordrhein-Westfalen die Forstverwaltung. Ein Fehler dort ist eine Warnung, die Karte bleibt
 cli-wrote-permits = Genehmigungshinweise { $path } geschrieben
 cli-summary-wrote-permits = Genehmigungshinweise { $path } geschrieben
 cli-permits-failed = Die Genehmigungshinweise ließen sich nicht schreiben: { $error }
@@ -906,4 +906,22 @@ permits-hint-owner-share = { $unnamed ->
 permits-hint-owners-unknown = { $rest ->
         [yes] Die Eigentümer der übrigen Flächen sind aus offenen Daten nicht bestimmbar. Bei berechtigtem Interesse (z. B. Veranstalter) kann beim Grundbuchamt ein Grundbuchauszug beantragt werden; für öffentliche Flächen hilft das zuständige Ordnungs- oder Grünflächenamt.
        *[no] Eigentümer dieser Flächen sind aus offenen Daten nicht bestimmbar. Bei berechtigtem Interesse (z. B. Veranstalter) kann beim Grundbuchamt ein Grundbuchauszug beantragt werden; für öffentliche Flächen hilft das zuständige Ordnungs- oder Grünflächenamt.
+    }
+permits-section-forest-units = Forstverwaltung ({ $source })
+permits-section-state-forest = Staatswald ({ $source })
+permits-none-forest-units = Laut { $source } liegt das Kartengebiet im Bereich keiner Forstdienststelle.
+permits-none-state-forest = Laut { $source } liegt im Kartengebiet kein Staatswald.
+permits-forest-units-reach = Die Forstdienststelle ist für den Wald in ihrem Bereich zuständig. Ihr Bereich kann auch Siedlungen und Felder umfassen.
+permits-state-forest-office = zuständig: { $office }
+permits-hint-forest-office = { $units ->
+        [none] Zuständige Forstdienststelle für den Wald im Kartengebiet: { $office } ({ $administration }). Fragen Sie dort früh nach, wenn Sie eine Veranstaltung im Wald planen.
+       *[other] Zuständige Forstdienststelle für den Wald im Kartengebiet: { $office } ({ $administration }), { $units }. Fragen Sie dort früh nach, wenn Sie eine Veranstaltung im Wald planen.
+    }
+permits-hint-forest-owner = { $office ->
+        [known] Für eine Veranstaltung im Wald brauchen Sie die Zustimmung der Waldbesitzer. Wem der Wald gehört, kann meist die Forstdienststelle sagen. In mehreren Bundesländern ist eine organisierte Veranstaltung im Wald außerdem der Forstbehörde anzuzeigen oder von ihr zu genehmigen.
+       *[unknown] Für eine Veranstaltung im Wald brauchen Sie die Zustimmung der Waldbesitzer. In mehreren Bundesländern ist eine organisierte Veranstaltung im Wald außerdem der Forstbehörde anzuzeigen oder von ihr zu genehmigen. Welche Forstdienststelle hier zuständig ist, bestimmen diese Hinweise nicht; Auskunft gibt die Forstverwaltung des Bundeslandes oder die untere Forstbehörde.
+    }
+permits-hint-state-forest = { $office ->
+        [none] Laut den offenen Daten des Bundeslandes sind { $share } des Kartengebiets Staatswald des Eigentümers „{ $owner }“.
+       *[other] Laut den offenen Daten des Bundeslandes sind { $share } des Kartengebiets Staatswald des Eigentümers „{ $owner }“. Zuständig: { $office }.
     }

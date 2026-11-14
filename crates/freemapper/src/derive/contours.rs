@@ -222,7 +222,7 @@ pub fn generalize(lines: Vec<ContourLine>, scale: SymbolScale) -> Vec<ContourLin
 /// percentile of its heights span less (spec 2026-11-13).
 const FLAT_FOREST_RANGE_M: f64 = 15.0;
 const FLAT_FOREST_INTERVAL_M: f64 = 2.5;
-/// A forest map gets twice the interval where the terrain is this steep (ADR 0124): on more than
+/// A forest map gets twice the interval where the terrain is this steep (ADR 0125): on more than
 /// this share of the map area the contours of the kind's interval would lie closer together than
 /// [`CROWDED_SPACING`], centre to centre, and run into a brown area. Of the forest examples the
 /// Bode valley (26 % of the area at 5 m) and the Bastei (18 %) cross it; the next steepest,
