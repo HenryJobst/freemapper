@@ -43,6 +43,11 @@ findings on the training map", "Order" item 1).
 - Changelog entries go under "Unveröffentlicht" / "Unreleased" (v0.20.0 is released).
 - `--pdf-candidates` keeps its name and file; it is the check print, no longer called the training map.
 
+## Order of execution
+
+Tasks 10 and 11 were added after the user's decisions 7 and 8 of the spec. Run the tasks in this order:
+1, 2, 3, 4, 5, 10, 11, 6, 7, 8, 9.
+
 ## Review Focus
 
 1. A project without terrain, surface model or rock raster (schoolyard, a state without DOM): the training map is
@@ -461,8 +466,8 @@ candidate, true to position" in help, MCP descriptions and i18n.
 
 ### Task 8: Docs, ADR, changelog
 
-**Files:** `docs/glossary.md`, `docs/adr/0137-the-training-map-is-a-product-of-its-own.md` (check the number is
-free) and `docs/adr/README.md`, `AGENTS.md`, `README.md`, `README.en.md`, `docs/manual/de.md`, `docs/manual/en.md`,
+**Files:** `docs/glossary.md`, `docs/adr/0140-the-training-map-is-a-product-of-its-own.md` (0137 to 0139
+belong to other branches) and `docs/adr/README.md`, `AGENTS.md`, `README.md`, `README.en.md`, `docs/manual/de.md`, `docs/manual/en.md`,
 `CHANGELOG.md`, `CHANGELOG.en.md`.
 
 - [ ] **Step 1:** Glossary terms. **Step 2:** The ADR: context (the Bremen table of the spec), decision (product,
@@ -485,3 +490,80 @@ free) and `docs/adr/README.md`, `AGENTS.md`, `README.md`, `README.en.md`, `docs/
   take a map path and read `freemapper.toml` beside it): it loads, the sheet is found. Tell their sessions.
 - [ ] **Step 4:** Full checks, push the branch to GitHub, open the pull request (label `all-systems`: file names
   and paths), wait for the user's yes.
+
+### Task 10: Inside olive green
+
+**Files:**
+- Modify: `crates/freemapper/src/build/training.rs` (a step after the join and the contour cut, before "give way").
+
+**What exists:** points under a 520 candidate are hidden (`HIDDEN_KEY = 520`, `build/points.rs`) and never reach
+`train`; vegetation is cut at the 520 areas it is placed with (`cut_vegetation_at_out_of_bounds`,
+`build/vegetation.rs`). `cut_lines_at_ways` cuts lines at polygons in projected metres. The 520 objects of the map
+and of the candidates are both in the input of `train`. The impassable barriers are 515 (wall) and 518 (fence).
+
+**Interfaces:** consumes `Classes`, `Footprints`, `gap` (Task 1), `train` and `TrainingReport` (Task 4). Produces a
+field `pub inside_olive: usize` in `TrainingReport` (objects that went or were cut by this step) and
+
+```rust
+/// How far inside the olive green an object still lies on its edge.
+pub const OLIVE_EDGE_MM: PaperMm = PaperMm(0.4);
+/// The beginning drawn of a way that allows no crossing: this, or the symbol's minimum length if longer.
+pub const WAY_STUB_MM: PaperMm = PaperMm(1.0);
+```
+
+Decisions: the olive area is the union of the objects of the symbol 520; `inner` is that union shrunk by
+`OLIVE_EDGE_MM`. Stay untouched: Building, WaterArea, BankLine, Watercourse, Contour, the 520 objects, canopies
+(522), text and sheet objects. Areas of other symbols lose their part inside `inner`; pieces below the minimum the
+open-land step uses go. Points inside `inner` go. Lines of the classes Barrier, EarthBank, Cliff and Stairway are
+cut at `inner` (pieces below their minimum length go). Ways (Road, Path): the parts inside `inner` are taken
+together as they join; such a group is a crossing when it meets the boundary of `inner` at two places or more
+that are not barred. A place is barred when a 515 or 518 object crosses the way within `OLIVE_EDGE_MM` of the
+boundary. A crossing stays in full. Of a group that is no crossing, the part inside goes, except the first
+`WAY_STUB_MM` (or the symbol's minimum length) of the way inward from each place that is not barred. Railways are
+left alone. Access tags are not read: the rule is geometry only (ruling; OSM access tags are not carried by the
+objects).
+
+- [ ] **Step 1: Failing tests** (ISSprOM set at 1:4000 and ISOM at 1:10 000 where it matters):
+  `a_fence_inside_goes_and_the_one_on_the_edge_stays`; `a_point_inside_goes`; `a_building_and_a_pond_inside_stay`;
+  `a_contour_runs_through`; `open_land_is_cut_at_the_edge`; `a_path_that_crosses_stays_in_full` (enters on one
+  side, leaves on the other); `a_driveway_keeps_only_its_beginning` (dead end: one piece of `WAY_STUB_MM` from
+  the edge); `a_driveway_behind_an_impassable_fence_goes_whole` (518 across its entrance: no stub);
+  `a_crossing_barred_at_one_end_is_no_crossing` (one entrance free → stub there, nothing at the barred end);
+  `a_passable_fence_does_not_bar` (a 516 across the entrance: the stub is drawn); `without_olive_nothing
+  changes`.
+- [ ] **Step 2 to 4:** fail, implement, pass, clippy.
+- [ ] **Step 5: Commit** `feat(build): no details inside olive green on the training map`.
+
+### Task 11: Tick sides
+
+**Files:**
+- Modify: `crates/freemapper/src/build/ticks.rs`; `docs/adr/0097-…` gets no edit (the new ADR of Task 8 amends it).
+
+**What exists:** `orient_ticks(lists, terrain, georef, symbol_set)` is the last step on the lines in `Built::place`,
+for the map and the candidates. A fence (518) turns its ticks towards an olive green area beside it, else a
+closed fence has them inside, else towards a park (401) beside it. Banks, cliffs and retaining walls (513.2) point
+down the slope. Lines with curves or dashes are left alone. The ticks sit on the right of the line. Norm: 516/518
+"If the fence forms an enclosed area, tags should be placed inside"; 513.2 "Half dot must point to the lower
+level".
+
+Decisions (the user's rule: the side follows the meaning; turning is no means against overdrawing unless the
+same area lies on both sides):
+- The order of the votes for a fence: olive green beside it; closed → inside; **away from a way** (a Road or Path of
+  `conflicts::Classes` running along one side within the reach of the ticks plus the gap for at least half the
+  fence's length, and not along the other); park beside it.
+- When no vote decides, the same area lies on both sides: the ticks go to the side where their footprint (ticks
+  only, without the line) meets no footprint of another object whose relation to Barrier is not Free; when both
+  sides or neither are free, the direction of the source stays.
+- A retaining wall, a bank and a cliff are decided by the terrain as today and never by a way or by room.
+- Where the decided side overdraws something, it stays.
+- The signature of `orient_ticks` stays; it applies to every map, so the goldens change: bless them.
+
+- [ ] **Step 1: Failing tests** beside the existing ones in `ticks.rs`: `a_fence_along_a_path_turns_away_from_it`;
+  `olive_green_wins_over_a_path_on_the_same_side` (olive green and a path both on the left: ticks left);
+  `a_closed_fence_keeps_its_ticks_inside_with_a_path_inside`; `a_fence_between_two_paths_keeps_its_direction`;
+  `in_the_forest_the_side_with_room_is_taken` (a boulder point on the right, nothing left: ticks left);
+  `in_the_forest_with_no_room_the_direction_stays`; `a_retaining_wall_is_not_turned_by_a_path`;
+  `the_side_given_by_olive_green_stays_when_its_ticks_overdraw` (olive green left, a point in it at the fence:
+  ticks left).
+- [ ] **Step 2 to 4:** fail, implement, pass; bless the goldens; all checks.
+- [ ] **Step 5: Commit** `feat(build): fence ticks turn away from a way; with the same area on both sides they take the free side` with the `Golden-Bless:` trailer.

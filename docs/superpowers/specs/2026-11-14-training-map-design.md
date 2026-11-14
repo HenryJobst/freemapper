@@ -26,6 +26,18 @@ The user's decisions (2026-11-14):
 6. The training map keeps every gap the norm asks for. Objects of the same kind are generalized first and
    shifted after; where a shift makes a new overlap, the objects are generalized instead. A shift stays within
    bounds.
+7. Inside olive green areas (520) the training map draws no details: only buildings and water stay, and the
+   contours run through. A way inside is drawn in full only where a crossing is possible. Of a way that allows
+   none, only the beginning is drawn, so that a runner passing by is not surprised by a path or road branching
+   off, and only where no impassable fence or wall stands in front of it; with one in front the map shows the
+   barrier.
+8. The ticks of fences and the half dots of retaining walls point inward where possible: towards the park or
+   the olive green area, not towards a path or road. The ticks must not overdraw anything. Turning them to the
+   other side is not a means against overdrawing, unless the same area lies on both sides; the rest is adjusted
+   as far as the norm allows.
+9. When everything is finished, the examples in the documentation show the training maps in general, as the
+   best readable maps. Only where the text refers to another format specifically, the map of that format is
+   shown.
 
 ## What the Bremen example shows
 
@@ -232,6 +244,22 @@ their `freemapper:hidden=generalized` kept them out of the old training map and 
      would come inside the gap of a third one, it is not shifted: the stretch is cut out, or the object dropped
      when more than half of it is affected. A shift never makes a new conflict.
   The measure runs again after each step; the level stops when it is quiet, which the third step guarantees.
+- **Inside olive green** (before the three steps, so that less is left to settle). The olive area is the union
+  of the 520 objects of the training map. Buildings, canopies, water and watercourses stay, contours run through,
+  and whatever lies on the edge stays (the fence or wall bounding the ground, the road along it). Everything
+  else inside goes: areas are cut at the edge, points go, lines of barriers, earth banks, cliffs and stairs are
+  cut at the edge. A way (road, path) inside stays in full where it is a crossing: its part inside meets the
+  edge at two places or more, none of them barred by an impassable wall or fence. Otherwise its part inside goes,
+  except a short beginning at each place where it meets the edge with no impassable wall or fence across it.
+  The length of the beginning and how far inside "on the edge" reaches are the builder's rulings.
+- **Tick sides** (for every map, in `build/ticks.rs`, amending ADR 0097; turning a line moves nothing). The
+  norm fixes two cases: the half dot of a retaining wall points to the lower level, and the tags of a fence that
+  encloses an area stand inside. Beyond that the side follows the meaning, in this order: towards olive green
+  beside the fence, away from a way running along it, towards the park. Only when none of these decides, which is
+  when the same area lies on both sides, the side is taken whose ticks overdraw nothing. Where the ticks on the
+  side given by the meaning overdraw something, the side stays, and on the training map the three steps above
+  settle it. The norm lets tags be left out for earth banks close together and for vertical rock faces, not for
+  fences, so fence ticks are never left out.
   - *Rock.* `Level::training` of ADR 0126 runs here. The candidates PDF goes back to the map level.
   - *Contours.* A contour is cut at buildings, as it is at ways today (`build/line_cuts.rs`), and a piece
     left shorter than the norm's minimum goes.
@@ -268,6 +296,8 @@ Every row of the Bremen table has its rule; the training map of Bremen Bürgerpa
 | Monument points in a row | point generalization | every 526 keeps the norm's gap to points, buildings and ways |
 | Contours as noise | cut at buildings, drop on earth banks, minimum size | no contour through a building, none on an earth bank, none below the minimum |
 | Forest drawn yellow | open land under trees | the 401 of the Stadtwald covers only what the nDSM shows open |
+| Details in the gardens around the park | inside olive green | nothing inside a 520 but buildings, water, contours and crossings |
+| Fence ticks on paths | tick sides | no fence tick points to a way that runs along the fence, unless the norm fixes the side |
 
 ### Acceptance
 
@@ -285,8 +315,12 @@ so in the ADR with the number reached.
 
 ### Part 4: afterwards
 
-The examples are rebuilt with the layers and get a training map each; `examples/vergleich.md` shows base map,
-candidates and training map side by side. Further rules follow by what the measure shows on the other
+The examples are rebuilt with the layers and get a training map each. From then on the documentation shows the
+training map wherever it shows an example in general: the previews in the READMEs and in `examples/`, the
+example PDFs, the pictures of the manual. The base map, the candidate layers, the check print, the OCAD output
+and the content profiles are shown where the text is about them; `examples/vergleich.md` puts base map,
+candidates and training map side by side. The switch waits for the second half of the training map: until then
+it still draws carriageways and tracks side by side. Further rules follow by what the measure shows on the other
 examples.
 
 ## Left to the builder
