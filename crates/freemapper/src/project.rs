@@ -2157,23 +2157,25 @@ pub fn derive_project_cancellable(
             .map_err(DeriveError::from)?;
         dtm
     };
-    // The export reads the stair direction from the terrain; a tile provider's mosaic is only in
-    // the cache, so it is kept with the project where the Berlin layers have stairs.
+    // The export reads the stair direction and the height of the cliffs on a forest map
+    // (`build/cliffs.rs`) from the terrain; a tile provider's mosaic is only in the cache, so it is
+    // kept with the project of a forest map and where the Berlin layers have stairs.
     let mosaic = dir.join(TERRAIN_MOSAIC_RELPATH);
     // Only a tile provider's mosaic needs keeping, and the stored layers are read once, only
     // when the Berlin layers have no stairs.
-    let stairs = tile_provider && {
-        let berlin_stairs = !project.berlin_layers.is_empty()
-            && stored_berlin_layers(dir, &project)?
-                .iter()
-                .any(|l| has_stairs(&l.features));
-        // A NAS stair without a bottom edge goes by the terrain too.
-        berlin_stairs
-            || stored_nas_layers(dir, &project)?.iter().any(|l| {
-                l.layer.file == NAS_STAIR_LAYER && has_nas_stairs_without_edge(&l.features)
-            })
-    };
-    if stairs {
+    let keep_mosaic = tile_provider
+        && (project.map_kind == MapKind::Forest || {
+            let berlin_stairs = !project.berlin_layers.is_empty()
+                && stored_berlin_layers(dir, &project)?
+                    .iter()
+                    .any(|l| has_stairs(&l.features));
+            // A NAS stair without a bottom edge goes by the terrain too.
+            berlin_stairs
+                || stored_nas_layers(dir, &project)?.iter().any(|l| {
+                    l.layer.file == NAS_STAIR_LAYER && has_nas_stairs_without_edge(&l.features)
+                })
+        });
+    if keep_mosaic {
         progress(note!("progress-writing", path = TERRAIN_MOSAIC_RELPATH));
         freemapper_sources::float_tiff::write_float_raster(
             &dtm,

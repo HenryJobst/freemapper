@@ -576,6 +576,18 @@ freemapper run dammheide --pdf-candidates
   finished map then run `freemapper run <folder> --force` (or `derive` and `export --force`). The margin names the
   interval ("Äquidistanz 2,5 m"). When it is not the default, `derive` also writes it into `freemapper.toml` as
   `[contours] interval_m`, where freemapper-print reads it.
+- **Cliffs** from OpenStreetMap are generalized (ADR 0126): in rock country OSM has them cliff by cliff, more than
+  2000 at the Bastei. freemapper reads each cliff on the terrain model: how high the rock stands above its slope and
+  which side is lower; the tags point there. A way is judged in stretches, and pieces of one face are joined. A
+  stretch less than 3 m above its slope goes to the candidates map. A closed cliff with the lower side outside is a
+  rock pillar and becomes 206 (enlarged to the norm's 0.3 mm² where smaller); one with the lower side inside is a
+  hollow and stays a cliff. The highest cliffs are kept first; each keeps the gap of 0.25 mm between the sides that
+  face each other (ISOM 2017-2; enlarged like the symbols). Where only its line has room it is drawn as the top line
+  201.3, two cliffs back to back closer than that become one rock fin 206, and elsewhere a cliff is cut. The cliffs
+  are smoothed, so that the zigzag of the OSM lines goes. What goes is in the candidates map, tagged
+  `freemapper:generalized` with the reason; the training PDF leaves it out. The contours stop below the cliffs drawn
+  and run on elsewhere; knolls and depressions of the terrain on the rock are hidden. For the heights a forest map
+  in a state whose terrain model comes in tiles keeps it as `data/terrain.tif`.
 - Buildings, water, walls, fences, power lines, railways and out-of-bounds areas (520) come as on the sprint map.
   Benches, bollards, street lamps and other street furniture, trees from tree cadastres and single OSM trees are
   left out. Only a tree tagged `denotation=natural_monument`

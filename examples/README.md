@@ -119,16 +119,16 @@ Wald:
 |---|---|---:|---:|---:|---|
 | Brandenburg | [Rauener Berge und Markgrafensteine](brandenburg-rauener-berge/): Endmoränenhügel über dem Scharmützelsee mit den Markgrafensteinen, großen Findlingen | 385 | 37 | 20 | <a href="brandenburg-rauener-berge/brandenburg-rauener-berge-candidates.pdf"><img src="brandenburg-rauener-berge/preview.webp" width="220" alt=""></a> |
 | Berlin | [Dammheide, Treptow-Köpenick](berlin-dammheide/): kleiner flacher Wald mit dichtem Wegenetz, Siedlungen rundherum | 1179 | 166 | 27 | <a href="berlin-dammheide/berlin-dammheide-candidates.pdf"><img src="berlin-dammheide/preview.webp" width="220" alt=""></a> |
-| Sachsen | [Bastei, Sächsische Schweiz](sachsen-bastei/): Sandsteinfelsen über der Elbe, mehr als 2000 Felswände aus OSM | 3349 | 571 | 34 | <a href="sachsen-bastei/sachsen-bastei-candidates.pdf"><img src="sachsen-bastei/preview.webp" width="220" alt=""></a> |
-| Sachsen-Anhalt | [Bodetal bei Thale](sachsen-anhalt-bodetal/): das tief eingeschnittene Tal der Bode im Harz | 603 | 76 | 31 | <a href="sachsen-anhalt-bodetal/sachsen-anhalt-bodetal-candidates.pdf"><img src="sachsen-anhalt-bodetal/preview.webp" width="220" alt=""></a> |
+| Sachsen | [Bastei, Sächsische Schweiz](sachsen-bastei/): Sandsteinfelsen über der Elbe, mehr als 2000 Felswände aus OSM | 1384 | 3159 | 36 | <a href="sachsen-bastei/sachsen-bastei-candidates.pdf"><img src="sachsen-bastei/preview.webp" width="220" alt=""></a> |
+| Sachsen-Anhalt | [Bodetal bei Thale](sachsen-anhalt-bodetal/): das tief eingeschnittene Tal der Bode im Harz | 648 | 105 | 31 | <a href="sachsen-anhalt-bodetal/sachsen-anhalt-bodetal-candidates.pdf"><img src="sachsen-anhalt-bodetal/preview.webp" width="220" alt=""></a> |
 | Hamburg | [Haake, Harburger Berge](hamburg-haake/): hügeliger Wald mit dichtem Wegenetz | 549 | 33 | 23 | <a href="hamburg-haake/hamburg-haake-candidates.pdf"><img src="hamburg-haake/preview.webp" width="220" alt=""></a> |
-| Hessen | [Großer Feldberg, Taunus](hessen-feldberg/): Gipfel und Hänge des höchsten Taunusbergs | 657 | 39 | 27 | <a href="hessen-feldberg/hessen-feldberg-candidates.pdf"><img src="hessen-feldberg/preview.webp" width="220" alt=""></a> |
+| Hessen | [Großer Feldberg, Taunus](hessen-feldberg/): Gipfel und Hänge des höchsten Taunusbergs | 656 | 40 | 27 | <a href="hessen-feldberg/hessen-feldberg-candidates.pdf"><img src="hessen-feldberg/preview.webp" width="220" alt=""></a> |
 | Schleswig-Holstein | [Hüttener Berge](schleswig-holstein-huettener-berge/): Endmoränenhügel mit Wald, offenem Land und kleinen Seen | 352 | 72 | 24 | <a href="schleswig-holstein-huettener-berge/schleswig-holstein-huettener-berge-candidates.pdf"><img src="schleswig-holstein-huettener-berge/preview.webp" width="220" alt=""></a> |
 | Mecklenburg-Vorpommern | [Granitz, Rügen](mecklenburg-vorpommern-granitz/): Buchenwald um das Jagdschloss Granitz | 321 | 96 | 24 | <a href="mecklenburg-vorpommern-granitz/mecklenburg-vorpommern-granitz-candidates.pdf"><img src="mecklenburg-vorpommern-granitz/preview.webp" width="220" alt=""></a> |
-| Nordrhein-Westfalen | [Drachenfels, Siebengebirge](nordrhein-westfalen-siebengebirge/): Felsen, Weinberge und Wald am Rhein | 1158 | 269 | 37 | <a href="nordrhein-westfalen-siebengebirge/nordrhein-westfalen-siebengebirge-candidates.pdf"><img src="nordrhein-westfalen-siebengebirge/preview.webp" width="220" alt=""></a> |
-| Niedersachsen | [Harz bei Bad Harzburg](niedersachsen-bad-harzburg/): steile Hänge zu beiden Seiten eines Bachtals | 677 | 51 | 32 | <a href="niedersachsen-bad-harzburg/niedersachsen-bad-harzburg-candidates.pdf"><img src="niedersachsen-bad-harzburg/preview.webp" width="220" alt=""></a> |
-| Rheinland-Pfalz | [Dahner Felsenland](rheinland-pfalz-dahn/): Buntsandsteinfelsen im Pfälzerwald | 641 | 90 | 33 | <a href="rheinland-pfalz-dahn/rheinland-pfalz-dahn-candidates.pdf"><img src="rheinland-pfalz-dahn/preview.webp" width="220" alt=""></a> |
-| Saarland | [Cloef an der Saarschleife](saarland-cloef/): Steilhang mit Felsen über der Saarschleife | 492 | 56 | 27 | <a href="saarland-cloef/saarland-cloef-candidates.pdf"><img src="saarland-cloef/preview.webp" width="220" alt=""></a> |
+| Nordrhein-Westfalen | [Drachenfels, Siebengebirge](nordrhein-westfalen-siebengebirge/): Felsen, Weinberge und Wald am Rhein | 1239 | 318 | 38 | <a href="nordrhein-westfalen-siebengebirge/nordrhein-westfalen-siebengebirge-candidates.pdf"><img src="nordrhein-westfalen-siebengebirge/preview.webp" width="220" alt=""></a> |
+| Niedersachsen | [Harz bei Bad Harzburg](niedersachsen-bad-harzburg/): steile Hänge zu beiden Seiten eines Bachtals | 678 | 51 | 32 | <a href="niedersachsen-bad-harzburg/niedersachsen-bad-harzburg-candidates.pdf"><img src="niedersachsen-bad-harzburg/preview.webp" width="220" alt=""></a> |
+| Rheinland-Pfalz | [Dahner Felsenland](rheinland-pfalz-dahn/): Buntsandsteinfelsen im Pfälzerwald | 645 | 114 | 33 | <a href="rheinland-pfalz-dahn/rheinland-pfalz-dahn-candidates.pdf"><img src="rheinland-pfalz-dahn/preview.webp" width="220" alt=""></a> |
+| Saarland | [Cloef an der Saarschleife](saarland-cloef/): Steilhang mit Felsen über der Saarschleife | 621 | 115 | 27 | <a href="saarland-cloef/saarland-cloef-candidates.pdf"><img src="saarland-cloef/preview.webp" width="220" alt=""></a> |
 | Baden-Württemberg | [Königstuhl, Heidelberg](baden-wuerttemberg-koenigstuhl/): Hausberg von Heidelberg mit Sternwarte und vielen Wegen | 843 | 47 | 28 | <a href="baden-wuerttemberg-koenigstuhl/baden-wuerttemberg-koenigstuhl-candidates.pdf"><img src="baden-wuerttemberg-koenigstuhl/preview.webp" width="220" alt=""></a> |
 | Bremen | [Bürgerpark und Stadtwald](bremen-buergerpark/): flacher Park und Wald mit Gräben, Seen und dichtem Wegenetz | 1913 | 420 | 32 | <a href="bremen-buergerpark/bremen-buergerpark-candidates.pdf"><img src="bremen-buergerpark/preview.webp" width="220" alt=""></a> |
 | Bayern | [Schmausenbuck, Nürnberger Reichswald](bayern-schmausenbuck/): Sandsteinhügel im Reichswald über dem Tiergarten, Hänge mit dichtem Wegenetz, zwei Stromtrassen | 670 | 120 | 37 | <a href="bayern-schmausenbuck/bayern-schmausenbuck-candidates.pdf"><img src="bayern-schmausenbuck/preview.webp" width="220" alt=""></a> |
@@ -146,9 +146,12 @@ unter den Stromtrassen überwiegend als Wald und nur stellenweise als 406 oder o
 
 Die Wege kommen aus OSM und stehen in den Wegklassen 502 bis 507 in der Karte; der Wald ist weißes Papier.
 Siedlungen und Gärten sind olivgrün (520, nicht zu betreten). Felsen, Böschungen und Kuppen aus dem Geländemodell
-sind Kandidaten; Felswände aus OSM (`natural=cliff`) stehen in der Karte. In den flachen Gebieten in Berlin und Bremen liegen die Höhenlinien alle 2,5 m, im steilen Bodetal und an der Bastei alle
-10 m (`--contour-interval 10`, mehr als die 5 m der ISOM, damit die Hänge lesbar bleiben), sonst alle 5 m; die
-`freemapper.toml` nennt das als `[contours] interval_m`.
+sind Kandidaten; Felswände aus OSM (`natural=cliff`) stehen in der Karte, generalisiert und geglättet nach der ISOM
+(ADR 0126): An der Bastei bleiben von 2144 Wänden 256 mit Zacken, 23 Oberkanten (201.3) und 25 Felstürme und -rippen
+(206); die übrigen liegen ausgeblendet in der Kandidatenkarte. In den flachen Gebieten in Berlin und Bremen liegen
+die Höhenlinien alle 2,5 m, im steilen Bodetal und an der Bastei alle 10 m (`--contour-interval 10`, mehr als die 5
+m der ISOM, damit die Hänge lesbar bleiben), sonst alle 5 m; die `freemapper.toml` nennt das als `[contours]
+interval_m`.
 
 ## Inhalt eines Beispiels
 
