@@ -1,0 +1,167 @@
+{
+  "schema": 1,
+  "created": "2026-11-14",
+  "map_kind": "sprint",
+  "area_m2": 475801.11877675145,
+  "admin": [
+    {
+      "item": {
+        "level": "land",
+        "name": "Baden-Württemberg",
+        "kind": "Land",
+        "ags": "08"
+      },
+      "percent": 100.0,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "level": "kreis",
+        "name": "Heidelberg",
+        "kind": "Stadtkreis",
+        "ags": "08221"
+      },
+      "percent": 100.0,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "level": "verwaltungsgemeinschaft",
+        "name": "Heidelberg",
+        "kind": "Einheitsgemeinde",
+        "ags": "--------"
+      },
+      "percent": 100.0,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "level": "gemeinde",
+        "name": "Heidelberg",
+        "kind": "Stadt",
+        "ags": "08221000"
+      },
+      "percent": 100.0,
+      "at_edge": false
+    }
+  ],
+  "protected": [
+    {
+      "item": {
+        "kind": "landschaftsschutzgebiet",
+        "name": "Bergstraße - Mitte",
+        "legal_date": "1992-10-19",
+        "legal_title": "Verordnung LSG 2.21.001 Bergstraße - Mitte",
+        "legal_link": "https://rips-dienste.lubw.baden-wuerttemberg.de/rips/ripsservices/apps/naturschutz/schutzgebiete/steckbrief.aspx?id=2219003000001",
+        "site_link": null,
+        "year": 1973
+      },
+      "percent": 31.4,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "kind": "naturpark",
+        "name": "Neckartal-Odenwald",
+        "legal_date": null,
+        "legal_title": null,
+        "legal_link": null,
+        "site_link": null,
+        "year": 1980
+      },
+      "percent": 100.0,
+      "at_edge": false
+    }
+  ],
+  "osm_protected": [],
+  "operators": [
+    {
+      "name": "Turnerschaft Ghibellinia",
+      "roles": [
+        "operator"
+      ],
+      "objects": [
+        "historic=building"
+      ]
+    },
+    {
+      "name": "Universität Heidelberg",
+      "roles": [
+        "operator"
+      ],
+      "objects": [
+        "amenity=university"
+      ]
+    }
+  ],
+  "roads": [
+    {
+      "class": "bundesstrasse",
+      "refs": [
+        "B 37"
+      ]
+    }
+  ],
+  "hints": [
+    {
+      "key": "permits-hint-nature-authority",
+      "args": {
+        "kreis": "Heidelberg",
+        "kreisfrei": "no"
+      }
+    },
+    {
+      "key": "permits-hint-forest-owner",
+      "args": {
+        "office": "unknown"
+      }
+    },
+    {
+      "key": "permits-hint-order-office",
+      "args": {
+        "amt": "Einheitsgemeinde Heidelberg",
+        "gemeinde": "Heidelberg"
+      }
+    },
+    {
+      "key": "permits-hint-road-class",
+      "args": {
+        "class": "bundesstrasse",
+        "refs": "B 37"
+      }
+    },
+    {
+      "key": "permits-hint-school-operator",
+      "args": {
+        "operator": "Universität Heidelberg"
+      }
+    },
+    {
+      "key": "permits-hint-owners-unknown",
+      "args": {}
+    }
+  ],
+  "sources": [
+    {
+      "id": "vg250",
+      "state": "read",
+      "fetched": "2026-11-14",
+      "reason": null,
+      "credit": "© BKG (2026) dl-de/by-2-0, Datenquellen: https://sg.geodatenzentrum.de/web_public/gdz/datenquellen/datenquellen_vg_nuts.pdf"
+    },
+    {
+      "id": "bfn",
+      "state": "read",
+      "fetched": "2026-11-14",
+      "reason": null,
+      "credit": "© Bundesamt für Naturschutz (BfN) (2026), Schutzgebiete in Deutschland; Nutzungsbestimmungen für die Bereitstellung von Geodaten des Bundes (GeoNutzV). Nicht für Planungszwecke geeignet."
+    },
+    {
+      "id": "osm",
+      "state": "read",
+      "fetched": "2026-11-12",
+      "reason": null,
+      "credit": "© OpenStreetMap contributors, ODbL"
+    }
+  ]
+}

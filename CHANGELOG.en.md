@@ -6,6 +6,10 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
+### Added
+
+- Examples: each of the 30 examples in `examples/` now has its permit notes (`permits.md` and `permits.json`, in German). They show what the notes give in each state, from the Bezirke and monuments of Berlin and Hamburg to the forest administration, water protection areas and classified roads.
+
 ## [0.20.0] - 2026-11-14
 
 ### Added

@@ -1,0 +1,116 @@
+{
+  "schema": 1,
+  "created": "2026-11-14",
+  "map_kind": "sprint",
+  "area_m2": 481228.55939957255,
+  "admin": [
+    {
+      "item": {
+        "level": "land",
+        "name": "Mecklenburg-Vorpommern",
+        "kind": "Land",
+        "ags": "13"
+      },
+      "percent": 100.0,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "level": "kreis",
+        "name": "Nordwestmecklenburg",
+        "kind": "Landkreis",
+        "ags": "13074"
+      },
+      "percent": 100.0,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "level": "gemeinde",
+        "name": "Wismar",
+        "kind": "Stadt",
+        "ags": "13074087"
+      },
+      "percent": 100.0,
+      "at_edge": false
+    }
+  ],
+  "protected": [],
+  "osm_protected": [],
+  "operators": [
+    {
+      "name": "Evangelisch-lutherische Kirchgemeinde St. Marien-St. Georgen",
+      "roles": [
+        "operator"
+      ],
+      "objects": [
+        "amenity=place_of_worship"
+      ]
+    },
+    {
+      "name": "Wismarer Werkstätten",
+      "roles": [
+        "operator"
+      ],
+      "objects": [
+        "amenity=kindergarten"
+      ]
+    }
+  ],
+  "roads": [
+    {
+      "class": "landesstrasse",
+      "refs": [
+        "L 12"
+      ]
+    }
+  ],
+  "hints": [
+    {
+      "key": "permits-hint-order-office",
+      "args": {
+        "gemeinde": "Wismar"
+      }
+    },
+    {
+      "key": "permits-hint-road-class",
+      "args": {
+        "class": "landesstrasse",
+        "refs": "L 12"
+      }
+    },
+    {
+      "key": "permits-hint-school-operator",
+      "args": {
+        "operator": "Wismarer Werkstätten"
+      }
+    },
+    {
+      "key": "permits-hint-owners-unknown",
+      "args": {}
+    }
+  ],
+  "sources": [
+    {
+      "id": "vg250",
+      "state": "read",
+      "fetched": "2026-11-14",
+      "reason": null,
+      "credit": "© BKG (2026) dl-de/by-2-0, Datenquellen: https://sg.geodatenzentrum.de/web_public/gdz/datenquellen/datenquellen_vg_nuts.pdf"
+    },
+    {
+      "id": "bfn",
+      "state": "read",
+      "fetched": "2026-11-14",
+      "reason": null,
+      "credit": "© Bundesamt für Naturschutz (BfN) (2026), Schutzgebiete in Deutschland; Nutzungsbestimmungen für die Bereitstellung von Geodaten des Bundes (GeoNutzV). Nicht für Planungszwecke geeignet."
+    },
+    {
+      "id": "osm",
+      "state": "read",
+      "fetched": "2026-11-07",
+      "reason": null,
+      "credit": "© OpenStreetMap contributors, ODbL"
+    }
+  ]
+}

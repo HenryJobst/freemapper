@@ -1,0 +1,242 @@
+{
+  "schema": 1,
+  "created": "2026-11-14",
+  "map_kind": "forest",
+  "area_m2": 1080470.624941227,
+  "admin": [
+    {
+      "item": {
+        "level": "land",
+        "name": "Hessen",
+        "kind": "Land",
+        "ags": "06"
+      },
+      "percent": 100.0,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "level": "kreis",
+        "name": "Hochtaunuskreis",
+        "kind": "Landkreis",
+        "ags": "06434"
+      },
+      "percent": 100.0,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "level": "gemeinde",
+        "name": "Oberursel (Taunus)",
+        "kind": "Stadt",
+        "ags": "06434008"
+      },
+      "percent": 50.5,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "level": "gemeinde",
+        "name": "Schmitten im Taunus",
+        "kind": "Gemeinde",
+        "ags": "06434009"
+      },
+      "percent": 30.0,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "level": "gemeinde",
+        "name": "Königstein im Taunus",
+        "kind": "Stadt",
+        "ags": "06434005"
+      },
+      "percent": 19.4,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "level": "gemeinde",
+        "name": "Glashütten",
+        "kind": "Gemeinde",
+        "ags": "06434003"
+      },
+      "percent": 0.1,
+      "at_edge": true
+    }
+  ],
+  "protected": [
+    {
+      "item": {
+        "kind": "naturpark",
+        "name": "Hochtaunus",
+        "legal_date": "2006-07-31",
+        "legal_title": "Erklärung zum Naturpark im Staatsanzeiger für das Land Hessen - StAnz. 29/2006 S. 1517",
+        "legal_link": "https://natureg.hessen.de/resources/recherche/HF/NRP/VO/StAnz_Hessen_29_2006_S_1517_Sammelausweisung.pdf",
+        "site_link": null,
+        "year": 1962
+      },
+      "percent": 100.0,
+      "at_edge": false
+    }
+  ],
+  "osm_protected": [],
+  "operators": [],
+  "roads": [
+    {
+      "class": "landesstrasse",
+      "refs": [
+        "L 3024"
+      ]
+    }
+  ],
+  "hints": [
+    {
+      "key": "permits-hint-water-protection",
+      "args": {
+        "inner": "no",
+        "name": "WSG Haidtränktal, Oberursel",
+        "zone": "Schutzzone III"
+      }
+    },
+    {
+      "key": "permits-hint-water-protection",
+      "args": {
+        "inner": "no",
+        "name": "WSG Br. Riedwiese, u.a., Oberursel",
+        "zone": "Schutzzone IIIA"
+      }
+    },
+    {
+      "key": "permits-hint-water-protection",
+      "args": {
+        "inner": "yes",
+        "name": "WSG Haidtränktal, Oberursel",
+        "zone": "Schutzzone II"
+      }
+    },
+    {
+      "key": "permits-hint-water-protection",
+      "args": {
+        "inner": "yes",
+        "name": "WSG Br. Riedwiese, u.a., Oberursel",
+        "zone": "Schutzzone II"
+      }
+    },
+    {
+      "key": "permits-hint-forest-owner",
+      "args": {
+        "office": "unknown"
+      }
+    },
+    {
+      "key": "permits-hint-order-office",
+      "args": {
+        "gemeinde": "Oberursel (Taunus)"
+      }
+    },
+    {
+      "key": "permits-hint-road-class",
+      "args": {
+        "class": "landesstrasse",
+        "refs": "L 3024"
+      }
+    },
+    {
+      "key": "permits-hint-owners-unknown",
+      "args": {}
+    }
+  ],
+  "sources": [
+    {
+      "id": "vg250",
+      "state": "read",
+      "fetched": "2026-11-14",
+      "reason": null,
+      "credit": "© BKG (2026) dl-de/by-2-0, Datenquellen: https://sg.geodatenzentrum.de/web_public/gdz/datenquellen/datenquellen_vg_nuts.pdf"
+    },
+    {
+      "id": "bfn",
+      "state": "read",
+      "fetched": "2026-11-14",
+      "reason": null,
+      "credit": "© Bundesamt für Naturschutz (BfN) (2026), Schutzgebiete in Deutschland; Nutzungsbestimmungen für die Bereitstellung von Geodaten des Bundes (GeoNutzV). Nicht für Planungszwecke geeignet."
+    },
+    {
+      "id": "osm",
+      "state": "read",
+      "fetched": "2026-11-06",
+      "reason": null,
+      "credit": "© OpenStreetMap contributors, ODbL"
+    }
+  ],
+  "regional": [
+    {
+      "adapter": "hessen",
+      "water_protection": [
+        {
+          "item": {
+            "name": "WSG Haidtränktal, Oberursel",
+            "zone": "Schutzzone III",
+            "citation": null
+          },
+          "percent": 74.5,
+          "at_edge": false
+        },
+        {
+          "item": {
+            "name": "WSG Br. Riedwiese, u.a., Oberursel",
+            "zone": "Schutzzone IIIA",
+            "citation": "1988/43 S.2342"
+          },
+          "percent": 68.5,
+          "at_edge": false
+        },
+        {
+          "item": {
+            "name": "WSG Haidtränktal, Oberursel",
+            "zone": "Schutzzone II",
+            "citation": null
+          },
+          "percent": 6.2,
+          "at_edge": false
+        },
+        {
+          "item": {
+            "name": "WSG Br. Riedwiese, u.a., Oberursel",
+            "zone": "Schutzzone II",
+            "citation": "1988/43 S.2342"
+          },
+          "percent": 6.0,
+          "at_edge": false
+        }
+      ],
+      "sources": [
+        {
+          "source": {
+            "key": "wasserschutzgebiete",
+            "label": {
+              "en": "HLNUG",
+              "de": "HLNUG"
+            },
+            "what": {
+              "en": "drinking water and medicinal spring protection areas",
+              "de": "Trinkwasser- und Heilquellenschutzgebiete"
+            },
+            "credit": "Lizenz: Creative Commons BY 4.0 (https://creativecommons.org/licenses/by/4.0/deed.de). Quellenvermerk für Daten: „Darstellung auf der Grundlage von Daten des Hessischen Landesamtes für Naturschutz, Umwelt und Geologie (HLNUG)“.",
+            "sections": [
+              "water-protection"
+            ]
+          },
+          "status": {
+            "id": "wasserschutzgebiete",
+            "state": "read",
+            "fetched": "2026-11-14",
+            "reason": null,
+            "credit": "Lizenz: Creative Commons BY 4.0 (https://creativecommons.org/licenses/by/4.0/deed.de). Quellenvermerk für Daten: „Darstellung auf der Grundlage von Daten des Hessischen Landesamtes für Naturschutz, Umwelt und Geologie (HLNUG)“."
+          }
+        }
+      ]
+    }
+  ]
+}

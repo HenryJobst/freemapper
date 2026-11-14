@@ -1,0 +1,133 @@
+{
+  "schema": 1,
+  "created": "2026-11-14",
+  "map_kind": "sprint",
+  "area_m2": 683565.5372222682,
+  "admin": [
+    {
+      "item": {
+        "level": "land",
+        "name": "Bayern",
+        "kind": "Freistaat",
+        "ags": "09"
+      },
+      "percent": 100.0,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "level": "kreis",
+        "name": "Regensburg",
+        "kind": "Kreisfreie Stadt",
+        "ags": "09362"
+      },
+      "percent": 100.0,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "level": "verwaltungsgemeinschaft",
+        "name": "Regensburg",
+        "kind": "Einheitsgemeinde",
+        "ags": "--------"
+      },
+      "percent": 100.0,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "level": "gemeinde",
+        "name": "Regensburg",
+        "kind": "Stadt",
+        "ags": "09362000"
+      },
+      "percent": 100.0,
+      "at_edge": false
+    }
+  ],
+  "protected": [],
+  "osm_protected": [],
+  "operators": [
+    {
+      "name": "Diözese Regensburg",
+      "roles": [
+        "operator"
+      ],
+      "objects": [
+        "historic=church"
+      ]
+    },
+    {
+      "name": "Private Schulen Breitschaft gemeinnützige GmbH",
+      "roles": [
+        "operator"
+      ],
+      "objects": [
+        "amenity=school"
+      ]
+    },
+    {
+      "name": "Stiftung Kirchenmusikschule Regensburg",
+      "roles": [
+        "operator"
+      ],
+      "objects": [
+        "amenity=university"
+      ]
+    }
+  ],
+  "hints": [
+    {
+      "key": "permits-hint-forest-owner",
+      "args": {
+        "office": "unknown"
+      }
+    },
+    {
+      "key": "permits-hint-order-office",
+      "args": {
+        "amt": "Einheitsgemeinde Regensburg",
+        "gemeinde": "Regensburg"
+      }
+    },
+    {
+      "key": "permits-hint-school-operator",
+      "args": {
+        "operator": "Private Schulen Breitschaft gemeinnützige GmbH"
+      }
+    },
+    {
+      "key": "permits-hint-school-operator",
+      "args": {
+        "operator": "Stiftung Kirchenmusikschule Regensburg"
+      }
+    },
+    {
+      "key": "permits-hint-owners-unknown",
+      "args": {}
+    }
+  ],
+  "sources": [
+    {
+      "id": "vg250",
+      "state": "read",
+      "fetched": "2026-11-14",
+      "reason": null,
+      "credit": "© BKG (2026) dl-de/by-2-0, Datenquellen: https://sg.geodatenzentrum.de/web_public/gdz/datenquellen/datenquellen_vg_nuts.pdf"
+    },
+    {
+      "id": "bfn",
+      "state": "read",
+      "fetched": "2026-11-14",
+      "reason": null,
+      "credit": "© Bundesamt für Naturschutz (BfN) (2026), Schutzgebiete in Deutschland; Nutzungsbestimmungen für die Bereitstellung von Geodaten des Bundes (GeoNutzV). Nicht für Planungszwecke geeignet."
+    },
+    {
+      "id": "osm",
+      "state": "read",
+      "fetched": "2026-11-13",
+      "reason": null,
+      "credit": "© OpenStreetMap contributors, ODbL"
+    }
+  ]
+}

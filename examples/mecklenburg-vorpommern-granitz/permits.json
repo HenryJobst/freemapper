@@ -1,0 +1,191 @@
+{
+  "schema": 1,
+  "created": "2026-11-14",
+  "map_kind": "forest",
+  "area_m2": 1081661.4116251825,
+  "admin": [
+    {
+      "item": {
+        "level": "land",
+        "name": "Mecklenburg-Vorpommern",
+        "kind": "Land",
+        "ags": "13"
+      },
+      "percent": 100.0,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "level": "kreis",
+        "name": "Vorpommern-Rügen",
+        "kind": "Landkreis",
+        "ags": "13073"
+      },
+      "percent": 100.0,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "level": "gemeinde",
+        "name": "Binz",
+        "kind": "Gemeinde",
+        "ags": "13073011"
+      },
+      "percent": 100.0,
+      "at_edge": false
+    }
+  ],
+  "protected": [
+    {
+      "item": {
+        "kind": "naturschutzgebiet",
+        "name": "Granitz",
+        "legal_date": "1990-09-12",
+        "legal_title": "Verordnung über die Festsetzung von Naturschutzgebieten und einem Landschaftsschutzgebiet von zentraler Bedeutung mit der Gesamtbezeichnung Biosphärenreservat Südost-Rügen",
+        "legal_link": "https://www.landesrecht-mv.de/jportal/portal/page/bsmvprod.psml?showdoccase=1&doc.id=jlr-SOR%C3%BCgenNatSchGVMVrahmen&doc.part=X&doc.origin=bs&st=lr",
+        "site_link": null,
+        "year": 1990
+      },
+      "percent": 97.0,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "kind": "ffh",
+        "name": "Granitz",
+        "legal_date": null,
+        "legal_title": null,
+        "legal_link": null,
+        "site_link": "https://biodiversity.europa.eu/sites/natura2000/DE1647303",
+        "year": null
+      },
+      "percent": 96.3,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "kind": "vogelschutzgebiet",
+        "name": "Granitz",
+        "legal_date": null,
+        "legal_title": null,
+        "legal_link": null,
+        "site_link": "https://biodiversity.europa.eu/sites/natura2000/DE1647401",
+        "year": null
+      },
+      "percent": 94.9,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "kind": "biosphaerenreservat",
+        "name": "Südost-Rügen",
+        "legal_date": "1997-06-24",
+        "legal_title": "Verordnung über die Festsetzung von Naturschutzgebieten und einem Landschaftsschutzgebiet mit der Gesamtbezeichnung \"Biosphärenreservat Südost-Rügen\" vom 12.09.1990 geändert durch §10 Satz 2 der Verordnung vom 24.06.1997",
+        "legal_link": "https://www.gesetze-im-internet.de/natsgsor_genv/DDNR514710990.html",
+        "site_link": null,
+        "year": 1990
+      },
+      "percent": 100.0,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "kind": "biosphaerenreservat-zone",
+        "name": "Biosphärenreservat Südost-Rügen (Entwicklungszone)",
+        "legal_date": null,
+        "legal_title": null,
+        "legal_link": null,
+        "site_link": null,
+        "year": null
+      },
+      "percent": 3.4,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "kind": "landschaftsschutzgebiet",
+        "name": "Biosphärenreservat Südost-Rügen",
+        "legal_date": "1990-09-12",
+        "legal_title": "Verordnung über die Festsetzung von Naturschutzgebieten und einem Landschaftsschutzgebiet von zentraler Bedeutung mit der Gesamtbezeichnung Biosphärenreservat Südost-Rügen",
+        "legal_link": "https://www.landesrecht-mv.de/jportal/portal/page/bsmvprod.psml?showdoccase=1&st=lr&doc.id=jlr-SOR%C3%BCgenNatSchGVMVrahmen&doc.part=X&doc.origin=bs",
+        "site_link": null,
+        "year": 1990
+      },
+      "percent": 100.0,
+      "at_edge": false
+    }
+  ],
+  "osm_protected": [],
+  "operators": [],
+  "roads": [
+    {
+      "class": "landesstrasse",
+      "refs": [
+        "L 29"
+      ]
+    }
+  ],
+  "hints": [
+    {
+      "key": "permits-hint-nature-authority",
+      "args": {
+        "kreis": "Vorpommern-Rügen",
+        "kreisfrei": "no"
+      }
+    },
+    {
+      "key": "permits-hint-nsg-paths",
+      "args": {}
+    },
+    {
+      "key": "permits-hint-natura2000",
+      "args": {}
+    },
+    {
+      "key": "permits-hint-forest-owner",
+      "args": {
+        "office": "unknown"
+      }
+    },
+    {
+      "key": "permits-hint-order-office",
+      "args": {
+        "gemeinde": "Binz"
+      }
+    },
+    {
+      "key": "permits-hint-road-class",
+      "args": {
+        "class": "landesstrasse",
+        "refs": "L 29"
+      }
+    },
+    {
+      "key": "permits-hint-owners-unknown",
+      "args": {}
+    }
+  ],
+  "sources": [
+    {
+      "id": "vg250",
+      "state": "read",
+      "fetched": "2026-11-14",
+      "reason": null,
+      "credit": "© BKG (2026) dl-de/by-2-0, Datenquellen: https://sg.geodatenzentrum.de/web_public/gdz/datenquellen/datenquellen_vg_nuts.pdf"
+    },
+    {
+      "id": "bfn",
+      "state": "read",
+      "fetched": "2026-11-14",
+      "reason": null,
+      "credit": "© Bundesamt für Naturschutz (BfN) (2026), Schutzgebiete in Deutschland; Nutzungsbestimmungen für die Bereitstellung von Geodaten des Bundes (GeoNutzV). Nicht für Planungszwecke geeignet."
+    },
+    {
+      "id": "osm",
+      "state": "read",
+      "fetched": "2026-11-07",
+      "reason": null,
+      "credit": "© OpenStreetMap contributors, ODbL"
+    }
+  ]
+}

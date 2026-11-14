@@ -1,0 +1,397 @@
+{
+  "schema": 1,
+  "created": "2026-11-14",
+  "map_kind": "sprint",
+  "area_m2": 480678.73731574195,
+  "admin": [
+    {
+      "item": {
+        "level": "land",
+        "name": "Nordrhein-Westfalen",
+        "kind": "Land",
+        "ags": "05"
+      },
+      "percent": 100.0,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "level": "kreis",
+        "name": "Städteregion Aachen",
+        "kind": "Kreis",
+        "ags": "05334"
+      },
+      "percent": 100.0,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "level": "gemeinde",
+        "name": "Monschau",
+        "kind": "Stadt",
+        "ags": "05334020"
+      },
+      "percent": 100.0,
+      "at_edge": false
+    }
+  ],
+  "protected": [
+    {
+      "item": {
+        "kind": "naturschutzgebiet",
+        "name": "NSG Oberes Rurtal mit den Felsbildungen der Ehrensteinley",
+        "legal_date": "2004-08-31",
+        "legal_title": null,
+        "legal_link": "https://legaldocs.naturschutzinformationen.nrw.de/legaldocs/lp%20monschau_text.pdf",
+        "site_link": null,
+        "year": 1967
+      },
+      "percent": 1.1,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "kind": "naturschutzgebiet",
+        "name": "NSG Mittleres Rurtal mit den Felsbildungen der Perdsley und Wiselsley",
+        "legal_date": "2004-08-31",
+        "legal_title": null,
+        "legal_link": "https://legaldocs.naturschutzinformationen.nrw.de/legaldocs/lp%20monschau_text.pdf",
+        "site_link": null,
+        "year": 2003
+      },
+      "percent": 0.2,
+      "at_edge": true
+    },
+    {
+      "item": {
+        "kind": "ffh",
+        "name": "Oberlauf der Rur",
+        "legal_date": null,
+        "legal_title": null,
+        "legal_link": null,
+        "site_link": "https://biodiversity.europa.eu/sites/natura2000/DE5403304",
+        "year": null
+      },
+      "percent": 1.1,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "kind": "landschaftsschutzgebiet",
+        "name": "LSG-Korioth (suedwestlich Hargard)",
+        "legal_date": "2004-08-31",
+        "legal_title": null,
+        "legal_link": "https://legaldocs.naturschutzinformationen.nrw.de/legaldocs/lp%20monschau_text.pdf",
+        "site_link": null,
+        "year": 1998
+      },
+      "percent": 4.0,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "kind": "naturpark",
+        "name": "Hohes Venn-Eifel (Nordeifel)",
+        "legal_date": null,
+        "legal_title": null,
+        "legal_link": null,
+        "site_link": null,
+        "year": 1960
+      },
+      "percent": 100.0,
+      "at_edge": false
+    }
+  ],
+  "osm_protected": [],
+  "operators": [
+    {
+      "name": "Bistum Aachen",
+      "roles": [
+        "operator"
+      ],
+      "objects": [
+        "amenity=school"
+      ]
+    },
+    {
+      "name": "Profinos gem. GmbH",
+      "roles": [
+        "operator"
+      ],
+      "objects": [
+        "amenity=kindergarten"
+      ]
+    },
+    {
+      "name": "Stadt Monschau",
+      "roles": [
+        "operator"
+      ],
+      "objects": [
+        "amenity=school"
+      ]
+    }
+  ],
+  "roads": [
+    {
+      "class": "bundesstrasse",
+      "refs": [
+        "B 258"
+      ]
+    },
+    {
+      "class": "kreisstrasse",
+      "refs": [
+        "K 2"
+      ]
+    }
+  ],
+  "hints": [
+    {
+      "key": "permits-hint-nature-authority",
+      "args": {
+        "kreis": "Städteregion Aachen",
+        "kreisfrei": "no"
+      }
+    },
+    {
+      "key": "permits-hint-nsg-paths",
+      "args": {}
+    },
+    {
+      "key": "permits-hint-natura2000",
+      "args": {}
+    },
+    {
+      "key": "permits-hint-water-protection",
+      "args": {
+        "inner": "yes",
+        "name": "Obersee",
+        "zone": "Schutzzone 2 (geplant)"
+      }
+    },
+    {
+      "key": "permits-hint-water-protection",
+      "args": {
+        "inner": "no",
+        "name": "Obersee",
+        "zone": "Schutzzone 3 (geplant)"
+      }
+    },
+    {
+      "key": "permits-hint-forest-office",
+      "args": {
+        "administration": "Landesbetrieb Wald und Holz NRW",
+        "office": "Regionalforstamt Rureifel-Jülicher Börde",
+        "units": "Forstbetriebsbezirk Simmerath"
+      }
+    },
+    {
+      "key": "permits-hint-forest-owner",
+      "args": {
+        "office": "known"
+      }
+    },
+    {
+      "key": "permits-hint-order-office",
+      "args": {
+        "gemeinde": "Monschau"
+      }
+    },
+    {
+      "key": "permits-hint-road-class",
+      "args": {
+        "class": "bundesstrasse",
+        "refs": "B 258"
+      }
+    },
+    {
+      "key": "permits-hint-road-class",
+      "args": {
+        "class": "kreisstrasse",
+        "refs": "K 2"
+      }
+    },
+    {
+      "key": "permits-hint-school-operator",
+      "args": {
+        "operator": "Bistum Aachen"
+      }
+    },
+    {
+      "key": "permits-hint-school-operator",
+      "args": {
+        "operator": "Profinos gem. GmbH"
+      }
+    },
+    {
+      "key": "permits-hint-school-operator",
+      "args": {
+        "operator": "Stadt Monschau"
+      }
+    },
+    {
+      "key": "permits-hint-owners-unknown",
+      "args": {}
+    }
+  ],
+  "sources": [
+    {
+      "id": "vg250",
+      "state": "read",
+      "fetched": "2026-11-14",
+      "reason": null,
+      "credit": "© BKG (2026) dl-de/by-2-0, Datenquellen: https://sg.geodatenzentrum.de/web_public/gdz/datenquellen/datenquellen_vg_nuts.pdf"
+    },
+    {
+      "id": "bfn",
+      "state": "read",
+      "fetched": "2026-11-14",
+      "reason": null,
+      "credit": "© Bundesamt für Naturschutz (BfN) (2026), Schutzgebiete in Deutschland; Nutzungsbestimmungen für die Bereitstellung von Geodaten des Bundes (GeoNutzV). Nicht für Planungszwecke geeignet."
+    },
+    {
+      "id": "osm",
+      "state": "read",
+      "fetched": "2026-11-07",
+      "reason": null,
+      "credit": "© OpenStreetMap contributors, ODbL"
+    }
+  ],
+  "regional": [
+    {
+      "adapter": "nordrheinwestfalen",
+      "forest_units": [
+        {
+          "item": {
+            "administration": "Landesbetrieb Wald und Holz NRW",
+            "office": "Regionalforstamt Rureifel-Jülicher Börde",
+            "unit": "Forstbetriebsbezirk Simmerath"
+          },
+          "percent": 100.0,
+          "at_edge": false
+        }
+      ],
+      "state_forest": [],
+      "water_protection": [
+        {
+          "item": {
+            "name": "Obersee",
+            "zone": "Schutzzone 2 (geplant)",
+            "citation": null
+          },
+          "percent": 69.6,
+          "at_edge": false
+        },
+        {
+          "item": {
+            "name": "Obersee",
+            "zone": "Schutzzone 3 (geplant)",
+            "citation": null
+          },
+          "percent": 30.4,
+          "at_edge": false
+        }
+      ],
+      "forest_functions": [],
+      "sources": [
+        {
+          "source": {
+            "key": "forstbetriebsbezirke",
+            "label": {
+              "en": "Wald und Holz NRW",
+              "de": "Wald und Holz NRW"
+            },
+            "what": {
+              "en": "forest districts (Forstbetriebsbezirke) with their Regionalforstamt",
+              "de": "Forstbetriebsbezirke mit ihrem Regionalforstamt"
+            },
+            "credit": "Landesbetrieb Wald und Holz Nordrhein-Westfalen, Datenlizenz Deutschland – Namensnennung – Version 2.0 (https://www.govdata.de/dl-de/by-2-0)",
+            "sections": [
+              "forest-units"
+            ]
+          },
+          "status": {
+            "id": "forstbetriebsbezirke",
+            "state": "read",
+            "fetched": "2026-11-14",
+            "reason": null,
+            "credit": "Landesbetrieb Wald und Holz Nordrhein-Westfalen, Datenlizenz Deutschland – Namensnennung – Version 2.0 (https://www.govdata.de/dl-de/by-2-0)"
+          }
+        },
+        {
+          "source": {
+            "key": "staatswald",
+            "label": {
+              "en": "Wald und Holz NRW",
+              "de": "Wald und Holz NRW"
+            },
+            "what": {
+              "en": "state forest (Landeseigener Forstbetrieb)",
+              "de": "Staatswald (Landeseigener Forstbetrieb)"
+            },
+            "credit": "Landesbetrieb Wald und Holz Nordrhein-Westfalen, Datenlizenz Deutschland – Namensnennung – Version 2.0 (https://www.govdata.de/dl-de/by-2-0)",
+            "sections": [
+              "state-forest"
+            ]
+          },
+          "status": {
+            "id": "staatswald",
+            "state": "read",
+            "fetched": "2026-11-14",
+            "reason": null,
+            "credit": "Landesbetrieb Wald und Holz Nordrhein-Westfalen, Datenlizenz Deutschland – Namensnennung – Version 2.0 (https://www.govdata.de/dl-de/by-2-0)"
+          }
+        },
+        {
+          "source": {
+            "key": "linfos",
+            "label": {
+              "en": "LINFOS (Land NRW)",
+              "de": "LINFOS (Land NRW)"
+            },
+            "what": {
+              "en": "Naturwaldzellen and wilderness development areas",
+              "de": "Naturwaldzellen und Wildnisentwicklungsgebiete"
+            },
+            "credit": "Open Data - Dieses Angebot vom Landesamt für Natur, Umwelt und Verbraucherschutz Nordrhein-Westfalen ist lizensiert unter der Datenlizenz Deutschland Namensnennung 2.0 (https://www.govdata.de/dl-de/by-2-0). Datensätze unter dieser Lizenz müssen bei Weiterverwendung mit dem Quellenverweis „Land NRW“ versehen werden.",
+            "sections": [
+              "forest-functions"
+            ]
+          },
+          "status": {
+            "id": "linfos",
+            "state": "read",
+            "fetched": "2026-11-14",
+            "reason": null,
+            "credit": "Open Data - Dieses Angebot vom Landesamt für Natur, Umwelt und Verbraucherschutz Nordrhein-Westfalen ist lizensiert unter der Datenlizenz Deutschland Namensnennung 2.0 (https://www.govdata.de/dl-de/by-2-0). Datensätze unter dieser Lizenz müssen bei Weiterverwendung mit dem Quellenverweis „Land NRW“ versehen werden."
+          }
+        },
+        {
+          "source": {
+            "key": "wasserschutzgebiete",
+            "label": {
+              "en": "Land NRW",
+              "de": "Land NRW"
+            },
+            "what": {
+              "en": "water protection areas (set and planned)",
+              "de": "Wasserschutzgebiete (festgesetzt und geplant)"
+            },
+            "credit": "Land NRW, Datenlizenz Deutschland – Zero – Version 2.0 (https://www.govdata.de/dl-de/zero-2-0)",
+            "sections": [
+              "water-protection"
+            ]
+          },
+          "status": {
+            "id": "wasserschutzgebiete",
+            "state": "read",
+            "fetched": "2026-11-14",
+            "reason": null,
+            "credit": "Land NRW, Datenlizenz Deutschland – Zero – Version 2.0 (https://www.govdata.de/dl-de/zero-2-0)"
+          }
+        }
+      ]
+    }
+  ]
+}

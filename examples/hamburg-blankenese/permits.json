@@ -1,0 +1,406 @@
+{
+  "schema": 1,
+  "created": "2026-11-14",
+  "map_kind": "sprint",
+  "area_m2": 480589.2191161339,
+  "admin": [
+    {
+      "item": {
+        "level": "land",
+        "name": "Hamburg",
+        "kind": "Freie und Hansestadt",
+        "ags": "02"
+      },
+      "percent": 83.5,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "level": "land",
+        "name": "Hamburg",
+        "kind": "Freie und Hansestadt",
+        "ags": "02"
+      },
+      "percent": 16.5,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "level": "kreis",
+        "name": "Hamburg",
+        "kind": "Kreisfreie Stadt",
+        "ags": "02000"
+      },
+      "percent": 83.5,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "level": "kreis",
+        "name": "Hamburg",
+        "kind": "Kreisfreie Stadt",
+        "ags": "02000"
+      },
+      "percent": 16.5,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "level": "gemeinde",
+        "name": "Hamburg",
+        "kind": "Stadt",
+        "ags": "02000000"
+      },
+      "percent": 83.5,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "level": "gemeinde",
+        "name": "Hamburg",
+        "kind": "Stadt",
+        "ags": "02000000"
+      },
+      "percent": 16.5,
+      "at_edge": false
+    }
+  ],
+  "protected": [
+    {
+      "item": {
+        "kind": "ffh",
+        "name": "Rapfenschutzgebiet Hamburger Stromelbe",
+        "legal_date": null,
+        "legal_title": null,
+        "legal_link": null,
+        "site_link": "https://biodiversity.europa.eu/sites/natura2000/DE2424303",
+        "year": null
+      },
+      "percent": 5.5,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "kind": "landschaftsschutzgebiet",
+        "name": "Altona-Südwest, Ottensen, Othmarschen, Klein Flottbek, Nienstedten, Dockenhuden, Blankenese, Rissen",
+        "legal_date": "1962-12-18",
+        "legal_title": "HmbGVBl. 1962, S. 203",
+        "legal_link": "https://www.juris.de/bsha/document/jlr-AltonaLSchTSchVHArahmen",
+        "site_link": null,
+        "year": 2018
+      },
+      "percent": 21.8,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "kind": "landschaftsschutzgebiet",
+        "name": "Rapfenschutzgebiet Hamburger Stromelbe",
+        "legal_date": "2017-08-08",
+        "legal_title": "HmbGVBl.2017 S. 242",
+        "legal_link": "https://www.juris.de/bsha/document/jlr-RapfHStromELSchGebVHArahmen",
+        "site_link": null,
+        "year": 2017
+      },
+      "percent": 5.5,
+      "at_edge": false
+    }
+  ],
+  "osm_protected": [],
+  "operators": [],
+  "hints": [
+    {
+      "key": "permits-hint-nature-authority",
+      "args": {
+        "kreis": "Hamburg",
+        "kreisfrei": "yes"
+      }
+    },
+    {
+      "key": "permits-hint-natura2000",
+      "args": {}
+    },
+    {
+      "key": "permits-hint-forest-owner",
+      "args": {
+        "office": "unknown"
+      }
+    },
+    {
+      "key": "permits-hint-district-office",
+      "args": {
+        "district": "Altona",
+        "offices": "hamburg"
+      }
+    },
+    {
+      "key": "permits-hint-monument-authority",
+      "args": {
+        "offices": "hamburg"
+      }
+    },
+    {
+      "key": "permits-hint-owners-unknown",
+      "args": {}
+    }
+  ],
+  "sources": [
+    {
+      "id": "vg250",
+      "state": "read",
+      "fetched": "2026-11-14",
+      "reason": null,
+      "credit": "© BKG (2026) dl-de/by-2-0, Datenquellen: https://sg.geodatenzentrum.de/web_public/gdz/datenquellen/datenquellen_vg_nuts.pdf"
+    },
+    {
+      "id": "bfn",
+      "state": "read",
+      "fetched": "2026-11-14",
+      "reason": null,
+      "credit": "© Bundesamt für Naturschutz (BfN) (2026), Schutzgebiete in Deutschland; Nutzungsbestimmungen für die Bereitstellung von Geodaten des Bundes (GeoNutzV). Nicht für Planungszwecke geeignet."
+    },
+    {
+      "id": "osm",
+      "state": "read",
+      "fetched": "2026-11-06",
+      "reason": null,
+      "credit": "© OpenStreetMap contributors, ODbL"
+    }
+  ],
+  "regional": [
+    {
+      "adapter": "hamburg",
+      "districts": [
+        {
+          "item": {
+            "name": "Altona"
+          },
+          "percent": 100.0,
+          "at_edge": false
+        }
+      ],
+      "green_spaces": {
+        "entries": [
+          {
+            "item": {
+              "name": "Hessepark",
+              "district": "Altona",
+              "dedication": null
+            },
+            "percent": 5.1,
+            "at_edge": false
+          },
+          {
+            "item": {
+              "name": "Parkanlagen",
+              "district": "Altona",
+              "dedication": null
+            },
+            "percent": 1.0,
+            "at_edge": false
+          },
+          {
+            "item": {
+              "name": "Bismarckstein",
+              "district": "Altona",
+              "dedication": null
+            },
+            "percent": 0.9,
+            "at_edge": false
+          },
+          {
+            "item": {
+              "name": "Allgemeines Grün",
+              "district": "Altona",
+              "dedication": null
+            },
+            "percent": 0.0,
+            "at_edge": true
+          },
+          {
+            "item": {
+              "name": "Anderweitige Flächen",
+              "district": null,
+              "dedication": null
+            },
+            "percent": 0.0,
+            "at_edge": true
+          }
+        ],
+        "playgrounds": 0
+      },
+      "monuments": {
+        "total": 87,
+        "groups": [
+          {
+            "kind": "Baudenkmal",
+            "count": 64,
+            "links": []
+          },
+          {
+            "kind": "Ensemble",
+            "count": 22,
+            "links": []
+          },
+          {
+            "kind": "Gartendenkmal",
+            "count": 1,
+            "links": []
+          }
+        ],
+        "links_left": 0
+      },
+      "forest_units": [],
+      "water_protection": [],
+      "forest_functions": [],
+      "sources": [
+        {
+          "source": {
+            "key": "bezirke",
+            "label": {
+              "en": "Geoportal Hamburg",
+              "de": "Geoportal Hamburg"
+            },
+            "what": {
+              "en": "Bezirk borders",
+              "de": "Bezirksgrenzen"
+            },
+            "credit": "Datenlizenz Deutschland Namensnennung 2.0, Quellenvermerk: Freie und Hansestadt Hamburg, Landesbetrieb Geoinformation und Vermessung",
+            "sections": [
+              "districts"
+            ],
+            "offices": "hamburg"
+          },
+          "status": {
+            "id": "bezirke",
+            "state": "read",
+            "fetched": "2026-11-14",
+            "reason": null,
+            "credit": "Datenlizenz Deutschland Namensnennung 2.0, Quellenvermerk: Freie und Hansestadt Hamburg, Landesbetrieb Geoinformation und Vermessung"
+          }
+        },
+        {
+          "source": {
+            "key": "gruenanlagen",
+            "label": {
+              "en": "Geoportal Hamburg",
+              "de": "Geoportal Hamburg"
+            },
+            "what": {
+              "en": "list of public green spaces (Grünplan)",
+              "de": "Verzeichnis der öffentlichen Grünanlagen (Grünplan)"
+            },
+            "credit": "Datenlizenz Deutschland Namensnennung 2.0, Quellenvermerk: Freie und Hansestadt Hamburg, Behörde für Umwelt und Energie",
+            "sections": [
+              "green-spaces"
+            ]
+          },
+          "status": {
+            "id": "gruenanlagen",
+            "state": "read",
+            "fetched": "2026-11-14",
+            "reason": null,
+            "credit": "Datenlizenz Deutschland Namensnennung 2.0, Quellenvermerk: Freie und Hansestadt Hamburg, Behörde für Umwelt und Energie"
+          }
+        },
+        {
+          "source": {
+            "key": "denkmale",
+            "label": {
+              "en": "Geoportal Hamburg",
+              "de": "Geoportal Hamburg"
+            },
+            "what": {
+              "en": "monuments (Denkmalschutz)",
+              "de": "Denkmale (Denkmalschutz)"
+            },
+            "credit": "Datenlizenz Deutschland Namensnennung 2.0, Quellenvermerk: Freie und Hansestadt Hamburg, zuständige Behörde",
+            "sections": [
+              "monuments"
+            ]
+          },
+          "status": {
+            "id": "denkmale",
+            "state": "read",
+            "fetched": "2026-11-14",
+            "reason": null,
+            "credit": "Datenlizenz Deutschland Namensnennung 2.0, Quellenvermerk: Freie und Hansestadt Hamburg, zuständige Behörde"
+          }
+        },
+        {
+          "source": {
+            "key": "wald",
+            "label": {
+              "en": "Geoportal Hamburg",
+              "de": "Geoportal Hamburg"
+            },
+            "what": {
+              "en": "forest in Hamburg (Revierförstereien and Bannwald)",
+              "de": "Wald in Hamburg (Revierförstereien und Bannwald)"
+            },
+            "credit": "Datenlizenz Deutschland Namensnennung 2.0, Quellenvermerk: Freie und Hansestadt Hamburg, Behörde für Umwelt, Klima, Energie und Agrarwirtschaft (BUKEA)",
+            "sections": [
+              "forest-units",
+              "forest-functions"
+            ]
+          },
+          "status": {
+            "id": "wald",
+            "state": "read",
+            "fetched": "2026-11-14",
+            "reason": null,
+            "credit": "Datenlizenz Deutschland Namensnennung 2.0, Quellenvermerk: Freie und Hansestadt Hamburg, Behörde für Umwelt, Klima, Energie und Agrarwirtschaft (BUKEA)"
+          }
+        },
+        {
+          "source": {
+            "key": "waldfunktionen",
+            "label": {
+              "en": "Geoportal Hamburg",
+              "de": "Geoportal Hamburg"
+            },
+            "what": {
+              "en": "forest functions (Erholungswald)",
+              "de": "Waldfunktionen (Erholungswald)"
+            },
+            "credit": "Datenlizenz Deutschland Namensnennung 2.0, Quellenvermerk: Freie und Hansestadt Hamburg, Behörde für Umwelt, Klima, Energie und Agrarwirtschaft (BUKEA)",
+            "sections": [
+              "forest-functions"
+            ]
+          },
+          "status": {
+            "id": "waldfunktionen",
+            "state": "read",
+            "fetched": "2026-11-14",
+            "reason": null,
+            "credit": "Datenlizenz Deutschland Namensnennung 2.0, Quellenvermerk: Freie und Hansestadt Hamburg, Behörde für Umwelt, Klima, Energie und Agrarwirtschaft (BUKEA)"
+          }
+        },
+        {
+          "source": {
+            "key": "wasserschutzgebiete",
+            "label": {
+              "en": "Geoportal Hamburg",
+              "de": "Geoportal Hamburg"
+            },
+            "what": {
+              "en": "water protection areas",
+              "de": "Wasserschutzgebiete"
+            },
+            "credit": "Datenlizenz Deutschland Namensnennung 2.0, Quellenvermerk: Freie und Hansestadt Hamburg, Behörde für Umwelt und Energie",
+            "sections": [
+              "water-protection"
+            ]
+          },
+          "status": {
+            "id": "wasserschutzgebiete",
+            "state": "read",
+            "fetched": "2026-11-14",
+            "reason": null,
+            "credit": "Datenlizenz Deutschland Namensnennung 2.0, Quellenvermerk: Freie und Hansestadt Hamburg, Behörde für Umwelt und Energie"
+          }
+        }
+      ]
+    }
+  ]
+}

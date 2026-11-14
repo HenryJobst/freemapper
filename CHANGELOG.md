@@ -6,6 +6,10 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+### Hinzugefügt
+
+- Beispiele: Jedes der 30 Beispiele in `examples/` hat jetzt seine Hinweise zu Genehmigungen (`permits.md` und `permits.json`, auf Deutsch). Sie zeigen, was die Hinweise im jeweiligen Bundesland liefern, von den Bezirken und Denkmalen in Berlin und Hamburg bis zu Forstverwaltung, Wasserschutzgebieten und klassifizierten Straßen.
+
 ## [0.20.0] - 2026-11-14
 
 ### Hinzugefügt
