@@ -6,14 +6,11 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
-### Hinzugefügt
-
-- Bayern: Objekte aus dem Landschaftsmodell der Vermessungsverwaltung (ATKIS Basis-DLM, ADR 0135). Bayern hat für sein Kataster keinen Dienst; Quellen, Höhleneingänge, benannte Felsen, frei stehende Türme, Denkmäler und Wegkreuze, Brunnen, Zäune, Dämme, kleine Wasserläufe und benannte Bäume kommen jetzt von dort, auf Waldkarten auch Wege und Fahrwege. Das Modell ist für 1:25 000 gemacht und etwa 3 m genau. Seine Objekte bleiben deshalb Kandidaten und entfallen, wo OpenStreetMap oder eine andere Quelle dasselbe Objekt hat: ein Punkt im Umkreis von 15 m, eine Linie, die zu 80 % höchstens 10 m neben einer Linie derselben Art läuft. Am Schmausenbuck bleiben 14 Kandidaten, darunter 6 Wege, die OpenStreetMap fehlen; in der Regensburger Altstadt 10. Beide bayerischen Beispiele sind neu gebaut. Für Adapter: Ein NAS-Dienst nennt sein Modell (`[[extra.nas]] model`, Standard `alkis`, neu `basis-dlm`).
-
 ## [0.20.0] - 2026-11-14
 
 ### Hinzugefügt
 
+- Bayern: Objekte aus dem Landschaftsmodell der Vermessungsverwaltung (ATKIS Basis-DLM, ADR 0135). Bayern hat für sein Kataster keinen Dienst; Quellen, Höhleneingänge, benannte Felsen, frei stehende Türme, Denkmäler und Wegkreuze, Brunnen, Zäune, Dämme, kleine Wasserläufe und benannte Bäume kommen jetzt von dort, auf Waldkarten auch Wege und Fahrwege. Das Modell ist für 1:25 000 gemacht und etwa 3 m genau. Seine Objekte bleiben deshalb Kandidaten und entfallen, wo OpenStreetMap oder eine andere Quelle dasselbe Objekt hat: ein Punkt im Umkreis von 15 m, eine Linie, die zu 80 % höchstens 10 m neben einer Linie derselben Art läuft. Am Schmausenbuck bleiben 14 Kandidaten, darunter 6 Wege, die OpenStreetMap fehlen; in der Regensburger Altstadt 10. Beide bayerischen Beispiele sind neu gebaut. Für Adapter: Ein NAS-Dienst nennt sein Modell (`[[extra.nas]] model`, Standard `alkis`, neu `basis-dlm`).
 - Beispiele: Jedes der 30 Beispiele in `examples/` hat jetzt seine Hinweise zu Genehmigungen (`permits.md` und `permits.json`, auf Deutsch). Sie zeigen, was die Hinweise im jeweiligen Bundesland liefern, von den Bezirken und Denkmalen in Berlin und Hamburg bis zu Forstverwaltung, Wasserschutzgebieten und klassifizierten Straßen.
 - Genehmigungshinweise: Ein neuer Abschnitt nennt die klassifizierten Straßen, die durch das Kartengebiet führen (Autobahn, Bundes-, Landes- oder Staats-, Kreisstraße, mit ihrer Nummer aus OpenStreetMap), und je Klasse ein Hinweis, dass die Straßenverkehrsbehörde eine Sperrung oder eine Querung mit Streckenposten anordnet und wer die Straße meist unterhält (ADR 0133). Das gilt in allen Bundesländern und kommt aus dem OSM-Auszug, den freemapper schon liest.
 - Genehmigungshinweise: Die Dateien, die freemapper für ein ganzes Bundesland lädt (in Nordrhein-Westfalen etwa 32 MB, in Brandenburg etwa 4 MB), bleiben im Zwischenspeicher (Ordner `permits`). Ein neuer Abruf fragt nur nach dem Datum und lädt eine Datei nur, wenn der Server eine neuere hat; ist er nicht erreichbar, nimmt freemapper die aufgehobene (ADR 0132).

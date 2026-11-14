@@ -6,14 +6,11 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
-### Added
-
-- Bavaria: objects from the landscape model of the agency (ATKIS Basis-DLM, ADR 0135). Bavaria has no service for its cadastre; springs, cave entrances, named rocks, free-standing towers, monuments and wayside crosses, fountains, fences, dams, small watercourses and named trees now come from there, on forest maps also paths and tracks. The model is made for 1:25 000 and accurate to about 3 m. Its objects therefore stay candidates and go where OpenStreetMap or another source has the same object: a point within 15 m, a line that runs within 10 m of a line of the same kind for 80 % of its length. On the Schmausenbuck 14 candidates stay, 6 of them paths OpenStreetMap lacks; in the old town of Regensburg 10. Both Bavarian examples are rebuilt. For adapters: a NAS service names its model (`[[extra.nas]] model`, default `alkis`, new `basis-dlm`).
-
 ## [0.20.0] - 2026-11-14
 
 ### Added
 
+- Bavaria: objects from the landscape model of the agency (ATKIS Basis-DLM, ADR 0135). Bavaria has no service for its cadastre; springs, cave entrances, named rocks, free-standing towers, monuments and wayside crosses, fountains, fences, dams, small watercourses and named trees now come from there, on forest maps also paths and tracks. The model is made for 1:25 000 and accurate to about 3 m. Its objects therefore stay candidates and go where OpenStreetMap or another source has the same object: a point within 15 m, a line that runs within 10 m of a line of the same kind for 80 % of its length. On the Schmausenbuck 14 candidates stay, 6 of them paths OpenStreetMap lacks; in the old town of Regensburg 10. Both Bavarian examples are rebuilt. For adapters: a NAS service names its model (`[[extra.nas]] model`, default `alkis`, new `basis-dlm`).
 - Examples: each of the 30 examples in `examples/` now has its permit notes (`permits.md` and `permits.json`, in German). They show what the notes give in each state, from the Bezirke and monuments of Berlin and Hamburg to the forest administration, water protection areas and classified roads.
 - Permit notes: a new section names the classified roads through the map area (Autobahn, Bundes-, Landes- or Staats-, Kreisstraße, with their number from OpenStreetMap), and per class a hint that the road traffic authority orders a closure or a crossing with marshals and who usually keeps the road (ADR 0133). It works in every state and comes from the OSM extract freemapper reads already.
 - Permit notes: the files freemapper downloads for a whole state (about 32 MB in North Rhine-Westphalia, about 4 MB in Brandenburg) stay in the cache (folder `permits`). A new fetch asks only for the date and downloads a file only when the server has a newer one; when it cannot be reached, freemapper uses the kept one (ADR 0132).
