@@ -393,6 +393,20 @@ mod tests {
         br#"{"type":"FeatureCollection","features":[]}"#.to_vec()
     }
 
+    /// The service of Brandenburg's forest offices, which answers GML (ADR 0124).
+    const BRANDENBURG_FOREST: &str = "https://www.brandenburg-forst.de/";
+
+    fn empty_gml_collection() -> Vec<u8> {
+        br#"<wfs:FeatureCollection xmlns:wfs="http://www.opengis.net/wfs/2.0"/>"#.to_vec()
+    }
+
+    /// The ids of the adapters that brought regional inputs, each once.
+    fn regional_adapters(inputs: &Inputs) -> Vec<&str> {
+        let mut ids: Vec<&str> = inputs.regional.iter().map(|r| r.adapter.as_str()).collect();
+        ids.dedup();
+        ids
+    }
+
     fn project() -> (TempDir, ProjectFile) {
         let dir = tempfile::tempdir().unwrap();
         let [w, s, e, n] = AREA;
@@ -422,6 +436,8 @@ mod tests {
         let bbox = map_box(&project.area().unwrap());
         fetch_vg250(&probe, &bbox, &part);
         fetch_bfn(&probe, &bbox, &part);
+        // The map area lies in Brandenburg, whose forest offices answer GML (ADR 0124).
+        fetcher.insert_prefix(BRANDENBURG_FOREST, empty_gml_collection());
         for url in probe.log.borrow().iter() {
             let body = if url.contains("Landschaftsschutzgebiete") {
                 fixture("bfn-lsg-sanssouci.geojson")
@@ -513,14 +529,34 @@ mod tests {
         matches!(input, SourceInput::Read { .. })
     }
 
+    /// The files of the project's permit folder, as paths relative to it: the national sources
+    /// at the top, a regional adapter's in its folder (`brandenburg/…`).
     fn stored_files(dir: &Path) -> Vec<String> {
-        let mut names: Vec<String> = std::fs::read_dir(dir.join(PERMITS_DIR))
-            .unwrap()
-            .flatten()
-            .map(|e| e.file_name().to_string_lossy().into_owned())
-            .collect();
+        fn walk(root: &Path, at: &Path, names: &mut Vec<String>) {
+            for entry in std::fs::read_dir(at).unwrap().flatten() {
+                let path = entry.path();
+                if path.is_dir() {
+                    walk(root, &path, names);
+                } else {
+                    let relative = path.strip_prefix(root).unwrap();
+                    names.push(relative.to_string_lossy().replace('\\', "/"));
+                }
+            }
+        }
+        let root = dir.join(PERMITS_DIR);
+        let mut names = Vec::new();
+        walk(&root, &root, &mut names);
         names.sort();
         names
+    }
+
+    /// Copies the permit folder of `from` into the project folder `to`.
+    fn copy_stored(from: &Path, to: &Path) {
+        for name in stored_files(from) {
+            let target = to.join(PERMITS_DIR).join(&name);
+            std::fs::create_dir_all(target.parent().unwrap()).unwrap();
+            std::fs::copy(from.join(PERMITS_DIR).join(&name), target).unwrap();
+        }
     }
 
     #[test]
@@ -613,11 +649,7 @@ mod tests {
             None,
         )
         .unwrap();
-        let to = other.path().join(PERMITS_DIR);
-        std::fs::create_dir_all(&to).unwrap();
-        for name in stored_files(dir.path()) {
-            std::fs::copy(dir.path().join(PERMITS_DIR).join(&name), to.join(&name)).unwrap();
-        }
+        copy_stored(dir.path(), other.path());
         let (result, _) = fetch(&moved, other.path(), &fetcher, &cache, true);
         assert!(
             matches!(result, Err(PermitsError::NothingRead { .. })),
@@ -652,11 +684,7 @@ mod tests {
             None,
         )
         .unwrap();
-        let to = other.path().join(PERMITS_DIR);
-        std::fs::create_dir_all(&to).unwrap();
-        for name in stored_files(dir.path()) {
-            std::fs::copy(dir.path().join(PERMITS_DIR).join(&name), to.join(&name)).unwrap();
-        }
+        copy_stored(dir.path(), other.path());
         let (result, _) = fetch(&changed, other.path(), &fetcher, &cache, true);
         match result {
             Err(PermitsError::NothingRead { missing }) => assert!(
@@ -678,11 +706,7 @@ mod tests {
             None,
         )
         .unwrap();
-        let to = same.path().join(PERMITS_DIR);
-        std::fs::create_dir_all(&to).unwrap();
-        for name in stored_files(dir.path()) {
-            std::fs::copy(dir.path().join(PERMITS_DIR).join(&name), to.join(&name)).unwrap();
-        }
+        copy_stored(dir.path(), same.path());
         let (result, _) = fetch(&copy, same.path(), &fetcher, &cache, true);
         assert!(result.is_ok(), "{result:?}");
     }
@@ -818,14 +842,25 @@ mod tests {
             .unwrap();
         let log = inner.log.borrow();
         assert!(log.len() > 13, "{log:?}");
+        // Every request goes to a national host, or to the forest service of Brandenburg, on
+        // whose ground Potsdam lies, behind the hosts of Brandenburg's adapter (ADR 0124).
+        let brandenburg = registry().get("brandenburg").expect("built in");
+        let mut regional = std::collections::BTreeSet::new();
         for url in log.iter() {
-            assert!(
-                UrlPolicy::NATIONAL_HOSTS
-                    .iter()
-                    .any(|host| url.starts_with(&format!("https://{host}/"))),
-                "{url}"
-            );
+            let national = UrlPolicy::NATIONAL_HOSTS
+                .iter()
+                .any(|host| url.starts_with(&format!("https://{host}/")));
+            if !national {
+                assert!(url.starts_with(BRANDENBURG_FOREST), "{url}");
+                assert!(
+                    brandenburg.policy().unwrap().check_url(url).is_ok(),
+                    "{url}"
+                );
+                regional.insert(url);
+            }
         }
+        // One query for the Reviere, tried again because an empty JSON is no GML.
+        assert_eq!(regional.len(), 1, "{log:?}");
     }
 
     #[test]
@@ -942,6 +977,7 @@ mod tests {
             ),
             ("denkmale:denkmale", "denkmale.geojson"),
             ("schutzgebiete:a_nd", "naturdenkmale.geojson"),
+            ("forstverwalt:b_forstverwalt", "forstverwalt.geojson"),
         ];
         for url in probe.log.borrow().iter() {
             let body = by_type
@@ -958,13 +994,14 @@ mod tests {
 
     /// The fixture file the fetcher of [`serve_berlin`] answers for a layer of Berlin's sources;
     /// the other layers answer empty.
-    const BERLIN_LAYER_FILES: [(&str, &str); 6] = [
+    const BERLIN_LAYER_FILES: [(&str, &str); 7] = [
         ("bezirksgrenzen", "bezirksgrenzen.geojson"),
         ("gruenanlagen", "gruenanlagen.geojson"),
         ("spielplaetze", "spielplaetze.geojson"),
         ("liegenschaftsplan", "liegenschaftsplan.geojson"),
         ("denkmale", "denkmale.geojson"),
         ("a-nd", "naturdenkmale.geojson"),
+        ("forstverwalt", "forstverwalt.geojson"),
     ];
 
     /// The findings of `source` as the adapter parses the fixture files themselves, without
@@ -1032,7 +1069,8 @@ mod tests {
         let inputs = fetch(&project, dir.path(), &fetcher, &cache, false)
             .0
             .unwrap();
-        assert!(inputs.regional.is_empty());
+        // Potsdam lies in Brandenburg alone, whose forest offices are its one regional source.
+        assert_eq!(regional_adapters(&inputs), ["brandenburg"]);
         let log = fetcher.log.borrow();
         assert!(!log.is_empty());
         assert!(log.iter().all(|u| !u.contains("berlin.de")), "{log:#?}");
@@ -1059,7 +1097,7 @@ mod tests {
         let inputs = fetch(&project, dir.path(), &fetcher, &cache, false)
             .0
             .unwrap();
-        assert!(inputs.regional.is_empty());
+        assert_eq!(regional_adapters(&inputs), ["brandenburg"]);
         let log = fetcher.log.borrow();
         assert!(!log.is_empty());
         assert!(log.iter().all(|u| !u.contains("berlin.de")), "{log:#?}");
@@ -1164,12 +1202,13 @@ mod tests {
                 ("liegenschaftsplan", true),
                 ("denkmale", true),
                 ("schutzgebiete", true),
+                ("forstverwalt", true),
             ]
         );
         let policy = berlin().policy().unwrap();
         let log = fetcher.log.borrow();
         let berlin_urls: Vec<&String> = log.iter().filter(|u| u.contains("berlin.de")).collect();
-        assert_eq!(berlin_urls.len(), 9, "{berlin_urls:#?}");
+        assert_eq!(berlin_urls.len(), 10, "{berlin_urls:#?}");
         for url in &berlin_urls {
             assert!(
                 url.starts_with("https://gdi.berlin.de/services/wfs/"),
@@ -1254,6 +1293,7 @@ mod tests {
                 ("liegenschaftsplan", true),
                 ("denkmale", false),
                 ("schutzgebiete", true),
+                ("forstverwalt", true),
             ]
         );
         assert!(is_read(&inputs.admin) && is_read(&inputs.protected));

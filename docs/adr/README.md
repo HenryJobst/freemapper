@@ -169,3 +169,4 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0121](0121-bremen-the-full-alkis-as-the-simplified-schema.md) | Bremen: the full ALKIS as the simplified schema, and grid points taken as cells | Accepted | 2026-11-13 |
 | [0122](0122-a-sliver-is-measured-by-its-short-side.md) | A sliver is measured by its short side | Accepted | 2026-11-13 |
 | [0123](0123-bavaria-the-cadastre-from-files.md) | Bavaria: the cadastre from files | Accepted | 2026-11-14 |
+| [0124](0124-forest-administrations-in-the-permit-notes.md) | Forest administrations in the permit notes | Accepted | 2026-11-14 |
