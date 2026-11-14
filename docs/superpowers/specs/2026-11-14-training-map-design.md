@@ -23,6 +23,9 @@ The user's decisions (2026-11-14):
 4. The candidate layers start hidden; on opening, the map shows only the sure objects.
 5. The readability problems found in the Bremen example must be solved at least for the training map. That
    makes the list below the acceptance of the training map, and the training map the first thing built.
+6. The training map keeps every gap the norm asks for. Objects of the same kind are generalized first and
+   shifted after; where a shift makes a new overlap, the objects are generalized instead. A shift stays within
+   bounds.
 
 ## What the Bremen example shows
 
@@ -213,14 +216,22 @@ their `freemapper:hidden=generalized` kept them out of the old training map and 
   as the map, because someone may have touched it.
 - **Input.** Every object the content settings do not switch off: the map objects before the light level and
   all candidates that are not hidden (`freemapper:hidden`), as the candidates PDF takes them today.
-- **The training level** does what the light level does, with the lower-ranked object dropped instead of
-  moved to a layer, and adds:
-  - *Merge.* Lines of one road class running side by side inside the gap become one line on their middle
-    (carriageways, railway tracks); a tram track inside a drawn road is dropped; a footpath or cycleway
-    inside the drawn width of a road is dropped.
-  - *Shift.* A line that must stay beside a higher-ranked one (an earth bank beside a ditch, a fence beside a
-    path) is moved off by the gap where there is room, by at most the builder's ruling from the norm; where
-    there is none, the stretch is dropped. Points are shifted as today (`build/barrier_gaps.rs`).
+- **The training level** ends with every gap of the norm kept: no conflict of either grade is left. It works
+  in this order (the user's rule, 2026-11-14):
+  1. *Generalize what is alike.* Objects of one kind are settled among themselves first: lines that meet end
+     to end are joined; lines of one road class running side by side inside the gap become one line on their
+     middle (carriageways, railway tracks, parallel paths); a tram track inside a drawn road and a footpath or
+     cycleway inside the drawn width of a road are dropped; of two earth banks, fences or walls inside the gap
+     the shorter goes; objects below the norm's minimum size go; points are thinned as today (ADR 0066).
+  2. *Shift.* What is still inside the gap of an object of another kind is moved off by what is missing to the
+     gap, the lower-ranked object moving (an earth bank beside a ditch, a fence beside a path, a point beside a
+     wall as in `build/barrier_gaps.rs`). A shift stays within bounds: at most 0.5 mm on paper (5 m on the
+     ground at 1:10 000, 2 m at 1:4000; Claude's ruling, to be tightened if the norm gives a value), and a
+     line keeps its shape.
+  3. *Generalize where shifting fails.* Where the room is not there within the bound, or the shifted object
+     would come inside the gap of a third one, it is not shifted: the stretch is cut out, or the object dropped
+     when more than half of it is affected. A shift never makes a new conflict.
+  The measure runs again after each step; the level stops when it is quiet, which the third step guarantees.
   - *Rock.* `Level::training` of ADR 0126 runs here. The candidates PDF goes back to the map level.
   - *Contours.* A contour is cut at buildings, as it is at ways today (`build/line_cuts.rs`), and a piece
     left shorter than the norm's minimum goes.
@@ -245,15 +256,15 @@ Every row of the Bremen table has its rule; the training map of Bremen Bürgerpa
 
 | Finding | Rule | Holds when |
 |---|---|---|
-| Earth banks on ditches, water, ways, each other | give way, shift, drop | no earth bank inside the gap of another object for more than 2 mm |
+| Earth banks on ditches, water, ways, each other | give way, shift, drop | no earth bank inside the gap of another object |
 | Water twice | duplicate step repaired | no OSM water area on ALKIS water |
 | Carriageways side by side | merge | one 502 per road; no 502 inside the gap of another outside junctions |
 | Tram tracks in the road, footways along it | drop | no 509 and no 505 inside the drawn width of a 502 |
 | Two railway tracks as one band | merge | one 509 per line |
 | Footpaths in pieces | join | no 505 shorter than 2 mm that continues in another 505; the dash pattern runs through |
-| Paths side by side | merge | no 505 inside the gap of another 505 for more than 2 mm |
+| Paths side by side | merge | no 505 inside the gap of another 505 outside junctions |
 | Stairs too short, doubled | minimum size, duplicate step | no 532 below the norm's minimum, none twice |
-| Fences on paths | shift, drop | no 518 inside the gap of a way for more than 2 mm |
+| Fences on paths | shift, drop | no 518 inside the gap of a way |
 | Monument points in a row | point generalization | every 526 keeps the norm's gap to points, buildings and ways |
 | Contours as noise | cut at buildings, drop on earth banks, minimum size | no contour through a building, none on an earth bank, none below the minimum |
 | Forest drawn yellow | open land under trees | the 401 of the Stadtwald covers only what the nDSM shows open |
@@ -266,9 +277,8 @@ builder picks (one sprint, one rocky forest); the numbers go into the ADRs.
 - Part 1: every candidate of today is in exactly one layer; the union equals today's `candidates.omap`.
 - Part 2: no doubled water and no doubled stairs; the map has no *overlap* conflict of an *apart* pair left;
   the number of 505 objects falls by at least half; no vertex of a kept object has moved.
-- Part 3: the training map has no conflict of either grade longer than 2 mm and no object below the norm's
-  minimum size; its total conflict length is under 5 % of that of today's candidates PDF; no line end that
-  touched another line is left free.
+- Part 3: the training map has no conflict of either grade left and no object below the norm's minimum size;
+  no object has moved by more than the bound; no line end that touched another line is left free.
 
 The thresholds are Claude's proposal. If a rule needed to reach one costs more than it gives, the builder says
 so in the ADR with the number reached.
@@ -297,7 +307,9 @@ map before the light level plus the candidates. Five pull requests, each merged 
 
 1. Training map, first half: the conflict measure, the repaired duplicate steps, the files and the switch, and
    the rules that join, drop and cut (give way, minimum sizes, contours, open land under trees, points, rock).
-2. Training map, second half: merge, shift, junctions survive. After it the findings table holds.
+   Between kinds it already keeps every gap, by cutting and dropping only.
+2. Training map, second half: merge what is alike, shift before cutting, junctions survive. After it no
+   conflict is left and the findings table holds.
 3. Candidate layers (part 1).
 4. The light level of the base map (rest of part 2).
 5. Examples and comparison page (part 4).
