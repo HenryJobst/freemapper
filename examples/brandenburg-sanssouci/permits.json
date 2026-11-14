@@ -1,0 +1,241 @@
+{
+  "schema": 1,
+  "created": "2026-11-14",
+  "map_kind": "sprint",
+  "area_m2": 540720.9021579742,
+  "admin": [
+    {
+      "item": {
+        "level": "land",
+        "name": "Brandenburg",
+        "kind": "Land",
+        "ags": "12"
+      },
+      "percent": 100.0,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "level": "kreis",
+        "name": "Potsdam",
+        "kind": "Kreisfreie Stadt",
+        "ags": "12054"
+      },
+      "percent": 100.0,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "level": "gemeinde",
+        "name": "Potsdam",
+        "kind": "Stadt",
+        "ags": "12054000"
+      },
+      "percent": 100.0,
+      "at_edge": false
+    }
+  ],
+  "protected": [],
+  "osm_protected": [],
+  "operators": [
+    {
+      "name": "Mühlenvereinigung Berlin-Brandenburg e.V.",
+      "roles": [
+        "operator"
+      ],
+      "objects": [
+        "tourism=attraction"
+      ]
+    },
+    {
+      "name": "Stiftung Preußische Schlösser und Gärten Berlin-Brandenburg",
+      "roles": [
+        "operator"
+      ],
+      "objects": [
+        "historic=building",
+        "leisure=park"
+      ]
+    }
+  ],
+  "roads": [
+    {
+      "class": "bundesstrasse",
+      "refs": [
+        "B 273"
+      ]
+    }
+  ],
+  "hints": [
+    {
+      "key": "permits-hint-water-protection",
+      "args": {
+        "inner": "no",
+        "name": "Potsdam-Wildpark",
+        "zone": "Zone III B"
+      }
+    },
+    {
+      "key": "permits-hint-forest-office",
+      "args": {
+        "administration": "Landesbetrieb Forst Brandenburg",
+        "office": "Oberförsterei Potsdam-Mittelmark",
+        "units": "Revier Potsdam"
+      }
+    },
+    {
+      "key": "permits-hint-forest-owner",
+      "args": {
+        "office": "known"
+      }
+    },
+    {
+      "key": "permits-hint-order-office",
+      "args": {
+        "gemeinde": "Potsdam"
+      }
+    },
+    {
+      "key": "permits-hint-road-class",
+      "args": {
+        "class": "bundesstrasse",
+        "refs": "B 273"
+      }
+    },
+    {
+      "key": "permits-hint-park-operator",
+      "args": {
+        "operator": "Stiftung Preußische Schlösser und Gärten Berlin-Brandenburg"
+      }
+    },
+    {
+      "key": "permits-hint-owners-unknown",
+      "args": {}
+    }
+  ],
+  "sources": [
+    {
+      "id": "vg250",
+      "state": "read",
+      "fetched": "2026-11-14",
+      "reason": null,
+      "credit": "© BKG (2026) dl-de/by-2-0, Datenquellen: https://sg.geodatenzentrum.de/web_public/gdz/datenquellen/datenquellen_vg_nuts.pdf"
+    },
+    {
+      "id": "bfn",
+      "state": "read",
+      "fetched": "2026-11-14",
+      "reason": null,
+      "credit": "© Bundesamt für Naturschutz (BfN) (2026), Schutzgebiete in Deutschland; Nutzungsbestimmungen für die Bereitstellung von Geodaten des Bundes (GeoNutzV). Nicht für Planungszwecke geeignet."
+    },
+    {
+      "id": "osm",
+      "state": "read",
+      "fetched": "2026-11-06",
+      "reason": null,
+      "credit": "© OpenStreetMap contributors, ODbL"
+    }
+  ],
+  "regional": [
+    {
+      "adapter": "brandenburg",
+      "forest_units": [
+        {
+          "item": {
+            "administration": "Landesbetrieb Forst Brandenburg",
+            "office": "Oberförsterei Potsdam-Mittelmark",
+            "unit": "Revier Potsdam"
+          },
+          "percent": 100.0,
+          "at_edge": false
+        }
+      ],
+      "water_protection": [
+        {
+          "item": {
+            "name": "Potsdam-Wildpark",
+            "zone": "Zone III B",
+            "citation": "GVBl.II/12, Nr. 40"
+          },
+          "percent": 12.0,
+          "at_edge": false
+        }
+      ],
+      "forest_functions": [],
+      "sources": [
+        {
+          "source": {
+            "key": "reviere",
+            "label": {
+              "en": "Landesbetrieb Forst Brandenburg",
+              "de": "Landesbetrieb Forst Brandenburg"
+            },
+            "what": {
+              "en": "forest districts (Reviere) with their Oberförsterei",
+              "de": "Forstreviere mit ihrer Oberförsterei"
+            },
+            "credit": "Landesbetrieb Forst Brandenburg, Datenlizenz Deutschland – Namensnennung – Version 2.0 (https://www.govdata.de/dl-de/by-2-0)",
+            "sections": [
+              "forest-units"
+            ]
+          },
+          "status": {
+            "id": "reviere",
+            "state": "read",
+            "fetched": "2026-11-14",
+            "reason": null,
+            "credit": "Landesbetrieb Forst Brandenburg, Datenlizenz Deutschland – Namensnennung – Version 2.0 (https://www.govdata.de/dl-de/by-2-0)"
+          }
+        },
+        {
+          "source": {
+            "key": "waldfunktionen",
+            "label": {
+              "en": "Landesbetrieb Forst Brandenburg",
+              "de": "Landesbetrieb Forst Brandenburg"
+            },
+            "what": {
+              "en": "forest functions (Naturwald, Totalreservat, closed areas, Erholungswald)",
+              "de": "Waldfunktionen (Naturwald, Totalreservat, nicht betretbare Flächen, Erholungswald)"
+            },
+            "credit": "Landesbetrieb Forst Brandenburg, Datenlizenz Deutschland – Namensnennung – Version 2.0 (https://www.govdata.de/dl-de/by-2-0)",
+            "sections": [
+              "forest-functions"
+            ]
+          },
+          "status": {
+            "id": "waldfunktionen",
+            "state": "read",
+            "fetched": "2026-11-14",
+            "reason": null,
+            "credit": "Landesbetrieb Forst Brandenburg, Datenlizenz Deutschland – Namensnennung – Version 2.0 (https://www.govdata.de/dl-de/by-2-0)"
+          }
+        },
+        {
+          "source": {
+            "key": "wasserschutzgebiete",
+            "label": {
+              "en": "Landesamt für Umwelt Brandenburg",
+              "de": "Landesamt für Umwelt Brandenburg"
+            },
+            "what": {
+              "en": "water protection areas",
+              "de": "Wasserschutzgebiete"
+            },
+            "credit": "Landesamt für Umwelt Brandenburg (LfU), Creative Commons Namensnennung 4.0 International (CC BY 4.0)",
+            "sections": [
+              "water-protection"
+            ]
+          },
+          "status": {
+            "id": "wasserschutzgebiete",
+            "state": "read",
+            "fetched": "2026-11-14",
+            "reason": null,
+            "credit": "Landesamt für Umwelt Brandenburg (LfU), Creative Commons Namensnennung 4.0 International (CC BY 4.0)"
+          }
+        }
+      ]
+    }
+  ]
+}

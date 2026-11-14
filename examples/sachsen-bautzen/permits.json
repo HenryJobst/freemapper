@@ -1,0 +1,108 @@
+{
+  "schema": 1,
+  "created": "2026-11-14",
+  "map_kind": "sprint",
+  "area_m2": 480316.1290444447,
+  "admin": [
+    {
+      "item": {
+        "level": "land",
+        "name": "Sachsen",
+        "kind": "Freistaat",
+        "ags": "14"
+      },
+      "percent": 100.0,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "level": "kreis",
+        "name": "Bautzen",
+        "kind": "Landkreis",
+        "ags": "14625"
+      },
+      "percent": 100.0,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "level": "verwaltungsgemeinschaft",
+        "name": "Bautzen",
+        "kind": "Einheitsgemeinde",
+        "ags": "--------"
+      },
+      "percent": 100.0,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "level": "gemeinde",
+        "name": "Bautzen",
+        "kind": "Stadt",
+        "ags": "14625020"
+      },
+      "percent": 100.0,
+      "at_edge": false
+    }
+  ],
+  "protected": [],
+  "osm_protected": [],
+  "operators": [],
+  "roads": [
+    {
+      "class": "landesstrasse",
+      "refs": [
+        "S 111"
+      ]
+    }
+  ],
+  "hints": [
+    {
+      "key": "permits-hint-forest-owner",
+      "args": {
+        "office": "unknown"
+      }
+    },
+    {
+      "key": "permits-hint-order-office",
+      "args": {
+        "amt": "Einheitsgemeinde Bautzen",
+        "gemeinde": "Bautzen"
+      }
+    },
+    {
+      "key": "permits-hint-road-class",
+      "args": {
+        "class": "landesstrasse",
+        "refs": "S 111"
+      }
+    },
+    {
+      "key": "permits-hint-owners-unknown",
+      "args": {}
+    }
+  ],
+  "sources": [
+    {
+      "id": "vg250",
+      "state": "read",
+      "fetched": "2026-11-14",
+      "reason": null,
+      "credit": "© BKG (2026) dl-de/by-2-0, Datenquellen: https://sg.geodatenzentrum.de/web_public/gdz/datenquellen/datenquellen_vg_nuts.pdf"
+    },
+    {
+      "id": "bfn",
+      "state": "read",
+      "fetched": "2026-11-14",
+      "reason": null,
+      "credit": "© Bundesamt für Naturschutz (BfN) (2026), Schutzgebiete in Deutschland; Nutzungsbestimmungen für die Bereitstellung von Geodaten des Bundes (GeoNutzV). Nicht für Planungszwecke geeignet."
+    },
+    {
+      "id": "osm",
+      "state": "read",
+      "fetched": "2026-11-06",
+      "reason": null,
+      "credit": "© OpenStreetMap contributors, ODbL"
+    }
+  ]
+}

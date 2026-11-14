@@ -1,0 +1,374 @@
+{
+  "schema": 1,
+  "created": "2026-11-14",
+  "map_kind": "forest",
+  "area_m2": 1256438.051348683,
+  "admin": [
+    {
+      "item": {
+        "level": "land",
+        "name": "Berlin",
+        "kind": "Land",
+        "ags": "11"
+      },
+      "percent": 100.0,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "level": "kreis",
+        "name": "Berlin",
+        "kind": "Kreisfreie Stadt",
+        "ags": "11000"
+      },
+      "percent": 100.0,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "level": "gemeinde",
+        "name": "Berlin",
+        "kind": "Stadt",
+        "ags": "11000000"
+      },
+      "percent": 100.0,
+      "at_edge": false
+    }
+  ],
+  "protected": [],
+  "osm_protected": [],
+  "operators": [],
+  "hints": [
+    {
+      "key": "permits-hint-water-protection",
+      "args": {
+        "inner": "no",
+        "name": "Wuhlheide / Kaulsdorf",
+        "zone": "Schutzzone III B"
+      }
+    },
+    {
+      "key": "permits-hint-water-protection",
+      "args": {
+        "inner": "no",
+        "name": "Wuhlheide",
+        "zone": "Schutzzone III A"
+      }
+    },
+    {
+      "key": "permits-hint-forest-office",
+      "args": {
+        "administration": "Berliner Forsten",
+        "office": "Forstamt Köpenick",
+        "units": "Revier Friedrichshagen"
+      }
+    },
+    {
+      "key": "permits-hint-forest-owner",
+      "args": {
+        "office": "known"
+      }
+    },
+    {
+      "key": "permits-hint-district-office",
+      "args": {
+        "district": "Treptow-Köpenick",
+        "offices": "berlin"
+      }
+    },
+    {
+      "key": "permits-hint-monument-authority",
+      "args": {
+        "district": "Treptow-Köpenick",
+        "offices": "berlin"
+      }
+    },
+    {
+      "key": "permits-hint-owner-share",
+      "args": {
+        "owner": "Land Berlin",
+        "percent": "99.7"
+      }
+    },
+    {
+      "key": "permits-hint-owners-unknown",
+      "args": {
+        "rest": "yes"
+      }
+    }
+  ],
+  "sources": [
+    {
+      "id": "vg250",
+      "state": "read",
+      "fetched": "2026-11-14",
+      "reason": null,
+      "credit": "© BKG (2026) dl-de/by-2-0, Datenquellen: https://sg.geodatenzentrum.de/web_public/gdz/datenquellen/datenquellen_vg_nuts.pdf"
+    },
+    {
+      "id": "bfn",
+      "state": "read",
+      "fetched": "2026-11-14",
+      "reason": null,
+      "credit": "© Bundesamt für Naturschutz (BfN) (2026), Schutzgebiete in Deutschland; Nutzungsbestimmungen für die Bereitstellung von Geodaten des Bundes (GeoNutzV). Nicht für Planungszwecke geeignet."
+    },
+    {
+      "id": "osm",
+      "state": "read",
+      "fetched": "2026-11-06",
+      "reason": null,
+      "credit": "© OpenStreetMap contributors, ODbL"
+    }
+  ],
+  "regional": [
+    {
+      "adapter": "berlin",
+      "districts": [
+        {
+          "item": {
+            "name": "Treptow-Köpenick"
+          },
+          "percent": 99.8,
+          "at_edge": false
+        },
+        {
+          "item": {
+            "name": "Marzahn-Hellersdorf"
+          },
+          "percent": 0.2,
+          "at_edge": true
+        }
+      ],
+      "green_spaces": {
+        "entries": [],
+        "playgrounds": 0
+      },
+      "owners": [
+        {
+          "item": {
+            "owner": "Land Berlin"
+          },
+          "percent": 99.7,
+          "at_edge": false
+        }
+      ],
+      "monuments": {
+        "total": 1,
+        "groups": [
+          {
+            "kind": "Gartendenkmal",
+            "count": 1,
+            "links": [
+              "https://denkmaldatenbank.berlin.de/daobj.php?obj_dok_nr=09046038"
+            ]
+          }
+        ],
+        "links_left": 0
+      },
+      "protected_objects": [],
+      "forest_units": [
+        {
+          "item": {
+            "administration": "Berliner Forsten",
+            "office": "Forstamt Köpenick",
+            "unit": "Revier Friedrichshagen"
+          },
+          "percent": 97.9,
+          "at_edge": false
+        }
+      ],
+      "water_protection": [
+        {
+          "item": {
+            "name": "Wuhlheide / Kaulsdorf",
+            "zone": "Schutzzone III B",
+            "citation": "Wasserschutzgebietsverordnung Wuhlheide / Kaulsdorf"
+          },
+          "percent": 100.0,
+          "at_edge": false
+        },
+        {
+          "item": {
+            "name": "Wuhlheide",
+            "zone": "Schutzzone III A",
+            "citation": "Wasserschutzgebietsverordnung Wuhlheide / Kaulsdorf"
+          },
+          "percent": 0.0,
+          "at_edge": true
+        }
+      ],
+      "sources": [
+        {
+          "source": {
+            "key": "bezirke",
+            "label": {
+              "en": "Geoportal Berlin",
+              "de": "Geoportal Berlin"
+            },
+            "what": {
+              "en": "Bezirk borders (ALKIS Berlin)",
+              "de": "Bezirksgrenzen (ALKIS Berlin)"
+            },
+            "credit": "Für die Nutzung der Daten ist die Datenlizenz Deutschland - Zero - Version 2.0 anzuwenden. Die Lizenz ist über https://www.govdata.de/dl-de/zero-2-0 abrufbar.",
+            "sections": [
+              "districts"
+            ],
+            "offices": "berlin"
+          },
+          "status": {
+            "id": "bezirke",
+            "state": "read",
+            "fetched": "2026-11-14",
+            "reason": null,
+            "credit": "Für die Nutzung der Daten ist die Datenlizenz Deutschland - Zero - Version 2.0 anzuwenden. Die Lizenz ist über https://www.govdata.de/dl-de/zero-2-0 abrufbar."
+          }
+        },
+        {
+          "source": {
+            "key": "gruenanlagen",
+            "label": {
+              "en": "Geoportal Berlin",
+              "de": "Geoportal Berlin"
+            },
+            "what": {
+              "en": "green spaces and public playgrounds",
+              "de": "Grünanlagenbestand mit den öffentlichen Spielplätzen"
+            },
+            "credit": "Für die Nutzung der Daten ist die Datenlizenz Deutschland - Zero - Version 2.0 anzuwenden. Die Lizenz ist über https://www.govdata.de/dl-de/zero-2-0 abrufbar.",
+            "sections": [
+              "green-spaces"
+            ]
+          },
+          "status": {
+            "id": "gruenanlagen",
+            "state": "read",
+            "fetched": "2026-11-14",
+            "reason": null,
+            "credit": "Für die Nutzung der Daten ist die Datenlizenz Deutschland - Zero - Version 2.0 anzuwenden. Die Lizenz ist über https://www.govdata.de/dl-de/zero-2-0 abrufbar."
+          }
+        },
+        {
+          "source": {
+            "key": "liegenschaftsplan",
+            "label": {
+              "en": "Geoportal Berlin",
+              "de": "Geoportal Berlin"
+            },
+            "what": {
+              "en": "land of the Land Berlin and the Bund (Liegenschaftsplan)",
+              "de": "Liegenschaftsplan (Flurstücke des Bundeslandes Berlin und des Bundes)"
+            },
+            "credit": "Für die Nutzung der Daten ist die Datenlizenz Deutschland - Zero - Version 2.0 anzuwenden. Die Lizenz ist über https://www.govdata.de/dl-de/zero-2-0 abrufbar.",
+            "sections": [
+              "owners"
+            ]
+          },
+          "status": {
+            "id": "liegenschaftsplan",
+            "state": "read",
+            "fetched": "2026-11-14",
+            "reason": null,
+            "credit": "Für die Nutzung der Daten ist die Datenlizenz Deutschland - Zero - Version 2.0 anzuwenden. Die Lizenz ist über https://www.govdata.de/dl-de/zero-2-0 abrufbar."
+          }
+        },
+        {
+          "source": {
+            "key": "denkmale",
+            "label": {
+              "en": "Geoportal Berlin",
+              "de": "Geoportal Berlin"
+            },
+            "what": {
+              "en": "monuments (Denkmalkarte)",
+              "de": "Denkmale (Denkmalkarte)"
+            },
+            "credit": "Für die Nutzung der Daten ist die Datenlizenz Deutschland - Zero - Version 2.0 anzuwenden. Die Lizenz ist über https://www.govdata.de/dl-de/zero-2-0 abrufbar.",
+            "sections": [
+              "monuments"
+            ]
+          },
+          "status": {
+            "id": "denkmale",
+            "state": "read",
+            "fetched": "2026-11-14",
+            "reason": null,
+            "credit": "Für die Nutzung der Daten ist die Datenlizenz Deutschland - Zero - Version 2.0 anzuwenden. Die Lizenz ist über https://www.govdata.de/dl-de/zero-2-0 abrufbar."
+          }
+        },
+        {
+          "source": {
+            "key": "schutzgebiete",
+            "label": {
+              "en": "Geoportal Berlin",
+              "de": "Geoportal Berlin"
+            },
+            "what": {
+              "en": "protected objects under nature conservation law",
+              "de": "Schutzobjekte nach Naturschutzrecht"
+            },
+            "credit": "Für die Nutzung der Daten ist die Datenlizenz Deutschland - Zero - Version 2.0 anzuwenden. Die Lizenz ist über https://www.govdata.de/dl-de/zero-2-0 abrufbar.",
+            "note": "Die amtlichen Karten zur jeweiligen Schutzverordnung können bei der jeweils örtlich zuständigen unteren Behörde für Naturschutz und Landschaftspflege im Bezirksamt oder bei der obersten Behörde für Naturschutz und Landschaftspflege (Senatsverwaltung für Mobilität, Verkehr, Klimaschutz und Umwelt Abt. III) eingesehen werden. Nur diese amtlichen analogen Karten sind rechtsverbindlich, sofern die Karten nicht im Gesetz- und Verordnungsblatt für Berlin mitveröffentlicht wurden.",
+            "sections": [
+              "protected-objects"
+            ]
+          },
+          "status": {
+            "id": "schutzgebiete",
+            "state": "read",
+            "fetched": "2026-11-14",
+            "reason": null,
+            "credit": "Für die Nutzung der Daten ist die Datenlizenz Deutschland - Zero - Version 2.0 anzuwenden. Die Lizenz ist über https://www.govdata.de/dl-de/zero-2-0 abrufbar."
+          }
+        },
+        {
+          "source": {
+            "key": "forstverwalt",
+            "label": {
+              "en": "Geoportal Berlin",
+              "de": "Geoportal Berlin"
+            },
+            "what": {
+              "en": "forest administration (Forstämter and Reviere of the Berliner Forsten)",
+              "de": "Forstverwaltung (Forstämter und Reviere der Berliner Forsten)"
+            },
+            "credit": "Für die Nutzung der Daten ist die Datenlizenz Deutschland - Zero - Version 2.0 anzuwenden. Die Lizenz ist über https://www.govdata.de/dl-de/zero-2-0 abrufbar.",
+            "sections": [
+              "forest-units"
+            ]
+          },
+          "status": {
+            "id": "forstverwalt",
+            "state": "read",
+            "fetched": "2026-11-14",
+            "reason": null,
+            "credit": "Für die Nutzung der Daten ist die Datenlizenz Deutschland - Zero - Version 2.0 anzuwenden. Die Lizenz ist über https://www.govdata.de/dl-de/zero-2-0 abrufbar."
+          }
+        },
+        {
+          "source": {
+            "key": "wsg",
+            "label": {
+              "en": "Geoportal Berlin",
+              "de": "Geoportal Berlin"
+            },
+            "what": {
+              "en": "water protection areas",
+              "de": "Wasserschutzgebiete"
+            },
+            "credit": "Für die Nutzung der Daten ist die Datenlizenz Deutschland - Zero - Version 2.0 anzuwenden. Die Lizenz ist über https://www.govdata.de/dl-de/zero-2-0 abrufbar.",
+            "sections": [
+              "water-protection"
+            ]
+          },
+          "status": {
+            "id": "wsg",
+            "state": "read",
+            "fetched": "2026-11-14",
+            "reason": null,
+            "credit": "Für die Nutzung der Daten ist die Datenlizenz Deutschland - Zero - Version 2.0 anzuwenden. Die Lizenz ist über https://www.govdata.de/dl-de/zero-2-0 abrufbar."
+          }
+        }
+      ]
+    }
+  ]
+}

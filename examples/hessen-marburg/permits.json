@@ -1,0 +1,181 @@
+{
+  "schema": 1,
+  "created": "2026-11-14",
+  "map_kind": "sprint",
+  "area_m2": 540291.322688428,
+  "admin": [
+    {
+      "item": {
+        "level": "land",
+        "name": "Hessen",
+        "kind": "Land",
+        "ags": "06"
+      },
+      "percent": 100.0,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "level": "kreis",
+        "name": "Marburg-Biedenkopf",
+        "kind": "Landkreis",
+        "ags": "06534"
+      },
+      "percent": 100.0,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "level": "gemeinde",
+        "name": "Marburg",
+        "kind": "Stadt",
+        "ags": "06534014"
+      },
+      "percent": 100.0,
+      "at_edge": false
+    }
+  ],
+  "protected": [
+    {
+      "item": {
+        "kind": "landschaftsschutzgebiet",
+        "name": "Landschaftsteile Stadt Marburg",
+        "legal_date": "1970-01-27",
+        "legal_title": null,
+        "legal_link": "https://natureg.hessen.de/resources/recherche/Schutzgebiete/GI/LSG/VO/2534004_VO.pdf",
+        "site_link": null,
+        "year": 1970
+      },
+      "percent": 35.6,
+      "at_edge": false
+    }
+  ],
+  "osm_protected": [],
+  "operators": [
+    {
+      "name": "Philipps-Universität Marburg",
+      "roles": [
+        "operator"
+      ],
+      "objects": [
+        "amenity=university"
+      ]
+    }
+  ],
+  "roads": [
+    {
+      "class": "landesstrasse",
+      "refs": [
+        "L 3092",
+        "L 3381"
+      ]
+    },
+    {
+      "class": "kreisstrasse",
+      "refs": [
+        "K 68",
+        "K 7"
+      ]
+    }
+  ],
+  "hints": [
+    {
+      "key": "permits-hint-nature-authority",
+      "args": {
+        "kreis": "Marburg-Biedenkopf",
+        "kreisfrei": "no"
+      }
+    },
+    {
+      "key": "permits-hint-forest-owner",
+      "args": {
+        "office": "unknown"
+      }
+    },
+    {
+      "key": "permits-hint-order-office",
+      "args": {
+        "gemeinde": "Marburg"
+      }
+    },
+    {
+      "key": "permits-hint-road-class",
+      "args": {
+        "class": "landesstrasse",
+        "refs": "L 3092, L 3381"
+      }
+    },
+    {
+      "key": "permits-hint-road-class",
+      "args": {
+        "class": "kreisstrasse",
+        "refs": "K 68, K 7"
+      }
+    },
+    {
+      "key": "permits-hint-school-operator",
+      "args": {
+        "operator": "Philipps-Universität Marburg"
+      }
+    },
+    {
+      "key": "permits-hint-owners-unknown",
+      "args": {}
+    }
+  ],
+  "sources": [
+    {
+      "id": "vg250",
+      "state": "read",
+      "fetched": "2026-11-14",
+      "reason": null,
+      "credit": "© BKG (2026) dl-de/by-2-0, Datenquellen: https://sg.geodatenzentrum.de/web_public/gdz/datenquellen/datenquellen_vg_nuts.pdf"
+    },
+    {
+      "id": "bfn",
+      "state": "read",
+      "fetched": "2026-11-14",
+      "reason": null,
+      "credit": "© Bundesamt für Naturschutz (BfN) (2026), Schutzgebiete in Deutschland; Nutzungsbestimmungen für die Bereitstellung von Geodaten des Bundes (GeoNutzV). Nicht für Planungszwecke geeignet."
+    },
+    {
+      "id": "osm",
+      "state": "read",
+      "fetched": "2026-11-06",
+      "reason": null,
+      "credit": "© OpenStreetMap contributors, ODbL"
+    }
+  ],
+  "regional": [
+    {
+      "adapter": "hessen",
+      "water_protection": [],
+      "sources": [
+        {
+          "source": {
+            "key": "wasserschutzgebiete",
+            "label": {
+              "en": "HLNUG",
+              "de": "HLNUG"
+            },
+            "what": {
+              "en": "drinking water and medicinal spring protection areas",
+              "de": "Trinkwasser- und Heilquellenschutzgebiete"
+            },
+            "credit": "Lizenz: Creative Commons BY 4.0 (https://creativecommons.org/licenses/by/4.0/deed.de). Quellenvermerk für Daten: „Darstellung auf der Grundlage von Daten des Hessischen Landesamtes für Naturschutz, Umwelt und Geologie (HLNUG)“.",
+            "sections": [
+              "water-protection"
+            ]
+          },
+          "status": {
+            "id": "wasserschutzgebiete",
+            "state": "read",
+            "fetched": "2026-11-14",
+            "reason": null,
+            "credit": "Lizenz: Creative Commons BY 4.0 (https://creativecommons.org/licenses/by/4.0/deed.de). Quellenvermerk für Daten: „Darstellung auf der Grundlage von Daten des Hessischen Landesamtes für Naturschutz, Umwelt und Geologie (HLNUG)“."
+          }
+        }
+      ]
+    }
+  ]
+}

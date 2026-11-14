@@ -1,0 +1,190 @@
+{
+  "schema": 1,
+  "created": "2026-11-14",
+  "map_kind": "forest",
+  "area_m2": 1077530.5759614045,
+  "admin": [
+    {
+      "item": {
+        "level": "land",
+        "name": "Bayern",
+        "kind": "Freistaat",
+        "ags": "09"
+      },
+      "percent": 100.0,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "level": "kreis",
+        "name": "Nürnberger Land",
+        "kind": "Landkreis",
+        "ags": "09574"
+      },
+      "percent": 77.7,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "level": "kreis",
+        "name": "Nürnberg",
+        "kind": "Kreisfreie Stadt",
+        "ags": "09564"
+      },
+      "percent": 22.3,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "level": "verwaltungsgemeinschaft",
+        "name": "Zerzabelshofer Forst",
+        "kind": "Einheitsgemeinde",
+        "ags": "--------"
+      },
+      "percent": 77.7,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "level": "verwaltungsgemeinschaft",
+        "name": "Nürnberg",
+        "kind": "Einheitsgemeinde",
+        "ags": "--------"
+      },
+      "percent": 22.3,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "level": "gemeinde",
+        "name": "Zerzabelshofer Forst",
+        "kind": "Gemeindefreies Gebiet",
+        "ags": "09574465"
+      },
+      "percent": 77.7,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "level": "gemeinde",
+        "name": "Nürnberg",
+        "kind": "Stadt",
+        "ags": "09564000"
+      },
+      "percent": 22.3,
+      "at_edge": false
+    }
+  ],
+  "protected": [
+    {
+      "item": {
+        "kind": "ffh",
+        "name": "Tiergarten Nürnberg mit Schmausenbuck",
+        "legal_date": null,
+        "legal_title": null,
+        "legal_link": null,
+        "site_link": "https://biodiversity.europa.eu/sites/natura2000/DE6532372",
+        "year": null
+      },
+      "percent": 55.3,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "kind": "vogelschutzgebiet",
+        "name": "Nürnberger Reichswald",
+        "legal_date": null,
+        "legal_title": null,
+        "legal_link": null,
+        "site_link": "https://biodiversity.europa.eu/sites/natura2000/DE6533471",
+        "year": null
+      },
+      "percent": 96.0,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "kind": "landschaftsschutzgebiet",
+        "name": "Schmausenbuck",
+        "legal_date": "1978-06-01",
+        "legal_title": null,
+        "legal_link": null,
+        "site_link": null,
+        "year": 1978
+      },
+      "percent": 22.2,
+      "at_edge": false
+    }
+  ],
+  "osm_protected": [],
+  "operators": [
+    {
+      "name": "Naturkindergarten Waldwichtel e.V.",
+      "roles": [
+        "operator"
+      ],
+      "objects": [
+        "amenity=kindergarten"
+      ]
+    }
+  ],
+  "hints": [
+    {
+      "key": "permits-hint-nature-authority",
+      "args": {
+        "kreis": "Nürnberger Land",
+        "kreisfrei": "no"
+      }
+    },
+    {
+      "key": "permits-hint-natura2000",
+      "args": {}
+    },
+    {
+      "key": "permits-hint-forest-owner",
+      "args": {
+        "office": "unknown"
+      }
+    },
+    {
+      "key": "permits-hint-order-office",
+      "args": {
+        "amt": "Einheitsgemeinde Zerzabelshofer Forst",
+        "gemeinde": "Zerzabelshofer Forst"
+      }
+    },
+    {
+      "key": "permits-hint-school-operator",
+      "args": {
+        "operator": "Naturkindergarten Waldwichtel e.V."
+      }
+    },
+    {
+      "key": "permits-hint-owners-unknown",
+      "args": {}
+    }
+  ],
+  "sources": [
+    {
+      "id": "vg250",
+      "state": "read",
+      "fetched": "2026-11-14",
+      "reason": null,
+      "credit": "© BKG (2026) dl-de/by-2-0, Datenquellen: https://sg.geodatenzentrum.de/web_public/gdz/datenquellen/datenquellen_vg_nuts.pdf"
+    },
+    {
+      "id": "bfn",
+      "state": "read",
+      "fetched": "2026-11-14",
+      "reason": null,
+      "credit": "© Bundesamt für Naturschutz (BfN) (2026), Schutzgebiete in Deutschland; Nutzungsbestimmungen für die Bereitstellung von Geodaten des Bundes (GeoNutzV). Nicht für Planungszwecke geeignet."
+    },
+    {
+      "id": "osm",
+      "state": "read",
+      "fetched": "2026-11-13",
+      "reason": null,
+      "credit": "© OpenStreetMap contributors, ODbL"
+    }
+  ]
+}

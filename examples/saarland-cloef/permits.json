@@ -1,0 +1,283 @@
+{
+  "schema": 1,
+  "created": "2026-11-14",
+  "map_kind": "forest",
+  "area_m2": 1081082.1744424459,
+  "admin": [
+    {
+      "item": {
+        "level": "land",
+        "name": "Saarland",
+        "kind": "Land",
+        "ags": "10"
+      },
+      "percent": 100.0,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "level": "kreis",
+        "name": "Merzig-Wadern",
+        "kind": "Landkreis",
+        "ags": "10042"
+      },
+      "percent": 100.0,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "level": "gemeinde",
+        "name": "Mettlach",
+        "kind": "Gemeinde",
+        "ags": "10042114"
+      },
+      "percent": 100.0,
+      "at_edge": false
+    }
+  ],
+  "protected": [
+    {
+      "item": {
+        "kind": "naturschutzgebiet",
+        "name": "Naturschutzgebiet \"Steilhänge der Saar\" (N 6505-301)",
+        "legal_date": "2017-07-07",
+        "legal_title": "Abl 2017, Nr 27, Seite 617ff; VO vom 21.06.2017; Natura2000-Gebietsausweisung",
+        "legal_link": "https://recht.saarland.de/bssl/document/jlr-NNLSL00009EC9",
+        "site_link": null,
+        "year": 2017
+      },
+      "percent": 91.7,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "kind": "ffh",
+        "name": "Steilhänge der Saar",
+        "legal_date": null,
+        "legal_title": null,
+        "legal_link": null,
+        "site_link": "https://biodiversity.europa.eu/sites/natura2000/DE6505301",
+        "year": null
+      },
+      "percent": 95.0,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "kind": "vogelschutzgebiet",
+        "name": "Steilhänge der Saar",
+        "legal_date": null,
+        "legal_title": null,
+        "legal_link": null,
+        "site_link": "https://biodiversity.europa.eu/sites/natura2000/DE6505301",
+        "year": null
+      },
+      "percent": 95.0,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "kind": "landschaftsschutzgebiet",
+        "name": "Saarschleife und Leukbachtal",
+        "legal_date": "1967-02-09",
+        "legal_title": "Abl 1967, Nr 7, Seite 153ff; VO vom 01.12.1966",
+        "legal_link": "https://www.naturschutzdaten.saarland.de/natura2000/Landschaftsschutzgebiete/VO_L_1.00.16.pdf",
+        "site_link": null,
+        "year": 1967
+      },
+      "percent": 7.4,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "kind": "naturpark",
+        "name": "Saar-Hunsrück",
+        "legal_date": null,
+        "legal_title": null,
+        "legal_link": null,
+        "site_link": null,
+        "year": 1980
+      },
+      "percent": 100.0,
+      "at_edge": false
+    }
+  ],
+  "osm_protected": [],
+  "operators": [],
+  "roads": [
+    {
+      "class": "landesstrasse",
+      "refs": [
+        "L 177"
+      ]
+    }
+  ],
+  "hints": [
+    {
+      "key": "permits-hint-nature-authority",
+      "args": {
+        "kreis": "Merzig-Wadern",
+        "kreisfrei": "no"
+      }
+    },
+    {
+      "key": "permits-hint-nsg-paths",
+      "args": {}
+    },
+    {
+      "key": "permits-hint-natura2000",
+      "args": {}
+    },
+    {
+      "key": "permits-hint-forest-office",
+      "args": {
+        "administration": "SaarForst Landesbetrieb",
+        "office": "Revier Mettlach-Merzig"
+      }
+    },
+    {
+      "key": "permits-hint-forest-owner",
+      "args": {
+        "office": "known"
+      }
+    },
+    {
+      "key": "permits-hint-order-office",
+      "args": {
+        "gemeinde": "Mettlach"
+      }
+    },
+    {
+      "key": "permits-hint-road-class",
+      "args": {
+        "class": "landesstrasse",
+        "refs": "L 177"
+      }
+    },
+    {
+      "key": "permits-hint-owners-unknown",
+      "args": {}
+    }
+  ],
+  "sources": [
+    {
+      "id": "vg250",
+      "state": "read",
+      "fetched": "2026-11-14",
+      "reason": null,
+      "credit": "© BKG (2026) dl-de/by-2-0, Datenquellen: https://sg.geodatenzentrum.de/web_public/gdz/datenquellen/datenquellen_vg_nuts.pdf"
+    },
+    {
+      "id": "bfn",
+      "state": "read",
+      "fetched": "2026-11-14",
+      "reason": null,
+      "credit": "© Bundesamt für Naturschutz (BfN) (2026), Schutzgebiete in Deutschland; Nutzungsbestimmungen für die Bereitstellung von Geodaten des Bundes (GeoNutzV). Nicht für Planungszwecke geeignet."
+    },
+    {
+      "id": "osm",
+      "state": "read",
+      "fetched": "2026-11-11",
+      "reason": null,
+      "credit": "© OpenStreetMap contributors, ODbL"
+    }
+  ],
+  "regional": [
+    {
+      "adapter": "saarland",
+      "monuments": {
+        "total": 0,
+        "groups": [],
+        "links_left": 0
+      },
+      "forest_units": [
+        {
+          "item": {
+            "administration": "SaarForst Landesbetrieb",
+            "office": "Revier Mettlach-Merzig",
+            "unit": null
+          },
+          "percent": 100.0,
+          "at_edge": false
+        }
+      ],
+      "water_protection": [],
+      "forest_functions": [],
+      "sources": [
+        {
+          "source": {
+            "key": "forst",
+            "label": {
+              "en": "Geoportal Saarland",
+              "de": "Geoportal Saarland"
+            },
+            "what": {
+              "en": "forest districts of the SaarForst Landesbetrieb (state forest)",
+              "de": "Reviere des SaarForst Landesbetriebs (Staatswald)"
+            },
+            "credit": "Quellenvermerk: © GDI-SL ({year}); Lizenz: Creative Commons Namensnennung 4.0 International (CC BY 4.0)",
+            "sections": [
+              "forest-units"
+            ]
+          },
+          "status": {
+            "id": "forst",
+            "state": "read",
+            "fetched": "2026-11-14",
+            "reason": null,
+            "credit": "Quellenvermerk: © GDI-SL (2026); Lizenz: Creative Commons Namensnennung 4.0 International (CC BY 4.0)"
+          }
+        },
+        {
+          "source": {
+            "key": "schutzgebiete",
+            "label": {
+              "en": "Geoportal Saarland",
+              "de": "Geoportal Saarland"
+            },
+            "what": {
+              "en": "water protection areas, Naturwaldzellen and Urwald",
+              "de": "Wasserschutzgebiete, Naturwaldzellen und Urwald"
+            },
+            "credit": "Quellenvermerk: © GDI-SL ({year}); Lizenz: Creative Commons Namensnennung 4.0 International (CC BY 4.0)",
+            "sections": [
+              "water-protection",
+              "forest-functions"
+            ]
+          },
+          "status": {
+            "id": "schutzgebiete",
+            "state": "read",
+            "fetched": "2026-11-14",
+            "reason": null,
+            "credit": "Quellenvermerk: © GDI-SL (2026); Lizenz: Creative Commons Namensnennung 4.0 International (CC BY 4.0)"
+          }
+        },
+        {
+          "source": {
+            "key": "denkmale",
+            "label": {
+              "en": "Geoportal Saarland",
+              "de": "Geoportal Saarland"
+            },
+            "what": {
+              "en": "listed buildings (Baudenkmale)",
+              "de": "Baudenkmale"
+            },
+            "credit": "Quellenvermerk: © GDI-SL ({year}); Lizenz: Creative Commons Namensnennung 4.0 International (CC BY 4.0)",
+            "sections": [
+              "monuments"
+            ]
+          },
+          "status": {
+            "id": "denkmale",
+            "state": "read",
+            "fetched": "2026-11-14",
+            "reason": null,
+            "credit": "Quellenvermerk: © GDI-SL (2026); Lizenz: Creative Commons Namensnennung 4.0 International (CC BY 4.0)"
+          }
+        }
+      ]
+    }
+  ]
+}

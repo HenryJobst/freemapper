@@ -1,0 +1,337 @@
+{
+  "schema": 1,
+  "created": "2026-11-14",
+  "map_kind": "forest",
+  "area_m2": 1080964.4188089757,
+  "admin": [
+    {
+      "item": {
+        "level": "land",
+        "name": "Nordrhein-Westfalen",
+        "kind": "Land",
+        "ags": "05"
+      },
+      "percent": 100.0,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "level": "kreis",
+        "name": "Rhein-Sieg-Kreis",
+        "kind": "Kreis",
+        "ags": "05382"
+      },
+      "percent": 100.0,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "level": "gemeinde",
+        "name": "Königswinter",
+        "kind": "Stadt",
+        "ags": "05382024"
+      },
+      "percent": 52.6,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "level": "gemeinde",
+        "name": "Bad Honnef",
+        "kind": "Stadt",
+        "ags": "05382008"
+      },
+      "percent": 47.4,
+      "at_edge": false
+    }
+  ],
+  "protected": [
+    {
+      "item": {
+        "kind": "naturschutzgebiet",
+        "name": "NSG Siebengebirge <SU>",
+        "legal_date": "2005-06-06",
+        "legal_title": null,
+        "legal_link": null,
+        "site_link": null,
+        "year": 1922
+      },
+      "percent": 76.5,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "kind": "ffh",
+        "name": "Siebengebirge",
+        "legal_date": null,
+        "legal_title": null,
+        "legal_link": null,
+        "site_link": "https://biodiversity.europa.eu/sites/natura2000/DE5309301",
+        "year": null
+      },
+      "percent": 75.2,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "kind": "naturpark",
+        "name": "Siebengebirge",
+        "legal_date": null,
+        "legal_title": null,
+        "legal_link": null,
+        "site_link": null,
+        "year": 1958
+      },
+      "percent": 72.8,
+      "at_edge": false
+    }
+  ],
+  "osm_protected": [],
+  "operators": [],
+  "roads": [
+    {
+      "class": "bundesstrasse",
+      "refs": [
+        "B 42"
+      ]
+    },
+    {
+      "class": "landesstrasse",
+      "refs": [
+        "L 193"
+      ]
+    }
+  ],
+  "hints": [
+    {
+      "key": "permits-hint-nature-authority",
+      "args": {
+        "kreis": "Rhein-Sieg-Kreis",
+        "kreisfrei": "no"
+      }
+    },
+    {
+      "key": "permits-hint-nsg-paths",
+      "args": {}
+    },
+    {
+      "key": "permits-hint-natura2000",
+      "args": {}
+    },
+    {
+      "key": "permits-hint-forest-office",
+      "args": {
+        "administration": "Landesbetrieb Wald und Holz NRW",
+        "office": "Regionalforstamt Rhein-Sieg-Erft",
+        "units": "Forstbetriebsbezirk Ittenbach, Forstbetriebsbezirk Hardt, Forstbetriebsbezirk Eudenbach"
+      }
+    },
+    {
+      "key": "permits-hint-forest-owner",
+      "args": {
+        "office": "known"
+      }
+    },
+    {
+      "key": "permits-hint-order-office",
+      "args": {
+        "gemeinde": "Königswinter"
+      }
+    },
+    {
+      "key": "permits-hint-road-class",
+      "args": {
+        "class": "bundesstrasse",
+        "refs": "B 42"
+      }
+    },
+    {
+      "key": "permits-hint-road-class",
+      "args": {
+        "class": "landesstrasse",
+        "refs": "L 193"
+      }
+    },
+    {
+      "key": "permits-hint-state-forest",
+      "args": {
+        "office": "Regionalforstamt Rhein-Sieg-Erft",
+        "owner": "Bundesland Nordrhein-Westfalen",
+        "percent": "46.8"
+      }
+    },
+    {
+      "key": "permits-hint-owners-unknown",
+      "args": {
+        "rest": "yes"
+      }
+    }
+  ],
+  "sources": [
+    {
+      "id": "vg250",
+      "state": "read",
+      "fetched": "2026-11-14",
+      "reason": null,
+      "credit": "© BKG (2026) dl-de/by-2-0, Datenquellen: https://sg.geodatenzentrum.de/web_public/gdz/datenquellen/datenquellen_vg_nuts.pdf"
+    },
+    {
+      "id": "bfn",
+      "state": "read",
+      "fetched": "2026-11-14",
+      "reason": null,
+      "credit": "© Bundesamt für Naturschutz (BfN) (2026), Schutzgebiete in Deutschland; Nutzungsbestimmungen für die Bereitstellung von Geodaten des Bundes (GeoNutzV). Nicht für Planungszwecke geeignet."
+    },
+    {
+      "id": "osm",
+      "state": "read",
+      "fetched": "2026-11-07",
+      "reason": null,
+      "credit": "© OpenStreetMap contributors, ODbL"
+    }
+  ],
+  "regional": [
+    {
+      "adapter": "nordrheinwestfalen",
+      "forest_units": [
+        {
+          "item": {
+            "administration": "Landesbetrieb Wald und Holz NRW",
+            "office": "Regionalforstamt Rhein-Sieg-Erft",
+            "unit": "Forstbetriebsbezirk Ittenbach"
+          },
+          "percent": 42.9,
+          "at_edge": false
+        },
+        {
+          "item": {
+            "administration": "Landesbetrieb Wald und Holz NRW",
+            "office": "Regionalforstamt Rhein-Sieg-Erft",
+            "unit": "Forstbetriebsbezirk Hardt"
+          },
+          "percent": 34.9,
+          "at_edge": false
+        },
+        {
+          "item": {
+            "administration": "Landesbetrieb Wald und Holz NRW",
+            "office": "Regionalforstamt Rhein-Sieg-Erft",
+            "unit": "Forstbetriebsbezirk Eudenbach"
+          },
+          "percent": 22.2,
+          "at_edge": false
+        }
+      ],
+      "state_forest": [
+        {
+          "item": {
+            "owner": "Bundesland Nordrhein-Westfalen",
+            "office": "Regionalforstamt Rhein-Sieg-Erft"
+          },
+          "percent": 46.8,
+          "at_edge": false
+        }
+      ],
+      "water_protection": [],
+      "forest_functions": [],
+      "sources": [
+        {
+          "source": {
+            "key": "forstbetriebsbezirke",
+            "label": {
+              "en": "Wald und Holz NRW",
+              "de": "Wald und Holz NRW"
+            },
+            "what": {
+              "en": "forest districts (Forstbetriebsbezirke) with their Regionalforstamt",
+              "de": "Forstbetriebsbezirke mit ihrem Regionalforstamt"
+            },
+            "credit": "Landesbetrieb Wald und Holz Nordrhein-Westfalen, Datenlizenz Deutschland – Namensnennung – Version 2.0 (https://www.govdata.de/dl-de/by-2-0)",
+            "sections": [
+              "forest-units"
+            ]
+          },
+          "status": {
+            "id": "forstbetriebsbezirke",
+            "state": "read",
+            "fetched": "2026-11-14",
+            "reason": null,
+            "credit": "Landesbetrieb Wald und Holz Nordrhein-Westfalen, Datenlizenz Deutschland – Namensnennung – Version 2.0 (https://www.govdata.de/dl-de/by-2-0)"
+          }
+        },
+        {
+          "source": {
+            "key": "staatswald",
+            "label": {
+              "en": "Wald und Holz NRW",
+              "de": "Wald und Holz NRW"
+            },
+            "what": {
+              "en": "state forest (Landeseigener Forstbetrieb)",
+              "de": "Staatswald (Landeseigener Forstbetrieb)"
+            },
+            "credit": "Landesbetrieb Wald und Holz Nordrhein-Westfalen, Datenlizenz Deutschland – Namensnennung – Version 2.0 (https://www.govdata.de/dl-de/by-2-0)",
+            "sections": [
+              "state-forest"
+            ]
+          },
+          "status": {
+            "id": "staatswald",
+            "state": "read",
+            "fetched": "2026-11-14",
+            "reason": null,
+            "credit": "Landesbetrieb Wald und Holz Nordrhein-Westfalen, Datenlizenz Deutschland – Namensnennung – Version 2.0 (https://www.govdata.de/dl-de/by-2-0)"
+          }
+        },
+        {
+          "source": {
+            "key": "linfos",
+            "label": {
+              "en": "LINFOS (Land NRW)",
+              "de": "LINFOS (Land NRW)"
+            },
+            "what": {
+              "en": "Naturwaldzellen and wilderness development areas",
+              "de": "Naturwaldzellen und Wildnisentwicklungsgebiete"
+            },
+            "credit": "Open Data - Dieses Angebot vom Landesamt für Natur, Umwelt und Verbraucherschutz Nordrhein-Westfalen ist lizensiert unter der Datenlizenz Deutschland Namensnennung 2.0 (https://www.govdata.de/dl-de/by-2-0). Datensätze unter dieser Lizenz müssen bei Weiterverwendung mit dem Quellenverweis „Land NRW“ versehen werden.",
+            "sections": [
+              "forest-functions"
+            ]
+          },
+          "status": {
+            "id": "linfos",
+            "state": "read",
+            "fetched": "2026-11-14",
+            "reason": null,
+            "credit": "Open Data - Dieses Angebot vom Landesamt für Natur, Umwelt und Verbraucherschutz Nordrhein-Westfalen ist lizensiert unter der Datenlizenz Deutschland Namensnennung 2.0 (https://www.govdata.de/dl-de/by-2-0). Datensätze unter dieser Lizenz müssen bei Weiterverwendung mit dem Quellenverweis „Land NRW“ versehen werden."
+          }
+        },
+        {
+          "source": {
+            "key": "wasserschutzgebiete",
+            "label": {
+              "en": "Land NRW",
+              "de": "Land NRW"
+            },
+            "what": {
+              "en": "water protection areas (set and planned)",
+              "de": "Wasserschutzgebiete (festgesetzt und geplant)"
+            },
+            "credit": "Land NRW, Datenlizenz Deutschland – Zero – Version 2.0 (https://www.govdata.de/dl-de/zero-2-0)",
+            "sections": [
+              "water-protection"
+            ]
+          },
+          "status": {
+            "id": "wasserschutzgebiete",
+            "state": "read",
+            "fetched": "2026-11-14",
+            "reason": null,
+            "credit": "Land NRW, Datenlizenz Deutschland – Zero – Version 2.0 (https://www.govdata.de/dl-de/zero-2-0)"
+          }
+        }
+      ]
+    }
+  ]
+}

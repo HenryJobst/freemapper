@@ -1,0 +1,82 @@
+{
+  "schema": 1,
+  "created": "2026-11-14",
+  "map_kind": "sprint",
+  "area_m2": 532825.225369263,
+  "admin": [
+    {
+      "item": {
+        "level": "land",
+        "name": "Bremen",
+        "kind": "Freie Hansestadt",
+        "ags": "04"
+      },
+      "percent": 100.0,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "level": "kreis",
+        "name": "Bremen",
+        "kind": "Kreisfreie Stadt",
+        "ags": "04011"
+      },
+      "percent": 100.0,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "level": "gemeinde",
+        "name": "Bremen",
+        "kind": "Stadt",
+        "ags": "04011000"
+      },
+      "percent": 100.0,
+      "at_edge": false
+    }
+  ],
+  "protected": [],
+  "osm_protected": [],
+  "operators": [],
+  "hints": [
+    {
+      "key": "permits-hint-forest-owner",
+      "args": {
+        "office": "unknown"
+      }
+    },
+    {
+      "key": "permits-hint-order-office",
+      "args": {
+        "gemeinde": "Bremen"
+      }
+    },
+    {
+      "key": "permits-hint-owners-unknown",
+      "args": {}
+    }
+  ],
+  "sources": [
+    {
+      "id": "vg250",
+      "state": "read",
+      "fetched": "2026-11-14",
+      "reason": null,
+      "credit": "© BKG (2026) dl-de/by-2-0, Datenquellen: https://sg.geodatenzentrum.de/web_public/gdz/datenquellen/datenquellen_vg_nuts.pdf"
+    },
+    {
+      "id": "bfn",
+      "state": "read",
+      "fetched": "2026-11-14",
+      "reason": null,
+      "credit": "© Bundesamt für Naturschutz (BfN) (2026), Schutzgebiete in Deutschland; Nutzungsbestimmungen für die Bereitstellung von Geodaten des Bundes (GeoNutzV). Nicht für Planungszwecke geeignet."
+    },
+    {
+      "id": "osm",
+      "state": "read",
+      "fetched": "2026-11-12",
+      "reason": null,
+      "credit": "© OpenStreetMap contributors, ODbL"
+    }
+  ]
+}

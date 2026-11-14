@@ -1,0 +1,238 @@
+{
+  "schema": 1,
+  "created": "2026-11-14",
+  "map_kind": "forest",
+  "area_m2": 1081063.057209014,
+  "admin": [
+    {
+      "item": {
+        "level": "land",
+        "name": "Brandenburg",
+        "kind": "Land",
+        "ags": "12"
+      },
+      "percent": 100.0,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "level": "kreis",
+        "name": "Oder-Spree",
+        "kind": "Landkreis",
+        "ags": "12067"
+      },
+      "percent": 100.0,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "level": "verwaltungsgemeinschaft",
+        "name": "Spreenhagen",
+        "kind": "Amt",
+        "ags": "--------"
+      },
+      "percent": 100.0,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "level": "gemeinde",
+        "name": "Rauen",
+        "kind": "Gemeinde",
+        "ags": "12067408"
+      },
+      "percent": 100.0,
+      "at_edge": false
+    }
+  ],
+  "protected": [
+    {
+      "item": {
+        "kind": "landschaftsschutzgebiet",
+        "name": "Scharmützelseegebiet",
+        "legal_date": "2002-08-14",
+        "legal_title": "Verordnung über das Landschaftsschutzgebiet \"Scharmützelseegebiet\" des Ministeriums für Landwirtschaft, Umweltschutz und Raumordnung Brandenburg vom 11.06.2002",
+        "legal_link": "https://bravors.brandenburg.de/de/verordnungen-212851",
+        "site_link": null,
+        "year": 2002
+      },
+      "percent": 100.0,
+      "at_edge": false
+    }
+  ],
+  "osm_protected": [],
+  "operators": [],
+  "hints": [
+    {
+      "key": "permits-hint-nature-authority",
+      "args": {
+        "kreis": "Oder-Spree",
+        "kreisfrei": "no"
+      }
+    },
+    {
+      "key": "permits-hint-forest-office",
+      "args": {
+        "administration": "Landesbetrieb Forst Brandenburg",
+        "office": "Oberförsterei Oder-Spree",
+        "units": "Revier Spreenhagen"
+      }
+    },
+    {
+      "key": "permits-hint-forest-owner",
+      "args": {
+        "office": "known"
+      }
+    },
+    {
+      "key": "permits-hint-forest-function",
+      "args": {
+        "kind": "recreation",
+        "names": "Rauener Steine 220301, Rauener Berge"
+      }
+    },
+    {
+      "key": "permits-hint-order-office",
+      "args": {
+        "amt": "Amt Spreenhagen",
+        "gemeinde": "Rauen"
+      }
+    },
+    {
+      "key": "permits-hint-owners-unknown",
+      "args": {}
+    }
+  ],
+  "sources": [
+    {
+      "id": "vg250",
+      "state": "read",
+      "fetched": "2026-11-14",
+      "reason": null,
+      "credit": "© BKG (2026) dl-de/by-2-0, Datenquellen: https://sg.geodatenzentrum.de/web_public/gdz/datenquellen/datenquellen_vg_nuts.pdf"
+    },
+    {
+      "id": "bfn",
+      "state": "read",
+      "fetched": "2026-11-14",
+      "reason": null,
+      "credit": "© Bundesamt für Naturschutz (BfN) (2026), Schutzgebiete in Deutschland; Nutzungsbestimmungen für die Bereitstellung von Geodaten des Bundes (GeoNutzV). Nicht für Planungszwecke geeignet."
+    },
+    {
+      "id": "osm",
+      "state": "read",
+      "fetched": "2026-11-06",
+      "reason": null,
+      "credit": "© OpenStreetMap contributors, ODbL"
+    }
+  ],
+  "regional": [
+    {
+      "adapter": "brandenburg",
+      "forest_units": [
+        {
+          "item": {
+            "administration": "Landesbetrieb Forst Brandenburg",
+            "office": "Oberförsterei Oder-Spree",
+            "unit": "Revier Spreenhagen"
+          },
+          "percent": 100.0,
+          "at_edge": false
+        }
+      ],
+      "water_protection": [],
+      "forest_functions": [
+        {
+          "item": {
+            "kind": "recreation",
+            "name": "Rauener Steine 220301"
+          },
+          "percent": 84.0,
+          "at_edge": false
+        },
+        {
+          "item": {
+            "kind": "recreation",
+            "name": "Rauener Berge"
+          },
+          "percent": 11.3,
+          "at_edge": false
+        }
+      ],
+      "sources": [
+        {
+          "source": {
+            "key": "reviere",
+            "label": {
+              "en": "Landesbetrieb Forst Brandenburg",
+              "de": "Landesbetrieb Forst Brandenburg"
+            },
+            "what": {
+              "en": "forest districts (Reviere) with their Oberförsterei",
+              "de": "Forstreviere mit ihrer Oberförsterei"
+            },
+            "credit": "Landesbetrieb Forst Brandenburg, Datenlizenz Deutschland – Namensnennung – Version 2.0 (https://www.govdata.de/dl-de/by-2-0)",
+            "sections": [
+              "forest-units"
+            ]
+          },
+          "status": {
+            "id": "reviere",
+            "state": "read",
+            "fetched": "2026-11-14",
+            "reason": null,
+            "credit": "Landesbetrieb Forst Brandenburg, Datenlizenz Deutschland – Namensnennung – Version 2.0 (https://www.govdata.de/dl-de/by-2-0)"
+          }
+        },
+        {
+          "source": {
+            "key": "waldfunktionen",
+            "label": {
+              "en": "Landesbetrieb Forst Brandenburg",
+              "de": "Landesbetrieb Forst Brandenburg"
+            },
+            "what": {
+              "en": "forest functions (Naturwald, Totalreservat, closed areas, Erholungswald)",
+              "de": "Waldfunktionen (Naturwald, Totalreservat, nicht betretbare Flächen, Erholungswald)"
+            },
+            "credit": "Landesbetrieb Forst Brandenburg, Datenlizenz Deutschland – Namensnennung – Version 2.0 (https://www.govdata.de/dl-de/by-2-0)",
+            "sections": [
+              "forest-functions"
+            ]
+          },
+          "status": {
+            "id": "waldfunktionen",
+            "state": "read",
+            "fetched": "2026-11-14",
+            "reason": null,
+            "credit": "Landesbetrieb Forst Brandenburg, Datenlizenz Deutschland – Namensnennung – Version 2.0 (https://www.govdata.de/dl-de/by-2-0)"
+          }
+        },
+        {
+          "source": {
+            "key": "wasserschutzgebiete",
+            "label": {
+              "en": "Landesamt für Umwelt Brandenburg",
+              "de": "Landesamt für Umwelt Brandenburg"
+            },
+            "what": {
+              "en": "water protection areas",
+              "de": "Wasserschutzgebiete"
+            },
+            "credit": "Landesamt für Umwelt Brandenburg (LfU), Creative Commons Namensnennung 4.0 International (CC BY 4.0)",
+            "sections": [
+              "water-protection"
+            ]
+          },
+          "status": {
+            "id": "wasserschutzgebiete",
+            "state": "read",
+            "fetched": "2026-11-14",
+            "reason": null,
+            "credit": "Landesamt für Umwelt Brandenburg (LfU), Creative Commons Namensnennung 4.0 International (CC BY 4.0)"
+          }
+        }
+      ]
+    }
+  ]
+}

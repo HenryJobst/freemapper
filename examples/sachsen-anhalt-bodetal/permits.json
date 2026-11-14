@@ -1,0 +1,210 @@
+{
+  "schema": 1,
+  "created": "2026-11-14",
+  "map_kind": "forest",
+  "area_m2": 1081321.5340336477,
+  "admin": [
+    {
+      "item": {
+        "level": "land",
+        "name": "Sachsen-Anhalt",
+        "kind": "Land",
+        "ags": "15"
+      },
+      "percent": 100.0,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "level": "kreis",
+        "name": "Harz",
+        "kind": "Landkreis",
+        "ags": "15085"
+      },
+      "percent": 100.0,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "level": "verwaltungsgemeinschaft",
+        "name": "Thale",
+        "kind": "Einheitsgemeinde",
+        "ags": "--------"
+      },
+      "percent": 100.0,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "level": "gemeinde",
+        "name": "Thale",
+        "kind": "Stadt",
+        "ags": "15085330"
+      },
+      "percent": 100.0,
+      "at_edge": false
+    }
+  ],
+  "protected": [
+    {
+      "item": {
+        "kind": "naturschutzgebiet",
+        "name": "Bodetal",
+        "legal_date": "1937-01-01",
+        "legal_title": null,
+        "legal_link": null,
+        "site_link": null,
+        "year": 1937
+      },
+      "percent": 73.3,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "kind": "ffh",
+        "name": "Bodetal und Laubwälder des Harzrandes bei Thale",
+        "legal_date": null,
+        "legal_title": null,
+        "legal_link": null,
+        "site_link": "https://biodiversity.europa.eu/sites/natura2000/DE4231303",
+        "year": null
+      },
+      "percent": 73.3,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "kind": "ffh",
+        "name": "Bode und Selke im Harzvorland",
+        "legal_date": null,
+        "legal_title": null,
+        "legal_link": null,
+        "site_link": "https://biodiversity.europa.eu/sites/natura2000/DE4133301",
+        "year": null
+      },
+      "percent": 0.3,
+      "at_edge": true
+    },
+    {
+      "item": {
+        "kind": "vogelschutzgebiet",
+        "name": "Nordöstlicher Unterharz",
+        "legal_date": null,
+        "legal_title": null,
+        "legal_link": null,
+        "site_link": "https://biodiversity.europa.eu/sites/natura2000/DE4232401",
+        "year": null
+      },
+      "percent": 76.8,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "kind": "landschaftsschutzgebiet",
+        "name": "Harz und nördliches Harzvorland",
+        "legal_date": "1994-01-01",
+        "legal_title": null,
+        "legal_link": null,
+        "site_link": null,
+        "year": 1994
+      },
+      "percent": 93.7,
+      "at_edge": false
+    },
+    {
+      "item": {
+        "kind": "naturpark",
+        "name": "Harz/Sachsen-Anhalt",
+        "legal_date": null,
+        "legal_title": null,
+        "legal_link": null,
+        "site_link": null,
+        "year": 2003
+      },
+      "percent": 100.0,
+      "at_edge": false
+    }
+  ],
+  "osm_protected": [
+    {
+      "item": {
+        "osm_id": "way/927936142",
+        "object": "boundary=protected_area",
+        "name": null,
+        "operator": null,
+        "protect_class": "1",
+        "protection_title": "Naturschutzgebiet-Kernzone"
+      },
+      "percent": 1.1,
+      "at_edge": false
+    }
+  ],
+  "operators": [
+    {
+      "name": "Bodetal Tourismus GmbH",
+      "roles": [
+        "operator"
+      ],
+      "objects": [
+        "tourism=theme_park"
+      ]
+    }
+  ],
+  "hints": [
+    {
+      "key": "permits-hint-nature-authority",
+      "args": {
+        "kreis": "Harz",
+        "kreisfrei": "no"
+      }
+    },
+    {
+      "key": "permits-hint-nsg-paths",
+      "args": {}
+    },
+    {
+      "key": "permits-hint-natura2000",
+      "args": {}
+    },
+    {
+      "key": "permits-hint-forest-owner",
+      "args": {
+        "office": "unknown"
+      }
+    },
+    {
+      "key": "permits-hint-order-office",
+      "args": {
+        "amt": "Einheitsgemeinde Thale",
+        "gemeinde": "Thale"
+      }
+    },
+    {
+      "key": "permits-hint-owners-unknown",
+      "args": {}
+    }
+  ],
+  "sources": [
+    {
+      "id": "vg250",
+      "state": "read",
+      "fetched": "2026-11-14",
+      "reason": null,
+      "credit": "© BKG (2026) dl-de/by-2-0, Datenquellen: https://sg.geodatenzentrum.de/web_public/gdz/datenquellen/datenquellen_vg_nuts.pdf"
+    },
+    {
+      "id": "bfn",
+      "state": "read",
+      "fetched": "2026-11-14",
+      "reason": null,
+      "credit": "© Bundesamt für Naturschutz (BfN) (2026), Schutzgebiete in Deutschland; Nutzungsbestimmungen für die Bereitstellung von Geodaten des Bundes (GeoNutzV). Nicht für Planungszwecke geeignet."
+    },
+    {
+      "id": "osm",
+      "state": "read",
+      "fetched": "2026-11-06",
+      "reason": null,
+      "credit": "© OpenStreetMap contributors, ODbL"
+    }
+  ]
+}

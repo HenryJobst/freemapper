@@ -10,14 +10,11 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 - Bavaria: objects from the landscape model of the agency (ATKIS Basis-DLM, ADR 0135). Bavaria has no service for its cadastre; springs, cave entrances, named rocks, free-standing towers, monuments and wayside crosses, fountains, fences, dams, small watercourses and named trees now come from there, on forest maps also paths and tracks. The model is made for 1:25 000 and accurate to about 3 m. Its objects therefore stay candidates and go where OpenStreetMap or another source has the same object: a point within 15 m, a line that runs within 10 m of a line of the same kind for 80 % of its length. On the Schmausenbuck 14 candidates stay, 6 of them paths OpenStreetMap lacks; in the old town of Regensburg 10. Both Bavarian examples are rebuilt. For adapters: a NAS service names its model (`[[extra.nas]] model`, default `alkis`, new `basis-dlm`).
 
-### Changed
-
-- Vegetation from laser point clouds (ADR 0136): the outlines now follow the edge of the vegetation instead of the 3 m steps of the cells. freemapper traces them on a raster three times finer and slightly blurred; corners are rounded a little. The nine examples with point-cloud vegetation are rebuilt.
-
 ## [0.20.0] - 2026-11-14
 
 ### Added
 
+- Examples: each of the 30 examples in `examples/` now has its permit notes (`permits.md` and `permits.json`, in German). They show what the notes give in each state, from the Bezirke and monuments of Berlin and Hamburg to the forest administration, water protection areas and classified roads.
 - Permit notes: a new section names the classified roads through the map area (Autobahn, Bundes-, Landes- or Staats-, Kreisstraße, with their number from OpenStreetMap), and per class a hint that the road traffic authority orders a closure or a crossing with marshals and who usually keeps the road (ADR 0133). It works in every state and comes from the OSM extract freemapper reads already.
 - Permit notes: the files freemapper downloads for a whole state (about 32 MB in North Rhine-Westphalia, about 4 MB in Brandenburg) stay in the cache (folder `permits`). A new fetch asks only for the date and downloads a file only when the server has a newer one; when it cannot be reached, freemapper uses the kept one (ADR 0132).
 - Permit notes: water protection areas also from Brandenburg (LfU, one file of about 4 MB) and North Rhine-Westphalia (one file of about 15 MB, also the planned areas, whose zone says "(geplant)"), both as a shapefile for the whole state (ADR 0131). A fetch in North Rhine-Westphalia downloads about 32 MB with it. freemapper reads the fields of a shapefile table without a `.cpg` as Latin-1 when they are not UTF-8; umlauts there came out as replacement characters so far.
@@ -30,6 +27,7 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ### Changed
 
+- Vegetation from laser point clouds (ADR 0136): the outlines now follow the edge of the vegetation instead of the 3 m steps of the cells. freemapper traces them on a raster three times finer and slightly blurred; corners are rounded a little. The nine examples with point-cloud vegetation are rebuilt.
 - Cliffs on sprint maps (ADR 0134): sprint maps generalize their cliffs too, by the values of the ISSprOM 2019-2 (minimum height 1.5 m, minimum length 0.9 mm), and their training PDF more (cliffs from 3 m, no top lines without tags). `derive` now keeps the terrain mosaic of a state with tiled terrain for every map; so the ticks of banks and retained walls point downhill there too.
 - Cliffs on forest maps (ADR 0126): the training PDF generalizes the rock more than the map (cliffs from 5 m above the slope, no top lines without tags, longer pieces), also where the cliffs are only candidates; the candidates map keeps every OSM cliff. A cliff the orthophoto shows as rock goes first in the ranking; for that `derive` writes `data/rock-seen.tif` for forest maps.
 - Permit notes follow the map area, not the kind of map (ADR 0127). The forest hints and the section "Forest administration" come as soon as OpenStreetMap has forest in the area, also on a sprint or schoolyard map, and also when that cannot be told without an OSM extract. A map in the middle of a town no longer gets them, even when it lies in a Revier of Brandenburg. The operator of a school in the area is now named on every kind of map, not only on schoolyard maps.
