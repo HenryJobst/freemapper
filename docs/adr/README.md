@@ -182,3 +182,4 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0134](0134-cliffs-on-the-sprint-map-and-the-terrain-for-every-map.md) | Cliffs on the sprint map, and the terrain for every map | Accepted | 2026-11-14 |
 | [0135](0135-bavaria-objects-from-the-basis-dlm.md) | Bavaria: objects from the ATKIS Basis-DLM | Accepted | 2026-11-14 |
 | [0136](0136-vegetation-outlines-traced-on-a-blurred-raster.md) | Vegetation outlines traced on a blurred raster | Accepted | 2026-11-14 |
+| [0138](0138-vegetation-green-shades-by-the-density-below-3-m.md) | Vegetation: the green shades follow the density below 3 m | Accepted | 2026-11-14 |

@@ -6,6 +6,10 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+### Geändert
+
+- Vegetation aus Laserpunktwolken (ADR 0138): Die Grünabstufungen 406, 408 und 410 folgen jetzt dem, was in der Schicht steht, durch die man läuft: dem Anteil der Laserpunkte zwischen 0,8 und 3 m an allen Punkten unter 3 m (ab 20 %, 35 % und 50 %). Vorher zählte ein Index auch die Kronen mit, und Hochwald ohne Unterwuchs erreichte fast den Wert eines Dickichts, denn alle Befliegungen der Bundesländer finden ohne Laub statt. Am Schmausenbuck, gemessen an der Kronenhöhe aus den Sommer-Luftbildern, erscheinen 71 % der Dickichte grün (vorher 29 %) und 7 % des Hochwalds (vorher 11 %). Parks und Städte bekommen mehr grüne Flächen (Sanssouci 205 statt 54); Waldkarten ändern sich weniger, weil ihre Mindestfläche größer ist. Stangenholz mit freiem Stammraum bleibt gut belaufbarer Wald. Bestehende Karten bekommen das mit `run --force`. Die neun Beispiele mit Vegetation sind neu gebaut.
+
 ### Behoben
 
 - Ein Adapter aus einem Ordner, der ein eingebautes Raster-Backend nennt (`backend = "lgb"` und Ähnliches), bekam in der Download-Schätzung kein Luftbild, kein Gelände- und kein Oberflächenmodell. Die eingebauten Backends schätzen jetzt ihre Raster selbst, mit denselben Werten wie die Bundesländer. Die Schätzungen der eingebauten Bundesländer bleiben gleich (Issue #71).

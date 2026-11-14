@@ -20,6 +20,8 @@ the crowns, so it does not help.
     and `v` the returns in bands weighted by how much they slow a runner: 0.8 to 1.8 m × 1, 1.8 to 3 m × 0.5, above
     3 m × 0.1 (omapmaker's index and bands). From 0.4 slow running (406), from 0.6 walk (408), from 0.8 impassable
     (410);
+    (replaced by [0138](0138-vegetation-green-shades-by-the-density-below-3-m.md): the green shades follow the
+    returns between 0.8 and 3 m among all returns below 3 m, from 0.20, 0.35 and 0.50)
   - below 0.4 runnable forest (405), or undergrowth when the returns between 0.2 and 0.8 m make up 35 % (407) or
     56 % (409) of those and the ground returns;
   - nothing where fewer than four returns fall.

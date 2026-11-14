@@ -674,7 +674,9 @@ Vegetation aus den klassifizierten Laserpunktwolken der LGB, des Geoportals Berl
 RP, vom LVGL bzw. der Bayerischen Vermessungsverwaltung ableiten:
 offenes Gelände (401), gut belaufbaren Wald (405), die Grünabstufungen 406, 408 und 410 sowie Unterwuchs (407,
 409). Gemessen wird, wie viele Laserpunkte in jeder 3-m-Zelle in Bodennähe ankommen und wie viele in den
-Höhen hängen bleiben, die einen Läufer bremsen. Das zeigt mehr als das nDOM, das nur die Kronen sieht. Die Umrisse
+Höhen hängen bleiben, die einen Läufer bremsen. Das zeigt mehr als das nDOM, das nur die Kronen sieht. Die
+Grünabstufungen folgen der Schicht, durch die man läuft: Von allen Punkten unter 3 m zählt der Anteil zwischen
+0,8 und 3 m. Ab 20 % ist eine Zelle 406, ab 35 % 408, ab 50 % 410 (ADR 0138). Die Kronen darüber zählen nicht. Die Umrisse
 entstehen auf einem dreimal feineren, leicht weichgezeichneten Raster, damit sie dem Rand der Vegetation folgen
 statt den 3-m-Stufen der Zellen (ADR 0136).
 
@@ -691,13 +693,13 @@ nur den Teil mit anderer Klasse.
 
 Geprüft ist das an Sanssouci, am Kölner Volksgarten, am Mainzer Stadtpark, am Berliner Viktoriapark und an der
 Altstadt von Saarlouis. Schilf und
-Gebüsch am Ufer erscheinen als 410. Die Berliner Befliegung von 2021 war ohne Laub; dort erkennt freemapper
-dichtes Gebüsch schlechter, und ändert das Geoportal ein Archiv, lädt freemapper dessen Kacheln neu. Auch die
-Saarländer Befliegung (Februar 2025) war ohne Laub, und das LVGL hat die Punktwolke auf einen Punkt je 0,5 m
-ausgedünnt; die Kronen erkennt freemapper dort trotzdem. In Bayern ist es am Schmausenbuck im Nürnberger
-Reichswald geprüft. Die drei bayerischen Flüge, deren Tag bekannt ist, lagen zwischen November und Februar. Ohne
-Laub geben Gebüsch und Jungwuchs wenige Echos. Am Schmausenbuck erscheint der 2 bis 5 m hohe Jungwuchs unter
-einer Stromtrasse deshalb überwiegend als gut belaufbarer Wald (405). Das Datum an den bayerischen Kandidaten ist der
+Gebüsch am Ufer erscheinen als 410. Alle Befliegungen, die die sechs Bundesländer veröffentlichen, waren ohne
+Laub, zwischen Dezember und März, und auf solche Flüge sind die Grünabstufungen eingestellt. Am Schmausenbuck im
+Nürnberger Reichswald (geflogen am 20.12.2021) sind sie an der Kronenhöhe aus den Sommer-Luftbildern gemessen:
+71 % der Dickichte erscheinen grün und 7 % des Hochwalds. Stangenholz mit Kronen in 3 bis 8 m Höhe und freiem
+Stammraum bleibt gut belaufbarer Wald (405). Das LVGL hat die Saarländer Punktwolke auf einen Punkt je 0,5 m
+ausgedünnt; die Kronen erkennt freemapper dort trotzdem, die Grünabstufungen erscheinen aber in verstreuten
+Flecken. Ändert das Geoportal Berlin ein Archiv, lädt freemapper dessen Kacheln neu. Das Datum an den bayerischen Kandidaten ist der
 Flugtag, den freemapper aus den Laserpunkten liest (am Schmausenbuck der 20.12.2021). Ältere Befliegungen nennen
 ihn nicht; dort steht der Tag, an dem die Datei erzeugt wurde. Liegen Kacheln mit verschiedenem Datum unter einer
 Karte, tragen die Kandidaten in jedem Bundesland das älteste. Die

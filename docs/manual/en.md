@@ -645,7 +645,9 @@ the vegetation from the classified laser point clouds of LGB, the Geoportal Berl
 LVGL and the Bayerische Vermessungsverwaltung: open land
 (401), runnable forest (405), the green shades 406, 408 and 410, and undergrowth (407, 409). It counts in every
 3 m cell how many laser returns reach the ground and how many stay at the heights that slow a runner. That
-shows more than the nDSM, which only sees the crowns. The outlines are traced on a raster three times finer and
+shows more than the nDSM, which only sees the crowns. The green shades follow the layer a runner moves through:
+of all returns below 3 m, the share that lies between 0.8 and 3 m. From 20 % a cell is 406, from 35 % 408, from
+50 % 410 (ADR 0138). The crowns above do not count. The outlines are traced on a raster three times finer and
 slightly blurred, so that they follow the edge of the vegetation instead of the 3 m steps of the cells (ADR 0136).
 
 The group `vegetation` is off in every profile, `full` included, because the point clouds are large. Per square
@@ -660,13 +662,13 @@ candidate shows only the part of another class.
 
 It is checked on Sanssouci, the Volksgarten in Cologne, the Stadtpark in Mainz, the Viktoriapark in Berlin and
 the old town of Saarlouis.
-Reeds and shrubs at a shore come out as 410. The Berlin scan of 2021 was made without leaves, so dense shrubs are
-recognised less well there, and when the Geoportal changes an archive, freemapper loads its tiles again. The Saarland scan (February 2025)
-was made without leaves too, and LVGL thinned the point cloud to one point per 0.5 m; freemapper still finds the
-crowns there. In Bavaria it is checked on the Schmausenbuck in the Nürnberger Reichswald. The three Bavarian
-flights whose day is known were flown between November and February. Without leaves, shrubs and young growth
-give few echoes, so on the Schmausenbuck the young growth of 2 to 5 m under a power line comes out mostly as
-runnable forest (405). The date on the Bavarian candidates is the day of the flight, which freemapper reads from
+Reeds and shrubs at a shore come out as 410. Every flight the six states publish was made without leaves,
+between December and March, and the green shades are set on such flights. On the Schmausenbuck in the Nürnberger
+Reichswald (flown on 20 December 2021) they were measured against the canopy height of the summer pictures: 71 %
+of the thickets come out green and 7 % of the tall forest. Young pole stands, with crowns at 3 to 8 m and a clear
+stem space, stay runnable forest (405). LVGL thinned the Saarland point cloud to one point per 0.5 m; freemapper
+still finds the crowns there, but the green shades come in scattered patches. When the Geoportal Berlin changes
+an archive, freemapper loads its tiles again. The date on the Bavarian candidates is the day of the flight, which freemapper reads from
 the laser points (20 December 2021 on the Schmausenbuck). Older flights do not name it; there it is the day the
 file was made. When tiles of different days lie under a map, the candidates carry the oldest, in every state. The point
 cloud can be some years older than the orthophoto. Check the areas against the orthophoto and in the terrain. When
