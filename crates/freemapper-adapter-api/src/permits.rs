@@ -60,6 +60,38 @@ pub struct PermitSourceInfo {
     /// The sections of the notes the findings of the source fill. A section is left out of the
     /// notes when one source that fills it could not be read.
     pub sections: &'static [PermitSection],
+    /// For a source of districts: whose offices the hints of its districts name (ADR 0129).
+    /// `None` for every other source.
+    pub offices: Option<DistrictOffices>,
+}
+
+/// The offices of a city state's districts, as the hints name them: each city state splits the
+/// tasks between its Bezirksämter and its central offices in its own way.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum DistrictOffices {
+    /// Berlin: Ordnungsamt and Straßen- und Grünflächenamt of the Bezirksamt, and its lower
+    /// monument and nature conservation authorities.
+    Berlin,
+    /// Hamburg: the Bezirksamt with its Fachamt Management des öffentlichen Raumes; the
+    /// monuments are the central Denkmalschutzamt's.
+    Hamburg,
+}
+
+impl DistrictOffices {
+    /// Whether one central office looks after the monuments of all districts, so the notes
+    /// name it once and not per district.
+    pub fn central_monuments(self) -> bool {
+        matches!(self, DistrictOffices::Hamburg)
+    }
+
+    /// The name of the offices in the arguments of a hint, as `permits.json` stores it.
+    pub fn key(self) -> &'static str {
+        match self {
+            DistrictOffices::Berlin => "berlin",
+            DistrictOffices::Hamburg => "hamburg",
+        }
+    }
 }
 
 /// A text in the languages of the program.
@@ -86,6 +118,11 @@ pub enum PermitSection {
     ForestUnits,
     /// The forest the state owns.
     StateForest,
+    /// Water protection areas with their zone (ADR 0129).
+    WaterProtection,
+    /// Forest with a function or a protection of forest law: Erholungswald, Bannwald,
+    /// Naturwald, areas closed to the public.
+    ForestFunctions,
 }
 
 /// One finding of a regional source with its geometry.
@@ -139,6 +176,21 @@ pub enum FindingKind {
         owner: String,
         office: Option<String>,
     },
+    /// A water protection area or one of its zones.
+    WaterProtection {
+        /// The name of the area ("Baursberg").
+        name: Option<String>,
+        /// The zone as the data write it ("Schutzzone III", "Zone IIIB").
+        zone: Option<String>,
+        /// The ordinance, as the data cite it.
+        citation: Option<String>,
+    },
+    /// Forest with a function or a protection of forest law.
+    ForestFunction {
+        kind: ForestFunctionKind,
+        /// The name of the area, or what the data say about it ("von hoher Bedeutung").
+        name: Option<String>,
+    },
     /// A protected object of nature conservation law.
     ProtectedObject {
         kind: ProtectedObjectKind,
@@ -159,6 +211,41 @@ pub enum ProtectedObjectKind {
     ProtectedLandscapePart,
     /// An area with special rules inside a protected area.
     SpecialRules,
+}
+
+/// The functions and protections of forest the notes know.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ForestFunctionKind {
+    /// Erholungswald: forest declared or mapped for recreation.
+    Recreation,
+    /// Bannwald or Schutzwald: forest that may not be cleared.
+    Protected,
+    /// Naturwald, Naturwaldzelle, Totalreservat, Wildnisentwicklungsgebiet: left to itself.
+    Natural,
+    /// An area of forest closed to the public.
+    Closed,
+}
+
+/// Whether a water protection zone is one of the inner zones (I or II), where events are
+/// usually ruled out; `None` when the text names no zone the notes can read. "IIIA", "III B"
+/// and "Zone 3" are outer zones.
+pub fn inner_zone(zone: &str) -> Option<bool> {
+    let upper = zone.to_uppercase();
+    let words: Vec<&str> = upper
+        .split(|c: char| !c.is_ascii_alphanumeric())
+        .filter(|w| !w.is_empty())
+        .collect();
+    let level = words.iter().rev().find_map(|word| {
+        let roman = word.trim_end_matches(['A', 'B', 'C']);
+        match roman {
+            "I" | "1" => Some(1),
+            "II" | "2" => Some(2),
+            "III" | "3" | "IV" | "4" => Some(3),
+            _ => None,
+        }
+    })?;
+    Some(level <= 2)
 }
 
 impl ProtectedObjectKind {
@@ -245,6 +332,19 @@ mod tests {
         assert!(plain_key("bezirke") && plain_key("a-nd") && plain_key("0x"));
         for bad in ["", "Bezirke", "a_nd", "../x", "a.b", "-a", "a b"] {
             assert!(!plain_key(bad), "{bad}");
+        }
+    }
+
+    #[test]
+    fn inner_zones_are_one_and_two() {
+        for inner in ["Schutzzone I", "Zone II", "II", "Zone 2", "Schutzzone IIA"] {
+            assert_eq!(inner_zone(inner), Some(true), "{inner}");
+        }
+        for outer in ["Schutzzone III", "Zone IIIB", "III A", "Zone 3", "IV"] {
+            assert_eq!(inner_zone(outer), Some(false), "{outer}");
+        }
+        for unknown in ["", "WSG", "Zone"] {
+            assert_eq!(inner_zone(unknown), None, "{unknown}");
         }
     }
 

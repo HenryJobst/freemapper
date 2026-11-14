@@ -1178,6 +1178,7 @@ mod tests {
                 note: None,
                 layers: &["all"],
                 sections: &[PermitSection::Districts],
+                offices: None,
             },
             url,
         })

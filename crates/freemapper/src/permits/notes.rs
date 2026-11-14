@@ -21,8 +21,11 @@ use serde::{Deserialize, Serialize};
 use crate::area::MapArea;
 use crate::crs::{Crs, LatLon};
 use crate::permits::osm::{OsmFinding, OsmFindingKind};
-use crate::permits::regional::{HintFacts, RegionalInput, RegionalNotes, assemble_regional};
+use crate::permits::regional::{
+    DistrictOffices, ForestFunctionKind, HintFacts, RegionalInput, RegionalNotes, assemble_regional,
+};
 use crate::project::MapKind;
+use freemapper_adapter_api::permits::inner_zone;
 
 /// The version of the JSON shape of [`PermitNotes`].
 pub const SCHEMA: u32 = 1;
@@ -49,9 +52,9 @@ pub mod hint_key {
     pub const ORDER_OFFICE: &str = "permits-hint-order-office";
     /// Arg `operator`.
     pub const PARK_OPERATOR: &str = "permits-hint-park-operator";
-    /// Arg `operator`; schoolyard maps only.
+    /// Arg `operator`: a school or similar on the map.
     pub const SCHOOL_OPERATOR: &str = "permits-hint-school-operator";
-    /// Arg `district`: the Ordnungsamt and the Straßen- und Grünflächenamt of its office. In
+    /// Args `district` and `offices` (`berlin`, `hamburg`): the offices of its Bezirksamt. In
     /// place of [`CITY_STATE`] and [`ORDER_OFFICE`] when a regional source read the districts.
     pub const DISTRICT_OFFICE: &str = "permits-hint-district-office";
     /// Arg `district`: a monument on the map lies in it.
@@ -65,13 +68,20 @@ pub mod hint_key {
     /// rest of the map area.
     pub const OWNERS_UNKNOWN: &str = "permits-hint-owners-unknown";
     /// Args `office`, `administration` and, where the source names them, `units` (joined with
-    /// ", "): a forest office that is more than an edge of the map. Forest maps only.
+    /// ", "): a forest office that is more than an edge of the map, for a map area with forest
+    /// (ADR 0127).
     pub const FOREST_OFFICE: &str = "permits-hint-forest-office";
-    /// Arg `office`: `known` when a [`FOREST_OFFICE`] hint is there, else `unknown`. Forest maps
-    /// only.
+    /// Arg `office`: `known` when a [`FOREST_OFFICE`] hint is there, else `unknown`. For a map
+    /// area with forest (ADR 0127).
     pub const FOREST_OWNER: &str = "permits-hint-forest-owner";
     /// Args `owner`, `percent` (as for [`OWNER_SHARE`]) and, where known, `office`.
     pub const STATE_FOREST: &str = "permits-hint-state-forest";
+    /// Args `inner` (`yes` for zone I or II, `no`, `unknown`) and, where the data give them,
+    /// `name` and `zone`: a water protection area or zone on the map (ADR 0129).
+    pub const WATER_PROTECTION: &str = "permits-hint-water-protection";
+    /// Args `kind` (`recreation`, `protected`, `natural`, `closed`) and, where known, `names`
+    /// (joined with ", "): forest with that function or protection on the map.
+    pub const FOREST_FUNCTION: &str = "permits-hint-forest-function";
 }
 
 /// The credit line of the OSM data, as on the map.
@@ -262,8 +272,21 @@ pub fn assemble(
         .map(|(f, _, _)| *f)
         .filter(|f| f.kind == OsmFindingKind::Operated)
         .collect();
-    let (regional, facts) = assemble_regional(&plane, &inputs.regional);
-    let hints = hints(kind, &admin, &protected, &operated, &facts);
+    let (mut regional, facts) = assemble_regional(&plane, &inputs.regional);
+    // Forest hints and the forest offices belong to a map area with forest: a forest map, an
+    // area with forest in OSM, or one where OSM could not tell (ADR 0127). A Revier also covers
+    // towns, so a town without forest gets neither.
+    let forest = kind == MapKind::Forest
+        || !matches!(inputs.osm, SourceInput::Read { .. })
+        || osm.iter().any(|(f, _, share)| {
+            *share > 0.0 && crate::permits::osm::FOREST_OBJECTS.contains(&f.object.as_str())
+        });
+    if !forest {
+        for part in &mut regional {
+            part.forest_units = None;
+        }
+    }
+    let hints = hints(forest, &admin, &protected, &operated, &facts);
     PermitNotes {
         schema: SCHEMA,
         created: today,
@@ -625,7 +648,7 @@ fn runners<'a>(operated: &[&'a OsmFinding], objects: &[&str]) -> BTreeSet<&'a st
 
 /// The hints, in the order of [`hint_key`], each key and args once.
 fn hints(
-    kind: MapKind,
+    forest: bool,
     admin: &[Share<AdminEntry>],
     protected: &[Share<ProtectedEntry>],
     operated: &[&OsmFinding],
@@ -673,8 +696,22 @@ fn hints(
     if any_protected(&|k| matches!(k, ProtectedKind::Ffh | ProtectedKind::Vogelschutzgebiet)) {
         hints.push(Hint::new(hint_key::NATURA2000, &[]));
     }
-    // A Revier covers towns as well: the forest hints are for forest maps alone.
-    if kind == MapKind::Forest {
+    for water in regional.iter().flat_map(|f| &f.water) {
+        let inner = match water.zone.as_deref().and_then(inner_zone) {
+            Some(true) => "yes",
+            Some(false) => "no",
+            None => "unknown",
+        };
+        let mut args = vec![("inner", inner)];
+        if let Some(name) = &water.name {
+            args.push(("name", name.as_str()));
+        }
+        if let Some(zone) = &water.zone {
+            args.push(("zone", zone.as_str()));
+        }
+        hints.push(Hint::new(hint_key::WATER_PROTECTION, &args));
+    }
+    if forest {
         let offices: Vec<_> = regional.iter().flat_map(|f| &f.forest_offices).collect();
         for office in &offices {
             let units = office.units.join(", ");
@@ -694,6 +731,20 @@ fn hints(
         };
         hints.push(Hint::new(hint_key::FOREST_OWNER, &[("office", office)]));
     }
+    for (kind, names) in regional.iter().flat_map(|f| &f.forest_functions) {
+        let kind = match kind {
+            ForestFunctionKind::Recreation => "recreation",
+            ForestFunctionKind::Protected => "protected",
+            ForestFunctionKind::Natural => "natural",
+            ForestFunctionKind::Closed => "closed",
+        };
+        let names = names.join(", ");
+        let mut args = vec![("kind", kind)];
+        if !names.is_empty() {
+            args.push(("names", names.as_str()));
+        }
+        hints.push(Hint::new(hint_key::FOREST_FUNCTION, &args));
+    }
     let in_city_state = largest(AdminLevel::Land).is_some_and(is_city_state);
     if let Some(gemeinde) =
         largest(AdminLevel::Gemeinde).filter(|_| districts.is_empty() || !in_city_state)
@@ -709,23 +760,45 @@ fn hints(
         }
         hints.push(Hint::new(hint_key::ORDER_OFFICE, &args));
     }
-    for district in &districts {
-        hints.push(Hint::new(
-            hint_key::DISTRICT_OFFICE,
-            &[("district", district)],
-        ));
-    }
-    for district in regional.iter().flat_map(|f| &f.monument_districts) {
-        hints.push(Hint::new(
-            hint_key::MONUMENT_AUTHORITY,
-            &[("district", district)],
-        ));
-    }
-    for district in regional.iter().flat_map(|f| &f.nature_districts) {
-        hints.push(Hint::new(
-            hint_key::NATURE_OBJECT_AUTHORITY,
-            &[("district", district)],
-        ));
+    // Each city state names its own offices (ADR 0129), as the source of its districts says;
+    // a source that says nothing speaks as the first city state with districts did, without
+    // `offices`.
+    for facts in regional {
+        let offices = facts.offices.map(DistrictOffices::key);
+        let with = |district: &str| -> Vec<(&'static str, String)> {
+            let mut args = vec![("district", district.to_string())];
+            if let Some(offices) = offices {
+                args.push(("offices", offices.to_string()));
+            }
+            args
+        };
+        let hint = |key: &str, args: Vec<(&'static str, String)>| {
+            let args: Vec<(&str, &str)> = args.iter().map(|(k, v)| (*k, v.as_str())).collect();
+            Hint::new(key, &args)
+        };
+        for district in &facts.districts {
+            hints.push(hint(hint_key::DISTRICT_OFFICE, with(district)));
+        }
+        let central = facts
+            .offices
+            .is_some_and(DistrictOffices::central_monuments);
+        for district in &facts.monument_districts {
+            // A central office looks after all monuments: one hint, without a district.
+            hints.push(if central {
+                hint(
+                    hint_key::MONUMENT_AUTHORITY,
+                    offices
+                        .map(|o| ("offices", o.to_string()))
+                        .into_iter()
+                        .collect(),
+                )
+            } else {
+                hint(hint_key::MONUMENT_AUTHORITY, with(district))
+            });
+        }
+        for district in &facts.nature_districts {
+            hints.push(hint(hint_key::NATURE_OBJECT_AUTHORITY, with(district)));
+        }
     }
     for operator in runners(operated, &["leisure=park", "leisure=garden"]) {
         hints.push(Hint::new(
@@ -733,19 +806,18 @@ fn hints(
             &[("operator", operator)],
         ));
     }
-    if kind == MapKind::Schoolyard {
-        let schools = [
-            "amenity=school",
-            "amenity=kindergarten",
-            "amenity=college",
-            "amenity=university",
-        ];
-        for operator in runners(operated, &schools) {
-            hints.push(Hint::new(
-                hint_key::SCHOOL_OPERATOR,
-                &[("operator", operator)],
-            ));
-        }
+    // A school on the map matters on every kind of map: a sprint on a campus too.
+    let schools = [
+        "amenity=school",
+        "amenity=kindergarten",
+        "amenity=college",
+        "amenity=university",
+    ];
+    for operator in runners(operated, &schools) {
+        hints.push(Hint::new(
+            hint_key::SCHOOL_OPERATOR,
+            &[("operator", operator)],
+        ));
     }
     let owners: Vec<&(Option<String>, f64)> = regional
         .iter()
@@ -1654,12 +1726,15 @@ mod tests {
         let park = hint(&sprint, hint_key::PARK_OPERATOR);
         assert_eq!(park.len(), 1);
         assert_eq!(park[0].args, args(&[("operator", "Grünflächenamt")]));
-        assert!(hint(&sprint, hint_key::SCHOOL_OPERATOR).is_empty());
-
-        let schoolyard = notes(MapKind::Schoolyard, &inputs(vec![], vec![], osm));
-        let school = hint(&schoolyard, hint_key::SCHOOL_OPERATOR);
-        assert_eq!(school.len(), 1);
-        assert_eq!(school[0].args, args(&[("operator", "Stadt X")]));
+        // A school on the map is named on every kind of map (ADR 0127).
+        for map in [
+            &sprint,
+            &notes(MapKind::Schoolyard, &inputs(vec![], vec![], osm)),
+        ] {
+            let school = hint(map, hint_key::SCHOOL_OPERATOR);
+            assert_eq!(school.len(), 1);
+            assert_eq!(school[0].args, args(&[("operator", "Stadt X")]));
+        }
         // Protected OSM areas are not operators.
         assert!(sprint.osm_protected.is_empty());
     }
@@ -1800,6 +1875,7 @@ mod tests {
             credit: "dl-de/zero-2-0".into(),
             note: None,
             sections: vec![section],
+            offices: None,
         }
     }
 
@@ -2105,13 +2181,44 @@ mod tests {
             .expect("the owner's consent");
         assert_eq!(owner.args.get("office").map(String::as_str), Some("known"));
 
-        // A sprint map keeps the section and has no forest hint: a Revier also covers towns.
+        // A sprint map without forest gets neither the section nor the hints: a Revier also
+        // covers towns (ADR 0127).
         let found = notes(MapKind::Sprint, &with_regional(vec![], vec![units()]));
-        assert!(found.regional[0].forest_units.is_some());
+        assert_eq!(found.regional[0].forest_units, None);
         assert!(
             !keys(&found)
                 .iter()
                 .any(|k| [hint_key::FOREST_OFFICE, hint_key::FOREST_OWNER].contains(k)),
+            "{:?}",
+            found.hints
+        );
+        // A wood on the sprint map, however small, brings both.
+        let wood = finding(
+            OsmFindingKind::Forest,
+            "way/7",
+            "natural=wood",
+            square(13.05, 52.05, 13.051, 52.051),
+        );
+        let inputs = Inputs {
+            osm: read(vec![wood]),
+            ..with_regional(vec![], vec![units()])
+        };
+        let found = notes(MapKind::Sprint, &inputs);
+        assert!(found.regional[0].forest_units.is_some());
+        assert!(
+            keys(&found).contains(&hint_key::FOREST_OFFICE),
+            "{:?}",
+            found.hints
+        );
+        // Without OSM it cannot be told, and the notes rather say too much.
+        let inputs = Inputs {
+            osm: SourceInput::NotRead,
+            ..with_regional(vec![], vec![units()])
+        };
+        let found = notes(MapKind::Schoolyard, &inputs);
+        assert!(found.regional[0].forest_units.is_some());
+        assert!(
+            keys(&found).contains(&hint_key::FOREST_OWNER),
             "{:?}",
             found.hints
         );
@@ -2186,6 +2293,156 @@ mod tests {
             .find(|h| h.key == hint_key::OWNERS_UNKNOWN)
             .unwrap();
         assert_eq!(unknown.args.get("rest").map(String::as_str), Some("yes"));
+    }
+
+    /// Hamburg's Bezirke name the Bezirksamt with Hamburg's words, and its monuments the
+    /// central Denkmalschutzamt in one hint (ADR 0129).
+    #[test]
+    fn hamburgs_bezirke_name_hamburgs_offices() {
+        let mut bezirke = regional(
+            "bezirke",
+            PermitSection::Districts,
+            vec![district("Altona", square(12.9, 51.9, 13.2, 52.2))],
+        );
+        bezirke.source.offices = Some(DistrictOffices::Hamburg);
+        let monuments = regional(
+            "denkmale",
+            PermitSection::Monuments,
+            vec![
+                point(
+                    FindingKind::Monument {
+                        kind: "Gartendenkmal".into(),
+                        link: None,
+                    },
+                    13.05,
+                    52.05,
+                ),
+                point(
+                    FindingKind::Monument {
+                        kind: "Baudenkmal".into(),
+                        link: None,
+                    },
+                    13.06,
+                    52.06,
+                ),
+            ],
+        );
+        let found = notes(
+            MapKind::Sprint,
+            &with_regional(city_state(), vec![bezirke, monuments]),
+        );
+        let office = found
+            .hints
+            .iter()
+            .find(|h| h.key == hint_key::DISTRICT_OFFICE)
+            .unwrap();
+        assert_eq!(office.args["offices"], "hamburg");
+        assert_eq!(office.args["district"], "Altona");
+        let monuments: Vec<&Hint> = found
+            .hints
+            .iter()
+            .filter(|h| h.key == hint_key::MONUMENT_AUTHORITY)
+            .collect();
+        assert_eq!(monuments.len(), 1, "{:?}", found.hints);
+        assert_eq!(monuments[0].args, args(&[("offices", "hamburg")]));
+    }
+
+    /// Water protection zones are summed per area and zone and each gets a hint that says
+    /// whether it is an inner zone (ADR 0129).
+    #[test]
+    fn water_protection_zones_are_named_with_their_zone() {
+        let zone = |name: &str, zone: &str| FindingKind::WaterProtection {
+            name: Some(name.into()),
+            zone: Some(zone.into()),
+            citation: None,
+        };
+        let found = notes(
+            MapKind::Sprint,
+            &with_regional(
+                vec![],
+                vec![regional(
+                    "wsg",
+                    PermitSection::WaterProtection,
+                    vec![
+                        // 10 % and 9 % of zone III, 5 % of zone II.
+                        area(
+                            zone("Baursberg", "Schutzzone III"),
+                            square(13.0, 52.0, 13.01, 52.1),
+                        ),
+                        area(
+                            zone("Baursberg", "Schutzzone III"),
+                            square(13.01, 52.0, 13.019, 52.1),
+                        ),
+                        area(
+                            zone("Baursberg", "Schutzzone II"),
+                            square(13.019, 52.0, 13.024, 52.1),
+                        ),
+                    ],
+                )],
+            ),
+        );
+        let entries = found.regional[0].water_protection.as_ref().unwrap();
+        assert_eq!(entries.len(), 2, "{entries:?}");
+        assert_eq!(entries[0].item.zone.as_deref(), Some("Schutzzone III"));
+        assert!((entries[0].percent - 19.0).abs() < 0.3, "{entries:?}");
+        let inner: Vec<(&str, &str)> = found
+            .hints
+            .iter()
+            .filter(|h| h.key == hint_key::WATER_PROTECTION)
+            .map(|h| (h.args["zone"].as_str(), h.args["inner"].as_str()))
+            .collect();
+        assert_eq!(inner, [("Schutzzone III", "no"), ("Schutzzone II", "yes")]);
+    }
+
+    /// Forest functions are summed per kind and name; each kind gets one hint with the names.
+    #[test]
+    fn forest_functions_get_one_hint_per_kind() {
+        let function = |kind, name: &str| FindingKind::ForestFunction {
+            kind,
+            name: Some(name.into()),
+        };
+        let found = notes(
+            MapKind::Forest,
+            &with_regional(
+                vec![],
+                vec![regional(
+                    "wald",
+                    PermitSection::ForestFunctions,
+                    vec![
+                        area(
+                            function(ForestFunctionKind::Recreation, "von hoher Bedeutung"),
+                            square(13.0, 52.0, 13.05, 52.1),
+                        ),
+                        // 20 % and 10 %: the larger first.
+                        area(
+                            function(ForestFunctionKind::Protected, "Die Reit"),
+                            square(13.05, 52.0, 13.07, 52.1),
+                        ),
+                        area(
+                            function(ForestFunctionKind::Protected, "Heuckenlock"),
+                            square(13.07, 52.0, 13.08, 52.1),
+                        ),
+                    ],
+                )],
+            ),
+        );
+        assert_eq!(
+            found.regional[0].forest_functions.as_ref().unwrap().len(),
+            3
+        );
+        let hints: Vec<(&str, &str)> = found
+            .hints
+            .iter()
+            .filter(|h| h.key == hint_key::FOREST_FUNCTION)
+            .map(|h| (h.args["kind"].as_str(), h.args["names"].as_str()))
+            .collect();
+        assert_eq!(
+            hints,
+            [
+                ("recreation", "von hoher Bedeutung"),
+                ("protected", "Die Reit, Heuckenlock")
+            ]
+        );
     }
 
     /// A Bezirk that comes as two features is one entry with the sum of both (review finding 9).

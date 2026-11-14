@@ -16,8 +16,9 @@ use freemapper::permits::notes::{
     ProtectedEntry, Share, SourceStatus, hint_key,
 };
 use freemapper::permits::regional::{
-    ForestUnitEntry, GreenSpaceEntry, ProtectedObjectEntry, ProtectedObjectKind, RegionalNotes,
-    RegionalStatus, StateForestEntry, Words,
+    ForestFunctionEntry, ForestUnitEntry, GreenSpaceEntry, ProtectedObjectEntry,
+    ProtectedObjectKind, RegionalNotes, RegionalStatus, StateForestEntry, WaterProtectionEntry,
+    Words,
 };
 use freemapper::permits::store::{PERMITS_JSON, PERMITS_MD, write_permit_notes};
 use freemapper::project::{MapKind, ProjectFile};
@@ -394,6 +395,22 @@ fn hint_text(lang: &Lang, notes: &PermitNotes, hint: &Hint) -> String {
     if hint.key == hint_key::OWNERS_UNKNOWN && !has(&args, "rest") {
         args.push(("rest".into(), "no".into()));
     }
+    if [
+        hint_key::DISTRICT_OFFICE,
+        hint_key::MONUMENT_AUTHORITY,
+        hint_key::NATURE_OBJECT_AUTHORITY,
+    ]
+    .contains(&hint.key.as_str())
+        && !has(&args, "offices")
+    {
+        args.push(("offices".into(), "berlin".into()));
+    }
+    if hint.key == hint_key::WATER_PROTECTION && !has(&args, "name") {
+        args.push(("name".into(), t(lang, "permits-osm-unnamed", &[])));
+    }
+    if hint.key == hint_key::FOREST_FUNCTION && !has(&args, "names") {
+        args.push(("names".into(), "none".into()));
+    }
     if hint.key == hint_key::FOREST_OFFICE && !has(&args, "units") {
         args.push(("units".into(), "none".into()));
     }
@@ -662,6 +679,56 @@ fn state_forest_line(lang: &Lang, s: &Share<StateForestEntry>) -> String {
     )
 }
 
+/// "„Baursberg“, Schutzzone III: 12 %".
+fn water_line(lang: &Lang, s: &Share<WaterProtectionEntry>) -> String {
+    let w = &s.item;
+    let mut name = match &w.name {
+        Some(name) => t(lang, "permits-quoted", &[("text", arg(md(name)))]),
+        None => t(lang, "permits-osm-unnamed", &[]),
+    };
+    if let Some(zone) = &w.zone {
+        name = format!(
+            "{name}, {}",
+            t(lang, "permits-water-zone", &[("zone", arg(md(zone)))])
+        );
+    }
+    format!(
+        "- {}",
+        t(
+            lang,
+            "permits-share-line",
+            &[
+                ("name", arg(name)),
+                ("share", arg(share_text(lang, s.percent)))
+            ],
+        )
+    )
+}
+
+/// "Erholungswald (von hoher Bedeutung): 30 %".
+fn forest_function_line(lang: &Lang, s: &Share<ForestFunctionEntry>) -> String {
+    let f = &s.item;
+    let mut name = t(
+        lang,
+        "permits-forest-function-kind",
+        &[("kind", arg(serde_name(f.kind)))],
+    );
+    if let Some(detail) = &f.name {
+        name = format!("{name} ({})", md(detail));
+    }
+    format!(
+        "- {}",
+        t(
+            lang,
+            "permits-share-line",
+            &[
+                ("name", arg(name)),
+                ("share", arg(share_text(lang, s.percent)))
+            ],
+        )
+    )
+}
+
 fn object_kind(lang: &Lang, kind: ProtectedObjectKind) -> String {
     t(
         lang,
@@ -829,6 +896,27 @@ fn regional_blocks(lang: &Lang, part: &RegionalNotes) -> Vec<String> {
             blocks.push(t(lang, "permits-forest-units-reach", &[]));
         }
     }
+    if let Some(water) = &part.water_protection {
+        blocks.push(heading("permits-section-water-protection"));
+        if water.is_empty() {
+            blocks.push(none("permits-none-water-protection"));
+        } else {
+            blocks.extend(with_edge(lang, water, |s| water_line(lang, s), None));
+        }
+    }
+    if let Some(functions) = &part.forest_functions {
+        blocks.push(heading("permits-section-forest-functions"));
+        if functions.is_empty() {
+            blocks.push(none("permits-none-forest-functions"));
+        } else {
+            blocks.extend(with_edge(
+                lang,
+                functions,
+                |s| forest_function_line(lang, s),
+                None,
+            ));
+        }
+    }
     if let Some(forest) = &part.state_forest {
         blocks.push(heading("permits-section-state-forest"));
         if forest.is_empty() {
@@ -981,6 +1069,8 @@ fn used_ids() -> Vec<String> {
             hint_key::FOREST_OFFICE,
             hint_key::FOREST_OWNER,
             hint_key::STATE_FOREST,
+            hint_key::WATER_PROTECTION,
+            hint_key::FOREST_FUNCTION,
         ]
         .map(String::from),
     );
@@ -1216,6 +1306,7 @@ mod tests {
                 credit: LICENCE.into(),
                 note: note.map(str::to_string),
                 sections: Vec::new(),
+                offices: None,
             },
             status: SourceStatus {
                 id: key.into(),
@@ -1381,6 +1472,8 @@ mod tests {
                 ]),
                 forest_units: None,
                 state_forest: None,
+                water_protection: None,
+                forest_functions: None,
                 sources: vec![
                     regional_status("bezirke", "Bezirksgrenzen (ALKIS Berlin)", None),
                     regional_status("gruenanlagen", "Grünanlagenbestand", None),
@@ -1570,6 +1663,77 @@ mod tests {
             "- Land Berlin (in charge: Forstamt Grunewald): 12%",
             "12% of the map area is state forest of the owner \"Land Berlin\". In charge: Forstamt Grunewald.",
             "These notes do not name the forest office in charge here",
+        ] {
+            assert!(text.contains(wanted), "{wanted}\n{text}");
+        }
+    }
+
+    /// Hamburg's offices, the water protection zones and the forest functions in words
+    /// (ADR 0129).
+    #[test]
+    fn hamburg_water_and_forest_functions_are_written() {
+        use freemapper::permits::regional::{
+            ForestFunctionEntry, ForestFunctionKind, WaterProtectionEntry,
+        };
+        let mut notes = viktoriapark();
+        notes.regional[0].water_protection = Some(vec![share(
+            WaterProtectionEntry {
+                name: Some("Baursberg".into()),
+                zone: Some("Schutzzone III".into()),
+                citation: None,
+            },
+            12.0,
+        )]);
+        notes.regional[0].forest_functions = Some(vec![share(
+            ForestFunctionEntry {
+                kind: ForestFunctionKind::Recreation,
+                name: Some("von hoher Bedeutung".into()),
+            },
+            30.0,
+        )]);
+        notes.hints = vec![
+            hint(
+                hint_key::DISTRICT_OFFICE,
+                &[("district", "Altona"), ("offices", "hamburg")],
+            ),
+            hint(hint_key::MONUMENT_AUTHORITY, &[("offices", "hamburg")]),
+            hint(hint_key::DISTRICT_OFFICE, &[("district", "Mitte")]),
+            hint(
+                hint_key::WATER_PROTECTION,
+                &[
+                    ("inner", "no"),
+                    ("name", "Baursberg"),
+                    ("zone", "Schutzzone III"),
+                ],
+            ),
+            hint(hint_key::WATER_PROTECTION, &[("inner", "unknown")]),
+            hint(
+                hint_key::FOREST_FUNCTION,
+                &[("kind", "recreation"), ("names", "von hoher Bedeutung")],
+            ),
+            hint(hint_key::FOREST_FUNCTION, &[("kind", "closed")]),
+        ];
+        let text = render_markdown(&notes, &de());
+        for wanted in [
+            "## Wasserschutzgebiete (Geoportal Berlin)",
+            "- „Baursberg“, Schutzzone III: 12 %",
+            "## Waldfunktionen und Schutzwald (Geoportal Berlin)",
+            "- Erholungswald (von hoher Bedeutung): 30 %",
+            "ist meist das Bezirksamt Altona zuständig, dort das Fachamt Management des öffentlichen Raumes.",
+            "Für die Denkmale im Kartengebiet ist das Denkmalschutzamt Hamburg zuständig.",
+            "das Straßen- und Grünflächenamt des Bezirksamts Mitte",
+            "Im Kartengebiet liegt die Schutzzone III des Wasserschutzgebiets „Baursberg“. Dort sind Veranstaltungen meist möglich",
+            "Im Kartengebiet liegt das Wasserschutzgebiet „ohne Namen“. Welche Schutzzone es ist, sagen die Daten nicht.",
+            "Im Kartengebiet liegt Erholungswald (von hoher Bedeutung). Für Veranstaltungen dort fragen Sie die Forstbehörde.",
+            "Im Kartengebiet liegt eine Waldfläche, die nicht betreten werden darf. Lassen Sie sie aus dem Lauf heraus.",
+        ] {
+            assert!(text.contains(wanted), "{wanted}\n{text}");
+        }
+        let text = render_markdown(&notes, &Lang::english());
+        for wanted in [
+            "- Recreation forest (Erholungswald) (von hoher Bedeutung): 30%",
+            "the Denkmalschutzamt Hamburg (monument office) is in charge.",
+            "Recreation forest (Erholungswald) lies in the map area (von hoher Bedeutung).",
         ] {
             assert!(text.contains(wanted), "{wanted}\n{text}");
         }
