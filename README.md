@@ -3,7 +3,7 @@
 [English version](README.en.md) · [Handbuch](docs/manual/de.md) · [Glossar](docs/glossary.md) · [Änderungen](CHANGELOG.md)
 
 <!-- claude-cost:start -->
-[![KI-Aufwand (Claude API): 2.704 $](https://img.shields.io/badge/KI--Aufwand%20%28Claude%20API%29-2.704%20%24-8A2BE2)](docs/ai-cost/history.csv)
+[![KI-Aufwand (Claude API): 2.782 $](https://img.shields.io/badge/KI--Aufwand%20%28Claude%20API%29-2.782%20%24-8A2BE2)](docs/ai-cost/history.csv)
 <!-- claude-cost:end -->
 
 <p align="center"><a href="examples/berlin-viktoriapark/berlin-viktoriapark-candidates.pdf"><img src="examples/berlin-viktoriapark/preview.webp" alt="Sprintkarte Viktoriapark, Berlin-Kreuzberg, von freemapper erzeugt" width="760"></a><br><sub>Viktoriapark, Berlin-Kreuzberg (Sprint 1:4000), von freemapper aus offenen Daten erzeugt. Ein Klick öffnet das PDF; mehr unter <a href="examples/README.md">Beispiele</a>.</sub></p>
@@ -50,7 +50,7 @@ nach in einer festen Version ein, statt den Code zu kopieren.
 
 ## Status
 
-Aktuelle Version ist [v0.19.0](https://github.com/HenryJobst/freemapper/releases/tag/v0.19.0) vom
+Aktuelle Version ist [v0.20.0](https://github.com/HenryJobst/freemapper/releases/tag/v0.20.0) vom
 14. November 2026 (was sich geändert hat, steht in den [Änderungen](CHANGELOG.md)).
 
 freemapper erzeugt
