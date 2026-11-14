@@ -110,7 +110,8 @@ the crowns, so it does not help.
 - The export cuts the areas at the ALKIS buildings and the water and, where the map already has an area of the
   same symbol (an ALKIS park 401, a wood 405), keeps only the part that differs; patches below 1.5 mm × 1.5 mm
   go. Tags: `freemapper:source` and `freemapper:point-cloud` (the product, `lgb-als`), `freemapper:currency`
-  (the newest publication date of the tiles).
+  (the oldest day of the tiles; until 2026-11-14 the newest, changed because an area can lie on any of the tiles,
+  so nothing newer can be said of it).
 - The golden net does not record the point clouds (a tile has about 160 MB), and its projects do not choose
   the group, so it is unchanged; the vegetation step is covered by tests on a synthetic LAZ tile.
 - After the review (2026-11-12): the export keeps the areas within the buffer around the map area, as the

@@ -1,5 +1,6 @@
 //! The cached point-cloud tiles of a provider: one LAS/LAZ file per tile and publication,
-//! `<tile>_<published>.laz`, checked to be complete before it is kept (ADR 0105).
+//! `<tile>_<published>.laz` (Bavaria names its tiles like its other files, see
+//! [`crate::ldbv_las`]), checked to be complete before it is kept (ADR 0105).
 
 use std::io::Read as _;
 use std::path::{Path, PathBuf};
@@ -150,6 +151,18 @@ fn file_sha256(path: &Path) -> Result<String, FetchError> {
         .collect())
 }
 
+/// The partial file of one download of `path`, next to it: `<file>.<process>-<count>.part`. Each
+/// download has its own, so two runs that load the same tile do not write into, or delete, each
+/// other's file; the one that finishes last replaces the tile with the same content. A file a
+/// killed run left is swept with the stale parts of the folder.
+pub(crate) fn part_path(path: &Path) -> PathBuf {
+    static COUNT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let count = COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let mut name = path.file_name().unwrap_or_default().to_os_string();
+    name.push(format!(".{}-{count}.part", std::process::id()));
+    path.with_file_name(name)
+}
+
 /// Streams the tile at `url` to a partial file next to `path`, checks that it has the size
 /// `bytes` and the SHA-256 `sha256` the list of tiles gives (each when the list gives one) and
 /// is a complete point cloud, then moves it to `path`. A broken file is not left behind. A
@@ -172,8 +185,7 @@ pub(crate) fn download_las(
         url: url.to_string(),
         message,
     };
-    let part = path.with_extension("laz.part");
-    let _ = std::fs::remove_file(&part);
+    let part = part_path(path);
     let result = env
         .fetcher
         .download_to(url, &part, limit, env.progress)
@@ -456,7 +468,7 @@ mod tests {
     }
 
     #[test]
-    fn flight_day_is_unknown_outside_the_plausible_years() {
+    fn flight_day_counts_only_between_the_first_flights_and_today() {
         let late = [gps_noon(day("2011-10-01")); 20];
         let (_dir, path) = file(&laz_with_times(&late, true));
         assert_eq!(
@@ -473,6 +485,48 @@ mod tests {
         assert_eq!(flight_day(&path, day("2026-11-14")), None);
         let (_dir, path) = file(b"<html>not a tile</html>");
         assert_eq!(flight_day(&path, day("2026-11-14")), None);
+    }
+
+    #[test]
+    fn a_download_leaves_the_partial_file_of_another_run_alone() {
+        const URL: &str = "https://example.test/tile.laz";
+        let dir = tempfile::tempdir().unwrap();
+        let cache = CacheDir::new(dir.path().to_path_buf());
+        let registry = Registry::new();
+        let fetcher = MapFetcher::default();
+        fetcher.insert(URL, laz_with_times(&two_days(), true));
+        let path = dir.path().join("las/tile_2023-03-10.laz");
+        // Another run is loading the same tile, and a run of an older version left its file.
+        let others = [
+            path.with_extension("laz.4711-0.part"),
+            path.with_extension("laz.part"),
+        ];
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        for other in &others {
+            std::fs::write(other, b"another run").unwrap();
+        }
+        let mut env = AdapterEnv {
+            fetcher: &fetcher,
+            regions: &registry,
+            cache: &cache,
+            mode: FetchMode::Online,
+            today: day("2026-11-14"),
+            skip_surface: false,
+            progress: &mut |_| {},
+        };
+        download_las(&mut env, URL, None, None, &path).unwrap();
+        assert!(path.exists());
+        for other in &others {
+            assert_eq!(std::fs::read(other).unwrap(), b"another run", "{other:?}");
+        }
+        // Every download has a partial file of its own, which the sweep of stale parts finds.
+        let (one, two) = (part_path(&path), part_path(&path));
+        assert_ne!(one, two);
+        for part in [one, two] {
+            let name = part.file_name().unwrap().to_string_lossy().into_owned();
+            assert!(name.starts_with("tile_2023-03-10.laz."), "{name}");
+            assert!(name.ends_with(".part"), "{name}");
+        }
     }
 
     #[test]
@@ -507,6 +561,9 @@ mod tests {
         assert!(left.is_empty(), "{left:?}");
         download(laz_with_times(&two_days(), true)).unwrap();
         assert!(path.exists());
-        assert!(!path.with_extension("laz.part").exists());
+        assert_eq!(
+            std::fs::read_dir(path.parent().unwrap()).unwrap().count(),
+            1
+        );
     }
 }

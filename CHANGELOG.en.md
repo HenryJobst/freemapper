@@ -21,6 +21,11 @@ All notable changes to freemapper are listed here, newest first. The format foll
 - Permit notes follow the map area, not the kind of map (ADR 0127). The forest hints and the section "Forest administration" come as soon as OpenStreetMap has forest in the area, also on a sprint or schoolyard map, and also when that cannot be told without an OSM extract. A map in the middle of a town no longer gets them, even when it lies in a Revier of Brandenburg. The operator of a school in the area is now named on every kind of map, not only on schoolyard maps.
 - Examples: the Bode valley and the Bastei have contours every 10 m instead of 5 m; on the steep slopes they ran together into a brown area. The rocks of the Bastei come from OSM, not from the terrain model as the examples overview said so far.
 
+### Fixed
+
+- Vegetation from laser point clouds: when tiles of different days lie under a map, the candidates now carry the oldest day instead of the newest. An area can lie on any of the tiles, so nothing newer can be said of it.
+- Vegetation from laser point clouds: when two runs load the same tile at the same time, each has a partial file of its own. Before, they deleted each other's partial file and left the tile out with a warning. This affected North Rhine-Westphalia, Rhineland-Palatinate, Berlin, Saarland and Bavaria.
+
 ## [0.19.0] - 2026-11-14
 
 ### Added

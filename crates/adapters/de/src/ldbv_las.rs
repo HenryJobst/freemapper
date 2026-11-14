@@ -366,10 +366,12 @@ mod tests {
         serve(&fetcher, TILE, laz("2021-12-20", true), Some("2023-03-10"));
         fetch(&fetcher, &cache, FetchMode::Online, &inside(TILE));
         fetcher.log.borrow_mut().clear();
+        let asked = fetcher.calls.get();
         let (tiles, notes) = fetch(&fetcher, &cache, FetchMode::Online, &inside(TILE));
         assert_eq!(tiles.len(), 1);
         assert_eq!(tiles[0].record.published, Some(day("2021-12-20")));
         assert!(fetcher.log.borrow().is_empty(), "no download");
+        assert_eq!(fetcher.calls.get(), asked + 1, "one check of the day");
         assert!(
             notes.iter().any(|n| n == "cached point cloud 32655-5479"),
             "{notes:?}"

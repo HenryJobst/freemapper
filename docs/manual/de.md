@@ -692,7 +692,8 @@ Reichswald geprüft. Die drei bayerischen Flüge, deren Tag bekannt ist, lagen z
 Laub geben Gebüsch und Jungwuchs wenige Echos. Am Schmausenbuck erscheint der 2 bis 5 m hohe Jungwuchs unter
 einer Stromtrasse deshalb überwiegend als gut belaufbarer Wald (405). Das Datum an den bayerischen Kandidaten ist der
 Flugtag, den freemapper aus den Laserpunkten liest (am Schmausenbuck der 20.12.2021). Ältere Befliegungen nennen
-ihn nicht; dort steht der Tag, an dem die Datei erzeugt wurde. Die
+ihn nicht; dort steht der Tag, an dem die Datei erzeugt wurde. Liegen Kacheln mit verschiedenem Datum unter einer
+Karte, tragen die Kandidaten in jedem Bundesland das älteste. Die
 Punktwolke kann einige Jahre älter sein als das Luftbild. Prüfen Sie die Flächen am Luftbild und im Gelände. Ist
 der Platz knapp, entfallen die Punktwolken als Erstes. Die anderen Bundesländer haben noch keine
 Punktwolken-Quelle. Sachsen hat seine Punktwolken im November 2026 aus dem Downloadbereich genommen.

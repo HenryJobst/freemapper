@@ -153,12 +153,14 @@ pub(super) fn read_stored_vegetation(
     Ok(Some(Vegetation {
         areas,
         source: backend.info().source.clone(),
-        currency: project
-            .point_clouds
-            .iter()
-            .filter_map(|r| r.published)
-            .max(),
+        currency: vegetation_currency(&project.point_clouds),
     }))
+}
+
+/// The day the vegetation stands for: that of its oldest tile, among those that name one. An
+/// area can lie on any of the tiles, so nothing newer can be said of it.
+pub(super) fn vegetation_currency(tiles: &[PointCloudRecord]) -> Option<NaiveDate> {
+    tiles.iter().filter_map(|tile| tile.published).min()
 }
 
 /// The landforms `derive` stored (ADR 0104), with the terrain model they come from; none when
