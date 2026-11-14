@@ -20,6 +20,9 @@ The user's decisions (2026-11-14):
 2. Candidates of one kind go to separate layers, so that a mapper can look at one kind at a time.
 3. The base map itself is cleaned lightly: objects that are duplicates or hidden by another object leave the
    map and go to the candidate layer of their kind. Nothing is shifted; what stays lies true to position.
+4. The candidate layers start hidden; on opening, the map shows only the sure objects.
+5. The readability problems found in the Bremen example must be solved at least for the training map. That
+   makes the list below the acceptance of the training map, and the training map the first thing built.
 
 ## What the Bremen example shows
 
@@ -42,6 +45,8 @@ conflict measure below has to reproduce in kind, not to the digit.
 | Stairways (532) | 53, 48 shorter than 1 mm; 6 of 23 OSM stairs lie on an ALKIS stair |
 | Fences (518) closer than 0.4 mm to a path | 20 % of their length |
 | Contours (2.5 m, flat land) | 160 pieces, 29 run through buildings, 9 % lie on an earth bank |
+| Monument points (526) | 12, several in a row against buildings, 4 closer than 0.4 mm to a path |
+| Open land (401) from the ALKIS land use "Park" in the Stadtwald | two areas, 13 % and 25 % open by the nDSM: forest drawn yellow |
 
 All of these are **map objects** under the default profile `balanced`; the candidates of this example hold
 almost only garden areas (520). The mess is in the base map, not only in the training map.
@@ -64,9 +69,8 @@ it in Bremen is not known yet and is the first thing to find out in part 2.
 ## Non-goals
 
 - No new data sources and no new symbols.
-- The Stadtwald drawn as open land (401) because ALKIS files it as "Park", while the nDSM shows trees on 75 to
-  87 % of it, is a finding of the same session but a question of classification, not of overlap. It gets an
-  issue of its own.
+- The base map keeps drawing a park as open land where ALKIS says so; only the training map looks at the
+  trees (below). Whether the base map should follow is a question for later.
 - No general cartographic displacement engine. Shifting stays limited to the cases named below.
 - No change to what the content profiles mean (`safe`, `balanced`, `full`, `--content-set`).
 - No rebuild of all 30 examples in parts 1 to 3; that is part 4.
@@ -218,6 +222,14 @@ their `freemapper:hidden=generalized` kept them out of the old training map and 
     path) is moved off by the gap where there is room, by at most the builder's ruling from the norm; where
     there is none, the stretch is dropped. Points are shifted as today (`build/barrier_gaps.rs`).
   - *Rock.* `Level::training` of ADR 0126 runs here. The candidates PDF goes back to the map level.
+  - *Contours.* A contour is cut at buildings, as it is at ways today (`build/line_cuts.rs`), and a piece
+    left shorter than the norm's minimum goes.
+  - *Open land under trees.* Open land that comes from a land use naming no ground cover (park, green space,
+    leisure area) is drawn only where the nDSM shows no trees; the rest stays forest. The outline is smoothed
+    and kept to the minimum sizes the vegetation areas use (ADR 0136). Without a surface model nothing
+    changes.
+  - *Points.* The point generalization (ADR 0066) runs on the points of the map and the candidates together,
+    and a point keeps the norm's gap to buildings and ways as it does to walls and fences.
   - *Junctions survive.* An end that touched a line before touches the line that replaces it after: when
     lines are merged or shifted, the ends that met them are moved or extended to the new line. A path that
     ended on a dropped footway inside a road ends at that road. This is in scope; courseplan tells free ends
@@ -226,6 +238,25 @@ their `freemapper:hidden=generalized` kept them out of the old training map and 
   candidate, true to position; the docs no longer call it the training map.
 - **Sister programs.** They take a map path and read `freemapper.toml` beside it; the training map needs no
   change there. The builder confirms it with one run each and tells their sessions.
+
+### The findings on the training map
+
+Every row of the Bremen table has its rule; the training map of Bremen Bürgerpark is accepted when each holds.
+
+| Finding | Rule | Holds when |
+|---|---|---|
+| Earth banks on ditches, water, ways, each other | give way, shift, drop | no earth bank inside the gap of another object for more than 2 mm |
+| Water twice | duplicate step repaired | no OSM water area on ALKIS water |
+| Carriageways side by side | merge | one 502 per road; no 502 inside the gap of another outside junctions |
+| Tram tracks in the road, footways along it | drop | no 509 and no 505 inside the drawn width of a 502 |
+| Two railway tracks as one band | merge | one 509 per line |
+| Footpaths in pieces | join | no 505 shorter than 2 mm that continues in another 505; the dash pattern runs through |
+| Paths side by side | merge | no 505 inside the gap of another 505 for more than 2 mm |
+| Stairs too short, doubled | minimum size, duplicate step | no 532 below the norm's minimum, none twice |
+| Fences on paths | shift, drop | no 518 inside the gap of a way for more than 2 mm |
+| Monument points in a row | point generalization | every 526 keeps the norm's gap to points, buildings and ways |
+| Contours as noise | cut at buildings, drop on earth banks, minimum size | no contour through a building, none on an earth bank, none below the minimum |
+| Forest drawn yellow | open land under trees | the 401 of the Stadtwald covers only what the nDSM shows open |
 
 ### Acceptance
 
@@ -260,5 +291,13 @@ examples.
 
 ## Order
 
-Four pull requests, each merged after the user's yes: part 1, part 2, part 3, part 4. Parts 1 and 2 do not
-depend on each other; part 3 needs both.
+The user's priority is the training map, so it comes first. It needs the conflict measure and the repaired
+duplicate steps of part 2, which move with it, but neither the layers nor the light level: its input is the
+map before the light level plus the candidates. Five pull requests, each merged after the user's yes:
+
+1. Training map, first half: the conflict measure, the repaired duplicate steps, the files and the switch, and
+   the rules that join, drop and cut (give way, minimum sizes, contours, open land under trees, points, rock).
+2. Training map, second half: merge, shift, junctions survive. After it the findings table holds.
+3. Candidate layers (part 1).
+4. The light level of the base map (rest of part 2).
+5. Examples and comparison page (part 4).
