@@ -1025,8 +1025,8 @@ general hint for Berlin and Hamburg comes back.
 
 ### Water protection areas and forest functions
 
-Water protection areas with their zone come from Berlin, Brandenburg, Hamburg, Hesse, North Rhine-Westphalia and
-Saarland; in North Rhine-Westphalia also the planned ones, marked "(geplant)". Forest functions from
+Water protection areas with their zone come from Berlin, Brandenburg, Hamburg, Hesse, North Rhine-Westphalia,
+Saarland and Schleswig-Holstein; in North Rhine-Westphalia also the planned ones, marked "(geplant)". Forest functions from
 Brandenburg (Naturwald, Totalreservat, closed areas, Erholungswald), Hamburg (Bannwald, Erholungswald), North
 Rhine-Westphalia (Naturwaldzellen, wilderness development areas) and Saarland (Naturwaldzellen, Urwald), each
 from open services of the state. In Saarland the listed buildings come with them. A water protection area gets a hint
@@ -1046,6 +1046,7 @@ forest offices openly:
 | Berlin | Forstamt and Revier of the Berliner Forsten | Geoportal Berlin (`gdi.berlin.de`) |
 | North Rhine-Westphalia | Regionalforstamt and Forstbetriebsbezirk of the Landesbetrieb Wald und Holz NRW, and the state forest | two files on `www.opengeodata.nrw.de` |
 | Saarland | Revier of the SaarForst Landesbetrieb (state forest only) | Geoportal Saarland (`geoportal.saarland.de`) |
+| Schleswig-Holstein | Revier of the Schleswig-Holsteinische Landesforsten, and the state forest (state forest only) | Umweltportal (`umweltgeodienste.schleswig-holstein.de`) |
 
 The section "Forest administration" names each office with its unit and its share of the map area. The area of
 an office can take in towns and fields as well; in Brandenburg every map area lies in a Revier. "State forest"
@@ -1081,8 +1082,8 @@ phone numbers. freemapper takes none of it: it keeps only the names of the offic
   The notes quote that sentence word for word below the table of sources.
 - Owners of land are not in open data, except the state and the Bund in Berlin. The notes say how to get an
   extract from the land register.
-- The notes name forest offices only in Brandenburg, Berlin, Hamburg, North Rhine-Westphalia and Saarland
-  (there for the state forest only). Saxony, Saxony-Anhalt
+- The notes name forest offices only in Brandenburg, Berlin, Hamburg, North Rhine-Westphalia, Saarland and
+  Schleswig-Holstein (in the last two for the state forest only). Saxony, Saxony-Anhalt
   and Mecklenburg-Vorpommern show their forest offices only as a map image, without areas freemapper could
   read. The service of Rhineland-Palatinate turns freemapper away. For the other states no open service was
   found.
@@ -1098,6 +1099,7 @@ phone numbers. freemapper takes none of it: it keeps only the names of the offic
 | OpenStreetMap | extract in the cache | `© OpenStreetMap contributors, ODbL` |
 | Geoportal Berlin: Bezirk borders, green spaces, Liegenschaftsplan, monuments, protected objects, forest administration (Berlin only) | `gdi.berlin.de` | `Für die Nutzung der Daten ist die Datenlizenz Deutschland - Zero - Version 2.0 anzuwenden. Die Lizenz ist über https://www.govdata.de/dl-de/zero-2-0 abrufbar.` |
 | Geoportal Hamburg: Bezirk borders, Grünplan, monuments, forest in Hamburg, forest functions, water protection areas (Hamburg only) | `geodienste.hamburg.de` | per service `Datenlizenz Deutschland Namensnennung 2.0, Quellenvermerk: Freie und Hansestadt Hamburg, <office>` with the office the service names |
+| Umweltportal Schleswig-Holstein: state forest with its Reviere, Naturwald, water protection areas (Schleswig-Holstein only) | `umweltgeodienste.schleswig-holstein.de` | `Quellenvermerk: LfU SH; Lizenz: Creative Commons Namensnennung 4.0 International (CC BY 4.0)` |
 | Geoportal Saarland: Reviere of the state forest, water protection areas, Naturwaldzellen, Urwald, listed buildings (Saarland only) | `geoportal.saarland.de` | `Quellenvermerk: © GDI-SL (<year>); Lizenz: Creative Commons Namensnennung 4.0 International (CC BY 4.0)` |
 | Landesamt für Umwelt Brandenburg: water protection areas (Brandenburg only) | `data.geobasis-bb.de` | `Landesamt für Umwelt Brandenburg (LfU), Creative Commons Namensnennung 4.0 International (CC BY 4.0)` |
 | Land NRW: water protection areas, set and planned (North Rhine-Westphalia only) | `www.opengeodata.nrw.de` | `Land NRW, Datenlizenz Deutschland – Zero – Version 2.0 (https://www.govdata.de/dl-de/zero-2-0)` |

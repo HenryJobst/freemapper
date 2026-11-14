@@ -1065,8 +1065,8 @@ die Bezirke, steht der allgemeine Hinweis für Berlin und Hamburg da.
 
 ### Wasserschutzgebiete und Waldfunktionen
 
-Wasserschutzgebiete mit ihrer Schutzzone kommen aus Berlin, Brandenburg, Hamburg, Hessen, Nordrhein-Westfalen
-und dem Saarland; in Nordrhein-Westfalen auch die geplanten, mit dem Zusatz „(geplant)“. Waldfunktionen
+Wasserschutzgebiete mit ihrer Schutzzone kommen aus Berlin, Brandenburg, Hamburg, Hessen, Nordrhein-Westfalen,
+dem Saarland und Schleswig-Holstein; in Nordrhein-Westfalen auch die geplanten, mit dem Zusatz „(geplant)“. Waldfunktionen
 aus Brandenburg (Naturwald, Totalreservat, nicht betretbare Flächen, Erholungswald), Hamburg (Bannwald,
 Erholungswald), Nordrhein-Westfalen (Naturwaldzellen, Wildnisentwicklungsgebiete) und dem Saarland
 (Naturwaldzellen, Urwald), jeweils aus offenen Diensten des Bundeslandes. Im Saarland kommen außerdem die
@@ -1088,6 +1088,7 @@ Bundesländer veröffentlichen die Bereiche ihrer Forstdienststellen offen:
 | Berlin | Forstamt und Revier der Berliner Forsten | Geoportal Berlin (`gdi.berlin.de`) |
 | Nordrhein-Westfalen | Regionalforstamt und Forstbetriebsbezirk des Landesbetriebs Wald und Holz NRW, dazu der Staatswald | zwei Dateien auf `www.opengeodata.nrw.de` |
 | Saarland | Revier des SaarForst Landesbetriebs (nur im Staatswald) | Geoportal Saarland (`geoportal.saarland.de`) |
+| Schleswig-Holstein | Revier der Schleswig-Holsteinischen Landesforsten, dazu der Landeswald (nur im Landeswald) | Umweltportal (`umweltgeodienste.schleswig-holstein.de`) |
 
 Der Abschnitt „Forstverwaltung“ nennt jede Dienststelle mit ihrer Einheit und ihrem Anteil am Kartengebiet. Der
 Bereich einer Dienststelle kann auch Siedlungen und Felder umfassen; in Brandenburg liegt jedes Kartengebiet in
@@ -1124,8 +1125,8 @@ Bezirks, auch in `data/permits/`.
   Hinweise geben diesen Satz unter der Tabelle der Quellen wörtlich wieder.
 - Eigentümer von Grundstücken stehen nicht in offenen Daten, außer in Berlin für das Bundesland und den Bund. Die Hinweise
   sagen, wie man einen Grundbuchauszug bekommt.
-- Forstdienststellen nennen die Hinweise nur in Brandenburg, Berlin, Hamburg, Nordrhein-Westfalen und im
-  Saarland (dort nur für den Staatswald). Sachsen,
+- Forstdienststellen nennen die Hinweise nur in Brandenburg, Berlin, Hamburg, Nordrhein-Westfalen, im Saarland und
+  in Schleswig-Holstein (in den beiden letzten nur für den Staatswald). Sachsen,
   Sachsen-Anhalt und Mecklenburg-Vorpommern zeigen ihre Forstämter nur als Kartenbild, ohne Flächen, die
   freemapper lesen könnte. Der Dienst von Rheinland-Pfalz weist freemapper ab. Für die übrigen Bundesländer
   fand sich kein offener Dienst.
@@ -1141,6 +1142,7 @@ Bezirks, auch in `data/permits/`.
 | OpenStreetMap | Auszug im Zwischenspeicher | `© OpenStreetMap contributors, ODbL` |
 | Geoportal Berlin: Bezirksgrenzen, Grünanlagenbestand, Liegenschaftsplan, Denkmale, Schutzobjekte nach Naturschutzrecht, Forstverwaltung (nur in Berlin) | `gdi.berlin.de` | `Für die Nutzung der Daten ist die Datenlizenz Deutschland - Zero - Version 2.0 anzuwenden. Die Lizenz ist über https://www.govdata.de/dl-de/zero-2-0 abrufbar.` |
 | Geoportal Hamburg: Bezirksgrenzen, Grünplan, Denkmalschutz, Wald in Hamburg, Waldfunktionen, Wasserschutzgebiete (nur in Hamburg) | `geodienste.hamburg.de` | je Dienst `Datenlizenz Deutschland Namensnennung 2.0, Quellenvermerk: Freie und Hansestadt Hamburg, <Behörde>` mit der Behörde, die der Dienst nennt |
+| Umweltportal Schleswig-Holstein: Landeswald mit Revieren, Naturwald, Wasserschutzgebiete (nur in Schleswig-Holstein) | `umweltgeodienste.schleswig-holstein.de` | `Quellenvermerk: LfU SH; Lizenz: Creative Commons Namensnennung 4.0 International (CC BY 4.0)` |
 | Geoportal Saarland: Reviere des Staatswalds, Wasserschutzgebiete, Naturwaldzellen, Urwald, Baudenkmale (nur im Saarland) | `geoportal.saarland.de` | `Quellenvermerk: © GDI-SL (<Jahr>); Lizenz: Creative Commons Namensnennung 4.0 International (CC BY 4.0)` |
 | Landesamt für Umwelt Brandenburg: Wasserschutzgebiete (nur in Brandenburg) | `data.geobasis-bb.de` | `Landesamt für Umwelt Brandenburg (LfU), Creative Commons Namensnennung 4.0 International (CC BY 4.0)` |
 | Land NRW: Wasserschutzgebiete, festgesetzt und geplant (nur in Nordrhein-Westfalen) | `www.opengeodata.nrw.de` | `Land NRW, Datenlizenz Deutschland – Zero – Version 2.0 (https://www.govdata.de/dl-de/zero-2-0)` |

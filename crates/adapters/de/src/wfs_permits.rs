@@ -12,7 +12,7 @@ use freemapper_adapter_api::permits::{
     FindingKind, ForestFunctionKind, PermitFinding, PermitSection, PermitSource, PermitSourceInfo,
     Wording,
 };
-use freemapper_sources::geojson_wfs::{GeoJsonWfs, LatLonBox, get_features};
+use freemapper_sources::geojson_wfs::{GeoJsonWfs, LatLonBox, get_features, get_gml_features};
 use geo_types::{Geometry, Rect};
 use serde_json::Value;
 
@@ -42,6 +42,13 @@ pub enum Reading {
         prefix: &'static str,
         office: &'static str,
     },
+    /// Forest of the state: `owner` as the notes name it, and the forest office that looks
+    /// after it, `prefix` and the attribute `office`.
+    StateForest {
+        owner: &'static str,
+        prefix: &'static str,
+        office: &'static str,
+    },
     /// A listed monument of `kind`, with a link from the attribute `link` when it starts with
     /// `list` (the state's monument list).
     Monument {
@@ -64,7 +71,7 @@ impl Reading {
                 .flatten()
                 .collect(),
             Reading::Function { name, .. } => name.into_iter().collect(),
-            Reading::Unit { office, .. } => vec![office],
+            Reading::Unit { office, .. } | Reading::StateForest { office, .. } => vec![office],
             Reading::Monument { link, .. } => {
                 link.map(|(attribute, _)| attribute).into_iter().collect()
             }
@@ -85,6 +92,8 @@ pub struct TableSource {
     info: PermitSourceInfo,
     service: GeoJsonWfs,
     layers: &'static [Layer],
+    /// The service answers GML 3.2 only (ADR 0137), read by [`get_gml_features`].
+    gml: bool,
 }
 
 /// A source of `layers` on the service `base`, which names its GeoJSON `output_format`.
@@ -120,6 +129,46 @@ pub fn source(
             bbox_crs_suffix: true,
         },
         layers,
+        gml: false,
+    })
+}
+
+/// [`source`] for a service that answers GML 3.2 only (ADR 0137), with the `output_format` it
+/// names GML 3.2 by, URL-encoded as the service needs it (`gml32` on a GeoServer,
+/// `application%2Fgml%2Bxml%3B%20version%3D3.2` on a deegree).
+#[allow(clippy::too_many_arguments)]
+pub fn gml_source(
+    key: &'static str,
+    label: Wording,
+    what: Wording,
+    credit: &'static str,
+    keys: &'static [&'static str],
+    sections: &'static [PermitSection],
+    base: &'static str,
+    output_format: &'static str,
+    layers: &'static [Layer],
+) -> Box<dyn PermitSource> {
+    debug_assert!(
+        keys.len() == layers.len() && keys.iter().zip(layers).all(|(a, (b, _, _))| a == b)
+    );
+    Box::new(TableSource {
+        info: PermitSourceInfo {
+            key,
+            label,
+            what,
+            credit,
+            note: None,
+            layers: keys,
+            sections,
+            offices: None,
+        },
+        service: GeoJsonWfs {
+            base,
+            output_format,
+            bbox_crs_suffix: true,
+        },
+        layers,
+        gml: true,
     })
 }
 
@@ -143,7 +192,11 @@ impl PermitSource for TableSource {
         self.layers
             .iter()
             .map(|(_, type_name, reading)| {
-                let features = get_features(fetcher, &self.service, type_name, &bbox, part)?;
+                let features = if self.gml {
+                    get_gml_features(fetcher, &self.service, type_name, &bbox, part)?
+                } else {
+                    get_features(fetcher, &self.service, type_name, &bbox, part)?
+                };
                 Ok(features
                     .iter()
                     .filter_map(|f| stored(f, *reading))
@@ -199,6 +252,25 @@ fn text(feature: &Value, key: &str) -> Option<String> {
     (!text.is_empty() && text != "null").then_some(text)
 }
 
+/// A name written all in capitals ("HÜTTEN", "BAD SEGEBERG") as a name is written ("Hütten",
+/// "Bad Segeberg"); a name with small letters stays as it is.
+fn name_case(name: &str) -> String {
+    if name.chars().any(char::is_lowercase) {
+        return name.to_string();
+    }
+    let mut out = String::with_capacity(name.len());
+    let mut start = true;
+    for c in name.chars() {
+        if start {
+            out.push(c);
+        } else {
+            out.extend(c.to_lowercase());
+        }
+        start = !c.is_alphabetic();
+    }
+    out
+}
+
 /// A zone as the hints name it: a bare "I" or "IIIA" becomes "Schutzzone I"; a text that
 /// already says zone stays.
 fn zone_name(zone: &str) -> String {
@@ -243,8 +315,16 @@ pub(crate) fn finding(reading: Reading, feature: &Value) -> Option<PermitFinding
             office,
         } => FindingKind::ForestUnit {
             administration: administration.to_string(),
-            office: format!("{prefix}{}", text(feature, office)?),
+            office: format!("{prefix}{}", name_case(&text(feature, office)?)),
             unit: None,
+        },
+        Reading::StateForest {
+            owner,
+            prefix,
+            office,
+        } => FindingKind::StateForest {
+            owner: owner.to_string(),
+            office: text(feature, office).map(|o| format!("{prefix}{}", name_case(&o))),
         },
         Reading::Monument { kind, link } => FindingKind::Monument {
             kind: kind.to_string(),
@@ -358,6 +438,14 @@ mod tests {
             .collect();
         assert_eq!(links, [Some("https://example.org/list.pdf"), None]);
         assert!(table().findings("other", &layers[0]).is_empty());
+    }
+
+    #[test]
+    fn capital_names_are_written_as_names() {
+        assert_eq!(name_case("HÜTTEN"), "Hütten");
+        assert_eq!(name_case("BAD SEGEBERG"), "Bad Segeberg");
+        assert_eq!(name_case("NEUMÜNSTER-HAHNKAMP"), "Neumünster-Hahnkamp");
+        assert_eq!(name_case("Rastpfuhl/Puettlingen"), "Rastpfuhl/Puettlingen");
     }
 
     /// A water zone or a forest function must be an area; a point is left out.
