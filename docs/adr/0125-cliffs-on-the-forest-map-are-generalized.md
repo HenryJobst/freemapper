@@ -41,6 +41,15 @@ minimum width of 0.25 mm and a minimum area of 0.3 mm². The bundled 201 draws a
   for Berlin stairs), and the export of a forest map reads it when there is no `data/dgm1.tif`. Other maps keep
   reading only `data/dgm1.tif`, so the ticks of their banks stay as they were.
 
+- Tried and dropped: a height threshold that rises with the relief around the cliff, as Karttapullautin does
+  (`cliffsteepfactor`; the user asked for it). Relief is highest minus lowest within 3 m of the line; the threshold
+  grew by the factor for every metre above 5.5 m. At Karttapullautin's 0.76 the Bastei lost 34 of 39 pillars and,
+  with fewer cliffs to stop them, its contours piled up again. At 0.38, pillars exempt and the contours still
+  stopped at every cliff of 3 m: 15 fewer cliffs at the Bastei, hardly visible, because the gap rule had taken those
+  places already; in the Siebengebirge it removed the long rock edge of the Drachenfels, a prominent face in steep
+  ground; in Dahn nothing changed. Karttapullautin needs the rule because it has no gap rule; here the gap rule does
+  the job.
+
 ## Consequences
 
 - The Bastei keeps 197 cliffs and gets 39 pillars; 1908 cliffs go to the candidates (917 too close, 397 too short,
