@@ -222,18 +222,37 @@ pub fn generalize(lines: Vec<ContourLine>, scale: SymbolScale) -> Vec<ContourLin
 /// percentile of its heights span less (spec 2026-11-13).
 const FLAT_FOREST_RANGE_M: f64 = 15.0;
 const FLAT_FOREST_INTERVAL_M: f64 = 2.5;
-/// The flatness test samples the terrain at about this spacing; a percentile needs no more.
+/// A forest map gets twice the interval where the terrain is this steep (ADR 0125): on more than
+/// this share of the map area the contours of the kind's interval would lie closer together than
+/// [`CROWDED_SPACING`], centre to centre, and run into a brown area. Of the forest examples the
+/// Bode valley (26 % of the area at 5 m) and the Bastei (18 %) cross it; the next steepest,
+/// Cloef and Siebengebirge, have 5 %, the others at most 1 %.
+const STEEP_FOREST_SHARE: f64 = 0.10;
+const STEEP_FOREST_INTERVAL_M: f64 = 10.0;
+/// Two contours (0.14 mm wide) closer than this leave less than their own width of paper between
+/// them.
+const CROWDED_SPACING: SymbolMm = SymbolMm(0.35);
+/// The tests sample the terrain at about this spacing; a percentile and a share need no more.
 const HEIGHT_SAMPLE_M: f64 = 5.0;
 
-/// The contour interval of a map of `kind` over `heights_in_area` (the smoothed DTM inside the
-/// map area): a forest map 2.5 m where it is flat, the kind's interval otherwise and without
-/// heights. `NaN` heights are skipped.
-pub fn contour_interval_for(kind: MapKind, heights_in_area: &[f32]) -> f64 {
+/// The smoothed DTM of the map area, sampled about [`HEIGHT_SAMPLE_M`] apart: the height and the
+/// slope of each sampled cell whose centre lies in the area. `NaN` where the DTM has no value.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct AreaTerrain {
+    pub heights: Vec<f32>,
+    pub slopes_deg: Vec<f32>,
+}
+
+/// The contour interval of a map of `kind` at `scale` over `terrain` (the smoothed DTM inside the
+/// map area): a forest map 2.5 m where it is flat, 10 m where it is steep, the kind's interval
+/// otherwise and without heights. `NaN` cells are skipped.
+pub fn contour_interval_for(kind: MapKind, terrain: &AreaTerrain, scale: SymbolScale) -> f64 {
     let default = kind.contour_interval_m();
     if kind != MapKind::Forest {
         return default;
     }
-    let mut heights: Vec<f32> = heights_in_area
+    let mut heights: Vec<f32> = terrain
+        .heights
         .iter()
         .copied()
         .filter(|h| h.is_finite())
@@ -244,18 +263,37 @@ pub fn contour_interval_for(kind: MapKind, heights_in_area: &[f32]) -> f64 {
     heights.sort_by(f32::total_cmp);
     let at = |share: usize| f64::from(heights[(heights.len() - 1) * share / 100]);
     if at(95) - at(5) < FLAT_FOREST_RANGE_M {
-        FLAT_FOREST_INTERVAL_M
+        return FLAT_FOREST_INTERVAL_M;
+    }
+    if crowded_share(&terrain.slopes_deg, default, scale) > STEEP_FOREST_SHARE {
+        STEEP_FOREST_INTERVAL_M
     } else {
         default
     }
 }
 
-/// The heights of every cell about [`HEIGHT_SAMPLE_M`] apart of `raster` whose centre lies in
-/// `area` (same CRS), `NaN` included.
-pub fn heights_inside(raster: &Raster<f32>, area: &geo_types::Polygon<f64>) -> Vec<f32> {
+/// The share of `slopes_deg` (`NaN` skipped) on which contours `interval_m` apart lie closer
+/// than [`CROWDED_SPACING`] on a map at `scale`.
+fn crowded_share(slopes_deg: &[f32], interval_m: f64, scale: SymbolScale) -> f64 {
+    let spacing_m = CROWDED_SPACING.metres(scale);
+    let slopes = slopes_deg.iter().filter(|s| s.is_finite());
+    let total = slopes.clone().count();
+    if total == 0 {
+        return 0.0;
+    }
+    let crowded = slopes
+        .filter(|s| interval_m / f64::from(**s).to_radians().tan() < spacing_m)
+        .count();
+    crowded as f64 / total as f64
+}
+
+/// The heights and slopes of every cell about [`HEIGHT_SAMPLE_M`] apart of `raster` whose
+/// centre lies in `area` (same CRS), `NaN` included. The slope comes from the two neighbours on
+/// each axis.
+pub fn terrain_inside(raster: &Raster<f32>, area: &geo_types::Polygon<f64>) -> AreaTerrain {
     use geo::{BoundingRect as _, Contains as _};
     let Some(bounds) = area.bounding_rect() else {
-        return Vec::new();
+        return AreaTerrain::default();
     };
     let grid = raster.grid;
     let column = |e: f64| ((e - grid.west) / grid.pixel_size).floor();
@@ -269,8 +307,17 @@ pub fn heights_inside(raster: &Raster<f32>, area: &geo_types::Polygon<f64>) -> V
         clamp(row(bounds.max().y), grid.height),
         clamp(row(bounds.min().y), grid.height),
     );
+    let slope = |x: u32, y: u32| -> f32 {
+        if x == 0 || y == 0 || x + 1 >= grid.width || y + 1 >= grid.height {
+            return f32::NAN;
+        }
+        let run = 2.0 * grid.pixel_size;
+        let de = f64::from(raster.get(x + 1, y) - raster.get(x - 1, y)) / run;
+        let dn = f64::from(raster.get(x, y - 1) - raster.get(x, y + 1)) / run;
+        de.hypot(dn).atan().to_degrees() as f32
+    };
     let step = ((HEIGHT_SAMPLE_M / grid.pixel_size).round() as usize).max(1);
-    let mut heights = Vec::new();
+    let mut terrain = AreaTerrain::default();
     for y in (y0..=y1).step_by(step) {
         for x in (x0..=x1).step_by(step) {
             let centre = geo_types::Point::new(
@@ -278,11 +325,12 @@ pub fn heights_inside(raster: &Raster<f32>, area: &geo_types::Polygon<f64>) -> V
                 grid.north - (f64::from(y) + 0.5) * grid.pixel_size,
             );
             if area.contains(&centre) {
-                heights.push(raster.get(x, y));
+                terrain.heights.push(raster.get(x, y));
+                terrain.slopes_deg.push(slope(x, y));
             }
         }
     }
-    heights
+    terrain
 }
 
 /// The lines as GeoJSON LineStrings in EPSG:25833 with a `height` property; the interval they
@@ -522,38 +570,96 @@ mod tests {
         assert!(!contours_to_geojson(&[], None).contains("interval_m"));
     }
 
+    /// Heights from `low` to `high` on a gentle slope of `slope_deg` everywhere.
+    fn terrain(low: f32, high: f32, slope_deg: f32) -> AreaTerrain {
+        let heights: Vec<f32> = (0..=100)
+            .map(|i| low + (high - low) * i as f32 / 100.0)
+            .collect();
+        let slopes_deg = vec![slope_deg; heights.len()];
+        AreaTerrain {
+            heights,
+            slopes_deg,
+        }
+    }
+
+    fn forest(denominator: u32) -> SymbolScale {
+        SymbolScale::new(MapKind::Forest, denominator)
+    }
+
     #[test]
     fn flat_forest_gets_2_5_m_and_hilly_5_m() {
-        let range = |low: f32, high: f32| -> Vec<f32> {
-            (0..=100)
-                .map(|i| low + (high - low) * i as f32 / 100.0)
-                .collect()
-        };
+        let scale = forest(10_000);
         assert_eq!(
-            contour_interval_for(MapKind::Forest, &range(40.0, 52.0)),
+            contour_interval_for(MapKind::Forest, &terrain(40.0, 52.0, 5.0), scale),
             2.5
         );
         assert_eq!(
-            contour_interval_for(MapKind::Forest, &range(40.0, 80.0)),
+            contour_interval_for(MapKind::Forest, &terrain(40.0, 80.0, 20.0), scale),
             5.0
         );
         // A few outliers (a deep pit, a tower of noise) do not decide: the 5th to 95th percentile.
-        let mut flat = range(40.0, 50.0);
-        flat.extend([10.0, 120.0, f32::NAN]);
-        assert_eq!(contour_interval_for(MapKind::Forest, &flat), 2.5);
-        assert_eq!(contour_interval_for(MapKind::Forest, &[]), 5.0);
+        let mut flat = terrain(40.0, 50.0, 5.0);
+        flat.heights.extend([10.0, 120.0, f32::NAN]);
+        assert_eq!(contour_interval_for(MapKind::Forest, &flat, scale), 2.5);
         assert_eq!(
-            contour_interval_for(MapKind::Sprint, &range(40.0, 41.0)),
+            contour_interval_for(MapKind::Forest, &AreaTerrain::default(), scale),
+            5.0
+        );
+        assert_eq!(
+            contour_interval_for(
+                MapKind::Sprint,
+                &terrain(40.0, 41.0, 1.0),
+                SymbolScale::new(MapKind::Sprint, 4000)
+            ),
             2.0
         );
         assert_eq!(
-            contour_interval_for(MapKind::Schoolyard, &range(40.0, 80.0)),
+            contour_interval_for(
+                MapKind::Schoolyard,
+                &terrain(40.0, 80.0, 50.0),
+                SymbolScale::new(MapKind::Schoolyard, 1000)
+            ),
             1.0
         );
     }
 
     #[test]
-    fn heights_inside_sample_the_cells_whose_centre_lies_in_the_area() {
+    fn steep_forest_gets_10_m() {
+        // At 1:10 000 the symbols grow by 1.5: 0.35 mm become 5.25 m, so 5 m contours crowd
+        // from a slope of atan(5 / 5.25) = 43.6°.
+        let scale = forest(10_000);
+        let mut steep = terrain(100.0, 300.0, 20.0);
+        let share = |terrain: &AreaTerrain| crowded_share(&terrain.slopes_deg, 5.0, scale);
+        // A tenth of the area at 45° is not enough, a few more cells are.
+        let tenth = steep.slopes_deg.len() / 10;
+        steep.slopes_deg[..tenth].fill(45.0);
+        assert!(share(&steep) <= STEEP_FOREST_SHARE, "{}", share(&steep));
+        assert_eq!(contour_interval_for(MapKind::Forest, &steep, scale), 5.0);
+        steep.slopes_deg[..tenth + 3].fill(45.0);
+        assert_eq!(contour_interval_for(MapKind::Forest, &steep, scale), 10.0);
+        // 43° is just short of crowding; `NaN` slopes do not count either way.
+        steep.slopes_deg.fill(43.0);
+        assert_eq!(contour_interval_for(MapKind::Forest, &steep, scale), 5.0);
+        steep.slopes_deg.extend([f32::NAN; 50]);
+        assert_eq!(share(&steep), 0.0);
+        // Flat comes first: a narrow range is flat whatever the slopes say.
+        assert_eq!(
+            contour_interval_for(MapKind::Forest, &terrain(40.0, 50.0, 60.0), scale),
+            2.5
+        );
+        // The sprint map keeps its 2 m on any slope.
+        assert_eq!(
+            contour_interval_for(
+                MapKind::Sprint,
+                &terrain(0.0, 200.0, 60.0),
+                SymbolScale::new(MapKind::Sprint, 4000)
+            ),
+            2.0
+        );
+    }
+
+    #[test]
+    fn terrain_inside_samples_the_cells_whose_centre_lies_in_the_area() {
         let raster = dtm(|e, _| e as f32);
         let area = geo_types::Polygon::new(
             geo_types::LineString::from(vec![
@@ -565,9 +671,19 @@ mod tests {
             ]),
             vec![],
         );
-        let heights = heights_inside(&raster, &area);
+        let terrain = terrain_inside(&raster, &area);
         // Every 5th cell of a 1 m raster: 2 columns × 10 rows.
-        assert_eq!(heights.len(), 2 * 10);
-        assert!(heights.iter().all(|h| *h < 10.0));
+        assert_eq!(terrain.heights.len(), 2 * 10);
+        assert!(terrain.heights.iter().all(|h| *h < 10.0));
+        // The heights rise 1 m per metre eastwards: 45° inside, no slope on the raster's edge.
+        assert_eq!(terrain.slopes_deg.len(), terrain.heights.len());
+        let inner: Vec<f32> = terrain
+            .slopes_deg
+            .iter()
+            .copied()
+            .filter(|s| s.is_finite())
+            .collect();
+        assert!(!inner.is_empty() && inner.len() < terrain.slopes_deg.len());
+        assert!(inner.iter().all(|s| (s - 45.0).abs() < 1e-3), "{inner:?}");
     }
 }

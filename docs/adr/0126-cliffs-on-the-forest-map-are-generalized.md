@@ -1,4 +1,4 @@
-# 0125. Cliffs on the forest map are generalized
+# 0126. Cliffs on the forest map are generalized
 
 Date: 2026-11-14
 Status: Accepted

@@ -13,7 +13,7 @@ maintainers = ["github:HenryJobst"]
 last_verified = "2026-11-12"
 
 [net]
-hosts = ["ogc-api.geobasis-bb.de", "data.geobasis-bb.de", "isk.geobasis-bb.de", "opendata.potsdam.de"]
+hosts = ["ogc-api.geobasis-bb.de", "data.geobasis-bb.de", "isk.geobasis-bb.de", "opendata.potsdam.de", "www.brandenburg-forst.de"]
 
 [boundary]
 file = "boundary.geojson"

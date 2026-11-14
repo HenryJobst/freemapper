@@ -64,6 +64,14 @@ pub mod hint_key {
     /// Arg `rest` (`yes`) when a regional source named public owners: the text speaks of the
     /// rest of the map area.
     pub const OWNERS_UNKNOWN: &str = "permits-hint-owners-unknown";
+    /// Args `office`, `administration` and, where the source names them, `units` (joined with
+    /// ", "): a forest office that is more than an edge of the map. Forest maps only.
+    pub const FOREST_OFFICE: &str = "permits-hint-forest-office";
+    /// Arg `office`: `known` when a [`FOREST_OFFICE`] hint is there, else `unknown`. Forest maps
+    /// only.
+    pub const FOREST_OWNER: &str = "permits-hint-forest-owner";
+    /// Args `owner`, `percent` (as for [`OWNER_SHARE`]) and, where known, `office`.
+    pub const STATE_FOREST: &str = "permits-hint-state-forest";
 }
 
 /// The credit line of the OSM data, as on the map.
@@ -665,6 +673,27 @@ fn hints(
     if any_protected(&|k| matches!(k, ProtectedKind::Ffh | ProtectedKind::Vogelschutzgebiet)) {
         hints.push(Hint::new(hint_key::NATURA2000, &[]));
     }
+    // A Revier covers towns as well: the forest hints are for forest maps alone.
+    if kind == MapKind::Forest {
+        let offices: Vec<_> = regional.iter().flat_map(|f| &f.forest_offices).collect();
+        for office in &offices {
+            let units = office.units.join(", ");
+            let mut args = vec![
+                ("office", office.office.as_str()),
+                ("administration", office.administration.as_str()),
+            ];
+            if !units.is_empty() {
+                args.push(("units", units.as_str()));
+            }
+            hints.push(Hint::new(hint_key::FOREST_OFFICE, &args));
+        }
+        let office = if offices.is_empty() {
+            "unknown"
+        } else {
+            "known"
+        };
+        hints.push(Hint::new(hint_key::FOREST_OWNER, &[("office", office)]));
+    }
     let in_city_state = largest(AdminLevel::Land).is_some_and(is_city_state);
     if let Some(gemeinde) =
         largest(AdminLevel::Gemeinde).filter(|_| districts.is_empty() || !in_city_state)
@@ -735,7 +764,19 @@ fn hints(
             ),
         });
     }
-    hints.push(if owners.is_empty() {
+    let state_forest: Vec<_> = regional.iter().flat_map(|f| &f.state_forest).collect();
+    for (forest, percent) in &state_forest {
+        let percent = format!("{percent:.1}");
+        let mut args = vec![
+            ("owner", forest.owner.as_str()),
+            ("percent", percent.as_str()),
+        ];
+        if let Some(office) = &forest.office {
+            args.push(("office", office.as_str()));
+        }
+        hints.push(Hint::new(hint_key::STATE_FOREST, &args));
+    }
+    hints.push(if owners.is_empty() && state_forest.is_empty() {
         Hint::new(hint_key::OWNERS_UNKNOWN, &[])
     } else {
         Hint::new(hint_key::OWNERS_UNKNOWN, &[("rest", "yes")])
@@ -1953,6 +1994,198 @@ mod tests {
             shares[0].0 == "Viktoriapark" && (shares[0].1 - 19.0).abs() < 0.3,
             "{shares:?}"
         );
+    }
+
+    fn forest_unit(office: &str, unit: &str, g: MultiPolygon<f64>) -> PermitFinding {
+        area(
+            FindingKind::ForestUnit {
+                administration: "Landesforst".into(),
+                office: office.into(),
+                unit: Some(unit.into()),
+            },
+            g,
+        )
+    }
+
+    fn state_forest(office: &str, g: MultiPolygon<f64>) -> PermitFinding {
+        area(
+            FindingKind::StateForest {
+                owner: "Bundesland Nordrhein-Westfalen".into(),
+                office: Some(office.into()),
+            },
+            g,
+        )
+    }
+
+    /// Forest units are summed per office and unit, by share; a forest map gets the hint of
+    /// each office that is more than an edge, with its units, and the hint on the owner's
+    /// consent (ADR 0124).
+    #[test]
+    fn forest_units_are_summed_and_name_their_office_on_a_forest_map() {
+        let units = || {
+            regional(
+                "reviere",
+                PermitSection::ForestUnits,
+                vec![
+                    // 30 % and 20 % of the map in one Revier, 49.8 % in another of the same
+                    // office, 0.2 % of another office at the east edge.
+                    forest_unit(
+                        "Oberförsterei A",
+                        "Revier Nord",
+                        square(12.9, 51.9, 13.03, 52.2),
+                    ),
+                    forest_unit(
+                        "Oberförsterei A",
+                        "Revier Nord",
+                        square(13.03, 51.9, 13.05, 52.2),
+                    ),
+                    forest_unit(
+                        "Oberförsterei A",
+                        "Revier Süd",
+                        square(13.05, 51.9, 13.0998, 52.2),
+                    ),
+                    forest_unit(
+                        "Oberförsterei B",
+                        "Revier Rand",
+                        square(13.0998, 51.9, 13.2, 52.2),
+                    ),
+                ],
+            )
+        };
+        let found = notes(MapKind::Forest, &with_regional(vec![], vec![units()]));
+        let shares: Vec<(&str, Option<&str>, f64, bool)> = found.regional[0]
+            .forest_units
+            .as_ref()
+            .unwrap()
+            .iter()
+            .map(|s| {
+                (
+                    s.item.office.as_str(),
+                    s.item.unit.as_deref(),
+                    s.percent,
+                    s.at_edge,
+                )
+            })
+            .collect();
+        assert_eq!(shares.len(), 3, "{shares:?}");
+        assert!(
+            shares[0].0 == "Oberförsterei A"
+                && shares[0].1 == Some("Revier Nord")
+                && near(shares[0].2, 50.0),
+            "{shares:?}"
+        );
+        assert!(
+            shares[1].1 == Some("Revier Süd") && near(shares[1].2, 49.8),
+            "{shares:?}"
+        );
+        assert!(
+            shares[2].0 == "Oberförsterei B" && shares[2].3,
+            "{shares:?}"
+        );
+        assert_eq!(
+            found.regional[0].forest_units.as_ref().unwrap()[0]
+                .item
+                .administration,
+            "Landesforst"
+        );
+
+        let offices: Vec<&Hint> = found
+            .hints
+            .iter()
+            .filter(|h| h.key == hint_key::FOREST_OFFICE)
+            .collect();
+        assert_eq!(offices.len(), 1, "{:?}", found.hints);
+        assert_eq!(offices[0].args["office"], "Oberförsterei A");
+        assert_eq!(offices[0].args["administration"], "Landesforst");
+        assert_eq!(offices[0].args["units"], "Revier Nord, Revier Süd");
+        let owner = found
+            .hints
+            .iter()
+            .find(|h| h.key == hint_key::FOREST_OWNER)
+            .expect("the owner's consent");
+        assert_eq!(owner.args.get("office").map(String::as_str), Some("known"));
+
+        // A sprint map keeps the section and has no forest hint: a Revier also covers towns.
+        let found = notes(MapKind::Sprint, &with_regional(vec![], vec![units()]));
+        assert!(found.regional[0].forest_units.is_some());
+        assert!(
+            !keys(&found)
+                .iter()
+                .any(|k| [hint_key::FOREST_OFFICE, hint_key::FOREST_OWNER].contains(k)),
+            "{:?}",
+            found.hints
+        );
+    }
+
+    /// A forest map without forest units, in a state without such a source or with the source
+    /// down, gets the general hint on the owner's consent that says the office is not named.
+    #[test]
+    fn a_forest_map_without_forest_units_gets_the_general_forest_hint() {
+        for regional_inputs in [
+            vec![],
+            vec![RegionalInput {
+                findings: SourceInput::Unreachable {
+                    reason: "HTTP 503".into(),
+                },
+                ..regional("reviere", PermitSection::ForestUnits, vec![])
+            }],
+        ] {
+            let found = notes(MapKind::Forest, &with_regional(vec![], regional_inputs));
+            assert!(!keys(&found).contains(&hint_key::FOREST_OFFICE));
+            let owner = found
+                .hints
+                .iter()
+                .find(|h| h.key == hint_key::FOREST_OWNER)
+                .expect("the owner's consent");
+            assert_eq!(
+                owner.args.get("office").map(String::as_str),
+                Some("unknown")
+            );
+        }
+        let found = notes(MapKind::Schoolyard, &with_regional(vec![], vec![]));
+        assert!(!keys(&found).contains(&hint_key::FOREST_OWNER));
+    }
+
+    /// State forest is summed per owner and office and named in a hint on every map kind; the
+    /// owners hint then speaks of the rest of the map.
+    #[test]
+    fn state_forest_is_summed_and_named() {
+        let found = notes(
+            MapKind::Sprint,
+            &with_regional(
+                vec![],
+                vec![regional(
+                    "staatswald",
+                    PermitSection::StateForest,
+                    vec![
+                        // 10 % and 9 %.
+                        state_forest("Regionalforstamt X", square(13.0, 52.0, 13.01, 52.1)),
+                        state_forest("Regionalforstamt X", square(13.01, 52.0, 13.019, 52.1)),
+                    ],
+                )],
+            ),
+        );
+        let entries = found.regional[0].state_forest.as_ref().unwrap();
+        assert_eq!(entries.len(), 1, "{entries:?}");
+        assert_eq!(entries[0].item.owner, "Bundesland Nordrhein-Westfalen");
+        assert_eq!(
+            entries[0].item.office.as_deref(),
+            Some("Regionalforstamt X")
+        );
+        assert!((entries[0].percent - 19.0).abs() < 0.3, "{entries:?}");
+        let hint = found
+            .hints
+            .iter()
+            .find(|h| h.key == hint_key::STATE_FOREST)
+            .expect("the state forest hint");
+        assert_eq!(hint.args["owner"], "Bundesland Nordrhein-Westfalen");
+        assert_eq!(hint.args["office"], "Regionalforstamt X");
+        let unknown = found
+            .hints
+            .iter()
+            .find(|h| h.key == hint_key::OWNERS_UNKNOWN)
+            .unwrap();
+        assert_eq!(unknown.args.get("rest").map(String::as_str), Some("yes"));
     }
 
     /// A Bezirk that comes as two features is one entry with the sum of both (review finding 9).

@@ -1,4 +1,4 @@
-//! Cliffs on the forest map (ISOM 2017-2, 201 and 206; ADR 0125).
+//! Cliffs on the forest map (ISOM 2017-2, 201 and 206; ADR 0126).
 //!
 //! OpenStreetMap draws rock country cliff by cliff: at the Bastei 2144 lines, up to 127 on one
 //! square centimetre of paper, often several along one face. The norm keeps 0.25 mm between two
