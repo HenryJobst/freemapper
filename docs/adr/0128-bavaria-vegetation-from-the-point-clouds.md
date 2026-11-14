@@ -33,13 +33,14 @@ November and February.
   per tile at a fetch, after one failed check the cached tiles of the fetch are used without asking, and a 404 is
   believed for 30 days only beyond the border. A download has no listed size to match, so it must be a complete
   point cloud (header, chunk table, last point) and at most 2 GiB.
-- **A failing tile never fails the fetch**: the older cached copy serves with a warning, or the tile is left out
-  with one, as for the other sources.
-- **The date of the vegetation is the day of the flight**, read from the tile: the newest day among 16 points
-  spread over the file, when its header says adjusted standard GPS time. A time far off is no day (the synthetic
-  ground points of a lot of 2017 carry the year 8416). Older lots have GPS week time, which names no week; such a
-  tile takes the day its header says it was made, which lies after the flight and before the upload. Only then
-  comes the day of the server.
+- **A failing tile never fails the fetch**: the cached copy serves with a warning (also a copy without a day,
+  which is fetched again under its own name), or the tile is left out with one, as for the other sources.
+- **The date of the vegetation is the day of the flight**, read from the tile: the newest day that two of 16
+  points spread over the file share, when its header says adjusted standard GPS time. A time far off is no day
+  (the synthetic ground points of a lot of 2017 carry the year 8416), one point of another day dates nothing, and
+  times within the first week of that time scale count as the seconds of a week under a wrong header. Older lots
+  have GPS week time, which names no week; such a tile takes the day its header says it was made, which lies
+  after the flight and before the upload. Only then comes the day of the server.
 - **A provider names the classes it leaves out** (`PointCloudInfo::left_out`), besides those `derive` leaves out
   everywhere. Bavaria names 22 and 23; the other five name none, so no other map changes.
 - The manifest of Bavaria names the third host and is revision 2.

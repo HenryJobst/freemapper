@@ -158,15 +158,20 @@ impl PointCloudBackend for LdbvLasBackend {
                         }
                         Err(FetchError::Cancelled) => return Err(FetchError::Cancelled.into()),
                         // The vegetation is only a candidate: a failing tile falls back to the
-                        // newest copy in the cache or is left out.
-                        Err(e) => match older.last() {
+                        // newest copy in the cache or is left out. A copy without a day is
+                        // fetched again under its own name and is still there when that fails.
+                        Err(e) => match older
+                            .last()
+                            .cloned()
+                            .or_else(|| path.exists().then(|| path.clone()))
+                        {
                             Some(copy) => {
                                 (env.progress)(note!(
                                     "warning-point-cloud-unavailable-cached",
                                     tile = &name,
                                     reason = Arg::error(e)
                                 ));
-                                fetched.push(found(copy.clone()));
+                                fetched.push(found(copy));
                             }
                             None => (env.progress)(note!(
                                 "warning-point-cloud-unavailable-skipped",
@@ -468,6 +473,30 @@ mod tests {
             ),
             "{notes:?}"
         );
+    }
+
+    #[test]
+    fn a_stale_copy_without_a_day_serves_when_its_download_fails() {
+        let (_dir, cache) = cache();
+        let fetcher = MapFetcher::default();
+        serve(&fetcher, TILE, laz("2021-12-20", true), None);
+        fetch(&fetcher, &cache, FetchMode::Online, &inside(TILE));
+        assert_eq!(folder(&cache), ["655_5479-00000000.laz"]);
+        // After 30 days the copy is fetched again, under the same name; the server now gives
+        // an error page with status 200.
+        serve(&fetcher, TILE, b"<html>maintenance</html>".to_vec(), None);
+        let later = chrono::Utc::now().naive_utc() + chrono::Duration::days(31);
+        let (tiles, notes) = crate::clock::with_fixed(later, || {
+            fetch(&fetcher, &cache, FetchMode::Online, &inside(TILE))
+        });
+        assert_eq!(tiles.len(), 1, "{notes:?}");
+        assert!(tiles[0].path.ends_with("655_5479-00000000.laz"));
+        assert_eq!(tiles[0].record.published, Some(day("2021-12-20")));
+        assert!(
+            notes.iter().any(|n| n.ends_with("using the cached file")),
+            "{notes:?}"
+        );
+        assert_eq!(folder(&cache), ["655_5479-00000000.laz"]);
     }
 
     #[test]

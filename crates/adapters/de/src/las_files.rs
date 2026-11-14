@@ -88,14 +88,18 @@ pub(crate) fn header_day(path: &Path, today: NaiveDate) -> Option<NaiveDate> {
 }
 
 /// The day the points of the LAS/LAZ file at `path` were measured, for a provider that names
-/// the flight of a tile nowhere else: the newest day among 16 points spread evenly over the
-/// file. Only a file whose header says adjusted standard GPS time tells it (GPS week time
-/// names no week), and only a day between the first laser flights and `today` counts.
+/// the flight of a tile nowhere else: the newest day that two of 16 points spread evenly over
+/// the file share (one point of another day, a synthetic one for example, dates nothing). Only
+/// a file whose header says adjusted standard GPS time tells it (GPS week time names no week),
+/// and only a day between the first laser flights and `today` counts. A time within the first
+/// week of adjusted standard GPS time counts as the seconds of a week under a wrong header.
 pub(crate) fn flight_day(path: &Path, today: NaiveDate) -> Option<NaiveDate> {
     /// Points looked at; the first and the last are among them.
     const SAMPLES: u64 = 16;
     /// A day of a GPS time further from its epoch is no day (some 270 years).
     const MAX_DAYS: f64 = 100_000.0;
+    /// The seconds of a GPS week end here.
+    const WEEK_S: f64 = 604_800.0;
     let mut reader = las::Reader::from_path(path).ok()?;
     if !reader.header().gps_time_type().is_standard() {
         return None;
@@ -103,11 +107,14 @@ pub(crate) fn flight_day(path: &Path, today: NaiveDate) -> Option<NaiveDate> {
     let last = reader.header().number_of_points().checked_sub(1)?;
     let epoch = NaiveDate::from_ymd_opt(1980, 1, 6)?;
     let first_flights = first_flights()?;
-    (0..SAMPLES)
+    let mut days: Vec<NaiveDate> = (0..SAMPLES)
         .filter_map(|i| {
             reader.seek(i * last / (SAMPLES - 1)).ok()?;
             let points = reader.read_points(1).ok()?;
             let time = points.points().next()?.ok()?.gps_time?;
+            if (0.0..WEEK_S).contains(&time) {
+                return None;
+            }
             // Adjusted standard GPS time is the seconds since the GPS epoch minus 10⁹.
             let days = ((time + 1e9) / 86_400.0).floor();
             (0.0..MAX_DAYS)
@@ -115,7 +122,12 @@ pub(crate) fn flight_day(path: &Path, today: NaiveDate) -> Option<NaiveDate> {
                 .then(|| epoch.checked_add_days(chrono::Days::new(days as u64)))?
         })
         .filter(|day| (first_flights..=today).contains(day))
-        .max()
+        .collect();
+    days.sort_unstable_by(|a, b| b.cmp(a));
+    // A file of a single point is looked at 16 times and dates itself.
+    days.windows(2)
+        .find(|pair| pair[0] == pair[1])
+        .map(|pair| pair[0])
 }
 
 /// The SHA-256 of the file at `path` in hex, read in pieces.
@@ -409,12 +421,47 @@ mod tests {
     }
 
     #[test]
-    fn flight_day_is_unknown_outside_the_plausible_years() {
-        // GPS time 0 of a file with adjusted standard GPS time is 2011-09-14.
-        let (_dir, path) = file(&laz_with_times(&[0.0; 20], true));
+    fn flight_day_is_unknown_when_the_times_are_seconds_of_a_week() {
+        // A header that says adjusted standard GPS time over points that carry the seconds of
+        // their week (0 to 604 800): read as said, every such file was flown in the week from
+        // 2011-09-14 on.
+        let week: Vec<f64> = (0..40).map(|i| f64::from(i) * 15_000.0).collect();
+        let (_dir, path) = file(&laz_with_times(&week, true));
+        assert_eq!(flight_day(&path, day("2026-11-14")), None);
+        // The first second after that week is a day again.
+        let (_dir, path) = file(&laz_with_times(&[604_800.0; 20], true));
         assert_eq!(
             flight_day(&path, day("2026-11-14")),
-            Some(day("2011-09-14"))
+            Some(day("2011-09-21"))
+        );
+    }
+
+    #[test]
+    fn flight_day_ignores_a_lone_point_of_another_day() {
+        // One point with a later, plausible time (a synthetic point, say) does not date the
+        // tile: a day counts when two of the points looked at share it.
+        let mut times = vec![gps_noon(day("2021-12-20")); 40];
+        times[0] = gps_noon(day("2024-05-01"));
+        let (_dir, path) = file(&laz_with_times(&times, true));
+        assert_eq!(
+            flight_day(&path, day("2026-11-14")),
+            Some(day("2021-12-20"))
+        );
+        // A file of one point is still dated by it.
+        let (_dir, path) = file(&laz_with_times(&times[..1], true));
+        assert_eq!(
+            flight_day(&path, day("2026-11-14")),
+            Some(day("2024-05-01"))
+        );
+    }
+
+    #[test]
+    fn flight_day_is_unknown_outside_the_plausible_years() {
+        let late = [gps_noon(day("2011-10-01")); 20];
+        let (_dir, path) = file(&laz_with_times(&late, true));
+        assert_eq!(
+            flight_day(&path, day("2026-11-14")),
+            Some(day("2011-10-01"))
         );
         assert_eq!(flight_day(&path, day("2011-01-01")), None, "after today");
         // A time before the first flights (1985).
