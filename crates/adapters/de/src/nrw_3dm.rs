@@ -215,7 +215,7 @@ impl PointCloudBackend for Nrw3dmBackend {
                 continue;
             }
             (env.progress)(note!("progress-downloading", url = &url));
-            match download_las(env, &url, entry.bytes, None, &path) {
+            match download_las(env, &url, Some(entry.bytes), None, &path) {
                 Err(FetchError::Cancelled) => return Err(FetchError::Cancelled.into()),
                 Ok(()) => {
                     for (_, older) in cached.into_iter().filter(|(_, p)| *p != path) {
