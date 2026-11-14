@@ -70,8 +70,9 @@ lines are mostly two walls (a fin or a cleft), not one face drawn twice.
 
 ## Consequences
 
-- The Bastei keeps BASTEI_WALLS walls with tags, BASTEI_TOP top lines and BASTEI_206 pillars and fins; its
-  contours keep about half their length (35 of 78 km) instead of 22 km.
+- The Bastei keeps 256 walls with tags, 23 top lines and 25 pillars and fins; 425 knolls and depressions on the
+  rock are hidden; its contours keep 34 of 78 km (the first version kept 22 km); the worst square centimetre is
+  31 % black with rock (before 230 %).
 - A forest project of a tile provider stores a few MB more (`data/terrain.tif`, about 6 MB for the Bastei).
 - Follow-ups (not in this change): large rock bodies from the terrain model as areas (freemapper-d3's main idea:
   rock = slope over 45° off the paths, opened and closed at the norm's radius; 97 pillar-size bodies and 11
