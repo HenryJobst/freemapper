@@ -10,7 +10,7 @@ use freemapper_adapters_de::states::alkis::{
     BUILDINGS_ENDPOINT, LAND_USE_ENDPOINT, MV_BUILDINGS_ENDPOINT, MV_LAND_USE_ENDPOINT,
 };
 use freemapper_adapters_de::states::{State, StateAdapter, StateFiles};
-use freemapper_adapters_de::{geobremen, ldbv, lgl_bw, lgv, lvgl, states};
+use freemapper_adapters_de::{geobremen, ldbv, ldbv_las, lgl_bw, lgv, lvgl, states};
 use freemapper_georef::crs::Crs;
 use freemapper_manifest::adapter::{ManifestAdapter, Parse};
 use freemapper_manifest::model::Alkis;
@@ -175,8 +175,9 @@ fn recorded_hosts(state: State) -> Vec<String> {
             geobremen::FILES,
             geobremen::ALKIS_URL,
         ],
-        // The cadastre of Bavaria comes from the file server of the tiles.
-        State::Bayern => &[ldbv::WMS.url.as_ref(), ldbv::FILES],
+        // The cadastre of Bavaria comes from the file server of the tiles, its point clouds
+        // from a server of their own.
+        State::Bayern => &[ldbv::WMS.url.as_ref(), ldbv::FILES, ldbv_las::TILES],
         _ => &[],
     };
     if !written.is_empty() {

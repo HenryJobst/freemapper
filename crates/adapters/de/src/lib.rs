@@ -17,6 +17,7 @@ mod las_files;
 pub mod ldbv;
 pub mod ldbv_alkis;
 pub mod ldbv_files;
+pub mod ldbv_las;
 pub mod lgb;
 pub mod lgb_als;
 pub mod lgl_bw;

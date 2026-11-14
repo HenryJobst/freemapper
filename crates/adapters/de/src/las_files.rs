@@ -400,7 +400,7 @@ mod tests {
         let registry = Registry::new();
         let fetcher = MapFetcher::default();
         let path = dir.path().join("las/tile_2023-03-10.laz");
-        let mut download = |bytes: Vec<u8>| {
+        let download = |bytes: Vec<u8>| {
             fetcher.insert(URL, bytes);
             let mut env = AdapterEnv {
                 fetcher: &fetcher,

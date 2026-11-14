@@ -603,7 +603,7 @@ mod tests {
     }
 
     #[test]
-    fn five_states_have_point_clouds() {
+    fn six_states_have_point_clouds() {
         // The adapters come in the order of the states.
         for (state, adapter) in State::ALL.into_iter().zip(crate::states::adapters()) {
             let backend = adapter.point_cloud();
@@ -611,9 +611,10 @@ mod tests {
                 backend.map(|b| b.info().epsg),
                 match state {
                     State::Brandenburg | State::Berlin => Some(25833),
-                    State::NordrheinWestfalen | State::RheinlandPfalz | State::Saarland => {
-                        Some(25832)
-                    }
+                    State::NordrheinWestfalen
+                    | State::RheinlandPfalz
+                    | State::Saarland
+                    | State::Bayern => Some(25832),
                     _ => None,
                 },
                 "{state:?}"
