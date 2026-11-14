@@ -13,7 +13,7 @@ advice). Map kinds: `schoolyard` (1:1000), `sprint` (ISSprOM 2019, 1:4000 or 1:5
 
 Supported states: Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein,
 Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony, Rhineland-Palatinate,
-Saarland, Baden-Württemberg and Bremen. Thuringia and Bavaria have no data sources yet; an area there fails with a message that says so. Tell the
+Saarland, Baden-Württemberg, Bremen and Bavaria. Thuringia has no data sources yet; an area there fails with a message that says so. Tell the
 user before you start if the place lies outside these states.
 
 ## Install
@@ -153,7 +153,9 @@ Workflow:
    takes the best match with an area without listing the others. If no match fits, let the person draw the area
    with `select <dir>` (it prints or opens the page address; wait until they say they saved).
 3. Tell the person the download size before a large first download: the first project in a state
-   downloads its OSM extract (about 20 to 500 MB, kept for 7 days); later projects are much smaller.
+   downloads its OSM extract (about 20 to 500 MB, kept for 7 days); later projects are much smaller. Bavaria has
+   no service for its cadastre. A map there also downloads the buildings as files, up to 160 MB per 2 km in a
+   city centre, and about 45 MB of surface model per km².
 4. `freemapper run <dir>` with the outputs the person wants (`--pdf` to print, `--ocad` for OCAD, `--pdf-candidates`
    for a quick training map, `--permits` for the permit notes when they plan an event there). It takes from one
    to several minutes, longer on the first download, which can be longer than your default command timeout:

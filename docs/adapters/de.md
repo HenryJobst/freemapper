@@ -39,7 +39,9 @@ Gehen Sie die Fragen der Reihe nach durch.
      Baden-Württemberg hat ein Manifest und ein Backend wie die anderen und nur für das Kataster Code, weil
      sein WFS Sichten mit eigenen Namen liefert. Bremen hat nur das vollständige ALKIS (AAA-Schema der AdV,
      eine Objektart je Nutzungsart, Codes statt Texten); dafür gibt es eine fertige Quelle,
-     `freemapper_sources::aaa::AaaAlkis`, die jeder Code-Adapter für einen solchen Dienst verwenden kann. Legen
+     `freemapper_sources::aaa::AaaAlkis`, die jeder Code-Adapter für einen solchen Dienst verwenden kann. Bayern
+     hat für sein Kataster gar keinen Dienst, nur Dateien; seine Quelle `ldbv_alkis::LdbvAlkis` liest sie mit den
+     Lesern `freemapper_sources::citygml` (Gebäude aus CityGML) und `freemapper_sources::shapefile`. Legen
      Sie ein Issue an, bevor Sie anfangen; das ist mehr als ein Manifest.
 2. Kommt das Luftbild aus einem WMS oder WCS, und kommt jedes Höhenmodell aus einem WCS 2.0, der ein GeoTIFF
    mit Höhen im 1-m-Raster liefert?

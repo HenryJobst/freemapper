@@ -120,7 +120,7 @@ contours lie every 2.5 m; `freemapper.toml` names this as `[contours] interval_m
 
 The Schmausenbuck is a rectangle of 1.2 × 0.9 km (`init --geojson`, otherwise as above). It is hilly, the contours
 lie every 5 m, and embankments and knolls from the terrain model are candidates. The vegetation classes are
-missing: freemapper does not read the point clouds of Bavaria yet.
+missing, because freemapper does not read the point clouds of Bavaria yet.
 
 ## What an example contains
 
@@ -180,7 +180,7 @@ map objects (2498) and candidates (534). The old town won: the town moat and the
 with contours and the dense old town are on one sheet, and 64 stairs, 13 retaining walls and 16 embankment tops
 come from the full ALKIS, which only Brandenburg has besides.
 
-In Bavaria one rectangle ran for the sprint map, the old town of Regensburg: the arms of the Danube with their
+In Bavaria one rectangle ran for the sprint map, the old town of Regensburg. The arms of the Danube with their
 islands, the Stone Bridge and the dense old town are on one sheet. Bavaria has no service for its cadastre; the
 1821 buildings and 144 canopies come from the LoD2 tiles, the land use from the file of the city of Regensburg.
 The area lies east of 12° E and is in UTM zone 32 like all of Bavaria. For the forest map two rectangles ran at

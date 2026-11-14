@@ -126,7 +126,7 @@ deshalb liegen die Höhenlinien alle 2,5 m; die `freemapper.toml` nennt das als 
 
 Der Schmausenbuck ist ein Rechteck von 1,2 × 0,9 km (`init --geojson`, sonst wie oben). Er ist hügelig, die
 Höhenlinien liegen alle 5 m, und Böschungen und Kuppen aus dem Geländemodell sind Kandidaten. Die Bewuchsstufen
-fehlen: Für Bayern liest freemapper die Punktwolken noch nicht.
+fehlen, denn für Bayern liest freemapper die Punktwolken noch nicht.
 
 ## Inhalt eines Beispiels
 
@@ -187,7 +187,7 @@ meisten Kartenobjekte (2498) und Kandidaten (534). Die Altstadt hat gewonnen: St
 Park mit Höhenlinien und die dichte Bebauung stehen auf einem Blatt, und 64 Treppen, 13 Stützmauern und
 16 Böschungsoberkanten kommen aus dem vollständigen ALKIS, das sonst nur Brandenburg hat.
 
-In Bayern lief für die Sprintkarte ein Rechteck, die Regensburger Altstadt: Donauarme und Wöhrde, die Steinerne
+In Bayern lief für die Sprintkarte ein Rechteck, die Regensburger Altstadt. Donauarme und Wöhrde, die Steinerne
 Brücke und die dichte Bebauung stehen auf einem Blatt. Bayern hat keinen Dienst für sein Kataster; die 1821 Gebäude
 und 144 Überdachungen kommen aus den LoD2-Kacheln, die Nutzung aus der Datei der Stadt Regensburg. Das Gebiet liegt
 östlich von 12° O und steht wie ganz Bayern in der UTM-Zone 32. Für die Waldkarte liefen zwei Rechtecke am
