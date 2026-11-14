@@ -112,7 +112,46 @@ pub fn sources() -> Vec<Box<dyn PermitSource>> {
             zip: "landeseigener_forstbetrieb_staatswald_EPSG25832_Shape.zip",
             layer: Layer::StateForest,
         }),
+        linfos(),
     ]
+}
+
+/// The credit of LINFOS, verbatim from the capabilities (`AccessConstraints`) of its WMS; the
+/// WFS gives none.
+const LINFOS_CREDIT: &str = "Open Data - Dieses Angebot vom Landesamt für Natur, Umwelt und \
+    Verbraucherschutz Nordrhein-Westfalen ist lizensiert unter der Datenlizenz Deutschland \
+    Namensnennung 2.0 (https://www.govdata.de/dl-de/by-2-0). Datensätze unter dieser Lizenz \
+    müssen bei Weiterverwendung mit dem Quellenverweis „Land NRW“ versehen werden.";
+
+/// The Naturwaldzellen and Wildnisentwicklungsgebiete of LINFOS (ADR 0130), a WFS that
+/// answers GeoJSON.
+fn linfos() -> Box<dyn PermitSource> {
+    use crate::wfs_permits::Reading;
+    use freemapper_adapter_api::permits::ForestFunctionKind;
+    const NATURAL: Reading = Reading::Function {
+        kind: ForestFunctionKind::Natural,
+        name: Some("objektbezeichnung"),
+    };
+    crate::wfs_permits::source(
+        "linfos",
+        Wording {
+            en: "LINFOS (Land NRW)",
+            de: "LINFOS (Land NRW)",
+        },
+        Wording {
+            en: "Naturwaldzellen and wilderness development areas",
+            de: "Naturwaldzellen und Wildnisentwicklungsgebiete",
+        },
+        LINFOS_CREDIT,
+        &["naturwaldzellen", "wildnis"],
+        &[PermitSection::ForestFunctions],
+        "https://www.wfs.nrw.de/umwelt/linfos",
+        "GEOJSON",
+        &[
+            ("naturwaldzellen", "wfs_linfos:nwz_polygon", NATURAL),
+            ("wildnis", "wfs_linfos:weg_polygon", NATURAL),
+        ],
+    )
 }
 
 impl PermitSource for WuhPermitSource {

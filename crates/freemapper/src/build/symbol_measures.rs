@@ -21,6 +21,11 @@ pub const RETAINED_WALL_LINE_MM: SymbolMm = SymbolMm(0.21);
 pub const RETAINED_WALL_TICK_MM: SymbolMm = SymbolMm(0.30);
 pub const RETAINED_WALL_MM: SymbolMm = SymbolMm(0.60);
 
+/// The impassable cliff (201, ISOM 2017-2): the width of its line, and how far its tags reach from
+/// the centre line as the bundled symbol draws them.
+pub const CLIFF_MM: SymbolMm = SymbolMm(0.35);
+pub const CLIFF_TICK_MM: SymbolMm = SymbolMm(0.575);
+
 /// The point symbols the build emits and their size on paper at ISSprOM 1:4000 (mm): the larger
 /// of the norm's outer measure and the drawn extent (the larger side of its box) of the bundled
 /// symbol. `true`: a native

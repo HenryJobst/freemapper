@@ -241,6 +241,29 @@ pub fn sources() -> Vec<Box<dyn PermitSource>> {
             "https://gdi.berlin.de/services/wfs/forstverwalt",
             FORSTVERWALTUNG,
         ),
+        // Read by a table (ADR 0130): the water protection zones.
+        crate::wfs_permits::source(
+            "wsg",
+            LABEL,
+            Wording {
+                en: "water protection areas",
+                de: "Wasserschutzgebiete",
+            },
+            LICENCE,
+            &["wsg"],
+            &[PermitSection::WaterProtection],
+            "https://gdi.berlin.de/services/wfs/wsg",
+            "application/json",
+            &[(
+                "wsg",
+                "wsg:wsg",
+                crate::wfs_permits::Reading::Water {
+                    name: "wasserwerk",
+                    zone: "zone",
+                    citation: Some("verordnung"),
+                },
+            )],
+        ),
     ]
 }
 
@@ -470,7 +493,7 @@ mod tests {
     }
 
     #[test]
-    fn six_sources_with_plain_keys() {
+    fn seven_sources_with_plain_keys() {
         let all = sources();
         let keys: Vec<&str> = all.iter().map(|s| s.info().key).collect();
         assert_eq!(
@@ -481,7 +504,8 @@ mod tests {
                 "liegenschaftsplan",
                 "denkmale",
                 "schutzgebiete",
-                "forstverwalt"
+                "forstverwalt",
+                "wsg"
             ]
         );
         for s in &all {

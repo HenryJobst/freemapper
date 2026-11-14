@@ -7,6 +7,7 @@ pub mod berlin;
 pub mod buildings;
 pub mod candidates;
 pub mod canopy;
+pub mod cliffs;
 pub mod content;
 pub mod contours;
 pub mod control_sites;

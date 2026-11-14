@@ -576,6 +576,18 @@ freemapper run dammheide --pdf-candidates
   finished map then run `freemapper run <folder> --force` (or `derive` and `export --force`). The margin names the
   interval ("Äquidistanz 2,5 m"). When it is not the default, `derive` also writes it into `freemapper.toml` as
   `[contours] interval_m`, where freemapper-print reads it.
+- **Cliffs** from OpenStreetMap are generalized (ADR 0126): in rock country OSM has them cliff by cliff, more than
+  2000 at the Bastei. freemapper reads each cliff on the terrain model: how high the rock stands above its slope and
+  which side is lower; the tags point there. A way is judged in stretches, and pieces of one face are joined. A
+  stretch less than 3 m above its slope goes to the candidates map. A closed cliff with the lower side outside is a
+  rock pillar and becomes 206 (enlarged to the norm's 0.3 mm² where smaller); one with the lower side inside is a
+  hollow and stays a cliff. The highest cliffs are kept first; each keeps the gap of 0.25 mm between the sides that
+  face each other (ISOM 2017-2; enlarged like the symbols). Where only its line has room it is drawn as the top line
+  201.3, two cliffs back to back closer than that become one rock fin 206, and elsewhere a cliff is cut. The cliffs
+  are smoothed, so that the zigzag of the OSM lines goes. What goes is in the candidates map, tagged
+  `freemapper:generalized` with the reason; the training PDF leaves it out. The contours stop below the cliffs drawn
+  and run on elsewhere; knolls and depressions of the terrain on the rock are hidden. For the heights a forest map
+  in a state whose terrain model comes in tiles keeps it as `data/terrain.tif`.
 - Buildings, water, walls, fences, power lines, railways and out-of-bounds areas (520) come as on the sprint map.
   Benches, bollards, street lamps and other street furniture, trees from tree cadastres and single OSM trees are
   left out. Only a tree tagged `denotation=natural_monument`
@@ -997,7 +1009,10 @@ general hint for Berlin and Hamburg comes back.
 
 ### Water protection areas and forest functions
 
-In Hamburg both come from open services of the state; more states follow. A water protection area gets a hint
+Water protection areas with their zone come from Berlin, Hamburg, Hesse and Saarland, forest functions from
+Brandenburg (Naturwald, Totalreservat, closed areas, Erholungswald), Hamburg (Bannwald, Erholungswald), North
+Rhine-Westphalia (Naturwaldzellen, wilderness development areas) and Saarland (Naturwaldzellen, Urwald), each
+from open services of the state. In Saarland the listed buildings come with them. A water protection area gets a hint
 with its zone: in zones I and II events are usually ruled out, in zone III usually possible, and the lower water
 authority says what the ordinance allows. When the data give no zone, the hint names both cases. Recreation
 forest, protected forest, natural forest and closed forest areas each get a hint whom to ask or what to avoid.
@@ -1013,6 +1028,7 @@ forest offices openly:
 | Brandenburg | Oberförsterei and Revier of the Landesbetrieb Forst Brandenburg | WFS of the Landesbetrieb (`www.brandenburg-forst.de`) |
 | Berlin | Forstamt and Revier of the Berliner Forsten | Geoportal Berlin (`gdi.berlin.de`) |
 | North Rhine-Westphalia | Regionalforstamt and Forstbetriebsbezirk of the Landesbetrieb Wald und Holz NRW, and the state forest | two files on `www.opengeodata.nrw.de` |
+| Saarland | Revier of the SaarForst Landesbetrieb (state forest only) | Geoportal Saarland (`geoportal.saarland.de`) |
 
 The section "Forest administration" names each office with its unit and its share of the map area. The area of
 an office can take in towns and fields as well; in Brandenburg every map area lies in a Revier. "State forest"
@@ -1048,7 +1064,8 @@ phone numbers. freemapper takes none of it: it keeps only the names of the offic
   The notes quote that sentence word for word below the table of sources.
 - Owners of land are not in open data, except the state and the Bund in Berlin. The notes say how to get an
   extract from the land register.
-- The notes name forest offices only in Brandenburg, Berlin and North Rhine-Westphalia. Saxony, Saxony-Anhalt
+- The notes name forest offices only in Brandenburg, Berlin, Hamburg, North Rhine-Westphalia and Saarland
+  (there for the state forest only). Saxony, Saxony-Anhalt
   and Mecklenburg-Vorpommern show their forest offices only as a map image, without areas freemapper could
   read. The service of Rhineland-Palatinate turns freemapper away. For the other states no open service was
   found.
@@ -1064,6 +1081,9 @@ phone numbers. freemapper takes none of it: it keeps only the names of the offic
 | OpenStreetMap | extract in the cache | `© OpenStreetMap contributors, ODbL` |
 | Geoportal Berlin: Bezirk borders, green spaces, Liegenschaftsplan, monuments, protected objects, forest administration (Berlin only) | `gdi.berlin.de` | `Für die Nutzung der Daten ist die Datenlizenz Deutschland - Zero - Version 2.0 anzuwenden. Die Lizenz ist über https://www.govdata.de/dl-de/zero-2-0 abrufbar.` |
 | Geoportal Hamburg: Bezirk borders, Grünplan, monuments, forest in Hamburg, forest functions, water protection areas (Hamburg only) | `geodienste.hamburg.de` | per service `Datenlizenz Deutschland Namensnennung 2.0, Quellenvermerk: Freie und Hansestadt Hamburg, <office>` with the office the service names |
+| Geoportal Saarland: Reviere of the state forest, water protection areas, Naturwaldzellen, Urwald, listed buildings (Saarland only) | `geoportal.saarland.de` | `Quellenvermerk: © GDI-SL (<year>); Lizenz: Creative Commons Namensnennung 4.0 International (CC BY 4.0)` |
+| HLNUG: drinking water and medicinal spring protection areas (Hesse only) | `geodienste-umwelt.hessen.de` | `Lizenz: Creative Commons BY 4.0 (https://creativecommons.org/licenses/by/4.0/deed.de). Quellenvermerk für Daten: „Darstellung auf der Grundlage von Daten des Hessischen Landesamtes für Naturschutz, Umwelt und Geologie (HLNUG)“.` |
+| LINFOS: Naturwaldzellen, wilderness development areas (North Rhine-Westphalia only) | `www.wfs.nrw.de` | `Open Data - Dieses Angebot vom Landesamt für Natur, Umwelt und Verbraucherschutz Nordrhein-Westfalen ist lizensiert unter der Datenlizenz Deutschland Namensnennung 2.0 (https://www.govdata.de/dl-de/by-2-0). Datensätze unter dieser Lizenz müssen bei Weiterverwendung mit dem Quellenverweis „Land NRW“ versehen werden.` |
 | Landesbetrieb Forst Brandenburg: forest districts (Reviere) with their Oberförsterei (Brandenburg only) | `www.brandenburg-forst.de` | `Landesbetrieb Forst Brandenburg, Datenlizenz Deutschland – Namensnennung – Version 2.0 (https://www.govdata.de/dl-de/by-2-0)` |
 | Wald und Holz NRW: forest districts (Forstbetriebsbezirke) with their Regionalforstamt, state forest (North Rhine-Westphalia only) | `www.opengeodata.nrw.de` | `Landesbetrieb Wald und Holz Nordrhein-Westfalen, Datenlizenz Deutschland – Namensnennung – Version 2.0 (https://www.govdata.de/dl-de/by-2-0)` |
 

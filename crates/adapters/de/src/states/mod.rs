@@ -510,6 +510,8 @@ impl StateAdapter {
             State::Berlin => crate::berlin_permits::sources(),
             State::Brandenburg => crate::lfb_permits::sources(),
             State::Hamburg => crate::lgv_permits::sources(),
+            State::Saarland => crate::state_permits::saarland(),
+            State::Hessen => crate::state_permits::hessen(),
             State::NordrheinWestfalen => crate::wuh_permits::sources(),
             _ => Vec::new(),
         };
@@ -739,12 +741,13 @@ mod tests {
                         "denkmale",
                         "schutzgebiete",
                         "forstverwalt",
+                        "wsg",
                     ],
                     "https://gdi.berlin.de/services/wfs/forstverwalt",
                 ),
                 "brandenburg" => (
-                    &["reviere"],
-                    "https://www.brandenburg-forst.de/geoserver/IFUEK/ows",
+                    &["reviere", "waldfunktionen"],
+                    "https://www.brandenburg-forst.de/geoserver/IWFK/ows",
                 ),
                 "hamburg" => (
                     &[
@@ -757,8 +760,16 @@ mod tests {
                     ],
                     "https://geodienste.hamburg.de/HH_WFS_Wasserschutzgebiete",
                 ),
+                "saarland" => (
+                    &["forst", "schutzgebiete", "denkmale"],
+                    "https://geoportal.saarland.de/arcgis/services/Internet/Denkmalschutz/MapServer/WFSServer",
+                ),
+                "hessen" => (
+                    &["wasserschutzgebiete"],
+                    "https://geodienste-umwelt.hessen.de/arcgis/services/inspire/bewirtschaftungsgebiete/MapServer/WFSServer",
+                ),
                 "nordrheinwestfalen" => (
-                    &["forstbetriebsbezirke", "staatswald"],
+                    &["forstbetriebsbezirke", "staatswald", "linfos"],
                     "https://www.opengeodata.nrw.de/produkte/umwelt_klima/wald_forst/wald/x.zip",
                 ),
                 _ => {
