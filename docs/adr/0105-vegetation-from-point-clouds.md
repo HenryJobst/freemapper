@@ -81,6 +81,9 @@ the crowns, so it does not help.
   a new survey comes with new names and a new release of the backend. The record names the folder of the
   archives. The classes: 2 ground, 6 buildings, 9 water, 20 other non-ground (mostly vegetation), 8 and 30
   synthetic fill points.
+- Bavaria is the sixth source (`ldbv_las`): tiles by a computed address, the day of the flight from the GPS time
+  of the points, and two classes of its own that are left out. See
+  [0128](0128-bavaria-vegetation-from-the-point-clouds.md).
 - A backend names the CRS of its tiles (`PointCloudInfo::epsg`); the engine uses it only for a map in that CRS
   and passes it the map area plus buffer in that CRS.
 - Point clouds are a new kind of source per state (open in Bavaria, Rhineland-Palatinate, North

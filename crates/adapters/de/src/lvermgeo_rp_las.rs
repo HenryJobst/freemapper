@@ -70,6 +70,7 @@ impl RpLasBackend {
                 source: "lvermgeorp-las".to_string(),
                 epsg: 25832,
                 grid_km: 1,
+                left_out: Vec::new(),
             },
         }
     }
@@ -269,7 +270,7 @@ impl PointCloudBackend for RpLasBackend {
                 continue;
             };
             (env.progress)(note!("progress-downloading", url = &url));
-            match download_las(env, &url, file.bytes, Some(&file.sha256), &path) {
+            match download_las(env, &url, Some(file.bytes), Some(&file.sha256), &path) {
                 Err(FetchError::Cancelled) => return Err(FetchError::Cancelled.into()),
                 Ok(()) => {
                     for (_, older) in cached.iter().filter(|(_, p)| *p != path) {

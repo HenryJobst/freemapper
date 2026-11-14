@@ -132,11 +132,14 @@ impl BuildingMask {
 }
 
 /// Hands every return of a classified LAS/LAZ tile over `dtm` to `each`, with its height above
-/// it, chunk by chunk. Buildings, noise and water are left out, and so is every return over a
-/// cell of the DTM without data.
+/// it, chunk by chunk. Buildings, noise and water are left out, the classes `left_out` of the
+/// provider ([`PointCloudInfo::left_out`]), and every return over a cell of the DTM without data.
+///
+/// [`PointCloudInfo::left_out`]: freemapper_adapter_api::pointcloud::PointCloudInfo::left_out
 pub fn read_tile(
     path: &std::path::Path,
     dtm: &Raster<f32>,
+    left_out: &[u8],
     each: &mut dyn FnMut(VegetationPoint),
 ) -> Result<(), DeriveError> {
     use las::point::Classification;
@@ -173,6 +176,7 @@ pub fn read_tile(
                         | Classification::HighNoise
                 )
                 || u8::from(point.classification) == CELLAR_CLASS
+                || left_out.contains(&u8::from(point.classification))
             {
                 continue;
             }
@@ -307,8 +311,9 @@ impl CellCounts {
         path: &std::path::Path,
         dtm: &Raster<f32>,
         mask: Option<&BuildingMask>,
+        left_out: &[u8],
     ) -> Result<(), DeriveError> {
-        read_tile(path, dtm, &mut |p| {
+        read_tile(path, dtm, left_out, &mut |p| {
             if !mask.is_some_and(|m| m.contains(p.e, p.n)) {
                 self.add(p);
             }
@@ -693,10 +698,51 @@ mod tests {
             30.0f32,
         );
         let mut points = Vec::new();
-        read_tile(&path, &dtm, &mut |p| points.push(p)).unwrap();
+        read_tile(&path, &dtm, &[], &mut |p| points.push(p)).unwrap();
         assert_eq!(points.len(), 2, "{points:?}");
         assert!(points[0].ground && points[0].height_m == 0.0);
         assert!(!points[1].ground && (points[1].height_m - 1.5).abs() < 1e-6);
+    }
+
+    #[test]
+    fn read_tile_leaves_out_the_classes_the_provider_names() {
+        use las::point::Classification;
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("tile.laz");
+        let header = las::Builder::from((1, 2)).into_header().unwrap();
+        let mut writer = las::Writer::from_path(&path, header).unwrap();
+        // Bavaria: an object point (20), a cellar exit (22) and a synthetic ground point (23).
+        for (x, class) in [(1.0, 20), (2.0, 22), (3.0, 23)] {
+            writer
+                .write_point(las::Point {
+                    x,
+                    y: 5.0,
+                    z: 33.0,
+                    classification: Classification::new(class).unwrap(),
+                    ..Default::default()
+                })
+                .unwrap();
+        }
+        writer.close().unwrap();
+        let dtm = Raster::filled(
+            GridSpec {
+                west: 0.0,
+                north: 10.0,
+                pixel_size: 1.0,
+                width: 10,
+                height: 10,
+            },
+            30.0f32,
+        );
+        let read = |left_out: &[u8]| {
+            let mut points = Vec::new();
+            read_tile(&path, &dtm, left_out, &mut |p| points.push(p)).unwrap();
+            points
+        };
+        assert_eq!(read(&[]).len(), 3);
+        let kept = read(&[22, 23]);
+        assert_eq!(kept.len(), 1, "{kept:?}");
+        assert_eq!(kept[0].e, 1.0);
     }
 
     #[test]
@@ -734,17 +780,17 @@ mod tests {
         };
         let dtm = Raster::filled(g, 30.0f32);
         let mut counts = CellCounts::new(g);
-        counts.add_tile(&path, &dtm, None).unwrap();
+        counts.add_tile(&path, &dtm, None, &[]).unwrap();
         let classes = counts.classes();
         assert_eq!(classes.get(0, 0), Some(VegetationClass::Open));
         assert_eq!(classes.get(1, 0), Some(VegetationClass::Impassable));
         let mut points = Vec::new();
-        read_tile(&path, &dtm, &mut |p| points.push(p)).unwrap();
+        read_tile(&path, &dtm, &[], &mut |p| points.push(p)).unwrap();
         assert_eq!(classify(points, g).data, classes.data);
         // A tile beside the area gives nothing (and is not read).
         let beside = Raster::filled(GridSpec { west: 1000.0, ..g }, 30.0f32);
         let mut none = 0;
-        read_tile(&path, &beside, &mut |_| none += 1).unwrap();
+        read_tile(&path, &beside, &[], &mut |_| none += 1).unwrap();
         assert_eq!(none, 0);
         // A building just east of the bushes takes them out: within a metre of it, a return is a
         // wall or an eave.
@@ -767,7 +813,7 @@ mod tests {
         let mask = BuildingMask::new(&[building], &bbox);
         assert!(mask.contains(2.0 * CELL_M - 0.2, 1.5) && !mask.contains(CELL_M + 0.5, 1.5));
         let mut counts = CellCounts::new(g);
-        counts.add_tile(&path, &dtm, Some(&mask)).unwrap();
+        counts.add_tile(&path, &dtm, Some(&mask), &[]).unwrap();
         let classes = counts.classes();
         assert_eq!(classes.get(0, 0), Some(VegetationClass::Open));
         assert_eq!(

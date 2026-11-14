@@ -86,6 +86,7 @@ impl BerlinAlsBackend {
                 source: "berlin-als".to_string(),
                 epsg: 25833,
                 grid_km: 1,
+                left_out: Vec::new(),
             },
         }
     }

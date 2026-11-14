@@ -26,6 +26,10 @@ pub struct PointCloudInfo {
     pub epsg: u32,
     /// The side of a tile in km, in [`Self::epsg`].
     pub grid_km: u32,
+    /// Classes of this provider that are no returns of what grows there, besides those
+    /// `derive` leaves out for every provider (Bavaria: 22, cellar exits and bridges, and 23,
+    /// synthetic ground).
+    pub left_out: Vec<u8>,
 }
 
 /// One point-cloud tile the project records: where it came from and when it was published.

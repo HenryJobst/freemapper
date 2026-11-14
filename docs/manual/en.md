@@ -623,17 +623,17 @@ go straight onto the map. `slopes=map` takes only the banks of ALKIS and OpenStr
 
 ### Vegetation from laser point clouds
 
-In Brandenburg, Berlin, North Rhine-Westphalia, Rhineland-Palatinate and Saarland freemapper can derive the
-vegetation from the classified laser point clouds of LGB, the Geoportal Berlin, Geobasis NRW, LVermGeo RP and
-LVGL: open land
+In Brandenburg, Berlin, North Rhine-Westphalia, Rhineland-Palatinate, Saarland and Bavaria freemapper can derive
+the vegetation from the classified laser point clouds of LGB, the Geoportal Berlin, Geobasis NRW, LVermGeo RP,
+LVGL and the Bayerische Vermessungsverwaltung: open land
 (401), runnable forest (405), the green shades 406, 408 and 410, and undergrowth (407, 409). It counts in every
 3 m cell how many laser returns reach the ground and how many stay at the heights that slow a runner. That
 shows more than the nDSM, which only sees the crowns.
 
 The group `vegetation` is off in every profile, `full` included, because the point clouds are large. Per square
 kilometre tile freemapper loads about 160 MB in Brandenburg, about 240 MB in Berlin (about 100 MB as LAZ in the
-cache), mostly 50 to 165 MB in North Rhine-Westphalia, mostly 110 to 500 MB in Rhineland-Palatinate and about 40 MB in
-Saarland; a park
+cache), mostly 50 to 165 MB in North Rhine-Westphalia, mostly 110 to 500 MB in Rhineland-Palatinate, about 40 MB in
+Saarland and mostly 100 to 600 MB in Bavaria; a park
 usually needs two to four tiles. Only `--content-set vegetation=candidates` (or the area page) makes the next
 `fetch` load them into the shared cache. `derive` writes `data/vegetation.geojson` from them, and the export puts
 the areas into the candidates map. There are none at buildings, in water or on paved areas; roofs that ALKIS no
@@ -645,7 +645,12 @@ the old town of Saarlouis.
 Reeds and shrubs at a shore come out as 410. The Berlin scan of 2021 was made without leaves, so dense shrubs are
 recognised less well there, and when the Geoportal changes an archive, freemapper loads its tiles again. The Saarland scan (February 2025)
 was made without leaves too, and LVGL thinned the point cloud to one point per 0.5 m; freemapper still finds the
-crowns there. The point
+crowns there. In Bavaria it is checked on the Schmausenbuck in the Nürnberger Reichswald. The three Bavarian
+flights whose day is known were flown between November and February. Without leaves, shrubs and young growth
+give few echoes, so on the Schmausenbuck the young growth of 2 to 5 m under a power line comes out mostly as
+runnable forest (405). The date on the Bavarian candidates is the day of the flight, which freemapper reads from
+the laser points (20 December 2021 on the Schmausenbuck). Older flights do not name it; there it is the day the
+file was made. The point
 cloud can be some years older than the orthophoto. Check the areas against the orthophoto and in the terrain. When
 space is short, the point clouds are the first part left out. The other states have no point-cloud source yet. Saxony took its point clouds off its download area in November
 2026.

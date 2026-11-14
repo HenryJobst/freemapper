@@ -1,13 +1,14 @@
 # Bavaria: the rasters of the Bayerische Vermessungsverwaltung through code (a WMS for the
 # orthophoto, 1 km tiles for the terrain model and for the surface model of 20 cm). The state
 # has no service for its cadastre: buildings and land use are read by code out of files, the
-# LoD2 tiles and the Shapefile of each Kreis.
+# LoD2 tiles and the Shapefile of each Kreis. The laser point clouds for the vegetation lie on a
+# third host.
 format = 1
 
 [adapter]
 id = "bayern"
 provider = "ldbv"
-revision = 1
+revision = 2
 min_freemapper = "0.13.0"
 crs = 25832
 object_id_prefix = "DEBY"
@@ -17,7 +18,7 @@ maintainers = ["github:HenryJobst"]
 last_verified = "2026-11-14"
 
 [net]
-hosts = ["geoservices.bayern.de", "download1.bayernwolke.de"]
+hosts = ["geoservices.bayern.de", "download1.bayernwolke.de", "geodaten.bayern.de"]
 
 [boundary]
 file = "boundary.geojson"

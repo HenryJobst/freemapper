@@ -2268,11 +2268,14 @@ pub fn derive_project_cancellable(
             .flatten()
             .map_or_else(Vec::new, |b| b.all_footprints());
         let mask = BuildingMask::new(&footprints, &bbox);
+        // The classes the provider of the tiles says are no vegetation.
+        let left_out = point_cloud_backend(&project, &region_bbox)
+            .map_or(&[][..], |backend| backend.info().left_out.as_slice());
         let mut counts = CellCounts::new(GridSpec::covering(&bbox, VEGETATION_CELL_M));
         for (tile, path) in &point_clouds {
             stop_if(cancelled)?;
             // A damaged file costs only its tile, not the whole derive.
-            if let Err(e) = counts.add_tile(path, &dtm, Some(&mask)) {
+            if let Err(e) = counts.add_tile(path, &dtm, Some(&mask), left_out) {
                 progress(note!(
                     "warning-point-cloud-unreadable",
                     tile = tile,
