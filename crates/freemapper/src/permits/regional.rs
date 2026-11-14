@@ -1,5 +1,5 @@
 //! The part of the permit notes that region adapters bring (ADR 0120): districts, green spaces,
-//! public land, monuments and protected objects, from the [`PermitSource`]s of the adapters
+//! public land, monuments, protected objects and the forest administration (ADR 0124), from the [`PermitSource`]s of the adapters
 //! whose ground the map area touches.
 //!
 //! The engine knows the kinds of finding, not the region: it measures each finding on the map
@@ -83,6 +83,12 @@ pub struct RegionalNotes {
     pub monuments: Option<Monuments>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub protected_objects: Option<Vec<ProtectedObjectEntry>>,
+    /// One entry per office and unit of the forest administration, by share, descending.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub forest_units: Option<Vec<Share<ForestUnitEntry>>>,
+    /// One entry per owner and office of the state forest, by share, descending.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub state_forest: Option<Vec<Share<StateForestEntry>>>,
     /// The sources of the adapter, in its order.
     pub sources: Vec<RegionalStatus>,
 }
@@ -133,6 +139,21 @@ pub struct MonumentGroup {
     pub links: Vec<String>,
 }
 
+/// A unit of a forest administration, the texts as the source composed them.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct ForestUnitEntry {
+    pub administration: String,
+    pub office: String,
+    pub unit: Option<String>,
+}
+
+/// Forest of the state and the office that looks after it.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct StateForestEntry {
+    pub owner: String,
+    pub office: Option<String>,
+}
+
 /// A protected object on the map. Equal points (same kind, name and citation) are one entry
 /// with their count; an area has its share.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -167,6 +188,21 @@ pub(crate) struct HintFacts {
     /// The public owners with their share in percent (`None` as owner: the other public
     /// owners); `None` when no owner section was read.
     pub owners: Option<Vec<(Option<String>, f64)>>,
+    /// The forest offices on the map, by share, descending, each with its administration and
+    /// its units, for the offices that are more than an edge; an office that lies only at the
+    /// edge is left out.
+    pub forest_offices: Vec<ForestOffice>,
+    /// The state forest on the map with its share in percent.
+    pub state_forest: Vec<(StateForestEntry, f64)>,
+}
+
+/// A forest office the hints name.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ForestOffice {
+    pub administration: String,
+    pub office: String,
+    /// The units of the office on the map that are more than an edge, by share.
+    pub units: Vec<String>,
 }
 
 /// A finding in the plane of the map.
@@ -320,6 +356,8 @@ fn one_adapter(
     let monuments = read(PermitSection::Monuments).then(|| monuments(&on_map));
     let protected_objects =
         read(PermitSection::ProtectedObjects).then(|| protected_objects(&on_map));
+    let forest_units = read(PermitSection::ForestUnits).then(|| forest_units(&on_map));
+    let state_forest = read(PermitSection::StateForest).then(|| state_forest(&on_map));
 
     let facts = HintFacts {
         districts: districts
@@ -350,6 +388,12 @@ fn one_adapter(
                 .map(|s| (s.item.owner.clone(), s.percent))
                 .collect()
         }),
+        forest_offices: forest_offices(forest_units.iter().flatten()),
+        state_forest: state_forest
+            .iter()
+            .flatten()
+            .map(|s| (s.item.clone(), s.percent))
+            .collect(),
     };
     let notes = RegionalNotes {
         adapter: adapter.to_string(),
@@ -358,6 +402,8 @@ fn one_adapter(
         owners,
         monuments,
         protected_objects,
+        forest_units,
+        state_forest,
         sources: inputs
             .iter()
             .map(|i| RegionalStatus {
@@ -429,6 +475,71 @@ fn owners(on_map: &[(&Placed<'_>, f64)]) -> Vec<Share<OwnerEntry>> {
     by_share(summed, |owner| OwnerEntry {
         owner: owner.clone(),
     })
+}
+
+fn forest_units(on_map: &[(&Placed<'_>, f64)]) -> Vec<Share<ForestUnitEntry>> {
+    let mut summed: BTreeMap<ForestUnitEntry, f64> = BTreeMap::new();
+    for (p, share) in on_map {
+        if let FindingKind::ForestUnit {
+            administration,
+            office,
+            unit,
+        } = p.kind
+        {
+            let key = ForestUnitEntry {
+                administration: administration.clone(),
+                office: office.clone(),
+                unit: unit.clone(),
+            };
+            *summed.entry(key).or_default() += share;
+        }
+    }
+    by_share(summed, Clone::clone)
+}
+
+/// The offices of `units` (by share) with their units that are more than an edge, in the
+/// order of their largest unit; an office with only edge units is left out.
+fn forest_offices<'a>(
+    units: impl Iterator<Item = &'a Share<ForestUnitEntry>>,
+) -> Vec<ForestOffice> {
+    let mut offices: Vec<ForestOffice> = Vec::new();
+    for s in units.filter(|s| !s.at_edge) {
+        let unit = &s.item;
+        let at = match offices
+            .iter()
+            .position(|o| o.administration == unit.administration && o.office == unit.office)
+        {
+            Some(at) => at,
+            None => {
+                offices.push(ForestOffice {
+                    administration: unit.administration.clone(),
+                    office: unit.office.clone(),
+                    units: Vec::new(),
+                });
+                offices.len() - 1
+            }
+        };
+        if let Some(name) = &unit.unit
+            && !offices[at].units.contains(name)
+        {
+            offices[at].units.push(name.clone());
+        }
+    }
+    offices
+}
+
+fn state_forest(on_map: &[(&Placed<'_>, f64)]) -> Vec<Share<StateForestEntry>> {
+    let mut summed: BTreeMap<StateForestEntry, f64> = BTreeMap::new();
+    for (p, share) in on_map {
+        if let FindingKind::StateForest { owner, office } = p.kind {
+            let key = StateForestEntry {
+                owner: owner.clone(),
+                office: office.clone(),
+            };
+            *summed.entry(key).or_default() += share;
+        }
+    }
+    by_share(summed, Clone::clone)
 }
 
 fn monuments(on_map: &[(&Placed<'_>, f64)]) -> Monuments {

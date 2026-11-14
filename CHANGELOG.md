@@ -6,6 +6,10 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+### Hinzugefügt
+
+- Genehmigungshinweise, Schritt 3 (ADR 0124): In Brandenburg, Berlin und Nordrhein-Westfalen nennen die Hinweise die Forstverwaltung des Kartengebiets, jede Dienststelle mit Revier oder Bezirk und ihrem Anteil: die Oberförstereien des Landesbetriebs Forst Brandenburg, die Forstämter der Berliner Forsten und die Regionalforstämter von Wald und Holz NRW. In Nordrhein-Westfalen kommt der Anteil des Staatswalds dazu. Eine Waldkarte bekommt den Hinweis auf die zuständige Dienststelle und darauf, dass die Waldbesitzer zustimmen müssen; in den anderen Bundesländern nur den zweiten, mit dem Satz, dass die Hinweise die Dienststelle dort nicht nennen. In Nordrhein-Westfalen lädt ein Abruf dafür zwei Dateien mit zusammen etwa 17 MB. Die Namen und Kontaktdaten der Förster in diesen Dateien übernimmt freemapper nicht, auch nicht in `data/permits/`.
+
 ### Geändert
 
 - Beispiele: Das Bodetal und die Bastei haben Höhenlinien alle 10 m statt 5 m; an den steilen Hängen liefen sie zu einer braunen Fläche zusammen. Die Felsen der Bastei stammen aus OSM, nicht aus dem Geländemodell, wie die Beispielübersicht bisher sagte.

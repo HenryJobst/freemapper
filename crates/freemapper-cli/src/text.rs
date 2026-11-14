@@ -313,6 +313,9 @@ mod tests {
             ("rest", v("yes")),
             ("unnamed", v("no")),
             ("dedication", v("gewidmet")),
+            ("office", v("Oberförsterei Barnim")),
+            ("administration", v("Landesbetrieb Forst Brandenburg")),
+            ("units", v("Revier Werneuchen")),
             (
                 "note",
                 v("Nur diese amtlichen analogen Karten sind rechtsverbindlich."),

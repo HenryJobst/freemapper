@@ -871,8 +871,9 @@ still have to ask them.
 
 ### Making the notes
 
-The notes are made only when you ask for them, and only then does freemapper ask the BfN and the BKG, and for
-a map area in Berlin also the Geoportal Berlin.
+The notes are made only when you ask for them, and only then does freemapper ask the BfN and the BKG, for a
+map area in Berlin also the Geoportal Berlin, in Brandenburg and North Rhine-Westphalia the forest
+administration.
 
 - In the terminal, after the map was fetched once:
 
@@ -886,8 +887,9 @@ a map area in Berlin also the Geoportal Berlin.
 - Tell the AI assistant, for example: "Also make the permit notes for the project." It shows you the text
   once it is done.
 
-`permits` asks the two federal services, in Berlin also the Geoportal Berlin, and reads the OSM extract that is
-already in the cache. It does not
+`permits` asks the two federal services, in Berlin also the Geoportal Berlin, in Brandenburg the Landesbetrieb
+Forst, and reads the OSM extract that is already in the cache. In North Rhine-Westphalia it downloads two files of
+Wald und Holz NRW for the whole state, about 17 MB together, anew on every fetch. It does not
 download an extract. Without one the notes leave OpenStreetMap out and say so; `freemapper fetch` downloads
 it. It all takes about half a minute, most of it for reading the OSM extract.
 
@@ -927,6 +929,8 @@ It starts with the note that it is not legal advice. Six sections follow:
   public (`garden:type=residential` or `private`, `access=private` or `no`). It reads no phone numbers or e-mail
   addresses either.
 - In Berlin up to five sections from the Geoportal Berlin follow "Administrative units" (see "Berlin" below).
+- In Brandenburg, Berlin and North Rhine-Westphalia "Forest administration" follows, in North Rhine-Westphalia
+  also "State forest" (see "Forest administration" below).
 - "Hints" says whom a finding usually concerns, for example: "Protected areas concern the lower nature
   conservation authority (untere Naturschutzbehörde), usually the Landkreis Märkisch-Oderland." or "In a
   nature reserve you usually have to keep to the paths." The hints name the kind of office and the unit, never
@@ -937,7 +941,8 @@ A section whose source was not read says so.
 
 ### Berlin
 
-When the map area lies in Berlin, freemapper also asks five services of the Geoportal Berlin (`gdi.berlin.de`).
+When the map area lies in Berlin, freemapper also asks six services of the Geoportal Berlin (`gdi.berlin.de`),
+one of them for the forest administration (see below).
 Their sections follow "Administrative units":
 
 - "Bezirke" names each district (Bezirk) with its share of the map area.
@@ -964,6 +969,33 @@ If a service is down, only its section is missing, and the table of sources says
 Bezirke the general hint for Berlin and Hamburg comes back. Nature reserves, landscape protection areas, FFH and
 bird protection areas and the nature park still come from the BfN, not from the Geoportal.
 
+### Forest administration
+
+An event in the forest needs the consent of the forest owners. In several states an organised event in the
+forest must also be reported to the forest authority or allowed by it. Three states publish the areas of their
+forest offices openly:
+
+| State | Office and unit | Source |
+|---|---|---|
+| Brandenburg | Oberförsterei and Revier of the Landesbetrieb Forst Brandenburg | WFS of the Landesbetrieb (`www.brandenburg-forst.de`) |
+| Berlin | Forstamt and Revier of the Berliner Forsten | Geoportal Berlin (`gdi.berlin.de`) |
+| North Rhine-Westphalia | Regionalforstamt and Forstbetriebsbezirk of the Landesbetrieb Wald und Holz NRW, and the state forest | two files on `www.opengeodata.nrw.de` |
+
+The section "Forest administration" names each office with its unit and its share of the map area. The area of
+an office can take in towns and fields as well; in Brandenburg every map area lies in a Revier. "State forest"
+(North Rhine-Westphalia only) gives the share of the map area that belongs to the state of North Rhine-Westphalia, with
+the forest office that looks after it.
+
+On a forest map the hints name the office of every area that is more than an edge of the map, with its
+Reviere or districts, and say that the forest owners must agree. In the other states, or when the service could
+not be reached, a forest map gets only the hint on the owners' consent and the forest authority, without an
+office. Schoolyard and sprint maps get none of these hints, but they do get the sections. The state forest is
+among the owner hints on every kind of map.
+
+In North Rhine-Westphalia every row of the district file also names the forester with name, e-mail address and
+phone numbers. freemapper takes none of it: it keeps only the names of the office and the district, also in
+`data/permits/`.
+
 ### Limits
 
 - The BfN merges the protected areas of the states once a year and marks the data "Nicht für Planungszwecke
@@ -980,8 +1012,12 @@ bird protection areas and the nature park still come from the BfN, not from the 
   The notes quote that sentence word for word below the table of sources.
 - Owners of land are not in open data, except the state and the Bund in Berlin. The notes say how to get an
   extract from the land register.
-- Forest administrations, water protection areas and monuments outside Berlin are not in yet. They come in later
-  versions.
+- The notes name forest offices only in Brandenburg, Berlin and North Rhine-Westphalia. Saxony, Saxony-Anhalt
+  and Mecklenburg-Vorpommern show their forest offices only as a map image, without areas freemapper could
+  read. The service of Rhineland-Palatinate turns freemapper away. For the other states no open service was
+  found.
+- Who owns a private or municipal forest is in no open data.
+- Water protection areas and monuments outside Berlin are not in yet. They come in later versions.
 
 ### Data sources and licences
 
@@ -990,14 +1026,18 @@ bird protection areas and the nature park still come from the BfN, not from the 
 | Administrative areas 1:250 000 (VG250) of the Federal Agency for Cartography and Geodesy (BKG) | `sgx.geodatenzentrum.de` | `© BKG (<year>) dl-de/by-2-0, Datenquellen: https://sg.geodatenzentrum.de/web_public/gdz/datenquellen/datenquellen_vg_nuts.pdf` |
 | Protected areas in Germany of the Federal Agency for Nature Conservation (BfN) | `geodienste.bfn.de` | `© Bundesamt für Naturschutz (BfN) (<year>), Schutzgebiete in Deutschland; Nutzungsbestimmungen für die Bereitstellung von Geodaten des Bundes (GeoNutzV). Nicht für Planungszwecke geeignet.` |
 | OpenStreetMap | extract in the cache | `© OpenStreetMap contributors, ODbL` |
-| Geoportal Berlin: Bezirk borders, green spaces, Liegenschaftsplan, monuments, protected objects (Berlin only) | `gdi.berlin.de` | `Für die Nutzung der Daten ist die Datenlizenz Deutschland - Zero - Version 2.0 anzuwenden. Die Lizenz ist über https://www.govdata.de/dl-de/zero-2-0 abrufbar.` |
+| Geoportal Berlin: Bezirk borders, green spaces, Liegenschaftsplan, monuments, protected objects, forest administration (Berlin only) | `gdi.berlin.de` | `Für die Nutzung der Daten ist die Datenlizenz Deutschland - Zero - Version 2.0 anzuwenden. Die Lizenz ist über https://www.govdata.de/dl-de/zero-2-0 abrufbar.` |
+| Landesbetrieb Forst Brandenburg: forest districts (Reviere) with their Oberförsterei (Brandenburg only) | `www.brandenburg-forst.de` | `Landesbetrieb Forst Brandenburg, Datenlizenz Deutschland – Namensnennung – Version 2.0 (https://www.govdata.de/dl-de/by-2-0)` |
+| Wald und Holz NRW: forest districts (Forstbetriebsbezirke) with their Regionalforstamt, state forest (North Rhine-Westphalia only) | `www.opengeodata.nrw.de` | `Landesbetrieb Wald und Holz Nordrhein-Westfalen, Datenlizenz Deutschland – Namensnennung – Version 2.0 (https://www.govdata.de/dl-de/by-2-0)` |
 
 `<year>` is the year of the fetch. The BfN gives no credit line of its own; freemapper built this one from the
 name of the service, its terms of use and its access note. Keep the lines when you pass `permits.md` on.
 
-freemapper sends the two federal services and the Geoportal Berlin only the rectangle around the map area and
-its fixed name (User-Agent). It asks no other server for the notes. It asks the Geoportal only for a map area in
-Berlin and only through the hosts Berlin's adapter names. `adapters allow-host` does not apply to the federal
+freemapper sends the federal services, the Geoportal Berlin and the Landesbetrieb Forst Brandenburg only the
+rectangle around the map area and its fixed name (User-Agent). From Wald und Holz NRW it downloads the files for
+the whole state and cuts them itself; only the name goes there. It asks no other server for the notes. It asks
+the services of a state only for a map area that lies there, and only through the hosts the adapter of that
+state names. `adapters allow-host` does not apply to the federal
 services.
 
 ## 13. Regions and border areas

@@ -16,8 +16,8 @@ use freemapper::permits::notes::{
     ProtectedEntry, Share, SourceStatus, hint_key,
 };
 use freemapper::permits::regional::{
-    GreenSpaceEntry, ProtectedObjectEntry, ProtectedObjectKind, RegionalNotes, RegionalStatus,
-    Words,
+    ForestUnitEntry, GreenSpaceEntry, ProtectedObjectEntry, ProtectedObjectKind, RegionalNotes,
+    RegionalStatus, StateForestEntry, Words,
 };
 use freemapper::permits::store::{PERMITS_JSON, PERMITS_MD, write_permit_notes};
 use freemapper::project::{MapKind, ProjectFile};
@@ -394,8 +394,17 @@ fn hint_text(lang: &Lang, notes: &PermitNotes, hint: &Hint) -> String {
     if hint.key == hint_key::OWNERS_UNKNOWN && !has(&args, "rest") {
         args.push(("rest".into(), "no".into()));
     }
-    if hint.key == hint_key::OWNER_SHARE {
-        if !has(&args, "unnamed") {
+    if hint.key == hint_key::FOREST_OFFICE && !has(&args, "units") {
+        args.push(("units".into(), "none".into()));
+    }
+    if hint.key == hint_key::FOREST_OWNER && !has(&args, "office") {
+        args.push(("office".into(), "unknown".into()));
+    }
+    if hint.key == hint_key::STATE_FOREST && !has(&args, "office") {
+        args.push(("office".into(), "none".into()));
+    }
+    if hint.key == hint_key::OWNER_SHARE || hint.key == hint_key::STATE_FOREST {
+        if hint.key == hint_key::OWNER_SHARE && !has(&args, "unnamed") {
             args.push(("unnamed".into(), "no".into()));
         }
         let percent = hint.args.get("percent").and_then(|p| p.parse::<f64>().ok());
@@ -604,6 +613,55 @@ fn green_space_line(lang: &Lang, s: &Share<GreenSpaceEntry>) -> String {
     )
 }
 
+/// "Oberförsterei Barnim, Revier Werneuchen (Landesbetrieb Forst Brandenburg): 60 %".
+fn forest_unit_line(lang: &Lang, s: &Share<ForestUnitEntry>) -> String {
+    let u = &s.item;
+    let mut name = md(&u.office);
+    if let Some(unit) = &u.unit {
+        name = format!("{name}, {}", md(unit));
+    }
+    let name = format!("{name} ({})", md(&u.administration));
+    format!(
+        "- {}",
+        t(
+            lang,
+            "permits-share-line",
+            &[
+                ("name", arg(name)),
+                ("share", arg(share_text(lang, s.percent)))
+            ],
+        )
+    )
+}
+
+/// "Bundesland Nordrhein-Westfalen (in charge: Regionalforstamt Rhein-Sieg-Erft): 12 %".
+fn state_forest_line(lang: &Lang, s: &Share<StateForestEntry>) -> String {
+    let f = &s.item;
+    let name = match &f.office {
+        Some(office) => format!(
+            "{} ({})",
+            md(&f.owner),
+            t(
+                lang,
+                "permits-state-forest-office",
+                &[("office", arg(md(office)))]
+            )
+        ),
+        None => md(&f.owner),
+    };
+    format!(
+        "- {}",
+        t(
+            lang,
+            "permits-share-line",
+            &[
+                ("name", arg(name)),
+                ("share", arg(share_text(lang, s.percent)))
+            ],
+        )
+    )
+}
+
 fn object_kind(lang: &Lang, kind: ProtectedObjectKind) -> String {
     t(
         lang,
@@ -762,6 +820,28 @@ fn regional_blocks(lang: &Lang, part: &RegionalNotes) -> Vec<String> {
             }
         }
     }
+    if let Some(units) = &part.forest_units {
+        blocks.push(heading("permits-section-forest-units"));
+        if units.is_empty() {
+            blocks.push(none("permits-none-forest-units"));
+        } else {
+            blocks.extend(with_edge(lang, units, |s| forest_unit_line(lang, s), None));
+            blocks.push(t(lang, "permits-forest-units-reach", &[]));
+        }
+    }
+    if let Some(forest) = &part.state_forest {
+        blocks.push(heading("permits-section-state-forest"));
+        if forest.is_empty() {
+            blocks.push(none("permits-none-state-forest"));
+        } else {
+            blocks.extend(with_edge(
+                lang,
+                forest,
+                |s| state_forest_line(lang, s),
+                None,
+            ));
+        }
+    }
     blocks
 }
 
@@ -898,6 +978,9 @@ fn used_ids() -> Vec<String> {
             hint_key::NATURE_OBJECT_AUTHORITY,
             hint_key::OWNER_SHARE,
             hint_key::OWNERS_UNKNOWN,
+            hint_key::FOREST_OFFICE,
+            hint_key::FOREST_OWNER,
+            hint_key::STATE_FOREST,
         ]
         .map(String::from),
     );
@@ -1296,6 +1379,8 @@ mod tests {
                     tree("Gewöhnliche Rosskastanie", 1),
                     tree("Weisse Maulbeere", 1),
                 ]),
+                forest_units: None,
+                state_forest: None,
                 sources: vec![
                     regional_status("bezirke", "Bezirksgrenzen (ALKIS Berlin)", None),
                     regional_status("gruenanlagen", "Grünanlagenbestand", None),
@@ -1410,6 +1495,84 @@ mod tests {
             text.contains("2% of the map area belongs to other public owners."),
             "{text}"
         );
+    }
+
+    /// The forest office, its units and the state forest, and their hints on a forest map
+    /// (ADR 0124).
+    #[test]
+    fn forest_offices_and_state_forest_are_written() {
+        use freemapper::permits::regional::{ForestUnitEntry, StateForestEntry};
+        let mut notes = viktoriapark();
+        notes.map_kind = MapKind::Forest;
+        notes.regional[0].forest_units = Some(vec![
+            share(
+                ForestUnitEntry {
+                    administration: "Berliner Forsten".into(),
+                    office: "Forstamt Grunewald".into(),
+                    unit: Some("Revier Dachsberg".into()),
+                },
+                72.0,
+            ),
+            share(
+                ForestUnitEntry {
+                    administration: "Berliner Forsten".into(),
+                    office: "Forstamt Grunewald".into(),
+                    unit: None,
+                },
+                3.0,
+            ),
+        ]);
+        notes.regional[0].state_forest = Some(vec![share(
+            StateForestEntry {
+                owner: "Land Berlin".into(),
+                office: Some("Forstamt Grunewald".into()),
+            },
+            12.0,
+        )]);
+        notes.hints = vec![
+            hint(
+                hint_key::FOREST_OFFICE,
+                &[
+                    ("office", "Forstamt Grunewald"),
+                    ("administration", "Berliner Forsten"),
+                    ("units", "Revier Dachsberg"),
+                ],
+            ),
+            hint(hint_key::FOREST_OWNER, &[("office", "known")]),
+            hint(
+                hint_key::STATE_FOREST,
+                &[
+                    ("owner", "Land Berlin"),
+                    ("percent", "12.0"),
+                    ("office", "Forstamt Grunewald"),
+                ],
+            ),
+            hint(hint_key::FOREST_OWNER, &[]),
+        ];
+        let text = render_markdown(&notes, &de());
+        for wanted in [
+            "## Forstverwaltung (Geoportal Berlin)",
+            "- Forstamt Grunewald, Revier Dachsberg (Berliner Forsten): 72 %\n- Forstamt Grunewald (Berliner Forsten): 3 %",
+            "Ihr Bereich kann auch Siedlungen und Felder umfassen.",
+            "## Staatswald (Geoportal Berlin)",
+            "- Land Berlin (zuständig: Forstamt Grunewald): 12 %",
+            "Zuständige Forstdienststelle für den Wald im Kartengebiet: Forstamt Grunewald (Berliner Forsten), Revier Dachsberg.",
+            "Wem der Wald gehört, kann meist die Forstdienststelle sagen.",
+            "sind 12 % des Kartengebiets Staatswald des Eigentümers „Land Berlin“. Zuständig: Forstamt Grunewald.",
+            "Welche Forstdienststelle hier zuständig ist, bestimmen diese Hinweise nicht",
+        ] {
+            assert!(text.contains(wanted), "{wanted}\n{text}");
+        }
+        let text = render_markdown(&notes, &Lang::english());
+        for wanted in [
+            "## Forest administration (Geoportal Berlin)",
+            "- Forstamt Grunewald, Revier Dachsberg (Berliner Forsten): 72%",
+            "- Land Berlin (in charge: Forstamt Grunewald): 12%",
+            "12% of the map area is state forest of the owner \"Land Berlin\". In charge: Forstamt Grunewald.",
+            "These notes do not name the forest office in charge here",
+        ] {
+            assert!(text.contains(wanted), "{wanted}\n{text}");
+        }
     }
 
     #[test]

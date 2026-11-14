@@ -1,8 +1,9 @@
-//! Berlin's sources of the permit notes (ADR 0120): five WFS of the Geoportal Berlin
+//! Berlin's sources of the permit notes (ADR 0120): six WFS of the Geoportal Berlin
 //! (dl-de/zero-2-0) for the Bezirke, the green spaces and playgrounds, the land of the Land
-//! Berlin and the Bund, the monuments and the protected objects under nature conservation law.
+//! Berlin and the Bund, the monuments, the protected objects under nature conservation law and
+//! the Forstämter and Reviere of the Berliner Forsten (ADR 0124).
 //!
-//! All five are GeoServer WFS 2.0.0 that answer GeoJSON (`application/json`) and read a box in
+//! All six are GeoServer WFS 2.0.0 that answer GeoJSON (`application/json`) and read a box in
 //! WGS 84 latitude first when it ends with its CRS, which is how the generic reader asks
 //! ([`get_features`]). The answers come as longitude, latitude; the parser still accepts
 //! EPSG:25833 (the default CRS of the services) and latitude first, so a changed default does
@@ -24,7 +25,7 @@ use serde_json::Value;
 use crate::crs::{Crs, ProjectedPoint};
 use crate::fetch::{FetchError, Fetcher};
 
-/// The licence of all five services, verbatim from their capabilities (`Fees`).
+/// The licence of all six services, verbatim from their capabilities (`Fees`).
 pub const LICENCE: &str = "Für die Nutzung der Daten ist die Datenlizenz Deutschland - Zero - \
     Version 2.0 anzuwenden. Die Lizenz ist über https://www.govdata.de/dl-de/zero-2-0 abrufbar.";
 
@@ -59,6 +60,8 @@ enum Reading {
     Owner,
     Monument,
     Protected(ProtectedObjectKind),
+    /// A Distrikt of the Berliner Forsten with its Forstamt and Revier.
+    Forest,
 }
 
 /// One service of the Geoportal Berlin with its layers: the key, the WFS type and how the
@@ -123,7 +126,16 @@ const SCHUTZOBJEKTE: &[(&str, &str, Reading)] = &[
     ),
 ];
 
-/// One service of the five.
+const FORSTVERWALTUNG: &[(&str, &str, Reading)] = &[(
+    "forstverwalt",
+    "forstverwalt:b_forstverwalt",
+    Reading::Forest,
+)];
+
+/// The administration of the forest offices of Berlin.
+const BERLINER_FORSTEN: &str = "Berliner Forsten";
+
+/// One service of the six.
 #[allow(clippy::too_many_arguments)]
 fn source(
     key: &'static str,
@@ -152,7 +164,7 @@ fn source(
     })
 }
 
-/// The five services, in the order the notes list their sections.
+/// The six services, in the order the notes list their sections.
 pub fn sources() -> Vec<Box<dyn PermitSource>> {
     vec![
         source(
@@ -214,6 +226,18 @@ pub fn sources() -> Vec<Box<dyn PermitSource>> {
             Some(ANALOGUE_MAPS),
             "https://gdi.berlin.de/services/wfs/schutzgebiete",
             SCHUTZOBJEKTE,
+        ),
+        source(
+            "forstverwalt",
+            Wording {
+                en: "forest administration (Forstämter and Reviere of the Berliner Forsten)",
+                de: "Forstverwaltung (Forstämter und Reviere der Berliner Forsten)",
+            },
+            &["forstverwalt"],
+            &[PermitSection::ForestUnits],
+            None,
+            "https://gdi.berlin.de/services/wfs/forstverwalt",
+            FORSTVERWALTUNG,
         ),
     ]
 }
@@ -294,6 +318,11 @@ fn finding(reading: Reading, feature: &Value) -> Option<PermitFinding> {
             name: text(feature, "gebietsname"),
             citation: text(feature, "zitat"),
         },
+        Reading::Forest => FindingKind::ForestUnit {
+            administration: BERLINER_FORSTEN.to_string(),
+            office: format!("Forstamt {}", text(feature, "foa_name")?),
+            unit: text(feature, "rev_name").map(|name| format!("Revier {name}")),
+        },
     };
     // A district, a green space, a parcel is an area; only protected objects may be points.
     let point_allowed = matches!(reading, Reading::Protected(_) | Reading::Monument);
@@ -314,7 +343,7 @@ fn text(feature: &Value, key: &str) -> Option<String> {
 
 /// The geometry of `feature` in WGS 84 with x = longitude: a MultiPolygon for an area, a
 /// MultiPoint for an object.
-fn geometry(feature: &Value) -> Option<Geometry<f64>> {
+pub(crate) fn geometry(feature: &Value) -> Option<Geometry<f64>> {
     let geometry =
         serde_json::from_value::<geojson::Geometry>(feature.get("geometry")?.clone()).ok()?;
     let geometry = match Geometry::<f64>::try_from(geometry).ok()? {
@@ -396,8 +425,50 @@ mod tests {
         }
     }
 
+    /// A Distrikt of the Berliner Forsten names its Forstamt and Revier (ADR 0124), from a
+    /// trimmed answer of the service in the Grunewald.
     #[test]
-    fn five_sources_with_plain_keys() {
+    fn forest_distrikte_name_their_forstamt_and_revier() {
+        let found = read(
+            "forstverwalt",
+            "forstverwalt",
+            fixture!("forstverwalt.geojson"),
+        );
+        let kinds: Vec<&FindingKind> = found.iter().map(|f| &f.kind).collect();
+        assert_eq!(kinds.len(), 3, "{kinds:?}");
+        for (kind, revier) in kinds.iter().zip(["Saubucht", "Dachsberg", "Eichkamp"]) {
+            assert_eq!(
+                **kind,
+                FindingKind::ForestUnit {
+                    administration: "Berliner Forsten".into(),
+                    office: "Forstamt Grunewald".into(),
+                    unit: Some(format!("Revier {revier}")),
+                }
+            );
+        }
+        for f in &found {
+            assert!(matches!(f.geometry, Geometry::MultiPolygon(_)));
+            for c in geo::CoordsIter::coords_iter(&f.geometry) {
+                assert!(
+                    (13.19..13.28).contains(&c.x) && (52.43..52.51).contains(&c.y),
+                    "{c:?}"
+                );
+            }
+        }
+        // Without a Forstamt the Distrikt says nothing the notes could use.
+        let mut collection: Value = serde_json::from_str(fixture!("forstverwalt.geojson")).unwrap();
+        collection["features"][0]["properties"]["foa_name"] = Value::String(" ".into());
+        let features = collection["features"].as_array().unwrap().clone();
+        assert_eq!(
+            source("forstverwalt")
+                .findings("forstverwalt", &features)
+                .len(),
+            2
+        );
+    }
+
+    #[test]
+    fn six_sources_with_plain_keys() {
         let all = sources();
         let keys: Vec<&str> = all.iter().map(|s| s.info().key).collect();
         assert_eq!(
@@ -407,7 +478,8 @@ mod tests {
                 "gruenanlagen",
                 "liegenschaftsplan",
                 "denkmale",
-                "schutzgebiete"
+                "schutzgebiete",
+                "forstverwalt"
             ]
         );
         for s in &all {
