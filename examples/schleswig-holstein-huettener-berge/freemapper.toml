@@ -1,0 +1,46 @@
+map_kind = "forest"
+scale_denominator = 10000
+declination_date = "2026-11-14"
+buffer_m = 100.0
+crs = 25832
+provider = "lvermgeosh"
+title = "Hüttener Berge"
+tiles = []
+
+[map_area]
+coordinates = [[[9.658736951168917, 54.41395759971254], [9.677263048831081, 54.41395759971254], [9.677263048831081, 54.42204240028746], [9.658736951168917, 54.42204240028746], [9.658736951168917, 54.41395759971254]]]
+type = "Polygon"
+
+[buildings]
+bbox = [542641.0, 6029680.0, 544053.0, 6030792.0]
+fetched = "2026-11-14"
+latest_update = "2022-11-21"
+count = 48
+regions = ["schleswigholstein"]
+
+[land_use]
+bbox = [542641.0, 6029680.0, 544053.0, 6030792.0]
+fetched = "2026-11-14"
+latest_update = "2026-08-12"
+count = 177
+regions = ["schleswigholstein"]
+
+[osm]
+extract = "2026-11-07"
+area = [54.41305929, 9.65719311, 54.42294071, 9.67880689]
+count = 89
+
+[orthophoto]
+flight = "03.04.2025"
+fetched = "2026-11-14"
+bbox = [542641.662, 6029680.236, 544052.344, 6030791.197]
+
+[terrain]
+fetched = "2026-11-14"
+bbox = [542641.662, 6029680.236, 544052.344, 6030791.197]
+date = "2024-03-27"
+
+[surface]
+fetched = "2026-11-14"
+bbox = [542641.662, 6029680.236, 544052.344, 6030791.197]
+date = "2023-04-19"

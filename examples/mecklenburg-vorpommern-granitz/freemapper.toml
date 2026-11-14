@@ -1,0 +1,46 @@
+map_kind = "forest"
+scale_denominator = 10000
+declination_date = "2026-11-14"
+buffer_m = 100.0
+crs = 25833
+provider = "laivmv"
+title = "Granitz, Rügen"
+tiles = []
+
+[map_area]
+coordinates = [[[13.615744851617896, 54.37895759971254], [13.634255148382104, 54.37895759971254], [13.634255148382104, 54.38704240028746], [13.615744851617896, 54.38704240028746], [13.615744851617896, 54.37895759971254]]]
+type = "Polygon"
+
+[buildings]
+bbox = [409991.0, 6026445.0, 411412.0, 6027569.0]
+fetched = "2026-11-14"
+latest_update = "2025-05-06"
+count = 227
+regions = ["mecklenburgvorpommern"]
+
+[land_use]
+bbox = [409991.0, 6026445.0, 411412.0, 6027569.0]
+fetched = "2026-11-14"
+latest_update = "2025-10-23"
+count = 180
+regions = ["mecklenburgvorpommern"]
+
+[osm]
+extract = "2026-11-07"
+area = [54.37805929, 13.61420233, 54.38794071, 13.63579767]
+count = 116
+
+[orthophoto]
+flight = "13.05.2024"
+fetched = "2026-11-14"
+bbox = [409991.619, 6026445.482, 411411.236, 6027568.431]
+
+[terrain]
+fetched = "2026-11-14"
+bbox = [409991.619, 6026445.482, 411411.236, 6027568.431]
+date = "2022-03-01"
+
+[surface]
+fetched = "2026-11-14"
+bbox = [409991.619, 6026445.482, 411411.236, 6027568.431]
+date = "2024-05-01"

@@ -6,6 +6,10 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
+### Added
+
+- Examples: a forest map (1:10 000) for every state; besides the Dammheide in Berlin, 13 new ones in `examples/`, from the Elbe sandstone at the Bastei to the Bürgerpark in Bremen. They were chosen by relief and path network out of some 30 trial runs. In Brandenburg, North Rhine-Westphalia and Saarland they hold the vegetation from laser point clouds as candidates; in Rhineland-Palatinate the state office's Metalink file does not match the files for the tiles near Dahn, so freemapper leaves them out. The table is in the examples overview.
+
 ### Fixed
 
 - Saarland: in forest areas the ALKIS land use was missing with the warning "LVGL ALKIS returned 22 of 26 features in the area", also after a new `fetch`. The service lists a forest once per vegetation feature (such as deciduous wood and short-rotation coppice), with the same object id and the same geometry. freemapper keeps one row of them and now counts the others towards the service's matches. A feature repeated on a later page is still an error. At the Saarschleife near Mettlach this brings 684 land use areas and 132 more out-of-bounds candidates.

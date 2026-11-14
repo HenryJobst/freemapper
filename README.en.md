@@ -77,7 +77,7 @@ further states,
 first Saxony (water axes, hedges and tree rows from the Basis-DLM, the trees of Leipzig and Dresden), then
 Saxony-Anhalt and Hamburg. Later come gym maps for indoor orienteering, the last English remains in the German program texts (`--lang de`),
 and Bavaria, the last state with open geodata that is still missing. Thuringia follows once its height-data server is
-back. Forest maps and the neighbouring countries come later. Design:
+back. The neighbouring countries come later. Design:
 [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](https://github.com/HenryJobst/freemapper/blob/main/docs/superpowers/specs/2026-11-07-freemapper-design.md).
 
 On request freemapper writes permit notes next to the map, into the file `permits.md` (`freemapper permits`, `run --permits`, on the area page or through the AI assistant). For the map area it names the state, Kreis, Amt and Gemeinde from the BKG's VG250, the protected areas of the BfN and operators from OpenStreetMap, each with its share, source and data date, and says whom one usually asks. It is a hint, not legal advice. The details are in the [user manual, chapter 12](docs/manual/en.md#12-permit-notes). In Berlin the Bezirk, green spaces, land of the state and the Bund, monuments and natural monuments come from the Geoportal Berlin as well. Still planned are the forest administrations for forest maps; the research is in [`docs/research`](https://github.com/HenryJobst/freemapper/blob/main/docs/research/wald-und-sprint-behoerden/waldschutz-forstbehoerden-recherche.md).
@@ -105,7 +105,7 @@ file and the PDF. Two of them here; clicking a picture opens the PDF:
 | Rhineland-Palatinate | [Reichsburg and Cochem old town](https://github.com/HenryJobst/freemapper/tree/main/examples/rheinland-pfalz-cochem/) | <a href="examples/rheinland-pfalz-cochem/rheinland-pfalz-cochem-candidates.pdf"><img src="examples/rheinland-pfalz-cochem/preview.webp" width="220" alt=""></a> |
 
 All examples with previews, how the areas were chosen and how many objects each map has are in the
-[examples overview](https://github.com/HenryJobst/freemapper/blob/main/examples/README.en.md), with a forest map too (Dammheide in Berlin, 1:10 000). The same area in the three content profiles
+[examples overview](https://github.com/HenryJobst/freemapper/blob/main/examples/README.en.md), with a forest map for every state too (1:10 000). The same area in the three content profiles
 `safe`, `balanced` and `full` is on the [comparison page](https://github.com/HenryJobst/freemapper/blob/main/examples/compare.en.md).
 
 ## Choosing the area in the browser

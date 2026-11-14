@@ -6,6 +6,10 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+### Hinzugefügt
+
+- Beispiele: eine Waldkarte (1:10 000) für jedes Bundesland, neben der Dammheide in Berlin 13 neue in `examples/`, vom Elbsandstein an der Bastei bis zum Bürgerpark in Bremen. Ausgewählt wurden sie nach Relief und Wegenetz aus gut 30 Probeläufen. In Brandenburg, Nordrhein-Westfalen und im Saarland enthalten sie die Vegetation aus Laserpunktwolken als Kandidaten; in Rheinland-Pfalz passt die Metalink-Datei des Landesamts für die Kacheln bei Dahn nicht zu den Dateien, freemapper lässt sie deshalb aus. Die Tabelle steht in der Beispielübersicht.
+
 ### Behoben
 
 - Saarland: In Waldgebieten fehlten die ALKIS-Nutzungsflächen mit der Warnung „LVGL ALKIS returned 22 of 26 features in the area“, auch nach einem neuen `fetch`. Der Dienst führt eine Waldfläche einmal je Vegetationsmerkmal (etwa Laubholz und Kurzumtriebsplantage), mit derselben Objektkennung und derselben Geometrie. freemapper behält davon eine Zeile, zählt die übrigen jetzt aber zu den Treffern des Dienstes. Eine Wiederholung auf einer späteren Seite bleibt ein Fehler. An der Saarschleife bei Mettlach kommen so 684 Nutzungsflächen an und 132 Kandidaten für Sperrgebiet dazu.

@@ -109,18 +109,40 @@ Tribünen am Stadion erscheinen als parallele Linien 532.9 mit dem Tag `freemapp
 ALKIS und OSM beide haben, stehen nur einmal in der Karte: als ALKIS-Linie, die die OSM-Linie im Tag
 `freemapper:also` nennt.
 
-## Waldkarte
+## Waldkarten
 
-Ein Beispiel der Kartenart `forest` (ISOM 2017-2), für ein schnelles Training im Wald:
+Für jedes Bundesland ein Beispiel der Kartenart `forest` (ISOM 2017-2) bei 1:10 000, für ein schnelles Training im
+Wald:
 
 | Bundesland | Gebiet | Kartenobjekte | Kandidaten | Symbole | Vorschau |
 |---|---|---:|---:|---:|---|
+| Brandenburg | [Rauener Berge und Markgrafensteine](brandenburg-rauener-berge/): Endmoränenhügel über dem Scharmützelsee mit den Markgrafensteinen, großen Findlingen | 385 | 37 | 20 | <a href="brandenburg-rauener-berge/brandenburg-rauener-berge-candidates.pdf"><img src="brandenburg-rauener-berge/preview.webp" width="220" alt=""></a> |
 | Berlin | [Dammheide, Treptow-Köpenick](berlin-dammheide/): kleiner flacher Wald mit dichtem Wegenetz, Siedlungen rundherum | 1179 | 166 | 27 | <a href="berlin-dammheide/berlin-dammheide-candidates.pdf"><img src="berlin-dammheide/preview.webp" width="220" alt=""></a> |
+| Sachsen | [Bastei, Sächsische Schweiz](sachsen-bastei/): Sandsteinfelsen über der Elbe, mehr als 2000 Felsobjekte aus dem Geländemodell | 3847 | 571 | 34 | <a href="sachsen-bastei/sachsen-bastei-candidates.pdf"><img src="sachsen-bastei/preview.webp" width="220" alt=""></a> |
+| Sachsen-Anhalt | [Bodetal bei Thale](sachsen-anhalt-bodetal/): das tief eingeschnittene Tal der Bode im Harz | 893 | 76 | 31 | <a href="sachsen-anhalt-bodetal/sachsen-anhalt-bodetal-candidates.pdf"><img src="sachsen-anhalt-bodetal/preview.webp" width="220" alt=""></a> |
+| Hamburg | [Haake, Harburger Berge](hamburg-haake/): hügeliger Wald mit dichtem Wegenetz | 549 | 33 | 23 | <a href="hamburg-haake/hamburg-haake-candidates.pdf"><img src="hamburg-haake/preview.webp" width="220" alt=""></a> |
+| Hessen | [Großer Feldberg, Taunus](hessen-feldberg/): Gipfel und Hänge des höchsten Taunusbergs | 657 | 39 | 27 | <a href="hessen-feldberg/hessen-feldberg-candidates.pdf"><img src="hessen-feldberg/preview.webp" width="220" alt=""></a> |
+| Schleswig-Holstein | [Hüttener Berge](schleswig-holstein-huettener-berge/): Endmoränenhügel mit Wald, offenem Land und kleinen Seen | 352 | 72 | 24 | <a href="schleswig-holstein-huettener-berge/schleswig-holstein-huettener-berge-candidates.pdf"><img src="schleswig-holstein-huettener-berge/preview.webp" width="220" alt=""></a> |
+| Mecklenburg-Vorpommern | [Granitz, Rügen](mecklenburg-vorpommern-granitz/): Buchenwald um das Jagdschloss Granitz | 321 | 96 | 24 | <a href="mecklenburg-vorpommern-granitz/mecklenburg-vorpommern-granitz-candidates.pdf"><img src="mecklenburg-vorpommern-granitz/preview.webp" width="220" alt=""></a> |
+| Nordrhein-Westfalen | [Drachenfels, Siebengebirge](nordrhein-westfalen-siebengebirge/): Felsen, Weinberge und Wald am Rhein | 1158 | 269 | 37 | <a href="nordrhein-westfalen-siebengebirge/nordrhein-westfalen-siebengebirge-candidates.pdf"><img src="nordrhein-westfalen-siebengebirge/preview.webp" width="220" alt=""></a> |
+| Niedersachsen | [Harz bei Bad Harzburg](niedersachsen-bad-harzburg/): steile Hänge zu beiden Seiten eines Bachtals | 677 | 51 | 32 | <a href="niedersachsen-bad-harzburg/niedersachsen-bad-harzburg-candidates.pdf"><img src="niedersachsen-bad-harzburg/preview.webp" width="220" alt=""></a> |
+| Rheinland-Pfalz | [Dahner Felsenland](rheinland-pfalz-dahn/): Buntsandsteinfelsen im Pfälzerwald | 641 | 90 | 33 | <a href="rheinland-pfalz-dahn/rheinland-pfalz-dahn-candidates.pdf"><img src="rheinland-pfalz-dahn/preview.webp" width="220" alt=""></a> |
+| Saarland | [Cloef an der Saarschleife](saarland-cloef/): Steilhang mit Felsen über der Saarschleife | 492 | 56 | 27 | <a href="saarland-cloef/saarland-cloef-candidates.pdf"><img src="saarland-cloef/preview.webp" width="220" alt=""></a> |
+| Baden-Württemberg | [Königstuhl, Heidelberg](baden-wuerttemberg-koenigstuhl/): Hausberg von Heidelberg mit Sternwarte und vielen Wegen | 843 | 47 | 28 | <a href="baden-wuerttemberg-koenigstuhl/baden-wuerttemberg-koenigstuhl-candidates.pdf"><img src="baden-wuerttemberg-koenigstuhl/preview.webp" width="220" alt=""></a> |
+| Bremen | [Bürgerpark und Stadtwald](bremen-buergerpark/): flacher Park und Wald mit Gräben, Seen und dichtem Wegenetz | 1913 | 420 | 32 | <a href="bremen-buergerpark/bremen-buergerpark-candidates.pdf"><img src="bremen-buergerpark/preview.webp" width="220" alt=""></a> |
 
-Erzeugt mit `freemapper init berlin-dammheide --osm relation/4513841 --kind forest --scale 10000 --title Dammheide`
-und `run --pdf-candidates --ocad`. Die Wege kommen aus OSM und stehen in den Wegklassen 502 bis 507 in der Karte;
-der Wald ist weißes Papier. Siedlungen und Gärten sind olivgrün (520, nicht zu betreten). Das Gebiet ist flach,
-deshalb liegen die Höhenlinien alle 2,5 m; die `freemapper.toml` nennt das als `[contours] interval_m`.
+Die Gebiete sind etwa 1,2 × 0,9 km groß und wurden aus gut 30 Probeläufen nach Relief und Wegenetz ausgewählt.
+Erzeugt mit `freemapper init <ordner> --geojson <rechteck> --kind forest --scale 10000 --title "<Titel>"` und
+`run --pdf-candidates --ocad`. Berlin und Bremen nehmen den Umriss aus OSM (`--osm relation/4513841` für die
+Dammheide, `--osm way/664446849` für den Bürgerpark). In Brandenburg, Nordrhein-Westfalen und im Saarland kam
+`--content-set vegetation=candidates` dazu: Die Vegetation aus Laserpunktwolken liegt dort in der Kandidatenkarte.
+In Rheinland-Pfalz fehlt sie, weil die Metalink-Datei des Landesamts für die Kacheln bei Dahn andere Größen und
+Prüfsummen nennt als die Dateien auf dem Server (Stand November 2026).
+
+Die Wege kommen aus OSM und stehen in den Wegklassen 502 bis 507 in der Karte; der Wald ist weißes Papier.
+Siedlungen und Gärten sind olivgrün (520, nicht zu betreten). Felsen, Böschungen und Kuppen aus dem Geländemodell
+sind Kandidaten. In den flachen Gebieten in Berlin und Bremen liegen die Höhenlinien alle 2,5 m, sonst alle 5 m; die
+`freemapper.toml` nennt die 2,5 m als `[contours] interval_m`.
 
 ## Inhalt eines Beispiels
 

@@ -1,0 +1,46 @@
+map_kind = "forest"
+scale_denominator = 10000
+declination_date = "2026-11-14"
+buffer_m = 100.0
+crs = 25832
+provider = "lglbw"
+title = "Königstuhl, Heidelberg"
+tiles = []
+
+[map_area]
+coordinates = [[[8.72171776184897, 49.39595759971254], [8.738282238151031, 49.39595759971254], [8.738282238151031, 49.40404240028746], [8.72171776184897, 49.40404240028746], [8.72171776184897, 49.39595759971254]]]
+type = "Polygon"
+
+[buildings]
+bbox = [479707.0, 5471406.0, 481113.0, 5472511.0]
+fetched = "2026-11-14"
+latest_update = "2025-01-22"
+count = 66
+regions = ["badenwuerttemberg"]
+
+[land_use]
+bbox = [479707.0, 5471406.0, 481113.0, 5472511.0]
+fetched = "2026-11-14"
+latest_update = "2025-07-14"
+count = 26
+regions = ["badenwuerttemberg"]
+
+[osm]
+extract = "2026-11-12"
+area = [49.39505929, 8.72033739, 49.40494071, 8.73966261]
+count = 421
+
+[orthophoto]
+flight = "2026-07-29"
+fetched = "2026-11-14"
+bbox = [479707.582, 5471406.955, 481112.632, 5472510.065]
+
+[terrain]
+fetched = "2026-11-14"
+bbox = [479707.582, 5471406.955, 481112.632, 5472510.065]
+date = "2017-02-13"
+
+[surface]
+fetched = "2026-11-14"
+bbox = [479707.582, 5471406.955, 481112.632, 5472510.065]
+date = "2024-06-26"

@@ -1,0 +1,63 @@
+map_kind = "forest"
+scale_denominator = 10000
+declination_date = "2026-11-13"
+buffer_m = 100.0
+crs = 25833
+provider = "geosn"
+title = "Bastei, Sächsische Schweiz"
+
+[map_area]
+coordinates = [[[14.064442423379436, 50.95795759971254], [14.081557576620565, 50.95795759971254], [14.081557576620565, 50.96604240028746], [14.064442423379436, 50.96604240028746], [14.064442423379436, 50.95795759971254]]]
+type = "Polygon"
+
+[[tiles]]
+product = "saxonydtm"
+tile = "33434-5644"
+url = "https://geocloud.landesvermessung.sachsen.de/public.php/dav/files/JCcXyifaNdLDnxZ/dgm1_33434_5644_2_sn_tiff.zip"
+currency = "2025-02-09"
+published = "2025-02-09"
+
+[[tiles]]
+product = "saxonydtm"
+tile = "33434-5646"
+url = "https://geocloud.landesvermessung.sachsen.de/public.php/dav/files/JCcXyifaNdLDnxZ/dgm1_33434_5646_2_sn_tiff.zip"
+currency = "2025-02-09"
+published = "2025-02-09"
+
+[[tiles]]
+product = "saxonydsm"
+tile = "33434-5644"
+url = "https://geocloud.landesvermessung.sachsen.de/public.php/dav/files/S6wwnFwX7882sZm/dom1_33434_5644_2_sn_tiff.zip"
+currency = "2025-02-09"
+published = "2025-02-09"
+
+[[tiles]]
+product = "saxonydsm"
+tile = "33434-5646"
+url = "https://geocloud.landesvermessung.sachsen.de/public.php/dav/files/S6wwnFwX7882sZm/dom1_33434_5646_2_sn_tiff.zip"
+currency = "2025-02-09"
+published = "2025-02-09"
+
+[buildings]
+bbox = [434193.0, 5645451.0, 435607.0, 5646566.0]
+fetched = "2026-11-13"
+latest_update = "2025-09-10"
+count = 192
+regions = ["saxony"]
+
+[land_use]
+bbox = [434193.0, 5645451.0, 435607.0, 5646566.0]
+fetched = "2026-11-13"
+latest_update = "2025-08-29"
+count = 566
+regions = ["saxony"]
+
+[osm]
+extract = "2026-11-06"
+area = [50.95705929, 14.06301616, 50.96694071, 14.08298384]
+count = 3002
+
+[orthophoto]
+flight = "20.03. +  26.03.2024"
+fetched = "2026-11-13"
+bbox = [434193.59, 5645451.191, 435606.801, 5646565.326]

@@ -1,0 +1,166 @@
+map_kind = "forest"
+scale_denominator = 10000
+declination_date = "2026-11-14"
+buffer_m = 100.0
+crs = 25833
+provider = "lgb"
+title = "Rauener Berge und Markgrafensteine"
+
+[map_area]
+coordinates = [[[14.026382372818395, 52.31525759971254], [14.044017627181605, 52.31525759971254], [14.044017627181605, 52.32334240028746], [14.026382372818395, 52.32334240028746], [14.026382372818395, 52.31525759971254]]]
+type = "Polygon"
+
+[[tiles]]
+product = "orthophoto"
+tile = "33433-5796"
+url = "https://data.geobasis-bb.de/geobasis/daten/dop/rgb_jpg/dop_33433-5796.zip"
+currency = "2024-05-12"
+published = "2024-12-09"
+
+[[tiles]]
+product = "orthophoto"
+tile = "33433-5797"
+url = "https://data.geobasis-bb.de/geobasis/daten/dop/rgb_jpg/dop_33433-5797.zip"
+currency = "2024-05-12"
+published = "2024-12-09"
+
+[[tiles]]
+product = "orthophoto"
+tile = "33434-5796"
+url = "https://data.geobasis-bb.de/geobasis/daten/dop/rgb_jpg/dop_33434-5796.zip"
+currency = "2024-05-12"
+published = "2024-12-09"
+
+[[tiles]]
+product = "orthophoto"
+tile = "33434-5797"
+url = "https://data.geobasis-bb.de/geobasis/daten/dop/rgb_jpg/dop_33434-5797.zip"
+currency = "2024-05-12"
+published = "2024-12-09"
+
+[[tiles]]
+product = "dtm"
+tile = "33433-5796"
+url = "https://data.geobasis-bb.de/geobasis/daten/dgm/tif/dgm_33433-5796.zip"
+currency = "2025-02-04"
+published = "2025-10-22"
+
+[[tiles]]
+product = "dtm"
+tile = "33433-5797"
+url = "https://data.geobasis-bb.de/geobasis/daten/dgm/tif/dgm_33433-5797.zip"
+currency = "2025-02-04"
+published = "2025-10-22"
+
+[[tiles]]
+product = "dtm"
+tile = "33434-5796"
+url = "https://data.geobasis-bb.de/geobasis/daten/dgm/tif/dgm_33434-5796.zip"
+currency = "2025-02-04"
+published = "2025-10-22"
+
+[[tiles]]
+product = "dtm"
+tile = "33434-5797"
+url = "https://data.geobasis-bb.de/geobasis/daten/dgm/tif/dgm_33434-5797.zip"
+currency = "2025-02-04"
+published = "2025-10-22"
+
+[buildings]
+bbox = [433531.0, 5796433.0, 434946.0, 5797549.0]
+fetched = "2026-11-14"
+latest_update = "2013-02-02"
+count = 6
+regions = ["brandenburg"]
+
+[land_use]
+bbox = [433531.0, 5796433.0, 434946.0, 5797549.0]
+fetched = "2026-11-14"
+latest_update = "2026-11-05"
+count = 35
+regions = ["brandenburg"]
+
+[nas_layers.bauwerk-gewaesser]
+bbox = [433531.0, 5796433.0, 434946.0, 5797549.0]
+fetched = "2026-11-14"
+count = 0
+regions = ["brandenburg"]
+
+[nas_layers.bauwerk-verkehr]
+bbox = [433531.0, 5796433.0, 434946.0, 5797549.0]
+fetched = "2026-11-14"
+count = 0
+regions = ["brandenburg"]
+
+[nas_layers.sonstiges-bauwerk]
+bbox = [433531.0, 5796433.0, 434946.0, 5797549.0]
+fetched = "2026-11-14"
+count = 0
+regions = ["brandenburg"]
+
+[nas_layers.strukturlinie]
+bbox = [433531.0, 5796433.0, 434946.0, 5797549.0]
+fetched = "2026-11-14"
+count = 0
+regions = ["brandenburg"]
+
+[nas_layers.untergeordnetes-gewaesser]
+bbox = [433531.0, 5796433.0, 434946.0, 5797549.0]
+fetched = "2026-11-14"
+count = 0
+regions = ["brandenburg"]
+
+[nas_layers.vegetationsmerkmal]
+bbox = [433531.0, 5796433.0, 434946.0, 5797549.0]
+fetched = "2026-11-14"
+count = 0
+regions = ["brandenburg"]
+
+[osm]
+extract = "2026-11-06"
+area = [52.31435929, 14.02491277, 52.32424071, 14.04548723]
+count = 120
+
+[[ndsm_tiles]]
+tile = "33433-5796"
+url = "https://data.geobasis-bb.de/geobasis/daten/ndom/NDOM_33433-5796_LAS12.laz"
+published = "2025-04-03"
+
+[[ndsm_tiles]]
+tile = "33433-5797"
+url = "https://data.geobasis-bb.de/geobasis/daten/ndom/NDOM_33433-5797_LAS12.laz"
+published = "2025-04-04"
+
+[[ndsm_tiles]]
+tile = "33434-5796"
+url = "https://data.geobasis-bb.de/geobasis/daten/ndom/NDOM_33434-5796_LAS12.laz"
+published = "2025-04-03"
+
+[[ndsm_tiles]]
+tile = "33434-5797"
+url = "https://data.geobasis-bb.de/geobasis/daten/ndom/NDOM_33434-5797_LAS12.laz"
+published = "2025-04-04"
+
+[[point_clouds]]
+tile = "33433-5796"
+url = "https://data.geobasis-bb.de/geobasis/daten/als/laz/als_33433-5796.zip"
+published = "2025-09-16"
+
+[[point_clouds]]
+tile = "33433-5797"
+url = "https://data.geobasis-bb.de/geobasis/daten/als/laz/als_33433-5797.zip"
+published = "2025-09-16"
+
+[[point_clouds]]
+tile = "33434-5796"
+url = "https://data.geobasis-bb.de/geobasis/daten/als/laz/als_33434-5796.zip"
+published = "2025-09-16"
+
+[[point_clouds]]
+tile = "33434-5797"
+url = "https://data.geobasis-bb.de/geobasis/daten/als/laz/als_33434-5797.zip"
+published = "2025-09-16"
+
+[content]
+profile = "balanced"
+vegetation = "candidates"

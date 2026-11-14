@@ -1,0 +1,47 @@
+map_kind = "forest"
+scale_denominator = 10000
+declination_date = "2026-11-14"
+buffer_m = 100.0
+crs = 25832
+provider = "lvermgeorp"
+title = "Dahner Felsenland"
+tiles = []
+
+[map_area]
+coordinates = [[[7.751757137223082, 49.16095759971254], [7.768242862776917, 49.16095759971254], [7.768242862776917, 49.16904240028746], [7.751757137223082, 49.16904240028746], [7.751757137223082, 49.16095759971254]]]
+type = "Polygon"
+
+[buildings]
+bbox = [408895.0, 5445979.0, 410313.0, 5447098.0]
+fetched = "2026-11-14"
+latest_update = "2025-03-04"
+count = 56
+regions = ["rheinlandpfalz"]
+
+[land_use]
+bbox = [408895.0, 5445979.0, 410313.0, 5447098.0]
+fetched = "2026-11-14"
+latest_update = "2026-09-24"
+count = 121
+regions = ["rheinlandpfalz"]
+
+[osm]
+extract = "2026-11-07"
+area = [49.16005929, 7.75038333, 49.16994071, 7.76961667]
+count = 259
+
+[orthophoto]
+flight = "25.06.2023"
+flight_label = "Aktualität (Erstellung)"
+fetched = "2026-11-14"
+bbox = [408895.958, 5445979.269, 410312.456, 5447097.695]
+
+[terrain]
+fetched = "2026-11-14"
+bbox = [408895.958, 5445979.269, 410312.456, 5447097.695]
+date = "2022-03-05"
+
+[surface]
+fetched = "2026-11-14"
+bbox = [408895.958, 5445979.269, 410312.456, 5447097.695]
+date = "2022-03-05"

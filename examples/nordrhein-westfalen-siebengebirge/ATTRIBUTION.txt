@@ -1,0 +1,4 @@
+© OpenStreetMap contributors, ODbL
+Geobasisdaten © Geobasis NRW (Bezirksregierung Köln) 2026, dl-de/zero-2-0
+
+Created with freemapper – https://github.com/HenryJobst/freemapper
