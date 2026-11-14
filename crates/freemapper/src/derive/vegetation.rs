@@ -3,10 +3,11 @@
 //! 410). For parks and, later, forest maps.
 //!
 //! Ideas from karttapullautin (open land as the share of low returns, majority filter, minimum
-//! area) and omapmaker (height bands weighted by how much they slow a runner, the green index
-//! (v − g) / (v + g), undergrowth as the share of returns just above the ground); the code is our
-//! own. A surface model cannot do this: it shows the crowns, not whether one can run below them.
-//! Everything here is a candidate (spec §4.5).
+//! area) and omapmaker (undergrowth as the share of returns just above the ground); the code is
+//! our own. The green shades follow the density of the layer a runner moves through: the returns
+//! between 0.8 and 3 m among all returns below 3 m (ADR 0138). A surface model cannot do this:
+//! it shows the crowns, not whether one can run below them. Everything here is a candidate
+//! (spec §4.5).
 
 use geo::{Area as _, BoundingRect as _, Contains as _, Simplify as _};
 
@@ -24,15 +25,21 @@ const MIN_RETURNS: usize = 4;
 const GROUND_BELOW_M: f64 = 0.2;
 /// Undergrowth band: knee to hip height.
 const UNDERGROWTH_BELOW_M: f64 = 0.8;
-/// Height bands of the green index and their weights: low bushes slow a runner most.
-const BANDS: [(f64, f64, f64); 3] = [(0.8, 1.8, 1.0), (1.8, 3.0, 0.5), (3.0, f64::MAX, 0.1)];
+/// The layer a runner moves through reaches from [`UNDERGROWTH_BELOW_M`] to this height. What
+/// lies above does not count: every flight the states publish is flown without leaves, and a
+/// share for the crowns put tall forest without undergrowth (58 % of its returns above 8 m)
+/// beside a leafless thicket (ADR 0138).
+const RUNNING_BELOW_M: f64 = 3.0;
 /// Open land: at least this share of all returns lies lower than [`OPEN_BELOW_M`].
 const OPEN_SHARE: f64 = 0.9;
 const OPEN_BELOW_M: f64 = 0.9;
-/// Green index (0 to 1) from which a cell is 406, 408, 410.
-const SLOW_RUNNING_INDEX: f64 = 0.4;
-const WALK_INDEX: f64 = 0.6;
-const IMPASSABLE_INDEX: f64 = 0.8;
+/// Density of the running layer, between 0 and 1 (its returns among all returns below
+/// [`RUNNING_BELOW_M`]), from which a cell is 406, 408, 410. Measured on the Schmausenbuck (flown 2021-12-20)
+/// against the canopy height of the summer pictures: 71 % of the thicket cells and 7 % of the
+/// tall forest are green from 0.20 on; the index before gave 29 % and 11 %.
+const SLOW_RUNNING_DENSITY: f64 = 0.20;
+const WALK_DENSITY: f64 = 0.35;
+const IMPASSABLE_DENSITY: f64 = 0.50;
 /// Undergrowth share (undergrowth / (undergrowth + ground)) from which runnable forest is 407, 409.
 const UNDERGROWTH_SLOW: f64 = 0.35;
 const UNDERGROWTH_WALK: f64 = 0.56;
@@ -266,7 +273,8 @@ struct Counts {
     high_single: usize,
     ground: f64,
     undergrowth: f64,
-    vegetation: f64,
+    /// Returns of the running layer, [`UNDERGROWTH_BELOW_M`] to [`RUNNING_BELOW_M`].
+    running: f64,
 }
 
 /// The returns per cell of a grid, counted as the tiles are read: a dense tile is never held in
@@ -305,11 +313,8 @@ impl CellCounts {
             c.ground += 1.0;
         } else if p.height_m < UNDERGROWTH_BELOW_M {
             c.undergrowth += 1.0;
-        } else if let Some((_, _, weight)) = BANDS
-            .iter()
-            .find(|(lo, hi, _)| (*lo..*hi).contains(&p.height_m))
-        {
-            c.vegetation += weight;
+        } else if p.height_m < RUNNING_BELOW_M {
+            c.running += 1.0;
         }
     }
 
@@ -361,21 +366,19 @@ fn cell_class(c: &Counts) -> Option<VegetationClass> {
     if c.low as f64 >= OPEN_SHARE * c.all as f64 {
         return Some(VegetationClass::Open);
     }
-    let index = if c.vegetation + c.ground > 0.0 {
-        ((c.vegetation - c.ground) / (c.vegetation + c.ground) + 1.0) / 2.0
-    } else {
-        0.0
-    };
+    // How much of what reaches the running layer it stops.
+    let below = c.running + c.undergrowth + c.ground;
+    let density = if below > 0.0 { c.running / below } else { 0.0 };
     let undergrowth = if c.undergrowth + c.ground > 0.0 {
         c.undergrowth / (c.undergrowth + c.ground)
     } else {
         0.0
     };
-    Some(if index >= IMPASSABLE_INDEX {
+    Some(if density >= IMPASSABLE_DENSITY {
         VegetationClass::Impassable
-    } else if index >= WALK_INDEX {
+    } else if density >= WALK_DENSITY {
         VegetationClass::Walk
-    } else if index >= SLOW_RUNNING_INDEX {
+    } else if density >= SLOW_RUNNING_DENSITY {
         VegetationClass::SlowRunning
     } else if undergrowth >= UNDERGROWTH_WALK {
         VegetationClass::WalkGoodVisibility
@@ -654,18 +657,48 @@ mod tests {
     }
 
     #[test]
-    fn the_green_shades_grow_with_the_bushes() {
-        // Ten ground returns and a growing number of returns at 1.2 m.
-        let class = |bushes: usize| {
-            let mut heights = vec![1.2; bushes];
-            heights.extend([0.0; 10]);
-            heights.extend([15.0; 4]);
+    fn the_green_shades_follow_the_density_below_3_m() {
+        // Twenty returns below 3 m, a growing number of them between 0.8 and 3 m, under crowns.
+        let class = |stopped: usize| {
+            let mut heights = vec![2.0; stopped];
+            heights.extend(vec![0.0; 20 - stopped]);
+            heights.extend([15.0; 30]);
             class_of(&heights).unwrap()
         };
         assert_eq!(class(3), VegetationClass::Forest);
-        assert_eq!(class(10), VegetationClass::SlowRunning);
-        assert_eq!(class(20), VegetationClass::Walk);
-        assert_eq!(class(60), VegetationClass::Impassable);
+        assert_eq!(class(4), VegetationClass::SlowRunning);
+        assert_eq!(class(6), VegetationClass::SlowRunning);
+        assert_eq!(class(7), VegetationClass::Walk);
+        assert_eq!(class(9), VegetationClass::Walk);
+        assert_eq!(class(10), VegetationClass::Impassable);
+    }
+
+    /// The profiles of the Schmausenbuck, flown without leaves on 2021-12-20, in returns per
+    /// hundred (ADR 0138).
+    #[test]
+    fn a_leafless_thicket_is_green_and_tall_forest_is_not() {
+        // A thicket: 47 at the ground, 3 below 0.8 m, 18 at 0.8 to 1.8 m, 17 at 1.8 to 3 m and
+        // 15 above. 35 of the 85 returns below 3 m are stopped at 0.8 to 3 m.
+        let mut thicket = vec![0.0; 47];
+        thicket.extend([0.5; 3]);
+        thicket.extend([1.3; 18]);
+        thicket.extend([2.4; 17]);
+        thicket.extend([5.0; 15]);
+        assert_eq!(class_of(&thicket), Some(VegetationClass::Walk));
+        // Tall forest: 32 at the ground, 1 below 0.8 m, 3 at 0.8 to 3 m, 64 in the crowns.
+        let mut tall = vec![0.0; 32];
+        tall.extend([0.5; 1]);
+        tall.extend([2.0; 3]);
+        tall.extend([22.0; 64]);
+        assert_eq!(class_of(&tall), Some(VegetationClass::Forest));
+    }
+
+    #[test]
+    fn crowns_alone_make_no_green() {
+        // A closed canopy lets a tenth of the returns to the ground and nothing grows below it.
+        let mut heights = vec![20.0; 90];
+        heights.extend([0.0; 10]);
+        assert_eq!(class_of(&heights), Some(VegetationClass::Forest));
     }
 
     #[test]
