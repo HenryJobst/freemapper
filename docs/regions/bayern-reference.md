@@ -305,14 +305,17 @@ Checked live on 2026-11-14 (46 requests). `https://geoservices.bayern.de/wfs/v1/
 ### The run with the Basis-DLM
 
 On 2026-11-14 both examples were run with the model built in (ADR 0135), without a warning; an offline run
-wrote the same files. The ten layers are stored as `data/alkis-nas/dlm-….geojson`.
+wrote the same files. The counts before and after the duplicate step were printed by a build made for the
+count. The ten layers are stored as `data/alkis-nas/dlm-….geojson`.
 
 | | Schmausenbuck (forest) | Regensburg (sprint) |
 |---|---|---|
-| Objects of the model | 152: 6 structures, 1 vegetation area, 1 tower, 108 paths, 36 tracks | 35: 14 structures, 2 named trees, 17 towers, 2 watercourse axes |
-| Candidates that stay | 14: 8 pieces of fences, 6 paths (two each of 504, 505, 506) | 10: 5 fountains, 1 monument, 2 named trees, 2 watercourses |
-| Dropped as another source has them | 138 paths, the tower, the fountain; 61 objects name 69 dropped ones | 5 fountains, 3 monuments or crosses |
+| Objects in the answers (fetch box) | 152: 6 structures, 1 vegetation area, 1 tower, 108 paths, 36 tracks | 35: 14 structures, 2 named trees, 17 towers, 2 watercourse axes |
 | Left out by rule | the vegetation area (no rule) | 15 church towers, a town gate, a tower of kind 9999 |
+| Drawn, pieces of one class joined where they meet | 66: 61 path lines (49 paths, 12 tracks), 3 fences, the fountain, the tower | 18: 10 fountains, 4 monuments or crosses, 2 named trees, 2 watercourses |
+| Dropped by the duplicate step | 56: 55 path lines, 1 fence | 8: 5 fountains, 3 monuments or crosses |
+| Dropped by later rules | the fountain (point generalization, beside an OSM drinking-water point that names it), the tower (its point lies in the footprint of the tower building, ADR 0076) | none |
+| Candidates that stay | 14: 8 pieces of 2 fences, 6 paths (two each of 504, 505, 506) | 10: 5 fountains, 1 monument, 2 named trees, 2 watercourses |
 | Map objects, candidates, symbols | 651, 150, 37 | 2 959, 463, 39 |
 
 ## Open, and left for later

@@ -131,7 +131,7 @@ Wald:
 | Saarland | [Cloef an der Saarschleife](saarland-cloef/): Steilhang mit Felsen über der Saarschleife | 624 | 117 | 27 | <a href="saarland-cloef/saarland-cloef-candidates.pdf"><img src="saarland-cloef/preview.webp" width="220" alt=""></a> |
 | Baden-Württemberg | [Königstuhl, Heidelberg](baden-wuerttemberg-koenigstuhl/): Hausberg von Heidelberg mit Sternwarte und vielen Wegen | 843 | 47 | 28 | <a href="baden-wuerttemberg-koenigstuhl/baden-wuerttemberg-koenigstuhl-candidates.pdf"><img src="baden-wuerttemberg-koenigstuhl/preview.webp" width="220" alt=""></a> |
 | Bremen | [Bürgerpark und Stadtwald](bremen-buergerpark/): flacher Park und Wald mit Gräben, Seen und dichtem Wegenetz | 1913 | 420 | 32 | <a href="bremen-buergerpark/bremen-buergerpark-candidates.pdf"><img src="bremen-buergerpark/preview.webp" width="220" alt=""></a> |
-| Bayern | [Schmausenbuck, Nürnberger Reichswald](bayern-schmausenbuck/): Sandsteinhügel im Reichswald über dem Tiergarten, Hänge mit dichtem Wegenetz, zwei Stromtrassen | 649 | 136 | 37 | <a href="bayern-schmausenbuck/bayern-schmausenbuck-candidates.pdf"><img src="bayern-schmausenbuck/preview.webp" width="220" alt=""></a> |
+| Bayern | [Schmausenbuck, Nürnberger Reichswald](bayern-schmausenbuck/): Sandsteinhügel im Reichswald über dem Tiergarten, Hänge mit dichtem Wegenetz, zwei Stromtrassen | 651 | 150 | 37 | <a href="bayern-schmausenbuck/bayern-schmausenbuck-candidates.pdf"><img src="bayern-schmausenbuck/preview.webp" width="220" alt=""></a> |
 
 Die Gebiete sind etwa 1,2 × 0,9 km groß und nach Relief und Wegenetz ausgewählt.
 Erzeugt mit `freemapper init <ordner> --geojson <rechteck> --kind forest --scale 10000 --title "<Titel>"` und
@@ -218,8 +218,8 @@ und 144 Überdachungen kommen aus den LoD2-Kacheln, die Nutzung aus der Datei de
 östlich von 12° O und steht wie ganz Bayern in der UTM-Zone 32. Für die Waldkarte liefen zwei Rechtecke am
 Schmausenbuck; das südliche bestand zur Hälfte aus dem Tiergarten. Aus dem Landschaftsmodell der
 Vermessungsverwaltung (ATKIS Basis-DLM) kommen in Regensburg 10 Kandidaten dazu: 5 Brunnen, ein Denkmal, 2 benannte
-Bäume und 2 Wasserläufe. Am Schmausenbuck sind es 14: Zäune und 6 Wege, die OpenStreetMap fehlen. Die übrigen 138
-Wege des Modells hat OpenStreetMap schon.
+Bäume und 2 Wasserläufe. Am Schmausenbuck sind es 14: Zäune und 6 Wege, die OpenStreetMap fehlen. An den
+Stoßstellen verbunden, sind die Wege des Modells 61 Linien; die übrigen 55 hat OpenStreetMap schon.
 
 ## Lizenzen
 

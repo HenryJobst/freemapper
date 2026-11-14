@@ -51,11 +51,14 @@ none.
 
 ## Consequences
 
-- At the Schmausenbuck (forest) the model gives 152 objects; 14 stay as candidates: 8 pieces of fences and 6
-  paths OpenStreetMap lacks. 138 paths, the observation tower and the fountain went because OpenStreetMap has
-  them. In the old town of Regensburg (sprint) 35 objects give 10 candidates: 5 fountains, a monument, 2 named
+- At the Schmausenbuck (forest) the service answers 152 objects for the fetch box, 144 of them pieces of
+  paths. Joined where pieces of one class meet, they are 61 path lines, 3 fences, a fountain and the
+  observation tower. 55 path lines and a fence go because OpenStreetMap has them. The fountain goes in the
+  point generalization beside an OSM drinking-water point, and the tower's point lies in the footprint of the
+  tower building, where candidate points go (ADR 0076). 14 candidates stay: 8 pieces of fences and 6 paths
+  OpenStreetMap lacks. In the old town of Regensburg (sprint) 35 objects give 10 candidates: 5 fountains, a monument, 2 named
   trees and 2 watercourse axes; the 15 church towers and the town gate are left out by rule.
-- A path of the model is kept or dropped as a whole. One that follows an OSM path for less than 80 % of its
+- A path line of the model (its pieces joined) is kept or dropped as a whole. One that follows an OSM path for less than 80 % of its
   length stays, also on the stretch both have.
 - The folder `data/alkis-nas/` and the record `nas_layers` now hold layers that are not ALKIS. The names stay
   for the sake of the project file; the manual says what the `dlm-` layers are.
