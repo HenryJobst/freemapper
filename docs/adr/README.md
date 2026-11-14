@@ -173,3 +173,4 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0125](0125-steep-forest-gets-10-m-contours.md) | A steep forest map gets contours every 10 m | Accepted | 2026-11-14 |
 | [0127](0127-permit-notes-follow-the-map-area.md) | Permit notes follow the map area | Accepted | 2026-11-14 |
 | [0129](0129-permit-notes-for-hamburg-water-protection-and-forest-functions.md) | Permit notes for Hamburg, water protection and forest functions | Accepted | 2026-11-14 |
+| [0130](0130-permit-sources-as-tables.md) | Permit sources as tables of their layers | Accepted | 2026-11-14 |

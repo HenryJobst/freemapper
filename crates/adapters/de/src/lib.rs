@@ -31,8 +31,10 @@ pub mod lvermgeo_sh;
 pub mod lvgl;
 pub mod lvgl_las;
 pub mod nrw_3dm;
+pub mod state_permits;
 pub mod states;
 pub mod tile_fetch;
+pub mod wfs_permits;
 pub mod wuh_permits;
 mod xyz_archive;
 

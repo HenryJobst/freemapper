@@ -1026,7 +1026,11 @@ die Bezirke, steht der allgemeine Hinweis für Berlin und Hamburg da.
 
 ### Wasserschutzgebiete und Waldfunktionen
 
-In Hamburg kommen beide aus offenen Diensten des Bundeslandes; weitere Bundesländer folgen. Ein
+Wasserschutzgebiete mit ihrer Schutzzone kommen aus Berlin, Hamburg, Hessen und dem Saarland, Waldfunktionen
+aus Brandenburg (Naturwald, Totalreservat, nicht betretbare Flächen, Erholungswald), Hamburg (Bannwald,
+Erholungswald), Nordrhein-Westfalen (Naturwaldzellen, Wildnisentwicklungsgebiete) und dem Saarland
+(Naturwaldzellen, Urwald), jeweils aus offenen Diensten des Bundeslandes. Im Saarland kommen außerdem die
+Baudenkmale dazu. Ein
 Wasserschutzgebiet bekommt einen Hinweis mit seiner Schutzzone: In den Zonen I und II sind Veranstaltungen
 meist ausgeschlossen, in Zone III meist möglich, und die untere Wasserbehörde sagt, was die Verordnung erlaubt.
 Sagen die Daten keine Zone, nennt der Hinweis beide Fälle. Erholungswald, Bannwald oder Schutzwald, Naturwald
@@ -1043,6 +1047,7 @@ Bundesländer veröffentlichen die Bereiche ihrer Forstdienststellen offen:
 | Brandenburg | Oberförsterei und Revier des Landesbetriebs Forst Brandenburg | WFS des Landesbetriebs (`www.brandenburg-forst.de`) |
 | Berlin | Forstamt und Revier der Berliner Forsten | Geoportal Berlin (`gdi.berlin.de`) |
 | Nordrhein-Westfalen | Regionalforstamt und Forstbetriebsbezirk des Landesbetriebs Wald und Holz NRW, dazu der Staatswald | zwei Dateien auf `www.opengeodata.nrw.de` |
+| Saarland | Revier des SaarForst Landesbetriebs (nur im Staatswald) | Geoportal Saarland (`geoportal.saarland.de`) |
 
 Der Abschnitt „Forstverwaltung“ nennt jede Dienststelle mit ihrer Einheit und ihrem Anteil am Kartengebiet. Der
 Bereich einer Dienststelle kann auch Siedlungen und Felder umfassen; in Brandenburg liegt jedes Kartengebiet in
@@ -1079,7 +1084,8 @@ Bezirks, auch in `data/permits/`.
   Hinweise geben diesen Satz unter der Tabelle der Quellen wörtlich wieder.
 - Eigentümer von Grundstücken stehen nicht in offenen Daten, außer in Berlin für das Bundesland und den Bund. Die Hinweise
   sagen, wie man einen Grundbuchauszug bekommt.
-- Forstdienststellen nennen die Hinweise nur in Brandenburg, Berlin und Nordrhein-Westfalen. Sachsen,
+- Forstdienststellen nennen die Hinweise nur in Brandenburg, Berlin, Hamburg, Nordrhein-Westfalen und im
+  Saarland (dort nur für den Staatswald). Sachsen,
   Sachsen-Anhalt und Mecklenburg-Vorpommern zeigen ihre Forstämter nur als Kartenbild, ohne Flächen, die
   freemapper lesen könnte. Der Dienst von Rheinland-Pfalz weist freemapper ab. Für die übrigen Bundesländer
   fand sich kein offener Dienst.
@@ -1095,6 +1101,9 @@ Bezirks, auch in `data/permits/`.
 | OpenStreetMap | Auszug im Zwischenspeicher | `© OpenStreetMap contributors, ODbL` |
 | Geoportal Berlin: Bezirksgrenzen, Grünanlagenbestand, Liegenschaftsplan, Denkmale, Schutzobjekte nach Naturschutzrecht, Forstverwaltung (nur in Berlin) | `gdi.berlin.de` | `Für die Nutzung der Daten ist die Datenlizenz Deutschland - Zero - Version 2.0 anzuwenden. Die Lizenz ist über https://www.govdata.de/dl-de/zero-2-0 abrufbar.` |
 | Geoportal Hamburg: Bezirksgrenzen, Grünplan, Denkmalschutz, Wald in Hamburg, Waldfunktionen, Wasserschutzgebiete (nur in Hamburg) | `geodienste.hamburg.de` | je Dienst `Datenlizenz Deutschland Namensnennung 2.0, Quellenvermerk: Freie und Hansestadt Hamburg, <Behörde>` mit der Behörde, die der Dienst nennt |
+| Geoportal Saarland: Reviere des Staatswalds, Wasserschutzgebiete, Naturwaldzellen, Urwald, Baudenkmale (nur im Saarland) | `geoportal.saarland.de` | `Quellenvermerk: © GDI-SL (<Jahr>); Lizenz: Creative Commons Namensnennung 4.0 International (CC BY 4.0)` |
+| HLNUG: Trinkwasser- und Heilquellenschutzgebiete (nur in Hessen) | `geodienste-umwelt.hessen.de` | `Lizenz: Creative Commons BY 4.0 (https://creativecommons.org/licenses/by/4.0/deed.de). Quellenvermerk für Daten: „Darstellung auf der Grundlage von Daten des Hessischen Landesamtes für Naturschutz, Umwelt und Geologie (HLNUG)“.` |
+| LINFOS: Naturwaldzellen, Wildnisentwicklungsgebiete (nur in Nordrhein-Westfalen) | `www.wfs.nrw.de` | `Open Data - Dieses Angebot vom Landesamt für Natur, Umwelt und Verbraucherschutz Nordrhein-Westfalen ist lizensiert unter der Datenlizenz Deutschland Namensnennung 2.0 (https://www.govdata.de/dl-de/by-2-0). Datensätze unter dieser Lizenz müssen bei Weiterverwendung mit dem Quellenverweis „Land NRW“ versehen werden.` |
 | Landesbetrieb Forst Brandenburg: Forstreviere mit ihrer Oberförsterei (nur in Brandenburg) | `www.brandenburg-forst.de` | `Landesbetrieb Forst Brandenburg, Datenlizenz Deutschland – Namensnennung – Version 2.0 (https://www.govdata.de/dl-de/by-2-0)` |
 | Wald und Holz NRW: Forstbetriebsbezirke mit ihrem Regionalforstamt, Staatswald (nur in Nordrhein-Westfalen) | `www.opengeodata.nrw.de` | `Landesbetrieb Wald und Holz Nordrhein-Westfalen, Datenlizenz Deutschland – Namensnennung – Version 2.0 (https://www.govdata.de/dl-de/by-2-0)` |
 

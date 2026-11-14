@@ -762,10 +762,10 @@ mcp-error-content = Die Inhaltseinstellung ist nicht lesbar: { $detail }
 ## prüft, dass jede Kennung `permits-*` verwendet wird. Das Zitat „Nicht für Planungszwecke
 ## geeignet.“ ist der Wortlaut des BfN und bleibt in jeder Sprache deutsch.
 
-help-permits = Die Genehmigungshinweise eines Projekts schreiben (permits.md und permits.json): die Verwaltungseinheiten, Schutzgebiete und Betreiber, die das Kartengebiet berührt, und wen man dann meist fragt. Fragt das BfN und das BKG, für ein Kartengebiet in Berlin auch das Geoportal Berlin (gdi.berlin.de), in Hamburg das Geoportal Hamburg (geodienste.hamburg.de), in Brandenburg den Landesbetrieb Forst (www.brandenburg-forst.de), in Nordrhein-Westfalen Wald und Holz NRW (www.opengeodata.nrw.de, etwa 17 MB), jeweils über die Hosts des Adapters des Bundeslandes, und liest den OSM-Auszug, der schon im Zwischenspeicher liegt; --offline nimmt die früher geholten Daten
+help-permits = Die Genehmigungshinweise eines Projekts schreiben (permits.md und permits.json): die Verwaltungseinheiten, Schutzgebiete und Betreiber, die das Kartengebiet berührt, und wen man dann meist fragt. Fragt das BfN und das BKG und, wo das Bundesland des Kartengebiets eigene offene Dienste hat, diese über die Hosts seines Adapters (Liste im Handbuch, Kapitel 12); in Nordrhein-Westfalen lädt es dafür etwa 17 MB. Liest den OSM-Auszug, der schon im Zwischenspeicher liegt; --offline nimmt die früher geholten Daten
 help-permits-dir = Projektordner
 help-permits-offline = Nur die früher geholten Daten verwenden, ohne Netzzugriff
-help-run-permits = Nach der Karte zusätzlich die Genehmigungshinweise schreiben (permits.md und permits.json); fragt das BfN und das BKG, in Berlin und Hamburg auch ihr Geoportal, in Brandenburg und Nordrhein-Westfalen die Forstverwaltung. Ein Fehler dort ist eine Warnung, die Karte bleibt
+help-run-permits = Nach der Karte zusätzlich die Genehmigungshinweise schreiben (permits.md und permits.json); fragt das BfN, das BKG und die offenen Dienste des Bundeslandes (Handbuch, Kapitel 12). Ein Fehler dort ist eine Warnung, die Karte bleibt
 cli-wrote-permits = Genehmigungshinweise { $path } geschrieben
 cli-summary-wrote-permits = Genehmigungshinweise { $path } geschrieben
 cli-permits-failed = Die Genehmigungshinweise ließen sich nicht schreiben: { $error }
