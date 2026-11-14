@@ -11,12 +11,12 @@ use freemapper_adapters_de::states::alkis::{
 };
 use freemapper_adapters_de::states::{State, StateAdapter, StateFiles};
 use freemapper_adapters_de::{geobremen, ldbv, ldbv_las, lgl_bw, lgv, lvgl, states};
-use freemapper_georef::crs::Crs;
+use freemapper_georef::crs::{BoundingBox, Crs};
 use freemapper_manifest::adapter::{ManifestAdapter, Parse};
 use freemapper_manifest::model::Alkis;
 use freemapper_manifest::{Manifest, adapter, alkis, extras, parse};
 use freemapper_sources::alkis_source::{Normaliser, OgcApiAlkis};
-use freemapper_sources::nas::LGB_NAS;
+use freemapper_sources::nas::{LGB_NAS, NasModel};
 use freemapper_sources::trees::POTSDAM;
 use freemapper_sources::wfs::{self, WfsService};
 
@@ -122,7 +122,7 @@ fn potsdam_tree_dataset_from_manifest_equals_the_constant() {
     );
     assert!(bremen.trees.is_empty());
     for state in State::ALL {
-        if !matches!(state, State::Brandenburg | State::Bremen) {
+        if !matches!(state, State::Brandenburg | State::Bremen | State::Bayern) {
             let manifest = manifest(state.id());
             assert!(
                 manifest.nas.is_empty() && manifest.trees.is_empty(),
@@ -131,6 +131,31 @@ fn potsdam_tree_dataset_from_manifest_equals_the_constant() {
             );
         }
     }
+}
+
+/// Bavaria has no cadastre service; its NAS service is the landscape model (ADR 0133), asked
+/// with the request the research of 2026-11-14 sent.
+#[test]
+fn bavaria_asks_the_basis_dlm() {
+    let bayern = manifest("bayern");
+    assert_eq!(bayern.nas.len(), 1);
+    assert!(bayern.trees.is_empty());
+    let service = extras::nas_service(&bayern.nas[0], &"bayern".parse().unwrap());
+    assert_eq!(service.model, NasModel::BasisDlm);
+    assert!(service.serves("dlm-turm") && !service.serves("sonstiges-bauwerk"));
+    let schmausenbuck = BoundingBox {
+        min_e: 655_343.0,
+        min_n: 5_479_504.0,
+        max_e: 656_766.0,
+        max_n: 5_480_640.0,
+    };
+    assert_eq!(
+        service.get_feature_url("adv:AX_Turm", &schmausenbuck),
+        "https://geoservices.bayern.de/wfs/v1/ogc_atkis_basisdlm.cgi?SERVICE=WFS&VERSION=2.0.0\
+         &REQUEST=GetFeature&TYPENAMES=adv:AX_Turm&SRSNAME=urn:ogc:def:crs:EPSG::25832\
+         &BBOX=655343,5479504,656766,5480640,urn:ogc:def:crs:EPSG::25832&COUNT=100000\
+         &NAMESPACES=xmlns(adv,http://www.adv-online.de/namespaces/adv/gid/7.1)"
+    );
 }
 
 /// The golden net of the adapter work, at the root of the repository.
