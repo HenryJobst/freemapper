@@ -6,6 +6,11 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+### Hinzugefügt
+
+- Genehmigungshinweise, Schritt 3 (ADR 0124): In Brandenburg, Berlin und Nordrhein-Westfalen nennen die Hinweise die Forstverwaltung des Kartengebiets, jede Dienststelle mit Revier oder Bezirk und ihrem Anteil: die Oberförstereien des Landesbetriebs Forst Brandenburg, die Forstämter der Berliner Forsten und die Regionalforstämter von Wald und Holz NRW. In Nordrhein-Westfalen kommt der Anteil des Staatswalds dazu. Eine Waldkarte bekommt den Hinweis auf die zuständige Dienststelle und darauf, dass die Waldbesitzer zustimmen müssen; in den anderen Bundesländern nur den zweiten, mit dem Satz, dass die Hinweise die Dienststelle dort nicht nennen. In Nordrhein-Westfalen lädt ein Abruf dafür zwei Dateien mit zusammen etwa 17 MB. Die Namen und Kontaktdaten der Förster in diesen Dateien übernimmt freemapper nicht, auch nicht in `data/permits/`.
+- Waldkarten in steilem Gelände bekommen automatisch Höhenlinien alle 10 m statt 5 m (ADR 0125). Steil heißt: Auf mehr als einem Zehntel der Fläche lägen die 5-m-Linien enger als 0,35 mm und liefen zu einer braunen Fläche zusammen. `derive` sagt das in einer Zeile; `--contour-interval 5` behält 5 m. Unter den Beispielen trifft es das Bodetal und die Bastei.
+
 ### Geändert
 
 - Beispiele: Das Bodetal und die Bastei haben Höhenlinien alle 10 m statt 5 m; an den steilen Hängen liefen sie zu einer braunen Fläche zusammen. Die Felsen der Bastei stammen aus OSM, nicht aus dem Geländemodell, wie die Beispielübersicht bisher sagte.

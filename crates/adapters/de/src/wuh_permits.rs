@@ -1,0 +1,531 @@
+//! North Rhine-Westphalia's sources of the permit notes (ADR 0124): the Forstbetriebsbezirke of
+//! the Landesbetrieb Wald und Holz NRW, each with its Regionalforstamt, and the Staatswald, both
+//! as shapefiles on the open data portal of NRW (dl-de/by-2-0).
+//!
+//! Each source downloads one zip for the whole state (about 11 and 6 MB), reads its `.shp` and
+//! `.dbf`, keeps the records whose box meets the map box (EPSG:25832) and turns them into GeoJSON
+//! features as longitude, latitude. Every row of the Forstbetriebsbezirke also names the
+//! forester with first and last name, e-mail, phone and mobile number: a feature keeps only the
+//! fields of [`Layer::kept`], so none of that is stored or reaches the notes.
+
+use std::io::Read as _;
+use std::path::Path;
+
+use freemapper_adapter_api::permits::{
+    FindingKind, PermitFinding, PermitSection, PermitSource, PermitSourceInfo, Wording,
+};
+use freemapper_sources::shapefile::{ShapeRecord, polygons_in};
+use geo_types::Rect;
+use serde_json::Value;
+
+use crate::berlin_permits::geometry;
+use crate::crs::{BoundingBox, Crs, LatLon, ProjectedPoint};
+use crate::fetch::{FetchError, Fetcher, get_limited_with_retries};
+
+/// The credit the licence asks for: the publisher as GovData names it, and its licence.
+pub const CREDIT: &str = "Landesbetrieb Wald und Holz Nordrhein-Westfalen, Datenlizenz \
+    Deutschland – Namensnennung – Version 2.0 (https://www.govdata.de/dl-de/by-2-0)";
+
+/// The administration the notes name.
+const WALD_UND_HOLZ: &str = "Landesbetrieb Wald und Holz NRW";
+
+/// The owner of the Staatswald.
+const STATE: &str = "Bundesland Nordrhein-Westfalen";
+
+const BASE: &str = "https://www.opengeodata.nrw.de/produkte/umwelt_klima/wald_forst/wald/";
+
+/// The largest zip read; the two are about 11 and 6 MB.
+const MAX_ZIP: u64 = 50 * 1024 * 1024;
+
+/// The largest file read out of the zip; the largest is the table of the Staatswald (18 MB).
+const MAX_ENTRY: u64 = 100 * 1024 * 1024;
+
+/// How far around the map box records are kept, in metres: a record whose box only nearly
+/// meets it costs nothing, one cut off would be missing.
+const MARGIN_M: f64 = 50.0;
+
+/// How the records of a shapefile become findings.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Layer {
+    /// A Forstbetriebsbezirk (`fbb`) of a Regionalforstamt (`rfa`).
+    Districts,
+    /// A parcel of Staatswald with the forest office (`forstamt`) that looks after it.
+    StateForest,
+}
+
+impl Layer {
+    /// The fields a feature keeps.
+    fn kept(self) -> &'static [&'static str] {
+        match self {
+            Layer::Districts => &["rfa", "fbb"],
+            Layer::StateForest => &["forstamt"],
+        }
+    }
+}
+
+/// One shapefile of Wald und Holz NRW.
+pub struct WuhPermitSource {
+    info: PermitSourceInfo,
+    zip: &'static str,
+    layer: Layer,
+}
+
+const LABEL: Wording = Wording {
+    en: "Wald und Holz NRW",
+    de: "Wald und Holz NRW",
+};
+
+/// The two sources, the forest offices first.
+pub fn sources() -> Vec<Box<dyn PermitSource>> {
+    vec![
+        Box::new(WuhPermitSource {
+            info: PermitSourceInfo {
+                key: "forstbetriebsbezirke",
+                label: LABEL,
+                what: Wording {
+                    en: "forest districts (Forstbetriebsbezirke) with their Regionalforstamt",
+                    de: "Forstbetriebsbezirke mit ihrem Regionalforstamt",
+                },
+                credit: CREDIT,
+                note: None,
+                layers: &["forstbetriebsbezirke"],
+                sections: &[PermitSection::ForestUnits],
+            },
+            zip: "forstbetriebsbezirke_nrw_EPSG25832_Shape.zip",
+            layer: Layer::Districts,
+        }),
+        Box::new(WuhPermitSource {
+            info: PermitSourceInfo {
+                key: "staatswald",
+                label: LABEL,
+                what: Wording {
+                    en: "state forest (Landeseigener Forstbetrieb)",
+                    de: "Staatswald (Landeseigener Forstbetrieb)",
+                },
+                credit: CREDIT,
+                note: None,
+                layers: &["staatswald"],
+                sections: &[PermitSection::StateForest],
+            },
+            zip: "landeseigener_forstbetrieb_staatswald_EPSG25832_Shape.zip",
+            layer: Layer::StateForest,
+        }),
+    ]
+}
+
+impl PermitSource for WuhPermitSource {
+    fn info(&self) -> &PermitSourceInfo {
+        &self.info
+    }
+
+    fn fetch(
+        &self,
+        fetcher: &dyn Fetcher,
+        bbox: &Rect<f64>,
+        part: &Path,
+    ) -> Result<Vec<Vec<Value>>, FetchError> {
+        let url = format!("{BASE}{}", self.zip);
+        let cut = map_box(bbox);
+        let records = get_limited_with_retries(fetcher, &url, part, MAX_ZIP, |bytes| {
+            records_in(bytes, &cut).map_err(|message| FetchError::Http {
+                url: url.clone(),
+                message,
+            })
+        })?;
+        Ok(vec![
+            records
+                .iter()
+                .filter_map(|r| feature(r, self.layer.kept()))
+                .collect(),
+        ])
+    }
+
+    fn findings(&self, layer: &str, features: &[Value]) -> Vec<PermitFinding> {
+        if layer != self.info.layers[0] {
+            return Vec::new();
+        }
+        features
+            .iter()
+            .filter_map(|f| finding(self.layer, f))
+            .collect()
+    }
+}
+
+/// The map box (WGS 84, x = longitude) in EPSG:25832, with [`MARGIN_M`] around it.
+fn map_box(bbox: &Rect<f64>) -> BoundingBox {
+    let corners = [
+        (bbox.min().y, bbox.min().x),
+        (bbox.min().y, bbox.max().x),
+        (bbox.max().y, bbox.min().x),
+        (bbox.max().y, bbox.max().x),
+    ]
+    .map(|(lat, lon)| Crs::Utm32.forward(LatLon { lat, lon }));
+    let fold = |pick: fn(f64, f64) -> f64, start: f64, axis: fn(&ProjectedPoint) -> f64| {
+        corners.iter().map(axis).fold(start, pick)
+    };
+    BoundingBox {
+        min_e: fold(f64::min, f64::INFINITY, |p| p.easting) - MARGIN_M,
+        min_n: fold(f64::min, f64::INFINITY, |p| p.northing) - MARGIN_M,
+        max_e: fold(f64::max, f64::NEG_INFINITY, |p| p.easting) + MARGIN_M,
+        max_n: fold(f64::max, f64::NEG_INFINITY, |p| p.northing) + MARGIN_M,
+    }
+}
+
+/// The records of the one `.shp` and `.dbf` in the zip `bytes` whose box meets `cut`.
+fn records_in(bytes: &[u8], cut: &BoundingBox) -> Result<Vec<ShapeRecord>, String> {
+    let mut zip =
+        zip::ZipArchive::new(std::io::Cursor::new(bytes)).map_err(|e| format!("not a zip: {e}"))?;
+    let mut entry = |extension: &str| -> Result<Vec<u8>, String> {
+        let index = (0..zip.len())
+            .find(|&i| {
+                zip.by_index_raw(i).is_ok_and(|f| {
+                    f.name()
+                        .is_ok_and(|n| n.to_ascii_lowercase().ends_with(extension))
+                })
+            })
+            .ok_or_else(|| format!("the zip has no {extension} file"))?;
+        let mut content = Vec::new();
+        // A file larger than any of the state's is cut off and then refused below, so a
+        // packed bomb never fills the memory.
+        zip.by_index(index)
+            .map_err(|e| e.to_string())?
+            .take(MAX_ENTRY + 1)
+            .read_to_end(&mut content)
+            .map_err(|e| e.to_string())?;
+        if content.len() as u64 > MAX_ENTRY {
+            return Err(format!(
+                "the {extension} file is larger than {MAX_ENTRY} bytes"
+            ));
+        }
+        Ok(content)
+    };
+    let shp = entry(".shp")?;
+    let dbf = entry(".dbf")?;
+    polygons_in(&shp, &dbf, cut)
+}
+
+/// A record as a GeoJSON feature with the fields of `kept` and its polygons as longitude,
+/// latitude; `None` when a position cannot be converted.
+fn feature(record: &ShapeRecord, kept: &[&str]) -> Option<Value> {
+    let properties: serde_json::Map<String, Value> = kept
+        .iter()
+        .filter_map(|key| {
+            let value = record.fields.get(*key)?;
+            Some((key.to_string(), Value::String(value.clone())))
+        })
+        .collect();
+    let mut polygons = Vec::with_capacity(record.polygons.len());
+    for polygon in &record.polygons {
+        let mut rings = Vec::with_capacity(polygon.len());
+        for ring in polygon {
+            let mut positions = Vec::with_capacity(ring.len());
+            for &[easting, northing] in ring {
+                let p = Crs::Utm32.inverse(ProjectedPoint { easting, northing })?;
+                positions.push(serde_json::json!([p.lon, p.lat]));
+            }
+            rings.push(Value::Array(positions));
+        }
+        polygons.push(Value::Array(rings));
+    }
+    Some(serde_json::json!({
+        "type": "Feature",
+        "geometry": { "type": "MultiPolygon", "coordinates": polygons },
+        "properties": properties,
+    }))
+}
+
+/// The office as the notes name it: the Regionalforstamt of `name`, unless the name is an
+/// office of its own ("Nationalparkforstamt Eifel"); "Arnsberger Wald" is the Lehr- und
+/// Versuchsforstamt.
+fn office(name: &str) -> String {
+    if name.to_lowercase().contains("forstamt") {
+        name.to_string()
+    } else if name == "Arnsberger Wald" {
+        format!("Lehr- und Versuchsforstamt {name}")
+    } else {
+        format!("Regionalforstamt {name}")
+    }
+}
+
+fn finding(layer: Layer, feature: &Value) -> Option<PermitFinding> {
+    let geometry =
+        geometry(feature).filter(|g| matches!(g, geo_types::Geometry::MultiPolygon(_)))?;
+    let text = |key: &str| {
+        let text = feature.get("properties")?.get(key)?.as_str()?.trim();
+        (!text.is_empty()).then(|| text.to_string())
+    };
+    let kind = match layer {
+        Layer::Districts => FindingKind::ForestUnit {
+            administration: WALD_UND_HOLZ.to_string(),
+            office: office(&text("rfa")?),
+            unit: text("fbb").map(|name| format!("Forstbetriebsbezirk {name}")),
+        },
+        Layer::StateForest => FindingKind::StateForest {
+            owner: STATE.to_string(),
+            office: text("forstamt").map(|name| office(&name)),
+        },
+    };
+    Some(PermitFinding { kind, geometry })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::fetch::test_support::MapFetcher;
+    use freemapper_sources::shapefile::test_support::{Entry, shape_files};
+    use geo_types::Coord;
+    use std::io::Write as _;
+
+    /// A square of 200 m in EPSG:25832 at the south-west corner `(e, n)`.
+    fn square(e: f64, n: f64) -> Vec<[f64; 2]> {
+        vec![
+            [e, n],
+            [e, n + 200.0],
+            [e + 200.0, n + 200.0],
+            [e + 200.0, n],
+            [e, n],
+        ]
+    }
+
+    /// The box of a made-up map area near Bonn (about 365 km east, 5617 km north).
+    fn kottenforst() -> Rect<f64> {
+        let sw = Crs::Utm32.inverse(ProjectedPoint {
+            easting: 364_000.0,
+            northing: 5_616_000.0,
+        });
+        let ne = Crs::Utm32.inverse(ProjectedPoint {
+            easting: 366_000.0,
+            northing: 5_618_000.0,
+        });
+        let (sw, ne) = (sw.unwrap(), ne.unwrap());
+        Rect::new(
+            Coord {
+                x: sw.lon,
+                y: sw.lat,
+            },
+            Coord {
+                x: ne.lon,
+                y: ne.lat,
+            },
+        )
+    }
+
+    /// A zip of the files of `records`, named as the state names them.
+    fn zip_of(stem: &str, records: &[Entry<'_>]) -> Vec<u8> {
+        let (shp, dbf) = shape_files(records);
+        let mut zip = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
+        let options = zip::write::SimpleFileOptions::default();
+        zip.add_directory(format!("{stem}/"), options).unwrap();
+        for (extension, bytes) in [("shp", shp), ("dbf", dbf), ("cpg", b"UTF-8".to_vec())] {
+            zip.start_file(format!("{stem}/{stem}.{extension}"), options)
+                .unwrap();
+            zip.write_all(&bytes).unwrap();
+        }
+        zip.finish().unwrap().into_inner()
+    }
+
+    fn fetch(source: &dyn PermitSource, zip: Vec<u8>) -> Vec<Value> {
+        let fetcher = MapFetcher::default();
+        fetcher.insert(
+            &format!(
+                "{BASE}{}",
+                match source.info().key {
+                    "staatswald" => "landeseigener_forstbetrieb_staatswald_EPSG25832_Shape.zip",
+                    _ => "forstbetriebsbezirke_nrw_EPSG25832_Shape.zip",
+                }
+            ),
+            zip,
+        );
+        let part = tempfile::tempdir().unwrap();
+        let mut layers = source
+            .fetch(&fetcher, &kottenforst(), &part.path().join("x.part"))
+            .unwrap();
+        assert_eq!(layers.len(), 1);
+        layers.remove(0)
+    }
+
+    /// The fields of a district as the state writes them, with made-up values for the person.
+    fn district_fields<'a>(rfa: &'a str, fbb: &'a str) -> Vec<(&'a str, &'a str)> {
+        vec![
+            ("rfa_nr", "04"),
+            ("fbb_nr", "02"),
+            ("rfa", rfa),
+            ("fbb", fbb),
+            ("vorname", "Erika"),
+            ("name", "Musterfrau"),
+            ("strasse", "Beispielweg"),
+            ("nummer", "1"),
+            ("ort", "Musterstadt"),
+            ("email", "erika.musterfrau@example.org"),
+            ("plz", "12345"),
+            ("telefon", "+49 000 0000000"),
+            ("mobil", "+49 000 0000001"),
+            ("aktualitae", "2026-10-14"),
+        ]
+    }
+
+    /// A district keeps its office and its name and nothing about the forester; a district far
+    /// from the map is not kept at all.
+    #[test]
+    fn districts_keep_no_personal_field() {
+        let near = district_fields("Rhein-Sieg-Erft", "Kottenforst");
+        let far = district_fields("Münsterland", "Weit weg");
+        let zip = zip_of(
+            "forstbetriebsbezirke_nrw",
+            &[
+                (&near, &[square(365_000.0, 5_617_000.0)]),
+                (&far, &[square(400_000.0, 5_750_000.0)]),
+            ],
+        );
+        let source = &sources()[0];
+        let features = fetch(source.as_ref(), zip);
+        assert_eq!(features.len(), 1, "{features:?}");
+        let text = features[0].to_string();
+        for personal in [
+            "Erika",
+            "Musterfrau",
+            "example.org",
+            "+49",
+            "Beispielweg",
+            "12345",
+        ] {
+            assert!(!text.contains(personal), "{personal}: {text}");
+        }
+        let keys: Vec<&String> = features[0]["properties"]
+            .as_object()
+            .unwrap()
+            .keys()
+            .collect();
+        assert_eq!(keys, ["fbb", "rfa"]);
+        let found = source.findings("forstbetriebsbezirke", &features);
+        assert_eq!(
+            found.iter().map(|f| &f.kind).collect::<Vec<_>>(),
+            [&FindingKind::ForestUnit {
+                administration: "Landesbetrieb Wald und Holz NRW".into(),
+                office: "Regionalforstamt Rhein-Sieg-Erft".into(),
+                unit: Some("Forstbetriebsbezirk Kottenforst".into()),
+            }]
+        );
+        let bbox = kottenforst();
+        for c in geo::CoordsIter::coords_iter(&found[0].geometry) {
+            assert!(bbox.min().x < c.x && c.x < bbox.max().x, "{c:?}");
+            assert!(bbox.min().y < c.y && c.y < bbox.max().y, "{c:?}");
+        }
+    }
+
+    #[test]
+    fn state_forest_names_its_owner_and_office() {
+        let parcel = [
+            ("gemeinde", "Bonn, Stadt"),
+            ("gemarkung_", "1234"),
+            ("forstamt", "Rhein-Sieg-Erft"),
+            ("label", "1/2/0"),
+            ("gemarkung1", "Röttgen"),
+        ];
+        let zip = zip_of(
+            "landeseigener_forstbetrieb_staatswald",
+            &[(&parcel, &[square(365_000.0, 5_617_000.0)])],
+        );
+        let source = &sources()[1];
+        let features = fetch(source.as_ref(), zip);
+        let keys: Vec<&String> = features[0]["properties"]
+            .as_object()
+            .unwrap()
+            .keys()
+            .collect();
+        assert_eq!(keys, ["forstamt"], "the parcel label is not kept");
+        let found = source.findings("staatswald", &features);
+        assert_eq!(
+            found.iter().map(|f| &f.kind).collect::<Vec<_>>(),
+            [&FindingKind::StateForest {
+                owner: "Bundesland Nordrhein-Westfalen".into(),
+                office: Some("Regionalforstamt Rhein-Sieg-Erft".into()),
+            }]
+        );
+    }
+
+    #[test]
+    fn offices_are_named_as_wald_und_holz_names_them() {
+        assert_eq!(office("Hochstift"), "Regionalforstamt Hochstift");
+        assert_eq!(
+            office("Nationalparkforstamt Eifel"),
+            "Nationalparkforstamt Eifel"
+        );
+        assert_eq!(
+            office("Arnsberger Wald"),
+            "Lehr- und Versuchsforstamt Arnsberger Wald"
+        );
+    }
+
+    /// A zip without the files, or a broken one, is an error with the URL, not empty notes.
+    #[test]
+    fn a_broken_download_is_an_error() {
+        let fetcher = MapFetcher::default();
+        let url = format!("{BASE}forstbetriebsbezirke_nrw_EPSG25832_Shape.zip");
+        fetcher.insert(&url, b"<html>moved</html>".to_vec());
+        let part = tempfile::tempdir().unwrap();
+        let err = sources()[0]
+            .fetch(&fetcher, &kottenforst(), &part.path().join("x.part"))
+            .unwrap_err();
+        assert!(
+            matches!(&err, FetchError::Http { url: u, .. } if *u == url),
+            "{err:?}"
+        );
+    }
+
+    /// The forest districts and the Staatswald of the Kottenforst, downloaded live through the
+    /// hosts of the manifest of North Rhine-Westphalia with the fixed User-Agent of the program
+    /// (about 17 MB): `cargo test -p freemapper-adapters-de live_kottenforst -- --ignored`.
+    #[test]
+    #[ignore = "network"]
+    fn live_kottenforst() {
+        use crate::fetch::HttpFetcher;
+        use crate::states::{State, StateAdapter, register_backends};
+        use freemapper_adapter_api::adapter::RegionAdapter as _;
+        use freemapper_adapter_api::policy::PolicyFetcher;
+        use freemapper_adapter_api::registry::Registry;
+        assert!(!freemapper::fetch::USER_AGENT.contains('@'));
+        let mut backends = Registry::new();
+        register_backends(&mut backends).unwrap();
+        let nrw = StateAdapter::new(State::NordrheinWestfalen, &backends);
+        let http = HttpFetcher::new();
+        let fetcher = PolicyFetcher::new(&http, nrw.policy().unwrap());
+        let part = tempfile::tempdir().unwrap();
+        let mut kinds = Vec::new();
+        // Kottenforst, south-west of Bonn.
+        let bbox = Rect::new(Coord { x: 7.04, y: 50.66 }, Coord { x: 7.08, y: 50.68 });
+        for source in nrw.permit_sources() {
+            let layers = source
+                .fetch(&fetcher, &bbox, &part.path().join("live.part"))
+                .unwrap();
+            for feature in &layers[0] {
+                let keys: Vec<&String> =
+                    feature["properties"].as_object().unwrap().keys().collect();
+                assert!(
+                    keys.iter()
+                        .all(|k| ["rfa", "fbb", "forstamt"].contains(&k.as_str())),
+                    "{keys:?}"
+                );
+            }
+            kinds.extend(source.findings(source.info().layers[0], &layers[0]));
+        }
+        let offices: std::collections::BTreeSet<String> = kinds
+            .iter()
+            .filter_map(|f| match &f.kind {
+                FindingKind::ForestUnit { office, .. } => Some(office.clone()),
+                _ => None,
+            })
+            .collect();
+        // The Kottenforst lies in the Regionalforstamt Rhein-Sieg-Erft, with Staatswald.
+        assert!(
+            offices.contains("Regionalforstamt Rhein-Sieg-Erft"),
+            "{offices:?}"
+        );
+        assert!(
+            kinds
+                .iter()
+                .any(|f| matches!(f.kind, FindingKind::StateForest { .. })),
+            "no Staatswald"
+        );
+    }
+}

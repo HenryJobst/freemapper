@@ -1,6 +1,7 @@
 //! Sources of the permit notes a region adapter brings (ADR 0120): services of a state that say
 //! more about a map area than the national sources do, such as the Bezirk of a city state, its
-//! green spaces, the land the state owns, the monuments and the protected objects.
+//! green spaces, the land the state owns, the monuments, the protected objects and the offices
+//! of the forest administration (ADR 0124).
 //!
 //! An adapter names its sources ([`crate::adapter::RegionAdapter::permit_sources`]); the engine
 //! asks them, behind the hosts of the adapter, only when permit notes are asked for and the map
@@ -81,6 +82,10 @@ pub enum PermitSection {
     Monuments,
     /// Protected objects the national sources do not have.
     ProtectedObjects,
+    /// The offices of the forest administration and their units (ADR 0124).
+    ForestUnits,
+    /// The forest the state owns.
+    StateForest,
 }
 
 /// One finding of a regional source with its geometry.
@@ -117,6 +122,22 @@ pub enum FindingKind {
         kind: String,
         /// The entry of the monument in the list of the state.
         link: Option<String>,
+    },
+    /// The unit of a forest administration the area belongs to. All three as the notes print
+    /// them, proper names in German in every language.
+    ForestUnit {
+        /// The administration ("Landesbetrieb Forst Brandenburg").
+        administration: String,
+        /// Its office in charge ("Oberförsterei Barnim").
+        office: String,
+        /// The unit below the office ("Revier Werneuchen").
+        unit: Option<String>,
+    },
+    /// Forest of the state. `owner` is the body as the notes name it ("Bundesland
+    /// Nordrhein-Westfalen"), `office` the forest office that looks after it.
+    StateForest {
+        owner: String,
+        office: Option<String>,
     },
     /// A protected object of nature conservation law.
     ProtectedObject {

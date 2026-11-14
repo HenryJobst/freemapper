@@ -184,6 +184,7 @@ warning-trees-skipped = Baumkataster { $id } nicht verfügbar ({ $detail }); Bä
 ## Vorlagen ableiten
 
 progress-writing = { $path } wird geschrieben
+progress-contours-steep = Höhenlinien alle { $interval } m: Das Gelände ist so steil, dass Linien alle { $default } m zusammenlaufen würden; mit einer Äquidistanz von { $default } m im Projekt bleiben sie (`--contour-interval { $default }`)
 progress-no-ndsm-recorded = Kein nDSM vermerkt; rufen Sie `freemapper fetch` auf, um die nDSM-Vorlage zu erhalten
 warning-ndsm-tile-invalid = Ungültige nDSM-Kachel { $tile } in freemapper.toml; übersprungen
 warning-ndsm-not-cached = nDSM { $tile } liegt nicht im Zwischenspeicher; rufen Sie `freemapper fetch` auf

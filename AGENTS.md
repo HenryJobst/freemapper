@@ -104,7 +104,7 @@ freemapper run <dir> --pdf
 | `fetch <dir>` | Downloads into the shared cache. `--offline` uses the cache only. |
 | `derive <dir>` | Computes templates and contours. |
 | `export <dir>` | Writes the map. `--force` replaces an existing map (old one as `.bak`). |
-| `permits <dir>` | Writes the permit notes `permits.md` and `permits.json`: administrative units, protected areas and operators of the map area, and whom that usually means asking. Asks `geodienste.bfn.de` and `sgx.geodatenzentrum.de`, for a map area in Berlin also `gdi.berlin.de` (through Berlin's adapter and its host rules), and reads the OSM extract already cached (it downloads none). `--offline` reads only what an earlier run stored in `data/permits/`. Exit code 0 when the notes are written, also when a source is left out (a `warning:` line names it); 1 when no source could be read or the folder is held by another run. Takes about half a minute. |
+| `permits <dir>` | Writes the permit notes `permits.md` and `permits.json`: administrative units, protected areas and operators of the map area, and whom that usually means asking. Asks `geodienste.bfn.de` and `sgx.geodatenzentrum.de`, for a map area in Berlin also `gdi.berlin.de`, in Brandenburg `www.brandenburg-forst.de`, in North Rhine-Westphalia `www.opengeodata.nrw.de` (two files of about 17 MB together), each through the adapter of the state and its host rules, and reads the OSM extract already cached (it downloads none). `--offline` reads only what an earlier run stored in `data/permits/`. Exit code 0 when the notes are written, also when a source is left out (a `warning:` line names it); 1 when no source could be read or the folder is held by another run. Takes about half a minute. |
 | `update` | Installs the newest freemapper release over this program. `--check` only checks, `--yes` installs without asking (needed without a terminal, so always for you), `--version <x.y.z>` picks a release, `--rollback` goes back to the replaced version, `--mode notify\|install\|off` stores what the daily check does. |
 | `adapters allow-host <adapter> <host>` | Allows a built-in state one more host, after a message said its adapter does not name that host. Only after the person agreed (see Troubleshooting). The hosts are in `allowed-hosts.toml` of the person's configuration folder. |
 | `adapters disallow-host <adapter> <host>` | Takes back a host that `allow-host` allowed. |
@@ -117,8 +117,9 @@ Output switches for `run` and `export`: `--ocad`, `--pdf`, `--pdf-candidates`, `
 stays that of the map run. `export` has no `--permits`. `init`, `export` and `run` also take `--content safe|balanced|full` (what goes
 straight onto the map; default `balanced`: the objects of the cadastre and the registers) and `--content-set
 <group>=map|candidates|off`, repeatable; the choice is saved in `freemapper.toml`. `init`, `derive` and `run` take
-`--contour-interval <metres>|auto` (saved in `freemapper.toml`; `auto`: the map kind's, a forest map in flat land
-gets 2.5 m); the next derive traces the contours at it. All commands that download take `--cache-dir <folder>`.
+`--contour-interval <metres>|auto` (saved in `freemapper.toml`; `auto`: the map kind's, a forest map gets 2.5 m in
+flat land and 10 m in steep land); the next derive traces the contours at it. When it picks 10 m, `derive` says so in
+a line; `--contour-interval 5` keeps 5 m. All commands that download take `--cache-dir <folder>`.
 
 `adapters check <dir>` checks the folder of one adapter and asks no server: exit code 0 when it would load
 (warnings or not), 1 with findings, 2 when the check cannot run. `--json` prints `passed`, `adapter`, `findings`
@@ -270,7 +271,7 @@ Rules:
 - `freemapper.toml`: map area, kind, scale and the data used. `data/`: the downloaded features.
 - `permits.md` and `permits.json` (with `permits`, `--permits` or `permits_for_area`): the permit notes, Markdown in
   the program language and the same content as JSON (`"schema": 1`). `data/permits/`: the stored answers of the
-  BfN and VG250 (in Berlin also of the Geoportal Berlin) and the OSM findings, read by `--offline`. They do not change `freemapper.toml` or `ATTRIBUTION.txt`;
+  BfN and VG250 (in Berlin, Brandenburg and North Rhine-Westphalia also of their services) and the OSM findings, read by `--offline`. They do not change `freemapper.toml` or `ATTRIBUTION.txt`;
   `permits.md` carries its own credit lines.
 
 The cache is shared by all projects: macOS `~/Library/Caches/freemapper`, Linux `~/.cache/freemapper`, Windows
@@ -288,7 +289,8 @@ The cache is shared by all projects: macOS `~/Library/Caches/freemapper`, Linux 
 - The maps carry the credit lines the data licences require. Keep them when the map is passed on. With
   `pdf_sources: "credit-only"` the PDF shows only the freemapper line, and the user must name the sources in
   another way (ATTRIBUTION.txt lists them).
-- The permit notes are a hint, not legal advice and not a permit. The authorities decide; the BfN data are merged
+- The permit notes are a hint, not legal advice and not a permit. On a forest map they say that the forest owners
+  must agree; in Brandenburg, Berlin and North Rhine-Westphalia they also name the forest office. The authorities decide; the BfN data are merged
   once a year and "Nicht für Planungszwecke geeignet." (not suitable for planning). Say this when you pass them on.
 
 ## Troubleshooting

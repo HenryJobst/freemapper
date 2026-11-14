@@ -18,6 +18,7 @@ pub mod ldbv;
 pub mod ldbv_alkis;
 pub mod ldbv_files;
 pub mod ldbv_las;
+pub mod lfb_permits;
 pub mod lgb;
 pub mod lgb_als;
 pub mod lgl_bw;
@@ -32,6 +33,7 @@ pub mod lvgl_las;
 pub mod nrw_3dm;
 pub mod states;
 pub mod tile_fetch;
+pub mod wuh_permits;
 mod xyz_archive;
 
 // The state modules were written inside `freemapper`. These private modules give them the paths

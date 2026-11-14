@@ -26,7 +26,7 @@ use crate::build::stairs::{
 use crate::crs::{BoundingBox, Crs};
 use crate::derive::contours::{
     contour_interval_for, contour_lines, contours_from_geojson, contours_to_geojson,
-    gaussian_smooth, generalize, heights_inside,
+    gaussian_smooth, generalize, terrain_inside,
 };
 use crate::derive::landforms::{
     height_jumps, knolls_and_depressions, landforms_from_geojson, landforms_to_geojson,
@@ -2205,15 +2205,26 @@ pub fn derive_project_cancellable(
     stop_if(cancelled)?;
     let smoothed = gaussian_smooth(&dtm, project.map_kind.contour_sigma_m());
     let kind_interval = project.map_kind.contour_interval_m();
+    let scale = SymbolScale::new(project.map_kind, project.scale_denominator);
     let interval = match project.contour_interval_m {
         Some(interval) => interval,
         None if project.map_kind == MapKind::Forest => {
             let map_area = project.area()?.projected_polygon_in(project.crs());
-            contour_interval_for(project.map_kind, &heights_inside(&smoothed, &map_area))
+            contour_interval_for(
+                project.map_kind,
+                &terrain_inside(&smoothed, &map_area),
+                scale,
+            )
         }
         None => kind_interval,
     };
-    let scale = SymbolScale::new(project.map_kind, project.scale_denominator);
+    if project.contour_interval_m.is_none() && interval > kind_interval {
+        progress(note!(
+            "progress-contours-steep",
+            interval = &interval.to_string(),
+            default = &kind_interval.to_string()
+        ));
+    }
     let lines = generalize(contour_lines(&smoothed, interval), scale);
     let contours_path = dir.join(CONTOURS_RELPATH);
     // The interval is stored where it is not the kind's, so the export draws index contours and
