@@ -20,9 +20,7 @@ use crate::build::open_land::{BASE_PART, walkable_base};
 use crate::build::peripheral::{PaperRect, PeripheralInfo, info_block, is_scale_bar};
 use crate::build::points::{GENERALIZATION_SOURCE, HIDDEN_KEY};
 use crate::build::source_block;
-use crate::build::stairs::{
-    NAS_STAIR_LAYER, STEP_EDGE_LAYER, SURVEY_STAIR_LAYER, has_nas_stairs_without_edge, has_stairs,
-};
+use crate::build::stairs::{NAS_STAIR_LAYER, STEP_EDGE_LAYER, SURVEY_STAIR_LAYER};
 use crate::crs::{BoundingBox, Crs};
 use crate::derive::contours::{
     contour_interval_for, contour_lines, contours_from_geojson, contours_to_geojson,
@@ -647,6 +645,7 @@ impl ProjectFile {
             K5_RELPATH,
             TERRAIN_RELPATH,
             TERRAIN_MOSAIC_RELPATH,
+            ROCK_SEEN_RELPATH,
             SURFACE_RELPATH,
         ] {
             let path = dir.join(relpath);
@@ -795,10 +794,11 @@ pub(crate) const K5_RELPATH: &str = "templates/k5.png";
 /// is [`K5_RELPATH`]: the one template there is. A second one needs a field of its own.
 pub(crate) const K5_TEMPLATE: &str = "k5";
 /// The terrain mosaic of a tile provider (LGB, GeoSN) cut to the map area plus buffer, with its
-/// world file. `derive` writes it only where the extra Berlin layers have stair areas: the export
-/// reads their walking direction from it, offline and without the tile cache.
+/// world file. `derive` writes it for every map (ADR 0134): the export reads the walking direction
+/// of stairs, the ticks of banks and the height of cliffs from it, offline and without the tile
+/// cache.
 pub(crate) const TERRAIN_MOSAIC_RELPATH: &str = "data/terrain.tif";
-/// Where the orthophoto shows rock, per metre (forest maps; `derive/rock_seen.rs`).
+/// Where the orthophoto shows rock, per metre (forest and sprint maps; `derive/rock_seen.rs`).
 pub(crate) const ROCK_SEEN_RELPATH: &str = "data/rock-seen.tif";
 /// Contour lines from `derive` (GeoJSON in the map's CRS), input of the export.
 const CONTOURS_RELPATH: &str = "data/contours.geojson";
@@ -2158,9 +2158,9 @@ pub fn derive_project_cancellable(
             build_orthophoto_from_image(&wms, &bbox, dir, &orthophoto)?;
         }
     }
-    // Where the orthophoto shows rock, for the cliffs of a forest map (ADR 0126).
+    // Where the orthophoto shows rock, for the cliffs of a forest or sprint map (ADR 0126).
     let rock_seen_path = dir.join(ROCK_SEEN_RELPATH);
-    if project.map_kind == MapKind::Forest {
+    if matches!(project.map_kind, MapKind::Forest | MapKind::Sprint) {
         progress(note!("progress-writing", path = ROCK_SEEN_RELPATH));
         let world = std::fs::read_to_string(orthophoto.with_extension("jgw"))
             .map_err(|e| ProjectError::Io(orthophoto.with_extension("jgw"), e))?;
@@ -2199,24 +2199,11 @@ pub fn derive_project_cancellable(
             .map_err(DeriveError::from)?;
         dtm
     };
-    // The export reads the stair direction and the height of the cliffs on a forest map
-    // (`build/cliffs.rs`) from the terrain; a tile provider's mosaic is only in the cache, so it is
-    // kept with the project of a forest map and where the Berlin layers have stairs.
+    // The export reads the terrain for the stair direction, the ticks of banks and the height of
+    // the cliffs (`build/cliffs.rs`); a tile provider's mosaic is only in the cache, so it is kept
+    // with the project (ADR 0126).
     let mosaic = dir.join(TERRAIN_MOSAIC_RELPATH);
-    // Only a tile provider's mosaic needs keeping, and the stored layers are read once, only
-    // when the Berlin layers have no stairs.
-    let keep_mosaic = tile_provider
-        && (project.map_kind == MapKind::Forest || {
-            let berlin_stairs = !project.berlin_layers.is_empty()
-                && stored_berlin_layers(dir, &project)?
-                    .iter()
-                    .any(|l| has_stairs(&l.features));
-            // A NAS stair without a bottom edge goes by the terrain too.
-            berlin_stairs
-                || stored_nas_layers(dir, &project)?.iter().any(|l| {
-                    l.layer.file == NAS_STAIR_LAYER && has_nas_stairs_without_edge(&l.features)
-                })
-        });
+    let keep_mosaic = tile_provider;
     if keep_mosaic {
         progress(note!("progress-writing", path = TERRAIN_MOSAIC_RELPATH));
         freemapper_sources::float_tiff::write_float_raster(
@@ -9803,21 +9790,15 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             "uphill to the east"
         );
 
-        // Without stair areas (the surveyed ones included) `derive` keeps no terrain.
+        // Without stair areas (the surveyed ones included) `derive` keeps the terrain all the
+        // same: the banks and cliffs follow it (ADR 0126).
         std::fs::write(
             dir.path().join("data/berlin/sb-treppe.geojson"),
             r#"{"type":"FeatureCollection","features":[]}"#,
         )
         .unwrap();
-        let roof_only = serde_json::json!({"type": "FeatureCollection", "features": [
-            area("DEBE00ROOF", "Überdachung", (392_760.0, 5_820_860.0), (6.0, 4.0))]});
-        std::fs::write(
-            dir.path().join("data/berlin/bauwerke-flaechen.geojson"),
-            roof_only.to_string(),
-        )
-        .unwrap();
         derive_project(dir.path(), &cache, &mut |_| {}).unwrap();
-        assert!(!dir.path().join(TERRAIN_MOSAIC_RELPATH).exists());
+        assert!(dir.path().join(TERRAIN_MOSAIC_RELPATH).exists());
     }
 
     #[test]
@@ -9864,10 +9845,10 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         std::fs::write(&layer, nas(false)).unwrap();
         derive_project(dir.path(), &cache, &mut |_| {}).unwrap();
         assert!(dir.path().join(TERRAIN_MOSAIC_RELPATH).exists());
-        // With its bottom edge the direction is known: `derive` keeps no terrain.
+        // With its bottom edge too: `derive` keeps the terrain of a tile provider for every map.
         std::fs::write(&layer, nas(true)).unwrap();
         derive_project(dir.path(), &cache, &mut |_| {}).unwrap();
-        assert!(!dir.path().join(TERRAIN_MOSAIC_RELPATH).exists());
+        assert!(dir.path().join(TERRAIN_MOSAIC_RELPATH).exists());
     }
 
     #[test]

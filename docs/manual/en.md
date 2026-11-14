@@ -590,7 +590,8 @@ freemapper run dammheide --pdf-candidates
   in a state whose terrain model comes in tiles keeps it as `data/terrain.tif`. A cliff the orthophoto shows as rock
   is kept first (`freemapper:rock-seen`); one it does not show loses nothing, since most faces are vertical or under
   trees. The training PDF generalizes the rock more than the map: cliffs of 5 m, no top lines, longer pieces; the
-  candidates keep every OSM cliff.
+  candidates keep every OSM cliff. Sprint maps generalize their cliffs the same way, with the values of the ISSprOM
+  2019-2 (cliffs from 1.5 m, at least 0.9 mm long; in the training PDF from 3 m; ADR 0134).
 - Buildings, water, walls, fences, power lines, railways and out-of-bounds areas (520) come as on the sprint map.
   Benches, bollards, street lamps and other street furniture, trees from tree cadastres and single OSM trees are
   left out. Only a tree tagged `denotation=natural_monument`
@@ -938,7 +939,7 @@ A new fetch replaces the files. One that reads no source at all leaves them as t
 
 ### What the file holds
 
-It starts with the note that it is not legal advice. Six sections follow:
+It starts with the note that it is not legal advice. These sections follow:
 
 - "Administrative units" names the state, the Kreis or kreisfreie Stadt, the Amt or Verwaltungsgemeinschaft
   where there is one, and the Gemeinde, each with its share of the map area in percent. A unit that touches
@@ -954,6 +955,11 @@ It starts with the note that it is not legal advice. Six sections follow:
   residential land or houses, listed houses included, and no gardens that belong to a home or are closed to the
   public (`garden:type=residential` or `private`, `access=private` or `no`). It reads no phone numbers or e-mail
   addresses either.
+- "Classified roads according to OpenStreetMap" names the Autobahnen, Bundes-, Landes- or Staats- and
+  Kreisstraßen that run through the map area, with their number (`ref` in OSM, such as "B 96" or "St 2045").
+  For each class a hint says that the road traffic authority orders a closure or a crossing with marshals, and
+  who usually keeps the road. A course may cross an Autobahn only on bridges or through underpasses. Municipal
+  roads without a number are not named; the Gemeinde is in charge of them (see the hint on the Ordnungsamt).
 - In Berlin up to five sections from the Geoportal Berlin follow "Administrative units" (see "Berlin" below).
 - In Hamburg up to five sections from the Geoportal Hamburg follow (see "Hamburg" below).
 - In Brandenburg, Berlin, Hamburg and North Rhine-Westphalia "Forest administration" follows, in North Rhine-Westphalia
@@ -1263,9 +1269,10 @@ good for comparing. OOM has it linked but hidden; in OCAD it is a background map
 room, freemapper leaves it out, as it does the surface model. The same goes for the Berlin layers; the stored
 ones then stay.
 
-The export needs the terrain model for the walking direction of the stairs. When the Berlin layers hold a stair,
-`derive` therefore keeps the terrain mosaic in the project as `data/terrain.tif` (about 4 MB per km²);
-otherwise it deletes the file. The disk check before a fetch counts the file with the Berlin layers. This way `export` works without internet and without the cache.
+The export needs the terrain model for the walking direction of the stairs, the ticks of earth banks and the
+height of cliffs. In a state whose terrain model comes in tiles, `derive` therefore keeps the terrain mosaic in the
+project as `data/terrain.tif` (about 4 MB per km²), for every map (ADR 0134). This way `export` works without
+internet and without the cache.
 
 **Allotment gardens** are out-of-bounds candidates (520) in every state: the ALKIS land use "Sport-, Freizeit-
 und Erholungsfläche" with `bez` "Kleingarten". Parks, sports grounds and playgrounds of the same land use stay

@@ -279,8 +279,17 @@ fn collection(features: &[Value]) -> Vec<u8> {
     .expect("JSON values serialize")
 }
 
-/// An OSM finding as a GeoJSON feature: its fields as properties, its area as geometry.
+/// An OSM finding as a GeoJSON feature: its fields as properties, its area as geometry, or the
+/// line of a road.
 fn osm_feature(finding: &OsmFinding) -> Value {
+    if !finding.line.is_empty() {
+        let line: Vec<[f64; 2]> = finding.line.iter().map(|c| [c.x, c.y]).collect();
+        return json!({
+            "type": "Feature",
+            "properties": serde_json::to_value(finding).expect("a finding serializes"),
+            "geometry": { "type": "LineString", "coordinates": line },
+        });
+    }
     let ring =
         |ring: &LineString<f64>| -> Vec<[f64; 2]> { ring.0.iter().map(|c| [c.x, c.y]).collect() };
     let polygons: Vec<Vec<Vec<[f64; 2]>>> = finding
@@ -305,6 +314,13 @@ fn osm_feature(finding: &OsmFinding) -> Value {
 fn osm_finding(feature: &Value) -> Option<OsmFinding> {
     let mut finding: OsmFinding =
         serde_json::from_value(feature.get("properties")?.clone()).ok()?;
+    let geometry = feature.get("geometry")?;
+    if geometry.get("type")?.as_str()? == "LineString" {
+        let points: Vec<[f64; 2]> =
+            serde_json::from_value(geometry.get("coordinates")?.clone()).ok()?;
+        finding.line = points.into_iter().map(|[x, y]| Coord { x, y }).collect();
+        return (finding.line.len() >= 2).then_some(finding);
+    }
     let polygons: Vec<Vec<Vec<[f64; 2]>>> =
         serde_json::from_value(feature.get("geometry")?.get("coordinates")?.clone()).ok()?;
     let ring = |points: Vec<[f64; 2]>| {
@@ -602,4 +618,31 @@ pub fn write_permit_notes(
     freemapper_fs::write_inside(dir, &dir.join(PERMITS_JSON), text.as_bytes())
         .map_err(|(path, e)| PermitsError::Io(path, e))?;
     Ok(notes)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::permits::osm::OsmFindingKind;
+
+    /// A road is stored as a line and read back as the same finding, for `--offline` (ADR 0133).
+    #[test]
+    fn a_road_finding_is_stored_as_its_line() {
+        let road = OsmFinding {
+            kind: OsmFindingKind::Road,
+            osm_id: "way/5".into(),
+            object: "highway=primary".into(),
+            name: Some("Hauptstraße".into()),
+            operator: None,
+            owner: None,
+            protect_class: None,
+            protection_title: None,
+            road_ref: Some("B 1".into()),
+            geometry: MultiPolygon::new(vec![]),
+            line: vec![Coord { x: 13.0, y: 52.0 }, Coord { x: 13.1, y: 52.1 }],
+        };
+        let feature = osm_feature(&road);
+        assert_eq!(feature["geometry"]["type"], "LineString");
+        assert_eq!(osm_finding(&feature), Some(road));
+    }
 }

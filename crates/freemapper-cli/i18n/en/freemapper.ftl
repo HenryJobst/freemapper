@@ -947,6 +947,20 @@ permits-hint-forest-function = { $kind ->
            *[other] {" "}({ $names })
         }. Keep it out of the course.
     }
+permits-section-roads = Classified roads according to OpenStreetMap
+permits-none-roads = According to OpenStreetMap, no Autobahn and no Bundes-, Landes-, Staats- or Kreisstraße runs through the map area.
+permits-road-line = { $class ->
+        [autobahn] Autobahn (motorway)
+        [bundesstrasse] Bundesstraße (federal road)
+        [landesstrasse] Landesstraße or Staatsstraße (state road)
+       *[kreisstrasse] Kreisstraße (district road)
+    }: { $refs }
+permits-hint-road-class = { $class ->
+        [autobahn] The Autobahn { $refs } runs through the map area. A course may cross it only on bridges or through underpasses.
+        [bundesstrasse] The Bundesstraße { $refs } runs through the map area. A closure or a crossing with marshals is ordered by the road traffic authority (Straßenverkehrsbehörde); the road is usually kept by the Bund through the state's road administration, in larger towns often by the town.
+        [landesstrasse] The Landes- or Staatsstraße { $refs } runs through the map area. A closure or a crossing with marshals is ordered by the road traffic authority (Straßenverkehrsbehörde); the road is usually kept by the state, in larger towns often by the town.
+       *[kreisstrasse] The Kreisstraße { $refs } runs through the map area. A closure or a crossing with marshals is ordered by the road traffic authority (Straßenverkehrsbehörde); the road is usually kept by the Kreis, in larger towns often by the town.
+    }
 permits-hint-state-forest = { $office ->
         [none] According to the open data of the state, { $share } of the map area is state forest of the owner "{ $owner }".
        *[other] According to the open data of the state, { $share } of the map area is state forest of the owner "{ $owner }". In charge: { $office }.

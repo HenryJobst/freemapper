@@ -1,9 +1,9 @@
 //! Where the orthophoto shows rock (ADR 0126): for a forest map, the share of rock-coloured
 //! pixels in every metre of the orthophoto, so that a cliff the photo confirms goes first.
 //!
-//! Rock is light and not green: the mean of red, green and blue above [`LIGHT`], green no more
-//! than [`GREEN_OVER_RED`] above red (leaves and needles are green, sandstone is grey or reddish),
-//! the colours less than [`SPREAD`] apart. A pixel darker than [`SHADOW`] says nothing, and a
+//! Rock is light and not green: the mean of red, green and blue above 115, green no more
+//! than 5 above red (leaves and needles are green, sandstone is grey or reddish),
+//! the colours less than 70 apart. A pixel darker than 55 says nothing, and a
 //! metre mostly in shadow has no value. Most rock faces are vertical and seen from above only at
 //! their top edge, so the photo can confirm a cliff but never deny one (at the Bastei it shows
 //! rock at 180 of 2149 OSM cliffs).
@@ -22,7 +22,7 @@ const LIT_SHARE: f64 = 0.5;
 const CELL_M: f64 = 1.0;
 
 /// The share of rock-coloured pixels of `image` (laid out on `grid`) per cell of about
-/// [`CELL_M`], `NaN` where the cell lies mostly in shadow.
+/// a metre, `NaN` where the cell lies mostly in shadow.
 pub fn rock_seen(image: &RgbImage, grid: &GridSpec) -> Raster<f32> {
     let f = ((CELL_M / grid.pixel_size).round() as u32).max(1);
     let (w, h) = (image.width() / f, image.height() / f);

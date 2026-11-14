@@ -1024,6 +1024,33 @@ pub fn render_markdown(notes: &PermitNotes, lang: &Lang) -> String {
         blocks.push(gap);
     }
 
+    // The classified roads (ADR 0133), from the same extract.
+    blocks.push(heading("permits-section-roads"));
+    if !osm {
+        blocks.push(not_read(lang, "osm"));
+    } else if notes.roads.is_empty() {
+        blocks.push(t(lang, "permits-none-roads", &[]));
+    } else {
+        let lines: Vec<String> = notes
+            .roads
+            .iter()
+            .map(|r| {
+                format!(
+                    "- {}",
+                    t(
+                        lang,
+                        "permits-road-line",
+                        &[
+                            ("class", arg(serde_name(r.class))),
+                            ("refs", arg(md(&r.refs.join(", ")))),
+                        ],
+                    )
+                )
+            })
+            .collect();
+        blocks.push(lines.join("\n"));
+    }
+
     blocks.push(heading("permits-section-hints"));
     if notes.hints.is_empty() {
         blocks.push(t(lang, "permits-none-hints", &[]));
@@ -1071,6 +1098,7 @@ fn used_ids() -> Vec<String> {
             hint_key::STATE_FOREST,
             hint_key::WATER_PROTECTION,
             hint_key::FOREST_FUNCTION,
+            hint_key::ROAD_CLASS,
         ]
         .map(String::from),
     );
@@ -1222,6 +1250,7 @@ mod tests {
                     objects: vec!["leisure=park".into(), "leisure=pitch".into()],
                 },
             ],
+            roads: Vec::new(),
             hints: vec![
                 hint(
                     hint_key::NATURE_AUTHORITY,
@@ -1267,6 +1296,7 @@ mod tests {
                 roles: vec![OperatorRole::Operator],
                 objects: vec!["historic=building".into(), "leisure=park".into()],
             }],
+            roads: Vec::new(),
             hints: vec![
                 hint(hint_key::ORDER_OFFICE, &[("gemeinde", "Potsdam")]),
                 hint(
@@ -1365,6 +1395,7 @@ mod tests {
             protected: vec![],
             osm_protected: vec![],
             operators: vec![],
+            roads: Vec::new(),
             hints: vec![
                 hint(
                     hint_key::DISTRICT_OFFICE,
@@ -1737,6 +1768,33 @@ mod tests {
         ] {
             assert!(text.contains(wanted), "{wanted}\n{text}");
         }
+    }
+
+    /// The classified roads and their hints in words (ADR 0133).
+    #[test]
+    fn classified_roads_are_written() {
+        use freemapper::permits::notes::RoadEntry;
+        use freemapper::permits::osm::RoadClass;
+        let mut notes = viktoriapark();
+        notes.roads = vec![RoadEntry {
+            class: RoadClass::Bundesstrasse,
+            refs: vec!["B 96".into()],
+        }];
+        notes.hints = vec![hint(
+            hint_key::ROAD_CLASS,
+            &[("class", "bundesstrasse"), ("refs", "B 96")],
+        )];
+        let text = render_markdown(&notes, &de());
+        for wanted in [
+            "## Klassifizierte Straßen laut OpenStreetMap",
+            "- Bundesstraße: B 96",
+            "Durch das Kartengebiet führt die Bundesstraße B 96. Eine Sperrung oder eine Querung mit Streckenposten ordnet die Straßenverkehrsbehörde an",
+        ] {
+            assert!(text.contains(wanted), "{wanted}\n{text}");
+        }
+        notes.roads.clear();
+        let text = render_markdown(&notes, &Lang::english());
+        assert!(text.contains("no Autobahn and no Bundes-"), "{text}");
     }
 
     #[test]

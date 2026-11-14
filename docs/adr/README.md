@@ -178,3 +178,5 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0130](0130-permit-sources-as-tables.md) | Permit sources as tables of their layers | Accepted | 2026-11-14 |
 | [0131](0131-permit-sources-from-shapefiles.md) | Permit sources from shapefiles of a whole state | Accepted | 2026-11-14 |
 | [0132](0132-statewide-permit-files-in-the-cache.md) | Statewide permit files in the cache | Accepted | 2026-11-14 |
+| [0133](0133-classified-roads-in-the-permit-notes.md) | Classified roads in the permit notes | Accepted | 2026-11-14 |
+| [0134](0134-cliffs-on-the-sprint-map-and-the-terrain-for-every-map.md) | Cliffs on the sprint map, and the terrain for every map | Accepted | 2026-11-14 |

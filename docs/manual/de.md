@@ -616,7 +616,8 @@ freemapper run dammheide --pdf-candidates
   als `data/terrain.tif`. Eine Wand, an der das Orthofoto Fels zeigt, bleibt zuerst (`freemapper:rock-seen`); eine,
   an der es keinen zeigt, verliert nichts, denn die meisten Wände sind senkrecht oder stehen unter Bäumen. Die
   Trainings-PDF generalisiert den Fels stärker als die Karte: Wände ab 5 m, keine Oberkanten ohne Zacken, längere
-  Stücke; die Kandidatenkarte behält alle OSM-Wände.
+  Stücke; die Kandidatenkarte behält alle OSM-Wände. Sprintkarten generalisieren ihre Felswände ebenso, mit den
+  Werten der ISSprOM 2019-2 (Wände ab 1,5 m, mindestens 0,9 mm lang; in der Trainings-PDF ab 3 m; ADR 0134).
 - Gebäude, Gewässer, Mauern, Zäune, Stromleitungen, Bahnlinien und Sperrgebiete (520) kommen wie bei der
   Sprintkarte. Bänke, Poller, Laternen und anderes Stadtmobiliar fehlen, ebenso Bäume aus Baumkatastern und
   einzelne OSM-Bäume. Nur ein Baum mit
@@ -974,7 +975,7 @@ davon.
 
 ### Was in der Datei steht
 
-Am Anfang steht der Hinweis, dass es keine Rechtsauskunft ist. Dann folgen sechs Abschnitte:
+Am Anfang steht der Hinweis, dass es keine Rechtsauskunft ist. Dann folgen diese Abschnitte:
 
 - „Verwaltung“ nennt Bundesland, Kreis oder kreisfreie Stadt, Amt oder Verwaltungsgemeinschaft, wo es eine
   gibt, und Gemeinde, jeweils mit ihrem Anteil am Kartengebiet in Prozent. Eine Einheit, die weniger als 0,5 %
@@ -990,6 +991,12 @@ Am Anfang steht der Hinweis, dass es keine Rechtsauskunft ist. Dann folgen sechs
   und Häuser liest freemapper nicht, auch denkmalgeschützte Häuser nicht, und keine Gärten, die zu einem
   Wohnhaus gehören oder nicht öffentlich sind (`garden:type=residential` oder `private`, `access=private` oder
   `no`). Telefonnummern und E-Mail-Adressen liest es auch nicht.
+- „Klassifizierte Straßen laut OpenStreetMap“ nennt die Autobahnen, Bundes-, Landes- oder Staats- und
+  Kreisstraßen, die durch das Kartengebiet führen, mit ihrer Nummer (`ref` in OSM, etwa „B 96“ oder „St 2045“).
+  Zu jeder Klasse sagt ein Hinweis, dass die Straßenverkehrsbehörde eine Sperrung oder eine Querung mit
+  Streckenposten anordnet, und wer die Straße meist unterhält. Eine Autobahn darf ein Lauf nur auf Brücken oder
+  durch Unterführungen queren. Gemeindestraßen ohne Nummer nennen die Hinweise nicht; für sie ist die Gemeinde
+  zuständig (siehe den Hinweis zum Ordnungsamt).
 - In Berlin folgen nach „Verwaltung“ bis zu fünf Abschnitte aus dem Geoportal Berlin (siehe unten, „Berlin“).
 - In Hamburg folgen bis zu fünf Abschnitte aus dem Geoportal Hamburg (siehe unten, „Hamburg“).
 - In Brandenburg, Berlin, Hamburg und Nordrhein-Westfalen folgt „Forstverwaltung“, in Nordrhein-Westfalen auch
@@ -1314,9 +1321,10 @@ aber ausgeblendet; in OCAD ist sie eine Hintergrundkarte. Reicht der Platz auf d
 freemapper sie weg, wie das Oberflächenmodell. Das gilt auch für die Berliner Ebenen; dann bleiben die
 gespeicherten.
 
-Für die Laufrichtung der Treppen braucht der Export das Geländemodell. Enthalten die Berliner Ebenen eine
-Treppe, speichert `derive` das Geländemosaik deshalb als `data/terrain.tif` im Projekt (etwa 4 MB je
-km²), sonst löscht es die Datei. Die Platzprüfung vor dem Laden rechnet die Datei mit den Berliner Ebenen. So arbeitet `export` ohne Internet und ohne Zwischenspeicher.
+Für die Laufrichtung der Treppen, die Zacken von Erdböschungen und die Höhe von Felswänden braucht der Export
+das Geländemodell. In einem Bundesland, dessen Geländemodell in Kacheln kommt, speichert `derive` das
+Geländemosaik deshalb als `data/terrain.tif` im Projekt (etwa 4 MB je km²), für jede Karte (ADR 0134). So
+arbeitet `export` ohne Internet und ohne Zwischenspeicher.
 
 **Kleingärten** sind in jedem Bundesland Kandidaten für verbotenes Gebiet (520): die ALKIS-Nutzung „Sport-, Freizeit-
 und Erholungsfläche“ mit `bez` „Kleingarten“. Parks, Sportanlagen und Spielplätze derselben Nutzung bleiben

@@ -20,7 +20,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::area::MapArea;
 use crate::crs::{Crs, LatLon};
-use crate::permits::osm::{OsmFinding, OsmFindingKind};
+use crate::permits::osm::{OsmFinding, OsmFindingKind, RoadClass};
 use crate::permits::regional::{
     DistrictOffices, ForestFunctionKind, HintFacts, RegionalInput, RegionalNotes, assemble_regional,
 };
@@ -76,6 +76,9 @@ pub mod hint_key {
     pub const FOREST_OWNER: &str = "permits-hint-forest-owner";
     /// Args `owner`, `percent` (as for [`OWNER_SHARE`]) and, where known, `office`.
     pub const STATE_FOREST: &str = "permits-hint-state-forest";
+    /// Args `class` (`autobahn`, `bundesstrasse`, `landesstrasse`, `kreisstrasse`) and `refs`
+    /// (joined with ", "): classified roads through the map area (ADR 0133).
+    pub const ROAD_CLASS: &str = "permits-hint-road-class";
     /// Args `inner` (`yes` for zone I or II, `no`, `unknown`) and, where the data give them,
     /// `name` and `zone`: a water protection area or zone on the map (ADR 0129).
     pub const WATER_PROTECTION: &str = "permits-hint-water-protection";
@@ -132,6 +135,10 @@ pub struct PermitNotes {
     pub osm_protected: Vec<Share<OsmEntry>>,
     /// Operators and owners of public-kind OSM objects on the map, by name.
     pub operators: Vec<OperatorEntry>,
+    /// The classified roads through the map area, by class, from OSM (ADR 0133). Missing in
+    /// notes written before.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub roads: Vec<RoadEntry>,
     pub hints: Vec<Hint>,
     /// `vg250`, `bfn`, `osm`, in this order.
     pub sources: Vec<SourceStatus>,
@@ -139,6 +146,14 @@ pub struct PermitNotes {
     /// written before it existed and in notes of a map area no adapter brings sources for.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub regional: Vec<RegionalNotes>,
+}
+
+/// The classified roads of one class through the map area.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RoadEntry {
+    pub class: RoadClass,
+    /// The refs as OSM writes them ("B 1"), sorted, each once.
+    pub refs: Vec<String>,
 }
 
 /// An entry with its share of the map area.
@@ -272,6 +287,7 @@ pub fn assemble(
         .map(|(f, _, _)| *f)
         .filter(|f| f.kind == OsmFindingKind::Operated)
         .collect();
+    let roads = roads(&plane, inputs.osm.items());
     let (mut regional, facts) = assemble_regional(&plane, &inputs.regional);
     // Forest hints and the forest offices belong to a map area with forest: a forest map, an
     // area with forest in OSM, or one where OSM could not tell (ADR 0127). A Revier also covers
@@ -286,7 +302,7 @@ pub fn assemble(
             part.forest_units = None;
         }
     }
-    let hints = hints(forest, &admin, &protected, &operated, &facts);
+    let hints = hints(forest, &admin, &protected, &operated, &roads, &facts);
     PermitNotes {
         schema: SCHEMA,
         created: today,
@@ -296,6 +312,7 @@ pub fn assemble(
         protected,
         osm_protected,
         operators: operators(&operated),
+        roads,
         hints,
         sources: vec![
             status("vg250", &inputs.admin, BKG_CREDIT),
@@ -334,6 +351,12 @@ impl Plane {
         let p = self.crs.forward(LatLon { lat: c.y, lon: c.x });
         (p.easting.is_finite() && p.northing.is_finite())
             .then_some(geo_types::coord! { x: p.easting, y: p.northing })
+    }
+
+    /// Whether a projected line touches the map area.
+    pub(crate) fn crosses(&self, line: &LineString<f64>) -> bool {
+        use geo::Intersects as _;
+        self.map.intersects(line)
     }
 
     /// Whether a projected position lies inside the map area (on its border counts).
@@ -637,6 +660,31 @@ fn needs_nature_authority(kind: ProtectedKind) -> bool {
     )
 }
 
+/// The classified roads whose line crosses the map area, by class, their refs sorted.
+fn roads(plane: &Plane, findings: &[OsmFinding]) -> Vec<RoadEntry> {
+    let mut by_class: BTreeMap<RoadClass, BTreeSet<String>> = BTreeMap::new();
+    for f in findings.iter().filter(|f| f.kind == OsmFindingKind::Road) {
+        let line: Option<Vec<geo_types::Coord<f64>>> =
+            f.line.iter().map(|c| plane.project_point(*c)).collect();
+        let Some(line) = line.filter(|l| l.len() >= 2) else {
+            continue;
+        };
+        if !plane.crosses(&LineString::new(line)) {
+            continue;
+        }
+        for (class, reference) in f.road_classes() {
+            by_class.entry(class).or_default().insert(reference);
+        }
+    }
+    by_class
+        .into_iter()
+        .map(|(class, refs)| RoadEntry {
+            class,
+            refs: refs.into_iter().collect(),
+        })
+        .collect()
+}
+
 /// The names that run the objects of `objects` on the map: `operator`, else `owner`.
 fn runners<'a>(operated: &[&'a OsmFinding], objects: &[&str]) -> BTreeSet<&'a str> {
     operated
@@ -652,6 +700,7 @@ fn hints(
     admin: &[Share<AdminEntry>],
     protected: &[Share<ProtectedEntry>],
     operated: &[&OsmFinding],
+    roads: &[RoadEntry],
     regional: &[HintFacts],
 ) -> Vec<Hint> {
     // Within a level the first unit has the largest share.
@@ -799,6 +848,19 @@ fn hints(
         for district in &facts.nature_districts {
             hints.push(hint(hint_key::NATURE_OBJECT_AUTHORITY, with(district)));
         }
+    }
+    for road in roads {
+        let class = match road.class {
+            RoadClass::Autobahn => "autobahn",
+            RoadClass::Bundesstrasse => "bundesstrasse",
+            RoadClass::Landesstrasse => "landesstrasse",
+            RoadClass::Kreisstrasse => "kreisstrasse",
+        };
+        let refs = road.refs.join(", ");
+        hints.push(Hint::new(
+            hint_key::ROAD_CLASS,
+            &[("class", class), ("refs", refs.as_str())],
+        ));
     }
     for operator in runners(operated, &["leisure=park", "leisure=garden"]) {
         hints.push(Hint::new(
@@ -949,7 +1011,9 @@ mod tests {
             owner: None,
             protect_class: None,
             protection_title: None,
+            road_ref: None,
             geometry: g,
+            line: Vec::new(),
         }
     }
 
@@ -2443,6 +2507,53 @@ mod tests {
                 ("protected", "Die Reit, Heuckenlock")
             ]
         );
+    }
+
+    fn road(id: &str, reference: &str, line: &[(f64, f64)]) -> OsmFinding {
+        OsmFinding {
+            road_ref: Some(reference.into()),
+            line: line.iter().map(|&(x, y)| Coord { x, y }).collect(),
+            ..finding(
+                OsmFindingKind::Road,
+                id,
+                "highway=primary",
+                MultiPolygon::new(vec![]),
+            )
+        }
+    }
+
+    /// A classified road crossing the map gets its class entry and hint, with its refs once
+    /// and sorted; a road beside the map gets none (ADR 0133).
+    #[test]
+    fn classified_roads_through_the_map_area() {
+        let osm = vec![
+            road("way/1", "B 1", &[(12.9, 52.05), (13.2, 52.05)]),
+            road("way/2", "B 1;L 30", &[(13.05, 51.9), (13.05, 52.2)]),
+            road("way/3", "K 7", &[(13.3, 52.0), (13.4, 52.1)]),
+        ];
+        let found = notes(MapKind::Sprint, &inputs(vec![], vec![], osm));
+        assert_eq!(
+            found.roads,
+            [
+                RoadEntry {
+                    class: RoadClass::Bundesstrasse,
+                    refs: vec!["B 1".into()],
+                },
+                RoadEntry {
+                    class: RoadClass::Landesstrasse,
+                    refs: vec!["L 30".into()],
+                },
+            ]
+        );
+        let hints: Vec<(&str, &str)> = found
+            .hints
+            .iter()
+            .filter(|h| h.key == hint_key::ROAD_CLASS)
+            .map(|h| (h.args["class"].as_str(), h.args["refs"].as_str()))
+            .collect();
+        assert_eq!(hints, [("bundesstrasse", "B 1"), ("landesstrasse", "L 30")]);
+        // Roads are no OSM areas: no protected area, no operator.
+        assert!(found.osm_protected.is_empty() && found.operators.is_empty());
     }
 
     /// A Bezirk that comes as two features is one entry with the sum of both (review finding 9).
