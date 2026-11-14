@@ -95,7 +95,7 @@ pub const MIN_CONFLICT: PaperMm = PaperMm(1.0);
 Decisions:
 - Footprint = union of the object's render primitives: every `Shape::Stroke` buffered by half its width (butt
   caps), every `Shape::Fill`. Ticks and borders are part of it. Text draws nothing here.
-- Classes by code: 521/522 Building; 301, 301.1, 302 WaterArea; 301.4 BankLine; 509 Railway; 502, 503, 504, 501
+- Classes by code: 521 Building (522 canopies are OtherArea: ways pass under them); 301, 301.1, 302 WaterArea; 301.4 BankLine; 509 Railway; 502, 503, 504, 501
   areas' lines Road; 505, 506, 507, 501.6 to 501.9 Path; 304 to 306 Watercourse; 532 and 532.x Stairway; 513, 515,
   516, 518 and their variants, 410.1 Barrier; 201 to 203 Cliff; 104, 104.1 EarthBank; 101 to 103 Contour; point
   symbols (`symbol_type` point) Point; area symbols not named OtherArea; the rest Other. A code with a suffix the
@@ -105,13 +105,17 @@ Decisions:
 - Relation: any pair with OtherArea or Other is Free; Contour is Free with everything except EarthBank, Cliff and
   Building (Apart); Road, Path, Railway and Stairway among each other are Joined; Watercourse with Watercourse and
   with WaterArea or BankLine is Joined; WaterArea with BankLine is Free; a Road, Path or Railway with WaterArea or
-  BankLine is Free (bridges); every other pair is Apart. The table is one `match`, symmetric by construction.
+  BankLine is Free (bridges); a Road, Path or Railway with Building is Free (a network is never cut by a
+  building; at forest scale a road at its minimum width touches the houses along it); Building, WaterArea,
+  BankLine, Cliff and Contour are Free with their own class (row houses touch, the cliffs have their own step);
+  every other pair is Apart, EarthBank with EarthBank, Barrier with Barrier and Point with Point among them. The
+  table is one `match`, symmetric by construction.
 - `gap`: 0.15 mm (minimum gap between two lines of the same colour, ISOM 2017-2 and ISSprOM 2019-2; confirm the
   paragraph) times the symbol enlargement of `SymbolScale::new(kind, scale_denominator)`.
 - A conflict of grade Overlap: the loser's centre line inside the winner's footprint grown by the loser's half
-  width; grade Gap: inside that grown by `gap` more, minus the Overlap part. For Joined pairs the neighbourhood of
-  every point where the two centre lines meet or cross is left out, radius = both half widths + `gap`. A stretch
-  counts from `MIN_CONFLICT`. Points and areas as losers: Overlap when the footprints intersect, length 0.
+  width; grade Gap: inside that grown by `gap` more, minus the Overlap part. Two lines that cross or meet are no
+  conflict there, whatever their relation: the neighbourhood of every point where the two centre lines meet or
+  cross is left out, radius = both half widths + `gap`. A stretch counts from `MIN_CONFLICT`. Points and areas as losers: Overlap when the footprints intersect, length 0.
 - One `Conflict` per pair and grade. Pairs are found with a uniform grid over the bounding boxes, not all pairs.
 
 - [ ] **Step 1: Write the failing tests** in `conflicts.rs` (`#[cfg(test)]`, fixture as in `build/line_cuts.rs`
@@ -123,6 +127,8 @@ Decisions:
   - `two_paths_that_cross_are_no_conflict` and `two_paths_side_by_side_are`: 505 crossing at right angles: none;
     505 parallel 0.3 mm apart over 10 mm: one, about 10 mm.
   - `a_path_over_water_is_free`, `a_contour_under_a_path_is_free`, `a_contour_through_a_building_is_an_overlap`.
+  - `a_ditch_that_crosses_a_path_is_no_conflict` (right angle and 30°); `a_road_along_a_house_is_free`;
+    `row_houses_are_free`; `a_path_under_a_canopy_is_free`.
   - `a_point_on_a_building_is_an_overlap` (526 inside a 521).
   - `the_verdict_at_the_gap_is_tolerant`: two lines whose footprints are exactly `gap` apart, and the same moved
     by 1 map unit either way, give the same result (no conflict).
@@ -243,8 +249,10 @@ Order of steps inside `train`, each a private function with its own tests:
 
 - [ ] **Step 1: Failing tests** (ISOM set, 1:10 000, no rasters unless said):
   - `an_earth_bank_on_a_ditch_goes`: 306 of 20 mm and 104 on it → the 104 is gone, the 306 stays, `gave_way == 1`.
-  - `an_earth_bank_that_crosses_a_path_is_cut`: 104 of 20 mm crossing a 505 at right angles → two 104 pieces, a
-    gap around the path, `cut == 1`.
+  - `an_earth_bank_that_crosses_a_path_stays_whole`: 104 of 20 mm crossing a 505 at right angles and at 30° →
+    unchanged (a crossing is no conflict).
+  - `an_earth_bank_that_runs_into_a_path_is_cut`: 104 of 20 mm, its last 6 mm along a 505 inside the gap → one
+    104 of about 14 mm, `cut == 1`.
   - `a_fence_on_a_path_goes_where_it_lies_on_it`: 518 of 20 mm, 8 mm of it on a 505 → one 518 of about 12 mm.
   - `an_earth_bank_inside_the_gap_of_a_ditch_goes_too`: footprints 0.1 mm apart → the 104 is gone.
   - `of_two_earth_banks_inside_the_gap_the_shorter_goes`.
@@ -367,5 +375,7 @@ free) and `docs/adr/README.md`, `AGENTS.md`, `README.md`, `README.en.md`, `docs/
 - [ ] **Step 2:** Tick the rows of "The findings on the training map" this half must reach: water twice, footpaths
   in pieces, stairs, contours, forest drawn yellow, monument points; write the numbers and the rows left for the
   second half into the ADR.
-- [ ] **Step 3:** Full checks, push the branch to GitHub, open the pull request (label `all-systems`: file names
+- [ ] **Step 3:** One run each of freemapper-print and freemapper-courseplan on the Bremen training map (they
+  take a map path and read `freemapper.toml` beside it): it loads, the sheet is found. Tell their sessions.
+- [ ] **Step 4:** Full checks, push the branch to GitHub, open the pull request (label `all-systems`: file names
   and paths), wait for the user's yes.
