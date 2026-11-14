@@ -14,6 +14,7 @@
 use geo::Contains as _;
 use geo_types::{Point, Polygon};
 
+use crate::build::cliffs::{TICKS_BY_PROFILE, TICKS_KEY};
 use crate::derive::ndsm::bilinear;
 use crate::georef::Georeferencing;
 use crate::omap::coord::{FLAG_CLOSE, FLAG_HOLE};
@@ -101,7 +102,16 @@ pub fn orient_ticks(
                 }
             } else if banks.contains(&object.symbol_id) {
                 let samples = samples(&ground(&object.coords, georef));
-                let turn = terrain.and_then(|t| downhill_vote(&samples, t));
+                // A forest cliff turned by its cross profile (`build/cliffs.rs`) is decided.
+                let by_profile = object
+                    .tags
+                    .iter()
+                    .any(|(k, v)| k == TICKS_KEY && v == TICKS_BY_PROFILE);
+                let turn = if by_profile {
+                    Some(false)
+                } else {
+                    terrain.and_then(|t| downhill_vote(&samples, t))
+                };
                 bank_lines.push(BankLine {
                     list: l,
                     index: i,
