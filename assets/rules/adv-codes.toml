@@ -151,7 +151,7 @@
 # texts the simplified WFS of the same data writes (compared with the LGLN's two services of Lower
 # Saxony). The table of a land use type is named after the property its `bez` comes from.
 
-# The landscape model (ATKIS Basis-DLM, ADR 0133); the lists read from the registry on 2026-11-14.
+# The landscape model (ATKIS Basis-DLM, ADR 0135); the lists read from the registry on 2026-11-14.
 # https://registry.gdi-de.org/codelist/de.adv-online.gid/AX_Bauwerksfunktion_Turm
 [AX_Turm.bauwerksfunktion]
 1001 = "Wasserturm"

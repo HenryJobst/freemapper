@@ -147,7 +147,7 @@ draw = "point"
 schoolyard = "418"
 sprint = "418"
 
-# --- The landscape model (ATKIS Basis-DLM, ADR 0133) --------------------------------------------
+# --- The landscape model (ATKIS Basis-DLM, ADR 0135) --------------------------------------------
 #
 # The layers `dlm-…` of a NAS service of the model `basis-dlm`. The model is made for 1:25 000:
 # its objects are candidates of the lowest rank and go where another source has the same object.
