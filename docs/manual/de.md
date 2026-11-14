@@ -616,7 +616,8 @@ freemapper run dammheide --pdf-candidates
   als `data/terrain.tif`. Eine Wand, an der das Orthofoto Fels zeigt, bleibt zuerst (`freemapper:rock-seen`); eine,
   an der es keinen zeigt, verliert nichts, denn die meisten Wände sind senkrecht oder stehen unter Bäumen. Die
   Trainings-PDF generalisiert den Fels stärker als die Karte: Wände ab 5 m, keine Oberkanten ohne Zacken, längere
-  Stücke; die Kandidatenkarte behält alle OSM-Wände.
+  Stücke; die Kandidatenkarte behält alle OSM-Wände. Sprintkarten generalisieren ihre Felswände ebenso, mit den
+  Werten der ISSprOM 2019-2 (Wände ab 1,5 m, mindestens 0,9 mm lang; in der Trainings-PDF ab 3 m; ADR 0134).
 - Gebäude, Gewässer, Mauern, Zäune, Stromleitungen, Bahnlinien und Sperrgebiete (520) kommen wie bei der
   Sprintkarte. Bänke, Poller, Laternen und anderes Stadtmobiliar fehlen, ebenso Bäume aus Baumkatastern und
   einzelne OSM-Bäume. Nur ein Baum mit
@@ -1314,9 +1315,10 @@ aber ausgeblendet; in OCAD ist sie eine Hintergrundkarte. Reicht der Platz auf d
 freemapper sie weg, wie das Oberflächenmodell. Das gilt auch für die Berliner Ebenen; dann bleiben die
 gespeicherten.
 
-Für die Laufrichtung der Treppen braucht der Export das Geländemodell. Enthalten die Berliner Ebenen eine
-Treppe, speichert `derive` das Geländemosaik deshalb als `data/terrain.tif` im Projekt (etwa 4 MB je
-km²), sonst löscht es die Datei. Die Platzprüfung vor dem Laden rechnet die Datei mit den Berliner Ebenen. So arbeitet `export` ohne Internet und ohne Zwischenspeicher.
+Für die Laufrichtung der Treppen, die Zacken von Erdböschungen und die Höhe von Felswänden braucht der Export
+das Geländemodell. In einem Bundesland, dessen Geländemodell in Kacheln kommt, speichert `derive` das
+Geländemosaik deshalb als `data/terrain.tif` im Projekt (etwa 4 MB je km²), für jede Karte (ADR 0134). So
+arbeitet `export` ohne Internet und ohne Zwischenspeicher.
 
 **Kleingärten** sind in jedem Bundesland Kandidaten für verbotenes Gebiet (520): die ALKIS-Nutzung „Sport-, Freizeit-
 und Erholungsfläche“ mit `bez` „Kleingarten“. Parks, Sportanlagen und Spielplätze derselben Nutzung bleiben

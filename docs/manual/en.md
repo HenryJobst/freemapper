@@ -590,7 +590,8 @@ freemapper run dammheide --pdf-candidates
   in a state whose terrain model comes in tiles keeps it as `data/terrain.tif`. A cliff the orthophoto shows as rock
   is kept first (`freemapper:rock-seen`); one it does not show loses nothing, since most faces are vertical or under
   trees. The training PDF generalizes the rock more than the map: cliffs of 5 m, no top lines, longer pieces; the
-  candidates keep every OSM cliff.
+  candidates keep every OSM cliff. Sprint maps generalize their cliffs the same way, with the values of the ISSprOM
+  2019-2 (cliffs from 1.5 m, at least 0.9 mm long; in the training PDF from 3 m; ADR 0134).
 - Buildings, water, walls, fences, power lines, railways and out-of-bounds areas (520) come as on the sprint map.
   Benches, bollards, street lamps and other street furniture, trees from tree cadastres and single OSM trees are
   left out. Only a tree tagged `denotation=natural_monument`
@@ -1263,9 +1264,10 @@ good for comparing. OOM has it linked but hidden; in OCAD it is a background map
 room, freemapper leaves it out, as it does the surface model. The same goes for the Berlin layers; the stored
 ones then stay.
 
-The export needs the terrain model for the walking direction of the stairs. When the Berlin layers hold a stair,
-`derive` therefore keeps the terrain mosaic in the project as `data/terrain.tif` (about 4 MB per km²);
-otherwise it deletes the file. The disk check before a fetch counts the file with the Berlin layers. This way `export` works without internet and without the cache.
+The export needs the terrain model for the walking direction of the stairs, the ticks of earth banks and the
+height of cliffs. In a state whose terrain model comes in tiles, `derive` therefore keeps the terrain mosaic in the
+project as `data/terrain.tif` (about 4 MB per km²), for every map (ADR 0134). This way `export` works without
+internet and without the cache.
 
 **Allotment gardens** are out-of-bounds candidates (520) in every state: the ALKIS land use "Sport-, Freizeit-
 und Erholungsfläche" with `bez` "Kleingarten". Parks, sports grounds and playgrounds of the same land use stay
