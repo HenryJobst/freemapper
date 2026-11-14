@@ -59,6 +59,7 @@ pub fn sources() -> Vec<Box<dyn PermitSource>> {
             note: None,
             layers: &["reviere"],
             sections: &[PermitSection::ForestUnits],
+            offices: None,
         },
     })]
 }
