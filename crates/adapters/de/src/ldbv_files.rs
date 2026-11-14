@@ -22,6 +22,18 @@ pub struct Published<'a> {
     pub stem: &'a str,
     pub ext: &'a str,
     pub url: &'a str,
+    /// Whether a 404 is believed for [`RECHECK_AFTER`]: for a file that need not exist (a
+    /// tile beyond the border of the state). A file that must exist is asked for again at
+    /// every run; the note of its 404 then only serves the runs without a network.
+    pub missing_holds: bool,
+}
+
+/// What the checks of one run found out about the server, so one that does not answer costs
+/// one failed check and not one per file.
+#[derive(Debug, Default)]
+pub struct Checks {
+    /// A check failed in this run: the cached files are used without asking.
+    unreachable: bool,
 }
 
 /// What is to be done about a published file.
@@ -71,13 +83,16 @@ pub fn missing_note(dir: &Path, stem: &str) -> PathBuf {
 ///
 /// Offline nothing is asked: the newest cached file is used, and a file the server did not
 /// have stays missing. Online one `HEAD` gives the day the file was last changed. A 404 is
-/// believed for [`RECHECK_AFTER`]; so is a cached file of a server that names no day. When
-/// the check itself fails, the newest cached file is used and a warning says so; without one
-/// the failure is the error.
+/// noted; it is believed for [`RECHECK_AFTER`] where the file says so
+/// ([`Published::missing_holds`]), and asked again at the next run otherwise. A cached file of a
+/// server that names no day is believed as long. When the check itself fails, the newest
+/// cached file is used and a warning says so, once: for the rest of the run (`checks`) the
+/// cached files are used without asking. Without a cached file the failure is the error.
 pub fn current(
     fetcher: &dyn Fetcher,
     mode: FetchMode,
     file: &Published<'_>,
+    checks: &mut Checks,
     progress: &mut dyn FnMut(Note),
 ) -> Result<Current, FetchError> {
     let mut copies = copies(file.dir, file.stem, file.ext);
@@ -98,10 +113,12 @@ pub fn current(
         };
     }
     match &newest {
-        None if fresh(&note) => return Ok(Current::Missing),
+        None if file.missing_holds && fresh(&note) => return Ok(Current::Missing),
         Some((day, path)) if day == UNDATED && fresh(path) => {
             return Ok(Current::Cached(path.clone()));
         }
+        // A check failed earlier in this run: what is cached is used without asking.
+        Some((_, path)) if checks.unreachable => return Ok(Current::Cached(path.clone())),
         _ => {}
     }
     match fetcher.last_modified(file.url) {
@@ -133,6 +150,8 @@ pub fn current(
         },
         Err(e) => match newest {
             Some((_, path)) => {
+                // Said once: the other cached files of this run are used without asking.
+                checks.unreachable = true;
                 progress(note!(
                     "warning-file-check-failed",
                     file = file.url,
@@ -175,11 +194,23 @@ mod tests {
         fetcher
     }
 
-    /// What `current` says for the land use file of Schwabach in `dir`, with its notes.
+    /// What `current` says for the land use file of Schwabach in `dir`, with its notes. A
+    /// 404 is believed for 30 days.
     fn ask(
         fetcher: &MapFetcher,
         mode: FetchMode,
         dir: &Path,
+    ) -> (Result<Current, FetchError>, Vec<Note>) {
+        ask_with(fetcher, mode, dir, true, &mut Checks::default())
+    }
+
+    /// [`ask`] with what is to be believed about a 404, in a run that `checks` belongs to.
+    fn ask_with(
+        fetcher: &MapFetcher,
+        mode: FetchMode,
+        dir: &Path,
+        missing_holds: bool,
+        checks: &mut Checks,
     ) -> (Result<Current, FetchError>, Vec<Note>) {
         let mut notes = Vec::new();
         let file = Published {
@@ -187,8 +218,9 @@ mod tests {
             stem: "tn_09565",
             ext: "zip",
             url: URL,
+            missing_holds,
         };
-        let found = current(fetcher, mode, &file, &mut |note| notes.push(note));
+        let found = current(fetcher, mode, &file, checks, &mut |note| notes.push(note));
         (found, notes)
     }
 
@@ -355,5 +387,84 @@ mod tests {
                 }
             );
         });
+    }
+
+    /// A file that must exist (the land use of a Kreis, a tile inside the state) is asked for
+    /// again at the next run: one 404 while the agency replaces it must not last a month.
+    #[test]
+    fn a_404_that_is_not_to_be_believed_is_asked_again() {
+        let dir = tempfile::tempdir().unwrap();
+        let gone = MapFetcher::default();
+        let mut checks = Checks::default();
+        let (found, _) = ask_with(&gone, FetchMode::Online, dir.path(), false, &mut checks);
+        assert_eq!(found.unwrap(), Current::Missing);
+        assert_eq!(gone.calls.get(), 1);
+        // The next run asks again, and still gets a 404.
+        let (found, _) = ask_with(&gone, FetchMode::Online, dir.path(), false, &mut checks);
+        assert_eq!(found.unwrap(), Current::Missing);
+        assert_eq!(gone.calls.get(), 2, "asked again");
+        // Offline the last answer is what there is.
+        let (found, _) = ask_with(&gone, FetchMode::Offline, dir.path(), false, &mut checks);
+        assert_eq!(found.unwrap(), Current::Missing);
+        assert_eq!(gone.calls.get(), 2);
+        // Once the server has the file, it is fetched.
+        let back = server(Some(day(2026, 10, 16)));
+        let (found, _) = ask_with(&back, FetchMode::Online, dir.path(), false, &mut checks);
+        assert!(matches!(found.unwrap(), Current::Fetch { .. }));
+    }
+
+    /// A server that does not answer costs one failed check per run, not one per file.
+    #[test]
+    fn after_one_failed_check_the_other_cached_files_are_used_without_asking() {
+        let dir = tempfile::tempdir().unwrap();
+        let other_url = "https://download1.bayernwolke.de/a/tn/lkr/tn_09564.zip";
+        let down = server(Some(day(2026, 10, 15)));
+        down.insert(other_url, b"zip".to_vec());
+        down.failing.borrow_mut().push(URL.to_string());
+        down.failing.borrow_mut().push(other_url.to_string());
+        let first = dir.path().join("tn_09565-20260915.zip");
+        let second = dir.path().join("tn_09564-20260915.zip");
+        std::fs::write(&first, b"zip").unwrap();
+        std::fs::write(&second, b"zip").unwrap();
+        let mut checks = Checks::default();
+        let notes = std::cell::RefCell::new(Vec::new());
+        let ask = |stem: &str, url: &str, checks: &mut Checks| {
+            let file = Published {
+                dir: dir.path(),
+                stem,
+                ext: "zip",
+                url,
+                missing_holds: false,
+            };
+            current(&down, FetchMode::Online, &file, checks, &mut |note| {
+                notes.borrow_mut().push(note)
+            })
+        };
+        assert_eq!(
+            ask("tn_09565", URL, &mut checks).unwrap(),
+            Current::Cached(first)
+        );
+        assert_eq!(down.calls.get(), 1);
+        assert_eq!(
+            ask("tn_09564", other_url, &mut checks).unwrap(),
+            Current::Cached(second)
+        );
+        assert_eq!(down.calls.get(), 1, "the second file is not asked for");
+        // A file without a cached copy is still asked for, and its failure is the error.
+        let third = "https://download1.bayernwolke.de/a/tn/lkr/tn_09563.zip";
+        down.insert(third, b"zip".to_vec());
+        down.failing.borrow_mut().push(third.to_string());
+        assert!(ask("tn_09563", third, &mut checks).is_err());
+        assert_eq!(down.calls.get(), 2);
+        assert_eq!(
+            notes.borrow().len(),
+            1,
+            "one warning for the run: {notes:?}"
+        );
+        assert_eq!(notes.borrow()[0].id(), "warning-file-check-failed");
+        // Another run starts with a new check.
+        let mut next = Checks::default();
+        ask("tn_09565", URL, &mut next).unwrap();
+        assert_eq!(down.calls.get(), 3);
     }
 }

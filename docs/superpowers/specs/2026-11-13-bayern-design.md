@@ -172,9 +172,11 @@ the map area; the outlines lie at most 181 m from the source. An object two Krei
 
 A cached file carries the day of the server's `Last-Modified` in its name. Online, one `HEAD` per file decides:
 the same day, and the cache is used; another day, and the file is downloaded and the older one removed. When the
-`HEAD` fails for another reason than 404, the newest cached file is used and a note says so; without a cached
-file the run fails as any download failure does. Offline, the newest cached file is used without asking. A 404 is
-remembered for 30 days, as Rhineland-Palatinate does. (Claude's call; the pattern is `tile_fetch.rs` and the
+`HEAD` fails for another reason than 404, the newest cached file is used and a note says so, once: the other
+cached files of that run are used without asking. Without a cached file the run fails as any download failure
+does. Offline, the newest cached file is used without asking. A 404 is remembered for 30 days only for a tile
+beyond the border; a file that must exist is asked for again at every run (changed after the final review: one
+404 while the agency replaces a file must not lock it out for a month). (Claude's call; the pattern is `tile_fetch.rs` and the
 point cloud backends.)
 
 ### OpenStreetMap
@@ -187,7 +189,7 @@ Seven `[[osm.extract]]` by Regierungsbezirk with a boundary each, as Baden-Würt
 The registration (`State::Bayern`, `Agency::Ldbv`, the tables and counting tests), the boundary of the state
 (made as Baden-Württemberg's: the official outline, simplified 25 m, EPSG:25833, checked for overlaps and gaps
 against the three neighbours that have a boundary: Baden-Württemberg, Hesse, Saxony), the estimate (orthophoto per km²; 2.8 MB per DGM1 tile, 45 MB per DOM20
-tile, 20 MB per LoD2 tile, 8 MB per Kreis, each only when not cached; the cadastre files under the part
+tile, 40 MB per LoD2 tile, 8 MB per Kreis, each only when not cached; the cadastre files under the part
 `MapData`), the preview of the area page (the same WMS), the notes in both languages.
 
 ## Sizes a person will see

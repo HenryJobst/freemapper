@@ -25,7 +25,7 @@ use crate::fetch::{
     write_cache_file,
 };
 use crate::ldbv::FILES;
-use crate::ldbv_files::{Current, Published, cached, current, drop_older, missing_note};
+use crate::ldbv_files::{Checks, Current, Published, cached, current, drop_older, missing_note};
 use crate::note::{Note, note};
 use crate::sources::region::{BAYERN, touches};
 
@@ -381,6 +381,7 @@ impl AlkisSource for LdbvAlkis {
         let dir = env.cache.provider_dir(CACHE_DIR).join(LOD2_DIR);
         let mut features = Vec::new();
         let mut seen = HashSet::new();
+        let mut checks = Checks::default();
         for tile in lod2_tiles(&bbox) {
             let (stem, url) = (lod2_stem(tile), lod2_url(tile));
             let file = Published {
@@ -388,8 +389,10 @@ impl AlkisSource for LdbvAlkis {
                 stem: &stem,
                 ext: "geojson",
                 url: &url,
+                // Inside Bavaria every tile has a file, so a 404 is asked again.
+                missing_holds: !in_bavaria(tile),
             };
-            let of_tile = match current(env.fetcher, env.mode, &file, env.progress)? {
+            let of_tile = match current(env.fetcher, env.mode, &file, &mut checks, env.progress)? {
                 Current::Cached(path) => cached_lod2(&path)?,
                 Current::Fetch { path, older } => {
                     let part = dir.join(format!("{stem}.gml.part"));
@@ -407,8 +410,9 @@ impl AlkisSource for LdbvAlkis {
                 }
                 Current::Missing => {
                     // A tile without buildings is an empty file on the server; no file at
-                    // all inside the state means it was moved.
-                    if env.mode == FetchMode::Online && in_bavaria(tile) {
+                    // all inside the state means it was moved. Offline the last answer of
+                    // the server is what there is, and the map lacks the buildings as well.
+                    if in_bavaria(tile) {
                         (env.progress)(note!("warning-ldbv-no-buildings-file", tile = stem));
                     }
                     Vec::new()
@@ -438,6 +442,7 @@ impl AlkisSource for LdbvAlkis {
         let dir = env.cache.provider_dir(CACHE_DIR).join(TN_DIR);
         let mut features = Vec::new();
         let mut seen = HashSet::new();
+        let mut checks = Checks::default();
         for ags in self.kreise.near(&area.region_bbox) {
             let (stem, url) = (format!("tn_{ags}"), tn_url(&ags));
             let file = Published {
@@ -445,8 +450,11 @@ impl AlkisSource for LdbvAlkis {
                 stem: &stem,
                 ext: "zip",
                 url: &url,
+                // Every Kreis has a file: a 404 is asked again at the next run.
+                missing_holds: false,
             };
-            let (shp, dbf) = match current(env.fetcher, env.mode, &file, env.progress)? {
+            let (shp, dbf) = match current(env.fetcher, env.mode, &file, &mut checks, env.progress)?
+            {
                 Current::Cached(path) => {
                     let bytes =
                         std::fs::read(&path).map_err(|e| FetchError::Io(path.clone(), e))?;
@@ -472,7 +480,16 @@ impl AlkisSource for LdbvAlkis {
                 Current::Missing => {
                     return Err(refused(
                         &url,
-                        format!("the land use file of the Kreis {ags} is not on the server (404)"),
+                        if env.mode == FetchMode::Offline {
+                            format!(
+                                "the land use file of the Kreis {ags} was not on the server \
+                                 (404) when it was last asked for; run `freemapper fetch` online"
+                            )
+                        } else {
+                            format!(
+                                "the land use file of the Kreis {ags} is not on the server (404)"
+                            )
+                        },
                     )
                     .into());
                 }
@@ -1231,6 +1248,58 @@ mod tests {
                 .unwrap_or(0);
             assert_eq!(kept, 0, "nothing is cached");
         }
+    }
+
+    /// One 404 for the file of a Kreis (the agency replaces the files every month) must not
+    /// lock the Kreis out: the next run asks again.
+    #[test]
+    fn a_kreis_file_that_was_missing_once_is_asked_for_again() {
+        let area = kreis_area(600.0);
+        let rings = [square_in(&area, 10.0)];
+        let records: &[Entry<'_>] = &[(&[("oid", "A"), ("nutzart", "Wald")], &rings)];
+        let source = LdbvAlkis {
+            kreise: two_kreise(),
+        };
+        let dir = tempfile::tempdir().unwrap();
+        let fetcher = MapFetcher::default();
+        let (failed, _) = with_env(&fetcher, dir.path(), FetchMode::Online, |env| {
+            source.land_use(env, &area).is_err()
+        });
+        assert!(failed);
+        serve_tn(&fetcher, "09362", tn_zip(records), day(2026, 10, 16));
+        let (part, _) = with_env(&fetcher, dir.path(), FetchMode::Online, |env| {
+            source.land_use(env, &area).unwrap()
+        });
+        assert_eq!(part.features.len(), 1);
+    }
+
+    /// A LoD2 tile inside Bavaria that the server lacked is asked for at every run, so "fetch
+    /// again later" is true; the warning comes online and offline alike.
+    #[test]
+    fn a_missing_tile_inside_bavaria_is_asked_for_again_and_warns_offline_too() {
+        let area = fixture_area(0.0);
+        let source = LdbvAlkis {
+            kreise: two_kreise(),
+        };
+        let dir = tempfile::tempdir().unwrap();
+        let fetcher = MapFetcher::default();
+        with_env(&fetcher, dir.path(), FetchMode::Online, |env| {
+            source.buildings(env, &area).unwrap()
+        });
+        let (_, offline) = with_env(&fetcher, dir.path(), FetchMode::Offline, |env| {
+            source.buildings(env, &area).unwrap()
+        });
+        assert!(
+            warnings(&offline).contains(&"warning-ldbv-no-buildings-file"),
+            "{offline:?}"
+        );
+        // The file appears on the server: the next run finds it.
+        serve_lod2(&fetcher, &area, (FIXTURE, EMPTY), day(2026, 10, 6));
+        let (part, notes) = with_env(&fetcher, dir.path(), FetchMode::Online, |env| {
+            source.buildings(env, &area).unwrap()
+        });
+        assert_eq!(part.features.len(), 3);
+        assert!(warnings(&notes).is_empty(), "{notes:?}");
     }
 
     #[test]

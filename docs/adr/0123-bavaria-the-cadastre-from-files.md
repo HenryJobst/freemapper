@@ -39,8 +39,11 @@ whole state. Three things do not fit the forms freemapper had:
   outlines simplified to 100 m. A square without a recorded use gets `ohne Unterart (Bayern)` and stays a
   candidate, as in the other states.
 - **A cached file carries the day the server last changed it** (`<stem>-<YYYYMMDD>`). Online one `HEAD` per
-  file decides whether the cache is current; a check that fails goes on with the cached file and a warning;
-  offline nothing is asked. A 404 is believed for 30 days. This holds for the four kinds of files alike.
+  file decides whether the cache is current. A check that fails goes on with the cached file and one warning, and
+  the other cached files of that run are used without asking, so a server that does not answer costs one
+  timeout and not one per file. Offline nothing is asked. A 404 is believed for 30 days only for a tile beyond
+  the border; a file that must exist (a tile inside Bavaria, the land use of a Kreis) is asked for again at
+  every run. This holds for the four kinds of files alike.
 - **The surface model is cached reduced to 1 m**, each cell the highest of its 25 values; the 20 cm tile is not
   kept. Its date is the flight date in the metadata of the tile.
 - Both readers are own code. No dependency was added.

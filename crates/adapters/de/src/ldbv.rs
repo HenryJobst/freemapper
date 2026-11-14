@@ -21,7 +21,7 @@ use freemapper_sources::wms::OrthophotoSource;
 
 use crate::crs::{BoundingBox, Crs};
 use crate::fetch::{CacheDir, FetchError, FetchMode, Fetcher, one_line, write_cache_file};
-use crate::ldbv_files::{Current, Published, cached, current, drop_older, missing_note};
+use crate::ldbv_files::{Checks, Current, Published, cached, current, drop_older, missing_note};
 use crate::note::Note;
 use crate::sources::float_tiff::{decode_float_tiff, encode_float_geotiff, gdal_metadata_item};
 use crate::sources::height_model::{
@@ -182,6 +182,7 @@ pub fn fetch_model(
     let dir = model.dir(cache);
     let mut area = AreaTiles::default();
     let mut older = Vec::new();
+    let mut checks = Checks::default();
     for tile in tiles_covering(bbox) {
         let (stem, url) = (model.stem(tile), model.tile_url(tile));
         let file = Published {
@@ -189,13 +190,16 @@ pub fn fetch_model(
             stem: &stem,
             ext: TILE_EXT,
             url: &url,
+            // Beyond the border a tile that is not there stays not there; inside Bavaria the
+            // server is asked again at every run.
+            missing_holds: !tile_centre_in(tile, BAYERN),
         };
         let name = |path: &Path| {
             path.file_stem()
                 .map(|stem| stem.to_string_lossy().into_owned())
                 .unwrap_or_default()
         };
-        match current(fetcher, mode, &file, progress)? {
+        match current(fetcher, mode, &file, &mut checks, progress)? {
             Current::Cached(path) => area.named.push((tile, name(&path))),
             Current::Fetch { path, older: stale } => {
                 area.named.push((tile, name(&path)));
@@ -643,6 +647,25 @@ mod tests {
         )
         .unwrap();
         assert!(found.missing.contains(&tile(575)), "{:?}", found.missing);
+        // The next run asks for that tile again and finds it; the tiles beyond the border
+        // are not asked for a second time.
+        let bytes = dgm1_tile(tile(575), 480.0);
+        serve_tile(&fetcher, Model::Dgm1, tile(575), bytes, changed());
+        let before = fetcher.calls.get();
+        let (found, _) = run(
+            &fetcher,
+            other.path(),
+            FetchMode::Online,
+            Model::Dgm1,
+            &strip,
+        )
+        .unwrap();
+        assert!(!found.missing.contains(&tile(575)), "{:?}", found.missing);
+        // Three checks (573 to 575) and one download; 570 to 572 are remembered.
+        let beyond = (570..573)
+            .filter(|east| !tile_centre_in(tile(*east), BAYERN))
+            .count();
+        assert_eq!(fetcher.calls.get() - before, 4 + (3 - beyond));
     }
 
     #[test]
