@@ -54,6 +54,7 @@ pub enum State {
     Saarland,
     BadenWuerttemberg,
     Bremen,
+    Bayern,
 }
 
 /// Who serves the rasters of a state (orthophoto, terrain and surface models).
@@ -85,6 +86,8 @@ pub enum Agency {
     LglBw,
     /// Landesamt GeoInformation Bremen (EPSG:25832).
     GeoBremen,
+    /// Bayerische Vermessungsverwaltung, by its state office the LDBV (EPSG:25832).
+    Ldbv,
 }
 
 impl Agency {
@@ -104,6 +107,7 @@ impl Agency {
             Self::Lvgl => "lvgl",
             Self::LglBw => "lglbw",
             Self::GeoBremen => "geobremen",
+            Self::Ldbv => "ldbv",
         }
     }
 
@@ -123,6 +127,7 @@ impl Agency {
             Self::Lvgl => "lvgl-dgm1",
             Self::LglBw => "lgl-bw-dgm1",
             Self::GeoBremen => "geobremen-dgm1",
+            Self::Ldbv => "ldbv-dgm1",
         }
     }
 
@@ -142,13 +147,14 @@ impl Agency {
                 | Self::Lvgl
                 | Self::LglBw
                 | Self::GeoBremen
+                | Self::Ldbv
         )
     }
 }
 
 impl State {
     /// All states, in the order they are listed and queried.
-    pub const ALL: [Self; 14] = [
+    pub const ALL: [Self; 15] = [
         Self::Brandenburg,
         Self::Berlin,
         Self::Saxony,
@@ -163,6 +169,7 @@ impl State {
         Self::Saarland,
         Self::BadenWuerttemberg,
         Self::Bremen,
+        Self::Bayern,
     ];
 
     /// The id of the adapter of the state: its name in the project file.
@@ -182,6 +189,7 @@ impl State {
             Self::Saarland => "saarland",
             Self::BadenWuerttemberg => "badenwuerttemberg",
             Self::Bremen => "bremen",
+            Self::Bayern => "bayern",
         }
     }
 
@@ -202,6 +210,7 @@ impl State {
             Self::Saarland => "DESL",
             Self::BadenWuerttemberg => "DEBW",
             Self::Bremen => "DEHB",
+            Self::Bayern => "DEBY",
         }
     }
 
@@ -220,6 +229,7 @@ impl State {
             Self::Saarland => Agency::Lvgl,
             Self::BadenWuerttemberg => Agency::LglBw,
             Self::Bremen => Agency::GeoBremen,
+            Self::Bayern => Agency::Ldbv,
         }
     }
 
@@ -235,7 +245,8 @@ impl State {
             | Self::RheinlandPfalz
             | Self::Saarland
             | Self::BadenWuerttemberg
-            | Self::Bremen => Crs::Utm32,
+            | Self::Bremen
+            | Self::Bayern => Crs::Utm32,
             _ => Crs::Utm33,
         }
     }
@@ -244,7 +255,7 @@ impl State {
 /// The manifests of the states, in the order of [`State::ALL`]. A manifest holds what a state
 /// declares: who it is, its OSM extracts, its ALKIS service, its credit, its preview and which
 /// code fetches its rasters.
-const MANIFESTS: [&str; 14] = [
+const MANIFESTS: [&str; 15] = [
     include_str!("../../manifests/brandenburg/manifest.toml"),
     include_str!("../../manifests/berlin/manifest.toml"),
     include_str!("../../manifests/saxony/manifest.toml"),
@@ -259,6 +270,7 @@ const MANIFESTS: [&str; 14] = [
     include_str!("../../manifests/saarland/manifest.toml"),
     include_str!("../../manifests/badenwuerttemberg/manifest.toml"),
     include_str!("../../manifests/bremen/manifest.toml"),
+    include_str!("../../manifests/bayern/manifest.toml"),
 ];
 
 /// The boundaries of the five OSM extracts of North Rhine-Westphalia: Geofabrik's
@@ -309,6 +321,40 @@ const BW_EXTRACT_BOUNDARIES: [(&str, &str); 4] = [
     ),
 ];
 
+/// The boundaries of the seven OSM extracts of Bavaria: Geofabrik's `<district>.poly` in
+/// EPSG:25833, simplified 25 m (ODbL). Together they leave 0.02 km² of the state uncovered,
+/// where the nearest extract is taken.
+const BY_EXTRACT_BOUNDARIES: [(&str, &str); 7] = [
+    (
+        "osm-mittelfranken.geojson",
+        include_str!("../../manifests/bayern/osm-mittelfranken.geojson"),
+    ),
+    (
+        "osm-niederbayern.geojson",
+        include_str!("../../manifests/bayern/osm-niederbayern.geojson"),
+    ),
+    (
+        "osm-oberbayern.geojson",
+        include_str!("../../manifests/bayern/osm-oberbayern.geojson"),
+    ),
+    (
+        "osm-oberfranken.geojson",
+        include_str!("../../manifests/bayern/osm-oberfranken.geojson"),
+    ),
+    (
+        "osm-oberpfalz.geojson",
+        include_str!("../../manifests/bayern/osm-oberpfalz.geojson"),
+    ),
+    (
+        "osm-schwaben.geojson",
+        include_str!("../../manifests/bayern/osm-schwaben.geojson"),
+    ),
+    (
+        "osm-unterfranken.geojson",
+        include_str!("../../manifests/bayern/osm-unterfranken.geojson"),
+    ),
+];
+
 /// The text of the manifest of `state`.
 pub fn manifest_text(state: State) -> &'static str {
     let index = State::ALL
@@ -327,6 +373,7 @@ impl AdapterFiles for StateFiles {
         let extracts: &[(&str, &str)] = match self.0 {
             State::NordrheinWestfalen => &NRW_EXTRACT_BOUNDARIES,
             State::BadenWuerttemberg => &BW_EXTRACT_BOUNDARIES,
+            State::Bayern => &BY_EXTRACT_BOUNDARIES,
             _ => &[],
         };
         let text = match name {
@@ -358,11 +405,12 @@ pub fn backend_name(agency: Agency) -> Option<&'static str> {
         Agency::Lvgl => Some("lvgl"),
         Agency::LglBw => Some("lgl-bw"),
         Agency::GeoBremen => Some("geobremen"),
+        Agency::Ldbv => Some("ldbv"),
     }
 }
 
 /// The agencies whose rasters code of this crate fetches, in the order of the states.
-const AGENCIES: [Agency; 13] = [
+const AGENCIES: [Agency; 14] = [
     Agency::Lgb,
     Agency::GeoSn,
     Agency::LvermGeo,
@@ -376,6 +424,7 @@ const AGENCIES: [Agency; 13] = [
     Agency::Lvgl,
     Agency::LglBw,
     Agency::GeoBremen,
+    Agency::Ldbv,
 ];
 
 /// Adds the raster backends of this crate to `registry`, each under the name the manifests
@@ -394,14 +443,15 @@ pub fn register_backends(registry: &mut Registry) -> Result<(), DuplicateBackend
 /// From the manifest come the identity, the OSM extracts and their boundaries, the ALKIS
 /// service, the full ALKIS and the tree cadastres, the raster backend (by name, or the services
 /// the manifest declares) and the credit of the states whose credit is one line with a year.
-/// Code are the ALKIS of Berlin, of Baden-Württemberg and of Bremen, the credits of Brandenburg, Berlin and Saxony (they depend on
+/// Code are the ALKIS of Berlin, of Baden-Württemberg, of Bremen and of Bavaria, the credits of Brandenburg, Berlin and Saxony (they depend on
 /// tiles, on the neighbour and on the layers that drew objects) and the download estimate.
 /// Whatever is asked for the state, by its manifest or by its code, stays on the hosts the
 /// manifest declares.
 pub struct StateAdapter {
     state: State,
     manifest: ManifestAdapter,
-    /// The ALKIS source where the manifest declares none (Berlin, Baden-Württemberg, Bremen).
+    /// The ALKIS source where the manifest declares none (Berlin, Baden-Württemberg, Bremen,
+    /// Bavaria).
     alkis: Option<Box<dyn AlkisSource>>,
     /// The sets of extra layers the state fetches with code (Berlin's registers and surveys).
     extras: Vec<Box<dyn ExtraSet>>,
@@ -623,7 +673,7 @@ mod tests {
                 services.push((&one.wms, &one.layer));
             }
         }
-        assert_eq!(services.len(), 13);
+        assert_eq!(services.len(), 14);
         assert_eq!(previews[0], previews[1]);
     }
 
@@ -749,7 +799,7 @@ mod tests {
         }
         let mut registry = Registry::new();
         register(&mut registry).unwrap();
-        assert_eq!(registry.len(), 14);
+        assert_eq!(registry.len(), 15);
         assert_eq!(
             registry.backend_names().collect::<Vec<_>>(),
             [
@@ -758,6 +808,7 @@ mod tests {
                 "geosn",
                 "hvbg",
                 "laiv-mv",
+                "ldbv",
                 "lgb",
                 "lgl-bw",
                 "lgln",

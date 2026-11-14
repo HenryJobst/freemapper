@@ -6,7 +6,7 @@ note-warning = warning: { $text }
 
 warning-other-zone = the map area lies in UTM zone { $zone } (EPSG:{ $epsg }); freemapper fetches everything again in that zone
 warning-other-state = the map area now lies in another state's data; freemapper fetches everything again
-warning-beyond-coverage = part of the map area lies outside the supported states. It lies abroad, at sea or in a state freemapper does not support yet, such as Bavaria or Thuringia. The states have no data there, so the orthophoto can be white and ALKIS gives no buildings or land use
+warning-beyond-coverage = part of the map area lies outside the supported states. It lies abroad, at sea or in a state freemapper does not support yet, such as Thuringia. The states have no data there, so the orthophoto can be white and ALKIS gives no buildings or land use
 # A warning whose text is an error.
 warning-error = { $error }
 

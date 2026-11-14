@@ -163,7 +163,7 @@ applies: a `Platz` without `bez` gets `ohne Unterart (Bayern)`, so a square whos
 record stays a candidate instead of becoming a paved map object. The file of a Kreis that answers 404 fails the
 fetch (all 96 exist).
 
-Which Kreise a map area touches comes from `kreise.geojson` in the manifest folder: the 96 outlines with their
+Which Kreise a map area touches comes from `assets/kreise/bayern.geojson`, embedded in the program: the 96 outlines with their
 five-digit key, made once from the agency's administrative units, simplified 100 m, in the form of the
 `osm-*.geojson` files (680 KB; at 40 m it was 1.3 MB). A Kreis is read when its outline comes within 500 m of
 the map area; the outlines lie at most 181 m from the source. An object two Kreise hold is kept once.

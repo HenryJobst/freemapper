@@ -2818,7 +2818,7 @@ pub mod golden {
 
 #[cfg(test)]
 mod tests {
-    const BEYOND_COVERAGE_WARNING: &str = "warning: part of the map area lies outside the supported states. It lies abroad, at sea or in a state freemapper does not support yet, such as Bavaria or Thuringia. The states have no data there, so the orthophoto can be white and ALKIS gives no buildings or land use";
+    const BEYOND_COVERAGE_WARNING: &str = "warning: part of the map area lies outside the supported states. It lies abroad, at sea or in a state freemapper does not support yet, such as Thuringia. The states have no data there, so the orthophoto can be white and ALKIS gives no buildings or land use";
 
     use super::*;
     use crate::build::paved::{GREEN_LAYER, SURFACE_LAYER};
@@ -3051,10 +3051,11 @@ mod tests {
     #[test]
     fn init_refuses_area_outside_lgb_data() {
         let dir = tempfile::tempdir().unwrap();
-        let project = dir.path().join("munich");
-        let munich = MapArea::from_geojson(r#"{"type":"Polygon","coordinates":[[[11.57,48.13],[11.58,48.13],[11.58,48.14],[11.57,48.14],[11.57,48.13]]]}"#).unwrap();
+        // Erfurt: Thuringia is the one state without data sources.
+        let project = dir.path().join("erfurt");
+        let erfurt = MapArea::from_geojson(r#"{"type":"Polygon","coordinates":[[[11.03,50.975],[11.04,50.975],[11.04,50.985],[11.03,50.985],[11.03,50.975]]]}"#).unwrap();
         let date = NaiveDate::from_ymd_opt(2026, 11, 7).unwrap();
-        let err = init_project(&project, &munich, MapKind::Sprint, None, date, None).unwrap_err();
+        let err = init_project(&project, &erfurt, MapKind::Sprint, None, date, None).unwrap_err();
         assert!(matches!(err, ProjectError::OutsideCoverage), "{err:?}");
         assert!(err.to_string().contains("Brandenburg"), "{err}");
         assert!(err.to_string().contains("Saxony-Anhalt"), "{err}");

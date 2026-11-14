@@ -30,10 +30,13 @@ pub const BERLIN_HEIGHTS_ATTRIBUTION: &str =
 pub const DL_DE_BY_LICENCE_NOTE: &str = "Lizenz dl-de/by-2-0 (Datenlizenz Deutschland – Namensnennung – Version 2.0): https://www.govdata.de/dl-de/by-2-0";
 
 /// The licence text the CC BY credits (Schleswig-Holstein, Mecklenburg-Vorpommern,
-/// Niedersachsen, Bremen) refer to (added to the project notes only).
+/// Niedersachsen, Bremen, Bavaria) refer to (added to the project notes only).
 pub const CC_BY_LICENCE_NOTE: &str = "Lizenz CC BY 4.0 (Namensnennung 4.0 International): https://creativecommons.org/licenses/by/4.0/";
 /// The LVermGeo SH credit the licence prescribes for changed data.
 pub const SH_ATTRIBUTION: &str = "© GeoBasis-DE/LVermGeo SH/CC BY 4.0 (Quelle verändert)";
+
+/// The credit of the Bayerische Vermessungsverwaltung for changed data, as its FAQ writes it.
+pub const BY_ATTRIBUTION: &str = "Geobasisdaten: Bayerische Vermessungsverwaltung – www.geodaten.bayern.de (Daten verändert), Lizenz: CC BY 4.0";
 
 /// The LAiV M-V credit the licence prescribes for changed data.
 pub const MV_ATTRIBUTION: &str = "©GeoBasis-DE/MV/CC BY 4.0 (Quelle verändert)";
@@ -126,6 +129,9 @@ pub fn lines(state: State, used: &UsedSources<'_>) -> Vec<CreditLine> {
                 CC_BY_LICENCE_NOTE,
             )
         }),
+        // The source note the FAQ of the agency gives for changed data, kept whole; it names
+        // no year.
+        State::Bayern => year().map(|_| CreditLine::with_licence(BY_ATTRIBUTION, CC_BY_LICENCE_NOTE)),
     };
     line.into_iter().collect()
 }

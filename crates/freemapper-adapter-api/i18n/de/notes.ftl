@@ -4,7 +4,7 @@ note-warning = Warnung: { $text }
 
 warning-other-zone = Das Kartengebiet liegt in UTM-Zone { $zone } (EPSG:{ $epsg }); freemapper lädt alles in dieser Zone neu
 warning-other-state = Das Kartengebiet liegt jetzt in den Daten eines anderen Bundeslands; freemapper lädt alles neu
-warning-beyond-coverage = Ein Teil des Kartengebiets liegt außerhalb der unterstützten Bundesländer: im Ausland, auf See oder in einem Bundesland, das freemapper noch nicht unterstützt, etwa Bayern oder Thüringen. Die Bundesländer haben dort keine Daten; das Orthophoto kann dort weiß sein, und ALKIS liefert weder Gebäude noch Nutzung
+warning-beyond-coverage = Ein Teil des Kartengebiets liegt außerhalb der unterstützten Bundesländer: im Ausland, auf See oder in einem Bundesland, das freemapper noch nicht unterstützt, etwa Thüringen. Die Bundesländer haben dort keine Daten; das Orthophoto kann dort weiß sein, und ALKIS liefert weder Gebäude noch Nutzung
 # Eine Warnung, deren Text ein Fehler ist.
 warning-error = { $error }
 

@@ -25,7 +25,7 @@ use crate::fetch::{
     write_cache_file,
 };
 use crate::ldbv::FILES;
-use crate::ldbv_files::{Current, Published, current, drop_older};
+use crate::ldbv_files::{Current, Published, cached, current, drop_older, missing_note};
 use crate::note::{Note, note};
 use crate::sources::region::{BAYERN, touches};
 
@@ -36,7 +36,7 @@ pub const TN_MAX_BYTES: u64 = 64 * 1024 * 1024;
 /// The largest member of a land use zip that is unpacked.
 const TN_MEMBER_MAX_BYTES: u64 = 1024 * 1024 * 1024;
 /// How near (m) the outline of a Kreis must come to the map area for its file to be read. The
-/// outlines of `kreise.geojson` lie at most 181 m from the true ones.
+/// outlines of the embedded file lie at most 181 m from the true ones.
 pub const KREIS_MARGIN_M: f64 = 500.0;
 /// `bez` given to a square without one: the cadastre does not record what the square is used
 /// for, so it stays a candidate instead of becoming a paved map object.
@@ -56,7 +56,7 @@ const BUILDING_SUFFIX: &str = "BL";
 /// The class of the squares.
 const SQUARE: &str = "Platz";
 
-/// The outlines of the Kreise (`kreise.geojson`, EPSG:25833) with their keys.
+/// The outlines of the Kreise (`assets/kreise/bayern.geojson`, EPSG:25833) with their keys.
 pub struct KreisIndex {
     /// Key, outline, the box around it.
     kreise: Vec<(String, MultiPolygon<f64>, BoundingBox)>,
@@ -120,11 +120,11 @@ impl KreisIndex {
     }
 }
 
-/// The 96 Kreise of Bavaria, from the file in the folder of the manifest, parsed once.
+/// The 96 Kreise of Bavaria, from `assets/kreise/bayern.geojson`, parsed once.
 pub fn built_in_kreise() -> &'static KreisIndex {
     static KREISE: OnceLock<KreisIndex> = OnceLock::new();
     KREISE.get_or_init(|| {
-        KreisIndex::parse(include_str!("../manifests/bayern/kreise.geojson"))
+        KreisIndex::parse(include_str!("../../../../assets/kreise/bayern.geojson"))
             .expect("the embedded Kreise are valid")
     })
 }
@@ -154,6 +154,22 @@ pub fn lod2_url(tile: (u32, u32)) -> String {
 /// Where the agency publishes the land use of the Kreis with the key `ags`.
 pub fn tn_url(ags: &str) -> String {
     format!("{FILES}/tn/lkr/tn_{ags}.zip")
+}
+
+/// Whether the buildings of the LoD2 tile need no download: its features are cached, or the
+/// server did not have the tile.
+pub fn lod2_is_cached(cache: &crate::fetch::CacheDir, tile: (u32, u32)) -> bool {
+    let (dir, stem) = (
+        cache.provider_dir(CACHE_DIR).join(LOD2_DIR),
+        lod2_stem(tile),
+    );
+    cached(&dir, &stem, "geojson").is_some() || missing_note(&dir, &stem).exists()
+}
+
+/// Whether the land use of the Kreis with the key `ags` is cached.
+pub fn tn_is_cached(cache: &crate::fetch::CacheDir, ags: &str) -> bool {
+    let dir = cache.provider_dir(CACHE_DIR).join(TN_DIR);
+    cached(&dir, &format!("tn_{ags}"), "zip").is_some()
 }
 
 /// Whether the centre of the LoD2 tile lies in or near Bavaria, so the server must have it.

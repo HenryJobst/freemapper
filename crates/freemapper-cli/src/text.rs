@@ -416,19 +416,19 @@ mod tests {
             states(&english),
             "Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, \
              Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony, Rhineland-Palatinate, \
-             Saarland, Baden-Württemberg, Bremen"
+             Saarland, Baden-Württemberg, Bremen, Bavaria"
         );
         assert_eq!(
             states_in_a_sentence(&english),
             "Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, \
              Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony, Rhineland-Palatinate, \
-             Saarland, Baden-Württemberg and Bremen"
+             Saarland, Baden-Württemberg, Bremen and Bavaria"
         );
         assert_eq!(
             states_in_a_sentence(&german),
             "Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg, Hessen, Schleswig-Holstein, \
              Mecklenburg-Vorpommern, Nordrhein-Westfalen, Niedersachsen, Rheinland-Pfalz, \
-             Saarland, Baden-Württemberg und Bremen"
+             Saarland, Baden-Württemberg, Bremen und Bayern"
         );
         let instructions = TEXTS.text(
             &english,
@@ -437,7 +437,7 @@ mod tests {
         );
         assert!(
             instructions.contains("geodata of Brandenburg, Berlin, Saxony,")
-                && instructions.contains("Baden-Württemberg and Bremen, and from OSM"),
+                && instructions.contains("Bremen and Bavaria, and from OSM"),
             "{instructions}"
         );
     }

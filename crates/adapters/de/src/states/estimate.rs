@@ -8,8 +8,8 @@ use freemapper_adapter_api::estimate::{
 use freemapper_adapter_api::records::{EstimateItem, Part, Store};
 
 use crate::boundaries::{
-    BADEN_WUERTTEMBERG, BERLIN, BRANDENBURG, BREMEN, HAMBURG, NORDRHEIN_WESTFALEN, SAARLAND,
-    SAXONY, SCHLESWIG_HOLSTEIN, provider_tiles, states_touching, tile_touches,
+    BADEN_WUERTTEMBERG, BAYERN, BERLIN, BRANDENBURG, BREMEN, HAMBURG, NORDRHEIN_WESTFALEN,
+    SAARLAND, SAXONY, SCHLESWIG_HOLSTEIN, provider_tiles, states_touching, tile_touches,
 };
 use crate::crs::BoundingBox;
 use crate::sources::lgb::{Product, ProductTiles as _};
@@ -58,6 +58,7 @@ pub fn items(state: State, area: &EstimateArea, env: &EstimateEnv<'_>) -> Vec<Es
         Agency::Lvgl => lvgl_items(bbox, cache),
         Agency::LglBw => lgl_bw_items(bbox, cache),
         Agency::GeoBremen => geobremen_items(bbox, cache),
+        Agency::Ldbv => ldbv_items(bbox, cache),
     }
 }
 
@@ -242,6 +243,79 @@ fn geobremen_items(bbox: &BoundingBox, cache: &CacheDir) -> Vec<EstimateItem> {
         ),
         model_item(Model::Dgm1, Part::Terrain),
         model_item(Model::Dom1, Part::Surface),
+    ]
+}
+
+/// Typical sizes of the files of the LDBV in MB: a DGM1 tile, a DOM20 tile of 20 cm, a LoD2
+/// tile of 2 km (3 MB in the country, 60 to 160 MB in a city centre) and the land use of a
+/// Kreis (2 to 13 MB).
+const LDBV_DGM1_TILE_MB: f64 = 2.8;
+const LDBV_DOM20_TILE_MB: f64 = 45.0;
+const LDBV_LOD2_TILE_MB: f64 = 40.0;
+const LDBV_KREIS_MB: f64 = 8.0;
+
+/// LDBV: the WMS orthophoto, the height model tiles of the area, and the files of the
+/// cadastre, which Bavaria has instead of a service: the LoD2 tiles of the buildings and the
+/// land use of each Kreis near the area. What is cached already is left out.
+fn ldbv_items(bbox: &BoundingBox, cache: &CacheDir) -> Vec<EstimateItem> {
+    use crate::ldbv::Model;
+    use crate::ldbv_alkis::{built_in_kreise, lod2_is_cached, tn_is_cached};
+    let tiles: Vec<TileId> = zone_32_tiles(bbox)
+        .into_iter()
+        .filter(|t| tile_touches(*t, BAYERN))
+        .collect();
+    let item = |what: &str, open: usize, mb: f64, part: Part| EstimateItem {
+        what: what.to_string(),
+        megabytes: open as f64 * mb,
+        cached: open == 0,
+        part,
+        store: Store::Cache,
+    };
+    let open_tiles = |model: Model| {
+        tiles
+            .iter()
+            .filter(|t| !model.is_cached(cache, **t))
+            .count()
+    };
+    // The 2 km tiles of the buildings that hold the 1 km tiles of the area.
+    let mut lod2: Vec<(u32, u32)> = tiles
+        .iter()
+        .map(|t| (t.east_km / 2 * 2, t.north_km / 2 * 2))
+        .collect();
+    lod2.sort_unstable();
+    lod2.dedup();
+    let open_lod2 = lod2.iter().filter(|t| !lod2_is_cached(cache, **t)).count();
+    let open_kreise = built_in_kreise()
+        .near(bbox)
+        .iter()
+        .filter(|ags| !tn_is_cached(cache, ags))
+        .count();
+    vec![
+        per_km2_item(
+            bbox,
+            "orthophoto (LDBV WMS)",
+            ORTHOPHOTO_MB_PER_KM2,
+            Part::Orthophoto,
+        ),
+        item(
+            Model::Dgm1.label(),
+            open_tiles(Model::Dgm1),
+            LDBV_DGM1_TILE_MB,
+            Part::Terrain,
+        ),
+        item(
+            Model::Dom20.label(),
+            open_tiles(Model::Dom20),
+            LDBV_DOM20_TILE_MB,
+            Part::Surface,
+        ),
+        item(
+            "buildings (LDBV LoD2)",
+            open_lod2,
+            LDBV_LOD2_TILE_MB,
+            Part::MapData,
+        ),
+        item("land use (LDBV)", open_kreise, LDBV_KREIS_MB, Part::MapData),
     ]
 }
 
@@ -698,6 +772,79 @@ mod tests {
         assert_eq!(
             (items[1].megabytes, items[2].megabytes, items[2].cached),
             (3.5, 0.0, true)
+        );
+    }
+
+    /// Bavaria: the orthophoto by the area, the two height models by their tiles, and the
+    /// files of the cadastre: the LoD2 tile and the land use of the Kreis.
+    #[test]
+    fn bavaria_lists_its_five_downloads() {
+        // 100 m in the centre of Munich, inside the tile 691/5334 of zone 32.
+        let corner = |easting: f64, northing: f64| {
+            Crs::Utm33
+                .reproject(Crs::Utm32, ProjectedPoint { easting, northing })
+                .unwrap()
+        };
+        let (low, high) = (
+            corner(691_400.0, 5_334_600.0),
+            corner(691_500.0, 5_334_700.0),
+        );
+        let bbox = BoundingBox {
+            min_e: low.easting.min(high.easting),
+            min_n: low.northing.min(high.northing),
+            max_e: low.easting.max(high.easting),
+            max_n: low.northing.max(high.northing),
+        };
+        let dir = tempfile::tempdir().unwrap();
+        let cache = CacheDir::new(dir.path().to_path_buf());
+        let sizes = |items: &[EstimateItem]| -> Vec<(String, f64, bool, Part, Store)> {
+            items
+                .iter()
+                .map(|item| {
+                    (
+                        item.what.clone(),
+                        item.megabytes,
+                        item.cached,
+                        item.part,
+                        item.store,
+                    )
+                })
+                .collect()
+        };
+        let items = sizes(&ldbv_items(&bbox, &cache));
+        assert_eq!(items[0].0, "orthophoto (LDBV WMS)");
+        assert_eq!(items[0].3, Part::Orthophoto);
+        let row = |what: &str, megabytes: f64, cached: bool, part: Part| {
+            (what.to_string(), megabytes, cached, part, Store::Cache)
+        };
+        assert_eq!(
+            items[1..],
+            [
+                row("terrain model (LDBV DGM1)", 2.8, false, Part::Terrain),
+                row("surface model (LDBV DOM20)", 45.0, false, Part::Surface),
+                row("buildings (LDBV LoD2)", 40.0, false, Part::MapData),
+                row("land use (LDBV)", 8.0, false, Part::MapData),
+            ]
+        );
+        for (folder, file) in [
+            ("dgm1", "691_5334-20260115.tif"),
+            ("dom20", "691_5334-20260115.tif"),
+            ("lod2", "690_5334-20261006.geojson"),
+            ("tn", "tn_09162-20261015.zip"),
+        ] {
+            let folder = dir.path().join("ldbv").join(folder);
+            std::fs::create_dir_all(&folder).unwrap();
+            std::fs::write(folder.join(file), b"kept").unwrap();
+        }
+        let items = sizes(&ldbv_items(&bbox, &cache));
+        assert_eq!(
+            items[1..],
+            [
+                row("terrain model (LDBV DGM1)", 0.0, true, Part::Terrain),
+                row("surface model (LDBV DOM20)", 0.0, true, Part::Surface),
+                row("buildings (LDBV LoD2)", 0.0, true, Part::MapData),
+                row("land use (LDBV)", 0.0, true, Part::MapData),
+            ]
         );
     }
 }

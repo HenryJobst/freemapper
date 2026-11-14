@@ -167,7 +167,7 @@ topology, on a 1 m grid, the exterior clockwise, in the layout of the file of Ba
   That is the size of what the other borders show (Baden-Württemberg against Hesse: 79 633 m² and 135 291 m²);
   the margin of the region check absorbs it. Thuringia has no boundary yet.
 
-**The Kreise** (`kreise.geojson`): the 96 units `Kreis / kreisfreie Stadt` with their key (`ags`, five digits,
+**The Kreise** (`assets/kreise/bayern.geojson`; not in the folder of the manifest, which holds only what the manifest names): the 96 units `Kreis / kreisfreie Stadt` with their key (`ags`, five digits,
 the same as in `tn_<key>.zip`) and name, moved to EPSG:25833, simplified 100 m. 679 660 bytes, 39 372 vertices;
 the outlines lie at most 181 m from the source, and of the 151 parts one of 178 m² fell away. The adapter reads
 the file of a Kreis whose outline comes within 500 m of the map area, so the simplification loses no object. (At
