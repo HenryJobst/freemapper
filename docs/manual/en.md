@@ -909,7 +909,8 @@ Rhine-Westphalia the forest administration.
 
 `permits` asks the two federal services, in Berlin also the Geoportal Berlin, in Hamburg the Geoportal Hamburg,
 in Brandenburg the Landesbetrieb Forst, and reads the OSM extract that is already in the cache. In North Rhine-Westphalia it downloads two files of
-Wald und Holz NRW for the whole state, about 17 MB together, anew on every fetch. It does not
+three files for the whole state, two of Wald und Holz NRW and the water protection areas, about 32 MB together,
+anew on every fetch; in Brandenburg the water protection areas of the LfU, about 4 MB. It does not
 download an extract. Without one the notes leave OpenStreetMap out and say so; `freemapper fetch` downloads
 it. It all takes about half a minute, most of it for reading the OSM extract.
 
@@ -1009,7 +1010,8 @@ general hint for Berlin and Hamburg comes back.
 
 ### Water protection areas and forest functions
 
-Water protection areas with their zone come from Berlin, Hamburg, Hesse and Saarland, forest functions from
+Water protection areas with their zone come from Berlin, Brandenburg, Hamburg, Hesse, North Rhine-Westphalia and
+Saarland; in North Rhine-Westphalia also the planned ones, marked "(geplant)". Forest functions from
 Brandenburg (Naturwald, Totalreservat, closed areas, Erholungswald), Hamburg (Bannwald, Erholungswald), North
 Rhine-Westphalia (Naturwaldzellen, wilderness development areas) and Saarland (Naturwaldzellen, Urwald), each
 from open services of the state. In Saarland the listed buildings come with them. A water protection area gets a hint
@@ -1082,6 +1084,8 @@ phone numbers. freemapper takes none of it: it keeps only the names of the offic
 | Geoportal Berlin: Bezirk borders, green spaces, Liegenschaftsplan, monuments, protected objects, forest administration (Berlin only) | `gdi.berlin.de` | `Für die Nutzung der Daten ist die Datenlizenz Deutschland - Zero - Version 2.0 anzuwenden. Die Lizenz ist über https://www.govdata.de/dl-de/zero-2-0 abrufbar.` |
 | Geoportal Hamburg: Bezirk borders, Grünplan, monuments, forest in Hamburg, forest functions, water protection areas (Hamburg only) | `geodienste.hamburg.de` | per service `Datenlizenz Deutschland Namensnennung 2.0, Quellenvermerk: Freie und Hansestadt Hamburg, <office>` with the office the service names |
 | Geoportal Saarland: Reviere of the state forest, water protection areas, Naturwaldzellen, Urwald, listed buildings (Saarland only) | `geoportal.saarland.de` | `Quellenvermerk: © GDI-SL (<year>); Lizenz: Creative Commons Namensnennung 4.0 International (CC BY 4.0)` |
+| Landesamt für Umwelt Brandenburg: water protection areas (Brandenburg only) | `data.geobasis-bb.de` | `Landesamt für Umwelt Brandenburg (LfU), Creative Commons Namensnennung 4.0 International (CC BY 4.0)` |
+| Land NRW: water protection areas, set and planned (North Rhine-Westphalia only) | `www.opengeodata.nrw.de` | `Land NRW, Datenlizenz Deutschland – Zero – Version 2.0 (https://www.govdata.de/dl-de/zero-2-0)` |
 | HLNUG: drinking water and medicinal spring protection areas (Hesse only) | `geodienste-umwelt.hessen.de` | `Lizenz: Creative Commons BY 4.0 (https://creativecommons.org/licenses/by/4.0/deed.de). Quellenvermerk für Daten: „Darstellung auf der Grundlage von Daten des Hessischen Landesamtes für Naturschutz, Umwelt und Geologie (HLNUG)“.` |
 | LINFOS: Naturwaldzellen, wilderness development areas (North Rhine-Westphalia only) | `www.wfs.nrw.de` | `Open Data - Dieses Angebot vom Landesamt für Natur, Umwelt und Verbraucherschutz Nordrhein-Westfalen ist lizensiert unter der Datenlizenz Deutschland Namensnennung 2.0 (https://www.govdata.de/dl-de/by-2-0). Datensätze unter dieser Lizenz müssen bei Weiterverwendung mit dem Quellenverweis „Land NRW“ versehen werden.` |
 | Landesbetrieb Forst Brandenburg: forest districts (Reviere) with their Oberförsterei (Brandenburg only) | `www.brandenburg-forst.de` | `Landesbetrieb Forst Brandenburg, Datenlizenz Deutschland – Namensnennung – Version 2.0 (https://www.govdata.de/dl-de/by-2-0)` |

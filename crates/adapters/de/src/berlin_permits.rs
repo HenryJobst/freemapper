@@ -261,6 +261,7 @@ pub fn sources() -> Vec<Box<dyn PermitSource>> {
                     name: "wasserwerk",
                     zone: "zone",
                     citation: Some("verordnung"),
+                    planned: None,
                 },
             )],
         ),

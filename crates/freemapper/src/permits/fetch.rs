@@ -398,6 +398,22 @@ mod tests {
     const BRANDENBURG_FOREST: &str = "https://www.brandenburg-forst.de/";
     const BRANDENBURG_OFFICES: &str = "https://www.brandenburg-forst.de/geoserver/IFUEK/";
     const BRANDENBURG_FUNCTIONS: &str = "https://www.brandenburg-forst.de/geoserver/IWFK/";
+    /// The water protection areas of Brandenburg, one shapefile in a zip (ADR 0131).
+    const BRANDENBURG_WATER: &str =
+        "https://data.geobasis-bb.de/geofachdaten/Wasser/Gewaesserbewirtschaftung/wsg.zip";
+
+    /// A zip with an empty shapefile, as a state's download with nothing near the map reads.
+    fn empty_shape_zip() -> Vec<u8> {
+        use std::io::Write as _;
+        let (shp, dbf) = freemapper_sources::shapefile::test_support::shape_files(&[]);
+        let mut zip = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
+        for (name, bytes) in [("wsg.shp", shp), ("wsg.dbf", dbf)] {
+            zip.start_file(name, zip::write::SimpleFileOptions::default())
+                .unwrap();
+            zip.write_all(&bytes).unwrap();
+        }
+        zip.finish().unwrap().into_inner()
+    }
 
     fn empty_gml_collection() -> Vec<u8> {
         br#"<wfs:FeatureCollection xmlns:wfs="http://www.opengis.net/wfs/2.0"/>"#.to_vec()
@@ -442,6 +458,7 @@ mod tests {
         // The map area lies in Brandenburg, whose forest offices answer GML (ADR 0124).
         fetcher.insert_prefix(BRANDENBURG_OFFICES, empty_gml_collection());
         fetcher.insert_prefix(BRANDENBURG_FUNCTIONS, empty_collection());
+        fetcher.insert(BRANDENBURG_WATER, empty_shape_zip());
         for url in probe.log.borrow().iter() {
             let body = if url.contains("Landschaftsschutzgebiete") {
                 fixture("bfn-lsg-sanssouci.geojson")
@@ -846,8 +863,8 @@ mod tests {
             .unwrap();
         let log = inner.log.borrow();
         assert!(log.len() > 13, "{log:?}");
-        // Every request goes to a national host, or to the forest service of Brandenburg, on
-        // whose ground Potsdam lies, behind the hosts of Brandenburg's adapter (ADR 0124).
+        // Every request goes to a national host, or to a service of Brandenburg, on whose
+        // ground Potsdam lies, behind the hosts of Brandenburg's adapter (ADR 0124, 0130, 0131).
         let brandenburg = registry().get("brandenburg").expect("built in");
         let mut regional = std::collections::BTreeSet::new();
         for url in log.iter() {
@@ -855,7 +872,10 @@ mod tests {
                 .iter()
                 .any(|host| url.starts_with(&format!("https://{host}/")));
             if !national {
-                assert!(url.starts_with(BRANDENBURG_FOREST), "{url}");
+                assert!(
+                    url.starts_with(BRANDENBURG_FOREST) || url.starts_with(BRANDENBURG_WATER),
+                    "{url}"
+                );
                 assert!(
                     brandenburg.policy().unwrap().check_url(url).is_ok(),
                     "{url}"
@@ -863,9 +883,9 @@ mod tests {
                 regional.insert(url);
             }
         }
-        // One query per layer of Brandenburg's two sources: the Reviere (tried again, as an
-        // empty JSON is no GML) and the five forest functions.
-        assert_eq!(regional.len(), 6, "{log:?}");
+        // One query per layer of Brandenburg's three sources: the Reviere (tried again, as an
+        // empty JSON is no GML), the five forest functions and the water protection zip.
+        assert_eq!(regional.len(), 7, "{log:?}");
     }
 
     #[test]

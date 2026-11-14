@@ -186,8 +186,9 @@ enum Commands {
     /// units, protected areas and operators the map area touches, and whom that usually means
     /// asking. It asks the BfN and the BKG and, where the state of the map area has open
     /// services of its own, those through the hosts of its adapter (list in the manual,
-    /// chapter 12); in North Rhine-Westphalia it downloads about 17 MB for this. It reads the
-    /// OSM extract already cached; --offline uses what was fetched before.
+    /// chapter 12); in North Rhine-Westphalia it downloads about 32 MB for this, in
+    /// Brandenburg about 4 MB. It reads the OSM extract already cached; --offline uses what
+    /// was fetched before.
     Permits {
         /// Project folder.
         dir: PathBuf,

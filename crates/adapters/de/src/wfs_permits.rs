@@ -23,11 +23,13 @@ use crate::fetch::{FetchError, Fetcher};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Reading {
     /// A water protection area or zone: the attributes of its name, its zone and its
-    /// ordinance.
+    /// ordinance, and where the layer also has planned zones, the attribute and value that
+    /// mark one (its zone then says "geplant").
     Water {
         name: &'static str,
         zone: &'static str,
         citation: Option<&'static str>,
+        planned: Option<(&'static str, &'static str)>,
     },
     /// Forest with a function or protection, named by an attribute where the layer has one.
     Function {
@@ -50,13 +52,14 @@ pub enum Reading {
 
 impl Reading {
     /// The attributes a feature keeps.
-    fn kept(self) -> Vec<&'static str> {
+    pub(crate) fn kept(self) -> Vec<&'static str> {
         match self {
             Reading::Water {
                 name,
                 zone,
                 citation,
-            } => [Some(name), Some(zone), citation]
+                planned,
+            } => [Some(name), Some(zone), citation, planned.map(|(a, _)| a)]
                 .into_iter()
                 .flatten()
                 .collect(),
@@ -162,7 +165,7 @@ impl PermitSource for TableSource {
 
 /// A feature as it is stored: the attributes `reading` keeps and the geometry as longitude,
 /// latitude.
-fn stored(feature: &Value, reading: Reading) -> Option<Value> {
+pub(crate) fn stored(feature: &Value, reading: Reading) -> Option<Value> {
     let shape = geometry(feature)?;
     if !(matches!(shape, Geometry::MultiPolygon(_)) || reading.point_allowed()) {
         return None;
@@ -206,7 +209,7 @@ fn zone_name(zone: &str) -> String {
     }
 }
 
-fn finding(reading: Reading, feature: &Value) -> Option<PermitFinding> {
+pub(crate) fn finding(reading: Reading, feature: &Value) -> Option<PermitFinding> {
     let geometry = geometry(feature)?;
     if !(matches!(geometry, Geometry::MultiPolygon(_)) || reading.point_allowed()) {
         return None;
@@ -216,11 +219,20 @@ fn finding(reading: Reading, feature: &Value) -> Option<PermitFinding> {
             name,
             zone,
             citation,
-        } => FindingKind::WaterProtection {
-            name: text(feature, name),
-            zone: text(feature, zone).map(|z| zone_name(&z)),
-            citation: citation.and_then(|c| text(feature, c)),
-        },
+            planned,
+        } => {
+            let planned = planned.is_some_and(|(attribute, value)| {
+                text(feature, attribute).as_deref() == Some(value)
+            });
+            FindingKind::WaterProtection {
+                name: text(feature, name),
+                zone: text(feature, zone).map(|z| {
+                    let z = zone_name(&z);
+                    if planned { format!("{z} (geplant)") } else { z }
+                }),
+                citation: citation.and_then(|c| text(feature, c)),
+            }
+        }
         Reading::Function { kind, name } => FindingKind::ForestFunction {
             kind,
             name: name.and_then(|n| text(feature, n)),
@@ -258,6 +270,7 @@ mod tests {
                 name: "NAME",
                 zone: "ZONE",
                 citation: Some("VO"),
+                planned: None,
             },
         ),
         (

@@ -64,6 +64,7 @@ pub fn saarland() -> Vec<Box<dyn PermitSource>> {
                         name: "NAME",
                         zone: "SCHUTZZONE",
                         citation: Some("RECHTSGRUNDLAGE"),
+                        planned: None,
                     },
                 ),
                 (
@@ -138,6 +139,7 @@ pub fn hessen() -> Vec<Box<dyn PermitSource>> {
                 name: "WSG_KURZNAME",
                 zone: "ZONE",
                 citation: Some("STAATSANZEIGER"),
+                planned: None,
             },
         )],
     )]
@@ -305,7 +307,7 @@ mod tests {
         let one = |layer: &str, file: &str| {
             read(crate::lfb_permits::sources(), "waldfunktionen", layer, file)
         };
-        assert_eq!(sources.len(), 2);
+        assert_eq!(sources.len(), 3);
         assert_eq!(
             one("naturwald", fixture!("brandenburg-naturwald.geojson")),
             ["Fünfeichen", "Dubrow"].map(|n| FindingKind::ForestFunction {
@@ -396,7 +398,7 @@ mod tests {
         );
     }
 
-    /// The table sources, asked live through the hosts of their state's manifest with the
+    /// The table sources (WFS and shapefiles), asked live through the hosts of their state's manifest with the
     /// fixed User-Agent of the program, each at a place where it has findings:
     /// `cargo test -p freemapper-adapters-de live_table_sources -- --ignored`.
     #[test]
@@ -427,6 +429,17 @@ mod tests {
             (State::Saarland, "schutzgebiete", [6.8, 49.2, 7.2, 49.5]),
             (State::Saarland, "denkmale", [6.99, 49.23, 7.00, 49.24]),
             (State::Hessen, "wasserschutzgebiete", [8.5, 50.0, 8.8, 50.2]),
+            // The shapefiles of ADR 0131: about 4 and 15 MB.
+            (
+                State::Brandenburg,
+                "wasserschutzgebiete",
+                [13.20, 52.38, 13.30, 52.42],
+            ),
+            (
+                State::NordrheinWestfalen,
+                "wasserschutzgebiete",
+                [7.5, 51.3, 8.0, 51.6],
+            ),
         ];
         for (state, key, [w, s, e, n]) in probes {
             let adapter = StateAdapter::new(state, &backends);

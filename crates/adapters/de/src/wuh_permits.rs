@@ -8,19 +8,18 @@
 //! forester with first and last name, e-mail, phone and mobile number: a feature keeps only the
 //! fields of [`Layer::kept`], so none of that is stored or reaches the notes.
 
-use std::io::Read as _;
 use std::path::Path;
 
 use freemapper_adapter_api::permits::{
     FindingKind, PermitFinding, PermitSection, PermitSource, PermitSourceInfo, Wording,
 };
-use freemapper_sources::shapefile::{ShapeRecord, polygons_in};
 use geo_types::Rect;
 use serde_json::Value;
 
 use crate::berlin_permits::geometry;
-use crate::crs::{BoundingBox, Crs, LatLon, ProjectedPoint};
-use crate::fetch::{FetchError, Fetcher, get_limited_with_retries};
+use crate::crs::Crs;
+use crate::fetch::{FetchError, Fetcher};
+use crate::shape_permits::{record_feature, shape_records};
 
 /// The credit the licence asks for: the publisher as GovData names it, and its licence.
 pub const CREDIT: &str = "Landesbetrieb Wald und Holz Nordrhein-Westfalen, Datenlizenz \
@@ -33,16 +32,6 @@ const WALD_UND_HOLZ: &str = "Landesbetrieb Wald und Holz NRW";
 const STATE: &str = "Bundesland Nordrhein-Westfalen";
 
 const BASE: &str = "https://www.opengeodata.nrw.de/produkte/umwelt_klima/wald_forst/wald/";
-
-/// The largest zip read; the two are about 11 and 6 MB.
-const MAX_ZIP: u64 = 50 * 1024 * 1024;
-
-/// The largest file read out of the zip; the largest is the table of the Staatswald (18 MB).
-const MAX_ENTRY: u64 = 100 * 1024 * 1024;
-
-/// How far around the map box records are kept, in metres: a record whose box only nearly
-/// meets it costs nothing, one cut off would be missing.
-const MARGIN_M: f64 = 50.0;
 
 /// How the records of a shapefile become findings.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -113,8 +102,35 @@ pub fn sources() -> Vec<Box<dyn PermitSource>> {
             layer: Layer::StateForest,
         }),
         linfos(),
+        crate::shape_permits::source(
+            "wasserschutzgebiete",
+            Wording {
+                en: "Land NRW",
+                de: "Land NRW",
+            },
+            Wording {
+                en: "water protection areas (set and planned)",
+                de: "Wasserschutzgebiete (festgesetzt und geplant)",
+            },
+            WSG_CREDIT,
+            &["wasserschutzgebiete"],
+            &[PermitSection::WaterProtection],
+            "https://www.opengeodata.nrw.de/produkte/umwelt_klima/wasser/trinkwasser/wasserschutzgebiete/Wasserschutzgebiete-NRW_EPSG25832_Shape.zip",
+            Crs::Utm32,
+            crate::wfs_permits::Reading::Water {
+                name: "name",
+                zone: "wsg_zone",
+                citation: None,
+                planned: Some(("areastatus", "P")),
+            },
+        ),
     ]
 }
+
+/// The credit of the water protection areas: GovData's licence of the dataset (dl-de/zero-2-0)
+/// with the source the open data of NRW name.
+const WSG_CREDIT: &str = "Land NRW, Datenlizenz Deutschland – Zero – Version 2.0 \
+    (https://www.govdata.de/dl-de/zero-2-0)";
 
 /// The credit of LINFOS, verbatim from the capabilities (`AccessConstraints`) of its WMS; the
 /// WFS gives none.
@@ -166,17 +182,11 @@ impl PermitSource for WuhPermitSource {
         part: &Path,
     ) -> Result<Vec<Vec<Value>>, FetchError> {
         let url = format!("{BASE}{}", self.zip);
-        let cut = map_box(bbox);
-        let records = get_limited_with_retries(fetcher, &url, part, MAX_ZIP, |bytes| {
-            records_in(bytes, &cut).map_err(|message| FetchError::Http {
-                url: url.clone(),
-                message,
-            })
-        })?;
+        let records = shape_records(fetcher, &url, Crs::Utm32, bbox, part)?;
         Ok(vec![
             records
                 .iter()
-                .filter_map(|r| feature(r, self.layer.kept()))
+                .filter_map(|r| record_feature(r, self.layer.kept(), Crs::Utm32))
                 .collect(),
         ])
     }
@@ -190,89 +200,6 @@ impl PermitSource for WuhPermitSource {
             .filter_map(|f| finding(self.layer, f))
             .collect()
     }
-}
-
-/// The map box (WGS 84, x = longitude) in EPSG:25832, with [`MARGIN_M`] around it.
-fn map_box(bbox: &Rect<f64>) -> BoundingBox {
-    let corners = [
-        (bbox.min().y, bbox.min().x),
-        (bbox.min().y, bbox.max().x),
-        (bbox.max().y, bbox.min().x),
-        (bbox.max().y, bbox.max().x),
-    ]
-    .map(|(lat, lon)| Crs::Utm32.forward(LatLon { lat, lon }));
-    let fold = |pick: fn(f64, f64) -> f64, start: f64, axis: fn(&ProjectedPoint) -> f64| {
-        corners.iter().map(axis).fold(start, pick)
-    };
-    BoundingBox {
-        min_e: fold(f64::min, f64::INFINITY, |p| p.easting) - MARGIN_M,
-        min_n: fold(f64::min, f64::INFINITY, |p| p.northing) - MARGIN_M,
-        max_e: fold(f64::max, f64::NEG_INFINITY, |p| p.easting) + MARGIN_M,
-        max_n: fold(f64::max, f64::NEG_INFINITY, |p| p.northing) + MARGIN_M,
-    }
-}
-
-/// The records of the one `.shp` and `.dbf` in the zip `bytes` whose box meets `cut`.
-fn records_in(bytes: &[u8], cut: &BoundingBox) -> Result<Vec<ShapeRecord>, String> {
-    let mut zip =
-        zip::ZipArchive::new(std::io::Cursor::new(bytes)).map_err(|e| format!("not a zip: {e}"))?;
-    let mut entry = |extension: &str| -> Result<Vec<u8>, String> {
-        let index = (0..zip.len())
-            .find(|&i| {
-                zip.by_index_raw(i).is_ok_and(|f| {
-                    f.name()
-                        .is_ok_and(|n| n.to_ascii_lowercase().ends_with(extension))
-                })
-            })
-            .ok_or_else(|| format!("the zip has no {extension} file"))?;
-        let mut content = Vec::new();
-        // A file larger than any of the state's is cut off and then refused below, so a
-        // packed bomb never fills the memory.
-        zip.by_index(index)
-            .map_err(|e| e.to_string())?
-            .take(MAX_ENTRY + 1)
-            .read_to_end(&mut content)
-            .map_err(|e| e.to_string())?;
-        if content.len() as u64 > MAX_ENTRY {
-            return Err(format!(
-                "the {extension} file is larger than {MAX_ENTRY} bytes"
-            ));
-        }
-        Ok(content)
-    };
-    let shp = entry(".shp")?;
-    let dbf = entry(".dbf")?;
-    polygons_in(&shp, &dbf, cut)
-}
-
-/// A record as a GeoJSON feature with the fields of `kept` and its polygons as longitude,
-/// latitude; `None` when a position cannot be converted.
-fn feature(record: &ShapeRecord, kept: &[&str]) -> Option<Value> {
-    let properties: serde_json::Map<String, Value> = kept
-        .iter()
-        .filter_map(|key| {
-            let value = record.fields.get(*key)?;
-            Some((key.to_string(), Value::String(value.clone())))
-        })
-        .collect();
-    let mut polygons = Vec::with_capacity(record.polygons.len());
-    for polygon in &record.polygons {
-        let mut rings = Vec::with_capacity(polygon.len());
-        for ring in polygon {
-            let mut positions = Vec::with_capacity(ring.len());
-            for &[easting, northing] in ring {
-                let p = Crs::Utm32.inverse(ProjectedPoint { easting, northing })?;
-                positions.push(serde_json::json!([p.lon, p.lat]));
-            }
-            rings.push(Value::Array(positions));
-        }
-        polygons.push(Value::Array(rings));
-    }
-    Some(serde_json::json!({
-        "type": "Feature",
-        "geometry": { "type": "MultiPolygon", "coordinates": polygons },
-        "properties": properties,
-    }))
 }
 
 /// The office as the notes name it: the Regionalforstamt of `name`, unless the name is an
@@ -312,6 +239,7 @@ fn finding(layer: Layer, feature: &Value) -> Option<PermitFinding> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::crs::ProjectedPoint;
     use crate::fetch::test_support::MapFetcher;
     use freemapper_sources::shapefile::test_support::{Entry, shape_files};
     use geo_types::Coord;

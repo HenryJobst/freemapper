@@ -942,7 +942,8 @@ Nordrhein-Westfalen die Forstverwaltung.
 
 `permits` fragt die beiden Dienste des Bundes, in Berlin auch das Geoportal Berlin, in Hamburg das Geoportal
 Hamburg, in Brandenburg den Landesbetrieb Forst, und liest den OSM-Auszug, der schon im Zwischenspeicher liegt. In Nordrhein-Westfalen lädt
-es zwei Dateien von Wald und Holz NRW für das ganze Bundesland, zusammen etwa 17 MB, bei jedem Abruf neu.
+es drei Dateien für das ganze Bundesland, zwei von Wald und Holz NRW und die Wasserschutzgebiete, zusammen etwa
+32 MB, bei jedem Abruf neu; in Brandenburg die Wasserschutzgebiete des LfU, etwa 4 MB.
 Einen Auszug lädt der Befehl nicht. Fehlt er, lassen die Hinweise OpenStreetMap aus und sagen das;
 `freemapper fetch` lädt ihn. Das Ganze dauert etwa eine halbe Minute, den größten Teil davon braucht das Lesen
 des OSM-Auszugs.
@@ -1046,7 +1047,8 @@ die Bezirke, steht der allgemeine Hinweis für Berlin und Hamburg da.
 
 ### Wasserschutzgebiete und Waldfunktionen
 
-Wasserschutzgebiete mit ihrer Schutzzone kommen aus Berlin, Hamburg, Hessen und dem Saarland, Waldfunktionen
+Wasserschutzgebiete mit ihrer Schutzzone kommen aus Berlin, Brandenburg, Hamburg, Hessen, Nordrhein-Westfalen
+und dem Saarland; in Nordrhein-Westfalen auch die geplanten, mit dem Zusatz „(geplant)“. Waldfunktionen
 aus Brandenburg (Naturwald, Totalreservat, nicht betretbare Flächen, Erholungswald), Hamburg (Bannwald,
 Erholungswald), Nordrhein-Westfalen (Naturwaldzellen, Wildnisentwicklungsgebiete) und dem Saarland
 (Naturwaldzellen, Urwald), jeweils aus offenen Diensten des Bundeslandes. Im Saarland kommen außerdem die
@@ -1122,6 +1124,8 @@ Bezirks, auch in `data/permits/`.
 | Geoportal Berlin: Bezirksgrenzen, Grünanlagenbestand, Liegenschaftsplan, Denkmale, Schutzobjekte nach Naturschutzrecht, Forstverwaltung (nur in Berlin) | `gdi.berlin.de` | `Für die Nutzung der Daten ist die Datenlizenz Deutschland - Zero - Version 2.0 anzuwenden. Die Lizenz ist über https://www.govdata.de/dl-de/zero-2-0 abrufbar.` |
 | Geoportal Hamburg: Bezirksgrenzen, Grünplan, Denkmalschutz, Wald in Hamburg, Waldfunktionen, Wasserschutzgebiete (nur in Hamburg) | `geodienste.hamburg.de` | je Dienst `Datenlizenz Deutschland Namensnennung 2.0, Quellenvermerk: Freie und Hansestadt Hamburg, <Behörde>` mit der Behörde, die der Dienst nennt |
 | Geoportal Saarland: Reviere des Staatswalds, Wasserschutzgebiete, Naturwaldzellen, Urwald, Baudenkmale (nur im Saarland) | `geoportal.saarland.de` | `Quellenvermerk: © GDI-SL (<Jahr>); Lizenz: Creative Commons Namensnennung 4.0 International (CC BY 4.0)` |
+| Landesamt für Umwelt Brandenburg: Wasserschutzgebiete (nur in Brandenburg) | `data.geobasis-bb.de` | `Landesamt für Umwelt Brandenburg (LfU), Creative Commons Namensnennung 4.0 International (CC BY 4.0)` |
+| Land NRW: Wasserschutzgebiete, festgesetzt und geplant (nur in Nordrhein-Westfalen) | `www.opengeodata.nrw.de` | `Land NRW, Datenlizenz Deutschland – Zero – Version 2.0 (https://www.govdata.de/dl-de/zero-2-0)` |
 | HLNUG: Trinkwasser- und Heilquellenschutzgebiete (nur in Hessen) | `geodienste-umwelt.hessen.de` | `Lizenz: Creative Commons BY 4.0 (https://creativecommons.org/licenses/by/4.0/deed.de). Quellenvermerk für Daten: „Darstellung auf der Grundlage von Daten des Hessischen Landesamtes für Naturschutz, Umwelt und Geologie (HLNUG)“.` |
 | LINFOS: Naturwaldzellen, Wildnisentwicklungsgebiete (nur in Nordrhein-Westfalen) | `www.wfs.nrw.de` | `Open Data - Dieses Angebot vom Landesamt für Natur, Umwelt und Verbraucherschutz Nordrhein-Westfalen ist lizensiert unter der Datenlizenz Deutschland Namensnennung 2.0 (https://www.govdata.de/dl-de/by-2-0). Datensätze unter dieser Lizenz müssen bei Weiterverwendung mit dem Quellenverweis „Land NRW“ versehen werden.` |
 | Landesbetrieb Forst Brandenburg: Forstreviere mit ihrer Oberförsterei (nur in Brandenburg) | `www.brandenburg-forst.de` | `Landesbetrieb Forst Brandenburg, Datenlizenz Deutschland – Namensnennung – Version 2.0 (https://www.govdata.de/dl-de/by-2-0)` |
