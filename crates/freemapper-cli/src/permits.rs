@@ -759,11 +759,15 @@ fn object_line(lang: &Lang, o: &ProtectedObjectEntry) -> String {
 fn regional_blocks(lang: &Lang, part: &RegionalNotes) -> Vec<String> {
     let source = regional_label(lang, part);
     let heading = |id: &str| format!("## {}", t(lang, id, &[("source", arg(&source))]));
-    // A source asked at points cannot say that a section is empty (ADR 0139).
+    // Sources asked at points cannot say that a section is empty (ADR 0139); one source with
+    // areas for it can (ADR 0142).
     let sampled = |section: PermitSection| {
-        part.sources
+        let mut filling = part
+            .sources
             .iter()
-            .any(|s| s.source.sampled && s.source.sections.contains(&section))
+            .filter(|s| s.source.sections.contains(&section))
+            .peekable();
+        filling.peek().is_some() && filling.all(|s| s.source.sampled)
     };
     let none = |section: PermitSection, id: &str| {
         let id = if sampled(section) {
@@ -1771,6 +1775,25 @@ mod tests {
             english.contains("At the points asked, Geoportal Berlin names nothing here."),
             "{english}"
         );
+    }
+
+    /// A section a source with areas fills as well says plainly that it is empty (ADR 0142).
+    #[test]
+    fn an_area_source_beside_one_asked_at_points_says_none() {
+        let mut notes = viktoriapark();
+        let mut points = notes.regional[0].sources[0].clone();
+        points.source.sampled = true;
+        points.source.sections = vec![PermitSection::WaterProtection];
+        let mut areas = points.clone();
+        areas.source.sampled = false;
+        notes.regional[0].sources = vec![points, areas];
+        notes.regional[0].water_protection = Some(Vec::new());
+        let text = render_markdown(&notes, &de());
+        assert!(
+            text.contains("liegt im Kartengebiet kein Wasserschutzgebiet"),
+            "{text}"
+        );
+        assert!(!text.contains("An den abgefragten Punkten"), "{text}");
     }
 
     /// Hamburg's offices, the water protection zones and the forest functions in words

@@ -1026,7 +1026,10 @@ general hint for Berlin and Hamburg comes back.
 ### Water protection areas and forest functions
 
 Water protection areas with their zone come from Berlin, Brandenburg, Hamburg, Hesse, North Rhine-Westphalia,
-Saarland and Schleswig-Holstein, and from Saxony for the forest only; in North Rhine-Westphalia also the planned ones, marked "(geplant)". Forest functions from
+Saarland and Schleswig-Holstein, and from Saxony for the forest only. For Bavaria, Lower Saxony, Bremen,
+Mecklenburg-Vorpommern, Rhineland-Palatinate, Saxony-Anhalt and Saxony come the drinking water and medicinal
+spring protection areas the states report to the Bundesanstalt für Gewässerkunde (BfG), without their zones and
+with the BfG's note that the data are not complete everywhere; in North Rhine-Westphalia also the planned ones, marked "(geplant)". Forest functions from
 Brandenburg (Naturwald, Totalreservat, closed areas, Erholungswald), Hamburg (Bannwald, Erholungswald), North
 Rhine-Westphalia (Naturwaldzellen, wilderness development areas), Saarland (Naturwaldzellen, Urwald), Saxony
 (Erholungswald, Naturwaldzellen, Bodenschutzwald) and Schleswig-Holstein (Naturwald), each from open services of
@@ -1096,9 +1099,9 @@ phone numbers. freemapper takes none of it: it keeps only the names of the offic
   points asked. The drinking water zones of the service lie in the forest only. `permits.json` marks such a source
   with `"sampled": true`.
 - Who owns a private or municipal forest is in no open data.
-- Water protection areas are in for Berlin, Brandenburg, Hamburg, Hesse, North Rhine-Westphalia, Saarland,
-  Schleswig-Holstein and, in the forest, Saxony; monuments for Berlin, Hamburg and Saarland. The other states
-  follow when an open service with a licence is found.
+- Water protection areas are missing only in Baden-Württemberg: its service names no licence, and the BfG has no
+  data from there. The BfG's areas have no zone; whether an event is possible, the lower water authority says.
+  Monuments come from Berlin, Hamburg and Saarland.
 
 ### Data sources and licences
 
@@ -1110,6 +1113,7 @@ phone numbers. freemapper takes none of it: it keeps only the names of the offic
 | Geoportal Berlin: Bezirk borders, green spaces, Liegenschaftsplan, monuments, protected objects, forest administration (Berlin only) | `gdi.berlin.de` | `Für die Nutzung der Daten ist die Datenlizenz Deutschland - Zero - Version 2.0 anzuwenden. Die Lizenz ist über https://www.govdata.de/dl-de/zero-2-0 abrufbar.` |
 | Geoportal Hamburg: Bezirk borders, Grünplan, monuments, forest in Hamburg, forest functions, water protection areas (Hamburg only) | `geodienste.hamburg.de` | per service `Datenlizenz Deutschland Namensnennung 2.0, Quellenvermerk: Freie und Hansestadt Hamburg, <office>` with the office the service names |
 | Umweltportal Schleswig-Holstein: state forest with its Reviere, Naturwald, water protection areas (Schleswig-Holstein only) | `umweltgeodienste.schleswig-holstein.de` | `Quellenvermerk: LfU SH; Lizenz: Creative Commons Namensnennung 4.0 International (CC BY 4.0)` |
+| Bundesanstalt für Gewässerkunde (BfG), WasserBLIcK: drinking water and medicinal spring protection areas (Bavaria, Lower Saxony, Bremen, Mecklenburg-Vorpommern, Rhineland-Palatinate, Saxony-Anhalt and Saxony only) | `geoportal.bafg.de` | `© WasserBLIcK/BfG und Zuständige Behörden der Länder, <Jahr>; Lizenz: Creative Commons Namensnennung – 4.0 International (CC BY 4.0)` |
 | Staatsbetrieb Sachsenforst: Forstbezirke and Reviere, Erholungswald, Naturwaldzellen, Bodenschutzwald, drinking water protection zones in the forest (Saxony only) | `www.forsten.sachsen.de` | `Datenlizenz Deutschland 2.0 – Namensnennung (dl-de/by-2-0) unter Angabe der Quelle: "Geodaten Sachsenforst"` |
 | Geoportal Saarland: Reviere of the state forest, water protection areas, Naturwaldzellen, Urwald, listed buildings (Saarland only) | `geoportal.saarland.de` | `Quellenvermerk: © GDI-SL (<year>); Lizenz: Creative Commons Namensnennung 4.0 International (CC BY 4.0)` |
 | Landesamt für Umwelt Brandenburg: water protection areas (Brandenburg only) | `data.geobasis-bb.de` | `Landesamt für Umwelt Brandenburg (LfU), Creative Commons Namensnennung 4.0 International (CC BY 4.0)` |
@@ -1125,7 +1129,7 @@ name of the service, its terms of use and its access note. Keep the lines when y
 freemapper sends the federal services, the Geoportale Berlin and Hamburg and the Landesbetrieb Forst Brandenburg only the
 rectangle around the map area and its fixed name (User-Agent). From Wald und Holz NRW it downloads the files for
 the whole state and cuts them itself; only the name goes there. Sachsenforst gets the points asked instead of the
-rectangle. It asks no other server for the notes. It asks
+rectangle, the BfG the rectangle. It asks no other server for the notes. It asks
 the services of a state only for a map area that lies there, and only through the hosts the adapter of that
 state names. `adapters allow-host` does not apply to the federal
 services.
