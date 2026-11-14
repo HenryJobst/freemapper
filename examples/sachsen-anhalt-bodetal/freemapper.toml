@@ -5,6 +5,7 @@ buffer_m = 100.0
 crs = 25832
 provider = "lvermgeo"
 title = "Bodetal bei Thale"
+contour_interval_m = 10.0
 tiles = []
 
 [map_area]
@@ -43,3 +44,6 @@ bbox = [638765.268, 5733152.004, 640191.989, 5734284.331]
 fetched = "2026-11-13"
 bbox = [638765.268, 5733152.004, 640191.989, 5734284.331]
 date = "13.08.2024"
+
+[contours]
+interval_m = 10.0
