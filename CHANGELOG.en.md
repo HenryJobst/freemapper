@@ -6,6 +6,10 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
+### Fixed
+
+- Permit notes: the classified roads were missing from every fetch. Reading the OSM extract kept only findings whose area meets the map area, and a road is a line. The bug came with the road hint and was in no release yet.
+
 ## [0.20.0] - 2026-11-14
 
 ### Added

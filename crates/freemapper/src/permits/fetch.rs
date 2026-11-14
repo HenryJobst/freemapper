@@ -332,7 +332,13 @@ fn osm_findings(
             }
         };
         for finding in findings(features) {
-            if finding.geometry.intersects(&area.polygon) && seen.insert(finding.osm_id.clone()) {
+            // A road is a line (ADR 0133), every other finding an area.
+            let on_map = if finding.line.is_empty() {
+                finding.geometry.intersects(&area.polygon)
+            } else {
+                geo_types::LineString::new(finding.line.clone()).intersects(&area.polygon)
+            };
+            if on_map && seen.insert(finding.osm_id.clone()) {
                 found.push(finding);
             }
         }
@@ -888,6 +894,53 @@ mod tests {
         // One query per layer of Brandenburg's three sources: the Reviere (tried again, as an
         // empty JSON is no GML), the five forest functions and the water protection zip.
         assert_eq!(regional.len(), 7, "{log:?}");
+    }
+
+    /// A classified road is read from the extract as a line and kept when it crosses the map
+    /// area, though it has no area; offline reads it back. Before this, roads were dropped
+    /// because only areas were tested against the map (ADR 0133).
+    #[test]
+    fn a_road_across_the_map_area_is_read_from_the_extract() {
+        let (dir, project) = project();
+        let nodes: &[PbfNode<'_>] = &[
+            // Across the map area, west to east at its middle.
+            (21, 52.3855, 12.980, &[]),
+            (22, 52.3855, 13.000, &[]),
+            // Beside it.
+            (23, 52.395, 12.980, &[]),
+            (24, 52.395, 13.000, &[]),
+        ];
+        let ways: &[PbfWay<'_>] = &[
+            (30, &[21, 22], &[("highway", "primary"), ("ref", "B 1")]),
+            (31, &[23, 24], &[("highway", "secondary"), ("ref", "L 90")]),
+        ];
+        let (root, cache) = empty_cache();
+        std::fs::create_dir_all(cache.osm_dir()).unwrap();
+        std::fs::write(
+            cache.osm_dir().join("brandenburg_2026-11-06.osm.pbf"),
+            osm_pbf_with(nodes, ways, &[]),
+        )
+        .unwrap();
+        let fetcher = MapFetcher::default();
+        serve_sources(&fetcher, &project);
+        let online = fetch(&project, dir.path(), &fetcher, &cache, false)
+            .0
+            .unwrap();
+        let roads = |inputs: &Inputs| -> Vec<(String, Option<String>, usize)> {
+            inputs
+                .osm
+                .items()
+                .iter()
+                .filter(|f| f.kind == crate::permits::osm::OsmFindingKind::Road)
+                .map(|f| (f.osm_id.clone(), f.road_ref.clone(), f.line.len()))
+                .collect()
+        };
+        assert_eq!(roads(&online), [("way/30".into(), Some("B 1".into()), 2)]);
+        let offline = fetch(&project, dir.path(), &fetcher, &cache, true)
+            .0
+            .unwrap();
+        assert_eq!(roads(&offline), roads(&online));
+        drop(root);
     }
 
     #[test]

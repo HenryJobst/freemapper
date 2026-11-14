@@ -6,6 +6,10 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+### Behoben
+
+- Genehmigungshinweise: Die klassifizierten Straßen fehlten in jedem Abruf. Beim Lesen des OSM-Auszugs behielt freemapper nur Funde, deren Fläche das Kartengebiet schneidet, und eine Straße ist eine Linie. Der Fehler kam mit dem Straßenhinweis und war noch in keiner Version.
+
 ## [0.20.0] - 2026-11-14
 
 ### Hinzugefügt
