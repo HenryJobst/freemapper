@@ -6,6 +6,8 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-11-14
+
 ### Added
 
 - Bavaria (ADR 0123): maps in all of Bavaria, in UTM zone 32, also east of 12° E. The orthophoto comes from the map service of the Bayerische Vermessungsverwaltung, with the date of the flight. freemapper reads the terrain model (DGM1) tile by tile, about 2.8 MB each. Bavaria has no surface model at 1 m; freemapper takes the DOM20 of 20 cm (about 45 MB per km²), reduces it to 1 m and keeps only the reduced tiles. Bavaria has no service for its cadastre. So buildings and canopies come from the LoD2 tiles, one file per 2 km square (about 3 MB in the country, 60 to 160 MB in a city centre), and the land use from the file of each Kreis at the area (2 to 13 MB). Bridges and walls in LoD2 do not go onto the map. The estimate before the run lists all five downloads. freemapper downloads a cached file again only when the server has a newer one; offline (`--offline`) the same map is made. Stairs, walls and embankments from the cadastre and vegetation from point clouds are not there for Bavaria yet. Examples: the old town of Regensburg (sprint map) and the Schmausenbuck in the Nürnberger Reichswald (forest map). Thuringia is now the only state without data sources; the warning for areas beyond the coverage names Thuringia alone.

@@ -48,13 +48,13 @@ step by step, each pinned to a fixed version, instead of copying the code.
 
 ## Status
 
-The current version is [v0.18.0](https://github.com/HenryJobst/freemapper/releases/tag/v0.18.0) of
-13 November 2026 (see the [changes](CHANGELOG.en.md) for what is new).
+The current version is [v0.19.0](https://github.com/HenryJobst/freemapper/releases/tag/v0.19.0) of
+14 November 2026 (see the [changes](CHANGELOG.en.md) for what is new).
 
 freemapper makes schoolyard and
 sprint maps for fifteen states: Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse,
 Schleswig-Holstein, Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony,
-Rhineland-Palatinate, Saarland, Baden-Württemberg, Bremen and Bavaria (Bavaria new since v0.18.0, not released yet). All maps show water, and the colours follow the IOF printing definitions of
+Rhineland-Palatinate, Saarland, Baden-Württemberg, Bremen and Bavaria. All maps show water, and the colours follow the IOF printing definitions of
 2024. On request freemapper also makes an OCAD starting point (`--ocad`) and a PDF map
 (`--pdf`, with candidates `--pdf-candidates`). Before downloading, freemapper
 checks the free disk space. Berlin maps get canopies, stairs, walls, fences, hedges, trees and the
