@@ -171,3 +171,4 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0123](0123-bavaria-the-cadastre-from-files.md) | Bavaria: the cadastre from files | Accepted | 2026-11-14 |
 | [0124](0124-forest-administrations-in-the-permit-notes.md) | Forest administrations in the permit notes | Accepted | 2026-11-14 |
 | [0125](0125-steep-forest-gets-10-m-contours.md) | A steep forest map gets contours every 10 m | Accepted | 2026-11-14 |
+| [0127](0127-permit-notes-follow-the-map-area.md) | Permit notes follow the map area | Accepted | 2026-11-14 |

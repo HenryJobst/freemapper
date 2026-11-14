@@ -13,6 +13,7 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ### Changed
 
+- Permit notes follow the map area, not the kind of map (ADR 0127). The forest hints and the section "Forest administration" come as soon as OpenStreetMap has forest in the area, also on a sprint or schoolyard map, and also when that cannot be told without an OSM extract. A map in the middle of a town no longer gets them, even when it lies in a Revier of Brandenburg. The operator of a school in the area is now named on every kind of map, not only on schoolyard maps.
 - Examples: the Bode valley and the Bastei have contours every 10 m instead of 5 m; on the steep slopes they ran together into a brown area. The rocks of the Bastei come from OSM, not from the terrain model as the examples overview said so far.
 
 ## [0.19.0] - 2026-11-14

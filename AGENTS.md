@@ -289,8 +289,10 @@ The cache is shared by all projects: macOS `~/Library/Caches/freemapper`, Linux 
 - The maps carry the credit lines the data licences require. Keep them when the map is passed on. With
   `pdf_sources: "credit-only"` the PDF shows only the freemapper line, and the user must name the sources in
   another way (ATTRIBUTION.txt lists them).
-- The permit notes are a hint, not legal advice and not a permit. On a forest map they say that the forest owners
-  must agree; in Brandenburg, Berlin and North Rhine-Westphalia they also name the forest office. The authorities decide; the BfN data are merged
+- The permit notes are a hint, not legal advice and not a permit. They follow what lies in the map area: where it
+  holds forest (or OSM cannot tell), they say that the forest owners must agree, and in Brandenburg, Berlin and
+  North Rhine-Westphalia they also name the forest office; a school on the map brings its operator on every
+  kind of map. The authorities decide; the BfN data are merged
   once a year and "Nicht für Planungszwecke geeignet." (not suitable for planning). Say this when you pass them on.
 
 ## Troubleshooting

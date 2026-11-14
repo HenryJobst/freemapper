@@ -53,7 +53,13 @@ const OPERATED: &[(&str, &[&str])] = &[
 pub enum OsmFindingKind {
     ProtectedArea,
     Operated,
+    /// Forest without an operator or owner: it tells only that the map area holds forest,
+    /// which decides whether the forest hints apply (ADR 0127).
+    Forest,
 }
+
+/// The objects that are forest, as `key=value`.
+pub const FOREST_OBJECTS: [&str; 2] = ["landuse=forest", "natural=wood"];
 
 /// One object of the selection. The geometry is not serialized here; the permit store writes
 /// it as GeoJSON itself.
@@ -114,7 +120,10 @@ fn classify(tags: &[(String, String)]) -> Option<(OsmFindingKind, String)> {
         }
     }
     if tag(tags, "operator").is_none() && tag(tags, "owner").is_none() {
-        return None;
+        return FOREST_OBJECTS.iter().find_map(|object| {
+            let (key, value) = object.split_once('=')?;
+            (tag(tags, key) == Some(value)).then(|| (OsmFindingKind::Forest, object.to_string()))
+        });
     }
     for (key, values) in OPERATED {
         if let Some(found) = tag(tags, key).filter(|v| values.contains(v)) {
@@ -324,6 +333,25 @@ mod tests {
     #[test]
     fn a_park_without_operator_or_owner_is_not() {
         assert!(!wants(&tags(&[("leisure", "park")])));
+    }
+
+    /// A wood or forest without operator counts as forest: it decides whether the forest
+    /// hints apply (ADR 0127). With an operator it stays an operated object.
+    #[test]
+    fn forest_without_operator_is_forest() {
+        for (key, value) in [("landuse", "forest"), ("natural", "wood")] {
+            let found = findings(vec![feature("way/3", &[(key, value)], square())]);
+            assert_eq!(found.len(), 1, "{key}={value}");
+            assert_eq!(found[0].kind, OsmFindingKind::Forest);
+            assert_eq!(found[0].object, format!("{key}={value}"));
+        }
+        let run = findings(vec![feature(
+            "way/4",
+            &[("landuse", "forest"), ("operator", "Landesforst")],
+            square(),
+        )]);
+        assert_eq!(run[0].kind, OsmFindingKind::Operated);
+        assert!(!wants(&tags(&[("natural", "scrub")])));
     }
 
     #[test]
