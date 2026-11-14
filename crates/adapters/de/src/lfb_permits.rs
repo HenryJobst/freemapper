@@ -11,7 +11,8 @@
 use std::path::Path;
 
 use freemapper_adapter_api::permits::{
-    FindingKind, PermitFinding, PermitSection, PermitSource, PermitSourceInfo, Wording,
+    FindingKind, ForestFunctionKind, PermitFinding, PermitSection, PermitSource, PermitSourceInfo,
+    Wording,
 };
 use freemapper_sources::geojson_wfs::{GeoJsonWfs, LatLonBox, get_gml_features};
 use geo_types::Rect;
@@ -19,6 +20,7 @@ use serde_json::Value;
 
 use crate::berlin_permits::geometry;
 use crate::fetch::{FetchError, Fetcher};
+use crate::wfs_permits::{Layer, Reading};
 
 /// The credit the licence asks for: the Quellenvermerk the LFB gives in its metadata, and the
 /// licence of GovData's entry "Forstreviere im Land Brandenburg".
@@ -47,22 +49,86 @@ pub struct LfbReviere {
 
 /// The one source of Brandenburg.
 pub fn sources() -> Vec<Box<dyn PermitSource>> {
-    vec![Box::new(LfbReviere {
-        info: PermitSourceInfo {
-            key: "reviere",
-            label: Wording { en: LFB, de: LFB },
-            what: Wording {
-                en: "forest districts (Reviere) with their Oberförsterei",
-                de: "Forstreviere mit ihrer Oberförsterei",
+    vec![
+        Box::new(LfbReviere {
+            info: PermitSourceInfo {
+                key: "reviere",
+                label: Wording { en: LFB, de: LFB },
+                what: Wording {
+                    en: "forest districts (Reviere) with their Oberförsterei",
+                    de: "Forstreviere mit ihrer Oberförsterei",
+                },
+                credit: CREDIT,
+                note: None,
+                layers: &["reviere"],
+                sections: &[PermitSection::ForestUnits],
+                offices: None,
             },
-            credit: CREDIT,
-            note: None,
-            layers: &["reviere"],
-            sections: &[PermitSection::ForestUnits],
-            offices: None,
-        },
-    })]
+        }),
+        waldfunktionen(),
+    ]
 }
+
+/// The forest functions of the LFB (ADR 0130), a GeoServer WFS that answers GeoJSON:
+/// Naturwald, Totalreservate, areas closed to the public and Erholungswald (GovData:
+/// dl-de/by-2-0, "Landesbetrieb Forst Brandenburg").
+fn waldfunktionen() -> Box<dyn PermitSource> {
+    crate::wfs_permits::source(
+        "waldfunktionen",
+        Wording { en: LFB, de: LFB },
+        Wording {
+            en: "forest functions (Naturwald, Totalreservat, closed areas, Erholungswald)",
+            de: "Waldfunktionen (Naturwald, Totalreservat, nicht betretbare Flächen, Erholungswald)",
+        },
+        CREDIT,
+        &[
+            "naturwald",
+            "totalreservat",
+            "nicht-betretbar",
+            "erholungswald",
+            "erholungswald-rechtlich",
+        ],
+        &[PermitSection::ForestFunctions],
+        "https://www.brandenburg-forst.de/geoserver/IWFK/ows",
+        "application/json",
+        WALDFUNKTIONEN,
+    )
+}
+
+const fn function(kind: ForestFunctionKind, name: &'static str) -> Reading {
+    Reading::Function {
+        kind,
+        name: Some(name),
+    }
+}
+
+const WALDFUNKTIONEN: &[Layer] = &[
+    (
+        "naturwald",
+        "IWFK:wfk_nwr",
+        function(ForestFunctionKind::Natural, "name"),
+    ),
+    (
+        "totalreservat",
+        "IWFK:lfu_trv",
+        function(ForestFunctionKind::Natural, "sg_name"),
+    ),
+    (
+        "nicht-betretbar",
+        "IWFK:wfk_nbt",
+        function(ForestFunctionKind::Closed, "rechtsgrund"),
+    ),
+    (
+        "erholungswald",
+        "IWFK:wfk_ewf",
+        function(ForestFunctionKind::Recreation, "name"),
+    ),
+    (
+        "erholungswald-rechtlich",
+        "IWFK:wfk_ewr",
+        function(ForestFunctionKind::Recreation, "name"),
+    ),
+];
 
 impl PermitSource for LfbReviere {
     fn info(&self) -> &PermitSourceInfo {

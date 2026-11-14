@@ -393,8 +393,11 @@ mod tests {
         br#"{"type":"FeatureCollection","features":[]}"#.to_vec()
     }
 
-    /// The service of Brandenburg's forest offices, which answers GML (ADR 0124).
+    /// The host of Brandenburg's forest services: the forest offices answer GML (ADR 0124), the
+    /// forest functions GeoJSON (ADR 0130).
     const BRANDENBURG_FOREST: &str = "https://www.brandenburg-forst.de/";
+    const BRANDENBURG_OFFICES: &str = "https://www.brandenburg-forst.de/geoserver/IFUEK/";
+    const BRANDENBURG_FUNCTIONS: &str = "https://www.brandenburg-forst.de/geoserver/IWFK/";
 
     fn empty_gml_collection() -> Vec<u8> {
         br#"<wfs:FeatureCollection xmlns:wfs="http://www.opengis.net/wfs/2.0"/>"#.to_vec()
@@ -437,7 +440,8 @@ mod tests {
         fetch_vg250(&probe, &bbox, &part);
         fetch_bfn(&probe, &bbox, &part);
         // The map area lies in Brandenburg, whose forest offices answer GML (ADR 0124).
-        fetcher.insert_prefix(BRANDENBURG_FOREST, empty_gml_collection());
+        fetcher.insert_prefix(BRANDENBURG_OFFICES, empty_gml_collection());
+        fetcher.insert_prefix(BRANDENBURG_FUNCTIONS, empty_collection());
         for url in probe.log.borrow().iter() {
             let body = if url.contains("Landschaftsschutzgebiete") {
                 fixture("bfn-lsg-sanssouci.geojson")
@@ -859,8 +863,9 @@ mod tests {
                 regional.insert(url);
             }
         }
-        // One query for the Reviere, tried again because an empty JSON is no GML.
-        assert_eq!(regional.len(), 1, "{log:?}");
+        // One query per layer of Brandenburg's two sources: the Reviere (tried again, as an
+        // empty JSON is no GML) and the five forest functions.
+        assert_eq!(regional.len(), 6, "{log:?}");
     }
 
     #[test]
@@ -978,6 +983,7 @@ mod tests {
             ("denkmale:denkmale", "denkmale.geojson"),
             ("schutzgebiete:a_nd", "naturdenkmale.geojson"),
             ("forstverwalt:b_forstverwalt", "forstverwalt.geojson"),
+            ("wsg:wsg", "wsg.geojson"),
         ];
         for url in probe.log.borrow().iter() {
             let body = by_type
@@ -994,7 +1000,7 @@ mod tests {
 
     /// The fixture file the fetcher of [`serve_berlin`] answers for a layer of Berlin's sources;
     /// the other layers answer empty.
-    const BERLIN_LAYER_FILES: [(&str, &str); 7] = [
+    const BERLIN_LAYER_FILES: [(&str, &str); 8] = [
         ("bezirksgrenzen", "bezirksgrenzen.geojson"),
         ("gruenanlagen", "gruenanlagen.geojson"),
         ("spielplaetze", "spielplaetze.geojson"),
@@ -1002,6 +1008,7 @@ mod tests {
         ("denkmale", "denkmale.geojson"),
         ("a-nd", "naturdenkmale.geojson"),
         ("forstverwalt", "forstverwalt.geojson"),
+        ("wsg", "wsg.geojson"),
     ];
 
     /// The findings of `source` as the adapter parses the fixture files themselves, without
@@ -1204,12 +1211,13 @@ mod tests {
                 ("denkmale", true),
                 ("schutzgebiete", true),
                 ("forstverwalt", true),
+                ("wsg", true),
             ]
         );
         let policy = berlin().policy().unwrap();
         let log = fetcher.log.borrow();
         let berlin_urls: Vec<&String> = log.iter().filter(|u| u.contains("berlin.de")).collect();
-        assert_eq!(berlin_urls.len(), 10, "{berlin_urls:#?}");
+        assert_eq!(berlin_urls.len(), 11, "{berlin_urls:#?}");
         for url in &berlin_urls {
             assert!(
                 url.starts_with("https://gdi.berlin.de/services/wfs/"),
@@ -1295,6 +1303,7 @@ mod tests {
                 ("denkmale", false),
                 ("schutzgebiete", true),
                 ("forstverwalt", true),
+                ("wsg", true),
             ]
         );
         assert!(is_read(&inputs.admin) && is_read(&inputs.protected));

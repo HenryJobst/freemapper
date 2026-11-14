@@ -745,10 +745,10 @@ mcp-error-content = Cannot read the content setting: { $detail }
 ## `permits-*` id is used. The quote "Nicht für Planungszwecke geeignet." is the BfN's own
 ## wording and stays German in every language.
 
-help-permits = Write the permit notes of a project (permits.md and permits.json): the administrative units, protected areas and operators the map area touches, and whom that usually means asking. It asks the BfN and the BKG, for a map area in Berlin also the Geoportal Berlin (gdi.berlin.de), in Hamburg the Geoportal Hamburg (geodienste.hamburg.de), in Brandenburg the Landesbetrieb Forst (www.brandenburg-forst.de), in North Rhine-Westphalia Wald und Holz NRW (www.opengeodata.nrw.de, about 17 MB), each through the hosts of the state's adapter, and reads the OSM extract already cached; --offline uses what was fetched before
+help-permits = Write the permit notes of a project (permits.md and permits.json): the administrative units, protected areas and operators the map area touches, and whom that usually means asking. It asks the BfN and the BKG and, where the state of the map area has open services of its own, those through the hosts of its adapter (list in the manual, chapter 12); in North Rhine-Westphalia it downloads about 17 MB for this. It reads the OSM extract already cached; --offline uses what was fetched before
 help-permits-dir = Project folder
 help-permits-offline = Use the data fetched before only, without network access
-help-run-permits = Also write the permit notes (permits.md and permits.json) after the map; asks the BfN and the BKG, in Berlin and Hamburg also their Geoportal, in Brandenburg and North Rhine-Westphalia the forest administration. A failure there is a warning and the map stays
+help-run-permits = Also write the permit notes (permits.md and permits.json) after the map; asks the BfN, the BKG and the open services of the state (manual, chapter 12). A failure there is a warning and the map stays
 cli-wrote-permits = Wrote the permit notes { $path }
 cli-summary-wrote-permits = Wrote the permit notes { $path }
 cli-permits-failed = the permit notes could not be written: { $error }

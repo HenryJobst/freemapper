@@ -13,7 +13,7 @@ maintainers = ["github:HenryJobst"]
 last_verified = "2026-11-12"
 
 [net]
-hosts = ["www.gds.hessen.de", "gds.hessen.de", "www.gds-srv.hessen.de"]
+hosts = ["www.gds.hessen.de", "gds.hessen.de", "www.gds-srv.hessen.de", "geodienste-umwelt.hessen.de"]
 
 [boundary]
 file = "boundary.geojson"
