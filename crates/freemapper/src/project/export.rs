@@ -560,6 +560,53 @@ pub fn export_candidates_pdf_from(
     write_pdf_file(dir, documents, true, scale_bar, sources)
 }
 
+/// The objects of the training map of a forest map, its rock generalized at the training level:
+/// the cliffs of the map and the visible candidates together, the contours cut below the rock
+/// drawn, and the knolls and depressions on the rock left out.
+fn training_rock(
+    dir: &Path,
+    objects: &[&MapObject],
+    documents: &StarterDocuments,
+) -> Vec<MapObject> {
+    use crate::build::cliffs::{Ground, Level, generalize_cliffs, hide_landforms_on_rock};
+    use crate::build::line_cuts::{CONTOUR_CODES, cut_lines_at_ways};
+    use crate::derive::contours::MIN_LENGTH_MM as CONTOUR_MIN_LENGTH_MM;
+    let georef = &documents.map.georef;
+    let symbol_set = &documents.map.symbol_set;
+    let terrain = read_terrain(dir).or_else(|| {
+        crate::derive::terrain::read_float_raster(&dir.join(TERRAIN_MOSAIC_RELPATH)).ok()
+    });
+    let mut list: Vec<MapObject> = objects.iter().map(|o| (*o).clone()).collect();
+    let mut gone = Vec::new();
+    let rock_seen = crate::derive::terrain::read_float_raster(&dir.join(ROCK_SEEN_RELPATH)).ok();
+    let rock = generalize_cliffs(
+        &mut list,
+        &mut gone,
+        Ground {
+            terrain: terrain.as_ref(),
+            rock_seen: rock_seen.as_ref(),
+        },
+        MapKind::Forest,
+        georef,
+        symbol_set,
+        &Level::TRAINING,
+    );
+    if !rock.stops.is_empty() {
+        let min_contour_m = CONTOUR_MIN_LENGTH_MM
+            .metres(SymbolScale::new(MapKind::Forest, georef.scale_denominator));
+        cut_lines_at_ways(
+            &mut list,
+            &CONTOUR_CODES,
+            &rock.stops,
+            min_contour_m,
+            georef,
+            symbol_set,
+        );
+    }
+    hide_landforms_on_rock(&mut list, &mut gone, &rock.mask, georef);
+    list
+}
+
 /// The file `export_pdf` or `export_candidates_pdf` writes.
 pub fn pdf_path(dir: &Path, candidates: bool) -> PathBuf {
     let map = map_path(dir);
@@ -583,6 +630,14 @@ pub(super) fn write_pdf_file(
     let project = ProjectFile::load(dir)?;
     let symbols = RenderSymbols::from_set(&documents.map.symbol_set);
     let (map, _) = pdf_objects(documents, candidates);
+    // The training map of a forest map generalizes its rock more than the map (ADR 0126): it is
+    // printed as it is and must stay readable; the candidates keep every cliff.
+    let trained = (candidates && project.map_kind == MapKind::Forest)
+        .then(|| training_rock(dir, &map, documents));
+    let map: Vec<&MapObject> = match &trained {
+        Some(objects) => objects.iter().collect(),
+        None => map,
+    };
     // The sheet is built again: its source block follows `sources`, the OOM map keeps the full list.
     let info = PeripheralInfo {
         attribution: pdf_attribution(&documents.info.attribution, &documents.content, sources),
@@ -1152,6 +1207,10 @@ fn read_stored(dir: &Path, project: &ProjectFile, area: &MapArea) -> Result<Stor
                 .then(|| read_float_raster(&dir.join(TERRAIN_MOSAIC_RELPATH)).ok())
                 .flatten()
         }),
+        // Where the orthophoto shows rock: the cliffs it confirms go first (ADR 0126).
+        rock_seen: (project.map_kind == MapKind::Forest)
+            .then(|| crate::derive::terrain::read_float_raster(&dir.join(ROCK_SEEN_RELPATH)).ok())
+            .flatten(),
         contours: read_stored_contours(dir, project)?,
         landforms: read_stored_landforms(dir, project)?,
         vegetation: read_stored_vegetation(dir, project)?,

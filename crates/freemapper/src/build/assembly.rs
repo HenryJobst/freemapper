@@ -27,7 +27,7 @@ use crate::build::berlin::{
 use crate::build::buildings::{building_objects, object_footprints};
 use crate::build::candidates::{Rules, Target, osm_objects};
 use crate::build::canopy::{CANOPY_LAYER, CanopyInput, canopy_objects};
-use crate::build::cliffs::{generalize_cliffs, hide_landforms_on_rock};
+use crate::build::cliffs::{Ground, Level, generalize_cliffs, hide_landforms_on_rock};
 use crate::build::content::{ContentSettings, route};
 use crate::build::contours::{Contours, contour_objects};
 use crate::build::dedup::{
@@ -115,6 +115,8 @@ pub struct Stored {
     pub stair_terrain: Option<Raster<f32>>,
     /// The terrain model the ticks of earth banks follow.
     pub terrain: Option<Raster<f32>>,
+    /// Where the orthophoto shows rock, per metre (forest maps; `derive/rock_seen.rs`).
+    pub rock_seen: Option<Raster<f32>>,
     pub contours: Option<Contours>,
     pub landforms: Option<Landforms>,
     pub vegetation: Option<Vegetation>,
@@ -466,6 +468,7 @@ pub fn build(frame: Frame, stored: Stored, saved: &ContentSettings) -> Result<Bu
     let Stored {
         land_use,
         terrain,
+        rock_seen,
         contours,
         landforms,
         vegetation,
@@ -487,6 +490,7 @@ pub fn build(frame: Frame, stored: Stored, saved: &ContentSettings) -> Result<Bu
         water: water.union,
         clip,
         terrain,
+        rock_seen,
     };
     // The duplicates between the sources go and the points are generalized.
     let Resolved {
@@ -603,6 +607,7 @@ struct Surroundings {
     pub water: MultiPolygon<f64>,
     pub clip: BoundingBox,
     pub terrain: Option<Raster<f32>>,
+    pub rock_seen: Option<Raster<f32>>,
 }
 
 /// What the sources drew, before the duplicates between them are resolved ([`resolve`]).
@@ -774,6 +779,7 @@ pub struct Built {
     water: MultiPolygon<f64>,
     clip: BoundingBox,
     terrain: Arc<Option<Raster<f32>>>,
+    rock_seen: Arc<Option<Raster<f32>>>,
     /// The objects of the map and of the candidates, as the build put them.
     map: Vec<MapObject>,
     candidates: Vec<MapObject>,
@@ -806,6 +812,7 @@ impl Built {
             water,
             clip,
             terrain,
+            rock_seen,
         } = surroundings;
         // The borders for the project's own settings, from the paved areas and kerbs `route`
         // leaves ([`PavedBorders`]): it sends each 501.x object by the object alone and keeps the
@@ -826,6 +833,7 @@ impl Built {
             water,
             clip,
             terrain: Arc::new(terrain),
+            rock_seen: Arc::new(rock_seen),
             map,
             candidates,
             points: 0..0,
@@ -867,10 +875,14 @@ impl Built {
         let rock = generalize_cliffs(
             &mut map,
             &mut candidates,
-            self.terrain.as_ref().as_ref(),
+            Ground {
+                terrain: self.terrain.as_ref().as_ref(),
+                rock_seen: self.rock_seen.as_ref().as_ref(),
+            },
             self.map_kind,
             georef,
             symbol_set,
+            &Level::MAP,
         );
         // Contours and north lines stop at paving and paths (`build/line_cuts.rs`).
         let ways = way_footprints(&map, &candidates, &map, self.map_kind, georef, symbol_set);
@@ -1215,6 +1227,7 @@ mod tests {
             water: MultiPolygon::new(Vec::new()),
             clip: f.clip,
             terrain: None,
+            rock_seen: None,
         }
     }
 

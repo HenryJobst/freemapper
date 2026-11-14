@@ -587,7 +587,10 @@ freemapper run dammheide --pdf-candidates
   are smoothed, so that the zigzag of the OSM lines goes. What goes is in the candidates map, tagged
   `freemapper:generalized` with the reason; the training PDF leaves it out. The contours stop below the cliffs drawn
   and run on elsewhere; knolls and depressions of the terrain on the rock are hidden. For the heights a forest map
-  in a state whose terrain model comes in tiles keeps it as `data/terrain.tif`.
+  in a state whose terrain model comes in tiles keeps it as `data/terrain.tif`. A cliff the orthophoto shows as rock
+  is kept first (`freemapper:rock-seen`); one it does not show loses nothing, since most faces are vertical or under
+  trees. The training PDF generalizes the rock more than the map: cliffs of 5 m, no top lines, longer pieces; the
+  candidates keep every OSM cliff.
 - Buildings, water, walls, fences, power lines, railways and out-of-bounds areas (520) come as on the sprint map.
   Benches, bollards, street lamps and other street furniture, trees from tree cadastres and single OSM trees are
   left out. Only a tree tagged `denotation=natural_monument`

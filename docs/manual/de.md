@@ -613,7 +613,10 @@ freemapper run dammheide --pdf-candidates
   dem Grund im Tag `freemapper:generalized`; die Trainings-PDF lässt es weg. Die Höhenlinien enden unter den
   gezeichneten Wänden und laufen sonst weiter; Kuppen und Senken aus dem Geländemodell auf dem Fels werden
   ausgeblendet. Für die Höhen behält eine Waldkarte in einem Bundesland, dessen Geländemodell in Kacheln kommt, es
-  als `data/terrain.tif`.
+  als `data/terrain.tif`. Eine Wand, an der das Orthofoto Fels zeigt, bleibt zuerst (`freemapper:rock-seen`); eine,
+  an der es keinen zeigt, verliert nichts, denn die meisten Wände sind senkrecht oder stehen unter Bäumen. Die
+  Trainings-PDF generalisiert den Fels stärker als die Karte: Wände ab 5 m, keine Oberkanten ohne Zacken, längere
+  Stücke; die Kandidatenkarte behält alle OSM-Wände.
 - Gebäude, Gewässer, Mauern, Zäune, Stromleitungen, Bahnlinien und Sperrgebiete (520) kommen wie bei der
   Sprintkarte. Bänke, Poller, Laternen und anderes Stadtmobiliar fehlen, ebenso Bäume aus Baumkatastern und
   einzelne OSM-Bäume. Nur ein Baum mit
