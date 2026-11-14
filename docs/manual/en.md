@@ -938,7 +938,7 @@ A new fetch replaces the files. One that reads no source at all leaves them as t
 
 ### What the file holds
 
-It starts with the note that it is not legal advice. Six sections follow:
+It starts with the note that it is not legal advice. These sections follow:
 
 - "Administrative units" names the state, the Kreis or kreisfreie Stadt, the Amt or Verwaltungsgemeinschaft
   where there is one, and the Gemeinde, each with its share of the map area in percent. A unit that touches
@@ -954,6 +954,11 @@ It starts with the note that it is not legal advice. Six sections follow:
   residential land or houses, listed houses included, and no gardens that belong to a home or are closed to the
   public (`garden:type=residential` or `private`, `access=private` or `no`). It reads no phone numbers or e-mail
   addresses either.
+- "Classified roads according to OpenStreetMap" names the Autobahnen, Bundes-, Landes- or Staats- and
+  Kreisstraßen that run through the map area, with their number (`ref` in OSM, such as "B 96" or "St 2045").
+  For each class a hint says that the road traffic authority orders a closure or a crossing with marshals, and
+  who usually keeps the road. A course may cross an Autobahn only on bridges or through underpasses. Municipal
+  roads without a number are not named; the Gemeinde is in charge of them (see the hint on the Ordnungsamt).
 - In Berlin up to five sections from the Geoportal Berlin follow "Administrative units" (see "Berlin" below).
 - In Hamburg up to five sections from the Geoportal Hamburg follow (see "Hamburg" below).
 - In Brandenburg, Berlin, Hamburg and North Rhine-Westphalia "Forest administration" follows, in North Rhine-Westphalia

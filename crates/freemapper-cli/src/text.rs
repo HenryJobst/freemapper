@@ -317,6 +317,8 @@ mod tests {
             ("administration", v("Landesbetrieb Forst Brandenburg")),
             ("units", v("Revier Werneuchen")),
             ("offices", v("hamburg")),
+            ("class", v("bundesstrasse")),
+            ("refs", v("B 1, B 5")),
             ("inner", v("no")),
             ("zone", v("Schutzzone III")),
             ("names", v("von hoher Bedeutung")),

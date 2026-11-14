@@ -56,7 +56,61 @@ pub enum OsmFindingKind {
     /// Forest without an operator or owner: it tells only that the map area holds forest,
     /// which decides whether the forest hints apply (ADR 0127).
     Forest,
+    /// A classified road (Autobahn, Bundes-, Landes-, Staats- or Kreisstraße) by its `ref`, a
+    /// line: who orders a closure and who keeps the road (ADR 0133).
+    Road,
 }
+
+/// The classes of road the notes name, by the letters a `ref` starts with in Germany.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum RoadClass {
+    Autobahn,
+    Bundesstrasse,
+    /// A Landesstraße, or a Staatsstraße (Bavaria `St`, Saxony `S`).
+    Landesstrasse,
+    Kreisstrasse,
+}
+
+impl RoadClass {
+    /// The class of one `ref` ("B 1", "L30", "St 2045", "K 12"); `None` for anything else, a
+    /// European route or a town's own numbering among them.
+    pub fn of(reference: &str) -> Option<Self> {
+        let reference = reference.trim();
+        let letters: String = reference
+            .chars()
+            .take_while(|c| c.is_ascii_alphabetic())
+            .collect();
+        let rest = reference[letters.len()..].trim_start();
+        if !rest.starts_with(|c: char| c.is_ascii_digit()) {
+            return None;
+        }
+        match letters.as_str() {
+            "A" => Some(RoadClass::Autobahn),
+            "B" => Some(RoadClass::Bundesstrasse),
+            "L" | "S" | "St" => Some(RoadClass::Landesstrasse),
+            "K" => Some(RoadClass::Kreisstrasse),
+            _ => None,
+        }
+    }
+}
+
+/// The values of `highway` a classified road can have; footways and tracks with a `ref` are
+/// no roads of a class.
+const ROADS: &[&str] = &[
+    "motorway",
+    "trunk",
+    "primary",
+    "secondary",
+    "tertiary",
+    "unclassified",
+    "residential",
+    "motorway_link",
+    "trunk_link",
+    "primary_link",
+    "secondary_link",
+    "tertiary_link",
+];
 
 /// The objects that are forest, as `key=value`.
 pub const FOREST_OBJECTS: [&str; 2] = ["landuse=forest", "natural=wood"];
@@ -74,9 +128,31 @@ pub struct OsmFinding {
     pub owner: Option<String>,
     pub protect_class: Option<String>,
     pub protection_title: Option<String>,
+    /// The `ref` of a road, as OSM writes it ("B 1;B 5").
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub road_ref: Option<String>,
     /// WGS 84, x = longitude, y = latitude.
     #[serde(skip, default = "empty_area")]
     pub geometry: MultiPolygon<f64>,
+    /// The line of a road, WGS 84; empty for an area.
+    #[serde(skip, default)]
+    pub line: Vec<Coord<f64>>,
+}
+
+impl OsmFinding {
+    /// The classes of the road's `ref`s, each once.
+    pub fn road_classes(&self) -> Vec<(RoadClass, String)> {
+        let mut classes = Vec::new();
+        for part in self.road_ref.iter().flat_map(|r| r.split(';')) {
+            let part = part.trim();
+            if let Some(class) = RoadClass::of(part)
+                && !classes.iter().any(|(_, r): &(RoadClass, String)| r == part)
+            {
+                classes.push((class, part.to_string()));
+            }
+        }
+        classes
+    }
 }
 
 fn empty_area() -> MultiPolygon<f64> {
@@ -118,6 +194,11 @@ fn classify(tags: &[(String, String)]) -> Option<(OsmFindingKind, String)> {
         if tag(tags, key) == Some(value) {
             return Some((OsmFindingKind::ProtectedArea, format!("{key}={value}")));
         }
+    }
+    if let Some(highway) = tag(tags, "highway").filter(|h| ROADS.contains(h))
+        && tag(tags, "ref").is_some_and(|r| r.split(';').any(|p| RoadClass::of(p).is_some()))
+    {
+        return Some((OsmFindingKind::Road, format!("highway={highway}")));
     }
     if tag(tags, "operator").is_none() && tag(tags, "owner").is_none() {
         return FOREST_OBJECTS.iter().find_map(|object| {
@@ -177,8 +258,19 @@ pub fn findings(features: Vec<OsmFeature>) -> Vec<OsmFinding> {
         .into_iter()
         .filter_map(|feature| {
             let (kind, object) = classify(&feature.tags)?;
-            let geometry = area(&feature.geometry)?;
             let text = |key: &str| tag(&feature.tags, key).map(str::to_string);
+            let (geometry, line) = if kind == OsmFindingKind::Road {
+                let OsmGeometry::Line(points) = &feature.geometry else {
+                    return None;
+                };
+                let line: Vec<Coord<f64>> = points
+                    .iter()
+                    .map(|p| Coord { x: p.lon, y: p.lat })
+                    .collect();
+                (empty_area(), line)
+            } else {
+                (area(&feature.geometry)?, Vec::new())
+            };
             Some(OsmFinding {
                 kind,
                 osm_id: feature.id.clone(),
@@ -188,7 +280,11 @@ pub fn findings(features: Vec<OsmFeature>) -> Vec<OsmFinding> {
                 owner: text("owner"),
                 protect_class: text("protect_class"),
                 protection_title: text("protection_title"),
+                road_ref: (kind == OsmFindingKind::Road)
+                    .then(|| text("ref"))
+                    .flatten(),
                 geometry,
+                line,
             })
         })
         .collect()
@@ -327,6 +423,55 @@ mod tests {
         assert!(!wants(&tags(&[
             ("building", "house"),
             ("owner", "Beispiel GmbH")
+        ])));
+    }
+
+    #[test]
+    fn road_classes_come_from_the_ref() {
+        for (reference, class) in [
+            ("A 9", Some(RoadClass::Autobahn)),
+            ("B1", Some(RoadClass::Bundesstrasse)),
+            ("L 30", Some(RoadClass::Landesstrasse)),
+            ("St 2045", Some(RoadClass::Landesstrasse)),
+            ("S 177", Some(RoadClass::Landesstrasse)),
+            ("K 12", Some(RoadClass::Kreisstrasse)),
+            ("E 55", None),
+            ("Ring 1", None),
+            ("K", None),
+        ] {
+            assert_eq!(RoadClass::of(reference), class, "{reference}");
+        }
+    }
+
+    /// A road with a classified `ref` is a line finding; a footway or track with a ref, and a
+    /// road with an unclassified one, are not wanted (ADR 0133).
+    #[test]
+    fn classified_roads_are_lines() {
+        let p = |lat, lon| LatLon { lat, lon };
+        let line = || OsmGeometry::Line(vec![p(52.0, 13.0), p(52.01, 13.01)]);
+        let found = findings(vec![feature(
+            "way/5",
+            &[
+                ("highway", "secondary"),
+                ("ref", "L 30;B 5"),
+                ("name", "Hauptstraße"),
+            ],
+            line(),
+        )]);
+        assert_eq!(found.len(), 1);
+        assert_eq!(found[0].kind, OsmFindingKind::Road);
+        assert_eq!(found[0].line.len(), 2);
+        assert_eq!(
+            found[0].road_classes(),
+            [
+                (RoadClass::Landesstrasse, "L 30".to_string()),
+                (RoadClass::Bundesstrasse, "B 5".to_string())
+            ]
+        );
+        assert!(!wants(&tags(&[("highway", "footway"), ("ref", "B 1")])));
+        assert!(!wants(&tags(&[
+            ("highway", "residential"),
+            ("ref", "E 55")
         ])));
     }
 

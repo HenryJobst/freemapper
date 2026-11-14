@@ -964,6 +964,20 @@ permits-hint-forest-function = { $kind ->
            *[other] {" "}({ $names })
         }. Lassen Sie sie aus dem Lauf heraus.
     }
+permits-section-roads = Klassifizierte Straßen laut OpenStreetMap
+permits-none-roads = Laut OpenStreetMap verläuft keine Autobahn und keine Bundes-, Landes-, Staats- oder Kreisstraße durch das Kartengebiet.
+permits-road-line = { $class ->
+        [autobahn] Autobahn
+        [bundesstrasse] Bundesstraße
+        [landesstrasse] Landes- oder Staatsstraße
+       *[kreisstrasse] Kreisstraße
+    }: { $refs }
+permits-hint-road-class = { $class ->
+        [autobahn] Durch das Kartengebiet führt die Autobahn { $refs }. Ein Lauf darf sie nur auf Brücken oder durch Unterführungen queren.
+        [bundesstrasse] Durch das Kartengebiet führt die Bundesstraße { $refs }. Eine Sperrung oder eine Querung mit Streckenposten ordnet die Straßenverkehrsbehörde an; Straßenbaulastträger ist meist der Bund, vertreten durch die Straßenbauverwaltung des Bundeslandes, in größeren Städten oft die Stadt.
+        [landesstrasse] Durch das Kartengebiet führt die Landes- oder Staatsstraße { $refs }. Eine Sperrung oder eine Querung mit Streckenposten ordnet die Straßenverkehrsbehörde an; Straßenbaulastträger ist meist das Bundesland, in größeren Städten oft die Stadt.
+       *[kreisstrasse] Durch das Kartengebiet führt die Kreisstraße { $refs }. Eine Sperrung oder eine Querung mit Streckenposten ordnet die Straßenverkehrsbehörde an; Straßenbaulastträger ist meist der Kreis, in größeren Städten oft die Stadt.
+    }
 permits-hint-state-forest = { $office ->
         [none] Laut den offenen Daten des Bundeslandes sind { $share } des Kartengebiets Staatswald des Eigentümers „{ $owner }“.
        *[other] Laut den offenen Daten des Bundeslandes sind { $share } des Kartengebiets Staatswald des Eigentümers „{ $owner }“. Zuständig: { $office }.
