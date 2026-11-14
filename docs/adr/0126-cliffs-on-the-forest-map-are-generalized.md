@@ -60,7 +60,7 @@ lines are mostly two walls (a fin or a cleft), not one face drawn twice.
 - `derive` keeps the terrain mosaic of a tile provider as `data/terrain.tif` for every forest map, and the export
   of a forest map reads it when there is no `data/dgm1.tif`. Other maps keep reading only `data/dgm1.tif`.
 - Legibility is a test: on the Bastei example no square centimetre of paper may be more than 40 % black with rock
-  (201 with tags, 201.3, 206; `tests/rock_ink.rs`). Before: 230 %.
+  (201 with tags, 201.3, 206; `tests/rock_ink.rs`). Before: 230 %, now 33 %.
 
 - Tried and dropped: a height threshold that rises with the relief around the cliff, as Karttapullautin does
   (`cliffsteepfactor`; the user asked for it). At Karttapullautin's 0.76 the Bastei lost 34 of 39 pillars and its
@@ -70,10 +70,34 @@ lines are mostly two walls (a fin or a cleft), not one face drawn twice.
 
 ## Consequences
 
-- The Bastei keeps 256 walls with tags, 23 top lines and 25 pillars and fins; 425 knolls and depressions on the
+- The Bastei keeps 256 walls with tags, 23 top lines and 26 pillars and fins (22 walls confirmed by the orthophoto); 425 knolls and depressions on the
   rock are hidden; its contours keep 34 of 78 km (the first version kept 22 km); the worst square centimetre is
-  31 % black with rock (before 230 %).
+  33 % black with rock (before 230 %).
 - A forest project of a tile provider stores a few MB more (`data/terrain.tif`, about 6 MB for the Bastei).
 - Follow-ups (not in this change): large rock bodies from the terrain model as areas (freemapper-d3's main idea:
   rock = slope over 45° off the paths, opened and closed at the norm's radius; 97 pillar-size bodies and 11
   massifs at the Bastei), passages kept open and clefts closed, and 202 for walls between 2 and 3 m.
+
+## Amendment 2026-11-14: the training map, the orthophoto, rock bodies
+
+- **The training map generalizes more than the map.** The user's wish: the candidates may keep more, the
+  training map, which is printed as it is, must stay readable. The candidates keep every OSM cliff (those
+  taken off the map, hidden). The map keeps the level above (`Level::MAP`). The training PDF of a forest map
+  runs the step once more over its own objects, the map's and the visible candidates' together, at
+  `Level::TRAINING` (ruling): cliffs of 5 m above their slope, whole cliffs from 1 mm, pieces from 2 mm, no top
+  lines 201.3. So the rock is generalized in the training map also where the content settings left the cliffs
+  candidates. The pillars and fins drawn before keep their room.
+- **The orthophoto confirms, it does not deny.** `derive` writes `data/rock-seen.tif` for a forest map: per metre
+  the share of rock-coloured pixels (light, not green: mean of red, green and blue above 115, green at most 5
+  above red, colours less than 70 apart), empty in shadow (mean below 55). A cliff with rock along it (rock
+  share at least 0.15 where at least 40 % of the places within 3 m are lit) counts twice in the ranking and
+  carries `freemapper:rock-seen=orthophoto`. Nothing goes for not being seen: at the Bastei the photo (March,
+  without leaves) confirms 180 of 2149 OSM cliffs, in the summer flights of Dahn 6 of 24 and of the
+  Siebengebirge 5 of 28; most faces are vertical and seen from above at their top edge only, or under trees.
+- **Rock bodies from the terrain model, tried and not built** (freemapper-d3's main idea). Rock as everything
+  steeper than 45° off the paths, passages under 4.5 m closed, smoothed at that radius: 99 bodies of pillar size
+  and 14 massifs at the Bastei, but mostly steep forest. Told from forest by the nDSM (canopy under 2 m on half
+  of a body): only 5 pillars and 2 massifs stay, replacing 15 of 279 cliffs. Told by the orthophoto per metre:
+  the detection matches the visible sandstone, but 118 bodies drawn as 206 are black blotches, heavier than the
+  lines. The OSM lines already lie on the faces (a median 1.0 m from a 60° cell, d3); the bodies add no more
+  than the orthophoto bonus does.

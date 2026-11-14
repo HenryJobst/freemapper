@@ -568,7 +568,7 @@ fn training_rock(
     objects: &[&MapObject],
     documents: &StarterDocuments,
 ) -> Vec<MapObject> {
-    use crate::build::cliffs::{Level, generalize_cliffs, hide_landforms_on_rock};
+    use crate::build::cliffs::{Ground, Level, generalize_cliffs, hide_landforms_on_rock};
     use crate::build::line_cuts::{CONTOUR_CODES, cut_lines_at_ways};
     use crate::derive::contours::MIN_LENGTH_MM as CONTOUR_MIN_LENGTH_MM;
     let georef = &documents.map.georef;
@@ -578,10 +578,14 @@ fn training_rock(
     });
     let mut list: Vec<MapObject> = objects.iter().map(|o| (*o).clone()).collect();
     let mut gone = Vec::new();
+    let rock_seen = crate::derive::terrain::read_float_raster(&dir.join(ROCK_SEEN_RELPATH)).ok();
     let rock = generalize_cliffs(
         &mut list,
         &mut gone,
-        terrain.as_ref(),
+        Ground {
+            terrain: terrain.as_ref(),
+            rock_seen: rock_seen.as_ref(),
+        },
         MapKind::Forest,
         georef,
         symbol_set,
@@ -1203,6 +1207,10 @@ fn read_stored(dir: &Path, project: &ProjectFile, area: &MapArea) -> Result<Stor
                 .then(|| read_float_raster(&dir.join(TERRAIN_MOSAIC_RELPATH)).ok())
                 .flatten()
         }),
+        // Where the orthophoto shows rock: the cliffs it confirms go first (ADR 0126).
+        rock_seen: (project.map_kind == MapKind::Forest)
+            .then(|| crate::derive::terrain::read_float_raster(&dir.join(ROCK_SEEN_RELPATH)).ok())
+            .flatten(),
         contours: read_stored_contours(dir, project)?,
         landforms: read_stored_landforms(dir, project)?,
         vegetation: read_stored_vegetation(dir, project)?,

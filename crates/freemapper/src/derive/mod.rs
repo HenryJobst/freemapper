@@ -5,6 +5,7 @@ pub mod landforms;
 pub mod ndsm;
 pub mod orthophoto;
 pub mod relief;
+pub mod rock_seen;
 pub mod terrain;
 pub mod vegetation;
 

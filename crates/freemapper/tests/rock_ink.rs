@@ -1,7 +1,7 @@
 //! The rock of the Bastei example stays readable (ADR 0126): the ink of the impassable cliffs
 //! (201 with its tags, the top line 201.3) and of the rock pillars and fins (206) on any square
 //! centimetre of paper. Before the generalization the worst square centimetre held 230 % (the
-//! strokes lay on each other), afterwards 31 %. The example is rebuilt by hand, so this guards
+//! strokes lay on each other), afterwards 33 %. The example is rebuilt by hand, so this guards
 //! the example as committed.
 
 use std::collections::HashMap;

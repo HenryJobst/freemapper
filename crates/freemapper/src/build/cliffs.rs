@@ -82,6 +82,18 @@ const SIMPLIFY_MM: PaperMm = PaperMm(0.1);
 /// How often along a cliff the profile is read, and the gap tested (ground metres).
 const PROFILE_STEP_M: f64 = 2.0;
 const GAP_STEP_M: f64 = 1.0;
+/// A cliff the orthophoto confirms ([`seen_along`]) counts this much more in the ranking
+/// (ruling). The photo can confirm a cliff but never deny one: most faces are vertical and seen
+/// only at their top edge, or lie under trees; at the Bastei it shows rock at 180 of 2149 OSM
+/// cliffs, which d3 measured on faces of 60°. So a cliff not seen loses nothing.
+const SEEN_BONUS: f64 = 2.0;
+/// Seen: of the places within 3 m of the line that are not in shadow (at least this share of
+/// all), the rock share of the photo is at least [`SEEN_ROCK`] on average.
+const SEEN_LIT: f64 = 0.4;
+const SEEN_ROCK: f64 = 0.15;
+/// The tag on a cliff the orthophoto confirms.
+const SEEN_KEY: &str = "freemapper:rock-seen";
+
 /// The value of [`HIDDEN_KEY`] on a cliff the generalization took off the map, and on a knoll
 /// or depression of the terrain model that stands on the rock.
 pub const GENERALIZED: &str = "generalized";
@@ -118,6 +130,8 @@ struct Cliff {
     length_m: f64,
     outline_length_m: f64,
     frame: Rect<f64>,
+    /// Whether the orthophoto shows rock along it ([`seen_along`]).
+    seen: bool,
 }
 
 impl Cliff {
@@ -129,7 +143,8 @@ impl Cliff {
     /// before a long low terrace; without terrain the longest go first.
     fn weight(&self) -> f64 {
         let height = self.profile.map_or(1.0, |p| p.excess_m.max(0.0));
-        height * height * self.length_m
+        let seen = if self.seen { SEEN_BONUS } else { 1.0 };
+        height * height * self.length_m * seen
     }
 }
 
@@ -201,6 +216,14 @@ struct Reach {
     gap_m: f64,
 }
 
+/// What the ground says about the cliffs: the terrain model of the project and where the
+/// orthophoto shows rock, both in the map's CRS.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct Ground<'a> {
+    pub terrain: Option<&'a Raster<f32>>,
+    pub rock_seen: Option<&'a Raster<f32>>,
+}
+
 /// Where the rock stands, as [`generalize_cliffs`] found it (map CRS).
 #[derive(Debug, Default)]
 pub struct Rock {
@@ -218,12 +241,13 @@ pub struct Rock {
 pub fn generalize_cliffs(
     map: &mut Vec<MapObject>,
     candidates: &mut Vec<MapObject>,
-    terrain: Option<&Raster<f32>>,
+    ground: Ground,
     map_kind: MapKind,
     georef: &Georeferencing,
     symbol_set: &SymbolSet,
     level: &Level,
 ) -> Rock {
+    let Ground { terrain, rock_seen } = ground;
     let Some(cliff_id) = symbol_set.id_for_code(CLIFF_CODE) else {
         return Rock::default();
     };
@@ -303,6 +327,7 @@ pub fn generalize_cliffs(
                 members,
                 length_m: Euclidean.length(&line),
                 outline_length_m: Euclidean.length(&outline),
+                seen: rock_seen.is_some_and(|r| seen_along(&outline, r)),
                 line,
                 outline,
                 closed,
@@ -441,6 +466,11 @@ pub fn generalize_cliffs(
             object
                 .tags
                 .push((TICKS_KEY.to_string(), TICKS_BY_PROFILE.to_string()));
+        }
+        if cliff.seen {
+            object
+                .tags
+                .push((SEEN_KEY.to_string(), "orthophoto".to_string()));
         }
     };
     for (cliff, pillar) in order {
@@ -590,6 +620,24 @@ pub fn generalize_cliffs(
     candidates.extend(added_candidates);
     *map = kept_map;
     Rock { stops, mask }
+}
+
+/// Whether the orthophoto evidence `seen` (rock share per metre, `NaN` in shadow) shows rock
+/// along `line`: every metre, at 0, 1.5 and 3 m on both sides.
+fn seen_along(line: &LineString<f64>, seen: &Raster<f32>) -> bool {
+    let (mut all, mut lit, mut rock) = (0usize, 0usize, 0.0f64);
+    for (p, d) in resample(line, 1.0, false) {
+        for offset in [-3.0, -1.5, 0.0, 1.5, 3.0] {
+            all += 1;
+            if let Some(v) = bilinear(seen, p.x + d.1 * offset, p.y - d.0 * offset)
+                && v.is_finite()
+            {
+                lit += 1;
+                rock += f64::from(v);
+            }
+        }
+    }
+    all > 0 && lit as f64 >= SEEN_LIT * all as f64 && rock / lit as f64 >= SEEN_ROCK
 }
 
 /// Hides the knolls and depressions of the terrain model (`freemapper:landform`) that stand in
@@ -1487,7 +1535,10 @@ mod tests {
         let rock = generalize_cliffs(
             map,
             &mut candidates,
-            terrain,
+            Ground {
+                terrain,
+                rock_seen: None,
+            },
             f.kind,
             &f.georef,
             &f.set,
@@ -1880,7 +1931,10 @@ mod tests {
         let rock = generalize_cliffs(
             &mut map,
             &mut candidates,
-            Some(&ground),
+            Ground {
+                terrain: Some(&ground),
+                rock_seen: None,
+            },
             f.kind,
             &f.georef,
             &f.set,
@@ -1958,7 +2012,10 @@ mod tests {
         generalize_cliffs(
             map,
             &mut candidates,
-            Some(terrain),
+            Ground {
+                terrain: Some(terrain),
+                rock_seen: None,
+            },
             f.kind,
             &f.georef,
             &f.set,
@@ -2002,6 +2059,39 @@ mod tests {
         run_at(&f, &mut training, &ground, &Level::TRAINING);
         assert!(of_code(&f, &training, TOP_LINE_CODE).is_empty());
         assert_eq!(of_code(&f, &training, CLIFF_CODE).len(), 1);
+    }
+
+    #[test]
+    fn a_cliff_the_orthophoto_shows_goes_first() {
+        // Two faces of 6 m, 10 m apart, staggered: one gives way. The photo shows rock along the
+        // upper one only, so it stays although the lower one would win the tie.
+        let f = fixture(MapKind::Forest);
+        let ground = terrain(&f, terraces(&[(0.0, 6.0), (10.0, 6.0)]));
+        let seen = terrain(&f, |_, dn| if (dn - 10.0).abs() < 4.0 { 0.6 } else { 0.0 });
+        let walls = || {
+            vec![
+                cliff(&f, &[(-60.0, 0.0), (60.0, 0.0)]),
+                cliff(&f, &[(-60.0, 10.0), (60.0, 10.0)]),
+            ]
+        };
+        let mut map = walls();
+        let mut gone = Vec::new();
+        generalize_cliffs(
+            &mut map,
+            &mut gone,
+            Ground {
+                terrain: Some(&ground),
+                rock_seen: Some(&seen),
+            },
+            f.kind,
+            &f.georef,
+            &f.set,
+            &Level::MAP,
+        );
+        let kept = of_code(&f, &map, CLIFF_CODE);
+        assert_eq!(kept.len(), 1);
+        assert!((at_metres(&f, kept[0])[0].1 - 10.0).abs() < 0.5);
+        assert_eq!(tag(kept[0], SEEN_KEY).as_deref(), Some("orthophoto"));
     }
 
     #[test]

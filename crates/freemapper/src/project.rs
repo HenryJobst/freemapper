@@ -798,6 +798,8 @@ pub(crate) const K5_TEMPLATE: &str = "k5";
 /// world file. `derive` writes it only where the extra Berlin layers have stair areas: the export
 /// reads their walking direction from it, offline and without the tile cache.
 pub(crate) const TERRAIN_MOSAIC_RELPATH: &str = "data/terrain.tif";
+/// Where the orthophoto shows rock, per metre (forest maps; `derive/rock_seen.rs`).
+pub(crate) const ROCK_SEEN_RELPATH: &str = "data/rock-seen.tif";
 /// Contour lines from `derive` (GeoJSON in the map's CRS), input of the export.
 const CONTOURS_RELPATH: &str = "data/contours.geojson";
 /// Knolls, depressions, banks and cliffs from `derive` (GeoJSON in the map's CRS), input of the
@@ -2145,6 +2147,27 @@ pub fn derive_project_cancellable(
             }
             build_orthophoto_from_image(&wms, &bbox, dir, &orthophoto)?;
         }
+    }
+    // Where the orthophoto shows rock, for the cliffs of a forest map (ADR 0126).
+    let rock_seen_path = dir.join(ROCK_SEEN_RELPATH);
+    if project.map_kind == MapKind::Forest {
+        progress(note!("progress-writing", path = ROCK_SEEN_RELPATH));
+        let world = std::fs::read_to_string(orthophoto.with_extension("jgw"))
+            .map_err(|e| ProjectError::Io(orthophoto.with_extension("jgw"), e))?;
+        let image = image::open(&orthophoto)
+            .map_err(|e| DeriveError::Image(e.to_string()))?
+            .to_rgb8();
+        let grid = GridSpec::from_world_file(&world, image.width(), image.height())
+            .map_err(DeriveError::from)?;
+        let seen = crate::derive::rock_seen::rock_seen(&image, &grid);
+        freemapper_sources::float_tiff::write_float_raster(
+            &seen,
+            dir,
+            &rock_seen_path,
+            ROCK_SEEN_RELPATH,
+        )?;
+    } else {
+        freemapper_fs::remove_inside(dir, &rock_seen_path);
     }
 
     let stored_model = |record: &Option<WcsRecord>, relpath: &str| {
