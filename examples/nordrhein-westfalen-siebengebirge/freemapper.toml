@@ -1,0 +1,80 @@
+map_kind = "forest"
+scale_denominator = 10000
+declination_date = "2026-11-14"
+buffer_m = 100.0
+crs = 25832
+provider = "geobasisnrw"
+title = "Siebengebirge"
+tiles = []
+
+[map_area]
+coordinates = [[[7.201496667077255, 50.66095759971254], [7.218503332922745, 50.66095759971254], [7.218503332922745, 50.66904240028746], [7.201496667077255, 50.66904240028746], [7.201496667077255, 50.66095759971254]]]
+type = "Polygon"
+
+[buildings]
+bbox = [372786.0, 5613537.0, 374210.0, 5614666.0]
+fetched = "2026-11-14"
+latest_update = "2026-09-16"
+count = 240
+regions = ["nordrheinwestfalen"]
+
+[land_use]
+bbox = [372786.0, 5613537.0, 374210.0, 5614666.0]
+fetched = "2026-11-14"
+latest_update = "2026-09-23"
+count = 1069
+regions = ["nordrheinwestfalen"]
+
+[osm]
+extract = "2026-11-07"
+area = [50.66005929, 7.20007944, 50.66994071, 7.21992056]
+count = 799
+
+[orthophoto]
+flight = "01.05.2025"
+fetched = "2026-11-14"
+bbox = [372786.318, 5613537.351, 374209.856, 5614665.323]
+
+[terrain]
+fetched = "2026-11-14"
+bbox = [372786.318, 5613537.351, 374209.856, 5614665.323]
+date = "2021-12-22"
+
+[surface]
+fetched = "2026-11-14"
+bbox = [372786.318, 5613537.351, 374209.856, 5614665.323]
+date = "2021-12-22"
+
+[[point_clouds]]
+tile = "32372-5613"
+url = "https://www.opengeodata.nrw.de/produkte/geobasis/hm/3dm_l_las/3dm_l_las/3dm_32_372_5613_1_nw.laz"
+published = "2022-10-28"
+
+[[point_clouds]]
+tile = "32372-5614"
+url = "https://www.opengeodata.nrw.de/produkte/geobasis/hm/3dm_l_las/3dm_l_las/3dm_32_372_5614_1_nw.laz"
+published = "2022-11-03"
+
+[[point_clouds]]
+tile = "32373-5613"
+url = "https://www.opengeodata.nrw.de/produkte/geobasis/hm/3dm_l_las/3dm_l_las/3dm_32_373_5613_1_nw.laz"
+published = "2022-11-17"
+
+[[point_clouds]]
+tile = "32373-5614"
+url = "https://www.opengeodata.nrw.de/produkte/geobasis/hm/3dm_l_las/3dm_l_las/3dm_32_373_5614_1_nw.laz"
+published = "2022-10-18"
+
+[[point_clouds]]
+tile = "32374-5613"
+url = "https://www.opengeodata.nrw.de/produkte/geobasis/hm/3dm_l_las/3dm_l_las/3dm_32_374_5613_1_nw.laz"
+published = "2022-11-29"
+
+[[point_clouds]]
+tile = "32374-5614"
+url = "https://www.opengeodata.nrw.de/produkte/geobasis/hm/3dm_l_las/3dm_l_las/3dm_32_374_5614_1_nw.laz"
+published = "2022-10-19"
+
+[content]
+profile = "balanced"
+vegetation = "candidates"

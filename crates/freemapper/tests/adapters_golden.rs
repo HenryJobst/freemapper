@@ -436,8 +436,8 @@ fn generated_boxes() -> Vec<GoldenBox> {
             // since (Saarland) is no box of it.
             let legacy =
                 raster_region(&bbox).is_some_and(|region| regions::LEGACY.contains(&region));
-            // One box per state: the example of each state is a sprint map; the forest map of
-            // the Dammheide lies in Berlin, which has its box already.
+            // One box per state: its sprint example. The forest examples lie in states that
+            // have their box already.
             let per_state = project.map_kind == MapKind::Sprint;
             (legacy && per_state).then(|| GoldenBox {
                 name: format!("example:{name}"),
@@ -1408,10 +1408,7 @@ fn g5_examples_roundtrip() {
         );
         checked += 1;
     }
-    assert_eq!(
-        checked, 17,
-        "one example per state and the forest maps of Berlin and Bavaria"
-    );
+    assert_eq!(checked, 30, "one sprint and one forest example per state");
 }
 
 /// A project of a colleague with an adapter that is not installed here: the error names the

@@ -1,0 +1,79 @@
+map_kind = "forest"
+scale_denominator = 10000
+declination_date = "2026-11-14"
+buffer_m = 100.0
+crs = 25832
+provider = "lvgl"
+title = "Cloef an der Saarschleife"
+tiles = []
+
+[map_area]
+coordinates = [[[6.546700001477988, 49.50095759971254], [6.5632999985220115, 49.50095759971254], [6.5632999985220115, 49.50904240028746], [6.546700001477988, 49.50904240028746], [6.546700001477988, 49.50095759971254]]]
+type = "Polygon"
+
+[buildings]
+bbox = [322274.0, 5485900.0, 323706.0, 5487039.0]
+fetched = "2026-11-14"
+count = 0
+
+[land_use]
+bbox = [322274.0, 5485900.0, 323706.0, 5487039.0]
+fetched = "2026-11-14"
+latest_update = "2024-03-21"
+count = 22
+regions = ["saarland"]
+
+[osm]
+extract = "2026-11-11"
+area = [49.50005929, 6.54531667, 49.50994071, 6.56468333]
+count = 125
+
+[orthophoto]
+flight = "12.04.2025"
+flight_label = "Aktualisierung"
+fetched = "2026-11-14"
+bbox = [322274.391, 5485900.8, 323705.246, 5487038.52]
+
+[terrain]
+fetched = "2026-11-14"
+bbox = [322274.391, 5485900.8, 323705.246, 5487038.52]
+date = "2025"
+
+[surface]
+fetched = "2026-11-14"
+bbox = [322274.391, 5485900.8, 323705.246, 5487038.52]
+date = "2025"
+
+[[point_clouds]]
+tile = "32322-5485"
+url = "https://www.shop.lvgl.saarland.de/cloud/public.php/dav/files/NK8ndP55qAqGEZD/OD_LIDAR_Punktwolke_2025_laz_LK"
+published = "2026-01-16"
+
+[[point_clouds]]
+tile = "32322-5486"
+url = "https://www.shop.lvgl.saarland.de/cloud/public.php/dav/files/NK8ndP55qAqGEZD/OD_LIDAR_Punktwolke_2025_laz_LK"
+published = "2026-01-16"
+
+[[point_clouds]]
+tile = "32322-5487"
+url = "https://www.shop.lvgl.saarland.de/cloud/public.php/dav/files/NK8ndP55qAqGEZD/OD_LIDAR_Punktwolke_2025_laz_LK"
+published = "2026-01-16"
+
+[[point_clouds]]
+tile = "32323-5485"
+url = "https://www.shop.lvgl.saarland.de/cloud/public.php/dav/files/NK8ndP55qAqGEZD/OD_LIDAR_Punktwolke_2025_laz_LK"
+published = "2026-01-16"
+
+[[point_clouds]]
+tile = "32323-5486"
+url = "https://www.shop.lvgl.saarland.de/cloud/public.php/dav/files/NK8ndP55qAqGEZD/OD_LIDAR_Punktwolke_2025_laz_LK"
+published = "2026-01-16"
+
+[[point_clouds]]
+tile = "32323-5487"
+url = "https://www.shop.lvgl.saarland.de/cloud/public.php/dav/files/NK8ndP55qAqGEZD/OD_LIDAR_Punktwolke_2025_laz_LK"
+published = "2026-01-16"
+
+[content]
+profile = "balanced"
+vegetation = "candidates"

@@ -104,23 +104,41 @@ In the Viktoriapark the stairs on the plinth of the Nationaldenkmal lead up to t
 stands at the stadium come as parallel 532.9 lines tagged `freemapper:size=wide`. Fences and walls that both ALKIS and
 OSM have appear once on the map, as the ALKIS line, which names the OSM line in the tag `freemapper:also`.
 
-## Forest map
+## Forest maps
 
-Examples of the map kind `forest` (ISOM 2017-2), for a quick training in a forest:
+One example of the map kind `forest` (ISOM 2017-2) at 1:10 000 for every state, for a quick training in a forest:
 
 | State | Area | Map objects | Candidates | Symbols | Preview |
 |---|---|---:|---:|---:|---|
+| Brandenburg | [Rauener Berge and Markgrafensteine](brandenburg-rauener-berge/): moraine hills above the Scharmützelsee with the Markgrafensteine, large erratic boulders | 385 | 37 | 20 | <a href="brandenburg-rauener-berge/brandenburg-rauener-berge-candidates.pdf"><img src="brandenburg-rauener-berge/preview.webp" width="220" alt=""></a> |
 | Berlin | [Dammheide, Treptow-Köpenick](berlin-dammheide/): a small flat forest with a dense path network, settlements around it | 1179 | 166 | 27 | <a href="berlin-dammheide/berlin-dammheide-candidates.pdf"><img src="berlin-dammheide/preview.webp" width="220" alt=""></a> |
+| Saxony | [Bastei, Saxon Switzerland](sachsen-bastei/): sandstone rocks above the Elbe, more than 2000 rock objects from the terrain model | 3847 | 571 | 34 | <a href="sachsen-bastei/sachsen-bastei-candidates.pdf"><img src="sachsen-bastei/preview.webp" width="220" alt=""></a> |
+| Saxony-Anhalt | [Bode valley near Thale](sachsen-anhalt-bodetal/): the deep valley of the Bode in the Harz | 893 | 76 | 31 | <a href="sachsen-anhalt-bodetal/sachsen-anhalt-bodetal-candidates.pdf"><img src="sachsen-anhalt-bodetal/preview.webp" width="220" alt=""></a> |
+| Hamburg | [Haake, Harburger Berge](hamburg-haake/): a hilly forest with a dense path network | 549 | 33 | 23 | <a href="hamburg-haake/hamburg-haake-candidates.pdf"><img src="hamburg-haake/preview.webp" width="220" alt=""></a> |
+| Hesse | [Großer Feldberg, Taunus](hessen-feldberg/): the summit and slopes of the highest mountain of the Taunus | 657 | 39 | 27 | <a href="hessen-feldberg/hessen-feldberg-candidates.pdf"><img src="hessen-feldberg/preview.webp" width="220" alt=""></a> |
+| Schleswig-Holstein | [Hüttener Berge](schleswig-holstein-huettener-berge/): moraine hills with forest, open land and small lakes | 352 | 72 | 24 | <a href="schleswig-holstein-huettener-berge/schleswig-holstein-huettener-berge-candidates.pdf"><img src="schleswig-holstein-huettener-berge/preview.webp" width="220" alt=""></a> |
+| Mecklenburg-Vorpommern | [Granitz, Rügen](mecklenburg-vorpommern-granitz/): beech forest around the Granitz hunting lodge | 321 | 96 | 24 | <a href="mecklenburg-vorpommern-granitz/mecklenburg-vorpommern-granitz-candidates.pdf"><img src="mecklenburg-vorpommern-granitz/preview.webp" width="220" alt=""></a> |
+| North Rhine-Westphalia | [Drachenfels, Siebengebirge](nordrhein-westfalen-siebengebirge/): rocks, vineyards and forest above the Rhine | 1158 | 269 | 37 | <a href="nordrhein-westfalen-siebengebirge/nordrhein-westfalen-siebengebirge-candidates.pdf"><img src="nordrhein-westfalen-siebengebirge/preview.webp" width="220" alt=""></a> |
+| Lower Saxony | [Harz near Bad Harzburg](niedersachsen-bad-harzburg/): steep slopes on both sides of a stream valley | 677 | 51 | 32 | <a href="niedersachsen-bad-harzburg/niedersachsen-bad-harzburg-candidates.pdf"><img src="niedersachsen-bad-harzburg/preview.webp" width="220" alt=""></a> |
+| Rhineland-Palatinate | [Dahner Felsenland](rheinland-pfalz-dahn/): red sandstone rocks in the Palatinate Forest | 641 | 90 | 33 | <a href="rheinland-pfalz-dahn/rheinland-pfalz-dahn-candidates.pdf"><img src="rheinland-pfalz-dahn/preview.webp" width="220" alt=""></a> |
+| Saarland | [Cloef at the Saarschleife](saarland-cloef/): a steep slope with rocks above the Saar loop | 492 | 56 | 27 | <a href="saarland-cloef/saarland-cloef-candidates.pdf"><img src="saarland-cloef/preview.webp" width="220" alt=""></a> |
+| Baden-Württemberg | [Königstuhl, Heidelberg](baden-wuerttemberg-koenigstuhl/): Heidelberg's own mountain, with an observatory and many paths | 843 | 47 | 28 | <a href="baden-wuerttemberg-koenigstuhl/baden-wuerttemberg-koenigstuhl-candidates.pdf"><img src="baden-wuerttemberg-koenigstuhl/preview.webp" width="220" alt=""></a> |
+| Bremen | [Bürgerpark and Stadtwald](bremen-buergerpark/): a flat park and forest with ditches, lakes and a dense path network | 1913 | 420 | 32 | <a href="bremen-buergerpark/bremen-buergerpark-candidates.pdf"><img src="bremen-buergerpark/preview.webp" width="220" alt=""></a> |
 | Bavaria | [Schmausenbuck, Nürnberger Reichswald](bayern-schmausenbuck/): a sandstone hill in the Reichswald above the zoo of Nuremberg, slopes with a dense path network, two power lines | 670 | 81 | 35 | <a href="bayern-schmausenbuck/bayern-schmausenbuck-candidates.pdf"><img src="bayern-schmausenbuck/preview.webp" width="220" alt=""></a> |
 
-The Dammheide is made with `freemapper init berlin-dammheide --osm relation/4513841 --kind forest --scale 10000 --title Dammheide`
-and `run --pdf-candidates --ocad`. The paths come from OSM and go onto the map in the path classes 502 to 507; the
-forest is white paper. Settlements and gardens are olive green (520, not to be entered). The area is flat, so the
-contours lie every 2.5 m; `freemapper.toml` names this as `[contours] interval_m`.
+The areas are about 1.2 × 0.9 km and were chosen by relief and path network. Made with
+`freemapper init <folder> --geojson <rectangle> --kind forest --scale 10000 --title "<title>"` and
+`run --pdf-candidates --ocad`. Berlin and Bremen take their outline from OSM (`--osm relation/4513841` for the
+Dammheide, `--osm way/664446849` for the Bürgerpark). In Brandenburg, North Rhine-Westphalia and Saarland
+`--content-set vegetation=candidates` was added: the vegetation from laser point clouds is in the candidates map
+there. Rhineland-Palatinate lacks it, because the state office's Metalink file names other sizes and checksums for
+the tiles near Dahn than the files on the server have (November 2026); for Bavaria freemapper does not read the
+point clouds yet.
 
-The Schmausenbuck is a rectangle of 1.2 × 0.9 km (`init --geojson`, otherwise as above). It is hilly, the contours
-lie every 5 m, and embankments and knolls from the terrain model are candidates. The vegetation classes are
-missing, because freemapper does not read the point clouds of Bavaria yet.
+The paths come from OSM and go onto the map in the path classes 502 to 507; the forest is white paper. Settlements
+and gardens are olive green (520, not to be entered). Rocks, earth banks and knolls from the terrain model are
+candidates. In the flat areas in Berlin and Bremen the contours lie every 2.5 m, elsewhere every 5 m;
+`freemapper.toml` names the 2.5 m as `[contours] interval_m`.
 
 ## What an example contains
 

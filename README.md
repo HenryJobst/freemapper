@@ -78,7 +78,7 @@ Dienste Standarddienste sind, lässt sich als Ordner mit einem Manifest ergänze
 für weitere Bundesländer, zuerst Sachsen (Gewässerachsen, Hecken und Baumreihen aus dem Basis-DLM, die Bäume von Leipzig
 und Dresden), dann Sachsen-Anhalt und Hamburg. Später kommen Hallenkarten für Hallen-OL, die letzten englischen
 Reste in den deutschen Programmtexten (`--lang de`). Thüringen, das letzte Bundesland, das noch fehlt, folgt, sobald sein Server für die
-Höhendaten wieder erreichbar ist. Waldkarten und die Nachbarländer kommen später. Design:
+Höhendaten wieder erreichbar ist. Die Nachbarländer kommen später. Design:
 [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](https://github.com/HenryJobst/freemapper/blob/main/docs/superpowers/specs/2026-11-07-freemapper-design.md).
 
 Auf Wunsch schreibt freemapper Hinweise zu Genehmigungen neben die Karte, in die Datei `permits.md` (`freemapper permits`, `run --permits`, auf der Gebietsseite oder über den KI-Assistenten). Sie nennt für das Kartengebiet Bundesland, Kreis, Amt und Gemeinde aus VG250 des BKG, die Schutzgebiete des BfN und Betreiber aus OpenStreetMap, jeweils mit Anteil, Quelle und Datenstand, und sagt, wen man meist fragt. Sie ist ein Hinweis und keine Rechtsauskunft. Einzelheiten stehen im [Handbuch, Kapitel 12](docs/manual/de.md#12-hinweise-zu-genehmigungen). In Berlin kommen Bezirk, Grünanlagen, Eigentum von Bundesland und Bund, Denkmale und Naturdenkmale aus dem Geoportal Berlin dazu. Geplant sind noch die Forstverwaltungen für Waldkarten; die Recherche dazu steht in [`docs/research`](https://github.com/HenryJobst/freemapper/blob/main/docs/research/wald-und-sprint-behoerden/waldschutz-forstbehoerden-recherche.md).
@@ -106,7 +106,7 @@ OCAD-Datei und PDF. Zwei Beispiele vorab, ein Klick auf das Bild öffnet das PDF
 | Rheinland-Pfalz | [Reichsburg und Altstadt Cochem](https://github.com/HenryJobst/freemapper/tree/main/examples/rheinland-pfalz-cochem/) | <a href="examples/rheinland-pfalz-cochem/rheinland-pfalz-cochem-candidates.pdf"><img src="examples/rheinland-pfalz-cochem/preview.webp" width="220" alt=""></a> |
 
 Alle Beispiele mit Vorschau, wie die Gebiete ausgewählt wurden und wie viele Objekte jede Karte hat, stehen in
-der [Beispielübersicht](https://github.com/HenryJobst/freemapper/blob/main/examples/README.md), dort auch eine Waldkarte (Dammheide in Berlin, 1:10 000). Dasselbe Gebiet in den drei Inhaltsprofilen
+der [Beispielübersicht](https://github.com/HenryJobst/freemapper/blob/main/examples/README.md), dort auch eine Waldkarte für jedes Bundesland (1:10 000). Dasselbe Gebiet in den drei Inhaltsprofilen
 `safe`, `balanced` und `full` zeigt die [Gegenüberstellung](https://github.com/HenryJobst/freemapper/blob/main/examples/vergleich.md).
 
 ## Gebiet im Browser wählen
