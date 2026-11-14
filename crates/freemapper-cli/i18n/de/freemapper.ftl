@@ -283,7 +283,7 @@ page-content-group-furniture = Ausstattung und Laternen
 page-content-group-passages = Durchgänge
 page-content-group-contours = Höhenlinien
 page-content-group-landforms = Kuppen, Senken, Böschungen und Felswände aus dem Geländemodell
-page-content-group-vegetation = Vegetation aus Laserpunktwolken (Brandenburg, Berlin, Nordrhein-Westfalen, Rheinland-Pfalz und Saarland; aus, bis Sie sie wählen; lädt etwa 40 bis 500 MB je km²)
+page-content-group-vegetation = Vegetation aus Laserpunktwolken (Brandenburg, Berlin, Nordrhein-Westfalen, Rheinland-Pfalz, Saarland und Bayern; aus, bis Sie sie wählen; lädt etwa 40 bis 600 MB je km²)
 page-content-group-out-of-bounds = Sperrgebiete
 page-content-group-paths = Wege und Gleise
 page-content-group-streets = Straßen und Plätze
@@ -762,10 +762,10 @@ mcp-error-content = Die Inhaltseinstellung ist nicht lesbar: { $detail }
 ## prüft, dass jede Kennung `permits-*` verwendet wird. Das Zitat „Nicht für Planungszwecke
 ## geeignet.“ ist der Wortlaut des BfN und bleibt in jeder Sprache deutsch.
 
-help-permits = Die Genehmigungshinweise eines Projekts schreiben (permits.md und permits.json): die Verwaltungseinheiten, Schutzgebiete und Betreiber, die das Kartengebiet berührt, und wen man dann meist fragt. Fragt das BfN und das BKG, für ein Kartengebiet in Berlin auch das Geoportal Berlin (gdi.berlin.de), in Brandenburg den Landesbetrieb Forst (www.brandenburg-forst.de), in Nordrhein-Westfalen Wald und Holz NRW (www.opengeodata.nrw.de, etwa 17 MB), jeweils über die Hosts des Adapters des Bundeslandes, und liest den OSM-Auszug, der schon im Zwischenspeicher liegt; --offline nimmt die früher geholten Daten
+help-permits = Die Genehmigungshinweise eines Projekts schreiben (permits.md und permits.json): die Verwaltungseinheiten, Schutzgebiete und Betreiber, die das Kartengebiet berührt, und wen man dann meist fragt. Fragt das BfN und das BKG, für ein Kartengebiet in Berlin auch das Geoportal Berlin (gdi.berlin.de), in Hamburg das Geoportal Hamburg (geodienste.hamburg.de), in Brandenburg den Landesbetrieb Forst (www.brandenburg-forst.de), in Nordrhein-Westfalen Wald und Holz NRW (www.opengeodata.nrw.de, etwa 17 MB), jeweils über die Hosts des Adapters des Bundeslandes, und liest den OSM-Auszug, der schon im Zwischenspeicher liegt; --offline nimmt die früher geholten Daten
 help-permits-dir = Projektordner
 help-permits-offline = Nur die früher geholten Daten verwenden, ohne Netzzugriff
-help-run-permits = Nach der Karte zusätzlich die Genehmigungshinweise schreiben (permits.md und permits.json); fragt das BfN und das BKG, in Berlin auch das Geoportal Berlin (gdi.berlin.de), in Brandenburg und Nordrhein-Westfalen die Forstverwaltung. Ein Fehler dort ist eine Warnung, die Karte bleibt
+help-run-permits = Nach der Karte zusätzlich die Genehmigungshinweise schreiben (permits.md und permits.json); fragt das BfN und das BKG, in Berlin und Hamburg auch ihr Geoportal, in Brandenburg und Nordrhein-Westfalen die Forstverwaltung. Ein Fehler dort ist eine Warnung, die Karte bleibt
 cli-wrote-permits = Genehmigungshinweise { $path } geschrieben
 cli-summary-wrote-permits = Genehmigungshinweise { $path } geschrieben
 cli-permits-failed = Die Genehmigungshinweise ließen sich nicht schreiben: { $error }
@@ -896,9 +896,18 @@ permits-object-kind = { $kind ->
 permits-object-count = { $count } Objekte
 permits-object-citations = Rechtsgrundlagen:
 permits-source-note = { $source }: „{ $note }“
-permits-hint-district-office = Für Straßen, Plätze und Grünanlagen im Bezirk { $district } sind meist das Ordnungsamt und das Straßen- und Grünflächenamt des Bezirksamts { $district } zuständig.
-permits-hint-monument-authority = Für die Denkmale im Bezirk { $district } ist die untere Denkmalschutzbehörde des Bezirksamts { $district } zuständig.
-permits-hint-nature-object-authority = Für Naturdenkmale und geschützte Landschaftsbestandteile im Bezirk { $district } ist die untere Naturschutzbehörde des Bezirksamts { $district } zuständig.
+permits-hint-district-office = { $offices ->
+        [hamburg] Für Straßen, Plätze und Grünanlagen im Bezirk { $district } ist meist das Bezirksamt { $district } zuständig, dort das Fachamt Management des öffentlichen Raumes.
+       *[berlin] Für Straßen, Plätze und Grünanlagen im Bezirk { $district } sind meist das Ordnungsamt und das Straßen- und Grünflächenamt des Bezirksamts { $district } zuständig.
+    }
+permits-hint-monument-authority = { $offices ->
+        [hamburg] Für die Denkmale im Kartengebiet ist das Denkmalschutzamt Hamburg zuständig.
+       *[berlin] Für die Denkmale im Bezirk { $district } ist die untere Denkmalschutzbehörde des Bezirksamts { $district } zuständig.
+    }
+permits-hint-nature-object-authority = { $offices ->
+        [hamburg] Für Naturdenkmale und geschützte Landschaftsbestandteile im Bezirk { $district } ist meist das Bezirksamt { $district } zuständig.
+       *[berlin] Für Naturdenkmale und geschützte Landschaftsbestandteile im Bezirk { $district } ist die untere Naturschutzbehörde des Bezirksamts { $district } zuständig.
+    }
 permits-hint-owner-share = { $unnamed ->
         [yes] Laut den offenen Daten des Bundeslandes gehören { $share } des Kartengebiets anderen öffentlichen Eigentümern.
        *[no] Laut den offenen Daten des Bundeslandes gehören { $share } des Kartengebiets dem Eigentümer „{ $owner }“.
@@ -920,6 +929,40 @@ permits-hint-forest-office = { $units ->
 permits-hint-forest-owner = { $office ->
         [known] Für eine Veranstaltung im Wald brauchen Sie die Zustimmung der Waldbesitzer. Wem der Wald gehört, kann meist die Forstdienststelle sagen. In mehreren Bundesländern ist eine organisierte Veranstaltung im Wald außerdem der Forstbehörde anzuzeigen oder von ihr zu genehmigen.
        *[unknown] Für eine Veranstaltung im Wald brauchen Sie die Zustimmung der Waldbesitzer. In mehreren Bundesländern ist eine organisierte Veranstaltung im Wald außerdem der Forstbehörde anzuzeigen oder von ihr zu genehmigen. Welche Forstdienststelle hier zuständig ist, bestimmen diese Hinweise nicht; Auskunft gibt die Forstverwaltung des Bundeslandes oder die untere Forstbehörde.
+    }
+permits-section-water-protection = Wasserschutzgebiete ({ $source })
+permits-section-forest-functions = Waldfunktionen und Schutzwald ({ $source })
+permits-none-water-protection = Laut { $source } liegt im Kartengebiet kein Wasserschutzgebiet.
+permits-none-forest-functions = Laut { $source } liegt im Kartengebiet kein Erholungswald, kein Bannwald, kein Naturwald und keine gesperrte Waldfläche.
+permits-water-zone = { $zone }
+permits-forest-function-kind = { $kind ->
+        [recreation] Erholungswald
+        [protected] Bannwald oder Schutzwald
+        [natural] Naturwald oder Totalreservat
+       *[closed] Gesperrte Waldfläche
+    }
+permits-hint-water-protection = { $inner ->
+        [yes] Im Kartengebiet liegt die { $zone } des Wasserschutzgebiets „{ $name }“. In den Schutzzonen I und II sind Veranstaltungen meist ausgeschlossen. Fragen Sie die untere Wasserbehörde.
+        [no] Im Kartengebiet liegt die { $zone } des Wasserschutzgebiets „{ $name }“. Dort sind Veranstaltungen meist möglich; was die Verordnung erlaubt, sagt die untere Wasserbehörde.
+       *[unknown] Im Kartengebiet liegt das Wasserschutzgebiet „{ $name }“. Welche Schutzzone es ist, sagen die Daten nicht. In den Zonen I und II sind Veranstaltungen meist ausgeschlossen; fragen Sie die untere Wasserbehörde.
+    }
+permits-hint-forest-function = { $kind ->
+        [recreation] Im Kartengebiet liegt Erholungswald{ $names ->
+            [none] {""}
+           *[other] {" "}({ $names })
+        }. Für Veranstaltungen dort fragen Sie die Forstbehörde.
+        [protected] Im Kartengebiet liegt Bannwald oder Schutzwald{ $names ->
+            [none] {""}
+           *[other] {" "}({ $names })
+        }. Fragen Sie die Forstbehörde, bevor Sie dort eine Veranstaltung planen.
+        [natural] Im Kartengebiet liegt Naturwald oder ein Totalreservat{ $names ->
+            [none] {""}
+           *[other] {" "}({ $names })
+        }. Dort ist das Betreten abseits der Wege oft verboten; legen Sie keine Posten hinein, ohne die Forstbehörde zu fragen.
+       *[closed] Im Kartengebiet liegt eine Waldfläche, die nicht betreten werden darf{ $names ->
+            [none] {""}
+           *[other] {" "}({ $names })
+        }. Lassen Sie sie aus dem Lauf heraus.
     }
 permits-hint-state-forest = { $office ->
         [none] Laut den offenen Daten des Bundeslandes sind { $share } des Kartengebiets Staatswald des Eigentümers „{ $owner }“.

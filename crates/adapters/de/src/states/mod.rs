@@ -509,6 +509,7 @@ impl StateAdapter {
         let permits = match state {
             State::Berlin => crate::berlin_permits::sources(),
             State::Brandenburg => crate::lfb_permits::sources(),
+            State::Hamburg => crate::lgv_permits::sources(),
             State::NordrheinWestfalen => crate::wuh_permits::sources(),
             _ => Vec::new(),
         };
@@ -603,6 +604,7 @@ impl RegionAdapter for StateAdapter {
             State::RheinlandPfalz => Some(crate::lvermgeo_rp_las::backend()),
             State::Berlin => Some(crate::berlin_als::backend()),
             State::Saarland => Some(crate::lvgl_las::backend()),
+            State::Bayern => Some(crate::ldbv_las::backend()),
             state => crate::lgb_als::point_cloud(state),
         }
     }
@@ -743,6 +745,17 @@ mod tests {
                 "brandenburg" => (
                     &["reviere"],
                     "https://www.brandenburg-forst.de/geoserver/IFUEK/ows",
+                ),
+                "hamburg" => (
+                    &[
+                        "bezirke",
+                        "gruenanlagen",
+                        "denkmale",
+                        "wald",
+                        "waldfunktionen",
+                        "wasserschutzgebiete",
+                    ],
+                    "https://geodienste.hamburg.de/HH_WFS_Wasserschutzgebiete",
                 ),
                 "nordrheinwestfalen" => (
                     &["forstbetriebsbezirke", "staatswald"],

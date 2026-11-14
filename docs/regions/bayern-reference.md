@@ -219,11 +219,52 @@ candidates byte for byte, and the same `freemapper.toml`. Of the 2 959 map objec
 the two tiles had 168 MB, so the estimate of the buildings is low by half in a city centre and high in the
 country.
 
+### The vegetation run
+
+On 2026-11-14 the Schmausenbuck was run again with `--content-set vegetation=candidates`: 5 min 19 s with the
+four point-cloud tiles to load (239, 301, 316 and 354 MiB, 1.2 GB), 1 min 30 s offline afterwards, no warning.
+All four tiles were flown on 2021-12-20. Before the export 94.0 % of the classified 1.5 km² are runnable forest
+(405), 5.1 % open land (401) and 0.8 % green classes; the area is about nine tenths forest. The sports field,
+the clearing at the substation and the southern swath of the power line are open. The northern swath, young
+growth of 2 to 5 m, has 45 to 55 % of its returns above 0.9 m (the wires give 3 to 7 %) and comes out as forest,
+because the bare twigs give a green index of 0.31. The candidates map gets 39 vegetation areas (20 of 401, 3 of
+405, 13 of 406, 3 of 410); the example has 670 map objects, 120 candidates and 37 symbols. The offline run wrote
+the same map, candidates and project file.
+
+Three more tiles from other parts of the state: 780_5420 (flown 2017-11-24, 10 points per m², its 40 193 points
+of class 24 carry a GPS time of the year 8416), 691_5335 (flown 2022-02-27, 20 points per m²) and 610_5480 (GPS
+week time, so no day; made 2018-08-08, 9 points per m²).
+
+## Point clouds
+
+Checked live on 2026-11-14 (24 requests, one tile downloaded). Product "Laserdaten" of the portal, CC BY 4.0,
+updated lot by lot ("losweise").
+
+- **Address**: `https://geodaten.bayern.de/odd_data/laser/<E>_<N>.laz`, `<E>` and `<N>` the south-west corner in
+  km of a 1 km tile in EPSG:25832. The host is a third one, next to `geoservices.bayern.de` and
+  `download1.bayernwolke.de`; `download1` does not have the tiles (404). `HEAD` gives `Content-Length`,
+  `Last-Modified` and `Accept-Ranges: bytes`. A tile outside the state answers 404 with an HTML page.
+- **Size**: 34 to 614 MB in fourteen tiles across the state (median 230 MB); the portal says up to 1 GB. The four
+  tiles of the Schmausenbuck have 239 to 354 MB, 1.2 GB together.
+- **Format**: LAS 1.2, point format 1 (with GPS time), compressed with LAStools, scale 1 mm, no CRS in the
+  header. Tile 655_5479: 51.6 million points (52 per m²), up to seven returns of a pulse.
+- **Classes** (the agency's "Beschreibung der Punktklassen", September 2023): 1 unclassified, 2 ground,
+  6 building, 9 water (only in data of earlier years), 20 object, for example vegetation, 22 bridge until 2020
+  and cellar exit from 2021, 23 synthetic ground from a terrestrial survey, 24 synthetic ground from the update
+  of the surface model. No point of the tile carries the synthetic or the withheld flag. In tile 655_5479: 62.8 %
+  class 20 (9.7 % of them single echoes), 36.1 % class 2, 1.1 % class 6 (81 % single echoes), 930 points of
+  class 7 and 3609 of class 22.
+- **Date**: no list and no service names the flight of a tile. The grid service of the portal
+  (`https://geoservices.bayern.de/od/wms/grid/v1/opendatagrid`, layer `laser`, `GetFeatureInfo` as `text/html`)
+  gives only the name, the size and the address. `Last-Modified` is the day the file was put on the server
+  (2023-03-10 for the Schmausenbuck, 2026-09-03 for tiles south of Augsburg). The header's creation day is the
+  day of processing (2022-05-18). The points carry it themselves: the header says adjusted standard GPS time,
+  and every point of tile 655_5479 was measured on 2021-12-20, a flight without leaves.
+- **Metalink** per municipality (`https://geodaten.bayern.de/odd/a/laser/meta/kml/gemeinde.kml`) with size and
+  hash, as for the other tiles; an area would first have to find its municipalities, so it is not used.
+
 ## Open, and left for later
 
-- **Point clouds**: `https://geodaten.bayern.de/odd_data/laser/<E>_<N>.laz`, 1 km, LAS 1.2 point format 1, 49 to
-  416 MB in Passau. No CRS in the file. Classes: 2 ground, 6 building, 20 "Objektpunkt (z. B. Vegetation)", 9, 22,
-  23, 24. Vegetation is class 20, not the ASPRS classes 3 to 5.
 - **ATKIS Basis-DLM as a WFS 2.0**: `https://geoservices.bayern.de/wfs/v1/ogc_atkis_basisdlm.cgi`, 80 feature
   types, CC BY 4.0, GML 3.2, no paging. A `BBOX` works only together with
   `NAMESPACES=xmlns(adv,http://www.adv-online.de/namespaces/adv/gid/7.1)`, and one type per request. It has

@@ -15,8 +15,8 @@
 use std::path::Path;
 
 use freemapper_adapter_api::permits::{
-    FindingKind, PermitFinding, PermitSection, PermitSource, PermitSourceInfo, ProtectedObjectKind,
-    Wording,
+    DistrictOffices, FindingKind, PermitFinding, PermitSection, PermitSource, PermitSourceInfo,
+    ProtectedObjectKind, Wording,
 };
 use freemapper_sources::geojson_wfs::{GeoJsonWfs, LatLonBox, get_features};
 use geo_types::{Coord, Geometry, Rect};
@@ -158,6 +158,8 @@ fn source(
             note,
             layers,
             sections,
+            // The Bezirke name the offices of Berlin's Bezirksämter (ADR 0129).
+            offices: (key == "bezirke").then_some(DistrictOffices::Berlin),
         },
         service: wfs(base),
         layers: table,

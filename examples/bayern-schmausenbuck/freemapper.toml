@@ -26,7 +26,7 @@ count = 124
 regions = ["bayern"]
 
 [osm]
-extract = "2026-11-12"
+extract = "2026-11-13"
 area = [49.44830169, 11.14361813, 49.45819831, 11.16288187]
 count = 346
 
@@ -43,3 +43,27 @@ bbox = [655343.767, 5479504.885, 656765.225, 5480639.459]
 fetched = "2026-11-14"
 bbox = [655343.767, 5479504.885, 656765.225, 5480639.459]
 date = "2025-06-13"
+
+[[point_clouds]]
+tile = "32655-5479"
+url = "https://geodaten.bayern.de/odd_data/laser/655_5479.laz"
+published = "2021-12-20"
+
+[[point_clouds]]
+tile = "32655-5480"
+url = "https://geodaten.bayern.de/odd_data/laser/655_5480.laz"
+published = "2021-12-20"
+
+[[point_clouds]]
+tile = "32656-5479"
+url = "https://geodaten.bayern.de/odd_data/laser/656_5479.laz"
+published = "2021-12-20"
+
+[[point_clouds]]
+tile = "32656-5480"
+url = "https://geodaten.bayern.de/odd_data/laser/656_5480.laz"
+published = "2021-12-20"
+
+[content]
+profile = "balanced"
+vegetation = "candidates"

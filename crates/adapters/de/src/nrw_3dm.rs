@@ -62,6 +62,7 @@ impl Nrw3dmBackend {
                 source: "geobasisnrw-3dm".to_string(),
                 epsg: 25832,
                 grid_km: 1,
+                left_out: Vec::new(),
             },
         }
     }
@@ -214,7 +215,7 @@ impl PointCloudBackend for Nrw3dmBackend {
                 continue;
             }
             (env.progress)(note!("progress-downloading", url = &url));
-            match download_las(env, &url, entry.bytes, None, &path) {
+            match download_las(env, &url, Some(entry.bytes), None, &path) {
                 Err(FetchError::Cancelled) => return Err(FetchError::Cancelled.into()),
                 Ok(()) => {
                     for (_, older) in cached.into_iter().filter(|(_, p)| *p != path) {

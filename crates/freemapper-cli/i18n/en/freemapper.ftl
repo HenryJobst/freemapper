@@ -283,7 +283,7 @@ page-content-group-furniture = Street furniture and lamps
 page-content-group-passages = Passages
 page-content-group-contours = Contours
 page-content-group-landforms = Knolls, depressions, banks and cliffs from the terrain model
-page-content-group-vegetation = Vegetation from laser point clouds (Brandenburg, Berlin, North Rhine-Westphalia, Rhineland-Palatinate and Saarland; off until you choose it; downloads about 40 to 500 MB per km²)
+page-content-group-vegetation = Vegetation from laser point clouds (Brandenburg, Berlin, North Rhine-Westphalia, Rhineland-Palatinate, Saarland and Bavaria; off until you choose it; downloads about 40 to 600 MB per km²)
 page-content-group-out-of-bounds = Areas that shall not be entered
 page-content-group-paths = Paths and railways
 page-content-group-streets = Streets and squares
@@ -745,10 +745,10 @@ mcp-error-content = Cannot read the content setting: { $detail }
 ## `permits-*` id is used. The quote "Nicht für Planungszwecke geeignet." is the BfN's own
 ## wording and stays German in every language.
 
-help-permits = Write the permit notes of a project (permits.md and permits.json): the administrative units, protected areas and operators the map area touches, and whom that usually means asking. It asks the BfN and the BKG, for a map area in Berlin also the Geoportal Berlin (gdi.berlin.de), in Brandenburg the Landesbetrieb Forst (www.brandenburg-forst.de), in North Rhine-Westphalia Wald und Holz NRW (www.opengeodata.nrw.de, about 17 MB), each through the hosts of the state's adapter, and reads the OSM extract already cached; --offline uses what was fetched before
+help-permits = Write the permit notes of a project (permits.md and permits.json): the administrative units, protected areas and operators the map area touches, and whom that usually means asking. It asks the BfN and the BKG, for a map area in Berlin also the Geoportal Berlin (gdi.berlin.de), in Hamburg the Geoportal Hamburg (geodienste.hamburg.de), in Brandenburg the Landesbetrieb Forst (www.brandenburg-forst.de), in North Rhine-Westphalia Wald und Holz NRW (www.opengeodata.nrw.de, about 17 MB), each through the hosts of the state's adapter, and reads the OSM extract already cached; --offline uses what was fetched before
 help-permits-dir = Project folder
 help-permits-offline = Use the data fetched before only, without network access
-help-run-permits = Also write the permit notes (permits.md and permits.json) after the map; asks the BfN and the BKG, in Berlin also the Geoportal Berlin (gdi.berlin.de), in Brandenburg and North Rhine-Westphalia the forest administration. A failure there is a warning and the map stays
+help-run-permits = Also write the permit notes (permits.md and permits.json) after the map; asks the BfN and the BKG, in Berlin and Hamburg also their Geoportal, in Brandenburg and North Rhine-Westphalia the forest administration. A failure there is a warning and the map stays
 cli-wrote-permits = Wrote the permit notes { $path }
 cli-summary-wrote-permits = Wrote the permit notes { $path }
 cli-permits-failed = the permit notes could not be written: { $error }
@@ -879,9 +879,18 @@ permits-object-kind = { $kind ->
 permits-object-count = { $count } objects
 permits-object-citations = Legal bases:
 permits-source-note = { $source }: "{ $note }"
-permits-hint-district-office = For streets, squares and green spaces in the Bezirk { $district }, the Ordnungsamt (public order office) and the Straßen- und Grünflächenamt (roads and parks office) of the Bezirksamt { $district } are usually in charge.
-permits-hint-monument-authority = For the monuments in the Bezirk { $district }, the lower monument authority (untere Denkmalschutzbehörde) of the Bezirksamt { $district } is in charge.
-permits-hint-nature-object-authority = For natural monuments and protected landscape features in the Bezirk { $district }, the lower nature conservation authority (untere Naturschutzbehörde) of the Bezirksamt { $district } is in charge.
+permits-hint-district-office = { $offices ->
+        [hamburg] For streets, squares and green spaces in the Bezirk { $district }, the Bezirksamt { $district } is usually in charge, there the Fachamt Management des öffentlichen Raumes (office for public space).
+       *[berlin] For streets, squares and green spaces in the Bezirk { $district }, the Ordnungsamt (public order office) and the Straßen- und Grünflächenamt (roads and parks office) of the Bezirksamt { $district } are usually in charge.
+    }
+permits-hint-monument-authority = { $offices ->
+        [hamburg] For the monuments in the map area, the Denkmalschutzamt Hamburg (monument office) is in charge.
+       *[berlin] For the monuments in the Bezirk { $district }, the lower monument authority (untere Denkmalschutzbehörde) of the Bezirksamt { $district } is in charge.
+    }
+permits-hint-nature-object-authority = { $offices ->
+        [hamburg] For natural monuments and protected landscape features in the Bezirk { $district }, the Bezirksamt { $district } is usually in charge.
+       *[berlin] For natural monuments and protected landscape features in the Bezirk { $district }, the lower nature conservation authority (untere Naturschutzbehörde) of the Bezirksamt { $district } is in charge.
+    }
 permits-hint-owner-share = { $unnamed ->
         [yes] According to the open data of the state, { $share } of the map area belongs to other public owners.
        *[no] According to the open data of the state, { $share } of the map area belongs to the owner "{ $owner }".
@@ -903,6 +912,40 @@ permits-hint-forest-office = { $units ->
 permits-hint-forest-owner = { $office ->
         [known] An event in the forest needs the consent of the forest owners. The forest office can usually say who owns the forest. In several states an organised event in the forest must also be reported to the forest authority or allowed by it.
        *[unknown] An event in the forest needs the consent of the forest owners. In several states an organised event in the forest must also be reported to the forest authority or allowed by it. These notes do not name the forest office in charge here; the forest administration of the state or the lower forest authority can tell you.
+    }
+permits-section-water-protection = Water protection areas ({ $source })
+permits-section-forest-functions = Forest functions and protected forest ({ $source })
+permits-none-water-protection = According to { $source }, no water protection area lies in the map area.
+permits-none-forest-functions = According to { $source }, no recreation forest, no protected forest, no natural forest and no closed forest area lies in the map area.
+permits-water-zone = { $zone }
+permits-forest-function-kind = { $kind ->
+        [recreation] Recreation forest (Erholungswald)
+        [protected] Protected forest (Bannwald or Schutzwald)
+        [natural] Natural forest or strict reserve (Naturwald, Totalreservat)
+       *[closed] Closed forest area
+    }
+permits-hint-water-protection = { $inner ->
+        [yes] The { $zone } of the water protection area "{ $name }" lies in the map area. In zones I and II events are usually ruled out. Ask the lower water authority (untere Wasserbehörde).
+        [no] The { $zone } of the water protection area "{ $name }" lies in the map area. Events there are usually possible; the lower water authority (untere Wasserbehörde) can say what the ordinance allows.
+       *[unknown] The water protection area "{ $name }" lies in the map area. The data do not say which zone it is. In zones I and II events are usually ruled out; ask the lower water authority (untere Wasserbehörde).
+    }
+permits-hint-forest-function = { $kind ->
+        [recreation] Recreation forest (Erholungswald) lies in the map area{ $names ->
+            [none] {""}
+           *[other] {" "}({ $names })
+        }. For events there, ask the forest authority.
+        [protected] Protected forest (Bannwald or Schutzwald) lies in the map area{ $names ->
+            [none] {""}
+           *[other] {" "}({ $names })
+        }. Ask the forest authority before you plan an event there.
+        [natural] Natural forest or a strict reserve lies in the map area{ $names ->
+            [none] {""}
+           *[other] {" "}({ $names })
+        }. Leaving the paths is often forbidden there; place no controls in it without asking the forest authority.
+       *[closed] A forest area that must not be entered lies in the map area{ $names ->
+            [none] {""}
+           *[other] {" "}({ $names })
+        }. Keep it out of the course.
     }
 permits-hint-state-forest = { $office ->
         [none] According to the open data of the state, { $share } of the map area is state forest of the owner "{ $owner }".

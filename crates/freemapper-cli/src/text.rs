@@ -316,6 +316,10 @@ mod tests {
             ("office", v("Oberförsterei Barnim")),
             ("administration", v("Landesbetrieb Forst Brandenburg")),
             ("units", v("Revier Werneuchen")),
+            ("offices", v("hamburg")),
+            ("inner", v("no")),
+            ("zone", v("Schutzzone III")),
+            ("names", v("von hoher Bedeutung")),
             (
                 "note",
                 v("Nur diese amtlichen analogen Karten sind rechtsverbindlich."),

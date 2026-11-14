@@ -635,17 +635,17 @@ go straight onto the map. `slopes=map` takes only the banks of ALKIS and OpenStr
 
 ### Vegetation from laser point clouds
 
-In Brandenburg, Berlin, North Rhine-Westphalia, Rhineland-Palatinate and Saarland freemapper can derive the
-vegetation from the classified laser point clouds of LGB, the Geoportal Berlin, Geobasis NRW, LVermGeo RP and
-LVGL: open land
+In Brandenburg, Berlin, North Rhine-Westphalia, Rhineland-Palatinate, Saarland and Bavaria freemapper can derive
+the vegetation from the classified laser point clouds of LGB, the Geoportal Berlin, Geobasis NRW, LVermGeo RP,
+LVGL and the Bayerische Vermessungsverwaltung: open land
 (401), runnable forest (405), the green shades 406, 408 and 410, and undergrowth (407, 409). It counts in every
 3 m cell how many laser returns reach the ground and how many stay at the heights that slow a runner. That
 shows more than the nDSM, which only sees the crowns.
 
 The group `vegetation` is off in every profile, `full` included, because the point clouds are large. Per square
 kilometre tile freemapper loads about 160 MB in Brandenburg, about 240 MB in Berlin (about 100 MB as LAZ in the
-cache), mostly 50 to 165 MB in North Rhine-Westphalia, mostly 110 to 500 MB in Rhineland-Palatinate and about 40 MB in
-Saarland; a park
+cache), mostly 50 to 165 MB in North Rhine-Westphalia, mostly 110 to 500 MB in Rhineland-Palatinate, about 40 MB in
+Saarland and mostly 100 to 600 MB in Bavaria; a park
 usually needs two to four tiles. Only `--content-set vegetation=candidates` (or the area page) makes the next
 `fetch` load them into the shared cache. `derive` writes `data/vegetation.geojson` from them, and the export puts
 the areas into the candidates map. There are none at buildings, in water or on paved areas; roofs that ALKIS no
@@ -657,7 +657,12 @@ the old town of Saarlouis.
 Reeds and shrubs at a shore come out as 410. The Berlin scan of 2021 was made without leaves, so dense shrubs are
 recognised less well there, and when the Geoportal changes an archive, freemapper loads its tiles again. The Saarland scan (February 2025)
 was made without leaves too, and LVGL thinned the point cloud to one point per 0.5 m; freemapper still finds the
-crowns there. The point
+crowns there. In Bavaria it is checked on the Schmausenbuck in the Nürnberger Reichswald. The three Bavarian
+flights whose day is known were flown between November and February. Without leaves, shrubs and young growth
+give few echoes, so on the Schmausenbuck the young growth of 2 to 5 m under a power line comes out mostly as
+runnable forest (405). The date on the Bavarian candidates is the day of the flight, which freemapper reads from
+the laser points (20 December 2021 on the Schmausenbuck). Older flights do not name it; there it is the day the
+file was made. The point
 cloud can be some years older than the orthophoto. Check the areas against the orthophoto and in the terrain. When
 space is short, the point clouds are the first part left out. The other states have no point-cloud source yet. Saxony took its point clouds off its download area in November
 2026.
@@ -887,8 +892,8 @@ still have to ask them.
 ### Making the notes
 
 The notes are made only when you ask for them, and only then does freemapper ask the BfN and the BKG, for a
-map area in Berlin also the Geoportal Berlin, in Brandenburg and North Rhine-Westphalia the forest
-administration.
+map area in Berlin also the Geoportal Berlin, in Hamburg the Geoportal Hamburg, in Brandenburg and North
+Rhine-Westphalia the forest administration.
 
 - In the terminal, after the map was fetched once:
 
@@ -902,8 +907,8 @@ administration.
 - Tell the AI assistant, for example: "Also make the permit notes for the project." It shows you the text
   once it is done.
 
-`permits` asks the two federal services, in Berlin also the Geoportal Berlin, in Brandenburg the Landesbetrieb
-Forst, and reads the OSM extract that is already in the cache. In North Rhine-Westphalia it downloads two files of
+`permits` asks the two federal services, in Berlin also the Geoportal Berlin, in Hamburg the Geoportal Hamburg,
+in Brandenburg the Landesbetrieb Forst, and reads the OSM extract that is already in the cache. In North Rhine-Westphalia it downloads two files of
 Wald und Holz NRW for the whole state, about 17 MB together, anew on every fetch. It does not
 download an extract. Without one the notes leave OpenStreetMap out and say so; `freemapper fetch` downloads
 it. It all takes about half a minute, most of it for reading the OSM extract.
@@ -944,7 +949,8 @@ It starts with the note that it is not legal advice. Six sections follow:
   public (`garden:type=residential` or `private`, `access=private` or `no`). It reads no phone numbers or e-mail
   addresses either.
 - In Berlin up to five sections from the Geoportal Berlin follow "Administrative units" (see "Berlin" below).
-- In Brandenburg, Berlin and North Rhine-Westphalia "Forest administration" follows, in North Rhine-Westphalia
+- In Hamburg up to five sections from the Geoportal Hamburg follow (see "Hamburg" below).
+- In Brandenburg, Berlin, Hamburg and North Rhine-Westphalia "Forest administration" follows, in North Rhine-Westphalia
   also "State forest" (see "Forest administration" below).
 - "Hints" says whom a finding usually concerns, for example: "Protected areas concern the lower nature
   conservation authority (untere Naturschutzbehörde), usually the Landkreis Märkisch-Oderland." or "In a
@@ -984,6 +990,30 @@ If a service is down, only its section is missing, and the table of sources says
 Bezirke the general hint for Berlin and Hamburg comes back. Nature reserves, landscape protection areas, FFH and
 bird protection areas and the nature park still come from the BfN, not from the Geoportal.
 
+### Hamburg
+
+When the map area lies in Hamburg, freemapper asks six services on `geodienste.hamburg.de`:
+
+- "Districts" names each of the seven Bezirke with its share.
+- "Green spaces" names the public green spaces of the Grünplan with Bezirk and share. An area without a name of
+  its own is listed by its kind, such as "Parkanlagen".
+- "Monuments" counts garden monuments, ensembles and listed buildings. The list also names the architects of the
+  buildings; freemapper takes none of it, not even into `data/permits/`.
+- "Forest administration" names the Revierförsterei of the Stadtwald with its Bezirksamt; "Forest functions and
+  protected forest" names the Bannwald and the Erholungswald with its rating.
+- "Water protection areas" names each water protection area with its zone.
+
+The hints name, for each Bezirk that is more than an edge, the Bezirksamt with its Fachamt Management des
+öffentlichen Raumes and, when a monument lies in the area, the Denkmalschutzamt Hamburg. Without the Bezirke the
+general hint for Berlin and Hamburg comes back.
+
+### Water protection areas and forest functions
+
+In Hamburg both come from open services of the state; more states follow. A water protection area gets a hint
+with its zone: in zones I and II events are usually ruled out, in zone III usually possible, and the lower water
+authority says what the ordinance allows. When the data give no zone, the hint names both cases. Recreation
+forest, protected forest, natural forest and closed forest areas each get a hint whom to ask or what to avoid.
+
 ### Forest administration
 
 An event in the forest needs the consent of the forest owners. In several states an organised event in the
@@ -1001,11 +1031,14 @@ an office can take in towns and fields as well; in Brandenburg every map area li
 (North Rhine-Westphalia only) gives the share of the map area that belongs to the state of North Rhine-Westphalia, with
 the forest office that looks after it.
 
-On a forest map the hints name the office of every area that is more than an edge of the map, with its
-Reviere or districts, and say that the forest owners must agree. In the other states, or when the service could
-not be reached, a forest map gets only the hint on the owners' consent and the forest authority, without an
-office. Schoolyard and sprint maps get none of these hints, but they do get the sections. The state forest is
-among the owner hints on every kind of map.
+The forest hints and the section "Forest administration" come when the map area holds forest: on every forest
+map, on any other map as soon as OpenStreetMap has forest or wood (`landuse=forest`, `natural=wood`) in the area,
+however small, and also when there is no OSM extract and it cannot be told. A schoolyard or sprint map in the
+middle of a town does not get them, even though the area lies in a Revier. The hints then name the office of
+every area that is more than an edge of the map, with its Reviere or districts, and say that the forest owners
+must agree. In the other states, or when the service could not be reached, only the hint on the owners' consent
+and the forest authority remains, without an office. The state forest is among the owner hints on every kind of
+map, whenever it lies in the area.
 
 In North Rhine-Westphalia every row of the district file also names the forester with name, e-mail address and
 phone numbers. freemapper takes none of it: it keeps only the names of the office and the district, also in
@@ -1021,8 +1054,8 @@ phone numbers. freemapper takes none of it: it keeps only the names of the offic
 - An OSM area that encloses the whole map area without a corner inside it, a large wood for example, can be
   missing. So can an OSM protected area mapped as a relation of the type `boundary`. The parts from the BfN and
   VG250 are not affected.
-- Berlin and Hamburg are one unit each in VG250. For Berlin the notes name the Bezirk from the Geoportal Berlin,
-  for Hamburg not yet.
+- Berlin and Hamburg are one unit each in VG250. The notes name the Bezirk from the Geoportal Berlin and the
+  Geoportal Hamburg.
 - The Geoportal Berlin says that for the protected objects only the official analogue maps are legally binding.
   The notes quote that sentence word for word below the table of sources.
 - Owners of land are not in open data, except the state and the Bund in Berlin. The notes say how to get an
@@ -1042,13 +1075,14 @@ phone numbers. freemapper takes none of it: it keeps only the names of the offic
 | Protected areas in Germany of the Federal Agency for Nature Conservation (BfN) | `geodienste.bfn.de` | `© Bundesamt für Naturschutz (BfN) (<year>), Schutzgebiete in Deutschland; Nutzungsbestimmungen für die Bereitstellung von Geodaten des Bundes (GeoNutzV). Nicht für Planungszwecke geeignet.` |
 | OpenStreetMap | extract in the cache | `© OpenStreetMap contributors, ODbL` |
 | Geoportal Berlin: Bezirk borders, green spaces, Liegenschaftsplan, monuments, protected objects, forest administration (Berlin only) | `gdi.berlin.de` | `Für die Nutzung der Daten ist die Datenlizenz Deutschland - Zero - Version 2.0 anzuwenden. Die Lizenz ist über https://www.govdata.de/dl-de/zero-2-0 abrufbar.` |
+| Geoportal Hamburg: Bezirk borders, Grünplan, monuments, forest in Hamburg, forest functions, water protection areas (Hamburg only) | `geodienste.hamburg.de` | per service `Datenlizenz Deutschland Namensnennung 2.0, Quellenvermerk: Freie und Hansestadt Hamburg, <office>` with the office the service names |
 | Landesbetrieb Forst Brandenburg: forest districts (Reviere) with their Oberförsterei (Brandenburg only) | `www.brandenburg-forst.de` | `Landesbetrieb Forst Brandenburg, Datenlizenz Deutschland – Namensnennung – Version 2.0 (https://www.govdata.de/dl-de/by-2-0)` |
 | Wald und Holz NRW: forest districts (Forstbetriebsbezirke) with their Regionalforstamt, state forest (North Rhine-Westphalia only) | `www.opengeodata.nrw.de` | `Landesbetrieb Wald und Holz Nordrhein-Westfalen, Datenlizenz Deutschland – Namensnennung – Version 2.0 (https://www.govdata.de/dl-de/by-2-0)` |
 
 `<year>` is the year of the fetch. The BfN gives no credit line of its own; freemapper built this one from the
 name of the service, its terms of use and its access note. Keep the lines when you pass `permits.md` on.
 
-freemapper sends the federal services, the Geoportal Berlin and the Landesbetrieb Forst Brandenburg only the
+freemapper sends the federal services, the Geoportale Berlin and Hamburg and the Landesbetrieb Forst Brandenburg only the
 rectangle around the map area and its fixed name (User-Agent). From Wald und Holz NRW it downloads the files for
 the whole state and cuts them itself; only the name goes there. It asks no other server for the notes. It asks
 the services of a state only for a map area that lies there, and only through the hosts the adapter of that

@@ -664,9 +664,9 @@ kommen sie direkt auf die Karte. `slopes=map` holt nur die Böschungen aus ALKIS
 
 ### Vegetation aus Laserpunktwolken
 
-In Brandenburg, Berlin, Nordrhein-Westfalen, Rheinland-Pfalz und im Saarland kann freemapper die Vegetation aus
-den klassifizierten Laserpunktwolken der LGB, des Geoportals Berlin, von Geobasis NRW, vom LVermGeo RP bzw. vom
-LVGL ableiten:
+In Brandenburg, Berlin, Nordrhein-Westfalen, Rheinland-Pfalz, im Saarland und in Bayern kann freemapper die
+Vegetation aus den klassifizierten Laserpunktwolken der LGB, des Geoportals Berlin, von Geobasis NRW, vom LVermGeo
+RP, vom LVGL bzw. der Bayerischen Vermessungsverwaltung ableiten:
 offenes Gelände (401), gut belaufbaren Wald (405), die Grünabstufungen 406, 408 und 410 sowie Unterwuchs (407,
 409). Gemessen wird, wie viele Laserpunkte in jeder 3-m-Zelle in Bodennähe ankommen und wie viele in den
 Höhen hängen bleiben, die einen Läufer bremsen. Das zeigt mehr als das nDOM, das nur die Kronen sieht.
@@ -674,7 +674,8 @@ Höhen hängen bleiben, die einen Läufer bremsen. Das zeigt mehr als das nDOM, 
 Die Gruppe `vegetation` ist in jedem Profil aus, auch in `full`, denn die Punktwolken sind groß. Je
 Quadratkilometer-Kachel lädt freemapper etwa 160 MB in Brandenburg, etwa 240 MB in Berlin (als LAZ im
 Zwischenspeicher etwa 100 MB), meist 50 bis 165 MB in Nordrhein-Westfalen, meist 110 bis 500 MB in
-Rheinland-Pfalz und etwa 40 MB im Saarland; ein Park braucht meist zwei bis vier Kacheln. Erst `--content-set vegetation=candidates`
+Rheinland-Pfalz, etwa 40 MB im Saarland und meist 100 bis 600 MB in Bayern; ein Park braucht meist zwei bis vier
+Kacheln. Erst `--content-set vegetation=candidates`
 (oder auf der Gebietsseite) lädt sie beim nächsten `fetch` in den gemeinsamen Zwischenspeicher. `derive`
 schreibt daraus `data/vegetation.geojson`, und der Export legt die Flächen in die Kandidatenkarte. An Gebäuden,
 im Wasser und auf gepflasterten Flächen gibt es keine; auch Dächer, die das ALKIS nicht mehr kennt, erkennt
@@ -686,7 +687,12 @@ Altstadt von Saarlouis. Schilf und
 Gebüsch am Ufer erscheinen als 410. Die Berliner Befliegung von 2021 war ohne Laub; dort erkennt freemapper
 dichtes Gebüsch schlechter, und ändert das Geoportal ein Archiv, lädt freemapper dessen Kacheln neu. Auch die
 Saarländer Befliegung (Februar 2025) war ohne Laub, und das LVGL hat die Punktwolke auf einen Punkt je 0,5 m
-ausgedünnt; die Kronen erkennt freemapper dort trotzdem. Die
+ausgedünnt; die Kronen erkennt freemapper dort trotzdem. In Bayern ist es am Schmausenbuck im Nürnberger
+Reichswald geprüft. Die drei bayerischen Flüge, deren Tag bekannt ist, lagen zwischen November und Februar. Ohne
+Laub geben Gebüsch und Jungwuchs wenige Echos. Am Schmausenbuck erscheint der 2 bis 5 m hohe Jungwuchs unter
+einer Stromtrasse deshalb überwiegend als gut belaufbarer Wald (405). Das Datum an den bayerischen Kandidaten ist der
+Flugtag, den freemapper aus den Laserpunkten liest (am Schmausenbuck der 20.12.2021). Ältere Befliegungen nennen
+ihn nicht; dort steht der Tag, an dem die Datei erzeugt wurde. Die
 Punktwolke kann einige Jahre älter sein als das Luftbild. Prüfen Sie die Flächen am Luftbild und im Gelände. Ist
 der Platz knapp, entfallen die Punktwolken als Erstes. Die anderen Bundesländer haben noch keine
 Punktwolken-Quelle. Sachsen hat seine Punktwolken im November 2026 aus dem Downloadbereich genommen.
@@ -919,7 +925,8 @@ brauchen Sie weiter, und fragen müssen Sie auch.
 ### Hinweise erstellen
 
 Die Hinweise entstehen nur auf Ihren Wunsch, und nur dann fragt freemapper das BfN und das BKG, für ein
-Kartengebiet in Berlin auch das Geoportal Berlin, in Brandenburg und Nordrhein-Westfalen die Forstverwaltung.
+Kartengebiet in Berlin auch das Geoportal Berlin, in Hamburg das Geoportal Hamburg, in Brandenburg und
+Nordrhein-Westfalen die Forstverwaltung.
 
 - Im Terminal, nachdem die Karte einmal geladen wurde:
 
@@ -933,8 +940,8 @@ Kartengebiet in Berlin auch das Geoportal Berlin, in Brandenburg und Nordrhein-W
 - Dem KI-Assistenten sagen Sie zum Beispiel: „Erstelle für das Projekt auch die Hinweise zu Genehmigungen.“
   Er zeigt Ihnen den Text, sobald er fertig ist.
 
-`permits` fragt die beiden Dienste des Bundes, in Berlin auch das Geoportal Berlin, in Brandenburg den
-Landesbetrieb Forst, und liest den OSM-Auszug, der schon im Zwischenspeicher liegt. In Nordrhein-Westfalen lädt
+`permits` fragt die beiden Dienste des Bundes, in Berlin auch das Geoportal Berlin, in Hamburg das Geoportal
+Hamburg, in Brandenburg den Landesbetrieb Forst, und liest den OSM-Auszug, der schon im Zwischenspeicher liegt. In Nordrhein-Westfalen lädt
 es zwei Dateien von Wald und Holz NRW für das ganze Bundesland, zusammen etwa 17 MB, bei jedem Abruf neu.
 Einen Auszug lädt der Befehl nicht. Fehlt er, lassen die Hinweise OpenStreetMap aus und sagen das;
 `freemapper fetch` lädt ihn. Das Ganze dauert etwa eine halbe Minute, den größten Teil davon braucht das Lesen
@@ -977,7 +984,8 @@ Am Anfang steht der Hinweis, dass es keine Rechtsauskunft ist. Dann folgen sechs
   Wohnhaus gehören oder nicht öffentlich sind (`garden:type=residential` oder `private`, `access=private` oder
   `no`). Telefonnummern und E-Mail-Adressen liest es auch nicht.
 - In Berlin folgen nach „Verwaltung“ bis zu fünf Abschnitte aus dem Geoportal Berlin (siehe unten, „Berlin“).
-- In Brandenburg, Berlin und Nordrhein-Westfalen folgt „Forstverwaltung“, in Nordrhein-Westfalen auch
+- In Hamburg folgen bis zu fünf Abschnitte aus dem Geoportal Hamburg (siehe unten, „Hamburg“).
+- In Brandenburg, Berlin, Hamburg und Nordrhein-Westfalen folgt „Forstverwaltung“, in Nordrhein-Westfalen auch
   „Staatswald“ (siehe unten, „Forstverwaltung“).
 - „Hinweise“ sagt, wen ein Fund meist betrifft, zum Beispiel: „Schutzgebiete betreffen die untere
   Naturschutzbehörde (meist der Landkreis Märkisch-Oderland).“ oder „Im Naturschutzgebiet gilt meist ein
@@ -1019,6 +1027,31 @@ Fällt ein Dienst aus, fehlt nur sein Abschnitt, und die Tabelle der Quellen nen
 die Bezirke, steht wieder der allgemeine Hinweis für Berlin und Hamburg da. Die NSG, LSG, FFH-Gebiete,
 Vogelschutzgebiete und den Naturpark nimmt freemapper weiter vom BfN, nicht aus dem Geoportal.
 
+### Hamburg
+
+Liegt das Kartengebiet in Hamburg, fragt freemapper sechs Dienste auf `geodienste.hamburg.de`:
+
+- „Bezirke“ nennt jeden der sieben Bezirke mit seinem Anteil.
+- „Grünanlagen“ nennt die öffentlichen Grünanlagen aus dem Grünplan mit Bezirk und Anteil. Eine Fläche ohne
+  eigenen Namen steht mit ihrer Art da, etwa „Parkanlagen“.
+- „Denkmale“ zählt Gartendenkmale, Ensembles und Baudenkmale. Die Liste nennt zu den Gebäuden auch ihre
+  Architekten; freemapper übernimmt davon nichts, auch nicht in `data/permits/`.
+- „Forstverwaltung“ nennt die Revierförsterei des Stadtwalds mit ihrem Bezirksamt, „Waldfunktionen und
+  Schutzwald“ den Bannwald und den Erholungswald mit seiner Bedeutung.
+- „Wasserschutzgebiete“ nennt jedes Wasserschutzgebiet mit seiner Schutzzone.
+
+Die Hinweise nennen für jeden Bezirk, der mehr als den Rand berührt, das Bezirksamt mit seinem Fachamt
+Management des öffentlichen Raumes und, wenn ein Denkmal im Gebiet liegt, das Denkmalschutzamt Hamburg. Fehlen
+die Bezirke, steht der allgemeine Hinweis für Berlin und Hamburg da.
+
+### Wasserschutzgebiete und Waldfunktionen
+
+In Hamburg kommen beide aus offenen Diensten des Bundeslandes; weitere Bundesländer folgen. Ein
+Wasserschutzgebiet bekommt einen Hinweis mit seiner Schutzzone: In den Zonen I und II sind Veranstaltungen
+meist ausgeschlossen, in Zone III meist möglich, und die untere Wasserbehörde sagt, was die Verordnung erlaubt.
+Sagen die Daten keine Zone, nennt der Hinweis beide Fälle. Erholungswald, Bannwald oder Schutzwald, Naturwald
+und gesperrte Waldflächen bekommen je einen Hinweis, wen man fragt oder was man meidet.
+
 ### Forstverwaltung
 
 Für eine Veranstaltung im Wald brauchen Sie die Zustimmung der Waldbesitzer. In mehreren Bundesländern ist eine
@@ -1036,12 +1069,15 @@ Bereich einer Dienststelle kann auch Siedlungen und Felder umfassen; in Brandenb
 einem Revier. „Staatswald“ (nur Nordrhein-Westfalen) nennt den Anteil des Kartengebiets, der dem Bundesland
 Nordrhein-Westfalen gehört, mit dem Forstamt, das ihn betreut.
 
-Bei einer Waldkarte nennen die Hinweise die Dienststelle jedes Bereichs, der mehr als den Rand des Gebiets
-berührt, mit ihren Revieren oder Bezirken, und sagen, dass die Waldbesitzer zustimmen müssen. In den anderen
-Bundesländern, oder wenn der Dienst nicht erreichbar war, bekommt eine Waldkarte nur den Hinweis auf die
-Zustimmung der Waldbesitzer und die Forstbehörde, ohne Dienststelle. Schulhof- und Sprintkarten bekommen keinen
-dieser Hinweise, die Abschnitte schon. Der Staatswald steht bei jeder Kartenart unter den Hinweisen zu den
-Eigentümern.
+Die Hinweise zum Wald und der Abschnitt „Forstverwaltung“ kommen, wenn im Kartengebiet Wald liegt: bei jeder
+Waldkarte, bei jeder anderen Karte, sobald OpenStreetMap im Gebiet Wald oder Gehölz (`landuse=forest`,
+`natural=wood`) verzeichnet, auch ein kleines Stück, und ebenso, wenn kein OSM-Auszug vorliegt und sich das
+nicht sagen lässt. Eine Schulhof- oder Sprintkarte mitten in der Stadt bekommt sie nicht, auch wenn das Gebiet
+in einem Revier liegt. Die Hinweise nennen dann die Dienststelle jedes Bereichs, der mehr als den Rand des
+Gebiets berührt, mit ihren Revieren oder Bezirken, und sagen, dass die Waldbesitzer zustimmen müssen. In den
+anderen Bundesländern, oder wenn der Dienst nicht erreichbar war, bleibt nur der Hinweis auf die Zustimmung der
+Waldbesitzer und die Forstbehörde, ohne Dienststelle. Der Staatswald steht bei jeder Kartenart unter den
+Hinweisen zu den Eigentümern, sobald er im Gebiet liegt.
 
 In Nordrhein-Westfalen nennt jede Zeile der Bezirksdatei auch Namen, E-Mail-Adresse und Telefonnummern der
 Försterin oder des Försters. freemapper übernimmt davon nichts: Es behält nur die Namen des Forstamts und des
@@ -1057,8 +1093,8 @@ Bezirks, auch in `data/permits/`.
 - Eine OSM-Fläche, die das ganze Kartengebiet umschließt und keine Ecke darin hat, etwa ein großer Wald, kann
   fehlen. Das gilt auch für ein OSM-Schutzgebiet, das als Relation vom Typ `boundary` erfasst ist. Die Angaben
   von BfN und VG250 betrifft das nicht.
-- Berlin und Hamburg sind in VG250 je eine Einheit. Für Berlin nennen die Hinweise den Bezirk aus dem Geoportal
-  Berlin, für Hamburg noch nicht.
+- Berlin und Hamburg sind in VG250 je eine Einheit. Den Bezirk nennen die Hinweise aus dem Geoportal Berlin und
+  dem Geoportal Hamburg.
 - Laut Geoportal Berlin sind bei den Schutzobjekten nur die amtlichen analogen Karten rechtsverbindlich. Die
   Hinweise geben diesen Satz unter der Tabelle der Quellen wörtlich wieder.
 - Eigentümer von Grundstücken stehen nicht in offenen Daten, außer in Berlin für das Bundesland und den Bund. Die Hinweise
@@ -1078,6 +1114,7 @@ Bezirks, auch in `data/permits/`.
 | Schutzgebiete in Deutschland des Bundesamts für Naturschutz (BfN) | `geodienste.bfn.de` | `© Bundesamt für Naturschutz (BfN) (<Jahr>), Schutzgebiete in Deutschland; Nutzungsbestimmungen für die Bereitstellung von Geodaten des Bundes (GeoNutzV). Nicht für Planungszwecke geeignet.` |
 | OpenStreetMap | Auszug im Zwischenspeicher | `© OpenStreetMap contributors, ODbL` |
 | Geoportal Berlin: Bezirksgrenzen, Grünanlagenbestand, Liegenschaftsplan, Denkmale, Schutzobjekte nach Naturschutzrecht, Forstverwaltung (nur in Berlin) | `gdi.berlin.de` | `Für die Nutzung der Daten ist die Datenlizenz Deutschland - Zero - Version 2.0 anzuwenden. Die Lizenz ist über https://www.govdata.de/dl-de/zero-2-0 abrufbar.` |
+| Geoportal Hamburg: Bezirksgrenzen, Grünplan, Denkmalschutz, Wald in Hamburg, Waldfunktionen, Wasserschutzgebiete (nur in Hamburg) | `geodienste.hamburg.de` | je Dienst `Datenlizenz Deutschland Namensnennung 2.0, Quellenvermerk: Freie und Hansestadt Hamburg, <Behörde>` mit der Behörde, die der Dienst nennt |
 | Landesbetrieb Forst Brandenburg: Forstreviere mit ihrer Oberförsterei (nur in Brandenburg) | `www.brandenburg-forst.de` | `Landesbetrieb Forst Brandenburg, Datenlizenz Deutschland – Namensnennung – Version 2.0 (https://www.govdata.de/dl-de/by-2-0)` |
 | Wald und Holz NRW: Forstbetriebsbezirke mit ihrem Regionalforstamt, Staatswald (nur in Nordrhein-Westfalen) | `www.opengeodata.nrw.de` | `Landesbetrieb Wald und Holz Nordrhein-Westfalen, Datenlizenz Deutschland – Namensnennung – Version 2.0 (https://www.govdata.de/dl-de/by-2-0)` |
 
@@ -1085,7 +1122,7 @@ Bezirks, auch in `data/permits/`.
 aus dem Namen des Dienstes, seinen Nutzungsbestimmungen und seinem Zugriffshinweis gebildet. Lassen Sie die
 Zeilen stehen, wenn Sie `permits.md` weitergeben.
 
-An die Dienste des Bundes, an das Geoportal Berlin und an den Landesbetrieb Forst Brandenburg sendet
+An die Dienste des Bundes, an die Geoportale Berlin und Hamburg und an den Landesbetrieb Forst Brandenburg sendet
 freemapper nur das Rechteck um das Kartengebiet und seine feste Kennung (User-Agent). Von Wald und Holz NRW lädt
 es die Dateien für das ganze Bundesland und schneidet sie selbst zu; dorthin geht nur die Kennung. Andere Server
 fragt es für die Hinweise nicht. Die Dienste eines Bundeslandes fragt es nur für ein Kartengebiet, das dort

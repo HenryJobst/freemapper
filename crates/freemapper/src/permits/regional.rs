@@ -8,9 +8,11 @@
 
 use std::collections::BTreeMap;
 
-use freemapper_adapter_api::permits::{FindingKind, PermitFinding, PermitSourceInfo};
 /// The kinds the regional part names, for the writers of the notes.
-pub use freemapper_adapter_api::permits::{PermitSection, ProtectedObjectKind};
+pub use freemapper_adapter_api::permits::{
+    DistrictOffices, ForestFunctionKind, PermitSection, ProtectedObjectKind,
+};
+use freemapper_adapter_api::permits::{FindingKind, PermitFinding, PermitSourceInfo};
 use geo_types::{Coord, Geometry, MultiPolygon};
 use serde::{Deserialize, Serialize};
 
@@ -38,6 +40,9 @@ pub struct RegionalSource {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub note: Option<String>,
     pub sections: Vec<PermitSection>,
+    /// Whose offices the hints of the districts of the source name (ADR 0129).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub offices: Option<DistrictOffices>,
 }
 
 impl From<&PermitSourceInfo> for RegionalSource {
@@ -53,6 +58,7 @@ impl From<&PermitSourceInfo> for RegionalSource {
             credit: info.credit.to_string(),
             note: info.note.map(str::to_string),
             sections: info.sections.to_vec(),
+            offices: info.offices,
         }
     }
 }
@@ -89,6 +95,12 @@ pub struct RegionalNotes {
     /// One entry per owner and office of the state forest, by share, descending.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub state_forest: Option<Vec<Share<StateForestEntry>>>,
+    /// One entry per water protection area and zone, by share, descending (ADR 0129).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub water_protection: Option<Vec<Share<WaterProtectionEntry>>>,
+    /// One entry per function of forest and name, by share, descending.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub forest_functions: Option<Vec<Share<ForestFunctionEntry>>>,
     /// The sources of the adapter, in its order.
     pub sources: Vec<RegionalStatus>,
 }
@@ -154,6 +166,21 @@ pub struct StateForestEntry {
     pub office: Option<String>,
 }
 
+/// A water protection area or zone.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct WaterProtectionEntry {
+    pub name: Option<String>,
+    pub zone: Option<String>,
+    pub citation: Option<String>,
+}
+
+/// An area of forest with a function or protection.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct ForestFunctionEntry {
+    pub kind: ForestFunctionKind,
+    pub name: Option<String>,
+}
+
 /// A protected object on the map. Equal points (same kind, name and citation) are one entry
 /// with their count; an area has its share.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -194,6 +221,13 @@ pub(crate) struct HintFacts {
     pub forest_offices: Vec<ForestOffice>,
     /// The state forest on the map with its share in percent.
     pub state_forest: Vec<(StateForestEntry, f64)>,
+    /// Whose offices the district hints name; from the source of the districts.
+    pub offices: Option<DistrictOffices>,
+    /// The water protection areas and zones on the map, edges included.
+    pub water: Vec<WaterProtectionEntry>,
+    /// The functions of forest on the map with the names of their areas, in the order of the
+    /// kinds.
+    pub forest_functions: Vec<(ForestFunctionKind, Vec<String>)>,
 }
 
 /// A forest office the hints name.
@@ -358,6 +392,8 @@ fn one_adapter(
         read(PermitSection::ProtectedObjects).then(|| protected_objects(&on_map));
     let forest_units = read(PermitSection::ForestUnits).then(|| forest_units(&on_map));
     let state_forest = read(PermitSection::StateForest).then(|| state_forest(&on_map));
+    let water_protection = read(PermitSection::WaterProtection).then(|| water_protection(&on_map));
+    let forest_functions = read(PermitSection::ForestFunctions).then(|| forest_functions(&on_map));
 
     let facts = HintFacts {
         districts: districts
@@ -394,6 +430,27 @@ fn one_adapter(
             .flatten()
             .map(|s| (s.item.clone(), s.percent))
             .collect(),
+        offices: inputs
+            .iter()
+            .filter(|i| i.source.sections.contains(&PermitSection::Districts))
+            .find_map(|i| i.source.offices),
+        water: water_protection
+            .iter()
+            .flatten()
+            .map(|s| s.item.clone())
+            .collect(),
+        forest_functions: {
+            let mut kinds: BTreeMap<ForestFunctionKind, Vec<String>> = BTreeMap::new();
+            for s in forest_functions.iter().flatten() {
+                let names = kinds.entry(s.item.kind).or_default();
+                if let Some(name) = &s.item.name
+                    && !names.contains(name)
+                {
+                    names.push(name.clone());
+                }
+            }
+            kinds.into_iter().collect()
+        },
     };
     let notes = RegionalNotes {
         adapter: adapter.to_string(),
@@ -404,6 +461,8 @@ fn one_adapter(
         protected_objects,
         forest_units,
         state_forest,
+        water_protection,
+        forest_functions,
         sources: inputs
             .iter()
             .map(|i| RegionalStatus {
@@ -535,6 +594,40 @@ fn state_forest(on_map: &[(&Placed<'_>, f64)]) -> Vec<Share<StateForestEntry>> {
             let key = StateForestEntry {
                 owner: owner.clone(),
                 office: office.clone(),
+            };
+            *summed.entry(key).or_default() += share;
+        }
+    }
+    by_share(summed, Clone::clone)
+}
+
+fn water_protection(on_map: &[(&Placed<'_>, f64)]) -> Vec<Share<WaterProtectionEntry>> {
+    let mut summed: BTreeMap<WaterProtectionEntry, f64> = BTreeMap::new();
+    for (p, share) in on_map {
+        if let FindingKind::WaterProtection {
+            name,
+            zone,
+            citation,
+        } = p.kind
+        {
+            let key = WaterProtectionEntry {
+                name: name.clone(),
+                zone: zone.clone(),
+                citation: citation.clone(),
+            };
+            *summed.entry(key).or_default() += share;
+        }
+    }
+    by_share(summed, Clone::clone)
+}
+
+fn forest_functions(on_map: &[(&Placed<'_>, f64)]) -> Vec<Share<ForestFunctionEntry>> {
+    let mut summed: BTreeMap<ForestFunctionEntry, f64> = BTreeMap::new();
+    for (p, share) in on_map {
+        if let FindingKind::ForestFunction { kind, name } = p.kind {
+            let key = ForestFunctionEntry {
+                kind: *kind,
+                name: name.clone(),
             };
             *summed.entry(key).or_default() += share;
         }
