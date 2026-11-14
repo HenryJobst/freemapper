@@ -6,6 +6,10 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+### Hinzugefügt
+
+- Bayern (ADR 0123): Karten in ganz Bayern, in UTM-Zone 32, auch östlich von 12° O. Das Luftbild kommt aus dem Kartendienst der Bayerischen Vermessungsverwaltung, mit dem Datum des Bildflugs. Das Geländemodell (DGM1) liest freemapper kachelweise, je Kachel etwa 2,8 MB. Ein Oberflächenmodell mit 1 m gibt es in Bayern nicht; freemapper nimmt das DOM20 mit 20 cm (etwa 45 MB je km²), verkleinert es auf 1 m und hebt nur die verkleinerten Kacheln auf. Bayern hat für sein Kataster keinen Dienst. Die Gebäude und Überdachungen kommen deshalb aus den LoD2-Kacheln, einer Datei je 2-km-Quadrat (auf dem Land etwa 3 MB, in einer Innenstadt 60 bis 160 MB), die Nutzung aus der Datei jedes Kreises am Gebiet (2 bis 13 MB). Brücken und Mauern aus LoD2 kommen nicht auf die Karte. Die Schätzung vor dem Lauf nennt alle fünf Downloads. Dateien im Zwischenspeicher lädt freemapper nur erneut, wenn der Server eine neuere hat; ohne Netz (`--offline`) entsteht dieselbe Karte. Treppen, Mauern und Böschungen aus dem Kataster und Bewuchs aus Punktwolken gibt es für Bayern noch nicht. Beispiele: die Regensburger Altstadt (Sprintkarte) und der Schmausenbuck im Nürnberger Reichswald (Waldkarte). Thüringen ist jetzt das einzige Bundesland ohne Datenquellen; die Warnung für Gebiete außerhalb der Abdeckung nennt nur noch Thüringen.
+
 ### Behoben
 
 - Saarland: In Waldgebieten fehlten die ALKIS-Nutzungsflächen mit der Warnung „LVGL ALKIS returned 22 of 26 features in the area“, auch nach einem neuen `fetch`. Der Dienst führt eine Waldfläche einmal je Vegetationsmerkmal (etwa Laubholz und Kurzumtriebsplantage), mit derselben Objektkennung und derselben Geometrie. freemapper behält davon eine Zeile, zählt die übrigen jetzt aber zu den Treffern des Dienstes. Eine Wiederholung auf einer späteren Seite bleibt ein Fehler. An der Saarschleife bei Mettlach kommen so 684 Nutzungsflächen an und 132 Kandidaten für Sperrgebiet dazu.

@@ -1,0 +1,45 @@
+map_kind = "sprint"
+scale_denominator = 4000
+declination_date = "2026-11-14"
+buffer_m = 50.0
+crs = 25832
+provider = "ldbv"
+title = "Altstadt Regensburg mit der Steinernen Brücke"
+tiles = []
+
+[map_area]
+coordinates = [[[12.0915, 49.018], [12.1035, 49.018], [12.1035, 49.025], [12.0915, 49.025], [12.0915, 49.018]]]
+type = "Polygon"
+
+[buildings]
+bbox = [725941.0, 5434012.0, 726951.0, 5434926.0]
+fetched = "2026-11-14"
+latest_update = "2026-01-12"
+count = 1821
+regions = ["bayern"]
+
+[land_use]
+bbox = [725941.0, 5434012.0, 726951.0, 5434926.0]
+fetched = "2026-11-14"
+latest_update = "2026-09-18"
+count = 555
+regions = ["bayern"]
+
+[osm]
+extract = "2026-11-12"
+area = [49.01755084, 12.09081508, 49.02544916, 12.10418492]
+count = 918
+
+[orthophoto]
+flight = "11.05.2025"
+fetched = "2026-11-14"
+bbox = [725941.651, 5434012.138, 726950.589, 5434925.974]
+
+[terrain]
+fetched = "2026-11-14"
+bbox = [725941.651, 5434012.138, 726950.589, 5434925.974]
+
+[surface]
+fetched = "2026-11-14"
+bbox = [725941.651, 5434012.138, 726950.589, 5434925.974]
+date = "2025-05-11"

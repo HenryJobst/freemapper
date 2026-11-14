@@ -1408,7 +1408,10 @@ fn g5_examples_roundtrip() {
         );
         checked += 1;
     }
-    assert_eq!(checked, 15, "one example per state and the forest map");
+    assert_eq!(
+        checked, 17,
+        "one example per state and the forest maps of Berlin and Bavaria"
+    );
 }
 
 /// A project of a colleague with an adapter that is not installed here: the error names the

@@ -5,6 +5,7 @@ use crate::geobremen::GeoBremenBackend;
 use crate::geosn::GeosnBackend;
 use crate::hvbg::HvbgBackend;
 use crate::laiv_mv::LaivMvBackend;
+use crate::ldbv::LdbvBackend;
 use crate::lgb::LgbBackend;
 use crate::lgl_bw::LglBwBackend;
 use crate::lgln::LglnBackend;
@@ -33,5 +34,6 @@ pub fn backend(agency: Agency) -> Option<Box<dyn RasterBackend>> {
         Agency::Lvgl => Box::new(LvglBackend::new()),
         Agency::LglBw => Box::new(LglBwBackend::new()),
         Agency::GeoBremen => Box::new(GeoBremenBackend::new()),
+        Agency::Ldbv => Box::new(LdbvBackend::new()),
     })
 }

@@ -150,9 +150,10 @@ pub mod ids {
         pub const SAARLAND: AdapterId = AdapterId::built_in("saarland");
         pub const BADEN_WUERTTEMBERG: AdapterId = AdapterId::built_in("badenwuerttemberg");
         pub const BREMEN: AdapterId = AdapterId::built_in("bremen");
+        pub const BAYERN: AdapterId = AdapterId::built_in("bayern");
 
         /// All regions, in the order of the registry.
-        pub const ALL: [AdapterId; 14] = [
+        pub const ALL: [AdapterId; 15] = [
             BRANDENBURG,
             BERLIN,
             SAXONY,
@@ -167,11 +168,12 @@ pub mod ids {
             SAARLAND,
             BADEN_WUERTTEMBERG,
             BREMEN,
+            BAYERN,
         ];
 
         /// The eleven regions that were code before they became adapters: the regions of the
         /// golden net, which proves that the move changed nothing. A state added since
-        /// (Saarland, Baden-Württemberg, Bremen) has no recording there.
+        /// (Saarland, Baden-Württemberg, Bremen, Bavaria) has no recording there.
         pub const LEGACY: [AdapterId; 11] = [
             BRANDENBURG,
             BERLIN,
@@ -209,6 +211,7 @@ pub mod ids {
         pub const LVGL: AdapterId = AdapterId::built_in("lvgl");
         pub const LGL_BW: AdapterId = AdapterId::built_in("lglbw");
         pub const GEO_BREMEN: AdapterId = AdapterId::built_in("geobremen");
+        pub const LDBV: AdapterId = AdapterId::built_in("ldbv");
     }
 
     /// What the registry says about the region or the provider with an id.
@@ -336,6 +339,7 @@ pub mod golden {
             "saarland" => ("DESL", 6.7515, 49.3155),
             "badenwuerttemberg" => ("DEBW", 8.7125, 49.4112),
             "bremen" => ("DEHB", 8.805, 53.07825),
+            "bayern" => ("DEBY", 12.0972, 49.0227),
             other => panic!("no built-in region {other}"),
         }
     }
@@ -368,6 +372,7 @@ pub mod golden {
             "lvgl" => "lvgl",
             "lglbw" => "lglbw",
             "geobremen" => "geobremen",
+            "ldbv" => "ldbv",
             "lvermgeo" | "lgln" => return None,
             other => panic!("no built-in provider {other}"),
         };
@@ -1159,10 +1164,44 @@ mod tests {
         assert!(both.contains(&regions::SAARLAND), "{both:?}");
     }
 
+    /// Bavaria: Munich, Regensburg and Passau lie in it, in zone 32 although the last two lie
+    /// east of 12° E, with rasters fetched per area from the LDBV.
+    #[test]
+    fn munich_regensburg_and_passau_lie_in_bavaria() {
+        for (lat, lon) in [(48.1372, 11.5755), (49.0227, 12.0972), (48.5740, 13.4600)] {
+            let place = around_lonlat(lat, lon, 200.0);
+            assert_eq!(regions_for(&place), vec![regions::BAYERN], "{lat} {lon}");
+            assert_eq!(raster_region(&place), Some(regions::BAYERN));
+            // Zone 32 holds in the whole state, also east of 12° E.
+            assert_eq!(crate::project::map_crs(&place), crate::crs::Crs::Utm32);
+        }
+        assert_eq!(regions::BAYERN.provider(), providers::LDBV);
+        assert!(providers::LDBV.per_area());
+        assert_eq!(regions::BAYERN.object_id_prefix(), "DEBY");
+        assert_eq!(
+            region_of_object_id("DEBYvAAAAABA6CHp"),
+            Some(regions::BAYERN)
+        );
+        // Ulm across the Danube is Baden-Württemberg, Aschaffenburg is Bavaria next to Hesse.
+        let ulm = around_lonlat(48.4010, 9.9870, 100.0);
+        assert_eq!(regions_for(&ulm), vec![regions::BADEN_WUERTTEMBERG]);
+        let aschaffenburg = around_lonlat(49.9770, 9.1500, 200.0);
+        assert_eq!(regions_for(&aschaffenburg), vec![regions::BAYERN]);
+    }
+
+    /// Thuringia is the one state without data sources: Erfurt lies in no region.
+    #[test]
+    fn erfurt_lies_in_no_state() {
+        let erfurt = around_lonlat(50.9787, 11.0328, 300.0);
+        assert!(regions_for(&erfurt).is_empty());
+        assert_eq!(raster_region(&erfurt), None);
+        assert!(reaches_beyond_coverage(&erfurt));
+    }
+
     /// Baden-Württemberg: Stuttgart, Freiburg (west of the zero meridian of zone 33, where
     /// eastings are negative) and Mannheim lie in it, in zone 32, with rasters fetched per area
     /// by the LGL. Across the Rhine Ludwigshafen is Rhineland-Palatinate, Viernheim is Hesse,
-    /// and Neu-Ulm across the Danube lies in Bavaria, which no adapter covers.
+    /// and Neu-Ulm across the Danube lies in Bavaria.
     #[test]
     fn stuttgart_freiburg_and_mannheim_lie_in_baden_wuerttemberg() {
         for (lat, lon) in [(48.78741, 9.16135), (47.99046, 7.84076), (49.4870, 8.4660)] {
@@ -1188,8 +1227,8 @@ mod tests {
         let viernheim = around_lonlat(49.5400, 8.5790, 200.0);
         assert_eq!(regions_for(&viernheim), vec![regions::HESSEN]);
         let neu_ulm = around_lonlat(48.3890, 10.0200, 200.0);
-        assert_eq!(regions_for(&neu_ulm), Vec::<AdapterId>::new());
-        assert_eq!(raster_region(&neu_ulm), None);
+        assert_eq!(regions_for(&neu_ulm), vec![regions::BAYERN]);
+        assert_eq!(raster_region(&neu_ulm), Some(regions::BAYERN));
         // On the Rhine both states are asked, as at every border.
         let harbour = around_lonlat(49.4870, 8.4480, 400.0);
         let both = regions_for(&harbour);

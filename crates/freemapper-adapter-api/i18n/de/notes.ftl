@@ -4,7 +4,7 @@ note-warning = Warnung: { $text }
 
 warning-other-zone = Das Kartengebiet liegt in UTM-Zone { $zone } (EPSG:{ $epsg }); freemapper lädt alles in dieser Zone neu
 warning-other-state = Das Kartengebiet liegt jetzt in den Daten eines anderen Bundeslands; freemapper lädt alles neu
-warning-beyond-coverage = Ein Teil des Kartengebiets liegt außerhalb der unterstützten Bundesländer: im Ausland, auf See oder in einem Bundesland, das freemapper noch nicht unterstützt, etwa Bayern oder Thüringen. Die Bundesländer haben dort keine Daten; das Orthophoto kann dort weiß sein, und ALKIS liefert weder Gebäude noch Nutzung
+warning-beyond-coverage = Ein Teil des Kartengebiets liegt außerhalb der unterstützten Bundesländer: im Ausland, auf See oder in einem Bundesland, das freemapper noch nicht unterstützt, etwa Thüringen. Die Bundesländer haben dort keine Daten; das Orthophoto kann dort weiß sein, und ALKIS liefert weder Gebäude noch Nutzung
 # Eine Warnung, deren Text ein Fehler ist.
 warning-error = { $error }
 
@@ -56,6 +56,7 @@ warning-model-tiles-missing = { $model }: { $state ->
         [schleswig-holstein] In Schleswig-Holstein
         [mecklenburg-vorpommern] In Mecklenburg-Vorpommern
         [lower-saxony] In Niedersachsen
+        [bavaria] In Bayern
        *[other] In { $state }
     } { $count ->
         [one] fehlt die Kachel
@@ -200,6 +201,8 @@ warning-tile-cached-older = Die Kachel { $tile } ({ $product }) kommt aus dem Zw
 warning-ndsm-no-cached = Kein nDSM für die Kachel { $tile } im Zwischenspeicher
 warning-ndsm-tile-unavailable-cached = nDSM-Kachel { $tile } nicht verfügbar ({ $reason }); die Datei aus dem Zwischenspeicher wird verwendet
 warning-ndsm-tile-unavailable-skipped = nDSM-Kachel { $tile } nicht verfügbar ({ $reason }); übersprungen
+warning-file-check-failed = Ob { $file } noch aktuell ist, ließ sich nicht prüfen ({ $reason }); freemapper verwendet die Datei aus dem Zwischenspeicher und fragt für die übrigen Dateien dieses Servers nicht mehr nach
+warning-ldbv-no-buildings-file = Für die Kachel { $tile } liegt auf dem Server keine Gebäudedatei; der Karte können dort Gebäude fehlen
 progress-ndsm-not-published = Für die Kachel { $tile } ist keine nDSM-Punktwolke veröffentlicht
 progress-ndsm-cached = nDSM { $tile } aus dem Zwischenspeicher
 progress-point-cloud-not-published = Für die Kachel { $tile } ist keine Laserpunktwolke veröffentlicht
