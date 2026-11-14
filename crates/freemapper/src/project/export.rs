@@ -1143,7 +1143,13 @@ fn read_stored(dir: &Path, project: &ProjectFile, area: &MapArea) -> Result<Stor
         land_use,
         osm,
         stair_terrain,
-        terrain: read_terrain(dir),
+        // A forest map measures its cliffs on the terrain (`build/cliffs.rs`): of a tile provider
+        // the mosaic `derive` kept for it.
+        terrain: read_terrain(dir).or_else(|| {
+            (project.map_kind == MapKind::Forest)
+                .then(|| read_float_raster(&dir.join(TERRAIN_MOSAIC_RELPATH)).ok())
+                .flatten()
+        }),
         contours: read_stored_contours(dir, project)?,
         landforms: read_stored_landforms(dir, project)?,
         vegetation: read_stored_vegetation(dir, project)?,

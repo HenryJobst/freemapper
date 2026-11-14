@@ -6,6 +6,10 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
+### Added
+
+- Cliffs on forest maps are generalized (ADR 0125). OpenStreetMap maps rock country cliff by cliff; at the Bastei 2144 lines ran into a black area. Cliffs lower than 3 m (from the terrain model), too short ones and ones closer to a higher cliff than the ISOM 2017-2 allows go to the candidates map; closed cliffs around a rock pillar become the area 206. The cliffs are smoothed, so the zigzag of the OSM lines goes, and the contours stop at them. The Bastei keeps 197 cliffs and gets 39 rock pillars.
+
 ### Changed
 
 - Examples: the Bode valley and the Bastei have contours every 10 m instead of 5 m; on the steep slopes they ran together into a brown area. The rocks of the Bastei come from OSM, not from the terrain model as the examples overview said so far.

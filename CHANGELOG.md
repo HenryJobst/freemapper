@@ -6,6 +6,10 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+### Hinzugefügt
+
+- Felswände auf Waldkarten werden generalisiert (ADR 0125). OpenStreetMap erfasst Felsgebiete Wand für Wand; an der Bastei waren es 2144 Linien, die zu einer schwarzen Fläche zusammenliefen. Wände unter 3 m Höhe (aus dem Geländemodell), zu kurze und solche, die näher an einer höheren liegen, als die ISOM 2017-2 erlaubt, kommen in die Kandidatenkarte; geschlossene Wände um einen Felsturm werden zur Fläche 206. Die Wände werden geglättet, damit das Zickzack der OSM-Linien verschwindet, und die Höhenlinien enden an ihnen. Die Bastei behält 197 Wände und bekommt 39 Felstürme.
+
 ### Geändert
 
 - Beispiele: Das Bodetal und die Bastei haben Höhenlinien alle 10 m statt 5 m; an den steilen Hängen liefen sie zu einer braunen Fläche zusammen. Die Felsen der Bastei stammen aus OSM, nicht aus dem Geländemodell, wie die Beispielübersicht bisher sagte.

@@ -10,6 +10,7 @@
 //! lists follow. The project (`project/export.rs`) reads the folder, calls the assembly and
 //! makes the documents from what it returns.
 
+use std::borrow::Cow;
 use std::ops::Range;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
@@ -27,6 +28,7 @@ use crate::build::berlin::{
 use crate::build::buildings::{building_objects, object_footprints};
 use crate::build::candidates::{Rules, Target, osm_objects};
 use crate::build::canopy::{CANOPY_LAYER, CanopyInput, canopy_objects};
+use crate::build::cliffs::generalize_cliffs;
 use crate::build::content::{ContentSettings, route};
 use crate::build::contours::{Contours, contour_objects};
 use crate::build::dedup::{
@@ -860,11 +862,34 @@ impl Built {
         // Vegetation from the point clouds stops at the areas that shall not be entered drawn with
         // it (`build/vegetation.rs`); after the routing, which decides where both end up.
         cut_vegetation_at_out_of_bounds(&mut map, &mut candidates, georef, symbol_set)?;
-        // Contours and north lines stop at paving and paths (`build/line_cuts.rs`).
+        // The cliffs on a forest map keep the norm's gaps, rock pillars become 206
+        // (`build/cliffs.rs`); after the routing, which decides which cliffs are on the map.
+        let rock = generalize_cliffs(
+            &mut map,
+            &mut candidates,
+            self.terrain.as_ref().as_ref(),
+            self.map_kind,
+            georef,
+            symbol_set,
+        );
+        // Contours and north lines stop at paving and paths (`build/line_cuts.rs`), the contours
+        // also at the tall cliffs.
         let ways = way_footprints(&map, &candidates, &map, self.map_kind, georef, symbol_set);
         let min_piece_m = MIN_PIECE_MM.metres(georef.scale_denominator);
+        let contour_stops: Cow<[Polygon<f64>]> = if rock.is_empty() {
+            Cow::Borrowed(&ways)
+        } else {
+            Cow::Owned(ways.iter().cloned().chain(rock).collect())
+        };
         for list in [&mut candidates, &mut map] {
-            cut_lines_at_ways(list, &CONTOUR_CODES, &ways, min_piece_m, georef, symbol_set);
+            cut_lines_at_ways(
+                list,
+                &CONTOUR_CODES,
+                &contour_stops,
+                min_piece_m,
+                georef,
+                symbol_set,
+            );
         }
         cut_lines_at_ways(
             &mut map,

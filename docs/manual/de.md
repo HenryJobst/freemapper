@@ -597,6 +597,14 @@ freemapper run dammheide --pdf-candidates
   als `contour_interval_m = 2.5` in der `freemapper.toml`; `auto` (auf der Seite „automatisch“) gibt die Wahl
   zurück. Bei einer fertigen Karte danach `freemapper run <ordner> --force` (oder `derive` und `export --force`). Der Kartenrand nennt den Abstand („Äquidistanz 2,5 m“). Weicht er vom Standard ab, steht er
   nach `derive` auch als `[contours] interval_m` in der `freemapper.toml`; freemapper-print liest ihn dort.
+- **Felswände** aus OpenStreetMap werden generalisiert (ADR 0125): Im Felsgebiet stehen sie dort Wand für Wand, an
+  der Bastei mehr als 2000. Eine Wand, an der das Gelände um weniger als 3 m abfällt, eine kürzere als 0,6 mm und
+  eine, die näher als 0,25 mm an einer höheren Wand oder 0,15 mm an einem Felsturm liegt (ISOM 2017-2, 201 und 206;
+  vergrößert wie die Symbole), kommt in die Kandidatenkarte, mit dem Grund im Tag `freemapper:generalized`; die
+  Trainings-PDF lässt sie weg. Die höchsten und längsten Wände bleiben zuerst, geglättet: Ein Knick, kürzer als etwa
+  zwei Zacken Abstand, entfällt. Eine geschlossene Wand um einen Felsturm von 0,3 bis 10 mm² wird zum riesigen Block
+  oder Felsturm 206. Die Höhenlinien enden an den hohen Wänden. Für die Höhen behält eine Waldkarte in einem
+  Bundesland, dessen Geländemodell in Kacheln kommt, es als `data/terrain.tif`.
 - Gebäude, Gewässer, Mauern, Zäune, Stromleitungen, Bahnlinien und Sperrgebiete (520) kommen wie bei der
   Sprintkarte. Bänke, Poller, Laternen und anderes Stadtmobiliar fehlen, ebenso Bäume aus Baumkatastern und
   einzelne OSM-Bäume. Nur ein Baum mit

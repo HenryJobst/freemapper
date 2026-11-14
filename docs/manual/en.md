@@ -573,6 +573,14 @@ freemapper run dammheide --pdf-candidates
   finished map then run `freemapper run <folder> --force` (or `derive` and `export --force`). The margin names the
   interval ("Äquidistanz 2,5 m"). When it is not the default, `derive` also writes it into `freemapper.toml` as
   `[contours] interval_m`, where freemapper-print reads it.
+- **Cliffs** from OpenStreetMap are generalized (ADR 0125): in rock country OSM has them cliff by cliff, more than
+  2000 at the Bastei. A cliff across which the terrain drops less than 3 m, one shorter than 0.6 mm and one closer
+  than 0.25 mm to a higher cliff or 0.15 mm to a rock pillar (ISOM 2017-2, 201 and 206; enlarged like the symbols)
+  goes to the candidates map, tagged `freemapper:generalized` with the reason; the training PDF leaves it out. The
+  highest and longest cliffs stay first, smoothed: a bend shorter than about two tags apart goes. A closed cliff
+  around a rock pillar of 0.3 to 10 mm² becomes the gigantic boulder or rock pillar 206. The contours stop at the
+  tall cliffs. For the heights a forest map in a state whose terrain model comes in tiles keeps it as
+  `data/terrain.tif`.
 - Buildings, water, walls, fences, power lines, railways and out-of-bounds areas (520) come as on the sprint map.
   Benches, bollards, street lamps and other street furniture, trees from tree cadastres and single OSM trees are
   left out. Only a tree tagged `denotation=natural_monument`
