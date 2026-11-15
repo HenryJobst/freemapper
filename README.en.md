@@ -3,7 +3,7 @@
 [Deutsche Version](README.md) · [User manual](docs/manual/en.md) · [Glossary](docs/glossary.md) · [Changes](CHANGELOG.en.md) · [Examples](examples/README.en.md)
 
 <!-- claude-cost:start -->
-[![AI effort (Claude API): $3,224](https://img.shields.io/badge/AI%20effort%20%28Claude%20API%29-%243%2C224-8A2BE2)](docs/ai-cost/history.csv)
+[![AI effort (Claude API): $3,274](https://img.shields.io/badge/AI%20effort%20%28Claude%20API%29-%243%2C274-8A2BE2)](docs/ai-cost/history.csv)
 <!-- claude-cost:end -->
 
 <p align="center"><a href="examples/berlin-viktoriapark/preview.webp"><img src="examples/berlin-viktoriapark/preview-medium.webp" alt="Sprint map of Viktoriapark, Berlin-Kreuzberg, made by freemapper" width="760"></a><br><sub>Viktoriapark, Berlin-Kreuzberg (sprint 1:4000), made by freemapper from open data. Click for the full-size image; the <a href="examples/berlin-viktoriapark/berlin-viktoriapark-candidates.pdf">PDF</a> has all candidates; more under <a href="examples/README.en.md">examples</a>.</sub></p>
