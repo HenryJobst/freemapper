@@ -482,7 +482,7 @@ pub fn run(
                         options.ocad,
                     ),
                 )?
-                .map(Training::Written),
+                .map(|outcome| Training::Written(Box::new(outcome))),
                 (Err(e), None) => Err(e.clone()),
             };
             match &result {
@@ -623,11 +623,10 @@ struct Outputs {
 /// What the training step did.
 #[derive(Debug)]
 enum Training {
-    Written(TrainingOutcome),
+    /// Boxed: the outcome is large next to the other variant.
+    Written(Box<TrainingOutcome>),
     /// An existing training map stayed; `ocad`: the run asked for the OCAD file too.
-    Kept {
-        ocad: bool,
-    },
+    Kept { ocad: bool },
 }
 
 /// The file of an existing training map that a run without `force` keeps: the map file, or with
@@ -1080,7 +1079,7 @@ mod tests {
         std::fs::write(pdf_path(dir.path(), true), "x").unwrap();
         let outputs = Outputs {
             pdf_candidates: Some(Ok(pdf_path(dir.path(), true))),
-            training: Some(Ok(Training::Written(training))),
+            training: Some(Ok(Training::Written(Box::new(training)))),
             ..Outputs::default()
         };
         let kinds: Vec<(&str, String)> = result_files(dir.path(), &outcome, &outputs, None)
