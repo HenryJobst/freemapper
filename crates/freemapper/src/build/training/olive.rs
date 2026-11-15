@@ -10,6 +10,7 @@ use geo::{
 };
 use geo_types::{Coord, LineString, MultiPolygon, Point, Polygon, Rect};
 
+use super::lines::Polyline;
 use super::{add_generalized, in_map_units, is_closed, min_length};
 use crate::build::conflicts::{Class, Classes, TOLERANCE_MM};
 use crate::build::dedup::tag_holds;
@@ -650,83 +651,6 @@ fn area_like(object: &MapObject, polygon: &Polygon<f64>) -> MapObject {
         kind: MapObjectKind::Path,
         coords,
         tags: object.tags.clone(),
-    }
-}
-
-/// A polyline in paper mm with the length along it at each point.
-#[derive(Debug, Clone)]
-struct Polyline {
-    points: Vec<Coord<f64>>,
-    at: Vec<f64>,
-}
-
-impl Polyline {
-    fn new(points: Vec<Coord<f64>>) -> Self {
-        let mut at = Vec::with_capacity(points.len());
-        let mut total = 0.0;
-        for (i, p) in points.iter().enumerate() {
-            if i > 0 {
-                total += (p.x - points[i - 1].x).hypot(p.y - points[i - 1].y);
-            }
-            at.push(total);
-        }
-        Self { points, at }
-    }
-
-    fn length(&self) -> f64 {
-        self.at.last().copied().unwrap_or(0.0)
-    }
-
-    /// The point `s` along the line.
-    fn point(&self, s: f64) -> Coord<f64> {
-        let i = self
-            .at
-            .partition_point(|&a| a < s)
-            .clamp(1, self.points.len() - 1);
-        let (a, b) = (self.points[i - 1], self.points[i]);
-        let span = self.at[i] - self.at[i - 1];
-        let t = if span > 0.0 {
-            ((s - self.at[i - 1]) / span).clamp(0.0, 1.0)
-        } else {
-            0.0
-        };
-        Coord {
-            x: a.x + t * (b.x - a.x),
-            y: a.y + t * (b.y - a.y),
-        }
-    }
-
-    /// The length along the line to the point of it nearest `c`.
-    fn locate(&self, c: Coord<f64>) -> f64 {
-        let mut best = (f64::INFINITY, 0.0);
-        for (i, w) in self.points.windows(2).enumerate() {
-            let span = self.at[i + 1] - self.at[i];
-            let (dx, dy) = (w[1].x - w[0].x, w[1].y - w[0].y);
-            let t = if span > 0.0 {
-                (((c.x - w[0].x) * dx + (c.y - w[0].y) * dy) / (span * span)).clamp(0.0, 1.0)
-            } else {
-                0.0
-            };
-            let distance = (w[0].x + t * dx - c.x).hypot(w[0].y + t * dy - c.y);
-            if distance < best.0 {
-                best = (distance, self.at[i] + t * span);
-            }
-        }
-        best.1
-    }
-
-    /// The line from `from` to `to` along it.
-    fn between(&self, from: f64, to: f64) -> Vec<Coord<f64>> {
-        let mut points = vec![self.point(from)];
-        points.extend(
-            self.points
-                .iter()
-                .zip(&self.at)
-                .filter(|&(_, &a)| a > from + 1e-9 && a < to - 1e-9)
-                .map(|(&p, _)| p),
-        );
-        points.push(self.point(to));
-        points
     }
 }
 
