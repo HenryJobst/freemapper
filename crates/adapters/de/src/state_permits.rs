@@ -529,6 +529,12 @@ mod tests {
             ),
             (State::Bremen, "denkmale", [8.804, 53.074, 8.812, 53.078]),
             (State::Saxony, "denkmale", [12.372, 51.338, 12.380, 51.342]),
+            // The list of monuments of Schleswig-Holstein, a file of about 52 MB (ADR 0145).
+            (
+                State::SchleswigHolstein,
+                "denkmale",
+                [10.13, 54.32, 10.15, 54.33],
+            ),
             (
                 State::Brandenburg,
                 "baudenkmale",

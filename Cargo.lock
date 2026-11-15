@@ -773,6 +773,7 @@ dependencies = [
  "geojson",
  "image",
  "las",
+ "serde",
  "serde_json",
  "sha2",
  "tempfile",
