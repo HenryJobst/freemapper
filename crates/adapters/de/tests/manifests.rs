@@ -104,7 +104,7 @@ fn hamburg_manifest_equals_the_ogc_api_plus_wfs_fallback() {
 fn potsdam_tree_dataset_from_manifest_equals_the_constant() {
     let brandenburg = manifest("brandenburg");
     let region = "brandenburg".parse().unwrap();
-    assert_eq!(brandenburg.trees.len(), 1);
+    assert_eq!(brandenburg.trees.len(), 2);
     assert_eq!(
         extras::tree_dataset(&brandenburg.trees[0], &region),
         POTSDAM
@@ -138,6 +138,7 @@ fn potsdam_tree_dataset_from_manifest_equals_the_constant() {
                 | State::MecklenburgVorpommern
                 | State::RheinlandPfalz
                 | State::Hamburg
+                | State::Saxony
         ) {
             let manifest = manifest(state.id());
             assert!(
@@ -280,6 +281,52 @@ fn nrw_and_lower_saxony_ask_their_full_alkis() {
     }
 }
 
+/// Leipzig, Frankfurt (Oder), Kiel and Norderstedt serve their trees as a WFS answering GeoJSON
+/// (ADR 0065, checked live on 2026-11-15).
+#[test]
+fn the_wfs_tree_cadastres_are_named_by_their_states() {
+    let wfs = |state: &str| -> Vec<(String, String, String)> {
+        let manifest = manifest(state);
+        let region = state.parse().unwrap();
+        manifest
+            .trees
+            .iter()
+            .map(|trees| extras::tree_dataset(trees, &region))
+            .filter_map(|trees| match trees.format {
+                TreeFormat::WfsGeoJson {
+                    type_name,
+                    output_format,
+                } => Some((
+                    trees.id.to_string(),
+                    type_name.to_string(),
+                    output_format.to_string(),
+                )),
+                _ => None,
+            })
+            .collect()
+    };
+    let row = |id: &str, type_name: &str, format: &str| {
+        (id.to_string(), type_name.to_string(), format.to_string())
+    };
+    assert_eq!(
+        wfs("saxony"),
+        [row("leipzig", "OpenData:Baeume", "application/json")]
+    );
+    assert_eq!(
+        wfs("brandenburg"),
+        [row("frankfurt-oder", "ffo:Baeume", "GEOJSON")]
+    );
+    assert_eq!(
+        wfs("schleswigholstein"),
+        [
+            row("kiel", "lhkiel:Baeume", "GEOJSON"),
+            row("norderstedt", "gru:gruen_baum", "application/json"),
+        ]
+    );
+    let leipzig = manifest("saxony");
+    assert_eq!(leipzig.trees[0].fields.gone.as_deref(), Some("gefaellt_am"));
+}
+
 /// Lübeck's tree cadastre is one CSV file of the whole city (ADR 0065, checked live on
 /// 2026-11-15): empty planting spots are left out.
 #[test]
@@ -291,7 +338,7 @@ fn schleswig_holstein_names_the_tree_cadastre_of_luebeck() {
         .iter()
         .map(|trees| extras::tree_dataset(trees, &region))
         .collect();
-    assert_eq!(trees.len(), 1);
+    assert_eq!(trees.len(), 3);
     let luebeck = &trees[0];
     assert_eq!(luebeck.id, "luebeck");
     assert_eq!(

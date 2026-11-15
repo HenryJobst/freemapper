@@ -245,11 +245,21 @@ pub enum TreeFormat {
         y_field: Cow<'static, str>,
         separator: char,
     },
+    /// A WFS asked for `type_name` in the box of the area (in the CRS of the dataset) with
+    /// `OUTPUTFORMAT=<output_format>` and up to 100 000 features (Leipzig, Kiel, ADR 0065). The
+    /// answer is GeoJSON in the CRS its `crs` member names, or in lon/lat without one; an answer
+    /// cut at the cap is refused.
+    WfsGeoJson {
+        type_name: Cow<'static, str>,
+        output_format: Cow<'static, str>,
+    },
 }
 
 impl TreeFormat {
     /// Features per page of [`TreeFormat::OgcApiItems`].
     pub const OGC_API_LIMIT: usize = 10_000;
+    /// Features of one request of [`TreeFormat::WfsGeoJson`].
+    pub const WFS_LIMIT: usize = 100_000;
 }
 
 /// The field names of a dataset (properties of the served features).
@@ -264,6 +274,9 @@ pub struct TreeFields {
     pub species: Option<Cow<'static, str>>,
     /// The crown diameter in metres.
     pub crown: Option<Cow<'static, str>>,
+    /// A field with a value for a tree that is gone, such as the date it was felled; such a
+    /// tree is left out.
+    pub gone: Option<Cow<'static, str>>,
 }
 
 /// One city's tree cadastre.
@@ -326,12 +339,36 @@ impl TreeDataset {
     /// The box is asked as `lat_min,lon_min,lat_max,lon_max`. `None` for an area no position
     /// projects to.
     pub fn url(&self, endpoint: &str, region_bbox: &BoundingBox) -> Option<String> {
-        if let TreeFormat::Csv { .. } = self.format {
-            return Some(endpoint.to_string());
+        match &self.format {
+            TreeFormat::Csv { .. } => return Some(endpoint.to_string()),
+            TreeFormat::WfsGeoJson {
+                type_name,
+                output_format,
+            } => {
+                let bbox = crate::alkis::bbox_in(
+                    &region_bbox.buffered(REQUEST_MARGIN_M),
+                    Crs::Utm33,
+                    self.crs,
+                );
+                let epsg = self.crs.epsg();
+                let joint = if endpoint.contains('?') { '&' } else { '?' };
+                return Some(format!(
+                    "{endpoint}{joint}SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature\
+                     &TYPENAMES={type_name}&SRSNAME=urn:ogc:def:crs:EPSG::{epsg}\
+                     &BBOX={},{},{},{},urn:ogc:def:crs:EPSG::{epsg}&COUNT={}\
+                     &OUTPUTFORMAT={output_format}",
+                    bbox.min_e.floor(),
+                    bbox.min_n.floor(),
+                    bbox.max_e.ceil(),
+                    bbox.max_n.ceil(),
+                    TreeFormat::WFS_LIMIT
+                ));
+            }
+            _ => {}
         }
         let (lat_min, lon_min, lat_max, lon_max) = wgs84_bbox(region_bbox)?;
         Some(match &self.format {
-            TreeFormat::Csv { .. } => endpoint.to_string(),
+            TreeFormat::Csv { .. } | TreeFormat::WfsGeoJson { .. } => endpoint.to_string(),
             TreeFormat::OdsGeoJsonExport { geo_field } => format!(
                 "{endpoint}?where=in_bbox({geo_field},{lat_min:.6},{lon_min:.6},{lat_max:.6},{lon_max:.6})"
             ),

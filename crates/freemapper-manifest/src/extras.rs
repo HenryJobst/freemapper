@@ -50,6 +50,7 @@ pub fn tree_dataset(trees: &Trees, region: &AdapterId) -> TreeDataset {
             date: trees.fields.date.clone().map(Cow::Owned),
             species: trees.fields.species.clone().map(Cow::Owned),
             crown: trees.fields.crown.clone().map(Cow::Owned),
+            gone: trees.fields.gone.clone().map(Cow::Owned),
         },
         skipped_kinds: owned_list(&trees.skipped_kinds),
         attribution: Cow::Owned(trees.attribution.clone()),

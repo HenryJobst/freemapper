@@ -38,7 +38,7 @@ impl FetchArea {
 }
 
 /// The envelope of `bbox` (in `from`) in `to`, from points along its outline, grown by 1 m.
-fn bbox_in(bbox: &BoundingBox, from: Crs, to: Crs) -> BoundingBox {
+pub(crate) fn bbox_in(bbox: &BoundingBox, from: Crs, to: Crs) -> BoundingBox {
     if from == to {
         return *bbox;
     }
