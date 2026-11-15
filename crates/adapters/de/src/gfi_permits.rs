@@ -70,6 +70,7 @@ pub fn source(
             credit,
             note: None,
             sampled: true,
+            gaps: None,
             layers: keys,
             sections,
             offices: None,

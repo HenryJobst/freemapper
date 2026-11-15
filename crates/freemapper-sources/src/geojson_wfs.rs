@@ -7,7 +7,7 @@ use std::path::Path;
 use serde_json::Value;
 
 use crate::fetch::{FetchError, Fetcher, get_limited_with_retries};
-use crate::wfs::parse_gml;
+use crate::wfs::parse_gml_with_points;
 
 /// Features asked for per request.
 const PAGE_SIZE: usize = 500;
@@ -28,10 +28,21 @@ pub struct LatLonBox {
     pub max_lon: f64,
 }
 
+/// A box in a projected CRS, in metres (x = easting), with the EPSG code of its CRS.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ProjectedBox {
+    pub epsg: u32,
+    pub min_x: f64,
+    pub min_y: f64,
+    pub max_x: f64,
+    pub max_y: f64,
+}
+
 /// A WFS 2.0 that answers GeoJSON.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GeoJsonWfs {
-    /// The service address without a query.
+    /// The service address, with a query of its own where the service needs one
+    /// (`ogc.ashx?PKGID=5`).
     pub base: &'static str,
     /// The `outputFormat` the service names its GeoJSON by.
     pub output_format: &'static str,
@@ -54,16 +65,67 @@ pub(crate) fn query_url(
         ""
     };
     format!(
-        "{}?service=WFS&version=2.0.0&request=GetFeature&outputFormat={}\
+        "{}{}service=WFS&version=2.0.0&request=GetFeature&outputFormat={}\
          &srsName=urn:ogc:def:crs:EPSG::4326&typeNames={}&count={PAGE_SIZE}\
          &startIndex={start_index}&bbox={},{},{},{}{suffix}",
         service.base,
+        separator(service),
         service.output_format,
         type_name,
         bbox.min_lat,
         bbox.min_lon,
         bbox.max_lat,
         bbox.max_lon,
+    )
+}
+
+/// `?` before the query, `&` when the address has a query of its own.
+fn separator(service: &GeoJsonWfs) -> char {
+    if service.base.contains('?') { '&' } else { '?' }
+}
+
+/// The URL of the page of `type_name` that starts at feature `start_index`, asked by a box in
+/// a projected CRS and answered in it (`srsName` the same CRS: without it, a service can answer
+/// in another CRS of its own).
+pub(crate) fn projected_query_url(
+    service: &GeoJsonWfs,
+    type_name: &str,
+    bbox: &ProjectedBox,
+    start_index: usize,
+) -> String {
+    format!(
+        "{}{}service=WFS&version=2.0.0&request=GetFeature&outputFormat={}\
+         &srsName=urn:ogc:def:crs:EPSG::{epsg}&typeNames={}&count={PAGE_SIZE}\
+         &startIndex={start_index}&bbox={:.0},{:.0},{:.0},{:.0},urn:ogc:def:crs:EPSG::{epsg}",
+        service.base,
+        separator(service),
+        service.output_format,
+        type_name,
+        bbox.min_x.floor(),
+        bbox.min_y.floor(),
+        bbox.max_x.ceil(),
+        bbox.max_y.ceil(),
+        epsg = bbox.epsg,
+    )
+}
+
+/// [`get_features`] or, with `gml`, [`get_gml_features`] for a service that is asked by a box in
+/// its own projected CRS and answers in it (ADR 0144): the positions stay in metres, easting
+/// first, for the caller to convert.
+pub fn get_projected_features(
+    fetcher: &dyn Fetcher,
+    service: &GeoJsonWfs,
+    type_name: &str,
+    bbox: &ProjectedBox,
+    gml: bool,
+    part: &Path,
+) -> Result<Vec<Value>, FetchError> {
+    let read = if gml { read_gml_page } else { read_page };
+    pages(
+        fetcher,
+        |start| projected_query_url(service, type_name, bbox, start),
+        part,
+        read,
     )
 }
 
@@ -78,7 +140,12 @@ pub fn get_features(
     bbox: &LatLonBox,
     part: &Path,
 ) -> Result<Vec<Value>, FetchError> {
-    pages(fetcher, service, type_name, bbox, part, read_page)
+    pages(
+        fetcher,
+        |start| query_url(service, type_name, bbox, start),
+        part,
+        read_page,
+    )
 }
 
 /// [`get_features`] for a service that answers GML 3.2 (`output_format` names it, `gml32` on a
@@ -92,21 +159,25 @@ pub fn get_gml_features(
     bbox: &LatLonBox,
     part: &Path,
 ) -> Result<Vec<Value>, FetchError> {
-    pages(fetcher, service, type_name, bbox, part, read_gml_page)
+    pages(
+        fetcher,
+        |start| query_url(service, type_name, bbox, start),
+        part,
+        read_gml_page,
+    )
 }
 
-/// The paging of [`get_features`], with `read` turning one answer into its features.
+/// The paging of [`get_features`]: `url` gives the page that starts at a feature, `read` turns
+/// one answer into its features.
 fn pages(
     fetcher: &dyn Fetcher,
-    service: &GeoJsonWfs,
-    type_name: &str,
-    bbox: &LatLonBox,
+    url: impl Fn(usize) -> String,
     part: &Path,
     read: fn(&str, &[u8]) -> Result<Vec<Value>, FetchError>,
 ) -> Result<Vec<Value>, FetchError> {
     let mut features = Vec::new();
     for page_number in 1..=MAX_PAGES {
-        let url = query_url(service, type_name, bbox, features.len());
+        let url = url(features.len());
         let page =
             get_limited_with_retries(fetcher, &url, part, MAX_BYTES, |bytes| read(&url, bytes))?;
         let short = page.len() < PAGE_SIZE;
@@ -135,7 +206,7 @@ fn read_gml_page(url: &str, bytes: &[u8]) -> Result<Vec<Value>, FetchError> {
     };
     let text =
         std::str::from_utf8(bytes).map_err(|e| not_gml(format!("the answer is not UTF-8: {e}")))?;
-    parse_gml(text).map_err(|e| not_gml(e.to_string()))
+    parse_gml_with_points(text).map_err(|e| not_gml(e.to_string()))
 }
 
 /// The `features` of a GeoJSON FeatureCollection.
@@ -213,6 +284,64 @@ mod tests {
             .collect();
         serde_json::to_vec(&serde_json::json!({"type": "FeatureCollection", "features": features}))
             .unwrap()
+    }
+
+    #[test]
+    fn an_address_with_a_query_gets_the_rest_after_an_ampersand() {
+        let sachsen = GeoJsonWfs {
+            base: "https://cardomap3.idu.de/lfds/public/ogc.ashx?PKGID=5",
+            output_format: "gml32",
+            bbox_crs_suffix: true,
+        };
+        let url = query_url(&sachsen, "cls:L1", &BOX, 0);
+        assert!(
+            url.starts_with("https://cardomap3.idu.de/lfds/public/ogc.ashx?PKGID=5&service=WFS&"),
+            "{url}"
+        );
+        assert!(query_url(&BFN, "x", &BOX, 0).contains("schutzgebiet?service=WFS&"));
+    }
+
+    #[test]
+    fn a_projected_query_asks_and_answers_in_metres() {
+        let bbox = ProjectedBox {
+            epsg: 25832,
+            min_x: 447000.4,
+            min_y: 5538000.6,
+            max_x: 449499.2,
+            max_y: 5539999.9,
+        };
+        let url = projected_query_url(&BFN, "gdke:edm_flaechen", &bbox, 500);
+        assert!(
+            url.ends_with("&bbox=447000,5538000,449500,5540000,urn:ogc:def:crs:EPSG::25832"),
+            "{url}"
+        );
+        assert!(url.contains("&startIndex=500&"), "{url}");
+        assert!(
+            url.contains("&srsName=urn:ogc:def:crs:EPSG::25832&"),
+            "{url}"
+        );
+    }
+
+    #[test]
+    fn projected_features_page_like_the_others() {
+        let fetcher = MapFetcher::default();
+        let bbox = ProjectedBox {
+            epsg: 25832,
+            min_x: 0.0,
+            min_y: 0.0,
+            max_x: 10.0,
+            max_y: 10.0,
+        };
+        fetcher.insert(
+            &projected_query_url(&BFN, "t", &bbox, 0),
+            collection(PAGE_SIZE),
+        );
+        fetcher.insert(
+            &projected_query_url(&BFN, "t", &bbox, PAGE_SIZE),
+            collection(3),
+        );
+        let features = get_projected_features(&fetcher, &BFN, "t", &bbox, false, &part()).unwrap();
+        assert_eq!(features.len(), PAGE_SIZE + 3);
     }
 
     #[test]

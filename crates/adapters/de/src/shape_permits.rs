@@ -276,6 +276,7 @@ pub fn source(
             credit,
             note: None,
             sampled: false,
+            gaps: None,
             layers: layer,
             sections,
             offices: None,
