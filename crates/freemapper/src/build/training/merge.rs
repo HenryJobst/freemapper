@@ -37,6 +37,10 @@ const MERGED: &str = "merged";
 /// zone of a road.
 const CUT_INSIDE_ROAD: &str = "cut: in the gap of a road";
 
+/// The classes the merge reads the conflicts of: what merges, and the paths and trams beside
+/// roads.
+const WAYS: [Class; 3] = [Class::Road, Class::Railway, Class::Path];
+
 /// What [`merge`] did.
 #[derive(Debug, Default, Clone, PartialEq)]
 pub(super) struct Merged {
@@ -150,7 +154,7 @@ fn inside_roads(
     let scale = SymbolScale::drawn_with(symbol_set, scale_denominator);
     let gap = gap(kind, scale_denominator).0;
     let refs: Vec<&MapObject> = objects.iter().collect();
-    let footprints = Footprints::of(&refs, symbol_set);
+    let footprints = Footprints::of_only(&refs, symbol_set, &WAYS);
     // The roads each path or tram is in conflict with.
     let mut roads_of: BTreeMap<usize, BTreeSet<usize>> = BTreeMap::new();
     for c in conflicts(&footprints, kind, scale_denominator) {
@@ -261,7 +265,7 @@ fn merge_round(
     let scale = SymbolScale::drawn_with(symbol_set, scale_denominator);
     let gap = gap(kind, scale_denominator).0;
     let refs: Vec<&MapObject> = objects.iter().collect();
-    let footprints = Footprints::of(&refs, symbol_set);
+    let footprints = Footprints::of_only(&refs, symbol_set, &WAYS);
     let found = conflicts(&footprints, kind, scale_denominator);
     let mut pairs: Vec<&Conflict> = found
         .iter()

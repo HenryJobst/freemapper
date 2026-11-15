@@ -45,8 +45,8 @@ use geo_types::{Coord, MultiPolygon, Point, Polygon, Rect};
 
 use crate::build::candidates::MIN_LINE_MM;
 use crate::build::conflicts::{
-    Class, Classes, Conflict, Footprints, Grade, Relation, TOLERANCE_MM, conflicts, gap,
-    length_in_zones, meeting_points, rank, relation,
+    Class, Classes, Conflict, Footprints, Grade, Relation, TOLERANCE_MM, conflicts,
+    conflicts_where, gap, length_in_zones, meeting_points, rank, relation,
 };
 use crate::build::dedup::tag_holds;
 use crate::build::geometry::{distance_to_segment, object_polygon, xy};
@@ -438,10 +438,9 @@ fn give_way(
     for _ in 0..MAX_ROUNDS {
         let refs: Vec<&MapObject> = objects.iter().collect();
         let footprints = Footprints::of(&refs, symbol_set);
-        let found: Vec<Conflict> = conflicts(&footprints, kind, scale_denominator)
-            .into_iter()
-            .filter(|c| relation(c.classes.0, c.classes.1) == Relation::Apart)
-            .collect();
+        let found: Vec<Conflict> = conflicts_where(&footprints, kind, scale_denominator, |r| {
+            r == Relation::Apart
+        });
         if found.is_empty() {
             break;
         }

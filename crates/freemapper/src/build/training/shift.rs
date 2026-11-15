@@ -5,7 +5,8 @@
 //! as before. Paper mm, y down, as `conflicts::Footprints` uses; only +, −, ×, ÷ and `sqrt`
 //! decide, and every collection is iterated in a sorted order.
 
-use std::collections::BTreeMap;
+use std::cell::RefCell;
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use geo::{BoundingRect as _, Intersects as _};
 use geo_types::{Coord, MultiPolygon, Point, Rect};
@@ -14,8 +15,8 @@ use super::lines::{Polyline, shifted};
 use super::points::MAX_SHIFT_MM;
 use super::{MAX_ROUNDS, add_generalized, class_name};
 use crate::build::conflicts::{
-    Class, Classes, Conflict, Footprints, Grade, MIN_CONFLICT, Relation, TOLERANCE_MM, conflicts,
-    conflicts_of, gap, meeting_points, rank, relation,
+    Class, Classes, Conflict, Footprints, Grade, MIN_CONFLICT, PairMemo, Relation, TOLERANCE_MM,
+    conflict_of_first, gap, meeting_points, rank, relation,
 };
 use crate::build::dedup::tag_holds;
 use crate::georef::Georeferencing;
@@ -77,17 +78,16 @@ pub(super) fn shift_lines(
         gap: gap(kind, georef.scale_denominator).0,
     };
     let mut moved: BTreeMap<usize, Ranges> = BTreeMap::new();
-    let mut frames: Vec<Option<Rect<f64>>> = objects.iter().map(frame).collect();
+    let mut scene = Scene::new(objects, &shifter);
+    let mut memo = PairMemo::default();
     for _ in 0..MAX_ROUNDS {
-        let refs: Vec<&MapObject> = objects.iter().collect();
-        let footprints = Footprints::with(&refs, &shifter.symbols, &shifter.classes);
-        let mut found: Vec<Conflict> = conflicts(&footprints, kind, georef.scale_denominator)
-            .into_iter()
-            .filter(|c| {
-                relation(c.classes.0, c.classes.1) == Relation::Apart
-                    && footprints.centre(c.loser).0.len() == 1
-                    && footprints.length(c.loser) > 0.0
+        let footprints = &scene.footprints;
+        let mut found: Vec<Conflict> = memo
+            .conflicts_where(footprints, kind, georef.scale_denominator, |r| {
+                r == Relation::Apart
             })
+            .into_iter()
+            .filter(|c| footprints.centre(c.loser).0.len() == 1 && footprints.length(c.loser) > 0.0)
             .collect();
         if found.is_empty() {
             break;
@@ -104,27 +104,161 @@ pub(super) fn shift_lines(
                 .then(b.length.0.total_cmp(&a.length.0))
                 .then(a.winner.cmp(&b.winner))
         });
-        let mut any = false;
+        let mut changed: BTreeSet<usize> = BTreeSet::new();
         for conflict in &found {
             let ranges = moved.get(&conflict.loser).map_or(&[][..], Vec::as_slice);
-            if let Some((object, ranges)) =
-                shifter.shift(objects, &frames, conflict.loser, conflict.winner, ranges)
+            if let Some(shift) =
+                shifter.shift(objects, &scene, conflict.loser, conflict.winner, ranges)
             {
-                frames[conflict.loser] = frame(&object);
-                objects[conflict.loser] = object;
-                moved.insert(conflict.loser, ranges);
-                any = true;
+                scene.update(conflict.loser, &shift.object, &shift.footprints);
+                objects[conflict.loser] = shift.object;
+                moved.insert(conflict.loser, shift.ranges);
+                changed.insert(conflict.loser);
             }
         }
-        if !any {
+        if changed.is_empty() {
             break;
         }
+        memo.forget(&changed);
     }
     moved.len()
 }
 
 /// The ranges along a line that have moved (mm on paper, sorted).
 type Ranges = Vec<(f64, f64)>;
+
+/// The side of a cell of the grid that finds the objects near a line (map units).
+const CELL_UNITS: f64 = 20_000.0;
+
+/// What the shift step keeps of the objects between its rounds: the footprint and the frame of
+/// every object, and a uniform grid of the frames. Only an object that moves is drawn again.
+struct Scene {
+    footprints: Footprints,
+    frames: Vec<Option<Rect<f64>>>,
+    grid: BTreeMap<(i64, i64), Vec<usize>>,
+    /// The conflict of a line with an object near it before a shift, as `conflict_of_first`
+    /// finds it (the line first), kept until one of the two moves.
+    before: RefCell<HashMap<(usize, usize), Option<Conflict>>>,
+    /// How many shifts were kept so far, and after how many each object last moved (0: never).
+    stamp: usize,
+    moved_at: Vec<usize>,
+    /// The shifts refused, by line and winner: when, and the objects near the line then. Asked
+    /// again while none of them moved and no other came near, the answer is the same.
+    refused: RefCell<HashMap<(usize, usize), Refusal>>,
+}
+
+/// When a shift was refused (the stamp of [`Scene`]), and the objects near the line then.
+type Refusal = (usize, Vec<usize>);
+
+impl Scene {
+    fn new(objects: &[MapObject], shifter: &Shifter) -> Self {
+        let refs: Vec<&MapObject> = objects.iter().collect();
+        let mut scene = Self {
+            footprints: Footprints::with(&refs, &shifter.symbols, &shifter.classes),
+            frames: objects.iter().map(frame).collect(),
+            grid: BTreeMap::new(),
+            before: RefCell::new(HashMap::new()),
+            stamp: 0,
+            moved_at: vec![0; objects.len()],
+            refused: RefCell::new(HashMap::new()),
+        };
+        for i in 0..objects.len() {
+            for cell in cells(scene.frames[i], 0.0) {
+                scene.grid.entry(cell).or_default().push(i);
+            }
+        }
+        scene
+    }
+
+    /// The object `i` is now `object`, drawn as the object 0 of `footprints`.
+    fn update(&mut self, i: usize, object: &MapObject, footprints: &Footprints) {
+        for cell in cells(self.frames[i], 0.0) {
+            if let Some(ids) = self.grid.get_mut(&cell) {
+                ids.retain(|&j| j != i);
+            }
+        }
+        self.frames[i] = frame(object);
+        for cell in cells(self.frames[i], 0.0) {
+            self.grid.entry(cell).or_default().push(i);
+        }
+        self.footprints.adopt(i, footprints, 0);
+        self.stamp += 1;
+        self.moved_at[i] = self.stamp;
+        self.before.get_mut().retain(|&(a, b), _| a != i && b != i);
+    }
+
+    /// Whether the shift of `loser` off `winner` was refused with the objects `near` round it,
+    /// and neither it nor one of them has moved since.
+    fn refused_before(&self, loser: usize, winner: usize, near: &[usize]) -> bool {
+        self.refused
+            .borrow()
+            .get(&(loser, winner))
+            .is_some_and(|(at, then)| {
+                then.as_slice() == near
+                    && std::iter::once(&loser)
+                        .chain(near)
+                        .all(|&j| self.moved_at[j] <= *at)
+            })
+    }
+
+    /// The conflicts of the object `i` with the objects `near` (sorted, without `i`), as
+    /// `conflicts_of` finds them for the object 0 of the set of `i` and `near`, by index in it.
+    fn conflicts_before(
+        &self,
+        i: usize,
+        near: &[usize],
+        kind: MapKind,
+        scale_denominator: u32,
+    ) -> Vec<Conflict> {
+        let mut memo = self.before.borrow_mut();
+        near.iter()
+            .enumerate()
+            .filter_map(|(k, &j)| {
+                let mut c = memo
+                    .entry((i, j))
+                    .or_insert_with(|| {
+                        conflict_of_first(&self.footprints, i, j, kind, scale_denominator)
+                    })
+                    .clone()?;
+                let index = |n: usize| if n == 0 { 0 } else { k + 1 };
+                (c.loser, c.winner) = (index(c.loser), index(c.winner));
+                Some(c)
+            })
+            .collect()
+    }
+
+    /// The objects whose frame may come within `reach` of the frame `own`, sorted, each once.
+    fn around(&self, own: Rect<f64>, reach: f64) -> Vec<usize> {
+        let mut ids: Vec<usize> = cells(Some(own), reach)
+            .filter_map(|cell| self.grid.get(&cell))
+            .flatten()
+            .copied()
+            .collect();
+        ids.sort_unstable();
+        ids.dedup();
+        ids
+    }
+}
+
+/// The cells of the grid that the frame `frame` grown by `grow` covers (map units).
+fn cells(frame: Option<Rect<f64>>, grow: f64) -> impl Iterator<Item = (i64, i64)> {
+    let cell = |v: f64| (v / CELL_UNITS).floor() as i64;
+    let (x, y) = frame.map_or(((0, -1), (0, -1)), |f| {
+        (
+            (cell(f.min().x - grow), cell(f.max().x + grow)),
+            (cell(f.min().y - grow), cell(f.max().y + grow)),
+        )
+    });
+    (x.0..=x.1).flat_map(move |cx| (y.0..=y.1).map(move |cy| (cx, cy)))
+}
+
+/// A shift that is kept: the moved line, the ranges along it that have moved, and its footprint
+/// as the object 0 of a set.
+struct Shift {
+    object: MapObject,
+    ranges: Ranges,
+    footprints: Footprints,
+}
 
 /// What a shift needs to know.
 struct Shifter {
@@ -150,19 +284,42 @@ impl Shifter {
     fn shift(
         &self,
         objects: &[MapObject],
-        frames: &[Option<Rect<f64>>],
+        scene: &Scene,
         loser: usize,
         winner: usize,
         moved: &[(f64, f64)],
-    ) -> Option<(MapObject, Ranges)> {
+    ) -> Option<Shift> {
+        let class = self.classes.class(objects[loser].symbol_id);
+        let near = self.near(objects, scene, loser, class);
+        if scene.refused_before(loser, winner, &near) {
+            return None;
+        }
+        let shift = self.attempt(objects, scene, loser, winner, moved, &near);
+        if shift.is_none() {
+            scene
+                .refused
+                .borrow_mut()
+                .insert((loser, winner), (scene.stamp, near));
+        }
+        shift
+    }
+
+    /// [`shift`](Self::shift) with the objects `near` the line found.
+    fn attempt(
+        &self,
+        objects: &[MapObject],
+        scene: &Scene,
+        loser: usize,
+        winner: usize,
+        moved: &[(f64, f64)],
+        near: &[usize],
+    ) -> Option<Shift> {
         let object = &objects[loser];
-        let class = self.classes.class(object.symbol_id);
-        let near = self.near(objects, frames, loser, class);
         let w = 1 + near.iter().position(|&j| j == winner)?;
-        let mut set: Vec<&MapObject> = vec![object];
-        set.extend(near.iter().map(|&j| &objects[j]));
-        let before = Footprints::with(&set, &self.symbols, &self.classes);
-        let had_conflicts = conflicts_of(&before, 0, self.kind, self.scale_denominator);
+        let mut set: Vec<usize> = vec![loser];
+        set.extend(near);
+        let before = scene.footprints.pick(&set);
+        let had_conflicts = scene.conflicts_before(loser, near, self.kind, self.scale_denominator);
         // The conflict as it is now: the line still gives way to the winner.
         if !had_conflicts.iter().any(|c| c.loser == 0 && c.winner == w) {
             return None;
@@ -180,37 +337,46 @@ impl Shifter {
         if !generalized {
             add_generalized(&mut line, &why);
         }
-        set[0] = &line;
-        let after = Footprints::with(&set, &self.symbols, &self.classes);
+        let mut after = before.clone();
+        after.redraw(0, &line, &self.symbols, &self.classes);
         // A conflict with the winner counts in either role: of two lines of one rank and one
         // length the roles can swap after the shift, and such a pair falls to give way.
-        let worse = conflicts_of(&after, 0, self.kind, self.scale_denominator)
-            .iter()
-            .any(|c| {
-                other(c) == w
-                    || match had.get(&other(c)) {
+        // Measured one object after the other, the winner first, until one is worse: the same
+        // verdict as all of `conflicts_of` at once.
+        let worse = std::iter::once(w)
+            .chain((1..set.len()).filter(|&k| k != w))
+            .filter_map(|k| {
+                Some((
+                    k,
+                    conflict_of_first(&after, 0, k, self.kind, self.scale_denominator)?,
+                ))
+            })
+            .any(|(k, c)| {
+                k == w
+                    || match had.get(&k) {
                         None => true,
                         Some(&grade) => grade == Grade::Gap && c.grade == Grade::Overlap,
                     }
             });
-        (!worse).then_some((line, ranges))
+        (!worse).then_some(Shift {
+            object: line,
+            ranges,
+            footprints: after,
+        })
     }
 
     /// The objects round `objects[i]` (of class `class`) that it may conflict with, sorted: those
-    /// of a class that is not free to it whose frame (`frames`, of the coordinates) comes within
+    /// of a class that is not free to it whose frame (of the coordinates, in `scene`) comes within
     /// [`REACH_MM`] of its frame.
-    fn near(
-        &self,
-        objects: &[MapObject],
-        frames: &[Option<Rect<f64>>],
-        i: usize,
-        class: Class,
-    ) -> Vec<usize> {
+    fn near(&self, objects: &[MapObject], scene: &Scene, i: usize, class: Class) -> Vec<usize> {
+        let frames = &scene.frames;
         let Some(own) = frames[i] else {
             return Vec::new();
         };
         let reach = REACH_MM * 1000.0;
-        (0..objects.len())
+        scene
+            .around(own, reach)
+            .into_iter()
             .filter(|&j| j != i)
             .filter(|&j| {
                 relation(class, self.classes.class(objects[j].symbol_id)) != Relation::Free
@@ -539,6 +705,7 @@ fn with_points(object: &MapObject, points: &[Coord<f64>]) -> MapObject {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::build::conflicts::conflicts;
     use crate::build::line_join::TOUCH_M;
     use crate::build::training::tests::{SCALE, georef_at, isom, length_mm, line, of_code, point};
     use crate::build::training::{GENERALIZED_KEY, TrainingReport, train};
@@ -864,7 +1031,6 @@ mod tests {
         let end = fence.coords.len() - 1;
         fence.coords[end].flags |= FLAG_CLOSE;
         let objects = vec![path.clone(), fence.clone()];
-        let frames: Vec<Option<Rect<f64>>> = objects.iter().map(frame).collect();
         let shifter = Shifter {
             symbols,
             classes,
@@ -872,8 +1038,13 @@ mod tests {
             scale_denominator: SCALE,
             gap,
         };
-        let (moved, ranges) = shifter
-            .shift(&objects, &frames, 1, 0, &[])
+        let scene = Scene::new(&objects, &shifter);
+        let Shift {
+            object: moved,
+            ranges,
+            ..
+        } = shifter
+            .shift(&objects, &scene, 1, 0, &[])
             .expect("the fence moves off the path");
         let missing = half_width(&set, "505") + half_width(&set, "518") + gap - 0.3;
         let seam = mm(&moved.coords[0]);
@@ -904,6 +1075,6 @@ mod tests {
             ranges.iter().any(|r| r.0 <= TOLERANCE_MM) && ranges.iter().any(|r| r.1 >= total - 0.1),
             "{ranges:?} of {total}"
         );
-        assert_eq!(shifter.shift(&objects, &frames, 1, 0, &ranges), None);
+        assert!(shifter.shift(&objects, &scene, 1, 0, &ranges).is_none());
     }
 }
