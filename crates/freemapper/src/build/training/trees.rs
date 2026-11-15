@@ -1,10 +1,12 @@
 //! Step 5 of the training level: no single tree is drawn on a way; a tree that comes too close
-//! is moved off by the least distance that frees it (spec 2026-11-14, "Trees").
+//! to a symbol it keeps apart from is moved off to the nearest spot that frees it (spec
+//! 2026-11-14, "Trees").
 
 use geo::{BooleanOps as _, BoundingRect as _, Intersects as _};
 use geo_types::{Coord, MultiPolygon, Point, Rect};
 
-use crate::build::conflicts::{Class, Classes, Footprints, TOLERANCE_MM, gap};
+use crate::build::barrier_gaps::MOVED_KEY;
+use crate::build::conflicts::{Class, Classes, Footprints, Relation, TOLERANCE_MM, gap, relation};
 use crate::georef::Georeferencing;
 use crate::measure::PaperMm;
 use crate::omap::{MapObject, MapObjectKind, SymbolSet};
@@ -15,23 +17,19 @@ pub const MAX_SHIFT_MM: PaperMm = PaperMm(0.5);
 /// A tree moves by at most this. A point symbol stands for a tree beside the way within its own
 /// size; the bound covers the symbol's radius, the gap and half the widest way it is moved off at
 /// every scale freemapper writes (at most 1.24 mm: a 417 centred on a 505 at ISOM 1:10 000), and
-/// the tree is still moved by the least distance that frees it.
+/// the tree is still moved to the nearest spot that frees it.
 pub const MAX_TREE_SHIFT_MM: PaperMm = PaperMm(1.5);
 /// The `freemapper:moved` value of a tree moved off on the training map.
-pub const MOVED: &str = "gap to a way, a building, water or a tree (training map)";
+pub const MOVED: &str = "gap to the symbols round it (training map)";
 
 /// The tree symbols, the large first: 417 Prominent large tree, 418 Prominent bush or small tree.
 const TREE_CODES: [&str; 2] = ["417", "418"];
-/// The classes a tree keeps the gap to, besides the other trees. Paved areas are not among them:
-/// a tree on a street or square stays (the norm knows trees on paved areas).
-const OBSTACLES: [Class; 6] = [
-    Class::Path,
-    Class::Road,
-    Class::Stairway,
-    Class::Building,
-    Class::WaterArea,
-    Class::BankLine,
-];
+/// Whether a tree keeps the gap to an object of `class`: to every class a point keeps apart from
+/// ([`relation`]), other point symbols among them. Paved areas are not: a tree on a street or
+/// square stays (the norm knows trees on paved areas).
+fn is_obstacle(class: Class) -> bool {
+    relation(Class::Point, class) == Relation::Apart
+}
 /// The search for a free spot goes out in steps of this (mm on paper).
 const STEP_MM: f64 = 0.02;
 /// The directions of the ring of the search: every 22.5°, the unit vectors written out so every
@@ -59,8 +57,6 @@ const SIN_22_5: f64 = 0.382_683_432_365_089_8;
 const SQRT_HALF: f64 = std::f64::consts::FRAC_1_SQRT_2;
 /// The footprints round a tree are cut to its reach and this much more (mm on paper).
 const MARGIN_MM: f64 = 1.0;
-/// The tag of a moved tree, as `build/barrier_gaps.rs` writes it.
-const MOVED_KEY: &str = "freemapper:moved";
 
 /// A tree as the step sees it: a disc round its centre (mm on paper).
 #[derive(Clone, Copy)]
@@ -70,7 +66,8 @@ struct Disc {
 }
 
 /// Step 5: a tree (a point of [`TREE_CODES`]) whose symbol keeps less than the gap to the
-/// footprint of an object of [`OBSTACLES`] or to another tree that wins against it is moved to
+/// footprint of an object it keeps apart from ([`is_obstacle`]; other point symbols by their
+/// footprint) or to another tree that wins against it is moved to
 /// the nearest spot that keeps the gap to all of them, within [`MAX_TREE_SHIFT_MM`] ([`spot`]),
 /// and tagged `freemapper:moved`. Of two trees the larger symbol wins, of the same symbol the
 /// earlier object: the trees go 417 before 418, then by index, and each keeps the gap to the
@@ -97,7 +94,7 @@ pub(super) fn move_trees(
     let chosen: Vec<usize> = (0..objects.len())
         .filter(|&i| {
             let o = &objects[i];
-            tree_rank(o).is_some() || OBSTACLES.contains(&classes.class(o.symbol_id))
+            tree_rank(o).is_some() || is_obstacle(classes.class(o.symbol_id))
         })
         .collect();
     let mut order: Vec<(usize, usize, usize)> = chosen
@@ -172,10 +169,11 @@ fn radius(footprint: &MultiPolygon<f64>, centre: Coord<f64>) -> Option<f64> {
 
 /// Where `tree` goes, as an offset in map units: `(0, 0)` when it keeps the gap to every wall
 /// and placed tree, `None` when no spot within [`MAX_TREE_SHIFT_MM`] does. The search tries spots
-/// in a fixed order and takes the first that keeps the gap to all: straight away from the nearest
-/// offender (the one the tree reaches deepest into) in steps of [`STEP_MM`], then the directions
-/// of [`RING`] at the same steps, nearer before further. A spot keeps the gap when its clearance
-/// is at least the gap; the tree needs no move while it is above the gap less [`TOLERANCE_MM`].
+/// in a fixed order and takes the first that keeps the gap to all: out in steps of [`STEP_MM`],
+/// at each distance first straight away from the nearest offender (the one the tree reaches
+/// deepest into), then the directions of [`RING`]. A spot keeps the gap when its clearance is at
+/// least the gap; the tree needs no move while it is above the gap less [`TOLERANCE_MM`]. One
+/// set of obstacles serves both.
 fn spot(
     tree: Disc,
     walls: &[(Rect<f64>, &MultiPolygon<f64>)],
@@ -203,7 +201,9 @@ fn spot(
         .copied()
         .filter(|other| around.intersects(&Point(other.centre)))
         .collect();
-    // The nearest offender at the centre and the way straight away from it.
+    // The nearest offender at the centre and the way straight away from it. Of two as deep (a
+    // tree on the centre line of a way is as deep in both sides of it) the first in the order of
+    // the footprints and their edges wins.
     let mut deepest: Option<(f64, Option<Coord<f64>>)> = None;
     let mut offend = |clearance: f64, away: Option<Coord<f64>>| {
         if clearance < gap - TOLERANCE_MM && deepest.is_none_or(|(c, _)| clearance < c) {
@@ -252,8 +252,8 @@ fn spot(
     candidates(straight).find(|&offset| free(offset))
 }
 
-/// The offsets the search tries, in map units, in its order: along `straight` first, then round
-/// the ring; none longer than [`MAX_TREE_SHIFT_MM`].
+/// The offsets the search tries, in map units, in its order: distance by distance, at each
+/// along `straight` first, then round the ring; none longer than [`MAX_TREE_SHIFT_MM`].
 fn candidates(straight: Option<Coord<f64>>) -> impl Iterator<Item = (i32, i32)> {
     let steps = (MAX_TREE_SHIFT_MM.0 / STEP_MM).round() as i32;
     let along = |(x, y): (f64, f64), k: i32| -> (i32, i32) {
@@ -261,10 +261,13 @@ fn candidates(straight: Option<Coord<f64>>) -> impl Iterator<Item = (i32, i32)> 
         ((x * d).round() as i32, (y * d).round() as i32)
     };
     let limit = (MAX_TREE_SHIFT_MM.0 + TOLERANCE_MM) * 1000.0;
-    straight
+    let directions: Vec<(f64, f64)> = straight
+        .map(|u| (u.x, u.y))
         .into_iter()
-        .flat_map(move |u| (1..=steps).map(move |k| along((u.x, u.y), k)))
-        .chain((1..=steps).flat_map(move |k| RING.iter().map(move |&u| along(u, k))))
+        .chain(RING)
+        .collect();
+    (1..=steps)
+        .flat_map(move |k| directions.clone().into_iter().map(move |u| along(u, k)))
         .filter(move |&(x, y)| {
             let (x, y) = (f64::from(x), f64::from(y));
             (x * x + y * y).sqrt() <= limit
@@ -599,6 +602,80 @@ mod tests {
         let (out, report) = run(&set, objects);
         assert_eq!(of_code(&set, &out, "418").len(), 2, "{out:?}");
         assert_eq!(report.trees_moved, 2, "{report:?}");
+        assert_eq!(apart(&set, MapKind::Forest, SCALE, &out), 0, "{out:?}");
+    }
+
+    #[test]
+    fn a_tree_beside_a_path_and_a_fence_moves_between_them_or_goes() {
+        // A 417 needs 1.24 mm from the centre line of the 505. With the fence 2.1 mm off the path
+        // there is room between them; at 0.7 mm there is none, and across the path or beyond the
+        // fence lies more than 1.5 mm away.
+        let set = isom();
+        let path = line(&set, "505", &[(0.0, 0.0), (40.0, 0.0)]);
+        let wide = line(&set, "518", &[(0.0, 3.0), (40.0, 3.0)]);
+        let narrow = line(&set, "518", &[(0.0, 1.6), (40.0, 1.6)]);
+        let tree = point(&set, "417", (20.0, 0.9));
+        let (out, report) = run(&set, vec![path.clone(), wide.clone(), tree.clone()]);
+        let moved = of_code(&set, &out, "417");
+        assert_eq!(moved.len(), 1, "{out:?}");
+        let (_, y) = mm(moved[0]);
+        assert!(y > 0.9 && y < 3.0, "between the path and the fence: {y}");
+        assert_eq!(report.trees_moved, 1, "{report:?}");
+        assert_eq!(apart(&set, MapKind::Forest, SCALE, &out), 0, "{out:?}");
+        let (out, report) = run(&set, vec![path.clone(), narrow.clone(), tree]);
+        assert_eq!(out, vec![path, narrow]);
+        assert_eq!(report.trees_moved, 0, "{report:?}");
+        assert_eq!(report.gave_way, 1, "{report:?}");
+    }
+
+    #[test]
+    fn a_tree_moves_off_a_railway() {
+        let set = isom();
+        let railway = line(&set, "509", &[(0.0, 0.0), (40.0, 0.0)]);
+        let (out, report) = run(&set, vec![railway.clone(), point(&set, "418", (20.0, 0.0))]);
+        assert_eq!(of_code(&set, &out, "509"), vec![&railway]);
+        let tree = of_code(&set, &out, "418");
+        assert_eq!(tree.len(), 1, "{out:?}");
+        assert!(is_moved(tree[0]));
+        assert_eq!(report.trees_moved, 1, "{report:?}");
+        assert_eq!(apart(&set, MapKind::Forest, SCALE, &out), 0, "{out:?}");
+    }
+
+    #[test]
+    fn a_tree_does_not_land_on_a_531() {
+        // Straight off the path the 418 would land on the 531; it goes to a spot that keeps the
+        // gap to both.
+        let set = isom();
+        let path = line(&set, "505", &[(0.0, 0.0), (40.0, 0.0)]);
+        let mark = point(&set, "531", (20.0, 1.6));
+        let objects = vec![path.clone(), mark.clone(), point(&set, "418", (20.0, 0.6))];
+        let (out, report) = run(&set, objects);
+        assert_eq!(of_code(&set, &out, "531"), vec![&mark]);
+        let tree = of_code(&set, &out, "418");
+        assert_eq!(tree.len(), 1, "{out:?}");
+        assert!(is_moved(tree[0]));
+        assert_eq!(report.trees_moved, 1, "{report:?}");
+        assert_eq!(report.gave_way, 0, "{report:?}");
+        assert_eq!(apart(&set, MapKind::Forest, SCALE, &out), 0, "{out:?}");
+    }
+
+    #[test]
+    fn a_near_spot_round_the_ring_beats_a_far_one_straight_on() {
+        // A 418 at the east face of a building; straight east a path runs past, so the first free
+        // spot that way lies beyond the path, some 1.3 mm off. The path ends just north of the
+        // tree, and a step to the south-east, past the building's corner, is free about 0.5 mm off.
+        let set = isom();
+        let objects = vec![
+            area(&set, "521", (0.0, 0.0), (10.0, 10.0)),
+            line(&set, "505", &[(10.9, 0.0), (10.9, 9.4)]),
+            point(&set, "418", (10.3, 9.7)),
+        ];
+        let (out, report) = run(&set, objects);
+        let tree = of_code(&set, &out, "418");
+        assert_eq!(tree.len(), 1, "{out:?}");
+        let moved = shift((10.3, 9.7), tree[0]);
+        assert!(moved < 0.8, "{moved}: {:?}", mm(tree[0]));
+        assert_eq!(report.trees_moved, 1, "{report:?}");
         assert_eq!(apart(&set, MapKind::Forest, SCALE, &out), 0, "{out:?}");
     }
 }
