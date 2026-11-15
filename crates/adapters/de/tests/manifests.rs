@@ -132,6 +132,7 @@ fn potsdam_tree_dataset_from_manifest_equals_the_constant() {
                 | State::Bayern
                 | State::SaxonyAnhalt
                 | State::Hessen
+                | State::SchleswigHolstein
         ) {
             let manifest = manifest(state.id());
             assert!(
@@ -220,6 +221,30 @@ fn hesse_asks_its_full_alkis_and_its_basis_dlm() {
          &VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=adv:AX_Turm\
          &SRSNAME=urn:ogc:def:crs:EPSG::25832\
          &BBOX=483152,5628371,484156,5629074,urn:ogc:def:crs:EPSG::25832&COUNT=100000\
+         &NAMESPACES=xmlns(adv,http://www.adv-online.de/namespaces/adv/gid/7.1)"
+    );
+}
+
+/// Schleswig-Holstein serves its landscape model as a WFS that refuses a count above 10 000
+/// (checked live on 2026-11-15 over the Lübeck example).
+#[test]
+fn schleswig_holstein_asks_the_basis_dlm() {
+    let sh = manifest("schleswigholstein");
+    assert_eq!(sh.nas.len(), 1);
+    let service = extras::nas_service(&sh.nas[0], &"schleswigholstein".parse().unwrap());
+    assert_eq!(service.model, NasModel::BasisDlm);
+    assert_eq!(service.max_count, 10_000);
+    let luebeck = BoundingBox {
+        min_e: 610_424.0,
+        min_n: 5_969_571.0,
+        max_e: 611_440.0,
+        max_n: 5_970_293.0,
+    };
+    assert_eq!(
+        service.get_feature_url("adv:AX_Turm", &luebeck),
+        "https://dienste.gdi-sh.de/WFS_SH_ATKIS_BDLM_SF_OpenGBD?SERVICE=WFS&VERSION=2.0.0\
+         &REQUEST=GetFeature&TYPENAMES=adv:AX_Turm&SRSNAME=urn:ogc:def:crs:EPSG::25832\
+         &BBOX=610424,5969571,611440,5970293,urn:ogc:def:crs:EPSG::25832&COUNT=10000\
          &NAMESPACES=xmlns(adv,http://www.adv-online.de/namespaces/adv/gid/7.1)"
     );
 }

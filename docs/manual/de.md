@@ -1267,6 +1267,11 @@ direkt auf die Karte, mit dem Inhaltsprofil `balanced`. Das Landschaftsmodell er
 Marburg 4 benannte Bäume, 3 kleine Wasserläufe, einen Damm und eine Mauer, am Feldberg einen Felsen, eine Quelle und
 einen Wasserlauf.
 
+**Schleswig-Holstein: Landschaftsmodell.** Auch das LVermGeo SH bietet sein Landschaftsmodell an (CC BY 4.0), mit
+höchstens 10 000 Objekten je Anfrage. In den Hüttener Bergen ergänzt es 48 Wälle (105), einen Wasserlauf und
+4 Fahrwege; die Böschungen, die das Geländemodell an diesen Wällen findet, entfallen. In Lübeck
+ergänzt es einen Wasserlauf.
+
 In Bayern hat das Kataster keinen Dienst. Dort fragt freemapper stattdessen das Landschaftsmodell der
 Vermessungsverwaltung ab, das ATKIS Basis-DLM (CC BY 4.0). Es ist für den Maßstab 1:25 000 gemacht und etwa 3 m
 genau. freemapper nimmt daraus Höhleneingänge (203), Quellen (312), benannte Felsen (205), frei stehende Türme
