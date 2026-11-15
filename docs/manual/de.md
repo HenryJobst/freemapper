@@ -1066,7 +1066,10 @@ die Bezirke, steht der allgemeine Hinweis für Berlin und Hamburg da.
 ### Wasserschutzgebiete und Waldfunktionen
 
 Wasserschutzgebiete mit ihrer Schutzzone kommen aus Berlin, Brandenburg, Hamburg, Hessen, Nordrhein-Westfalen,
-dem Saarland und Schleswig-Holstein, aus Sachsen nur für den Wald; in Nordrhein-Westfalen auch die geplanten, mit dem Zusatz „(geplant)“. Waldfunktionen
+dem Saarland und Schleswig-Holstein, aus Sachsen nur für den Wald. Für Bayern, Niedersachsen, Bremen,
+Mecklenburg-Vorpommern, Rheinland-Pfalz, Sachsen-Anhalt und Sachsen kommen die Trinkwasser- und
+Heilquellenschutzgebiete, die die Bundesländer an die Bundesanstalt für Gewässerkunde (BfG) melden, ohne
+Schutzzone und mit dem Hinweis der BfG, dass der Bestand nicht überall vollständig ist; in Nordrhein-Westfalen auch die geplanten, mit dem Zusatz „(geplant)“. Waldfunktionen
 aus Brandenburg (Naturwald, Totalreservat, nicht betretbare Flächen, Erholungswald), Hamburg (Bannwald,
 Erholungswald), Nordrhein-Westfalen (Naturwaldzellen, Wildnisentwicklungsgebiete), dem Saarland
 (Naturwaldzellen, Urwald), Sachsen (Erholungswald, Naturwaldzellen, Bodenschutzwald) und Schleswig-Holstein
@@ -1140,9 +1143,9 @@ Bezirks, auch in `data/permits/`.
   Trinkwasserschutzzonen des Dienstes liegen nur im Wald. `permits.json` kennzeichnet so eine Quelle mit
   `"sampled": true`.
 - Wem ein Privat- oder Körperschaftswald gehört, steht in keinen offenen Daten.
-- Wasserschutzgebiete kommen aus Berlin, Brandenburg, Hamburg, Hessen, Nordrhein-Westfalen, dem Saarland,
-  Schleswig-Holstein und, im Wald, aus Sachsen; Denkmale aus Berlin, Hamburg und dem Saarland. Die anderen
-  Bundesländer folgen, sobald sich ein offener Dienst mit Lizenz findet.
+- Wasserschutzgebiete fehlen nur noch in Baden-Württemberg: Sein Dienst nennt keine Lizenz, und die BfG hat
+  keine Daten von dort. Die Gebiete der BfG haben keine Schutzzone; ob eine Veranstaltung möglich ist, sagt die
+  untere Wasserbehörde. Denkmale kommen aus Berlin, Hamburg und dem Saarland.
 
 ### Datenquellen und Lizenzen
 
@@ -1154,6 +1157,7 @@ Bezirks, auch in `data/permits/`.
 | Geoportal Berlin: Bezirksgrenzen, Grünanlagenbestand, Liegenschaftsplan, Denkmale, Schutzobjekte nach Naturschutzrecht, Forstverwaltung (nur in Berlin) | `gdi.berlin.de` | `Für die Nutzung der Daten ist die Datenlizenz Deutschland - Zero - Version 2.0 anzuwenden. Die Lizenz ist über https://www.govdata.de/dl-de/zero-2-0 abrufbar.` |
 | Geoportal Hamburg: Bezirksgrenzen, Grünplan, Denkmalschutz, Wald in Hamburg, Waldfunktionen, Wasserschutzgebiete (nur in Hamburg) | `geodienste.hamburg.de` | je Dienst `Datenlizenz Deutschland Namensnennung 2.0, Quellenvermerk: Freie und Hansestadt Hamburg, <Behörde>` mit der Behörde, die der Dienst nennt |
 | Umweltportal Schleswig-Holstein: Landeswald mit Revieren, Naturwald, Wasserschutzgebiete (nur in Schleswig-Holstein) | `umweltgeodienste.schleswig-holstein.de` | `Quellenvermerk: LfU SH; Lizenz: Creative Commons Namensnennung 4.0 International (CC BY 4.0)` |
+| Bundesanstalt für Gewässerkunde (BfG), WasserBLIcK: Trinkwasser- und Heilquellenschutzgebiete (nur in Bayern, Niedersachsen, Bremen, Mecklenburg-Vorpommern, Rheinland-Pfalz, Sachsen-Anhalt und Sachsen) | `geoportal.bafg.de` | `© WasserBLIcK/BfG und Zuständige Behörden der Länder, <Jahr>; Lizenz: Creative Commons Namensnennung – 4.0 International (CC BY 4.0)` |
 | Staatsbetrieb Sachsenforst: Forstbezirke und Reviere, Erholungswald, Naturwaldzellen, Bodenschutzwald, Trinkwasserschutzzonen im Wald (nur in Sachsen) | `www.forsten.sachsen.de` | `Datenlizenz Deutschland 2.0 – Namensnennung (dl-de/by-2-0) unter Angabe der Quelle: "Geodaten Sachsenforst"` |
 | Geoportal Saarland: Reviere des Staatswalds, Wasserschutzgebiete, Naturwaldzellen, Urwald, Baudenkmale (nur im Saarland) | `geoportal.saarland.de` | `Quellenvermerk: © GDI-SL (<Jahr>); Lizenz: Creative Commons Namensnennung 4.0 International (CC BY 4.0)` |
 | Landesamt für Umwelt Brandenburg: Wasserschutzgebiete (nur in Brandenburg) | `data.geobasis-bb.de` | `Landesamt für Umwelt Brandenburg (LfU), Creative Commons Namensnennung 4.0 International (CC BY 4.0)` |
@@ -1170,7 +1174,7 @@ Zeilen stehen, wenn Sie `permits.md` weitergeben.
 An die Dienste des Bundes, an die Geoportale Berlin und Hamburg und an den Landesbetrieb Forst Brandenburg sendet
 freemapper nur das Rechteck um das Kartengebiet und seine feste Kennung (User-Agent). Von Wald und Holz NRW lädt
 es die Dateien für das ganze Bundesland und schneidet sie selbst zu; dorthin geht nur die Kennung. An Sachsenforst
-gehen statt des Rechtecks die abgefragten Punkte. Andere Server
+gehen statt des Rechtecks die abgefragten Punkte, an die BfG das Rechteck. Andere Server
 fragt es für die Hinweise nicht. Die Dienste eines Bundeslandes fragt es nur für ein Kartengebiet, das dort
 liegt, und nur über die Hosts, die der Adapter dieses Bundeslandes nennt. `adapters
 allow-host` gilt für die Dienste des Bundes nicht.

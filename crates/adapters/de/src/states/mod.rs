@@ -558,7 +558,18 @@ impl StateAdapter {
             State::Hessen => crate::state_permits::hessen(),
             State::SchleswigHolstein => crate::state_permits::schleswig_holstein(),
             State::NordrheinWestfalen => crate::wuh_permits::sources(),
-            State::Saxony => crate::sbs_permits::sources(),
+            // The BfG's protection areas where the state's own services give none (ADR 0142).
+            State::Saxony => {
+                let mut sources = crate::sbs_permits::sources();
+                sources.push(crate::bfg_permits::source());
+                sources
+            }
+            State::Bayern
+            | State::Niedersachsen
+            | State::Bremen
+            | State::MecklenburgVorpommern
+            | State::RheinlandPfalz
+            | State::SaxonyAnhalt => vec![crate::bfg_permits::source()],
             _ => Vec::new(),
         };
         Self {
@@ -867,8 +878,17 @@ mod tests {
                     "https://umweltgeodienste.schleswig-holstein.de/WFS_UWAT",
                 ),
                 "saxony" => (
-                    &["sachsenforst"],
+                    &["sachsenforst", "bfg"],
                     "https://www.forsten.sachsen.de/kartendienste/wald/MapServer/WMSServer",
+                ),
+                "bayern"
+                | "niedersachsen"
+                | "bremen"
+                | "mecklenburgvorpommern"
+                | "rheinlandpfalz"
+                | "saxonyanhalt" => (
+                    &["bfg"],
+                    "https://geoportal.bafg.de/arcgis1/rest/services/INSPIRE/AM/MapServer/1/query",
                 ),
                 "nordrheinwestfalen" => (
                     &[

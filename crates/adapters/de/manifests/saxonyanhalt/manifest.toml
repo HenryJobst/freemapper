@@ -14,7 +14,7 @@ maintainers = ["github:HenryJobst"]
 last_verified = "2026-11-12"
 
 [net]
-hosts = ["www.geodatenportal.sachsen-anhalt.de", "geodatenportal.sachsen-anhalt.de"]
+hosts = ["www.geodatenportal.sachsen-anhalt.de", "geodatenportal.sachsen-anhalt.de", "geoportal.bafg.de"]
 
 [boundary]
 file = "boundary.geojson"

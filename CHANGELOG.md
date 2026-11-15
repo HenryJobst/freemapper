@@ -8,6 +8,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Hinzugefügt
 
+- Genehmigungshinweise: Trinkwasser- und Heilquellenschutzgebiete der Bundesanstalt für Gewässerkunde (BfG, WasserBLIcK, CC BY 4.0) für Bayern, Niedersachsen, Bremen, Mecklenburg-Vorpommern, Rheinland-Pfalz, Sachsen-Anhalt und Sachsen (ADR 0142). Das sind die Gebiete, die die Bundesländer an die BfG melden, mit Namen, aber ohne Schutzzone. Teile eines Gebiets, oft eins je Zone, fasst freemapper zu einer Fläche zusammen. Namen aus Niedersachsen, die der Dienst verstümmelt liefert („BÃ¶rÃŸum“), schreiben die Hinweise richtig („Börßum“). Die Beispiele dieser sieben Bundesländer haben neue Hinweise. Für Baden-Württemberg hat auch die BfG keine Daten.
 - Genehmigungshinweise für Sachsen (ADR 0139): Forstbezirk und Revier des Staatsbetriebs Sachsenforst, Erholungswald, Naturwaldzellen, Bodenschutzwald und die Trinkwasserschutzzonen im Wald, aus zwei Kartendiensten von Sachsenforst (dl-de/by-2-0, „Geodaten Sachsenforst“). Ein Revier ist im Staatswald zuständig, für anderen Wald die untere Forstbehörde des Landkreises; das steht so in den Hinweisen. Die Dienste geben nur für einzelne Punkte Auskunft. freemapper fragt deshalb an bis zu 25 Punkten über der Karte, das sind bis zu 50 Anfragen. Die Hinweise sagen dann, dass die Anteile geschätzt sind und dass etwas zwischen den Punkten fehlen kann, und schreiben bei einem leeren Abschnitt nicht „kein Wasserschutzgebiet“, sondern dass an den abgefragten Punkten nichts genannt ist. Die Beispiele Bastei und Bautzen haben neue Hinweise.
 - Genehmigungshinweise für Schleswig-Holstein (ADR 0137): der Landeswald mit seinem Revier der Schleswig-Holsteinischen Landesforsten, der Naturwald und die Wasserschutzgebiete mit Schutzzone, aus dem Umweltportal des Landesamts für Umwelt (CC BY 4.0). Der Dienst liefert nur GML; die Tabellenquelle liest jetzt auch solche Dienste. Namen, die ein Dienst in Großbuchstaben schreibt („HÜTTEN“), schreiben die Hinweise als Namen („Hütten“).
 
@@ -17,6 +18,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Behoben
 
+- Genehmigungshinweise: In der Tabelle der Quellen stand bei den Diensten des Saarlands der Platzhalter `{year}` statt des Jahrs des Abrufs. Jetzt steht dort das Jahr, auch bei der BfG. Die beiden Saarland-Beispiele sind neu erzeugt.
 - Ein Adapter aus einem Ordner, der ein eingebautes Raster-Backend nennt (`backend = "lgb"` und Ähnliches), bekam in der Download-Schätzung kein Luftbild, kein Gelände- und kein Oberflächenmodell. Die eingebauten Backends schätzen jetzt ihre Raster selbst, mit denselben Werten wie die Bundesländer. Die Schätzungen der eingebauten Bundesländer bleiben gleich (Issue #71).
 
 ## [0.20.0] - 2026-11-14
