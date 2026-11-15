@@ -3,8 +3,7 @@
 //! and a stretch of a line moves away from another. Paper mm, y down, as `conflicts::Footprints`
 //! uses. Only +, −, ×, ÷ and `sqrt` decide a point, so that every system draws the same.
 
-use geo::Simplify as _;
-use geo_types::{Coord, LineString};
+use geo_types::Coord;
 
 /// A polyline in paper mm with the length along it at each point (by `sqrt`, the same on every
 /// system).
@@ -120,7 +119,8 @@ pub(super) fn beside(a: &Polyline, b: &Polyline, within: f64, min_len: f64) -> V
 }
 
 /// The middle of `a` and `b` over `range` of `a`: samples every `step` mm on `a`, each paired
-/// with the closest point of `b`, the midpoints simplified with tolerance `step / 4`.
+/// with the closest point of `b`, the midpoints simplified with tolerance `step / 4`
+/// ([`simplify`]).
 pub(super) fn middle(a: &Polyline, b: &Polyline, range: (f64, f64), step: f64) -> Vec<(f64, f64)> {
     if a.points.len() < 2 || b.points.is_empty() {
         return Vec::new();
@@ -137,12 +137,66 @@ pub(super) fn middle(a: &Polyline, b: &Polyline, range: (f64, f64), step: f64) -
             }
         })
         .collect();
-    LineString::new(midpoints)
-        .simplify(step / 4.0)
-        .0
+    simplify(&midpoints, step / 4.0)
         .into_iter()
         .map(|c| (c.x, c.y))
         .collect()
+}
+
+/// `points` simplified by Ramer–Douglas–Peucker with `tolerance` (mm): between two points kept,
+/// the point farthest from the segment joining them (of as far, the last) is kept when it lies
+/// more than `tolerance` from it, and the stretches on either side are simplified the same way;
+/// the first and the last point always stay. As `geo::Simplify`, but it compares squared
+/// distances, so only +, −, × and ÷ decide and every system keeps the same points.
+pub(super) fn simplify(points: &[Coord<f64>], tolerance: f64) -> Vec<Coord<f64>> {
+    if points.len() <= 2 || tolerance <= 0.0 {
+        return points.to_vec();
+    }
+    let limit = tolerance * tolerance;
+    let mut keep = vec![false; points.len()];
+    keep[0] = true;
+    keep[points.len() - 1] = true;
+    let mut open = vec![(0, points.len() - 1)];
+    while let Some((first, last)) = open.pop() {
+        if last <= first + 1 {
+            continue;
+        }
+        let (mut farthest, mut most) = (first, 0.0);
+        for (k, &p) in points.iter().enumerate().take(last).skip(first + 1) {
+            let d = segment_distance2(p, points[first], points[last]);
+            if d >= most {
+                (farthest, most) = (k, d);
+            }
+        }
+        if most > limit {
+            keep[farthest] = true;
+            open.push((first, farthest));
+            open.push((farthest, last));
+        }
+    }
+    points
+        .iter()
+        .zip(&keep)
+        .filter_map(|(&p, &kept)| kept.then_some(p))
+        .collect()
+}
+
+/// The squared distance from `p` to the segment from `a` to `b`.
+fn segment_distance2(p: Coord<f64>, a: Coord<f64>, b: Coord<f64>) -> f64 {
+    let (dx, dy) = (b.x - a.x, b.y - a.y);
+    let length2 = dx * dx + dy * dy;
+    if length2 == 0.0 {
+        return distance2(p, a);
+    }
+    let r = ((p.x - a.x) * dx + (p.y - a.y) * dy) / length2;
+    if r <= 0.0 {
+        distance2(p, a)
+    } else if r >= 1.0 {
+        distance2(p, b)
+    } else {
+        let cross = (a.y - p.y) * dx - (a.x - p.x) * dy;
+        cross * cross / length2
+    }
 }
 
 /// `line` with the stretch `range` moved by `shift` mm to the side `side` (+1 right, -1 left of
@@ -346,6 +400,34 @@ mod tests {
         line.windows(2)
             .map(|w| crate::build::geometry::distance_to_segment(p, w[0], w[1]))
             .fold(f64::INFINITY, f64::min)
+    }
+
+    #[test]
+    fn simplify_keeps_what_geo_keeps() {
+        use geo::Simplify as _;
+        // A wave with a kink, sampled every 0.25 mm, and a straight run with one bump.
+        let wave: Vec<Coord<f64>> = (0..200)
+            .map(|i| {
+                let x = f64::from(i) * 0.25;
+                let y = (x / 3.0).sin() * 0.4 + if x > 20.0 { (x - 20.0) * 0.1 } else { 0.0 };
+                Coord { x, y }
+            })
+            .collect();
+        let bump: Vec<Coord<f64>> = (0..40)
+            .map(|i| Coord {
+                x: f64::from(i) * 0.25,
+                y: if i == 17 { 0.2 } else { 0.0 },
+            })
+            .collect();
+        for (points, tolerance) in [(&wave, 0.0625), (&wave, 0.01), (&bump, 0.0625)] {
+            let ours = simplify(points, tolerance);
+            let theirs = geo_types::LineString::new(points.clone())
+                .simplify(tolerance)
+                .0;
+            assert_eq!(ours, theirs, "tolerance {tolerance}");
+        }
+        assert_eq!(simplify(&bump, 0.0625).len(), 5);
+        assert_eq!(simplify(&bump, 0.25).len(), 2);
     }
 
     #[test]

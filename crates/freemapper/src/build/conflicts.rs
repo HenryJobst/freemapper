@@ -542,15 +542,21 @@ fn pairs(items: &[Arc<Footprint>], gap: f64) -> Vec<(usize, usize)> {
 /// change: the verdict on each pair is kept until one of the two objects is
 /// [`forgotten`](Self::forget), so only the pairs of what changed are measured again. The
 /// result is the one [`conflicts`] gives.
+///
+/// The memo keys each verdict by the indices of the two objects, so the caller must keep two
+/// promises between calls: the indices name the same objects (nothing is inserted, removed or
+/// reordered), and every object drawn anew, moved or changed is passed to
+/// [`forget`](Self::forget) before the next call. Each verdict is a function of the two
+/// footprints alone, so nothing else makes one stale.
 #[derive(Default)]
-pub struct PairMemo {
+pub(crate) struct PairMemo {
     verdicts: HashMap<(usize, usize), Option<Conflict>>,
 }
 
 impl PairMemo {
     /// The conflicts of `footprints` of the pairs whose [`relation`] `keep` holds, as
     /// [`conflicts_where`] finds them.
-    pub fn conflicts_where(
+    pub(crate) fn conflicts_where(
         &mut self,
         footprints: &Footprints,
         kind: MapKind,
@@ -572,7 +578,7 @@ impl PairMemo {
     }
 
     /// The objects `changed` are drawn anew: their pairs are measured again.
-    pub fn forget(&mut self, changed: &std::collections::BTreeSet<usize>) {
+    pub(crate) fn forget(&mut self, changed: &std::collections::BTreeSet<usize>) {
         if !changed.is_empty() {
             self.verdicts
                 .retain(|(a, b), _| !changed.contains(a) && !changed.contains(b));

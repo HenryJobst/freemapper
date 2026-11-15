@@ -581,14 +581,17 @@ fn barrier_crossings(line: &Polyline, barriers: &[(Rect<f64>, Vec<Coord<f64>>)])
                         [intersection.start, intersection.end]
                     }
                 };
-                found.extend(
-                    hits.iter()
-                        .map(|hit| line.at[i] + (hit.x - w[0].x).hypot(hit.y - w[0].y)),
-                );
+                found.extend(hits.iter().map(|hit| line.at[i] + along(w[0], *hit)));
             }
         }
     }
     found
+}
+
+/// How far `hit` lies from `from`, by `sqrt` (the same on every system, unlike `hypot`).
+fn along(from: Coord<f64>, hit: Coord<f64>) -> f64 {
+    let (dx, dy) = (hit.x - from.x, hit.y - from.y);
+    (dx * dx + dy * dy).sqrt()
 }
 
 /// The stretches of `0..total` that `removed` leaves.
@@ -798,9 +801,10 @@ impl Inner {
                                 [intersection.start, intersection.end]
                             }
                         };
-                        cuts.extend(hits.iter().map(|hit| {
-                            line.at[i] + (hit.x - w[0].x).hypot(hit.y - w[0].y).min(length)
-                        }));
+                        cuts.extend(
+                            hits.iter()
+                                .map(|hit| line.at[i] + along(w[0], *hit).min(length)),
+                        );
                     }
                 }
             }
