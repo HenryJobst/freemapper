@@ -403,6 +403,9 @@ pub fn relation(a: Class, b: Class) -> Relation {
         // minimum width touches the houses along it.
         (Road | Path | Railway, WaterArea | BankLine | Building)
         | (WaterArea | BankLine | Building, Road | Path | Railway) => Relation::Free,
+        // A building stands on the shore or over the water like a bridge: both are drawn, the
+        // water under the building's outline.
+        (Building, WaterArea | BankLine) | (WaterArea | BankLine, Building) => Relation::Free,
         (Building, Building) | (WaterArea, WaterArea) | (BankLine, BankLine) | (Cliff, Cliff) => {
             Relation::Free
         }
@@ -864,6 +867,19 @@ mod tests {
             ),
         ];
         assert_eq!(measure(&set, &slant), Vec::new());
+    }
+
+    #[test]
+    fn a_building_on_the_shore_is_free() {
+        // A boathouse over the edge of a lake, a house on a bank line: both are drawn.
+        let set = isom();
+        let objects = [
+            area(&set, "301", (0.0, 0.0), (30.0, 20.0)),
+            area(&set, "521", (28.0, 8.0), (32.0, 12.0)),
+            line(&set, "301.4", &[(0.0, 30.0), (30.0, 30.0)]),
+            area(&set, "521", (10.0, 30.1), (15.0, 35.0)),
+        ];
+        assert_eq!(measure(&set, &objects), Vec::new());
     }
 
     #[test]

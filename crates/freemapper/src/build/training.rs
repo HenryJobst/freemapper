@@ -75,6 +75,9 @@ pub struct TrainingReport {
     /// Conflict length left, mm on paper, by grade (the pairs of one network, left to the second half).
     pub overlap_left: f64,
     pub gap_left: f64,
+    /// Conflict length of the pairs that keep apart left, mm on paper: 0 unless the give-way
+    /// step stopped at its last round.
+    pub apart_left: f64,
 }
 
 /// The objects of the training map from the objects of the map and the visible candidates.
@@ -97,7 +100,8 @@ pub fn train(
     let _ = tree_cover;
     (report.gave_way, report.cut) = give_way(&mut objects, &classes, kind, georef, symbol_set);
     report.too_small = drop_too_small(&mut objects, &classes, kind, georef, symbol_set);
-    (report.overlap_left, report.gap_left) = left(&objects, kind, georef, symbol_set);
+    (report.overlap_left, report.gap_left, report.apart_left) =
+        left(&objects, kind, georef, symbol_set);
     (objects, report)
 }
 
@@ -162,7 +166,7 @@ fn drop_furniture(objects: &mut Vec<MapObject>, symbol_set: &SymbolSet) -> usize
 /// Step 4: every object that keeps no gap to another object it must keep apart from gives way,
 /// both grades (the training map keeps every gap). Losers go by ascending rank; a line with more
 /// than half its length in conflict, a point and an area go whole, any other line is cut where it
-/// is in conflict. A loser whose winner changed earlier in a round waits for the next round,
+/// is in conflict. A loser whose winner gives way itself in the round waits for the next round,
 /// which measures again. Returns how many objects were dropped and how many cut.
 fn give_way(
     objects: &mut Vec<MapObject>,
@@ -189,7 +193,7 @@ fn give_way(
         for conflict in &found {
             by_loser.entry(conflict.loser).or_default().push(conflict);
         }
-        // Ascending rank; of one rank the longer first, so that what it gives way to is settled.
+        // Ascending rank; of one rank the longer first.
         let mut order: Vec<usize> = by_loser.keys().copied().collect();
         order.sort_by(|&a, &b| {
             rank(footprints.class(a))
@@ -197,14 +201,25 @@ fn give_way(
                 .then(footprints.length(b).total_cmp(&footprints.length(a)))
                 .then(a.cmp(&b))
         });
-        let mut changed: BTreeSet<usize> = BTreeSet::new();
+        // Winners first: a loser waits while one of its winners gives way itself, since that
+        // winner may go and free it. With strict ranks and the shorter giving way some loser
+        // has no such winner; should the tolerance of the tie-break make a ring of equals,
+        // the first loser in the order is settled, so every round settles one.
+        let mut ready: Vec<usize> = order
+            .iter()
+            .copied()
+            .filter(|loser| {
+                by_loser[loser]
+                    .iter()
+                    .all(|c| !by_loser.contains_key(&c.winner))
+            })
+            .collect();
+        if ready.is_empty() {
+            ready.extend(order.first());
+        }
         let mut replaced: BTreeMap<usize, Vec<MapObject>> = BTreeMap::new();
-        for loser in order {
+        for loser in ready {
             let mine = &by_loser[&loser];
-            if mine.iter().any(|c| changed.contains(&c.winner)) {
-                continue;
-            }
-            changed.insert(loser);
             let total = footprints.length(loser);
             let in_conflict: f64 = mine.iter().map(|c| c.length.0).sum();
             let pieces = if total <= 0.0 || in_conflict > total / 2.0 + TOLERANCE_MM {
@@ -437,20 +452,25 @@ fn drop_too_small(
     before - objects.len()
 }
 
-/// Step 6: the conflict length left on `objects`, mm on paper: overlap and gap.
+/// Step 6: the conflict length left on `objects`, mm on paper: overlap and gap of the pairs of
+/// one network, and of the pairs that keep apart.
 fn left(
     objects: &[MapObject],
     kind: MapKind,
     georef: &Georeferencing,
     symbol_set: &SymbolSet,
-) -> (f64, f64) {
+) -> (f64, f64, f64) {
     let refs: Vec<&MapObject> = objects.iter().collect();
     let footprints = Footprints::of(&refs, symbol_set);
     conflicts(&footprints, kind, georef.scale_denominator)
         .iter()
-        .fold((0.0, 0.0), |(overlap, gap), c| match c.grade {
-            Grade::Overlap => (overlap + c.length.0, gap),
-            Grade::Gap => (overlap, gap + c.length.0),
+        .fold((0.0, 0.0, 0.0), |(overlap, gap, apart), c| {
+            let length = c.length.0;
+            match (relation(c.classes.0, c.classes.1), c.grade) {
+                (Relation::Apart, _) => (overlap, gap, apart + length),
+                (_, Grade::Overlap) => (overlap + length, gap, apart),
+                (_, Grade::Gap) => (overlap, gap + length, apart),
+            }
         })
 }
 
@@ -673,6 +693,35 @@ mod tests {
     }
 
     #[test]
+    fn a_contour_on_a_bank_on_a_ditch_stays() {
+        // The bank gives way to the ditch first; with the bank gone the contour is free (a
+        // contour may lie on a ditch), so it must not go against the bank in the same round.
+        let set = isom();
+        let ditch = line(&set, "306", &[(0.0, 0.0), (20.0, 0.0)]);
+        let contour = line(&set, "101", &[(0.0, 0.1), (20.0, 0.1)]);
+        let objects = vec![
+            ditch.clone(),
+            line(&set, "104", &[(0.0, 0.2), (20.0, 0.2)]),
+            contour.clone(),
+        ];
+        let (out, report) = run(&set, objects);
+        assert_eq!(out, vec![ditch, contour]);
+        assert_eq!(report.gave_way, 1, "{report:?}");
+    }
+
+    #[test]
+    fn a_lake_with_a_boathouse_stays_whole() {
+        let set = isom();
+        let objects = vec![
+            area(&set, "301", (0.0, 0.0), (30.0, 20.0)),
+            area(&set, "521", (28.0, 8.0), (32.0, 12.0)),
+        ];
+        let (out, report) = run(&set, objects.clone());
+        assert_eq!(out, objects);
+        assert_eq!(report, TrainingReport::default());
+    }
+
+    #[test]
     fn a_contour_on_an_earth_bank_goes() {
         let set = isom();
         let bank = line(&set, "104", &[(0.0, 0.0), (20.0, 0.0)]);
@@ -780,27 +829,47 @@ mod tests {
         let (out, report) = run(&set, objects);
         assert_eq!(apart_left(&set, &out), Vec::new(), "{out:?}");
         assert!(report.gave_way + report.cut > 0, "{report:?}");
+        assert_eq!(report.apart_left, 0.0, "{report:?}");
+    }
+
+    /// The first code of `codes` the set has.
+    fn first_code<'a>(set: &SymbolSet, codes: &[&'a str]) -> &'a str {
+        codes
+            .iter()
+            .copied()
+            .find(|c| set.id_for_code(c).is_some())
+            .unwrap_or_else(|| panic!("none of {codes:?} in {}", set.name))
     }
 
     #[test]
-    fn the_school_set_does_not_fail() {
-        let set = SymbolSet::school_2019();
-        let objects: Vec<MapObject> = ["521", "501.6", "531", "401", "532.6"]
-            .iter()
-            .filter(|c| set.id_for_code(c).is_some())
-            .enumerate()
-            .map(|(k, code)| {
-                let x = 10.0 * k as f64;
-                match set.symbol_type(set.id_for_code(code).unwrap()) {
-                    Some(1) => point(&set, code, (x, 0.0)),
-                    Some(4) => area(&set, code, (x, 0.0), (x + 5.0, 5.0)),
-                    _ => line(&set, code, &[(x, 0.0), (x + 5.0, 0.0)]),
-                }
-            })
-            .collect();
-        assert!(objects.len() >= 4);
-        let (out, _) = train(objects, None, MapKind::Schoolyard, &georef_at(1000), &set);
-        assert!(!out.is_empty());
+    fn the_school_and_sprint_sets_do_not_fail() {
+        // ISSprOM has no 502 to 505 and the school set no 104: give way runs on what they have.
+        for (set, kind, scale) in [
+            (SymbolSet::school_2019(), MapKind::Schoolyard, 1000),
+            (SymbolSet::issprom_2019(), MapKind::Sprint, 4000),
+        ] {
+            let path = first_code(&set, &["505", "505.1", "501.6"]);
+            let fence = first_code(&set, &["518", "516", "515"]);
+            let mark = first_code(&set, &["526", "531", "528"]);
+            let objects = vec![
+                line(&set, path, &[(0.0, 0.0), (20.0, 0.0)]),
+                line(&set, fence, &[(0.0, 0.1), (20.0, 0.1)]),
+                area(&set, "521", (0.0, 5.0), (10.0, 10.0)),
+                point(&set, mark, (5.0, 7.5)),
+            ];
+            let measured = |objects: &[MapObject]| -> usize {
+                let refs: Vec<&MapObject> = objects.iter().collect();
+                conflicts(&Footprints::of(&refs, &set), kind, scale)
+                    .iter()
+                    .filter(|c| relation(c.classes.0, c.classes.1) == Relation::Apart)
+                    .count()
+            };
+            assert!(measured(&objects) >= 2, "{}", set.name);
+            let (out, report) = train(objects, None, kind, &georef_at(scale), &set);
+            assert_eq!(measured(&out), 0, "{}: {out:?}", set.name);
+            assert_eq!(report.gave_way, 2, "{}: {report:?}", set.name);
+            assert_eq!(report.apart_left, 0.0, "{}: {report:?}", set.name);
+        }
     }
 
     #[test]

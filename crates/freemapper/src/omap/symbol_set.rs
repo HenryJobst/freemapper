@@ -321,10 +321,13 @@ impl SymbolSet {
         let at = self
             .symbols_xml
             .find(&format!(r#"<symbol type="2" id="{id}""#))?;
-        let value: f64 =
-            first_attribute_after(&self.symbols_xml[at..], "<line_symbol", "minimum_length")?
-                .parse()
-                .ok()?;
+        // Only the attributes of this symbol's own `<line_symbol …>` tag.
+        let rest = &self.symbols_xml[at..];
+        let open = rest.find("<line_symbol")?;
+        let tag = &rest[open..open + rest[open..].find('>')?];
+        let value: f64 = first_attribute_after(tag, "<line_symbol", "minimum_length")?
+            .parse()
+            .ok()?;
         // OOM stores lengths in 1/1000 mm.
         (value > 0.0).then(|| PaperMm(value / 1000.0))
     }
@@ -428,6 +431,14 @@ mod tests {
         assert_eq!(set.minimum_length(set.id_for_code("532").unwrap()), None);
         assert_eq!(set.minimum_length(set.id_for_code("401").unwrap()), None);
         assert_eq!(set.minimum_length(99_999), None);
+    }
+
+    #[test]
+    fn a_line_symbol_without_a_minimum_length_does_not_read_the_next() {
+        let xml = r#"<map><georeferencing scale="4000"/><colors count="0"></colors><symbols id="T"><symbol type="2" id="1" code="1"><line_symbol color="0" line_width="100"/></symbol><symbol type="2" id="2" code="2"><line_symbol color="0" line_width="100" minimum_length="500"/></symbol></symbols></map>"#;
+        let set = SymbolSet::from_omap_xml(xml).unwrap();
+        assert_eq!(set.minimum_length(1), None);
+        assert_eq!(set.minimum_length(2), Some(PaperMm(0.5)));
     }
 
     #[test]
