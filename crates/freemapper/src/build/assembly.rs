@@ -209,18 +209,29 @@ fn structures(
     // The NAS stair areas and bottom edges are in one layer.
     let nas = layer(&stored.nas, NAS_STAIR_LAYER);
     // Canopies are cut at the 521 footprints; flat entrance steps face them.
-    let mut canopies = match areas {
-        Some(layer) => canopy_objects(
-            &[CanopyInput::Berlin(&layer.features)],
-            footprints,
-            map_area,
-            *buffer_m,
-            georef,
-            symbol_set,
-            layer.fetched,
-        )?,
-        None => Vec::new(),
-    };
+    let mut canopies = Vec::new();
+    if let Some((drawing, crs)) = crate::project::registers_drawing() {
+        for layer in stored
+            .berlin
+            .iter()
+            .filter(|l| drawing.canopy_areas.iter().any(|a| a.layer == l.name))
+        {
+            canopies.extend(canopy_objects(
+                &[CanopyInput::Set {
+                    drawing,
+                    layer: &layer.name,
+                    features: &layer.features,
+                    crs,
+                }],
+                footprints,
+                map_area,
+                *buffer_m,
+                georef,
+                symbol_set,
+                layer.fetched,
+            )?);
+        }
+    }
     // The canopies among the ALKIS buildings of any state (`Überdachung`, `Carport`).
     if let Some((buildings, fetched)) = dated(&stored.buildings) {
         canopies.extend(canopy_objects(

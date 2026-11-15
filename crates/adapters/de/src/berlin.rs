@@ -10,7 +10,7 @@ use std::collections::HashSet;
 use chrono::{Datelike, NaiveDate};
 use freemapper_adapter_api::extras::{
     DedupDistance, ExtraEstimate, ExtraLayerInfo, ExtraNotes, ExtraSet, ExtraSetInfo, FetchedExtra,
-    PointDedup, RasterTemplate, RasterTemplateInfo, SetDrawing, SetRank, TemplateNotes,
+    LayerKinds, PointDedup, RasterTemplate, RasterTemplateInfo, SetDrawing, SetRank, TemplateNotes,
 };
 use serde_json::{Map, Value};
 
@@ -614,6 +614,11 @@ static DRAWING: SetDrawing = SetDrawing {
     notch_free_layers: &["sb-bordstein"],
     // ALKIS wins over the survey for roofs too.
     canopy_yielding: &[("berlin:layer", "br_fahrgastunterstand")],
+    canopy_areas: &[LayerKinds {
+        layer: "bauwerke-flaechen",
+        field: "bezbwf",
+        kinds: &["Überdachung", "Carport"],
+    }],
     stair_layers: &[],
     candidate_layers: &[],
     feature_tags: Some(feature_tags),

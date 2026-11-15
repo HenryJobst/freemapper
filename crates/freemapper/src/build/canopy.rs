@@ -8,17 +8,19 @@
 //! lies inside them would only double the building and is dropped.
 
 use chrono::NaiveDate;
+use freemapper_adapter_api::extras::SetDrawing;
 use geo::{
     Area as _, BooleanOps as _, BoundingRect as _, Distance as _, Euclidean, Intersects as _,
 };
 use geo_types::{MultiPolygon, Polygon};
 use serde_json::Value;
 
-use crate::build::berlin::{feature_polygons, provenance_tags};
 use crate::build::buildings::footprint_coords;
 use crate::build::dedup::add_also;
 use crate::build::geometry::object_polygon;
+use crate::build::sets::provenance_tags;
 use crate::build::state::{SOURCE, STRUCTURE, vereinfacht_function};
+use crate::build::tagged;
 use crate::crs::Crs;
 use crate::georef::{GeorefError, Georeferencing};
 use crate::measure::{PaperMm, SymbolMm, SymbolScale};
@@ -29,7 +31,7 @@ use crate::sources::alkis::parse_building_features;
 const CANOPY_SYMBOL_CODE: &str = "522";
 /// The layer the canopies come from.
 pub const CANOPY_LAYER: &str = "bauwerke-flaechen";
-/// `bezbwf` of the Berlin canopies, `funktion` of the vereinfacht ones.
+/// `funktion` of the vereinfacht canopies.
 const CANOPY_KINDS: [&str; 2] = ["Überdachung", "Carport"];
 /// Canopies and holes with an area below (`CANOPY_MIN_SIDE_MM`)², enlarged like the symbols, are
 /// dropped, as in
@@ -46,8 +48,14 @@ type Tags = Vec<(String, String)>;
 /// Where the canopy features come from.
 #[derive(Debug, Clone, Copy)]
 pub enum CanopyInput<'a> {
-    /// The Berlin `bauwerke-flaechen` features (EPSG:25833, `bezbwf`).
-    Berlin(&'a [Value]),
+    /// The features of `layer` of the set `drawing` describes, in `crs`: those of a kind its
+    /// [`SetDrawing::canopy_areas`] names for the layer.
+    Set {
+        drawing: &'a SetDrawing,
+        layer: &'a str,
+        features: &'a [Value],
+        crs: Crs,
+    },
     /// The stored ALKIS vereinfacht `GebaeudeBauwerk` features of any state (map CRS): the
     /// `Sonstiges Bauwerk oder sonstige Einrichtung` with `funktion` `Überdachung` or `Carport`.
     /// Everything else in the slice, and every feature with a `bauart` (a Berlin building part),
@@ -80,18 +88,25 @@ pub fn canopy_objects(
     let mut canopies: Vec<(Polygon<f64>, Tags)> = Vec::new();
     for input in inputs {
         match input {
-            CanopyInput::Berlin(features) => {
-                for feature in features.iter().filter(|f| {
-                    f["properties"]["bezbwf"]
-                        .as_str()
-                        .is_some_and(|kind| CANOPY_KINDS.contains(&kind))
-                }) {
-                    let tags = provenance_tags(CANOPY_LAYER, feature, currency);
-                    canopies.extend(
-                        feature_polygons(feature, crs)
-                            .into_iter()
-                            .map(|p| (p, tags.clone())),
-                    );
+            CanopyInput::Set {
+                drawing,
+                layer,
+                features,
+                crs: from,
+            } => {
+                for areas in drawing.canopy_areas.iter().filter(|a| a.layer == *layer) {
+                    for feature in features.iter().filter(|f| {
+                        f["properties"][areas.field]
+                            .as_str()
+                            .is_some_and(|kind| areas.kinds.contains(&kind))
+                    }) {
+                        let tags = provenance_tags(drawing, layer, feature, currency);
+                        canopies.extend(
+                            tagged::polygons_in(feature, *from, crs)
+                                .into_iter()
+                                .map(|p| (p, tags.clone())),
+                        );
+                    }
                 }
             }
             CanopyInput::Buildings(features) => {
@@ -291,10 +306,29 @@ mod tests {
         })
     }
 
+    /// Berlin's set, whose `bauwerke-flaechen` hold the canopies.
+    fn berlin() -> &'static freemapper_adapter_api::extras::SetDrawing {
+        crate::build::sets::drawing_of_source("geoportal-berlin/bauwerke-flaechen").unwrap()
+    }
+
     fn objects(kind: MapKind, features: &[Value], buildings: &[Polygon<f64>]) -> Vec<MapObject> {
+        objects_of(kind, "bauwerke-flaechen", features, buildings)
+    }
+
+    fn objects_of(
+        kind: MapKind,
+        layer: &str,
+        features: &[Value],
+        buildings: &[Polygon<f64>],
+    ) -> Vec<MapObject> {
         let (georef, map_area, set) = setup(kind);
         canopy_objects(
-            &[CanopyInput::Berlin(features)],
+            &[CanopyInput::Set {
+                drawing: berlin(),
+                layer,
+                features,
+                crs: Crs::Utm33,
+            }],
             buildings,
             &map_area,
             20.0,
@@ -303,6 +337,30 @@ mod tests {
             "2026-11-09".parse().unwrap(),
         )
         .unwrap()
+    }
+
+    /// A set names the layers and kinds of its canopies (Berlin: `bezbwf` of `bauwerke-flaechen`,
+    /// ADR 0149); the same feature in a layer it does not name is no canopy.
+    #[test]
+    fn a_set_names_where_its_canopies_are() {
+        assert_eq!(berlin().canopy_areas.len(), 1);
+        let area_kinds = &berlin().canopy_areas[0];
+        assert_eq!(
+            (area_kinds.layer, area_kinds.field, area_kinds.kinds),
+            (
+                "bauwerke-flaechen",
+                "bezbwf",
+                &["Überdachung", "Carport"][..]
+            )
+        );
+        let roof = [area(
+            "DEBE00YY0000ROOF",
+            "Überdachung",
+            (0.0, 0.0),
+            (5.0, 4.0),
+        )];
+        assert_eq!(objects(MapKind::Schoolyard, &roof, &[]).len(), 1);
+        assert!(objects_of(MapKind::Schoolyard, "bauwerke-linien", &roof, &[]).is_empty());
     }
 
     #[test]

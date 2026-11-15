@@ -59,28 +59,19 @@ pub(crate) fn feature_lines(feature: &Value, crs: Crs) -> Vec<geo_types::LineStr
     tagged::lines_in(feature, LAYER_CRS, crs)
 }
 
-/// The provenance tags of a map object or candidate built from a Berlin feature directly (not
-/// through the rules), in the order [`osm_objects`] writes them: `freemapper:source`,
-/// `freemapper:source_id`, `freemapper:currency`, `freemapper:alkis`.
+/// Berlin's set (ADR 0149).
+pub(crate) fn drawing() -> &'static freemapper_adapter_api::extras::SetDrawing {
+    crate::build::sets::drawing_of_source("geoportal-berlin/").expect("Berlin is built in")
+}
+
+/// The provenance tags of a map object or candidate built from a Berlin feature directly
+/// ([`crate::build::sets::provenance_tags`]).
 pub(crate) fn provenance_tags(
     layer: &str,
     feature: &Value,
     currency: NaiveDate,
 ) -> Vec<(String, String)> {
-    let own = feature_tags(layer, feature);
-    let own = |key: &str| own.iter().find(|(k, _)| k == key).map(|(_, v)| v.clone());
-    let mut tags = vec![(
-        "freemapper:source".to_string(),
-        format!("geoportal-berlin/{layer}"),
-    )];
-    if let Some(id) = own("freemapper:source_id") {
-        tags.push(("freemapper:source_id".to_string(), id));
-    }
-    tags.push(("freemapper:currency".to_string(), currency.to_string()));
-    if let Some(alkis) = own("freemapper:alkis") {
-        tags.push(("freemapper:alkis".to_string(), alkis));
-    }
-    tags
+    crate::build::sets::provenance_tags(drawing(), layer, feature, currency)
 }
 
 /// The Straßenbefahrung codes a candidate carries as `berlin:<code>`. There is no code list, so no
@@ -576,7 +567,12 @@ mod tests {
             "properties": {"uuid": "DEBE00DACH", "bezbwf": "Überdachung"}
         });
         let mut canopies = crate::build::canopy::canopy_objects(
-            &[crate::build::canopy::CanopyInput::Berlin(&[canopy])],
+            &[crate::build::canopy::CanopyInput::Set {
+                drawing: drawing(),
+                layer: "bauwerke-flaechen",
+                features: &[canopy],
+                crs: LAYER_CRS,
+            }],
             &[],
             &area,
             20.0,

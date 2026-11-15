@@ -11,6 +11,8 @@ use crate::build::assembly::Layer;
 use crate::build::candidates::{Rules, Target, osm_objects};
 use crate::build::content::CANDIDATE_ONLY_KEY;
 use crate::build::tagged;
+use chrono::NaiveDate;
+
 use crate::crs::{Crs, LatLon};
 use crate::georef::{GeorefError, Georeferencing};
 use crate::omap::{MapObject, SymbolSet};
@@ -215,6 +217,31 @@ pub(crate) fn tags_of(drawing: &SetDrawing, layer: &str, feature: &Value) -> Vec
         Some(tags) => tags(layer, feature),
         None => feature_tags(drawing.tag_prefix, layer, feature),
     }
+}
+
+/// The provenance tags of a map object or candidate built from a feature of `layer` of the set
+/// `drawing` describes directly (not through the rules), in the order [`osm_objects`] writes
+/// them: `freemapper:source`, `freemapper:source_id`, `freemapper:currency`, `freemapper:alkis`.
+pub(crate) fn provenance_tags(
+    drawing: &SetDrawing,
+    layer: &str,
+    feature: &Value,
+    currency: NaiveDate,
+) -> Vec<(String, String)> {
+    let own = tags_of(drawing, layer, feature);
+    let own = |key: &str| own.iter().find(|(k, _)| k == key).map(|(_, v)| v.clone());
+    let mut tags = vec![(
+        "freemapper:source".to_string(),
+        format!("{}/{layer}", drawing.source_prefix),
+    )];
+    if let Some(id) = own("freemapper:source_id") {
+        tags.push(("freemapper:source_id".to_string(), id));
+    }
+    tags.push(("freemapper:currency".to_string(), currency.to_string()));
+    if let Some(alkis) = own("freemapper:alkis") {
+        tags.push(("freemapper:alkis".to_string(), alkis));
+    }
+    tags
 }
 
 /// `<prefix>:layer=<layer>` and `<prefix>:<property>` for every text and number property.
