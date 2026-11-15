@@ -307,9 +307,12 @@ The cache is shared by all projects: macOS `~/Library/Caches/freemapper`, Linux 
   the lower-ranked object where two come too close (walls and impassable fences are only cut), leaves out what is
   below the norm's minimum size, street furniture on streets and squares and the details inside olive green areas
   (only buildings, water, contours and ways that lead through stay), draws a park yellow only where the nDSM shows
-  no trees, and moves trees and other point symbols up to 1.5 mm on paper. Carriageways, tracks and paths that run
-  side by side still stand side by side. Do not map on it: the base map and the candidates stay the working
-  material, true to position. freemapper builds the training map from the data, so corrections in OOM do not reach
+  no trees, and moves trees and other point symbols up to 1.5 mm on paper. Lines of one kind that run side by side,
+  such as two carriageways or two tracks, become one line on their middle; on a forest map a sidewalk beside a road
+  goes. A line too close to another object moves off by up to 0.5 mm on paper before it is cut, and path ends stay
+  on the lines they met. In Berlin the carriageways are drawn in the darker brown and the kerbs inside the streets
+  go; the hidden carriageways show as dark areas in the candidates template. Do not map on it: the base map and
+  the candidates stay the working material, true to position. freemapper builds the training map from the data, so corrections in OOM do not reach
   it; to renew only the training map, delete `<name>-training.omap` (with `--ocad` also
   `ocad/<name>-training.ocd`) and run again without `--force`, because `--force` also replaces the base map. Its
   uncertain objects still need a look in the terrain before an event.

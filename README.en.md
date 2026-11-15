@@ -328,7 +328,8 @@ the print is for checking in the terrain. With both switches you get both files 
 `ocad/<name>-training.ocd`). It takes the map and the candidates together and cleans them up so that you can print it
 and run on it as it is: lines are joined, where two symbols come too close the weaker one gives way, what is too small
 goes, inside olive green areas only buildings, water, contours and ways that lead through stay, and trees move off
-paths. Carriageways and paths running side by side still stand side by side there. Mapping and checking still happen in
+paths. Lines of one kind that run side by side, such as two carriageways, become one, and a line too close to
+something moves off by up to 0.5 mm before it is cut. Mapping and checking still happen in
 the map and the candidates ([manual, chapter 10](docs/manual/en.md#the-training-map)).
 
 What goes straight onto the map and what stays a candidate is set by `--content`: `safe` keeps buildings, the ALKIS areas (traffic, water, parks) and paths of a known surface, `balanced` (default) also puts streets with kerbs and stairs from ALKIS, the registers and the street survey, and walls, fences, hedges, water, trees, paths, railways, banks, passages, monuments, towers and above-ground pipelines also from OSM, and the contours and the areas that shall not be entered along railway tracks, onto the map, `full` puts everything there. `--content-set` sets single groups, for example `--content-set fences=candidates`; the choice is stored in `freemapper.toml` and holds in the browser and through MCP.
