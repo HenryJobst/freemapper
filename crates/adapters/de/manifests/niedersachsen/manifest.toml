@@ -13,7 +13,7 @@ maintainers = ["github:HenryJobst"]
 last_verified = "2026-11-15"
 
 [net]
-hosts = ["opendata.lgln.niedersachsen.de", "opendata.geoservices.lgln.niedersachsen.de", "dop.stac.lgln.niedersachsen.de", "dgm.stac.lgln.niedersachsen.de", "dom.stac.lgln.niedersachsen.de", "geoportal.bafg.de"]
+hosts = ["opendata.lgln.niedersachsen.de", "opendata.geoservices.lgln.niedersachsen.de", "dop.stac.lgln.niedersachsen.de", "dgm.stac.lgln.niedersachsen.de", "dom.stac.lgln.niedersachsen.de", "geoportal.bafg.de", "www.umweltkarten-niedersachsen.de"]
 
 [boundary]
 file = "boundary.geojson"
