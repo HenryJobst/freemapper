@@ -14,12 +14,12 @@ use crate::build::candidates::{Rules, Target, osm_objects};
 use crate::build::dedup::add_also;
 use crate::build::geometry::object_polygon;
 use crate::build::tagged;
-use crate::crs::{Crs, LatLon};
+use crate::crs::Crs;
 use crate::georef::{GeorefError, Georeferencing};
 use crate::omap::coord::FLAG_CURVE_START;
 use crate::omap::{MapObject, SymbolSet};
 use crate::project::MapKind;
-use crate::sources::osm::{OsmFeature, OsmGeometry};
+use crate::sources::osm::OsmFeature;
 
 /// Layer name of the building parts (`Durchfahrt im Gebäude` …) in `berlin:layer`.
 pub const BUILDING_PARTS_LAYER: &str = "building-parts";
@@ -220,55 +220,19 @@ fn tree_label(properties: Option<&serde_json::Map<String, Value>>) -> Option<Str
 /// MultiLineString is a line, each polygon is its exterior as a closed line plus a point at its
 /// centroid (a rule picks one by its `draw`). Id: `berlin/<layer>/<GeoServer id>`.
 pub fn tagged_features(layer: &str, features: &[Value]) -> Vec<OsmFeature> {
-    let mut tagged = tagged::tagged_features(
+    let tagged = tagged::tagged_features(
         &format!("berlin/{layer}"),
         features,
         LAYER_CRS,
         tagged::PointOn::Centroid,
         |feature| feature_tags(layer, feature),
     );
-    // A surveyed bench is a line; a sprint map takes it as a control site, a point at its middle.
-    let benches: Vec<OsmFeature> = tagged
-        .iter()
-        .filter_map(|f| {
-            let OsmGeometry::Line(points) = &f.geometry else {
-                return None;
-            };
-            if !f
-                .tags
-                .iter()
-                .any(|(k, v)| k == "berlin:layer" && v == BENCH_LAYER)
-            {
-                return None;
-            }
-            let (min_lat, max_lat) = points.iter().fold((f64::MAX, f64::MIN), |(a, b), p| {
-                (a.min(p.lat), b.max(p.lat))
-            });
-            let (min_lon, max_lon) = points.iter().fold((f64::MAX, f64::MIN), |(a, b), p| {
-                (a.min(p.lon), b.max(p.lon))
-            });
-            // The schoolyard rule draws the line itself and skips this point.
-            let mut tags = f.tags.clone();
-            tags.push((MIDDLE_KEY.to_string(), "middle".to_string()));
-            tags.sort();
-            Some(OsmFeature {
-                id: f.id.clone(),
-                tags,
-                geometry: OsmGeometry::Point(LatLon {
-                    lat: (min_lat + max_lat) / 2.0,
-                    lon: (min_lon + max_lon) / 2.0,
-                }),
-            })
-        })
-        .collect();
-    tagged.extend(benches);
-    tagged
+    // Berlin's set names the lines that give a point at their middle too (the surveyed benches).
+    match crate::build::sets::drawing_of_source("geoportal-berlin/") {
+        Some(drawing) => crate::build::sets::with_line_middles(tagged, drawing),
+        None => tagged,
+    }
 }
-
-/// The tag of the point at the middle of a bench line (`berlin:point=middle`).
-const MIDDLE_KEY: &str = "berlin:point";
-/// The survey type of the benches, which are lines.
-const BENCH_LAYER: &str = "bj_sitzbank";
 
 /// The candidate objects of the stored Berlin layers within `buffer_m` of `map_area`
 /// (EPSG:25833), each tagged `freemapper:source=geoportal-berlin/<layer>`.
@@ -503,9 +467,11 @@ mod tests {
         drop_cadastre_lines_by_rank, drop_osm_lines_near_cadastre, drop_points_near_registers,
         drop_trees_by_rank,
     };
+    use crate::crs::LatLon;
     use crate::crs::ProjectedPoint;
     use crate::omap::MapCoord;
     use crate::omap::MapObjectKind;
+    use crate::sources::osm::OsmGeometry;
     use freemapper_adapters_de::berlin::normalise_building;
     use freemapper_adapters_de::berlin::test_support::*;
 

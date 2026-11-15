@@ -76,6 +76,10 @@ pub struct SetDrawing {
     /// `(tag key, value)` of the set's paved areas (501.5) that may win over a duplicate, such as
     /// surveyed bridge decks.
     pub winning_areas: &'static [(&'static str, &'static str)],
+    /// `(tag key, value)` of the set's lines that give a point at the middle of their extent too,
+    /// tagged `<tag_prefix>:point=middle`, for the rules that want a point (Berlin's surveyed
+    /// benches, which are lines and control sites on a sprint map).
+    pub line_middles: &'static [(&'static str, &'static str)],
     /// The layers whose areas are stairs; the engine draws them as stairs, walking direction
     /// from the terrain, and lets a stair of the cadastre at the same place win.
     pub stair_layers: &'static [&'static str],

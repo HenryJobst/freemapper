@@ -138,6 +138,7 @@ static DRAWING: SetDrawing = SetDrawing {
     control_kinds: &[],
     fountain_tags: &[],
     winning_areas: &[],
+    line_middles: &[],
     stair_layers: &[STAIR_LAYER],
     // The green of the street space: candidates on the base map (the user's decision of
     // 2026-11-15).
