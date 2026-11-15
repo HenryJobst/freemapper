@@ -1339,6 +1339,10 @@ CC BY 4.0). freemapper holt sie für ein Kartengebiet in der Stadt wie die ander
 ein Baum ein 417. Leipzig führt gefällte Bäume mit ihrem Fälldatum weiter, die entfallen. Ein Erfassungsdatum
 haben die vier nicht, als Stand gilt das Abrufdatum. Dresdens Baumkataster fehlt: Sein WFS liefert kein GeoJSON.
 
+**Köln, Dortmund und Frankfurt am Main: Baumkataster.** Auch diese drei Städte veröffentlichen ihre Bäume mit
+Kronendurchmesser: Köln über einen WFS, Dortmund als OpenDataSoft-Export und Frankfurt am Main als CSV-Datei
+(17,5 MB, bei jedem Abruf ganz geladen). Köln und Dortmund unter dl-de/zero-2-0, Frankfurt unter dl-de/by-2-0.
+
 In Bayern hat das Kataster keinen Dienst. Dort fragt freemapper stattdessen das Landschaftsmodell der
 Vermessungsverwaltung ab, das ATKIS Basis-DLM (CC BY 4.0). Es ist für den Maßstab 1:25 000 gemacht und etwa 3 m
 genau. freemapper nimmt daraus Höhleneingänge (203), Quellen (312), benannte Felsen (205), frei stehende Türme

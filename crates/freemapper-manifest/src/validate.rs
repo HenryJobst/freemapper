@@ -145,11 +145,13 @@ fn is_layer(text: &str) -> bool {
 /// The name of a field or of one part of a feature type.
 fn is_field(text: &str) -> bool {
     let bytes = text.as_bytes();
+    // Spaces inside a name, as CSV headers have them (`ETRS 89 Rechtswert`).
     (1..=60).contains(&bytes.len())
         && (bytes[0].is_ascii_alphabetic() || bytes[0] == b'_')
+        && !text.ends_with(' ')
         && bytes
             .iter()
-            .all(|b| b.is_ascii_alphanumeric() || b"_.-".contains(b))
+            .all(|b| b.is_ascii_alphanumeric() || b"_.- ".contains(b))
 }
 
 /// A feature type, with or without a prefix (`ave:GebaeudeBauwerk`).
@@ -1802,7 +1804,7 @@ impl Check<'_> {
                     trees.type_name.as_ref()?,
                     "extra.trees.type_name",
                     "manifest.value",
-                    |text| is_field(text.replace(':', "_").as_str()),
+                    |text| !text.contains(' ') && is_field(text.replace(':', "_").as_str()),
                     "a feature type, such as `OpenData:Baeume`",
                 );
                 let output_format = self.matching(

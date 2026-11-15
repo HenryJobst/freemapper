@@ -4,7 +4,7 @@ format = 1
 [adapter]
 id = "nordrheinwestfalen"
 provider = "geobasisnrw"
-revision = 2
+revision = 3
 min_freemapper = "0.13.0"
 crs = 25832
 object_id_prefix = "DENW"
@@ -13,7 +13,7 @@ maintainers = ["github:HenryJobst"]
 last_verified = "2026-11-15"
 
 [net]
-hosts = ["www.wfs.nrw.de", "www.wms.nrw.de", "www.opengeodata.nrw.de"]
+hosts = ["www.wfs.nrw.de", "www.wms.nrw.de", "www.opengeodata.nrw.de", "geoportal.stadt-koeln.de", "open-data.dortmund.de"]
 
 [boundary]
 file = "boundary.geojson"
@@ -81,6 +81,35 @@ name = "Geobasis NRW ALKIS (NAS)"
 url = "https://www.wfs.nrw.de/geobasis/wfs_nw_alkis_aaa-modell-basiert"
 namespaces = "xmlns(adv,http://www.adv-online.de/namespaces/adv/gid/7.1)"
 max_count = 100000
+max_bytes = 268435456
+
+[[extra.trees]]
+id = "koeln"
+name = "Köln tree cadastre"
+crs = 25832
+envelope = [342000, 5632000, 372000, 5663000]
+format = "wfs-geojson"
+type_name = "ms:baumkataster"
+output_format = "GEOJSON"
+endpoints = [
+    "https://geoportal.stadt-koeln.de/wss/service/baumkataster_extern_wfs/guest",
+]
+fields = { kind = "Botanischer_Name", id = "Baumnummer", species = "Deutscher_Name", crown = "Kronendurchmesser_-_m" }
+attribution = "Stadt Köln, Baumkataster, dl-de/zero-2-0"
+max_bytes = 268435456
+
+[[extra.trees]]
+id = "dortmund"
+name = "Dortmund tree cadastre"
+crs = 25832
+envelope = [381000, 5696000, 406000, 5718000]
+format = "ods-geojson-export"
+geo_field = "geo_point_2d"
+endpoints = [
+    "https://open-data.dortmund.de/api/explore/v2.1/catalog/datasets/baumkataster/exports/geojson",
+]
+fields = { kind = "art_botani", id = "id", date = "edatum", species = "art_deutsc", crown = "kronendurc" }
+attribution = "Stadt Dortmund, Baumkataster, dl-de/zero-2-0"
 max_bytes = 268435456
 
 [preview]

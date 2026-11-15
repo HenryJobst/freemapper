@@ -225,7 +225,8 @@ fn text<'a>(properties: &'a Map<String, Value>, key: &str) -> Option<std::borrow
 }
 
 /// Adds the stored form of one point feature (a Point, or a MultiPoint of one point) to
-/// `answer`: in `projected` when it names a CRS, in WGS84 lon/lat otherwise. A tree with a
+/// `answer`: in `projected` when it names a CRS, in WGS84 lon/lat otherwise (or, from a WFS, in
+/// the CRS of the dataset when the numbers are metres). A tree with a
 /// value in [`TreeFields::gone`] is left out silently.
 fn normalise(
     feature: &Value,
@@ -270,8 +271,15 @@ fn normalise(
     let point = coordinates
         .and_then(|c| Some((c[0].as_f64()?, c[1].as_f64()?)))
         .filter(|(x, y)| x.is_finite() && y.is_finite());
+    // A WFS that names no CRS answers lon/lat (Kiel) or metres in the CRS asked (Köln).
+    let in_metres =
+        |x: f64| x.abs() > 360.0 && matches!(dataset.format, TreeFormat::WfsGeoJson { .. });
     let position = point.and_then(|(x, y)| match projected {
         Some(from) => from.inverse(ProjectedPoint {
+            easting: x,
+            northing: y,
+        }),
+        None if in_metres(x) => dataset.crs.inverse(ProjectedPoint {
             easting: x,
             northing: y,
         }),
@@ -731,6 +739,19 @@ mod tests {
         assert!(
             url.starts_with("https://example.org/ogc.ashx?NodeId=1633&SERVICE=WFS&"),
             "{url}"
+        );
+    }
+
+    #[test]
+    fn a_wfs_answer_in_metres_without_a_crs_name_is_in_the_crs_asked() {
+        // Köln's server answers in the CRS asked and names none.
+        let unnamed = r#"{"type":"FeatureCollection","numberMatched":1,"numberReturned":1,"features":[
+            {"type":"Feature","geometry":{"type":"Point","coordinates":[316919.01,5691016.99]},
+             "properties":{"baumnummer":"G4519","gattung":"Acer"}}]}"#;
+        let answer = parse_trees(unnamed, &WFS_CITY, Crs::Utm33).unwrap();
+        assert_eq!(
+            answer.features[0]["geometry"]["coordinates"],
+            json!([316_919.01, 5_691_016.99])
         );
     }
 }

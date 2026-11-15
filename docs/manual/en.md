@@ -1287,6 +1287,10 @@ CC BY 4.0). freemapper fetches them for a map area in the city like the other tr
 more makes a 417. Leipzig keeps felled trees with their felling date; those go. None of the four has a survey date,
 so the fetch date is the currency. Dresden's tree cadastre is missing: its WFS gives no GeoJSON.
 
+**Köln, Dortmund and Frankfurt am Main: tree cadastres.** These three cities publish their trees with the crown
+diameter as well: Köln through a WFS, Dortmund as an OpenDataSoft export and Frankfurt am Main as a CSV file
+(17.5 MB, downloaded whole on every fetch). Köln and Dortmund under dl-de/zero-2-0, Frankfurt under dl-de/by-2-0.
+
 In Bavaria the cadastre has no service. There freemapper asks the landscape model of the agency instead, the
 ATKIS Basis-DLM (CC BY 4.0). It is made for the scale 1:25 000 and accurate to about 3 m. freemapper takes cave
 entrances (203), springs (312), named rocks (205), free-standing towers (524, 525), monuments and wayside

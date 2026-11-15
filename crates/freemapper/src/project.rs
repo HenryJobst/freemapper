@@ -3623,6 +3623,11 @@ mod tests {
             !messages.iter().any(|m| m.starts_with("warning")),
             "{messages:?}"
         );
+        // The tree cadastre of Frankfurt am Main (ADR 0065), a CSV cut to the area.
+        let stored =
+            std::fs::read_to_string(dir.path().join("data/trees/frankfurt-main.geojson")).unwrap();
+        let stored: serde_json::Value = serde_json::from_str(&stored).unwrap();
+        assert_eq!(stored["features"].as_array().unwrap().len(), 1, "{stored}");
     }
 
     #[test]
@@ -7834,6 +7839,11 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
             !messages.iter().any(|m| m.starts_with("warning")),
             "{messages:?}"
         );
+        // The tree cadastre of Köln (ADR 0065): metres without a CRS name.
+        let stored = std::fs::read_to_string(dir.path().join("data/trees/koeln.geojson")).unwrap();
+        let stored: serde_json::Value = serde_json::from_str(&stored).unwrap();
+        let tree = &stored["features"][0]["geometry"]["coordinates"];
+        assert!(tree[0].as_f64().unwrap() > 300_000.0, "{stored}");
     }
 
     #[test]

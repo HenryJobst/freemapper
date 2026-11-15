@@ -83,3 +83,13 @@ their GeoJSON `GEOJSON`, the others `application/json`. An answer cut at the cap
 Kiel and 24 837 in Frankfurt (Oder), with no silent cap. Leipzig keeps felled trees with their date in
 `gefaellt_am`: the new optional `fields.gone` names such a field, and a tree with a value there is left out.
 Dresden's WFS answers no GeoJSON and is left out. None of the examples lies in these cities.
+
+## Addendum 2026-11-15: Köln, Dortmund and Frankfurt am Main
+
+Three more cities need no format of their own: Köln (`ms:baumkataster`, dl-de/zero-2-0) is a WFS that answers
+GeoJSON, Dortmund (`baumkataster` on `open-data.dortmund.de`, dl-de/zero-2-0, 155 503 trees) an OpenDataSoft export
+like Potsdam's, and Frankfurt am Main (`content.csv` on `offenedaten.frankfurt.de`, dl-de/by-2-0, 17.5 MB) a CSV
+file like Lübeck's. Two small changes came with them. Köln's server answers in the CRS asked but names no CRS; a
+WFS answer without a name whose numbers are metres (above 360) is now read in the CRS of the dataset, and one in
+degrees stays lon/lat as Kiel's. Frankfurt's column names have spaces (`ETRS 89 Rechtswert`); a field name may now
+hold spaces inside, not at its end, and a WFS type name still may not.

@@ -8,6 +8,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Hinzugefügt
 
+- Baumkataster von Köln, Dortmund und Frankfurt am Main (ADR 0065). Ein WFS ohne CRS-Angabe, der in Metern antwortet, wird im angefragten CRS gelesen, und Feldnamen dürfen Leerzeichen enthalten.
 - Baumkataster von Leipzig, Frankfurt (Oder), Kiel und Norderstedt (ADR 0065). Baumkataster können jetzt auch ein WFS sein, der GeoJSON liefert (`[[extra.trees]] format = "wfs-geojson"` mit `type_name` und `output_format`), und `fields.gone` nennt ein Feld, mit dem gefällte Bäume entfallen.
 - Schleswig-Holstein: das Baumkataster der Hansestadt Lübeck (ADR 0065). Baumkataster können jetzt auch eine CSV-Datei für die ganze Stadt sein (`[[extra.trees]] format = "csv"` mit `x_field`, `y_field` und `separator`); freemapper lädt sie ganz und schneidet sie auf das Gebiet zu. In der Lübecker Altstadt kommen 384 Bäume auf die Karte und 43 zu den Kandidaten, an Stelle der OpenStreetMap-Bäume an denselben Stellen. Das Beispiel ist neu gebaut.
 - Hamburg: das Straßenbaumkataster mit Gattung, Art und Kronendurchmesser (ADR 0065). Baumkataster können jetzt auch eine OGC-API-Sammlung sein (`[[extra.trees]] format = "ogc-api"`, mit Seiten über `next`-Links), und das Erfassungsdatum ist optional. In Blankenese kommen 13 Straßenbäume auf die Karte und 4 zu den Kandidaten, an Stelle der OpenStreetMap-Bäume an denselben Stellen. Das Beispiel ist neu gebaut.
