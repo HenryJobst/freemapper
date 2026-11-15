@@ -343,6 +343,7 @@ pub struct TreeFields {
     pub date: Option<String>,
     pub species: Option<String>,
     pub crown: Option<String>,
+    pub gone: Option<String>,
 }
 
 /// `[preview]`: the aerial photo for the map of the area page.

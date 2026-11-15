@@ -193,6 +193,8 @@ pub(crate) struct RawTrees {
     pub format: Text,
     pub geo_field: Option<Text>,
     pub x_field: Option<Text>,
+    pub type_name: Option<Text>,
+    pub output_format: Option<Text>,
     pub y_field: Option<Text>,
     pub separator: Option<Text>,
     pub endpoints: Vec<Text>,
@@ -211,6 +213,7 @@ pub(crate) struct RawTreeFields {
     pub date: Option<Text>,
     pub species: Option<Text>,
     pub crown: Option<Text>,
+    pub gone: Option<Text>,
 }
 
 #[derive(Debug, Deserialize)]

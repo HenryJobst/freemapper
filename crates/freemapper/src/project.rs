@@ -3911,6 +3911,11 @@ mod tests {
             1,
             "{messages:?}"
         );
+        // The tree cadastre of Norderstedt (ADR 0065), a WFS answering GeoJSON.
+        let stored =
+            std::fs::read_to_string(dir.path().join("data/trees/norderstedt.geojson")).unwrap();
+        let stored: serde_json::Value = serde_json::from_str(&stored).unwrap();
+        assert_eq!(stored["features"][0]["id"], "00005");
     }
 
     #[test]

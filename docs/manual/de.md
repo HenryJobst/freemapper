@@ -1419,6 +1419,12 @@ und das Abrufdatum gilt als Stand. In der Altstadt kommen 384 Bäume auf die Kar
 allem Linden und Ahorne in Reihen an den Straßen; die OpenStreetMap-Bäume an denselben Stellen entfallen (78 auf
 25).
 
+**Leipzig, Frankfurt (Oder), Kiel und Norderstedt: Baumkataster.** Diese vier Städte bieten ihre Bäume über einen
+WFS an, mit Gattung oder Art und Kronendurchmesser (Leipzig, Frankfurt (Oder) und Norderstedt dl-de/by-2-0, Kiel
+CC BY 4.0). freemapper holt sie für ein Kartengebiet in der Stadt wie die anderen Baumkataster; ab 10 m Krone wird
+ein Baum ein 417. Leipzig führt gefällte Bäume mit ihrem Fälldatum weiter, die entfallen. Ein Erfassungsdatum
+haben die vier nicht, als Stand gilt das Abrufdatum. Dresdens Baumkataster fehlt: Sein WFS liefert kein GeoJSON.
+
 In Bayern hat das Kataster keinen Dienst. Dort fragt freemapper stattdessen das Landschaftsmodell der
 Vermessungsverwaltung ab, das ATKIS Basis-DLM (CC BY 4.0). Es ist für den Maßstab 1:25 000 gemacht und etwa 3 m
 genau. freemapper nimmt daraus Höhleneingänge (203), Quellen (312), benannte Felsen (205), frei stehende Türme

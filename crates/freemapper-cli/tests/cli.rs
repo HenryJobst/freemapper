@@ -2323,7 +2323,7 @@ fn adapters_list_shows_built_in_user_and_project_adapters() {
     let lines: Vec<&str> = out.lines().collect();
     assert_eq!(lines.len(), 17, "{out}");
     assert!(
-        lines[0].starts_with("brandenburg  Brandenburg  built in  revision 1  "),
+        lines[0].starts_with("brandenburg  Brandenburg  built in  revision 2  "),
         "{out}"
     );
     assert_eq!(

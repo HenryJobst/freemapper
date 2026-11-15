@@ -216,6 +216,7 @@ fn nas_and_trees_build_their_services() {
             date: Some(Cow::Borrowed("datum")),
             species: None,
             crown: Some(Cow::Borrowed("krone")),
+            gone: None,
         }
     );
     assert_eq!(trees.skipped_kinds.as_ref(), ["Baumstumpf"]);
@@ -290,6 +291,47 @@ fn a_csv_tree_cadastre_is_read_and_checked() {
         (
             format!("{ods}x_field = \"RECHTSWERT\"\n"),
             "extra.trees.x_field",
+        ),
+    ] {
+        let text = format!("{}{}", sample(), TREES.replace(ods, &wrong));
+        let findings = parse(&text, Path::new("sample")).unwrap_err();
+        assert_eq!(findings.len(), 1, "{wrong}: {findings:?}");
+        assert_eq!(findings[0].key, key, "{wrong}");
+    }
+}
+
+/// A tree cadastre may be a WFS answering GeoJSON (Leipzig, Kiel, ADR 0065), with a field
+/// that marks a felled tree.
+#[test]
+fn a_wfs_tree_cadastre_is_read_and_checked() {
+    let ods = "format = \"ods-geojson-export\"\ngeo_field = \"geo_point_2d\"\n";
+    let wfs = "format = \"wfs-geojson\"\ntype_name = \"OpenData:Baeume\"\noutput_format = \"application/json\"\n";
+    let text = format!(
+        "{}{}",
+        sample(),
+        TREES.replace(ods, wfs).replace(
+            "crown = \"krone\"",
+            "crown = \"krone\", gone = \"gefaellt_am\""
+        )
+    );
+    let manifest = parse(&text, Path::new("sample")).unwrap();
+    let trees = extras::tree_dataset(&manifest.trees[0], &"sample".parse().unwrap());
+    assert_eq!(
+        trees.format,
+        TreeFormat::WfsGeoJson {
+            type_name: Cow::Borrowed("OpenData:Baeume"),
+            output_format: Cow::Borrowed("application/json"),
+        }
+    );
+    assert_eq!(trees.fields.gone.as_deref(), Some("gefaellt_am"));
+    for (wrong, key) in [
+        (
+            wfs.replace("output_format = \"application/json\"\n", ""),
+            "extra.trees.output_format",
+        ),
+        (
+            wfs.replace("OpenData:Baeume", "Open Data"),
+            "extra.trees.type_name",
         ),
     ] {
         let text = format!("{}{}", sample(), TREES.replace(ods, &wrong));

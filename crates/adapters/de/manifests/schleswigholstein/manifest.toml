@@ -4,7 +4,7 @@ format = 1
 [adapter]
 id = "schleswigholstein"
 provider = "lvermgeosh"
-revision = 3
+revision = 4
 min_freemapper = "0.13.0"
 crs = 25832
 object_id_prefix = "DESH"
@@ -13,7 +13,7 @@ maintainers = ["github:HenryJobst"]
 last_verified = "2026-11-15"
 
 [net]
-hosts = ["dienste.gdi-sh.de", "service.gdi-sh.de", "geodaten.schleswig-holstein.de", "umweltgeodienste.schleswig-holstein.de", "opendata.schleswig-holstein.de", "opendata.luebeck.de"]
+hosts = ["dienste.gdi-sh.de", "service.gdi-sh.de", "geodaten.schleswig-holstein.de", "umweltgeodienste.schleswig-holstein.de", "opendata.schleswig-holstein.de", "opendata.luebeck.de", "ims.kiel.de", "geoservice.norderstedt.de"]
 
 [boundary]
 file = "boundary.geojson"
@@ -71,6 +71,36 @@ fields = { kind = "GATTUNG", id = "BAUMNUMMER", species = "GA_LANG" }
 skipped_kinds = ["Fehlplatz"]
 attribution = "Hansestadt Lübeck, Abteilung Grün und Freiräume, Baumkataster, CC0"
 max_bytes = 67108864
+
+[[extra.trees]]
+id = "kiel"
+name = "Kiel tree cadastre"
+crs = 25832
+envelope = [567000, 6012000, 580000, 6033000]
+format = "wfs-geojson"
+type_name = "lhkiel:Baeume"
+output_format = "GEOJSON"
+endpoints = [
+    "https://ims.kiel.de/geodatenextern/services/Stadtplan/LHKielWmsWfs/MapServer/WFSServer",
+]
+fields = { kind = "Baumart__bot._", id = "Baumnummer", species = "Baumart", crown = "Kronendurchmesser__m_" }
+attribution = "Landeshauptstadt Kiel, CC BY 4.0"
+max_bytes = 268435456
+
+[[extra.trees]]
+id = "norderstedt"
+name = "Norderstedt tree cadastre"
+crs = 25832
+envelope = [561000, 5944000, 571000, 5957000]
+format = "wfs-geojson"
+type_name = "gru:gruen_baum"
+output_format = "application/json"
+endpoints = [
+    "https://geoservice.norderstedt.de/geoserver/gru/wfs",
+]
+fields = { kind = "art_bot", id = "baumnr", species = "art_de", crown = "kronenm" }
+attribution = "Herausgeber: Stadtverwaltung Norderstedt, dl-de/by-2-0"
+max_bytes = 268435456
 
 [preview]
 wms = "https://dienste.gdi-sh.de/WMS_SH_DOP20col_OpenGBD"
