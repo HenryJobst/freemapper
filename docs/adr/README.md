@@ -51,7 +51,7 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0003](0003-sure-objects-as-map-objects-rest-as-templates.md) | Sure objects as map objects, the rest as templates | Accepted | 2026-11-06 |
 | [0004](0004-provenance-tags-on-generated-objects.md) | Provenance tags on generated objects | Accepted | 2026-11-06 |
 | [0005](0005-mcp-over-stdio-as-the-lay-interface.md) | MCP over stdio as the interface for non-technical users | Accepted | 2026-11-06 |
-| [0006](0006-gpl-3.0-or-later.md) | GPL-3.0-or-later | Accepted | 2026-11-06 |
+| [0006](0006-gpl-3.0-or-later.md) | GPL-3.0-or-later | Superseded by ADR 0152 | 2026-11-06 |
 | [0007](0007-glossary-first-english-code-bilingual-docs.md) | Glossary first, English code, bilingual user docs | Accepted | 2026-11-06 |
 | [0008](0008-osm-from-geofabrik-extracts.md) | OSM from Geofabrik extracts, not Overpass | Accepted | 2026-11-06 |
 | [0009](0009-area-selection-in-a-local-browser-page.md) | Area selection in a local browser page | Accepted | 2026-11-06 |
@@ -196,3 +196,4 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0148](0148-permit-sources-from-arcgis-rest-services.md) | Permit sources from ArcGIS REST services | Accepted | 2026-11-15 |
 | [0149](0149-hamburg-feinkartierung-a-set-that-brings-its-rules.md) | Hamburg's Feinkartierung, the first set of extra layers that brings its rules | Accepted | 2026-11-15 |
 | [0151](0151-ticks-of-closed-and-enclosing-fences.md) | Ticks of closed and enclosing fences | Accepted, amends ADR 0140 | 2026-11-15 |
+| [0152](0152-agpl-3.0-or-later.md) | AGPL-3.0-or-later | Accepted, supersedes ADR 0006 | 2026-11-15 |
