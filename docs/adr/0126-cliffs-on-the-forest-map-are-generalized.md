@@ -1,7 +1,7 @@
 # 0126. Cliffs on the forest map are generalized
 
 Date: 2026-11-14
-Status: Accepted
+Status: Accepted, amended by ADR 0140 (the training level runs on the training map, not on the candidates PDF)
 
 ## Context
 

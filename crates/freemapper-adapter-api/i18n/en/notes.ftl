@@ -291,3 +291,4 @@ error-layer-not-made = { $layer } is not made yet; run { $step ->
     }
 warning-ocad-no-background = { $error }; the OCAD map gets no background from it
 warning-map-preview-failed = the map is written, but its preview is missing: { $error }
+warning-training-no-tree-cover = the training map keeps the open land of parks whole: the tree cover (data/tree-cover.tif) is missing; run `freemapper derive` again

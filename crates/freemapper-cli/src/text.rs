@@ -292,6 +292,11 @@ mod tests {
             ("state", v("Brandenburg/Berlin")),
             ("agency", v("LGB")),
             ("adapter", v("czfoo")),
+            // The training map (`pipeline.rs`).
+            ("map", v("/p/p-training.omap")),
+            ("pdf", v("/p/p-training.pdf")),
+            ("joined", n(3)),
+            ("length", v("12.3")),
             // The permit notes (`permits.rs`, `errors.rs`).
             ("missing", v("bfn: HTTP 503")),
             ("level", v("land")),

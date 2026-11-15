@@ -199,7 +199,7 @@ pub fn osm_forest_polygons(features: &[OsmFeature], crs: Crs) -> Vec<Polygon<f64
 
 /// A piece of open land below (`MIN_PIECE_SIDE_MM`)² or with a short side (`short_side`) under
 /// it, enlarged like the symbols, is a sliver.
-const MIN_PIECE_SIDE_MM: SymbolMm = SymbolMm(1.0);
+pub(crate) const MIN_PIECE_SIDE_MM: SymbolMm = SymbolMm(1.0);
 
 /// The OSM open land candidates (401 areas among `candidates`) minus the open land map objects
 /// (`alkis`, any 401, 403 or 405): where ALKIS knows the park, OSM adds nothing. A piece below

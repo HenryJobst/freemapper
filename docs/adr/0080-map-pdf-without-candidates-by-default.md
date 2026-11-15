@@ -1,7 +1,7 @@
 # 0080. The PDF is the map without candidates, the scale bar is optional
 
 Date: 2026-11-10
-Status: Accepted, amends ADR 0002
+Status: Accepted, amends ADR 0002, amended by ADR 0140 (the candidates PDF is the check print; the training map is its own output)
 
 ## Context
 

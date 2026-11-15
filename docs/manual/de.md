@@ -41,7 +41,7 @@ OpenStreetMap (OSM).
 - Gezeichnet und im Gelände geprüft wird weiterhin von Ihnen, in **OpenOrienteering Mapper (OOM)** oder
   **OCAD**.
 
-Auf Wunsch erzeugt freemapper zusätzlich die **druckfertige Karte als PDF** und eine **Trainingskarte mit allen Kandidaten** (Kapitel 10).
+Auf Wunsch erzeugt freemapper zusätzlich die **druckfertige Karte als PDF**, einen **Prüfausdruck** mit allen Kandidaten und eine **Trainingskarte**, die Sie drucken und laufen, wie sie ist (Kapitel 10).
 
 ## 2. Was Sie brauchen
 
@@ -269,7 +269,7 @@ Windows die PowerShell, im Ordner mit freemapper.
    ./freemapper run kreuzgymnasium
    ```
 
-   Mit `--ocad` entsteht zusätzlich die OCAD-Datei, mit `--pdf` das PDF der Karte, mit `--pdf-candidates` die Trainingskarte mit Kandidaten.
+   Mit `--ocad` entsteht zusätzlich die OCAD-Datei, mit `--pdf` das PDF der Karte, mit `--pdf-candidates` der Prüfausdruck mit Kandidaten, mit `--training` die Trainingskarte.
 
 Kennen Sie den OSM-Eintrag des Geländes, geht es auch ohne Browser:
 
@@ -355,7 +355,8 @@ Unter den Einstellungen steht der Block „Karte erzeugen“. Er braucht kein Te
    |---|---|
    | OCAD-Startprojekt schreiben | `--ocad` |
    | Druckfertige PDF | `--pdf` |
-   | Trainings-PDF mit allen Kandidaten | `--pdf-candidates` |
+   | Prüfausdruck mit allen Kandidaten | `--pdf-candidates` |
+   | Trainingskarte | `--training` |
    | Maßstabsleiste in die PDFs | `--pdf-scale-bar` |
    | Quellenangabe in den PDFs: automatisch, vollständig, nur freemapper | `--pdf-sources auto`, `full`, `credit-only` |
    | Hinweise zu Genehmigungen | `--permits` (Kapitel 12) |
@@ -420,7 +421,7 @@ verwaist. Läuft ein Lauf eines anderen Projekts, startet der neue nicht, denn d
 Zwischenspeicher.
 
 **Voreinstellungen** setzen Sie beim Start der Seite: `freemapper select mein-schulhof --pdf --ocad` hakt
-die beiden Optionen schon an. Es gibt `--ocad`, `--pdf`, `--pdf-candidates`, `--pdf-scale-bar`,
+die beiden Optionen schon an. Es gibt `--ocad`, `--pdf`, `--pdf-candidates`, `--training`, `--pdf-scale-bar`,
 `--pdf-sources auto|full|credit-only` und `--offline`; der KI-Assistent kann dieselben Felder an
 `open_area_selector` übergeben. „Hinweise zu Genehmigungen“ wählt nur der KI-Assistent vor (`permits`);
 `select` hat dafür keinen Schalter. „Vorhandene Karte ersetzen“ hat keine Voreinstellung.
@@ -439,7 +440,8 @@ Im Projektordner liegen danach unter anderem:
 | `templates/` | die Vorlagen: Luftbild, Schummerung, Hangneigung, lokales Relief, nDOM und die Kandidaten-Karte, in Berlin auch die K5 (Kapitel 13) |
 | `ocad/` | mit `--ocad`: die OCAD-Karte und ihre Vorlagen |
 | `<name>.pdf` | mit `--pdf`: die druckfertige Karte ohne Kandidaten |
-| `<name>-candidates.pdf` | mit `--pdf-candidates`: die Trainingskarte mit allen Kandidaten |
+| `<name>-candidates.pdf` | mit `--pdf-candidates`: der Prüfausdruck, die Karte mit allen Kandidaten |
+| `<name>-training.omap`, `<name>-training.pdf` | mit `--training`: die Trainingskarte (Kapitel 10), mit `--ocad` auch `ocad/<name>-training.ocd` |
 | `<name>-preview.webp` | ein Bild der Kartenobjekte (ohne Kandidaten, ohne Blattrand), zusammen mit der `.omap` geschrieben; die Gebietsseite zeigt es |
 | `ATTRIBUTION.txt` | die Namensnennung der Datenquellen |
 | `freemapper.toml` | die Einstellungen und der Datenstand des Projekts |
@@ -475,12 +477,12 @@ Uferlinie (301.6). Ein Fluss liegt im Kataster oft in vielen einzelnen Flächen.
 Fläche auf, damit keine Linien quer über das Wasser laufen. Wo das Wasser über Kartengebiet und Puffer
 hinausreicht, bekommt es an dieser Kante keine Uferlinie; Inseln behalten ihre. Gewässer, die im Mittel
 schmaler als 2 m sind, kommen nur in die Kandidaten. Die Höhenlinien enden am Ufer dieses Gewässers, in den
-Kandidaten wie auf der Trainingskarte.
+Kandidaten, im Prüfausdruck und auf der Trainingskarte.
 
 Aus OSM kommen weitere Kandidaten:
 
 - Teiche, Becken, Schwimmbecken im Freien und Brunnenbecken als Fläche (301). Liegt eine solche Fläche mindestens zur
-  Hälfte im Gewässer aus dem Kataster, lässt freemapper sie weg.
+  Hälfte im Gewässer aus dem Kataster, lässt freemapper sie weg, auch einen See mit Inseln.
 - Bäche und Abzugsgräben (`drain`) als Linie: 305, wenn sie ganzjährig Wasser führen, sonst 306. Gräben
   (`ditch`) sind immer 306. Verrohrte Abschnitte fehlen.
 - Brunnen (311) und Quellen (312) als Punkt, auf Schulhofkarten auch Trinkbrunnen (313). Brunnenpunkte, die
@@ -546,19 +548,20 @@ Meer, das nicht im Kataster steht, bleibt weiß. freemapper liest die Küstenlin
   unter den Kandidaten. Stolpersteine, Gedenktafeln und Gedenkstücke, die eine Bank, ein Baum oder ein Wandbild
   sind, fehlen, denn 526 gilt für Objekte, die im Gelände auffallen (ISSprOM 526). Kennt auch das Kataster das
   Denkmal, sehen Sie zwei Punkte; behalten Sie einen.
-- Durchgänge (522), die kein Läufer erreichen kann, sind verborgen. Ein Durchgang, der nur an Gebäude, Flächen,
-  die nicht betreten werden dürfen, oder Wasser grenzt oder zwei umbaute Höfe verbindet, fehlt in der
-  Trainingskarte, bleibt aber mit dem Tag `freemapper:hidden=unreachable` unter den Kandidaten. Schauen Sie ihn
-  an, wenn Sie wissen, dass der Hof ein Tor hat. Ein Kandidatenpunkt (Denkmal, Laterne, Papierkorb), der in einem
+- Durchgänge (522), die kein Läufer erreichen kann, sind verborgen. Ein Durchgang, der nur an Gebäude, Flächen, die
+  nicht betreten werden dürfen, oder Wasser grenzt oder zwei umbaute Höfe verbindet, fehlt im Prüfausdruck und in der
+  Trainingskarte, bleibt aber mit dem Tag `freemapper:hidden=unreachable` unter den Kandidaten. Schauen Sie ihn an,
+  wenn Sie wissen, dass der Hof ein Tor hat. Ein Kandidatenpunkt (Denkmal, Laterne, Papierkorb), der in einem
   Gebäudegrundriss liegt, entfällt.
-- Doppel. Geben zwei Quellen dasselbe Objekt, behält freemapper eines: das Register vor ALKIS, ALKIS vor der
-  Berliner Straßenbefahrung, diese vor OSM. Bei Flächen misst freemapper, wie viel der schwächeren unter den
-  stärkeren mit gleichem Symbol liegt, aufgeweitet um 0,25 mm auf dem Papier (1 m bei 1:4000). Ein Durchgang
-  (522) oder eine Überdachung fällt weg, wenn die Hälfte bedeckt ist, ein privater Streifen (520) in einer
-  ALKIS-Fläche, die nicht betreten werden darf, ab 80 %, eine OSM-Brücke über einer Berliner Brückenfläche
-  ab der Hälfte. Auch ein OSM-Denkmal bis 5 m neben einem Katasterdenkmal und OSM-Bordsteine entlang vermessener
-  fallen weg. Das bleibende Objekt nennt das weggelassene in `freemapper:also` (z. B. `osm/way/123`). Ein
-  OSM-Streifen, der viel größer ist als das Katasterpolygon, das er bedeckt, bleibt, denn er liefert Ausdehnung.
+- Doppel. Geben zwei Quellen dasselbe Objekt, behält freemapper eines: das Register vor ALKIS, ALKIS vor der Berliner
+  Straßenbefahrung, diese vor OSM. Bei Flächen misst freemapper, wie viel der schwächeren unter den stärkeren mit
+  gleichem Symbol liegt, aufgeweitet um 0,25 mm auf dem Papier (1 m bei 1:4000). Ein Durchgang (522) oder eine
+  Überdachung fällt weg, wenn die Hälfte bedeckt ist, ein privater Streifen (520) in einer ALKIS-Fläche, die nicht
+  betreten werden darf, ab 80 %, eine OSM-Brücke über einer Berliner Brückenfläche ab der Hälfte. Auch ein OSM-Denkmal
+  bis 5 m neben einem Katasterdenkmal, OSM-Bordsteine entlang vermessener und eine OSM-Treppe, die mindestens zur
+  Hälfte auf einer Treppe des Katasters oder der Vermessung liegt, fallen weg. Das bleibende Objekt nennt das
+  weggelassene in `freemapper:also` (z. B. `osm/way/123`). Ein OSM-Streifen, der viel größer ist als das
+  Katasterpolygon, das er bedeckt, bleibt, denn er liefert Ausdehnung.
 
 Unter der Karte stehen die **Randangaben**: Titel, Maßstab, Äquidistanz, Maßstabsleiste und die
 Namensnennung. Lassen Sie die Namensnennung auf der gedruckten Karte stehen (Kapitel 16). Die **Nordlinien**
@@ -576,15 +579,15 @@ freemapper die Symbole auf 150 %, bei 1:7500 auf 200 %, so wie die Norm vergrö�
 
 ```sh
 freemapper init dammheide --osm relation/4513841 --kind forest --scale 10000
-freemapper run dammheide --pdf-candidates
+freemapper run dammheide --training
 ```
 
 - **Wege** kommen aus OSM und stehen gleich in der Karte: Hauptstraßen als 502, andere Straßen als 503,
   Wirtschaftswege der Güte 1 und 2 oder ab 3 m Breite als 504, die übrigen Wirtschaftswege, Radwege und breite
   oder befestigte Fußwege als 505, schmale Pfade als 506, undeutliche Pfade (`trail_visibility=bad` oder
   `informal=yes`) als 507 und Treppen als 532. Private Wege bleiben Wege. Gehwege an Straßen, Überwege, Zufahrten
-  und Gassen auf Parkplätzen fehlen. freemapper verschiebt und verbindet nichts. Was in OSM ungenau ist,
-  korrigieren Sie in OOM.
+  und Gassen auf Parkplätzen fehlen. In der Karte verschiebt und verbindet freemapper nichts; nur die
+  Trainingskarte verbindet Wege und rückt Bäume ab (Kapitel 10). Was in OSM ungenau ist, korrigieren Sie in OOM.
 - **Wald** ist das weiße Papier. Wo OSM oder ALKIS Wald angeben, zeichnet freemapper kein offenes Gelände,
   auch wenn ALKIS die Fläche als Park oder Erholungsfläche führt.
 - **Grün** gibt es nur, wo OSM es angibt: Gebüsch (`natural=scrub`) wird Kandidat 406, dichtes Gebüsch 408.
@@ -600,31 +603,31 @@ freemapper run dammheide --pdf-candidates
   als `contour_interval_m = 2.5` in der `freemapper.toml`; `auto` (auf der Seite „automatisch“) gibt die Wahl
   zurück. Bei einer fertigen Karte danach `freemapper run <ordner> --force` (oder `derive` und `export --force`). Der Kartenrand nennt den Abstand („Äquidistanz 2,5 m“). Weicht er vom Standard ab, steht er
   nach `derive` auch als `[contours] interval_m` in der `freemapper.toml`; freemapper-print liest ihn dort.
-- **Felswände** aus OpenStreetMap werden generalisiert (ADR 0126): Im Felsgebiet stehen sie dort Wand für Wand, an
-  der Bastei mehr als 2000. freemapper liest jede Wand am Geländemodell: wie hoch der Fels über seinem Hang steht
-  und welche Seite tiefer liegt; dorthin zeigen die Zacken. Eine Linie wird abschnittsweise beurteilt, Stücke einer
-  Wand werden verbunden. Ein Abschnitt, der weniger als 3 m über seinem Hang steht, kommt in die Kandidatenkarte.
-  Eine geschlossene Wand mit der tiefen Seite außen ist ein Felsturm und wird zur Fläche 206 (auf die Mindestgröße
-  von 0,3 mm² vergrößert, wo er kleiner ist); mit der tiefen Seite innen ist sie eine Senke und bleibt eine Wand.
-  Die höchsten Wände bleiben zuerst; jede hält 0,25 mm Abstand zwischen den Seiten, die einander zugewandt sind
-  (ISOM 2017-2; vergrößert wie die Symbole). Wo nur ihre Linie Platz hat, steht sie als Oberkante 201.3 ohne Zacken,
-  zwei Wände Rücken an Rücken, die enger stehen, werden eine Felsrippe 206, sonst wird eine Wand gekürzt. Die Wände
-  werden geglättet, damit das Zickzack der OSM-Linien verschwindet. Was wegfällt, liegt in der Kandidatenkarte, mit
-  dem Grund im Tag `freemapper:generalized`; die Trainings-PDF lässt es weg. Die Höhenlinien enden unter den
+- **Felswände** aus OpenStreetMap werden generalisiert (ADR 0126): Im Felsgebiet stehen sie dort Wand für Wand, an der
+  Bastei mehr als 2000. freemapper liest jede Wand am Geländemodell: wie hoch der Fels über seinem Hang steht und
+  welche Seite tiefer liegt; dorthin zeigen die Zacken. Eine Linie wird abschnittsweise beurteilt, Stücke einer Wand
+  werden verbunden. Ein Abschnitt, der weniger als 3 m über seinem Hang steht, kommt in die Kandidatenkarte. Eine
+  geschlossene Wand mit der tiefen Seite außen ist ein Felsturm und wird zur Fläche 206 (auf die Mindestgröße von
+  0,3 mm² vergrößert, wo er kleiner ist); mit der tiefen Seite innen ist sie eine Senke und bleibt eine Wand. Die höchsten
+  Wände bleiben zuerst; jede hält 0,25 mm Abstand zwischen den Seiten, die einander zugewandt sind (ISOM 2017-2;
+  vergrößert wie die Symbole). Wo nur ihre Linie Platz hat, steht sie als Oberkante 201.3 ohne Zacken, zwei Wände
+  Rücken an Rücken, die enger stehen, werden eine Felsrippe 206, sonst wird eine Wand gekürzt. Die Wände werden
+  geglättet, damit das Zickzack der OSM-Linien verschwindet. Was wegfällt, liegt in der Kandidatenkarte, mit dem Grund
+  im Tag `freemapper:generalized`; Prüfausdruck und Trainingskarte lassen es weg. Die Höhenlinien enden unter den
   gezeichneten Wänden und laufen sonst weiter; Kuppen und Senken aus dem Geländemodell auf dem Fels werden
-  ausgeblendet. Für die Höhen behält eine Waldkarte in einem Bundesland, dessen Geländemodell in Kacheln kommt, es
-  als `data/terrain.tif`. Eine Wand, an der das Orthofoto Fels zeigt, bleibt zuerst (`freemapper:rock-seen`); eine,
-  an der es keinen zeigt, verliert nichts, denn die meisten Wände sind senkrecht oder stehen unter Bäumen. Die
-  Trainings-PDF generalisiert den Fels stärker als die Karte: Wände ab 5 m, keine Oberkanten ohne Zacken, längere
-  Stücke; die Kandidatenkarte behält alle OSM-Wände. Sprintkarten generalisieren ihre Felswände ebenso, mit den
-  Werten der ISSprOM 2019-2 (Wände ab 1,5 m, mindestens 0,9 mm lang; in der Trainings-PDF ab 3 m; ADR 0134).
+  ausgeblendet. Für die Höhen behält eine Waldkarte in einem Bundesland, dessen Geländemodell in Kacheln kommt, es als
+  `data/terrain.tif`. Eine Wand, an der das Orthofoto Fels zeigt, bleibt zuerst (`freemapper:rock-seen`); eine, an der
+  es keinen zeigt, verliert nichts, denn die meisten Wände sind senkrecht oder stehen unter Bäumen. Die Trainingskarte
+  generalisiert den Fels stärker als die Karte: Wände ab 5 m, keine Oberkanten ohne Zacken, längere Stücke; die
+  Kandidatenkarte behält alle OSM-Wände. Sprintkarten generalisieren ihre Felswände ebenso, mit den Werten der ISSprOM
+  2019-2 (Wände ab 1,5 m, mindestens 0,9 mm lang; in der Trainingskarte ab 3 m; ADR 0134).
 - Gebäude, Gewässer, Mauern, Zäune, Stromleitungen, Bahnlinien und Sperrgebiete (520) kommen wie bei der
   Sprintkarte. Bänke, Poller, Laternen und anderes Stadtmobiliar fehlen, ebenso Bäume aus Baumkatastern und
   einzelne OSM-Bäume. Nur ein Baum mit
   `denotation=natural_monument` wird Kandidat 417.
 
-Für ein schnelles Training reicht das Kandidaten-PDF (`--pdf-candidates`): Es zeigt Karte und Kandidaten im
-gewählten Maßstab. Zum Kartieren nehmen Sie die `.omap` wie bei den anderen Kartenarten.
+Für ein schnelles Training nehmen Sie die Trainingskarte (`--training`, Kapitel 10). Zum Kartieren nehmen Sie die
+`.omap` wie bei den anderen Kartenarten.
 
 ## 8. Was die Vorlagen zeigen
 
@@ -717,7 +720,7 @@ ist, bleibt Kandidat und steht nur in der Vorlage. Wie das verteilt wird, stelle
 |---|---|
 | `safe` (sicher) | Jedes Objekt bleibt, wo die Erzeugung es hinlegt: Gebäude, ALKIS-Flächen (Verkehr, Gewässer, Parks) und OSM-Wege mit bekannter Oberfläche kommen auf die Karte. Mauern, Zäune, Bäume, OSM-Teiche, Wege ohne bekannte Oberfläche und alles andere Unsichere bleiben Kandidat. |
 | `balanced` (ausgewogen, Standard) | Die Objekte des Katasters, der Register und der Straßenbefahrung kommen auf die Karte: Straßen und Plätze mit Bordsteinen und Grünstreifen. Mauern, Zäune, Hecken, Wasser, Bäume, Baumgruppen, Treppen, Wege, Gleise, Böschungen, Durchgänge sowie Denkmäler, Türme und oberirdische Rohrleitungen kommen auch aus OpenStreetMap auf die Karte, denn dort ist es oft die einzige Quelle. Auch die Höhenlinien kommen auf die Karte. Die Sperrgebiete entlang von Bahngleisen kommen auf die Karte (und die Punkte darin entfallen); andere Sperrgebiete, die auf einer Schätzung beruhen, Ausstattung und Laternen, OSM-Parkflächen sowie die Kuppen, Senken, Böschungen und Felswände aus dem Geländemodell bleiben Kandidat. Für Rohrleitungen (528, 529) verlangt die Norm eine Erklärung des Symbols in der Legende; sie zu schreiben ist Sache des Kartierers. |
-| `full` (voll) | Alles kommt auf die Karte, wie in der Trainingskarte. |
+| `full` (voll) | Alles kommt auf die Karte, wie im Prüfausdruck. |
 
 Einzelne Gruppen lassen sich abweichend einstellen: `walls`, `fences`, `hedges`, `slopes`, `stairs`, `trees`,
 `water-features`, `monuments`, `furniture`, `passages`, `contours`, `landforms`, `vegetation`, `out-of-bounds`,
@@ -846,34 +849,41 @@ freemapper spart das Zeichnen der Grundlage, nicht den Gang ins Gelände. Prüfe
   er zur Hecke, an Mauer oder Zaun verdeckt sein Symbol die Linie. Im Park Sanssouci weichen so die
   OSM-Stützmauern der Terrassen den ALKIS-Mauern. Prüfen Sie vor Ort, über welche Mauer man springen kann
   (513.2), und rücken Sie einen echten Zaun neben einer Mauer ab, statt ihn wegzulassen.
-- **Verborgene Punkte in Sperrgebieten:** Die ISSprOM erlaubt in verbotenem Gebiet (520) nur sehr markante
-  Objekte. Ein Punktkandidat in einem 520-Kandidaten bleibt in den Kandidaten, mit dem Tag
-  `freemapper:hidden=520`, aber die Trainingskarte lässt ihn weg. Auf Schulhofkarten verbirgt das jeden Punkt
-  außerhalb des Schulgeländes. Ist das Gebiet doch kein Sperrgebiet oder steht dort ein sehr großer Baum,
-  übernehmen Sie den Punkt aus den Kandidaten.
+- **Verborgene Punkte in Sperrgebieten:** Die ISSprOM erlaubt in verbotenem Gebiet (520) nur sehr markante Objekte.
+  Ein Punktkandidat in einem 520-Kandidaten bleibt in den Kandidaten, mit dem Tag `freemapper:hidden=520`, aber
+  Prüfausdruck und Trainingskarte lassen ihn weg. Auf Schulhofkarten verbirgt das jeden Punkt außerhalb des
+  Schulgeländes. Ist das Gebiet doch kein Sperrgebiet oder steht dort ein sehr großer Baum, übernehmen Sie den Punkt
+  aus den Kandidaten.
 - **Möblierung und Spielgeräte:** Sie stammen aus OSM, in Berlin auf Schulhofkarten auch aus der
   Straßenbefahrung und dem Beleuchtungskataster. Sie sind oft unvollständig.
 - **Höhenlinien:** Kleine Böschungen und Stufen zeigen eher Schummerung, Hangneigung oder lokales Relief;
-  die Kuppen- und Böschungs-Kandidaten weisen auf sie hin.
+  die Kuppen- und Böschungs-Kandidaten weisen auf sie hin. Die Höhenlinien laufen durch Gebäude, Wege und
+  befestigte Flächen, wie es die ISSprOM 2019-2 (101) verlangt. Unterbrochen sind sie nur an Treppen, an den kleinen
+  Geländeformen (105, 109 bis 112, 115; auf Waldkarten nicht am Erdwall 105), unter gezeichneten Felswänden und im
+  Gewässer aus dem Kataster (ADR 0140).
+- **Zacken der Zäune:** Ein geschlossener Zaun hat sie innen, wie die Norm es will. Sonst zeigen sie zur olivgrünen
+  Fläche neben dem Zaun, weg von einem Weg, der am Zaun entlangführt, und zum Park. Liegt auf beiden Seiten dieselbe
+  Fläche, nimmt freemapper die Seite, auf der die Zacken nichts überdecken.
 
 ## 10. Karte als PDF
 
-Zwei Schalter schreiben ein PDF in A4 oder A3, druckfertig, zwei weitere stellen Maßstabsleiste und Quellenangabe ein:
+Drei Schalter schreiben eine druckfertige Karte in A4 oder A3, zwei weitere stellen Maßstabsleiste und Quellenangabe ein:
 
 | Schalter | Datei | Inhalt |
 |---|---|---|
 | `--pdf` (oder „mit PDF“ beim Assistenten) | `<name>.pdf` | die Karte: genau die Objekte der OOM-Datei, also ohne Kandidaten |
-| `--pdf-candidates` | `<name>-candidates.pdf` | die Trainingskarte: die Karte plus alle Kandidaten |
+| `--pdf-candidates` | `<name>-candidates.pdf` | der Prüfausdruck: die Karte plus alle Kandidaten, lagetreu |
+| `--training` | `<name>-training.omap`, `<name>-training.pdf` | die Trainingskarte: Karte und Kandidaten, bereinigt zum Drucken und Laufen |
 | `--pdf-scale-bar` | | zeichnet auf den PDFs die Maßstabsleiste |
 | `--pdf-sources auto\|full\|credit-only` | | wählt die Quellenangabe auf den PDFs (Standard `auto`) |
 
-Beide PDF-Schalter lassen sich verbinden; dann liegen beide Dateien nebeneinander im Projektordner. `export` und `run`
-kennen alle vier, der MCP-Server als `pdf`, `pdf_candidates`, `pdf_scale_bar` und `pdf_sources`. freemapper merkt sich die Wahl nicht
-im Projekt: Sie gilt für den Aufruf.
+Die Schalter lassen sich verbinden; dann liegen die Dateien nebeneinander im Projektordner. `export` und `run`
+kennen alle fünf, der MCP-Server als `pdf`, `pdf_candidates`, `training`, `pdf_scale_bar` und `pdf_sources`. freemapper
+merkt sich die Wahl nicht im Projekt: Sie gilt für den Aufruf.
 
-[![Trainingskarte als PDF](images/training-map-thumb.webp)](images/training-map.jpg)
+[![Prüfausdruck als PDF](images/training-map-thumb.webp)](images/training-map.jpg)
 
-*Die Trainingskarte des Kreuzgymnasiums. Quelle: GeoSN, dl-de/by-2-0, Daten geändert; © OpenStreetMap-Mitwirkende.*
+*Der Prüfausdruck des Kreuzgymnasiums. Quelle: GeoSN, dl-de/by-2-0, Daten geändert; © OpenStreetMap-Mitwirkende.*
 
 Das PDF der Karte enthält nur, was auch in der OOM-Karte steht: Gebäude, Flächen, Gewässer, die Grundfläche unter
 Sprintkarten und die Nordlinien, dazu Titel, Maßstabszahl, Äquidistanz, Namensnennung und den Hinweis auf freemapper.
@@ -891,16 +901,92 @@ die Karte weitergeben. Mit `credit-only` nennen Sie sie selbst; freemapper erinn
 mit der Adresse des Projekts steht in jedem Modus und lässt sich nicht abschalten. `ATTRIBUTION.txt` im Projektordner
 und die OOM- und OCAD-Karte führen immer alle Quellen.
 
-In der Trainingskarte werden alle Kandidaten zu Kartenobjekten, auch die unsicheren. Nur Punkte in einem
-Sperrgebiet-Kandidaten und nicht erreichbare Durchgänge fehlen (Kapitel 9). Die Trainingskarte ist gut für ein
-schnelles Training. Prüfen Sie sie trotzdem vorher im Gelände.
-
-> Hinweis zur Umstellung: Bis Version 0.8.0 schrieb `--pdf` die Trainingskarte mit Kandidaten und Maßstabsleiste.
-> Das ist jetzt `--pdf-candidates --pdf-scale-bar`.
-
 Die Farben sind CMYK-Werte nach den IOF-Druck- und Farbdefinitionen Rev. 4 (gültig ab 1.12.2024), dieselben
 wie in der OOM- und der OCAD-Datei. Druckt Ihr Drucker Braun oder Grün deutlich anders, vergleichen Sie mit dem
 IOF Print Test Sheet und passen Sie die Farben an.
+
+### Der Prüfausdruck
+
+Im Prüfausdruck werden alle Kandidaten zu Kartenobjekten, auch die unsicheren. Nur Punkte in einem
+Sperrgebiet-Kandidaten, nicht erreichbare Durchgänge und die Felswände, die die Generalisierung weggenommen hat,
+fehlen (Kapitel 7 und 9). Jedes Objekt liegt, wo seine Quelle es hat, auch wenn sich Symbole überdecken. Nehmen Sie
+ihn mit ins Gelände, um Karte und Kandidaten zu prüfen. Bis Version 0.21.0 hieß er Trainingskarte.
+
+> Hinweis zur Umstellung: Bis Version 0.8.0 schrieb `--pdf` die Karte mit Kandidaten und Maßstabsleiste.
+> Das ist jetzt `--pdf-candidates --pdf-scale-bar`.
+
+### Die Trainingskarte
+
+Die Trainingskarte ist eine eigene Karte neben der Grundkarte (`<name>.omap`). Sie wird gedruckt und gelaufen, wie
+sie ist. Dafür nimmt freemapper die Objekte der Karte und alle sichtbaren Kandidaten zusammen und bereinigt sie, damit
+kein Symbol auf einem anderen liegt und die Abstände der Norm bleiben. Die Grundkarte bleibt dabei,
+wie sie ist: Mit den Kandidaten ist sie das Material zum Kartieren, lagetreu und vollständig.
+
+```sh
+freemapper run kreuzgymnasium --training
+freemapper export kreuzgymnasium --training --ocad
+```
+
+Es entstehen `<name>-training.omap` und `<name>-training.pdf`, mit `--ocad` auch `ocad/<name>-training.ocd`. Die
+OOM-Datei bindet dieselben Rastervorlagen ein wie die Karte, aber keine Kandidaten. Auf der Gebietsseite heißt die
+Option „Trainingskarte“, beim KI-Assistenten `training`. Maßstabsleiste und Quellenangabe gelten wie für die
+anderen PDFs.
+
+Eine vorhandene Trainingskarte bleibt, damit ein Lauf keine überschreibt, die gedruckt oder weitergegeben wurde.
+`run --training` meldet dann „Trainingskarte … behalten, damit ein Lauf keine überschreibt, die gedruckt oder
+weitergegeben wurde; zum Erneuern löschen oder --force angeben“ und läuft weiter, `export --training` bricht mit einer
+Meldung ab. Zum Erneuern löschen Sie sie oder geben `--force` an. `--force` schreibt sie neu und ersetzt auch die Grundkarte; die alten
+Dateien bleiben als `.omap.bak`.
+
+Was die Trainingskarte anders macht als die Karte, Schritt für Schritt:
+
+1. Linien, die Ende an Ende stoßen, werden eine Linie: Wege, Treppen, Gleise, Wasserläufe, Böschungen, Zäune,
+   Mauern und Höhenlinien. Die Strichelung läuft dann durch.
+2. Stadtmobiliar (531, etwa Laternen, Papierkörbe und Fahrradständer) auf Straßen und Plätzen entfällt, im Park bleibt
+   es.
+3. Offenes Gelände eines Parks ist nur dort gelb, wo das nDOM keine Bäume zeigt; der Rest bleibt weißer Wald.
+   freemapper liest dafür die Baumbedeckung `data/tree-cover.tif`, die `derive` schreibt: alles ab 3 m Höhe, meist
+   Bäume, aber auch Pavillons. Ohne nDOM bleibt der Park, wie er ist.
+4. In olivgrünen Flächen (520) bleiben nur Gebäude, Überdachungen, Gewässer, Bahngleise und Höhenlinien. Ein Weg,
+   auch eine Treppe, bleibt ganz, wenn er hindurchführt: wenn er den Rand an zwei Stellen erreicht, die keine Mauer
+   und kein Zaun versperrt. Von jedem anderen Weg bleibt an jeder offenen Stelle ein Anfang von 1 mm, damit ein Läufer
+   nicht von einem abzweigenden Weg überrascht wird. Steht dort ein Zaun oder eine Mauer, zeigt die Karte nur diese.
+   Eine Durchfahrt bleibt nur, wo ein Weg hindurchführt, der bleibt. Was auf dem Rand liegt, etwa der Zaun um den
+   Garten oder die Straße daneben, bleibt.
+5. Ein Punktsymbol (ein Baum, ein Denkmal, ein Brunnen und dergleichen), das einem Weg, einem Gebäude, Wasser,
+   einem Zaun oder einem anderen Punkt zu nahe kommt, rückt auf den nächsten freien Platz, höchstens 1,5 mm auf dem
+   Papier (6 m bei 1:4000, 15 m bei 1:10 000), aber nie in olivgrüne Flächen. Von zwei Punkten rückt der kleinere.
+   Er trägt dann `freemapper:moved`. Findet er keinen Platz, bleibt er stehen und entfällt in Schritt 6, wenn er
+   dort einem anderen Symbol zu nahe kommt. Bäume auf Straßen und Plätzen bleiben stehen.
+6. Wo sich zwei Symbole überdecken oder einander näher kommen als der Abstand der Norm (0,15 mm zwischen zwei Linien,
+   vergrößert wie die Symbole), weicht das mit dem niedrigeren Rang. Der Rang fällt von Gebäude über Gewässer, Bahn,
+   Straße, Weg, Wasserlauf und Treppe, Zaun, Mauer und Felswand, Böschung und Höhenlinie bis zu den Punkten. Das
+   Stück wird ausgeschnitten, Kreuzungen bleiben. Liegt mehr als die Hälfte eines Objekts im Konflikt, entfällt es
+   ganz; ein Stück nahe an zwei Symbolen zählt einmal. Mauern und unüberwindbare Zäune werden nur geschnitten, nie
+   ganz weggelassen, denn ein Läufer trifft sie im Gelände an. Höhenlinien laufen durch Gebäude und Wege und weichen nur Böschungen und Felswänden. Ein Zaun oder eine
+   Mauer entlang einer Treppe bleibt: Die Norm zeichnet sie mit der Treppe.
+7. Was unter der Mindestgröße der Norm liegt, entfällt: kurze Linienstücke, Treppen unter drei Stufen (1 mm) und
+   kleine Flächen von offenem Gelände, Wald und Grün. Ein kurzes Stück, das an einer Linie seiner Art endet, die
+   bleibt, bleibt auch; bei Wegen, Treppen und Gleisen zählt jeder Weg, so bleibt ein von Stufen zerteilter Pfad,
+   wenn ein Ende auf einen längeren Weg trifft. Zwei kurze Stücke halten einander nicht. Eine Treppe, die zu kurz
+   zum Zeichnen ist, wird zwischen zwei Wegen als Weg gezeichnet (sie trägt `freemapper:generalized`); an einem
+   Wegende entfällt sie.
+
+Auf Wald- und Sprintkarten generalisiert die Trainingskarte außerdem die Felswände stärker als die Karte
+(Kapitel 7).
+
+Fahrbahnen, Gleise und Wege, die nebeneinander laufen, stehen in dieser Version noch nebeneinander, und die
+Bordsteine bleiben. Das Zusammenlegen auf eine Mittellinie, das Verschieben von Linien und eine eigene Farbe für die
+Fahrbahn kommen später. Halten nach allen Schritten noch Objekte zu wenig Abstand, nennt eine Warnung die Länge in mm;
+schauen Sie sich diese Stellen in OOM an.
+
+Kartieren Sie nicht in der Trainingskarte. freemapper baut sie aus den heruntergeladenen Daten und den
+Inhaltseinstellungen, nicht aus den `.omap`-Dateien; was Sie in OpenOrienteering Mapper korrigieren, kommt nie in
+sie hinein. Was sie verschiebt oder weglässt, steht lagetreu in der Grundkarte und den Kandidaten. Um nur die
+Trainingskarte neu zu schreiben, löschen Sie `<name>-training.omap` (mit `--ocad` auch `ocad/<name>-training.ocd`)
+und rufen `run --training` ohne `--force` auf; das PDF entsteht dabei neu. `--force` ersetzt auch die Grundkarte. Die
+unsicheren Objekte der Trainingskarte kommen aus den Kandidaten; prüfen Sie die Strecke vor einem Lauf im Gelände, am
+besten mit dem Prüfausdruck.
 
 ## 11. OCAD
 
@@ -1585,11 +1671,15 @@ adapters disallow-host hessen neuer-server.hessen.de` nimmt einen zurück.
   nicht. Es aktualisiert nur die Vorlagen und die Kandidaten. Fehlen in der Karte Gebäude oder
   Überdachungen, weist freemapper darauf hin.
 - **Neu schreiben:** `--force` ersetzt die Karte. Die alte bleibt als `.omap.bak` erhalten.
+- **Trainingskarte:** Auch sie bleibt bei einem erneuten `run --training`, wie sie ist. freemapper baut sie aus den
+  Daten, Ihre Korrekturen in OOM kommen also nicht in sie hinein. Um nur die Trainingskarte neu zu schreiben, löschen
+  Sie `<name>-training.omap` und rufen `run --training` auf. `run --training --force` ersetzt auch die Grundkarte
+  (Kapitel 10).
 - **Gewässer in einer älteren Karte:** Eine Karte, die vor dieser Version entstanden ist, enthält noch
   keine Gewässer. Ein erneutes `run` trägt sie nicht nach. Erst `run --force` schreibt die Karte neu,
   mit Gewässern, wie bei allen anderen Kartenobjekten. Die alte Karte bleibt als `.omap.bak` erhalten,
-  die OCAD-Karte als `.ocd.bak`. Jedes `run` erneuert die Kandidaten und die Trainingskarte (`--pdf-candidates`).
-  Die Trainingskarte zeigt die Gewässer deshalb auch ohne `--force`, die Kandidaten die Gewässer aus
+  die OCAD-Karte als `.ocd.bak`. Jedes `run` erneuert die Kandidaten und den Prüfausdruck (`--pdf-candidates`).
+  Der Prüfausdruck zeigt die Gewässer deshalb auch ohne `--force`, die Kandidaten die Gewässer aus
   OSM und die schmalen aus dem Kataster.
 - **Gebiet ändern:** `select` auf den vorhandenen Ordner und dann erneut `run`.
 - **Ohne Internet:** `--offline` arbeitet mit den bereits geladenen Daten.

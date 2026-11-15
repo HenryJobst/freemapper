@@ -17,7 +17,9 @@ use crate::build::buildings::footprint_coords;
 use crate::build::control_sites::{CONTROL_KEY, drop_ambiguous as drop_ambiguous_control_sites};
 use crate::build::dedup::{Rank, rank};
 use crate::build::geometry::object_polygon;
-use crate::build::symbol_measures::{LINE_GAP_MM, POINT_SIZES_MM, point_size_mm};
+use crate::build::symbol_measures::{
+    LINE_GAP_MM, POINT_SIZES_MM, STAIR_FOOTPRINTS_MM, point_size_mm,
+};
 use crate::crs::{BoundingBox, ProjectedPoint};
 use crate::georef::{GeorefError, Georeferencing};
 use crate::measure::{PaperMm, SymbolMm, SymbolMm2, SymbolScale, map_units_per_metre};
@@ -125,28 +127,28 @@ const PATH_WIDTHS_MM: [(&str, SymbolMm); 9] = [
     ("509.1", SymbolMm(0.55)),
 ];
 /// The paved areas among the candidates a 402 or 405 is cut at, like the drawn paving.
-const PAVED_AREA_CODES: [&str; 5] = ["501", "501.5", "501.10", "501.11", "501.3"];
+pub(crate) const PAVED_AREA_CODES: [&str; 5] = ["501", "501.5", "501.10", "501.11", "501.3"];
 /// The cell of the grid indexes of the areas (ground metres).
 const GRID_CELL_M: f64 = 100.0;
 /// An area spanning more cells than this is checked for every query instead.
 const GRID_MAX_CELLS: i64 = 4096;
 
 /// A group symbol and its minimum area (mm²) and width (mm) on paper at 1:4000.
-struct GroupSymbol {
+pub(crate) struct GroupSymbol {
     code: &'static str,
-    min_area_mm2: SymbolMm2,
+    pub(crate) min_area_mm2: SymbolMm2,
     min_width_mm: SymbolMm,
 }
 
 /// 402 open land with scattered trees.
-const SCATTERED_TREES: GroupSymbol = GroupSymbol {
+pub(crate) const SCATTERED_TREES: GroupSymbol = GroupSymbol {
     code: "402",
     min_area_mm2: SymbolMm2(6.25),
     min_width_mm: SymbolMm(2.2),
 };
 /// 405 forest: the stricter minimum (openings in screens of other colours), as the build does
 /// not know the surrounding screen.
-const FOREST: GroupSymbol = GroupSymbol {
+pub(crate) const FOREST: GroupSymbol = GroupSymbol {
     code: "405",
     min_area_mm2: SymbolMm2(1.0),
     min_width_mm: SymbolMm(0.3),
@@ -329,6 +331,22 @@ pub(crate) fn projected(polygon: &Polygon<f64>, georef: &Georeferencing) -> Poly
                     x: p.easting,
                     y: p.northing,
                 }
+            })
+            .collect()
+    };
+    Polygon::new(
+        ring(polygon.exterior()),
+        polygon.interiors().iter().map(ring).collect(),
+    )
+}
+
+/// A polygon in paper mm (y down) in map coordinates.
+pub(crate) fn in_map_units(polygon: &Polygon<f64>) -> Polygon<f64> {
+    let ring = |ring: &LineString<f64>| -> LineString<f64> {
+        ring.coords()
+            .map(|c| Coord {
+                x: (c.x * 1000.0).round(),
+                y: (c.y * 1000.0).round(),
             })
             .collect()
     };
@@ -612,7 +630,42 @@ pub(crate) fn way_footprints(
         .filter_map(object_polygon)
         .map(|p| projected(&p, georef))
         .collect();
-    for object in candidates.iter().chain(map) {
+    footprints.extend(line_footprints(
+        candidates.iter().chain(map),
+        &half_widths,
+        georef,
+    ));
+    footprints
+}
+
+/// The footprints of the stairways ([`STAIR_FOOTPRINTS_MM`] among `objects`, buffered by half
+/// their width on paper, as [`way_footprints`] does with the paths) in the map's CRS. On a set
+/// with one stairway for all footprints (ISOM 532) it has the narrowest width.
+pub(crate) fn stair_footprints<'a>(
+    objects: impl Iterator<Item = &'a MapObject>,
+    kind: MapKind,
+    georef: &Georeferencing,
+    symbol_set: &SymbolSet,
+) -> Vec<Polygon<f64>> {
+    let scale = SymbolScale::new(kind, georef.scale_denominator);
+    let mut half_widths: HashMap<u32, f64> = HashMap::new();
+    for &(code, width) in &STAIR_FOOTPRINTS_MM {
+        if let Some(id) = symbol_set.id_for_code(code) {
+            half_widths.entry(id).or_insert(width.metres(scale) / 2.0);
+        }
+    }
+    line_footprints(objects, &half_widths, georef)
+}
+
+/// The lines among `objects` drawn with a symbol of `half_widths`, buffered by its half width
+/// (ground metres), in the map's CRS.
+fn line_footprints<'a>(
+    objects: impl Iterator<Item = &'a MapObject>,
+    half_widths: &HashMap<u32, f64>,
+    georef: &Georeferencing,
+) -> Vec<Polygon<f64>> {
+    let mut footprints = Vec::new();
+    for object in objects {
         let Some(&half) = half_widths.get(&object.symbol_id) else {
             continue;
         };

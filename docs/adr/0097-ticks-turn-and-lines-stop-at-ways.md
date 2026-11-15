@@ -1,7 +1,7 @@
 # 0097. Ticks turn the right way, lines stop at ways, points keep their gap to fences
 
 Date: 2026-11-11
-Status: Accepted
+Status: Accepted, amended by ADR 0140 (contours no longer stop at ways; fence ticks turn away from ways)
 
 ## Context
 

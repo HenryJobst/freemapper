@@ -12,7 +12,8 @@ use freemapper::fetch::{ByteRange, Cache, FetchError, FetchMode, Fetcher, HttpFe
 use freemapper::layers::estimate_download;
 use freemapper::project::{
     MapKind, PdfSources, ProjectFile, derive_project, export_candidates_pdf_from, export_ocad_from,
-    export_pdf_from, export_starter_project_from, fetch_project, init_project, starter_documents,
+    export_pdf_from, export_starter_project_from, export_training_from, fetch_project,
+    init_project, starter_documents,
 };
 use freemapper::sources::osm::extracts_for;
 use freemapper::sources::region::golden::{inside, legacy_facts};
@@ -1170,7 +1171,8 @@ fn g3_interrupted_fetches_keep_what_finished() {
 
 // Layer G4: the whole pipeline per state. It goes on from the replayed fetch of G3, so every
 // file the run reads was written by the run, and hashes every file the project folder holds
-// afterwards: the stored data, the templates, the two maps, the OCAD project and the PDFs.
+// afterwards: the stored data, the templates, the two maps, the OCAD project, the PDFs and the
+// training map with its PDF.
 
 /// Every file under `dir` with its path relative to `dir` (`/` on every system), sorted.
 fn files_under(dir: &Path) -> Vec<(String, PathBuf)> {
@@ -1230,6 +1232,7 @@ fn golden_pipeline(id: &str) -> (Replayed, Vec<String>) {
         export_ocad_from(dir, &documents, true).unwrap();
         export_pdf_from(dir, &documents, false, PdfSources::Auto).unwrap();
         export_candidates_pdf_from(dir, &documents, false, PdfSources::Auto).unwrap();
+        export_training_from(dir, &documents, true, false, PdfSources::Auto, false).unwrap();
     });
     let hashes = files_under(dir)
         .into_iter()

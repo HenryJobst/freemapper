@@ -329,6 +329,24 @@ async fn run_asks_for_the_permit_notes_only_when_ticked() {
     assert_eq!(status, 400);
 }
 
+/// The box "Training map" reaches the run options as `training`, off unless ticked.
+#[tokio::test(flavor = "multi_thread")]
+async fn run_writes_the_training_map_only_when_ticked() {
+    let page = Page::new(true).await;
+    for (body, training) in [(r#"{"training":true}"#, true), (r#"{"pdf":true}"#, false)] {
+        let (status, answer) = page.post("api/run", body).await;
+        assert_eq!(status, 202, "{answer}");
+        page.release.send(()).unwrap();
+        page.wait_for("done").await;
+        assert_eq!(
+            page.runner.seen.lock().unwrap().last().unwrap().training,
+            training
+        );
+    }
+    let (status, _) = page.post("api/run", r#"{"training":"yes"}"#).await;
+    assert_eq!(status, 400);
+}
+
 #[tokio::test(flavor = "multi_thread")]
 async fn run_without_a_saved_project_is_404() {
     let page = Page::new(false).await;

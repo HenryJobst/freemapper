@@ -769,6 +769,147 @@ fn export_pdf_candidates_writes_the_second_file() {
     assert!(stdout.contains("schule-candidates.pdf"), "{stdout}");
 }
 
+/// `run --training` writes the training map and its PDF and says what the training level did;
+/// the check print stays a switch of its own.
+#[test]
+fn run_training_writes_both_files_and_says_so() {
+    let dir = tempfile::tempdir().unwrap();
+    let (project, cache) = offline_school(dir.path());
+    let output = freemapper()
+        .arg("run")
+        .arg(&project)
+        .args(["--offline", "--training", "--cache-dir"])
+        .arg(&cache)
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert_eq!(output.status.code(), Some(0), "{stderr}");
+    let (map, pdf) = (
+        project.join("school-training.omap"),
+        project.join("school-training.pdf"),
+    );
+    assert!(std::fs::read_to_string(&map).unwrap().contains("<map"));
+    assert!(std::fs::read(&pdf).unwrap().starts_with(b"%PDF-"));
+    assert!(!project.join("school-candidates.pdf").exists());
+    let line = format!(
+        "Wrote {} and {} (the training map: ",
+        map.display(),
+        pdf.display()
+    );
+    let at = stdout.find(&line).unwrap_or_else(|| panic!("{stdout}"));
+    let rest = &stdout[at + line.len()..];
+    let rest = &rest[..rest.find('\n').unwrap()];
+    assert!(
+        rest.contains(" joined, ") && rest.ends_with(" left out or cut)"),
+        "{rest}"
+    );
+    let map_line = format!("Wrote {}", project.join("school.omap").display());
+    assert!(
+        stdout.find(&map_line).unwrap() < at,
+        "after the map: {stdout}"
+    );
+}
+
+/// `run --training` keeps an existing training map as it keeps the map: a note names it and says
+/// that --force replaces it, nothing of the training map is written, and the run ends with 0.
+#[test]
+fn run_training_keeps_an_existing_training_map() {
+    let dir = tempfile::tempdir().unwrap();
+    let (project, cache) = offline_school(dir.path());
+    let run = |lang: &str| {
+        freemapper_in(&[("FREEMAPPER_LANG", lang)])
+            .arg("run")
+            .arg(&project)
+            .args(["--offline", "--training", "--cache-dir"])
+            .arg(&cache)
+            .output()
+            .unwrap()
+    };
+    let first = run("en");
+    assert!(
+        first.status.success(),
+        "{}",
+        String::from_utf8_lossy(&first.stderr)
+    );
+    let (map, pdf) = (
+        project.join("school-training.omap"),
+        project.join("school-training.pdf"),
+    );
+    std::fs::write(&map, "edited in OOM").unwrap();
+    let printed = std::fs::read(&pdf).unwrap();
+    let second = run("en");
+    let stdout = String::from_utf8(second.stdout).unwrap();
+    let stderr = String::from_utf8(second.stderr).unwrap();
+    assert_eq!(second.status.code(), Some(0), "{stderr}");
+    assert!(
+        stdout.contains(&format!(
+            "Kept the training map {}, so that a run does not overwrite one that was printed or passed on; delete it or pass --force to renew it",
+            map.display()
+        )),
+        "{stdout}"
+    );
+    assert!(!stdout.contains("(the training map: "), "{stdout}");
+    assert_eq!(std::fs::read_to_string(&map).unwrap(), "edited in OOM");
+    assert_eq!(std::fs::read(&pdf).unwrap(), printed);
+    assert!(!project.join("school-training.omap.bak").exists());
+    let german = run("de");
+    assert_eq!(german.status.code(), Some(0));
+    let stdout = String::from_utf8(german.stdout).unwrap();
+    assert!(
+        stdout.contains(&format!(
+            "Trainingskarte {} behalten, damit ein Lauf keine überschreibt, die gedruckt oder weitergegeben wurde; zum Erneuern löschen oder --force angeben",
+            map.display()
+        )),
+        "{stdout}"
+    );
+}
+
+/// An existing training map may hold the mapper's work: without --force `export --training`
+/// stops with the map-exists message that names it; with --force it is replaced and kept as .bak.
+#[test]
+fn export_training_keeps_an_existing_training_map_without_force() {
+    let dir = tempfile::tempdir().unwrap();
+    let project = dir.path().join("schule");
+    init_and_export(&project);
+    let export = |extra: &[&str]| {
+        let mut args = vec!["export", project.to_str().unwrap(), "--training"];
+        args.extend_from_slice(extra);
+        freemapper().args(&args).output().unwrap()
+    };
+    let first = export(&[]);
+    assert!(
+        first.status.success(),
+        "{}",
+        String::from_utf8_lossy(&first.stderr)
+    );
+    let training = project.join("schule-training.omap");
+    assert!(project.join("schule-training.pdf").exists());
+    std::fs::write(&training, "edited in OOM").unwrap();
+    let again = export(&[]);
+    assert_eq!(again.status.code(), Some(1));
+    let stderr = String::from_utf8(again.stderr).unwrap();
+    assert!(
+        stderr.contains(&format!(
+            "error: map already exists (it may contain your work); use --force to replace it: {}",
+            training.display()
+        )),
+        "{stderr}"
+    );
+    assert_eq!(std::fs::read_to_string(&training).unwrap(), "edited in OOM");
+    let forced = export(&["--force"]);
+    assert!(
+        forced.status.success(),
+        "{}",
+        String::from_utf8_lossy(&forced.stderr)
+    );
+    assert_eq!(
+        std::fs::read_to_string(project.join("schule-training.omap.bak")).unwrap(),
+        "edited in OOM"
+    );
+    assert_ne!(std::fs::read_to_string(&training).unwrap(), "edited in OOM");
+}
+
 #[test]
 fn export_pdf_scale_bar_is_opt_in() {
     let dir = tempfile::tempdir().unwrap();

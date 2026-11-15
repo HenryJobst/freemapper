@@ -17,7 +17,8 @@ the mapper has to judge. Drawing and field checking stay in OOM or OCAD.
   - always an OOM map (`.omap`);
   - with `--ocad`, also an OCAD map (`.ocd`, OCAD 12 and newer), see
     [Starting point for OCAD](#starting-point-for-ocad);
-  - with `--pdf`, the print-ready map as a PDF, and with `--pdf-candidates` also the training map with every candidate, see [Map as PDF](#map-as-pdf).
+  - with `--pdf`, the print-ready map as a PDF, with `--pdf-candidates` the check print with every candidate, and with
+    `--training` the training map, printed and run on as it is (OOM map and PDF), see [Map as PDF](#map-as-pdf).
 - A single program for Linux, macOS and Windows, no GIS installation needed.
 - Use it from the command line, through a page in the browser where you choose the map area and create the
   map with all options (see [Choosing the area in the browser](#choosing-the-area-in-the-browser)), or
@@ -56,7 +57,7 @@ sprint maps for fifteen states: Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamb
 Schleswig-Holstein, Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony,
 Rhineland-Palatinate, Saarland, Baden-Württemberg, Bremen and Bavaria. All maps show water, and the colours follow the IOF printing definitions of
 2024. On request freemapper also makes an OCAD starting point (`--ocad`) and a PDF map
-(`--pdf`, with candidates `--pdf-candidates`). Before downloading, freemapper
+(`--pdf`, with candidates `--pdf-candidates`) and a training map (`--training`). Before downloading, freemapper
 checks the free disk space. Berlin maps get canopies, stairs, walls, fences, hedges, trees and the
 1:5000 map as a template from further Geoportal Berlin data. They also use the street survey of 2014
 to 2016: the surveyed green strips are cut out of the street areas,
@@ -120,7 +121,7 @@ freemapper select my-schoolyard --kind schoolyard
 
 On the page you search a place or draw a rectangle or polygon. The background is OpenStreetMap or the
 orthophoto of the state. The page shows the size with buffer and the estimated download. "Save" creates the
-project. Below it, "Create map" makes the map with the options OCAD, PDF, training PDF, scale bar, source
+project. Below it, "Create map" makes the map with the options OCAD, PDF, check print, training map, scale bar, source
 lines and "cache only", shows the progress, can be cancelled and opens the folder at the end. No terminal is
 needed for that. The page runs on this computer only (127.0.0.1). More in the
 [user manual, chapter 6](docs/manual/en.md#create-the-map-in-the-browser).
@@ -305,7 +306,8 @@ orthophoto and terrain come from the state holding the centre of the map area. M
 
 ```sh
 freemapper export clara-zetkin-schule --pdf                 # or: freemapper run clara-zetkin-schule --pdf
-freemapper export clara-zetkin-schule --pdf-candidates      # training map with every candidate
+freemapper export clara-zetkin-schule --pdf-candidates      # check print with every candidate
+freemapper export clara-zetkin-schule --training            # training map, OOM map and PDF
 ```
 
 `--pdf` writes `<name>.pdf`: the map ready to print (A4 or A3, CMYK) with exactly the objects of the OOM map, so
@@ -317,10 +319,17 @@ The scale bar is off by default (German orienteering maps usually have none); `-
 scale number is always in the title block. `--pdf-sources` chooses the source lines: `auto` (default) shortens a long
 list, `full` never does, `credit-only` prints only the freemapper line; the freemapper line is always there.
 
-`--pdf-candidates` writes `<name>-candidates.pdf`, the training map: here **every candidate becomes a map object**:
+`--pdf-candidates` writes `<name>-candidates.pdf`, the check print: here **every candidate becomes a map object**:
 furniture, barriers, paths without a surface tag, contours, out-of-bounds areas and ALKIS ways. Points inside
-out-of-bounds candidates are left out. Because uncertain data is drawn too, check this map in the terrain before
-training. With both switches you get both files side by side.
+out-of-bounds candidates are left out. Everything lies where its source has it, even where symbols cover each other;
+the print is for checking in the terrain. With both switches you get both files side by side.
+
+`--training` writes the training map `<name>-training.omap` and `<name>-training.pdf` (with `--ocad` also
+`ocad/<name>-training.ocd`). It takes the map and the candidates together and cleans them up so that you can print it
+and run on it as it is: lines are joined, where two symbols come too close the weaker one gives way, what is too small
+goes, inside olive green areas only buildings, water, contours and ways that lead through stay, and trees move off
+paths. Carriageways and paths running side by side still stand side by side there. Mapping and checking still happen in
+the map and the candidates ([manual, chapter 10](docs/manual/en.md#the-training-map)).
 
 What goes straight onto the map and what stays a candidate is set by `--content`: `safe` keeps buildings, the ALKIS areas (traffic, water, parks) and paths of a known surface, `balanced` (default) also puts streets with kerbs and stairs from ALKIS, the registers and the street survey, and walls, fences, hedges, water, trees, paths, railways, banks, passages, monuments, towers and above-ground pipelines also from OSM, and the contours and the areas that shall not be entered along railway tracks, onto the map, `full` puts everything there. `--content-set` sets single groups, for example `--content-set fences=candidates`; the choice is stored in `freemapper.toml` and holds in the browser and through MCP.
 
@@ -380,7 +389,7 @@ The workflow the agent follows:
 2. `create_project` – creates the project folder (absolute path or `~/…`), map kind and scale optional.
 3. `estimate_download` – tells how much will be downloaded (about 300 MB OSM extract the first time).
 4. `start_pipeline` – starts downloading, computing and writing in the background and returns a job id
-   (with `ocad: true` also the OCAD starting point, with `pdf: true` the map PDF, with `pdf_candidates: true` the PDF with candidates).
+   (with `ocad: true` also the OCAD starting point, with `pdf: true` the map PDF, with `pdf_candidates: true` the PDF with candidates, with `training: true` the training map).
 5. `project_status` – polls the progress until the job has finished or failed.
 6. `list_layers` and `preview_layer` – show the layers and preview images (PNG) of the map and the templates.
 

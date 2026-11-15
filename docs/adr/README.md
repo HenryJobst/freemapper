@@ -125,7 +125,7 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0077](0077-berlin-survey-and-registers-on-sprint-maps.md) | Berlin survey and registers on sprint maps | Accepted | 2026-11-10 |
 | [0078](0078-duplicate-areas-and-more-duplicate-kinds-by-rank.md) | Duplicate areas and more duplicate kinds, by rank | Accepted | 2026-11-10 |
 | [0079](0079-firm-gravel-paths-are-map-objects-again.md) | Firm gravel paths are map objects again | Accepted, amends ADR 0073 | 2026-11-10 |
-| [0080](0080-map-pdf-without-candidates-by-default.md) | The PDF is the map without candidates, the scale bar is optional | Accepted, amends ADR 0002 | 2026-11-10 |
+| [0080](0080-map-pdf-without-candidates-by-default.md) | The PDF is the map without candidates, the scale bar is optional | Accepted, amends ADR 0002, amended by ADR 0140 | 2026-11-10 |
 | [0081](0081-pdf-source-block-shortened-when-needed.md) | The source block of the PDF is shortened when needed and can be switched to the credit line | Accepted, extends ADR 0080 | 2026-11-10 |
 | [0082](0082-region-adapters-trait-and-manifests.md) | Region adapters: a trait, TOML manifests and adapter crates | Accepted | 2026-11-10 |
 | [0083](0083-power-lines-pipelines-and-towers-from-osm.md) | Power lines, pipelines and towers from OSM | Accepted | 2026-11-10 |
@@ -142,7 +142,7 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0094](0094-self-update-from-signed-releases.md) | Self-update from signed releases | Accepted | 2026-11-11 |
 | [0095](0095-kinds-and-reserved-words-from-the-contract-crate.md) | Map kinds and reserved words come from the contract crate | Accepted | 2026-11-11 |
 | [0096](0096-the-area-page-on-the-suite-frame.md) | The area page on the suite frame | Accepted | 2026-11-11 |
-| [0097](0097-ticks-turn-and-lines-stop-at-ways.md) | Ticks turn the right way, lines stop at ways, points keep their gap to fences | Accepted | 2026-11-11 |
+| [0097](0097-ticks-turn-and-lines-stop-at-ways.md) | Ticks turn the right way, lines stop at ways, points keep their gap to fences | Accepted, amended by ADR 0140 | 2026-11-11 |
 | [0098](0098-paved-osm-ways-as-paved-lines.md) | Paved OSM ways are paved lines | Accepted | 2026-11-11 |
 | [0099](0099-paved-areas-get-their-border.md) | Paved areas get their border | Accepted | 2026-11-11 |
 | [0100](0100-content-profiles.md) | Content profiles decide what goes straight onto the map | Accepted | 2026-11-12 |
@@ -171,7 +171,7 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0123](0123-bavaria-the-cadastre-from-files.md) | Bavaria: the cadastre from files | Accepted | 2026-11-14 |
 | [0124](0124-forest-administrations-in-the-permit-notes.md) | Forest administrations in the permit notes | Accepted | 2026-11-14 |
 | [0125](0125-steep-forest-gets-10-m-contours.md) | A steep forest map gets contours every 10 m | Accepted | 2026-11-14 |
-| [0126](0126-cliffs-on-the-forest-map-are-generalized.md) | Cliffs on the forest map are generalized | Accepted | 2026-11-14 |
+| [0126](0126-cliffs-on-the-forest-map-are-generalized.md) | Cliffs on the forest map are generalized | Accepted, amended by ADR 0140 | 2026-11-14 |
 | [0127](0127-permit-notes-follow-the-map-area.md) | Permit notes follow the map area | Accepted | 2026-11-14 |
 | [0128](0128-bavaria-vegetation-from-the-point-clouds.md) | Bavaria: vegetation from the point clouds | Accepted | 2026-11-14 |
 | [0129](0129-permit-notes-for-hamburg-water-protection-and-forest-functions.md) | Permit notes for Hamburg, water protection and forest functions | Accepted | 2026-11-14 |
@@ -179,12 +179,13 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0131](0131-permit-sources-from-shapefiles.md) | Permit sources from shapefiles of a whole state | Accepted | 2026-11-14 |
 | [0132](0132-statewide-permit-files-in-the-cache.md) | Statewide permit files in the cache | Accepted | 2026-11-14 |
 | [0133](0133-classified-roads-in-the-permit-notes.md) | Classified roads in the permit notes | Accepted | 2026-11-14 |
-| [0134](0134-cliffs-on-the-sprint-map-and-the-terrain-for-every-map.md) | Cliffs on the sprint map, and the terrain for every map | Accepted | 2026-11-14 |
+| [0134](0134-cliffs-on-the-sprint-map-and-the-terrain-for-every-map.md) | Cliffs on the sprint map, and the terrain for every map | Accepted, amended by ADR 0140 | 2026-11-14 |
 | [0135](0135-bavaria-objects-from-the-basis-dlm.md) | Bavaria: objects from the ATKIS Basis-DLM | Accepted | 2026-11-14 |
 | [0136](0136-vegetation-outlines-traced-on-a-blurred-raster.md) | Vegetation outlines traced on a blurred raster | Accepted | 2026-11-14 |
 | [0137](0137-permit-notes-for-schleswig-holstein.md) | Permit notes for Schleswig-Holstein | Accepted | 2026-11-14 |
 | [0138](0138-vegetation-green-shades-by-the-density-below-3-m.md) | Vegetation: the green shades follow the density below 3 m | Accepted | 2026-11-14 |
 | [0139](0139-permit-notes-for-saxony-asked-at-points.md) | Permit notes for Saxony, asked at points | Accepted | 2026-11-15 |
+| [0140](0140-the-training-map-is-a-product-of-its-own.md) | The training map is a product of its own | Accepted, amends ADR 0080, 0097, 0126 and 0134 | 2026-11-15 |
 | [0141](0141-bavaria-the-dom20-read-by-range.md) | Bavaria: the DOM20 read by range | Accepted | 2026-11-15 |
 | [0142](0142-water-protection-areas-of-the-bfg.md) | Water protection areas of the BfG | Accepted | 2026-11-15 |
 | [0143](0143-water-protection-zones-of-baden-wuerttemberg.md) | Water protection zones of Baden-Württemberg, with the authority in charge | Accepted | 2026-11-15 |
