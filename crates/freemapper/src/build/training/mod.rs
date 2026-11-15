@@ -9,14 +9,17 @@
 //!    ([`open_ground`]);
 //! 4. inside olive green (520) only buildings, water, contours and the ways a runner can cross
 //!    stay ([`clear_olive`](olive::clear_olive));
-//! 5. what keeps no gap to another object ([`conflicts`], the pairs that keep apart) gives way:
+//! 5. a tree too close to a way, a building, water or another tree is moved off
+//!    ([`move_trees`](trees::move_trees));
+//! 6. what keeps no gap to another object ([`conflicts`], the pairs that keep apart) gives way:
 //!    it is cut out there, or dropped when more than half of it is in conflict;
-//! 6. lines and areas below the norm's minimum size go.
+//! 7. lines and areas below the norm's minimum size go.
 //!
 //! What a step drops is gone from the training map; nothing is tagged hidden. Lines of one
 //! network that run side by side are left to the second half and only counted in the report.
 
 mod olive;
+mod trees;
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -45,6 +48,8 @@ use crate::raster::{GridSpec, Raster};
 use crate::render::geometry::{length, parts};
 use olive::clear_olive;
 pub use olive::{OLIVE_EDGE_MM, WAY_STUB_MM};
+use trees::move_trees;
+pub use trees::{MAX_SHIFT_MM, MAX_TREE_SHIFT_MM};
 
 /// The give-way step stops after this many rounds; what is left then is in the report.
 const MAX_ROUNDS: usize = 20;
@@ -101,6 +106,8 @@ pub struct TrainingReport {
     pub furniture: usize,
     /// Objects inside olive green that went or were cut.
     pub inside_olive: usize,
+    /// Trees moved off ways, buildings, water and other trees.
+    pub trees_moved: usize,
     /// Conflict length left, mm on paper, by grade (the pairs of one network, left to the second half).
     pub overlap_left: f64,
     pub gap_left: f64,
@@ -130,6 +137,7 @@ pub fn train(
         report.open_land_cut = open_ground(&mut objects, tree_cover, georef, symbol_set);
     }
     report.inside_olive = clear_olive(&mut objects, &classes, georef, symbol_set);
+    report.trees_moved = move_trees(&mut objects, &classes, kind, georef, symbol_set);
     (report.gave_way, report.cut) = give_way(&mut objects, &classes, kind, georef, symbol_set);
     report.too_small = drop_too_small(&mut objects, &classes, kind, georef, symbol_set);
     (report.overlap_left, report.gap_left, report.apart_left) =
@@ -327,7 +335,7 @@ fn open_mask(tree_cover: &Raster<f32>, frame: &Rect<f64>) -> Raster<Option<Veget
     mask
 }
 
-/// Step 5: every object that keeps no gap to another object it must keep apart from gives way,
+/// Step 6: every object that keeps no gap to another object it must keep apart from gives way,
 /// both grades (the training map keeps every gap). Losers go by ascending rank; a line with more
 /// than half its length in conflict, a point and an area go whole, any other line is cut where it
 /// is in conflict. A loser whose winner gives way itself in the round waits for the next round,
@@ -547,7 +555,7 @@ fn is_closed(object: &MapObject) -> bool {
     last.flags & FLAG_CLOSE != 0 || (first.x, first.y) == (last.x, last.y)
 }
 
-/// Step 6: a line shorter than its minimum length goes unless an end continues on another line
+/// Step 7: a line shorter than its minimum length goes unless an end continues on another line
 /// of its class (within [`TOUCH_M`]); an area of [`MIN_AREA_CODES`] below its minimum area goes.
 /// Comparisons are tolerant by [`TOLERANCE_MM`]. Returns how many went.
 fn drop_too_small(
@@ -616,7 +624,7 @@ fn drop_too_small(
     before - objects.len()
 }
 
-/// Step 7: the conflict length left on `objects`, mm on paper: overlap and gap of the pairs of
+/// Step 8: the conflict length left on `objects`, mm on paper: overlap and gap of the pairs of
 /// one network, and of the pairs that keep apart.
 fn left(
     objects: &[MapObject],
