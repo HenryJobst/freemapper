@@ -52,3 +52,13 @@ candidates.
 - Another state with such a survey needs an adapter set and a rule file, no engine code.
 - The street surfaces (water-bound gravel as unpaved candidates) are a second step on the same set.
 - The `stand` date of each object is not used; the layers carry their fetch date, as Berlin's registers.
+
+## Addendum 2026-11-15: the green of the street space
+
+The user decided (question round of 2026-11-15) that the street surfaces be candidates on the base map and that the
+training map take the sensible ones straight. The street areas whose `inhalt` is green (grass, shrubs up to and from
+1 m, hedges, wild growth) form the layer `fk-strasse-gruen`, drawn as 401, 407, 410 and 406; the paving materials,
+tree pits and water-bound gravel stay out (the street is a paved area on the map already). Under `balanced` the open
+land of a street survey goes to the map (the green strips of Berlin's survey), so `SetDrawing` names
+`candidate_layers`: their objects carry `freemapper:candidate-only` and no profile moves them. The training map takes
+them as every candidate. Blankenese: 56 such candidates, the map unchanged.

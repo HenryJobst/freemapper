@@ -59,6 +59,9 @@ pub struct SetDrawing {
     /// The layers whose areas are stairs; the engine draws them as stairs, walking direction
     /// from the terrain, and lets a stair of the cadastre at the same place win.
     pub stair_layers: &'static [&'static str],
+    /// The layers whose objects stay candidates on the base map whatever the content profile;
+    /// the training map takes them, as it takes every candidate.
+    pub candidate_layers: &'static [&'static str],
 }
 
 /// The rank of a set's objects among the sources of the same object.

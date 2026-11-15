@@ -22,6 +22,10 @@ use crate::omap::{MapObject, MapObjectKind, SymbolSet};
 /// its value is the kind. Such objects belong to the group `landforms` whatever their symbol.
 pub const LANDFORM_KEY: &str = "freemapper:landform";
 
+/// The tag of an object that stays a candidate whatever the profile: a layer of a set that brings
+/// its rules keeps it there (ADR 0149); the training map takes it as every candidate.
+pub const CANDIDATE_ONLY_KEY: &str = "freemapper:candidate-only";
+
 /// The tag of an object made from a point cloud; its value is the product (`lgb-als`).
 pub const POINT_CLOUD_KEY: &str = "freemapper:point-cloud";
 
@@ -455,7 +459,10 @@ pub fn route(
             .map(|(_, v)| v.clone())
     };
     let classify = |o: &MapObject| -> Option<Group> {
-        if o.tags.iter().any(|(k, _)| k == HIDDEN_KEY) {
+        if o.tags
+            .iter()
+            .any(|(k, _)| k == HIDDEN_KEY || k == CANDIDATE_ONLY_KEY)
+        {
             return None;
         }
         if o.tags.iter().any(|(k, _)| k == LANDFORM_KEY) {
@@ -620,6 +627,21 @@ mod tests {
             vec![object(&f, "515", "alkis-nas/sonstiges-bauwerk")],
         );
         assert_eq!((map.len(), cand.len(), routed), (1, 1, Routed::default()));
+    }
+
+    /// The objects of a layer that a set keeps among the candidates (ADR 0149) stay there under
+    /// `balanced`, though the open land of a street survey would go to the map.
+    #[test]
+    fn a_candidate_only_object_stays_a_candidate() {
+        let f = fixture(MapKind::Sprint);
+        let mut green = object(&f, "401", "lgv-feinkartierung/fk-strasse-gruen");
+        green
+            .tags
+            .push((CANDIDATE_ONLY_KEY.to_string(), "yes".to_string()));
+        let survey = object(&f, "401", "lgv-feinkartierung/fk-strasse-gruen");
+        let (map, cand, _) = run(&f, &ContentSettings::default(), vec![], vec![green, survey]);
+        assert_eq!((map.len(), cand.len()), (1, 1));
+        assert!(cand[0].tags.iter().any(|(k, _)| k == CANDIDATE_ONLY_KEY));
     }
 
     #[test]

@@ -34,9 +34,10 @@ pub const COLLECTIONS: [(&str, &str); 6] = [
 ];
 
 /// The layers, in the order they are fetched and read.
-pub const LAYERS: [&str; 6] = [
+pub const LAYERS: [&str; 7] = [
     "fk-strasse-linien",
     "fk-strasse-punkte",
+    "fk-strasse-gruen",
     "fk-gruen-linien",
     "fk-gruen-punkte",
     "fk-gruen-flaechen",
@@ -45,6 +46,17 @@ pub const LAYERS: [&str; 6] = [
 
 /// The layer of the stair areas of both surveys.
 pub const STAIR_LAYER: &str = "fk-treppen";
+
+/// The street areas kept as green of the street space (verges, beds, shrubs): candidates on every
+/// map, which the training map takes (the user's decision of 2026-11-15). The paving materials
+/// stay out; the street is a paved area on the map already.
+pub const STREET_GREEN: [&str; 5] = [
+    "Grasfläche, Wiese",
+    "Sträucher und Bodendecker bis 1m Höhe",
+    "Sträucher ab 1m Höhe",
+    "Hecke",
+    "Sukzession, Wildwuchs",
+];
 
 /// The endpoint of the items of `collection` in `dataset`.
 pub fn items_url(dataset: &str, collection: &str) -> String {
@@ -61,6 +73,7 @@ pub fn layer_of(collection: &str, feature: &Value) -> Option<&'static str> {
         "linien" => "fk-strasse-linien",
         "punkte" => "fk-strasse-punkte",
         "strassenflaechen" if text(feature, "nutzung") == "Treppe" => STAIR_LAYER,
+        "strassenflaechen" if STREET_GREEN.contains(&text(feature, "inhalt")) => "fk-strasse-gruen",
         "linienobjekte" => "fk-gruen-linien",
         "punktobjekte" => "fk-gruen-punkte",
         "flaechenobjekte" => match text(feature, "kategorie_1") {
@@ -118,6 +131,9 @@ static DRAWING: SetDrawing = SetDrawing {
     tag_prefix: "hamburg",
     rank: SetRank::Survey,
     stair_layers: &[STAIR_LAYER],
+    // The green of the street space: candidates on the base map (the user's decision of
+    // 2026-11-15).
+    candidate_layers: &["fk-strasse-gruen"],
 };
 
 /// The map kinds that take the set: the street space is for sprint and schoolyard maps.
@@ -207,7 +223,7 @@ fn fed_by(collection: &str) -> &'static [&'static str] {
     match collection {
         "linien" => &["fk-strasse-linien"],
         "punkte" => &["fk-strasse-punkte"],
-        "strassenflaechen" => &[STAIR_LAYER],
+        "strassenflaechen" => &["fk-strasse-gruen", STAIR_LAYER],
         "linienobjekte" => &["fk-gruen-linien"],
         "punktobjekte" => &["fk-gruen-punkte"],
         "flaechenobjekte" => &["fk-gruen-flaechen", STAIR_LAYER],
@@ -232,6 +248,24 @@ mod tests {
         let walk = feature(json!({"nutzung": "Gehweg"}));
         assert_eq!(layer_of("strassenflaechen", &stair), Some(STAIR_LAYER));
         assert_eq!(layer_of("strassenflaechen", &walk), None);
+        // The green of the street space; the paving materials stay out.
+        let surface = |inhalt: &str| feature(json!({"nutzung": "Grünfläche", "inhalt": inhalt}));
+        assert_eq!(
+            layer_of("strassenflaechen", &surface("Grasfläche, Wiese")),
+            Some("fk-strasse-gruen")
+        );
+        assert_eq!(
+            layer_of("strassenflaechen", &surface("Sträucher ab 1m Höhe")),
+            Some("fk-strasse-gruen")
+        );
+        assert_eq!(
+            layer_of("strassenflaechen", &surface("Natursteinpflaster")),
+            None
+        );
+        assert_eq!(
+            layer_of("strassenflaechen", &surface("wassergebunden (Grandfläche)")),
+            None
+        );
         let green = |kategorie: &str| feature(json!({"kategorie_1": kategorie}));
         assert_eq!(
             layer_of("flaechenobjekte", &green("Treppen")),
@@ -333,6 +367,7 @@ mod tests {
             [
                 ("fk-strasse-linien", Some(1)),
                 ("fk-strasse-punkte", Some(2)),
+                ("fk-strasse-gruen", Some(0)),
                 ("fk-gruen-linien", Some(0)),
                 ("fk-gruen-punkte", Some(0)),
                 ("fk-gruen-flaechen", None),

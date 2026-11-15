@@ -8,6 +8,7 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ### Added
 
+- Hamburg: the green of the street space from the Feinkartierung (verges, shrubs, hedges, wild growth) is a candidate on the base map and goes straight onto the training map (ADR 0149). A set of extra layers can name layers whose objects stay candidates whatever the content profile. In Blankenese that is 56 areas.
 - Hamburg: the Feinkartierung Straße and Grün of the LGV (ADR 0149), as the first set of extra layers that brings its own rules: the engine draws it without knowing Hamburg. Railings, fences, walls, curbs and stairs go onto the map under `balanced`, bollards, benches and lamps become candidates. In Blankenese that is 155 railings and fences, 15 walls, 36 curbs and 352 stair lines more on the map and 96 control sites as candidates. The example is rebuilt.
 
 ### Fixed

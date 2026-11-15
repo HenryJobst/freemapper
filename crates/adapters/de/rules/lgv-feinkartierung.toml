@@ -80,3 +80,30 @@ when = ["hamburg:layer=fk-strasse-punkte", "hamburg:inhalt=Kunst im öffentliche
 draw = "point"
 schoolyard = "526"
 sprint = "526"
+
+# The green of the street space: candidates on every map, which the training map takes (the
+# user's decision of 2026-11-15). Grass is open land, low shrubs slow running with good
+# visibility, tall shrubs and hedges fight, wild growth slow running.
+[[rule]]
+when = ["hamburg:layer=fk-strasse-gruen", "hamburg:inhalt=Grasfläche, Wiese"]
+draw = "area"
+schoolyard = "401"
+sprint = "401"
+
+[[rule]]
+when = ["hamburg:layer=fk-strasse-gruen", "hamburg:inhalt=Sträucher und Bodendecker bis 1m Höhe"]
+draw = "area"
+schoolyard = "407"
+sprint = "407"
+
+[[rule]]
+when = ["hamburg:layer=fk-strasse-gruen", "hamburg:inhalt=Sträucher ab 1m Höhe|Hecke"]
+draw = "area"
+schoolyard = "410"
+sprint = "410"
+
+[[rule]]
+when = ["hamburg:layer=fk-strasse-gruen", "hamburg:inhalt=Sukzession, Wildwuchs"]
+draw = "area"
+schoolyard = "406"
+sprint = "406"

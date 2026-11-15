@@ -9,6 +9,7 @@ use serde_json::Value;
 
 use crate::build::assembly::Layer;
 use crate::build::candidates::{Rules, Target, osm_objects};
+use crate::build::content::CANDIDATE_ONLY_KEY;
 use crate::build::tagged::{self, position};
 use crate::crs::{Crs, ProjectedPoint};
 use crate::georef::{GeorefError, Georeferencing};
@@ -88,7 +89,7 @@ pub fn set_objects(
             tagged::PointOn::Centroid,
             |feature| feature_tags(set.drawing.tag_prefix, &layer.name, feature),
         );
-        objects.extend(osm_objects(
+        let mut drawn = osm_objects(
             &tagged,
             &rules,
             Target::Candidates,
@@ -99,7 +100,15 @@ pub fn set_objects(
             symbol_set,
             &source,
             layer.fetched,
-        )?);
+        )?;
+        if set.drawing.candidate_layers.contains(&layer.name.as_str()) {
+            for object in &mut drawn {
+                object
+                    .tags
+                    .push((CANDIDATE_ONLY_KEY.to_string(), "yes".to_string()));
+            }
+        }
+        objects.extend(drawn);
     }
     Ok(objects)
 }

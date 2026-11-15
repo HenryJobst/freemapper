@@ -1421,8 +1421,10 @@ Inhaltsprofil `balanced` kommen Geländer, Zäune, Mauern, Bordsteine und Treppe
 Bänke und Leuchten werden Kandidaten, auf der Sprintkarte als mögliche Postenstandorte (531). Treppenflächen
 werden zu Treppen, die Laufrichtung kommt aus dem Geländemodell. In Blankenese bringt das 155 Geländer und Zäune,
 15 Mauern, 36 Bordsteine und 352 Treppenlinien aus 102 Treppenflächen auf die Karte; die OpenStreetMap-Treppen
-an denselben Stellen entfallen (110 auf 40). Dazu kommen 96 Postenstandorte als Kandidaten. Die Straßenbeläge
-(etwa wassergebundene Decken) fehlen noch.
+an denselben Stellen entfallen (110 auf 40). Dazu kommen 96 Postenstandorte als Kandidaten. Grünstreifen, Sträucher,
+Hecken und Wildwuchs im Straßenraum werden in der Grundkarte Kandidaten (401, 406, 407, 410) und kommen in der
+Trainingskarte direkt mit; in Blankenese sind das 56 Flächen. Die Pflasterarten und wassergebundenen Decken bleiben
+draußen, denn die Straße ist auf der Karte schon befestigte Fläche.
 
 **Lübeck: Baumkataster.** Die Hansestadt Lübeck veröffentlicht ihr Baumkataster als eine CSV-Datei für die ganze
 Stadt (CC0, 8 MB). freemapper lädt sie bei jedem Abruf ganz und behält die Bäume des Kartengebiets; leere

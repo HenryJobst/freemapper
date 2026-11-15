@@ -9905,7 +9905,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let (dir, _cache_dir, cache) = eppendorf_school(&fetcher);
         let (project, messages) = fetch(dir.path(), &fetcher, &cache);
         let records = &project.extra_sets["lgv-feinkartierung"];
-        assert_eq!(records.len(), 6, "{records:?}");
+        assert_eq!(records.len(), 7, "{records:?}");
         assert!(
             !messages.iter().any(|m| m.starts_with("warning")),
             "{messages:?}"
@@ -9942,10 +9942,22 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
                     [e + 3.0, n - 12.0], [e - 3.0, n - 12.0], [e - 3.0, n - 20.0]]]},
                 "properties": {"nutzung": "Treppe"}}),
         );
+        write(
+            "fk-strasse-gruen",
+            serde_json::json!({"type": "Feature",
+                "geometry": {"type": "Polygon", "coordinates": [[[e + 10.0, n - 20.0], [e + 30.0, n - 20.0],
+                    [e + 30.0, n - 12.0], [e + 10.0, n - 12.0], [e + 10.0, n - 20.0]]]},
+                "properties": {"nutzung": "Grünfläche", "inhalt": "Grasfläche, Wiese"}}),
+        );
         let found = sourced_objects(
             dir.path(),
             "lgv-feinkartierung/",
-            &["518", "543", "532.6", "532.7", "532.8", "532.9"],
+            &["401", "518", "543", "532.6", "532.7", "532.8", "532.9"],
+        );
+        // The green of the street space is a candidate (ADR 0149).
+        assert!(
+            found.contains(&("401".into(), "lgv-feinkartierung/fk-strasse-gruen".into())),
+            "{found:?}"
         );
         assert!(
             found.contains(&("518".into(), "lgv-feinkartierung/fk-strasse-linien".into())),
