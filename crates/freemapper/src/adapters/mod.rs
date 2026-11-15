@@ -487,11 +487,6 @@ mod tests {
             "berlin::extra_layers(project.map_kind.contract())",
         ),
         ("project/export.rs", "berlin::join_footprint_dates("),
-        // Which registers drew objects, for the credit: open with the rank of `dedup` (ADR 0114).
-        (
-            "project.rs",
-            "use freemapper_adapters_de::berlin::BERLIN_REGISTERS;",
-        ),
         // The tile download of the tile providers, re-exported for the engine's tests of it.
         ("fetch.rs", "pub use freemapper_adapters_de::tile_fetch::{"),
         // How a product names its tiles, a trait of the tile providers that `derive` reads.

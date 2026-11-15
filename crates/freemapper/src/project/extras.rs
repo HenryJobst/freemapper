@@ -197,7 +197,7 @@ pub(crate) fn drawn_sets(registry: &Registry) -> Vec<(&dyn RegionAdapter, &dyn E
                 .iter()
                 .map(move |set| (adapter, set.as_ref()))
         })
-        .filter(|(_, set)| set.drawing().is_some() && plain(set.info().key))
+        .filter(|(_, set)| set.drawing().is_some_and(|d| d.generic) && plain(set.info().key))
         .collect()
 }
 

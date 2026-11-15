@@ -10,7 +10,7 @@ use std::collections::HashSet;
 use chrono::{Datelike, NaiveDate};
 use freemapper_adapter_api::extras::{
     ExtraEstimate, ExtraLayerInfo, ExtraNotes, ExtraSet, ExtraSetInfo, FetchedExtra,
-    RasterTemplate, RasterTemplateInfo, TemplateNotes,
+    RasterTemplate, RasterTemplateInfo, SetDrawing, SetRank, TemplateNotes,
 };
 use serde_json::{Map, Value};
 
@@ -326,9 +326,35 @@ static REGISTERS: ExtraSetInfo = ExtraSetInfo {
     },
 };
 
+/// The data of Berlin's set the engine reads; the engine still draws the set by its own code
+/// (`generic: false`) until it moves onto the sets (ADR 0149).
+static DRAWING: SetDrawing = SetDrawing {
+    rules: "",
+    tag_prefix: "berlin",
+    source_prefix: "geoportal-berlin",
+    // The ALKIS structure layers, relief and hedges are the cadastre.
+    rank: SetRank::Cadastre,
+    layer_ranks: &[
+        ("sb-*", SetRank::Survey),
+        ("strassenbaeume", SetRank::Register),
+        ("anlagenbaeume", SetRank::Register),
+        ("beleuchtung", SetRank::Register),
+        ("zierbrunnen", SetRank::Register),
+        ("trinkwasserbrunnen", SetRank::Register),
+    ],
+    credited_layers: &BERLIN_REGISTERS,
+    stair_layers: &[],
+    candidate_layers: &[],
+    generic: false,
+};
+
 impl ExtraSet for Registers {
     fn info(&self) -> &ExtraSetInfo {
         &REGISTERS
+    }
+
+    fn drawing(&self) -> Option<&SetDrawing> {
+        Some(&DRAWING)
     }
 
     fn layers(&self, kind: MapKind) -> Vec<ExtraLayerInfo> {
