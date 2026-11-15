@@ -9,6 +9,8 @@ All notable changes to freemapper are listed here, newest first. The format foll
 ### Changed
 
 - Licence: AGPL-3.0-or-later instead of GPL-3.0-or-later (ADR 0152), like freemapper-core, freemapper-print and freemapper-courseplan. Whoever runs a modified version as a network service must offer its source. The OpenOrienteering Mapper symbol sets keep GPL-3.0. Releases up to 0.22.0 stay GPL-3.0-or-later.
+- The image at the top of the README and the preview of the Viktoriapark example now show the training map instead of the check print; the example has `berlin-viktoriapark-training.omap` and `berlin-viktoriapark-training.pdf` for it. The check print stays linked beside it. The other examples follow after the second half of the training map.
+- freemapper uses freemapper-core v0.28.0, which is under AGPL-3.0-or-later like the whole suite (ADR 0152); nothing changes in how it works.
 
 ### Added
 

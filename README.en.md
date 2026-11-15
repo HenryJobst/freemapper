@@ -6,7 +6,7 @@
 [![AI effort (Claude API): $3,405](https://img.shields.io/badge/AI%20effort%20%28Claude%20API%29-%243%2C405-8A2BE2)](docs/ai-cost/history.csv)
 <!-- claude-cost:end -->
 
-<p align="center"><a href="examples/berlin-viktoriapark/preview.webp"><img src="examples/berlin-viktoriapark/preview-medium.webp" alt="Sprint map of Viktoriapark, Berlin-Kreuzberg, made by freemapper" width="760"></a><br><sub>Viktoriapark, Berlin-Kreuzberg (sprint 1:4000), made by freemapper from open data. Click for the full-size image; the <a href="examples/berlin-viktoriapark/berlin-viktoriapark-candidates.pdf">PDF</a> has all candidates; more under <a href="examples/README.en.md">examples</a>.</sub></p>
+<p align="center"><a href="examples/berlin-viktoriapark/preview.webp"><img src="examples/berlin-viktoriapark/preview-medium.webp" alt="Training map of Viktoriapark, Berlin-Kreuzberg, made by freemapper" width="760"></a><br><sub>Viktoriapark, Berlin-Kreuzberg (sprint 1:4000), made by freemapper from open data. The image is the training map, ready to print and run on; click for the full size, or take the <a href="examples/berlin-viktoriapark/berlin-viktoriapark-training.pdf">PDF</a> to print. The <a href="examples/berlin-viktoriapark/berlin-viktoriapark-candidates.pdf">check print</a> shows every candidate true to position; more under <a href="examples/README.en.md">examples</a>.</sub></p>
 
 freemapper turns official geodata (terrain model, nDSM, orthophoto, ALKIS cadastre) and OpenStreetMap
 into a **starter project for OpenOrienteering Mapper (OOM) and, on request, for OCAD**: a
