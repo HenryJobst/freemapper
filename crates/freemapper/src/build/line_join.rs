@@ -36,6 +36,20 @@ pub fn join_lines(
     sided: &[u32],
     georef: &Georeferencing,
 ) -> usize {
+    join_lines_keyed(objects, ids, sided, georef, None).0
+}
+
+/// As [`join_lines`], and with `key` the name of a tag: for every piece that went into a joined
+/// object, the value of its tag `key` and the value of that tag on the joined object (the
+/// longest piece's), when both have one and they differ, in the order the joins were made.
+pub fn join_lines_keyed(
+    objects: &mut Vec<MapObject>,
+    ids: &[u32],
+    sided: &[u32],
+    georef: &Georeferencing,
+    key: Option<&str>,
+) -> (usize, Vec<(String, String)>) {
+    let mut absorbed = Vec::new();
     let before = objects.len();
     let mut slots: Vec<Option<MapObject>> = std::mem::take(objects).into_iter().map(Some).collect();
     let mut ids: Vec<u32> = ids.to_vec();
@@ -49,11 +63,17 @@ pub fn join_lines(
             .map(|(i, _)| i)
             .collect();
         if !candidates.is_empty() {
-            join_symbol(&mut slots, &candidates, sided.contains(&id), georef);
+            join_symbol(
+                &mut slots,
+                &candidates,
+                sided.contains(&id),
+                georef,
+                key.map(|key| (key, &mut absorbed)),
+            );
         }
     }
     *objects = slots.into_iter().flatten().collect();
-    before - objects.len()
+    (before - objects.len(), absorbed)
 }
 
 /// A plain open path of symbol `id` with at least two points and no coordinate flags.
@@ -64,11 +84,21 @@ fn joinable(object: &MapObject, id: u32) -> bool {
         && object.coords.iter().all(|c| c.flags == 0)
 }
 
+/// The value of the tag `key` of `object`.
+fn tag<'a>(object: &'a MapObject, key: &str) -> Option<&'a str> {
+    object
+        .tags
+        .iter()
+        .find(|(k, _)| k == key)
+        .map(|(_, v)| v.as_str())
+}
+
 fn join_symbol(
     slots: &mut [Option<MapObject>],
     candidates: &[usize],
     sided: bool,
     georef: &Georeferencing,
+    mut absorbed: Option<(&str, &mut Vec<(String, String)>)>,
 ) {
     let lines: Vec<&[MapCoord]> = candidates
         .iter()
@@ -86,6 +116,16 @@ fn join_symbol(
             continue;
         }
         let object = build_chain(slots, candidates, &chain);
+        if let Some((key, absorbed)) = absorbed.as_mut()
+            && let Some(kept) = tag(&object, key)
+        {
+            for &(k, _) in &chain.members {
+                let member = slots[candidates[k]].as_ref().and_then(|o| tag(o, key));
+                if let Some(member) = member.filter(|&m| m != kept) {
+                    absorbed.push((member.to_string(), kept.to_string()));
+                }
+            }
+        }
         let first = chain.members.iter().map(|&(k, _)| candidates[k]).min();
         let Some(first) = first else { continue };
         gone.extend(chain.members.iter().map(|&(k, _)| candidates[k]));
@@ -387,6 +427,22 @@ mod tests {
         assert_eq!(v[0].coords.len(), 6);
         let also = v[0].tags.iter().find(|(k, _)| k == "freemapper:also");
         assert_eq!(also.map(|(_, v)| v.as_str()), Some("osm/a"));
+    }
+
+    #[test]
+    fn a_keyed_join_names_the_pieces_that_went() {
+        let keyed = |mut o: MapObject, key: &str| {
+            o.tags.push(("k".to_string(), key.to_string()));
+            o
+        };
+        let mut v = vec![
+            keyed(line(1, &[(0, 0), (1000, 0)], "a"), "1"),
+            keyed(line(1, &[(1000, 0), (5000, 0)], "b"), "2"),
+            keyed(line(1, &[(5000, 0), (6000, 0)], "c"), "2"),
+        ];
+        let (n, absorbed) = join_lines_keyed(&mut v, &[1], &[], &georef(), Some("k"));
+        assert_eq!(n, 2);
+        assert_eq!(absorbed, vec![("1".to_string(), "2".to_string())]);
     }
 
     #[test]

@@ -279,10 +279,14 @@ fn inside_roads(
                 })
                 .collect()
         };
-        if pieces.is_empty() {
-            out.dropped_beside_roads += 1;
-        } else if !cut_before {
-            out.cut += 1;
+        // A piece of a rider cut in the first pass was counted there: it is not counted again,
+        // whether it is cut once more or goes now.
+        if !cut_before {
+            if pieces.is_empty() {
+                out.dropped_beside_roads += 1;
+            } else {
+                out.cut += 1;
+            }
         }
         if let (Some(from), Some(to)) = (key_of(object), key_of(&objects[road])) {
             out.replaced_by.entry(from).or_insert(to);

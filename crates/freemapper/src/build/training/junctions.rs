@@ -71,6 +71,9 @@ pub(super) struct Junctions {
     ends: Vec<End>,
     /// The symbols of [`LINE_CLASSES`].
     line_ids: BTreeSet<u32>,
+    /// The keys of lines that a join took into another line, each with the keys of the lines it
+    /// went into ([`absorb`](Self::absorb)); a split line can go into several.
+    absorbed: BTreeMap<Key, BTreeSet<Key>>,
 }
 
 impl Junctions {
@@ -120,7 +123,39 @@ impl Junctions {
                 }
             }
         }
-        Self { ends, line_ids }
+        Self {
+            ends,
+            line_ids,
+            absorbed: BTreeMap::new(),
+        }
+    }
+
+    /// Records the joins of a step after [`record`](Self::record): each pair names, by the
+    /// value of the key tag, a line that went into another and the line it went into. The
+    /// repairs find the ends of a line that went, and the lines an end touched, on the line it
+    /// went into.
+    pub(super) fn absorb(&mut self, pairs: &[(String, String)]) {
+        for (from, into) in pairs {
+            if let (Ok(from), Ok(into)) = (from.parse::<Key>(), into.parse::<Key>())
+                && from != into
+            {
+                self.absorbed.entry(from).or_default().insert(into);
+            }
+        }
+    }
+
+    /// `key` and the keys of every line it went into by a join, through every later join.
+    fn family(&self, key: Key) -> BTreeSet<Key> {
+        let mut family = BTreeSet::from([key]);
+        let mut open = vec![key];
+        while let Some(k) = open.pop() {
+            for &into in self.absorbed.get(&k).into_iter().flatten() {
+                if family.insert(into) {
+                    open.push(into);
+                }
+            }
+        }
+        family
     }
 
     /// Records the ends a step drew onto a line after [`record`](Self::record), as if they had
@@ -164,6 +199,10 @@ impl Junctions {
     /// that was cut for the end's own line: that gap was opened on purpose (two lines that lay
     /// on each other). Such an end stays where it is, and it is not counted free when every
     /// line it could move onto was cut for its own line.
+    ///
+    /// A line that a join took into another ([`absorb`](Self::absorb)) is found on the line it
+    /// went into, both as the end's own line and as a line the end touched. One end recorded
+    /// more than once is counted free once.
     pub(super) fn repair_after_cuts(
         &self,
         objects: &mut [MapObject],
@@ -185,13 +224,16 @@ impl Junctions {
         }
         // Where each recorded end is now: the end of a piece of its object nearest the recorded
         // position (of two as near, the earlier object, then the same end as recorded).
+        // The keys of each end's own line: its own and those of the lines it went into.
+        let own: Vec<BTreeSet<Key>> = self.ends.iter().map(|e| self.family(e.object)).collect();
         let held: Vec<Option<(usize, bool)>> = self
             .ends
             .iter()
-            .map(|end| {
-                pieces
-                    .get(&end.object)?
-                    .iter()
+            .zip(&own)
+            .map(|(end, own)| {
+                own.iter()
+                    .filter_map(|key| pieces.get(key))
+                    .flatten()
                     .filter(|&&i| is_open_line(&objects[i], &self.line_ids))
                     .flat_map(|&i| [(i, false), (i, true)])
                     .map(|(i, last)| (length(end_point(&objects[i], last), end.at), i, last))
@@ -210,8 +252,12 @@ impl Junctions {
             recorded.entry(i).or_default()[usize::from(last)] = true;
         }
         let mut grid = Grid::of(objects, &self.line_ids);
-        let (mut repaired, mut free) = (0, 0);
-        for (end, held) in self.ends.iter().zip(&held) {
+        let mut repaired = 0;
+        // The ends left free, by object index and end: one end recorded twice (by `record` and
+        // by `attach`, or for two pieces of one key) is counted once, and not when another of
+        // its records repaired it.
+        let mut free: BTreeSet<(usize, bool)> = BTreeSet::new();
+        for ((end, held), own) in self.ends.iter().zip(&held).zip(&own) {
             let Some(&(i, last)) = held.as_ref() else {
                 continue;
             };
@@ -224,7 +270,7 @@ impl Junctions {
                 .filter(|&j| {
                     j != i
                         && is_line(&objects[j], &self.line_ids)
-                        && key_of(&objects[j]) != Some(end.object)
+                        && key_of(&objects[j]).is_none_or(|k| !own.contains(&k))
                 })
                 .filter_map(|j| {
                     let (d, q) = distance(&objects[j], at);
@@ -234,22 +280,29 @@ impl Junctions {
             if meets.contains(&false) {
                 continue;
             }
-            // The lines it may move onto: those it touched (rank 0) and what replaced them.
+            // The lines it may move onto: those it touched (rank 0), the lines they went into by
+            // a join (the same rank) and what replaced them (one rank more each step).
             let mut ranks: BTreeMap<Key, usize> = BTreeMap::new();
-            for &touched in &end.touched {
-                let mut seen = BTreeSet::new();
-                let (mut key, mut rank) = (touched, 0);
-                while seen.insert(key) {
-                    let r = ranks.entry(key).or_insert(rank);
-                    *r = (*r).min(rank);
-                    let Some(&next) = replaced_by.get(&key) else {
-                        break;
-                    };
-                    key = next;
-                    rank += 1;
+            let mut open: Vec<(Key, usize)> = end.touched.iter().map(|&k| (k, 0)).collect();
+            while let Some((key, rank)) = open.pop() {
+                if ranks.get(&key).is_some_and(|&r| r <= rank) {
+                    continue;
                 }
+                ranks.insert(key, rank);
+                open.extend(
+                    self.absorbed
+                        .get(&key)
+                        .into_iter()
+                        .flatten()
+                        .map(|&k| (k, rank)),
+                );
+                open.extend(replaced_by.get(&key).map(|&k| (k, rank + 1)));
             }
-            let parted = |key: &Key| cut_for.get(key).is_some_and(|w| w.contains(&end.object));
+            let parted = |key: &Key| {
+                cut_for
+                    .get(key)
+                    .is_some_and(|w| w.iter().any(|k| own.contains(k)))
+            };
             // Every line it may move onto was cut for its own line: the gap is meant.
             let meant = !ranks.is_empty() && ranks.keys().all(parted);
             let best = ranks
@@ -259,7 +312,10 @@ impl Junctions {
                     pieces.iter().map(move |&j| (key, rank, j))
                 })
                 .filter(|&(key, _, j)| {
-                    j != i && is_line(&objects[j], &self.line_ids) && !parted(&key)
+                    j != i
+                        && !own.contains(&key)
+                        && is_line(&objects[j], &self.line_ids)
+                        && !parted(&key)
                 })
                 .filter_map(|(key, rank, j)| {
                     let (d, q) = distance(&objects[j], at);
@@ -280,20 +336,23 @@ impl Junctions {
                     c.y = (q.y * 1000.0).round() as i32;
                     grid.add(i, &objects[i]);
                     repaired += 1;
+                    free.remove(&(i, last));
                 }
                 // It meets the line already, or meets another end and has no line in reach.
                 Some(_) => {}
                 None if !meets.is_empty() || meant => {}
-                None => free += 1,
+                None => {
+                    free.insert((i, last));
+                }
             }
         }
-        (repaired, free)
+        (repaired, free.len())
     }
 }
 
 /// The tag that holds the [`Key`] of a line object while another recording of the junctions
 /// uses [`JUNCTION_TAG`] ([`set_aside`], [`bring_back`]).
-const ASIDE_TAG: &str = "freemapper:junction-aside";
+pub(super) const ASIDE_TAG: &str = "freemapper:junction-aside";
 
 /// Removes the tag [`JUNCTION_TAG`] (and a key set aside) from every object.
 pub(super) fn forget(objects: &mut [MapObject]) {
@@ -482,6 +541,7 @@ fn cell(v: f64) -> i64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::build::line_join::join_lines_keyed;
     use crate::build::training::tests::{SCALE, area, georef_at, isom, line};
     use crate::omap::SymbolSet;
 
@@ -691,6 +751,97 @@ mod tests {
         let result = junctions.repair(&mut after, &BTreeMap::new(), 0.5, &georef);
         assert_eq!(result, (1, 0));
         assert_eq!(mm(&after[1].coords[1]), (20.0, 10.3));
+    }
+
+    /// Joins the roads (503) and paths (505) of `objects` as `train` does after the merge: with
+    /// the keys set aside, and the joins passed to `junctions`.
+    fn join_ways(set: &SymbolSet, objects: &mut Vec<MapObject>, junctions: &mut Junctions) {
+        let ids = ["503", "505"].map(|c| set.id_for_code(c).unwrap());
+        set_aside(objects);
+        let georef = georef_at(SCALE);
+        let (_, absorbed) = join_lines_keyed(objects, &ids, &[], &georef, Some(ASIDE_TAG));
+        bring_back(objects);
+        junctions.absorb(&absorbed);
+    }
+
+    #[test]
+    fn an_end_on_a_line_that_a_join_took_follows_the_joined_line() {
+        // The path ends on the short road `s`, which a join takes into the longer road `l`
+        // (whose key the joined road keeps); then the joined road shifts.
+        let set = isom();
+        let georef = georef_at(SCALE);
+        let mut objects = vec![
+            tagged(&set, "505", "p", &[(5.0, 0.0), (5.0, 10.0)]),
+            tagged(&set, "503", "s", &[(0.0, 10.0), (10.0, 10.0)]),
+            tagged(&set, "503", "l", &[(10.0, 10.0), (40.0, 10.0)]),
+        ];
+        let mut junctions = Junctions::record(&mut objects, &Classes::of(&set), &georef);
+        let short = key(&objects[1]);
+        join_ways(&set, &mut objects, &mut junctions);
+        assert_eq!(objects.len(), 2, "{objects:?}");
+        let road = objects.iter().position(|o| key_of(o) != Some(0)).unwrap();
+        assert_ne!(
+            key(&objects[road]),
+            short,
+            "the joined road keeps the key of `l`"
+        );
+        objects[road] = moved(&set, &objects[road], &[(0.0, 10.3), (40.0, 10.3)]);
+        let result = junctions.repair_after_cuts(
+            &mut objects,
+            &BTreeMap::new(),
+            &BTreeMap::new(),
+            0.5,
+            &georef,
+        );
+        assert_eq!(result, (1, 0));
+        let path = objects.iter().position(|o| key_of(o) == Some(0)).unwrap();
+        assert_eq!(mm(&objects[path].coords[1]), (5.0, 10.3));
+    }
+
+    #[test]
+    fn the_end_of_a_line_that_a_join_took_is_found_on_the_joined_line() {
+        // The short path ends on the road; a join takes it into the longer path before it, and
+        // the road shifts: the end is the joined path's now.
+        let set = isom();
+        let georef = georef_at(SCALE);
+        let mut objects = vec![
+            tagged(&set, "505", "long", &[(5.0, -30.0), (5.0, 0.0)]),
+            tagged(&set, "505", "short", &[(5.0, 0.0), (5.0, 10.0)]),
+            tagged(&set, "503", "r", &[(0.0, 10.0), (40.0, 10.0)]),
+        ];
+        let mut junctions = Junctions::record(&mut objects, &Classes::of(&set), &georef);
+        join_ways(&set, &mut objects, &mut junctions);
+        assert_eq!(objects.len(), 2, "{objects:?}");
+        objects[1] = moved(&set, &objects[1], &[(0.0, 10.3), (40.0, 10.3)]);
+        let result = junctions.repair_after_cuts(
+            &mut objects,
+            &BTreeMap::new(),
+            &BTreeMap::new(),
+            0.5,
+            &georef,
+        );
+        assert_eq!(result, (1, 0));
+        let end = mm(objects[0].coords.last().unwrap());
+        assert_eq!(end, (5.0, 10.3));
+    }
+
+    #[test]
+    fn an_end_recorded_twice_is_counted_free_once() {
+        // The path's end is recorded by `record` and again by `attach`; the road goes.
+        let set = isom();
+        let georef = georef_at(SCALE);
+        let mut objects = path_on_road(&set);
+        let mut junctions = Junctions::record(&mut objects, &Classes::of(&set), &georef);
+        junctions.attach(&[Attached {
+            object: key(&objects[0]),
+            last: true,
+            at: Coord { x: 20.0, y: 10.0 },
+            onto: key(&objects[1]),
+        }]);
+        assert_eq!(junctions.ends.len(), 2, "{junctions:?}");
+        let mut after = vec![objects[0].clone()];
+        let result = junctions.repair(&mut after, &BTreeMap::new(), 0.5, &georef);
+        assert_eq!(result, (0, 1));
     }
 
     #[test]

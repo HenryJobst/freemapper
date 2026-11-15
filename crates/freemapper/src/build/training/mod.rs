@@ -3,8 +3,9 @@
 //! another or inside its gap (spec 2026-11-14, Part 3).
 //!
 //! The steps run in a fixed order, each on what the one before left:
-//! 1. lines of one symbol that meet end to end are joined ([`join_lines`]), and an opening
-//!    between walls and fences narrower than the norm's is widened to it
+//! 1. lines of one symbol that meet end to end are joined
+//!    ([`join_lines`](crate::build::line_join::join_lines)), and an opening between walls and
+//!    fences narrower than the norm's is widened to it
 //!    ([`widen_openings`](openings::widen_openings)); the carriageways of the street survey are
 //!    drawn in the street areas and its kerb lines inside them go
 //!    ([`draw_carriageways`](carriageway::draw_carriageways));
@@ -53,7 +54,7 @@ use crate::build::conflicts::{
 use crate::build::dedup::tag_holds;
 use crate::build::geometry::{distance_to_segment, object_polygon, xy};
 use crate::build::line_cuts::cut_lines_at_ways;
-use crate::build::line_join::{TOUCH_M, join_lines};
+use crate::build::line_join::{TOUCH_M, join_lines_keyed};
 use crate::build::open_land::MIN_PIECE_SIDE_MM;
 use crate::build::out_of_bounds::{area_object, short_side};
 use crate::build::points::{FOREST, PAVED_AREA_CODES, SCATTERED_TREES, in_map_units, projected};
@@ -171,7 +172,7 @@ pub fn train(
     let classes = Classes::of(symbol_set);
     let mut objects = objects;
     let mut report = TrainingReport {
-        joined: join(&mut objects, &classes, georef),
+        joined: join(&mut objects, &classes, georef, None).0,
         ..TrainingReport::default()
     };
     report.openings_widened = widen_openings(&mut objects, georef, symbol_set);
@@ -194,7 +195,10 @@ pub fn train(
     report.merged = merged.merged;
     report.dropped_beside_roads = merged.dropped_beside_roads;
     report.cut += merged.cut;
-    report.joined += join(&mut objects, &classes, georef);
+    // A line that goes into another by a join names the key of the one it went into.
+    let (joined, absorbed) = join(&mut objects, &classes, georef, Some(junctions::ASIDE_TAG));
+    report.joined += joined;
+    junctions.absorb(&absorbed);
     let shifted = Junctions::record(&mut objects, &classes, georef);
     report.shifted = shift_lines(&mut objects, kind, georef, symbol_set);
     // Its free ends are among those the last repair counts.
@@ -205,7 +209,9 @@ pub fn train(
     report.gave_way = gave_way;
     report.cut += cut;
     report.too_small = drop_too_small(&mut objects, &classes, kind, georef, symbol_set);
-    report.joined += join_ways(&mut objects, &classes, georef);
+    let (joined, absorbed) = join_ways(&mut objects, &classes, georef, junctions::ASIDE_TAG);
+    report.joined += joined;
+    junctions.absorb(&absorbed);
     // Once more over the ends recorded before the merge, after give way and the minimum sizes
     // have cut or dropped lines they touched: an end in reach of what is left of its line is
     // drawn onto it, and what stays free is counted.
@@ -218,9 +224,10 @@ pub fn train(
         left(&objects, kind, georef, symbol_set);
     junctions::forget(&mut objects);
     debug_assert!(
-        objects
+        objects.iter().all(|o| o
+            .tags
             .iter()
-            .all(|o| o.tags.iter().all(|(k, _)| k != junctions::JUNCTION_TAG)),
+            .all(|(k, _)| k != junctions::JUNCTION_TAG && k != junctions::ASIDE_TAG)),
         "the junction keys never reach the map"
     );
     (objects, report)
@@ -228,8 +235,14 @@ pub fn train(
 
 /// Step 1: the lines of the networks (stairways among them), of the water and of the landforms
 /// that meet end to end are joined, until no join is left (one call joins one pair at a junction
-/// of four ends). Returns how many objects went.
-fn join(objects: &mut Vec<MapObject>, classes: &Classes, georef: &Georeferencing) -> usize {
+/// of four ends). Returns how many objects went and, with `key` the name of a tag, the values of
+/// that tag of each line that went and of the line it went into ([`join_lines_keyed`]).
+fn join(
+    objects: &mut Vec<MapObject>,
+    classes: &Classes,
+    georef: &Georeferencing,
+    key: Option<&str>,
+) -> (usize, Vec<(String, String)>) {
     use Class::*;
     let ids_of = |of: &[Class]| -> Vec<u32> { of.iter().flat_map(|&c| classes.ids(c)).collect() };
     let ids = ids_of(&[
@@ -244,12 +257,14 @@ fn join(objects: &mut Vec<MapObject>, classes: &Classes, georef: &Georeferencing
     ]);
     let sided = ids_of(&[EarthBank, Cliff, Barrier]);
     let mut joined = 0;
+    let mut absorbed = Vec::new();
     loop {
-        let n = join_lines(objects, &ids, &sided, georef);
+        let (n, went) = join_lines_keyed(objects, &ids, &sided, georef, key);
         if n == 0 {
-            return joined;
+            return (joined, absorbed);
         }
         joined += n;
+        absorbed.extend(went);
     }
 }
 
@@ -936,19 +951,27 @@ pub(super) fn add_generalized(object: &mut MapObject, value: &str) {
 }
 
 /// Step 9, last: the ways (roads, paths, stairways) that meet end to end are joined again, so a
-/// stairway drawn as path joins the path it lies in. Returns how many objects went.
-fn join_ways(objects: &mut Vec<MapObject>, classes: &Classes, georef: &Georeferencing) -> usize {
+/// stairway drawn as path joins the path it lies in. Returns how many objects went and the
+/// values of the tag `key` of each line that went and of the line it went into, as [`join`].
+fn join_ways(
+    objects: &mut Vec<MapObject>,
+    classes: &Classes,
+    georef: &Georeferencing,
+    key: &str,
+) -> (usize, Vec<(String, String)>) {
     let ids: Vec<u32> = [Class::Road, Class::Path, Class::Stairway]
         .iter()
         .flat_map(|&c| classes.ids(c))
         .collect();
     let mut joined = 0;
+    let mut absorbed = Vec::new();
     loop {
-        let n = join_lines(objects, &ids, &[], georef);
+        let (n, went) = join_lines_keyed(objects, &ids, &[], georef, Some(key));
         if n == 0 {
-            return joined;
+            return (joined, absorbed);
         }
         joined += n;
+        absorbed.extend(went);
     }
 }
 
