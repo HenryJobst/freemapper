@@ -4,6 +4,7 @@
 //!
 //! Terms follow `docs/glossary.md`.
 
+pub mod arcgis_permits;
 pub mod berlin;
 pub mod berlin_als;
 pub mod berlin_permits;

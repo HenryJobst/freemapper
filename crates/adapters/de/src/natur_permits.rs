@@ -556,3 +556,59 @@ pub fn nordrhein_westfalen() -> Box<dyn PermitSource> {
         },
     )
 }
+
+/// The map service of the NLWKN, which Lower Saxony's manifest names as a host.
+pub const NIEDERSACHSEN: &str =
+    "https://www.umweltkarten-niedersachsen.de/arcgis/rest/services/Natur_wms/MapServer";
+
+/// Lower Saxony: the Naturdenkmale and geschützte Landschaftsbestandteile of the NLWKN's map
+/// service (ArcGIS REST, ADR 0148), areas and points. Its biotopes are kept by the Landkreise.
+pub fn niedersachsen() -> Box<dyn PermitSource> {
+    with_gaps(
+        crate::arcgis_permits::source(
+            "naturschutz",
+            Wording {
+                en: "NLWKN",
+                de: "NLWKN",
+            },
+            Wording {
+                en: "Naturdenkmale and geschützte Landschaftsbestandteile",
+                de: "Naturdenkmale und geschützte Landschaftsbestandteile",
+            },
+            "Datenlizenz Deutschland – Namensnennung – Version 2.0 (dl-de/by-2-0); Quelle: Niedersächsischer Landesbetrieb für Wasserwirtschaft, Küsten- und Naturschutz (NLWKN)",
+            &[
+                "naturdenkmale-flaechen",
+                "naturdenkmale-punkte",
+                "landschaftsbestandteile-flaechen",
+                "landschaftsbestandteile-punkte",
+            ],
+            OBJECTS,
+            NIEDERSACHSEN,
+            {
+                const LAYERS: &[crate::arcgis_permits::RestLayer] = &[
+                    (
+                        "naturdenkmale-flaechen",
+                        190,
+                        object(ND, Some("name"), None),
+                    ),
+                    ("naturdenkmale-punkte", 7, object(ND, Some("name"), None)),
+                    (
+                        "landschaftsbestandteile-flaechen",
+                        10,
+                        object(GLB, Some("name"), None),
+                    ),
+                    (
+                        "landschaftsbestandteile-punkte",
+                        12,
+                        object(GLB, Some("name"), None),
+                    ),
+                ];
+                LAYERS
+            },
+        ),
+        Wording {
+            en: "the protected biotopes are kept by the Landkreise and are not in them",
+            de: "Die geschützten Biotope führen die Landkreise; sie fehlen darin",
+        },
+    )
+}

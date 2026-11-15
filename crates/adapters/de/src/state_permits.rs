@@ -560,6 +560,12 @@ mod tests {
                 [7.80, 47.97, 7.88, 48.02],
             ),
             (State::Hessen, "biotope", [8.73, 50.78, 8.80, 50.83]),
+            // Göttingen, through ArcGIS REST (ADR 0148).
+            (
+                State::Niedersachsen,
+                "naturschutz",
+                [9.90, 51.52, 9.98, 51.56],
+            ),
             (
                 State::NordrheinWestfalen,
                 "biotope",

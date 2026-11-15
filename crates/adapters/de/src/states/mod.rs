@@ -641,9 +641,11 @@ impl StateAdapter {
                 crate::natur_permits::sachsen_anhalt(),
             ],
             State::Bayern => vec![crate::bfg_permits::source(), crate::natur_permits::bayern()],
-            State::Niedersachsen | State::MecklenburgVorpommern => {
-                vec![crate::bfg_permits::source()]
-            }
+            State::Niedersachsen => vec![
+                crate::bfg_permits::source(),
+                crate::natur_permits::niedersachsen(),
+            ],
+            State::MecklenburgVorpommern => vec![crate::bfg_permits::source()],
         };
         Self {
             state,
@@ -996,7 +998,8 @@ mod tests {
                     &["bfg", "naturschutz"],
                     "https://geoportal.bafg.de/arcgis1/rest/services/INSPIRE/AM/MapServer/1/query",
                 ),
-                "niedersachsen" | "mecklenburgvorpommern" => (
+                "niedersachsen" => (&["bfg", "naturschutz"], crate::natur_permits::NIEDERSACHSEN),
+                "mecklenburgvorpommern" => (
                     &["bfg"],
                     "https://geoportal.bafg.de/arcgis1/rest/services/INSPIRE/AM/MapServer/1/query",
                 ),

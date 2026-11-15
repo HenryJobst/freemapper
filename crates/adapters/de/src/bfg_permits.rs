@@ -14,8 +14,9 @@ use geo::BooleanOps as _;
 use geo_types::{Geometry, MultiPolygon, Rect};
 use serde_json::Value;
 
+use crate::arcgis_permits::features;
 use crate::berlin_permits::geometry;
-use crate::fetch::{FetchError, Fetcher, get_limited_with_retries};
+use crate::fetch::{FetchError, Fetcher};
 use crate::wfs_permits::text;
 
 /// The service, which the adapters of the seven states name as a host.
@@ -27,11 +28,6 @@ const CREDIT: &str = "© WasserBLIcK/BfG und Zuständige Behörden der Länder, 
 /// The catalogue entry's note on the coverage, verbatim.
 const NOTE: &str =
     "Die bundesweite Flächendeckung des Datenbestandes ist nicht in jedem Fall gewährleistet.";
-
-/// Features per page; the service gives at most 2000.
-const PAGE: usize = 1000;
-const MAX_PAGES: usize = 20;
-const MAX_BYTES: u64 = 64 << 20;
 
 /// The layers: drinking water protection areas (1) and medicinal spring protection areas (2).
 const LAYERS: &[(&str, u32)] = &[("trinkwasser", 1), ("heilquellen", 2)];
@@ -79,18 +75,7 @@ impl PermitSource for BfgSource {
         LAYERS
             .iter()
             .map(|(_, layer)| {
-                let mut features = Vec::new();
-                for page in 0..MAX_PAGES {
-                    let url = query_url(*layer, bbox, page * PAGE);
-                    let (found, more) =
-                        get_limited_with_retries(fetcher, &url, part, MAX_BYTES, |bytes| {
-                            read_page(&url, bytes)
-                        })?;
-                    features.extend(found);
-                    if !more {
-                        break;
-                    }
-                }
+                let features = features(fetcher, BASE, *layer, "Name", bbox, part)?;
                 Ok(joined(&features))
             })
             .collect()
@@ -119,45 +104,6 @@ impl PermitSource for BfgSource {
                 })
             })
             .collect()
-    }
-}
-
-/// The query of `layer` for the areas that meet `bbox`, from the feature `offset` on, as
-/// GeoJSON in WGS 84.
-fn query_url(layer: u32, bbox: &Rect<f64>, offset: usize) -> String {
-    format!(
-        "{BASE}/{layer}/query?where=1%3D1&geometry={:.6},{:.6},{:.6},{:.6}\
-         &geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects\
-         &outFields=Name&returnGeometry=true&outSR=4326&geometryPrecision=6\
-         &orderByFields=OBJECTID&resultOffset={offset}&resultRecordCount={PAGE}&f=geojson",
-        bbox.min().x,
-        bbox.min().y,
-        bbox.max().x,
-        bbox.max().y,
-    )
-}
-
-/// The features of one page and whether more follow (`exceededTransferLimit`, which the
-/// service writes at the top and in `properties`).
-fn read_page(url: &str, bytes: &[u8]) -> Result<(Vec<Value>, bool), FetchError> {
-    let wrong = |message: &str| FetchError::Http {
-        url: url.to_string(),
-        message: message.to_string(),
-    };
-    let mut value: Value =
-        serde_json::from_slice(bytes).map_err(|_| wrong("the answer is not GeoJSON"))?;
-    if let Some(error) = value.get("error") {
-        return Err(wrong(&format!("the service answers an error: {error}")));
-    }
-    let more = [
-        &value["exceededTransferLimit"],
-        &value["properties"]["exceededTransferLimit"],
-    ]
-    .iter()
-    .any(|v| v.as_bool() == Some(true));
-    match value.get_mut("features").map(Value::take) {
-        Some(Value::Array(features)) => Ok((features, more)),
-        _ => Err(wrong("the answer is not a FeatureCollection")),
     }
 }
 
@@ -239,6 +185,7 @@ fn windows_1252(c: char) -> Option<u8> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::arcgis_permits::{PAGE, query_url};
     use crate::fetch::test_support::MapFetcher;
     use geo::Area as _;
 
@@ -286,15 +233,15 @@ mod tests {
             .unwrap()
         };
         fetcher.insert(
-            &query_url(1, &bbox, 0),
+            &query_url(BASE, 1, "Name", &bbox, 0),
             page(vec![square(10.0, 51.0, 0.02, "Bad Harzburg")], true),
         );
         fetcher.insert(
-            &query_url(1, &bbox, PAGE),
+            &query_url(BASE, 1, "Name", &bbox, PAGE),
             page(vec![square(10.5, 51.0, 0.01, "Börßum")], false),
         );
         fetcher.insert(
-            &query_url(2, &bbox, 0),
+            &query_url(BASE, 2, "Name", &bbox, 0),
             page(vec![square(10.0, 51.0, 0.01, "Bad Harzburg")], false),
         );
         let part = tempfile::tempdir().unwrap();
@@ -324,11 +271,5 @@ mod tests {
             names("heilquellen", &answers[1]),
             [Some("Bad Harzburg (Heilquellenschutzgebiet)".into())]
         );
-    }
-
-    #[test]
-    fn an_error_answer_is_an_error() {
-        assert!(read_page("u", br#"{"error":{"code":400,"message":"x"}}"#).is_err());
-        assert!(read_page("u", b"<html>").is_err());
     }
 }

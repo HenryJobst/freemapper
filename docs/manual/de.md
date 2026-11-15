@@ -1100,6 +1100,7 @@ nicht in den Daten des BfN. Die Hinweise nennen sie aus den Diensten der Bundesl
 | Saarland | ja | – | ja |
 | Sachsen | nur Flächen | – | ja |
 | Sachsen-Anhalt | ja, ohne Einzelbäume | ja | – |
+| Niedersachsen | ja | ja | – |
 | Bayern | ja | ja | – |
 | Baden-Württemberg | ja | – | – |
 | Hessen | – | – | ja, Kartierung 1992 bis 2006 |
@@ -1111,8 +1112,7 @@ was sie zerstören oder erheblich beeinträchtigen kann: Posten und Bahnen gehö
 Naturschutzbehörde wird gefragt. Für Naturdenkmale und geschützte Biotope nennt ein Hinweis die untere
 Naturschutzbehörde, außerhalb von Berlin und Hamburg mit dem Kreis aus VG250. Wo die Daten Lücken haben, stehen sie
 unter dem Teil des Bundeslandes. In Baden-Württemberg erlaubt die LUBW die Nutzung ihrer Biotope für kommerzielle
-Zwecke nur auf Anfrage; sie fehlen deshalb. Niedersachsen, Rheinland-Pfalz, Mecklenburg-Vorpommern und
-Schleswig-Holstein folgen.
+Zwecke nur auf Anfrage; sie fehlen deshalb. Rheinland-Pfalz, Mecklenburg-Vorpommern und Schleswig-Holstein folgen.
 
 ### Wasserschutzgebiete und Waldfunktionen
 
