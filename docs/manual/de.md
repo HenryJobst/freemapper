@@ -1280,6 +1280,12 @@ höchstens 10 000 Objekten je Anfrage. In den Hüttener Bergen ergänzt es 48 W�
 4 Fahrwege; die Böschungen, die das Geländemodell an diesen Wällen findet, entfallen. In Lübeck
 ergänzt es einen Wasserlauf.
 
+**Mecklenburg-Vorpommern: vollständiges ALKIS und Landschaftsmodell.** Das LAiV M-V bietet beide an (CC BY 4.0),
+jeweils mit höchstens 10 000 Objekten je Anfrage. Das vollständige ALKIS verzeichnet viele Treppen: In der Wismarer
+Altstadt kommen 630 auf die Karte, meist kurze Stufen vor den Haustüren, dazu 138 Mauern und 2 Brücken;
+OpenStreetMap-Mauern, die sie doppeln, entfallen. Das Landschaftsmodell ergänzt dort 6 Bäume, 2 Wasserläufe und ein
+Bauwerk als Kandidaten, in der Granitz 5 Wege.
+
 In Bayern hat das Kataster keinen Dienst. Dort fragt freemapper stattdessen das Landschaftsmodell der
 Vermessungsverwaltung ab, das ATKIS Basis-DLM (CC BY 4.0). Es ist für den Maßstab 1:25 000 gemacht und etwa 3 m
 genau. freemapper nimmt daraus Höhleneingänge (203), Quellen (312), benannte Felsen (205), frei stehende Türme

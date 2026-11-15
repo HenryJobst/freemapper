@@ -135,6 +135,7 @@ fn potsdam_tree_dataset_from_manifest_equals_the_constant() {
                 | State::SchleswigHolstein
                 | State::NordrheinWestfalen
                 | State::Niedersachsen
+                | State::MecklenburgVorpommern
         ) {
             let manifest = manifest(state.id());
             assert!(
@@ -275,6 +276,39 @@ fn nrw_and_lower_saxony_ask_their_full_alkis() {
         assert_eq!((service.url.as_ref(), service.max_count), (url, count));
         assert!(service.serves("sonstiges-bauwerk") && !service.serves("dlm-turm"));
     }
+}
+
+/// Mecklenburg-Vorpommern serves its full ALKIS and its landscape model from one host (checked
+/// live on 2026-11-15 over the Wismar example), both refusing a count above 10 000.
+#[test]
+fn mecklenburg_vorpommern_asks_its_full_alkis_and_its_basis_dlm() {
+    let mv = manifest("mecklenburgvorpommern");
+    let region = "mecklenburgvorpommern".parse().unwrap();
+    let services: Vec<_> = mv
+        .nas
+        .iter()
+        .map(|nas| extras::nas_service(nas, &region))
+        .collect();
+    let models: Vec<NasModel> = services.iter().map(|s| s.model).collect();
+    assert_eq!(models, [NasModel::Alkis, NasModel::BasisDlm]);
+    assert!(
+        services
+            .iter()
+            .all(|s| s.max_count == 10_000 && s.crs == Crs::Utm33)
+    );
+    let wismar = BoundingBox {
+        min_e: 267_262.0,
+        min_n: 5_976_928.0,
+        max_e: 268_194.0,
+        max_n: 5_977_668.0,
+    };
+    assert_eq!(
+        services[0].get_feature_url("adv:AX_Strukturlinie3D", &wismar),
+        "https://www.geodaten-mv.de/dienste/alkis_wfs_nas?SERVICE=WFS&VERSION=2.0.0\
+         &REQUEST=GetFeature&TYPENAMES=adv:AX_Strukturlinie3D&SRSNAME=urn:ogc:def:crs:EPSG::25833\
+         &BBOX=267262,5976928,268194,5977668,urn:ogc:def:crs:EPSG::25833&COUNT=10000\
+         &NAMESPACES=xmlns(adv,http://www.adv-online.de/namespaces/adv/gid/7.1)"
+    );
 }
 
 /// The golden net of the adapter work, at the root of the repository.
