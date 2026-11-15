@@ -63,7 +63,7 @@ line (lengths within the tolerance are equal, then the later object). The gap is
 the winner's footprint grown by the loser's half width and the gap, at least 1.0 mm long on paper; *overlap* when the
 stretch inside the footprint alone reaches 1.0 mm, else *gap*; one per pair, judged over the whole zone, so that a
 line through the ticks of an earth bank is one conflict. Where centre lines cross at 20° or more there is none.
-Comparisons are tolerant by 2 map units and use no `hypot`, so every system decides alike.
+Comparisons at a threshold are tolerant by 2 map units, so a difference in the last bits of a length or a distance (the measure takes them from `geo`, whose `Euclidean` uses `hypot`, and some training steps call `hypot` themselves) does not change a decision from one system to another; the golden net of the adapters covers the training map of its four states.
 
 **The training level** (`build/training/`) runs these steps in order:
 
