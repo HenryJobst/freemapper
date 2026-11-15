@@ -1375,6 +1375,19 @@ pub(crate) mod test_support {
     /// The NRW services of the adapter's test support, and an empty full ALKIS (ADR 0135).
     pub fn serve_synthetic_nrw(fetcher: &MapFetcher, bbox: &crate::crs::BoundingBox) {
         serve_nrw_services(fetcher, bbox);
+        // The tree cadastre of Köln (ADR 0065): one tree in the middle of `bbox`, in metres
+        // without a CRS name, as its WFS answers.
+        let (e, n) = (
+            (bbox.min_e + bbox.max_e) / 2.0,
+            (bbox.min_n + bbox.max_n) / 2.0,
+        );
+        fetcher.insert_prefix(
+            "https://geoportal.stadt-koeln.de/wss/service/baumkataster_extern_wfs/guest?",
+            format!(
+                r#"{{"type":"FeatureCollection","numberMatched":1,"numberReturned":1,"features":[{{"type":"Feature","geometry":{{"type":"Point","coordinates":[{e},{n}]}},"properties":{{"Baumnummer":"66-103-S-1174","Botanischer_Name":"Platanus acerifolia","Deutscher_Name":"Platane","Kronendurchmesser_-_m":"10"}}}}]}}"#
+            )
+            .into_bytes(),
+        );
         serve_empty_nas(
             fetcher,
             &["https://www.wfs.nrw.de/geobasis/wfs_nw_alkis_aaa-modell-basiert"],
@@ -1388,6 +1401,26 @@ pub(crate) mod test_support {
         use freemapper_adapters_de::hvbg;
         use freemapper_sources::wfs as alkis_wfs;
         serve_hessen_models(fetcher, bbox);
+        // The tree cadastre of Frankfurt am Main (ADR 0065): a tree in the middle of `bbox` and
+        // one far outside, which the cut to the area leaves out.
+        let (e, n) = (
+            (bbox.min_e + bbox.max_e) / 2.0,
+            (bbox.min_n + bbox.max_n) / 2.0,
+        );
+        let comma = |v: f64| format!("{v:.1}").replace('.', ",");
+        fetcher.insert(
+            "https://offenedaten.frankfurt.de/dcat/dataset/de-he-frankfurtam-baumkataster_op/content.csv",
+            format!(
+                "Objekt ID;Baumnummer;ETRS 89 Hochwert;ETRS 89 Rechtswert;Lateinischer Name;Kronen Durchmesser in Meter\n\
+                 1_1;1;{};{};Tilia species, Linde;9\n\
+                 1_2;2;{};{};Tilia species, Linde;9\n",
+                comma(n),
+                comma(e),
+                comma(n + 20_000.0),
+                comma(e),
+            )
+            .into_bytes(),
+        );
         let photo =
             crate::raster::GridSpec::covering(bbox, crate::sources::wms::ORTHOPHOTO_PIXEL_M);
         fetcher.insert_prefix(
