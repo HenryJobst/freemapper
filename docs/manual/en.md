@@ -38,7 +38,7 @@ buildings and land use from the cadastre (ALKIS). Data from OpenStreetMap (OSM) 
   ponds, streams, fountains and bridges.
 - You still draw and check the map in the terrain, in **OpenOrienteering Mapper (OOM)** or **OCAD**.
 
-On request freemapper also writes the **print-ready map as a PDF** and a **training map with every candidate** (chapter 10).
+On request freemapper also writes the **print-ready map as a PDF**, a **check print** with every candidate and a **training map** that you print and run on as it is (chapter 10).
 
 ## 2. What you need
 
@@ -258,7 +258,7 @@ It does not work entirely without the command line, but two commands are enough.
    ./freemapper run kreuzgymnasium
    ```
 
-   `--ocad` also writes the OCAD file, `--pdf` the map as a PDF, `--pdf-candidates` the training map with candidates.
+   `--ocad` also writes the OCAD file, `--pdf` the map as a PDF, `--pdf-candidates` the check print with candidates, `--training` the training map.
 
 If you know the OSM object of the grounds, you can skip the browser:
 
@@ -343,7 +343,8 @@ screenshot shows the German page.*
    |---|---|
    | Write an OCAD starter project | `--ocad` |
    | Printable PDF | `--pdf` |
-   | Training PDF with every candidate | `--pdf-candidates` |
+   | Check print with every candidate | `--pdf-candidates` |
+   | Training map | `--training` |
    | Scale bar on the PDFs | `--pdf-scale-bar` |
    | Source lines on the PDFs: automatic, full, freemapper only | `--pdf-sources auto`, `full`, `credit-only` |
    | Permit notes | `--permits` (chapter 12) |
@@ -403,7 +404,7 @@ cancel it. After a crash the lock counts as abandoned after 60 seconds. If a run
 on, the new one does not start, because the projects share the cache.
 
 **Defaults** are set when the page starts: `freemapper select my-schoolyard --pdf --ocad` ticks the two
-options already. The switches are `--ocad`, `--pdf`, `--pdf-candidates`, `--pdf-scale-bar`,
+options already. The switches are `--ocad`, `--pdf`, `--pdf-candidates`, `--training`, `--pdf-scale-bar`,
 `--pdf-sources auto|full|credit-only` and `--offline`; the AI assistant can pass the same fields to
 `open_area_selector`. Only the AI assistant can preset "Permit notes" (`permits`); `select` has no switch for
 it. "Replace the existing map" has no default.
@@ -422,7 +423,8 @@ Among other files, the project folder then holds:
 | `templates/` | the templates: orthophoto, hillshade, slope, local relief, nDSM and the candidates map, in Berlin also the K5 (chapter 13) |
 | `ocad/` | with `--ocad`: the OCAD map and its templates |
 | `<name>.pdf` | with `--pdf`: the print-ready map without candidates |
-| `<name>-candidates.pdf` | with `--pdf-candidates`: the training map with every candidate |
+| `<name>-candidates.pdf` | with `--pdf-candidates`: the check print, the map with every candidate |
+| `<name>-training.omap`, `<name>-training.pdf` | with `--training`: the training map (chapter 10), with `--ocad` also `ocad/<name>-training.ocd` |
 | `<name>-preview.webp` | an image of the map objects (no candidates, no sheet), written together with the `.omap`; the area page shows it |
 | `ATTRIBUTION.txt` | the attribution of the data sources |
 | `freemapper.toml` | the project's settings and data currency |
@@ -455,12 +457,12 @@ the cadastre become uncrossable bodies of water: a blue area (301.1) with a blac
 cadastre often splits a river into many separate areas. freemapper dissolves them into one, so no lines
 run across the water. Where the water reaches beyond the map area and buffer, it gets no bank line on
 that edge; islands keep theirs. Water with a mean width under 2 m goes into the candidates only. The
-contours stop at the shore of this water, in the candidates and on the training map.
+contours stop at the shore of this water, in the candidates, on the check print and on the training map.
 
 OSM adds more candidates:
 
 - Ponds, basins, outdoor swimming pools and fountain basins as areas (301). If at least half of such an
-  area lies in water from the cadastre, freemapper leaves it out.
+  area lies in water from the cadastre, freemapper leaves it out, also a lake with islands.
 - Streams and drains (`drain`) as lines: 305 if they carry water all year, otherwise 306. Ditches
   (`ditch`) are always 306. Culverted sections are left out.
 - Fountains and wells (311) and springs (312) as points, and on schoolyard maps also drinking fountains
@@ -523,16 +525,17 @@ Sea that is not in the cadastre stays white. freemapper does not read the OSM co
   (526) among the candidates. Stolpersteine, plaques and memorials that are a bench, a tree or a mural are left
   out, because 526 is for objects that are obvious on the ground (ISSprOM 526). Where the cadastre also knows the
   monument, you see two points; keep one.
-- Passages (522) that no runner can reach are hidden. A passage that touches only buildings, areas that shall
-  not be entered or water, or joins two walled-in courtyards, is not drawn in the training map, but stays in
-  the candidates with the tag `freemapper:hidden=unreachable`. Look at it if you know that the courtyard has a
+- Passages (522) that no runner can reach are hidden. A passage that touches only buildings, areas that shall not be
+  entered or water, or joins two walled-in courtyards, is not drawn on the check print or the training map, but stays
+  in the candidates with the tag `freemapper:hidden=unreachable`. Look at it if you know that the courtyard has a
   gate. A candidate point (memorial, lamp, bin) that lies inside a building footprint is dropped.
 - Duplicates. When two sources give the same object, freemapper keeps one: the register before ALKIS, ALKIS
   before the Berlin street survey, the survey before OSM. For areas it measures how much of the weaker one lies
   under the stronger ones of the same symbol, widened by 0.25 mm on paper (1 m at 1:4000). A passage (522) or a
   canopy goes when half of it is covered, a private strip (520) inside an ALKIS area that shall not be entered
   when 80 % is, an OSM bridge over a Berlin bridge deck at half. An OSM memorial within 5 m of a cadastre
-  monument and OSM kerbs along surveyed ones go too. The object that stays names the dropped one in
+  monument, OSM kerbs along surveyed ones and an OSM stair that lies with at least half its length on a stair of
+  the cadastre or the survey go too. The object that stays names the dropped one in
   `freemapper:also` (e.g. `osm/way/123`). An OSM strip that is much larger than the cadastre polygon it covers
   stays, because it adds extent.
 
@@ -552,7 +555,7 @@ quickly. The scale is 1:15 000 (default), 1:10 000 or 1:7500. At 1:10 000 freema
 
 ```sh
 freemapper init dammheide --osm relation/4513841 --kind forest --scale 10000
-freemapper run dammheide --pdf-candidates
+freemapper run dammheide --training
 ```
 
 - **Paths** come from OSM and go straight onto the map: main roads as 502, other roads as 503, tracks of grade 1
@@ -585,20 +588,20 @@ freemapper run dammheide --pdf-candidates
   face each other (ISOM 2017-2; enlarged like the symbols). Where only its line has room it is drawn as the top line
   201.3, two cliffs back to back closer than that become one rock fin 206, and elsewhere a cliff is cut. The cliffs
   are smoothed, so that the zigzag of the OSM lines goes. What goes is in the candidates map, tagged
-  `freemapper:generalized` with the reason; the training PDF leaves it out. The contours stop below the cliffs drawn
-  and run on elsewhere; knolls and depressions of the terrain on the rock are hidden. For the heights a forest map
-  in a state whose terrain model comes in tiles keeps it as `data/terrain.tif`. A cliff the orthophoto shows as rock
-  is kept first (`freemapper:rock-seen`); one it does not show loses nothing, since most faces are vertical or under
-  trees. The training PDF generalizes the rock more than the map: cliffs of 5 m, no top lines, longer pieces; the
-  candidates keep every OSM cliff. Sprint maps generalize their cliffs the same way, with the values of the ISSprOM
-  2019-2 (cliffs from 1.5 m, at least 0.9 mm long; in the training PDF from 3 m; ADR 0134).
+  `freemapper:generalized` with the reason; the check print and the training map leave it out. The contours stop below
+  the cliffs drawn and run on elsewhere; knolls and depressions of the terrain on the rock are hidden. For the heights
+  a forest map in a state whose terrain model comes in tiles keeps it as `data/terrain.tif`. A cliff the orthophoto
+  shows as rock is kept first (`freemapper:rock-seen`); one it does not show loses nothing, since most faces are
+  vertical or under trees. The training map generalizes the rock more than the map: cliffs of 5 m, no top lines,
+  longer pieces; the candidates keep every OSM cliff. Sprint maps generalize their cliffs the same way, with the
+  values of the ISSprOM 2019-2 (cliffs from 1.5 m, at least 0.9 mm long; on the training map from 3 m; ADR 0134).
 - Buildings, water, walls, fences, power lines, railways and out-of-bounds areas (520) come as on the sprint map.
   Benches, bollards, street lamps and other street furniture, trees from tree cadastres and single OSM trees are
   left out. Only a tree tagged `denotation=natural_monument`
   becomes candidate 417.
 
-For a quick training the candidates PDF (`--pdf-candidates`) is enough: it shows the map and the candidates at the
-chosen scale. For mapping you take the `.omap`, as for the other map kinds.
+For a quick training take the training map (`--training`, chapter 10). For mapping you take the `.omap`, as for the
+other map kinds.
 
 ## 8. What the templates show
 
@@ -685,7 +688,7 @@ stays a candidate and appears only in the template. You set how this is divided 
 |---|---|
 | `safe` | Every object stays where the build puts it: buildings, ALKIS areas (traffic, water, parks) and OSM paths with a known surface go onto the map. Walls, fences, trees, OSM ponds, paths without a known surface and everything else uncertain stay candidates. |
 | `balanced` (default) | The objects of the cadastre, the registers and the street survey go onto the map: streets and squares with kerbs and green strips. Stairs, walls, fences, hedges, water, trees, tree groups, paths, railways, banks, passages, monuments, towers and above-ground pipelines also come from OpenStreetMap, which is often the only source there. The contours go onto the map too. The areas that shall not be entered along railway tracks go onto the map (and the points in them go); other such areas, which rest on a guess, street furniture and lamps, OSM parks, and the knolls, depressions, banks and cliffs from the terrain model stay candidates. For pipelines (528, 529) the norm requires the symbol to be explained in the legend; writing it is the mapper's job. |
-| `full` | Everything goes onto the map, as in the training map. |
+| `full` | Everything goes onto the map, as on the check print. |
 
 Single groups can differ: `walls`, `fences`, `hedges`, `slopes`, `stairs`, `trees`, `water-features`,
 `monuments`, `furniture`, `passages`, `contours`, `landforms`, `vegetation`, `out-of-bounds`, `paths`, `streets`,
@@ -811,34 +814,40 @@ freemapper saves you drawing the base, not the walk through the terrain. Check a
   symbol covers the line. In Park Sanssouci the OSM retaining walls of the terraces give way to the ALKIS
   walls this way. Check on site which walls a runner can jump down (513.2), and move a real fence next to a
   wall aside instead of leaving it out.
-- **Hidden points in out-of-bounds areas:** ISSprOM allows no feature in an out-of-bounds area (520) except
-  very prominent ones. A point candidate inside a 520 candidate stays in the candidates, tagged
-  `freemapper:hidden=520`, but the training map leaves it out. On schoolyard maps this hides every point off
-  the school grounds. If the area is not out of bounds after all, or a very large tree stands in it, take the
-  point over from the candidates.
+- **Hidden points in out-of-bounds areas:** ISSprOM allows no feature in an out-of-bounds area (520) except very
+  prominent ones. A point candidate inside a 520 candidate stays in the candidates, tagged `freemapper:hidden=520`,
+  but the check print and the training map leave it out. On schoolyard maps this hides every point off the school
+  grounds. If the area is not out of bounds after all, or a very large tree stands in it, take the point over from the
+  candidates.
 - **Furniture and playground equipment:** it comes from OSM, in Berlin on schoolyard maps also from the
   street survey and the lighting cadastre. It is often incomplete.
 - **Contours:** small banks and steps show better in the hillshade, slope or local relief; the knoll and
-  bank candidates point to them.
+  bank candidates point to them. The contours run through buildings, ways and paved areas, as ISSprOM 2019-2 (101)
+  asks. They are broken only at stairs, at the small landform symbols (105, 109 to 112, 115; on forest maps not at
+  the earth wall 105), below cliffs drawn and in water from the cadastre (ADR 0140).
+- **Fence ticks:** a closed fence has them inside, as the norm wants. Otherwise they point to the olive green area
+  beside the fence, away from a way along the fence, and to the park. With the same area on both sides freemapper
+  takes the side where the ticks overdraw nothing.
 
 ## 10. Map as PDF
 
-Two switches write a print-ready PDF in A4 or A3, a third adds the scale bar:
+Three switches write a print-ready map in A4 or A3, two more set the scale bar and the source lines:
 
 | Switch | File | Content |
 |---|---|---|
 | `--pdf` (or "with a PDF" to the assistant) | `<name>.pdf` | the map: exactly the objects of the OOM file, so no candidates |
-| `--pdf-candidates` | `<name>-candidates.pdf` | the training map: the map plus every candidate |
+| `--pdf-candidates` | `<name>-candidates.pdf` | the check print: the map plus every candidate, true to position |
+| `--training` | `<name>-training.omap`, `<name>-training.pdf` | the training map: map and candidates, cleaned up for printing and running |
 | `--pdf-scale-bar` | | draws the scale bar on the PDFs |
 | `--pdf-sources auto\|full\|credit-only` | | chooses the source lines on the PDFs (default `auto`) |
 
-You can combine both PDF switches; the two files then sit side by side in the project folder. `export` and `run`
-take all four, the MCP server as `pdf`, `pdf_candidates`, `pdf_scale_bar` and `pdf_sources`. freemapper does not store the choice
-in the project: it applies to that call.
+You can combine the switches; the files then sit side by side in the project folder. `export` and `run` take all
+five, the MCP server as `pdf`, `pdf_candidates`, `training`, `pdf_scale_bar` and `pdf_sources`. freemapper does not
+store the choice in the project: it applies to that call.
 
-[![Training map as PDF](images/training-map-thumb.webp)](images/training-map.jpg)
+[![Check print as PDF](images/training-map-thumb.webp)](images/training-map.jpg)
 
-*The training map of the Kreuzgymnasium. Quelle: GeoSN, dl-de/by-2-0, Daten geändert; © OpenStreetMap
+*The check print of the Kreuzgymnasium. Quelle: GeoSN, dl-de/by-2-0, Daten geändert; © OpenStreetMap
 contributors.*
 
 The map PDF holds only what the OOM map holds: buildings, areas, water, the walkable area on sprint maps and the
@@ -857,16 +866,74 @@ freemapper line. Legally, ODbL and `dl-de/by-2-0` require naming the source when
 in every mode and cannot be switched off. `ATTRIBUTION.txt` in the project folder and the OOM and OCAD maps always
 list every source.
 
-In the training map every candidate becomes a map object, also the uncertain ones. Only points inside an
-out-of-bounds candidate and unreachable passages are left out (chapter 9). The training map is good for a quick
-training session. Still check it in the terrain first.
-
-> Note on the change: up to version 0.8.0, `--pdf` wrote the training map with candidates and a scale bar.
-> That is now `--pdf-candidates --pdf-scale-bar`.
-
 The colours are CMYK values after the IOF Printing and Colour Definitions Rev. 4 (valid from 1 December
 2024), the same as in the OOM and OCAD files. If your printer prints brown or green clearly differently,
 compare with the IOF Print Test Sheet and adjust the colours.
+
+### The check print
+
+On the check print every candidate becomes a map object, also the uncertain ones. Only points inside an
+out-of-bounds candidate, unreachable passages and the cliffs the generalization took away are left out (chapters 7
+and 9). Every object lies where its source has it, even where symbols cover each other. Take it into the terrain to
+check the map and the candidates. Up to version 0.21.0 it was called the training map.
+
+> Note on the change: up to version 0.8.0, `--pdf` wrote the map with candidates and a scale bar.
+> That is now `--pdf-candidates --pdf-scale-bar`.
+
+### The training map
+
+The training map is a map of its own next to the base map (`<name>.omap`). You print it and run on it as it is.
+For that freemapper takes the objects of the map and every visible candidate together and cleans them up so that no
+symbol lies on another and the gaps of the norm are kept. The base map stays as it is: with the candidates it is the
+material for mapping, true to position and complete.
+
+```sh
+freemapper run kreuzgymnasium --training
+freemapper export kreuzgymnasium --training --ocad
+```
+
+This writes `<name>-training.omap` and `<name>-training.pdf`, with `--ocad` also `ocad/<name>-training.ocd`. The OOM
+file links the same raster templates as the map, but no candidates. On the area page the option is called "Training
+map", for the AI assistant `training`. Scale bar and source lines work as for the other PDFs.
+
+An existing training map stays, because you may have edited it. `run --training` then says "Kept the training map …
+(it may contain your work); --force replaces it" and goes on; `export --training` stops with a message. `--force`
+writes it again; the old one stays as `<name>-training.omap.bak`.
+
+What the training map does differently from the map, step by step:
+
+1. Lines that meet end to end become one line: ways, railways, watercourses, banks, fences, walls and contours. The
+   dash pattern then runs through.
+2. Street furniture (531, such as lamps, waste baskets and bicycle stands) on streets and squares goes; in a park it
+   stays.
+3. Open land of a park is yellow only where the nDSM shows no trees; the rest stays white forest. freemapper reads the
+   tree cover `data/tree-cover.tif` for this, which `derive` writes: everything from 3 m up, mostly trees, but also
+   pavilions. Without an nDSM the park stays as it is.
+4. Inside olive green areas (520) only buildings, canopies, water, railways and contours stay. A way, a stair too,
+   stays in full when it leads through: when it reaches the edge at two places that no wall and no fence bars. Of
+   every other way a beginning of 1 mm stays at each open place, so that a runner is not surprised by a path
+   branching off. Where a fence or wall stands there, the map shows only that. A passage stays only where a way that
+   stays runs through it. What lies on the edge, such as the fence round the garden or the road beside it, stays.
+5. A tree that comes too close to a way, a building, water, a fence or another tree moves to the nearest free spot,
+   at most 1.5 mm on paper (6 m at 1:4000, 15 m at 1:10 000). It then carries `freemapper:moved`. If it finds no
+   spot, it goes. Trees on streets and squares stay where they are.
+6. Where two symbols cover each other or come closer than the norm's gap (0.15 mm between two lines, enlarged like
+   the symbols), the one with the lower rank gives way. The rank falls from buildings through water, railways,
+   roads, paths, watercourses and stairs, fences, walls and cliffs, banks and contours down to the points. The
+   stretch is cut out, crossings stay. If more than half of an object is in conflict, it goes whole. Contours run
+   through buildings and ways and give way only to banks and cliffs.
+7. What is below the norm's minimum size goes: short pieces of line, stairs under three steps (1 mm) and small areas
+   of open land, forest and green. A short piece that ends on a line of its kind stays.
+
+On forest and sprint maps the training map also generalizes the cliffs more than the map (chapter 7).
+
+Carriageways, tracks and paths running side by side still stand side by side in this version, and the kerb lines
+stay. Merging them onto a middle line, shifting lines and a colour of its own for the carriageway come later. If
+objects still keep too little gap after all steps, a warning gives the length in mm; look at those places in OOM.
+
+Do not map on the training map. What it moves or leaves out is in the base map and the candidates,
+true to position. Correct it there and write the training map again with `--force`. Its uncertain objects come from
+the candidates; check the course in the terrain before an event, best with the check print.
 
 ## 11. OCAD
 
@@ -1463,10 +1530,12 @@ allowed hosts per state, and `freemapper adapters disallow-host hessen new-serve
   It only updates the templates and candidates. If buildings or canopies are missing from the map,
   freemapper tells you.
 - **Write it again:** `--force` replaces the map. The old one is kept as `.omap.bak`.
+- **Training map:** it too stays as it is on another `run --training`. After changes to the map or the candidates,
+  `run --training --force` writes it again; that replaces the map as well (chapter 10).
 - **Water in an older map:** a map made before this version has no water yet. Running `run` again does
   not add it. Only `run --force` writes the map again, with water, as for all other map objects. The old
   map is kept as `.omap.bak`, the OCAD map as `.ocd.bak`. Every `run` renews the candidates and the
-  training map (`--pdf-candidates`). So the training map shows the water without `--force`, and the candidates show
+  check print (`--pdf-candidates`). So the check print shows the water without `--force`, and the candidates show
   the water from OSM and the narrow water from the cadastre.
 - **Change the area:** run `select` on the existing folder, then `run` again.
 - **Without internet:** `--offline` works with the data downloaded before.

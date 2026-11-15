@@ -18,7 +18,8 @@ in OOM oder OCAD.
   - immer eine OOM-Karte (`.omap`);
   - mit `--ocad` zusätzlich eine OCAD-Karte (`.ocd`, OCAD 12 und neuer), siehe
     [Ausgangsstand für OCAD](#ausgangsstand-für-ocad);
-  - mit `--pdf` die druckfertige Karte als PDF, mit `--pdf-candidates` zusätzlich die Trainingskarte mit allen Kandidaten, siehe
+  - mit `--pdf` die druckfertige Karte als PDF, mit `--pdf-candidates` den Prüfausdruck mit allen Kandidaten, mit
+    `--training` die Trainingskarte, die man druckt und läuft, wie sie ist (OOM-Karte und PDF), siehe
     [Karte als PDF](#karte-als-pdf).
 - Läuft als ein einzelnes Programm unter Linux, macOS und Windows, ohne GIS-Installation.
 - Bedienung per Kommandozeile, über eine Seite im Browser, auf der man das Kartengebiet wählt und die Karte
@@ -58,7 +59,7 @@ Schulhof- und Sprintkarten für fünfzehn Bundesländer: Brandenburg, Berlin, Sa
 Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern, Nordrhein-Westfalen, Niedersachsen,
 Rheinland-Pfalz, Saarland, Baden-Württemberg, Bremen und Bayern. Gewässer stehen auf allen Karten, die Farben folgen den IOF-Druckvorgaben von 2024.
 Auf Wunsch erzeugt freemapper dazu einen Ausgangsstand für OCAD (`--ocad`) und eine
-PDF-Karte (`--pdf`, mit Kandidaten `--pdf-candidates`). Vor dem Laden prüft
+PDF-Karte (`--pdf`, mit Kandidaten `--pdf-candidates`) und eine Trainingskarte (`--training`). Vor dem Laden prüft
 freemapper den freien Speicherplatz. Berliner Karten bekommen aus weiteren Daten des Geoportals Berlin
 Überdachungen, Treppen, Mauern, Zäune, Hecken, Bäume und die Karte 1:5000 als Vorlage. Außerdem
 nutzen sie die Straßenbefahrung 2014 bis 2016: Die vermessenen
@@ -122,7 +123,7 @@ freemapper select mein-schulhof --kind schoolyard
 Auf der Seite sucht man einen Ort oder zeichnet ein Rechteck oder Polygon. Der Hintergrund ist
 OpenStreetMap oder das Luftbild des Bundeslandes. Die Seite zeigt die Größe mit Puffer und den
 geschätzten Download. „Speichern“ legt das Projekt an. Darunter erzeugt „Karte erzeugen“ die Karte mit den
-Optionen OCAD, PDF, Trainings-PDF, Maßstabsleiste, Quellenangabe und „nur Zwischenspeicher“, zeigt den
+Optionen OCAD, PDF, Prüfausdruck, Trainingskarte, Maßstabsleiste, Quellenangabe und „nur Zwischenspeicher“, zeigt den
 Fortschritt, lässt sich abbrechen und öffnet am Ende den Ordner. Ein Terminal braucht man dafür nicht. Die
 Seite läuft nur auf diesem Rechner (127.0.0.1). Mehr im
 [Handbuch, Kapitel 6](docs/manual/de.md#karte-im-browser-erzeugen).
@@ -313,7 +314,8 @@ OSM-Auszüge; Luftbild und Gelände kommen aus dem Bundesland, in dem die Mitte 
 
 ```sh
 freemapper export clara-zetkin-schule --pdf                    # oder: freemapper run clara-zetkin-schule --pdf
-freemapper export clara-zetkin-schule --pdf-candidates         # Trainingskarte mit allen Kandidaten
+freemapper export clara-zetkin-schule --pdf-candidates         # Prüfausdruck mit allen Kandidaten
+freemapper export clara-zetkin-schule --training               # Trainingskarte, OOM-Karte und PDF
 ```
 
 `--pdf` schreibt `<name>.pdf`: die druckfertige Karte (A4 oder A3, CMYK) mit genau den Objekten der OOM-Karte, also
@@ -325,10 +327,17 @@ Die Maßstabsleiste fehlt standardmäßig (deutsche OL-Karten haben meist keine)
 Maßstabszahl steht immer im Titelblock. `--pdf-sources` wählt die Quellenzeilen: `auto` (Standard) kürzt eine lange
 Liste, `full` kürzt nie, `credit-only` druckt nur die freemapper-Zeile; die freemapper-Zeile steht immer da.
 
-`--pdf-candidates` schreibt `<name>-candidates.pdf`, die Trainingskarte: Hier werden **alle Kandidaten zu
+`--pdf-candidates` schreibt `<name>-candidates.pdf`, den Prüfausdruck: Hier werden **alle Kandidaten zu
 Kartenobjekten**: Möblierung, Barrieren, Wege ohne Oberflächenangabe, Höhenlinien, Sperrgebiete und ALKIS-Wege.
-Punkte in Sperrgebiet-Kandidaten fehlen. Weil auch unsichere Daten eingezeichnet sind, ist diese Karte vor dem Training
-im Gelände zu prüfen. Mit beiden Schaltern entstehen beide Dateien nebeneinander.
+Punkte in Sperrgebiet-Kandidaten fehlen. Alles liegt dort, wo die Quelle es hat, auch wenn sich Symbole überdecken; der
+Ausdruck ist zum Prüfen im Gelände. Mit beiden Schaltern entstehen beide Dateien nebeneinander.
+
+`--training` schreibt die Trainingskarte `<name>-training.omap` und `<name>-training.pdf` (mit `--ocad` auch
+`ocad/<name>-training.ocd`). Sie nimmt Karte und Kandidaten zusammen und räumt sie so auf, dass man sie unverändert
+drucken und laufen kann: Linien werden verbunden, wo zwei Symbole sich zu nah kommen, weicht das schwächere, zu Kleines
+entfällt, in olivgrünen Flächen bleiben nur Gebäude, Gewässer, Höhenlinien und Wege, die hindurchführen, und Bäume rücken
+von Wegen ab. Fahrbahnen und Wege, die nebeneinander laufen, stehen dort noch nebeneinander. Gezeichnet und geprüft wird
+weiter in der Karte und den Kandidaten ([Handbuch, Kapitel 10](docs/manual/de.md#die-trainingskarte)).
 
 Was direkt auf die Karte kommt und was Kandidat bleibt, stellt `--content` ein: `safe` lässt es bei den Gebäuden, den ALKIS-Flächen
 (Verkehr, Gewässer, Parks) und den Wegen mit bekannter Oberfläche, `balanced` (Standard) legt zusätzlich Straßen mit Bordsteinen und Treppen aus ALKIS, den Registern und der
@@ -394,7 +403,7 @@ Ablauf, wie der Agent ihn geht:
    wählbar.
 3. `estimate_download` – sagt, wie viel geladen werden muss (beim ersten Mal etwa 300 MB OSM-Auszug).
 4. `start_pipeline` – startet Laden, Berechnen und Schreiben im Hintergrund und gibt eine Job-ID zurück
-   (mit `ocad: true` auch den OCAD-Ausgangsstand, mit `pdf: true` das PDF der Karte, mit `pdf_candidates: true` das PDF mit Kandidaten).
+   (mit `ocad: true` auch den OCAD-Ausgangsstand, mit `pdf: true` das PDF der Karte, mit `pdf_candidates: true` das PDF mit Kandidaten, mit `training: true` die Trainingskarte).
 5. `project_status` – fragt den Fortschritt ab, bis der Job fertig oder fehlgeschlagen ist.
 6. `list_layers` und `preview_layer` – zeigen die Ebenen und Vorschaubilder (PNG) der Karte und der Vorlagen.
 
