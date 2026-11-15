@@ -140,6 +140,7 @@ pub fn train(
     report.points_moved = move_points(&mut objects, &classes, kind, georef, symbol_set);
     (report.gave_way, report.cut) = give_way(&mut objects, &classes, kind, georef, symbol_set);
     report.too_small = drop_too_small(&mut objects, &classes, kind, georef, symbol_set);
+    report.joined += join_ways(&mut objects, &classes, georef);
     (report.overlap_left, report.gap_left, report.apart_left) =
         left(&objects, kind, georef, symbol_set);
     (objects, report)
@@ -548,13 +549,19 @@ fn continues_class(class: Class) -> Class {
     }
 }
 
+/// The `freemapper:generalized` value of a stair below its minimum drawn as the way it lies in.
+const STAIR_AS_PATH: &str = "stair below the minimum drawn as path";
+
 /// Step 7: a line shorter than its minimum length goes unless an end continues (within
 /// [`TOUCH_M`]) on another line that stays: of the network (roads, paths, railways and
 /// stairways count as one) for a way, of its own class for any other line. A short line that
 /// continues on a short line stays only when that one stays, so a chain of short pieces holds
 /// when one of its ends meets a line long enough, and two short pieces do not keep each other.
-/// An area of [`MIN_AREA_CODES`] below its minimum area goes. Comparisons are tolerant by
-/// [`TOLERANCE_MM`]. Returns how many went.
+/// A stairway below its minimum stays only when both ends continue on a road or path that
+/// stays; it is then drawn with the symbol of the longest of them, its geometry and tags kept
+/// and `freemapper:generalized` added. A short stairway that does not goes, and what continued
+/// only on it is judged again without it. An area of [`MIN_AREA_CODES`] below its minimum area
+/// goes. Comparisons are tolerant by [`TOLERANCE_MM`]. Returns how many went.
 fn drop_too_small(
     objects: &mut Vec<MapObject>,
     classes: &Classes,
@@ -568,55 +575,97 @@ fn drop_too_small(
     let is_line = |o: &MapObject| {
         matches!(o.kind, MapObjectKind::Path) && o.coords.len() >= 2 && classes.is_line(o.symbol_id)
     };
+    let drawn = |o: &MapObject| -> f64 { parts(&o.coords).iter().map(|p| length(&p.points)).sum() };
     let short: Vec<bool> = objects
         .iter()
         .map(|o| {
-            is_line(o) && {
-                let drawn: f64 = parts(&o.coords).iter().map(|p| length(&p.points)).sum();
-                drawn < min_length(o, classes, symbol_set, scale).0 - TOLERANCE_MM
-            }
+            is_line(o) && drawn(o) < min_length(o, classes, symbol_set, scale).0 - TOLERANCE_MM
         })
         .collect();
     let touch =
         TOUCH_M * map_units_per_metre(scale_denominator) + PaperMm(TOLERANCE_MM).map_units();
-    // The lines an end of each short open line touches.
-    let touched: Vec<Vec<usize>> = (0..objects.len())
+    // The lines each end of each short open line touches.
+    let touched: Vec<[Vec<usize>; 2]> = (0..objects.len())
         .map(|i| {
             let object = &objects[i];
             if !short[i] || is_closed(object) {
-                return Vec::new();
+                return [Vec::new(), Vec::new()];
             }
             let class = continues_class(classes.class(object.symbol_id));
-            let ends = [object.coords[0], object.coords[object.coords.len() - 1]].map(|c| xy(&c));
-            (0..objects.len())
-                .filter(|&j| {
-                    let other = &objects[j];
-                    j != i
-                        && is_line(other)
-                        && continues_class(classes.class(other.symbol_id)) == class
-                        && other.coords.windows(2).any(|w| {
-                            ends.iter()
-                                .any(|&end| distance_to_segment(end, xy(&w[0]), xy(&w[1])) <= touch)
-                        })
-                })
-                .collect()
+            [object.coords[0], object.coords[object.coords.len() - 1]].map(|end| {
+                let end = xy(&end);
+                (0..objects.len())
+                    .filter(|&j| {
+                        let other = &objects[j];
+                        j != i
+                            && is_line(other)
+                            && continues_class(classes.class(other.symbol_id)) == class
+                            && other
+                                .coords
+                                .windows(2)
+                                .any(|w| distance_to_segment(end, xy(&w[0]), xy(&w[1])) <= touch)
+                    })
+                    .collect()
+            })
         })
         .collect();
-    // The short lines that stay: from the lines long enough along the short ones they touch,
-    // until none is added.
-    let mut stays: Vec<bool> = short.iter().map(|&s| !s).collect();
-    loop {
-        let mut added = false;
-        for i in 0..objects.len() {
-            if !stays[i] && touched[i].iter().any(|&j| stays[j]) {
-                stays[i] = true;
-                added = true;
+    let is_stair = |i: usize| classes.class(objects[i].symbol_id) == Class::Stairway;
+    let is_way = |j: usize| {
+        matches!(
+            classes.class(objects[j].symbol_id),
+            Class::Road | Class::Path
+        )
+    };
+    // The short stairways that go: found round by round, each round on what stays without them.
+    let mut gone = vec![false; objects.len()];
+    let stays = loop {
+        // The short lines that stay: from the lines long enough along the short ones they touch,
+        // until none is added.
+        let mut stays: Vec<bool> = short.iter().map(|&s| !s).collect();
+        loop {
+            let mut added = false;
+            for i in 0..objects.len() {
+                if !stays[i] && !gone[i] && touched[i].iter().flatten().any(|&j| stays[j]) {
+                    stays[i] = true;
+                    added = true;
+                }
+            }
+            if !added {
+                break;
             }
         }
-        if !added {
-            break;
+        let mut more = false;
+        for i in (0..objects.len()).filter(|&i| short[i] && stays[i] && is_stair(i)) {
+            let both = touched[i]
+                .iter()
+                .all(|end| end.iter().any(|&j| stays[j] && is_way(j)));
+            if !both {
+                gone[i] = true;
+                more = true;
+            }
         }
-    }
+        if !more {
+            break stays;
+        }
+    };
+    // A short stairway that stays takes the symbol of the longest way at its ends (of two as
+    // long, the earlier object).
+    let as_path: Vec<(usize, u32)> = (0..objects.len())
+        .filter(|&i| short[i] && stays[i] && is_stair(i))
+        .filter_map(|i| {
+            let way = touched[i]
+                .iter()
+                .flatten()
+                .copied()
+                .filter(|&j| stays[j] && is_way(j))
+                .max_by(|&a, &b| {
+                    drawn(&objects[a])
+                        .total_cmp(&drawn(&objects[b]))
+                        .then(b.cmp(&a))
+                })?;
+            Some((i, objects[way].symbol_id))
+        })
+        .collect();
     let tolerance_m = PaperMm(TOLERANCE_MM).metres(scale_denominator);
     let too_small: Vec<bool> = (0..objects.len())
         .map(|i| {
@@ -636,10 +685,45 @@ fn drop_too_small(
             area_m2 < side * side
         })
         .collect();
+    for (i, symbol_id) in as_path {
+        let object = &mut objects[i];
+        object.symbol_id = symbol_id;
+        add_generalized(object, STAIR_AS_PATH);
+    }
     let before = objects.len();
     let mut flags = too_small.into_iter();
     objects.retain(|_| !flags.next().unwrap_or(false));
     before - objects.len()
+}
+
+/// Adds `value` to the `freemapper:generalized` tag of `object`.
+fn add_generalized(object: &mut MapObject, value: &str) {
+    match object.tags.iter_mut().find(|(k, _)| k == GENERALIZED_KEY) {
+        Some((_, v)) => {
+            v.push_str("; ");
+            v.push_str(value);
+        }
+        None => object
+            .tags
+            .push((GENERALIZED_KEY.to_string(), value.to_string())),
+    }
+}
+
+/// Step 7, last: the ways (roads, paths, stairways) that meet end to end are joined again, so a
+/// stairway drawn as path joins the path it lies in. Returns how many objects went.
+fn join_ways(objects: &mut Vec<MapObject>, classes: &Classes, georef: &Georeferencing) -> usize {
+    let ids: Vec<u32> = [Class::Road, Class::Path, Class::Stairway]
+        .iter()
+        .flat_map(|&c| classes.ids(c))
+        .collect();
+    let mut joined = 0;
+    loop {
+        let n = join_lines(objects, &ids, &[], georef);
+        if n == 0 {
+            return joined;
+        }
+        joined += n;
+    }
 }
 
 /// Step 8: the conflict length left on `objects`, mm on paper: overlap and gap of the pairs of
@@ -992,8 +1076,38 @@ mod tests {
             line(&set, "505", &[(8.4, 0.0), (11.4, 0.0)]),
         ];
         let (out, report) = run(&set, objects.clone());
-        assert_eq!(out, objects);
-        assert_eq!(report, TrainingReport::default());
+        // Every piece stays; the steps, too short to draw, are drawn as the path they lie in,
+        // which then joins into one line.
+        assert_eq!(out.len(), 2, "{out:?}");
+        assert_eq!(out[0], objects[0]);
+        assert_eq!(of_code(&set, &out, "505").len(), 2, "{out:?}");
+        assert!((length_mm(&out[1]) - 11.4).abs() < 1e-9, "{out:?}");
+        assert_eq!((report.too_small, report.joined), (0, 4), "{report:?}");
+    }
+
+    #[test]
+    fn a_step_too_short_between_paths_becomes_path() {
+        let set = isom();
+        let objects = vec![
+            line(&set, "505", &[(0.0, 0.0), (10.0, 0.0)]),
+            line(&set, "532", &[(10.0, 0.0), (10.3, 0.0)]),
+            line(&set, "505", &[(10.3, 0.0), (20.0, 0.0)]),
+        ];
+        let (out, report) = run(&set, objects);
+        assert_eq!(out.len(), 1, "{out:?}");
+        assert_eq!(of_code(&set, &out, "505").len(), 1, "{out:?}");
+        assert!((length_mm(&out[0]) - 20.0).abs() < 1e-9, "{out:?}");
+        assert_eq!((report.too_small, report.joined), (0, 2), "{report:?}");
+    }
+
+    #[test]
+    fn a_short_stair_at_a_dead_end_goes() {
+        let set = isom();
+        let path = line(&set, "505", &[(0.0, 0.0), (10.0, 0.0)]);
+        let objects = vec![path.clone(), line(&set, "532", &[(10.0, 0.0), (10.3, 0.0)])];
+        let (out, report) = run(&set, objects);
+        assert_eq!(out, vec![path]);
+        assert_eq!(report.too_small, 1, "{report:?}");
     }
 
     #[test]

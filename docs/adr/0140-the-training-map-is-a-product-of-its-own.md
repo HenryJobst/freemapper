@@ -96,7 +96,9 @@ Comparisons are tolerant by 2 map units and use no `hypot`, so every system deci
    mm ("Minimum length: 3 (graphical) steps" in both norms, steps 0.5 mm apart in both sets); a line that ends on
    a line that stays, stays too: for roads, paths, railways and stairways any of these, for other lines one of their
    class; a chain of short pieces stays when one end meets a line long enough, two short pieces do not keep each
-   other. Areas: 401 0.5 mm² (ISSprOM) or 0.55 mm × 0.55 mm (ISOM), 402 6.25 mm², 403 1 mm², 405
+   other. A stairway below its minimum with a staying road or path at both ends is drawn with the symbol of the
+   longer of them (`freemapper:generalized=stair below the minimum drawn as path`) and joined into it; with one at
+   one end only, or none, it goes. Areas: 401 0.5 mm² (ISSprOM) or 0.55 mm × 0.55 mm (ISOM), 402 6.25 mm², 403 1 mm², 405
    1.0 mm², 406 to 410 1.5 mm × 1.5 mm.
 
 Joined pairs side by side are counted, not settled.

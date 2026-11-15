@@ -965,7 +965,9 @@ Was die Trainingskarte anders macht als die Karte, Schritt für Schritt:
 7. Was unter der Mindestgröße der Norm liegt, entfällt: kurze Linienstücke, Treppen unter drei Stufen (1 mm) und
    kleine Flächen von offenem Gelände, Wald und Grün. Ein kurzes Stück, das an einer Linie seiner Art endet, die
    bleibt, bleibt auch; bei Wegen, Treppen und Gleisen zählt jeder Weg, so bleibt ein von Stufen zerteilter Pfad,
-   wenn ein Ende auf einen längeren Weg trifft. Zwei kurze Stücke halten einander nicht.
+   wenn ein Ende auf einen längeren Weg trifft. Zwei kurze Stücke halten einander nicht. Eine Treppe, die zu kurz
+   zum Zeichnen ist, wird zwischen zwei Wegen als Weg gezeichnet (sie trägt `freemapper:generalized`); an einem
+   Wegende entfällt sie.
 
 Auf Wald- und Sprintkarten generalisiert die Trainingskarte außerdem die Felswände stärker als die Karte
 (Kapitel 7).

@@ -928,7 +928,8 @@ What the training map does differently from the map, step by step:
 7. What is below the norm's minimum size goes: short pieces of line, stairs under three steps (1 mm) and small areas
    of open land, forest and green. A short piece that ends on a line of its kind that stays, stays too; for ways,
    stairs and railways every way counts, so a path cut into pieces by steps stays when one end meets a longer
-   way. Two short pieces do not keep each other.
+   way. Two short pieces do not keep each other. A stair too short to draw between two ways is drawn as the way
+   (it carries `freemapper:generalized`); one at a dead end goes.
 
 On forest and sprint maps the training map also generalizes the cliffs more than the map (chapter 7).
 
