@@ -18,7 +18,8 @@ use crate::berlin_permits::geometry;
 use crate::fetch::{FetchError, Fetcher, get_limited_with_retries};
 use crate::wfs_permits::text;
 
-const BASE: &str = "https://geoportal.bafg.de/arcgis1/rest/services/INSPIRE/AM/MapServer";
+/// The service, which the adapters of the seven states name as a host.
+pub const BASE: &str = "https://geoportal.bafg.de/arcgis1/rest/services/INSPIRE/AM/MapServer";
 
 /// The credit the catalogue entry asks for, with the year of the fetch.
 const CREDIT: &str = "© WasserBLIcK/BfG und Zuständige Behörden der Länder, {year}; Lizenz: Creative Commons Namensnennung – 4.0 International (CC BY 4.0)";
@@ -41,12 +42,13 @@ pub fn source() -> Box<dyn PermitSource> {
         info: PermitSourceInfo {
             key: "bfg",
             label: Wording {
-                en: "BfG (WasserBLIcK)",
-                de: "BfG (WasserBLIcK)",
+                en: "Bundesanstalt für Gewässerkunde",
+                de: "Bundesanstalt für Gewässerkunde",
             },
             what: Wording {
-                en: "drinking water and medicinal spring protection areas, without their zones",
-                de: "Trinkwasser- und Heilquellenschutzgebiete, ohne Schutzzonen",
+                en: "drinking water and medicinal spring protection areas from WasserBLIcK, \
+                     without their zones",
+                de: "Trinkwasser- und Heilquellenschutzgebiete aus WasserBLIcK, ohne Schutzzonen",
             },
             credit: CREDIT,
             note: Some(NOTE),

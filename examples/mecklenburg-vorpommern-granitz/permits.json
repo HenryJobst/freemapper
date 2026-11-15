@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "created": "2026-11-14",
+  "created": "2026-11-15",
   "map_kind": "forest",
   "area_m2": 1081661.4116251825,
   "admin": [
@@ -142,6 +142,20 @@
       "args": {}
     },
     {
+      "key": "permits-hint-water-protection",
+      "args": {
+        "inner": "unknown",
+        "name": "Binz"
+      }
+    },
+    {
+      "key": "permits-hint-water-protection",
+      "args": {
+        "inner": "unknown",
+        "name": "Sellin"
+      }
+    },
+    {
       "key": "permits-hint-forest-owner",
       "args": {
         "office": "unknown"
@@ -169,14 +183,14 @@
     {
       "id": "vg250",
       "state": "read",
-      "fetched": "2026-11-14",
+      "fetched": "2026-11-15",
       "reason": null,
       "credit": "© BKG (2026) dl-de/by-2-0, Datenquellen: https://sg.geodatenzentrum.de/web_public/gdz/datenquellen/datenquellen_vg_nuts.pdf"
     },
     {
       "id": "bfn",
       "state": "read",
-      "fetched": "2026-11-14",
+      "fetched": "2026-11-15",
       "reason": null,
       "credit": "© Bundesamt für Naturschutz (BfN) (2026), Schutzgebiete in Deutschland; Nutzungsbestimmungen für die Bereitstellung von Geodaten des Bundes (GeoNutzV). Nicht für Planungszwecke geeignet."
     },
@@ -186,6 +200,58 @@
       "fetched": "2026-11-07",
       "reason": null,
       "credit": "© OpenStreetMap contributors, ODbL"
+    }
+  ],
+  "regional": [
+    {
+      "adapter": "mecklenburgvorpommern",
+      "water_protection": [
+        {
+          "item": {
+            "name": "Binz",
+            "zone": null,
+            "citation": null
+          },
+          "percent": 25.6,
+          "at_edge": false
+        },
+        {
+          "item": {
+            "name": "Sellin",
+            "zone": null,
+            "citation": null
+          },
+          "percent": 25.0,
+          "at_edge": false
+        }
+      ],
+      "sources": [
+        {
+          "source": {
+            "key": "bfg",
+            "label": {
+              "en": "Bundesanstalt für Gewässerkunde",
+              "de": "Bundesanstalt für Gewässerkunde"
+            },
+            "what": {
+              "en": "drinking water and medicinal spring protection areas from WasserBLIcK, without their zones",
+              "de": "Trinkwasser- und Heilquellenschutzgebiete aus WasserBLIcK, ohne Schutzzonen"
+            },
+            "credit": "© WasserBLIcK/BfG und Zuständige Behörden der Länder, {year}; Lizenz: Creative Commons Namensnennung – 4.0 International (CC BY 4.0)",
+            "note": "Die bundesweite Flächendeckung des Datenbestandes ist nicht in jedem Fall gewährleistet.",
+            "sections": [
+              "water-protection"
+            ]
+          },
+          "status": {
+            "id": "bfg",
+            "state": "read",
+            "fetched": "2026-11-15",
+            "reason": null,
+            "credit": "© WasserBLIcK/BfG und Zuständige Behörden der Länder, 2026; Lizenz: Creative Commons Namensnennung – 4.0 International (CC BY 4.0)"
+          }
+        }
+      ]
     }
   ]
 }

@@ -28,6 +28,10 @@ Baden-Württemberg. Names from Lower Saxony come as UTF-8 read as Windows-1252 (
   water data keep theirs and do not ask the BfG.
 - The credit carries the year of the fetch; the catalogue's sentence on the coverage is the source's note.
 - An empty section is stated as empty when one source with areas fills it, even beside a source asked at points.
+- Each section of the regional part names the sources that fill it ("Staatsbetrieb Sachsenforst / Bundesanstalt für
+  Gewässerkunde"), no longer the first source of the adapter.
+- The table of sources prints the credit as the engine filled it in, with the year of the fetch; it printed the
+  placeholder `{year}` before (Saarland since ADR 0130).
 
 ## Consequences
 

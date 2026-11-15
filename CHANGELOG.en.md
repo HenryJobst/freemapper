@@ -18,6 +18,7 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ### Fixed
 
+- Permit notes: the table of sources showed the placeholder `{year}` instead of the year of the fetch for the services of Saarland. It shows the year now, for the BfG too. The two Saarland examples are made again.
 - A folder adapter that names a built-in raster backend (`backend = "lgb"` and the like) got no orthophoto, terrain model or surface model in the download estimate. The built-in backends now estimate their rasters themselves, with the same numbers as the states. The estimates of the built-in states stay as they are (issue #71).
 
 ## [0.20.0] - 2026-11-14

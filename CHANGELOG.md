@@ -18,6 +18,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Behoben
 
+- Genehmigungshinweise: In der Tabelle der Quellen stand bei den Diensten des Saarlands der Platzhalter `{year}` statt des Jahrs des Abrufs. Jetzt steht dort das Jahr, auch bei der BfG. Die beiden Saarland-Beispiele sind neu erzeugt.
 - Ein Adapter aus einem Ordner, der ein eingebautes Raster-Backend nennt (`backend = "lgb"` und Ähnliches), bekam in der Download-Schätzung kein Luftbild, kein Gelände- und kein Oberflächenmodell. Die eingebauten Backends schätzen jetzt ihre Raster selbst, mit denselben Werten wie die Bundesländer. Die Schätzungen der eingebauten Bundesländer bleiben gleich (Issue #71).
 
 ## [0.20.0] - 2026-11-14

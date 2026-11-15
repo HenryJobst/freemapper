@@ -10,7 +10,7 @@ use freemapper_adapters_de::states::alkis::{
     BUILDINGS_ENDPOINT, LAND_USE_ENDPOINT, MV_BUILDINGS_ENDPOINT, MV_LAND_USE_ENDPOINT,
 };
 use freemapper_adapters_de::states::{State, StateAdapter, StateFiles};
-use freemapper_adapters_de::{geobremen, ldbv, ldbv_las, lgl_bw, lgv, lvgl, states};
+use freemapper_adapters_de::{bfg_permits, geobremen, ldbv, ldbv_las, lgl_bw, lgv, lvgl, states};
 use freemapper_georef::crs::{BoundingBox, Crs};
 use freemapper_manifest::adapter::{ManifestAdapter, Parse};
 use freemapper_manifest::model::Alkis;
@@ -195,14 +195,21 @@ fn recorded_hosts(state: State) -> Vec<String> {
             lgl_bw::FILES,
             lgl_bw::ALKIS.url.as_ref(),
         ],
+        // Both ask the BfG for the permit notes (ADR 0142).
         State::Bremen => &[
             geobremen::ORTHOPHOTOS,
             geobremen::FILES,
             geobremen::ALKIS_URL,
+            bfg_permits::BASE,
         ],
         // The cadastre of Bavaria comes from the file server of the tiles, its point clouds
         // from a server of their own.
-        State::Bayern => &[ldbv::WMS.url.as_ref(), ldbv::FILES, ldbv_las::TILES],
+        State::Bayern => &[
+            ldbv::WMS.url.as_ref(),
+            ldbv::FILES,
+            ldbv_las::TILES,
+            bfg_permits::BASE,
+        ],
         _ => &[],
     };
     if !written.is_empty() {
