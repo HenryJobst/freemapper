@@ -156,6 +156,22 @@ impl Junctions {
         reach: f64,
         georef: &Georeferencing,
     ) -> (usize, usize) {
+        self.repair_after_cuts(objects, replaced_by, &BTreeMap::new(), reach, georef)
+    }
+
+    /// As [`repair`](Self::repair), after lines were cut where they kept no gap: `cut_for`
+    /// names, by key, the lines each line was cut or dropped for. An end is not drawn onto a line
+    /// that was cut for the end's own line: that gap was opened on purpose (two lines that lay
+    /// on each other). Such an end stays where it is, and it is not counted free when every
+    /// line it could move onto was cut for its own line.
+    pub(super) fn repair_after_cuts(
+        &self,
+        objects: &mut [MapObject],
+        replaced_by: &BTreeMap<Key, Key>,
+        cut_for: &BTreeMap<Key, BTreeSet<Key>>,
+        reach: f64,
+        georef: &Georeferencing,
+    ) -> (usize, usize) {
         let touch = touch_mm(georef);
         let within = reach + TOLERANCE_MM;
         // The line objects of each key, in order.
@@ -233,13 +249,18 @@ impl Junctions {
                     rank += 1;
                 }
             }
+            let parted = |key: &Key| cut_for.get(key).is_some_and(|w| w.contains(&end.object));
+            // Every line it may move onto was cut for its own line: the gap is meant.
+            let meant = !ranks.is_empty() && ranks.keys().all(parted);
             let best = ranks
                 .into_iter()
                 .flat_map(|(key, rank)| {
                     let pieces = pieces.get(&key).map_or(&[][..], Vec::as_slice);
                     pieces.iter().map(move |&j| (key, rank, j))
                 })
-                .filter(|&(_, _, j)| j != i && is_line(&objects[j], &self.line_ids))
+                .filter(|&(key, _, j)| {
+                    j != i && is_line(&objects[j], &self.line_ids) && !parted(&key)
+                })
                 .filter_map(|(key, rank, j)| {
                     let (d, q) = distance(&objects[j], at);
                     let via_end = at_recorded_end(&objects[j], recorded.get(&j), q, touch);
@@ -262,7 +283,7 @@ impl Junctions {
                 }
                 // It meets the line already, or meets another end and has no line in reach.
                 Some(_) => {}
-                None if !meets.is_empty() => {}
+                None if !meets.is_empty() || meant => {}
                 None => free += 1,
             }
         }
@@ -270,10 +291,52 @@ impl Junctions {
     }
 }
 
-/// Removes the tag [`JUNCTION_TAG`] from every object.
+/// The tag that holds the [`Key`] of a line object while another recording of the junctions
+/// uses [`JUNCTION_TAG`] ([`set_aside`], [`bring_back`]).
+const ASIDE_TAG: &str = "freemapper:junction-aside";
+
+/// Removes the tag [`JUNCTION_TAG`] (and a key set aside) from every object.
 pub(super) fn forget(objects: &mut [MapObject]) {
     for object in objects {
+        object
+            .tags
+            .retain(|(k, _)| k != JUNCTION_TAG && k != ASIDE_TAG);
+    }
+}
+
+/// The key of `object` set aside by [`set_aside`], when it carries one.
+pub(super) fn aside_key_of(object: &MapObject) -> Option<Key> {
+    object
+        .tags
+        .iter()
+        .find(|(k, _)| k == ASIDE_TAG)
+        .and_then(|(_, v)| v.parse().ok())
+}
+
+/// Sets the keys of a recording aside, so that another can record and repair in between; the
+/// steps keep the tag on the pieces as they keep [`JUNCTION_TAG`]. [`bring_back`] restores
+/// them.
+pub(super) fn set_aside(objects: &mut [MapObject]) {
+    for object in objects {
+        object.tags.retain(|(k, _)| k != ASIDE_TAG);
+        for (k, _) in &mut object.tags {
+            if k == JUNCTION_TAG {
+                *k = ASIDE_TAG.to_string();
+            }
+        }
+    }
+}
+
+/// The keys set aside by [`set_aside`] are the keys again; the keys of a recording in between
+/// go.
+pub(super) fn bring_back(objects: &mut [MapObject]) {
+    for object in objects {
         object.tags.retain(|(k, _)| k != JUNCTION_TAG);
+        for (k, _) in &mut object.tags {
+            if k == ASIDE_TAG {
+                *k = JUNCTION_TAG.to_string();
+            }
+        }
     }
 }
 

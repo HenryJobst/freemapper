@@ -24,7 +24,9 @@
 //!    ([`move_points`](points::move_points));
 //! 8. what keeps no gap to another object ([`conflicts`], the pairs that keep apart) gives way:
 //!    it is cut out there, or dropped when more than half of it is in conflict;
-//! 9. lines and areas below the norm's minimum size go.
+//! 9. lines and areas below the norm's minimum size go; the ways that meet end to end are
+//!    joined again, and a line end that touched a line before the merge and touches none now
+//!    is drawn onto what is left of that line, when it is in reach, or counted as free.
 //!
 //! What a step drops is gone from the training map; nothing is tagged hidden. Lines of one
 //! network that still run side by side are counted in the report.
@@ -144,7 +146,8 @@ pub struct TrainingReport {
     pub shifted: usize,
     /// Line ends moved back onto the line they touched, or onto the line that replaced it.
     pub junctions_repaired: usize,
-    /// Line ends that touched a line before the merge or the shift and touch none after.
+    /// Line ends that touched a line before the merge and touch none on the training map (the
+    /// junctions are repaired once more after give way and the minimum sizes).
     pub junctions_free: usize,
     /// Conflict length left, mm on paper, by grade, of the pairs of one network that the merge
     /// did not settle (lines of different classes side by side, stretches below the minimum).
@@ -184,25 +187,33 @@ pub fn train(
     let merged = merge(&mut objects, &classes, kind, georef, symbol_set);
     junctions.attach(&merged.attached);
     let reach = MAX_SHIFT_MM.0 + gap(kind, georef.scale_denominator).0;
-    (report.junctions_repaired, report.junctions_free) =
+    // What is still free here is counted by the last repair below, which sees these ends again.
+    (report.junctions_repaired, _) =
         junctions.repair(&mut objects, &merged.replaced_by, reach, georef);
-    junctions::forget(&mut objects);
+    junctions::set_aside(&mut objects);
     report.merged = merged.merged;
     report.dropped_beside_roads = merged.dropped_beside_roads;
     report.cut += merged.cut;
     report.joined += join(&mut objects, &classes, georef);
-    let junctions = Junctions::record(&mut objects, &classes, georef);
+    let shifted = Junctions::record(&mut objects, &classes, georef);
     report.shifted = shift_lines(&mut objects, kind, georef, symbol_set);
-    let (repaired, free) = junctions.repair(&mut objects, &BTreeMap::new(), reach, georef);
+    // Its free ends are among those the last repair counts.
+    let (repaired, _) = shifted.repair(&mut objects, &BTreeMap::new(), reach, georef);
     report.junctions_repaired += repaired;
-    report.junctions_free += free;
-    junctions::forget(&mut objects);
     report.points_moved = move_points(&mut objects, &classes, kind, georef, symbol_set);
-    let (gave_way, cut) = give_way(&mut objects, &classes, kind, georef, symbol_set);
+    let (gave_way, cut, cut_for) = give_way(&mut objects, &classes, kind, georef, symbol_set);
     report.gave_way = gave_way;
     report.cut += cut;
     report.too_small = drop_too_small(&mut objects, &classes, kind, georef, symbol_set);
     report.joined += join_ways(&mut objects, &classes, georef);
+    // Once more over the ends recorded before the merge, after give way and the minimum sizes
+    // have cut or dropped lines they touched: an end in reach of what is left of its line is
+    // drawn onto it, and what stays free is counted.
+    junctions::bring_back(&mut objects);
+    let (repaired, free) =
+        junctions.repair_after_cuts(&mut objects, &merged.replaced_by, &cut_for, reach, georef);
+    report.junctions_repaired += repaired;
+    report.junctions_free = free;
     (report.overlap_left, report.gap_left, report.apart_left) =
         left(&objects, kind, georef, symbol_set);
     junctions::forget(&mut objects);
@@ -423,18 +434,24 @@ fn open_mask(tree_cover: &Raster<f32>, frame: &Rect<f64>) -> Raster<Option<Veget
 /// Walls and impassable fences ([`KEPT_BARRIER_CODES`]) are always cut, never dropped whole: a
 /// missing barrier changes the route choice. Pieces below the minimum length go in either case.
 /// A loser whose winner gives way itself in the round waits for the next round, which measures
-/// again. Returns how many objects were dropped and how many cut.
+/// again. Returns how many objects were dropped and how many cut, and by the junction keys set
+/// aside (`junctions::set_aside`) the lines each line gave way to.
 fn give_way(
     objects: &mut Vec<MapObject>,
     classes: &Classes,
     kind: MapKind,
     georef: &Georeferencing,
     symbol_set: &SymbolSet,
-) -> (usize, usize) {
+) -> (
+    usize,
+    usize,
+    BTreeMap<junctions::Key, BTreeSet<junctions::Key>>,
+) {
     let scale_denominator = georef.scale_denominator;
     let scale = SymbolScale::drawn_with(symbol_set, scale_denominator);
     let gap = gap(kind, scale_denominator).0;
     let (mut dropped, mut cut) = (0, 0);
+    let mut cut_for: BTreeMap<junctions::Key, BTreeSet<junctions::Key>> = BTreeMap::new();
     for _ in 0..MAX_ROUNDS {
         let refs: Vec<&MapObject> = objects.iter().collect();
         let footprints = Footprints::of(&refs, symbol_set);
@@ -477,6 +494,13 @@ fn give_way(
             let mine = &by_loser[&loser];
             let object = &objects[loser];
             let winners: Vec<usize> = mine.iter().map(|c| c.winner).collect();
+            if let Some(key) = junctions::aside_key_of(object) {
+                cut_for.entry(key).or_default().extend(
+                    winners
+                        .iter()
+                        .filter_map(|&w| junctions::aside_key_of(&objects[w])),
+                );
+            }
             let total = footprints.length(loser);
             let mostly = || {
                 let in_conflict = match mine.as_slice() {
@@ -534,7 +558,7 @@ fn give_way(
             }
         }
     }
-    (dropped, cut)
+    (dropped, cut, cut_for)
 }
 
 /// The beginning of the `freemapper:generalized` value of a piece cut by give way; the classes it
@@ -1547,6 +1571,66 @@ mod tests {
     }
 
     /// `object` with one more tag.
+    /// The end of the open line `object` (the last when `last`), mm on paper.
+    fn end_mm(object: &MapObject, last: bool) -> (f64, f64) {
+        let c = if last {
+            object.coords[object.coords.len() - 1]
+        } else {
+            object.coords[0]
+        };
+        (f64::from(c.x) / 1000.0, f64::from(c.y) / 1000.0)
+    }
+
+    #[test]
+    fn an_end_on_a_line_that_give_way_cuts_is_drawn_onto_what_is_left() {
+        // A ditch runs on a fence over its middle: the fence would have to move more than
+        // half a millimetre, so give way cuts it there. A path ends on the fence just inside
+        // the stretch cut out; after the cut its end is drawn onto the end of the fence piece.
+        let set = isom();
+        let fence = line(&set, "518", &[(0.0, 0.0), (40.0, 0.0)]);
+        let ditch = line(&set, "306", &[(10.0, 0.0), (30.0, 0.0)]);
+        let (alone, _) = run(&set, vec![fence.clone(), ditch.clone()]);
+        let pieces = of_code(&set, &alone, "518");
+        let cut_at = pieces
+            .iter()
+            .map(|p| end_mm(p, true).0.max(end_mm(p, false).0))
+            .filter(|&x| x < 20.0)
+            .fold(f64::MIN, f64::max);
+        assert!((9.0..10.0).contains(&cut_at), "{pieces:?}");
+        let x = cut_at + 0.1;
+        let path = line(&set, "505", &[(x, 10.0), (x, 0.0)]);
+        let (out, report) = run(&set, vec![fence, ditch, path]);
+        let paths = of_code(&set, &out, "505");
+        assert_eq!(paths.len(), 1, "{out:?}");
+        let end = end_mm(paths[0], true);
+        assert!(
+            (end.0 - cut_at).abs() < 0.01 && end.1.abs() < 0.01,
+            "{end:?} onto the piece ending at {cut_at}: {out:?} {report:?}"
+        );
+        assert!(report.cut >= 1, "{report:?}");
+        assert!(report.junctions_repaired >= 1, "{report:?}");
+        assert_eq!(report.junctions_free, 0, "{report:?}");
+    }
+
+    #[test]
+    fn an_end_whose_line_went_is_counted_free() {
+        // An earth bank lies on a ditch over more than half its length: give way drops it, and
+        // the path that ended on it beyond the ditch is left with a free end.
+        let set = isom();
+        let bank = line(&set, "104", &[(0.0, 0.0), (20.0, 0.0)]);
+        let ditch = line(&set, "306", &[(0.0, 0.0), (12.0, 0.0)]);
+        let path = line(&set, "505", &[(18.0, 10.0), (18.0, 0.0)]);
+        let (out, report) = run(&set, vec![bank, ditch, path.clone()]);
+        assert_eq!(
+            of_code(&set, &out, "104"),
+            Vec::<&MapObject>::new(),
+            "{out:?}"
+        );
+        assert_eq!(of_code(&set, &out, "505"), vec![&path]);
+        assert_eq!(report.gave_way, 1, "{report:?}");
+        assert_eq!(report.junctions_free, 1, "{report:?}");
+    }
+
     pub(super) fn tagged(mut object: MapObject, key: &str, value: &str) -> MapObject {
         object.tags.push((key.to_string(), value.to_string()));
         object
