@@ -1267,6 +1267,14 @@ direkt auf die Karte, mit dem Inhaltsprofil `balanced`. Das Landschaftsmodell er
 Marburg 4 benannte Bäume, 3 kleine Wasserläufe, einen Damm und eine Mauer, am Feldberg einen Felsen, eine Quelle und
 einen Wasserlauf.
 
+**Nordrhein-Westfalen und Niedersachsen: vollständiges ALKIS.** Beide bieten auch ihr vollständiges ALKIS an
+(Geobasis NRW, dl-de/zero-2-0; LGLN, CC BY 4.0), Niedersachsen mit höchstens 10 000 Objekten je Anfrage. In
+Nordrhein-Westfalen enthält es viel: In der Monschauer Altstadt kommen 25 Mauern und Stützmauern, 33
+Böschungsoberkanten, 14 Treppen, 15 Brücken, 17 Mauern an der Rur und 13 Einzelbäume direkt auf die Karte, im
+Siebengebirge 90 Böschungsoberkanten und rund 30 Mauern und Treppen; OpenStreetMap-Linien und -Bäume, die sie
+doppeln, entfallen. Niedersachsen verzeichnet weniger: in Herrenhausen 4 Brücken und einen Brunnen, in Bad Harzburg
+12 Brücken, eine Mauer und eine Böschungsoberkante.
+
 **Schleswig-Holstein: Landschaftsmodell.** Auch das LVermGeo SH bietet sein Landschaftsmodell an (CC BY 4.0), mit
 höchstens 10 000 Objekten je Anfrage. In den Hüttener Bergen ergänzt es 48 Wälle (105), einen Wasserlauf und
 4 Fahrwege; die Böschungen, die das Geländemodell an diesen Wällen findet, entfallen. In Lübeck
