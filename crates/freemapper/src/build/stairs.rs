@@ -657,7 +657,10 @@ pub fn stair_objects(
             if guessed {
                 tags.push(("freemapper:direction".to_string(), "guessed".to_string()));
             }
+            let start = stairs.objects.len();
             stairs.push(&axis, tags)?;
+            // A stair another layer of a set holds too is drawn once.
+            alkis.push((part, start..stairs.objects.len()));
         }
     }
     Ok(stairs.objects)
@@ -980,6 +983,46 @@ mod tests {
         buildings: &[Polygon<f64>],
     ) -> Vec<MapObject> {
         objects_with_nas(kind, features, step_edges, survey, &[], terrain, buildings)
+    }
+
+    /// A stair of both surveys of a set (a street stair the park survey has too) is drawn once.
+    #[test]
+    fn a_stair_two_set_layers_hold_is_drawn_once() {
+        let (georef, area, set) = setup(MapKind::Sprint);
+        let (e, n) = (georef.ref_projected.easting, georef.ref_projected.northing);
+        let stair = serde_json::json!({"type": "Feature", "geometry": {"type": "Polygon",
+            "coordinates": [[[e - 3.0, n - 20.0], [e + 3.0, n - 20.0], [e + 3.0, n - 12.0],
+                [e - 3.0, n - 12.0], [e - 3.0, n - 20.0]]]}, "properties": {}});
+        let features = [stair];
+        let layer = |source: &str| SetStairs {
+            source: source.to_string(),
+            features: &features,
+            crs: Crs::Utm33,
+            currency: "2026-11-15".parse().unwrap(),
+        };
+        let draw = |sets: &[SetStairs<'_>]| {
+            stair_objects(
+                &StairInput {
+                    features: &[],
+                    step_edges: &[],
+                    survey: &[],
+                    nas: &[],
+                    sets,
+                    terrain: None,
+                    buildings: &[],
+                },
+                MapKind::Sprint,
+                &area,
+                20.0,
+                &georef,
+                &set,
+                "2026-11-15".parse().unwrap(),
+            )
+            .unwrap()
+        };
+        let once = draw(&[layer("set/a")]);
+        assert!(!once.is_empty());
+        assert_eq!(draw(&[layer("set/a"), layer("set/b")]).len(), once.len());
     }
 
     fn objects_with_nas(

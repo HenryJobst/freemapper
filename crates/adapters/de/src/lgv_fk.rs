@@ -173,6 +173,16 @@ impl ExtraSet for Feinkartierung {
                 let Some(key) = layer_of(collection, &feature) else {
                     continue;
                 };
+                // The API numbers the features of each collection; the engine reads text ids,
+                // and the stair layer holds two collections.
+                let id = match &feature["id"] {
+                    Value::Number(n) => Some(n.to_string()),
+                    Value::String(s) => Some(s.clone()),
+                    _ => None,
+                };
+                if let Some(id) = id {
+                    feature["id"] = Value::from(format!("{collection}.{id}"));
+                }
                 if let Some(site) = control_of(collection, &feature) {
                     feature["properties"][CONTROL_PROPERTY] = Value::from(site);
                 }
@@ -288,7 +298,11 @@ mod tests {
         serve(
             "feinkartierung_strasse",
             "linien",
-            vec![feature(json!({"inhalt": "Geländer"}))],
+            vec![{
+                let mut railing = feature(json!({"inhalt": "Geländer"}));
+                railing["id"] = json!(7);
+                railing
+            }],
         );
         serve(
             "feinkartierung_strasse",
@@ -326,6 +340,9 @@ mod tests {
             ]
         );
         let bench = &fetched[1].features.as_ref().unwrap()[0];
+        // The numeric ids of the API become text, named by their collection.
+        let railing = &fetched[0].features.as_ref().unwrap()[0];
+        assert_eq!(railing["id"], "linien.7");
         assert_eq!(bench["properties"][CONTROL_PROPERTY], "bench");
         assert_eq!(fetcher.calls.get(), COLLECTIONS.len());
         // A forest map takes none of it.

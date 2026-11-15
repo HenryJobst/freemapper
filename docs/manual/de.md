@@ -1419,7 +1419,7 @@ Sprint- und Schulhofkarten Geländer, Zäune, Handläufe, Mauern, Bordsteine, Tr
 Inhaltsprofil `balanced` kommen Geländer, Zäune, Mauern, Bordsteine und Treppen direkt auf die Karte; Poller,
 Bänke und Leuchten werden Kandidaten, auf der Sprintkarte als mögliche Postenstandorte (531). Treppenflächen
 werden zu Treppen, die Laufrichtung kommt aus dem Geländemodell. In Blankenese bringt das 155 Geländer und Zäune,
-15 Mauern, 36 Bordsteine und 353 Treppenlinien aus 102 Treppenflächen auf die Karte; die OpenStreetMap-Treppen
+15 Mauern, 36 Bordsteine und 352 Treppenlinien aus 102 Treppenflächen auf die Karte; die OpenStreetMap-Treppen
 an denselben Stellen entfallen (110 auf 40). Dazu kommen 96 Postenstandorte als Kandidaten. Die Straßenbeläge
 (etwa wassergebundene Decken) fehlen noch.
 

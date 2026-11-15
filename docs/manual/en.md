@@ -1361,7 +1361,7 @@ its currency. Trees in parks and in the port are not in it.
 handrails, walls, curbs, stairs and street furniture from it for sprint and schoolyard maps. Under the content
 profile `balanced` the railings, fences, walls, curbs and stairs go straight onto the map; bollards, benches and
 lamps become candidates, on a sprint map as control sites (531). Stair areas become stairs, their walking
-direction from the terrain model. In Blankenese that puts 155 railings and fences, 15 walls, 36 curbs and 353
+direction from the terrain model. In Blankenese that puts 155 railings and fences, 15 walls, 36 curbs and 352
 stair lines from 102 stair areas onto the map; the OpenStreetMap stairs at the same places go (110 to 40). 96
 control sites come as candidates. The street surfaces (such as water-bound gravel) are not taken yet.
 

@@ -1330,6 +1330,7 @@ pub(crate) fn mark_stored(
     project: &ProjectFile,
     bbox: &BoundingBox,
 ) {
+    drop_sets_taking_nothing(&mut estimate.items, project.map_kind);
     let wcs = |record: &Option<WcsRecord>, relpath: &str| {
         record.as_ref().is_some_and(|r| r.covers(bbox)) && dir.join(relpath).exists()
     };
@@ -1364,7 +1365,9 @@ pub(crate) fn mark_stored(
         && project.tree_layers.iter().all(|(key, record)| {
             record.covers(bbox) && extras::is_stored(dir, &extras::TREES, key)
         });
-    // The sets that bring their rules, by the item of the estimate each has.
+    // The sets that bring their rules, by the item of the estimate each has. Their records hold
+    // the region box (EPSG:25833), as Berlin's do, which there is the map's CRS too.
+    let region_bbox = project.region_bbox().ok();
     let sets: Vec<(&str, bool)> = extras::drawn_sets(registry())
         .into_iter()
         .map(|(_, set)| {
@@ -1375,7 +1378,10 @@ pub(crate) fn mark_stored(
                 .is_some_and(|records| {
                     !records.is_empty()
                         && records.iter().all(|(key, record)| {
-                            record.covers(bbox) && extras::is_stored(dir, &family, key)
+                            region_bbox
+                                .as_ref()
+                                .is_some_and(|region| record.covers(region))
+                                && extras::is_stored(dir, &family, key)
                         })
                 });
             (set.info().estimate.what, stored)
@@ -1409,6 +1415,18 @@ pub(crate) fn mark_stored(
         .iter()
         .filter(|i| !i.cached)
         .fold(0.0, |total, i| total + i.megabytes);
+}
+
+/// Leaves out of `items` the sets of extra layers that take no layer for a map of `kind` (a
+/// forest map in Hamburg): they download nothing.
+fn drop_sets_taking_nothing(items: &mut Vec<crate::layers::EstimateItem>, kind: MapKind) {
+    let idle: Vec<&str> = registry()
+        .adapters()
+        .flat_map(|adapter| adapter.extras().iter())
+        .filter(|set| set.layers(kind.contract()).is_empty())
+        .map(|set| set.info().estimate.what)
+        .collect();
+    items.retain(|item| item.part != Part::BerlinLayers || !idle.contains(&item.what.as_str()));
 }
 
 /// Checks the downloads of an online fetch against the free disk space ([`crate::space::plan`]):
@@ -9842,6 +9860,41 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
                 })
             })
             .collect()
+    }
+
+    /// A stored set counts as stored in the estimate: its records hold the region box
+    /// (EPSG:25833), not the map's box, which in Hamburg is zone 32.
+    #[test]
+    fn a_stored_feinkartierung_counts_in_the_estimate() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = eppendorf_school(&fetcher);
+        fetch(dir.path(), &fetcher, &cache);
+        let estimate =
+            crate::layers::estimate_download(dir.path(), &cache, crate::clock::today()).unwrap();
+        let item = estimate
+            .items
+            .iter()
+            .find(|i| i.what.starts_with("Hamburg Feinkartierung"))
+            .unwrap();
+        assert!(item.cached, "{item:?}");
+    }
+
+    /// A set that takes no layer for the map kind is no item of the estimate.
+    #[test]
+    fn a_set_without_layers_for_the_kind_is_no_item() {
+        let item = |what: &str| crate::layers::EstimateItem {
+            what: what.to_string(),
+            megabytes: 6.0,
+            cached: false,
+            part: Part::BerlinLayers,
+            store: crate::space::Store::Project,
+        };
+        let what = "Hamburg Feinkartierung (street space and public green)";
+        for (kind, kept) in [(MapKind::Forest, 0), (MapKind::Sprint, 1)] {
+            let mut items = vec![item(what)];
+            drop_sets_taking_nothing(&mut items, kind);
+            assert_eq!(items.len(), kept, "{kind:?}");
+        }
     }
 
     /// A set that brings its rules (ADR 0149): Hamburg's Feinkartierung is fetched, recorded and

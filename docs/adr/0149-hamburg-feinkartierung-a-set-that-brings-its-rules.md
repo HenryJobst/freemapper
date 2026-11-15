@@ -47,7 +47,7 @@ candidates.
 
 ## Consequences
 
-- Blankenese (live run of 2026-11-15): 155 railings and fences, 15 walls, 36 curbs and 353 stair lines from 102
+- Blankenese (live run of 2026-11-15): 155 railings and fences, 15 walls, 36 curbs and 352 stair lines from 102
   stair areas go onto the map; the OSM stairs at the same places go (110 to 40); 96 control sites become candidates.
 - Another state with such a survey needs an adapter set and a rule file, no engine code.
 - The street surfaces (water-bound gravel as unpaved candidates) are a second step on the same set.
