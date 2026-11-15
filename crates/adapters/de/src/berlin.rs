@@ -476,6 +476,34 @@ static DRAWING: SetDrawing = SetDrawing {
     ],
     credited_layers: &BERLIN_REGISTERS,
     point_dedups: &POINT_DEDUPS,
+    // The Straßenbefahrung codes. There is no code list, so no rule reads them; they are for the
+    // mapper (reference §14.5).
+    kept_tags: &[
+        "berlin:material",
+        "berlin:hms",
+        "berlin:pot",
+        "berlin:bor",
+        "berlin:gws",
+        "berlin:sre",
+        "berlin:hdt",
+        "berlin:trs",
+    ],
+    // The survey types and the lighting cadastre that give 531 points on a sprint map; `mast`,
+    // `flagpole` and `advertising_column` only Berlin gives.
+    control_kinds: &[
+        ("av_poller", "bollard"),
+        ("as_mast", "mast"),
+        ("am_fahnenmast", "flagpole"),
+        ("bj_sitzbank", "bench"),
+        ("beleuchtung", "street_lamp"),
+        ("ag_werbesaeule", "advertising_column"),
+    ],
+    fountain_tags: &[
+        ("freemapper:source", "geoportal-berlin/zierbrunnen"),
+        ("berlin:layer", "bv_springbrunnen_zierbrunnen"),
+    ],
+    // The ALKIS bridge decks.
+    winning_areas: &[("berlin:layer", "bauwerke-flaechen")],
     stair_layers: &[],
     candidate_layers: &[],
     generic: false,

@@ -487,13 +487,15 @@ fn area_may_lose(code: &str, object: &MapObject) -> bool {
 }
 
 /// Whether `object` with the area symbol `code` may win over a duplicate: every 522 and 520, but
-/// of the 501.5 only the ALKIS bridge decks of Berlin (`bauwerke-flaechen`).
+/// of the 501.5 only the areas a set names (`SetDrawing::winning_areas`: Berlin's ALKIS bridge
+/// decks).
 fn area_may_win(code: &str, object: &MapObject) -> bool {
     code != "501.5"
-        || object
-            .tags
-            .iter()
-            .any(|(k, v)| k == "berlin:layer" && v == "bauwerke-flaechen")
+        || object.tags.iter().any(|(k, v)| {
+            crate::build::sets::all_drawings()
+                .flat_map(|d| d.winning_areas.iter())
+                .any(|(key, value)| k == key && v == value)
+        })
 }
 
 /// Drops the `candidates` areas ([`AREA_DEDUPS`]: passages, canopies, areas that shall not be
