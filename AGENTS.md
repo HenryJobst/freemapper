@@ -156,7 +156,7 @@ Workflow:
 3. Tell the person the download size before a large first download: the first project in a state
    downloads its OSM extract (about 20 to 500 MB, kept for 7 days); later projects are much smaller. Bavaria has
    no service for its cadastre. A map there also downloads the buildings as files, up to 160 MB per 2 km in a
-   city centre, and about 45 MB of surface model per km².
+   city centre, and about 45 MB of surface model per km² of the map area.
 4. `freemapper run <dir>` with the outputs the person wants (`--pdf` to print, `--ocad` for OCAD, `--pdf-candidates`
    for a quick training map, `--permits` for the permit notes when they plan an event there). It takes from one
    to several minutes, longer on the first download, which can be longer than your default command timeout:

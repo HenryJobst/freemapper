@@ -184,3 +184,4 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0136](0136-vegetation-outlines-traced-on-a-blurred-raster.md) | Vegetation outlines traced on a blurred raster | Accepted | 2026-11-14 |
 | [0137](0137-permit-notes-for-schleswig-holstein.md) | Permit notes for Schleswig-Holstein | Accepted | 2026-11-14 |
 | [0138](0138-vegetation-green-shades-by-the-density-below-3-m.md) | Vegetation: the green shades follow the density below 3 m | Accepted | 2026-11-14 |
+| [0141](0141-bavaria-the-dom20-read-by-range.md) | Bavaria: the DOM20 read by range | Accepted | 2026-11-15 |

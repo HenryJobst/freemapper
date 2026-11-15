@@ -74,8 +74,13 @@ and no date.
 
 `https://download1.bayernwolke.de/a/dom20/DOM/32<E>_<N>_20_DOM.tif`. One tile is 1 km, 5000 × 5000 px of 20 cm,
 Float32, LZW in tiles of 256 px, nodata `-9999`, 32–56 MB. It is computed from the aerial pictures of the
-orthophoto flight; the tag `GDAL_METADATA` at the start of the file holds `BILDFLUG_DATUM`. There is no 1 m
-surface model.
+orthophoto flight; the tag `GDAL_METADATA` holds `BILDFLUG_DATUM`. There is no 1 m surface model.
+
+Checked on 2026-11-15 (`32655_5479_20_DOM.tif`, 53 298 114 bytes): the server answers `Accept-Ranges: bytes` and a
+range with `206`. The file is a classic little-endian TIFF with predictor 3; its IFD (20 entries) and all its
+arrays lie in the last 4 KB, not at the start. The 400 blocks are stored in row order, one after the other, 40
+to 157 KB each (133 KB on average). freemapper reads only the blocks of the map area (ADR 0141): 667 of the 1600
+blocks of the Schmausenbuck, 399 of the 800 of Regensburg.
 
 ## Buildings
 

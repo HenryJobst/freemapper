@@ -105,8 +105,8 @@ mod sources {
         geobasis_nrw, geosn, hvbg, laiv_mv, lgb, lgln, lgv, lvermgeo, lvermgeo_rp, lvermgeo_sh,
     };
     pub(crate) use freemapper_sources::{
-        float_tiff, height_model, metalink, ogc_api as alkis, wcs, wfs as alkis_wfs, wms, xlsx,
-        zip_range,
+        float_tiff, height_model, metalink, ogc_api as alkis, tiff_range, wcs, wfs as alkis_wfs,
+        wms, xlsx, zip_range,
     };
 }
 
