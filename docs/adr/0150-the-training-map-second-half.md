@@ -181,7 +181,7 @@ merge.
   Bremen five paths ended on the sidewalk `way/304738451`, which went beside the road 502 `way/42307018`; the road
   lies 0.8 mm from their ends, beyond the reach (the shift bound plus the gap), and three more paths lie 0.9 to
   1.2 mm from the road `way/267420573`. The merged road `way/42307018` also stops short of the south roundabout,
-  whose ring pieces went; that end is not among those counted. The follow-up issue keeps the free ends in the report, counts
+  whose ring pieces went; that end is not among those counted. The follow-up issue #168 keeps the free ends in the report, counts
   way-to-way ends apart, and keeps a short way piece that links two junctions.
 - End to end (every end of the check print that touched a line against the training map), more ends are free than
   the program counts: 43, 14 and 15 on the three examples (measured before the fixes of the final review). The
@@ -189,7 +189,7 @@ merge.
   end that lies within reach of where a touching end was. How the difference splits between the two was not sorted
   out.
 - The last repair moves an end without checking the moved line for a new conflict, and it finds an end by its
-  distance to where the end lay before the merge. Both go to the follow-up issue.
+  distance to where the end lay before the merge. Both go to the follow-up issue #168.
 - Smaller items: two pieces of one key whose ends of the same flag lie within reach are rare and not resolved
   further; after a stretch across the seam of a closed line, the arc positions of the stretches before it are off
   by up to about 0.06 mm; a survey kerb that lies more than half inside a street goes whole, even where part of it
