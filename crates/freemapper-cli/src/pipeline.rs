@@ -1207,7 +1207,7 @@ mod tests {
             furniture: 5,
             inside_olive: 6,
             open_land_cut: 7,
-            trees_moved: 8,
+            points_moved: 8,
             ..TrainingReport::default()
         };
         let mut outcome = training(dir, report);

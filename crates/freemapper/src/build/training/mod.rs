@@ -9,8 +9,8 @@
 //!    ([`open_ground`]);
 //! 4. inside olive green (520) only buildings, water, contours and the ways a runner can cross
 //!    stay ([`clear_olive`](olive::clear_olive));
-//! 5. a tree too close to a way, a building, water or another tree is moved off
-//!    ([`move_trees`](trees::move_trees));
+//! 5. a point symbol too close to a way, a building, water or another point is moved off
+//!    ([`move_points`](points::move_points));
 //! 6. what keeps no gap to another object ([`conflicts`], the pairs that keep apart) gives way:
 //!    it is cut out there, or dropped when more than half of it is in conflict;
 //! 7. lines and areas below the norm's minimum size go.
@@ -19,7 +19,7 @@
 //! network that run side by side are left to the second half and only counted in the report.
 
 mod olive;
-mod trees;
+mod points;
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -48,8 +48,8 @@ use crate::raster::{GridSpec, Raster};
 use crate::render::geometry::{length, parts};
 use olive::clear_olive;
 pub use olive::{OLIVE_EDGE_MM, WAY_STUB_MM};
-use trees::move_trees;
-pub use trees::{MAX_SHIFT_MM, MAX_TREE_SHIFT_MM};
+use points::move_points;
+pub use points::{MAX_POINT_SHIFT_MM, MAX_SHIFT_MM};
 
 /// The give-way step stops after this many rounds; what is left then is in the report.
 const MAX_ROUNDS: usize = 20;
@@ -106,8 +106,8 @@ pub struct TrainingReport {
     pub furniture: usize,
     /// Objects inside olive green that went or were cut.
     pub inside_olive: usize,
-    /// Trees moved off ways, buildings, water and other trees.
-    pub trees_moved: usize,
+    /// Point symbols moved off ways, buildings, water and other points.
+    pub points_moved: usize,
     /// Conflict length left, mm on paper, by grade (the pairs of one network, left to the second half).
     pub overlap_left: f64,
     pub gap_left: f64,
@@ -137,7 +137,7 @@ pub fn train(
         report.open_land_cut = open_ground(&mut objects, tree_cover, georef, symbol_set);
     }
     report.inside_olive = clear_olive(&mut objects, &classes, georef, symbol_set);
-    report.trees_moved = move_trees(&mut objects, &classes, kind, georef, symbol_set);
+    report.points_moved = move_points(&mut objects, &classes, kind, georef, symbol_set);
     (report.gave_way, report.cut) = give_way(&mut objects, &classes, kind, georef, symbol_set);
     report.too_small = drop_too_small(&mut objects, &classes, kind, georef, symbol_set);
     (report.overlap_left, report.gap_left, report.apart_left) =
@@ -145,9 +145,9 @@ pub fn train(
     (objects, report)
 }
 
-/// Step 1: the lines of the networks, of the water and of the landforms that meet end to end
-/// are joined, until no join is left (one call joins one pair at a junction of four ends).
-/// Returns how many objects went.
+/// Step 1: the lines of the networks (stairways among them), of the water and of the landforms
+/// that meet end to end are joined, until no join is left (one call joins one pair at a junction
+/// of four ends). Returns how many objects went.
 fn join(objects: &mut Vec<MapObject>, classes: &Classes, georef: &Georeferencing) -> usize {
     use Class::*;
     let ids_of = |of: &[Class]| -> Vec<u32> { of.iter().flat_map(|&c| classes.ids(c)).collect() };
@@ -155,6 +155,7 @@ fn join(objects: &mut Vec<MapObject>, classes: &Classes, georef: &Georeferencing
         Road,
         Path,
         Railway,
+        Stairway,
         Watercourse,
         EarthBank,
         Barrier,
@@ -539,9 +540,21 @@ fn is_closed(object: &MapObject) -> bool {
     last.flags & FLAG_CLOSE != 0 || (first.x, first.y) == (last.x, last.y)
 }
 
-/// Step 7: a line shorter than its minimum length goes unless an end continues on another line
-/// of its class (within [`TOUCH_M`]); an area of [`MIN_AREA_CODES`] below its minimum area goes.
-/// Comparisons are tolerant by [`TOLERANCE_MM`]. Returns how many went.
+/// The classes that count as one for [`drop_too_small`]: the ways of the network.
+fn continues_class(class: Class) -> Class {
+    match class {
+        Class::Road | Class::Railway | Class::Stairway => Class::Path,
+        other => other,
+    }
+}
+
+/// Step 7: a line shorter than its minimum length goes unless an end continues (within
+/// [`TOUCH_M`]) on another line that stays: of the network (roads, paths, railways and
+/// stairways count as one) for a way, of its own class for any other line. A short line that
+/// continues on a short line stays only when that one stays, so a chain of short pieces holds
+/// when one of its ends meets a line long enough, and two short pieces do not keep each other.
+/// An area of [`MIN_AREA_CODES`] below its minimum area goes. Comparisons are tolerant by
+/// [`TOLERANCE_MM`]. Returns how many went.
 fn drop_too_small(
     objects: &mut Vec<MapObject>,
     classes: &Classes,
@@ -566,29 +579,50 @@ fn drop_too_small(
         .collect();
     let touch =
         TOUCH_M * map_units_per_metre(scale_denominator) + PaperMm(TOLERANCE_MM).map_units();
-    let continues = |i: usize| -> bool {
-        let object = &objects[i];
-        if is_closed(object) {
-            return false;
-        }
-        let class = classes.class(object.symbol_id);
-        let ends = [object.coords[0], object.coords[object.coords.len() - 1]].map(|c| xy(&c));
-        objects.iter().enumerate().any(|(j, other)| {
-            j != i
-                && is_line(other)
-                && classes.class(other.symbol_id) == class
-                && other.coords.windows(2).any(|w| {
-                    ends.iter()
-                        .any(|&end| distance_to_segment(end, xy(&w[0]), xy(&w[1])) <= touch)
+    // The lines an end of each short open line touches.
+    let touched: Vec<Vec<usize>> = (0..objects.len())
+        .map(|i| {
+            let object = &objects[i];
+            if !short[i] || is_closed(object) {
+                return Vec::new();
+            }
+            let class = continues_class(classes.class(object.symbol_id));
+            let ends = [object.coords[0], object.coords[object.coords.len() - 1]].map(|c| xy(&c));
+            (0..objects.len())
+                .filter(|&j| {
+                    let other = &objects[j];
+                    j != i
+                        && is_line(other)
+                        && continues_class(classes.class(other.symbol_id)) == class
+                        && other.coords.windows(2).any(|w| {
+                            ends.iter()
+                                .any(|&end| distance_to_segment(end, xy(&w[0]), xy(&w[1])) <= touch)
+                        })
                 })
+                .collect()
         })
-    };
+        .collect();
+    // The short lines that stay: from the lines long enough along the short ones they touch,
+    // until none is added.
+    let mut stays: Vec<bool> = short.iter().map(|&s| !s).collect();
+    loop {
+        let mut added = false;
+        for i in 0..objects.len() {
+            if !stays[i] && touched[i].iter().any(|&j| stays[j]) {
+                stays[i] = true;
+                added = true;
+            }
+        }
+        if !added {
+            break;
+        }
+    }
     let tolerance_m = PaperMm(TOLERANCE_MM).metres(scale_denominator);
     let too_small: Vec<bool> = (0..objects.len())
         .map(|i| {
             let object = &objects[i];
             if short[i] {
-                return !continues(i);
+                return !stays[i];
             }
             let Some(&min_m2) = areas.get(&object.symbol_id) else {
                 return false;
@@ -942,6 +976,64 @@ mod tests {
         let (out, report) = run(&set, vec![main.clone(), spur.clone(), alone]);
         assert_eq!(out, vec![main, spur]);
         assert_eq!(report.too_small, 1, "{report:?}");
+    }
+
+    #[test]
+    fn a_path_cut_by_steps_stays() {
+        // Rathen: 505 – 532 – 505 – 532 – 505, every piece below its minimum (505 6.4 mm, 532
+        // 1.5 mm at 150 %), the chain ending on a longer path at one end.
+        let set = isom();
+        let objects = vec![
+            line(&set, "505", &[(0.0, -10.0), (0.0, 10.0)]),
+            line(&set, "505", &[(0.0, 0.0), (3.0, 0.0)]),
+            line(&set, "532", &[(3.0, 0.0), (4.2, 0.0)]),
+            line(&set, "505", &[(4.2, 0.0), (7.2, 0.0)]),
+            line(&set, "532", &[(7.2, 0.0), (8.4, 0.0)]),
+            line(&set, "505", &[(8.4, 0.0), (11.4, 0.0)]),
+        ];
+        let (out, report) = run(&set, objects.clone());
+        assert_eq!(out, objects);
+        assert_eq!(report, TrainingReport::default());
+    }
+
+    #[test]
+    fn two_short_stairs_do_not_keep_each_other() {
+        // The end of the second touches the middle of the first; no way that stays is near.
+        let set = isom();
+        let long = line(&set, "505", &[(0.0, 20.0), (20.0, 20.0)]);
+        let objects = vec![
+            line(&set, "532", &[(0.0, 0.0), (0.4, 0.0)]),
+            line(&set, "532", &[(0.2, 0.0), (0.2, 0.4)]),
+            long.clone(),
+        ];
+        let (out, report) = run(&set, objects);
+        assert_eq!(out, vec![long]);
+        assert_eq!(report.too_small, 2, "{report:?}");
+    }
+
+    #[test]
+    fn pieces_of_a_stair_are_joined_before_the_minimum() {
+        let set = isom();
+        let objects = vec![
+            line(&set, "532", &[(0.0, 0.0), (0.8, 0.0)]),
+            line(&set, "532", &[(0.8, 0.0), (1.6, 0.0)]),
+        ];
+        let (out, report) = run(&set, objects);
+        assert_eq!(out.len(), 1, "{out:?}");
+        assert!((length_mm(&out[0]) - 1.6).abs() < 1e-9, "{out:?}");
+        assert_eq!((report.joined, report.too_small), (1, 0), "{report:?}");
+    }
+
+    #[test]
+    fn a_fence_along_stairs_stays_whole() {
+        let set = isom();
+        let objects = vec![
+            line(&set, "532", &[(0.0, 0.0), (10.0, 0.0)]),
+            line(&set, "518", &[(0.0, 0.3), (10.0, 0.3)]),
+        ];
+        let (out, report) = run(&set, objects.clone());
+        assert_eq!(out, objects);
+        assert_eq!(report, TrainingReport::default());
     }
 
     #[test]

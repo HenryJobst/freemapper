@@ -902,8 +902,8 @@ writes it again; the old one stays as `<name>-training.omap.bak`.
 
 What the training map does differently from the map, step by step:
 
-1. Lines that meet end to end become one line: ways, railways, watercourses, banks, fences, walls and contours. The
-   dash pattern then runs through.
+1. Lines that meet end to end become one line: ways, stairs, railways, watercourses, banks, fences, walls and
+   contours. The dash pattern then runs through.
 2. Street furniture (531, such as lamps, waste baskets and bicycle stands) on streets and squares goes; in a park it
    stays.
 3. Open land of a park is yellow only where the nDSM shows no trees; the rest stays white forest. freemapper reads the
@@ -914,17 +914,21 @@ What the training map does differently from the map, step by step:
    every other way a beginning of 1 mm stays at each open place, so that a runner is not surprised by a path
    branching off. Where a fence or wall stands there, the map shows only that. A passage stays only where a way that
    stays runs through it. What lies on the edge, such as the fence round the garden or the road beside it, stays.
-5. A tree that comes too close to a way, a building, water, a fence or another tree moves to the nearest free spot,
-   at most 1.5 mm on paper (6 m at 1:4000, 15 m at 1:10 000). It then carries `freemapper:moved`. If it finds no
-   spot, it stays where it is and goes in step 6 if it is too close to another symbol there. Trees on streets
-   and squares stay where they are.
+5. A point symbol (a tree, a monument, a fountain and the like) that comes too close to a way, a building, water, a
+   fence or another point moves to the nearest free spot, at most 1.5 mm on paper (6 m at 1:4000, 15 m at
+   1:10 000), but never into olive green. Of two points the smaller moves. It then carries `freemapper:moved`. If it
+   finds no spot, it stays where it is and goes in step 6 if it is too close to another symbol there. Trees on
+   streets and squares stay where they are.
 6. Where two symbols cover each other or come closer than the norm's gap (0.15 mm between two lines, enlarged like
    the symbols), the one with the lower rank gives way. The rank falls from buildings through water, railways,
    roads, paths, watercourses and stairs, fences, walls and cliffs, banks and contours down to the points. The
    stretch is cut out, crossings stay. If more than half of an object is in conflict, it goes whole. Contours run
-   through buildings and ways and give way only to banks and cliffs.
+   through buildings and ways and give way only to banks and cliffs. A fence or wall along a stair stays: the norm
+   draws it with the stair.
 7. What is below the norm's minimum size goes: short pieces of line, stairs under three steps (1 mm) and small areas
-   of open land, forest and green. A short piece that ends on a line of its kind stays.
+   of open land, forest and green. A short piece that ends on a line of its kind that stays, stays too; for ways,
+   stairs and railways every way counts, so a path cut into pieces by steps stays when one end meets a longer
+   way. Two short pieces do not keep each other.
 
 On forest and sprint maps the training map also generalizes the cliffs more than the map (chapter 7).
 

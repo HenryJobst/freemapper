@@ -49,8 +49,9 @@ symbol falls in one of 15 classes; a table gives each pair of classes a relation
 - *Free* (may lie on each other): every pair with a paved area, canopy or other area (OtherArea, Other); a contour
   with everything but earth banks and cliffs (ISSprOM 2019-2, 101: "contour lines shall be represented as continuous
   lines through all symbols, also Building (521) and Canopy (522)"); ways and railways with water and buildings
-  (bridges); buildings with water; water area with bank line; two buildings, two water areas, two bank lines, two
-  cliffs.
+  (bridges); buildings with water; water area with bank line; barriers with stairways (ISSprOM 2019-2, 532: a
+  stairway between impassable objects may drop its border lines, so a railing or fence along it is drawn with it);
+  two buildings, two water areas, two bank lines, two cliffs.
 - *Joined* (one network): roads, paths, railways and stairways among each other; watercourses with watercourses and
   water.
 - *Apart* (keep the gap): every other pair.
@@ -66,7 +67,7 @@ Comparisons are tolerant by 2 map units and use no `hypot`, so every system deci
 
 **The training level** (`build/training/`) runs these steps in order:
 
-1. Ways, railways, watercourses, earth banks, barriers and contours of one symbol that meet end to end within 0.1 m
+1. Ways, stairways, railways, watercourses, earth banks, barriers and contours of one symbol that meet end to end within 0.1 m
    are joined; at a junction of three or more ends only the pair that turns least, if below 30°. Sided lines
    (banks, cliffs, barriers) are never reversed. The joined line names the others in `freemapper:also`. Repeated
    until nothing joins.
@@ -81,17 +82,21 @@ Comparisons are tolerant by 2 map units and use no `hypot`, so every system deci
    bars: a crossing. Otherwise only a stub of 1.0 mm (or the symbol's minimum length) stays at each unbarred place. A
    passage (522 "Durchfahrt", "Arkade", OSM `tunnel=building_passage` or `covered=*`) stays only where a kept way runs
    through it. Areas are cut at the edge, points go, other lines are cut.
-5. A tree (417, 418) closer than the gap to any symbol a point keeps apart from is moved to the nearest spot that
-   keeps every gap, at most 1.5 mm on paper (ruling: a tree centred on a 505 at 1:10 000 needs 0.79 to 1.24 mm; the
-   lines keep 0.5 mm for the second half), larger trees first. It carries `freemapper:moved`. Where no spot is free
-   it is left for step 6. Trees on street and square areas stay.
+5. A point symbol closer than the gap to any symbol a point keeps apart from is moved to the nearest spot that
+   keeps every gap and whose symbol does not overlap olive green (520), at most 1.5 mm on paper (ruling: a point
+   symbol stands for an object beside the way within its own size; a tree centred on a 505 at 1:10 000 needs 0.79 to
+   1.24 mm; the lines keep 0.5 mm for the second half). The larger symbol goes first, then the earlier object, so of
+   two points too close the smaller moves. It carries `freemapper:moved`. Where no spot is free it is left for step
+   6. Trees on street and square areas stay.
 6. Of every Apart pair in conflict the lower-ranked object gives way: the stretch is cut out (the winner's footprint
    grown by the loser's half width, the gap and the tolerance, crossings kept), the object goes whole when more than
    half of its length is in conflict. A loser waits while one of its winners still has to give way; at most 20
    rounds, and what is left then is reported in mm.
 7. What is below the norm's minimum goes. Lines: the minimum length of the symbol set, else 1.0 mm; a stairway 1.0
    mm ("Minimum length: 3 (graphical) steps" in both norms, steps 0.5 mm apart in both sets); a line that ends on
-   another of its class stays. Areas: 401 0.5 mm² (ISSprOM) or 0.55 mm × 0.55 mm (ISOM), 402 6.25 mm², 403 1 mm², 405
+   a line that stays, stays too: for roads, paths, railways and stairways any of these, for other lines one of their
+   class; a chain of short pieces stays when one end meets a line long enough, two short pieces do not keep each
+   other. Areas: 401 0.5 mm² (ISSprOM) or 0.55 mm × 0.55 mm (ISOM), 402 6.25 mm², 403 1 mm², 405
    1.0 mm², 406 to 410 1.5 mm × 1.5 mm.
 
 Joined pairs side by side are counted, not settled.
@@ -128,7 +133,7 @@ runs `Level::TRAINING`; that moves to the training map.
   goldens of Berlin, Brandenburg, Hessen and Saxony-Anhalt are blessed; the check prints of Berlin, Hessen and
   Saxony-Anhalt change because the training rock left them. Existing projects change after `export --force`.
 - A project with an nDSM stores `data/tree-cover.tif` and `.tfw` (1 m cells).
-- The training map moves up to 1.5 mm what it shows as a tree (15 m on the ground at 1:10 000) and leaves out what
+- The training map moves up to 1.5 mm what it shows as a point symbol (15 m on the ground at 1:10 000) and leaves out what
   the base map keeps; mapping goes on in the base map and the candidates.
 - Until the second half, carriageways, tracks and parallel paths stay side by side, and a line end that touched a
   dropped line may be left free.

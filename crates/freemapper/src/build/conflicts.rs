@@ -406,6 +406,9 @@ pub fn relation(a: Class, b: Class) -> Relation {
         // A building stands on the shore or over the water like a bridge: both are drawn, the
         // water under the building's outline.
         (Building, WaterArea | BankLine) | (WaterArea | BankLine, Building) => Relation::Free,
+        // ISSprOM 2019-2, 532: a stairway between impassable objects may drop its border lines,
+        // so a railing, wall or fence along a stair is drawn with it.
+        (Barrier, Stairway) | (Stairway, Barrier) => Relation::Free,
         (Building, Building) | (WaterArea, WaterArea) | (BankLine, BankLine) | (Cliff, Cliff) => {
             Relation::Free
         }
@@ -888,6 +891,18 @@ mod tests {
         let objects = [
             area(&set, "521", (5.0, 0.0), (15.0, 5.0)),
             line(&set, "503", &[(0.0, 5.1), (20.0, 5.1)]),
+        ];
+        assert_eq!(measure(&set, &objects), Vec::new());
+    }
+
+    #[test]
+    fn a_fence_along_a_stair_is_free() {
+        let set = isom();
+        assert_eq!(relation(Class::Barrier, Class::Stairway), Relation::Free);
+        let objects = [
+            line(&set, "532", &[(0.0, 0.0), (10.0, 0.0)]),
+            line(&set, "518", &[(0.0, 0.3), (10.0, 0.3)]),
+            line(&set, "515", &[(0.0, -0.3), (10.0, -0.3)]),
         ];
         assert_eq!(measure(&set, &objects), Vec::new());
     }

@@ -938,8 +938,8 @@ Eine vorhandene Trainingskarte bleibt, denn Sie könnten sie bearbeitet haben. `
 
 Was die Trainingskarte anders macht als die Karte, Schritt für Schritt:
 
-1. Linien, die Ende an Ende stoßen, werden eine Linie: Wege, Gleise, Wasserläufe, Böschungen, Zäune, Mauern und
-   Höhenlinien. Die Strichelung läuft dann durch.
+1. Linien, die Ende an Ende stoßen, werden eine Linie: Wege, Treppen, Gleise, Wasserläufe, Böschungen, Zäune,
+   Mauern und Höhenlinien. Die Strichelung läuft dann durch.
 2. Stadtmobiliar (531, etwa Laternen, Papierkörbe und Fahrradständer) auf Straßen und Plätzen entfällt, im Park bleibt
    es.
 3. Offenes Gelände eines Parks ist nur dort gelb, wo das nDOM keine Bäume zeigt; der Rest bleibt weißer Wald.
@@ -951,17 +951,21 @@ Was die Trainingskarte anders macht als die Karte, Schritt für Schritt:
    nicht von einem abzweigenden Weg überrascht wird. Steht dort ein Zaun oder eine Mauer, zeigt die Karte nur diese.
    Eine Durchfahrt bleibt nur, wo ein Weg hindurchführt, der bleibt. Was auf dem Rand liegt, etwa der Zaun um den
    Garten oder die Straße daneben, bleibt.
-5. Ein Baum, der einem Weg, einem Gebäude, Wasser, einem Zaun oder einem anderen Baum zu nahe kommt, rückt auf den
-   nächsten freien Platz, höchstens 1,5 mm auf dem Papier (6 m bei 1:4000, 15 m bei 1:10 000). Er trägt dann
-   `freemapper:moved`. Findet er keinen Platz, bleibt er stehen und entfällt in Schritt 6,
-   wenn er dort einem anderen Symbol zu nahe kommt. Bäume auf Straßen und Plätzen bleiben stehen.
+5. Ein Punktsymbol (ein Baum, ein Denkmal, ein Brunnen und dergleichen), das einem Weg, einem Gebäude, Wasser,
+   einem Zaun oder einem anderen Punkt zu nahe kommt, rückt auf den nächsten freien Platz, höchstens 1,5 mm auf dem
+   Papier (6 m bei 1:4000, 15 m bei 1:10 000), aber nie in olivgrüne Flächen. Von zwei Punkten rückt der kleinere.
+   Er trägt dann `freemapper:moved`. Findet er keinen Platz, bleibt er stehen und entfällt in Schritt 6, wenn er
+   dort einem anderen Symbol zu nahe kommt. Bäume auf Straßen und Plätzen bleiben stehen.
 6. Wo sich zwei Symbole überdecken oder einander näher kommen als der Abstand der Norm (0,15 mm zwischen zwei Linien,
    vergrößert wie die Symbole), weicht das mit dem niedrigeren Rang. Der Rang fällt von Gebäude über Gewässer, Bahn,
    Straße, Weg, Wasserlauf und Treppe, Zaun, Mauer und Felswand, Böschung und Höhenlinie bis zu den Punkten. Das
    Stück wird ausgeschnitten, Kreuzungen bleiben. Liegt mehr als die Hälfte eines Objekts im Konflikt, entfällt es
-   ganz. Höhenlinien laufen durch Gebäude und Wege und weichen nur Böschungen und Felswänden.
+   ganz. Höhenlinien laufen durch Gebäude und Wege und weichen nur Böschungen und Felswänden. Ein Zaun oder eine
+   Mauer entlang einer Treppe bleibt: Die Norm zeichnet sie mit der Treppe.
 7. Was unter der Mindestgröße der Norm liegt, entfällt: kurze Linienstücke, Treppen unter drei Stufen (1 mm) und
-   kleine Flächen von offenem Gelände, Wald und Grün. Ein kurzes Stück, das an einer Linie seiner Art endet, bleibt.
+   kleine Flächen von offenem Gelände, Wald und Grün. Ein kurzes Stück, das an einer Linie seiner Art endet, die
+   bleibt, bleibt auch; bei Wegen, Treppen und Gleisen zählt jeder Weg, so bleibt ein von Stufen zerteilter Pfad,
+   wenn ein Ende auf einen längeren Weg trifft. Zwei kurze Stücke halten einander nicht.
 
 Auf Wald- und Sprintkarten generalisiert die Trainingskarte außerdem die Felswände stärker als die Karte
 (Kapitel 7).

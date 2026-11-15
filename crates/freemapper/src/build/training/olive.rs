@@ -28,7 +28,7 @@ pub const OLIVE_EDGE_MM: PaperMm = PaperMm(0.4);
 /// The beginning drawn of a way that allows no crossing: this, or the symbol's minimum length if longer.
 pub const WAY_STUB_MM: PaperMm = PaperMm(1.0);
 /// Area that shall not be entered: the olive green of [`clear_olive`].
-const OLIVE_CODE: &str = "520";
+pub(super) const OLIVE_CODE: &str = "520";
 /// Canopy: roofs, carports and the passages through buildings.
 const CANOPY_CODE: &str = "522";
 /// Impassable wall and impassable fence: they bar a way into the olive green.
@@ -622,7 +622,7 @@ fn grown(rect: Rect<f64>, by: f64) -> Rect<f64> {
 }
 
 /// A polygon in map coordinates in paper mm.
-fn in_mm(polygon: &Polygon<f64>) -> Polygon<f64> {
+pub(super) fn in_mm(polygon: &Polygon<f64>) -> Polygon<f64> {
     polygon.map_coords(|c| Coord {
         x: c.x / 1000.0,
         y: c.y / 1000.0,

@@ -300,8 +300,8 @@ The cache is shared by all projects: macOS `~/Library/Caches/freemapper`, Linux 
   and the candidates, cleaned up so that symbols do not lie on each other: it joins lines, cuts out or leaves out
   the lower-ranked object where two come too close, leaves out what is below the norm's minimum size, street
   furniture on streets and squares and the details inside olive green areas (only buildings, water, contours and
-  ways that lead through stay), draws a park yellow only where the nDSM shows no trees, and moves trees up to
-  1.5 mm on paper. Carriageways, tracks and paths that run side by side still stand side by side. Do not map on it:
+  ways that lead through stay), draws a park yellow only where the nDSM shows no trees, and moves trees and
+  other point symbols up to 1.5 mm on paper. Carriageways, tracks and paths that run side by side still stand side by side. Do not map on it:
   the base map and the candidates stay the working material, true to position. Its uncertain objects still need a
   look in the terrain before an event.
 - The OCAD files carry placeholder symbols; in OCAD the user loads the official symbol set, which replaces them by
