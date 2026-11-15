@@ -951,6 +951,11 @@ What the training map does differently from the map, step by step:
    way. Two short pieces do not keep each other. A stair too short to draw between two ways is drawn as the way
    (it carries `freemapper:generalized`); one at a dead end goes.
 
+   Last, a line end that touched a line before step 5 and lost it in step 8 or 9 is drawn onto what is left of that
+   line, when that lies within 0.5 mm plus the gap. Where nothing is left in reach, the end stays free and the
+   summary line counts it: `3 line ends left free`. Where two lines lay on each other and one was cut for the
+   other, the gap is meant and nothing is drawn back.
+
 On forest and sprint maps the training map also generalizes the cliffs more than the map (chapter 7).
 
 In Berlin the street survey also has the carriageways. On the training map of a sprint map they are drawn inside the

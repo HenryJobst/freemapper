@@ -44,14 +44,19 @@ minimum sizes.
 - An object merges once per round. The rounds measure again and stop when nothing merges, after 20 at the latest.
   Closed lines and lines of several parts do not merge.
 - On the forest map only, before the rounds: a path, or a railway tagged `railway=tram`, in the gap zone of a road
-  goes. The zone is where a Joined conflict is measured: the road's half width plus the rider's half width plus the
-  gap, from the road's centre line (0.675 mm for a 505 beside a 503 at 1:10 000, so 6.75 m on the ground). A rider
+  goes. The zone is where a Joined conflict is measured: the drawn half width of the one that stays plus the half
+  width of the one that gives way plus the gap, from the road's centre line (0.675 mm for a 505 beside a 503 at
+  1:10 000, so 6.75 m on the ground; 0.85 mm beside a 502, whose casing reaches 0.435 mm). A rider
   that lies more than half its length in the zone goes (`dropped_beside_roads`). Otherwise only its stretches in
   the zone are cut out, each at least 1.0 mm long, crossings left out. A piece below its minimum goes, and the cut
   end next to the road is drawn onto the road's centre line. The piece carries `cut: in the gap of a road`.
   *Ruling:* the zone is that of the conflict, not the road's drawn width. Read as the drawn width, sidewalks 4 to
   6 m from the road's centre stayed as joined conflicts that nothing settled. *Cost:* a real path that runs close
   beside a road over most of its length is dropped. ISOM does not map sidewalks and cycleways apart from their road.
+  *Fix after the measurement:* the rule first took the road's half width, which for a 502 is the width of its fill
+  (0.225 mm), not its casing; the measure saw sidewalks the rule did not, 260 mm of them in Bremen. When a pair
+  merged, the rule runs once more after the merge rounds, against the merged roads; a piece cut before is not
+  counted again.
 - On the sprint map the street space is a paved area (501.5), on which paths and trams are Free, so nothing on it is
   touched. Joined pairs of 501.x and 505.x lines of one class merge there as on the forest map.
 
@@ -88,6 +93,14 @@ minimum sizes.
   that replaced it (`replaced_by`, followed through every replacement). That point must lie within the shift bound
   plus the gap. Only the end vertex moves. An end that finds no line counts as free (`junctions_free`). An end the merge drew onto a line (a Y or a cut sidewalk) is recorded too
   (`Junctions::attach`), so it follows that line when it merges again.
+- *Fix after the measurement:* give way and the minimum sizes cut and drop lines after both repairs, so ends were
+  left free that no count saw. The keys recorded before the merge are set aside while the shift records its own
+  (`set_aside`, `bring_back`), and after give way, the minimum sizes and the last join the ends recorded before the
+  merge are repaired once more, onto what is left of the line they touched, with the same reach. What stays free is
+  `junctions_free`, and the summary prints "N line ends left free" ("N Linienenden frei") when there are any. Give
+  way names the lines each line gave way to: an end is not drawn onto a line that was cut for the end's own line
+  (two lines that lay on each other, where the gap is meant), and it is not counted free when every line it could
+  move onto was cut for its own.
 - *Ruling:* the keys are stable. `record` tags every line with a temporary `freemapper:junction=<index>`, and
   `forget` removes the tag before `train` returns (a debug assertion checks it). A key that names several pieces of
   a split line resolves to the piece whose end lies nearest the recorded position. An end that lies further than the
@@ -134,9 +147,11 @@ merge.
   is written again.
 - On the training map, lines move by up to 0.5 mm on paper and points by up to 1.5 mm. Merged roads and paths lie on
   the middle of their sources. Mapping goes on in the base map and the candidates, which keep the measured positions.
-- In the debug build the training level takes about twice as long. Measured on the goldens: Berlin 5.0 s to 9.5 s,
-  Brandenburg 2.9 s to 5.5 s, Hessen 3.2 s to 5.1 s, Saxony-Anhalt 2.6 s to 6.2 s. Most of it is the local
-  footprints, measured twice per attempt, and the refused attempts that repeat while another line still moves.
+- The training export takes longer: in the release build 37 s instead of 23 s for Bremen Bürgerpark, 11 s instead
+  of 8 s for Viktoriapark and 6 s instead of 4 s at the Bastei (CPU time, see "Measured"). As first written, the
+  shift step drew every footprint again each round and round each attempt, and Bremen took 315 s. It now keeps the
+  footprints and the verdict on each pair until one of the objects moves, finds the neighbours of a line in a grid,
+  and does not try a refused shift again while nothing near it moved; the result is byte for byte the same.
 - Cost if wrong: the bounds are constants (`MAX_SHIFT_MM`, `RAMP_FACTOR`, `WHOLE_SHARE`, `REACH_MM` in `shift.rs`,
   `MIDDLE_STEP_MM` and `RAMP_FACTOR` in `merge.rs`), and each step is one function called from `train`.
 
@@ -149,8 +164,12 @@ merge.
 - Three lines side by side merge in two rounds. The ends that the first merge drew onto the kept line are attached,
   but a second merge of that line can still loosen them by up to half the distance.
 - Of two lines of one rank and one length in an Apart conflict, neither shifts: the pair falls to give way.
-- The training time about doubled. A later step can remember refused (loser, winner) pairs whose neighbourhood did
-  not change.
+- Bremen keeps 48 % of the length of 518, not half: the enclosures at the Meierei are fences drawn inside the gap
+  of a stream with no room to move them 0.5 mm off it, so give way cuts them there.
+- End to end (every end of the check print that touched a line against the training map), more ends are free than
+  the program counts: 43, 14 and 15 on the three examples, against 18, 6 and 9. The program does not count an end
+  whose line was cut for its own line (the gap is meant), and the measure counts any end that lies within reach of
+  where a touching end was. How the difference splits between the two was not sorted out.
 - Smaller items: two pieces of one key whose ends of the same flag lie within reach are rare and not resolved
   further; after a stretch across the seam of a closed line, the arc positions of the stretches before it are off
   by up to about 0.06 mm; a survey kerb that lies more than half inside a street goes whole, even where part of it
@@ -158,7 +177,50 @@ merge.
 
 ## Measured
 
-Filled in by the measurement before the merge.
+On 2026-11-15, with the release build of the fix wave (head 0665819b), on the three examples rebuilt in scratch from
+their `freemapper.toml`, `export --force --training`, measured with the program's own conflict measure (check print →
+training map, mm on paper). The machine was shared: load average 8 to 10 during the exports, so the times are upper
+bounds. Way pairs are the joined pairs of roads, railways and paths, what merge settles. Free ends are the program's
+`junctions_free`. Before the fix wave the first measurement (head 07783574) gave 315 s, 17 s and 8 s, way pairs
+−72 %, −100 % and −96 %, 48.1 % of 518 in Bremen, and 0, 0 and 3 free ends, counted after the merge and the shift
+only.
+
+Bremen Bürgerpark (forest 1:10 000):
+
+| | check print | training map |
+|---|---|---|
+| Apart conflicts | 3949.1 mm | 0 |
+| Way pairs | 995.5 mm | 14.6 mm (−98.5 %) |
+| Path–Road | 367.2 mm | 0 |
+| All joined pairs | 1692.5 mm | 705.2 mm (−58.3 %) |
+| 518 | 386.1 mm | 186.1 mm (48.2 %) |
+| Line ends left free | | 18 |
+| Training export: CPU / real / max RSS | | 37.0 s / 39.8 s / 292 MiB (first half 23 s / 24 s / 350 MiB) |
+
+Viktoriapark (sprint 1:4000):
+
+| | check print | training map |
+|---|---|---|
+| Apart conflicts | 550.0 mm | 0 |
+| Way pairs | 15.1 mm | 0 (−100 %) |
+| All joined pairs | 158.9 mm | 143.8 mm (−9.5 %) |
+| 518 | 653.9 mm | 592.1 mm |
+| Line ends left free | | 6 |
+| Training export: CPU / real / max RSS | | 11.2 s / 11.7 s / 131 MiB (first half 8 s / 8 s / 195 MiB) |
+
+Bastei (forest 1:10 000):
+
+| | check print | training map |
+|---|---|---|
+| Apart conflicts | 639.1 mm | 0 |
+| Way pairs | 264.2 mm | 11.1 mm (−95.8 %) |
+| All joined pairs | 525.5 mm | 245.2 mm (−53.3 %) |
+| 518 | 153.8 mm | 70.6 mm |
+| Line ends left free | | 9 |
+| Training export: CPU / real / max RSS | | 5.9 s / 6.2 s / 78 MiB (first half 4 s / 4 s / 100 MiB) |
+
+The joined pairs left are mostly water against watercourse and Berlin's stair step lines, which no step of the second half touches. The Bremen way pairs left are 3.9 mm of Road–Road,
+2.3 mm of Path–Path and 8.4 mm of Path–Railway.
 
 Source: spec `docs/superpowers/specs/2026-11-14-training-map-design.md` ("The second half, as designed on
 2026-11-15", decision 13), plan `docs/superpowers/plans/2026-11-15-training-map-2.md` and its rulings ledger;

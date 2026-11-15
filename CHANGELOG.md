@@ -13,7 +13,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 - Das Bild oben in der README und die Vorschau des Viktoriapark-Beispiels zeigen jetzt die Trainingskarte statt des Prüfausdrucks; das Beispiel hat dazu `berlin-viktoriapark-training.omap` und `berlin-viktoriapark-training.pdf`. Der Prüfausdruck bleibt daneben verlinkt. Die übrigen Beispiele folgen nach der zweiten Hälfte der Trainingskarte.
 - freemapper nutzt freemapper-core v0.28.0, das wie die ganze Suite unter AGPL-3.0-or-later steht (ADR 0152); am Verhalten ändert sich nichts.
 - Die CI prüft die Abhängigkeiten mit `cargo deny` (`deny.toml`, ADR 0154): Lizenzen, die zur AGPL passen, bekannte Sicherheitslücken und nicht mehr gepflegte Crates, und dass alles von crates.io oder freemapper-core kommt. Vier Meldungen sind mit Begründung ausgenommen: zwei betreffen Teile von rmcp, die freemapper nicht baut, zwei nicht mehr gepflegte Crates ohne Ersatz (ttf-parser, basic-toml nur beim Bauen).
-- Die Trainingskarte fasst jetzt zusammen und verschiebt, bevor sie schneidet (ADR 0150). Eine vorhandene Trainingskarte ändert sich, sobald sie neu geschrieben wird. Ihre Bereinigung dauert dadurch etwa doppelt so lange.
+- Die Trainingskarte fasst jetzt zusammen und verschiebt, bevor sie schneidet (ADR 0150). Eine vorhandene Trainingskarte ändert sich, sobald sie neu geschrieben wird. Ihre Bereinigung dauert länger: im Release-Build 37 s statt 23 s für das Beispiel Bremen Bürgerpark, 11 s statt 8 s für den Viktoriapark, 6 s statt 4 s an der Bastei. Linienenden, die ihre Linie verloren haben, werden an deren Rest gezogen; die Zusammenfassung sagt, wie viele frei bleiben („N Linienenden frei“).
 
 ### Hinzugefügt
 

@@ -13,7 +13,7 @@ All notable changes to freemapper are listed here, newest first. The format foll
 - The image at the top of the README and the preview of the Viktoriapark example now show the training map instead of the check print; the example has `berlin-viktoriapark-training.omap` and `berlin-viktoriapark-training.pdf` for it. The check print stays linked beside it. The other examples follow after the second half of the training map.
 - freemapper uses freemapper-core v0.28.0, which is under AGPL-3.0-or-later like the whole suite (ADR 0152); nothing changes in how it works.
 - CI checks the dependencies with `cargo deny` (`deny.toml`, ADR 0154): licences that fit the AGPL, known vulnerabilities and unmaintained crates, and that everything comes from crates.io or freemapper-core. Four advisories are ignored with a reason: two concern parts of rmcp that freemapper does not build, two unmaintained crates without a replacement (ttf-parser, basic-toml at build time only).
-- The training map now merges and shifts before it cuts (ADR 0150). An existing training map changes once it is written again. Its clean-up takes about twice as long.
+- The training map now merges and shifts before it cuts (ADR 0150). An existing training map changes once it is written again. Its clean-up takes longer: in the release build 37 s instead of 23 s for the Bremen Bürgerpark example, 11 s instead of 8 s for Viktoriapark, 6 s instead of 4 s at the Bastei. Line ends that lost the line they touched are drawn onto what is left of it; the summary line says how many stay free ("N line ends left free").
 
 ### Added
 

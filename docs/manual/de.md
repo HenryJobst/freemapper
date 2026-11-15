@@ -991,6 +991,11 @@ Was die Trainingskarte anders macht als die Karte, Schritt für Schritt:
    zum Zeichnen ist, wird zwischen zwei Wegen als Weg gezeichnet (sie trägt `freemapper:generalized`); an einem
    Wegende entfällt sie.
 
+   Zum Schluss wird ein Linienende, das vor Schritt 5 eine Linie berührte und sie in Schritt 8 oder 9 verlor, an
+   den Rest dieser Linie gezogen, wenn er höchstens 0,5 mm plus den Abstand entfernt liegt. Liegt nichts mehr in
+   Reichweite, bleibt das Ende frei, und die Zusammenfassung zählt es: `3 Linienenden frei`. Lagen zwei Linien
+   aufeinander und wurde eine für die andere geschnitten, ist die Lücke gewollt; dort wird nichts zurückgezogen.
+
 Auf Wald- und Sprintkarten generalisiert die Trainingskarte außerdem die Felswände stärker als die Karte
 (Kapitel 7).
 
