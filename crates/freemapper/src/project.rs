@@ -29,7 +29,7 @@ use crate::derive::contours::{
 use crate::derive::landforms::{
     height_jumps, knolls_and_depressions, landforms_from_geojson, landforms_to_geojson,
 };
-use crate::derive::ndsm::{fill_from_dsm, rasterize, write_ndsm_png};
+use crate::derive::ndsm::{fill_from_dsm, rasterize, tree_cover, write_ndsm_png};
 use crate::derive::orthophoto::{build_orthophoto, build_orthophoto_from_image};
 use crate::derive::relief::{RELIEF_SPAN_M, local_relief, relief_shade};
 use crate::derive::terrain::{
@@ -646,6 +646,7 @@ impl ProjectFile {
             TERRAIN_RELPATH,
             TERRAIN_MOSAIC_RELPATH,
             ROCK_SEEN_RELPATH,
+            TREE_COVER_RELPATH,
             SURFACE_RELPATH,
         ] {
             let path = dir.join(relpath);
@@ -800,6 +801,9 @@ pub(crate) const K5_TEMPLATE: &str = "k5";
 pub(crate) const TERRAIN_MOSAIC_RELPATH: &str = "data/terrain.tif";
 /// Where the orthophoto shows rock, per metre (forest and sprint maps; `derive/rock_seen.rs`).
 pub(crate) const ROCK_SEEN_RELPATH: &str = "data/rock-seen.tif";
+/// The share of ground under trees per metre, from the nDSM (`derive::ndsm::tree_cover`); where
+/// derive has no nDSM there is none. The training map reads it for the open land of parks.
+pub(crate) const TREE_COVER_RELPATH: &str = "data/tree-cover.tif";
 /// Contour lines from `derive` (GeoJSON in the map's CRS), input of the export.
 const CONTOURS_RELPATH: &str = "data/contours.geojson";
 /// Knolls, depressions, banks and cliffs from `derive` (GeoJSON in the map's CRS), input of the
@@ -2370,6 +2374,7 @@ pub fn derive_project_cancellable(
         })
         .collect();
     let ndsm_path = dir.join(NDSM_RELPATH);
+    let tree_cover_path = dir.join(TREE_COVER_RELPATH);
     stop_if(cancelled)?;
     let dsm = if dsm_recorded {
         let model = match inputs.dsm {
@@ -2392,8 +2397,13 @@ pub fn derive_project_cancellable(
         None
     };
     if ndsm_files.is_empty() && dsm.is_none() {
-        // An older nDSM template would no longer match the map area: remove it.
-        for stale in [ndsm_path.clone(), ndsm_path.with_extension("pgw")] {
+        // An older nDSM template or tree cover would no longer match the map area: remove it.
+        for stale in [
+            ndsm_path.clone(),
+            ndsm_path.with_extension("pgw"),
+            tree_cover_path.clone(),
+            tree_cover_path.with_extension("tfw"),
+        ] {
             freemapper_fs::remove_inside(dir, &stale);
         }
     } else {
@@ -2406,6 +2416,15 @@ pub fn derive_project_cancellable(
         }
         write_ndsm_png(&ndsm, dir, &ndsm_path)?;
         written.push(ndsm_path);
+        // Where trees hide the ground, for the open land of parks on the training map.
+        progress(note!("progress-writing", path = TREE_COVER_RELPATH));
+        stop_if(cancelled)?;
+        freemapper_sources::float_tiff::write_float_raster(
+            &tree_cover(&ndsm),
+            dir,
+            &tree_cover_path,
+            TREE_COVER_RELPATH,
+        )?;
     }
     written.push(contours_path);
     written.push(landforms_path);
@@ -12852,6 +12871,43 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let project = ProjectFile::load(dir.path()).unwrap();
         assert_eq!(project.ndsm_tiles.len(), 1);
         assert_eq!(project.ndsm_tiles[0].published, "2025-03-03".parse().ok());
+    }
+
+    #[test]
+    fn derive_writes_the_tree_cover_where_there_is_an_ndsm() {
+        let (dir, _cache_dir, _) = derived_school_with_ndsm();
+        let path = dir.path().join(TREE_COVER_RELPATH);
+        assert!(path.with_extension("tfw").exists());
+        let cover = read_float_raster(&path).unwrap();
+        assert_eq!(cover.grid.pixel_size, 1.0);
+        assert!(
+            cover
+                .data
+                .iter()
+                .all(|v| v.is_nan() || (0.0..=1.0).contains(v)),
+            "a share"
+        );
+        // The synthetic hedge is 2 m high: no tree, but known; elsewhere the nDSM has no data.
+        let (x, y) = (
+            ((421_610.1 - cover.grid.west) / cover.grid.pixel_size) as u32,
+            ((cover.grid.north - 5_821_660.0) / cover.grid.pixel_size) as u32,
+        );
+        assert_eq!(cover.get(x, y), 0.0);
+        assert!(cover.get(x + 3, y).is_nan());
+    }
+
+    #[test]
+    fn derive_writes_no_tree_cover_without_an_ndsm() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = fetched_school(&fetcher);
+        let path = dir.path().join(TREE_COVER_RELPATH);
+        // One of an earlier area would no longer match the map area.
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(&path, b"old").unwrap();
+        std::fs::write(path.with_extension("tfw"), b"old").unwrap();
+        derive_project(dir.path(), &cache, &mut |_| {}).unwrap();
+        assert!(!path.exists());
+        assert!(!path.with_extension("tfw").exists());
     }
 
     /// Sends the vegetation of the project in `dir` to the candidates, as `--content-set

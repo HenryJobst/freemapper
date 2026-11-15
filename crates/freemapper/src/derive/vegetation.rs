@@ -514,7 +514,7 @@ pub fn vegetation_from_geojson(
 /// The cells of `class` as polygons: the 0.5 contour of a 0/1 raster, on a grid
 /// [`SMOOTH_SUBCELLS`] times finer and blurred, padded with empty cells so every ring closes; a
 /// ring inside an odd number of others is a hole.
-fn outlines(
+pub(crate) fn outlines(
     classes: &Raster<Option<VegetationClass>>,
     class: VegetationClass,
     min_area_m2: f64,

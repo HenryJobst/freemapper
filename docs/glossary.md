@@ -162,6 +162,7 @@ Orienteering Maps 2019 (IOF).
 | Digitales Oberflächenmodell (DOM) | digital surface model (DSM) | Höhenraster inkl. Bewuchs und Bebauung. | `Dsm` |
 | Bildbasiertes DOM (bDOM) | image-based DSM | Aus Luftbildern berechnetes DOM. | `ImageDsm` |
 | Normalisiertes DOM (nDOM) | normalized DSM (nDSM) | DOM minus DGM = Objekthöhe über Grund. | `Ndsm` |
+| Baumbedeckung | tree cover | Anteil des Bodens unter Bäumen je 1-m-Zelle: der Anteil ihrer 0,2-m-Zellen des nDOM, die mindestens 3 m hoch sind (`NaN` ohne Daten). `derive` schreibt sie nach `data/tree-cover.tif`, wo es ein nDOM hat. In der Trainingskarte behält das offene Gelände (401) eines Parks nur die Zellen mit einem Anteil unter 0,5. Nicht Überdachung (522)! | `tree_cover`, `TREE_COVER_RELPATH` |
 | Schummerung | hillshade | Schattiertes Reliefbild aus dem DGM. | `Hillshade` |
 | Hangneigung | slope | Neigung des Geländes je Rasterzelle (Grad). | `Slope` |
 | Lokales Relief | local relief | DGM minus sein geglättetes Mittel (Sprint 5 m, Schulhof 3 m): Böschungen, Kuppen, Mulden und Gräben treten hervor, das allgemeine Gefälle nicht. Vorlage `templates/relief.png`. | `local_relief`, `RELIEF_RELPATH` |

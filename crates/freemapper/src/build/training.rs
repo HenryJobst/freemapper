@@ -5,7 +5,8 @@
 //! The steps run in a fixed order, each on what the one before left:
 //! 1. lines of one symbol that meet end to end are joined ([`join_lines`]);
 //! 2. street furniture (531) on a paved area goes;
-//! 3. (open land under trees: a later step);
+//! 3. open land of a park is reduced to its open ground where the tree cover shows trees
+//!    ([`open_ground`]);
 //! 4. what keeps no gap to another object ([`conflicts`], the pairs that keep apart) gives way:
 //!    it is cut out there, or dropped when more than half of it is in conflict;
 //! 5. lines and areas below the norm's minimum size go.
@@ -16,30 +17,50 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use geo::{Area as _, BooleanOps as _, BoundingRect as _, Buffer as _, Intersects as _};
-use geo_types::{Coord, LineString, Point, Polygon, Rect};
+use geo_types::{Coord, LineString, MultiPolygon, Point, Polygon, Rect};
 
 use crate::build::candidates::MIN_LINE_MM;
 use crate::build::conflicts::{
     Class, Classes, Conflict, Footprints, Grade, Relation, TOLERANCE_MM, conflicts, gap,
     meeting_points, rank, relation,
 };
+use crate::build::dedup::tag_holds;
 use crate::build::geometry::{distance_to_segment, object_polygon, xy};
 use crate::build::line_cuts::cut_lines_at_ways;
 use crate::build::line_join::{TOUCH_M, join_lines};
+use crate::build::open_land::MIN_PIECE_SIDE_MM;
+use crate::build::out_of_bounds::{area_object, short_side};
 use crate::build::points::{FOREST, PAVED_AREA_CODES, SCATTERED_TREES, projected};
-use crate::derive::vegetation::min_area_m2;
+use crate::derive::vegetation::{VegetationClass, majority, min_area_m2, outlines};
 use crate::georef::Georeferencing;
 use crate::measure::{PaperMm, PaperMm2, SymbolMm, SymbolMm2, SymbolScale, map_units_per_metre};
 use crate::omap::coord::FLAG_CLOSE;
 use crate::omap::{MapObject, MapObjectKind, SymbolSet};
 use crate::project::MapKind;
-use crate::raster::Raster;
+use crate::raster::{GridSpec, Raster};
 use crate::render::geometry::{length, parts};
 
 /// The give-way step stops after this many rounds; what is left then is in the report.
 const MAX_ROUNDS: usize = 20;
 /// Street furniture: the x of symbol 531, Prominent man-made feature.
 const FURNITURE_CODE: &str = "531";
+/// Open land, the only symbol [`open_ground`] reduces.
+const OPEN_LAND_CODE: &str = "401";
+/// The land use of a park, green space or other recreation ground (`freemapper:nutzart` starts
+/// with it).
+const PARK_NUTZART: &str = "Sport-, Freizeit- und Erholungsfläche";
+/// An OSM park (`freemapper:osm` holds it).
+const OSM_PARK: &str = "leisure=park";
+/// A cell of the tree cover with a smaller share of ground under trees is open ground.
+const OPEN_BELOW_SHARE: f32 = 0.5;
+/// The window of tree cover read round a park reaches this far past it, beyond the blur of the
+/// outlines (three sigmas of 1.5 m and a cell), so that the open ground at the park's edge is
+/// not cut by the window's edge.
+const COVER_MARGIN_M: f64 = 8.0;
+/// The tag of a piece of open ground: what the step did to it.
+const GENERALIZED_KEY: &str = "freemapper:generalized";
+/// The value of [`GENERALIZED_KEY`] on a piece of open ground.
+const TREE_COVER: &str = "tree cover";
 /// ISOM 2017-2 and ISSprOM 2019-2, 532 Stairway: "Minimum length: 3 (graphical) steps". The
 /// steps of 532 lie 0.5 mm apart in both bundled symbol sets (`segment_length`), so three steps
 /// span 1.0 mm.
@@ -68,7 +89,7 @@ pub struct TrainingReport {
     pub cut: usize,
     /// Lines and areas below the norm's minimum size.
     pub too_small: usize,
-    /// Open land reduced to its open ground (a later step).
+    /// Open land of parks reduced to its open ground, or dropped where none is left.
     pub open_land_cut: usize,
     /// Street furniture on paved areas.
     pub furniture: usize,
@@ -81,7 +102,8 @@ pub struct TrainingReport {
 }
 
 /// The objects of the training map from the objects of the map and the visible candidates.
-/// `tree_cover` is the raster of Task 5 (share of ground under trees per cell), when there is one.
+/// `tree_cover` is the share of ground under trees per cell (`data/tree-cover.tif`), when there
+/// is one.
 pub fn train(
     objects: Vec<MapObject>,
     tree_cover: Option<&Raster<f32>>,
@@ -96,8 +118,9 @@ pub fn train(
         furniture: drop_furniture(&mut objects, symbol_set),
         ..TrainingReport::default()
     };
-    // 3. Open land under trees (Task 5) reads `tree_cover` here.
-    let _ = tree_cover;
+    if let Some(tree_cover) = tree_cover {
+        report.open_land_cut = open_ground(&mut objects, tree_cover, georef, symbol_set);
+    }
     (report.gave_way, report.cut) = give_way(&mut objects, &classes, kind, georef, symbol_set);
     report.too_small = drop_too_small(&mut objects, &classes, kind, georef, symbol_set);
     (report.overlap_left, report.gap_left, report.apart_left) =
@@ -161,6 +184,133 @@ fn drop_furniture(objects: &mut Vec<MapObject>, symbol_set: &SymbolSet) -> usize
             .any(|(frame, area)| frame.intersects(&centre) && area.intersects(&centre))
     });
     before - objects.len()
+}
+
+/// Whether `object` is the open land of a park: from the land use of recreation grounds, or an
+/// OSM park.
+fn is_park(object: &MapObject) -> bool {
+    object.tags.iter().any(|(k, v)| {
+        (k == "freemapper:nutzart" && v.starts_with(PARK_NUTZART))
+            || (k == "freemapper:osm" && tag_holds(v, OSM_PARK))
+    })
+}
+
+/// Step 3: open land (401) of a park ([`is_park`]) keeps only its open ground: the cells of
+/// `tree_cover` with a share below [`OPEN_BELOW_SHARE`] (and those it does not know), smoothed
+/// with [`majority`] and outlined as the vegetation classes are. Pieces below the vegetation's
+/// minimum area or with a short side under [`MIN_PIECE_SIDE_MM`] go; the rest keep the tags of
+/// the object and get `freemapper:generalized=tree cover`. Where the trees cover less than the
+/// minimum area the object stays as it is. Returns how many objects were reduced or dropped.
+fn open_ground(
+    objects: &mut Vec<MapObject>,
+    tree_cover: &Raster<f32>,
+    georef: &Georeferencing,
+    symbol_set: &SymbolSet,
+) -> usize {
+    let Some(open_land) = symbol_set.id_for_code(OPEN_LAND_CODE) else {
+        return 0;
+    };
+    let scale = SymbolScale::drawn_with(symbol_set, georef.scale_denominator);
+    let min_m2 = min_area_m2(scale);
+    let min_side_m = MIN_PIECE_SIDE_MM.metres(scale);
+    let mut reduced = 0;
+    let before = std::mem::take(objects);
+    for object in before {
+        let pieces = (object.symbol_id == open_land && is_park(&object))
+            .then(|| object_polygon(&object))
+            .flatten()
+            .and_then(|p| open_pieces(&projected(&p, georef), tree_cover, min_m2, min_side_m));
+        let Some(pieces) = pieces else {
+            objects.push(object);
+            continue;
+        };
+        let mut tags = object.tags.clone();
+        match tags.iter_mut().find(|(k, _)| k == GENERALIZED_KEY) {
+            Some((_, v)) => {
+                v.push_str("; ");
+                v.push_str(TREE_COVER);
+            }
+            None => tags.push((GENERALIZED_KEY.to_string(), TREE_COVER.to_string())),
+        }
+        let drawn: Result<Vec<MapObject>, _> = pieces
+            .iter()
+            .map(|piece| area_object(piece, open_land, tags.clone(), georef))
+            .collect();
+        match drawn {
+            Ok(drawn) => {
+                objects.extend(drawn);
+                reduced += 1;
+            }
+            Err(_) => objects.push(object),
+        }
+    }
+    reduced
+}
+
+/// The open ground of the park `area` (map CRS), pieces below `min_m2` or with a short side
+/// under `min_side_m` left out; `None` when the trees in it cover less than `min_m2`.
+fn open_pieces(
+    area: &Polygon<f64>,
+    tree_cover: &Raster<f32>,
+    min_m2: f64,
+    min_side_m: f64,
+) -> Option<Vec<Polygon<f64>>> {
+    let frame = area.bounding_rect()?;
+    let open = majority(&open_mask(tree_cover, &frame));
+    if open.data.iter().all(Option::is_some) {
+        return None;
+    }
+    let ground = outlines(&open, VegetationClass::Open, min_m2);
+    let pieces: Vec<Polygon<f64>> = MultiPolygon(vec![area.clone()])
+        .intersection(&ground)
+        .0
+        .into_iter()
+        .filter(|p| p.unsigned_area() >= min_m2 && short_side(p) >= min_side_m)
+        .collect();
+    let kept: f64 = pieces.iter().map(|p| p.unsigned_area()).sum();
+    (area.unsigned_area() - kept >= min_m2).then_some(pieces)
+}
+
+/// The cells of `tree_cover` round `frame` (map CRS) and [`COVER_MARGIN_M`] beyond it: open
+/// ground (`Some(Open)`) where the share is below [`OPEN_BELOW_SHARE`], unknown (`NaN`) or the
+/// raster has no cell, else `None`.
+fn open_mask(tree_cover: &Raster<f32>, frame: &Rect<f64>) -> Raster<Option<VegetationClass>> {
+    let grid = tree_cover.grid;
+    let size = grid.pixel_size;
+    let col = |e: f64| ((e - grid.west) / size).floor() as i64;
+    let row = |n: f64| ((grid.north - n) / size).floor() as i64;
+    let (x0, x1) = (
+        col(frame.min().x - COVER_MARGIN_M),
+        col(frame.max().x + COVER_MARGIN_M) + 1,
+    );
+    let (y0, y1) = (
+        row(frame.max().y + COVER_MARGIN_M),
+        row(frame.min().y - COVER_MARGIN_M) + 1,
+    );
+    let window = GridSpec {
+        west: grid.west + x0 as f64 * size,
+        north: grid.north - y0 as f64 * size,
+        pixel_size: size,
+        width: (x1 - x0) as u32,
+        height: (y1 - y0) as u32,
+    };
+    let mut mask = Raster::filled(window, Some(VegetationClass::Open));
+    for y in 0..window.height {
+        let yy = y0 + i64::from(y);
+        if yy < 0 || yy >= i64::from(grid.height) {
+            continue;
+        }
+        for x in 0..window.width {
+            let xx = x0 + i64::from(x);
+            if xx >= 0
+                && xx < i64::from(grid.width)
+                && tree_cover.get(xx as u32, yy as u32) >= OPEN_BELOW_SHARE
+            {
+                mask.set(x, y, None);
+            }
+        }
+    }
+    mask
 }
 
 /// Step 4: every object that keeps no gap to another object it must keep apart from gives way,
@@ -870,6 +1020,164 @@ mod tests {
             assert_eq!(report.gave_way, 2, "{}: {report:?}", set.name);
             assert_eq!(report.apart_left, 0.0, "{}: {report:?}", set.name);
         }
+    }
+
+    /// `object` with one more tag.
+    fn tagged(mut object: MapObject, key: &str, value: &str) -> MapObject {
+        object.tags.push((key.to_string(), value.to_string()));
+        object
+    }
+
+    /// A tree cover of 1 m cells over the paper rectangle from `min` to `max` (mm) and 20 m
+    /// round it: `share` of the paper position (mm) of each cell centre.
+    fn cover(
+        georef: &Georeferencing,
+        min: (f64, f64),
+        max: (f64, f64),
+        share: impl Fn(f64, f64) -> f32,
+    ) -> Raster<f32> {
+        let corners = [
+            (min.0, min.1),
+            (max.0, min.1),
+            (max.0, max.1),
+            (min.0, max.1),
+        ]
+        .map(|p| georef.map_to_projected(at(p)));
+        let west = corners.iter().map(|p| p.easting).fold(f64::MAX, f64::min) - 20.0;
+        let east = corners.iter().map(|p| p.easting).fold(f64::MIN, f64::max) + 20.0;
+        let south = corners.iter().map(|p| p.northing).fold(f64::MAX, f64::min) - 20.0;
+        let north = corners.iter().map(|p| p.northing).fold(f64::MIN, f64::max) + 20.0;
+        let (west, north) = (west.floor(), north.ceil());
+        let grid = GridSpec {
+            west,
+            north,
+            pixel_size: 1.0,
+            width: (east - west).ceil() as u32,
+            height: (north - south).ceil() as u32,
+        };
+        let mut raster = Raster::filled(grid, 0.0f32);
+        for y in 0..grid.height {
+            for x in 0..grid.width {
+                let centre = georef
+                    .projected_to_map(ProjectedPoint {
+                        easting: west + f64::from(x) + 0.5,
+                        northing: north - f64::from(y) - 0.5,
+                    })
+                    .unwrap();
+                let (x_mm, y_mm) = (f64::from(centre.x) / 1000.0, f64::from(centre.y) / 1000.0);
+                raster.set(x, y, share(x_mm, y_mm));
+            }
+        }
+        raster
+    }
+
+    fn run_with(
+        set: &SymbolSet,
+        objects: Vec<MapObject>,
+        tree_cover: &Raster<f32>,
+    ) -> (Vec<MapObject>, TrainingReport) {
+        train(
+            objects,
+            Some(tree_cover),
+            MapKind::Forest,
+            &georef_at(SCALE),
+            set,
+        )
+    }
+
+    /// Area of an area object, mm² on paper.
+    fn area_mm2(object: &MapObject) -> f64 {
+        object_polygon(object).unwrap().unsigned_area() / 1e6
+    }
+
+    /// The land use tag of a park, as `build/out_of_bounds.rs` writes it.
+    const PARK: (&str, &str) = (
+        "freemapper:nutzart",
+        "Sport-, Freizeit- und Erholungsfläche / Park",
+    );
+
+    #[test]
+    fn a_park_keeps_only_its_open_half() {
+        // 10 mm on paper are 100 m at 1:10 000: trees on the west half, open ground on the east.
+        let set = isom();
+        let georef = georef_at(SCALE);
+        let tree_cover = cover(&georef, (0.0, 0.0), (10.0, 10.0), |x, _| {
+            if x < 5.0 { 1.0 } else { 0.0 }
+        });
+        for (key, value) in [PARK, ("freemapper:osm", "leisure=park; name=Stadtwald")] {
+            let park = tagged(area(&set, "401", (0.0, 0.0), (10.0, 10.0)), key, value);
+            let (out, report) = run_with(&set, vec![park], &tree_cover);
+            assert_eq!(out.len(), 1, "{key}: {out:?}");
+            let half = &out[0];
+            assert_eq!(half.symbol_id, set.id_for_code("401").unwrap());
+            assert!((area_mm2(half) - 50.0).abs() < 3.0, "{}", area_mm2(half));
+            let west = half.coords.iter().map(|c| c.x).min().unwrap();
+            assert!(west > 4_700, "{west}");
+            assert!(half.tags.contains(&(key.to_string(), value.to_string())));
+            assert!(
+                half.tags
+                    .contains(&("freemapper:generalized".into(), "tree cover".into())),
+                "{:?}",
+                half.tags
+            );
+            assert_eq!(report.open_land_cut, 1, "{report:?}");
+        }
+    }
+
+    #[test]
+    fn a_meadow_of_another_use_is_left() {
+        let set = isom();
+        let georef = georef_at(SCALE);
+        let tree_cover = cover(&georef, (0.0, 0.0), (10.0, 10.0), |_, _| 1.0);
+        let meadow = tagged(
+            area(&set, "401", (0.0, 0.0), (10.0, 10.0)),
+            "freemapper:nutzart",
+            "Landwirtschaft / Grünland",
+        );
+        let rough = tagged(area(&set, "403", (0.0, 0.0), (10.0, 10.0)), PARK.0, PARK.1);
+        let objects = vec![meadow, rough];
+        let (out, report) = run_with(&set, objects.clone(), &tree_cover);
+        assert_eq!(out, objects);
+        assert_eq!(report.open_land_cut, 0, "{report:?}");
+    }
+
+    #[test]
+    fn without_tree_cover_nothing_changes() {
+        let set = isom();
+        let park = tagged(area(&set, "401", (0.0, 0.0), (10.0, 10.0)), PARK.0, PARK.1);
+        let (out, report) = run(&set, vec![park.clone()]);
+        assert_eq!(out, vec![park]);
+        assert_eq!(report, TrainingReport::default());
+    }
+
+    #[test]
+    fn a_park_without_trees_stays_as_it_is() {
+        let set = isom();
+        let georef = georef_at(SCALE);
+        let tree_cover = cover(&georef, (0.0, 0.0), (10.0, 10.0), |_, _| f32::NAN);
+        let park = tagged(area(&set, "401", (0.0, 0.0), (10.0, 10.0)), PARK.0, PARK.1);
+        let (out, report) = run_with(&set, vec![park.clone()], &tree_cover);
+        assert_eq!(out, vec![park]);
+        assert_eq!(report.open_land_cut, 0, "{report:?}");
+    }
+
+    #[test]
+    fn a_glade_below_the_minimum_goes() {
+        // A glade of 10 m × 10 m in a wooded park; 1.5 mm × 1.5 mm at 150 % are 506 m².
+        let set = isom();
+        let georef = georef_at(SCALE);
+        let tree_cover = cover(&georef, (0.0, 0.0), (10.0, 10.0), |x, y| {
+            if (4.5..5.5).contains(&x) && (4.5..5.5).contains(&y) {
+                0.0
+            } else {
+                0.9
+            }
+        });
+        let park = tagged(area(&set, "401", (0.0, 0.0), (10.0, 10.0)), PARK.0, PARK.1);
+        let (out, report) = run_with(&set, vec![park], &tree_cover);
+        assert_eq!(out, Vec::new());
+        assert_eq!(report.open_land_cut, 1, "{report:?}");
+        assert_eq!(report.too_small, 0, "{report:?}");
     }
 
     #[test]
