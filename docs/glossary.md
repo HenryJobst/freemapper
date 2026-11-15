@@ -104,8 +104,8 @@ Orienteering Maps 2019 (IOF).
 | Zaun | fence | Linienhafte Barriere aus Draht/Holz/Metall. | `Fence` |
 | Mauer | wall | Linienhafte Barriere aus Stein/Beton. | `Wall` |
 | Hecke | hedge | Linienhafte Barriere aus Pflanzen. | `Hedge` |
-| Stützmauer | retaining wall | Mauer, die einen Geländesprung abstützt; nur von einer Seite aus hoch (ISSprOM 513.2). In Berlin Kandidat aus ALKIS `Stützmauer*`. | `berlin-candidates.toml` |
-| Böschungsoberkante | top of an embankment | Obere Kante einer Böschung, ALKIS-Relief `Oberkante`; in Berlin auf Sprintkarten Kandidat für die Erdböschung (ISSprOM 104). | `berlin-candidates.toml` |
+| Stützmauer | retaining wall | Mauer, die einen Geländesprung abstützt; nur von einer Seite aus hoch (ISSprOM 513.2). In Berlin Kandidat aus ALKIS `Stützmauer*`. | `adapters/de/rules/berlin.toml` |
+| Böschungsoberkante | top of an embankment | Obere Kante einer Böschung, ALKIS-Relief `Oberkante`; in Berlin auf Sprintkarten Kandidat für die Erdböschung (ISSprOM 104). | `adapters/de/rules/berlin.toml` |
 | Durchfahrt | building passage | Weg durch oder unter einem Gebäude (ALKIS-Bauteile `Durchfahrt im Gebäude`, `Durchfahrt an überbautem Verkehrsweg`, `Arkade`); in Berlin Kandidat für 522, das Gebäude bleibt ganz. Aus OSM: `tunnel=building_passage` oder `covered=yes` am Weg, als Streifen 522 (ADR 0072). | `building_part_features` |
 | Streifen (Korridor) | corridor | Fläche entlang eines Weges mit fester Breite (Regelfeld `corridor_m`, oder das Tag `width`), Enden gerade abgeschnitten: Durchgang als 522, Privatweg als 520. | `Draw::Corridor` |
 | Sperrfläche | area that shall not be entered | ISSprOM 520: Fläche, die nicht betreten werden darf (Privatgelände, Beet, Bahngelände). Aus OSM: `access=private\|no` an Fläche oder Weg (ADR 0073). | `520`, `OUT_OF_BOUNDS_CODE` |
@@ -117,9 +117,9 @@ Orienteering Maps 2019 (IOF).
 | Stolperstein | Stolperstein | Messingplatte im Pflaster zur Erinnerung an Verfolgte; bündig, daher kein auffälliges Objekt und nie 526 (ADR 0075). | – |
 | Erreichbarer Durchgang | reachable passage | 522-Durchgang, der (allein oder über eine Kette von Durchgängen) an belaufbaren Grund grenzt, der mit dem Straßennetz zusammenhängt; sonst `freemapper:hidden=unreachable` (ADR 0076). | `hide_unreachable` |
 | Bahnleger | course setter | Person, die die Bahnen (Posten und Reihenfolge) eines Orientierungslaufs plant. | – |
-| Denkmal | monument | Denkmal, Denkstein oder Standbild als Punkt (ISSprOM 526); ab 3 m Breite mit `freemapper:size=large`. | `berlin-candidates.toml` |
-| Großer Baum | prominent large tree | Markanter Baum (ISSprOM 417); in Berlin Bäume des Baumkatasters mit Krone ab 10 m. | `berlin-candidates.toml` |
-| Busch oder kleiner Baum | prominent bush or small tree | Markanter Busch oder kleiner Baum (ISSprOM 418); OSM `natural=tree` und die Bäume des Berliner Baumkatasters mit Krone unter 10 m. | `osm-candidates.toml`, `berlin-candidates.toml` |
+| Denkmal | monument | Denkmal, Denkstein oder Standbild als Punkt (ISSprOM 526); ab 3 m Breite mit `freemapper:size=large`. | `adapters/de/rules/berlin.toml` |
+| Großer Baum | prominent large tree | Markanter Baum (ISSprOM 417); in Berlin Bäume des Baumkatasters mit Krone ab 10 m. | `adapters/de/rules/berlin.toml` |
+| Busch oder kleiner Baum | prominent bush or small tree | Markanter Busch oder kleiner Baum (ISSprOM 418); OSM `natural=tree` und die Bäume des Berliner Baumkatasters mit Krone unter 10 m. | `osm-candidates.toml`, `adapters/de/rules/berlin.toml` |
 | Hydrant | hydrant | Hydrant, Handpumpe, markanter Wasserpunkt (Schulsatz 321). | `Hydrant` |
 | Spielgerät | playground equipment | Spielgerät oder Handballtor (Schulsatz 541). | `PlaygroundEquipment` |
 | Tisch | table | Tischtennis- oder Picknicktisch (Schulsatz 542). | `Table` |
@@ -203,8 +203,8 @@ Orienteering Maps 2019 (IOF).
 | Berlin-Zusatzebene | extra Berlin layer | Weitere WFS-Ebene des Geoportals Berlin (ALKIS-Bauwerke, Relief, Hecken, Baumbestand, Straßenbefahrung, Register, Gebäudehöhen), unter `data/berlin/<Name>.geojson` gespeichert und nur für Gebiete bei Berlin geladen. Eine Datei kann mehrere Objekttypen enthalten, jeder mit eigenen Kartenarten. | `ExtraLayer`, `EXTRA_LAYERS`, `LayerType` |
 | Objekttyp (Geoportal Berlin) | feature type | WFS-Typname ohne Namensraum, z. B. `bd_bordstein`. Steht in der gespeicherten Datei als `freemapper:layer` und am Kandidaten als Tag `berlin:layer`; bei den Ebenen von Berlin plus 1 steht dort der Dateiname. | `LayerType`, `TYPE_KEY` |
 | Bauart (Bauteil) | part kind (building part) | Art eines ALKIS-Bauteils, z. B. „Durchfahrt im Gebäude“, „Arkade“ (`bezbat`). | `bauart` |
-| Berlin-Regeln | Berlin rules | Regeldatei `berlin-candidates.toml`: macht aus Geoportal-Berlin-Objekten (Tags `berlin:<Eigenschaft>`) Kandidaten, über dieselbe Regelmaschine wie die OSM-Regeln. | `Rules::berlin`, `berlin_objects` |
-| Baumkataster | tree cadastre | Die Baumdatenbank des Landes Berlin (Straßenbäume, Anlagenbäume) mit Art und Kronendurchmesser; Bäume mit Krone ab 10 m werden zu 417, die übrigen zu 418. | `strassenbaeume`, `anlagenbaeume`, `berlin-candidates.toml` |
+| Berlin-Regeln | Berlin rules | Regeldatei `adapters/de/rules/berlin.toml`: macht aus Geoportal-Berlin-Objekten (Tags `berlin:<Eigenschaft>`) Kandidaten, über dieselbe Regelmaschine wie die OSM-Regeln. | `Rules::berlin`, `berlin_objects` |
+| Baumkataster | tree cadastre | Die Baumdatenbank des Landes Berlin (Straßenbäume, Anlagenbäume) mit Art und Kronendurchmesser; Bäume mit Krone ab 10 m werden zu 417, die übrigen zu 418. | `strassenbaeume`, `anlagenbaeume`, `adapters/de/rules/berlin.toml` |
 | Stadtbaumkataster | city tree cadastre | Die Baumdatenbank einer Stadt (Potsdam zuerst), je Stadt eine Zeile in `TREE_DATASETS` mit Dienstart, Feldnamen, Ausdehnung und Lizenzzeile. Die Bäume liegen unter `data/trees/<Stadt>.geojson` im KRS der Karte mit `tree_*`-Eigenschaften; jeder Baum behält sein eigenes Aufnahmedatum als Aktualität. Baumstümpfe werden nicht gespeichert. Ohne Kronendurchmesser (Potsdam) sind alle Bäume 418. | `TreeDataset`, `TREE_DATASETS`, `tree_layers`, `trees/…` |
 | Bäume der Stadtkarte | city map tree points | Die Baumpunkte der Potsdamer Stadtkarte, drei ODS-Datensätze (`baeume-1-stadtkarte-potsdam`, `-2-`, `-3-`, dl-de/zero-2-0) mit Art (`ggartbez`), Punktnummer (`pktnr`) und Aufnahmedatum (`datum`, 1993 bis 2026), ohne Kronendurchmesser. Alle Bäume werden 418, Baumstümpfe entfallen. | `POTSDAM`, `trees/potsdam` |
 | Straßenbefahrung | street survey | Befahrung des öffentlichen Straßenraums Berlins 2014 bis 2016 (WFS `strassenbefahrung`): Flächen, Linien und Punkte mit `gis_id`, das das Aufnahmedatum enthält. Ersetzt ALKIS nie. | `SURVEY_SERVICE`, `survey_date` |

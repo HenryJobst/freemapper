@@ -3,7 +3,9 @@
 [Deutsche Version](de.md) · [Glossary](../glossary.md) · [README](../../README.en.md)
 
 This manual is for mappers and coaches who want to make an orienteering map without dealing with
-geodata or the command line. It describes the current state, with Brandenburg, Berlin and Saxony.
+geodata or the command line. It covers all fifteen German states freemapper knows; what each state offers is in
+[chapter 13](#13-regions-and-border-areas). It reads more easily on the website:
+<https://freemapper.de/en/handbuch/freemapper/>.
 
 ## Contents
 

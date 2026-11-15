@@ -3,8 +3,9 @@
 [English version](en.md) · [Glossar](../glossary.md) · [README](../../README.md)
 
 Dieses Handbuch ist für Kartierer und Übungsleiter gedacht, die eine Orientierungslaufkarte erstellen
-wollen, ohne sich mit Geodaten oder der Kommandozeile zu beschäftigen. Es beschreibt den aktuellen
-Stand mit Brandenburg, Berlin und Sachsen.
+wollen, ohne sich mit Geodaten oder der Kommandozeile zu beschäftigen. Es gilt für alle fünfzehn Bundesländer, die
+freemapper kennt; was es je Bundesland gibt, steht in [Kapitel 13](#13-regionen-und-grenzgebiete). Lesbarer ist es auf
+der Website: <https://freemapper.de/handbuch/freemapper/>.
 
 ## Inhalt
 

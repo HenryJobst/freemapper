@@ -62,6 +62,30 @@ pub struct SetDrawing {
     pub layer_ranks: &'static [(&'static str, SetRank)],
     /// The layers named in the credit line when they drew objects: the file and its name there.
     pub credited_layers: &'static [(&'static str, &'static str)],
+    /// Which of the set's points beat which others at the same place, in order; a point dropped
+    /// by an earlier entry wins nothing later. The engine's own entries (the full ALKIS) follow.
+    pub point_dedups: &'static [PointDedup],
+    /// The tags of the set's features its candidates keep besides `<tag_prefix>:layer`, for the
+    /// mapper (Berlin's survey codes).
+    pub kept_tags: &'static [&'static str],
+    /// The kind of control site (ADR 0074) a 531 point of a layer is: `(layer, kind)`. A feature
+    /// may also name its kind in the property [`CONTROL_PROPERTY`].
+    pub control_kinds: &'static [(&'static str, &'static str)],
+    /// `(tag key, value)` of the set's fountain points, which stand in the basin the water draws.
+    pub fountain_tags: &'static [(&'static str, &'static str)],
+    /// `(tag key, value)` of the set's paved areas (501.5) that may win over a duplicate, such as
+    /// surveyed bridge decks.
+    pub winning_areas: &'static [(&'static str, &'static str)],
+    /// `(tag key, value)` of the set's lines that give a point at the middle of their extent too,
+    /// tagged `<tag_prefix>:point=middle`, for the rules that want a point (Berlin's surveyed
+    /// benches, which are lines and control sites on a sprint map).
+    pub line_middles: &'static [(&'static str, &'static str)],
+    /// The layers whose lines lose their notches: small detours that leave the line and come
+    /// back, such as a kerb run around a tree pit (Berlin's surveyed kerbs).
+    pub notch_free_layers: &'static [&'static str],
+    /// `(tag key, value)` of the set's roofs (522) that give way to a canopy of the cadastre they
+    /// lie under, such as surveyed bus shelters.
+    pub canopy_yielding: &'static [(&'static str, &'static str)],
     /// The layers whose areas are stairs; the engine draws them as stairs, walking direction
     /// from the terrain, and lets a stair of the cadastre at the same place win.
     pub stair_layers: &'static [&'static str],
@@ -85,6 +109,29 @@ impl SetDrawing {
             })
             .map_or(self.rank, |(_, rank)| *rank)
     }
+}
+
+/// How close two points must be to count as one object.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum DedupDistance {
+    /// Ground metres.
+    Metres(f64),
+    /// Millimetres on paper, as what the printed map shows twice, but at least `at_least_m`
+    /// ground metres: the positional error of the sources does not shrink with the scale.
+    Paper { mm: f64, at_least_m: f64 },
+}
+
+/// One kind of winning point of a set and the points that give way to it.
+#[derive(Debug, Clone, PartialEq)]
+pub struct PointDedup {
+    /// `(tag key, value)` of the winners: a `freemapper:source` or a tag of the set's features
+    /// (a value ending in `*` is a prefix).
+    pub winner: (&'static str, &'static str),
+    /// The symbol a winner must have; `None`: any.
+    pub winner_code: Option<&'static str>,
+    /// `(tag key, value, distance)` of the losers: an OSM rule (`freemapper:osm`, one of its
+    /// `; `-separated parts; a value ending in `*` is a prefix) or a tag of the set's features.
+    pub losers: &'static [(&'static str, &'static str, DedupDistance)],
 }
 
 /// The rank of a set's objects among the sources of the same object.

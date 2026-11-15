@@ -300,6 +300,26 @@ jobs:
             echo "$TAG is not the latest release ($latest is); update-smoke is skipped."
           fi
 
+  # The website freemapper.de shows the newest release; it builds daily and, with the secret
+  # SITE_DISPATCH_TOKEN (a fine-grained token that may only run the workflows of freemapper-site), right
+  # after a release. Without the secret, or when the start fails, the release stays as it is.
+  website:
+    needs: release
+    if: ${{ !inputs.dry_run }}
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Rebuild freemapper.de
+        env:
+          GH_TOKEN: ${{ secrets.SITE_DISPATCH_TOKEN }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "No SITE_DISPATCH_TOKEN; the website follows with its daily build."
+            exit 0
+          fi
+          gh workflow run deploy.yml -R HenryJobst/freemapper-site \
+            || echo "::warning::The rebuild of freemapper.de could not be started; it follows with its daily build."
+
   # The previous release updates itself to this one and rolls back (spec 3.10). Skipped in a dry
   # run, for the first release with the updater (its predecessor has no manifest and no updater)
   # and when this release is not the latest, which `update` would not offer.

@@ -133,6 +133,14 @@ static DRAWING: SetDrawing = SetDrawing {
     rank: SetRank::Survey,
     layer_ranks: &[],
     credited_layers: &[],
+    point_dedups: &[],
+    kept_tags: &[],
+    control_kinds: &[],
+    fountain_tags: &[],
+    winning_areas: &[],
+    line_middles: &[],
+    notch_free_layers: &[],
+    canopy_yielding: &[],
     stair_layers: &[STAIR_LAYER],
     // The green of the street space: candidates on the base map (the user's decision of
     // 2026-11-15).

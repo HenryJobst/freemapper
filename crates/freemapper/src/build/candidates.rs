@@ -16,7 +16,6 @@ use crate::sources::osm::{OsmFeature, OsmGeometry, OsmPolygon, Tags};
 
 const EMBEDDED_RULES: &str = include_str!("../../../../assets/rules/osm-candidates.toml");
 const STATE_RULES: &str = include_str!("../../../../assets/rules/state-candidates.toml");
-const BERLIN_RULES: &str = include_str!("../../../../assets/rules/berlin-candidates.toml");
 /// Line pieces shorter than this on paper are left over from clipping at the buffer edge.
 pub(crate) const MIN_LINE_MM: PaperMm = PaperMm(1.0);
 
@@ -171,9 +170,11 @@ impl Rules {
         Self::from_toml(EMBEDDED_RULES).expect("embedded candidate rules are valid")
     }
 
-    /// The Geoportal Berlin rules (`assets/rules/berlin-candidates.toml`): `berlin:*` tags only.
+    /// The Geoportal Berlin rules, which Berlin's set brings (ADR 0149): `berlin:*` tags only.
     pub fn berlin() -> Self {
-        Self::from_toml(BERLIN_RULES).expect("embedded Berlin rules are valid")
+        let rules = crate::build::sets::drawing_of_source("geoportal-berlin/")
+            .map_or("", |drawing| drawing.rules);
+        Self::from_toml(rules).expect("Berlin's rules are valid")
     }
 
     /// The ALKIS vereinfacht rules (`assets/rules/state-candidates.toml`): `alkis:*` tags only.
@@ -580,20 +581,28 @@ pub fn osm_objects(
             "freemapper:currency".to_string(),
             own("freemapper:currency").unwrap_or_else(|| currency.to_string()),
         ));
-        let codes = crate::build::berlin::SURVEY_CODES.map(|code| format!("berlin:{code}"));
-        for key in [
-            "berlin:layer",
-            "alkis:type",
-            "tree:dataset",
-            "freemapper:also",
-            "freemapper:alkis",
-            "freemapper:size",
-            "freemapper:baum",
-            "freemapper:crown_m",
-            "freemapper:currency_guessed",
-        ]
-        .into_iter()
-        .chain(codes.iter().map(String::as_str))
+        // The layer tag of every set first, then the engine's tags, then the tags a set keeps
+        // besides (ADR 0149).
+        let set_layers: Vec<String> = crate::build::sets::all_drawings()
+            .map(|d| format!("{}:layer", d.tag_prefix))
+            .collect();
+        let set_tags: Vec<&str> = crate::build::sets::all_drawings()
+            .flat_map(|d| d.kept_tags.iter().copied())
+            .collect();
+        for key in set_layers
+            .iter()
+            .map(String::as_str)
+            .chain([
+                "alkis:type",
+                "tree:dataset",
+                "freemapper:also",
+                "freemapper:alkis",
+                "freemapper:size",
+                "freemapper:baum",
+                "freemapper:crown_m",
+                "freemapper:currency_guessed",
+            ])
+            .chain(set_tags.iter().copied())
         {
             if let Some(v) = own(key) {
                 tags.push((key.to_string(), v));
@@ -612,28 +621,12 @@ pub fn osm_objects(
         {
             tags.push((CONTROL_KEY.to_string(), site.to_string()));
         }
-        // A control site of the street survey and the lighting cadastre names its kind the same
-        // way (ADR 0077).
-        if source.starts_with("geoportal-berlin/")
-            && matches!(kind, MapKind::Sprint | MapKind::Forest)
-            && found.code == CONTROL_CODE
-            && let Some(site) = berlin_control_kind(&feature.tags)
-        {
-            tags.push((CONTROL_KEY.to_string(), site.to_string()));
-        }
-        // A control site of a set that brings its rules names its kind in `<prefix>:control`,
-        // which its adapter writes (ADR 0149).
+        // A control site of a set names its kind by its layer or in `<prefix>:control`, which its
+        // adapter writes (ADR 0077, 0149).
         if matches!(kind, MapKind::Sprint | MapKind::Forest)
             && found.code == CONTROL_CODE
             && let Some(drawing) = crate::build::sets::drawing_of_source(source)
-            && let Some(site) = value(
-                &feature.tags,
-                &format!(
-                    "{}:{}",
-                    drawing.tag_prefix,
-                    freemapper_adapter_api::extras::CONTROL_PROPERTY
-                ),
-            )
+            && let Some(site) = set_control_kind(drawing, &feature.tags)
         {
             tags.push((CONTROL_KEY.to_string(), site.to_string()));
         }
@@ -705,19 +698,26 @@ fn tower_kind(tags: &Tags) -> Option<&'static str> {
     }
 }
 
-/// The kind of control site a Geoportal Berlin object is, from its `berlin:layer`: the survey
-/// types and the lighting cadastre that give 531 points on a sprint map. The kinds are those of
-/// [`control_kind`], plus `mast`, `flagpole` and `advertising_column`, which only Berlin gives.
-fn berlin_control_kind(tags: &Tags) -> Option<&'static str> {
-    Some(match value(tags, "berlin:layer")? {
-        "av_poller" => "bollard",
-        "as_mast" => "mast",
-        "am_fahnenmast" => "flagpole",
-        "bj_sitzbank" => "bench",
-        "beleuchtung" => "street_lamp",
-        "ag_werbesaeule" => "advertising_column",
-        _ => return None,
-    })
+/// The kind of control site a feature of the set of `drawing` is: by its layer
+/// (`SetDrawing::control_kinds`) or by the kind it names itself.
+fn set_control_kind(
+    drawing: &freemapper_adapter_api::extras::SetDrawing,
+    tags: &Tags,
+) -> Option<String> {
+    let prefix = drawing.tag_prefix;
+    if let Some(layer) = value(tags, &format!("{prefix}:layer"))
+        && let Some((_, kind)) = drawing.control_kinds.iter().find(|(l, _)| *l == layer)
+    {
+        return Some(kind.to_string());
+    }
+    value(
+        tags,
+        &format!(
+            "{prefix}:{}",
+            freemapper_adapter_api::extras::CONTROL_PROPERTY
+        ),
+    )
+    .map(str::to_string)
 }
 
 /// The full width of a [`Draw::Corridor`] on the ground (metres) is held within these limits: a

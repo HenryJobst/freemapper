@@ -32,3 +32,8 @@ for the same reason (its ADR 0068) and asked the suite to follow.
 - A new dependency with a licence outside the list, from another source, or with a known vulnerability fails CI and
   needs a decision here.
 - An advisory published later fails the next run on main even without a change; it is decided the same way.
+
+## Addendum (2026-11-15): ttf-parser is gone
+
+freemapper-core v0.29.0 (core ADR 0037) reads fonts with skrifa instead of ttf-parser. freemapper pins it, and the
+ignore of RUSTSEC-2026-0192 is gone from `deny.toml`.

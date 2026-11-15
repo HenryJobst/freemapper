@@ -487,13 +487,15 @@ fn area_may_lose(code: &str, object: &MapObject) -> bool {
 }
 
 /// Whether `object` with the area symbol `code` may win over a duplicate: every 522 and 520, but
-/// of the 501.5 only the ALKIS bridge decks of Berlin (`bauwerke-flaechen`).
+/// of the 501.5 only the areas a set names (`SetDrawing::winning_areas`: Berlin's ALKIS bridge
+/// decks).
 fn area_may_win(code: &str, object: &MapObject) -> bool {
     code != "501.5"
-        || object
-            .tags
-            .iter()
-            .any(|(k, v)| k == "berlin:layer" && v == "bauwerke-flaechen")
+        || object.tags.iter().any(|(k, v)| {
+            crate::build::sets::all_drawings()
+                .flat_map(|d| d.winning_areas.iter())
+                .any(|(key, value)| k == key && v == value)
+        })
 }
 
 /// Drops the `candidates` areas ([`AREA_DEDUPS`]: passages, canopies, areas that shall not be
@@ -652,14 +654,6 @@ pub fn drop_areas_by_rank(
         .collect()
 }
 
-/// An OSM street lamp this close (ground metres) to a lamp of the lighting cadastre is the same
-/// lamp. OSM lamps lie up to 6.7 m off the cadastre ones (live run, Task 5b), and lamps stand 20
-/// to 30 m apart, so 5 m stays well under half the spacing.
-const OSM_LAMP_DEDUP_M: Limit = Limit::Metres(5.0);
-/// A survey mast this close to a cadastre lamp is the lamp, and an OSM hydrant, bench, mast or
-/// play item this close to the survey one is that one. Survey masts 2 m or more from a lamp are
-/// mostly sign and signal masts.
-const FURNITURE_DEDUP_M: Limit = Limit::Metres(2.0);
 /// The same for the fountain, well and drinking-water points of two sources (ADR 0087): 0.75 mm
 /// on paper (3 m at 1:4000, 3.75 m at 1:5000), a little under the 1.05 mm at which two 311
 /// symbols touch, and never under 3 m on the ground (1:1000), because the sources place the same
@@ -704,46 +698,11 @@ struct PointDedup {
     losers: &'static [(&'static str, &'static str, Limit)],
 }
 
-/// In order: the registers beat the survey and OSM, the full ALKIS fountains beat OSM, then the
-/// survey furniture beats OSM (on a sprint map it is the control sites, ADR 0077). A point dropped by an earlier entry wins nothing
-/// later.
-const POINT_DEDUPS: [PointDedup; 15] = [
-    PointDedup {
-        winner_code: None,
-        winner: ("freemapper:source", "geoportal-berlin/beleuchtung"),
-        losers: &[
-            ("freemapper:osm", "highway=street_lamp", OSM_LAMP_DEDUP_M),
-            ("berlin:layer", "as_mast", FURNITURE_DEDUP_M),
-        ],
-    },
-    PointDedup {
-        winner_code: None,
-        winner: ("freemapper:source", "geoportal-berlin/zierbrunnen"),
-        losers: &[
-            ("freemapper:osm", "amenity=fountain", FOUNTAIN_DEDUP),
-            ("freemapper:osm", "man_made=water_well", FOUNTAIN_DEDUP),
-            ("berlin:layer", "af_wasserpumpen_brunnen", FOUNTAIN_DEDUP),
-            (
-                "berlin:layer",
-                "bv_springbrunnen_zierbrunnen",
-                FOUNTAIN_DEDUP,
-            ),
-        ],
-    },
-    PointDedup {
-        winner_code: None,
-        winner: ("freemapper:source", "geoportal-berlin/trinkwasserbrunnen"),
-        losers: &[
-            ("freemapper:osm", "amenity=drinking_water", FOUNTAIN_DEDUP),
-            (
-                "berlin:layer",
-                "ac_trinkwasserbrunnen_wasserspender",
-                FOUNTAIN_DEDUP,
-            ),
-        ],
-    },
-    // The full ALKIS fountains and wells (311) beat the OSM ones. OSM has no monument rule, so a
-    // NAS 526 has nothing to beat.
+/// The engine's own entries, after those of the sets (`SetDrawing::point_dedups`, ADR 0149): the
+/// full ALKIS fountains and wells (311) beat the OSM ones, and the cadastre monuments (526) the
+/// OSM memorials beside them (ADR 0075, 0078). OSM has no monument rule, so a NAS 526 has nothing
+/// else to beat.
+const POINT_DEDUPS: [PointDedup; 2] = [
     PointDedup {
         winner_code: Some("311"),
         winner: ("freemapper:source", "alkis-nas/*"),
@@ -752,77 +711,52 @@ const POINT_DEDUPS: [PointDedup; 15] = [
             ("freemapper:osm", "man_made=water_well", FOUNTAIN_DEDUP),
         ],
     },
-    // The surveyed fountains, pumps and drinking fountains beat the OSM ones (ADR 0087). The
-    // fountain registers and the full ALKIS above have gone first, so a survey point they
-    // dropped wins nothing.
-    PointDedup {
-        winner_code: None,
-        winner: ("berlin:layer", "af_wasserpumpen_brunnen"),
-        losers: &[
-            ("freemapper:osm", "man_made=water_well", FOUNTAIN_DEDUP),
-            ("freemapper:osm", "amenity=fountain", FOUNTAIN_DEDUP),
-        ],
-    },
-    PointDedup {
-        winner_code: None,
-        winner: ("berlin:layer", "bv_springbrunnen_zierbrunnen"),
-        losers: &[
-            ("freemapper:osm", "amenity=fountain", FOUNTAIN_DEDUP),
-            ("freemapper:osm", "man_made=water_well", FOUNTAIN_DEDUP),
-        ],
-    },
-    PointDedup {
-        winner_code: None,
-        winner: ("berlin:layer", "ac_trinkwasserbrunnen_wasserspender"),
-        losers: &[("freemapper:osm", "amenity=drinking_water", FOUNTAIN_DEDUP)],
-    },
-    // The cadastre monuments (526) beat the OSM memorials beside them (ADR 0075, 0078).
     PointDedup {
         winner_code: Some("526"),
         winner: ("freemapper:source", "alkis-nas/*"),
         losers: MEMORIAL_LOSERS,
     },
-    PointDedup {
-        winner_code: Some("526"),
-        winner: ("freemapper:source", "geoportal-berlin/bauwerke-flaechen"),
-        losers: MEMORIAL_LOSERS,
-    },
-    PointDedup {
-        winner_code: None,
-        winner: ("berlin:layer", "aq_hydrant"),
-        losers: &[(
-            "freemapper:osm",
-            "emergency=fire_hydrant",
-            FURNITURE_DEDUP_M,
-        )],
-    },
-    // A surveyed bollard beats an OSM one (a control site on sprint maps, ADR 0077).
-    PointDedup {
-        winner_code: None,
-        winner: ("berlin:layer", "av_poller"),
-        losers: &[("freemapper:osm", "barrier=bollard", FURNITURE_DEDUP_M)],
-    },
-    PointDedup {
-        winner_code: None,
-        winner: ("berlin:layer", "bj_sitzbank"),
-        losers: &[("freemapper:osm", "amenity=bench", FURNITURE_DEDUP_M)],
-    },
-    PointDedup {
-        winner_code: None,
-        winner: ("berlin:layer", "as_mast"),
-        losers: SURVEY_MAST_LOSERS,
-    },
-    PointDedup {
-        winner_code: None,
-        winner: ("berlin:layer", "am_fahnenmast"),
-        losers: SURVEY_MAST_LOSERS,
-    },
-    PointDedup {
-        winner_code: None,
-        winner: ("berlin:layer", "aw_spielgeraet"),
-        losers: &[("freemapper:osm", "playground=*", FURNITURE_DEDUP_M)],
-    },
 ];
+
+/// One entry of [`POINT_DEDUPS`] or of a set, as the step uses it.
+struct PointRule {
+    winner: (&'static str, &'static str),
+    winner_code: Option<&'static str>,
+    losers: Vec<(&'static str, &'static str, Limit)>,
+}
+
+impl From<freemapper_adapter_api::extras::DedupDistance> for Limit {
+    fn from(distance: freemapper_adapter_api::extras::DedupDistance) -> Self {
+        use freemapper_adapter_api::extras::DedupDistance;
+        match distance {
+            DedupDistance::Metres(m) => Limit::Metres(m),
+            DedupDistance::Paper { mm, at_least_m } => Limit::Paper {
+                mm: PaperMm(mm),
+                at_least_m,
+            },
+        }
+    }
+}
+
+/// The entries of the sets in the order of the registry, then the engine's own.
+fn point_rules() -> Vec<PointRule> {
+    crate::build::sets::point_dedups()
+        .map(|d| PointRule {
+            winner: d.winner,
+            winner_code: d.winner_code,
+            losers: d
+                .losers
+                .iter()
+                .map(|&(key, value, distance)| (key, value, Limit::from(distance)))
+                .collect(),
+        })
+        .chain(POINT_DEDUPS.iter().map(|d| PointRule {
+            winner: d.winner,
+            winner_code: d.winner_code,
+            losers: d.losers.to_vec(),
+        }))
+        .collect()
+}
 
 /// The OSM memorial kinds of the 526 rule. A cadastre monument is an area, its point the centre
 /// of the area, and the OSM node can stand anywhere on it: 5 m is 1.25 mm on paper at 1:4000.
@@ -836,13 +770,6 @@ const MEMORIAL_LOSERS: &[(&str, &str, Limit)] = &[
         "historic=boundary_stone",
         MEMORIAL_DEDUP_M,
     ),
-];
-
-/// A survey mast or flag pole and an OSM one at the same place are one pole, whichever word
-/// each source uses.
-const SURVEY_MAST_LOSERS: &[(&str, &str, Limit)] = &[
-    ("freemapper:osm", "man_made=mast", FURNITURE_DEDUP_M),
-    ("freemapper:osm", "man_made=flagpole", FURNITURE_DEDUP_M),
 ];
 
 /// Whether the tag value `value` holds `wanted`: one of its `; `-separated parts equals it, or
@@ -897,7 +824,7 @@ pub fn drop_points_near_registers(
     let mut dropped_osm = vec![false; osm.len()];
     let mut dropped_cadastre = vec![false; cadastre.len()];
     let mut also: Vec<(usize, String)> = Vec::new();
-    for rule in &POINT_DEDUPS {
+    for rule in &point_rules() {
         let winners: Vec<(usize, (f64, f64))> = cadastre
             .iter()
             .enumerate()

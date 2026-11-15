@@ -72,3 +72,48 @@ line names when they drew objects (`credited_layers`) and `generic`. Berlin's se
 `generic: false`: the engine reads its ranks and registers from it (`dedup::rank`, `drawn_registers`) but still
 fetches, records and draws it by its own code; only sets with `generic: true` take the generic path. The output is
 unchanged (G3/G4 byte for byte).
+
+## Addendum 2026-11-15: the point dedups of a set (step 2b)
+
+Which point of a set beats which other point at the same place is data of the set now (`SetDrawing::point_dedups`,
+`PointDedup`, `DedupDistance`): Berlin's 13 entries (registers before survey before OSM) moved from `build/dedup.rs`
+into its adapter. The engine keeps only its own two entries for the full ALKIS (311 fountains, 526 monuments) and
+takes the entries of the sets first, in the order of the registry. In Berlin the ALKIS entries never apply (it has no
+NAS service), so the order and the `freemapper:also` notes stay as they were: G3/G4 byte for byte.
+
+## Addendum 2026-11-15: control kinds, kept tags, fountains and bridge decks (step 2c)
+
+Four more things the engine read from Berlin's names are data of a set now: the kind of control site a 531 point
+of a layer is (`control_kinds`; a feature may still name its own in `<prefix>:control`, as Hamburg's do), the tags a
+candidate keeps besides `<prefix>:layer` (`kept_tags`, Berlin's survey codes), the set's fountain points that stand
+in the basin of the water (`fountain_tags`), and the paved areas that may win a duplicate (`winning_areas`, Berlin's
+ALKIS bridge decks). A candidate keeps the layer tag of every set first, then the engine's tags, then the kept tags,
+so Berlin's tags stay in their order (G3/G4 byte for byte). Hamburg's candidates gain `hamburg:layer`; Blankenese
+is rebuilt with the same objects.
+
+## Addendum 2026-11-15: Berlin's rules in its adapter (step 3)
+
+Berlin's candidate rules moved from `assets/rules/berlin-candidates.toml` into its adapter
+(`crates/adapters/de/rules/berlin.toml`, `SetDrawing::rules`); `Rules::berlin()` reads them from Berlin's set. The
+output is unchanged (G3/G4).
+
+## Addendum 2026-11-15: points at the middle of lines (step 4a)
+
+The first of Berlin's own processing steps became a generic one steered by data: a set names in `line_middles` the
+lines that give a point at the middle of their extent too, tagged `<prefix>:point=middle` (Berlin's surveyed benches,
+lines that a sprint map takes as control sites). `build/sets.rs::with_line_middles` does it for every set; Berlin's
+code calls it. Output unchanged (G3/G4).
+
+## Addendum 2026-11-15: notch-free lines (step 4b)
+
+The cleanup of Berlin's surveyed kerbs (a kerb run around a tree pit leaves a hook along the street edge) is
+geometry of any surveyed line: it moved from `build/berlin.rs` with its tests into `build/notches.rs`, and a set
+names the layers whose lines lose their notches (`notch_free_layers`; Berlin: `sb-bordstein`). Output unchanged
+(G3/G4).
+
+## Addendum 2026-11-15: roofs under canopies (step 4c)
+
+The cadastre wins over a set for roofs: a roof (522) of a set that lies at least half under the canopies of the
+cadastre is dropped, and the canopy with the largest share names it in `freemapper:also`. That step moved from
+`build/berlin.rs` into `build/canopy.rs` (`drop_roofs_under_canopies`), and a set names the roofs that yield
+(`canopy_yielding`; Berlin: the surveyed bus shelters, `br_fahrgastunterstand`). Output unchanged (G3/G4).
