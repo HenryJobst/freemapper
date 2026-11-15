@@ -16,6 +16,10 @@ Erstellt am 2026-11-15 für das Kartengebiet einer Sprintkarte (54,1 ha).
 
 Laut Landesamt für Denkmalpflege Schleswig-Holstein liegt im Kartengebiet kein Denkmal.
 
+## Naturdenkmale und andere Schutzobjekte (INSPIRE-Schutzgebiete Schleswig-Holstein)
+
+Laut INSPIRE-Schutzgebiete Schleswig-Holstein liegt im Kartengebiet keines der Schutzobjekte, die die Quelle führt.
+
 ## Wasserschutzgebiete (Umweltportal Schleswig-Holstein)
 
 Laut Umweltportal Schleswig-Holstein liegt im Kartengebiet kein Wasserschutzgebiet.
@@ -29,6 +33,8 @@ Laut Umweltportal Schleswig-Holstein liegt im Kartengebiet kein Erholungswald, k
 Laut Umweltportal Schleswig-Holstein liegt im Kartengebiet kein Staatswald.
 
 Der Bestand von Landesamt für Denkmalpflege Schleswig-Holstein ist nicht vollständig: Die Bodendenkmale fehlen darin, und die Hansestadt Lübeck führt ihre Denkmalliste selbst.
+
+Der Bestand von INSPIRE-Schutzgebiete Schleswig-Holstein ist nicht vollständig: Die Naturdenkmale stammen fast nur aus dem Kreis Schleswig-Flensburg, die Landschaftsbestandteile nur aus Kiel, Lübeck und den Kreisen Plön, Schleswig-Flensburg und Stormarn; die übrigen kennt die untere Naturschutzbehörde.
 
 ## Schutzgebiete (BfN)
 
@@ -65,3 +71,4 @@ Laut OpenStreetMap verläuft keine Autobahn und keine Bundes-, Landes-, Staats- 
 | OpenStreetMap: OpenStreetMap, aus dem Auszug, den freemapper im Zwischenspeicher hält | gelesen, OSM-Auszug vom 2026-11-07 | © OpenStreetMap contributors, ODbL |
 | Umweltportal Schleswig-Holstein: Landeswald mit seinen Revieren, Naturwald, Wasserschutzgebiete | gelesen, abgerufen am 2026-11-15 | Quellenvermerk: LfU SH; Lizenz: Creative Commons Namensnennung 4.0 International (CC BY 4.0) |
 | Landesamt für Denkmalpflege Schleswig-Holstein: Denkmalliste (eine Datei für das Bundesland, im Zwischenspeicher) | gelesen, abgerufen am 2026-11-15 | Landesamt für Denkmalpflege Schleswig-Holstein; Lizenz: Creative Commons Namensnennung 4.0 International (CC BY 4.0) |
+| INSPIRE-Schutzgebiete Schleswig-Holstein: Naturdenkmale, geschützte Landschaftsbestandteile | gelesen, abgerufen am 2026-11-15 | © GeoBasis-DE/LVermGeo SH/CC BY 4.0 |

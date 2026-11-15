@@ -711,8 +711,8 @@ pub fn schleswig_holstein() -> Box<dyn PermitSource> {
             },
         ),
         Wording {
-            en: "the Naturdenkmale come almost only from the Kreis Schleswig-Flensburg, the Landschaftsbestandteile only from Kiel, Lübeck and the Kreise Plön, Schleswig-Flensburg and Stormarn; ask the lower nature conservation authority for the others",
-            de: "die Naturdenkmale stammen fast nur aus dem Kreis Schleswig-Flensburg, die Landschaftsbestandteile nur aus Kiel, Lübeck und den Kreisen Plön, Schleswig-Flensburg und Stormarn; die übrigen kennt die untere Naturschutzbehörde",
+            en: "The Naturdenkmale come almost only from the Kreis Schleswig-Flensburg, the Landschaftsbestandteile only from Kiel, Lübeck and the Kreise Plön, Schleswig-Flensburg and Stormarn; ask the lower nature conservation authority for the others",
+            de: "Die Naturdenkmale stammen fast nur aus dem Kreis Schleswig-Flensburg, die Landschaftsbestandteile nur aus Kiel, Lübeck und den Kreisen Plön, Schleswig-Flensburg und Stormarn; die übrigen kennt die untere Naturschutzbehörde",
         },
     )
 }
