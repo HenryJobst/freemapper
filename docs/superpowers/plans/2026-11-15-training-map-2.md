@@ -169,7 +169,7 @@ area go. `pdf_objects` and the map never draw `freemapper:hidden` objects (check
 
 - CLI summary (`pipeline.rs`): "… <merged> merged, <shifted> shifted, …"; a `warning:` when `junctions_free > 0`?
   No: report it in the summary only.
-- ADR 0149 (number reserved with session "freemapper"), amends 0140; ADR index; changelog (Unreleased); manual
+- ADR 0150 (number reserved with session "freemapper"), amends 0140; ADR index; changelog (Unreleased); manual
   de/en (training map chapter); AGENTS.md "What to tell the user" (remove "Carriageways, tracks and paths that run
   side by side still stand side by side"); spec status.
 - Commit `docs: the training map, second half`.
@@ -178,6 +178,6 @@ area go. `pdf_objects` and the map never draw `freemapper:hidden` objects (check
 
 - Rebuild Bremen Bürgerpark, Viktoriapark, Bastei in scratch with `export --force --training`; measure with the
   helper of the first half (apart, joined, 518/515/513 lengths, free ends, 501.1 inside street areas, time and
-  memory); render crops (Bremen north-west railway and roads, Viktoriapark streets, Rathen); fill ADR 0149
+  memory); render crops (Bremen north-west railway and roads, Viktoriapark streets, Rathen); fill ADR 0150
   "Measured"; check the acceptance of the spec section.
 - Merge `github/main`, checks, PR with label `all-systems`, merge on green CI, watch main CI.

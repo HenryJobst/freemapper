@@ -408,7 +408,7 @@ The second half settles these with the user's order: generalize what is alike, t
 Acceptance on the same three areas: apart conflicts stay 0; joined conflicts (overlap and gap) fall by at least
 80 %; 518 on the training map in Bremen keeps at least half of the check print's length; no line end that touched
 a line before is free after; Viktoriapark has no survey kerb line inside a street area and shows the carriageways
-in 50 % brown. ADR 0149 records it.
+in 50 % brown. ADR 0150 records it.
 
 ## Left to the builder
 
