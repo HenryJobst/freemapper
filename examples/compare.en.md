@@ -21,9 +21,9 @@ and `--content full`.
 
 | Profile | Map objects | Candidates |
 |---|---:|---:|
-| `safe` | 1664 | 1691 |
-| `balanced` | 2866 | 506 |
-| `full` | 3285 | 25 |
+| `safe` | 1663 | 1278 |
+| `balanced` | 2435 | 523 |
+| `full` | 2879 | 38 |
 
 All three versions have the same 1156 buildings (521), the forest (405), the Moselle and the railway. The
 difference lies in everything that does not come from the cadastre.
@@ -38,25 +38,26 @@ source:
 
 | Symbol | `safe`: candidates | `balanced`: map |
 |---|---:|---:|
-| 101 contour | 627 | 627 |
-| 102 index contour | 155 | 155 |
-| 418 bush or small tree | 234 | 188 |
+| 101 contour | 282 | 282 |
+| 102 index contour | 74 | 74 |
+| 418 bush or small tree | 233 | 187 |
 | 532.6 stairway | 51 | 51 |
 | 505.1 unpaved footpath | 46 | 51 |
 | 513.2 passable retaining wall | 29 | 29 |
 | 515 impassable wall | 30 | 11 |
 
-506 objects stay candidates, most of them estimates: 203 out-of-bounds areas (520) from the ALKIS land use, 114
-earth banks (104) from the terrain model, 78 control sites (531), 46 trees, 24 areas of open land (401), 19 walls
-and 10 cliffs (201).
+523 objects stay candidates, most of them estimates: 199 out-of-bounds areas (520) from the ALKIS land use, 113
+earth banks (104) from the terrain model, 77 control sites (531), 46 trees, 24 areas of open land (401), 19 walls,
+19 monuments (526) and 10 cliffs (201).
 
 ## From `balanced` to `full`
 
-`full` puts everything onto the map, as the training map (`--pdf-candidates`) draws it. In Cochem 203
-out-of-bounds areas, 114 earth banks, 71 control sites, the other 19 walls and 10 cliffs come in. The plots between
+`full` puts everything onto the map, as the training map (`--pdf-candidates`) draws it. In Cochem 199
+out-of-bounds areas, 113 earth banks, 70 control sites, the other 19 walls and the 10 cliffs come in; of the cliffs,
+5 stretches and a top line (201.3) are drawn, and 12 low stretches stay candidates. The plots between
 the houses turn olive green. Some points that were candidates in `balanced` are missing from `full` altogether,
 among them 46 trees and 7 control sites: as map objects they are subject to the ISSprOM minimum distance, and
-freemapper leaves out those that stand too close. 25 objects stay candidates, 24 of them open land (401).
+freemapper leaves out those that stand too close. 38 objects stay candidates: 24 areas of open land (401), the 12 low cliff stretches, a curb and a canopy.
 
 ## Which profile for what
 

@@ -78,9 +78,9 @@ count = 4
 regions = ["saxonyanhalt"]
 
 [osm]
-extract = "2026-11-06"
+extract = "2026-11-14"
 area = [51.78485591, 11.13246496, 51.79114409, 11.14553504]
-count = 906
+count = 905
 
 [orthophoto]
 flight = "29.05.2026"

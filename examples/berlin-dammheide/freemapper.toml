@@ -139,91 +139,91 @@ published = "2026-09-10"
 
 [buildings]
 bbox = [402910.0, 5814129.0, 404989.0, 5815592.0]
-fetched = "2026-11-13"
+fetched = "2026-11-15"
 count = 3341
 regions = ["berlin"]
 
 [land_use]
 bbox = [402910.0, 5814129.0, 404989.0, 5815592.0]
-fetched = "2026-11-13"
+fetched = "2026-11-15"
 count = 366
 regions = ["berlin"]
 
 [berlin_layers.bauwerke-flaechen]
 bbox = [402910.0, 5814129.0, 404989.0, 5815592.0]
-fetched = "2026-11-13"
+fetched = "2026-11-15"
 count = 569
 regions = ["berlin"]
 
 [berlin_layers.bauwerke-linien]
 bbox = [402910.0, 5814129.0, 404989.0, 5815592.0]
-fetched = "2026-11-13"
+fetched = "2026-11-15"
 count = 505
 regions = ["berlin"]
 
 [berlin_layers.gebaeudehoehen]
 bbox = [402910.0, 5814129.0, 404989.0, 5815592.0]
-fetched = "2026-11-13"
+fetched = "2026-11-15"
 count = 3910
 regions = ["berlin"]
 
 [berlin_layers.relief]
 bbox = [402910.0, 5814129.0, 404989.0, 5815592.0]
-fetched = "2026-11-13"
+fetched = "2026-11-15"
 count = 20
 regions = ["berlin"]
 
 [berlin_layers.sb-gelaender]
 bbox = [402910.0, 5814129.0, 404989.0, 5815592.0]
-fetched = "2026-11-13"
+fetched = "2026-11-15"
 count = 60
 regions = ["berlin"]
 
 [berlin_layers.sb-mauer]
 bbox = [402910.0, 5814129.0, 404989.0, 5815592.0]
-fetched = "2026-11-13"
+fetched = "2026-11-15"
 count = 0
 regions = ["berlin"]
 
 [berlin_layers.sb-objekte]
 bbox = [402910.0, 5814129.0, 404989.0, 5815592.0]
-fetched = "2026-11-13"
+fetched = "2026-11-15"
 count = 13
 regions = ["berlin"]
 
 [berlin_layers.sb-treppe]
 bbox = [402910.0, 5814129.0, 404989.0, 5815592.0]
-fetched = "2026-11-13"
+fetched = "2026-11-15"
 count = 0
 regions = ["berlin"]
 
 [berlin_layers.trinkwasserbrunnen]
 bbox = [402910.0, 5814129.0, 404989.0, 5815592.0]
-fetched = "2026-11-13"
+fetched = "2026-11-15"
 count = 0
 regions = ["berlin"]
 
 [berlin_layers.vegetation-linien]
 bbox = [402910.0, 5814129.0, 404989.0, 5815592.0]
-fetched = "2026-11-13"
+fetched = "2026-11-15"
 count = 0
 regions = ["berlin"]
 
 [berlin_layers.zierbrunnen]
 bbox = [402910.0, 5814129.0, 404989.0, 5815592.0]
-fetched = "2026-11-13"
+fetched = "2026-11-15"
 count = 0
 regions = ["berlin"]
 
 [osm]
-extract = "2026-11-06"
+extract = "2026-11-14"
 area = [52.46881029, 13.57049179, 52.48201981, 13.60114921]
 count = 1470
 
 [k5]
 flight = "2026-01-02"
 flight_label = "K5 dataset"
-fetched = "2026-11-13"
+fetched = "2026-11-15"
 bbox = [402910.991, 5814129.307, 404988.74, 5815591.543]
 
 [contours]

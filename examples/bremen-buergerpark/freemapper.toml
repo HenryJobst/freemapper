@@ -14,56 +14,56 @@ type = "Polygon"
 
 [buildings]
 bbox = [487439.0, 5881598.0, 489266.0, 5883810.0]
-fetched = "2026-11-14"
+fetched = "2026-11-15"
 latest_update = "2026-09-28"
 count = 5876
 regions = ["bremen"]
 
 [land_use]
 bbox = [487439.0, 5881598.0, 489266.0, 5883810.0]
-fetched = "2026-11-14"
+fetched = "2026-11-15"
 latest_update = "2026-09-02"
 count = 2445
 regions = ["bremen"]
 
 [nas_layers.bauwerk-gewaesser]
 bbox = [487439.0, 5881598.0, 489266.0, 5883810.0]
-fetched = "2026-11-14"
+fetched = "2026-11-15"
 latest_update = "2020-10-08"
 count = 45
 regions = ["bremen"]
 
 [nas_layers.bauwerk-verkehr]
 bbox = [487439.0, 5881598.0, 489266.0, 5883810.0]
-fetched = "2026-11-14"
+fetched = "2026-11-15"
 latest_update = "2025-10-07"
 count = 122
 regions = ["bremen"]
 
 [nas_layers.sonstiges-bauwerk]
 bbox = [487439.0, 5881598.0, 489266.0, 5883810.0]
-fetched = "2026-11-14"
+fetched = "2026-11-15"
 latest_update = "2026-09-24"
 count = 974
 regions = ["bremen"]
 
 [nas_layers.strukturlinie]
 bbox = [487439.0, 5881598.0, 489266.0, 5883810.0]
-fetched = "2026-11-14"
+fetched = "2026-11-15"
 latest_update = "2022-07-15"
 count = 1480
 regions = ["bremen"]
 
 [nas_layers.untergeordnetes-gewaesser]
 bbox = [487439.0, 5881598.0, 489266.0, 5883810.0]
-fetched = "2026-11-14"
+fetched = "2026-11-15"
 latest_update = "2025-11-10"
 count = 132
 regions = ["bremen"]
 
 [nas_layers.vegetationsmerkmal]
 bbox = [487439.0, 5881598.0, 489266.0, 5883810.0]
-fetched = "2026-11-14"
+fetched = "2026-11-15"
 count = 0
 regions = ["bremen"]
 
@@ -75,16 +75,16 @@ count = 3773
 [orthophoto]
 flight = "2025"
 flight_label = "Bildflugjahr"
-fetched = "2026-11-14"
+fetched = "2026-11-15"
 bbox = [487439.775, 5881598.305, 489265.789, 5883809.1]
 
 [terrain]
-fetched = "2026-11-14"
+fetched = "2026-11-15"
 bbox = [487439.775, 5881598.305, 489265.789, 5883809.1]
 date = "2017"
 
 [surface]
-fetched = "2026-11-14"
+fetched = "2026-11-15"
 bbox = [487439.775, 5881598.305, 489265.789, 5883809.1]
 date = "2017"
 

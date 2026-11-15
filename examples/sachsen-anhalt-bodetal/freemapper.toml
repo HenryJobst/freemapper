@@ -95,7 +95,7 @@ count = 54
 regions = ["saxonyanhalt"]
 
 [osm]
-extract = "2026-11-06"
+extract = "2026-11-14"
 area = [51.73205929, 11.00984586, 51.74194071, 11.03015414]
 count = 362
 
