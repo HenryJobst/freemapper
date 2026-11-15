@@ -129,11 +129,15 @@ static INFO: ExtraSetInfo = ExtraSetInfo {
 static DRAWING: SetDrawing = SetDrawing {
     rules: include_str!("../rules/lgv-feinkartierung.toml"),
     tag_prefix: "hamburg",
+    source_prefix: "lgv-feinkartierung",
     rank: SetRank::Survey,
+    layer_ranks: &[],
+    credited_layers: &[],
     stair_layers: &[STAIR_LAYER],
     // The green of the street space: candidates on the base map (the user's decision of
     // 2026-11-15).
     candidate_layers: &["fk-strasse-gruen"],
+    generic: true,
 };
 
 /// The map kinds that take the set: the street space is for sprint and schoolyard maps.
