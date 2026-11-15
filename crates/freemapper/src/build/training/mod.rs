@@ -18,6 +18,7 @@
 //! What a step drops is gone from the training map; nothing is tagged hidden. Lines of one
 //! network that run side by side are left to the second half and only counted in the report.
 
+mod junctions;
 mod lines;
 mod olive;
 mod points;
