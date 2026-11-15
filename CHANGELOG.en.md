@@ -6,6 +6,8 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
+## [0.21.0] - 2026-11-15
+
 ### Added
 
 - Permit notes: monuments from Schleswig-Holstein (ADR 0145). The Landesamt für Denkmalpflege publishes its list only as one file for the whole state (about 52 MB, new each week, CC BY 4.0). freemapper downloads it the first time, keeps it in the cache and downloads it again only when the server has a newer one. Archaeological monuments and Lübeck's monuments are not in it; the notes say so. The two examples of Schleswig-Holstein have new notes.

@@ -6,6 +6,8 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+## [0.21.0] - 2026-11-15
+
 ### Hinzugefügt
 
 - Genehmigungshinweise: Denkmale aus Schleswig-Holstein (ADR 0145). Das Landesamt für Denkmalpflege veröffentlicht seine Denkmalliste nur als eine Datei für das ganze Bundesland (etwa 52 MB, jede Woche neu, CC BY 4.0). freemapper lädt sie beim ersten Mal, hebt sie im Zwischenspeicher auf und lädt sie danach nur, wenn der Server eine neuere hat. Bodendenkmale und die Denkmale Lübecks fehlen darin; die Hinweise sagen das. Die beiden Beispiele aus Schleswig-Holstein haben neue Hinweise.
