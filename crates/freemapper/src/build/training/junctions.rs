@@ -222,16 +222,15 @@ impl Junctions {
                 pieces.entry(key).or_default().push(i);
             }
         }
-        // Where each recorded end is now: the end of a piece of its object nearest the recorded
-        // position (of two as near, the earlier object, then the same end as recorded).
-        // The keys of each end's own line: its own and those of the lines it went into.
-        let own: Vec<BTreeSet<Key>> = self.ends.iter().map(|e| self.family(e.object)).collect();
+        // Where each recorded end is now: the end of a piece of its object, or of a line its
+        // object went into by a join, nearest the recorded position (of two as near, the
+        // earlier object, then the same end as recorded).
         let held: Vec<Option<(usize, bool)>> = self
             .ends
             .iter()
-            .zip(&own)
-            .map(|(end, own)| {
-                own.iter()
+            .map(|end| {
+                self.family(end.object)
+                    .iter()
                     .filter_map(|key| pieces.get(key))
                     .flatten()
                     .filter(|&&i| is_open_line(&objects[i], &self.line_ids))
@@ -257,10 +256,15 @@ impl Junctions {
         // by `attach`, or for two pieces of one key) is counted once, and not when another of
         // its records repaired it.
         let mut free: BTreeSet<(usize, bool)> = BTreeSet::new();
-        for ((end, held), own) in self.ends.iter().zip(&held).zip(&own) {
+        for (end, held) in self.ends.iter().zip(&held) {
             let Some(&(i, last)) = held.as_ref() else {
                 continue;
             };
+            // The end's own line: the key recorded and the key of the line that holds the end
+            // now (another, when a join took the end's line into it).
+            let own: BTreeSet<Key> = std::iter::once(end.object)
+                .chain(key_of(&objects[i]))
+                .collect();
             let at = end_point(&objects[i], last);
             // Every line the end meets: on its body (`false`) or only at a recorded end (`true`).
             // The other pieces of its own line do not count: a cut right at the end leaves one.
@@ -823,6 +827,37 @@ mod tests {
         assert_eq!(result, (1, 0));
         let end = mm(objects[0].coords.last().unwrap());
         assert_eq!(end, (5.0, 10.3));
+    }
+
+    #[test]
+    fn an_end_on_the_line_that_took_another_piece_of_its_line_meets_it() {
+        // The path ends on the body of the path `l`. It is split, and a join takes its other
+        // piece into `l`: the end still meets `l`, which is no piece of its own line.
+        let set = isom();
+        let georef = georef_at(SCALE);
+        let mut objects = vec![
+            tagged(&set, "505", "p", &[(20.0, 0.0), (20.0, 10.0)]),
+            tagged(&set, "505", "l", &[(0.0, 10.0), (40.0, 10.0)]),
+        ];
+        let mut junctions = Junctions::record(&mut objects, &Classes::of(&set), &georef);
+        assert_eq!(junctions.ends.len(), 1, "{junctions:?}");
+        let mut after = vec![
+            moved(&set, &objects[0], &[(20.0, 5.0), (20.0, 10.0)]),
+            moved(&set, &objects[0], &[(-10.0, 10.0), (0.0, 10.0)]),
+            objects[1].clone(),
+        ];
+        join_ways(&set, &mut after, &mut junctions);
+        assert_eq!(after.len(), 2, "{after:?}");
+        let before = after.clone();
+        let result = junctions.repair_after_cuts(
+            &mut after,
+            &BTreeMap::new(),
+            &BTreeMap::new(),
+            0.5,
+            &georef,
+        );
+        assert_eq!(result, (0, 0));
+        assert_eq!(after, before);
     }
 
     #[test]
