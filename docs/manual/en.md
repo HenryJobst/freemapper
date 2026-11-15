@@ -1263,6 +1263,11 @@ most of them short steps in front of house doors, along with 138 walls and 2 bri
 double go. The landscape model adds 6 trees, 2 watercourses and a structure there as candidates, in the Granitz 5
 paths.
 
+**Rhineland-Palatinate: landscape model.** The LVermGeo RP serves no full ALKIS, but its landscape model
+(dl-de/by-2-0), in the Shape schema of the AdV instead of NAS. freemapper reads it and treats it as in the other
+states: its objects stay candidates. In Cochem it adds 19 monuments and wayside crosses, 2 watercourses and a
+well, near Dahn a rock, 3 watercourses and, on the forest map, 6 tracks and paths.
+
 In Bavaria the cadastre has no service. There freemapper asks the landscape model of the agency instead, the
 ATKIS Basis-DLM (CC BY 4.0). It is made for the scale 1:25 000 and accurate to about 3 m. freemapper takes cave
 entrances (203), springs (312), named rocks (205), free-standing towers (524, 525), monuments and wayside

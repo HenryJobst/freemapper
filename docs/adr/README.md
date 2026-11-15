@@ -191,4 +191,5 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0144](0144-monuments-from-more-states.md) | Monuments from more states, and who looks after them | Accepted | 2026-11-15 |
 | [0145](0145-monuments-of-schleswig-holstein-from-its-statewide-file.md) | Monuments of Schleswig-Holstein from its statewide file | Accepted | 2026-11-15 |
 | [0146](0146-natural-monuments-and-protected-biotopes-of-the-states.md) | Natural monuments and protected biotopes of the states | Accepted | 2026-11-15 |
+| [0147](0147-rhineland-palatinate-basis-dlm-in-the-shape-schema.md) | Rhineland-Palatinate: the landscape model in the AdV Shape schema | Accepted | 2026-11-15 |
 | [0148](0148-permit-sources-from-arcgis-rest-services.md) | Permit sources from ArcGIS REST services | Accepted | 2026-11-15 |

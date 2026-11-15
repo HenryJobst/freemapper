@@ -155,10 +155,11 @@
       "terrain model (LVermGeo RP DGM1) | 1.500 MB | cached: false | Terrain | Cache",
       "surface model (LVermGeo RP DOM1) | 3.000 MB | cached: false | Surface | Cache",
       "OSM extract Rhineland-Palatinate (shared by all projects) | 275.000 MB | cached: false | MapData | Cache",
-      "ALKIS buildings and land use | 0.500 MB | cached: false | MapData | Project"
+      "ALKIS buildings and land use | 0.500 MB | cached: false | MapData | Project",
+      "objects of the ATKIS Basis-DLM | 0.100 MB | cached: false | StateLayers | Project"
     ],
     "region": "rheinlandpfalz",
     "tiles": [],
-    "total_megabytes": "280.595"
+    "total_megabytes": "280.695"
   }
 ]

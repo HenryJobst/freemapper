@@ -18,7 +18,7 @@ use freemapper_manifest::adapter::{ManifestAdapter, Parse};
 use freemapper_manifest::model::Alkis;
 use freemapper_manifest::{Manifest, adapter, alkis, extras, parse};
 use freemapper_sources::alkis_source::{Normaliser, OgcApiAlkis};
-use freemapper_sources::nas::{LGB_NAS, NasModel};
+use freemapper_sources::nas::{LGB_NAS, NasModel, NasSchema};
 use freemapper_sources::trees::POTSDAM;
 use freemapper_sources::wfs::{self, WfsService};
 
@@ -136,6 +136,7 @@ fn potsdam_tree_dataset_from_manifest_equals_the_constant() {
                 | State::NordrheinWestfalen
                 | State::Niedersachsen
                 | State::MecklenburgVorpommern
+                | State::RheinlandPfalz
         ) {
             let manifest = manifest(state.id());
             assert!(
@@ -276,6 +277,37 @@ fn nrw_and_lower_saxony_ask_their_full_alkis() {
         assert_eq!((service.url.as_ref(), service.max_count), (url, count));
         assert!(service.serves("sonstiges-bauwerk") && !service.serves("dlm-turm"));
     }
+}
+
+/// Rhineland-Palatinate serves its landscape model in the AdV Shape schema (ADR 0147, checked
+/// live on 2026-11-15 over the Cochem and Dahn examples); it has no full ALKIS.
+#[test]
+fn rhineland_palatinate_asks_its_basis_dlm_in_the_shape_schema() {
+    let rp = manifest("rheinlandpfalz");
+    let region = "rheinlandpfalz".parse().unwrap();
+    let services: Vec<_> = rp
+        .nas
+        .iter()
+        .map(|nas| extras::nas_service(nas, &region))
+        .collect();
+    assert_eq!(services.len(), 1);
+    let dlm = &services[0];
+    assert_eq!(
+        (dlm.model, dlm.schema),
+        (NasModel::BasisDlm, NasSchema::Shape)
+    );
+    let dahn = BoundingBox {
+        min_e: 408_895.0,
+        min_n: 5_445_979.0,
+        max_e: 410_313.0,
+        max_n: 5_447_098.0,
+    };
+    assert_eq!(
+        dlm.get_feature_url("Verkehr_VER02_L", &dahn),
+        "https://geo5.service24.rlp.de/wfs/basisdlm_shape_rp.fcgi?SERVICE=WFS&VERSION=2.0.0\
+         &REQUEST=GetFeature&TYPENAMES=Verkehr_VER02_L&SRSNAME=urn:ogc:def:crs:EPSG::25832\
+         &BBOX=408895,5445979,410313,5447098,urn:ogc:def:crs:EPSG::25832&COUNT=100000"
+    );
 }
 
 /// Mecklenburg-Vorpommern serves its full ALKIS and its landscape model from one host (checked

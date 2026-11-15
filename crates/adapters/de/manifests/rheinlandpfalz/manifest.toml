@@ -4,13 +4,13 @@ format = 1
 [adapter]
 id = "rheinlandpfalz"
 provider = "lvermgeorp"
-revision = 1
+revision = 2
 min_freemapper = "0.13.0"
 crs = 25832
 object_id_prefix = "DERP"
 names = { en = "Rhineland-Palatinate", de = "Rheinland-Pfalz" }
 maintainers = ["github:HenryJobst"]
-last_verified = "2026-11-12"
+last_verified = "2026-11-15"
 
 [net]
 hosts = ["geo5.service24.rlp.de", "geo4.service24.rlp.de", "geobasis-rlp.de", "geoportal.bafg.de", "www.geoportal.rlp.de", "geoportal.naturschutz.rlp.de"]
@@ -46,6 +46,14 @@ backend = "lvermgeo-rp"
 
 [surface]
 backend = "lvermgeo-rp"
+
+[[extra.nas]]
+name = "LVermGeo RP Basis-DLM (Shape)"
+url = "https://geo5.service24.rlp.de/wfs/basisdlm_shape_rp.fcgi"
+model = "basis-dlm"
+schema = "shape"
+max_count = 100000
+max_bytes = 268435456
 
 [preview]
 wms = "https://geo4.service24.rlp.de/wms/rp_dop20.fcgi"

@@ -7,7 +7,7 @@
 
 use freemapper_adapter_api::env::AdapterEnv;
 use freemapper_adapter_api::error::AdapterError;
-use freemapper_adapter_api::extras::{NasModel, NasService};
+use freemapper_adapter_api::extras::{NasModel, NasSchema, NasService};
 use freemapper_adapter_api::project::RasterProject;
 use freemapper_adapter_api::rasters::{ProviderInfo, RasterBackend, RasterKind};
 use freemapper_adapter_api::records::AdapterId;
@@ -57,6 +57,7 @@ pub const ALKIS: NasService = NasService {
     layers: None,
     namespaces: None,
     model: NasModel::Alkis,
+    schema: NasSchema::Nas,
 };
 
 /// `bez` of a square without a function: a third of the squares have none, and what they are

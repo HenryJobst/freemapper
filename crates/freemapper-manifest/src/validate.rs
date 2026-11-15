@@ -8,7 +8,7 @@ use std::ops::Range;
 use std::path::{Path, PathBuf};
 
 use chrono::NaiveDate;
-use freemapper_adapter_api::extras::NasModel;
+use freemapper_adapter_api::extras::{NasModel, NasSchema};
 use freemapper_adapter_api::policy;
 use freemapper_georef::crs::Crs;
 use freemapper_sources::nas::NAS_LAYERS;
@@ -1666,6 +1666,26 @@ impl Check<'_> {
                     all
                 });
             }
+            // The Shape schema is known for the landscape model only (ADR 0147).
+            let schema = match &service.schema {
+                Some(schema) => self
+                    .matching(
+                        schema,
+                        "extra.nas.schema",
+                        "manifest.value",
+                        |text| match text {
+                            "nas" => true,
+                            "shape" => served == NasModel::BasisDlm,
+                            _ => false,
+                        },
+                        "a schema: `nas`, or `shape` for a service of the model `basis-dlm`",
+                    )
+                    .map(|schema| match schema.as_str() {
+                        "shape" => NasSchema::Shape,
+                        _ => NasSchema::Nas,
+                    }),
+                None => Some(NasSchema::Nas),
+            };
             let namespaces = match &service.namespaces {
                 Some(namespaces) => self
                     .matching(
@@ -1691,6 +1711,7 @@ impl Check<'_> {
                     },
                     namespaces: namespaces?,
                     model: model?,
+                    schema: schema?,
                 })
             })();
             match built {
