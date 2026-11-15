@@ -1069,7 +1069,10 @@ Denkmale kommen aus Berlin, Hamburg und dem Saarland und aus den offenen Dienste
 (DenkXweb, mit Link in die Denkmalliste), Baden-Württemberg (Kulturdenkmale, Gesamtanlagen, archäologische
 Kulturdenkmale und Grabungsschutzgebiete), Bremen (Einzeldenkmale und Ensembles, mit Link), Sachsen
 (Kulturdenkmale), Brandenburg (Bau-, Garten- und Bodendenkmale, Denkmalbereiche), Rheinland-Pfalz (Einzeldenkmäler,
-Denkmalzonen, bauliche Gesamtanlagen) und Nordrhein-Westfalen. Der Abschnitt „Denkmale“ zählt sie je Art und
+Denkmalzonen, bauliche Gesamtanlagen), Nordrhein-Westfalen und Schleswig-Holstein. Schleswig-Holstein hat keinen
+Dienst, nur seine Denkmalliste als eine Datei für das ganze Bundesland (etwa 52 MB, jede Woche neu): freemapper lädt
+sie beim ersten Mal und hebt sie im Zwischenspeicher auf, danach nur, wenn der Server eine neuere hat. Bodendenkmale
+und die Denkmale Lübecks fehlen darin. Der Abschnitt „Denkmale“ zählt sie je Art und
 verlinkt, wo der Dienst einen Link hat, bis zu 20 in die Liste des Bundeslandes. Liegen Denkmale im Gebiet, sagt
 ein Hinweis, wen man fragt: in Berlin und Hamburg das Bezirksamt oder das Denkmalschutzamt, sonst die untere
 Denkmalschutzbehörde, meist der Landkreis oder die kreisfreie Stadt, in manchen Bundesländern die Gemeinde; die
@@ -1080,7 +1083,7 @@ Hinweisen heißt dort nicht, dass keins im Gebiet liegt. In Brandenburg fehlen d
 ihre Denkmalliste selbst führt. Die Hinweise sagen beides unter dem Teil des Bundeslandes, und der Hinweis auf die
 untere Denkmalschutzbehörde kommt dort auch ohne Treffer, mit dem Satz, dass die Daten das nicht sicher sagen. Eine
 kreisfreie Stadt, in Baden-Württemberg ein Stadtkreis, ist selbst die untere Behörde. Die Bodendenkmäler in Hessen sind Punkte, die laut Dienst für
-ein Gebiet von etwa 300 m stehen. Niedersachsen, Bayern, Schleswig-Holstein, Mecklenburg-Vorpommern und
+ein Gebiet von etwa 300 m stehen. Niedersachsen, Bayern, Mecklenburg-Vorpommern und
 Sachsen-Anhalt fehlen noch: Die Lizenz ist dort unklar oder verbietet die Bearbeitung, oder es gibt keinen Dienst
 für das ganze Bundesland.
 
@@ -1167,7 +1170,7 @@ Bezirks, auch in `data/permits/`.
   `"sampled": true`.
 - Wem ein Privat- oder Körperschaftswald gehört, steht in keinen offenen Daten.
 - Wasserschutzgebiete nennen die Hinweise in allen Bundesländern. Die Gebiete der BfG haben keine Schutzzone; ob
-  eine Veranstaltung möglich ist, sagt die untere Wasserbehörde. Denkmale kommen aus zehn Bundesländern (siehe
+  eine Veranstaltung möglich ist, sagt die untere Wasserbehörde. Denkmale kommen aus elf Bundesländern (siehe
   „Denkmale“).
 
 ### Datenquellen und Lizenzen
@@ -1186,6 +1189,7 @@ Bezirks, auch in `data/permits/`.
 | Landesamt für Denkmalpflege Bremen: Einzeldenkmale, Ensembles (nur in Bremen) | `geodienste.bremen.de` | `Creative Commons Namensnennung (CC-BY), Quellenvermerk: Freie Hansestadt Bremen, Senator für Kultur` |
 | Landesamt für Denkmalpflege Sachsen: Kulturdenkmale (nur in Sachsen) | `cardomap3.idu.de` | `Landesamt für Denkmalpflege Sachsen, Creative Commons Namensnennung 3.0 Deutschland (CC BY 3.0 DE)` |
 | BLDAM: Baudenkmale, Gartendenkmale, Denkmalbereiche, Bodendenkmale (nur in Brandenburg) | `gis-bldam-brandenburg.de` | `© Denkmaldaten/BLDAM <Jahr>`; Bodendenkmale: `Quelle: © Denkmaldaten/Brandenburgisches Landesamt für Denkmalpflege und Archäologisches Landesmuseum (BLDAM), dl-de/by-2-0` |
+| Landesamt für Denkmalpflege Schleswig-Holstein: Denkmalliste, eine Datei für das Bundesland (nur in Schleswig-Holstein) | `opendata.schleswig-holstein.de` | `Landesamt für Denkmalpflege Schleswig-Holstein; Lizenz: Creative Commons Namensnennung 4.0 International (CC BY 4.0)` |
 | Generaldirektion Kulturelles Erbe: Einzeldenkmäler, Denkmalzonen, bauliche Gesamtanlagen (nur in Rheinland-Pfalz) | `www.geoportal.rlp.de` | `Datenlizenz Deutschland – Namensnennung – Version 2.0 (dl-de/by-2-0); Quellenvermerk: GDKE RLP` |
 | Land NRW: Denkmäler nach dem Denkmalschutzgesetz, im Aufbau (nur in Nordrhein-Westfalen) | `www.wfs.nrw.de` | `Datenlizenz Deutschland – Zero – Version 2.0 (https://www.govdata.de/dl-de/zero-2-0)` |
 | Bundesanstalt für Gewässerkunde (BfG), WasserBLIcK: Trinkwasser- und Heilquellenschutzgebiete (nur in Bayern, Niedersachsen, Bremen, Mecklenburg-Vorpommern, Rheinland-Pfalz, Sachsen-Anhalt und Sachsen) | `geoportal.bafg.de` | `© WasserBLIcK/BfG und Zuständige Behörden der Länder, <Jahr>; Lizenz: Creative Commons Namensnennung – 4.0 International (CC BY 4.0)` |

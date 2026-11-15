@@ -291,7 +291,7 @@ impl PermitSource for TableSource {
 
 /// The box in `crs` around `bbox` (WGS 84, x = longitude): the corners projected, their
 /// smallest and largest values.
-fn projected_box(crs: Crs, bbox: &Rect<f64>) -> ProjectedBox {
+pub(crate) fn projected_box(crs: Crs, bbox: &Rect<f64>) -> ProjectedBox {
     let corners = [
         (bbox.min().y, bbox.min().x),
         (bbox.min().y, bbox.max().x),
@@ -313,7 +313,7 @@ fn projected_box(crs: Crs, bbox: &Rect<f64>) -> ProjectedBox {
 
 /// `feature` with its positions in `crs` (metres, easting first) turned into WGS 84, longitude
 /// first; `None` when its geometry cannot be read or a position cannot be turned.
-fn in_wgs84(feature: &Value, crs: Crs) -> Option<Value> {
+pub(crate) fn in_wgs84(feature: &Value, crs: Crs) -> Option<Value> {
     let geometry =
         serde_json::from_value::<geojson::Geometry>(feature.get("geometry")?.clone()).ok()?;
     let mut geometry = Geometry::<f64>::try_from(geometry).ok()?;

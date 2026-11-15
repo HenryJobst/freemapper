@@ -63,7 +63,7 @@ rust-embed = { version = "8.13.0", features = ["debug-embed", "mime-guess"] }
 rmcp = { version = "=3.6.0", features = ["server", "transport-io", "macros"] }
 schemars = "1.2.3"
 serde = { version = "1", features = ["derive"] }
-serde_json = { version = "1.0.154", features = ["float_roundtrip"] }
+serde_json = { version = "1.0.154", features = ["float_roundtrip", "raw_value"] }
 sha2 = "0.11.1"
 tempfile = "3.27.0"
 thiserror = "2.0.21"

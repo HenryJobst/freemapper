@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "created": "2026-11-14",
+  "created": "2026-11-15",
   "map_kind": "forest",
   "area_m2": 1081507.9918225547,
   "admin": [
@@ -107,13 +107,35 @@
       }
     },
     {
+      "key": "permits-hint-monument-lower-authority",
+      "args": {
+        "gemeinde": "Brekendorf",
+        "known": "no",
+        "kreis": "Rendsburg-Eckernförde",
+        "kreisfrei": "no"
+      }
+    },
+    {
       "key": "permits-hint-natura2000",
       "args": {}
     },
     {
+      "key": "permits-hint-forest-office",
+      "args": {
+        "administration": "Schleswig-Holsteinische Landesforsten",
+        "office": "Revier Brekendorf"
+      }
+    },
+    {
       "key": "permits-hint-forest-owner",
       "args": {
-        "office": "unknown"
+        "office": "known"
+      }
+    },
+    {
+      "key": "permits-hint-forest-function",
+      "args": {
+        "kind": "natural"
       }
     },
     {
@@ -124,22 +146,32 @@
       }
     },
     {
+      "key": "permits-hint-state-forest",
+      "args": {
+        "office": "Schleswig-Holsteinische Landesforsten, Revier Brekendorf",
+        "owner": "Bundesland Schleswig-Holstein",
+        "percent": "66.7"
+      }
+    },
+    {
       "key": "permits-hint-owners-unknown",
-      "args": {}
+      "args": {
+        "rest": "yes"
+      }
     }
   ],
   "sources": [
     {
       "id": "vg250",
       "state": "read",
-      "fetched": "2026-11-14",
+      "fetched": "2026-11-15",
       "reason": null,
       "credit": "© BKG (2026) dl-de/by-2-0, Datenquellen: https://sg.geodatenzentrum.de/web_public/gdz/datenquellen/datenquellen_vg_nuts.pdf"
     },
     {
       "id": "bfn",
       "state": "read",
-      "fetched": "2026-11-14",
+      "fetched": "2026-11-15",
       "reason": null,
       "credit": "© Bundesamt für Naturschutz (BfN) (2026), Schutzgebiete in Deutschland; Nutzungsbestimmungen für die Bereitstellung von Geodaten des Bundes (GeoNutzV). Nicht für Planungszwecke geeignet."
     },
@@ -149,6 +181,105 @@
       "fetched": "2026-11-07",
       "reason": null,
       "credit": "© OpenStreetMap contributors, ODbL"
+    }
+  ],
+  "regional": [
+    {
+      "adapter": "schleswigholstein",
+      "monuments": {
+        "total": 0,
+        "groups": [],
+        "links_left": 0
+      },
+      "forest_units": [
+        {
+          "item": {
+            "administration": "Schleswig-Holsteinische Landesforsten",
+            "office": "Revier Brekendorf",
+            "unit": null
+          },
+          "percent": 66.7,
+          "at_edge": false
+        }
+      ],
+      "state_forest": [
+        {
+          "item": {
+            "owner": "Bundesland Schleswig-Holstein",
+            "office": "Schleswig-Holsteinische Landesforsten, Revier Brekendorf"
+          },
+          "percent": 66.7,
+          "at_edge": false
+        }
+      ],
+      "water_protection": [],
+      "forest_functions": [
+        {
+          "item": {
+            "kind": "natural",
+            "name": null
+          },
+          "percent": 0.2,
+          "at_edge": true
+        }
+      ],
+      "sources": [
+        {
+          "source": {
+            "key": "umwelt",
+            "label": {
+              "en": "Umweltportal Schleswig-Holstein",
+              "de": "Umweltportal Schleswig-Holstein"
+            },
+            "what": {
+              "en": "state forest with its Reviere, Naturwald, water protection zones",
+              "de": "Landeswald mit seinen Revieren, Naturwald, Wasserschutzgebiete"
+            },
+            "credit": "Quellenvermerk: LfU SH; Lizenz: Creative Commons Namensnennung 4.0 International (CC BY 4.0)",
+            "sections": [
+              "state-forest",
+              "forest-units",
+              "forest-functions",
+              "water-protection"
+            ]
+          },
+          "status": {
+            "id": "umwelt",
+            "state": "read",
+            "fetched": "2026-11-15",
+            "reason": null,
+            "credit": "Quellenvermerk: LfU SH; Lizenz: Creative Commons Namensnennung 4.0 International (CC BY 4.0)"
+          }
+        },
+        {
+          "source": {
+            "key": "denkmale",
+            "label": {
+              "en": "Landesamt für Denkmalpflege Schleswig-Holstein",
+              "de": "Landesamt für Denkmalpflege Schleswig-Holstein"
+            },
+            "what": {
+              "en": "list of monuments (one file for the state, kept in the cache)",
+              "de": "Denkmalliste (eine Datei für das Bundesland, im Zwischenspeicher)"
+            },
+            "credit": "Landesamt für Denkmalpflege Schleswig-Holstein; Lizenz: Creative Commons Namensnennung 4.0 International (CC BY 4.0)",
+            "gaps": {
+              "en": "the archaeological monuments are not in it, and the Hansestadt Lübeck keeps its own list",
+              "de": "Die Bodendenkmale fehlen darin, und die Hansestadt Lübeck führt ihre Denkmalliste selbst"
+            },
+            "sections": [
+              "monuments"
+            ]
+          },
+          "status": {
+            "id": "denkmale",
+            "state": "read",
+            "fetched": "2026-11-15",
+            "reason": null,
+            "credit": "Landesamt für Denkmalpflege Schleswig-Holstein; Lizenz: Creative Commons Namensnennung 4.0 International (CC BY 4.0)"
+          }
+        }
+      ]
     }
   ]
 }

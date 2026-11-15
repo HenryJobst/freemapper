@@ -570,7 +570,13 @@ impl StateAdapter {
             .into_iter()
             .flatten()
             .collect(),
-            State::SchleswigHolstein => crate::state_permits::schleswig_holstein(),
+            State::SchleswigHolstein => [
+                crate::state_permits::schleswig_holstein(),
+                vec![crate::ldsh_permits::source()],
+            ]
+            .into_iter()
+            .flatten()
+            .collect(),
             State::NordrheinWestfalen => [
                 crate::wuh_permits::sources(),
                 vec![crate::denkmal_permits::nordrhein_westfalen()],
@@ -915,10 +921,7 @@ mod tests {
                     &["wasserschutzgebiete", "denkmale"],
                     "https://geodienste.denkx.de/geoserver/denkx/wfs",
                 ),
-                "schleswigholstein" => (
-                    &["umwelt"],
-                    "https://umweltgeodienste.schleswig-holstein.de/WFS_UWAT",
-                ),
+                "schleswigholstein" => (&["umwelt", "denkmale"], crate::ldsh_permits::URL),
                 "badenwuerttemberg" => (
                     &["lubw", "denkmale", "archaeologie"],
                     crate::lubw_permits::BASE,
