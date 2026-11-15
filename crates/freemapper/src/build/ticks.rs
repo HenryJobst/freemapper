@@ -5,14 +5,15 @@
 //! the right of the line, seen on paper, so the way a line runs says on which side they are. The
 //! sources give the lines in any direction. The last step before the map is written turns them:
 //!
-//! * The side of a fence's ticks follows what lies beside it. A fence beside an area that shall
-//!   not be entered (520, olive green) has its ticks towards that area. Else a closed fence (a
-//!   rectangle, say) has them inside (ISSprOM 2019-2 §518), else they point away from a road or
-//!   path running along one side, else towards a park (401) beside it. Where none of these
-//!   decides, the same area lies on both sides: the ticks go to the side where they meet no
-//!   other symbol that keeps its gap to a fence ([`conflicts::relation`]); with room on both
-//!   sides or on neither the fence stays as it is. A decided side stays where its ticks
-//!   overdraw something: turning is no means against overdrawing.
+//! * The side of a fence's ticks follows what lies beside it, the norm first: a closed fence (a
+//!   rectangle, say) has them inside (ISSprOM 2019-2 §516, §518). Else a fence beside an area
+//!   that shall not be entered (520, olive green) has its ticks towards that area, else they
+//!   point away from a road or path running along one side, else towards a park (401) beside
+//!   it. Where none of these decides, the same area lies on both sides: the ticks go to the side
+//!   where they meet no other symbol that keeps its gap to a fence ([`conflicts::relation`]);
+//!   with room on both sides or on neither the fence stays as it is. A decided side stays where
+//!   its ticks overdraw something: turning is no means against overdrawing. A fence of the map
+//!   looks at the ways and symbols of the map only, one of the candidates at both maps.
 //! * The ticks of a bank point down the slope. The terrain model says which side is lower; where
 //!   it is missing or flat, the bank takes the way round of the banks beside it that are decided.
 
@@ -36,6 +37,8 @@ use crate::raster::Raster;
 const FENCE_CODE: &str = "518";
 /// The lines whose ticks point down the slope (the retained wall has them on its lower side).
 const BANK_CODES: [&str; 4] = ["104", "104.1", "201", "513.2"];
+/// The index of the map among the lists; the candidates follow.
+const MAP_LIST: usize = 0;
 /// The area that shall not be entered.
 const OLIVE_CODE: &str = "520";
 /// The park.
@@ -69,8 +72,9 @@ pub struct Turned {
 /// A place on a line and the unit vector of the line there (east, north).
 type Sample = (P, P);
 
-/// Turns the fences and banks among `lists` (the objects of the map and of the candidates map)
-/// so that their ticks point the right way. `terrain` is the height model of the project.
+/// Turns the fences and banks among `lists` (the objects of the map, first, and of the
+/// candidates map) so that their ticks point the right way. `terrain` is the height model of the
+/// project.
 pub fn orient_ticks(
     lists: &mut [&mut Vec<MapObject>],
     terrain: Option<&Raster<f32>>,
@@ -94,7 +98,7 @@ pub fn orient_ticks(
 
     let scale = SymbolScale::drawn_with(symbol_set, georef.scale_denominator);
     let grow = (FENCE_TICK_MM + LINE_GAP_MM + NEAR_MM).on_paper(scale).0;
-    // The fences that can be turned and their votes: olive green, then closed → inside.
+    // The fences that can be turned and their votes: closed → inside, then olive green.
     let mut fences: Vec<FenceLine> = Vec::new();
     for (l, list) in lists.iter().enumerate() {
         for (i, object) in list.iter().enumerate() {
@@ -112,13 +116,19 @@ pub fn orient_ticks(
                 .last()
                 .is_some_and(|c| c.flags & FLAG_CLOSE != 0)
                 || line.first() == line.last();
-            let vote = match area_vote(&samples, &olive) {
-                0 if closed => -signed_area(&line).signum() as i32,
+            // The norm first: a closed fence has its ticks inside (§516, §518).
+            let vote = match closed {
+                true => -signed_area(&line).signum() as i32,
+                false => 0,
+            };
+            let vote = match vote {
+                0 => area_vote(&samples, &olive),
                 vote => vote,
             };
             fences.push(FenceLine {
                 list: l,
                 index: i,
+                coords: object.coords.clone(),
                 samples,
                 frame: frame(&object.coords, grow),
                 vote,
@@ -141,7 +151,7 @@ pub fn orient_ticks(
         let open: Vec<usize> = (0..fences.len())
             .filter(|&n| {
                 let f = &fences[n];
-                f.vote == 0 && !others.near(f.frame, (f.list, f.index), false).is_empty()
+                f.vote == 0 && !others.near(f, false).is_empty()
             })
             .collect();
         let both_ways: Vec<MapObject> = open
@@ -206,6 +216,7 @@ pub fn orient_ticks(
 struct FenceLine {
     list: usize,
     index: usize,
+    coords: Vec<MapCoord>,
     samples: Vec<Sample>,
     /// The frame of the fence on paper (mm, y down), grown by the reach of its ticks and
     /// [`NEAR_MM`].
@@ -220,17 +231,19 @@ struct Others {
     items: Vec<Other>,
 }
 
-/// One of [`Others`]: the list and index it came from, whether it is a road or path, and the
-/// frame of its footprint.
+/// One of [`Others`]: the list and index it came from, whether it is a road or path, the frame
+/// of its footprint, and the coordinates of a fence.
 struct Other {
     at: (usize, usize),
     way: bool,
     bounds: Option<Rect<f64>>,
+    fence: Option<Vec<MapCoord>>,
 }
 
 impl Others {
     fn of(lists: &[&mut Vec<MapObject>], fences: &[FenceLine], symbol_set: &SymbolSet) -> Self {
         let classes = Classes::of(symbol_set);
+        let fence = symbol_set.id_for_code(FENCE_CODE);
         let frames: Vec<Rect<f64>> = fences
             .iter()
             .filter(|f| f.vote == 0)
@@ -250,8 +263,9 @@ impl Others {
                 if near {
                     let way = matches!(class, Class::Road | Class::Path)
                         && matches!(o.kind, MapObjectKind::Path);
+                    let coords = (Some(o.symbol_id) == fence).then(|| o.coords.clone());
                     objects.push(o);
-                    at.push(((l, i), way));
+                    at.push(((l, i), way, coords));
                 }
             }
         }
@@ -259,31 +273,35 @@ impl Others {
         let items = at
             .into_iter()
             .enumerate()
-            .map(|(k, (at, way))| Other {
+            .map(|(k, (at, way, fence))| Other {
                 at,
                 way,
                 bounds: footprints.footprint(k).bounding_rect(),
+                fence,
             })
             .collect();
         Self { footprints, items }
     }
 
-    /// The footprints of the objects whose frame meets `frame`, but not of the object `except`;
-    /// `ways`: only the roads and paths.
-    fn near(
-        &self,
-        frame: Option<Rect<f64>>,
-        except: (usize, usize),
-        ways: bool,
-    ) -> Vec<&MultiPolygon<f64>> {
-        let Some(frame) = frame else {
+    /// The footprints of the objects whose frame meets that of `fence`, without the fence itself
+    /// and its copy in another list; `ways`: only the roads and paths. A fence of the map looks at
+    /// the map only: an uncertain candidate does not turn a sure fence.
+    fn near(&self, fence: &FenceLine, ways: bool) -> Vec<&MultiPolygon<f64>> {
+        let Some(frame) = fence.frame else {
             return Vec::new();
         };
         self.items
             .iter()
             .enumerate()
             .filter(|(_, o)| {
-                o.at != except && (o.way || !ways) && o.bounds.is_some_and(|b| b.intersects(&frame))
+                o.at != (fence.list, fence.index)
+                    && (fence.list != MAP_LIST || o.at.0 == MAP_LIST)
+                    && (o.way || !ways)
+                    && !o
+                        .fence
+                        .as_ref()
+                        .is_some_and(|c| same_line(c, &fence.coords))
+                    && o.bounds.is_some_and(|b| b.intersects(&frame))
             })
             .map(|(k, _)| self.footprints.footprint(k))
             .collect()
@@ -293,7 +311,7 @@ impl Others {
     /// `reach` (ground metres) at no less than half of its samples and along the left at less
     /// than half, positive the other way round, else 0.
     fn way_vote(&self, fence: &FenceLine, reach: f64, georef: &Georeferencing) -> i32 {
-        let ways = self.near(fence.frame, (fence.list, fence.index), true);
+        let ways = self.near(fence, true);
         if ways.is_empty() {
             return 0;
         }
@@ -323,7 +341,7 @@ impl Others {
     /// object and on its right they do, positive the other way round, else 0. `drawn` holds the
     /// fence at `k` and the fence run the other way round at `k + 1`.
     fn room_vote(&self, fence: &FenceLine, drawn: &Footprints, k: usize) -> i32 {
-        let others = self.near(fence.frame, (fence.list, fence.index), false);
+        let others = self.near(fence, false);
         let free = |k: usize| {
             let ticks = ticks_of(drawn, k);
             !others.iter().any(|o| o.intersects(&ticks))
@@ -343,6 +361,17 @@ fn ticks_of(drawn: &Footprints, k: usize) -> MultiPolygon<f64> {
     let style = BufferStyle::new(drawn.half_width(k) + TOLERANCE_MM).line_cap(LineCap::Butt);
     let line = drawn.centre(k).buffer_with_style(style);
     drawn.footprint(k).difference(&line).buffer(-TOLERANCE_MM)
+}
+
+/// Whether two lines run through the same points within the tolerance, either way round.
+fn same_line(a: &[MapCoord], b: &[MapCoord]) -> bool {
+    let tolerance = PaperMm(TOLERANCE_MM).map_units();
+    let close = |p: &MapCoord, q: &MapCoord| {
+        f64::from(p.x - q.x).abs() <= tolerance && f64::from(p.y - q.y).abs() <= tolerance
+    };
+    a.len() == b.len()
+        && (a.iter().zip(b).all(|(p, q)| close(p, q))
+            || a.iter().zip(b.iter().rev()).all(|(p, q)| close(p, q)))
 }
 
 /// The frame of `coords` on paper (mm, y down), grown by `grow` (mm).
@@ -885,6 +914,58 @@ mod tests {
             start(&f, &objects[2]).0 > 30.0,
             "ticks left, to the olive green"
         );
+    }
+
+    #[test]
+    fn a_closed_fence_with_olive_green_outside_keeps_its_ticks_inside() {
+        let f = fixture(MapKind::Sprint);
+        // Clockwise: the inside is on the right. Olive green lies west of its west side, outside.
+        let mut fence = path(
+            &f,
+            "518",
+            &[(0.0, 0.0), (0.0, 20.0), (20.0, 20.0), (20.0, 0.0)],
+        );
+        fence.coords.last_mut().unwrap().flags = FLAG_CLOSE;
+        let mut objects = vec![olive(&f, (-40.0, -10.0), 40.0), fence.clone()];
+        assert_eq!(run(&f, &mut objects, None), Turned::default());
+        assert_eq!(objects[1].coords, fence.coords);
+    }
+
+    #[test]
+    fn a_candidate_path_does_not_turn_a_map_fence() {
+        let f = fixture(MapKind::Sprint);
+        let fence = east_fence(&f);
+        let along = path(&f, "501.6", &[(0.0, -1.5), (40.0, -1.5)]);
+        // The path along the side of the ticks is a candidate: the fence of the map stays.
+        let (mut map, mut candidates) = (vec![fence.clone()], vec![along.clone()]);
+        let turned = orient_ticks(&mut [&mut map, &mut candidates], None, &f.georef, &f.set);
+        assert_eq!(turned, Turned::default());
+        assert_eq!(map[0].coords, fence.coords);
+        // A candidate fence looks at the map too: it turns away from the path of the map.
+        let (mut map, mut candidates) = (vec![along], vec![fence]);
+        let turned = orient_ticks(&mut [&mut map, &mut candidates], None, &f.georef, &f.set);
+        assert_eq!(turned.fences, 1);
+        assert!(start(&f, &candidates[0]).0 > 30.0);
+    }
+
+    #[test]
+    fn a_copy_of_the_fence_in_the_other_list_is_no_obstacle() {
+        let f = fixture(MapKind::Forest);
+        // The map holds the fence run the other way round and 1 map unit off; the candidates
+        // hold it with a boulder under its ticks.
+        let fence = east_fence(&f);
+        let mut copy = fence.clone();
+        copy.coords.reverse();
+        for c in &mut copy.coords {
+            c.x += 1;
+        }
+        let mut map = vec![copy.clone()];
+        let mut candidates = vec![fence, point(&f, "205", (20.0, -8.0))];
+        let turned = orient_ticks(&mut [&mut map, &mut candidates], None, &f.georef, &f.set);
+        // The candidate turns to the free side; the map's fence sees no boulder and stays.
+        assert_eq!(turned.fences, 1);
+        assert!(start(&f, &candidates[0]).0 > 30.0);
+        assert_eq!(map[0].coords, copy.coords);
     }
 
     #[test]
