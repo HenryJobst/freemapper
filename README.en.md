@@ -3,7 +3,7 @@
 [Deutsche Version](README.md) · [User manual](docs/manual/en.md) · [Glossary](docs/glossary.md) · [Changes](CHANGELOG.en.md)
 
 <!-- claude-cost:start -->
-[![AI effort (Claude API): $3,000](https://img.shields.io/badge/AI%20effort%20%28Claude%20API%29-%243%2C000-8A2BE2)](docs/ai-cost/history.csv)
+[![AI effort (Claude API): $3,073](https://img.shields.io/badge/AI%20effort%20%28Claude%20API%29-%243%2C073-8A2BE2)](docs/ai-cost/history.csv)
 <!-- claude-cost:end -->
 
 <p align="center"><a href="examples/berlin-viktoriapark/berlin-viktoriapark-candidates.pdf"><img src="examples/berlin-viktoriapark/preview.webp" alt="Sprint map of Viktoriapark, Berlin-Kreuzberg, made by freemapper" width="760"></a><br><sub>Viktoriapark, Berlin-Kreuzberg (sprint 1:4000), made by freemapper from open data. Click to open the PDF; more under <a href="examples/README.en.md">examples</a>.</sub></p>
@@ -282,7 +282,7 @@ freemapper run vorstadt
 | Brandenburg | LGB, also the full ALKIS; Potsdam city trees | laser nDSM, 0.2 m | walls, fences, hedges and bridges from the full ALKIS and the Potsdam trees as candidates |
 | Berlin | LGB, ALKIS, tree cadastre, K5, street survey and registers from Geoportal Berlin | from the image-based surface model, 0.2 m | squares only as candidates; surveyed green strips cut out of the street areas; canopies as map objects; stairs, walls, fences, hedges, trees, curbs, railings, furniture, lamps and fountains as candidates; the 1:5000 map (K5) as a template |
 | Saxony | GeoSN | DOM1 − DGM1, 1 m | squares only as candidates; street areas include verges; no position below ground |
-| Saxony-Anhalt | LVermGeo | DOM1 − DGM1, 1 m | map in UTM zone 32 (EPSG:25832); squares only as candidates; street areas include verges |
+| Saxony-Anhalt | LVermGeo | DOM1 − DGM1, 1 m | map in UTM zone 32 (EPSG:25832); squares only as candidates; street areas include verges; cliffs, rocks, springs, dams, monuments, small watercourses and, on forest maps, missing paths as candidates from the landscape model (ATKIS Basis-DLM) |
 | Hamburg | LGV | bDOM − DGM1, 1 m (2022) | map in UTM zone 32 (EPSG:25832); height models older than the orthophoto (2026) |
 | Hesse | HVBG | DOM1 − DGM1, 1 m (laser scan) | map in UTM zone 32 (EPSG:25832); orthophoto flown in summer; squares only as candidates; street areas include verges |
 | Schleswig-Holstein | LVermGeo SH | bDOM − DGM1, 1 m (image-based) | map in UTM zone 32 (EPSG:25832); orthophoto leaf-off or leaf-on depending on the area; surface model in whole tiles (105 MB per km²) |

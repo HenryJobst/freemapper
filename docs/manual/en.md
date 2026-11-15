@@ -1227,6 +1227,12 @@ objects carry `freemapper:source=atkis-dlm/<layer>`. On the Schmausenbuck 14 of 
 6 of them paths OpenStreetMap lacks; in the old town of Regensburg 8 of 35. freemapper does not take church
 towers, town gates, canals, power lines or areas.
 
+Saxony-Anhalt has only the simplified ALKIS, and freemapper asks its landscape model in the same way
+(© GeoBasis-DE / LVermGeo ST, dl-de/by-2-0). There most rocks are lines: freemapper offers them as cliff
+candidates (201), whose ticks point downhill by the terrain model like those of the other cliff candidates. In
+the Bode valley that gives 27 cliffs and 20 rocks, 3 dams, a spring, a monument and 11 paths OpenStreetMap lacks;
+in Quedlinburg 7 small watercourses.
+
 If an OSM line (fence, wall, hedge, brook or ditch) lies with at least 80 % of its length within 1.5 m of a
 full ALKIS line with the same symbol, freemapper drops the OSM line, as in Berlin. The order is the same in every state:
 register before ALKIS before the street survey before OSM.

@@ -71,3 +71,12 @@ none.
 
 Cutting a path of the model where OpenStreetMap covers part of it, the path layers on sprint maps, and using the
 surface and function of the model's paths to check the path classes OpenStreetMap gives.
+
+## Addendum 2026-11-15: Saxony-Anhalt
+
+Saxony-Anhalt has only the simplified ALKIS and serves its landscape model as a WFS
+(`ST_LVermGeo_ATKIS_WFS_BDLM_OpenData`), which answers the same requests as Bavaria's. Its manifest names it
+(revision 2); nothing else was needed for the types. There most rocks are lines (29 of 49 in the Bode valley): a
+second rule draws a rock line as a cliff candidate (201), whose ticks `orient_ticks` turns downhill by the
+terrain model; areas stay a point (205). The cliff generalization (`build/cliffs.rs`) is not touched. Saxony-Anhalt
+is one of the states the golden net records, so its answers were recorded again (fixture store 3).

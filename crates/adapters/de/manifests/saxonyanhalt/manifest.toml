@@ -4,14 +4,14 @@ format = 1
 [adapter]
 id = "saxonyanhalt"
 provider = "lvermgeo"
-revision = 1
+revision = 2
 min_freemapper = "0.13.0"
 crs = 25832
 object_id_prefix = "DEST"
 names = { en = "Saxony-Anhalt", de = "Sachsen-Anhalt" }
 agency = "LVermGeo"
 maintainers = ["github:HenryJobst"]
-last_verified = "2026-11-12"
+last_verified = "2026-11-15"
 
 [net]
 hosts = ["www.geodatenportal.sachsen-anhalt.de", "geodatenportal.sachsen-anhalt.de", "geoportal.bafg.de"]
@@ -78,6 +78,14 @@ url = "https://geodatenportal.sachsen-anhalt.de/ows_lvermgeo_wfs_st_geobasis"
 layer = "atkis_geobasis_bestand:bdom_aktualitaet_zyklus"
 field = "BFDATUM"
 format = "DD.MM.YYYY"
+
+[[extra.nas]]
+name = "LVermGeo ATKIS Basis-DLM"
+url = "https://www.geodatenportal.sachsen-anhalt.de/wss/service/ST_LVermGeo_ATKIS_WFS_BDLM_OpenData/guest"
+model = "basis-dlm"
+namespaces = "xmlns(adv,http://www.adv-online.de/namespaces/adv/gid/7.1)"
+max_count = 100000
+max_bytes = 268435456
 
 [preview]
 wms = "https://www.geodatenportal.sachsen-anhalt.de/wss/service/ST_LVermGeo_DOP_WMS_OpenData/guest"

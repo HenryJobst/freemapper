@@ -1276,6 +1276,12 @@ tragen `freemapper:source=atkis-dlm/<Ebene>`. Am Schmausenbuck bleiben von 152 O
 darunter 6 Wege, die OpenStreetMap fehlen; in der Regensburger Altstadt von 35 Objekten 8. Kirchtürme, Stadttore,
 Kanäle, Stromleitungen und Flächen nimmt freemapper nicht.
 
+Sachsen-Anhalt hat nur das vereinfachte ALKIS, und freemapper fragt sein Landschaftsmodell auf dieselbe Weise ab
+(© GeoBasis-DE / LVermGeo ST, dl-de/by-2-0). Dort sind die meisten Felsen Linien: freemapper bietet sie als
+Felswand-Kandidaten an (201), deren Striche nach dem Geländemodell bergab zeigen wie bei den anderen
+Felswand-Kandidaten. Im Bodetal sind das 27 Felswände und 20 Felsen, 3 Dämme, eine Quelle, ein Denkmal und 11 Wege,
+die OpenStreetMap fehlen; in Quedlinburg 7 kleine Wasserläufe.
+
 Liegt eine OSM-Linie (Zaun, Mauer, Hecke, Bach oder Graben) zu mindestens 80 % ihrer Länge höchstens 1,5 m
 neben einer Linie des vollständigen ALKIS mit demselben Symbol, lässt freemapper die OSM-Linie weg, wie in
 Berlin. Die Reihenfolge ist in jedem Bundesland dieselbe: Register vor ALKIS vor Straßenbefahrung vor OSM.

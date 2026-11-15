@@ -690,8 +690,9 @@ mod tests {
         let set = kind.symbol_set(kind.default_scale());
         // 203.2 before 203: on a forest map both name the cave with a distinct entrance.
         let codes = [
-            "104", "105", "203.2", "203", "205", "305", "306", "311", "312", "410.1", "417", "418",
-            "501.5", "504", "505", "506", "507", "513.2", "515", "518", "522", "524", "525", "526",
+            "104", "105", "201", "203.2", "203", "205", "305", "306", "311", "312", "410.1", "417",
+            "418", "501.5", "504", "505", "506", "507", "513.2", "515", "518", "522", "524", "525",
+            "526",
         ];
         codes
             .into_iter()
@@ -1123,6 +1124,25 @@ mod tests {
         ] {
             assert_eq!(codes(file, gml, MapKind::Sprint), sprint, "{file}, sprint");
             assert_eq!(codes(file, gml, MapKind::Forest), forest, "{file}, forest");
+        }
+        // Saxony-Anhalt's model draws most rocks as lines: they are cliffs, whose ticks the
+        // terrain turns downhill like those of the other cliff candidates.
+        let anhalt = include_str!("../../../../tests/fixtures/sachsen-anhalt-dlm-felsen.gml");
+        for kind in [MapKind::Sprint, MapKind::Forest] {
+            let found = nas_run("dlm-felsen", &features(anhalt), kind);
+            let cliffs: Vec<&MapObject> =
+                found.iter().filter(|o| code_of(kind, o) == "201").collect();
+            assert_eq!(cliffs.len(), 2, "{kind:?}");
+            assert!(
+                cliffs
+                    .iter()
+                    .all(|o| matches!(o.kind, crate::omap::MapObjectKind::Path))
+            );
+            assert_eq!(
+                found.iter().filter(|o| code_of(kind, o) == "205").count(),
+                3,
+                "{kind:?}: two points and the point of the area"
+            );
         }
         // The source names the landscape model, the id and the date come from the object, and
         // the label from the code list.

@@ -31,29 +31,77 @@ bytes = 632
 [[response]]
 method = "GET"
 url = "https://www.geodatenportal.sachsen-anhalt.de/wss/service/ST_LVermGeo_ALKIS_WFS_OpenData/guest?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=ave:GebaeudeBauwerk&SRSNAME=urn:ogc:def:crs:EPSG::25832&BBOX=647400,5739493,647657,5739754,urn:ogc:def:crs:EPSG::25832&RESULTTYPE=hits"
-body = "b73d829b9dfdf027b725668893153fe95c7378adde4b2a72c1a5f2f1a234939d"
+body = "c2a5f0f4cd73d4e6ae0ad87e1576e071cfaba0ff12fc9ebcbbfb66efcfa4d638"
 bytes = 457
 
 [[response]]
 method = "GET"
 url = "https://www.geodatenportal.sachsen-anhalt.de/wss/service/ST_LVermGeo_ALKIS_WFS_OpenData/guest?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=ave:GebaeudeBauwerk&SRSNAME=urn:ogc:def:crs:EPSG::25832&BBOX=647400,5739493,647657,5739754,urn:ogc:def:crs:EPSG::25832&SORTBY=oid&COUNT=10000&STARTINDEX=0"
-body = "9f25c2e586bacf6a47ebdedaefc223de1194e3bafca15f5ab4b6c0db373de0eb"
+body = "ef32d97deab5f52d760faf32540b32d69de144b2f1e56e24a8a597037c121b3e"
 bytes = 212934
 
 [[response]]
 method = "GET"
 url = "https://www.geodatenportal.sachsen-anhalt.de/wss/service/ST_LVermGeo_ALKIS_WFS_OpenData/guest?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=ave:Nutzung&SRSNAME=urn:ogc:def:crs:EPSG::25832&BBOX=647400,5739493,647657,5739754,urn:ogc:def:crs:EPSG::25832&RESULTTYPE=hits"
-body = "624e92dd2c4054e42c93fc36c06bfecb6c45f0b2f56e5c3ac2883f44b724e104"
+body = "e4897f75b1e4eb689030f45f47f33a2094e9dc9f5fc05ccae7ecb6a93c876665"
 bytes = 457
 
 [[response]]
 method = "GET"
 url = "https://www.geodatenportal.sachsen-anhalt.de/wss/service/ST_LVermGeo_ALKIS_WFS_OpenData/guest?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=ave:Nutzung&SRSNAME=urn:ogc:def:crs:EPSG::25832&BBOX=647400,5739493,647657,5739754,urn:ogc:def:crs:EPSG::25832&SORTBY=oid&COUNT=10000&STARTINDEX=0"
-body = "1443d0afe460631f0aa46fb2a9160ae011e3440c1ae04a5ac219ec916b2da294"
+body = "b0dd4ef7c8dd570da8fbb0d35f0da4b07dafb39b18dd089441d532706aee991d"
 bytes = 164234
 
 [[response]]
 method = "GET"
+url = "https://www.geodatenportal.sachsen-anhalt.de/wss/service/ST_LVermGeo_ATKIS_WFS_BDLM_OpenData/guest?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=adv:AX_SonstigesBauwerkOderSonstigeEinrichtung&SRSNAME=urn:ogc:def:crs:EPSG::25832&BBOX=647400,5739493,647657,5739754,urn:ogc:def:crs:EPSG::25832&COUNT=100000&NAMESPACES=xmlns(adv,http://www.adv-online.de/namespaces/adv/gid/7.1)"
+body = "c9360871def774da02d9f07374e2b539e3bbce6d857f4ee9f23a99c9451d1742"
+bytes = 1395
+
+[[response]]
+method = "GET"
+url = "https://www.geodatenportal.sachsen-anhalt.de/wss/service/ST_LVermGeo_ATKIS_WFS_BDLM_OpenData/guest?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=adv:AX_Vegetationsmerkmal&SRSNAME=urn:ogc:def:crs:EPSG::25832&BBOX=647400,5739493,647657,5739754,urn:ogc:def:crs:EPSG::25832&COUNT=100000&NAMESPACES=xmlns(adv,http://www.adv-online.de/namespaces/adv/gid/7.1)"
+body = "4ba5b98ac4987a49153b5316c6d7da34f8f9aa352bccb9fd8d2566f31b0a9d86"
+bytes = 4555
+
+[[response]]
+method = "GET"
+url = "https://www.geodatenportal.sachsen-anhalt.de/wss/service/ST_LVermGeo_ATKIS_WFS_BDLM_OpenData/guest?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=adv:AX_FelsenFelsblockFelsnadel&SRSNAME=urn:ogc:def:crs:EPSG::25832&BBOX=647400,5739493,647657,5739754,urn:ogc:def:crs:EPSG::25832&COUNT=100000&NAMESPACES=xmlns(adv,http://www.adv-online.de/namespaces/adv/gid/7.1)"
+body = "c67c8804a8f7508d1976a987e8a27420e912e87dbbb5d6000008c58c9485de9f"
+bytes = 1395
+
+[[response]]
+method = "GET"
+url = "https://www.geodatenportal.sachsen-anhalt.de/wss/service/ST_LVermGeo_ATKIS_WFS_BDLM_OpenData/guest?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=adv:AX_Hoehleneingang&SRSNAME=urn:ogc:def:crs:EPSG::25832&BBOX=647400,5739493,647657,5739754,urn:ogc:def:crs:EPSG::25832&COUNT=100000&NAMESPACES=xmlns(adv,http://www.adv-online.de/namespaces/adv/gid/7.1)"
+body = "b247cb3fc46a2b94ca8e51b8d04d9e5e60aeb619ee68b696c185b008a6d080c5"
+bytes = 1395
+
+[[response]]
+method = "GET"
+url = "https://www.geodatenportal.sachsen-anhalt.de/wss/service/ST_LVermGeo_ATKIS_WFS_BDLM_OpenData/guest?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=adv:AX_Gewaessermerkmal&SRSNAME=urn:ogc:def:crs:EPSG::25832&BBOX=647400,5739493,647657,5739754,urn:ogc:def:crs:EPSG::25832&COUNT=100000&NAMESPACES=xmlns(adv,http://www.adv-online.de/namespaces/adv/gid/7.1)"
+body = "5551181aa1a9584206523670788503fdc62b581319c45b3b57375bef2efdfd78"
+bytes = 1395
+
+[[response]]
+method = "GET"
+url = "https://www.geodatenportal.sachsen-anhalt.de/wss/service/ST_LVermGeo_ATKIS_WFS_BDLM_OpenData/guest?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=adv:AX_DammWallDeich&SRSNAME=urn:ogc:def:crs:EPSG::25832&BBOX=647400,5739493,647657,5739754,urn:ogc:def:crs:EPSG::25832&COUNT=100000&NAMESPACES=xmlns(adv,http://www.adv-online.de/namespaces/adv/gid/7.1)"
+body = "bd9b71b8c8ff08479886a7d827e3f3ad54a48f0088825e917b5ccd9b478edf9b"
+bytes = 1395
+
+[[response]]
+method = "GET"
+url = "https://www.geodatenportal.sachsen-anhalt.de/wss/service/ST_LVermGeo_ATKIS_WFS_BDLM_OpenData/guest?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=adv:AX_Turm&SRSNAME=urn:ogc:def:crs:EPSG::25832&BBOX=647400,5739493,647657,5739754,urn:ogc:def:crs:EPSG::25832&COUNT=100000&NAMESPACES=xmlns(adv,http://www.adv-online.de/namespaces/adv/gid/7.1)"
+body = "1fcac387f41119bfb287026515bbc7fc77c61bd04574fb853c63606c8d53ece7"
+bytes = 2600
+
+[[response]]
+method = "GET"
+url = "https://www.geodatenportal.sachsen-anhalt.de/wss/service/ST_LVermGeo_ATKIS_WFS_BDLM_OpenData/guest?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=adv:AX_Gewaesserachse&SRSNAME=urn:ogc:def:crs:EPSG::25832&BBOX=647400,5739493,647657,5739754,urn:ogc:def:crs:EPSG::25832&COUNT=100000&NAMESPACES=xmlns(adv,http://www.adv-online.de/namespaces/adv/gid/7.1)"
+body = "6ccac69bfde0496f50017ab95f474181fd3688fc421f182480e4024b3418b3b1"
+bytes = 3203
+
+[[response]]
+method = "GET"
 url = "https://download.geofabrik.de/europe/germany/sachsen-anhalt-updates/state.txt"
-body = "f666bcf2a4268254d68791557831463a238aa29902432c0c6f65730f98b0e08d"
+body = "5e65bd14ced8aa17aeaca76a84afd2adb82dad9c03ded3842dabd2ca4638d106"
 bytes = 113
