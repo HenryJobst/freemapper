@@ -1,7 +1,7 @@
 //! A checked manifest: what the tables of format 1 say, in types the builders can use.
 
 use chrono::NaiveDate;
-use freemapper_adapter_api::extras::{NasModel, NasSchema};
+use freemapper_adapter_api::extras::{NasModel, NasSchema, TreeFormat};
 use freemapper_georef::crs::Crs;
 
 /// An adapter manifest of format 1 that passed the validator.
@@ -326,9 +326,8 @@ pub struct Trees {
     pub crs: Crs,
     /// The extent of the data in `crs`: `[min_e, min_n, max_e, max_n]`.
     pub envelope: [f64; 4],
-    /// The field with the position: `Some` for the format `ods-geojson-export`, `None` for
-    /// `ogc-api`.
-    pub geo_field: Option<String>,
+    /// How the dataset is read, with the fields of the position its format needs.
+    pub format: TreeFormat,
     pub endpoints: Vec<String>,
     pub fields: TreeFields,
     pub skipped_kinds: Vec<String>,

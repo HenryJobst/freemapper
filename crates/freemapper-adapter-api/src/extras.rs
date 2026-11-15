@@ -237,6 +237,14 @@ pub enum TreeFormat {
     /// and up to 10 000 per page; further pages are the `next` links. The geometry is CRS84 too,
     /// a Point or a MultiPoint of one point (Hamburg, ADR 0065).
     OgcApiItems,
+    /// One CSV file for the whole city, read whole and cut to the area (Lübeck, ADR 0065): a
+    /// header row, `separator` between the values, no quoting, the position in the columns
+    /// `x_field` and `y_field` in the CRS of the dataset, decimal commas or points.
+    Csv {
+        x_field: Cow<'static, str>,
+        y_field: Cow<'static, str>,
+        separator: char,
+    },
 }
 
 impl TreeFormat {
@@ -318,8 +326,12 @@ impl TreeDataset {
     /// The box is asked as `lat_min,lon_min,lat_max,lon_max`. `None` for an area no position
     /// projects to.
     pub fn url(&self, endpoint: &str, region_bbox: &BoundingBox) -> Option<String> {
+        if let TreeFormat::Csv { .. } = self.format {
+            return Some(endpoint.to_string());
+        }
         let (lat_min, lon_min, lat_max, lon_max) = wgs84_bbox(region_bbox)?;
         Some(match &self.format {
+            TreeFormat::Csv { .. } => endpoint.to_string(),
             TreeFormat::OdsGeoJsonExport { geo_field } => format!(
                 "{endpoint}?where=in_bbox({geo_field},{lat_min:.6},{lon_min:.6},{lat_max:.6},{lon_max:.6})"
             ),

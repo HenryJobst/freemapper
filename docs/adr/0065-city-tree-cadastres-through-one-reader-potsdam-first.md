@@ -57,3 +57,14 @@ come as MultiPoints of one point; the reader takes those as points. The cadastre
 has the crown diameter (`kronendurchmesser`), which the point generalization prefers. The tree number is
 `baumid`, the kind the German genus (`gattung_deutsch`). The street trees only: the trees of parks and the port
 (`strassenbaumkataster_hafen`) are left out.
+
+## Addendum 2026-11-15: Lübeck, the first CSV cadastre
+
+Lübeck's tree cadastre (`opendata.luebeck.de`, CC0, published 2025-02-25) is one CSV file of the whole city:
+64 032 rows, 8 MB, semicolons, decimal commas, the position in `RECHTSWERT`/`HOCHWERT` (EPSG:25832), UTF-8. It
+brings the format `csv` (`TreeFormat::Csv` with `x_field`, `y_field` and `separator`): the file is read whole on
+every fetch and cut to the area (a metre around the map area with its buffer), a header row, no quoting. 8 MB per
+fetch is less than the OSM extract; a cached copy by `Last-Modified` would save it, not done. The 8 657 empty
+planting spots (`Fehlplatz`) are skipped kinds. The tree numbers start again in every street (`1` comes 1 039
+times), so a tree is one by its number and position, as the fetch already counts it; `freemapper:source_id`
+repeats. The cadastre has neither a crown nor a survey date.

@@ -280,6 +280,36 @@ fn nrw_and_lower_saxony_ask_their_full_alkis() {
     }
 }
 
+/// Lübeck's tree cadastre is one CSV file of the whole city (ADR 0065, checked live on
+/// 2026-11-15): empty planting spots are left out.
+#[test]
+fn schleswig_holstein_names_the_tree_cadastre_of_luebeck() {
+    let sh = manifest("schleswigholstein");
+    let region = "schleswigholstein".parse().unwrap();
+    let trees: Vec<_> = sh
+        .trees
+        .iter()
+        .map(|trees| extras::tree_dataset(trees, &region))
+        .collect();
+    assert_eq!(trees.len(), 1);
+    let luebeck = &trees[0];
+    assert_eq!(luebeck.id, "luebeck");
+    assert_eq!(
+        luebeck.format,
+        TreeFormat::Csv {
+            x_field: Cow::Borrowed("RECHTSWERT"),
+            y_field: Cow::Borrowed("HOCHWERT"),
+            separator: ';',
+        }
+    );
+    assert_eq!(luebeck.crs, Crs::Utm32);
+    assert_eq!(luebeck.skipped_kinds.as_ref(), ["Fehlplatz"]);
+    assert_eq!(
+        (luebeck.fields.date.clone(), luebeck.fields.crown.clone()),
+        (None, None)
+    );
+}
+
 /// Hamburg's street trees are an OGC API collection with the crown diameter and no survey date
 /// (ADR 0065, checked live on 2026-11-15 over Blankenese).
 #[test]

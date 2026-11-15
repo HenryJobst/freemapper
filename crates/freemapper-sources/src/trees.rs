@@ -15,7 +15,7 @@ use std::collections::HashSet;
 use chrono::NaiveDate;
 use serde_json::{Map, Value, json};
 
-use crate::crs::{BoundingBox, Crs, LatLon};
+use crate::crs::{BoundingBox, Crs, LatLon, ProjectedPoint};
 use crate::fetch::{FetchError, Fetcher, get_limited_with_retries};
 use crate::nas::PartFile;
 use crate::ogc_api::{AlkisError, FetchArea, invalid};
@@ -103,6 +103,86 @@ pub fn parse_trees(text: &str, dataset: &TreeDataset, crs: Crs) -> Result<TreeAn
             .find(|link| link["rel"] == "next")
             .and_then(|link| link["href"].as_str())
             .map(str::to_string);
+    }
+    Ok(answer)
+}
+
+/// Reads a CSV file of `dataset` ([`TreeFormat::Csv`]) into stored features in the CRS of
+/// `area`, keeping the trees within a metre of `area.bbox`. A row of a kind in
+/// [`TreeDataset::skipped_kinds`] or outside the area is left out silently; a row without a
+/// position or with too few values is listed in `skipped`. A file without the position columns
+/// is an error.
+pub fn parse_tree_csv(
+    csv: &str,
+    dataset: &TreeDataset,
+    area: &FetchArea,
+) -> Result<TreeAnswer, AlkisError> {
+    let TreeFormat::Csv {
+        x_field,
+        y_field,
+        separator,
+    } = &dataset.format
+    else {
+        return Err(invalid(format!("{}: not a CSV cadastre", dataset.name)));
+    };
+    let mut lines = csv.lines();
+    let header: Vec<&str> = lines
+        .next()
+        .unwrap_or_default()
+        .trim_start_matches('\u{feff}')
+        .split(*separator)
+        .map(str::trim)
+        .collect();
+    let column = |name: &str| {
+        header
+            .iter()
+            .position(|h| *h == name)
+            .ok_or_else(|| invalid(format!("{}: no column {name} in the CSV", dataset.name)))
+    };
+    let (x, y) = (column(x_field)?, column(y_field)?);
+    let keep = area.bbox.buffered(1.0);
+    let mut answer = TreeAnswer::default();
+    for (number, line) in lines.enumerate().filter(|(_, l)| !l.trim().is_empty()) {
+        let values: Vec<&str> = line.split(*separator).map(str::trim).collect();
+        if values.len() < header.len() {
+            answer
+                .skipped
+                .push(format!("row {}: {} values", number + 2, values.len()));
+            continue;
+        }
+        let properties: Map<String, Value> = header
+            .iter()
+            .zip(&values)
+            .map(|(key, value)| (key.to_string(), Value::from(*value)))
+            .collect();
+        let kind = text(&properties, &dataset.fields.kind);
+        if kind
+            .as_deref()
+            .is_some_and(|k| dataset.skipped_kinds.iter().any(|kind| kind == k))
+        {
+            continue;
+        }
+        let number = |i: usize| values[i].replace(',', ".").parse::<f64>().ok();
+        let position = number(x).zip(number(y)).and_then(|(easting, northing)| {
+            dataset.crs.inverse(ProjectedPoint { easting, northing })
+        });
+        let Some(position) = position else {
+            let id = text(&properties, &dataset.fields.id).unwrap_or_default();
+            answer.skipped.push(format!("{id}: no point"));
+            continue;
+        };
+        let p = area.crs.forward(position);
+        if !(keep.min_e..=keep.max_e).contains(&p.easting)
+            || !(keep.min_n..=keep.max_n).contains(&p.northing)
+        {
+            continue;
+        }
+        let feature = json!({
+            "type": "Feature",
+            "geometry": {"type": "Point", "coordinates": [position.lon, position.lat]},
+            "properties": properties,
+        });
+        normalise(&feature, dataset, area.crs, &mut answer);
     }
     Ok(answer)
 }
@@ -238,11 +318,11 @@ pub fn fetch_dataset(
             // answer over the cap is not.
             let answer =
                 get_limited_with_retries(fetcher, &url, &part()?, dataset.max_bytes, |bytes| {
-                    Ok(parse_trees(
-                        &String::from_utf8_lossy(bytes),
-                        dataset,
-                        area.crs,
-                    )?)
+                    let text = String::from_utf8_lossy(bytes);
+                    Ok(match dataset.format {
+                        TreeFormat::Csv { .. } => parse_tree_csv(&text, dataset, area)?,
+                        _ => parse_trees(&text, dataset, area.crs)?,
+                    })
                 })?;
             for feature in answer.features {
                 let c = &feature["geometry"]["coordinates"];
@@ -401,5 +481,100 @@ mod tests {
         let fetched = fetch_dataset(&fetcher, &CITY, &area, &part).unwrap();
         assert_eq!(fetched.features.len(), 6);
         assert_eq!(*fetcher.log.borrow(), [first, next]);
+    }
+
+    /// A city whose trees are one CSV file in EPSG:25832, as in Lübeck: semicolons, decimal
+    /// commas, tree numbers that start again in every street, and empty planting spots.
+    const CSV_CITY: TreeDataset = TreeDataset {
+        id: Cow::Borrowed("csv-city"),
+        name: Cow::Borrowed("CSV city trees"),
+        region: AdapterId::built_in("schleswigholstein"),
+        crs: Crs::Utm32,
+        envelope: BoundingBox {
+            min_e: 602_000.0,
+            min_n: 5_959_000.0,
+            max_e: 625_000.0,
+            max_n: 5_984_000.0,
+        },
+        format: TreeFormat::Csv {
+            x_field: Cow::Borrowed("RECHTSWERT"),
+            y_field: Cow::Borrowed("HOCHWERT"),
+            separator: ';',
+        },
+        endpoints: Cow::Borrowed(&[Cow::Borrowed(
+            "https://opendata.luebeck.de/bereich/5.660/stadtgruen/baumkataster/baumkataster.csv",
+        )]),
+        fields: TreeFields {
+            kind: Cow::Borrowed("GATTUNG"),
+            id: Cow::Borrowed("BAUMNUMMER"),
+            date: None,
+            species: Some(Cow::Borrowed("GA_LANG")),
+            crown: None,
+        },
+        skipped_kinds: Cow::Borrowed(&[Cow::Borrowed("Fehlplatz")]),
+        attribution: Cow::Borrowed("CSV city"),
+        max_bytes: MAX_ANSWER_BYTES,
+    };
+
+    /// Four rows: a linden in the area, an empty spot, a maple outside, a row without a position.
+    const CSV: &str = "BAUMNUMMER;HOCHWERT;RECHTSWERT;GATTUNG;GA_LANG;STRASSE;STANDORT;PFLANZJAHR\n \
+         1;5969800,5;610900,25;Tilia;Tilia cordata, Winterlinde;Koberg;vor 2;1950\n \
+         2;5969810,0;610910,0;Fehlplatz;Fehlplatz;Koberg;;\n \
+         1;5975000,0;615000,0;Acer;Acer platanoides, Spitzahorn;Elsewhere;;1990\n \
+         3;;610905,0;Acer;Acer campestre, Feldahorn;Koberg;;\n";
+
+    /// The Lübeck old town example (EPSG:25832).
+    fn old_town() -> FetchArea {
+        FetchArea {
+            region_bbox: BoundingBox {
+                min_e: 0.0,
+                min_n: 0.0,
+                max_e: 0.0,
+                max_n: 0.0,
+            },
+            crs: Crs::Utm32,
+            bbox: BoundingBox {
+                min_e: 610_424.0,
+                min_n: 5_969_571.0,
+                max_e: 611_440.0,
+                max_n: 5_970_293.0,
+            },
+        }
+    }
+
+    #[test]
+    fn a_csv_cadastre_keeps_the_trees_of_the_area() {
+        let answer = parse_tree_csv(CSV, &CSV_CITY, &old_town()).unwrap();
+        assert_eq!(answer.skipped, ["3: no point"]);
+        assert_eq!(answer.features.len(), 1, "{:?}", answer.features);
+        let linden = &answer.features[0];
+        assert_eq!(linden["id"], "1");
+        assert_eq!(
+            linden["geometry"]["coordinates"],
+            json!([610_900.25, 5_969_800.5])
+        );
+        let properties = &linden["properties"];
+        assert_eq!(properties["tree_kind"], "Tilia");
+        assert_eq!(properties["tree_species"], "Tilia cordata, Winterlinde");
+        assert!(properties.get("tree_date").is_none(), "{properties}");
+        // Not a CSV with the named columns.
+        let err = parse_tree_csv("a;b\n1;2\n", &CSV_CITY, &old_town()).unwrap_err();
+        assert!(err.message.contains("RECHTSWERT"), "{}", err.message);
+    }
+
+    #[test]
+    fn a_csv_cadastre_is_fetched_whole_and_cut_to_the_area() {
+        assert_eq!(
+            CSV_CITY.url(&CSV_CITY.endpoints[0], &old_town().region_bbox),
+            Some(CSV_CITY.endpoints[0].to_string())
+        );
+        let fetcher = MapFetcher::default();
+        fetcher.insert(&CSV_CITY.endpoints[0], CSV.as_bytes().to_vec());
+        let scratch = tempfile::tempdir().unwrap();
+        let part_path = scratch.path().join("trees.part");
+        let part = || -> Result<PathBuf, FetchError> { Ok(part_path.clone()) };
+        let fetched = fetch_dataset(&fetcher, &CSV_CITY, &old_town(), &part).unwrap();
+        assert_eq!(fetched.features.len(), 1);
+        assert_eq!(fetcher.calls.get(), 1);
     }
 }

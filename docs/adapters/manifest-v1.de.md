@@ -214,8 +214,10 @@ Höchstens 32: die Baumkataster von Städten, gelesen aus einem GeoJSON-Export v
 | `name` | Text | ja | Höchstens 80. |
 | `crs` | ganze Zahl | nein | Vorgabe: `[adapter] crs`. |
 | `envelope` | Liste aus vier Zahlen | ja | Die Ausdehnung der Daten in `crs`. |
-| `format` | Text | ja | `ods-geojson-export` (ein OpenDataSoft-Export, gefragt über ein Positionsfeld) oder `ogc-api` (die Objekte einer OGC-API-Features-Sammlung, gefragt mit einem Rechteck in CRS84, 10 000 je Seite, weitere Seiten über ihre `next`-Links; ein Point oder ein MultiPoint aus einem Punkt). |
-| `geo_field` | Feld | bei `ods-geojson-export` | Das Feld mit der Position. Nicht bei `ogc-api`. |
+| `format` | Text | ja | `ods-geojson-export` (ein OpenDataSoft-Export, gefragt über ein Positionsfeld) oder `ogc-api` (die Objekte einer OGC-API-Features-Sammlung, gefragt mit einem Rechteck in CRS84, 10 000 je Seite, weitere Seiten über ihre `next`-Links; ein Point oder ein MultiPoint aus einem Punkt) oder `csv` (eine Datei für die ganze Stadt, ganz gelesen und auf das Gebiet zugeschnitten: eine Kopfzeile, keine Anführungszeichen, Dezimalkomma oder -punkt). |
+| `geo_field` | Feld | bei `ods-geojson-export` | Das Feld mit der Position. Nicht bei den anderen Formaten. |
+| `x_field`, `y_field` | Feld | bei `csv` | Die Spalten mit Rechtswert und Hochwert, in `crs`. Nicht bei den anderen Formaten. |
+| `separator` | Text | bei `csv` | Das eine Zeichen zwischen den Werten, etwa `;`. Nicht bei den anderen Formaten. |
 | `endpoints` | Liste von URLs | ja | 1 bis 8. |
 | `fields` | Tabelle | ja | `kind`, `id` (beide Pflicht), `date`, `species`, `crown`: die Namen der Felder. Ohne `date` gilt das Abrufdatum als Stand der Bäume. |
 | `skipped_kinds` | Liste von Texten | nein | Arten, die keine Bäume sind; höchstens 16. |

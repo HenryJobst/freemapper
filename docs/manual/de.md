@@ -1326,6 +1326,13 @@ Einzelbäumen, mit einer Krone ab 10 m als 417, sonst als 418. In Blankenese kom
 Straßenbäume auf die Karte und 4 zu den Kandidaten; die OpenStreetMap-Bäume an denselben Stellen entfallen. Ein
 Erfassungsdatum hat das Kataster nicht, als Stand gilt das Abrufdatum. Bäume in Parks und im Hafen fehlen darin.
 
+**Lübeck: Baumkataster.** Die Hansestadt Lübeck veröffentlicht ihr Baumkataster als eine CSV-Datei für die ganze
+Stadt (CC0, 8 MB). freemapper lädt sie bei jedem Abruf ganz und behält die Bäume des Kartengebiets; leere
+Pflanzstellen (`Fehlplatz`) entfallen. Kronendurchmesser und Erfassungsdatum fehlen, also wird jeder Baum ein 418
+und das Abrufdatum gilt als Stand. In der Altstadt kommen 384 Bäume auf die Karte und 43 zu den Kandidaten, vor
+allem Linden und Ahorne in Reihen an den Straßen; die OpenStreetMap-Bäume an denselben Stellen entfallen (78 auf
+25).
+
 In Bayern hat das Kataster keinen Dienst. Dort fragt freemapper stattdessen das Landschaftsmodell der
 Vermessungsverwaltung ab, das ATKIS Basis-DLM (CC BY 4.0). Es ist für den Maßstab 1:25 000 gemacht und etwa 3 m
 genau. freemapper nimmt daraus Höhleneingänge (203), Quellen (312), benannte Felsen (205), frei stehende Türme

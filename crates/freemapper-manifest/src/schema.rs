@@ -192,6 +192,9 @@ pub(crate) struct RawTrees {
     pub envelope: Spanned<Vec<f64>>,
     pub format: Text,
     pub geo_field: Option<Text>,
+    pub x_field: Option<Text>,
+    pub y_field: Option<Text>,
+    pub separator: Option<Text>,
     pub endpoints: Vec<Text>,
     pub fields: RawTreeFields,
     #[serde(default)]

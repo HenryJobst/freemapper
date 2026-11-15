@@ -8,6 +8,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Hinzugefügt
 
+- Schleswig-Holstein: das Baumkataster der Hansestadt Lübeck (ADR 0065). Baumkataster können jetzt auch eine CSV-Datei für die ganze Stadt sein (`[[extra.trees]] format = "csv"` mit `x_field`, `y_field` und `separator`); freemapper lädt sie ganz und schneidet sie auf das Gebiet zu. In der Lübecker Altstadt kommen 384 Bäume auf die Karte und 43 zu den Kandidaten, an Stelle der OpenStreetMap-Bäume an denselben Stellen. Das Beispiel ist neu gebaut.
 - Hamburg: das Straßenbaumkataster mit Gattung, Art und Kronendurchmesser (ADR 0065). Baumkataster können jetzt auch eine OGC-API-Sammlung sein (`[[extra.trees]] format = "ogc-api"`, mit Seiten über `next`-Links), und das Erfassungsdatum ist optional. In Blankenese kommen 13 Straßenbäume auf die Karte und 4 zu den Kandidaten, an Stelle der OpenStreetMap-Bäume an denselben Stellen. Das Beispiel ist neu gebaut.
 - Genehmigungshinweise: Naturdenkmale und geschützte Landschaftsbestandteile aus Rheinland-Pfalz, aus dem Naturschutz-Dienst des Landesamts für Umwelt (Open Database License, ADR 0146, Nachtrag).
 - Rheinland-Pfalz: das Landschaftsmodell des LVermGeo RP (ATKIS Basis-DLM, ADR 0147). Es liegt dort nur im Shape-Schema der AdV vor; freemapper liest es jetzt auch so (`[[extra.nas]] schema = "shape"`). Seine Objekte bleiben Kandidaten: in Cochem 19 Denkmäler und Wegkreuze, 2 Wasserläufe und ein Brunnen, bei Dahn ein Felsen, 3 Wasserläufe und 6 Wege. Die zwei Beispiele sind neu gebaut.
