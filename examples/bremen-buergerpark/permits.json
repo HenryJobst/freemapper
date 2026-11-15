@@ -40,6 +40,13 @@
   "operators": [],
   "hints": [
     {
+      "key": "permits-hint-monument-lower-authority",
+      "args": {
+        "kreis": "Bremen",
+        "kreisfrei": "yes"
+      }
+    },
+    {
       "key": "permits-hint-forest-owner",
       "args": {
         "office": "unknown"
@@ -82,6 +89,19 @@
   "regional": [
     {
       "adapter": "bremen",
+      "monuments": {
+        "total": 1,
+        "groups": [
+          {
+            "kind": "Ensemble",
+            "count": 1,
+            "links": [
+              "https://denkmalpflege.bremen.de/sixcms/detail.php?template=20_denkmal_wrapper_d&obj=00000218"
+            ]
+          }
+        ],
+        "links_left": 0
+      },
       "water_protection": [],
       "sources": [
         {
@@ -107,6 +127,30 @@
             "fetched": "2026-11-15",
             "reason": null,
             "credit": "© WasserBLIcK/BfG und Zuständige Behörden der Länder, 2026; Lizenz: Creative Commons Namensnennung – 4.0 International (CC BY 4.0)"
+          }
+        },
+        {
+          "source": {
+            "key": "denkmale",
+            "label": {
+              "en": "Landesamt für Denkmalpflege Bremen",
+              "de": "Landesamt für Denkmalpflege Bremen"
+            },
+            "what": {
+              "en": "Einzeldenkmale and Ensembles",
+              "de": "Einzeldenkmale und Ensembles"
+            },
+            "credit": "Creative Commons Namensnennung (CC-BY), Quellenvermerk: Freie Hansestadt Bremen, Senator für Kultur",
+            "sections": [
+              "monuments"
+            ]
+          },
+          "status": {
+            "id": "denkmale",
+            "state": "read",
+            "fetched": "2026-11-15",
+            "reason": null,
+            "credit": "Creative Commons Namensnennung (CC-BY), Quellenvermerk: Freie Hansestadt Bremen, Senator für Kultur"
           }
         }
       ]

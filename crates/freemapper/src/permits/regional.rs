@@ -42,6 +42,9 @@ pub struct RegionalSource {
     /// The source answers only at points (ADR 0139).
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub sampled: bool,
+    /// Where the data are not complete (ADR 0144).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub gaps: Option<Words>,
     pub sections: Vec<PermitSection>,
     /// Whose offices the hints of the districts of the source name (ADR 0129).
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -61,6 +64,7 @@ impl From<&PermitSourceInfo> for RegionalSource {
             credit: info.credit.to_string(),
             note: info.note.map(str::to_string),
             sampled: info.sampled,
+            gaps: info.gaps.map(words),
             sections: info.sections.to_vec(),
             offices: info.offices,
         }
@@ -216,6 +220,12 @@ pub(crate) struct HintFacts {
     /// The districts that hold a monument on the map: for each monument those that are more
     /// than an edge, or its edge districts when it lies only there.
     pub monument_districts: Vec<String>,
+    /// The monuments on the map, for the lower monument authority outside the city states
+    /// (ADR 0144).
+    pub monuments: usize,
+    /// A source of monuments of the adapter has gaps (ADR 0144): no monument on the map does not
+    /// mean none.
+    pub monument_gaps: bool,
     /// The districts that hold a protected object the lower nature conservation authority
     /// looks after, chosen as for the monuments.
     pub nature_districts: Vec<String>,
@@ -414,6 +424,10 @@ fn one_adapter(
         } else {
             Vec::new()
         },
+        monuments: monuments.as_ref().map_or(0, |m| m.total),
+        monument_gaps: inputs.iter().any(|i| {
+            i.source.sections.contains(&PermitSection::Monuments) && i.source.gaps.is_some()
+        }),
         nature_districts: if protected_objects
             .iter()
             .flatten()

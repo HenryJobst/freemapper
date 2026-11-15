@@ -157,6 +157,7 @@ fn source(
             credit: LICENCE,
             note,
             sampled: false,
+            gaps: None,
             layers,
             sections,
             // The Bezirke name the offices of Berlin's Bezirksämter (ADR 0129).

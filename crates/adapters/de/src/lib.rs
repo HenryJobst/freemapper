@@ -9,6 +9,7 @@ pub mod berlin_als;
 pub mod berlin_permits;
 pub mod bfg_permits;
 pub mod boundaries;
+pub mod denkmal_permits;
 pub mod geobasis_nrw;
 pub mod geobremen;
 pub mod geosn;

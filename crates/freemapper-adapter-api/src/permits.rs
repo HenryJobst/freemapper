@@ -73,6 +73,10 @@ pub struct PermitSourceInfo {
     /// points it was asked at, so a share is an estimate and what lies between the points can
     /// be missed. The notes say so.
     pub sampled: bool,
+    /// Where the data of the source are not complete although they cover its state ("the city
+    /// of Potsdam keeps its own list"), in the words of the notes; `None` for complete data
+    /// (ADR 0144).
+    pub gaps: Option<Wording>,
     /// The keys of the layers (plain names), in the order of [`PermitSource::fetch`].
     pub layers: &'static [&'static str],
     /// The sections of the notes the findings of the source fill. A section is left out of the

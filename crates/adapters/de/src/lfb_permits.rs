@@ -61,6 +61,7 @@ pub fn sources() -> Vec<Box<dyn PermitSource>> {
                 credit: CREDIT,
                 note: None,
                 sampled: false,
+                gaps: None,
                 layers: &["reviere"],
                 sections: &[PermitSection::ForestUnits],
                 offices: None,

@@ -4,7 +4,7 @@ Hinweis, keine Rechtsauskunft. Maßgeblich sind die zuständigen Behörden. Date
 
 Das BfN führt die Daten der Bundesländer einmal im Jahr zusammen und weist sie als nicht für Planungszwecke geeignet aus. Maßgeblich sind die Landesbehörden.
 
-Erstellt am 2026-11-14 für das Kartengebiet einer Sprintkarte (54,1 ha).
+Erstellt am 2026-11-15 für das Kartengebiet einer Sprintkarte (54,1 ha).
 
 ## Verwaltung
 
@@ -12,19 +12,25 @@ Erstellt am 2026-11-14 für das Kartengebiet einer Sprintkarte (54,1 ha).
 - Kreis: Kreisfreie Stadt Potsdam, 100 %
 - Gemeinde: Stadt Potsdam, 100 %
 
+## Denkmale (BLDAM)
+
+Laut BLDAM liegt im Kartengebiet kein Denkmal.
+
 ## Forstverwaltung (Landesbetrieb Forst Brandenburg)
 
 - Oberförsterei Potsdam-Mittelmark, Revier Potsdam (Landesbetrieb Forst Brandenburg): 100 %
 
 Die Forstdienststelle ist für den Wald in ihrem Bereich zuständig. Ihr Bereich kann auch Siedlungen und Felder umfassen.
 
-## Wasserschutzgebiete (Landesbetrieb Forst Brandenburg)
+## Wasserschutzgebiete (Landesamt für Umwelt Brandenburg)
 
 - „Potsdam-Wildpark“, Zone III B: 12 %
 
 ## Waldfunktionen und Schutzwald (Landesbetrieb Forst Brandenburg)
 
 Laut Landesbetrieb Forst Brandenburg liegt im Kartengebiet kein Erholungswald, kein Bannwald, kein Naturwald und keine gesperrte Waldfläche.
+
+Der Bestand von BLDAM ist nicht vollständig: Die Stadt Potsdam führt ihre Denkmalliste selbst; sie ist nicht in diesen Daten.
 
 ## Schutzgebiete (BfN)
 
@@ -49,6 +55,7 @@ OpenStreetMap-Flächen, die das ganze Kartengebiet umschließen und keine Ecke d
 
 ## Hinweise
 
+- Ob im Kartengebiet Denkmale liegen, sagen die Daten hier nicht sicher. Ob ein Lauf sie berührt, etwa mit einem Posten an einem Denkmal oder einer Strecke durch eine geschützte Anlage, klärt die untere Denkmalschutzbehörde. Hier ist das die Stadt Potsdam selbst.
 - Im Kartengebiet liegt die Zone III B des Wasserschutzgebiets „Potsdam-Wildpark“. Dort sind Veranstaltungen meist möglich; was die Verordnung erlaubt, sagt die untere Wasserbehörde.
 - Zuständige Forstdienststelle für den Wald im Kartengebiet: Oberförsterei Potsdam-Mittelmark (Landesbetrieb Forst Brandenburg), Revier Potsdam. Fragen Sie dort früh nach, wenn Sie eine Veranstaltung im Wald planen.
 - Für eine Veranstaltung im Wald brauchen Sie die Zustimmung der Waldbesitzer. Wem der Wald gehört, kann meist die Forstdienststelle sagen. In mehreren Bundesländern ist eine organisierte Veranstaltung im Wald außerdem der Forstbehörde anzuzeigen oder von ihr zu genehmigen.
@@ -61,8 +68,10 @@ OpenStreetMap-Flächen, die das ganze Kartengebiet umschließen und keine Ecke d
 
 | Quelle | Stand | Quellenvermerk und Lizenz |
 |---|---|---|
-| VG250 (BKG): Verwaltungsgebiete 1:250 000 (VG250) des BKG | gelesen, abgerufen am 2026-11-14 | © BKG (2026) dl-de/by-2-0, Datenquellen: https://sg.geodatenzentrum.de/web_public/gdz/datenquellen/datenquellen_vg_nuts.pdf |
-| BfN: Schutzgebiete in Deutschland des BfN | gelesen, abgerufen am 2026-11-14 | © Bundesamt für Naturschutz (BfN) (2026), Schutzgebiete in Deutschland; Nutzungsbestimmungen für die Bereitstellung von Geodaten des Bundes (GeoNutzV). Nicht für Planungszwecke geeignet. |
+| VG250 (BKG): Verwaltungsgebiete 1:250 000 (VG250) des BKG | gelesen, abgerufen am 2026-11-15 | © BKG (2026) dl-de/by-2-0, Datenquellen: https://sg.geodatenzentrum.de/web_public/gdz/datenquellen/datenquellen_vg_nuts.pdf |
+| BfN: Schutzgebiete in Deutschland des BfN | gelesen, abgerufen am 2026-11-15 | © Bundesamt für Naturschutz (BfN) (2026), Schutzgebiete in Deutschland; Nutzungsbestimmungen für die Bereitstellung von Geodaten des Bundes (GeoNutzV). Nicht für Planungszwecke geeignet. |
 | OpenStreetMap: OpenStreetMap, aus dem Auszug, den freemapper im Zwischenspeicher hält | gelesen, OSM-Auszug vom 2026-11-06 | © OpenStreetMap contributors, ODbL |
-| Landesbetrieb Forst Brandenburg: Forstreviere mit ihrer Oberförsterei, Waldfunktionen (Naturwald, Totalreservat, nicht betretbare Flächen, Erholungswald) | gelesen, abgerufen am 2026-11-14 | Landesbetrieb Forst Brandenburg, Datenlizenz Deutschland – Namensnennung – Version 2.0 (https://www.govdata.de/dl-de/by-2-0) |
-| Landesamt für Umwelt Brandenburg: Wasserschutzgebiete | gelesen, abgerufen am 2026-11-14 | Landesamt für Umwelt Brandenburg (LfU), Creative Commons Namensnennung 4.0 International (CC BY 4.0) |
+| Landesbetrieb Forst Brandenburg: Forstreviere mit ihrer Oberförsterei, Waldfunktionen (Naturwald, Totalreservat, nicht betretbare Flächen, Erholungswald) | gelesen, abgerufen am 2026-11-15 | Landesbetrieb Forst Brandenburg, Datenlizenz Deutschland – Namensnennung – Version 2.0 (https://www.govdata.de/dl-de/by-2-0) |
+| Landesamt für Umwelt Brandenburg: Wasserschutzgebiete | gelesen, abgerufen am 2026-11-15 | Landesamt für Umwelt Brandenburg (LfU), Creative Commons Namensnennung 4.0 International (CC BY 4.0) |
+| BLDAM: Baudenkmale, Gartendenkmale, Denkmalbereiche | gelesen, abgerufen am 2026-11-15 | © Denkmaldaten/BLDAM 2026 |
+| BLDAM: Bodendenkmale | gelesen, abgerufen am 2026-11-15 | Quelle: © Denkmaldaten/Brandenburgisches Landesamt für Denkmalpflege und Archäologisches Landesmuseum (BLDAM), dl-de/by-2-0 |

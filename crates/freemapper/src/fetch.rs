@@ -801,26 +801,13 @@ impl Fetcher for HttpFetcher {
         max_bytes: u64,
         progress: &mut dyn FnMut(Note),
     ) -> Result<(), FetchError> {
-        let mut response = self.open(url, true, true, &|agent, target| {
-            agent.get(target).header("User-Agent", USER_AGENT).call()
-        })?;
-        if let Some(dir) = path.parent() {
-            std::fs::create_dir_all(dir).map_err(|e| FetchError::Io(dir.to_path_buf(), e))?;
+        match self.download_once(url, path, max_bytes, progress, false) {
+            // A server that ends its gzip early (ADR 0144) is asked once more without it.
+            Err(FetchError::Http { message, .. }) if message.contains("decompression failed") => {
+                self.download_once(url, path, max_bytes, progress, true)
+            }
+            other => other,
         }
-        let total = response
-            .headers()
-            .get("content-length")
-            .and_then(|v| v.to_str().ok())
-            .and_then(|v| v.parse::<u64>().ok());
-        if total.is_some_and(|total| total > max_bytes) {
-            let _ = std::fs::remove_file(path);
-            return Err(too_large(url, max_bytes));
-        }
-        let create = |path: &Path| -> std::io::Result<Box<dyn std::io::Write>> {
-            Ok(Box::new(freemapper_fs::create_new_file(path)?))
-        };
-        let mut reader = response.body_mut().as_reader();
-        stream_to_file(url, &mut reader, total, path, &create, max_bytes, progress)
     }
 
     fn last_modified(&self, url: &str) -> Result<Option<NaiveDate>, FetchError> {
@@ -872,6 +859,45 @@ impl Fetcher for HttpFetcher {
             return Err(too_large(url, self.max_get_bytes));
         }
         Ok(bytes)
+    }
+}
+
+impl HttpFetcher {
+    /// One try of [`Fetcher::download_to`]; with `identity` the answer is asked without
+    /// compression.
+    fn download_once(
+        &self,
+        url: &str,
+        path: &Path,
+        max_bytes: u64,
+        progress: &mut dyn FnMut(Note),
+        identity: bool,
+    ) -> Result<(), FetchError> {
+        let mut response = self.open(url, true, true, &|agent, target| {
+            let request = agent.get(target).header("User-Agent", USER_AGENT);
+            if identity {
+                request.header("Accept-Encoding", "identity").call()
+            } else {
+                request.call()
+            }
+        })?;
+        if let Some(dir) = path.parent() {
+            std::fs::create_dir_all(dir).map_err(|e| FetchError::Io(dir.to_path_buf(), e))?;
+        }
+        let total = response
+            .headers()
+            .get("content-length")
+            .and_then(|v| v.to_str().ok())
+            .and_then(|v| v.parse::<u64>().ok());
+        if total.is_some_and(|total| total > max_bytes) {
+            let _ = std::fs::remove_file(path);
+            return Err(too_large(url, max_bytes));
+        }
+        let create = |path: &Path| -> std::io::Result<Box<dyn std::io::Write>> {
+            Ok(Box::new(freemapper_fs::create_new_file(path)?))
+        };
+        let mut reader = response.body_mut().as_reader();
+        stream_to_file(url, &mut reader, total, path, &create, max_bytes, progress)
     }
 }
 
@@ -2598,6 +2624,55 @@ mod tests {
         assert!(matches!(err, FetchError::CurrencyCsv(_)), "{err:?}");
         let offline = fetch(&fetcher, &cache, &[TILE], FetchMode::Offline).unwrap();
         assert_eq!(offline[0].currency.published.to_string(), "2026-01-26");
+    }
+
+    /// A server that sends gzip without its end (Saxony's monument service, ADR 0144) is asked
+    /// once more without compression.
+    #[test]
+    fn a_broken_gzip_answer_is_fetched_again_uncompressed() {
+        // gzip of the body below, without its last eight bytes (the CRC and the size).
+        const CUT: [u8; 46] = [
+            0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xb3, 0x71, 0x4b, 0x4d,
+            0x2c, 0x29, 0x2d, 0x4a, 0x75, 0xce, 0xcf, 0xc9, 0x49, 0x4d, 0x2e, 0xc9, 0xcc, 0xcf,
+            0xb3, 0xb3, 0xc9, 0x4d, 0xcd, 0x4d, 0x4a, 0x2d, 0xd2, 0x1f, 0x65, 0xd0, 0x98, 0xa1,
+            0x8f, 0x19, 0xf6, 0x00,
+        ];
+        let body = format!(
+            "<FeatureCollection>{}</FeatureCollection>",
+            "<member/>".repeat(40)
+        );
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let url = format!("http://{}/ogc.ashx", listener.local_addr().unwrap());
+        let plain = body.clone();
+        std::thread::spawn(move || {
+            use std::io::{Read as _, Write as _};
+            for stream in listener.incoming().take(2).flatten() {
+                let mut stream = stream;
+                let mut request = [0u8; 2048];
+                let n = stream.read(&mut request).unwrap_or(0);
+                let request = String::from_utf8_lossy(&request[..n]).to_lowercase();
+                if request.contains("accept-encoding: identity") {
+                    let _ = write!(
+                        stream,
+                        "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{plain}",
+                        plain.len()
+                    );
+                } else {
+                    let _ = write!(
+                        stream,
+                        "HTTP/1.1 200 OK\r\nContent-Encoding: gzip\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                        CUT.len()
+                    );
+                    let _ = stream.write_all(&CUT);
+                }
+            }
+        });
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("answer.part");
+        HttpFetcher::local()
+            .download_to(&url, &path, 1 << 20, &mut |_| {})
+            .unwrap();
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), body);
     }
 
     #[test]

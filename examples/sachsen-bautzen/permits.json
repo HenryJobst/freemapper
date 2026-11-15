@@ -58,6 +58,14 @@
   ],
   "hints": [
     {
+      "key": "permits-hint-monument-lower-authority",
+      "args": {
+        "gemeinde": "Bautzen",
+        "kreis": "Bautzen",
+        "kreisfrei": "no"
+      }
+    },
+    {
       "key": "permits-hint-forest-office",
       "args": {
         "administration": "Staatsbetrieb Sachsenforst",
@@ -124,6 +132,17 @@
   "regional": [
     {
       "adapter": "saxony",
+      "monuments": {
+        "total": 366,
+        "groups": [
+          {
+            "kind": "Kulturdenkmal",
+            "count": 366,
+            "links": []
+          }
+        ],
+        "links_left": 0
+      },
       "forest_units": [
         {
           "item": {
@@ -197,6 +216,30 @@
             "fetched": "2026-11-15",
             "reason": null,
             "credit": "© WasserBLIcK/BfG und Zuständige Behörden der Länder, 2026; Lizenz: Creative Commons Namensnennung – 4.0 International (CC BY 4.0)"
+          }
+        },
+        {
+          "source": {
+            "key": "denkmale",
+            "label": {
+              "en": "Landesamt für Denkmalpflege Sachsen",
+              "de": "Landesamt für Denkmalpflege Sachsen"
+            },
+            "what": {
+              "en": "Kulturdenkmale",
+              "de": "Kulturdenkmale"
+            },
+            "credit": "Landesamt für Denkmalpflege Sachsen, Creative Commons Namensnennung 3.0 Deutschland (CC BY 3.0 DE)",
+            "sections": [
+              "monuments"
+            ]
+          },
+          "status": {
+            "id": "denkmale",
+            "state": "read",
+            "fetched": "2026-11-15",
+            "reason": null,
+            "credit": "Landesamt für Denkmalpflege Sachsen, Creative Commons Namensnennung 3.0 Deutschland (CC BY 3.0 DE)"
           }
         }
       ]

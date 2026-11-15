@@ -62,6 +62,7 @@ OpenStreetMap-Flächen, die das ganze Kartengebiet umschließen und keine Ecke d
 ## Hinweise
 
 - Schutzgebiete betreffen die untere Naturschutzbehörde (meist der Landkreis Saarlouis).
+- Im Kartengebiet liegen Denkmale. Ob ein Lauf sie berührt, etwa mit einem Posten an einem Denkmal oder einer Strecke durch eine geschützte Anlage, klärt die untere Denkmalschutzbehörde, meist der Landkreis Saarlouis; in manchen Bundesländern ist es die Gemeinde Saarlouis.
 - Zuständige Forstdienststelle für den Wald im Kartengebiet: Revier Ueberherrn (SaarForst Landesbetrieb). Fragen Sie dort früh nach, wenn Sie eine Veranstaltung im Wald planen.
 - Für eine Veranstaltung im Wald brauchen Sie die Zustimmung der Waldbesitzer. Wem der Wald gehört, kann meist die Forstdienststelle sagen. In mehreren Bundesländern ist eine organisierte Veranstaltung im Wald außerdem der Forstbehörde anzuzeigen oder von ihr zu genehmigen.
 - Für Straßen, Plätze und andere öffentliche Flächen ist meist das Ordnungsamt der Gemeinde Saarlouis zuständig.
