@@ -31,6 +31,7 @@ pub mod state;
 pub mod symbol_measures;
 pub mod tagged;
 pub mod ticks;
+pub mod training;
 pub mod vegetation;
 pub mod walls;
 pub mod water;

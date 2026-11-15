@@ -202,7 +202,7 @@ impl Classes {
     }
 
     /// Whether an object of `symbol_id` drawn along a path is a line: its centre line counts.
-    fn is_line(&self, symbol_id: u32) -> bool {
+    pub fn is_line(&self, symbol_id: u32) -> bool {
         use Class::*;
         match self.class(symbol_id) {
             BankLine | Railway | Road | Path | Watercourse | Stairway | Barrier | Cliff
@@ -246,6 +246,11 @@ impl Footprints {
 
     pub fn footprint(&self, i: usize) -> &MultiPolygon<f64> {
         &self.items[i].footprint
+    }
+
+    /// The centre lines of a line object, mm on paper; empty for areas and points.
+    pub fn centre(&self, i: usize) -> &MultiLineString<f64> {
+        &self.items[i].centre
     }
 
     /// Half the width of the stroke along the centre line of a line object; 0 for others.

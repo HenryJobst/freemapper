@@ -125,28 +125,28 @@ const PATH_WIDTHS_MM: [(&str, SymbolMm); 9] = [
     ("509.1", SymbolMm(0.55)),
 ];
 /// The paved areas among the candidates a 402 or 405 is cut at, like the drawn paving.
-const PAVED_AREA_CODES: [&str; 5] = ["501", "501.5", "501.10", "501.11", "501.3"];
+pub(crate) const PAVED_AREA_CODES: [&str; 5] = ["501", "501.5", "501.10", "501.11", "501.3"];
 /// The cell of the grid indexes of the areas (ground metres).
 const GRID_CELL_M: f64 = 100.0;
 /// An area spanning more cells than this is checked for every query instead.
 const GRID_MAX_CELLS: i64 = 4096;
 
 /// A group symbol and its minimum area (mm²) and width (mm) on paper at 1:4000.
-struct GroupSymbol {
+pub(crate) struct GroupSymbol {
     code: &'static str,
-    min_area_mm2: SymbolMm2,
+    pub(crate) min_area_mm2: SymbolMm2,
     min_width_mm: SymbolMm,
 }
 
 /// 402 open land with scattered trees.
-const SCATTERED_TREES: GroupSymbol = GroupSymbol {
+pub(crate) const SCATTERED_TREES: GroupSymbol = GroupSymbol {
     code: "402",
     min_area_mm2: SymbolMm2(6.25),
     min_width_mm: SymbolMm(2.2),
 };
 /// 405 forest: the stricter minimum (openings in screens of other colours), as the build does
 /// not know the surrounding screen.
-const FOREST: GroupSymbol = GroupSymbol {
+pub(crate) const FOREST: GroupSymbol = GroupSymbol {
     code: "405",
     min_area_mm2: SymbolMm2(1.0),
     min_width_mm: SymbolMm(0.3),

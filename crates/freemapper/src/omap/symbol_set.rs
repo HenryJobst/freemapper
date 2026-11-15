@@ -3,6 +3,7 @@
 
 use super::OmapError;
 use super::enlarge::enlarge_symbols;
+use crate::measure::PaperMm;
 
 /// Symbol number of a norm, e.g. "521" or "501.5".
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -302,6 +303,32 @@ impl SymbolSet {
             .map(|(_, id)| *id)
     }
 
+    /// A code that names the top-level symbol `id`: [`Self::id_for_code`] gives `id` back for it.
+    /// The set's own codes come first, then the codes of other norms its aliases answer.
+    pub fn code_for_id(&self, id: u32) -> Option<&str> {
+        let own = self.codes.iter().map(|(c, _)| c.0.as_str());
+        let aliased = self.aliases.iter().map(|(from, _)| from.as_str());
+        own.chain(aliased)
+            .find(|code| self.id_for_code(code) == Some(id))
+    }
+
+    /// The minimum length of the line symbol `id` as the set gives it (already enlarged); `None`
+    /// when 0 or unknown.
+    pub fn minimum_length(&self, id: u32) -> Option<PaperMm> {
+        if self.symbol_type(id) != Some(2) {
+            return None;
+        }
+        let at = self
+            .symbols_xml
+            .find(&format!(r#"<symbol type="2" id="{id}""#))?;
+        let value: f64 =
+            first_attribute_after(&self.symbols_xml[at..], "<line_symbol", "minimum_length")?
+                .parse()
+                .ok()?;
+        // OOM stores lengths in 1/1000 mm.
+        (value > 0.0).then(|| PaperMm(value / 1000.0))
+    }
+
     /// Whether an alias of this set answers the code: the set has no symbol of its own for it.
     pub fn is_aliased(&self, code: &str) -> bool {
         self.aliases.iter().any(|(from, _)| from == code)
@@ -385,6 +412,33 @@ mod tests {
 
     fn first_attr<'a>(xml: &'a str, anchor: &str, name: &str) -> &'a str {
         first_attribute_after(xml, anchor, name).unwrap_or_else(|| panic!("{anchor} {name}"))
+    }
+
+    #[test]
+    fn the_minimum_length_of_an_earth_bank_is_read() {
+        // ISOM 2017-2, 104: "Minimum length: 0.6 mm"; at 1:10 000 the set is enlarged to 150 %.
+        let set = SymbolSet::isom_2017_2(1.5);
+        let bank = set.id_for_code("104").unwrap();
+        assert_eq!(set.minimum_length(bank), Some(PaperMm(0.9)));
+        assert_eq!(
+            SymbolSet::isom_2017_2(1.0).minimum_length(bank),
+            Some(PaperMm(0.6))
+        );
+        // 532 gives 0, an area none, an unknown id none.
+        assert_eq!(set.minimum_length(set.id_for_code("532").unwrap()), None);
+        assert_eq!(set.minimum_length(set.id_for_code("401").unwrap()), None);
+        assert_eq!(set.minimum_length(99_999), None);
+    }
+
+    #[test]
+    fn the_code_of_a_symbol_names_it_back() {
+        let set = SymbolSet::isom_2017_2(1.0);
+        let bank = set.id_for_code("104").unwrap();
+        assert_eq!(set.code_for_id(bank), Some("104"));
+        // 501.1 is left out of the ISOM set: its own 501.1 symbol has no code that names it.
+        let footpath = set.id_for_code("505").unwrap();
+        assert_eq!(set.code_for_id(footpath), Some("505"));
+        assert_eq!(set.code_for_id(99_999), None);
     }
 
     #[test]
