@@ -22,7 +22,6 @@ use crate::build::barrier_gaps::move_points_off_barriers;
 use crate::build::barriers::resolve_barrier_overlaps;
 use crate::build::berlin::{
     BUILDING_PARTS_LAYER, LayerInput, berlin_objects, building_part_features,
-    drop_shelters_under_canopies,
 };
 use crate::build::buildings::{building_objects, object_footprints};
 use crate::build::candidates::{Rules, Target, osm_objects};
@@ -742,7 +741,7 @@ fn resolve(drawn: Drawn, surroundings: &Surroundings) -> Result<Resolved, Georef
     let mut osm_candidates = osm_candidates;
     let cadastre = drop_fountains_in_osm_basins(cadastre, &mut osm_candidates, georef, symbol_set);
     // A surveyed bus shelter under an ALKIS canopy is that canopy.
-    let cadastre = drop_shelters_under_canopies(cadastre, &mut canopies);
+    let cadastre = crate::build::canopy::drop_roofs_under_canopies(cadastre, &mut canopies);
     // An object of a landscape model (the Basis-DLM) goes where the cadastre or OpenStreetMap,
     // on the map or among the candidates, has the same object (ADR 0135).
     let (cadastre, osm_candidates, osm_map) = drop_landscape(
