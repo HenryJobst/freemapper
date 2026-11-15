@@ -52,7 +52,7 @@ Böschungen (104) aus dem Geländemodell, 77 Kontrollstandorte (531), 46 Bäume,
 
 ## Von `balanced` zu `full`
 
-`full` legt alles in die Karte, wie die Trainingskarte (`--pdf-candidates`) es zeichnet. In Cochem kommen 199
+`full` legt alles in die Karte, wie der Prüfausdruck (`--pdf-candidates`) es zeichnet. In Cochem kommen 199
 Sperrflächen, 113 Böschungen, 70 Kontrollstandorte, die übrigen 19 Mauern und die 10 Felswände dazu; von den
 Felswänden werden 5 Stücke und eine Oberkante (201.3) gezeichnet, 12 niedrige Stücke bleiben Kandidaten. Die Grundstücke zwischen den
 Häusern werden dadurch olivgrün. Einige Punkte, die in `balanced` Kandidaten waren, fehlen in `full` ganz, darunter
@@ -68,9 +68,9 @@ die zu dicht stehenden weg. Kandidaten bleiben 38 Objekte: 24 Flächen offenen L
 - `full` gibt eine schnelle Trainingskarte ohne Gang ins Gelände. Ob eine 520-Fläche wirklich verboten ist, sagt
   sie nicht; vor einem Wettkampf prüfen Sie jede.
 
-Die Trainingskarte jedes Beispiels zeichnet die Karte mit allen Kandidaten, für Cochem
-[rheinland-pfalz-cochem-candidates.pdf](rheinland-pfalz-cochem/rheinland-pfalz-cochem-candidates.pdf). Sie lässt
-Punkte unter einer 520-Fläche und nicht erreichbare Durchgänge weg (`freemapper:hidden`), deshalb deckt sich ihr
+Der Prüfausdruck jedes Beispiels zeichnet die Karte mit allen Kandidaten, für Cochem
+[rheinland-pfalz-cochem-candidates.pdf](rheinland-pfalz-cochem/rheinland-pfalz-cochem-candidates.pdf). Er lässt
+Punkte unter einer 520-Fläche und nicht erreichbare Durchgänge weg (`freemapper:hidden`), deshalb deckt sich sein
 Bild nicht in jedem Punkt mit den Zählungen oben. Die Zählungen stammen aus `rheinland-pfalz-cochem.omap` und
 `templates/candidates.omap` der jeweiligen Fassung.
 

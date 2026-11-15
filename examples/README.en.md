@@ -6,7 +6,7 @@ Each supported state has an example: an area from which freemapper can derive a 
 park with relief, dense buildings, stairs, walls and hedges). All examples are sprint maps at 1:4000 (ISSprOM 2019),
 made with `freemapper run --pdf --pdf-candidates --ocad` and the default content profile `balanced`; Sanssouci,
 Viktoriapark, Monschau, Cochem and Saarlouis also with `--content-set vegetation=candidates`. The PDF of each
-example is the training map with every candidate, because it shows what freemapper can derive. The map alone shows
+example is the check print with every candidate, because it shows what freemapper can derive. The map alone shows
 less; the [comparison page](compare.en.md) shows the same area in the three content profiles.
 
 | Preview | State | Area | Map objects | Candidates | Symbols |
@@ -40,7 +40,7 @@ as ISSprOM 101 draws them, and stop only at stairs, small landforms and below cl
 they count in pieces.
 
 The group `vegetation` is off in every profile, because the point clouds are large. Five examples switch it on as
-candidates: Sanssouci, Viktoriapark, Monschau, Cochem and Saarlouis. There the training map shows what the laser
+candidates: Sanssouci, Viktoriapark, Monschau, Cochem and Saarlouis. There the check print shows what the laser
 points say about the vegetation: runnable forest (405) under the tree crowns, open land (401) and the green shades
 406, 408 and 410. Sanssouci has 173 forest areas, 75 areas of open land and 205 green areas, Monschau 184, 196 and
 638, Cochem 126, 73 and 404, Saarlouis 201, 71 and 125, Viktoriapark 63, 50 and 107. The park turns white where trees
@@ -143,7 +143,7 @@ The paths come from OSM and go onto the map in the path classes 502 to 507; the 
 and gardens are olive green (520, not to be entered). Rocks, earth banks and knolls from the terrain model are
 candidates; cliffs from OSM (`natural=cliff`) are on the map, generalized and smoothed by the ISOM (ADR 0126): at
 the Bastei 256 of 2144 cliffs stay with tags, 23 as top lines (201.3) and 26 as rock pillars and fins (206); the
-others lie hidden in the candidates map. In the flat areas in Berlin and Bremen the contours lie every 2.5 m, in the
+others are candidates, which the check print draws all of; the training map (`--training`) generalizes them more. In the flat areas in Berlin and Bremen the contours lie every 2.5 m, in the
 steep Bode valley and at the Bastei every 10 m (`--contour-interval 10`, more than the 5 m of the ISOM, so that the
 slopes stay legible), elsewhere every 5 m; `freemapper.toml` names it as `[contours] interval_m`.
 
@@ -154,7 +154,7 @@ slopes stay legible), elsewhere every 5 m; `freemapper.toml` names it as `[conto
 | `<name>.omap` | the OOM starter project (OpenOrienteering Mapper) |
 | `templates/candidates.omap` | the candidates as a template |
 | `ocad/<name>.ocd`, `ocad/<name>-candidates.ocd` | the OCAD starting point (OCAD 12) |
-| `<name>-candidates.pdf` | the training map: map objects and every candidate, without a scale bar |
+| `<name>-candidates.pdf` | the check print: map objects and every candidate, true to position, without a scale bar |
 | `preview.webp` | preview of this PDF |
 | `preview-thumb.webp` | a small copy of the preview for this overview, made with `scripts/thumbnails.sh` |
 | `<name>.pdf`, `<name>-safe.pdf`, `<name>-full.pdf`, `preview-safe.webp`, `preview-balanced.webp`, `preview-full.webp` | only in Cochem: the same area in the three content profiles, without candidates, and the previews, see the [comparison page](compare.en.md) |
@@ -176,7 +176,7 @@ The map then opens in OOM and OCAD with all templates. `--pdf` also writes the m
 
 For each state, five to six candidates were made as sprint maps, among them parks, schools, old towns and palace
 grounds. The distinct symbols and the objects were counted; the best two or three areas of each state were then
-compared on the training map. The areas that show the most won: varied buildings, relief and many OSM candidates.
+compared on the PDF with every candidate. The areas that show the most won: varied buildings, relief and many OSM candidates.
 
 In Lower Saxony the Großer Garten won, although before the content profiles its map had the fewest map objects. Its
 hedges, parterres, rows of trees and fountains gave the most candidates per map object. With `balanced` they are on

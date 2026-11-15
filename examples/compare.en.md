@@ -52,7 +52,7 @@ earth banks (104) from the terrain model, 77 control sites (531), 46 trees, 24 a
 
 ## From `balanced` to `full`
 
-`full` puts everything onto the map, as the training map (`--pdf-candidates`) draws it. In Cochem 199
+`full` puts everything onto the map, as the check print (`--pdf-candidates`) draws it. In Cochem 199
 out-of-bounds areas, 113 earth banks, 70 control sites, the other 19 walls and the 10 cliffs come in; of the cliffs,
 5 stretches and a top line (201.3) are drawn, and 12 low stretches stay candidates. The plots between
 the houses turn olive green. Some points that were candidates in `balanced` are missing from `full` altogether,
@@ -67,7 +67,7 @@ freemapper leaves out those that stand too close. 38 objects stay candidates: 24
 - `full` gives a quick training map without going into the terrain. It does not tell whether a 520 area is really
   forbidden; before a competition you check each one.
 
-The training map of each example draws the map with all candidates, for Cochem
+The check print of each example draws the map with all candidates, for Cochem
 [rheinland-pfalz-cochem-candidates.pdf](rheinland-pfalz-cochem/rheinland-pfalz-cochem-candidates.pdf). It leaves
 out points under a 520 area and passages that cannot be reached (`freemapper:hidden`), so its picture does not
 match the counts above in every point. The counts come from `rheinland-pfalz-cochem.omap` and

@@ -6,7 +6,7 @@ Für jedes unterstützte Bundesland gibt es ein Beispiel: ein Gebiet, aus dem fr
 (Altstadt, Schloss oder Park mit Relief, dichte Bebauung, Treppen, Mauern und Hecken). Alle Beispiele sind
 Sprintkarten im Maßstab 1:4000 (ISSprOM 2019), erzeugt mit `freemapper run --pdf --pdf-candidates --ocad` und dem
 Standard-Inhaltsprofil `balanced`; Sanssouci, Viktoriapark, Monschau, Cochem und Saarlouis zusätzlich mit
-`--content-set vegetation=candidates`. Das PDF jedes Beispiels ist die Trainingskarte mit allen Kandidaten, denn sie zeigt,
+`--content-set vegetation=candidates`. Das PDF jedes Beispiels ist der Prüfausdruck mit allen Kandidaten, denn er zeigt,
 was freemapper ableiten kann. Die Karte allein zeigt weniger; dasselbe Gebiet in den drei Inhaltsprofilen zeigt die
 [Gegenüberstellung](vergleich.md).
 
@@ -40,7 +40,7 @@ Stadtkarte. **Symbole** zählt die verschiedenen Symbole in beiden zusammen. Hö
 Nordlinien enden an Wegen und zählen deshalb in Stücken.
 
 Die Gruppe `vegetation` ist in jedem Profil aus, denn die Punktwolken sind groß. Fünf Beispiele schalten sie als
-Kandidaten ein: Sanssouci, Viktoriapark, Monschau, Cochem und Saarlouis. Dort zeigt die Trainingskarte, was die
+Kandidaten ein: Sanssouci, Viktoriapark, Monschau, Cochem und Saarlouis. Dort zeigt der Prüfausdruck, was die
 Laserpunkte über den Bewuchs sagen: gut belaufbaren Wald (405) unter den Baumkronen, offenes Gelände (401) und die
 Grünabstufungen 406, 408 und 410. In Sanssouci sind das 173 Waldflächen, 75 Flächen offenes Gelände und 205 grüne
 Flächen, in Monschau 184, 196 und 638, in Cochem 126, 73 und 404, in Saarlouis 201, 71 und 125, im Viktoriapark 63,
@@ -149,7 +149,7 @@ Die Wege kommen aus OSM und stehen in den Wegklassen 502 bis 507 in der Karte; d
 Siedlungen und Gärten sind olivgrün (520, nicht zu betreten). Felsen, Böschungen und Kuppen aus dem Geländemodell
 sind Kandidaten; Felswände aus OSM (`natural=cliff`) stehen in der Karte, generalisiert und geglättet nach der ISOM
 (ADR 0126): An der Bastei bleiben von 2144 Wänden 256 mit Zacken, 23 Oberkanten (201.3) und 26 Felstürme und -rippen
-(206); die übrigen liegen ausgeblendet in der Kandidatenkarte. In den flachen Gebieten in Berlin und Bremen liegen
+(206); die übrigen sind Kandidaten, die der Prüfausdruck alle zeichnet. Die Trainingskarte (`--training`) generalisiert sie stärker. In den flachen Gebieten in Berlin und Bremen liegen
 die Höhenlinien alle 2,5 m, im steilen Bodetal und an der Bastei alle 10 m (`--contour-interval 10`, mehr als die 5
 m der ISOM, damit die Hänge lesbar bleiben), sonst alle 5 m; die `freemapper.toml` nennt das als `[contours]
 interval_m`.
@@ -161,7 +161,7 @@ interval_m`.
 | `<name>.omap` | das OOM-Startprojekt (OpenOrienteering Mapper) |
 | `templates/candidates.omap` | die Kandidaten als Vorlage |
 | `ocad/<name>.ocd`, `ocad/<name>-candidates.ocd` | der OCAD-Ausgangsstand (OCAD 12) |
-| `<name>-candidates.pdf` | die Trainingskarte: Kartenobjekte und alle Kandidaten, ohne Maßstabsleiste |
+| `<name>-candidates.pdf` | der Prüfausdruck: Kartenobjekte und alle Kandidaten, lagetreu, ohne Maßstabsleiste |
 | `preview.webp` | Vorschau dieses PDFs |
 | `preview-thumb.webp` | kleine Fassung der Vorschau für diese Übersicht, erzeugt mit `scripts/thumbnails.sh` |
 | `<name>.pdf`, `<name>-safe.pdf`, `<name>-full.pdf`, `preview-safe.webp`, `preview-balanced.webp`, `preview-full.webp` | nur in Cochem: dasselbe Gebiet in den drei Inhaltsprofilen, ohne Kandidaten, und die Vorschauen, siehe [Gegenüberstellung](vergleich.md) |
@@ -183,7 +183,7 @@ unverändert. Danach öffnet sich die Karte in OOM und OCAD mit allen Vorlagen. 
 
 Für jedes Bundesland wurden fünf bis sechs Kandidaten als Sprintkarte erzeugt, darunter Parks, Schulen, Altstädte und
 Schlossanlagen. Gezählt wurden die verschiedenen Symbole und die Objekte; die besten zwei bis drei Gebiete jedes
-Bundeslandes wurden dann an der Trainingskarte verglichen. Gewonnen haben die Gebiete, die das meiste zeigen:
+Bundeslandes wurden dann am PDF mit allen Kandidaten verglichen. Gewonnen haben die Gebiete, die das meiste zeigen:
 abwechslungsreiche Bebauung, Relief und viele OSM-Kandidaten.
 
 In Niedersachsen hat der Große Garten gewonnen, obwohl seine Karte vor den Inhaltsprofilen die wenigsten
