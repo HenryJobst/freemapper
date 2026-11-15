@@ -7,6 +7,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use geo::BoundingRect as _;
 use geo_types::Coord;
 
 use super::junctions::{Attached, JUNCTION_TAG, Key, key_of};
@@ -14,13 +15,14 @@ use super::lines::{Polyline, beside, middle};
 use super::{GENERALIZED_KEY, MAX_ROUNDS, add_generalized, is_closed, min_length};
 use crate::build::conflicts::{
     Class, Classes, Conflict, Footprints, MIN_CONFLICT, Relation, TOLERANCE_MM, conflicts, gap,
-    meeting_points, relation,
+    meeting_points, rank, relation,
 };
 use crate::build::dedup::{add_also, tag_holds};
 use crate::georef::Georeferencing;
 use crate::measure::SymbolScale;
 use crate::omap::{MapCoord, MapObject, MapObjectKind, SymbolSet};
 use crate::project::MapKind;
+use crate::render::symbols::RenderSymbols;
 
 /// The spacing of the samples of a middle line (mm on paper); [`middle`] simplifies them with a
 /// quarter of it.
@@ -59,9 +61,10 @@ pub(super) struct Merged {
 
 /// Merges what is alike among `objects`. On a forest map first a path (505 to 507 and the
 /// aliases of the path class) or a tram (a railway whose `freemapper:osm` holds [`OSM_TRAM`])
-/// whose centre line runs in the gap zone of a road (within both half widths and the gap of the
-/// road's centre line, the zone of a Joined conflict: a sidewalk or cycleway, which ISOM does
-/// not map apart from the road) over more than half its length goes, else its stretches inside
+/// whose centre line runs in the gap zone of a road (the zone of a Joined conflict: the drawn
+/// footprint of the one of them that stays, grown by the half width of the one that gives way
+/// and the gap; a sidewalk or cycleway, which ISOM does not map apart from the road) over more
+/// than half its length goes, else its stretches inside
 /// are cut out (stretches of at least [`MIN_CONFLICT`], the places
 /// where the centre lines cross left out; pieces below their minimum length go, and the end of
 /// a piece next to the road is drawn onto the road's centre line). On a sprint map the street
@@ -77,7 +80,9 @@ pub(super) struct Merged {
 /// tags of the longer one, the other's source and id in `freemapper:also` and `freemapper:
 /// generalized` [`MERGED`] with that id; it keeps its own junction key. Closed lines and lines
 /// of several parts do not merge. An object merges once per round; the rounds stop when none
-/// merges, at the latest after [`MAX_ROUNDS`].
+/// merges, at the latest after [`MAX_ROUNDS`]. When a pair merged, the rule for paths and trams
+/// in the gap zone of a road runs once more on a forest map, against the merged roads: a
+/// merged road lies where neither of its two lay before.
 pub(super) fn merge(
     objects: &mut Vec<MapObject>,
     classes: &Classes,
@@ -96,7 +101,27 @@ pub(super) fn merge(
         }
         merged.merged += n;
     }
+    if kind == MapKind::Forest && merged.merged > 0 {
+        inside_roads(objects, classes, kind, georef, symbol_set, &mut merged);
+    }
     merged
+}
+
+/// How far the symbol `symbol_id` is drawn to either side of a straight centre line (mm on
+/// paper): more than its half width where it has lines beside the centre (502, the casing of a
+/// road), as the conflict measure draws its footprint.
+fn drawn_half(symbol_id: u32, symbols: &RenderSymbols, classes: &Classes) -> f64 {
+    let probe = MapObject {
+        symbol_id,
+        kind: MapObjectKind::Path,
+        coords: vec![MapCoord::new(0, 0), MapCoord::new(10_000, 0)],
+        tags: Vec::new(),
+    };
+    let footprints = Footprints::with(&[&probe], symbols, classes);
+    footprints
+        .footprint(0)
+        .bounding_rect()
+        .map_or(footprints.half_width(0), |r| r.max().y.max(-r.min().y))
 }
 
 /// The centre line of object `i` as one polyline, when it has exactly one part.
@@ -155,6 +180,13 @@ fn inside_roads(
     let gap = gap(kind, scale_denominator).0;
     let refs: Vec<&MapObject> = objects.iter().collect();
     let footprints = Footprints::of_only(&refs, symbol_set, &WAYS);
+    let symbols = RenderSymbols::from_set(symbol_set);
+    let mut drawn: BTreeMap<u32, f64> = BTreeMap::new();
+    let mut drawn_of = |i: usize| -> f64 {
+        *drawn
+            .entry(objects[i].symbol_id)
+            .or_insert_with(|| drawn_half(objects[i].symbol_id, &symbols, classes))
+    };
     // The roads each path or tram is in conflict with.
     let mut roads_of: BTreeMap<usize, BTreeSet<usize>> = BTreeMap::new();
     for c in conflicts(&footprints, kind, scale_denominator) {
@@ -178,19 +210,25 @@ fn inside_roads(
             continue;
         };
         let rider_half = footprints.half_width(rider);
+        let rider_drawn = drawn_of(rider);
+        // The one of lower rank gives way: its half width counts, and the other's drawn
+        // footprint (a path gives way to a road, a road to a tram).
+        let rider_loses = rank(footprints.class(rider)) < rank(Class::Road);
         let mut inside: Vec<(f64, f64)> = Vec::new();
         let mut crossings: Vec<(f64, f64)> = Vec::new();
         // The road the rider lies in longest (of as long, the earlier), and the road lines.
         let mut longest: Option<(f64, usize)> = None;
-        let mut road_lines: Vec<(usize, Polyline)> = Vec::new();
+        let mut road_lines: Vec<(usize, Polyline, f64)> = Vec::new();
         for &road in roads {
             let Some(road_line) = polyline(&footprints, road) else {
                 continue;
             };
-            let road_half = footprints.half_width(road);
-            // The zone of a Joined conflict: the road's footprint grown by the rider's half
-            // width and the gap.
-            let radius = rider_half + road_half + gap;
+            // The zone of a Joined conflict round the centre line of the road.
+            let radius = if rider_loses {
+                rider_half + drawn_of(road) + gap
+            } else {
+                rider_drawn + footprints.half_width(road) + gap
+            };
             let mine = beside(&line, &road_line, radius, 0.0);
             for m in meeting_points(footprints.centre(rider), footprints.centre(road)) {
                 crossings.extend(beside(&line, &Polyline::new(vec![m]), radius, 0.0));
@@ -200,7 +238,7 @@ fn inside_roads(
                 longest = Some((length, road));
             }
             inside.extend(mine);
-            road_lines.push((road, road_line));
+            road_lines.push((road, road_line, radius));
         }
         let mut inside = without(&union(inside), &union(crossings));
         inside.retain(|r| r.1 - r.0 > MIN_CONFLICT.0 + TOLERANCE_MM);
@@ -210,21 +248,23 @@ fn inside_roads(
             continue;
         }
         let object = &objects[rider];
+        // Run again after a merge, a piece cut before is counted once.
+        let cut_before =
+            tag_value(object, GENERALIZED_KEY).is_some_and(|v| tag_holds(v, CUT_INSIDE_ROAD));
         let total = line.length();
         let pieces = if in_road > total / 2.0 + TOLERANCE_MM {
             Vec::new()
         } else {
             let min = min_length(object, classes, symbol_set, scale).0;
-            // A cut end next to a road is drawn onto the road's centre line.
-            let reach = |road_half: f64| rider_half + road_half + gap + TOLERANCE_MM;
+            // A cut end next to a road (in its zone) is drawn onto the road's centre line.
             let onto = |c: Coord<f64>| -> Option<(Coord<f64>, Option<Key>)> {
                 road_lines
                     .iter()
-                    .map(|(road, l)| {
+                    .filter_map(|(road, l, radius)| {
                         let q = l.point(l.locate(c));
-                        (distance(c, q), *road, q)
+                        let d = distance(c, q);
+                        (d <= radius + TOLERANCE_MM).then_some((d, *road, q))
                     })
-                    .filter(|&(d, road, _)| d <= reach(footprints.half_width(road)))
                     .min_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)))
                     .map(|(_, road, q)| (q, key_of(&objects[road])))
             };
@@ -241,7 +281,7 @@ fn inside_roads(
         };
         if pieces.is_empty() {
             out.dropped_beside_roads += 1;
-        } else {
+        } else if !cut_before {
             out.cut += 1;
         }
         if let (Some(from), Some(to)) = (key_of(object), key_of(&objects[road])) {
@@ -891,6 +931,39 @@ mod tests {
         assert_eq!(out, vec![road]);
         assert_eq!(report.dropped_beside_roads, 1, "{report:?}");
         assert_eq!((report.gap_left, report.overlap_left), (0.0, 0.0));
+    }
+
+    #[test]
+    fn a_sidewalk_in_the_drawn_gap_of_a_merged_wide_road_goes() {
+        // Two ways of one 502 carriageway, 0.1 mm apart, merge on their middle. The sidewalk
+        // lies 0.85 and 0.75 mm off them: farther than both half widths and the gap from
+        // either, the zone the rule measured before, but inside the merged road's drawn
+        // casing grown by the sidewalk's half width and the gap, where the measure finds it.
+        let set = isom();
+        let objects = vec![
+            sourced(&set, "502", "way/1", &[(0.0, 0.0), (40.0, 0.0)]),
+            sourced(&set, "502", "way/2", &[(0.0, 0.1), (40.0, 0.1)]),
+            sourced(&set, "505", "way/3", &[(5.0, 0.85), (35.0, 0.85)]),
+        ];
+        let (h502, h505) = (
+            Footprints::of(&[&objects[0]], &set).half_width(0),
+            Footprints::of(&[&objects[2]], &set).half_width(0),
+        );
+        let gap = gap(MapKind::Forest, SCALE).0;
+        assert!(0.75 > h502 + h505 + gap, "outside the half-width zone");
+        let (out, report) = forest(&set, objects);
+        assert_eq!(report.merged, 1, "{report:?}");
+        assert_eq!(
+            of_code(&set, &out, "505"),
+            Vec::<&MapObject>::new(),
+            "{out:?}"
+        );
+        assert_eq!(report.dropped_beside_roads, 1, "{report:?}");
+        assert_eq!(
+            (report.gap_left, report.overlap_left),
+            (0.0, 0.0),
+            "{report:?}"
+        );
     }
 
     #[test]
