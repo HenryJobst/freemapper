@@ -119,6 +119,7 @@ pub fn source(
             what,
             credit,
             note: None,
+            sampled: false,
             layers: keys,
             sections,
             offices: None,
@@ -158,6 +159,7 @@ pub fn gml_source(
             what,
             credit,
             note: None,
+            sampled: false,
             layers: keys,
             sections,
             offices: None,
@@ -242,7 +244,7 @@ pub(crate) fn stored(feature: &Value, reading: Reading) -> Option<Value> {
 
 /// The text of attribute `key`, trimmed; `None` when it is missing, blank or the text "null"
 /// (an ArcGIS server writes that for an empty value).
-fn text(feature: &Value, key: &str) -> Option<String> {
+pub(crate) fn text(feature: &Value, key: &str) -> Option<String> {
     let value = feature.get("properties")?.get(key)?;
     let text = match value {
         Value::String(s) => s.trim().to_string(),
@@ -273,7 +275,7 @@ fn name_case(name: &str) -> String {
 
 /// A zone as the hints name it: a bare "I" or "IIIA" becomes "Schutzzone I"; a text that
 /// already says zone stays.
-fn zone_name(zone: &str) -> String {
+pub(crate) fn zone_name(zone: &str) -> String {
     if zone.to_lowercase().contains("zone") {
         zone.to_string()
     } else {

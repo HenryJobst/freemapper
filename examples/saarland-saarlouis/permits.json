@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "created": "2026-11-14",
+  "created": "2026-11-15",
   "map_kind": "sprint",
   "area_m2": 533625.1357970147,
   "admin": [
@@ -137,14 +137,14 @@
     {
       "id": "vg250",
       "state": "read",
-      "fetched": "2026-11-14",
+      "fetched": "2026-11-15",
       "reason": null,
       "credit": "© BKG (2026) dl-de/by-2-0, Datenquellen: https://sg.geodatenzentrum.de/web_public/gdz/datenquellen/datenquellen_vg_nuts.pdf"
     },
     {
       "id": "bfn",
       "state": "read",
-      "fetched": "2026-11-14",
+      "fetched": "2026-11-15",
       "reason": null,
       "credit": "© Bundesamt für Naturschutz (BfN) (2026), Schutzgebiete in Deutschland; Nutzungsbestimmungen für die Bereitstellung von Geodaten des Bundes (GeoNutzV). Nicht für Planungszwecke geeignet."
     },
@@ -205,7 +205,7 @@
           "status": {
             "id": "forst",
             "state": "read",
-            "fetched": "2026-11-14",
+            "fetched": "2026-11-15",
             "reason": null,
             "credit": "Quellenvermerk: © GDI-SL (2026); Lizenz: Creative Commons Namensnennung 4.0 International (CC BY 4.0)"
           }
@@ -230,7 +230,7 @@
           "status": {
             "id": "schutzgebiete",
             "state": "read",
-            "fetched": "2026-11-14",
+            "fetched": "2026-11-15",
             "reason": null,
             "credit": "Quellenvermerk: © GDI-SL (2026); Lizenz: Creative Commons Namensnennung 4.0 International (CC BY 4.0)"
           }
@@ -254,7 +254,7 @@
           "status": {
             "id": "denkmale",
             "state": "read",
-            "fetched": "2026-11-14",
+            "fetched": "2026-11-15",
             "reason": null,
             "credit": "Quellenvermerk: © GDI-SL (2026); Lizenz: Creative Commons Namensnennung 4.0 International (CC BY 4.0)"
           }

@@ -1938,6 +1938,7 @@ mod tests {
             },
             credit: "dl-de/zero-2-0".into(),
             note: None,
+            sampled: false,
             sections: vec![section],
             offices: None,
         }

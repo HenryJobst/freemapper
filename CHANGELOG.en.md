@@ -8,6 +8,8 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ### Added
 
+- Permit notes: drinking water and medicinal spring protection areas of the Bundesanstalt für Gewässerkunde (BfG, WasserBLIcK, CC BY 4.0) for Bavaria, Lower Saxony, Bremen, Mecklenburg-Vorpommern, Rhineland-Palatinate, Saxony-Anhalt and Saxony (ADR 0142). These are the areas the states report to the BfG, with their names but without zones. The pieces of one area, often one per zone, are joined into one. Names from Lower Saxony that the service garbles ("BÃ¶rÃŸum") are written right in the notes ("Börßum"). The examples of these seven states have new notes. The BfG has no data for Baden-Württemberg either.
+- Permit notes for Saxony (ADR 0139): the Forstbezirk and the Revier of the Staatsbetrieb Sachsenforst, Erholungswald, Naturwaldzellen, Bodenschutzwald and the drinking water protection zones in the forest, from two map services of Sachsenforst (dl-de/by-2-0, "Geodaten Sachsenforst"). A Revier is in charge in the state forest, the lower forest authority of the Landkreis for other forest; the notes say so. The services answer only for single points, so freemapper asks at up to 25 points over the map, up to 50 requests. The notes then say that the shares are estimates and that something between the points can be missing, and for an empty section they do not say "no water protection area" but that nothing is named at the points asked. The examples Bastei and Bautzen have new notes.
 - Permit notes for Schleswig-Holstein (ADR 0137): the state forest with its Revier of the Schleswig-Holsteinische Landesforsten, the Naturwald and the water protection areas with their zone, from the Umweltportal of the Landesamt für Umwelt (CC BY 4.0). The service answers GML only; the table source now reads such services too. Names a service writes in capitals ("HÜTTEN") are written as names in the notes ("Hütten").
 
 ### Changed
@@ -17,6 +19,7 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ### Fixed
 
+- Permit notes: the table of sources showed the placeholder `{year}` instead of the year of the fetch for the services of Saarland. It shows the year now, for the BfG too. The two Saarland examples are made again.
 - A folder adapter that names a built-in raster backend (`backend = "lgb"` and the like) got no orthophoto, terrain model or surface model in the download estimate. The built-in backends now estimate their rasters themselves, with the same numbers as the states. The estimates of the built-in states stay as they are (issue #71).
 
 ## [0.20.0] - 2026-11-14

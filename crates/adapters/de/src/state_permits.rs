@@ -506,6 +506,11 @@ mod tests {
                 "umwelt",
                 [9.55, 54.25, 9.75, 54.45],
             ),
+            // The Dresdner Heide, asked at 25 points (ADR 0139).
+            (State::Saxony, "sachsenforst", [13.80, 51.05, 13.83, 51.07]),
+            // The BfG's protection areas (ADR 0142): Bad Harzburg, Nürnberg.
+            (State::Niedersachsen, "bfg", [10.40, 51.85, 10.60, 51.95]),
+            (State::Bayern, "bfg", [11.00, 49.40, 11.20, 49.50]),
             // The shapefiles of ADR 0131: about 4 and 15 MB.
             (
                 State::Brandenburg,

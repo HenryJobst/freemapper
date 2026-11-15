@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "created": "2026-11-14",
+  "created": "2026-11-15",
   "map_kind": "sprint",
   "area_m2": 480316.1290444447,
   "admin": [
@@ -58,9 +58,25 @@
   ],
   "hints": [
     {
+      "key": "permits-hint-forest-office",
+      "args": {
+        "administration": "Staatsbetrieb Sachsenforst",
+        "office": "Forstbezirk Neustadt",
+        "units": "Revier Bautzen"
+      }
+    },
+    {
+      "key": "permits-hint-forest-office",
+      "args": {
+        "administration": "Staatsbetrieb Sachsenforst",
+        "office": "Forstbezirk Oberlausitz",
+        "units": "Revier Malschwitz"
+      }
+    },
+    {
       "key": "permits-hint-forest-owner",
       "args": {
-        "office": "unknown"
+        "office": "known"
       }
     },
     {
@@ -86,14 +102,14 @@
     {
       "id": "vg250",
       "state": "read",
-      "fetched": "2026-11-14",
+      "fetched": "2026-11-15",
       "reason": null,
       "credit": "© BKG (2026) dl-de/by-2-0, Datenquellen: https://sg.geodatenzentrum.de/web_public/gdz/datenquellen/datenquellen_vg_nuts.pdf"
     },
     {
       "id": "bfn",
       "state": "read",
-      "fetched": "2026-11-14",
+      "fetched": "2026-11-15",
       "reason": null,
       "credit": "© Bundesamt für Naturschutz (BfN) (2026), Schutzgebiete in Deutschland; Nutzungsbestimmungen für die Bereitstellung von Geodaten des Bundes (GeoNutzV). Nicht für Planungszwecke geeignet."
     },
@@ -103,6 +119,87 @@
       "fetched": "2026-11-06",
       "reason": null,
       "credit": "© OpenStreetMap contributors, ODbL"
+    }
+  ],
+  "regional": [
+    {
+      "adapter": "saxony",
+      "forest_units": [
+        {
+          "item": {
+            "administration": "Staatsbetrieb Sachsenforst",
+            "office": "Forstbezirk Neustadt",
+            "unit": "Revier Bautzen"
+          },
+          "percent": 75.0,
+          "at_edge": false
+        },
+        {
+          "item": {
+            "administration": "Staatsbetrieb Sachsenforst",
+            "office": "Forstbezirk Oberlausitz",
+            "unit": "Revier Malschwitz"
+          },
+          "percent": 25.0,
+          "at_edge": false
+        }
+      ],
+      "water_protection": [],
+      "forest_functions": [],
+      "sources": [
+        {
+          "source": {
+            "key": "sachsenforst",
+            "label": {
+              "en": "Staatsbetrieb Sachsenforst",
+              "de": "Staatsbetrieb Sachsenforst"
+            },
+            "what": {
+              "en": "Forstbezirke and Reviere (in charge in the state forest; for other forest the lower forest authority of the Landkreis), Erholungswald, Naturwaldzellen, Bodenschutzwald, drinking water protection zones in the forest",
+              "de": "Forstbezirke und Reviere (zuständig im Staatswald; für anderen Wald die untere Forstbehörde des Landkreises), Erholungswald, Naturwaldzellen, Bodenschutzwald, Trinkwasserschutzzonen im Wald"
+            },
+            "credit": "Datenlizenz Deutschland 2.0 – Namensnennung (dl-de/by-2-0) unter Angabe der Quelle: \"Geodaten Sachsenforst\"",
+            "sampled": true,
+            "sections": [
+              "forest-units",
+              "forest-functions",
+              "water-protection"
+            ]
+          },
+          "status": {
+            "id": "sachsenforst",
+            "state": "read",
+            "fetched": "2026-11-15",
+            "reason": null,
+            "credit": "Datenlizenz Deutschland 2.0 – Namensnennung (dl-de/by-2-0) unter Angabe der Quelle: \"Geodaten Sachsenforst\""
+          }
+        },
+        {
+          "source": {
+            "key": "bfg",
+            "label": {
+              "en": "Bundesanstalt für Gewässerkunde",
+              "de": "Bundesanstalt für Gewässerkunde"
+            },
+            "what": {
+              "en": "drinking water and medicinal spring protection areas from WasserBLIcK, without their zones",
+              "de": "Trinkwasser- und Heilquellenschutzgebiete aus WasserBLIcK, ohne Schutzzonen"
+            },
+            "credit": "© WasserBLIcK/BfG und Zuständige Behörden der Länder, {year}; Lizenz: Creative Commons Namensnennung – 4.0 International (CC BY 4.0)",
+            "note": "Die bundesweite Flächendeckung des Datenbestandes ist nicht in jedem Fall gewährleistet.",
+            "sections": [
+              "water-protection"
+            ]
+          },
+          "status": {
+            "id": "bfg",
+            "state": "read",
+            "fetched": "2026-11-15",
+            "reason": null,
+            "credit": "© WasserBLIcK/BfG und Zuständige Behörden der Länder, 2026; Lizenz: Creative Commons Namensnennung – 4.0 International (CC BY 4.0)"
+          }
+        }
+      ]
     }
   ]
 }

@@ -1258,6 +1258,7 @@ mod tests {
                 what: Wording { en: key, de: key },
                 credit: "open",
                 note: None,
+                sampled: false,
                 layers: &["all"],
                 sections: &[PermitSection::Districts],
                 offices: None,
