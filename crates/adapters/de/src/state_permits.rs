@@ -560,6 +560,17 @@ mod tests {
                 [7.80, 47.97, 7.88, 48.02],
             ),
             (State::Hessen, "biotope", [8.73, 50.78, 8.80, 50.83]),
+            // Trier (ADR 0146, addendum).
+            (
+                State::RheinlandPfalz,
+                "naturdenkmale",
+                [6.55, 49.70, 6.75, 49.80],
+            ),
+            (
+                State::RheinlandPfalz,
+                "landschaftsbestandteile",
+                [6.55, 49.70, 6.75, 49.80],
+            ),
             // Göttingen, through ArcGIS REST (ADR 0148).
             (
                 State::Niedersachsen,
