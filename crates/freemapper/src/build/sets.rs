@@ -11,10 +11,11 @@ use crate::build::assembly::Layer;
 use crate::build::candidates::{Rules, Target, osm_objects};
 use crate::build::content::CANDIDATE_ONLY_KEY;
 use crate::build::tagged;
-use crate::crs::Crs;
+use crate::crs::{Crs, LatLon};
 use crate::georef::{GeorefError, Georeferencing};
 use crate::omap::{MapObject, SymbolSet};
 use crate::project::MapKind;
+use crate::sources::osm::{OsmFeature, OsmGeometry};
 
 /// The drawings of the sets, by the prefix of their sources, from the registry of the run: the
 /// sets the engine draws through them and those it still draws by its own code (Berlin).
@@ -120,12 +121,15 @@ pub fn set_objects(
             continue;
         }
         let source = set.source(&layer.name);
-        let tagged = tagged::tagged_features(
-            &source,
-            &layer.features,
-            set.crs,
-            tagged::PointOn::Centroid,
-            |feature| feature_tags(set.drawing.tag_prefix, &layer.name, feature),
+        let tagged = with_line_middles(
+            tagged::tagged_features(
+                &source,
+                &layer.features,
+                set.crs,
+                tagged::PointOn::Centroid,
+                |feature| feature_tags(set.drawing.tag_prefix, &layer.name, feature),
+            ),
+            set.drawing,
         );
         let mut drawn = osm_objects(
             &tagged,
@@ -149,6 +153,53 @@ pub fn set_objects(
         objects.extend(drawn);
     }
     Ok(objects)
+}
+
+/// `tagged` and, for each line among them of a type `drawing` names in `line_middles`, a point at
+/// the middle of the line's extent with the same tags plus `<prefix>:point=middle`. A rule
+/// that draws the line skips the point by that tag.
+pub(crate) fn with_line_middles(
+    mut tagged: Vec<OsmFeature>,
+    drawing: &SetDrawing,
+) -> Vec<OsmFeature> {
+    let middles: Vec<OsmFeature> = tagged
+        .iter()
+        .filter_map(|f| {
+            let OsmGeometry::Line(points) = &f.geometry else {
+                return None;
+            };
+            if !f.tags.iter().any(|(k, v)| {
+                drawing
+                    .line_middles
+                    .iter()
+                    .any(|(key, value)| k == key && v == value)
+            }) {
+                return None;
+            }
+            let (min_lat, max_lat) = points.iter().fold((f64::MAX, f64::MIN), |(a, b), p| {
+                (a.min(p.lat), b.max(p.lat))
+            });
+            let (min_lon, max_lon) = points.iter().fold((f64::MAX, f64::MIN), |(a, b), p| {
+                (a.min(p.lon), b.max(p.lon))
+            });
+            let mut tags = f.tags.clone();
+            tags.push((
+                format!("{}:point", drawing.tag_prefix),
+                "middle".to_string(),
+            ));
+            tags.sort();
+            Some(OsmFeature {
+                id: f.id.clone(),
+                tags,
+                geometry: OsmGeometry::Point(LatLon {
+                    lat: (min_lat + max_lat) / 2.0,
+                    lon: (min_lon + max_lon) / 2.0,
+                }),
+            })
+        })
+        .collect();
+    tagged.extend(middles);
+    tagged
 }
 
 /// `<prefix>:layer=<layer>` and `<prefix>:<property>` for every text and number property.
@@ -304,5 +355,44 @@ mod tests {
         let berlin = drawing_of_source("geoportal-berlin/bauwerke-linien").unwrap();
         assert!(berlin.rules.contains("berlin:layer=bauwerke-linien"));
         assert!(Rules::from_toml(berlin.rules).is_ok());
+    }
+
+    /// A line of a type a set names in `line_middles` gives a point at the middle of its extent
+    /// too, tagged `<prefix>:point=middle` (Berlin's surveyed benches, ADR 0149).
+    #[test]
+    fn a_named_line_gives_a_point_at_its_middle() {
+        use crate::crs::LatLon;
+        use crate::sources::osm::{OsmFeature, OsmGeometry};
+        let berlin = drawing_of_source("geoportal-berlin/sb-moebel").unwrap();
+        assert!(
+            berlin
+                .line_middles
+                .contains(&("berlin:layer", "bj_sitzbank"))
+        );
+        let line = |layer: &str| OsmFeature {
+            id: "berlin/sb-moebel/1".to_string(),
+            tags: vec![("berlin:layer".to_string(), layer.to_string())],
+            geometry: OsmGeometry::Line(vec![
+                LatLon {
+                    lat: 52.0,
+                    lon: 13.0,
+                },
+                LatLon {
+                    lat: 52.0002,
+                    lon: 13.0004,
+                },
+            ]),
+        };
+        let out = with_line_middles(vec![line("bj_sitzbank"), line("av_poller")], berlin);
+        assert_eq!(out.len(), 3);
+        let OsmGeometry::Point(middle) = &out[2].geometry else {
+            panic!("{:?}", out[2].geometry)
+        };
+        assert!((middle.lat - 52.0001).abs() < 1e-9 && (middle.lon - 13.0002).abs() < 1e-9);
+        assert!(
+            out[2]
+                .tags
+                .contains(&("berlin:point".to_string(), "middle".to_string()))
+        );
     }
 }

@@ -504,6 +504,8 @@ static DRAWING: SetDrawing = SetDrawing {
     ],
     // The ALKIS bridge decks.
     winning_areas: &[("berlin:layer", "bauwerke-flaechen")],
+    // A surveyed bench is a line; a sprint map takes it as a control site, a point at its middle.
+    line_middles: &[("berlin:layer", "bj_sitzbank")],
     stair_layers: &[],
     candidate_layers: &[],
     generic: false,

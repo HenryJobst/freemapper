@@ -96,3 +96,10 @@ is rebuilt with the same objects.
 Berlin's candidate rules moved from `assets/rules/berlin-candidates.toml` into its adapter
 (`crates/adapters/de/rules/berlin.toml`, `SetDrawing::rules`); `Rules::berlin()` reads them from Berlin's set. The
 output is unchanged (G3/G4).
+
+## Addendum 2026-11-15: points at the middle of lines (step 4a)
+
+The first of Berlin's own processing steps became a generic one steered by data: a set names in `line_middles` the
+lines that give a point at the middle of their extent too, tagged `<prefix>:point=middle` (Berlin's surveyed benches,
+lines that a sprint map takes as control sites). `build/sets.rs::with_line_middles` does it for every set; Berlin's
+code calls it. Output unchanged (G3/G4).
