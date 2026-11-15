@@ -506,6 +506,8 @@ static DRAWING: SetDrawing = SetDrawing {
     winning_areas: &[("berlin:layer", "bauwerke-flaechen")],
     // A surveyed bench is a line; a sprint map takes it as a control site, a point at its middle.
     line_middles: &[("berlin:layer", "bj_sitzbank")],
+    // The survey runs a kerb around each tree pit in a parking strip.
+    notch_free_layers: &["sb-bordstein"],
     stair_layers: &[],
     candidate_layers: &[],
     generic: false,
