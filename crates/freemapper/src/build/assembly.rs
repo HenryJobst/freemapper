@@ -954,8 +954,8 @@ impl Built {
         for (list, added) in [&mut map, &mut candidates].into_iter().zip(borders) {
             list.extend(added);
         }
-        // The last step on the lines: the ticks of fences point to the olive green area beside them,
-        // those of earth banks down the slope (`build/ticks.rs`).
+        // The last step on the lines: the ticks of fences follow what lies beside them, those of
+        // earth banks down the slope (`build/ticks.rs`).
         orient_ticks(
             &mut [&mut map, &mut candidates],
             self.terrain.as_ref().as_ref(),
