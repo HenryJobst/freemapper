@@ -13,6 +13,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 - Das Bild oben in der README und die Vorschau des Viktoriapark-Beispiels zeigen jetzt die Trainingskarte statt des Prüfausdrucks; das Beispiel hat dazu `berlin-viktoriapark-training.omap` und `berlin-viktoriapark-training.pdf`. Der Prüfausdruck bleibt daneben verlinkt. Die übrigen Beispiele folgen nach der zweiten Hälfte der Trainingskarte.
 - freemapper nutzt freemapper-core v0.28.0, das wie die ganze Suite unter AGPL-3.0-or-later steht (ADR 0152); am Verhalten ändert sich nichts.
 - Die CI prüft die Abhängigkeiten mit `cargo deny` (`deny.toml`, ADR 0154): Lizenzen, die zur AGPL passen, bekannte Sicherheitslücken und nicht mehr gepflegte Crates, und dass alles von crates.io oder freemapper-core kommt. Vier Meldungen sind mit Begründung ausgenommen: zwei betreffen Teile von rmcp, die freemapper nicht baut, zwei nicht mehr gepflegte Crates ohne Ersatz (ttf-parser, basic-toml nur beim Bauen).
+- freemapper nutzt freemapper-core v0.29.0, das Schriften mit skrifa statt mit dem nicht mehr gepflegten ttf-parser liest; die PDFs bleiben byte-gleich. Die Ausnahme für ttf-parser in `deny.toml` entfällt (ADR 0154, Nachtrag).
 
 ### Hinzugefügt
 
