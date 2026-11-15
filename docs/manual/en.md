@@ -898,7 +898,7 @@ map", for the AI assistant `training`. Scale bar and source lines work as for th
 
 An existing training map stays, because you may have edited it. `run --training` then says "Kept the training map …
 (it may contain your work); --force replaces it" and goes on; `export --training` stops with a message. `--force`
-writes it again; the old one stays as `<name>-training.omap.bak`.
+writes it again and replaces the base map too; the old files stay as `.omap.bak`.
 
 What the training map does differently from the map, step by step:
 
@@ -918,11 +918,14 @@ What the training map does differently from the map, step by step:
    fence or another point moves to the nearest free spot, at most 1.5 mm on paper (6 m at 1:4000, 15 m at
    1:10 000), but never into olive green. Of two points the smaller moves. It then carries `freemapper:moved`. If it
    finds no spot, it stays where it is and goes in step 6 if it is too close to another symbol there. Trees on
-   streets and squares stay where they are.
+   streets and squares stay where they are. Knolls, depressions, pits and springs never move, because the contours
+   and the stream fix their place; the other points keep the gap to them.
 6. Where two symbols cover each other or come closer than the norm's gap (0.15 mm between two lines, enlarged like
    the symbols), the one with the lower rank gives way. The rank falls from buildings through water, railways,
    roads, paths, watercourses and stairs, fences, walls and cliffs, banks and contours down to the points. The
-   stretch is cut out, crossings stay. If more than half of an object is in conflict, it goes whole. Contours run
+   stretch is cut out, crossings stay. If more than half of an object is in conflict, it goes whole; a stretch
+   close to two symbols counts once. Walls and impassable fences are only cut, never left out whole, because a
+   runner meets them in the terrain. Contours run
    through buildings and ways and give way only to banks and cliffs. A fence or wall along a stair stays: the norm
    draws it with the stair.
 7. What is below the norm's minimum size goes: short pieces of line, stairs under three steps (1 mm) and small areas
@@ -937,9 +940,12 @@ Carriageways, tracks and paths running side by side still stand side by side in 
 stay. Merging them onto a middle line, shifting lines and a colour of its own for the carriageway come later. If
 objects still keep too little gap after all steps, a warning gives the length in mm; look at those places in OOM.
 
-Do not map on the training map. What it moves or leaves out is in the base map and the candidates,
-true to position. Correct it there and write the training map again with `--force`. Its uncertain objects come from
-the candidates; check the course in the terrain before an event, best with the check print.
+Do not map on the training map. freemapper builds it from the downloaded data and the content settings, not from
+the `.omap` files, so corrections you make in OpenOrienteering Mapper never reach it. What it moves or leaves out
+is in the base map and the candidates, true to position. To write only the training map again, delete
+`<name>-training.omap` (with `--ocad` also `ocad/<name>-training.ocd`) and call `run --training` without `--force`;
+the PDF is written again with it. `--force` replaces the base map as well. The uncertain objects of the training map
+come from the candidates; check the course in the terrain before an event, best with the check print.
 
 ## 11. OCAD
 
@@ -1536,8 +1542,9 @@ allowed hosts per state, and `freemapper adapters disallow-host hessen new-serve
   It only updates the templates and candidates. If buildings or canopies are missing from the map,
   freemapper tells you.
 - **Write it again:** `--force` replaces the map. The old one is kept as `.omap.bak`.
-- **Training map:** it too stays as it is on another `run --training`. After changes to the map or the candidates,
-  `run --training --force` writes it again; that replaces the map as well (chapter 10).
+- **Training map:** it too stays as it is on another `run --training`. freemapper builds it from the data, so your
+  corrections in OOM do not reach it. To write only the training map again, delete `<name>-training.omap` and call
+  `run --training`. `run --training --force` replaces the base map as well (chapter 10).
 - **Water in an older map:** a map made before this version has no water yet. Running `run` again does
   not add it. Only `run --force` writes the map again, with water, as for all other map objects. The old
   map is kept as `.omap.bak`, the OCAD map as `.ocd.bak`. Every `run` renews the candidates and the

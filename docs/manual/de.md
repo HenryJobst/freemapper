@@ -934,7 +934,8 @@ anderen PDFs.
 
 Eine vorhandene Trainingskarte bleibt, denn Sie könnten sie bearbeitet haben. `run --training` meldet dann
 „Trainingskarte … behalten (sie kann Ihre Arbeit enthalten); --force ersetzt sie“ und läuft weiter,
-`export --training` bricht mit einer Meldung ab. `--force` schreibt sie neu; die alte bleibt als `<name>-training.omap.bak`.
+`export --training` bricht mit einer Meldung ab. `--force` schreibt sie neu und ersetzt auch die Grundkarte; die alten
+Dateien bleiben als `.omap.bak`.
 
 Was die Trainingskarte anders macht als die Karte, Schritt für Schritt:
 
@@ -955,12 +956,15 @@ Was die Trainingskarte anders macht als die Karte, Schritt für Schritt:
    einem Zaun oder einem anderen Punkt zu nahe kommt, rückt auf den nächsten freien Platz, höchstens 1,5 mm auf dem
    Papier (6 m bei 1:4000, 15 m bei 1:10 000), aber nie in olivgrüne Flächen. Von zwei Punkten rückt der kleinere.
    Er trägt dann `freemapper:moved`. Findet er keinen Platz, bleibt er stehen und entfällt in Schritt 6, wenn er
-   dort einem anderen Symbol zu nahe kommt. Bäume auf Straßen und Plätzen bleiben stehen.
+   dort einem anderen Symbol zu nahe kommt. Bäume auf Straßen und Plätzen bleiben stehen. Kuppen, Senken, Gruben
+   und Quellen rücken nie, denn ihren Platz legen die Höhenlinien und der Bach fest; die anderen Punkte halten Abstand
+   zu ihnen.
 6. Wo sich zwei Symbole überdecken oder einander näher kommen als der Abstand der Norm (0,15 mm zwischen zwei Linien,
    vergrößert wie die Symbole), weicht das mit dem niedrigeren Rang. Der Rang fällt von Gebäude über Gewässer, Bahn,
    Straße, Weg, Wasserlauf und Treppe, Zaun, Mauer und Felswand, Böschung und Höhenlinie bis zu den Punkten. Das
    Stück wird ausgeschnitten, Kreuzungen bleiben. Liegt mehr als die Hälfte eines Objekts im Konflikt, entfällt es
-   ganz. Höhenlinien laufen durch Gebäude und Wege und weichen nur Böschungen und Felswänden. Ein Zaun oder eine
+   ganz; ein Stück nahe an zwei Symbolen zählt einmal. Mauern und unüberwindbare Zäune werden nur geschnitten, nie
+   ganz weggelassen, denn ein Läufer trifft sie im Gelände an. Höhenlinien laufen durch Gebäude und Wege und weichen nur Böschungen und Felswänden. Ein Zaun oder eine
    Mauer entlang einer Treppe bleibt: Die Norm zeichnet sie mit der Treppe.
 7. Was unter der Mindestgröße der Norm liegt, entfällt: kurze Linienstücke, Treppen unter drei Stufen (1 mm) und
    kleine Flächen von offenem Gelände, Wald und Grün. Ein kurzes Stück, das an einer Linie seiner Art endet, die
@@ -977,10 +981,13 @@ Bordsteine bleiben. Das Zusammenlegen auf eine Mittellinie, das Verschieben von 
 Fahrbahn kommen später. Halten nach allen Schritten noch Objekte zu wenig Abstand, nennt eine Warnung die Länge in mm;
 schauen Sie sich diese Stellen in OOM an.
 
-Kartieren Sie nicht in der Trainingskarte. Was sie verschiebt oder weglässt, steht lagetreu in der
-Grundkarte und den Kandidaten. Korrigieren Sie dort und erzeugen Sie die Trainingskarte mit `--force` neu. Ihre
-unsicheren Objekte kommen aus den Kandidaten; prüfen Sie die Strecke vor einem Lauf im Gelände, am besten mit dem
-Prüfausdruck.
+Kartieren Sie nicht in der Trainingskarte. freemapper baut sie aus den heruntergeladenen Daten und den
+Inhaltseinstellungen, nicht aus den `.omap`-Dateien; was Sie in OpenOrienteering Mapper korrigieren, kommt nie in
+sie hinein. Was sie verschiebt oder weglässt, steht lagetreu in der Grundkarte und den Kandidaten. Um nur die
+Trainingskarte neu zu schreiben, löschen Sie `<name>-training.omap` (mit `--ocad` auch `ocad/<name>-training.ocd`)
+und rufen `run --training` ohne `--force` auf; das PDF entsteht dabei neu. `--force` ersetzt auch die Grundkarte. Die
+unsicheren Objekte der Trainingskarte kommen aus den Kandidaten; prüfen Sie die Strecke vor einem Lauf im Gelände, am
+besten mit dem Prüfausdruck.
 
 ## 11. OCAD
 
@@ -1606,8 +1613,10 @@ adapters disallow-host hessen neuer-server.hessen.de` nimmt einen zurück.
   nicht. Es aktualisiert nur die Vorlagen und die Kandidaten. Fehlen in der Karte Gebäude oder
   Überdachungen, weist freemapper darauf hin.
 - **Neu schreiben:** `--force` ersetzt die Karte. Die alte bleibt als `.omap.bak` erhalten.
-- **Trainingskarte:** Auch sie bleibt bei einem erneuten `run --training`, wie sie ist. Nach Änderungen an Karte oder
-  Kandidaten schreibt `run --training --force` sie neu; das ersetzt auch die Karte (Kapitel 10).
+- **Trainingskarte:** Auch sie bleibt bei einem erneuten `run --training`, wie sie ist. freemapper baut sie aus den
+  Daten, Ihre Korrekturen in OOM kommen also nicht in sie hinein. Um nur die Trainingskarte neu zu schreiben, löschen
+  Sie `<name>-training.omap` und rufen `run --training` auf. `run --training --force` ersetzt auch die Grundkarte
+  (Kapitel 10).
 - **Gewässer in einer älteren Karte:** Eine Karte, die vor dieser Version entstanden ist, enthält noch
   keine Gewässer. Ein erneutes `run` trägt sie nicht nach. Erst `run --force` schreibt die Karte neu,
   mit Gewässern, wie bei allen anderen Kartenobjekten. Die alte Karte bleibt als `.omap.bak` erhalten,
