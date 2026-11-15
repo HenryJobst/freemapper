@@ -13,79 +13,79 @@ type = "Polygon"
 
 [buildings]
 bbox = [655343.0, 5479504.0, 656766.0, 5480640.0]
-fetched = "2026-11-14"
+fetched = "2026-11-15"
 latest_update = "2026-06-30"
 count = 150
 regions = ["bayern"]
 
 [land_use]
 bbox = [655343.0, 5479504.0, 656766.0, 5480640.0]
-fetched = "2026-11-14"
+fetched = "2026-11-15"
 latest_update = "2026-07-29"
 count = 124
 regions = ["bayern"]
 
 [nas_layers.dlm-bauwerk]
 bbox = [655343.0, 5479504.0, 656766.0, 5480640.0]
-fetched = "2026-11-14"
+fetched = "2026-11-15"
 latest_update = "2026-05-21"
 count = 6
 regions = ["bayern"]
 
 [nas_layers.dlm-damm]
 bbox = [655343.0, 5479504.0, 656766.0, 5480640.0]
-fetched = "2026-11-14"
+fetched = "2026-11-15"
 count = 0
 regions = ["bayern"]
 
 [nas_layers.dlm-fahrweg]
 bbox = [655343.0, 5479504.0, 656766.0, 5480640.0]
-fetched = "2026-11-14"
+fetched = "2026-11-15"
 latest_update = "2026-05-21"
 count = 36
 regions = ["bayern"]
 
 [nas_layers.dlm-felsen]
 bbox = [655343.0, 5479504.0, 656766.0, 5480640.0]
-fetched = "2026-11-14"
+fetched = "2026-11-15"
 count = 0
 regions = ["bayern"]
 
 [nas_layers.dlm-gewaesserachse]
 bbox = [655343.0, 5479504.0, 656766.0, 5480640.0]
-fetched = "2026-11-14"
+fetched = "2026-11-15"
 count = 0
 regions = ["bayern"]
 
 [nas_layers.dlm-gewaessermerkmal]
 bbox = [655343.0, 5479504.0, 656766.0, 5480640.0]
-fetched = "2026-11-14"
+fetched = "2026-11-15"
 count = 0
 regions = ["bayern"]
 
 [nas_layers.dlm-hoehle]
 bbox = [655343.0, 5479504.0, 656766.0, 5480640.0]
-fetched = "2026-11-14"
+fetched = "2026-11-15"
 count = 0
 regions = ["bayern"]
 
 [nas_layers.dlm-turm]
 bbox = [655343.0, 5479504.0, 656766.0, 5480640.0]
-fetched = "2026-11-14"
+fetched = "2026-11-15"
 latest_update = "2023-06-24"
 count = 1
 regions = ["bayern"]
 
 [nas_layers.dlm-vegetation]
 bbox = [655343.0, 5479504.0, 656766.0, 5480640.0]
-fetched = "2026-11-14"
+fetched = "2026-11-15"
 latest_update = "2026-05-21"
 count = 1
 regions = ["bayern"]
 
 [nas_layers.dlm-weg]
 bbox = [655343.0, 5479504.0, 656766.0, 5480640.0]
-fetched = "2026-11-14"
+fetched = "2026-11-15"
 latest_update = "2026-05-21"
 count = 108
 regions = ["bayern"]
@@ -97,15 +97,15 @@ count = 346
 
 [orthophoto]
 flight = "13.06.2025"
-fetched = "2026-11-14"
+fetched = "2026-11-15"
 bbox = [655343.767, 5479504.885, 656765.225, 5480639.459]
 
 [terrain]
-fetched = "2026-11-14"
+fetched = "2026-11-15"
 bbox = [655343.767, 5479504.885, 656765.225, 5480639.459]
 
 [surface]
-fetched = "2026-11-14"
+fetched = "2026-11-15"
 bbox = [655343.767, 5479504.885, 656765.225, 5480639.459]
 date = "2025-06-13"
 

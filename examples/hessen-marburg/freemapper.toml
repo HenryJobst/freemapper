@@ -116,9 +116,9 @@ count = 0
 regions = ["hessen"]
 
 [osm]
-extract = "2026-11-06"
+extract = "2026-11-14"
 area = [50.80685591, 8.76089192, 50.81314409, 8.77510808]
-count = 821
+count = 826
 
 [orthophoto]
 flight = "27.08.2024"

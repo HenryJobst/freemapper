@@ -41,26 +41,26 @@ published = "2025-02-09"
 
 [buildings]
 bbox = [434193.0, 5645451.0, 435607.0, 5646566.0]
-fetched = "2026-11-13"
+fetched = "2026-11-15"
 latest_update = "2025-09-10"
 count = 192
 regions = ["saxony"]
 
 [land_use]
 bbox = [434193.0, 5645451.0, 435607.0, 5646566.0]
-fetched = "2026-11-13"
+fetched = "2026-11-15"
 latest_update = "2025-08-29"
 count = 566
 regions = ["saxony"]
 
 [osm]
-extract = "2026-11-06"
+extract = "2026-11-14"
 area = [50.95705929, 14.06301616, 50.96694071, 14.08298384]
-count = 3002
+count = 3003
 
 [orthophoto]
 flight = "20.03. +  26.03.2024"
-fetched = "2026-11-13"
+fetched = "2026-11-15"
 bbox = [434193.59, 5645451.191, 435606.801, 5646565.326]
 
 [contours]
