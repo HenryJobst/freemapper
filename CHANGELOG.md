@@ -6,6 +6,10 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+### Behoben
+
+- Die Zacken geschlossener Zäune zeigen jetzt immer nach innen. Ein geschlossener Zaun endet in der Kartendatei mit einer Markierung, die freemapper bisher davon abhielt, ihn umzudrehen; ob seine Zacken innen oder außen lagen, hing davon ab, in welcher Richtung die Quelle ihn zeichnete (ADR 0151). Innen liegen sie jetzt auch bei einem Zaun, dessen Enden bis auf 3 m aneinanderstoßen, und bei einem, der um eine Fläche herumführt, etwa drei Seiten eines Grundstücks oder ein Bogen um eine Laufbahn; das gilt vor der olivgrünen Fläche daneben. Am Viktoriapark betrifft das zwei geschlossene Zäune, einen fast geschlossenen um einen Platz und die Zäune um den Sportplatz.
+
 ## [0.22.0] - 2026-11-15
 
 ### Hinzugefügt

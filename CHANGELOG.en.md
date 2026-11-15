@@ -6,6 +6,10 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
+### Fixed
+
+- The ticks of closed fences now always point inside. A closed fence ends in the map file with a mark that kept freemapper from turning it, so whether its ticks lay inside or outside depended on the direction the source drew it in (ADR 0151). They now also lie inside on a fence whose ends come within 3 m of each other and on one that runs round an area, such as three sides of a plot or an arc round a running track; this counts before the olive green area beside it. At Viktoriapark this concerns two closed fences, a nearly closed one round a square and the fences round the sports ground.
+
 ## [0.22.0] - 2026-11-15
 
 ### Added

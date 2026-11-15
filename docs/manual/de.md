@@ -861,7 +861,8 @@ freemapper spart das Zeichnen der Grundlage, nicht den Gang ins Gelände. Prüfe
   befestigte Flächen, wie es die ISSprOM 2019-2 (101) verlangt. Unterbrochen sind sie nur an Treppen, an den kleinen
   Geländeformen (105, 109 bis 112, 115; auf Waldkarten nicht am Erdwall 105), unter gezeichneten Felswänden und im
   Gewässer aus dem Kataster (ADR 0140).
-- **Zacken der Zäune:** Ein geschlossener Zaun hat sie innen, wie die Norm es will. Sonst zeigen sie zur olivgrünen
+- **Zacken der Zäune:** Ein geschlossener Zaun hat sie innen, wie die Norm es will, ebenso einer, dessen Enden fast
+  aneinanderstoßen oder der um eine Fläche herumführt (drei Seiten eines Grundstücks, ein Bogen um einen Sportplatz). Sonst zeigen sie zur olivgrünen
   Fläche neben dem Zaun, weg von einem Weg, der am Zaun entlangführt, und zum Park. Liegt auf beiden Seiten dieselbe
   Fläche, nimmt freemapper die Seite, auf der die Zacken nichts überdecken.
 

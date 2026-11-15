@@ -6,10 +6,11 @@
 //! sources give the lines in any direction. The last step before the map is written turns them:
 //!
 //! * The side of a fence's ticks follows what lies beside it, the norm first: a closed fence (a
-//!   rectangle, say) has them inside (ISSprOM 2019-2 §516, §518). Else a fence beside an area
-//!   that shall not be entered (520, olive green) has its ticks towards that area, else they
-//!   point away from a road or path running along one side, else towards a park (401) beside
-//!   it. Where none of these decides, the same area lies on both sides: the ticks go to the side
+//!   rectangle, say) has them inside (ISSprOM 2019-2 §516, §518), and so has one whose ends
+//!   nearly meet or that is bent round an area (three sides of a plot, an arc round a sports
+//!   ground). Else a fence beside an area that shall not be entered (520, olive green) has its
+//!   ticks towards that area, else they point away from a road or path running along one side,
+//!   else towards a park (401) beside it. Where none of these decides, the same area lies on both sides: the ticks go to the side
 //!   where they meet no other symbol that keeps its gap to a fence ([`conflicts::relation`]);
 //!   with room on both sides or on neither the fence stays as it is. A decided side stays where
 //!   its ticks overdraw something: turning is no means against overdrawing. A fence of the map
@@ -43,6 +44,16 @@ const MAP_LIST: usize = 0;
 const OLIVE_CODE: &str = "520";
 /// The park.
 const PARK_CODE: &str = "401";
+
+/// A fence whose ends are no farther apart than this (ground metres) and than [`CLOSE_SHARE`] of
+/// its length counts as closed.
+const CLOSE_GAP_M: f64 = 3.0;
+/// See [`CLOSE_GAP_M`].
+const CLOSE_SHARE: f64 = 0.1;
+/// A fence is bent round an area when the area between it and the line joining its ends is at
+/// least this share of its squared length (a right angle of equal legs: 1/8; a half circle:
+/// about 1/20).
+const BEND_SHARE: f64 = 0.04;
 
 /// Distance between the places along a line where the sides are looked at (ground metres).
 const STEP_M: f64 = 2.0;
@@ -98,7 +109,7 @@ pub fn orient_ticks(
 
     let scale = SymbolScale::drawn_with(symbol_set, georef.scale_denominator);
     let grow = (FENCE_TICK_MM + LINE_GAP_MM + NEAR_MM).on_paper(scale).0;
-    // The fences that can be turned and their votes: closed → inside, then olive green.
+    // The fences that can be turned and their votes: closed or bent → inside, then olive green.
     let mut fences: Vec<FenceLine> = Vec::new();
     for (l, list) in lists.iter().enumerate() {
         for (i, object) in list.iter().enumerate() {
@@ -115,11 +126,15 @@ pub fn orient_ticks(
                 .coords
                 .last()
                 .is_some_and(|c| c.flags & FLAG_CLOSE != 0)
-                || line.first() == line.last();
+                || nearly_closed(&line);
             // The norm first: a closed fence has its ticks inside (§516, §518).
             let vote = match closed {
                 true => -signed_area(&line).signum() as i32,
                 false => 0,
+            };
+            let vote = match vote {
+                0 => bend_vote(&line),
+                vote => vote,
             };
             let vote = match vote {
                 0 => area_vote(&samples, &olive),
@@ -497,7 +512,35 @@ fn area_vote(samples: &[Sample], olive: &[Polygon<f64>]) -> i32 {
         .sum()
 }
 
-/// Twice the signed area of a ring (positive when it runs counter-clockwise, north up).
+/// The length of a line (ground metres).
+fn length(line: &[P]) -> f64 {
+    line.windows(2)
+        .map(|w| (w[1].0 - w[0].0).hypot(w[1].1 - w[0].1))
+        .sum()
+}
+
+/// Whether the ends of a line meet or nearly meet ([`CLOSE_GAP_M`], [`CLOSE_SHARE`]).
+fn nearly_closed(line: &[P]) -> bool {
+    let (Some(a), Some(b)) = (line.first(), line.last()) else {
+        return false;
+    };
+    let gap = (b.0 - a.0).hypot(b.1 - a.1);
+    gap <= CLOSE_GAP_M && gap <= CLOSE_SHARE * length(line)
+}
+
+/// The inner side of a line bent round an area ([`BEND_SHARE`]): negative when the area lies on
+/// its left, positive on its right, else 0.
+fn bend_vote(line: &[P]) -> i32 {
+    let area = signed_area(line) / 2.0;
+    let length = length(line);
+    match length > 0.0 && area.abs() >= BEND_SHARE * length * length {
+        true => -area.signum() as i32,
+        false => 0,
+    }
+}
+
+/// Twice the signed area of a ring (positive when it runs counter-clockwise, north up); an open
+/// line is closed from its last point to its first.
 fn signed_area(ring: &[P]) -> f64 {
     (0..ring.len())
         .map(|i| {
@@ -567,23 +610,24 @@ fn turn(object: &mut MapObject) -> bool {
     if !turnable(object) {
         return false;
     }
-    let closed = object
-        .coords
-        .last()
-        .is_some_and(|c| c.flags & FLAG_CLOSE != 0);
+    let end = object.coords.last().map_or(0, |c| c.flags);
     object.coords.reverse();
     for c in &mut object.coords {
         c.flags = 0;
     }
-    if closed && let Some(last) = object.coords.last_mut() {
-        last.flags = FLAG_CLOSE;
+    if let Some(last) = object.coords.last_mut() {
+        last.flags = end;
     }
     true
 }
 
-/// Whether the line has no curves or dashes: only such a line is turned.
+/// Whether the line has no curves, dashes or holes: only such a line is turned. The last point
+/// may close it, also with the hole flag that ends a ring as the map writes it.
 fn turnable(object: &MapObject) -> bool {
-    object.coords.iter().all(|c| c.flags & !FLAG_CLOSE == 0)
+    let Some((last, rest)) = object.coords.split_last() else {
+        return true;
+    };
+    rest.iter().all(|c| c.flags == 0) && last.flags & !(FLAG_CLOSE | FLAG_HOLE) == 0
 }
 
 /// The height model of the project, when it is stored and can be read.
@@ -687,6 +731,69 @@ mod tests {
         assert_ne!(objects[0].coords, ccw.coords);
         assert_eq!(objects[1].coords, cw.coords);
         assert_eq!(objects[0].coords.last().unwrap().flags, FLAG_CLOSE);
+    }
+
+    #[test]
+    fn closed_ring_with_hole_flag_has_its_ticks_inside() {
+        let f = fixture(MapKind::Sprint);
+        // A ring as the map writes it ends with close and hole (18); it turns all the same.
+        let mut ccw = path(
+            &f,
+            "518",
+            &[(0.0, 0.0), (20.0, 0.0), (20.0, 20.0), (0.0, 20.0)],
+        );
+        ccw.coords.last_mut().unwrap().flags = FLAG_CLOSE | FLAG_HOLE;
+        let mut objects = vec![ccw.clone()];
+        assert_eq!(run(&f, &mut objects, None).fences, 1);
+        assert_ne!(objects[0].coords, ccw.coords);
+        assert_eq!(
+            objects[0].coords.last().unwrap().flags,
+            FLAG_CLOSE | FLAG_HOLE
+        );
+        assert!(objects[0].coords[..3].iter().all(|c| c.flags == 0));
+        assert_eq!(run(&f, &mut objects, None), Turned::default());
+    }
+
+    #[test]
+    fn nearly_closed_fence_has_its_ticks_inside() {
+        let f = fixture(MapKind::Sprint);
+        // Counter-clockwise round a 20 m square with a gap of 1.5 m: the inside is on the left.
+        let ccw = path(
+            &f,
+            "518",
+            &[
+                (1.5, 0.0),
+                (20.0, 0.0),
+                (20.0, 20.0),
+                (0.0, 20.0),
+                (0.0, 0.0),
+            ],
+        );
+        let mut objects = vec![ccw.clone()];
+        assert_eq!(run(&f, &mut objects, None).fences, 1);
+        assert_ne!(objects[0].coords, ccw.coords);
+    }
+
+    #[test]
+    fn bent_fence_has_its_ticks_on_its_inner_side() {
+        let f = fixture(MapKind::Sprint);
+        // East, then north: the bend holds the area on its left, so the ticks turn there.
+        let left = path(&f, "518", &[(0.0, 0.0), (30.0, 0.0), (30.0, 30.0)]);
+        let right = path(&f, "518", &[(30.0, 30.0), (30.0, 0.0), (0.0, 0.0)]);
+        let mut objects = vec![left.clone()];
+        assert_eq!(run(&f, &mut objects, None).fences, 1);
+        assert_ne!(objects[0].coords, left.coords);
+        let mut objects = vec![right];
+        assert_eq!(run(&f, &mut objects, None), Turned::default());
+        // Its bend counts before an olive green area outside it.
+        let mut objects = vec![
+            olive(&f, (0.0, -40.0), 39.8),
+            path(&f, "518", &[(0.0, 0.0), (30.0, 0.0), (30.0, 30.0)]),
+        ];
+        assert_eq!(run(&f, &mut objects, None).fences, 1);
+        // A line bent only a little decides nothing by its bend.
+        let mut objects = vec![path(&f, "518", &[(0.0, 0.0), (30.0, 0.0), (60.0, 2.0)])];
+        assert_eq!(run(&f, &mut objects, None), Turned::default());
     }
 
     #[test]
