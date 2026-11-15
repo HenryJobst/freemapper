@@ -29,7 +29,7 @@ use geo_types::{Coord, MultiPolygon, Point, Polygon, Rect};
 use crate::build::candidates::MIN_LINE_MM;
 use crate::build::conflicts::{
     Class, Classes, Conflict, Footprints, Grade, Relation, TOLERANCE_MM, conflicts, gap,
-    meeting_points, rank, relation,
+    length_in_zones, meeting_points, rank, relation,
 };
 use crate::build::dedup::tag_holds;
 use crate::build::geometry::{distance_to_segment, object_polygon, xy};
@@ -339,9 +339,12 @@ fn open_mask(tree_cover: &Raster<f32>, frame: &Rect<f64>) -> Raster<Option<Veget
 
 /// Step 6: every object that keeps no gap to another object it must keep apart from gives way,
 /// both grades (the training map keeps every gap). Losers go by ascending rank; a line with more
-/// than half its length in conflict, a point and an area go whole, any other line is cut where it
-/// is in conflict. A loser whose winner gives way itself in the round waits for the next round,
-/// which measures again. Returns how many objects were dropped and how many cut.
+/// than half its length in conflict (the zones of all its winners together, a stretch near two
+/// counted once), a point and an area go whole, any other line is cut where it is in conflict.
+/// Walls and impassable fences ([`KEPT_BARRIER_CODES`]) are always cut, never dropped whole: a
+/// missing barrier changes the route choice. Pieces below the minimum length go in either case.
+/// A loser whose winner gives way itself in the round waits for the next round, which measures
+/// again. Returns how many objects were dropped and how many cut.
 fn give_way(
     objects: &mut Vec<MapObject>,
     classes: &Classes,
@@ -394,13 +397,19 @@ fn give_way(
         let mut replaced: BTreeMap<usize, Vec<MapObject>> = BTreeMap::new();
         for loser in ready {
             let mine = &by_loser[&loser];
+            let object = &objects[loser];
+            let winners: Vec<usize> = mine.iter().map(|c| c.winner).collect();
             let total = footprints.length(loser);
-            let in_conflict: f64 = mine.iter().map(|c| c.length.0).sum();
-            let pieces = if total <= 0.0 || in_conflict > total / 2.0 + TOLERANCE_MM {
+            let mostly = || {
+                let in_conflict = match mine.as_slice() {
+                    [one] => one.length.0,
+                    _ => length_in_zones(&footprints, loser, &winners, kind, scale_denominator),
+                };
+                in_conflict > total / 2.0 + TOLERANCE_MM
+            };
+            let pieces = if total <= 0.0 || (!is_kept_barrier(object, symbol_set) && mostly()) {
                 Vec::new()
             } else {
-                let winners: Vec<usize> = mine.iter().map(|c| c.winner).collect();
-                let object = &objects[loser];
                 let min_m =
                     min_length(object, classes, symbol_set, scale).metres(scale_denominator);
                 let pieces = cut_out(
@@ -413,7 +422,8 @@ fn give_way(
                     georef,
                     symbol_set,
                 );
-                // A cut that changes nothing would come back every round: the object goes.
+                // A cut that changes nothing would come back every round: the object goes, a
+                // barrier too (the measure found a stretch the cut cannot reach).
                 if pieces.len() == 1 && pieces[0] == *object {
                     Vec::new()
                 } else {
@@ -436,6 +446,18 @@ fn give_way(
         }
     }
     (dropped, cut)
+}
+
+/// Walls (513, passable or not, 515) and impassable fences (518): a runner meets them as they
+/// are, so give way only cuts them where they keep no gap and never drops them whole.
+const KEPT_BARRIER_CODES: [&str; 3] = ["513", "515", "518"];
+
+/// Whether `object` is one of [`KEPT_BARRIER_CODES`] (or a variant of it such as 513.2).
+fn is_kept_barrier(object: &MapObject, symbol_set: &SymbolSet) -> bool {
+    symbol_set
+        .code_for_id(object.symbol_id)
+        .and_then(|code| code.split('.').next())
+        .is_some_and(|base| KEPT_BARRIER_CODES.contains(&base))
 }
 
 /// The pieces of the line `object` (index `loser` in `footprints`) outside the footprints of
@@ -922,6 +944,65 @@ mod tests {
         assert_eq!(fences.len(), 1, "{out:?}");
         assert!((length_mm(fences[0]) - 12.0).abs() < 1.0, "{out:?}");
         assert_eq!(report.cut, 1, "{report:?}");
+    }
+
+    #[test]
+    fn a_fence_between_a_path_and_a_ditch_is_cut_not_dropped() {
+        // The path runs along the first 40 % of the fence, the ditch along the last 40 %: more
+        // than half of it is in conflict, but a barrier is only cut where it is.
+        let set = isom();
+        let path = line(&set, "505", &[(-10.0, 0.3), (16.0, 0.3)]);
+        let ditch = line(&set, "306", &[(24.0, -0.3), (50.0, -0.3)]);
+        let objects = vec![
+            path.clone(),
+            ditch.clone(),
+            line(&set, "518", &[(0.0, 0.0), (40.0, 0.0)]),
+        ];
+        let (out, report) = run(&set, objects);
+        let fences = of_code(&set, &out, "518");
+        assert_eq!(fences.len(), 1, "{out:?}");
+        let kept = length_mm(fences[0]);
+        assert!((6.0..8.0).contains(&kept), "{kept}");
+        assert_eq!((report.cut, report.gave_way), (1, 0), "{report:?}");
+        assert_eq!(apart_left(&set, &out), Vec::new(), "{out:?}");
+        assert_eq!(of_code(&set, &out, "505"), vec![&path]);
+        assert_eq!(of_code(&set, &out, "306"), vec![&ditch]);
+    }
+
+    #[test]
+    fn an_impassable_wall_mostly_on_a_path_keeps_its_free_part() {
+        // The path runs along 70 % of it; the impassable wall and fence and the passable wall
+        // keep the 6 mm beyond.
+        let set = isom();
+        for code in ["515", "518", "513"] {
+            let objects = vec![
+                line(&set, "505", &[(-10.0, 0.3), (14.0, 0.3)]),
+                line(&set, code, &[(0.0, 0.0), (20.0, 0.0)]),
+            ];
+            let (out, report) = run(&set, objects);
+            let walls = of_code(&set, &out, code);
+            assert_eq!(walls.len(), 1, "{code}: {out:?}");
+            let kept = length_mm(walls[0]);
+            assert!((4.5..6.0).contains(&kept), "{code}: {kept}");
+            assert_eq!((report.cut, report.gave_way), (1, 0), "{code}: {report:?}");
+        }
+    }
+
+    #[test]
+    fn an_earth_bank_between_two_paths_is_measured_once() {
+        // Two paths along its first 30 %, one on each side: 30 % of it is in conflict, not 60 %,
+        // so it is cut, not dropped.
+        let set = isom();
+        let objects = vec![
+            line(&set, "505", &[(-10.0, 0.3), (9.0, 0.3)]),
+            line(&set, "505", &[(-10.0, -0.3), (9.0, -0.3)]),
+            line(&set, "104", &[(0.0, 0.0), (30.0, 0.0)]),
+        ];
+        let (out, report) = run(&set, objects);
+        let banks = of_code(&set, &out, "104");
+        assert_eq!(banks.len(), 1, "{out:?}");
+        assert!((length_mm(banks[0]) - 20.5).abs() < 1.0, "{out:?}");
+        assert_eq!((report.cut, report.gave_way), (1, 0), "{report:?}");
     }
 
     #[test]

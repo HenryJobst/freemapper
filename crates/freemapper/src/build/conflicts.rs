@@ -487,12 +487,9 @@ pub fn conflicts(footprints: &Footprints, kind: MapKind, scale_denominator: u32)
     found
 }
 
-/// The conflict of `loser` with `winner`, if any: its grade and length (mm on paper). A pair
-/// yields at most one conflict. A line is judged over its whole zone (overlap and gap together),
-/// so that a centre line that runs through ticks, in and out of the overlap in pieces shorter
-/// than [`MIN_CONFLICT`], is not lost; it is an overlap when its stretches inside the overlap
-/// zone alone reach [`MIN_CONFLICT`].
-fn measure(loser: &Footprint, winner: &Footprint, gap: f64) -> Option<(Grade, f64)> {
+/// The footprint of `winner` cut to the surroundings of `loser`, as far as the measure reaches;
+/// `None` when nothing of it is there.
+fn local(loser: &Footprint, winner: &Footprint, gap: f64) -> Option<MultiPolygon<f64>> {
     let bounds = loser.bounds?;
     let grow = loser.half_width + gap + LOCAL_MARGIN_MM;
     let around = Rect::new(
@@ -507,9 +504,26 @@ fn measure(loser: &Footprint, winner: &Footprint, gap: f64) -> Option<(Grade, f6
     )
     .to_polygon();
     let other = winner.footprint.intersection(&around);
-    if other.0.is_empty() {
-        return None;
-    }
+    (!other.0.is_empty()).then_some(other)
+}
+
+/// The discs round the places where the centre lines of `loser` and `winner` cross or meet: the
+/// drawing joins them there as it must.
+fn crossings(loser: &Footprint, winner: &Footprint, gap: f64) -> Vec<MultiPolygon<f64>> {
+    let radius = loser.half_width + winner.half_width + gap;
+    meeting_points(&loser.centre, &winner.centre)
+        .into_iter()
+        .map(|c| Point(c).buffer(radius))
+        .collect()
+}
+
+/// The conflict of `loser` with `winner`, if any: its grade and length (mm on paper). A pair
+/// yields at most one conflict. A line is judged over its whole zone (overlap and gap together),
+/// so that a centre line that runs through ticks, in and out of the overlap in pieces shorter
+/// than [`MIN_CONFLICT`], is not lost; it is an overlap when its stretches inside the overlap
+/// zone alone reach [`MIN_CONFLICT`].
+fn measure(loser: &Footprint, winner: &Footprint, gap: f64) -> Option<(Grade, f64)> {
+    let other = local(loser, winner, gap)?;
     let grown = |by: f64| other.buffer(by);
     if loser.centre.0.is_empty() || loser.length <= 0.0 {
         // An area or a point: does its footprint reach into the other, or closer than the gap?
@@ -521,12 +535,7 @@ fn measure(loser: &Footprint, winner: &Footprint, gap: f64) -> Option<(Grade, f6
     }
     let overlap_zone = grown(loser.half_width - TOLERANCE_MM);
     let gap_zone = grown(loser.half_width + gap - TOLERANCE_MM);
-    // Where the two centre lines cross or meet, the drawing joins them as it must.
-    let radius = loser.half_width + winner.half_width + gap;
-    let crossings: Vec<MultiPolygon<f64>> = meeting_points(&loser.centre, &winner.centre)
-        .into_iter()
-        .map(|c| Point(c).buffer(radius))
-        .collect();
+    let crossings = crossings(loser, winner, gap);
     let centre = if crossings.is_empty() {
         loser.centre.clone()
     } else {
@@ -538,6 +547,42 @@ fn measure(loser: &Footprint, winner: &Footprint, gap: f64) -> Option<(Grade, f6
         None => Grade::Gap,
     };
     Some((grade, whole))
+}
+
+/// The length of the centre line of the line `loser` (mm on paper) in the zones of all `winners`
+/// together, each zone as [`measure`] draws it (the winner's footprint grown by the loser's half
+/// width and the gap, without the discs where the centre lines cross): a stretch near two winners
+/// counts once. Stretches below [`MIN_CONFLICT`] do not count; 0 for areas and points.
+pub fn length_in_zones(
+    footprints: &Footprints,
+    loser: usize,
+    winners: &[usize],
+    kind: MapKind,
+    scale_denominator: u32,
+) -> f64 {
+    let gap = gap(kind, scale_denominator).0;
+    let items = &footprints.items;
+    let lose = &items[loser];
+    if lose.centre.0.is_empty() || lose.length <= 0.0 {
+        return 0.0;
+    }
+    let zones: Vec<MultiPolygon<f64>> = winners
+        .iter()
+        .filter_map(|&w| {
+            let winner = &items[w];
+            let zone = local(lose, winner, gap)?.buffer(lose.half_width + gap - TOLERANCE_MM);
+            let crossings = crossings(lose, winner, gap);
+            Some(if crossings.is_empty() {
+                zone
+            } else {
+                zone.difference(&union_all(crossings))
+            })
+        })
+        .collect();
+    if zones.is_empty() {
+        return 0.0;
+    }
+    counted(&union_all(zones).clip(&lose.centre, false)).unwrap_or(0.0)
 }
 
 /// The total length of the stretches of `pieces` from [`MIN_CONFLICT`] on, if any.
@@ -693,6 +738,29 @@ mod tests {
         assert_eq!(found[0].classes, (Class::EarthBank, Class::Watercourse));
         assert_eq!(found[0].grade, Grade::Overlap);
         assert!((found[0].length.0 - 20.0).abs() < 1.0, "{found:?}");
+    }
+
+    #[test]
+    fn a_stretch_near_two_winners_counts_once() {
+        // A fence between two paths that run along its first 12 mm on both sides: each pair
+        // measures 12 mm, the two together 12 mm, not 24.
+        let set = isom();
+        let objects = [
+            line(&set, "518", &[(0.0, 0.0), (30.0, 0.0)]),
+            line(&set, "505", &[(-10.0, 0.3), (12.0, 0.3)]),
+            line(&set, "505", &[(-10.0, -0.3), (12.0, -0.3)]),
+        ];
+        let refs: Vec<&MapObject> = objects.iter().collect();
+        let footprints = Footprints::of(&refs, &set);
+        let found: Vec<Conflict> = conflicts(&footprints, MapKind::Forest, SCALE)
+            .into_iter()
+            .filter(|c| c.loser == 0)
+            .collect();
+        assert_eq!(found.len(), 2, "{found:?}");
+        let sum: f64 = found.iter().map(|c| c.length.0).sum();
+        let union = length_in_zones(&footprints, 0, &[1, 2], MapKind::Forest, SCALE);
+        assert!((sum - 2.0 * union).abs() < 0.1, "{sum} {union}");
+        assert!((union - 12.5).abs() < 1.0, "{union}");
     }
 
     #[test]
