@@ -26,7 +26,7 @@ was freemapper ableiten kann. Die Karte allein zeigt weniger; dasselbe Gebiet in
 | Saarland | [Altstadt und Festung Saarlouis](saarland-saarlouis/): die sechseckige Festungsstadt Vaubans, Saar-Altarm mit der Vauban-Insel, Wälle im Stadtgarten | 1693 | 721 | 40 | <a href="saarland-saarlouis/saarland-saarlouis-candidates.pdf"><img src="saarland-saarlouis/preview.webp" width="220" alt=""></a> |
 | Baden-Württemberg | [Altstadt und Schloss Heidelberg](baden-wuerttemberg-heidelberg/): Altstadt am Neckar mit der Alten Brücke, das Schloss mit seinem Garten am steilen Hang des Königstuhls | 2897 | 1019 | 43 | <a href="baden-wuerttemberg-heidelberg/baden-wuerttemberg-heidelberg-candidates.pdf"><img src="baden-wuerttemberg-heidelberg/preview.webp" width="220" alt=""></a> |
 | Bremen | [Bremer Altstadt und Wallanlagen](bremen-altstadt/): die Altstadt zwischen Weser und Stadtgraben mit Marktplatz und Schlachte, die Wallanlagen mit der Mühle am Wall, gegenüber der Teerhof | 2531 | 551 | 39 | <a href="bremen-altstadt/bremen-altstadt-candidates.pdf"><img src="bremen-altstadt/preview.webp" width="220" alt=""></a> |
-| Bayern | [Altstadt Regensburg mit der Steinernen Brücke](bayern-regensburg/): die Welterbe-Altstadt an der Donau mit Dom und Gassen, die Steinerne Brücke, die Wöhrde und Stadtamhof am anderen Ufer | 2959 | 463 | 39 | <a href="bayern-regensburg/bayern-regensburg-candidates.pdf"><img src="bayern-regensburg/preview.webp" width="220" alt=""></a> |
+| Bayern | [Altstadt Regensburg mit der Steinernen Brücke](bayern-regensburg/): die Welterbe-Altstadt an der Donau mit Dom und Gassen, die Steinerne Brücke, die Wöhrde und Stadtamhof am anderen Ufer | 2959 | 461 | 39 | <a href="bayern-regensburg/bayern-regensburg-candidates.pdf"><img src="bayern-regensburg/preview.webp" width="220" alt=""></a> |
 
 **Kartenobjekte** sind die Objekte der OOM-Karte. Mit `balanced` sind das die Objekte aus Kataster, Registern und
 Straßenbefahrung (Gebäude, Straßen mit Bordsteinen, Gewässer, Parks, Wald, Überdachungen und Durchfahrten), dazu
@@ -218,8 +218,8 @@ Brücke und die dichte Bebauung stehen auf einem Blatt. Bayern hat keinen Dienst
 und 144 Überdachungen kommen aus den LoD2-Kacheln, die Nutzung aus der Datei der Stadt Regensburg. Das Gebiet liegt
 östlich von 12° O und steht wie ganz Bayern in der UTM-Zone 32. Für die Waldkarte liefen zwei Rechtecke am
 Schmausenbuck; das südliche bestand zur Hälfte aus dem Tiergarten. Aus dem Landschaftsmodell der
-Vermessungsverwaltung (ATKIS Basis-DLM) kommen in Regensburg 10 Kandidaten dazu: 5 Brunnen, ein Denkmal, 2 benannte
-Bäume und 2 Wasserläufe. Am Schmausenbuck sind es 14: Zäune und 6 Wege, die OpenStreetMap fehlen. An den
+Vermessungsverwaltung (ATKIS Basis-DLM) kommen in Regensburg 8 Kandidaten dazu: 3 Brunnen, ein Denkmal, 2 benannte
+Bäume und 2 Wasserläufe; 2 weitere Brunnen stehen in Becken, die OpenStreetMap schon zeichnet. Am Schmausenbuck sind es 14: Zäune und 6 Wege, die OpenStreetMap fehlen. An den
 Stoßstellen verbunden, sind die Wege des Modells 61 Linien; die übrigen 55 hat OpenStreetMap schon.
 
 ## Lizenzen

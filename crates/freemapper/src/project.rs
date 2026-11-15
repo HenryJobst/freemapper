@@ -1861,17 +1861,8 @@ fn fetch_nas_layers_into(
 ) -> BTreeMap<String, AlkisRecord> {
     let services = alkis_nas::nas_services_for(&area.region_bbox);
     let in_nas_state = !services.is_empty();
-    // The notes name the model the services of the area serve.
-    let landscape = in_nas_state
-        && services
-            .iter()
-            .all(|service| service.model == alkis_nas::NasModel::BasisDlm);
     extras::fetch_into(
-        if landscape {
-            &extras::DLM
-        } else {
-            &extras::NAS
-        },
+        nas_family(&services, previous),
         dir,
         in_nas_state,
         mode,
@@ -1893,6 +1884,29 @@ fn fetch_nas_layers_into(
                 .collect()
         },
     )
+}
+
+/// The notes of the NAS layers: those of the landscape model when every service of the area serves
+/// it, or, in an area without a service, when every layer stored before is one of it.
+fn nas_family(
+    services: &[&alkis_nas::NasService],
+    previous: &BTreeMap<String, AlkisRecord>,
+) -> &'static extras::Family<'static> {
+    let landscape = if services.is_empty() {
+        !previous.is_empty()
+            && previous
+                .keys()
+                .all(|key| alkis_nas::NasModel::of_layer(key) == alkis_nas::NasModel::BasisDlm)
+    } else {
+        services
+            .iter()
+            .all(|service| service.model == alkis_nas::NasModel::BasisDlm)
+    };
+    if landscape {
+        &extras::DLM
+    } else {
+        &extras::NAS
+    }
 }
 
 /// One stored NAS layer (full ALKIS).
@@ -14027,5 +14041,33 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             std::fs::write(dir.join("vocabulary.toml"), vocabulary.to_toml()).unwrap();
             std::fs::write(dir.join("census.toml"), toml::to_string(&census).unwrap()).unwrap();
         }
+    }
+
+    fn record() -> AlkisRecord {
+        AlkisRecord {
+            bbox: [0.0, 0.0, 1.0, 1.0],
+            fetched: NaiveDate::from_ymd_opt(2026, 11, 15).unwrap(),
+            latest_update: None,
+            count: 1,
+            regions: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn layers_of_the_landscape_model_are_removed_as_such() {
+        let previous: BTreeMap<String, AlkisRecord> = [
+            ("dlm-bauwerk".to_string(), record()),
+            ("dlm-turm".to_string(), record()),
+        ]
+        .into();
+        assert_eq!(
+            nas_family(&[], &previous).notes.removing,
+            "progress-dlm-removing"
+        );
+        let alkis: BTreeMap<String, AlkisRecord> = [("bauwerke".to_string(), record())].into();
+        assert_eq!(
+            nas_family(&[], &alkis).notes.removing,
+            "progress-nas-removing"
+        );
     }
 }

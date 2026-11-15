@@ -1233,12 +1233,12 @@ genau. freemapper nimmt daraus Höhleneingänge (203), Quellen (312), benannte F
 (305) und benannte Bäume (418), auf Waldkarten auch Wege und Fahrwege (504 bis 507). Diese Objekte bleiben in
 jedem Profil außer `full` Kandidaten. Hat eine andere Quelle dasselbe Objekt, entfällt das aus dem
 Landschaftsmodell: ein Punkt, wenn ein Punkt mit demselben Symbol höchstens 15 m entfernt liegt (ein Baum neben
-einem Baum, ob groß oder klein), eine Linie, wenn
+einem Baum, ob groß oder klein, und ein Turm neben einem Turm), eine Linie, wenn
 sie zu mindestens 80 % ihrer Länge höchstens 10 m neben einer Linie derselben Art verläuft. Bei Wegen zählt jede
 Wegklasse als dieselbe Art. Ein Weg bleibt oder entfällt dabei als Ganzes. Das Objekt, das bleibt, nennt das
 entfallene in `freemapper:also`. Die Ebenen liegen als `dlm-…` ebenfalls in `data/alkis-nas/`; ihre Objekte
 tragen `freemapper:source=atkis-dlm/<Ebene>`. Am Schmausenbuck bleiben von 152 Objekten 14 als Kandidaten,
-darunter 6 Wege, die OpenStreetMap fehlen; in der Regensburger Altstadt von 35 Objekten 10. Kirchtürme, Stadttore,
+darunter 6 Wege, die OpenStreetMap fehlen; in der Regensburger Altstadt von 35 Objekten 8. Kirchtürme, Stadttore,
 Kanäle, Stromleitungen und Flächen nimmt freemapper nicht.
 
 Liegt eine OSM-Linie (Zaun, Mauer, Hecke, Bach oder Graben) zu mindestens 80 % ihrer Länge höchstens 1,5 m

@@ -1186,11 +1186,11 @@ entrances (203), springs (312), named rocks (205), free-standing towers (524, 52
 crosses (526), fountains (311), fences (518), dams and walls (105), small watercourses (305) and named trees
 (418) from it, on forest maps also paths and tracks (504 to 507). These objects stay candidates in every profile
 but `full`. Where another source has the same object, the one of the landscape model goes: a point when a point
-with the same symbol lies within 15 m (a tree beside a tree, large or small), a line when at least 80 % of its length runs within 10 m of a line of the
+with the same symbol lies within 15 m (a tree beside a tree, large or small, and a tower beside a tower), a line when at least 80 % of its length runs within 10 m of a line of the
 same kind. For paths every path class counts as the same kind. A path stays or goes as a whole. The object that
 stays names the dropped one in `freemapper:also`. The layers lie in `data/alkis-nas/` too, as `dlm-…`; their
 objects carry `freemapper:source=atkis-dlm/<layer>`. On the Schmausenbuck 14 of 152 objects stay as candidates,
-6 of them paths OpenStreetMap lacks; in the old town of Regensburg 10 of 35. freemapper does not take church
+6 of them paths OpenStreetMap lacks; in the old town of Regensburg 8 of 35. freemapper does not take church
 towers, town gates, canals, power lines or areas.
 
 If an OSM line (fence, wall, hedge, brook or ditch) lies with at least 80 % of its length within 1.5 m of a
