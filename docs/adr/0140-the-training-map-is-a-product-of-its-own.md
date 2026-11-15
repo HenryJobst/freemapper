@@ -1,7 +1,7 @@
 # 0140. The training map is a product of its own
 
 Date: 2026-11-15
-Status: Accepted, amends ADR 0080, 0097 and 0126
+Status: Accepted, amends ADR 0080, 0097, 0126 and 0134
 
 ## Context
 
@@ -72,8 +72,8 @@ Comparisons are tolerant by 2 map units and use no `hypot`, so every system deci
    until nothing joins.
 2. Street furniture (531) whose centre lies on a paved area goes; in a park it stays.
 3. Open land (401) from a park land use (ALKIS "Sport-, Freizeit- und Erholungsfläche", OSM `leisure=park`) keeps
-   only its open ground: `derive` writes `data/tree-cover.tif`, the share of the 0.2 m nDSM cells of each 1 m cell that
-   are at least 3 m high; a share below 0.5 is open. The outline is traced as the vegetation areas are (ADR 0136) and
+   only its open ground: `derive` writes `data/tree-cover.tif`, the share of the nDSM cells of each 1 m cell that are at
+   least 3 m high; a share below 0.5 is open. The outline is traced as the vegetation areas are (ADR 0136) and
    kept to their minimum areas. Without a surface model nothing changes.
 4. Inside olive green (520) only buildings, roofs and carports, water, watercourses, railways and contours stay. The
    inside is the union of the 520 shrunk by 0.4 mm on paper (ruling: what lies on the edge stays). A way (road, path,

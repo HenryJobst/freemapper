@@ -179,13 +179,13 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0131](0131-permit-sources-from-shapefiles.md) | Permit sources from shapefiles of a whole state | Accepted | 2026-11-14 |
 | [0132](0132-statewide-permit-files-in-the-cache.md) | Statewide permit files in the cache | Accepted | 2026-11-14 |
 | [0133](0133-classified-roads-in-the-permit-notes.md) | Classified roads in the permit notes | Accepted | 2026-11-14 |
-| [0134](0134-cliffs-on-the-sprint-map-and-the-terrain-for-every-map.md) | Cliffs on the sprint map, and the terrain for every map | Accepted | 2026-11-14 |
+| [0134](0134-cliffs-on-the-sprint-map-and-the-terrain-for-every-map.md) | Cliffs on the sprint map, and the terrain for every map | Accepted, amended by ADR 0140 | 2026-11-14 |
 | [0135](0135-bavaria-objects-from-the-basis-dlm.md) | Bavaria: objects from the ATKIS Basis-DLM | Accepted | 2026-11-14 |
 | [0136](0136-vegetation-outlines-traced-on-a-blurred-raster.md) | Vegetation outlines traced on a blurred raster | Accepted | 2026-11-14 |
 | [0137](0137-permit-notes-for-schleswig-holstein.md) | Permit notes for Schleswig-Holstein | Accepted | 2026-11-14 |
 | [0138](0138-vegetation-green-shades-by-the-density-below-3-m.md) | Vegetation: the green shades follow the density below 3 m | Accepted | 2026-11-14 |
 | [0139](0139-permit-notes-for-saxony-asked-at-points.md) | Permit notes for Saxony, asked at points | Accepted | 2026-11-15 |
-| [0140](0140-the-training-map-is-a-product-of-its-own.md) | The training map is a product of its own | Accepted, amends ADR 0080, 0097 and 0126 | 2026-11-15 |
+| [0140](0140-the-training-map-is-a-product-of-its-own.md) | The training map is a product of its own | Accepted, amends ADR 0080, 0097, 0126 and 0134 | 2026-11-15 |
 | [0141](0141-bavaria-the-dom20-read-by-range.md) | Bavaria: the DOM20 read by range | Accepted | 2026-11-15 |
 | [0142](0142-water-protection-areas-of-the-bfg.md) | Water protection areas of the BfG | Accepted | 2026-11-15 |
 | [0143](0143-water-protection-zones-of-baden-wuerttemberg.md) | Water protection zones of Baden-Württemberg, with the authority in charge | Accepted | 2026-11-15 |

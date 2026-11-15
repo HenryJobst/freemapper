@@ -561,8 +561,8 @@ freemapper run dammheide --training
 - **Paths** come from OSM and go straight onto the map: main roads as 502, other roads as 503, tracks of grade 1
   and 2 or at least 3 m wide as 504, the other tracks, cycleways and wide or firm footpaths as 505, narrow paths as
   506, faint paths (`trail_visibility=bad` or `informal=yes`) as 507 and stairs as 532. Private ways stay paths.
-  Sidewalks along roads, crossings, driveways and parking aisles are left out. freemapper moves and joins nothing;
-  what OSM has wrong, you correct in OOM.
+  Sidewalks along roads, crossings, driveways and parking aisles are left out. On the map freemapper moves and joins
+  nothing; only the training map joins ways and moves trees (chapter 10). What OSM has wrong, you correct in OOM.
 - **Forest** is the white paper. Where OSM or ALKIS says forest, freemapper draws no open land, even where ALKIS
   calls the land a park or a recreation area.
 - **Green** comes only where OSM says so: scrub (`natural=scrub`) becomes candidate 406, dense scrub 408. Meadows
@@ -916,7 +916,8 @@ What the training map does differently from the map, step by step:
    stays runs through it. What lies on the edge, such as the fence round the garden or the road beside it, stays.
 5. A tree that comes too close to a way, a building, water, a fence or another tree moves to the nearest free spot,
    at most 1.5 mm on paper (6 m at 1:4000, 15 m at 1:10 000). It then carries `freemapper:moved`. If it finds no
-   spot, it goes. Trees on streets and squares stay where they are.
+   spot, it stays where it is and goes in step 6 if it is too close to another symbol there. Trees on streets
+   and squares stay where they are.
 6. Where two symbols cover each other or come closer than the norm's gap (0.15 mm between two lines, enlarged like
    the symbols), the one with the lower rank gives way. The rank falls from buildings through water, railways,
    roads, paths, watercourses and stairs, fences, walls and cliffs, banks and contours down to the points. The

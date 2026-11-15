@@ -1,7 +1,7 @@
 # 0134. Cliffs on the sprint map, and the terrain for every map
 
 Date: 2026-11-14
-Status: Accepted
+Status: Accepted, amended by ADR 0140 (the training level runs on the training map, not on the candidates PDF)
 
 ## Context
 

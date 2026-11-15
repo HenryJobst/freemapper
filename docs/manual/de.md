@@ -586,8 +586,8 @@ freemapper run dammheide --training
   Wirtschaftswege der Güte 1 und 2 oder ab 3 m Breite als 504, die übrigen Wirtschaftswege, Radwege und breite
   oder befestigte Fußwege als 505, schmale Pfade als 506, undeutliche Pfade (`trail_visibility=bad` oder
   `informal=yes`) als 507 und Treppen als 532. Private Wege bleiben Wege. Gehwege an Straßen, Überwege, Zufahrten
-  und Gassen auf Parkplätzen fehlen. freemapper verschiebt und verbindet nichts. Was in OSM ungenau ist,
-  korrigieren Sie in OOM.
+  und Gassen auf Parkplätzen fehlen. In der Karte verschiebt und verbindet freemapper nichts; nur die
+  Trainingskarte verbindet Wege und rückt Bäume ab (Kapitel 10). Was in OSM ungenau ist, korrigieren Sie in OOM.
 - **Wald** ist das weiße Papier. Wo OSM oder ALKIS Wald angeben, zeichnet freemapper kein offenes Gelände,
   auch wenn ALKIS die Fläche als Park oder Erholungsfläche führt.
 - **Grün** gibt es nur, wo OSM es angibt: Gebüsch (`natural=scrub`) wird Kandidat 406, dichtes Gebüsch 408.
@@ -953,7 +953,8 @@ Was die Trainingskarte anders macht als die Karte, Schritt für Schritt:
    Garten oder die Straße daneben, bleibt.
 5. Ein Baum, der einem Weg, einem Gebäude, Wasser, einem Zaun oder einem anderen Baum zu nahe kommt, rückt auf den
    nächsten freien Platz, höchstens 1,5 mm auf dem Papier (6 m bei 1:4000, 15 m bei 1:10 000). Er trägt dann
-   `freemapper:moved`. Findet er keinen Platz, entfällt er. Bäume auf Straßen und Plätzen bleiben stehen.
+   `freemapper:moved`. Findet er keinen Platz, bleibt er stehen und entfällt in Schritt 6,
+   wenn er dort einem anderen Symbol zu nahe kommt. Bäume auf Straßen und Plätzen bleiben stehen.
 6. Wo sich zwei Symbole überdecken oder einander näher kommen als der Abstand der Norm (0,15 mm zwischen zwei Linien,
    vergrößert wie die Symbole), weicht das mit dem niedrigeren Rang. Der Rang fällt von Gebäude über Gewässer, Bahn,
    Straße, Weg, Wasserlauf und Treppe, Zaun, Mauer und Felswand, Böschung und Höhenlinie bis zu den Punkten. Das
