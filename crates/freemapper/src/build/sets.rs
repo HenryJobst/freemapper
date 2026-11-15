@@ -54,6 +54,14 @@ pub(crate) fn rank_of_source(source: &str) -> Option<crate::build::dedup::Rank> 
     })
 }
 
+/// The point dedups of the sets, set by set in the order of the registry.
+pub(crate) fn point_dedups()
+-> impl Iterator<Item = &'static freemapper_adapter_api::extras::PointDedup> {
+    drawings()
+        .iter()
+        .flat_map(|(_, drawing)| drawing.point_dedups.iter())
+}
+
 /// The layers the sets name in the credit line, with the prefix of their sources: (prefix, file).
 pub(crate) fn credited_layers() -> impl Iterator<Item = (&'static str, &'static str)> {
     drawings().iter().flat_map(|(prefix, drawing)| {
@@ -247,5 +255,18 @@ mod tests {
                 ("geoportal-berlin", "trinkwasserbrunnen"),
             ]
         );
+    }
+
+    /// Which of Berlin's points beat which others is data of its set, in order: the registers
+    /// first, then the survey (ADR 0149).
+    #[test]
+    fn berlin_brings_its_point_dedups() {
+        let winners: Vec<(&str, &str)> = point_dedups().map(|d| d.winner).collect();
+        assert_eq!(winners.len(), 13, "{winners:?}");
+        assert_eq!(
+            winners[0],
+            ("freemapper:source", "geoportal-berlin/beleuchtung")
+        );
+        assert_eq!(winners[12], ("berlin:layer", "aw_spielgeraet"));
     }
 }

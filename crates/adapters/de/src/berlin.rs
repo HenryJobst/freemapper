@@ -9,8 +9,8 @@ use std::collections::HashSet;
 
 use chrono::{Datelike, NaiveDate};
 use freemapper_adapter_api::extras::{
-    ExtraEstimate, ExtraLayerInfo, ExtraNotes, ExtraSet, ExtraSetInfo, FetchedExtra,
-    RasterTemplate, RasterTemplateInfo, SetDrawing, SetRank, TemplateNotes,
+    DedupDistance, ExtraEstimate, ExtraLayerInfo, ExtraNotes, ExtraSet, ExtraSetInfo, FetchedExtra,
+    PointDedup, RasterTemplate, RasterTemplateInfo, SetDrawing, SetRank, TemplateNotes,
 };
 use serde_json::{Map, Value};
 
@@ -326,6 +326,138 @@ static REGISTERS: ExtraSetInfo = ExtraSetInfo {
     },
 };
 
+/// An OSM street lamp this close (ground metres) to a lamp of the lighting cadastre is the same
+/// lamp. OSM lamps lie up to 6.7 m off the cadastre ones (live run, Task 5b), and lamps stand 20
+/// to 30 m apart, so 5 m stays well under half the spacing.
+const OSM_LAMP_DEDUP: DedupDistance = DedupDistance::Metres(5.0);
+/// A survey mast this close to a cadastre lamp is the lamp, and an OSM hydrant, bench, mast or
+/// play item this close to the survey one is that one. Survey masts 2 m or more from a lamp are
+/// mostly sign and signal masts.
+const FURNITURE_DEDUP: DedupDistance = DedupDistance::Metres(2.0);
+/// The same for the fountain, well and drinking-water points of two sources (ADR 0087): 0.75 mm
+/// on paper (3 m at 1:4000, 3.75 m at 1:5000), a little under the 1.05 mm at which two 311
+/// symbols touch, and never under 3 m on the ground (1:1000), because the sources place the same
+/// fountain a few metres apart whatever the scale. The measured pairs lie at 0.05 to 0.5 m, the
+/// next point of another source 9.8 m away.
+const FOUNTAIN_DEDUP: DedupDistance = DedupDistance::Paper {
+    mm: 0.75,
+    at_least_m: 3.0,
+};
+/// The OSM memorial kinds of the 526 rule. A cadastre monument is an area, its point the centre
+/// of the area, and the OSM node can stand anywhere on it: 5 m is 1.25 mm on paper at 1:4000.
+const MEMORIAL_DEDUP: DedupDistance = DedupDistance::Metres(5.0);
+const MEMORIAL_LOSERS: &[(&str, &str, DedupDistance)] = &[
+    ("freemapper:osm", "historic=memorial", MEMORIAL_DEDUP),
+    ("freemapper:osm", "historic=monument", MEMORIAL_DEDUP),
+    ("freemapper:osm", "historic=wayside_cross", MEMORIAL_DEDUP),
+    ("freemapper:osm", "historic=boundary_stone", MEMORIAL_DEDUP),
+];
+/// A survey mast or flag pole and an OSM one at the same place are one pole, whichever word
+/// each source uses.
+const SURVEY_MAST_LOSERS: &[(&str, &str, DedupDistance)] = &[
+    ("freemapper:osm", "man_made=mast", FURNITURE_DEDUP),
+    ("freemapper:osm", "man_made=flagpole", FURNITURE_DEDUP),
+];
+
+/// In order: the registers beat the survey and OSM, then the survey beats OSM (on a sprint map it
+/// is the control sites, ADR 0077). A point dropped by an earlier entry wins nothing later.
+const POINT_DEDUPS: [PointDedup; 13] = [
+    PointDedup {
+        winner_code: None,
+        winner: ("freemapper:source", "geoportal-berlin/beleuchtung"),
+        losers: &[
+            ("freemapper:osm", "highway=street_lamp", OSM_LAMP_DEDUP),
+            ("berlin:layer", "as_mast", FURNITURE_DEDUP),
+        ],
+    },
+    PointDedup {
+        winner_code: None,
+        winner: ("freemapper:source", "geoportal-berlin/zierbrunnen"),
+        losers: &[
+            ("freemapper:osm", "amenity=fountain", FOUNTAIN_DEDUP),
+            ("freemapper:osm", "man_made=water_well", FOUNTAIN_DEDUP),
+            ("berlin:layer", "af_wasserpumpen_brunnen", FOUNTAIN_DEDUP),
+            (
+                "berlin:layer",
+                "bv_springbrunnen_zierbrunnen",
+                FOUNTAIN_DEDUP,
+            ),
+        ],
+    },
+    PointDedup {
+        winner_code: None,
+        winner: ("freemapper:source", "geoportal-berlin/trinkwasserbrunnen"),
+        losers: &[
+            ("freemapper:osm", "amenity=drinking_water", FOUNTAIN_DEDUP),
+            (
+                "berlin:layer",
+                "ac_trinkwasserbrunnen_wasserspender",
+                FOUNTAIN_DEDUP,
+            ),
+        ],
+    },
+    // The surveyed fountains, pumps and drinking fountains beat the OSM ones (ADR 0087). The
+    // fountain registers above have gone first, so a survey point they dropped wins nothing.
+    PointDedup {
+        winner_code: None,
+        winner: ("berlin:layer", "af_wasserpumpen_brunnen"),
+        losers: &[
+            ("freemapper:osm", "man_made=water_well", FOUNTAIN_DEDUP),
+            ("freemapper:osm", "amenity=fountain", FOUNTAIN_DEDUP),
+        ],
+    },
+    PointDedup {
+        winner_code: None,
+        winner: ("berlin:layer", "bv_springbrunnen_zierbrunnen"),
+        losers: &[
+            ("freemapper:osm", "amenity=fountain", FOUNTAIN_DEDUP),
+            ("freemapper:osm", "man_made=water_well", FOUNTAIN_DEDUP),
+        ],
+    },
+    PointDedup {
+        winner_code: None,
+        winner: ("berlin:layer", "ac_trinkwasserbrunnen_wasserspender"),
+        losers: &[("freemapper:osm", "amenity=drinking_water", FOUNTAIN_DEDUP)],
+    },
+    // The cadastre monuments (526) beat the OSM memorials beside them (ADR 0075, 0078).
+    PointDedup {
+        winner_code: Some("526"),
+        winner: ("freemapper:source", "geoportal-berlin/bauwerke-flaechen"),
+        losers: MEMORIAL_LOSERS,
+    },
+    PointDedup {
+        winner_code: None,
+        winner: ("berlin:layer", "aq_hydrant"),
+        losers: &[("freemapper:osm", "emergency=fire_hydrant", FURNITURE_DEDUP)],
+    },
+    // A surveyed bollard beats an OSM one (a control site on sprint maps, ADR 0077).
+    PointDedup {
+        winner_code: None,
+        winner: ("berlin:layer", "av_poller"),
+        losers: &[("freemapper:osm", "barrier=bollard", FURNITURE_DEDUP)],
+    },
+    PointDedup {
+        winner_code: None,
+        winner: ("berlin:layer", "bj_sitzbank"),
+        losers: &[("freemapper:osm", "amenity=bench", FURNITURE_DEDUP)],
+    },
+    PointDedup {
+        winner_code: None,
+        winner: ("berlin:layer", "as_mast"),
+        losers: SURVEY_MAST_LOSERS,
+    },
+    PointDedup {
+        winner_code: None,
+        winner: ("berlin:layer", "am_fahnenmast"),
+        losers: SURVEY_MAST_LOSERS,
+    },
+    PointDedup {
+        winner_code: None,
+        winner: ("berlin:layer", "aw_spielgeraet"),
+        losers: &[("freemapper:osm", "playground=*", FURNITURE_DEDUP)],
+    },
+];
+
 /// The data of Berlin's set the engine reads; the engine still draws the set by its own code
 /// (`generic: false`) until it moves onto the sets (ADR 0149).
 static DRAWING: SetDrawing = SetDrawing {
@@ -343,6 +475,7 @@ static DRAWING: SetDrawing = SetDrawing {
         ("trinkwasserbrunnen", SetRank::Register),
     ],
     credited_layers: &BERLIN_REGISTERS,
+    point_dedups: &POINT_DEDUPS,
     stair_layers: &[],
     candidate_layers: &[],
     generic: false,
