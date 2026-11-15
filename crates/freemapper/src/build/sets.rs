@@ -3,20 +3,21 @@
 //! and drawn through the set's rules, with the source `<set key>/<file>`. The stair layers of a
 //! set are left to `build/stairs.rs`, which takes their areas through [`stair_areas`].
 
-use freemapper_adapter_api::extras::SetDrawing;
-use geo_types::{Coord, LineString, Polygon};
+use freemapper_adapter_api::extras::{SetDrawing, SetRank};
+use geo_types::Polygon;
 use serde_json::Value;
 
 use crate::build::assembly::Layer;
 use crate::build::candidates::{Rules, Target, osm_objects};
 use crate::build::content::CANDIDATE_ONLY_KEY;
-use crate::build::tagged::{self, position};
-use crate::crs::{Crs, ProjectedPoint};
+use crate::build::tagged;
+use crate::crs::Crs;
 use crate::georef::{GeorefError, Georeferencing};
 use crate::omap::{MapObject, SymbolSet};
 use crate::project::MapKind;
 
-/// The sets that bring their rules, by key, from the registry of the run.
+/// The drawings of the sets, by the prefix of their sources, from the registry of the run: the
+/// sets the engine draws through them and those it still draws by its own code (Berlin).
 fn drawings() -> &'static [(&'static str, &'static SetDrawing)] {
     static DRAWINGS: std::sync::OnceLock<Vec<(&'static str, &'static SetDrawing)>> =
         std::sync::OnceLock::new();
@@ -24,19 +25,43 @@ fn drawings() -> &'static [(&'static str, &'static SetDrawing)] {
         crate::adapters::registry()
             .adapters()
             .flat_map(|adapter| adapter.extras().iter())
-            .filter_map(|set| Some((set.info().key, set.drawing()?)))
+            .filter_map(|set| set.drawing())
+            .map(|drawing| (drawing.source_prefix, drawing))
             .collect()
     })
 }
 
-/// How the set whose objects carry `source` (`<set key>/<layer>`) is drawn; `None` for the
-/// objects of every other source.
+/// The drawing of the set whose objects carry `source` (`<source prefix>/<layer>`); `None` for
+/// the objects of every other source.
 pub(crate) fn drawing_of_source(source: &str) -> Option<&'static SetDrawing> {
-    let key = source.split('/').next()?;
+    let prefix = source.split('/').next()?;
     drawings()
         .iter()
-        .find(|(set, _)| *set == key)
+        .find(|(own, _)| *own == prefix)
         .map(|(_, drawing)| *drawing)
+}
+
+/// The rank of the objects with `source` in the duplicate step, when a set draws them: the rank
+/// its drawing gives their layer.
+pub(crate) fn rank_of_source(source: &str) -> Option<crate::build::dedup::Rank> {
+    use crate::build::dedup::Rank;
+    let drawing = drawing_of_source(source)?;
+    let layer = source.split_once('/').map_or("", |(_, layer)| layer);
+    Some(match drawing.rank_of(layer) {
+        SetRank::Survey => Rank::Survey,
+        SetRank::Cadastre => Rank::Alkis,
+        SetRank::Register => Rank::Register,
+    })
+}
+
+/// The layers the sets name in the credit line, with the prefix of their sources: (prefix, file).
+pub(crate) fn credited_layers() -> impl Iterator<Item = (&'static str, &'static str)> {
+    drawings().iter().flat_map(|(prefix, drawing)| {
+        drawing
+            .credited_layers
+            .iter()
+            .map(move |(file, _)| (*prefix, *file))
+    })
 }
 
 /// The stored layers of one set that brings its rules.
@@ -51,7 +76,7 @@ pub struct SetLayers {
 impl SetLayers {
     /// The source of the objects of `layer`.
     pub fn source(&self, layer: &str) -> String {
-        format!("{}/{layer}", self.key)
+        format!("{}/{layer}", self.drawing.source_prefix)
     }
 
     /// The layers whose areas are stairs.
@@ -128,38 +153,12 @@ pub(crate) fn feature_tags(prefix: &str, layer: &str, feature: &Value) -> Vec<(S
     tags
 }
 
-/// The polygons of an area feature in `from`, in `to`.
+/// The polygons of an area feature in `from`, in `to`, without their holes: a stair is its outline.
 pub(crate) fn stair_areas(feature: &Value, from: Crs, to: Crs) -> Vec<Polygon<f64>> {
-    let to_map = |c: &Value| -> Option<Coord<f64>> {
-        let (easting, northing) = position(c)?;
-        let p = to.reproject(from, ProjectedPoint { easting, northing })?;
-        Some(Coord {
-            x: p.easting,
-            y: p.northing,
-        })
-    };
-    let ring = |r: &Value| -> Option<LineString<f64>> {
-        r.as_array()?
-            .iter()
-            .map(to_map)
-            .collect::<Option<Vec<_>>>()
-            .map(LineString::from)
-    };
-    let polygon = |rings: &Value| -> Option<Polygon<f64>> {
-        let exterior = ring(rings.get(0)?)?;
-        Some(Polygon::new(exterior, Vec::new()))
-    };
-    let coordinates = &feature["geometry"]["coordinates"];
-    match feature["geometry"]["type"].as_str() {
-        Some("Polygon") => polygon(coordinates).into_iter().collect(),
-        Some("MultiPolygon") => coordinates
-            .as_array()
-            .into_iter()
-            .flatten()
-            .filter_map(polygon)
-            .collect(),
-        _ => Vec::new(),
-    }
+    tagged::polygons_in(feature, from, to)
+        .into_iter()
+        .map(|p| Polygon::new(p.exterior().clone(), Vec::new()))
+        .collect()
 }
 
 #[cfg(test)]
@@ -186,7 +185,8 @@ mod tests {
         let mut checked = 0;
         for adapter in registry.adapters() {
             for set in adapter.extras() {
-                let Some(drawing) = set.drawing() else {
+                // A set the engine still draws by its own code brings no rules yet (Berlin).
+                let Some(drawing) = set.drawing().filter(|d| d.generic) else {
                     continue;
                 };
                 let rules = Rules::from_toml(drawing.rules)
@@ -206,5 +206,46 @@ mod tests {
             }
         }
         assert!(checked >= 1);
+    }
+
+    /// The rank of a set's objects comes from the data of its drawing: Berlin's survey, registers
+    /// and cadastre layers, and Hamburg's survey (ADR 0149).
+    #[test]
+    fn a_source_ranks_by_the_data_of_its_set() {
+        use crate::build::dedup::Rank;
+        assert_eq!(
+            rank_of_source("geoportal-berlin/sb-gelaender"),
+            Some(Rank::Survey)
+        );
+        assert_eq!(
+            rank_of_source("geoportal-berlin/beleuchtung"),
+            Some(Rank::Register)
+        );
+        assert_eq!(
+            rank_of_source("geoportal-berlin/strassenbaeume"),
+            Some(Rank::Register)
+        );
+        assert_eq!(
+            rank_of_source("geoportal-berlin/bauwerke-linien"),
+            Some(Rank::Alkis)
+        );
+        assert_eq!(
+            rank_of_source("lgv-feinkartierung/fk-treppen"),
+            Some(Rank::Survey)
+        );
+        assert_eq!(rank_of_source("osm"), None);
+    }
+
+    /// The registers a set names in its credit line, by the file they are stored in.
+    #[test]
+    fn berlin_names_the_registers_of_its_credit_line() {
+        assert_eq!(
+            credited_layers().collect::<Vec<_>>(),
+            [
+                ("geoportal-berlin", "beleuchtung"),
+                ("geoportal-berlin", "zierbrunnen"),
+                ("geoportal-berlin", "trinkwasserbrunnen"),
+            ]
+        );
     }
 }

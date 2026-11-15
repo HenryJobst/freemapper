@@ -22,8 +22,8 @@ pub enum Rank {
     Survey,
     /// The cadastre: `alkis`, `alkis-nas/…` and the other Geoportal Berlin layers.
     Alkis,
-    /// The registers: the Berlin tree, lighting and fountain registers (those the Berlin adapter
-    /// names, `freemapper_adapters_de::berlin::is_register`) and the tree cadastres (`trees/…`).
+    /// The registers: the Berlin tree, lighting and fountain registers (the layers Berlin's set
+    /// ranks so, ADR 0149) and the tree cadastres (`trees/…`).
     Register,
 }
 
@@ -47,23 +47,9 @@ pub fn rank(object: &MapObject) -> Option<Rank> {
     if source.starts_with("trees/") {
         return Some(Rank::Register);
     }
-    // A set that brings its rules names its rank (ADR 0149).
-    if let Some(drawing) = crate::build::sets::drawing_of_source(source) {
-        use freemapper_adapter_api::extras::SetRank;
-        return Some(match drawing.rank {
-            SetRank::Survey => Rank::Survey,
-            SetRank::Cadastre => Rank::Alkis,
-            SetRank::Register => Rank::Register,
-        });
-    }
-    let layer = source.strip_prefix("geoportal-berlin/")?;
-    Some(if layer.starts_with("sb-") {
-        Rank::Survey
-    } else if freemapper_adapters_de::berlin::is_register(layer) {
-        Rank::Register
-    } else {
-        Rank::Alkis
-    })
+    // A set names the ranks of its layers (ADR 0149): Berlin's survey, registers and cadastre,
+    // Hamburg's survey.
+    crate::build::sets::rank_of_source(source)
 }
 
 /// The source of the objects of a landscape model starts with this.

@@ -906,7 +906,8 @@ writes it again and replaces the base map too; the old files stay as `.omap.bak`
 What the training map does differently from the map, step by step:
 
 1. Lines that meet end to end become one line: ways, stairs, railways, watercourses, banks, fences, walls and
-   contours. The dash pattern then runs through.
+   contours. The dash pattern then runs through. An opening between walls or fences narrower than the norm's 1.0 mm,
+   a gate of 1.5 m say, is widened to 1.0 mm; both ends are shortened by the same length.
 2. Street furniture (531, such as lamps, waste baskets and bicycle stands) on streets and squares goes; in a park it
    stays.
 3. Open land of a park is yellow only where the nDSM shows no trees; the rest stays white forest. freemapper reads the

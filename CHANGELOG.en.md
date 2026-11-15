@@ -8,8 +8,11 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ### Changed
 
+- The footer of the area page links to the source code, "Source code (AGPL-3.0-or-later)" (ADR 0152).
 - Licence: AGPL-3.0-or-later instead of GPL-3.0-or-later (ADR 0152), like freemapper-core, freemapper-print and freemapper-courseplan. Whoever runs a modified version as a network service must offer its source. The OpenOrienteering Mapper symbol sets keep GPL-3.0. Releases up to 0.22.0 stay GPL-3.0-or-later.
 - The image at the top of the README and the preview of the Viktoriapark example now show the training map instead of the check print; the example has `berlin-viktoriapark-training.omap` and `berlin-viktoriapark-training.pdf` for it. The check print stays linked beside it. The other examples follow after the second half of the training map.
+- freemapper uses freemapper-core v0.28.0, which is under AGPL-3.0-or-later like the whole suite (ADR 0152); nothing changes in how it works.
+- CI checks the dependencies with `cargo deny` (`deny.toml`, ADR 0154): licences that fit the AGPL, known vulnerabilities and unmaintained crates, and that everything comes from crates.io or freemapper-core. Four advisories are ignored with a reason: two concern parts of rmcp that freemapper does not build, two unmaintained crates without a replacement (ttf-parser, basic-toml at build time only).
 
 ### Added
 
@@ -18,6 +21,7 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ### Fixed
 
+- Training map: an opening between the ends of walls and fences narrower than the norm's 1.0 mm (ISSprOM 2019-2 §3.3) is widened to it; both ends are shortened by the same length (ADR 0153). At Viktoriapark the fence round the small pitch has an entrance of 1.5 m in OpenStreetMap, only 0.4 mm at 1:4000, and the corner looked like a drawing mistake. The base map keeps the measured position.
 - The ticks of closed fences now always point inside. A closed fence ends in the map file with a mark that kept freemapper from turning it, so whether its ticks lay inside or outside depended on the direction the source drew it in (ADR 0151). They now also lie inside on a fence whose ends come within 3 m of each other and on one that runs round an area, such as three sides of a plot or an arc round a running track; this counts before the olive green area beside it. At Viktoriapark this concerns two closed fences, a nearly closed one round a square and the fences round the sports ground.
 
 ## [0.22.0] - 2026-11-15

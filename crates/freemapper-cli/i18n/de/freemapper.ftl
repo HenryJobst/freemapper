@@ -248,6 +248,7 @@ page-provider-changed = Gespeichert. Für das neue Gebiet liefert ein anderer Da
 page-save-stale = freemapper.toml wurde in einem anderen Fenster oder von einem anderen Programm geändert, seit diese Seite sie gelesen hat. Es wurde nichts gespeichert; die Seite kennt jetzt den gespeicherten Stand. Speichere noch einmal, um ihn durch das hier gezeigte Gebiet zu ersetzen.
 page-has-map = Die vorhandene Karte (.omap) bleibt, wie sie ist; freemapper erzeugt neue Vorlagen und Kandidaten für das neue Gebiet. Mit der Option „Vorhandene Karte ersetzen“ unten (oder „freemapper run --force“) entsteht auch die Karte neu, die alte bleibt als .omap.bak.
 page-done = Fertig
+page-source = Quellcode (AGPL-3.0-or-later)
 page-closed = Fertig. Du kannst dieses Fenster schließen.
 page-next = Weiter: freemapper run "{ $dir }"
 page-made-files = Erzeugt: { $files }. Ordner: { $dir }

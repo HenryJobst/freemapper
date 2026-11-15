@@ -2,8 +2,8 @@
 
 | File | Source | Licence |
 |---|---|---|
-| `ISSprOM 2019_4000.omap` | OpenOrienteering Mapper, `symbol sets/4000/ISSprOM 2019_4000.omap`, commit `eae21b05851495923ac245fdf4b89cf575df38ce` (2025-05-18), https://github.com/OpenOrienteering/mapper; colour table changed by freemapper (see below) | GPL-3.0-or-later (OpenOrienteering Mapper) |
-| `ISOM 2017-2_15000.omap` | OpenOrienteering Mapper, `symbol sets/15000/ISOM 2017-2_15000.omap`, commit `eae21b05851495923ac245fdf4b89cf575df38ce` (2025-05-18), https://github.com/OpenOrienteering/mapper; colour table changed by freemapper (see below) | GPL-3.0-or-later (OpenOrienteering Mapper) |
+| `ISSprOM 2019_4000.omap` | OpenOrienteering Mapper, `symbol sets/4000/ISSprOM 2019_4000.omap`, commit `eae21b05851495923ac245fdf4b89cf575df38ce` (2025-05-18), https://github.com/OpenOrienteering/mapper; colour table changed by freemapper (see below) | GPL-3.0 (OpenOrienteering Mapper: README and COPYING say version 3, its source files "version 3 or later"; we take the narrower) |
+| `ISOM 2017-2_15000.omap` | OpenOrienteering Mapper, `symbol sets/15000/ISOM 2017-2_15000.omap`, commit `eae21b05851495923ac245fdf4b89cf575df38ce` (2025-05-18), https://github.com/OpenOrienteering/mapper; colour table changed by freemapper (see below) | GPL-3.0 (OpenOrienteering Mapper: README and COPYING say version 3, its source files "version 3 or later"; we take the narrower) |
 | `isom-aliases.toml` | freemapper: the ISSprOM codes of the build modules and the ISOM 2017-2 code that draws them on a forest map | AGPL-3.0-or-later |
 | `school-2019-additions.xml` | freemapper, drawn after the IOF "Symbol Set for School Orienteering Maps 2019" | AGPL-3.0-or-later |
 | `sheet-additions.xml` | freemapper: the sheet symbols 991 to 994 of the peripheral information | AGPL-3.0-or-later |

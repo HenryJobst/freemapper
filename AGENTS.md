@@ -382,7 +382,8 @@ its own AGENTS.md:
 This section is for coding agents in a clone of the repository, not for using the program.
 
 - Build and check: `cargo build --release --locked`, `cargo fmt --all --check`,
-  `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace --locked`. The toolchain is
+  `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace --locked`, `cargo deny check`
+  (licences, advisories and sources of the dependencies, `deny.toml`; install with `cargo install cargo-deny --locked`). The toolchain is
   pinned in `rust-toolchain.toml`.
 - CI runs a pull request on Linux only. Give it the label `all-systems` when the change touches code that
   differs on macOS or Windows (paths, processes, the file system); every push to `main` runs all three.

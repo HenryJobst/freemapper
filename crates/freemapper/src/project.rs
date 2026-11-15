@@ -427,7 +427,6 @@ use freemapper_adapter_api::project::{RasterProject, RasterRecords};
 use freemapper_adapter_api::rasters::{
     DeriveEnv, HeightInput, OrthophotoInput, RasterArea, RasterBackend, StoredRasters,
 };
-use freemapper_adapters_de::berlin::BERLIN_REGISTERS;
 // The steps of a raster fetch that name no state, and the files they write.
 use freemapper_adapter_api::records::on_grid;
 pub use freemapper_adapter_api::records::{NdsmRecord, TileRecord, WcsRecord, WmsRecord};
@@ -2782,10 +2781,9 @@ fn drawn_registers(objects: &[MapObject]) -> Vec<&'static str> {
                 None => false,
             })
     };
-    let berlin = BERLIN_REGISTERS
-        .iter()
-        .map(|&(file, _)| file)
-        .filter(|file| drawn(format!("geoportal-berlin/{file}")));
+    let berlin = crate::build::sets::credited_layers()
+        .filter(|(prefix, file)| drawn(format!("{prefix}/{file}")))
+        .map(|(_, file)| file);
     let cities = trees::all_tree_datasets()
         .map(|d| d.id.as_ref())
         .filter(|id| drawn(format!("trees/{id}")));

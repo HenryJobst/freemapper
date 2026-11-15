@@ -54,14 +54,37 @@ pub struct SetDrawing {
     pub rules: &'static str,
     /// The prefix of the tags of the features, such as `hamburg`.
     pub tag_prefix: &'static str,
+    /// The prefix of the source of the set's objects (`<prefix>/<layer>`); usually the set key.
+    pub source_prefix: &'static str,
     /// How the objects of the set rank in the duplicate step.
     pub rank: SetRank,
+    /// The rank of the layers whose rank differs from `rank`: a file, or a prefix ending in `*`.
+    pub layer_ranks: &'static [(&'static str, SetRank)],
+    /// The layers named in the credit line when they drew objects: the file and its name there.
+    pub credited_layers: &'static [(&'static str, &'static str)],
     /// The layers whose areas are stairs; the engine draws them as stairs, walking direction
     /// from the terrain, and lets a stair of the cadastre at the same place win.
     pub stair_layers: &'static [&'static str],
     /// The layers whose objects stay candidates on the base map whatever the content profile;
     /// the training map takes them, as it takes every candidate.
     pub candidate_layers: &'static [&'static str],
+    /// Whether the engine fetches, records and draws the set through this drawing. `false`: the
+    /// engine still draws the set by its own code and only reads these data (Berlin, until it
+    /// moves onto the sets, docs/superpowers/specs/2026-11-15-berlin-onto-sets-design.md).
+    pub generic: bool,
+}
+
+impl SetDrawing {
+    /// The rank of the objects of the layer stored as `file`.
+    pub fn rank_of(&self, file: &str) -> SetRank {
+        self.layer_ranks
+            .iter()
+            .find(|(pattern, _)| match pattern.strip_suffix('*') {
+                Some(prefix) => file.starts_with(prefix),
+                None => file == *pattern,
+            })
+            .map_or(self.rank, |(_, rank)| *rank)
+    }
 }
 
 /// The rank of a set's objects among the sources of the same object.

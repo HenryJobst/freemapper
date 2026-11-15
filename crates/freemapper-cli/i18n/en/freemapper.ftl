@@ -248,6 +248,7 @@ page-provider-changed = Saved. Another data provider serves the elevation and ae
 page-save-stale = freemapper.toml was changed in another window or by another program since this page read it. Nothing was saved; the page now knows the saved state. Save again to replace it with the area shown here.
 page-has-map = The existing map (.omap) stays as it is; freemapper makes new templates and candidates for the new area. The option "Replace the existing map" below (or "freemapper run --force") makes the map anew too and keeps the old one as .omap.bak.
 page-done = Done
+page-source = Source code (AGPL-3.0-or-later)
 page-closed = Done. You can close this window.
 page-next = Next: freemapper run "{ $dir }"
 page-made-files = Created: { $files }. Folder: { $dir }

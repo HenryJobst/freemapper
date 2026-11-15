@@ -844,7 +844,8 @@ mod tests {
                 assert!(sets.is_empty(), "{}", adapter.info().id);
                 continue;
             }
-            assert!(sets[0].drawing().is_none());
+            // Berlin's data, drawn by the engine's own code until it moves (ADR 0149).
+            assert!(sets[0].drawing().is_some_and(|d| !d.generic));
             assert_eq!(sets.len(), 1);
             let set = &sets[0];
             let info = set.info();

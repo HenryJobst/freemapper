@@ -62,3 +62,13 @@ tree pits and water-bound gravel stay out (the street is a paved area on the map
 land of a street survey goes to the map (the green strips of Berlin's survey), so `SetDrawing` names
 `candidate_layers`: their objects carry `freemapper:candidate-only` and no profile moves them. The training map takes
 them as every candidate. Blankenese: 56 such candidates, the map unchanged.
+
+## Addendum 2026-11-15: Berlin's data on its drawing (step 2a of moving Berlin)
+
+On the way to drawing Berlin through its set too (design `docs/superpowers/specs/2026-11-15-berlin-onto-sets-design.md`),
+`SetDrawing` gets the prefix of its sources (`source_prefix`; Berlin's objects carry `geoportal-berlin/<layer>`, its
+key is `berlin`), the ranks of single layers (`layer_ranks`, a file or a prefix ending in `*`), the layers its credit
+line names when they drew objects (`credited_layers`) and `generic`. Berlin's set returns a drawing with
+`generic: false`: the engine reads its ranks and registers from it (`dedup::rank`, `drawn_registers`) but still
+fetches, records and draws it by its own code; only sets with `generic: true` take the generic path. The output is
+unchanged (G3/G4 byte for byte).
