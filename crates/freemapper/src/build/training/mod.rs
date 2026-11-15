@@ -3,7 +3,9 @@
 //! another or inside its gap (spec 2026-11-14, Part 3).
 //!
 //! The steps run in a fixed order, each on what the one before left:
-//! 1. lines of one symbol that meet end to end are joined ([`join_lines`]);
+//! 1. lines of one symbol that meet end to end are joined ([`join_lines`]), and an opening
+//!    between walls and fences narrower than the norm's is widened to it
+//!    ([`widen_openings`](openings::widen_openings));
 //! 2. street furniture (531) on a paved area goes;
 //! 3. open land of a park is reduced to its open ground where the tree cover shows trees
 //!    ([`open_ground`]);
@@ -19,6 +21,7 @@
 //! network that run side by side are left to the second half and only counted in the report.
 
 mod olive;
+mod openings;
 mod points;
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -48,6 +51,7 @@ use crate::raster::{GridSpec, Raster};
 use crate::render::geometry::{length, parts};
 use olive::clear_olive;
 pub use olive::{OLIVE_EDGE_MM, WAY_STUB_MM};
+use openings::widen_openings;
 use points::move_points;
 pub use points::{MAX_POINT_SHIFT_MM, MAX_SHIFT_MM};
 
@@ -94,6 +98,8 @@ const MIN_AREA_CODES: [&str; 9] = [
 pub struct TrainingReport {
     /// Objects that went into another by a join.
     pub joined: usize,
+    /// Walls and fences shortened so that an opening between them is as wide as the norm's.
+    pub openings_widened: usize,
     /// Objects dropped whole because they kept no gap.
     pub gave_way: usize,
     /// Objects cut where they kept no gap.
@@ -130,9 +136,10 @@ pub fn train(
     let mut objects = objects;
     let mut report = TrainingReport {
         joined: join(&mut objects, &classes, georef),
-        furniture: drop_furniture(&mut objects, symbol_set),
         ..TrainingReport::default()
     };
+    report.openings_widened = widen_openings(&mut objects, georef, symbol_set);
+    report.furniture = drop_furniture(&mut objects, symbol_set);
     if let Some(tree_cover) = tree_cover {
         report.open_land_cut = open_ground(&mut objects, tree_cover, georef, symbol_set);
     }

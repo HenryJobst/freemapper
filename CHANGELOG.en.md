@@ -20,6 +20,7 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ### Fixed
 
+- Training map: an opening between the ends of walls and fences narrower than the norm's 1.0 mm (ISSprOM 2019-2 §3.3) is widened to it; both ends are shortened by the same length (ADR 0153). At Viktoriapark the fence round the small pitch has an entrance of 1.5 m in OpenStreetMap, only 0.4 mm at 1:4000, and the corner looked like a drawing mistake. The base map keeps the measured position.
 - The ticks of closed fences now always point inside. A closed fence ends in the map file with a mark that kept freemapper from turning it, so whether its ticks lay inside or outside depended on the direction the source drew it in (ADR 0151). They now also lie inside on a fence whose ends come within 3 m of each other and on one that runs round an area, such as three sides of a plot or an arc round a running track; this counts before the olive green area beside it. At Viktoriapark this concerns two closed fences, a nearly closed one round a square and the fences round the sports ground.
 
 ## [0.22.0] - 2026-11-15

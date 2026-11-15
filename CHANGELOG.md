@@ -20,6 +20,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Behoben
 
+- Trainingskarte: Eine Öffnung zwischen den Enden von Mauern und Zäunen, die schmaler ist als die 1,0 mm der Norm (ISSprOM 2019-2 §3.3), wird auf dieses Maß verbreitert; beide Enden werden gleich weit gekürzt (ADR 0153). Am Viktoriapark hat der Zaun um den kleinen Sportplatz in OpenStreetMap einen Eingang von 1,5 m, bei 1:4000 nur 0,4 mm; die Ecke sah aus wie ein Zeichenfehler. Die Grundkarte behält die gemessene Lage.
 - Die Zacken geschlossener Zäune zeigen jetzt immer nach innen. Ein geschlossener Zaun endet in der Kartendatei mit einer Markierung, die freemapper bisher davon abhielt, ihn umzudrehen; ob seine Zacken innen oder außen lagen, hing davon ab, in welcher Richtung die Quelle ihn zeichnete (ADR 0151). Innen liegen sie jetzt auch bei einem Zaun, dessen Enden bis auf 3 m aneinanderstoßen, und bei einem, der um eine Fläche herumführt, etwa drei Seiten eines Grundstücks oder ein Bogen um eine Laufbahn; das gilt vor der olivgrünen Fläche daneben. Am Viktoriapark betrifft das zwei geschlossene Zäune, einen fast geschlossenen um einen Platz und die Zäune um den Sportplatz.
 
 ## [0.22.0] - 2026-11-15

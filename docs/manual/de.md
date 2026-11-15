@@ -942,7 +942,9 @@ Dateien bleiben als `.omap.bak`.
 Was die Trainingskarte anders macht als die Karte, Schritt für Schritt:
 
 1. Linien, die Ende an Ende stoßen, werden eine Linie: Wege, Treppen, Gleise, Wasserläufe, Böschungen, Zäune,
-   Mauern und Höhenlinien. Die Strichelung läuft dann durch.
+   Mauern und Höhenlinien. Die Strichelung läuft dann durch. Eine Öffnung zwischen Mauern oder Zäunen, die schmaler
+   ist als die 1,0 mm der Norm, etwa ein Tor von 1,5 m, wird auf 1,0 mm verbreitert; beide Enden werden gleich weit
+   gekürzt.
 2. Stadtmobiliar (531, etwa Laternen, Papierkörbe und Fahrradständer) auf Straßen und Plätzen entfällt, im Park bleibt
    es.
 3. Offenes Gelände eines Parks ist nur dort gelb, wo das nDOM keine Bäume zeigt; der Rest bleibt weißer Wald.
