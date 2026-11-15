@@ -16,7 +16,7 @@ maintainers = ["github:HenryJobst"]
 last_verified = "2026-11-13"
 
 [net]
-hosts = ["owsproxy.lgl-bw.de", "opengeodata.lgl-bw.de"]
+hosts = ["owsproxy.lgl-bw.de", "opengeodata.lgl-bw.de", "rips-gdi.lubw.baden-wuerttemberg.de"]
 
 [boundary]
 file = "boundary.geojson"

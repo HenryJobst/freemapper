@@ -1065,8 +1065,10 @@ die Bezirke, steht der allgemeine Hinweis für Berlin und Hamburg da.
 
 ### Wasserschutzgebiete und Waldfunktionen
 
-Wasserschutzgebiete mit ihrer Schutzzone kommen aus Berlin, Brandenburg, Hamburg, Hessen, Nordrhein-Westfalen,
-dem Saarland und Schleswig-Holstein, aus Sachsen nur für den Wald. Für Bayern, Niedersachsen, Bremen,
+Wasserschutzgebiete mit ihrer Schutzzone kommen aus Baden-Württemberg, Berlin, Brandenburg, Hamburg, Hessen,
+Nordrhein-Westfalen, dem Saarland und Schleswig-Holstein, aus Sachsen nur für den Wald. In Baden-Württemberg nennt
+jede Zone die zuständige untere Wasserbehörde (ein Landratsamt oder eine Stadt), und der Hinweis nennt sie mit;
+die Zonen I und II kommen dort zusammengefasst, weil die LUBW die Zone I nicht veröffentlicht. Für Bayern, Niedersachsen, Bremen,
 Mecklenburg-Vorpommern, Rheinland-Pfalz, Sachsen-Anhalt und Sachsen kommen die Trinkwasser- und
 Heilquellenschutzgebiete, die die Bundesländer an die Bundesanstalt für Gewässerkunde (BfG) melden, ohne
 Schutzzone und mit dem Hinweis der BfG, dass der Bestand nicht überall vollständig ist; in Nordrhein-Westfalen auch die geplanten, mit dem Zusatz „(geplant)“. Waldfunktionen
@@ -1143,9 +1145,9 @@ Bezirks, auch in `data/permits/`.
   Trinkwasserschutzzonen des Dienstes liegen nur im Wald. `permits.json` kennzeichnet so eine Quelle mit
   `"sampled": true`.
 - Wem ein Privat- oder Körperschaftswald gehört, steht in keinen offenen Daten.
-- Wasserschutzgebiete fehlen nur noch in Baden-Württemberg: Sein Dienst nennt keine Lizenz, und die BfG hat
-  keine Daten von dort. Die Gebiete der BfG haben keine Schutzzone; ob eine Veranstaltung möglich ist, sagt die
-  untere Wasserbehörde. Denkmale kommen aus Berlin, Hamburg und dem Saarland.
+- Wasserschutzgebiete nennen die Hinweise in allen Bundesländern. Die Gebiete der BfG haben keine Schutzzone; ob
+  eine Veranstaltung möglich ist, sagt die untere Wasserbehörde. Denkmale kommen aus Berlin, Hamburg und dem
+  Saarland.
 
 ### Datenquellen und Lizenzen
 
@@ -1157,6 +1159,7 @@ Bezirks, auch in `data/permits/`.
 | Geoportal Berlin: Bezirksgrenzen, Grünanlagenbestand, Liegenschaftsplan, Denkmale, Schutzobjekte nach Naturschutzrecht, Forstverwaltung (nur in Berlin) | `gdi.berlin.de` | `Für die Nutzung der Daten ist die Datenlizenz Deutschland - Zero - Version 2.0 anzuwenden. Die Lizenz ist über https://www.govdata.de/dl-de/zero-2-0 abrufbar.` |
 | Geoportal Hamburg: Bezirksgrenzen, Grünplan, Denkmalschutz, Wald in Hamburg, Waldfunktionen, Wasserschutzgebiete (nur in Hamburg) | `geodienste.hamburg.de` | je Dienst `Datenlizenz Deutschland Namensnennung 2.0, Quellenvermerk: Freie und Hansestadt Hamburg, <Behörde>` mit der Behörde, die der Dienst nennt |
 | Umweltportal Schleswig-Holstein: Landeswald mit Revieren, Naturwald, Wasserschutzgebiete (nur in Schleswig-Holstein) | `umweltgeodienste.schleswig-holstein.de` | `Quellenvermerk: LfU SH; Lizenz: Creative Commons Namensnennung 4.0 International (CC BY 4.0)` |
+| LUBW Landesanstalt für Umwelt Baden-Württemberg: Wasserschutzgebietszonen mit der zuständigen Behörde (nur in Baden-Württemberg) | `rips-gdi.lubw.baden-wuerttemberg.de` | `Grundlage: Daten aus dem Umweltinformationssystem (UIS) der LUBW Landesanstalt für Umwelt Baden-Württemberg` (Nutzungsvereinbarung für Daten des UIS) |
 | Bundesanstalt für Gewässerkunde (BfG), WasserBLIcK: Trinkwasser- und Heilquellenschutzgebiete (nur in Bayern, Niedersachsen, Bremen, Mecklenburg-Vorpommern, Rheinland-Pfalz, Sachsen-Anhalt und Sachsen) | `geoportal.bafg.de` | `© WasserBLIcK/BfG und Zuständige Behörden der Länder, <Jahr>; Lizenz: Creative Commons Namensnennung – 4.0 International (CC BY 4.0)` |
 | Staatsbetrieb Sachsenforst: Forstbezirke und Reviere, Erholungswald, Naturwaldzellen, Bodenschutzwald, Trinkwasserschutzzonen im Wald (nur in Sachsen) | `www.forsten.sachsen.de` | `Datenlizenz Deutschland 2.0 – Namensnennung (dl-de/by-2-0) unter Angabe der Quelle: "Geodaten Sachsenforst"` |
 | Geoportal Saarland: Reviere des Staatswalds, Wasserschutzgebiete, Naturwaldzellen, Urwald, Baudenkmale (nur im Saarland) | `geoportal.saarland.de` | `Quellenvermerk: © GDI-SL (<Jahr>); Lizenz: Creative Commons Namensnennung 4.0 International (CC BY 4.0)` |

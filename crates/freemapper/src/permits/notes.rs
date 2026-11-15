@@ -80,7 +80,8 @@ pub mod hint_key {
     /// (joined with ", "): classified roads through the map area (ADR 0133).
     pub const ROAD_CLASS: &str = "permits-hint-road-class";
     /// Args `inner` (`yes` for zone I or II, `no`, `unknown`) and, where the data give them,
-    /// `name` and `zone`: a water protection area or zone on the map (ADR 0129).
+    /// `name`, `zone` and `authority`: a water protection area or zone on the map (ADR 0129,
+    /// ADR 0143).
     pub const WATER_PROTECTION: &str = "permits-hint-water-protection";
     /// Args `kind` (`recreation`, `protected`, `natural`, `closed`) and, where known, `names`
     /// (joined with ", "): forest with that function or protection on the map.
@@ -757,6 +758,9 @@ fn hints(
         }
         if let Some(zone) = &water.zone {
             args.push(("zone", zone.as_str()));
+        }
+        if let Some(authority) = &water.authority {
+            args.push(("authority", authority.as_str()));
         }
         hints.push(Hint::new(hint_key::WATER_PROTECTION, &args));
     }
@@ -2420,6 +2424,7 @@ mod tests {
             name: Some(name.into()),
             zone: Some(zone.into()),
             citation: None,
+            authority: None,
         };
         let found = notes(
             MapKind::Sprint,
@@ -2457,6 +2462,42 @@ mod tests {
             .map(|h| (h.args["zone"].as_str(), h.args["inner"].as_str()))
             .collect();
         assert_eq!(inner, [("Schutzzone III", "no"), ("Schutzzone II", "yes")]);
+    }
+
+    /// A water protection area whose data name the authority in charge carries it into its
+    /// hint (ADR 0143).
+    #[test]
+    fn a_water_authority_goes_into_the_hint() {
+        let found = notes(
+            MapKind::Sprint,
+            &with_regional(
+                vec![],
+                vec![regional(
+                    "wsg",
+                    PermitSection::WaterProtection,
+                    vec![area(
+                        FindingKind::WaterProtection {
+                            name: Some("Ditzingen".into()),
+                            zone: Some("Zone IIIB".into()),
+                            citation: None,
+                            authority: Some("Landratsamt Ludwigsburg".into()),
+                        },
+                        square(13.0, 52.0, 13.01, 52.1),
+                    )],
+                )],
+            ),
+        );
+        let entries = found.regional[0].water_protection.as_ref().unwrap();
+        assert_eq!(
+            entries[0].item.authority.as_deref(),
+            Some("Landratsamt Ludwigsburg")
+        );
+        let hint = found
+            .hints
+            .iter()
+            .find(|h| h.key == hint_key::WATER_PROTECTION)
+            .unwrap();
+        assert_eq!(hint.args["authority"], "Landratsamt Ludwigsburg");
     }
 
     /// Forest functions are summed per kind and name; each kind gets one hint with the names.

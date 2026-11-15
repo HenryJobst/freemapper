@@ -112,6 +112,7 @@ impl PermitSource for BfgSource {
                         name,
                         zone: None,
                         citation: None,
+                        authority: None,
                     },
                     geometry: geometry(feature)?,
                 })

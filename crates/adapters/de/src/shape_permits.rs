@@ -431,6 +431,7 @@ mod tests {
                 name: Some("Beispielhausen".into()),
                 zone: Some("Zone II".into()),
                 citation: Some("GVBl.II/08, [Nr. 1], S.1".into()),
+                authority: None,
             }
         );
     }
@@ -478,11 +479,13 @@ mod tests {
                     name: Some("D\u{fc}sterm\u{fc}hle".into()),
                     zone: Some("Schutzzone 1".into()),
                     citation: None,
+                    authority: None,
                 },
                 FindingKind::WaterProtection {
                     name: Some("Genkeltalsperre".into()),
                     zone: Some("Schutzzone 3B (geplant)".into()),
                     citation: None,
+                    authority: None,
                 },
             ]
         );

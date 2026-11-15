@@ -176,6 +176,9 @@ pub struct WaterProtectionEntry {
     pub name: Option<String>,
     pub zone: Option<String>,
     pub citation: Option<String>,
+    /// The authority in charge, where the data name it (ADR 0143).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub authority: Option<String>,
 }
 
 /// An area of forest with a function or protection.
@@ -612,12 +615,14 @@ fn water_protection(on_map: &[(&Placed<'_>, f64)]) -> Vec<Share<WaterProtectionE
             name,
             zone,
             citation,
+            authority,
         } = p.kind
         {
             let key = WaterProtectionEntry {
                 name: name.clone(),
                 zone: zone.clone(),
                 citation: citation.clone(),
+                authority: authority.clone(),
             };
             *summed.entry(key).or_default() += share;
         }
