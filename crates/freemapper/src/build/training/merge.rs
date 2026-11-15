@@ -1,7 +1,7 @@
 //! Step 5 of the training level: merge what is alike (spec 2026-11-14, "The second half, as
 //! designed on 2026-11-15", "Merge"). Two lines of one class (roads, railways, paths) that run
 //! side by side inside the gap become one line on their middle over that stretch, and on a
-//! forest map a path or a tram inside the drawn width of a road goes. It runs before the points
+//! forest map a path or a tram in the gap zone of a road (a sidewalk, a cycleway) goes. It runs before the points
 //! move, so that they move off the merged line. Paper mm, y down, as `conflicts::Footprints`
 //! uses; only +, −, ×, ÷ and `sqrt` decide, and every collection is iterated in a sorted order.
 
@@ -33,17 +33,18 @@ const OSM_TRAM: &str = "railway=tram";
 /// The `freemapper:generalized` value of a merged line; ` with ` and the source and id of the
 /// other line follow when it has an id.
 const MERGED: &str = "merged";
-/// The `freemapper:generalized` value of a piece of a path or tram cut where it ran inside a road.
-const CUT_INSIDE_ROAD: &str = "cut: inside the drawn width of a road";
+/// The `freemapper:generalized` value of a piece of a path or tram cut where it ran in the gap
+/// zone of a road.
+const CUT_INSIDE_ROAD: &str = "cut: in the gap of a road";
 
 /// What [`merge`] did.
 #[derive(Debug, Default, Clone, PartialEq)]
 pub(super) struct Merged {
     /// Pairs that became one line.
     pub(super) merged: usize,
-    /// Paths and trams that went because they ran inside the drawn width of a road.
+    /// Paths and trams that went because they ran in the gap zone of a road.
     pub(super) dropped_beside_roads: usize,
-    /// Paths and trams cut where they ran inside the drawn width of a road.
+    /// Paths and trams cut where they ran in the gap zone of a road.
     pub(super) cut: usize,
     /// The line that took the place of another, by junction key: of a merged pair the one that
     /// went (where it ran beside) → the one kept; of a path or tram inside a road → the road.
@@ -52,8 +53,10 @@ pub(super) struct Merged {
 
 /// Merges what is alike among `objects`. On a forest map first a path (505 to 507 and the
 /// aliases of the path class) or a tram (a railway whose `freemapper:osm` holds [`OSM_TRAM`])
-/// whose centre line runs inside the drawn width of a road over more than half its length goes,
-/// else its stretches inside are cut out (stretches of at least [`MIN_CONFLICT`], the places
+/// whose centre line runs in the gap zone of a road (within both half widths and the gap of the
+/// road's centre line, the zone of a Joined conflict: a sidewalk or cycleway, which ISOM does
+/// not map apart from the road) over more than half its length goes, else its stretches inside
+/// are cut out (stretches of at least [`MIN_CONFLICT`], the places
 /// where the centre lines cross left out; pieces below their minimum length go, and the end of
 /// a piece next to the road is drawn onto the road's centre line). On a sprint map the street
 /// space is a paved area (501.5), on which paths and trams are free: it is left alone.
@@ -123,7 +126,7 @@ fn is_tram(object: &MapObject) -> bool {
         .any(|(k, v)| k == "freemapper:osm" && tag_holds(v, OSM_TRAM))
 }
 
-/// The forest rule of [`merge`]: paths and trams inside the drawn width of a road.
+/// The forest rule of [`merge`]: paths and trams in the gap zone of a road.
 fn inside_roads(
     objects: &mut Vec<MapObject>,
     classes: &Classes,
@@ -170,8 +173,10 @@ fn inside_roads(
                 continue;
             };
             let road_half = footprints.half_width(road);
-            let mine = beside(&line, &road_line, road_half + TOLERANCE_MM, 0.0);
+            // The zone of a Joined conflict: the road's footprint grown by the rider's half
+            // width and the gap.
             let radius = rider_half + road_half + gap;
+            let mine = beside(&line, &road_line, radius, 0.0);
             for m in meeting_points(footprints.centre(rider), footprints.centre(road)) {
                 crossings.extend(beside(&line, &Polyline::new(vec![m]), radius, 0.0));
             }
@@ -657,10 +662,12 @@ mod tests {
             sourced(&set, "505", "way/1", &[(0.0, 0.3), (40.0, 0.3)]),
             sourced(&set, "503", "way/2", &[(5.0, 0.0), (30.0, 0.0)]),
         ];
-        // A road and a path are not alike: the path is no road, so they stay.
+        // A road and a path are not alike: they do not merge, the road stays as it is (the
+        // path goes in its gap zone).
+        let road = objects[1].clone();
         let (out, report) = forest(&set, objects);
         assert_eq!(report.merged, 0, "{report:?}");
-        assert_eq!(out.len(), 2);
+        assert_eq!(of_code(&set, &out, "503"), [&road]);
         // Two roads of different widths: the wider symbol, the tags of the longer line.
         let objects = vec![
             sourced(&set, "503", "way/1", &[(0.0, 0.5), (40.0, 0.5)]),
@@ -718,6 +725,38 @@ mod tests {
         let (out, report) = forest(&set, objects);
         assert_eq!(out, vec![road]);
         assert_eq!(report.dropped_beside_roads, 1, "{report:?}");
+    }
+
+    #[test]
+    fn a_sidewalk_five_metres_from_the_road_goes() {
+        // 5 m at 1:10 000 is 0.5 mm: beyond the drawn half width of 503, inside its gap zone.
+        let set = isom();
+        let road = line(&set, "503", &[(0.0, 0.0), (40.0, 0.0)]);
+        assert!(Footprints::of(&[&road], &set).half_width(0) < 0.5);
+        let objects = vec![road.clone(), line(&set, "505", &[(5.0, 0.5), (35.0, 0.5)])];
+        let (out, report) = forest(&set, objects);
+        assert_eq!(out, vec![road]);
+        assert_eq!(report.dropped_beside_roads, 1, "{report:?}");
+        assert_eq!((report.gap_left, report.overlap_left), (0.0, 0.0));
+    }
+
+    #[test]
+    fn a_path_that_leaves_the_road_keeps_its_free_part() {
+        let set = isom();
+        let objects = vec![
+            line(&set, "503", &[(0.0, 0.0), (50.0, 0.0)]),
+            line(&set, "505", &[(30.0, 0.5), (40.0, 0.5), (40.0, 20.0)]),
+        ];
+        let (out, report) = forest(&set, objects);
+        assert_eq!(report.dropped_beside_roads, 0, "{report:?}");
+        assert_eq!(report.cut, 1, "{report:?}");
+        let paths = of_code(&set, &out, "505");
+        assert_eq!(paths.len(), 1, "{out:?}");
+        assert!(off(paths[0], (35.0, 0.5)) > 1.0, "{:?}", paths[0]);
+        assert!(off(paths[0], (40.0, 10.0)) < 0.002, "{:?}", paths[0]);
+        let index = out.iter().position(|o| o == paths[0]).unwrap();
+        assert!(end_touches(&out, index, false, SCALE), "{:?}", paths[0]);
+        assert_eq!((report.gap_left, report.overlap_left), (0.0, 0.0));
     }
 
     #[test]

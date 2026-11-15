@@ -10,7 +10,7 @@
 //! 4. inside olive green (520) only buildings, water, contours and the ways a runner can cross
 //!    stay ([`clear_olive`](olive::clear_olive));
 //! 5. what is alike is merged: two roads, railways or paths side by side become their middle,
-//!    and on a forest map a path or tram inside the drawn width of a road goes
+//!    and on a forest map a path or tram in the gap zone of a road goes
 //!    ([`merge`](merge::merge)); the line ends that touched a line before touch one after
 //!    ([`Junctions`]), and the lines that meet end to end are joined again;
 //! 6. a point symbol too close to a way, a building, water or another point is moved off
@@ -119,7 +119,7 @@ pub struct TrainingReport {
     pub points_moved: usize,
     /// Pairs of roads, railways or paths side by side that became one line.
     pub merged: usize,
-    /// Paths and trams that went because they ran inside the drawn width of a road (forest map).
+    /// Paths and trams that went because they ran in the gap zone of a road (forest map).
     pub dropped_beside_roads: usize,
     /// Line ends moved back onto the line they touched, or onto the line that replaced it.
     pub junctions_repaired: usize,
@@ -1708,9 +1708,9 @@ mod tests {
     #[test]
     fn the_report_counts_what_is_left() {
         let set = isom();
-        // Two paths side by side merge; a path beside a road, outside its drawn width, is left.
+        // Two paths side by side merge; a railway beside a road is left (not alike, no tram).
         let road = line(&set, "503", &[(0.0, 10.0), (20.0, 10.0)]);
-        let path = line(&set, "505", &[(0.0, 10.4), (20.0, 10.4)]);
+        let path = line(&set, "509", &[(0.0, 10.6), (20.0, 10.6)]);
         let objects = vec![
             line(&set, "505", &[(0.0, 0.0), (20.0, 0.0)]),
             line(&set, "505", &[(0.0, 0.3), (20.0, 0.3)]),
