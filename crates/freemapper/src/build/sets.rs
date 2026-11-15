@@ -127,7 +127,7 @@ pub fn set_objects(
                 &layer.features,
                 set.crs,
                 tagged::PointOn::Centroid,
-                |feature| feature_tags(set.drawing.tag_prefix, &layer.name, feature),
+                |feature| tags_of(set.drawing, &layer.name, feature),
             ),
             set.drawing,
         );
@@ -208,6 +208,15 @@ pub(crate) fn with_line_middles(
     tagged
 }
 
+/// The tags of a feature of `layer` of the set `drawing` describes: the set's own
+/// ([`SetDrawing::feature_tags`]), else [`feature_tags`] with its prefix.
+pub(crate) fn tags_of(drawing: &SetDrawing, layer: &str, feature: &Value) -> Vec<(String, String)> {
+    match drawing.feature_tags {
+        Some(tags) => tags(layer, feature),
+        None => feature_tags(drawing.tag_prefix, layer, feature),
+    }
+}
+
 /// `<prefix>:layer=<layer>` and `<prefix>:<property>` for every text and number property.
 pub(crate) fn feature_tags(prefix: &str, layer: &str, feature: &Value) -> Vec<(String, String)> {
     let mut tags = vec![(format!("{prefix}:layer"), layer.to_string())];
@@ -235,6 +244,30 @@ pub(crate) fn stair_areas(feature: &Value, from: Crs, to: Crs) -> Vec<Polygon<f6
 mod tests {
     use super::*;
     use serde_json::json;
+
+    /// A set may tag its features itself (Berlin: the ids, the ALKIS names and the trees, ADR
+    /// 0149); Hamburg's get the plain `<prefix>:<property>` tags.
+    #[test]
+    fn a_set_may_tag_its_features_itself() {
+        let feature = json!({"properties": {"gisid": "a1", "bezbwf": "Überdachung"}});
+        let berlin = drawing_of_source("geoportal-berlin/bauwerke-flaechen").unwrap();
+        let tags = tags_of(berlin, "bauwerke-flaechen", &feature);
+        for tag in [
+            ("berlin:layer", "bauwerke-flaechen"),
+            ("freemapper:source_id", "a1"),
+            ("freemapper:alkis", "Überdachung"),
+        ] {
+            assert!(
+                tags.contains(&(tag.0.to_string(), tag.1.to_string())),
+                "{tag:?} in {tags:?}"
+            );
+        }
+        let hamburg = drawing_of_source("lgv-feinkartierung/fk-treppen").unwrap();
+        assert_eq!(
+            tags_of(hamburg, "fk-treppen", &feature),
+            feature_tags("hamburg", "fk-treppen", &feature)
+        );
+    }
 
     #[test]
     fn a_feature_is_tagged_with_the_prefix_of_its_set() {
