@@ -825,7 +825,8 @@ freemapper saves you drawing the base, not the walk through the terrain. Check a
   bank candidates point to them. The contours run through buildings, ways and paved areas, as ISSprOM 2019-2 (101)
   asks. They are broken only at stairs, at the small landform symbols (105, 109 to 112, 115; on forest maps not at
   the earth wall 105), below cliffs drawn and in water from the cadastre (ADR 0140).
-- **Fence ticks:** a closed fence has them inside, as the norm wants. Otherwise they point to the olive green area
+- **Fence ticks:** a closed fence has them inside, as the norm wants, and so has one whose ends nearly meet or that
+  runs round an area (three sides of a plot, an arc round a sports ground). Otherwise they point to the olive green area
   beside the fence, away from a way along the fence, and to the park. With the same area on both sides freemapper
   takes the side where the ticks overdraw nothing.
 
