@@ -6,6 +6,8 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+## [0.22.0] - 2026-11-15
+
 ### Hinzugefügt
 
 - Baumkataster von Köln, Dortmund und Frankfurt am Main (ADR 0065). Ein WFS ohne CRS-Angabe, der in Metern antwortet, wird im angefragten CRS gelesen, und Feldnamen dürfen Leerzeichen enthalten.

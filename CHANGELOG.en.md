@@ -6,6 +6,8 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
+## [0.22.0] - 2026-11-15
+
 ### Added
 
 - Tree cadastres of Köln, Dortmund and Frankfurt am Main (ADR 0065). A WFS answer that names no CRS and gives metres is read in the CRS asked, and field names may hold spaces.
