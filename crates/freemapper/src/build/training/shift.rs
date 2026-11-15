@@ -955,9 +955,10 @@ mod tests {
 
     #[test]
     fn a_shift_that_would_bring_a_fence_near_a_point_is_refused() {
-        // The fence's ticks point to the path (to the right of its direction, -x); on its far
-        // side a point symbol just beyond the gap: moved off the path, the fence would come too
-        // close to it, so it is cut as before.
+        // The fence runs towards -x, so its ticks lie on its right on paper, towards -y: on the
+        // side of the path. On its far side a point symbol lies just beyond the gap: moved off
+        // the path, the fence would come too close to it, so it is cut as before. The control
+        // run, with the point further off, shows that the fence shifts without it.
         let set = isom();
         let gap = gap(MapKind::Forest, SCALE).0;
         let marker = point(&set, "418", (0.0, 0.0));
@@ -969,6 +970,10 @@ mod tests {
         let path = line(&set, "505", &[(-5.0, 0.0), (12.0, 0.0)]);
         let fence = line(&set, "518", &[(20.0, 0.45), (0.0, 0.45)]);
         let beyond = 0.45 + half_width(&set, "518") + gap + radius + 0.01;
+        let far = point(&set, "418", (6.0, beyond + 1.0));
+        let (out, report) = run(&set, vec![path.clone(), fence.clone(), far.clone()]);
+        assert_eq!((report.shifted, report.cut), (1, 0), "{report:?} {out:?}");
+        assert_eq!(of_code(&set, &out, "418"), vec![&far]);
         let marker = point(&set, "418", (6.0, beyond));
         assert_eq!(
             apart_left(&set, &[fence.clone(), marker.clone()]),
