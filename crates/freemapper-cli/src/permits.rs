@@ -797,7 +797,7 @@ fn regional_blocks(lang: &Lang, part: &RegionalNotes) -> Vec<String> {
         } else {
             id
         };
-        t(lang, id, &[("source", arg(&section_label(section)))])
+        t(lang, id, &[("source", arg(section_label(section)))])
     };
     let mut blocks = Vec::new();
     if let Some(districts) = &part.districts {
