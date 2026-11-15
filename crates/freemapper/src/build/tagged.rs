@@ -47,6 +47,70 @@ fn line_of(crs: Crs, coordinates: &Value) -> Option<Vec<LatLon>> {
         .collect()
 }
 
+/// One point of a GeoJSON position in `from`, in `to` (no reprojection when they are the same).
+fn moved(c: &Value, from: Crs, to: Crs) -> Option<(f64, f64)> {
+    let (easting, northing) = position(c)?;
+    let p = to.reproject(from, ProjectedPoint { easting, northing })?;
+    Some((p.easting, p.northing))
+}
+
+/// The polygons of an area feature (Polygon or MultiPolygon, holes kept) in `from`, in `to`.
+/// Empty for other geometries. The canopy and stair builders read areas with it, which need the
+/// area itself and not a rule's line or point.
+pub(crate) fn polygons_in(feature: &Value, from: Crs, to: Crs) -> Vec<geo_types::Polygon<f64>> {
+    let ring = |coordinates: &Value| -> Option<geo_types::LineString<f64>> {
+        let points: Option<Vec<(f64, f64)>> = coordinates
+            .as_array()?
+            .iter()
+            .map(|c| moved(c, from, to))
+            .collect();
+        Some(geo_types::LineString::from(points?))
+    };
+    let polygon = |rings: &Value| -> Option<geo_types::Polygon<f64>> {
+        let mut rings = rings.as_array()?.iter().map(ring);
+        let exterior = rings.next()??;
+        Some(geo_types::Polygon::new(
+            exterior,
+            rings.collect::<Option<_>>()?,
+        ))
+    };
+    let coordinates = &feature["geometry"]["coordinates"];
+    match feature["geometry"]["type"].as_str() {
+        Some("Polygon") => polygon(coordinates).into_iter().collect(),
+        Some("MultiPolygon") => coordinates
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(polygon)
+            .collect(),
+        _ => Vec::new(),
+    }
+}
+
+/// The lines of a line feature (LineString or MultiLineString, one per part) in `from`, in `to`.
+/// Empty for other geometries.
+pub(crate) fn lines_in(feature: &Value, from: Crs, to: Crs) -> Vec<geo_types::LineString<f64>> {
+    let line = |coordinates: &Value| -> Option<geo_types::LineString<f64>> {
+        let points: Option<Vec<(f64, f64)>> = coordinates
+            .as_array()?
+            .iter()
+            .map(|c| moved(c, from, to))
+            .collect();
+        Some(geo_types::LineString::from(points?))
+    };
+    let coordinates = &feature["geometry"]["coordinates"];
+    match feature["geometry"]["type"].as_str() {
+        Some("LineString") => line(coordinates).into_iter().collect(),
+        Some("MultiLineString") => coordinates
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(line)
+            .collect(),
+        _ => Vec::new(),
+    }
+}
+
 /// The exterior ring of a polygon as a closed line (holes are dropped: candidates only) and a
 /// point at `point_on`. A ring longer than [`LARGE_MONUMENT_M`] sets `large`.
 fn polygon_parts(
