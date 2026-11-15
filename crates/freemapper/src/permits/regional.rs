@@ -226,6 +226,10 @@ pub(crate) struct HintFacts {
     /// A source of monuments of the adapter has gaps (ADR 0144): no monument on the map does not
     /// mean none.
     pub monument_gaps: bool,
+    /// Naturdenkmale, protected landscape parts or biotopes lie on the map (ADR 0146).
+    pub nature_objects: bool,
+    /// The types of the biotopes on the map, by share, descending (ADR 0146).
+    pub biotopes: Vec<String>,
     /// The districts that hold a protected object the lower nature conservation authority
     /// looks after, chosen as for the monuments.
     pub nature_districts: Vec<String>,
@@ -425,6 +429,27 @@ fn one_adapter(
             Vec::new()
         },
         monuments: monuments.as_ref().map_or(0, |m| m.total),
+        nature_objects: protected_objects
+            .iter()
+            .flatten()
+            .any(|o| o.kind.needs_nature_authority()),
+        biotopes: {
+            let mut biotopes: Vec<(&ProtectedObjectEntry, f64)> = protected_objects
+                .iter()
+                .flatten()
+                .filter(|o| o.kind == ProtectedObjectKind::Biotope)
+                .map(|o| (o, o.percent.unwrap_or(0.0)))
+                .collect();
+            biotopes.sort_by(|a, b| b.1.total_cmp(&a.1));
+            let mut names: Vec<String> = Vec::new();
+            for (o, _) in biotopes {
+                let name = o.name.clone().unwrap_or_default();
+                if !names.contains(&name) {
+                    names.push(name);
+                }
+            }
+            names
+        },
         monument_gaps: inputs.iter().any(|i| {
             i.source.sections.contains(&PermitSection::Monuments) && i.source.gaps.is_some()
         }),
@@ -707,10 +732,14 @@ fn monuments(on_map: &[(&Placed<'_>, f64)]) -> Monuments {
     }
 }
 
+/// A protected object by its kind, name and act.
+type ObjectKey = (ProtectedObjectKind, Option<String>, Option<String>);
+
 fn protected_objects(on_map: &[(&Placed<'_>, f64)]) -> Vec<ProtectedObjectEntry> {
-    let mut points: BTreeMap<(ProtectedObjectKind, Option<String>, Option<String>), usize> =
-        BTreeMap::new();
-    let mut areas: Vec<ProtectedObjectEntry> = Vec::new();
+    let mut points: BTreeMap<ObjectKey, usize> = BTreeMap::new();
+    // Areas of one kind, name and citation are one entry with their summed share: a map in
+    // the forest can hold dozens of biotopes of one type (ADR 0146).
+    let mut areas: BTreeMap<ObjectKey, (usize, f64)> = BTreeMap::new();
     for (p, share) in on_map {
         let FindingKind::ProtectedObject {
             kind,
@@ -727,19 +756,28 @@ fn protected_objects(on_map: &[(&Placed<'_>, f64)]) -> Vec<ProtectedObjectEntry>
                     .or_default() += 1;
             }
             Shape::Area(_) => {
-                let share = Share::new((), *share);
-                areas.push(ProtectedObjectEntry {
-                    kind: *kind,
-                    name: name.clone(),
-                    citation: citation.clone(),
-                    count: 1,
-                    percent: Some(share.percent),
-                    at_edge: share.at_edge,
-                });
+                let entry = areas
+                    .entry((*kind, name.clone(), citation.clone()))
+                    .or_default();
+                entry.0 += 1;
+                entry.1 += share;
             }
         }
     }
-    let mut all: Vec<ProtectedObjectEntry> = areas;
+    let mut all: Vec<ProtectedObjectEntry> = areas
+        .into_iter()
+        .map(|((kind, name, citation), (count, share))| {
+            let share = Share::new((), share.min(1.0));
+            ProtectedObjectEntry {
+                kind,
+                name,
+                citation,
+                count,
+                percent: Some(share.percent),
+                at_edge: share.at_edge,
+            }
+        })
+        .collect();
     all.extend(
         points
             .into_iter()

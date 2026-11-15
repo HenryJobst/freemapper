@@ -1047,6 +1047,32 @@ of about 300 m, as the service says. Lower Saxony, Bavaria, Mecklenburg-Vorpomme
 Saxony-Anhalt are still missing: their licence is unclear or forbids adaptations, or there is no service for the
 whole state.
 
+### Natural monuments and protected biotopes
+
+Naturdenkmale, geschützte Landschaftsbestandteile and legally protected biotopes (§§ 28 to 30 BNatSchG) are not in the
+BfN's data. The notes name them from the services of the states:
+
+| State | Naturdenkmale | Landschaftsbestandteile | Protected biotopes |
+|---|---|---|---|
+| Berlin | yes | yes | yes, the certainly protected ones |
+| Brandenburg | yes, as of 2017 | yes, as of 2017 | yes |
+| Hamburg | yes | – | yes |
+| Saarland | yes | – | yes |
+| Saxony | areas only | – | yes |
+| Saxony-Anhalt | yes, without single trees | yes | – |
+| Bavaria | yes | yes | – |
+| Baden-Württemberg | yes | – | – |
+| Hesse | – | – | yes, mapping of 1992 to 2006 |
+| North Rhine-Westphalia | – | – | yes, without the type |
+
+The section "Natural monuments and other protected objects" names trees with their species and areas with their
+share; biotopes of one type are one line. When protected biotopes lie in the area, a hint says that whatever can
+destroy them or harm them considerably is forbidden: controls and legs belong outside them, or the lower nature
+authority is asked. For natural monuments and protected biotopes a hint names the lower nature authority, outside
+Berlin and Hamburg with the Kreis from VG250. Where the data have gaps, they stand below the part of the state. In
+Baden-Württemberg the LUBW allows commercial use of its biotopes only on request, so they are left out. Lower Saxony,
+Rhineland-Palatinate, Mecklenburg-Vorpommern and Schleswig-Holstein follow.
+
 ### Water protection areas and forest functions
 
 Water protection areas with their zone come from Baden-Württemberg, Berlin, Brandenburg, Hamburg, Hesse, North

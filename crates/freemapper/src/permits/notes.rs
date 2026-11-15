@@ -66,6 +66,13 @@ pub mod hint_key {
     /// Arg `district`: a Naturdenkmal or a geschützter Landschaftsbestandteil on the map lies
     /// in it.
     pub const NATURE_OBJECT_AUTHORITY: &str = "permits-hint-nature-object-authority";
+    /// Args `kreis` and `kreisfrei` as for [`NATURE_AUTHORITY`]: Naturdenkmale, protected
+    /// landscape parts or biotopes on a map outside the city states, when no protected area
+    /// brought [`NATURE_AUTHORITY`] already (ADR 0146).
+    pub const NATURE_OBJECT_LOWER_AUTHORITY: &str = "permits-hint-nature-object-lower-authority";
+    /// Arg `names`, the types of biotope on the map (at most three, then `…`): gesetzlich
+    /// geschützte Biotope on the map (ADR 0146).
+    pub const BIOTOPE: &str = "permits-hint-biotope";
     /// Args `owner` and `percent` (the share of the map area, one decimal, a point).
     pub const OWNER_SHARE: &str = "permits-hint-owner-share";
     /// Arg `rest` (`yes`) when a regional source named public owners: the text speaks of the
@@ -753,8 +760,42 @@ fn hints(
             None => Hint::new(key, &[]),
         }
     };
-    if any_protected(&needs_nature_authority) {
+    let nature_areas = any_protected(&needs_nature_authority);
+    if nature_areas {
         hints.push(lower_authority(hint_key::NATURE_AUTHORITY, false));
+    }
+    // The protected objects of a state outside the city states, whose district offices have
+    // hints of their own (ADR 0146).
+    let in_city_state_land = largest(AdminLevel::Land).is_some_and(is_city_state);
+    if !nature_areas && !in_city_state_land && regional.iter().any(|f| f.nature_objects) {
+        hints.push(lower_authority(
+            hint_key::NATURE_OBJECT_LOWER_AUTHORITY,
+            false,
+        ));
+    }
+    let mut biotopes: Vec<&str> = Vec::new();
+    for name in regional.iter().flat_map(|f| &f.biotopes) {
+        if !biotopes.contains(&name.as_str()) {
+            biotopes.push(name);
+        }
+    }
+    if !biotopes.is_empty() {
+        let mut names = biotopes
+            .iter()
+            .filter(|n| !n.is_empty())
+            .take(3)
+            .copied()
+            .collect::<Vec<_>>()
+            .join(", ");
+        if biotopes.iter().filter(|n| !n.is_empty()).count() > 3 {
+            names.push_str(", …");
+        }
+        let args: Vec<(&str, &str)> = if names.is_empty() {
+            Vec::new()
+        } else {
+            vec![("names", names.as_str())]
+        };
+        hints.push(Hint::new(hint_key::BIOTOPE, &args));
     }
     // Monuments where no district office looks after them: the lower monument authority, which
     // in some states is the Gemeinde. A source with gaps that names none cannot rule them out.
@@ -2120,6 +2161,68 @@ mod tests {
         assert_eq!(
             hint(&found, hint_key::MONUMENT_LOWER_AUTHORITY)[0].args,
             args(&[("kreis", "Potsdam"), ("kreisfrei", "yes"), ("known", "no")])
+        );
+    }
+
+    /// Outside the city states the protected objects of a state name the lower nature
+    /// authority, biotopes bring a hint of their own, and the areas of one kind and name are one
+    /// entry with their summed share (ADR 0146).
+    #[test]
+    fn biotopes_and_natural_monuments_outside_the_city_states() {
+        let admin = vec![unit(
+            AdminLevel::Kreis,
+            "Märkisch-Oderland",
+            "Landkreis",
+            "12064",
+            square(12.9, 51.9, 13.2, 52.2),
+        )];
+        let biotope = |name: &str| FindingKind::ProtectedObject {
+            kind: ProtectedObjectKind::Biotope,
+            name: Some(name.into()),
+            citation: None,
+        };
+        let objects = vec![
+            area(biotope("Kleingewässer"), square(13.0, 52.0, 13.01, 52.1)),
+            area(biotope("Kleingewässer"), square(13.01, 52.0, 13.02, 52.1)),
+            area(biotope("Trockenrasen"), square(13.02, 52.0, 13.025, 52.1)),
+            point(
+                FindingKind::ProtectedObject {
+                    kind: ProtectedObjectKind::NaturalMonument,
+                    name: Some("Stieleiche".into()),
+                    citation: None,
+                },
+                13.05,
+                52.05,
+            ),
+        ];
+        let found = notes(
+            MapKind::Forest,
+            &with_regional(
+                admin,
+                vec![regional("natur", PermitSection::ProtectedObjects, objects)],
+            ),
+        );
+        let entries = found.regional[0].protected_objects.as_ref().unwrap();
+        let kinds: Vec<(ProtectedObjectKind, Option<&str>, usize)> = entries
+            .iter()
+            .map(|o| (o.kind, o.name.as_deref(), o.count))
+            .collect();
+        assert_eq!(
+            kinds,
+            [
+                (ProtectedObjectKind::NaturalMonument, Some("Stieleiche"), 1),
+                (ProtectedObjectKind::Biotope, Some("Kleingewässer"), 2),
+                (ProtectedObjectKind::Biotope, Some("Trockenrasen"), 1),
+            ]
+        );
+        assert!(near(entries[1].percent.unwrap(), 20.0), "{entries:?}");
+        assert_eq!(
+            hint(&found, hint_key::BIOTOPE)[0].args,
+            args(&[("names", "Kleingewässer, Trockenrasen")])
+        );
+        assert_eq!(
+            hint(&found, hint_key::NATURE_OBJECT_LOWER_AUTHORITY)[0].args,
+            args(&[("kreis", "Märkisch-Oderland"), ("kreisfrei", "no")])
         );
     }
 

@@ -16,6 +16,10 @@ Erstellt am 2026-11-15 für das Kartengebiet einer Waldkarte (108,1 ha).
 
 Laut Geoportal Saarland liegt im Kartengebiet kein Denkmal.
 
+## Naturdenkmale und andere Schutzobjekte (Geoportal Saarland)
+
+- Geschütztes Biotop, 25 %
+
 ## Forstverwaltung (Geoportal Saarland)
 
 - Revier Mettlach-Merzig (SaarForst Landesbetrieb): 100 %
@@ -68,6 +72,7 @@ OpenStreetMap-Flächen, die das ganze Kartengebiet umschließen und keine Ecke d
 ## Hinweise
 
 - Schutzgebiete betreffen die untere Naturschutzbehörde (meist der Landkreis Merzig-Wadern).
+- Im Kartengebiet liegen gesetzlich geschützte Biotope. Was sie zerstören oder erheblich beeinträchtigen kann, ist verboten (§ 30 BNatSchG). Legen Sie Posten und Bahnen außerhalb, oder fragen Sie die untere Naturschutzbehörde.
 - Im Naturschutzgebiet gilt meist ein Wegegebot. Für einen Lauf abseits der Wege fragen Sie die Naturschutzbehörde.
 - Ein FFH-Gebiet oder ein Vogelschutzgebiet (Natura 2000) berührt das Kartengebiet. Für eine Veranstaltung kann die Naturschutzbehörde eine Prüfung der Verträglichkeit verlangen.
 - Zuständige Forstdienststelle für den Wald im Kartengebiet: Revier Mettlach-Merzig (SaarForst Landesbetrieb). Fragen Sie dort früh nach, wenn Sie eine Veranstaltung im Wald planen.
@@ -83,4 +88,4 @@ OpenStreetMap-Flächen, die das ganze Kartengebiet umschließen und keine Ecke d
 | VG250 (BKG): Verwaltungsgebiete 1:250 000 (VG250) des BKG | gelesen, abgerufen am 2026-11-15 | © BKG (2026) dl-de/by-2-0, Datenquellen: https://sg.geodatenzentrum.de/web_public/gdz/datenquellen/datenquellen_vg_nuts.pdf |
 | BfN: Schutzgebiete in Deutschland des BfN | gelesen, abgerufen am 2026-11-15 | © Bundesamt für Naturschutz (BfN) (2026), Schutzgebiete in Deutschland; Nutzungsbestimmungen für die Bereitstellung von Geodaten des Bundes (GeoNutzV). Nicht für Planungszwecke geeignet. |
 | OpenStreetMap: OpenStreetMap, aus dem Auszug, den freemapper im Zwischenspeicher hält | gelesen, OSM-Auszug vom 2026-11-11 | © OpenStreetMap contributors, ODbL |
-| Geoportal Saarland: Reviere des SaarForst Landesbetriebs (Staatswald), Wasserschutzgebiete, Naturwaldzellen und Urwald, Baudenkmale | gelesen, abgerufen am 2026-11-15 | Quellenvermerk: © GDI-SL (2026); Lizenz: Creative Commons Namensnennung 4.0 International (CC BY 4.0) |
+| Geoportal Saarland: Reviere des SaarForst Landesbetriebs (Staatswald), Wasserschutzgebiete, Naturwaldzellen und Urwald, Baudenkmale, Naturdenkmale, geschützte Biotope des Biotopkatasters | gelesen, abgerufen am 2026-11-15 | Quellenvermerk: © GDI-SL (2026); Lizenz: Creative Commons Namensnennung 4.0 International (CC BY 4.0) |

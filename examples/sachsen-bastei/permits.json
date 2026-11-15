@@ -132,6 +132,12 @@
       }
     },
     {
+      "key": "permits-hint-biotope",
+      "args": {
+        "names": "Gebuesch/naturnaher Wald trockenwarmer Standorte, Offene Felsbildung, Streuobstwiese, …"
+      }
+    },
+    {
       "key": "permits-hint-monument-lower-authority",
       "args": {
         "gemeinde": "Rathen",
@@ -220,6 +226,40 @@
         ],
         "links_left": 0
       },
+      "protected_objects": [
+        {
+          "kind": "biotope",
+          "name": "Gebuesch/naturnaher Wald trockenwarmer Standorte",
+          "citation": null,
+          "count": 3,
+          "percent": 14.2,
+          "at_edge": false
+        },
+        {
+          "kind": "biotope",
+          "name": "Offene Felsbildung",
+          "citation": null,
+          "count": 11,
+          "percent": 8.2,
+          "at_edge": false
+        },
+        {
+          "kind": "biotope",
+          "name": "Streuobstwiese",
+          "citation": null,
+          "count": 3,
+          "percent": 1.9,
+          "at_edge": false
+        },
+        {
+          "kind": "biotope",
+          "name": "Roehricht",
+          "citation": null,
+          "count": 1,
+          "percent": 1.4,
+          "at_edge": false
+        }
+      ],
       "forest_units": [
         {
           "item": {
@@ -344,6 +384,58 @@
             "fetched": "2026-11-15",
             "reason": null,
             "credit": "Landesamt für Denkmalpflege Sachsen, Creative Commons Namensnennung 3.0 Deutschland (CC BY 3.0 DE)"
+          }
+        },
+        {
+          "source": {
+            "key": "naturdenkmale",
+            "label": {
+              "en": "Sächsisches Landesamt für Umwelt, Landwirtschaft und Geologie",
+              "de": "Sächsisches Landesamt für Umwelt, Landwirtschaft und Geologie"
+            },
+            "what": {
+              "en": "Flächennaturdenkmale",
+              "de": "Flächennaturdenkmale"
+            },
+            "credit": "Datenlizenz Deutschland 2.0 - Variante mit Namensnennung; Quelle: Sächsisches Landesamt für Umwelt, Landwirtschaft und Geologie",
+            "gaps": {
+              "en": "Naturdenkmale that are single trees or rocks are kept by the Landkreise and are not in these data",
+              "de": "Naturdenkmale, die einzelne Bäume oder Felsen sind, führen die Landkreise; sie fehlen hier"
+            },
+            "sections": [
+              "protected-objects"
+            ]
+          },
+          "status": {
+            "id": "naturdenkmale",
+            "state": "read",
+            "fetched": "2026-11-15",
+            "reason": null,
+            "credit": "Datenlizenz Deutschland 2.0 - Variante mit Namensnennung; Quelle: Sächsisches Landesamt für Umwelt, Landwirtschaft und Geologie"
+          }
+        },
+        {
+          "source": {
+            "key": "biotope",
+            "label": {
+              "en": "Sächsisches Landesamt für Umwelt, Landwirtschaft und Geologie",
+              "de": "Sächsisches Landesamt für Umwelt, Landwirtschaft und Geologie"
+            },
+            "what": {
+              "en": "register of the legally protected biotopes",
+              "de": "Verzeichnis der gesetzlich geschützten Biotope"
+            },
+            "credit": "Datenlizenz Deutschland 2.0 - Variante mit Namensnennung; Quelle: Sächsisches Landesamt für Umwelt, Landwirtschaft und Geologie",
+            "sections": [
+              "protected-objects"
+            ]
+          },
+          "status": {
+            "id": "biotope",
+            "state": "read",
+            "fetched": "2026-11-15",
+            "reason": null,
+            "credit": "Datenlizenz Deutschland 2.0 - Variante mit Namensnennung; Quelle: Sächsisches Landesamt für Umwelt, Landwirtschaft und Geologie"
           }
         }
       ]

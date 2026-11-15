@@ -23,6 +23,13 @@ Denkmale ganz oder zum Teil im Kartengebiet: 10.
 
 - Kulturdenkmal: 10
 
+## Naturdenkmale und andere Schutzobjekte (Sächsisches Landesamt für Umwelt, Landwirtschaft und Geologie)
+
+- Geschütztes Biotop „Gebuesch/naturnaher Wald trockenwarmer Standorte“, 14 %
+- Geschütztes Biotop „Offene Felsbildung“, 8 %
+- Geschütztes Biotop „Streuobstwiese“, 2 %
+- Geschütztes Biotop „Roehricht“, 1 %
+
 ## Forstverwaltung (Staatsbetrieb Sachsenforst)
 
 - Nationalpark- und Forstverwaltung Sächsische Schweiz, Revier Hohnstein (Staatsbetrieb Sachsenforst): 33 %
@@ -39,6 +46,8 @@ Laut Staatsbetrieb Sachsenforst / Bundesanstalt für Gewässerkunde liegt im Kar
 ## Waldfunktionen und Schutzwald (Staatsbetrieb Sachsenforst)
 
 - Bannwald oder Schutzwald (Bodenschutzwald): 58 %
+
+Der Bestand von Sächsisches Landesamt für Umwelt, Landwirtschaft und Geologie ist nicht vollständig: Naturdenkmale, die einzelne Bäume oder Felsen sind, führen die Landkreise; sie fehlen hier.
 
 Staatsbetrieb Sachsenforst gibt nur für einzelne Punkte Auskunft. freemapper hat an einem Raster von Punkten über der Karte gefragt: Die Anteile sind geschätzt, und was zwischen den Punkten liegt, kann fehlen.
 
@@ -69,6 +78,7 @@ OpenStreetMap-Flächen, die das ganze Kartengebiet umschließen und keine Ecke d
 ## Hinweise
 
 - Schutzgebiete betreffen die untere Naturschutzbehörde (meist der Landkreis Sächsische Schweiz-Osterzgebirge).
+- Im Kartengebiet liegen gesetzlich geschützte Biotope (Gebuesch/naturnaher Wald trockenwarmer Standorte, Offene Felsbildung, Streuobstwiese, …). Was sie zerstören oder erheblich beeinträchtigen kann, ist verboten (§ 30 BNatSchG). Legen Sie Posten und Bahnen außerhalb, oder fragen Sie die untere Naturschutzbehörde.
 - Im Kartengebiet liegen Denkmale. Ob ein Lauf sie berührt, etwa mit einem Posten an einem Denkmal oder einer Strecke durch eine geschützte Anlage, klärt die untere Denkmalschutzbehörde, meist der Landkreis Sächsische Schweiz-Osterzgebirge; in manchen Bundesländern ist es die Gemeinde Rathen.
 - Ein FFH-Gebiet oder ein Vogelschutzgebiet (Natura 2000) berührt das Kartengebiet. Für eine Veranstaltung kann die Naturschutzbehörde eine Prüfung der Verträglichkeit verlangen.
 - Zuständige Forstdienststelle für den Wald im Kartengebiet: Nationalpark- und Forstverwaltung Sächsische Schweiz (Staatsbetrieb Sachsenforst), Revier Hohnstein, Revier Lohmen, Revier Gohrisch, Revier Bad Schandau. Fragen Sie dort früh nach, wenn Sie eine Veranstaltung im Wald planen.
@@ -88,5 +98,6 @@ OpenStreetMap-Flächen, die das ganze Kartengebiet umschließen und keine Ecke d
 | Staatsbetrieb Sachsenforst: Forstbezirke und Reviere (zuständig im Staatswald; für anderen Wald die untere Forstbehörde des Landkreises), Erholungswald, Naturwaldzellen, Bodenschutzwald, Trinkwasserschutzzonen im Wald | gelesen, abgerufen am 2026-11-15 | Datenlizenz Deutschland 2.0 – Namensnennung (dl-de/by-2-0) unter Angabe der Quelle: "Geodaten Sachsenforst" |
 | Bundesanstalt für Gewässerkunde: Trinkwasser- und Heilquellenschutzgebiete aus WasserBLIcK, ohne Schutzzonen | gelesen, abgerufen am 2026-11-15 | © WasserBLIcK/BfG und Zuständige Behörden der Länder, 2026; Lizenz: Creative Commons Namensnennung – 4.0 International (CC BY 4.0) |
 | Landesamt für Denkmalpflege Sachsen: Kulturdenkmale | gelesen, abgerufen am 2026-11-15 | Landesamt für Denkmalpflege Sachsen, Creative Commons Namensnennung 3.0 Deutschland (CC BY 3.0 DE) |
+| Sächsisches Landesamt für Umwelt, Landwirtschaft und Geologie: Flächennaturdenkmale, Verzeichnis der gesetzlich geschützten Biotope | gelesen, abgerufen am 2026-11-15 | Datenlizenz Deutschland 2.0 - Variante mit Namensnennung; Quelle: Sächsisches Landesamt für Umwelt, Landwirtschaft und Geologie |
 
 Bundesanstalt für Gewässerkunde: Trinkwasser- und Heilquellenschutzgebiete aus WasserBLIcK, ohne Schutzzonen: „Die bundesweite Flächendeckung des Datenbestandes ist nicht in jedem Fall gewährleistet.“

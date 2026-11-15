@@ -26,7 +26,7 @@ struct WithGaps {
     info: PermitSourceInfo,
 }
 
-fn with_gaps(inner: Box<dyn PermitSource>, gaps: Wording) -> Box<dyn PermitSource> {
+pub(crate) fn with_gaps(inner: Box<dyn PermitSource>, gaps: Wording) -> Box<dyn PermitSource> {
     let info = PermitSourceInfo {
         gaps: Some(gaps),
         ..inner.info().clone()

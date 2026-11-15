@@ -38,7 +38,7 @@ pub const ANALOGUE_MAPS: &str = "Die amtlichen Karten zur jeweiligen Schutzveror
     werden. Nur diese amtlichen analogen Karten sind rechtsverbindlich, sofern die Karten nicht \
     im Gesetz- und Verordnungsblatt für Berlin mitveröffentlicht wurden.";
 
-const LABEL: Wording = Wording {
+pub(crate) const LABEL: Wording = Wording {
     en: "Geoportal Berlin",
     de: "Geoportal Berlin",
 };

@@ -78,6 +78,13 @@
   ],
   "hints": [
     {
+      "key": "permits-hint-nature-object-lower-authority",
+      "args": {
+        "kreis": "Regensburg",
+        "kreisfrei": "yes"
+      }
+    },
+    {
       "key": "permits-hint-forest-owner",
       "args": {
         "office": "unknown"
@@ -133,6 +140,40 @@
   "regional": [
     {
       "adapter": "bayern",
+      "protected_objects": [
+        {
+          "kind": "natural-monument",
+          "name": "Kastanien Am Gries;",
+          "citation": null,
+          "count": 1,
+          "percent": 0.1,
+          "at_edge": true
+        },
+        {
+          "kind": "natural-monument",
+          "name": "Naturdenkmal Platane am Kornmarkt, St. Regensburg",
+          "citation": null,
+          "count": 1,
+          "percent": 0.0,
+          "at_edge": true
+        },
+        {
+          "kind": "natural-monument",
+          "name": "Roßkastanien zum Goldenen Löwen in Stadtamhof",
+          "citation": null,
+          "count": 1,
+          "percent": 0.0,
+          "at_edge": true
+        },
+        {
+          "kind": "natural-monument",
+          "name": "Naturdenkmal Kastanien am Gries, St. Regensburg",
+          "citation": null,
+          "count": 1,
+          "percent": null,
+          "at_edge": false
+        }
+      ],
       "water_protection": [],
       "sources": [
         {
@@ -158,6 +199,30 @@
             "fetched": "2026-11-15",
             "reason": null,
             "credit": "© WasserBLIcK/BfG und Zuständige Behörden der Länder, 2026; Lizenz: Creative Commons Namensnennung – 4.0 International (CC BY 4.0)"
+          }
+        },
+        {
+          "source": {
+            "key": "naturschutz",
+            "label": {
+              "en": "Bayerisches Landesamt für Umwelt",
+              "de": "Bayerisches Landesamt für Umwelt"
+            },
+            "what": {
+              "en": "Naturdenkmale and Landschaftsbestandteile",
+              "de": "Naturdenkmale und Landschaftsbestandteile"
+            },
+            "credit": "Creative Commons Namensnennung 4.0 International (CC BY 4.0); Datenquelle: Bayerisches Landesamt für Umwelt, www.lfu.bayern.de",
+            "sections": [
+              "protected-objects"
+            ]
+          },
+          "status": {
+            "id": "naturschutz",
+            "state": "read",
+            "fetched": "2026-11-15",
+            "reason": null,
+            "credit": "Creative Commons Namensnennung 4.0 International (CC BY 4.0); Datenquelle: Bayerisches Landesamt für Umwelt, www.lfu.bayern.de"
           }
         }
       ]

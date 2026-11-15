@@ -19,7 +19,7 @@ maintainers = ["github:HenryJobst"]
 last_verified = "2026-11-14"
 
 [net]
-hosts = ["geoservices.bayern.de", "download1.bayernwolke.de", "geodaten.bayern.de", "geoportal.bafg.de"]
+hosts = ["geoservices.bayern.de", "download1.bayernwolke.de", "geodaten.bayern.de", "geoportal.bafg.de", "www.lfu.bayern.de"]
 
 [boundary]
 file = "boundary.geojson"

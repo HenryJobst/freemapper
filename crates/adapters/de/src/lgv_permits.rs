@@ -21,7 +21,7 @@ use serde_json::Value;
 use crate::berlin_permits::geometry;
 use crate::fetch::{FetchError, Fetcher};
 
-const LABEL: Wording = Wording {
+pub(crate) const LABEL: Wording = Wording {
     en: "Geoportal Hamburg",
     de: "Geoportal Hamburg",
 };

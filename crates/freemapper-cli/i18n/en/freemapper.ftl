@@ -859,7 +859,7 @@ permits-none-districts = According to { $source }, the map area lies in no Bezir
 permits-none-green-spaces = According to { $source }, no public green space lies in the map area.
 permits-none-owners = According to { $source }, no parcel of the state or of the Bund lies in the map area.
 permits-none-monuments = According to { $source }, no monument lies in the map area.
-permits-none-protected-objects = According to { $source }, no natural monument, no protected landscape feature and no area with special rules lies in the map area.
+permits-none-protected-objects = According to { $source }, none of the protected objects it holds lies in the map area.
 permits-none-sampled = At the points asked, { $source } names nothing here.
 permits-gaps = The data of { $source } are not complete: { $gaps }.
 permits-sampled = { $source } answers only for single points. freemapper asked at a grid of points over the map: the shares are estimates, and what lies between the points can be missing.
@@ -880,6 +880,7 @@ permits-monuments-links-left = { $count } more entries are only counted here, wi
 permits-object-kind = { $kind ->
         [natural-monument] Natural monument (Naturdenkmal)
         [protected-landscape-part] Protected landscape feature (geschützter Landschaftsbestandteil)
+        [biotope] Legally protected biotope (geschütztes Biotop)
        *[special-rules] Area with special rules
     }
 permits-object-count = { $count } objects
@@ -904,6 +905,15 @@ permits-hint-monument-lower-authority = { $known ->
         }
        *[unknown] {" "}(usually the Landkreis or the kreisfreie Stadt, in some states the Gemeinde).
     }
+permits-hint-nature-object-lower-authority = { $kreisfrei ->
+        [yes] Natural monuments, protected landscape features and protected biotopes on the map are a matter for the lower nature conservation authority (untere Naturschutzbehörde). Here that is the city of { $kreis } itself.
+        [no] Natural monuments, protected landscape features and protected biotopes on the map are a matter for the lower nature conservation authority (untere Naturschutzbehörde), usually the { $kreis }.
+       *[unknown] Natural monuments, protected landscape features and protected biotopes on the map are a matter for the lower nature conservation authority (untere Naturschutzbehörde), usually the Landkreis or the kreisfreie Stadt.
+    }
+permits-hint-biotope = Legally protected biotopes lie in the map area{ $names ->
+        [none] {""}
+       *[other] {" "}({ $names })
+    }. Anything that can destroy them or harm them considerably is forbidden (§ 30 BNatSchG). Place controls and legs outside them, or ask the lower nature conservation authority (untere Naturschutzbehörde).
 permits-hint-nature-object-authority = { $offices ->
         [hamburg] For natural monuments and protected landscape features in the Bezirk { $district }, the Bezirksamt { $district } is usually in charge.
        *[berlin] For natural monuments and protected landscape features in the Bezirk { $district }, the lower nature conservation authority (untere Naturschutzbehörde) of the Bezirksamt { $district } is in charge.

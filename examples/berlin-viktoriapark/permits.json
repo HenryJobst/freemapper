@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "created": "2026-11-14",
+  "created": "2026-11-15",
   "map_kind": "sprint",
   "area_m2": 480582.4304700576,
   "admin": [
@@ -175,14 +175,14 @@
     {
       "id": "vg250",
       "state": "read",
-      "fetched": "2026-11-14",
+      "fetched": "2026-11-15",
       "reason": null,
       "credit": "© BKG (2026) dl-de/by-2-0, Datenquellen: https://sg.geodatenzentrum.de/web_public/gdz/datenquellen/datenquellen_vg_nuts.pdf"
     },
     {
       "id": "bfn",
       "state": "read",
-      "fetched": "2026-11-14",
+      "fetched": "2026-11-15",
       "reason": null,
       "credit": "© Bundesamt für Naturschutz (BfN) (2026), Schutzgebiete in Deutschland; Nutzungsbestimmungen für die Bereitstellung von Geodaten des Bundes (GeoNutzV). Nicht für Planungszwecke geeignet."
     },
@@ -359,7 +359,7 @@
           "status": {
             "id": "bezirke",
             "state": "read",
-            "fetched": "2026-11-14",
+            "fetched": "2026-11-15",
             "reason": null,
             "credit": "Für die Nutzung der Daten ist die Datenlizenz Deutschland - Zero - Version 2.0 anzuwenden. Die Lizenz ist über https://www.govdata.de/dl-de/zero-2-0 abrufbar."
           }
@@ -383,7 +383,7 @@
           "status": {
             "id": "gruenanlagen",
             "state": "read",
-            "fetched": "2026-11-14",
+            "fetched": "2026-11-15",
             "reason": null,
             "credit": "Für die Nutzung der Daten ist die Datenlizenz Deutschland - Zero - Version 2.0 anzuwenden. Die Lizenz ist über https://www.govdata.de/dl-de/zero-2-0 abrufbar."
           }
@@ -407,7 +407,7 @@
           "status": {
             "id": "liegenschaftsplan",
             "state": "read",
-            "fetched": "2026-11-14",
+            "fetched": "2026-11-15",
             "reason": null,
             "credit": "Für die Nutzung der Daten ist die Datenlizenz Deutschland - Zero - Version 2.0 anzuwenden. Die Lizenz ist über https://www.govdata.de/dl-de/zero-2-0 abrufbar."
           }
@@ -431,7 +431,7 @@
           "status": {
             "id": "denkmale",
             "state": "read",
-            "fetched": "2026-11-14",
+            "fetched": "2026-11-15",
             "reason": null,
             "credit": "Für die Nutzung der Daten ist die Datenlizenz Deutschland - Zero - Version 2.0 anzuwenden. Die Lizenz ist über https://www.govdata.de/dl-de/zero-2-0 abrufbar."
           }
@@ -456,7 +456,7 @@
           "status": {
             "id": "schutzgebiete",
             "state": "read",
-            "fetched": "2026-11-14",
+            "fetched": "2026-11-15",
             "reason": null,
             "credit": "Für die Nutzung der Daten ist die Datenlizenz Deutschland - Zero - Version 2.0 anzuwenden. Die Lizenz ist über https://www.govdata.de/dl-de/zero-2-0 abrufbar."
           }
@@ -480,7 +480,7 @@
           "status": {
             "id": "forstverwalt",
             "state": "read",
-            "fetched": "2026-11-14",
+            "fetched": "2026-11-15",
             "reason": null,
             "credit": "Für die Nutzung der Daten ist die Datenlizenz Deutschland - Zero - Version 2.0 anzuwenden. Die Lizenz ist über https://www.govdata.de/dl-de/zero-2-0 abrufbar."
           }
@@ -504,7 +504,31 @@
           "status": {
             "id": "wsg",
             "state": "read",
-            "fetched": "2026-11-14",
+            "fetched": "2026-11-15",
+            "reason": null,
+            "credit": "Für die Nutzung der Daten ist die Datenlizenz Deutschland - Zero - Version 2.0 anzuwenden. Die Lizenz ist über https://www.govdata.de/dl-de/zero-2-0 abrufbar."
+          }
+        },
+        {
+          "source": {
+            "key": "biotope",
+            "label": {
+              "en": "Geoportal Berlin",
+              "de": "Geoportal Berlin"
+            },
+            "what": {
+              "en": "protected biotopes (Umweltatlas, biotope types 2024)",
+              "de": "geschützte Biotope (Umweltatlas, Biotoptypen 2024)"
+            },
+            "credit": "Für die Nutzung der Daten ist die Datenlizenz Deutschland - Zero - Version 2.0 anzuwenden. Die Lizenz ist über https://www.govdata.de/dl-de/zero-2-0 abrufbar.",
+            "sections": [
+              "protected-objects"
+            ]
+          },
+          "status": {
+            "id": "biotope",
+            "state": "read",
+            "fetched": "2026-11-15",
             "reason": null,
             "credit": "Für die Nutzung der Daten ist die Datenlizenz Deutschland - Zero - Version 2.0 anzuwenden. Die Lizenz ist über https://www.govdata.de/dl-de/zero-2-0 abrufbar."
           }

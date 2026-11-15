@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "created": "2026-11-14",
+  "created": "2026-11-15",
   "map_kind": "forest",
   "area_m2": 1081325.1822080337,
   "admin": [
@@ -61,6 +61,12 @@
       }
     },
     {
+      "key": "permits-hint-biotope",
+      "args": {
+        "names": "§ 30 (2) 1.2 Natürliche oder naturnahe stehende Gewässer, § 30 (2) 2.6 Quellbereiche"
+      }
+    },
+    {
       "key": "permits-hint-water-protection",
       "args": {
         "inner": "no",
@@ -116,6 +122,13 @@
       }
     },
     {
+      "key": "permits-hint-nature-object-authority",
+      "args": {
+        "district": "Harburg",
+        "offices": "hamburg"
+      }
+    },
+    {
       "key": "permits-hint-owners-unknown",
       "args": {}
     }
@@ -124,14 +137,14 @@
     {
       "id": "vg250",
       "state": "read",
-      "fetched": "2026-11-14",
+      "fetched": "2026-11-15",
       "reason": null,
       "credit": "© BKG (2026) dl-de/by-2-0, Datenquellen: https://sg.geodatenzentrum.de/web_public/gdz/datenquellen/datenquellen_vg_nuts.pdf"
     },
     {
       "id": "bfn",
       "state": "read",
-      "fetched": "2026-11-14",
+      "fetched": "2026-11-15",
       "reason": null,
       "credit": "© Bundesamt für Naturschutz (BfN) (2026), Schutzgebiete in Deutschland; Nutzungsbestimmungen für die Bereitstellung von Geodaten des Bundes (GeoNutzV). Nicht für Planungszwecke geeignet."
     },
@@ -175,6 +188,24 @@
         ],
         "links_left": 0
       },
+      "protected_objects": [
+        {
+          "kind": "biotope",
+          "name": "§ 30 (2) 1.2 Natürliche oder naturnahe stehende Gewässer",
+          "citation": null,
+          "count": 5,
+          "percent": 0.3,
+          "at_edge": true
+        },
+        {
+          "kind": "biotope",
+          "name": "§ 30 (2) 2.6 Quellbereiche",
+          "citation": null,
+          "count": 2,
+          "percent": 0.1,
+          "at_edge": true
+        }
+      ],
       "forest_units": [
         {
           "item": {
@@ -245,7 +276,7 @@
           "status": {
             "id": "bezirke",
             "state": "read",
-            "fetched": "2026-11-14",
+            "fetched": "2026-11-15",
             "reason": null,
             "credit": "Datenlizenz Deutschland Namensnennung 2.0, Quellenvermerk: Freie und Hansestadt Hamburg, Landesbetrieb Geoinformation und Vermessung"
           }
@@ -269,7 +300,7 @@
           "status": {
             "id": "gruenanlagen",
             "state": "read",
-            "fetched": "2026-11-14",
+            "fetched": "2026-11-15",
             "reason": null,
             "credit": "Datenlizenz Deutschland Namensnennung 2.0, Quellenvermerk: Freie und Hansestadt Hamburg, Behörde für Umwelt und Energie"
           }
@@ -293,7 +324,7 @@
           "status": {
             "id": "denkmale",
             "state": "read",
-            "fetched": "2026-11-14",
+            "fetched": "2026-11-15",
             "reason": null,
             "credit": "Datenlizenz Deutschland Namensnennung 2.0, Quellenvermerk: Freie und Hansestadt Hamburg, zuständige Behörde"
           }
@@ -318,7 +349,7 @@
           "status": {
             "id": "wald",
             "state": "read",
-            "fetched": "2026-11-14",
+            "fetched": "2026-11-15",
             "reason": null,
             "credit": "Datenlizenz Deutschland Namensnennung 2.0, Quellenvermerk: Freie und Hansestadt Hamburg, Behörde für Umwelt, Klima, Energie und Agrarwirtschaft (BUKEA)"
           }
@@ -342,7 +373,7 @@
           "status": {
             "id": "waldfunktionen",
             "state": "read",
-            "fetched": "2026-11-14",
+            "fetched": "2026-11-15",
             "reason": null,
             "credit": "Datenlizenz Deutschland Namensnennung 2.0, Quellenvermerk: Freie und Hansestadt Hamburg, Behörde für Umwelt, Klima, Energie und Agrarwirtschaft (BUKEA)"
           }
@@ -366,9 +397,57 @@
           "status": {
             "id": "wasserschutzgebiete",
             "state": "read",
-            "fetched": "2026-11-14",
+            "fetched": "2026-11-15",
             "reason": null,
             "credit": "Datenlizenz Deutschland Namensnennung 2.0, Quellenvermerk: Freie und Hansestadt Hamburg, Behörde für Umwelt und Energie"
+          }
+        },
+        {
+          "source": {
+            "key": "naturdenkmale",
+            "label": {
+              "en": "Geoportal Hamburg",
+              "de": "Geoportal Hamburg"
+            },
+            "what": {
+              "en": "Naturdenkmale",
+              "de": "Naturdenkmale"
+            },
+            "credit": "Datenlizenz Deutschland Namensnennung 2.0, Quellenvermerk: Freie und Hansestadt Hamburg, Behörde für Umwelt und Energie",
+            "sections": [
+              "protected-objects"
+            ]
+          },
+          "status": {
+            "id": "naturdenkmale",
+            "state": "read",
+            "fetched": "2026-11-15",
+            "reason": null,
+            "credit": "Datenlizenz Deutschland Namensnennung 2.0, Quellenvermerk: Freie und Hansestadt Hamburg, Behörde für Umwelt und Energie"
+          }
+        },
+        {
+          "source": {
+            "key": "biotope",
+            "label": {
+              "en": "Geoportal Hamburg",
+              "de": "Geoportal Hamburg"
+            },
+            "what": {
+              "en": "protected biotopes of the biotope register",
+              "de": "geschützte Biotope des Biotopkatasters"
+            },
+            "credit": "Datenlizenz Deutschland Namensnennung 2.0, Quellenvermerk: Freie und Hansestadt Hamburg, Behörde für Umwelt, Klima, Energie und Agrarwirtschaft",
+            "sections": [
+              "protected-objects"
+            ]
+          },
+          "status": {
+            "id": "biotope",
+            "state": "read",
+            "fetched": "2026-11-15",
+            "reason": null,
+            "credit": "Datenlizenz Deutschland Namensnennung 2.0, Quellenvermerk: Freie und Hansestadt Hamburg, Behörde für Umwelt, Klima, Energie und Agrarwirtschaft"
           }
         }
       ]

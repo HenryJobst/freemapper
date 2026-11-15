@@ -19,6 +19,18 @@ Denkmale ganz oder zum Teil im Kartengebiet: 98. Die Links führen zu ihren Eint
 - Baudenkmal: 98
   - <https://www.saarland.de/SharedDocs/Downloads/DE/LDA/Denkmalliste_Saarland_2022_07_01.pdf?__blob=publicationFile>
 
+## Naturdenkmale und andere Schutzobjekte (Geoportal Saarland)
+
+- Naturdenkmal „3 Eichen, 1 Winterlinde; ev. Kirche Saarlouis“, < 1 %
+- Naturdenkmal „5 Platanen am Gymnasium Saarlouis“, < 1 %
+- Naturdenkmal „Platane Saarlouis“, < 1 %
+
+Rechtsgrundlagen:
+
+- <http://www.naturschutzdaten.saarland.de/natura2000/Naturdenkmale/ND-LK-SLS/Saarlouis/D_3_08_03_Eichen_und_Linde_ev_Kirche/VO_1993-043.pdf>
+- <http://www.naturschutzdaten.saarland.de/natura2000/Naturdenkmale/ND-LK-SLS/Saarlouis/D_3_08_02_Platanen_Gymnasium/VO_1993-043.pdf>
+- <http://www.naturschutzdaten.saarland.de/natura2000/Naturdenkmale/ND-LK-SLS/Saarlouis/D_3_08_01_Platane_Holtzendorffer_Strasse/VO_1993-043.pdf>
+
 ## Forstverwaltung (Geoportal Saarland)
 
 - Revier Ueberherrn (SaarForst Landesbetrieb): 100 %
@@ -77,4 +89,4 @@ OpenStreetMap-Flächen, die das ganze Kartengebiet umschließen und keine Ecke d
 | VG250 (BKG): Verwaltungsgebiete 1:250 000 (VG250) des BKG | gelesen, abgerufen am 2026-11-15 | © BKG (2026) dl-de/by-2-0, Datenquellen: https://sg.geodatenzentrum.de/web_public/gdz/datenquellen/datenquellen_vg_nuts.pdf |
 | BfN: Schutzgebiete in Deutschland des BfN | gelesen, abgerufen am 2026-11-15 | © Bundesamt für Naturschutz (BfN) (2026), Schutzgebiete in Deutschland; Nutzungsbestimmungen für die Bereitstellung von Geodaten des Bundes (GeoNutzV). Nicht für Planungszwecke geeignet. |
 | OpenStreetMap: OpenStreetMap, aus dem Auszug, den freemapper im Zwischenspeicher hält | gelesen, OSM-Auszug vom 2026-11-11 | © OpenStreetMap contributors, ODbL |
-| Geoportal Saarland: Reviere des SaarForst Landesbetriebs (Staatswald), Wasserschutzgebiete, Naturwaldzellen und Urwald, Baudenkmale | gelesen, abgerufen am 2026-11-15 | Quellenvermerk: © GDI-SL (2026); Lizenz: Creative Commons Namensnennung 4.0 International (CC BY 4.0) |
+| Geoportal Saarland: Reviere des SaarForst Landesbetriebs (Staatswald), Wasserschutzgebiete, Naturwaldzellen und Urwald, Baudenkmale, Naturdenkmale, geschützte Biotope des Biotopkatasters | gelesen, abgerufen am 2026-11-15 | Quellenvermerk: © GDI-SL (2026); Lizenz: Creative Commons Namensnennung 4.0 International (CC BY 4.0) |

@@ -408,6 +408,8 @@ mod tests {
     const BRANDENBURG_FUNCTIONS: &str = "https://www.brandenburg-forst.de/geoserver/IWFK/";
     /// The monuments of Brandenburg's BLDAM, GML 3.2 (ADR 0144).
     const BRANDENBURG_MONUMENTS: &str = "https://gis-bldam-brandenburg.de/";
+    /// The biotope register of Brandenburg's LfU, GeoJSON (ADR 0146).
+    const BRANDENBURG_BIOTOPES: &str = "https://inspire.brandenburg.de/";
     /// The water protection areas of Brandenburg, one shapefile in a zip (ADR 0131).
     const BRANDENBURG_WATER: &str =
         "https://data.geobasis-bb.de/geofachdaten/Wasser/Gewaesserbewirtschaftung/wsg.zip";
@@ -470,6 +472,7 @@ mod tests {
         fetcher.insert_prefix(BRANDENBURG_FUNCTIONS, empty_collection());
         fetcher.insert(BRANDENBURG_WATER, empty_shape_zip());
         fetcher.insert_prefix(BRANDENBURG_MONUMENTS, empty_gml_collection());
+        fetcher.insert_prefix(BRANDENBURG_BIOTOPES, empty_collection());
         for url in probe.log.borrow().iter() {
             let body = if url.contains("Landschaftsschutzgebiete") {
                 fixture("bfn-lsg-sanssouci.geojson")
@@ -886,7 +889,8 @@ mod tests {
                 assert!(
                     url.starts_with(BRANDENBURG_FOREST)
                         || url.starts_with(BRANDENBURG_WATER)
-                        || url.starts_with(BRANDENBURG_MONUMENTS),
+                        || url.starts_with(BRANDENBURG_MONUMENTS)
+                        || url.starts_with(BRANDENBURG_BIOTOPES),
                     "{url}"
                 );
                 assert!(
@@ -897,10 +901,10 @@ mod tests {
             }
         }
         // One query per layer of Brandenburg's sources: the Reviere (tried again, as an empty
-        // JSON is no GML), the five forest functions, the water protection zip, and the first
+        // JSON is no GML), the five forest functions, the water protection zip, the first
         // layer of each of the two monument services, which stop there for the same reason
-        // (ADR 0144).
-        assert_eq!(regional.len(), 9, "{log:?}");
+        // (ADR 0144), and the two layers each of the Naturdenkmale and the biotopes (ADR 0146).
+        assert_eq!(regional.len(), 13, "{log:?}");
     }
 
     /// A classified road is read from the extract as a line and kept when it crosses the map
@@ -1066,6 +1070,8 @@ mod tests {
             ("schutzgebiete:a_nd", "naturdenkmale.geojson"),
             ("forstverwalt:b_forstverwalt", "forstverwalt.geojson"),
             ("wsg:wsg", "wsg.geojson"),
+            // Two biotopes whose protection is certain, one suspected (ADR 0146).
+            ("ua_biotoptypen_2024:bc_gesetzschutz_f", "biotope.geojson"),
         ];
         for url in probe.log.borrow().iter() {
             let body = by_type
@@ -1082,7 +1088,7 @@ mod tests {
 
     /// The fixture file the fetcher of [`serve_berlin`] answers for a layer of Berlin's sources;
     /// the other layers answer empty.
-    const BERLIN_LAYER_FILES: [(&str, &str); 8] = [
+    const BERLIN_LAYER_FILES: [(&str, &str); 9] = [
         ("bezirksgrenzen", "bezirksgrenzen.geojson"),
         ("gruenanlagen", "gruenanlagen.geojson"),
         ("spielplaetze", "spielplaetze.geojson"),
@@ -1091,6 +1097,7 @@ mod tests {
         ("a-nd", "naturdenkmale.geojson"),
         ("forstverwalt", "forstverwalt.geojson"),
         ("wsg", "wsg.geojson"),
+        ("flaechen", "biotope.geojson"),
     ];
 
     /// The findings of `source` as the adapter parses the fixture files themselves, without
@@ -1296,12 +1303,14 @@ mod tests {
                 ("schutzgebiete", true),
                 ("forstverwalt", true),
                 ("wsg", true),
+                ("biotope", true),
             ]
         );
         let policy = berlin().policy().unwrap();
         let log = fetcher.log.borrow();
         let berlin_urls: Vec<&String> = log.iter().filter(|u| u.contains("berlin.de")).collect();
-        assert_eq!(berlin_urls.len(), 11, "{berlin_urls:#?}");
+        // Eleven layers, and the two of the biotopes (ADR 0146).
+        assert_eq!(berlin_urls.len(), 13, "{berlin_urls:#?}");
         for url in &berlin_urls {
             assert!(
                 url.starts_with("https://gdi.berlin.de/services/wfs/"),
@@ -1388,6 +1397,7 @@ mod tests {
                 ("schutzgebiete", true),
                 ("forstverwalt", true),
                 ("wsg", true),
+                ("biotope", true),
             ]
         );
         assert!(is_read(&inputs.admin) && is_read(&inputs.protected));

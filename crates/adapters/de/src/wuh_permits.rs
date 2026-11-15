@@ -138,7 +138,7 @@ const WSG_CREDIT: &str = "Land NRW, Datenlizenz Deutschland – Zero – Version
 
 /// The credit of LINFOS, verbatim from the capabilities (`AccessConstraints`) of its WMS; the
 /// WFS gives none.
-const LINFOS_CREDIT: &str = "Open Data - Dieses Angebot vom Landesamt für Natur, Umwelt und \
+pub(crate) const LINFOS_CREDIT: &str = "Open Data - Dieses Angebot vom Landesamt für Natur, Umwelt und \
     Verbraucherschutz Nordrhein-Westfalen ist lizensiert unter der Datenlizenz Deutschland \
     Namensnennung 2.0 (https://www.govdata.de/dl-de/by-2-0). Datensätze unter dieser Lizenz \
     müssen bei Weiterverwendung mit dem Quellenverweis „Land NRW“ versehen werden.";

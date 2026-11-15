@@ -27,12 +27,19 @@ Denkmale ganz oder zum Teil im Kartengebiet: 1. Die Links führen zu ihren Eintr
 - Kulturdenkmal: 1
   - <http://denkxweb.denkmalpflege-hessen.de/738380/>
 
+## Naturdenkmale und andere Schutzobjekte (HLNUG)
+
+- Geschütztes Biotop „Zwergstrauch-Heiden“, < 1 %
+- Geschütztes Biotop „Schlagfluren und Vorwald“, < 1 %
+
 ## Wasserschutzgebiete (HLNUG)
 
 - „WSG Haidtränktal, Oberursel“, Schutzzone III: 75 %
 - „WSG Br. Riedwiese, u.a., Oberursel“, Schutzzone IIIA: 69 %
 - „WSG Haidtränktal, Oberursel“, Schutzzone II: 6 %
 - „WSG Br. Riedwiese, u.a., Oberursel“, Schutzzone II: 6 %
+
+Der Bestand von HLNUG ist nicht vollständig: Die Kartierung stammt aus den Jahren 1992 bis 2006; neuere Biotope fehlen.
 
 ## Schutzgebiete (BfN)
 
@@ -60,6 +67,8 @@ OpenStreetMap-Flächen, die das ganze Kartengebiet umschließen und keine Ecke d
 
 ## Hinweise
 
+- Für Naturdenkmale, geschützte Landschaftsbestandteile und geschützte Biotope im Kartengebiet ist die untere Naturschutzbehörde zuständig (meist der Landkreis Hochtaunuskreis).
+- Im Kartengebiet liegen gesetzlich geschützte Biotope (Zwergstrauch-Heiden, Schlagfluren und Vorwald). Was sie zerstören oder erheblich beeinträchtigen kann, ist verboten (§ 30 BNatSchG). Legen Sie Posten und Bahnen außerhalb, oder fragen Sie die untere Naturschutzbehörde.
 - Im Kartengebiet liegen Denkmale. Ob ein Lauf sie berührt, etwa mit einem Posten an einem Denkmal oder einer Strecke durch eine geschützte Anlage, klärt die untere Denkmalschutzbehörde, meist der Landkreis Hochtaunuskreis; in manchen Bundesländern ist es die Gemeinde Oberursel (Taunus).
 - Im Kartengebiet liegt die Schutzzone III des Wasserschutzgebiets „WSG Haidtränktal, Oberursel“. Dort sind Veranstaltungen meist möglich; was die Verordnung erlaubt, sagt die untere Wasserbehörde.
 - Im Kartengebiet liegt die Schutzzone IIIA des Wasserschutzgebiets „WSG Br. Riedwiese, u.a., Oberursel“. Dort sind Veranstaltungen meist möglich; was die Verordnung erlaubt, sagt die untere Wasserbehörde.
@@ -77,5 +86,5 @@ OpenStreetMap-Flächen, die das ganze Kartengebiet umschließen und keine Ecke d
 | VG250 (BKG): Verwaltungsgebiete 1:250 000 (VG250) des BKG | gelesen, abgerufen am 2026-11-15 | © BKG (2026) dl-de/by-2-0, Datenquellen: https://sg.geodatenzentrum.de/web_public/gdz/datenquellen/datenquellen_vg_nuts.pdf |
 | BfN: Schutzgebiete in Deutschland des BfN | gelesen, abgerufen am 2026-11-15 | © Bundesamt für Naturschutz (BfN) (2026), Schutzgebiete in Deutschland; Nutzungsbestimmungen für die Bereitstellung von Geodaten des Bundes (GeoNutzV). Nicht für Planungszwecke geeignet. |
 | OpenStreetMap: OpenStreetMap, aus dem Auszug, den freemapper im Zwischenspeicher hält | gelesen, OSM-Auszug vom 2026-11-06 | © OpenStreetMap contributors, ODbL |
-| HLNUG: Trinkwasser- und Heilquellenschutzgebiete | gelesen, abgerufen am 2026-11-15 | Lizenz: Creative Commons BY 4.0 (https://creativecommons.org/licenses/by/4.0/deed.de). Quellenvermerk für Daten: „Darstellung auf der Grundlage von Daten des Hessischen Landesamtes für Naturschutz, Umwelt und Geologie (HLNUG)“. |
+| HLNUG: Trinkwasser- und Heilquellenschutzgebiete, geschützte Biotope der Hessischen Biotopkartierung | gelesen, abgerufen am 2026-11-15 | Lizenz: Creative Commons BY 4.0 (https://creativecommons.org/licenses/by/4.0/deed.de). Quellenvermerk für Daten: „Darstellung auf der Grundlage von Daten des Hessischen Landesamtes für Naturschutz, Umwelt und Geologie (HLNUG)“. |
 | Landesamt für Denkmalpflege Hessen: Kulturdenkmäler, Gesamtanlagen, Bodendenkmäler (DenkXweb) | gelesen, abgerufen am 2026-11-15 | Datenlizenz Deutschland – Namensnennung – Version 2.0 (dl-de/by-2-0); Quellenvermerk: Landesamt für Denkmalpflege Hessen (LfDH) |

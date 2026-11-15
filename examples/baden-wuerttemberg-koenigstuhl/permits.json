@@ -177,6 +177,7 @@
         ],
         "links_left": 0
       },
+      "protected_objects": [],
       "water_protection": [],
       "sources": [
         {
@@ -250,6 +251,54 @@
             "fetched": "2026-11-15",
             "reason": null,
             "credit": "Es gelten die Lizenzbedingungen „Datenlizenz Deutschland -Namensnennung -Version 2.0“ bzw. „dl-de/by-2-0” (https://www.govdata.de/dl-de/by-2-0) mit Angabe der Datenquelle: dl-de/by-2-0: Landesamt für Denkmalpflege im Regierungspräsidium Stuttgart, www.denkmalpflege-bw.de"
+          }
+        },
+        {
+          "source": {
+            "key": "naturdenkmale",
+            "label": {
+              "en": "LUBW",
+              "de": "LUBW"
+            },
+            "what": {
+              "en": "Naturdenkmale, single",
+              "de": "Naturdenkmale, Einzelgebilde"
+            },
+            "credit": "Grundlage: Daten aus dem Umweltinformationssystem (UIS) der LUBW Landesanstalt für Umwelt Baden-Württemberg",
+            "sections": [
+              "protected-objects"
+            ]
+          },
+          "status": {
+            "id": "naturdenkmale",
+            "state": "read",
+            "fetched": "2026-11-15",
+            "reason": null,
+            "credit": "Grundlage: Daten aus dem Umweltinformationssystem (UIS) der LUBW Landesanstalt für Umwelt Baden-Württemberg"
+          }
+        },
+        {
+          "source": {
+            "key": "flaechennaturdenkmale",
+            "label": {
+              "en": "LUBW",
+              "de": "LUBW"
+            },
+            "what": {
+              "en": "Naturdenkmale, areas",
+              "de": "Naturdenkmale, flächenhaft"
+            },
+            "credit": "Grundlage: Daten aus dem Umweltinformationssystem (UIS) der LUBW Landesanstalt für Umwelt Baden-Württemberg",
+            "sections": [
+              "protected-objects"
+            ]
+          },
+          "status": {
+            "id": "flaechennaturdenkmale",
+            "state": "read",
+            "fetched": "2026-11-15",
+            "reason": null,
+            "credit": "Grundlage: Daten aus dem Umweltinformationssystem (UIS) der LUBW Landesanstalt für Umwelt Baden-Württemberg"
           }
         }
       ]
