@@ -6,13 +6,14 @@ Each supported state has an example: an area from which freemapper can derive a 
 park with relief, dense buildings, stairs, walls and hedges). All examples are sprint maps at 1:4000 (ISSprOM 2019),
 made with `freemapper run --pdf --pdf-candidates --ocad` and the default content profile `balanced`; Sanssouci,
 Viktoriapark, Monschau, Cochem and Saarlouis also with `--content-set vegetation=candidates`. The PDF of each
-example is the check print with every candidate, because it shows what freemapper can derive. The map alone shows
-less; the [comparison page](compare.en.md) shows the same area in the three content profiles.
+example is the check print with every candidate, because it shows what freemapper can derive. For Viktoriapark the
+preview and the PDF already show the training map (`--training`), with the check print beside it; the other
+examples follow. The map alone shows less; the [comparison page](compare.en.md) shows the same area in the three content profiles.
 
 | Preview | State | Area | Map objects | Candidates | Symbols |
 |---|---|---|---:|---:|---:|
 | <a href="brandenburg-sanssouci/preview.webp"><img src="brandenburg-sanssouci/preview-thumb.webp" width="220" alt="" loading="lazy"></a><br><a href="brandenburg-sanssouci/brandenburg-sanssouci-candidates.pdf">PDF</a> | Brandenburg | [Park Sanssouci, Potsdam](brandenburg-sanssouci/): vineyard terraces, parterres and hedges, palace | 2493 | 773 | 38 |
-| <a href="berlin-viktoriapark/preview.webp"><img src="berlin-viktoriapark/preview-thumb.webp" width="220" alt="" loading="lazy"></a><br><a href="berlin-viktoriapark/berlin-viktoriapark-candidates.pdf">PDF</a> | Berlin | [Viktoriapark, Kreuzberg](berlin-viktoriapark/): the Kreuzberg hill with its waterfall, 19th-century blocks | 3208 | 692 | 46 |
+| <a href="berlin-viktoriapark/preview.webp"><img src="berlin-viktoriapark/preview-thumb.webp" width="220" alt="" loading="lazy"></a><br><a href="berlin-viktoriapark/berlin-viktoriapark-training.pdf">PDF</a> · <a href="berlin-viktoriapark/berlin-viktoriapark-candidates.pdf">check print</a> | Berlin | [Viktoriapark, Kreuzberg](berlin-viktoriapark/): the Kreuzberg hill with its waterfall, 19th-century blocks | 3208 | 692 | 46 |
 | <a href="sachsen-bautzen/preview.webp"><img src="sachsen-bautzen/preview-thumb.webp" width="220" alt="" loading="lazy"></a><br><a href="sachsen-bautzen/sachsen-bautzen-candidates.pdf">PDF</a> | Saxony | [Bautzen old town](sachsen-bautzen/): the old town on the rock above the Spree, steep valley sides | 2385 | 1049 | 39 |
 | <a href="sachsen-anhalt-quedlinburg/preview.webp"><img src="sachsen-anhalt-quedlinburg/preview-thumb.webp" width="220" alt="" loading="lazy"></a><br><a href="sachsen-anhalt-quedlinburg/sachsen-anhalt-quedlinburg-candidates.pdf">PDF</a> | Saxony-Anhalt | [Schlossberg Quedlinburg](sachsen-anhalt-quedlinburg/): World Heritage old town, castle hill, narrow lanes | 2812 | 638 | 39 |
 | <a href="hamburg-blankenese/preview.webp"><img src="hamburg-blankenese/preview-thumb.webp" width="220" alt="" loading="lazy"></a><br><a href="hamburg-blankenese/hamburg-blankenese-candidates.pdf">PDF</a> | Hamburg | [Treppenviertel Blankenese](hamburg-blankenese/): the steep Elbe bank, stairs and lanes | 2480 | 1143 | 38 |

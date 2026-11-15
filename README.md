@@ -6,7 +6,7 @@
 [![KI-Aufwand (Claude API): 3.347 $](https://img.shields.io/badge/KI--Aufwand%20%28Claude%20API%29-3.347%20%24-8A2BE2)](docs/ai-cost/history.csv)
 <!-- claude-cost:end -->
 
-<p align="center"><a href="examples/berlin-viktoriapark/preview.webp"><img src="examples/berlin-viktoriapark/preview-medium.webp" alt="Sprintkarte Viktoriapark, Berlin-Kreuzberg, von freemapper erzeugt" width="760"></a><br><sub>Viktoriapark, Berlin-Kreuzberg (Sprint 1:4000), von freemapper aus offenen Daten erzeugt. Ein Klick zeigt das Bild in voller Größe, das <a href="examples/berlin-viktoriapark/berlin-viktoriapark-candidates.pdf">PDF</a> hat alle Kandidaten; mehr unter <a href="examples/README.md">Beispiele</a>.</sub></p>
+<p align="center"><a href="examples/berlin-viktoriapark/preview.webp"><img src="examples/berlin-viktoriapark/preview-medium.webp" alt="Trainingskarte Viktoriapark, Berlin-Kreuzberg, von freemapper erzeugt" width="760"></a><br><sub>Viktoriapark, Berlin-Kreuzberg (Sprint 1:4000), von freemapper aus offenen Daten erzeugt. Das Bild ist die Trainingskarte, die man so drucken und laufen kann; ein Klick zeigt sie in voller Größe, als <a href="examples/berlin-viktoriapark/berlin-viktoriapark-training.pdf">PDF</a> zum Drucken. Der <a href="examples/berlin-viktoriapark/berlin-viktoriapark-candidates.pdf">Prüfausdruck</a> zeigt alle Kandidaten lagetreu; mehr unter <a href="examples/README.md">Beispiele</a>.</sub></p>
 
 freemapper erzeugt aus amtlichen Geodaten (Geländemodell, nDOM, Luftbild, ALKIS) und OpenStreetMap
 ein **Startprojekt für OpenOrienteering Mapper (OOM) und auf Wunsch auch für OCAD**: eine
