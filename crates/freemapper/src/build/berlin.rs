@@ -13,7 +13,7 @@ use serde_json::Value;
 use crate::build::candidates::{Rules, Target, osm_objects};
 use crate::build::dedup::add_also;
 use crate::build::geometry::object_polygon;
-use crate::build::tagged::{self, position};
+use crate::build::tagged;
 use crate::crs::{Crs, LatLon};
 use crate::georef::{GeorefError, Georeferencing};
 use crate::omap::coord::FLAG_CURVE_START;
@@ -51,80 +51,18 @@ pub fn building_part_features(buildings: &[Value]) -> Vec<Value> {
         .collect()
 }
 
-fn latlon(p: (f64, f64)) -> Option<LatLon> {
-    tagged::latlon(LAYER_CRS, p)
-}
-
 /// The polygons of an area feature (Polygon or MultiPolygon, holes kept) in the map's `crs`; the
 /// layers are in EPSG:25833. Empty for other geometries. Used by the canopy and stair builders,
 /// which need the area itself and not a rule's line or point.
 pub(crate) fn feature_polygons(feature: &Value, crs: Crs) -> Vec<geo_types::Polygon<f64>> {
-    let to_map = |(easting, northing): (f64, f64)| -> Option<(f64, f64)> {
-        if crs == LAYER_CRS {
-            return Some((easting, northing));
-        }
-        let p = crs.forward(latlon((easting, northing))?);
-        Some((p.easting, p.northing))
-    };
-    let ring = |coordinates: &Value| -> Option<geo_types::LineString<f64>> {
-        let points: Option<Vec<(f64, f64)>> = coordinates
-            .as_array()?
-            .iter()
-            .map(|c| position(c).and_then(to_map))
-            .collect();
-        Some(geo_types::LineString::from(points?))
-    };
-    let polygon = |rings: &Value| -> Option<geo_types::Polygon<f64>> {
-        let mut rings = rings.as_array()?.iter().map(ring);
-        let exterior = rings.next()??;
-        Some(geo_types::Polygon::new(
-            exterior,
-            rings.collect::<Option<_>>()?,
-        ))
-    };
-    let coordinates = &feature["geometry"]["coordinates"];
-    match feature["geometry"]["type"].as_str() {
-        Some("Polygon") => polygon(coordinates).into_iter().collect(),
-        Some("MultiPolygon") => coordinates
-            .as_array()
-            .into_iter()
-            .flatten()
-            .filter_map(polygon)
-            .collect(),
-        _ => Vec::new(),
-    }
+    tagged::polygons_in(feature, LAYER_CRS, crs)
 }
 
 /// The lines of a line feature (LineString or MultiLineString, one per part) in the map's `crs`;
 /// the layers are in EPSG:25833. Empty for other geometries. Used by the stair builder for the
 /// `Freitreppe` step edges.
 pub(crate) fn feature_lines(feature: &Value, crs: Crs) -> Vec<geo_types::LineString<f64>> {
-    let line = |coordinates: &Value| -> Option<geo_types::LineString<f64>> {
-        let points: Option<Vec<(f64, f64)>> = coordinates
-            .as_array()?
-            .iter()
-            .map(|c| {
-                let (easting, northing) = position(c)?;
-                if crs == LAYER_CRS {
-                    return Some((easting, northing));
-                }
-                let p = crs.forward(latlon((easting, northing))?);
-                Some((p.easting, p.northing))
-            })
-            .collect();
-        Some(geo_types::LineString::from(points?))
-    };
-    let coordinates = &feature["geometry"]["coordinates"];
-    match feature["geometry"]["type"].as_str() {
-        Some("LineString") => line(coordinates).into_iter().collect(),
-        Some("MultiLineString") => coordinates
-            .as_array()
-            .into_iter()
-            .flatten()
-            .filter_map(line)
-            .collect(),
-        _ => Vec::new(),
-    }
+    tagged::lines_in(feature, LAYER_CRS, crs)
 }
 
 /// The provenance tags of a map object or candidate built from a Berlin feature directly (not
