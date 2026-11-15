@@ -1210,6 +1210,11 @@ retaining walls, but neither hedges nor single trees in the city centre; in the 
 with the buffer) 64 stairs, 13 retaining walls, 13 monuments, 16 embankment tops and 4 bridges come from it. If the service sends more objects than it allows in
 one answer, freemapper splits the area into quarters, at most four levels deep.
 
+**Hesse: full ALKIS and landscape model.** Hesse serves both from the HVBG (dl-de/zero-2-0), and freemapper reads
+both. Its full ALKIS records surveyed stairs: in the old town of Marburg 54 go straight onto the map, with the
+content profile `balanced`. The landscape model adds candidates as in Bavaria: in Marburg 4 named trees, 3 small
+watercourses, a dam and a wall, on the Feldberg a rock, a spring and a watercourse.
+
 In Bavaria the cadastre has no service. There freemapper asks the landscape model of the agency instead, the
 ATKIS Basis-DLM (CC BY 4.0). It is made for the scale 1:25 000 and accurate to about 3 m. freemapper takes cave
 entrances (203), springs (312), named rocks (205), free-standing towers (524, 525), monuments and wayside

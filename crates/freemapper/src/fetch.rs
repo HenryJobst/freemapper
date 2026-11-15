@@ -1358,6 +1358,21 @@ pub(crate) mod test_support {
                 body.as_bytes().to_vec(),
             );
         }
+        // The full ALKIS and the landscape model of the HVBG (ADR 0135): empty answers, as the
+        // services give them for a type without objects in the box.
+        for nas in [
+            "https://www.gds.hessen.de/wfs2/aaa-suite/cgi-bin/alkis/nas/wfs",
+            "https://www.gds.hessen.de/wfs2/aaa-suite/cgi-bin/atkis-bdlm/nas/wfs",
+        ] {
+            fetcher.insert_prefix(
+                &format!("{nas}?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&"),
+                b"<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<wfs:FeatureCollection \
+                  numberReturned=\"0\" numberMatched=\"unknown\" \
+                  xmlns:gml=\"http://www.opengis.net/gml/3.2\" \
+                  xmlns:wfs=\"http://www.opengis.net/wfs/2.0\"/>"
+                    .to_vec(),
+            );
+        }
         let extract = crate::sources::osm::extract_of("hessen", 0);
         fetcher.insert(
             &extract.state_url(),

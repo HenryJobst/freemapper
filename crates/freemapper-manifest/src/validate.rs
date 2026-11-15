@@ -1602,15 +1602,7 @@ impl Check<'_> {
 
     fn nas_services(&mut self, raw: &[RawNas], adapter: Option<Crs>) -> Option<Vec<Nas>> {
         let mut fine = true;
-        if raw.len() > 1 {
-            self.fail(
-                "manifest.value",
-                &raw[1].name.span(),
-                "extra.nas",
-                "a region has one NAS service; this is a second one",
-            );
-            fine = false;
-        }
+        let mut models_seen: Vec<NasModel> = Vec::new();
         let mut services = Vec::new();
         for service in raw {
             let name = self.text(&service.name, "extra.nas.name", "manifest.value", 80);
@@ -1640,6 +1632,17 @@ impl Check<'_> {
             };
             // A layer of the other model would never be asked for.
             let served = model.unwrap_or(NasModel::Alkis);
+            // A state may serve its cadastre and its landscape model (Hesse), each once.
+            if models_seen.contains(&served) {
+                self.fail(
+                    "manifest.value",
+                    &service.name.span(),
+                    "extra.nas",
+                    "a region has one NAS service per model; this is a second one of its model",
+                );
+                fine = false;
+            }
+            models_seen.push(served);
             let of_model = |file: &str| NasModel::of_layer(file) == served;
             let mut layers = Some(Vec::new());
             for layer in service.layers.iter().flatten() {

@@ -48,10 +48,11 @@ pub trait RegionAdapter: Send + Sync {
     /// `None`: the region has no ALKIS data to offer.
     fn alkis(&self) -> Option<&dyn AlkisSource>;
 
-    /// The full ALKIS (NAS) service of the region, for the structures ALKIS vereinfacht leaves
-    /// out. `None`: the region has none.
-    fn nas(&self) -> Option<&NasService> {
-        None
+    /// The NAS services of the region: its full ALKIS, for the structures ALKIS vereinfacht
+    /// leaves out, and its landscape model (ADR 0135); a state may serve both. Empty: the region
+    /// has none.
+    fn nas_services(&self) -> &[NasService] {
+        &[]
     }
 
     /// The tree cadastres of cities in the region.

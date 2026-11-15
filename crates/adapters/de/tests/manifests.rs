@@ -127,7 +127,11 @@ fn potsdam_tree_dataset_from_manifest_equals_the_constant() {
     for state in State::ALL {
         if !matches!(
             state,
-            State::Brandenburg | State::Bremen | State::Bayern | State::SaxonyAnhalt
+            State::Brandenburg
+                | State::Bremen
+                | State::Bayern
+                | State::SaxonyAnhalt
+                | State::Hessen
         ) {
             let manifest = manifest(state.id());
             assert!(
@@ -185,6 +189,37 @@ fn saxony_anhalt_asks_the_basis_dlm() {
          ?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=adv:AX_Turm\
          &SRSNAME=urn:ogc:def:crs:EPSG::25832\
          &BBOX=638765,5733152,640192,5734285,urn:ogc:def:crs:EPSG::25832&COUNT=100000\
+         &NAMESPACES=xmlns(adv,http://www.adv-online.de/namespaces/adv/gid/7.1)"
+    );
+}
+
+/// Hesse serves its full ALKIS and its landscape model from one host (checked live on
+/// 2026-11-15 over the Marburg example): two NAS services, one per model.
+#[test]
+fn hesse_asks_its_full_alkis_and_its_basis_dlm() {
+    let hessen = manifest("hessen");
+    let region = "hessen".parse().unwrap();
+    let services: Vec<_> = hessen
+        .nas
+        .iter()
+        .map(|nas| extras::nas_service(nas, &region))
+        .collect();
+    let models: Vec<NasModel> = services.iter().map(|s| s.model).collect();
+    assert_eq!(models, [NasModel::Alkis, NasModel::BasisDlm]);
+    assert!(services[0].serves("sonstiges-bauwerk") && !services[0].serves("dlm-turm"));
+    assert!(services[1].serves("dlm-turm") && !services[1].serves("sonstiges-bauwerk"));
+    let marburg = BoundingBox {
+        min_e: 483_152.0,
+        min_n: 5_628_371.0,
+        max_e: 484_156.0,
+        max_n: 5_629_074.0,
+    };
+    assert_eq!(
+        services[1].get_feature_url("adv:AX_Turm", &marburg),
+        "https://www.gds.hessen.de/wfs2/aaa-suite/cgi-bin/atkis-bdlm/nas/wfs?SERVICE=WFS\
+         &VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=adv:AX_Turm\
+         &SRSNAME=urn:ogc:def:crs:EPSG::25832\
+         &BBOX=483152,5628371,484156,5629074,urn:ogc:def:crs:EPSG::25832&COUNT=100000\
          &NAMESPACES=xmlns(adv,http://www.adv-online.de/namespaces/adv/gid/7.1)"
     );
 }

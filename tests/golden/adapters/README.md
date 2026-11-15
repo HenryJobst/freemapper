@@ -70,6 +70,8 @@ one surface model tile). Version 2 holds the four recorded states, with the answ
 unchanged: 79 MB as an archive, 82 MB unpacked, of which Berlin has 47 MB and Brandenburg 31 MB.
 Version 3 (2026-11-15) recorded Saxony-Anhalt again, because it asks its landscape model (ADR 0135); the other
 three states keep the answers of version 2. The new recording also took the maintainer's newer OSM extract.
+Version 4 (2026-11-15) recorded Hesse again, because it asks its full ALKIS and its landscape model; Hesse's
+download center had moved its archives to a folder of that day.
 
 `g1-hosts.txt` keeps the hosts of the seven states that left the net: every built-in manifest
 declares at least the hosts its state asked then (`crates/adapters/de/tests/manifests.rs`). A

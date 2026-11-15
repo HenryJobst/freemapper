@@ -83,11 +83,13 @@
       "surface model (HVBG DOM1) | 3.000 MB | cached: false | Surface | Cache",
       "tile metadata list (HVBG) | 1.000 MB | cached: false | Terrain | Cache",
       "OSM extract Hesse (shared by all projects) | 348.000 MB | cached: false | MapData | Cache",
-      "ALKIS buildings and land use | 0.500 MB | cached: false | MapData | Project"
+      "ALKIS buildings and land use | 0.500 MB | cached: false | MapData | Project",
+      "full ALKIS structures (NAS) | 0.144 MB | cached: false | StateLayers | Project",
+      "objects of the ATKIS Basis-DLM | 0.100 MB | cached: false | StateLayers | Project"
     ],
     "region": "hessen",
     "tiles": [],
-    "total_megabytes": "355.176"
+    "total_megabytes": "355.420"
   },
   {
     "in_place": [],

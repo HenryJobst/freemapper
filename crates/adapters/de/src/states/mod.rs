@@ -646,8 +646,8 @@ impl RegionAdapter for StateAdapter {
         self.alkis.as_deref().or_else(|| self.manifest.alkis())
     }
 
-    fn nas(&self) -> Option<&NasService> {
-        self.manifest.nas()
+    fn nas_services(&self) -> &[NasService] {
+        self.manifest.nas_services()
     }
 
     fn tree_datasets(&self) -> &[TreeDataset] {

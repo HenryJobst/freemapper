@@ -20,7 +20,7 @@ pub fn nas_layers(kind: MapKind) -> impl Iterator<Item = &'static NasLayer> {
 pub fn nas_services_for(region_bbox: &BoundingBox) -> Vec<&'static NasService> {
     regions_for_in(registry(), region_bbox)
         .into_iter()
-        .filter_map(|adapter| adapter.nas())
+        .flat_map(|adapter| adapter.nas_services())
         .collect()
 }
 
@@ -45,21 +45,23 @@ fn fetch_nas_layers_in(
     kind: MapKind,
     part: PartFile,
 ) -> Vec<FetchedNasLayer> {
-    let adapters: Vec<(&NasService, Option<PolicyFetcher<'_>>)> =
+    // Each adapter with its services, asked through the policy of the adapter where it has one.
+    let adapters: Vec<(&[NasService], Option<PolicyFetcher<'_>>)> =
         regions_for_in(registry, &area.region_bbox)
             .into_iter()
-            .filter_map(|adapter| {
+            .filter(|adapter| !adapter.nas_services().is_empty())
+            .map(|adapter| {
                 let held = adapter
                     .policy()
                     .map(|policy| PolicyFetcher::new(fetcher, policy));
-                Some((adapter.nas()?, held))
+                (adapter.nas_services(), held)
             })
             .collect();
     let services: Vec<(&NasService, &dyn Fetcher)> = adapters
         .iter()
-        .map(|(service, held)| {
+        .flat_map(|(services, held)| {
             let through = held.as_ref().map_or(fetcher, |held| held as &dyn Fetcher);
-            (*service, through)
+            services.iter().map(move |service| (service, through))
         })
         .collect();
     fetch_layers_through(&services, area, kind.contract(), part)
