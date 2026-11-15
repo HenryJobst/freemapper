@@ -1,5 +1,5 @@
 # ALKIS structures of every state (vereinfacht and full ALKIS, NAS) → candidate symbols (states
-# plus 1). Same syntax and engine as osm-candidates.toml and berlin-candidates.toml, with these
+# plus 1). Same syntax and engine as osm-candidates.toml and Berlin's rules (crates/adapters/de/rules/berlin.toml), with these
 # differences:
 #
 # - Tags are `alkis:<property>` (string and number properties of the stored feature) plus

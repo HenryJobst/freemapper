@@ -1,7 +1,7 @@
 //! Berlin ALKIS structures and building parts → candidate objects (Berlin plus 1).
 //!
 //! The Geoportal features run through the same [`Rules`] engine as the OSM features
-//! (`assets/rules/berlin-candidates.toml`). A feature becomes a tagged feature first: its string
+//! (the rules Berlin's set brings, `crates/adapters/de/rules/berlin.toml`). A feature becomes a tagged feature first: its string
 //! and number properties become `berlin:<name>` tags, so no OSM rule can match one and no Berlin
 //! rule an OSM tag. The building parts are parsed from the stored buildings in one place
 //! ([`building_part_features`]).

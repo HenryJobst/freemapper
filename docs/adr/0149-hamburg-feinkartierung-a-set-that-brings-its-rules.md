@@ -90,3 +90,9 @@ in the basin of the water (`fountain_tags`), and the paved areas that may win a 
 ALKIS bridge decks). A candidate keeps the layer tag of every set first, then the engine's tags, then the kept tags,
 so Berlin's tags stay in their order (G3/G4 byte for byte). Hamburg's candidates gain `hamburg:layer`; Blankenese
 is rebuilt with the same objects.
+
+## Addendum 2026-11-15: Berlin's rules in its adapter (step 3)
+
+Berlin's candidate rules moved from `assets/rules/berlin-candidates.toml` into its adapter
+(`crates/adapters/de/rules/berlin.toml`, `SetDrawing::rules`); `Rules::berlin()` reads them from Berlin's set. The
+output is unchanged (G3/G4).
