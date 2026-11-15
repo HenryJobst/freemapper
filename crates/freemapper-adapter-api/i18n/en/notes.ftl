@@ -124,6 +124,12 @@ progress-berlin-download = downloading Berlin ALKIS structures, tree cadastre, s
 progress-berlin-features = { $count } Berlin { $file } features
 warning-berlin-layer-kept = Berlin { $file } unavailable ({ $detail }); keeping the stored layer
 warning-berlin-layer-skipped = Berlin { $file } unavailable ({ $detail }); layer skipped
+progress-feinkartierung-none-stored = no Hamburg Feinkartierung stored; run `freemapper fetch` online for railings, walls, stairs and street furniture
+progress-feinkartierung-removing = removing the stored Hamburg Feinkartierung: the map area is no longer in Hamburg
+progress-feinkartierung-download = downloading the Hamburg Feinkartierung (street space and public green)
+progress-feinkartierung-features = { $count } Feinkartierung { $file } features
+warning-feinkartierung-layer-kept = Feinkartierung { $file } unavailable ({ $detail }); keeping the stored layer
+warning-feinkartierung-layer-skipped = Feinkartierung { $file } unavailable ({ $detail }); layer skipped
 error-extra-layer-unknown = not a layer of { $folder }
 warning-berlin-buildings-missing = no ALKIS buildings stored for this area in Berlin; run `freemapper fetch` to get them from the Geoportal Berlin
 

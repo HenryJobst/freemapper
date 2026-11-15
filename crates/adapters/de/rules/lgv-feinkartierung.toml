@@ -1,0 +1,82 @@
+# Hamburg's Feinkartierung (ADR 0149) → symbols, in the syntax of the engine's rule files. The tags
+# are `hamburg:<property>` of a feature and `hamburg:layer=<file>`. Under the profile `balanced`
+# the walls, fences, stairs and curbs go to the map (rank: street survey), the furniture stays a
+# candidate. Left out: gutters (Rinne), traffic lights, bicycle stands, manhole covers, boulders
+# and the gates in fences.
+
+# Railings, fences, handrails and guard rails are impassable like the Berlin railings; the mapper
+# downgrades them to 516 where they can be crossed.
+[[rule]]
+when = ["hamburg:layer=fk-strasse-linien", "hamburg:inhalt=Geländer|Zaun"]
+draw = "line"
+schoolyard = "518"
+sprint = "518"
+
+[[rule]]
+when = ["hamburg:layer=fk-gruen-linien", "hamburg:kategorie_2=Zäune|Absturzsicherungen/Handläufe|Schutzgitter"]
+draw = "line"
+schoolyard = "518"
+sprint = "518"
+
+# Walls: the street lines, and the green wall areas as their outline.
+[[rule]]
+when = ["hamburg:layer=fk-strasse-linien", "hamburg:inhalt=Mauer"]
+draw = "line"
+schoolyard = "515"
+sprint = "515"
+
+[[rule]]
+when = ["hamburg:layer=fk-gruen-flaechen"]
+draw = "line"
+schoolyard = "515"
+sprint = "515"
+
+# Curbs: sprint maps only, as the Berlin ones.
+[[rule]]
+when = ["hamburg:layer=fk-strasse-linien", "hamburg:inhalt=Bordstein|Hochbord|Tiefbord"]
+draw = "line"
+sprint = "501.1"
+
+# Street furniture: the schoolyard map draws it; on a sprint map bollards, benches and lamps are
+# control sites (531) that the build thins (ADR 0074, 0077).
+[[rule]]
+when = ["hamburg:layer=fk-strasse-punkte|fk-gruen-punkte", "hamburg:control=bollard"]
+draw = "point"
+schoolyard = "544"
+sprint = "531"
+
+[[rule]]
+when = ["hamburg:layer=fk-strasse-punkte|fk-gruen-punkte", "hamburg:control=bench"]
+draw = "line"
+point_as_short_line_mm = 1.5
+schoolyard = "543"
+
+[[rule]]
+when = ["hamburg:layer=fk-strasse-punkte|fk-gruen-punkte", "hamburg:control=bench"]
+draw = "point"
+sprint = "531"
+
+[[rule]]
+when = ["hamburg:layer=fk-strasse-punkte|fk-gruen-punkte", "hamburg:control=street_lamp"]
+draw = "point"
+schoolyard = "545"
+sprint = "531"
+
+# Play equipment (schoolyard), monuments and art.
+[[rule]]
+when = ["hamburg:layer=fk-gruen-punkte", "hamburg:kategorie_2=Spielgeräte"]
+draw = "line"
+point_as_short_line_mm = 1.8
+schoolyard = "541"
+
+[[rule]]
+when = ["hamburg:layer=fk-gruen-punkte", "hamburg:kategorie_2=Denk- u. Mahnmale, Skulpturen (klein)"]
+draw = "point"
+schoolyard = "526"
+sprint = "526"
+
+[[rule]]
+when = ["hamburg:layer=fk-strasse-punkte", "hamburg:inhalt=Kunst im öffentlichen Raum, Skulptur"]
+draw = "point"
+schoolyard = "526"
+sprint = "526"

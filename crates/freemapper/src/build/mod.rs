@@ -25,6 +25,7 @@ pub mod paved;
 pub mod paved_borders;
 pub mod peripheral;
 pub mod points;
+pub mod sets;
 pub mod source_block;
 pub mod stairs;
 pub mod state;

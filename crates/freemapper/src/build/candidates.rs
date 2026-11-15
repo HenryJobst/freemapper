@@ -279,6 +279,16 @@ impl Rules {
             .map(Rules)
     }
 
+    /// The symbol codes the rules draw on a map of `kind`.
+    #[cfg(test)]
+    pub(crate) fn codes(&self, kind: MapKind) -> Vec<String> {
+        self.0
+            .iter()
+            .filter_map(|r| r.code_for(kind).cloned())
+            .filter(|code| code != SKIP)
+            .collect()
+    }
+
     /// The symbol codes of the rules drawn as points, both map kinds.
     #[cfg(test)]
     pub(crate) fn point_codes(&self) -> Vec<String> {
@@ -608,6 +618,22 @@ pub fn osm_objects(
             && matches!(kind, MapKind::Sprint | MapKind::Forest)
             && found.code == CONTROL_CODE
             && let Some(site) = berlin_control_kind(&feature.tags)
+        {
+            tags.push((CONTROL_KEY.to_string(), site.to_string()));
+        }
+        // A control site of a set that brings its rules names its kind in `<prefix>:control`,
+        // which its adapter writes (ADR 0149).
+        if matches!(kind, MapKind::Sprint | MapKind::Forest)
+            && found.code == CONTROL_CODE
+            && let Some(drawing) = crate::build::sets::drawing_of_source(source)
+            && let Some(site) = value(
+                &feature.tags,
+                &format!(
+                    "{}:{}",
+                    drawing.tag_prefix,
+                    freemapper_adapter_api::extras::CONTROL_PROPERTY
+                ),
+            )
         {
             tags.push((CONTROL_KEY.to_string(), site.to_string()));
         }

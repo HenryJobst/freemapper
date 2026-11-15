@@ -3,7 +3,7 @@
 [English version](README.en.md) · [Handbuch](docs/manual/de.md) · [Glossar](docs/glossary.md) · [Änderungen](CHANGELOG.md) · [Beispiele](examples/README.md)
 
 <!-- claude-cost:start -->
-[![KI-Aufwand (Claude API): 3.274 $](https://img.shields.io/badge/KI--Aufwand%20%28Claude%20API%29-3.274%20%24-8A2BE2)](docs/ai-cost/history.csv)
+[![KI-Aufwand (Claude API): 3.347 $](https://img.shields.io/badge/KI--Aufwand%20%28Claude%20API%29-3.347%20%24-8A2BE2)](docs/ai-cost/history.csv)
 <!-- claude-cost:end -->
 
 <p align="center"><a href="examples/berlin-viktoriapark/preview.webp"><img src="examples/berlin-viktoriapark/preview-medium.webp" alt="Sprintkarte Viktoriapark, Berlin-Kreuzberg, von freemapper erzeugt" width="760"></a><br><sub>Viktoriapark, Berlin-Kreuzberg (Sprint 1:4000), von freemapper aus offenen Daten erzeugt. Ein Klick zeigt das Bild in voller Größe, das <a href="examples/berlin-viktoriapark/berlin-viktoriapark-candidates.pdf">PDF</a> hat alle Kandidaten; mehr unter <a href="examples/README.md">Beispiele</a>.</sub></p>
@@ -292,7 +292,7 @@ freemapper run vorstadt
 | Berlin | LGB, ALKIS, Baumkataster, K5, Straßenbefahrung und Register vom Geoportal Berlin | aus dem bildbasierten Oberflächenmodell, 0,2 m | Plätze nur als Kandidaten; vermessene Grünstreifen aus den Straßenflächen ausgeschnitten; Überdachungen als Kartenobjekte; Treppen, Mauern, Zäune, Hecken, Bäume, Bordsteine, Geländer, Möblierung, Laternen und Brunnen als Kandidaten; Karte 1:5000 (K5) als Vorlage |
 | Sachsen | GeoSN | DOM1 − DGM1, 1 m | Plätze nur als Kandidaten; Straßenflächen mit Grünstreifen; keine Lage unter der Erdoberfläche; Bäume aus dem Baumkataster von Leipzig |
 | Sachsen-Anhalt | LVermGeo | DOM1 − DGM1, 1 m | Karte in UTM-Zone 32 (EPSG:25832); Plätze nur als Kandidaten; Straßenflächen mit Grünstreifen; Felswände, Felsen, Quellen, Dämme, Denkmäler, kleine Wasserläufe und auf Waldkarten fehlende Wege als Kandidaten aus dem Landschaftsmodell (ATKIS Basis-DLM) |
-| Hamburg | LGV | bDOM − DGM1, 1 m (Stand 2022) | Karte in UTM-Zone 32 (EPSG:25832); Höhenmodelle älter als das Luftbild (2026); Straßenbäume mit Kronendurchmesser aus dem Straßenbaumkataster |
+| Hamburg | LGV | bDOM − DGM1, 1 m (Stand 2022) | Karte in UTM-Zone 32 (EPSG:25832); Höhenmodelle älter als das Luftbild (2026); Straßenbäume mit Kronendurchmesser aus dem Straßenbaumkataster; Geländer, Zäune, Mauern, Bordsteine und Treppen aus der Feinkartierung |
 | Hessen | HVBG (auch das vollständige ALKIS und das Landschaftsmodell) | DOM1 − DGM1, 1 m (Laserscan) | Karte in UTM-Zone 32 (EPSG:25832); Luftbild im Sommer beflogen; Plätze nur als Kandidaten; Straßenflächen mit Grünstreifen; vermessene Treppen aus dem vollständigen ALKIS; Quellen, Felsen, Türme, Denkmäler, kleine Wasserläufe und auf Waldkarten fehlende Wege als Kandidaten aus dem Landschaftsmodell (ATKIS Basis-DLM); Bäume aus dem Baumkataster von Frankfurt am Main |
 | Schleswig-Holstein | LVermGeo SH | bDOM − DGM1, 1 m (bildbasiert) | Karte in UTM-Zone 32 (EPSG:25832); Luftbild je nach Gebiet unbelaubt oder belaubt; Oberflächenmodell als ganze Kacheln (105 MB je km²); Wälle, kleine Wasserläufe und auf Waldkarten fehlende Fahrwege als Kandidaten aus dem Landschaftsmodell (ATKIS Basis-DLM); Bäume aus den Baumkatastern von Lübeck, Kiel und Norderstedt |
 | Mecklenburg-Vorpommern | LAiV M-V (auch das vollständige ALKIS und das Landschaftsmodell) | DOM1 − DGM1, 1 m | Luftbild als Farbpalette (256 Farben); Höhenmodelle nur innerhalb der Landeskacheln; Treppen, Mauern und Brücken aus dem vollständigen ALKIS |
