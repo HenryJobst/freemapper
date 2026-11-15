@@ -74,31 +74,38 @@ Comparisons at a threshold are tolerant by 2 map units, so a difference in the l
 2. Street furniture (531) whose centre lies on a paved area goes; in a park it stays.
 3. Open land (401) from a park land use (ALKIS "Sport-, Freizeit- und Erholungsfläche", OSM `leisure=park`) keeps
    only its open ground: `derive` writes `data/tree-cover.tif`, the share of the nDSM cells of each 1 m cell that are at
-   least 3 m high; a share below 0.5 is open. The outline is traced as the vegetation areas are (ADR 0136) and
-   kept to their minimum areas. Without a surface model nothing changes.
+   least 3 m high; a share below 0.5 is open. The open cells are taken to the 3 m cells of the vegetation (a cell is
+   open when at least half of its 1 m cells are), and the outline is traced on them as the vegetation areas are
+   (ADR 0136) and kept to their minimum areas. Without a surface model nothing changes.
 4. Inside olive green (520) only buildings, roofs and carports, water, watercourses, railways and contours stay. The
    inside is the union of the 520 shrunk by 0.4 mm on paper (ruling: what lies on the edge stays). A way (road, path,
    stairway) stays in full where its part inside meets the edge at two places or more that no wall (515) or fence (518)
    bars: a crossing. Otherwise only a stub of 1.0 mm (or the symbol's minimum length) stays at each unbarred place. A
    passage (522 "Durchfahrt", "Arkade", OSM `tunnel=building_passage` or `covered=*`) stays only where a kept way runs
-   through it. Areas are cut at the edge, points go, other lines are cut.
+   through it. Areas are cut at the edge, points go, other lines are cut; a cut piece carries
+   `freemapper:generalized=cut: inside olive green`.
 5. A point symbol closer than the gap to any symbol a point keeps apart from is moved to the nearest spot that
    keeps every gap and whose symbol does not overlap olive green (520), at most 1.5 mm on paper (ruling: a point
    symbol stands for an object beside the way within its own size; a tree centred on a 505 at 1:10 000 needs 0.79 to
    1.24 mm; the lines keep 0.5 mm for the second half). The larger symbol goes first, then the earlier object, so of
    two points too close the smaller moves. It carries `freemapper:moved`. Where no spot is free it is left for step
-   6. Trees on street and square areas stay.
+   6. Trees on street and square areas stay. Landform points (105, 109 to 112, 115) and springs (312) are never
+   moved (ruling: the contours and the stream fix their place); the other points keep the gap to them.
 6. Of every Apart pair in conflict the lower-ranked object gives way: the stretch is cut out (the winner's footprint
    grown by the loser's half width, the gap and the tolerance, crossings kept), the object goes whole when more than
-   half of its length is in conflict. A loser waits while one of its winners still has to give way; at most 20
+   half of its length is in conflict, measured over the union of the zones of all its winners. Walls (513, 515) and
+   impassable fences (518) never go whole there, only their stretch in conflict is cut (ruling: a training map is run
+   on as it is, a missing barrier changes the route choice); pieces below the minimum still go in step 7. A cut piece
+   carries `freemapper:generalized=cut: gap to <classes>`. A loser waits while one of its winners still has to give way; at most 20
    rounds, and what is left then is reported in mm.
 7. What is below the norm's minimum goes. Lines: the minimum length of the symbol set, else 1.0 mm; a stairway 1.0
    mm ("Minimum length: 3 (graphical) steps" in both norms, steps 0.5 mm apart in both sets); a line that ends on
    a line that stays, stays too: for roads, paths, railways and stairways any of these, for other lines one of their
    class; a chain of short pieces stays when one end meets a line long enough, two short pieces do not keep each
    other. A stairway below its minimum with a staying road or path at both ends is drawn with the symbol of the
-   longer of them (`freemapper:generalized=stair below the minimum drawn as path`) and joined into it; with one at
-   one end only, or none, it goes. Areas: 401 0.5 mm² (ISSprOM) or 0.55 mm × 0.55 mm (ISOM), 402 6.25 mm², 403 1 mm², 405
+   longer of them (`freemapper:generalized=stair below the minimum drawn as path`) and joined into it, unless a barrier
+   runs along it so close that as a path it would keep no gap (then it stays a stairway); with one at one end only,
+   or none, it goes. Areas: 401 0.5 mm² (ISSprOM) or 0.55 mm × 0.55 mm (ISOM), 402 6.25 mm², 403 1 mm², 405
    1.0 mm², 406 to 410 1.5 mm × 1.5 mm.
 
 Joined pairs side by side are counted, not settled.
@@ -144,7 +151,7 @@ runs `Level::TRAINING`; that moves to the training map.
 
 ## Measured
 
-On 2026-11-15, with the release build of this branch, on three examples rebuilt in scratch from their
+On 2026-11-15, with the release build of this branch after the fixes of the final review, on three examples rebuilt in scratch from their
 `freemapper.toml`: Bremen Bürgerpark (forest 1:10 000), Viktoriapark in Berlin (sprint 1:4000) and the Bastei in
 Saxony (rocky forest 1:10 000). The conflicts are counted with the program's own measure (`build/conflicts.rs`),
 on the check print (the map with every visible candidate, the input of the training level) and on the training
@@ -154,25 +161,36 @@ map. Lengths are mm on paper. Stairs count as below the minimum under 1.5 mm at 
 | | Bremen Bürgerpark | Viktoriapark | Bastei |
 |---|---|---|---|
 | Apart conflicts, check print → training map | 3958 mm (658) → 0 | 550 mm (567) → 0 | 639 mm (256) → 0 |
-| Training summary | 456 joined, 369 left out or cut | 91 joined, 535 left out or cut | 220 joined, 194 left out or cut |
-| Objects | 2196 → 1469 | 3740 → 3206 | 1463 → 989 |
+| Training summary | 456 joined, 368 left out or cut | 91 joined, 537 left out or cut | 220 joined, 196 left out or cut |
+| Objects | 2196 → 1472 | 3740 → 3203 | 1463 → 989 |
 | 505 objects | 416 → 203 | none (sprint path symbols: 215 → 140) | 99 → 45 |
 | Path-class length | 4345 → 4318 mm | 2400 → 2019 mm | 1816 → 1804 mm |
 | 526 points | 12 → 10 | 3 → 2 | 2 → 2 |
 | Stairs below the minimum | 46 of 47 → 0 of 1 | 20 of 142 → 0 of 116 | 74 of 95 → 0 of 19 |
-| Points moved | 9 (526) | 278 (269 trees, 5 of 531, 2 of 312, 1 each of 311 and 526) | 5 (2 of 526, 109, 110, 111) |
+| Points moved | 9 (526) | 275 (268 trees, 5 of 531, 1 each of 311 and 526) | 2 (526) |
+| Barriers 518 / 515 / 513 (513.2 in Berlin), check print → training map | 386 / 11 / 66 mm → 104 / 5 / 0 | 654 / 300 / 131 mm → 573 / 190 / 89 | 154 / 48 / 58 mm → 50 / 12 / 8 |
 | Moved points on olive green | 0 | 0 | 0 |
-| `export --training` / `export`: real, user, peak | 41 s, 36 s, 1480 MiB / 8 s, 6 s, 156 MiB | 17 s, 14 s, 332 MiB / 4 s, 4 s, 121 MiB | 7 s, 6 s, 60 MiB / 6 s, 5 s, 58 MiB |
+| `export --training`: real, user, maximum resident set | 24 s, 24 s, 329 MiB | 8 s, 8 s, 199 MiB | 4 s, 4 s, 101 MiB |
+| `export` (before the fixes, busy machine): real, user, peak | 8 s, 6 s, 156 MiB | 4 s, 4 s, 121 MiB | 6 s, 5 s, 58 MiB |
 
-In Bremen the two ALKIS park areas of the Stadtwald (464 658 m², 21 % of it open by the nDSM) keep 60 924 m² of
-open land, 93 % of it open. No run printed the warning that conflicts were left. The machine was busy with other
-builds (load average 25 to 64), so the times and the memory are rough. The Nationaldenkmal's point in Viktoriapark
+In Bremen the two ALKIS park areas of the Stadtwald (464 658 m², 21 % of it open by the nDSM) keep 58 505 m² of
+open land, 93 % of it open (60 924 m² before the open ground was outlined on the 3 m cells). No run printed the
+warning that conflicts were left.
+
+The barriers: before the fixes the training map kept 89 / 5 / 0 mm in Bremen, 573 / 190 / 89 in Viktoriapark and
+47 / 8 / 6 at the Bastei; give way had counted a stretch near two winners twice and dropped walls and fences whole.
+What is still missing lies in the gap of a way, a watercourse or another fence in the data (in Bremen the conflict
+stretches of the 518 alone add up to 290 mm, most of them fences drawn on a stream or a path) and is cut there; only
+shifting the line beside it, left to the second half, keeps it.
+
+The memory: the open-land step gave its open mask on the 1 m cells of the tree cover to the outline of the
+vegetation areas, which refines its grid threefold and blurs it, so every park was traced on a grid of 1/3 m. On
+the 3 m cells of the vegetation the Bremen training export peaks at 329 MiB instead of 1598 MiB (maximum resident
+set, both measured on 2026-11-15 on a quiet machine, load average below 5; 25.7 s before, 24.4 s after). The Nationaldenkmal's point in Viktoriapark
 and a fountain at the Meierei in Bremen still go: no spot within 1.5 mm keeps the gap.
 
 Left to the second half: carriageways, tram and railway tracks, paths along roads and kerb lines that run side by
-side (in Bremen 1667 mm of joined pairs on the training map). Also left: the memory of the training export in
-Bremen, about 1.4 GiB against 0.16 GiB for the plain export, most likely from the open-land step over the tree
-cover.
+side (in Bremen 1667 mm of joined pairs on the training map).
 
 Source: spec `docs/superpowers/specs/2026-11-14-training-map-design.md` (decisions 1 to 13, Part 3), plan
 `docs/superpowers/plans/2026-11-14-training-map-1.md`, the rulings ledger of that plan; ISSprOM 2019-2 101, 516,
