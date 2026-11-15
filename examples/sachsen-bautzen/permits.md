@@ -19,6 +19,14 @@ Denkmale ganz oder zum Teil im Kartengebiet: 366.
 
 - Kulturdenkmal: 366
 
+## Naturdenkmale und andere Schutzobjekte (Sächsisches Landesamt für Umwelt, Landwirtschaft und Geologie)
+
+- Naturdenkmal „Protschenberg“, 5 %
+- Geschütztes Biotop „natuerlicher/naturnaher Bereich eines fließenden Binnengewaessers“, 4 %
+- Geschütztes Biotop „Gebuesch/naturnaher Wald trockenwarmer Standorte“, 1 %
+- Geschütztes Biotop „Offene Felsbildung“, < 1 %
+- Geschütztes Biotop „Streuobstwiese“, < 1 %
+
 ## Forstverwaltung (Staatsbetrieb Sachsenforst)
 
 - Forstbezirk Neustadt, Revier Bautzen (Staatsbetrieb Sachsenforst): 75 %
@@ -33,6 +41,8 @@ Laut Staatsbetrieb Sachsenforst / Bundesanstalt für Gewässerkunde liegt im Kar
 ## Waldfunktionen und Schutzwald (Staatsbetrieb Sachsenforst)
 
 An den abgefragten Punkten nennt Staatsbetrieb Sachsenforst hierzu nichts.
+
+Der Bestand von Sächsisches Landesamt für Umwelt, Landwirtschaft und Geologie ist nicht vollständig: Naturdenkmale, die einzelne Bäume oder Felsen sind, führen die Landkreise; sie fehlen hier.
 
 Staatsbetrieb Sachsenforst gibt nur für einzelne Punkte Auskunft. freemapper hat an einem Raster von Punkten über der Karte gefragt: Die Anteile sind geschätzt, und was zwischen den Punkten liegt, kann fehlen.
 
@@ -58,6 +68,8 @@ OpenStreetMap-Flächen, die das ganze Kartengebiet umschließen und keine Ecke d
 
 ## Hinweise
 
+- Für Naturdenkmale, geschützte Landschaftsbestandteile und geschützte Biotope im Kartengebiet ist die untere Naturschutzbehörde zuständig (meist der Landkreis Bautzen).
+- Im Kartengebiet liegen gesetzlich geschützte Biotope (natuerlicher/naturnaher Bereich eines fließenden Binnengewaessers, Gebuesch/naturnaher Wald trockenwarmer Standorte, Offene Felsbildung, …). Was sie zerstören oder erheblich beeinträchtigen kann, ist verboten (§ 30 BNatSchG). Legen Sie Posten und Bahnen außerhalb, oder fragen Sie die untere Naturschutzbehörde.
 - Im Kartengebiet liegen Denkmale. Ob ein Lauf sie berührt, etwa mit einem Posten an einem Denkmal oder einer Strecke durch eine geschützte Anlage, klärt die untere Denkmalschutzbehörde, meist der Landkreis Bautzen; in manchen Bundesländern ist es die Gemeinde Bautzen.
 - Zuständige Forstdienststelle für den Wald im Kartengebiet: Forstbezirk Neustadt (Staatsbetrieb Sachsenforst), Revier Bautzen. Fragen Sie dort früh nach, wenn Sie eine Veranstaltung im Wald planen.
 - Zuständige Forstdienststelle für den Wald im Kartengebiet: Forstbezirk Oberlausitz (Staatsbetrieb Sachsenforst), Revier Malschwitz. Fragen Sie dort früh nach, wenn Sie eine Veranstaltung im Wald planen.
@@ -76,5 +88,6 @@ OpenStreetMap-Flächen, die das ganze Kartengebiet umschließen und keine Ecke d
 | Staatsbetrieb Sachsenforst: Forstbezirke und Reviere (zuständig im Staatswald; für anderen Wald die untere Forstbehörde des Landkreises), Erholungswald, Naturwaldzellen, Bodenschutzwald, Trinkwasserschutzzonen im Wald | gelesen, abgerufen am 2026-11-15 | Datenlizenz Deutschland 2.0 – Namensnennung (dl-de/by-2-0) unter Angabe der Quelle: "Geodaten Sachsenforst" |
 | Bundesanstalt für Gewässerkunde: Trinkwasser- und Heilquellenschutzgebiete aus WasserBLIcK, ohne Schutzzonen | gelesen, abgerufen am 2026-11-15 | © WasserBLIcK/BfG und Zuständige Behörden der Länder, 2026; Lizenz: Creative Commons Namensnennung – 4.0 International (CC BY 4.0) |
 | Landesamt für Denkmalpflege Sachsen: Kulturdenkmale | gelesen, abgerufen am 2026-11-15 | Landesamt für Denkmalpflege Sachsen, Creative Commons Namensnennung 3.0 Deutschland (CC BY 3.0 DE) |
+| Sächsisches Landesamt für Umwelt, Landwirtschaft und Geologie: Flächennaturdenkmale, Verzeichnis der gesetzlich geschützten Biotope | gelesen, abgerufen am 2026-11-15 | Datenlizenz Deutschland 2.0 - Variante mit Namensnennung; Quelle: Sächsisches Landesamt für Umwelt, Landwirtschaft und Geologie |
 
 Bundesanstalt für Gewässerkunde: Trinkwasser- und Heilquellenschutzgebiete aus WasserBLIcK, ohne Schutzzonen: „Die bundesweite Flächendeckung des Datenbestandes ist nicht in jedem Fall gewährleistet.“

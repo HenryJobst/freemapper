@@ -1087,6 +1087,33 @@ ein Gebiet von etwa 300 m stehen. Niedersachsen, Bayern, Mecklenburg-Vorpommern 
 Sachsen-Anhalt fehlen noch: Die Lizenz ist dort unklar oder verbietet die Bearbeitung, oder es gibt keinen Dienst
 für das ganze Bundesland.
 
+### Naturdenkmale und geschützte Biotope
+
+Naturdenkmale, geschützte Landschaftsbestandteile und gesetzlich geschützte Biotope (§§ 28 bis 30 BNatSchG) stehen
+nicht in den Daten des BfN. Die Hinweise nennen sie aus den Diensten der Bundesländer:
+
+| Bundesland | Naturdenkmale | Landschaftsbestandteile | Geschützte Biotope |
+|---|---|---|---|
+| Berlin | ja | ja | ja, nur die sicher geschützten |
+| Brandenburg | ja, Stand 2017 | ja, Stand 2017 | ja |
+| Hamburg | ja | – | ja |
+| Saarland | ja | – | ja |
+| Sachsen | nur Flächen | – | ja |
+| Sachsen-Anhalt | ja, ohne Einzelbäume | ja | – |
+| Bayern | ja | ja | – |
+| Baden-Württemberg | ja | – | – |
+| Hessen | – | – | ja, Kartierung 1992 bis 2006 |
+| Nordrhein-Westfalen | – | – | ja, ohne Biotoptyp |
+
+Der Abschnitt „Naturdenkmale und andere Schutzobjekte“ nennt Bäume mit ihrer Art und Flächen mit ihrem Anteil;
+Biotope desselben Typs stehen in einer Zeile. Liegen geschützte Biotope im Gebiet, sagt ein Hinweis, dass verboten ist,
+was sie zerstören oder erheblich beeinträchtigen kann: Posten und Bahnen gehören außerhalb, oder die untere
+Naturschutzbehörde wird gefragt. Für Naturdenkmale und geschützte Biotope nennt ein Hinweis die untere
+Naturschutzbehörde, außerhalb von Berlin und Hamburg mit dem Kreis aus VG250. Wo die Daten Lücken haben, stehen sie
+unter dem Teil des Bundeslandes. In Baden-Württemberg erlaubt die LUBW die Nutzung ihrer Biotope für kommerzielle
+Zwecke nur auf Anfrage; sie fehlen deshalb. Niedersachsen, Rheinland-Pfalz, Mecklenburg-Vorpommern und
+Schleswig-Holstein folgen.
+
 ### Wasserschutzgebiete und Waldfunktionen
 
 Wasserschutzgebiete mit ihrer Schutzzone kommen aus Baden-Württemberg, Berlin, Brandenburg, Hamburg, Hessen,

@@ -17,6 +17,16 @@ Erstellt am 2026-11-15 für das Kartengebiet einer Waldkarte (108,1 ha).
 
 Laut BLDAM liegt im Kartengebiet kein Denkmal.
 
+## Naturdenkmale und andere Schutzobjekte (Landesbetrieb Forst Brandenburg / Landesamt für Umwelt Brandenburg)
+
+- Naturdenkmal „Markgrafensteine“, 2 Objekte
+- Geschütztes Biotop „Eichenmischwälder bodensaurer Standorte, frisch bis mäßig trocken“, 5 %
+- Geschütztes Biotop „Blaubeer-Kiefern-Traubeneichenwald“, 5 %
+
+Rechtsgrundlagen:
+
+- Landkreis Oder-Spree, ND-Verordnung vom 24.09.2014
+
 ## Forstverwaltung (Landesbetrieb Forst Brandenburg)
 
 - Oberförsterei Oder-Spree, Revier Spreenhagen (Landesbetrieb Forst Brandenburg): 100 %
@@ -33,6 +43,8 @@ Laut Landesamt für Umwelt Brandenburg liegt im Kartengebiet kein Wasserschutzge
 - Erholungswald (Rauener Berge): 11 %
 
 Der Bestand von BLDAM ist nicht vollständig: Die Stadt Potsdam führt ihre Denkmalliste selbst; sie ist nicht in diesen Daten.
+
+Der Bestand von Landesbetrieb Forst Brandenburg ist nicht vollständig: Die Daten haben den Stand Ende 2017, spätere fehlen.
 
 ## Schutzgebiete (BfN)
 
@@ -61,6 +73,7 @@ Laut OpenStreetMap verläuft keine Autobahn und keine Bundes-, Landes-, Staats- 
 ## Hinweise
 
 - Schutzgebiete betreffen die untere Naturschutzbehörde (meist der Landkreis Oder-Spree).
+- Im Kartengebiet liegen gesetzlich geschützte Biotope (Eichenmischwälder bodensaurer Standorte, frisch bis mäßig trocken, Blaubeer-Kiefern-Traubeneichenwald). Was sie zerstören oder erheblich beeinträchtigen kann, ist verboten (§ 30 BNatSchG). Legen Sie Posten und Bahnen außerhalb, oder fragen Sie die untere Naturschutzbehörde.
 - Ob im Kartengebiet Denkmale liegen, sagen die Daten hier nicht sicher. Ob ein Lauf sie berührt, etwa mit einem Posten an einem Denkmal oder einer Strecke durch eine geschützte Anlage, klärt die untere Denkmalschutzbehörde, meist der Landkreis Oder-Spree; in manchen Bundesländern ist es die Gemeinde Rauen.
 - Zuständige Forstdienststelle für den Wald im Kartengebiet: Oberförsterei Oder-Spree (Landesbetrieb Forst Brandenburg), Revier Spreenhagen. Fragen Sie dort früh nach, wenn Sie eine Veranstaltung im Wald planen.
 - Für eine Veranstaltung im Wald brauchen Sie die Zustimmung der Waldbesitzer. Wem der Wald gehört, kann meist die Forstdienststelle sagen. In mehreren Bundesländern ist eine organisierte Veranstaltung im Wald außerdem der Forstbehörde anzuzeigen oder von ihr zu genehmigen.
@@ -75,7 +88,8 @@ Laut OpenStreetMap verläuft keine Autobahn und keine Bundes-, Landes-, Staats- 
 | VG250 (BKG): Verwaltungsgebiete 1:250 000 (VG250) des BKG | gelesen, abgerufen am 2026-11-15 | © BKG (2026) dl-de/by-2-0, Datenquellen: https://sg.geodatenzentrum.de/web_public/gdz/datenquellen/datenquellen_vg_nuts.pdf |
 | BfN: Schutzgebiete in Deutschland des BfN | gelesen, abgerufen am 2026-11-15 | © Bundesamt für Naturschutz (BfN) (2026), Schutzgebiete in Deutschland; Nutzungsbestimmungen für die Bereitstellung von Geodaten des Bundes (GeoNutzV). Nicht für Planungszwecke geeignet. |
 | OpenStreetMap: OpenStreetMap, aus dem Auszug, den freemapper im Zwischenspeicher hält | gelesen, OSM-Auszug vom 2026-11-06 | © OpenStreetMap contributors, ODbL |
-| Landesbetrieb Forst Brandenburg: Forstreviere mit ihrer Oberförsterei, Waldfunktionen (Naturwald, Totalreservat, nicht betretbare Flächen, Erholungswald) | gelesen, abgerufen am 2026-11-15 | Landesbetrieb Forst Brandenburg, Datenlizenz Deutschland – Namensnennung – Version 2.0 (https://www.govdata.de/dl-de/by-2-0) |
+| Landesbetrieb Forst Brandenburg: Forstreviere mit ihrer Oberförsterei, Waldfunktionen (Naturwald, Totalreservat, nicht betretbare Flächen, Erholungswald), Naturdenkmale und geschützte Landschaftsbestandteile der Landkreise | gelesen, abgerufen am 2026-11-15 | Landesbetrieb Forst Brandenburg, Datenlizenz Deutschland – Namensnennung – Version 2.0 (https://www.govdata.de/dl-de/by-2-0) |
 | Landesamt für Umwelt Brandenburg: Wasserschutzgebiete | gelesen, abgerufen am 2026-11-15 | Landesamt für Umwelt Brandenburg (LfU), Creative Commons Namensnennung 4.0 International (CC BY 4.0) |
 | BLDAM: Baudenkmale, Gartendenkmale, Denkmalbereiche | gelesen, abgerufen am 2026-11-15 | © Denkmaldaten/BLDAM 2026 |
 | BLDAM: Bodendenkmale | gelesen, abgerufen am 2026-11-15 | Quelle: © Denkmaldaten/Brandenburgisches Landesamt für Denkmalpflege und Archäologisches Landesmuseum (BLDAM), dl-de/by-2-0 |
+| Landesamt für Umwelt Brandenburg: geschützte Biotope der Biotopkartierung | gelesen, abgerufen am 2026-11-15 | © Landesamt für Umwelt Brandenburg; Datenlizenz Deutschland – Namensnennung – Version 2.0 (https://www.govdata.de/dl-de/by-2-0) |

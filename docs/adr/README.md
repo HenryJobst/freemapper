@@ -190,3 +190,4 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0143](0143-water-protection-zones-of-baden-wuerttemberg.md) | Water protection zones of Baden-Württemberg, with the authority in charge | Accepted | 2026-11-15 |
 | [0144](0144-monuments-from-more-states.md) | Monuments from more states, and who looks after them | Accepted | 2026-11-15 |
 | [0145](0145-monuments-of-schleswig-holstein-from-its-statewide-file.md) | Monuments of Schleswig-Holstein from its statewide file | Accepted | 2026-11-15 |
+| [0146](0146-natural-monuments-and-protected-biotopes-of-the-states.md) | Natural monuments and protected biotopes of the states | Accepted | 2026-11-15 |

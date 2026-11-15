@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "created": "2026-11-14",
+  "created": "2026-11-15",
   "map_kind": "forest",
   "area_m2": 1256438.051348683,
   "admin": [
@@ -39,6 +39,12 @@
   "osm_protected": [],
   "operators": [],
   "hints": [
+    {
+      "key": "permits-hint-biotope",
+      "args": {
+        "names": "Eichenmischwälder bodensaurer Standorte, frisch bis mäßig trocken, Stieleichen-Ulmen-Auenwälder, Drahtschmielen-Eichenwald, …"
+      }
+    },
     {
       "key": "permits-hint-water-protection",
       "args": {
@@ -84,6 +90,13 @@
       }
     },
     {
+      "key": "permits-hint-nature-object-authority",
+      "args": {
+        "district": "Treptow-Köpenick",
+        "offices": "berlin"
+      }
+    },
+    {
       "key": "permits-hint-owner-share",
       "args": {
         "owner": "Land Berlin",
@@ -101,14 +114,14 @@
     {
       "id": "vg250",
       "state": "read",
-      "fetched": "2026-11-14",
+      "fetched": "2026-11-15",
       "reason": null,
       "credit": "© BKG (2026) dl-de/by-2-0, Datenquellen: https://sg.geodatenzentrum.de/web_public/gdz/datenquellen/datenquellen_vg_nuts.pdf"
     },
     {
       "id": "bfn",
       "state": "read",
-      "fetched": "2026-11-14",
+      "fetched": "2026-11-15",
       "reason": null,
       "credit": "© Bundesamt für Naturschutz (BfN) (2026), Schutzgebiete in Deutschland; Nutzungsbestimmungen für die Bereitstellung von Geodaten des Bundes (GeoNutzV). Nicht für Planungszwecke geeignet."
     },
@@ -165,7 +178,104 @@
         ],
         "links_left": 0
       },
-      "protected_objects": [],
+      "protected_objects": [
+        {
+          "kind": "biotope",
+          "name": "Eichenmischwälder bodensaurer Standorte, frisch bis mäßig trocken",
+          "citation": null,
+          "count": 18,
+          "percent": 15.1,
+          "at_edge": false
+        },
+        {
+          "kind": "biotope",
+          "name": "Stieleichen-Ulmen-Auenwälder",
+          "citation": null,
+          "count": 10,
+          "percent": 11.4,
+          "at_edge": false
+        },
+        {
+          "kind": "biotope",
+          "name": "Drahtschmielen-Eichenwald",
+          "citation": null,
+          "count": 2,
+          "percent": 1.3,
+          "at_edge": false
+        },
+        {
+          "kind": "biotope",
+          "name": "Heidenelken-Grasnelkenflur, mit spontanem Gehölzbewuchs (Deckung der Gehölze 10-30%)",
+          "citation": null,
+          "count": 1,
+          "percent": 0.5,
+          "at_edge": false
+        },
+        {
+          "kind": "biotope",
+          "name": "Heidenelken-Grasnelkenflur, weitgehend ohne spontanen Gehölzbewuchs (Deckung der Gehölze < 10%)",
+          "citation": null,
+          "count": 2,
+          "percent": 0.4,
+          "at_edge": true
+        },
+        {
+          "kind": "biotope",
+          "name": "silbergrasreiche Pionierfluren, mit spontanem Gehölzbewuchs (Deckung der Gehölze 10-30%)",
+          "citation": null,
+          "count": 1,
+          "percent": 0.3,
+          "at_edge": true
+        },
+        {
+          "kind": "biotope",
+          "name": "Eichen-Vorwald trockener Standorte",
+          "citation": null,
+          "count": 2,
+          "percent": 0.2,
+          "at_edge": true
+        },
+        {
+          "kind": "biotope",
+          "name": "Grasnelken-Fluren und Blauschillergras-Rasen, mit spontanem Gehölzbewuchs (Deckung der Gehölze 10-30%)",
+          "citation": null,
+          "count": 3,
+          "percent": 0.2,
+          "at_edge": true
+        },
+        {
+          "kind": "biotope",
+          "name": "Kiefern-Vorwald trockener Standorte",
+          "citation": null,
+          "count": 2,
+          "percent": 0.2,
+          "at_edge": true
+        },
+        {
+          "kind": "biotope",
+          "name": "Sandtrockenrasen (einschließlich offene Sandstandorte und Borstgrasrasen trockener Ausprägung)",
+          "citation": null,
+          "count": 1,
+          "percent": 0.1,
+          "at_edge": true
+        },
+        {
+          "kind": "biotope",
+          "name": "Grasnelken-Fluren und Blauschillergras-Rasen, mit spontanem Gehölzbewuchs (Deckung der Gehölze 10-30%)",
+          "citation": null,
+          "count": 1,
+          "percent": null,
+          "at_edge": false
+        },
+        {
+          "kind": "biotope",
+          "name": "Heidenelken-Grasnelkenflur",
+          "citation": null,
+          "count": 1,
+          "percent": null,
+          "at_edge": false
+        }
+      ],
       "forest_units": [
         {
           "item": {
@@ -218,7 +328,7 @@
           "status": {
             "id": "bezirke",
             "state": "read",
-            "fetched": "2026-11-14",
+            "fetched": "2026-11-15",
             "reason": null,
             "credit": "Für die Nutzung der Daten ist die Datenlizenz Deutschland - Zero - Version 2.0 anzuwenden. Die Lizenz ist über https://www.govdata.de/dl-de/zero-2-0 abrufbar."
           }
@@ -242,7 +352,7 @@
           "status": {
             "id": "gruenanlagen",
             "state": "read",
-            "fetched": "2026-11-14",
+            "fetched": "2026-11-15",
             "reason": null,
             "credit": "Für die Nutzung der Daten ist die Datenlizenz Deutschland - Zero - Version 2.0 anzuwenden. Die Lizenz ist über https://www.govdata.de/dl-de/zero-2-0 abrufbar."
           }
@@ -266,7 +376,7 @@
           "status": {
             "id": "liegenschaftsplan",
             "state": "read",
-            "fetched": "2026-11-14",
+            "fetched": "2026-11-15",
             "reason": null,
             "credit": "Für die Nutzung der Daten ist die Datenlizenz Deutschland - Zero - Version 2.0 anzuwenden. Die Lizenz ist über https://www.govdata.de/dl-de/zero-2-0 abrufbar."
           }
@@ -290,7 +400,7 @@
           "status": {
             "id": "denkmale",
             "state": "read",
-            "fetched": "2026-11-14",
+            "fetched": "2026-11-15",
             "reason": null,
             "credit": "Für die Nutzung der Daten ist die Datenlizenz Deutschland - Zero - Version 2.0 anzuwenden. Die Lizenz ist über https://www.govdata.de/dl-de/zero-2-0 abrufbar."
           }
@@ -315,7 +425,7 @@
           "status": {
             "id": "schutzgebiete",
             "state": "read",
-            "fetched": "2026-11-14",
+            "fetched": "2026-11-15",
             "reason": null,
             "credit": "Für die Nutzung der Daten ist die Datenlizenz Deutschland - Zero - Version 2.0 anzuwenden. Die Lizenz ist über https://www.govdata.de/dl-de/zero-2-0 abrufbar."
           }
@@ -339,7 +449,7 @@
           "status": {
             "id": "forstverwalt",
             "state": "read",
-            "fetched": "2026-11-14",
+            "fetched": "2026-11-15",
             "reason": null,
             "credit": "Für die Nutzung der Daten ist die Datenlizenz Deutschland - Zero - Version 2.0 anzuwenden. Die Lizenz ist über https://www.govdata.de/dl-de/zero-2-0 abrufbar."
           }
@@ -363,7 +473,31 @@
           "status": {
             "id": "wsg",
             "state": "read",
-            "fetched": "2026-11-14",
+            "fetched": "2026-11-15",
+            "reason": null,
+            "credit": "Für die Nutzung der Daten ist die Datenlizenz Deutschland - Zero - Version 2.0 anzuwenden. Die Lizenz ist über https://www.govdata.de/dl-de/zero-2-0 abrufbar."
+          }
+        },
+        {
+          "source": {
+            "key": "biotope",
+            "label": {
+              "en": "Geoportal Berlin",
+              "de": "Geoportal Berlin"
+            },
+            "what": {
+              "en": "protected biotopes (Umweltatlas, biotope types 2024)",
+              "de": "geschützte Biotope (Umweltatlas, Biotoptypen 2024)"
+            },
+            "credit": "Für die Nutzung der Daten ist die Datenlizenz Deutschland - Zero - Version 2.0 anzuwenden. Die Lizenz ist über https://www.govdata.de/dl-de/zero-2-0 abrufbar.",
+            "sections": [
+              "protected-objects"
+            ]
+          },
+          "status": {
+            "id": "biotope",
+            "state": "read",
+            "fetched": "2026-11-15",
             "reason": null,
             "credit": "Für die Nutzung der Daten ist die Datenlizenz Deutschland - Zero - Version 2.0 anzuwenden. Die Lizenz ist über https://www.govdata.de/dl-de/zero-2-0 abrufbar."
           }

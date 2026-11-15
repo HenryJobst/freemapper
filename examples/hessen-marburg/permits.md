@@ -42,9 +42,15 @@ Denkmale ganz oder zum Teil im Kartengebiet: 607. Die Links führen zu ihren Ein
 
 Weitere 439 Einträge sind hier ohne Link nur gezählt.
 
+## Naturdenkmale und andere Schutzobjekte (HLNUG)
+
+Laut HLNUG liegt im Kartengebiet keines der Schutzobjekte, die die Quelle führt.
+
 ## Wasserschutzgebiete (HLNUG)
 
 Laut HLNUG liegt im Kartengebiet kein Wasserschutzgebiet.
+
+Der Bestand von HLNUG ist nicht vollständig: Die Kartierung stammt aus den Jahren 1992 bis 2006; neuere Biotope fehlen.
 
 ## Schutzgebiete (BfN)
 
@@ -88,5 +94,5 @@ OpenStreetMap-Flächen, die das ganze Kartengebiet umschließen und keine Ecke d
 | VG250 (BKG): Verwaltungsgebiete 1:250 000 (VG250) des BKG | gelesen, abgerufen am 2026-11-15 | © BKG (2026) dl-de/by-2-0, Datenquellen: https://sg.geodatenzentrum.de/web_public/gdz/datenquellen/datenquellen_vg_nuts.pdf |
 | BfN: Schutzgebiete in Deutschland des BfN | gelesen, abgerufen am 2026-11-15 | © Bundesamt für Naturschutz (BfN) (2026), Schutzgebiete in Deutschland; Nutzungsbestimmungen für die Bereitstellung von Geodaten des Bundes (GeoNutzV). Nicht für Planungszwecke geeignet. |
 | OpenStreetMap: OpenStreetMap, aus dem Auszug, den freemapper im Zwischenspeicher hält | gelesen, OSM-Auszug vom 2026-11-06 | © OpenStreetMap contributors, ODbL |
-| HLNUG: Trinkwasser- und Heilquellenschutzgebiete | gelesen, abgerufen am 2026-11-15 | Lizenz: Creative Commons BY 4.0 (https://creativecommons.org/licenses/by/4.0/deed.de). Quellenvermerk für Daten: „Darstellung auf der Grundlage von Daten des Hessischen Landesamtes für Naturschutz, Umwelt und Geologie (HLNUG)“. |
+| HLNUG: Trinkwasser- und Heilquellenschutzgebiete, geschützte Biotope der Hessischen Biotopkartierung | gelesen, abgerufen am 2026-11-15 | Lizenz: Creative Commons BY 4.0 (https://creativecommons.org/licenses/by/4.0/deed.de). Quellenvermerk für Daten: „Darstellung auf der Grundlage von Daten des Hessischen Landesamtes für Naturschutz, Umwelt und Geologie (HLNUG)“. |
 | Landesamt für Denkmalpflege Hessen: Kulturdenkmäler, Gesamtanlagen, Bodendenkmäler (DenkXweb) | gelesen, abgerufen am 2026-11-15 | Datenlizenz Deutschland – Namensnennung – Version 2.0 (dl-de/by-2-0); Quellenvermerk: Landesamt für Denkmalpflege Hessen (LfDH) |

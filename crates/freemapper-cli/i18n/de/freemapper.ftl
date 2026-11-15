@@ -876,7 +876,7 @@ permits-none-districts = Laut { $source } liegt das Kartengebiet in keinem Bezir
 permits-none-green-spaces = Laut { $source } liegt im Kartengebiet keine öffentliche Grünanlage.
 permits-none-owners = Laut { $source } liegt im Kartengebiet kein Grundstück des Bundeslandes oder des Bundes.
 permits-none-monuments = Laut { $source } liegt im Kartengebiet kein Denkmal.
-permits-none-protected-objects = Laut { $source } liegt im Kartengebiet kein Naturdenkmal, kein geschützter Landschaftsbestandteil und keine Fläche mit besonderer Regelung.
+permits-none-protected-objects = Laut { $source } liegt im Kartengebiet keines der Schutzobjekte, die die Quelle führt.
 permits-none-sampled = An den abgefragten Punkten nennt { $source } hierzu nichts.
 permits-gaps = Der Bestand von { $source } ist nicht vollständig: { $gaps }.
 permits-sampled = { $source } gibt nur für einzelne Punkte Auskunft. freemapper hat an einem Raster von Punkten über der Karte gefragt: Die Anteile sind geschätzt, und was zwischen den Punkten liegt, kann fehlen.
@@ -897,6 +897,7 @@ permits-monuments-links-left = Weitere { $count } Einträge sind hier ohne Link 
 permits-object-kind = { $kind ->
         [natural-monument] Naturdenkmal
         [protected-landscape-part] Geschützter Landschaftsbestandteil
+        [biotope] Geschütztes Biotop
        *[special-rules] Fläche mit besonderer Regelung
     }
 permits-object-count = { $count } Objekte
@@ -921,6 +922,15 @@ permits-hint-monument-lower-authority = { $known ->
         }
        *[unknown] {" "}(meist der Landkreis oder die kreisfreie Stadt, in manchen Bundesländern die Gemeinde).
     }
+permits-hint-nature-object-lower-authority = { $kreisfrei ->
+        [yes] Für Naturdenkmale, geschützte Landschaftsbestandteile und geschützte Biotope im Kartengebiet ist die untere Naturschutzbehörde zuständig. Hier ist das die Stadt { $kreis } selbst.
+        [no] Für Naturdenkmale, geschützte Landschaftsbestandteile und geschützte Biotope im Kartengebiet ist die untere Naturschutzbehörde zuständig (meist der { $kreis }).
+       *[unknown] Für Naturdenkmale, geschützte Landschaftsbestandteile und geschützte Biotope im Kartengebiet ist die untere Naturschutzbehörde zuständig (meist der Landkreis oder die kreisfreie Stadt).
+    }
+permits-hint-biotope = Im Kartengebiet liegen gesetzlich geschützte Biotope{ $names ->
+        [none] {""}
+       *[other] {" "}({ $names })
+    }. Was sie zerstören oder erheblich beeinträchtigen kann, ist verboten (§ 30 BNatSchG). Legen Sie Posten und Bahnen außerhalb, oder fragen Sie die untere Naturschutzbehörde.
 permits-hint-nature-object-authority = { $offices ->
         [hamburg] Für Naturdenkmale und geschützte Landschaftsbestandteile im Bezirk { $district } ist meist das Bezirksamt { $district } zuständig.
        *[berlin] Für Naturdenkmale und geschützte Landschaftsbestandteile im Bezirk { $district } ist die untere Naturschutzbehörde des Bezirksamts { $district } zuständig.

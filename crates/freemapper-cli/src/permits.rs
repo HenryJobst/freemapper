@@ -379,6 +379,7 @@ fn hint_text(lang: &Lang, notes: &PermitNotes, hint: &Hint) -> String {
     if [
         hint_key::NATURE_AUTHORITY,
         hint_key::MONUMENT_LOWER_AUTHORITY,
+        hint_key::NATURE_OBJECT_LOWER_AUTHORITY,
     ]
     .contains(&hint.key.as_str())
     {
@@ -421,6 +422,9 @@ fn hint_text(lang: &Lang, notes: &PermitNotes, hint: &Hint) -> String {
     }
     if hint.key == hint_key::WATER_PROTECTION && !has(&args, "authority") {
         args.push(("authority".into(), "none".into()));
+    }
+    if hint.key == hint_key::BIOTOPE && !has(&args, "names") {
+        args.push(("names".into(), "none".into()));
     }
     if hint.key == hint_key::FOREST_FUNCTION && !has(&args, "names") {
         args.push(("names".into(), "none".into()));
@@ -965,7 +969,9 @@ fn regional_blocks(lang: &Lang, part: &RegionalNotes) -> Vec<String> {
             }
             if !citations.is_empty() {
                 blocks.push(t(lang, "permits-object-citations", &[]));
-                let lines: Vec<String> = citations.iter().map(|c| format!("- {}", md(c))).collect();
+                // An act given as the address of its text is a link (ADR 0146).
+                let lines: Vec<String> =
+                    citations.iter().map(|c| format!("- {}", link(c))).collect();
                 blocks.push(lines.join("\n"));
             }
         }
@@ -1218,6 +1224,8 @@ fn used_ids() -> Vec<String> {
             hint_key::MONUMENT_AUTHORITY,
             hint_key::MONUMENT_LOWER_AUTHORITY,
             hint_key::NATURE_OBJECT_AUTHORITY,
+            hint_key::NATURE_OBJECT_LOWER_AUTHORITY,
+            hint_key::BIOTOPE,
             hint_key::OWNER_SHARE,
             hint_key::OWNERS_UNKNOWN,
             hint_key::FOREST_OFFICE,
@@ -2005,6 +2013,63 @@ mod tests {
         assert!(!text.contains("Die Links führen"), "{text}");
         assert!(
             text.contains("Der Bestand von Geoportal Berlin ist nicht vollständig: Die Stadt Potsdam führt ihre Denkmalliste selbst."),
+            "{text}"
+        );
+    }
+
+    /// Biotopes and the lower nature authority for protected objects in words (ADR 0146).
+    #[test]
+    fn biotopes_and_the_lower_nature_authority_are_written() {
+        use freemapper::permits::regional::ProtectedObjectEntry;
+        let mut notes = viktoriapark();
+        notes.regional[0].protected_objects = Some(vec![ProtectedObjectEntry {
+            kind: ProtectedObjectKind::Biotope,
+            name: Some("Kleingewässer".into()),
+            citation: None,
+            count: 2,
+            percent: Some(20.0),
+            at_edge: false,
+        }]);
+        notes.hints = vec![
+            hint(
+                hint_key::NATURE_OBJECT_LOWER_AUTHORITY,
+                &[("kreis", "Märkisch-Oderland"), ("kreisfrei", "no")],
+            ),
+            hint(
+                hint_key::BIOTOPE,
+                &[("names", "Kleingewässer, Trockenrasen")],
+            ),
+            hint(hint_key::BIOTOPE, &[]),
+        ];
+        let text = render_markdown(&notes, &de());
+        for wanted in [
+            "- Geschütztes Biotop „Kleingewässer“, 20 %",
+            "Für Naturdenkmale, geschützte Landschaftsbestandteile und geschützte Biotope im Kartengebiet ist die untere Naturschutzbehörde zuständig (meist der Märkisch-Oderland).",
+            "Im Kartengebiet liegen gesetzlich geschützte Biotope (Kleingewässer, Trockenrasen). Was sie zerstören oder erheblich beeinträchtigen kann, ist verboten (§ 30 BNatSchG). Legen Sie Posten und Bahnen außerhalb, oder fragen Sie die untere Naturschutzbehörde.",
+            "Im Kartengebiet liegen gesetzlich geschützte Biotope. Was sie",
+        ] {
+            assert!(text.contains(wanted), "{wanted}\n{text}");
+        }
+        let english = render_markdown(&notes, &Lang::english());
+        assert!(english.contains("Legally protected biotope"), "{english}");
+    }
+
+    /// An act given as an address is a link, not escaped text (ADR 0146).
+    #[test]
+    fn an_act_given_as_an_address_is_a_link() {
+        use freemapper::permits::regional::ProtectedObjectEntry;
+        let mut notes = viktoriapark();
+        notes.regional[0].protected_objects = Some(vec![ProtectedObjectEntry {
+            kind: ProtectedObjectKind::NaturalMonument,
+            name: Some("Platane Saarlouis".into()),
+            citation: Some("http://www.example.org/ND_Saarlouis/VO_1993-043.pdf".into()),
+            count: 1,
+            percent: None,
+            at_edge: false,
+        }]);
+        let text = render_markdown(&notes, &de());
+        assert!(
+            text.contains("- <http://www.example.org/ND_Saarlouis/VO_1993-043.pdf>"),
             "{text}"
         );
     }

@@ -26,7 +26,7 @@ pub const BASE: &str = "https://rips-gdi.lubw.baden-wuerttemberg.de/arcgis/servi
 const TYPE_NAME: &str = "Wasserschutzgebietszone_M1";
 
 /// The credit the terms of use ask for, verbatim.
-const CREDIT: &str = "Grundlage: Daten aus dem Umweltinformationssystem (UIS) der LUBW Landesanstalt für Umwelt Baden-Württemberg";
+pub(crate) const CREDIT: &str = "Grundlage: Daten aus dem Umweltinformationssystem (UIS) der LUBW Landesanstalt für Umwelt Baden-Württemberg";
 
 /// The catalogue entry's note on the zones, verbatim.
 const NOTE: &str = "Die Geometrien der Zonen I werden aus Sicherheitserwägungen nicht im Internet veröffentlicht. WSG-Zonen werden nur mit zusammengefassten Zonen I und II zum Herunterladen bereitgestellt.";

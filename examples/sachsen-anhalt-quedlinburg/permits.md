@@ -13,9 +13,15 @@ Erstellt am 2026-11-15 für das Kartengebiet einer Sprintkarte (48,1 ha).
 - Amt oder Verwaltungsgemeinschaft: Einheitsgemeinde Quedlinburg, 100 %
 - Gemeinde: Stadt Quedlinburg, 100 %
 
+## Naturdenkmale und andere Schutzobjekte (Landesamt für Umweltschutz Sachsen-Anhalt)
+
+- Naturdenkmal „Schlossbergklippen“
+
 ## Wasserschutzgebiete (Bundesanstalt für Gewässerkunde)
 
 - „Stadt Quedlinburg“: 7 %
+
+Der Bestand von Landesamt für Umweltschutz Sachsen-Anhalt ist nicht vollständig: Naturdenkmale, die einzelne Bäume sind, und die geschützten Biotope fehlen darin.
 
 ## Schutzgebiete (BfN)
 
@@ -70,5 +76,6 @@ OpenStreetMap-Flächen, die das ganze Kartengebiet umschließen und keine Ecke d
 | BfN: Schutzgebiete in Deutschland des BfN | gelesen, abgerufen am 2026-11-15 | © Bundesamt für Naturschutz (BfN) (2026), Schutzgebiete in Deutschland; Nutzungsbestimmungen für die Bereitstellung von Geodaten des Bundes (GeoNutzV). Nicht für Planungszwecke geeignet. |
 | OpenStreetMap: OpenStreetMap, aus dem Auszug, den freemapper im Zwischenspeicher hält | gelesen, OSM-Auszug vom 2026-11-06 | © OpenStreetMap contributors, ODbL |
 | Bundesanstalt für Gewässerkunde: Trinkwasser- und Heilquellenschutzgebiete aus WasserBLIcK, ohne Schutzzonen | gelesen, abgerufen am 2026-11-15 | © WasserBLIcK/BfG und Zuständige Behörden der Länder, 2026; Lizenz: Creative Commons Namensnennung – 4.0 International (CC BY 4.0) |
+| Landesamt für Umweltschutz Sachsen-Anhalt: Naturdenkmale und geschützte Landschaftsbestandteile | gelesen, abgerufen am 2026-11-15 | Datenlizenz Deutschland Namensnennung 2.0; Quellenvermerk: Landesamt für Umweltschutz Sachsen-Anhalt |
 
 Bundesanstalt für Gewässerkunde: Trinkwasser- und Heilquellenschutzgebiete aus WasserBLIcK, ohne Schutzzonen: „Die bundesweite Flächendeckung des Datenbestandes ist nicht in jedem Fall gewährleistet.“

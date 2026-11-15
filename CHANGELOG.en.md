@@ -8,6 +8,7 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ### Added
 
+- Permit notes: natural monuments, protected landscape features and legally protected biotopes from ten states (ADR 0146): natural monuments from Brandenburg, Hamburg, Saarland, Saxony, Saxony-Anhalt, Bavaria and Baden-Württemberg, landscape features from Brandenburg, Saxony-Anhalt and Bavaria, protected biotopes from Brandenburg, Berlin, Hamburg, Saarland, Saxony, Hesse and North Rhine-Westphalia. When protected biotopes lie in the area, a hint says that whatever can destroy them or harm them considerably is forbidden and names their types; another names the lower nature authority with the Kreis. Biotopes of one type are one line with their share. The examples of these states have new notes.
 - Schleswig-Holstein: objects from the landscape model of the LVermGeo SH (ATKIS Basis-DLM, ADR 0135) as candidates. In the Hüttener Berge that is 48 earth walls, a watercourse and 4 tracks; in Lübeck a watercourse. Both examples are rebuilt.
 - Hesse: the full ALKIS and the landscape model of the HVBG (ADR 0135). The full ALKIS adds surveyed stairs to the map, 54 in the old town of Marburg; the landscape model adds candidates as in Bavaria (named trees, small watercourses, a dam and a wall in Marburg, a rock, a spring and a watercourse on the Feldberg). Both examples are rebuilt. For adapters: a manifest may now name one NAS service per model, so a state can serve its cadastre and its landscape model.
 

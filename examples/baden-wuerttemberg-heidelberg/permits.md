@@ -21,6 +21,12 @@ Denkmale ganz oder zum Teil im Kartengebiet: 632.
 - Archäologisches Kulturdenkmal: 37
 - Gesamtanlage: 1
 
+## Naturdenkmale und andere Schutzobjekte (LUBW)
+
+- Naturdenkmal „Garten Einzelbäume Neue Schloßstr. 42“
+- Naturdenkmal „Rotbuche Schlossberg“
+- Naturdenkmal „Roßkastanien Zwingerstraße“
+
 ## Wasserschutzgebiete (LUBW)
 
 Laut LUBW liegt im Kartengebiet kein Wasserschutzgebiet.
@@ -69,7 +75,7 @@ OpenStreetMap-Flächen, die das ganze Kartengebiet umschließen und keine Ecke d
 | VG250 (BKG): Verwaltungsgebiete 1:250 000 (VG250) des BKG | gelesen, abgerufen am 2026-11-15 | © BKG (2026) dl-de/by-2-0, Datenquellen: https://sg.geodatenzentrum.de/web_public/gdz/datenquellen/datenquellen_vg_nuts.pdf |
 | BfN: Schutzgebiete in Deutschland des BfN | gelesen, abgerufen am 2026-11-15 | © Bundesamt für Naturschutz (BfN) (2026), Schutzgebiete in Deutschland; Nutzungsbestimmungen für die Bereitstellung von Geodaten des Bundes (GeoNutzV). Nicht für Planungszwecke geeignet. |
 | OpenStreetMap: OpenStreetMap, aus dem Auszug, den freemapper im Zwischenspeicher hält | gelesen, OSM-Auszug vom 2026-11-12 | © OpenStreetMap contributors, ODbL |
-| LUBW: Wasserschutzgebietszonen mit der zuständigen Behörde | gelesen, abgerufen am 2026-11-15 | Grundlage: Daten aus dem Umweltinformationssystem (UIS) der LUBW Landesanstalt für Umwelt Baden-Württemberg |
+| LUBW: Wasserschutzgebietszonen mit der zuständigen Behörde, Naturdenkmale, Einzelgebilde, Naturdenkmale, flächenhaft | gelesen, abgerufen am 2026-11-15 | Grundlage: Daten aus dem Umweltinformationssystem (UIS) der LUBW Landesanstalt für Umwelt Baden-Württemberg |
 | Landesamt für Denkmalpflege Baden-Württemberg: Kulturdenkmale und Gesamtanlagen, archäologische Kulturdenkmale und Grabungsschutzgebiete | gelesen, abgerufen am 2026-11-15 | Es gelten die Lizenzbedingungen „Datenlizenz Deutschland -Namensnennung -Version 2.0“ bzw. „dl-de/by-2-0” (https://www.govdata.de/dl-de/by-2-0) mit Angabe der Datenquelle: dl-de/by-2-0: Landesamt für Denkmalpflege im Regierungspräsidium Stuttgart, www.denkmalpflege-bw.de |
 
 LUBW: Wasserschutzgebietszonen mit der zuständigen Behörde: „Die Geometrien der Zonen I werden aus Sicherheitserwägungen nicht im Internet veröffentlicht. WSG-Zonen werden nur mit zusammengefassten Zonen I und II zum Herunterladen bereitgestellt.“
