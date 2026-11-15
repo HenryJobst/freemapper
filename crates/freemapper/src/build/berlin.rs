@@ -17,11 +17,10 @@ use crate::georef::{GeorefError, Georeferencing};
 use crate::omap::{MapObject, SymbolSet};
 use crate::project::MapKind;
 use crate::sources::osm::OsmFeature;
+pub(crate) use freemapper_adapters_de::berlin::{feature_tags, survey_currency};
 
 /// Layer name of the building parts (`Durchfahrt im Gebäude` …) in `berlin:layer`.
 pub const BUILDING_PARTS_LAYER: &str = "building-parts";
-/// The tree cadastre layers.
-const TREE_LAYERS: [&str; 2] = freemapper_adapters_de::berlin::TREE_REGISTERS;
 /// The CRS of all Geoportal Berlin layers.
 pub(crate) const LAYER_CRS: Crs = Crs::Utm33;
 
@@ -89,20 +88,6 @@ pub(crate) fn provenance_tags(
 pub(crate) const SURVEY_CODES: [&str; 8] =
     ["material", "hms", "pot", "bor", "gws", "sre", "hdt", "trs"];
 
-/// The survey date of a stored Straßenbefahrung feature (from its `gis_id`, stamped at download)
-/// and whether it is guessed. A feature without one gets the dataset date, guessed.
-pub(crate) fn survey_currency(feature: &Value) -> (NaiveDate, bool) {
-    let properties = &feature["properties"];
-    let date = properties["survey_date"]
-        .as_str()
-        .and_then(|d| d.parse().ok());
-    let guessed = properties["survey_date_guessed"] == "yes";
-    match date {
-        Some(date) => (date, guessed),
-        None => (freemapper_adapters_de::berlin::SURVEY_DATASET_DATE, true),
-    }
-}
-
 /// The tags of an object built from a Straßenbefahrung feature directly: the provenance tags
 /// with the survey date as currency (and `freemapper:currency_guessed=yes` when the `gis_id`
 /// gave none), the survey type as `berlin:layer` and the survey codes.
@@ -119,96 +104,6 @@ pub(crate) fn survey_tags(file: &str, feature: &Value) -> Vec<(String, String)> 
             .filter(|(k, _)| k == "berlin:layer" || codes.contains(k)),
     );
     tags
-}
-
-/// The tags of a Berlin feature: `berlin:layer`, each string (not empty) and number property as
-/// `berlin:<name>`, and the provenance tags the objects carry on (`freemapper:source_id`, the
-/// ALKIS name as `freemapper:alkis`).
-fn feature_tags(layer: &str, feature: &Value) -> Vec<(String, String)> {
-    let properties = feature["properties"].as_object();
-    // A file with several WFS types names the type per feature.
-    let layer = properties
-        .and_then(|p| p.get(freemapper_adapters_de::berlin::TYPE_KEY))
-        .and_then(Value::as_str)
-        .unwrap_or(layer);
-    let mut tags = vec![("berlin:layer".to_string(), layer.to_string())];
-    for (key, value) in properties.into_iter().flatten() {
-        if key == freemapper_adapters_de::berlin::TYPE_KEY || key == "layer" {
-            continue;
-        }
-        let text = match value {
-            // `NULL` is the WFS's word for "no value".
-            Value::String(s) if !s.is_empty() && s != "NULL" => s.clone(),
-            Value::Number(n) => n.to_string(),
-            _ => continue,
-        };
-        tags.push((format!("berlin:{key}"), text));
-    }
-    // A survey feature carries its own date, and a guessed one says so.
-    if properties.is_some_and(|p| p.contains_key("survey_date")) {
-        let (date, guessed) = survey_currency(feature);
-        tags.push(("freemapper:currency".to_string(), date.to_string()));
-        if guessed {
-            tags.push(("freemapper:currency_guessed".to_string(), "yes".to_string()));
-        }
-    }
-    let property = |key: &str| properties.and_then(|p| p.get(key)).and_then(Value::as_str);
-    let source_id = ["uuid", "gisid", "oid", "gis_id"]
-        .iter()
-        .find_map(|key| property(key).filter(|v| !v.is_empty()));
-    if let Some(id) = source_id {
-        tags.push(("freemapper:source_id".to_string(), id.to_string()));
-    }
-    let mut alkis: Vec<&str> = Vec::new();
-    for key in ["bezbwf", "bezart", "bezbws", "bauart"] {
-        if let Some(name) = property(key).filter(|v| !v.is_empty())
-            && !alkis.contains(&name)
-        {
-            alkis.push(name);
-        }
-    }
-    if !alkis.is_empty() {
-        tags.push(("freemapper:alkis".to_string(), alkis.join("; ")));
-    }
-    if TREE_LAYERS.contains(&layer)
-        && let Some(tree) = tree_label(properties)
-    {
-        tags.push(("freemapper:baum".to_string(), tree));
-    }
-    // The crown diameter for the point generalization (`build/points.rs`).
-    if TREE_LAYERS.contains(&layer)
-        && let Some(crown) = properties
-            .and_then(|p| p.get("kronedurch"))
-            .and_then(Value::as_f64)
-            .filter(|c| *c > 0.0)
-    {
-        tags.push(("freemapper:crown_m".to_string(), crown.to_string()));
-    }
-    tags.sort();
-    tags
-}
-
-/// What a tree candidate says about the tree: `Tilia cordata, Krone 12 m` (botanical name, else
-/// the German one; crown diameter in metres). `None` when the cadastre gives neither.
-fn tree_label(properties: Option<&serde_json::Map<String, Value>>) -> Option<String> {
-    let text = |key: &str| {
-        properties?
-            .get(key)?
-            .as_str()
-            .map(str::trim)
-            .filter(|v| !v.is_empty())
-    };
-    let species = text("art_bot").or_else(|| text("art_dtsch"));
-    let crown = properties?
-        .get("kronedurch")?
-        .as_f64()
-        .filter(|c| *c > 0.0)
-        .map(|c| format!("Krone {c} m"));
-    match (species, crown) {
-        (Some(species), Some(crown)) => Some(format!("{species}, {crown}")),
-        (Some(only), None) => Some(only.to_string()),
-        (None, crown) => crown,
-    }
 }
 
 /// The tagged features of one layer, ready for the rules: a point stays a point, each part of a

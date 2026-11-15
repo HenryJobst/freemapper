@@ -117,3 +117,13 @@ The cadastre wins over a set for roofs: a roof (522) of a set that lies at least
 cadastre is dropped, and the canopy with the largest share names it in `freemapper:also`. That step moved from
 `build/berlin.rs` into `build/canopy.rs` (`drop_roofs_under_canopies`), and a set names the roofs that yield
 (`canopy_yielding`; Berlin: the surveyed bus shelters, `br_fahrgastunterstand`). Output unchanged (G3/G4).
+
+## Addendum 2026-11-15: a set's own feature tags (step 4d)
+
+How Berlin tags its features is its own: the type a WFS file names per feature, `NULL` as "no value", the id from
+one of four fields, the ALKIS names as `freemapper:alkis`, the tree label and crown diameter, and the survey date
+stamped at download. No other region needs that combination, so it is an adapter hook rather than a generic step:
+`SetDrawing::feature_tags` names the set's function, and Berlin's moved with `survey_currency` from
+`build/berlin.rs` into its adapter. Without one, a feature gets `<prefix>:layer` and `<prefix>:<property>` as
+before (Hamburg). `build/sets.rs::tags_of` picks between the two. A function pointer cannot be compared, so
+`SetDrawing` no longer derives `PartialEq`, which nothing used. Output unchanged (G3/G4).

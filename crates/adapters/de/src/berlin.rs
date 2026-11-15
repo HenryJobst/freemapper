@@ -458,6 +458,110 @@ const POINT_DEDUPS: [PointDedup; 13] = [
     },
 ];
 
+/// The survey date of a stored Straßenbefahrung feature (from its `gis_id`, stamped at download)
+/// and whether it is guessed. A feature without one gets the dataset date, guessed.
+pub fn survey_currency(feature: &Value) -> (NaiveDate, bool) {
+    let properties = &feature["properties"];
+    let date = properties["survey_date"]
+        .as_str()
+        .and_then(|d| d.parse().ok());
+    let guessed = properties["survey_date_guessed"] == "yes";
+    match date {
+        Some(date) => (date, guessed),
+        None => (SURVEY_DATASET_DATE, true),
+    }
+}
+
+/// The tags of a Berlin feature: `berlin:layer`, each string (not empty) and number property as
+/// `berlin:<name>`, and the provenance tags the objects carry on (`freemapper:source_id`, the
+/// ALKIS name as `freemapper:alkis`).
+pub fn feature_tags(layer: &str, feature: &Value) -> Vec<(String, String)> {
+    let properties = feature["properties"].as_object();
+    // A file with several WFS types names the type per feature.
+    let layer = properties
+        .and_then(|p| p.get(TYPE_KEY))
+        .and_then(Value::as_str)
+        .unwrap_or(layer);
+    let mut tags = vec![("berlin:layer".to_string(), layer.to_string())];
+    for (key, value) in properties.into_iter().flatten() {
+        if key == TYPE_KEY || key == "layer" {
+            continue;
+        }
+        let text = match value {
+            // `NULL` is the WFS's word for "no value".
+            Value::String(s) if !s.is_empty() && s != "NULL" => s.clone(),
+            Value::Number(n) => n.to_string(),
+            _ => continue,
+        };
+        tags.push((format!("berlin:{key}"), text));
+    }
+    // A survey feature carries its own date, and a guessed one says so.
+    if properties.is_some_and(|p| p.contains_key("survey_date")) {
+        let (date, guessed) = survey_currency(feature);
+        tags.push(("freemapper:currency".to_string(), date.to_string()));
+        if guessed {
+            tags.push(("freemapper:currency_guessed".to_string(), "yes".to_string()));
+        }
+    }
+    let property = |key: &str| properties.and_then(|p| p.get(key)).and_then(Value::as_str);
+    let source_id = ["uuid", "gisid", "oid", "gis_id"]
+        .iter()
+        .find_map(|key| property(key).filter(|v| !v.is_empty()));
+    if let Some(id) = source_id {
+        tags.push(("freemapper:source_id".to_string(), id.to_string()));
+    }
+    let mut alkis: Vec<&str> = Vec::new();
+    for key in ["bezbwf", "bezart", "bezbws", "bauart"] {
+        if let Some(name) = property(key).filter(|v| !v.is_empty())
+            && !alkis.contains(&name)
+        {
+            alkis.push(name);
+        }
+    }
+    if !alkis.is_empty() {
+        tags.push(("freemapper:alkis".to_string(), alkis.join("; ")));
+    }
+    if TREE_REGISTERS.contains(&layer)
+        && let Some(tree) = tree_label(properties)
+    {
+        tags.push(("freemapper:baum".to_string(), tree));
+    }
+    // The crown diameter for the point generalization (`build/points.rs`).
+    if TREE_REGISTERS.contains(&layer)
+        && let Some(crown) = properties
+            .and_then(|p| p.get("kronedurch"))
+            .and_then(Value::as_f64)
+            .filter(|c| *c > 0.0)
+    {
+        tags.push(("freemapper:crown_m".to_string(), crown.to_string()));
+    }
+    tags.sort();
+    tags
+}
+
+/// What a tree candidate says about the tree: `Tilia cordata, Krone 12 m` (botanical name, else
+/// the German one; crown diameter in metres). `None` when the cadastre gives neither.
+fn tree_label(properties: Option<&serde_json::Map<String, Value>>) -> Option<String> {
+    let text = |key: &str| {
+        properties?
+            .get(key)?
+            .as_str()
+            .map(str::trim)
+            .filter(|v| !v.is_empty())
+    };
+    let species = text("art_bot").or_else(|| text("art_dtsch"));
+    let crown = properties?
+        .get("kronedurch")?
+        .as_f64()
+        .filter(|c| *c > 0.0)
+        .map(|c| format!("Krone {c} m"));
+    match (species, crown) {
+        (Some(species), Some(crown)) => Some(format!("{species}, {crown}")),
+        (Some(only), None) => Some(only.to_string()),
+        (None, crown) => crown,
+    }
+}
+
 /// The data of Berlin's set the engine reads; the engine still draws the set by its own code
 /// (`generic: false`) until it moves onto the sets (ADR 0149).
 static DRAWING: SetDrawing = SetDrawing {
@@ -512,6 +616,7 @@ static DRAWING: SetDrawing = SetDrawing {
     canopy_yielding: &[("berlin:layer", "br_fahrgastunterstand")],
     stair_layers: &[],
     candidate_layers: &[],
+    feature_tags: Some(feature_tags),
     generic: false,
 };
 
