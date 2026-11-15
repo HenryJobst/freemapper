@@ -370,6 +370,46 @@ candidates and training map side by side. The switch waits for the second half o
 it still draws carriageways and tracks side by side. Further rules follow by what the measure shows on the other
 examples.
 
+## The second half, as designed on 2026-11-15
+
+The first half is merged (PR #139, ADR 0140) and measured: no apart conflict is left on Bremen Bürgerpark,
+Viktoriapark and Bastei, but only by cutting and dropping. What it leaves: carriageways, tracks and paths along
+roads side by side (joined pairs), fences and walls cut where the data puts them in the gap of a stream or path
+(Bremen keeps 104 of 386 mm of 518), kerb lines inside street areas, and path ends left free where a line was cut.
+The second half settles these with the user's order: generalize what is alike, then shift, then cut.
+
+- **Merge** (generalize what is alike, before the points move). Two lines of the same class (Road, Railway, Path)
+  that run side by side inside the gap over a stretch of at least the class's minimum length become one line on
+  their middle over that stretch; the wider symbol is kept, the tags of the longer line with the other in
+  `freemapper:also`, and `freemapper:generalized=merged with <id>`. A railway line tagged `railway=tram` inside
+  the drawn width of a Road goes. A Path inside the drawn width of a Road goes (sidewalks and cycleways drawn
+  beside a road: the forest rules keep `footway=sidewalk`). The tram rule applies on the forest map only: on
+  the sprint map a tram runs on the street area, which is Free.
+- **Shift** (before cutting). For an apart conflict whose loser is a line, the conflicting stretch is moved away
+  from the winner by what is missing to the gap, at most 0.5 mm on paper, with a ramp of four times the shift at
+  each end of the stretch so the line keeps its shape and stays connected; a whole line is shifted when most of
+  it is in conflict. The shifted line must make no new conflict with anything (lines, areas, points, contours,
+  ticks): otherwise it is not shifted and give way cuts it as before. Walls and fences are shifted like other
+  lines; their tick side does not change.
+- **Junctions survive.** Before merge and shift, every line end that touches another line within `TOUCH_M` is
+  recorded with the line and the position on it. After them, an end whose line moved or was replaced is moved to
+  the nearest point of the line that replaced it, if that is within the shift bound plus the gap; a path that
+  ended on a dropped sidewalk ends on the road. A free end is counted, not hidden.
+- **Carriageways** (decision 13; ISSprOM 2019-2, 501: "Edges within paved areas are generally not represented,
+  unless they serve navigation", "Differences in the brown colour shall be used to show differences in the
+  traffic"). Only Berlin has a carriageway: the street survey (`cm_fahrbahn`) and its kerb lines
+  (`sb-bordstein`). The carriageway areas inside a street parcel reach the training input as hidden candidates
+  (`freemapper:hidden=carriageway`, so neither the map nor the check print draws them); on the training map they
+  are drawn as 501.11 (paved area, heavy traffic, no border; 501.10 of the bundled set carries the border), cut
+  to the 501.5 street area they lie in, and the survey kerb lines inside a street area go. The outer edge of the
+  street area (the generated 501.1 border) stays. Elsewhere there is no carriageway in the data and nothing
+  changes.
+
+Acceptance on the same three areas: apart conflicts stay 0; joined conflicts (overlap and gap) fall by at least
+80 %; 518 on the training map in Bremen keeps at least half of the check print's length; no line end that touched
+a line before is free after; Viktoriapark has no survey kerb line inside a street area and shows the carriageways
+in 50 % brown. ADR 0149 records it.
+
 ## Left to the builder
 
 - The names of types and functions, the shape of `Placed` and `StarterDocuments` for the third list, and
