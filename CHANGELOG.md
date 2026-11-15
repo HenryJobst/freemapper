@@ -14,6 +14,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 - freemapper nutzt freemapper-core v0.28.0, das wie die ganze Suite unter AGPL-3.0-or-later steht (ADR 0152); am Verhalten ändert sich nichts.
 - Die CI prüft die Abhängigkeiten mit `cargo deny` (`deny.toml`, ADR 0154): Lizenzen, die zur AGPL passen, bekannte Sicherheitslücken und nicht mehr gepflegte Crates, und dass alles von crates.io oder freemapper-core kommt. Vier Meldungen sind mit Begründung ausgenommen: zwei betreffen Teile von rmcp, die freemapper nicht baut, zwei nicht mehr gepflegte Crates ohne Ersatz (ttf-parser, basic-toml nur beim Bauen).
 - freemapper nutzt freemapper-core v0.29.0, das Schriften mit skrifa statt mit dem nicht mehr gepflegten ttf-parser liest; die PDFs bleiben byte-gleich. Die Ausnahme für ttf-parser in `deny.toml` entfällt (ADR 0154, Nachtrag).
+- Die Website <https://freemapper.de> zeigt die Programme der Suite, die Beispiele, die Handbücher und die Änderungen; README und Handbuch verweisen auf sie. Nach einem Release stößt der Release-Workflow ihren Neubau an, wenn das Secret `SITE_DISPATCH_TOKEN` gesetzt ist; sonst folgt sie mit ihrem täglichen Bau. Die Einleitung des Handbuchs nennt jetzt alle fünfzehn Bundesländer statt drei.
 
 ### Hinzugefügt
 
