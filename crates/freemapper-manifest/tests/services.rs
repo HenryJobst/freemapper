@@ -8,7 +8,7 @@ use chrono::NaiveDate;
 use freemapper_adapter_api::adapter::RegionAdapter;
 use freemapper_adapter_api::credit::{AlkisUse, CreditLine, UsedSources};
 use freemapper_adapter_api::estimate::EstimateArea;
-use freemapper_adapter_api::extras::{NasModel, TreeFields, TreeFormat};
+use freemapper_adapter_api::extras::{NasModel, NasSchema, TreeFields, TreeFormat};
 use freemapper_adapter_api::records::{Part, Store};
 use freemapper_georef::crs::{BoundingBox, Crs};
 use freemapper_manifest::adapter::{AdapterFiles, ManifestAdapter, Parse};
@@ -274,6 +274,40 @@ fn the_model_of_a_nas_service_is_read_and_checked() {
     let findings = parse(&other, Path::new("sample")).unwrap_err();
     assert_eq!(codes(&findings), ["manifest.value"], "{findings:?}");
     assert_eq!(findings[0].key, "extra.nas.layers");
+}
+
+/// A service of the landscape model may answer in the AdV Shape schema (Rhineland-Palatinate);
+/// the cadastre has no such service.
+#[test]
+fn the_schema_of_a_nas_service_is_read_and_checked() {
+    let region = "sample".parse().unwrap();
+    let plain = parse(&format!("{}{NAS}", sample()), Path::new("sample")).unwrap();
+    assert_eq!(
+        extras::nas_service(&plain.nas[0], &region).schema,
+        NasSchema::Nas
+    );
+    let shape = format!(
+        "{}{NAS}model = \"basis-dlm\"\nschema = \"shape\"\n",
+        sample()
+    );
+    let manifest = parse(&shape, Path::new("sample")).unwrap();
+    assert_eq!(
+        extras::nas_service(&manifest.nas[0], &region).schema,
+        NasSchema::Shape
+    );
+    for wrong in [
+        "model = \"basis-dlm\"\nschema = \"shp\"\n",
+        "schema = \"shape\"\n",
+    ] {
+        let findings =
+            parse(&format!("{}{NAS}{wrong}", sample()), Path::new("sample")).unwrap_err();
+        assert_eq!(
+            codes(&findings),
+            ["manifest.value"],
+            "{wrong}: {findings:?}"
+        );
+        assert_eq!(findings[0].key, "extra.nas.schema", "{wrong}");
+    }
 }
 
 fn area() -> EstimateArea {

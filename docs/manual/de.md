@@ -1313,6 +1313,12 @@ Altstadt kommen 630 auf die Karte, meist kurze Stufen vor den Haustüren, dazu 1
 OpenStreetMap-Mauern, die sie doppeln, entfallen. Das Landschaftsmodell ergänzt dort 6 Bäume, 2 Wasserläufe und ein
 Bauwerk als Kandidaten, in der Granitz 5 Wege.
 
+**Rheinland-Pfalz: Landschaftsmodell.** Das LVermGeo RP bietet kein vollständiges ALKIS an, aber sein
+Landschaftsmodell (dl-de/by-2-0), und zwar im Shape-Schema der AdV statt als NAS. freemapper liest es mit und
+behandelt es wie in den anderen Bundesländern: Seine Objekte bleiben Kandidaten. In Cochem ergänzt es 19 Denkmäler
+und Wegkreuze, 2 Wasserläufe und einen Brunnen, bei Dahn einen Felsen, 3 Wasserläufe und auf der Waldkarte 6 Wege
+und Fahrwege.
+
 In Bayern hat das Kataster keinen Dienst. Dort fragt freemapper stattdessen das Landschaftsmodell der
 Vermessungsverwaltung ab, das ATKIS Basis-DLM (CC BY 4.0). Es ist für den Maßstab 1:25 000 gemacht und etwa 3 m
 genau. freemapper nimmt daraus Höhleneingänge (203), Quellen (312), benannte Felsen (205), frei stehende Türme

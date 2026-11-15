@@ -18,7 +18,7 @@ use crate::fetch::{
 };
 use crate::ogc_api::{AlkisError, FetchArea, invalid, reproject_feature};
 use crate::xml::resolve_entity;
-pub use freemapper_adapter_api::extras::{NasModel, NasService};
+pub use freemapper_adapter_api::extras::{NasModel, NasSchema, NasService};
 use freemapper_adapter_api::records::AdapterId;
 use freemapper_contract::MapKind;
 
@@ -37,6 +37,7 @@ pub const LGB_NAS: NasService = NasService {
     layers: None,
     namespaces: None,
     model: NasModel::Alkis,
+    schema: NasSchema::Nas,
 };
 
 /// The files in the layer list of `service` that name no NAS layer. A misspelled file would
@@ -58,6 +59,9 @@ pub struct NasLayer {
     /// `adv:AX_…` as the services know it.
     pub type_name: &'static str,
     pub kinds: &'static [MapKind],
+    /// The types of the AdV Shape schema the objects of the layer are in (the landscape model
+    /// only, ADR 0147); each holds other AdV types too.
+    pub shape_types: &'static [&'static str],
 }
 
 // A forest map takes what a sprint map takes (spec 2026-11-13).
@@ -74,31 +78,37 @@ pub const NAS_LAYERS: [NasLayer; 16] = [
         file: "sonstiges-bauwerk",
         type_name: "adv:AX_SonstigesBauwerkOderSonstigeEinrichtung",
         kinds: BOTH_KINDS,
+        shape_types: &[],
     },
     NasLayer {
         file: "vegetationsmerkmal",
         type_name: "adv:AX_Vegetationsmerkmal",
         kinds: BOTH_KINDS,
+        shape_types: &[],
     },
     NasLayer {
         file: "strukturlinie",
         type_name: "adv:AX_Strukturlinie3D",
         kinds: SPRINT_ONLY,
+        shape_types: &[],
     },
     NasLayer {
         file: "bauwerk-verkehr",
         type_name: "adv:AX_BauwerkImVerkehrsbereich",
         kinds: SPRINT_ONLY,
+        shape_types: &[],
     },
     NasLayer {
         file: "bauwerk-gewaesser",
         type_name: "adv:AX_BauwerkImGewaesserbereich",
         kinds: BOTH_KINDS,
+        shape_types: &[],
     },
     NasLayer {
         file: "untergeordnetes-gewaesser",
         type_name: "adv:AX_UntergeordnetesGewaesser",
         kinds: BOTH_KINDS,
+        shape_types: &[],
     },
     // The landscape model (ATKIS Basis-DLM, ADR 0135): the point and line objects a map can
     // use. Power lines and areas are left out; OpenStreetMap and the land use have them.
@@ -106,41 +116,61 @@ pub const NAS_LAYERS: [NasLayer; 16] = [
         file: "dlm-bauwerk",
         type_name: "adv:AX_SonstigesBauwerkOderSonstigeEinrichtung",
         kinds: BOTH_KINDS,
+        shape_types: &[
+            "Siedlungen_SIE03_P",
+            "Siedlungen_SIE03_L",
+            "Siedlungen_SIE03_F",
+        ],
     },
     NasLayer {
         file: "dlm-vegetation",
         type_name: "adv:AX_Vegetationsmerkmal",
         kinds: BOTH_KINDS,
+        shape_types: &[
+            "Vegetation_VEG04_P",
+            "Vegetation_VEG04_L",
+            "Vegetation_VEG04_F",
+        ],
     },
     NasLayer {
         file: "dlm-felsen",
         type_name: "adv:AX_FelsenFelsblockFelsnadel",
         kinds: BOTH_KINDS,
+        shape_types: &["Relief_REL01_P", "Relief_REL01_L", "Relief_REL01_F"],
     },
     NasLayer {
         file: "dlm-hoehle",
         type_name: "adv:AX_Hoehleneingang",
         kinds: BOTH_KINDS,
+        shape_types: &["Relief_REL01_P"],
     },
     NasLayer {
         file: "dlm-gewaessermerkmal",
         type_name: "adv:AX_Gewaessermerkmal",
         kinds: BOTH_KINDS,
+        shape_types: &[
+            "Gewaesser_GEW02_P",
+            "Gewaesser_GEW02_L",
+            "Gewaesser_GEW02_F",
+        ],
     },
     NasLayer {
         file: "dlm-damm",
         type_name: "adv:AX_DammWallDeich",
         kinds: BOTH_KINDS,
+        shape_types: &["Relief_REL01_L", "Relief_REL01_F"],
     },
     NasLayer {
         file: "dlm-turm",
         type_name: "adv:AX_Turm",
         kinds: BOTH_KINDS,
+        shape_types: &["Siedlungen_SIE05_P", "Siedlungen_SIE05_F"],
     },
     NasLayer {
         file: "dlm-gewaesserachse",
         type_name: "adv:AX_Gewaesserachse",
         kinds: BOTH_KINDS,
+        shape_types: &["Gewaesser_GEW01_L"],
     },
     // The paths of the model, for the forest map: candidates where OpenStreetMap has no path
     // (the user's decision of 2026-11-14). In a town OpenStreetMap and the traffic areas of the
@@ -149,11 +179,13 @@ pub const NAS_LAYERS: [NasLayer; 16] = [
         file: "dlm-weg",
         type_name: "adv:AX_WegPfadSteig",
         kinds: FOREST_ONLY,
+        shape_types: &["Verkehr_VER02_L"],
     },
     NasLayer {
         file: "dlm-fahrweg",
         type_name: "adv:AX_Fahrwegachse",
         kinds: FOREST_ONLY,
+        shape_types: &["Verkehr_VER02_L"],
     },
 ];
 
@@ -197,7 +229,67 @@ pub struct NasAnswer {
 /// `gehoertZu…` property points to). An answer that is not a collection (an exception report,
 /// an HTML page) is an error; a feature whose geometry it cannot read is skipped and listed.
 pub fn parse_nas_gml(text: &str) -> Result<NasAnswer, AlkisError> {
+    parse_gml(text, NasSchema::Nas)
+}
+
+/// The features of an answer in the AdV Shape schema (ADR 0147) as [`parse_nas_gml`] gives them:
+/// `nas_type` from `objart_txt`, `id` and `oid` from `objid`, `beginnt` from `beginn`, and the
+/// codes and the name under their NAS names ([`SHAPE_NAMES`]).
+pub fn parse_shape_gml(text: &str) -> Result<NasAnswer, AlkisError> {
+    let mut answer = parse_gml(text, NasSchema::Shape)?;
+    answer.features = answer.features.into_iter().map(from_shape).collect();
+    Ok(answer)
+}
+
+/// The answer of `service`, read as its schema.
+fn parse_answer(text: &str, schema: NasSchema) -> Result<NasAnswer, AlkisError> {
+    match schema {
+        NasSchema::Nas => parse_nas_gml(text),
+        NasSchema::Shape => parse_shape_gml(text),
+    }
+}
+
+/// The Shape names of the properties the rules read, with their NAS names.
+pub const SHAPE_NAMES: [(&str, &str); 5] = [
+    ("bwf", "bauwerksfunktion"),
+    ("bws", "bewuchs"),
+    ("fkt", "funktion"),
+    ("bef", "befestigung"),
+    ("nam", "name"),
+];
+
+/// A feature of a Shape answer with the properties of a NAS one.
+fn from_shape(mut feature: Value) -> Value {
+    let Some(properties) = feature["properties"].as_object_mut() else {
+        return feature;
+    };
+    if let Some(nas_type) = properties.remove("objart_txt") {
+        properties.insert("nas_type".into(), nas_type);
+    }
+    if let Some(Value::String(oid)) = properties.remove("objid") {
+        properties.insert("oid".into(), oid.clone().into());
+        feature["id"] = oid.into();
+    }
+    let properties = feature["properties"].as_object_mut().expect("an object");
+    if let Some(Value::String(begin)) = properties.remove("beginn") {
+        let date: String = begin.chars().take(10).collect();
+        properties.insert("beginnt".into(), date.into());
+    }
+    for (short, name) in SHAPE_NAMES {
+        if let Some(value) = properties.remove(short) {
+            properties.insert(name.into(), value);
+        }
+    }
+    feature
+}
+
+/// [`parse_nas_gml`] with the geometry in the property of `schema`.
+fn parse_gml(text: &str, schema: NasSchema) -> Result<NasAnswer, AlkisError> {
     use quick_xml::events::Event;
+    let geometry = match schema {
+        NasSchema::Nas => "position",
+        NasSchema::Shape => "msGeometry",
+    };
     let refused = || {
         if is_ogc_report(text.as_bytes()) {
             let detail = ogc_exception(text.as_bytes()).unwrap_or_default();
@@ -262,7 +354,7 @@ pub fn parse_nas_gml(text: &str) -> Result<NasAnswer, AlkisError> {
                     (2, Some(f)) => {
                         f.leaves = 0;
                         f.leaf.clear();
-                        if name == "position" {
+                        if name == geometry {
                             f.has_position = true;
                         }
                         if name.starts_with("gehoertZu")
@@ -274,7 +366,7 @@ pub fn parse_nas_gml(text: &str) -> Result<NasAnswer, AlkisError> {
                                 .or_insert_with(|| Value::from(oid));
                         }
                     }
-                    (3.., Some(f)) if path[2] == "position" => {
+                    (3.., Some(f)) if path[2] == geometry => {
                         f.geometry.open(&name, depth, &attribute);
                         if empty {
                             f.geometry.close(&name, depth, "");
@@ -304,7 +396,7 @@ pub fn parse_nas_gml(text: &str) -> Result<NasAnswer, AlkisError> {
                                 }
                             }
                         }
-                        3.. if path[2] == "position" => f.geometry.close(&name, depth, value),
+                        3.. if path[2] == geometry => f.geometry.close(&name, depth, value),
                         _ => {
                             if name == "beginnt" {
                                 let date: String = value.chars().take(10).collect();
@@ -343,8 +435,8 @@ const OID_URN: &str = "urn:adv:oid:";
 const RELATION_KEY: &str = "gehoert_zu";
 /// Direct children of a NAS feature that are not stored as properties: the object id, the
 /// version interval (its `beginnt` is), the model, the occasion, the quality notes and the
-/// geometry.
-const NOT_PROPERTIES: [&str; 7] = [
+/// geometry (`msGeometry` in the Shape schema).
+const NOT_PROPERTIES: [&str; 8] = [
     "identifier",
     "lebenszeitintervall",
     "modellart",
@@ -352,6 +444,7 @@ const NOT_PROPERTIES: [&str; 7] = [
     "qualitaetsangaben",
     "position",
     "boundedBy",
+    "msGeometry",
 ];
 
 /// The GML elements of `position` the reader knows; anything else (clothoids, splines,
@@ -720,15 +813,28 @@ fn fetch_layer(
         regions: Vec::new(),
     };
     for &(service, fetcher) in services {
-        let request = Request {
-            fetcher,
-            service,
-            type_name: layer.type_name,
-            part,
-        };
         let mut answer = NasAnswer::default();
         let bbox = area.bbox_for(service.crs);
-        fetch_split(&request, &bbox, 0, &mut seen, &mut answer)?;
+        let type_names = match service.schema {
+            NasSchema::Nas => std::slice::from_ref(&layer.type_name),
+            NasSchema::Shape => layer.shape_types,
+        };
+        for type_name in type_names {
+            let request = Request {
+                fetcher,
+                service,
+                type_name,
+                part,
+            };
+            fetch_split(&request, &bbox, 0, &mut seen, &mut answer)?;
+        }
+        if service.schema == NasSchema::Shape {
+            // A Shape type holds other AdV types too.
+            let own = layer.type_name.trim_start_matches("adv:");
+            answer
+                .features
+                .retain(|f| f["properties"]["nas_type"] == own);
+        }
         fetched.features.extend(
             answer
                 .features
@@ -851,7 +957,7 @@ fn get_answer(request: &Request, bbox: &BoundingBox) -> Result<NasAnswer, FetchE
                 detail: ogc_exception(bytes),
             });
         }
-        parse_nas_gml(&String::from_utf8_lossy(bytes))
+        parse_answer(&String::from_utf8_lossy(bytes), service.schema)
             .map_err(|e| FetchError::Alkis(invalid(format!("{url}: {}", e.message))))
     })
     .map_err(|e| match e {
@@ -1486,5 +1592,123 @@ mod tests {
         assert!(properties["oid"].as_str().unwrap().starts_with("DEBYBDLM"));
         assert!(properties["beginnt"].as_str().unwrap().starts_with("20"));
         assert_eq!(tower["geometry"]["type"], "Point");
+    }
+
+    /// The answers of the Rhineland-Palatinate Basis-DLM in the AdV Shape schema near Dahn
+    /// (2026-11-15): flat properties under their Shape abbreviations, the type in `objart_txt`.
+    #[test]
+    fn an_answer_in_the_shape_schema_is_read_as_the_nas_types() {
+        let rocks = parse_shape_gml(include_str!(
+            "../../../tests/fixtures/rheinland-pfalz-dlm-relief.gml"
+        ))
+        .unwrap();
+        assert_eq!((rocks.matched, rocks.returned), (Some(2), 2));
+        assert!(rocks.skipped.is_empty(), "{:?}", rocks.skipped);
+        let rock = &rocks.features[0];
+        assert_eq!(rock["id"], "DERPTL3a0000aFE0");
+        assert_eq!(rock["geometry"]["type"], "Point");
+        let properties = &rock["properties"];
+        assert_eq!(properties["nas_type"], "AX_FelsenFelsblockFelsnadel");
+        assert_eq!(properties["oid"], "DERPTL3a0000aFE0");
+        assert_eq!(properties["name"], "Rabenfelsen");
+        assert_eq!(properties["beginnt"], "2010-06-23");
+        assert!(properties.get("msGeometry").is_none(), "{properties}");
+        // The codes the rules read get their NAS names.
+        let paths = parse_shape_gml(include_str!(
+            "../../../tests/fixtures/rheinland-pfalz-dlm-verkehr.gml"
+        ))
+        .unwrap();
+        let track = by_id(&paths, "DERPTL3a0000aIUe");
+        assert_eq!(track["geometry"]["type"], "LineString");
+        let properties = &track["properties"];
+        assert_eq!(properties["nas_type"], "AX_Fahrwegachse");
+        assert_eq!(properties["funktion"], "5212");
+        assert_eq!(properties["befestigung"], "1000");
+        assert!(properties.get("fkt").is_none(), "{properties}");
+        let path = &by_id(&paths, "DERPTL3a0000anB6")["properties"];
+        assert_eq!(path["nas_type"], "AX_WegPfadSteig");
+        assert_eq!(path["art"], "1103");
+    }
+
+    /// A Shape-schema service holds several AdV types in one Shape type: a layer asks the Shape
+    /// types its objects can be in and keeps those of its own type.
+    #[test]
+    fn a_shape_service_asks_the_shape_types_and_keeps_the_layer_type() {
+        let service = NasService {
+            model: NasModel::BasisDlm,
+            schema: NasSchema::Shape,
+            layers: Some(Cow::Borrowed(&[
+                Cow::Borrowed("dlm-felsen"),
+                Cow::Borrowed("dlm-hoehle"),
+            ])),
+            ..LGB_NAS
+        };
+        let member = |id: &str, kind: &str| {
+            format!(
+                r#"<wfs:member><vermkv:Relief_REL01_P gml:id="Relief_REL01_P.{id}"><vermkv:msGeometry><gml:Point><gml:pos>366500 5807400</gml:pos></gml:Point></vermkv:msGeometry><vermkv:objart_txt>{kind}</vermkv:objart_txt><vermkv:objid>{id}</vermkv:objid></vermkv:Relief_REL01_P></wfs:member>"#
+            )
+        };
+        let points = format!(
+            r#"<wfs:FeatureCollection numberMatched="2" numberReturned="2" xmlns:vermkv="https://www.vermkv.rlp.de" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:wfs="http://www.opengis.net/wfs/2.0">{}{}</wfs:FeatureCollection>"#,
+            member("DERPROCK", "AX_FelsenFelsblockFelsnadel"),
+            member("DERPCAVE", "AX_Hoehleneingang"),
+        );
+        let fetcher = MapFetcher::default();
+        fetcher.insert(
+            &service.get_feature_url("Relief_REL01_P", &SANSSOUCI),
+            points.into_bytes(),
+        );
+        fetcher.insert_prefix(&service.url, EMPTY.as_bytes().to_vec());
+        let scratch = tempfile::tempdir().unwrap();
+        let part_path = scratch.path().join("answer.gml.part");
+        let part = || -> Result<PathBuf, FetchError> { Ok(part_path.clone()) };
+        let area = FetchArea::new(SANSSOUCI, Crs::Utm33);
+        let fetched = fetch_layers_from(&fetcher, &[&service], &area, MapKind::Forest, &part);
+        let ids: Vec<(&str, Vec<&str>)> = fetched
+            .iter()
+            .map(|layer| {
+                let features = &layer.features.as_ref().unwrap().features;
+                let ids = features.iter().map(|f| f["id"].as_str().unwrap()).collect();
+                (layer.layer.file, ids)
+            })
+            .collect();
+        assert_eq!(
+            ids,
+            [
+                ("dlm-felsen", vec!["DERPROCK"]),
+                ("dlm-hoehle", vec!["DERPCAVE"])
+            ]
+        );
+        let asked: Vec<String> = fetcher
+            .log
+            .borrow()
+            .iter()
+            .map(|url| {
+                url.split("TYPENAMES=")
+                    .nth(1)
+                    .unwrap()
+                    .split('&')
+                    .next()
+                    .unwrap()
+                    .to_string()
+            })
+            .collect();
+        assert_eq!(
+            asked,
+            [
+                "Relief_REL01_P",
+                "Relief_REL01_L",
+                "Relief_REL01_F",
+                "Relief_REL01_P"
+            ]
+        );
+    }
+
+    #[test]
+    fn every_layer_of_the_landscape_model_names_its_shape_types() {
+        for layer in &NAS_LAYERS {
+            let dlm = NasModel::of_layer(layer.file) == NasModel::BasisDlm;
+            assert_eq!(!layer.shape_types.is_empty(), dlm, "{}", layer.file);
+        }
     }
 }

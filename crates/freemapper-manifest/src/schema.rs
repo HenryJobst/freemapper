@@ -180,6 +180,7 @@ pub(crate) struct RawNas {
     pub layers: Option<Vec<Text>>,
     pub namespaces: Option<Text>,
     pub model: Option<Text>,
+    pub schema: Option<Text>,
 }
 
 #[derive(Debug, Deserialize)]

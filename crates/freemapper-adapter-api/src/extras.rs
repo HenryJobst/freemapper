@@ -158,6 +158,17 @@ impl NasModel {
     }
 }
 
+/// How a service writes its answers.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NasSchema {
+    /// NAS: the AAA schema, the AdV types as elements (`AX_Turm`).
+    Nas,
+    /// The AdV Shape schema of the landscape model (Rhineland-Palatinate, ADR 0147): one type per
+    /// theme and geometry (`Relief_REL01_P`), the AdV type in `objart_txt`, the codes under short
+    /// names (`bwf` for `bauwerksfunktion`).
+    Shape,
+}
+
 /// A NAS WFS of one state.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NasService {
@@ -179,6 +190,8 @@ pub struct NasService {
     pub namespaces: Option<Cow<'static, str>>,
     /// The model the service serves; it is asked only for the layers of that model.
     pub model: NasModel,
+    /// How its answers are written.
+    pub schema: NasSchema,
 }
 
 impl NasService {

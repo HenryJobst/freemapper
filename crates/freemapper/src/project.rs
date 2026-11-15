@@ -8809,6 +8809,11 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
                 );
             }
         }
+        // The landscape model in the Shape schema (ADR 0147).
+        crate::fetch::test_support::serve_empty_nas(
+            fetcher,
+            &["https://geo5.service24.rlp.de/wfs/basisdlm_shape_rp.fcgi"],
+        );
         for extract in
             crate::sources::osm::extracts_for(&project.region_bbox().unwrap(), &mut |_| {})
         {

@@ -1,7 +1,7 @@
 //! A checked manifest: what the tables of format 1 say, in types the builders can use.
 
 use chrono::NaiveDate;
-use freemapper_adapter_api::extras::NasModel;
+use freemapper_adapter_api::extras::{NasModel, NasSchema};
 use freemapper_georef::crs::Crs;
 
 /// An adapter manifest of format 1 that passed the validator.
@@ -314,6 +314,8 @@ pub struct Nas {
     pub namespaces: Option<String>,
     /// `alkis` (the default) or `basis-dlm`.
     pub model: NasModel,
+    /// `nas` (the default) or `shape`, for a service of the landscape model only.
+    pub schema: NasSchema,
 }
 
 /// One `[[extra.trees]]`: the tree cadastre of a city.

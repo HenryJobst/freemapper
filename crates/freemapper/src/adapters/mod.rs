@@ -314,6 +314,7 @@ mod tests {
                         "nordrheinwestfalen",
                         "niedersachsen",
                         "mecklenburgvorpommern",
+                        "rheinlandpfalz",
                     ]
                     .contains(&id),
                 "{}",
