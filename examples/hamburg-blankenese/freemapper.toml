@@ -43,6 +43,12 @@ fetched = "2026-11-15"
 count = 144
 regions = ["hamburg"]
 
+[extra_sets.lgv-feinkartierung.fk-strasse-gruen]
+bbox = [155411.0, 5946592.0, 156356.0, 5947351.0]
+fetched = "2026-11-15"
+count = 76
+regions = ["hamburg"]
+
 [extra_sets.lgv-feinkartierung.fk-strasse-linien]
 bbox = [155411.0, 5946592.0, 156356.0, 5947351.0]
 fetched = "2026-11-15"

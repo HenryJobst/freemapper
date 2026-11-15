@@ -1364,7 +1364,10 @@ profile `balanced` the railings, fences, walls, curbs and stairs go straight ont
 lamps become candidates, on a sprint map as control sites (531). Stair areas become stairs, their walking
 direction from the terrain model. In Blankenese that puts 155 railings and fences, 15 walls, 36 curbs and 352
 stair lines from 102 stair areas onto the map; the OpenStreetMap stairs at the same places go (110 to 40). 96
-control sites come as candidates. The street surfaces (such as water-bound gravel) are not taken yet.
+control sites come as candidates. Green verges, shrubs, hedges
+and wild growth in the street space become candidates on the base map (401, 406, 407, 410) and go straight onto
+the training map; in Blankenese that is 56 areas. The paving materials and water-bound gravel stay out: the street
+is a paved area on the map already.
 
 **Lübeck: tree cadastre.** The Hansestadt Lübeck publishes its tree cadastre as one CSV file of the whole city
 (CC0, 8 MB). freemapper downloads it whole on every fetch and keeps the trees of the map area; empty planting

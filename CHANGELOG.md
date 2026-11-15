@@ -12,6 +12,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Hinzugefügt
 
+- Hamburg: das Grün im Straßenraum aus der Feinkartierung (Grünstreifen, Sträucher, Hecken, Wildwuchs) wird in der Grundkarte Kandidat und kommt in der Trainingskarte direkt mit (ADR 0149). Ein Satz zusätzlicher Ebenen kann dafür Ebenen nennen, deren Objekte unabhängig vom Inhaltsprofil Kandidaten bleiben. In Blankenese sind das 56 Flächen.
 - Hamburg: die Feinkartierung Straße und Grün des LGV (ADR 0149), als erster Satz zusätzlicher Ebenen, der seine eigenen Regeln mitbringt: Die Engine zeichnet ihn, ohne Hamburg zu kennen. Geländer, Zäune, Mauern, Bordsteine und Treppen kommen mit `balanced` auf die Karte, Poller, Bänke und Leuchten werden Kandidaten. In Blankenese sind das 155 Geländer und Zäune, 15 Mauern, 36 Bordsteine und 352 Treppenlinien mehr auf der Karte und 96 Postenstandorte als Kandidaten. Das Beispiel ist neu gebaut.
 
 ### Behoben
