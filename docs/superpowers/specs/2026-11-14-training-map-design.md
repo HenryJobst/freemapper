@@ -410,6 +410,12 @@ Acceptance on the same three areas: apart conflicts stay 0; joined conflicts (ov
 a line before is free after; Viktoriapark has no survey kerb line inside a street area and shows the carriageways
 in 50 % brown. ADR 0150 records it.
 
+Ruling of 2026-11-15, after the final review: "joined conflicts fall by at least 80 %" is read as the joined pairs
+the merge addresses, roads, railways and paths of one class (the way pairs). Over all joined pairs the second half
+gives −58 %, −10 % and −53 %; the rest are pairs of other classes (water against watercourse, banks, barriers,
+Berlin's stair steps) that no step of the second half touches. "No free end" is not met; ADR 0150 gives the counts
+and names the follow-up.
+
 ## Left to the builder
 
 - The names of types and functions, the shape of `Placed` and `StarterDocuments` for the third list, and
