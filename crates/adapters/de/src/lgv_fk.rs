@@ -145,6 +145,7 @@ static DRAWING: SetDrawing = SetDrawing {
     // The green of the street space: candidates on the base map (the user's decision of
     // 2026-11-15).
     candidate_layers: &["fk-strasse-gruen"],
+    feature_tags: None,
     generic: true,
 };
 

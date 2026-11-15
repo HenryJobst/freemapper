@@ -46,8 +46,11 @@ pub trait ExtraSet: Send + Sync {
     }
 }
 
+/// A set's tagging of one feature of a stored layer: `(layer, feature)` → tags.
+pub type FeatureTags = fn(&str, &Value) -> Vec<(String, String)>;
+
 /// How the engine draws the layers of a set that brings its rules (ADR 0149).
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct SetDrawing {
     /// The candidate rules, in the syntax of the engine's rule files. Their conditions name the
     /// tags `<tag_prefix>:<property>` of a feature and `<tag_prefix>:layer` (the layer's file).
@@ -92,6 +95,10 @@ pub struct SetDrawing {
     /// The layers whose objects stay candidates on the base map whatever the content profile;
     /// the training map takes them, as it takes every candidate.
     pub candidate_layers: &'static [&'static str],
+    /// The set's own tags of a feature of a stored layer (`layer`, `feature`); without one a
+    /// feature gets `<tag_prefix>:layer` and `<tag_prefix>:<property>` for each text and number
+    /// property.
+    pub feature_tags: Option<FeatureTags>,
     /// Whether the engine fetches, records and draws the set through this drawing. `false`: the
     /// engine still draws the set by its own code and only reads these data (Berlin, until it
     /// moves onto the sets, docs/superpowers/specs/2026-11-15-berlin-onto-sets-design.md).
