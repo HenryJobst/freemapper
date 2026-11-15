@@ -59,6 +59,7 @@ pub const POTSDAM: TreeDataset = TreeDataset {
         date: Some(Cow::Borrowed("datum")),
         species: None,
         crown: None,
+        gone: None,
     },
     skipped_kinds: Cow::Borrowed(&[Cow::Borrowed("Baumstumpf")]),
     attribution: Cow::Borrowed("Landeshauptstadt Potsdam / Bäume der Stadtkarte, dl-de/zero-2-0"),
@@ -91,9 +92,36 @@ pub fn parse_trees(text: &str, dataset: &TreeDataset, crs: Crs) -> Result<TreeAn
         .as_array()
         .filter(|_| page["type"] == "FeatureCollection")
         .ok_or_else(|| invalid(format!("{}: not a GeoJSON FeatureCollection", dataset.name)))?;
+    // A WFS names the CRS of its answer; GeoJSON without one is lon/lat.
+    let projected = match &dataset.format {
+        TreeFormat::WfsGeoJson { .. } => {
+            let matched = page["numberMatched"].as_u64();
+            let returned = page["numberReturned"]
+                .as_u64()
+                .unwrap_or(features.len() as u64);
+            let cut = match matched {
+                Some(matched) => returned < matched,
+                None => features.len() >= TreeFormat::WFS_LIMIT,
+            };
+            if cut {
+                let of = matched.map_or_else(|| "more".to_string(), |m| m.to_string());
+                return Err(invalid(format!(
+                    "{} returned {returned} of {of} trees; choose a smaller area",
+                    dataset.name
+                )));
+            }
+            let named = page["crs"]["properties"]["name"]
+                .as_str()
+                .unwrap_or_default();
+            [Crs::Utm32, Crs::Utm33]
+                .into_iter()
+                .find(|crs| named.ends_with(&crs.epsg().to_string()))
+        }
+        _ => None,
+    };
     let mut answer = TreeAnswer::default();
     for feature in features {
-        normalise(feature, dataset, crs, &mut answer);
+        normalise(feature, dataset, crs, projected, &mut answer);
     }
     if dataset.format == TreeFormat::OgcApiItems {
         answer.next = page["links"]
@@ -182,7 +210,7 @@ pub fn parse_tree_csv(
             "geometry": {"type": "Point", "coordinates": [position.lon, position.lat]},
             "properties": properties,
         });
-        normalise(&feature, dataset, area.crs, &mut answer);
+        normalise(&feature, dataset, area.crs, None, &mut answer);
     }
     Ok(answer)
 }
@@ -196,9 +224,16 @@ fn text<'a>(properties: &'a Map<String, Value>, key: &str) -> Option<std::borrow
     }
 }
 
-/// Adds the stored form of one WGS84 point feature (a Point, or a MultiPoint of one point) to
-/// `answer`.
-fn normalise(feature: &Value, dataset: &TreeDataset, crs: Crs, answer: &mut TreeAnswer) {
+/// Adds the stored form of one point feature (a Point, or a MultiPoint of one point) to
+/// `answer`: in `projected` when it names a CRS, in WGS84 lon/lat otherwise. A tree with a
+/// value in [`TreeFields::gone`] is left out silently.
+fn normalise(
+    feature: &Value,
+    dataset: &TreeDataset,
+    crs: Crs,
+    projected: Option<Crs>,
+    answer: &mut TreeAnswer,
+) {
     let empty = Map::new();
     let properties = feature["properties"].as_object().unwrap_or(&empty);
     let fields = &dataset.fields;
@@ -206,6 +241,13 @@ fn normalise(feature: &Value, dataset: &TreeDataset, crs: Crs, answer: &mut Tree
     if kind
         .as_deref()
         .is_some_and(|k| dataset.skipped_kinds.iter().any(|kind| kind == k))
+    {
+        return;
+    }
+    if fields
+        .gone
+        .as_deref()
+        .is_some_and(|gone| text(properties, gone).is_some())
     {
         return;
     }
@@ -227,12 +269,19 @@ fn normalise(feature: &Value, dataset: &TreeDataset, crs: Crs, answer: &mut Tree
     };
     let point = coordinates
         .and_then(|c| Some((c[0].as_f64()?, c[1].as_f64()?)))
-        .filter(|(lon, lat)| lon.is_finite() && lat.is_finite());
-    let Some((lon, lat)) = point else {
+        .filter(|(x, y)| x.is_finite() && y.is_finite());
+    let position = point.and_then(|(x, y)| match projected {
+        Some(from) => from.inverse(ProjectedPoint {
+            easting: x,
+            northing: y,
+        }),
+        None => Some(LatLon { lat: y, lon: x }),
+    });
+    let Some(position) = position else {
         answer.skipped.push(format!("{id}: no point"));
         return;
     };
-    let p = crs.forward(LatLon { lat, lon });
+    let p = crs.forward(position);
     // Centimetres are plenty for a tree.
     let round = |v: f64| (v * 100.0).round() / 100.0;
     let mut stored = Map::new();
@@ -372,6 +421,7 @@ mod tests {
             date: None,
             species: Some(Cow::Borrowed("art_deutsch")),
             crown: Some(Cow::Borrowed("kronendurchmesser")),
+            gone: None,
         },
         skipped_kinds: Cow::Borrowed(&[]),
         attribution: Cow::Borrowed("City"),
@@ -510,6 +560,7 @@ mod tests {
             date: None,
             species: Some(Cow::Borrowed("GA_LANG")),
             crown: None,
+            gone: None,
         },
         skipped_kinds: Cow::Borrowed(&[Cow::Borrowed("Fehlplatz")]),
         attribution: Cow::Borrowed("CSV city"),
@@ -576,5 +627,110 @@ mod tests {
         let fetched = fetch_dataset(&fetcher, &CSV_CITY, &old_town(), &part).unwrap();
         assert_eq!(fetched.features.len(), 1);
         assert_eq!(fetcher.calls.get(), 1);
+    }
+
+    /// A city whose trees are a WFS answering GeoJSON in its CRS, as in Leipzig, with a field
+    /// that holds the date a tree was felled.
+    const WFS_CITY: TreeDataset = TreeDataset {
+        id: Cow::Borrowed("wfs-city"),
+        name: Cow::Borrowed("WFS city trees"),
+        region: AdapterId::built_in("sachsen"),
+        crs: Crs::Utm33,
+        envelope: BoundingBox {
+            min_e: 307_000.0,
+            min_n: 5_680_000.0,
+            max_e: 329_000.0,
+            max_n: 5_703_000.0,
+        },
+        format: TreeFormat::WfsGeoJson {
+            type_name: Cow::Borrowed("OpenData:Baeume"),
+            output_format: Cow::Borrowed("application/json"),
+        },
+        endpoints: Cow::Borrowed(&[Cow::Borrowed(
+            "https://geodienste.leipzig.de/l3/OpenData/Baeume/wfs",
+        )]),
+        fields: TreeFields {
+            kind: Cow::Borrowed("gattung"),
+            id: Cow::Borrowed("baumnummer"),
+            date: None,
+            species: Some(Cow::Borrowed("ga_lang_deutsch")),
+            crown: Some(Cow::Borrowed("kr_durchm")),
+            gone: Some(Cow::Borrowed("gefaellt_am")),
+        },
+        skipped_kinds: Cow::Borrowed(&[]),
+        attribution: Cow::Borrowed("WFS city"),
+        max_bytes: MAX_ANSWER_BYTES,
+    };
+
+    /// A Leipzig answer (2026-11-15): a maple, and a felled tree.
+    const WFS_ANSWER: &str = r#"{"type":"FeatureCollection","numberMatched":2,"numberReturned":2,
+        "crs":{"type":"name","properties":{"name":"urn:ogc:def:crs:EPSG::25833"}},"features":[
+        {"type":"Feature","geometry":{"type":"Point","coordinates":[316919.01,5691016.99]},
+         "properties":{"baumnummer":"G4519","gattung":"Acer","ga_lang_deutsch":"Feld-Ahorn","kr_durchm":1.5,"gefaellt_am":null}},
+        {"type":"Feature","geometry":{"type":"Point","coordinates":[316950.0,5691020.0]},
+         "properties":{"baumnummer":"G4520","gattung":"Tilia","ga_lang_deutsch":"Winter-Linde","kr_durchm":8,"gefaellt_am":"2025-03-01"}}]}"#;
+
+    #[test]
+    fn a_wfs_answer_in_its_crs_is_read_without_the_felled_trees() {
+        let answer = parse_trees(WFS_ANSWER, &WFS_CITY, Crs::Utm33).unwrap();
+        assert!(answer.skipped.is_empty(), "{:?}", answer.skipped);
+        assert_eq!(answer.features.len(), 1);
+        let maple = &answer.features[0];
+        assert_eq!(maple["id"], "G4519");
+        assert_eq!(
+            maple["geometry"]["coordinates"],
+            json!([316_919.01, 5_691_016.99])
+        );
+        assert_eq!(maple["properties"]["tree_crown_m"], 1.5);
+        assert_eq!(maple["properties"]["tree_species"], "Feld-Ahorn");
+        // A cut answer is refused: the area is too large for one request.
+        let cut = WFS_ANSWER.replace(r#""numberMatched":2"#, r#""numberMatched":5"#);
+        let err = parse_trees(&cut, &WFS_CITY, Crs::Utm33).unwrap_err();
+        assert!(err.message.contains("2 of 5"), "{}", err.message);
+    }
+
+    #[test]
+    fn a_wfs_answer_in_wgs84_is_projected() {
+        // Kiel's server answers lon/lat whatever is asked, and names no CRS.
+        let kiel = r#"{"type":"FeatureCollection","features":[{"type":"Feature",
+            "geometry":{"type":"Point","coordinates":[10.14678061,54.33031936]},
+            "properties":{"baumnummer":100092167,"gattung":"Cupressus"}}]}"#;
+        let answer = parse_trees(kiel, &WFS_CITY, Crs::Utm32).unwrap();
+        let [e, n] = [0, 1].map(|i| {
+            answer.features[0]["geometry"]["coordinates"][i]
+                .as_f64()
+                .unwrap()
+        });
+        assert!(
+            (574_000.0..576_000.0).contains(&e) && (6_020_000.0..6_022_000.0).contains(&n),
+            "{e} {n}"
+        );
+        assert_eq!(answer.features[0]["id"], "100092167");
+    }
+
+    #[test]
+    fn the_wfs_url_asks_the_box_in_the_crs_of_the_dataset() {
+        // The Leipzig box above in EPSG:25833, the CRS of the dataset too.
+        let bbox = BoundingBox {
+            min_e: 316_800.0,
+            min_n: 5_690_700.0,
+            max_e: 317_300.0,
+            max_n: 5_691_200.0,
+        };
+        assert_eq!(
+            WFS_CITY.url(&WFS_CITY.endpoints[0], &bbox).unwrap(),
+            "https://geodienste.leipzig.de/l3/OpenData/Baeume/wfs?SERVICE=WFS&VERSION=2.0.0\
+             &REQUEST=GetFeature&TYPENAMES=OpenData:Baeume&SRSNAME=urn:ogc:def:crs:EPSG::25833\
+             &BBOX=316799,5690699,317301,5691201,urn:ogc:def:crs:EPSG::25833&COUNT=100000\
+             &OUTPUTFORMAT=application/json"
+        );
+        // An endpoint with a query of its own gets the parameters after it.
+        let url = WFS_CITY
+            .url("https://example.org/ogc.ashx?NodeId=1633", &bbox)
+            .unwrap();
+        assert!(
+            url.starts_with("https://example.org/ogc.ashx?NodeId=1633&SERVICE=WFS&"),
+            "{url}"
+        );
     }
 }

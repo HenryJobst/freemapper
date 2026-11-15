@@ -4,16 +4,16 @@ format = 1
 [adapter]
 id = "brandenburg"
 provider = "lgb"
-revision = 1
+revision = 2
 min_freemapper = "0.13.0"
 crs = 25833
 object_id_prefix = "DEBB"
 names = { en = "Brandenburg", de = "Brandenburg" }
 maintainers = ["github:HenryJobst"]
-last_verified = "2026-11-12"
+last_verified = "2026-11-15"
 
 [net]
-hosts = ["ogc-api.geobasis-bb.de", "data.geobasis-bb.de", "isk.geobasis-bb.de", "opendata.potsdam.de", "www.brandenburg-forst.de", "gis-bldam-brandenburg.de", "inspire.brandenburg.de"]
+hosts = ["ogc-api.geobasis-bb.de", "data.geobasis-bb.de", "isk.geobasis-bb.de", "opendata.potsdam.de", "www.brandenburg-forst.de", "gis-bldam-brandenburg.de", "inspire.brandenburg.de", "geoportal.frankfurt-oder.de"]
 
 [boundary]
 file = "boundary.geojson"
@@ -64,6 +64,21 @@ endpoints = [
 fields = { kind = "ggartbez", id = "pktnr", date = "datum" }
 skipped_kinds = ["Baumstumpf"]
 attribution = "Landeshauptstadt Potsdam / Bäume der Stadtkarte, dl-de/zero-2-0"
+max_bytes = 268435456
+
+[[extra.trees]]
+id = "frankfurt-oder"
+name = "Frankfurt (Oder) tree cadastre"
+crs = 25833
+envelope = [460000, 5791000, 471000, 5805000]
+format = "wfs-geojson"
+type_name = "ffo:Baeume"
+output_format = "GEOJSON"
+endpoints = [
+    "https://geoportal.frankfurt-oder.de/wss/service/WFS_Baumkataster/guest",
+]
+fields = { kind = "GATTUNG", id = "BAUMNUMMER", species = "GA_LANG", crown = "KR_DURCHM" }
+attribution = "Quelle: © GeoDaten-KVA / Stadt Frankfurt (Oder), dl-de/by-2-0"
 max_bytes = 268435456
 
 [preview]

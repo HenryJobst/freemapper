@@ -208,12 +208,14 @@ At most 32: the tree cadastres of cities, read from an Opendatasoft GeoJSON expo
 | `name` | text | yes | At most 80. |
 | `crs` | whole number | no | Default: `[adapter] crs`. |
 | `envelope` | list of four numbers | yes | The extent of the data in `crs`. |
-| `format` | text | yes | `ods-geojson-export` (an OpenDataSoft export, asked by a position field) or `ogc-api` (the items of an OGC API Features collection, asked with a box in CRS84, 10 000 per page, further pages by their `next` links; a Point or a MultiPoint of one point) or `csv` (one file for the whole city, read whole and cut to the area: a header row, no quoting, decimal commas or points). |
+| `format` | text | yes | `ods-geojson-export` (an OpenDataSoft export, asked by a position field) or `ogc-api` (the items of an OGC API Features collection, asked with a box in CRS84, 10 000 per page, further pages by their `next` links; a Point or a MultiPoint of one point) or `csv` (one file for the whole city, read whole and cut to the area: a header row, no quoting, decimal commas or points) or `wfs-geojson` (a WFS asked for `type_name` in the box of the area with `OUTPUTFORMAT=<output_format>` and up to 100 000 features; GeoJSON in the CRS its `crs` member names, lon/lat without one; a cut answer is refused). |
 | `geo_field` | field | for `ods-geojson-export` | The field with the position. Not with the other formats. |
 | `x_field`, `y_field` | field | for `csv` | The columns of the easting and the northing, in `crs`. Not with the other formats. |
 | `separator` | text | for `csv` | The one character between the values, such as `;`. Not with the other formats. |
+| `type_name` | text | for `wfs-geojson` | The feature type, such as `OpenData:Baeume`. Not with the other formats. |
+| `output_format` | text | for `wfs-geojson` | The output format the server names for GeoJSON, such as `application/json` or `GEOJSON`. Not with the other formats. |
 | `endpoints` | list of URLs | yes | 1 to 8. |
-| `fields` | table | yes | `kind`, `id` (both required), `date`, `species`, `crown`: the names of the fields. Without `date`, the fetch date is the currency of the trees. |
+| `fields` | table | yes | `kind`, `id` (both required), `date`, `species`, `crown`, `gone`: the names of the fields. Without `date`, the fetch date is the currency of the trees. A tree with a value in `gone` (such as the date it was felled) is left out. |
 | `skipped_kinds` | list of texts | no | Kinds that are no trees; at most 16. |
 | `attribution` | text | yes | The credit of the cadastre, at most 400, with `{year}` at most once. |
 | `max_bytes` | whole number | yes | 1 to 268 435 456. |

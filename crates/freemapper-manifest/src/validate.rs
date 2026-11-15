@@ -1728,7 +1728,7 @@ impl Check<'_> {
     /// two columns. A position key the format does not use is refused.
     fn tree_format(&mut self, trees: &RawTrees) -> Option<TreeFormat> {
         let format = trees.format.get_ref().as_str();
-        let keys: [(&str, &Option<Text>, bool); 4] = [
+        let keys: [(&str, &Option<Text>, bool); 6] = [
             (
                 "geo_field",
                 &trees.geo_field,
@@ -1737,13 +1737,22 @@ impl Check<'_> {
             ("x_field", &trees.x_field, format == "csv"),
             ("y_field", &trees.y_field, format == "csv"),
             ("separator", &trees.separator, format == "csv"),
+            ("type_name", &trees.type_name, format == "wfs-geojson"),
+            (
+                "output_format",
+                &trees.output_format,
+                format == "wfs-geojson",
+            ),
         ];
-        if !matches!(format, "ods-geojson-export" | "ogc-api" | "csv") {
+        if !matches!(
+            format,
+            "ods-geojson-export" | "ogc-api" | "csv" | "wfs-geojson"
+        ) {
             self.fail(
                 "manifest.kind",
                 &trees.format.span(),
                 "extra.trees.format",
-                "a tree cadastre is read as `ods-geojson-export`, `ogc-api` or `csv`",
+                "a tree cadastre is read as `ods-geojson-export`, `ogc-api`, `csv` or `wfs-geojson`",
             );
             return None;
         }
@@ -1788,6 +1797,31 @@ impl Check<'_> {
                 geo_field: Cow::Owned(field(self, &trees.geo_field, "geo_field")?),
             },
             "ogc-api" => TreeFormat::OgcApiItems,
+            "wfs-geojson" => {
+                let type_name = self.matching(
+                    trees.type_name.as_ref()?,
+                    "extra.trees.type_name",
+                    "manifest.value",
+                    |text| is_field(text.replace(':', "_").as_str()),
+                    "a feature type, such as `OpenData:Baeume`",
+                );
+                let output_format = self.matching(
+                    trees.output_format.as_ref()?,
+                    "extra.trees.output_format",
+                    "manifest.value",
+                    |text| {
+                        (1..=40).contains(&text.len())
+                            && text
+                                .bytes()
+                                .all(|b| b.is_ascii_alphanumeric() || b"/+-.;=".contains(&b))
+                    },
+                    "an output format, such as `application/json` or `GEOJSON`",
+                );
+                TreeFormat::WfsGeoJson {
+                    type_name: Cow::Owned(type_name?),
+                    output_format: Cow::Owned(output_format?),
+                }
+            }
             _ => {
                 let x_field = field(self, &trees.x_field, "x_field");
                 let y_field = field(self, &trees.y_field, "y_field");
@@ -1874,6 +1908,10 @@ impl Check<'_> {
                 Some(crown) => name_of(self, crown, "crown").map(Some),
                 None => Some(None),
             };
+            let gone = match &trees.fields.gone {
+                Some(gone) => name_of(self, gone, "gone").map(Some),
+                None => Some(None),
+            };
             let mut skipped_kinds = Some(Vec::new());
             if trees.skipped_kinds.len() > 16 {
                 self.fail(
@@ -1912,6 +1950,7 @@ impl Check<'_> {
                         date: date?,
                         species: species?,
                         crown: crown?,
+                        gone: gone?,
                     },
                     skipped_kinds: skipped_kinds?,
                     attribution: attribution?,

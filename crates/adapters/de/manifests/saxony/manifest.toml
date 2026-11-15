@@ -4,16 +4,16 @@ format = 1
 [adapter]
 id = "saxony"
 provider = "geosn"
-revision = 1
+revision = 2
 min_freemapper = "0.13.0"
 crs = 25833
 object_id_prefix = "DESN"
 names = { en = "Saxony", de = "Sachsen" }
 maintainers = ["github:HenryJobst"]
-last_verified = "2026-11-12"
+last_verified = "2026-11-15"
 
 [net]
-hosts = ["geodienste.sachsen.de", "geocloud.landesvermessung.sachsen.de", "www.forsten.sachsen.de", "geoportal.bafg.de", "cardomap3.idu.de", "luis.sachsen.de"]
+hosts = ["geodienste.sachsen.de", "geocloud.landesvermessung.sachsen.de", "www.forsten.sachsen.de", "geoportal.bafg.de", "cardomap3.idu.de", "luis.sachsen.de", "geodienste.leipzig.de"]
 
 [boundary]
 file = "boundary.geojson"
@@ -45,6 +45,21 @@ backend = "geosn"
 
 [surface]
 backend = "geosn"
+
+[[extra.trees]]
+id = "leipzig"
+name = "Leipzig tree cadastre"
+crs = 25833
+envelope = [307000, 5680000, 329000, 5703000]
+format = "wfs-geojson"
+type_name = "OpenData:Baeume"
+output_format = "application/json"
+endpoints = [
+    "https://geodienste.leipzig.de/l3/OpenData/Baeume/wfs",
+]
+fields = { kind = "gattung", id = "baumnummer", species = "ga_lang_deutsch", crown = "kr_durchm", gone = "gefaellt_am" }
+attribution = "Stadt Leipzig, Baumkataster, dl-de/by-2-0"
+max_bytes = 268435456
 
 [preview]
 wms = "https://geodienste.sachsen.de/wms_geosn_dop-rgb/guest"

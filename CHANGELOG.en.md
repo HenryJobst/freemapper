@@ -8,6 +8,7 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ### Added
 
+- Tree cadastres of Leipzig, Frankfurt (Oder), Kiel and Norderstedt (ADR 0065). A tree cadastre can now be a WFS that answers GeoJSON (`[[extra.trees]] format = "wfs-geojson"` with `type_name` and `output_format`), and `fields.gone` names a field that leaves felled trees out.
 - Schleswig-Holstein: the tree cadastre of the Hansestadt Lübeck (ADR 0065). A tree cadastre can now be one CSV file of the whole city (`[[extra.trees]] format = "csv"` with `x_field`, `y_field` and `separator`); freemapper downloads it whole and cuts it to the area. In the old town of Lübeck 384 trees go onto the map and 43 to the candidates, in place of the OpenStreetMap trees at the same places. The example is rebuilt.
 - Hamburg: the street tree cadastre with genus, species and crown diameter (ADR 0065). A tree cadastre can now be an OGC API collection (`[[extra.trees]] format = "ogc-api"`, paged by `next` links), and its survey date is optional. In Blankenese 13 street trees go onto the map and 4 to the candidates, in place of the OpenStreetMap trees at the same places. The example is rebuilt.
 - Permit notes: natural monuments and protected landscape features from Rhineland-Palatinate, from the nature conservation service of the Landesamt für Umwelt (Open Database License, ADR 0146, addendum).

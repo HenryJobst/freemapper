@@ -322,7 +322,12 @@ mod tests {
             );
             assert_eq!(
                 adapter.tree_datasets().len(),
-                usize::from(brandenburg || ["hamburg", "schleswigholstein"].contains(&id)),
+                match id {
+                    "brandenburg" => 2,
+                    "hamburg" | "saxony" => 1,
+                    "schleswigholstein" => 3,
+                    _ => 0,
+                },
                 "{}",
                 adapter.info().id
             );
@@ -331,7 +336,15 @@ mod tests {
             trees::all_tree_datasets()
                 .map(|dataset| dataset.id.as_ref())
                 .collect::<Vec<_>>(),
-            ["potsdam", "hamburg-strassenbaeume", "luebeck"]
+            [
+                "potsdam",
+                "frankfurt-oder",
+                "leipzig",
+                "hamburg-strassenbaeume",
+                "luebeck",
+                "kiel",
+                "norderstedt"
+            ]
         );
         // Sanssouci, Potsdam, and the Zwinger, Dresden (EPSG:25833).
         let sanssouci = BoundingBox {

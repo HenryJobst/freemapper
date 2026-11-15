@@ -1495,6 +1495,15 @@ pub(crate) mod test_support {
         fetcher: &MapFetcher,
         bbox: &crate::crs::BoundingBox,
     ) {
+        // The tree cadastre of Norderstedt (ADR 0065): one oak, as its WFS answers.
+        fetcher.insert_prefix(
+            "https://geoservice.norderstedt.de/geoserver/gru/wfs?SERVICE=WFS&",
+            br#"{"type":"FeatureCollection","numberMatched":1,"numberReturned":1,
+                "crs":{"type":"name","properties":{"name":"urn:ogc:def:crs:EPSG::25832"}},
+                "features":[{"type":"Feature","geometry":{"type":"Point","coordinates":[563711.25,5948235.29]},
+                "properties":{"baumnr":"00005","art_de":"Stiel-Eiche, Sommer-Eiche","art_bot":"Quercus robur","kronenm":19}}]}"#
+                .to_vec(),
+        );
         // The landscape model of the LVermGeo SH (ADR 0135).
         serve_empty_nas(
             fetcher,

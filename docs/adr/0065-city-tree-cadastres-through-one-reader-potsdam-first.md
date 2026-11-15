@@ -68,3 +68,18 @@ fetch is less than the OSM extract; a cached copy by `Last-Modified` would save 
 planting spots (`Fehlplatz`) are skipped kinds. The tree numbers start again in every street (`1` comes 1 039
 times), so a tree is one by its number and position, as the fetch already counts it; `freemapper:source_id`
 repeats. The cadastre has neither a crown nor a survey date.
+
+## Addendum 2026-11-15: four cities from a WFS
+
+Leipzig (`OpenData:Baeume`, dl-de/by-2-0), Frankfurt (Oder) (`ffo:Baeume`, dl-de/by-2-0), Kiel (`lhkiel:Baeume`,
+CC BY 4.0) and Norderstedt (`gru:gruen_baum`, dl-de/by-2-0) serve their trees as a WFS that answers GeoJSON.
+They bring the format `wfs-geojson` (`TreeFormat::WfsGeoJson` with `type_name` and `output_format`): one
+GetFeature in the box of the area, in the CRS of the dataset, with `COUNT=100000`. The servers differ in two
+ways the reader takes from the answer, not from the manifest: the servers of Leipzig and Norderstedt answer in
+the CRS asked and name it in the `crs` member, the ArcGIS servers of Kiel and Frankfurt (Oder) answer lon/lat
+(Kiel without a `crs` member, Frankfurt (Oder) as `EPSG:4326` unless asked for 25833); and the ArcGIS servers name
+their GeoJSON `GEOJSON`, the others `application/json`. An answer cut at the cap (`numberMatched` above
+`numberReturned`, or 100 000 features without `numberMatched`) is refused; a box of 6 by 6 km gave 27 901 trees in
+Kiel and 24 837 in Frankfurt (Oder), with no silent cap. Leipzig keeps felled trees with their date in
+`gefaellt_am`: the new optional `fields.gone` names such a field, and a tree with a value there is left out.
+Dresden's WFS answers no GeoJSON and is left out. None of the examples lies in these cities.
