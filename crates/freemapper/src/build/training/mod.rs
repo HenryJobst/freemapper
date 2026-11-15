@@ -437,6 +437,17 @@ fn give_way(
                 if pieces.len() == 1 && pieces[0] == *object {
                     Vec::new()
                 } else {
+                    let mut names: Vec<&str> = winners
+                        .iter()
+                        .map(|&w| class_name(footprints.class(w)))
+                        .collect();
+                    names.sort_unstable();
+                    names.dedup();
+                    let why = format!("{CUT_GAP_TO}{}", names.join(", "));
+                    let mut pieces = pieces;
+                    for piece in &mut pieces {
+                        add_generalized(piece, &why);
+                    }
                     pieces
                 }
             };
@@ -456,6 +467,31 @@ fn give_way(
         }
     }
     (dropped, cut)
+}
+
+/// The beginning of the `freemapper:generalized` value of a piece cut by give way; the classes it
+/// keeps the gap to follow.
+const CUT_GAP_TO: &str = "cut: gap to ";
+
+/// The name of `class` in the `freemapper:generalized` value of a cut piece.
+fn class_name(class: Class) -> &'static str {
+    match class {
+        Class::Building => "building",
+        Class::WaterArea => "water area",
+        Class::BankLine => "bank line",
+        Class::Railway => "railway",
+        Class::Road => "road",
+        Class::Path => "path",
+        Class::Watercourse => "watercourse",
+        Class::Stairway => "stairway",
+        Class::Barrier => "barrier",
+        Class::Cliff => "cliff",
+        Class::EarthBank => "earth bank",
+        Class::Contour => "contour",
+        Class::Point => "point symbol",
+        Class::OtherArea => "area",
+        Class::Other => "other",
+    }
 }
 
 /// Walls (513, passable or not, 515) and impassable fences (518): a runner meets them as they
@@ -591,7 +627,8 @@ const STAIR_AS_PATH: &str = "stair below the minimum drawn as path";
 /// when one of its ends meets a line long enough, and two short pieces do not keep each other.
 /// A stairway below its minimum stays only when both ends continue on a road or path that
 /// stays; it is then drawn with the symbol of the longest of them, its geometry and tags kept
-/// and `freemapper:generalized` added. A short stairway that does not goes, and what continued
+/// and `freemapper:generalized` added, unless a barrier runs along it ([`barrier_along`]): then
+/// it stays a stairway. A short stairway that does not goes, and what continued
 /// only on it is judged again without it. An area of [`MIN_AREA_CODES`] below its minimum area
 /// goes. Comparisons are tolerant by [`TOLERANCE_MM`]. Returns how many went.
 fn drop_too_small(
@@ -697,6 +734,17 @@ fn drop_too_small(
                 })?;
             Some((i, objects[way].symbol_id))
         })
+        .filter(|&(i, symbol_id)| {
+            !barrier_along(
+                objects,
+                i,
+                symbol_id,
+                classes,
+                kind,
+                scale_denominator,
+                symbol_set,
+            )
+        })
         .collect();
     let tolerance_m = PaperMm(TOLERANCE_MM).metres(scale_denominator);
     let too_small: Vec<bool> = (0..objects.len())
@@ -728,8 +776,62 @@ fn drop_too_small(
     before - objects.len()
 }
 
+/// Whether a barrier runs along the stairway `objects[stair]` so close that, drawn with the path
+/// symbol `symbol_id`, the stairway would keep no gap to it: a stairway and a barrier may touch
+/// (ISSprOM 2019-2, 532), a path and a barrier may not.
+fn barrier_along(
+    objects: &[MapObject],
+    stair: usize,
+    symbol_id: u32,
+    classes: &Classes,
+    kind: MapKind,
+    scale_denominator: u32,
+    symbol_set: &SymbolSet,
+) -> bool {
+    let as_path = MapObject {
+        symbol_id,
+        ..objects[stair].clone()
+    };
+    let frame = |o: &MapObject| -> Option<Rect<f64>> {
+        let xs = o.coords.iter().map(|c| f64::from(c.x));
+        let ys = o.coords.iter().map(|c| f64::from(c.y));
+        Some(Rect::new(
+            Coord {
+                x: xs.clone().reduce(f64::min)?,
+                y: ys.clone().reduce(f64::min)?,
+            },
+            Coord {
+                x: xs.reduce(f64::max)?,
+                y: ys.reduce(f64::max)?,
+            },
+        ))
+    };
+    let Some(own) = frame(&as_path) else {
+        return false;
+    };
+    // Far enough for every symbol width and the gap.
+    let reach = PaperMm(2.0).map_units();
+    let mut near: Vec<&MapObject> = vec![&as_path];
+    near.extend(objects.iter().enumerate().filter_map(|(j, o)| {
+        let f = frame(o)?;
+        let close = f.min().x <= own.max().x + reach
+            && f.max().x >= own.min().x - reach
+            && f.min().y <= own.max().y + reach
+            && f.max().y >= own.min().y - reach;
+        (j != stair && close && classes.class(o.symbol_id) == Class::Barrier).then_some(o)
+    }));
+    if near.len() == 1 {
+        return false;
+    }
+    conflicts(&Footprints::of(&near, symbol_set), kind, scale_denominator)
+        .iter()
+        .any(|c| {
+            (c.loser == 0 || c.winner == 0) && relation(c.classes.0, c.classes.1) == Relation::Apart
+        })
+}
+
 /// Adds `value` to the `freemapper:generalized` tag of `object`.
-fn add_generalized(object: &mut MapObject, value: &str) {
+pub(super) fn add_generalized(object: &mut MapObject, value: &str) {
     match object.tags.iter_mut().find(|(k, _)| k == GENERALIZED_KEY) {
         Some((_, v)) => {
             v.push_str("; ");
@@ -954,6 +1056,13 @@ mod tests {
         assert_eq!(fences.len(), 1, "{out:?}");
         assert!((length_mm(fences[0]) - 12.0).abs() < 1.0, "{out:?}");
         assert_eq!(report.cut, 1, "{report:?}");
+        assert!(
+            fences[0]
+                .tags
+                .contains(&(GENERALIZED_KEY.into(), "cut: gap to path".into())),
+            "{:?}",
+            fences[0].tags
+        );
     }
 
     #[test]
@@ -1189,6 +1298,30 @@ mod tests {
         assert_eq!(of_code(&set, &out, "505").len(), 1, "{out:?}");
         assert!((length_mm(&out[0]) - 20.0).abs() < 1e-9, "{out:?}");
         assert_eq!((report.too_small, report.joined), (0, 2), "{report:?}");
+    }
+
+    #[test]
+    fn a_short_stair_along_a_fence_is_not_drawn_as_path() {
+        // The fence runs along the stair and turns away before the paths: as a stair the two
+        // may touch (ISSprOM 532), as a path they would keep no gap.
+        let set = isom();
+        let stair = line(&set, "532", &[(10.0, 0.0), (11.2, 0.0)]);
+        let fence = line(
+            &set,
+            "518",
+            &[(10.0, 5.0), (10.0, 0.3), (11.2, 0.3), (11.2, 5.0)],
+        );
+        let objects = vec![
+            line(&set, "505", &[(0.0, 0.0), (10.0, 0.0)]),
+            stair.clone(),
+            line(&set, "505", &[(11.2, 0.0), (20.0, 0.0)]),
+            fence.clone(),
+        ];
+        let (out, report) = run(&set, objects);
+        assert_eq!(of_code(&set, &out, "532"), vec![&stair], "{out:?}");
+        assert_eq!(of_code(&set, &out, "518"), vec![&fence], "{out:?}");
+        assert_eq!(of_code(&set, &out, "505").len(), 2, "{out:?}");
+        assert_eq!(report.apart_left, 0.0, "{report:?}");
     }
 
     #[test]

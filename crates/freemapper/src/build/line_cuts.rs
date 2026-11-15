@@ -36,8 +36,9 @@ pub const MIN_PIECE_MM: PaperMm = PaperMm(1.0);
 /// small knoll, small elongated knoll, small depression, pit or hole, prominent landform
 /// feature. The stairways come by [`stair_footprints`].
 pub const CONTOUR_CUT_OUT_CODES: [&str; 6] = ["105", "109", "110", "111", "112", "115"];
-/// The earth wall of ISOM 2017-2, which the contours cross (ISOM 2017-2, 2.11.3): on a forest
-/// map it is no small earth wall and is not cut out.
+/// The earth wall of ISOM 2017-2, which the contours cross (ISOM 2017-2, 2.11.3 Graphical minimum
+/// dimensions, "Minimum gaps": "Crossings, such as Contours (101) and Earth walls (105, 106)"):
+/// on a forest map it is no small earth wall and is not cut out.
 const ISOM_EARTH_WALL_CODE: &str = "105";
 
 /// Where the contours are cut out (ISSprOM 2019-2, 101): the drawn extent of the small

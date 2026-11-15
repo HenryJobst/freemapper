@@ -10,7 +10,7 @@ use geo::{
 };
 use geo_types::{Coord, LineString, MultiPolygon, Point, Polygon, Rect};
 
-use super::{in_map_units, is_closed, min_length};
+use super::{add_generalized, in_map_units, is_closed, min_length};
 use crate::build::conflicts::{Class, Classes, TOLERANCE_MM};
 use crate::build::dedup::tag_holds;
 use crate::build::geometry::{distance_to_segment, object_polygon, xy};
@@ -27,6 +27,8 @@ use crate::render::geometry::parts;
 pub const OLIVE_EDGE_MM: PaperMm = PaperMm(0.4);
 /// The beginning drawn of a way that allows no crossing: this, or the symbol's minimum length if longer.
 pub const WAY_STUB_MM: PaperMm = PaperMm(1.0);
+/// The `freemapper:generalized` value of a piece [`clear_olive`] cut.
+const CUT_INSIDE: &str = "cut: inside olive green";
 /// Area that shall not be entered: the olive green of [`clear_olive`].
 pub(super) const OLIVE_CODE: &str = "520";
 /// Canopy: roofs, carports and the passages through buildings.
@@ -45,9 +47,10 @@ const OSM_PASSAGES: [&str; 2] = ["tunnel=building_passage", "covered=*"];
 /// [`OLIVE_EDGE_MM`] of its edge is on the edge and stays, so the step works on the union shrunk
 /// by that much ([`Inner`]). Text, sheet objects, north lines, buildings, water, watercourses,
 /// contours, railways, the olive green itself and the canopies stay. Areas lose their part
-/// inside; pieces below the minimum of [`open_ground`](super::open_ground) go. Points inside go. The other lines are
-/// cut; pieces below their minimum length go. Ways follow [`olive_ways`]. A passage through a
-/// building ([`is_passage`]) that reaches inside goes unless a way that stays runs through it.
+/// inside; pieces below the minimum of [`open_ground`](super::open_ground) go. Points inside go.
+/// The other lines are cut; pieces below their minimum length go. Ways follow [`olive_ways`]. A
+/// passage through a building ([`is_passage`]) that reaches inside goes unless a way that stays
+/// runs through it. A piece that was cut gets `freemapper:generalized` [`CUT_INSIDE`].
 /// Returns how many objects went or were cut.
 pub(super) fn clear_olive(
     objects: &mut Vec<MapObject>,
@@ -186,7 +189,12 @@ pub(super) fn clear_olive(
     let before = std::mem::take(objects);
     for (i, object) in before.into_iter().enumerate() {
         match replaced.remove(&i) {
-            Some(pieces) => objects.extend(pieces),
+            Some(pieces) => objects.extend(pieces.into_iter().map(|mut piece| {
+                if piece != object {
+                    add_generalized(&mut piece, CUT_INSIDE);
+                }
+                piece
+            })),
             None => objects.push(object),
         }
     }
@@ -1050,6 +1058,14 @@ mod tests {
             (area_mm2(open[0]) - 104.0).abs() < 0.1,
             "{}",
             area_mm2(open[0])
+        );
+        assert!(
+            open[0].tags.contains(&(
+                "freemapper:generalized".into(),
+                "cut: inside olive green".into()
+            )),
+            "{:?}",
+            open[0].tags
         );
     }
 

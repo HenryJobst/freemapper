@@ -23,6 +23,12 @@ pub const MAX_SHIFT_MM: PaperMm = PaperMm(0.5);
 /// off at every scale freemapper writes (at most 1.24 mm: a 417 centred on a 505 at ISOM
 /// 1:10 000), and the point is still moved to the nearest spot that frees it.
 pub const MAX_POINT_SHIFT_MM: PaperMm = PaperMm(1.5);
+/// The point symbols that are never moved: the landforms (109 small knoll, 110 small elongated
+/// knoll, 111 small depression, 112 pit or hole, 115 prominent landform feature, and 105, which
+/// the bundled sets draw as a line), which belong where the contours have them, and the spring
+/// (312), which belongs at the start of its stream. They stay where they are, for give way to drop where they keep no
+/// gap, and the other points keep the gap to them.
+const FIXED_CODES: [&str; 7] = ["105", "109", "110", "111", "112", "115", "312"];
 /// The `freemapper:moved` value of a point moved off on the training map.
 pub const MOVED: &str = "gap to the symbols round it (training map)";
 
@@ -82,8 +88,8 @@ struct Obstacles<'a> {
 /// earlier object: the points go by the extent of their symbol, the largest first, then by
 /// index, and each keeps the gap to the points before it where they now stand. A point that
 /// finds no spot stays where it is, for the give-way step to drop, and is no obstacle to the
-/// points after it. The symbol of a point is the disc round its centre that holds its
-/// footprint. Returns how many points moved.
+/// points after it. The points of [`FIXED_CODES`] are not moved. The symbol of a point is the
+/// disc round its centre that holds its footprint. Returns how many points moved.
 pub(super) fn move_points(
     objects: &mut [MapObject],
     classes: &Classes,
@@ -112,8 +118,15 @@ pub(super) fn move_points(
         points.iter().map(|&k| objects[chosen[k]].symbol_id),
         symbol_set,
     );
+    let fixed = |i: usize| {
+        symbol_set
+            .code_for_id(objects[i].symbol_id)
+            .and_then(|code| code.split('.').next())
+            .is_some_and(|base| FIXED_CODES.contains(&base))
+    };
     let mut order: Vec<(f64, usize, usize)> = points
         .iter()
+        .filter(|&&k| !fixed(chosen[k]))
         .filter_map(|&k| {
             let i = chosen[k];
             Some((*extent.get(&objects[i].symbol_id)?, i, k))
@@ -139,18 +152,30 @@ pub(super) fn move_points(
         .collect();
     let obstacles = Obstacles { walls, olive };
     let gap = gap(kind, georef.scale_denominator).0;
-    let mut placed: Vec<Disc> = Vec::new();
-    let mut shifts: Vec<(usize, (i32, i32))> = Vec::new();
-    for (_, i, k) in order {
-        let at = objects[i].coords[0];
+    let disc = |k: usize| {
+        let at = objects[chosen[k]].coords[0];
         let centre = Coord {
             x: f64::from(at.x) / 1000.0,
             y: f64::from(at.y) / 1000.0,
         };
-        let Some(radius) = radius(footprints.footprint(k), centre) else {
+        Some(Disc {
+            centre,
+            radius: radius(footprints.footprint(k), centre)?,
+        })
+    };
+    // The points that stay where they are come first: the others keep the gap to them.
+    let mut placed: Vec<Disc> = points
+        .iter()
+        .filter(|&&k| fixed(chosen[k]))
+        .filter_map(|&k| disc(k))
+        .collect();
+    let mut shifts: Vec<(usize, (i32, i32))> = Vec::new();
+    for (_, i, k) in order {
+        let at = objects[i].coords[0];
+        let Some(point) = disc(k) else {
             continue;
         };
-        let point = Disc { centre, radius };
+        let radius = point.radius;
         let Some(offset) = spot(point, &obstacles, &placed, gap) else {
             continue;
         };
@@ -739,6 +764,28 @@ mod tests {
         assert!(moved < 0.8, "{moved}: {:?}", mm(tree[0]));
         assert_eq!(report.points_moved, 1, "{report:?}");
         assert_eq!(apart(&set, MapKind::Forest, SCALE, &out), 0, "{out:?}");
+    }
+
+    #[test]
+    fn landforms_and_springs_are_not_moved() {
+        // A knoll or a spring belongs where the contours and the stream put it: it stays, and
+        // give way drops it where it keeps no gap.
+        let set = isom();
+        let path = line(&set, "505", &[(0.0, 0.0), (40.0, 0.0)]);
+        for code in ["109", "110", "111", "112", "115", "312"] {
+            let Some(_) = set.id_for_code(code) else {
+                continue;
+            };
+            let near = point(&set, code, (20.0, 0.3));
+            let (out, report) = run(&set, vec![path.clone(), near.clone()]);
+            assert_eq!(report.points_moved, 0, "{code}: {report:?}");
+            assert!(out.iter().all(|o| !is_moved(o)), "{code}: {out:?}");
+            assert!(
+                of_code(&set, &out, code).iter().all(|o| **o == near),
+                "{code}: {out:?}"
+            );
+            assert_eq!(report.apart_left, 0.0, "{code}: {report:?}");
+        }
     }
 
     #[test]

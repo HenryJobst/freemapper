@@ -1,6 +1,6 @@
 # Training map, clean base map and candidate layers (design)
 
-Status: design, 2026-11-14, waits for the user's approval. The user asked for it on 2026-11-14 after looking at
+Status: Accepted, first half built 2026-11-15. The user asked for it on 2026-11-14 after looking at
 the forest example Bremen Bürgerpark, where symbols are drawn on top of each other in heaps.
 
 ## Intent
@@ -41,7 +41,8 @@ The user's decisions (2026-11-14):
 10. Contours follow the norm on every map: they run as continuous lines through all symbols, buildings, water,
     ways and paved areas among them, and are cut out only where the norm says so (stairs and the small landform
     symbols). This takes back the contour cut at ways of ADR 0097, which the norm does not cover.
-11. On the training map no single tree is drawn on a path; such a tree is shifted minimally.
+11. On the training map no single tree is drawn on a path; such a tree is shifted minimally, by at most 1.5 mm on
+    paper (the bound of a point symbol; a line moves by at most 0.5 mm).
 12. Street furniture (lamps, waste baskets, bicycle stands: the x of symbol 531) stays on the training map
     only away from street and square areas.
 13. Inside a street area the kerb lines go; the carriageway gets the darker brown for heavy traffic, the
@@ -245,9 +246,10 @@ their `freemapper:hidden=generalized` kept them out of the old training map and 
      the shorter goes; objects below the norm's minimum size go; points are thinned as today (ADR 0066).
   2. *Shift.* What is still inside the gap of an object of another kind is moved off by what is missing to the
      gap, the lower-ranked object moving (an earth bank beside a ditch, a fence beside a path, a point beside a
-     wall as in `build/barrier_gaps.rs`). A shift stays within bounds: at most 0.5 mm on paper (5 m on the
-     ground at 1:10 000, 2 m at 1:4000; Claude's ruling, to be tightened if the norm gives a value), and a
-     line keeps its shape.
+     wall as in `build/barrier_gaps.rs`). A shift stays within bounds: a line at most 0.5 mm on paper (5 m on
+     the ground at 1:10 000, 2 m at 1:4000; Claude's ruling, to be tightened if the norm gives a value), and it
+     keeps its shape; a point symbol at most 1.5 mm, which covers its own radius, the gap and half the widest
+     way it is moved off.
   3. *Generalize where shifting fails.* Where the room is not there within the bound, or the shifted object
      would come inside the gap of a third one, it is not shifted: the stretch is cut out, or the object dropped
      when more than half of it is affected. A shift never makes a new conflict.

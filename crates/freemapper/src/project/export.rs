@@ -700,7 +700,8 @@ pub struct TrainingOutcome {
     pub ocad: Option<PathBuf>,
     /// What the training level did.
     pub report: TrainingReport,
-    /// Templates left out of the OCAD training map.
+    /// Templates left out of the OCAD training map, and a missing tree cover where the project
+    /// has an nDSM.
     pub warnings: Vec<Note>,
 }
 
@@ -771,6 +772,11 @@ pub fn export_training_from(
         input.into_iter().cloned().collect()
     };
     let tree_cover = read_float_raster(&dir.join(TREE_COVER_RELPATH)).ok();
+    let mut warnings = Vec::new();
+    // A derive of an older freemapper wrote the nDSM but no tree cover: the parks stay whole.
+    if tree_cover.is_none() && dir.join(NDSM_RELPATH).exists() {
+        warnings.push(note!("warning-training-no-tree-cover"));
+    }
     let (trained, report) = train(objects, tree_cover.as_ref(), kind, georef, symbol_set);
     let part = |name: &'static str| documents.map.parts.iter().filter(move |p| p.name == name);
     let mut parts: Vec<MapPart> = part(BASE_PART).cloned().collect();
@@ -818,7 +824,6 @@ pub fn export_training_from(
     write_inside(dir, &map_path, &map_bytes)?;
     let pdf = training_pdf_path(dir);
     write_inside(dir, &pdf, &pdf_bytes)?;
-    let mut warnings = Vec::new();
     if let Some((path, bytes, planned)) = ocad_files {
         std::fs::create_dir_all(&ocad_dir).map_err(|e| ProjectError::Io(ocad_dir.clone(), e))?;
         if path.exists() {
@@ -826,7 +831,7 @@ pub fn export_training_from(
         }
         write_inside(dir, path, &bytes)?;
         planned.copy(dir)?;
-        warnings = planned.warnings;
+        warnings.extend(planned.warnings);
     }
     Ok(TrainingOutcome {
         map: map_path,

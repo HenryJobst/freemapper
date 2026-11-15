@@ -5807,6 +5807,28 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
     }
 
     #[test]
+    fn a_training_map_without_the_tree_cover_says_so() {
+        let missing = |dir: &Path| {
+            export_training(dir, true, false, PdfSources::Auto, false)
+                .unwrap()
+                .warnings
+                .iter()
+                .any(|n| n.id() == "warning-training-no-tree-cover")
+        };
+        // No nDSM, no tree cover: nothing to say.
+        let fetcher = MapFetcher::default();
+        let (school, _cache_dir) = derived_school(&fetcher);
+        assert!(!school.path().join(NDSM_RELPATH).exists());
+        assert!(!missing(school.path()));
+        // An nDSM and its tree cover; then the tree cover gone, as after a derive of an older
+        // freemapper.
+        let (dir, _cache_dir, _) = derived_school_with_ndsm();
+        assert!(!missing(dir.path()));
+        std::fs::remove_file(dir.path().join(TREE_COVER_RELPATH)).unwrap();
+        assert!(missing(dir.path()));
+    }
+
+    #[test]
     fn the_training_map_goes_to_ocad_on_request() {
         let fetcher = MapFetcher::default();
         let (dir, _cache_dir) = derived_school(&fetcher);
