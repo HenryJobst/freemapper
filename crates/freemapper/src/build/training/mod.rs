@@ -38,7 +38,7 @@ use crate::build::line_join::{TOUCH_M, join_lines};
 use crate::build::open_land::MIN_PIECE_SIDE_MM;
 use crate::build::out_of_bounds::{area_object, short_side};
 use crate::build::points::{FOREST, PAVED_AREA_CODES, SCATTERED_TREES, in_map_units, projected};
-use crate::derive::vegetation::{VegetationClass, majority, min_area_m2, outlines};
+use crate::derive::vegetation::{CELL_M, VegetationClass, majority, min_area_m2, outlines};
 use crate::georef::Georeferencing;
 use crate::measure::{PaperMm, PaperMm2, SymbolMm, SymbolMm2, SymbolScale, map_units_per_metre};
 use crate::omap::coord::FLAG_CLOSE;
@@ -215,8 +215,9 @@ fn is_park(object: &MapObject) -> bool {
 }
 
 /// Step 3: open land (401) of a park ([`is_park`]) keeps only its open ground: the cells of
-/// `tree_cover` with a share below [`OPEN_BELOW_SHARE`] (and those it does not know), smoothed
-/// with [`majority`] and outlined as the vegetation classes are. Pieces below the vegetation's
+/// `tree_cover` with a share below [`OPEN_BELOW_SHARE`] (and those it does not know), taken to
+/// the vegetation's cells ([`open_mask`]), smoothed with [`majority`] and outlined as the
+/// vegetation classes are. Pieces below the vegetation's
 /// minimum area or with a short side under [`MIN_PIECE_SIDE_MM`] go; the rest keep the tags of
 /// the object and get `freemapper:generalized=tree cover`. Where the trees take less than the
 /// minimum area from it ([`open_pieces`]) the object stays as it is. Returns how many objects were reduced or dropped.
@@ -268,8 +269,8 @@ fn open_ground(
 
 /// The open ground of the park `area` (map CRS), pieces below `min_m2` or with a short side
 /// under `min_side_m` left out; `None` when the trees take less than `min_m2` from the park
-/// shrunk by one cell: the cells along its edge step across it, and the outline of trees beside
-/// the park follows the steps.
+/// shrunk by one cell of [`open_mask`]: the cells along its edge step across it, and the outline
+/// of trees beside the park follows the steps.
 fn open_pieces(
     area: &Polygon<f64>,
     tree_cover: &Raster<f32>,
@@ -288,19 +289,22 @@ fn open_pieces(
         .into_iter()
         .filter(|p| p.unsigned_area() >= min_m2 && short_side(p) >= min_side_m)
         .collect();
-    let core = area.buffer(-tree_cover.grid.pixel_size);
+    let core = area.buffer(-open.grid.pixel_size);
     let lost = core
         .difference(&MultiPolygon(pieces.clone()))
         .unsigned_area();
     (lost >= min_m2).then_some(pieces)
 }
 
-/// The cells of `tree_cover` round `frame` (map CRS) and [`COVER_MARGIN_M`] beyond it: open
-/// ground (`Some(Open)`) where the share is below [`OPEN_BELOW_SHARE`], unknown (`NaN`) or the
-/// raster has no cell, else `None`.
+/// The open ground round `frame` (map CRS) and [`COVER_MARGIN_M`] beyond it, on cells of the
+/// vegetation's size ([`CELL_M`], aligned to `tree_cover`), the grid [`majority`] and
+/// [`outlines`] are made for: a cell is open ground (`Some(Open)`) when at least half of the
+/// cells of `tree_cover` in it are, that is have a share below [`OPEN_BELOW_SHARE`], an unknown
+/// share (`NaN`) or lie outside the raster; else `None`.
 fn open_mask(tree_cover: &Raster<f32>, frame: &Rect<f64>) -> Raster<Option<VegetationClass>> {
     let grid = tree_cover.grid;
-    let size = grid.pixel_size;
+    let k = (CELL_M / grid.pixel_size).round().max(1.0) as i64;
+    let size = grid.pixel_size * k as f64;
     let col = |e: f64| ((e - grid.west) / size).floor() as i64;
     let row = |n: f64| ((grid.north - n) / size).floor() as i64;
     let (x0, x1) = (
@@ -318,18 +322,24 @@ fn open_mask(tree_cover: &Raster<f32>, frame: &Rect<f64>) -> Raster<Option<Veget
         width: (x1 - x0) as u32,
         height: (y1 - y0) as u32,
     };
+    let (width, height) = (i64::from(grid.width), i64::from(grid.height));
+    let open = |xx: i64, yy: i64| {
+        if xx < 0 || yy < 0 || xx >= width || yy >= height {
+            return true;
+        }
+        let share = tree_cover.get(xx as u32, yy as u32);
+        share.is_nan() || share < OPEN_BELOW_SHARE
+    };
     let mut mask = Raster::filled(window, Some(VegetationClass::Open));
     for y in 0..window.height {
-        let yy = y0 + i64::from(y);
-        if yy < 0 || yy >= i64::from(grid.height) {
-            continue;
-        }
+        let fy = (y0 + i64::from(y)) * k;
         for x in 0..window.width {
-            let xx = x0 + i64::from(x);
-            if xx >= 0
-                && xx < i64::from(grid.width)
-                && tree_cover.get(xx as u32, yy as u32) >= OPEN_BELOW_SHARE
-            {
+            let fx = (x0 + i64::from(x)) * k;
+            let open_cells = (fy..fy + k)
+                .flat_map(|yy| (fx..fx + k).map(move |xx| (xx, yy)))
+                .filter(|&(xx, yy)| open(xx, yy))
+                .count() as i64;
+            if 2 * open_cells < k * k {
                 mask.set(x, y, None);
             }
         }
@@ -1419,6 +1429,35 @@ mod tests {
             );
             assert_eq!(report.open_land_cut, 1, "{report:?}");
         }
+    }
+
+    #[test]
+    fn the_open_mask_has_the_cell_of_the_vegetation() {
+        // 1 m cells of tree cover: open where x < 4 m; a 3 m cell is open when most of its
+        // cells are.
+        let grid = GridSpec {
+            west: 0.0,
+            north: 30.0,
+            pixel_size: 1.0,
+            width: 30,
+            height: 30,
+        };
+        let mut tree_cover = Raster::filled(grid, 1.0f32);
+        for y in 0..30 {
+            for x in 0..4 {
+                tree_cover.set(x, y, 0.0);
+            }
+        }
+        let frame = Rect::new(Coord { x: 9.0, y: 9.0 }, Coord { x: 21.0, y: 21.0 });
+        let mask = open_mask(&tree_cover, &frame);
+        assert_eq!(mask.grid.pixel_size, CELL_M);
+        // Aligned to the tree cover: the window starts on a 3 m step from its west edge.
+        assert_eq!(mask.grid.west.rem_euclid(CELL_M), 0.0, "{:?}", mask.grid);
+        let col = |e: f64| ((e - mask.grid.west) / CELL_M).floor() as u32;
+        assert_eq!(mask.get(col(1.5), 5), Some(VegetationClass::Open));
+        // 3 to 6 m: one open column of three.
+        assert_eq!(mask.get(col(4.5), 5), None);
+        assert_eq!(mask.get(col(10.5), 5), None);
     }
 
     #[test]
