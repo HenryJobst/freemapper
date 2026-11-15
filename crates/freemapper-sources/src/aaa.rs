@@ -450,6 +450,7 @@ mod tests {
             layers: None,
             namespaces: None,
             model: crate::nas::NasModel::Alkis,
+            schema: crate::nas::NasSchema::Nas,
         }
     }
 

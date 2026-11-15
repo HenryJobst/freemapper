@@ -196,6 +196,7 @@ features and small waters, and one with the landscape model (`model = "basis-dlm
 | `layers` | list of texts | no | The layers the service serves, of `sonstiges-bauwerk`, `vegetationsmerkmal`, `strukturlinie`, `bauwerk-verkehr`, `bauwerk-gewaesser`, `untergeordnetes-gewaesser`; for the model `basis-dlm` of `dlm-bauwerk`, `dlm-vegetation`, `dlm-felsen`, `dlm-hoehle`, `dlm-gewaessermerkmal`, `dlm-damm`, `dlm-turm`, `dlm-gewaesserachse`, `dlm-weg`, `dlm-fahrweg`. Default: all of the model. |
 | `namespaces` | text | no | The `NAMESPACES` parameter of the requests; at most 300. |
 | `model` | text | no | `alkis` (the default): the cadastre. `basis-dlm`: the landscape model ATKIS Basis-DLM, whose layers start with `dlm-`. A service is asked only for the layers of its model. Objects of the landscape model stay candidates and go where another source has the same object. |
+| `schema` | text | no | `nas` (the default): the answers are NAS, the AdV types as elements. `shape`: the answers are in the AdV Shape schema (one type per theme and geometry such as `Relief_REL01_P`, the AdV type in `objart_txt`, the codes under short names such as `bwf`), as Rhineland-Palatinate serves its landscape model; only with `model = "basis-dlm"`. |
 
 ## `[[extra.trees]]`
 

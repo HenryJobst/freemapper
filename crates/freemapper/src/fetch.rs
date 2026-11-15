@@ -1328,12 +1328,9 @@ pub(crate) mod test_support {
         );
     }
 
-    /// Serves everything a Hesse project in `bbox` (EPSG:25832) fetches: the height models (see
-    /// below), a WMS orthophoto of the right size with the GetFeatureInfo flight date (19.08.2025),
-    /// the Hesse ALKIS fixtures and the Hesse OSM extract.
     /// Empty answers of the NAS services at `urls`, as a service gives them for a type without
     /// objects in the box.
-    fn serve_empty_nas(fetcher: &MapFetcher, urls: &[&str]) {
+    pub fn serve_empty_nas(fetcher: &MapFetcher, urls: &[&str]) {
         for nas in urls {
             fetcher.insert_prefix(
                 &format!("{nas}?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&"),
@@ -1353,6 +1350,9 @@ pub(crate) mod test_support {
         );
     }
 
+    /// Serves everything a Hesse project in `bbox` (EPSG:25832) fetches: the height models (see
+    /// below), a WMS orthophoto of the right size with the GetFeatureInfo flight date (19.08.2025),
+    /// the Hesse ALKIS fixtures and the Hesse OSM extract.
     pub fn serve_synthetic_hessen(fetcher: &MapFetcher, bbox: &crate::crs::BoundingBox) {
         use freemapper_adapters_de::hvbg;
         use freemapper_sources::wfs as alkis_wfs;
