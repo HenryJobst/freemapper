@@ -896,8 +896,10 @@ This writes `<name>-training.omap` and `<name>-training.pdf`, with `--ocad` also
 file links the same raster templates as the map, but no candidates. On the area page the option is called "Training
 map", for the AI assistant `training`. Scale bar and source lines work as for the other PDFs.
 
-An existing training map stays, because you may have edited it. `run --training` then says "Kept the training map …
-(it may contain your work); --force replaces it" and goes on; `export --training` stops with a message. `--force`
+An existing training map stays, so that a run does not overwrite one that was printed or passed on. `run --training`
+then says "Kept the training map …, so that a run does not overwrite one that was printed or passed on; delete it or
+pass --force to renew it" and goes on; `export --training` stops with a message. To renew it, delete it or pass
+`--force`. `--force`
 writes it again and replaces the base map too; the old files stay as `.omap.bak`.
 
 What the training map does differently from the map, step by step:
@@ -918,8 +920,7 @@ What the training map does differently from the map, step by step:
    fence or another point moves to the nearest free spot, at most 1.5 mm on paper (6 m at 1:4000, 15 m at
    1:10 000), but never into olive green. Of two points the smaller moves. It then carries `freemapper:moved`. If it
    finds no spot, it stays where it is and goes in step 6 if it is too close to another symbol there. Trees on
-   streets and squares stay where they are. Knolls, depressions, pits and springs never move, because the contours
-   and the stream fix their place; the other points keep the gap to them.
+   streets and squares stay where they are.
 6. Where two symbols cover each other or come closer than the norm's gap (0.15 mm between two lines, enlarged like
    the symbols), the one with the lower rank gives way. The rank falls from buildings through water, railways,
    roads, paths, watercourses and stairs, fences, walls and cliffs, banks and contours down to the points. The

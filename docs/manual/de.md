@@ -932,9 +932,10 @@ OOM-Datei bindet dieselben Rastervorlagen ein wie die Karte, aber keine Kandidat
 Option „Trainingskarte“, beim KI-Assistenten `training`. Maßstabsleiste und Quellenangabe gelten wie für die
 anderen PDFs.
 
-Eine vorhandene Trainingskarte bleibt, denn Sie könnten sie bearbeitet haben. `run --training` meldet dann
-„Trainingskarte … behalten (sie kann Ihre Arbeit enthalten); --force ersetzt sie“ und läuft weiter,
-`export --training` bricht mit einer Meldung ab. `--force` schreibt sie neu und ersetzt auch die Grundkarte; die alten
+Eine vorhandene Trainingskarte bleibt, damit ein Lauf keine überschreibt, die gedruckt oder weitergegeben wurde.
+`run --training` meldet dann „Trainingskarte … behalten, damit ein Lauf keine überschreibt, die gedruckt oder
+weitergegeben wurde; zum Erneuern löschen oder --force angeben“ und läuft weiter, `export --training` bricht mit einer
+Meldung ab. Zum Erneuern löschen Sie sie oder geben `--force` an. `--force` schreibt sie neu und ersetzt auch die Grundkarte; die alten
 Dateien bleiben als `.omap.bak`.
 
 Was die Trainingskarte anders macht als die Karte, Schritt für Schritt:
@@ -956,9 +957,7 @@ Was die Trainingskarte anders macht als die Karte, Schritt für Schritt:
    einem Zaun oder einem anderen Punkt zu nahe kommt, rückt auf den nächsten freien Platz, höchstens 1,5 mm auf dem
    Papier (6 m bei 1:4000, 15 m bei 1:10 000), aber nie in olivgrüne Flächen. Von zwei Punkten rückt der kleinere.
    Er trägt dann `freemapper:moved`. Findet er keinen Platz, bleibt er stehen und entfällt in Schritt 6, wenn er
-   dort einem anderen Symbol zu nahe kommt. Bäume auf Straßen und Plätzen bleiben stehen. Kuppen, Senken, Gruben
-   und Quellen rücken nie, denn ihren Platz legen die Höhenlinien und der Bach fest; die anderen Punkte halten Abstand
-   zu ihnen.
+   dort einem anderen Symbol zu nahe kommt. Bäume auf Straßen und Plätzen bleiben stehen.
 6. Wo sich zwei Symbole überdecken oder einander näher kommen als der Abstand der Norm (0,15 mm zwischen zwei Linien,
    vergrößert wie die Symbole), weicht das mit dem niedrigeren Rang. Der Rang fällt von Gebäude über Gewässer, Bahn,
    Straße, Weg, Wasserlauf und Treppe, Zaun, Mauer und Felswand, Böschung und Höhenlinie bis zu den Punkten. Das

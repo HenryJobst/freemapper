@@ -37,7 +37,7 @@ cli-wrote-pdf = { $path } geschrieben (die Karte ohne Kandidaten)
 cli-wrote-pdf-candidates = { $path } geschrieben (der Prüfausdruck: die Karte mit jedem Kandidaten, lagetreu; prüfen Sie sie im Gelände)
 cli-wrote-training = { $map } und { $pdf } geschrieben (die Trainingskarte: { $joined } zusammengelegt, { $left } weggelassen oder gekürzt)
 cli-training-apart-left = Die Trainingskarte hat noch { $length } mm (auf dem Papier), an denen Objekte zu wenig Abstand halten; prüfen Sie sie in OOM
-cli-kept-training = Trainingskarte { $path } behalten (sie kann Ihre Arbeit enthalten); --force ersetzt sie
+cli-kept-training = Trainingskarte { $path } behalten, damit ein Lauf keine überschreibt, die gedruckt oder weitergegeben wurde; zum Erneuern löschen oder --force angeben
 
 ## OCAD
 
@@ -331,7 +331,7 @@ page-warnings-heading = Warnungen
 page-where-files = Die Dateien liegen im Projektordner:
 page-open-folder = Ordner öffnen
 page-log-label = Protokoll des Laufs
-page-force-title = Vorhandene Karte ersetzen?
+page-force-title = Vorhandene Karten ersetzen?
 page-force-text = Die vorhandene Karte wird ersetzt, mit „Trainingskarte“ auch die Trainingskarte. Deine Änderungen gehen nicht verloren: Die alten Dateien bleiben als .omap.bak im Projektordner. Fortfahren?
 page-force-cancel = Abbrechen
 page-force-confirm = Ersetzen
@@ -677,7 +677,7 @@ cli-summary-pdf-failed = PDF-Export fehlgeschlagen: { $error }
 cli-summary-wrote-pdf-candidates = Prüfausdruck { $path } geschrieben (die Karte mit jedem Kandidaten, lagetreu)
 cli-summary-pdf-candidates-failed = Export des Prüfausdrucks fehlgeschlagen: { $error }
 cli-summary-training-failed = Export der Trainingskarte fehlgeschlagen: { $error }
-cli-summary-kept-training = Die vorhandene Trainingskarte { $path } bleibt (sie kann die Arbeit der Kartiererin oder des Kartierers enthalten; force ersetzt sie)
+cli-summary-kept-training = Die vorhandene Trainingskarte { $path } bleibt, damit ein Lauf keine überschreibt, die gedruckt oder weitergegeben wurde; zum Erneuern löschen oder force setzen
 
 ## Der MCP-Server. Tool-, Parameter- und Feldnamen bleiben Englisch.
 

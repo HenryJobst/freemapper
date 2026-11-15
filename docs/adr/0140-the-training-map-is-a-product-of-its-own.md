@@ -89,8 +89,7 @@ Comparisons at a threshold are tolerant by 2 map units, so a difference in the l
    symbol stands for an object beside the way within its own size; a tree centred on a 505 at 1:10 000 needs 0.79 to
    1.24 mm; the lines keep 0.5 mm for the second half). The larger symbol goes first, then the earlier object, so of
    two points too close the smaller moves. It carries `freemapper:moved`. Where no spot is free it is left for step
-   6. Trees on street and square areas stay. Landform points (105, 109 to 112, 115) and springs (312) are never
-   moved (ruling: the contours and the stream fix their place); the other points keep the gap to them.
+   6. Trees on street and square areas stay.
 6. Of every Apart pair in conflict the lower-ranked object gives way: the stretch is cut out (the winner's footprint
    grown by the loser's half width, the gap and the tolerance, crossings kept), the object goes whole when more than
    half of its length is in conflict, measured over the union of the zones of all its winners. Walls (513, 515) and
@@ -161,33 +160,35 @@ map. Lengths are mm on paper. Stairs count as below the minimum under 1.5 mm at 
 | | Bremen Bürgerpark | Viktoriapark | Bastei |
 |---|---|---|---|
 | Apart conflicts, check print → training map | 3958 mm (658) → 0 | 550 mm (567) → 0 | 639 mm (256) → 0 |
-| Training summary | 456 joined, 368 left out or cut | 91 joined, 537 left out or cut | 220 joined, 196 left out or cut |
-| Objects | 2196 → 1472 | 3740 → 3203 | 1463 → 989 |
+| Training summary | 456 joined, 368 left out or cut | 91 joined, 535 left out or cut | 220 joined, 194 left out or cut |
+| Objects | 2196 → 1472 | 3740 → 3205 | 1463 → 991 |
 | 505 objects | 416 → 203 | none (sprint path symbols: 215 → 140) | 99 → 45 |
 | Path-class length | 4345 → 4318 mm | 2400 → 2019 mm | 1816 → 1804 mm |
 | 526 points | 12 → 10 | 3 → 2 | 2 → 2 |
 | Stairs below the minimum | 46 of 47 → 0 of 1 | 20 of 142 → 0 of 116 | 74 of 95 → 0 of 19 |
-| Points moved | 9 (526) | 275 (268 trees, 5 of 531, 1 each of 311 and 526) | 2 (526) |
+| Points moved | 9 (526) | 278 (269 trees, 5 of 531, 2 of 312, 1 each of 311 and 526) | 5 (2 of 526, 109, 110, 111) |
 | Barriers 518 / 515 / 513 (513.2 in Berlin), check print → training map | 386 / 11 / 66 mm → 104 / 5 / 0 | 654 / 300 / 131 mm → 573 / 190 / 89 | 154 / 48 / 58 mm → 50 / 12 / 8 |
 | Moved points on olive green | 0 | 0 | 0 |
-| `export --training`: real, user, maximum resident set | 24 s, 24 s, 329 MiB | 8 s, 8 s, 199 MiB | 4 s, 4 s, 101 MiB |
+| `export --training`: real, user, maximum resident set | 24 s, 23 s, 350 MiB | 8 s, 8 s, 195 MiB | 4 s, 4 s, 100 MiB |
 | `export` (before the fixes, busy machine): real, user, peak | 8 s, 6 s, 156 MiB | 4 s, 4 s, 121 MiB | 6 s, 5 s, 58 MiB |
 
 In Bremen the two ALKIS park areas of the Stadtwald (464 658 m², 21 % of it open by the nDSM) keep 58 505 m² of
 open land, 93 % of it open (60 924 m² before the open ground was outlined on the 3 m cells). No run printed the
 warning that conflicts were left.
 
-The barriers: before the fixes the training map kept 89 / 5 / 0 mm in Bremen, 573 / 190 / 89 in Viktoriapark and
-47 / 8 / 6 at the Bastei; give way had counted a stretch near two winners twice and dropped walls and fences whole.
+The barriers (518 / 515 / 513, mm): before the fixes, measured with the binary of the branch before them, the
+training map kept 89.4 / 5.2 / 0 in Bremen, 573.0 / 190.3 / 89.2 (513.2) in Viktoriapark and 50.4 / 12.3 / 5.6 at the
+Bastei; give way had counted a stretch near two winners twice and dropped walls and fences whole. The fixes bring
+back 15 mm of 518 in Bremen and 2.7 mm of 513 at the Bastei; everything else is unchanged.
 What is still missing lies in the gap of a way, a watercourse or another fence in the data (in Bremen the conflict
 stretches of the 518 alone add up to 290 mm, most of them fences drawn on a stream or a path) and is cut there; only
 shifting the line beside it, left to the second half, keeps it.
 
 The memory: the open-land step gave its open mask on the 1 m cells of the tree cover to the outline of the
 vegetation areas, which refines its grid threefold and blurs it, so every park was traced on a grid of 1/3 m. On
-the 3 m cells of the vegetation the Bremen training export peaks at 329 MiB instead of 1598 MiB (maximum resident
-set, both measured on 2026-11-15 on a quiet machine, load average below 5; 25.7 s before, 24.4 s after). The Nationaldenkmal's point in Viktoriapark
-and a fountain at the Meierei in Bremen still go: no spot within 1.5 mm keeps the gap.
+the 3 m cells of the vegetation the Bremen training export peaks at 329 to 350 MiB (two runs) instead of 1598 MiB
+(maximum resident set, measured on 2026-11-15 on a quiet machine, load average below 5; 25.7 s before, 24 s after).
+The Nationaldenkmal's point in Viktoriapark and a fountain at the Meierei in Bremen still go: no spot within 1.5 mm keeps the gap.
 
 Left to the second half: carriageways, tram and railway tracks, paths along roads and kerb lines that run side by
 side (in Bremen 1667 mm of joined pairs on the training map).

@@ -115,9 +115,9 @@ freemapper run <dir> --pdf
 Output switches for `run` and `export`: `--ocad`, `--pdf`, `--pdf-candidates` (the check print), `--training`,
 `--pdf-scale-bar`, `--pdf-sources auto|full|credit-only`. `--training` writes the training map `<name>-training.omap`
 and `<name>-training.pdf`, with `--ocad` also `ocad/<name>-training.ocd`. `run` keeps an existing training map and
-prints `Kept the training map <path> (it may contain your work); --force replaces it`, exit code 0;
-`export --training` fails on one with the "map already exists" error. `--force` replaces it and the base map too,
-and keeps the old ones as `.bak`. freemapper builds the training map from the stored data and the content settings,
+prints `Kept the training map <path>, so that a run does not overwrite one that was printed or passed on; delete it or
+pass --force to renew it`, exit code 0; `export --training` fails on one with the "map already exists" error.
+`--force` replaces it and the base map too, and keeps the old ones as `.bak`. freemapper builds the training map from the stored data and the content settings,
 not from the `.omap`, so corrections made in OOM do not reach it. To renew only the training map, delete
 `<name>-training.omap` (with `--ocad` also `ocad/<name>-training.ocd`) and call `run --training` again without
 `--force`.
@@ -253,7 +253,8 @@ Rules:
 - An existing map is kept, because it may hold the user's own work. Pass `force: true` only after asking; the old
   file stays as `<name>.omap.bak`. The same holds for the training map: without `force` a run keeps it, and its
   `result` says so. `force` replaces both maps. The MCP tools cannot delete files; to renew only the training map,
-  the person deletes `<name>-training.omap` and you start the pipeline again without `force`.
+  the person deletes `<name>-training.omap` (with `ocad` also `ocad/<name>-training.ocd`) and you start the pipeline
+  again without `force`.
 - The server checks for a newer release once a day. When it knows one, the next tool result carries one extra
   text block at its end, the note `Note for the person: freemapper 0.21.0 is available (this is 0.20.0). Ask them
   before calling install_update.` It comes once per server process. Calling `check_update` or `install_update`
@@ -306,11 +307,11 @@ The cache is shared by all projects: macOS `~/Library/Caches/freemapper`, Linux 
   the lower-ranked object where two come too close (walls and impassable fences are only cut), leaves out what is
   below the norm's minimum size, street furniture on streets and squares and the details inside olive green areas
   (only buildings, water, contours and ways that lead through stay), draws a park yellow only where the nDSM shows
-  no trees, and moves trees and other point symbols up to 1.5 mm on paper (knolls, depressions, pits and springs
-  stay). Carriageways, tracks and paths that run side by side still stand side by side. Do not map on it:
-  the base map and the candidates stay the working material, true to position. freemapper builds the training map
-  from the data, so corrections in OOM do not reach it; to renew only the training map, delete
-  `<name>-training.omap` and run again without `--force`, because `--force` also replaces the base map. Its
+  no trees, and moves trees and other point symbols up to 1.5 mm on paper. Carriageways, tracks and paths that run
+  side by side still stand side by side. Do not map on it: the base map and the candidates stay the working
+  material, true to position. freemapper builds the training map from the data, so corrections in OOM do not reach
+  it; to renew only the training map, delete `<name>-training.omap` (with `--ocad` also
+  `ocad/<name>-training.ocd`) and run again without `--force`, because `--force` also replaces the base map. Its
   uncertain objects still need a look in the terrain before an event.
 - The OCAD files carry placeholder symbols; in OCAD the user loads the official symbol set, which replaces them by
   number. The OCAD output has not been checked in OCAD yet.

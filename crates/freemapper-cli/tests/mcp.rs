@@ -888,8 +888,8 @@ fn start_pipeline_keeps_an_existing_training_map() {
     let result = status["result"].as_str().unwrap();
     assert!(
         result.contains(&format!(
-            "Kept the existing training map {} (it may contain the mapper's work; force \
-             replaces it)",
+            "Kept the existing training map {}, so that a run does not overwrite one that was \
+             printed or passed on; delete it or set force to renew it",
             map.display()
         )),
         "{status}"

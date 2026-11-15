@@ -37,7 +37,7 @@ cli-wrote-pdf = Wrote { $path } (the map without candidates)
 cli-wrote-pdf-candidates = Wrote { $path } (the check print: the map with every candidate, true to position; check them in the terrain)
 cli-wrote-training = Wrote { $map } and { $pdf } (the training map: { $joined } joined, { $left } left out or cut)
 cli-training-apart-left = the training map still has { $length } mm (on paper) where objects keep too little gap; check it in OOM
-cli-kept-training = Kept the training map { $path } (it may contain your work); --force replaces it
+cli-kept-training = Kept the training map { $path }, so that a run does not overwrite one that was printed or passed on; delete it or pass --force to renew it
 
 ## OCAD
 
@@ -331,7 +331,7 @@ page-warnings-heading = Warnings
 page-where-files = The files are in the project folder:
 page-open-folder = Open folder
 page-log-label = Log of the run
-page-force-title = Replace the existing map?
+page-force-title = Replace the existing maps?
 page-force-text = The existing map is replaced, and with "Training map" ticked the training map too. Your edits are not lost: the old files stay in the project folder as .omap.bak. Continue?
 page-force-cancel = Cancel
 page-force-confirm = Replace
@@ -668,7 +668,7 @@ cli-summary-pdf-failed = PDF export failed: { $error }
 cli-summary-wrote-pdf-candidates = Wrote the check print { $path } (the map with every candidate, true to position)
 cli-summary-pdf-candidates-failed = Check print export failed: { $error }
 cli-summary-training-failed = Training map export failed: { $error }
-cli-summary-kept-training = Kept the existing training map { $path } (it may contain the mapper's work; force replaces it)
+cli-summary-kept-training = Kept the existing training map { $path }, so that a run does not overwrite one that was printed or passed on; delete it or set force to renew it
 
 ## The MCP server. The descriptions of the tools and parameters equal the texts in `src/mcp.rs`; a test compares them.
 

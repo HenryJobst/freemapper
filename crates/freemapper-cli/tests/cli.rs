@@ -844,7 +844,7 @@ fn run_training_keeps_an_existing_training_map() {
     assert_eq!(second.status.code(), Some(0), "{stderr}");
     assert!(
         stdout.contains(&format!(
-            "Kept the training map {} (it may contain your work); --force replaces it",
+            "Kept the training map {}, so that a run does not overwrite one that was printed or passed on; delete it or pass --force to renew it",
             map.display()
         )),
         "{stdout}"
@@ -858,7 +858,7 @@ fn run_training_keeps_an_existing_training_map() {
     let stdout = String::from_utf8(german.stdout).unwrap();
     assert!(
         stdout.contains(&format!(
-            "Trainingskarte {} behalten (sie kann Ihre Arbeit enthalten); --force ersetzt sie",
+            "Trainingskarte {} behalten, damit ein Lauf keine überschreibt, die gedruckt oder weitergegeben wurde; zum Erneuern löschen oder --force angeben",
             map.display()
         )),
         "{stdout}"
