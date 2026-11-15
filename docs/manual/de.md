@@ -1190,6 +1190,7 @@ nicht in den Daten des BfN. Die Hinweise nennen sie aus den Diensten der Bundesl
 | Rheinland-Pfalz | ja | ja | – |
 | Bayern | ja | ja | – |
 | Baden-Württemberg | ja | – | – |
+| Schleswig-Holstein | fast nur Kreis Schleswig-Flensburg | Kiel, Lübeck, Plön, Schleswig-Flensburg, Stormarn | – |
 | Hessen | – | – | ja, Kartierung 1992 bis 2006 |
 | Nordrhein-Westfalen | – | – | ja, ohne Biotoptyp |
 
@@ -1199,7 +1200,7 @@ was sie zerstören oder erheblich beeinträchtigen kann: Posten und Bahnen gehö
 Naturschutzbehörde wird gefragt. Für Naturdenkmale und geschützte Biotope nennt ein Hinweis die untere
 Naturschutzbehörde, außerhalb von Berlin und Hamburg mit dem Kreis aus VG250. Wo die Daten Lücken haben, stehen sie
 unter dem Teil des Bundeslandes. In Baden-Württemberg erlaubt die LUBW die Nutzung ihrer Biotope für kommerzielle
-Zwecke nur auf Anfrage; sie fehlen deshalb. Mecklenburg-Vorpommern und Schleswig-Holstein folgen. Die Daten aus Rheinland-Pfalz stehen unter der Open Database License (ODbL) wie die von OpenStreetMap.
+Zwecke nur auf Anfrage; sie fehlen deshalb. Schleswig-Holstein meldet seine Naturdenkmale und Landschaftsbestandteile über den INSPIRE-Dienst des Landes; dort stehen bisher nur die der genannten Kreise und Städte, die übrigen kennt die untere Naturschutzbehörde. Mecklenburg-Vorpommern folgt. Die Daten aus Rheinland-Pfalz stehen unter der Open Database License (ODbL) wie die von OpenStreetMap.
 
 ### Wasserschutzgebiete und Waldfunktionen
 

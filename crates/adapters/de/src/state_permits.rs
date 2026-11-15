@@ -549,6 +549,12 @@ mod tests {
                 [11.9, 51.45, 12.05, 51.52],
             ),
             (State::Bayern, "naturschutz", [12.05, 48.98, 12.15, 49.05]),
+            // The Schlei near Kappeln (ADR 0146 addendum).
+            (
+                State::SchleswigHolstein,
+                "naturschutz",
+                [9.55, 54.60, 9.90, 54.78],
+            ),
             (
                 State::BadenWuerttemberg,
                 "naturdenkmale",

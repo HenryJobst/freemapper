@@ -594,7 +594,10 @@ impl StateAdapter {
             .collect(),
             State::SchleswigHolstein => [
                 crate::state_permits::schleswig_holstein(),
-                vec![crate::ldsh_permits::source()],
+                vec![
+                    crate::ldsh_permits::source(),
+                    crate::natur_permits::schleswig_holstein(),
+                ],
             ]
             .into_iter()
             .flatten()
@@ -971,7 +974,10 @@ mod tests {
                     &["wasserschutzgebiete", "denkmale", "biotope"],
                     "https://geodienste.denkx.de/geoserver/denkx/wfs",
                 ),
-                "schleswigholstein" => (&["umwelt", "denkmale"], crate::ldsh_permits::URL),
+                "schleswigholstein" => (
+                    &["umwelt", "denkmale", "naturschutz"],
+                    crate::ldsh_permits::URL,
+                ),
                 "badenwuerttemberg" => (
                     &[
                         "lubw",

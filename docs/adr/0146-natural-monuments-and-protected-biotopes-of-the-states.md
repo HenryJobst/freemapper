@@ -62,3 +62,15 @@ answered again: `mapfile=naturdenkmale` (`ms:naturdenkmale`) and `mapfile=glb` (
 and `rvolink` (the ordinance). Its licence is the ODbL with the LfU as source, the same as OpenStreetMap's in the notes.
 Both join as sources of Rhineland-Palatinate. The protected biotopes stay out: the only biotope map file that answers
 (`biotopkartierung`) holds the unprotected biotopes too, without a field that tells them apart.
+
+## Addendum (2026-11-15): Schleswig-Holstein
+
+The INSPIRE download service of the protected sites of Schleswig-Holstein (`service.gdi-sh.de/SH_INSPIREDOWNLOAD_AI_PS`,
+a deegree WFS that answers GML 3.2 only) holds `app:Naturdenkmale` (48, mostly points) and
+`app:geschuetzte_Landschaftsbestandteile` (34 areas), named by `text`, under CC BY 4.0 with the credit "© GeoBasis-DE/LVermGeo
+SH/CC BY 4.0" from its capabilities. Both join as the source `naturschutz` of Schleswig-Holstein, read like the
+state's environment service (ADR 0137). The Kreise reported few objects: 47 of the Naturdenkmale come from the Kreis
+Schleswig-Flensburg, the Landschaftsbestandteile from Kiel, Lübeck and the Kreise Plön, Schleswig-Flensburg and
+Stormarn. The rule of the permit notes is to say rather too much, so the source is taken with these gaps named; the
+notes send the reader to the lower nature authority for the rest. The protected biotopes stay out: the state gives
+them only as shapefiles with conflicting licences, and its mapped biotopes are not the legally protected ones.
