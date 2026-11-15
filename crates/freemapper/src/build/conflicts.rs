@@ -4,8 +4,9 @@
 //! paper. Two objects whose classes may not lie on each other ([`relation`]) are in conflict where
 //! the centre line of the one that gives way runs inside the footprint of the other (an overlap),
 //! or closer to it than the gap between two line symbols (ISSprOM §3.3, [`LINE_GAP_MM`]). Where
-//! two centre lines cross or meet there is no conflict: a crossing is drawn that way. Nothing is
-//! changed here; the training level reads the conflicts and joins, cuts or drops objects.
+//! two centre lines cross or meet at [`MIN_CROSSING_DEG`] or more there is no conflict: a crossing
+//! is drawn that way. Nothing is changed here; the training level reads the conflicts and joins,
+//! cuts or drops objects.
 
 use std::collections::HashMap;
 
@@ -36,6 +37,11 @@ pub const TOLERANCE_MM: f64 = 0.002;
 const CELL_MM: f64 = 10.0;
 /// A point of a stroke this close to the centre line lies on it (mm on paper).
 const ON_LINE_MM: f64 = 1e-6;
+/// Two centre lines cross from this angle on; a flatter meeting is measured as running side by
+/// side, so two digitisations of one feature that zigzag across each other do not escape.
+pub const MIN_CROSSING_DEG: f64 = 20.0;
+/// sin 20°, written out so every system compares alike.
+const MIN_CROSSING_SIN: f64 = 0.342_020_143_325_668_7;
 /// The footprint of the other object is cut to this much around the one that gives way before
 /// it is grown (mm on paper, beyond the growth itself).
 const LOCAL_MARGIN_MM: f64 = 1.0;
@@ -62,6 +68,27 @@ pub enum Class {
     Other,
 }
 
+impl Class {
+    /// Every class, in the order of the declaration.
+    pub const ALL: [Class; 15] = [
+        Class::Building,
+        Class::WaterArea,
+        Class::BankLine,
+        Class::Railway,
+        Class::Road,
+        Class::Path,
+        Class::Watercourse,
+        Class::Stairway,
+        Class::Barrier,
+        Class::Cliff,
+        Class::EarthBank,
+        Class::Contour,
+        Class::Point,
+        Class::OtherArea,
+        Class::Other,
+    ];
+}
+
 /// How two classes may lie to each other.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Relation {
@@ -73,6 +100,7 @@ pub enum Relation {
     Apart,
 }
 
+/// How close the one that gives way comes to the other.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Grade {
     /// The one that gives way lies on the other.
@@ -354,9 +382,8 @@ pub fn relation(a: Class, b: Class) -> Relation {
     use Class::*;
     match (a, b) {
         (OtherArea | Other, _) | (_, OtherArea | Other) => Relation::Free,
-        (Contour, EarthBank | Cliff | Building) | (EarthBank | Cliff | Building, Contour) => {
-            Relation::Apart
-        }
+        // Contours run through buildings (ISSprOM 2019-2, 101): only landforms keep them apart.
+        (Contour, EarthBank | Cliff) | (EarthBank | Cliff, Contour) => Relation::Apart,
         (Contour, _) | (_, Contour) => Relation::Free,
         (Road | Path | Railway | Stairway, Road | Path | Railway | Stairway) => Relation::Joined,
         (Watercourse, Watercourse | WaterArea | BankLine) | (WaterArea | BankLine, Watercourse) => {
@@ -424,8 +451,13 @@ pub fn conflicts(footprints: &Footprints, kind: MapKind, scale_denominator: u32)
         {
             continue;
         }
-        // The lower rank gives way; of the same rank the shorter, of the same length the later.
-        let b_loses = (rank(fb.class), fb.length) <= (rank(fa.class), fa.length);
+        // The lower rank gives way; of the same rank the shorter, of the same length (within
+        // the tolerance) the later.
+        let b_loses = match rank(fb.class).cmp(&rank(fa.class)) {
+            std::cmp::Ordering::Less => true,
+            std::cmp::Ordering::Greater => false,
+            std::cmp::Ordering::Equal => fb.length <= fa.length + TOLERANCE_MM,
+        };
         let (loser, winner) = if b_loses { (b, a) } else { (a, b) };
         let grades = measure(&items[loser], &items[winner], gap);
         for (grade, length) in [Grade::Overlap, Grade::Gap].into_iter().zip(grades) {
@@ -529,9 +561,9 @@ fn stretches(pieces: &MultiLineString<f64>) -> Vec<f64> {
     lengths
 }
 
-/// The points where the centre lines `a` and `b` cross or meet; lines that run on each other do
-/// not meet there.
-fn meeting_points(a: &MultiLineString<f64>, b: &MultiLineString<f64>) -> Vec<Coord<f64>> {
+/// The points where the centre lines `a` and `b` cross or meet at [`MIN_CROSSING_DEG`] or more;
+/// lines that run on each other or meet flatter do not meet there: they run side by side.
+pub fn meeting_points(a: &MultiLineString<f64>, b: &MultiLineString<f64>) -> Vec<Coord<f64>> {
     let (Some(frame_a), Some(frame_b)) = (a.bounding_rect(), b.bounding_rect()) else {
         return Vec::new();
     };
@@ -550,7 +582,9 @@ fn meeting_points(a: &MultiLineString<f64>, b: &MultiLineString<f64>) -> Vec<Coo
         for &lb in &lines_b {
             let (da, db) = (la.delta(), lb.delta());
             let cross = da.x * db.y - da.y * db.x;
-            if cross.abs() <= 1e-9 * da.x.hypot(da.y) * db.x.hypot(db.y) {
+            // sin² of the angle between the two segments, without a library function.
+            let lengths2 = (da.x * da.x + da.y * da.y) * (db.x * db.x + db.y * db.y);
+            if cross * cross < MIN_CROSSING_SIN * MIN_CROSSING_SIN * lengths2 {
                 continue;
             }
             if let Some(LineIntersection::SinglePoint { intersection, .. }) =
@@ -727,18 +761,58 @@ mod tests {
     }
 
     #[test]
-    fn a_contour_through_a_building_is_an_overlap() {
+    fn a_contour_through_a_building_is_free() {
+        // ISSprOM 2019-2, 101: contours run through all symbols, also Building (521).
         let set = isom();
         let objects = [
             area(&set, "521", (5.0, 0.0), (15.0, 10.0)),
             line(&set, "101", &[(0.0, 5.0), (20.0, 5.0)]),
         ];
+        assert_eq!(measure(&set, &objects), Vec::new());
+    }
+
+    #[test]
+    fn a_contour_on_an_earth_bank_is_an_overlap() {
+        let set = isom();
+        let objects = [
+            line(&set, "104", &[(0.0, 0.0), (20.0, 0.0)]),
+            line(&set, "101", &[(0.0, 0.1), (20.0, 0.1)]),
+        ];
         let found = measure(&set, &objects);
-        let overlap: Vec<&Conflict> = found.iter().filter(|c| c.grade == Grade::Overlap).collect();
-        assert_eq!(overlap.len(), 1, "{found:?}");
-        assert_eq!((overlap[0].loser, overlap[0].winner), (1, 0));
-        assert_eq!(overlap[0].classes, (Class::Contour, Class::Building));
-        assert!((overlap[0].length.0 - 10.0).abs() < 1.0, "{found:?}");
+        assert_eq!(found.len(), 1, "{found:?}");
+        assert_eq!(found[0].classes, (Class::Contour, Class::EarthBank));
+        assert_eq!(found[0].grade, Grade::Overlap);
+    }
+
+    #[test]
+    fn lengths_within_the_tolerance_are_equal() {
+        // The later path is longer by one map unit: of equals the later gives way.
+        let set = isom();
+        let objects = [
+            line(&set, "505", &[(0.0, 0.0), (10.0, 0.0)]),
+            line(&set, "505", &[(0.0, 0.3), (10.001, 0.3)]),
+        ];
+        let found = measure(&set, &objects);
+        assert_eq!(found.len(), 1, "{found:?}");
+        assert_eq!((found[0].loser, found[0].winner), (1, 0));
+    }
+
+    #[test]
+    fn a_fence_zigzagging_along_a_path_is_one_conflict() {
+        // Two digitisations of one feature: the fence crosses the path every 2 mm at under 6°.
+        let set = isom();
+        let zigzag: Vec<(f64, f64)> = (0..=10)
+            .map(|k| (2.0 * f64::from(k), if k % 2 == 0 { -0.1 } else { 0.1 }))
+            .collect();
+        let objects = [
+            line(&set, "505", &[(-5.0, 0.0), (25.0, 0.0)]),
+            line(&set, "518", &zigzag),
+        ];
+        let found = measure(&set, &objects);
+        assert_eq!(found.len(), 1, "{found:?}");
+        assert_eq!((found[0].loser, found[0].winner), (1, 0));
+        assert_eq!(found[0].grade, Grade::Overlap);
+        assert!((found[0].length.0 - 20.0).abs() < 1.0, "{found:?}");
     }
 
     #[test]
@@ -814,7 +888,7 @@ mod tests {
     fn the_verdict_at_the_gap_is_tolerant() {
         let set = isom();
         let gap = gap(MapKind::Forest, SCALE).0;
-        // Centre lines this far apart (map units) leave their footprints exactly `gap` apart.
+        // Centre lines this far apart (map units) leave their stroke edges exactly `gap` apart.
         let apart = (half_width(&set, "306") + half_width(&set, "104") + gap) * 1000.0;
         assert!(
             (apart - apart.round()).abs() < 1e-6,
@@ -888,26 +962,8 @@ mod tests {
 
     #[test]
     fn the_relation_is_symmetric() {
-        use Class::*;
-        let all = [
-            Building,
-            WaterArea,
-            BankLine,
-            Railway,
-            Road,
-            Path,
-            Watercourse,
-            Stairway,
-            Barrier,
-            Cliff,
-            EarthBank,
-            Contour,
-            Point,
-            OtherArea,
-            Other,
-        ];
-        for a in all {
-            for b in all {
+        for a in Class::ALL {
+            for b in Class::ALL {
                 assert_eq!(relation(a, b), relation(b, a), "{a:?} {b:?}");
             }
         }
