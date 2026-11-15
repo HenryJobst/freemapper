@@ -1,7 +1,7 @@
 //! Step 4 of the training level: inside olive green the training map draws no details (spec
 //! 2026-11-14, "Inside olive green").
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use geo::line_intersection::{LineIntersection, line_intersection};
 use geo::{
@@ -76,7 +76,12 @@ pub(super) fn clear_olive(
     let min_area = min_area_m2(scale) / metres_per_mm(scale_denominator).powi(2);
     let min_side = MIN_PIECE_SIDE_MM.on_paper(scale).0;
     let canopy = symbol_set.id_for_code(CANOPY_CODE);
-    let is_way = |o: &MapObject| matches!(classes.class(o.symbol_id), Class::Road | Class::Path);
+    let is_way = |o: &MapObject| {
+        matches!(
+            classes.class(o.symbol_id),
+            Class::Road | Class::Path | Class::Stairway
+        )
+    };
 
     let mut replaced = olive_ways(objects, &inner, classes, georef, symbol_set);
     let passages: Vec<(usize, Polygon<f64>)> = objects
@@ -214,15 +219,17 @@ fn is_passage(object: &MapObject) -> bool {
     })
 }
 
-/// The ways (Road, Path) inside `inner` (step 4). Their parts inside are taken together as they
-/// join: an end within [`TOUCH_M`] of another part. Such a group is a crossing when it meets the
-/// edge of `inner` at two places or more that are not barred (an end of a line inside is no
-/// place); a crossing stays in full. Of a group that is no crossing, the parts inside go, except
-/// the first [`WAY_STUB_MM`] (or the symbol's minimum length if longer) inward from each place
-/// that is not barred. A place is barred when an impassable wall or fence ([`IMPASSABLE_CODES`])
-/// crosses the way within [`OLIVE_EDGE_MM`] of the edge of `inner` and within twice that along
-/// the way from the place; the way then ends at the barrier. Pieces below the minimum length go.
-/// Returns the pieces of the ways that changed, by index in `objects`.
+/// The ways (Road, Path, and Stairway, which links them) inside `inner` (step 4). Their parts
+/// inside are taken together as they join: an end within [`TOUCH_M`] of another part. Such a group
+/// is a crossing when it meets the edge of `inner` at two places or more that are not barred (an
+/// end of a line inside is no place); a crossing stays in full. Of a group that is no crossing, the
+/// parts inside go, except the first [`WAY_STUB_MM`] (or the minimum length of the way at the
+/// place if longer) inward from each place that is not barred, measured on into the parts it
+/// joins ([`StubParts::walk`]). A place is barred when an impassable wall or fence
+/// ([`IMPASSABLE_CODES`]) crosses the way within [`OLIVE_EDGE_MM`] of the edge of `inner` and
+/// within twice that along the way from the place; the way then ends at the barrier. Pieces below
+/// the minimum length go unless an end continues on another way that stays. Returns the pieces of
+/// the ways that changed, by index in `objects`.
 fn olive_ways(
     objects: &[MapObject],
     inner: &Inner,
@@ -250,7 +257,10 @@ fn olive_ways(
         .enumerate()
         .filter(|(_, o)| {
             matches!(o.kind, MapObjectKind::Path)
-                && matches!(classes.class(o.symbol_id), Class::Road | Class::Path)
+                && matches!(
+                    classes.class(o.symbol_id),
+                    Class::Road | Class::Path | Class::Stairway
+                )
         })
         .flat_map(|(object, o)| {
             line_parts(o).into_iter().map(move |(line, closed)| {
@@ -378,30 +388,55 @@ fn olive_ways(
         *open_places.entry(root(&mut parent, i)).or_default() += open;
     }
 
-    // What goes of each line: the parts of the groups that are no crossing, less the stubs.
-    let mut removed: BTreeMap<usize, Vec<(f64, f64)>> = BTreeMap::new();
+    // What is drawn of the parts of the groups that are no crossing: the stubs, by the length
+    // along each part.
+    let groups: Vec<usize> = (0..parts.len()).map(|i| root(&mut parent, i)).collect();
+    let part_lines: Vec<Polyline> = stretches.iter().cloned().map(Polyline::new).collect();
+    let stub_parts = StubParts {
+        lines: &part_lines,
+        groups: &groups,
+        touch,
+    };
+    let mut drawn: Vec<Vec<(f64, f64)>> = vec![Vec::new(); parts.len()];
     for (i, part) in parts.iter().enumerate() {
-        if open_places[&root(&mut parent, i)] >= 2 {
+        if open_places[&groups[i]] >= 2 {
             continue;
         }
         let object = &objects[lines[part.line].object];
         let stub = WAY_STUB_MM
             .0
             .max(min_length(object, classes, symbol_set, scale).0);
-        let from = match places[i][0] {
-            Some(None) => part.from + stub,
-            Some(Some(barrier)) => part.from.min(barrier),
-            None => part.from,
-        };
-        let to = match places[i][1] {
-            Some(None) => part.to - stub,
-            Some(Some(barrier)) => part.to.max(barrier),
-            None => part.to,
-        };
-        if to > from {
-            removed.entry(part.line).or_default().push((from, to));
+        for (end, at) in [(0, 0.0), (1, part_lines[i].length())] {
+            if places[i][end] == Some(None) {
+                stub_parts.walk(i, at, stub, &mut BTreeSet::new(), &mut drawn);
+            }
         }
     }
+    // What goes of each line: the rest of those parts, and at a barred place the stretch to the
+    // barrier.
+    let mut removed: BTreeMap<usize, Vec<(f64, f64)>> = BTreeMap::new();
+    for (i, part) in parts.iter().enumerate() {
+        if open_places[&groups[i]] >= 2 {
+            continue;
+        }
+        let gone = removed.entry(part.line).or_default();
+        gone.extend(
+            complement(&drawn[i], part_lines[i].length())
+                .into_iter()
+                .map(|(a, b)| (part.from + a, part.from + b)),
+        );
+        if let Some(Some(barrier)) = places[i][0]
+            && barrier < part.from
+        {
+            gone.push((barrier, part.from));
+        }
+        if let Some(Some(barrier)) = places[i][1]
+            && barrier > part.to
+        {
+            gone.push((part.to, barrier));
+        }
+    }
+    removed.retain(|_, gone| !gone.is_empty());
 
     let mut changed: BTreeMap<usize, Vec<MapObject>> = BTreeMap::new();
     let mut by_object: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
@@ -424,10 +459,97 @@ fn olive_ways(
                 complement(removed.get(k).map_or(&[][..], Vec::as_slice), total)
             })
             .collect();
-        let min = min_length(object, classes, symbol_set, scale).0;
-        changed.insert(object_index, line_pieces(object, &parts, &keep, min));
+        changed.insert(object_index, line_pieces(object, &parts, &keep, 0.0));
+    }
+
+    // A piece below the minimum length goes unless an end continues on another way that stays.
+    // Each way line that stays, with the changed object and piece it belongs to.
+    type Owned = (Option<(usize, usize)>, Vec<Coord<f64>>);
+    let left: Vec<Owned> = lines
+        .iter()
+        .filter(|l| !changed.contains_key(&l.object))
+        .map(|l| (None, l.line.points.clone()))
+        .chain(changed.iter().flat_map(|(&i, pieces)| {
+            pieces.iter().enumerate().flat_map(move |(j, piece)| {
+                line_parts(piece)
+                    .into_iter()
+                    .map(move |(line, _)| (Some((i, j)), line.points))
+            })
+        }))
+        .collect();
+    for (&i, pieces) in changed.iter_mut() {
+        let min = min_length(&objects[i], classes, symbol_set, scale).0;
+        let stays: Vec<bool> = pieces
+            .iter()
+            .enumerate()
+            .map(|(j, piece)| {
+                line_parts(piece).iter().all(|(line, _)| {
+                    let ends = [line.points[0], line.points[line.points.len() - 1]];
+                    line.length() >= min - TOLERANCE_MM
+                        || ends.iter().any(|&end| {
+                            left.iter().any(|(owner, other)| {
+                                *owner != Some((i, j)) && distance_to_line(end, other) <= touch
+                            })
+                        })
+                })
+            })
+            .collect();
+        let mut stays = stays.into_iter();
+        pieces.retain(|_| stays.next().unwrap_or(false));
     }
     changed
+}
+
+/// The parts of the ways inside olive green along which a stub may run: the line of each part
+/// (paper mm, from its start) and its group.
+struct StubParts<'a> {
+    lines: &'a [Polyline],
+    groups: &'a [usize],
+    touch: f64,
+}
+
+impl StubParts<'_> {
+    /// Draws `length` of part `i` from `at` inward (both ways from a point within the part), and
+    /// what is left of it on into each part of the group whose line comes within `touch` of the
+    /// end reached: at a fork every branch gets the rest. `visited` holds the parts walked.
+    fn walk(
+        &self,
+        i: usize,
+        at: f64,
+        length: f64,
+        visited: &mut BTreeSet<usize>,
+        drawn: &mut [Vec<(f64, f64)>],
+    ) {
+        visited.insert(i);
+        let line = &self.lines[i];
+        let total = line.length();
+        let directions: &[f64] = if at <= TOLERANCE_MM {
+            &[1.0]
+        } else if at >= total - TOLERANCE_MM {
+            &[-1.0]
+        } else {
+            &[1.0, -1.0]
+        };
+        for &direction in directions {
+            let reach = at + direction * length;
+            let end = reach.clamp(0.0, total);
+            drawn[i].push((at.min(end), at.max(end)));
+            let rest = (reach - end).abs();
+            if rest <= TOLERANCE_MM {
+                continue;
+            }
+            let point = line.point(end);
+            for k in 0..self.lines.len() {
+                if self.groups[k] == self.groups[i]
+                    && !visited.contains(&k)
+                    && distance_to_line(point, &self.lines[k].points) <= self.touch
+                {
+                    let from = self.lines[k].locate(point);
+                    self.walk(k, from, rest, visited, drawn);
+                }
+            }
+        }
+    }
 }
 
 /// The places along `line` (length from its start) where a line of `barriers` crosses it.
@@ -564,6 +686,25 @@ impl Polyline {
             x: a.x + t * (b.x - a.x),
             y: a.y + t * (b.y - a.y),
         }
+    }
+
+    /// The length along the line to the point of it nearest `c`.
+    fn locate(&self, c: Coord<f64>) -> f64 {
+        let mut best = (f64::INFINITY, 0.0);
+        for (i, w) in self.points.windows(2).enumerate() {
+            let span = self.at[i + 1] - self.at[i];
+            let (dx, dy) = (w[1].x - w[0].x, w[1].y - w[0].y);
+            let t = if span > 0.0 {
+                (((c.x - w[0].x) * dx + (c.y - w[0].y) * dy) / (span * span)).clamp(0.0, 1.0)
+            } else {
+                0.0
+            };
+            let distance = (w[0].x + t * dx - c.x).hypot(w[0].y + t * dy - c.y);
+            if distance < best.0 {
+                best = (distance, self.at[i] + t * span);
+            }
+        }
+        best.1
     }
 
     /// The line from `from` to `to` along it.
@@ -1109,5 +1250,148 @@ mod tests {
         );
         assert_eq!(out, objects);
         assert_eq!(report, TrainingReport::default());
+    }
+
+    #[test]
+    fn a_crossing_with_steps_stays() {
+        let set = SymbolSet::issprom_2019();
+        let objects = vec![
+            garden(&set),
+            line(&set, "505.1", &[(-5.0, 10.0), (8.0, 10.0)]),
+            line(&set, "532.6", &[(8.0, 10.0), (12.0, 10.0)]),
+            line(&set, "505.1", &[(12.0, 10.0), (25.0, 10.0)]),
+        ];
+        assert_eq!(olive(&set, objects.clone()), (objects, 0));
+    }
+
+    #[test]
+    fn steps_in_a_dead_end_go_with_it() {
+        let set = SymbolSet::issprom_2019();
+        let objects = vec![
+            garden(&set),
+            line(&set, "505.1", &[(10.0, -2.0), (10.0, 8.0)]),
+            line(&set, "532.6", &[(10.0, 8.0), (10.0, 12.0)]),
+        ];
+        let (out, n) = olive(&set, objects);
+        assert_eq!(n, 2, "{out:?}");
+        assert!(of_code(&set, &out, "532.6").is_empty(), "{out:?}");
+        let ways = of_code(&set, &out, "505.1");
+        assert_eq!(ways.len(), 1, "{out:?}");
+        assert!(
+            runs_from_to(ways[0], (10.0, -2.0), (10.0, 1.4)),
+            "{:?}",
+            mm_of(ways[0])
+        );
+    }
+
+    #[test]
+    fn a_stub_runs_on_into_the_next_piece() {
+        // OSM splits the driveway 0.3 mm inside: the beginning drawn is still 1.0 mm long.
+        let set = SymbolSet::issprom_2019();
+        let first = line(&set, "505.1", &[(10.0, -2.0), (10.0, 0.7)]);
+        let objects = vec![
+            garden(&set),
+            first.clone(),
+            line(&set, "505.1", &[(10.0, 0.7), (10.0, 12.0)]),
+        ];
+        let (out, n) = olive(&set, objects);
+        assert_eq!(n, 1, "{out:?}");
+        let ways = of_code(&set, &out, "505.1");
+        assert_eq!(ways.len(), 2, "{out:?}");
+        assert_eq!(ways[0], &first);
+        assert!(
+            runs_from_to(ways[1], (10.0, 0.7), (10.0, 1.4)),
+            "{:?}",
+            mm_of(ways[1])
+        );
+    }
+
+    #[test]
+    fn a_way_along_the_edge_that_dips_inside_stays_whole() {
+        let set = SymbolSet::issprom_2019();
+        let objects = vec![
+            garden(&set),
+            line(
+                &set,
+                "505.1",
+                &[(-5.0, 0.2), (5.0, 0.2), (6.0, 1.0), (7.0, 0.2), (25.0, 0.2)],
+            ),
+        ];
+        assert_eq!(olive(&set, objects.clone()), (objects, 0));
+    }
+
+    #[test]
+    fn a_driveway_drawn_from_inside_out_keeps_its_outer_end() {
+        let set = SymbolSet::issprom_2019();
+        let objects = vec![
+            garden(&set),
+            line(&set, "505.1", &[(10.0, 12.0), (10.0, -2.0)]),
+        ];
+        let (out, n) = olive(&set, objects);
+        assert_eq!(n, 1, "{out:?}");
+        let ways = of_code(&set, &out, "505.1");
+        assert_eq!(ways.len(), 1, "{out:?}");
+        assert!(
+            runs_from_to(ways[0], (10.0, 1.4), (10.0, -2.0)),
+            "{:?}",
+            mm_of(ways[0])
+        );
+    }
+
+    #[test]
+    fn a_way_inside_goes_whole() {
+        let set = SymbolSet::issprom_2019();
+        let objects = vec![
+            garden(&set),
+            line(&set, "505.1", &[(5.0, 5.0), (15.0, 5.0)]),
+        ];
+        assert_eq!(olive(&set, objects), (vec![garden(&set)], 1));
+    }
+
+    #[test]
+    fn another_line_inside_goes() {
+        // 528 Prominent line feature: of class Other.
+        let set = SymbolSet::issprom_2019();
+        let objects = vec![garden(&set), line(&set, "528", &[(5.0, 5.0), (15.0, 5.0)])];
+        assert_eq!(olive(&set, objects), (vec![garden(&set)], 1));
+    }
+
+    #[test]
+    fn a_paved_area_is_cut_at_the_edge() {
+        // ISSprOM 501 is a combined symbol (class Other), 501.5 an area (class OtherArea).
+        let set = SymbolSet::issprom_2019();
+        for code in ["501", "501.5"] {
+            let objects = vec![garden(&set), area(&set, code, (-10.0, 5.0), (10.0, 15.0))];
+            let (out, n) = olive(&set, objects);
+            assert_eq!(n, 1, "{code}: {out:?}");
+            let paved = of_code(&set, &out, code);
+            assert_eq!(paved.len(), 1, "{code}: {out:?}");
+            let east = paved[0].coords.iter().map(|c| c.x).max().unwrap();
+            assert!((east - 400).abs() <= 2, "{code}: {east}");
+        }
+    }
+
+    #[test]
+    fn a_watercourse_and_a_railway_inside_stay() {
+        let set = SymbolSet::issprom_2019();
+        let objects = vec![
+            garden(&set),
+            line(&set, "305", &[(5.0, 5.0), (15.0, 5.0)]),
+            line(&set, "509.1", &[(5.0, 10.0), (15.0, 10.0)]),
+        ];
+        assert_eq!(olive(&set, objects.clone()), (objects, 0));
+    }
+
+    #[test]
+    fn a_passage_whose_way_went_behind_a_fence_goes() {
+        let set = SymbolSet::issprom_2019();
+        let fence = line(&set, "518", &[(-5.0, 0.0), (25.0, 0.0)]);
+        let objects = vec![
+            garden(&set),
+            fence.clone(),
+            passage(&set, "freemapper:alkis", "Durchfahrt im Gebäude"),
+            line(&set, "505.1", &[(10.0, 0.0), (10.0, 12.0)]),
+        ];
+        assert_eq!(olive(&set, objects), (vec![garden(&set), fence], 2));
     }
 }
