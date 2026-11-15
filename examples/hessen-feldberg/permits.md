@@ -4,7 +4,7 @@ Hinweis, keine Rechtsauskunft. Maßgeblich sind die zuständigen Behörden. Date
 
 Das BfN führt die Daten der Bundesländer einmal im Jahr zusammen und weist sie als nicht für Planungszwecke geeignet aus. Maßgeblich sind die Landesbehörden.
 
-Erstellt am 2026-11-14 für das Kartengebiet einer Waldkarte (108,0 ha).
+Erstellt am 2026-11-15 für das Kartengebiet einer Waldkarte (108,0 ha).
 
 ## Verwaltung
 
@@ -19,6 +19,13 @@ Am Rand berührt (weniger als 0,5 % des Kartengebiets):
 - Gemeinde: Gemeinde Glashütten, < 1 %
 
 VG250 ist auf den Maßstab 1:250 000 generalisiert. Eine Einheit, die nur den Rand berührt, kann davon kommen.
+
+## Denkmale (Landesamt für Denkmalpflege Hessen)
+
+Denkmale ganz oder zum Teil im Kartengebiet: 1. Die Links führen zu ihren Einträgen in der Denkmalliste.
+
+- Kulturdenkmal: 1
+  - <http://denkxweb.denkmalpflege-hessen.de/738380/>
 
 ## Wasserschutzgebiete (HLNUG)
 
@@ -53,6 +60,7 @@ OpenStreetMap-Flächen, die das ganze Kartengebiet umschließen und keine Ecke d
 
 ## Hinweise
 
+- Im Kartengebiet liegen Denkmale. Ob ein Lauf sie berührt, etwa mit einem Posten an einem Denkmal oder einer Strecke durch eine geschützte Anlage, klärt die untere Denkmalschutzbehörde, meist der Landkreis Hochtaunuskreis; in manchen Bundesländern ist es die Gemeinde Oberursel (Taunus).
 - Im Kartengebiet liegt die Schutzzone III des Wasserschutzgebiets „WSG Haidtränktal, Oberursel“. Dort sind Veranstaltungen meist möglich; was die Verordnung erlaubt, sagt die untere Wasserbehörde.
 - Im Kartengebiet liegt die Schutzzone IIIA des Wasserschutzgebiets „WSG Br. Riedwiese, u.a., Oberursel“. Dort sind Veranstaltungen meist möglich; was die Verordnung erlaubt, sagt die untere Wasserbehörde.
 - Im Kartengebiet liegt die Schutzzone II des Wasserschutzgebiets „WSG Haidtränktal, Oberursel“. In den Schutzzonen I und II sind Veranstaltungen meist ausgeschlossen. Fragen Sie die untere Wasserbehörde.
@@ -66,7 +74,8 @@ OpenStreetMap-Flächen, die das ganze Kartengebiet umschließen und keine Ecke d
 
 | Quelle | Stand | Quellenvermerk und Lizenz |
 |---|---|---|
-| VG250 (BKG): Verwaltungsgebiete 1:250 000 (VG250) des BKG | gelesen, abgerufen am 2026-11-14 | © BKG (2026) dl-de/by-2-0, Datenquellen: https://sg.geodatenzentrum.de/web_public/gdz/datenquellen/datenquellen_vg_nuts.pdf |
-| BfN: Schutzgebiete in Deutschland des BfN | gelesen, abgerufen am 2026-11-14 | © Bundesamt für Naturschutz (BfN) (2026), Schutzgebiete in Deutschland; Nutzungsbestimmungen für die Bereitstellung von Geodaten des Bundes (GeoNutzV). Nicht für Planungszwecke geeignet. |
+| VG250 (BKG): Verwaltungsgebiete 1:250 000 (VG250) des BKG | gelesen, abgerufen am 2026-11-15 | © BKG (2026) dl-de/by-2-0, Datenquellen: https://sg.geodatenzentrum.de/web_public/gdz/datenquellen/datenquellen_vg_nuts.pdf |
+| BfN: Schutzgebiete in Deutschland des BfN | gelesen, abgerufen am 2026-11-15 | © Bundesamt für Naturschutz (BfN) (2026), Schutzgebiete in Deutschland; Nutzungsbestimmungen für die Bereitstellung von Geodaten des Bundes (GeoNutzV). Nicht für Planungszwecke geeignet. |
 | OpenStreetMap: OpenStreetMap, aus dem Auszug, den freemapper im Zwischenspeicher hält | gelesen, OSM-Auszug vom 2026-11-06 | © OpenStreetMap contributors, ODbL |
-| HLNUG: Trinkwasser- und Heilquellenschutzgebiete | gelesen, abgerufen am 2026-11-14 | Lizenz: Creative Commons BY 4.0 (https://creativecommons.org/licenses/by/4.0/deed.de). Quellenvermerk für Daten: „Darstellung auf der Grundlage von Daten des Hessischen Landesamtes für Naturschutz, Umwelt und Geologie (HLNUG)“. |
+| HLNUG: Trinkwasser- und Heilquellenschutzgebiete | gelesen, abgerufen am 2026-11-15 | Lizenz: Creative Commons BY 4.0 (https://creativecommons.org/licenses/by/4.0/deed.de). Quellenvermerk für Daten: „Darstellung auf der Grundlage von Daten des Hessischen Landesamtes für Naturschutz, Umwelt und Geologie (HLNUG)“. |
+| Landesamt für Denkmalpflege Hessen: Kulturdenkmäler, Gesamtanlagen, Bodendenkmäler (DenkXweb) | gelesen, abgerufen am 2026-11-15 | Datenlizenz Deutschland – Namensnennung – Version 2.0 (dl-de/by-2-0); Quellenvermerk: Landesamt für Denkmalpflege Hessen (LfDH) |

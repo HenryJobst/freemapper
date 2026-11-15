@@ -550,26 +550,62 @@ impl StateAdapter {
             State::Berlin => vec![Box::new(crate::berlin::K5)],
             _ => Vec::new(),
         };
-        let permits = match state {
+        // The BfG's protection areas where the state's own services give none (ADR 0142), the
+        // monuments of the state offices where they are open (ADR 0144).
+        let permits: Vec<Box<dyn PermitSource>> = match state {
             State::Berlin => crate::berlin_permits::sources(),
-            State::Brandenburg => crate::lfb_permits::sources(),
+            State::Brandenburg => [
+                crate::lfb_permits::sources(),
+                crate::denkmal_permits::brandenburg(),
+            ]
+            .into_iter()
+            .flatten()
+            .collect(),
             State::Hamburg => crate::lgv_permits::sources(),
             State::Saarland => crate::state_permits::saarland(),
-            State::Hessen => crate::state_permits::hessen(),
+            State::Hessen => [
+                crate::state_permits::hessen(),
+                vec![crate::denkmal_permits::hessen()],
+            ]
+            .into_iter()
+            .flatten()
+            .collect(),
             State::SchleswigHolstein => crate::state_permits::schleswig_holstein(),
-            State::NordrheinWestfalen => crate::wuh_permits::sources(),
-            State::BadenWuerttemberg => vec![crate::lubw_permits::source()],
-            // The BfG's protection areas where the state's own services give none (ADR 0142).
-            State::Saxony => {
-                let mut sources = crate::sbs_permits::sources();
-                sources.push(crate::bfg_permits::source());
-                sources
-            }
+            State::NordrheinWestfalen => [
+                crate::wuh_permits::sources(),
+                vec![crate::denkmal_permits::nordrhein_westfalen()],
+            ]
+            .into_iter()
+            .flatten()
+            .collect(),
+            State::BadenWuerttemberg => [
+                vec![crate::lubw_permits::source()],
+                crate::denkmal_permits::baden_wuerttemberg(),
+            ]
+            .into_iter()
+            .flatten()
+            .collect(),
+            State::Saxony => [
+                crate::sbs_permits::sources(),
+                vec![
+                    crate::bfg_permits::source(),
+                    crate::denkmal_permits::sachsen(),
+                ],
+            ]
+            .into_iter()
+            .flatten()
+            .collect(),
+            State::Bremen => vec![
+                crate::bfg_permits::source(),
+                crate::denkmal_permits::bremen(),
+            ],
+            State::RheinlandPfalz => vec![
+                crate::bfg_permits::source(),
+                crate::denkmal_permits::rheinland_pfalz(),
+            ],
             State::Bayern
             | State::Niedersachsen
-            | State::Bremen
             | State::MecklenburgVorpommern
-            | State::RheinlandPfalz
             | State::SaxonyAnhalt => vec![crate::bfg_permits::source()],
         };
         Self {
@@ -851,8 +887,14 @@ mod tests {
                     "https://gdi.berlin.de/services/wfs/forstverwalt",
                 ),
                 "brandenburg" => (
-                    &["reviere", "waldfunktionen", "wasserschutzgebiete"],
-                    "https://www.brandenburg-forst.de/geoserver/IWFK/ows",
+                    &[
+                        "reviere",
+                        "waldfunktionen",
+                        "wasserschutzgebiete",
+                        "baudenkmale",
+                        "bodendenkmale",
+                    ],
+                    "https://gis-bldam-brandenburg.de/ows/baudenkmale",
                 ),
                 "hamburg" => (
                     &[
@@ -870,24 +912,30 @@ mod tests {
                     "https://geoportal.saarland.de/arcgis/services/Internet/Denkmalschutz/MapServer/WFSServer",
                 ),
                 "hessen" => (
-                    &["wasserschutzgebiete"],
-                    "https://geodienste-umwelt.hessen.de/arcgis/services/inspire/bewirtschaftungsgebiete/MapServer/WFSServer",
+                    &["wasserschutzgebiete", "denkmale"],
+                    "https://geodienste.denkx.de/geoserver/denkx/wfs",
                 ),
                 "schleswigholstein" => (
                     &["umwelt"],
                     "https://umweltgeodienste.schleswig-holstein.de/WFS_UWAT",
                 ),
-                "badenwuerttemberg" => (&["lubw"], crate::lubw_permits::BASE),
-                "saxony" => (
-                    &["sachsenforst", "bfg"],
-                    "https://www.forsten.sachsen.de/kartendienste/wald/MapServer/WMSServer",
+                "badenwuerttemberg" => (
+                    &["lubw", "denkmale", "archaeologie"],
+                    crate::lubw_permits::BASE,
                 ),
-                "bayern"
-                | "niedersachsen"
-                | "bremen"
-                | "mecklenburgvorpommern"
-                | "rheinlandpfalz"
-                | "saxonyanhalt" => (
+                "saxony" => (
+                    &["sachsenforst", "bfg", "denkmale"],
+                    "https://cardomap3.idu.de/lfds/public/ogc.ashx?PKGID=5",
+                ),
+                "bremen" => (
+                    &["bfg", "denkmale"],
+                    "https://geodienste.bremen.de/wfs_kulturdenkmale",
+                ),
+                "rheinlandpfalz" => (
+                    &["bfg", "denkmale"],
+                    "https://www.geoportal.rlp.de/owsproxy/00000000000000000000000000000000/a2e0fb04feed3a72cf42d53cf6e2165e",
+                ),
+                "bayern" | "niedersachsen" | "mecklenburgvorpommern" | "saxonyanhalt" => (
                     &["bfg"],
                     "https://geoportal.bafg.de/arcgis1/rest/services/INSPIRE/AM/MapServer/1/query",
                 ),
@@ -897,6 +945,7 @@ mod tests {
                         "staatswald",
                         "linfos",
                         "wasserschutzgebiete",
+                        "denkmale",
                     ],
                     "https://www.opengeodata.nrw.de/produkte/umwelt_klima/wald_forst/wald/x.zip",
                 ),

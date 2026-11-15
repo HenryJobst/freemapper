@@ -1023,6 +1023,27 @@ The hints name, for each Bezirk that is more than an edge, the Bezirksamt with i
 öffentlichen Raumes and, when a monument lies in the area, the Denkmalschutzamt Hamburg. Without the Bezirke the
 general hint for Berlin and Hamburg comes back.
 
+### Monuments
+
+Monuments come from Berlin, Hamburg and Saarland and from the open services of the monument offices of Hesse
+(DenkXweb, with a link into the list), Baden-Württemberg (Kulturdenkmale, Gesamtanlagen, archaeological monuments
+and Grabungsschutzgebiete), Bremen (Einzeldenkmale and Ensembles, with a link), Saxony (Kulturdenkmale),
+Brandenburg (Bau-, Garten- and Bodendenkmale, Denkmalbereiche), Rhineland-Palatinate (Einzeldenkmäler,
+Denkmalzonen, bauliche Gesamtanlagen) and North Rhine-Westphalia. The section "Monuments" counts them by kind and
+links up to 20 into the state's list where the service has a link. When monuments lie in the area, a hint says
+whom to ask: in Berlin and Hamburg the Bezirksamt or the Denkmalschutzamt, elsewhere the lower monument authority
+(untere Denkmalschutzbehörde), usually the Landkreis or the kreisfreie Stadt, in some states the Gemeinde; the hint
+names the Kreis and the Gemeinde from VG250.
+
+In North Rhine-Westphalia the data are still being gathered and not every Gemeinde is in them yet: no monument in
+the notes does not mean none lies in the area. In Brandenburg the Baudenkmale of the city of Potsdam are missing; the
+city keeps its own list. The notes say both below the part of the state, and the hint on the lower monument
+authority comes there without a finding too, saying that the data cannot tell for sure. A kreisfreie Stadt, in
+Baden-Württemberg a Stadtkreis, is the lower authority itself. Hesse's archaeological monuments are points that stand for an area
+of about 300 m, as the service says. Lower Saxony, Bavaria, Schleswig-Holstein, Mecklenburg-Vorpommern and
+Saxony-Anhalt are still missing: their licence is unclear or forbids adaptations, or there is no service for the
+whole state.
+
 ### Water protection areas and forest functions
 
 Water protection areas with their zone come from Baden-Württemberg, Berlin, Brandenburg, Hamburg, Hesse, North
@@ -1102,7 +1123,7 @@ phone numbers. freemapper takes none of it: it keeps only the names of the offic
   with `"sampled": true`.
 - Who owns a private or municipal forest is in no open data.
 - The notes name water protection areas in every state. The BfG's areas have no zone; whether an event is
-  possible, the lower water authority says. Monuments come from Berlin, Hamburg and Saarland.
+  possible, the lower water authority says. Monuments come from ten states (see "Monuments").
 
 ### Data sources and licences
 
@@ -1115,6 +1136,13 @@ phone numbers. freemapper takes none of it: it keeps only the names of the offic
 | Geoportal Hamburg: Bezirk borders, Grünplan, monuments, forest in Hamburg, forest functions, water protection areas (Hamburg only) | `geodienste.hamburg.de` | per service `Datenlizenz Deutschland Namensnennung 2.0, Quellenvermerk: Freie und Hansestadt Hamburg, <office>` with the office the service names |
 | Umweltportal Schleswig-Holstein: state forest with its Reviere, Naturwald, water protection areas (Schleswig-Holstein only) | `umweltgeodienste.schleswig-holstein.de` | `Quellenvermerk: LfU SH; Lizenz: Creative Commons Namensnennung 4.0 International (CC BY 4.0)` |
 | LUBW Landesanstalt für Umwelt Baden-Württemberg: water protection zones with the authority in charge (Baden-Württemberg only) | `rips-gdi.lubw.baden-wuerttemberg.de` | `Grundlage: Daten aus dem Umweltinformationssystem (UIS) der LUBW Landesanstalt für Umwelt Baden-Württemberg` (terms of use for data of the UIS) |
+| Landesamt für Denkmalpflege Hessen (DenkXweb): Kulturdenkmäler, Gesamtanlagen, archaeological monuments (Hesse only) | `geodienste.denkx.de` | `Datenlizenz Deutschland – Namensnennung – Version 2.0 (dl-de/by-2-0); Quellenvermerk: Landesamt für Denkmalpflege Hessen (LfDH)` |
+| Landesamt für Denkmalpflege Baden-Württemberg: Kulturdenkmale, Gesamtanlagen, archaeological monuments, Grabungsschutzgebiete (Baden-Württemberg only) | `owsproxy.lgl-bw.de` | `… mit Angabe der Datenquelle: dl-de/by-2-0: Landesamt für Denkmalpflege im Regierungspräsidium Stuttgart, www.denkmalpflege-bw.de` |
+| Landesamt für Denkmalpflege Bremen: Einzeldenkmale, Ensembles (Bremen only) | `geodienste.bremen.de` | `Creative Commons Namensnennung (CC-BY), Quellenvermerk: Freie Hansestadt Bremen, Senator für Kultur` |
+| Landesamt für Denkmalpflege Sachsen: Kulturdenkmale (Saxony only) | `cardomap3.idu.de` | `Landesamt für Denkmalpflege Sachsen, Creative Commons Namensnennung 3.0 Deutschland (CC BY 3.0 DE)` |
+| BLDAM: Baudenkmale, Gartendenkmale, Denkmalbereiche, Bodendenkmale (Brandenburg only) | `gis-bldam-brandenburg.de` | `© Denkmaldaten/BLDAM <year>`; Bodendenkmale: `Quelle: © Denkmaldaten/Brandenburgisches Landesamt für Denkmalpflege und Archäologisches Landesmuseum (BLDAM), dl-de/by-2-0` |
+| Generaldirektion Kulturelles Erbe: Einzeldenkmäler, Denkmalzonen, bauliche Gesamtanlagen (Rhineland-Palatinate only) | `www.geoportal.rlp.de` | `Datenlizenz Deutschland – Namensnennung – Version 2.0 (dl-de/by-2-0); Quellenvermerk: GDKE RLP` |
+| Land NRW: monuments under the Denkmalschutzgesetz, still being gathered (North Rhine-Westphalia only) | `www.wfs.nrw.de` | `Datenlizenz Deutschland – Zero – Version 2.0 (https://www.govdata.de/dl-de/zero-2-0)` |
 | Bundesanstalt für Gewässerkunde (BfG), WasserBLIcK: drinking water and medicinal spring protection areas (Bavaria, Lower Saxony, Bremen, Mecklenburg-Vorpommern, Rhineland-Palatinate, Saxony-Anhalt and Saxony only) | `geoportal.bafg.de` | `© WasserBLIcK/BfG und Zuständige Behörden der Länder, <Jahr>; Lizenz: Creative Commons Namensnennung – 4.0 International (CC BY 4.0)` |
 | Staatsbetrieb Sachsenforst: Forstbezirke and Reviere, Erholungswald, Naturwaldzellen, Bodenschutzwald, drinking water protection zones in the forest (Saxony only) | `www.forsten.sachsen.de` | `Datenlizenz Deutschland 2.0 – Namensnennung (dl-de/by-2-0) unter Angabe der Quelle: "Geodaten Sachsenforst"` |
 | Geoportal Saarland: Reviere of the state forest, water protection areas, Naturwaldzellen, Urwald, listed buildings (Saarland only) | `geoportal.saarland.de` | `Quellenvermerk: © GDI-SL (<year>); Lizenz: Creative Commons Namensnennung 4.0 International (CC BY 4.0)` |

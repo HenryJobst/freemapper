@@ -104,6 +104,14 @@
       }
     },
     {
+      "key": "permits-hint-monument-lower-authority",
+      "args": {
+        "gemeinde": "Cochem",
+        "kreis": "Cochem-Zell",
+        "kreisfrei": "no"
+      }
+    },
+    {
       "key": "permits-hint-forest-owner",
       "args": {
         "office": "unknown"
@@ -161,6 +169,27 @@
   "regional": [
     {
       "adapter": "rheinlandpfalz",
+      "monuments": {
+        "total": 91,
+        "groups": [
+          {
+            "kind": "Einzeldenkmal",
+            "count": 87,
+            "links": []
+          },
+          {
+            "kind": "Bauliche Gesamtanlage",
+            "count": 3,
+            "links": []
+          },
+          {
+            "kind": "Denkmalzone",
+            "count": 1,
+            "links": []
+          }
+        ],
+        "links_left": 0
+      },
       "water_protection": [],
       "sources": [
         {
@@ -186,6 +215,30 @@
             "fetched": "2026-11-15",
             "reason": null,
             "credit": "© WasserBLIcK/BfG und Zuständige Behörden der Länder, 2026; Lizenz: Creative Commons Namensnennung – 4.0 International (CC BY 4.0)"
+          }
+        },
+        {
+          "source": {
+            "key": "denkmale",
+            "label": {
+              "en": "Generaldirektion Kulturelles Erbe",
+              "de": "Generaldirektion Kulturelles Erbe"
+            },
+            "what": {
+              "en": "Einzeldenkmäler, Denkmalzonen, bauliche Gesamtanlagen",
+              "de": "Einzeldenkmäler, Denkmalzonen, bauliche Gesamtanlagen"
+            },
+            "credit": "Datenlizenz Deutschland – Namensnennung – Version 2.0 (dl-de/by-2-0); Quellenvermerk: GDKE RLP",
+            "sections": [
+              "monuments"
+            ]
+          },
+          "status": {
+            "id": "denkmale",
+            "state": "read",
+            "fetched": "2026-11-15",
+            "reason": null,
+            "credit": "Datenlizenz Deutschland – Namensnennung – Version 2.0 (dl-de/by-2-0); Quellenvermerk: GDKE RLP"
           }
         }
       ]

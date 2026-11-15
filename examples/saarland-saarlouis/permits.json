@@ -97,6 +97,14 @@
       }
     },
     {
+      "key": "permits-hint-monument-lower-authority",
+      "args": {
+        "gemeinde": "Saarlouis",
+        "kreis": "Saarlouis",
+        "kreisfrei": "no"
+      }
+    },
+    {
       "key": "permits-hint-forest-office",
       "args": {
         "administration": "SaarForst Landesbetrieb",

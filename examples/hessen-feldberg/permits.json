@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "created": "2026-11-14",
+  "created": "2026-11-15",
   "map_kind": "forest",
   "area_m2": 1080470.624941227,
   "admin": [
@@ -92,6 +92,14 @@
   ],
   "hints": [
     {
+      "key": "permits-hint-monument-lower-authority",
+      "args": {
+        "gemeinde": "Oberursel (Taunus)",
+        "kreis": "Hochtaunuskreis",
+        "kreisfrei": "no"
+      }
+    },
+    {
       "key": "permits-hint-water-protection",
       "args": {
         "inner": "no",
@@ -151,14 +159,14 @@
     {
       "id": "vg250",
       "state": "read",
-      "fetched": "2026-11-14",
+      "fetched": "2026-11-15",
       "reason": null,
       "credit": "© BKG (2026) dl-de/by-2-0, Datenquellen: https://sg.geodatenzentrum.de/web_public/gdz/datenquellen/datenquellen_vg_nuts.pdf"
     },
     {
       "id": "bfn",
       "state": "read",
-      "fetched": "2026-11-14",
+      "fetched": "2026-11-15",
       "reason": null,
       "credit": "© Bundesamt für Naturschutz (BfN) (2026), Schutzgebiete in Deutschland; Nutzungsbestimmungen für die Bereitstellung von Geodaten des Bundes (GeoNutzV). Nicht für Planungszwecke geeignet."
     },
@@ -173,6 +181,19 @@
   "regional": [
     {
       "adapter": "hessen",
+      "monuments": {
+        "total": 1,
+        "groups": [
+          {
+            "kind": "Kulturdenkmal",
+            "count": 1,
+            "links": [
+              "http://denkxweb.denkmalpflege-hessen.de/738380/"
+            ]
+          }
+        ],
+        "links_left": 0
+      },
       "water_protection": [
         {
           "item": {
@@ -231,9 +252,33 @@
           "status": {
             "id": "wasserschutzgebiete",
             "state": "read",
-            "fetched": "2026-11-14",
+            "fetched": "2026-11-15",
             "reason": null,
             "credit": "Lizenz: Creative Commons BY 4.0 (https://creativecommons.org/licenses/by/4.0/deed.de). Quellenvermerk für Daten: „Darstellung auf der Grundlage von Daten des Hessischen Landesamtes für Naturschutz, Umwelt und Geologie (HLNUG)“."
+          }
+        },
+        {
+          "source": {
+            "key": "denkmale",
+            "label": {
+              "en": "Landesamt für Denkmalpflege Hessen",
+              "de": "Landesamt für Denkmalpflege Hessen"
+            },
+            "what": {
+              "en": "Kulturdenkmäler, Gesamtanlagen, archaeological monuments (DenkXweb)",
+              "de": "Kulturdenkmäler, Gesamtanlagen, Bodendenkmäler (DenkXweb)"
+            },
+            "credit": "Datenlizenz Deutschland – Namensnennung – Version 2.0 (dl-de/by-2-0); Quellenvermerk: Landesamt für Denkmalpflege Hessen (LfDH)",
+            "sections": [
+              "monuments"
+            ]
+          },
+          "status": {
+            "id": "denkmale",
+            "state": "read",
+            "fetched": "2026-11-15",
+            "reason": null,
+            "credit": "Datenlizenz Deutschland – Namensnennung – Version 2.0 (dl-de/by-2-0); Quellenvermerk: Landesamt für Denkmalpflege Hessen (LfDH)"
           }
         }
       ]

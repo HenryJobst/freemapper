@@ -53,6 +53,7 @@ pub fn source() -> Box<dyn PermitSource> {
             credit: CREDIT,
             note: Some(NOTE),
             sampled: false,
+            gaps: None,
             layers: &["trinkwasser", "heilquellen"],
             sections: &[PermitSection::WaterProtection],
             offices: None,

@@ -1063,6 +1063,27 @@ Die Hinweise nennen für jeden Bezirk, der mehr als den Rand berührt, das Bezir
 Management des öffentlichen Raumes und, wenn ein Denkmal im Gebiet liegt, das Denkmalschutzamt Hamburg. Fehlen
 die Bezirke, steht der allgemeine Hinweis für Berlin und Hamburg da.
 
+### Denkmale
+
+Denkmale kommen aus Berlin, Hamburg und dem Saarland und aus den offenen Diensten der Denkmalämter von Hessen
+(DenkXweb, mit Link in die Denkmalliste), Baden-Württemberg (Kulturdenkmale, Gesamtanlagen, archäologische
+Kulturdenkmale und Grabungsschutzgebiete), Bremen (Einzeldenkmale und Ensembles, mit Link), Sachsen
+(Kulturdenkmale), Brandenburg (Bau-, Garten- und Bodendenkmale, Denkmalbereiche), Rheinland-Pfalz (Einzeldenkmäler,
+Denkmalzonen, bauliche Gesamtanlagen) und Nordrhein-Westfalen. Der Abschnitt „Denkmale“ zählt sie je Art und
+verlinkt, wo der Dienst einen Link hat, bis zu 20 in die Liste des Bundeslandes. Liegen Denkmale im Gebiet, sagt
+ein Hinweis, wen man fragt: in Berlin und Hamburg das Bezirksamt oder das Denkmalschutzamt, sonst die untere
+Denkmalschutzbehörde, meist der Landkreis oder die kreisfreie Stadt, in manchen Bundesländern die Gemeinde; die
+Hinweise nennen dazu Kreis und Gemeinde aus VG250.
+
+In Nordrhein-Westfalen ist der Bestand noch im Aufbau, nicht jede Gemeinde ist schon darin: Kein Denkmal in den
+Hinweisen heißt dort nicht, dass keins im Gebiet liegt. In Brandenburg fehlen die Baudenkmale der Stadt Potsdam, die
+ihre Denkmalliste selbst führt. Die Hinweise sagen beides unter dem Teil des Bundeslandes, und der Hinweis auf die
+untere Denkmalschutzbehörde kommt dort auch ohne Treffer, mit dem Satz, dass die Daten das nicht sicher sagen. Eine
+kreisfreie Stadt, in Baden-Württemberg ein Stadtkreis, ist selbst die untere Behörde. Die Bodendenkmäler in Hessen sind Punkte, die laut Dienst für
+ein Gebiet von etwa 300 m stehen. Niedersachsen, Bayern, Schleswig-Holstein, Mecklenburg-Vorpommern und
+Sachsen-Anhalt fehlen noch: Die Lizenz ist dort unklar oder verbietet die Bearbeitung, oder es gibt keinen Dienst
+für das ganze Bundesland.
+
 ### Wasserschutzgebiete und Waldfunktionen
 
 Wasserschutzgebiete mit ihrer Schutzzone kommen aus Baden-Württemberg, Berlin, Brandenburg, Hamburg, Hessen,
@@ -1146,8 +1167,8 @@ Bezirks, auch in `data/permits/`.
   `"sampled": true`.
 - Wem ein Privat- oder Körperschaftswald gehört, steht in keinen offenen Daten.
 - Wasserschutzgebiete nennen die Hinweise in allen Bundesländern. Die Gebiete der BfG haben keine Schutzzone; ob
-  eine Veranstaltung möglich ist, sagt die untere Wasserbehörde. Denkmale kommen aus Berlin, Hamburg und dem
-  Saarland.
+  eine Veranstaltung möglich ist, sagt die untere Wasserbehörde. Denkmale kommen aus zehn Bundesländern (siehe
+  „Denkmale“).
 
 ### Datenquellen und Lizenzen
 
@@ -1160,6 +1181,13 @@ Bezirks, auch in `data/permits/`.
 | Geoportal Hamburg: Bezirksgrenzen, Grünplan, Denkmalschutz, Wald in Hamburg, Waldfunktionen, Wasserschutzgebiete (nur in Hamburg) | `geodienste.hamburg.de` | je Dienst `Datenlizenz Deutschland Namensnennung 2.0, Quellenvermerk: Freie und Hansestadt Hamburg, <Behörde>` mit der Behörde, die der Dienst nennt |
 | Umweltportal Schleswig-Holstein: Landeswald mit Revieren, Naturwald, Wasserschutzgebiete (nur in Schleswig-Holstein) | `umweltgeodienste.schleswig-holstein.de` | `Quellenvermerk: LfU SH; Lizenz: Creative Commons Namensnennung 4.0 International (CC BY 4.0)` |
 | LUBW Landesanstalt für Umwelt Baden-Württemberg: Wasserschutzgebietszonen mit der zuständigen Behörde (nur in Baden-Württemberg) | `rips-gdi.lubw.baden-wuerttemberg.de` | `Grundlage: Daten aus dem Umweltinformationssystem (UIS) der LUBW Landesanstalt für Umwelt Baden-Württemberg` (Nutzungsvereinbarung für Daten des UIS) |
+| Landesamt für Denkmalpflege Hessen (DenkXweb): Kulturdenkmäler, Gesamtanlagen, Bodendenkmäler (nur in Hessen) | `geodienste.denkx.de` | `Datenlizenz Deutschland – Namensnennung – Version 2.0 (dl-de/by-2-0); Quellenvermerk: Landesamt für Denkmalpflege Hessen (LfDH)` |
+| Landesamt für Denkmalpflege Baden-Württemberg: Kulturdenkmale, Gesamtanlagen, archäologische Kulturdenkmale, Grabungsschutzgebiete (nur in Baden-Württemberg) | `owsproxy.lgl-bw.de` | `… mit Angabe der Datenquelle: dl-de/by-2-0: Landesamt für Denkmalpflege im Regierungspräsidium Stuttgart, www.denkmalpflege-bw.de` |
+| Landesamt für Denkmalpflege Bremen: Einzeldenkmale, Ensembles (nur in Bremen) | `geodienste.bremen.de` | `Creative Commons Namensnennung (CC-BY), Quellenvermerk: Freie Hansestadt Bremen, Senator für Kultur` |
+| Landesamt für Denkmalpflege Sachsen: Kulturdenkmale (nur in Sachsen) | `cardomap3.idu.de` | `Landesamt für Denkmalpflege Sachsen, Creative Commons Namensnennung 3.0 Deutschland (CC BY 3.0 DE)` |
+| BLDAM: Baudenkmale, Gartendenkmale, Denkmalbereiche, Bodendenkmale (nur in Brandenburg) | `gis-bldam-brandenburg.de` | `© Denkmaldaten/BLDAM <Jahr>`; Bodendenkmale: `Quelle: © Denkmaldaten/Brandenburgisches Landesamt für Denkmalpflege und Archäologisches Landesmuseum (BLDAM), dl-de/by-2-0` |
+| Generaldirektion Kulturelles Erbe: Einzeldenkmäler, Denkmalzonen, bauliche Gesamtanlagen (nur in Rheinland-Pfalz) | `www.geoportal.rlp.de` | `Datenlizenz Deutschland – Namensnennung – Version 2.0 (dl-de/by-2-0); Quellenvermerk: GDKE RLP` |
+| Land NRW: Denkmäler nach dem Denkmalschutzgesetz, im Aufbau (nur in Nordrhein-Westfalen) | `www.wfs.nrw.de` | `Datenlizenz Deutschland – Zero – Version 2.0 (https://www.govdata.de/dl-de/zero-2-0)` |
 | Bundesanstalt für Gewässerkunde (BfG), WasserBLIcK: Trinkwasser- und Heilquellenschutzgebiete (nur in Bayern, Niedersachsen, Bremen, Mecklenburg-Vorpommern, Rheinland-Pfalz, Sachsen-Anhalt und Sachsen) | `geoportal.bafg.de` | `© WasserBLIcK/BfG und Zuständige Behörden der Länder, <Jahr>; Lizenz: Creative Commons Namensnennung – 4.0 International (CC BY 4.0)` |
 | Staatsbetrieb Sachsenforst: Forstbezirke und Reviere, Erholungswald, Naturwaldzellen, Bodenschutzwald, Trinkwasserschutzzonen im Wald (nur in Sachsen) | `www.forsten.sachsen.de` | `Datenlizenz Deutschland 2.0 – Namensnennung (dl-de/by-2-0) unter Angabe der Quelle: "Geodaten Sachsenforst"` |
 | Geoportal Saarland: Reviere des Staatswalds, Wasserschutzgebiete, Naturwaldzellen, Urwald, Baudenkmale (nur im Saarland) | `geoportal.saarland.de` | `Quellenvermerk: © GDI-SL (<Jahr>); Lizenz: Creative Commons Namensnennung 4.0 International (CC BY 4.0)` |

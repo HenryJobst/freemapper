@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "created": "2026-11-14",
+  "created": "2026-11-15",
   "map_kind": "sprint",
   "area_m2": 540291.322688428,
   "admin": [
@@ -87,6 +87,14 @@
       }
     },
     {
+      "key": "permits-hint-monument-lower-authority",
+      "args": {
+        "gemeinde": "Marburg",
+        "kreis": "Marburg-Biedenkopf",
+        "kreisfrei": "no"
+      }
+    },
+    {
       "key": "permits-hint-forest-owner",
       "args": {
         "office": "unknown"
@@ -127,14 +135,14 @@
     {
       "id": "vg250",
       "state": "read",
-      "fetched": "2026-11-14",
+      "fetched": "2026-11-15",
       "reason": null,
       "credit": "© BKG (2026) dl-de/by-2-0, Datenquellen: https://sg.geodatenzentrum.de/web_public/gdz/datenquellen/datenquellen_vg_nuts.pdf"
     },
     {
       "id": "bfn",
       "state": "read",
-      "fetched": "2026-11-14",
+      "fetched": "2026-11-15",
       "reason": null,
       "credit": "© Bundesamt für Naturschutz (BfN) (2026), Schutzgebiete in Deutschland; Nutzungsbestimmungen für die Bereitstellung von Geodaten des Bundes (GeoNutzV). Nicht für Planungszwecke geeignet."
     },
@@ -149,6 +157,49 @@
   "regional": [
     {
       "adapter": "hessen",
+      "monuments": {
+        "total": 607,
+        "groups": [
+          {
+            "kind": "Kulturdenkmal",
+            "count": 458,
+            "links": [
+              "http://denkxweb.denkmalpflege-hessen.de/134057/",
+              "http://denkxweb.denkmalpflege-hessen.de/134059/",
+              "http://denkxweb.denkmalpflege-hessen.de/134060/",
+              "http://denkxweb.denkmalpflege-hessen.de/134061/",
+              "http://denkxweb.denkmalpflege-hessen.de/134063/",
+              "http://denkxweb.denkmalpflege-hessen.de/134064/",
+              "http://denkxweb.denkmalpflege-hessen.de/134067/",
+              "http://denkxweb.denkmalpflege-hessen.de/134068/",
+              "http://denkxweb.denkmalpflege-hessen.de/134070/",
+              "http://denkxweb.denkmalpflege-hessen.de/134071/",
+              "http://denkxweb.denkmalpflege-hessen.de/134072/",
+              "http://denkxweb.denkmalpflege-hessen.de/134073/"
+            ]
+          },
+          {
+            "kind": "Bodendenkmal",
+            "count": 141,
+            "links": []
+          },
+          {
+            "kind": "Gesamtanlage",
+            "count": 8,
+            "links": [
+              "http://denkxweb.denkmalpflege-hessen.de/135422/",
+              "http://denkxweb.denkmalpflege-hessen.de/135424/",
+              "http://denkxweb.denkmalpflege-hessen.de/135467/",
+              "http://denkxweb.denkmalpflege-hessen.de/135473/",
+              "http://denkxweb.denkmalpflege-hessen.de/953368/",
+              "http://denkxweb.denkmalpflege-hessen.de/953369/",
+              "http://denkxweb.denkmalpflege-hessen.de/953370/",
+              "http://denkxweb.denkmalpflege-hessen.de/953372/"
+            ]
+          }
+        ],
+        "links_left": 439
+      },
       "water_protection": [],
       "sources": [
         {
@@ -170,9 +221,33 @@
           "status": {
             "id": "wasserschutzgebiete",
             "state": "read",
-            "fetched": "2026-11-14",
+            "fetched": "2026-11-15",
             "reason": null,
             "credit": "Lizenz: Creative Commons BY 4.0 (https://creativecommons.org/licenses/by/4.0/deed.de). Quellenvermerk für Daten: „Darstellung auf der Grundlage von Daten des Hessischen Landesamtes für Naturschutz, Umwelt und Geologie (HLNUG)“."
+          }
+        },
+        {
+          "source": {
+            "key": "denkmale",
+            "label": {
+              "en": "Landesamt für Denkmalpflege Hessen",
+              "de": "Landesamt für Denkmalpflege Hessen"
+            },
+            "what": {
+              "en": "Kulturdenkmäler, Gesamtanlagen, archaeological monuments (DenkXweb)",
+              "de": "Kulturdenkmäler, Gesamtanlagen, Bodendenkmäler (DenkXweb)"
+            },
+            "credit": "Datenlizenz Deutschland – Namensnennung – Version 2.0 (dl-de/by-2-0); Quellenvermerk: Landesamt für Denkmalpflege Hessen (LfDH)",
+            "sections": [
+              "monuments"
+            ]
+          },
+          "status": {
+            "id": "denkmale",
+            "state": "read",
+            "fetched": "2026-11-15",
+            "reason": null,
+            "credit": "Datenlizenz Deutschland – Namensnennung – Version 2.0 (dl-de/by-2-0); Quellenvermerk: Landesamt für Denkmalpflege Hessen (LfDH)"
           }
         }
       ]

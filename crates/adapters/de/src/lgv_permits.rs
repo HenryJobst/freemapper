@@ -114,6 +114,7 @@ fn source(
             credit,
             note: None,
             sampled: false,
+            gaps: None,
             layers,
             sections,
             offices,

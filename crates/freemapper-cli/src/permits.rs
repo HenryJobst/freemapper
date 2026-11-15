@@ -370,7 +370,18 @@ fn hint_text(lang: &Lang, notes: &PermitNotes, hint: &Hint) -> String {
     let mut args: Vec<(String, String)> =
         hint.args.iter().map(|(k, v)| (k.clone(), md(v))).collect();
     let has = |args: &[(String, String)], name: &str| args.iter().any(|(k, _)| k == name);
-    if hint.key == hint_key::NATURE_AUTHORITY {
+    if hint.key == hint_key::MONUMENT_LOWER_AUTHORITY && !has(&args, "gemeinde") {
+        args.push(("gemeinde".into(), "none".into()));
+    }
+    if hint.key == hint_key::MONUMENT_LOWER_AUTHORITY && !has(&args, "known") {
+        args.push(("known".into(), "yes".into()));
+    }
+    if [
+        hint_key::NATURE_AUTHORITY,
+        hint_key::MONUMENT_LOWER_AUTHORITY,
+    ]
+    .contains(&hint.key.as_str())
+    {
         if !has(&args, "kreisfrei") {
             args.push(("kreisfrei".into(), "unknown".into()));
         }
@@ -900,10 +911,14 @@ fn regional_blocks(lang: &Lang, part: &RegionalNotes) -> Vec<String> {
         if monuments.total == 0 {
             blocks.push(none(PermitSection::Monuments, "permits-none-monuments"));
         } else {
+            let links = monuments.groups.iter().any(|g| !g.links.is_empty());
             blocks.push(t(
                 lang,
                 "permits-monuments-total",
-                &[("count", arg(monuments.total))],
+                &[
+                    ("count", arg(monuments.total)),
+                    ("links", arg(if links { "yes" } else { "no" })),
+                ],
             ));
             let mut lines = Vec::new();
             for group in &monuments.groups {
@@ -1021,6 +1036,21 @@ fn regional_blocks(lang: &Lang, part: &RegionalNotes) -> Vec<String> {
                 None,
             ));
         }
+    }
+    for (source, gaps) in part
+        .sources
+        .iter()
+        .filter_map(|s| Some((&s.source, s.source.gaps.as_ref()?)))
+    {
+        let label = md(words(lang, &source.label));
+        blocks.push(t(
+            lang,
+            "permits-gaps",
+            &[
+                ("source", arg(&label)),
+                ("gaps", arg(md(words(lang, gaps)))),
+            ],
+        ));
     }
     for sampled in part.sources.iter().filter(|s| s.source.sampled) {
         let label = md(words(lang, &sampled.source.label));
@@ -1186,6 +1216,7 @@ fn used_ids() -> Vec<String> {
             hint_key::SCHOOL_OPERATOR,
             hint_key::DISTRICT_OFFICE,
             hint_key::MONUMENT_AUTHORITY,
+            hint_key::MONUMENT_LOWER_AUTHORITY,
             hint_key::NATURE_OBJECT_AUTHORITY,
             hint_key::OWNER_SHARE,
             hint_key::OWNERS_UNKNOWN,
@@ -1432,6 +1463,7 @@ mod tests {
                 credit: LICENCE.into(),
                 note: note.map(str::to_string),
                 sampled: false,
+                gaps: None,
                 sections: Vec::new(),
                 offices: None,
             },
@@ -1908,6 +1940,72 @@ mod tests {
         assert!(
             english.contains("(in charge: Landratsamt Ludwigsburg)"),
             "{english}"
+        );
+    }
+
+    /// The lower monument authority in words: a Landkreis with the Gemeinde, a kreisfreie
+    /// Stadt itself, no Kreis at all (ADR 0144).
+    #[test]
+    fn the_lower_monument_authority_is_written() {
+        let mut notes = viktoriapark();
+        notes.hints = vec![
+            hint(
+                hint_key::MONUMENT_LOWER_AUTHORITY,
+                &[
+                    ("kreis", "Potsdam-Mittelmark"),
+                    ("kreisfrei", "no"),
+                    ("gemeinde", "Werder (Havel)"),
+                ],
+            ),
+            hint(
+                hint_key::MONUMENT_LOWER_AUTHORITY,
+                &[("kreis", "Potsdam"), ("kreisfrei", "yes")],
+            ),
+            hint(hint_key::MONUMENT_LOWER_AUTHORITY, &[]),
+        ];
+        let text = render_markdown(&notes, &de());
+        for wanted in [
+            "Im Kartengebiet liegen Denkmale. Ob ein Lauf sie berührt, etwa mit einem Posten an einem Denkmal oder einer Strecke durch eine geschützte Anlage, klärt die untere Denkmalschutzbehörde, meist der Potsdam-Mittelmark; in manchen Bundesländern ist es die Gemeinde Werder (Havel).",
+            "klärt die untere Denkmalschutzbehörde. Hier ist das die Stadt Potsdam selbst.",
+            "klärt die untere Denkmalschutzbehörde (meist der Landkreis oder die kreisfreie Stadt, in manchen Bundesländern die Gemeinde).",
+        ] {
+            assert!(text.contains(wanted), "{wanted}\n{text}");
+        }
+        let english = render_markdown(&notes, &Lang::english());
+        assert!(
+            english.contains("the lower monument authority (untere Denkmalschutzbehörde)"),
+            "{english}"
+        );
+    }
+
+    /// Monuments without links do not speak of links; a source with gaps says where its data
+    /// are missing (ADR 0144).
+    #[test]
+    fn monuments_without_links_and_a_source_with_gaps() {
+        use freemapper::permits::regional::{MonumentGroup, Monuments};
+        let mut notes = viktoriapark();
+        notes.regional[0].sources[0].source.gaps = Some(Words {
+            en: "the city of Potsdam keeps its own list".into(),
+            de: "Die Stadt Potsdam führt ihre Denkmalliste selbst".into(),
+        });
+        notes.regional[0].monuments = Some(Monuments {
+            total: 3,
+            groups: vec![MonumentGroup {
+                kind: "Kulturdenkmal".into(),
+                count: 3,
+                links: Vec::new(),
+            }],
+            links_left: 0,
+        });
+        let text = render_markdown(&notes, &de());
+        assert!(
+            text.contains("Denkmale ganz oder zum Teil im Kartengebiet: 3.\n"),
+            "{text}"
+        );
+        assert!(!text.contains("Die Links führen"), "{text}");
+        assert!(
+            text.contains("Der Bestand von Geoportal Berlin ist nicht vollständig: Die Stadt Potsdam führt ihre Denkmalliste selbst."),
+            "{text}"
         );
     }
 

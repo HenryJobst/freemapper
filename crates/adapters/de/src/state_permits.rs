@@ -102,6 +102,7 @@ pub fn saarland() -> Vec<Box<dyn PermitSource>> {
                 "Denkmalschutz:Baudenkmale",
                 Reading::Monument {
                     kind: "Baudenkmal",
+                    kind_from: None,
                     link: Some(("Baud_Land", "https://www.saarland.de/")),
                 },
             )],
@@ -514,6 +515,40 @@ mod tests {
             (State::Bayern, "bfg", [11.00, 49.40, 11.20, 49.50]),
             // Stuttgart-Vaihingen and Ditzingen (ADR 0143).
             (State::BadenWuerttemberg, "lubw", [9.00, 48.70, 9.30, 48.85]),
+            // The monuments of ADR 0144, in old towns.
+            (State::Hessen, "denkmale", [8.764, 50.806, 8.776, 50.812]),
+            (
+                State::BadenWuerttemberg,
+                "denkmale",
+                [8.700, 49.408, 8.715, 49.414],
+            ),
+            (
+                State::BadenWuerttemberg,
+                "archaeologie",
+                [8.700, 49.408, 8.715, 49.414],
+            ),
+            (State::Bremen, "denkmale", [8.804, 53.074, 8.812, 53.078]),
+            (State::Saxony, "denkmale", [12.372, 51.338, 12.380, 51.342]),
+            (
+                State::Brandenburg,
+                "baudenkmale",
+                [12.93, 52.34, 12.97, 52.37],
+            ),
+            (
+                State::Brandenburg,
+                "bodendenkmale",
+                [12.93, 52.34, 12.97, 52.37],
+            ),
+            (
+                State::RheinlandPfalz,
+                "denkmale",
+                [8.268, 49.996, 8.278, 50.002],
+            ),
+            (
+                State::NordrheinWestfalen,
+                "denkmale",
+                [7.53, 51.33, 7.57, 51.36],
+            ),
             // The shapefiles of ADR 0131: about 4 and 15 MB.
             (
                 State::Brandenburg,

@@ -12,6 +12,13 @@ Erstellt am 2026-11-15 für das Kartengebiet einer Waldkarte (141,1 ha).
 - Kreis: Kreisfreie Stadt Bremen, 100 %
 - Gemeinde: Stadt Bremen, 100 %
 
+## Denkmale (Landesamt für Denkmalpflege Bremen)
+
+Denkmale ganz oder zum Teil im Kartengebiet: 1. Die Links führen zu ihren Einträgen in der Denkmalliste.
+
+- Ensemble: 1
+  - <https://denkmalpflege.bremen.de/sixcms/detail.php?template=20_denkmal_wrapper_d&obj=00000218>
+
 ## Wasserschutzgebiete (Bundesanstalt für Gewässerkunde)
 
 Laut Bundesanstalt für Gewässerkunde liegt im Kartengebiet kein Wasserschutzgebiet.
@@ -38,6 +45,7 @@ Laut OpenStreetMap verläuft keine Autobahn und keine Bundes-, Landes-, Staats- 
 
 ## Hinweise
 
+- Im Kartengebiet liegen Denkmale. Ob ein Lauf sie berührt, etwa mit einem Posten an einem Denkmal oder einer Strecke durch eine geschützte Anlage, klärt die untere Denkmalschutzbehörde. Hier ist das die Stadt Bremen selbst.
 - Für eine Veranstaltung im Wald brauchen Sie die Zustimmung der Waldbesitzer. In mehreren Bundesländern ist eine organisierte Veranstaltung im Wald außerdem der Forstbehörde anzuzeigen oder von ihr zu genehmigen. Welche Forstdienststelle hier zuständig ist, bestimmen diese Hinweise nicht; Auskunft gibt die Forstverwaltung des Bundeslandes oder die untere Forstbehörde.
 - Für Straßen, Plätze und andere öffentliche Flächen ist meist das Ordnungsamt der Gemeinde Bremen zuständig.
 - Eigentümer dieser Flächen sind aus offenen Daten nicht bestimmbar. Bei berechtigtem Interesse (z. B. Veranstalter) kann beim Grundbuchamt ein Grundbuchauszug beantragt werden; für öffentliche Flächen hilft das zuständige Ordnungs- oder Grünflächenamt.
@@ -50,5 +58,6 @@ Laut OpenStreetMap verläuft keine Autobahn und keine Bundes-, Landes-, Staats- 
 | BfN: Schutzgebiete in Deutschland des BfN | gelesen, abgerufen am 2026-11-15 | © Bundesamt für Naturschutz (BfN) (2026), Schutzgebiete in Deutschland; Nutzungsbestimmungen für die Bereitstellung von Geodaten des Bundes (GeoNutzV). Nicht für Planungszwecke geeignet. |
 | OpenStreetMap: OpenStreetMap, aus dem Auszug, den freemapper im Zwischenspeicher hält | gelesen, OSM-Auszug vom 2026-11-12 | © OpenStreetMap contributors, ODbL |
 | Bundesanstalt für Gewässerkunde: Trinkwasser- und Heilquellenschutzgebiete aus WasserBLIcK, ohne Schutzzonen | gelesen, abgerufen am 2026-11-15 | © WasserBLIcK/BfG und Zuständige Behörden der Länder, 2026; Lizenz: Creative Commons Namensnennung – 4.0 International (CC BY 4.0) |
+| Landesamt für Denkmalpflege Bremen: Einzeldenkmale und Ensembles | gelesen, abgerufen am 2026-11-15 | Creative Commons Namensnennung (CC-BY), Quellenvermerk: Freie Hansestadt Bremen, Senator für Kultur |
 
 Bundesanstalt für Gewässerkunde: Trinkwasser- und Heilquellenschutzgebiete aus WasserBLIcK, ohne Schutzzonen: „Die bundesweite Flächendeckung des Datenbestandes ist nicht in jedem Fall gewährleistet.“

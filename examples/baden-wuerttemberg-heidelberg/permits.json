@@ -107,7 +107,14 @@
       "key": "permits-hint-nature-authority",
       "args": {
         "kreis": "Heidelberg",
-        "kreisfrei": "no"
+        "kreisfrei": "yes"
+      }
+    },
+    {
+      "key": "permits-hint-monument-lower-authority",
+      "args": {
+        "kreis": "Heidelberg",
+        "kreisfrei": "yes"
       }
     },
     {
@@ -167,6 +174,27 @@
   "regional": [
     {
       "adapter": "badenwuerttemberg",
+      "monuments": {
+        "total": 632,
+        "groups": [
+          {
+            "kind": "Kulturdenkmal",
+            "count": 594,
+            "links": []
+          },
+          {
+            "kind": "Archäologisches Kulturdenkmal",
+            "count": 37,
+            "links": []
+          },
+          {
+            "kind": "Gesamtanlage",
+            "count": 1,
+            "links": []
+          }
+        ],
+        "links_left": 0
+      },
       "water_protection": [],
       "sources": [
         {
@@ -192,6 +220,54 @@
             "fetched": "2026-11-15",
             "reason": null,
             "credit": "Grundlage: Daten aus dem Umweltinformationssystem (UIS) der LUBW Landesanstalt für Umwelt Baden-Württemberg"
+          }
+        },
+        {
+          "source": {
+            "key": "denkmale",
+            "label": {
+              "en": "Landesamt für Denkmalpflege Baden-Württemberg",
+              "de": "Landesamt für Denkmalpflege Baden-Württemberg"
+            },
+            "what": {
+              "en": "Kulturdenkmale and Gesamtanlagen",
+              "de": "Kulturdenkmale und Gesamtanlagen"
+            },
+            "credit": "Es gelten die Lizenzbedingungen „Datenlizenz Deutschland -Namensnennung -Version 2.0“ bzw. „dl-de/by-2-0” (https://www.govdata.de/dl-de/by-2-0) mit Angabe der Datenquelle: dl-de/by-2-0: Landesamt für Denkmalpflege im Regierungspräsidium Stuttgart, www.denkmalpflege-bw.de",
+            "sections": [
+              "monuments"
+            ]
+          },
+          "status": {
+            "id": "denkmale",
+            "state": "read",
+            "fetched": "2026-11-15",
+            "reason": null,
+            "credit": "Es gelten die Lizenzbedingungen „Datenlizenz Deutschland -Namensnennung -Version 2.0“ bzw. „dl-de/by-2-0” (https://www.govdata.de/dl-de/by-2-0) mit Angabe der Datenquelle: dl-de/by-2-0: Landesamt für Denkmalpflege im Regierungspräsidium Stuttgart, www.denkmalpflege-bw.de"
+          }
+        },
+        {
+          "source": {
+            "key": "archaeologie",
+            "label": {
+              "en": "Landesamt für Denkmalpflege Baden-Württemberg",
+              "de": "Landesamt für Denkmalpflege Baden-Württemberg"
+            },
+            "what": {
+              "en": "archaeological monuments and Grabungsschutzgebiete",
+              "de": "archäologische Kulturdenkmale und Grabungsschutzgebiete"
+            },
+            "credit": "Es gelten die Lizenzbedingungen „Datenlizenz Deutschland -Namensnennung -Version 2.0“ bzw. „dl-de/by-2-0” (https://www.govdata.de/dl-de/by-2-0) mit Angabe der Datenquelle: dl-de/by-2-0: Landesamt für Denkmalpflege im Regierungspräsidium Stuttgart, www.denkmalpflege-bw.de",
+            "sections": [
+              "monuments"
+            ]
+          },
+          "status": {
+            "id": "archaeologie",
+            "state": "read",
+            "fetched": "2026-11-15",
+            "reason": null,
+            "credit": "Es gelten die Lizenzbedingungen „Datenlizenz Deutschland -Namensnennung -Version 2.0“ bzw. „dl-de/by-2-0” (https://www.govdata.de/dl-de/by-2-0) mit Angabe der Datenquelle: dl-de/by-2-0: Landesamt für Denkmalpflege im Regierungspräsidium Stuttgart, www.denkmalpflege-bw.de"
           }
         }
       ]
