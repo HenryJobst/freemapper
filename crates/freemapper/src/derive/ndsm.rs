@@ -14,8 +14,8 @@ const NDSM_PIXEL_M: f64 = 0.2;
 const CHUNK_POINTS: u64 = 1_000_000;
 /// Cell of the tree cover.
 const TREE_COVER_CELL_M: f64 = 1.0;
-/// From this height above ground an nDSM cell is under trees. Ruling: what hides the ground of
-/// an open area from a runner; hedges and bushes stay below it.
+/// From this height above ground an nDSM cell counts as under trees. Ruling: what hides the
+/// ground of an open area from a runner; hedges and bushes stay below it.
 const TREE_HEIGHT_M: f32 = 3.0;
 
 /// Heights above ground over `bbox`: the highest point per 0.2 m cell, `NaN` where no point lies.
@@ -128,7 +128,9 @@ pub(crate) fn bilinear(r: &Raster<f32>, e: f64, n: f64) -> Option<f32> {
 
 /// The tree cover of `ndsm`: per cell of [`TREE_COVER_CELL_M`], aligned to the origin of the
 /// nDSM, the share of its nDSM cells with data that are at least [`TREE_HEIGHT_M`] high; `NaN`
-/// where none has data. The cells at the east and south edge may hold fewer nDSM cells.
+/// where none has data. The cells at the east and south edge may hold fewer nDSM cells. The
+/// nDSM does not tell trees from other things: everything at least as high counts, mostly trees,
+/// but also a pavilion, a shelter or another structure.
 pub fn tree_cover(ndsm: &Raster<f32>) -> Raster<f32> {
     let grid = ndsm.grid;
     let k = (TREE_COVER_CELL_M / grid.pixel_size).round().max(1.0) as u32;

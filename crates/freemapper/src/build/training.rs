@@ -199,8 +199,8 @@ fn is_park(object: &MapObject) -> bool {
 /// `tree_cover` with a share below [`OPEN_BELOW_SHARE`] (and those it does not know), smoothed
 /// with [`majority`] and outlined as the vegetation classes are. Pieces below the vegetation's
 /// minimum area or with a short side under [`MIN_PIECE_SIDE_MM`] go; the rest keep the tags of
-/// the object and get `freemapper:generalized=tree cover`. Where the trees cover less than the
-/// minimum area the object stays as it is. Returns how many objects were reduced or dropped.
+/// the object and get `freemapper:generalized=tree cover`. Where the trees take less than the
+/// minimum area from it ([`open_pieces`]) the object stays as it is. Returns how many objects were reduced or dropped.
 fn open_ground(
     objects: &mut Vec<MapObject>,
     tree_cover: &Raster<f32>,
@@ -248,7 +248,9 @@ fn open_ground(
 }
 
 /// The open ground of the park `area` (map CRS), pieces below `min_m2` or with a short side
-/// under `min_side_m` left out; `None` when the trees in it cover less than `min_m2`.
+/// under `min_side_m` left out; `None` when the trees take less than `min_m2` from the park
+/// shrunk by one cell: the cells along its edge step across it, and the outline of trees beside
+/// the park follows the steps.
 fn open_pieces(
     area: &Polygon<f64>,
     tree_cover: &Raster<f32>,
@@ -267,8 +269,11 @@ fn open_pieces(
         .into_iter()
         .filter(|p| p.unsigned_area() >= min_m2 && short_side(p) >= min_side_m)
         .collect();
-    let kept: f64 = pieces.iter().map(|p| p.unsigned_area()).sum();
-    (area.unsigned_area() - kept >= min_m2).then_some(pieces)
+    let core = area.buffer(-tree_cover.grid.pixel_size);
+    let lost = core
+        .difference(&MultiPolygon(pieces.clone()))
+        .unsigned_area();
+    (lost >= min_m2).then_some(pieces)
 }
 
 /// The cells of `tree_cover` round `frame` (map CRS) and [`COVER_MARGIN_M`] beyond it: open
@@ -1159,6 +1164,26 @@ mod tests {
         let (out, report) = run_with(&set, vec![park.clone()], &tree_cover);
         assert_eq!(out, vec![park]);
         assert_eq!(report.open_land_cut, 0, "{report:?}");
+    }
+
+    #[test]
+    fn trees_beside_a_park_leave_it_whole() {
+        // Trees all round a park of 200 m × 200 m and none in it: the cells along its edge step
+        // across it, which is no tree area. ISOM 1:10 000 and ISSprOM 1:4000.
+        for (set, kind, scale, side) in [
+            (isom(), MapKind::Forest, SCALE, 20.0),
+            (SymbolSet::issprom_2019(), MapKind::Sprint, 4000, 50.0),
+        ] {
+            let georef = georef_at(scale);
+            let inside = |v: f64| (0.0..=side).contains(&v);
+            let tree_cover = cover(&georef, (0.0, 0.0), (side, side), |x, y| {
+                if inside(x) && inside(y) { 0.0 } else { 1.0 }
+            });
+            let park = tagged(area(&set, "401", (0.0, 0.0), (side, side)), PARK.0, PARK.1);
+            let (out, report) = train(vec![park.clone()], Some(&tree_cover), kind, &georef, &set);
+            assert_eq!(out, vec![park], "{}", set.name);
+            assert_eq!(report.open_land_cut, 0, "{}: {report:?}", set.name);
+        }
     }
 
     #[test]
