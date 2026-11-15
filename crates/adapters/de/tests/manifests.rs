@@ -133,6 +133,8 @@ fn potsdam_tree_dataset_from_manifest_equals_the_constant() {
                 | State::SaxonyAnhalt
                 | State::Hessen
                 | State::SchleswigHolstein
+                | State::NordrheinWestfalen
+                | State::Niedersachsen
         ) {
             let manifest = manifest(state.id());
             assert!(
@@ -247,6 +249,32 @@ fn schleswig_holstein_asks_the_basis_dlm() {
          &BBOX=610424,5969571,611440,5970293,urn:ogc:def:crs:EPSG::25832&COUNT=10000\
          &NAMESPACES=xmlns(adv,http://www.adv-online.de/namespaces/adv/gid/7.1)"
     );
+}
+
+/// North Rhine-Westphalia and Lower Saxony serve their full ALKIS as NAS services (checked live on
+/// 2026-11-15 over the Monschau and Herrenhausen examples); Lower Saxony refuses a count above
+/// 10 000.
+#[test]
+fn nrw_and_lower_saxony_ask_their_full_alkis() {
+    for (state, url, count) in [
+        (
+            "nordrheinwestfalen",
+            "https://www.wfs.nrw.de/geobasis/wfs_nw_alkis_aaa-modell-basiert",
+            100_000,
+        ),
+        (
+            "niedersachsen",
+            "https://opendata.lgln.niedersachsen.de/doorman/noauth/alkis_wfs_nas",
+            10_000,
+        ),
+    ] {
+        let found = manifest(state);
+        assert_eq!(found.nas.len(), 1, "{state}");
+        let service = extras::nas_service(&found.nas[0], &state.parse().unwrap());
+        assert_eq!(service.model, NasModel::Alkis, "{state}");
+        assert_eq!((service.url.as_ref(), service.max_count), (url, count));
+        assert!(service.serves("sonstiges-bauwerk") && !service.serves("dlm-turm"));
+    }
 }
 
 /// The golden net of the adapter work, at the root of the repository.

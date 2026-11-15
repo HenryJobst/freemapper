@@ -8,6 +8,7 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ### Added
 
+- North Rhine-Westphalia and Lower Saxony: the full ALKIS (ADR 0062). In North Rhine-Westphalia it puts walls, retaining walls, stairs, embankment tops, bridges and single trees straight onto the map: 112 more map objects in the old town of Monschau, 113 in the Siebengebirge; OpenStreetMap objects they double go. Lower Saxony records less (bridges, a fountain, walls). The four examples are rebuilt.
 - Schleswig-Holstein: objects from the landscape model of the LVermGeo SH (ATKIS Basis-DLM, ADR 0135) as candidates. In the Hüttener Berge that is 48 earth walls, a watercourse and 4 tracks; in Lübeck a watercourse. Both examples are rebuilt.
 - Hesse: the full ALKIS and the landscape model of the HVBG (ADR 0135). The full ALKIS adds surveyed stairs to the map, 54 in the old town of Marburg; the landscape model adds candidates as in Bavaria (named trees, small watercourses, a dam and a wall in Marburg, a rock, a spring and a watercourse on the Feldberg). Both examples are rebuilt. For adapters: a manifest may now name one NAS service per model, so a state can serve its cadastre and its landscape model.
 

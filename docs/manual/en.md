@@ -1219,6 +1219,13 @@ both. Its full ALKIS records surveyed stairs: in the old town of Marburg 54 go s
 content profile `balanced`. The landscape model adds candidates as in Bavaria: in Marburg 4 named trees, 3 small
 watercourses, a dam and a wall, on the Feldberg a rock, a spring and a watercourse.
 
+**North Rhine-Westphalia and Lower Saxony: full ALKIS.** Both serve their full ALKIS as well (Geobasis NRW,
+dl-de/zero-2-0; LGLN, CC BY 4.0), Lower Saxony with at most 10 000 objects per request. In North Rhine-Westphalia
+it holds much: in the old town of Monschau 25 walls and retaining walls, 33 embankment tops, 14 stairs, 15 bridges,
+17 walls along the Rur and 13 single trees go straight onto the map, in the Siebengebirge 90 embankment tops and
+about 30 walls and stairs; OpenStreetMap lines and trees they double go. Lower Saxony records less: in Herrenhausen
+4 bridges and a fountain, in Bad Harzburg 12 bridges, a wall and an embankment top.
+
 **Schleswig-Holstein: landscape model.** The LVermGeo SH serves its landscape model as well (CC BY 4.0), with at
 most 10 000 objects per request. In the Hüttener Berge it adds 48 earth walls (105), a watercourse and 4
 tracks; the banks the terrain model finds along those walls go. In Lübeck it adds

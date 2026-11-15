@@ -310,7 +310,9 @@ mod tests {
                         "bayern",
                         "saxonyanhalt",
                         "hessen",
-                        "schleswigholstein"
+                        "schleswigholstein",
+                        "nordrheinwestfalen",
+                        "niedersachsen",
                     ]
                     .contains(&id),
                 "{}",
