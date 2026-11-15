@@ -1,12 +1,12 @@
 # freemapper
 
-[Deutsche Version](README.md) · [User manual](docs/manual/en.md) · [Glossary](docs/glossary.md) · [Changes](CHANGELOG.en.md)
+[Deutsche Version](README.md) · [User manual](docs/manual/en.md) · [Glossary](docs/glossary.md) · [Changes](CHANGELOG.en.md) · [Examples](examples/README.en.md)
 
 <!-- claude-cost:start -->
 [![AI effort (Claude API): $3,142](https://img.shields.io/badge/AI%20effort%20%28Claude%20API%29-%243%2C142-8A2BE2)](docs/ai-cost/history.csv)
 <!-- claude-cost:end -->
 
-<p align="center"><a href="examples/berlin-viktoriapark/berlin-viktoriapark-candidates.pdf"><img src="examples/berlin-viktoriapark/preview.webp" alt="Sprint map of Viktoriapark, Berlin-Kreuzberg, made by freemapper" width="760"></a><br><sub>Viktoriapark, Berlin-Kreuzberg (sprint 1:4000), made by freemapper from open data. Click to open the PDF; more under <a href="examples/README.en.md">examples</a>.</sub></p>
+<p align="center"><a href="examples/berlin-viktoriapark/preview.webp"><img src="examples/berlin-viktoriapark/preview-medium.webp" alt="Sprint map of Viktoriapark, Berlin-Kreuzberg, made by freemapper" width="760"></a><br><sub>Viktoriapark, Berlin-Kreuzberg (sprint 1:4000), made by freemapper from open data. Click for the full-size image; the <a href="examples/berlin-viktoriapark/berlin-viktoriapark-candidates.pdf">PDF</a> has all candidates; more under <a href="examples/README.en.md">examples</a>.</sub></p>
 
 freemapper turns official geodata (terrain model, nDSM, orthophoto, ALKIS cadastre) and OpenStreetMap
 into a **starter project for OpenOrienteering Mapper (OOM) and, on request, for OCAD**: a
@@ -97,12 +97,12 @@ experience needed. The chapters people use most:
 ## Examples
 
 The repository holds a finished sprint map project for every supported state, with the OOM map, the OCAD
-file and the PDF. Two of them here; clicking a picture opens the PDF:
+file and the PDF. Two of them here; clicking a picture shows it in full size, the link below it opens the PDF:
 
 | State | Area | Preview |
 |---|---|---|
-| Berlin | [Viktoriapark, Kreuzberg](https://github.com/HenryJobst/freemapper/tree/main/examples/berlin-viktoriapark/) | <a href="examples/berlin-viktoriapark/berlin-viktoriapark-candidates.pdf"><img src="examples/berlin-viktoriapark/preview.webp" width="220" alt=""></a> |
-| Rhineland-Palatinate | [Reichsburg and Cochem old town](https://github.com/HenryJobst/freemapper/tree/main/examples/rheinland-pfalz-cochem/) | <a href="examples/rheinland-pfalz-cochem/rheinland-pfalz-cochem-candidates.pdf"><img src="examples/rheinland-pfalz-cochem/preview.webp" width="220" alt=""></a> |
+| Berlin | [Viktoriapark, Kreuzberg](https://github.com/HenryJobst/freemapper/tree/main/examples/berlin-viktoriapark/) | <a href="examples/berlin-viktoriapark/preview.webp"><img src="examples/berlin-viktoriapark/preview-thumb.webp" width="220" alt="" loading="lazy"></a><br><a href="examples/berlin-viktoriapark/berlin-viktoriapark-candidates.pdf">PDF</a> |
+| Rhineland-Palatinate | [Reichsburg and Cochem old town](https://github.com/HenryJobst/freemapper/tree/main/examples/rheinland-pfalz-cochem/) | <a href="examples/rheinland-pfalz-cochem/preview.webp"><img src="examples/rheinland-pfalz-cochem/preview-thumb.webp" width="220" alt="" loading="lazy"></a><br><a href="examples/rheinland-pfalz-cochem/rheinland-pfalz-cochem-candidates.pdf">PDF</a> |
 
 All examples with previews, how the areas were chosen and how many objects each map has are in the
 [examples overview](https://github.com/HenryJobst/freemapper/blob/main/examples/README.en.md), with a forest map for every state too (1:10 000). The same area in the three content profiles
@@ -116,7 +116,7 @@ The easiest way is to draw the map area in the browser:
 freemapper select my-schoolyard --kind schoolyard
 ```
 
-![Area selection in the browser](docs/manual/images/area-selector.jpg)
+[![Area selection in the browser](docs/manual/images/area-selector-thumb.webp)](docs/manual/images/area-selector.jpg)
 
 On the page you search a place or draw a rectangle or polygon. The background is OpenStreetMap or the
 orthophoto of the state. The page shows the size with buffer and the estimated download. "Save" creates the
@@ -287,8 +287,8 @@ freemapper run vorstadt
 | Hesse | HVBG (also the full ALKIS and the landscape model) | DOM1 − DGM1, 1 m (laser scan) | map in UTM zone 32 (EPSG:25832); orthophoto flown in summer; squares only as candidates; street areas include verges; surveyed stairs from the full ALKIS; springs, rocks, towers, monuments, small watercourses and, on forest maps, missing paths as candidates from the landscape model (ATKIS Basis-DLM) |
 | Schleswig-Holstein | LVermGeo SH | bDOM − DGM1, 1 m (image-based) | map in UTM zone 32 (EPSG:25832); orthophoto leaf-off or leaf-on depending on the area; surface model in whole tiles (105 MB per km²); earth walls, small watercourses and, on forest maps, missing tracks as candidates from the landscape model (ATKIS Basis-DLM) |
 | Mecklenburg-Vorpommern | LAiV M-V | DOM1 − DGM1, 1 m | orthophoto as a colour palette (256 colours); height models only inside the state tiles |
-| North Rhine-Westphalia | Geobasis NRW | DOM1 − DGM1, 1 m (laser scan) | map in UTM zone 32 (EPSG:25832); OSM from the extracts of the Regierungsbezirke |
-| Lower Saxony | LGLN | DOM1 − DGM1, 1 m (laser scan) | map in UTM zone 32 (EPSG:25832); surface model often years older than the orthophoto |
+| North Rhine-Westphalia | Geobasis NRW (also the full ALKIS) | DOM1 − DGM1, 1 m (laser scan) | map in UTM zone 32 (EPSG:25832); OSM from the extracts of the Regierungsbezirke; walls, retaining walls, stairs, embankment tops, bridges and single trees from the full ALKIS |
+| Lower Saxony | LGLN (also the full ALKIS) | DOM1 − DGM1, 1 m (laser scan) | map in UTM zone 32 (EPSG:25832); surface model often years older than the orthophoto; bridges, fountains and walls from the full ALKIS |
 | Rhineland-Palatinate | LVermGeo RP | DOM1 − DGM1, 1 m (laser scan) | map in UTM zone 32 (EPSG:25832); orthophoto flown in summer, its date of creation counts as the flight date; orthophoto white beyond the state border |
 | Saarland | LVGL | DOM1 − DGM1, 1 m (laser scan of 2025) | map in UTM zone 32 (EPSG:25832); height models as 1 km tiles out of the district archives; templates empty beyond the state border |
 | Baden-Württemberg | LGL | nDOM1, 1 m (from the aerial images of a summer flight) | map in UTM zone 32 (EPSG:25832); height models as 1 km tiles out of the 2 km archives; orthophoto white beyond the state border; the cadastre has no canopies |

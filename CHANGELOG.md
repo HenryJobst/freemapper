@@ -9,8 +9,14 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 ### Hinzugefügt
 
 - Genehmigungshinweise: Naturdenkmale, geschützte Landschaftsbestandteile und gesetzlich geschützte Biotope aus zehn Bundesländern (ADR 0146): Naturdenkmale aus Brandenburg, Hamburg, dem Saarland, Sachsen, Sachsen-Anhalt, Bayern und Baden-Württemberg, Landschaftsbestandteile aus Brandenburg, Sachsen-Anhalt und Bayern, geschützte Biotope aus Brandenburg, Berlin, Hamburg, dem Saarland, Sachsen, Hessen und Nordrhein-Westfalen. Liegen geschützte Biotope im Gebiet, sagt ein Hinweis, dass verboten ist, was sie zerstören oder erheblich beeinträchtigen kann, und nennt ihre Typen; ein weiterer nennt die untere Naturschutzbehörde mit dem Kreis. Biotope desselben Typs stehen in einer Zeile mit ihrem Anteil. Die Beispiele dieser Bundesländer haben neue Hinweise.
+- Nordrhein-Westfalen und Niedersachsen: das vollständige ALKIS (ADR 0062). In Nordrhein-Westfalen bringt es Mauern, Stützmauern, Treppen, Böschungsoberkanten, Brücken und Einzelbäume direkt auf die Karte: 112 Kartenobjekte mehr in der Monschauer Altstadt, 113 im Siebengebirge; OpenStreetMap-Objekte, die sie doppeln, entfallen. Niedersachsen verzeichnet weniger (Brücken, ein Brunnen, Mauern). Die vier Beispiele sind neu gebaut.
 - Schleswig-Holstein: Objekte aus dem Landschaftsmodell des LVermGeo SH (ATKIS Basis-DLM, ADR 0135) als Kandidaten. In den Hüttener Bergen sind das 48 Wälle, ein Wasserlauf und 4 Fahrwege; in Lübeck ein Wasserlauf. Beide Beispiele sind neu gebaut.
 - Hessen: das vollständige ALKIS und das Landschaftsmodell der HVBG (ADR 0135). Das vollständige ALKIS bringt vermessene Treppen auf die Karte, 54 in der Marburger Oberstadt; das Landschaftsmodell ergänzt Kandidaten wie in Bayern (benannte Bäume, kleine Wasserläufe, ein Damm und eine Mauer in Marburg, ein Felsen, eine Quelle und ein Wasserlauf am Feldberg). Beide Beispiele sind neu gebaut. Für Adapter: Ein Manifest darf jetzt einen NAS-Dienst je Modell nennen, sodass ein Bundesland sein Kataster und sein Landschaftsmodell anbieten kann.
+
+### Geändert
+
+- Die Beispielübersicht, die README, die Gegenüberstellung und das Handbuch zeigen kleine WebP-Vorschaubilder; erst ein Klick lädt das Bild in voller Auflösung. Die Beispielübersicht lädt damit 1,6 MB statt 6,6 MB. Das PDF jedes Beispiels steht als eigener Link unter dem Bild. `scripts/thumbnails.sh` erzeugt die Vorschaubilder neu, wenn ein Beispiel oder ein Bild des Handbuchs neu gebaut ist.
+- Die README verlinkt die Beispielübersicht gleich oben neben den Änderungen. In der Beispielübersicht steht die Vorschau jetzt in der ersten Spalte.
 
 ## [0.21.0] - 2026-11-15
 

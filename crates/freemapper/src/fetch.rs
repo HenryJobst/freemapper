@@ -959,7 +959,7 @@ pub(crate) mod test_support {
     use crate::tiles::TileId;
     pub(crate) use freemapper_adapter_api::testing::MapFetcher;
     pub(crate) use freemapper_adapters_de::geobasis_nrw::test_support::{
-        nrw_meta_zip, serve_synthetic_nrw,
+        nrw_meta_zip, serve_synthetic_nrw as serve_nrw_services,
     };
     pub(crate) use freemapper_adapters_de::laiv_mv::test_support::serve_synthetic_mv;
     use freemapper_adapters_de::lgb::Product;
@@ -1329,13 +1329,20 @@ pub(crate) mod test_support {
         for nas in urls {
             fetcher.insert_prefix(
                 &format!("{nas}?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&"),
-                b"<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<wfs:FeatureCollection \
-                  numberReturned=\"0\" numberMatched=\"unknown\" \
-                  xmlns:gml=\"http://www.opengis.net/gml/3.2\" \
-                  xmlns:wfs=\"http://www.opengis.net/wfs/2.0\"/>"
+                freemapper_sources::nas::test_support::EMPTY
+                    .as_bytes()
                     .to_vec(),
             );
         }
+    }
+
+    /// The NRW services of the adapter's test support, and an empty full ALKIS (ADR 0135).
+    pub fn serve_synthetic_nrw(fetcher: &MapFetcher, bbox: &crate::crs::BoundingBox) {
+        serve_nrw_services(fetcher, bbox);
+        serve_empty_nas(
+            fetcher,
+            &["https://www.wfs.nrw.de/geobasis/wfs_nw_alkis_aaa-modell-basiert"],
+        );
     }
 
     pub fn serve_synthetic_hessen(fetcher: &MapFetcher, bbox: &crate::crs::BoundingBox) {
@@ -1581,6 +1588,11 @@ pub(crate) mod test_support {
     /// searches (flight [`LGLN_FLIGHT`], both height models [`LGLN_HEIGHTS`]).
     pub fn serve_synthetic_lgln(fetcher: &MapFetcher, bbox: &crate::crs::BoundingBox) {
         use freemapper_adapters_de::lgln::{self, Model, test_support::stac_page};
+        // The full ALKIS of the LGLN (ADR 0135).
+        serve_empty_nas(
+            fetcher,
+            &["https://opendata.lgln.niedersachsen.de/doorman/noauth/alkis_wfs_nas"],
+        );
         let photo =
             crate::raster::GridSpec::covering(bbox, crate::sources::wms::ORTHOPHOTO_PIXEL_M);
         for (piece, url) in crate::sources::wms::pieces(&lgln::WMS, &photo) {

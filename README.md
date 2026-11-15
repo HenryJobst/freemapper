@@ -1,12 +1,12 @@
 # freemapper
 
-[English version](README.en.md) · [Handbuch](docs/manual/de.md) · [Glossar](docs/glossary.md) · [Änderungen](CHANGELOG.md)
+[English version](README.en.md) · [Handbuch](docs/manual/de.md) · [Glossar](docs/glossary.md) · [Änderungen](CHANGELOG.md) · [Beispiele](examples/README.md)
 
 <!-- claude-cost:start -->
 [![KI-Aufwand (Claude API): 3.142 $](https://img.shields.io/badge/KI--Aufwand%20%28Claude%20API%29-3.142%20%24-8A2BE2)](docs/ai-cost/history.csv)
 <!-- claude-cost:end -->
 
-<p align="center"><a href="examples/berlin-viktoriapark/berlin-viktoriapark-candidates.pdf"><img src="examples/berlin-viktoriapark/preview.webp" alt="Sprintkarte Viktoriapark, Berlin-Kreuzberg, von freemapper erzeugt" width="760"></a><br><sub>Viktoriapark, Berlin-Kreuzberg (Sprint 1:4000), von freemapper aus offenen Daten erzeugt. Ein Klick öffnet das PDF; mehr unter <a href="examples/README.md">Beispiele</a>.</sub></p>
+<p align="center"><a href="examples/berlin-viktoriapark/preview.webp"><img src="examples/berlin-viktoriapark/preview-medium.webp" alt="Sprintkarte Viktoriapark, Berlin-Kreuzberg, von freemapper erzeugt" width="760"></a><br><sub>Viktoriapark, Berlin-Kreuzberg (Sprint 1:4000), von freemapper aus offenen Daten erzeugt. Ein Klick zeigt das Bild in voller Größe, das <a href="examples/berlin-viktoriapark/berlin-viktoriapark-candidates.pdf">PDF</a> hat alle Kandidaten; mehr unter <a href="examples/README.md">Beispiele</a>.</sub></p>
 
 freemapper erzeugt aus amtlichen Geodaten (Geländemodell, nDOM, Luftbild, ALKIS) und OpenStreetMap
 ein **Startprojekt für OpenOrienteering Mapper (OOM) und auf Wunsch auch für OCAD**: eine
@@ -98,12 +98,12 @@ mit der Kommandozeile. Die meistgebrauchten Kapitel:
 ## Beispiele
 
 Für jedes unterstützte Bundesland liegt ein fertiges Sprintkarten-Projekt im Repository, mit OOM-Karte,
-OCAD-Datei und PDF. Zwei Beispiele vorab, ein Klick auf das Bild öffnet das PDF:
+OCAD-Datei und PDF. Zwei Beispiele vorab; ein Klick auf das Bild zeigt es in voller Größe, der Link darunter öffnet das PDF:
 
 | Bundesland | Gebiet | Vorschau |
 |---|---|---|
-| Berlin | [Viktoriapark, Kreuzberg](https://github.com/HenryJobst/freemapper/tree/main/examples/berlin-viktoriapark/) | <a href="examples/berlin-viktoriapark/berlin-viktoriapark-candidates.pdf"><img src="examples/berlin-viktoriapark/preview.webp" width="220" alt=""></a> |
-| Rheinland-Pfalz | [Reichsburg und Altstadt Cochem](https://github.com/HenryJobst/freemapper/tree/main/examples/rheinland-pfalz-cochem/) | <a href="examples/rheinland-pfalz-cochem/rheinland-pfalz-cochem-candidates.pdf"><img src="examples/rheinland-pfalz-cochem/preview.webp" width="220" alt=""></a> |
+| Berlin | [Viktoriapark, Kreuzberg](https://github.com/HenryJobst/freemapper/tree/main/examples/berlin-viktoriapark/) | <a href="examples/berlin-viktoriapark/preview.webp"><img src="examples/berlin-viktoriapark/preview-thumb.webp" width="220" alt="" loading="lazy"></a><br><a href="examples/berlin-viktoriapark/berlin-viktoriapark-candidates.pdf">PDF</a> |
+| Rheinland-Pfalz | [Reichsburg und Altstadt Cochem](https://github.com/HenryJobst/freemapper/tree/main/examples/rheinland-pfalz-cochem/) | <a href="examples/rheinland-pfalz-cochem/preview.webp"><img src="examples/rheinland-pfalz-cochem/preview-thumb.webp" width="220" alt="" loading="lazy"></a><br><a href="examples/rheinland-pfalz-cochem/rheinland-pfalz-cochem-candidates.pdf">PDF</a> |
 
 Alle Beispiele mit Vorschau, wie die Gebiete ausgewählt wurden und wie viele Objekte jede Karte hat, stehen in
 der [Beispielübersicht](https://github.com/HenryJobst/freemapper/blob/main/examples/README.md), dort auch eine Waldkarte für jedes Bundesland (1:10 000). Dasselbe Gebiet in den drei Inhaltsprofilen
@@ -117,7 +117,7 @@ Am einfachsten zeichnet man das Kartengebiet im Browser:
 freemapper select mein-schulhof --kind schoolyard
 ```
 
-![Gebietsauswahl im Browser](docs/manual/images/area-selector.jpg)
+[![Gebietsauswahl im Browser](docs/manual/images/area-selector-thumb.webp)](docs/manual/images/area-selector.jpg)
 
 Auf der Seite sucht man einen Ort oder zeichnet ein Rechteck oder Polygon. Der Hintergrund ist
 OpenStreetMap oder das Luftbild des Bundeslandes. Die Seite zeigt die Größe mit Puffer und den
@@ -295,8 +295,8 @@ freemapper run vorstadt
 | Hessen | HVBG (auch das vollständige ALKIS und das Landschaftsmodell) | DOM1 − DGM1, 1 m (Laserscan) | Karte in UTM-Zone 32 (EPSG:25832); Luftbild im Sommer beflogen; Plätze nur als Kandidaten; Straßenflächen mit Grünstreifen; vermessene Treppen aus dem vollständigen ALKIS; Quellen, Felsen, Türme, Denkmäler, kleine Wasserläufe und auf Waldkarten fehlende Wege als Kandidaten aus dem Landschaftsmodell (ATKIS Basis-DLM) |
 | Schleswig-Holstein | LVermGeo SH | bDOM − DGM1, 1 m (bildbasiert) | Karte in UTM-Zone 32 (EPSG:25832); Luftbild je nach Gebiet unbelaubt oder belaubt; Oberflächenmodell als ganze Kacheln (105 MB je km²); Wälle, kleine Wasserläufe und auf Waldkarten fehlende Fahrwege als Kandidaten aus dem Landschaftsmodell (ATKIS Basis-DLM) |
 | Mecklenburg-Vorpommern | LAiV M-V | DOM1 − DGM1, 1 m | Luftbild als Farbpalette (256 Farben); Höhenmodelle nur innerhalb der Landeskacheln |
-| Nordrhein-Westfalen | Geobasis NRW | DOM1 − DGM1, 1 m (Laserscan) | Karte in UTM-Zone 32 (EPSG:25832); OSM aus den Auszügen der Regierungsbezirke |
-| Niedersachsen | LGLN | DOM1 − DGM1, 1 m (Laserscan) | Karte in UTM-Zone 32 (EPSG:25832); Oberflächenmodell oft Jahre älter als das Luftbild |
+| Nordrhein-Westfalen | Geobasis NRW (auch das vollständige ALKIS) | DOM1 − DGM1, 1 m (Laserscan) | Karte in UTM-Zone 32 (EPSG:25832); OSM aus den Auszügen der Regierungsbezirke; Mauern, Stützmauern, Treppen, Böschungsoberkanten, Brücken und Einzelbäume aus dem vollständigen ALKIS |
+| Niedersachsen | LGLN (auch das vollständige ALKIS) | DOM1 − DGM1, 1 m (Laserscan) | Karte in UTM-Zone 32 (EPSG:25832); Oberflächenmodell oft Jahre älter als das Luftbild; Brücken, Brunnen und Mauern aus dem vollständigen ALKIS |
 | Rheinland-Pfalz | LVermGeo RP | DOM1 − DGM1, 1 m (Laserscan) | Karte in UTM-Zone 32 (EPSG:25832); Luftbild im Sommer beflogen, als Flugdatum gilt das Erstellungsdatum; Luftbild jenseits der Landesgrenze weiß |
 | Saarland | LVGL | DOM1 − DGM1, 1 m (Laserscan 2025) | Karte in UTM-Zone 32 (EPSG:25832); Höhenmodelle als 1-km-Kacheln aus den Landkreis-Archiven; Vorlagen jenseits der Landesgrenze leer |
 | Baden-Württemberg | LGL | nDOM1, 1 m (aus den Luftbildern eines Sommerflugs) | Karte in UTM-Zone 32 (EPSG:25832); Höhenmodelle als 1-km-Kacheln aus den 2-km-Archiven; Luftbild jenseits der Landesgrenze weiß; das Kataster kennt keine Überdachungen |

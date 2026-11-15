@@ -9,8 +9,14 @@ All notable changes to freemapper are listed here, newest first. The format foll
 ### Added
 
 - Permit notes: natural monuments, protected landscape features and legally protected biotopes from ten states (ADR 0146): natural monuments from Brandenburg, Hamburg, Saarland, Saxony, Saxony-Anhalt, Bavaria and Baden-Württemberg, landscape features from Brandenburg, Saxony-Anhalt and Bavaria, protected biotopes from Brandenburg, Berlin, Hamburg, Saarland, Saxony, Hesse and North Rhine-Westphalia. When protected biotopes lie in the area, a hint says that whatever can destroy them or harm them considerably is forbidden and names their types; another names the lower nature authority with the Kreis. Biotopes of one type are one line with their share. The examples of these states have new notes.
+- North Rhine-Westphalia and Lower Saxony: the full ALKIS (ADR 0062). In North Rhine-Westphalia it puts walls, retaining walls, stairs, embankment tops, bridges and single trees straight onto the map: 112 more map objects in the old town of Monschau, 113 in the Siebengebirge; OpenStreetMap objects they double go. Lower Saxony records less (bridges, a fountain, walls). The four examples are rebuilt.
 - Schleswig-Holstein: objects from the landscape model of the LVermGeo SH (ATKIS Basis-DLM, ADR 0135) as candidates. In the Hüttener Berge that is 48 earth walls, a watercourse and 4 tracks; in Lübeck a watercourse. Both examples are rebuilt.
 - Hesse: the full ALKIS and the landscape model of the HVBG (ADR 0135). The full ALKIS adds surveyed stairs to the map, 54 in the old town of Marburg; the landscape model adds candidates as in Bavaria (named trees, small watercourses, a dam and a wall in Marburg, a rock, a spring and a watercourse on the Feldberg). Both examples are rebuilt. For adapters: a manifest may now name one NAS service per model, so a state can serve its cadastre and its landscape model.
+
+### Changed
+
+- The examples overview, the README, the comparison and the manual show small WebP thumbnails; only a click loads the image at full resolution. The examples overview loads 1.6 MB instead of 6.6 MB. The PDF of each example is a link of its own below the image. `scripts/thumbnails.sh` makes the thumbnails again after an example or a manual image is rebuilt.
+- The README links the examples overview at the top, next to the changes. In the examples overview the preview is now the first column.
 
 ## [0.21.0] - 2026-11-15
 

@@ -4,13 +4,13 @@ format = 1
 [adapter]
 id = "niedersachsen"
 provider = "lgln"
-revision = 1
+revision = 2
 min_freemapper = "0.13.0"
 crs = 25832
 object_id_prefix = "DENI"
 names = { en = "Lower Saxony", de = "Niedersachsen" }
 maintainers = ["github:HenryJobst"]
-last_verified = "2026-11-12"
+last_verified = "2026-11-15"
 
 [net]
 hosts = ["opendata.lgln.niedersachsen.de", "opendata.geoservices.lgln.niedersachsen.de", "dop.stac.lgln.niedersachsen.de", "dgm.stac.lgln.niedersachsen.de", "dom.stac.lgln.niedersachsen.de", "geoportal.bafg.de"]
@@ -46,6 +46,13 @@ backend = "lgln"
 
 [surface]
 backend = "lgln"
+
+[[extra.nas]]
+name = "LGLN ALKIS (NAS)"
+url = "https://opendata.lgln.niedersachsen.de/doorman/noauth/alkis_wfs_nas"
+namespaces = "xmlns(adv,http://www.adv-online.de/namespaces/adv/gid/7.1)"
+max_count = 10000
+max_bytes = 268435456
 
 [preview]
 wms = "https://opendata.lgln.niedersachsen.de/doorman/noauth/dop_wms"

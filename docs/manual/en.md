@@ -300,7 +300,7 @@ freemapper-courseplan then show the same title. Change it in the file if you wan
 
 ## 6. Choosing the map area in the browser
 
-![Area selection in the browser](images/area-selector.jpg)
+[![Area selection in the browser](images/area-selector-thumb.webp)](images/area-selector.jpg)
 
 *The area selection with the Kreuzgymnasium Dresden (German interface). Map data © OpenStreetMap
 contributors.*
@@ -607,10 +607,10 @@ dl-de/by-2-0, Daten geändert.
 
 | Template | Picture |
 |---|---|
-| **Orthophoto:** top view, 20 cm per pixel. Good for paths, squares and vegetation, but trees hide the ground. | ![Orthophoto](images/orthophoto.jpg) |
-| **nDSM (height above ground):** yellow 0.3–1 m (walls, benches, cars), orange 1–2.5 m (hedges, fences, playground equipment), light green 2.5–8 m (bushes, sheds), dark green above 8 m (trees, houses). Shows what stands, also under trees. | ![nDSM on the orthophoto](images/ndsm.jpg) |
-| **Hillshade:** the terrain as if lit from the north-west. Shows banks, hollows and earth walls. | ![Hillshade](images/hillshade.jpg) |
-| **Slope:** the darker, the steeper. Helps with banks and stairs. | ![Slope](images/slope.jpg) |
+| **Orthophoto:** top view, 20 cm per pixel. Good for paths, squares and vegetation, but trees hide the ground. | [![Orthophoto](images/orthophoto-thumb.webp)](images/orthophoto.jpg) |
+| **nDSM (height above ground):** yellow 0.3–1 m (walls, benches, cars), orange 1–2.5 m (hedges, fences, playground equipment), light green 2.5–8 m (bushes, sheds), dark green above 8 m (trees, houses). Shows what stands, also under trees. | [![nDSM on the orthophoto](images/ndsm-thumb.webp)](images/ndsm.jpg) |
+| **Hillshade:** the terrain as if lit from the north-west. Shows banks, hollows and earth walls. | [![Hillshade](images/hillshade-thumb.webp)](images/hillshade.jpg) |
+| **Slope:** the darker, the steeper. Helps with banks and stairs. | [![Slope](images/slope-thumb.webp)](images/slope.jpg) |
 | **Local relief:** the terrain minus its smoothed mean (over about 5 m on sprint maps, 3 m on schoolyard maps, 8 m on forest maps). Light is higher than the surroundings, dark lower; the general fall of the ground is gone. Shows mounds, hollows, banks and ditches that the hillshade hides on a slope. | – |
 
 The candidates map also holds the **contours**: every 1 m on schoolyard maps, every 2 m on sprint maps,
@@ -836,7 +836,7 @@ You can combine both PDF switches; the two files then sit side by side in the pr
 take all four, the MCP server as `pdf`, `pdf_candidates`, `pdf_scale_bar` and `pdf_sources`. freemapper does not store the choice
 in the project: it applies to that call.
 
-![Training map as PDF](images/training-map.jpg)
+[![Training map as PDF](images/training-map-thumb.webp)](images/training-map.jpg)
 
 *The training map of the Kreuzgymnasium. Quelle: GeoSN, dl-de/by-2-0, Daten geändert; © OpenStreetMap
 contributors.*
@@ -1244,6 +1244,13 @@ one answer, freemapper splits the area into quarters, at most four levels deep.
 both. Its full ALKIS records surveyed stairs: in the old town of Marburg 54 go straight onto the map, with the
 content profile `balanced`. The landscape model adds candidates as in Bavaria: in Marburg 4 named trees, 3 small
 watercourses, a dam and a wall, on the Feldberg a rock, a spring and a watercourse.
+
+**North Rhine-Westphalia and Lower Saxony: full ALKIS.** Both serve their full ALKIS as well (Geobasis NRW,
+dl-de/zero-2-0; LGLN, CC BY 4.0), Lower Saxony with at most 10 000 objects per request. In North Rhine-Westphalia
+it holds much: in the old town of Monschau 25 walls and retaining walls, 33 embankment tops, 14 stairs, 15 bridges,
+17 walls along the Rur and 13 single trees go straight onto the map, in the Siebengebirge 90 embankment tops and
+about 30 walls and stairs; OpenStreetMap lines and trees they double go. Lower Saxony records less: in Herrenhausen
+4 bridges and a fountain, in Bad Harzburg 12 bridges, a wall and an embankment top.
 
 **Schleswig-Holstein: landscape model.** The LVermGeo SH serves its landscape model as well (CC BY 4.0), with at
 most 10 000 objects per request. In the Hüttener Berge it adds 48 earth walls (105), a watercourse and 4
