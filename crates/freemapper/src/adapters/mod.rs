@@ -324,7 +324,8 @@ mod tests {
                 adapter.tree_datasets().len(),
                 match id {
                     "brandenburg" => 2,
-                    "hamburg" | "saxony" => 1,
+                    "hamburg" | "saxony" | "hessen" => 1,
+                    "nordrheinwestfalen" => 2,
                     "schleswigholstein" => 3,
                     _ => 0,
                 },
@@ -341,9 +342,12 @@ mod tests {
                 "frankfurt-oder",
                 "leipzig",
                 "hamburg-strassenbaeume",
+                "frankfurt-main",
                 "luebeck",
                 "kiel",
-                "norderstedt"
+                "norderstedt",
+                "koeln",
+                "dortmund"
             ]
         );
         // Sanssouci, Potsdam, and the Zwinger, Dresden (EPSG:25833).

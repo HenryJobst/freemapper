@@ -341,6 +341,29 @@ fn a_wfs_tree_cadastre_is_read_and_checked() {
     }
 }
 
+/// The columns of a CSV may have spaces in their names (Frankfurt am Main), inside the name only.
+#[test]
+fn field_names_may_hold_inner_spaces() {
+    let ods = "format = \"ods-geojson-export\"\ngeo_field = \"geo_point_2d\"\n";
+    let csv = "format = \"csv\"\nx_field = \"ETRS 89 Rechtswert\"\ny_field = \"ETRS 89 Hochwert\"\nseparator = \";\"\n";
+    let manifest = parse(
+        &format!("{}{}", sample(), TREES.replace(ods, csv)),
+        Path::new("sample"),
+    )
+    .unwrap();
+    let trees = extras::tree_dataset(&manifest.trees[0], &"sample".parse().unwrap());
+    assert!(
+        matches!(trees.format, TreeFormat::Csv { ref x_field, .. } if x_field == "ETRS 89 Rechtswert")
+    );
+    let trailing = csv.replace("\"ETRS 89 Hochwert\"", "\"Hochwert \"");
+    let findings = parse(
+        &format!("{}{}", sample(), TREES.replace(ods, &trailing)),
+        Path::new("sample"),
+    )
+    .unwrap_err();
+    assert_eq!(findings[0].key, "extra.trees.y_field");
+}
+
 /// A layer the NAS reader does not know would be left out silently, and the readers have room
 /// for one NAS service per model of a region.
 #[test]
