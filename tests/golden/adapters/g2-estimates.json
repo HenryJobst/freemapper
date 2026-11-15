@@ -100,11 +100,12 @@
       "surface model (LVermGeo SH bDOM, full-tile download) | 105.000 MB | cached: false | Surface | Cache",
       "OSM extract Schleswig-Holstein (shared by all projects) | 159.000 MB | cached: false | MapData | Cache",
       "ALKIS buildings and land use | 0.500 MB | cached: false | MapData | Project",
-      "objects of the ATKIS Basis-DLM | 0.100 MB | cached: false | StateLayers | Project"
+      "objects of the ATKIS Basis-DLM | 0.100 MB | cached: false | StateLayers | Project",
+      "city tree cadastres | 0.100 MB | cached: false | StateLayers | Project"
     ],
     "region": "schleswigholstein",
     "tiles": [],
-    "total_megabytes": "266.637"
+    "total_megabytes": "266.737"
   },
   {
     "in_place": [],

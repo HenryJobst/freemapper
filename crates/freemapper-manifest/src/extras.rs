@@ -2,7 +2,7 @@
 
 use std::borrow::Cow;
 
-use freemapper_adapter_api::extras::{NasService, TreeDataset, TreeFields, TreeFormat};
+use freemapper_adapter_api::extras::{NasService, TreeDataset, TreeFields};
 use freemapper_adapter_api::records::AdapterId;
 use freemapper_georef::crs::BoundingBox;
 
@@ -42,12 +42,7 @@ pub fn tree_dataset(trees: &Trees, region: &AdapterId) -> TreeDataset {
             max_e,
             max_n,
         },
-        format: match &trees.geo_field {
-            Some(geo_field) => TreeFormat::OdsGeoJsonExport {
-                geo_field: Cow::Owned(geo_field.clone()),
-            },
-            None => TreeFormat::OgcApiItems,
-        },
+        format: trees.format.clone(),
         endpoints: owned_list(&trees.endpoints),
         fields: TreeFields {
             kind: Cow::Owned(trees.fields.kind.clone()),

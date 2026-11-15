@@ -257,6 +257,48 @@ fn an_ogc_api_tree_cadastre_is_read_and_checked() {
     }
 }
 
+/// A tree cadastre may be one CSV file (Lübeck, ADR 0065): the columns of the position and the
+/// separator.
+#[test]
+fn a_csv_tree_cadastre_is_read_and_checked() {
+    let ods = "format = \"ods-geojson-export\"\ngeo_field = \"geo_point_2d\"\n";
+    let csv =
+        "format = \"csv\"\nx_field = \"RECHTSWERT\"\ny_field = \"HOCHWERT\"\nseparator = \";\"\n";
+    let manifest = parse(
+        &format!("{}{}", sample(), TREES.replace(ods, csv)),
+        Path::new("sample"),
+    )
+    .unwrap();
+    let trees = extras::tree_dataset(&manifest.trees[0], &"sample".parse().unwrap());
+    assert_eq!(
+        trees.format,
+        TreeFormat::Csv {
+            x_field: Cow::Borrowed("RECHTSWERT"),
+            y_field: Cow::Borrowed("HOCHWERT"),
+            separator: ';',
+        }
+    );
+    for (wrong, key) in [
+        (
+            csv.replace("x_field = \"RECHTSWERT\"\n", ""),
+            "extra.trees.x_field",
+        ),
+        (
+            csv.replace("separator = \";\"", "separator = \";;\""),
+            "extra.trees.separator",
+        ),
+        (
+            format!("{ods}x_field = \"RECHTSWERT\"\n"),
+            "extra.trees.x_field",
+        ),
+    ] {
+        let text = format!("{}{}", sample(), TREES.replace(ods, &wrong));
+        let findings = parse(&text, Path::new("sample")).unwrap_err();
+        assert_eq!(findings.len(), 1, "{wrong}: {findings:?}");
+        assert_eq!(findings[0].key, key, "{wrong}");
+    }
+}
+
 /// A layer the NAS reader does not know would be left out silently, and the readers have room
 /// for one NAS service per model of a region.
 #[test]
