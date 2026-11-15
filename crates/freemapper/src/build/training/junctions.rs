@@ -4,6 +4,10 @@
 //! line it touched or onto the line that replaced it. freemapper-courseplan tells free ends from
 //! junctions by whether lines touch. Paper mm, y down; only +, −, ×, ÷ and `sqrt` decide, and
 //! every collection is iterated in a sorted order, so that every system decides alike.
+//!
+//! [`Junctions::record`] names every line object by the temporary tag [`JUNCTION_TAG`], so that
+//! the keys hold whatever the steps between drop, split or replace; `train` must call [`forget`]
+//! before it returns, so that the tag never reaches a map file.
 
 #![allow(dead_code)] // The merge and shift steps of the training level call it.
 
@@ -34,23 +38,21 @@ const LINE_CLASSES: [Class; 7] = [
 /// The side of a cell of the search grid (mm on paper).
 const CELL_MM: f64 = 5.0;
 
-/// The key of an object that survives a change of the others: its `freemapper:source_id`, its
-/// symbol and its index among the objects with the same source id and symbol, in input order.
-/// A step that replaces or splits objects keeps the source id and the symbol on the pieces and
-/// reports the replacements by key.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub(super) struct Key {
-    pub(super) source_id: Option<String>,
-    pub(super) symbol_id: u32,
-    pub(super) nth: usize,
-}
+/// The temporary tag that carries the [`Key`] of a line object while the training level runs.
+pub(super) const JUNCTION_TAG: &str = "freemapper:junction";
 
-/// One recorded end: of which object, whether it is the last coordinate, and the lines it
-/// touched (sorted).
+/// The key of a line object: its index when the junctions were recorded, carried in the tag
+/// [`JUNCTION_TAG`]. A step that splits or replaces a line keeps the tags on the pieces (the cut
+/// helpers copy them) and reports replacements by key, so one key can name several objects.
+pub(super) type Key = u32;
+
+/// One recorded end: of which object, whether it is the last coordinate, where it lay (mm on
+/// paper) and the lines it touched (sorted).
 #[derive(Debug, Clone)]
 struct End {
     object: Key,
     last: bool,
+    at: Coord<f64>,
     touched: Vec<Key>,
 }
 
@@ -65,18 +67,29 @@ pub(super) struct Junctions {
 impl Junctions {
     /// Every end of a line object (classes Road, Path, Railway, Stairway, Barrier, Watercourse,
     /// EarthBank) that lies within [`TOUCH_M`] (ground metres, as `line_join`) of another line
-    /// object, keyed by a stable object key ([`Key`]). Ends of closed lines are not recorded.
+    /// object. Ends of closed lines are not recorded. Every line object of these classes gets
+    /// the tag [`JUNCTION_TAG`] with its index as its [`Key`] (a tag left from before is
+    /// replaced); `train` must call [`forget`] before it returns.
     pub(super) fn record(
-        objects: &[MapObject],
+        objects: &mut [MapObject],
         classes: &Classes,
         georef: &Georeferencing,
     ) -> Self {
         let line_ids: BTreeSet<u32> = LINE_CLASSES.iter().flat_map(|&c| classes.ids(c)).collect();
+        for (i, object) in objects.iter_mut().enumerate() {
+            object.tags.retain(|(k, _)| k != JUNCTION_TAG);
+            if is_line(object, &line_ids) && Key::try_from(i).is_ok() {
+                object.tags.push((JUNCTION_TAG.to_string(), i.to_string()));
+            }
+        }
+        let objects: &[MapObject] = objects;
         let touch = touch_mm(georef);
         let grid = Grid::of(objects, &line_ids);
-        let keys = keys(objects);
         let mut ends = Vec::new();
         for (i, object) in objects.iter().enumerate() {
+            let Some(key) = key_of(object) else {
+                continue;
+            };
             if !is_open_line(object, &line_ids) {
                 continue;
             }
@@ -86,12 +99,13 @@ impl Junctions {
                     .near(at, touch)
                     .into_iter()
                     .filter(|&j| j != i && distance(&objects[j], at).0 <= touch)
-                    .map(|j| keys[j].clone())
+                    .filter_map(|j| key_of(&objects[j]))
                     .collect();
                 if !touched.is_empty() {
                     ends.push(End {
-                        object: keys[i].clone(),
+                        object: key,
                         last,
+                        at,
                         touched: touched.into_iter().collect(),
                     });
                 }
@@ -104,12 +118,15 @@ impl Junctions {
     /// is moved to the nearest point of the line that touched it or of the line that replaced it
     /// (`replaced_by`), when that point is within `reach` mm; returns (repaired, still free).
     ///
+    /// A key can name several objects, the pieces of a split line: the end is that of the piece
+    /// whose end lies nearest the recorded position, within `reach` (else the end is gone with
+    /// its stretch and not counted), and of the pieces of a line it can move onto, the nearest.
     /// Only the end vertex moves (its flags kept), so a sided line keeps its direction, and the
     /// line it moves onto stays as it is. A touch counts only on the body of a line: where an end
     /// meets just another recorded end, both may have lost the line they met on, so the end looks
     /// for its line first and stays where it is only when there is none in reach. Of the lines in
     /// reach, a body comes before a recorded end, then the line recorded before the line that
-    /// replaced it (`replaced_by` is followed), then the lower key.
+    /// replaced it (`replaced_by` is followed), then the lower key, then the nearer piece.
     pub(super) fn repair(
         &self,
         objects: &mut [MapObject],
@@ -118,25 +135,49 @@ impl Junctions {
         georef: &Georeferencing,
     ) -> (usize, usize) {
         let touch = touch_mm(georef);
-        let keys = keys(objects);
-        let index: BTreeMap<&Key, usize> = keys.iter().enumerate().map(|(i, k)| (k, i)).collect();
-        // The recorded ends of the objects that still exist: object index → [first, last].
-        let mut recorded: BTreeMap<usize, [bool; 2]> = BTreeMap::new();
-        for end in &self.ends {
-            if let Some(&i) = index.get(&end.object) {
-                recorded.entry(i).or_default()[usize::from(end.last)] = true;
+        let within = reach + TOLERANCE_MM;
+        // The line objects of each key, in order.
+        let mut pieces: BTreeMap<Key, Vec<usize>> = BTreeMap::new();
+        for (i, object) in objects.iter().enumerate() {
+            if is_line(object, &self.line_ids)
+                && let Some(key) = key_of(object)
+            {
+                pieces.entry(key).or_default().push(i);
             }
+        }
+        // Where each recorded end is now: the end of a piece of its object nearest the recorded
+        // position (of two as near, the earlier object, then the same end as recorded).
+        let held: Vec<Option<(usize, bool)>> = self
+            .ends
+            .iter()
+            .map(|end| {
+                pieces
+                    .get(&end.object)?
+                    .iter()
+                    .filter(|&&i| is_open_line(&objects[i], &self.line_ids))
+                    .flat_map(|&i| [(i, false), (i, true)])
+                    .map(|(i, last)| (length(end_point(&objects[i], last), end.at), i, last))
+                    .filter(|&(d, _, _)| d <= within)
+                    .min_by(|a, b| {
+                        a.0.total_cmp(&b.0)
+                            .then(a.1.cmp(&b.1))
+                            .then((a.2 != end.last).cmp(&(b.2 != end.last)))
+                    })
+                    .map(|(_, i, last)| (i, last))
+            })
+            .collect();
+        // The recorded ends of the objects now: object index → [first, last].
+        let mut recorded: BTreeMap<usize, [bool; 2]> = BTreeMap::new();
+        for &(i, last) in held.iter().flatten() {
+            recorded.entry(i).or_default()[usize::from(last)] = true;
         }
         let mut grid = Grid::of(objects, &self.line_ids);
         let (mut repaired, mut free) = (0, 0);
-        for end in &self.ends {
-            let Some(&i) = index.get(&end.object) else {
+        for (end, held) in self.ends.iter().zip(&held) {
+            let Some(&(i, last)) = held.as_ref() else {
                 continue;
             };
-            if !is_open_line(&objects[i], &self.line_ids) {
-                continue;
-            }
-            let at = end_point(&objects[i], end.last);
+            let at = end_point(&objects[i], last);
             // Every line the end meets: on its body (`false`) or only at a recorded end (`true`).
             let meets: Vec<bool> = grid
                 .near(at, touch)
@@ -150,15 +191,15 @@ impl Junctions {
             if meets.contains(&false) {
                 continue;
             }
-            let mut ranks: BTreeMap<&Key, usize> = BTreeMap::new();
-            for touched in &end.touched {
+            // The lines it may move onto: those it touched (rank 0) and what replaced them.
+            let mut ranks: BTreeMap<Key, usize> = BTreeMap::new();
+            for &touched in &end.touched {
                 let mut seen = BTreeSet::new();
-                let mut key = touched;
-                let mut rank = 0;
+                let (mut key, mut rank) = (touched, 0);
                 while seen.insert(key) {
                     let r = ranks.entry(key).or_insert(rank);
                     *r = (*r).min(rank);
-                    let Some(next) = replaced_by.get(key) else {
+                    let Some(&next) = replaced_by.get(&key) else {
                         break;
                     };
                     key = next;
@@ -167,23 +208,25 @@ impl Junctions {
             }
             let best = ranks
                 .into_iter()
-                .filter_map(|(key, rank)| {
-                    let &j = index.get(key)?;
-                    if j == i || !is_line(&objects[j], &self.line_ids) {
-                        return None;
-                    }
+                .flat_map(|(key, rank)| {
+                    let pieces = pieces.get(&key).map_or(&[][..], Vec::as_slice);
+                    pieces.iter().map(move |&j| (key, rank, j))
+                })
+                .filter(|&(_, _, j)| j != i && is_line(&objects[j], &self.line_ids))
+                .filter_map(|(key, rank, j)| {
                     let (d, q) = distance(&objects[j], at);
                     let via_end = at_recorded_end(&objects[j], recorded.get(&j), q, touch);
-                    (d <= reach + TOLERANCE_MM).then_some((via_end, rank, key, d, q))
+                    (d <= within).then_some((via_end, rank, key, d, j, q))
                 })
-                .min_by(|a, b| (a.0, a.1, a.2).cmp(&(b.0, b.1, b.2)));
+                .min_by(|a, b| {
+                    (a.0, a.1, a.2)
+                        .cmp(&(b.0, b.1, b.2))
+                        .then(a.3.total_cmp(&b.3))
+                        .then(a.4.cmp(&b.4))
+                });
             match best {
-                Some((_, _, _, d, q)) if d > touch => {
-                    let vertex = if end.last {
-                        objects[i].coords.len() - 1
-                    } else {
-                        0
-                    };
+                Some((_, _, _, d, _, q)) if d > touch => {
+                    let vertex = if last { objects[i].coords.len() - 1 } else { 0 };
                     let c = &mut objects[i].coords[vertex];
                     c.x = (q.x * 1000.0).round() as i32;
                     c.y = (q.y * 1000.0).round() as i32;
@@ -200,35 +243,27 @@ impl Junctions {
     }
 }
 
+/// Removes the tag [`JUNCTION_TAG`] from every object.
+pub(super) fn forget(objects: &mut [MapObject]) {
+    for object in objects {
+        object.tags.retain(|(k, _)| k != JUNCTION_TAG);
+    }
+}
+
+/// The key of `object`, when it carries one.
+fn key_of(object: &MapObject) -> Option<Key> {
+    object
+        .tags
+        .iter()
+        .find(|(k, _)| k == JUNCTION_TAG)
+        .and_then(|(_, v)| v.parse().ok())
+}
+
 /// Ends closer than this touch a line (mm on paper): [`TOUCH_M`] at the scale of the map, with
 /// the tolerance of the comparisons.
 fn touch_mm(georef: &Georeferencing) -> f64 {
     PaperMm::of_metres(TOUCH_M, georef.scale_denominator).0 + TOLERANCE_MM
 }
-
-/// The key of every object, in order.
-fn keys(objects: &[MapObject]) -> Vec<Key> {
-    let mut count: BTreeMap<(Option<&str>, u32), usize> = BTreeMap::new();
-    objects
-        .iter()
-        .map(|o| {
-            let source_id = o
-                .tags
-                .iter()
-                .find(|(k, _)| k == "freemapper:source_id")
-                .map(|(_, v)| v.as_str());
-            let nth = count.entry((source_id, o.symbol_id)).or_insert(0);
-            let key = Key {
-                source_id: source_id.map(str::to_string),
-                symbol_id: o.symbol_id,
-                nth: *nth,
-            };
-            *nth += 1;
-            key
-        })
-        .collect()
-}
-
 /// A path of a line symbol of `line_ids` with at least two points.
 fn is_line(object: &MapObject, line_ids: &BTreeSet<u32>) -> bool {
     matches!(object.kind, MapObjectKind::Path)
@@ -353,10 +388,11 @@ impl Grid {
 fn cell(v: f64) -> i64 {
     (v / CELL_MM).floor() as i64
 }
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::build::training::tests::{SCALE, georef_at, isom, line};
+    use crate::build::training::tests::{SCALE, area, georef_at, isom, line};
     use crate::omap::SymbolSet;
 
     /// A line `code` through `points` (paper mm) with the source id `id`.
@@ -368,8 +404,15 @@ mod tests {
         object
     }
 
-    fn key_of(objects: &[MapObject], i: usize) -> Key {
-        keys(objects)[i].clone()
+    /// `object` with its coordinates through `points` (paper mm), its tags kept.
+    fn moved(set: &SymbolSet, object: &MapObject, points: &[(f64, f64)]) -> MapObject {
+        let mut moved = object.clone();
+        moved.coords = line(set, "505", points).coords;
+        moved
+    }
+
+    fn key(object: &MapObject) -> Key {
+        key_of(object).unwrap()
     }
 
     fn mm(c: &MapCoord) -> (f64, f64) {
@@ -389,19 +432,15 @@ mod tests {
         let set = isom();
         let georef = georef_at(SCALE);
         let mut objects = path_on_road(&set);
-        let junctions = Junctions::record(&objects, &Classes::of(&set), &georef);
+        let junctions = Junctions::record(&mut objects, &Classes::of(&set), &georef);
         assert_eq!(junctions.ends.len(), 1, "{junctions:?}");
-        objects[1] = tagged(&set, "503", "r", &[(0.0, 10.3), (40.0, 10.3)]);
+        objects[1] = moved(&set, &objects[1], &[(0.0, 10.3), (40.0, 10.3)]);
         let flags = objects[0].coords[1].flags;
         let result = junctions.repair(&mut objects, &BTreeMap::new(), 0.5, &georef);
         assert_eq!(result, (1, 0));
         assert_eq!(mm(&objects[0].coords[1]), (20.0, 10.3));
         assert_eq!(objects[0].coords[1].flags, flags);
-        assert_eq!(
-            mm(&objects[0].coords[0]),
-            (20.0, 0.0),
-            "the other end stays"
-        );
+        assert_eq!(mm(&objects[0].coords[0]), (20.0, 0.0), "the free end stays");
         assert_eq!(mm(&objects[1].coords[0]), (0.0, 10.3), "the line stays");
     }
 
@@ -409,18 +448,18 @@ mod tests {
     fn an_end_moves_to_the_replacing_middle_line() {
         let set = isom();
         let georef = georef_at(SCALE);
-        let before = vec![
+        let mut before = vec![
             tagged(&set, "505", "p", &[(20.0, 0.0), (20.0, 10.0)]),
             tagged(&set, "503", "a", &[(0.0, 10.0), (40.0, 10.0)]),
             tagged(&set, "503", "b", &[(0.0, 10.4), (40.0, 10.4)]),
         ];
-        let junctions = Junctions::record(&before, &Classes::of(&set), &georef);
-        // The pair becomes its middle line, which keeps the key of `b`; `a` goes.
+        let junctions = Junctions::record(&mut before, &Classes::of(&set), &georef);
+        // The pair becomes its middle line, which keeps the tags of `b`; `a` goes.
         let mut after = vec![
             before[0].clone(),
-            tagged(&set, "503", "b", &[(0.0, 10.2), (40.0, 10.2)]),
+            moved(&set, &before[2], &[(0.0, 10.2), (40.0, 10.2)]),
         ];
-        let replaced_by = BTreeMap::from([(key_of(&before, 1), key_of(&after, 1))]);
+        let replaced_by = BTreeMap::from([(key(&before[1]), key(&before[2]))]);
         let result = junctions.repair(&mut after, &replaced_by, 0.5, &georef);
         assert_eq!(result, (1, 0));
         assert_eq!(mm(&after[0].coords[1]), (20.0, 10.2));
@@ -431,11 +470,12 @@ mod tests {
         let set = isom();
         let georef = georef_at(SCALE);
         let mut objects = path_on_road(&set);
-        let junctions = Junctions::record(&objects, &Classes::of(&set), &georef);
-        objects[1] = tagged(&set, "503", "r", &[(0.0, 11.0), (40.0, 11.0)]);
+        let junctions = Junctions::record(&mut objects, &Classes::of(&set), &georef);
+        objects[1] = moved(&set, &objects[1], &[(0.0, 11.0), (40.0, 11.0)]);
         let result = junctions.repair(&mut objects, &BTreeMap::new(), 0.5, &georef);
         assert_eq!(result, (0, 1));
         assert_eq!(mm(&objects[0].coords[1]), (20.0, 10.0));
+        assert_eq!(mm(&objects[0].coords[0]), (20.0, 0.0), "the free end stays");
     }
 
     #[test]
@@ -447,9 +487,9 @@ mod tests {
             tagged(&set, "505", "p", &ring),
             tagged(&set, "503", "r", &[(0.0, 10.0), (40.0, 10.0)]),
         ];
-        let junctions = Junctions::record(&objects, &Classes::of(&set), &georef);
+        let junctions = Junctions::record(&mut objects, &Classes::of(&set), &georef);
         assert!(junctions.ends.is_empty(), "{junctions:?}");
-        objects[1] = tagged(&set, "503", "r", &[(0.0, 10.3), (40.0, 10.3)]);
+        objects[1] = moved(&set, &objects[1], &[(0.0, 10.3), (40.0, 10.3)]);
         let result = junctions.repair(&mut objects, &BTreeMap::new(), 0.5, &georef);
         assert_eq!(result, (0, 0));
         assert_eq!(mm(&objects[0].coords[0]), (20.0, 10.0));
@@ -464,9 +504,9 @@ mod tests {
             tagged(&set, "506", "q", &[(20.0, 10.0), (30.0, 0.0)]),
             tagged(&set, "503", "r", &[(0.0, 10.0), (40.0, 10.0)]),
         ];
-        let junctions = Junctions::record(&objects, &Classes::of(&set), &georef);
+        let junctions = Junctions::record(&mut objects, &Classes::of(&set), &georef);
         assert_eq!(junctions.ends.len(), 2, "{junctions:?}");
-        objects[2] = tagged(&set, "503", "r", &[(0.0, 10.3), (40.0, 10.3)]);
+        objects[2] = moved(&set, &objects[2], &[(0.0, 10.3), (40.0, 10.3)]);
         let (repaired, free) = junctions.repair(&mut objects, &BTreeMap::new(), 0.5, &georef);
         assert_eq!(free, 0);
         assert!(repaired >= 1, "{repaired}");
@@ -485,15 +525,80 @@ mod tests {
     fn ends_that_still_meet_stay_where_they_are() {
         let set = isom();
         let georef = georef_at(SCALE);
-        let before = vec![
+        let mut before = vec![
             tagged(&set, "505", "p", &[(20.0, 0.0), (20.0, 10.0)]),
             tagged(&set, "506", "q", &[(20.0, 10.0), (30.0, 20.0)]),
         ];
-        let junctions = Junctions::record(&before, &Classes::of(&set), &georef);
+        let junctions = Junctions::record(&mut before, &Classes::of(&set), &georef);
         assert_eq!(junctions.ends.len(), 2, "{junctions:?}");
         let mut after = before.clone();
         let result = junctions.repair(&mut after, &BTreeMap::new(), 0.5, &georef);
         assert_eq!(result, (0, 0));
         assert_eq!(after, before);
+    }
+
+    #[test]
+    fn a_dropped_neighbour_does_not_shift_the_keys() {
+        let set = isom();
+        let georef = georef_at(SCALE);
+        // Two paths of one source: the first ends on the road, the second stops 0.2 mm short.
+        let mut objects = vec![
+            tagged(&set, "505", "s", &[(20.0, 0.0), (20.0, 10.0)]),
+            tagged(&set, "505", "s", &[(30.0, 0.0), (30.0, 9.8)]),
+            tagged(&set, "503", "r", &[(0.0, 10.0), (40.0, 10.0)]),
+        ];
+        let junctions = Junctions::record(&mut objects, &Classes::of(&set), &georef);
+        assert_eq!(junctions.ends.len(), 1, "{junctions:?}");
+        // The first path goes and the road shifts: the second path is not the first.
+        let mut after = vec![
+            objects[1].clone(),
+            moved(&set, &objects[2], &[(0.0, 10.3), (40.0, 10.3)]),
+        ];
+        let result = junctions.repair(&mut after, &BTreeMap::new(), 0.5, &georef);
+        assert_eq!(result, (0, 0));
+        assert_eq!(after[0], objects[1]);
+    }
+
+    #[test]
+    fn a_split_line_is_found_by_its_pieces() {
+        let set = isom();
+        let georef = georef_at(SCALE);
+        let mut objects = path_on_road(&set);
+        let junctions = Junctions::record(&mut objects, &Classes::of(&set), &georef);
+        // Both lines are cut in two, and the pieces of the road shift.
+        let (path, road) = (&objects[0], &objects[1]);
+        let mut after = vec![
+            moved(&set, path, &[(20.0, 0.0), (20.0, 5.0)]),
+            moved(&set, road, &[(0.0, 10.3), (10.0, 10.3)]),
+            moved(&set, path, &[(20.0, 5.0), (20.0, 10.0)]),
+            moved(&set, road, &[(10.0, 10.3), (40.0, 10.3)]),
+        ];
+        let result = junctions.repair(&mut after, &BTreeMap::new(), 0.5, &georef);
+        assert_eq!(result, (1, 0));
+        assert_eq!(mm(&after[2].coords[1]), (20.0, 10.3));
+        assert_eq!(mm(&after[2].coords[0]), (20.0, 5.0));
+        assert_eq!(
+            mm(&after[0].coords[1]),
+            (20.0, 5.0),
+            "the other piece stays"
+        );
+    }
+
+    #[test]
+    fn forget_removes_the_tag() {
+        let set = isom();
+        let georef = georef_at(SCALE);
+        let mut objects = path_on_road(&set);
+        objects.push(area(&set, "521", (50.0, 0.0), (60.0, 10.0)));
+        let _ = Junctions::record(&mut objects, &Classes::of(&set), &georef);
+        let tagged: Vec<bool> = objects.iter().map(|o| key_of(o).is_some()).collect();
+        assert_eq!(tagged, [true, true, false]);
+        forget(&mut objects);
+        assert!(
+            objects
+                .iter()
+                .all(|o| o.tags.iter().all(|(k, _)| k != JUNCTION_TAG)),
+            "{objects:?}"
+        );
     }
 }
