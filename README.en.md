@@ -1,6 +1,6 @@
 # freemapper
 
-[Deutsche Version](README.md) · [User manual](docs/manual/en.md) · [Glossary](docs/glossary.md) · [Changes](CHANGELOG.en.md)
+[Deutsche Version](README.md) · [User manual](docs/manual/en.md) · [Glossary](docs/glossary.md) · [Changes](CHANGELOG.en.md) · [Examples](examples/README.en.md)
 
 <!-- claude-cost:start -->
 [![AI effort (Claude API): $3,142](https://img.shields.io/badge/AI%20effort%20%28Claude%20API%29-%243%2C142-8A2BE2)](docs/ai-cost/history.csv)

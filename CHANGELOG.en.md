@@ -11,6 +11,10 @@ All notable changes to freemapper are listed here, newest first. The format foll
 - Schleswig-Holstein: objects from the landscape model of the LVermGeo SH (ATKIS Basis-DLM, ADR 0135) as candidates. In the Hüttener Berge that is 48 earth walls, a watercourse and 4 tracks; in Lübeck a watercourse. Both examples are rebuilt.
 - Hesse: the full ALKIS and the landscape model of the HVBG (ADR 0135). The full ALKIS adds surveyed stairs to the map, 54 in the old town of Marburg; the landscape model adds candidates as in Bavaria (named trees, small watercourses, a dam and a wall in Marburg, a rock, a spring and a watercourse on the Feldberg). Both examples are rebuilt. For adapters: a manifest may now name one NAS service per model, so a state can serve its cadastre and its landscape model.
 
+### Changed
+
+- The README links the examples overview at the top, next to the changes. In the examples overview the preview is now the first column.
+
 ## [0.21.0] - 2026-11-15
 
 ### Added
