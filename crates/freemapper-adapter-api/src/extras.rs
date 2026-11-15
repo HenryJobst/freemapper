@@ -38,7 +38,43 @@ pub trait ExtraSet: Send + Sync {
         region_bbox: &BoundingBox,
         kind: MapKind,
     ) -> Vec<FetchedExtra>;
+
+    /// How the engine draws the layers of the set; `None`: they are stored and drawn by nobody
+    /// (Berlin's set, which the engine still draws by name, ADR 0149).
+    fn drawing(&self) -> Option<&SetDrawing> {
+        None
+    }
 }
+
+/// How the engine draws the layers of a set that brings its rules (ADR 0149).
+#[derive(Debug, Clone, PartialEq)]
+pub struct SetDrawing {
+    /// The candidate rules, in the syntax of the engine's rule files. Their conditions name the
+    /// tags `<tag_prefix>:<property>` of a feature and `<tag_prefix>:layer` (the layer's file).
+    pub rules: &'static str,
+    /// The prefix of the tags of the features, such as `hamburg`.
+    pub tag_prefix: &'static str,
+    /// How the objects of the set rank in the duplicate step.
+    pub rank: SetRank,
+    /// The layers whose areas are stairs; the engine draws them as stairs, walking direction
+    /// from the terrain, and lets a stair of the cadastre at the same place win.
+    pub stair_layers: &'static [&'static str],
+}
+
+/// The rank of a set's objects among the sources of the same object.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SetRank {
+    /// A street survey, as Berlin's Straßenbefahrung.
+    Survey,
+    /// A cadastre.
+    Cadastre,
+    /// A register, such as a tree cadastre.
+    Register,
+}
+
+/// The tag of a feature of a set that makes its 531 point a control site of this kind
+/// (`bench`, `bollard`, `street_lamp`); the adapter writes it as the property `control`.
+pub const CONTROL_PROPERTY: &str = "control";
 
 /// The facts of an [`ExtraSet`].
 #[derive(Debug, Clone, PartialEq)]

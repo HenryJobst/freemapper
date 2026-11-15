@@ -194,3 +194,4 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0146](0146-natural-monuments-and-protected-biotopes-of-the-states.md) | Natural monuments and protected biotopes of the states | Accepted | 2026-11-15 |
 | [0147](0147-rhineland-palatinate-basis-dlm-in-the-shape-schema.md) | Rhineland-Palatinate: the landscape model in the AdV Shape schema | Accepted | 2026-11-15 |
 | [0148](0148-permit-sources-from-arcgis-rest-services.md) | Permit sources from ArcGIS REST services | Accepted | 2026-11-15 |
+| [0149](0149-hamburg-feinkartierung-a-set-that-brings-its-rules.md) | Hamburg's Feinkartierung, the first set of extra layers that brings its rules | Accepted | 2026-11-15 |

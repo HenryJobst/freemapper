@@ -1413,6 +1413,16 @@ Einzelbäumen, mit einer Krone ab 10 m als 417, sonst als 418. In Blankenese kom
 Straßenbäume auf die Karte und 4 zu den Kandidaten; die OpenStreetMap-Bäume an denselben Stellen entfallen. Ein
 Erfassungsdatum hat das Kataster nicht, als Stand gilt das Abrufdatum. Bäume in Parks und im Hafen fehlen darin.
 
+**Hamburg: Feinkartierung.** Der LGV vermisst die Haupt- und Bezirksstraßen und die öffentlichen Grünanlagen im
+Detail (Feinkartierung Straße, dl-de/by-2-0; Feinkartierung Grün, dl-de/zero-2-0). freemapper holt daraus für
+Sprint- und Schulhofkarten Geländer, Zäune, Handläufe, Mauern, Bordsteine, Treppen und Stadtmobiliar. Mit dem
+Inhaltsprofil `balanced` kommen Geländer, Zäune, Mauern, Bordsteine und Treppen direkt auf die Karte; Poller,
+Bänke und Leuchten werden Kandidaten, auf der Sprintkarte als mögliche Postenstandorte (531). Treppenflächen
+werden zu Treppen, die Laufrichtung kommt aus dem Geländemodell. In Blankenese bringt das 155 Geländer und Zäune,
+15 Mauern, 36 Bordsteine und 352 Treppenlinien aus 102 Treppenflächen auf die Karte; die OpenStreetMap-Treppen
+an denselben Stellen entfallen (110 auf 40). Dazu kommen 96 Postenstandorte als Kandidaten. Die Straßenbeläge
+(etwa wassergebundene Decken) fehlen noch.
+
 **Lübeck: Baumkataster.** Die Hansestadt Lübeck veröffentlicht ihr Baumkataster als eine CSV-Datei für die ganze
 Stadt (CC0, 8 MB). freemapper lädt sie bei jedem Abruf ganz und behält die Bäume des Kartengebiets; leere
 Pflanzstellen (`Fehlplatz`) entfallen. Kronendurchmesser und Erfassungsdatum fehlen, also wird jeder Baum ein 418

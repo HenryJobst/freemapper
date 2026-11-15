@@ -363,6 +363,11 @@ pub struct ProjectFile {
     /// the area is recorded with count 0.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub berlin_layers: BTreeMap<String, AlkisRecord>,
+    /// The layers of the sets that bring their rules (ADR 0149) of the last online `fetch`, by
+    /// set key, then by file name under `data/<set key>`, as [`ProjectFile::berlin_layers`]
+    /// holds Berlin's set.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub extra_sets: BTreeMap<String, BTreeMap<String, AlkisRecord>>,
     /// The NAS layers (full ALKIS) of the last online `fetch`, by file name under
     /// [`NAS_LAYERS_DIR`]; empty outside the states with a NAS service. A layer without objects
     /// in the area is recorded with count 0, and `latest_update` is the newest `beginnt`.
@@ -535,6 +540,7 @@ impl ProjectFile {
             .into_iter()
             .flatten()
             .chain(self.berlin_layers.values())
+            .chain(self.extra_sets.values().flat_map(BTreeMap::values))
             .chain(self.nas_layers.values())
             .chain(self.tree_layers.values());
         for region in records.flat_map(|record| &record.regions) {
@@ -573,6 +579,15 @@ impl ProjectFile {
                 key,
                 registers.as_ref().is_some_and(|family| family.has(key)),
             )
+        });
+        let sets = extras::drawn_sets(registry());
+        self.extra_sets.retain(|set, layers| {
+            let Some((_, drawn)) = sets.iter().find(|(_, s)| s.info().key == set) else {
+                return keep("set", set, false);
+            };
+            let family = extras::of_set(*drawn);
+            layers.retain(|key, _| keep(set, key, family.has(key)));
+            true
         });
         self.nas_layers
             .retain(|key, _| keep("NAS", key, extras::NAS.has(key)));
@@ -671,6 +686,18 @@ impl ProjectFile {
             }
         }
         self.berlin_layers.clear();
+        for (_, set) in extras::drawn_sets(registry()) {
+            let family = extras::of_set(set);
+            for key in self
+                .extra_sets
+                .get(set.info().key)
+                .into_iter()
+                .flat_map(BTreeMap::keys)
+            {
+                extras::remove(dir, &family, key);
+            }
+        }
+        self.extra_sets.clear();
         for key in self.nas_layers.keys() {
             extras::remove(dir, &extras::NAS, key);
         }
@@ -757,6 +784,7 @@ pub fn init_project_with_content(
         buildings: None,
         land_use: None,
         berlin_layers: BTreeMap::new(),
+        extra_sets: BTreeMap::new(),
         nas_layers: BTreeMap::new(),
         tree_layers: BTreeMap::new(),
         osm: None,
@@ -1209,6 +1237,30 @@ fn fetch_project_parts(
     stop_if(cancelled)?;
     project.berlin_layers = berlin_layers;
     project.save(dir)?;
+    // The sets that bring their rules (ADR 0149), each in reach of an area its region touches.
+    for (_, set) in extras::drawn_sets(registry()) {
+        let key = set.info().key;
+        let previous = project.extra_sets.get(key).cloned().unwrap_or_default();
+        let records = extras::fetch_key_into(
+            registry(),
+            key,
+            dir,
+            fetcher,
+            &area.region_bbox,
+            project.map_kind,
+            mode,
+            skips(Part::BerlinLayers),
+            &previous,
+            progress,
+        );
+        stop_if(cancelled)?;
+        if records.is_empty() {
+            project.extra_sets.remove(key);
+        } else {
+            project.extra_sets.insert(key.to_string(), records);
+        }
+        project.save(dir)?;
+    }
     let nas_layers = fetch_nas_layers_into(
         dir,
         fetcher,
@@ -1278,6 +1330,7 @@ pub(crate) fn mark_stored(
     project: &ProjectFile,
     bbox: &BoundingBox,
 ) {
+    drop_sets_taking_nothing(&mut estimate.items, project.map_kind);
     let wcs = |record: &Option<WcsRecord>, relpath: &str| {
         record.as_ref().is_some_and(|r| r.covers(bbox)) && dir.join(relpath).exists()
     };
@@ -1312,12 +1365,37 @@ pub(crate) fn mark_stored(
         && project.tree_layers.iter().all(|(key, record)| {
             record.covers(bbox) && extras::is_stored(dir, &extras::TREES, key)
         });
-    if orthophoto || k5 || berlin_layers || nas_layers || tree_layers {
+    // The sets that bring their rules, by the item of the estimate each has. Their records hold
+    // the region box (EPSG:25833), as Berlin's do, which there is the map's CRS too.
+    let region_bbox = project.region_bbox().ok();
+    let sets: Vec<(&str, bool)> = extras::drawn_sets(registry())
+        .into_iter()
+        .map(|(_, set)| {
+            let family = extras::of_set(set);
+            let stored = project
+                .extra_sets
+                .get(set.info().key)
+                .is_some_and(|records| {
+                    !records.is_empty()
+                        && records.iter().all(|(key, record)| {
+                            region_bbox
+                                .as_ref()
+                                .is_some_and(|region| record.covers(region))
+                                && extras::is_stored(dir, &family, key)
+                        })
+                });
+            (set.info().estimate.what, stored)
+        })
+        .collect();
+    if orthophoto || k5 || berlin_layers || nas_layers || tree_layers || sets.iter().any(|s| s.1) {
         for item in &mut estimate.items {
             let stored = match (item.part, item.what.as_str()) {
                 (Part::Orthophoto, _) => orthophoto,
                 (Part::K5, _) => k5,
-                (Part::BerlinLayers, _) => berlin_layers,
+                (Part::BerlinLayers, what) => sets
+                    .iter()
+                    .find(|(item, _)| *item == what)
+                    .map_or(berlin_layers, |(_, stored)| *stored),
                 (
                     Part::StateLayers,
                     crate::layers::NAS_LAYERS_ITEM | crate::layers::DLM_LAYERS_ITEM,
@@ -1337,6 +1415,18 @@ pub(crate) fn mark_stored(
         .iter()
         .filter(|i| !i.cached)
         .fold(0.0, |total, i| total + i.megabytes);
+}
+
+/// Leaves out of `items` the sets of extra layers that take no layer for a map of `kind` (a
+/// forest map in Hamburg): they download nothing.
+fn drop_sets_taking_nothing(items: &mut Vec<crate::layers::EstimateItem>, kind: MapKind) {
+    let idle: Vec<&str> = registry()
+        .adapters()
+        .flat_map(|adapter| adapter.extras().iter())
+        .filter(|set| set.layers(kind.contract()).is_empty())
+        .map(|set| set.info().estimate.what)
+        .collect();
+    items.retain(|item| item.part != Part::BerlinLayers || !idle.contains(&item.what.as_str()));
 }
 
 /// Checks the downloads of an online fetch against the free disk space ([`crate::space::plan`]):
@@ -2073,6 +2163,44 @@ pub(crate) fn stored_berlin_layers(
         }
     }
     Ok(layers)
+}
+
+/// The stored layers of the sets that bring their rules (ADR 0149) that a map of the project's
+/// kind takes and that cover the map area plus buffer. A layer that was not fetched, is missing
+/// or does not cover the area is left out, as for Berlin's layers.
+pub(crate) fn stored_set_layers(
+    dir: &Path,
+    project: &ProjectFile,
+) -> Result<Vec<crate::build::sets::SetLayers>, ProjectError> {
+    let region_bbox = project.region_bbox()?;
+    let mut sets = Vec::new();
+    for (_, set) in extras::drawn_sets(registry()) {
+        let (Some(records), Some(drawing)) =
+            (project.extra_sets.get(set.info().key), set.drawing())
+        else {
+            continue;
+        };
+        let family = extras::of_set(set);
+        let mut layers = Vec::new();
+        for layer in set.layers(project.map_kind.contract()) {
+            if let Some(stored) = extras::stored(&family, dir, records, &region_bbox, layer.key)? {
+                layers.push(crate::build::assembly::Layer {
+                    name: layer.key.to_string(),
+                    features: stored.features,
+                    fetched: stored.fetched,
+                });
+            }
+        }
+        if !layers.is_empty() {
+            sets.push(crate::build::sets::SetLayers {
+                key: set.info().key,
+                drawing,
+                crs: set.info().crs,
+                layers,
+            });
+        }
+    }
+    Ok(sets)
 }
 
 /// Whether a layer that gives stairs is stored: the stair terrain is read only then.
@@ -2832,6 +2960,7 @@ pub mod golden {
             buildings: None,
             land_use: None,
             berlin_layers: BTreeMap::new(),
+            extra_sets: BTreeMap::new(),
             nas_layers: BTreeMap::new(),
             tree_layers: BTreeMap::new(),
             osm: None,
@@ -5223,6 +5352,7 @@ mod tests {
                 regions: Vec::new(),
             }),
             berlin_layers: BTreeMap::new(),
+            extra_sets: BTreeMap::new(),
             nas_layers: BTreeMap::from([(
                 "sonstiges-bauwerk".to_string(),
                 AlkisRecord {
@@ -9703,6 +9833,133 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
                 })
             })
             .collect()
+    }
+
+    /// The objects of the map and the candidates of the project in `dir` whose source starts with
+    /// `prefix`, by symbol code (of `codes`, else `other`) and source.
+    fn sourced_objects(dir: &Path, prefix: &str, codes: &[&str]) -> Vec<(String, String)> {
+        let documents = starter_documents(dir).unwrap();
+        let set = MapKind::Schoolyard.symbol_set(1000);
+        let code = |id| {
+            codes
+                .iter()
+                .find(|c| set.id_for_code(c) == Some(id))
+                .copied()
+        };
+        [&documents.map, &documents.candidates]
+            .into_iter()
+            .flat_map(|document| &document.parts)
+            .flat_map(|p| &p.objects)
+            .filter_map(|o| {
+                let source = o.tags.iter().find(|(k, _)| k == "freemapper:source")?;
+                source.1.starts_with(prefix).then(|| {
+                    (
+                        code(o.symbol_id).unwrap_or("other").to_string(),
+                        source.1.clone(),
+                    )
+                })
+            })
+            .collect()
+    }
+
+    /// A stored set counts as stored in the estimate: its records hold the region box
+    /// (EPSG:25833), not the map's box, which in Hamburg is zone 32.
+    #[test]
+    fn a_stored_feinkartierung_counts_in_the_estimate() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = eppendorf_school(&fetcher);
+        fetch(dir.path(), &fetcher, &cache);
+        let estimate =
+            crate::layers::estimate_download(dir.path(), &cache, crate::clock::today()).unwrap();
+        let item = estimate
+            .items
+            .iter()
+            .find(|i| i.what.starts_with("Hamburg Feinkartierung"))
+            .unwrap();
+        assert!(item.cached, "{item:?}");
+    }
+
+    /// A set that takes no layer for the map kind is no item of the estimate.
+    #[test]
+    fn a_set_without_layers_for_the_kind_is_no_item() {
+        let item = |what: &str| crate::layers::EstimateItem {
+            what: what.to_string(),
+            megabytes: 6.0,
+            cached: false,
+            part: Part::BerlinLayers,
+            store: crate::space::Store::Project,
+        };
+        let what = "Hamburg Feinkartierung (street space and public green)";
+        for (kind, kept) in [(MapKind::Forest, 0), (MapKind::Sprint, 1)] {
+            let mut items = vec![item(what)];
+            drop_sets_taking_nothing(&mut items, kind);
+            assert_eq!(items.len(), kept, "{kind:?}");
+        }
+    }
+
+    /// A set that brings its rules (ADR 0149): Hamburg's Feinkartierung is fetched, recorded and
+    /// drawn through its own rules, its stair areas as stairs.
+    #[test]
+    fn the_feinkartierung_is_drawn_by_its_own_rules() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = eppendorf_school(&fetcher);
+        let (project, messages) = fetch(dir.path(), &fetcher, &cache);
+        let records = &project.extra_sets["lgv-feinkartierung"];
+        assert_eq!(records.len(), 6, "{records:?}");
+        assert!(
+            !messages.iter().any(|m| m.starts_with("warning")),
+            "{messages:?}"
+        );
+        let bbox = project.bbox().unwrap();
+        let (e, n) = (
+            (bbox.min_e + bbox.max_e) / 2.0,
+            (bbox.min_n + bbox.max_n) / 2.0,
+        );
+        let write = |file: &str, feature: serde_json::Value| {
+            std::fs::write(
+                dir.path()
+                    .join(format!("data/lgv-feinkartierung/{file}.geojson")),
+                serde_json::json!({"type": "FeatureCollection", "features": [feature]}).to_string(),
+            )
+            .unwrap();
+        };
+        write(
+            "fk-strasse-linien",
+            serde_json::json!({"type": "Feature",
+                "geometry": {"type": "LineString", "coordinates": [[e - 20.0, n], [e + 20.0, n]]},
+                "properties": {"inhalt": "Geländer"}}),
+        );
+        write(
+            "fk-strasse-punkte",
+            serde_json::json!({"type": "Feature",
+                "geometry": {"type": "Point", "coordinates": [e, n + 10.0]},
+                "properties": {"inhalt": "Bank", "control": "bench"}}),
+        );
+        write(
+            "fk-treppen",
+            serde_json::json!({"type": "Feature",
+                "geometry": {"type": "Polygon", "coordinates": [[[e - 3.0, n - 20.0], [e + 3.0, n - 20.0],
+                    [e + 3.0, n - 12.0], [e - 3.0, n - 12.0], [e - 3.0, n - 20.0]]]},
+                "properties": {"nutzung": "Treppe"}}),
+        );
+        let found = sourced_objects(
+            dir.path(),
+            "lgv-feinkartierung/",
+            &["518", "543", "532.6", "532.7", "532.8", "532.9"],
+        );
+        assert!(
+            found.contains(&("518".into(), "lgv-feinkartierung/fk-strasse-linien".into())),
+            "{found:?}"
+        );
+        assert!(
+            found.contains(&("543".into(), "lgv-feinkartierung/fk-strasse-punkte".into())),
+            "{found:?}"
+        );
+        assert!(
+            found.iter().any(|(code, source)| code.starts_with("532.")
+                && source == "lgv-feinkartierung/fk-treppen"),
+            "{found:?}"
+        );
     }
 
     #[test]

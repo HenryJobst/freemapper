@@ -47,6 +47,15 @@ pub fn rank(object: &MapObject) -> Option<Rank> {
     if source.starts_with("trees/") {
         return Some(Rank::Register);
     }
+    // A set that brings its rules names its rank (ADR 0149).
+    if let Some(drawing) = crate::build::sets::drawing_of_source(source) {
+        use freemapper_adapter_api::extras::SetRank;
+        return Some(match drawing.rank {
+            SetRank::Survey => Rank::Survey,
+            SetRank::Cadastre => Rank::Alkis,
+            SetRank::Register => Rank::Register,
+        });
+    }
     let layer = source.strip_prefix("geoportal-berlin/")?;
     Some(if layer.starts_with("sb-") {
         Rank::Survey

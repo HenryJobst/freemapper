@@ -1356,6 +1356,15 @@ trees, a crown of 10 m or more as a 417, the others as a 418. In Blankenese 13 s
 candidates; the OpenStreetMap trees at the same places go. The cadastre has no survey date, so the fetch date is
 its currency. Trees in parks and in the port are not in it.
 
+**Hamburg: Feinkartierung.** The LGV surveys the main and district roads and the public green in detail
+(Feinkartierung Straße, dl-de/by-2-0; Feinkartierung Grün, dl-de/zero-2-0). freemapper takes railings, fences,
+handrails, walls, curbs, stairs and street furniture from it for sprint and schoolyard maps. Under the content
+profile `balanced` the railings, fences, walls, curbs and stairs go straight onto the map; bollards, benches and
+lamps become candidates, on a sprint map as control sites (531). Stair areas become stairs, their walking
+direction from the terrain model. In Blankenese that puts 155 railings and fences, 15 walls, 36 curbs and 352
+stair lines from 102 stair areas onto the map; the OpenStreetMap stairs at the same places go (110 to 40). 96
+control sites come as candidates. The street surfaces (such as water-bound gravel) are not taken yet.
+
 **Lübeck: tree cadastre.** The Hansestadt Lübeck publishes its tree cadastre as one CSV file of the whole city
 (CC0, 8 MB). freemapper downloads it whole on every fetch and keeps the trees of the map area; empty planting
 spots (`Fehlplatz`) go. It has neither a crown diameter nor a survey date, so every tree is a 418 and the fetch

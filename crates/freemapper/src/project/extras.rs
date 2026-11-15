@@ -186,6 +186,21 @@ pub(crate) fn set_in<'a>(
     })
 }
 
+/// The sets of the adapters of `registry` that bring their rules (ADR 0149), each with its
+/// adapter. A set whose key is no plain name is none.
+pub(crate) fn drawn_sets(registry: &Registry) -> Vec<(&dyn RegionAdapter, &dyn ExtraSet)> {
+    registry
+        .adapters()
+        .flat_map(|adapter| {
+            adapter
+                .extras()
+                .iter()
+                .map(move |set| (adapter, set.as_ref()))
+        })
+        .filter(|(_, set)| set.drawing().is_some() && plain(set.info().key))
+        .collect()
+}
+
 /// [`fetch_set_into`] for the set with `key` of the adapter of `registry` that has it. When no
 /// adapter of the run has the set (the check of one adapter on its own), nothing of it is
 /// known: nothing is asked or touched, and `previous` stays.

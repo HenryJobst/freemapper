@@ -1,0 +1,201 @@
+//! The layers of the sets of extra layers that bring their rules (ADR 0149), drawn without
+//! knowing the region: each feature is tagged `<prefix>:<property>` and `<prefix>:layer=<file>`
+//! and drawn through the set's rules, with the source `<set key>/<file>`. The stair layers of a
+//! set are left to `build/stairs.rs`, which takes their areas through [`stair_areas`].
+
+use freemapper_adapter_api::extras::SetDrawing;
+use geo_types::{Coord, LineString, Polygon};
+use serde_json::Value;
+
+use crate::build::assembly::Layer;
+use crate::build::candidates::{Rules, Target, osm_objects};
+use crate::build::tagged::{self, position};
+use crate::crs::{Crs, ProjectedPoint};
+use crate::georef::{GeorefError, Georeferencing};
+use crate::omap::{MapObject, SymbolSet};
+use crate::project::MapKind;
+
+/// The sets that bring their rules, by key, from the registry of the run.
+fn drawings() -> &'static [(&'static str, &'static SetDrawing)] {
+    static DRAWINGS: std::sync::OnceLock<Vec<(&'static str, &'static SetDrawing)>> =
+        std::sync::OnceLock::new();
+    DRAWINGS.get_or_init(|| {
+        crate::adapters::registry()
+            .adapters()
+            .flat_map(|adapter| adapter.extras().iter())
+            .filter_map(|set| Some((set.info().key, set.drawing()?)))
+            .collect()
+    })
+}
+
+/// How the set whose objects carry `source` (`<set key>/<layer>`) is drawn; `None` for the
+/// objects of every other source.
+pub(crate) fn drawing_of_source(source: &str) -> Option<&'static SetDrawing> {
+    let key = source.split('/').next()?;
+    drawings()
+        .iter()
+        .find(|(set, _)| *set == key)
+        .map(|(_, drawing)| *drawing)
+}
+
+/// The stored layers of one set that brings its rules.
+pub struct SetLayers {
+    pub key: &'static str,
+    pub drawing: &'static SetDrawing,
+    /// The CRS the stored features are in.
+    pub crs: Crs,
+    pub layers: Vec<Layer>,
+}
+
+impl SetLayers {
+    /// The source of the objects of `layer`.
+    pub fn source(&self, layer: &str) -> String {
+        format!("{}/{layer}", self.key)
+    }
+
+    /// The layers whose areas are stairs.
+    pub fn stair_layers(&self) -> impl Iterator<Item = &Layer> {
+        self.layers
+            .iter()
+            .filter(|l| self.drawing.stair_layers.contains(&l.name.as_str()))
+    }
+}
+
+/// The objects of the layers of `set` other than its stair layers, through the set's rules,
+/// within `buffer_m` of `map_area` (map CRS). A set whose rules do not parse draws nothing; a test
+/// keeps the built-in ones parsing.
+pub fn set_objects(
+    set: &SetLayers,
+    kind: MapKind,
+    map_area: &Polygon<f64>,
+    buffer_m: f64,
+    georef: &Georeferencing,
+    symbol_set: &SymbolSet,
+) -> Result<Vec<MapObject>, GeorefError> {
+    let Ok(rules) = Rules::from_toml(set.drawing.rules) else {
+        return Ok(Vec::new());
+    };
+    let mut objects = Vec::new();
+    for layer in &set.layers {
+        if set.drawing.stair_layers.contains(&layer.name.as_str()) {
+            continue;
+        }
+        let source = set.source(&layer.name);
+        let tagged = tagged::tagged_features(
+            &source,
+            &layer.features,
+            set.crs,
+            tagged::PointOn::Centroid,
+            |feature| feature_tags(set.drawing.tag_prefix, &layer.name, feature),
+        );
+        objects.extend(osm_objects(
+            &tagged,
+            &rules,
+            Target::Candidates,
+            kind,
+            map_area,
+            buffer_m,
+            georef,
+            symbol_set,
+            &source,
+            layer.fetched,
+        )?);
+    }
+    Ok(objects)
+}
+
+/// `<prefix>:layer=<layer>` and `<prefix>:<property>` for every text and number property.
+pub(crate) fn feature_tags(prefix: &str, layer: &str, feature: &Value) -> Vec<(String, String)> {
+    let mut tags = vec![(format!("{prefix}:layer"), layer.to_string())];
+    for (key, value) in feature["properties"].as_object().into_iter().flatten() {
+        let text = match value {
+            Value::String(s) if !s.trim().is_empty() => s.trim().to_string(),
+            Value::Number(n) => n.to_string(),
+            _ => continue,
+        };
+        tags.push((format!("{prefix}:{key}"), text));
+    }
+    tags.sort();
+    tags
+}
+
+/// The polygons of an area feature in `from`, in `to`.
+pub(crate) fn stair_areas(feature: &Value, from: Crs, to: Crs) -> Vec<Polygon<f64>> {
+    let to_map = |c: &Value| -> Option<Coord<f64>> {
+        let (easting, northing) = position(c)?;
+        let p = to.reproject(from, ProjectedPoint { easting, northing })?;
+        Some(Coord {
+            x: p.easting,
+            y: p.northing,
+        })
+    };
+    let ring = |r: &Value| -> Option<LineString<f64>> {
+        r.as_array()?
+            .iter()
+            .map(to_map)
+            .collect::<Option<Vec<_>>>()
+            .map(LineString::from)
+    };
+    let polygon = |rings: &Value| -> Option<Polygon<f64>> {
+        let exterior = ring(rings.get(0)?)?;
+        Some(Polygon::new(exterior, Vec::new()))
+    };
+    let coordinates = &feature["geometry"]["coordinates"];
+    match feature["geometry"]["type"].as_str() {
+        Some("Polygon") => polygon(coordinates).into_iter().collect(),
+        Some("MultiPolygon") => coordinates
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(polygon)
+            .collect(),
+        _ => Vec::new(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn a_feature_is_tagged_with_the_prefix_of_its_set() {
+        let feature = json!({"properties": {"inhalt": "Geländer", "objectid": 7, "leer": " ", "nichts": null}});
+        assert_eq!(
+            feature_tags("hamburg", "fk-strasse-linien", &feature),
+            [
+                ("hamburg:inhalt".to_string(), "Geländer".to_string()),
+                ("hamburg:layer".to_string(), "fk-strasse-linien".to_string()),
+                ("hamburg:objectid".to_string(), "7".to_string()),
+            ]
+        );
+    }
+
+    #[test]
+    fn the_rules_of_every_built_in_set_parse_and_draw_known_symbols() {
+        let registry = crate::adapters::registry();
+        let mut checked = 0;
+        for adapter in registry.adapters() {
+            for set in adapter.extras() {
+                let Some(drawing) = set.drawing() else {
+                    continue;
+                };
+                let rules = Rules::from_toml(drawing.rules)
+                    .unwrap_or_else(|e| panic!("{}: {e:?}", set.info().key));
+                // The sets draw on sprint and schoolyard maps.
+                for kind in [MapKind::Sprint, MapKind::Schoolyard] {
+                    let symbols = kind.symbol_set(4000);
+                    for code in rules.codes(kind) {
+                        assert!(
+                            symbols.id_for_code(&code).is_some(),
+                            "{}: {code} on a {kind:?} map",
+                            set.info().key
+                        );
+                    }
+                }
+                checked += 1;
+            }
+        }
+        assert!(checked >= 1);
+    }
+}

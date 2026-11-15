@@ -1279,6 +1279,11 @@ pub(crate) mod test_support {
     /// fixtures, two pages of street trees and the Hamburg OSM extract.
     pub fn serve_synthetic_hamburg(fetcher: &MapFetcher, bbox: &crate::crs::BoundingBox) {
         serve_hamburg_trees(fetcher);
+        // The Feinkartierung (ADR 0149): every collection empty.
+        fetcher.insert_prefix(
+            "https://api.hamburg.de/datasets/v1/feinkartierung_",
+            br#"{"type":"FeatureCollection","features":[],"links":[]}"#.to_vec(),
+        );
         use freemapper_adapters_de::lgv;
         let zip_of = |members: Vec<(String, Vec<u8>)>| {
             let mut zip = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));

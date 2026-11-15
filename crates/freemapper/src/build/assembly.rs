@@ -51,8 +51,8 @@ use crate::build::paved_borders::{border_input, paved_borders as paved_borders_o
 use crate::build::peripheral::{PaperRect, north_lines};
 use crate::build::points::{GeneralizedPoints, generalize_points, way_footprints};
 use crate::build::stairs::{
-    NAS_STAIR_LAYER, STEP_EDGE_LAYER, SURVEY_STAIR_LAYER, StairInput, drop_osm_stairs_on_cadastre,
-    stair_objects,
+    NAS_STAIR_LAYER, STEP_EDGE_LAYER, SURVEY_STAIR_LAYER, SetStairs, StairInput,
+    drop_osm_stairs_on_cadastre, stair_objects,
 };
 use crate::build::state::{NasInput, TreeInput, nas_objects, state_objects, tree_objects};
 use crate::build::ticks::orient_ticks;
@@ -109,6 +109,8 @@ pub struct Stored {
     pub buildings: Option<Buildings>,
     /// The extra layers of Berlin, the full ALKIS (NAS) and the tree cadastres, in table order.
     pub berlin: Vec<Layer>,
+    /// The layers of the sets that bring their rules (ADR 0149).
+    pub sets: Vec<crate::build::sets::SetLayers>,
     pub nas: Vec<Layer>,
     pub trees: Vec<Layer>,
     pub land_use: Vec<LandUse>,
@@ -232,7 +234,25 @@ fn structures(
             fetched,
         )?);
     }
-    if areas.is_none() && edges.is_none() && survey.is_none() && nas.is_none() {
+    // The stair areas of the sets that bring their rules, in their CRS.
+    let set_stairs: Vec<SetStairs<'_>> = stored
+        .sets
+        .iter()
+        .flat_map(|set| {
+            set.stair_layers().map(move |layer| SetStairs {
+                source: set.source(&layer.name),
+                features: &layer.features,
+                crs: set.crs,
+                currency: layer.fetched,
+            })
+        })
+        .collect();
+    if areas.is_none()
+        && edges.is_none()
+        && survey.is_none()
+        && nas.is_none()
+        && set_stairs.is_empty()
+    {
         return Ok(Structures {
             canopies,
             stairs: Vec::new(),
@@ -246,6 +266,7 @@ fn structures(
         .into_iter()
         .flatten()
         .map(|l| l.fetched)
+        .chain(set_stairs.iter().map(|s| s.currency))
         .max()
         .expect("one of the layers is stored");
     let stairs = stair_objects(
@@ -254,6 +275,7 @@ fn structures(
             step_edges: features(edges),
             survey: features(survey),
             nas: features(nas),
+            sets: &set_stairs,
             terrain: stored.stair_terrain.as_ref(),
             buildings: footprints,
         },
@@ -309,6 +331,12 @@ fn cadastre_candidates(
         });
     }
     let mut cadastre = berlin_objects(&inputs, *map_kind, map_area, *buffer_m, georef, symbol_set)?;
+    // The sets that bring their rules (ADR 0149).
+    for set in &stored.sets {
+        cadastre.extend(crate::build::sets::set_objects(
+            set, *map_kind, map_area, *buffer_m, georef, symbol_set,
+        )?);
+    }
     // 522 candidates for the building passages of the ALKIS buildings of any state. Berlin
     // building parts (`bauart`) go through the Berlin rules instead.
     if let Some((buildings, fetched)) = buildings {
