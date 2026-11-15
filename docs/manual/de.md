@@ -861,7 +861,8 @@ freemapper spart das Zeichnen der Grundlage, nicht den Gang ins Gelände. Prüfe
   befestigte Flächen, wie es die ISSprOM 2019-2 (101) verlangt. Unterbrochen sind sie nur an Treppen, an den kleinen
   Geländeformen (105, 109 bis 112, 115; auf Waldkarten nicht am Erdwall 105), unter gezeichneten Felswänden und im
   Gewässer aus dem Kataster (ADR 0140).
-- **Zacken der Zäune:** Ein geschlossener Zaun hat sie innen, wie die Norm es will. Sonst zeigen sie zur olivgrünen
+- **Zacken der Zäune:** Ein geschlossener Zaun hat sie innen, wie die Norm es will, ebenso einer, dessen Enden fast
+  aneinanderstoßen oder der um eine Fläche herumführt (drei Seiten eines Grundstücks, ein Bogen um einen Sportplatz). Sonst zeigen sie zur olivgrünen
   Fläche neben dem Zaun, weg von einem Weg, der am Zaun entlangführt, und zum Park. Liegt auf beiden Seiten dieselbe
   Fläche, nimmt freemapper die Seite, auf der die Zacken nichts überdecken.
 
@@ -1412,6 +1413,18 @@ und Fahrwege.
 Einzelbäumen, mit einer Krone ab 10 m als 417, sonst als 418. In Blankenese kommen so 13
 Straßenbäume auf die Karte und 4 zu den Kandidaten; die OpenStreetMap-Bäume an denselben Stellen entfallen. Ein
 Erfassungsdatum hat das Kataster nicht, als Stand gilt das Abrufdatum. Bäume in Parks und im Hafen fehlen darin.
+
+**Hamburg: Feinkartierung.** Der LGV vermisst die Haupt- und Bezirksstraßen und die öffentlichen Grünanlagen im
+Detail (Feinkartierung Straße, dl-de/by-2-0; Feinkartierung Grün, dl-de/zero-2-0). freemapper holt daraus für
+Sprint- und Schulhofkarten Geländer, Zäune, Handläufe, Mauern, Bordsteine, Treppen und Stadtmobiliar. Mit dem
+Inhaltsprofil `balanced` kommen Geländer, Zäune, Mauern, Bordsteine und Treppen direkt auf die Karte; Poller,
+Bänke und Leuchten werden Kandidaten, auf der Sprintkarte als mögliche Postenstandorte (531). Treppenflächen
+werden zu Treppen, die Laufrichtung kommt aus dem Geländemodell. In Blankenese bringt das 155 Geländer und Zäune,
+15 Mauern, 36 Bordsteine und 352 Treppenlinien aus 102 Treppenflächen auf die Karte; die OpenStreetMap-Treppen
+an denselben Stellen entfallen (110 auf 40). Dazu kommen 96 Postenstandorte als Kandidaten. Grünstreifen, Sträucher,
+Hecken und Wildwuchs im Straßenraum werden in der Grundkarte Kandidaten (401, 406, 407, 410) und kommen in der
+Trainingskarte direkt mit; in Blankenese sind das 56 Flächen. Die Pflasterarten und wassergebundenen Decken bleiben
+draußen, denn die Straße ist auf der Karte schon befestigte Fläche.
 
 **Lübeck: Baumkataster.** Die Hansestadt Lübeck veröffentlicht ihr Baumkataster als eine CSV-Datei für die ganze
 Stadt (CC0, 8 MB). freemapper lädt sie bei jedem Abruf ganz und behält die Bäume des Kartengebiets; leere

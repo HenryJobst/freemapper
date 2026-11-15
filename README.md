@@ -3,10 +3,10 @@
 [English version](README.en.md) · [Handbuch](docs/manual/de.md) · [Glossar](docs/glossary.md) · [Änderungen](CHANGELOG.md) · [Beispiele](examples/README.md)
 
 <!-- claude-cost:start -->
-[![KI-Aufwand (Claude API): 3.274 $](https://img.shields.io/badge/KI--Aufwand%20%28Claude%20API%29-3.274%20%24-8A2BE2)](docs/ai-cost/history.csv)
+[![KI-Aufwand (Claude API): 3.347 $](https://img.shields.io/badge/KI--Aufwand%20%28Claude%20API%29-3.347%20%24-8A2BE2)](docs/ai-cost/history.csv)
 <!-- claude-cost:end -->
 
-<p align="center"><a href="examples/berlin-viktoriapark/preview.webp"><img src="examples/berlin-viktoriapark/preview-medium.webp" alt="Sprintkarte Viktoriapark, Berlin-Kreuzberg, von freemapper erzeugt" width="760"></a><br><sub>Viktoriapark, Berlin-Kreuzberg (Sprint 1:4000), von freemapper aus offenen Daten erzeugt. Ein Klick zeigt das Bild in voller Größe, das <a href="examples/berlin-viktoriapark/berlin-viktoriapark-candidates.pdf">PDF</a> hat alle Kandidaten; mehr unter <a href="examples/README.md">Beispiele</a>.</sub></p>
+<p align="center"><a href="examples/berlin-viktoriapark/preview.webp"><img src="examples/berlin-viktoriapark/preview-medium.webp" alt="Trainingskarte Viktoriapark, Berlin-Kreuzberg, von freemapper erzeugt" width="760"></a><br><sub>Viktoriapark, Berlin-Kreuzberg (Sprint 1:4000), von freemapper aus offenen Daten erzeugt. Das Bild ist die Trainingskarte, die man so drucken und laufen kann; ein Klick zeigt sie in voller Größe, als <a href="examples/berlin-viktoriapark/berlin-viktoriapark-training.pdf">PDF</a> zum Drucken. Der <a href="examples/berlin-viktoriapark/berlin-viktoriapark-candidates.pdf">Prüfausdruck</a> zeigt alle Kandidaten lagetreu; mehr unter <a href="examples/README.md">Beispiele</a>.</sub></p>
 
 freemapper erzeugt aus amtlichen Geodaten (Geländemodell, nDOM, Luftbild, ALKIS) und OpenStreetMap
 ein **Startprojekt für OpenOrienteering Mapper (OOM) und auf Wunsch auch für OCAD**: eine
@@ -51,7 +51,7 @@ nach in einer festen Version ein, statt den Code zu kopieren.
 
 ## Status
 
-Aktuelle Version ist [v0.21.0](https://github.com/HenryJobst/freemapper/releases/tag/v0.21.0) vom
+Aktuelle Version ist [v0.22.0](https://github.com/HenryJobst/freemapper/releases/tag/v0.22.0) vom
 15. November 2026 (was sich geändert hat, steht in den [Änderungen](CHANGELOG.md)).
 
 freemapper erzeugt
@@ -292,7 +292,7 @@ freemapper run vorstadt
 | Berlin | LGB, ALKIS, Baumkataster, K5, Straßenbefahrung und Register vom Geoportal Berlin | aus dem bildbasierten Oberflächenmodell, 0,2 m | Plätze nur als Kandidaten; vermessene Grünstreifen aus den Straßenflächen ausgeschnitten; Überdachungen als Kartenobjekte; Treppen, Mauern, Zäune, Hecken, Bäume, Bordsteine, Geländer, Möblierung, Laternen und Brunnen als Kandidaten; Karte 1:5000 (K5) als Vorlage |
 | Sachsen | GeoSN | DOM1 − DGM1, 1 m | Plätze nur als Kandidaten; Straßenflächen mit Grünstreifen; keine Lage unter der Erdoberfläche; Bäume aus dem Baumkataster von Leipzig |
 | Sachsen-Anhalt | LVermGeo | DOM1 − DGM1, 1 m | Karte in UTM-Zone 32 (EPSG:25832); Plätze nur als Kandidaten; Straßenflächen mit Grünstreifen; Felswände, Felsen, Quellen, Dämme, Denkmäler, kleine Wasserläufe und auf Waldkarten fehlende Wege als Kandidaten aus dem Landschaftsmodell (ATKIS Basis-DLM) |
-| Hamburg | LGV | bDOM − DGM1, 1 m (Stand 2022) | Karte in UTM-Zone 32 (EPSG:25832); Höhenmodelle älter als das Luftbild (2026); Straßenbäume mit Kronendurchmesser aus dem Straßenbaumkataster |
+| Hamburg | LGV | bDOM − DGM1, 1 m (Stand 2022) | Karte in UTM-Zone 32 (EPSG:25832); Höhenmodelle älter als das Luftbild (2026); Straßenbäume mit Kronendurchmesser aus dem Straßenbaumkataster; Geländer, Zäune, Mauern, Bordsteine und Treppen aus der Feinkartierung |
 | Hessen | HVBG (auch das vollständige ALKIS und das Landschaftsmodell) | DOM1 − DGM1, 1 m (Laserscan) | Karte in UTM-Zone 32 (EPSG:25832); Luftbild im Sommer beflogen; Plätze nur als Kandidaten; Straßenflächen mit Grünstreifen; vermessene Treppen aus dem vollständigen ALKIS; Quellen, Felsen, Türme, Denkmäler, kleine Wasserläufe und auf Waldkarten fehlende Wege als Kandidaten aus dem Landschaftsmodell (ATKIS Basis-DLM); Bäume aus dem Baumkataster von Frankfurt am Main |
 | Schleswig-Holstein | LVermGeo SH | bDOM − DGM1, 1 m (bildbasiert) | Karte in UTM-Zone 32 (EPSG:25832); Luftbild je nach Gebiet unbelaubt oder belaubt; Oberflächenmodell als ganze Kacheln (105 MB je km²); Wälle, kleine Wasserläufe und auf Waldkarten fehlende Fahrwege als Kandidaten aus dem Landschaftsmodell (ATKIS Basis-DLM); Bäume aus den Baumkatastern von Lübeck, Kiel und Norderstedt |
 | Mecklenburg-Vorpommern | LAiV M-V (auch das vollständige ALKIS und das Landschaftsmodell) | DOM1 − DGM1, 1 m | Luftbild als Farbpalette (256 Farben); Höhenmodelle nur innerhalb der Landeskacheln; Treppen, Mauern und Brücken aus dem vollständigen ALKIS |
@@ -421,7 +421,7 @@ Danach öffnet man die `.omap`-Datei im Projektordner mit OpenOrienteering Mappe
 
 ## Lizenz und Namensnennung
 
-GPL-3.0-or-later, siehe [LICENSE](LICENSE). Erzeugte Karten enthalten die Pflichtvermerke der
+AGPL-3.0-or-later, siehe [LICENSE](LICENSE). Die Symbolsätze von OpenOrienteering Mapper behalten ihre eigene Lizenz, GPL-3.0 (siehe `assets/symbol-sets/README.md`). Erzeugte Karten enthalten die Pflichtvermerke der
 Datenquellen, z. B. `© GeoBasis-DE/LGB <Jahr>, dl-de/by-2-0, Daten geändert` und
 `© OpenStreetMap contributors, ODbL`. In Berlin lautet der LGB-Vermerk, wie vom LGB verlangt,
 `© GeoBasis-DE/LGB <Jahr>, dl-de/by-2-0; © Geoportal Berlin, dl-de/zero-2-0, Daten geändert`; wurden

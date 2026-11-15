@@ -1,7 +1,7 @@
 # 0140. The training map is a product of its own
 
 Date: 2026-11-15
-Status: Accepted, amends ADR 0080, 0097, 0126 and 0134
+Status: Accepted, amends ADR 0080, 0097, 0126 and 0134; amended by ADR 0151 (closed and enclosing fences have their ticks inside)
 
 ## Context
 

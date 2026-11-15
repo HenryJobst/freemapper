@@ -825,7 +825,8 @@ freemapper saves you drawing the base, not the walk through the terrain. Check a
   bank candidates point to them. The contours run through buildings, ways and paved areas, as ISSprOM 2019-2 (101)
   asks. They are broken only at stairs, at the small landform symbols (105, 109 to 112, 115; on forest maps not at
   the earth wall 105), below cliffs drawn and in water from the cadastre (ADR 0140).
-- **Fence ticks:** a closed fence has them inside, as the norm wants. Otherwise they point to the olive green area
+- **Fence ticks:** a closed fence has them inside, as the norm wants, and so has one whose ends nearly meet or that
+  runs round an area (three sides of a plot, an arc round a sports ground). Otherwise they point to the olive green area
   beside the fence, away from a way along the fence, and to the park. With the same area on both sides freemapper
   takes the side where the ticks overdraw nothing.
 
@@ -1355,6 +1356,18 @@ well, near Dahn a rock, 3 watercourses and, on the forest map, 6 tracks and path
 trees, a crown of 10 m or more as a 417, the others as a 418. In Blankenese 13 street trees go onto the map and 4 to the
 candidates; the OpenStreetMap trees at the same places go. The cadastre has no survey date, so the fetch date is
 its currency. Trees in parks and in the port are not in it.
+
+**Hamburg: Feinkartierung.** The LGV surveys the main and district roads and the public green in detail
+(Feinkartierung Straße, dl-de/by-2-0; Feinkartierung Grün, dl-de/zero-2-0). freemapper takes railings, fences,
+handrails, walls, curbs, stairs and street furniture from it for sprint and schoolyard maps. Under the content
+profile `balanced` the railings, fences, walls, curbs and stairs go straight onto the map; bollards, benches and
+lamps become candidates, on a sprint map as control sites (531). Stair areas become stairs, their walking
+direction from the terrain model. In Blankenese that puts 155 railings and fences, 15 walls, 36 curbs and 352
+stair lines from 102 stair areas onto the map; the OpenStreetMap stairs at the same places go (110 to 40). 96
+control sites come as candidates. Green verges, shrubs, hedges
+and wild growth in the street space become candidates on the base map (401, 406, 407, 410) and go straight onto
+the training map; in Blankenese that is 56 areas. The paving materials and water-bound gravel stay out: the street
+is a paved area on the map already.
 
 **Lübeck: tree cadastre.** The Hansestadt Lübeck publishes its tree cadastre as one CSV file of the whole city
 (CC0, 8 MB). freemapper downloads it whole on every fetch and keeps the trees of the map area; empty planting

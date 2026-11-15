@@ -51,7 +51,7 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0003](0003-sure-objects-as-map-objects-rest-as-templates.md) | Sure objects as map objects, the rest as templates | Accepted | 2026-11-06 |
 | [0004](0004-provenance-tags-on-generated-objects.md) | Provenance tags on generated objects | Accepted | 2026-11-06 |
 | [0005](0005-mcp-over-stdio-as-the-lay-interface.md) | MCP over stdio as the interface for non-technical users | Accepted | 2026-11-06 |
-| [0006](0006-gpl-3.0-or-later.md) | GPL-3.0-or-later | Accepted | 2026-11-06 |
+| [0006](0006-gpl-3.0-or-later.md) | GPL-3.0-or-later | Superseded by ADR 0152 | 2026-11-06 |
 | [0007](0007-glossary-first-english-code-bilingual-docs.md) | Glossary first, English code, bilingual user docs | Accepted | 2026-11-06 |
 | [0008](0008-osm-from-geofabrik-extracts.md) | OSM from Geofabrik extracts, not Overpass | Accepted | 2026-11-06 |
 | [0009](0009-area-selection-in-a-local-browser-page.md) | Area selection in a local browser page | Accepted | 2026-11-06 |
@@ -185,7 +185,7 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0137](0137-permit-notes-for-schleswig-holstein.md) | Permit notes for Schleswig-Holstein | Accepted | 2026-11-14 |
 | [0138](0138-vegetation-green-shades-by-the-density-below-3-m.md) | Vegetation: the green shades follow the density below 3 m | Accepted | 2026-11-14 |
 | [0139](0139-permit-notes-for-saxony-asked-at-points.md) | Permit notes for Saxony, asked at points | Accepted | 2026-11-15 |
-| [0140](0140-the-training-map-is-a-product-of-its-own.md) | The training map is a product of its own | Accepted, amends ADR 0080, 0097, 0126 and 0134 | 2026-11-15 |
+| [0140](0140-the-training-map-is-a-product-of-its-own.md) | The training map is a product of its own | Accepted, amends ADR 0080, 0097, 0126 and 0134, amended by ADR 0151 | 2026-11-15 |
 | [0141](0141-bavaria-the-dom20-read-by-range.md) | Bavaria: the DOM20 read by range | Accepted | 2026-11-15 |
 | [0142](0142-water-protection-areas-of-the-bfg.md) | Water protection areas of the BfG | Accepted | 2026-11-15 |
 | [0143](0143-water-protection-zones-of-baden-wuerttemberg.md) | Water protection zones of Baden-Württemberg, with the authority in charge | Accepted | 2026-11-15 |
@@ -194,3 +194,6 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0146](0146-natural-monuments-and-protected-biotopes-of-the-states.md) | Natural monuments and protected biotopes of the states | Accepted | 2026-11-15 |
 | [0147](0147-rhineland-palatinate-basis-dlm-in-the-shape-schema.md) | Rhineland-Palatinate: the landscape model in the AdV Shape schema | Accepted | 2026-11-15 |
 | [0148](0148-permit-sources-from-arcgis-rest-services.md) | Permit sources from ArcGIS REST services | Accepted | 2026-11-15 |
+| [0149](0149-hamburg-feinkartierung-a-set-that-brings-its-rules.md) | Hamburg's Feinkartierung, the first set of extra layers that brings its rules | Accepted | 2026-11-15 |
+| [0151](0151-ticks-of-closed-and-enclosing-fences.md) | Ticks of closed and enclosing fences | Accepted, amends ADR 0140 | 2026-11-15 |
+| [0152](0152-agpl-3.0-or-later.md) | AGPL-3.0-or-later | Accepted, supersedes ADR 0006 | 2026-11-15 |
