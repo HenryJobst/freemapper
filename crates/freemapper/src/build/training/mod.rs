@@ -24,7 +24,7 @@ mod trees;
 use std::collections::{BTreeMap, BTreeSet};
 
 use geo::{Area as _, BooleanOps as _, BoundingRect as _, Buffer as _, Intersects as _};
-use geo_types::{Coord, LineString, MultiPolygon, Point, Polygon, Rect};
+use geo_types::{Coord, MultiPolygon, Point, Polygon, Rect};
 
 use crate::build::candidates::MIN_LINE_MM;
 use crate::build::conflicts::{
@@ -37,7 +37,7 @@ use crate::build::line_cuts::cut_lines_at_ways;
 use crate::build::line_join::{TOUCH_M, join_lines};
 use crate::build::open_land::MIN_PIECE_SIDE_MM;
 use crate::build::out_of_bounds::{area_object, short_side};
-use crate::build::points::{FOREST, PAVED_AREA_CODES, SCATTERED_TREES, projected};
+use crate::build::points::{FOREST, PAVED_AREA_CODES, SCATTERED_TREES, in_map_units, projected};
 use crate::derive::vegetation::{VegetationClass, majority, min_area_m2, outlines};
 use crate::georef::Georeferencing;
 use crate::measure::{PaperMm, PaperMm2, SymbolMm, SymbolMm2, SymbolScale, map_units_per_metre};
@@ -488,22 +488,6 @@ fn cut_out(
     let mut pieces = vec![object.clone()];
     cut_lines_at_ways(&mut pieces, &[code], &ways, min_m, georef, symbol_set);
     pieces
-}
-
-/// A polygon in paper mm (y down) in map coordinates.
-fn in_map_units(polygon: &Polygon<f64>) -> Polygon<f64> {
-    let ring = |ring: &LineString<f64>| -> LineString<f64> {
-        ring.coords()
-            .map(|c| Coord {
-                x: (c.x * 1000.0).round(),
-                y: (c.y * 1000.0).round(),
-            })
-            .collect()
-    };
-    Polygon::new(
-        ring(polygon.exterior()),
-        polygon.interiors().iter().map(ring).collect(),
-    )
 }
 
 /// The minimum length of the line `object` on paper: the norm's for stairs, the one the symbol

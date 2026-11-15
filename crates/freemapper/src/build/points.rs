@@ -17,7 +17,9 @@ use crate::build::buildings::footprint_coords;
 use crate::build::control_sites::{CONTROL_KEY, drop_ambiguous as drop_ambiguous_control_sites};
 use crate::build::dedup::{Rank, rank};
 use crate::build::geometry::object_polygon;
-use crate::build::symbol_measures::{LINE_GAP_MM, POINT_SIZES_MM, point_size_mm};
+use crate::build::symbol_measures::{
+    LINE_GAP_MM, POINT_SIZES_MM, STAIR_FOOTPRINTS_MM, point_size_mm,
+};
 use crate::crs::{BoundingBox, ProjectedPoint};
 use crate::georef::{GeorefError, Georeferencing};
 use crate::measure::{PaperMm, SymbolMm, SymbolMm2, SymbolScale, map_units_per_metre};
@@ -338,6 +340,22 @@ pub(crate) fn projected(polygon: &Polygon<f64>, georef: &Georeferencing) -> Poly
     )
 }
 
+/// A polygon in paper mm (y down) in map coordinates.
+pub(crate) fn in_map_units(polygon: &Polygon<f64>) -> Polygon<f64> {
+    let ring = |ring: &LineString<f64>| -> LineString<f64> {
+        ring.coords()
+            .map(|c| Coord {
+                x: (c.x * 1000.0).round(),
+                y: (c.y * 1000.0).round(),
+            })
+            .collect()
+    };
+    Polygon::new(
+        ring(polygon.exterior()),
+        polygon.interiors().iter().map(ring).collect(),
+    )
+}
+
 /// The crown of a tree: a disc of `radius` around `centre` with [`CROWN_SEGMENTS`] corners.
 fn disc(centre: Coord<f64>, radius: f64) -> Polygon<f64> {
     let mut ring: Vec<Coord<f64>> = (0..CROWN_SEGMENTS)
@@ -612,7 +630,42 @@ pub(crate) fn way_footprints(
         .filter_map(object_polygon)
         .map(|p| projected(&p, georef))
         .collect();
-    for object in candidates.iter().chain(map) {
+    footprints.extend(line_footprints(
+        candidates.iter().chain(map),
+        &half_widths,
+        georef,
+    ));
+    footprints
+}
+
+/// The footprints of the stairways ([`STAIR_FOOTPRINTS_MM`] among `objects`, buffered by half
+/// their width on paper, as [`way_footprints`] does with the paths) in the map's CRS. On a set
+/// with one stairway for all footprints (ISOM 532) it has the narrowest width.
+pub(crate) fn stair_footprints<'a>(
+    objects: impl Iterator<Item = &'a MapObject>,
+    kind: MapKind,
+    georef: &Georeferencing,
+    symbol_set: &SymbolSet,
+) -> Vec<Polygon<f64>> {
+    let scale = SymbolScale::new(kind, georef.scale_denominator);
+    let mut half_widths: HashMap<u32, f64> = HashMap::new();
+    for &(code, width) in &STAIR_FOOTPRINTS_MM {
+        if let Some(id) = symbol_set.id_for_code(code) {
+            half_widths.entry(id).or_insert(width.metres(scale) / 2.0);
+        }
+    }
+    line_footprints(objects, &half_widths, georef)
+}
+
+/// The lines among `objects` drawn with a symbol of `half_widths`, buffered by its half width
+/// (ground metres), in the map's CRS.
+fn line_footprints<'a>(
+    objects: impl Iterator<Item = &'a MapObject>,
+    half_widths: &HashMap<u32, f64>,
+    georef: &Georeferencing,
+) -> Vec<Polygon<f64>> {
+    let mut footprints = Vec::new();
+    for object in objects {
         let Some(&half) = half_widths.get(&object.symbol_id) else {
             continue;
         };

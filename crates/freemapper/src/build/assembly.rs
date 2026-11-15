@@ -36,7 +36,9 @@ use crate::build::dedup::{
 };
 use crate::build::firm_paths::cut_firm_paths;
 use crate::build::landforms::{Landforms, landform_objects};
-use crate::build::line_cuts::{CONTOUR_CODES, MIN_PIECE_MM, NORTH_LINE_CODES, cut_lines_at_ways};
+use crate::build::line_cuts::{
+    CONTOUR_CODES, MIN_PIECE_MM, NORTH_LINE_CODES, contour_cut_outs, cut_lines_at_ways,
+};
 use crate::build::open_land::{
     OpenLandObjects, drop_open_land_under_alkis, open_land_objects, osm_forest_polygons,
 };
@@ -907,13 +909,7 @@ impl Built {
             symbol_set,
             &Level::map(self.map_kind),
         );
-        // Contours and north lines stop at paving and paths (`build/line_cuts.rs`).
-        let ways = way_footprints(&map, &candidates, &map, self.map_kind, georef, symbol_set);
-        let min_piece_m = MIN_PIECE_MM.metres(georef.scale_denominator);
-        for list in [&mut candidates, &mut map] {
-            cut_lines_at_ways(list, &CONTOUR_CODES, &ways, min_piece_m, georef, symbol_set);
-        }
-        // The contours also stop below the cliffs drawn and at the pillars; a stub shorter than a
+        // The contours stop below the cliffs drawn and at the pillars; a stub shorter than a
         // contour may be goes. The knolls and depressions of the terrain on the rock are hidden.
         if !rock.stops.is_empty() {
             let min_contour_m = CONTOUR_MIN_LENGTH_MM
@@ -930,6 +926,23 @@ impl Built {
             }
         }
         hide_landforms_on_rock(&mut map, &mut candidates, &rock.mask, georef);
+        // Otherwise the contours run through all symbols, paving and paths too, and are cut out
+        // only at the small landforms and the stairways drawn (ISSprOM 2019-2, 101;
+        // `build/line_cuts.rs`); after the rock, which hides some of the landforms.
+        let min_piece_m = MIN_PIECE_MM.metres(georef.scale_denominator);
+        let cut_outs = contour_cut_outs(&map, &candidates, self.map_kind, georef, symbol_set);
+        for list in [&mut candidates, &mut map] {
+            cut_lines_at_ways(
+                list,
+                &CONTOUR_CODES,
+                &cut_outs,
+                min_piece_m,
+                georef,
+                symbol_set,
+            );
+        }
+        // The north lines stop at paving and paths (ISSprOM 2019-2 §4.6).
+        let ways = way_footprints(&map, &candidates, &map, self.map_kind, georef, symbol_set);
         cut_lines_at_ways(
             &mut map,
             &NORTH_LINE_CODES,
@@ -1331,12 +1344,210 @@ mod tests {
         let placed = built
             .place(&ContentSettings::with_profile(Profile::Safe))
             .unwrap();
-        // The contour stops at the paving: one piece on each side of it.
-        assert_eq!(count(&placed.candidates, f.id("101")), 2);
+        // The contour runs across the paving (ISSprOM 2019-2, 101).
+        assert_eq!(count(&placed.candidates, f.id("101")), 1);
         // The paved area got its border.
         assert_eq!(count(&placed.map, f.id("501.5")), 1);
         assert!(count(&placed.map, f.id("501.1")) >= 1);
         assert_eq!((built.map.clone(), built.candidates.clone()), before);
+    }
+
+    /// `map` and `candidates` of a fixture of `kind` built and placed with the safe profile, the
+    /// groups `places` sent where they say.
+    fn placed_with(
+        f: &Fixture,
+        map: Vec<MapObject>,
+        candidates: Vec<MapObject>,
+        places: &[(Group, Place)],
+    ) -> Placed {
+        let mut settings = ContentSettings::with_profile(Profile::Safe);
+        for &(group, place) in places {
+            settings.set(group, Some(place));
+        }
+        Built::new(surroundings(f), map, candidates, &settings)
+            .place(&settings)
+            .unwrap()
+    }
+
+    fn point(f: &Fixture, code: &str, at: (f64, f64)) -> MapObject {
+        MapObject {
+            symbol_id: f.id(code),
+            kind: MapObjectKind::Point { rotation_rad: 0.0 },
+            coords: vec![f.at(at)],
+            tags: Vec::new(),
+        }
+    }
+
+    fn of_symbol(objects: &[MapObject], id: u32) -> Vec<&MapObject> {
+        objects.iter().filter(|o| o.symbol_id == id).collect()
+    }
+
+    #[test]
+    fn a_contour_runs_across_a_path_and_a_paved_area() {
+        let f = fixture(MapKind::Sprint);
+        let contour = path(&f, "101", &[(-40.0, 20.0), (80.0, 20.0)]);
+        // A paved square and a footpath across the contour, on the map and among the candidates.
+        let placed = placed_with(
+            &f,
+            vec![
+                square(&f, "501.5", (0.0, 0.0), 40.0),
+                path(&f, "506", &[(60.0, -20.0), (60.0, 60.0)]),
+            ],
+            vec![
+                contour.clone(),
+                path(&f, "505.1", &[(-20.0, -20.0), (-20.0, 60.0)]),
+            ],
+            &[
+                (Group::Contours, Place::Candidates),
+                (Group::Paths, Place::Map),
+            ],
+        );
+        assert_eq!(of_symbol(&placed.candidates, f.id("101")), [&contour]);
+        // On the map as well.
+        let placed = placed_with(
+            &f,
+            vec![
+                square(&f, "501.5", (0.0, 0.0), 40.0),
+                path(&f, "506", &[(60.0, -20.0), (60.0, 60.0)]),
+            ],
+            vec![contour.clone()],
+            &[(Group::Contours, Place::Map), (Group::Paths, Place::Map)],
+        );
+        assert_eq!(of_symbol(&placed.map, f.id("101")), [&contour]);
+    }
+
+    #[test]
+    fn a_contour_stops_at_a_stair() {
+        let f = fixture(MapKind::Sprint);
+        // A stair 4 m wide on paper's 1 mm (532.9) across a contour on the map, and one across a
+        // contour among the candidates.
+        let placed = placed_with(
+            &f,
+            vec![
+                path(&f, "532.9", &[(0.0, 10.0), (0.0, 30.0)]),
+                path(&f, "101", &[(-40.0, 20.0), (40.0, 20.0)]),
+            ],
+            vec![
+                path(&f, "532.6", &[(100.0, 10.0), (100.0, 30.0)]),
+                path(&f, "102", &[(60.0, 20.0), (140.0, 20.0)]),
+            ],
+            &[
+                (Group::Stairs, Place::Map),
+                (Group::Contours, Place::Candidates),
+            ],
+        );
+        // Both contours are cut, one piece on each side of the stair.
+        let contours: Vec<&MapObject> = placed
+            .candidates
+            .iter()
+            .filter(|o| [f.id("101"), f.id("102")].contains(&o.symbol_id))
+            .collect();
+        assert_eq!(contours.len(), 4, "{contours:?}");
+        // The gap is the stair's width: about 4 m for the one, 1.6 m for the other.
+        let ends = |id: u32| -> Vec<f64> {
+            let mut xs: Vec<f64> = of_symbol(&placed.candidates, id)
+                .iter()
+                .flat_map(|o| [o.coords[0], *o.coords.last().unwrap()])
+                .map(|c| f64::from(c.x) / f.metre())
+                .collect();
+            xs.sort_by(f64::total_cmp);
+            xs
+        };
+        let gap = |xs: &[f64]| xs[2] - xs[1];
+        assert!(
+            (gap(&ends(f.id("101"))) - 4.0).abs() < 0.1,
+            "{:?}",
+            ends(f.id("101"))
+        );
+        assert!(
+            (gap(&ends(f.id("102"))) - 1.6).abs() < 0.1,
+            "{:?}",
+            ends(f.id("102"))
+        );
+    }
+
+    #[test]
+    fn a_contour_stops_at_a_small_knoll() {
+        let f = fixture(MapKind::Sprint);
+        // A knoll on the contour among the candidates; a depression and a pit beside the one on
+        // the map, an earth wall across it.
+        let placed = placed_with(
+            &f,
+            vec![
+                path(&f, "101", &[(-40.0, 20.0), (40.0, 20.0)]),
+                point(&f, "111", (0.0, 40.0)),
+                path(&f, "105", &[(20.0, 10.0), (20.0, 30.0)]),
+            ],
+            vec![
+                point(&f, "109", (0.0, 0.0)),
+                path(&f, "101", &[(-40.0, 0.0), (40.0, 0.0)]),
+            ],
+            &[
+                (Group::Contours, Place::Map),
+                (Group::Landforms, Place::Candidates),
+                (Group::Slopes, Place::Map),
+            ],
+        );
+        let contours = of_symbol(&placed.map, f.id("101"));
+        // The one through the knoll is cut there, the other one at the earth wall; the depression
+        // 20 m away does not touch it.
+        assert_eq!(contours.len(), 4, "{contours:?}");
+        let on = |n: f64| {
+            contours
+                .iter()
+                .filter(|o| o.coords[0].y == f.at((0.0, n)).y)
+                .count()
+        };
+        assert_eq!((on(0.0), on(20.0)), (2, 2));
+    }
+
+    #[test]
+    fn a_contour_crosses_an_earth_wall_on_a_forest_map() {
+        // ISOM 2017-2: contours cross the earth wall (105), and it is no small earth wall.
+        let f = fixture(MapKind::Forest);
+        let placed = placed_with(
+            &f,
+            vec![
+                path(&f, "101", &[(-200.0, 0.0), (200.0, 0.0)]),
+                path(&f, "105", &[(0.0, -50.0), (0.0, 50.0)]),
+            ],
+            Vec::new(),
+            &[(Group::Contours, Place::Map), (Group::Slopes, Place::Map)],
+        );
+        assert_eq!(of_symbol(&placed.map, f.id("101")).len(), 1);
+    }
+
+    #[test]
+    fn a_north_line_still_stops_at_a_path() {
+        let f = fixture(MapKind::Sprint);
+        let placed = placed_with(
+            &f,
+            vec![
+                path(&f, "601", &[(0.0, -40.0), (0.0, 80.0)]),
+                square(&f, "501.5", (-20.0, 0.0), 40.0),
+            ],
+            vec![path(&f, "506", &[(-40.0, 60.0), (40.0, 60.0)])],
+            &[(Group::Paths, Place::Candidates)],
+        );
+        // Cut at the paving and at the path: three pieces.
+        assert_eq!(count(&placed.map, f.id("601")), 3);
+    }
+
+    #[test]
+    fn the_cut_below_a_cliff_stays() {
+        let f = fixture(MapKind::Forest);
+        // A cliff across a contour; without a terrain model it stays as drawn.
+        let placed = placed_with(
+            &f,
+            vec![
+                path(&f, "201", &[(-60.0, 0.0), (60.0, 0.0)]),
+                path(&f, "101", &[(0.0, -100.0), (0.0, 100.0)]),
+            ],
+            Vec::new(),
+            &[(Group::Contours, Place::Map), (Group::Slopes, Place::Map)],
+        );
+        assert_eq!(count(&placed.map, f.id("201")), 1);
+        assert_eq!(count(&placed.map, f.id("101")), 2);
     }
 
     #[test]
