@@ -80,6 +80,9 @@ pub struct SetDrawing {
     /// tagged `<tag_prefix>:point=middle`, for the rules that want a point (Berlin's surveyed
     /// benches, which are lines and control sites on a sprint map).
     pub line_middles: &'static [(&'static str, &'static str)],
+    /// The layers whose lines lose their notches: small detours that leave the line and come
+    /// back, such as a kerb run around a tree pit (Berlin's surveyed kerbs).
+    pub notch_free_layers: &'static [&'static str],
     /// The layers whose areas are stairs; the engine draws them as stairs, walking direction
     /// from the terrain, and lets a stair of the cadastre at the same place win.
     pub stair_layers: &'static [&'static str],

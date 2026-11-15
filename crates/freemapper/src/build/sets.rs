@@ -143,6 +143,12 @@ pub fn set_objects(
             &source,
             layer.fetched,
         )?;
+        if set.drawing.notch_free_layers.contains(&layer.name.as_str()) {
+            drawn = drawn
+                .into_iter()
+                .filter_map(crate::build::notches::drop_notches)
+                .collect();
+        }
         if set.drawing.candidate_layers.contains(&layer.name.as_str()) {
             for object in &mut drawn {
                 object
@@ -394,5 +400,13 @@ mod tests {
                 .tags
                 .contains(&("berlin:point".to_string(), "middle".to_string()))
         );
+    }
+
+    /// The lines of a layer a set names in `notch_free_layers` lose their notches (Berlin's
+    /// kerbs around tree pits, ADR 0149).
+    #[test]
+    fn berlin_names_its_notch_free_layers() {
+        let berlin = drawing_of_source("geoportal-berlin/sb-bordstein").unwrap();
+        assert_eq!(berlin.notch_free_layers, ["sb-bordstein"]);
     }
 }

@@ -103,3 +103,10 @@ The first of Berlin's own processing steps became a generic one steered by data:
 lines that give a point at the middle of their extent too, tagged `<prefix>:point=middle` (Berlin's surveyed benches,
 lines that a sprint map takes as control sites). `build/sets.rs::with_line_middles` does it for every set; Berlin's
 code calls it. Output unchanged (G3/G4).
+
+## Addendum 2026-11-15: notch-free lines (step 4b)
+
+The cleanup of Berlin's surveyed kerbs (a kerb run around a tree pit leaves a hook along the street edge) is
+geometry of any surveyed line: it moved from `build/berlin.rs` with its tests into `build/notches.rs`, and a set
+names the layers whose lines lose their notches (`notch_free_layers`; Berlin: `sb-bordstein`). Output unchanged
+(G3/G4).
