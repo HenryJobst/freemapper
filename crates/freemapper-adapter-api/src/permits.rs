@@ -202,6 +202,9 @@ pub enum FindingKind {
         zone: Option<String>,
         /// The ordinance, as the data cite it.
         citation: Option<String>,
+        /// The authority in charge of the area, as the data name it ("Landratsamt
+        /// Ludwigsburg"); `None` when the data name none (ADR 0143).
+        authority: Option<String>,
     },
     /// Forest with a function or a protection of forest law.
     ForestFunction {

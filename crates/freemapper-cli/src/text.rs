@@ -321,6 +321,7 @@ mod tests {
             ("refs", v("B 1, B 5")),
             ("inner", v("no")),
             ("zone", v("Schutzzone III")),
+            ("authority", v("Landratsamt Ludwigsburg")),
             ("names", v("von hoher Bedeutung")),
             (
                 "note",
