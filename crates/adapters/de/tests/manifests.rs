@@ -112,7 +112,8 @@ fn potsdam_tree_dataset_from_manifest_equals_the_constant() {
     assert_eq!(brandenburg.nas.len(), 1);
     assert_eq!(extras::nas_service(&brandenburg.nas[0], &region), LGB_NAS);
     // Bremen brings the layers of its full ALKIS as well, from the service its buildings and
-    // land use come from. No other state has such sources.
+    // land use come from. Bavaria and Saxony-Anhalt name their landscape model (ADR 0135). No
+    // other state has such sources.
     let bremen = manifest("bremen");
     assert_eq!(bremen.nas.len(), 1);
     let service = extras::nas_service(&bremen.nas[0], &"bremen".parse().unwrap());
@@ -124,7 +125,10 @@ fn potsdam_tree_dataset_from_manifest_equals_the_constant() {
     );
     assert!(bremen.trees.is_empty());
     for state in State::ALL {
-        if !matches!(state, State::Brandenburg | State::Bremen | State::Bayern) {
+        if !matches!(
+            state,
+            State::Brandenburg | State::Bremen | State::Bayern | State::SaxonyAnhalt
+        ) {
             let manifest = manifest(state.id());
             assert!(
                 manifest.nas.is_empty() && manifest.trees.is_empty(),
@@ -156,6 +160,31 @@ fn bavaria_asks_the_basis_dlm() {
         "https://geoservices.bayern.de/wfs/v1/ogc_atkis_basisdlm.cgi?SERVICE=WFS&VERSION=2.0.0\
          &REQUEST=GetFeature&TYPENAMES=adv:AX_Turm&SRSNAME=urn:ogc:def:crs:EPSG::25832\
          &BBOX=655343,5479504,656766,5480640,urn:ogc:def:crs:EPSG::25832&COUNT=100000\
+         &NAMESPACES=xmlns(adv,http://www.adv-online.de/namespaces/adv/gid/7.1)"
+    );
+}
+
+/// Saxony-Anhalt has only the simplified ALKIS; its landscape model is a NAS service like
+/// Bavaria's, asked with the request checked live on 2026-11-15 over the Bodetal.
+#[test]
+fn saxony_anhalt_asks_the_basis_dlm() {
+    let anhalt = manifest("saxonyanhalt");
+    assert_eq!(anhalt.nas.len(), 1);
+    let service = extras::nas_service(&anhalt.nas[0], &"saxonyanhalt".parse().unwrap());
+    assert_eq!(service.model, NasModel::BasisDlm);
+    assert!(service.serves("dlm-felsen") && !service.serves("sonstiges-bauwerk"));
+    let bodetal = BoundingBox {
+        min_e: 638_765.0,
+        min_n: 5_733_152.0,
+        max_e: 640_192.0,
+        max_n: 5_734_285.0,
+    };
+    assert_eq!(
+        service.get_feature_url("adv:AX_Turm", &bodetal),
+        "https://www.geodatenportal.sachsen-anhalt.de/wss/service/ST_LVermGeo_ATKIS_WFS_BDLM_OpenData/guest\
+         ?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=adv:AX_Turm\
+         &SRSNAME=urn:ogc:def:crs:EPSG::25832\
+         &BBOX=638765,5733152,640192,5734285,urn:ogc:def:crs:EPSG::25832&COUNT=100000\
          &NAMESPACES=xmlns(adv,http://www.adv-online.de/namespaces/adv/gid/7.1)"
     );
 }

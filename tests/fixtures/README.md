@@ -41,6 +41,7 @@
 | `bayern-dlm-turm.gml` | LDBV ATKIS Basis-DLM WFS (`…/wfs/v1/ogc_atkis_basisdlm.cgi`), the whole GetFeature answer for `adv:AX_Turm` at the Schmausenbuck (E 655343–656766, N 5479504–5480640, EPSG:25832), 2026-11-14: one tower (`bauwerksfunktion` 1003, with a name), the AAA schema with a default namespace, `numberMatched="unknown"`. CC BY 4.0, Bayerische Vermessungsverwaltung. |
 | `bayern-dlm-bauwerk.gml` | The same service, `adv:AX_SonstigesBauwerkOderSonstigeEinrichtung` at the Schmausenbuck, 2026-11-14: five fences (1740, lines) and a fountain (1780, a point). |
 | `bayern-dlm-hoehle.gml`, `bayern-dlm-felsen.gml`, `bayern-dlm-gewaessermerkmal.gml`, `bayern-dlm-gewaesserachse.gml` | The same service at Tüchersfeld in the Fränkische Schweiz (E 669000–671000, N 5516500–5518500), 2026-11-14: two cave entrances, four rocks (points), a spring (`art` 1610), six watercourse axes. |
+| `sachsen-anhalt-dlm-felsen.gml` | The Basis-DLM service of the LVermGeo (`ST_LVermGeo_ATKIS_WFS_BDLM_OpenData`) over the Bodetal example (E 638765–640192, N 5733152–5734285), 2026-11-15: five `AX_FelsenFelsblockFelsnadel` of the 49 there, two lines, two points and one area, cut from the answer. |
 | `bayern-dlm-damm.gml` | The same service, `adv:AX_DammWallDeich` across the Fränkische Schweiz (E 660000–680000, N 5510000–5525000), 2026-11-14: four lines of `funktion` 3004. |
 
 Regenerate the PBF fixture with `python make_osm_fixture.py brandenburg-latest.osm.pbf strausberg-school.osm.pbf`

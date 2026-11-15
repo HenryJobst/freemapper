@@ -68,6 +68,8 @@ Version 0 was the pilot (Saxony-Anhalt and Hesse, 8.5 MB). Version 1 held all el
 206 MB as an archive, 234 MB unpacked, most of it whole tiles (Schleswig-Holstein alone 108 MB for
 one surface model tile). Version 2 holds the four recorded states, with the answers of version 1
 unchanged: 79 MB as an archive, 82 MB unpacked, of which Berlin has 47 MB and Brandenburg 31 MB.
+Version 3 (2026-11-15) recorded Saxony-Anhalt again, because it asks its landscape model (ADR 0135); the other
+three states keep the answers of version 2. The new recording also took the maintainer's newer OSM extract.
 
 `g1-hosts.txt` keeps the hosts of the seven states that left the net: every built-in manifest
 declares at least the hosts its state asked then (`crates/adapters/de/tests/manifests.rs`). A
