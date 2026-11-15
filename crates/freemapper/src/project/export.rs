@@ -444,7 +444,38 @@ pub(super) fn copy_backgrounds(
     ocad_dir: &Path,
     templates: &[TemplateRef],
 ) -> Result<(Vec<Background>, Vec<Note>), ProjectError> {
-    let (mut backgrounds, mut warnings) = (Vec::new(), Vec::new());
+    let planned = plan_backgrounds(dir, ocad_dir, templates)?;
+    planned.copy(dir)?;
+    Ok((planned.backgrounds, planned.warnings))
+}
+
+/// The OCAD background maps of some templates before anything is copied ([`plan_backgrounds`]).
+pub(super) struct PlannedBackgrounds {
+    pub(super) backgrounds: Vec<Background>,
+    /// The files to copy into the OCAD folder, from and to.
+    copies: Vec<(PathBuf, PathBuf)>,
+    /// Templates left out.
+    pub(super) warnings: Vec<Note>,
+}
+
+impl PlannedBackgrounds {
+    /// Copies the images and world files into the OCAD folder.
+    fn copy(&self, dir: &Path) -> Result<(), ProjectError> {
+        for (from, to) in &self.copies {
+            copy_inside(dir, from, to)?;
+        }
+        Ok(())
+    }
+}
+
+/// [`copy_backgrounds`] without the copying: the background maps, the files to copy and the
+/// warnings, so the OCAD map can be built before anything is written.
+pub(super) fn plan_backgrounds(
+    dir: &Path,
+    ocad_dir: &Path,
+    templates: &[TemplateRef],
+) -> Result<PlannedBackgrounds, ProjectError> {
+    let (mut backgrounds, mut copies, mut warnings) = (Vec::new(), Vec::new(), Vec::new());
     for template in templates {
         if template.kind != TemplateKind::Image {
             continue;
@@ -465,8 +496,8 @@ pub(super) fn copy_backgrounds(
             ));
             continue;
         }
-        copy_inside(dir, &image, &ocad_dir.join(image_name))?;
-        copy_inside(dir, &world, &ocad_dir.join(world_name))?;
+        copies.push((image.clone(), ocad_dir.join(image_name)));
+        copies.push((world.clone(), ocad_dir.join(world_name)));
         let text =
             std::fs::read_to_string(&world).map_err(|e| ProjectError::Io(world.clone(), e))?;
         let world_file = WorldFile::parse(&text).ok_or_else(|| {
@@ -491,7 +522,11 @@ pub(super) fn copy_backgrounds(
             opacity: template.opacity,
         });
     }
-    Ok((backgrounds, warnings))
+    Ok(PlannedBackgrounds {
+        backgrounds,
+        copies,
+        warnings,
+    })
 }
 
 /// The map part with the peripheral information (title, scale bar, credits); the north lines
@@ -659,6 +694,8 @@ pub struct TrainingOutcome {
     pub ocad: Option<PathBuf>,
     /// What the training level did.
     pub report: TrainingReport,
+    /// Templates left out of the OCAD training map.
+    pub warnings: Vec<Note>,
 }
 
 /// Writes the training map, its PDF and, with `ocad`, `ocad/<stem>-training.ocd`. An existing
@@ -666,7 +703,8 @@ pub struct TrainingOutcome {
 ///
 /// The training map is the map and every visible candidate generalized at the training level
 /// (`build/training`), a map of its own that is printed as it is. Its OCAD file is kept as the
-/// OOM one (backup `.ocd.bak`); both are checked before anything is written.
+/// OOM one (backup `.ocd.bak`); both are checked before anything is written, and every file is
+/// built before the first is written, so a failure leaves none of them half done.
 pub fn export_training(
     dir: &Path,
     force: bool,
@@ -752,34 +790,47 @@ pub fn export_training_from(
             .collect(),
     };
 
-    if map_path.exists() {
-        back_up(dir, &map_path, &map_path.with_extension("omap.bak"))?;
-    }
-    write_document(dir, &training, &map_path)?;
-    let pdf = training_pdf_path(dir);
+    // Every file is built before the first is written.
+    let map_bytes = document_bytes(&training)?;
     let drawn: Vec<&MapObject> = training
         .parts
         .iter()
         .filter(|p| p.name != SHEET_PART)
         .flat_map(|p| &p.objects)
         .collect();
-    draw_pdf(dir, documents, &drawn, scale_bar, sources, &pdf)?;
-    if let Some(path) = &ocad_path {
-        let ocad_dir = dir.join(OCAD_DIR);
+    let pdf_bytes = pdf_bytes(dir, &project, documents, &drawn, scale_bar, sources)?;
+    let ocad_dir = dir.join(OCAD_DIR);
+    let ocad_files = match &ocad_path {
+        Some(path) => {
+            let planned = plan_backgrounds(dir, &ocad_dir, &training.templates)?;
+            let (bytes, _) = map_to_ocd(&training, kind, &planned.backgrounds)?;
+            Some((path, bytes, planned))
+        }
+        None => None,
+    };
+
+    if map_path.exists() {
+        back_up(dir, &map_path, &map_path.with_extension("omap.bak"))?;
+    }
+    write_inside(dir, &map_path, &map_bytes)?;
+    let pdf = training_pdf_path(dir);
+    write_inside(dir, &pdf, &pdf_bytes)?;
+    let mut warnings = Vec::new();
+    if let Some((path, bytes, planned)) = ocad_files {
         std::fs::create_dir_all(&ocad_dir).map_err(|e| ProjectError::Io(ocad_dir.clone(), e))?;
-        // The warnings of templates left out are those of the OCAD map, which names them.
-        let (backgrounds, _) = copy_backgrounds(dir, &ocad_dir, &training.templates)?;
-        let (bytes, _) = map_to_ocd(&training, kind, &backgrounds)?;
         if path.exists() {
             back_up(dir, path, &path.with_extension("ocd.bak"))?;
         }
         write_inside(dir, path, &bytes)?;
+        planned.copy(dir)?;
+        warnings = planned.warnings;
     }
     Ok(TrainingOutcome {
         map: map_path,
         pdf,
         ocad: ocad_path,
         report,
+        warnings,
     })
 }
 
@@ -790,24 +841,25 @@ pub(super) fn write_pdf_file(
     scale_bar: bool,
     sources: PdfSources,
 ) -> Result<PathBuf, ProjectError> {
+    let project = ProjectFile::load(dir)?;
     let (map, _) = pdf_objects(documents, candidates);
+    let bytes = pdf_bytes(dir, &project, documents, &map, scale_bar, sources)?;
     let path = pdf_path(dir, candidates);
-    draw_pdf(dir, documents, &map, scale_bar, sources, &path)?;
+    write_inside(dir, &path, &bytes)?;
     Ok(path)
 }
 
-/// Writes the PDF `path`: `map` clipped to the map area and the sheet of `documents`, its source
-/// block by `sources` and the scale bar only with `scale_bar`.
-pub(super) fn draw_pdf(
+/// The PDF of `map` clipped to the map area of `project` (in `dir`) and the sheet of
+/// `documents`, its source block by `sources` and the scale bar only with `scale_bar`.
+pub(super) fn pdf_bytes(
     dir: &Path,
+    project: &ProjectFile,
     documents: &StarterDocuments,
     map: &[&MapObject],
     scale_bar: bool,
     sources: PdfSources,
-    path: &Path,
-) -> Result<(), ProjectError> {
+) -> Result<Vec<u8>, ProjectError> {
     use crate::render::{draw, pdf, symbols::RenderSymbols};
-    let project = ProjectFile::load(dir)?;
     let symbols = RenderSymbols::from_set(&documents.map.symbol_set);
     // The sheet is built again: its source block follows `sources`, the OOM map keeps the full list.
     let info = PeripheralInfo {
@@ -829,15 +881,13 @@ pub(super) fn draw_pdf(
         &project.bbox()?,
         &documents.map.georef,
     )?);
-    let bytes = pdf::write_pdf(
+    Ok(pdf::write_pdf(
         &render(map),
         &render(&sheet),
         clip,
         &symbols.colours,
         &project.display_title(dir),
-    );
-    write_inside(dir, path, &bytes)?;
-    Ok(())
+    ))
 }
 
 /// The preview of the map: a lossless WebP of what the map PDF draws in the map area.
@@ -1451,9 +1501,14 @@ pub(super) fn write_document(
     path: &Path,
 ) -> Result<(), ProjectError> {
     // Written whole and then renamed: a full disk leaves the previous map as it was.
+    Ok(write_inside(dir, path, &document_bytes(doc)?)?)
+}
+
+/// The OOM file of `doc`.
+pub(super) fn document_bytes(doc: &MapDocument) -> Result<Vec<u8>, ProjectError> {
     let mut bytes = Vec::new();
     write_map(doc, &mut bytes, XmlFormat::Compact)?;
-    Ok(write_inside(dir, path, &bytes)?)
+    Ok(bytes)
 }
 
 /// [`crate::fsutil::copy_inside`] with the error as [`ProjectError::Io`].

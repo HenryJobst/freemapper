@@ -5838,6 +5838,96 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
     }
 
     #[test]
+    fn a_fresh_training_export_writes_the_map_and_the_ocad_file() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir) = derived_school(&fetcher);
+        let outcome = export_training(dir.path(), false, false, PdfSources::Auto, true).unwrap();
+        let ocd = outcome.ocad.clone().expect("an OCAD file");
+        assert!(std::fs::read(&outcome.map).unwrap().starts_with(b"<?xml"));
+        assert!(std::fs::read(&outcome.pdf).unwrap().starts_with(b"%PDF-"));
+        assert!(
+            !crate::ocd::read::read(&std::fs::read(&ocd).unwrap())
+                .objects
+                .is_empty()
+        );
+        assert!(outcome.warnings.is_empty(), "{:?}", outcome.warnings);
+        assert!(!outcome.map.with_extension("omap.bak").exists());
+        assert!(!ocd.with_extension("ocd.bak").exists());
+    }
+
+    #[test]
+    fn a_training_export_keeps_both_existing_files() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir) = derived_school(&fetcher);
+        let first = export_training(dir.path(), false, false, PdfSources::Auto, true).unwrap();
+        let ocd = first.ocad.clone().unwrap();
+        std::fs::write(&first.map, "my map").unwrap();
+        std::fs::write(&ocd, "my ocad map").unwrap();
+        std::fs::write(&first.pdf, "old print").unwrap();
+        let error = export_training(dir.path(), false, false, PdfSources::Auto, true).unwrap_err();
+        assert!(
+            matches!(&error, ProjectError::MapExists(path) if *path == first.map),
+            "{error}"
+        );
+        assert_eq!(std::fs::read_to_string(&first.map).unwrap(), "my map");
+        assert_eq!(std::fs::read_to_string(&ocd).unwrap(), "my ocad map");
+        assert_eq!(std::fs::read_to_string(&first.pdf).unwrap(), "old print");
+        assert!(!first.map.with_extension("omap.bak").exists());
+        assert!(!ocd.with_extension("ocd.bak").exists());
+    }
+
+    #[test]
+    fn a_training_export_that_fails_to_build_writes_nothing() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir) = derived_school(&fetcher);
+        let documents = starter_documents(dir.path()).unwrap();
+        // The world file of a template breaks after the documents were built: the OCAD map
+        // cannot be built.
+        std::fs::write(
+            dir.path().join("templates/hillshade.pgw"),
+            "not a world file",
+        )
+        .unwrap();
+        let error =
+            export_training_from(dir.path(), &documents, false, false, PdfSources::Auto, true)
+                .unwrap_err();
+        assert!(matches!(error, ProjectError::Layer(_)), "{error}");
+        assert!(!training_map_path(dir.path()).exists());
+        assert!(!training_pdf_path(dir.path()).exists());
+        assert!(!dir.path().join(OCAD_DIR).exists());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn the_training_ocad_export_reports_a_template_it_leaves_out() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir) = derived_school(&fetcher);
+        let outside = tempfile::tempdir().unwrap();
+        // A valid image that lives outside the project, linked in as the hillshade.
+        let template = dir.path().join(HILLSHADE_RELPATH);
+        let elsewhere = outside.path().join("hillshade.png");
+        std::fs::rename(&template, &elsewhere).unwrap();
+        std::os::unix::fs::symlink(&elsewhere, &template).unwrap();
+        let outcome = export_training(dir.path(), false, false, PdfSources::Auto, true).unwrap();
+        assert_eq!(outcome.warnings.len(), 1, "{:?}", outcome.warnings);
+        assert!(
+            outcome.warnings[0].is_warning()
+                && outcome.warnings[0].contains(crate::fsutil::NOT_COPIED),
+            "{:?}",
+            outcome.warnings
+        );
+        let ocad = dir.path().join(OCAD_DIR);
+        assert!(!ocad.join("hillshade.png").exists());
+        assert!(
+            ocad.join("slope.png").exists(),
+            "the other templates are copied"
+        );
+        // Without OCAD output there is nothing to leave out.
+        let without = export_training(dir.path(), true, false, PdfSources::Auto, false).unwrap();
+        assert!(without.warnings.is_empty());
+    }
+
+    #[test]
     fn the_candidates_pdf_is_the_map_level_again() {
         use crate::derive::landforms::{Landform, LandformKind, landforms_to_geojson};
         let fetcher = MapFetcher::default();
@@ -5900,17 +5990,17 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         // The check print draws the map and every candidate as they are.
         let written =
             export_candidates_pdf_from(dir.path(), &documents, false, PdfSources::Auto).unwrap();
-        let expected = dir.path().join("expected.pdf");
-        draw_pdf(
+        let project = ProjectFile::load(dir.path()).unwrap();
+        let expected = pdf_bytes(
             dir.path(),
+            &project,
             &documents,
             &drawn,
             false,
             PdfSources::Auto,
-            &expected,
         )
         .unwrap();
-        assert!(std::fs::read(&written).unwrap() == std::fs::read(&expected).unwrap());
+        assert!(std::fs::read(&written).unwrap() == expected);
     }
 
     #[test]
