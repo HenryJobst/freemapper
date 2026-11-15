@@ -6,10 +6,11 @@ map. It ships in every release archive next to the program. People read [README.
 
 freemapper makes a starter project for an orienteering map from official geodata of a German state and from
 OpenStreetMap: a georeferenced OpenOrienteering Mapper map (`.omap`) with buildings, paved areas, paths and other
-reliable objects already drawn, templates (orthophoto, hillshade, slope, local relief, nDSM), a candidates map to check, and on
-request an OCAD starting point, printable PDFs and permit notes (who is in charge of the area, a hint, not legal
-advice). Map kinds: `schoolyard` (1:1000), `sprint` (ISSprOM 2019, 1:4000 or 1:5000) and `forest` (ISOM 2017-2,
-1:15000, 1:10000 or 1:7500; the OSM paths on the map, for a quick training in a small forest).
+reliable objects already drawn, templates (orthophoto, hillshade, slope, local relief, nDSM), a candidates map to
+check, and on request an OCAD starting point, printable PDFs, a training map to print and run on as it is, and permit
+notes (who is in charge of the area, a hint, not legal advice). Map kinds: `schoolyard` (1:1000), `sprint` (ISSprOM
+2019, 1:4000 or 1:5000) and `forest` (ISOM 2017-2, 1:15000, 1:10000 or 1:7500; the OSM paths on the map, for a quick
+training in a small forest).
 
 Supported states: Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein,
 Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony, Rhineland-Palatinate,
@@ -99,11 +100,11 @@ freemapper run <dir> --pdf
 |---|---|
 | `find <query>` | Lists up to 5 OpenStreetMap places for a name, areas first, one per line with its id (`way/<id>`, `relation/<id>`), and ends with the `init --osm` command for the first area. A place marked `no area` cannot be a map area. `--json` prints the array of MCP `find_place` instead. Nothing found exits with 1, but with `--json` it prints `[]` and exits with 0. |
 | `init <dir>` with `--geojson <file>`, `--osm way/<id>` (plus `--part <n>`) or `--place <name>` | Creates the project. `--kind schoolyard\|sprint\|forest`, `--scale`, `--title`. The GeoJSON holds one polygon in EPSG:4326. |
-| `select <dir>` | Opens the area page in the browser for the user. `--no-browser` only prints the address. A person must draw and save; you cannot do it for them. |
+| `select <dir>` | Opens the area page in the browser for the user. `--no-browser` only prints the address. `--training` ticks the box "Training map" on the page. A person must draw and save; you cannot do it for them. |
 | `run <dir>` | `fetch`, `derive` and `export` in one go. |
 | `fetch <dir>` | Downloads into the shared cache. `--offline` uses the cache only. |
 | `derive <dir>` | Computes templates and contours. |
-| `export <dir>` | Writes the map. `--force` replaces an existing map (old one as `.bak`). |
+| `export <dir>` | Writes the map (also `--training`). `--force` replaces an existing map (old one as `.bak`). |
 | `permits <dir>` | Writes the permit notes `permits.md` and `permits.json`: administrative units, protected areas and operators of the map area, and whom that usually means asking. Asks `geodienste.bfn.de` and `sgx.geodatenzentrum.de` and, where the state of the map area has open services of its own (Berlin, Hamburg, Brandenburg, North Rhine-Westphalia, Saarland, Hesse, Schleswig-Holstein, Saxony; the [manual](docs/manual/en.md#12-permit-notes) lists the hosts), those through the adapter of the state and its host rules; in North Rhine-Westphalia that downloads three files of about 32 MB together, in Brandenburg one of about 4 MB, once: they stay in the cache and are downloaded again only when the server has a newer one. In Saxony it asks the map services of Sachsenforst at up to 25 points of the map; the notes then call the shares estimates. In Bavaria, Lower Saxony, Bremen, Mecklenburg-Vorpommern, Rhineland-Palatinate, Saxony-Anhalt and Saxony it also asks `geoportal.bafg.de` for the water protection areas the states report to the BfG, in Baden-Württemberg the LUBW (`rips-gdi.lubw.baden-wuerttemberg.de`). Monuments come from the monument offices of eleven states; the manual lists their hosts. In Schleswig-Holstein that is one file of about 52 MB, kept in the cache. It reads the OSM extract already cached (it downloads none). `--offline` reads only what an earlier run stored in `data/permits/`. Exit code 0 when the notes are written, also when a source is left out (a `warning:` line names it); 1 when no source could be read or the folder is held by another run. Takes about half a minute. |
 | `update` | Installs the newest freemapper release over this program. `--check` only checks, `--yes` installs without asking (needed without a terminal, so always for you), `--version <x.y.z>` picks a release, `--rollback` goes back to the replaced version, `--mode notify\|install\|off` stores what the daily check does. |
 | `adapters allow-host <adapter> <host>` | Allows a built-in state one more host, after a message said its adapter does not name that host. Only after the person agreed (see Troubleshooting). The hosts are in `allowed-hosts.toml` of the person's configuration folder. |
@@ -111,10 +112,20 @@ freemapper run <dir> --pdf
 | `adapters list` | Lists the region adapters: the built-in states and those of the person's adapter folder, each with its source, revision, last check and the hosts it asks. `--project <dir>` also reads the folder `adapters` of a project. `--json` prints an object with `user_dir`, `adapters` (each with `id`, `names.en`, `names.de`, `provider`, `source`: `built-in`, `user` or `project`, `revision`, `last_verified`, `hosts`, `allowed_hosts`: the hosts the person allowed besides, and `overlaps`: the ids of the adapters on whose ground it lies) and `warnings` (each with `folder`, `skipped` and `findings` with `code`, `file`, `line`, `key`, `message`). |
 | `adapters check <dir>` | Checks the folder of one adapter without asking a server: whether it would load, with every finding. Exit code 0: passes, 1: findings, 2: could not run. `--live --bbox` also asks its services; only when the person asks for it. Details below the table. |
 
-Output switches for `run` and `export`: `--ocad`, `--pdf`, `--pdf-candidates`, `--pdf-scale-bar`,
-`--pdf-sources auto|full|credit-only`. `run` also takes `--permits`: after the map it writes the permit notes as
-`permits` does; a failure there is the warning `warning: the permit notes could not be written: …` and the exit code
-stays that of the map run. `export` has no `--permits`. `init`, `export` and `run` also take `--content safe|balanced|full` (what goes
+Output switches for `run` and `export`: `--ocad`, `--pdf`, `--pdf-candidates` (the check print), `--training`,
+`--pdf-scale-bar`, `--pdf-sources auto|full|credit-only`. `--training` writes the training map `<name>-training.omap`
+and `<name>-training.pdf`, with `--ocad` also `ocad/<name>-training.ocd`. `run` keeps an existing training map and
+prints `Kept the training map <path>, so that a run does not overwrite one that was printed or passed on; delete it or
+pass --force to renew it`, exit code 0; `export --training` fails on one with the "map already exists" error.
+`--force` replaces it and the base map too, and keeps the old ones as `.bak`. freemapper builds the training map from the stored data and the content settings,
+not from the `.omap`, so corrections made in OOM do not reach it. To renew only the training map, delete
+`<name>-training.omap` (with `--ocad` also `ocad/<name>-training.ocd`) and call `run --training` again without
+`--force`.
+On `select`, `--training` only ticks the box of the area page. When the training map still has objects closer than the
+norm's gap, a line `warning: the training map still has … mm (on paper) where objects keep too little gap; check it in
+OOM` follows; pass it on. `run` also takes `--permits`: after the map it writes the permit notes as `permits` does; a
+failure there is the warning `warning: the permit notes could not be written: …` and the exit code stays that of the
+map run. `export` has no `--permits`. `init`, `export` and `run` also take `--content safe|balanced|full` (what goes
 straight onto the map; default `balanced`: the objects of the cadastre and the registers) and `--content-set
 <group>=map|candidates|off`, repeatable; the choice is saved in `freemapper.toml`. `init`, `derive` and `run` take
 `--contour-interval <metres>|auto` (saved in `freemapper.toml`; `auto`: the map kind's, a forest map gets 2.5 m in
@@ -157,11 +168,11 @@ Workflow:
    downloads its OSM extract (about 20 to 500 MB, kept for 7 days); later projects are much smaller. Bavaria has
    no service for its cadastre. A map there also downloads the buildings as files, up to 160 MB per 2 km in a
    city centre, and about 45 MB of surface model per km² of the map area.
-4. `freemapper run <dir>` with the outputs the person wants (`--pdf` to print, `--ocad` for OCAD, `--pdf-candidates`
-   for a quick training map, `--permits` for the permit notes when they plan an event there). It takes from one
-   to several minutes, longer on the first download, which can be longer than your default command timeout:
-   give the call a longer timeout or run it in the background and wait for it to end. Pass on warnings, not
-   every progress line.
+4. `freemapper run <dir>` with the outputs the person wants (`--pdf` to print, `--ocad` for OCAD, `--training` for a
+   map to print and run on as it is, `--pdf-candidates` for the check print, `--permits` for the permit notes when
+   they plan an event there). It takes from one to several minutes, longer on the first download, which can be longer
+   than your default command timeout: give the call a longer timeout or run it in the background and wait for it to
+   end. Pass on warnings, not every progress line.
 5. Tell the person which files are in the folder and what to check (see "What to tell the user").
 
 The rules of the MCP section apply here too: an existing map is replaced only with `--force` after asking, and one
@@ -200,12 +211,12 @@ states such as `running` or `finished` are the same in both languages. This file
 | `find_place` | `query` | Searches a school, park or other place by name (OpenStreetMap Nominatim). Use a result with `has_area`; its `osm_id` becomes the map area. |
 | `create_project` | `dir`; `osm_id` or `geojson`; optional `part`, `kind`, `scale`, `title`, `content`, `content_set`, `contour_interval` | Creates the project folder with `freemapper.toml`. `kind`: `schoolyard` (default), `sprint` or `forest`. `scale`: schoolyard 1000; sprint 4000 (default) or 5000; forest 15000 (default), 10000 or 7500. For 1:3000 use 4000; freemapper-print enlarges when printing. |
 | `estimate_download` | `dir` | What `start_pipeline` will download, with sizes and what is already cached. |
-| `start_pipeline` | `dir`; optional `force`, `offline`, `ocad`, `pdf`, `pdf_candidates`, `pdf_scale_bar`, `pdf_sources`, `permits`, `content`, `content_set`, `contour_interval` (metres, 0: automatic; saved in the project) | Fetches, derives and writes the project in the background. Returns a job id. With `permits: true` it writes the permit notes after the map; a failure there is a warning, not a failed job. |
+| `start_pipeline` | `dir`; optional `force`, `offline`, `ocad`, `pdf`, `pdf_candidates`, `training`, `pdf_scale_bar`, `pdf_sources`, `permits`, `content`, `content_set`, `contour_interval` (metres, 0: automatic; saved in the project) | Fetches, derives and writes the project in the background. Returns a job id. With `permits: true` it writes the permit notes after the map; a failure there is a warning, not a failed job. |
 | `project_status` | `job_id` | `running`, `finished` or `failed`, with the last progress lines, the warnings, the written files (`files`: kind, path, bytes) and the result or the error. A finished `permits_for_area` job also carries `permits_md`, the text of `permits.md`. |
 | `permits_for_area` | `dir`; optional `offline` | Makes the permit notes of a project (`permits.md`, `permits.json`) in the background. Returns a job id; poll `project_status`. `offline: true` reads only the data an earlier run stored in the project. |
 | `list_layers` | `dir` | The layers of a project: map, candidates, raster templates. |
 | `preview_layer` | `dir`, `layer` | A PNG preview (at most 800 px) of `map` (the map objects as the last run drew them, without the candidates), `orthophoto`, `hillshade`, `slope`, `relief`, `ndsm`, or `k5` in Berlin. |
-| `open_area_selector` | `dir`; optional `kind`, `scale`, `title`, `open_browser`, and the same output switches as `start_pipeline`, `permits` among them (ticks the box "Permit notes") | Opens a page in the browser on this computer where the user draws or picks the area and saves it. Returns the address. |
+| `open_area_selector` | `dir`; optional `kind`, `scale`, `title`, `open_browser`, and the same output switches as `start_pipeline`, `permits` (ticks the box "Permit notes") and `training` (ticks the box "Training map") among them | Opens a page in the browser on this computer where the user draws or picks the area and saves it. Returns the address. |
 | `check_update` | none | Whether a newer freemapper release exists: version, release date, release notes link and download size, or that this one is up to date. Installs nothing. |
 | `install_update` | `confirm` | Installs the newest release over the program the server runs from. Without `confirm: true` it installs nothing and returns an error. The new version applies once the MCP server is restarted. |
 
@@ -219,7 +230,8 @@ states such as `running` or `finished` are the same in both languages. This file
    (about 20 to 500 MB, kept for 7 days); later projects in the same state are much smaller. Wait for an okay
    before a large download.
 4. `start_pipeline`. Set `pdf: true` if the user wants something to print, `ocad: true` if they edit in OCAD,
-   `pdf_candidates: true` for a quick training map that draws every uncertain object too.
+   `training: true` for a map to print and run on as it is, `pdf_candidates: true` for the check print that draws
+   every uncertain object true to position.
 5. Poll `project_status` every few seconds until `finished` or `failed`. A run takes from one to several minutes,
    longer on the first download. Pass the progress on in short lines, not every line.
 6. On `finished`: `list_layers`, show the `map` preview and one template with `preview_layer`, and tell the user
@@ -239,7 +251,10 @@ Rules:
   all processes. Both are refused while the area page of that folder is open. A second run on
   the same folder fails until the first ends; a lock left by a crashed run is taken over after 60 seconds.
 - An existing map is kept, because it may hold the user's own work. Pass `force: true` only after asking; the old
-  file stays as `<name>.omap.bak`.
+  file stays as `<name>.omap.bak`. The same holds for the training map: without `force` a run keeps it, and its
+  `result` says so. `force` replaces both maps. The MCP tools cannot delete files; to renew only the training map,
+  the person deletes `<name>-training.omap` (with `ocad` also `ocad/<name>-training.ocd`) and you start the pipeline
+  again without `force`.
 - The server checks for a newer release once a day. When it knows one, the next tool result carries one extra
   text block at its end, the note `Note for the person: freemapper 0.21.0 is available (this is 0.20.0). Ask them
   before calling install_update.` It comes once per server process. Calling `check_update` or `install_update`
@@ -264,11 +279,14 @@ Rules:
 - `templates/`: `orthophoto.jpg`, `hillshade.png`, `slope.png`, `relief.png`, `ndsm.png` with world files, and
   `candidates.omap`.
 - `ocad/` (with `ocad`): `<name>.ocd`, `<name>-candidates.ocd` and the templates.
-- `<name>.pdf` (with `pdf`) and `<name>-candidates.pdf` (with `pdf_candidates`).
+- `<name>.pdf` (with `pdf`) and `<name>-candidates.pdf`, the check print (with `pdf_candidates`).
+- `<name>-training.omap` and `<name>-training.pdf` (with `training`): the training map; with `ocad` also
+  `ocad/<name>-training.ocd`. Its map file lists the raster templates and no candidates.
 - `<name>-preview.webp`: an image of the map objects, written with the map. The area page shows it; the image
   is not the map and has no candidates.
 - `ATTRIBUTION.txt`: every data source with its licence.
-- `freemapper.toml`: map area, kind, scale and the data used. `data/`: the downloaded features.
+- `freemapper.toml`: map area, kind, scale and the data used. `data/`: the downloaded features, and
+  `data/tree-cover.tif` where there is an nDSM (the share of ground under trees, read by the training map).
 - `permits.md` and `permits.json` (with `permits`, `--permits` or `permits_for_area`): the permit notes, Markdown in
   the program language and the same content as JSON (`"schema": 1`). `data/permits/`: the stored answers of the
   BfN and VG250 (where the state has services of its own, also of those) and the OSM findings, read by `--offline`. They do not change `freemapper.toml` or `ATTRIBUTION.txt`;
@@ -282,8 +300,19 @@ The cache is shared by all projects: macOS `~/Library/Caches/freemapper`, Linux 
 - Open the `.omap` with OpenOrienteering Mapper (free, all systems). Templates can be switched on there.
 - The map holds only what the data shows reliably. Everything uncertain (furniture, barriers, many paths,
   contours, knolls and banks from the terrain, out-of-bounds areas) is in the candidates map and must be checked
-  against the orthophoto and in the terrain before it is copied into the map. The candidates PDF draws all of it
-  and is for quick training only.
+  against the orthophoto and in the terrain before it is copied into the map. The check print
+  (`<name>-candidates.pdf`) draws all of it true to position, for checking in the terrain.
+- The training map (`<name>-training.omap`, `<name>-training.pdf`) is printed and used as it is. It holds the map
+  and the candidates, cleaned up so that symbols do not lie on each other: it joins lines, cuts out or leaves out
+  the lower-ranked object where two come too close (walls and impassable fences are only cut), leaves out what is
+  below the norm's minimum size, street furniture on streets and squares and the details inside olive green areas
+  (only buildings, water, contours and ways that lead through stay), draws a park yellow only where the nDSM shows
+  no trees, and moves trees and other point symbols up to 1.5 mm on paper. Carriageways, tracks and paths that run
+  side by side still stand side by side. Do not map on it: the base map and the candidates stay the working
+  material, true to position. freemapper builds the training map from the data, so corrections in OOM do not reach
+  it; to renew only the training map, delete `<name>-training.omap` (with `--ocad` also
+  `ocad/<name>-training.ocd`) and run again without `--force`, because `--force` also replaces the base map. Its
+  uncertain objects still need a look in the terrain before an event.
 - The OCAD files carry placeholder symbols; in OCAD the user loads the official symbol set, which replaces them by
   number. The OCAD output has not been checked in OCAD yet.
 - The maps carry the credit lines the data licences require. Keep them when the map is passed on. With
@@ -321,7 +350,8 @@ The cache is shared by all projects: macOS `~/Library/Caches/freemapper`, Linux 
 - "no source of the permit notes could be read": with `offline` nothing is stored yet, or it was stored for another
   map area; online, the services were down and no OSM extract is cached. Run it online; `fetch` (or a map run)
   downloads the OSM extract. A `warning:` that the notes leave out one source is no failure: the file is written.
-- "map already exists": the folder has a map, which may hold the user's work. Ask before passing `force`.
+- "map already exists": the folder has a map, which may hold the user's work. Ask before passing `force`. After
+  `export --training` the path names the training map.
 - "cannot write to the program folder": the update cannot replace the program there and does not ask for
   administrator rights. Unpack the new release by hand, or move freemapper to a folder the person owns and
   register the new path.

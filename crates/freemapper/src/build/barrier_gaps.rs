@@ -43,6 +43,8 @@ const TOLERANCE: f64 = 2.0;
 const SEARCH_STEPS: i32 = 10;
 /// How often a point is moved again when the move puts it too close to another line.
 const MAX_MOVES: usize = 4;
+/// The tag of a moved point; its value says why it moved.
+pub(crate) const MOVED_KEY: &str = "freemapper:moved";
 /// The `freemapper:moved` value of a point moved off a wall or fence.
 pub const MOVED: &str = "gap to a wall or fence (ISSprOM 3.3)";
 
@@ -178,8 +180,7 @@ pub fn move_points_off_barriers(
         let o = &mut lists[l][i];
         o.coords[0].x = at.0.round() as i32;
         o.coords[0].y = at.1.round() as i32;
-        o.tags
-            .push(("freemapper:moved".to_string(), MOVED.to_string()));
+        o.tags.push((MOVED_KEY.to_string(), MOVED.to_string()));
         moved += 1;
     }
     for ((l, i), mut names) in named {

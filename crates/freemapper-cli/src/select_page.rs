@@ -68,7 +68,7 @@ fn has_text(ids: &BTreeSet<String>, id: &str) -> bool {
 
 /// The kinds of the files a run reports (`pipeline.rs`); the run panel names each with
 /// `page-file-kind-<kind>`.
-const FILE_KINDS: [&str; 8] = [
+const FILE_KINDS: [&str; 11] = [
     "map",
     "preview",
     "template",
@@ -76,6 +76,9 @@ const FILE_KINDS: [&str; 8] = [
     "ocad-candidates",
     "pdf",
     "pdf-candidates",
+    "training-map",
+    "training-pdf",
+    "training-ocad",
     "permits",
 ];
 
@@ -89,6 +92,7 @@ fn step_ids() -> Vec<String> {
         Step::Ocad,
         Step::Pdf,
         Step::PdfCandidates,
+        Step::Training,
         Step::Permits,
     ]
     .into_iter()
@@ -242,6 +246,7 @@ fn index_has_labels_for_every_option() {
         "run-ocad",
         "run-pdf",
         "run-pdf-candidates",
+        "run-training",
         "run-pdf-scale-bar",
         "run-pdf-sources",
         "run-offline",
@@ -271,6 +276,7 @@ fn run_js_names_no_path_field() {
         "ocad",
         "pdf",
         "pdf_candidates",
+        "training",
         "pdf_scale_bar",
         "pdf_sources",
         "permits",
@@ -311,6 +317,50 @@ fn the_permits_box_is_an_output_switch() {
     assert_eq!(
         TEXTS.text(&de(), "page-opt-permits", &[]),
         "Hinweise zu Genehmigungen"
+    );
+}
+
+/// The training map is an output switch beside the check print: off unless the page was opened
+/// with it, sent as `training`, and its PDF takes the scale bar and the source lines.
+#[test]
+fn the_training_box_is_an_output_switch() {
+    let html = asset("index.html");
+    let options = options_section(&html);
+    let at = options
+        .find("<input id=\"run-training\"")
+        .expect("a box run-training among the run options");
+    let tag = &options[at..at + options[at..].find('>').unwrap()];
+    assert!(tag.contains("type=\"checkbox\""), "{tag}");
+    assert!(!tag.contains("checked"), "off by default: {tag}");
+    let label = &options[at..at + options[at..].find("</label>").unwrap()];
+    assert!(label.contains("data-text=\"page-opt-training\""), "{label}");
+    let candidates = options.find("<input id=\"run-pdf-candidates\"").unwrap();
+    assert!(candidates < at, "next to the check print");
+    let run = asset("run.js");
+    let start = run.find("function optionsFromForm").unwrap();
+    let body = &run[start..start + run[start..].find("\n}\n").unwrap()];
+    assert!(
+        body.contains("training: field(\"training\").checked"),
+        "{body}"
+    );
+    // Its PDF counts for the scale bar and the sources, by the one rule of the page.
+    assert!(
+        run.contains("const PDF_OPTIONS = [\"pdf\", \"pdf_candidates\", \"training\"];"),
+        "{run}"
+    );
+    assert_eq!(run.matches("anyPdf((name) =>").count(), 3, "{run}");
+    assert!(!run.contains(".checked ||") && !run.contains("options.pdf ||"));
+    assert!(
+        run.contains("$r(\"run-training\").checked = !!defaults.training;"),
+        "the box starts as the page was opened"
+    );
+    assert_eq!(
+        TEXTS.text(&Lang::english(), "page-opt-training", &[]),
+        "Training map"
+    );
+    assert_eq!(
+        TEXTS.text(&de(), "page-opt-training", &[]),
+        "Trainingskarte"
     );
 }
 

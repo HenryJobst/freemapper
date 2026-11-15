@@ -1,5 +1,6 @@
 //! nDSM template: LGB nDOM point clouds rasterized to heights above ground, where none is
-//! published the bDOM surface model minus the DGM1, as a coloured PNG.
+//! published the bDOM surface model minus the DGM1, as a coloured PNG; and the tree cover read
+//! from it.
 
 use std::path::{Path, PathBuf};
 
@@ -11,6 +12,11 @@ use crate::raster::Raster;
 const NDSM_PIXEL_M: f64 = 0.2;
 /// Points read per chunk; a tile holds 25 million.
 const CHUNK_POINTS: u64 = 1_000_000;
+/// Cell of the tree cover.
+const TREE_COVER_CELL_M: f64 = 1.0;
+/// From this height above ground an nDSM cell counts as under trees. Ruling: what hides the
+/// ground of an open area from a runner; hedges and bushes stay below it.
+const TREE_HEIGHT_M: f32 = 3.0;
 
 /// Heights above ground over `bbox`: the highest point per 0.2 m cell, `NaN` where no point lies.
 pub fn rasterize(tiles: &[PathBuf], bbox: &BoundingBox) -> Result<Raster<f32>, DeriveError> {
@@ -118,6 +124,41 @@ pub(crate) fn bilinear(r: &Raster<f32>, e: f64, n: f64) -> Option<f32> {
     let top = z(x0, y0)? * (1.0 - tx) + z(x1, y0)? * tx;
     let bottom = z(x0, y1)? * (1.0 - tx) + z(x1, y1)? * tx;
     Some((top * (1.0 - ty) + bottom * ty) as f32)
+}
+
+/// The tree cover of `ndsm`: per cell of [`TREE_COVER_CELL_M`], aligned to the origin of the
+/// nDSM, the share of its nDSM cells with data that are at least [`TREE_HEIGHT_M`] high; `NaN`
+/// where none has data. The cells at the east and south edge may hold fewer nDSM cells. The
+/// nDSM does not tell trees from other things: everything at least as high counts, mostly trees,
+/// but also a pavilion, a shelter or another structure.
+pub fn tree_cover(ndsm: &Raster<f32>) -> Raster<f32> {
+    let grid = ndsm.grid;
+    let k = (TREE_COVER_CELL_M / grid.pixel_size).round().max(1.0) as u32;
+    let cover_grid = crate::raster::GridSpec {
+        pixel_size: grid.pixel_size * f64::from(k),
+        width: grid.width.div_ceil(k),
+        height: grid.height.div_ceil(k),
+        ..grid
+    };
+    let mut cover = Raster::filled(cover_grid, f32::NAN);
+    for cy in 0..cover_grid.height {
+        for cx in 0..cover_grid.width {
+            let (mut known, mut trees) = (0u32, 0u32);
+            for y in cy * k..((cy + 1) * k).min(grid.height) {
+                for x in cx * k..((cx + 1) * k).min(grid.width) {
+                    let height = ndsm.get(x, y);
+                    if !height.is_nan() {
+                        known += 1;
+                        trees += u32::from(height >= TREE_HEIGHT_M);
+                    }
+                }
+            }
+            if known > 0 {
+                cover.set(cx, cy, trees as f32 / known as f32);
+            }
+        }
+    }
+    cover
 }
 
 /// Writes the coloured nDSM as RGBA PNG with its world file (`.pgw`).
@@ -241,6 +282,38 @@ mod tests {
         let world = std::fs::read_to_string(dir.path().join("ndsm.pgw")).unwrap();
         let grid = crate::raster::GridSpec::from_world_file(&world, 5, 5).unwrap();
         assert!((grid.west - 421_000.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn tree_cover_is_the_share_of_cells_at_least_3_m_high() {
+        // 7 × 5 cells of 0.2 m: one whole metre cell and a part one east of it.
+        let grid = crate::raster::GridSpec {
+            west: 421_000.0,
+            north: 5_821_001.0,
+            pixel_size: 0.2,
+            width: 7,
+            height: 5,
+        };
+        let mut ndsm = Raster::filled(grid, f32::NAN);
+        for y in 0..5 {
+            for x in 0..5 {
+                // Two rows of trees, one of 3 m exactly; the rest are hedges and lawn.
+                ndsm.set(x, y, [12.0, 3.0, 2.9, 0.5, 0.0][y as usize]);
+            }
+        }
+        ndsm.set(5, 0, 8.0);
+        ndsm.set(6, 0, 1.0);
+        let cover = tree_cover(&ndsm);
+        assert_eq!(cover.grid.west, grid.west);
+        assert_eq!(cover.grid.north, grid.north);
+        assert_eq!(cover.grid.pixel_size, 1.0);
+        assert_eq!((cover.grid.width, cover.grid.height), (2, 1));
+        assert!((cover.get(0, 0) - 0.4).abs() < 1e-6, "{}", cover.get(0, 0));
+        // Of the cells with data.
+        assert!((cover.get(1, 0) - 0.5).abs() < 1e-6, "{}", cover.get(1, 0));
+        ndsm.set(5, 0, f32::NAN);
+        ndsm.set(6, 0, f32::NAN);
+        assert!(tree_cover(&ndsm).get(1, 0).is_nan());
     }
 
     /// A raster over `bbox` with `pixel` metres per cell and the value `f(e, n)` at each centre.

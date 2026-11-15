@@ -394,6 +394,7 @@ fn run_defaults_json(options: &RunOptions) -> Value {
         "ocad": options.ocad,
         "pdf": options.pdf,
         "pdf_candidates": options.pdf_candidates,
+        "training": options.training,
         "pdf_scale_bar": options.pdf_scale_bar,
         "pdf_sources": crate::pipeline::pdf_sources_name(options.pdf_sources),
         "permits": options.permits,
@@ -1452,6 +1453,7 @@ pub(crate) mod tests {
             ocad: true,
             pdf: true,
             pdf_candidates: true,
+            training: true,
             pdf_scale_bar: true,
             pdf_sources: freemapper::project::PdfSources::CreditOnly,
             offline: true,
@@ -1472,6 +1474,7 @@ pub(crate) mod tests {
                 "ocad": true,
                 "pdf": true,
                 "pdf_candidates": true,
+                "training": true,
                 "pdf_scale_bar": true,
                 "pdf_sources": "credit-only",
                 "permits": true,
@@ -1483,6 +1486,7 @@ pub(crate) mod tests {
         assert_eq!(answer["run_defaults"]["pdf_sources"], "auto");
         assert_eq!(answer["run_defaults"]["pdf"], false);
         assert_eq!(answer["run_defaults"]["permits"], false);
+        assert_eq!(answer["run_defaults"]["training"], false);
     }
 
     #[tokio::test(flavor = "multi_thread")]

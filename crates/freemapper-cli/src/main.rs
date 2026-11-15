@@ -30,10 +30,10 @@ use freemapper::build::content::ContentSettings;
 use freemapper::fetch::{Cache, FetchMode, HttpFetcher};
 use freemapper::places::{find_places, place_area};
 use freemapper::project::{
-    MapKind, MapOutcome, OcadOutcome, PdfSources, ProjectFile, derive_project,
+    MapKind, MapOutcome, OcadOutcome, PdfSources, ProjectFile, TrainingOutcome, derive_project,
     export_candidates_pdf_from, export_map_preview_or_warn, export_ocad_from, export_pdf_from,
-    export_starter_project_from, fetch_project, init_project, map_path, parse_contour_interval,
-    set_content, set_contour_interval, starter_documents,
+    export_starter_project_from, export_training_from, fetch_project, init_project, map_path,
+    parse_contour_interval, set_content, set_contour_interval, starter_documents,
 };
 
 use text::{n, text, v};
@@ -98,10 +98,16 @@ enum Commands {
         /// existing OOM map then stays unless you pass --force.
         #[arg(long)]
         pdf: bool,
-        /// Also write `<name>-candidates.pdf`, the training map (the map plus every candidate
-        /// drawn as a map object); an existing OOM map then stays unless you pass --force.
+        /// Also write `<name>-candidates.pdf`, the check print: the map with every candidate, true
+        /// to position; an existing OOM map then stays unless you pass --force.
         #[arg(long)]
         pdf_candidates: bool,
+        /// Also write the training map `<name>-training.omap` and its PDF
+        /// `<name>-training.pdf`: the map and every candidate, cleaned up to be printed as they
+        /// are; with --ocad also `ocad/<name>-training.ocd`. An existing OOM map then stays
+        /// unless you pass --force, and --force also replaces an existing training map.
+        #[arg(long)]
+        training: bool,
         /// Draw the scale bar on the PDFs (off by default, German maps usually have none; the
         /// scale number stays in the title block).
         #[arg(long)]
@@ -156,9 +162,16 @@ enum Commands {
         /// Also write `<name>.pdf`, the printable map (the map objects only, no candidates).
         #[arg(long)]
         pdf: bool,
-        /// Also write `<name>-candidates.pdf`, the training map (the map plus every candidate).
+        /// Also write `<name>-candidates.pdf`, the check print: the map with every candidate, true
+        /// to position.
         #[arg(long)]
         pdf_candidates: bool,
+        /// Also write the training map `<name>-training.omap` and its PDF
+        /// `<name>-training.pdf`: the map and every candidate, cleaned up to be printed as they
+        /// are; with --ocad also `ocad/<name>-training.ocd`. An existing training map stays unless
+        /// you pass --force.
+        #[arg(long)]
+        training: bool,
         /// Draw the scale bar on the PDFs (off by default; the scale number stays in the title block).
         #[arg(long)]
         pdf_scale_bar: bool,
@@ -229,9 +242,12 @@ enum Commands {
         /// The page starts with the printable PDF ticked.
         #[arg(long)]
         pdf: bool,
-        /// The page starts with the training PDF (every candidate) ticked.
+        /// The page starts with the check print (every candidate) ticked.
         #[arg(long)]
         pdf_candidates: bool,
+        /// The page starts with the training map ticked.
+        #[arg(long)]
+        training: bool,
         /// The page starts with the scale bar on the PDFs ticked.
         #[arg(long)]
         pdf_scale_bar: bool,
@@ -484,6 +500,15 @@ fn report_pdf(path: &std::path::Path, candidates: bool, sources: PdfSources) {
     println!("{}", text(id, &[("path", v(path.display()))]));
 }
 
+/// What the training export wrote. Its warnings are printed by the caller: `run` gets them as
+/// warnings of the run.
+fn report_training(outcome: &TrainingOutcome, sources: PdfSources) {
+    if sources.leaves_out_required_credits() {
+        println!("{}", text("cli-pdf-without-credits", &[]));
+    }
+    println!("{}", pipeline::training_summary(outcome));
+}
+
 /// What the OCAD export wrote and what the user does next in OCAD.
 fn report_ocad(outcome: &OcadOutcome) {
     for warning in &outcome.warnings {
@@ -556,6 +581,11 @@ fn print_written(written: pipeline::Written, sources: PdfSources) {
         pipeline::Written::Ocad(outcome) => report_ocad(outcome),
         pipeline::Written::Pdf(path) => report_pdf(path, false, sources),
         pipeline::Written::PdfCandidates(path) => report_pdf(path, true, sources),
+        pipeline::Written::Training(outcome) => report_training(outcome, sources),
+        pipeline::Written::TrainingKept(path) => println!(
+            "{}",
+            text("cli-kept-training", &[("path", v(path.display()))])
+        ),
         pipeline::Written::Permits(path) => wrote_permits(path),
     }
 }
@@ -840,6 +870,7 @@ fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
             ocad,
             pdf,
             pdf_candidates,
+            training,
             pdf_scale_bar,
             pdf_sources,
             content,
@@ -850,7 +881,7 @@ fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
             // Built once for every output of this command (ADR 0091).
             let documents = starter_documents(&dir)?;
             let existing = map_path(&dir);
-            if (ocad || pdf || pdf_candidates) && existing.exists() && !force {
+            if (ocad || pdf || pdf_candidates || training) && existing.exists() && !force {
                 kept(&existing);
             } else {
                 wrote(&export_starter_project_from(&dir, &documents, force)?);
@@ -882,6 +913,20 @@ fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
                     true,
                     pdf_sources.into(),
                 );
+            }
+            if training {
+                let outcome = export_training_from(
+                    &dir,
+                    &documents,
+                    force,
+                    pdf_scale_bar,
+                    pdf_sources.into(),
+                    ocad,
+                )?;
+                report_training(&outcome, pdf_sources.into());
+                for warning in pipeline::training_warnings(&outcome) {
+                    report(&warning);
+                }
             }
         }
         Commands::Fetch {
@@ -922,6 +967,7 @@ fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
             ocad,
             pdf,
             pdf_candidates,
+            training,
             pdf_scale_bar,
             pdf_sources,
             permits,
@@ -939,6 +985,7 @@ fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
                 ocad,
                 pdf,
                 pdf_candidates,
+                training,
                 pdf_scale_bar,
                 pdf_sources: pdf_sources.into(),
                 permits,
@@ -989,6 +1036,7 @@ fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
             ocad,
             pdf,
             pdf_candidates,
+            training,
             pdf_scale_bar,
             pdf_sources,
             cache,
@@ -1004,6 +1052,7 @@ fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
                     ocad,
                     pdf,
                     pdf_candidates,
+                    training,
                     pdf_scale_bar,
                     pdf_sources: pdf_sources.into(),
                     ..Default::default()
@@ -1092,6 +1141,7 @@ mod tests {
             "--ocad",
             "--pdf",
             "--pdf-candidates",
+            "--training",
             "--pdf-scale-bar",
             "--pdf-sources",
             "full",
@@ -1103,6 +1153,7 @@ mod tests {
             ocad,
             pdf,
             pdf_candidates,
+            training,
             pdf_scale_bar,
             pdf_sources,
             ..
@@ -1110,7 +1161,7 @@ mod tests {
         else {
             panic!("not select");
         };
-        assert!(offline && ocad && pdf && pdf_candidates && pdf_scale_bar);
+        assert!(offline && ocad && pdf && pdf_candidates && training && pdf_scale_bar);
         assert_eq!(PdfSources::from(pdf_sources), PdfSources::Full);
         // Without flags the page starts like `run`: everything off, sources automatic.
         let cli = Cli::try_parse_from(["freemapper", "select", "/tmp/p"]).unwrap();

@@ -21,6 +21,15 @@ pub const RETAINED_WALL_LINE_MM: SymbolMm = SymbolMm(0.21);
 pub const RETAINED_WALL_TICK_MM: SymbolMm = SymbolMm(0.30);
 pub const RETAINED_WALL_MM: SymbolMm = SymbolMm(0.60);
 
+/// The stairway footprints of ISSprOM (532.6 to 532.9) and the width of each, narrowest first.
+/// ISOM has one stairway (532), its steps 0.4 mm wide like the narrowest footprint.
+pub const STAIR_FOOTPRINTS_MM: [(&str, SymbolMm); 4] = [
+    ("532.6", SymbolMm(0.40)),
+    ("532.7", SymbolMm(0.50)),
+    ("532.8", SymbolMm(0.75)),
+    ("532.9", SymbolMm(1.00)),
+];
+
 /// The impassable cliff (201, ISOM 2017-2): the width of its line, and how far its tags reach from
 /// the centre line as the bundled symbol draws them.
 pub const CLIFF_MM: SymbolMm = SymbolMm(0.35);
