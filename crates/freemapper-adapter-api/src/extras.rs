@@ -62,6 +62,9 @@ pub struct SetDrawing {
     pub layer_ranks: &'static [(&'static str, SetRank)],
     /// The layers named in the credit line when they drew objects: the file and its name there.
     pub credited_layers: &'static [(&'static str, &'static str)],
+    /// Which of the set's points beat which others at the same place, in order; a point dropped
+    /// by an earlier entry wins nothing later. The engine's own entries (the full ALKIS) follow.
+    pub point_dedups: &'static [PointDedup],
     /// The layers whose areas are stairs; the engine draws them as stairs, walking direction
     /// from the terrain, and lets a stair of the cadastre at the same place win.
     pub stair_layers: &'static [&'static str],
@@ -85,6 +88,29 @@ impl SetDrawing {
             })
             .map_or(self.rank, |(_, rank)| *rank)
     }
+}
+
+/// How close two points must be to count as one object.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum DedupDistance {
+    /// Ground metres.
+    Metres(f64),
+    /// Millimetres on paper, as what the printed map shows twice, but at least `at_least_m`
+    /// ground metres: the positional error of the sources does not shrink with the scale.
+    Paper { mm: f64, at_least_m: f64 },
+}
+
+/// One kind of winning point of a set and the points that give way to it.
+#[derive(Debug, Clone, PartialEq)]
+pub struct PointDedup {
+    /// `(tag key, value)` of the winners: a `freemapper:source` or a tag of the set's features
+    /// (a value ending in `*` is a prefix).
+    pub winner: (&'static str, &'static str),
+    /// The symbol a winner must have; `None`: any.
+    pub winner_code: Option<&'static str>,
+    /// `(tag key, value, distance)` of the losers: an OSM rule (`freemapper:osm`, one of its
+    /// `; `-separated parts; a value ending in `*` is a prefix) or a tag of the set's features.
+    pub losers: &'static [(&'static str, &'static str, DedupDistance)],
 }
 
 /// The rank of a set's objects among the sources of the same object.

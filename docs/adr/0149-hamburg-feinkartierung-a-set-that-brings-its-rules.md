@@ -72,3 +72,11 @@ line names when they drew objects (`credited_layers`) and `generic`. Berlin's se
 `generic: false`: the engine reads its ranks and registers from it (`dedup::rank`, `drawn_registers`) but still
 fetches, records and draws it by its own code; only sets with `generic: true` take the generic path. The output is
 unchanged (G3/G4 byte for byte).
+
+## Addendum 2026-11-15: the point dedups of a set (step 2b)
+
+Which point of a set beats which other point at the same place is data of the set now (`SetDrawing::point_dedups`,
+`PointDedup`, `DedupDistance`): Berlin's 13 entries (registers before survey before OSM) moved from `build/dedup.rs`
+into its adapter. The engine keeps only its own two entries for the full ALKIS (311 fountains, 526 monuments) and
+takes the entries of the sets first, in the order of the registry. In Berlin the ALKIS entries never apply (it has no
+NAS service), so the order and the `freemapper:also` notes stay as they were: G3/G4 byte for byte.
