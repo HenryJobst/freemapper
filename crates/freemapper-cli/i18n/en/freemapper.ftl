@@ -927,9 +927,18 @@ permits-forest-function-kind = { $kind ->
        *[closed] Closed forest area
     }
 permits-hint-water-protection = { $inner ->
-        [yes] The { $zone } of the water protection area "{ $name }" lies in the map area. In zones I and II events are usually ruled out. Ask the lower water authority (untere Wasserbehörde).
-        [no] The { $zone } of the water protection area "{ $name }" lies in the map area. Events there are usually possible; the lower water authority (untere Wasserbehörde) can say what the ordinance allows.
-       *[unknown] The water protection area "{ $name }" lies in the map area. The data do not say which zone it is. In zones I and II events are usually ruled out; ask the lower water authority (untere Wasserbehörde).
+        [yes] The { $zone } of the water protection area "{ $name }" lies in the map area. In zones I and II events are usually ruled out. Ask the lower water authority (untere Wasserbehörde{ $authority ->
+            [none] {""}
+           *[other] {", "}{ $authority }
+        }).
+        [no] The { $zone } of the water protection area "{ $name }" lies in the map area. Events there are usually possible; the lower water authority (untere Wasserbehörde{ $authority ->
+            [none] {""}
+           *[other] {", "}{ $authority }
+        }) can say what the ordinance allows.
+       *[unknown] The water protection area "{ $name }" lies in the map area. The data do not say which zone it is. In zones I and II events are usually ruled out; ask the lower water authority (untere Wasserbehörde{ $authority ->
+            [none] {""}
+           *[other] {", "}{ $authority }
+        }).
     }
 permits-hint-forest-function = { $kind ->
         [recreation] Recreation forest (Erholungswald) lies in the map area{ $names ->

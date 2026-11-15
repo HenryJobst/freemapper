@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "created": "2026-11-14",
+  "created": "2026-11-15",
   "map_kind": "forest",
   "area_m2": 1080234.048458072,
   "admin": [
@@ -137,14 +137,14 @@
     {
       "id": "vg250",
       "state": "read",
-      "fetched": "2026-11-14",
+      "fetched": "2026-11-15",
       "reason": null,
       "credit": "© BKG (2026) dl-de/by-2-0, Datenquellen: https://sg.geodatenzentrum.de/web_public/gdz/datenquellen/datenquellen_vg_nuts.pdf"
     },
     {
       "id": "bfn",
       "state": "read",
-      "fetched": "2026-11-14",
+      "fetched": "2026-11-15",
       "reason": null,
       "credit": "© Bundesamt für Naturschutz (BfN) (2026), Schutzgebiete in Deutschland; Nutzungsbestimmungen für die Bereitstellung von Geodaten des Bundes (GeoNutzV). Nicht für Planungszwecke geeignet."
     },
@@ -154,6 +154,39 @@
       "fetched": "2026-11-12",
       "reason": null,
       "credit": "© OpenStreetMap contributors, ODbL"
+    }
+  ],
+  "regional": [
+    {
+      "adapter": "badenwuerttemberg",
+      "water_protection": [],
+      "sources": [
+        {
+          "source": {
+            "key": "lubw",
+            "label": {
+              "en": "LUBW",
+              "de": "LUBW"
+            },
+            "what": {
+              "en": "water protection zones with the authority in charge",
+              "de": "Wasserschutzgebietszonen mit der zuständigen Behörde"
+            },
+            "credit": "Grundlage: Daten aus dem Umweltinformationssystem (UIS) der LUBW Landesanstalt für Umwelt Baden-Württemberg",
+            "note": "Die Geometrien der Zonen I werden aus Sicherheitserwägungen nicht im Internet veröffentlicht. WSG-Zonen werden nur mit zusammengefassten Zonen I und II zum Herunterladen bereitgestellt.",
+            "sections": [
+              "water-protection"
+            ]
+          },
+          "status": {
+            "id": "lubw",
+            "state": "read",
+            "fetched": "2026-11-15",
+            "reason": null,
+            "credit": "Grundlage: Daten aus dem Umweltinformationssystem (UIS) der LUBW Landesanstalt für Umwelt Baden-Württemberg"
+          }
+        }
+      ]
     }
   ]
 }

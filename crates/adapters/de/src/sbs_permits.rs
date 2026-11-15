@@ -110,6 +110,7 @@ fn function(feature: &Value) -> Option<FindingKind> {
             zone: text(feature, "KNM")
                 .and_then(|n| n.split_once(" Z ").map(|(_, zone)| zone_name(zone.trim()))),
             citation: None,
+            authority: None,
         }),
         _ => None,
     }
@@ -181,16 +182,19 @@ mod tests {
                     name: Some("Arnsdorf-Wasserwerk Karswald".into()),
                     zone: Some("Schutzzone III".into()),
                     citation: None,
+                    authority: None,
                 },
                 FindingKind::WaterProtection {
                     name: Some("Talsperre Eibenstock".into()),
                     zone: Some("Schutzzone II A".into()),
                     citation: None,
+                    authority: None,
                 },
                 FindingKind::WaterProtection {
                     name: Some("Speichersystem Radeburg (WW Rödern)".into()),
                     zone: Some("Schutzzone I".into()),
                     citation: None,
+                    authority: None,
                 },
             ]
         );

@@ -408,6 +408,9 @@ fn hint_text(lang: &Lang, notes: &PermitNotes, hint: &Hint) -> String {
     if hint.key == hint_key::WATER_PROTECTION && !has(&args, "name") {
         args.push(("name".into(), t(lang, "permits-osm-unnamed", &[])));
     }
+    if hint.key == hint_key::WATER_PROTECTION && !has(&args, "authority") {
+        args.push(("authority".into(), "none".into()));
+    }
     if hint.key == hint_key::FOREST_FUNCTION && !has(&args, "names") {
         args.push(("names".into(), "none".into()));
     }
@@ -691,6 +694,14 @@ fn water_line(lang: &Lang, s: &Share<WaterProtectionEntry>) -> String {
             "{name}, {}",
             t(lang, "permits-water-zone", &[("zone", arg(md(zone)))])
         );
+    }
+    if let Some(authority) = &w.authority {
+        let in_charge = t(
+            lang,
+            "permits-state-forest-office",
+            &[("office", arg(md(authority)))],
+        );
+        name = format!("{name} ({in_charge})");
     }
     format!(
         "- {}",
@@ -1859,6 +1870,47 @@ mod tests {
         assert!(!text.contains("{year}"), "{text}");
     }
 
+    /// The water authority a source names stands in the line and in the hint (ADR 0143).
+    #[test]
+    fn the_water_authority_is_named() {
+        use freemapper::permits::regional::WaterProtectionEntry;
+        let mut notes = viktoriapark();
+        notes.regional[0].water_protection = Some(vec![share(
+            WaterProtectionEntry {
+                name: Some("Ditzingen".into()),
+                zone: Some("Zone IIIB".into()),
+                citation: None,
+                authority: Some("Landratsamt Ludwigsburg".into()),
+            },
+            12.0,
+        )]);
+        notes.hints = vec![
+            hint(
+                hint_key::WATER_PROTECTION,
+                &[
+                    ("inner", "no"),
+                    ("name", "Ditzingen"),
+                    ("zone", "Zone IIIB"),
+                    ("authority", "Landratsamt Ludwigsburg"),
+                ],
+            ),
+            hint(hint_key::WATER_PROTECTION, &[("inner", "unknown")]),
+        ];
+        let text = render_markdown(&notes, &de());
+        for wanted in [
+            "- „Ditzingen“, Zone IIIB (zuständig: Landratsamt Ludwigsburg): 12 %",
+            "was die Verordnung erlaubt, sagt die untere Wasserbehörde (Landratsamt Ludwigsburg).",
+            "In den Zonen I und II sind Veranstaltungen meist ausgeschlossen; fragen Sie die untere Wasserbehörde.",
+        ] {
+            assert!(text.contains(wanted), "{wanted}\n{text}");
+        }
+        let english = render_markdown(&notes, &Lang::english());
+        assert!(
+            english.contains("(in charge: Landratsamt Ludwigsburg)"),
+            "{english}"
+        );
+    }
+
     /// Hamburg's offices, the water protection zones and the forest functions in words
     /// (ADR 0129).
     #[test]
@@ -1872,6 +1924,7 @@ mod tests {
                 name: Some("Baursberg".into()),
                 zone: Some("Schutzzone III".into()),
                 citation: None,
+                authority: None,
             },
             12.0,
         )]);

@@ -1025,8 +1025,10 @@ general hint for Berlin and Hamburg comes back.
 
 ### Water protection areas and forest functions
 
-Water protection areas with their zone come from Berlin, Brandenburg, Hamburg, Hesse, North Rhine-Westphalia,
-Saarland and Schleswig-Holstein, and from Saxony for the forest only. For Bavaria, Lower Saxony, Bremen,
+Water protection areas with their zone come from Baden-Württemberg, Berlin, Brandenburg, Hamburg, Hesse, North
+Rhine-Westphalia, Saarland and Schleswig-Holstein, and from Saxony for the forest only. In Baden-Württemberg each
+zone names the lower water authority in charge (a Landratsamt or a Stadt), and the hint names it too; zones I and
+II come joined there, as the LUBW does not publish zone I. For Bavaria, Lower Saxony, Bremen,
 Mecklenburg-Vorpommern, Rhineland-Palatinate, Saxony-Anhalt and Saxony come the drinking water and medicinal
 spring protection areas the states report to the Bundesanstalt für Gewässerkunde (BfG), without their zones and
 with the BfG's note that the data are not complete everywhere; in North Rhine-Westphalia also the planned ones, marked "(geplant)". Forest functions from
@@ -1099,9 +1101,8 @@ phone numbers. freemapper takes none of it: it keeps only the names of the offic
   points asked. The drinking water zones of the service lie in the forest only. `permits.json` marks such a source
   with `"sampled": true`.
 - Who owns a private or municipal forest is in no open data.
-- Water protection areas are missing only in Baden-Württemberg: its service names no licence, and the BfG has no
-  data from there. The BfG's areas have no zone; whether an event is possible, the lower water authority says.
-  Monuments come from Berlin, Hamburg and Saarland.
+- The notes name water protection areas in every state. The BfG's areas have no zone; whether an event is
+  possible, the lower water authority says. Monuments come from Berlin, Hamburg and Saarland.
 
 ### Data sources and licences
 
@@ -1113,6 +1114,7 @@ phone numbers. freemapper takes none of it: it keeps only the names of the offic
 | Geoportal Berlin: Bezirk borders, green spaces, Liegenschaftsplan, monuments, protected objects, forest administration (Berlin only) | `gdi.berlin.de` | `Für die Nutzung der Daten ist die Datenlizenz Deutschland - Zero - Version 2.0 anzuwenden. Die Lizenz ist über https://www.govdata.de/dl-de/zero-2-0 abrufbar.` |
 | Geoportal Hamburg: Bezirk borders, Grünplan, monuments, forest in Hamburg, forest functions, water protection areas (Hamburg only) | `geodienste.hamburg.de` | per service `Datenlizenz Deutschland Namensnennung 2.0, Quellenvermerk: Freie und Hansestadt Hamburg, <office>` with the office the service names |
 | Umweltportal Schleswig-Holstein: state forest with its Reviere, Naturwald, water protection areas (Schleswig-Holstein only) | `umweltgeodienste.schleswig-holstein.de` | `Quellenvermerk: LfU SH; Lizenz: Creative Commons Namensnennung 4.0 International (CC BY 4.0)` |
+| LUBW Landesanstalt für Umwelt Baden-Württemberg: water protection zones with the authority in charge (Baden-Württemberg only) | `rips-gdi.lubw.baden-wuerttemberg.de` | `Grundlage: Daten aus dem Umweltinformationssystem (UIS) der LUBW Landesanstalt für Umwelt Baden-Württemberg` (terms of use for data of the UIS) |
 | Bundesanstalt für Gewässerkunde (BfG), WasserBLIcK: drinking water and medicinal spring protection areas (Bavaria, Lower Saxony, Bremen, Mecklenburg-Vorpommern, Rhineland-Palatinate, Saxony-Anhalt and Saxony only) | `geoportal.bafg.de` | `© WasserBLIcK/BfG und Zuständige Behörden der Länder, <Jahr>; Lizenz: Creative Commons Namensnennung – 4.0 International (CC BY 4.0)` |
 | Staatsbetrieb Sachsenforst: Forstbezirke and Reviere, Erholungswald, Naturwaldzellen, Bodenschutzwald, drinking water protection zones in the forest (Saxony only) | `www.forsten.sachsen.de` | `Datenlizenz Deutschland 2.0 – Namensnennung (dl-de/by-2-0) unter Angabe der Quelle: "Geodaten Sachsenforst"` |
 | Geoportal Saarland: Reviere of the state forest, water protection areas, Naturwaldzellen, Urwald, listed buildings (Saarland only) | `geoportal.saarland.de` | `Quellenvermerk: © GDI-SL (<year>); Lizenz: Creative Commons Namensnennung 4.0 International (CC BY 4.0)` |

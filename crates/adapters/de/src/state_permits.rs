@@ -466,6 +466,7 @@ mod tests {
                 name: Some("Beelitzhof".into()),
                 zone: Some(zone.into()),
                 citation: Some("Wasserschutzgebietsverordnung Beelitzhof".into()),
+                authority: None,
             })
         );
     }
@@ -511,6 +512,8 @@ mod tests {
             // The BfG's protection areas (ADR 0142): Bad Harzburg, Nürnberg.
             (State::Niedersachsen, "bfg", [10.40, 51.85, 10.60, 51.95]),
             (State::Bayern, "bfg", [11.00, 49.40, 11.20, 49.50]),
+            // Stuttgart-Vaihingen and Ditzingen (ADR 0143).
+            (State::BadenWuerttemberg, "lubw", [9.00, 48.70, 9.30, 48.85]),
             // The shapefiles of ADR 0131: about 4 and 15 MB.
             (
                 State::Brandenburg,
@@ -600,6 +603,7 @@ mod tests {
                 name: Some("Rendsburg".into()),
                 zone: Some(zone.into()),
                 citation: None,
+                authority: None,
             })
         );
         for layer in &layers {

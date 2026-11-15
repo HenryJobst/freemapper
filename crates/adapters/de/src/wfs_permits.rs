@@ -256,7 +256,7 @@ pub(crate) fn text(feature: &Value, key: &str) -> Option<String> {
 
 /// A name written all in capitals ("HÜTTEN", "BAD SEGEBERG") as a name is written ("Hütten",
 /// "Bad Segeberg"); a name with small letters stays as it is.
-fn name_case(name: &str) -> String {
+pub(crate) fn name_case(name: &str) -> String {
     if name.chars().any(char::is_lowercase) {
         return name.to_string();
     }
@@ -305,6 +305,7 @@ pub(crate) fn finding(reading: Reading, feature: &Value) -> Option<PermitFinding
                     if planned { format!("{z} (geplant)") } else { z }
                 }),
                 citation: citation.and_then(|c| text(feature, c)),
+                authority: None,
             }
         }
         Reading::Function { kind, name } => FindingKind::ForestFunction {
@@ -428,6 +429,7 @@ mod tests {
                 name: Some("WSG Elm".into()),
                 zone: Some("Schutzzone III".into()),
                 citation: None,
+                authority: None,
             }
         );
         let monuments = table().findings("monuments", &layers[1]);

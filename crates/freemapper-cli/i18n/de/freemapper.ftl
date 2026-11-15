@@ -944,9 +944,18 @@ permits-forest-function-kind = { $kind ->
        *[closed] Gesperrte Waldfläche
     }
 permits-hint-water-protection = { $inner ->
-        [yes] Im Kartengebiet liegt die { $zone } des Wasserschutzgebiets „{ $name }“. In den Schutzzonen I und II sind Veranstaltungen meist ausgeschlossen. Fragen Sie die untere Wasserbehörde.
-        [no] Im Kartengebiet liegt die { $zone } des Wasserschutzgebiets „{ $name }“. Dort sind Veranstaltungen meist möglich; was die Verordnung erlaubt, sagt die untere Wasserbehörde.
-       *[unknown] Im Kartengebiet liegt das Wasserschutzgebiet „{ $name }“. Welche Schutzzone es ist, sagen die Daten nicht. In den Zonen I und II sind Veranstaltungen meist ausgeschlossen; fragen Sie die untere Wasserbehörde.
+        [yes] Im Kartengebiet liegt die { $zone } des Wasserschutzgebiets „{ $name }“. In den Schutzzonen I und II sind Veranstaltungen meist ausgeschlossen. Fragen Sie die untere Wasserbehörde{ $authority ->
+            [none] {""}
+           *[other] {" "}({ $authority })
+        }.
+        [no] Im Kartengebiet liegt die { $zone } des Wasserschutzgebiets „{ $name }“. Dort sind Veranstaltungen meist möglich; was die Verordnung erlaubt, sagt die untere Wasserbehörde{ $authority ->
+            [none] {""}
+           *[other] {" "}({ $authority })
+        }.
+       *[unknown] Im Kartengebiet liegt das Wasserschutzgebiet „{ $name }“. Welche Schutzzone es ist, sagen die Daten nicht. In den Zonen I und II sind Veranstaltungen meist ausgeschlossen; fragen Sie die untere Wasserbehörde{ $authority ->
+            [none] {""}
+           *[other] {" "}({ $authority })
+        }.
     }
 permits-hint-forest-function = { $kind ->
         [recreation] Im Kartengebiet liegt Erholungswald{ $names ->
