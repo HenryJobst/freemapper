@@ -179,6 +179,7 @@ fn mcp_lists_the_tools() {
         start["inputSchema"]["properties"]["ocad"].is_object()
             && start["inputSchema"]["properties"]["pdf"].is_object()
             && start["inputSchema"]["properties"]["pdf_candidates"].is_object()
+            && start["inputSchema"]["properties"]["training"].is_object()
             && start["inputSchema"]["properties"]["pdf_scale_bar"].is_object()
             && start["inputSchema"]["properties"]["pdf_sources"].is_object(),
         "{start}"
@@ -828,6 +829,44 @@ fn start_pipeline_with_permits_lists_the_file() {
     assert!(project.join("permits.md").is_file());
 }
 
+/// `start_pipeline` with `training` writes the training map and its PDF and lists both files.
+#[test]
+fn start_pipeline_with_training_lists_both_files() {
+    let dir = tempfile::tempdir().unwrap();
+    let (project, cache) = offline_school(dir.path());
+    let mut session = Session::start(&cache);
+    let (error, text) = session.call(
+        "start_pipeline",
+        json!({ "dir": project, "offline": true, "training": true }),
+    );
+    assert!(!error, "{text}");
+    let status = wait_for_job(&mut session, &started_job(&text));
+    assert_eq!(status["state"], "finished", "{status}");
+    let files = listed_files(&status);
+    assert_eq!(files[0], ("map".to_string(), "school.omap".to_string()));
+    let training: Vec<(&str, &str)> = files
+        .iter()
+        .filter(|(kind, _)| kind.starts_with("training"))
+        .map(|(kind, path)| (kind.as_str(), path.as_str()))
+        .collect();
+    assert_eq!(
+        training,
+        [
+            ("training-map", "school-training.omap"),
+            ("training-pdf", "school-training.pdf")
+        ],
+        "{status}"
+    );
+    assert!(
+        status["result"]
+            .as_str()
+            .unwrap()
+            .contains("(the training map: "),
+        "{status}"
+    );
+    assert!(project.join("school-training.pdf").is_file());
+}
+
 /// A failure of the notes in `start_pipeline` is a warning; the map is written and the job
 /// finishes.
 #[test]
@@ -857,7 +896,7 @@ fn start_pipeline_without_permit_data_still_finishes() {
     );
 }
 
-/// `open_area_selector` with `permits` makes the page start with the box ticked.
+/// `open_area_selector` with `permits` and `training` makes the page start with the boxes ticked.
 #[test]
 fn open_area_selector_passes_permits_to_the_page() {
     let cache = tempfile::tempdir().unwrap();
@@ -871,6 +910,7 @@ fn open_area_selector_passes_permits_to_the_page() {
         let mut arguments = json!({ "dir": dir.path().join(name), "open_browser": false });
         if let Some(permits) = permits {
             arguments["permits"] = json!(permits);
+            arguments["training"] = json!(permits);
         }
         let (error, text) = session.call("open_area_selector", arguments);
         assert!(!error, "{text}");
@@ -883,6 +923,11 @@ fn open_area_selector_passes_permits_to_the_page() {
             serde_json::from_str(&response.body_mut().read_to_string().unwrap()).unwrap();
         assert_eq!(
             state["run_defaults"]["permits"],
+            permits.unwrap_or(false),
+            "{state}"
+        );
+        assert_eq!(
+            state["run_defaults"]["training"],
             permits.unwrap_or(false),
             "{state}"
         );

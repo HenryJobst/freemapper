@@ -124,9 +124,14 @@ struct StartPipeline {
     /// Also write <name>.pdf, the map ready to print (the map objects only, no candidates).
     /// Default false.
     pdf: Option<bool>,
-    /// Also write <name>-candidates.pdf, the training map (the map plus every candidate drawn as
-    /// a map object; check them in the terrain). Default false.
+    /// Also write <name>-candidates.pdf, the check print: the map with every candidate, true to
+    /// position (check them in the terrain). Default false.
     pdf_candidates: Option<bool>,
+    /// Also write the training map <name>-training.omap and its PDF <name>-training.pdf: the map
+    /// and every candidate, cleaned up to be printed as they are; with ocad also
+    /// ocad/<name>-training.ocd. An existing training map is replaced only with force. Default
+    /// false.
+    training: Option<bool>,
     /// Draw the scale bar on the PDFs. Default false (German maps usually have none; the scale
     /// number stays in the title block).
     pdf_scale_bar: Option<bool>,
@@ -186,8 +191,10 @@ struct OpenAreaSelector {
     ocad: Option<bool>,
     /// The run panel starts with the printable PDF ticked. Default false.
     pdf: Option<bool>,
-    /// The run panel starts with the training PDF (every candidate) ticked. Default false.
+    /// The run panel starts with the check print (every candidate) ticked. Default false.
     pdf_candidates: Option<bool>,
+    /// The run panel starts with the training map ticked. Default false.
+    training: Option<bool>,
     /// The run panel starts with the scale bar on the PDFs ticked. Default false.
     pdf_scale_bar: Option<bool>,
     /// Source lines on the PDFs the panel starts with: "auto" (default), "full" or
@@ -620,6 +627,7 @@ impl FreemapperServer {
                 ocad: req.ocad,
                 pdf: req.pdf,
                 pdf_candidates: req.pdf_candidates,
+                training: req.training,
                 pdf_scale_bar: req.pdf_scale_bar,
                 pdf_sources: req.pdf_sources,
                 permits: req.permits,
@@ -796,6 +804,7 @@ impl FreemapperServer {
                 ocad: req.ocad,
                 pdf: req.pdf,
                 pdf_candidates: req.pdf_candidates,
+                training: req.training,
                 pdf_scale_bar: req.pdf_scale_bar,
                 pdf_sources: req.pdf_sources,
                 permits: req.permits,
