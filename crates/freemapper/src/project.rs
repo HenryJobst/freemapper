@@ -67,6 +67,7 @@ use freemapper_adapters_de::berlin;
 
 mod export;
 mod extras;
+pub use crate::build::training::TrainingReport;
 pub use export::*;
 
 pub const PROJECT_FILE_NAME: &str = freemapper_contract::tags::SIDECAR_FILE;
@@ -5673,8 +5674,247 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         );
     }
 
+    /// The sprint project with its ways, derived: it has templates and a walkable area.
+    fn derived_sprint(fetcher: &MapFetcher) -> (tempfile::TempDir, tempfile::TempDir) {
+        let (dir, cache_dir) = sprint_with_ways(fetcher);
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        derive_project(dir.path(), &cache, &mut |_| {}).unwrap();
+        (dir, cache_dir)
+    }
+
+    /// Whether the map file `map` holds an object of `code`.
+    fn omap_has_symbol(map: &str, set: &SymbolSet, code: &str) -> bool {
+        let id = set.id_for_code(code).unwrap();
+        map.contains(&format!(r#"symbol="{id}""#))
+    }
+
     #[test]
-    fn training_map_takes_all_but_the_outline() {
+    fn the_training_map_is_written_beside_the_map() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir) = derived_sprint(&fetcher);
+        let outcome = export_training(dir.path(), false, false, PdfSources::Auto, false).unwrap();
+        let stem = map_path(dir.path())
+            .file_stem()
+            .unwrap()
+            .to_string_lossy()
+            .into_owned();
+        assert_eq!(outcome.map, training_map_path(dir.path()));
+        assert_eq!(outcome.pdf, training_pdf_path(dir.path()));
+        assert_eq!(
+            outcome.map,
+            dir.path().join(format!("{stem}-training.omap"))
+        );
+        assert_eq!(outcome.pdf, dir.path().join(format!("{stem}-training.pdf")));
+        assert_eq!(outcome.ocad, None);
+        assert!(std::fs::read(&outcome.pdf).unwrap().starts_with(b"%PDF-"));
+        let map = std::fs::read_to_string(&outcome.map).unwrap();
+        let sidecar = std::fs::read_to_string(dir.path().join(PROJECT_FILE_NAME)).unwrap();
+        let violations = freemapper_contract::check(&map, &sidecar).unwrap();
+        assert!(violations.is_empty(), "{violations:#?}");
+        // The raster templates of the map, but no candidates template.
+        let templates = templates_of(&map);
+        assert!(
+            templates.contains(&ORTHOPHOTO_RELPATH.to_string()),
+            "{templates:?}"
+        );
+        assert!(!templates.contains(&CANDIDATES_RELPATH.to_string()));
+        assert!(!map.contains(r#"type="TemplateMap""#));
+        // Walkable area, the trained objects and the sheet, each once, in the map's order.
+        assert!(map.contains(r#"<parts count="3" current="1">"#));
+        let base = map.find(r#"<part name="base">"#).unwrap();
+        let default = map.find(r#"<part name="default part">"#).unwrap();
+        let sheet = map.find(r#"<part name="peripheral information">"#).unwrap();
+        assert!(base < default && default < sheet);
+        assert_eq!(map.matches(r#"<part name="base">"#).count(), 1);
+        assert_eq!(
+            map.matches(r#"<t k="freemapper:source">base</t>"#).count(),
+            1
+        );
+        // The sheet objects keep their source (ADR 0080).
+        assert!(map[sheet..].contains(r#"<t k="freemapper:source">sheet</t>"#));
+        // The map itself is not written by it.
+        assert!(!map_path(dir.path()).exists());
+    }
+
+    #[test]
+    fn the_training_map_takes_map_and_candidates() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir) = sprint_with_paving_and_fence(&fetcher);
+        let documents = starter_documents(dir.path()).unwrap();
+        let set = &documents.map.symbol_set;
+        let fence = set.id_for_code("518").unwrap();
+        let in_part = |parts: &[MapPart]| {
+            parts
+                .iter()
+                .flat_map(|p| &p.objects)
+                .any(|o| o.symbol_id == fence)
+        };
+        // With `safe` (the tests' default) the OSM fence is a candidate.
+        assert!(!in_part(&documents.map.parts));
+        assert!(in_part(&documents.candidates.parts));
+        let outcome = export_training_from(
+            dir.path(),
+            &documents,
+            false,
+            false,
+            PdfSources::Auto,
+            false,
+        )
+        .unwrap();
+        let map = std::fs::read_to_string(&outcome.map).unwrap();
+        assert!(omap_has_symbol(&map, set, "518"), "the candidate fence");
+        assert!(omap_has_symbol(&map, set, "521"), "the building of the map");
+    }
+
+    #[test]
+    fn an_existing_training_map_is_kept() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir) = derived_school(&fetcher);
+        let first = export_training(dir.path(), false, false, PdfSources::Auto, false).unwrap();
+        std::fs::write(&first.map, "my work").unwrap();
+        std::fs::write(&first.pdf, "old print").unwrap();
+        let error = export_training(dir.path(), false, false, PdfSources::Auto, false).unwrap_err();
+        assert!(
+            matches!(&error, ProjectError::MapExists(path) if *path == first.map),
+            "{error}"
+        );
+        assert_eq!(std::fs::read_to_string(&first.map).unwrap(), "my work");
+        assert_eq!(std::fs::read_to_string(&first.pdf).unwrap(), "old print");
+        let forced = export_training(dir.path(), true, false, PdfSources::Auto, false).unwrap();
+        assert_eq!(forced, first);
+        let backup = dir.path().join(format!(
+            "{}.bak",
+            first.map.file_name().unwrap().to_string_lossy()
+        ));
+        assert!(backup.to_string_lossy().ends_with("-training.omap.bak"));
+        assert_eq!(std::fs::read_to_string(&backup).unwrap(), "my work");
+        assert!(std::fs::read(&first.map).unwrap().starts_with(b"<?xml"));
+        assert!(std::fs::read(&first.pdf).unwrap().starts_with(b"%PDF-"));
+    }
+
+    #[test]
+    fn the_training_map_goes_to_ocad_on_request() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir) = derived_school(&fetcher);
+        let name = map_path(dir.path())
+            .file_stem()
+            .unwrap()
+            .to_string_lossy()
+            .into_owned();
+        let ocd = dir.path().join("ocad").join(format!("{name}-training.ocd"));
+        let without = export_training(dir.path(), false, false, PdfSources::Auto, false).unwrap();
+        assert_eq!(without.ocad, None);
+        assert!(!ocd.exists());
+        let with = export_training(dir.path(), true, false, PdfSources::Auto, true).unwrap();
+        assert_eq!(with.ocad.as_ref(), Some(&ocd));
+        let read = crate::ocd::read::read(&std::fs::read(&ocd).unwrap());
+        assert!(read.objects.iter().any(|o| o.symbol == 521_000), "building");
+        let backgrounds: Vec<&str> = read
+            .strings
+            .iter()
+            .filter(|s| s.kind == 8)
+            .map(|s| s.text.split('\t').next().unwrap())
+            .collect();
+        assert!(backgrounds.contains(&"orthophoto.jpg"), "{backgrounds:?}");
+        assert!(
+            !backgrounds.iter().any(|b| b.ends_with(".ocd")),
+            "no candidates: {backgrounds:?}"
+        );
+        assert!(dir.path().join("ocad/orthophoto.jpg").exists());
+        // An OCAD training map is kept as the OOM one: the check comes before anything is written.
+        std::fs::remove_file(&with.map).unwrap();
+        std::fs::write(&ocd, "my work").unwrap();
+        let error = export_training(dir.path(), false, false, PdfSources::Auto, true).unwrap_err();
+        assert!(
+            matches!(&error, ProjectError::MapExists(path) if *path == ocd),
+            "{error}"
+        );
+        assert!(!with.map.exists());
+        assert_eq!(std::fs::read_to_string(&ocd).unwrap(), "my work");
+        export_training(dir.path(), true, false, PdfSources::Auto, true).unwrap();
+        let backup = ocd.with_extension("ocd.bak");
+        assert_eq!(std::fs::read_to_string(&backup).unwrap(), "my work");
+        assert!(with.map.exists());
+    }
+
+    #[test]
+    fn the_candidates_pdf_is_the_map_level_again() {
+        use crate::derive::landforms::{Landform, LandformKind, landforms_to_geojson};
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, cache) = fetched_school(&fetcher);
+        let mut project = ProjectFile::load(dir.path()).unwrap();
+        project.map_kind = MapKind::Forest;
+        project.scale_denominator = 10000;
+        project.save(dir.path()).unwrap();
+        derive_project(dir.path(), &cache, &mut |_| {}).unwrap();
+        // A rock step of 4 m across the middle of the map area, and a cliff along it: on the map
+        // (3 m), not at the training level (5 m).
+        let terrain_path = [TERRAIN_RELPATH, TERRAIN_MOSAIC_RELPATH]
+            .into_iter()
+            .map(|relpath| dir.path().join(relpath))
+            .find(|path| path.exists())
+            .expect("a terrain");
+        let mut terrain = read_float_raster(&terrain_path).unwrap();
+        let georef = starter_documents(dir.path()).unwrap().map.georef;
+        let (e0, n0) = (georef.ref_projected.easting, georef.ref_projected.northing);
+        let grid = terrain.grid;
+        for (i, z) in terrain.data.iter_mut().enumerate() {
+            let row = (i / grid.width as usize) as f64;
+            let northing = grid.north - (row + 0.5) * grid.pixel_size;
+            *z = if northing > n0 { 104.0 } else { 100.0 };
+        }
+        freemapper_sources::float_tiff::write_float_raster(
+            &terrain,
+            dir.path(),
+            &terrain_path,
+            "test",
+        )
+        .unwrap();
+        std::fs::write(
+            dir.path().join(LANDFORMS_RELPATH),
+            landforms_to_geojson(&[Landform {
+                kind: LandformKind::Cliff,
+                points: vec![(e0 - 60.0, n0), (e0 + 60.0, n0)],
+                rotation_deg: 0.0,
+                height_m: 4.0,
+            }]),
+        )
+        .unwrap();
+        let documents = starter_documents(dir.path()).unwrap();
+        let set = &documents.map.symbol_set;
+        let cliff = set.id_for_code("201").unwrap();
+        let (drawn, _) = pdf_objects(&documents, true);
+        assert!(drawn.iter().any(|o| o.symbol_id == cliff), "the 4 m cliff");
+        // The training map generalizes the rock: the cliff goes there.
+        let training = export_training_from(
+            dir.path(),
+            &documents,
+            false,
+            false,
+            PdfSources::Auto,
+            false,
+        )
+        .unwrap();
+        let map = std::fs::read_to_string(&training.map).unwrap();
+        assert!(!omap_has_symbol(&map, set, "201"));
+        // The check print draws the map and every candidate as they are.
+        let written =
+            export_candidates_pdf_from(dir.path(), &documents, false, PdfSources::Auto).unwrap();
+        let expected = dir.path().join("expected.pdf");
+        draw_pdf(
+            dir.path(),
+            &documents,
+            &drawn,
+            false,
+            PdfSources::Auto,
+            &expected,
+        )
+        .unwrap();
+        assert!(std::fs::read(&written).unwrap() == std::fs::read(&expected).unwrap());
+    }
+
+    #[test]
+    fn candidates_pdf_takes_all_but_the_outline() {
         let fetcher = MapFetcher::default();
         let (dir, _cache_dir) = derived_school(&fetcher);
         let documents = starter_documents(dir.path()).unwrap();
@@ -12646,7 +12886,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             Some(base.objects[0].symbol_id),
             documents.map.symbol_set.id_for_code("990")
         );
-        // It is drawn in the training map.
+        // It is drawn in the check print.
         let (drawn, _) = pdf_objects(&documents, true);
         assert!(drawn.iter().any(|o| std::ptr::eq(*o, &base.objects[0])));
     }
@@ -12709,7 +12949,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             );
         }
         assert!(!part(SHEET_PART).objects.iter().any(is_north_line));
-        // The training map clips them to the content and paints them first within their colour,
+        // The check print clips them to the content and paints them first within their colour,
         // so walls and fences of the same black lie on top.
         let (map, sheet) = pdf_objects(&documents, true);
         let first_other = map.iter().position(|o| !is_north_line(o));
@@ -13493,7 +13733,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
                 assert!(!(421_560.1..421_589.9).contains(&e), "{e} in the lake");
             }
         }
-        // The training PDF paints the same candidates.
+        // The check print paints the same candidates.
         let (map, _) = pdf_objects(&documents, true);
         let painted = map
             .iter()

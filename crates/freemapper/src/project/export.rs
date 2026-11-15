@@ -10,6 +10,7 @@ use crate::build::buildings::object_footprints;
 use crate::build::contours::Contours;
 use crate::build::landforms::Landforms;
 use crate::build::ticks::read_terrain;
+use crate::build::training::train;
 use crate::build::vegetation::Vegetation;
 
 /// The stored ALKIS buildings, read once per export: parsed, and the raw features (the Berlin
@@ -389,17 +390,7 @@ pub fn export_ocad_from(
     let ocad_dir = dir.join(OCAD_DIR);
     check_folders(dir, &[OCAD_DIR])?;
     std::fs::create_dir_all(&ocad_dir).map_err(|e| ProjectError::Io(ocad_dir.clone(), e))?;
-    // OCAD finds background maps by the ASCII names in the parameter strings, so the files get
-    // the same ASCII names ("Straußberg" → "Straussberg").
-    let name = map_path(dir)
-        .file_stem()
-        .map(|s| {
-            crate::ocd::symbols::ascii(&s.to_string_lossy())
-                .trim()
-                .to_string()
-        })
-        .filter(|s| !s.is_empty())
-        .unwrap_or_else(|| "map".to_string());
+    let name = ocad_name(dir);
     let (mut backgrounds, warnings) = copy_backgrounds(dir, &ocad_dir, &documents.map.templates)?;
     let candidates_name = format!("{name}-candidates.ocd");
     backgrounds.push(Background::Map {
@@ -428,6 +419,21 @@ pub fn export_ocad_from(
         warnings,
         map_kind: project.map_kind,
     })
+}
+
+/// The name of the OCAD files of the project in `dir`: OCAD finds background maps by the ASCII
+/// names in the parameter strings, so the files get the same ASCII names ("Straußberg" →
+/// "Straussberg").
+fn ocad_name(dir: &Path) -> String {
+    map_path(dir)
+        .file_stem()
+        .map(|s| {
+            crate::ocd::symbols::ascii(&s.to_string_lossy())
+                .trim()
+                .to_string()
+        })
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| "map".to_string())
 }
 
 /// Copies the image `templates` with their world files into `ocad_dir` and returns them as
@@ -504,19 +510,25 @@ pub(super) fn pdf_objects(
         .parts
         .iter()
         .partition(|p| p.name == SHEET_PART);
-    let candidate_objects = documents
-        .candidates
-        .parts
-        .iter()
-        .flat_map(|p| p.objects.iter().skip(1))
-        .filter(|o| !o.tags.iter().any(|(k, _)| k == HIDDEN_KEY))
-        .take(if candidates { usize::MAX } else { 0 });
+    let candidate_objects =
+        visible_candidates(documents).take(if candidates { usize::MAX } else { 0 });
     let map = own
         .iter()
         .flat_map(|p| &p.objects)
         .chain(candidate_objects)
         .collect();
     (map, sheet.iter().flat_map(|p| &p.objects).collect())
+}
+
+/// The candidates a PDF or the training map draws: all but the map area outline (the first
+/// candidate) and the points hidden under a 520 candidate (`freemapper:hidden`).
+fn visible_candidates(documents: &StarterDocuments) -> impl Iterator<Item = &MapObject> {
+    documents
+        .candidates
+        .parts
+        .iter()
+        .flat_map(|p| p.objects.iter().skip(1))
+        .filter(|o| !o.tags.iter().any(|(k, _)| k == HIDDEN_KEY))
 }
 
 /// Writes `<name>.pdf`, the printable map: the map objects as in the OOM map (base fill
@@ -539,9 +551,10 @@ pub fn export_pdf_from(
     write_pdf_file(dir, documents, false, scale_bar, sources)
 }
 
-/// Writes `<name>-candidates.pdf`, the training map: the map objects and all candidates drawn
-/// with the project's symbol set (this deliberately goes beyond "only reliable data as map
-/// objects"), the peripheral information on the sheet.
+/// Writes `<name>-candidates.pdf`, the check print: the map objects and all candidates drawn
+/// as they are with the project's symbol set (this deliberately goes beyond "only reliable data
+/// as map objects"), the peripheral information on the sheet. The training map
+/// ([`export_training`]) is the generalized print of the same objects.
 pub fn export_candidates_pdf(
     dir: &Path,
     scale_bar: bool,
@@ -611,14 +624,163 @@ fn training_rock(
 
 /// The file `export_pdf` or `export_candidates_pdf` writes.
 pub fn pdf_path(dir: &Path, candidates: bool) -> PathBuf {
-    let map = map_path(dir);
-    if !candidates {
-        return map.with_extension("pdf");
+    if candidates {
+        beside_map(dir, "-candidates.pdf")
+    } else {
+        map_path(dir).with_extension("pdf")
     }
+}
+
+/// `<name>-training.omap`, the training map [`export_training`] writes.
+pub fn training_map_path(dir: &Path) -> PathBuf {
+    beside_map(dir, "-training.omap")
+}
+
+/// `<name>-training.pdf`, the print of the training map.
+pub fn training_pdf_path(dir: &Path) -> PathBuf {
+    beside_map(dir, "-training.pdf")
+}
+
+/// The file beside the map whose name is the map's followed by `suffix`.
+fn beside_map(dir: &Path, suffix: &str) -> PathBuf {
+    let map = map_path(dir);
     let stem = map
         .file_stem()
         .map_or_else(String::new, |s| s.to_string_lossy().into_owned());
-    map.with_file_name(format!("{stem}-candidates.pdf"))
+    map.with_file_name(format!("{stem}{suffix}"))
+}
+
+/// What [`export_training`] wrote.
+#[derive(Debug, Clone, PartialEq)]
+pub struct TrainingOutcome {
+    pub map: PathBuf,
+    pub pdf: PathBuf,
+    /// `ocad/<name>-training.ocd`, when OCAD output was asked for.
+    pub ocad: Option<PathBuf>,
+    /// What the training level did.
+    pub report: TrainingReport,
+}
+
+/// Writes the training map, its PDF and, with `ocad`, `ocad/<stem>-training.ocd`. An existing
+/// training map is kept unless `force` (then `<stem>-training.omap.bak`).
+///
+/// The training map is the map and every visible candidate generalized at the training level
+/// (`build/training`), a map of its own that is printed as it is. Its OCAD file is kept as the
+/// OOM one (backup `.ocd.bak`); both are checked before anything is written.
+pub fn export_training(
+    dir: &Path,
+    force: bool,
+    scale_bar: bool,
+    sources: PdfSources,
+    ocad: bool,
+) -> Result<TrainingOutcome, ProjectError> {
+    export_training_from(
+        dir,
+        &starter_documents(dir)?,
+        force,
+        scale_bar,
+        sources,
+        ocad,
+    )
+}
+
+/// [`export_training`] from `documents`, which [`starter_documents`] built for `dir`.
+pub fn export_training_from(
+    dir: &Path,
+    documents: &StarterDocuments,
+    force: bool,
+    scale_bar: bool,
+    sources: PdfSources,
+    ocad: bool,
+) -> Result<TrainingOutcome, ProjectError> {
+    let project = ProjectFile::load(dir)?;
+    let map_path = training_map_path(dir);
+    let ocad_path = ocad.then(|| {
+        dir.join(OCAD_DIR)
+            .join(format!("{}-training.ocd", ocad_name(dir)))
+    });
+    // Either file may hold the mapper's work.
+    if !force
+        && let Some(path) = std::iter::once(&map_path)
+            .chain(&ocad_path)
+            .find(|path| path.exists())
+    {
+        return Err(ProjectError::MapExists(path.clone()));
+    }
+    if ocad {
+        check_folders(dir, &[OCAD_DIR])?;
+    }
+    let kind = project.map_kind;
+    let (georef, symbol_set) = (&documents.map.georef, &documents.map.symbol_set);
+    // The map's own objects and the visible candidates; the walkable area and the sheet stay as
+    // they are.
+    let input: Vec<&MapObject> = documents
+        .map
+        .parts
+        .iter()
+        .filter(|p| p.name != BASE_PART && p.name != SHEET_PART)
+        .flat_map(|p| &p.objects)
+        .chain(visible_candidates(documents))
+        .collect();
+    // The rock of a forest or sprint map is generalized more than on the map (ADR 0126): the
+    // training map is printed as it is and must stay readable; the candidates keep every cliff.
+    let objects = if matches!(kind, MapKind::Forest | MapKind::Sprint) {
+        training_rock(dir, kind, &input, documents)
+    } else {
+        input.into_iter().cloned().collect()
+    };
+    let tree_cover = read_float_raster(&dir.join(TREE_COVER_RELPATH)).ok();
+    let (trained, report) = train(objects, tree_cover.as_ref(), kind, georef, symbol_set);
+    let part = |name: &'static str| documents.map.parts.iter().filter(move |p| p.name == name);
+    let mut parts: Vec<MapPart> = part(BASE_PART).cloned().collect();
+    parts.push(MapPart {
+        name: "default part".to_string(),
+        objects: trained,
+    });
+    parts.extend(part(SHEET_PART).cloned());
+    let training = MapDocument {
+        notes: documents.map.notes.clone(),
+        georef: georef.clone(),
+        symbol_set: symbol_set.clone(),
+        parts,
+        templates: documents
+            .map
+            .templates
+            .iter()
+            .filter(|t| t.kind != TemplateKind::Map)
+            .cloned()
+            .collect(),
+    };
+
+    if map_path.exists() {
+        back_up(dir, &map_path, &map_path.with_extension("omap.bak"))?;
+    }
+    write_document(dir, &training, &map_path)?;
+    let pdf = training_pdf_path(dir);
+    let drawn: Vec<&MapObject> = training
+        .parts
+        .iter()
+        .filter(|p| p.name != SHEET_PART)
+        .flat_map(|p| &p.objects)
+        .collect();
+    draw_pdf(dir, documents, &drawn, scale_bar, sources, &pdf)?;
+    if let Some(path) = &ocad_path {
+        let ocad_dir = dir.join(OCAD_DIR);
+        std::fs::create_dir_all(&ocad_dir).map_err(|e| ProjectError::Io(ocad_dir.clone(), e))?;
+        // The warnings of templates left out are those of the OCAD map, which names them.
+        let (backgrounds, _) = copy_backgrounds(dir, &ocad_dir, &training.templates)?;
+        let (bytes, _) = map_to_ocd(&training, kind, &backgrounds)?;
+        if path.exists() {
+            back_up(dir, path, &path.with_extension("ocd.bak"))?;
+        }
+        write_inside(dir, path, &bytes)?;
+    }
+    Ok(TrainingOutcome {
+        map: map_path,
+        pdf,
+        ocad: ocad_path,
+        report,
+    })
 }
 
 pub(super) fn write_pdf_file(
@@ -628,18 +790,25 @@ pub(super) fn write_pdf_file(
     scale_bar: bool,
     sources: PdfSources,
 ) -> Result<PathBuf, ProjectError> {
+    let (map, _) = pdf_objects(documents, candidates);
+    let path = pdf_path(dir, candidates);
+    draw_pdf(dir, documents, &map, scale_bar, sources, &path)?;
+    Ok(path)
+}
+
+/// Writes the PDF `path`: `map` clipped to the map area and the sheet of `documents`, its source
+/// block by `sources` and the scale bar only with `scale_bar`.
+pub(super) fn draw_pdf(
+    dir: &Path,
+    documents: &StarterDocuments,
+    map: &[&MapObject],
+    scale_bar: bool,
+    sources: PdfSources,
+    path: &Path,
+) -> Result<(), ProjectError> {
     use crate::render::{draw, pdf, symbols::RenderSymbols};
     let project = ProjectFile::load(dir)?;
     let symbols = RenderSymbols::from_set(&documents.map.symbol_set);
-    let (map, _) = pdf_objects(documents, candidates);
-    // The training map of a forest map generalizes its rock more than the map (ADR 0126): it is
-    // printed as it is and must stay readable; the candidates keep every cliff.
-    let trained = (candidates && matches!(project.map_kind, MapKind::Forest | MapKind::Sprint))
-        .then(|| training_rock(dir, project.map_kind, &map, documents));
-    let map: Vec<&MapObject> = match &trained {
-        Some(objects) => objects.iter().collect(),
-        None => map,
-    };
     // The sheet is built again: its source block follows `sources`, the OOM map keeps the full list.
     let info = PeripheralInfo {
         attribution: pdf_attribution(&documents.info.attribution, &documents.content, sources),
@@ -661,15 +830,14 @@ pub(super) fn write_pdf_file(
         &documents.map.georef,
     )?);
     let bytes = pdf::write_pdf(
-        &render(&map),
+        &render(map),
         &render(&sheet),
         clip,
         &symbols.colours,
         &project.display_title(dir),
     );
-    let path = pdf_path(dir, candidates);
-    write_inside(dir, &path, &bytes)?;
-    Ok(path)
+    write_inside(dir, path, &bytes)?;
+    Ok(())
 }
 
 /// The preview of the map: a lossless WebP of what the map PDF draws in the map area.
