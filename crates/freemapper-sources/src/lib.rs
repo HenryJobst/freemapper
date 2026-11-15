@@ -24,6 +24,7 @@ pub mod replay;
 pub mod shapefile;
 #[cfg(any(test, feature = "testing"))]
 pub mod testing;
+pub mod tiff_range;
 pub mod trees;
 pub mod vg250;
 pub mod wcs;

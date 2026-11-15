@@ -78,7 +78,7 @@ fn agency_items(agency: Agency, area: &EstimateArea, env: &EstimateEnv<'_>) -> V
         Agency::Lvgl => lvgl_items(bbox, cache),
         Agency::LglBw => lgl_bw_items(bbox, cache),
         Agency::GeoBremen => geobremen_items(bbox, cache),
-        Agency::Ldbv => ldbv_items(bbox, cache),
+        Agency::Ldbv => ldbv_items(bbox, &area.map_bbox, cache),
     }
 }
 
@@ -141,6 +141,11 @@ fn lvermgeo_items(bbox: &BoundingBox) -> Vec<EstimateItem> {
 /// The 1 km tiles of EPSG:25832 touched by `bbox` (EPSG:25833): what the per-area providers of
 /// zone 32 (LGV, HVBG) read, whole, out of their archives.
 pub fn zone_32_tiles(bbox: &BoundingBox) -> Vec<TileId> {
+    zone_32_bbox(bbox).map_or_else(Vec::new, |bbox| tiles_covering(&bbox))
+}
+
+/// `bbox` (EPSG:25833) in EPSG:25832: the box round its four corners.
+fn zone_32_bbox(bbox: &BoundingBox) -> Option<BoundingBox> {
     use crate::crs::{Crs, ProjectedPoint};
     let corners = [
         (bbox.min_e, bbox.min_n),
@@ -151,13 +156,11 @@ pub fn zone_32_tiles(bbox: &BoundingBox) -> Vec<TileId> {
     .map(|(easting, northing)| {
         Crs::Utm32.reproject(Crs::Utm33, ProjectedPoint { easting, northing })
     });
-    let Some(corners) = corners.into_iter().collect::<Option<Vec<_>>>() else {
-        return Vec::new();
-    };
+    let corners = corners.into_iter().collect::<Option<Vec<_>>>()?;
     let fold = |pick: fn(&ProjectedPoint) -> f64, init: f64, f: fn(f64, f64) -> f64| {
         corners.iter().map(pick).fold(init, f)
     };
-    tiles_covering(&BoundingBox {
+    Some(BoundingBox {
         min_e: fold(|p| p.easting, f64::INFINITY, f64::min),
         min_n: fold(|p| p.northing, f64::INFINITY, f64::min),
         max_e: fold(|p| p.easting, f64::NEG_INFINITY, f64::max),
@@ -266,18 +269,18 @@ fn geobremen_items(bbox: &BoundingBox, cache: &CacheDir) -> Vec<EstimateItem> {
     ]
 }
 
-/// Typical sizes of the files of the LDBV in MB: a DGM1 tile, a DOM20 tile of 20 cm, a LoD2
-/// tile of 2 km (3 MB in the country, 60 to 160 MB in a city centre) and the land use of a
-/// Kreis (2 to 13 MB).
+/// Typical sizes of the files of the LDBV in MB: a DGM1 tile, a block of 256 px of a DOM20 tile
+/// (45 MB a tile, 400 blocks; read by range, ADR 0141), a LoD2 tile of 2 km (3 MB in the
+/// country, 60 to 160 MB in a city centre) and the land use of a Kreis (2 to 13 MB).
 const LDBV_DGM1_TILE_MB: f64 = 2.8;
-const LDBV_DOM20_TILE_MB: f64 = 45.0;
+const LDBV_DOM20_BLOCK_MB: f64 = 45.0 / 400.0;
 const LDBV_LOD2_TILE_MB: f64 = 40.0;
 const LDBV_KREIS_MB: f64 = 8.0;
 
 /// LDBV: the WMS orthophoto, the height model tiles of the area, and the files of the
 /// cadastre, which Bavaria has instead of a service: the LoD2 tiles of the buildings and the
 /// land use of each Kreis near the area. What is cached already is left out.
-fn ldbv_items(bbox: &BoundingBox, cache: &CacheDir) -> Vec<EstimateItem> {
+fn ldbv_items(bbox: &BoundingBox, map_bbox: &BoundingBox, cache: &CacheDir) -> Vec<EstimateItem> {
     use crate::ldbv::Model;
     use crate::ldbv_alkis::{built_in_kreise, lod2_is_cached, tn_is_cached};
     let tiles: Vec<TileId> = zone_32_tiles(bbox)
@@ -325,8 +328,12 @@ fn ldbv_items(bbox: &BoundingBox, cache: &CacheDir) -> Vec<EstimateItem> {
         ),
         item(
             Model::Dom20.label(),
-            open_tiles(Model::Dom20),
-            LDBV_DOM20_TILE_MB,
+            // The blocks under the map box, as the fetch reads them (`project.bbox()`).
+            tiles
+                .iter()
+                .map(|t| crate::ldbv::dom20_blocks_to_read(cache, *t, map_bbox))
+                .sum(),
+            LDBV_DOM20_BLOCK_MB,
             Part::Surface,
         ),
         item(
@@ -815,6 +822,13 @@ mod tests {
             max_e: low.easting.max(high.easting),
             max_n: low.northing.max(high.northing),
         };
+        // The same area in the CRS of the map.
+        let map_box = BoundingBox {
+            min_e: 691_400.0,
+            min_n: 5_334_600.0,
+            max_e: 691_500.0,
+            max_n: 5_334_700.0,
+        };
         let dir = tempfile::tempdir().unwrap();
         let cache = CacheDir::new(dir.path().to_path_buf());
         let sizes = |items: &[EstimateItem]| -> Vec<(String, f64, bool, Part, Store)> {
@@ -831,32 +845,64 @@ mod tests {
                 })
                 .collect()
         };
-        let items = sizes(&ldbv_items(&bbox, &cache));
+        let items = sizes(&ldbv_items(&bbox, &map_box, &cache));
         assert_eq!(items[0].0, "orthophoto (LDBV WMS)");
         assert_eq!(items[0].3, Part::Orthophoto);
         let row = |what: &str, megabytes: f64, cached: bool, part: Part| {
             (what.to_string(), megabytes, cached, part, Store::Cache)
         };
+        // The DOM20 is read by its blocks of 51.2 m (ADR 0141): a few of the 400 of its tile.
+        let surface = items[2].clone();
         assert_eq!(
-            items[1..],
+            (surface.0.as_str(), surface.2, surface.3),
+            ("surface model (LDBV DOM20)", false, Part::Surface)
+        );
+        assert!(surface.1 > 0.0 && surface.1 < 3.0, "{surface:?}");
+        assert_eq!(
+            [&items[1..2], &items[3..]].concat(),
             [
                 row("terrain model (LDBV DGM1)", 2.8, false, Part::Terrain),
-                row("surface model (LDBV DOM20)", 45.0, false, Part::Surface),
                 row("buildings (LDBV LoD2)", 40.0, false, Part::MapData),
                 row("land use (LDBV)", 8.0, false, Part::MapData),
             ]
         );
+        // The blocks are those under the map box the fetch reads (EPSG:25832): 100 m in the
+        // north-west corner of the tile are 2 × 2 blocks.
+        let corner = BoundingBox {
+            min_e: 691_000.0,
+            min_n: 5_334_900.0,
+            max_e: 691_100.0,
+            max_n: 5_335_000.0,
+        };
+        let surface_of = |map: &BoundingBox| ldbv_items(&bbox, map, &cache)[2].megabytes;
+        assert!((surface_of(&corner) - 4.0 * 45.0 / 400.0).abs() < 1e-9);
         for (folder, file) in [
             ("dgm1", "691_5334-20260115.tif"),
             ("dom20", "691_5334-20260115.tif"),
             ("lod2", "690_5334-20261006.geojson"),
             ("tn", "tn_09162-20261015.zip"),
         ] {
-            let folder = dir.path().join("ldbv").join(folder);
-            std::fs::create_dir_all(&folder).unwrap();
-            std::fs::write(folder.join(file), b"kept").unwrap();
+            let folder_path = dir.path().join("ldbv").join(folder);
+            std::fs::create_dir_all(&folder_path).unwrap();
+            // A DOM20 copy is read for the blocks it holds: a whole copy, as cached before.
+            let kept = if folder == "dom20" {
+                let grid = crate::raster::GridSpec {
+                    west: 691_000.0,
+                    north: 5_335_000.0,
+                    pixel_size: 1.0,
+                    width: 1000,
+                    height: 1000,
+                };
+                crate::sources::float_tiff::encode_float_geotiff(&crate::raster::Raster::filled(
+                    grid, 500.0,
+                ))
+                .unwrap()
+            } else {
+                b"kept".to_vec()
+            };
+            std::fs::write(folder_path.join(file), kept).unwrap();
         }
-        let items = sizes(&ldbv_items(&bbox, &cache));
+        let items = sizes(&ldbv_items(&bbox, &map_box, &cache));
         assert_eq!(
             items[1..],
             [

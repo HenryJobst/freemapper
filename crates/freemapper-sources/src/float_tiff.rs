@@ -201,6 +201,32 @@ fn lenient_lzw_values<R: std::io::Read + std::io::Seek>(
     Ok(values)
 }
 
+/// One block of a tiled LZW Float32 TIFF (`width` × `height` px, as stored, padding included):
+/// `compressed` decoded, `predictor` undone, NoData as `NaN`. For reading single blocks by range
+/// (`tiff_range`).
+pub fn decode_lzw_block(
+    compressed: &[u8],
+    width: u32,
+    height: u32,
+    predictor: u16,
+    little: bool,
+) -> Result<Vec<f32>, String> {
+    let row_bytes = (width as usize)
+        .checked_mul(4)
+        .filter(|_| u64::from(width) * u64::from(height) <= MAX_PIXELS)
+        .ok_or_else(|| format!("LZW: a block of {width} x {height} px is too large"))?;
+    let mut bytes = lzw_decode(compressed, row_bytes * height as usize)?;
+    let mut values = Vec::with_capacity(width as usize * height as usize);
+    for row in bytes.chunks_exact_mut(row_bytes) {
+        values.extend(
+            predicted_row(row, predictor, little)?
+                .into_iter()
+                .map(|z| if z < NODATA_BELOW { f32::NAN } else { z }),
+        );
+    }
+    Ok(values)
+}
+
 /// The TIFF LZW data `input` (MSB first, 8 bit, early size switch) as exactly `expected` bytes,
 /// stopping at the end code, at `expected` bytes or at the end of `input`.
 fn lzw_decode(input: &[u8], expected: usize) -> Result<Vec<u8>, String> {
@@ -351,6 +377,16 @@ pub fn gdal_metadata_item(bytes: &[u8], name: &str) -> Option<String> {
 /// `raster` as an LZW Float32 GeoTIFF with ModelPixelScale and ModelTiepoint, which
 /// [`decode_float_tiff`] reads back (for caching; no world file).
 pub fn encode_float_geotiff(raster: &Raster<f32>) -> Result<Vec<u8>, String> {
+    encode_described_geotiff(raster, None)
+}
+
+/// [`encode_float_geotiff`] with `description` in the tag ImageDescription, which
+/// [`tiff_description`] reads back without the pixels: a cache keeps a note about the file in
+/// the file, so one rename writes both.
+pub fn encode_described_geotiff(
+    raster: &Raster<f32>,
+    description: Option<&str>,
+) -> Result<Vec<u8>, String> {
     use tiff::tags::Tag;
     let grid = raster.grid;
     let mut tiff = std::io::Cursor::new(Vec::new());
@@ -374,13 +410,89 @@ pub fn encode_float_geotiff(raster: &Raster<f32>) -> Result<Vec<u8>, String> {
             &[0.0, 0.0, 0.0, grid.west, grid.north, 0.0][..],
         )
         .map_err(|e| e.to_string())?;
+    if let Some(description) = description {
+        image
+            .encoder()
+            .write_tag(Tag::ImageDescription, description)
+            .map_err(|e| e.to_string())?;
+    }
     image.write_data(&raster.data).map_err(|e| e.to_string())?;
     Ok(tiff.into_inner())
+}
+
+/// The ImageDescription of the TIFF file at `path`, read without its pixels: `Ok(None)` when it
+/// has none, an error when the file is no TIFF.
+pub fn tiff_description(path: &Path) -> Result<Option<String>, String> {
+    let file = std::fs::File::open(path).map_err(|e| e.to_string())?;
+    let mut decoder =
+        tiff::decoder::Decoder::new(std::io::BufReader::new(file)).map_err(|e| e.to_string())?;
+    decoder
+        .get_tag_ascii_string(tiff::tags::Tag::ImageDescription)
+        .map(Some)
+        .or_else(|e| match e {
+            tiff::TiffError::FormatError(tiff::TiffFormatError::RequiredTagNotFound(_)) => Ok(None),
+            e => Err(e.to_string()),
+        })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A grid of `width` × `height` px of 20 cm with its north-west corner at (655 000, 5 480 000).
+    fn grid_of(width: u32, height: u32) -> GridSpec {
+        GridSpec {
+            west: 655_000.0,
+            north: 5_480_000.0,
+            pixel_size: 0.2,
+            width,
+            height,
+        }
+    }
+
+    /// Heights that differ in every pixel, with a NoData pixel.
+    fn varied(grid: &GridSpec) -> Vec<f32> {
+        let mut values: Vec<f32> = (0..grid.width * grid.height)
+            .map(|i| 300.0 + (i % 97) as f32 * 0.37 + (i / grid.width) as f32 * 0.01)
+            .collect();
+        values[5] = -9999.0;
+        values
+    }
+
+    #[test]
+    fn a_block_decodes_like_the_whole_image() {
+        use tiff::tags::Tag;
+        for predictor in [1, 3] {
+            let grid = grid_of(40, 24);
+            let values = varied(&grid);
+            let bytes = crate::testing::tiled_float_tiff(&grid, &values, 16, predictor, None);
+            let whole = decode_float_tiff(&bytes).unwrap();
+            let mut decoder = tiff::decoder::Decoder::new(std::io::Cursor::new(&bytes)).unwrap();
+            let offsets = decoder.get_tag_u64_vec(Tag::TileOffsets).unwrap();
+            let counts = decoder.get_tag_u64_vec(Tag::TileByteCounts).unwrap();
+            assert_eq!(offsets.len(), 3 * 2);
+            for (i, (&offset, &count)) in offsets.iter().zip(&counts).enumerate() {
+                let chunk = &bytes[offset as usize..(offset + count) as usize];
+                let block = decode_lzw_block(chunk, 16, 16, predictor, true).unwrap();
+                assert_eq!(block.len(), 16 * 16);
+                let (bx, by) = (i as u32 % 3, i as u32 / 3);
+                for y in 0..16 {
+                    for x in 0..16 {
+                        let (px, py) = (bx * 16 + x, by * 16 + y);
+                        if px >= grid.width || py >= grid.height {
+                            continue;
+                        }
+                        let (a, b) = (block[(y * 16 + x) as usize], whole.get(px, py));
+                        assert!(
+                            a == b || (a.is_nan() && b.is_nan()),
+                            "predictor {predictor}, block {i}, px ({px}, {py}): {a} != {b}"
+                        );
+                    }
+                }
+            }
+            assert!(whole.get(5, 0).is_nan(), "NoData");
+        }
+    }
 
     #[test]
     fn require_stored_needs_a_covering_model() {

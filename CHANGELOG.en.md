@@ -14,6 +14,7 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ### Changed
 
+- Bavaria: the surface model (DOM20) is read by range, block by block (ADR 0141). freemapper reads only the blocks of 51 m that the map area needs instead of whole tiles of 32 to 56 MB, and a later map in the same tile reads only the blocks it lacks. On the Schmausenbuck that is 92 MB instead of about 212 MB, with the same surface model cell for cell. Copies cached before stay valid.
 - Vegetation from laser point clouds (ADR 0138): the green shades 406, 408 and 410 now follow how much stands in the layer a runner moves through, the laser returns between 0.8 and 3 m among all returns below 3 m (from 20 %, 35 % and 50 %). Before, an index also counted the crowns, and tall forest without undergrowth scored almost as high as a thicket, because every flight the states publish is made without leaves. Measured on the Schmausenbuck against the canopy height of the summer pictures, 71 % of the thickets come out green (29 % before) and 7 % of the tall forest (11 % before). Parks and towns get more green areas (Sanssouci 205 instead of 54); forest maps change less, because their smallest area is larger. Pole stands with a clear stem space stay runnable forest. Existing maps get this with `run --force`. The nine examples with vegetation are rebuilt.
 
 ### Fixed

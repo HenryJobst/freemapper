@@ -14,6 +14,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Geändert
 
+- Bayern: Das Oberflächenmodell (DOM20) wird stückweise gelesen, Block für Block (ADR 0141). freemapper liest nur die 51-m-Blöcke, die das Kartengebiet braucht, statt ganzer Kacheln von 32 bis 56 MB, und eine spätere Karte in derselben Kachel liest nur die Blöcke, die noch fehlen. Am Schmausenbuck sind das 92 MB statt etwa 212 MB, bei Zelle für Zelle gleichem Oberflächenmodell. Früher zwischengespeicherte Kacheln bleiben gültig.
 - Vegetation aus Laserpunktwolken (ADR 0138): Die Grünabstufungen 406, 408 und 410 folgen jetzt dem, was in der Schicht steht, durch die man läuft: dem Anteil der Laserpunkte zwischen 0,8 und 3 m an allen Punkten unter 3 m (ab 20 %, 35 % und 50 %). Vorher zählte ein Index auch die Kronen mit, und Hochwald ohne Unterwuchs erreichte fast den Wert eines Dickichts, denn alle Befliegungen der Bundesländer finden ohne Laub statt. Am Schmausenbuck, gemessen an der Kronenhöhe aus den Sommer-Luftbildern, erscheinen 71 % der Dickichte grün (vorher 29 %) und 7 % des Hochwalds (vorher 11 %). Parks und Städte bekommen mehr grüne Flächen (Sanssouci 205 statt 54); Waldkarten ändern sich weniger, weil ihre Mindestfläche größer ist. Stangenholz mit freiem Stammraum bleibt gut belaufbarer Wald. Bestehende Karten bekommen das mit `run --force`. Die neun Beispiele mit Vegetation sind neu gebaut.
 
 ### Behoben
