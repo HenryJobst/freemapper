@@ -50,13 +50,19 @@ const SHIFTED: &str = "shifted: gap to ";
 /// line, without ramps, when they cover more than [`WHOLE_SHARE`] of it. A ramp that would
 /// reach an open end moves the end with the stretch. The side is away from the winner's nearest
 /// point (into it from inside its footprint). No shift beyond [`MAX_SHIFT_MM`], and a stretch of
-/// a line moves once: a later shift whose moving part overlaps an earlier one is not made.
+/// a line moves once: a later shift whose moving part overlaps an earlier one is not made. On a
+/// closed line a stretch in conflict across its seam is one stretch.
 ///
 /// A shift is kept only when the moved line has no conflict (of either relation, points and
 /// contours among the others) that it did not have before, none of a worse grade, and none with
 /// the winner; else the line stays as it was for give way. The direction of the line is kept, so
 /// a sided line (fence, wall, earth bank) keeps its tick side. The rounds measure again and stop
 /// when no line moves, at the latest after [`MAX_ROUNDS`]. Returns how many objects moved.
+///
+/// A shifted line is drawn again from its flattened centre line: Bézier and dash flags of its
+/// points are dropped, the closing flag is kept. An end that moved with its stretch and touched a
+/// line before may be pulled back to that junction by `Junctions::repair` afterwards; what that
+/// leaves too close, give way settles.
 pub(super) fn shift_lines(
     objects: &mut [MapObject],
     kind: MapKind,
@@ -176,6 +182,8 @@ impl Shifter {
         }
         set[0] = &line;
         let after = Footprints::with(&set, &self.symbols, &self.classes);
+        // A conflict with the winner counts in either role: of two lines of one rank and one
+        // length the roles can swap after the shift, and such a pair falls to give way.
         let worse = conflicts_of(&after, 0, self.kind, self.scale_denominator)
             .iter()
             .any(|c| {
@@ -291,6 +299,16 @@ impl Shifter {
                 _ => groups.push((from, to)),
             }
         }
+        // On a closed line a stretch at its start and one at its end meet across the seam: one
+        // stretch that runs on over it (`shifted` takes a range beyond the length).
+        if closed && groups.len() > 1 {
+            let (first, last) = (groups[0], groups[groups.len() - 1]);
+            if total - last.1 + first.0 < 2.0 * ramp {
+                groups.remove(0);
+                let end = groups.len() - 1;
+                groups[end] = (last.0, total + first.1);
+            }
+        }
         let stretches: Vec<Stretch> = groups
             .into_iter()
             .map(|range| {
@@ -302,13 +320,13 @@ impl Shifter {
             .collect::<Option<_>>()?;
         let covered: f64 = stretches.iter().map(|s| s.range.1 - s.range.0).sum();
         let one_side = stretches.windows(2).all(|w| w[0].side == w[1].side);
-        let overlaps = |lo: f64, hi: f64| {
-            moved
+        let overlaps = |ranges: &[(f64, f64)], lo: f64, hi: f64| {
+            ranges
                 .iter()
                 .any(|&(a, b)| lo < b - TOLERANCE_MM && hi > a + TOLERANCE_MM)
         };
         if covered > WHOLE_SHARE * total && one_side {
-            if overlaps(0.0, total) {
+            if overlaps(moved, 0.0, total) {
                 return None;
             }
             let side = stretches[0].side;
@@ -331,20 +349,29 @@ impl Shifter {
                 }
             }
             let before = line.length();
-            let (lo, hi) = ((from - ramp).max(0.0), (to + ramp).min(before));
-            if overlaps(lo, hi) {
+            let parts = moving_parts(from - ramp, to + ramp, before, closed);
+            // Against what moved in earlier rounds and in this call.
+            if parts.iter().any(|&(lo, hi)| overlaps(&ranges, lo, hi)) {
                 return None;
             }
             let points = shifted(&line, (from, to), shift, stretch.side, ramp, STEP_MM);
             line = Polyline::new(points.into_iter().map(|(x, y)| Coord { x, y }).collect());
             let delta = line.length() - before;
+            let hi = parts.iter().map(|p| p.1).fold(0.0, f64::max);
             for range in &mut ranges {
                 if range.0 >= hi - TOLERANCE_MM {
                     range.0 += delta;
                     range.1 += delta;
                 }
             }
-            ranges.push((lo, hi + delta));
+            for (lo, hi) in parts {
+                let end = if hi >= before - TOLERANCE_MM {
+                    hi + delta
+                } else {
+                    hi
+                };
+                ranges.push((lo, end));
+            }
         }
         ranges.sort_by(|a, b| a.0.total_cmp(&b.0).then(a.1.total_cmp(&b.1)));
         Some((line.points, ranges))
@@ -356,7 +383,11 @@ impl Shifter {
 /// turned round when the middle lies inside the winner's footprint (it leaves it the shortest
 /// way). `None` when the winner lies straight ahead or nothing of it is near.
 fn side(line: &Polyline, winner: &Boundary, range: (f64, f64)) -> Option<f64> {
-    let middle = (range.0 + range.1) / 2.0;
+    let mut middle = (range.0 + range.1) / 2.0;
+    if middle > line.length() {
+        // A stretch across the seam of a closed line.
+        middle -= line.length();
+    }
     let p = line.point(middle);
     let i = line
         .at
@@ -416,6 +447,25 @@ impl<'a> Boundary<'a> {
         let d = d2.sqrt();
         Some((if inside { -d } else { d }, q, inside))
     }
+}
+
+/// The parts of a line of length `total` that move from `lo` to `hi` along it: clipped to the
+/// line when it is open; on a closed line what runs on over the seam is a part of its own at the
+/// other end.
+fn moving_parts(lo: f64, hi: f64, total: f64, closed: bool) -> Vec<(f64, f64)> {
+    if !closed || hi - lo >= total {
+        return vec![(lo.max(0.0), hi.min(total))];
+    }
+    let mut parts = vec![(lo.max(0.0), hi.min(total))];
+    if lo < 0.0 {
+        parts.push((total + lo, total));
+    }
+    if hi > total {
+        parts.push((0.0, hi - total));
+    }
+    parts.retain(|p| p.1 > p.0);
+    parts.sort_by(|a, b| a.0.total_cmp(&b.0).then(a.1.total_cmp(&b.1)));
+    parts
 }
 
 /// The other object of a conflict of the object 0.
@@ -490,7 +540,7 @@ fn with_points(object: &MapObject, points: &[Coord<f64>]) -> MapObject {
 mod tests {
     use super::*;
     use crate::build::line_join::TOUCH_M;
-    use crate::build::training::tests::{SCALE, georef_at, isom, length_mm, line, of_code};
+    use crate::build::training::tests::{SCALE, georef_at, isom, length_mm, line, of_code, point};
     use crate::build::training::{GENERALIZED_KEY, TrainingReport, train};
     use crate::measure::PaperMm;
 
@@ -734,5 +784,126 @@ mod tests {
         assert!(report.junctions_repaired >= 1, "{report:?}");
         assert_eq!(report.junctions_free, 0, "{report:?}");
         assert_eq!(apart_left(&set, &out), Vec::new(), "{out:?}");
+    }
+
+    #[test]
+    fn a_shift_that_would_bring_a_fence_near_a_point_is_refused() {
+        // The fence's ticks point to the path (to the right of its direction, -x); on its far
+        // side a point symbol just beyond the gap: moved off the path, the fence would come too
+        // close to it, so it is cut as before.
+        let set = isom();
+        let gap = gap(MapKind::Forest, SCALE).0;
+        let marker = point(&set, "418", (0.0, 0.0));
+        let frame = Footprints::of(&[&marker], &set)
+            .footprint(0)
+            .bounding_rect()
+            .unwrap();
+        let radius = frame.max().y;
+        let path = line(&set, "505", &[(-5.0, 0.0), (12.0, 0.0)]);
+        let fence = line(&set, "518", &[(20.0, 0.45), (0.0, 0.45)]);
+        let beyond = 0.45 + half_width(&set, "518") + gap + radius + 0.01;
+        let marker = point(&set, "418", (6.0, beyond));
+        assert_eq!(
+            apart_left(&set, &[fence.clone(), marker.clone()]),
+            Vec::new(),
+            "the point keeps the gap at first"
+        );
+        let (out, report) = run(&set, vec![path.clone(), fence, marker.clone()]);
+        let fences = of_code(&set, &out, "518");
+        assert_eq!(fences.len(), 1, "{out:?}");
+        assert!(fences[0].coords.iter().all(|c| c.y == 450), "{out:?}");
+        assert!((length_mm(fences[0]) - 7.6).abs() < 0.5, "{out:?}");
+        assert_eq!((report.shifted, report.cut), (0, 1), "{report:?}");
+        assert_eq!(of_code(&set, &out, "418"), vec![&marker]);
+        assert_eq!(of_code(&set, &out, "505"), vec![&path]);
+    }
+
+    #[test]
+    fn a_shift_that_would_make_a_joined_conflict_is_refused() {
+        // A ditch beside a path, a second ditch just beyond its gap on the far side: moved off
+        // the path, the first ditch would run too close to the second, which it joins (a new
+        // conflict of the network of the water), so it gives way as before.
+        let set = isom();
+        let gap = gap(MapKind::Forest, SCALE).0;
+        let (h505, h306) = (half_width(&set, "505"), half_width(&set, "306"));
+        let y = h505 + h306 + 0.1;
+        let beyond = y + 2.0 * h306 + gap + 0.01;
+        let path = line(&set, "505", &[(-5.0, 0.0), (25.0, 0.0)]);
+        let ditch = line(&set, "306", &[(0.0, y), (20.0, y)]);
+        let other = line(&set, "306", &[(0.0, beyond), (20.0, beyond)]);
+        let refs = [&ditch, &other];
+        assert_eq!(
+            conflicts(&Footprints::of(&refs, &set), MapKind::Forest, SCALE),
+            Vec::new(),
+            "the ditches keep the gap at first"
+        );
+        let (out, report) = run(&set, vec![path.clone(), ditch, other.clone()]);
+        assert_eq!(out, vec![path, other]);
+        assert_eq!((report.shifted, report.gave_way), (0, 1), "{report:?}");
+    }
+
+    #[test]
+    fn a_shift_across_the_seam_of_a_closed_fence_keeps_the_bound() {
+        // A closed fence round a yard whose first point lies in the middle of the side along a
+        // path: the stretch across the seam moves once, by the shift, and what moved is
+        // recorded on both sides of the seam, so it does not move again.
+        let set = isom();
+        let symbols = RenderSymbols::from_set(&set);
+        let classes = Classes::of(&set);
+        let gap = gap(MapKind::Forest, SCALE).0;
+        let path = line(&set, "505", &[(-5.0, 0.0), (25.0, 0.0)]);
+        let corners = [
+            (10.0, 0.3),
+            (20.0, 0.3),
+            (20.0, 10.0),
+            (0.0, 10.0),
+            (0.0, 0.3),
+            (10.0, 0.3),
+        ];
+        let mut fence = line(&set, "518", &corners);
+        let end = fence.coords.len() - 1;
+        fence.coords[end].flags |= FLAG_CLOSE;
+        let objects = vec![path.clone(), fence.clone()];
+        let frames: Vec<Option<Rect<f64>>> = objects.iter().map(frame).collect();
+        let shifter = Shifter {
+            symbols,
+            classes,
+            kind: MapKind::Forest,
+            scale_denominator: SCALE,
+            gap,
+        };
+        let (moved, ranges) = shifter
+            .shift(&objects, &frames, 1, 0, &[])
+            .expect("the fence moves off the path");
+        let missing = half_width(&set, "505") + half_width(&set, "518") + gap - 0.3;
+        let seam = mm(&moved.coords[0]);
+        assert!((seam.0 - 10.0).abs() < 1e-3, "{seam:?}");
+        assert!(
+            (seam.1 - (0.3 + missing)).abs() < 0.005,
+            "{seam:?}: once, by {missing}"
+        );
+        let original = Polyline::new(corners.iter().map(|&(x, y)| Coord { x, y }).collect());
+        for c in &moved.coords {
+            let (x, y) = mm(c);
+            let p = Coord { x, y };
+            let off = distance2(p, original.point(original.locate(p))).sqrt();
+            assert!(off <= MAX_SHIFT_MM.0 + TOLERANCE_MM, "{p:?} moved {off}");
+        }
+        assert!(moved.coords[moved.coords.len() - 1].flags & FLAG_CLOSE != 0);
+        assert_eq!(
+            mm(&moved.coords[0]),
+            mm(&moved.coords[moved.coords.len() - 1])
+        );
+        assert_eq!(
+            apart_left(&set, &[path, moved.clone()]),
+            Vec::new(),
+            "{moved:?}"
+        );
+        let total = original.length();
+        assert!(
+            ranges.iter().any(|r| r.0 <= TOLERANCE_MM) && ranges.iter().any(|r| r.1 >= total - 0.1),
+            "{ranges:?} of {total}"
+        );
+        assert_eq!(shifter.shift(&objects, &frames, 1, 0, &ranges), None);
     }
 }

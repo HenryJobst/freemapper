@@ -1037,15 +1037,15 @@ mod tests {
 
     #[test]
     fn an_earth_bank_on_a_stream_goes() {
-        // Too deep in the stream to move off it by 0.5 mm.
+        // On the stream's centre: 0.585 mm to move off it, more than the 0.5 mm a shift may.
         let set = isom();
-        let ditch = line(&set, "304", &[(0.0, 0.0), (20.0, 0.0)]);
+        let stream = line(&set, "304", &[(0.0, 0.0), (20.0, 0.0)]);
         let objects = vec![
-            ditch.clone(),
-            line(&set, "104", &[(0.0, 0.05), (20.0, 0.05)]),
+            stream.clone(),
+            line(&set, "104", &[(0.0, 0.0), (20.0, 0.0)]),
         ];
         let (out, report) = run(&set, objects);
-        assert_eq!(out, vec![ditch]);
+        assert_eq!(out, vec![stream]);
         assert_eq!(report.gave_way, 1, "{report:?}");
         assert_eq!((report.overlap_left, report.gap_left), (0.0, 0.0));
     }
@@ -1237,20 +1237,20 @@ mod tests {
     }
 
     #[test]
-    fn a_contour_on_a_bank_on_a_ditch_stays() {
+    fn a_contour_on_a_bank_on_a_stream_stays() {
         // The bank gives way to the stream first (both too deep in the other to move off); with
         // the bank gone the contour is free (a contour may lie on a stream), so it must not go
         // against the bank in the same round.
         let set = isom();
-        let ditch = line(&set, "304", &[(0.0, 0.0), (20.0, 0.0)]);
+        let stream = line(&set, "304", &[(0.0, 0.0), (20.0, 0.0)]);
         let contour = line(&set, "101", &[(0.0, 0.1), (20.0, 0.1)]);
         let objects = vec![
-            ditch.clone(),
-            line(&set, "104", &[(0.0, 0.05), (20.0, 0.05)]),
+            stream.clone(),
+            line(&set, "104", &[(0.0, 0.0), (20.0, 0.0)]),
             contour.clone(),
         ];
         let (out, report) = run(&set, objects);
-        assert_eq!(out, vec![ditch, contour]);
+        assert_eq!(out, vec![stream, contour]);
         assert_eq!(report.gave_way, 1, "{report:?}");
     }
 
