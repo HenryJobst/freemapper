@@ -16,7 +16,6 @@ use crate::sources::osm::{OsmFeature, OsmGeometry, OsmPolygon, Tags};
 
 const EMBEDDED_RULES: &str = include_str!("../../../../assets/rules/osm-candidates.toml");
 const STATE_RULES: &str = include_str!("../../../../assets/rules/state-candidates.toml");
-const BERLIN_RULES: &str = include_str!("../../../../assets/rules/berlin-candidates.toml");
 /// Line pieces shorter than this on paper are left over from clipping at the buffer edge.
 pub(crate) const MIN_LINE_MM: PaperMm = PaperMm(1.0);
 
@@ -171,9 +170,11 @@ impl Rules {
         Self::from_toml(EMBEDDED_RULES).expect("embedded candidate rules are valid")
     }
 
-    /// The Geoportal Berlin rules (`assets/rules/berlin-candidates.toml`): `berlin:*` tags only.
+    /// The Geoportal Berlin rules, which Berlin's set brings (ADR 0149): `berlin:*` tags only.
     pub fn berlin() -> Self {
-        Self::from_toml(BERLIN_RULES).expect("embedded Berlin rules are valid")
+        let rules = crate::build::sets::drawing_of_source("geoportal-berlin/")
+            .map_or("", |drawing| drawing.rules);
+        Self::from_toml(rules).expect("Berlin's rules are valid")
     }
 
     /// The ALKIS vereinfacht rules (`assets/rules/state-candidates.toml`): `alkis:*` tags only.

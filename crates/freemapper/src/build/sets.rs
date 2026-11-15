@@ -297,4 +297,12 @@ mod tests {
             [("berlin:layer", "bauwerke-flaechen")]
         );
     }
+
+    /// Berlin's set brings its rules; the engine draws Berlin's layers through them (ADR 0149).
+    #[test]
+    fn berlin_brings_its_rules() {
+        let berlin = drawing_of_source("geoportal-berlin/bauwerke-linien").unwrap();
+        assert!(berlin.rules.contains("berlin:layer=bauwerke-linien"));
+        assert!(Rules::from_toml(berlin.rules).is_ok());
+    }
 }

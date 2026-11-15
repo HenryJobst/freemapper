@@ -461,7 +461,7 @@ const POINT_DEDUPS: [PointDedup; 13] = [
 /// The data of Berlin's set the engine reads; the engine still draws the set by its own code
 /// (`generic: false`) until it moves onto the sets (ADR 0149).
 static DRAWING: SetDrawing = SetDrawing {
-    rules: "",
+    rules: include_str!("../rules/berlin.toml"),
     tag_prefix: "berlin",
     source_prefix: "geoportal-berlin",
     // The ALKIS structure layers, relief and hedges are the cadastre.
