@@ -407,7 +407,7 @@ Then open the `.omap` file in the project folder with OpenOrienteering Mapper.
 
 ## Licence and attribution
 
-GPL-3.0-or-later, see [LICENSE](LICENSE). Generated maps carry the required attribution of the data
+AGPL-3.0-or-later, see [LICENSE](LICENSE). The OpenOrienteering Mapper symbol sets keep their own licence, GPL-3.0 (see `assets/symbol-sets/README.md`). Generated maps carry the required attribution of the data
 sources, e.g. `© GeoBasis-DE/LGB <year>, dl-de/by-2-0, Daten geändert` and
 `© OpenStreetMap contributors, ODbL`. In Berlin the LGB line reads, as LGB requires,
 `© GeoBasis-DE/LGB <year>, dl-de/by-2-0; © Geoportal Berlin, dl-de/zero-2-0, Daten geändert`; when
