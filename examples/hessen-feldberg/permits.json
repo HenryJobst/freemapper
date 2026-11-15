@@ -92,6 +92,19 @@
   ],
   "hints": [
     {
+      "key": "permits-hint-nature-object-lower-authority",
+      "args": {
+        "kreis": "Hochtaunuskreis",
+        "kreisfrei": "no"
+      }
+    },
+    {
+      "key": "permits-hint-biotope",
+      "args": {
+        "names": "Zwergstrauch-Heiden, Schlagfluren und Vorwald"
+      }
+    },
+    {
       "key": "permits-hint-monument-lower-authority",
       "args": {
         "gemeinde": "Oberursel (Taunus)",
@@ -194,6 +207,24 @@
         ],
         "links_left": 0
       },
+      "protected_objects": [
+        {
+          "kind": "biotope",
+          "name": "Zwergstrauch-Heiden",
+          "citation": null,
+          "count": 1,
+          "percent": 0.1,
+          "at_edge": true
+        },
+        {
+          "kind": "biotope",
+          "name": "Schlagfluren und Vorwald",
+          "citation": null,
+          "count": 1,
+          "percent": 0.0,
+          "at_edge": true
+        }
+      ],
       "water_protection": [
         {
           "item": {
@@ -279,6 +310,34 @@
             "fetched": "2026-11-15",
             "reason": null,
             "credit": "Datenlizenz Deutschland – Namensnennung – Version 2.0 (dl-de/by-2-0); Quellenvermerk: Landesamt für Denkmalpflege Hessen (LfDH)"
+          }
+        },
+        {
+          "source": {
+            "key": "biotope",
+            "label": {
+              "en": "HLNUG",
+              "de": "HLNUG"
+            },
+            "what": {
+              "en": "protected biotopes of the Hessian biotope mapping",
+              "de": "geschützte Biotope der Hessischen Biotopkartierung"
+            },
+            "credit": "Lizenz: Creative Commons BY 4.0 (https://creativecommons.org/licenses/by/4.0/deed.de). Quellenvermerk für Daten: „Darstellung auf der Grundlage von Daten des Hessischen Landesamtes für Naturschutz, Umwelt und Geologie (HLNUG)“.",
+            "gaps": {
+              "en": "the mapping is of 1992 to 2006; newer biotopes are missing",
+              "de": "Die Kartierung stammt aus den Jahren 1992 bis 2006; neuere Biotope fehlen"
+            },
+            "sections": [
+              "protected-objects"
+            ]
+          },
+          "status": {
+            "id": "biotope",
+            "state": "read",
+            "fetched": "2026-11-15",
+            "reason": null,
+            "credit": "Lizenz: Creative Commons BY 4.0 (https://creativecommons.org/licenses/by/4.0/deed.de). Quellenvermerk für Daten: „Darstellung auf der Grundlage von Daten des Hessischen Landesamtes für Naturschutz, Umwelt und Geologie (HLNUG)“."
           }
         }
       ]

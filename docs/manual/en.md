@@ -1127,6 +1127,33 @@ of about 300 m, as the service says. Lower Saxony, Bavaria, Mecklenburg-Vorpomme
 Saxony-Anhalt are still missing: their licence is unclear or forbids adaptations, or there is no service for the
 whole state.
 
+### Natural monuments and protected biotopes
+
+Naturdenkmale, geschützte Landschaftsbestandteile and legally protected biotopes (§§ 28 to 30 BNatSchG) are not in the
+BfN's data. The notes name them from the services of the states:
+
+| State | Naturdenkmale | Landschaftsbestandteile | Protected biotopes |
+|---|---|---|---|
+| Berlin | yes | yes | yes, the certainly protected ones |
+| Brandenburg | yes, as of 2017 | yes, as of 2017 | yes |
+| Hamburg | yes | – | yes |
+| Saarland | yes | – | yes |
+| Saxony | areas only | – | yes |
+| Saxony-Anhalt | yes, without single trees | yes | – |
+| Lower Saxony | yes | yes | – |
+| Rhineland-Palatinate | yes | yes | – |
+| Bavaria | yes | yes | – |
+| Baden-Württemberg | yes | – | – |
+| Hesse | – | – | yes, mapping of 1992 to 2006 |
+| North Rhine-Westphalia | – | – | yes, without the type |
+
+The section "Natural monuments and other protected objects" names trees with their species and areas with their
+share; biotopes of one type are one line. When protected biotopes lie in the area, a hint says that whatever can
+destroy them or harm them considerably is forbidden: controls and legs belong outside them, or the lower nature
+authority is asked. For natural monuments and protected biotopes a hint names the lower nature authority, outside
+Berlin and Hamburg with the Kreis from VG250. Where the data have gaps, they stand below the part of the state. In
+Baden-Württemberg the LUBW allows commercial use of its biotopes only on request, so they are left out. Mecklenburg-Vorpommern and Schleswig-Holstein follow. The data of Rhineland-Palatinate are under the Open Database License (ODbL), as OpenStreetMap's are.
+
 ### Water protection areas and forest functions
 
 Water protection areas with their zone come from Baden-Württemberg, Berlin, Brandenburg, Hamburg, Hesse, North
@@ -1310,6 +1337,29 @@ about 30 walls and stairs; OpenStreetMap lines and trees they double go. Lower S
 most 10 000 objects per request. In the Hüttener Berge it adds 48 earth walls (105), a watercourse and 4
 tracks; the banks the terrain model finds along those walls go. In Lübeck it adds
 a watercourse.
+
+**Mecklenburg-Vorpommern: full ALKIS and landscape model.** The LAiV M-V serves both (CC BY 4.0), each with at
+most 10 000 objects per request. The full ALKIS records many stairs: in the old town of Wismar 630 go onto the map,
+most of them short steps in front of house doors, along with 138 walls and 2 bridges; OpenStreetMap walls they
+double go. The landscape model adds 6 trees, 2 watercourses and a structure there as candidates, in the Granitz 5
+paths.
+
+**Rhineland-Palatinate: landscape model.** The LVermGeo RP serves no full ALKIS, but its landscape model
+(dl-de/by-2-0), in the Shape schema of the AdV instead of NAS. freemapper reads it and treats it as in the other
+states: its objects stay candidates. In Cochem it adds 19 monuments and wayside crosses, 2 watercourses and a
+well, near Dahn a rock, 3 watercourses and, on the forest map, 6 tracks and paths.
+
+**Hamburg: street tree cadastre.** Hamburg serves its street trees with genus, species and crown diameter
+(dl-de/by-2-0). freemapper fetches them like the Potsdam trees; on sprint and schoolyard maps they become single
+trees, a crown of 10 m or more as a 417, the others as a 418. In Blankenese 13 street trees go onto the map and 4 to the
+candidates; the OpenStreetMap trees at the same places go. The cadastre has no survey date, so the fetch date is
+its currency. Trees in parks and in the port are not in it.
+
+**Lübeck: tree cadastre.** The Hansestadt Lübeck publishes its tree cadastre as one CSV file of the whole city
+(CC0, 8 MB). freemapper downloads it whole on every fetch and keeps the trees of the map area; empty planting
+spots (`Fehlplatz`) go. It has neither a crown diameter nor a survey date, so every tree is a 418 and the fetch
+date is its currency. In the old town 384 trees go onto the map and 43 to the candidates, mostly lindens and
+maples in rows along the streets; the OpenStreetMap trees at the same places go (78 to 25).
 
 In Bavaria the cadastre has no service. There freemapper asks the landscape model of the agency instead, the
 ATKIS Basis-DLM (CC BY 4.0). It is made for the scale 1:25 000 and accurate to about 3 m. freemapper takes cave

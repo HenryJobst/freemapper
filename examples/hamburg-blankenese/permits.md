@@ -4,7 +4,7 @@ Hinweis, keine Rechtsauskunft. Maßgeblich sind die zuständigen Behörden. Date
 
 Das BfN führt die Daten der Bundesländer einmal im Jahr zusammen und weist sie als nicht für Planungszwecke geeignet aus. Maßgeblich sind die Landesbehörden.
 
-Erstellt am 2026-11-14 für das Kartengebiet einer Sprintkarte (48,1 ha).
+Erstellt am 2026-11-15 für das Kartengebiet einer Sprintkarte (48,1 ha).
 
 ## Verwaltung
 
@@ -34,11 +34,15 @@ Im Kartengebiet liegt kein öffentlicher Spielplatz.
 
 ## Denkmale (Geoportal Hamburg)
 
-Denkmale ganz oder zum Teil im Kartengebiet: 87. Die Links führen zu ihren Einträgen in der Denkmalliste.
+Denkmale ganz oder zum Teil im Kartengebiet: 87.
 
 - Baudenkmal: 64
 - Ensemble: 22
 - Gartendenkmal: 1
+
+## Naturdenkmale und andere Schutzobjekte (Geoportal Hamburg)
+
+- Geschütztes Biotop „§ 30 (2) 1.1 Natürliche oder naturnahe Fließgewässer“, 6 %
 
 ## Forstverwaltung (Geoportal Hamburg)
 
@@ -86,20 +90,23 @@ Laut OpenStreetMap verläuft keine Autobahn und keine Bundes-, Landes-, Staats- 
 ## Hinweise
 
 - Schutzgebiete betreffen die untere Naturschutzbehörde. Hier ist das die Stadt Hamburg selbst.
+- Im Kartengebiet liegen gesetzlich geschützte Biotope (§ 30 (2) 1.1 Natürliche oder naturnahe Fließgewässer). Was sie zerstören oder erheblich beeinträchtigen kann, ist verboten (§ 30 BNatSchG). Legen Sie Posten und Bahnen außerhalb, oder fragen Sie die untere Naturschutzbehörde.
 - Ein FFH-Gebiet oder ein Vogelschutzgebiet (Natura 2000) berührt das Kartengebiet. Für eine Veranstaltung kann die Naturschutzbehörde eine Prüfung der Verträglichkeit verlangen.
 - Für eine Veranstaltung im Wald brauchen Sie die Zustimmung der Waldbesitzer. In mehreren Bundesländern ist eine organisierte Veranstaltung im Wald außerdem der Forstbehörde anzuzeigen oder von ihr zu genehmigen. Welche Forstdienststelle hier zuständig ist, bestimmen diese Hinweise nicht; Auskunft gibt die Forstverwaltung des Bundeslandes oder die untere Forstbehörde.
 - Für Straßen, Plätze und Grünanlagen im Bezirk Altona ist meist das Bezirksamt Altona zuständig, dort das Fachamt Management des öffentlichen Raumes.
 - Für die Denkmale im Kartengebiet ist das Denkmalschutzamt Hamburg zuständig.
+- Für Naturdenkmale und geschützte Landschaftsbestandteile im Bezirk Altona ist meist das Bezirksamt Altona zuständig.
 - Eigentümer dieser Flächen sind aus offenen Daten nicht bestimmbar. Bei berechtigtem Interesse (z. B. Veranstalter) kann beim Grundbuchamt ein Grundbuchauszug beantragt werden; für öffentliche Flächen hilft das zuständige Ordnungs- oder Grünflächenamt.
 
 ## Quellen und Datenstand
 
 | Quelle | Stand | Quellenvermerk und Lizenz |
 |---|---|---|
-| VG250 (BKG): Verwaltungsgebiete 1:250 000 (VG250) des BKG | gelesen, abgerufen am 2026-11-14 | © BKG (2026) dl-de/by-2-0, Datenquellen: https://sg.geodatenzentrum.de/web_public/gdz/datenquellen/datenquellen_vg_nuts.pdf |
-| BfN: Schutzgebiete in Deutschland des BfN | gelesen, abgerufen am 2026-11-14 | © Bundesamt für Naturschutz (BfN) (2026), Schutzgebiete in Deutschland; Nutzungsbestimmungen für die Bereitstellung von Geodaten des Bundes (GeoNutzV). Nicht für Planungszwecke geeignet. |
+| VG250 (BKG): Verwaltungsgebiete 1:250 000 (VG250) des BKG | gelesen, abgerufen am 2026-11-15 | © BKG (2026) dl-de/by-2-0, Datenquellen: https://sg.geodatenzentrum.de/web_public/gdz/datenquellen/datenquellen_vg_nuts.pdf |
+| BfN: Schutzgebiete in Deutschland des BfN | gelesen, abgerufen am 2026-11-15 | © Bundesamt für Naturschutz (BfN) (2026), Schutzgebiete in Deutschland; Nutzungsbestimmungen für die Bereitstellung von Geodaten des Bundes (GeoNutzV). Nicht für Planungszwecke geeignet. |
 | OpenStreetMap: OpenStreetMap, aus dem Auszug, den freemapper im Zwischenspeicher hält | gelesen, OSM-Auszug vom 2026-11-06 | © OpenStreetMap contributors, ODbL |
-| Geoportal Hamburg: Bezirksgrenzen | gelesen, abgerufen am 2026-11-14 | Datenlizenz Deutschland Namensnennung 2.0, Quellenvermerk: Freie und Hansestadt Hamburg, Landesbetrieb Geoinformation und Vermessung |
-| Geoportal Hamburg: Verzeichnis der öffentlichen Grünanlagen (Grünplan), Wasserschutzgebiete | gelesen, abgerufen am 2026-11-14 | Datenlizenz Deutschland Namensnennung 2.0, Quellenvermerk: Freie und Hansestadt Hamburg, Behörde für Umwelt und Energie |
-| Geoportal Hamburg: Denkmale (Denkmalschutz) | gelesen, abgerufen am 2026-11-14 | Datenlizenz Deutschland Namensnennung 2.0, Quellenvermerk: Freie und Hansestadt Hamburg, zuständige Behörde |
-| Geoportal Hamburg: Wald in Hamburg (Revierförstereien und Bannwald), Waldfunktionen (Erholungswald) | gelesen, abgerufen am 2026-11-14 | Datenlizenz Deutschland Namensnennung 2.0, Quellenvermerk: Freie und Hansestadt Hamburg, Behörde für Umwelt, Klima, Energie und Agrarwirtschaft (BUKEA) |
+| Geoportal Hamburg: Bezirksgrenzen | gelesen, abgerufen am 2026-11-15 | Datenlizenz Deutschland Namensnennung 2.0, Quellenvermerk: Freie und Hansestadt Hamburg, Landesbetrieb Geoinformation und Vermessung |
+| Geoportal Hamburg: Verzeichnis der öffentlichen Grünanlagen (Grünplan), Wasserschutzgebiete, Naturdenkmale | gelesen, abgerufen am 2026-11-15 | Datenlizenz Deutschland Namensnennung 2.0, Quellenvermerk: Freie und Hansestadt Hamburg, Behörde für Umwelt und Energie |
+| Geoportal Hamburg: Denkmale (Denkmalschutz) | gelesen, abgerufen am 2026-11-15 | Datenlizenz Deutschland Namensnennung 2.0, Quellenvermerk: Freie und Hansestadt Hamburg, zuständige Behörde |
+| Geoportal Hamburg: Wald in Hamburg (Revierförstereien und Bannwald), Waldfunktionen (Erholungswald) | gelesen, abgerufen am 2026-11-15 | Datenlizenz Deutschland Namensnennung 2.0, Quellenvermerk: Freie und Hansestadt Hamburg, Behörde für Umwelt, Klima, Energie und Agrarwirtschaft (BUKEA) |
+| Geoportal Hamburg: geschützte Biotope des Biotopkatasters | gelesen, abgerufen am 2026-11-15 | Datenlizenz Deutschland Namensnennung 2.0, Quellenvermerk: Freie und Hansestadt Hamburg, Behörde für Umwelt, Klima, Energie und Agrarwirtschaft |

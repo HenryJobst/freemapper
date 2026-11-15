@@ -4,13 +4,13 @@ format = 1
 [adapter]
 id = "hamburg"
 provider = "lgv"
-revision = 1
+revision = 2
 min_freemapper = "0.13.0"
 crs = 25832
 object_id_prefix = "DEHH"
 names = { en = "Hamburg", de = "Hamburg" }
 maintainers = ["github:HenryJobst"]
-last_verified = "2026-11-12"
+last_verified = "2026-11-15"
 
 [net]
 hosts = ["api.hamburg.de", "geodienste.hamburg.de", "www.daten-hamburg.de", "archiv.transparenz.hamburg.de"]
@@ -49,6 +49,19 @@ backend = "lgv"
 
 [surface]
 backend = "lgv"
+
+[[extra.trees]]
+id = "hamburg-strassenbaeume"
+name = "Hamburg street tree cadastre"
+crs = 25832
+envelope = [548000, 5916000, 589000, 5955000]
+format = "ogc-api"
+endpoints = [
+    "https://api.hamburg.de/datasets/v1/strassenbaumkataster/collections/strassenbaumkataster_hh/items",
+]
+fields = { kind = "gattung_deutsch", id = "baumid", species = "art_deutsch", crown = "kronendurchmesser" }
+attribution = "Freie und Hansestadt Hamburg, Behörde für Umwelt, Klima, Energie und Agrarwirtschaft, dl-de/by-2-0"
+max_bytes = 268435456
 
 [preview]
 wms = "https://geodienste.hamburg.de/wms_dop_zeitreihe_unbelaubt"

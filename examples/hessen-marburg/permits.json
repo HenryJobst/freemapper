@@ -200,6 +200,7 @@
         ],
         "links_left": 439
       },
+      "protected_objects": [],
       "water_protection": [],
       "sources": [
         {
@@ -248,6 +249,34 @@
             "fetched": "2026-11-15",
             "reason": null,
             "credit": "Datenlizenz Deutschland – Namensnennung – Version 2.0 (dl-de/by-2-0); Quellenvermerk: Landesamt für Denkmalpflege Hessen (LfDH)"
+          }
+        },
+        {
+          "source": {
+            "key": "biotope",
+            "label": {
+              "en": "HLNUG",
+              "de": "HLNUG"
+            },
+            "what": {
+              "en": "protected biotopes of the Hessian biotope mapping",
+              "de": "geschützte Biotope der Hessischen Biotopkartierung"
+            },
+            "credit": "Lizenz: Creative Commons BY 4.0 (https://creativecommons.org/licenses/by/4.0/deed.de). Quellenvermerk für Daten: „Darstellung auf der Grundlage von Daten des Hessischen Landesamtes für Naturschutz, Umwelt und Geologie (HLNUG)“.",
+            "gaps": {
+              "en": "the mapping is of 1992 to 2006; newer biotopes are missing",
+              "de": "Die Kartierung stammt aus den Jahren 1992 bis 2006; neuere Biotope fehlen"
+            },
+            "sections": [
+              "protected-objects"
+            ]
+          },
+          "status": {
+            "id": "biotope",
+            "state": "read",
+            "fetched": "2026-11-15",
+            "reason": null,
+            "credit": "Lizenz: Creative Commons BY 4.0 (https://creativecommons.org/licenses/by/4.0/deed.de). Quellenvermerk für Daten: „Darstellung auf der Grundlage von Daten des Hessischen Landesamtes für Naturschutz, Umwelt und Geologie (HLNUG)“."
           }
         }
       ]

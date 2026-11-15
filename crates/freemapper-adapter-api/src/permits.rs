@@ -234,6 +234,9 @@ pub enum ProtectedObjectKind {
     NaturalMonument,
     /// A geschützter Landschaftsbestandteil (§ 29 BNatSchG).
     ProtectedLandscapePart,
+    /// A gesetzlich geschütztes Biotop (§ 30 BNatSchG or the state's law); its name is the type
+    /// of biotope (ADR 0146).
+    Biotope,
     /// An area with special rules inside a protected area.
     SpecialRules,
 }
@@ -278,7 +281,9 @@ impl ProtectedObjectKind {
     pub fn needs_nature_authority(self) -> bool {
         matches!(
             self,
-            ProtectedObjectKind::NaturalMonument | ProtectedObjectKind::ProtectedLandscapePart
+            ProtectedObjectKind::NaturalMonument
+                | ProtectedObjectKind::ProtectedLandscapePart
+                | ProtectedObjectKind::Biotope
         )
     }
 }

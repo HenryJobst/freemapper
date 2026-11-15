@@ -1,7 +1,7 @@
 //! A checked manifest: what the tables of format 1 say, in types the builders can use.
 
 use chrono::NaiveDate;
-use freemapper_adapter_api::extras::NasModel;
+use freemapper_adapter_api::extras::{NasModel, NasSchema, TreeFormat};
 use freemapper_georef::crs::Crs;
 
 /// An adapter manifest of format 1 that passed the validator.
@@ -314,6 +314,8 @@ pub struct Nas {
     pub namespaces: Option<String>,
     /// `alkis` (the default) or `basis-dlm`.
     pub model: NasModel,
+    /// `nas` (the default) or `shape`, for a service of the landscape model only.
+    pub schema: NasSchema,
 }
 
 /// One `[[extra.trees]]`: the tree cadastre of a city.
@@ -324,8 +326,8 @@ pub struct Trees {
     pub crs: Crs,
     /// The extent of the data in `crs`: `[min_e, min_n, max_e, max_n]`.
     pub envelope: [f64; 4],
-    /// The field with the position (format `ods-geojson-export`).
-    pub geo_field: String,
+    /// How the dataset is read, with the fields of the position its format needs.
+    pub format: TreeFormat,
     pub endpoints: Vec<String>,
     pub fields: TreeFields,
     pub skipped_kinds: Vec<String>,
@@ -338,7 +340,7 @@ pub struct Trees {
 pub struct TreeFields {
     pub kind: String,
     pub id: String,
-    pub date: String,
+    pub date: Option<String>,
     pub species: Option<String>,
     pub crown: Option<String>,
 }

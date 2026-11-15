@@ -11,15 +11,15 @@ use freemapper_adapters_de::states::alkis::{
 };
 use freemapper_adapters_de::states::{State, StateAdapter, StateFiles};
 use freemapper_adapters_de::{
-    bfg_permits, geobremen, ldbv, ldbv_las, lgl_bw, lgv, lubw_permits, lvgl, states,
+    bfg_permits, geobremen, ldbv, ldbv_las, lgl_bw, lgv, lubw_permits, lvgl, natur_permits, states,
 };
 use freemapper_georef::crs::{BoundingBox, Crs};
 use freemapper_manifest::adapter::{ManifestAdapter, Parse};
 use freemapper_manifest::model::Alkis;
 use freemapper_manifest::{Manifest, adapter, alkis, extras, parse};
 use freemapper_sources::alkis_source::{Normaliser, OgcApiAlkis};
-use freemapper_sources::nas::{LGB_NAS, NasModel};
-use freemapper_sources::trees::POTSDAM;
+use freemapper_sources::nas::{LGB_NAS, NasModel, NasSchema};
+use freemapper_sources::trees::{POTSDAM, TreeFormat};
 use freemapper_sources::wfs::{self, WfsService};
 
 fn manifest(id: &str) -> Manifest {
@@ -135,6 +135,9 @@ fn potsdam_tree_dataset_from_manifest_equals_the_constant() {
                 | State::SchleswigHolstein
                 | State::NordrheinWestfalen
                 | State::Niedersachsen
+                | State::MecklenburgVorpommern
+                | State::RheinlandPfalz
+                | State::Hamburg
         ) {
             let manifest = manifest(state.id());
             assert!(
@@ -277,6 +280,125 @@ fn nrw_and_lower_saxony_ask_their_full_alkis() {
     }
 }
 
+/// Lübeck's tree cadastre is one CSV file of the whole city (ADR 0065, checked live on
+/// 2026-11-15): empty planting spots are left out.
+#[test]
+fn schleswig_holstein_names_the_tree_cadastre_of_luebeck() {
+    let sh = manifest("schleswigholstein");
+    let region = "schleswigholstein".parse().unwrap();
+    let trees: Vec<_> = sh
+        .trees
+        .iter()
+        .map(|trees| extras::tree_dataset(trees, &region))
+        .collect();
+    assert_eq!(trees.len(), 1);
+    let luebeck = &trees[0];
+    assert_eq!(luebeck.id, "luebeck");
+    assert_eq!(
+        luebeck.format,
+        TreeFormat::Csv {
+            x_field: Cow::Borrowed("RECHTSWERT"),
+            y_field: Cow::Borrowed("HOCHWERT"),
+            separator: ';',
+        }
+    );
+    assert_eq!(luebeck.crs, Crs::Utm32);
+    assert_eq!(luebeck.skipped_kinds.as_ref(), ["Fehlplatz"]);
+    assert_eq!(
+        (luebeck.fields.date.clone(), luebeck.fields.crown.clone()),
+        (None, None)
+    );
+}
+
+/// Hamburg's street trees are an OGC API collection with the crown diameter and no survey date
+/// (ADR 0065, checked live on 2026-11-15 over Blankenese).
+#[test]
+fn hamburg_names_its_street_tree_cadastre() {
+    let hamburg = manifest("hamburg");
+    let region = "hamburg".parse().unwrap();
+    assert!(hamburg.nas.is_empty());
+    let trees: Vec<_> = hamburg
+        .trees
+        .iter()
+        .map(|trees| extras::tree_dataset(trees, &region))
+        .collect();
+    assert_eq!(trees.len(), 1);
+    let streets = &trees[0];
+    assert_eq!(streets.id, "hamburg-strassenbaeume");
+    assert_eq!(streets.format, TreeFormat::OgcApiItems);
+    assert_eq!(streets.crs, Crs::Utm32);
+    assert_eq!(streets.fields.crown.as_deref(), Some("kronendurchmesser"));
+    assert_eq!(streets.fields.date, None);
+    assert_eq!(
+        streets.attribution,
+        "Freie und Hansestadt Hamburg, Behörde für Umwelt, Klima, Energie und Agrarwirtschaft, dl-de/by-2-0"
+    );
+}
+
+/// Rhineland-Palatinate serves its landscape model in the AdV Shape schema (ADR 0147, checked
+/// live on 2026-11-15 over the Cochem and Dahn examples); it has no full ALKIS.
+#[test]
+fn rhineland_palatinate_asks_its_basis_dlm_in_the_shape_schema() {
+    let rp = manifest("rheinlandpfalz");
+    let region = "rheinlandpfalz".parse().unwrap();
+    let services: Vec<_> = rp
+        .nas
+        .iter()
+        .map(|nas| extras::nas_service(nas, &region))
+        .collect();
+    assert_eq!(services.len(), 1);
+    let dlm = &services[0];
+    assert_eq!(
+        (dlm.model, dlm.schema),
+        (NasModel::BasisDlm, NasSchema::Shape)
+    );
+    let dahn = BoundingBox {
+        min_e: 408_895.0,
+        min_n: 5_445_979.0,
+        max_e: 410_313.0,
+        max_n: 5_447_098.0,
+    };
+    assert_eq!(
+        dlm.get_feature_url("Verkehr_VER02_L", &dahn),
+        "https://geo5.service24.rlp.de/wfs/basisdlm_shape_rp.fcgi?SERVICE=WFS&VERSION=2.0.0\
+         &REQUEST=GetFeature&TYPENAMES=Verkehr_VER02_L&SRSNAME=urn:ogc:def:crs:EPSG::25832\
+         &BBOX=408895,5445979,410313,5447098,urn:ogc:def:crs:EPSG::25832&COUNT=100000"
+    );
+}
+
+/// Mecklenburg-Vorpommern serves its full ALKIS and its landscape model from one host (checked
+/// live on 2026-11-15 over the Wismar example), both refusing a count above 10 000.
+#[test]
+fn mecklenburg_vorpommern_asks_its_full_alkis_and_its_basis_dlm() {
+    let mv = manifest("mecklenburgvorpommern");
+    let region = "mecklenburgvorpommern".parse().unwrap();
+    let services: Vec<_> = mv
+        .nas
+        .iter()
+        .map(|nas| extras::nas_service(nas, &region))
+        .collect();
+    let models: Vec<NasModel> = services.iter().map(|s| s.model).collect();
+    assert_eq!(models, [NasModel::Alkis, NasModel::BasisDlm]);
+    assert!(
+        services
+            .iter()
+            .all(|s| s.max_count == 10_000 && s.crs == Crs::Utm33)
+    );
+    let wismar = BoundingBox {
+        min_e: 267_262.0,
+        min_n: 5_976_928.0,
+        max_e: 268_194.0,
+        max_n: 5_977_668.0,
+    };
+    assert_eq!(
+        services[0].get_feature_url("adv:AX_Strukturlinie3D", &wismar),
+        "https://www.geodaten-mv.de/dienste/alkis_wfs_nas?SERVICE=WFS&VERSION=2.0.0\
+         &REQUEST=GetFeature&TYPENAMES=adv:AX_Strukturlinie3D&SRSNAME=urn:ogc:def:crs:EPSG::25833\
+         &BBOX=267262,5976928,268194,5977668,urn:ogc:def:crs:EPSG::25833&COUNT=10000\
+         &NAMESPACES=xmlns(adv,http://www.adv-online.de/namespaces/adv/gid/7.1)"
+    );
+}
+
 /// The golden net of the adapter work, at the root of the repository.
 fn golden_dir() -> std::path::PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../tests/golden/adapters")
@@ -330,6 +452,8 @@ fn recorded_hosts(state: State) -> Vec<String> {
             ldbv::FILES,
             ldbv_las::TILES,
             bfg_permits::BASE,
+            // The Naturdenkmale of the LfU (ADR 0146).
+            natur_permits::BAYERN,
         ],
         _ => &[],
     };

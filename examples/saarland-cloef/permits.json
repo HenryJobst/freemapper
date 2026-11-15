@@ -121,6 +121,10 @@
       }
     },
     {
+      "key": "permits-hint-biotope",
+      "args": {}
+    },
+    {
       "key": "permits-hint-nsg-paths",
       "args": {}
     },
@@ -190,6 +194,16 @@
         "groups": [],
         "links_left": 0
       },
+      "protected_objects": [
+        {
+          "kind": "biotope",
+          "name": null,
+          "citation": null,
+          "count": 12,
+          "percent": 25.0,
+          "at_edge": false
+        }
+      ],
       "forest_units": [
         {
           "item": {
@@ -271,6 +285,54 @@
           },
           "status": {
             "id": "denkmale",
+            "state": "read",
+            "fetched": "2026-11-15",
+            "reason": null,
+            "credit": "Quellenvermerk: © GDI-SL (2026); Lizenz: Creative Commons Namensnennung 4.0 International (CC BY 4.0)"
+          }
+        },
+        {
+          "source": {
+            "key": "naturdenkmale",
+            "label": {
+              "en": "Geoportal Saarland",
+              "de": "Geoportal Saarland"
+            },
+            "what": {
+              "en": "Naturdenkmale",
+              "de": "Naturdenkmale"
+            },
+            "credit": "Quellenvermerk: © GDI-SL ({year}); Lizenz: Creative Commons Namensnennung 4.0 International (CC BY 4.0)",
+            "sections": [
+              "protected-objects"
+            ]
+          },
+          "status": {
+            "id": "naturdenkmale",
+            "state": "read",
+            "fetched": "2026-11-15",
+            "reason": null,
+            "credit": "Quellenvermerk: © GDI-SL (2026); Lizenz: Creative Commons Namensnennung 4.0 International (CC BY 4.0)"
+          }
+        },
+        {
+          "source": {
+            "key": "biotope",
+            "label": {
+              "en": "Geoportal Saarland",
+              "de": "Geoportal Saarland"
+            },
+            "what": {
+              "en": "protected biotopes of the biotope register",
+              "de": "geschützte Biotope des Biotopkatasters"
+            },
+            "credit": "Quellenvermerk: © GDI-SL ({year}); Lizenz: Creative Commons Namensnennung 4.0 International (CC BY 4.0)",
+            "sections": [
+              "protected-objects"
+            ]
+          },
+          "status": {
+            "id": "biotope",
             "state": "read",
             "fetched": "2026-11-15",
             "reason": null,

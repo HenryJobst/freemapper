@@ -2,7 +2,7 @@
 
 use std::borrow::Cow;
 
-use freemapper_adapter_api::extras::{NasService, TreeDataset, TreeFields, TreeFormat};
+use freemapper_adapter_api::extras::{NasService, TreeDataset, TreeFields};
 use freemapper_adapter_api::records::AdapterId;
 use freemapper_georef::crs::BoundingBox;
 
@@ -24,6 +24,7 @@ pub fn nas_service(nas: &Nas, region: &AdapterId) -> NasService {
         layers: nas.layers.as_deref().map(owned_list),
         namespaces: nas.namespaces.clone().map(Cow::Owned),
         model: nas.model,
+        schema: nas.schema,
     }
 }
 
@@ -41,14 +42,12 @@ pub fn tree_dataset(trees: &Trees, region: &AdapterId) -> TreeDataset {
             max_e,
             max_n,
         },
-        format: TreeFormat::OdsGeoJsonExport {
-            geo_field: Cow::Owned(trees.geo_field.clone()),
-        },
+        format: trees.format.clone(),
         endpoints: owned_list(&trees.endpoints),
         fields: TreeFields {
             kind: Cow::Owned(trees.fields.kind.clone()),
             id: Cow::Owned(trees.fields.id.clone()),
-            date: Cow::Owned(trees.fields.date.clone()),
+            date: trees.fields.date.clone().map(Cow::Owned),
             species: trees.fields.species.clone().map(Cow::Owned),
             crown: trees.fields.crown.clone().map(Cow::Owned),
         },

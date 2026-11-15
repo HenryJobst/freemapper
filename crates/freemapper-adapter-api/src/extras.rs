@@ -158,6 +158,17 @@ impl NasModel {
     }
 }
 
+/// How a service writes its answers.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NasSchema {
+    /// NAS: the AAA schema, the AdV types as elements (`AX_Turm`).
+    Nas,
+    /// The AdV Shape schema of the landscape model (Rhineland-Palatinate, ADR 0147): one type per
+    /// theme and geometry (`Relief_REL01_P`), the AdV type in `objart_txt`, the codes under short
+    /// names (`bwf` for `bauwerksfunktion`).
+    Shape,
+}
+
 /// A NAS WFS of one state.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NasService {
@@ -179,6 +190,8 @@ pub struct NasService {
     pub namespaces: Option<Cow<'static, str>>,
     /// The model the service serves; it is asked only for the layers of that model.
     pub model: NasModel,
+    /// How its answers are written.
+    pub schema: NasSchema,
 }
 
 impl NasService {
@@ -220,6 +233,23 @@ pub enum TreeFormat {
     /// An OpenDataSoft `exports/geojson` endpoint, asked with `where=in_bbox(<geo_field>, …)` in
     /// WGS84 (no paging). The geometry is WGS84 too.
     OdsGeoJsonExport { geo_field: Cow<'static, str> },
+    /// The items of an OGC API Features collection, asked with `bbox=<lon,lat,lon,lat>` in CRS84
+    /// and up to 10 000 per page; further pages are the `next` links. The geometry is CRS84 too,
+    /// a Point or a MultiPoint of one point (Hamburg, ADR 0065).
+    OgcApiItems,
+    /// One CSV file for the whole city, read whole and cut to the area (Lübeck, ADR 0065): a
+    /// header row, `separator` between the values, no quoting, the position in the columns
+    /// `x_field` and `y_field` in the CRS of the dataset, decimal commas or points.
+    Csv {
+        x_field: Cow<'static, str>,
+        y_field: Cow<'static, str>,
+        separator: char,
+    },
+}
+
+impl TreeFormat {
+    /// Features per page of [`TreeFormat::OgcApiItems`].
+    pub const OGC_API_LIMIT: usize = 10_000;
 }
 
 /// The field names of a dataset (properties of the served features).
@@ -229,8 +259,8 @@ pub struct TreeFields {
     pub kind: Cow<'static, str>,
     /// The tree's number, the `freemapper:source_id`.
     pub id: Cow<'static, str>,
-    /// The survey date (`2009-06-10T00:00:00+00:00`).
-    pub date: Cow<'static, str>,
+    /// The survey date (`2009-06-10T00:00:00+00:00`); some cadastres have none.
+    pub date: Option<Cow<'static, str>>,
     pub species: Option<Cow<'static, str>>,
     /// The crown diameter in metres.
     pub crown: Option<Cow<'static, str>>,
@@ -296,10 +326,18 @@ impl TreeDataset {
     /// The box is asked as `lat_min,lon_min,lat_max,lon_max`. `None` for an area no position
     /// projects to.
     pub fn url(&self, endpoint: &str, region_bbox: &BoundingBox) -> Option<String> {
+        if let TreeFormat::Csv { .. } = self.format {
+            return Some(endpoint.to_string());
+        }
         let (lat_min, lon_min, lat_max, lon_max) = wgs84_bbox(region_bbox)?;
         Some(match &self.format {
+            TreeFormat::Csv { .. } => endpoint.to_string(),
             TreeFormat::OdsGeoJsonExport { geo_field } => format!(
                 "{endpoint}?where=in_bbox({geo_field},{lat_min:.6},{lon_min:.6},{lat_max:.6},{lon_max:.6})"
+            ),
+            TreeFormat::OgcApiItems => format!(
+                "{endpoint}?bbox={lon_min:.6},{lat_min:.6},{lon_max:.6},{lat_max:.6}&limit={}&f=json",
+                TreeFormat::OGC_API_LIMIT
             ),
         })
     }

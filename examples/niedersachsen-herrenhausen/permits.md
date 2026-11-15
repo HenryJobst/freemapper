@@ -13,9 +13,15 @@ Erstellt am 2026-11-15 für das Kartengebiet einer Sprintkarte (54,1 ha).
 - Amt oder Verwaltungsgemeinschaft: Einheitsgemeinde Hannover, 100 %
 - Gemeinde: Stadt Hannover, 100 %
 
+## Naturdenkmale und andere Schutzobjekte (NLWKN)
+
+Laut NLWKN liegt im Kartengebiet keines der Schutzobjekte, die die Quelle führt.
+
 ## Wasserschutzgebiete (Bundesanstalt für Gewässerkunde)
 
 Laut Bundesanstalt für Gewässerkunde liegt im Kartengebiet kein Wasserschutzgebiet.
+
+Der Bestand von NLWKN ist nicht vollständig: Die geschützten Biotope führen die Landkreise; sie fehlen darin.
 
 ## Schutzgebiete (BfN)
 
@@ -51,5 +57,6 @@ Laut OpenStreetMap verläuft keine Autobahn und keine Bundes-, Landes-, Staats- 
 | BfN: Schutzgebiete in Deutschland des BfN | gelesen, abgerufen am 2026-11-15 | © Bundesamt für Naturschutz (BfN) (2026), Schutzgebiete in Deutschland; Nutzungsbestimmungen für die Bereitstellung von Geodaten des Bundes (GeoNutzV). Nicht für Planungszwecke geeignet. |
 | OpenStreetMap: OpenStreetMap, aus dem Auszug, den freemapper im Zwischenspeicher hält | gelesen, OSM-Auszug vom 2026-11-07 | © OpenStreetMap contributors, ODbL |
 | Bundesanstalt für Gewässerkunde: Trinkwasser- und Heilquellenschutzgebiete aus WasserBLIcK, ohne Schutzzonen | gelesen, abgerufen am 2026-11-15 | © WasserBLIcK/BfG und Zuständige Behörden der Länder, 2026; Lizenz: Creative Commons Namensnennung – 4.0 International (CC BY 4.0) |
+| NLWKN: Naturdenkmale und geschützte Landschaftsbestandteile | gelesen, abgerufen am 2026-11-15 | Datenlizenz Deutschland – Namensnennung – Version 2.0 (dl-de/by-2-0); Quelle: Niedersächsischer Landesbetrieb für Wasserwirtschaft, Küsten- und Naturschutz (NLWKN) |
 
 Bundesanstalt für Gewässerkunde: Trinkwasser- und Heilquellenschutzgebiete aus WasserBLIcK, ohne Schutzzonen: „Die bundesweite Flächendeckung des Datenbestandes ist nicht in jedem Fall gewährleistet.“

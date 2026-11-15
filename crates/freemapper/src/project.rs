@@ -3505,6 +3505,16 @@ mod tests {
                 .any(|m| m == "reading OSM extract Hamburg from 2026-11-06"),
             "{messages:?}"
         );
+        // The street tree cadastre (ADR 0065): its two pages, without a warning.
+        assert!(
+            !messages.iter().any(|m| m.starts_with("warning")),
+            "{messages:?}"
+        );
+        let stored =
+            std::fs::read_to_string(dir.path().join("data/trees/hamburg-strassenbaeume.geojson"))
+                .unwrap();
+        let stored: serde_json::Value = serde_json::from_str(&stored).unwrap();
+        assert_eq!(stored["features"].as_array().unwrap().len(), 6);
     }
 
     #[test]
@@ -9180,6 +9190,11 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
                 );
             }
         }
+        // The landscape model in the Shape schema (ADR 0147).
+        crate::fetch::test_support::serve_empty_nas(
+            fetcher,
+            &["https://geo5.service24.rlp.de/wfs/basisdlm_shape_rp.fcgi"],
+        );
         for extract in
             crate::sources::osm::extracts_for(&project.region_bbox().unwrap(), &mut |_| {})
         {

@@ -71,6 +71,12 @@
       }
     },
     {
+      "key": "permits-hint-biotope",
+      "args": {
+        "names": "Eichenmischwälder bodensaurer Standorte, frisch bis mäßig trocken, Blaubeer-Kiefern-Traubeneichenwald"
+      }
+    },
+    {
       "key": "permits-hint-monument-lower-authority",
       "args": {
         "gemeinde": "Rauen",
@@ -143,6 +149,32 @@
         "groups": [],
         "links_left": 0
       },
+      "protected_objects": [
+        {
+          "kind": "natural-monument",
+          "name": "Markgrafensteine",
+          "citation": "Landkreis Oder-Spree, ND-Verordnung vom 24.09.2014",
+          "count": 2,
+          "percent": null,
+          "at_edge": false
+        },
+        {
+          "kind": "biotope",
+          "name": "Eichenmischwälder bodensaurer Standorte, frisch bis mäßig trocken",
+          "citation": null,
+          "count": 3,
+          "percent": 5.0,
+          "at_edge": false
+        },
+        {
+          "kind": "biotope",
+          "name": "Blaubeer-Kiefern-Traubeneichenwald",
+          "citation": null,
+          "count": 3,
+          "percent": 4.5,
+          "at_edge": false
+        }
+      ],
       "forest_units": [
         {
           "item": {
@@ -296,6 +328,58 @@
             "fetched": "2026-11-15",
             "reason": null,
             "credit": "Quelle: © Denkmaldaten/Brandenburgisches Landesamt für Denkmalpflege und Archäologisches Landesmuseum (BLDAM), dl-de/by-2-0"
+          }
+        },
+        {
+          "source": {
+            "key": "naturdenkmale",
+            "label": {
+              "en": "Landesbetrieb Forst Brandenburg",
+              "de": "Landesbetrieb Forst Brandenburg"
+            },
+            "what": {
+              "en": "Naturdenkmale and geschützte Landschaftsbestandteile of the Landkreise",
+              "de": "Naturdenkmale und geschützte Landschaftsbestandteile der Landkreise"
+            },
+            "credit": "Landesbetrieb Forst Brandenburg, Datenlizenz Deutschland – Namensnennung – Version 2.0 (https://www.govdata.de/dl-de/by-2-0)",
+            "gaps": {
+              "en": "the data are of the end of 2017, later ones are missing",
+              "de": "Die Daten haben den Stand Ende 2017, spätere fehlen"
+            },
+            "sections": [
+              "protected-objects"
+            ]
+          },
+          "status": {
+            "id": "naturdenkmale",
+            "state": "read",
+            "fetched": "2026-11-15",
+            "reason": null,
+            "credit": "Landesbetrieb Forst Brandenburg, Datenlizenz Deutschland – Namensnennung – Version 2.0 (https://www.govdata.de/dl-de/by-2-0)"
+          }
+        },
+        {
+          "source": {
+            "key": "biotope",
+            "label": {
+              "en": "Landesamt für Umwelt Brandenburg",
+              "de": "Landesamt für Umwelt Brandenburg"
+            },
+            "what": {
+              "en": "protected biotopes of the biotope register",
+              "de": "geschützte Biotope der Biotopkartierung"
+            },
+            "credit": "© Landesamt für Umwelt Brandenburg; Datenlizenz Deutschland – Namensnennung – Version 2.0 (https://www.govdata.de/dl-de/by-2-0)",
+            "sections": [
+              "protected-objects"
+            ]
+          },
+          "status": {
+            "id": "biotope",
+            "state": "read",
+            "fetched": "2026-11-15",
+            "reason": null,
+            "credit": "© Landesamt für Umwelt Brandenburg; Datenlizenz Deutschland – Namensnennung – Version 2.0 (https://www.govdata.de/dl-de/by-2-0)"
           }
         }
       ]

@@ -155,6 +155,10 @@
       }
     },
     {
+      "key": "permits-hint-biotope",
+      "args": {}
+    },
+    {
       "key": "permits-hint-monument-lower-authority",
       "args": {
         "gemeinde": "Monschau",
@@ -280,6 +284,16 @@
         ],
         "links_left": 0
       },
+      "protected_objects": [
+        {
+          "kind": "biotope",
+          "name": null,
+          "citation": null,
+          "count": 4,
+          "percent": 0.3,
+          "at_edge": true
+        }
+      ],
       "forest_units": [
         {
           "item": {
@@ -436,6 +450,30 @@
             "fetched": "2026-11-15",
             "reason": null,
             "credit": "Datenlizenz Deutschland – Zero – Version 2.0 (https://www.govdata.de/dl-de/zero-2-0)"
+          }
+        },
+        {
+          "source": {
+            "key": "biotope",
+            "label": {
+              "en": "LINFOS",
+              "de": "LINFOS"
+            },
+            "what": {
+              "en": "legally protected biotopes",
+              "de": "gesetzlich geschützte Biotope"
+            },
+            "credit": "Open Data - Dieses Angebot vom Landesamt für Natur, Umwelt und Verbraucherschutz Nordrhein-Westfalen ist lizensiert unter der Datenlizenz Deutschland Namensnennung 2.0 (https://www.govdata.de/dl-de/by-2-0). Datensätze unter dieser Lizenz müssen bei Weiterverwendung mit dem Quellenverweis „Land NRW“ versehen werden.",
+            "sections": [
+              "protected-objects"
+            ]
+          },
+          "status": {
+            "id": "biotope",
+            "state": "read",
+            "fetched": "2026-11-15",
+            "reason": null,
+            "credit": "Open Data - Dieses Angebot vom Landesamt für Natur, Umwelt und Verbraucherschutz Nordrhein-Westfalen ist lizensiert unter der Datenlizenz Deutschland Namensnennung 2.0 (https://www.govdata.de/dl-de/by-2-0). Datensätze unter dieser Lizenz müssen bei Weiterverwendung mit dem Quellenverweis „Land NRW“ versehen werden."
           }
         }
       ]

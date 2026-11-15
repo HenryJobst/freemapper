@@ -210,6 +210,7 @@
   "regional": [
     {
       "adapter": "saxonyanhalt",
+      "protected_objects": [],
       "water_protection": [],
       "sources": [
         {
@@ -235,6 +236,34 @@
             "fetched": "2026-11-15",
             "reason": null,
             "credit": "© WasserBLIcK/BfG und Zuständige Behörden der Länder, 2026; Lizenz: Creative Commons Namensnennung – 4.0 International (CC BY 4.0)"
+          }
+        },
+        {
+          "source": {
+            "key": "naturschutz",
+            "label": {
+              "en": "Landesamt für Umweltschutz Sachsen-Anhalt",
+              "de": "Landesamt für Umweltschutz Sachsen-Anhalt"
+            },
+            "what": {
+              "en": "Naturdenkmale and geschützte Landschaftsbestandteile",
+              "de": "Naturdenkmale und geschützte Landschaftsbestandteile"
+            },
+            "credit": "Datenlizenz Deutschland Namensnennung 2.0; Quellenvermerk: Landesamt für Umweltschutz Sachsen-Anhalt",
+            "gaps": {
+              "en": "Naturdenkmale that are single trees and the protected biotopes are not in them",
+              "de": "Naturdenkmale, die einzelne Bäume sind, und die geschützten Biotope fehlen darin"
+            },
+            "sections": [
+              "protected-objects"
+            ]
+          },
+          "status": {
+            "id": "naturschutz",
+            "state": "read",
+            "fetched": "2026-11-15",
+            "reason": null,
+            "credit": "Datenlizenz Deutschland Namensnennung 2.0; Quellenvermerk: Landesamt für Umweltschutz Sachsen-Anhalt"
           }
         }
       ]

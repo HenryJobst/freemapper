@@ -8,7 +8,7 @@ use chrono::NaiveDate;
 use freemapper_adapter_api::adapter::RegionAdapter;
 use freemapper_adapter_api::credit::{AlkisUse, CreditLine, UsedSources};
 use freemapper_adapter_api::estimate::EstimateArea;
-use freemapper_adapter_api::extras::{NasModel, TreeFields, TreeFormat};
+use freemapper_adapter_api::extras::{NasModel, NasSchema, TreeFields, TreeFormat};
 use freemapper_adapter_api::records::{Part, Store};
 use freemapper_georef::crs::{BoundingBox, Crs};
 use freemapper_manifest::adapter::{AdapterFiles, ManifestAdapter, Parse};
@@ -213,7 +213,7 @@ fn nas_and_trees_build_their_services() {
         TreeFields {
             kind: Cow::Borrowed("art"),
             id: Cow::Borrowed("nr"),
-            date: Cow::Borrowed("datum"),
+            date: Some(Cow::Borrowed("datum")),
             species: None,
             crown: Some(Cow::Borrowed("krone")),
         }
@@ -221,6 +221,82 @@ fn nas_and_trees_build_their_services() {
     assert_eq!(trees.skipped_kinds.as_ref(), ["Baumstumpf"]);
     assert_eq!(trees.attribution, "City, dl-de/zero-2-0");
     assert_eq!(trees.max_bytes, 1_000_000);
+}
+
+/// A tree cadastre may be an OGC API collection (Hamburg, ADR 0065): no position field, and the
+/// survey date may be missing.
+#[test]
+fn an_ogc_api_tree_cadastre_is_read_and_checked() {
+    let ods = "format = \"ods-geojson-export\"\ngeo_field = \"geo_point_2d\"\n";
+    assert!(TREES.contains(ods));
+    let ogc = TREES
+        .replace(ods, "format = \"ogc-api\"\n")
+        .replace("date = \"datum\", ", "");
+    let manifest = parse(&format!("{}{ogc}", sample()), Path::new("sample")).unwrap();
+    let trees = extras::tree_dataset(&manifest.trees[0], &"sample".parse().unwrap());
+    assert_eq!(trees.format, TreeFormat::OgcApiItems);
+    assert_eq!(trees.fields.date, None);
+    // A position field belongs to the export format only, and that format needs one.
+    for (wrong, key) in [
+        (
+            TREES.replace(ods, "format = \"ogc-api\"\ngeo_field = \"geo_point_2d\"\n"),
+            "extra.trees.geo_field",
+        ),
+        (
+            TREES.replace(ods, "format = \"ods-geojson-export\"\n"),
+            "extra.trees.geo_field",
+        ),
+        (
+            TREES.replace(ods, "format = \"wfs\"\n"),
+            "extra.trees.format",
+        ),
+    ] {
+        let findings = parse(&format!("{}{wrong}", sample()), Path::new("sample")).unwrap_err();
+        assert_eq!(findings.len(), 1, "{wrong}: {findings:?}");
+        assert_eq!(findings[0].key, key, "{wrong}");
+    }
+}
+
+/// A tree cadastre may be one CSV file (Lübeck, ADR 0065): the columns of the position and the
+/// separator.
+#[test]
+fn a_csv_tree_cadastre_is_read_and_checked() {
+    let ods = "format = \"ods-geojson-export\"\ngeo_field = \"geo_point_2d\"\n";
+    let csv =
+        "format = \"csv\"\nx_field = \"RECHTSWERT\"\ny_field = \"HOCHWERT\"\nseparator = \";\"\n";
+    let manifest = parse(
+        &format!("{}{}", sample(), TREES.replace(ods, csv)),
+        Path::new("sample"),
+    )
+    .unwrap();
+    let trees = extras::tree_dataset(&manifest.trees[0], &"sample".parse().unwrap());
+    assert_eq!(
+        trees.format,
+        TreeFormat::Csv {
+            x_field: Cow::Borrowed("RECHTSWERT"),
+            y_field: Cow::Borrowed("HOCHWERT"),
+            separator: ';',
+        }
+    );
+    for (wrong, key) in [
+        (
+            csv.replace("x_field = \"RECHTSWERT\"\n", ""),
+            "extra.trees.x_field",
+        ),
+        (
+            csv.replace("separator = \";\"", "separator = \";;\""),
+            "extra.trees.separator",
+        ),
+        (
+            format!("{ods}x_field = \"RECHTSWERT\"\n"),
+            "extra.trees.x_field",
+        ),
+    ] {
+        let text = format!("{}{}", sample(), TREES.replace(ods, &wrong));
+        let findings = parse(&text, Path::new("sample")).unwrap_err();
+        assert_eq!(findings.len(), 1, "{wrong}: {findings:?}");
+        assert_eq!(findings[0].key, key, "{wrong}");
+    }
 }
 
 /// A layer the NAS reader does not know would be left out silently, and the readers have room
@@ -274,6 +350,40 @@ fn the_model_of_a_nas_service_is_read_and_checked() {
     let findings = parse(&other, Path::new("sample")).unwrap_err();
     assert_eq!(codes(&findings), ["manifest.value"], "{findings:?}");
     assert_eq!(findings[0].key, "extra.nas.layers");
+}
+
+/// A service of the landscape model may answer in the AdV Shape schema (Rhineland-Palatinate);
+/// the cadastre has no such service.
+#[test]
+fn the_schema_of_a_nas_service_is_read_and_checked() {
+    let region = "sample".parse().unwrap();
+    let plain = parse(&format!("{}{NAS}", sample()), Path::new("sample")).unwrap();
+    assert_eq!(
+        extras::nas_service(&plain.nas[0], &region).schema,
+        NasSchema::Nas
+    );
+    let shape = format!(
+        "{}{NAS}model = \"basis-dlm\"\nschema = \"shape\"\n",
+        sample()
+    );
+    let manifest = parse(&shape, Path::new("sample")).unwrap();
+    assert_eq!(
+        extras::nas_service(&manifest.nas[0], &region).schema,
+        NasSchema::Shape
+    );
+    for wrong in [
+        "model = \"basis-dlm\"\nschema = \"shp\"\n",
+        "schema = \"shape\"\n",
+    ] {
+        let findings =
+            parse(&format!("{}{NAS}{wrong}", sample()), Path::new("sample")).unwrap_err();
+        assert_eq!(
+            codes(&findings),
+            ["manifest.value"],
+            "{wrong}: {findings:?}"
+        );
+        assert_eq!(findings[0].key, "extra.nas.schema", "{wrong}");
+    }
 }
 
 fn area() -> EstimateArea {

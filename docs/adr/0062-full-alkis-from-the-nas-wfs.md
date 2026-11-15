@@ -56,3 +56,9 @@ requests of this reader, checked live over the Monschau and Herrenhausen example
 (revision 2). The LGLN refuses a `COUNT` above 10 000, so its manifest names `max_count = 10000`. Neither state is
 recorded by the golden net any more, so only the estimate (G2) changed.
 
+
+## Addendum 2026-11-15: Mecklenburg-Vorpommern
+
+The full ALKIS of the LAiV M-V (`alkis_wfs_nas`) answers the requests of this reader as well, checked live over the
+Wismar example, with at most 10 000 objects per request. ADR 0135 (addendum of the same day) covers it together with
+the landscape model of the same host.

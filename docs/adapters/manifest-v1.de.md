@@ -202,6 +202,7 @@ nennt beide.
 | `layers` | Liste von Texten | nein | Die Ebenen, die der Dienst liefert, aus `sonstiges-bauwerk`, `vegetationsmerkmal`, `strukturlinie`, `bauwerk-verkehr`, `bauwerk-gewaesser`, `untergeordnetes-gewaesser`; für das Modell `basis-dlm` aus `dlm-bauwerk`, `dlm-vegetation`, `dlm-felsen`, `dlm-hoehle`, `dlm-gewaessermerkmal`, `dlm-damm`, `dlm-turm`, `dlm-gewaesserachse`, `dlm-weg`, `dlm-fahrweg`. Vorgabe: alle des Modells. |
 | `namespaces` | Text | nein | Der Parameter `NAMESPACES` der Anfragen; höchstens 300. |
 | `model` | Text | nein | `alkis` (Standard): das Kataster. `basis-dlm`: das Landschaftsmodell ATKIS Basis-DLM, dessen Ebenen mit `dlm-` beginnen. Ein Dienst wird nur nach den Ebenen seines Modells gefragt. Objekte des Landschaftsmodells bleiben Kandidaten und entfallen, wo eine andere Quelle dasselbe Objekt hat. |
+| `schema` | Text | nein | `nas` (Standard): Die Antworten sind NAS, die AdV-Objektarten als Elemente. `shape`: Die Antworten folgen dem AdV-Shape-Schema (eine Objektart je Thema und Geometrie wie `Relief_REL01_P`, die AdV-Objektart in `objart_txt`, die Codes unter Kurznamen wie `bwf`), so wie Rheinland-Pfalz sein Landschaftsmodell anbietet; nur mit `model = "basis-dlm"`. |
 
 ## `[[extra.trees]]`
 
@@ -213,10 +214,12 @@ Höchstens 32: die Baumkataster von Städten, gelesen aus einem GeoJSON-Export v
 | `name` | Text | ja | Höchstens 80. |
 | `crs` | ganze Zahl | nein | Vorgabe: `[adapter] crs`. |
 | `envelope` | Liste aus vier Zahlen | ja | Die Ausdehnung der Daten in `crs`. |
-| `format` | Text | ja | `ods-geojson-export`. |
-| `geo_field` | Feld | ja | Das Feld mit der Position. |
+| `format` | Text | ja | `ods-geojson-export` (ein OpenDataSoft-Export, gefragt über ein Positionsfeld) oder `ogc-api` (die Objekte einer OGC-API-Features-Sammlung, gefragt mit einem Rechteck in CRS84, 10 000 je Seite, weitere Seiten über ihre `next`-Links; ein Point oder ein MultiPoint aus einem Punkt) oder `csv` (eine Datei für die ganze Stadt, ganz gelesen und auf das Gebiet zugeschnitten: eine Kopfzeile, keine Anführungszeichen, Dezimalkomma oder -punkt). |
+| `geo_field` | Feld | bei `ods-geojson-export` | Das Feld mit der Position. Nicht bei den anderen Formaten. |
+| `x_field`, `y_field` | Feld | bei `csv` | Die Spalten mit Rechtswert und Hochwert, in `crs`. Nicht bei den anderen Formaten. |
+| `separator` | Text | bei `csv` | Das eine Zeichen zwischen den Werten, etwa `;`. Nicht bei den anderen Formaten. |
 | `endpoints` | Liste von URLs | ja | 1 bis 8. |
-| `fields` | Tabelle | ja | `kind`, `id`, `date` (Pflicht), `species`, `crown`: die Namen der Felder. |
+| `fields` | Tabelle | ja | `kind`, `id` (beide Pflicht), `date`, `species`, `crown`: die Namen der Felder. Ohne `date` gilt das Abrufdatum als Stand der Bäume. |
 | `skipped_kinds` | Liste von Texten | nein | Arten, die keine Bäume sind; höchstens 16. |
 | `attribution` | Text | ja | Die Quellenangabe des Katasters, höchstens 400, mit `{year}` höchstens einmal. |
 | `max_bytes` | ganze Zahl | ja | 1 bis 268 435 456. |

@@ -7,14 +7,14 @@ use freemapper_adapter_api::permits::{ForestFunctionKind, PermitSection, PermitS
 
 use crate::wfs_permits::{Reading, source};
 
-const SAARLAND: Wording = Wording {
+pub(crate) const SAARLAND: Wording = Wording {
     en: "Geoportal Saarland",
     de: "Geoportal Saarland",
 };
 
 /// The credit of the Geoportal Saarland as its catalogue gives it; the year is that of the
 /// fetch.
-const SAARLAND_CREDIT: &str = "Quellenvermerk: © GDI-SL ({year}); Lizenz: Creative Commons Namensnennung 4.0 International (CC BY 4.0)";
+pub(crate) const SAARLAND_CREDIT: &str = "Quellenvermerk: © GDI-SL ({year}); Lizenz: Creative Commons Namensnennung 4.0 International (CC BY 4.0)";
 
 /// The three services of the Saarland.
 pub fn saarland() -> Vec<Box<dyn PermitSource>> {
@@ -111,7 +111,7 @@ pub fn saarland() -> Vec<Box<dyn PermitSource>> {
 }
 
 /// The credit of the HLNUG, verbatim from the capabilities (`Fees`) of its service.
-const HLNUG_CREDIT: &str = "Lizenz: Creative Commons BY 4.0 \
+pub(crate) const HLNUG_CREDIT: &str = "Lizenz: Creative Commons BY 4.0 \
     (https://creativecommons.org/licenses/by/4.0/deed.de). Quellenvermerk für Daten: \
     „Darstellung auf der Grundlage von Daten des Hessischen Landesamtes für Naturschutz, Umwelt \
     und Geologie (HLNUG)“.";
@@ -529,6 +529,59 @@ mod tests {
             ),
             (State::Bremen, "denkmale", [8.804, 53.074, 8.812, 53.078]),
             (State::Saxony, "denkmale", [12.372, 51.338, 12.380, 51.342]),
+            // Naturdenkmale, Landschaftsbestandteile and biotopes (ADR 0146).
+            (
+                State::Brandenburg,
+                "naturdenkmale",
+                [13.0, 52.30, 13.2, 52.45],
+            ),
+            (State::Brandenburg, "biotope", [13.85, 52.56, 13.90, 52.59]),
+            (State::Berlin, "biotope", [13.20, 52.43, 13.25, 52.46]),
+            (State::Hamburg, "naturdenkmale", [9.7, 53.4, 10.3, 53.8]),
+            (State::Hamburg, "biotope", [9.78, 53.55, 9.86, 53.58]),
+            (State::Saarland, "naturdenkmale", [6.95, 49.20, 7.05, 49.26]),
+            (State::Saarland, "biotope", [6.95, 49.20, 7.05, 49.26]),
+            (State::Saxony, "naturdenkmale", [13.6, 51.0, 13.8, 51.1]),
+            (State::Saxony, "biotope", [12.33, 51.33, 12.37, 51.36]),
+            (
+                State::SaxonyAnhalt,
+                "naturschutz",
+                [11.9, 51.45, 12.05, 51.52],
+            ),
+            (State::Bayern, "naturschutz", [12.05, 48.98, 12.15, 49.05]),
+            (
+                State::BadenWuerttemberg,
+                "naturdenkmale",
+                [9.03, 48.50, 9.08, 48.54],
+            ),
+            (
+                State::BadenWuerttemberg,
+                "flaechennaturdenkmale",
+                [7.80, 47.97, 7.88, 48.02],
+            ),
+            (State::Hessen, "biotope", [8.73, 50.78, 8.80, 50.83]),
+            // Trier (ADR 0146, addendum).
+            (
+                State::RheinlandPfalz,
+                "naturdenkmale",
+                [6.55, 49.70, 6.75, 49.80],
+            ),
+            (
+                State::RheinlandPfalz,
+                "landschaftsbestandteile",
+                [6.55, 49.70, 6.75, 49.80],
+            ),
+            // Göttingen, through ArcGIS REST (ADR 0148).
+            (
+                State::Niedersachsen,
+                "naturschutz",
+                [9.90, 51.52, 9.98, 51.56],
+            ),
+            (
+                State::NordrheinWestfalen,
+                "biotope",
+                [8.5, 52.0, 8.6, 52.05],
+            ),
             // The list of monuments of Schleswig-Holstein, a file of about 52 MB (ADR 0145).
             (
                 State::SchleswigHolstein,

@@ -1224,6 +1224,14 @@ pub(crate) mod test_support {
             alkis::MV_LAND_USE_ENDPOINT,
             include_bytes!("../../../tests/fixtures/mecklenburg-vorpommern-land-use.json").to_vec(),
         );
+        // The full ALKIS and the landscape model of the LAiV (ADR 0135).
+        serve_empty_nas(
+            fetcher,
+            &[
+                "https://www.geodaten-mv.de/dienste/alkis_wfs_nas",
+                "https://www.geodaten-mv.de/dienste/atkis_bdlm_wfs_nas",
+            ],
+        );
         let extract = crate::sources::osm::extract_of("mecklenburgvorpommern", 0);
         fetcher.insert(
             &extract.state_url(),
@@ -1235,11 +1243,42 @@ pub(crate) mod test_support {
         );
     }
 
+    /// The street trees of Hamburg (ADR 0065): the fixture page of three trees for any box, and
+    /// its next page with the same trees under other numbers and no further link.
+    fn serve_hamburg_trees(fetcher: &MapFetcher) {
+        const PAGE: &str = include_str!("../../../tests/fixtures/hamburg-trees.geojson");
+        let first: serde_json::Value = serde_json::from_str(PAGE).expect("tree fixture");
+        let next = first["links"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .find(|link| link["rel"] == "next")
+            .and_then(|link| link["href"].as_str())
+            .expect("a next link")
+            .to_string();
+        let mut last = first.clone();
+        for (i, feature) in last["features"]
+            .as_array_mut()
+            .expect("features")
+            .iter_mut()
+            .enumerate()
+        {
+            feature["properties"]["baumid"] = serde_json::json!(900 + i);
+        }
+        last["links"] = serde_json::json!([]);
+        fetcher.insert_prefix(
+            "https://api.hamburg.de/datasets/v1/strassenbaumkataster/collections/strassenbaumkataster_hh/items?bbox=",
+            PAGE.as_bytes().to_vec(),
+        );
+        fetcher.insert(&next, last.to_string().into_bytes());
+    }
+
     /// Serves everything a Hamburg project in `bbox` (EPSG:25832) fetches: the statewide DGM1 and
     /// bDOM zips with the 1 km tiles of `bbox` (terrain 5 m rising 0.01 m per metre east, surface
     /// 12 m above), a WMS orthophoto of the right size, the DOP metadata, the Hamburg ALKIS
-    /// fixtures and the Hamburg OSM extract.
+    /// fixtures, two pages of street trees and the Hamburg OSM extract.
     pub fn serve_synthetic_hamburg(fetcher: &MapFetcher, bbox: &crate::crs::BoundingBox) {
+        serve_hamburg_trees(fetcher);
         use freemapper_adapters_de::lgv;
         let zip_of = |members: Vec<(String, Vec<u8>)>| {
             let mut zip = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
@@ -1320,12 +1359,9 @@ pub(crate) mod test_support {
         );
     }
 
-    /// Serves everything a Hesse project in `bbox` (EPSG:25832) fetches: the height models (see
-    /// below), a WMS orthophoto of the right size with the GetFeatureInfo flight date (19.08.2025),
-    /// the Hesse ALKIS fixtures and the Hesse OSM extract.
     /// Empty answers of the NAS services at `urls`, as a service gives them for a type without
     /// objects in the box.
-    fn serve_empty_nas(fetcher: &MapFetcher, urls: &[&str]) {
+    pub fn serve_empty_nas(fetcher: &MapFetcher, urls: &[&str]) {
         for nas in urls {
             fetcher.insert_prefix(
                 &format!("{nas}?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&"),
@@ -1345,6 +1381,9 @@ pub(crate) mod test_support {
         );
     }
 
+    /// Serves everything a Hesse project in `bbox` (EPSG:25832) fetches: the height models (see
+    /// below), a WMS orthophoto of the right size with the GetFeatureInfo flight date (19.08.2025),
+    /// the Hesse ALKIS fixtures and the Hesse OSM extract.
     pub fn serve_synthetic_hessen(fetcher: &MapFetcher, bbox: &crate::crs::BoundingBox) {
         use freemapper_adapters_de::hvbg;
         use freemapper_sources::wfs as alkis_wfs;

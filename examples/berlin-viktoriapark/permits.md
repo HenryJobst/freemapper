@@ -4,7 +4,7 @@ Hinweis, keine Rechtsauskunft. Maßgeblich sind die zuständigen Behörden. Date
 
 Das BfN führt die Daten der Bundesländer einmal im Jahr zusammen und weist sie als nicht für Planungszwecke geeignet aus. Maßgeblich sind die Landesbehörden.
 
-Erstellt am 2026-11-14 für das Kartengebiet einer Sprintkarte (48,1 ha).
+Erstellt am 2026-11-15 für das Kartengebiet einer Sprintkarte (48,1 ha).
 
 ## Verwaltung
 
@@ -127,9 +127,9 @@ OpenStreetMap-Flächen, die das ganze Kartengebiet umschließen und keine Ecke d
 
 | Quelle | Stand | Quellenvermerk und Lizenz |
 |---|---|---|
-| VG250 (BKG): Verwaltungsgebiete 1:250 000 (VG250) des BKG | gelesen, abgerufen am 2026-11-14 | © BKG (2026) dl-de/by-2-0, Datenquellen: https://sg.geodatenzentrum.de/web_public/gdz/datenquellen/datenquellen_vg_nuts.pdf |
-| BfN: Schutzgebiete in Deutschland des BfN | gelesen, abgerufen am 2026-11-14 | © Bundesamt für Naturschutz (BfN) (2026), Schutzgebiete in Deutschland; Nutzungsbestimmungen für die Bereitstellung von Geodaten des Bundes (GeoNutzV). Nicht für Planungszwecke geeignet. |
+| VG250 (BKG): Verwaltungsgebiete 1:250 000 (VG250) des BKG | gelesen, abgerufen am 2026-11-15 | © BKG (2026) dl-de/by-2-0, Datenquellen: https://sg.geodatenzentrum.de/web_public/gdz/datenquellen/datenquellen_vg_nuts.pdf |
+| BfN: Schutzgebiete in Deutschland des BfN | gelesen, abgerufen am 2026-11-15 | © Bundesamt für Naturschutz (BfN) (2026), Schutzgebiete in Deutschland; Nutzungsbestimmungen für die Bereitstellung von Geodaten des Bundes (GeoNutzV). Nicht für Planungszwecke geeignet. |
 | OpenStreetMap: OpenStreetMap, aus dem Auszug, den freemapper im Zwischenspeicher hält | gelesen, OSM-Auszug vom 2026-11-06 | © OpenStreetMap contributors, ODbL |
-| Geoportal Berlin: Bezirksgrenzen (ALKIS Berlin), Grünanlagenbestand mit den öffentlichen Spielplätzen, Liegenschaftsplan (Flurstücke des Bundeslandes Berlin und des Bundes), Denkmale (Denkmalkarte), Schutzobjekte nach Naturschutzrecht, Forstverwaltung (Forstämter und Reviere der Berliner Forsten), Wasserschutzgebiete | gelesen, abgerufen am 2026-11-14 | Für die Nutzung der Daten ist die Datenlizenz Deutschland - Zero - Version 2.0 anzuwenden. Die Lizenz ist über https://www.govdata.de/dl-de/zero-2-0 abrufbar. |
+| Geoportal Berlin: Bezirksgrenzen (ALKIS Berlin), Grünanlagenbestand mit den öffentlichen Spielplätzen, Liegenschaftsplan (Flurstücke des Bundeslandes Berlin und des Bundes), Denkmale (Denkmalkarte), Schutzobjekte nach Naturschutzrecht, Forstverwaltung (Forstämter und Reviere der Berliner Forsten), Wasserschutzgebiete, geschützte Biotope (Umweltatlas, Biotoptypen 2024) | gelesen, abgerufen am 2026-11-15 | Für die Nutzung der Daten ist die Datenlizenz Deutschland - Zero - Version 2.0 anzuwenden. Die Lizenz ist über https://www.govdata.de/dl-de/zero-2-0 abrufbar. |
 
 Geoportal Berlin: Schutzobjekte nach Naturschutzrecht: „Die amtlichen Karten zur jeweiligen Schutzverordnung können bei der jeweils örtlich zuständigen unteren Behörde für Naturschutz und Landschaftspflege im Bezirksamt oder bei der obersten Behörde für Naturschutz und Landschaftspflege (Senatsverwaltung für Mobilität, Verkehr, Klimaschutz und Umwelt Abt. III) eingesehen werden. Nur diese amtlichen analogen Karten sind rechtsverbindlich, sofern die Karten nicht im Gesetz- und Verordnungsblatt für Berlin mitveröffentlicht wurden.“

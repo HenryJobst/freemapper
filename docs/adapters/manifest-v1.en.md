@@ -196,6 +196,7 @@ features and small waters, and one with the landscape model (`model = "basis-dlm
 | `layers` | list of texts | no | The layers the service serves, of `sonstiges-bauwerk`, `vegetationsmerkmal`, `strukturlinie`, `bauwerk-verkehr`, `bauwerk-gewaesser`, `untergeordnetes-gewaesser`; for the model `basis-dlm` of `dlm-bauwerk`, `dlm-vegetation`, `dlm-felsen`, `dlm-hoehle`, `dlm-gewaessermerkmal`, `dlm-damm`, `dlm-turm`, `dlm-gewaesserachse`, `dlm-weg`, `dlm-fahrweg`. Default: all of the model. |
 | `namespaces` | text | no | The `NAMESPACES` parameter of the requests; at most 300. |
 | `model` | text | no | `alkis` (the default): the cadastre. `basis-dlm`: the landscape model ATKIS Basis-DLM, whose layers start with `dlm-`. A service is asked only for the layers of its model. Objects of the landscape model stay candidates and go where another source has the same object. |
+| `schema` | text | no | `nas` (the default): the answers are NAS, the AdV types as elements. `shape`: the answers are in the AdV Shape schema (one type per theme and geometry such as `Relief_REL01_P`, the AdV type in `objart_txt`, the codes under short names such as `bwf`), as Rhineland-Palatinate serves its landscape model; only with `model = "basis-dlm"`. |
 
 ## `[[extra.trees]]`
 
@@ -207,10 +208,12 @@ At most 32: the tree cadastres of cities, read from an Opendatasoft GeoJSON expo
 | `name` | text | yes | At most 80. |
 | `crs` | whole number | no | Default: `[adapter] crs`. |
 | `envelope` | list of four numbers | yes | The extent of the data in `crs`. |
-| `format` | text | yes | `ods-geojson-export`. |
-| `geo_field` | field | yes | The field with the position. |
+| `format` | text | yes | `ods-geojson-export` (an OpenDataSoft export, asked by a position field) or `ogc-api` (the items of an OGC API Features collection, asked with a box in CRS84, 10 000 per page, further pages by their `next` links; a Point or a MultiPoint of one point) or `csv` (one file for the whole city, read whole and cut to the area: a header row, no quoting, decimal commas or points). |
+| `geo_field` | field | for `ods-geojson-export` | The field with the position. Not with the other formats. |
+| `x_field`, `y_field` | field | for `csv` | The columns of the easting and the northing, in `crs`. Not with the other formats. |
+| `separator` | text | for `csv` | The one character between the values, such as `;`. Not with the other formats. |
 | `endpoints` | list of URLs | yes | 1 to 8. |
-| `fields` | table | yes | `kind`, `id`, `date` (required), `species`, `crown`: the names of the fields. |
+| `fields` | table | yes | `kind`, `id` (both required), `date`, `species`, `crown`: the names of the fields. Without `date`, the fetch date is the currency of the trees. |
 | `skipped_kinds` | list of texts | no | Kinds that are no trees; at most 16. |
 | `attribution` | text | yes | The credit of the cadastre, at most 400, with `{year}` at most once. |
 | `max_bytes` | whole number | yes | 1 to 268 435 456. |

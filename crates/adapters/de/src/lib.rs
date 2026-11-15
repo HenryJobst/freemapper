@@ -4,6 +4,7 @@
 //!
 //! Terms follow `docs/glossary.md`.
 
+pub mod arcgis_permits;
 pub mod berlin;
 pub mod berlin_als;
 pub mod berlin_permits;
@@ -36,6 +37,7 @@ pub mod lvermgeo_rp_las;
 pub mod lvermgeo_sh;
 pub mod lvgl;
 pub mod lvgl_las;
+pub mod natur_permits;
 pub mod nrw_3dm;
 pub mod sbs_permits;
 pub mod shape_permits;

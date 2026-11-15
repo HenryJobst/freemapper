@@ -10,7 +10,7 @@ use std::path::Path;
 
 use freemapper_adapter_api::permits::{
     FindingKind, ForestFunctionKind, PermitFinding, PermitSection, PermitSource, PermitSourceInfo,
-    Wording,
+    ProtectedObjectKind, Wording,
 };
 use freemapper_sources::geojson_wfs::{
     GeoJsonWfs, LatLonBox, ProjectedBox, get_features, get_gml_features, get_projected_features,
@@ -52,6 +52,16 @@ pub enum Reading {
         prefix: &'static str,
         office: &'static str,
     },
+    /// A protected object of nature conservation law of `kind` (ADR 0146): its name (or species,
+    /// or type of biotope) and its legal act from the attributes the layer names. With `only`,
+    /// a feature counts only when the attribute holds one of the values (a register that lists
+    /// unprotected biotopes too).
+    Object {
+        kind: ProtectedObjectKind,
+        name: Option<&'static str>,
+        citation: Option<&'static str>,
+        only: Option<(&'static str, &'static [&'static str])>,
+    },
     /// A listed monument of `kind`, or of the kind the attribute `kind_from` names where the
     /// layer has one, with a link from the attribute `link` when it starts with `list` (the
     /// state's monument list).
@@ -77,6 +87,15 @@ impl Reading {
                 .collect(),
             Reading::Function { name, .. } => name.into_iter().collect(),
             Reading::Unit { office, .. } | Reading::StateForest { office, .. } => vec![office],
+            Reading::Object {
+                name,
+                citation,
+                only,
+                ..
+            } => [name, citation, only.map(|(attribute, _)| attribute)]
+                .into_iter()
+                .flatten()
+                .collect(),
             Reading::Monument {
                 kind_from, link, ..
             } => [kind_from, link.map(|(attribute, _)| attribute)]
@@ -88,7 +107,7 @@ impl Reading {
 
     /// Whether the finding may be a point; all others are areas.
     fn point_allowed(self) -> bool {
-        matches!(self, Reading::Monument { .. })
+        matches!(self, Reading::Monument { .. } | Reading::Object { .. })
     }
 }
 
@@ -369,6 +388,8 @@ pub(crate) fn text(feature: &Value, key: &str) -> Option<String> {
         Value::Number(n) => n.to_string(),
         _ => return None,
     };
+    // The LUBW writes quotes inside a name with a backslash (`\"Ulrichslinde\"`).
+    let text = text.replace("\\\"", "\"");
     (!text.is_empty() && text != "null").then_some(text)
 }
 
@@ -447,6 +468,23 @@ pub(crate) fn finding(reading: Reading, feature: &Value) -> Option<PermitFinding
             owner: owner.to_string(),
             office: text(feature, office).map(|o| format!("{prefix}{}", name_case(&o))),
         },
+        Reading::Object {
+            kind,
+            name,
+            citation,
+            only,
+        } => {
+            if let Some((attribute, values)) = only
+                && !text(feature, attribute).is_some_and(|v| values.contains(&v.as_str()))
+            {
+                return None;
+            }
+            FindingKind::ProtectedObject {
+                kind,
+                name: name.and_then(|n| text(feature, n)),
+                citation: citation.and_then(|c| text(feature, c)),
+            }
+        }
         Reading::Monument {
             kind,
             kind_from,
@@ -583,6 +621,35 @@ mod tests {
             (c.x - 7.55).abs() < 1e-6 && (c.y - 51.35).abs() < 1e-6,
             "{c:?}"
         );
+    }
+
+    /// A protected object reads its name and act, and a register of unprotected biotopes
+    /// keeps only the protected ones (ADR 0146).
+    #[test]
+    fn an_object_reading_keeps_only_the_protected_values() {
+        let reading = Reading::Object {
+            kind: ProtectedObjectKind::Biotope,
+            name: Some("bt_name"),
+            citation: None,
+            only: Some(("schutz_ges", &["1"])),
+        };
+        let feature = |schutz: &str| {
+            serde_json::json!({"type": "Feature",
+                "properties": {"bt_name": "Erlenbruch", "schutz_ges": schutz, "x": 1},
+                "geometry": {"type": "Point", "coordinates": [13.2, 52.45]}})
+        };
+        let stored_one = stored(&feature("1"), reading).unwrap();
+        assert!(stored_one["properties"].get("x").is_none());
+        assert_eq!(
+            finding(reading, &stored_one).map(|f| f.kind),
+            Some(FindingKind::ProtectedObject {
+                kind: ProtectedObjectKind::Biotope,
+                name: Some("Erlenbruch".into()),
+                citation: None,
+            })
+        );
+        let suspected = stored(&feature("2"), reading).unwrap();
+        assert!(finding(reading, &suspected).is_none());
     }
 
     /// A zone keeps the attributes it reads and nothing else; positions written latitude first

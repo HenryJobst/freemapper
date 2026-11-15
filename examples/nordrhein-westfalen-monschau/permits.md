@@ -18,6 +18,10 @@ Denkmale ganz oder zum Teil im Kartengebiet: 500.
 
 - Baudenkmal: 500
 
+## Naturdenkmale und andere Schutzobjekte (LINFOS)
+
+- Geschütztes Biotop, < 1 %
+
 ## Forstverwaltung (Wald und Holz NRW)
 
 - Regionalforstamt Rureifel-Jülicher Börde, Forstbetriebsbezirk Simmerath (Landesbetrieb Wald und Holz NRW): 100 %
@@ -83,6 +87,7 @@ OpenStreetMap-Flächen, die das ganze Kartengebiet umschließen und keine Ecke d
 ## Hinweise
 
 - Schutzgebiete betreffen die untere Naturschutzbehörde (meist der Kreis Städteregion Aachen).
+- Im Kartengebiet liegen gesetzlich geschützte Biotope. Was sie zerstören oder erheblich beeinträchtigen kann, ist verboten (§ 30 BNatSchG). Legen Sie Posten und Bahnen außerhalb, oder fragen Sie die untere Naturschutzbehörde.
 - Im Kartengebiet liegen Denkmale. Ob ein Lauf sie berührt, etwa mit einem Posten an einem Denkmal oder einer Strecke durch eine geschützte Anlage, klärt die untere Denkmalschutzbehörde, meist der Kreis Städteregion Aachen; in manchen Bundesländern ist es die Gemeinde Monschau.
 - Im Naturschutzgebiet gilt meist ein Wegegebot. Für einen Lauf abseits der Wege fragen Sie die Naturschutzbehörde.
 - Ein FFH-Gebiet oder ein Vogelschutzgebiet (Natura 2000) berührt das Kartengebiet. Für eine Veranstaltung kann die Naturschutzbehörde eine Prüfung der Verträglichkeit verlangen.
@@ -109,3 +114,4 @@ OpenStreetMap-Flächen, die das ganze Kartengebiet umschließen und keine Ecke d
 | LINFOS (Land NRW): Naturwaldzellen und Wildnisentwicklungsgebiete | gelesen, abgerufen am 2026-11-15 | Open Data - Dieses Angebot vom Landesamt für Natur, Umwelt und Verbraucherschutz Nordrhein-Westfalen ist lizensiert unter der Datenlizenz Deutschland Namensnennung 2.0 (https://www.govdata.de/dl-de/by-2-0). Datensätze unter dieser Lizenz müssen bei Weiterverwendung mit dem Quellenverweis „Land NRW“ versehen werden. |
 | Land NRW: Wasserschutzgebiete (festgesetzt und geplant) | gelesen, abgerufen am 2026-11-15 | Land NRW, Datenlizenz Deutschland – Zero – Version 2.0 (https://www.govdata.de/dl-de/zero-2-0) |
 | Land NRW: Denkmäler nach dem Denkmalschutzgesetz | gelesen, abgerufen am 2026-11-15 | Datenlizenz Deutschland – Zero – Version 2.0 (https://www.govdata.de/dl-de/zero-2-0) |
+| LINFOS: gesetzlich geschützte Biotope | gelesen, abgerufen am 2026-11-15 | Open Data - Dieses Angebot vom Landesamt für Natur, Umwelt und Verbraucherschutz Nordrhein-Westfalen ist lizensiert unter der Datenlizenz Deutschland Namensnennung 2.0 (https://www.govdata.de/dl-de/by-2-0). Datensätze unter dieser Lizenz müssen bei Weiterverwendung mit dem Quellenverweis „Land NRW“ versehen werden. |

@@ -4,11 +4,12 @@
 //! the policy and the declared hosts. The validator goes on after a finding, so one run names
 //! all of them.
 
+use std::borrow::Cow;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 
 use chrono::NaiveDate;
-use freemapper_adapter_api::extras::NasModel;
+use freemapper_adapter_api::extras::{NasModel, NasSchema, TreeFormat};
 use freemapper_adapter_api::policy;
 use freemapper_georef::crs::Crs;
 use freemapper_sources::nas::NAS_LAYERS;
@@ -1666,6 +1667,26 @@ impl Check<'_> {
                     all
                 });
             }
+            // The Shape schema is known for the landscape model only (ADR 0147).
+            let schema = match &service.schema {
+                Some(schema) => self
+                    .matching(
+                        schema,
+                        "extra.nas.schema",
+                        "manifest.value",
+                        |text| match text {
+                            "nas" => true,
+                            "shape" => served == NasModel::BasisDlm,
+                            _ => false,
+                        },
+                        "a schema: `nas`, or `shape` for a service of the model `basis-dlm`",
+                    )
+                    .map(|schema| match schema.as_str() {
+                        "shape" => NasSchema::Shape,
+                        _ => NasSchema::Nas,
+                    }),
+                None => Some(NasSchema::Nas),
+            };
             let namespaces = match &service.namespaces {
                 Some(namespaces) => self
                     .matching(
@@ -1691,6 +1712,7 @@ impl Check<'_> {
                     },
                     namespaces: namespaces?,
                     model: model?,
+                    schema: schema?,
                 })
             })();
             match built {
@@ -1699,6 +1721,92 @@ impl Check<'_> {
             }
         }
         fine.then_some(services)
+    }
+
+    /// The format of a tree cadastre with the position fields it needs (ADR 0065): the export
+    /// asks the position by a field, an OGC API collection has it in the geometry, a CSV file in
+    /// two columns. A position key the format does not use is refused.
+    fn tree_format(&mut self, trees: &RawTrees) -> Option<TreeFormat> {
+        let format = trees.format.get_ref().as_str();
+        let keys: [(&str, &Option<Text>, bool); 4] = [
+            (
+                "geo_field",
+                &trees.geo_field,
+                format == "ods-geojson-export",
+            ),
+            ("x_field", &trees.x_field, format == "csv"),
+            ("y_field", &trees.y_field, format == "csv"),
+            ("separator", &trees.separator, format == "csv"),
+        ];
+        if !matches!(format, "ods-geojson-export" | "ogc-api" | "csv") {
+            self.fail(
+                "manifest.kind",
+                &trees.format.span(),
+                "extra.trees.format",
+                "a tree cadastre is read as `ods-geojson-export`, `ogc-api` or `csv`",
+            );
+            return None;
+        }
+        let mut fine = true;
+        for (key, value, needed) in keys {
+            match (value, needed) {
+                (None, true) => {
+                    self.fail(
+                        "manifest.value",
+                        &trees.format.span(),
+                        &format!("extra.trees.{key}"),
+                        format!("the format `{format}` needs `{key}`"),
+                    );
+                    fine = false;
+                }
+                (Some(value), false) => {
+                    self.fail(
+                        "manifest.value",
+                        &value.span(),
+                        &format!("extra.trees.{key}"),
+                        format!("the format `{format}` has no `{key}`"),
+                    );
+                    fine = false;
+                }
+                _ => {}
+            }
+        }
+        if !fine {
+            return None;
+        }
+        let field = |check: &mut Self, value: &Option<Text>, key: &str| {
+            check.matching(
+                value.as_ref()?,
+                &format!("extra.trees.{key}"),
+                "manifest.value",
+                is_field,
+                "the name of a field",
+            )
+        };
+        Some(match format {
+            "ods-geojson-export" => TreeFormat::OdsGeoJsonExport {
+                geo_field: Cow::Owned(field(self, &trees.geo_field, "geo_field")?),
+            },
+            "ogc-api" => TreeFormat::OgcApiItems,
+            _ => {
+                let x_field = field(self, &trees.x_field, "x_field");
+                let y_field = field(self, &trees.y_field, "y_field");
+                let separator = self
+                    .matching(
+                        trees.separator.as_ref()?,
+                        "extra.trees.separator",
+                        "manifest.value",
+                        |text| text.chars().count() == 1 && !text.contains(['"', '\n']),
+                        "one character, such as `;` or `,`",
+                    )
+                    .and_then(|text| text.chars().next());
+                TreeFormat::Csv {
+                    x_field: Cow::Owned(x_field?),
+                    y_field: Cow::Owned(y_field?),
+                    separator: separator?,
+                }
+            }
+        })
     }
 
     fn tree_cadastres(&mut self, raw: &[RawTrees], adapter: Option<Crs>) -> Option<Vec<Trees>> {
@@ -1724,23 +1832,8 @@ impl Check<'_> {
             let name = self.text(&trees.name, "extra.trees.name", "manifest.value", 80);
             let crs = self.service_crs(trees.crs.as_ref(), "extra.trees.crs", adapter);
             let envelope = self.envelope(&trees.envelope, "extra.trees.envelope");
-            if trees.format.get_ref() != "ods-geojson-export" {
-                self.fail(
-                    "manifest.kind",
-                    &trees.format.span(),
-                    "extra.trees.format",
-                    "a tree cadastre is read as `ods-geojson-export`",
-                );
-                fine = false;
-            }
             let field = "the name of a field";
-            let geo_field = self.matching(
-                &trees.geo_field,
-                "extra.trees.geo_field",
-                "manifest.value",
-                is_field,
-                field,
-            );
+            let format = self.tree_format(trees);
             let mut endpoints = Some(Vec::new());
             if !(1..=8).contains(&trees.endpoints.len()) {
                 self.fail(
@@ -1769,7 +1862,10 @@ impl Check<'_> {
             };
             let kind = name_of(self, &trees.fields.kind, "kind");
             let tree_id = name_of(self, &trees.fields.id, "id");
-            let date = name_of(self, &trees.fields.date, "date");
+            let date = match &trees.fields.date {
+                Some(date) => name_of(self, date, "date").map(Some),
+                None => Some(None),
+            };
             let species = match &trees.fields.species {
                 Some(species) => name_of(self, species, "species").map(Some),
                 None => Some(None),
@@ -1808,7 +1904,7 @@ impl Check<'_> {
                     name: name?,
                     crs: crs?,
                     envelope: envelope?,
-                    geo_field: geo_field?,
+                    format: format?,
                     endpoints: endpoints?,
                     fields: TreeFields {
                         kind: kind?,
