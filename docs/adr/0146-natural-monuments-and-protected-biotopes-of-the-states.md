@@ -54,3 +54,11 @@ contradicting licences) wait.
   in towns list the Naturdenkmale with their species.
 - Berlin's suspected biotopes stay out; North Rhine-Westphalia's biotopes have no type.
 - The section's empty text no longer lists kinds a source may not hold.
+
+## Addendum (2026-11-15): Rhineland-Palatinate
+
+The nature conservation WFS of the LfU Rhineland-Palatinate (`geoportal.naturschutz.rlp.de`, one map file per topic)
+answered again: `mapfile=naturdenkmale` (`ms:naturdenkmale`) and `mapfile=glb` (`ms:glb`), GeoJSON, with `bezeichnung`
+and `rvolink` (the ordinance). Its licence is the ODbL with the LfU as source, the same as OpenStreetMap's in the notes.
+Both join as sources of Rhineland-Palatinate. The protected biotopes stay out: the only biotope map file that answers
+(`biotopkartierung`) holds the unprotected biotopes too, without a field that tells them apart.

@@ -8,6 +8,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Hinzugefügt
 
+- Genehmigungshinweise: Naturdenkmale und geschützte Landschaftsbestandteile aus Rheinland-Pfalz, aus dem Naturschutz-Dienst des Landesamts für Umwelt (Open Database License, ADR 0146, Nachtrag).
 - Rheinland-Pfalz: das Landschaftsmodell des LVermGeo RP (ATKIS Basis-DLM, ADR 0147). Es liegt dort nur im Shape-Schema der AdV vor; freemapper liest es jetzt auch so (`[[extra.nas]] schema = "shape"`). Seine Objekte bleiben Kandidaten: in Cochem 19 Denkmäler und Wegkreuze, 2 Wasserläufe und ein Brunnen, bei Dahn ein Felsen, 3 Wasserläufe und 6 Wege. Die zwei Beispiele sind neu gebaut.
 - Genehmigungshinweise: Naturdenkmale und geschützte Landschaftsbestandteile aus Niedersachsen, aus dem Kartendienst des NLWKN (ADR 0148). Er hat keinen WFS, nur ArcGIS REST; freemapper liest solche Dienste jetzt auch als Tabelle. Die geschützten Biotope führen in Niedersachsen die Landkreise; die Hinweise sagen das.
 - Mecklenburg-Vorpommern: das vollständige ALKIS und das Landschaftsmodell (ADR 0062, ADR 0135). Das vollständige ALKIS bringt Treppen, Mauern und Brücken direkt auf die Karte: in der Wismarer Altstadt 630 Treppen, meist kurze Stufen vor den Haustüren, und 138 Mauern; OpenStreetMap-Mauern, die sie doppeln, entfallen. Das Landschaftsmodell ergänzt Kandidaten (Bäume, Wasserläufe, Wege). Die zwei Beispiele sind neu gebaut.
