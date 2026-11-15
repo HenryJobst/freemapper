@@ -168,10 +168,24 @@ pub struct StairInput<'a> {
     /// The stored NAS `sonstiges-bauwerk` features (the map's CRS); only the stair areas
     /// (1620, 1621) and their bottom edges (1630, by `gehoert_zu`) are used.
     pub nas: &'a [Value],
+    /// The stair areas of the sets that bring their rules (ADR 0149); they are dropped where an
+    /// ALKIS stair is.
+    pub sets: &'a [SetStairs<'a>],
     /// The DGM1 in the map's CRS, if one is stored.
     pub terrain: Option<&'a Raster<f32>>,
     /// The 521 footprints in the map's CRS, for the direction of flat entrance steps.
     pub buildings: &'a [Polygon<f64>],
+}
+
+/// The stair areas of one layer of a set that brings its rules: every area feature is a stair.
+pub struct SetStairs<'a> {
+    /// The source of the drawn stairs, `<set key>/<layer>`.
+    pub source: String,
+    pub features: &'a [Value],
+    /// The CRS of the features.
+    pub crs: Crs,
+    /// The fetch date of the layer.
+    pub currency: NaiveDate,
 }
 
 /// One axis of a stair rectangle: the centre line from side to side, and the width across it.
@@ -613,6 +627,39 @@ pub fn stair_objects(
             stairs.push(&axis, tags)?;
         }
     }
+    for set in input.sets {
+        for part in set
+            .features
+            .iter()
+            .flat_map(|f| crate::build::sets::stair_areas(f, set.crs, crs))
+        {
+            if Euclidean.distance(&part, map_area) > buffer_m {
+                continue;
+            }
+            let Some(axes) = axes(&part) else {
+                continue;
+            };
+            // ALKIS wins; it names the set it stands for.
+            if let Some((_, drawn)) = alkis
+                .iter()
+                .find(|(footprint, _)| same_stair(footprint, &part))
+            {
+                for object in &mut stairs.objects[drawn.clone()] {
+                    add_also(&mut object.tags, &set.source);
+                }
+                continue;
+            }
+            let (axis, guessed) = walking_axis(axes, input.terrain, &facades);
+            let mut tags = vec![
+                ("freemapper:source".to_string(), set.source.clone()),
+                ("freemapper:currency".to_string(), set.currency.to_string()),
+            ];
+            if guessed {
+                tags.push(("freemapper:direction".to_string(), "guessed".to_string()));
+            }
+            stairs.push(&axis, tags)?;
+        }
+    }
     Ok(stairs.objects)
 }
 
@@ -951,6 +998,7 @@ mod tests {
                 step_edges,
                 survey,
                 nas,
+                sets: &[],
                 terrain,
                 buildings,
             },
@@ -1585,6 +1633,7 @@ mod tests {
                 step_edges: &[],
                 survey: &[],
                 nas: features,
+                sets: &[],
                 terrain: raster.as_ref(),
                 buildings: &[],
             },

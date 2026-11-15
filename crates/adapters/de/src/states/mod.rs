@@ -827,16 +827,24 @@ mod tests {
     }
 
     /// Berlin fetches its registers and surveys with code of its own: one set of extra layers,
-    /// with the layers of each map kind in the order they are fetched. No other state has one.
+    /// with the layers of each map kind in the order they are fetched. Hamburg's Feinkartierung
+    /// is a set that brings its rules (ADR 0149). No other state has one.
     #[test]
-    fn berlin_alone_has_a_set_of_extra_layers() {
+    fn berlin_and_hamburg_have_a_set_of_extra_layers() {
         use crate::project::MapKind;
         for adapter in adapters() {
             let sets = adapter.extras();
+            if adapter.info().id.as_str() == "hamburg" {
+                assert_eq!(sets.len(), 1);
+                assert_eq!(sets[0].info().key, "lgv-feinkartierung");
+                assert!(sets[0].drawing().is_some());
+                continue;
+            }
             if adapter.info().id.as_str() != "berlin" {
                 assert!(sets.is_empty(), "{}", adapter.info().id);
                 continue;
             }
+            assert!(sets[0].drawing().is_none());
             assert_eq!(sets.len(), 1);
             let set = &sets[0];
             let info = set.info();

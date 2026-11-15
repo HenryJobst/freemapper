@@ -1057,6 +1057,7 @@ pub fn project_fingerprint(project: &ProjectFile) -> Result<String, ProjectError
         buildings: _,
         land_use: _,
         berlin_layers: _,
+        extra_sets: _,
         nas_layers: _,
         tree_layers: _,
         osm: _,
@@ -1381,8 +1382,13 @@ fn read_stored(dir: &Path, project: &ProjectFile, area: &MapArea) -> Result<Stor
     }
     let berlin_layers = stored_berlin_layers(dir, project)?;
     let nas_layers = stored_nas_layers(dir, project)?;
+    let set_layers = stored_set_layers(dir, project)?;
     // The terrain for the stair direction, read only when a layer gives stairs.
-    let stair_terrain = if stair_layers_stored(&berlin_layers, &nas_layers) {
+    let stair_terrain = if stair_layers_stored(&berlin_layers, &nas_layers)
+        || set_layers
+            .iter()
+            .any(|set| set.stair_layers().next().is_some())
+    {
         stored_stair_terrain(dir, project)?
     } else {
         None
@@ -1425,6 +1431,7 @@ fn read_stored(dir: &Path, project: &ProjectFile, area: &MapArea) -> Result<Stor
                 fetched: l.fetched,
             })
             .collect(),
+        sets: set_layers,
         land_use,
         osm,
         stair_terrain,
