@@ -6,6 +6,8 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
+## [0.22.0] - 2026-11-15
+
 ### Added
 
 - Hamburg: the Feinkartierung Straße and Grün of the LGV (ADR 0149), as the first set of extra layers that brings its own rules: the engine draws it without knowing Hamburg. Railings, fences, walls, curbs and stairs go onto the map under `balanced`, bollards, benches and lamps become candidates. In Blankenese that is 155 railings and fences, 15 walls, 36 curbs and 353 stair lines more on the map and 96 control sites as candidates. The example is rebuilt.
