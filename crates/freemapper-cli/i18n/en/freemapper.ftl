@@ -35,7 +35,7 @@ cli-map-lacks-canopies = The map lacks the ALKIS canopies and carports (522) tha
 cli-pdf-without-credits = PDF without source credits: ODbL and dl-de/by-2-0 ask you to name the sources when you pass the map on; see ATTRIBUTION.txt
 cli-wrote-pdf = Wrote { $path } (the map without candidates)
 cli-wrote-pdf-candidates = Wrote { $path } (the check print: the map with every candidate, true to position; check them in the terrain)
-cli-wrote-training = Wrote { $map } and { $pdf } (the training map: { $joined } joined, { $left } left out or cut)
+cli-wrote-training = Wrote { $map } and { $pdf } (the training map: { $joined } joined, { $shifted } shifted, { $left } left out or cut)
 cli-training-apart-left = the training map still has { $length } mm (on paper) where objects keep too little gap; check it in OOM
 cli-kept-training = Kept the training map { $path }, so that a run does not overwrite one that was printed or passed on; delete it or pass --force to renew it
 

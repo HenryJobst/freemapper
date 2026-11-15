@@ -237,9 +237,15 @@ impl Footprints {
     pub fn of(objects: &[&MapObject], symbol_set: &SymbolSet) -> Self {
         let symbols = RenderSymbols::from_set(symbol_set);
         let classes = Classes::of(symbol_set);
+        Self::with(objects, &symbols, &classes)
+    }
+
+    /// As [`of`](Self::of), with the symbols and classes of the set already read: for a caller
+    /// that measures many small sets of objects.
+    pub fn with(objects: &[&MapObject], symbols: &RenderSymbols, classes: &Classes) -> Self {
         let items = objects
             .iter()
-            .map(|object| footprint(object, &symbols, &classes))
+            .map(|object| footprint(object, symbols, classes))
             .collect();
         Self { items }
     }
@@ -450,41 +456,61 @@ pub fn conflicts(footprints: &Footprints, kind: MapKind, scale_denominator: u32)
         .collect();
     pairs.sort_unstable();
     pairs.dedup();
-    let mut found = Vec::new();
-    for (a, b) in pairs {
-        let (fa, fb) = (&items[a], &items[b]);
-        if relation(fa.class, fb.class) == Relation::Free {
-            continue;
-        }
-        let (Some(ba), Some(bb)) = (fa.bounds, fb.bounds) else {
-            continue;
-        };
-        if ba.min().x - gap > bb.max().x
-            || bb.min().x - gap > ba.max().x
-            || ba.min().y - gap > bb.max().y
-            || bb.min().y - gap > ba.max().y
-        {
-            continue;
-        }
-        // The lower rank gives way; of the same rank the shorter, of the same length (within
-        // the tolerance) the later.
-        let b_loses = match rank(fb.class).cmp(&rank(fa.class)) {
-            std::cmp::Ordering::Less => true,
-            std::cmp::Ordering::Greater => false,
-            std::cmp::Ordering::Equal => fb.length <= fa.length + TOLERANCE_MM,
-        };
-        let (loser, winner) = if b_loses { (b, a) } else { (a, b) };
-        if let Some((grade, length)) = measure(&items[loser], &items[winner], gap) {
-            found.push(Conflict {
-                loser,
-                winner,
-                classes: (items[loser].class, items[winner].class),
-                grade,
-                length: PaperMm(length),
-            });
-        }
+    pairs
+        .into_iter()
+        .filter_map(|(a, b)| pair_conflict(items, a, b, gap))
+        .collect()
+}
+
+/// The conflicts of the object `i` with every other object of `footprints`, as [`conflicts`]
+/// finds them, in the order of the other objects.
+pub fn conflicts_of(
+    footprints: &Footprints,
+    i: usize,
+    kind: MapKind,
+    scale_denominator: u32,
+) -> Vec<Conflict> {
+    let gap = gap(kind, scale_denominator).0;
+    let items = &footprints.items;
+    if matches!(items[i].class, Class::OtherArea | Class::Other) {
+        return Vec::new();
     }
-    found
+    (0..items.len())
+        .filter(|&j| j != i && !matches!(items[j].class, Class::OtherArea | Class::Other))
+        .filter_map(|j| pair_conflict(items, i.min(j), i.max(j), gap))
+        .collect()
+}
+
+/// The conflict of the pair `a` < `b` of `items`, if any.
+fn pair_conflict(items: &[Footprint], a: usize, b: usize, gap: f64) -> Option<Conflict> {
+    let (fa, fb) = (&items[a], &items[b]);
+    if relation(fa.class, fb.class) == Relation::Free {
+        return None;
+    }
+    let (ba, bb) = (fa.bounds?, fb.bounds?);
+    if ba.min().x - gap > bb.max().x
+        || bb.min().x - gap > ba.max().x
+        || ba.min().y - gap > bb.max().y
+        || bb.min().y - gap > ba.max().y
+    {
+        return None;
+    }
+    // The lower rank gives way; of the same rank the shorter, of the same length (within the
+    // tolerance) the later.
+    let b_loses = match rank(fb.class).cmp(&rank(fa.class)) {
+        std::cmp::Ordering::Less => true,
+        std::cmp::Ordering::Greater => false,
+        std::cmp::Ordering::Equal => fb.length <= fa.length + TOLERANCE_MM,
+    };
+    let (loser, winner) = if b_loses { (b, a) } else { (a, b) };
+    let (grade, length) = measure(&items[loser], &items[winner], gap)?;
+    Some(Conflict {
+        loser,
+        winner,
+        classes: (items[loser].class, items[winner].class),
+        grade,
+        length: PaperMm(length),
+    })
 }
 
 /// The footprint of `winner` cut to the surroundings of `loser`, as far as the measure reaches;

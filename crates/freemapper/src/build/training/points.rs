@@ -1,4 +1,4 @@
-//! Step 6 of the training level: no point symbol is drawn on a way; a point that comes too
+//! Step 7 of the training level: no point symbol is drawn on a way; a point that comes too
 //! close to a symbol it keeps apart from is moved off to the nearest spot that frees it (spec
 //! 2026-11-14, "Trees", for every point symbol).
 
@@ -74,7 +74,7 @@ struct Obstacles<'a> {
     olive: Vec<(Rect<f64>, MultiPolygon<f64>)>,
 }
 
-/// Step 6: a point symbol (an object of [`Class::Point`] drawn as a point) that keeps less than
+/// Step 7: a point symbol (an object of [`Class::Point`] drawn as a point) that keeps less than
 /// the gap to the footprint of an object it keeps apart from ([`is_obstacle`]) or to another
 /// point that wins against it is moved to the nearest spot that keeps the gap to all of them and
 /// whose symbol does not overlap olive green, within [`MAX_POINT_SHIFT_MM`] ([`spot`]), and

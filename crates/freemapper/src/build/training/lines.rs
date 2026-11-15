@@ -151,7 +151,6 @@ pub(super) fn middle(a: &Polyline, b: &Polyline, range: (f64, f64), step: f64) -
 /// segment moves along the segment's normal, a vertex along the normalized sum of the normals of
 /// its two segments. A closed line (first point equal to the last) stays closed, and a stretch
 /// or ramp runs on over its seam. `shift` is not negative; `side` gives the direction.
-#[allow(dead_code)] // The shift step of the training level calls it.
 pub(super) fn shifted(
     line: &Polyline,
     range: (f64, f64),

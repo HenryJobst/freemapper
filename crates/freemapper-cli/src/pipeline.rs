@@ -778,6 +778,7 @@ pub fn training_summary(outcome: &TrainingOutcome) -> String {
             ("map", v(outcome.map.display())),
             ("pdf", v(outcome.pdf.display())),
             ("joined", n(report.joined + report.merged)),
+            ("shifted", n(report.shifted)),
             ("left", n(left)),
         ],
     )];
@@ -1216,6 +1217,7 @@ mod tests {
             dropped_beside_roads: 3,
             junctions_repaired: 9,
             junctions_free: 1,
+            shifted: 4,
             ..TrainingReport::default()
         };
         let mut outcome = training(dir, report);
@@ -1223,7 +1225,7 @@ mod tests {
         assert_eq!(
             training_summary(&outcome),
             format!(
-                "Wrote {} and {} (the training map: 5 joined, 21 left out or cut)",
+                "Wrote {} and {} (the training map: 5 joined, 4 shifted, 21 left out or cut)",
                 training_map_path(dir).display(),
                 training_pdf_path(dir).display()
             )

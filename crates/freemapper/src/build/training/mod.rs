@@ -13,11 +13,14 @@
 //!    and on a forest map a path or tram in the gap zone of a road goes
 //!    ([`merge`](merge::merge)); the line ends that touched a line before touch one after
 //!    ([`Junctions`]), and the lines that meet end to end are joined again;
-//! 6. a point symbol too close to a way, a building, water or another point is moved off
+//! 6. a line that keeps no gap to an object it keeps apart from is shifted off it, by at most
+//!    [`MAX_SHIFT_MM`] and only where that makes no new conflict ([`shift_lines`](shift::shift_lines));
+//!    the line ends that touched a line before touch one after;
+//! 7. a point symbol too close to a way, a building, water or another point is moved off
 //!    ([`move_points`](points::move_points));
-//! 7. what keeps no gap to another object ([`conflicts`], the pairs that keep apart) gives way:
+//! 8. what keeps no gap to another object ([`conflicts`], the pairs that keep apart) gives way:
 //!    it is cut out there, or dropped when more than half of it is in conflict;
-//! 8. lines and areas below the norm's minimum size go.
+//! 9. lines and areas below the norm's minimum size go.
 //!
 //! What a step drops is gone from the training map; nothing is tagged hidden. Lines of one
 //! network that still run side by side are counted in the report.
@@ -27,6 +30,7 @@ mod lines;
 mod merge;
 mod olive;
 mod points;
+mod shift;
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -59,6 +63,7 @@ use olive::clear_olive;
 pub use olive::{OLIVE_EDGE_MM, WAY_STUB_MM};
 use points::move_points;
 pub use points::{MAX_POINT_SHIFT_MM, MAX_SHIFT_MM};
+use shift::shift_lines;
 
 /// The give-way and merge steps stop after this many rounds; what is left then is in the report.
 const MAX_ROUNDS: usize = 20;
@@ -121,9 +126,11 @@ pub struct TrainingReport {
     pub merged: usize,
     /// Paths and trams that went because they ran in the gap zone of a road (forest map).
     pub dropped_beside_roads: usize,
+    /// Lines moved off what they kept no gap to, instead of being cut.
+    pub shifted: usize,
     /// Line ends moved back onto the line they touched, or onto the line that replaced it.
     pub junctions_repaired: usize,
-    /// Line ends that touched a line before the merge and touch none after.
+    /// Line ends that touched a line before the merge or the shift and touch none after.
     pub junctions_free: usize,
     /// Conflict length left, mm on paper, by grade, of the pairs of one network that the merge
     /// did not settle (lines of different classes side by side, stretches below the minimum).
@@ -166,6 +173,12 @@ pub fn train(
     report.dropped_beside_roads = merged.dropped_beside_roads;
     report.cut += merged.cut;
     report.joined += join(&mut objects, &classes, georef);
+    let junctions = Junctions::record(&mut objects, &classes, georef);
+    report.shifted = shift_lines(&mut objects, kind, georef, symbol_set);
+    let (repaired, free) = junctions.repair(&mut objects, &BTreeMap::new(), reach, georef);
+    report.junctions_repaired += repaired;
+    report.junctions_free += free;
+    junctions::forget(&mut objects);
     report.points_moved = move_points(&mut objects, &classes, kind, georef, symbol_set);
     let (gave_way, cut) = give_way(&mut objects, &classes, kind, georef, symbol_set);
     report.gave_way = gave_way;
@@ -385,7 +398,7 @@ fn open_mask(tree_cover: &Raster<f32>, frame: &Rect<f64>) -> Raster<Option<Veget
     mask
 }
 
-/// Step 7: every object that keeps no gap to another object it must keep apart from gives way,
+/// Step 8: every object that keeps no gap to another object it must keep apart from gives way,
 /// both grades (the training map keeps every gap). Losers go by ascending rank; a line with more
 /// than half its length in conflict (the zones of all its winners together, a stretch near two
 /// counted once), a point and an area go whole, any other line is cut where it is in conflict.
@@ -658,7 +671,7 @@ fn continues_class(class: Class) -> Class {
 /// The `freemapper:generalized` value of a stair below its minimum drawn as the way it lies in.
 const STAIR_AS_PATH: &str = "stair below the minimum drawn as path";
 
-/// Step 8: a line shorter than its minimum length goes unless an end continues (within
+/// Step 9: a line shorter than its minimum length goes unless an end continues (within
 /// [`TOUCH_M`]) on another line that stays: of the network (roads, paths, railways and
 /// stairways count as one) for a way, of its own class for any other line. A short line that
 /// continues on a short line stays only when that one stays, so a chain of short pieces holds
@@ -881,7 +894,7 @@ pub(super) fn add_generalized(object: &mut MapObject, value: &str) {
     }
 }
 
-/// Step 8, last: the ways (roads, paths, stairways) that meet end to end are joined again, so a
+/// Step 9, last: the ways (roads, paths, stairways) that meet end to end are joined again, so a
 /// stairway drawn as path joins the path it lies in. Returns how many objects went.
 fn join_ways(objects: &mut Vec<MapObject>, classes: &Classes, georef: &Georeferencing) -> usize {
     let ids: Vec<u32> = [Class::Road, Class::Path, Class::Stairway]
@@ -898,7 +911,7 @@ fn join_ways(objects: &mut Vec<MapObject>, classes: &Classes, georef: &Georefere
     }
 }
 
-/// Step 9: the conflict length left on `objects`, mm on paper: overlap and gap of the pairs of
+/// Step 10: the conflict length left on `objects`, mm on paper: overlap and gap of the pairs of
 /// one network, and of the pairs that keep apart.
 fn left(
     objects: &[MapObject],
@@ -1023,10 +1036,14 @@ mod tests {
     }
 
     #[test]
-    fn an_earth_bank_on_a_ditch_goes() {
+    fn an_earth_bank_on_a_stream_goes() {
+        // Too deep in the stream to move off it by 0.5 mm.
         let set = isom();
-        let ditch = line(&set, "306", &[(0.0, 0.0), (20.0, 0.0)]);
-        let objects = vec![ditch.clone(), line(&set, "104", &[(0.0, 0.2), (20.0, 0.2)])];
+        let ditch = line(&set, "304", &[(0.0, 0.0), (20.0, 0.0)]);
+        let objects = vec![
+            ditch.clone(),
+            line(&set, "104", &[(0.0, 0.05), (20.0, 0.05)]),
+        ];
         let (out, report) = run(&set, objects);
         assert_eq!(out, vec![ditch]);
         assert_eq!(report.gave_way, 1, "{report:?}");
@@ -1034,13 +1051,23 @@ mod tests {
     }
 
     #[test]
-    fn an_earth_bank_inside_the_gap_of_a_ditch_goes_too() {
+    fn an_earth_bank_inside_the_gap_of_a_ditch_without_room_goes() {
+        // A second ditch just beyond its gap on the other side: moved off the first, the bank
+        // would come too close to the second, so it goes.
         let set = isom();
-        let y = half_width(&set, "306") + half_width(&set, "104") + 0.1;
+        let apart = half_width(&set, "306") + half_width(&set, "104");
+        let y = apart + 0.1;
+        let beyond = y + apart + gap(MapKind::Forest, SCALE).0 + 0.01;
         let ditch = line(&set, "306", &[(0.0, 0.0), (20.0, 0.0)]);
-        let objects = vec![ditch.clone(), line(&set, "104", &[(0.0, y), (20.0, y)])];
+        let other = line(&set, "306", &[(0.0, beyond), (20.0, beyond)]);
+        let objects = vec![
+            ditch.clone(),
+            line(&set, "104", &[(0.0, y), (20.0, y)]),
+            other.clone(),
+        ];
         let (out, report) = run(&set, objects);
-        assert_eq!(out, vec![ditch]);
+        assert_eq!(out, vec![ditch, other]);
+        assert_eq!(report.shifted, 0, "{report:?}");
         assert_eq!(report.gave_way, 1, "{report:?}");
     }
 
@@ -1071,7 +1098,7 @@ mod tests {
     #[test]
     fn an_earth_bank_that_runs_into_a_path_is_cut() {
         let set = isom();
-        let path = line(&set, "505", &[(14.0, 0.3), (40.0, 0.3)]);
+        let path = line(&set, "505", &[(14.0, 0.0), (40.0, 0.0)]);
         let objects = vec![path.clone(), line(&set, "104", &[(0.0, 0.0), (20.0, 0.0)])];
         let (out, report) = run(&set, objects);
         let banks = of_code(&set, &out, "104");
@@ -1105,11 +1132,12 @@ mod tests {
 
     #[test]
     fn a_fence_between_a_path_and_a_ditch_is_cut_not_dropped() {
-        // The path runs along the first 40 % of the fence, the ditch along the last 40 %: more
-        // than half of it is in conflict, but a barrier is only cut where it is.
+        // The path runs along the first 40 % of the fence, the ditch along the last 40 %, both
+        // on it, too close to move it off: more than half of it is in conflict, but a barrier
+        // is only cut where it is.
         let set = isom();
-        let path = line(&set, "505", &[(-10.0, 0.3), (16.0, 0.3)]);
-        let ditch = line(&set, "306", &[(24.0, -0.3), (50.0, -0.3)]);
+        let path = line(&set, "505", &[(-10.0, 0.0), (16.0, 0.0)]);
+        let ditch = line(&set, "306", &[(24.0, 0.0), (50.0, 0.0)]);
         let objects = vec![
             path.clone(),
             ditch.clone(),
@@ -1128,12 +1156,12 @@ mod tests {
 
     #[test]
     fn an_impassable_wall_mostly_on_a_path_keeps_its_free_part() {
-        // The path runs along 70 % of it; the impassable wall and fence and the passable wall
-        // keep the 6 mm beyond.
+        // The path runs on 70 % of it, too close to move it off; the impassable wall and fence
+        // and the passable wall keep the 6 mm beyond.
         let set = isom();
         for code in ["515", "518", "513"] {
             let objects = vec![
-                line(&set, "505", &[(-10.0, 0.3), (14.0, 0.3)]),
+                line(&set, "505", &[(-10.0, 0.0), (14.0, 0.0)]),
                 line(&set, code, &[(0.0, 0.0), (20.0, 0.0)]),
             ];
             let (out, report) = run(&set, objects);
@@ -1210,14 +1238,15 @@ mod tests {
 
     #[test]
     fn a_contour_on_a_bank_on_a_ditch_stays() {
-        // The bank gives way to the ditch first; with the bank gone the contour is free (a
-        // contour may lie on a ditch), so it must not go against the bank in the same round.
+        // The bank gives way to the stream first (both too deep in the other to move off); with
+        // the bank gone the contour is free (a contour may lie on a stream), so it must not go
+        // against the bank in the same round.
         let set = isom();
-        let ditch = line(&set, "306", &[(0.0, 0.0), (20.0, 0.0)]);
+        let ditch = line(&set, "304", &[(0.0, 0.0), (20.0, 0.0)]);
         let contour = line(&set, "101", &[(0.0, 0.1), (20.0, 0.1)]);
         let objects = vec![
             ditch.clone(),
-            line(&set, "104", &[(0.0, 0.2), (20.0, 0.2)]),
+            line(&set, "104", &[(0.0, 0.05), (20.0, 0.05)]),
             contour.clone(),
         ];
         let (out, report) = run(&set, objects);
