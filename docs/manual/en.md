@@ -300,7 +300,7 @@ freemapper-courseplan then show the same title. Change it in the file if you wan
 
 ## 6. Choosing the map area in the browser
 
-![Area selection in the browser](images/area-selector.jpg)
+[![Area selection in the browser](images/area-selector-thumb.webp)](images/area-selector.jpg)
 
 *The area selection with the Kreuzgymnasium Dresden (German interface). Map data © OpenStreetMap
 contributors.*
@@ -607,10 +607,10 @@ dl-de/by-2-0, Daten geändert.
 
 | Template | Picture |
 |---|---|
-| **Orthophoto:** top view, 20 cm per pixel. Good for paths, squares and vegetation, but trees hide the ground. | ![Orthophoto](images/orthophoto.jpg) |
-| **nDSM (height above ground):** yellow 0.3–1 m (walls, benches, cars), orange 1–2.5 m (hedges, fences, playground equipment), light green 2.5–8 m (bushes, sheds), dark green above 8 m (trees, houses). Shows what stands, also under trees. | ![nDSM on the orthophoto](images/ndsm.jpg) |
-| **Hillshade:** the terrain as if lit from the north-west. Shows banks, hollows and earth walls. | ![Hillshade](images/hillshade.jpg) |
-| **Slope:** the darker, the steeper. Helps with banks and stairs. | ![Slope](images/slope.jpg) |
+| **Orthophoto:** top view, 20 cm per pixel. Good for paths, squares and vegetation, but trees hide the ground. | [![Orthophoto](images/orthophoto-thumb.webp)](images/orthophoto.jpg) |
+| **nDSM (height above ground):** yellow 0.3–1 m (walls, benches, cars), orange 1–2.5 m (hedges, fences, playground equipment), light green 2.5–8 m (bushes, sheds), dark green above 8 m (trees, houses). Shows what stands, also under trees. | [![nDSM on the orthophoto](images/ndsm-thumb.webp)](images/ndsm.jpg) |
+| **Hillshade:** the terrain as if lit from the north-west. Shows banks, hollows and earth walls. | [![Hillshade](images/hillshade-thumb.webp)](images/hillshade.jpg) |
+| **Slope:** the darker, the steeper. Helps with banks and stairs. | [![Slope](images/slope-thumb.webp)](images/slope.jpg) |
 | **Local relief:** the terrain minus its smoothed mean (over about 5 m on sprint maps, 3 m on schoolyard maps, 8 m on forest maps). Light is higher than the surroundings, dark lower; the general fall of the ground is gone. Shows mounds, hollows, banks and ditches that the hillshade hides on a slope. | – |
 
 The candidates map also holds the **contours**: every 1 m on schoolyard maps, every 2 m on sprint maps,
@@ -836,7 +836,7 @@ You can combine both PDF switches; the two files then sit side by side in the pr
 take all four, the MCP server as `pdf`, `pdf_candidates`, `pdf_scale_bar` and `pdf_sources`. freemapper does not store the choice
 in the project: it applies to that call.
 
-![Training map as PDF](images/training-map.jpg)
+[![Training map as PDF](images/training-map-thumb.webp)](images/training-map.jpg)
 
 *The training map of the Kreuzgymnasium. Quelle: GeoSN, dl-de/by-2-0, Daten geändert; © OpenStreetMap
 contributors.*

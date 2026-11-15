@@ -313,7 +313,7 @@ freemapper-courseplan zeigen so denselben Titel. Ändern Sie ihn bei Bedarf in d
 
 ## 6. Das Kartengebiet im Browser wählen
 
-![Gebietsauswahl im Browser](images/area-selector.jpg)
+[![Gebietsauswahl im Browser](images/area-selector-thumb.webp)](images/area-selector.jpg)
 
 *Die Gebietsauswahl mit dem Kreuzgymnasium Dresden. Kartendaten © OpenStreetMap-Mitwirkende.*
 
@@ -633,10 +633,10 @@ Quelle: GeoSN, dl-de/by-2-0, Daten geändert.
 
 | Vorlage | Bild |
 |---|---|
-| **Luftbild:** Draufsicht, 20 cm je Bildpunkt. Gut für Wege, Plätze und Bewuchs, aber Bäume verdecken den Boden. | ![Luftbild](images/orthophoto.jpg) |
-| **nDOM (Höhe über Grund):** gelb 0,3–1 m (Mauern, Bänke, Autos), orange 1–2,5 m (Hecken, Zäune, Spielgeräte), hellgrün 2,5–8 m (Büsche, Schuppen), dunkelgrün über 8 m (Bäume, Häuser). Zeigt, was steht, auch unter Bäumen. | ![nDOM über dem Luftbild](images/ndsm.jpg) |
-| **Schummerung:** das Gelände wie von Nordwesten beleuchtet. Zeigt Böschungen, Mulden und Wälle. | ![Schummerung](images/hillshade.jpg) |
-| **Hangneigung:** je dunkler, desto steiler. Hilft bei Böschungen und Treppen. | ![Hangneigung](images/slope.jpg) |
+| **Luftbild:** Draufsicht, 20 cm je Bildpunkt. Gut für Wege, Plätze und Bewuchs, aber Bäume verdecken den Boden. | [![Luftbild](images/orthophoto-thumb.webp)](images/orthophoto.jpg) |
+| **nDOM (Höhe über Grund):** gelb 0,3–1 m (Mauern, Bänke, Autos), orange 1–2,5 m (Hecken, Zäune, Spielgeräte), hellgrün 2,5–8 m (Büsche, Schuppen), dunkelgrün über 8 m (Bäume, Häuser). Zeigt, was steht, auch unter Bäumen. | [![nDOM über dem Luftbild](images/ndsm-thumb.webp)](images/ndsm.jpg) |
+| **Schummerung:** das Gelände wie von Nordwesten beleuchtet. Zeigt Böschungen, Mulden und Wälle. | [![Schummerung](images/hillshade-thumb.webp)](images/hillshade.jpg) |
+| **Hangneigung:** je dunkler, desto steiler. Hilft bei Böschungen und Treppen. | [![Hangneigung](images/slope-thumb.webp)](images/slope.jpg) |
 | **Lokales Relief:** das Gelände minus sein geglättetes Mittel (über etwa 5 m auf Sprintkarten, 3 m auf Schulhofkarten, 8 m auf Waldkarten). Hell ist höher als die Umgebung, dunkel tiefer; das allgemeine Gefälle ist weg. Zeigt Hügel, Mulden, Böschungen und Gräben, die die Schummerung am Hang verschluckt. | – |
 
 Dazu kommen die **Höhenlinien** in der Kandidaten-Karte: auf Schulhofkarten alle 1 m, auf Sprintkarten
@@ -871,7 +871,7 @@ Beide PDF-Schalter lassen sich verbinden; dann liegen beide Dateien nebeneinande
 kennen alle vier, der MCP-Server als `pdf`, `pdf_candidates`, `pdf_scale_bar` und `pdf_sources`. freemapper merkt sich die Wahl nicht
 im Projekt: Sie gilt für den Aufruf.
 
-![Trainingskarte als PDF](images/training-map.jpg)
+[![Trainingskarte als PDF](images/training-map-thumb.webp)](images/training-map.jpg)
 
 *Die Trainingskarte des Kreuzgymnasiums. Quelle: GeoSN, dl-de/by-2-0, Daten geändert; © OpenStreetMap-Mitwirkende.*
 

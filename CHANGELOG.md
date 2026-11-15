@@ -13,6 +13,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Geändert
 
+- Die Beispielübersicht, die README, die Gegenüberstellung und das Handbuch zeigen kleine WebP-Vorschaubilder; erst ein Klick lädt das Bild in voller Auflösung. Die Beispielübersicht lädt damit 1,6 MB statt 6,6 MB. Das PDF jedes Beispiels steht als eigener Link unter dem Bild. `scripts/thumbnails.sh` erzeugt die Vorschaubilder neu, wenn ein Beispiel oder ein Bild des Handbuchs neu gebaut ist.
 - Die README verlinkt die Beispielübersicht gleich oben neben den Änderungen. In der Beispielübersicht steht die Vorschau jetzt in der ersten Spalte.
 
 ## [0.21.0] - 2026-11-15
