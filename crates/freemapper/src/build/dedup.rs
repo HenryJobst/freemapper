@@ -81,6 +81,8 @@ const LINE_DEDUP_CODES: [&str; 12] = [
 ];
 /// The tree symbols (large and small tree): every source draws its trees as one of them.
 const TREE_CODES: [&str; 2] = ["417", "418"];
+/// The tower symbols (high tower, small tower).
+const TOWER_CODES: [&str; 2] = ["524", "525"];
 
 /// Drops the survey lines ([`LINE_DEDUP_CODES`]: `sb-mauer`, `sb-gelaender`) with at least
 /// [`LINE_DEDUP_SHARE`] of their length within [`LINE_DEDUP_M`] of a `cadastre` line of a higher
@@ -128,7 +130,8 @@ pub fn drop_osm_lines_near_cadastre(
 
 /// Drops the objects of a landscape model (`landscape`, [`Rank::Landscape`]) that `others` have:
 /// a point within [`LANDSCAPE_POINT_DEDUP_M`] of a point of a higher rank with the same symbol
-/// (the [`TREE_CODES`] count as one: a tree is the same tree whatever size a source gives it),
+/// (the [`TREE_CODES`] count as one: a tree is the same tree whatever size a source gives it;
+/// so do the [`TOWER_CODES`], which OpenStreetMap gives by height and the model by function),
 /// and a line with [`LINE_DEDUP_SHARE`] of its length within [`LANDSCAPE_LINE_DEDUP_M`] of such
 /// a line (any line symbol). The object that stays names the dropped one in `freemapper:also`
 /// (`atkis-dlm/<layer>/<id>`). Returns the landscape objects that stay, in their order.
@@ -151,14 +154,19 @@ pub fn drop_landscape_near_others(
     let limit = LANDSCAPE_POINT_DEDUP_M * map_units_per_metre(scale_denominator);
     let is_point =
         |o: &MapObject| matches!(o.kind, MapObjectKind::Point { .. }) && !o.coords.is_empty();
-    let trees: Vec<u32> = TREE_CODES
-        .iter()
-        .filter_map(|c| symbol_set.id_for_code(c))
-        .collect();
-    // The kind of a point: its symbol, or the one kind of all trees.
+    let ids = |codes: &[&str]| -> Vec<u32> {
+        codes
+            .iter()
+            .filter_map(|c| symbol_set.id_for_code(c))
+            .collect()
+    };
+    let (trees, towers) = (ids(&TREE_CODES), ids(&TOWER_CODES));
+    // The kind of a point: its symbol, or the one kind of all trees or of all towers.
     let kind = |o: &MapObject| {
         if trees.contains(&o.symbol_id) {
             TREE_KIND
+        } else if towers.contains(&o.symbol_id) {
+            TOWER_KIND
         } else {
             o.symbol_id
         }
@@ -274,9 +282,10 @@ enum LineKinds<'a> {
 
 /// The key of all path classes in [`LineKinds::AnyWithPaths`]; no symbol has this id.
 const PATH_KIND: u32 = u32::MAX;
-/// The key of both tree symbols among the points of [`drop_landscape_near_others`]; no symbol
-/// has this id.
+/// The keys of both tree symbols and of both tower symbols among the points of
+/// [`drop_landscape_near_others`]; no symbol has these ids.
 const TREE_KIND: u32 = u32::MAX;
+const TOWER_KIND: u32 = u32::MAX - 1;
 
 /// [`drop_lines_near`] within `limit_m` on the ground, for the lines `kinds` names (a path of
 /// two points or more; the same kind on both sides keeps areas out).
@@ -1896,6 +1905,26 @@ mod tests {
         assert_eq!(
             tag(&others[0], "freemapper:also"),
             Some("atkis-dlm/vegetation/linde")
+        );
+    }
+
+    #[test]
+    fn a_landscape_tower_goes_beside_a_tower_of_another_class() {
+        // OSM draws a tower under 20 m as 525, the model by its function as 524 (ADR 0135).
+        let dlm = point("524", "atkis-dlm/turm", "turm", 8.0, &[]);
+        let mut others = vec![point("525", "osm", "node/9", 0.0, &[])];
+        let kept = drop_landscape_near_others(vec![dlm], &mut others, &set(), SCALE);
+        assert!(kept.is_empty());
+        assert_eq!(
+            tag(&others[0], "freemapper:also"),
+            Some("atkis-dlm/turm/turm")
+        );
+        // A tower beside a tree is no double.
+        let dlm = point("524", "atkis-dlm/turm", "turm", 8.0, &[]);
+        let mut tree = vec![point("418", "osm", "node/10", 0.0, &[])];
+        assert_eq!(
+            drop_landscape_near_others(vec![dlm], &mut tree, &set(), SCALE).len(),
+            1
         );
     }
 

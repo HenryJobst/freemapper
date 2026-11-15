@@ -41,7 +41,8 @@ none.
 - **Never a double.** After the other duplicate rules, an object of the model goes where a source of a higher
   rank has the same object: a point within 15 m of a point with the same symbol, a line with 80 % of its length
   within 10 m of a line of the same kind. All path classes are one kind, because two sources seldom give a path
-  the same class; the two tree symbols are one kind for the same reason. The cadastre, the OSM candidates and
+  the same class; the two tree symbols are one kind for the same reason, and so are the two tower symbols
+  (OpenStreetMap picks them by height, the model by function). The cadastre, the OSM candidates and
   the OSM objects already on the map count as one list, so a path that follows a candidate for one half and
   an object on the map for the other goes too. The object that stays names the dropped one in
   `freemapper:also`.
@@ -56,8 +57,8 @@ none.
   observation tower. 55 path lines and a fence go because OpenStreetMap has them. The fountain goes in the
   point generalization beside an OSM drinking-water point, and the tower's point lies in the footprint of the
   tower building, where candidate points go (ADR 0076). 14 candidates stay: 8 pieces of fences and 6 paths
-  OpenStreetMap lacks. In the old town of Regensburg (sprint) 35 objects give 10 candidates: 5 fountains, a monument, 2 named
-  trees and 2 watercourse axes; the 15 church towers and the town gate are left out by rule.
+  OpenStreetMap lacks. In the old town of Regensburg (sprint) 35 objects give 8 candidates: 3 fountains, a monument, 2 named
+  trees and 2 watercourse axes (2 more fountains stand in OSM fountain basins, as of 2026-11-15); the 15 church towers and the town gate are left out by rule.
 - A path line of the model (its pieces joined) is kept or dropped as a whole. One that follows an OSM path for less than 80 % of its
   length stays, also on the stretch both have.
 - The folder `data/alkis-nas/` and the record `nas_layers` now hold layers that are not ALKIS. The names stay
@@ -70,3 +71,27 @@ none.
 
 Cutting a path of the model where OpenStreetMap covers part of it, the path layers on sprint maps, and using the
 surface and function of the model's paths to check the path classes OpenStreetMap gives.
+
+## Addendum 2026-11-15: Saxony-Anhalt
+
+Saxony-Anhalt has only the simplified ALKIS and serves its landscape model as a WFS
+(`ST_LVermGeo_ATKIS_WFS_BDLM_OpenData`), which answers the same requests as Bavaria's. Its manifest names it
+(revision 2); nothing else was needed for the types. There most rocks are lines (29 of 49 in the Bode valley): a
+second rule draws a rock line as a cliff candidate (201), whose ticks `orient_ticks` turns downhill by the
+terrain model; areas stay a point (205). The cliff generalization (`build/cliffs.rs`) is not touched. Saxony-Anhalt
+is one of the states the golden net records, so its answers were recorded again (fixture store 3).
+
+## Addendum 2026-11-15: Hesse, and one NAS service per model
+
+Hesse serves its full ALKIS and its landscape model from one host of the HVBG. A region adapter now offers a list
+of NAS services (`RegionAdapter::nas_services`, before one `nas`), and a manifest may name one service per model;
+a second service of the same model is still refused. The notes of a fetch that asks both models name the full
+ALKIS. Hesse is recorded by the golden net (fixture store 4). In the old town of Marburg the full ALKIS adds 54
+surveyed stairs to the map, the landscape model 9 candidates.
+
+## Addendum 2026-11-15: Schleswig-Holstein
+
+The LVermGeo SH serves its landscape model (`WFS_SH_ATKIS_BDLM_SF_OpenGBD`). It refuses a `COUNT` above 10 000
+(`MaxFeaturesLimit`), so its manifest names `max_count = 10000`; a larger answer is split into quarters as
+everywhere. Schleswig-Holstein left the golden net's recordings, so only G2 (the estimate) changed.
+

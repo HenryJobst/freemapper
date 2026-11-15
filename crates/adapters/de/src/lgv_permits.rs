@@ -113,6 +113,8 @@ fn source(
             what,
             credit,
             note: None,
+            sampled: false,
+            gaps: None,
             layers,
             sections,
             offices,
@@ -362,6 +364,7 @@ fn finding(layer: Layer, feature: &Value) -> Option<PermitFinding> {
             name: text(feature, "gebietsname"),
             zone: text(feature, "schutzzone"),
             citation: text(feature, "rechtsgrundlage"),
+            authority: None,
         },
     };
     Some(PermitFinding { kind, geometry })
@@ -568,6 +571,7 @@ mod tests {
                 name,
                 zone,
                 citation,
+                ..
             },
         ] = found.as_slice()
         else {

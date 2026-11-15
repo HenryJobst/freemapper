@@ -4,7 +4,7 @@ resolver = "3"
 members = ["crates/freemapper*", "crates/adapters/*"]
 
 [workspace.package]
-version = "0.20.0"
+version = "0.21.0"
 edition = "2024"
 license = "GPL-3.0-or-later"
 repository = "https://github.com/HenryJobst/freemapper"
@@ -63,7 +63,7 @@ rust-embed = { version = "8.13.0", features = ["debug-embed", "mime-guess"] }
 rmcp = { version = "=3.6.0", features = ["server", "transport-io", "macros"] }
 schemars = "1.2.3"
 serde = { version = "1", features = ["derive"] }
-serde_json = { version = "1.0.154", features = ["float_roundtrip"] }
+serde_json = { version = "1.0.154", features = ["float_roundtrip", "raw_value"] }
 sha2 = "0.11.1"
 tempfile = "3.27.0"
 thiserror = "2.0.21"

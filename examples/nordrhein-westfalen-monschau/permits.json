@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "created": "2026-11-14",
+  "created": "2026-11-15",
   "map_kind": "sprint",
   "area_m2": 480678.73731574195,
   "admin": [
@@ -155,6 +155,14 @@
       }
     },
     {
+      "key": "permits-hint-monument-lower-authority",
+      "args": {
+        "gemeinde": "Monschau",
+        "kreis": "Städteregion Aachen",
+        "kreisfrei": "no"
+      }
+    },
+    {
       "key": "permits-hint-nsg-paths",
       "args": {}
     },
@@ -239,14 +247,14 @@
     {
       "id": "vg250",
       "state": "read",
-      "fetched": "2026-11-14",
+      "fetched": "2026-11-15",
       "reason": null,
       "credit": "© BKG (2026) dl-de/by-2-0, Datenquellen: https://sg.geodatenzentrum.de/web_public/gdz/datenquellen/datenquellen_vg_nuts.pdf"
     },
     {
       "id": "bfn",
       "state": "read",
-      "fetched": "2026-11-14",
+      "fetched": "2026-11-15",
       "reason": null,
       "credit": "© Bundesamt für Naturschutz (BfN) (2026), Schutzgebiete in Deutschland; Nutzungsbestimmungen für die Bereitstellung von Geodaten des Bundes (GeoNutzV). Nicht für Planungszwecke geeignet."
     },
@@ -261,6 +269,17 @@
   "regional": [
     {
       "adapter": "nordrheinwestfalen",
+      "monuments": {
+        "total": 500,
+        "groups": [
+          {
+            "kind": "Baudenkmal",
+            "count": 500,
+            "links": []
+          }
+        ],
+        "links_left": 0
+      },
       "forest_units": [
         {
           "item": {
@@ -314,7 +333,7 @@
           "status": {
             "id": "forstbetriebsbezirke",
             "state": "read",
-            "fetched": "2026-11-14",
+            "fetched": "2026-11-15",
             "reason": null,
             "credit": "Landesbetrieb Wald und Holz Nordrhein-Westfalen, Datenlizenz Deutschland – Namensnennung – Version 2.0 (https://www.govdata.de/dl-de/by-2-0)"
           }
@@ -338,7 +357,7 @@
           "status": {
             "id": "staatswald",
             "state": "read",
-            "fetched": "2026-11-14",
+            "fetched": "2026-11-15",
             "reason": null,
             "credit": "Landesbetrieb Wald und Holz Nordrhein-Westfalen, Datenlizenz Deutschland – Namensnennung – Version 2.0 (https://www.govdata.de/dl-de/by-2-0)"
           }
@@ -362,7 +381,7 @@
           "status": {
             "id": "linfos",
             "state": "read",
-            "fetched": "2026-11-14",
+            "fetched": "2026-11-15",
             "reason": null,
             "credit": "Open Data - Dieses Angebot vom Landesamt für Natur, Umwelt und Verbraucherschutz Nordrhein-Westfalen ist lizensiert unter der Datenlizenz Deutschland Namensnennung 2.0 (https://www.govdata.de/dl-de/by-2-0). Datensätze unter dieser Lizenz müssen bei Weiterverwendung mit dem Quellenverweis „Land NRW“ versehen werden."
           }
@@ -386,9 +405,37 @@
           "status": {
             "id": "wasserschutzgebiete",
             "state": "read",
-            "fetched": "2026-11-14",
+            "fetched": "2026-11-15",
             "reason": null,
             "credit": "Land NRW, Datenlizenz Deutschland – Zero – Version 2.0 (https://www.govdata.de/dl-de/zero-2-0)"
+          }
+        },
+        {
+          "source": {
+            "key": "denkmale",
+            "label": {
+              "en": "Land NRW",
+              "de": "Land NRW"
+            },
+            "what": {
+              "en": "monuments under the Denkmalschutzgesetz",
+              "de": "Denkmäler nach dem Denkmalschutzgesetz"
+            },
+            "credit": "Datenlizenz Deutschland – Zero – Version 2.0 (https://www.govdata.de/dl-de/zero-2-0)",
+            "gaps": {
+              "en": "the state gathers the monuments Gemeinde by Gemeinde, and not every Gemeinde is in them yet",
+              "de": "Das Land trägt die Denkmäler Gemeinde für Gemeinde zusammen, und noch ist nicht jede Gemeinde darin"
+            },
+            "sections": [
+              "monuments"
+            ]
+          },
+          "status": {
+            "id": "denkmale",
+            "state": "read",
+            "fetched": "2026-11-15",
+            "reason": null,
+            "credit": "Datenlizenz Deutschland – Zero – Version 2.0 (https://www.govdata.de/dl-de/zero-2-0)"
           }
         }
       ]

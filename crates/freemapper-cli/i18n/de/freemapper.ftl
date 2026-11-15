@@ -893,6 +893,9 @@ permits-none-green-spaces = Laut { $source } liegt im Kartengebiet keine öffent
 permits-none-owners = Laut { $source } liegt im Kartengebiet kein Grundstück des Bundeslandes oder des Bundes.
 permits-none-monuments = Laut { $source } liegt im Kartengebiet kein Denkmal.
 permits-none-protected-objects = Laut { $source } liegt im Kartengebiet kein Naturdenkmal, kein geschützter Landschaftsbestandteil und keine Fläche mit besonderer Regelung.
+permits-none-sampled = An den abgefragten Punkten nennt { $source } hierzu nichts.
+permits-gaps = Der Bestand von { $source } ist nicht vollständig: { $gaps }.
+permits-sampled = { $source } gibt nur für einzelne Punkte Auskunft. freemapper hat an einem Raster von Punkten über der Karte gefragt: Die Anteile sind geschätzt, und was zwischen den Punkten liegt, kann fehlen.
 permits-share-line = { $name }: { $share }
 permits-count-line = { $name }: { $count }
 permits-green-space-district = Bezirk { $district }
@@ -902,7 +905,10 @@ permits-playgrounds-one = Im Kartengebiet liegt ein öffentlicher Spielplatz. Er
 permits-playgrounds-many = Im Kartengebiet liegen { $count } öffentliche Spielplätze. Sie sind nicht einzeln aufgeführt.
 permits-owner-other = Andere öffentliche Eigentümer
 permits-owners-rest = Für die übrigen Flächen nennen die Daten keinen Eigentümer.
-permits-monuments-total = Denkmale ganz oder zum Teil im Kartengebiet: { $count }. Die Links führen zu ihren Einträgen in der Denkmalliste.
+permits-monuments-total = Denkmale ganz oder zum Teil im Kartengebiet: { $count }.{ $links ->
+        [yes] {" "}Die Links führen zu ihren Einträgen in der Denkmalliste.
+       *[no] {""}
+    }
 permits-monuments-links-left = Weitere { $count } Einträge sind hier ohne Link nur gezählt.
 permits-object-kind = { $kind ->
         [natural-monument] Naturdenkmal
@@ -919,6 +925,17 @@ permits-hint-district-office = { $offices ->
 permits-hint-monument-authority = { $offices ->
         [hamburg] Für die Denkmale im Kartengebiet ist das Denkmalschutzamt Hamburg zuständig.
        *[berlin] Für die Denkmale im Bezirk { $district } ist die untere Denkmalschutzbehörde des Bezirksamts { $district } zuständig.
+    }
+permits-hint-monument-lower-authority = { $known ->
+        [no] Ob im Kartengebiet Denkmale liegen, sagen die Daten hier nicht sicher.
+       *[yes] Im Kartengebiet liegen Denkmale.
+    } Ob ein Lauf sie berührt, etwa mit einem Posten an einem Denkmal oder einer Strecke durch eine geschützte Anlage, klärt die untere Denkmalschutzbehörde{ $kreisfrei ->
+        [yes] . Hier ist das die Stadt { $kreis } selbst.
+        [no] , meist der { $kreis }{ $gemeinde ->
+            [none] .
+           *[other] ; in manchen Bundesländern ist es die Gemeinde { $gemeinde }.
+        }
+       *[unknown] {" "}(meist der Landkreis oder die kreisfreie Stadt, in manchen Bundesländern die Gemeinde).
     }
 permits-hint-nature-object-authority = { $offices ->
         [hamburg] Für Naturdenkmale und geschützte Landschaftsbestandteile im Bezirk { $district } ist meist das Bezirksamt { $district } zuständig.
@@ -958,9 +975,18 @@ permits-forest-function-kind = { $kind ->
        *[closed] Gesperrte Waldfläche
     }
 permits-hint-water-protection = { $inner ->
-        [yes] Im Kartengebiet liegt die { $zone } des Wasserschutzgebiets „{ $name }“. In den Schutzzonen I und II sind Veranstaltungen meist ausgeschlossen. Fragen Sie die untere Wasserbehörde.
-        [no] Im Kartengebiet liegt die { $zone } des Wasserschutzgebiets „{ $name }“. Dort sind Veranstaltungen meist möglich; was die Verordnung erlaubt, sagt die untere Wasserbehörde.
-       *[unknown] Im Kartengebiet liegt das Wasserschutzgebiet „{ $name }“. Welche Schutzzone es ist, sagen die Daten nicht. In den Zonen I und II sind Veranstaltungen meist ausgeschlossen; fragen Sie die untere Wasserbehörde.
+        [yes] Im Kartengebiet liegt die { $zone } des Wasserschutzgebiets „{ $name }“. In den Schutzzonen I und II sind Veranstaltungen meist ausgeschlossen. Fragen Sie die untere Wasserbehörde{ $authority ->
+            [none] {""}
+           *[other] {" "}({ $authority })
+        }.
+        [no] Im Kartengebiet liegt die { $zone } des Wasserschutzgebiets „{ $name }“. Dort sind Veranstaltungen meist möglich; was die Verordnung erlaubt, sagt die untere Wasserbehörde{ $authority ->
+            [none] {""}
+           *[other] {" "}({ $authority })
+        }.
+       *[unknown] Im Kartengebiet liegt das Wasserschutzgebiet „{ $name }“. Welche Schutzzone es ist, sagen die Daten nicht. In den Zonen I und II sind Veranstaltungen meist ausgeschlossen; fragen Sie die untere Wasserbehörde{ $authority ->
+            [none] {""}
+           *[other] {" "}({ $authority })
+        }.
     }
 permits-hint-forest-function = { $kind ->
         [recreation] Im Kartengebiet liegt Erholungswald{ $names ->

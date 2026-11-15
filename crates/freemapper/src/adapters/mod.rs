@@ -130,8 +130,8 @@ pub(crate) mod test_support {
             None
         }
 
-        fn nas(&self) -> Option<&NasService> {
-            self.nas.as_ref()
+        fn nas_services(&self) -> &[NasService] {
+            self.nas.as_slice()
         }
 
         fn tree_datasets(&self) -> &[TreeDataset] {
@@ -293,8 +293,8 @@ mod tests {
     use crate::sources::region::ids::{IdFacts as _, regions};
 
     /// The full ALKIS of LGB and the tree cadastre of Potsdam belong to Brandenburg, the full
-    /// ALKIS of Bremen to Bremen; the queries over the registry find them for an area there
-    /// and nowhere else.
+    /// ALKIS of Bremen to Bremen, the landscape models to Bavaria, Saxony-Anhalt and
+    /// Schleswig-Holstein, both to Hesse; the queries over the registry find them for an area there and nowhere else.
     #[test]
     fn brandenburg_names_the_nas_service_and_the_tree_cadastre() {
         use crate::crs::BoundingBox;
@@ -303,8 +303,18 @@ mod tests {
             let id = adapter.info().id.as_str();
             let brandenburg = id == "brandenburg";
             assert_eq!(
-                adapter.nas().is_some(),
-                brandenburg || id == "bremen" || id == "bayern",
+                !adapter.nas_services().is_empty(),
+                brandenburg
+                    || [
+                        "bremen",
+                        "bayern",
+                        "saxonyanhalt",
+                        "hessen",
+                        "schleswigholstein",
+                        "nordrheinwestfalen",
+                        "niedersachsen",
+                    ]
+                    .contains(&id),
                 "{}",
                 adapter.info().id
             );

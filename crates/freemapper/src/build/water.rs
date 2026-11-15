@@ -686,12 +686,15 @@ pub fn drop_fountains_in_osm_basins(
 }
 
 /// A point of the Berlin fountain register (`zierbrunnen`), a surveyed fountain
-/// (`bv_springbrunnen_zierbrunnen`) or a full ALKIS fountain or well (`alkis-nas/…`): like an OSM
-/// fountain it stands in the basin the ALKIS water draws.
+/// (`bv_springbrunnen_zierbrunnen`), a full ALKIS fountain or well (`alkis-nas/…`) or one of a
+/// landscape model (`atkis-dlm/…`, ADR 0135): like an OSM fountain it stands in the basin the
+/// ALKIS water draws.
 fn cadastre_fountain(object: &MapObject) -> bool {
     object.tags.iter().any(|(k, v)| {
         (k == "freemapper:source"
-            && (v == "geoportal-berlin/zierbrunnen" || v.starts_with("alkis-nas/")))
+            && (v == "geoportal-berlin/zierbrunnen"
+                || v.starts_with("alkis-nas/")
+                || v.starts_with("atkis-dlm/")))
             || (k == "berlin:layer" && v == "bv_springbrunnen_zierbrunnen")
     })
 }
@@ -1979,6 +1982,43 @@ mod tests {
         let objects = vec![nas(60.0), nas(-40.0)];
         let kept = drop_points_in_water(objects.clone(), &union, &f.georef, &set);
         assert_eq!(kept, vec![objects[1].clone()]);
+    }
+
+    #[test]
+    fn a_fountain_of_the_landscape_model_in_water_is_dropped() {
+        let f = fixture();
+        let set = MapKind::Sprint.symbol_set(4000);
+        let (e, n) = f.centre;
+        // The Basis-DLM (ADR 0135) has fountains too; one in the basin is the basin's jet.
+        let model = |de: f64, id: &str| {
+            let mut o = osm_point(&f.georef, &set, "311", e + de, n);
+            o.tags = vec![
+                ("freemapper:source".into(), "atkis-dlm/bauwerk".into()),
+                ("freemapper:source_id".into(), id.into()),
+            ];
+            o
+        };
+        let mut basin = osm_water(&f.georef, &set, e - 10.0, n - 10.0, 20.0, 20.0);
+        basin
+            .tags
+            .push(("freemapper:osm".into(), "amenity=fountain".into()));
+        let objects = vec![
+            model(0.0, "DEBYBDLMRU0008pP"),
+            model(40.0, "DEBYBDLMRU0008pQ"),
+        ];
+        let mut basins = vec![basin];
+        let kept = drop_fountains_in_osm_basins(objects.clone(), &mut basins, &f.georef, &set);
+        assert_eq!(kept, vec![objects[1].clone()]);
+        assert!(basins[0].tags.contains(&(
+            "freemapper:also".to_string(),
+            "atkis-dlm/bauwerk/DEBYBDLMRU0008pP".to_string()
+        )));
+        let union = MultiPolygon(vec![Polygon::new(
+            ring(e + 30.0, n - 15.0, 30.0, 30.0),
+            vec![],
+        )]);
+        let kept = drop_points_in_water(objects.clone(), &union, &f.georef, &set);
+        assert_eq!(kept, vec![objects[0].clone()]);
     }
 
     #[test]

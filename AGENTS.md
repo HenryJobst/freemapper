@@ -22,7 +22,7 @@ freemapper is one executable without an installer and without dependencies. Do n
 the user asks; the release archives are ready to run.
 
 1. Find the newest version: `https://api.github.com/repos/HenryJobst/freemapper/releases/latest` returns JSON with
-   `tag_name`, for example `v0.20.0`. The release page is
+   `tag_name`, for example `v0.21.0`. The release page is
    <https://github.com/HenryJobst/freemapper/releases/latest>.
 2. Pick the archive for the system. The name is `freemapper-<tag>-<platform>` plus the extension:
 
@@ -40,7 +40,7 @@ the user asks; the release archives are ready to run.
 3. Download, check and unpack. macOS and Linux, for example in `~/Applications` or `~/opt`:
 
    ```sh
-   tag=v0.20.0; platform=macos-arm64
+   tag=v0.21.0; platform=macos-arm64
    base="https://github.com/HenryJobst/freemapper/releases/download/$tag"
    curl -fLO "$base/freemapper-$tag-$platform.tar.gz"
    curl -fLO "$base/freemapper-$tag-$platform.tar.gz.sha256"
@@ -51,7 +51,7 @@ the user asks; the release archives are ready to run.
    Windows (PowerShell):
 
    ```powershell
-   $tag = "v0.20.0"; $name = "freemapper-$tag-windows-x86_64.zip"
+   $tag = "v0.21.0"; $name = "freemapper-$tag-windows-x86_64.zip"
    $base = "https://github.com/HenryJobst/freemapper/releases/download/$tag"
    Invoke-WebRequest "$base/$name" -OutFile $name
    Invoke-WebRequest "$base/$name.sha256" -OutFile "$name.sha256"
@@ -104,7 +104,7 @@ freemapper run <dir> --pdf
 | `fetch <dir>` | Downloads into the shared cache. `--offline` uses the cache only. |
 | `derive <dir>` | Computes templates and contours. |
 | `export <dir>` | Writes the map. `--force` replaces an existing map (old one as `.bak`). |
-| `permits <dir>` | Writes the permit notes `permits.md` and `permits.json`: administrative units, protected areas and operators of the map area, and whom that usually means asking. Asks `geodienste.bfn.de` and `sgx.geodatenzentrum.de` and, where the state of the map area has open services of its own (Berlin, Hamburg, Brandenburg, North Rhine-Westphalia, Saarland, Hesse; the [manual](docs/manual/en.md#12-permit-notes) lists the hosts), those through the adapter of the state and its host rules; in North Rhine-Westphalia that downloads three files of about 32 MB together, in Brandenburg one of about 4 MB, once: they stay in the cache and are downloaded again only when the server has a newer one. It reads the OSM extract already cached (it downloads none). `--offline` reads only what an earlier run stored in `data/permits/`. Exit code 0 when the notes are written, also when a source is left out (a `warning:` line names it); 1 when no source could be read or the folder is held by another run. Takes about half a minute. |
+| `permits <dir>` | Writes the permit notes `permits.md` and `permits.json`: administrative units, protected areas and operators of the map area, and whom that usually means asking. Asks `geodienste.bfn.de` and `sgx.geodatenzentrum.de` and, where the state of the map area has open services of its own (Berlin, Hamburg, Brandenburg, North Rhine-Westphalia, Saarland, Hesse, Schleswig-Holstein, Saxony; the [manual](docs/manual/en.md#12-permit-notes) lists the hosts), those through the adapter of the state and its host rules; in North Rhine-Westphalia that downloads three files of about 32 MB together, in Brandenburg one of about 4 MB, once: they stay in the cache and are downloaded again only when the server has a newer one. In Saxony it asks the map services of Sachsenforst at up to 25 points of the map; the notes then call the shares estimates. In Bavaria, Lower Saxony, Bremen, Mecklenburg-Vorpommern, Rhineland-Palatinate, Saxony-Anhalt and Saxony it also asks `geoportal.bafg.de` for the water protection areas the states report to the BfG, in Baden-Württemberg the LUBW (`rips-gdi.lubw.baden-wuerttemberg.de`). Monuments come from the monument offices of eleven states; the manual lists their hosts. In Schleswig-Holstein that is one file of about 52 MB, kept in the cache. It reads the OSM extract already cached (it downloads none). `--offline` reads only what an earlier run stored in `data/permits/`. Exit code 0 when the notes are written, also when a source is left out (a `warning:` line names it); 1 when no source could be read or the folder is held by another run. Takes about half a minute. |
 | `update` | Installs the newest freemapper release over this program. `--check` only checks, `--yes` installs without asking (needed without a terminal, so always for you), `--version <x.y.z>` picks a release, `--rollback` goes back to the replaced version, `--mode notify\|install\|off` stores what the daily check does. |
 | `adapters allow-host <adapter> <host>` | Allows a built-in state one more host, after a message said its adapter does not name that host. Only after the person agreed (see Troubleshooting). The hosts are in `allowed-hosts.toml` of the person's configuration folder. |
 | `adapters disallow-host <adapter> <host>` | Takes back a host that `allow-host` allowed. |
@@ -141,7 +141,7 @@ exists, also one that must be installed by hand, and with 0 when this one is cur
 
 At most once a day, `find`, `init`, `select`, `fetch`, `run` and `permits` also check for a newer release. When they find one, a
 last line follows the command's output on stderr, also after an `error:` line:
-`freemapper 0.20.0 is available (you have 0.19.0). Update with: freemapper update`. It does not change the exit
+`freemapper 0.21.0 is available (you have 0.20.0). Update with: freemapper update`. It does not change the exit
 code. Pass it on and ask the person before you run `freemapper update --yes`. With `--offline`, with `CI` set or
 after `freemapper update --mode off` there is no check. If the person chose mode `install`, freemapper installs
 the update itself after a successful command and says so on stdout.
@@ -156,7 +156,7 @@ Workflow:
 3. Tell the person the download size before a large first download: the first project in a state
    downloads its OSM extract (about 20 to 500 MB, kept for 7 days); later projects are much smaller. Bavaria has
    no service for its cadastre. A map there also downloads the buildings as files, up to 160 MB per 2 km in a
-   city centre, and about 45 MB of surface model per km².
+   city centre, and about 45 MB of surface model per km² of the map area.
 4. `freemapper run <dir>` with the outputs the person wants (`--pdf` to print, `--ocad` for OCAD, `--pdf-candidates`
    for a quick training map, `--permits` for the permit notes when they plan an event there). It takes from one
    to several minutes, longer on the first download, which can be longer than your default command timeout:
@@ -241,7 +241,7 @@ Rules:
 - An existing map is kept, because it may hold the user's own work. Pass `force: true` only after asking; the old
   file stays as `<name>.omap.bak`.
 - The server checks for a newer release once a day. When it knows one, the next tool result carries one extra
-  text block at its end, the note `Note for the person: freemapper 0.20.0 is available (this is 0.19.0). Ask them
+  text block at its end, the note `Note for the person: freemapper 0.21.0 is available (this is 0.20.0). Ask them
   before calling install_update.` It comes once per server process. Calling `check_update` or `install_update`
   takes its place: after a successful call of either the note does not come; after a failed one it still can.
   Pass the note on to the person.
@@ -290,8 +290,8 @@ The cache is shared by all projects: macOS `~/Library/Caches/freemapper`, Linux 
   `pdf_sources: "credit-only"` the PDF shows only the freemapper line, and the user must name the sources in
   another way (ATTRIBUTION.txt lists them).
 - The permit notes are a hint, not legal advice and not a permit. They follow what lies in the map area: where it
-  holds forest (or OSM cannot tell), they say that the forest owners must agree, and in Brandenburg, Berlin and
-  North Rhine-Westphalia they also name the forest office; a school on the map brings its operator on every
+  holds forest (or OSM cannot tell), they say that the forest owners must agree, and in Brandenburg, Berlin,
+  Hamburg, North Rhine-Westphalia, Saarland, Saxony and Schleswig-Holstein they also name the forest office; a school on the map brings its operator on every
   kind of map. The authorities decide; the BfN data are merged
   once a year and "Nicht für Planungszwecke geeignet." (not suitable for planning). Say this when you pass them on.
 

@@ -17,7 +17,7 @@ maintainers = ["github:HenryJobst"]
 last_verified = "2026-11-13"
 
 [net]
-hosts = ["geodienste.bremen.de", "gdi2.geo.bremen.de", "opendata.lgln.niedersachsen.de"]
+hosts = ["geodienste.bremen.de", "gdi2.geo.bremen.de", "opendata.lgln.niedersachsen.de", "geoportal.bafg.de"]
 
 [boundary]
 file = "boundary.geojson"

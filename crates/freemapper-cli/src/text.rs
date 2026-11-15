@@ -326,6 +326,13 @@ mod tests {
             ("refs", v("B 1, B 5")),
             ("inner", v("no")),
             ("zone", v("Schutzzone III")),
+            ("authority", v("Landratsamt Ludwigsburg")),
+            ("links", v("yes")),
+            ("known", v("no")),
+            (
+                "gaps",
+                v("Die Stadt Potsdam führt ihre Denkmalliste selbst"),
+            ),
             ("names", v("von hoher Bedeutung")),
             (
                 "note",

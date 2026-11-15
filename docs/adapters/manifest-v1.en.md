@@ -183,8 +183,8 @@ name twice, so a service that needs one parameter twice cannot be declared.
 
 ## `[[extra.nas]]`
 
-At most one: a WFS with the full ALKIS (NAS), from which freemapper reads structures, vegetation features and
-small waters.
+At most one per model: a WFS with the full ALKIS (NAS), from which freemapper reads structures, vegetation
+features and small waters, and one with the landscape model (`model = "basis-dlm"`). Hesse names both.
 
 | Key | Type | Required | Meaning and limits |
 |---|---|---|---|

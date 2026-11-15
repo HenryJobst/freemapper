@@ -69,6 +69,14 @@ pub struct PermitSourceInfo {
     pub credit: &'static str,
     /// A note of the publisher on what the data are worth, verbatim; `None` when it has none.
     pub note: Option<&'static str>,
+    /// The source answers only at points (ADR 0139): its findings are the cells around the
+    /// points it was asked at, so a share is an estimate and what lies between the points can
+    /// be missed. The notes say so.
+    pub sampled: bool,
+    /// Where the data of the source are not complete although they cover its state ("the city
+    /// of Potsdam keeps its own list"), in the words of the notes; `None` for complete data
+    /// (ADR 0144).
+    pub gaps: Option<Wording>,
     /// The keys of the layers (plain names), in the order of [`PermitSource::fetch`].
     pub layers: &'static [&'static str],
     /// The sections of the notes the findings of the source fill. A section is left out of the
@@ -198,6 +206,9 @@ pub enum FindingKind {
         zone: Option<String>,
         /// The ordinance, as the data cite it.
         citation: Option<String>,
+        /// The authority in charge of the area, as the data name it ("Landratsamt
+        /// Ludwigsburg"); `None` when the data name none (ADR 0143).
+        authority: Option<String>,
     },
     /// Forest with a function or a protection of forest law.
     ForestFunction {

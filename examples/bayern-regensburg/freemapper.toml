@@ -13,66 +13,66 @@ type = "Polygon"
 
 [buildings]
 bbox = [725941.0, 5434012.0, 726951.0, 5434926.0]
-fetched = "2026-11-14"
+fetched = "2026-11-15"
 latest_update = "2026-01-12"
 count = 1821
 regions = ["bayern"]
 
 [land_use]
 bbox = [725941.0, 5434012.0, 726951.0, 5434926.0]
-fetched = "2026-11-14"
+fetched = "2026-11-15"
 latest_update = "2026-09-18"
 count = 555
 regions = ["bayern"]
 
 [nas_layers.dlm-bauwerk]
 bbox = [725941.0, 5434012.0, 726951.0, 5434926.0]
-fetched = "2026-11-14"
+fetched = "2026-11-15"
 latest_update = "2025-07-11"
 count = 14
 regions = ["bayern"]
 
 [nas_layers.dlm-damm]
 bbox = [725941.0, 5434012.0, 726951.0, 5434926.0]
-fetched = "2026-11-14"
+fetched = "2026-11-15"
 count = 0
 regions = ["bayern"]
 
 [nas_layers.dlm-felsen]
 bbox = [725941.0, 5434012.0, 726951.0, 5434926.0]
-fetched = "2026-11-14"
+fetched = "2026-11-15"
 count = 0
 regions = ["bayern"]
 
 [nas_layers.dlm-gewaesserachse]
 bbox = [725941.0, 5434012.0, 726951.0, 5434926.0]
-fetched = "2026-11-14"
+fetched = "2026-11-15"
 latest_update = "2026-04-13"
 count = 2
 regions = ["bayern"]
 
 [nas_layers.dlm-gewaessermerkmal]
 bbox = [725941.0, 5434012.0, 726951.0, 5434926.0]
-fetched = "2026-11-14"
+fetched = "2026-11-15"
 count = 0
 regions = ["bayern"]
 
 [nas_layers.dlm-hoehle]
 bbox = [725941.0, 5434012.0, 726951.0, 5434926.0]
-fetched = "2026-11-14"
+fetched = "2026-11-15"
 count = 0
 regions = ["bayern"]
 
 [nas_layers.dlm-turm]
 bbox = [725941.0, 5434012.0, 726951.0, 5434926.0]
-fetched = "2026-11-14"
+fetched = "2026-11-15"
 latest_update = "2025-02-19"
 count = 17
 regions = ["bayern"]
 
 [nas_layers.dlm-vegetation]
 bbox = [725941.0, 5434012.0, 726951.0, 5434926.0]
-fetched = "2026-11-14"
+fetched = "2026-11-15"
 latest_update = "2021-06-22"
 count = 2
 regions = ["bayern"]
@@ -84,14 +84,14 @@ count = 918
 
 [orthophoto]
 flight = "11.05.2025"
-fetched = "2026-11-14"
+fetched = "2026-11-15"
 bbox = [725941.651, 5434012.138, 726950.589, 5434925.974]
 
 [terrain]
-fetched = "2026-11-14"
+fetched = "2026-11-15"
 bbox = [725941.651, 5434012.138, 726950.589, 5434925.974]
 
 [surface]
-fetched = "2026-11-14"
+fetched = "2026-11-15"
 bbox = [725941.651, 5434012.138, 726950.589, 5434925.974]
 date = "2025-05-11"

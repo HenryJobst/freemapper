@@ -16,7 +16,7 @@ and `--content full`.
 
 | `safe` | `balanced` (default) | `full` |
 |---|---|---|
-| ![Cochem, profile safe](rheinland-pfalz-cochem/preview-safe.webp) | ![Cochem, profile balanced](rheinland-pfalz-cochem/preview-balanced.webp) | ![Cochem, profile full](rheinland-pfalz-cochem/preview-full.webp) |
+| [![Cochem, profile safe](rheinland-pfalz-cochem/preview-safe-thumb.webp)](rheinland-pfalz-cochem/preview-safe.webp) | [![Cochem, profile balanced](rheinland-pfalz-cochem/preview-balanced-thumb.webp)](rheinland-pfalz-cochem/preview-balanced.webp) | [![Cochem, profile full](rheinland-pfalz-cochem/preview-full-thumb.webp)](rheinland-pfalz-cochem/preview-full.webp) |
 | [rheinland-pfalz-cochem-safe.pdf](rheinland-pfalz-cochem/rheinland-pfalz-cochem-safe.pdf) | [rheinland-pfalz-cochem.pdf](rheinland-pfalz-cochem/rheinland-pfalz-cochem.pdf) | [rheinland-pfalz-cochem-full.pdf](rheinland-pfalz-cochem/rheinland-pfalz-cochem-full.pdf) |
 
 | Profile | Map objects | Candidates |

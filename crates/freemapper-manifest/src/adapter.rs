@@ -111,7 +111,7 @@ pub struct ManifestAdapter {
     extracts: Vec<Option<BoundaryFile>>,
     alkis: Option<Box<dyn AlkisSource>>,
     rasters: Option<Arc<dyn RasterBackend>>,
-    nas: Option<NasService>,
+    nas: Vec<NasService>,
     trees: Vec<TreeDataset>,
     declared: Declared,
     /// The hosts the requests are held to, for an adapter from a folder.
@@ -227,8 +227,9 @@ impl ManifestAdapter {
             rasters,
             nas: manifest
                 .nas
-                .first()
-                .map(|nas| crate::extras::nas_service(nas, &info.id)),
+                .iter()
+                .map(|nas| crate::extras::nas_service(nas, &info.id))
+                .collect(),
             trees: manifest
                 .trees
                 .iter()
@@ -366,8 +367,8 @@ impl RegionAdapter for ManifestAdapter {
         self.alkis.as_deref()
     }
 
-    fn nas(&self) -> Option<&NasService> {
-        self.nas.as_ref()
+    fn nas_services(&self) -> &[NasService] {
+        &self.nas
     }
 
     fn tree_datasets(&self) -> &[TreeDataset] {

@@ -12,11 +12,14 @@ use freemapper_adapter_api::permits::{
     FindingKind, ForestFunctionKind, PermitFinding, PermitSection, PermitSource, PermitSourceInfo,
     Wording,
 };
-use freemapper_sources::geojson_wfs::{GeoJsonWfs, LatLonBox, get_features};
-use geo_types::{Geometry, Rect};
+use freemapper_sources::geojson_wfs::{
+    GeoJsonWfs, LatLonBox, ProjectedBox, get_features, get_gml_features, get_projected_features,
+};
+use geo_types::{Coord, Geometry, Rect};
 use serde_json::Value;
 
 use crate::berlin_permits::geometry;
+use crate::crs::{Crs, LatLon, ProjectedPoint};
 use crate::fetch::{FetchError, Fetcher};
 
 /// How the features of a layer become findings, with the attributes they read.
@@ -42,10 +45,19 @@ pub enum Reading {
         prefix: &'static str,
         office: &'static str,
     },
-    /// A listed monument of `kind`, with a link from the attribute `link` when it starts with
-    /// `list` (the state's monument list).
+    /// Forest of the state: `owner` as the notes name it, and the forest office that looks
+    /// after it, `prefix` and the attribute `office`.
+    StateForest {
+        owner: &'static str,
+        prefix: &'static str,
+        office: &'static str,
+    },
+    /// A listed monument of `kind`, or of the kind the attribute `kind_from` names where the
+    /// layer has one, with a link from the attribute `link` when it starts with `list` (the
+    /// state's monument list).
     Monument {
         kind: &'static str,
+        kind_from: Option<&'static str>,
         link: Option<(&'static str, &'static str)>,
     },
 }
@@ -64,10 +76,13 @@ impl Reading {
                 .flatten()
                 .collect(),
             Reading::Function { name, .. } => name.into_iter().collect(),
-            Reading::Unit { office, .. } => vec![office],
-            Reading::Monument { link, .. } => {
-                link.map(|(attribute, _)| attribute).into_iter().collect()
-            }
+            Reading::Unit { office, .. } | Reading::StateForest { office, .. } => vec![office],
+            Reading::Monument {
+                kind_from, link, ..
+            } => [kind_from, link.map(|(attribute, _)| attribute)]
+                .into_iter()
+                .flatten()
+                .collect(),
         }
     }
 
@@ -85,6 +100,10 @@ pub struct TableSource {
     info: PermitSourceInfo,
     service: GeoJsonWfs,
     layers: &'static [Layer],
+    /// The service answers GML 3.2 only (ADR 0137), read by [`get_gml_features`].
+    gml: bool,
+    /// The service is asked and answers in this CRS rather than in WGS 84 (ADR 0144).
+    native: Option<Crs>,
 }
 
 /// A source of `layers` on the service `base`, which names its GeoJSON `output_format`.
@@ -110,6 +129,8 @@ pub fn source(
             what,
             credit,
             note: None,
+            sampled: false,
+            gaps: None,
             layers: keys,
             sections,
             offices: None,
@@ -120,6 +141,94 @@ pub fn source(
             bbox_crs_suffix: true,
         },
         layers,
+        gml: false,
+        native: None,
+    })
+}
+
+/// [`source`] for a service that answers GML 3.2 only (ADR 0137), with the `output_format` it
+/// names GML 3.2 by, URL-encoded as the service needs it (`gml32` on a GeoServer,
+/// `application%2Fgml%2Bxml%3B%20version%3D3.2` on a deegree).
+#[allow(clippy::too_many_arguments)]
+pub fn gml_source(
+    key: &'static str,
+    label: Wording,
+    what: Wording,
+    credit: &'static str,
+    keys: &'static [&'static str],
+    sections: &'static [PermitSection],
+    base: &'static str,
+    output_format: &'static str,
+    layers: &'static [Layer],
+) -> Box<dyn PermitSource> {
+    debug_assert!(
+        keys.len() == layers.len() && keys.iter().zip(layers).all(|(a, (b, _, _))| a == b)
+    );
+    Box::new(TableSource {
+        info: PermitSourceInfo {
+            key,
+            label,
+            what,
+            credit,
+            note: None,
+            sampled: false,
+            gaps: None,
+            layers: keys,
+            sections,
+            offices: None,
+        },
+        service: GeoJsonWfs {
+            base,
+            output_format,
+            bbox_crs_suffix: true,
+        },
+        layers,
+        gml: true,
+        native: None,
+    })
+}
+
+/// [`source`] (or, with `gml`, [`gml_source`]) for a service that finds nothing by a box in
+/// WGS 84 or answers only in its own CRS `native` (ADR 0144): it is asked by the box in that
+/// CRS, and its positions are turned into WGS 84.
+#[allow(clippy::too_many_arguments)]
+pub fn native_source(
+    native: Crs,
+    gml: bool,
+    key: &'static str,
+    label: Wording,
+    what: Wording,
+    credit: &'static str,
+    keys: &'static [&'static str],
+    sections: &'static [PermitSection],
+    base: &'static str,
+    output_format: &'static str,
+    layers: &'static [Layer],
+) -> Box<dyn PermitSource> {
+    debug_assert!(
+        keys.len() == layers.len() && keys.iter().zip(layers).all(|(a, (b, _, _))| a == b)
+    );
+    Box::new(TableSource {
+        info: PermitSourceInfo {
+            key,
+            label,
+            what,
+            credit,
+            note: None,
+            sampled: false,
+            gaps: None,
+            layers: keys,
+            sections,
+            offices: None,
+        },
+        service: GeoJsonWfs {
+            base,
+            output_format,
+            bbox_crs_suffix: true,
+        },
+        layers,
+        gml,
+        native: Some(native),
     })
 }
 
@@ -134,6 +243,7 @@ impl PermitSource for TableSource {
         bbox: &Rect<f64>,
         part: &Path,
     ) -> Result<Vec<Vec<Value>>, FetchError> {
+        let projected = self.native.map(|crs| projected_box(crs, bbox));
         let bbox = LatLonBox {
             min_lat: bbox.min().y,
             min_lon: bbox.min().x,
@@ -143,7 +253,23 @@ impl PermitSource for TableSource {
         self.layers
             .iter()
             .map(|(_, type_name, reading)| {
-                let features = get_features(fetcher, &self.service, type_name, &bbox, part)?;
+                let features = if let (Some(crs), Some(projected)) = (self.native, &projected) {
+                    get_projected_features(
+                        fetcher,
+                        &self.service,
+                        type_name,
+                        projected,
+                        self.gml,
+                        part,
+                    )?
+                    .iter()
+                    .filter_map(|f| in_wgs84(f, crs))
+                    .collect()
+                } else if self.gml {
+                    get_gml_features(fetcher, &self.service, type_name, &bbox, part)?
+                } else {
+                    get_features(fetcher, &self.service, type_name, &bbox, part)?
+                };
                 Ok(features
                     .iter()
                     .filter_map(|f| stored(f, *reading))
@@ -161,6 +287,53 @@ impl PermitSource for TableSource {
             .filter_map(|feature| finding(*reading, feature))
             .collect()
     }
+}
+
+/// The box in `crs` around `bbox` (WGS 84, x = longitude): the corners projected, their
+/// smallest and largest values.
+pub(crate) fn projected_box(crs: Crs, bbox: &Rect<f64>) -> ProjectedBox {
+    let corners = [
+        (bbox.min().y, bbox.min().x),
+        (bbox.min().y, bbox.max().x),
+        (bbox.max().y, bbox.min().x),
+        (bbox.max().y, bbox.max().x),
+    ]
+    .map(|(lat, lon)| crs.forward(LatLon { lat, lon }));
+    let fold = |f: fn(f64, f64) -> f64, start: f64, get: fn(&ProjectedPoint) -> f64| {
+        corners.iter().map(get).fold(start, f)
+    };
+    ProjectedBox {
+        epsg: crs.epsg(),
+        min_x: fold(f64::min, f64::INFINITY, |p| p.easting),
+        min_y: fold(f64::min, f64::INFINITY, |p| p.northing),
+        max_x: fold(f64::max, f64::NEG_INFINITY, |p| p.easting),
+        max_y: fold(f64::max, f64::NEG_INFINITY, |p| p.northing),
+    }
+}
+
+/// `feature` with its positions in `crs` (metres, easting first) turned into WGS 84, longitude
+/// first; `None` when its geometry cannot be read or a position cannot be turned.
+pub(crate) fn in_wgs84(feature: &Value, crs: Crs) -> Option<Value> {
+    let geometry =
+        serde_json::from_value::<geojson::Geometry>(feature.get("geometry")?.clone()).ok()?;
+    let mut geometry = Geometry::<f64>::try_from(geometry).ok()?;
+    let turn = |c: Coord<f64>| {
+        crs.inverse(ProjectedPoint {
+            easting: c.x,
+            northing: c.y,
+        })
+        .map(|p| Coord { x: p.lon, y: p.lat })
+    };
+    if geo::CoordsIter::coords_iter(&geometry).any(|c| turn(c).is_none()) {
+        return None;
+    }
+    geo::MapCoordsInPlace::map_coords_in_place(&mut geometry, |c| turn(c).unwrap_or(c));
+    let mut feature = feature.clone();
+    feature["geometry"] = serde_json::to_value(geojson::Geometry::new(
+        geojson::GeometryValue::from(&geometry),
+    ))
+    .ok()?;
+    Some(feature)
 }
 
 /// A feature as it is stored: the attributes `reading` keeps and the geometry as longitude,
@@ -189,7 +362,7 @@ pub(crate) fn stored(feature: &Value, reading: Reading) -> Option<Value> {
 
 /// The text of attribute `key`, trimmed; `None` when it is missing, blank or the text "null"
 /// (an ArcGIS server writes that for an empty value).
-fn text(feature: &Value, key: &str) -> Option<String> {
+pub(crate) fn text(feature: &Value, key: &str) -> Option<String> {
     let value = feature.get("properties")?.get(key)?;
     let text = match value {
         Value::String(s) => s.trim().to_string(),
@@ -199,9 +372,28 @@ fn text(feature: &Value, key: &str) -> Option<String> {
     (!text.is_empty() && text != "null").then_some(text)
 }
 
+/// A name written all in capitals ("HÜTTEN", "BAD SEGEBERG") as a name is written ("Hütten",
+/// "Bad Segeberg"); a name with small letters stays as it is.
+pub(crate) fn name_case(name: &str) -> String {
+    if name.chars().any(char::is_lowercase) {
+        return name.to_string();
+    }
+    let mut out = String::with_capacity(name.len());
+    let mut start = true;
+    for c in name.chars() {
+        if start {
+            out.push(c);
+        } else {
+            out.extend(c.to_lowercase());
+        }
+        start = !c.is_alphabetic();
+    }
+    out
+}
+
 /// A zone as the hints name it: a bare "I" or "IIIA" becomes "Schutzzone I"; a text that
 /// already says zone stays.
-fn zone_name(zone: &str) -> String {
+pub(crate) fn zone_name(zone: &str) -> String {
     if zone.to_lowercase().contains("zone") {
         zone.to_string()
     } else {
@@ -231,6 +423,7 @@ pub(crate) fn finding(reading: Reading, feature: &Value) -> Option<PermitFinding
                     if planned { format!("{z} (geplant)") } else { z }
                 }),
                 citation: citation.and_then(|c| text(feature, c)),
+                authority: None,
             }
         }
         Reading::Function { kind, name } => FindingKind::ForestFunction {
@@ -243,11 +436,25 @@ pub(crate) fn finding(reading: Reading, feature: &Value) -> Option<PermitFinding
             office,
         } => FindingKind::ForestUnit {
             administration: administration.to_string(),
-            office: format!("{prefix}{}", text(feature, office)?),
+            office: format!("{prefix}{}", name_case(&text(feature, office)?)),
             unit: None,
         },
-        Reading::Monument { kind, link } => FindingKind::Monument {
-            kind: kind.to_string(),
+        Reading::StateForest {
+            owner,
+            prefix,
+            office,
+        } => FindingKind::StateForest {
+            owner: owner.to_string(),
+            office: text(feature, office).map(|o| format!("{prefix}{}", name_case(&o))),
+        },
+        Reading::Monument {
+            kind,
+            kind_from,
+            link,
+        } => FindingKind::Monument {
+            kind: kind_from
+                .and_then(|k| text(feature, k))
+                .unwrap_or_else(|| kind.to_string()),
             link: link.and_then(|(attribute, list)| {
                 text(feature, attribute)
                     .filter(|l| l.starts_with(list) && !l.contains(char::is_whitespace))
@@ -278,6 +485,7 @@ mod tests {
             "x:monuments",
             Reading::Monument {
                 kind: "Baudenkmal",
+                kind_from: None,
                 link: Some(("LIST", "https://example.org/list")),
             },
         ),
@@ -295,6 +503,86 @@ mod tests {
             "GEOJSON",
             LAYERS,
         )
+    }
+
+    /// A service asked in its own CRS gets the box in metres, and its answer in metres comes
+    /// out in WGS 84; a monument takes its kind from the attribute the layer names (ADR 0144).
+    #[test]
+    fn a_native_source_asks_and_answers_in_its_crs() {
+        const NATIVE: &[Layer] = &[(
+            "denkmale",
+            "x:denkmal_punkte",
+            Reading::Monument {
+                kind: "Denkmal",
+                kind_from: Some("kategorie"),
+                link: None,
+            },
+        )];
+        let source = native_source(
+            Crs::Utm32,
+            false,
+            "native",
+            Wording { en: "N", de: "N" },
+            Wording { en: "n", de: "n" },
+            "dl-de/zero-2-0",
+            &["denkmale"],
+            &[PermitSection::Monuments],
+            "https://example.org/wfs",
+            "GEOJSON",
+            NATIVE,
+        );
+        // Hagen, about 7.55 E, 51.35 N.
+        let point = Crs::Utm32.forward(LatLon {
+            lat: 51.35,
+            lon: 7.55,
+        });
+        let fetcher = MapFetcher::default();
+        fetcher.insert_prefix(
+            "https://example.org/wfs?service=WFS",
+            serde_json::to_vec(
+                &serde_json::json!({"type": "FeatureCollection", "features": [
+                {"type": "Feature", "properties": {"kategorie": "Bodendenkmal", "anschrift": "x"},
+                 "geometry": {"type": "Point", "coordinates": [point.easting, point.northing]}},
+                {"type": "Feature", "properties": {},
+                 "geometry": {"type": "Point", "coordinates": [point.easting, point.northing]}}]}),
+            )
+            .unwrap(),
+        );
+        let part = tempfile::tempdir().unwrap();
+        let bbox = Rect::new(Coord { x: 7.54, y: 51.34 }, Coord { x: 7.56, y: 51.36 });
+        let answers = source
+            .fetch(&fetcher, &bbox, &part.path().join("p.part"))
+            .unwrap();
+        let url = fetcher.log.borrow()[0].clone();
+        assert!(
+            url.contains("&srsName=urn:ogc:def:crs:EPSG::25832&"),
+            "{url}"
+        );
+        assert!(url.contains(",urn:ogc:def:crs:EPSG::25832"), "{url}");
+        // Only the attribute the reading keeps.
+        assert!(answers[0][0]["properties"].get("anschrift").is_none());
+        let found = source.findings("denkmale", &answers[0]);
+        let kinds: Vec<&FindingKind> = found.iter().map(|f| &f.kind).collect();
+        assert_eq!(
+            kinds,
+            [
+                &FindingKind::Monument {
+                    kind: "Bodendenkmal".into(),
+                    link: None
+                },
+                &FindingKind::Monument {
+                    kind: "Denkmal".into(),
+                    link: None
+                },
+            ]
+        );
+        let c = geo::CoordsIter::coords_iter(&found[0].geometry)
+            .next()
+            .unwrap();
+        assert!(
+            (c.x - 7.55).abs() < 1e-6 && (c.y - 51.35).abs() < 1e-6,
+            "{c:?}"
+        );
     }
 
     /// A zone keeps the attributes it reads and nothing else; positions written latitude first
@@ -346,6 +634,7 @@ mod tests {
                 name: Some("WSG Elm".into()),
                 zone: Some("Schutzzone III".into()),
                 citation: None,
+                authority: None,
             }
         );
         let monuments = table().findings("monuments", &layers[1]);
@@ -358,6 +647,14 @@ mod tests {
             .collect();
         assert_eq!(links, [Some("https://example.org/list.pdf"), None]);
         assert!(table().findings("other", &layers[0]).is_empty());
+    }
+
+    #[test]
+    fn capital_names_are_written_as_names() {
+        assert_eq!(name_case("HÜTTEN"), "Hütten");
+        assert_eq!(name_case("BAD SEGEBERG"), "Bad Segeberg");
+        assert_eq!(name_case("NEUMÜNSTER-HAHNKAMP"), "Neumünster-Hahnkamp");
+        assert_eq!(name_case("Rastpfuhl/Puettlingen"), "Rastpfuhl/Puettlingen");
     }
 
     /// A water zone or a forest function must be an area; a point is left out.

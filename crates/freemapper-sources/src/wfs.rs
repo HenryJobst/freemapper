@@ -191,6 +191,17 @@ pub fn number_matched(text: &str) -> Option<usize> {
 /// The features of a WFS answer as GeoJSON features; an answer that is not a
 /// `wfs:FeatureCollection` (an HTML error page, an exception report) is an error.
 pub fn parse_gml(text: &str) -> Result<Vec<Value>, AlkisError> {
+    read_gml(text, false)
+}
+
+/// [`parse_gml`] for the services of the permit notes (ADR 0144): points and multipoints are
+/// read as well (a feature of points gets a MultiPoint), and the geometry is the property that
+/// holds a GML geometry, whatever its name (`SHAPE`, `PrimaryGeometry`, `msGeometry`).
+pub fn parse_gml_with_points(text: &str) -> Result<Vec<Value>, AlkisError> {
+    read_gml(text, true)
+}
+
+fn read_gml(text: &str, points: bool) -> Result<Vec<Value>, AlkisError> {
     use quick_xml::events::Event;
     let refused = || {
         let start: String = text.trim_start().chars().take(80).collect();
@@ -221,6 +232,14 @@ pub fn parse_gml(text: &str) -> Result<Vec<Value>, AlkisError> {
                 if path.len() == 1 && path[0] == "member" && feature.is_none() {
                     feature = Some(GmlFeature::default());
                 } else if let Some(f) = feature.as_mut()
+                    && points
+                    && path.len() == 3
+                    && GEOMETRY_STARTS.contains(&name.as_str())
+                {
+                    f.geometry_property = Some(path[2].clone());
+                }
+                if let Some(f) = feature.as_mut()
+                    && path.len() >= 3
                     && f.in_geometry(&path)
                 {
                     let dimension = e
@@ -228,9 +247,9 @@ pub fn parse_gml(text: &str) -> Result<Vec<Value>, AlkisError> {
                         .ok()
                         .flatten()
                         .map(|a| a.value.to_string());
-                    if dimension.is_some_and(|d| d != "2")
-                        || !GEOMETRY_ELEMENTS.contains(&name.as_str())
-                    {
+                    let readable = GEOMETRY_ELEMENTS.contains(&name.as_str())
+                        || (points && POINT_ELEMENTS.contains(&name.as_str()));
+                    if dimension.is_some_and(|d| d != "2") || !readable {
                         f.unsupported = true;
                     }
                     match name.as_str() {
@@ -298,6 +317,17 @@ pub fn parse_gml(text: &str) -> Result<Vec<Value>, AlkisError> {
                                 f.properties.insert(name, Value::from(value));
                             }
                         }
+                        _ if name == "pos" && points => {
+                            let numbers: Vec<f64> = text_buf
+                                .split_ascii_whitespace()
+                                .filter_map(|v| v.parse().ok())
+                                .collect();
+                            if let [e, n] = numbers[..] {
+                                f.points.push(vec![e, n]);
+                            } else {
+                                f.unsupported = true;
+                            }
+                        }
                         _ if name == "posList" => {
                             let numbers: Vec<f64> = text_buf
                                 .split_ascii_whitespace()
@@ -336,11 +366,29 @@ const GEOMETRY_ELEMENTS: [&str; 7] = [
     "posList",
 ];
 
+/// The GML elements that open a geometry inside a property, for [`parse_gml_with_points`].
+const GEOMETRY_STARTS: [&str; 7] = [
+    "Point",
+    "MultiPoint",
+    "Polygon",
+    "MultiSurface",
+    "Surface",
+    "LineString",
+    "MultiCurve",
+];
+
+/// The point elements [`parse_gml_with_points`] reads besides [`GEOMETRY_ELEMENTS`].
+const POINT_ELEMENTS: [&str; 5] = ["Point", "MultiPoint", "pointMember", "pointMembers", "pos"];
+
 /// One feature while it is read: its attributes and its polygons (rings of E, N pairs).
 #[derive(Default)]
 struct GmlFeature {
     properties: serde_json::Map<String, Value>,
     polygons: Vec<Vec<Vec<Vec<f64>>>>,
+    /// Its points (E, N), read only by [`parse_gml_with_points`].
+    points: Vec<Vec<f64>>,
+    /// The property that holds the geometry where it has none of the usual names.
+    geometry_property: Option<String>,
     /// The geometry holds something [`GEOMETRY_ELEMENTS`] do not cover.
     unsupported: bool,
 }
@@ -348,14 +396,19 @@ struct GmlFeature {
 impl GmlFeature {
     /// Whether the element opened at `path` lies inside the feature's `geometrie`.
     fn in_geometry(&self, path: &[String]) -> bool {
-        path.len() >= 3 && is_geometry(&path[2])
+        path.len() >= 3
+            && (is_geometry(&path[2]) || self.geometry_property.as_ref() == Some(&path[2]))
     }
 
     fn into_geojson(self) -> Value {
-        let geometry = if self.unsupported || self.polygons.is_empty() {
+        let geometry = if self.unsupported || (self.polygons.is_empty() && self.points.is_empty()) {
             Value::Null
-        } else {
+        } else if self.polygons.is_empty() {
+            serde_json::json!({ "type": "MultiPoint", "coordinates": self.points })
+        } else if self.points.is_empty() {
             serde_json::json!({ "type": "MultiPolygon", "coordinates": self.polygons })
+        } else {
+            Value::Null
         };
         serde_json::json!({
             "type": "Feature",
@@ -587,6 +640,24 @@ mod tests {
 
     /// Saarland's server writes the attribute names of the simplified schema in upper case.
     /// The reader stores them under the names of the schema, with the geometry of `SHAPE`.
+    #[test]
+    fn points_are_read_only_where_asked_for() {
+        let text = r#"<wfs:FeatureCollection xmlns:wfs="http://www.opengis.net/wfs/2.0" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:d="urn:d"><wfs:member><d:denkmal_punkte><d:geom><gml:Point srsDimension="2"><gml:pos>398880.1 5689822.5</gml:pos></gml:Point></d:geom><d:kategorie>Baudenkmal</d:kategorie></d:denkmal_punkte></wfs:member><wfs:member><d:denkmal_punkte><d:geom><gml:MultiPoint><gml:pointMember><gml:Point><gml:pos>1 2</gml:pos></gml:Point></gml:pointMember><gml:pointMember><gml:Point><gml:pos>3 4</gml:pos></gml:Point></gml:pointMember></gml:MultiPoint></d:geom></d:denkmal_punkte></wfs:member></wfs:FeatureCollection>"#;
+        let with = parse_gml_with_points(text).unwrap();
+        assert_eq!(
+            with[0]["geometry"],
+            serde_json::json!({"type": "MultiPoint", "coordinates": [[398880.1, 5689822.5]]})
+        );
+        assert_eq!(with[0]["properties"]["kategorie"], "Baudenkmal");
+        assert_eq!(
+            with[1]["geometry"]["coordinates"],
+            serde_json::json!([[1.0, 2.0], [3.0, 4.0]])
+        );
+        // The cadastre keeps reading polygons only: a point is no geometry there.
+        let without = parse_gml(text).unwrap();
+        assert!(without[0]["geometry"].is_null());
+    }
+
     #[test]
     fn saarland_buildings_parse_like_the_lower_case_schema() {
         let features = parse_gml(SL_BUILDINGS).unwrap();

@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "created": "2026-11-14",
+  "created": "2026-11-15",
   "map_kind": "forest",
   "area_m2": 1080725.7893009172,
   "admin": [
@@ -132,13 +132,36 @@
       }
     },
     {
+      "key": "permits-hint-monument-lower-authority",
+      "args": {
+        "gemeinde": "Rathen",
+        "kreis": "Sächsische Schweiz-Osterzgebirge",
+        "kreisfrei": "no"
+      }
+    },
+    {
       "key": "permits-hint-natura2000",
       "args": {}
     },
     {
+      "key": "permits-hint-forest-office",
+      "args": {
+        "administration": "Staatsbetrieb Sachsenforst",
+        "office": "Nationalpark- und Forstverwaltung Sächsische Schweiz",
+        "units": "Revier Hohnstein, Revier Lohmen, Revier Gohrisch, Revier Bad Schandau"
+      }
+    },
+    {
       "key": "permits-hint-forest-owner",
       "args": {
-        "office": "unknown"
+        "office": "known"
+      }
+    },
+    {
+      "key": "permits-hint-forest-function",
+      "args": {
+        "kind": "protected",
+        "names": "Bodenschutzwald"
       }
     },
     {
@@ -164,14 +187,14 @@
     {
       "id": "vg250",
       "state": "read",
-      "fetched": "2026-11-14",
+      "fetched": "2026-11-15",
       "reason": null,
       "credit": "© BKG (2026) dl-de/by-2-0, Datenquellen: https://sg.geodatenzentrum.de/web_public/gdz/datenquellen/datenquellen_vg_nuts.pdf"
     },
     {
       "id": "bfn",
       "state": "read",
-      "fetched": "2026-11-14",
+      "fetched": "2026-11-15",
       "reason": null,
       "credit": "© Bundesamt für Naturschutz (BfN) (2026), Schutzgebiete in Deutschland; Nutzungsbestimmungen für die Bereitstellung von Geodaten des Bundes (GeoNutzV). Nicht für Planungszwecke geeignet."
     },
@@ -181,6 +204,149 @@
       "fetched": "2026-11-06",
       "reason": null,
       "credit": "© OpenStreetMap contributors, ODbL"
+    }
+  ],
+  "regional": [
+    {
+      "adapter": "saxony",
+      "monuments": {
+        "total": 10,
+        "groups": [
+          {
+            "kind": "Kulturdenkmal",
+            "count": 10,
+            "links": []
+          }
+        ],
+        "links_left": 0
+      },
+      "forest_units": [
+        {
+          "item": {
+            "administration": "Staatsbetrieb Sachsenforst",
+            "office": "Nationalpark- und Forstverwaltung Sächsische Schweiz",
+            "unit": "Revier Hohnstein"
+          },
+          "percent": 33.3,
+          "at_edge": false
+        },
+        {
+          "item": {
+            "administration": "Staatsbetrieb Sachsenforst",
+            "office": "Nationalpark- und Forstverwaltung Sächsische Schweiz",
+            "unit": "Revier Lohmen"
+          },
+          "percent": 29.2,
+          "at_edge": false
+        },
+        {
+          "item": {
+            "administration": "Staatsbetrieb Sachsenforst",
+            "office": "Nationalpark- und Forstverwaltung Sächsische Schweiz",
+            "unit": "Revier Gohrisch"
+          },
+          "percent": 20.8,
+          "at_edge": false
+        },
+        {
+          "item": {
+            "administration": "Staatsbetrieb Sachsenforst",
+            "office": "Nationalpark- und Forstverwaltung Sächsische Schweiz",
+            "unit": "Revier Bad Schandau"
+          },
+          "percent": 16.7,
+          "at_edge": false
+        }
+      ],
+      "water_protection": [],
+      "forest_functions": [
+        {
+          "item": {
+            "kind": "protected",
+            "name": "Bodenschutzwald"
+          },
+          "percent": 58.3,
+          "at_edge": false
+        }
+      ],
+      "sources": [
+        {
+          "source": {
+            "key": "sachsenforst",
+            "label": {
+              "en": "Staatsbetrieb Sachsenforst",
+              "de": "Staatsbetrieb Sachsenforst"
+            },
+            "what": {
+              "en": "Forstbezirke and Reviere (in charge in the state forest; for other forest the lower forest authority of the Landkreis), Erholungswald, Naturwaldzellen, Bodenschutzwald, drinking water protection zones in the forest",
+              "de": "Forstbezirke und Reviere (zuständig im Staatswald; für anderen Wald die untere Forstbehörde des Landkreises), Erholungswald, Naturwaldzellen, Bodenschutzwald, Trinkwasserschutzzonen im Wald"
+            },
+            "credit": "Datenlizenz Deutschland 2.0 – Namensnennung (dl-de/by-2-0) unter Angabe der Quelle: \"Geodaten Sachsenforst\"",
+            "sampled": true,
+            "sections": [
+              "forest-units",
+              "forest-functions",
+              "water-protection"
+            ]
+          },
+          "status": {
+            "id": "sachsenforst",
+            "state": "read",
+            "fetched": "2026-11-15",
+            "reason": null,
+            "credit": "Datenlizenz Deutschland 2.0 – Namensnennung (dl-de/by-2-0) unter Angabe der Quelle: \"Geodaten Sachsenforst\""
+          }
+        },
+        {
+          "source": {
+            "key": "bfg",
+            "label": {
+              "en": "Bundesanstalt für Gewässerkunde",
+              "de": "Bundesanstalt für Gewässerkunde"
+            },
+            "what": {
+              "en": "drinking water and medicinal spring protection areas from WasserBLIcK, without their zones",
+              "de": "Trinkwasser- und Heilquellenschutzgebiete aus WasserBLIcK, ohne Schutzzonen"
+            },
+            "credit": "© WasserBLIcK/BfG und Zuständige Behörden der Länder, {year}; Lizenz: Creative Commons Namensnennung – 4.0 International (CC BY 4.0)",
+            "note": "Die bundesweite Flächendeckung des Datenbestandes ist nicht in jedem Fall gewährleistet.",
+            "sections": [
+              "water-protection"
+            ]
+          },
+          "status": {
+            "id": "bfg",
+            "state": "read",
+            "fetched": "2026-11-15",
+            "reason": null,
+            "credit": "© WasserBLIcK/BfG und Zuständige Behörden der Länder, 2026; Lizenz: Creative Commons Namensnennung – 4.0 International (CC BY 4.0)"
+          }
+        },
+        {
+          "source": {
+            "key": "denkmale",
+            "label": {
+              "en": "Landesamt für Denkmalpflege Sachsen",
+              "de": "Landesamt für Denkmalpflege Sachsen"
+            },
+            "what": {
+              "en": "Kulturdenkmale",
+              "de": "Kulturdenkmale"
+            },
+            "credit": "Landesamt für Denkmalpflege Sachsen, Creative Commons Namensnennung 3.0 Deutschland (CC BY 3.0 DE)",
+            "sections": [
+              "monuments"
+            ]
+          },
+          "status": {
+            "id": "denkmale",
+            "state": "read",
+            "fetched": "2026-11-15",
+            "reason": null,
+            "credit": "Landesamt für Denkmalpflege Sachsen, Creative Commons Namensnennung 3.0 Deutschland (CC BY 3.0 DE)"
+          }
+        }
+      ]
     }
   ]
 }

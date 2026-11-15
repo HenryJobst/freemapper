@@ -1,0 +1,149 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "MultiPolygon",
+        "coordinates": [
+          [
+            [
+              [
+                9.08937561,
+                48.75316223
+              ],
+              [
+                9.08937268,
+                48.75320163
+              ],
+              [
+                9.08937275,
+                48.75324121
+              ],
+              [
+                9.08937555,
+                48.75328061
+              ],
+              [
+                9.08938147,
+                48.75332001
+              ],
+              [
+                9.08939324,
+                48.75336237
+              ],
+              [
+                9.08937561,
+                48.75316223
+              ]
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "OBJECTID": 4050068,
+        "STATUS": "festgesetzt",
+        "RVO": "25.09.1979",
+        "DST": "Stadt Stuttgart",
+        "WSG": "\\\"MAHDENTAL\\\" 111032",
+        "ZONE": "Zone IIIB"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "MultiPolygon",
+        "coordinates": [
+          [
+            [
+              [
+                9.01296077,
+                48.83294301
+              ],
+              [
+                9.01297044,
+                48.83289848
+              ],
+              [
+                9.01305182,
+                48.8325076
+              ],
+              [
+                9.01307428,
+                48.83240046
+              ],
+              [
+                9.01308353,
+                48.83235593
+              ],
+              [
+                9.01325923,
+                48.8315273
+              ],
+              [
+                9.01296077,
+                48.83294301
+              ]
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "OBJECTID": 4050495,
+        "STATUS": "festgesetzt",
+        "RVO": "20.10.2000",
+        "DST": "Landratsamt Ludwigsburg",
+        "WSG": "\\\"DITZINGEN\\\"",
+        "ZONE": "Zone III und IIIA"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "MultiPolygon",
+        "coordinates": [
+          [
+            [
+              [
+                9.04563041,
+                48.82920565
+              ],
+              [
+                9.04563726,
+                48.82909797
+              ],
+              [
+                9.04621719,
+                48.82750141
+              ],
+              [
+                9.04628446,
+                48.82746621
+              ],
+              [
+                9.04630694,
+                48.82746701
+              ],
+              [
+                9.04872744,
+                48.82749309
+              ],
+              [
+                9.04563041,
+                48.82920565
+              ]
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "OBJECTID": 4052812,
+        "STATUS": "festgesetzt",
+        "RVO": "20.10.2000",
+        "DST": "Landratsamt Ludwigsburg",
+        "WSG": "\\\"DITZINGEN\\\"",
+        "ZONE": "Zone I und II bzw. IIA"
+      }
+    }
+  ]
+}

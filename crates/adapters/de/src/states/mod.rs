@@ -432,10 +432,54 @@ const AGENCIES: [Agency; 14] = [
 pub fn register_backends(registry: &mut Registry) -> Result<(), DuplicateBackend> {
     for agency in AGENCIES {
         if let (Some(name), Some(backend)) = (backend_name(agency), rasters::backend(agency)) {
-            registry.add_backend(name, Arc::from(backend))?;
+            let backend = Estimating {
+                inner: backend,
+                agency,
+            };
+            registry.add_backend(name, Arc::new(backend))?;
         }
     }
     Ok(())
+}
+
+/// A built-in raster backend that also answers the download estimate, with the raster items
+/// of its agency (issue #71). A state answers its estimate itself ([`estimate::items`]); an
+/// adapter of a folder that names the backend reaches the numbers only through here.
+struct Estimating {
+    inner: Box<dyn RasterBackend>,
+    agency: Agency,
+}
+
+impl RasterBackend for Estimating {
+    fn provider(&self) -> &freemapper_adapter_api::rasters::ProviderInfo {
+        self.inner.provider()
+    }
+
+    fn fetch(
+        &self,
+        env: &mut freemapper_adapter_api::env::AdapterEnv<'_>,
+        project: &mut dyn freemapper_adapter_api::project::RasterProject,
+        bbox: &BoundingBox,
+    ) -> Result<(), freemapper_adapter_api::error::AdapterError> {
+        self.inner.fetch(env, project, bbox)
+    }
+
+    fn trust(&self) -> Option<&freemapper_adapter_api::trust::TrustAnchors> {
+        self.inner.trust()
+    }
+
+    fn estimate(&self, area: &EstimateArea, env: &EstimateEnv<'_>) -> Vec<EstimateItem> {
+        estimate::raster_items(self.agency, area, env)
+    }
+
+    fn derive_inputs(
+        &self,
+        env: &freemapper_adapter_api::rasters::DeriveEnv<'_>,
+        stored: &freemapper_adapter_api::rasters::StoredRasters<'_>,
+        area: &freemapper_adapter_api::rasters::RasterArea,
+    ) -> freemapper_adapter_api::rasters::DeriveInputs {
+        self.inner.derive_inputs(env, stored, area)
+    }
 }
 
 /// The adapter of one state: its manifest, and what no manifest says.
@@ -506,14 +550,69 @@ impl StateAdapter {
             State::Berlin => vec![Box::new(crate::berlin::K5)],
             _ => Vec::new(),
         };
-        let permits = match state {
+        // The BfG's protection areas where the state's own services give none (ADR 0142), the
+        // monuments of the state offices where they are open (ADR 0144).
+        let permits: Vec<Box<dyn PermitSource>> = match state {
             State::Berlin => crate::berlin_permits::sources(),
-            State::Brandenburg => crate::lfb_permits::sources(),
+            State::Brandenburg => [
+                crate::lfb_permits::sources(),
+                crate::denkmal_permits::brandenburg(),
+            ]
+            .into_iter()
+            .flatten()
+            .collect(),
             State::Hamburg => crate::lgv_permits::sources(),
             State::Saarland => crate::state_permits::saarland(),
-            State::Hessen => crate::state_permits::hessen(),
-            State::NordrheinWestfalen => crate::wuh_permits::sources(),
-            _ => Vec::new(),
+            State::Hessen => [
+                crate::state_permits::hessen(),
+                vec![crate::denkmal_permits::hessen()],
+            ]
+            .into_iter()
+            .flatten()
+            .collect(),
+            State::SchleswigHolstein => [
+                crate::state_permits::schleswig_holstein(),
+                vec![crate::ldsh_permits::source()],
+            ]
+            .into_iter()
+            .flatten()
+            .collect(),
+            State::NordrheinWestfalen => [
+                crate::wuh_permits::sources(),
+                vec![crate::denkmal_permits::nordrhein_westfalen()],
+            ]
+            .into_iter()
+            .flatten()
+            .collect(),
+            State::BadenWuerttemberg => [
+                vec![crate::lubw_permits::source()],
+                crate::denkmal_permits::baden_wuerttemberg(),
+            ]
+            .into_iter()
+            .flatten()
+            .collect(),
+            State::Saxony => [
+                crate::sbs_permits::sources(),
+                vec![
+                    crate::bfg_permits::source(),
+                    crate::denkmal_permits::sachsen(),
+                ],
+            ]
+            .into_iter()
+            .flatten()
+            .collect(),
+            State::Bremen => vec![
+                crate::bfg_permits::source(),
+                crate::denkmal_permits::bremen(),
+            ],
+            State::RheinlandPfalz => vec![
+                crate::bfg_permits::source(),
+                crate::denkmal_permits::rheinland_pfalz(),
+            ],
+            State::Bayern
+            | State::Niedersachsen
+            | State::MecklenburgVorpommern
+            | State::SaxonyAnhalt => vec![crate::bfg_permits::source()],
         };
         Self {
             state,
@@ -553,8 +652,8 @@ impl RegionAdapter for StateAdapter {
         self.alkis.as_deref().or_else(|| self.manifest.alkis())
     }
 
-    fn nas(&self) -> Option<&NasService> {
-        self.manifest.nas()
+    fn nas_services(&self) -> &[NasService] {
+        self.manifest.nas_services()
     }
 
     fn tree_datasets(&self) -> &[TreeDataset] {
@@ -719,6 +818,54 @@ mod tests {
         }
     }
 
+    /// A built-in raster backend answers the estimate with the raster items of its state, so
+    /// an adapter of a folder that names it counts them too (issue #71); the cadastre files of
+    /// Bavaria are no rasters and stay out. The states keep their own estimate.
+    #[test]
+    fn built_in_backends_estimate_their_rasters() {
+        use freemapper_adapter_api::estimate::{EstimateArea, EstimateEnv};
+        use freemapper_adapter_api::records::Part;
+        let mut backends = Registry::new();
+        register_backends(&mut backends).unwrap();
+        let root = tempfile::tempdir().unwrap();
+        let cache = freemapper_adapter_api::cache::CacheDir::new(root.path().to_path_buf());
+        let env = EstimateEnv { cache: &cache };
+        let mut checked = 0;
+        for state in State::ALL {
+            let Some(name) = backend_name(state.agency()) else {
+                continue;
+            };
+            let backend = backends.backend(name).expect("registered");
+            // 2 km around the middle of the state's box (EPSG:25833).
+            let b = outline(state.id()).unwrap().bounds();
+            let (e, n) = ((b.min_e + b.max_e) / 2.0, (b.min_n + b.max_n) / 2.0);
+            let bbox = BoundingBox {
+                min_e: e - 1000.0,
+                min_n: n - 1000.0,
+                max_e: e + 1000.0,
+                max_n: n + 1000.0,
+            };
+            let area = EstimateArea {
+                bbox_25833: bbox,
+                map_bbox: bbox,
+                today: chrono::NaiveDate::from_ymd_opt(2026, 11, 14).unwrap(),
+            };
+            let of_backend = backend.estimate(&area, &env);
+            let rasters: Vec<_> = estimate::items(state, &area, &env)
+                .into_iter()
+                .filter(|i| matches!(i.part, Part::Orthophoto | Part::Terrain | Part::Surface))
+                .collect();
+            assert_eq!(of_backend, rasters, "{}", state.id());
+            assert!(
+                of_backend.iter().any(|i| i.part == Part::Orthophoto),
+                "{}: no orthophoto",
+                state.id()
+            );
+            checked += 1;
+        }
+        assert_eq!(checked, 14, "every state but Saxony-Anhalt names a backend");
+    }
+
     /// Berlin brings the six services of the Geoportal Berlin for the permit notes (ADR 0120,
     /// ADR 0124), Brandenburg the Reviere of its forest administration and North
     /// Rhine-Westphalia the forest districts and the Staatswald (ADR 0124), all on hosts of
@@ -746,8 +893,14 @@ mod tests {
                     "https://gdi.berlin.de/services/wfs/forstverwalt",
                 ),
                 "brandenburg" => (
-                    &["reviere", "waldfunktionen", "wasserschutzgebiete"],
-                    "https://www.brandenburg-forst.de/geoserver/IWFK/ows",
+                    &[
+                        "reviere",
+                        "waldfunktionen",
+                        "wasserschutzgebiete",
+                        "baudenkmale",
+                        "bodendenkmale",
+                    ],
+                    "https://gis-bldam-brandenburg.de/ows/baudenkmale",
                 ),
                 "hamburg" => (
                     &[
@@ -765,8 +918,29 @@ mod tests {
                     "https://geoportal.saarland.de/arcgis/services/Internet/Denkmalschutz/MapServer/WFSServer",
                 ),
                 "hessen" => (
-                    &["wasserschutzgebiete"],
-                    "https://geodienste-umwelt.hessen.de/arcgis/services/inspire/bewirtschaftungsgebiete/MapServer/WFSServer",
+                    &["wasserschutzgebiete", "denkmale"],
+                    "https://geodienste.denkx.de/geoserver/denkx/wfs",
+                ),
+                "schleswigholstein" => (&["umwelt", "denkmale"], crate::ldsh_permits::URL),
+                "badenwuerttemberg" => (
+                    &["lubw", "denkmale", "archaeologie"],
+                    crate::lubw_permits::BASE,
+                ),
+                "saxony" => (
+                    &["sachsenforst", "bfg", "denkmale"],
+                    "https://cardomap3.idu.de/lfds/public/ogc.ashx?PKGID=5",
+                ),
+                "bremen" => (
+                    &["bfg", "denkmale"],
+                    "https://geodienste.bremen.de/wfs_kulturdenkmale",
+                ),
+                "rheinlandpfalz" => (
+                    &["bfg", "denkmale"],
+                    "https://www.geoportal.rlp.de/owsproxy/00000000000000000000000000000000/a2e0fb04feed3a72cf42d53cf6e2165e",
+                ),
+                "bayern" | "niedersachsen" | "mecklenburgvorpommern" | "saxonyanhalt" => (
+                    &["bfg"],
+                    "https://geoportal.bafg.de/arcgis1/rest/services/INSPIRE/AM/MapServer/1/query",
                 ),
                 "nordrheinwestfalen" => (
                     &[
@@ -774,6 +948,7 @@ mod tests {
                         "staatswald",
                         "linfos",
                         "wasserschutzgebiete",
+                        "denkmale",
                     ],
                     "https://www.opengeodata.nrw.de/produkte/umwelt_klima/wald_forst/wald/x.zip",
                 ),

@@ -13,16 +13,106 @@ type = "Polygon"
 
 [buildings]
 bbox = [483152.0, 5628371.0, 484156.0, 5629074.0]
-fetched = "2026-11-14"
+fetched = "2026-11-15"
 latest_update = "2026-10-29"
 count = 1535
 regions = ["hessen"]
 
 [land_use]
 bbox = [483152.0, 5628371.0, 484156.0, 5629074.0]
-fetched = "2026-11-14"
+fetched = "2026-11-15"
 latest_update = "2026-10-29"
 count = 1286
+regions = ["hessen"]
+
+[nas_layers.bauwerk-gewaesser]
+bbox = [483152.0, 5628371.0, 484156.0, 5629074.0]
+fetched = "2026-11-15"
+count = 0
+regions = ["hessen"]
+
+[nas_layers.bauwerk-verkehr]
+bbox = [483152.0, 5628371.0, 484156.0, 5629074.0]
+fetched = "2026-11-15"
+count = 0
+regions = ["hessen"]
+
+[nas_layers.dlm-bauwerk]
+bbox = [483152.0, 5628371.0, 484156.0, 5629074.0]
+fetched = "2026-11-15"
+latest_update = "2025-12-11"
+count = 51
+regions = ["hessen"]
+
+[nas_layers.dlm-damm]
+bbox = [483152.0, 5628371.0, 484156.0, 5629074.0]
+fetched = "2026-11-15"
+latest_update = "2025-10-21"
+count = 1
+regions = ["hessen"]
+
+[nas_layers.dlm-felsen]
+bbox = [483152.0, 5628371.0, 484156.0, 5629074.0]
+fetched = "2026-11-15"
+count = 0
+regions = ["hessen"]
+
+[nas_layers.dlm-gewaesserachse]
+bbox = [483152.0, 5628371.0, 484156.0, 5629074.0]
+fetched = "2026-11-15"
+latest_update = "2025-12-11"
+count = 5
+regions = ["hessen"]
+
+[nas_layers.dlm-gewaessermerkmal]
+bbox = [483152.0, 5628371.0, 484156.0, 5629074.0]
+fetched = "2026-11-15"
+count = 0
+regions = ["hessen"]
+
+[nas_layers.dlm-hoehle]
+bbox = [483152.0, 5628371.0, 484156.0, 5629074.0]
+fetched = "2026-11-15"
+count = 0
+regions = ["hessen"]
+
+[nas_layers.dlm-turm]
+bbox = [483152.0, 5628371.0, 484156.0, 5629074.0]
+fetched = "2026-11-15"
+latest_update = "2026-10-29"
+count = 3
+regions = ["hessen"]
+
+[nas_layers.dlm-vegetation]
+bbox = [483152.0, 5628371.0, 484156.0, 5629074.0]
+fetched = "2026-11-15"
+latest_update = "2026-03-03"
+count = 6
+regions = ["hessen"]
+
+[nas_layers.sonstiges-bauwerk]
+bbox = [483152.0, 5628371.0, 484156.0, 5629074.0]
+fetched = "2026-11-15"
+latest_update = "2022-03-08"
+count = 56
+regions = ["hessen"]
+
+[nas_layers.strukturlinie]
+bbox = [483152.0, 5628371.0, 484156.0, 5629074.0]
+fetched = "2026-11-15"
+count = 0
+regions = ["hessen"]
+
+[nas_layers.untergeordnetes-gewaesser]
+bbox = [483152.0, 5628371.0, 484156.0, 5629074.0]
+fetched = "2026-11-15"
+count = 0
+regions = ["hessen"]
+
+[nas_layers.vegetationsmerkmal]
+bbox = [483152.0, 5628371.0, 484156.0, 5629074.0]
+fetched = "2026-11-15"
+count = 0
 regions = ["hessen"]
 
 [osm]
@@ -32,15 +122,15 @@ count = 821
 
 [orthophoto]
 flight = "27.08.2024"
-fetched = "2026-11-14"
+fetched = "2026-11-15"
 bbox = [483152.574, 5628371.094, 484155.904, 5629073.276]
 
 [terrain]
-fetched = "2026-11-14"
+fetched = "2026-11-15"
 bbox = [483152.574, 5628371.094, 484155.904, 5629073.276]
 date = "2024-03-22"
 
 [surface]
-fetched = "2026-11-14"
+fetched = "2026-11-15"
 bbox = [483152.574, 5628371.094, 484155.904, 5629073.276]
 date = "2024-03-22"

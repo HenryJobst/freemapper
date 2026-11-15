@@ -48,3 +48,11 @@ GML 3.2 only, with curves, arcs, points and surfaces built from curve rings, whi
 
 Source: plan `docs/superpowers/plans/2026-11-09-states-plus-1.md` (Rulings, Global Constraints, Task 2);
 branch `states-plus-1`, Task 2, its review, re-review and fix rounds.
+
+## Addendum 2026-11-15: North Rhine-Westphalia and Lower Saxony
+
+The full ALKIS of Geobasis NRW (`wfs_nw_alkis_aaa-modell-basiert`) and of the LGLN (`alkis_wfs_nas`) answer the
+requests of this reader, checked live over the Monschau and Herrenhausen examples. Both manifests name them
+(revision 2). The LGLN refuses a `COUNT` above 10 000, so its manifest names `max_count = 10000`. Neither state is
+recorded by the golden net any more, so only the estimate (G2) changed.
+

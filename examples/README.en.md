@@ -9,23 +9,23 @@ Viktoriapark, Monschau, Cochem and Saarlouis also with `--content-set vegetation
 example is the training map with every candidate, because it shows what freemapper can derive. The map alone shows
 less; the [comparison page](compare.en.md) shows the same area in the three content profiles.
 
-| State | Area | Map objects | Candidates | Symbols | Preview |
-|---|---|---:|---:|---:|---|
-| Brandenburg | [Park Sanssouci, Potsdam](brandenburg-sanssouci/): vineyard terraces, parterres and hedges, palace | 2677 | 585 | 39 | <a href="brandenburg-sanssouci/brandenburg-sanssouci-candidates.pdf"><img src="brandenburg-sanssouci/preview.webp" width="220" alt=""></a> |
-| Berlin | [Viktoriapark, Kreuzberg](berlin-viktoriapark/): the Kreuzberg hill with its waterfall, 19th-century blocks | 3445 | 610 | 45 | <a href="berlin-viktoriapark/berlin-viktoriapark-candidates.pdf"><img src="berlin-viktoriapark/preview.webp" width="220" alt=""></a> |
-| Saxony | [Bautzen old town](sachsen-bautzen/): the old town on the rock above the Spree, steep valley sides | 2612 | 1049 | 39 | <a href="sachsen-bautzen/sachsen-bautzen-candidates.pdf"><img src="sachsen-bautzen/preview.webp" width="220" alt=""></a> |
-| Saxony-Anhalt | [Schlossberg Quedlinburg](sachsen-anhalt-quedlinburg/): World Heritage old town, castle hill, narrow lanes | 2977 | 632 | 38 | <a href="sachsen-anhalt-quedlinburg/sachsen-anhalt-quedlinburg-candidates.pdf"><img src="sachsen-anhalt-quedlinburg/preview.webp" width="220" alt=""></a> |
-| Hamburg | [Treppenviertel Blankenese](hamburg-blankenese/): the steep Elbe bank, stairs and lanes | 1796 | 1016 | 31 | <a href="hamburg-blankenese/hamburg-blankenese-candidates.pdf"><img src="hamburg-blankenese/preview.webp" width="220" alt=""></a> |
-| Hesse | [Marburg old town and castle](hessen-marburg/): the steep upper town with stepped lanes, castle hill | 3080 | 1115 | 35 | <a href="hessen-marburg/hessen-marburg-candidates.pdf"><img src="hessen-marburg/preview.webp" width="220" alt=""></a> |
-| Schleswig-Holstein | [Lübeck old town and Holstentor](schleswig-holstein-luebeck/): the medieval old-town island with its passages and courtyards | 3367 | 1834 | 35 | <a href="schleswig-holstein-luebeck/schleswig-holstein-luebeck-candidates.pdf"><img src="schleswig-holstein-luebeck/preview.webp" width="220" alt=""></a> |
-| Mecklenburg-Vorpommern | [Wismar old town](mecklenburg-vorpommern-wismar/): World Heritage old town with St. George's church and the market square | 3430 | 1660 | 35 | <a href="mecklenburg-vorpommern-wismar/mecklenburg-vorpommern-wismar-candidates.pdf"><img src="mecklenburg-vorpommern-wismar/preview.webp" width="220" alt=""></a> |
-| North Rhine-Westphalia | [Monschau old town](nordrhein-westfalen-monschau/): half-timbered old town in the deep Rur valley | 2507 | 1325 | 40 | <a href="nordrhein-westfalen-monschau/nordrhein-westfalen-monschau-candidates.pdf"><img src="nordrhein-westfalen-monschau/preview.webp" width="220" alt=""></a> |
-| Lower Saxony | [Großer Garten Herrenhausen, Hanover](niedersachsen-herrenhausen/): baroque garden with hedges, parterres and fountain basins, next to the Georgengarten | 2406 | 336 | 38 | <a href="niedersachsen-herrenhausen/niedersachsen-herrenhausen-candidates.pdf"><img src="niedersachsen-herrenhausen/preview.webp" width="220" alt=""></a> |
-| Rhineland-Palatinate | [Reichsburg and Cochem old town](rheinland-pfalz-cochem/): the castle hill with the Reichsburg, the old town on the steep Moselle bank, Cond across the river | 2866 | 955 | 43 | <a href="rheinland-pfalz-cochem/rheinland-pfalz-cochem-candidates.pdf"><img src="rheinland-pfalz-cochem/preview.webp" width="220" alt=""></a> |
-| Saarland | [Saarlouis old town and fortress](saarland-saarlouis/): Vauban's hexagonal fortress town, the old arm of the Saar with the Vauban island, ramparts in the Stadtgarten | 1693 | 736 | 40 | <a href="saarland-saarlouis/saarland-saarlouis-candidates.pdf"><img src="saarland-saarlouis/preview.webp" width="220" alt=""></a> |
-| Baden-Württemberg | [Heidelberg old town and castle](baden-wuerttemberg-heidelberg/): the old town on the Neckar with the Old Bridge, the castle and its garden on the steep slope of the Königstuhl | 2897 | 1019 | 43 | <a href="baden-wuerttemberg-heidelberg/baden-wuerttemberg-heidelberg-candidates.pdf"><img src="baden-wuerttemberg-heidelberg/preview.webp" width="220" alt=""></a> |
-| Bremen | [Old town of Bremen and Wallanlagen](bremen-altstadt/): the old town between the Weser and the town moat with the market square and the Schlachte, the Wallanlagen with the mill on the rampart, and the Teerhof across the river | 2531 | 551 | 39 | <a href="bremen-altstadt/bremen-altstadt-candidates.pdf"><img src="bremen-altstadt/preview.webp" width="220" alt=""></a> |
-| Bavaria | [Old town of Regensburg with the Stone Bridge](bayern-regensburg/): the World Heritage old town on the Danube with the cathedral and its lanes, the Stone Bridge, the river islands and Stadtamhof on the other bank | 2959 | 463 | 39 | <a href="bayern-regensburg/bayern-regensburg-candidates.pdf"><img src="bayern-regensburg/preview.webp" width="220" alt=""></a> |
+| Preview | State | Area | Map objects | Candidates | Symbols |
+|---|---|---|---:|---:|---:|
+| <a href="brandenburg-sanssouci/preview.webp"><img src="brandenburg-sanssouci/preview-thumb.webp" width="220" alt="" loading="lazy"></a><br><a href="brandenburg-sanssouci/brandenburg-sanssouci-candidates.pdf">PDF</a> | Brandenburg | [Park Sanssouci, Potsdam](brandenburg-sanssouci/): vineyard terraces, parterres and hedges, palace | 2677 | 773 | 38 |
+| <a href="berlin-viktoriapark/preview.webp"><img src="berlin-viktoriapark/preview-thumb.webp" width="220" alt="" loading="lazy"></a><br><a href="berlin-viktoriapark/berlin-viktoriapark-candidates.pdf">PDF</a> | Berlin | [Viktoriapark, Kreuzberg](berlin-viktoriapark/): the Kreuzberg hill with its waterfall, 19th-century blocks | 3445 | 692 | 46 |
+| <a href="sachsen-bautzen/preview.webp"><img src="sachsen-bautzen/preview-thumb.webp" width="220" alt="" loading="lazy"></a><br><a href="sachsen-bautzen/sachsen-bautzen-candidates.pdf">PDF</a> | Saxony | [Bautzen old town](sachsen-bautzen/): the old town on the rock above the Spree, steep valley sides | 2612 | 1049 | 39 |
+| <a href="sachsen-anhalt-quedlinburg/preview.webp"><img src="sachsen-anhalt-quedlinburg/preview-thumb.webp" width="220" alt="" loading="lazy"></a><br><a href="sachsen-anhalt-quedlinburg/sachsen-anhalt-quedlinburg-candidates.pdf">PDF</a> | Saxony-Anhalt | [Schlossberg Quedlinburg](sachsen-anhalt-quedlinburg/): World Heritage old town, castle hill, narrow lanes | 2977 | 639 | 39 |
+| <a href="hamburg-blankenese/preview.webp"><img src="hamburg-blankenese/preview-thumb.webp" width="220" alt="" loading="lazy"></a><br><a href="hamburg-blankenese/hamburg-blankenese-candidates.pdf">PDF</a> | Hamburg | [Treppenviertel Blankenese](hamburg-blankenese/): the steep Elbe bank, stairs and lanes | 1796 | 1016 | 31 |
+| <a href="hessen-marburg/preview.webp"><img src="hessen-marburg/preview-thumb.webp" width="220" alt="" loading="lazy"></a><br><a href="hessen-marburg/hessen-marburg-candidates.pdf">PDF</a> | Hesse | [Marburg old town and castle](hessen-marburg/): the steep upper town with stepped lanes, castle hill | 3134 | 1123 | 39 |
+| <a href="schleswig-holstein-luebeck/preview.webp"><img src="schleswig-holstein-luebeck/preview-thumb.webp" width="220" alt="" loading="lazy"></a><br><a href="schleswig-holstein-luebeck/schleswig-holstein-luebeck-candidates.pdf">PDF</a> | Schleswig-Holstein | [Lübeck old town and Holstentor](schleswig-holstein-luebeck/): the medieval old-town island with its passages and courtyards | 3367 | 1835 | 35 |
+| <a href="mecklenburg-vorpommern-wismar/preview.webp"><img src="mecklenburg-vorpommern-wismar/preview-thumb.webp" width="220" alt="" loading="lazy"></a><br><a href="mecklenburg-vorpommern-wismar/mecklenburg-vorpommern-wismar-candidates.pdf">PDF</a> | Mecklenburg-Vorpommern | [Wismar old town](mecklenburg-vorpommern-wismar/): World Heritage old town with St. George's church and the market square | 3430 | 1660 | 35 |
+| <a href="nordrhein-westfalen-monschau/preview.webp"><img src="nordrhein-westfalen-monschau/preview-thumb.webp" width="220" alt="" loading="lazy"></a><br><a href="nordrhein-westfalen-monschau/nordrhein-westfalen-monschau-candidates.pdf">PDF</a> | North Rhine-Westphalia | [Monschau old town](nordrhein-westfalen-monschau/): half-timbered old town in the deep Rur valley | 2619 | 1651 | 42 |
+| <a href="niedersachsen-herrenhausen/preview.webp"><img src="niedersachsen-herrenhausen/preview-thumb.webp" width="220" alt="" loading="lazy"></a><br><a href="niedersachsen-herrenhausen/niedersachsen-herrenhausen-candidates.pdf">PDF</a> | Lower Saxony | [Großer Garten Herrenhausen, Hanover](niedersachsen-herrenhausen/): baroque garden with hedges, parterres and fountain basins, next to the Georgengarten | 2411 | 336 | 38 |
+| <a href="rheinland-pfalz-cochem/preview.webp"><img src="rheinland-pfalz-cochem/preview-thumb.webp" width="220" alt="" loading="lazy"></a><br><a href="rheinland-pfalz-cochem/rheinland-pfalz-cochem-candidates.pdf">PDF</a> | Rhineland-Palatinate | [Reichsburg and Cochem old town](rheinland-pfalz-cochem/): the castle hill with the Reichsburg, the old town on the steep Moselle bank, Cond across the river | 2866 | 1110 | 44 |
+| <a href="saarland-saarlouis/preview.webp"><img src="saarland-saarlouis/preview-thumb.webp" width="220" alt="" loading="lazy"></a><br><a href="saarland-saarlouis/saarland-saarlouis-candidates.pdf">PDF</a> | Saarland | [Saarlouis old town and fortress](saarland-saarlouis/): Vauban's hexagonal fortress town, the old arm of the Saar with the Vauban island, ramparts in the Stadtgarten | 1693 | 721 | 40 |
+| <a href="baden-wuerttemberg-heidelberg/preview.webp"><img src="baden-wuerttemberg-heidelberg/preview-thumb.webp" width="220" alt="" loading="lazy"></a><br><a href="baden-wuerttemberg-heidelberg/baden-wuerttemberg-heidelberg-candidates.pdf">PDF</a> | Baden-Württemberg | [Heidelberg old town and castle](baden-wuerttemberg-heidelberg/): the old town on the Neckar with the Old Bridge, the castle and its garden on the steep slope of the Königstuhl | 2897 | 1019 | 43 |
+| <a href="bremen-altstadt/preview.webp"><img src="bremen-altstadt/preview-thumb.webp" width="220" alt="" loading="lazy"></a><br><a href="bremen-altstadt/bremen-altstadt-candidates.pdf">PDF</a> | Bremen | [Old town of Bremen and Wallanlagen](bremen-altstadt/): the old town between the Weser and the town moat with the market square and the Schlachte, the Wallanlagen with the mill on the rampart, and the Teerhof across the river | 2531 | 551 | 39 |
+| <a href="bayern-regensburg/preview.webp"><img src="bayern-regensburg/preview-thumb.webp" width="220" alt="" loading="lazy"></a><br><a href="bayern-regensburg/bayern-regensburg-candidates.pdf">PDF</a> | Bavaria | [Old town of Regensburg with the Stone Bridge](bayern-regensburg/): the World Heritage old town on the Danube with the cathedral and its lanes, the Stone Bridge, the river islands and Stadtamhof on the other bank | 2959 | 461 | 39 |
 
 **Map objects** are the objects of the OOM map. With `balanced` these are the objects of the cadastre, the registers
 and the street survey (buildings, streets with curbs, water, parks, forest, canopies and passages), plus walls,
@@ -40,10 +40,10 @@ both together. Contours and north lines stop at ways, so they count in pieces.
 The group `vegetation` is off in every profile, because the point clouds are large. Five examples switch it on as
 candidates: Sanssouci, Viktoriapark, Monschau, Cochem and Saarlouis. There the training map shows what the laser
 points say about the vegetation: runnable forest (405) under the tree crowns, open land (401) and the green shades
-406, 408 and 410. Sanssouci has 133 forest areas, 77 areas of open land and 54 green areas, Monschau 265, 198 and
-218, Cochem 192, 107 and 150, Saarlouis 254, 89 and 69, Viktoriapark 54, 46 and 38. The park turns white where trees
-stand and stays yellow where there is lawn. Berlin's flight of 2021 was flown without leaves, so the green shades
-are weaker there. Areas that shall not be entered (520) hold no vegetation: the areas end at them, as they do at
+406, 408 and 410. Sanssouci has 173 forest areas, 75 areas of open land and 205 green areas, Monschau 184, 196 and
+638, Cochem 126, 73 and 404, Saarlouis 201, 71 and 125, Viktoriapark 63, 50 and 107. The park turns white where trees
+stand and stays yellow where there is lawn. Every flight was made without leaves; the green shades follow how much
+stands between 0.8 and 3 m (ADR 0138). Areas that shall not be entered (520) hold no vegetation: the areas end at them, as they do at
 buildings, water and paved areas. The group does not change the map objects. Saxony offers no point clouds at
 present, and freemapper does not read any for the other states yet.
 
@@ -108,23 +108,23 @@ OSM have appear once on the map, as the ALKIS line, which names the OSM line in 
 
 One example of the map kind `forest` (ISOM 2017-2) at 1:10 000 for every state, for a quick training in a forest:
 
-| State | Area | Map objects | Candidates | Symbols | Preview |
-|---|---|---:|---:|---:|---|
-| Brandenburg | [Rauener Berge and Markgrafensteine](brandenburg-rauener-berge/): moraine hills above the Scharmützelsee with the Markgrafensteine, large erratic boulders | 385 | 37 | 20 | <a href="brandenburg-rauener-berge/brandenburg-rauener-berge-candidates.pdf"><img src="brandenburg-rauener-berge/preview.webp" width="220" alt=""></a> |
-| Berlin | [Dammheide, Treptow-Köpenick](berlin-dammheide/): a small flat forest with a dense path network, settlements around it | 1179 | 166 | 27 | <a href="berlin-dammheide/berlin-dammheide-candidates.pdf"><img src="berlin-dammheide/preview.webp" width="220" alt=""></a> |
-| Saxony | [Bastei, Saxon Switzerland](sachsen-bastei/): sandstone rocks above the Elbe, more than 2000 cliffs from OSM | 1382 | 3158 | 36 | <a href="sachsen-bastei/sachsen-bastei-candidates.pdf"><img src="sachsen-bastei/preview.webp" width="220" alt=""></a> |
-| Saxony-Anhalt | [Bode valley near Thale](sachsen-anhalt-bodetal/): the deep valley of the Bode in the Harz | 648 | 105 | 31 | <a href="sachsen-anhalt-bodetal/sachsen-anhalt-bodetal-candidates.pdf"><img src="sachsen-anhalt-bodetal/preview.webp" width="220" alt=""></a> |
-| Hamburg | [Haake, Harburger Berge](hamburg-haake/): a hilly forest with a dense path network | 549 | 33 | 23 | <a href="hamburg-haake/hamburg-haake-candidates.pdf"><img src="hamburg-haake/preview.webp" width="220" alt=""></a> |
-| Hesse | [Großer Feldberg, Taunus](hessen-feldberg/): the summit and slopes of the highest mountain of the Taunus | 656 | 40 | 27 | <a href="hessen-feldberg/hessen-feldberg-candidates.pdf"><img src="hessen-feldberg/preview.webp" width="220" alt=""></a> |
-| Schleswig-Holstein | [Hüttener Berge](schleswig-holstein-huettener-berge/): moraine hills with forest, open land and small lakes | 352 | 72 | 24 | <a href="schleswig-holstein-huettener-berge/schleswig-holstein-huettener-berge-candidates.pdf"><img src="schleswig-holstein-huettener-berge/preview.webp" width="220" alt=""></a> |
-| Mecklenburg-Vorpommern | [Granitz, Rügen](mecklenburg-vorpommern-granitz/): beech forest around the Granitz hunting lodge | 321 | 96 | 24 | <a href="mecklenburg-vorpommern-granitz/mecklenburg-vorpommern-granitz-candidates.pdf"><img src="mecklenburg-vorpommern-granitz/preview.webp" width="220" alt=""></a> |
-| North Rhine-Westphalia | [Drachenfels, Siebengebirge](nordrhein-westfalen-siebengebirge/): rocks, vineyards and forest above the Rhine | 1239 | 318 | 38 | <a href="nordrhein-westfalen-siebengebirge/nordrhein-westfalen-siebengebirge-candidates.pdf"><img src="nordrhein-westfalen-siebengebirge/preview.webp" width="220" alt=""></a> |
-| Lower Saxony | [Harz near Bad Harzburg](niedersachsen-bad-harzburg/): steep slopes on both sides of a stream valley | 678 | 51 | 32 | <a href="niedersachsen-bad-harzburg/niedersachsen-bad-harzburg-candidates.pdf"><img src="niedersachsen-bad-harzburg/preview.webp" width="220" alt=""></a> |
-| Rhineland-Palatinate | [Dahner Felsenland](rheinland-pfalz-dahn/): red sandstone rocks in the Palatinate Forest | 645 | 114 | 33 | <a href="rheinland-pfalz-dahn/rheinland-pfalz-dahn-candidates.pdf"><img src="rheinland-pfalz-dahn/preview.webp" width="220" alt=""></a> |
-| Saarland | [Cloef at the Saarschleife](saarland-cloef/): a steep slope with rocks above the Saar loop | 624 | 117 | 27 | <a href="saarland-cloef/saarland-cloef-candidates.pdf"><img src="saarland-cloef/preview.webp" width="220" alt=""></a> |
-| Baden-Württemberg | [Königstuhl, Heidelberg](baden-wuerttemberg-koenigstuhl/): Heidelberg's own mountain, with an observatory and many paths | 843 | 47 | 28 | <a href="baden-wuerttemberg-koenigstuhl/baden-wuerttemberg-koenigstuhl-candidates.pdf"><img src="baden-wuerttemberg-koenigstuhl/preview.webp" width="220" alt=""></a> |
-| Bremen | [Bürgerpark and Stadtwald](bremen-buergerpark/): a flat park and forest with ditches, lakes and a dense path network | 1913 | 420 | 32 | <a href="bremen-buergerpark/bremen-buergerpark-candidates.pdf"><img src="bremen-buergerpark/preview.webp" width="220" alt=""></a> |
-| Bavaria | [Schmausenbuck, Nürnberger Reichswald](bayern-schmausenbuck/): a sandstone hill in the Reichswald above the zoo of Nuremberg, slopes with a dense path network, two power lines | 651 | 150 | 37 | <a href="bayern-schmausenbuck/bayern-schmausenbuck-candidates.pdf"><img src="bayern-schmausenbuck/preview.webp" width="220" alt=""></a> |
+| Preview | State | Area | Map objects | Candidates | Symbols |
+|---|---|---|---:|---:|---:|
+| <a href="brandenburg-rauener-berge/preview.webp"><img src="brandenburg-rauener-berge/preview-thumb.webp" width="220" alt="" loading="lazy"></a><br><a href="brandenburg-rauener-berge/brandenburg-rauener-berge-candidates.pdf">PDF</a> | Brandenburg | [Rauener Berge and Markgrafensteine](brandenburg-rauener-berge/): moraine hills above the Scharmützelsee with the Markgrafensteine, large erratic boulders | 385 | 38 | 21 |
+| <a href="berlin-dammheide/preview.webp"><img src="berlin-dammheide/preview-thumb.webp" width="220" alt="" loading="lazy"></a><br><a href="berlin-dammheide/berlin-dammheide-candidates.pdf">PDF</a> | Berlin | [Dammheide, Treptow-Köpenick](berlin-dammheide/): a small flat forest with a dense path network, settlements around it | 1179 | 166 | 27 |
+| <a href="sachsen-bastei/preview.webp"><img src="sachsen-bastei/preview-thumb.webp" width="220" alt="" loading="lazy"></a><br><a href="sachsen-bastei/sachsen-bastei-candidates.pdf">PDF</a> | Saxony | [Bastei, Saxon Switzerland](sachsen-bastei/): sandstone rocks above the Elbe, more than 2000 cliffs from OSM | 1382 | 3158 | 36 |
+| <a href="sachsen-anhalt-bodetal/preview.webp"><img src="sachsen-anhalt-bodetal/preview-thumb.webp" width="220" alt="" loading="lazy"></a><br><a href="sachsen-anhalt-bodetal/sachsen-anhalt-bodetal-candidates.pdf">PDF</a> | Saxony-Anhalt | [Bode valley near Thale](sachsen-anhalt-bodetal/): the deep valley of the Bode in the Harz | 661 | 168 | 35 |
+| <a href="hamburg-haake/preview.webp"><img src="hamburg-haake/preview-thumb.webp" width="220" alt="" loading="lazy"></a><br><a href="hamburg-haake/hamburg-haake-candidates.pdf">PDF</a> | Hamburg | [Haake, Harburger Berge](hamburg-haake/): a hilly forest with a dense path network | 549 | 33 | 23 |
+| <a href="hessen-feldberg/preview.webp"><img src="hessen-feldberg/preview-thumb.webp" width="220" alt="" loading="lazy"></a><br><a href="hessen-feldberg/hessen-feldberg-candidates.pdf">PDF</a> | Hesse | [Großer Feldberg, Taunus](hessen-feldberg/): the summit and slopes of the highest mountain of the Taunus | 656 | 43 | 29 |
+| <a href="schleswig-holstein-huettener-berge/preview.webp"><img src="schleswig-holstein-huettener-berge/preview-thumb.webp" width="220" alt="" loading="lazy"></a><br><a href="schleswig-holstein-huettener-berge/schleswig-holstein-huettener-berge-candidates.pdf">PDF</a> | Schleswig-Holstein | [Hüttener Berge](schleswig-holstein-huettener-berge/): moraine hills with forest, open land and small lakes | 357 | 112 | 25 |
+| <a href="mecklenburg-vorpommern-granitz/preview.webp"><img src="mecklenburg-vorpommern-granitz/preview-thumb.webp" width="220" alt="" loading="lazy"></a><br><a href="mecklenburg-vorpommern-granitz/mecklenburg-vorpommern-granitz-candidates.pdf">PDF</a> | Mecklenburg-Vorpommern | [Granitz, Rügen](mecklenburg-vorpommern-granitz/): beech forest around the Granitz hunting lodge | 321 | 96 | 24 |
+| <a href="nordrhein-westfalen-siebengebirge/preview.webp"><img src="nordrhein-westfalen-siebengebirge/preview-thumb.webp" width="220" alt="" loading="lazy"></a><br><a href="nordrhein-westfalen-siebengebirge/nordrhein-westfalen-siebengebirge-candidates.pdf">PDF</a> | North Rhine-Westphalia | [Drachenfels, Siebengebirge](nordrhein-westfalen-siebengebirge/): rocks, vineyards and forest above the Rhine | 1352 | 328 | 40 |
+| <a href="niedersachsen-bad-harzburg/preview.webp"><img src="niedersachsen-bad-harzburg/preview-thumb.webp" width="220" alt="" loading="lazy"></a><br><a href="niedersachsen-bad-harzburg/niedersachsen-bad-harzburg-candidates.pdf">PDF</a> | Lower Saxony | [Harz near Bad Harzburg](niedersachsen-bad-harzburg/): steep slopes on both sides of a stream valley | 692 | 51 | 33 |
+| <a href="rheinland-pfalz-dahn/preview.webp"><img src="rheinland-pfalz-dahn/preview-thumb.webp" width="220" alt="" loading="lazy"></a><br><a href="rheinland-pfalz-dahn/rheinland-pfalz-dahn-candidates.pdf">PDF</a> | Rhineland-Palatinate | [Dahner Felsenland](rheinland-pfalz-dahn/): red sandstone rocks in the Palatinate Forest | 645 | 114 | 33 |
+| <a href="saarland-cloef/preview.webp"><img src="saarland-cloef/preview-thumb.webp" width="220" alt="" loading="lazy"></a><br><a href="saarland-cloef/saarland-cloef-candidates.pdf">PDF</a> | Saarland | [Cloef at the Saarschleife](saarland-cloef/): a steep slope with rocks above the Saar loop | 624 | 132 | 26 |
+| <a href="baden-wuerttemberg-koenigstuhl/preview.webp"><img src="baden-wuerttemberg-koenigstuhl/preview-thumb.webp" width="220" alt="" loading="lazy"></a><br><a href="baden-wuerttemberg-koenigstuhl/baden-wuerttemberg-koenigstuhl-candidates.pdf">PDF</a> | Baden-Württemberg | [Königstuhl, Heidelberg](baden-wuerttemberg-koenigstuhl/): Heidelberg's own mountain, with an observatory and many paths | 843 | 47 | 28 |
+| <a href="bremen-buergerpark/preview.webp"><img src="bremen-buergerpark/preview-thumb.webp" width="220" alt="" loading="lazy"></a><br><a href="bremen-buergerpark/bremen-buergerpark-candidates.pdf">PDF</a> | Bremen | [Bürgerpark and Stadtwald](bremen-buergerpark/): a flat park and forest with ditches, lakes and a dense path network | 1913 | 420 | 32 |
+| <a href="bayern-schmausenbuck/preview.webp"><img src="bayern-schmausenbuck/preview-thumb.webp" width="220" alt="" loading="lazy"></a><br><a href="bayern-schmausenbuck/bayern-schmausenbuck-candidates.pdf">PDF</a> | Bavaria | [Schmausenbuck, Nürnberger Reichswald](bayern-schmausenbuck/): a sandstone hill in the Reichswald above the zoo of Nuremberg, slopes with a dense path network, two power lines | 651 | 140 | 37 |
 
 The areas are about 1.2 × 0.9 km and were chosen by relief and path network. Made with
 `freemapper init <folder> --geojson <rectangle> --kind forest --scale 10000 --title "<title>"` and
@@ -133,9 +133,9 @@ Dammheide, `--osm way/664446849` for the Bürgerpark). In Brandenburg, North Rhi
 Bavaria `--content-set vegetation=candidates` was added: the vegetation from laser point clouds is in the
 candidates map there. Rhineland-Palatinate lacks it, because the state office's Metalink file names other sizes
 and checksums for the tiles near Dahn than the files on the server have (November 2026). On the Schmausenbuck
-freemapper loads four tiles for it, 1.2 GB together. The flight of 20 December 2021 was made without leaves, so
-the young growth under the power lines comes out mostly as forest and only in places as 406 or open land. 39
-vegetation candidates are left: 20 of open land (401), 13 areas of 406 and 3 each of 405 and 410.
+freemapper loads four tiles for it, 1.2 GB together. The flight of 20 December 2021 was made without leaves. The
+strip under the power lines comes out mostly as open land, its edges as 406. 29 vegetation candidates are left:
+19 of open land (401), 4 areas each of 406 and 410 and 2 of 405.
 
 The paths come from OSM and go onto the map in the path classes 502 to 507; the forest is white paper. Settlements
 and gardens are olive green (520, not to be entered). Rocks, earth banks and knolls from the terrain model are
@@ -154,6 +154,7 @@ slopes stay legible), elsewhere every 5 m; `freemapper.toml` names it as `[conto
 | `ocad/<name>.ocd`, `ocad/<name>-candidates.ocd` | the OCAD starting point (OCAD 12) |
 | `<name>-candidates.pdf` | the training map: map objects and every candidate, without a scale bar |
 | `preview.webp` | preview of this PDF |
+| `preview-thumb.webp` | a small copy of the preview for this overview, made with `scripts/thumbnails.sh` |
 | `<name>.pdf`, `<name>-safe.pdf`, `<name>-full.pdf`, `preview-safe.webp`, `preview-balanced.webp`, `preview-full.webp` | only in Cochem: the same area in the three content profiles, without candidates, and the previews, see the [comparison page](compare.en.md) |
 | `freemapper.toml` | the project: area, scale and the fetched data versions |
 | `ATTRIBUTION.txt` | the attribution of the data sources |
@@ -189,7 +190,7 @@ little relief.
 In Saarland two rectangles ran, both in Saarlouis. The second lies 180 m further west and takes in the Vauban
 island in the old arm of the Saar and the ramparts in the Stadtgarten. Saarlouis was the first example made with
 the content profile `balanced`, which draws the objects of the cadastre and the registers straight onto the map. Its
-map has 31 symbols, among them 21 stairs from OpenStreetMap, and 736 candidates are left, most of them vegetation.
+map has 31 symbols, among them 21 stairs from OpenStreetMap, and 721 candidates are left, most of them vegetation.
 Since the land uses of Saarland are read in both spellings, 118 street areas and the Saar from ALKIS are on the
 map. All examples have been rebuilt with this profile since.
 
@@ -209,7 +210,8 @@ islands, the Stone Bridge and the dense old town are on one sheet. Bavaria has n
 1821 buildings and 144 canopies come from the LoD2 tiles, the land use from the file of the city of Regensburg.
 The area lies east of 12° E and is in UTM zone 32 like all of Bavaria. For the forest map two rectangles ran at
 the Schmausenbuck; half of the southern one was the zoo. The landscape model of the agency (ATKIS Basis-DLM)
-adds 10 candidates in Regensburg: 5 fountains, a monument, 2 named trees and 2 watercourses. On the Schmausenbuck
+adds 8 candidates in Regensburg: 3 fountains, a monument, 2 named trees and 2 watercourses; 2 more fountains stand
+in basins OpenStreetMap draws already. On the Schmausenbuck
 it adds 14: fences and 6 paths OpenStreetMap lacks. Joined where they meet, the paths of the model are 61 lines,
 and OpenStreetMap already has the other 55.
 

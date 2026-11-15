@@ -162,6 +162,13 @@ when = ["alkis:type=AX_FelsenFelsblockFelsnadel"]
 draw = "point"
 sprint = "205"
 
+# The same as a line (Saxony-Anhalt draws most of its rocks so): a rock face, a cliff candidate
+# whose ticks the terrain turns downhill like those of the other cliff candidates.
+[[rule]]
+when = ["alkis:type=AX_FelsenFelsblockFelsnadel", "alkis:geom=line"]
+draw = "line"
+sprint = "201"
+
 # Cave entrance.
 [[rule]]
 when = ["alkis:type=AX_Hoehleneingang"]

@@ -4,7 +4,7 @@ Hinweis, keine Rechtsauskunft. Maßgeblich sind die zuständigen Behörden. Date
 
 Das BfN führt die Daten der Bundesländer einmal im Jahr zusammen und weist sie als nicht für Planungszwecke geeignet aus. Maßgeblich sind die Landesbehörden.
 
-Erstellt am 2026-11-14 für das Kartengebiet einer Sprintkarte (54,0 ha).
+Erstellt am 2026-11-15 für das Kartengebiet einer Sprintkarte (54,0 ha).
 
 ## Verwaltung
 
@@ -12,6 +12,18 @@ Erstellt am 2026-11-14 für das Kartengebiet einer Sprintkarte (54,0 ha).
 - Kreis: Landkreis Cochem-Zell, 100 %
 - Amt oder Verwaltungsgemeinschaft: Verbandsgemeinde Cochem, 100 %
 - Gemeinde: Stadt Cochem, 100 %
+
+## Denkmale (Generaldirektion Kulturelles Erbe)
+
+Denkmale ganz oder zum Teil im Kartengebiet: 91.
+
+- Einzeldenkmal: 87
+- Bauliche Gesamtanlage: 3
+- Denkmalzone: 1
+
+## Wasserschutzgebiete (Bundesanstalt für Gewässerkunde)
+
+Laut Bundesanstalt für Gewässerkunde liegt im Kartengebiet kein Wasserschutzgebiet.
 
 ## Schutzgebiete (BfN)
 
@@ -42,6 +54,7 @@ OpenStreetMap-Flächen, die das ganze Kartengebiet umschließen und keine Ecke d
 ## Hinweise
 
 - Schutzgebiete betreffen die untere Naturschutzbehörde (meist der Landkreis Cochem-Zell).
+- Im Kartengebiet liegen Denkmale. Ob ein Lauf sie berührt, etwa mit einem Posten an einem Denkmal oder einer Strecke durch eine geschützte Anlage, klärt die untere Denkmalschutzbehörde, meist der Landkreis Cochem-Zell; in manchen Bundesländern ist es die Gemeinde Cochem.
 - Für eine Veranstaltung im Wald brauchen Sie die Zustimmung der Waldbesitzer. In mehreren Bundesländern ist eine organisierte Veranstaltung im Wald außerdem der Forstbehörde anzuzeigen oder von ihr zu genehmigen. Welche Forstdienststelle hier zuständig ist, bestimmen diese Hinweise nicht; Auskunft gibt die Forstverwaltung des Bundeslandes oder die untere Forstbehörde.
 - Für Straßen, Plätze und andere öffentliche Flächen ist meist das Ordnungsamt zuständig: Verbandsgemeinde Cochem, für die Gemeinde Cochem.
 - Durch das Kartengebiet führt die Bundesstraße B 49. Eine Sperrung oder eine Querung mit Streckenposten ordnet die Straßenverkehrsbehörde an; Straßenbaulastträger ist meist der Bund, vertreten durch die Straßenbauverwaltung des Bundeslandes, in größeren Städten oft die Stadt.
@@ -52,6 +65,10 @@ OpenStreetMap-Flächen, die das ganze Kartengebiet umschließen und keine Ecke d
 
 | Quelle | Stand | Quellenvermerk und Lizenz |
 |---|---|---|
-| VG250 (BKG): Verwaltungsgebiete 1:250 000 (VG250) des BKG | gelesen, abgerufen am 2026-11-14 | © BKG (2026) dl-de/by-2-0, Datenquellen: https://sg.geodatenzentrum.de/web_public/gdz/datenquellen/datenquellen_vg_nuts.pdf |
-| BfN: Schutzgebiete in Deutschland des BfN | gelesen, abgerufen am 2026-11-14 | © Bundesamt für Naturschutz (BfN) (2026), Schutzgebiete in Deutschland; Nutzungsbestimmungen für die Bereitstellung von Geodaten des Bundes (GeoNutzV). Nicht für Planungszwecke geeignet. |
+| VG250 (BKG): Verwaltungsgebiete 1:250 000 (VG250) des BKG | gelesen, abgerufen am 2026-11-15 | © BKG (2026) dl-de/by-2-0, Datenquellen: https://sg.geodatenzentrum.de/web_public/gdz/datenquellen/datenquellen_vg_nuts.pdf |
+| BfN: Schutzgebiete in Deutschland des BfN | gelesen, abgerufen am 2026-11-15 | © Bundesamt für Naturschutz (BfN) (2026), Schutzgebiete in Deutschland; Nutzungsbestimmungen für die Bereitstellung von Geodaten des Bundes (GeoNutzV). Nicht für Planungszwecke geeignet. |
 | OpenStreetMap: OpenStreetMap, aus dem Auszug, den freemapper im Zwischenspeicher hält | gelesen, OSM-Auszug vom 2026-11-07 | © OpenStreetMap contributors, ODbL |
+| Bundesanstalt für Gewässerkunde: Trinkwasser- und Heilquellenschutzgebiete aus WasserBLIcK, ohne Schutzzonen | gelesen, abgerufen am 2026-11-15 | © WasserBLIcK/BfG und Zuständige Behörden der Länder, 2026; Lizenz: Creative Commons Namensnennung – 4.0 International (CC BY 4.0) |
+| Generaldirektion Kulturelles Erbe: Einzeldenkmäler, Denkmalzonen, bauliche Gesamtanlagen | gelesen, abgerufen am 2026-11-15 | Datenlizenz Deutschland – Namensnennung – Version 2.0 (dl-de/by-2-0); Quellenvermerk: GDKE RLP |
+
+Bundesanstalt für Gewässerkunde: Trinkwasser- und Heilquellenschutzgebiete aus WasserBLIcK, ohne Schutzzonen: „Die bundesweite Flächendeckung des Datenbestandes ist nicht in jedem Fall gewährleistet.“

@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "created": "2026-11-14",
+  "created": "2026-11-15",
   "map_kind": "sprint",
   "area_m2": 540720.9021579742,
   "admin": [
@@ -68,6 +68,14 @@
   ],
   "hints": [
     {
+      "key": "permits-hint-monument-lower-authority",
+      "args": {
+        "known": "no",
+        "kreis": "Potsdam",
+        "kreisfrei": "yes"
+      }
+    },
+    {
       "key": "permits-hint-water-protection",
       "args": {
         "inner": "no",
@@ -117,14 +125,14 @@
     {
       "id": "vg250",
       "state": "read",
-      "fetched": "2026-11-14",
+      "fetched": "2026-11-15",
       "reason": null,
       "credit": "© BKG (2026) dl-de/by-2-0, Datenquellen: https://sg.geodatenzentrum.de/web_public/gdz/datenquellen/datenquellen_vg_nuts.pdf"
     },
     {
       "id": "bfn",
       "state": "read",
-      "fetched": "2026-11-14",
+      "fetched": "2026-11-15",
       "reason": null,
       "credit": "© Bundesamt für Naturschutz (BfN) (2026), Schutzgebiete in Deutschland; Nutzungsbestimmungen für die Bereitstellung von Geodaten des Bundes (GeoNutzV). Nicht für Planungszwecke geeignet."
     },
@@ -139,6 +147,11 @@
   "regional": [
     {
       "adapter": "brandenburg",
+      "monuments": {
+        "total": 0,
+        "groups": [],
+        "links_left": 0
+      },
       "forest_units": [
         {
           "item": {
@@ -182,7 +195,7 @@
           "status": {
             "id": "reviere",
             "state": "read",
-            "fetched": "2026-11-14",
+            "fetched": "2026-11-15",
             "reason": null,
             "credit": "Landesbetrieb Forst Brandenburg, Datenlizenz Deutschland – Namensnennung – Version 2.0 (https://www.govdata.de/dl-de/by-2-0)"
           }
@@ -206,7 +219,7 @@
           "status": {
             "id": "waldfunktionen",
             "state": "read",
-            "fetched": "2026-11-14",
+            "fetched": "2026-11-15",
             "reason": null,
             "credit": "Landesbetrieb Forst Brandenburg, Datenlizenz Deutschland – Namensnennung – Version 2.0 (https://www.govdata.de/dl-de/by-2-0)"
           }
@@ -230,9 +243,61 @@
           "status": {
             "id": "wasserschutzgebiete",
             "state": "read",
-            "fetched": "2026-11-14",
+            "fetched": "2026-11-15",
             "reason": null,
             "credit": "Landesamt für Umwelt Brandenburg (LfU), Creative Commons Namensnennung 4.0 International (CC BY 4.0)"
+          }
+        },
+        {
+          "source": {
+            "key": "baudenkmale",
+            "label": {
+              "en": "BLDAM",
+              "de": "BLDAM"
+            },
+            "what": {
+              "en": "Baudenkmale, Gartendenkmale, Denkmalbereiche",
+              "de": "Baudenkmale, Gartendenkmale, Denkmalbereiche"
+            },
+            "credit": "© Denkmaldaten/BLDAM {year}",
+            "gaps": {
+              "en": "the city of Potsdam keeps its own list of monuments, which is not in these data",
+              "de": "Die Stadt Potsdam führt ihre Denkmalliste selbst; sie ist nicht in diesen Daten"
+            },
+            "sections": [
+              "monuments"
+            ]
+          },
+          "status": {
+            "id": "baudenkmale",
+            "state": "read",
+            "fetched": "2026-11-15",
+            "reason": null,
+            "credit": "© Denkmaldaten/BLDAM 2026"
+          }
+        },
+        {
+          "source": {
+            "key": "bodendenkmale",
+            "label": {
+              "en": "BLDAM",
+              "de": "BLDAM"
+            },
+            "what": {
+              "en": "Bodendenkmale",
+              "de": "Bodendenkmale"
+            },
+            "credit": "Quelle: © Denkmaldaten/Brandenburgisches Landesamt für Denkmalpflege und Archäologisches Landesmuseum (BLDAM), dl-de/by-2-0",
+            "sections": [
+              "monuments"
+            ]
+          },
+          "status": {
+            "id": "bodendenkmale",
+            "state": "read",
+            "fetched": "2026-11-15",
+            "reason": null,
+            "credit": "Quelle: © Denkmaldaten/Brandenburgisches Landesamt für Denkmalpflege und Archäologisches Landesmuseum (BLDAM), dl-de/by-2-0"
           }
         }
       ]

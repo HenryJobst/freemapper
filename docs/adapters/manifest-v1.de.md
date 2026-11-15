@@ -188,8 +188,9 @@ Dienst, der einen Parameter zweimal braucht, lässt sich deshalb nicht deklarier
 
 ## `[[extra.nas]]`
 
-Höchstens einer: ein WFS mit dem vollen ALKIS (NAS), aus dem freemapper Bauwerke, Vegetationsmerkmale und
-kleine Gewässer liest.
+Höchstens einer je Modell: ein WFS mit dem vollen ALKIS (NAS), aus dem freemapper Bauwerke,
+Vegetationsmerkmale und kleine Gewässer liest, und einer mit dem Landschaftsmodell (`model = "basis-dlm"`). Hessen
+nennt beide.
 
 | Schlüssel | Typ | Pflicht | Bedeutung und Grenzen |
 |---|---|---|---|

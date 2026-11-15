@@ -10,7 +10,9 @@ use freemapper_adapters_de::states::alkis::{
     BUILDINGS_ENDPOINT, LAND_USE_ENDPOINT, MV_BUILDINGS_ENDPOINT, MV_LAND_USE_ENDPOINT,
 };
 use freemapper_adapters_de::states::{State, StateAdapter, StateFiles};
-use freemapper_adapters_de::{geobremen, ldbv, ldbv_las, lgl_bw, lgv, lvgl, states};
+use freemapper_adapters_de::{
+    bfg_permits, geobremen, ldbv, ldbv_las, lgl_bw, lgv, lubw_permits, lvgl, states,
+};
 use freemapper_georef::crs::{BoundingBox, Crs};
 use freemapper_manifest::adapter::{ManifestAdapter, Parse};
 use freemapper_manifest::model::Alkis;
@@ -110,7 +112,8 @@ fn potsdam_tree_dataset_from_manifest_equals_the_constant() {
     assert_eq!(brandenburg.nas.len(), 1);
     assert_eq!(extras::nas_service(&brandenburg.nas[0], &region), LGB_NAS);
     // Bremen brings the layers of its full ALKIS as well, from the service its buildings and
-    // land use come from. No other state has such sources.
+    // land use come from. Bavaria and Saxony-Anhalt name their landscape model (ADR 0135). No
+    // other state has such sources.
     let bremen = manifest("bremen");
     assert_eq!(bremen.nas.len(), 1);
     let service = extras::nas_service(&bremen.nas[0], &"bremen".parse().unwrap());
@@ -122,7 +125,17 @@ fn potsdam_tree_dataset_from_manifest_equals_the_constant() {
     );
     assert!(bremen.trees.is_empty());
     for state in State::ALL {
-        if !matches!(state, State::Brandenburg | State::Bremen | State::Bayern) {
+        if !matches!(
+            state,
+            State::Brandenburg
+                | State::Bremen
+                | State::Bayern
+                | State::SaxonyAnhalt
+                | State::Hessen
+                | State::SchleswigHolstein
+                | State::NordrheinWestfalen
+                | State::Niedersachsen
+        ) {
             let manifest = manifest(state.id());
             assert!(
                 manifest.nas.is_empty() && manifest.trees.is_empty(),
@@ -156,6 +169,112 @@ fn bavaria_asks_the_basis_dlm() {
          &BBOX=655343,5479504,656766,5480640,urn:ogc:def:crs:EPSG::25832&COUNT=100000\
          &NAMESPACES=xmlns(adv,http://www.adv-online.de/namespaces/adv/gid/7.1)"
     );
+}
+
+/// Saxony-Anhalt has only the simplified ALKIS; its landscape model is a NAS service like
+/// Bavaria's, asked with the request checked live on 2026-11-15 over the Bodetal.
+#[test]
+fn saxony_anhalt_asks_the_basis_dlm() {
+    let anhalt = manifest("saxonyanhalt");
+    assert_eq!(anhalt.nas.len(), 1);
+    let service = extras::nas_service(&anhalt.nas[0], &"saxonyanhalt".parse().unwrap());
+    assert_eq!(service.model, NasModel::BasisDlm);
+    assert!(service.serves("dlm-felsen") && !service.serves("sonstiges-bauwerk"));
+    let bodetal = BoundingBox {
+        min_e: 638_765.0,
+        min_n: 5_733_152.0,
+        max_e: 640_192.0,
+        max_n: 5_734_285.0,
+    };
+    assert_eq!(
+        service.get_feature_url("adv:AX_Turm", &bodetal),
+        "https://www.geodatenportal.sachsen-anhalt.de/wss/service/ST_LVermGeo_ATKIS_WFS_BDLM_OpenData/guest\
+         ?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=adv:AX_Turm\
+         &SRSNAME=urn:ogc:def:crs:EPSG::25832\
+         &BBOX=638765,5733152,640192,5734285,urn:ogc:def:crs:EPSG::25832&COUNT=100000\
+         &NAMESPACES=xmlns(adv,http://www.adv-online.de/namespaces/adv/gid/7.1)"
+    );
+}
+
+/// Hesse serves its full ALKIS and its landscape model from one host (checked live on
+/// 2026-11-15 over the Marburg example): two NAS services, one per model.
+#[test]
+fn hesse_asks_its_full_alkis_and_its_basis_dlm() {
+    let hessen = manifest("hessen");
+    let region = "hessen".parse().unwrap();
+    let services: Vec<_> = hessen
+        .nas
+        .iter()
+        .map(|nas| extras::nas_service(nas, &region))
+        .collect();
+    let models: Vec<NasModel> = services.iter().map(|s| s.model).collect();
+    assert_eq!(models, [NasModel::Alkis, NasModel::BasisDlm]);
+    assert!(services[0].serves("sonstiges-bauwerk") && !services[0].serves("dlm-turm"));
+    assert!(services[1].serves("dlm-turm") && !services[1].serves("sonstiges-bauwerk"));
+    let marburg = BoundingBox {
+        min_e: 483_152.0,
+        min_n: 5_628_371.0,
+        max_e: 484_156.0,
+        max_n: 5_629_074.0,
+    };
+    assert_eq!(
+        services[1].get_feature_url("adv:AX_Turm", &marburg),
+        "https://www.gds.hessen.de/wfs2/aaa-suite/cgi-bin/atkis-bdlm/nas/wfs?SERVICE=WFS\
+         &VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=adv:AX_Turm\
+         &SRSNAME=urn:ogc:def:crs:EPSG::25832\
+         &BBOX=483152,5628371,484156,5629074,urn:ogc:def:crs:EPSG::25832&COUNT=100000\
+         &NAMESPACES=xmlns(adv,http://www.adv-online.de/namespaces/adv/gid/7.1)"
+    );
+}
+
+/// Schleswig-Holstein serves its landscape model as a WFS that refuses a count above 10 000
+/// (checked live on 2026-11-15 over the Lübeck example).
+#[test]
+fn schleswig_holstein_asks_the_basis_dlm() {
+    let sh = manifest("schleswigholstein");
+    assert_eq!(sh.nas.len(), 1);
+    let service = extras::nas_service(&sh.nas[0], &"schleswigholstein".parse().unwrap());
+    assert_eq!(service.model, NasModel::BasisDlm);
+    assert_eq!(service.max_count, 10_000);
+    let luebeck = BoundingBox {
+        min_e: 610_424.0,
+        min_n: 5_969_571.0,
+        max_e: 611_440.0,
+        max_n: 5_970_293.0,
+    };
+    assert_eq!(
+        service.get_feature_url("adv:AX_Turm", &luebeck),
+        "https://dienste.gdi-sh.de/WFS_SH_ATKIS_BDLM_SF_OpenGBD?SERVICE=WFS&VERSION=2.0.0\
+         &REQUEST=GetFeature&TYPENAMES=adv:AX_Turm&SRSNAME=urn:ogc:def:crs:EPSG::25832\
+         &BBOX=610424,5969571,611440,5970293,urn:ogc:def:crs:EPSG::25832&COUNT=10000\
+         &NAMESPACES=xmlns(adv,http://www.adv-online.de/namespaces/adv/gid/7.1)"
+    );
+}
+
+/// North Rhine-Westphalia and Lower Saxony serve their full ALKIS as NAS services (checked live on
+/// 2026-11-15 over the Monschau and Herrenhausen examples); Lower Saxony refuses a count above
+/// 10 000.
+#[test]
+fn nrw_and_lower_saxony_ask_their_full_alkis() {
+    for (state, url, count) in [
+        (
+            "nordrheinwestfalen",
+            "https://www.wfs.nrw.de/geobasis/wfs_nw_alkis_aaa-modell-basiert",
+            100_000,
+        ),
+        (
+            "niedersachsen",
+            "https://opendata.lgln.niedersachsen.de/doorman/noauth/alkis_wfs_nas",
+            10_000,
+        ),
+    ] {
+        let found = manifest(state);
+        assert_eq!(found.nas.len(), 1, "{state}");
+        let service = extras::nas_service(&found.nas[0], &state.parse().unwrap());
+        assert_eq!(service.model, NasModel::Alkis, "{state}");
+        assert_eq!((service.url.as_ref(), service.max_count), (url, count));
+        assert!(service.serves("sonstiges-bauwerk") && !service.serves("dlm-turm"));
+    }
 }
 
 /// The golden net of the adapter work, at the root of the repository.
@@ -194,15 +313,24 @@ fn recorded_hosts(state: State) -> Vec<String> {
             lgl_bw::FLIGHTS,
             lgl_bw::FILES,
             lgl_bw::ALKIS.url.as_ref(),
+            // The water protection zones of the permit notes (ADR 0143).
+            lubw_permits::BASE,
         ],
+        // Both ask the BfG for the permit notes (ADR 0142).
         State::Bremen => &[
             geobremen::ORTHOPHOTOS,
             geobremen::FILES,
             geobremen::ALKIS_URL,
+            bfg_permits::BASE,
         ],
         // The cadastre of Bavaria comes from the file server of the tiles, its point clouds
         // from a server of their own.
-        State::Bayern => &[ldbv::WMS.url.as_ref(), ldbv::FILES, ldbv_las::TILES],
+        State::Bayern => &[
+            ldbv::WMS.url.as_ref(),
+            ldbv::FILES,
+            ldbv_las::TILES,
+            bfg_permits::BASE,
+        ],
         _ => &[],
     };
     if !written.is_empty() {

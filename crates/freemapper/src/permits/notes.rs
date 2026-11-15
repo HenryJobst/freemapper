@@ -59,6 +59,10 @@ pub mod hint_key {
     pub const DISTRICT_OFFICE: &str = "permits-hint-district-office";
     /// Arg `district`: a monument on the map lies in it.
     pub const MONUMENT_AUTHORITY: &str = "permits-hint-monument-authority";
+    /// Args `kreis` and `kreisfrei` as for [`NATURE_AUTHORITY`], `gemeinde` where known, and
+    /// `known` `no` when a source with gaps names no monument: monuments on a map outside the
+    /// city states (ADR 0144).
+    pub const MONUMENT_LOWER_AUTHORITY: &str = "permits-hint-monument-lower-authority";
     /// Arg `district`: a Naturdenkmal or a geschützter Landschaftsbestandteil on the map lies
     /// in it.
     pub const NATURE_OBJECT_AUTHORITY: &str = "permits-hint-nature-object-authority";
@@ -80,7 +84,8 @@ pub mod hint_key {
     /// (joined with ", "): classified roads through the map area (ADR 0133).
     pub const ROAD_CLASS: &str = "permits-hint-road-class";
     /// Args `inner` (`yes` for zone I or II, `no`, `unknown`) and, where the data give them,
-    /// `name` and `zone`: a water protection area or zone on the map (ADR 0129).
+    /// `name`, `zone` and `authority`: a water protection area or zone on the map (ADR 0129,
+    /// ADR 0143).
     pub const WATER_PROTECTION: &str = "permits-hint-water-protection";
     /// Args `kind` (`recreation`, `protected`, `natural`, `closed`) and, where known, `names`
     /// (joined with ", "): forest with that function or protection on the map.
@@ -718,23 +723,53 @@ fn hints(
     if admin.iter().any(|s| is_city_state(&s.item)) && districts.is_empty() {
         hints.push(Hint::new(hint_key::CITY_STATE, &[]));
     }
-    if any_protected(&needs_nature_authority) {
+    // The lower authority of the Kreis: the city state or the kreisfreie Stadt itself, else
+    // the Landkreis with the largest share.
+    let lower_authority = |key: &str, gemeinde: bool| {
         let land = largest(AdminLevel::Land).filter(|l| is_city_state(l));
         let authority = match (land, largest(AdminLevel::Kreis)) {
             (Some(land), _) => Some((land.name.as_str(), true)),
-            (None, Some(kreis)) => Some((kreis.name.as_str(), kreis.kind == "Kreisfreie Stadt")),
+            // Baden-Württemberg calls a kreisfreie Stadt Stadtkreis.
+            (None, Some(kreis)) => Some((
+                kreis.name.as_str(),
+                ["Kreisfreie Stadt", "Stadtkreis"].contains(&kreis.kind.as_str()),
+            )),
             (None, None) => None,
         };
-        hints.push(match authority {
-            Some((name, kreisfrei)) => Hint::new(
-                hint_key::NATURE_AUTHORITY,
-                &[
+        match authority {
+            Some((name, kreisfrei)) => {
+                let mut args = vec![
                     ("kreis", name),
                     ("kreisfrei", if kreisfrei { "yes" } else { "no" }),
-                ],
-            ),
-            None => Hint::new(hint_key::NATURE_AUTHORITY, &[]),
-        });
+                ];
+                if gemeinde
+                    && !kreisfrei
+                    && let Some(g) = largest(AdminLevel::Gemeinde)
+                {
+                    args.push(("gemeinde", g.name.as_str()));
+                }
+                Hint::new(key, &args)
+            }
+            None => Hint::new(key, &[]),
+        }
+    };
+    if any_protected(&needs_nature_authority) {
+        hints.push(lower_authority(hint_key::NATURE_AUTHORITY, false));
+    }
+    // Monuments where no district office looks after them: the lower monument authority, which
+    // in some states is the Gemeinde. A source with gaps that names none cannot rule them out.
+    // In a city state the office of the Bezirk looks after them (or the hint on the city state).
+    let known = regional.iter().any(|f| f.monuments > 0);
+    let city_state = largest(AdminLevel::Land).is_some_and(is_city_state);
+    if (known || regional.iter().any(|f| f.monument_gaps))
+        && !city_state
+        && regional.iter().all(|f| f.monument_districts.is_empty())
+    {
+        let mut hint = lower_authority(hint_key::MONUMENT_LOWER_AUTHORITY, true);
+        if !known {
+            hint.args.insert("known".to_string(), "no".to_string());
+        }
+        hints.push(hint);
     }
     if any_protected(&|k| k == ProtectedKind::Nationalpark) {
         hints.push(Hint::new(hint_key::NATIONAL_PARK, &[]));
@@ -757,6 +792,9 @@ fn hints(
         }
         if let Some(zone) = &water.zone {
             args.push(("zone", zone.as_str()));
+        }
+        if let Some(authority) = &water.authority {
+            args.push(("authority", authority.as_str()));
         }
         hints.push(Hint::new(hint_key::WATER_PROTECTION, &args));
     }
@@ -1938,6 +1976,8 @@ mod tests {
             },
             credit: "dl-de/zero-2-0".into(),
             note: None,
+            sampled: false,
+            gaps: None,
             sections: vec![section],
             offices: None,
         }
@@ -2000,6 +2040,120 @@ mod tests {
 
     fn near(actual: f64, expected: f64) -> bool {
         (actual - expected).abs() < 1.0
+    }
+
+    /// Monuments outside the city states point to the lower monument authority, named like the
+    /// nature authority, with the Gemeinde where the state makes it the authority (ADR 0144).
+    #[test]
+    fn monuments_outside_the_city_states_name_the_lower_authority() {
+        let admin = vec![
+            brandenburg(),
+            unit(
+                AdminLevel::Kreis,
+                "Potsdam-Mittelmark",
+                "Landkreis",
+                "12069",
+                square(12.9, 51.9, 13.2, 52.2),
+            ),
+            unit(
+                AdminLevel::Gemeinde,
+                "Werder (Havel)",
+                "Stadt",
+                "120690304304",
+                square(12.9, 51.9, 13.2, 52.2),
+            ),
+        ];
+        let monuments = |kinds: &[&str]| {
+            vec![regional(
+                "baudenkmale",
+                PermitSection::Monuments,
+                kinds
+                    .iter()
+                    .map(|kind| {
+                        area(
+                            FindingKind::Monument {
+                                kind: (*kind).into(),
+                                link: None,
+                            },
+                            square(13.0, 52.0, 13.001, 52.001),
+                        )
+                    })
+                    .collect(),
+            )]
+        };
+        let found = notes(
+            MapKind::Forest,
+            &with_regional(admin.clone(), monuments(&["Baudenkmal", "Gartendenkmal"])),
+        );
+        let lower = hint(&found, hint_key::MONUMENT_LOWER_AUTHORITY);
+        assert_eq!(lower.len(), 1, "{:?}", found.hints);
+        assert_eq!(
+            lower[0].args,
+            args(&[
+                ("kreis", "Potsdam-Mittelmark"),
+                ("kreisfrei", "no"),
+                ("gemeinde", "Werder (Havel)"),
+            ])
+        );
+        // No monument on the map: no hint.
+        let none = notes(MapKind::Forest, &with_regional(admin, monuments(&[])));
+        assert!(hint(&none, hint_key::MONUMENT_LOWER_AUTHORITY).is_empty());
+    }
+
+    /// A monument source with gaps that names no monument still brings the hint, saying that
+    /// the data cannot tell (ADR 0144).
+    #[test]
+    fn a_monument_source_with_gaps_and_no_monument_still_names_the_authority() {
+        let admin = vec![unit(
+            AdminLevel::Kreis,
+            "Potsdam",
+            "Kreisfreie Stadt",
+            "12054",
+            square(12.9, 51.9, 13.2, 52.2),
+        )];
+        let mut source = regional("baudenkmale", PermitSection::Monuments, vec![]);
+        source.source.gaps = Some(Words {
+            en: "Potsdam keeps its own list".into(),
+            de: "Potsdam führt die Liste selbst".into(),
+        });
+        let found = notes(MapKind::Sprint, &with_regional(admin, vec![source]));
+        assert_eq!(
+            hint(&found, hint_key::MONUMENT_LOWER_AUTHORITY)[0].args,
+            args(&[("kreis", "Potsdam"), ("kreisfrei", "yes"), ("known", "no")])
+        );
+    }
+
+    /// Baden-Württemberg calls its kreisfreie Städte Stadtkreis; they are their own authority.
+    #[test]
+    fn a_stadtkreis_is_kreisfrei() {
+        let admin = vec![unit(
+            AdminLevel::Kreis,
+            "Heidelberg",
+            "Stadtkreis",
+            "08221",
+            square(12.9, 51.9, 13.2, 52.2),
+        )];
+        let found = notes(
+            MapKind::Sprint,
+            &with_regional(
+                admin,
+                vec![regional(
+                    "denkmale",
+                    PermitSection::Monuments,
+                    vec![area(
+                        FindingKind::Monument {
+                            kind: "Kulturdenkmal".into(),
+                            link: None,
+                        },
+                        square(13.0, 52.0, 13.001, 52.001),
+                    )],
+                )],
+            ),
+        );
+        assert_eq!(
+            hint(&found, hint_key::MONUMENT_LOWER_AUTHORITY)[0].args,
+            args(&[("kreis", "Heidelberg"), ("kreisfrei", "yes")])
+        );
     }
 
     #[test]
@@ -2419,6 +2573,7 @@ mod tests {
             name: Some(name.into()),
             zone: Some(zone.into()),
             citation: None,
+            authority: None,
         };
         let found = notes(
             MapKind::Sprint,
@@ -2456,6 +2611,42 @@ mod tests {
             .map(|h| (h.args["zone"].as_str(), h.args["inner"].as_str()))
             .collect();
         assert_eq!(inner, [("Schutzzone III", "no"), ("Schutzzone II", "yes")]);
+    }
+
+    /// A water protection area whose data name the authority in charge carries it into its
+    /// hint (ADR 0143).
+    #[test]
+    fn a_water_authority_goes_into_the_hint() {
+        let found = notes(
+            MapKind::Sprint,
+            &with_regional(
+                vec![],
+                vec![regional(
+                    "wsg",
+                    PermitSection::WaterProtection,
+                    vec![area(
+                        FindingKind::WaterProtection {
+                            name: Some("Ditzingen".into()),
+                            zone: Some("Zone IIIB".into()),
+                            citation: None,
+                            authority: Some("Landratsamt Ludwigsburg".into()),
+                        },
+                        square(13.0, 52.0, 13.01, 52.1),
+                    )],
+                )],
+            ),
+        );
+        let entries = found.regional[0].water_protection.as_ref().unwrap();
+        assert_eq!(
+            entries[0].item.authority.as_deref(),
+            Some("Landratsamt Ludwigsburg")
+        );
+        let hint = found
+            .hints
+            .iter()
+            .find(|h| h.key == hint_key::WATER_PROTECTION)
+            .unwrap();
+        assert_eq!(hint.args["authority"], "Landratsamt Ludwigsburg");
     }
 
     /// Forest functions are summed per kind and name; each kind gets one hint with the names.

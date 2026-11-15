@@ -876,6 +876,9 @@ permits-none-green-spaces = According to { $source }, no public green space lies
 permits-none-owners = According to { $source }, no parcel of the state or of the Bund lies in the map area.
 permits-none-monuments = According to { $source }, no monument lies in the map area.
 permits-none-protected-objects = According to { $source }, no natural monument, no protected landscape feature and no area with special rules lies in the map area.
+permits-none-sampled = At the points asked, { $source } names nothing here.
+permits-gaps = The data of { $source } are not complete: { $gaps }.
+permits-sampled = { $source } answers only for single points. freemapper asked at a grid of points over the map: the shares are estimates, and what lies between the points can be missing.
 permits-share-line = { $name }: { $share }
 permits-count-line = { $name }: { $count }
 permits-green-space-district = Bezirk { $district }
@@ -885,7 +888,10 @@ permits-playgrounds-one = One public playground lies in the map area. It is not 
 permits-playgrounds-many = { $count } public playgrounds lie in the map area. They are not listed one by one.
 permits-owner-other = Other public owners
 permits-owners-rest = For the rest of the area the data name no owner.
-permits-monuments-total = Monuments wholly or partly in the map area: { $count }. The links lead to their entries in the list of monuments.
+permits-monuments-total = Monuments wholly or partly in the map area: { $count }.{ $links ->
+        [yes] {" "}The links lead to their entries in the list of monuments.
+       *[no] {""}
+    }
 permits-monuments-links-left = { $count } more entries are only counted here, without a link.
 permits-object-kind = { $kind ->
         [natural-monument] Natural monument (Naturdenkmal)
@@ -902,6 +908,17 @@ permits-hint-district-office = { $offices ->
 permits-hint-monument-authority = { $offices ->
         [hamburg] For the monuments in the map area, the Denkmalschutzamt Hamburg (monument office) is in charge.
        *[berlin] For the monuments in the Bezirk { $district }, the lower monument authority (untere Denkmalschutzbehörde) of the Bezirksamt { $district } is in charge.
+    }
+permits-hint-monument-lower-authority = { $known ->
+        [no] Whether listed monuments lie in the map area, the data here cannot say for sure.
+       *[yes] There are listed monuments in the map area.
+    } Whether a run touches them, for example with a control at a monument or a leg through a protected site, the lower monument authority (untere Denkmalschutzbehörde) decides{ $kreisfrei ->
+        [yes] . Here that is the city of { $kreis } itself.
+        [no] , usually the { $kreis }{ $gemeinde ->
+            [none] .
+           *[other] ; in some states it is the Gemeinde { $gemeinde }.
+        }
+       *[unknown] {" "}(usually the Landkreis or the kreisfreie Stadt, in some states the Gemeinde).
     }
 permits-hint-nature-object-authority = { $offices ->
         [hamburg] For natural monuments and protected landscape features in the Bezirk { $district }, the Bezirksamt { $district } is usually in charge.
@@ -941,9 +958,18 @@ permits-forest-function-kind = { $kind ->
        *[closed] Closed forest area
     }
 permits-hint-water-protection = { $inner ->
-        [yes] The { $zone } of the water protection area "{ $name }" lies in the map area. In zones I and II events are usually ruled out. Ask the lower water authority (untere Wasserbehörde).
-        [no] The { $zone } of the water protection area "{ $name }" lies in the map area. Events there are usually possible; the lower water authority (untere Wasserbehörde) can say what the ordinance allows.
-       *[unknown] The water protection area "{ $name }" lies in the map area. The data do not say which zone it is. In zones I and II events are usually ruled out; ask the lower water authority (untere Wasserbehörde).
+        [yes] The { $zone } of the water protection area "{ $name }" lies in the map area. In zones I and II events are usually ruled out. Ask the lower water authority (untere Wasserbehörde{ $authority ->
+            [none] {""}
+           *[other] {", "}{ $authority }
+        }).
+        [no] The { $zone } of the water protection area "{ $name }" lies in the map area. Events there are usually possible; the lower water authority (untere Wasserbehörde{ $authority ->
+            [none] {""}
+           *[other] {", "}{ $authority }
+        }) can say what the ordinance allows.
+       *[unknown] The water protection area "{ $name }" lies in the map area. The data do not say which zone it is. In zones I and II events are usually ruled out; ask the lower water authority (untere Wasserbehörde{ $authority ->
+            [none] {""}
+           *[other] {", "}{ $authority }
+        }).
     }
 permits-hint-forest-function = { $kind ->
         [recreation] Recreation forest (Erholungswald) lies in the map area{ $names ->

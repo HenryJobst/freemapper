@@ -1,12 +1,12 @@
 # freemapper
 
-[English version](README.en.md) · [Handbuch](docs/manual/de.md) · [Glossar](docs/glossary.md) · [Änderungen](CHANGELOG.md)
+[English version](README.en.md) · [Handbuch](docs/manual/de.md) · [Glossar](docs/glossary.md) · [Änderungen](CHANGELOG.md) · [Beispiele](examples/README.md)
 
 <!-- claude-cost:start -->
-[![KI-Aufwand (Claude API): 2.855 $](https://img.shields.io/badge/KI--Aufwand%20%28Claude%20API%29-2.855%20%24-8A2BE2)](docs/ai-cost/history.csv)
+[![KI-Aufwand (Claude API): 3.142 $](https://img.shields.io/badge/KI--Aufwand%20%28Claude%20API%29-3.142%20%24-8A2BE2)](docs/ai-cost/history.csv)
 <!-- claude-cost:end -->
 
-<p align="center"><a href="examples/berlin-viktoriapark/berlin-viktoriapark-candidates.pdf"><img src="examples/berlin-viktoriapark/preview.webp" alt="Sprintkarte Viktoriapark, Berlin-Kreuzberg, von freemapper erzeugt" width="760"></a><br><sub>Viktoriapark, Berlin-Kreuzberg (Sprint 1:4000), von freemapper aus offenen Daten erzeugt. Ein Klick öffnet das PDF; mehr unter <a href="examples/README.md">Beispiele</a>.</sub></p>
+<p align="center"><a href="examples/berlin-viktoriapark/preview.webp"><img src="examples/berlin-viktoriapark/preview-medium.webp" alt="Sprintkarte Viktoriapark, Berlin-Kreuzberg, von freemapper erzeugt" width="760"></a><br><sub>Viktoriapark, Berlin-Kreuzberg (Sprint 1:4000), von freemapper aus offenen Daten erzeugt. Ein Klick zeigt das Bild in voller Größe, das <a href="examples/berlin-viktoriapark/berlin-viktoriapark-candidates.pdf">PDF</a> hat alle Kandidaten; mehr unter <a href="examples/README.md">Beispiele</a>.</sub></p>
 
 freemapper erzeugt aus amtlichen Geodaten (Geländemodell, nDOM, Luftbild, ALKIS) und OpenStreetMap
 ein **Startprojekt für OpenOrienteering Mapper (OOM) und auf Wunsch auch für OCAD**: eine
@@ -50,8 +50,8 @@ nach in einer festen Version ein, statt den Code zu kopieren.
 
 ## Status
 
-Aktuelle Version ist [v0.20.0](https://github.com/HenryJobst/freemapper/releases/tag/v0.20.0) vom
-14. November 2026 (was sich geändert hat, steht in den [Änderungen](CHANGELOG.md)).
+Aktuelle Version ist [v0.21.0](https://github.com/HenryJobst/freemapper/releases/tag/v0.21.0) vom
+15. November 2026 (was sich geändert hat, steht in den [Änderungen](CHANGELOG.md)).
 
 freemapper erzeugt
 Schulhof- und Sprintkarten für fünfzehn Bundesländer: Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg,
@@ -81,7 +81,7 @@ Reste in den deutschen Programmtexten (`--lang de`). Thüringen, das letzte Bund
 Höhendaten wieder erreichbar ist. Die Nachbarländer kommen später. Design:
 [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](https://github.com/HenryJobst/freemapper/blob/main/docs/superpowers/specs/2026-11-07-freemapper-design.md).
 
-Auf Wunsch schreibt freemapper Hinweise zu Genehmigungen neben die Karte, in die Datei `permits.md` (`freemapper permits`, `run --permits`, auf der Gebietsseite oder über den KI-Assistenten). Sie nennt für das Kartengebiet Bundesland, Kreis, Amt und Gemeinde aus VG250 des BKG, die Schutzgebiete des BfN und Betreiber aus OpenStreetMap, jeweils mit Anteil, Quelle und Datenstand, und sagt, wen man meist fragt. Sie ist ein Hinweis und keine Rechtsauskunft. Einzelheiten stehen im [Handbuch, Kapitel 12](docs/manual/de.md#12-hinweise-zu-genehmigungen). In Berlin kommen Bezirk, Grünanlagen, Eigentum von Bundesland und Bund, Denkmale und Naturdenkmale aus dem Geoportal Berlin dazu. In Hamburg kommen Bezirk, Grünanlagen, Denkmale, Stadtwald und Wasserschutzgebiete aus dem Geoportal Hamburg. In Brandenburg, Berlin, Hamburg, Nordrhein-Westfalen und im Saarland nennen die Hinweise auch die Forstdienststelle, in mehreren Bundesländern auch Wasserschutzgebiete und Waldfunktionen.
+Auf Wunsch schreibt freemapper Hinweise zu Genehmigungen neben die Karte, in die Datei `permits.md` (`freemapper permits`, `run --permits`, auf der Gebietsseite oder über den KI-Assistenten). Sie nennt für das Kartengebiet Bundesland, Kreis, Amt und Gemeinde aus VG250 des BKG, die Schutzgebiete des BfN und Betreiber aus OpenStreetMap, jeweils mit Anteil, Quelle und Datenstand, und sagt, wen man meist fragt. Sie ist ein Hinweis und keine Rechtsauskunft. Einzelheiten stehen im [Handbuch, Kapitel 12](docs/manual/de.md#12-hinweise-zu-genehmigungen). In Berlin kommen Bezirk, Grünanlagen, Eigentum von Bundesland und Bund, Denkmale und Naturdenkmale aus dem Geoportal Berlin dazu. In Hamburg kommen Bezirk, Grünanlagen, Denkmale, Stadtwald und Wasserschutzgebiete aus dem Geoportal Hamburg. In Brandenburg, Berlin, Hamburg, Nordrhein-Westfalen, im Saarland, in Sachsen und in Schleswig-Holstein nennen die Hinweise auch die Forstdienststelle. Wasserschutzgebiete nennen sie in allen Bundesländern, Denkmale in elf, Waldfunktionen in mehreren.
 
 ## Handbuch
 
@@ -98,12 +98,12 @@ mit der Kommandozeile. Die meistgebrauchten Kapitel:
 ## Beispiele
 
 Für jedes unterstützte Bundesland liegt ein fertiges Sprintkarten-Projekt im Repository, mit OOM-Karte,
-OCAD-Datei und PDF. Zwei Beispiele vorab, ein Klick auf das Bild öffnet das PDF:
+OCAD-Datei und PDF. Zwei Beispiele vorab; ein Klick auf das Bild zeigt es in voller Größe, der Link darunter öffnet das PDF:
 
 | Bundesland | Gebiet | Vorschau |
 |---|---|---|
-| Berlin | [Viktoriapark, Kreuzberg](https://github.com/HenryJobst/freemapper/tree/main/examples/berlin-viktoriapark/) | <a href="examples/berlin-viktoriapark/berlin-viktoriapark-candidates.pdf"><img src="examples/berlin-viktoriapark/preview.webp" width="220" alt=""></a> |
-| Rheinland-Pfalz | [Reichsburg und Altstadt Cochem](https://github.com/HenryJobst/freemapper/tree/main/examples/rheinland-pfalz-cochem/) | <a href="examples/rheinland-pfalz-cochem/rheinland-pfalz-cochem-candidates.pdf"><img src="examples/rheinland-pfalz-cochem/preview.webp" width="220" alt=""></a> |
+| Berlin | [Viktoriapark, Kreuzberg](https://github.com/HenryJobst/freemapper/tree/main/examples/berlin-viktoriapark/) | <a href="examples/berlin-viktoriapark/preview.webp"><img src="examples/berlin-viktoriapark/preview-thumb.webp" width="220" alt="" loading="lazy"></a><br><a href="examples/berlin-viktoriapark/berlin-viktoriapark-candidates.pdf">PDF</a> |
+| Rheinland-Pfalz | [Reichsburg und Altstadt Cochem](https://github.com/HenryJobst/freemapper/tree/main/examples/rheinland-pfalz-cochem/) | <a href="examples/rheinland-pfalz-cochem/preview.webp"><img src="examples/rheinland-pfalz-cochem/preview-thumb.webp" width="220" alt="" loading="lazy"></a><br><a href="examples/rheinland-pfalz-cochem/rheinland-pfalz-cochem-candidates.pdf">PDF</a> |
 
 Alle Beispiele mit Vorschau, wie die Gebiete ausgewählt wurden und wie viele Objekte jede Karte hat, stehen in
 der [Beispielübersicht](https://github.com/HenryJobst/freemapper/blob/main/examples/README.md), dort auch eine Waldkarte für jedes Bundesland (1:10 000). Dasselbe Gebiet in den drei Inhaltsprofilen
@@ -117,7 +117,7 @@ Am einfachsten zeichnet man das Kartengebiet im Browser:
 freemapper select mein-schulhof --kind schoolyard
 ```
 
-![Gebietsauswahl im Browser](docs/manual/images/area-selector.jpg)
+[![Gebietsauswahl im Browser](docs/manual/images/area-selector-thumb.webp)](docs/manual/images/area-selector.jpg)
 
 Auf der Seite sucht man einen Ort oder zeichnet ein Rechteck oder Polygon. Der Hintergrund ist
 OpenStreetMap oder das Luftbild des Bundeslandes. Die Seite zeigt die Größe mit Puffer und den
@@ -290,18 +290,18 @@ freemapper run vorstadt
 | Brandenburg | LGB, auch das vollständige ALKIS; Potsdamer Stadtbäume | Laser-nDOM, 0,2 m | Mauern, Zäune, Hecken und Brücken aus dem vollständigen ALKIS und die Potsdamer Bäume als Kandidaten |
 | Berlin | LGB, ALKIS, Baumkataster, K5, Straßenbefahrung und Register vom Geoportal Berlin | aus dem bildbasierten Oberflächenmodell, 0,2 m | Plätze nur als Kandidaten; vermessene Grünstreifen aus den Straßenflächen ausgeschnitten; Überdachungen als Kartenobjekte; Treppen, Mauern, Zäune, Hecken, Bäume, Bordsteine, Geländer, Möblierung, Laternen und Brunnen als Kandidaten; Karte 1:5000 (K5) als Vorlage |
 | Sachsen | GeoSN | DOM1 − DGM1, 1 m | Plätze nur als Kandidaten; Straßenflächen mit Grünstreifen; keine Lage unter der Erdoberfläche |
-| Sachsen-Anhalt | LVermGeo | DOM1 − DGM1, 1 m | Karte in UTM-Zone 32 (EPSG:25832); Plätze nur als Kandidaten; Straßenflächen mit Grünstreifen |
+| Sachsen-Anhalt | LVermGeo | DOM1 − DGM1, 1 m | Karte in UTM-Zone 32 (EPSG:25832); Plätze nur als Kandidaten; Straßenflächen mit Grünstreifen; Felswände, Felsen, Quellen, Dämme, Denkmäler, kleine Wasserläufe und auf Waldkarten fehlende Wege als Kandidaten aus dem Landschaftsmodell (ATKIS Basis-DLM) |
 | Hamburg | LGV | bDOM − DGM1, 1 m (Stand 2022) | Karte in UTM-Zone 32 (EPSG:25832); Höhenmodelle älter als das Luftbild (2026) |
-| Hessen | HVBG | DOM1 − DGM1, 1 m (Laserscan) | Karte in UTM-Zone 32 (EPSG:25832); Luftbild im Sommer beflogen; Plätze nur als Kandidaten; Straßenflächen mit Grünstreifen |
-| Schleswig-Holstein | LVermGeo SH | bDOM − DGM1, 1 m (bildbasiert) | Karte in UTM-Zone 32 (EPSG:25832); Luftbild je nach Gebiet unbelaubt oder belaubt; Oberflächenmodell als ganze Kacheln (105 MB je km²) |
+| Hessen | HVBG (auch das vollständige ALKIS und das Landschaftsmodell) | DOM1 − DGM1, 1 m (Laserscan) | Karte in UTM-Zone 32 (EPSG:25832); Luftbild im Sommer beflogen; Plätze nur als Kandidaten; Straßenflächen mit Grünstreifen; vermessene Treppen aus dem vollständigen ALKIS; Quellen, Felsen, Türme, Denkmäler, kleine Wasserläufe und auf Waldkarten fehlende Wege als Kandidaten aus dem Landschaftsmodell (ATKIS Basis-DLM) |
+| Schleswig-Holstein | LVermGeo SH | bDOM − DGM1, 1 m (bildbasiert) | Karte in UTM-Zone 32 (EPSG:25832); Luftbild je nach Gebiet unbelaubt oder belaubt; Oberflächenmodell als ganze Kacheln (105 MB je km²); Wälle, kleine Wasserläufe und auf Waldkarten fehlende Fahrwege als Kandidaten aus dem Landschaftsmodell (ATKIS Basis-DLM) |
 | Mecklenburg-Vorpommern | LAiV M-V | DOM1 − DGM1, 1 m | Luftbild als Farbpalette (256 Farben); Höhenmodelle nur innerhalb der Landeskacheln |
-| Nordrhein-Westfalen | Geobasis NRW | DOM1 − DGM1, 1 m (Laserscan) | Karte in UTM-Zone 32 (EPSG:25832); OSM aus den Auszügen der Regierungsbezirke |
-| Niedersachsen | LGLN | DOM1 − DGM1, 1 m (Laserscan) | Karte in UTM-Zone 32 (EPSG:25832); Oberflächenmodell oft Jahre älter als das Luftbild |
+| Nordrhein-Westfalen | Geobasis NRW (auch das vollständige ALKIS) | DOM1 − DGM1, 1 m (Laserscan) | Karte in UTM-Zone 32 (EPSG:25832); OSM aus den Auszügen der Regierungsbezirke; Mauern, Stützmauern, Treppen, Böschungsoberkanten, Brücken und Einzelbäume aus dem vollständigen ALKIS |
+| Niedersachsen | LGLN (auch das vollständige ALKIS) | DOM1 − DGM1, 1 m (Laserscan) | Karte in UTM-Zone 32 (EPSG:25832); Oberflächenmodell oft Jahre älter als das Luftbild; Brücken, Brunnen und Mauern aus dem vollständigen ALKIS |
 | Rheinland-Pfalz | LVermGeo RP | DOM1 − DGM1, 1 m (Laserscan) | Karte in UTM-Zone 32 (EPSG:25832); Luftbild im Sommer beflogen, als Flugdatum gilt das Erstellungsdatum; Luftbild jenseits der Landesgrenze weiß |
 | Saarland | LVGL | DOM1 − DGM1, 1 m (Laserscan 2025) | Karte in UTM-Zone 32 (EPSG:25832); Höhenmodelle als 1-km-Kacheln aus den Landkreis-Archiven; Vorlagen jenseits der Landesgrenze leer |
 | Baden-Württemberg | LGL | nDOM1, 1 m (aus den Luftbildern eines Sommerflugs) | Karte in UTM-Zone 32 (EPSG:25832); Höhenmodelle als 1-km-Kacheln aus den 2-km-Archiven; Luftbild jenseits der Landesgrenze weiß; das Kataster kennt keine Überdachungen |
 | Bremen | Landesamt GeoInformation Bremen, auch das vollständige ALKIS | DOM1 − DGM1, 1 m (Laserscan 2017, Bremerhaven 2015) | Karte in UTM-Zone 32 (EPSG:25832); Höhenmodelle acht bis zehn Jahre älter als das Luftbild; Luftbild jenseits der Landesgrenze weiß, Vorlagen dort leer; Treppen, Stützmauern, Böschungen und Brücken aus dem vollständigen ALKIS |
-| Bayern | Bayerische Vermessungsverwaltung; Gebäude aus den LoD2-Kacheln, Nutzung aus den Dateien der Kreise | DOM20 − DGM1, auf 1 m verkleinert (aus den Luftbildern des Bildflugs) | Karte in UTM-Zone 32 (EPSG:25832), auch östlich von 12° O; das Kataster hat keinen Dienst, freemapper lädt Dateien: je 2-km-Kachel der Gebäude 3 bis 160 MB, je Kreis 2 bis 13 MB Nutzung; Oberflächenmodell etwa 45 MB je km²; keine Treppen, Mauern und Böschungen aus dem Kataster; Quellen, Höhlen, Türme, Brunnen, Denkmäler und auf Waldkarten fehlende Wege als Kandidaten aus dem Landschaftsmodell (ATKIS Basis-DLM) |
+| Bayern | Bayerische Vermessungsverwaltung; Gebäude aus den LoD2-Kacheln, Nutzung aus den Dateien der Kreise | DOM20 − DGM1, auf 1 m verkleinert (aus den Luftbildern des Bildflugs) | Karte in UTM-Zone 32 (EPSG:25832), auch östlich von 12° O; das Kataster hat keinen Dienst, freemapper lädt Dateien: je 2-km-Kachel der Gebäude 3 bis 160 MB, je Kreis 2 bis 13 MB Nutzung; Oberflächenmodell etwa 45 MB je km² des Kartengebiets; keine Treppen, Mauern und Böschungen aus dem Kataster; Quellen, Höhlen, Türme, Brunnen, Denkmäler und auf Waldkarten fehlende Wege als Kandidaten aus dem Landschaftsmodell (ATKIS Basis-DLM) |
 
 In jedem Bundesland außer Sachsen und Sachsen-Anhalt sind die ALKIS-Überdachungen Kartenobjekte und die
 Durchfahrten Kandidaten. An einer Grenze zwischen Bundesländern fragt freemapper das Kataster beider Bundesländer ab und liest beide

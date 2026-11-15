@@ -313,7 +313,7 @@ freemapper-courseplan zeigen so denselben Titel. Ändern Sie ihn bei Bedarf in d
 
 ## 6. Das Kartengebiet im Browser wählen
 
-![Gebietsauswahl im Browser](images/area-selector.jpg)
+[![Gebietsauswahl im Browser](images/area-selector-thumb.webp)](images/area-selector.jpg)
 
 *Die Gebietsauswahl mit dem Kreuzgymnasium Dresden. Kartendaten © OpenStreetMap-Mitwirkende.*
 
@@ -633,10 +633,10 @@ Quelle: GeoSN, dl-de/by-2-0, Daten geändert.
 
 | Vorlage | Bild |
 |---|---|
-| **Luftbild:** Draufsicht, 20 cm je Bildpunkt. Gut für Wege, Plätze und Bewuchs, aber Bäume verdecken den Boden. | ![Luftbild](images/orthophoto.jpg) |
-| **nDOM (Höhe über Grund):** gelb 0,3–1 m (Mauern, Bänke, Autos), orange 1–2,5 m (Hecken, Zäune, Spielgeräte), hellgrün 2,5–8 m (Büsche, Schuppen), dunkelgrün über 8 m (Bäume, Häuser). Zeigt, was steht, auch unter Bäumen. | ![nDOM über dem Luftbild](images/ndsm.jpg) |
-| **Schummerung:** das Gelände wie von Nordwesten beleuchtet. Zeigt Böschungen, Mulden und Wälle. | ![Schummerung](images/hillshade.jpg) |
-| **Hangneigung:** je dunkler, desto steiler. Hilft bei Böschungen und Treppen. | ![Hangneigung](images/slope.jpg) |
+| **Luftbild:** Draufsicht, 20 cm je Bildpunkt. Gut für Wege, Plätze und Bewuchs, aber Bäume verdecken den Boden. | [![Luftbild](images/orthophoto-thumb.webp)](images/orthophoto.jpg) |
+| **nDOM (Höhe über Grund):** gelb 0,3–1 m (Mauern, Bänke, Autos), orange 1–2,5 m (Hecken, Zäune, Spielgeräte), hellgrün 2,5–8 m (Büsche, Schuppen), dunkelgrün über 8 m (Bäume, Häuser). Zeigt, was steht, auch unter Bäumen. | [![nDOM über dem Luftbild](images/ndsm-thumb.webp)](images/ndsm.jpg) |
+| **Schummerung:** das Gelände wie von Nordwesten beleuchtet. Zeigt Böschungen, Mulden und Wälle. | [![Schummerung](images/hillshade-thumb.webp)](images/hillshade.jpg) |
+| **Hangneigung:** je dunkler, desto steiler. Hilft bei Böschungen und Treppen. | [![Hangneigung](images/slope-thumb.webp)](images/slope.jpg) |
 | **Lokales Relief:** das Gelände minus sein geglättetes Mittel (über etwa 5 m auf Sprintkarten, 3 m auf Schulhofkarten, 8 m auf Waldkarten). Hell ist höher als die Umgebung, dunkel tiefer; das allgemeine Gefälle ist weg. Zeigt Hügel, Mulden, Böschungen und Gräben, die die Schummerung am Hang verschluckt. | – |
 
 Dazu kommen die **Höhenlinien** in der Kandidaten-Karte: auf Schulhofkarten alle 1 m, auf Sprintkarten
@@ -674,7 +674,9 @@ Vegetation aus den klassifizierten Laserpunktwolken der LGB, des Geoportals Berl
 RP, vom LVGL bzw. der Bayerischen Vermessungsverwaltung ableiten:
 offenes Gelände (401), gut belaufbaren Wald (405), die Grünabstufungen 406, 408 und 410 sowie Unterwuchs (407,
 409). Gemessen wird, wie viele Laserpunkte in jeder 3-m-Zelle in Bodennähe ankommen und wie viele in den
-Höhen hängen bleiben, die einen Läufer bremsen. Das zeigt mehr als das nDOM, das nur die Kronen sieht. Die Umrisse
+Höhen hängen bleiben, die einen Läufer bremsen. Das zeigt mehr als das nDOM, das nur die Kronen sieht. Die
+Grünabstufungen folgen der Schicht, durch die man läuft: Von allen Punkten unter 3 m zählt der Anteil zwischen
+0,8 und 3 m. Ab 20 % ist eine Zelle 406, ab 35 % 408, ab 50 % 410 (ADR 0138). Die Kronen darüber zählen nicht. Die Umrisse
 entstehen auf einem dreimal feineren, leicht weichgezeichneten Raster, damit sie dem Rand der Vegetation folgen
 statt den 3-m-Stufen der Zellen (ADR 0136).
 
@@ -691,13 +693,13 @@ nur den Teil mit anderer Klasse.
 
 Geprüft ist das an Sanssouci, am Kölner Volksgarten, am Mainzer Stadtpark, am Berliner Viktoriapark und an der
 Altstadt von Saarlouis. Schilf und
-Gebüsch am Ufer erscheinen als 410. Die Berliner Befliegung von 2021 war ohne Laub; dort erkennt freemapper
-dichtes Gebüsch schlechter, und ändert das Geoportal ein Archiv, lädt freemapper dessen Kacheln neu. Auch die
-Saarländer Befliegung (Februar 2025) war ohne Laub, und das LVGL hat die Punktwolke auf einen Punkt je 0,5 m
-ausgedünnt; die Kronen erkennt freemapper dort trotzdem. In Bayern ist es am Schmausenbuck im Nürnberger
-Reichswald geprüft. Die drei bayerischen Flüge, deren Tag bekannt ist, lagen zwischen November und Februar. Ohne
-Laub geben Gebüsch und Jungwuchs wenige Echos. Am Schmausenbuck erscheint der 2 bis 5 m hohe Jungwuchs unter
-einer Stromtrasse deshalb überwiegend als gut belaufbarer Wald (405). Das Datum an den bayerischen Kandidaten ist der
+Gebüsch am Ufer erscheinen als 410. Alle Befliegungen, die die sechs Bundesländer veröffentlichen, waren ohne
+Laub, zwischen Dezember und März, und auf solche Flüge sind die Grünabstufungen eingestellt. Am Schmausenbuck im
+Nürnberger Reichswald (geflogen am 20.12.2021) sind sie an der Kronenhöhe aus den Sommer-Luftbildern gemessen:
+71 % der Dickichte erscheinen grün und 7 % des Hochwalds. Stangenholz mit Kronen in 3 bis 8 m Höhe und freiem
+Stammraum bleibt gut belaufbarer Wald (405). Das LVGL hat die Saarländer Punktwolke auf einen Punkt je 0,5 m
+ausgedünnt; die Kronen erkennt freemapper dort trotzdem, die Grünabstufungen erscheinen aber in verstreuten
+Flecken. Ändert das Geoportal Berlin ein Archiv, lädt freemapper dessen Kacheln neu. Das Datum an den bayerischen Kandidaten ist der
 Flugtag, den freemapper aus den Laserpunkten liest (am Schmausenbuck der 20.12.2021). Ältere Befliegungen nennen
 ihn nicht; dort steht der Tag, an dem die Datei erzeugt wurde. Liegen Kacheln mit verschiedenem Datum unter einer
 Karte, tragen die Kandidaten in jedem Bundesland das älteste. Die
@@ -869,7 +871,7 @@ Beide PDF-Schalter lassen sich verbinden; dann liegen beide Dateien nebeneinande
 kennen alle vier, der MCP-Server als `pdf`, `pdf_candidates`, `pdf_scale_bar` und `pdf_sources`. freemapper merkt sich die Wahl nicht
 im Projekt: Sie gilt für den Aufruf.
 
-![Trainingskarte als PDF](images/training-map.jpg)
+[![Trainingskarte als PDF](images/training-map-thumb.webp)](images/training-map.jpg)
 
 *Die Trainingskarte des Kreuzgymnasiums. Quelle: GeoSN, dl-de/by-2-0, Daten geändert; © OpenStreetMap-Mitwirkende.*
 
@@ -1061,13 +1063,43 @@ Die Hinweise nennen für jeden Bezirk, der mehr als den Rand berührt, das Bezir
 Management des öffentlichen Raumes und, wenn ein Denkmal im Gebiet liegt, das Denkmalschutzamt Hamburg. Fehlen
 die Bezirke, steht der allgemeine Hinweis für Berlin und Hamburg da.
 
+### Denkmale
+
+Denkmale kommen aus Berlin, Hamburg und dem Saarland und aus den offenen Diensten der Denkmalämter von Hessen
+(DenkXweb, mit Link in die Denkmalliste), Baden-Württemberg (Kulturdenkmale, Gesamtanlagen, archäologische
+Kulturdenkmale und Grabungsschutzgebiete), Bremen (Einzeldenkmale und Ensembles, mit Link), Sachsen
+(Kulturdenkmale), Brandenburg (Bau-, Garten- und Bodendenkmale, Denkmalbereiche), Rheinland-Pfalz (Einzeldenkmäler,
+Denkmalzonen, bauliche Gesamtanlagen), Nordrhein-Westfalen und Schleswig-Holstein. Schleswig-Holstein hat keinen
+Dienst, nur seine Denkmalliste als eine Datei für das ganze Bundesland (etwa 52 MB, jede Woche neu): freemapper lädt
+sie beim ersten Mal und hebt sie im Zwischenspeicher auf, danach nur, wenn der Server eine neuere hat. Bodendenkmale
+und die Denkmale Lübecks fehlen darin. Der Abschnitt „Denkmale“ zählt sie je Art und
+verlinkt, wo der Dienst einen Link hat, bis zu 20 in die Liste des Bundeslandes. Liegen Denkmale im Gebiet, sagt
+ein Hinweis, wen man fragt: in Berlin und Hamburg das Bezirksamt oder das Denkmalschutzamt, sonst die untere
+Denkmalschutzbehörde, meist der Landkreis oder die kreisfreie Stadt, in manchen Bundesländern die Gemeinde; die
+Hinweise nennen dazu Kreis und Gemeinde aus VG250.
+
+In Nordrhein-Westfalen ist der Bestand noch im Aufbau, nicht jede Gemeinde ist schon darin: Kein Denkmal in den
+Hinweisen heißt dort nicht, dass keins im Gebiet liegt. In Brandenburg fehlen die Baudenkmale der Stadt Potsdam, die
+ihre Denkmalliste selbst führt. Die Hinweise sagen beides unter dem Teil des Bundeslandes, und der Hinweis auf die
+untere Denkmalschutzbehörde kommt dort auch ohne Treffer, mit dem Satz, dass die Daten das nicht sicher sagen. Eine
+kreisfreie Stadt, in Baden-Württemberg ein Stadtkreis, ist selbst die untere Behörde. Die Bodendenkmäler in Hessen sind Punkte, die laut Dienst für
+ein Gebiet von etwa 300 m stehen. Niedersachsen, Bayern, Mecklenburg-Vorpommern und
+Sachsen-Anhalt fehlen noch: Die Lizenz ist dort unklar oder verbietet die Bearbeitung, oder es gibt keinen Dienst
+für das ganze Bundesland.
+
 ### Wasserschutzgebiete und Waldfunktionen
 
-Wasserschutzgebiete mit ihrer Schutzzone kommen aus Berlin, Brandenburg, Hamburg, Hessen, Nordrhein-Westfalen
-und dem Saarland; in Nordrhein-Westfalen auch die geplanten, mit dem Zusatz „(geplant)“. Waldfunktionen
+Wasserschutzgebiete mit ihrer Schutzzone kommen aus Baden-Württemberg, Berlin, Brandenburg, Hamburg, Hessen,
+Nordrhein-Westfalen, dem Saarland und Schleswig-Holstein, aus Sachsen nur für den Wald. In Baden-Württemberg nennt
+jede Zone die zuständige untere Wasserbehörde (ein Landratsamt oder eine Stadt), und der Hinweis nennt sie mit;
+die Zonen I und II kommen dort zusammengefasst, weil die LUBW die Zone I nicht veröffentlicht. Für Bayern, Niedersachsen, Bremen,
+Mecklenburg-Vorpommern, Rheinland-Pfalz, Sachsen-Anhalt und Sachsen kommen die Trinkwasser- und
+Heilquellenschutzgebiete, die die Bundesländer an die Bundesanstalt für Gewässerkunde (BfG) melden, ohne
+Schutzzone und mit dem Hinweis der BfG, dass der Bestand nicht überall vollständig ist; in Nordrhein-Westfalen auch die geplanten, mit dem Zusatz „(geplant)“. Waldfunktionen
 aus Brandenburg (Naturwald, Totalreservat, nicht betretbare Flächen, Erholungswald), Hamburg (Bannwald,
-Erholungswald), Nordrhein-Westfalen (Naturwaldzellen, Wildnisentwicklungsgebiete) und dem Saarland
-(Naturwaldzellen, Urwald), jeweils aus offenen Diensten des Bundeslandes. Im Saarland kommen außerdem die
+Erholungswald), Nordrhein-Westfalen (Naturwaldzellen, Wildnisentwicklungsgebiete), dem Saarland
+(Naturwaldzellen, Urwald), Sachsen (Erholungswald, Naturwaldzellen, Bodenschutzwald) und Schleswig-Holstein
+(Naturwald), jeweils aus offenen Diensten des Bundeslandes. Im Saarland kommen außerdem die
 Baudenkmale dazu. Ein
 Wasserschutzgebiet bekommt einen Hinweis mit seiner Schutzzone: In den Zonen I und II sind Veranstaltungen
 meist ausgeschlossen, in Zone III meist möglich, und die untere Wasserbehörde sagt, was die Verordnung erlaubt.
@@ -1077,7 +1109,7 @@ und gesperrte Waldflächen bekommen je einen Hinweis, wen man fragt oder was man
 ### Forstverwaltung
 
 Für eine Veranstaltung im Wald brauchen Sie die Zustimmung der Waldbesitzer. In mehreren Bundesländern ist eine
-organisierte Veranstaltung im Wald außerdem der Forstbehörde anzuzeigen oder von ihr zu genehmigen. Drei
+organisierte Veranstaltung im Wald außerdem der Forstbehörde anzuzeigen oder von ihr zu genehmigen. Sechs
 Bundesländer veröffentlichen die Bereiche ihrer Forstdienststellen offen:
 
 | Bundesland | Dienststelle und Einheit | Quelle |
@@ -1086,6 +1118,8 @@ Bundesländer veröffentlichen die Bereiche ihrer Forstdienststellen offen:
 | Berlin | Forstamt und Revier der Berliner Forsten | Geoportal Berlin (`gdi.berlin.de`) |
 | Nordrhein-Westfalen | Regionalforstamt und Forstbetriebsbezirk des Landesbetriebs Wald und Holz NRW, dazu der Staatswald | zwei Dateien auf `www.opengeodata.nrw.de` |
 | Saarland | Revier des SaarForst Landesbetriebs (nur im Staatswald) | Geoportal Saarland (`geoportal.saarland.de`) |
+| Sachsen | Forstbezirk und Revier des Staatsbetriebs Sachsenforst (zuständig im Staatswald; für anderen Wald die untere Forstbehörde des Landkreises oder der kreisfreien Stadt) | zwei Kartendienste von Sachsenforst (`www.forsten.sachsen.de`), an Punkten abgefragt |
+| Schleswig-Holstein | Revier der Schleswig-Holsteinischen Landesforsten, dazu der Landeswald (nur im Landeswald) | Umweltportal (`umweltgeodienste.schleswig-holstein.de`) |
 
 Der Abschnitt „Forstverwaltung“ nennt jede Dienststelle mit ihrer Einheit und ihrem Anteil am Kartengebiet. Der
 Bereich einer Dienststelle kann auch Siedlungen und Felder umfassen; in Brandenburg liegt jedes Kartengebiet in
@@ -1122,13 +1156,22 @@ Bezirks, auch in `data/permits/`.
   Hinweise geben diesen Satz unter der Tabelle der Quellen wörtlich wieder.
 - Eigentümer von Grundstücken stehen nicht in offenen Daten, außer in Berlin für das Bundesland und den Bund. Die Hinweise
   sagen, wie man einen Grundbuchauszug bekommt.
-- Forstdienststellen nennen die Hinweise nur in Brandenburg, Berlin, Hamburg, Nordrhein-Westfalen und im
-  Saarland (dort nur für den Staatswald). Sachsen,
-  Sachsen-Anhalt und Mecklenburg-Vorpommern zeigen ihre Forstämter nur als Kartenbild, ohne Flächen, die
-  freemapper lesen könnte. Der Dienst von Rheinland-Pfalz weist freemapper ab. Für die übrigen Bundesländer
-  fand sich kein offener Dienst.
+- Forstdienststellen nennen die Hinweise nur in Brandenburg, Berlin, Hamburg, Nordrhein-Westfalen, im Saarland, in
+  Sachsen und in Schleswig-Holstein (im Saarland und in Schleswig-Holstein nur für den Staatswald). Sachsen-Anhalt
+  und Mecklenburg-Vorpommern haben keinen offenen Dienst mit Flächen, die freemapper lesen darf; ihre
+  Forstverwaltungen sind angefragt. Der Dienst von Rheinland-Pfalz weist freemapper ab. Für die übrigen
+  Bundesländer fand sich kein offener Dienst.
+- Sachsenforst gibt nur für einzelne Punkte Auskunft. freemapper fragt an den Mittelpunkten von bis zu 25 Zellen
+  über der Karte (Zellen von mindestens 50 m, ein Schulhof bekommt also nur wenige), das sind bis zu 50 Anfragen.
+  Jede Antwort gilt für ihre ganze Zelle: Die Anteile sind geschätzt, und eine kleine Naturwaldzelle oder eine
+  innere Wasserschutzzone zwischen zwei Punkten kann fehlen. Das steht unter dem Teil zu Sachsen in den Hinweisen,
+  und bei einem leeren Abschnitt schreiben sie, dass an den abgefragten Punkten nichts genannt ist. Die
+  Trinkwasserschutzzonen des Dienstes liegen nur im Wald. `permits.json` kennzeichnet so eine Quelle mit
+  `"sampled": true`.
 - Wem ein Privat- oder Körperschaftswald gehört, steht in keinen offenen Daten.
-- Wasserschutzgebiete und Denkmale außerhalb Berlins fehlen noch. Sie kommen in späteren Versionen.
+- Wasserschutzgebiete nennen die Hinweise in allen Bundesländern. Die Gebiete der BfG haben keine Schutzzone; ob
+  eine Veranstaltung möglich ist, sagt die untere Wasserbehörde. Denkmale kommen aus elf Bundesländern (siehe
+  „Denkmale“).
 
 ### Datenquellen und Lizenzen
 
@@ -1139,6 +1182,18 @@ Bezirks, auch in `data/permits/`.
 | OpenStreetMap | Auszug im Zwischenspeicher | `© OpenStreetMap contributors, ODbL` |
 | Geoportal Berlin: Bezirksgrenzen, Grünanlagenbestand, Liegenschaftsplan, Denkmale, Schutzobjekte nach Naturschutzrecht, Forstverwaltung (nur in Berlin) | `gdi.berlin.de` | `Für die Nutzung der Daten ist die Datenlizenz Deutschland - Zero - Version 2.0 anzuwenden. Die Lizenz ist über https://www.govdata.de/dl-de/zero-2-0 abrufbar.` |
 | Geoportal Hamburg: Bezirksgrenzen, Grünplan, Denkmalschutz, Wald in Hamburg, Waldfunktionen, Wasserschutzgebiete (nur in Hamburg) | `geodienste.hamburg.de` | je Dienst `Datenlizenz Deutschland Namensnennung 2.0, Quellenvermerk: Freie und Hansestadt Hamburg, <Behörde>` mit der Behörde, die der Dienst nennt |
+| Umweltportal Schleswig-Holstein: Landeswald mit Revieren, Naturwald, Wasserschutzgebiete (nur in Schleswig-Holstein) | `umweltgeodienste.schleswig-holstein.de` | `Quellenvermerk: LfU SH; Lizenz: Creative Commons Namensnennung 4.0 International (CC BY 4.0)` |
+| LUBW Landesanstalt für Umwelt Baden-Württemberg: Wasserschutzgebietszonen mit der zuständigen Behörde (nur in Baden-Württemberg) | `rips-gdi.lubw.baden-wuerttemberg.de` | `Grundlage: Daten aus dem Umweltinformationssystem (UIS) der LUBW Landesanstalt für Umwelt Baden-Württemberg` (Nutzungsvereinbarung für Daten des UIS) |
+| Landesamt für Denkmalpflege Hessen (DenkXweb): Kulturdenkmäler, Gesamtanlagen, Bodendenkmäler (nur in Hessen) | `geodienste.denkx.de` | `Datenlizenz Deutschland – Namensnennung – Version 2.0 (dl-de/by-2-0); Quellenvermerk: Landesamt für Denkmalpflege Hessen (LfDH)` |
+| Landesamt für Denkmalpflege Baden-Württemberg: Kulturdenkmale, Gesamtanlagen, archäologische Kulturdenkmale, Grabungsschutzgebiete (nur in Baden-Württemberg) | `owsproxy.lgl-bw.de` | `… mit Angabe der Datenquelle: dl-de/by-2-0: Landesamt für Denkmalpflege im Regierungspräsidium Stuttgart, www.denkmalpflege-bw.de` |
+| Landesamt für Denkmalpflege Bremen: Einzeldenkmale, Ensembles (nur in Bremen) | `geodienste.bremen.de` | `Creative Commons Namensnennung (CC-BY), Quellenvermerk: Freie Hansestadt Bremen, Senator für Kultur` |
+| Landesamt für Denkmalpflege Sachsen: Kulturdenkmale (nur in Sachsen) | `cardomap3.idu.de` | `Landesamt für Denkmalpflege Sachsen, Creative Commons Namensnennung 3.0 Deutschland (CC BY 3.0 DE)` |
+| BLDAM: Baudenkmale, Gartendenkmale, Denkmalbereiche, Bodendenkmale (nur in Brandenburg) | `gis-bldam-brandenburg.de` | `© Denkmaldaten/BLDAM <Jahr>`; Bodendenkmale: `Quelle: © Denkmaldaten/Brandenburgisches Landesamt für Denkmalpflege und Archäologisches Landesmuseum (BLDAM), dl-de/by-2-0` |
+| Landesamt für Denkmalpflege Schleswig-Holstein: Denkmalliste, eine Datei für das Bundesland (nur in Schleswig-Holstein) | `opendata.schleswig-holstein.de` | `Landesamt für Denkmalpflege Schleswig-Holstein; Lizenz: Creative Commons Namensnennung 4.0 International (CC BY 4.0)` |
+| Generaldirektion Kulturelles Erbe: Einzeldenkmäler, Denkmalzonen, bauliche Gesamtanlagen (nur in Rheinland-Pfalz) | `www.geoportal.rlp.de` | `Datenlizenz Deutschland – Namensnennung – Version 2.0 (dl-de/by-2-0); Quellenvermerk: GDKE RLP` |
+| Land NRW: Denkmäler nach dem Denkmalschutzgesetz, im Aufbau (nur in Nordrhein-Westfalen) | `www.wfs.nrw.de` | `Datenlizenz Deutschland – Zero – Version 2.0 (https://www.govdata.de/dl-de/zero-2-0)` |
+| Bundesanstalt für Gewässerkunde (BfG), WasserBLIcK: Trinkwasser- und Heilquellenschutzgebiete (nur in Bayern, Niedersachsen, Bremen, Mecklenburg-Vorpommern, Rheinland-Pfalz, Sachsen-Anhalt und Sachsen) | `geoportal.bafg.de` | `© WasserBLIcK/BfG und Zuständige Behörden der Länder, <Jahr>; Lizenz: Creative Commons Namensnennung – 4.0 International (CC BY 4.0)` |
+| Staatsbetrieb Sachsenforst: Forstbezirke und Reviere, Erholungswald, Naturwaldzellen, Bodenschutzwald, Trinkwasserschutzzonen im Wald (nur in Sachsen) | `www.forsten.sachsen.de` | `Datenlizenz Deutschland 2.0 – Namensnennung (dl-de/by-2-0) unter Angabe der Quelle: "Geodaten Sachsenforst"` |
 | Geoportal Saarland: Reviere des Staatswalds, Wasserschutzgebiete, Naturwaldzellen, Urwald, Baudenkmale (nur im Saarland) | `geoportal.saarland.de` | `Quellenvermerk: © GDI-SL (<Jahr>); Lizenz: Creative Commons Namensnennung 4.0 International (CC BY 4.0)` |
 | Landesamt für Umwelt Brandenburg: Wasserschutzgebiete (nur in Brandenburg) | `data.geobasis-bb.de` | `Landesamt für Umwelt Brandenburg (LfU), Creative Commons Namensnennung 4.0 International (CC BY 4.0)` |
 | Land NRW: Wasserschutzgebiete, festgesetzt und geplant (nur in Nordrhein-Westfalen) | `www.opengeodata.nrw.de` | `Land NRW, Datenlizenz Deutschland – Zero – Version 2.0 (https://www.govdata.de/dl-de/zero-2-0)` |
@@ -1153,7 +1208,8 @@ Zeilen stehen, wenn Sie `permits.md` weitergeben.
 
 An die Dienste des Bundes, an die Geoportale Berlin und Hamburg und an den Landesbetrieb Forst Brandenburg sendet
 freemapper nur das Rechteck um das Kartengebiet und seine feste Kennung (User-Agent). Von Wald und Holz NRW lädt
-es die Dateien für das ganze Bundesland und schneidet sie selbst zu; dorthin geht nur die Kennung. Andere Server
+es die Dateien für das ganze Bundesland und schneidet sie selbst zu; dorthin geht nur die Kennung. An Sachsenforst
+gehen statt des Rechtecks die abgefragten Punkte, an die BfG das Rechteck. Andere Server
 fragt es für die Hinweise nicht. Die Dienste eines Bundeslandes fragt es nur für ein Kartengebiet, das dort
 liegt, und nur über die Hosts, die der Adapter dieses Bundeslandes nennt. `adapters
 allow-host` gilt für die Dienste des Bundes nicht.
@@ -1176,7 +1232,7 @@ allow-host` gilt für die Dienste des Bundes nicht.
 | Saarland | LVGL | Zone 32 (EPSG:25832) für das ganze Bundesland. Das Luftbild (Befliegung 2025) kommt aus dem Kartendienst (WMS); als Flugdatum gilt das Datum, das der Dienst je 2-km-Block als „Aktualisierung“ nennt. Gelände und Oberfläche: DGM1 und DOM1 mit 1 m aus dem Laserscan von 2025. Das LVGL stellt sie als sechs Archive je Landkreis bereit (0,6 bis 1,3 GB); freemapper liest daraus nur die 1-km-Kacheln des Gebiets, je etwa 2 MB, und hebt sie im Cache auf. Jenseits der Landesgrenze bleiben die Vorlagen leer. Das Kataster kommt aus dem Dienst „ALKIS Vereinfacht“ des Geoportals Saarland. Die kostenpflichtigen Produkte des LVGL (bDOM20, DOM025, ältere Luftbilder) verwendet freemapper nicht. |
 | Baden-Württemberg | LGL | Zone 32 (EPSG:25832) für das ganze Bundesland. Das Luftbild kommt aus dem Kartendienst (WMS); das Flugdatum nennt ein zweiter Dienst je 1-km-Kachel, und es gilt das der Kachel in der Mitte des Gebiets. Der Kartendienst endet an der Landesgrenze, dahinter ist das Luftbild weiß. Gelände: DGM1 mit 1 m aus dem Laserscan. Oberfläche: das nDOM1 des LGL, die Höhe über dem Gelände, berechnet aus den Luftbildern eines Sommerflugs. Es zeigt die Bäume belaubt und stammt meist vom selben Flug wie das Luftbild oder vom Flug davor. Das LGL stellt beide Modelle als Archive je 2-km-Block bereit; freemapper liest daraus nur die 1-km-Kacheln des Gebiets, je etwa 3,5 MB, und hebt sie im Cache auf. Fehlt dem nDOM1 eine Kachel, bleibt die nDOM-Vorlage dort leer, und freemapper nennt die Kachel. Das Kataster kommt aus dem ALKIS-Dienst des LGL. Er kennt nur ganze Gebäude, also keine Überdachungen und Durchfahrten aus dem Kataster, und keine eigene Klasse für das Grün neben der Straße: Straßenflächen schließen es ein. OSM kommt aus den Auszügen der vier Regierungsbezirke. |
 | Bremen | Landesamt GeoInformation Bremen (auch das vollständige ALKIS) | Zone 32 (EPSG:25832) für das ganze Bundesland, also für Bremen und Bremerhaven. Das Luftbild kommt aus dem Kartendienst (WMS), der je Bildflug und Stadt eine Ebene hat; freemapper nimmt für jede Stadt den neuesten Farbflug (2025 in beiden Städten, 10 cm). Der Dienst nennt nur das Jahr des Flugs; im Projekteintrag steht deshalb „Bildflugjahr“ beim Datum. Gelände und Oberfläche: DGM1 und DOM1 mit 1 m aus den Laserscans von 2017 (Bremen) und 2015 (Bremerhaven), ohne Laub geflogen. Sie sind acht bis zehn Jahre älter als das Luftbild, und freemapper warnt bei jedem Laden: Neubauten und junge Bäume fehlen im nDOM, abgerissene Gebäude stehen noch darin. Das Landesamt stellt die Modelle als ein Archiv je Stadt bereit (0,3 bis 1,2 GB); freemapper liest daraus nur die 1-km-Kacheln des Gebiets, je etwa 3,5 MB, und hebt sie im Cache auf. Drei der vier Archive schreiben die Höhen auf ganze Meter statt auf die Zellmitten; die Modelle liegen dadurch einen halben Meter nach Nordosten versetzt. Die Archive enthalten keine Kacheln aus Niedersachsen: Reicht die Karte über die Landesgrenze, etwa von Huchting nach Stuhr, ist das Luftbild dort weiß, und die Vorlagen bleiben leer. freemapper warnt beim Laden. Bremen hat kein vereinfachtes ALKIS. freemapper liest das vollständige ALKIS, das das LGLN in Niedersachsen für Bremen betreibt, und formt daraus Gebäude, Bauteile, Überdachungen und Nutzung mit denselben Bezeichnungen wie in den anderen Bundesländern. Das sind eine Anfrage je Nutzungsart und damit etwa 30 Anfragen je Karte. Plätze ohne Funktion nur als Kandidaten. Aus demselben Dienst kommen die vermessenen Linien des vollständigen ALKIS wie in Brandenburg (unten), in Bremen vor allem Treppen, Rampen, Stützmauern, Denkmäler, Böschungsoberkanten und Brücken. Die Gebietsseite zeigt das Luftbild nur für die Stadt Bremen, nicht für Bremerhaven; die Karte bekommt es in beiden Städten. |
-| Bayern | Bayerische Vermessungsverwaltung (LDBV) | Zone 32 (EPSG:25832) für das ganze Bundesland, auch östlich von 12° O (Regensburg, Passau). Das Luftbild kommt aus dem Kartendienst (WMS, DOP20) mit dem Datum des Bildflugs. Gelände: DGM1 mit 1 m als 1-km-Kacheln, je etwa 2,8 MB; die Kacheln tragen kein Datum. Oberfläche: Ein Oberflächenmodell mit 1 m gibt es nicht. freemapper nimmt das DOM20 (20 cm, berechnet aus den Luftbildern des Bildflugs, 32 bis 56 MB je km²), verkleinert jede Kachel auf 1 m und hebt nur die verkleinerte Kachel auf; ihr Datum ist das des Bildflugs. Bayern hat für sein Kataster keinen Dienst, nur Dateien. Die Gebäude liest freemapper aus den LoD2-Kacheln, einer Datei je 2-km-Quadrat: auf dem Land etwa 3 MB, in der Regensburger Altstadt 60 bis 110 MB, im Zentrum von München 160 MB. Daraus kommen Gebäude und Überdachungen; Brücken und Mauern in LoD2 lässt freemapper weg. Die Daten nennen keine Lage zur Erdoberfläche. Was LoD2 von einer Tiefgarage führt, steht über dem Boden, und freemapper zeichnet es als Gebäude. Die Nutzung kommt aus der Datei des Landkreises oder der kreisfreien Stadt (2 bis 13 MB); liegt das Gebiet näher als 500 m an einer Kreisgrenze, lädt freemapper beide Dateien. Alle Dateien liegen danach im Cache. Bei jedem Laden fragt freemapper den Server, ob eine Datei neuer ist, und lädt sie nur dann erneut. Treppen, Stützmauern und Böschungen aus dem Kataster gibt es in Bayern nicht. Quellen, Höhlen, Türme, Brunnen, Denkmäler, Zäune und auf Waldkarten fehlende Wege kommen als Kandidaten aus dem Landschaftsmodell (ATKIS Basis-DLM, weiter unten in diesem Kapitel). Bewuchs aus Laserpunktwolken gibt es auf Wunsch (Kapitel 8). OSM kommt aus den Auszügen der sieben Regierungsbezirke. |
+| Bayern | Bayerische Vermessungsverwaltung (LDBV) | Zone 32 (EPSG:25832) für das ganze Bundesland, auch östlich von 12° O (Regensburg, Passau). Das Luftbild kommt aus dem Kartendienst (WMS, DOP20) mit dem Datum des Bildflugs. Gelände: DGM1 mit 1 m als 1-km-Kacheln, je etwa 2,8 MB; die Kacheln tragen kein Datum. Oberfläche: Ein Oberflächenmodell mit 1 m gibt es nicht. freemapper nimmt das DOM20 (20 cm, berechnet aus den Luftbildern des Bildflugs, 32 bis 56 MB je km²). Es liest nur die 51-m-Blöcke, die das Kartengebiet braucht, verkleinert sie auf 1 m und hebt nur die verkleinerte Kachel auf; eine spätere Karte in derselben Kachel liest nur die Blöcke, die noch fehlen (ADR 0141). Ihr Datum ist das des Bildflugs. Bayern hat für sein Kataster keinen Dienst, nur Dateien. Die Gebäude liest freemapper aus den LoD2-Kacheln, einer Datei je 2-km-Quadrat: auf dem Land etwa 3 MB, in der Regensburger Altstadt 60 bis 110 MB, im Zentrum von München 160 MB. Daraus kommen Gebäude und Überdachungen; Brücken und Mauern in LoD2 lässt freemapper weg. Die Daten nennen keine Lage zur Erdoberfläche. Was LoD2 von einer Tiefgarage führt, steht über dem Boden, und freemapper zeichnet es als Gebäude. Die Nutzung kommt aus der Datei des Landkreises oder der kreisfreien Stadt (2 bis 13 MB); liegt das Gebiet näher als 500 m an einer Kreisgrenze, lädt freemapper beide Dateien. Alle Dateien liegen danach im Cache. Bei jedem Laden fragt freemapper den Server, ob eine Datei neuer ist, und lädt sie nur dann erneut. Treppen, Stützmauern und Böschungen aus dem Kataster gibt es in Bayern nicht. Quellen, Höhlen, Türme, Brunnen, Denkmäler, Zäune und auf Waldkarten fehlende Wege kommen als Kandidaten aus dem Landschaftsmodell (ATKIS Basis-DLM, weiter unten in diesem Kapitel). Bewuchs aus Laserpunktwolken gibt es auf Wunsch (Kapitel 8). OSM kommt aus den Auszügen der sieben Regierungsbezirke. |
 
 **Überdachungen und Durchfahrten in jedem Bundesland.** ALKIS führt Überdachungen und Carports als Bauwerke neben
 den Gebäuden, Durchfahrten und Arkaden als Bauteile. freemapper liest sie aus den Gebäuden, die es ohnehin
@@ -1205,6 +1261,25 @@ Einzelbäume; in der Bremer Altstadt (0,7 km² mit Puffer) kommen 64 Treppen, 13
 16 Böschungsoberkanten und 4 Brücken daraus. Schickt der Dienst mehr Objekte, als er in einer Antwort erlaubt, teilt freemapper das Gebiet in
 Viertel, höchstens vier Stufen tief.
 
+**Hessen: vollständiges ALKIS und Landschaftsmodell.** Hessen bietet beides bei der HVBG an (dl-de/zero-2-0), und
+freemapper liest beides. Das vollständige ALKIS enthält vermessene Treppen: In der Marburger Oberstadt kommen 54
+direkt auf die Karte, mit dem Inhaltsprofil `balanced`. Das Landschaftsmodell ergänzt Kandidaten wie in Bayern: in
+Marburg 4 benannte Bäume, 3 kleine Wasserläufe, einen Damm und eine Mauer, am Feldberg einen Felsen, eine Quelle und
+einen Wasserlauf.
+
+**Nordrhein-Westfalen und Niedersachsen: vollständiges ALKIS.** Beide bieten auch ihr vollständiges ALKIS an
+(Geobasis NRW, dl-de/zero-2-0; LGLN, CC BY 4.0), Niedersachsen mit höchstens 10 000 Objekten je Anfrage. In
+Nordrhein-Westfalen enthält es viel: In der Monschauer Altstadt kommen 25 Mauern und Stützmauern, 33
+Böschungsoberkanten, 14 Treppen, 15 Brücken, 17 Mauern an der Rur und 13 Einzelbäume direkt auf die Karte, im
+Siebengebirge 90 Böschungsoberkanten und rund 30 Mauern und Treppen; OpenStreetMap-Linien und -Bäume, die sie
+doppeln, entfallen. Niedersachsen verzeichnet weniger: in Herrenhausen 4 Brücken und einen Brunnen, in Bad Harzburg
+12 Brücken, eine Mauer und eine Böschungsoberkante.
+
+**Schleswig-Holstein: Landschaftsmodell.** Auch das LVermGeo SH bietet sein Landschaftsmodell an (CC BY 4.0), mit
+höchstens 10 000 Objekten je Anfrage. In den Hüttener Bergen ergänzt es 48 Wälle (105), einen Wasserlauf und
+4 Fahrwege; die Böschungen, die das Geländemodell an diesen Wällen findet, entfallen. In Lübeck
+ergänzt es einen Wasserlauf.
+
 In Bayern hat das Kataster keinen Dienst. Dort fragt freemapper stattdessen das Landschaftsmodell der
 Vermessungsverwaltung ab, das ATKIS Basis-DLM (CC BY 4.0). Es ist für den Maßstab 1:25 000 gemacht und etwa 3 m
 genau. freemapper nimmt daraus Höhleneingänge (203), Quellen (312), benannte Felsen (205), frei stehende Türme
@@ -1212,13 +1287,19 @@ genau. freemapper nimmt daraus Höhleneingänge (203), Quellen (312), benannte F
 (305) und benannte Bäume (418), auf Waldkarten auch Wege und Fahrwege (504 bis 507). Diese Objekte bleiben in
 jedem Profil außer `full` Kandidaten. Hat eine andere Quelle dasselbe Objekt, entfällt das aus dem
 Landschaftsmodell: ein Punkt, wenn ein Punkt mit demselben Symbol höchstens 15 m entfernt liegt (ein Baum neben
-einem Baum, ob groß oder klein), eine Linie, wenn
+einem Baum, ob groß oder klein, und ein Turm neben einem Turm), eine Linie, wenn
 sie zu mindestens 80 % ihrer Länge höchstens 10 m neben einer Linie derselben Art verläuft. Bei Wegen zählt jede
 Wegklasse als dieselbe Art. Ein Weg bleibt oder entfällt dabei als Ganzes. Das Objekt, das bleibt, nennt das
 entfallene in `freemapper:also`. Die Ebenen liegen als `dlm-…` ebenfalls in `data/alkis-nas/`; ihre Objekte
 tragen `freemapper:source=atkis-dlm/<Ebene>`. Am Schmausenbuck bleiben von 152 Objekten 14 als Kandidaten,
-darunter 6 Wege, die OpenStreetMap fehlen; in der Regensburger Altstadt von 35 Objekten 10. Kirchtürme, Stadttore,
+darunter 6 Wege, die OpenStreetMap fehlen; in der Regensburger Altstadt von 35 Objekten 8. Kirchtürme, Stadttore,
 Kanäle, Stromleitungen und Flächen nimmt freemapper nicht.
+
+Sachsen-Anhalt hat nur das vereinfachte ALKIS, und freemapper fragt sein Landschaftsmodell auf dieselbe Weise ab
+(© GeoBasis-DE / LVermGeo ST, dl-de/by-2-0). Dort sind die meisten Felsen Linien: freemapper bietet sie als
+Felswand-Kandidaten an (201), deren Striche nach dem Geländemodell bergab zeigen wie bei den anderen
+Felswand-Kandidaten. Im Bodetal sind das 27 Felswände und 20 Felsen, 3 Dämme, eine Quelle, ein Denkmal und 11 Wege,
+die OpenStreetMap fehlen; in Quedlinburg 7 kleine Wasserläufe.
 
 Liegt eine OSM-Linie (Zaun, Mauer, Hecke, Bach oder Graben) zu mindestens 80 % ihrer Länge höchstens 1,5 m
 neben einer Linie des vollständigen ALKIS mit demselben Symbol, lässt freemapper die OSM-Linie weg, wie in

@@ -25,39 +25,39 @@ bytes = 972183
 [[response]]
 method = "GET"
 url = "https://gds.hessen.de/INTERSHOP/rest/WFS/HLBG-Geodaten-Site/-/downloadcenter?path=3D-Daten%2FDigitales+Gel%C3%A4ndemodell+%28DGM1%29%2FLandkreis+Marburg-Biedenkopf"
-body = "4692d533518c60c65e2b1e5ba00db500a651974e8da5eb2af4b99873be5585a0"
+body = "17d9c6b3c6b20e6a21fb20a58f712e1b5159190363d851225ebc0bbfce3e9fe1"
 bytes = 8411
 
 [[response]]
 method = "GET"
 url = "https://gds.hessen.de/INTERSHOP/rest/WFS/HLBG-Geodaten-Site/-/downloadcenter?path=3D-Daten%2FDigitales+Gel%C3%A4ndemodell+%28DGM1%29%2FLandkreis+Marburg-Biedenkopf&page=2"
-body = "60372e30c7a374eb32432b4ba9a570ba88f77fccbab7c8c44a4a02ed7b305741"
+body = "506ece141a7deda80d48c09191db2812c14f24656b77377870597f3075009448"
 bytes = 2445
 
 [[response]]
 method = "GET"
-url = "https://gds.hessen.de/downloadcenter/20261111/3D-Daten/Digitales%20Gel%C3%A4ndemodell%20%28DGM1%29/Landkreis%20Marburg-Biedenkopf/Marburg%20-%20DGM1.zip"
+url = "https://gds.hessen.de/downloadcenter/20261115/3D-Daten/Digitales%20Gel%C3%A4ndemodell%20%28DGM1%29/Landkreis%20Marburg-Biedenkopf/Marburg%20-%20DGM1.zip"
 range = "bytes=-65558"
 body = "791259f4af02cc312970abd3bc67e85ce0b004366243670aa49f03ef87119e16"
 bytes = 65558
 
 [[response]]
 method = "GET"
-url = "https://gds.hessen.de/downloadcenter/20261111/3D-Daten/Digitales%20Gel%C3%A4ndemodell%20%28DGM1%29/Landkreis%20Marburg-Biedenkopf/Marburg%20-%20DGM1.zip"
+url = "https://gds.hessen.de/downloadcenter/20261115/3D-Daten/Digitales%20Gel%C3%A4ndemodell%20%28DGM1%29/Landkreis%20Marburg-Biedenkopf/Marburg%20-%20DGM1.zip"
 range = "bytes=373448380-373483047"
 body = "a7048f5616683572fae2e06b12205f0c1cbcb21ee09501f477c6e4b404b57dc6"
 bytes = 34668
 
 [[response]]
 method = "GET"
-url = "https://gds.hessen.de/downloadcenter/20261111/3D-Daten/Digitales%20Gel%C3%A4ndemodell%20%28DGM1%29/Landkreis%20Marburg-Biedenkopf/Marburg%20-%20DGM1.zip"
+url = "https://gds.hessen.de/downloadcenter/20261115/3D-Daten/Digitales%20Gel%C3%A4ndemodell%20%28DGM1%29/Landkreis%20Marburg-Biedenkopf/Marburg%20-%20DGM1.zip"
 range = "bytes=216985416-216985445"
 body = "45553c3be249ba3d57da3d6ab0cbb3196db669661e5419f65d502ea014d456ab"
 bytes = 30
 
 [[response]]
 method = "GET"
-url = "https://gds.hessen.de/downloadcenter/20261111/3D-Daten/Digitales%20Gel%C3%A4ndemodell%20%28DGM1%29/Landkreis%20Marburg-Biedenkopf/Marburg%20-%20DGM1.zip"
+url = "https://gds.hessen.de/downloadcenter/20261115/3D-Daten/Digitales%20Gel%C3%A4ndemodell%20%28DGM1%29/Landkreis%20Marburg-Biedenkopf/Marburg%20-%20DGM1.zip"
 range = "bytes=216985471-219424464"
 body = "b4433f9654710ea65bb7e8898448507fbd4a7d3632b2e324f1b4c44b1c8bcaaa"
 bytes = 2438994
@@ -71,39 +71,39 @@ bytes = 10597
 [[response]]
 method = "GET"
 url = "https://gds.hessen.de/INTERSHOP/rest/WFS/HLBG-Geodaten-Site/-/downloadcenter?path=3D-Daten%2FDigitales+Oberfl%C3%A4chenmodell+%28DOM1%29%2FLandkreis+Marburg-Biedenkopf"
-body = "02aba3905ffcfc6565d1f6f0ced2b866ad378988558bb3e9b220afb4d506dfe6"
+body = "7b38a58a0903ee6453c8fd1d68e6512a1706e403ac75f1155c5d9fffe0bb02d5"
 bytes = 8225
 
 [[response]]
 method = "GET"
 url = "https://gds.hessen.de/INTERSHOP/rest/WFS/HLBG-Geodaten-Site/-/downloadcenter?path=3D-Daten%2FDigitales+Oberfl%C3%A4chenmodell+%28DOM1%29%2FLandkreis+Marburg-Biedenkopf&page=2"
-body = "fb43acc50a9d56d328b23c12017f47c4a74469aa97d053d33d11f883f3b3536f"
+body = "5dd1c68bd8e0f5a87f512d822875552f539c24e62d14d497355c3cb011c7139b"
 bytes = 2550
 
 [[response]]
 method = "GET"
-url = "https://gds.hessen.de/downloadcenter/20261111/3D-Daten/Digitales%20Oberfl%C3%A4chenmodell%20%28DOM1%29/Landkreis%20Marburg-Biedenkopf/Marburg%20-%20DOM1.zip"
+url = "https://gds.hessen.de/downloadcenter/20261115/3D-Daten/Digitales%20Oberfl%C3%A4chenmodell%20%28DOM1%29/Landkreis%20Marburg-Biedenkopf/Marburg%20-%20DOM1.zip"
 range = "bytes=-65558"
 body = "3e8a815547f8f111283a5cffbf08c4668a5e6c8f71aea416e3230a64bf986cf8"
 bytes = 65558
 
 [[response]]
 method = "GET"
-url = "https://gds.hessen.de/downloadcenter/20261111/3D-Daten/Digitales%20Oberfl%C3%A4chenmodell%20%28DOM1%29/Landkreis%20Marburg-Biedenkopf/Marburg%20-%20DOM1.zip"
+url = "https://gds.hessen.de/downloadcenter/20261115/3D-Daten/Digitales%20Oberfl%C3%A4chenmodell%20%28DOM1%29/Landkreis%20Marburg-Biedenkopf/Marburg%20-%20DOM1.zip"
 range = "bytes=468802225-468836892"
 body = "c84f68cc03ee505833c8fe4742797c09c9621a3891b9fc41399abfa2280afb39"
 bytes = 34668
 
 [[response]]
 method = "GET"
-url = "https://gds.hessen.de/downloadcenter/20261111/3D-Daten/Digitales%20Oberfl%C3%A4chenmodell%20%28DOM1%29/Landkreis%20Marburg-Biedenkopf/Marburg%20-%20DOM1.zip"
+url = "https://gds.hessen.de/downloadcenter/20261115/3D-Daten/Digitales%20Oberfl%C3%A4chenmodell%20%28DOM1%29/Landkreis%20Marburg-Biedenkopf/Marburg%20-%20DOM1.zip"
 range = "bytes=273631458-273631487"
 body = "3cfbfcf0bae640f67a91fdd7e8e02e3300e49a612e3446f431849e03ff1ea071"
 bytes = 30
 
 [[response]]
 method = "GET"
-url = "https://gds.hessen.de/downloadcenter/20261111/3D-Daten/Digitales%20Oberfl%C3%A4chenmodell%20%28DOM1%29/Landkreis%20Marburg-Biedenkopf/Marburg%20-%20DOM1.zip"
+url = "https://gds.hessen.de/downloadcenter/20261115/3D-Daten/Digitales%20Oberfl%C3%A4chenmodell%20%28DOM1%29/Landkreis%20Marburg-Biedenkopf/Marburg%20-%20DOM1.zip"
 range = "bytes=273631513-276785950"
 body = "c1f66cbf40a49ed71ff81cc59683efafddc7ceee1010d2b64e7e560203d484e3"
 bytes = 3154438
@@ -111,29 +111,113 @@ bytes = 3154438
 [[response]]
 method = "GET"
 url = "https://www.gds.hessen.de/wfs2/aaa-suite/cgi-bin/alkis/vereinf/wfs?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=ave:GebaeudeBauwerk&SRSNAME=urn:ogc:def:crs:EPSG::25832&BBOX=483526,5628594,483783,5628851,urn:ogc:def:crs:EPSG::25832&RESULTTYPE=hits"
-body = "4ca276b275cd61be0af0ecffad3d04e392f6517972cd42ae1e86ddb03a7fba69"
+body = "cd69da4687478788e0e50e6a1fdd466fa54919092fe41af828594e376416e539"
 bytes = 362
 
 [[response]]
 method = "GET"
 url = "https://www.gds.hessen.de/wfs2/aaa-suite/cgi-bin/alkis/vereinf/wfs?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=ave:GebaeudeBauwerk&SRSNAME=urn:ogc:def:crs:EPSG::25832&BBOX=483526,5628594,483783,5628851,urn:ogc:def:crs:EPSG::25832&SORTBY=oid&COUNT=10000&STARTINDEX=0"
-body = "94a67e10e6b74c977300e094898fbcaf12938664278806e66045a0408866f75c"
+body = "a962e4be678d741be8c69d2562a02f53d57efd09916491133107ce2fe49eab28"
 bytes = 119921
 
 [[response]]
 method = "GET"
 url = "https://www.gds.hessen.de/wfs2/aaa-suite/cgi-bin/alkis/vereinf/wfs?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=ave:NutzungFlurstueck&SRSNAME=urn:ogc:def:crs:EPSG::25832&BBOX=483526,5628594,483783,5628851,urn:ogc:def:crs:EPSG::25832&RESULTTYPE=hits"
-body = "94310876b874a4e636bf2798e744cdced464e923caddf65784b67cf79d47a1d0"
+body = "4fa9276a38d8493c4d46697ca511a99b73864986946167b29f1f406de108fd0c"
 bytes = 361
 
 [[response]]
 method = "GET"
 url = "https://www.gds.hessen.de/wfs2/aaa-suite/cgi-bin/alkis/vereinf/wfs?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=ave:NutzungFlurstueck&SRSNAME=urn:ogc:def:crs:EPSG::25832&BBOX=483526,5628594,483783,5628851,urn:ogc:def:crs:EPSG::25832&SORTBY=oid&COUNT=10000&STARTINDEX=0"
-body = "0f7734f3d27715f15027c4fc16a43aa1bf2a86b53bccf3369eecc85226ac7783"
+body = "ab0aea4bcd0df0cd1afb6d411887fb7bf1900887faf0cd1a9cd8de73c85229c5"
 bytes = 147040
 
 [[response]]
 method = "GET"
+url = "https://www.gds.hessen.de/wfs2/aaa-suite/cgi-bin/alkis/nas/wfs?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=adv:AX_SonstigesBauwerkOderSonstigeEinrichtung&SRSNAME=urn:ogc:def:crs:EPSG::25832&BBOX=483526,5628594,483783,5628851,urn:ogc:def:crs:EPSG::25832&COUNT=100000&NAMESPACES=xmlns(adv,http://www.adv-online.de/namespaces/adv/gid/7.1)"
+body = "5f58b1b8a4784ff54c0b6bcd9e863028df53958b88a9101dd57b37c1a733f9ef"
+bytes = 14607
+
+[[response]]
+method = "GET"
+url = "https://www.gds.hessen.de/wfs2/aaa-suite/cgi-bin/alkis/nas/wfs?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=adv:AX_Vegetationsmerkmal&SRSNAME=urn:ogc:def:crs:EPSG::25832&BBOX=483526,5628594,483783,5628851,urn:ogc:def:crs:EPSG::25832&COUNT=100000&NAMESPACES=xmlns(adv,http://www.adv-online.de/namespaces/adv/gid/7.1)"
+body = "565c4894e30c43a7fcdeb863b92e3423f75960a50d0e6b314c14ec7b9b3a4b37"
+bytes = 892
+
+[[response]]
+method = "GET"
+url = "https://www.gds.hessen.de/wfs2/aaa-suite/cgi-bin/alkis/nas/wfs?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=adv:AX_Strukturlinie3D&SRSNAME=urn:ogc:def:crs:EPSG::25832&BBOX=483526,5628594,483783,5628851,urn:ogc:def:crs:EPSG::25832&COUNT=100000&NAMESPACES=xmlns(adv,http://www.adv-online.de/namespaces/adv/gid/7.1)"
+body = "e07e642305fea88e9ae3a595e960c6f52361019de796ca940be5b3120f71e202"
+bytes = 892
+
+[[response]]
+method = "GET"
+url = "https://www.gds.hessen.de/wfs2/aaa-suite/cgi-bin/alkis/nas/wfs?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=adv:AX_BauwerkImVerkehrsbereich&SRSNAME=urn:ogc:def:crs:EPSG::25832&BBOX=483526,5628594,483783,5628851,urn:ogc:def:crs:EPSG::25832&COUNT=100000&NAMESPACES=xmlns(adv,http://www.adv-online.de/namespaces/adv/gid/7.1)"
+body = "21f9fb7cbebe4aa24a3e4f2c87c6bcd101f82a5e3afaff581db3158e905f0d2b"
+bytes = 892
+
+[[response]]
+method = "GET"
+url = "https://www.gds.hessen.de/wfs2/aaa-suite/cgi-bin/alkis/nas/wfs?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=adv:AX_BauwerkImGewaesserbereich&SRSNAME=urn:ogc:def:crs:EPSG::25832&BBOX=483526,5628594,483783,5628851,urn:ogc:def:crs:EPSG::25832&COUNT=100000&NAMESPACES=xmlns(adv,http://www.adv-online.de/namespaces/adv/gid/7.1)"
+body = "3e25b076121608d3424945523956085767447b8acf43f010469223e042c52835"
+bytes = 892
+
+[[response]]
+method = "GET"
+url = "https://www.gds.hessen.de/wfs2/aaa-suite/cgi-bin/alkis/nas/wfs?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=adv:AX_UntergeordnetesGewaesser&SRSNAME=urn:ogc:def:crs:EPSG::25832&BBOX=483526,5628594,483783,5628851,urn:ogc:def:crs:EPSG::25832&COUNT=100000&NAMESPACES=xmlns(adv,http://www.adv-online.de/namespaces/adv/gid/7.1)"
+body = "b0ee08a405e4eab0d4d079030c297e8b50ba280715ff3e6d918c6380624e5d5c"
+bytes = 892
+
+[[response]]
+method = "GET"
+url = "https://www.gds.hessen.de/wfs2/aaa-suite/cgi-bin/atkis-bdlm/nas/wfs?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=adv:AX_SonstigesBauwerkOderSonstigeEinrichtung&SRSNAME=urn:ogc:def:crs:EPSG::25832&BBOX=483526,5628594,483783,5628851,urn:ogc:def:crs:EPSG::25832&COUNT=100000&NAMESPACES=xmlns(adv,http://www.adv-online.de/namespaces/adv/gid/7.1)"
+body = "bf49696bfc41f9a13a11c610e3718fb5270c1a76ed11d21788689b1604dc080f"
+bytes = 12874
+
+[[response]]
+method = "GET"
+url = "https://www.gds.hessen.de/wfs2/aaa-suite/cgi-bin/atkis-bdlm/nas/wfs?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=adv:AX_Vegetationsmerkmal&SRSNAME=urn:ogc:def:crs:EPSG::25832&BBOX=483526,5628594,483783,5628851,urn:ogc:def:crs:EPSG::25832&COUNT=100000&NAMESPACES=xmlns(adv,http://www.adv-online.de/namespaces/adv/gid/7.1)"
+body = "3f33d75c5231729c965894b2ee9f1aa7fac1844a6abb0ea61d21a50daa088a3d"
+bytes = 2226
+
+[[response]]
+method = "GET"
+url = "https://www.gds.hessen.de/wfs2/aaa-suite/cgi-bin/atkis-bdlm/nas/wfs?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=adv:AX_FelsenFelsblockFelsnadel&SRSNAME=urn:ogc:def:crs:EPSG::25832&BBOX=483526,5628594,483783,5628851,urn:ogc:def:crs:EPSG::25832&COUNT=100000&NAMESPACES=xmlns(adv,http://www.adv-online.de/namespaces/adv/gid/7.1)"
+body = "0fa90c157dd7ee1fb48c95621d0f6c48b289cd334d5a81d668223dc5d44d5e33"
+bytes = 892
+
+[[response]]
+method = "GET"
+url = "https://www.gds.hessen.de/wfs2/aaa-suite/cgi-bin/atkis-bdlm/nas/wfs?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=adv:AX_Hoehleneingang&SRSNAME=urn:ogc:def:crs:EPSG::25832&BBOX=483526,5628594,483783,5628851,urn:ogc:def:crs:EPSG::25832&COUNT=100000&NAMESPACES=xmlns(adv,http://www.adv-online.de/namespaces/adv/gid/7.1)"
+body = "dc7d2fedb0dbe1b71a9dfb1d8f18ea97f00255d98d286b6f42a8a2e3c459e654"
+bytes = 892
+
+[[response]]
+method = "GET"
+url = "https://www.gds.hessen.de/wfs2/aaa-suite/cgi-bin/atkis-bdlm/nas/wfs?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=adv:AX_Gewaessermerkmal&SRSNAME=urn:ogc:def:crs:EPSG::25832&BBOX=483526,5628594,483783,5628851,urn:ogc:def:crs:EPSG::25832&COUNT=100000&NAMESPACES=xmlns(adv,http://www.adv-online.de/namespaces/adv/gid/7.1)"
+body = "6f5d85a714c42842265cca640a1ea563f824fbc77454711be33b3958c23d1451"
+bytes = 892
+
+[[response]]
+method = "GET"
+url = "https://www.gds.hessen.de/wfs2/aaa-suite/cgi-bin/atkis-bdlm/nas/wfs?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=adv:AX_DammWallDeich&SRSNAME=urn:ogc:def:crs:EPSG::25832&BBOX=483526,5628594,483783,5628851,urn:ogc:def:crs:EPSG::25832&COUNT=100000&NAMESPACES=xmlns(adv,http://www.adv-online.de/namespaces/adv/gid/7.1)"
+body = "18d5005abd2db9861b8e3a12c9b9869654ddcd14bab4e48f3a9de45dd6ccc8e2"
+bytes = 892
+
+[[response]]
+method = "GET"
+url = "https://www.gds.hessen.de/wfs2/aaa-suite/cgi-bin/atkis-bdlm/nas/wfs?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=adv:AX_Turm&SRSNAME=urn:ogc:def:crs:EPSG::25832&BBOX=483526,5628594,483783,5628851,urn:ogc:def:crs:EPSG::25832&COUNT=100000&NAMESPACES=xmlns(adv,http://www.adv-online.de/namespaces/adv/gid/7.1)"
+body = "992f8c9e3285d96f5956b9cd7ffc4a1c1cb3350e94e30038cc06180baee3b9c7"
+bytes = 892
+
+[[response]]
+method = "GET"
+url = "https://www.gds.hessen.de/wfs2/aaa-suite/cgi-bin/atkis-bdlm/nas/wfs?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=adv:AX_Gewaesserachse&SRSNAME=urn:ogc:def:crs:EPSG::25832&BBOX=483526,5628594,483783,5628851,urn:ogc:def:crs:EPSG::25832&COUNT=100000&NAMESPACES=xmlns(adv,http://www.adv-online.de/namespaces/adv/gid/7.1)"
+body = "c1fcd9ee848697cb32b48e67461262f7401f029922a83d9ba72ee84f8d8108d7"
+bytes = 892
+
+[[response]]
+method = "GET"
 url = "https://download.geofabrik.de/europe/germany/hessen-updates/state.txt"
-body = "b00feb24ab5f7e6e6532279b527d8dc748fb4788fcece41f1cdd69ff47bfbe82"
+body = "a5c45b857271d37d58c48c5c1fa85bc9a79aef330edbf1bfc8162229c45d4e7b"
 bytes = 113

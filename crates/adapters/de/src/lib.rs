@@ -7,10 +7,13 @@
 pub mod berlin;
 pub mod berlin_als;
 pub mod berlin_permits;
+pub mod bfg_permits;
 pub mod boundaries;
+pub mod denkmal_permits;
 pub mod geobasis_nrw;
 pub mod geobremen;
 pub mod geosn;
+pub mod gfi_permits;
 pub mod hvbg;
 pub mod laiv_mv;
 mod las_files;
@@ -18,6 +21,7 @@ pub mod ldbv;
 pub mod ldbv_alkis;
 pub mod ldbv_files;
 pub mod ldbv_las;
+pub mod ldsh_permits;
 pub mod lfb_permits;
 pub mod lgb;
 pub mod lgb_als;
@@ -25,6 +29,7 @@ pub mod lgl_bw;
 pub mod lgln;
 pub mod lgv;
 pub mod lgv_permits;
+pub mod lubw_permits;
 pub mod lvermgeo;
 pub mod lvermgeo_rp;
 pub mod lvermgeo_rp_las;
@@ -32,6 +37,7 @@ pub mod lvermgeo_sh;
 pub mod lvgl;
 pub mod lvgl_las;
 pub mod nrw_3dm;
+pub mod sbs_permits;
 pub mod shape_permits;
 pub mod state_permits;
 pub mod states;
@@ -105,8 +111,8 @@ mod sources {
         geobasis_nrw, geosn, hvbg, laiv_mv, lgb, lgln, lgv, lvermgeo, lvermgeo_rp, lvermgeo_sh,
     };
     pub(crate) use freemapper_sources::{
-        float_tiff, height_model, metalink, ogc_api as alkis, wcs, wfs as alkis_wfs, wms, xlsx,
-        zip_range,
+        float_tiff, height_model, metalink, ogc_api as alkis, tiff_range, wcs, wfs as alkis_wfs,
+        wms, xlsx, zip_range,
     };
 }
 

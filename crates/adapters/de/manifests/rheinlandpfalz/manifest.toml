@@ -13,7 +13,7 @@ maintainers = ["github:HenryJobst"]
 last_verified = "2026-11-12"
 
 [net]
-hosts = ["geo5.service24.rlp.de", "geo4.service24.rlp.de", "geobasis-rlp.de"]
+hosts = ["geo5.service24.rlp.de", "geo4.service24.rlp.de", "geobasis-rlp.de", "geoportal.bafg.de", "www.geoportal.rlp.de"]
 
 [boundary]
 file = "boundary.geojson"

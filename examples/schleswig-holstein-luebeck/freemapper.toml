@@ -13,16 +13,67 @@ type = "Polygon"
 
 [buildings]
 bbox = [610424.0, 5969571.0, 611440.0, 5970293.0]
-fetched = "2026-11-14"
+fetched = "2026-11-15"
 latest_update = "2026-11-03"
 count = 2933
 regions = ["schleswigholstein"]
 
 [land_use]
 bbox = [610424.0, 5969571.0, 611440.0, 5970293.0]
-fetched = "2026-11-14"
+fetched = "2026-11-15"
 latest_update = "2026-11-03"
 count = 2463
+regions = ["schleswigholstein"]
+
+[nas_layers.dlm-bauwerk]
+bbox = [610424.0, 5969571.0, 611440.0, 5970293.0]
+fetched = "2026-11-15"
+latest_update = "2022-06-17"
+count = 8
+regions = ["schleswigholstein"]
+
+[nas_layers.dlm-damm]
+bbox = [610424.0, 5969571.0, 611440.0, 5970293.0]
+fetched = "2026-11-15"
+count = 0
+regions = ["schleswigholstein"]
+
+[nas_layers.dlm-felsen]
+bbox = [610424.0, 5969571.0, 611440.0, 5970293.0]
+fetched = "2026-11-15"
+count = 0
+regions = ["schleswigholstein"]
+
+[nas_layers.dlm-gewaesserachse]
+bbox = [610424.0, 5969571.0, 611440.0, 5970293.0]
+fetched = "2026-11-15"
+latest_update = "2024-06-18"
+count = 1
+regions = ["schleswigholstein"]
+
+[nas_layers.dlm-gewaessermerkmal]
+bbox = [610424.0, 5969571.0, 611440.0, 5970293.0]
+fetched = "2026-11-15"
+count = 0
+regions = ["schleswigholstein"]
+
+[nas_layers.dlm-hoehle]
+bbox = [610424.0, 5969571.0, 611440.0, 5970293.0]
+fetched = "2026-11-15"
+count = 0
+regions = ["schleswigholstein"]
+
+[nas_layers.dlm-turm]
+bbox = [610424.0, 5969571.0, 611440.0, 5970293.0]
+fetched = "2026-11-15"
+count = 0
+regions = ["schleswigholstein"]
+
+[nas_layers.dlm-vegetation]
+bbox = [610424.0, 5969571.0, 611440.0, 5970293.0]
+fetched = "2026-11-15"
+latest_update = "2016-12-06"
+count = 1
 regions = ["schleswigholstein"]
 
 [osm]
@@ -32,15 +83,15 @@ count = 1181
 
 [orthophoto]
 flight = "21.06.2025"
-fetched = "2026-11-14"
+fetched = "2026-11-15"
 bbox = [610424.193, 5969571.571, 611439.943, 5970292.601]
 
 [terrain]
-fetched = "2026-11-14"
+fetched = "2026-11-15"
 bbox = [610424.193, 5969571.571, 611439.943, 5970292.601]
 date = "2022-01-28"
 
 [surface]
-fetched = "2026-11-14"
+fetched = "2026-11-15"
 bbox = [610424.193, 5969571.571, 611439.943, 5970292.601]
 date = "2023-04-17"

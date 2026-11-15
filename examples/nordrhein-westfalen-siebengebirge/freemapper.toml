@@ -13,16 +13,57 @@ type = "Polygon"
 
 [buildings]
 bbox = [372786.0, 5613537.0, 374210.0, 5614666.0]
-fetched = "2026-11-14"
+fetched = "2026-11-15"
 latest_update = "2026-09-16"
 count = 240
 regions = ["nordrheinwestfalen"]
 
 [land_use]
 bbox = [372786.0, 5613537.0, 374210.0, 5614666.0]
-fetched = "2026-11-14"
+fetched = "2026-11-15"
 latest_update = "2026-09-23"
 count = 1069
+regions = ["nordrheinwestfalen"]
+
+[nas_layers.bauwerk-gewaesser]
+bbox = [372786.0, 5613537.0, 374210.0, 5614666.0]
+fetched = "2026-11-15"
+latest_update = "2026-04-14"
+count = 10
+regions = ["nordrheinwestfalen"]
+
+[nas_layers.bauwerk-verkehr]
+bbox = [372786.0, 5613537.0, 374210.0, 5614666.0]
+fetched = "2026-11-15"
+latest_update = "2024-09-18"
+count = 7
+regions = ["nordrheinwestfalen"]
+
+[nas_layers.sonstiges-bauwerk]
+bbox = [372786.0, 5613537.0, 374210.0, 5614666.0]
+fetched = "2026-11-15"
+latest_update = "2026-03-20"
+count = 90
+regions = ["nordrheinwestfalen"]
+
+[nas_layers.strukturlinie]
+bbox = [372786.0, 5613537.0, 374210.0, 5614666.0]
+fetched = "2026-11-15"
+latest_update = "2024-09-18"
+count = 225
+regions = ["nordrheinwestfalen"]
+
+[nas_layers.untergeordnetes-gewaesser]
+bbox = [372786.0, 5613537.0, 374210.0, 5614666.0]
+fetched = "2026-11-15"
+count = 0
+regions = ["nordrheinwestfalen"]
+
+[nas_layers.vegetationsmerkmal]
+bbox = [372786.0, 5613537.0, 374210.0, 5614666.0]
+fetched = "2026-11-15"
+latest_update = "2024-09-18"
+count = 9
 regions = ["nordrheinwestfalen"]
 
 [osm]
@@ -32,16 +73,16 @@ count = 799
 
 [orthophoto]
 flight = "01.05.2025"
-fetched = "2026-11-14"
+fetched = "2026-11-15"
 bbox = [372786.318, 5613537.351, 374209.856, 5614665.323]
 
 [terrain]
-fetched = "2026-11-14"
+fetched = "2026-11-15"
 bbox = [372786.318, 5613537.351, 374209.856, 5614665.323]
 date = "2021-12-22"
 
 [surface]
-fetched = "2026-11-14"
+fetched = "2026-11-15"
 bbox = [372786.318, 5613537.351, 374209.856, 5614665.323]
 date = "2021-12-22"
 

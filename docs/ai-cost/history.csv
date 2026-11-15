@@ -84,3 +84,7 @@ timestamp_utc,total_usd,requests,sessions,by_model_usd
 2026-11-14T13:31:38Z,2703.92,30326,7,claude-fable-5-1=2.13;claude-fable-5-2=850.68;claude-opus-5-5=1643.90;claude-sonnet-5-5=207.20
 2026-11-14T16:31:57Z,2782.44,30691,7,claude-fable-5-1=2.13;claude-fable-5-2=885.42;claude-opus-5-5=1687.68;claude-sonnet-5-5=207.20
 2026-11-14T19:32:15Z,2855.46,31086,8,claude-fable-5-1=2.13;claude-fable-5-2=922.87;claude-opus-5-5=1723.26;claude-sonnet-5-5=207.20
+2026-11-14T21:32:47Z,2921.47,31627,8,claude-fable-5-1=2.13;claude-fable-5-2=959.01;claude-opus-5-5=1753.13;claude-sonnet-5-5=207.20
+2026-11-15T00:55:07Z,2999.77,32172,9,claude-fable-5-1=2.13;claude-fable-5-2=979.17;claude-opus-5-5=1810.25;claude-sonnet-5-5=208.21
+2026-11-15T02:56:11Z,3073.35,32823,9,claude-fable-5-1=2.13;claude-fable-5-2=979.17;claude-opus-5-5=1883.25;claude-sonnet-5-5=208.79
+2026-11-15T06:56:33Z,3142.03,33366,9,claude-fable-5-1=2.13;claude-fable-5-2=979.17;claude-opus-5-5=1950.59;claude-sonnet-5-5=210.14

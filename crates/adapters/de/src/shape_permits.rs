@@ -73,44 +73,63 @@ const CACHE_FOLDER: &str = "permits";
 /// How long a copy the server gives no date for is used before it is fetched again.
 const UNDATED_FOR: std::time::Duration = std::time::Duration::from_secs(7 * 24 * 3600);
 
-/// The bytes of the zip at `url`, from the copy in `dir` when the server has no newer one.
-/// The copies are named `<host>-<file>-<YYYYMMDD>.zip` by the server's date, or `…-undated`
-/// when it gives none; a new download replaces the older copies.
+/// The bytes of the zip at `url`, from the copy in `dir` when the server has no newer one
+/// ([`current_file`]).
 fn current_zip(
     fetcher: &dyn Fetcher,
     url: &str,
     part: &Path,
     dir: &Path,
 ) -> Result<Vec<u8>, FetchError> {
-    let stem = cache_stem(url);
-    let copies = cached_copies(dir, &stem);
+    current_file(fetcher, url, part, dir, "zip", MAX_ZIP, |bytes| {
+        zip::ZipArchive::new(std::io::Cursor::new(bytes))
+            .map(|_| ())
+            .map_err(|e| format!("not a zip: {e}"))
+    })
+}
+
+/// The bytes of the file at `url`, from the copy in `dir` when the server has no newer one.
+/// The copies are named `<host>-<file>-<YYYYMMDD>.<ext>` by the server's date, or `…-undated`
+/// when it gives none; a new download replaces the older copies. A download of more than
+/// `max_bytes`, or one `check` refuses, keeps the cached copy in use where there is one.
+pub(crate) fn current_file(
+    fetcher: &dyn Fetcher,
+    url: &str,
+    part: &Path,
+    dir: &Path,
+    ext: &str,
+    max_bytes: u64,
+    check: impl Fn(&[u8]) -> Result<(), String>,
+) -> Result<Vec<u8>, FetchError> {
+    let stem = cache_stem(url, ext);
+    let copies = cached_copies(dir, &stem, ext);
     let read = |path: &Path| std::fs::read(path).map_err(|e| FetchError::Io(path.to_path_buf(), e));
     let name = match fetcher.last_modified(url) {
-        Ok(Some(changed)) => format!("{stem}-{}.zip", changed.format("%Y%m%d")),
+        Ok(Some(changed)) => format!("{stem}-{}.{ext}", changed.format("%Y%m%d")),
         Ok(None) => {
-            let undated = dir.join(format!("{stem}-undated.zip"));
+            let undated = dir.join(format!("{stem}-undated.{ext}"));
             if crate::clock::age_of(&undated).is_some_and(|age| age < UNDATED_FOR) {
                 return read(&undated);
             }
-            format!("{stem}-undated.zip")
+            format!("{stem}-undated.{ext}")
         }
         // The server cannot be asked for the date: a copy, however old, is better than none;
         // without one the download is tried all the same, as some servers answer no HEAD.
         Err(_) => match copies.last() {
             Some(path) => return read(path),
-            None => format!("{stem}-undated.zip"),
+            None => format!("{stem}-undated.{ext}"),
         },
     };
     let path = dir.join(&name);
     if path.exists() {
         return read(&path);
     }
-    let fresh = get_limited_with_retries(fetcher, url, part, MAX_ZIP, |bytes| {
-        zip::ZipArchive::new(std::io::Cursor::new(bytes))
-            .map(|_| bytes.to_vec())
-            .map_err(|e| FetchError::Http {
+    let fresh = get_limited_with_retries(fetcher, url, part, max_bytes, |bytes| {
+        check(bytes)
+            .map(|()| bytes.to_vec())
+            .map_err(|message| FetchError::Http {
                 url: url.to_string(),
-                message: format!("not a zip: {e}"),
+                message,
             })
     });
     match fresh {
@@ -127,11 +146,11 @@ fn current_zip(
 
 /// The name of the copies of `url`: its host and file name, with only letters, digits, `-`
 /// and `_` (anything else becomes `_`), so that nothing of the URL becomes a path.
-fn cache_stem(url: &str) -> String {
+fn cache_stem(url: &str, ext: &str) -> String {
     let rest = url.split_once("://").map_or(url, |(_, rest)| rest);
     let host = rest.split('/').next().unwrap_or_default();
     let file = rest.rsplit('/').next().unwrap_or_default();
-    let file = file.strip_suffix(".zip").unwrap_or(file);
+    let file = file.strip_suffix(&format!(".{ext}")).unwrap_or(file);
     format!("{host}-{file}")
         .chars()
         .map(|c| {
@@ -146,8 +165,9 @@ fn cache_stem(url: &str) -> String {
 
 /// The cached copies of `stem` in `dir`, oldest first (by the date in their name; an undated
 /// one last).
-fn cached_copies(dir: &Path, stem: &str) -> Vec<std::path::PathBuf> {
+fn cached_copies(dir: &Path, stem: &str, ext: &str) -> Vec<std::path::PathBuf> {
     let prefix = format!("{stem}-");
+    let suffix = format!(".{ext}");
     let mut copies: Vec<std::path::PathBuf> = std::fs::read_dir(dir)
         .into_iter()
         .flatten()
@@ -156,7 +176,7 @@ fn cached_copies(dir: &Path, stem: &str) -> Vec<std::path::PathBuf> {
         .filter(|p| {
             p.file_name()
                 .and_then(|n| n.to_str())
-                .is_some_and(|n| n.starts_with(&prefix) && n.ends_with(".zip"))
+                .is_some_and(|n| n.starts_with(&prefix) && n.ends_with(&suffix))
         })
         .collect();
     copies.sort();
@@ -275,6 +295,8 @@ pub fn source(
             what,
             credit,
             note: None,
+            sampled: false,
+            gaps: None,
             layers: layer,
             sections,
             offices: None,
@@ -430,6 +452,7 @@ mod tests {
                 name: Some("Beispielhausen".into()),
                 zone: Some("Zone II".into()),
                 citation: Some("GVBl.II/08, [Nr. 1], S.1".into()),
+                authority: None,
             }
         );
     }
@@ -477,11 +500,13 @@ mod tests {
                     name: Some("D\u{fc}sterm\u{fc}hle".into()),
                     zone: Some("Schutzzone 1".into()),
                     citation: None,
+                    authority: None,
                 },
                 FindingKind::WaterProtection {
                     name: Some("Genkeltalsperre".into()),
                     zone: Some("Schutzzone 3B (geplant)".into()),
                     citation: None,
+                    authority: None,
                 },
             ]
         );
@@ -588,11 +613,19 @@ mod tests {
     fn a_cache_name_is_made_of_plain_characters() {
         assert_eq!(
             cache_stem(
-                "https://www.opengeodata.nrw.de/a/b/Wasserschutzgebiete-NRW_EPSG25832_Shape.zip"
+                "https://www.opengeodata.nrw.de/a/b/Wasserschutzgebiete-NRW_EPSG25832_Shape.zip",
+                "zip"
             ),
             "www_opengeodata_nrw_de-Wasserschutzgebiete-NRW_EPSG25832_Shape"
         );
-        assert_eq!(cache_stem("https://x.de/../../etc/passwd"), "x_de-passwd");
+        assert_eq!(
+            cache_stem("https://x.de/../../etc/passwd", "zip"),
+            "x_de-passwd"
+        );
+        assert_eq!(
+            cache_stem("https://opendata.example/download/liste.geojson", "geojson"),
+            "opendata_example-liste"
+        );
     }
 
     #[test]

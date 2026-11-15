@@ -300,7 +300,7 @@ freemapper-courseplan then show the same title. Change it in the file if you wan
 
 ## 6. Choosing the map area in the browser
 
-![Area selection in the browser](images/area-selector.jpg)
+[![Area selection in the browser](images/area-selector-thumb.webp)](images/area-selector.jpg)
 
 *The area selection with the Kreuzgymnasium Dresden (German interface). Map data © OpenStreetMap
 contributors.*
@@ -607,10 +607,10 @@ dl-de/by-2-0, Daten geändert.
 
 | Template | Picture |
 |---|---|
-| **Orthophoto:** top view, 20 cm per pixel. Good for paths, squares and vegetation, but trees hide the ground. | ![Orthophoto](images/orthophoto.jpg) |
-| **nDSM (height above ground):** yellow 0.3–1 m (walls, benches, cars), orange 1–2.5 m (hedges, fences, playground equipment), light green 2.5–8 m (bushes, sheds), dark green above 8 m (trees, houses). Shows what stands, also under trees. | ![nDSM on the orthophoto](images/ndsm.jpg) |
-| **Hillshade:** the terrain as if lit from the north-west. Shows banks, hollows and earth walls. | ![Hillshade](images/hillshade.jpg) |
-| **Slope:** the darker, the steeper. Helps with banks and stairs. | ![Slope](images/slope.jpg) |
+| **Orthophoto:** top view, 20 cm per pixel. Good for paths, squares and vegetation, but trees hide the ground. | [![Orthophoto](images/orthophoto-thumb.webp)](images/orthophoto.jpg) |
+| **nDSM (height above ground):** yellow 0.3–1 m (walls, benches, cars), orange 1–2.5 m (hedges, fences, playground equipment), light green 2.5–8 m (bushes, sheds), dark green above 8 m (trees, houses). Shows what stands, also under trees. | [![nDSM on the orthophoto](images/ndsm-thumb.webp)](images/ndsm.jpg) |
+| **Hillshade:** the terrain as if lit from the north-west. Shows banks, hollows and earth walls. | [![Hillshade](images/hillshade-thumb.webp)](images/hillshade.jpg) |
+| **Slope:** the darker, the steeper. Helps with banks and stairs. | [![Slope](images/slope-thumb.webp)](images/slope.jpg) |
 | **Local relief:** the terrain minus its smoothed mean (over about 5 m on sprint maps, 3 m on schoolyard maps, 8 m on forest maps). Light is higher than the surroundings, dark lower; the general fall of the ground is gone. Shows mounds, hollows, banks and ditches that the hillshade hides on a slope. | – |
 
 The candidates map also holds the **contours**: every 1 m on schoolyard maps, every 2 m on sprint maps,
@@ -645,7 +645,9 @@ the vegetation from the classified laser point clouds of LGB, the Geoportal Berl
 LVGL and the Bayerische Vermessungsverwaltung: open land
 (401), runnable forest (405), the green shades 406, 408 and 410, and undergrowth (407, 409). It counts in every
 3 m cell how many laser returns reach the ground and how many stay at the heights that slow a runner. That
-shows more than the nDSM, which only sees the crowns. The outlines are traced on a raster three times finer and
+shows more than the nDSM, which only sees the crowns. The green shades follow the layer a runner moves through:
+of all returns below 3 m, the share that lies between 0.8 and 3 m. From 20 % a cell is 406, from 35 % 408, from
+50 % 410 (ADR 0138). The crowns above do not count. The outlines are traced on a raster three times finer and
 slightly blurred, so that they follow the edge of the vegetation instead of the 3 m steps of the cells (ADR 0136).
 
 The group `vegetation` is off in every profile, `full` included, because the point clouds are large. Per square
@@ -660,13 +662,13 @@ candidate shows only the part of another class.
 
 It is checked on Sanssouci, the Volksgarten in Cologne, the Stadtpark in Mainz, the Viktoriapark in Berlin and
 the old town of Saarlouis.
-Reeds and shrubs at a shore come out as 410. The Berlin scan of 2021 was made without leaves, so dense shrubs are
-recognised less well there, and when the Geoportal changes an archive, freemapper loads its tiles again. The Saarland scan (February 2025)
-was made without leaves too, and LVGL thinned the point cloud to one point per 0.5 m; freemapper still finds the
-crowns there. In Bavaria it is checked on the Schmausenbuck in the Nürnberger Reichswald. The three Bavarian
-flights whose day is known were flown between November and February. Without leaves, shrubs and young growth
-give few echoes, so on the Schmausenbuck the young growth of 2 to 5 m under a power line comes out mostly as
-runnable forest (405). The date on the Bavarian candidates is the day of the flight, which freemapper reads from
+Reeds and shrubs at a shore come out as 410. Every flight the six states publish was made without leaves,
+between December and March, and the green shades are set on such flights. On the Schmausenbuck in the Nürnberger
+Reichswald (flown on 20 December 2021) they were measured against the canopy height of the summer pictures: 71 %
+of the thickets come out green and 7 % of the tall forest. Young pole stands, with crowns at 3 to 8 m and a clear
+stem space, stay runnable forest (405). LVGL thinned the Saarland point cloud to one point per 0.5 m; freemapper
+still finds the crowns there, but the green shades come in scattered patches. When the Geoportal Berlin changes
+an archive, freemapper loads its tiles again. The date on the Bavarian candidates is the day of the flight, which freemapper reads from
 the laser points (20 December 2021 on the Schmausenbuck). Older flights do not name it; there it is the day the
 file was made. When tiles of different days lie under a map, the candidates carry the oldest, in every state. The point
 cloud can be some years older than the orthophoto. Check the areas against the orthophoto and in the terrain. When
@@ -834,7 +836,7 @@ You can combine both PDF switches; the two files then sit side by side in the pr
 take all four, the MCP server as `pdf`, `pdf_candidates`, `pdf_scale_bar` and `pdf_sources`. freemapper does not store the choice
 in the project: it applies to that call.
 
-![Training map as PDF](images/training-map.jpg)
+[![Training map as PDF](images/training-map-thumb.webp)](images/training-map.jpg)
 
 *The training map of the Kreuzgymnasium. Quelle: GeoSN, dl-de/by-2-0, Daten geändert; © OpenStreetMap
 contributors.*
@@ -1021,13 +1023,43 @@ The hints name, for each Bezirk that is more than an edge, the Bezirksamt with i
 öffentlichen Raumes and, when a monument lies in the area, the Denkmalschutzamt Hamburg. Without the Bezirke the
 general hint for Berlin and Hamburg comes back.
 
+### Monuments
+
+Monuments come from Berlin, Hamburg and Saarland and from the open services of the monument offices of Hesse
+(DenkXweb, with a link into the list), Baden-Württemberg (Kulturdenkmale, Gesamtanlagen, archaeological monuments
+and Grabungsschutzgebiete), Bremen (Einzeldenkmale and Ensembles, with a link), Saxony (Kulturdenkmale),
+Brandenburg (Bau-, Garten- and Bodendenkmale, Denkmalbereiche), Rhineland-Palatinate (Einzeldenkmäler,
+Denkmalzonen, bauliche Gesamtanlagen), North Rhine-Westphalia and Schleswig-Holstein. Schleswig-Holstein has no
+service, only its list as one file for the whole state (about 52 MB, new each week): freemapper downloads it the
+first time and keeps it in the cache, later only when the server has a newer one. Archaeological monuments and
+Lübeck's monuments are not in it. The section "Monuments" counts them by kind and
+links up to 20 into the state's list where the service has a link. When monuments lie in the area, a hint says
+whom to ask: in Berlin and Hamburg the Bezirksamt or the Denkmalschutzamt, elsewhere the lower monument authority
+(untere Denkmalschutzbehörde), usually the Landkreis or the kreisfreie Stadt, in some states the Gemeinde; the hint
+names the Kreis and the Gemeinde from VG250.
+
+In North Rhine-Westphalia the data are still being gathered and not every Gemeinde is in them yet: no monument in
+the notes does not mean none lies in the area. In Brandenburg the Baudenkmale of the city of Potsdam are missing; the
+city keeps its own list. The notes say both below the part of the state, and the hint on the lower monument
+authority comes there without a finding too, saying that the data cannot tell for sure. A kreisfreie Stadt, in
+Baden-Württemberg a Stadtkreis, is the lower authority itself. Hesse's archaeological monuments are points that stand for an area
+of about 300 m, as the service says. Lower Saxony, Bavaria, Mecklenburg-Vorpommern and
+Saxony-Anhalt are still missing: their licence is unclear or forbids adaptations, or there is no service for the
+whole state.
+
 ### Water protection areas and forest functions
 
-Water protection areas with their zone come from Berlin, Brandenburg, Hamburg, Hesse, North Rhine-Westphalia and
-Saarland; in North Rhine-Westphalia also the planned ones, marked "(geplant)". Forest functions from
+Water protection areas with their zone come from Baden-Württemberg, Berlin, Brandenburg, Hamburg, Hesse, North
+Rhine-Westphalia, Saarland and Schleswig-Holstein, and from Saxony for the forest only. In Baden-Württemberg each
+zone names the lower water authority in charge (a Landratsamt or a Stadt), and the hint names it too; zones I and
+II come joined there, as the LUBW does not publish zone I. For Bavaria, Lower Saxony, Bremen,
+Mecklenburg-Vorpommern, Rhineland-Palatinate, Saxony-Anhalt and Saxony come the drinking water and medicinal
+spring protection areas the states report to the Bundesanstalt für Gewässerkunde (BfG), without their zones and
+with the BfG's note that the data are not complete everywhere; in North Rhine-Westphalia also the planned ones, marked "(geplant)". Forest functions from
 Brandenburg (Naturwald, Totalreservat, closed areas, Erholungswald), Hamburg (Bannwald, Erholungswald), North
-Rhine-Westphalia (Naturwaldzellen, wilderness development areas) and Saarland (Naturwaldzellen, Urwald), each
-from open services of the state. In Saarland the listed buildings come with them. A water protection area gets a hint
+Rhine-Westphalia (Naturwaldzellen, wilderness development areas), Saarland (Naturwaldzellen, Urwald), Saxony
+(Erholungswald, Naturwaldzellen, Bodenschutzwald) and Schleswig-Holstein (Naturwald), each from open services of
+the state. In Saarland the listed buildings come with them. A water protection area gets a hint
 with its zone: in zones I and II events are usually ruled out, in zone III usually possible, and the lower water
 authority says what the ordinance allows. When the data give no zone, the hint names both cases. Recreation
 forest, protected forest, natural forest and closed forest areas each get a hint whom to ask or what to avoid.
@@ -1035,7 +1067,7 @@ forest, protected forest, natural forest and closed forest areas each get a hint
 ### Forest administration
 
 An event in the forest needs the consent of the forest owners. In several states an organised event in the
-forest must also be reported to the forest authority or allowed by it. Three states publish the areas of their
+forest must also be reported to the forest authority or allowed by it. Six states publish the areas of their
 forest offices openly:
 
 | State | Office and unit | Source |
@@ -1044,6 +1076,8 @@ forest offices openly:
 | Berlin | Forstamt and Revier of the Berliner Forsten | Geoportal Berlin (`gdi.berlin.de`) |
 | North Rhine-Westphalia | Regionalforstamt and Forstbetriebsbezirk of the Landesbetrieb Wald und Holz NRW, and the state forest | two files on `www.opengeodata.nrw.de` |
 | Saarland | Revier of the SaarForst Landesbetrieb (state forest only) | Geoportal Saarland (`geoportal.saarland.de`) |
+| Saxony | Forstbezirk and Revier of the Staatsbetrieb Sachsenforst (in charge in the state forest; for other forest the lower forest authority of the Landkreis or the kreisfreie Stadt) | two map services of Sachsenforst (`www.forsten.sachsen.de`), asked at points |
+| Schleswig-Holstein | Revier of the Schleswig-Holsteinische Landesforsten, and the state forest (state forest only) | Umweltportal (`umweltgeodienste.schleswig-holstein.de`) |
 
 The section "Forest administration" names each office with its unit and its share of the map area. The area of
 an office can take in towns and fields as well; in Brandenburg every map area lies in a Revier. "State forest"
@@ -1079,13 +1113,20 @@ phone numbers. freemapper takes none of it: it keeps only the names of the offic
   The notes quote that sentence word for word below the table of sources.
 - Owners of land are not in open data, except the state and the Bund in Berlin. The notes say how to get an
   extract from the land register.
-- The notes name forest offices only in Brandenburg, Berlin, Hamburg, North Rhine-Westphalia and Saarland
-  (there for the state forest only). Saxony, Saxony-Anhalt
-  and Mecklenburg-Vorpommern show their forest offices only as a map image, without areas freemapper could
-  read. The service of Rhineland-Palatinate turns freemapper away. For the other states no open service was
+- The notes name forest offices only in Brandenburg, Berlin, Hamburg, North Rhine-Westphalia, Saarland, Saxony and
+  Schleswig-Holstein (in Saarland and Schleswig-Holstein for the state forest only). Saxony-Anhalt and
+  Mecklenburg-Vorpommern have no open service with areas freemapper may read; their forest administrations have
+  been asked. The service of Rhineland-Palatinate turns freemapper away. For the other states no open service was
   found.
+- Sachsenforst answers only for single points. freemapper asks at the centres of up to 25 cells over the map
+  (cells of at least 50 m, so a schoolyard gets a few), up to 50 requests. Each answer counts for its whole cell:
+  the shares are estimates, and a small Naturwaldzelle or an inner water zone between two points can be missing.
+  The notes say so below the part of Saxony, and for an empty section they write that nothing is named at the
+  points asked. The drinking water zones of the service lie in the forest only. `permits.json` marks such a source
+  with `"sampled": true`.
 - Who owns a private or municipal forest is in no open data.
-- Water protection areas and monuments outside Berlin are not in yet. They come in later versions.
+- The notes name water protection areas in every state. The BfG's areas have no zone; whether an event is
+  possible, the lower water authority says. Monuments come from eleven states (see "Monuments").
 
 ### Data sources and licences
 
@@ -1096,6 +1137,18 @@ phone numbers. freemapper takes none of it: it keeps only the names of the offic
 | OpenStreetMap | extract in the cache | `© OpenStreetMap contributors, ODbL` |
 | Geoportal Berlin: Bezirk borders, green spaces, Liegenschaftsplan, monuments, protected objects, forest administration (Berlin only) | `gdi.berlin.de` | `Für die Nutzung der Daten ist die Datenlizenz Deutschland - Zero - Version 2.0 anzuwenden. Die Lizenz ist über https://www.govdata.de/dl-de/zero-2-0 abrufbar.` |
 | Geoportal Hamburg: Bezirk borders, Grünplan, monuments, forest in Hamburg, forest functions, water protection areas (Hamburg only) | `geodienste.hamburg.de` | per service `Datenlizenz Deutschland Namensnennung 2.0, Quellenvermerk: Freie und Hansestadt Hamburg, <office>` with the office the service names |
+| Umweltportal Schleswig-Holstein: state forest with its Reviere, Naturwald, water protection areas (Schleswig-Holstein only) | `umweltgeodienste.schleswig-holstein.de` | `Quellenvermerk: LfU SH; Lizenz: Creative Commons Namensnennung 4.0 International (CC BY 4.0)` |
+| LUBW Landesanstalt für Umwelt Baden-Württemberg: water protection zones with the authority in charge (Baden-Württemberg only) | `rips-gdi.lubw.baden-wuerttemberg.de` | `Grundlage: Daten aus dem Umweltinformationssystem (UIS) der LUBW Landesanstalt für Umwelt Baden-Württemberg` (terms of use for data of the UIS) |
+| Landesamt für Denkmalpflege Hessen (DenkXweb): Kulturdenkmäler, Gesamtanlagen, archaeological monuments (Hesse only) | `geodienste.denkx.de` | `Datenlizenz Deutschland – Namensnennung – Version 2.0 (dl-de/by-2-0); Quellenvermerk: Landesamt für Denkmalpflege Hessen (LfDH)` |
+| Landesamt für Denkmalpflege Baden-Württemberg: Kulturdenkmale, Gesamtanlagen, archaeological monuments, Grabungsschutzgebiete (Baden-Württemberg only) | `owsproxy.lgl-bw.de` | `… mit Angabe der Datenquelle: dl-de/by-2-0: Landesamt für Denkmalpflege im Regierungspräsidium Stuttgart, www.denkmalpflege-bw.de` |
+| Landesamt für Denkmalpflege Bremen: Einzeldenkmale, Ensembles (Bremen only) | `geodienste.bremen.de` | `Creative Commons Namensnennung (CC-BY), Quellenvermerk: Freie Hansestadt Bremen, Senator für Kultur` |
+| Landesamt für Denkmalpflege Sachsen: Kulturdenkmale (Saxony only) | `cardomap3.idu.de` | `Landesamt für Denkmalpflege Sachsen, Creative Commons Namensnennung 3.0 Deutschland (CC BY 3.0 DE)` |
+| BLDAM: Baudenkmale, Gartendenkmale, Denkmalbereiche, Bodendenkmale (Brandenburg only) | `gis-bldam-brandenburg.de` | `© Denkmaldaten/BLDAM <year>`; Bodendenkmale: `Quelle: © Denkmaldaten/Brandenburgisches Landesamt für Denkmalpflege und Archäologisches Landesmuseum (BLDAM), dl-de/by-2-0` |
+| Landesamt für Denkmalpflege Schleswig-Holstein: list of monuments, one file for the state (Schleswig-Holstein only) | `opendata.schleswig-holstein.de` | `Landesamt für Denkmalpflege Schleswig-Holstein; Lizenz: Creative Commons Namensnennung 4.0 International (CC BY 4.0)` |
+| Generaldirektion Kulturelles Erbe: Einzeldenkmäler, Denkmalzonen, bauliche Gesamtanlagen (Rhineland-Palatinate only) | `www.geoportal.rlp.de` | `Datenlizenz Deutschland – Namensnennung – Version 2.0 (dl-de/by-2-0); Quellenvermerk: GDKE RLP` |
+| Land NRW: monuments under the Denkmalschutzgesetz, still being gathered (North Rhine-Westphalia only) | `www.wfs.nrw.de` | `Datenlizenz Deutschland – Zero – Version 2.0 (https://www.govdata.de/dl-de/zero-2-0)` |
+| Bundesanstalt für Gewässerkunde (BfG), WasserBLIcK: drinking water and medicinal spring protection areas (Bavaria, Lower Saxony, Bremen, Mecklenburg-Vorpommern, Rhineland-Palatinate, Saxony-Anhalt and Saxony only) | `geoportal.bafg.de` | `© WasserBLIcK/BfG und Zuständige Behörden der Länder, <Jahr>; Lizenz: Creative Commons Namensnennung – 4.0 International (CC BY 4.0)` |
+| Staatsbetrieb Sachsenforst: Forstbezirke and Reviere, Erholungswald, Naturwaldzellen, Bodenschutzwald, drinking water protection zones in the forest (Saxony only) | `www.forsten.sachsen.de` | `Datenlizenz Deutschland 2.0 – Namensnennung (dl-de/by-2-0) unter Angabe der Quelle: "Geodaten Sachsenforst"` |
 | Geoportal Saarland: Reviere of the state forest, water protection areas, Naturwaldzellen, Urwald, listed buildings (Saarland only) | `geoportal.saarland.de` | `Quellenvermerk: © GDI-SL (<year>); Lizenz: Creative Commons Namensnennung 4.0 International (CC BY 4.0)` |
 | Landesamt für Umwelt Brandenburg: water protection areas (Brandenburg only) | `data.geobasis-bb.de` | `Landesamt für Umwelt Brandenburg (LfU), Creative Commons Namensnennung 4.0 International (CC BY 4.0)` |
 | Land NRW: water protection areas, set and planned (North Rhine-Westphalia only) | `www.opengeodata.nrw.de` | `Land NRW, Datenlizenz Deutschland – Zero – Version 2.0 (https://www.govdata.de/dl-de/zero-2-0)` |
@@ -1109,7 +1162,8 @@ name of the service, its terms of use and its access note. Keep the lines when y
 
 freemapper sends the federal services, the Geoportale Berlin and Hamburg and the Landesbetrieb Forst Brandenburg only the
 rectangle around the map area and its fixed name (User-Agent). From Wald und Holz NRW it downloads the files for
-the whole state and cuts them itself; only the name goes there. It asks no other server for the notes. It asks
+the whole state and cuts them itself; only the name goes there. Sachsenforst gets the points asked instead of the
+rectangle, the BfG the rectangle. It asks no other server for the notes. It asks
 the services of a state only for a map area that lies there, and only through the hosts the adapter of that
 state names. `adapters allow-host` does not apply to the federal
 services.
@@ -1132,7 +1186,7 @@ services.
 | Saarland | LVGL | Zone 32 (EPSG:25832) for the whole state. The orthophoto (flown in 2025) comes from the map service (WMS); the date the service gives per 2 km block as its update ("Aktualisierung") counts as the flight date. Terrain and surface: DGM1 and DOM1 at 1 m from the laser scan of 2025. The LVGL publishes them as six archives, one per district (0.6 to 1.3 GB); freemapper reads only the 1 km tiles of the area out of them, about 2 MB each, and keeps them in the cache. Beyond the state border the templates stay empty. The cadastre comes from the service "ALKIS Vereinfacht" of the Geoportal Saarland. freemapper does not use the products the LVGL charges for (bDOM20, DOM025, older orthophotos). |
 | Baden-Württemberg | LGL | Zone 32 (EPSG:25832) for the whole state. The orthophoto comes from the map service (WMS); a second service gives the flight date per 1 km tile, and the date of the tile at the centre of the area counts. The map service ends at the state border, and the orthophoto is white beyond it. Terrain: DGM1 at 1 m from the laser scan. Surface: the nDOM1 of the LGL, the height above the terrain, computed from the aerial images of a summer flight. It shows the trees in leaf and usually comes from the flight of the orthophoto or the one before it. The LGL publishes both models as one archive per 2 km block; freemapper reads only the 1 km tiles of the area out of them, about 3.5 MB each, and keeps them in the cache. Where the nDOM1 lacks a tile, the nDSM template stays empty, and freemapper names the tile. The cadastre comes from the ALKIS service of the LGL. It holds whole buildings only, so no canopies and passages come from the cadastre, and it has no class of its own for the green beside a street: street areas include it. OSM comes from the extracts of the four Regierungsbezirke. |
 | Bremen | Landesamt GeoInformation Bremen (also the full ALKIS) | Zone 32 (EPSG:25832) for the whole state, that is Bremen and Bremerhaven. The orthophoto comes from the map service (WMS), which has one layer per flight and city; freemapper takes the newest colour flight of each city (2025 in both, 10 cm). The service names the year of a flight only, so the project entry says "Bildflugjahr" next to the date. Terrain and surface: DGM1 and DOM1 at 1 m from the laser scans of 2017 (Bremen) and 2015 (Bremerhaven), flown without leaves. They are eight to ten years older than the orthophoto, and freemapper warns at every fetch: new buildings and young trees are missing from the nDSM, and demolished buildings are still in it. The agency offers the models as one archive per city (0.3 to 1.2 GB); freemapper reads only the 1 km tiles of the area out of them, about 3.5 MB each, and keeps them in the cache. Three of the four archives write the heights at whole metres, not at the cell centres, so those models lie half a metre off to the north-east. The archives hold no tiles of Lower Saxony: where the map reaches beyond the state border, for example from Huchting into Stuhr, the orthophoto is white and the templates stay empty. freemapper warns when it fetches. Bremen has no simplified ALKIS. freemapper reads the full ALKIS, which the LGLN in Lower Saxony runs for Bremen, and derives buildings, building parts, canopies and land use with the same names as in the other states. That is one request per land use class, about 30 requests per map. Squares without a function only as candidates. The same service gives the surveyed lines of the full ALKIS as in Brandenburg (below), in Bremen mostly stairs, ramps, retaining walls, monuments, embankment tops and bridges. The area page shows the aerial photo of the city of Bremen only, not of Bremerhaven; the map gets it in both cities. |
-| Bavaria | Bayerische Vermessungsverwaltung (LDBV) | Zone 32 (EPSG:25832) for the whole state, also east of 12° E (Regensburg, Passau). The orthophoto comes from the map service (WMS, DOP20) with the date of the flight. Terrain: DGM1 at 1 m as 1 km tiles of about 2.8 MB; the tiles carry no date. Surface: there is no surface model at 1 m. freemapper takes the DOM20 (20 cm, computed from the aerial pictures of the flight, 32 to 56 MB per km²), reduces each tile to 1 m and keeps only the reduced tile; its date is that of the flight. Bavaria has no service for its cadastre, only files. freemapper reads the buildings from the LoD2 tiles, one file per 2 km square: about 3 MB in the country, 60 to 110 MB in the old town of Regensburg, 160 MB in the centre of Munich. Buildings and canopies come from them; freemapper leaves out the bridges and walls LoD2 holds. The data names no position to the surface. What LoD2 holds of an underground garage stands above the ground, and freemapper draws it as a building. The land use comes from the file of the Landkreis or kreisfreie Stadt (2 to 13 MB); when the area lies within 500 m of a Kreis border, freemapper downloads both files. All files stay in the cache. At every fetch freemapper asks the server whether a file is newer and downloads it again only then. Bavaria has no stairs, retaining walls or embankments from the cadastre. Springs, caves, towers, fountains, monuments, fences and, on forest maps, missing paths come as candidates from the landscape model (ATKIS Basis-DLM, further down in this chapter). Vegetation from laser point clouds is there on request (chapter 8). OSM comes from the extracts of the seven Regierungsbezirke. |
+| Bavaria | Bayerische Vermessungsverwaltung (LDBV) | Zone 32 (EPSG:25832) for the whole state, also east of 12° E (Regensburg, Passau). The orthophoto comes from the map service (WMS, DOP20) with the date of the flight. Terrain: DGM1 at 1 m as 1 km tiles of about 2.8 MB; the tiles carry no date. Surface: there is no surface model at 1 m. freemapper takes the DOM20 (20 cm, computed from the aerial pictures of the flight, 32 to 56 MB per km²). It reads only the blocks of 51 m that the map area needs, reduces them to 1 m and keeps only the reduced tile; a later map in the same tile reads only the blocks it lacks (ADR 0141). Its date is that of the flight. Bavaria has no service for its cadastre, only files. freemapper reads the buildings from the LoD2 tiles, one file per 2 km square: about 3 MB in the country, 60 to 110 MB in the old town of Regensburg, 160 MB in the centre of Munich. Buildings and canopies come from them; freemapper leaves out the bridges and walls LoD2 holds. The data names no position to the surface. What LoD2 holds of an underground garage stands above the ground, and freemapper draws it as a building. The land use comes from the file of the Landkreis or kreisfreie Stadt (2 to 13 MB); when the area lies within 500 m of a Kreis border, freemapper downloads both files. All files stay in the cache. At every fetch freemapper asks the server whether a file is newer and downloads it again only then. Bavaria has no stairs, retaining walls or embankments from the cadastre. Springs, caves, towers, fountains, monuments, fences and, on forest maps, missing paths come as candidates from the landscape model (ATKIS Basis-DLM, further down in this chapter). Vegetation from laser point clouds is there on request (chapter 8). OSM comes from the extracts of the seven Regierungsbezirke. |
 
 **Canopies and passages in every state.** ALKIS records canopies and carports as structures next to the
 buildings, and building passages and arcades as building parts. freemapper reads them from the buildings it
@@ -1160,18 +1214,41 @@ retaining walls, but neither hedges nor single trees in the city centre; in the 
 with the buffer) 64 stairs, 13 retaining walls, 13 monuments, 16 embankment tops and 4 bridges come from it. If the service sends more objects than it allows in
 one answer, freemapper splits the area into quarters, at most four levels deep.
 
+**Hesse: full ALKIS and landscape model.** Hesse serves both from the HVBG (dl-de/zero-2-0), and freemapper reads
+both. Its full ALKIS records surveyed stairs: in the old town of Marburg 54 go straight onto the map, with the
+content profile `balanced`. The landscape model adds candidates as in Bavaria: in Marburg 4 named trees, 3 small
+watercourses, a dam and a wall, on the Feldberg a rock, a spring and a watercourse.
+
+**North Rhine-Westphalia and Lower Saxony: full ALKIS.** Both serve their full ALKIS as well (Geobasis NRW,
+dl-de/zero-2-0; LGLN, CC BY 4.0), Lower Saxony with at most 10 000 objects per request. In North Rhine-Westphalia
+it holds much: in the old town of Monschau 25 walls and retaining walls, 33 embankment tops, 14 stairs, 15 bridges,
+17 walls along the Rur and 13 single trees go straight onto the map, in the Siebengebirge 90 embankment tops and
+about 30 walls and stairs; OpenStreetMap lines and trees they double go. Lower Saxony records less: in Herrenhausen
+4 bridges and a fountain, in Bad Harzburg 12 bridges, a wall and an embankment top.
+
+**Schleswig-Holstein: landscape model.** The LVermGeo SH serves its landscape model as well (CC BY 4.0), with at
+most 10 000 objects per request. In the Hüttener Berge it adds 48 earth walls (105), a watercourse and 4
+tracks; the banks the terrain model finds along those walls go. In Lübeck it adds
+a watercourse.
+
 In Bavaria the cadastre has no service. There freemapper asks the landscape model of the agency instead, the
 ATKIS Basis-DLM (CC BY 4.0). It is made for the scale 1:25 000 and accurate to about 3 m. freemapper takes cave
 entrances (203), springs (312), named rocks (205), free-standing towers (524, 525), monuments and wayside
 crosses (526), fountains (311), fences (518), dams and walls (105), small watercourses (305) and named trees
 (418) from it, on forest maps also paths and tracks (504 to 507). These objects stay candidates in every profile
 but `full`. Where another source has the same object, the one of the landscape model goes: a point when a point
-with the same symbol lies within 15 m (a tree beside a tree, large or small), a line when at least 80 % of its length runs within 10 m of a line of the
+with the same symbol lies within 15 m (a tree beside a tree, large or small, and a tower beside a tower), a line when at least 80 % of its length runs within 10 m of a line of the
 same kind. For paths every path class counts as the same kind. A path stays or goes as a whole. The object that
 stays names the dropped one in `freemapper:also`. The layers lie in `data/alkis-nas/` too, as `dlm-…`; their
 objects carry `freemapper:source=atkis-dlm/<layer>`. On the Schmausenbuck 14 of 152 objects stay as candidates,
-6 of them paths OpenStreetMap lacks; in the old town of Regensburg 10 of 35. freemapper does not take church
+6 of them paths OpenStreetMap lacks; in the old town of Regensburg 8 of 35. freemapper does not take church
 towers, town gates, canals, power lines or areas.
+
+Saxony-Anhalt has only the simplified ALKIS, and freemapper asks its landscape model in the same way
+(© GeoBasis-DE / LVermGeo ST, dl-de/by-2-0). There most rocks are lines: freemapper offers them as cliff
+candidates (201), whose ticks point downhill by the terrain model like those of the other cliff candidates. In
+the Bode valley that gives 27 cliffs and 20 rocks, 3 dams, a spring, a monument and 11 paths OpenStreetMap lacks;
+in Quedlinburg 7 small watercourses.
 
 If an OSM line (fence, wall, hedge, brook or ditch) lies with at least 80 % of its length within 1.5 m of a
 full ALKIS line with the same symbol, freemapper drops the OSM line, as in Berlin. The order is the same in every state:

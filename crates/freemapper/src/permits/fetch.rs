@@ -406,6 +406,8 @@ mod tests {
     const BRANDENBURG_FOREST: &str = "https://www.brandenburg-forst.de/";
     const BRANDENBURG_OFFICES: &str = "https://www.brandenburg-forst.de/geoserver/IFUEK/";
     const BRANDENBURG_FUNCTIONS: &str = "https://www.brandenburg-forst.de/geoserver/IWFK/";
+    /// The monuments of Brandenburg's BLDAM, GML 3.2 (ADR 0144).
+    const BRANDENBURG_MONUMENTS: &str = "https://gis-bldam-brandenburg.de/";
     /// The water protection areas of Brandenburg, one shapefile in a zip (ADR 0131).
     const BRANDENBURG_WATER: &str =
         "https://data.geobasis-bb.de/geofachdaten/Wasser/Gewaesserbewirtschaftung/wsg.zip";
@@ -467,6 +469,7 @@ mod tests {
         fetcher.insert_prefix(BRANDENBURG_OFFICES, empty_gml_collection());
         fetcher.insert_prefix(BRANDENBURG_FUNCTIONS, empty_collection());
         fetcher.insert(BRANDENBURG_WATER, empty_shape_zip());
+        fetcher.insert_prefix(BRANDENBURG_MONUMENTS, empty_gml_collection());
         for url in probe.log.borrow().iter() {
             let body = if url.contains("Landschaftsschutzgebiete") {
                 fixture("bfn-lsg-sanssouci.geojson")
@@ -881,7 +884,9 @@ mod tests {
                 .any(|host| url.starts_with(&format!("https://{host}/")));
             if !national {
                 assert!(
-                    url.starts_with(BRANDENBURG_FOREST) || url.starts_with(BRANDENBURG_WATER),
+                    url.starts_with(BRANDENBURG_FOREST)
+                        || url.starts_with(BRANDENBURG_WATER)
+                        || url.starts_with(BRANDENBURG_MONUMENTS),
                     "{url}"
                 );
                 assert!(
@@ -891,9 +896,11 @@ mod tests {
                 regional.insert(url);
             }
         }
-        // One query per layer of Brandenburg's three sources: the Reviere (tried again, as an
-        // empty JSON is no GML), the five forest functions and the water protection zip.
-        assert_eq!(regional.len(), 7, "{log:?}");
+        // One query per layer of Brandenburg's sources: the Reviere (tried again, as an empty
+        // JSON is no GML), the five forest functions, the water protection zip, and the first
+        // layer of each of the two monument services, which stop there for the same reason
+        // (ADR 0144).
+        assert_eq!(regional.len(), 9, "{log:?}");
     }
 
     /// A classified road is read from the extract as a line and kept when it crosses the map
@@ -1258,6 +1265,8 @@ mod tests {
                 what: Wording { en: key, de: key },
                 credit: "open",
                 note: None,
+                sampled: false,
+                gaps: None,
                 layers: &["all"],
                 sections: &[PermitSection::Districts],
                 offices: None,

@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "created": "2026-11-14",
+  "created": "2026-11-15",
   "map_kind": "forest",
   "area_m2": 1080381.926019712,
   "admin": [
@@ -118,8 +118,23 @@
       }
     },
     {
+      "key": "permits-hint-monument-lower-authority",
+      "args": {
+        "gemeinde": "Dahn",
+        "kreis": "Südwestpfalz",
+        "kreisfrei": "no"
+      }
+    },
+    {
       "key": "permits-hint-natura2000",
       "args": {}
+    },
+    {
+      "key": "permits-hint-water-protection",
+      "args": {
+        "inner": "unknown",
+        "name": "WSG DAHN, TBR. 2 \"GROSSTAL\""
+      }
     },
     {
       "key": "permits-hint-forest-owner",
@@ -150,14 +165,14 @@
     {
       "id": "vg250",
       "state": "read",
-      "fetched": "2026-11-14",
+      "fetched": "2026-11-15",
       "reason": null,
       "credit": "© BKG (2026) dl-de/by-2-0, Datenquellen: https://sg.geodatenzentrum.de/web_public/gdz/datenquellen/datenquellen_vg_nuts.pdf"
     },
     {
       "id": "bfn",
       "state": "read",
-      "fetched": "2026-11-14",
+      "fetched": "2026-11-15",
       "reason": null,
       "credit": "© Bundesamt für Naturschutz (BfN) (2026), Schutzgebiete in Deutschland; Nutzungsbestimmungen für die Bereitstellung von Geodaten des Bundes (GeoNutzV). Nicht für Planungszwecke geeignet."
     },
@@ -167,6 +182,84 @@
       "fetched": "2026-11-07",
       "reason": null,
       "credit": "© OpenStreetMap contributors, ODbL"
+    }
+  ],
+  "regional": [
+    {
+      "adapter": "rheinlandpfalz",
+      "monuments": {
+        "total": 1,
+        "groups": [
+          {
+            "kind": "Bauliche Gesamtanlage",
+            "count": 1,
+            "links": []
+          }
+        ],
+        "links_left": 0
+      },
+      "water_protection": [
+        {
+          "item": {
+            "name": "WSG DAHN, TBR. 2 \"GROSSTAL\"",
+            "zone": null,
+            "citation": null
+          },
+          "percent": 0.4,
+          "at_edge": true
+        }
+      ],
+      "sources": [
+        {
+          "source": {
+            "key": "bfg",
+            "label": {
+              "en": "Bundesanstalt für Gewässerkunde",
+              "de": "Bundesanstalt für Gewässerkunde"
+            },
+            "what": {
+              "en": "drinking water and medicinal spring protection areas from WasserBLIcK, without their zones",
+              "de": "Trinkwasser- und Heilquellenschutzgebiete aus WasserBLIcK, ohne Schutzzonen"
+            },
+            "credit": "© WasserBLIcK/BfG und Zuständige Behörden der Länder, {year}; Lizenz: Creative Commons Namensnennung – 4.0 International (CC BY 4.0)",
+            "note": "Die bundesweite Flächendeckung des Datenbestandes ist nicht in jedem Fall gewährleistet.",
+            "sections": [
+              "water-protection"
+            ]
+          },
+          "status": {
+            "id": "bfg",
+            "state": "read",
+            "fetched": "2026-11-15",
+            "reason": null,
+            "credit": "© WasserBLIcK/BfG und Zuständige Behörden der Länder, 2026; Lizenz: Creative Commons Namensnennung – 4.0 International (CC BY 4.0)"
+          }
+        },
+        {
+          "source": {
+            "key": "denkmale",
+            "label": {
+              "en": "Generaldirektion Kulturelles Erbe",
+              "de": "Generaldirektion Kulturelles Erbe"
+            },
+            "what": {
+              "en": "Einzeldenkmäler, Denkmalzonen, bauliche Gesamtanlagen",
+              "de": "Einzeldenkmäler, Denkmalzonen, bauliche Gesamtanlagen"
+            },
+            "credit": "Datenlizenz Deutschland – Namensnennung – Version 2.0 (dl-de/by-2-0); Quellenvermerk: GDKE RLP",
+            "sections": [
+              "monuments"
+            ]
+          },
+          "status": {
+            "id": "denkmale",
+            "state": "read",
+            "fetched": "2026-11-15",
+            "reason": null,
+            "credit": "Datenlizenz Deutschland – Namensnennung – Version 2.0 (dl-de/by-2-0); Quellenvermerk: GDKE RLP"
+          }
+        }
+      ]
     }
   ]
 }

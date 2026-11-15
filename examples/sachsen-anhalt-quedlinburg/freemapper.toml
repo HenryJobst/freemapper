@@ -13,16 +13,68 @@ type = "Polygon"
 
 [buildings]
 bbox = [647068.0, 5739262.0, 647988.0, 5739986.0]
-fetched = "2026-11-14"
+fetched = "2026-11-15"
 latest_update = "2026-08-05"
 count = 1491
 regions = ["saxonyanhalt"]
 
 [land_use]
 bbox = [647068.0, 5739262.0, 647988.0, 5739986.0]
-fetched = "2026-11-14"
+fetched = "2026-11-15"
 latest_update = "2026-09-04"
 count = 800
+regions = ["saxonyanhalt"]
+
+[nas_layers.dlm-bauwerk]
+bbox = [647068.0, 5739262.0, 647988.0, 5739986.0]
+fetched = "2026-11-15"
+latest_update = "2013-10-23"
+count = 1
+regions = ["saxonyanhalt"]
+
+[nas_layers.dlm-damm]
+bbox = [647068.0, 5739262.0, 647988.0, 5739986.0]
+fetched = "2026-11-15"
+count = 0
+regions = ["saxonyanhalt"]
+
+[nas_layers.dlm-felsen]
+bbox = [647068.0, 5739262.0, 647988.0, 5739986.0]
+fetched = "2026-11-15"
+count = 0
+regions = ["saxonyanhalt"]
+
+[nas_layers.dlm-gewaesserachse]
+bbox = [647068.0, 5739262.0, 647988.0, 5739986.0]
+fetched = "2026-11-15"
+latest_update = "2026-03-19"
+count = 14
+regions = ["saxonyanhalt"]
+
+[nas_layers.dlm-gewaessermerkmal]
+bbox = [647068.0, 5739262.0, 647988.0, 5739986.0]
+fetched = "2026-11-15"
+count = 0
+regions = ["saxonyanhalt"]
+
+[nas_layers.dlm-hoehle]
+bbox = [647068.0, 5739262.0, 647988.0, 5739986.0]
+fetched = "2026-11-15"
+count = 0
+regions = ["saxonyanhalt"]
+
+[nas_layers.dlm-turm]
+bbox = [647068.0, 5739262.0, 647988.0, 5739986.0]
+fetched = "2026-11-15"
+latest_update = "2024-04-04"
+count = 8
+regions = ["saxonyanhalt"]
+
+[nas_layers.dlm-vegetation]
+bbox = [647068.0, 5739262.0, 647988.0, 5739986.0]
+fetched = "2026-11-15"
+latest_update = "2026-03-19"
+count = 4
 regions = ["saxonyanhalt"]
 
 [osm]
@@ -32,14 +84,14 @@ count = 906
 
 [orthophoto]
 flight = "29.05.2026"
-fetched = "2026-11-14"
+fetched = "2026-11-15"
 bbox = [647068.773, 5739262.162, 647987.566, 5739985.031]
 
 [terrain]
-fetched = "2026-11-14"
+fetched = "2026-11-15"
 bbox = [647068.773, 5739262.162, 647987.566, 5739985.031]
 
 [surface]
-fetched = "2026-11-14"
+fetched = "2026-11-15"
 bbox = [647068.773, 5739262.162, 647987.566, 5739985.031]
 date = "13.08.2024"
