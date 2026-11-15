@@ -21,6 +21,7 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ### Fixed
 
+- Bavaria, objects of the landscape model (ADR 0135): a fountain of the model in an OpenStreetMap fountain basin or in drawn water is the basin's jet and goes, as an ALKIS fountain does; in the old town of Regensburg that is 2 of 5. A tower of the model goes beside an OpenStreetMap tower of the other tower symbol (524 and 525 count as one). When a map area leaves Bavaria, the note about removing its stored layers names the landscape model, not the full ALKIS.
 - Permit notes: the table of sources showed the placeholder `{year}` instead of the year of the fetch for the services of Saarland. It shows the year now, for the BfG too. The two Saarland examples are made again.
 - A folder adapter that names a built-in raster backend (`backend = "lgb"` and the like) got no orthophoto, terrain model or surface model in the download estimate. The built-in backends now estimate their rasters themselves, with the same numbers as the states. The estimates of the built-in states stay as they are (issue #71).
 

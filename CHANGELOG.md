@@ -21,6 +21,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Behoben
 
+- Bayern, Objekte des Landschaftsmodells (ADR 0135): Ein Brunnen des Modells in einem OpenStreetMap-Brunnenbecken oder in gezeichnetem Wasser ist dessen Fontäne und entfällt, wie ein ALKIS-Brunnen; in der Regensburger Altstadt sind das 2 von 5. Ein Turm des Modells entfällt neben einem OpenStreetMap-Turm des anderen Turmsymbols (524 und 525 zählen als eins). Verlässt ein Kartengebiet Bayern, nennt der Hinweis zum Entfernen der gespeicherten Ebenen das Landschaftsmodell statt des vollständigen ALKIS.
 - Genehmigungshinweise: In der Tabelle der Quellen stand bei den Diensten des Saarlands der Platzhalter `{year}` statt des Jahrs des Abrufs. Jetzt steht dort das Jahr, auch bei der BfG. Die beiden Saarland-Beispiele sind neu erzeugt.
 - Ein Adapter aus einem Ordner, der ein eingebautes Raster-Backend nennt (`backend = "lgb"` und Ähnliches), bekam in der Download-Schätzung kein Luftbild, kein Gelände- und kein Oberflächenmodell. Die eingebauten Backends schätzen jetzt ihre Raster selbst, mit denselben Werten wie die Bundesländer. Die Schätzungen der eingebauten Bundesländer bleiben gleich (Issue #71).
 
