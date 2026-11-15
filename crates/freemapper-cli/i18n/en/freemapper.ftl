@@ -37,6 +37,7 @@ cli-wrote-pdf = Wrote { $path } (the map without candidates)
 cli-wrote-pdf-candidates = Wrote { $path } (the check print: the map with every candidate, true to position; check them in the terrain)
 cli-wrote-training = Wrote { $map } and { $pdf } (the training map: { $joined } joined, { $left } left out or cut)
 cli-training-apart-left = the training map still has { $length } mm (on paper) where objects keep too little gap; check it in OOM
+cli-kept-training = Kept the training map { $path } (it may contain your work); --force replaces it
 
 ## OCAD
 
@@ -599,7 +600,7 @@ help-run-offline = Use the cache only, without network access
 help-run-ocad = Also write an OCAD starting point into `ocad/` (OCAD 12 format)
 help-run-pdf = Also write `<name>.pdf`, the printable map (the map objects only, no candidates)
 help-run-pdf-candidates = Also write `<name>-candidates.pdf`, the check print: the map with every candidate, true to position
-help-run-training = Also write the training map `<name>-training.omap` and its PDF `<name>-training.pdf`: the map and every candidate, cleaned up to be printed as they are; with --ocad also `ocad/<name>-training.ocd`. --force also replaces an existing training map
+help-run-training = Also write the training map `<name>-training.omap` and its PDF `<name>-training.pdf`: the map and every candidate, cleaned up to be printed as they are; with --ocad also `ocad/<name>-training.ocd`. An existing training map stays unless you pass --force
 help-run-pdf-scale-bar = Draw the scale bar on the PDFs (off by default; the scale number stays in the title block)
 help-run-pdf-sources = Source lines on the PDFs: `auto` prints the full list and shortens it only when it would take more than 5 lines, `full` never shortens, `credit-only` prints only the freemapper credit line (ODbL and dl-de/by-2-0 then ask you to name the sources when you pass the map on). ATTRIBUTION.txt always lists every source
 help-select = Choose the map area in the browser by drawing it or picking a place. Saving writes freemapper.toml and creates the project folder if needed
@@ -667,6 +668,7 @@ cli-summary-pdf-failed = PDF export failed: { $error }
 cli-summary-wrote-pdf-candidates = Wrote the check print { $path } (the map with every candidate, true to position)
 cli-summary-pdf-candidates-failed = Check print export failed: { $error }
 cli-summary-training-failed = Training map export failed: { $error }
+cli-summary-kept-training = Kept the existing training map { $path } (it may contain the mapper's work; force replaces it)
 
 ## The MCP server. The descriptions of the tools and parameters equal the texts in `src/mcp.rs`; a test compares them.
 
@@ -736,7 +738,7 @@ mcp-param-start-pipeline-pdf-candidates = Also write <name>-candidates.pdf, the 
 mcp-param-start-pipeline-pdf-scale-bar = Draw the scale bar on the PDFs. Default false (German maps usually have none; the scale number stays in the title block).
 mcp-param-start-pipeline-pdf-sources = Source lines on the PDFs: "auto" (default; the full list, shortened only when it takes more than 5 lines), "full" (never shortened) or "credit-only" (only the freemapper credit line; ODbL and dl-de/by-2-0 then require naming the sources when the map is passed on). ATTRIBUTION.txt always lists every source.
 mcp-param-start-pipeline-permits = Also write the permit notes (permits.md and permits.json) after the map: administrative units, protected areas and who runs the land. A failure there is a warning, not a failed job. Default false.
-mcp-param-start-pipeline-training = Also write the training map <name>-training.omap and its PDF <name>-training.pdf: the map and every candidate, cleaned up to be printed as they are; with ocad also ocad/<name>-training.ocd. An existing training map is replaced only with force. Default false.
+mcp-param-start-pipeline-training = Also write the training map <name>-training.omap and its PDF <name>-training.pdf: the map and every candidate, cleaned up to be printed as they are; with ocad also ocad/<name>-training.ocd. An existing training map is kept unless force is true. Default false.
 mcp-instructions = freemapper makes OpenOrienteering Mapper starter projects for orienteering maps (schoolyard 1:1000, sprint 1:4000, forest 1:15000) from official geodata of { $states }, and from OSM. Workflow: find_place (search the school or area by name; pick a result with has_area) → create_project (a new folder, absolute path, with the osm_id) → estimate_download (tell the user how much will be downloaded) → start_pipeline (returns a job id; downloading can take minutes) → project_status (poll every few seconds until the state is finished or failed) → list_layers and preview_layer (show the user the templates). The user then opens the map file in OpenOrienteering Mapper. When no place fits or the user wants to draw the area, open_area_selector opens a page in the browser where the user draws or picks the area and saves it (this creates the project); continue with estimate_download once the user says it is saved. Paths must be absolute or start with ~. One pipeline runs at a time. permits_for_area makes the permit notes of a project (administrative units, protected areas, who runs the land; a hint, not legal advice) as a job like start_pipeline. check_update tells whether a newer freemapper exists; install_update installs it, only with confirm: true after the person agreed, and the assistant then restarts the freemapper server.
 
 cli-contour-interval-saved = Contour interval saved in freemapper.toml: { $interval } m; derive traces the contours at it

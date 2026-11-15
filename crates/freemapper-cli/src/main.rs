@@ -168,8 +168,8 @@ enum Commands {
         pdf_candidates: bool,
         /// Also write the training map `<name>-training.omap` and its PDF
         /// `<name>-training.pdf`: the map and every candidate, cleaned up to be printed as they
-        /// are; with --ocad also `ocad/<name>-training.ocd`. --force also replaces an existing
-        /// training map.
+        /// are; with --ocad also `ocad/<name>-training.ocd`. An existing training map stays unless
+        /// you pass --force.
         #[arg(long)]
         training: bool,
         /// Draw the scale bar on the PDFs (off by default; the scale number stays in the title block).
@@ -582,6 +582,10 @@ fn print_written(written: pipeline::Written, sources: PdfSources) {
         pipeline::Written::Pdf(path) => report_pdf(path, false, sources),
         pipeline::Written::PdfCandidates(path) => report_pdf(path, true, sources),
         pipeline::Written::Training(outcome) => report_training(outcome, sources),
+        pipeline::Written::TrainingKept(path) => println!(
+            "{}",
+            text("cli-kept-training", &[("path", v(path.display()))])
+        ),
         pipeline::Written::Permits(path) => wrote_permits(path),
     }
 }

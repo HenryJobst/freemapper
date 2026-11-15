@@ -14,7 +14,7 @@ use freemapper::project::{
     MapOutcome, OcadOutcome, PdfSources, ProjectError, RunOutcome, RunStage, TrainingOutcome,
     export_candidates_pdf_from, export_ocad_from, export_pdf_from, export_training_from, map_path,
     map_preview_path, pdf_path, run_project_steps_cancellable, starter_documents,
-    training_map_path, training_pdf_path,
+    training_map_path, training_ocad_path, training_pdf_path,
 };
 use serde::Deserialize;
 
@@ -28,8 +28,8 @@ pub struct RunOptions {
     pub ocad: bool,
     pub pdf: bool,
     pub pdf_candidates: bool,
-    /// Also write the training map, its PDF and, with `ocad`, its OCAD file. `force` replaces an
-    /// existing one as it replaces the map.
+    /// Also write the training map, its PDF and, with `ocad`, its OCAD file. An existing one is
+    /// kept as the map is, unless `force`.
     pub training: bool,
     pub pdf_scale_bar: bool,
     pub pdf_sources: PdfSources,
@@ -145,6 +145,8 @@ pub enum Written<'a> {
     Pdf(&'a Path),
     PdfCandidates(&'a Path),
     Training(&'a TrainingOutcome),
+    /// The training map was kept: the file named here exists and `force` was not given.
+    TrainingKept(&'a Path),
     /// `permits.md`.
     Permits(&'a Path),
 }
@@ -219,7 +221,15 @@ fn kept_files(dir: &Path) -> Vec<ResultFile> {
             .filter(|p| !p.to_string_lossy().contains(".part"))
             .collect();
         found.sort();
-        paths.extend(found.into_iter().map(|p| (kind, p)));
+        let training_ocad = training_ocad_path(dir);
+        paths.extend(found.into_iter().map(|p| {
+            let kind = if p == training_ocad {
+                "training-ocad"
+            } else {
+                kind
+            };
+            (kind, p)
+        }));
     }
     paths.push(("pdf", pdf_path(dir, false)));
     paths.push(("pdf-candidates", pdf_path(dir, true)));
@@ -446,8 +456,22 @@ pub fn run(
                 return Err(cancelled);
             }
             (progress.borrow_mut())(phase(Step::Training));
-            let result = match &documents {
-                Ok(d) => settle(
+            // An existing training map may hold the mapper's work: the run keeps it as it keeps
+            // the map. `export` refuses instead, as it refuses to replace the map.
+            let kept = (!options.force)
+                .then(|| existing_training(dir, options.ocad))
+                .flatten();
+            let result = match (&documents, kept) {
+                (_, Some(path)) => {
+                    (progress.borrow_mut())(Event::Written(Written::TrainingKept(&path)));
+                    summary.push('\n');
+                    summary.push_str(&text(
+                        "cli-summary-kept-training",
+                        &[("path", v(path.display()))],
+                    ));
+                    Ok(Training::Kept { ocad: options.ocad })
+                }
+                (Ok(d), None) => settle(
                     fail_fast,
                     export_training_from(
                         dir,
@@ -457,11 +481,12 @@ pub fn run(
                         options.pdf_sources,
                         options.ocad,
                     ),
-                )?,
-                Err(e) => Err(e.clone()),
+                )?
+                .map(Training::Written),
+                (Err(e), None) => Err(e.clone()),
             };
             match &result {
-                Ok(outcome) => {
+                Ok(Training::Written(outcome)) => {
                     (progress.borrow_mut())(Event::Written(Written::Training(outcome)));
                     summary.push('\n');
                     summary.push_str(&training_summary(outcome));
@@ -469,6 +494,7 @@ pub fn run(
                         warn(warning);
                     }
                 }
+                Ok(Training::Kept { .. }) => {}
                 Err(e) => summary.push_str(&failed("cli-summary-training-failed", e)),
             }
             outputs.training = Some(result);
@@ -591,7 +617,25 @@ struct Outputs {
     ocad: Option<Result<OcadOutcome, String>>,
     pdf: Option<Result<PathBuf, String>>,
     pdf_candidates: Option<Result<PathBuf, String>>,
-    training: Option<Result<TrainingOutcome, String>>,
+    training: Option<Result<Training, String>>,
+}
+
+/// What the training step did.
+#[derive(Debug)]
+enum Training {
+    Written(TrainingOutcome),
+    /// An existing training map stayed; `ocad`: the run asked for the OCAD file too.
+    Kept {
+        ocad: bool,
+    },
+}
+
+/// The file of an existing training map that a run without `force` keeps: the map file, or with
+/// `ocad` its OCAD file, the same files the export checks.
+fn existing_training(dir: &Path, ocad: bool) -> Option<PathBuf> {
+    std::iter::once(training_map_path(dir))
+        .chain(ocad.then(|| training_ocad_path(dir)))
+        .find(|path| path.exists())
 }
 
 /// The files of a run that exist now, under their fixed names.
@@ -619,12 +663,23 @@ fn result_files(
     if matches!(outputs.pdf_candidates, Some(Ok(_))) {
         candidates.push(("pdf-candidates", pdf_path(dir, true)));
     }
-    if let Some(Ok(training)) = &outputs.training {
-        candidates.push(("training-map", training.map.clone()));
-        candidates.push(("training-pdf", training.pdf.clone()));
-        if let Some(ocad) = &training.ocad {
-            candidates.push(("training-ocad", ocad.clone()));
+    match &outputs.training {
+        Some(Ok(Training::Written(training))) => {
+            candidates.push(("training-map", training.map.clone()));
+            candidates.push(("training-pdf", training.pdf.clone()));
+            if let Some(ocad) = &training.ocad {
+                candidates.push(("training-ocad", ocad.clone()));
+            }
         }
+        // The kept files under their fixed names, as the kept map is listed.
+        Some(Ok(Training::Kept { ocad })) => {
+            candidates.push(("training-map", training_map_path(dir)));
+            candidates.push(("training-pdf", training_pdf_path(dir)));
+            if *ocad {
+                candidates.push(("training-ocad", training_ocad_path(dir)));
+            }
+        }
+        Some(Err(_)) | None => {}
     }
     if let Some(written) = permits {
         candidates.push(("permits", written.markdown.clone()));
@@ -732,16 +787,29 @@ pub fn training_summary(outcome: &TrainingOutcome) -> String {
 /// conflict length left when the give-way step stopped at its last round.
 pub fn training_warnings(outcome: &TrainingOutcome) -> Vec<String> {
     let mut lines: Vec<String> = outcome.warnings.iter().map(line).collect();
-    if outcome.report.apart_left > 0.0 {
-        // The separator of the language, as the update messages write their megabytes.
-        let length = format!("{:.1}", outcome.report.apart_left)
-            .replace('.', &text("update-decimal-separator", &[]));
-        lines.push(crate::text::warning(&text(
-            "cli-training-apart-left",
-            &[("length", v(length))],
-        )));
-    }
+    lines.extend(apart_left_warning(
+        outcome.report.apart_left,
+        &crate::text::lang(),
+    ));
     lines
+}
+
+/// The warning that `length` mm of conflicts between objects that keep apart are left on the
+/// training map, in `lang`; none when nothing is left.
+fn apart_left_warning(length: f64, lang: &Lang) -> Option<String> {
+    (length > 0.0).then(|| {
+        // The separator of the language, as the update messages write their megabytes.
+        let length =
+            format!("{length:.1}").replace('.', &TEXTS.text(lang, "update-decimal-separator", &[]));
+        freemapper::note::NOTES.text(
+            lang,
+            "note-warning",
+            &[(
+                "text",
+                v(TEXTS.text(lang, "cli-training-apart-left", &[("length", v(length))])),
+            )],
+        )
+    })
 }
 
 #[cfg(test)]
@@ -1012,7 +1080,7 @@ mod tests {
         std::fs::write(pdf_path(dir.path(), true), "x").unwrap();
         let outputs = Outputs {
             pdf_candidates: Some(Ok(pdf_path(dir.path(), true))),
-            training: Some(Ok(training)),
+            training: Some(Ok(Training::Written(training))),
             ..Outputs::default()
         };
         let kinds: Vec<(&str, String)> = result_files(dir.path(), &outcome, &outputs, None)
@@ -1035,6 +1103,97 @@ mod tests {
             ..Outputs::default()
         };
         assert!(result_files(dir.path(), &outcome, &failed, None).is_empty());
+    }
+
+    #[test]
+    fn files_list_a_kept_training_map_under_its_kinds() {
+        let dir = tempfile::tempdir().unwrap();
+        let outcome = RunOutcome {
+            templates: Vec::new(),
+            map: MapOutcome::Written(map_path(dir.path())),
+            preview: None,
+        };
+        let (map, pdf, ocd) = (
+            training_map_path(dir.path()),
+            training_pdf_path(dir.path()),
+            training_ocad_path(dir.path()),
+        );
+        std::fs::create_dir_all(ocd.parent().unwrap()).unwrap();
+        for path in [&map, &pdf, &ocd] {
+            std::fs::write(path, "x").unwrap();
+        }
+        let kept = |ocad| Outputs {
+            training: Some(Ok(Training::Kept { ocad })),
+            ..Outputs::default()
+        };
+        let kinds = |outputs: &Outputs| -> Vec<&str> {
+            result_files(dir.path(), &outcome, outputs, None)
+                .into_iter()
+                .map(|f| f.kind)
+                .collect()
+        };
+        assert_eq!(kinds(&kept(false)), ["training-map", "training-pdf"]);
+        assert_eq!(
+            kinds(&kept(true)),
+            ["training-map", "training-pdf", "training-ocad"]
+        );
+    }
+
+    #[test]
+    fn a_kept_training_map_is_found_by_the_files_the_export_checks() {
+        let dir = tempfile::tempdir().unwrap();
+        assert_eq!(existing_training(dir.path(), true), None);
+        let ocd = training_ocad_path(dir.path());
+        std::fs::create_dir_all(ocd.parent().unwrap()).unwrap();
+        std::fs::write(&ocd, "x").unwrap();
+        // The OCAD file counts only when the run writes one.
+        assert_eq!(existing_training(dir.path(), false), None);
+        assert_eq!(existing_training(dir.path(), true), Some(ocd.clone()));
+        std::fs::write(training_map_path(dir.path()), "x").unwrap();
+        assert_eq!(
+            existing_training(dir.path(), true),
+            Some(training_map_path(dir.path()))
+        );
+    }
+
+    #[test]
+    fn a_cancelled_run_names_the_training_files_by_their_kinds() {
+        let dir = tempfile::tempdir().unwrap();
+        let ocd = training_ocad_path(dir.path());
+        std::fs::create_dir_all(ocd.parent().unwrap()).unwrap();
+        std::fs::write(&ocd, "x").unwrap();
+        std::fs::write(dir.path().join("ocad/other.ocd"), "x").unwrap();
+        std::fs::write(training_map_path(dir.path()), "x").unwrap();
+        let kinds: Vec<(&str, String)> = kept_files(dir.path())
+            .into_iter()
+            .map(|f| (f.kind, f.relative_path))
+            .collect();
+        let ocd_name = ocd.file_name().unwrap().to_string_lossy().into_owned();
+        assert!(
+            kinds.contains(&("training-ocad", format!("ocad/{ocd_name}"))),
+            "{kinds:?}"
+        );
+        assert!(
+            kinds.contains(&("ocad", "ocad/other.ocd".to_string())),
+            "{kinds:?}"
+        );
+        assert!(kinds.iter().any(|(kind, _)| *kind == "training-map"));
+    }
+
+    #[test]
+    fn the_german_apart_left_warning_has_a_decimal_comma() {
+        let german = crate::text::TEXTS.parse_lang_arg("de").unwrap();
+        assert_eq!(apart_left_warning(0.0, &german), None);
+        assert_eq!(
+            apart_left_warning(12.34, &german).unwrap(),
+            "Warnung: Die Trainingskarte hat noch 12,3 mm (auf dem Papier), an denen Objekte zu \
+             wenig Abstand halten; prüfen Sie sie in OOM"
+        );
+        assert_eq!(
+            apart_left_warning(12.34, &Lang::english()).unwrap(),
+            "warning: the training map still has 12.3 mm (on paper) where objects keep too little \
+             gap; check it in OOM"
+        );
     }
 
     #[test]

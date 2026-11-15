@@ -811,6 +811,60 @@ fn run_training_writes_both_files_and_says_so() {
     );
 }
 
+/// `run --training` keeps an existing training map as it keeps the map: a note names it and says
+/// that --force replaces it, nothing of the training map is written, and the run ends with 0.
+#[test]
+fn run_training_keeps_an_existing_training_map() {
+    let dir = tempfile::tempdir().unwrap();
+    let (project, cache) = offline_school(dir.path());
+    let run = |lang: &str| {
+        freemapper_in(&[("FREEMAPPER_LANG", lang)])
+            .arg("run")
+            .arg(&project)
+            .args(["--offline", "--training", "--cache-dir"])
+            .arg(&cache)
+            .output()
+            .unwrap()
+    };
+    let first = run("en");
+    assert!(
+        first.status.success(),
+        "{}",
+        String::from_utf8_lossy(&first.stderr)
+    );
+    let (map, pdf) = (
+        project.join("school-training.omap"),
+        project.join("school-training.pdf"),
+    );
+    std::fs::write(&map, "edited in OOM").unwrap();
+    let printed = std::fs::read(&pdf).unwrap();
+    let second = run("en");
+    let stdout = String::from_utf8(second.stdout).unwrap();
+    let stderr = String::from_utf8(second.stderr).unwrap();
+    assert_eq!(second.status.code(), Some(0), "{stderr}");
+    assert!(
+        stdout.contains(&format!(
+            "Kept the training map {} (it may contain your work); --force replaces it",
+            map.display()
+        )),
+        "{stdout}"
+    );
+    assert!(!stdout.contains("(the training map: "), "{stdout}");
+    assert_eq!(std::fs::read_to_string(&map).unwrap(), "edited in OOM");
+    assert_eq!(std::fs::read(&pdf).unwrap(), printed);
+    assert!(!project.join("school-training.omap.bak").exists());
+    let german = run("de");
+    assert_eq!(german.status.code(), Some(0));
+    let stdout = String::from_utf8(german.stdout).unwrap();
+    assert!(
+        stdout.contains(&format!(
+            "Trainingskarte {} behalten (sie kann Ihre Arbeit enthalten); --force ersetzt sie",
+            map.display()
+        )),
+        "{stdout}"
+    );
+}
+
 /// An existing training map may hold the mapper's work: without --force `export --training`
 /// stops with the map-exists message that names it; with --force it is replaced and kept as .bak.
 #[test]

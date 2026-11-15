@@ -867,6 +867,43 @@ fn start_pipeline_with_training_lists_both_files() {
     assert!(project.join("school-training.pdf").is_file());
 }
 
+/// A second `start_pipeline` with `training` keeps the training map: the job finishes, the result
+/// says so, and the kept files are listed.
+#[test]
+fn start_pipeline_keeps_an_existing_training_map() {
+    let dir = tempfile::tempdir().unwrap();
+    let (project, cache) = offline_school(dir.path());
+    let mut session = Session::start(&cache);
+    let arguments = json!({ "dir": project, "offline": true, "training": true });
+    let (error, text) = session.call("start_pipeline", arguments.clone());
+    assert!(!error, "{text}");
+    let first = wait_for_job(&mut session, &started_job(&text));
+    assert_eq!(first["state"], "finished", "{first}");
+    let map = project.join("school-training.omap");
+    std::fs::write(&map, "edited in OOM").unwrap();
+    let (error, text) = session.call("start_pipeline", arguments);
+    assert!(!error, "{text}");
+    let status = wait_for_job(&mut session, &started_job(&text));
+    assert_eq!(status["state"], "finished", "{status}");
+    let result = status["result"].as_str().unwrap();
+    assert!(
+        result.contains(&format!(
+            "Kept the existing training map {} (it may contain the mapper's work; force \
+             replaces it)",
+            map.display()
+        )),
+        "{status}"
+    );
+    assert!(!result.contains("(the training map: "), "{status}");
+    let kinds: Vec<String> = listed_files(&status)
+        .into_iter()
+        .filter(|(kind, _)| kind.starts_with("training"))
+        .map(|(kind, _)| kind)
+        .collect();
+    assert_eq!(kinds, ["training-map", "training-pdf"], "{status}");
+    assert_eq!(std::fs::read_to_string(&map).unwrap(), "edited in OOM");
+}
+
 /// A failure of the notes in `start_pipeline` is a warning; the map is written and the job
 /// finishes.
 #[test]

@@ -13,11 +13,23 @@ function tOr(id, fallback, args = {}) {
   return text === id ? fallback : text;
 }
 
+/** The options whose output has a PDF: the scale bar and the source lines apply only with one. */
+const PDF_OPTIONS = ["pdf", "pdf_candidates", "training"];
+
+/** Whether one of the PDF options is on; `isOn` answers for an option name. */
+function anyPdf(isOn) {
+  return PDF_OPTIONS.some(isOn);
+}
+
+/** The control of option `name` inside `root`; ids spell the name with dashes. */
+function optionField(root, name) {
+  return root.querySelector(`#${RUN_ID_PREFIX}${name.replaceAll("_", "-")}`);
+}
+
 /** The nine options of a run from the form inside `root`; the PDF-only ones are off without a PDF. */
 function optionsFromForm(root) {
-  const field = (id) => root.querySelector(`#${RUN_ID_PREFIX}${id}`);
-  // Training writes a PDF too.
-  const anyPdf = field("pdf").checked || field("pdf-candidates").checked || field("training").checked;
+  const field = (id) => optionField(root, id);
+  const withPdf = anyPdf((name) => field(name).checked);
   const forceShown = !root.querySelector("#run-force-row").hidden;
   return {
     force: forceShown && field("force").checked,
@@ -26,18 +38,18 @@ function optionsFromForm(root) {
     pdf: field("pdf").checked,
     pdf_candidates: field("pdf-candidates").checked,
     training: field("training").checked,
-    pdf_scale_bar: anyPdf && field("pdf-scale-bar").checked,
-    pdf_sources: anyPdf ? field("pdf-sources").value : "auto",
+    pdf_scale_bar: withPdf && field("pdf-scale-bar").checked,
+    pdf_sources: withPdf ? field("pdf-sources").value : "auto",
     permits: field("permits").checked,
   };
 }
 
 /** Text ids of the rules the options break; the server decides in the end. */
 function validateOptions(options) {
-  const anyPdf = options.pdf || options.pdf_candidates || options.training;
+  const withPdf = anyPdf((name) => options[name]);
   const errors = [];
-  if (options.pdf_scale_bar && !anyPdf) errors.push("page-err-scale-bar-no-pdf");
-  if (options.pdf_sources !== "auto" && !anyPdf) errors.push("page-err-sources-no-pdf");
+  if (options.pdf_scale_bar && !withPdf) errors.push("page-err-scale-bar-no-pdf");
+  if (options.pdf_sources !== "auto" && !withPdf) errors.push("page-err-sources-no-pdf");
   return errors;
 }
 
@@ -94,12 +106,11 @@ function blockedReason() {
 function refresh() {
   if (!page() || $r("run").hidden) return;
   const p = page();
-  const anyPdf =
-    $r("run-pdf").checked || $r("run-pdf-candidates").checked || $r("run-training").checked;
-  $r("run-pdf-scale-bar").disabled = running || !anyPdf;
-  $r("run-pdf-sources").disabled = running || !anyPdf;
-  $r("run-pdf-hint").hidden = anyPdf;
-  $r("run-sources-warning").hidden = !(anyPdf && $r("run-pdf-sources").value === "credit-only");
+  const withPdf = anyPdf((name) => optionField(document, name).checked);
+  $r("run-pdf-scale-bar").disabled = running || !withPdf;
+  $r("run-pdf-sources").disabled = running || !withPdf;
+  $r("run-pdf-hint").hidden = withPdf;
+  $r("run-sources-warning").hidden = !(withPdf && $r("run-pdf-sources").value === "credit-only");
   for (const id of ["ocad", "pdf", "pdf-candidates", "training", "permits", "offline", "force"]) {
     $r(`${RUN_ID_PREFIX}${id}`).disabled = running;
   }

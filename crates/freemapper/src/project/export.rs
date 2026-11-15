@@ -676,6 +676,12 @@ pub fn training_pdf_path(dir: &Path) -> PathBuf {
     beside_map(dir, "-training.pdf")
 }
 
+/// `ocad/<name>-training.ocd`, the OCAD file of the training map.
+pub fn training_ocad_path(dir: &Path) -> PathBuf {
+    dir.join(OCAD_DIR)
+        .join(format!("{}-training.ocd", ocad_name(dir)))
+}
+
 /// The file beside the map whose name is the map's followed by `suffix`.
 fn beside_map(dir: &Path, suffix: &str) -> PathBuf {
     let map = map_path(dir);
@@ -733,10 +739,7 @@ pub fn export_training_from(
 ) -> Result<TrainingOutcome, ProjectError> {
     let project = ProjectFile::load(dir)?;
     let map_path = training_map_path(dir);
-    let ocad_path = ocad.then(|| {
-        dir.join(OCAD_DIR)
-            .join(format!("{}-training.ocd", ocad_name(dir)))
-    });
+    let ocad_path = ocad.then(|| training_ocad_path(dir));
     // Either file may hold the mapper's work.
     if !force
         && let Some(path) = std::iter::once(&map_path)

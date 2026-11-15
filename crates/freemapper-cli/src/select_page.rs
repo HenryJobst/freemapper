@@ -343,10 +343,13 @@ fn the_training_box_is_an_output_switch() {
         body.contains("training: field(\"training\").checked"),
         "{body}"
     );
+    // Its PDF counts for the scale bar and the sources, by the one rule of the page.
     assert!(
-        body.contains("|| field(\"training\").checked"),
-        "its PDF counts for the scale bar and the sources: {body}"
+        run.contains("const PDF_OPTIONS = [\"pdf\", \"pdf_candidates\", \"training\"];"),
+        "{run}"
     );
+    assert_eq!(run.matches("anyPdf((name) =>").count(), 3, "{run}");
+    assert!(!run.contains(".checked ||") && !run.contains("options.pdf ||"));
     assert!(
         run.contains("$r(\"run-training\").checked = !!defaults.training;"),
         "the box starts as the page was opened"

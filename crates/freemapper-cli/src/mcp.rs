@@ -129,7 +129,7 @@ struct StartPipeline {
     pdf_candidates: Option<bool>,
     /// Also write the training map <name>-training.omap and its PDF <name>-training.pdf: the map
     /// and every candidate, cleaned up to be printed as they are; with ocad also
-    /// ocad/<name>-training.ocd. An existing training map is replaced only with force. Default
+    /// ocad/<name>-training.ocd. An existing training map is kept unless force is true. Default
     /// false.
     training: Option<bool>,
     /// Draw the scale bar on the PDFs. Default false (German maps usually have none; the scale

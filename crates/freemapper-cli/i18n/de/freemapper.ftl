@@ -37,6 +37,7 @@ cli-wrote-pdf = { $path } geschrieben (die Karte ohne Kandidaten)
 cli-wrote-pdf-candidates = { $path } geschrieben (der Prüfausdruck: die Karte mit jedem Kandidaten, lagetreu; prüfen Sie sie im Gelände)
 cli-wrote-training = { $map } und { $pdf } geschrieben (die Trainingskarte: { $joined } zusammengelegt, { $left } weggelassen oder gekürzt)
 cli-training-apart-left = Die Trainingskarte hat noch { $length } mm (auf dem Papier), an denen Objekte zu wenig Abstand halten; prüfen Sie sie in OOM
+cli-kept-training = Trainingskarte { $path } behalten (sie kann Ihre Arbeit enthalten); --force ersetzt sie
 
 ## OCAD
 
@@ -599,7 +600,7 @@ help-run-offline = Nur den Zwischenspeicher verwenden, ohne Netzzugriff
 help-run-ocad = Zusätzlich einen OCAD-Startpunkt nach `ocad/` schreiben (Format OCAD 12)
 help-run-pdf = Zusätzlich `<name>.pdf` schreiben, die druckfertige Karte (nur die Kartenobjekte, keine Kandidaten)
 help-run-pdf-candidates = Zusätzlich `<name>-candidates.pdf` schreiben, den Prüfausdruck: die Karte mit jedem Kandidaten, lagetreu
-help-run-training = Zusätzlich die Trainingskarte `<name>-training.omap` und ihre PDF `<name>-training.pdf` schreiben: die Karte mit jedem Kandidaten, so bereinigt, dass sie unverändert gedruckt werden kann; mit --ocad auch `ocad/<name>-training.ocd`. --force ersetzt auch eine vorhandene Trainingskarte
+help-run-training = Zusätzlich die Trainingskarte `<name>-training.omap` und ihre PDF `<name>-training.pdf` schreiben: die Karte mit jedem Kandidaten, so bereinigt, dass sie unverändert gedruckt werden kann; mit --ocad auch `ocad/<name>-training.ocd`. Eine vorhandene Trainingskarte bleibt, außer mit --force
 help-run-pdf-scale-bar = Die Maßstabsleiste auf die PDFs zeichnen (standardmäßig aus; die Maßstabszahl bleibt im Titelblock)
 help-run-pdf-sources = Quellenzeilen auf den PDFs: `auto` druckt die ganze Liste und kürzt sie nur, wenn sie mehr als 5 Zeilen bräuchte, `full` kürzt nie, `credit-only` druckt nur die freemapper-Zeile (ODbL und dl-de/by-2-0 verlangen dann, dass Sie die Quellen nennen, wenn Sie die Karte weitergeben). ATTRIBUTION.txt nennt immer jede Quelle
 help-select = Das Kartengebiet im Browser wählen: zeichnen oder einen Ort suchen. Beim Speichern wird freemapper.toml geschrieben und der Projektordner bei Bedarf angelegt
@@ -676,6 +677,7 @@ cli-summary-pdf-failed = PDF-Export fehlgeschlagen: { $error }
 cli-summary-wrote-pdf-candidates = Prüfausdruck { $path } geschrieben (die Karte mit jedem Kandidaten, lagetreu)
 cli-summary-pdf-candidates-failed = Export des Prüfausdrucks fehlgeschlagen: { $error }
 cli-summary-training-failed = Export der Trainingskarte fehlgeschlagen: { $error }
+cli-summary-kept-training = Die vorhandene Trainingskarte { $path } bleibt (sie kann die Arbeit der Kartiererin oder des Kartierers enthalten; force ersetzt sie)
 
 ## Der MCP-Server. Tool-, Parameter- und Feldnamen bleiben Englisch.
 
@@ -754,7 +756,7 @@ mcp-param-start-pipeline-pdf-candidates = Zusätzlich <name>-candidates.pdf schr
 mcp-param-start-pipeline-pdf-scale-bar = Die Maßstabsleiste auf die PDFs zeichnen. Standard false (deutsche Karten haben meist keine; die Maßstabszahl bleibt im Titelblock).
 mcp-param-start-pipeline-pdf-sources = Quellenzeilen auf den PDFs: "auto" (Standard; die ganze Liste, gekürzt nur, wenn sie mehr als 5 Zeilen braucht), "full" (nie gekürzt) oder "credit-only" (nur die freemapper-Zeile; ODbL und dl-de/by-2-0 verlangen dann, die Quellen zu nennen, wenn die Karte weitergegeben wird). ATTRIBUTION.txt nennt immer jede Quelle.
 mcp-param-start-pipeline-permits = Nach der Karte zusätzlich die Genehmigungshinweise schreiben (permits.md und permits.json): Verwaltungseinheiten, Schutzgebiete und wer die Flächen betreibt. Ein Fehler dort ist eine Warnung, kein gescheiterter Job. Standard false.
-mcp-param-start-pipeline-training = Zusätzlich die Trainingskarte <name>-training.omap und ihre PDF <name>-training.pdf schreiben: die Karte mit jedem Kandidaten, so bereinigt, dass sie unverändert gedruckt werden kann; mit ocad auch ocad/<name>-training.ocd. Eine vorhandene Trainingskarte wird nur mit force ersetzt. Standard false.
+mcp-param-start-pipeline-training = Zusätzlich die Trainingskarte <name>-training.omap und ihre PDF <name>-training.pdf schreiben: die Karte mit jedem Kandidaten, so bereinigt, dass sie unverändert gedruckt werden kann; mit ocad auch ocad/<name>-training.ocd. Eine vorhandene Trainingskarte bleibt, außer mit force. Standard false.
 
 cli-contour-interval-saved = Äquidistanz in freemapper.toml gespeichert: { $interval } m; derive rechnet die Höhenlinien damit
 cli-contour-interval-auto = Äquidistanz in freemapper.toml: automatisch (die der Kartenart; eine Waldkarte bekommt in flachem Gelände 2,5 m, in steilem 10 m)
