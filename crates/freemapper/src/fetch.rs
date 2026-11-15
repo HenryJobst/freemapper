@@ -1323,6 +1323,21 @@ pub(crate) mod test_support {
     /// Serves everything a Hesse project in `bbox` (EPSG:25832) fetches: the height models (see
     /// below), a WMS orthophoto of the right size with the GetFeatureInfo flight date (19.08.2025),
     /// the Hesse ALKIS fixtures and the Hesse OSM extract.
+    /// Empty answers of the NAS services at `urls`, as a service gives them for a type without
+    /// objects in the box.
+    fn serve_empty_nas(fetcher: &MapFetcher, urls: &[&str]) {
+        for nas in urls {
+            fetcher.insert_prefix(
+                &format!("{nas}?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&"),
+                b"<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<wfs:FeatureCollection \
+                  numberReturned=\"0\" numberMatched=\"unknown\" \
+                  xmlns:gml=\"http://www.opengis.net/gml/3.2\" \
+                  xmlns:wfs=\"http://www.opengis.net/wfs/2.0\"/>"
+                    .to_vec(),
+            );
+        }
+    }
+
     pub fn serve_synthetic_hessen(fetcher: &MapFetcher, bbox: &crate::crs::BoundingBox) {
         use freemapper_adapters_de::hvbg;
         use freemapper_sources::wfs as alkis_wfs;
@@ -1358,21 +1373,14 @@ pub(crate) mod test_support {
                 body.as_bytes().to_vec(),
             );
         }
-        // The full ALKIS and the landscape model of the HVBG (ADR 0135): empty answers, as the
-        // services give them for a type without objects in the box.
-        for nas in [
-            "https://www.gds.hessen.de/wfs2/aaa-suite/cgi-bin/alkis/nas/wfs",
-            "https://www.gds.hessen.de/wfs2/aaa-suite/cgi-bin/atkis-bdlm/nas/wfs",
-        ] {
-            fetcher.insert_prefix(
-                &format!("{nas}?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&"),
-                b"<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<wfs:FeatureCollection \
-                  numberReturned=\"0\" numberMatched=\"unknown\" \
-                  xmlns:gml=\"http://www.opengis.net/gml/3.2\" \
-                  xmlns:wfs=\"http://www.opengis.net/wfs/2.0\"/>"
-                    .to_vec(),
-            );
-        }
+        // The full ALKIS and the landscape model of the HVBG (ADR 0135).
+        serve_empty_nas(
+            fetcher,
+            &[
+                "https://www.gds.hessen.de/wfs2/aaa-suite/cgi-bin/alkis/nas/wfs",
+                "https://www.gds.hessen.de/wfs2/aaa-suite/cgi-bin/atkis-bdlm/nas/wfs",
+            ],
+        );
         let extract = crate::sources::osm::extract_of("hessen", 0);
         fetcher.insert(
             &extract.state_url(),
@@ -1441,6 +1449,11 @@ pub(crate) mod test_support {
         fetcher: &MapFetcher,
         bbox: &crate::crs::BoundingBox,
     ) {
+        // The landscape model of the LVermGeo SH (ADR 0135).
+        serve_empty_nas(
+            fetcher,
+            &["https://dienste.gdi-sh.de/WFS_SH_ATKIS_BDLM_SF_OpenGBD"],
+        );
         use freemapper_adapters_de::lvermgeo_sh;
         use freemapper_sources::wfs as alkis_wfs;
         serve_schleswig_holstein_models(fetcher, bbox);

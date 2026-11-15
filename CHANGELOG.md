@@ -8,6 +8,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Hinzugefügt
 
+- Schleswig-Holstein: Objekte aus dem Landschaftsmodell des LVermGeo SH (ATKIS Basis-DLM, ADR 0135) als Kandidaten. In den Hüttener Bergen sind das 48 Wälle, ein Wasserlauf und 4 Fahrwege; in Lübeck ein Wasserlauf. Beide Beispiele sind neu gebaut.
 - Hessen: das vollständige ALKIS und das Landschaftsmodell der HVBG (ADR 0135). Das vollständige ALKIS bringt vermessene Treppen auf die Karte, 54 in der Marburger Oberstadt; das Landschaftsmodell ergänzt Kandidaten wie in Bayern (benannte Bäume, kleine Wasserläufe, ein Damm und eine Mauer in Marburg, ein Felsen, eine Quelle und ein Wasserlauf am Feldberg). Beide Beispiele sind neu gebaut. Für Adapter: Ein Manifest darf jetzt einen NAS-Dienst je Modell nennen, sodass ein Bundesland sein Kataster und sein Landschaftsmodell anbieten kann.
 
 ## [0.21.0] - 2026-11-15

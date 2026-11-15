@@ -89,3 +89,9 @@ a second service of the same model is still refused. The notes of a fetch that a
 ALKIS. Hesse is recorded by the golden net (fixture store 4). In the old town of Marburg the full ALKIS adds 54
 surveyed stairs to the map, the landscape model 9 candidates.
 
+## Addendum 2026-11-15: Schleswig-Holstein
+
+The LVermGeo SH serves its landscape model (`WFS_SH_ATKIS_BDLM_SF_OpenGBD`). It refuses a `COUNT` above 10 000
+(`MaxFeaturesLimit`), so its manifest names `max_count = 10000`; a larger answer is split into quarters as
+everywhere. Schleswig-Holstein left the golden net's recordings, so only G2 (the estimate) changed.
+

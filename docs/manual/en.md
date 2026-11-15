@@ -1219,6 +1219,11 @@ both. Its full ALKIS records surveyed stairs: in the old town of Marburg 54 go s
 content profile `balanced`. The landscape model adds candidates as in Bavaria: in Marburg 4 named trees, 3 small
 watercourses, a dam and a wall, on the Feldberg a rock, a spring and a watercourse.
 
+**Schleswig-Holstein: landscape model.** The LVermGeo SH serves its landscape model as well (CC BY 4.0), with at
+most 10 000 objects per request. In the Hüttener Berge it adds 48 earth walls (105), a watercourse and 4
+tracks; the banks the terrain model finds along those walls go. In Lübeck it adds
+a watercourse.
+
 In Bavaria the cadastre has no service. There freemapper asks the landscape model of the agency instead, the
 ATKIS Basis-DLM (CC BY 4.0). It is made for the scale 1:25 000 and accurate to about 3 m. freemapper takes cave
 entrances (203), springs (312), named rocks (205), free-standing towers (524, 525), monuments and wayside

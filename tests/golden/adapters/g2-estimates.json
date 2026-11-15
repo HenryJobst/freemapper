@@ -98,11 +98,12 @@
       "terrain model (LVermGeo SH DGM1) | 1.500 MB | cached: false | Terrain | Cache",
       "surface model (LVermGeo SH bDOM, full-tile download) | 105.000 MB | cached: false | Surface | Cache",
       "OSM extract Schleswig-Holstein (shared by all projects) | 159.000 MB | cached: false | MapData | Cache",
-      "ALKIS buildings and land use | 0.500 MB | cached: false | MapData | Project"
+      "ALKIS buildings and land use | 0.500 MB | cached: false | MapData | Project",
+      "objects of the ATKIS Basis-DLM | 0.100 MB | cached: false | StateLayers | Project"
     ],
     "region": "schleswigholstein",
     "tiles": [],
-    "total_megabytes": "266.537"
+    "total_megabytes": "266.637"
   },
   {
     "in_place": [],
