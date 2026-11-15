@@ -34,9 +34,7 @@ use geo::{Area as _, BooleanOps as _, Distance as _, Euclidean, MinimumRotatedRe
 use geo_types::{Coord, Polygon};
 use serde_json::Value;
 
-use crate::build::berlin::{
-    LAYER_CRS, feature_lines, feature_polygons, provenance_tags, survey_tags,
-};
+use crate::build::berlin::{feature_lines, feature_polygons, provenance_tags, survey_tags};
 use crate::build::dedup::{Rank, add_also, rank, source_and_id};
 use crate::build::geometry::{distance_to_segment, xy};
 use crate::build::state::{NAS_SOURCE, nas_feature_tags};
@@ -148,12 +146,6 @@ pub fn has_nas_stairs_without_edge(features: &[Value]) -> bool {
 fn names_stair(edge: &Value, stair: &Value) -> bool {
     let oid = &stair["properties"]["oid"];
     oid.is_string() && edge["properties"]["gehoert_zu"] == *oid
-}
-
-/// Whether any of the `features` of a layer is a stair area, ALKIS or surveyed (`derive` keeps
-/// the terrain then).
-pub fn has_stairs(features: &[Value]) -> bool {
-    features.iter().any(|f| is_stair(f) || is_survey_stair(f))
 }
 
 /// What the stairs are built from.
@@ -555,9 +547,9 @@ pub fn stair_objects(
             .nas
             .iter()
             .filter(|e| is_nas_bottom_edge(e) && names_stair(e, feature))
-            .flat_map(|e| feature_lines(e, LAYER_CRS))
+            .flat_map(|e| crate::build::tagged::lines_in(e, crs, crs))
             .collect();
-        for part in feature_polygons(feature, LAYER_CRS) {
+        for part in crate::build::tagged::polygons_in(feature, crs, crs) {
             if Euclidean.distance(&part, map_area) > buffer_m {
                 continue;
             }

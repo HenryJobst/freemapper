@@ -4,14 +4,14 @@
 //! set are left to `build/stairs.rs`, which takes their areas through [`stair_areas`].
 
 use freemapper_adapter_api::extras::SetDrawing;
-use geo_types::{Coord, LineString, Polygon};
+use geo_types::Polygon;
 use serde_json::Value;
 
 use crate::build::assembly::Layer;
 use crate::build::candidates::{Rules, Target, osm_objects};
 use crate::build::content::CANDIDATE_ONLY_KEY;
-use crate::build::tagged::{self, position};
-use crate::crs::{Crs, ProjectedPoint};
+use crate::build::tagged;
+use crate::crs::Crs;
 use crate::georef::{GeorefError, Georeferencing};
 use crate::omap::{MapObject, SymbolSet};
 use crate::project::MapKind;
@@ -128,38 +128,12 @@ pub(crate) fn feature_tags(prefix: &str, layer: &str, feature: &Value) -> Vec<(S
     tags
 }
 
-/// The polygons of an area feature in `from`, in `to`.
+/// The polygons of an area feature in `from`, in `to`, without their holes: a stair is its outline.
 pub(crate) fn stair_areas(feature: &Value, from: Crs, to: Crs) -> Vec<Polygon<f64>> {
-    let to_map = |c: &Value| -> Option<Coord<f64>> {
-        let (easting, northing) = position(c)?;
-        let p = to.reproject(from, ProjectedPoint { easting, northing })?;
-        Some(Coord {
-            x: p.easting,
-            y: p.northing,
-        })
-    };
-    let ring = |r: &Value| -> Option<LineString<f64>> {
-        r.as_array()?
-            .iter()
-            .map(to_map)
-            .collect::<Option<Vec<_>>>()
-            .map(LineString::from)
-    };
-    let polygon = |rings: &Value| -> Option<Polygon<f64>> {
-        let exterior = ring(rings.get(0)?)?;
-        Some(Polygon::new(exterior, Vec::new()))
-    };
-    let coordinates = &feature["geometry"]["coordinates"];
-    match feature["geometry"]["type"].as_str() {
-        Some("Polygon") => polygon(coordinates).into_iter().collect(),
-        Some("MultiPolygon") => coordinates
-            .as_array()
-            .into_iter()
-            .flatten()
-            .filter_map(polygon)
-            .collect(),
-        _ => Vec::new(),
-    }
+    tagged::polygons_in(feature, from, to)
+        .into_iter()
+        .map(|p| Polygon::new(p.exterior().clone(), Vec::new()))
+        .collect()
 }
 
 #[cfg(test)]
