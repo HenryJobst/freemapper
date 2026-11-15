@@ -80,3 +80,12 @@ Saxony-Anhalt has only the simplified ALKIS and serves its landscape model as a 
 second rule draws a rock line as a cliff candidate (201), whose ticks `orient_ticks` turns downhill by the
 terrain model; areas stay a point (205). The cliff generalization (`build/cliffs.rs`) is not touched. Saxony-Anhalt
 is one of the states the golden net records, so its answers were recorded again (fixture store 3).
+
+## Addendum 2026-11-15: Hesse, and one NAS service per model
+
+Hesse serves its full ALKIS and its landscape model from one host of the HVBG. A region adapter now offers a list
+of NAS services (`RegionAdapter::nas_services`, before one `nas`), and a manifest may name one service per model;
+a second service of the same model is still refused. The notes of a fetch that asks both models name the full
+ALKIS. Hesse is recorded by the golden net (fixture store 4). In the old town of Marburg the full ALKIS adds 54
+surveyed stairs to the map, the landscape model 9 candidates.
+

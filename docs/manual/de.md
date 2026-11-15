@@ -1261,6 +1261,12 @@ Einzelbäume; in der Bremer Altstadt (0,7 km² mit Puffer) kommen 64 Treppen, 13
 16 Böschungsoberkanten und 4 Brücken daraus. Schickt der Dienst mehr Objekte, als er in einer Antwort erlaubt, teilt freemapper das Gebiet in
 Viertel, höchstens vier Stufen tief.
 
+**Hessen: vollständiges ALKIS und Landschaftsmodell.** Hessen bietet beides bei der HVBG an (dl-de/zero-2-0), und
+freemapper liest beides. Das vollständige ALKIS enthält vermessene Treppen: In der Marburger Oberstadt kommen 54
+direkt auf die Karte, mit dem Inhaltsprofil `balanced`. Das Landschaftsmodell ergänzt Kandidaten wie in Bayern: in
+Marburg 4 benannte Bäume, 3 kleine Wasserläufe, einen Damm und eine Mauer, am Feldberg einen Felsen, eine Quelle und
+einen Wasserlauf.
+
 In Bayern hat das Kataster keinen Dienst. Dort fragt freemapper stattdessen das Landschaftsmodell der
 Vermessungsverwaltung ab, das ATKIS Basis-DLM (CC BY 4.0). Es ist für den Maßstab 1:25 000 gemacht und etwa 3 m
 genau. freemapper nimmt daraus Höhleneingänge (203), Quellen (312), benannte Felsen (205), frei stehende Türme

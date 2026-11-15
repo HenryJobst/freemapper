@@ -224,7 +224,7 @@ fn nas_and_trees_build_their_services() {
 }
 
 /// A layer the NAS reader does not know would be left out silently, and the readers have room
-/// for one NAS service per region.
+/// for one NAS service per model of a region.
 #[test]
 fn a_nas_table_names_known_layers_and_there_is_one() {
     let unknown = format!(
@@ -334,6 +334,20 @@ fn declared_rasters_are_estimated_by_area() {
     );
 }
 
+/// A state may serve its full ALKIS and its landscape model as two NAS services (Hesse); the
+/// adapter offers both, each with its model.
+#[test]
+fn the_adapter_offers_every_nas_service_of_its_manifest() {
+    let landscape = NAS
+        .replace("name = ", "model = \"basis-dlm\"\nname = ")
+        .replace("/nas\"", "/dlm\"");
+    let text = format!("{}{NAS}{landscape}", sample());
+    let manifest = parse(&text, Path::new("sample")).unwrap();
+    let adapter = ManifestAdapter::new(manifest, &Square, Parse::Now, &backends()).unwrap();
+    let models: Vec<NasModel> = adapter.nas_services().iter().map(|s| s.model).collect();
+    assert_eq!(models, [NasModel::Alkis, NasModel::BasisDlm]);
+}
+
 /// The adapter offers what the manifest declares, and names the tree cadastres that drew trees
 /// after its own credit.
 #[test]
@@ -342,7 +356,7 @@ fn the_adapter_offers_the_services_of_its_manifest() {
     let manifest = parse(&text, Path::new("sample")).unwrap();
     let adapter = ManifestAdapter::new(manifest, &Square, Parse::Now, &backends()).unwrap();
     assert!(adapter.alkis().is_some());
-    assert_eq!(adapter.nas().unwrap().region.as_str(), "sample");
+    assert_eq!(adapter.nas_services()[0].region.as_str(), "sample");
     assert_eq!(adapter.tree_datasets().len(), 1);
     assert_eq!(adapter.tree_datasets()[0].region.as_str(), "sample");
     let registers = ["city"];
@@ -379,5 +393,5 @@ fn the_adapter_offers_the_services_of_its_manifest() {
     let hamburg = parse(&valid("hamburg"), Path::new("hamburg")).unwrap();
     let hamburg = ManifestAdapter::new(hamburg, &Square, Parse::Now, &backends()).unwrap();
     assert!(hamburg.alkis().is_some());
-    assert!(hamburg.nas().is_none() && hamburg.tree_datasets().is_empty());
+    assert!(hamburg.nas_services().is_empty() && hamburg.tree_datasets().is_empty());
 }

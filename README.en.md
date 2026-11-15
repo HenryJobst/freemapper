@@ -284,7 +284,7 @@ freemapper run vorstadt
 | Saxony | GeoSN | DOM1 − DGM1, 1 m | squares only as candidates; street areas include verges; no position below ground |
 | Saxony-Anhalt | LVermGeo | DOM1 − DGM1, 1 m | map in UTM zone 32 (EPSG:25832); squares only as candidates; street areas include verges; cliffs, rocks, springs, dams, monuments, small watercourses and, on forest maps, missing paths as candidates from the landscape model (ATKIS Basis-DLM) |
 | Hamburg | LGV | bDOM − DGM1, 1 m (2022) | map in UTM zone 32 (EPSG:25832); height models older than the orthophoto (2026) |
-| Hesse | HVBG | DOM1 − DGM1, 1 m (laser scan) | map in UTM zone 32 (EPSG:25832); orthophoto flown in summer; squares only as candidates; street areas include verges |
+| Hesse | HVBG (also the full ALKIS and the landscape model) | DOM1 − DGM1, 1 m (laser scan) | map in UTM zone 32 (EPSG:25832); orthophoto flown in summer; squares only as candidates; street areas include verges; surveyed stairs from the full ALKIS; springs, rocks, towers, monuments, small watercourses and, on forest maps, missing paths as candidates from the landscape model (ATKIS Basis-DLM) |
 | Schleswig-Holstein | LVermGeo SH | bDOM − DGM1, 1 m (image-based) | map in UTM zone 32 (EPSG:25832); orthophoto leaf-off or leaf-on depending on the area; surface model in whole tiles (105 MB per km²) |
 | Mecklenburg-Vorpommern | LAiV M-V | DOM1 − DGM1, 1 m | orthophoto as a colour palette (256 colours); height models only inside the state tiles |
 | North Rhine-Westphalia | Geobasis NRW | DOM1 − DGM1, 1 m (laser scan) | map in UTM zone 32 (EPSG:25832); OSM from the extracts of the Regierungsbezirke |

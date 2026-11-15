@@ -359,7 +359,7 @@ fn rows(
     }
 
     let layers = project.map(|project| &project.nas_layers);
-    rows.push(match (adapter.nas().is_some(), layers) {
+    rows.push(match (!adapter.nas_services().is_empty(), layers) {
         (false, _) => undeclared("nas"),
         (true, Some(layers)) if !layers.is_empty() => row(
             "nas",
