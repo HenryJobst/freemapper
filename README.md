@@ -6,7 +6,7 @@
 [![KI-Aufwand (Claude API): 3.142 $](https://img.shields.io/badge/KI--Aufwand%20%28Claude%20API%29-3.142%20%24-8A2BE2)](docs/ai-cost/history.csv)
 <!-- claude-cost:end -->
 
-<p align="center"><a href="examples/berlin-viktoriapark/berlin-viktoriapark-candidates.pdf"><img src="examples/berlin-viktoriapark/preview.webp" alt="Sprintkarte Viktoriapark, Berlin-Kreuzberg, von freemapper erzeugt" width="760"></a><br><sub>Viktoriapark, Berlin-Kreuzberg (Sprint 1:4000), von freemapper aus offenen Daten erzeugt. Ein Klick öffnet das PDF; mehr unter <a href="examples/README.md">Beispiele</a>.</sub></p>
+<p align="center"><a href="examples/berlin-viktoriapark/preview.webp"><img src="examples/berlin-viktoriapark/preview-medium.webp" alt="Sprintkarte Viktoriapark, Berlin-Kreuzberg, von freemapper erzeugt" width="760"></a><br><sub>Viktoriapark, Berlin-Kreuzberg (Sprint 1:4000), von freemapper aus offenen Daten erzeugt. Ein Klick zeigt das Bild in voller Größe, das <a href="examples/berlin-viktoriapark/berlin-viktoriapark-candidates.pdf">PDF</a> hat alle Kandidaten; mehr unter <a href="examples/README.md">Beispiele</a>.</sub></p>
 
 freemapper erzeugt aus amtlichen Geodaten (Geländemodell, nDOM, Luftbild, ALKIS) und OpenStreetMap
 ein **Startprojekt für OpenOrienteering Mapper (OOM) und auf Wunsch auch für OCAD**: eine
@@ -98,12 +98,12 @@ mit der Kommandozeile. Die meistgebrauchten Kapitel:
 ## Beispiele
 
 Für jedes unterstützte Bundesland liegt ein fertiges Sprintkarten-Projekt im Repository, mit OOM-Karte,
-OCAD-Datei und PDF. Zwei Beispiele vorab, ein Klick auf das Bild öffnet das PDF:
+OCAD-Datei und PDF. Zwei Beispiele vorab; ein Klick auf das Bild zeigt es in voller Größe, der Link darunter öffnet das PDF:
 
 | Bundesland | Gebiet | Vorschau |
 |---|---|---|
-| Berlin | [Viktoriapark, Kreuzberg](https://github.com/HenryJobst/freemapper/tree/main/examples/berlin-viktoriapark/) | <a href="examples/berlin-viktoriapark/berlin-viktoriapark-candidates.pdf"><img src="examples/berlin-viktoriapark/preview.webp" width="220" alt=""></a> |
-| Rheinland-Pfalz | [Reichsburg und Altstadt Cochem](https://github.com/HenryJobst/freemapper/tree/main/examples/rheinland-pfalz-cochem/) | <a href="examples/rheinland-pfalz-cochem/rheinland-pfalz-cochem-candidates.pdf"><img src="examples/rheinland-pfalz-cochem/preview.webp" width="220" alt=""></a> |
+| Berlin | [Viktoriapark, Kreuzberg](https://github.com/HenryJobst/freemapper/tree/main/examples/berlin-viktoriapark/) | <a href="examples/berlin-viktoriapark/preview.webp"><img src="examples/berlin-viktoriapark/preview-thumb.webp" width="220" alt="" loading="lazy"></a><br><a href="examples/berlin-viktoriapark/berlin-viktoriapark-candidates.pdf">PDF</a> |
+| Rheinland-Pfalz | [Reichsburg und Altstadt Cochem](https://github.com/HenryJobst/freemapper/tree/main/examples/rheinland-pfalz-cochem/) | <a href="examples/rheinland-pfalz-cochem/preview.webp"><img src="examples/rheinland-pfalz-cochem/preview-thumb.webp" width="220" alt="" loading="lazy"></a><br><a href="examples/rheinland-pfalz-cochem/rheinland-pfalz-cochem-candidates.pdf">PDF</a> |
 
 Alle Beispiele mit Vorschau, wie die Gebiete ausgewählt wurden und wie viele Objekte jede Karte hat, stehen in
 der [Beispielübersicht](https://github.com/HenryJobst/freemapper/blob/main/examples/README.md), dort auch eine Waldkarte für jedes Bundesland (1:10 000). Dasselbe Gebiet in den drei Inhaltsprofilen
@@ -117,7 +117,7 @@ Am einfachsten zeichnet man das Kartengebiet im Browser:
 freemapper select mein-schulhof --kind schoolyard
 ```
 
-![Gebietsauswahl im Browser](docs/manual/images/area-selector.jpg)
+[![Gebietsauswahl im Browser](docs/manual/images/area-selector-thumb.webp)](docs/manual/images/area-selector.jpg)
 
 Auf der Seite sucht man einen Ort oder zeichnet ein Rechteck oder Polygon. Der Hintergrund ist
 OpenStreetMap oder das Luftbild des Bundeslandes. Die Seite zeigt die Größe mit Puffer und den

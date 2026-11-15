@@ -13,6 +13,7 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ### Changed
 
+- The examples overview, the README, the comparison and the manual show small WebP thumbnails; only a click loads the image at full resolution. The examples overview loads 1.6 MB instead of 6.6 MB. The PDF of each example is a link of its own below the image. `scripts/thumbnails.sh` makes the thumbnails again after an example or a manual image is rebuilt.
 - The README links the examples overview at the top, next to the changes. In the examples overview the preview is now the first column.
 
 ## [0.21.0] - 2026-11-15
