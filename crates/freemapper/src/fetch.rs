@@ -1224,6 +1224,14 @@ pub(crate) mod test_support {
             alkis::MV_LAND_USE_ENDPOINT,
             include_bytes!("../../../tests/fixtures/mecklenburg-vorpommern-land-use.json").to_vec(),
         );
+        // The full ALKIS and the landscape model of the LAiV (ADR 0135).
+        serve_empty_nas(
+            fetcher,
+            &[
+                "https://www.geodaten-mv.de/dienste/alkis_wfs_nas",
+                "https://www.geodaten-mv.de/dienste/atkis_bdlm_wfs_nas",
+            ],
+        );
         let extract = crate::sources::osm::extract_of("mecklenburgvorpommern", 0);
         fetcher.insert(
             &extract.state_url(),

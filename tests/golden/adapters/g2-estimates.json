@@ -112,11 +112,13 @@
       "terrain model (LAiV M-V DGM1) | 0.265 MB | cached: false | Terrain | Project",
       "surface model (LAiV M-V DOM1) | 0.265 MB | cached: false | Surface | Project",
       "OSM extract Mecklenburg-Vorpommern (shared by all projects) | 128.800 MB | cached: false | MapData | Cache",
-      "ALKIS buildings and land use | 0.500 MB | cached: false | MapData | Project"
+      "ALKIS buildings and land use | 0.500 MB | cached: false | MapData | Project",
+      "full ALKIS structures (NAS) | 0.133 MB | cached: false | StateLayers | Project",
+      "objects of the ATKIS Basis-DLM | 0.100 MB | cached: false | StateLayers | Project"
     ],
     "region": "mecklenburgvorpommern",
     "tiles": [],
-    "total_megabytes": "130.361"
+    "total_megabytes": "130.594"
   },
   {
     "in_place": [],

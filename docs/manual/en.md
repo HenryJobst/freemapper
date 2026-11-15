@@ -1231,6 +1231,12 @@ most 10 000 objects per request. In the Hüttener Berge it adds 48 earth walls (
 tracks; the banks the terrain model finds along those walls go. In Lübeck it adds
 a watercourse.
 
+**Mecklenburg-Vorpommern: full ALKIS and landscape model.** The LAiV M-V serves both (CC BY 4.0), each with at
+most 10 000 objects per request. The full ALKIS records many stairs: in the old town of Wismar 630 go onto the map,
+most of them short steps in front of house doors, along with 138 walls and 2 bridges; OpenStreetMap walls they
+double go. The landscape model adds 6 trees, 2 watercourses and a structure there as candidates, in the Granitz 5
+paths.
+
 In Bavaria the cadastre has no service. There freemapper asks the landscape model of the agency instead, the
 ATKIS Basis-DLM (CC BY 4.0). It is made for the scale 1:25 000 and accurate to about 3 m. freemapper takes cave
 entrances (203), springs (312), named rocks (205), free-standing towers (524, 525), monuments and wayside

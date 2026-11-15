@@ -95,3 +95,10 @@ The LVermGeo SH serves its landscape model (`WFS_SH_ATKIS_BDLM_SF_OpenGBD`). It 
 (`MaxFeaturesLimit`), so its manifest names `max_count = 10000`; a larger answer is split into quarters as
 everywhere. Schleswig-Holstein left the golden net's recordings, so only G2 (the estimate) changed.
 
+
+## Addendum 2026-11-15: Mecklenburg-Vorpommern
+
+The LAiV M-V serves its full ALKIS (`alkis_wfs_nas`) and its landscape model (`atkis_bdlm_wfs_nas`) from one host,
+like Hesse, and both answer the requests of the reader (checked live over the Wismar example). Both refuse a
+`COUNT` above 10 000, so the manifest (revision 2) names `max_count = 10000` for each. Mecklenburg-Vorpommern is not
+recorded by the golden net, so only G2 (the estimate) changed.
