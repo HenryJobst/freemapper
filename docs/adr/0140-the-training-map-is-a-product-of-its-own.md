@@ -144,7 +144,35 @@ runs `Level::TRAINING`; that moves to the training map.
 
 ## Measured
 
-Filled in by the measurement before the merge.
+On 2026-11-15, with the release build of this branch, on three examples rebuilt in scratch from their
+`freemapper.toml`: Bremen Bürgerpark (forest 1:10 000), Viktoriapark in Berlin (sprint 1:4000) and the Bastei in
+Saxony (rocky forest 1:10 000). The conflicts are counted with the program's own measure (`build/conflicts.rs`),
+on the check print (the map with every visible candidate, the input of the training level) and on the training
+map. Lengths are mm on paper. Stairs count as below the minimum under 1.5 mm at 1:10 000 (150 %) and under
+1.0 mm at 1:4000.
+
+| | Bremen Bürgerpark | Viktoriapark | Bastei |
+|---|---|---|---|
+| Apart conflicts, check print → training map | 3958 mm (658) → 0 | 550 mm (567) → 0 | 639 mm (256) → 0 |
+| Training summary | 456 joined, 369 left out or cut | 91 joined, 535 left out or cut | 220 joined, 194 left out or cut |
+| Objects | 2196 → 1469 | 3740 → 3206 | 1463 → 989 |
+| 505 objects | 416 → 203 | none (sprint path symbols: 215 → 140) | 99 → 45 |
+| Path-class length | 4345 → 4318 mm | 2400 → 2019 mm | 1816 → 1804 mm |
+| 526 points | 12 → 10 | 3 → 2 | 2 → 2 |
+| Stairs below the minimum | 46 of 47 → 0 of 1 | 20 of 142 → 0 of 116 | 74 of 95 → 0 of 19 |
+| Points moved | 9 (526) | 278 (269 trees, 5 of 531, 2 of 312, 1 each of 311 and 526) | 5 (2 of 526, 109, 110, 111) |
+| Moved points on olive green | 0 | 0 | 0 |
+| `export --training` / `export`: real, user, peak | 41 s, 36 s, 1480 MiB / 8 s, 6 s, 156 MiB | 17 s, 14 s, 332 MiB / 4 s, 4 s, 121 MiB | 7 s, 6 s, 60 MiB / 6 s, 5 s, 58 MiB |
+
+In Bremen the two ALKIS park areas of the Stadtwald (464 658 m², 21 % of it open by the nDSM) keep 60 924 m² of
+open land, 93 % of it open. No run printed the warning that conflicts were left. The machine was busy with other
+builds (load average 25 to 64), so the times and the memory are rough. The Nationaldenkmal's point in Viktoriapark
+and a fountain at the Meierei in Bremen still go: no spot within 1.5 mm keeps the gap.
+
+Left to the second half: carriageways, tram and railway tracks, paths along roads and kerb lines that run side by
+side (in Bremen 1667 mm of joined pairs on the training map). Also left: the memory of the training export in
+Bremen, about 1.4 GiB against 0.16 GiB for the plain export, most likely from the open-land step over the tree
+cover.
 
 Source: spec `docs/superpowers/specs/2026-11-14-training-map-design.md` (decisions 1 to 13, Part 3), plan
 `docs/superpowers/plans/2026-11-14-training-map-1.md`, the rulings ledger of that plan; ISSprOM 2019-2 101, 516,
