@@ -190,6 +190,7 @@
         ],
         "links_left": 0
       },
+      "protected_objects": [],
       "water_protection": [],
       "sources": [
         {
@@ -239,6 +240,54 @@
             "fetched": "2026-11-15",
             "reason": null,
             "credit": "Datenlizenz Deutschland – Namensnennung – Version 2.0 (dl-de/by-2-0); Quellenvermerk: GDKE RLP"
+          }
+        },
+        {
+          "source": {
+            "key": "naturdenkmale",
+            "label": {
+              "en": "Landesamt für Umwelt Rheinland-Pfalz",
+              "de": "Landesamt für Umwelt Rheinland-Pfalz"
+            },
+            "what": {
+              "en": "Naturdenkmale",
+              "de": "Naturdenkmale"
+            },
+            "credit": "Landesamt für Umwelt Rheinland-Pfalz; Nutzung entsprechend den Lizenzbestimmungen der Open Database License (ODbL) mit Quellenangabe",
+            "sections": [
+              "protected-objects"
+            ]
+          },
+          "status": {
+            "id": "naturdenkmale",
+            "state": "read",
+            "fetched": "2026-11-15",
+            "reason": null,
+            "credit": "Landesamt für Umwelt Rheinland-Pfalz; Nutzung entsprechend den Lizenzbestimmungen der Open Database License (ODbL) mit Quellenangabe"
+          }
+        },
+        {
+          "source": {
+            "key": "landschaftsbestandteile",
+            "label": {
+              "en": "Landesamt für Umwelt Rheinland-Pfalz",
+              "de": "Landesamt für Umwelt Rheinland-Pfalz"
+            },
+            "what": {
+              "en": "geschützte Landschaftsbestandteile",
+              "de": "geschützte Landschaftsbestandteile"
+            },
+            "credit": "Landesamt für Umwelt Rheinland-Pfalz; Nutzung entsprechend den Lizenzbestimmungen der Open Database License (ODbL) mit Quellenangabe",
+            "sections": [
+              "protected-objects"
+            ]
+          },
+          "status": {
+            "id": "landschaftsbestandteile",
+            "state": "read",
+            "fetched": "2026-11-15",
+            "reason": null,
+            "credit": "Landesamt für Umwelt Rheinland-Pfalz; Nutzung entsprechend den Lizenzbestimmungen der Open Database License (ODbL) mit Quellenangabe"
           }
         }
       ]

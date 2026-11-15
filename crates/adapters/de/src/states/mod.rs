@@ -632,10 +632,16 @@ impl StateAdapter {
                 crate::bfg_permits::source(),
                 crate::denkmal_permits::bremen(),
             ],
-            State::RheinlandPfalz => vec![
-                crate::bfg_permits::source(),
-                crate::denkmal_permits::rheinland_pfalz(),
-            ],
+            State::RheinlandPfalz => [
+                vec![
+                    crate::bfg_permits::source(),
+                    crate::denkmal_permits::rheinland_pfalz(),
+                ],
+                crate::natur_permits::rheinland_pfalz(),
+            ]
+            .into_iter()
+            .flatten()
+            .collect(),
             State::SaxonyAnhalt => vec![
                 crate::bfg_permits::source(),
                 crate::natur_permits::sachsen_anhalt(),
@@ -991,7 +997,12 @@ mod tests {
                     "https://geodienste.bremen.de/wfs_kulturdenkmale",
                 ),
                 "rheinlandpfalz" => (
-                    &["bfg", "denkmale"],
+                    &[
+                        "bfg",
+                        "denkmale",
+                        "naturdenkmale",
+                        "landschaftsbestandteile",
+                    ],
                     "https://www.geoportal.rlp.de/owsproxy/00000000000000000000000000000000/a2e0fb04feed3a72cf42d53cf6e2165e",
                 ),
                 "bayern" | "saxonyanhalt" => (
