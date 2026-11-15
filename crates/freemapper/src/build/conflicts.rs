@@ -109,14 +109,18 @@ pub enum Grade {
     Gap,
 }
 
+/// Where one object comes too close to another; a pair yields at most one.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Conflict {
     /// Index of the object that gives way (lower rank; same rank: the shorter) and of the other.
     pub loser: usize,
     pub winner: usize,
     pub classes: (Class, Class),
+    /// [`Grade::Overlap`] when the loser's stretches inside the overlap zone alone reach
+    /// [`MIN_CONFLICT`], else [`Grade::Gap`].
     pub grade: Grade,
-    /// Length of the loser's centre line in conflict, mm on paper (0 for areas and points).
+    /// Length of the loser's centre line in the whole zone (overlap and gap), mm on paper (0 for
+    /// areas and points).
     pub length: PaperMm,
 }
 
@@ -411,8 +415,8 @@ pub fn gap(kind: MapKind, scale_denominator: u32) -> PaperMm {
     LINE_GAP_MM.on_paper(SymbolScale::new(kind, scale_denominator))
 }
 
-/// Where the drawn symbols of `footprints` come too close: one [`Conflict`] per pair and grade,
-/// in the order of the pairs.
+/// Where the drawn symbols of `footprints` come too close: at most one [`Conflict`] per pair, in
+/// the order of the pairs.
 pub fn conflicts(footprints: &Footprints, kind: MapKind, scale_denominator: u32) -> Vec<Conflict> {
     let gap = gap(kind, scale_denominator).0;
     let items = &footprints.items;
@@ -464,28 +468,26 @@ pub fn conflicts(footprints: &Footprints, kind: MapKind, scale_denominator: u32)
             std::cmp::Ordering::Equal => fb.length <= fa.length + TOLERANCE_MM,
         };
         let (loser, winner) = if b_loses { (b, a) } else { (a, b) };
-        let grades = measure(&items[loser], &items[winner], gap);
-        for (grade, length) in [Grade::Overlap, Grade::Gap].into_iter().zip(grades) {
-            if let Some(length) = length {
-                found.push(Conflict {
-                    loser,
-                    winner,
-                    classes: (items[loser].class, items[winner].class),
-                    grade,
-                    length: PaperMm(length),
-                });
-            }
+        if let Some((grade, length)) = measure(&items[loser], &items[winner], gap) {
+            found.push(Conflict {
+                loser,
+                winner,
+                classes: (items[loser].class, items[winner].class),
+                grade,
+                length: PaperMm(length),
+            });
         }
     }
     found
 }
 
-/// The length of the overlap and of the gap conflict of `loser` with `winner` (mm on paper), or
-/// `None` where there is none.
-fn measure(loser: &Footprint, winner: &Footprint, gap: f64) -> [Option<f64>; 2] {
-    let Some(bounds) = loser.bounds else {
-        return [None, None];
-    };
+/// The conflict of `loser` with `winner`, if any: its grade and length (mm on paper). A pair
+/// yields at most one conflict. A line is judged over its whole zone (overlap and gap together),
+/// so that a centre line that runs through ticks, in and out of the overlap in pieces shorter
+/// than [`MIN_CONFLICT`], is not lost; it is an overlap when its stretches inside the overlap
+/// zone alone reach [`MIN_CONFLICT`].
+fn measure(loser: &Footprint, winner: &Footprint, gap: f64) -> Option<(Grade, f64)> {
+    let bounds = loser.bounds?;
     let grow = loser.half_width + gap + LOCAL_MARGIN_MM;
     let around = Rect::new(
         Coord {
@@ -500,16 +502,16 @@ fn measure(loser: &Footprint, winner: &Footprint, gap: f64) -> [Option<f64>; 2] 
     .to_polygon();
     let other = winner.footprint.intersection(&around);
     if other.0.is_empty() {
-        return [None, None];
+        return None;
     }
     let grown = |by: f64| other.buffer(by);
     if loser.centre.0.is_empty() || loser.length <= 0.0 {
         // An area or a point: does its footprint reach into the other, or closer than the gap?
         if grown(-TOLERANCE_MM).intersects(&loser.footprint) {
-            return [Some(0.0), None];
+            return Some((Grade::Overlap, 0.0));
         }
         let near = grown(gap - TOLERANCE_MM).intersects(&loser.footprint);
-        return [None, near.then_some(0.0)];
+        return near.then_some((Grade::Gap, 0.0));
     }
     let overlap_zone = grown(loser.half_width - TOLERANCE_MM);
     let gap_zone = grown(loser.half_width + gap - TOLERANCE_MM);
@@ -524,9 +526,12 @@ fn measure(loser: &Footprint, winner: &Footprint, gap: f64) -> [Option<f64>; 2] 
     } else {
         union_all(crossings).clip(&loser.centre, true)
     };
-    let overlap = overlap_zone.clip(&centre, false);
-    let near = overlap_zone.clip(&gap_zone.clip(&centre, false), true);
-    [counted(&overlap), counted(&near)]
+    let whole = counted(&gap_zone.clip(&centre, false))?;
+    let grade = match counted(&overlap_zone.clip(&centre, false)) {
+        Some(_) => Grade::Overlap,
+        None => Grade::Gap,
+    };
+    Some((grade, whole))
 }
 
 /// The total length of the stretches of `pieces` from [`MIN_CONFLICT`] on, if any.
@@ -787,6 +792,24 @@ mod tests {
         assert_eq!(found.len(), 1, "{found:?}");
         assert_eq!(found[0].classes, (Class::Contour, Class::EarthBank));
         assert_eq!(found[0].grade, Grade::Overlap);
+    }
+
+    #[test]
+    fn a_line_through_the_ticks_of_an_earth_bank_is_one_conflict() {
+        // The ticks of the 104 point to +y, 0.75 mm apart. A contour along them lies in the
+        // overlap zone of each tick and in the gap zone between them, in pieces shorter than
+        // 1 mm: judged over the whole zone it is one conflict along its whole length. (A ditch or
+        // a path outranks the bank, so there the bank's centre line is measured instead.)
+        let set = isom();
+        let objects = [
+            line(&set, "104", &[(0.0, 0.0), (20.0, 0.0)]),
+            line(&set, "101", &[(2.0, 0.37), (18.0, 0.37)]),
+        ];
+        let found = measure(&set, &objects);
+        assert_eq!(found.len(), 1, "{found:?}");
+        assert_eq!((found[0].loser, found[0].winner), (1, 0));
+        assert_eq!(found[0].classes, (Class::Contour, Class::EarthBank));
+        assert!((found[0].length.0 - 16.0).abs() < 1.0, "{found:?}");
     }
 
     #[test]

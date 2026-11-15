@@ -629,8 +629,9 @@ mod tests {
     #[test]
     fn of_two_earth_banks_inside_the_gap_the_shorter_goes() {
         let set = isom();
-        // On the side of the long bank without ticks: its ticks point to +y (down).
-        let y = -(2.0 * half_width(&set, "104") + 0.1);
+        // On the tick side of the long bank (its ticks point to +y): the short one runs through
+        // them, in and out of their overlap zone.
+        let y = 2.0 * half_width(&set, "104") + 0.1;
         let long = line(&set, "104", &[(0.0, 0.0), (20.0, 0.0)]);
         let objects = vec![line(&set, "104", &[(2.0, y), (18.0, y)]), long.clone()];
         let (out, report) = run(&set, objects);
