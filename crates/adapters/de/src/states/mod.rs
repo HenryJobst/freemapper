@@ -544,6 +544,7 @@ impl StateAdapter {
         });
         let extras: Vec<Box<dyn ExtraSet>> = match state {
             State::Berlin => vec![Box::new(crate::berlin::Registers)],
+            State::Hamburg => vec![Box::new(crate::lgv_fk::Feinkartierung)],
             _ => Vec::new(),
         };
         let templates: Vec<Box<dyn RasterTemplate>> = match state {

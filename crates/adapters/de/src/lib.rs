@@ -29,6 +29,7 @@ pub mod lgb_als;
 pub mod lgl_bw;
 pub mod lgln;
 pub mod lgv;
+pub mod lgv_fk;
 pub mod lgv_permits;
 pub mod lubw_permits;
 pub mod lvermgeo;
