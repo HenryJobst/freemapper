@@ -1678,16 +1678,51 @@ impl Check<'_> {
                         "manifest.value",
                         |text| match text {
                             "nas" => true,
-                            "shape" => served == NasModel::BasisDlm,
+                            "shape" | "forest-roads" => served == NasModel::BasisDlm,
                             _ => false,
                         },
-                        "a schema: `nas`, or `shape` for a service of the model `basis-dlm`",
+                        "a schema: `nas`, or `shape` or `forest-roads` for a service of the \
+                         model `basis-dlm`",
                     )
                     .map(|schema| match schema.as_str() {
                         "shape" => NasSchema::Shape,
+                        "forest-roads" => NasSchema::ForestRoads,
                         _ => NasSchema::Nas,
                     }),
                 None => Some(NasSchema::Nas),
+            };
+            // The one feature type of the forest road network (ADR 0155), and only there.
+            let type_name = match (&service.type_name, schema) {
+                (Some(type_name), Some(NasSchema::ForestRoads)) => self
+                    .matching(
+                        type_name,
+                        "extra.nas.type_name",
+                        "manifest.value",
+                        is_type_name,
+                        "the name of a feature type, as in `Forstwirtschaft:Forstwegenetz`",
+                    )
+                    .map(Some),
+                (None, Some(NasSchema::ForestRoads)) => {
+                    self.fail(
+                        "manifest.missing-key",
+                        &service.name.span(),
+                        "extra.nas.type_name",
+                        "the schema `forest-roads` needs the feature type of the road network",
+                    );
+                    None
+                }
+                (Some(type_name), Some(_)) => {
+                    self.fail(
+                        "manifest.value",
+                        &type_name.span(),
+                        "extra.nas.type_name",
+                        "a feature type is for the schema `forest-roads` only",
+                    );
+                    None
+                }
+                (None, Some(_)) => Some(None),
+                // The schema has its finding already.
+                (_, None) => None,
             };
             let namespaces = match &service.namespaces {
                 Some(namespaces) => self
@@ -1715,6 +1750,7 @@ impl Check<'_> {
                     namespaces: namespaces?,
                     model: model?,
                     schema: schema?,
+                    type_name: type_name?,
                 })
             })();
             match built {

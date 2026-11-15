@@ -38,6 +38,7 @@ pub const LGB_NAS: NasService = NasService {
     namespaces: None,
     model: NasModel::Alkis,
     schema: NasSchema::Nas,
+    type_name: None,
 };
 
 /// The files in the layer list of `service` that name no NAS layer. A misspelled file would
@@ -246,7 +247,89 @@ fn parse_answer(text: &str, schema: NasSchema) -> Result<NasAnswer, AlkisError> 
     match schema {
         NasSchema::Nas => parse_nas_gml(text),
         NasSchema::Shape => parse_shape_gml(text),
+        NasSchema::ForestRoads => parse_forest_roads(text),
     }
+}
+
+/// A road class of the forest road network: its name, the AdV type and the codes.
+type ForestRoadClass = (
+    &'static str,
+    &'static str,
+    &'static [(&'static str, &'static str)],
+);
+
+/// The classes of the forest road network of the Saarland (`WKLASSE`, ADR 0155) with the AdV
+/// type and the codes the rules of the landscape model read: a main road for trucks is a main
+/// farm road (5211), a side road for trucks a farm road with a firm surface (5212, 1000), the
+/// others a farm road without a surface (5212), a footway a footpath (1103). Machine roads and
+/// skidding lanes are not paths and stay out.
+const FOREST_ROAD_CLASSES: [ForestRoadClass; 5] = [
+    ("Hauptweg LKW", "AX_Fahrwegachse", &[("funktion", "5211")]),
+    (
+        "Nebenweg LKW",
+        "AX_Fahrwegachse",
+        &[("funktion", "5212"), ("befestigung", "1000")],
+    ),
+    (
+        "Nebenweg LKW (eingeschränkt nutzbar)",
+        "AX_Fahrwegachse",
+        &[("funktion", "5212")],
+    ),
+    ("Waldweg PKW", "AX_Fahrwegachse", &[("funktion", "5212")]),
+    ("Fußweg", "AX_WegPfadSteig", &[("art", "1103")]),
+];
+
+/// The features of a GeoJSON answer of the forest road network (ADR 0155) as
+/// [`parse_nas_gml`] gives them: `nas_type` and the codes from the road class
+/// ([`FOREST_ROAD_CLASSES`]), `oid` and `id` from `GmlID`. A road of another class is left out
+/// and still counts as returned, because the cap of the service is on the answer.
+pub fn parse_forest_roads(text: &str) -> Result<NasAnswer, AlkisError> {
+    let answer: Value = serde_json::from_str(text).map_err(|e| {
+        invalid(format!(
+            "not a GeoJSON FeatureCollection ({e}): {}",
+            one_line(text.trim_start(), 80)
+        ))
+    })?;
+    let Some(members) = answer["features"].as_array() else {
+        return Err(invalid(format!(
+            "not a GeoJSON FeatureCollection: {}",
+            one_line(text.trim_start(), 80)
+        )));
+    };
+    let mut features = Vec::new();
+    for member in members {
+        let properties = &member["properties"];
+        let Some(class) = properties["WKLASSE"].as_str() else {
+            continue;
+        };
+        let Some((_, nas_type, codes)) = FOREST_ROAD_CLASSES
+            .iter()
+            .find(|(known, ..)| *known == class)
+        else {
+            continue;
+        };
+        let Some(oid) = properties["GmlID"].as_str() else {
+            continue;
+        };
+        let mut mapped = serde_json::Map::new();
+        mapped.insert("oid".into(), oid.into());
+        mapped.insert("nas_type".into(), (*nas_type).into());
+        for (name, value) in *codes {
+            mapped.insert((*name).into(), (*value).into());
+        }
+        features.push(serde_json::json!({
+            "type": "Feature",
+            "id": oid,
+            "geometry": member["geometry"],
+            "properties": mapped,
+        }));
+    }
+    Ok(NasAnswer {
+        features,
+        skipped: Vec::new(),
+        matched: None,
+        returned: members.len(),
+    })
 }
 
 /// The Shape names of the properties the rules read, with their NAS names.
@@ -289,6 +372,7 @@ fn parse_gml(text: &str, schema: NasSchema) -> Result<NasAnswer, AlkisError> {
     let geometry = match schema {
         NasSchema::Nas => "position",
         NasSchema::Shape => "msGeometry",
+        NasSchema::ForestRoads => unreachable!("a GeoJSON answer has its own reader"),
     };
     let refused = || {
         if is_ogc_report(text.as_bytes()) {
@@ -815,9 +899,11 @@ fn fetch_layer(
     for &(service, fetcher) in services {
         let mut answer = NasAnswer::default();
         let bbox = area.bbox_for(service.crs);
-        let type_names = match service.schema {
+        let own_type = [service.type_name.as_deref().unwrap_or_default()];
+        let type_names: &[&str] = match service.schema {
             NasSchema::Nas => std::slice::from_ref(&layer.type_name),
             NasSchema::Shape => layer.shape_types,
+            NasSchema::ForestRoads => &own_type,
         };
         for type_name in type_names {
             let request = Request {
@@ -828,8 +914,9 @@ fn fetch_layer(
             };
             fetch_split(&request, &bbox, 0, &mut seen, &mut answer)?;
         }
-        if service.schema == NasSchema::Shape {
-            // A Shape type holds other AdV types too.
+        if service.schema != NasSchema::Nas {
+            // A Shape type holds other AdV types too, and the road network both of the layers
+            // of the paths.
             let own = layer.type_name.trim_start_matches("adv:");
             answer
                 .features
@@ -1637,6 +1724,7 @@ mod tests {
         let service = NasService {
             model: NasModel::BasisDlm,
             schema: NasSchema::Shape,
+            type_name: None,
             layers: Some(Cow::Borrowed(&[
                 Cow::Borrowed("dlm-felsen"),
                 Cow::Borrowed("dlm-hoehle"),
@@ -1710,5 +1798,122 @@ mod tests {
             let dlm = NasModel::of_layer(layer.file) == NasModel::BasisDlm;
             assert_eq!(!layer.shape_types.is_empty(), dlm, "{}", layer.file);
         }
+    }
+
+    /// The forest roads of the Saarland (2026-11-15, one road of each of the seven classes): a
+    /// road class gives the AdV type and codes the rules read; machine roads and skidding lanes
+    /// stay out but count as returned, because the service's cap is on the answer.
+    #[test]
+    fn the_forest_roads_of_the_saarland_get_the_types_of_the_landscape_model() {
+        let answer = parse_forest_roads(include_str!(
+            "../../../tests/fixtures/saarland-forstwegenetz.geojson"
+        ))
+        .unwrap();
+        assert_eq!((answer.matched, answer.returned), (None, 7));
+        assert_eq!(answer.features.len(), 5);
+        let code = |f: &Value, name: &str| f["properties"][name].as_str().map(str::to_string);
+        let types: Vec<String> = answer
+            .features
+            .iter()
+            .map(|f| {
+                [
+                    code(f, "nas_type"),
+                    code(f, "funktion"),
+                    code(f, "befestigung"),
+                    code(f, "art"),
+                ]
+                .into_iter()
+                .flatten()
+                .collect::<Vec<_>>()
+                .join(" ")
+            })
+            .collect();
+        assert_eq!(
+            types,
+            [
+                "AX_Fahrwegachse 5211",
+                "AX_Fahrwegachse 5212",
+                "AX_Fahrwegachse 5212",
+                "AX_Fahrwegachse 5212 1000",
+                "AX_WegPfadSteig 1103",
+            ]
+        );
+        let first = &answer.features[0];
+        assert!(first["id"].as_str().unwrap().starts_with("Forstwegenetz."));
+        assert_eq!(first["id"], first["properties"]["oid"]);
+        assert_eq!(first["geometry"]["type"], "MultiLineString");
+    }
+
+    #[test]
+    fn an_answer_that_is_no_collection_is_refused() {
+        assert!(parse_forest_roads("<html>busy</html>").is_err());
+        assert!(parse_forest_roads(r#"{"error": "no"}"#).is_err());
+    }
+
+    #[test]
+    fn a_forest_road_service_asks_for_geojson_in_its_type() {
+        let service = NasService {
+            model: NasModel::BasisDlm,
+            schema: NasSchema::ForestRoads,
+            type_name: Some(Cow::Borrowed("Forstwirtschaft:Forstwegenetz")),
+            ..LGB_NAS
+        };
+        let url = service.get_feature_url("Forstwirtschaft:Forstwegenetz", &SANSSOUCI);
+        assert!(
+            url.contains("TYPENAMES=Forstwirtschaft:Forstwegenetz&")
+                && url.ends_with("&OUTPUTFORMAT=GEOJSON"),
+            "{url}"
+        );
+        assert!(
+            !LGB_NAS
+                .get_feature_url("adv:AX_Turm", &SANSSOUCI)
+                .contains("OUTPUTFORMAT")
+        );
+    }
+
+    /// Both layers of the paths ask the one type of the road network and keep their own AdV
+    /// type: the tracks and the footpaths.
+    #[test]
+    fn a_forest_road_service_serves_the_tracks_and_the_paths_from_one_type() {
+        let service = NasService {
+            model: NasModel::BasisDlm,
+            schema: NasSchema::ForestRoads,
+            crs: Crs::Utm32,
+            url: Cow::Borrowed("https://geo.example.org/forest/wfs"),
+            type_name: Some(Cow::Borrowed("Forstwirtschaft:Forstwegenetz")),
+            layers: Some(Cow::Borrowed(&[
+                Cow::Borrowed("dlm-fahrweg"),
+                Cow::Borrowed("dlm-weg"),
+            ])),
+            ..LGB_NAS
+        };
+        let bbox = BoundingBox {
+            min_e: 340_000.0,
+            min_n: 5_450_000.0,
+            max_e: 360_000.0,
+            max_n: 5_470_000.0,
+        };
+        let fetcher = MapFetcher::default();
+        fetcher.insert_prefix(
+            &service.url,
+            include_str!("../../../tests/fixtures/saarland-forstwegenetz.geojson")
+                .as_bytes()
+                .to_vec(),
+        );
+        let scratch = tempfile::tempdir().unwrap();
+        let part_path = scratch.path().join("answer.json.part");
+        let part = || -> Result<PathBuf, FetchError> { Ok(part_path.clone()) };
+        let area = FetchArea::new(bbox, Crs::Utm32);
+        let fetched = fetch_layers_from(&fetcher, &[&service], &area, MapKind::Forest, &part);
+        let counts: Vec<(&str, usize)> = fetched
+            .iter()
+            .map(|layer| {
+                (
+                    layer.layer.file,
+                    layer.features.as_ref().unwrap().features.len(),
+                )
+            })
+            .collect();
+        assert_eq!(counts, [("dlm-weg", 1), ("dlm-fahrweg", 4)]);
     }
 }

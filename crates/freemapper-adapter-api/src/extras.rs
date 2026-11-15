@@ -276,6 +276,11 @@ pub enum NasSchema {
     /// theme and geometry (`Relief_REL01_P`), the AdV type in `objart_txt`, the codes under short
     /// names (`bwf` for `bauwerksfunktion`).
     Shape,
+    /// The forest road network of a state forest administration as GeoJSON (Saarland, ADR 0155):
+    /// one feature type, asked with `OUTPUTFORMAT=GEOJSON`, whose road class decides the AdV
+    /// type and the codes the rules read. Only with the model `basis-dlm`, and the service names
+    /// the feature type ([`NasService::type_name`]).
+    ForestRoads,
 }
 
 /// A NAS WFS of one state.
@@ -301,6 +306,9 @@ pub struct NasService {
     pub model: NasModel,
     /// How its answers are written.
     pub schema: NasSchema,
+    /// The one feature type of a service whose schema has no table of types
+    /// ([`NasSchema::ForestRoads`]); `None` otherwise.
+    pub type_name: Option<Cow<'static, str>>,
 }
 
 impl NasService {
@@ -321,7 +329,7 @@ impl NasService {
         format!(
             "{}?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES={type_name}\
              &SRSNAME=urn:ogc:def:crs:EPSG::{epsg}&BBOX={},{},{},{},urn:ogc:def:crs:EPSG::{epsg}\
-             &COUNT={}{}",
+             &COUNT={}{}{}",
             self.url,
             bbox.min_e.floor(),
             bbox.min_n.floor(),
@@ -331,7 +339,11 @@ impl NasService {
             self.namespaces
                 .as_deref()
                 .map(|n| format!("&NAMESPACES={n}"))
-                .unwrap_or_default()
+                .unwrap_or_default(),
+            match self.schema {
+                NasSchema::ForestRoads => "&OUTPUTFORMAT=GEOJSON",
+                NasSchema::Nas | NasSchema::Shape => "",
+            }
         )
     }
 }

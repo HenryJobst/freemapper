@@ -451,6 +451,52 @@ fn the_schema_of_a_nas_service_is_read_and_checked() {
     }
 }
 
+/// The forest road network (ADR 0155) is a schema of the landscape model that names its one
+/// feature type; the type belongs to that schema only.
+#[test]
+fn the_forest_road_schema_needs_its_type_and_the_landscape_model() {
+    let region = "sample".parse().unwrap();
+    let good = format!(
+        "{}{NAS}model = \"basis-dlm\"\nschema = \"forest-roads\"\n\
+         type_name = \"Forstwirtschaft:Forstwegenetz\"\n",
+        sample()
+    );
+    let manifest = parse(&good, Path::new("sample")).unwrap();
+    let service = extras::nas_service(&manifest.nas[0], &region);
+    assert_eq!(service.schema, NasSchema::ForestRoads);
+    assert_eq!(
+        service.type_name.as_deref(),
+        Some("Forstwirtschaft:Forstwegenetz")
+    );
+    for (wrong, key, code) in [
+        (
+            "model = \"basis-dlm\"\nschema = \"forest-roads\"\n",
+            "extra.nas.type_name",
+            "manifest.missing-key",
+        ),
+        (
+            "schema = \"forest-roads\"\ntype_name = \"Forstwirtschaft:Forstwegenetz\"\n",
+            "extra.nas.schema",
+            "manifest.value",
+        ),
+        (
+            "model = \"basis-dlm\"\ntype_name = \"Forstwirtschaft:Forstwegenetz\"\n",
+            "extra.nas.type_name",
+            "manifest.value",
+        ),
+        (
+            "model = \"basis-dlm\"\nschema = \"forest-roads\"\ntype_name = \"a:b:c\"\n",
+            "extra.nas.type_name",
+            "manifest.value",
+        ),
+    ] {
+        let findings =
+            parse(&format!("{}{NAS}{wrong}", sample()), Path::new("sample")).unwrap_err();
+        assert_eq!(codes(&findings), [code], "{wrong}: {findings:?}");
+        assert_eq!(findings[0].key, key, "{wrong}");
+    }
+}
+
 fn area() -> EstimateArea {
     // 2 km by 3 km.
     let bbox = BoundingBox {

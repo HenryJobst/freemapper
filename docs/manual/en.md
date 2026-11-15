@@ -1354,6 +1354,14 @@ paths.
 states: its objects stay candidates. In Cochem it adds 19 monuments and wayside crosses, 2 watercourses and a
 well, near Dahn a rock, 3 watercourses and, on the forest map, 6 tracks and paths.
 
+**Saarland: forest road network.** The forest administration of the Saarland serves its road network (CC BY 4.0,
+credit GDI-SL). On a forest map freemapper reads the main roads, the side roads, the forest roads and the footways
+and treats them like the landscape model of other states: they stay candidates, and only where OpenStreetMap has no
+path within 10 m. Main roads for trucks and side roads become vehicle tracks (504), forest roads for cars footpaths
+(505), footways small paths (506). Machine roads and skidding lanes are not paths; freemapper leaves them out so that no
+lane looks like a path on the map. The laser points of class 14, which look like power-line wires, do not count as
+tall vegetation.
+
 **Hamburg: street tree cadastre.** Hamburg serves its street trees with genus, species and crown diameter
 (dl-de/by-2-0). freemapper fetches them like the Potsdam trees; on sprint and schoolyard maps they become single
 trees, a crown of 10 m or more as a 417, the others as a 418. In Blankenese 13 street trees go onto the map and 4 to the
