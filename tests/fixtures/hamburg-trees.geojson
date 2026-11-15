@@ -1,0 +1,145 @@
+{
+ "type": "FeatureCollection",
+ "numberReturned": 3,
+ "numberMatched": 284,
+ "timeStamp": "2026-11-15T09:50:06Z",
+ "features": [
+  {
+   "type": "Feature",
+   "id": 42721,
+   "geometry": {
+    "type": "MultiPoint",
+    "coordinates": [
+     [
+      9.836356709174988,
+      53.555315782576514
+     ]
+    ]
+   },
+   "properties": {
+    "baumid": 200004579,
+    "baumnummer": "W305-37-1",
+    "gattung": "Quercus / Eiche",
+    "gattung_latein": "Quercus",
+    "gattung_deutsch": "Eiche",
+    "art": "Quercus robur / Stiel-Eiche",
+    "art_latein": "Quercus robur",
+    "art_deutsch": "Stiel-Eiche",
+    "sorte": "Quercus robur / Stiel-Eiche, Sommer-Eiche",
+    "sorte_latein": "Quercus robur",
+    "sorte_deutsch": "Stiel-Eiche, Sommer-Eiche",
+    "pflanzjahr": 1900,
+    "kronendurchmesser": 14,
+    "kronendurchmesser_z": "14 m",
+    "stammumfang": 305,
+    "stammumfang_z": "305 cm",
+    "strasse": "Winckelmannstraße",
+    "hausnummer": "g33",
+    "ortsteil_nr": 222,
+    "stadtteil": "Nienstedten",
+    "bezirk": "Altona",
+    "daten_aus_vorjahr": 2026
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 42722,
+   "geometry": {
+    "type": "MultiPoint",
+    "coordinates": [
+     [
+      9.836237684365384,
+      53.555172862122355
+     ]
+    ]
+   },
+   "properties": {
+    "baumid": 200004580,
+    "baumnummer": "W305-80-1",
+    "gattung": "Quercus / Eiche",
+    "gattung_latein": "Quercus",
+    "gattung_deutsch": "Eiche",
+    "art": "Quercus robur / Stiel-Eiche",
+    "art_latein": "Quercus robur",
+    "art_deutsch": "Stiel-Eiche",
+    "sorte": "Quercus robur / Stiel-Eiche, Sommer-Eiche",
+    "sorte_latein": "Quercus robur",
+    "sorte_deutsch": "Stiel-Eiche, Sommer-Eiche",
+    "pflanzjahr": 1860,
+    "kronendurchmesser": 16,
+    "kronendurchmesser_z": "16 m",
+    "stammumfang": 344,
+    "stammumfang_z": "344 cm",
+    "strasse": "Winckelmannstraße",
+    "hausnummer": "440",
+    "ortsteil_nr": 222,
+    "stadtteil": "Nienstedten",
+    "bezirk": "Altona",
+    "daten_aus_vorjahr": 2026
+   }
+  },
+  {
+   "type": "Feature",
+   "id": 42723,
+   "geometry": {
+    "type": "MultiPoint",
+    "coordinates": [
+     [
+      9.836297354180113,
+      53.555061928566595
+     ]
+    ]
+   },
+   "properties": {
+    "baumid": 200004581,
+    "baumnummer": "W305-50-1",
+    "gattung": "Quercus / Eiche",
+    "gattung_latein": "Quercus",
+    "gattung_deutsch": "Eiche",
+    "art": "Quercus robur / Stiel-Eiche",
+    "art_latein": "Quercus robur",
+    "art_deutsch": "Stiel-Eiche",
+    "sorte": "Quercus robur / Stiel-Eiche, Sommer-Eiche",
+    "sorte_latein": "Quercus robur",
+    "sorte_deutsch": "Stiel-Eiche, Sommer-Eiche",
+    "pflanzjahr": 1900,
+    "kronendurchmesser": 19,
+    "kronendurchmesser_z": "19 m",
+    "stammumfang": 327,
+    "stammumfang_z": "327 cm",
+    "strasse": "Winckelmannstraße",
+    "hausnummer": "438",
+    "ortsteil_nr": 222,
+    "stadtteil": "Nienstedten",
+    "bezirk": "Altona",
+    "daten_aus_vorjahr": 2026
+   }
+  }
+ ],
+ "links": [
+  {
+   "href": "https://api.hamburg.de/datasets/v1/strassenbaumkataster/collections/strassenbaumkataster_hh/items?bbox=9.836%2C53.553%2C9.851%2C53.560&limit=3&f=json",
+   "rel": "self",
+   "type": "application/geo+json",
+   "title": "Dieses Dokument"
+  },
+  {
+   "href": "https://api.hamburg.de/datasets/v1/strassenbaumkataster/collections/strassenbaumkataster_hh/items?bbox=9.836%2C53.553%2C9.851%2C53.560&limit=3&f=html",
+   "rel": "alternate",
+   "type": "text/html",
+   "title": "Dieses Dokument als HTML"
+  },
+  {
+   "href": "https://api.hamburg.de/datasets/v1/strassenbaumkataster/collections/strassenbaumkataster_hh/items?bbox=9.836%2C53.553%2C9.851%2C53.560&limit=3&f=fgb",
+   "rel": "alternate",
+   "type": "application/flatgeobuf",
+   "title": "Dieses Dokument als FlatGeobuf"
+  },
+  {
+   "href": "https://api.hamburg.de/datasets/v1/strassenbaumkataster/collections/strassenbaumkataster_hh/items?bbox=9.836%2C53.553%2C9.851%2C53.560&f=json&limit=3&offset=3",
+   "rel": "next",
+   "type": "application/geo+json",
+   "title": "Nächste Seite"
+  }
+ ]
+}

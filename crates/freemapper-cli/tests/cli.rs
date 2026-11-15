@@ -2221,7 +2221,7 @@ fn adapters_check_passes_fails_and_refuses() {
     assert_eq!(code, Some(0), "{out}{err}");
     let lines: Vec<&str> = out.lines().collect();
     assert!(
-        lines[0].starts_with("adapter hamburg (Hamburg), revision 1, hosts: "),
+        lines[0].starts_with("adapter hamburg (Hamburg), revision 2, hosts: "),
         "{out}"
     );
     assert!(lines[1].contains("[check.built-in-id]"), "{out}");
@@ -2239,7 +2239,7 @@ fn adapters_check_passes_fails_and_refuses() {
     assert_eq!(json["findings"][0]["severity"], "warning");
     let (_, out, _) = check(&["adapters", "check", hamburg, "--lang", "de"]);
     assert!(
-        out.starts_with("Adapter hamburg (Hamburg), Revision 1, Hosts: "),
+        out.starts_with("Adapter hamburg (Hamburg), Revision 2, Hosts: "),
         "{out}"
     );
     assert!(

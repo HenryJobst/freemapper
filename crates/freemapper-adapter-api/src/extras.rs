@@ -233,6 +233,15 @@ pub enum TreeFormat {
     /// An OpenDataSoft `exports/geojson` endpoint, asked with `where=in_bbox(<geo_field>, …)` in
     /// WGS84 (no paging). The geometry is WGS84 too.
     OdsGeoJsonExport { geo_field: Cow<'static, str> },
+    /// The items of an OGC API Features collection, asked with `bbox=<lon,lat,lon,lat>` in CRS84
+    /// and up to 10 000 per page; further pages are the `next` links. The geometry is CRS84 too,
+    /// a Point or a MultiPoint of one point (Hamburg, ADR 0065).
+    OgcApiItems,
+}
+
+impl TreeFormat {
+    /// Features per page of [`TreeFormat::OgcApiItems`].
+    pub const OGC_API_LIMIT: usize = 10_000;
 }
 
 /// The field names of a dataset (properties of the served features).
@@ -242,8 +251,8 @@ pub struct TreeFields {
     pub kind: Cow<'static, str>,
     /// The tree's number, the `freemapper:source_id`.
     pub id: Cow<'static, str>,
-    /// The survey date (`2009-06-10T00:00:00+00:00`).
-    pub date: Cow<'static, str>,
+    /// The survey date (`2009-06-10T00:00:00+00:00`); some cadastres have none.
+    pub date: Option<Cow<'static, str>>,
     pub species: Option<Cow<'static, str>>,
     /// The crown diameter in metres.
     pub crown: Option<Cow<'static, str>>,
@@ -313,6 +322,10 @@ impl TreeDataset {
         Some(match &self.format {
             TreeFormat::OdsGeoJsonExport { geo_field } => format!(
                 "{endpoint}?where=in_bbox({geo_field},{lat_min:.6},{lon_min:.6},{lat_max:.6},{lon_max:.6})"
+            ),
+            TreeFormat::OgcApiItems => format!(
+                "{endpoint}?bbox={lon_min:.6},{lat_min:.6},{lon_max:.6},{lat_max:.6}&limit={}&f=json",
+                TreeFormat::OGC_API_LIMIT
             ),
         })
     }

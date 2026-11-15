@@ -208,10 +208,10 @@ At most 32: the tree cadastres of cities, read from an Opendatasoft GeoJSON expo
 | `name` | text | yes | At most 80. |
 | `crs` | whole number | no | Default: `[adapter] crs`. |
 | `envelope` | list of four numbers | yes | The extent of the data in `crs`. |
-| `format` | text | yes | `ods-geojson-export`. |
-| `geo_field` | field | yes | The field with the position. |
+| `format` | text | yes | `ods-geojson-export` (an OpenDataSoft export, asked by a position field) or `ogc-api` (the items of an OGC API Features collection, asked with a box in CRS84, 10 000 per page, further pages by their `next` links; a Point or a MultiPoint of one point). |
+| `geo_field` | field | for `ods-geojson-export` | The field with the position. Not with `ogc-api`. |
 | `endpoints` | list of URLs | yes | 1 to 8. |
-| `fields` | table | yes | `kind`, `id`, `date` (required), `species`, `crown`: the names of the fields. |
+| `fields` | table | yes | `kind`, `id` (both required), `date`, `species`, `crown`: the names of the fields. Without `date`, the fetch date is the currency of the trees. |
 | `skipped_kinds` | list of texts | no | Kinds that are no trees; at most 16. |
 | `attribution` | text | yes | The credit of the cadastre, at most 400, with `{year}` at most once. |
 | `max_bytes` | whole number | yes | 1 to 268 435 456. |

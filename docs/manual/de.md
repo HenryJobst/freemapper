@@ -1320,6 +1320,12 @@ behandelt es wie in den anderen Bundesländern: Seine Objekte bleiben Kandidaten
 und Wegkreuze, 2 Wasserläufe und einen Brunnen, bei Dahn einen Felsen, 3 Wasserläufe und auf der Waldkarte 6 Wege
 und Fahrwege.
 
+**Hamburg: Straßenbaumkataster.** Hamburg bietet seine Straßenbäume mit Gattung, Art und Kronendurchmesser an
+(dl-de/by-2-0). freemapper holt sie wie die Bäume in Potsdam; auf Sprint- und Schulhofkarten werden sie zu
+Einzelbäumen, mit einer Krone ab 10 m als 417, sonst als 418. In Blankenese kommen so 13
+Straßenbäume auf die Karte und 4 zu den Kandidaten; die OpenStreetMap-Bäume an denselben Stellen entfallen. Ein
+Erfassungsdatum hat das Kataster nicht, als Stand gilt das Abrufdatum. Bäume in Parks und im Hafen fehlen darin.
+
 In Bayern hat das Kataster keinen Dienst. Dort fragt freemapper stattdessen das Landschaftsmodell der
 Vermessungsverwaltung ab, das ATKIS Basis-DLM (CC BY 4.0). Es ist für den Maßstab 1:25 000 gemacht und etwa 3 m
 genau. freemapper nimmt daraus Höhleneingänge (203), Quellen (312), benannte Felsen (205), frei stehende Türme

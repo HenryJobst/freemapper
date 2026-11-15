@@ -1745,23 +1745,48 @@ impl Check<'_> {
             let name = self.text(&trees.name, "extra.trees.name", "manifest.value", 80);
             let crs = self.service_crs(trees.crs.as_ref(), "extra.trees.crs", adapter);
             let envelope = self.envelope(&trees.envelope, "extra.trees.envelope");
-            if trees.format.get_ref() != "ods-geojson-export" {
-                self.fail(
-                    "manifest.kind",
-                    &trees.format.span(),
-                    "extra.trees.format",
-                    "a tree cadastre is read as `ods-geojson-export`",
-                );
-                fine = false;
-            }
             let field = "the name of a field";
-            let geo_field = self.matching(
-                &trees.geo_field,
-                "extra.trees.geo_field",
-                "manifest.value",
-                is_field,
-                field,
-            );
+            // The export format asks the position by a field; an OGC API collection by its
+            // geometry (ADR 0065).
+            let geo_field = match (trees.format.get_ref().as_str(), &trees.geo_field) {
+                ("ods-geojson-export", Some(geo_field)) => self
+                    .matching(
+                        geo_field,
+                        "extra.trees.geo_field",
+                        "manifest.value",
+                        is_field,
+                        field,
+                    )
+                    .map(Some),
+                ("ods-geojson-export", None) => {
+                    self.fail(
+                        "manifest.value",
+                        &trees.format.span(),
+                        "extra.trees.geo_field",
+                        "the format `ods-geojson-export` needs the field of the position",
+                    );
+                    None
+                }
+                ("ogc-api", None) => Some(None),
+                ("ogc-api", Some(geo_field)) => {
+                    self.fail(
+                        "manifest.value",
+                        &geo_field.span(),
+                        "extra.trees.geo_field",
+                        "an `ogc-api` collection has its position in the geometry",
+                    );
+                    None
+                }
+                _ => {
+                    self.fail(
+                        "manifest.kind",
+                        &trees.format.span(),
+                        "extra.trees.format",
+                        "a tree cadastre is read as `ods-geojson-export` or `ogc-api`",
+                    );
+                    None
+                }
+            };
             let mut endpoints = Some(Vec::new());
             if !(1..=8).contains(&trees.endpoints.len()) {
                 self.fail(
@@ -1790,7 +1815,10 @@ impl Check<'_> {
             };
             let kind = name_of(self, &trees.fields.kind, "kind");
             let tree_id = name_of(self, &trees.fields.id, "id");
-            let date = name_of(self, &trees.fields.date, "date");
+            let date = match &trees.fields.date {
+                Some(date) => name_of(self, date, "date").map(Some),
+                None => Some(None),
+            };
             let species = match &trees.fields.species {
                 Some(species) => name_of(self, species, "species").map(Some),
                 None => Some(None),

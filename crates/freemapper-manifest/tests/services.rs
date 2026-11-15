@@ -213,7 +213,7 @@ fn nas_and_trees_build_their_services() {
         TreeFields {
             kind: Cow::Borrowed("art"),
             id: Cow::Borrowed("nr"),
-            date: Cow::Borrowed("datum"),
+            date: Some(Cow::Borrowed("datum")),
             species: None,
             crown: Some(Cow::Borrowed("krone")),
         }
@@ -221,6 +221,40 @@ fn nas_and_trees_build_their_services() {
     assert_eq!(trees.skipped_kinds.as_ref(), ["Baumstumpf"]);
     assert_eq!(trees.attribution, "City, dl-de/zero-2-0");
     assert_eq!(trees.max_bytes, 1_000_000);
+}
+
+/// A tree cadastre may be an OGC API collection (Hamburg, ADR 0065): no position field, and the
+/// survey date may be missing.
+#[test]
+fn an_ogc_api_tree_cadastre_is_read_and_checked() {
+    let ods = "format = \"ods-geojson-export\"\ngeo_field = \"geo_point_2d\"\n";
+    assert!(TREES.contains(ods));
+    let ogc = TREES
+        .replace(ods, "format = \"ogc-api\"\n")
+        .replace("date = \"datum\", ", "");
+    let manifest = parse(&format!("{}{ogc}", sample()), Path::new("sample")).unwrap();
+    let trees = extras::tree_dataset(&manifest.trees[0], &"sample".parse().unwrap());
+    assert_eq!(trees.format, TreeFormat::OgcApiItems);
+    assert_eq!(trees.fields.date, None);
+    // A position field belongs to the export format only, and that format needs one.
+    for (wrong, key) in [
+        (
+            TREES.replace(ods, "format = \"ogc-api\"\ngeo_field = \"geo_point_2d\"\n"),
+            "extra.trees.geo_field",
+        ),
+        (
+            TREES.replace(ods, "format = \"ods-geojson-export\"\n"),
+            "extra.trees.geo_field",
+        ),
+        (
+            TREES.replace(ods, "format = \"wfs\"\n"),
+            "extra.trees.format",
+        ),
+    ] {
+        let findings = parse(&format!("{}{wrong}", sample()), Path::new("sample")).unwrap_err();
+        assert_eq!(findings.len(), 1, "{wrong}: {findings:?}");
+        assert_eq!(findings[0].key, key, "{wrong}");
+    }
 }
 
 /// A layer the NAS reader does not know would be left out silently, and the readers have room

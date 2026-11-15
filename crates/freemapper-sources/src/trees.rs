@@ -56,7 +56,7 @@ pub const POTSDAM: TreeDataset = TreeDataset {
     fields: TreeFields {
         kind: Cow::Borrowed("ggartbez"),
         id: Cow::Borrowed("pktnr"),
-        date: Cow::Borrowed("datum"),
+        date: Some(Cow::Borrowed("datum")),
         species: None,
         crown: None,
     },
@@ -71,7 +71,12 @@ pub struct TreeAnswer {
     pub features: Vec<Value>,
     /// Features that were no usable tree point, as `<id>: <why>`.
     pub skipped: Vec<String>,
+    /// The next page of an OGC API collection.
+    pub next: Option<String>,
 }
+
+/// Pages of one OGC API collection read at most: 100 000 trees.
+const MAX_PAGES: usize = 10;
 
 /// Reads an answer of `dataset` into stored features in `crs`.
 ///
@@ -88,9 +93,16 @@ pub fn parse_trees(text: &str, dataset: &TreeDataset, crs: Crs) -> Result<TreeAn
         .ok_or_else(|| invalid(format!("{}: not a GeoJSON FeatureCollection", dataset.name)))?;
     let mut answer = TreeAnswer::default();
     for feature in features {
-        match dataset.format {
-            TreeFormat::OdsGeoJsonExport { .. } => normalise(feature, dataset, crs, &mut answer),
-        }
+        normalise(feature, dataset, crs, &mut answer);
+    }
+    if dataset.format == TreeFormat::OgcApiItems {
+        answer.next = page["links"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .find(|link| link["rel"] == "next")
+            .and_then(|link| link["href"].as_str())
+            .map(str::to_string);
     }
     Ok(answer)
 }
@@ -104,7 +116,8 @@ fn text<'a>(properties: &'a Map<String, Value>, key: &str) -> Option<std::borrow
     }
 }
 
-/// Adds the stored form of one WGS84 point feature to `answer`.
+/// Adds the stored form of one WGS84 point feature (a Point, or a MultiPoint of one point) to
+/// `answer`.
 fn normalise(feature: &Value, dataset: &TreeDataset, crs: Crs, answer: &mut TreeAnswer) {
     let empty = Map::new();
     let properties = feature["properties"].as_object().unwrap_or(&empty);
@@ -123,8 +136,16 @@ fn normalise(feature: &Value, dataset: &TreeDataset, crs: Crs, answer: &mut Tree
         ));
         return;
     };
-    let point = (feature["geometry"]["type"] == "Point")
-        .then(|| &feature["geometry"]["coordinates"])
+    let geometry = &feature["geometry"];
+    let coordinates = match geometry["type"].as_str() {
+        Some("Point") => Some(&geometry["coordinates"]),
+        Some("MultiPoint") => geometry["coordinates"]
+            .as_array()
+            .filter(|points| points.len() == 1)
+            .map(|points| &points[0]),
+        _ => None,
+    };
+    let point = coordinates
         .and_then(|c| Some((c[0].as_f64()?, c[1].as_f64()?)))
         .filter(|(lon, lat)| lon.is_finite() && lat.is_finite());
     let Some((lon, lat)) = point else {
@@ -141,7 +162,10 @@ fn normalise(feature: &Value, dataset: &TreeDataset, crs: Crs, answer: &mut Tree
         stored.insert("tree_kind".into(), kind.as_ref().into());
     }
     // A date that does not parse leaves the fetch date as the currency.
-    let date = text(properties, &fields.date)
+    let date = fields
+        .date
+        .as_deref()
+        .and_then(|f| text(properties, f))
         .and_then(|d| NaiveDate::parse_from_str(d.get(..10)?, "%Y-%m-%d").ok());
     if let Some(date) = date {
         stored.insert("tree_date".into(), date.to_string().into());
@@ -198,27 +222,38 @@ pub fn fetch_dataset(
         regions: vec![dataset.region.clone()],
     };
     for endpoint in dataset.endpoints.iter() {
-        let url = dataset.url(endpoint, &area.region_bbox).ok_or_else(|| {
+        let mut next = Some(dataset.url(endpoint, &area.region_bbox).ok_or_else(|| {
             FetchError::Alkis(invalid(format!("{}: area out of range", dataset.name)))
-        })?;
-        // An error page with status 200 is not a FeatureCollection and is asked again; an
-        // answer over the cap is not.
-        let answer =
-            get_limited_with_retries(fetcher, &url, &part()?, dataset.max_bytes, |bytes| {
-                Ok(parse_trees(
-                    &String::from_utf8_lossy(bytes),
-                    dataset,
-                    area.crs,
-                )?)
-            })?;
-        for feature in answer.features {
-            let c = &feature["geometry"]["coordinates"];
-            let key = format!("{}@{},{}", feature["id"], c[0], c[1]);
-            if seen.insert(key) {
-                fetched.features.push(feature);
+        })?);
+        let mut pages = 0;
+        while let Some(url) = next.take() {
+            pages += 1;
+            if pages > MAX_PAGES {
+                return Err(FetchError::Alkis(invalid(format!(
+                    "{}: more than {MAX_PAGES} pages; choose a smaller area",
+                    dataset.name
+                ))));
             }
+            // An error page with status 200 is not a FeatureCollection and is asked again; an
+            // answer over the cap is not.
+            let answer =
+                get_limited_with_retries(fetcher, &url, &part()?, dataset.max_bytes, |bytes| {
+                    Ok(parse_trees(
+                        &String::from_utf8_lossy(bytes),
+                        dataset,
+                        area.crs,
+                    )?)
+                })?;
+            for feature in answer.features {
+                let c = &feature["geometry"]["coordinates"];
+                let key = format!("{}@{},{}", feature["id"], c[0], c[1]);
+                if seen.insert(key) {
+                    fetched.features.push(feature);
+                }
+            }
+            fetched.skipped.extend(answer.skipped);
+            next = answer.next;
         }
-        fetched.skipped.extend(answer.skipped);
     }
     Ok(fetched)
 }
@@ -227,4 +262,144 @@ pub fn fetch_dataset(
 pub mod test_support {
     /// A Potsdam export answer: three trees of the Stadtkarte (Sanssouci area, 2009) and a stump.
     pub const POTSDAM: &str = include_str!("../../../tests/fixtures/potsdam-trees.geojson");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::fetch::test_support::MapFetcher;
+    use std::path::PathBuf;
+
+    /// A city whose trees are an OGC API collection without a survey date, as in Hamburg.
+    const CITY: TreeDataset = TreeDataset {
+        id: Cow::Borrowed("city"),
+        name: Cow::Borrowed("City trees"),
+        region: AdapterId::built_in("hamburg"),
+        crs: Crs::Utm32,
+        envelope: BoundingBox {
+            min_e: 540_000.0,
+            min_n: 5_920_000.0,
+            max_e: 590_000.0,
+            max_n: 5_960_000.0,
+        },
+        format: TreeFormat::OgcApiItems,
+        endpoints: Cow::Borrowed(&[Cow::Borrowed(
+            "https://api.hamburg.de/datasets/v1/strassenbaumkataster/collections/strassenbaumkataster_hh/items",
+        )]),
+        fields: TreeFields {
+            kind: Cow::Borrowed("gattung_deutsch"),
+            id: Cow::Borrowed("baumid"),
+            date: None,
+            species: Some(Cow::Borrowed("art_deutsch")),
+            crown: Some(Cow::Borrowed("kronendurchmesser")),
+        },
+        skipped_kinds: Cow::Borrowed(&[]),
+        attribution: Cow::Borrowed("City"),
+        max_bytes: MAX_ANSWER_BYTES,
+    };
+
+    /// The first page of the Hamburg street trees near Blankenese (2026-11-15): three oaks as
+    /// one-point MultiPoints in CRS84, and a link to the next page.
+    const PAGE: &str = include_str!("../../../tests/fixtures/hamburg-trees.geojson");
+
+    #[test]
+    fn an_ogc_api_page_is_read() {
+        let answer = parse_trees(PAGE, &CITY, Crs::Utm32).unwrap();
+        assert!(answer.skipped.is_empty(), "{:?}", answer.skipped);
+        assert_eq!(answer.features.len(), 3);
+        let oak = &answer.features[0];
+        assert_eq!(oak["id"], "200004579");
+        assert_eq!(oak["geometry"]["type"], "Point");
+        let [e, n] = [0, 1].map(|i| oak["geometry"]["coordinates"][i].as_f64().unwrap());
+        assert!(
+            (555_000.0..556_000.0).contains(&e) && (5_934_000.0..5_935_000.0).contains(&n),
+            "{e} {n}"
+        );
+        let properties = &oak["properties"];
+        assert_eq!(properties["tree_kind"], "Eiche");
+        assert_eq!(properties["tree_species"], "Stiel-Eiche");
+        assert_eq!(properties["tree_crown_m"], 14.0);
+        assert!(properties.get("tree_date").is_none(), "{properties}");
+        assert_eq!(
+            answer.next.as_deref(),
+            Some(
+                "https://api.hamburg.de/datasets/v1/strassenbaumkataster/collections/strassenbaumkataster_hh/items?bbox=9.836%2C53.553%2C9.851%2C53.560&f=json&limit=3&offset=3"
+            )
+        );
+    }
+
+    #[test]
+    fn the_ogc_api_url_asks_the_box_in_wgs84() {
+        // Blankenese in EPSG:25833 (the region box): asked as lon,lat in CRS84.
+        let bbox = BoundingBox {
+            min_e: 552_737.0 - 500_000.0 + 101_000.0,
+            min_n: 5_934_347.0,
+            max_e: 553_646.0 - 500_000.0 + 101_000.0,
+            max_n: 5_935_057.0,
+        };
+        let url = CITY.url(&CITY.endpoints[0], &bbox).unwrap();
+        let (base, query) = url.split_once('?').unwrap();
+        assert_eq!(base, CITY.endpoints[0]);
+        let params: Vec<&str> = query.split('&').collect();
+        assert_eq!(params[1..], ["limit=10000", "f=json"]);
+        let numbers: Vec<f64> = params[0]
+            .strip_prefix("bbox=")
+            .unwrap()
+            .split(',')
+            .map(|v| v.parse().unwrap())
+            .collect();
+        assert_eq!(numbers.len(), 4);
+        assert!(
+            numbers[0] < numbers[2] && numbers[1] < numbers[3],
+            "{numbers:?}"
+        );
+        assert!(
+            (5.0..16.0).contains(&numbers[0]) && (47.0..56.0).contains(&numbers[1]),
+            "lon,lat: {numbers:?}"
+        );
+    }
+
+    #[test]
+    fn an_ogc_api_dataset_follows_its_next_links() {
+        let page: Value = serde_json::from_str(PAGE).unwrap();
+        let next = page["links"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|l| l["rel"] == "next")
+            .unwrap()["href"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        // The last page: the same three trees under other numbers, and no next link.
+        let mut last = page.clone();
+        for (i, feature) in last["features"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .enumerate()
+        {
+            feature["properties"]["baumid"] = json!(900 + i);
+        }
+        last["links"] = json!([]);
+        let area = FetchArea::new(
+            BoundingBox {
+                min_e: 552_737.0,
+                min_n: 5_934_347.0,
+                max_e: 553_646.0,
+                max_n: 5_935_057.0,
+            },
+            Crs::Utm32,
+        );
+        let fetcher = MapFetcher::default();
+        let first = CITY.url(&CITY.endpoints[0], &area.region_bbox).unwrap();
+        fetcher.insert(&first, PAGE.as_bytes().to_vec());
+        fetcher.insert(&next, last.to_string().into_bytes());
+        let scratch = tempfile::tempdir().unwrap();
+        let part_path = scratch.path().join("trees.part");
+        let part = || -> Result<PathBuf, FetchError> { Ok(part_path.clone()) };
+        let fetched = fetch_dataset(&fetcher, &CITY, &area, &part).unwrap();
+        assert_eq!(fetched.features.len(), 6);
+        assert_eq!(*fetcher.log.borrow(), [first, next]);
+    }
 }

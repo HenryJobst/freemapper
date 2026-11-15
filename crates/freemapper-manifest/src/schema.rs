@@ -191,7 +191,7 @@ pub(crate) struct RawTrees {
     pub crs: Option<Spanned<i64>>,
     pub envelope: Spanned<Vec<f64>>,
     pub format: Text,
-    pub geo_field: Text,
+    pub geo_field: Option<Text>,
     pub endpoints: Vec<Text>,
     pub fields: RawTreeFields,
     #[serde(default)]
@@ -205,7 +205,7 @@ pub(crate) struct RawTrees {
 pub(crate) struct RawTreeFields {
     pub kind: Text,
     pub id: Text,
-    pub date: Text,
+    pub date: Option<Text>,
     pub species: Option<Text>,
     pub crown: Option<Text>,
 }

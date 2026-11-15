@@ -69,11 +69,12 @@
       "terrain model (LGV DGM1 2022) | 2.000 MB | cached: false | Terrain | Cache",
       "surface model (LGV bDOM 2022) | 4.000 MB | cached: false | Surface | Cache",
       "OSM extract Hamburg (shared by all projects) | 54.000 MB | cached: false | MapData | Cache",
-      "ALKIS buildings and land use | 0.500 MB | cached: false | MapData | Project"
+      "ALKIS buildings and land use | 0.500 MB | cached: false | MapData | Project",
+      "city tree cadastres | 0.100 MB | cached: false | StateLayers | Project"
     ],
     "region": "hamburg",
     "tiles": [],
-    "total_megabytes": "61.047"
+    "total_megabytes": "61.147"
   },
   {
     "in_place": [],

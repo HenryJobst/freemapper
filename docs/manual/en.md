@@ -1269,6 +1269,12 @@ paths.
 states: its objects stay candidates. In Cochem it adds 19 monuments and wayside crosses, 2 watercourses and a
 well, near Dahn a rock, 3 watercourses and, on the forest map, 6 tracks and paths.
 
+**Hamburg: street tree cadastre.** Hamburg serves its street trees with genus, species and crown diameter
+(dl-de/by-2-0). freemapper fetches them like the Potsdam trees; on sprint and schoolyard maps they become single
+trees, a crown of 10 m or more as a 417, the others as a 418. In Blankenese 13 street trees go onto the map and 4 to the
+candidates; the OpenStreetMap trees at the same places go. The cadastre has no survey date, so the fetch date is
+its currency. Trees in parks and in the port are not in it.
+
 In Bavaria the cadastre has no service. There freemapper asks the landscape model of the agency instead, the
 ATKIS Basis-DLM (CC BY 4.0). It is made for the scale 1:25 000 and accurate to about 3 m. freemapper takes cave
 entrances (203), springs (312), named rocks (205), free-standing towers (524, 525), monuments and wayside

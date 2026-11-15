@@ -13,34 +13,40 @@ type = "Polygon"
 
 [buildings]
 bbox = [552737.0, 5934347.0, 553646.0, 5935057.0]
-fetched = "2026-11-14"
+fetched = "2026-11-15"
 latest_update = "2026-07-24"
 count = 1002
 regions = ["hamburg"]
 
 [land_use]
 bbox = [552737.0, 5934347.0, 553646.0, 5935057.0]
-fetched = "2026-11-14"
+fetched = "2026-11-15"
 latest_update = "2026-10-08"
 count = 977
 regions = ["hamburg"]
 
+[tree_layers.hamburg-strassenbaeume]
+bbox = [552737.0, 5934347.0, 553646.0, 5935057.0]
+fetched = "2026-11-15"
+count = 32
+regions = ["hamburg"]
+
 [osm]
-extract = "2026-11-06"
+extract = "2026-11-14"
 area = [53.55535591, 9.79619463, 53.56164409, 9.80980537]
 count = 486
 
 [orthophoto]
 flight = "08.04.2026"
-fetched = "2026-11-14"
+fetched = "2026-11-15"
 bbox = [552737.094, 5934347.53, 553645.246, 5935056.183]
 
 [terrain]
-fetched = "2026-11-14"
+fetched = "2026-11-15"
 bbox = [552737.094, 5934347.53, 553645.246, 5935056.183]
 date = "2022-03"
 
 [surface]
-fetched = "2026-11-14"
+fetched = "2026-11-15"
 bbox = [552737.094, 5934347.53, 553645.246, 5935056.183]
 date = "2022"
