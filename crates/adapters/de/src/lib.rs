@@ -21,6 +21,7 @@ pub mod ldbv;
 pub mod ldbv_alkis;
 pub mod ldbv_files;
 pub mod ldbv_las;
+pub mod ldsh_permits;
 pub mod lfb_permits;
 pub mod lgb;
 pub mod lgb_als;
