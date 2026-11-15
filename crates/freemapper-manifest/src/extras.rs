@@ -42,14 +42,17 @@ pub fn tree_dataset(trees: &Trees, region: &AdapterId) -> TreeDataset {
             max_e,
             max_n,
         },
-        format: TreeFormat::OdsGeoJsonExport {
-            geo_field: Cow::Owned(trees.geo_field.clone()),
+        format: match &trees.geo_field {
+            Some(geo_field) => TreeFormat::OdsGeoJsonExport {
+                geo_field: Cow::Owned(geo_field.clone()),
+            },
+            None => TreeFormat::OgcApiItems,
         },
         endpoints: owned_list(&trees.endpoints),
         fields: TreeFields {
             kind: Cow::Owned(trees.fields.kind.clone()),
             id: Cow::Owned(trees.fields.id.clone()),
-            date: Cow::Owned(trees.fields.date.clone()),
+            date: trees.fields.date.clone().map(Cow::Owned),
             species: trees.fields.species.clone().map(Cow::Owned),
             crown: trees.fields.crown.clone().map(Cow::Owned),
         },

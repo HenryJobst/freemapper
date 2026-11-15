@@ -575,7 +575,7 @@ mod tests {
         assert_eq!(codes, ["check.built-in-id"]);
         let lines = report.lines();
         assert!(
-            lines[0].starts_with("adapter hamburg (Hamburg), revision 1, hosts: "),
+            lines[0].starts_with("adapter hamburg (Hamburg), revision 2, hosts: "),
             "{}",
             lines[0]
         );

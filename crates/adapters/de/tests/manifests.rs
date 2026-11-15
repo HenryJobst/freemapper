@@ -19,7 +19,7 @@ use freemapper_manifest::model::Alkis;
 use freemapper_manifest::{Manifest, adapter, alkis, extras, parse};
 use freemapper_sources::alkis_source::{Normaliser, OgcApiAlkis};
 use freemapper_sources::nas::{LGB_NAS, NasModel, NasSchema};
-use freemapper_sources::trees::POTSDAM;
+use freemapper_sources::trees::{POTSDAM, TreeFormat};
 use freemapper_sources::wfs::{self, WfsService};
 
 fn manifest(id: &str) -> Manifest {
@@ -137,6 +137,7 @@ fn potsdam_tree_dataset_from_manifest_equals_the_constant() {
                 | State::Niedersachsen
                 | State::MecklenburgVorpommern
                 | State::RheinlandPfalz
+                | State::Hamburg
         ) {
             let manifest = manifest(state.id());
             assert!(
@@ -277,6 +278,31 @@ fn nrw_and_lower_saxony_ask_their_full_alkis() {
         assert_eq!((service.url.as_ref(), service.max_count), (url, count));
         assert!(service.serves("sonstiges-bauwerk") && !service.serves("dlm-turm"));
     }
+}
+
+/// Hamburg's street trees are an OGC API collection with the crown diameter and no survey date
+/// (ADR 0065, checked live on 2026-11-15 over Blankenese).
+#[test]
+fn hamburg_names_its_street_tree_cadastre() {
+    let hamburg = manifest("hamburg");
+    let region = "hamburg".parse().unwrap();
+    assert!(hamburg.nas.is_empty());
+    let trees: Vec<_> = hamburg
+        .trees
+        .iter()
+        .map(|trees| extras::tree_dataset(trees, &region))
+        .collect();
+    assert_eq!(trees.len(), 1);
+    let streets = &trees[0];
+    assert_eq!(streets.id, "hamburg-strassenbaeume");
+    assert_eq!(streets.format, TreeFormat::OgcApiItems);
+    assert_eq!(streets.crs, Crs::Utm32);
+    assert_eq!(streets.fields.crown.as_deref(), Some("kronendurchmesser"));
+    assert_eq!(streets.fields.date, None);
+    assert_eq!(
+        streets.attribution,
+        "Freie und Hansestadt Hamburg, Behörde für Umwelt, Klima, Energie und Agrarwirtschaft, dl-de/by-2-0"
+    );
 }
 
 /// Rhineland-Palatinate serves its landscape model in the AdV Shape schema (ADR 0147, checked

@@ -695,7 +695,7 @@ land_use_type = "ave:NutzungFlurstueck"
         assert_eq!(lines.len(), 18);
         assert!(
             lines[4]
-                .starts_with("hamburg  Hamburg  built in  revision 1  checked 2026-11-12  hosts: "),
+                .starts_with("hamburg  Hamburg  built in  revision 2  checked 2026-11-15  hosts: "),
             "{}",
             lines[4]
         );

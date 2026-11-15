@@ -3485,6 +3485,16 @@ mod tests {
                 .any(|m| m == "reading OSM extract Hamburg from 2026-11-06"),
             "{messages:?}"
         );
+        // The street tree cadastre (ADR 0065): its two pages, without a warning.
+        assert!(
+            !messages.iter().any(|m| m.starts_with("warning")),
+            "{messages:?}"
+        );
+        let stored =
+            std::fs::read_to_string(dir.path().join("data/trees/hamburg-strassenbaeume.geojson"))
+                .unwrap();
+        let stored: serde_json::Value = serde_json::from_str(&stored).unwrap();
+        assert_eq!(stored["features"].as_array().unwrap().len(), 6);
     }
 
     #[test]

@@ -326,8 +326,9 @@ pub struct Trees {
     pub crs: Crs,
     /// The extent of the data in `crs`: `[min_e, min_n, max_e, max_n]`.
     pub envelope: [f64; 4],
-    /// The field with the position (format `ods-geojson-export`).
-    pub geo_field: String,
+    /// The field with the position: `Some` for the format `ods-geojson-export`, `None` for
+    /// `ogc-api`.
+    pub geo_field: Option<String>,
     pub endpoints: Vec<String>,
     pub fields: TreeFields,
     pub skipped_kinds: Vec<String>,
@@ -340,7 +341,7 @@ pub struct Trees {
 pub struct TreeFields {
     pub kind: String,
     pub id: String,
-    pub date: String,
+    pub date: Option<String>,
     pub species: Option<String>,
     pub crown: Option<String>,
 }

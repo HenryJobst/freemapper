@@ -1,4 +1,5 @@
 © OpenStreetMap contributors, ODbL
 Freie und Hansestadt Hamburg, Landesbetrieb Geoinformation und Vermessung (LGV) 2026, dl-de/by-2-0, Daten geändert
+Freie und Hansestadt Hamburg, Behörde für Umwelt, Klima, Energie und Agrarwirtschaft, dl-de/by-2-0
 
 Created with freemapper – https://github.com/HenryJobst/freemapper

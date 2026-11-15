@@ -46,3 +46,14 @@ crown diameter. Licence dl-de/zero-2-0.
 Source: plan `docs/superpowers/plans/2026-11-09-states-plus-1.md` (Rulings, Task 5);
 `docs/regions/states-plus-reference.md` (Brandenburg, trees); branch `states-plus-1`, Task 5, its review and the
 live check.
+
+## Addendum 2026-11-15: Hamburg, the first OGC API cadastre
+
+Hamburg's street tree cadastre (`strassenbaumkataster_hh` on `api.hamburg.de`, dl-de/by-2-0) is the second row
+and brings the format `ogc-api` (`TreeFormat::OgcApiItems`): the items of an OGC API Features collection, asked
+with the box in CRS84 and `limit=10000`, further pages by the `next` links of a page, at most 10 pages. The points
+come as MultiPoints of one point; the reader takes those as points. The cadastre has no survey date, so
+`fields.date` is optional now; without it the fetch date is the currency, as for a date that does not parse. It
+has the crown diameter (`kronendurchmesser`), which the point generalization prefers. The tree number is
+`baumid`, the kind the German genus (`gattung_deutsch`). The street trees only: the trees of parks and the port
+(`strassenbaumkataster_hafen`) are left out.

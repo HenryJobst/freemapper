@@ -8,6 +8,7 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ### Added
 
+- Hamburg: the street tree cadastre with genus, species and crown diameter (ADR 0065). A tree cadastre can now be an OGC API collection (`[[extra.trees]] format = "ogc-api"`, paged by `next` links), and its survey date is optional. In Blankenese 13 street trees go onto the map and 4 to the candidates, in place of the OpenStreetMap trees at the same places. The example is rebuilt.
 - Rhineland-Palatinate: the landscape model of the LVermGeo RP (ATKIS Basis-DLM, ADR 0147). It is served there only in the AdV Shape schema; freemapper now reads that too (`[[extra.nas]] schema = "shape"`). Its objects stay candidates: in Cochem 19 monuments and wayside crosses, 2 watercourses and a well, near Dahn a rock, 3 watercourses and 6 paths. The two examples are rebuilt.
 - Permit notes: natural monuments and protected landscape features from Lower Saxony, from the NLWKN's map service (ADR 0148). It has no WFS, only ArcGIS REST; freemapper now reads such services as a table too. In Lower Saxony the Landkreise keep the protected biotopes; the notes say so.
 - Mecklenburg-Vorpommern: the full ALKIS and the landscape model (ADR 0062, ADR 0135). The full ALKIS puts stairs, walls and bridges straight onto the map: in the old town of Wismar 630 stairs, most of them short steps in front of house doors, and 138 walls; OpenStreetMap walls they double go. The landscape model adds candidates (trees, watercourses, paths). The two examples are rebuilt.
