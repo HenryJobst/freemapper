@@ -281,6 +281,38 @@ fn nrw_and_lower_saxony_ask_their_full_alkis() {
     }
 }
 
+/// Köln (WFS), Dortmund (OpenDataSoft) and Frankfurt am Main (CSV) bring no format of their own
+/// (ADR 0065, checked live on 2026-11-15).
+#[test]
+fn nrw_and_hesse_name_their_city_tree_cadastres() {
+    let rows = |state: &str| -> Vec<(String, &'static str)> {
+        let manifest = manifest(state);
+        let region = state.parse().unwrap();
+        manifest
+            .trees
+            .iter()
+            .map(|trees| extras::tree_dataset(trees, &region))
+            .map(|trees| {
+                let format = match trees.format {
+                    TreeFormat::OdsGeoJsonExport { .. } => "ods",
+                    TreeFormat::OgcApiItems => "ogc-api",
+                    TreeFormat::Csv { .. } => "csv",
+                    TreeFormat::WfsGeoJson { .. } => "wfs",
+                };
+                (trees.id.to_string(), format)
+            })
+            .collect()
+    };
+    assert_eq!(
+        rows("nordrheinwestfalen"),
+        [
+            ("koeln".to_string(), "wfs"),
+            ("dortmund".to_string(), "ods")
+        ]
+    );
+    assert_eq!(rows("hessen"), [("frankfurt-main".to_string(), "csv")]);
+}
+
 /// Leipzig, Frankfurt (Oder), Kiel and Norderstedt serve their trees as a WFS answering GeoJSON
 /// (ADR 0065, checked live on 2026-11-15).
 #[test]

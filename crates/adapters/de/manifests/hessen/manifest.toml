@@ -4,7 +4,7 @@ format = 1
 [adapter]
 id = "hessen"
 provider = "hvbg"
-revision = 2
+revision = 3
 min_freemapper = "0.13.0"
 crs = 25832
 object_id_prefix = "DEHE"
@@ -13,7 +13,7 @@ maintainers = ["github:HenryJobst"]
 last_verified = "2026-11-15"
 
 [net]
-hosts = ["www.gds.hessen.de", "gds.hessen.de", "www.gds-srv.hessen.de", "geodienste-umwelt.hessen.de", "geodienste.denkx.de"]
+hosts = ["www.gds.hessen.de", "gds.hessen.de", "www.gds-srv.hessen.de", "geodienste-umwelt.hessen.de", "geodienste.denkx.de", "offenedaten.frankfurt.de"]
 
 [boundary]
 file = "boundary.geojson"
@@ -60,6 +60,22 @@ model = "basis-dlm"
 namespaces = "xmlns(adv,http://www.adv-online.de/namespaces/adv/gid/7.1)"
 max_count = 100000
 max_bytes = 268435456
+
+[[extra.trees]]
+id = "frankfurt-main"
+name = "Frankfurt am Main tree cadastre"
+crs = 25832
+envelope = [462000, 5539000, 487000, 5565000]
+format = "csv"
+x_field = "ETRS 89 Rechtswert"
+y_field = "ETRS 89 Hochwert"
+separator = ";"
+endpoints = [
+    "https://offenedaten.frankfurt.de/dcat/dataset/de-he-frankfurtam-baumkataster_op/content.csv",
+]
+fields = { kind = "Lateinischer Name", id = "Objekt ID", crown = "Kronen Durchmesser in Meter" }
+attribution = "Stadt Frankfurt am Main, Baumkataster, dl-de/by-2-0"
+max_bytes = 67108864
 
 [preview]
 wms = "https://www.gds-srv.hessen.de/cgi-bin/lika-services/ogc-free-images.ows"
