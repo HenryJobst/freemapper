@@ -9,6 +9,7 @@ use crate::build::assembly::{Buildings, Built, Frame, Layer, Stored, build};
 use crate::build::buildings::object_footprints;
 use crate::build::contours::Contours;
 use crate::build::landforms::Landforms;
+use crate::build::paved::HIDDEN_CARRIAGEWAY;
 use crate::build::ticks::read_terrain;
 use crate::build::training::train;
 use crate::build::vegetation::Vegetation;
@@ -555,15 +556,38 @@ pub(super) fn pdf_objects(
     (map, sheet.iter().flat_map(|p| &p.objects).collect())
 }
 
-/// The candidates a PDF or the training map draws: all but the map area outline (the first
-/// candidate) and the points hidden under a 520 candidate (`freemapper:hidden`).
+/// The candidates a PDF draws: all but the map area outline (the first candidate) and the hidden
+/// ones (`freemapper:hidden`: points under a 520 candidate, rock and passages taken off, the
+/// carriageways of the street survey).
 fn visible_candidates(documents: &StarterDocuments) -> impl Iterator<Item = &MapObject> {
+    candidates_hidden_but(documents, None)
+}
+
+/// The candidates the training level starts from: the [`visible_candidates`] and the hidden
+/// carriageways of the street survey (`freemapper:hidden=carriageway`), which only the training
+/// map draws (`build/training/carriageway.rs` takes the tag off).
+pub(super) fn training_candidates(
+    documents: &StarterDocuments,
+) -> impl Iterator<Item = &MapObject> {
+    candidates_hidden_but(documents, Some(HIDDEN_CARRIAGEWAY))
+}
+
+/// The candidates but the map area outline (the first candidate) and those hidden by another
+/// value of `freemapper:hidden` than `kept`.
+fn candidates_hidden_but<'a>(
+    documents: &'a StarterDocuments,
+    kept: Option<&'a str>,
+) -> impl Iterator<Item = &'a MapObject> {
     documents
         .candidates
         .parts
         .iter()
         .flat_map(|p| p.objects.iter().skip(1))
-        .filter(|o| !o.tags.iter().any(|(k, _)| k == HIDDEN_KEY))
+        .filter(move |o| {
+            !o.tags
+                .iter()
+                .any(|(k, v)| k == HIDDEN_KEY && Some(v.as_str()) != kept)
+        })
 }
 
 /// Writes `<name>.pdf`, the printable map: the map objects as in the OOM map (base fill
@@ -754,15 +778,15 @@ pub fn export_training_from(
     }
     let kind = project.map_kind;
     let (georef, symbol_set) = (&documents.map.georef, &documents.map.symbol_set);
-    // The map's own objects and the visible candidates; the walkable area and the sheet stay as
-    // they are.
+    // The map's own objects, the visible candidates and the hidden carriageways; the walkable
+    // area and the sheet stay as they are.
     let input: Vec<&MapObject> = documents
         .map
         .parts
         .iter()
         .filter(|p| p.name != BASE_PART && p.name != SHEET_PART)
         .flat_map(|p| &p.objects)
-        .chain(visible_candidates(documents))
+        .chain(training_candidates(documents))
         .collect();
     // The rock of a forest or sprint map is generalized more than on the map (ADR 0126): the
     // training map is printed as it is and must stay readable; the candidates keep every cliff.

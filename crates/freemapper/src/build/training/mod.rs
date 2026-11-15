@@ -5,7 +5,9 @@
 //! The steps run in a fixed order, each on what the one before left:
 //! 1. lines of one symbol that meet end to end are joined ([`join_lines`]), and an opening
 //!    between walls and fences narrower than the norm's is widened to it
-//!    ([`widen_openings`](openings::widen_openings));
+//!    ([`widen_openings`](openings::widen_openings)); the carriageways of the street survey are
+//!    drawn in the street areas and its kerb lines inside them go
+//!    ([`draw_carriageways`](carriageway::draw_carriageways));
 //! 2. street furniture (531) on a paved area goes;
 //! 3. open land of a park is reduced to its open ground where the tree cover shows trees
 //!    ([`open_ground`]);
@@ -27,6 +29,7 @@
 //! What a step drops is gone from the training map; nothing is tagged hidden. Lines of one
 //! network that still run side by side are counted in the report.
 
+mod carriageway;
 mod junctions;
 mod lines;
 mod merge;
@@ -60,6 +63,7 @@ use crate::omap::{MapObject, MapObjectKind, SymbolSet};
 use crate::project::MapKind;
 use crate::raster::{GridSpec, Raster};
 use crate::render::geometry::{length, parts};
+use carriageway::draw_carriageways;
 use junctions::Junctions;
 use merge::merge;
 use olive::clear_olive;
@@ -114,6 +118,10 @@ pub struct TrainingReport {
     pub joined: usize,
     /// Walls and fences shortened so that an opening between them is as wide as the norm's.
     pub openings_widened: usize,
+    /// Carriageways of the street survey drawn as paved area, heavy traffic (501.11).
+    pub carriageways: usize,
+    /// Kerb lines of the street survey inside a street area that went.
+    pub kerbs: usize,
     /// Objects dropped whole because they kept no gap.
     pub gave_way: usize,
     /// Objects cut where they kept no gap.
@@ -164,6 +172,9 @@ pub fn train(
         ..TrainingReport::default()
     };
     report.openings_widened = widen_openings(&mut objects, georef, symbol_set);
+    let carriageways = draw_carriageways(&mut objects, kind, georef, symbol_set);
+    report.carriageways = carriageways.drawn;
+    report.kerbs = carriageways.kerbs;
     report.furniture = drop_furniture(&mut objects, symbol_set);
     if let Some(tree_cover) = tree_cover {
         report.open_land_cut = open_ground(&mut objects, tree_cover, georef, symbol_set);

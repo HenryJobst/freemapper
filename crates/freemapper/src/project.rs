@@ -11551,6 +11551,73 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
     }
 
     #[test]
+    fn a_hidden_carriageway_reaches_only_the_training_map() {
+        use crate::build::paved::HIDDEN_CARRIAGEWAY;
+        use crate::build::points::test_support::fixture;
+        let f = fixture(MapKind::Sprint);
+        let outline = f.rect("520", (0.0, 0.0), (1.0, 1.0));
+        let mut street = f.rect("501.5", (0.0, 0.0), (40.0, 12.0));
+        street
+            .tags
+            .push(("freemapper:nutzart".into(), "Straßenverkehr".into()));
+        let mut carriageway = f.rect("501.11", (0.0, 3.0), (40.0, 6.0));
+        carriageway
+            .tags
+            .push((HIDDEN_KEY.into(), HIDDEN_CARRIAGEWAY.into()));
+        let mut under_olive = f.tree("418", "osm", "node/1", (0.0, 0.0), None);
+        under_olive.tags.push((HIDDEN_KEY.into(), "520".into()));
+        let document = |name: &str, objects: Vec<MapObject>| MapDocument {
+            notes: String::new(),
+            georef: f.georef.clone(),
+            symbol_set: f.set.clone(),
+            parts: vec![MapPart {
+                name: name.into(),
+                objects,
+            }],
+            templates: Vec::new(),
+        };
+        let documents = StarterDocuments {
+            map: document("default part", vec![street.clone()]),
+            candidates: document(
+                "candidates",
+                vec![outline, carriageway.clone(), under_olive.clone()],
+            ),
+            attribution_text: String::new(),
+            content: PaperRect {
+                min_x: 0,
+                min_y: 0,
+                max_x: 1,
+                max_y: 1,
+            },
+            info: PeripheralInfo {
+                title: String::new(),
+                scale_denominator: 4000,
+                contour_interval_m: 5.0,
+                attribution: Vec::new(),
+            },
+            content_settings: ContentSettings::default(),
+        };
+        // Neither the map nor the check print draws it.
+        let (check_print, _) = pdf_objects(&documents, true);
+        assert_eq!(check_print, [&street]);
+        let (map, _) = pdf_objects(&documents, false);
+        assert_eq!(map, [&street]);
+        // The training level gets it, and only it of the hidden candidates.
+        let training: Vec<&MapObject> = training_candidates(&documents).collect();
+        assert_eq!(training, [&carriageway]);
+        let input: Vec<MapObject> = std::iter::once(street.clone())
+            .chain(training.into_iter().cloned())
+            .collect();
+        let (trained, report) =
+            crate::build::training::train(input, None, MapKind::Sprint, &f.georef, &f.set);
+        assert_eq!(report.carriageways, 1);
+        let heavy = f.set.id_for_code("501.11").unwrap();
+        let drawn: Vec<&MapObject> = trained.iter().filter(|o| o.symbol_id == heavy).collect();
+        assert_eq!(drawn.len(), 1);
+        assert!(drawn[0].tags.iter().all(|(k, _)| k != HIDDEN_KEY));
+    }
+
+    #[test]
     fn generalized_area_provenance_and_attribution() {
         use crate::build::points::test_support::{fixture, ids};
         const POTSDAM: &str = "Landeshauptstadt Potsdam / Bäume der Stadtkarte, dl-de/zero-2-0";

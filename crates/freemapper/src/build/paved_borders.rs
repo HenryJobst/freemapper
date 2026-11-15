@@ -27,7 +27,7 @@ const EDGE_CODE: &str = "501.1";
 const KNOWN_EDGE_M: f64 = 0.4;
 /// A 501.1 line that is there covers an edge within this distance (ground metres): 0.2 mm on
 /// paper at 1:4000, so a kerb and a border that differ by a hair are not drawn twice.
-const EDGE_LINE_M: f64 = 0.75;
+pub(crate) const EDGE_LINE_M: f64 = 0.75;
 /// A border shorter than this on paper is not drawn.
 const MIN_BORDER_MM: PaperMm = PaperMm(1.0);
 /// A border is simplified by this much (ground metres).
