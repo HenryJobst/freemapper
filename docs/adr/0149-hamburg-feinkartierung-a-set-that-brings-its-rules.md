@@ -80,3 +80,13 @@ Which point of a set beats which other point at the same place is data of the se
 into its adapter. The engine keeps only its own two entries for the full ALKIS (311 fountains, 526 monuments) and
 takes the entries of the sets first, in the order of the registry. In Berlin the ALKIS entries never apply (it has no
 NAS service), so the order and the `freemapper:also` notes stay as they were: G3/G4 byte for byte.
+
+## Addendum 2026-11-15: control kinds, kept tags, fountains and bridge decks (step 2c)
+
+Four more things the engine read from Berlin's names are data of a set now: the kind of control site a 531 point
+of a layer is (`control_kinds`; a feature may still name its own in `<prefix>:control`, as Hamburg's do), the tags a
+candidate keeps besides `<prefix>:layer` (`kept_tags`, Berlin's survey codes), the set's fountain points that stand
+in the basin of the water (`fountain_tags`), and the paved areas that may win a duplicate (`winning_areas`, Berlin's
+ALKIS bridge decks). A candidate keeps the layer tag of every set first, then the engine's tags, then the kept tags,
+so Berlin's tags stay in their order (G3/G4 byte for byte). Hamburg's candidates gain `hamburg:layer`; Blankenese
+is rebuilt with the same objects.

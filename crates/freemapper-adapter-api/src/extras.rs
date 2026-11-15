@@ -65,6 +65,17 @@ pub struct SetDrawing {
     /// Which of the set's points beat which others at the same place, in order; a point dropped
     /// by an earlier entry wins nothing later. The engine's own entries (the full ALKIS) follow.
     pub point_dedups: &'static [PointDedup],
+    /// The tags of the set's features its candidates keep besides `<tag_prefix>:layer`, for the
+    /// mapper (Berlin's survey codes).
+    pub kept_tags: &'static [&'static str],
+    /// The kind of control site (ADR 0074) a 531 point of a layer is: `(layer, kind)`. A feature
+    /// may also name its kind in the property [`CONTROL_PROPERTY`].
+    pub control_kinds: &'static [(&'static str, &'static str)],
+    /// `(tag key, value)` of the set's fountain points, which stand in the basin the water draws.
+    pub fountain_tags: &'static [(&'static str, &'static str)],
+    /// `(tag key, value)` of the set's paved areas (501.5) that may win over a duplicate, such as
+    /// surveyed bridge decks.
+    pub winning_areas: &'static [(&'static str, &'static str)],
     /// The layers whose areas are stairs; the engine draws them as stairs, walking direction
     /// from the terrain, and lets a stair of the cadastre at the same place win.
     pub stair_layers: &'static [&'static str],

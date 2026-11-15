@@ -54,6 +54,11 @@ pub(crate) fn rank_of_source(source: &str) -> Option<crate::build::dedup::Rank> 
     })
 }
 
+/// The drawings of all sets, in the order of the registry.
+pub(crate) fn all_drawings() -> impl Iterator<Item = &'static SetDrawing> {
+    drawings().iter().map(|(_, drawing)| *drawing)
+}
+
 /// The point dedups of the sets, set by set in the order of the registry.
 pub(crate) fn point_dedups()
 -> impl Iterator<Item = &'static freemapper_adapter_api::extras::PointDedup> {
@@ -268,5 +273,28 @@ mod tests {
             ("freemapper:source", "geoportal-berlin/beleuchtung")
         );
         assert_eq!(winners[12], ("berlin:layer", "aw_spielgeraet"));
+    }
+
+    /// Berlin's control-site kinds, the tags its candidates keep, its fountains and the bridge
+    /// decks that may win a duplicate are data of its set (ADR 0149).
+    #[test]
+    fn berlin_brings_its_control_kinds_kept_tags_fountains_and_bridges() {
+        let berlin = drawing_of_source("geoportal-berlin/sb-moebel").unwrap();
+        assert!(berlin.control_kinds.contains(&("av_poller", "bollard")));
+        assert!(
+            berlin
+                .control_kinds
+                .contains(&("beleuchtung", "street_lamp"))
+        );
+        assert!(berlin.kept_tags.contains(&"berlin:material"));
+        assert!(
+            berlin
+                .fountain_tags
+                .contains(&("berlin:layer", "bv_springbrunnen_zierbrunnen"))
+        );
+        assert_eq!(
+            berlin.winning_areas,
+            [("berlin:layer", "bauwerke-flaechen")]
+        );
     }
 }

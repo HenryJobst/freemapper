@@ -685,17 +685,15 @@ pub fn drop_fountains_in_osm_basins(
     kept
 }
 
-/// A point of the Berlin fountain register (`zierbrunnen`), a surveyed fountain
-/// (`bv_springbrunnen_zierbrunnen`), a full ALKIS fountain or well (`alkis-nas/…`) or one of a
-/// landscape model (`atkis-dlm/…`, ADR 0135): like an OSM fountain it stands in the basin the
-/// ALKIS water draws.
+/// A fountain point of a set (`SetDrawing::fountain_tags`: Berlin's fountain register and
+/// surveyed fountains), a full ALKIS fountain or well (`alkis-nas/…`) or one of a landscape model
+/// (`atkis-dlm/…`, ADR 0135): like an OSM fountain it stands in the basin the ALKIS water draws.
 fn cadastre_fountain(object: &MapObject) -> bool {
     object.tags.iter().any(|(k, v)| {
-        (k == "freemapper:source"
-            && (v == "geoportal-berlin/zierbrunnen"
-                || v.starts_with("alkis-nas/")
-                || v.starts_with("atkis-dlm/")))
-            || (k == "berlin:layer" && v == "bv_springbrunnen_zierbrunnen")
+        (k == "freemapper:source" && (v.starts_with("alkis-nas/") || v.starts_with("atkis-dlm/")))
+            || crate::build::sets::all_drawings()
+                .flat_map(|d| d.fountain_tags.iter())
+                .any(|(key, value)| k == key && v == value)
     })
 }
 
