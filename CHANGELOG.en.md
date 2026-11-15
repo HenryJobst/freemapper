@@ -24,6 +24,7 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ### Changed
 
+- The 30 examples are rebuilt with the state after ADR 0140: contours run across ways and paved areas (82 instead of 272 contour pieces in Viktoriapark), they are cut out at stairs (460 instead of 332 pieces in Blankenese), fence ticks point away from ways, and doubled OSM water and stairs are gone (7 instead of 12 water areas in the Bürgerpark, 41 instead of 67 OSM stairs in the old town of Bremen). The PDF of each example is now called the check print; the permit notes are unchanged.
 - Contours run through ways and paved areas on every map, as ISSprOM 2019-2 (101) asks; this takes back the cut at ways of ADR 0097. They stop at stairs and at the small landform symbols 105, 109 to 112 and 115, on forest maps not at earth walls (105, which ISOM lets contours cross), and still below cliffs. North lines still stop at ways (ADR 0140).
 - The ticks of a fence point inside when the fence is closed, otherwise to the olive green area beside it, away from a way along the fence, and to the park. With the same area on both sides they take the side where they overdraw nothing (ADR 0140, amends ADR 0097).
 - `--pdf-candidates` is now called the check print: the base map with every visible candidate, true to position, for checking in the terrain. The file name `<name>-candidates.pdf` stays. The stronger generalization of cliffs of ADR 0126 and ADR 0134 no longer runs there but on the training map (ADR 0140).
