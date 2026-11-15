@@ -9,17 +9,22 @@
 //!    ([`open_ground`]);
 //! 4. inside olive green (520) only buildings, water, contours and the ways a runner can cross
 //!    stay ([`clear_olive`](olive::clear_olive));
-//! 5. a point symbol too close to a way, a building, water or another point is moved off
+//! 5. what is alike is merged: two roads, railways or paths side by side become their middle,
+//!    and on a forest map a path or tram inside the drawn width of a road goes
+//!    ([`merge`](merge::merge)); the line ends that touched a line before touch one after
+//!    ([`Junctions`]), and the lines that meet end to end are joined again;
+//! 6. a point symbol too close to a way, a building, water or another point is moved off
 //!    ([`move_points`](points::move_points));
-//! 6. what keeps no gap to another object ([`conflicts`], the pairs that keep apart) gives way:
+//! 7. what keeps no gap to another object ([`conflicts`], the pairs that keep apart) gives way:
 //!    it is cut out there, or dropped when more than half of it is in conflict;
-//! 7. lines and areas below the norm's minimum size go.
+//! 8. lines and areas below the norm's minimum size go.
 //!
 //! What a step drops is gone from the training map; nothing is tagged hidden. Lines of one
-//! network that run side by side are left to the second half and only counted in the report.
+//! network that still run side by side are counted in the report.
 
 mod junctions;
 mod lines;
+mod merge;
 mod olive;
 mod points;
 
@@ -48,6 +53,8 @@ use crate::omap::{MapObject, MapObjectKind, SymbolSet};
 use crate::project::MapKind;
 use crate::raster::{GridSpec, Raster};
 use crate::render::geometry::{length, parts};
+use junctions::Junctions;
+use merge::merge;
 use olive::clear_olive;
 pub use olive::{OLIVE_EDGE_MM, WAY_STUB_MM};
 use points::move_points;
@@ -110,6 +117,14 @@ pub struct TrainingReport {
     pub inside_olive: usize,
     /// Point symbols moved off ways, buildings, water and other points.
     pub points_moved: usize,
+    /// Pairs of roads, railways or paths side by side that became one line.
+    pub merged: usize,
+    /// Paths and trams that went because they ran inside the drawn width of a road (forest map).
+    pub dropped_beside_roads: usize,
+    /// Line ends moved back onto the line they touched, or onto the line that replaced it.
+    pub junctions_repaired: usize,
+    /// Line ends that touched a line before the merge and touch none after.
+    pub junctions_free: usize,
     /// Conflict length left, mm on paper, by grade (the pairs of one network, left to the second half).
     pub overlap_left: f64,
     pub gap_left: f64,
@@ -139,12 +154,31 @@ pub fn train(
         report.open_land_cut = open_ground(&mut objects, tree_cover, georef, symbol_set);
     }
     report.inside_olive = clear_olive(&mut objects, &classes, georef, symbol_set);
+    let junctions = Junctions::record(&mut objects, &classes, georef);
+    let merged = merge(&mut objects, &classes, kind, georef, symbol_set);
+    let reach = MAX_SHIFT_MM.0 + gap(kind, georef.scale_denominator).0;
+    (report.junctions_repaired, report.junctions_free) =
+        junctions.repair(&mut objects, &merged.replaced_by, reach, georef);
+    junctions::forget(&mut objects);
+    report.merged = merged.merged;
+    report.dropped_beside_roads = merged.dropped_beside_roads;
+    report.cut += merged.cut;
+    report.joined += join(&mut objects, &classes, georef);
     report.points_moved = move_points(&mut objects, &classes, kind, georef, symbol_set);
-    (report.gave_way, report.cut) = give_way(&mut objects, &classes, kind, georef, symbol_set);
+    let (gave_way, cut) = give_way(&mut objects, &classes, kind, georef, symbol_set);
+    report.gave_way = gave_way;
+    report.cut += cut;
     report.too_small = drop_too_small(&mut objects, &classes, kind, georef, symbol_set);
     report.joined += join_ways(&mut objects, &classes, georef);
     (report.overlap_left, report.gap_left, report.apart_left) =
         left(&objects, kind, georef, symbol_set);
+    junctions::forget(&mut objects);
+    debug_assert!(
+        objects
+            .iter()
+            .all(|o| o.tags.iter().all(|(k, _)| k != junctions::JUNCTION_TAG)),
+        "the junction keys never reach the map"
+    );
     (objects, report)
 }
 
@@ -349,7 +383,7 @@ fn open_mask(tree_cover: &Raster<f32>, frame: &Rect<f64>) -> Raster<Option<Veget
     mask
 }
 
-/// Step 6: every object that keeps no gap to another object it must keep apart from gives way,
+/// Step 7: every object that keeps no gap to another object it must keep apart from gives way,
 /// both grades (the training map keeps every gap). Losers go by ascending rank; a line with more
 /// than half its length in conflict (the zones of all its winners together, a stretch near two
 /// counted once), a point and an area go whole, any other line is cut where it is in conflict.
@@ -622,7 +656,7 @@ fn continues_class(class: Class) -> Class {
 /// The `freemapper:generalized` value of a stair below its minimum drawn as the way it lies in.
 const STAIR_AS_PATH: &str = "stair below the minimum drawn as path";
 
-/// Step 7: a line shorter than its minimum length goes unless an end continues (within
+/// Step 8: a line shorter than its minimum length goes unless an end continues (within
 /// [`TOUCH_M`]) on another line that stays: of the network (roads, paths, railways and
 /// stairways count as one) for a way, of its own class for any other line. A short line that
 /// continues on a short line stays only when that one stays, so a chain of short pieces holds
@@ -845,7 +879,7 @@ pub(super) fn add_generalized(object: &mut MapObject, value: &str) {
     }
 }
 
-/// Step 7, last: the ways (roads, paths, stairways) that meet end to end are joined again, so a
+/// Step 8, last: the ways (roads, paths, stairways) that meet end to end are joined again, so a
 /// stairway drawn as path joins the path it lies in. Returns how many objects went.
 fn join_ways(objects: &mut Vec<MapObject>, classes: &Classes, georef: &Georeferencing) -> usize {
     let ids: Vec<u32> = [Class::Road, Class::Path, Class::Stairway]
@@ -862,7 +896,7 @@ fn join_ways(objects: &mut Vec<MapObject>, classes: &Classes, georef: &Georefere
     }
 }
 
-/// Step 8: the conflict length left on `objects`, mm on paper: overlap and gap of the pairs of
+/// Step 9: the conflict length left on `objects`, mm on paper: overlap and gap of the pairs of
 /// one network, and of the pairs that keep apart.
 fn left(
     objects: &[MapObject],
@@ -1392,13 +1426,13 @@ mod tests {
     }
 
     #[test]
-    fn carriageways_and_tracks_are_left_alone() {
+    fn carriageways_and_tracks_beyond_the_gap_are_left_alone() {
         let set = isom();
         let objects = vec![
             line(&set, "502", &[(0.0, 0.0), (30.0, 0.0)]),
-            line(&set, "502", &[(0.0, 0.5), (30.0, 0.5)]),
+            line(&set, "502", &[(0.0, 1.0), (30.0, 1.0)]),
             line(&set, "509", &[(0.0, 20.0), (30.0, 20.0)]),
-            line(&set, "509", &[(0.0, 20.5), (30.0, 20.5)]),
+            line(&set, "509", &[(0.0, 21.0), (30.0, 21.0)]),
         ];
         let (out, report) = run(&set, objects.clone());
         assert_eq!(out, objects);
@@ -1674,12 +1708,19 @@ mod tests {
     #[test]
     fn the_report_counts_what_is_left() {
         let set = isom();
+        // Two paths side by side merge; a path beside a road, outside its drawn width, is left.
+        let road = line(&set, "503", &[(0.0, 10.0), (20.0, 10.0)]);
+        let path = line(&set, "505", &[(0.0, 10.4), (20.0, 10.4)]);
         let objects = vec![
             line(&set, "505", &[(0.0, 0.0), (20.0, 0.0)]),
             line(&set, "505", &[(0.0, 0.3), (20.0, 0.3)]),
+            road.clone(),
+            path.clone(),
         ];
-        let (out, report) = run(&set, objects.clone());
-        assert_eq!(out, objects);
+        let (out, report) = run(&set, objects);
+        assert_eq!(out.len(), 3, "{out:?}");
+        assert_eq!(&out[1..], [road, path]);
+        assert_eq!(report.merged, 1, "{report:?}");
         assert!(report.gap_left + report.overlap_left > 0.0, "{report:?}");
     }
 }

@@ -9,8 +9,6 @@
 //! the keys hold whatever the steps between drop, split or replace; `train` must call [`forget`]
 //! before it returns, so that the tag never reaches a map file.
 
-#![allow(dead_code)] // The merge and shift steps of the training level call it.
-
 use std::collections::{BTreeMap, BTreeSet};
 
 use geo_types::Coord;
@@ -122,7 +120,8 @@ impl Junctions {
     /// whose end lies nearest the recorded position, within `reach` (else the end is gone with
     /// its stretch and not counted), and of the pieces of a line it can move onto, the nearest.
     /// Only the end vertex moves (its flags kept), so a sided line keeps its direction, and the
-    /// line it moves onto stays as it is. A touch counts only on the body of a line: where an end
+    /// line it moves onto stays as it is. Another piece of the end's own line is no line it
+    /// touches (a cut right at the end leaves one). A touch counts only on the body of a line: where an end
     /// meets just another recorded end, both may have lost the line they met on, so the end looks
     /// for its line first and stays where it is only when there is none in reach. Of the lines in
     /// reach, a body comes before a recorded end, then the line recorded before the line that
@@ -179,10 +178,15 @@ impl Junctions {
             };
             let at = end_point(&objects[i], last);
             // Every line the end meets: on its body (`false`) or only at a recorded end (`true`).
+            // The other pieces of its own line do not count: a cut right at the end leaves one.
             let meets: Vec<bool> = grid
                 .near(at, touch)
                 .into_iter()
-                .filter(|&j| j != i && is_line(&objects[j], &self.line_ids))
+                .filter(|&j| {
+                    j != i
+                        && is_line(&objects[j], &self.line_ids)
+                        && key_of(&objects[j]) != Some(end.object)
+                })
                 .filter_map(|j| {
                     let (d, q) = distance(&objects[j], at);
                     (d <= touch).then(|| at_recorded_end(&objects[j], recorded.get(&j), q, touch))
@@ -251,7 +255,7 @@ pub(super) fn forget(objects: &mut [MapObject]) {
 }
 
 /// The key of `object`, when it carries one.
-fn key_of(object: &MapObject) -> Option<Key> {
+pub(super) fn key_of(object: &MapObject) -> Option<Key> {
     object
         .tags
         .iter()
@@ -582,6 +586,25 @@ mod tests {
             (20.0, 5.0),
             "the other piece stays"
         );
+    }
+
+    #[test]
+    fn a_line_cut_at_its_recorded_end_still_follows() {
+        let set = isom();
+        let georef = georef_at(SCALE);
+        let mut objects = path_on_road(&set);
+        let junctions = Junctions::record(&mut objects, &Classes::of(&set), &georef);
+        // The path is cut right at its end on the road, and the road shifts: the other piece
+        // of the path, which meets the end, is no line the end touches.
+        let (path, road) = (&objects[0], &objects[1]);
+        let mut after = vec![
+            moved(&set, path, &[(20.0, 0.0), (20.0, 9.995)]),
+            moved(&set, path, &[(20.0, 9.995), (20.0, 10.0)]),
+            moved(&set, road, &[(0.0, 10.3), (40.0, 10.3)]),
+        ];
+        let result = junctions.repair(&mut after, &BTreeMap::new(), 0.5, &georef);
+        assert_eq!(result, (1, 0));
+        assert_eq!(mm(&after[1].coords[1]), (20.0, 10.3));
     }
 
     #[test]

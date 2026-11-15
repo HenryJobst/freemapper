@@ -92,7 +92,6 @@ const BESIDE_STEP_MM: f64 = 0.05;
 /// The stretch of `a` that lies within `within` mm of `b`, as arc-length ranges on `a` (sorted,
 /// merged, each at least `min_len` long). `a` is sampled every 0.05 mm; two stretches with a gap
 /// below `min_len / 2` between them are one.
-#[allow(dead_code)] // The merge and shift steps of the training level call it.
 pub(super) fn beside(a: &Polyline, b: &Polyline, within: f64, min_len: f64) -> Vec<(f64, f64)> {
     if a.points.len() < 2 || b.points.is_empty() {
         return Vec::new();
@@ -122,7 +121,6 @@ pub(super) fn beside(a: &Polyline, b: &Polyline, within: f64, min_len: f64) -> V
 
 /// The middle of `a` and `b` over `range` of `a`: samples every `step` mm on `a`, each paired
 /// with the closest point of `b`, the midpoints simplified with tolerance `step / 4`.
-#[allow(dead_code)] // The merge step of the training level calls it.
 pub(super) fn middle(a: &Polyline, b: &Polyline, range: (f64, f64), step: f64) -> Vec<(f64, f64)> {
     if a.points.len() < 2 || b.points.is_empty() {
         return Vec::new();

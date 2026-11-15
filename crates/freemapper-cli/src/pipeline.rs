@@ -762,17 +762,22 @@ fn ocad_summary(outcome: &OcadOutcome) -> String {
 }
 
 /// What the training export wrote, in words for the user: the map and its PDF with what the
-/// training level did, then the OCAD file.
+/// training level did, then the OCAD file. Lines joined end to end and pairs merged side by side
+/// count as joined; paths and trams left out inside a road count as left out.
 pub fn training_summary(outcome: &TrainingOutcome) -> String {
     let report = &outcome.report;
-    let left =
-        report.gave_way + report.cut + report.too_small + report.furniture + report.inside_olive;
+    let left = report.gave_way
+        + report.cut
+        + report.too_small
+        + report.furniture
+        + report.inside_olive
+        + report.dropped_beside_roads;
     let mut lines = vec![text(
         "cli-wrote-training",
         &[
             ("map", v(outcome.map.display())),
             ("pdf", v(outcome.pdf.display())),
-            ("joined", n(report.joined)),
+            ("joined", n(report.joined + report.merged)),
             ("left", n(left)),
         ],
     )];
@@ -1207,6 +1212,10 @@ mod tests {
             inside_olive: 6,
             open_land_cut: 7,
             points_moved: 8,
+            merged: 2,
+            dropped_beside_roads: 3,
+            junctions_repaired: 9,
+            junctions_free: 1,
             ..TrainingReport::default()
         };
         let mut outcome = training(dir, report);
@@ -1214,7 +1223,7 @@ mod tests {
         assert_eq!(
             training_summary(&outcome),
             format!(
-                "Wrote {} and {} (the training map: 3 joined, 18 left out or cut)",
+                "Wrote {} and {} (the training map: 5 joined, 21 left out or cut)",
                 training_map_path(dir).display(),
                 training_pdf_path(dir).display()
             )
