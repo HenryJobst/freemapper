@@ -54,6 +54,17 @@ struct End {
     touched: Vec<Key>,
 }
 
+/// An end that a step drew onto a line while it ran (a cut end of a merged or cut line): of
+/// which object, whether it is the last coordinate, where it lies (mm on paper) and the line it
+/// was drawn onto.
+#[derive(Debug, Clone, PartialEq)]
+pub(super) struct Attached {
+    pub(super) object: Key,
+    pub(super) last: bool,
+    pub(super) at: Coord<f64>,
+    pub(super) onto: Key,
+}
+
 /// Line ends that touch another line, recorded before a change.
 #[derive(Debug, Clone)]
 pub(super) struct Junctions {
@@ -110,6 +121,18 @@ impl Junctions {
             }
         }
         Self { ends, line_ids }
+    }
+
+    /// Records the ends a step drew onto a line after [`record`](Self::record), as if they had
+    /// touched that line before: [`repair`](Self::repair) moves them onto it, or onto what
+    /// replaced it, when it moved, and counts them.
+    pub(super) fn attach(&mut self, ends: &[Attached]) {
+        self.ends.extend(ends.iter().map(|e| End {
+            object: e.object,
+            last: e.last,
+            at: e.at,
+            touched: vec![e.onto],
+        }));
     }
 
     /// After a change: every recorded end whose object still exists but no longer touches a line

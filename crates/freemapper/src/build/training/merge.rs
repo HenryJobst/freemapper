@@ -9,9 +9,9 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use geo_types::Coord;
 
-use super::junctions::{JUNCTION_TAG, Key, key_of};
+use super::junctions::{Attached, JUNCTION_TAG, Key, key_of};
 use super::lines::{Polyline, beside, middle};
-use super::{MAX_ROUNDS, add_generalized, is_closed, min_length};
+use super::{GENERALIZED_KEY, MAX_ROUNDS, add_generalized, is_closed, min_length};
 use crate::build::conflicts::{
     Class, Classes, Conflict, Footprints, MIN_CONFLICT, Relation, TOLERANCE_MM, conflicts, gap,
     meeting_points, relation,
@@ -49,6 +49,8 @@ pub(super) struct Merged {
     /// The line that took the place of another, by junction key: of a merged pair the one that
     /// went (where it ran beside) → the one kept; of a path or tram inside a road → the road.
     pub(super) replaced_by: BTreeMap<Key, Key>,
+    /// The cut ends drawn onto a line: they follow it when it merges again later.
+    pub(super) attached: Vec<Attached>,
 }
 
 /// Merges what is alike among `objects`. On a forest map first a path (505 to 507 and the
@@ -116,6 +118,15 @@ fn also_id(object: &MapObject) -> Option<String> {
         Some(source) => format!("{source}/{id}"),
         None => id.to_string(),
     })
+}
+
+/// The value of the tag `key` of `object`.
+fn tag_value<'a>(object: &'a MapObject, key: &str) -> Option<&'a str> {
+    object
+        .tags
+        .iter()
+        .find(|(k, _)| k == key)
+        .map(|(_, v)| v.as_str())
 }
 
 /// Whether `object` is a tram by its OSM tags.
@@ -202,7 +213,7 @@ fn inside_roads(
             let min = min_length(object, classes, symbol_set, scale).0;
             // A cut end next to a road is drawn onto the road's centre line.
             let reach = |road_half: f64| rider_half + road_half + gap + TOLERANCE_MM;
-            let onto = |c: Coord<f64>| -> Option<Coord<f64>> {
+            let onto = |c: Coord<f64>| -> Option<(Coord<f64>, Option<Key>)> {
                 road_lines
                     .iter()
                     .map(|(road, l)| {
@@ -211,23 +222,14 @@ fn inside_roads(
                     })
                     .filter(|&(d, road, _)| d <= reach(footprints.half_width(road)))
                     .min_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)))
-                    .map(|(_, _, q)| q)
+                    .map(|(_, road, q)| (q, key_of(&objects[road])))
             };
             outside(&line, &inside, min)
                 .into_iter()
                 .map(|(from, to)| {
-                    let mut points = line.between(from, to);
-                    if from > 0.0
-                        && let Some(q) = onto(points[0])
-                    {
-                        points.insert(0, q);
-                    }
-                    if to < total
-                        && let Some(q) = onto(points[points.len() - 1])
-                    {
-                        points.push(q);
-                    }
-                    let mut piece = with_points(object, &points);
+                    let cut = (from > 0.0, to < total);
+                    let points = line.between(from, to);
+                    let mut piece = attached_piece(object, points, cut, onto, &mut out.attached);
                     add_generalized(&mut piece, CUT_INSIDE_ROAD);
                     piece
                 })
@@ -291,7 +293,8 @@ fn merge_round(
             scale,
             gap,
         };
-        let Some((kept, line, other, pieces)) = pair.merged(c.loser, c.winner) else {
+        let Some((kept, line, other, pieces)) = pair.merged(c.loser, c.winner, &mut out.attached)
+        else {
             continue;
         };
         used.extend([kept, other]);
@@ -319,7 +322,13 @@ struct Pair<'a> {
 impl Pair<'_> {
     /// The merge of the lines `a` and `b`, when they run beside each other long enough: the
     /// index of the line kept and its new object, the index of the other and its pieces left.
-    fn merged(&self, a: usize, b: usize) -> Option<(usize, MapObject, usize, Vec<MapObject>)> {
+    /// The cut ends of the pieces drawn onto the kept line are added to `attached`.
+    fn merged(
+        &self,
+        a: usize,
+        b: usize,
+        attached: &mut Vec<Attached>,
+    ) -> Option<(usize, MapObject, usize, Vec<MapObject>)> {
         let objects = self.objects;
         if is_closed(&objects[a]) || is_closed(&objects[b]) {
             return None;
@@ -390,6 +399,19 @@ impl Pair<'_> {
         }
         let mut line = with_points(&objects[kept], &points);
         line.tags = tags;
+        // What was done to the shorter line before stays named.
+        if let Some((_, older)) = objects[shorter]
+            .tags
+            .iter()
+            .find(|(k, _)| k == GENERALIZED_KEY)
+        {
+            let mine = tag_value(&line, GENERALIZED_KEY)
+                .unwrap_or_default()
+                .to_string();
+            for value in older.split("; ").filter(|v| !tag_holds(&mine, v)) {
+                add_generalized(&mut line, value);
+            }
+        }
         match id {
             Some(id) => add_generalized(&mut line, &format!("{MERGED} with {id}")),
             None => add_generalized(&mut line, MERGED),
@@ -397,25 +419,17 @@ impl Pair<'_> {
         // The pieces of the other line outside the stretch, their cut ends on the kept line.
         let merged = Polyline::new(points);
         let total = other_line.length();
+        let kept_key = key_of(&objects[kept]);
         let onto = |c: Coord<f64>| {
             let q = merged.point(merged.locate(c));
-            (distance(c, q) <= within + TOLERANCE_MM).then_some(q)
+            (distance(c, q) <= within + TOLERANCE_MM).then_some((q, kept_key))
         };
         let pieces = outside(&other_line, &on_other, min(other))
             .into_iter()
             .map(|(from, to)| {
-                let mut points = other_line.between(from, to);
-                if from > 0.0
-                    && let Some(q) = onto(points[0])
-                {
-                    points.insert(0, q);
-                }
-                if to < total
-                    && let Some(q) = onto(points[points.len() - 1])
-                {
-                    points.push(q);
-                }
-                with_points(&objects[other], &points)
+                let cut = (from > 0.0, to < total);
+                let points = other_line.between(from, to);
+                attached_piece(&objects[other], points, cut, onto, attached)
             })
             .collect();
         Some((kept, line, other, pieces))
@@ -503,6 +517,53 @@ fn without(ranges: &[(f64, f64)], holes: &[(f64, f64)]) -> Vec<(f64, f64)> {
         }
     }
     left
+}
+
+/// The piece of `object` along `points` (mm on paper) whose first and last point are cut ends
+/// where `cut` says so: such an end is drawn onto the line `onto` finds (the point on it and the
+/// junction key of the line), if any, and recorded in `attached`, so that it follows that line
+/// when it merges again ([`Junctions::attach`](super::junctions::Junctions::attach)).
+fn attached_piece(
+    object: &MapObject,
+    mut points: Vec<Coord<f64>>,
+    cut: (bool, bool),
+    onto: impl Fn(Coord<f64>) -> Option<(Coord<f64>, Option<Key>)>,
+    attached: &mut Vec<Attached>,
+) -> MapObject {
+    let mut targets = [None, None];
+    if cut.0
+        && let Some((q, key)) = onto(points[0])
+    {
+        points.insert(0, q);
+        targets[0] = key;
+    }
+    if cut.1
+        && let Some((q, key)) = onto(points[points.len() - 1])
+    {
+        points.push(q);
+        targets[1] = key;
+    }
+    let piece = with_points(object, &points);
+    if let Some(key) = key_of(&piece) {
+        for (last, target) in [(false, targets[0]), (true, targets[1])] {
+            let Some(onto) = target else { continue };
+            let c = if last {
+                piece.coords[piece.coords.len() - 1]
+            } else {
+                piece.coords[0]
+            };
+            attached.push(Attached {
+                object: key,
+                last,
+                at: Coord {
+                    x: f64::from(c.x) / 1000.0,
+                    y: f64::from(c.y) / 1000.0,
+                },
+                onto,
+            });
+        }
+    }
+    piece
 }
 
 /// `object` (symbol, tags) along `points` (mm on paper), consecutive equal coordinates once.
@@ -627,7 +688,8 @@ mod tests {
 
     #[test]
     fn two_carriageways_become_one_road() {
-        // A road of the forest map and a road of the sprint map, both drawn as ways of 501.8.
+        // Two roads (503) on the forest map, two wide paved paths (501.8, class Path) on the
+        // sprint map.
         for (set, code, apart, kind, scale) in [
             (isom(), "503", 0.5, MapKind::Forest, SCALE),
             (issprom(), "501.8", 0.6, MapKind::Sprint, SPRINT),
@@ -668,23 +730,42 @@ mod tests {
         let (out, report) = forest(&set, objects);
         assert_eq!(report.merged, 0, "{report:?}");
         assert_eq!(of_code(&set, &out, "503"), [&road]);
-        // Two roads of different widths: the wider symbol, the tags of the longer line.
+        // Two roads of different widths: the wider symbol, the tags of the longer line, which is
+        // the other one here; what was done to the shorter one stays named.
         let objects = vec![
-            sourced(&set, "503", "way/1", &[(0.0, 0.5), (40.0, 0.5)]),
-            sourced(&set, "502", "way/2", &[(5.0, 0.0), (30.0, 0.0)]),
+            tagged(
+                sourced(&set, "503", "way/1", &[(5.0, 0.5), (30.0, 0.5)]),
+                "freemapper:generalized",
+                "an earlier step",
+            ),
+            sourced(&set, "502", "way/2", &[(0.0, 0.0), (40.0, 0.0)]),
         ];
-        let narrow = Footprints::of(&[&objects[1]], &set).half_width(0);
         let wide = Footprints::of(&[&objects[0]], &set).half_width(0);
+        let narrow = Footprints::of(&[&objects[1]], &set).half_width(0);
         assert!(wide > narrow, "{wide} {narrow}");
         let (out, report) = forest(&set, objects);
         assert_eq!(report.merged, 1, "{report:?}");
         let roads = of_code(&set, &out, "503");
         assert_eq!(roads.len(), 1, "{out:?}");
-        assert_eq!(tag(roads[0], "freemapper:source_id"), Some("way/1"));
-        assert_eq!(tag(roads[0], "freemapper:also"), Some("osm/way/2"));
+        assert_eq!(tag(roads[0], "freemapper:source_id"), Some("way/2"));
+        assert_eq!(tag(roads[0], "freemapper:also"), Some("osm/way/1"));
+        assert_eq!(
+            tag(roads[0], "freemapper:generalized"),
+            Some("an earlier step; merged with osm/way/1")
+        );
         assert!(off(roads[0], (15.0, 0.25)) < 0.01, "{:?}", roads[0]);
-        assert!(off(roads[0], (35.0, 0.5)) < 0.01, "{:?}", roads[0]);
-        assert!(of_code(&set, &out, "502").is_empty(), "{out:?}");
+        // The pieces of the other line outside the stretch keep their own tags and end on it.
+        let pieces = of_code(&set, &out, "502");
+        assert_eq!(pieces.len(), 2, "{out:?}");
+        for piece in pieces {
+            assert_eq!(tag(piece, "freemapper:source_id"), Some("way/2"));
+            assert_eq!(tag(piece, "freemapper:also"), None);
+            assert_eq!(tag(piece, "freemapper:generalized"), None);
+            let i = out.iter().position(|o| o == piece).unwrap();
+            let inner = mm(&piece.coords[0]).x > 20.0;
+            assert!(end_touches(&out, i, !inner, SCALE), "{piece:?}");
+        }
+        assert_eq!(report.junctions_free, 0, "{report:?}");
     }
 
     #[test]
@@ -702,6 +783,74 @@ mod tests {
             assert_eq!(report.merged, 1, "{}: {report:?}", set.name);
             assert!(off(&out[0], (15.0, 20.0 + apart / 2.0)) < 0.002);
         }
+    }
+
+    #[test]
+    fn two_footpaths_become_one_on_the_sprint_map() {
+        let set = issprom();
+        let objects = vec![
+            line(&set, "505.1", &[(0.0, 0.0), (30.0, 0.0)]),
+            line(&set, "505.1", &[(0.0, 0.3), (30.0, 0.3)]),
+        ];
+        let (out, report) = sprint(&set, objects);
+        assert_eq!(report.merged, 1, "{report:?}");
+        assert_eq!(out.len(), 1, "{out:?}");
+        assert_eq!(out[0].symbol_id, set.id_for_code("505.1").unwrap());
+        assert!(off(&out[0], (15.0, 0.15)) < 0.002, "{out:?}");
+        assert_eq!((report.gap_left, report.overlap_left), (0.0, 0.0));
+    }
+
+    #[test]
+    fn a_path_leaving_a_dual_carriageway_stays_attached() {
+        // The path runs along the first carriageway in its gap zone, then leaves: its stretch
+        // there is cut and its end drawn onto the carriageway, which then merges with the second
+        // and moves to the middle.
+        let set = isom();
+        let objects = vec![
+            line(&set, "503", &[(0.0, 0.0), (40.0, 0.0)]),
+            line(&set, "503", &[(0.0, 0.5), (40.0, 0.5)]),
+            line(&set, "505", &[(5.0, -0.5), (15.0, -0.5), (20.0, -15.0)]),
+        ];
+        let (out, report) = forest(&set, objects);
+        assert_eq!(report.merged, 1, "{report:?}");
+        assert_eq!(report.cut, 1, "{report:?}");
+        let roads = of_code(&set, &out, "503");
+        assert_eq!(roads.len(), 1, "{out:?}");
+        let paths = of_code(&set, &out, "505");
+        assert_eq!(paths.len(), 1, "{out:?}");
+        let i = out.iter().position(|o| o == paths[0]).unwrap();
+        assert!(end_touches(&out, i, false, SCALE), "{out:?}");
+        assert!(
+            off(
+                roads[0],
+                (mm(&paths[0].coords[0]).x, mm(&paths[0].coords[0]).y)
+            ) < 0.02
+        );
+        assert_eq!(report.junctions_free, 0, "{report:?}");
+        assert_eq!(report.junctions_repaired, 1, "{report:?}");
+    }
+
+    #[test]
+    fn three_tracks_become_one_and_their_pieces_stay_attached() {
+        // 1:15 000; no line end touches another before, so every end repaired is one the merge
+        // drew onto a line.
+        let scale = 15_000;
+        let set = SymbolSet::isom_2017_2(MapKind::Forest.symbol_enlargement(scale));
+        // The second and third merge first (the longest conflict); the cut end of the second
+        // is drawn onto the third, which then merges with the first and moves again.
+        let objects = vec![
+            line(&set, "509", &[(10.0, 0.0), (38.0, 0.0)]),
+            line(&set, "509", &[(0.0, 0.3), (40.0, 0.3)]),
+            line(&set, "509", &[(0.0, 0.6), (30.0, 0.6), (40.0, 15.0)]),
+        ];
+        let (out, report) = train(objects, None, MapKind::Forest, &georef_at(scale), &set);
+        assert!(report.merged >= 2, "{report:?}");
+        assert_eq!(report.junctions_free, 0, "{report:?}");
+        assert!(report.junctions_repaired >= 1, "{report:?}");
+        // One line where all three ran together.
+        let tracks = of_code(&set, &out, "509");
+        let at = |p: (f64, f64)| tracks.iter().filter(|t| off(t, p) < 0.6).count();
+        assert_eq!(at((20.0, 0.3)), 1, "{tracks:?}");
     }
 
     #[test]
@@ -893,12 +1042,17 @@ mod tests {
         let objects = vec![
             line(&set, "505", &[(0.0, 0.0), (30.0, 0.0)]),
             line(&set, "505", &[(0.0, 0.3), (30.0, 0.3)]),
-            point(&set, "526", (15.0, 1.0)),
+            // 0.95 mm from the second path: too close (526 keeps about 1.01 mm from a 505 at
+            // 1:10 000); 1.1 mm from their middle: far enough. The point stays only because
+            // the merge runs before the points move.
+            point(&set, "526", (15.0, 1.25)),
         ];
+        let mark = objects[2].clone();
         let (out, report) = forest(&set, objects);
         assert_eq!(report.merged, 1, "{report:?}");
         assert_eq!(report.gave_way, 0, "{report:?}");
-        assert_eq!(of_code(&set, &out, "526").len(), 1, "{out:?}");
+        assert_eq!(report.points_moved, 0, "{report:?}");
+        assert_eq!(of_code(&set, &out, "526"), [&mark], "{out:?}");
         assert_eq!(
             apart_left(&set, &out, MapKind::Forest, SCALE),
             Vec::new(),

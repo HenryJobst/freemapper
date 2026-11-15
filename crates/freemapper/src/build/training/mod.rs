@@ -60,7 +60,7 @@ pub use olive::{OLIVE_EDGE_MM, WAY_STUB_MM};
 use points::move_points;
 pub use points::{MAX_POINT_SHIFT_MM, MAX_SHIFT_MM};
 
-/// The give-way step stops after this many rounds; what is left then is in the report.
+/// The give-way and merge steps stop after this many rounds; what is left then is in the report.
 const MAX_ROUNDS: usize = 20;
 /// Street furniture: the x of symbol 531, Prominent man-made feature.
 const FURNITURE_CODE: &str = "531";
@@ -125,7 +125,8 @@ pub struct TrainingReport {
     pub junctions_repaired: usize,
     /// Line ends that touched a line before the merge and touch none after.
     pub junctions_free: usize,
-    /// Conflict length left, mm on paper, by grade (the pairs of one network, left to the second half).
+    /// Conflict length left, mm on paper, by grade, of the pairs of one network that the merge
+    /// did not settle (lines of different classes side by side, stretches below the minimum).
     pub overlap_left: f64,
     pub gap_left: f64,
     /// Conflict length of the pairs that keep apart left, mm on paper: 0 unless the give-way
@@ -154,8 +155,9 @@ pub fn train(
         report.open_land_cut = open_ground(&mut objects, tree_cover, georef, symbol_set);
     }
     report.inside_olive = clear_olive(&mut objects, &classes, georef, symbol_set);
-    let junctions = Junctions::record(&mut objects, &classes, georef);
+    let mut junctions = Junctions::record(&mut objects, &classes, georef);
     let merged = merge(&mut objects, &classes, kind, georef, symbol_set);
+    junctions.attach(&merged.attached);
     let reach = MAX_SHIFT_MM.0 + gap(kind, georef.scale_denominator).0;
     (report.junctions_repaired, report.junctions_free) =
         junctions.repair(&mut objects, &merged.replaced_by, reach, georef);
@@ -1710,16 +1712,16 @@ mod tests {
         let set = isom();
         // Two paths side by side merge; a railway beside a road is left (not alike, no tram).
         let road = line(&set, "503", &[(0.0, 10.0), (20.0, 10.0)]);
-        let path = line(&set, "509", &[(0.0, 10.6), (20.0, 10.6)]);
+        let railway = line(&set, "509", &[(0.0, 10.6), (20.0, 10.6)]);
         let objects = vec![
             line(&set, "505", &[(0.0, 0.0), (20.0, 0.0)]),
             line(&set, "505", &[(0.0, 0.3), (20.0, 0.3)]),
             road.clone(),
-            path.clone(),
+            railway.clone(),
         ];
         let (out, report) = run(&set, objects);
         assert_eq!(out.len(), 3, "{out:?}");
-        assert_eq!(&out[1..], [road, path]);
+        assert_eq!(&out[1..], [road, railway]);
         assert_eq!(report.merged, 1, "{report:?}");
         assert!(report.gap_left + report.overlap_left > 0.0, "{report:?}");
     }
