@@ -110,3 +110,10 @@ The cleanup of Berlin's surveyed kerbs (a kerb run around a tree pit leaves a ho
 geometry of any surveyed line: it moved from `build/berlin.rs` with its tests into `build/notches.rs`, and a set
 names the layers whose lines lose their notches (`notch_free_layers`; Berlin: `sb-bordstein`). Output unchanged
 (G3/G4).
+
+## Addendum 2026-11-15: roofs under canopies (step 4c)
+
+The cadastre wins over a set for roofs: a roof (522) of a set that lies at least half under the canopies of the
+cadastre is dropped, and the canopy with the largest share names it in `freemapper:also`. That step moved from
+`build/berlin.rs` into `build/canopy.rs` (`drop_roofs_under_canopies`), and a set names the roofs that yield
+(`canopy_yielding`; Berlin: the surveyed bus shelters, `br_fahrgastunterstand`). Output unchanged (G3/G4).

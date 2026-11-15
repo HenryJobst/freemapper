@@ -16,6 +16,8 @@ use serde_json::Value;
 
 use crate::build::berlin::{feature_polygons, provenance_tags};
 use crate::build::buildings::footprint_coords;
+use crate::build::dedup::add_also;
+use crate::build::geometry::object_polygon;
 use crate::build::state::{SOURCE, STRUCTURE, vereinfacht_function};
 use crate::crs::Crs;
 use crate::georef::{GeorefError, Georeferencing};
@@ -161,6 +163,83 @@ fn outside_buildings(canopy: Polygon<f64>, buildings: &[Polygon<f64>]) -> Vec<Po
         return vec![canopy];
     }
     canopy.difference(&near).0
+}
+
+/// A roof of a set with at least this share of its area under canopies of the cadastre is one of
+/// them.
+const ROOF_UNDER_CANOPY_SHARE: f64 = 0.5;
+
+/// The cadastre wins over a set for roofs too: a roof a set names in `canopy_yielding` (Berlin's
+/// surveyed bus shelters, 522 candidates) with at least [`ROOF_UNDER_CANOPY_SHARE`] of its area
+/// under the `canopies` (522 map objects) is dropped, and the canopy with the largest share names
+/// it in `freemapper:also` (ADR 0149). Everything else stays.
+pub fn drop_roofs_under_canopies(
+    objects: Vec<MapObject>,
+    canopies: &mut [MapObject],
+) -> Vec<MapObject> {
+    use geo::{Area as _, BooleanOps as _, Intersects as _};
+    let roofs: Vec<(usize, geo_types::Polygon<f64>, geo_types::Rect<f64>)> = canopies
+        .iter()
+        .enumerate()
+        .filter_map(|(i, o)| {
+            let polygon = object_polygon(o)?;
+            let bounds = polygon.bounding_rect()?;
+            Some((i, polygon, bounds))
+        })
+        .collect();
+    if roofs.is_empty() {
+        return objects;
+    }
+    let yields = |o: &MapObject| {
+        o.tags.iter().any(|(k, v)| {
+            crate::build::sets::all_drawings()
+                .flat_map(|d| d.canopy_yielding.iter())
+                .any(|(key, value)| k == key && v == value)
+        })
+    };
+    let mut kept = Vec::with_capacity(objects.len());
+    for object in objects {
+        let shelter = yields(&object)
+            .then(|| object_polygon(&object))
+            .flatten()
+            .and_then(|p| p.bounding_rect().map(|b| (p, b)));
+        let Some((shelter, bounds)) = shelter else {
+            kept.push(object);
+            continue;
+        };
+        let area = shelter.unsigned_area();
+        let shares: Vec<(usize, f64)> = roofs
+            .iter()
+            .filter(|(_, _, b)| b.intersects(&bounds))
+            .map(|(i, roof, _)| (*i, shelter.intersection(roof).unsigned_area()))
+            .filter(|&(_, share)| share > 0.0)
+            .collect();
+        // Canopies do not overlap each other (ALKIS areas), so the shares add up.
+        let covered: f64 = shares.iter().map(|(_, share)| share).sum();
+        if area <= 0.0 || covered < ROOF_UNDER_CANOPY_SHARE * area {
+            kept.push(object);
+            continue;
+        }
+        let winner = shares
+            .iter()
+            .max_by(|a, b| a.1.total_cmp(&b.1))
+            .map(|&(i, _)| i)
+            .expect("some share is under a canopy");
+        let tag = |key: &str| {
+            object
+                .tags
+                .iter()
+                .find(|(k, _)| k == key)
+                .map_or_else(String::new, |(_, v)| v.clone())
+        };
+        let also = format!(
+            "{}/{}",
+            tag("freemapper:source"),
+            tag("freemapper:source_id")
+        );
+        add_also(&mut canopies[winner].tags, &also);
+    }
+    kept
 }
 
 #[cfg(test)]

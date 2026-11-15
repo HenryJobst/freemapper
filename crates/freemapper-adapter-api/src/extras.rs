@@ -83,6 +83,9 @@ pub struct SetDrawing {
     /// The layers whose lines lose their notches: small detours that leave the line and come
     /// back, such as a kerb run around a tree pit (Berlin's surveyed kerbs).
     pub notch_free_layers: &'static [&'static str],
+    /// `(tag key, value)` of the set's roofs (522) that give way to a canopy of the cadastre they
+    /// lie under, such as surveyed bus shelters.
+    pub canopy_yielding: &'static [(&'static str, &'static str)],
     /// The layers whose areas are stairs; the engine draws them as stairs, walking direction
     /// from the terrain, and lets a stair of the cadastre at the same place win.
     pub stair_layers: &'static [&'static str],

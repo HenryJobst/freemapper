@@ -409,4 +409,15 @@ mod tests {
         let berlin = drawing_of_source("geoportal-berlin/sb-bordstein").unwrap();
         assert_eq!(berlin.notch_free_layers, ["sb-bordstein"]);
     }
+
+    /// The roofs of a set that give way to a canopy of the cadastre (Berlin's surveyed bus
+    /// shelters, ADR 0149).
+    #[test]
+    fn berlin_names_the_roofs_that_yield_to_canopies() {
+        let berlin = drawing_of_source("geoportal-berlin/sb-objekte").unwrap();
+        assert_eq!(
+            berlin.canopy_yielding,
+            [("berlin:layer", "br_fahrgastunterstand")]
+        );
+    }
 }

@@ -508,6 +508,8 @@ static DRAWING: SetDrawing = SetDrawing {
     line_middles: &[("berlin:layer", "bj_sitzbank")],
     // The survey runs a kerb around each tree pit in a parking strip.
     notch_free_layers: &["sb-bordstein"],
+    // ALKIS wins over the survey for roofs too.
+    canopy_yielding: &[("berlin:layer", "br_fahrgastunterstand")],
     stair_layers: &[],
     candidate_layers: &[],
     generic: false,
