@@ -1061,6 +1061,7 @@ BfN's data. The notes name them from the services of the states:
 | Saxony | areas only | – | yes |
 | Saxony-Anhalt | yes, without single trees | yes | – |
 | Lower Saxony | yes | yes | – |
+| Rhineland-Palatinate | yes | yes | – |
 | Bavaria | yes | yes | – |
 | Baden-Württemberg | yes | – | – |
 | Hesse | – | – | yes, mapping of 1992 to 2006 |
@@ -1071,7 +1072,7 @@ share; biotopes of one type are one line. When protected biotopes lie in the are
 destroy them or harm them considerably is forbidden: controls and legs belong outside them, or the lower nature
 authority is asked. For natural monuments and protected biotopes a hint names the lower nature authority, outside
 Berlin and Hamburg with the Kreis from VG250. Where the data have gaps, they stand below the part of the state. In
-Baden-Württemberg the LUBW allows commercial use of its biotopes only on request, so they are left out. Rhineland-Palatinate, Mecklenburg-Vorpommern and Schleswig-Holstein follow.
+Baden-Württemberg the LUBW allows commercial use of its biotopes only on request, so they are left out. Mecklenburg-Vorpommern and Schleswig-Holstein follow. The data of Rhineland-Palatinate are under the Open Database License (ODbL), as OpenStreetMap's are.
 
 ### Water protection areas and forest functions
 

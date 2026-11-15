@@ -612,3 +612,60 @@ pub fn niedersachsen() -> Box<dyn PermitSource> {
         },
     )
 }
+
+const LFU_RP: Wording = Wording {
+    en: "Landesamt für Umwelt Rheinland-Pfalz",
+    de: "Landesamt für Umwelt Rheinland-Pfalz",
+};
+
+const LFU_RP_CREDIT: &str = "Landesamt für Umwelt Rheinland-Pfalz; Nutzung entsprechend den Lizenzbestimmungen der Open Database License (ODbL) mit Quellenangabe";
+
+/// Rhineland-Palatinate: the Naturdenkmale and geschützte Landschaftsbestandteile of the LfU's
+/// nature conservation service (one WFS per topic, ODbL). Its biotope mapping holds the
+/// unprotected biotopes too and stays out.
+pub fn rheinland_pfalz() -> Vec<Box<dyn PermitSource>> {
+    vec![
+        source(
+            "naturdenkmale",
+            LFU_RP,
+            Wording {
+                en: "Naturdenkmale",
+                de: "Naturdenkmale",
+            },
+            LFU_RP_CREDIT,
+            &["naturdenkmale"],
+            OBJECTS,
+            "https://geoportal.naturschutz.rlp.de/kartendienst_naturschutz/apps/service/wfs_getmap.php?mapfile=naturdenkmale",
+            "application/json;%20subtype=geojson",
+            {
+                const LAYERS: &[Layer] = &[(
+                    "naturdenkmale",
+                    "ms:naturdenkmale",
+                    object(ND, Some("bezeichnung"), Some("rvolink")),
+                )];
+                LAYERS
+            },
+        ),
+        source(
+            "landschaftsbestandteile",
+            LFU_RP,
+            Wording {
+                en: "geschützte Landschaftsbestandteile",
+                de: "geschützte Landschaftsbestandteile",
+            },
+            LFU_RP_CREDIT,
+            &["landschaftsbestandteile"],
+            OBJECTS,
+            "https://geoportal.naturschutz.rlp.de/kartendienst_naturschutz/apps/service/wfs_getmap.php?mapfile=glb",
+            "application/json;%20subtype=geojson",
+            {
+                const LAYERS: &[Layer] = &[(
+                    "landschaftsbestandteile",
+                    "ms:glb",
+                    object(GLB, Some("bezeichnung"), Some("rvolink")),
+                )];
+                LAYERS
+            },
+        ),
+    ]
+}

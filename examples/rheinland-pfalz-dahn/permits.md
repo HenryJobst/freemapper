@@ -19,6 +19,10 @@ Denkmale ganz oder zum Teil im Kartengebiet: 1.
 
 - Bauliche Gesamtanlage: 1
 
+## Naturdenkmale und andere Schutzobjekte (Landesamt für Umwelt Rheinland-Pfalz)
+
+Laut Landesamt für Umwelt Rheinland-Pfalz liegt im Kartengebiet keines der Schutzobjekte, die die Quelle führt.
+
 ## Wasserschutzgebiete (Bundesanstalt für Gewässerkunde)
 
 Am Rand berührt (weniger als 0,5 % des Kartengebiets):
@@ -74,5 +78,6 @@ OpenStreetMap-Flächen, die das ganze Kartengebiet umschließen und keine Ecke d
 | OpenStreetMap: OpenStreetMap, aus dem Auszug, den freemapper im Zwischenspeicher hält | gelesen, OSM-Auszug vom 2026-11-07 | © OpenStreetMap contributors, ODbL |
 | Bundesanstalt für Gewässerkunde: Trinkwasser- und Heilquellenschutzgebiete aus WasserBLIcK, ohne Schutzzonen | gelesen, abgerufen am 2026-11-15 | © WasserBLIcK/BfG und Zuständige Behörden der Länder, 2026; Lizenz: Creative Commons Namensnennung – 4.0 International (CC BY 4.0) |
 | Generaldirektion Kulturelles Erbe: Einzeldenkmäler, Denkmalzonen, bauliche Gesamtanlagen | gelesen, abgerufen am 2026-11-15 | Datenlizenz Deutschland – Namensnennung – Version 2.0 (dl-de/by-2-0); Quellenvermerk: GDKE RLP |
+| Landesamt für Umwelt Rheinland-Pfalz: Naturdenkmale, geschützte Landschaftsbestandteile | gelesen, abgerufen am 2026-11-15 | Landesamt für Umwelt Rheinland-Pfalz; Nutzung entsprechend den Lizenzbestimmungen der Open Database License (ODbL) mit Quellenangabe |
 
 Bundesanstalt für Gewässerkunde: Trinkwasser- und Heilquellenschutzgebiete aus WasserBLIcK, ohne Schutzzonen: „Die bundesweite Flächendeckung des Datenbestandes ist nicht in jedem Fall gewährleistet.“
