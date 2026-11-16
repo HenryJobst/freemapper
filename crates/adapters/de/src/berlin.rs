@@ -305,6 +305,7 @@ pub struct Registers;
 static REGISTERS: ExtraSetInfo = ExtraSetInfo {
     key: "berlin",
     crs: crate::crs::Crs::Utm33,
+    legacy_field: Some("berlin_layers"),
     notes: ExtraNotes {
         none_stored: "progress-berlin-none-stored",
         removing: "progress-berlin-removing",

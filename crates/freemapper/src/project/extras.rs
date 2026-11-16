@@ -26,6 +26,138 @@ use crate::crs::{BoundingBox, Crs};
 use crate::fetch::{FetchError, FetchMode, Fetcher, write_inside};
 use crate::note::Note;
 
+/// The records of one set of extra layers, by the file name of each stored layer.
+pub type SetRecords = BTreeMap<String, AlkisRecord>;
+
+/// The records of the sets of extra layers of a project, by set key (ADR 0149). In the project
+/// file a set is under `extra_sets.<key>`, or under the field its adapter names as
+/// [`legacy_field`](freemapper_adapter_api::extras::ExtraSetInfo::legacy_field) (Berlin:
+/// `berlin_layers`), so project files of every version read alike. A set without records is
+/// neither written nor compared.
+#[derive(Debug, Clone, Default)]
+pub struct ExtraSets(pub BTreeMap<String, SetRecords>);
+
+/// The records of a set without any.
+static NO_RECORDS: SetRecords = BTreeMap::new();
+
+impl ExtraSets {
+    /// The records of the set `key`; empty when it has none.
+    pub fn records(&self, key: &str) -> &SetRecords {
+        self.0.get(key).unwrap_or(&NO_RECORDS)
+    }
+
+    /// Keeps `records` as those of the set `key`; no records leave the set out.
+    pub fn set(&mut self, key: &str, records: SetRecords) {
+        if records.is_empty() {
+            self.0.remove(key);
+        } else {
+            self.0.insert(key.to_string(), records);
+        }
+    }
+
+    /// The sets that have records.
+    fn held(&self) -> impl Iterator<Item = (&String, &SetRecords)> {
+        self.0.iter().filter(|(_, records)| !records.is_empty())
+    }
+}
+
+impl std::ops::Deref for ExtraSets {
+    type Target = BTreeMap<String, SetRecords>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl std::ops::DerefMut for ExtraSets {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl PartialEq for ExtraSets {
+    fn eq(&self, other: &Self) -> bool {
+        self.held().eq(other.held())
+    }
+}
+
+/// The set of the built-in adapters whose legacy field is `field`.
+fn set_of_legacy_field(field: &str) -> Option<&'static str> {
+    crate::adapters::registry()
+        .adapters()
+        .flat_map(|adapter| adapter.extras().iter())
+        .map(|set| set.info())
+        .find(|info| info.legacy_field == Some(field))
+        .map(|info| info.key)
+}
+
+/// The legacy field of the set `key`, if its adapter names one.
+fn legacy_field_of(key: &str) -> Option<&'static str> {
+    crate::adapters::registry()
+        .adapters()
+        .flat_map(|adapter| adapter.extras().iter())
+        .map(|set| set.info())
+        .find(|info| info.key == key)
+        .and_then(|info| info.legacy_field)
+}
+
+/// The field of the project file the sets without a legacy field are under.
+const SETS_FIELD: &str = "extra_sets";
+
+impl serde::Serialize for ExtraSets {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        use serde::ser::SerializeMap as _;
+        let mut map = serializer.serialize_map(None)?;
+        let mut rest = BTreeMap::new();
+        for (key, records) in self.held() {
+            match legacy_field_of(key) {
+                Some(field) => map.serialize_entry(field, records)?,
+                None => {
+                    rest.insert(key, records);
+                }
+            }
+        }
+        if !rest.is_empty() {
+            map.serialize_entry(SETS_FIELD, &rest)?;
+        }
+        map.end()
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for ExtraSets {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        struct Fields;
+        impl<'de> serde::de::Visitor<'de> for Fields {
+            type Value = ExtraSets;
+
+            fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+                f.write_str("the records of the sets of extra layers")
+            }
+
+            fn visit_map<A: serde::de::MapAccess<'de>>(
+                self,
+                mut map: A,
+            ) -> Result<ExtraSets, A::Error> {
+                let mut sets = ExtraSets::default();
+                while let Some(field) = map.next_key::<String>()? {
+                    if field == SETS_FIELD {
+                        sets.0
+                            .extend(map.next_value::<BTreeMap<String, SetRecords>>()?);
+                    } else if let Some(key) = set_of_legacy_field(&field) {
+                        let records = map.next_value::<SetRecords>()?;
+                        sets.0.insert(key.to_string(), records);
+                    } else {
+                        // Any other field of the project file is no set.
+                        map.next_value::<serde::de::IgnoredAny>()?;
+                    }
+                }
+                Ok(sets)
+            }
+        }
+        deserializer.deserialize_map(Fields)
+    }
+}
+
 /// What the engine knows of one family of extra layers.
 pub(crate) struct Family<'a> {
     /// The folder of the stored layers under the project folder.
@@ -1123,6 +1255,7 @@ mod tests {
         static INFO: ExtraSetInfo = ExtraSetInfo {
             key: "wrecks",
             crs: Crs::Utm33,
+            legacy_field: None,
             notes: ExtraNotes {
                 none_stored: "progress-berlin-none-stored",
                 removing: "progress-berlin-removing",
