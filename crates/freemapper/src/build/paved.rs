@@ -170,6 +170,12 @@ impl StreetSurvey {
         }
     }
 
+    /// Adds the green strips and paved surfaces of `other`.
+    pub fn extend(&mut self, other: Self) {
+        self.green.extend(other.green);
+        self.surfaces.extend(other.surfaces);
+    }
+
     /// The street survey of Berlin's stored `green` strips and `surfaces` (EPSG:25833), in `crs`.
     #[cfg(test)]
     pub fn from_features(green: &[Value], surfaces: &[Value], crs: Crs) -> Self {

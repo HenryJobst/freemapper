@@ -131,6 +131,7 @@ static DRAWING: SetDrawing = SetDrawing {
     rules: include_str!("../rules/lgv-feinkartierung.toml"),
     tag_prefix: "hamburg",
     source_prefix: "lgv-feinkartierung",
+    id_prefix: "lgv-feinkartierung",
     rank: SetRank::Survey,
     layer_ranks: &[],
     credited_layers: &[],
