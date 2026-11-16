@@ -96,3 +96,4 @@ timestamp_utc,total_usd,requests,sessions,by_model_usd
 2026-11-15T23:08:46Z,3573.14,38454,10,claude-fable-5-1=2.13;claude-fable-5-2=979.17;claude-opus-5-5=2337.82;claude-sonnet-5-5=254.01
 2026-11-16T03:09:13Z,3635.87,39155,10,claude-fable-5-1=2.13;claude-fable-5-2=979.17;claude-opus-5-5=2396.03;claude-sonnet-5-5=258.53
 2026-11-16T07:34:55Z,3703.74,39558,10,claude-fable-5-1=2.13;claude-fable-5-2=979.17;claude-opus-5-5=2460.44;claude-sonnet-5-5=262.00
+2026-11-16T12:40:46Z,3760.57,40232,10,claude-fable-5-1=2.13;claude-fable-5-2=979.17;claude-opus-5-5=2502.20;claude-sonnet-5-5=277.07
