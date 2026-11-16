@@ -1,18 +1,19 @@
 # Saarland: the WFS of the geoportal for ALKIS (an ArcGIS server: upper-case attribute names, no
-# SORTBY), a WMS orthophoto, heights from the district archives of the open-data share through code.
+# SORTBY), a WMS orthophoto, heights from the district archives of the open-data share through code,
+# and the forest road network of the forest administration (ADR 0155) as candidates of the forest map.
 format = 1
 
 [adapter]
 id = "saarland"
 provider = "lvgl"
-revision = 1
+revision = 2
 min_freemapper = "0.13.0"
 crs = 25832
 object_id_prefix = "DESL"
 names = { en = "Saarland", de = "Saarland" }
 agency = "LVGL"
 maintainers = ["github:HenryJobst"]
-last_verified = "2026-11-12"
+last_verified = "2026-11-16"
 
 [net]
 hosts = ["geoportal.saarland.de", "www.shop.lvgl.saarland.de"]
@@ -28,8 +29,8 @@ label = "Saarland"
 
 [attribution]
 licence = "dl-de/by-2-0"
-text = "© GeoBasis DE/LVGL-SL ({year}), dl-de/by-2-0, Daten geändert"
-note = "Lizenz dl-de/by-2-0 (Datenlizenz Deutschland – Namensnennung – Version 2.0): https://www.govdata.de/dl-de/by-2-0"
+text = "© GeoBasis DE/LVGL-SL ({year}), dl-de/by-2-0, Daten geändert; Forstwegenetz © GDI-SL, CC BY 4.0, Daten geändert"
+note = "Lizenz dl-de/by-2-0 (Datenlizenz Deutschland – Namensnennung – Version 2.0): https://www.govdata.de/dl-de/by-2-0. Das Forstwegenetz (GDI-SL) steht laut Katalog unter CC BY 4.0: https://creativecommons.org/licenses/by/4.0/deed.de"
 
 [alkis]
 kind = "wfs"
@@ -40,6 +41,19 @@ buildings_type = "ALKIS_ALKIS_WFS_ohne_Eig:GebaeudeBauwerk"
 land_use_type = "ALKIS_ALKIS_WFS_ohne_Eig:Nutzung"
 square_bez = "ohne Unterart (Saarland)"
 sorted = false
+
+# The forest road network (ADR 0155): the catalogue says CC BY 4.0 with the credit "© GDI-SL", the
+# capabilities say "Es gelten keine Bedingungen"; the stricter one is credited. Machine roads and
+# skidding lanes are no paths and stay out; the others become tracks and footpaths of the forest map.
+[[extra.nas]]
+name = "LVGL Forstwegenetz"
+url = "https://geoportal.saarland.de/arcgis/services/Internet/Forstwirtschaft/MapServer/WFSServer"
+model = "basis-dlm"
+schema = "forest-roads"
+type_name = "Forstwirtschaft:Forstwegenetz"
+layers = ["dlm-fahrweg", "dlm-weg"]
+max_count = 20000
+max_bytes = 67108864
 
 [orthophoto]
 backend = "lvgl"

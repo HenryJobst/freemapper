@@ -29,6 +29,10 @@ pub const BERLIN_HEIGHTS_ATTRIBUTION: &str =
 /// (added to the project notes only).
 pub const DL_DE_BY_LICENCE_NOTE: &str = "Lizenz dl-de/by-2-0 (Datenlizenz Deutschland – Namensnennung – Version 2.0): https://www.govdata.de/dl-de/by-2-0";
 
+/// The licence note of the Saarland: that of dl-de/by-2-0 and the one of its forest road network
+/// (ADR 0155), whose catalogue says CC BY 4.0.
+pub const SAARLAND_LICENCE_NOTE: &str = "Lizenz dl-de/by-2-0 (Datenlizenz Deutschland – Namensnennung – Version 2.0): https://www.govdata.de/dl-de/by-2-0. Das Forstwegenetz (GDI-SL) steht laut Katalog unter CC BY 4.0: https://creativecommons.org/licenses/by/4.0/deed.de";
+
 /// The licence text the CC BY credits (Schleswig-Holstein, Mecklenburg-Vorpommern,
 /// Niedersachsen, Bremen, Bavaria) refer to (added to the project notes only).
 pub const CC_BY_LICENCE_NOTE: &str = "Lizenz CC BY 4.0 (Namensnennung 4.0 International): https://creativecommons.org/licenses/by/4.0/";
@@ -106,8 +110,10 @@ pub fn lines(state: State, used: &UsedSources<'_>) -> Vec<CreditLine> {
         // in its parentheses, the note of changes and the licence.
         State::Saarland => year().map(|year| {
             CreditLine::with_licence(
-                format!("© GeoBasis DE/LVGL-SL ({year}), dl-de/by-2-0, Daten geändert"),
-                DL_DE_BY_LICENCE_NOTE,
+                format!(
+                    "© GeoBasis DE/LVGL-SL ({year}), dl-de/by-2-0, Daten geändert; Forstwegenetz © GDI-SL, CC BY 4.0, Daten geändert"
+                ),
+                SAARLAND_LICENCE_NOTE,
             )
         }),
         // The line the open-data page of the LGL prescribes, „Datenquelle: LGL, www.lgl-bw.de,
@@ -245,8 +251,11 @@ mod tests {
     /// address of the licence text.
     #[test]
     fn saarland_names_the_lvgl_the_year_and_the_licence() {
-        let line =
-            |year: i32| format!("© GeoBasis DE/LVGL-SL ({year}), dl-de/by-2-0, Daten geändert");
+        let line = |year: i32| {
+            format!(
+                "© GeoBasis DE/LVGL-SL ({year}), dl-de/by-2-0, Daten geändert; Forstwegenetz © GDI-SL, CC BY 4.0, Daten geändert"
+            )
+        };
         let nothing = UsedSources::default();
         assert!(lines(State::Saarland, &nothing).is_empty());
 
@@ -298,7 +307,7 @@ mod tests {
 
         assert_eq!(
             lines_with_licences(&lines(State::Saarland, &both)),
-            [line(2026), DL_DE_BY_LICENCE_NOTE.to_string()]
+            [line(2026), SAARLAND_LICENCE_NOTE.to_string()]
         );
     }
 

@@ -25,6 +25,7 @@ pub fn nas_service(nas: &Nas, region: &AdapterId) -> NasService {
         namespaces: nas.namespaces.clone().map(Cow::Owned),
         model: nas.model,
         schema: nas.schema,
+        type_name: nas.type_name.clone().map(Cow::Owned),
     }
 }
 

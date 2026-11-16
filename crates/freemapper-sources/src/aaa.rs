@@ -451,6 +451,7 @@ mod tests {
             namespaces: None,
             model: crate::nas::NasModel::Alkis,
             schema: crate::nas::NasSchema::Nas,
+            type_name: None,
         }
     }
 

@@ -6,7 +6,11 @@
 //! cache. The survey is in the names of the archives (`Entstehung-2025`) and of the cache
 //! folder, so a cached tile serves without asking; a new survey comes with new names. The
 //! classes: ground (2), buildings (6), water (9), other non-ground, mostly vegetation (20), and
-//! synthetic fill points (8, 30).
+//! synthetic fill points (8, 30). The share also holds class 14. No document names it; it is
+//! read as wire from a measurement of 2026-11-15 on tile 32322-5485: 399 points lie on a line of
+//! about 200 m whose height falls evenly from 251 m to 190 m, all of them first to fourth
+//! echoes, never last echoes. `derive` leaves it out ([`PointCloudInfo::left_out`]), so a line
+//! across a forest does not count as tall vegetation.
 
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
@@ -32,6 +36,8 @@ use crate::note::note;
 use crate::sources::zip_range::{Member, find_member, read_members, stream_member};
 use crate::tiles::{TileId, tiles_covering_grid};
 
+/// The class that looks like wire, read from a pattern and not from a document (see above).
+const LEFT_OUT: [u8; 1] = [14];
 /// The folder of the share that holds the archives.
 const FOLDER: &str = "OD_LIDAR_Punktwolke_2025_laz_LK";
 /// The folder of the point clouds below the folder of the LVGL in the cache, by survey.
@@ -80,7 +86,7 @@ impl LvglLasBackend {
                 source: "lvgl-las".to_string(),
                 epsg: 25832,
                 grid_km: 1,
-                left_out: Vec::new(),
+                left_out: LEFT_OUT.to_vec(),
             },
         }
     }
@@ -385,6 +391,16 @@ mod tests {
             .collect();
         names.sort();
         names
+    }
+
+    #[test]
+    fn the_class_that_looks_like_wire_is_left_out() {
+        let info = LvglLasBackend::new().info;
+        assert_eq!(info.left_out, [14]);
+        assert_eq!(
+            (info.source.as_str(), info.epsg, info.grid_km),
+            ("lvgl-las", 25832, 1)
+        );
     }
 
     #[test]

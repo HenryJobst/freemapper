@@ -139,6 +139,7 @@ fn potsdam_tree_dataset_from_manifest_equals_the_constant() {
                 | State::RheinlandPfalz
                 | State::Hamburg
                 | State::Saxony
+                | State::Saarland
         ) {
             let manifest = manifest(state.id());
             assert!(
@@ -412,6 +413,32 @@ fn hamburg_names_its_street_tree_cadastre() {
         streets.attribution,
         "Freie und Hansestadt Hamburg, Behörde für Umwelt, Klima, Energie und Agrarwirtschaft, dl-de/by-2-0"
     );
+}
+
+/// The Saarland names the forest road network of its forest administration as the landscape
+/// model of its forest maps (ADR 0155, checked live on 2026-11-16): tracks and paths, one type.
+#[test]
+fn saarland_asks_its_forest_road_network_as_geojson() {
+    let saarland = manifest("saarland");
+    let region = "saarland".parse().unwrap();
+    let services: Vec<_> = saarland
+        .nas
+        .iter()
+        .map(|nas| extras::nas_service(nas, &region))
+        .collect();
+    assert_eq!(services.len(), 1);
+    let roads = &services[0];
+    assert_eq!(
+        (roads.model, roads.schema),
+        (NasModel::BasisDlm, NasSchema::ForestRoads)
+    );
+    assert_eq!(
+        roads.type_name.as_deref(),
+        Some("Forstwirtschaft:Forstwegenetz")
+    );
+    assert!(roads.serves("dlm-fahrweg") && roads.serves("dlm-weg"));
+    assert!(!roads.serves("dlm-felsen") && !roads.serves("strukturlinie"));
+    assert!(saarland.attribution.text.contains("Forstwegenetz"));
 }
 
 /// Rhineland-Palatinate serves its landscape model in the AdV Shape schema (ADR 0147, checked
