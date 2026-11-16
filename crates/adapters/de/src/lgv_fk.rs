@@ -110,6 +110,7 @@ pub struct Feinkartierung;
 static INFO: ExtraSetInfo = ExtraSetInfo {
     key: "lgv-feinkartierung",
     crs: Crs::Utm32,
+    legacy_field: None,
     notes: ExtraNotes {
         none_stored: "progress-feinkartierung-none-stored",
         removing: "progress-feinkartierung-removing",

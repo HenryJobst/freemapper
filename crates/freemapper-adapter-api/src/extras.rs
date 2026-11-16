@@ -210,6 +210,10 @@ pub struct ExtraSetInfo {
     pub key: &'static str,
     /// The CRS the features of the stored layers are in.
     pub crs: Crs,
+    /// The field of the project file that older versions kept the set's records in; the engine
+    /// reads and writes them there, so older and newer project files stay alike (Berlin:
+    /// `berlin_layers`). `None`: they are under `extra_sets.<key>`.
+    pub legacy_field: Option<&'static str>,
     pub notes: ExtraNotes,
     pub estimate: ExtraEstimate,
 }
