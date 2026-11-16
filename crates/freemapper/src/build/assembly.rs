@@ -23,7 +23,9 @@ use crate::build::barriers::resolve_barrier_overlaps;
 use crate::build::buildings::{building_objects, object_footprints};
 use crate::build::candidates::{Rules, Target, osm_objects};
 use crate::build::canopy::{CanopyInput, canopy_objects};
-use crate::build::cliffs::{Ground, Level, generalize_cliffs, hide_landforms_on_rock};
+use crate::build::cliffs::{
+    Ground, Level, generalize_cliffs, hide_landforms_on_rock, reveal_generalized,
+};
 use crate::build::content::{ContentSettings, route};
 use crate::build::contours::{Contours, contour_objects};
 use crate::build::dedup::{
@@ -32,6 +34,7 @@ use crate::build::dedup::{
 };
 use crate::build::firm_paths::cut_firm_paths;
 use crate::build::landforms::{Landforms, landform_objects};
+use crate::build::light::{LightReport, light_level};
 use crate::build::line_cuts::{
     CONTOUR_CODES, MIN_PIECE_MM, NORTH_LINE_CODES, contour_cut_outs, cut_lines_at_ways,
 };
@@ -52,6 +55,7 @@ use crate::build::stairs::{
 };
 use crate::build::state::{NasInput, TreeInput, nas_objects, state_objects, tree_objects};
 use crate::build::ticks::orient_ticks;
+use crate::build::training::TrainingInput;
 use crate::build::vegetation::{Vegetation, cut_vegetation_at_out_of_bounds, vegetation_objects};
 use crate::build::water::{
     drop_covered_water, drop_fountains_in_osm_basins, drop_points_in_water, water_objects,
@@ -867,8 +871,15 @@ pub struct Built {
 
 /// The objects of the map and of the candidates, placed by content settings.
 pub struct Placed {
+    /// The objects of the map, cleaned at the light level (`build/light.rs`).
     pub map: Vec<MapObject>,
+    /// The candidates, and after them what the light level took off the map.
     pub candidates: Vec<MapObject>,
+    /// The objects the training level starts from: the map before the light level and the
+    /// candidates the training map draws.
+    pub training: TrainingInput,
+    /// What the light level did.
+    pub light: LightReport,
 }
 
 impl Built {
@@ -1035,7 +1046,21 @@ impl Built {
             georef.scale_denominator,
             symbol_set,
         );
-        Ok(Placed { map, candidates })
+        // The training map starts from the map as it is now (spec 2026-11-14, Order), before the
+        // light level; the cliffs taken off the map stay out of it.
+        let training = TrainingInput::of(&map, &candidates);
+        reveal_generalized(&mut candidates);
+        // Last, the light level: what is doubled or hidden on the map goes to the candidates,
+        // and nothing moves (`build/light.rs`, ADR 0157). After the ticks are turned, so one
+        // orientation serves the map and the training map; the light level turns no line.
+        let (taken, light) = light_level(&mut map, self.map_kind, georef, symbol_set);
+        candidates.extend(taken);
+        Ok(Placed {
+            map,
+            candidates,
+            training,
+            light,
+        })
     }
 
     /// How many times the paved borders were computed for it (and its clones).
@@ -1432,6 +1457,46 @@ mod tests {
 
     fn of_symbol(objects: &[MapObject], id: u32) -> Vec<&MapObject> {
         objects.iter().filter(|o| o.symbol_id == id).collect()
+    }
+
+    #[test]
+    fn the_light_level_moves_a_hidden_bank_to_the_candidates_and_the_training_map_starts_before_it()
+    {
+        use crate::build::candidate_layers::{CandidateLayer, split};
+        use crate::build::points::HIDDEN_KEY;
+        let f = fixture(MapKind::Forest);
+        let way = path(&f, "505", &[(-50.0, 0.0), (100.0, 0.0)]);
+        let bank = path(&f, "104", &[(0.0, 0.0), (60.0, 0.0)]);
+        let first = square(&f, "401", (-150.0, -150.0), 20.0);
+        let placed = placed_with(
+            &f,
+            vec![way.clone(), bank.clone()],
+            vec![first],
+            &[(Group::Paths, Place::Map), (Group::Slopes, Place::Map)],
+        );
+        let bank_id = f.id("104");
+        assert!(of_symbol(&placed.map, bank_id).is_empty());
+        let taken = of_symbol(&placed.candidates, bank_id);
+        assert_eq!(taken.len(), 1);
+        assert_eq!(taken[0].coords, bank.coords);
+        assert!(taken[0].tags.iter().all(|(k, _)| k != HIDDEN_KEY));
+        assert!(
+            taken[0]
+                .tags
+                .iter()
+                .any(|(k, v)| k == "freemapper:generalized" && v == "hidden by path")
+        );
+        assert_eq!(placed.light.gave_way, 1);
+        // In the terrain layer, and the training map starts from the map before it.
+        let layers = split(&placed.candidates, &f.set);
+        let terrain = &layers
+            .iter()
+            .find(|(layer, _)| *layer == CandidateLayer::Terrain)
+            .unwrap()
+            .1;
+        assert!(terrain.contains(taken[0]));
+        assert_eq!(of_symbol(&placed.training.map, bank_id).len(), 1);
+        assert!(of_symbol(&placed.training.candidates, bank_id).is_empty());
     }
 
     #[test]

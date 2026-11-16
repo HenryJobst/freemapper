@@ -29,6 +29,8 @@ cli-kept-map = { $path } behalten (die Datei kann Ihre Arbeit enthalten)
 cli-map-lacks-templates = Die Karte verweist noch nicht auf die Bildvorlagen. Fügen Sie sie in OOM hinzu (Vorlagen > Vorlage öffnen …) oder ersetzen Sie die Karte mit --force; die alte bleibt als .omap.bak erhalten.
 cli-map-lacks-buildings = Die Karte hat noch keine ALKIS-Gebäude. Um sie zu ergänzen, ersetzen Sie die Karte mit --force; die alte bleibt als .omap.bak erhalten.
 cli-map-lacks-canopies = Der Karte fehlen die ALKIS-Überdachungen und Carports (522), die inzwischen Kartenobjekte sind. Um sie zu ergänzen, starten Sie mit --force; die alte Karte bleibt als .omap.bak erhalten.
+cli-map-light = Die Grundkarte: { $joined } Linien verbunden, { $left } verdeckte oder zu kleine Objekte in die Kandidaten-Layer gelegt (nichts verschoben)
+cli-map-light-kept = Die Kandidaten-Layer enthalten jetzt auch { $left } Objekte oder Abschnitte, die diese Version von der Grundkarte nimmt (mit freemapper:generalized markiert). Die behaltene Karte hat sie noch, sie erscheinen also doppelt. Ersetzen Sie die Karte mit --force, um sie zu bereinigen (die alte bleibt als .omap.bak erhalten).
 cli-map-old-candidates = Die Karte nennt noch templates/candidates.omap; dieser Lauf hat sie mit allen Kandidaten gefüllt. Die Kandidaten gibt es jetzt auch in sieben Layern, je einer Datei (templates/candidates-*.omap). Die Karte führt sie, wenn Sie sie mit --force ersetzen (die alte bleibt als .omap.bak erhalten), oder Sie fügen sie in OOM selbst hinzu (Vorlagen > Vorlage öffnen …).
 
 ## PDF
@@ -657,6 +659,8 @@ cli-summary-kept-map = Die vorhandene Karte { $path } bleibt (sie kann die Arbei
 cli-summary-map-lacks-templates = Die Karte verweist noch nicht auf die Bildvorlagen. Starten Sie die Pipeline mit force, um sie zu ersetzen; die alte bleibt als .omap.bak erhalten.
 cli-summary-map-lacks-buildings = Die Karte hat noch keine ALKIS-Gebäude. Starten Sie die Pipeline mit force, um sie zu ergänzen; das ersetzt die Karte, die alte bleibt als .omap.bak erhalten.
 cli-summary-map-lacks-canopies = Der Karte fehlen die ALKIS-Überdachungen und Carports (522), die jetzt Kartenobjekte sind. Starten Sie die Pipeline mit force, um sie zu ergänzen; das ersetzt die Karte, die alte bleibt als .omap.bak erhalten.
+cli-summary-map-light = Die Grundkarte: { $joined } Linien verbunden, { $left } verdeckte oder zu kleine Objekte in die Kandidaten-Layer gelegt (nichts verschoben)
+cli-summary-map-light-kept = Die Kandidaten-Layer enthalten jetzt auch { $left } Objekte oder Abschnitte, die diese Version von der Grundkarte nimmt (mit freemapper:generalized markiert). Die behaltene Karte hat sie noch, sie erscheinen also doppelt. Starten Sie die Pipeline mit force, um die Karte zu bereinigen; die alte bleibt als .omap.bak erhalten.
 cli-summary-map-old-candidates = Die Karte nennt noch templates/candidates.omap; dieser Lauf hat sie mit allen Kandidaten gefüllt. Die Kandidaten gibt es jetzt auch in sieben Layern, je einer Datei (templates/candidates-*.omap). Die Karte führt sie nach einem Lauf mit force (die alte Karte bleibt als .omap.bak erhalten), oder die Kartiererin oder der Kartierer fügt sie in OOM hinzu (Vorlagen > Vorlage öffnen …).
 cli-summary-wrote-ocad = OCAD-Karte { $path } geschrieben ({ $count ->
         [one] 1 Objekt

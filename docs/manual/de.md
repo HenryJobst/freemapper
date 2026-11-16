@@ -468,6 +468,38 @@ Deckkraft ein; sie beginnt bei 70 %. Jeder Layer enthält auch den Umriss des Ka
 Kandidaten und übernehmen Sie, was stimmt: abzeichnen, oder eine Layer-Datei öffnen und die Objekte
 kopieren und einfügen. Alle diese Karten haben dieselbe Georeferenz.
 
+**Was die Grundkarte weglässt.** Auf der Grundkarte wird nichts verschoben; jedes Objekt liegt dort, wo seine
+Quelle es hat. freemapper bereinigt die Karte leicht, bevor er sie schreibt (ADR 0157):
+
+- Linien eines Symbols und einer Quelle, die Ende an Ende liegen, werden eine Linie. So läuft das Strichmuster
+  eines Wegs durch, und er zerfällt nicht in kurze Stücke. Das Tag `freemapper:also` nennt die Stücke, die
+  darin aufgegangen sind.
+- Eine Linie, die auf einem Symbol liegt, zu dem sie Abstand halten muss, und von ihm verdeckt wird, verlässt
+  die Karte. Es weicht die Linie mit dem niedrigeren Rang; von oben sind die Ränge Gebäude, Wasserfläche und
+  Uferlinie, Bahn, Straße, Weg, Gewässerlinie und Treppe, Mauer, Zaun und Felswand, Böschung, Höhenlinie. Eine
+  Böschung geht also, wo sie auf einem Graben, einem Bach, einem Seeufer, einer Bahn, einer Straße, einem Weg
+  oder einer längeren Böschung liegt; ein Graben oder Bach, wo er an einem Weg, einer Straße oder einem Gebäude
+  entlangläuft; ein Zaun oder eine Mauer an einem Weg, einer Straße, einem Gebäude, einem Seeufer oder einem
+  Bach; eine Felswand auf einem Weg; eine Treppe an einem Gebäude; eine Höhenlinie auf einer Böschung oder
+  einer Felswand. Liegt mehr als die Hälfte der Linie auf dem anderen Symbol, geht sie ganz; sonst nur
+  dieser Abschnitt, und der Rest bleibt, wenn er die Mindestlänge der Norm erreicht. Eine Linie, die einer
+  anderen nur zu nahe kommt, ohne auf ihr zu liegen, bleibt. Punktsymbole wie Bäume bleiben auch, ebenso Linien
+  eines Netzes, zwei Wege oder ein Weg auf einer Straße.
+- Linien und Flächen unter der Mindestgröße der Norm verlassen die Karte: Treppen mit weniger als drei Stufen,
+  die nicht zwei Wege verbinden, kurze Stücke von Wegen, Gräben und Zäunen, kleine Höhenlinienringe, kleine
+  Flecken offenen Lands.
+
+Was die Karte verlässt, liegt im Kandidaten-Layer seiner Art, mit dem Grund im Tag `freemapper:generalized`
+(`hidden by path`, `below the minimum size`); eine Linie, die den Rest eines Schnitts behält, sagt `cut where
+hidden by …`. Karte und Layer zusammen enthalten jedes Objekt. Der Prüfausdruck (`--pdf-candidates`) zeichnet
+diese Kandidaten mit. Die Trainingskarte geht von der Karte vor dieser Bereinigung aus und ändert sich durch
+sie nicht.
+
+Ein Lauf ohne `--force` behält eine vorhandene Karte, denn sie kann Ihre Arbeit enthalten. Ihre
+Kandidaten-Layer werden trotzdem neu geschrieben und enthalten dann auch, was die Bereinigung von der neuen
+Karte nimmt, während die behaltene Karte es noch hat: Diese Objekte erscheinen doppelt. Der Lauf sagt das;
+`--force` ersetzt die Karte und behält die alte als `.omap.bak`.
+
 Eine Karte von freemapper 0.23.0 oder älter nennt eine einzige Vorlage, `templates/candidates.omap`. Ein
 Lauf ohne `--force` lässt eine solche Karte unverändert: Er füllt diese Datei mit allen Kandidaten,
 schreibt die Layer daneben und sagt das. `--force` ersetzt die Karte, die dann die Layer nennt, und löscht
@@ -634,7 +666,7 @@ freemapper run dammheide --training
   vergrößert wie die Symbole). Wo nur ihre Linie Platz hat, steht sie als Oberkante 201.3 ohne Zacken, zwei Wände
   Rücken an Rücken, die enger stehen, werden eine Felsrippe 206, sonst wird eine Wand gekürzt. Die Wände werden
   geglättet, damit das Zickzack der OSM-Linien verschwindet. Was wegfällt, liegt im Kandidaten-Layer Gelände, mit dem Grund
-  im Tag `freemapper:generalized`; Prüfausdruck und Trainingskarte lassen es weg. Die Höhenlinien enden unter den
+  im Tag `freemapper:generalized`; der Prüfausdruck zeichnet es, die Trainingskarte lässt es weg. Die Höhenlinien enden unter den
   gezeichneten Wänden und laufen sonst weiter; Kuppen und Senken aus dem Geländemodell auf dem Fels werden
   ausgeblendet. Für die Höhen behält eine Waldkarte in einem Bundesland, dessen Geländemodell in Kacheln kommt, es als
   `data/terrain.tif`. Eine Wand, an der das Orthofoto Fels zeigt, bleibt zuerst (`freemapper:rock-seen`); eine, an der

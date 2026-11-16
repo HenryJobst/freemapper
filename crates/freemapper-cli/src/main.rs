@@ -567,6 +567,9 @@ fn print_written(written: pipeline::Written, sources: PdfSources) {
                     if let Some(preview) = &outcome.preview {
                         wrote(preview);
                     }
+                    if let Some(line) = pipeline::light_summary(&outcome.light, "cli-map-light") {
+                        println!("{line}");
+                    }
                 }
                 MapOutcome::Kept {
                     map,
@@ -576,6 +579,9 @@ fn print_written(written: pipeline::Written, sources: PdfSources) {
                     missing_canopies,
                 } => {
                     kept(map);
+                    if let Some(line) = pipeline::light_kept(&outcome.light, "cli-map-light-kept") {
+                        println!("{line}");
+                    }
                     if *old_candidates {
                         println!("{}", text("cli-map-old-candidates", &[]));
                     }
@@ -898,6 +904,9 @@ fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
                 kept(&existing);
             } else {
                 wrote(&export_starter_project_from(&dir, &documents, force)?);
+                if let Some(line) = pipeline::light_summary(documents.light(), "cli-map-light") {
+                    println!("{line}");
+                }
                 // The map is written: a failed preview is a warning, and the outputs still run.
                 if let Some(preview) =
                     export_map_preview_or_warn(&dir, &documents, &mut report_note)

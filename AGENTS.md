@@ -308,6 +308,10 @@ The cache is shared by all projects: macOS `~/Library/Caches/freemapper`, Linux 
   against the orthophoto and in the terrain before it is copied into the map. The layers start hidden; the
   person switches each on in OOM's list of templates (menu *Templates*), where each has its own opacity. The check print
   (`<name>-candidates.pdf`) draws all of it true to position, for checking in the terrain.
+- Nothing on the base map is moved. A line hidden by another symbol (an earth bank on a path, a fence on a
+  road, a contour on an earth bank) and what is below the norm's minimum size leave it for the candidate layer
+  of their kind, tagged `freemapper:generalized` with the reason; lines of one source that meet end to end are
+  joined. The map and its candidate layers together hold every object.
 - The training map (`<name>-training.omap`, `<name>-training.pdf`) is printed and used as it is. It holds the map
   and the candidates, cleaned up so that symbols do not lie on each other: it joins lines, cuts out or leaves out
   the lower-ranked object where two come too close (walls and impassable fences are only cut), leaves out what is

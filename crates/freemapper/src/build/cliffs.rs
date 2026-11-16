@@ -21,8 +21,11 @@
 //!   sides that face each other (line or tags); where only its line has room it is a top line
 //!   201.3, back to back with one kept it makes a rock fin 206, elsewhere it is cut.
 //!
-//! The cliffs that go are hidden in the training map ([`HIDDEN_KEY`]` = generalized`) and name
-//! why in `freemapper:generalized`. Returned is where the rock stands: the contours stop below the
+//! The cliffs that go name why in `freemapper:generalized`. Those taken off the map are hidden
+//! ([`HIDDEN_KEY`]` = generalized`) while the map is placed, so that the training map, which
+//! generalizes the rock again at its own level, does not start from them; once its input is set
+//! aside the tag goes ([`reveal_generalized`]) and the check print draws them, as it draws all
+//! the light level takes off the map (ADR 0157). Returned is where the rock stands: the contours stop below the
 //! rock drawn, and the knolls of the terrain on it are hidden.
 
 use geo::Simplify as _;
@@ -707,6 +710,21 @@ fn seen_along(line: &LineString<f64>, seen: &Raster<f32>) -> bool {
         }
     }
     all > 0 && lit as f64 >= SEEN_LIT * all as f64 && rock / lit as f64 >= SEEN_ROCK
+}
+
+/// Takes [`HIDDEN_KEY`]` = `[`GENERALIZED`] off the cliffs among `candidates` that
+/// [`generalize_cliffs`] took off the map, once the input of the training map is set aside: the
+/// check print draws them (ADR 0157). Returns how many.
+pub fn reveal_generalized(candidates: &mut [MapObject]) -> usize {
+    let mut revealed = 0;
+    for object in candidates {
+        let before = object.tags.len();
+        object
+            .tags
+            .retain(|(k, v)| !(k == HIDDEN_KEY && v == GENERALIZED));
+        revealed += before - object.tags.len();
+    }
+    revealed
 }
 
 /// Hides the knolls and depressions of the terrain model (`freemapper:landform`) that stand in
@@ -1989,6 +2007,33 @@ mod tests {
             generalized(&candidates[0]),
             Some("rock pillar closer than 0.25 mm to a higher cliff or pillar kept before")
         );
+    }
+
+    #[test]
+    fn the_cliffs_taken_off_the_map_are_revealed_and_the_rock_stays_hidden() {
+        let mut candidates = vec![
+            MapObject {
+                symbol_id: 1,
+                kind: MapObjectKind::Path,
+                coords: Vec::new(),
+                tags: vec![
+                    (HIDDEN_KEY.to_string(), GENERALIZED.to_string()),
+                    (GENERALIZED_KEY.to_string(), "lower than 3 m".to_string()),
+                ],
+            },
+            MapObject {
+                symbol_id: 2,
+                kind: MapObjectKind::Point { rotation_rad: 0.0 },
+                coords: Vec::new(),
+                tags: vec![(HIDDEN_KEY.to_string(), ROCK.to_string())],
+            },
+        ];
+        assert_eq!(reveal_generalized(&mut candidates), 1);
+        assert_eq!(
+            candidates[0].tags,
+            [(GENERALIZED_KEY.to_string(), "lower than 3 m".to_string())]
+        );
+        assert_eq!(tag(&candidates[1], HIDDEN_KEY).as_deref(), Some(ROCK));
     }
 
     #[test]

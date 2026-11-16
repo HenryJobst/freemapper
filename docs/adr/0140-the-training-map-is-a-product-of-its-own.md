@@ -1,7 +1,7 @@
 # 0140. The training map is a product of its own
 
 Date: 2026-11-15
-Status: Accepted, amends ADR 0080, 0097, 0126 and 0134; amended by ADR 0150 (the second half: merge, shift, junctions, carriageways) ADR 0151 (closed and enclosing fences have their ticks inside) and ADR 0156 (the candidates in seven layers)
+Status: Accepted, amends ADR 0080, 0097, 0126 and 0134; amended by ADR 0150 (the second half: merge, shift, junctions, carriageways) ADR 0151 (closed and enclosing fences have their ticks inside) ADR 0156 (the candidates in seven layers) and ADR 0157 (the light level of the base map; the training map starts from the map before it)
 
 ## Context
 
