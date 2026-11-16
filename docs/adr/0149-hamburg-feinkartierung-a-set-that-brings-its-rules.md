@@ -127,3 +127,12 @@ stamped at download. No other region needs that combination, so it is an adapter
 `build/berlin.rs` into its adapter. Without one, a feature gets `<prefix>:layer` and `<prefix>:<property>` as
 before (Hamburg). `build/sets.rs::tags_of` picks between the two. A function pointer cannot be compared, so
 `SetDrawing` no longer derives `PartialEq`, which nothing used. Output unchanged (G3/G4).
+
+## Addendum 2026-11-16: canopies of a set (step 4e)
+
+A set names the areas of its layers that are canopies (`canopy_areas`, each a layer, the property that names the
+kind and the kinds; Berlin: `bezbwf` `Überdachung` or `Carport` of `bauwerke-flaechen`). `CanopyInput::Set` carries
+the set's drawing, the layer, its features and their CRS in place of the Berlin variant. The provenance tags of an
+object built from a set's feature directly come from `build/sets.rs::provenance_tags`, which reads the set's own
+tags and its source prefix. The map's check for canopies that an older map lacks reads the canopy sources of every
+set. Output unchanged (G3/G4).

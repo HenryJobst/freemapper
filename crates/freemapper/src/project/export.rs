@@ -233,7 +233,10 @@ pub(super) const ALKIS_SOURCE_TAG: &str = r#"<t k="freemapper:source">alkis</t>"
 /// Whether the stored layers and buildings give 522 canopy map objects that the map at
 /// `map_text` lacks (it was written before them, or without the layers).
 pub(super) fn map_lacks_canopies(dir: &Path, map_text: &str) -> Result<bool, ProjectError> {
-    if CANOPY_SOURCE_TAGS.iter().any(|tag| map_text.contains(tag)) {
+    if canopy_source_tags()
+        .iter()
+        .any(|tag| map_text.contains(tag))
+    {
         return Ok(false);
     }
     let project = ProjectFile::load(dir)?;
@@ -249,19 +252,30 @@ pub(super) fn map_lacks_canopies(dir: &Path, map_text: &str) -> Result<bool, Pro
     let stored = read_stored_buildings(dir)?;
     let footprints = stored.as_ref().map_or_else(Vec::new, |b| b.footprints());
     let map_area = area.projected_polygon_in(project.crs());
-    if let Some(layer) = layers.iter().find(|l| l.layer.file == CANOPY_LAYER)
-        && !canopy_objects(
-            &[CanopyInput::Berlin(&layer.features)],
-            &footprints,
-            &map_area,
-            project.buffer_m,
-            &georef,
-            &symbol_set,
-            layer.fetched,
-        )?
-        .is_empty()
-    {
-        return Ok(true);
+    if let Some((drawing, crs)) = registers_drawing() {
+        for layer in layers
+            .iter()
+            .filter(|l| drawing.canopy_areas.iter().any(|a| a.layer == l.layer.file))
+        {
+            if !canopy_objects(
+                &[CanopyInput::Set {
+                    drawing,
+                    layer: layer.layer.file,
+                    features: &layer.features,
+                    crs,
+                }],
+                &footprints,
+                &map_area,
+                project.buffer_m,
+                &georef,
+                &symbol_set,
+                layer.fetched,
+            )?
+            .is_empty()
+            {
+                return Ok(true);
+            }
+        }
     }
     // The canopies among the ALKIS buildings of any state (`Überdachung`, `Carport`).
     let (Some(stored), Some(record)) = (&stored, &project.buildings) else {
@@ -279,14 +293,25 @@ pub(super) fn map_lacks_canopies(dir: &Path, map_text: &str) -> Result<bool, Pro
     .is_empty())
 }
 
-/// How a canopy object's provenance appears in the map file: a Berlin canopy, or an ALKIS
+/// How a canopy object's provenance appears in the map file: a canopy of a set, or an ALKIS
 /// vereinfacht one (the buildings share `freemapper:source` = `alkis`, so the kind tells them
 /// apart).
-pub(super) const CANOPY_SOURCE_TAGS: [&str; 3] = [
-    r#"<t k="freemapper:source">geoportal-berlin/bauwerke-flaechen</t>"#,
-    r#"<t k="freemapper:alkis">Überdachung</t>"#,
-    r#"<t k="freemapper:alkis">Carport</t>"#,
-];
+pub(super) fn canopy_source_tags() -> Vec<String> {
+    let mut tags: Vec<String> = crate::build::sets::all_drawings()
+        .flat_map(|d| {
+            d.canopy_areas.iter().map(move |a| {
+                format!(
+                    r#"<t k="freemapper:source">{}/{}</t>"#,
+                    d.source_prefix, a.layer
+                )
+            })
+        })
+        .collect();
+    tags.extend(
+        ["Überdachung", "Carport"].map(|kind| format!(r#"<t k="freemapper:alkis">{kind}</t>"#)),
+    );
+    tags
+}
 
 /// Writes the starter project (map, candidates template map, attribution) into `dir` and
 /// returns the path of the map file.

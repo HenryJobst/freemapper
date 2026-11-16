@@ -141,6 +141,7 @@ static DRAWING: SetDrawing = SetDrawing {
     line_middles: &[],
     notch_free_layers: &[],
     canopy_yielding: &[],
+    canopy_areas: &[],
     stair_layers: &[STAIR_LAYER],
     // The green of the street space: candidates on the base map (the user's decision of
     // 2026-11-15).

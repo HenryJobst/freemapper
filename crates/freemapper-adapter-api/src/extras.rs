@@ -89,6 +89,9 @@ pub struct SetDrawing {
     /// `(tag key, value)` of the set's roofs (522) that give way to a canopy of the cadastre they
     /// lie under, such as surveyed bus shelters.
     pub canopy_yielding: &'static [(&'static str, &'static str)],
+    /// The areas of the set that are canopies (522 map objects, cut at the buildings like the
+    /// canopies of the cadastre).
+    pub canopy_areas: &'static [LayerKinds],
     /// The layers whose areas are stairs; the engine draws them as stairs, walking direction
     /// from the terrain, and lets a stair of the cadastre at the same place win.
     pub stair_layers: &'static [&'static str],
@@ -126,6 +129,16 @@ pub enum DedupDistance {
     /// Millimetres on paper, as what the printed map shows twice, but at least `at_least_m`
     /// ground metres: the positional error of the sources does not shrink with the scale.
     Paper { mm: f64, at_least_m: f64 },
+}
+
+/// The features of one layer of a set whose `field` holds one of `kinds`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct LayerKinds {
+    /// The layer's stored file name.
+    pub layer: &'static str,
+    /// The property that names the kind.
+    pub field: &'static str,
+    pub kinds: &'static [&'static str],
 }
 
 /// One kind of winning point of a set and the points that give way to it.

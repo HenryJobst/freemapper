@@ -1890,6 +1890,16 @@ fn registers() -> Option<extras::Family<'static>> {
     extras::set_in(registry(), REGISTERS_SET).map(|(_, set)| extras::of_set(set))
 }
 
+/// The drawing of the set of extra layers recorded in `berlin_layers` and the CRS its layers are
+/// stored in; `None` when no adapter of this run has it.
+pub(crate) fn registers_drawing() -> Option<(
+    &'static freemapper_adapter_api::extras::SetDrawing,
+    crate::crs::Crs,
+)> {
+    let (_, set) = extras::set_in(registry(), REGISTERS_SET)?;
+    Some((set.drawing()?, set.info().crs))
+}
+
 /// The extra Berlin layer the project file records under `key`, from the static table; `None`
 /// for a key no layer has.
 fn known_berlin_layer(key: &str) -> Option<&'static berlin::ExtraLayer> {
