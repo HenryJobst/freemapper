@@ -241,6 +241,32 @@ mod tests {
         NOTES.parse_lang_arg("de").unwrap()
     }
 
+    /// An ignored layer entry of a set is named by the state of the set in German too: Hamburg's
+    /// are no Berlin layers (ADR 0149).
+    #[test]
+    fn an_ignored_layer_entry_names_the_state_of_its_set() {
+        let entry = |what: &'static str, german: &'static str| {
+            Note::new("warning-layer-entry-ignored")
+                .with("what", what)
+                .with("german", german)
+                .with("key", "\"x\"")
+                .with("reason", "unknown")
+        };
+        let german = |note: Note| note.text(&de(), &|e, _| e.to_string());
+        assert!(
+            german(entry("Hamburg", "Hamburg")).contains("der Hamburg-Ebenen"),
+            "{}",
+            german(entry("Hamburg", "Hamburg"))
+        );
+        assert!(german(entry("Berlin", "Berlin")).contains("der Berlin-Ebenen"));
+        assert!(german(entry("tree", "")).contains("der Baumebenen"));
+        assert!(
+            entry("Hamburg", "Hamburg")
+                .to_string()
+                .starts_with("warning: freemapper.toml: ignored the Hamburg layer entry")
+        );
+    }
+
     /// The `src/` folders of the workspace crates that emit notes, from this crate's folder.
     const EMITTING_CRATES: [&str; 5] = [
         "src",

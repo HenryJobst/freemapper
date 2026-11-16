@@ -13,7 +13,11 @@ warning-error = { $error }
 ## The project file
 
 warning-scale-not-allowed = freemapper.toml: scale 1:{ $scale } is none of the scales for { $kind } maps ({ $allowed }); freemapper-print will refuse the map
-warning-layer-entry-ignored = freemapper.toml: ignored the { $what } layer entry { $key }: { $reason ->
+# `$german` is the name of a set's state in the German text; the English text reads it only
+# so that both catalogs name the same variables.
+warning-layer-entry-ignored = freemapper.toml: ignored the { $german ->
+       *[any] { $what }
+    } layer entry { $key }: { $reason ->
         [name] not a plain file name
        *[unknown] no layer freemapper knows
     }
