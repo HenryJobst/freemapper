@@ -17,7 +17,8 @@ warning-scale-not-allowed = freemapper.toml: Der Maßstab 1:{ $scale } gehört n
 warning-layer-entry-ignored = freemapper.toml: Eintrag { $key } der { $what ->
         [tree] Baumebenen
         [NAS] NAS-Ebenen
-       *[Berlin] Berlin-Ebenen
+        [set] Zusatzebenen
+       *[other] { $german }-Ebenen
     } ignoriert: { $reason ->
         [name] kein einfacher Dateiname
        *[unknown] keine Ebene, die freemapper kennt

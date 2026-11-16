@@ -675,7 +675,7 @@ static DRAWING: SetDrawing = SetDrawing {
     stair_layers: &[],
     candidate_layers: &[],
     feature_tags: Some(feature_tags),
-    generic: false,
+    generic: true,
 };
 
 impl ExtraSet for Registers {

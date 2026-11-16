@@ -197,3 +197,12 @@ before, Hamburg `lgv-feinkartierung`), and the building parts are drawn for ever
 whether its own layers are stored or not (`building_part_objects`), as Berlin's passages always were.
 `build/berlin.rs` holds only the tests of Berlin's rules now, drawn through the generic step. Berlin is still
 fetched by its own code; the switch of the fetch (step 6b) follows. Output unchanged (G3/G4).
+
+## Addendum 2026-11-16: the switch (step 6b)
+
+Berlin's drawing says `generic: true`: the engine fetches, records and stores Berlin's layers as it does every set's,
+through `extras::drawn_sets`, and the code that named the set (`REGISTERS_SET`, `registers()`, `registers_drawing`,
+`fetch_berlin_layers_into`, the table lookups of `known_berlin_layer`) is gone. The footprint dates are joined for
+every set that names a layer for them. `the_engine_names_no_region` lost the lines of `project.rs` that named
+Berlin's layers. An ignored layer entry is named by the state of its set's adapter (`name_de` for the German
+text; before, every set's were called Berlin's). Output unchanged (G3/G4, G5).

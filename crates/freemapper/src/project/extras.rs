@@ -321,15 +321,6 @@ pub(crate) fn set_in<'a>(
 /// The sets of the adapters of `registry` that bring their rules (ADR 0149), each with its
 /// adapter. A set whose key is no plain name is none.
 pub(crate) fn drawn_sets(registry: &Registry) -> Vec<(&dyn RegionAdapter, &dyn ExtraSet)> {
-    sets_with_drawing(registry)
-        .into_iter()
-        .filter(|(_, set)| set.drawing().is_some_and(|d| d.generic))
-        .collect()
-}
-
-/// The sets of the adapters of `registry` that bring a drawing, whether the engine fetches them
-/// as sets yet or not, each with its adapter. A set whose key is no plain name is none.
-pub(crate) fn sets_with_drawing(registry: &Registry) -> Vec<(&dyn RegionAdapter, &dyn ExtraSet)> {
     registry
         .adapters()
         .flat_map(|adapter| {
@@ -338,7 +329,7 @@ pub(crate) fn sets_with_drawing(registry: &Registry) -> Vec<(&dyn RegionAdapter,
                 .iter()
                 .map(move |set| (adapter, set.as_ref()))
         })
-        .filter(|(_, set)| set.drawing().is_some() && plain(set.info().key))
+        .filter(|(_, set)| set.drawing().is_some_and(|d| d.generic) && plain(set.info().key))
         .collect()
 }
 
