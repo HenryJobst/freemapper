@@ -1447,7 +1447,8 @@ its currency. Trees in parks and in the port are not in it.
 (Feinkartierung Straße, dl-de/by-2-0; Feinkartierung Grün, dl-de/zero-2-0). freemapper takes railings, fences,
 handrails, walls, curbs, stairs and street furniture from it for sprint and schoolyard maps. Under the content
 profile `balanced` the railings, fences, walls, curbs and stairs go straight onto the map; bollards, benches and
-lamps become candidates, on a sprint map as control sites (531). Stair areas become stairs, their walking
+lamps become candidates, on a sprint map as control sites (531); where an OSM point stands at the same place (up to
+2 m for bollards and benches, up to 5 m for lamps), the point of the Feinkartierung counts. Stair areas become stairs, their walking
 direction from the terrain model. In Blankenese that puts 155 railings and fences, 15 walls, 36 curbs and 352
 stair lines from 102 stair areas onto the map; the OpenStreetMap stairs at the same places go (110 to 40). 96
 control sites come as candidates. Green verges, shrubs, hedges
