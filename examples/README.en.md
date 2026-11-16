@@ -12,7 +12,7 @@ draws every candidate true to position and so shows what freemapper can derive. 
 
 | Preview | State | Area | Map objects | Candidates | Symbols |
 |---|---|---|---:|---:|---:|
-| <a href="brandenburg-sanssouci/preview.webp"><img src="brandenburg-sanssouci/preview-thumb.webp" width="220" alt="" loading="lazy"></a><br><a href="brandenburg-sanssouci/brandenburg-sanssouci-training.pdf">PDF</a> · <a href="brandenburg-sanssouci/brandenburg-sanssouci-candidates.pdf">check print</a> | Brandenburg | [Park Sanssouci, Potsdam](brandenburg-sanssouci/): vineyard terraces, parterres and hedges, palace | 2281 | 1038 | 38 |
+| <a href="brandenburg-sanssouci/preview.webp"><img src="brandenburg-sanssouci/preview-thumb.webp" width="220" alt="" loading="lazy"></a><br><a href="brandenburg-sanssouci/brandenburg-sanssouci-training.pdf">PDF</a> · <a href="brandenburg-sanssouci/brandenburg-sanssouci-candidates.pdf">check print</a> | Brandenburg | [Park Sanssouci, Potsdam](brandenburg-sanssouci/): vineyard terraces, parterres and hedges, palace | 2282 | 1038 | 38 |
 | <a href="berlin-viktoriapark/preview.webp"><img src="berlin-viktoriapark/preview-thumb.webp" width="220" alt="" loading="lazy"></a><br><a href="berlin-viktoriapark/berlin-viktoriapark-training.pdf">PDF</a> · <a href="berlin-viktoriapark/berlin-viktoriapark-candidates.pdf">check print</a> | Berlin | [Viktoriapark, Kreuzberg](berlin-viktoriapark/): the Kreuzberg hill with its waterfall, 19th-century blocks | 3081 | 829 | 47 |
 | <a href="sachsen-bautzen/preview.webp"><img src="sachsen-bautzen/preview-thumb.webp" width="220" alt="" loading="lazy"></a><br><a href="sachsen-bautzen/sachsen-bautzen-training.pdf">PDF</a> · <a href="sachsen-bautzen/sachsen-bautzen-candidates.pdf">check print</a> | Saxony | [Bautzen old town](sachsen-bautzen/): the old town on the rock above the Spree, steep valley sides | 2238 | 1144 | 39 |
 | <a href="sachsen-anhalt-quedlinburg/preview.webp"><img src="sachsen-anhalt-quedlinburg/preview-thumb.webp" width="220" alt="" loading="lazy"></a><br><a href="sachsen-anhalt-quedlinburg/sachsen-anhalt-quedlinburg-training.pdf">PDF</a> · <a href="sachsen-anhalt-quedlinburg/sachsen-anhalt-quedlinburg-candidates.pdf">check print</a> | Saxony-Anhalt | [Schlossberg Quedlinburg](sachsen-anhalt-quedlinburg/): World Heritage old town, castle hill, narrow lanes | 2689 | 714 | 39 |
@@ -66,7 +66,7 @@ passages. The canopies there come from OSM only, 26 in Bautzen and 15 in Quedlin
 In Brandenburg freemapper also loads the full ALKIS (NAS) from the LGB. In Sanssouci that gives 270 wall lines (515),
 107 fences (518), 133 hedges (410.1) and 125 embankment tops (104), with `balanced` on the map. Where one of these lines
 lies on another symbol, the light level moves it, or the stretch that lies there, into the candidate layers; 224 wall
-lines, 70 fences, 119 hedges and 111 embankment tops stay on the map. ALKIS often records both edges of a wall.
+lines, 71 fences, 119 hedges and 111 embankment tops stay on the map. ALKIS often records both edges of a wall.
 Where they face each other and lie closer than 0.55 mm on paper, freemapper draws one
 line in the middle; Sanssouci has 14 of these. Thicker walls and edges that face the same way stay double; delete the
 second line in OOM. Where OSM has the same wall, hedge or fence, only the ALKIS line stays, and it names the OSM line
