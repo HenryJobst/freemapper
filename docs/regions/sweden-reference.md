@@ -1,0 +1,511 @@
+# Schweden: Dienste, Lizenzen und was ein Adapter bräuchte
+
+Recherche vom 2026-11-16 für einen möglichen Regionsadapter für Schweden, die erste Region außerhalb
+Deutschlands auf dem neuen Schema. Alle Anfragen wurden mit `curl` und ohne personenbezogene Daten gestellt.
+**Es wurde kein Konto angelegt**: alles, was eine Anmeldung braucht, ist von außen aufgenommen, das
+authentifizierte Innenleben ruht also auf den veröffentlichten Dokumenten und den Antworten der Server auf
+unauthentifizierte Anfragen, nicht auf einem eigenen Download.
+
+**[live]** wurde an diesem Tag von diesem Rechner abgefragt (HTTP-Status und Antwortkörper). **[doc]** stammt aus
+einer amtlichen Seite oder aus den Metadaten des Dienstes. **[unverified]** markiert Aussagen aus Erinnerung oder
+Sekundärquellen.
+
+Behörde: Lantmäteriet (Kartografie, Kataster und Grundbuch). Vertrieb: Geotorget
+(`geotorget.lantmateriet.se`) und drei STAC-Kataloge auf `api.lantmateriet.se`. CRS: SWEREF99 TM
+(EPSG:3006), Höhen in RH2000, beides zusammen als EPSG:5845. Geofabrik-Extrakt: `europe/sweden`.
+
+---
+
+## 0. Kurzantwort
+
+* **Kostenlos, aber nicht offen wie die deutschen Länderdienste.** Lantmäteriet nennt seine kostenlosen
+  Produkte *värdefulla datamängder* („wertvolle Datensätze“, nach der EU-Richtlinie über hochwertige
+  Datensätze), nicht *öppna data*. Eine Person oder eine Organisation braucht ein Konto, ein *systemkonto*, eine
+  Berechtigung je Produkt und für mehrere Produkte einen geprüften Zweck und akzeptierte Bedingungen. Downloads
+  tragen ein OAuth2-Bearer-Token [doc], und der Asset-Host antwortet ohne eines mit `401` [live]. Es gibt keine
+  schlüsselfreie Download-URL und kein schlüsselfreies WMS für Höhen, Orthofoto oder Vektoren.
+* **Die Metadaten sind schlüsselfrei und brauchbar.** Drei STAC-Kataloge antworten ohne Token, mit Footprint,
+  Auflösung, CRS, Dateigröße und einer direkten Asset-URL je Kachel [live]. Ein Adapter kann einen schwedischen
+  Download *planen*, ohne Zugangsdaten, und scheitert erst beim Holen.
+* **Die Formate passen nicht.** Höhen und Orthofoto sind Cloud-Optimized GeoTIFFs (`image/tiff;
+  profile=cloud-optimized`) [live], die Vektoren sind als GeoPackage im Zip angekündigt [live, nach ihrer
+  Beschreibung]. freemapper liest gekachelte **LZW**-Float32-TIFFs per Range und hat überhaupt keinen
+  GeoPackage-Leser; die schwedischen COGs sind **deflate**, und das Orthofoto ist 8-Bit-RGB(I) [live]. Nichts im
+  heutigen Code öffnet sie.
+* **Das CRS passt.** SWEREF99 TM benutzt die Parameter von UTM 33 (GRS80, Mittelmeridian 15° O, k0 0,9996,
+  falscher Rechtswert 500 000, kein falscher Hochwert); seine Koordinaten lassen sich also unverändert als
+  EPSG:25833 verwenden, und die 10-km-Kacheln des DTM liegen auf freemappers Kilometergitter. Nur das Höhendatum
+  ist ein anderes (RH2000).
+* **Empfehlung:** kein Manifest. Ein schwedischer Adapter braucht ein Token im Fetcher, einen
+  deflate-COG-Leser, einen GeoPackage-Leser und eine Antwort auf die Regel „keine Raster, keine Karte“. Bis
+  dahin kann Schweden keine Region im Sinne der 15 deutschen sein — siehe §8 und §9.
+
+---
+
+## 1. Was eine Orientierungskarte braucht und was Schweden bietet
+
+| Kartenobjekt | Schwedisches Produkt | Schlüsselfrei | Format | CRS | Lizenz | Blocker |
+|---|---|---|---|---|---|---|
+| Gebäude | Byggnader (`stac-vektor`) | nein | GeoPackage im Zip | 3006 | CC BY 4.0 | Token, GPKG-Leser |
+| Bodenbedeckung (Wald, Feld, Siedlung) | Marktäcke (`stac-vektor`) | nein | GeoPackage im Zip | 3006 | CC BY 4.0 | Token, GPKG-Leser |
+| Verwaltungseinheiten, Küstenlinie | Kommun, län och rike | nein | GeoPackage im Zip | 3006 | CC BY 4.0 | Token, GPKG-Leser |
+| Wege, Trassen, kleine Objekte | OSM (`europe/sweden`) | ja | PBF | WGS84 | ODbL | 982 MB Extrakt, kein Teil-Extrakt |
+| Orthofoto | Ortofoto (`stac-bild`, 737 Sammlungen) | nein | COG, 0,16 m RGBI | 3006 | CC BY 4.0 **plus DSGVO-Prüfung** | Token, 8-Bit-COG-Leser, ~0,6 GB je Kachel |
+| Gelände (Höhenlinien, Neigungen) | Markhöjdmodell (`dtm-cog`) | nein | COG, 1 m Float32 | 5845 | CC BY 4.0 | Token, deflate im Range-Leser |
+| Oberflächenmodell (nDSM) | Ythöjdmodell (`dsm-cog`) | nein | COG, 0,25 m Float32 | 5845 | `other` | Token, Lizenz unklar |
+| Bäume / Vegetationshöhe | Laserdata Skog (`dsm-skoglig-copc`) | nein | COPC LAZ | 5845 | `other` | Token, Lizenz unklar |
+| Schutzgebiete | Naturvårdsverket WMS | **ja** | WMS 1.3.0 | 3006 | CC0 1.0 | keiner |
+
+Die beiden `other`-Lizenzen sind die Lücke, die am meisten weh tut: ohne das Oberflächenmodell gibt es kein
+nDSM, und ohne nDSM kann freemapper einen Park nicht von einem Wald unterscheiden, kann die Baumsignaturen der
+Trainingskarte nicht setzen, und die Regel „gelb, wo keine Bäume stehen“ der `-training`-Karte hat nichts zu
+lesen. Die deutschen Adapter haben alle ein DOM.
+
+---
+
+## 2. Zugang: Geotorget, Konten und was „kostenlos“ bedeutet
+
+* Lantmäteriets Seite *Avgiftsfria produkter* [doc] sagt, dass die EU-Richtlinie über hochwertige Datensätze
+  mehr Produkte kostenlos gemacht hat und dass sie *värdefulla datamängder* heißen. Der Zugang braucht ein
+  privates Konto oder ein Organisationskonto mit einem *systemkonto* (Maschinenkonto für programmatische
+  Nutzung) und *behörighet* (Berechtigung) je Produkt, dazu die Annahme der Bedingungen.
+* Dieselbe Seite [doc], wörtlich: „Vissa produkter kräver ändamålsprövning enlighet fastighetsregisterlagen,
+  vissa produkter innehåller personuppgifter och kräver godkännande av villkor samt att du anger hur du ska
+  behandla personuppgifter.“ — Einige Produkte brauchen eine Zweckprüfung nach dem Grundbuchgesetz, einige
+  enthalten personenbezogene Daten und brauchen akzeptierte Bedingungen und eine Angabe, wie diese Daten
+  behandelt werden.
+* Die Seite *Öppna data* [doc] trennt davon eine zweite, kleinere Menge von *öppna data* unter **CC0**, wo
+  Namensnennung geschätzt, aber nicht gefordert ist. Keines der Produkte aus §1 gehört dazu.
+* Die Produktliste selbst ist keine öffentliche Seite mehr: `/produktlista/...` leitet auf
+  `geotorget.lantmateriet.se` und von dort auf `/obehorig` weiter [live]; der Katalog ist eine
+  JavaScript-Anwendung hinter der Anmeldung. Was ein Produkt kostet und welche Bedingungen es trägt, ist erst
+  nach der Anmeldung zu lesen [doc].
+
+**Folge für einen Adapter.** Ein schwedischer Adapter bräuchte eine Zugangsberechtigung, die eine Person für ihr
+eigenes Konto beschafft, aufbewahrt außerhalb des Projektordners und niemals in `freemapper.toml`,
+`ATTRIBUTION.txt` oder einer Fortschrittszeile landet. Das ist eine neue Art von Zustand für freemapper, das
+bisher nirgends ein Benutzerkonto braucht.
+
+---
+
+## 3. Die STAC-Kataloge
+
+Drei Wurzeln, alle schlüsselfrei [live]:
+
+| Katalog | URL | Inhalt |
+|---|---|---|
+| Höjd | `https://api.lantmateriet.se/stac-hojd/v1` | Gelände- und Oberflächenmodelle, Laserdaten |
+| Vektor | `https://api.lantmateriet.se/stac-vektor/v1` | Gebäude, Bodenbedeckung, Adressen, Verwaltungseinheiten |
+| Bild | `https://api.lantmateriet.se/stac-bild/v1` | Orthofoto, 737 Sammlungen |
+
+Jeder hat `/collections`, `/collections/{id}`, `/collections/{id}/items`, `/collections/{id}/items/{item}`,
+`/search`, `/queryables` und `/conformance` [live]. Das OpenAPI-Dokument von `stac-hojd`
+(`/stac-hojd/v1/api`, OpenAPI 3.1.0) nennt **kein Sicherheitsschema** [live], die Metadaten sind also öffentlich
+gedacht, der Asset-Host nicht.
+
+### 3.1 Höjd: Gelände, Oberfläche, Laser
+
+| Sammlung | Titel | Lizenz | Objekte |
+|---|---|---|---|
+| `dtm-cog` | Markhöjdmodell | `CC-BY-4.0` | 10-km-Kacheln, 1 m |
+| `dsm-cog` | Ythöjdmodell | `other` | 2,5-km-Kacheln, 0,25 m |
+| `dsm-skoglig-copc` | Laserdata Skog | `other` | 2,5-km-COPC-Kacheln |
+
+### 3.2 Vektor
+
+| Sammlung | Titel | Lizenz | Granularität |
+|---|---|---|---|
+| `byggnader` | Byggnader | CC-BY-4.0 | eine je Kommun |
+| `marktacke` | Marktäcke | CC-BY-4.0 | eine je Kommun |
+| `fastighetsindelning` | Fastighetsindelning | CC-BY-4.0 | eine je Kommun |
+| `belagenhetsadresser` | Belägenhetsadresser | CC-BY-4.0 | eine je Kommun |
+| `ortnamn` | Ortnamn | CC-BY-4.0 | eine je Kommun |
+| `kommun-lan-rike` | Kommun, län och rike | CC-BY-4.0 | `aktuell`, `2026`, `2025`, `2020`, `2010` |
+
+Jede Beschreibung sagt „En geopackagefil som innehåller …“ [live], der Download ist also ein Zip um ein
+GeoPackage, geliefert je Gemeinde und nicht je Kartenfläche. Stichproben [live]:
+
+| Objekt | Asset | Bytes |
+|---|---|---|
+| `byggnader/1281` (Lund) | `https://dl1.lantmateriet.se/byggnadsverk/byggnad_kn1281.zip` | 10 958 002 |
+| `byggnader/1285` (Eslöv) | `…/byggnad_kn1285.zip` | 3 798 837 |
+| `marktacke/1281` | `https://dl1.lantmateriet.se/mark/marktacke/marktacke_kn1281.zip` | 7 573 446 |
+| `kommun-lan-rike/aktuell` | `…/administrativ-indelning/kommun-lan-rike/kommun-lan-rike_aktuell.zip` | 6 000 798 |
+
+`kommun-lan-rike` deckt das ganze Land ab (bbox 8,61° O–25,49° O, 54,97° N–69,03° N) und sagt „Uppdateras
+veckovis" [live]. Es ist die naheliegende Quelle für die `boundary.geojson` des Adapters — nur dass es ein
+GeoPackage ist und `boundary.file` GeoJSON will.
+
+### 3.3 Bild: Orthofoto
+
+737 Sammlungen [live], benannt `orto-<Gebiet>-<Jahr>` (`orto-a2-2026`, `orto-n2-2026`, … dazu benannte Gebiete
+wie `orto-jokkmokk-<Jahr>`, `orto-stromsund-<Jahr>`, `orto-gallivare-<Jahr>`). Die Gebietsbuchstaben sind
+Befliegungsgebiete; die `keywords` einer Sammlung tragen die Gemeindenamen [live]. Daneben: `orto-dsm-cog`
+(„Sant ortofoto“, Lizenz `other`) und die historischen Serien.
+
+Stichproben [live], alle EPSG:3006, 2,5-km-Kacheln, geflogen 2026:
+
+| Objekt | Sammlung | Auflösung | Bytes |
+|---|---|---|---|
+| `o61775_3825_25_mr26` | `orto-a2-2026` | 0,16 m, RGBI | 595 979 964 |
+| `o61950_4475_25_mr26` | `orto-a2-2026` | 0,16 m, RGBI | 641 599 081 |
+| `o62575_4700_25_mr26` | `orto-a2-2026` | 0,16 m, RGBI | 727 817 048 |
+| `o65500_5975_25_mr26` | `orto-n2-2026` | 0,16 m, RGBI | 746 591 174 |
+
+Die Auflösung ist eine Eigenschaft (`upplosning`), keine Konstante: eine Sammlung kann andere Jahre und andere
+Auflösungen enthalten. Ein Adapter muss sie je Objekt lesen und ablehnen, was er nicht abtasten kann.
+
+Anders als die Höhenobjekte trägt ein Orthofoto-Objekt `proj:bbox` und `proj:code`: `o61775_3825_25_mr26` hat
+`proj:bbox [382500, 6177500, 385000, 6180000]` und `proj:code EPSG:3006` [live], also 2,5 km und die
+Südwest-Ecke der Kachel — genug, um eine Kachel ohne zweite Anfrage zu platzieren. Ein `proj:shape` fehlt, die
+Pixelzahl ist aus `upplosning` zu rechnen.
+
+### 3.4 Was ein Objekt sagt
+
+Das Objekt einer DTM-Kachel, `collections/dtm-cog/items/617_38` [live]:
+
+| Feld | Wert |
+|---|---|
+| `id` | `617_38` |
+| `bbox` | 13,0881–13,2513° O, 55,6610–55,7532° N (WGS84) |
+| `properties.proj:code` | `EPSG:5845` |
+| `properties.hojdmodelltyp` | `markhöjdmodell` |
+| `properties.geometriskupplosning` | `1.0` |
+| `properties.lagesosakerhetplan` / `…hojd` | `0.3` / `0.1` |
+| `properties.huvudsakliglagesbestamningsmetod` | `Luftburen laserskanning` |
+| `properties.datetime` | `2025-09-29` |
+| `assets.data` | `…/hojd/data/grid/mhm/61_3/m617_38.tif`, `image/tiff; …; profile=cloud-optimized`, 298 640 561 B |
+| `assets.info` | `…/m617_38_info.json`, 4 340 B |
+| `assets.metadata` | `…/m617_38_ursprung.json`, 195 305 B |
+| `assets.thumbnail` | `…/m617_38_thumbnail.png`, 29 583 B |
+| `assets.breakgeometry` | `…/m617_38_brytgeometri.gpkg`, 294 912 B |
+
+Zwei Einzelheiten sind für einen Adapter wichtig:
+
+* **Das Höhenobjekt trägt weder `proj:bbox` noch `proj:shape`** (ein Orthofoto-Objekt hat das erste, siehe
+  §3.3). Die projizierte Ausdehnung, die Pixelgröße und der Nodata-Wert stehen im `info`-Asset [live]: `GTiff`,
+  `float32`, Nodata `-9999`, 10 000 × 10 000 px, CRS `EPSG:5845`, Transform `[1.0, 0, 380000, 0, -1, 6180000]`,
+  Blöcke 512 × 512, gekachelt, **deflate**, PROJJSON `CompoundCRS "SWEREF99 TM + RH2000 height"`. Ein Adapter,
+  der einen Download allein aus dem Objekt plant, bräuchte je Kachel eine zusätzliche Anfrage für das
+  `info`-Asset.
+* **`breakgeometry` ist ein GeoPackage** mit den Bruchkanten des Geländemodells — eine brauchbare Zugabe für
+  die Kandidaten, aber ein weiterer GeoPackage-Verbraucher.
+
+Das Oberflächenmodell, `items/2026_a2-617_39_5000` [live]: `proj:code` `EPSG:5845`, `upplosning` `0.25`,
+`hojdmodelltyp` `ythöjdmodell`, `insamlingsomrade` `2026_A2`, `upplosningflygbild` `0.15`, Asset
+`…/hojd/data/grid/yhm/2026_a2/y2026_a2-617_39_5000_dsm.tif` mit 229 814 895 B, `info`-Asset mit 0,25 m und
+Ursprung (390 000, 6 177 500), ein `pointmetadata`-Asset `…_class.tif` mit 1 321 508 B, Thumbnail 35 018 B.
+Kein `breakgeometry` hier.
+
+Die Punktwolke, `25a005-61775_3850_25` [live]: `…/hojd/data/sls/25a005/y25a005-61775_3850_25.copc.laz`,
+81 714 617 B, `pc:count` 16 464 575, `pc:density` 0,63 pts/m², EPSG:5845.
+
+### 3.5 Kachelgitter und Benennung
+
+| Produkt | Kachel | Pixel | Bytes je Kachel | Bytes je km² |
+|---|---|---|---|---|
+| DTM 1 m | 10 km | 10 000² | ~250–315 | ~2,5–3,2 MB |
+| DSM 0,25 m | 2,5 km | 10 000² | ~230 | ~37 MB |
+| Orthofoto 0,16 m | 2,5 km | 15 625² | ~0,6–0,75 GB | ~96–120 MB |
+| Laserdata Skog | 2,5 km | — | ~82 | ~13 MB |
+
+Namen: DTM `m<E/10000>_<N/10000>.tif` im Ordner `<floor(N/100000)>_3/`; DSM
+`y<Gebiet>-<N/10000>_<E/10000>_<Eoffset/100><Noffset/100>_dsm.tif`; Orthofoto
+`o<N/100>_<E/100>_25_mr<yy>.tif` [live].
+
+Zur Größenordnung: eine Kartenfläche samt Puffer von höchstens 4 km je Seite (`MAX_AREA_SIDE_M` = 20 000 px ×
+0,2 m) berührt **eine bis vier** DTM-Kacheln, **bis zu neun** DSM-Kacheln und **bis zu neun**
+Orthofoto-Kacheln, also etwa 0,3–1,2 GB Gelände, 2,1 GB Oberflächenmodell und 5 GB Orthofoto, wenn die Dateien
+ganz geladen werden.
+
+### 3.6 Suche
+
+`/search?collections=…&bbox=…&limit=…&fields=…` funktioniert [live]; über Lund antwortete es mit `617_38`
+und `617_39` und deren Asset-URLs. Beobachtungen:
+
+* Die Antwort hat `type`, `links`, `features`, `numberReturned` — **kein `numberMatched`** [live], die Zahl der
+  Objekte hinter einer Abfrage ist also unbekannt, und geblättert werden muss über `links`.
+* `sortby=-properties.datetime` wurde angenommen (`item-search#sort` steht in `/conformance`), die beiden
+  gelieferten Orthofoto-Objekte kamen aber in **aufsteigender** Zeitfolge [live]. Auf die Sortierung ist kein
+  Verlass.
+* `fields` funktioniert; `/conformance` listet `item-search#fields`, `#query`, `#filter`, CQL2 basic/JSON/text
+  [live].
+
+---
+
+## 4. Authentifizierung, wie beobachtet
+
+| Anfrage [live] | Antwort |
+|---|---|
+| `GET https://dl1.lantmateriet.se/hojd/data/grid/mhm/61_3/m617_38.tif` | `401`, `www-authenticate: Basic realm="Authorization Server"` |
+| dieselbe mit `Authorization: Bearer abc` | `401`, `Bearer error="invalid_token", error_description="Provided token isn't active"` |
+| `POST https://api.lantmateriet.se/token` (`grant_type=client_credentials`, keine Client-Authentifizierung) | `401` `{"error":"invalid_client","error_description":"Unsupported client authentication mechanism"}` |
+| dieselbe mit `-u abc:def` | `401` `{"error":"invalid_client","error_description":"Client credentials are invalid."}` |
+| `GET https://api.lantmateriet.se/token` | `405` |
+
+Zusammengelesen: der Asset-Host will ein **Bearer**-Token (RFC 6750, im Stil eines WSO2 API Manager), der
+Token-Endpunkt will eine **Client**-Berechtigung im `Authorization`-Header eines Formular-POST und antwortet in
+der üblichen `invalid_client`-Form. Ein funktionierender Aufruf [unverified, keine Zugangsdaten vorhanden] ist
+`POST /token` mit `grant_type=client_credentials` und HTTP-Basic-Client-Authentifizierung, der ein
+`access_token` und `expires_in` liefert, das dann als `Authorization: Bearer …` an `dl1.lantmateriet.se` geht.
+
+Die Metadatenkataloge brauchen überhaupt kein Token [live], ein Adapter kann einer Person also sagen, *was* er
+laden würde und *wie viel*, bevor es Zugangsdaten gibt.
+
+---
+
+## 5. CRS: SWEREF99 TM und RH2000
+
+EPSG:3006 (SWEREF99 TM) und EPSG:25833 (ETRS89 / UTM 33N) sind die **gleiche Projektion**: Transverse Mercator,
+Ellipsoid GRS 80, Ursprungsbreite 0°, Mittelmeridian 15° O, Maßstabsfaktor 0,9996, falscher Rechtswert 500 000,
+falscher Hochwert 0. Ein Koordinatentripel aus 3006 lässt sich daher ohne Rechnung als 25833 verwenden; die
+Datums unterscheiden sich um Zentimeter (SWEREF99 ist die nationale Realisierung von ETRS89), was keine
+Orientierungskarte sieht. Das zusammengesetzte CRS der Höhen ist EPSG:5845 = 3006 + RH2000, und das nennt
+`proj:code` an jedem Höhenobjekt [live].
+
+Die Maßstabsverzerrung ist die von UTM 33 und damit aus Brandenburg und Berlin schon vertraut. Punktmaßstab der
+Projektion (gerechnet, GRS 80, `k0` 0,9996, 15° O):
+
+| Ort | Breite | Länge | k | Abweichung |
+|---|---|---|---|---|
+| Malmö | 55,60 | 13,00 | 0,999795 | −0,2 m/km |
+| Simrishamn | 55,56 | 14,35 | 0,999621 | −0,4 m/km |
+| Göteborg | 57,71 | 11,97 | 1,000000 | ±0,0 m/km |
+| Visby | 57,64 | 18,30 | 1,000076 | +0,1 m/km |
+| Stockholm | 59,33 | 18,07 | 0,999974 | −0,03 m/km |
+| Östersund | 63,18 | 14,65 | 0,999604 | −0,4 m/km |
+| Luleå | 65,58 | 22,15 | 1,000928 | +0,9 m/km |
+| Haparanda | 65,83 | 24,13 | 1,001719 | +1,7 m/km |
+| Treriksröset | 69,06 | 20,55 | 1,000198 | +0,2 m/km |
+
+An der finnischen Grenze erreicht die Verzerrung +0,17 %, 1,7 m je Kilometer — auf Papier bei 1:4000 sind das
+0,43 mm je Kilometer, für eine Startkarte also unsichtbar. freemapper misst durchweg in seinem Karten-CRS, die
+Verzerrung gerät also nie in eine Vorlage oder einen Kandidaten.
+
+**Was ein Adapter trotzdem prüfen muss.** Nicht jedes schwedische Produkt liegt in 3006: ein Produkt kann in
+einer lokalen SWEREF99-Zone kommen (12 00 … 23 15), und EPSG:5845 darf in einem URL-Parameter nicht für 3006
+gehalten werden. Da das `crs` des Manifests nur 25832 und 25833 kennt, würde ein schwedisches Manifest
+`crs = 25833` schreiben, und der Code übersetzte das `3006`/`5845` des Assets darauf und lehnte alles andere
+ab — genau wie die deutschen Adapter 25832/25833 in WMS-Anfragen übersetzen.
+
+Die Höhen sind RH2000. freemapper liest z-Werte, wie sie kommen, und legt sie in die Höhenlinien des
+Geländemodells; solange jede schwedische Quelle RH2000 benutzt, ist keine Umrechnung nötig, und ein schwedisches
+Projekt mischt sie nie mit DHHN2016 einer deutschen Quelle.
+
+---
+
+## 6. OSM
+
+* `https://download.geofabrik.de/europe/sweden-latest.osm.pbf` → `200`, **982 465 405 B**, Last-Modified
+  2026-11-16 03:24 [live]. `sweden.html` sagt „No sub extracts“ [live], es gibt also keinen Schnitt nach
+  Provinz oder Gemeinde; jedes Projekt in Schweden läse das Ganzland-Extrakt. `sweden-updates/`, `.md5` und
+  `.poly` gibt es [live].
+* `MAX_EXTRACT_BYTES` in `crates/freemapper/src/sources/osm.rs` ist 2 GiB, und das Extrakt wird 7 Tage gehalten
+  (`MAX_EXTRACT_AGE_DAYS`); 982 MB sind also erlaubt, aber mit Abstand das größte Extrakt, das eine Region
+  verlangt (Brandenburg: angekündigt 300 MB; Niedersachsen: 510 MB).
+* Die OSM-Relation Schwedens ist `52822`, `boundary=administrative`, country, bbox 55,137–69,060° N,
+  10,594–24,178° O [live, Nominatim]; `freemapper init --place` und die Flächenseite können sie nutzen wie in
+  Deutschland. `download.geofabrik.de` steht in `CORE_HOSTS`, OSM funktioniert also für jedes Land ohne Manifest.
+
+---
+
+## 7. Schlüsselfreie Quellen
+
+### 7.1 Naturvårdsverket: Schutzgebiete
+
+* `https://geodata.naturvardsverket.se/geoserver/wms` → `200`, `Fees: NONE`, `AccessConstraints: NONE`, 87
+  benannte Layer [live]. GetMap in **EPSG:3006** funktioniert: Layer `ps-nvr:PS.ProtectedSites.NR` für ein
+  10-km-Quadrat antwortete `200 image/png` in 10 183 B [live].
+* Layernamen (die WMS-Styles tragen andere Namen — `<Layer><Name>` auswerten): `ps-nvr:PS.ProtectedSites.NR`
+  (naturreservat), `.NP` (nationalparker), `.NM`, `.KR` (kulturreservat), `.OBO`, `.DVO`, `.NVO`, `.IF`;
+  `ps-n2k:PS.ProtectedSites.Natura2000`; `ps-ic:PS.ProtectedSites.Bio`, `.Helcom`;
+  `am-restriction:AM.drinkingWaterProtectionArea`; Bodenbedeckung `lc-nmd:LC.LandCoverRaster.Bas.2023.v2.x`
+  [live].
+* **Der WFS ist abgeschaltet**: `…/geoserver/wfs?service=WFS&request=GetCapabilities` antwortet `200` mit einem
+  `ExceptionReport` — „Service WFS is disabled“ [live]. Ein Statuscode allein beweist hier keinen Dienst.
+* Metadaten: der Katalog `https://geodatakatalogen.naturvardsverket.se/srv/eng/csw` (CSW 2.0.2, ISO 19139)
+  antwortete [live]; seine Datensätze zu den Schutzgebieten sagen `Öppna data`, `Värdefulla datamängder`,
+  `Inspire` und als Einschränkung `[RESTRIKTIONER]=Creative commons CC0 1.0 Universiell`, mit Verweisen auf ein
+  WMS 1.3.0 und einen Shapefile-Download in `EPSG:3006` [live].
+* Das ist die eine schwedische Quelle, die freemapper heute ohne Zugangsdaten nutzen könnte, und die, die ein
+  Erlaubnishinweis am meisten braucht: Naturreservate und Natura-2000-Gebiete sind die Stellen, an denen ein
+  Orientierungslauf die Erlaubnis der Provinzverwaltung braucht.
+
+### 7.2 Copernicus DEM
+
+`https://copernicus-dem-30m.s3.amazonaws.com/…/Copernicus_DSM_COG_10_N55_00_E013_00_DEM.tif` antwortete `206`
+auf eine Range-Anfrage [live] — ein schlüsselfreier, grober (30 m) Gelände-Rückfall zu den Bedingungen des
+Copernicus DEM (freie Nutzung mit Namensnennung). Zu grob für Höhenlinien im 5-m-Abstand, brauchbar als Prüfung.
+
+### 7.3 Was nicht antwortet
+
+| Dienst | Antwort [live] |
+|---|---|
+| Skogsstyrelsen WFS (`geodata.skogsstyrelsen.se/geoserver/wfs`) | `403` |
+| Lantmäteriet Topowebb WMTS (`api.lantmateriet.se/open/topowebb-ccby/v1/wmts/…`) | `503` |
+| Lantmäteriet Topowebb WMS (`…/open/topowebb-ccby/v1/wms`) | `404` |
+| `maps.lantmateriet.se/topowebb/wms` | `404` |
+| Geotorget-Startseite | `200`, aber der Produktkatalog liegt hinter der Anmeldung |
+
+Die Topowebb-Endpunkte waren einmal offene Daten mit Schlüssel; die `503` deutet darauf, dass sie für anonyme
+Nutzung geschlossen sind [unverified, ob das dauerhaft ist].
+
+---
+
+## 8. Was freemapper bräuchte
+
+Jeder Punkt unten wurde am 2026-11-16 gegen den Code geprüft; Datei- und Symbolnamen stammen aus diesem
+Repository.
+
+### 8.1 Ein Token im Fetcher
+
+`Fetcher::get(&str)` und `get_range(&str, ByteRange)` (`crates/freemapper-adapter-api/src/fetch.rs`) nehmen
+eine URL und sonst nichts; der HTTP-Fetcher setzt `User-Agent`, `Range` und `Accept-Encoding` und keinen weiteren
+Header (`crates/freemapper/src/fetch.rs`). Es gibt keinen Platz für ein Bearer-Token, keinen Token-Endpunkt,
+keine Ablaufbehandlung, und `UrlPolicy` entscheidet nur über Hosts, nicht über Zugangsdaten. Ein schwedischer
+Adapter braucht einen Token-Provider in der Adapter-API und die Regel, dass das Token nie in `freemapper.toml`,
+in Cache-Dateinamen, in Fortschrittszeilen oder in `ATTRIBUTION.txt` gelangt.
+
+### 8.2 Ein GeoPackage-Leser
+
+`byggnader`, `marktacke`, `kommun-lan-rike` und das `breakgeometry`-Asset sind GeoPackage, also SQLite mit WKB
+in einer Tabelle. Der Workspace hat überhaupt keine SQLite-Abhängigkeit (`grep sqlite|rusqlite|geopackage` in
+jeder `Cargo.toml` findet nichts) und keinen GeoPackage-Leser. Alles Vektorielle in Schweden käme über einen
+neuen Formatleser — ein erhebliches Stück Code, und eines, für das ein Zip um die Datei entpackt werden muss.
+
+### 8.3 Ein COG-Leser für das Orthofoto
+
+`tiff_range` (`crates/freemapper-sources/src/tiff_range.rs`, ADR 0141) liest **einen Float32-Sample, LZW
+komprimiert, Prädiktor 1–3**, mit `ModelPixelScale` (33550) und `ModelTiepoint` (33922), in Blöcken von
+höchstens 128 MB. Das schwedische Orthofoto ist 8-Bit-RGBI in einem COG; der Leser lehnt es bei seiner ersten
+Prüfung ab (`samples, bits, format != (1, 32, 3)`). Die Orthofoto-Vorlage bräuchte stattdessen einen gekachelten
+8-Bit-Leser mit Bandverschachtelung und entweder einem JPEG- oder einem deflate-Dekoder. Ohne ihn gibt es in
+Schweden gar kein Orthofoto — kein WMS liefert eines, und ein Kachel-Download von 0,6 GB je 2,5 km ist die
+einzige Alternative.
+
+### 8.4 Deflate im Höhenleser
+
+Die COGs von DTM und DSM sind **deflate** (Kompression 8) und 512 × 512 gekachelt [live]. `tiff_range` verlangt
+Kompression **5** und lehnt `8` rundheraus ab. Das ist die kleinste der Lücken: ein weiterer Dekoder neben
+`decode_lzw_block`, dazu eine Testdatei. Damit wird der DTM per Range lesbar wie ein deutsches DOM1 — die
+10-km-Kachel kostet dann nur die Blöcke, die die Kartenfläche braucht.
+
+### 8.5 Das 2,5-km-Gitter gegen `RasterKind::Tiles`
+
+`RasterKind::Tiles { grid_km: u32 }` (`crates/freemapper-adapter-api/src/rasters.rs`) heißt *Kacheln eines
+ganzen Kilometerbetrags in EPSG:25833, benannt nach ihrer Südwest-Ecke in km*. Der DTM passt: 10-km-Kacheln auf
+Vielfachen von 10 000 m. DSM und Orthofoto nicht: ihre Kacheln sind 2,5 km auf Vielfachen von 2 500 m, was
+weder ein 2-km- noch ein 3-km-Gitter abbildet. Entweder näht das Backend 2,5-km-Kacheln selbst in ein
+Kilometergitter, oder `RasterKind` bekommt ein Gitter in Metern. Dasselbe gilt für das DSM mit 0,25 m, während
+die deutschen DOMs 0,2 m und 1 m haben — die Vorlagen entstehen in fester Pixelgröße (`MAX_RASTER_SIDE_PX`
+20 000 bei 0,2 m ⇒ höchstens 4 km je Seite), eine 0,25-m-Quelle wird also heruntergerechnet, was in Ordnung
+ist, aber ein Adapter darf es nicht voraussetzen.
+
+### 8.6 „Keine Raster, keine Karte“
+
+`RegionAdapter::rasters` dokumentiert `None` als „the region has ALKIS but no rasters, and no map can have its
+centre in it“ (`crates/freemapper-adapter-api/src/adapter.rs`), und `check_area` lehnt eine Fläche ab, wenn
+`raster_region_in` keinen Adapter findet (`crates/freemapper/src/project.rs`, `ProjectError::OutsideCoverage`).
+Eine schwedische Region allein auf OSM **kann also keine Karte beherbergen**, so viel OSM sie auch hat.
+Schweden als „OSM plus Schutzgebiete“ aufzunehmen braucht eine bewusste Entscheidung, diese Regel für eine
+Region ohne Raster zu lockern — ein ADR, kein Manifest.
+
+### 8.7 Die Grenze
+
+`boundary.geojson` in EPSG:25833 (oder 25832) wird für jeden deutschen Adapter von Hand gebaut. Für Schweden
+ist die natürliche Quelle `kommun-lan-rike_aktuell.zip`, ein 6-MB-GeoPackage mit allen drei Ebenen [live]; die
+Grenze würde also einmal von Hand daraus geschnitten und eingecheckt, oder der Adapter läse das GeoPackage.
+
+### 8.8 Namensnennung, DSGVO, Erlaubnishinweise
+
+| Punkt | Was ein schwedischer Adapter schriebe |
+|---|---|
+| Namensnennung | CC BY 4.0 für Höhen, Vektoren und Orthofoto, Quellenangabe „© Lantmäteriet“ — die Lizenz nennt sich selbst, wo die deutsche dl-de/by-2-0 einen festen Hinweis vorschreibt |
+| Orthofoto und Gebäude | Die Startseite des `bild`-Katalogs sagt „Din användning kommer att prövas juridiskt, i enlighet med GDPR, och du behöver godkänna särskilda användningsvillkor“ [live]. Ein Hinweis an die Nutzerin müsste sagen, dass das geladene Orthofoto Menschen und Fahrzeuge zeigen kann und dass das Veröffentlichen der Karte ihre eigene DSGVO-Entscheidung ist |
+| Erlaubnishinweise | Der WMS/CC0-Datensatz von Naturvårdsverket für Reservate und Natura 2000 ist die Schutzgebietsquelle. Betreiber eines Waldes stehen in keinem offenen schwedischen Datensatz: der WFS von Skogsstyrelsen ist `403` [live], und die Grundstückseigentümer stehen in `fastighetsindelning`, also in personenbezogenen Daten. Allemansrätten (das Recht auf öffentlichen Zugang) lässt jeden im Gelände gehen und laufen, eine organisierte Veranstaltung braucht aber die Zustimmung des Grundeigentümers [doc]. Ein schwedisches `permits.md` müsste das deutlich sagen |
+
+---
+
+## 9. Aufwand und Optionen
+
+Grobe Größen, in den Einheiten, in denen die deutschen Adapter gebaut wurden; alle drei sind Schätzungen, keine
+Messungen.
+
+| Option | Arbeit | Ergebnis |
+|---|---|---|
+| **A. Voller Adapter** | Token-Provider in der Adapter-API und im Fetcher; deflate- (und 8-Bit-)TIFF-Range-Leser; GeoPackage-Leser; `RasterKind`-Gitter in Metern oder ein nähendes Backend; Grenze; Manifest; Namensnennung; Tests mit aufgezeichneten Fixtures. Etwa 6 bis 10 fokussierte Aufgaben, und das erste freemapper-Feature, das Zugangsdaten halten muss. | Eine schwedische Karte wie eine deutsche: Gebäude, Bodenbedeckung, DTM-Höhenlinien, Orthofoto, nDSM aus Daten mit `other`-Lizenz und unklarer Rechtsgrundlage. |
+| **B. OSM plus Schutzgebiete** | Ein ADR, das eine Region zulässt, deren `rasters()` `None` ist; eine Region mit Grenze und ohne Raster-Backend; `permits`-Quellen für Naturvårdsverket (CC0, schlüsselfrei). Keine Zugangsdaten, kein neues Format. | Eine Karte mit OSM-Wegen, Gebäuden und Landnutzung aus OSM, Höhenlinien aus nichts, kein Orthofoto, kein nDSM. Die Trainingskarte verliert ihre Baumlogik. |
+| **C. Nur Dokumentation** | Diese Datei. | Eine Antwort für die nächste Person, die fragt, einschließlich der vier Tatsachen, die entscheiden: Token, GeoPackage, deflate-COG, „keine Raster, keine Karte“. |
+
+B ist billig, erzeugt aber eine Karte, die sichtbar ärmer ist als eine deutsche, und braucht ein ADR, das eine
+Regel für alle Regionen ändert. A ist die ehrliche Fassung und hängt an den Zugangsdaten und den beiden Lesern.
+C ist das, was diese Änderung liefert.
+
+Offene Fragen, bevor A beginnt:
+
+1. Darf freemapper überhaupt fremde Zugangsdaten halten? Wo lägen sie (Schlüsselbund, Umgebungsvariable,
+   Konfigurationsdatei), und wie kommt ein kopfloser MCP-Server daran?
+2. Ist `other` eine annehmbare Lizenz für das Oberflächenmodell und die Laserdaten, oder muss A ohne nDSM
+   auskommen? Ohne eines hätte die Trainingskarte in Schweden keine Bäume und keine Unterscheidung von Park und
+   Wald.
+3. Ist das Orthofoto einen neuen 8-Bit-COG-Leser wert, angesichts der DSGVO-Prüfung und der 0,6-GB-Kacheln?
+4. Bekommt `RasterKind` ein Gitter in Metern, oder näht jeder Anbieter außerhalb des Kilometergitters selbst?
+
+---
+
+## 10. Nicht geprüft
+
+* Die Token-Anfrage mit echten Client-Zugangsdaten, ihre Gültigkeitsdauer, ihr Auffrischen und ob `dl1` ein
+  Token für jedes Produkt annimmt — alles hinter der Anmeldung. Es wurde kein Konto angelegt, das ist also der
+  eine Teil, den eine Person mit Zugang vor dem Start von A bestätigen muss.
+* Ob die `other`-Lizenz von `dsm-cog`, `dsm-skoglig-copc` und `orto-dsm-cog` abgeleitete Produkte in einer
+  veröffentlichten Karte erlaubt. Die Sammlung sagt nur `other`; die Bedingungen liegen hinter Geotorget.
+* Ob die Orthofoto-COGs intern JPEG- oder deflate-komprimiert sind — das `info`-Asset einer Orthofoto-Kachel
+  wurde nicht geholt (seine URL braucht ein Token, anders als die Höhen-`info`-Assets unter `/hojd/pub/`).
+* Ob jede Orthofoto-Sammlung 0,16 m hat; drei Stichproben in zwei Gebieten hatten es.
+* Ob RH2000 und DHHN2016 sich um eine Konstante unterscheiden, die zählte, wenn eine Karte je beide mischte.
+  Für ein schwedisches Projekt allein nicht.
+* Ob die `503` des Topowebb-WMTS dauerhaft ist.
+* Die genaue Lizenz von `marktacke` je Feature-Klasse; die Sammlung sagt CC BY 4.0.
+
+---
+
+## 11. Protokoll der Abfragen
+
+Befehle, gekürzt; jede Zeile wurde am 2026-11-16 ausgeführt.
+
+```sh
+# STAC, schlüsselfrei
+curl -s https://api.lantmateriet.se/stac-hojd/v1/collections        # 3 Sammlungen
+curl -s https://api.lantmateriet.se/stac-vektor/v1/collections      # 6 Sammlungen, alle CC-BY-4.0
+curl -s https://api.lantmateriet.se/stac-bild/v1/collections        # 737 Sammlungen
+curl -s https://api.lantmateriet.se/stac-hojd/v1/conformance        # item-search#sort/#fields/#query, CQL2
+curl -s https://api.lantmateriet.se/stac-hojd/v1/api                # OpenAPI 3.1.0, keine securitySchemes
+curl -s https://api.lantmateriet.se/stac-hojd/v1/collections/dtm-cog/items/617_38
+curl -s https://dl1.lantmateriet.se/hojd/pub/grid/mhm/61_3/m617_38_info.json
+curl -s https://api.lantmateriet.se/stac-hojd/v1/collections/dsm-cog/items/2026_a2-617_39_5000
+curl -s 'https://api.lantmateriet.se/stac-hojd/v1/search?collections=dtm-cog&bbox=13.10,55.68,13.25,55.75&limit=3'
+curl -s https://api.lantmateriet.se/stac-bild/v1/collections/orto-a2-2026/items/o61775_3825_25_mr26
+curl -s https://api.lantmateriet.se/stac-vektor/v1/collections/byggnader/items/1281
+curl -s https://api.lantmateriet.se/stac-vektor/v1/collections/kommun-lan-rike/items/aktuell
+
+# Authentifizierung
+curl -s -o /dev/null -D - https://dl1.lantmateriet.se/hojd/data/grid/mhm/61_3/m617_38.tif   # 401
+curl -s -o /dev/null -D - -H 'Authorization: Bearer abc' …/m617_38.tif                     # 401 invalid_token
+curl -s -X POST https://api.lantmateriet.se/token -d grant_type=client_credentials          # 401 invalid_client
+curl -s -X POST https://api.lantmateriet.se/token -u abc:def -d grant_type=client_credentials  # 401
+
+# OSM und schlüsselfreie Quellen
+curl -sIL https://download.geofabrik.de/europe/sweden-latest.osm.pbf        # 982465405 B
+curl -s https://download.geofabrik.de/europe/sweden.html                    # "No sub extracts"
+curl -s 'https://geodata.naturvardsverket.se/geoserver/wms?service=WMS&request=GetCapabilities&version=1.3.0'
+curl -s 'https://geodata.naturvardsverket.se/geoserver/wms?service=WMS&version=1.3.0&request=GetMap&layers=ps-nvr:PS.ProtectedSites.NR&crs=EPSG:3006&bbox=380000,6170000,390000,6180000&width=800&height=800&format=image/png'
+curl -s 'https://geodata.naturvardsverket.se/geoserver/wfs?service=WFS&request=GetCapabilities'  # Exception
+curl -s 'https://geodatakatalogen.naturvardsverket.se/srv/eng/csw?service=CSW&request=GetCapabilities&version=2.0.2'
+curl -s -r 0-99 https://copernicus-dem-30m.s3.amazonaws.com/Copernicus_DSM_COG_10_N55_00_E013_00_DEM/Copernicus_DSM_COG_10_N55_00_E013_00_DEM.tif
+curl -s -o /dev/null -w '%{http_code}\n' https://geodata.skogsstyrelsen.se/geoserver/wfs?service=WFS&request=GetCapabilities  # 403
+curl -s -o /dev/null -w '%{http_code}\n' https://api.lantmateriet.se/open/topowebb-ccby/v1/wmts/1.0.0/WMTSCapabilities.xml   # 503
+```
+
+Die Maßstabsfaktoren in §5 wurden mit der üblichen Transverse-Mercator-Reihe (GRS 80, `k0` 0,9996, 15° O)
+gerechnet und stimmen mit den veröffentlichten Werten von SWEREF99 TM bis auf die letzte gezeigte Stelle überein.
