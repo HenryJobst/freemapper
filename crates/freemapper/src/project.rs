@@ -70,6 +70,7 @@ mod extras;
 pub use crate::build::light::LightReport;
 pub use crate::build::training::TrainingReport;
 pub use export::*;
+pub(crate) use extras::ExtraSets;
 
 pub const PROJECT_FILE_NAME: &str = freemapper_contract::tags::SIDECAR_FILE;
 
@@ -359,16 +360,12 @@ pub struct ProjectFile {
     /// The ALKIS land use of the last online `fetch`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub land_use: Option<AlkisRecord>,
-    /// The extra Berlin layers (ALKIS structures, tree cadastre) of the last online `fetch`, by
-    /// file name under [`BERLIN_LAYERS_DIR`]; empty outside Berlin. A layer without objects in
-    /// the area is recorded with count 0.
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub berlin_layers: BTreeMap<String, AlkisRecord>,
-    /// The layers of the sets that bring their rules (ADR 0149) of the last online `fetch`, by
-    /// set key, then by file name under `data/<set key>`, as [`ProjectFile::berlin_layers`]
-    /// holds Berlin's set.
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub extra_sets: BTreeMap<String, BTreeMap<String, AlkisRecord>>,
+    /// The layers of the sets of extra layers of the last online `fetch` (ADR 0149), by set key,
+    /// then by file name under `data/<set key>`; Berlin's are written as `berlin_layers`, the
+    /// field older project files have ([`ExtraSets`]). A layer without objects in the area is
+    /// recorded with count 0.
+    #[serde(flatten)]
+    pub extra_sets: ExtraSets,
     /// The NAS layers (full ALKIS) of the last online `fetch`, by file name under
     /// [`NAS_LAYERS_DIR`]; empty outside the states with a NAS service. A layer without objects
     /// in the area is recorded with count 0, and `latest_update` is the newest `beginnt`.
@@ -539,7 +536,6 @@ impl ProjectFile {
         let records = [&self.buildings, &self.land_use]
             .into_iter()
             .flatten()
-            .chain(self.berlin_layers.values())
             .chain(self.extra_sets.values().flat_map(BTreeMap::values))
             .chain(self.nas_layers.values())
             .chain(self.tree_layers.values());
@@ -573,15 +569,21 @@ impl ProjectFile {
             false
         };
         let registers = registers();
-        self.berlin_layers.retain(|key, _| {
-            keep(
-                "Berlin",
-                key,
-                registers.as_ref().is_some_and(|family| family.has(key)),
-            )
-        });
+        if let Some(layers) = self.extra_sets.get_mut(REGISTERS_SET) {
+            layers.retain(|key, _| {
+                keep(
+                    "Berlin",
+                    key,
+                    registers.as_ref().is_some_and(|family| family.has(key)),
+                )
+            });
+        }
         let sets = extras::drawn_sets(registry());
         self.extra_sets.retain(|set, layers| {
+            // Berlin's set is not drawn through the sets yet; its layers were checked above.
+            if set == REGISTERS_SET {
+                return true;
+            }
             let Some((_, drawn)) = sets.iter().find(|(_, s)| s.info().key == set) else {
                 return keep("set", set, false);
             };
@@ -681,11 +683,10 @@ impl ProjectFile {
         self.buildings = None;
         self.land_use = None;
         if let Some(registers) = registers() {
-            for key in self.berlin_layers.keys() {
+            for key in self.extra_sets.records(REGISTERS_SET).keys() {
                 extras::remove(dir, &registers, key);
             }
         }
-        self.berlin_layers.clear();
         for (_, set) in extras::drawn_sets(registry()) {
             let family = extras::of_set(set);
             for key in self
@@ -783,8 +784,7 @@ pub fn init_project_with_content(
         tiles: Vec::new(),
         buildings: None,
         land_use: None,
-        berlin_layers: BTreeMap::new(),
-        extra_sets: BTreeMap::new(),
+        extra_sets: ExtraSets::default(),
         nas_layers: BTreeMap::new(),
         tree_layers: BTreeMap::new(),
         osm: None,
@@ -1231,11 +1231,11 @@ fn fetch_project_parts(
         project.map_kind,
         mode,
         skips(Part::ExtraSets),
-        &project.berlin_layers,
+        project.extra_sets.records(REGISTERS_SET),
         progress,
     );
     stop_if(cancelled)?;
-    project.berlin_layers = berlin_layers;
+    project.extra_sets.set(REGISTERS_SET, berlin_layers);
     project.save(dir)?;
     // The sets that bring their rules (ADR 0149), each in reach of an area its region touches.
     for (_, set) in extras::drawn_sets(registry()) {
@@ -1254,11 +1254,7 @@ fn fetch_project_parts(
             progress,
         );
         stop_if(cancelled)?;
-        if records.is_empty() {
-            project.extra_sets.remove(key);
-        } else {
-            project.extra_sets.insert(key.to_string(), records);
-        }
+        project.extra_sets.set(key, records);
         project.save(dir)?;
     }
     let nas_layers = fetch_nas_layers_into(
@@ -1349,8 +1345,9 @@ pub(crate) fn mark_stored(
     // Stored layers count only when every record covers the area and its file is there: an
     // area moved within the state is downloaded again.
     let registers = registers();
-    let berlin_layers = !project.berlin_layers.is_empty()
-        && project.berlin_layers.iter().all(|(key, record)| {
+    let berlin_records = project.extra_sets.records(REGISTERS_SET);
+    let berlin_layers = !berlin_records.is_empty()
+        && berlin_records.iter().all(|(key, record)| {
             record.covers(bbox)
                 && registers
                     .as_ref()
@@ -1881,17 +1878,17 @@ fn fetch_land_use_into(
     }
 }
 
-/// The key of the set of extra layers whose records the project file keeps in `berlin_layers`:
-/// the one set there is. A second one needs a field of its own.
+/// The key of the set of extra layers the engine still fetches and draws by its own code (Berlin's,
+/// ADR 0149); its records are in [`ProjectFile::extra_sets`] like those of every set.
 const REGISTERS_SET: &str = "berlin";
 
-/// The family of the set of extra layers recorded in `berlin_layers`, from the adapter of the
+/// The family of the set of extra layers [`REGISTERS_SET`], from the adapter of the
 /// registry that has it; `None` when no adapter of this run has it.
 fn registers() -> Option<extras::Family<'static>> {
     extras::set_in(registry(), REGISTERS_SET).map(|(_, set)| extras::of_set(set))
 }
 
-/// The drawing of the set of extra layers recorded in `berlin_layers` and the CRS its layers are
+/// The drawing of the set of extra layers [`REGISTERS_SET`] and the CRS its layers are
 /// stored in; `None` when no adapter of this run has it.
 pub(crate) fn registers_drawing() -> Option<(
     &'static freemapper_adapter_api::extras::SetDrawing,
@@ -2161,7 +2158,7 @@ pub(crate) fn stored_berlin_layers(
         if let Some(stored) = extras::stored(
             &registers,
             dir,
-            &project.berlin_layers,
+            project.extra_sets.records(REGISTERS_SET),
             &region_bbox,
             layer.file,
         )? {
@@ -2864,9 +2861,11 @@ fn used_sources<'a>(project: &'a ProjectFile, registers: &'a [&'a str]) -> UsedS
                 fetched: record.fetched,
             })
             .collect(),
+        // The layers of every set: an adapter's credit asks for the names of its own.
         extra_layers: project
-            .berlin_layers
-            .iter()
+            .extra_sets
+            .values()
+            .flat_map(|records| records.iter())
             .map(|(file, record)| (file.as_str(), record.count))
             .collect(),
         extra_templates: project.k5.iter().map(|_| K5_TEMPLATE).collect(),
@@ -2979,8 +2978,7 @@ pub mod golden {
             tiles: Vec::new(),
             buildings: None,
             land_use: None,
-            berlin_layers: BTreeMap::new(),
-            extra_sets: BTreeMap::new(),
+            extra_sets: ExtraSets::default(),
             nas_layers: BTreeMap::new(),
             tree_layers: BTreeMap::new(),
             osm: None,
@@ -5373,8 +5371,7 @@ mod tests {
                 count: 24,
                 regions: Vec::new(),
             }),
-            berlin_layers: BTreeMap::new(),
-            extra_sets: BTreeMap::new(),
+            extra_sets: ExtraSets::default(),
             nas_layers: BTreeMap::from([(
                 "sonstiges-bauwerk".to_string(),
                 AlkisRecord {
@@ -6405,7 +6402,10 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
             }],
             buildings: Some(record.clone()),
             land_use: Some(record.clone()),
-            berlin_layers: BTreeMap::from([("a.geojson".to_string(), record.clone())]),
+            extra_sets: ExtraSets(BTreeMap::from([(
+                "berlin".to_string(),
+                BTreeMap::from([("a.geojson".to_string(), record.clone())]),
+            )])),
             nas_layers: BTreeMap::from([("b.geojson".to_string(), record.clone())]),
             tree_layers: BTreeMap::from([("c".to_string(), record)]),
             osm: Some(OsmRecord {
@@ -10415,7 +10415,12 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let mut bare = project.clone();
         bare.k5 = None;
         for file in ["strassenbaeume", "anlagenbaeume"] {
-            bare.berlin_layers.get_mut(file).unwrap().count = 0;
+            bare.extra_sets
+                .get_mut("berlin")
+                .unwrap()
+                .get_mut(file)
+                .unwrap()
+                .count = 0;
         }
         let lines = attribution_lines(&bare, &[]);
         assert!(lines.contains(&BERLIN_ATTRIBUTION.to_string()));
@@ -10447,7 +10452,12 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let without = |files: &[&str]| {
             let mut bare = project.clone();
             for file in files {
-                bare.berlin_layers.get_mut(*file).unwrap().count = 0;
+                bare.extra_sets
+                    .get_mut("berlin")
+                    .unwrap()
+                    .get_mut(*file)
+                    .unwrap()
+                    .count = 0;
             }
             attribution_lines(&bare, &all)
         };
@@ -10469,7 +10479,8 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let lines = without(&["gebaeudehoehen"]);
         assert!(!lines.contains(&HEIGHTS.to_string()), "{lines:?}");
         let survey_files: Vec<&str> = project
-            .berlin_layers
+            .extra_sets
+            .records("berlin")
             .keys()
             .map(String::as_str)
             .filter(|f| f.starts_with("sb-"))
@@ -10791,7 +10802,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             serde_json::json!({"type": "FeatureCollection", "features": features}).to_string()
         };
         let mut project = ProjectFile::load(dir.path()).unwrap();
-        project.berlin_layers.clear();
+        project.extra_sets.remove("berlin");
         project.nas_layers.insert(
             "sonstiges-bauwerk".to_string(),
             AlkisRecord {
@@ -11113,7 +11124,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             .unwrap();
         serve_berlin_layers(&fetcher, &region_bbox);
         let (project, _) = fetch(dir.path(), &fetcher, &cache);
-        assert!(!project.berlin_layers.is_empty());
+        assert!(!project.extra_sets.records("berlin").is_empty());
         let calls = fetcher.calls.get();
         let mut messages = Vec::new();
         // The disk plan left the layers out: no request, the stored layers stay.
@@ -11124,11 +11135,11 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             project.map_kind,
             FetchMode::Online,
             true,
-            &project.berlin_layers,
+            project.extra_sets.records("berlin"),
             &mut |m: Note| messages.push(m.to_string()),
         );
         assert_eq!(fetcher.calls.get(), calls);
-        assert_eq!(records, project.berlin_layers);
+        assert_eq!(&records, project.extra_sets.records("berlin"));
         assert!(
             dir.path()
                 .join("data/berlin/bauwerke-flaechen.geojson")
@@ -11149,7 +11160,12 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
 
         // Schoolyard map: the plus-1 layers (relief is for sprint maps), the survey layers of
         // both kinds and the schoolyard ones; an empty layer is stored too.
-        let files: Vec<&str> = project.berlin_layers.keys().map(String::as_str).collect();
+        let files: Vec<&str> = project
+            .extra_sets
+            .records("berlin")
+            .keys()
+            .map(String::as_str)
+            .collect();
         assert_eq!(
             files,
             [
@@ -11170,7 +11186,12 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             ]
         );
         // Three lamps in operation of four, four railings of two types, three stairs.
-        let counts: Vec<usize> = project.berlin_layers.values().map(|r| r.count).collect();
+        let counts: Vec<usize> = project
+            .extra_sets
+            .records("berlin")
+            .values()
+            .map(|r| r.count)
+            .collect();
         assert_eq!(counts, [4, 10, 8, 3, 4, 4, 0, 0, 0, 3, 4, 0, 0, 3]);
         assert!(
             dir.path()
@@ -11243,8 +11264,18 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
                 &region_bbox,
             ));
         let (project, messages) = fetch(dir.path(), &fetcher, &cache);
-        assert!(!project.berlin_layers.contains_key("bauwerke-linien"));
-        assert!(project.berlin_layers.contains_key("bauwerke-flaechen"));
+        assert!(
+            !project
+                .extra_sets
+                .records("berlin")
+                .contains_key("bauwerke-linien")
+        );
+        assert!(
+            project
+                .extra_sets
+                .records("berlin")
+                .contains_key("bauwerke-flaechen")
+        );
         assert!(
             messages
                 .iter()
@@ -11263,7 +11294,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let fetcher = MapFetcher::default();
         let (dir, _cache_dir, cache) = fetched_school(&fetcher);
         let (project, _) = fetch(dir.path(), &fetcher, &cache);
-        assert!(project.berlin_layers.is_empty());
+        assert!(project.extra_sets.records("berlin").is_empty());
         assert!(!dir.path().join(BERLIN_LAYERS_DIR).exists());
         assert!(
             !fetcher
@@ -11473,6 +11504,34 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
 
     const IGNORED_LAYER_WARNING: &str = "warning: freemapper.toml: ignored the Berlin layer entry";
 
+    /// Berlin's records are a set like the others in memory (`extra_sets["berlin"]`) and keep the
+    /// field of older project files on disk, `[berlin_layers.*]` (ADR 0149).
+    #[test]
+    fn berlins_records_are_a_set_kept_as_berlin_layers_on_disk() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, _cache) = berlin_school(&fetcher);
+        let file = dir.path().join(PROJECT_FILE_NAME);
+        let mut text = std::fs::read_to_string(&file).unwrap();
+        text.push_str(&layer_record_toml("bauwerke-flaechen"));
+        std::fs::write(&file, text).unwrap();
+        let project = ProjectFile::load(dir.path()).unwrap();
+        assert!(
+            project
+                .extra_sets
+                .get("berlin")
+                .is_some_and(|layers| layers.contains_key("bauwerke-flaechen")),
+            "{:?}",
+            project.extra_sets
+        );
+        project.save(dir.path()).unwrap();
+        let saved = std::fs::read_to_string(&file).unwrap();
+        assert!(
+            saved.contains("[berlin_layers.bauwerke-flaechen]"),
+            "{saved}"
+        );
+        assert!(!saved.contains("extra_sets"), "{saved}");
+    }
+
     #[test]
     fn berlin_layer_keys_never_delete_files_outside_the_layers_folder() {
         let fetcher = MapFetcher::default();
@@ -11510,10 +11569,27 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             warnings.iter().any(|w| w.contains(r#""../../evil""#)),
             "{warnings:?}"
         );
-        assert!(project.berlin_layers.keys().all(|k| !k.contains("..")));
+        assert!(
+            project
+                .extra_sets
+                .records("berlin")
+                .keys()
+                .all(|k| !k.contains(".."))
+        );
         let saved = ProjectFile::load(dir.path()).unwrap();
-        assert!(saved.berlin_layers.keys().all(|k| !k.contains("..")));
-        assert!(saved.berlin_layers.contains_key("bauwerke-flaechen"));
+        assert!(
+            saved
+                .extra_sets
+                .records("berlin")
+                .keys()
+                .all(|k| !k.contains(".."))
+        );
+        assert!(
+            saved
+                .extra_sets
+                .records("berlin")
+                .contains_key("bauwerke-flaechen")
+        );
     }
 
     #[test]
@@ -11554,7 +11630,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let berlin = "Berlin ALKIS structures, tree cadastre, street survey and point layers";
         assert!(item(dir.path(), &cache, berlin).cached);
         let mut project = ProjectFile::load(dir.path()).unwrap();
-        moved(&mut project.berlin_layers);
+        moved(project.extra_sets.get_mut("berlin").unwrap());
         project.save(dir.path()).unwrap();
         assert!(!item(dir.path(), &cache, berlin).cached);
     }
@@ -12096,11 +12172,13 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         std::fs::write(&victim, b"{}").unwrap();
         for key in ["relief", "../../evil"] {
             project
-                .berlin_layers
+                .extra_sets
+                .entry("berlin".to_string())
+                .or_default()
                 .insert(key.to_string(), some_layer_record());
         }
         project.drop_fetched(dir.path());
-        assert!(project.berlin_layers.is_empty());
+        assert!(project.extra_sets.records("berlin").is_empty());
         assert!(!relief.exists());
         assert!(victim.exists());
     }
@@ -12129,7 +12207,14 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let mut warnings = Vec::new();
         let project =
             ProjectFile::load_reporting(dir.path(), &mut |m| warnings.push(m.to_string())).unwrap();
-        assert_eq!(project.berlin_layers.keys().collect::<Vec<_>>(), ["relief"]);
+        assert_eq!(
+            project
+                .extra_sets
+                .records("berlin")
+                .keys()
+                .collect::<Vec<_>>(),
+            ["relief"]
+        );
         assert_eq!(warnings.len(), keys.len() - 1, "{warnings:?}");
         assert!(
             warnings
@@ -12168,7 +12253,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             .map(|e| e.unwrap().file_name())
             .collect();
         assert_eq!(written, ["relief.geojson"], "{messages:?}");
-        assert!(project.berlin_layers.is_empty());
+        assert!(project.extra_sets.records("berlin").is_empty());
         assert!(
             messages
                 .iter()
@@ -12968,8 +13053,18 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         project.save(dir.path()).unwrap();
         serve_berlin_layers(&fetcher, &project.region_bbox().unwrap());
         let (project, _) = fetch(dir.path(), &fetcher, &cache);
-        assert!(project.berlin_layers.contains_key(GREEN_LAYER));
-        assert!(project.berlin_layers.contains_key(SURFACE_LAYER));
+        assert!(
+            project
+                .extra_sets
+                .records("berlin")
+                .contains_key(GREEN_LAYER)
+        );
+        assert!(
+            project
+                .extra_sets
+                .records("berlin")
+                .contains_key(SURFACE_LAYER)
+        );
         // A 40 m street parcel; a 10 m green inside it, a sidewalk north of it.
         let street = land_use_feature(
             "DEBE00STRASSE",

@@ -174,3 +174,14 @@ The part of a fetch that holds the sets of extra layers has stood for every set 
 `Part::BerlinLayers` is `Part::ExtraSets` now. The label in the estimate and in the messages stays as it was, so the
 output does not change. The step that was to move the credits onto every set (5a) goes with the storage of Berlin's
 layers in `extra_sets` (5c): only then does a credit read another set's layers. Output unchanged (G3/G4).
+
+## Addendum 2026-11-16: Berlin's records among the sets (step 5c)
+
+Berlin's layer records live in `ProjectFile::extra_sets` under the key `berlin`, like those of every set; the field
+`berlin_layers` is gone from the engine. On disk nothing changes: a set may name the field older project files kept
+its records in (`ExtraSetInfo::legacy_field`; Berlin: `berlin_layers`), and `ExtraSets` reads and writes that set
+there and every other under `extra_sets.<key>`. `ExtraSets` is a flattened field of the project file: its own
+serialisation picks the fields, so the engine names no field of a region. A set without records is neither written
+nor compared. The credits read the layers of every set now (the step 5a was to bring): an adapter's credit asks for
+the names of its own layers. Until the switch (step 6) Berlin's set is still fetched and drawn by its own code, so the
+loops over the drawn sets leave it out. Output unchanged (G3/G4, G5).

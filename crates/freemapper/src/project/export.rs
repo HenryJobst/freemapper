@@ -1128,7 +1128,6 @@ pub fn project_fingerprint(project: &ProjectFile) -> Result<String, ProjectError
         tiles: _,
         buildings: _,
         land_use: _,
-        berlin_layers: _,
         extra_sets: _,
         nas_layers: _,
         tree_layers: _,
