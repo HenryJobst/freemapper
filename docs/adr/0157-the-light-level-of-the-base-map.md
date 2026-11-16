@@ -83,8 +83,10 @@ at a cut end, on the line's course. A piece of a closed line is open.
   lost; the map and its layers together hold every object.
 - The training map, its PDF and OCAD file do not change: on the three examples below they are byte for byte the
   same as with the binary of `main`.
-- The goldens of the base map, the OCAD map and the candidate layers of the four states of the golden net are
-  blessed; the check prints of the states with rock change because the cliffs are drawn.
+- The golden net (G4) changes in the base map, its PDF, the OCAD map, the check print and the candidate layers
+  that gained objects, in all four of its states. The check print draws the same objects as before where no cliff
+  was taken off, now partly as candidates and in another order, so its bytes change too. The training maps and
+  their PDFs keep their hashes.
 - `export` takes longer: on Bremen Bürgerpark 3.5 s of 35 s.
 - Cost if wrong: the steps are three functions in `build/light.rs`; the ranks and relations stay those of
   `build/conflicts.rs`. Taking the light level out is one call in `Built::place`.
