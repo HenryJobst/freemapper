@@ -90,7 +90,7 @@ count = 14
 regions = ["rheinlandpfalz"]
 
 [osm]
-extract = "2026-11-07"
+extract = "2026-11-15"
 area = [49.16005929, 7.75038333, 49.16994071, 7.76961667]
 count = 259
 

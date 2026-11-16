@@ -89,7 +89,7 @@ count = 0
 regions = ["schleswigholstein"]
 
 [osm]
-extract = "2026-11-07"
+extract = "2026-11-15"
 area = [54.41305929, 9.65719311, 54.42294071, 9.67880689]
 count = 89
 
