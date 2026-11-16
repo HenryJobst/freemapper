@@ -20,9 +20,7 @@ use serde_json::Value;
 use crate::area::MapArea;
 use crate::build::barrier_gaps::move_points_off_barriers;
 use crate::build::barriers::resolve_barrier_overlaps;
-use crate::build::berlin::{
-    BUILDING_PARTS_LAYER, LayerInput, berlin_objects, building_part_features,
-};
+use crate::build::berlin::{LayerInput, berlin_objects};
 use crate::build::buildings::{building_objects, object_footprints};
 use crate::build::candidates::{Rules, Target, osm_objects};
 use crate::build::canopy::{CanopyInput, canopy_objects};
@@ -331,7 +329,16 @@ fn cadastre_candidates(
     // The Berlin layers and the building parts of the buildings (passages), through the Berlin
     // rules. The building parts are in the buildings file (`bauart` is set by the Berlin source
     // only).
-    let parts = buildings.map(|(b, fetched)| (building_part_features(&b.features), fetched));
+    let parts = crate::project::registers_drawing()
+        .and_then(|(drawing, _)| drawing.building_parts)
+        .zip(buildings)
+        .map(|(name, (b, fetched))| {
+            (
+                name,
+                crate::build::sets::building_part_features(&b.features),
+                fetched,
+            )
+        });
     let mut inputs: Vec<LayerInput<'_>> = stored
         .berlin
         .iter()
@@ -341,9 +348,9 @@ fn cadastre_candidates(
             currency: l.fetched,
         })
         .collect();
-    if let Some((features, fetched)) = &parts {
+    if let Some((name, features, fetched)) = &parts {
         inputs.push(LayerInput {
-            file: BUILDING_PARTS_LAYER,
+            file: name,
             features,
             currency: *fetched,
         });

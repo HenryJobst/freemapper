@@ -3,8 +3,8 @@
 //! The Geoportal features run through the same [`Rules`] engine as the OSM features
 //! (the rules Berlin's set brings, `crates/adapters/de/rules/berlin.toml`). A feature becomes a tagged feature first: its string
 //! and number properties become `berlin:<name>` tags, so no OSM rule can match one and no Berlin
-//! rule an OSM tag. The building parts are parsed from the stored buildings in one place
-//! ([`building_part_features`]).
+//! rule an OSM tag. The building parts come from the stored buildings
+//! ([`crate::build::sets::building_part_features`]).
 
 use chrono::NaiveDate;
 use serde_json::Value;
@@ -19,30 +19,17 @@ use crate::project::MapKind;
 use crate::sources::osm::OsmFeature;
 use freemapper_adapters_de::berlin::feature_tags;
 
-/// Layer name of the building parts (`Durchfahrt im Gebäude` …) in `berlin:layer`.
-pub const BUILDING_PARTS_LAYER: &str = "building-parts";
 /// The CRS of all Geoportal Berlin layers.
 pub(crate) const LAYER_CRS: Crs = Crs::Utm33;
 
 /// One stored layer for [`berlin_objects`].
 pub struct LayerInput<'a> {
-    /// Layer file name (`bauwerke-linien`) or [`BUILDING_PARTS_LAYER`].
+    /// Layer file name (`bauwerke-linien`) or the set's name of the building parts.
     pub file: &'a str,
     /// GeoJSON features in EPSG:25833.
     pub features: &'a [Value],
     /// The fetch date, which stands in for the currency (the layers carry no feature dates).
     pub currency: NaiveDate,
-}
-
-/// The building parts (`AX_Bauteil` with a `bauart`) among the normalised stored buildings.
-pub fn building_part_features(buildings: &[Value]) -> Vec<Value> {
-    buildings
-        .iter()
-        .filter(|f| {
-            f["properties"]["gebnutzbez"] == "Bauteil" && f["properties"]["bauart"].is_string()
-        })
-        .cloned()
-        .collect()
 }
 
 /// The tagged features of one layer, ready for the rules: a point stays a point, each part of a
@@ -106,6 +93,7 @@ mod tests {
         drop_cadastre_lines_by_rank, drop_osm_lines_near_cadastre, drop_points_near_registers,
         drop_trees_by_rank,
     };
+    use crate::build::sets::building_part_features;
     use crate::crs::LatLon;
     use crate::crs::ProjectedPoint;
     use crate::omap::MapObjectKind;
@@ -814,7 +802,7 @@ mod tests {
         let parts = building_part_features(&stored);
         assert_eq!(parts.len(), 5);
         let mut codes = Vec::new();
-        for feature in tagged_features(BUILDING_PARTS_LAYER, &parts) {
+        for feature in tagged_features("building-parts", &parts) {
             let kind = tag(&feature, "berlin:bauart").unwrap().to_string();
             let found =
                 Rules::berlin().symbol_for(&feature.tags, &feature.geometry, MapKind::Sprint);
