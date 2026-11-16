@@ -46,17 +46,10 @@ pub fn building_part_features(buildings: &[Value]) -> Vec<Value> {
 }
 
 /// The polygons of an area feature (Polygon or MultiPolygon, holes kept) in the map's `crs`; the
-/// layers are in EPSG:25833. Empty for other geometries. Used by the canopy and stair builders,
-/// which need the area itself and not a rule's line or point.
+/// layers are in EPSG:25833. Empty for other geometries. Used by the paved builder, which needs
+/// the area itself and not a rule's line or point.
 pub(crate) fn feature_polygons(feature: &Value, crs: Crs) -> Vec<geo_types::Polygon<f64>> {
     tagged::polygons_in(feature, LAYER_CRS, crs)
-}
-
-/// The lines of a line feature (LineString or MultiLineString, one per part) in the map's `crs`;
-/// the layers are in EPSG:25833. Empty for other geometries. Used by the stair builder for the
-/// `Freitreppe` step edges.
-pub(crate) fn feature_lines(feature: &Value, crs: Crs) -> Vec<geo_types::LineString<f64>> {
-    tagged::lines_in(feature, LAYER_CRS, crs)
 }
 
 /// Berlin's set (ADR 0149).

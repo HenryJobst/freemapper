@@ -25,7 +25,7 @@ use crate::build::berlin::{
 };
 use crate::build::buildings::{building_objects, object_footprints};
 use crate::build::candidates::{Rules, Target, osm_objects};
-use crate::build::canopy::{CANOPY_LAYER, CanopyInput, canopy_objects};
+use crate::build::canopy::{CanopyInput, canopy_objects};
 use crate::build::cliffs::{Ground, Level, generalize_cliffs, hide_landforms_on_rock};
 use crate::build::content::{ContentSettings, route};
 use crate::build::contours::{Contours, contour_objects};
@@ -50,8 +50,8 @@ use crate::build::paved_borders::{border_input, paved_borders as paved_borders_o
 use crate::build::peripheral::{PaperRect, north_lines};
 use crate::build::points::{GeneralizedPoints, generalize_points, way_footprints};
 use crate::build::stairs::{
-    NAS_STAIR_LAYER, STEP_EDGE_LAYER, SURVEY_STAIR_LAYER, SetStairs, StairInput,
-    drop_osm_stairs_on_cadastre, stair_objects,
+    CadastreStairs, NAS_STAIR_LAYER, SetStairs, StairInput, drop_osm_stairs_on_cadastre,
+    holds_stairs, stair_objects,
 };
 use crate::build::state::{NasInput, TreeInput, nas_objects, state_objects, tree_objects};
 use crate::build::ticks::orient_ticks;
@@ -202,15 +202,20 @@ fn structures(
         buffer_m,
         ..
     } = frame;
-    // The stair areas are in the same layer as the canopies; the step edges are lines.
-    let areas = layer(&stored.berlin, CANOPY_LAYER);
-    let edges = layer(&stored.berlin, STEP_EDGE_LAYER);
-    let survey = layer(&stored.berlin, SURVEY_STAIR_LAYER);
+    let registers = crate::project::registers_drawing();
+    // The layers of the set whose stairs rank with the cadastre.
+    let cadastre_layers: Vec<&Layer> = registers.map_or_else(Vec::new, |(drawing, _)| {
+        stored
+            .berlin
+            .iter()
+            .filter(|l| holds_stairs(drawing, &l.name))
+            .collect()
+    });
     // The NAS stair areas and bottom edges are in one layer.
     let nas = layer(&stored.nas, NAS_STAIR_LAYER);
     // Canopies are cut at the 521 footprints; flat entrance steps face them.
     let mut canopies = Vec::new();
-    if let Some((drawing, crs)) = crate::project::registers_drawing() {
+    if let Some((drawing, crs)) = registers {
         for layer in stored
             .berlin
             .iter()
@@ -257,12 +262,7 @@ fn structures(
             })
         })
         .collect();
-    if areas.is_none()
-        && edges.is_none()
-        && survey.is_none()
-        && nas.is_none()
-        && set_stairs.is_empty()
-    {
+    if cadastre_layers.is_empty() && nas.is_none() && set_stairs.is_empty() {
         return Ok(Structures {
             canopies,
             stairs: Vec::new(),
@@ -272,18 +272,26 @@ fn structures(
         layer.map_or(&[], |l| &l.features)
     }
     // Both layers come from one fetch; the later date stands for the currency.
-    let fetched = [areas, edges, survey, nas]
-        .into_iter()
-        .flatten()
+    let fetched = cadastre_layers
+        .iter()
+        .copied()
+        .chain(nas)
         .map(|l| l.fetched)
         .chain(set_stairs.iter().map(|s| s.currency))
         .max()
         .expect("one of the layers is stored");
     let stairs = stair_objects(
         &StairInput {
-            features: features(areas),
-            step_edges: features(edges),
-            survey: features(survey),
+            cadastre: registers
+                .filter(|_| !cadastre_layers.is_empty())
+                .map(|(drawing, crs)| CadastreStairs {
+                    drawing,
+                    crs,
+                    layers: cadastre_layers
+                        .iter()
+                        .map(|l| (l.name.as_str(), l.features.as_slice()))
+                        .collect(),
+                }),
             nas: features(nas),
             sets: &set_stairs,
             terrain: stored.stair_terrain.as_ref(),

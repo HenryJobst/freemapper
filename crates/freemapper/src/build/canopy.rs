@@ -29,8 +29,6 @@ use crate::sources::alkis::parse_building_features;
 
 /// ISSprOM 522 canopy.
 const CANOPY_SYMBOL_CODE: &str = "522";
-/// The layer the canopies come from.
-pub const CANOPY_LAYER: &str = "bauwerke-flaechen";
 /// `funktion` of the vereinfacht canopies.
 const CANOPY_KINDS: [&str; 2] = ["Überdachung", "Carport"];
 /// Canopies and holes with an area below (`CANOPY_MIN_SIDE_MM`)², enlarged like the symbols, are

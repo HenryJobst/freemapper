@@ -619,6 +619,26 @@ static DRAWING: SetDrawing = SetDrawing {
         field: "bezbwf",
         kinds: &["Überdachung", "Carport"],
     }],
+    cadastre_stairs: &[LayerKinds {
+        layer: "bauwerke-flaechen",
+        field: "bezbwf",
+        kinds: &["Treppe", "Freitreppe"],
+    }],
+    step_edges: &[LayerKinds {
+        layer: "bauwerke-linien",
+        field: "bezbwf",
+        kinds: &["Freitreppe"],
+    }],
+    facades: &[LayerKinds {
+        layer: "bauwerke-flaechen",
+        field: "bezbwf",
+        kinds: &["Denkmal, Denkstein, Standbild"],
+    }],
+    survey_stairs: &[LayerKinds {
+        layer: "sb-treppe",
+        field: TYPE_KEY,
+        kinds: &["cc_treppe"],
+    }],
     stair_layers: &[],
     candidate_layers: &[],
     feature_tags: Some(feature_tags),

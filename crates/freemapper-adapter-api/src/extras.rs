@@ -92,6 +92,17 @@ pub struct SetDrawing {
     /// The areas of the set that are canopies (522 map objects, cut at the buildings like the
     /// canopies of the cadastre).
     pub canopy_areas: &'static [LayerKinds],
+    /// The stair areas of the set that rank with the cadastre: a stair of the survey or of
+    /// another set that lies on one gives way to it.
+    pub cadastre_stairs: &'static [LayerKinds],
+    /// The step edges of the set (lines across a flight of steps); parallel neighbours make a
+    /// stair.
+    pub step_edges: &'static [LayerKinds],
+    /// The areas besides the buildings that a flat stair at them faces (monuments).
+    pub facades: &'static [LayerKinds],
+    /// The surveyed stairs of the set, tagged with their own date; they give way to the stairs
+    /// of the cadastre.
+    pub survey_stairs: &'static [LayerKinds],
     /// The layers whose areas are stairs; the engine draws them as stairs, walking direction
     /// from the terrain, and lets a stair of the cadastre at the same place win.
     pub stair_layers: &'static [&'static str],
