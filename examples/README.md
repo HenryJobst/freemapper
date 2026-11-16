@@ -13,7 +13,7 @@ ableiten kann. Die Grundkarte allein zeigt weniger; dasselbe Gebiet in den drei 
 
 | Vorschau | Bundesland | Gebiet | Kartenobjekte | Kandidaten | Symbole |
 |---|---|---|---:|---:|---:|
-| <a href="brandenburg-sanssouci/preview.webp"><img src="brandenburg-sanssouci/preview-thumb.webp" width="220" alt="" loading="lazy"></a><br><a href="brandenburg-sanssouci/brandenburg-sanssouci-training.pdf">PDF</a> · <a href="brandenburg-sanssouci/brandenburg-sanssouci-candidates.pdf">Prüfausdruck</a> | Brandenburg | [Park Sanssouci, Potsdam](brandenburg-sanssouci/): Weinbergterrassen, Parterres und Hecken, Schloss | 2281 | 1038 | 38 |
+| <a href="brandenburg-sanssouci/preview.webp"><img src="brandenburg-sanssouci/preview-thumb.webp" width="220" alt="" loading="lazy"></a><br><a href="brandenburg-sanssouci/brandenburg-sanssouci-training.pdf">PDF</a> · <a href="brandenburg-sanssouci/brandenburg-sanssouci-candidates.pdf">Prüfausdruck</a> | Brandenburg | [Park Sanssouci, Potsdam](brandenburg-sanssouci/): Weinbergterrassen, Parterres und Hecken, Schloss | 2282 | 1038 | 38 |
 | <a href="berlin-viktoriapark/preview.webp"><img src="berlin-viktoriapark/preview-thumb.webp" width="220" alt="" loading="lazy"></a><br><a href="berlin-viktoriapark/berlin-viktoriapark-training.pdf">PDF</a> · <a href="berlin-viktoriapark/berlin-viktoriapark-candidates.pdf">Prüfausdruck</a> | Berlin | [Viktoriapark, Kreuzberg](berlin-viktoriapark/): Kreuzberg mit Wasserfall, Gründerzeitblöcke | 3081 | 829 | 47 |
 | <a href="sachsen-bautzen/preview.webp"><img src="sachsen-bautzen/preview-thumb.webp" width="220" alt="" loading="lazy"></a><br><a href="sachsen-bautzen/sachsen-bautzen-training.pdf">PDF</a> · <a href="sachsen-bautzen/sachsen-bautzen-candidates.pdf">Prüfausdruck</a> | Sachsen | [Altstadt Bautzen](sachsen-bautzen/): Altstadt auf dem Felsen über der Spree, steile Talhänge | 2238 | 1144 | 39 |
 | <a href="sachsen-anhalt-quedlinburg/preview.webp"><img src="sachsen-anhalt-quedlinburg/preview-thumb.webp" width="220" alt="" loading="lazy"></a><br><a href="sachsen-anhalt-quedlinburg/sachsen-anhalt-quedlinburg-training.pdf">PDF</a> · <a href="sachsen-anhalt-quedlinburg/sachsen-anhalt-quedlinburg-candidates.pdf">Prüfausdruck</a> | Sachsen-Anhalt | [Schlossberg Quedlinburg](sachsen-anhalt-quedlinburg/): Welterbe-Altstadt, Schlossberg, enge Gassen | 2689 | 714 | 39 |
@@ -69,7 +69,7 @@ Bautzen 26, in Quedlinburg 15.
 In Brandenburg lädt freemapper zusätzlich das vollständige ALKIS (NAS) der LGB. In Sanssouci ergibt das 270 Mauerlinien
 (515), 107 Zäune (518), 133 Hecken (410.1) und 125 Böschungsoberkanten (104), mit `balanced` in der Karte. Liegt
 eine dieser Linien auf einem anderen Symbol, legt die leichte Bereinigung sie oder das Stück, das dort liegt, in die
-Kandidaten-Layer; in der Karte bleiben 224 Mauerlinien, 70 Zäune, 119 Hecken und 111 Böschungsoberkanten.
+Kandidaten-Layer; in der Karte bleiben 224 Mauerlinien, 71 Zäune, 119 Hecken und 111 Böschungsoberkanten.
 ALKIS führt oft beide Kanten einer Mauer. Liegen sie näher als 0,55 mm auf dem Papier und einander zugewandt, macht
 freemapper daraus eine Linie in der Mitte; in Sanssouci sind das 14 Mittellinien. Dickere Mauern und Kanten, die in
 dieselbe Richtung schauen, bleiben doppelt; die zweite Linie löschen Sie in OOM. Hat OSM dieselbe Mauer, Hecke oder
