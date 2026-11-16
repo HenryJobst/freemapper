@@ -960,7 +960,8 @@ What the training map does differently from the map, step by step:
    contours. The dash pattern then runs through. An opening between walls or fences narrower than the norm's 1.0 mm,
    a gate of 1.5 m say, is widened to 1.0 mm; both ends are shortened by the same length.
 2. Street furniture (531, such as lamps, waste baskets and bicycle stands) on streets and squares goes; in a park it
-   stays.
+   stays. Single trees (417, 418) in a forest area (405) go as well, because the white forest is the trees; on open
+   land they stay.
 3. Open land of a park is yellow only where the nDSM shows no trees; the rest stays white forest. freemapper reads the
    tree cover `data/tree-cover.tif` for this, which `derive` writes: everything from 3 m up, mostly trees, but also
    pavilions. Without an nDSM the park stays as it is.

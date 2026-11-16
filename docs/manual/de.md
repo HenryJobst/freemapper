@@ -999,7 +999,8 @@ Was die Trainingskarte anders macht als die Karte, Schritt für Schritt:
    ist als die 1,0 mm der Norm, etwa ein Tor von 1,5 m, wird auf 1,0 mm verbreitert; beide Enden werden gleich weit
    gekürzt.
 2. Stadtmobiliar (531, etwa Laternen, Papierkörbe und Fahrradständer) auf Straßen und Plätzen entfällt, im Park bleibt
-   es.
+   es. Einzelne Bäume (417, 418) in einer Waldfläche (405) entfallen, denn der weiße Wald ist die Bäume; auf
+   offenem Gelände bleiben sie.
 3. Offenes Gelände eines Parks ist nur dort gelb, wo das nDOM keine Bäume zeigt; der Rest bleibt weißer Wald.
    freemapper liest dafür die Baumbedeckung `data/tree-cover.tif`, die `derive` schreibt: alles ab 3 m Höhe, meist
    Bäume, aber auch Pavillons. Ohne nDOM bleibt der Park, wie er ist.
