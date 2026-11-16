@@ -57,6 +57,11 @@ pub(super) struct Merged {
     pub(super) replaced_by: BTreeMap<Key, Key>,
     /// The cut ends drawn onto a line: they follow it when it merges again later.
     pub(super) attached: Vec<Attached>,
+    /// How far (mm on paper) the paths and trams that went or were cut in the gap zone of a road
+    /// lay from it, by junction key: the radius of the zone, or for one that went whole the
+    /// farthest of its points from the road, up to twice the radius. An end that met such a line
+    /// is drawn onto the road from as far ([`Junctions`](super::junctions::Junctions)).
+    pub(super) rider_reach: BTreeMap<Key, f64>,
 }
 
 /// Merges what is alike among `objects`. On a forest map first a path (505 to 507 and the
@@ -290,6 +295,29 @@ fn inside_roads(
         }
         if let (Some(from), Some(to)) = (key_of(object), key_of(&objects[road])) {
             out.replaced_by.entry(from).or_insert(to);
+            // The ends that met the rider met the road it stood for: as far from the road as
+            // the rider lay, within its zone, or anywhere along it when it went whole.
+            let zone = road_lines
+                .iter()
+                .filter(|(r, _, _)| *r == road)
+                .map(|(_, _, radius)| *radius)
+                .fold(0.0, f64::max);
+            let far = if pieces.is_empty() {
+                line.points
+                    .iter()
+                    .map(|&p| {
+                        road_lines
+                            .iter()
+                            .map(|(_, l, _)| distance(p, l.point(l.locate(p))))
+                            .fold(f64::INFINITY, f64::min)
+                    })
+                    .fold(zone, f64::max)
+                    .min(2.0 * zone)
+            } else {
+                zone
+            };
+            let reach = out.rider_reach.entry(from).or_insert(0.0);
+            *reach = reach.max(far);
         }
         replaced.insert(rider, pieces);
     }

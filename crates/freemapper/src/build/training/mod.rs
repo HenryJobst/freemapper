@@ -276,7 +276,8 @@ pub fn train(
     let (gave_way, cut, cut_for) = give_way(&mut objects, &classes, kind, georef, symbol_set);
     report.gave_way = gave_way;
     report.cut += cut;
-    report.too_small = drop_too_small(&mut objects, &classes, kind, georef, symbol_set);
+    let linked = junctions.links(&objects, junctions::ASIDE_TAG, reach);
+    report.too_small = drop_too_small(&mut objects, &classes, kind, georef, symbol_set, &linked);
     let (joined, absorbed) = join_ways(&mut objects, &classes, georef, junctions::ASIDE_TAG);
     report.joined += joined;
     junctions.absorb(&absorbed);
@@ -284,14 +285,13 @@ pub fn train(
     // have cut or dropped lines they touched: an end in reach of what is left of its line is
     // drawn onto it, and what stays free is counted.
     junctions::bring_back(&mut objects);
-    let (repaired, free) = junctions.repair_after_cuts(
-        &mut objects,
-        &merged.replaced_by,
-        &cut_for,
-        reach,
-        georef,
-        symbol_set,
-    );
+    let after = junctions::After {
+        replaced_by: &merged.replaced_by,
+        cut_for: &cut_for,
+        rider_reach: &merged.rider_reach,
+    };
+    let (repaired, free) =
+        junctions.repair_after_cuts(&mut objects, &after, reach, georef, kind, symbol_set);
     report.junctions_repaired += repaired;
     report.free_ends = free;
     (report.overlap_left, report.gap_left, report.apart_left) =
@@ -844,9 +844,17 @@ fn drop_too_small(
     kind: MapKind,
     georef: &Georeferencing,
     symbol_set: &SymbolSet,
+    linked: &[[Vec<usize>; 2]],
 ) -> usize {
-    let TooSmall { gone, as_path } =
-        too_small(objects, classes, kind, georef, symbol_set, &|_| true);
+    let TooSmall { gone, as_path } = too_small(
+        objects,
+        classes,
+        kind,
+        georef,
+        symbol_set,
+        &|_| true,
+        linked,
+    );
     for (i, symbol_id) in as_path {
         let object = &mut objects[i];
         object.symbol_id = symbol_id;
@@ -868,7 +876,9 @@ pub(crate) struct TooSmall {
 
 /// The objects of `objects` below the norm's minimum, by the rules of [`drop_too_small`], which
 /// applies them; only the objects `considered` can be too small, the others are lines and areas
-/// long and large enough.
+/// long and large enough. `linked` (empty, or one entry per object) names, by end, the ways a way
+/// is linked to by a recorded junction (`Junctions::links`): they count as touching that end. A
+/// short closed way linked to at least two ways counts as touching them at both ends.
 pub(crate) fn too_small(
     objects: &[MapObject],
     classes: &Classes,
@@ -876,6 +886,7 @@ pub(crate) fn too_small(
     georef: &Georeferencing,
     symbol_set: &SymbolSet,
     considered: &dyn Fn(&MapObject) -> bool,
+    linked: &[[Vec<usize>; 2]],
 ) -> TooSmall {
     let scale_denominator = georef.scale_denominator;
     let scale = SymbolScale::drawn_with(symbol_set, scale_denominator);
@@ -898,24 +909,47 @@ pub(crate) fn too_small(
     let touched: Vec<[Vec<usize>; 2]> = (0..objects.len())
         .map(|i| {
             let object = &objects[i];
-            if !short[i] || is_closed(object) {
+            if !short[i] {
                 return [Vec::new(), Vec::new()];
             }
             let class = continues_class(classes.class(object.symbol_id));
-            [object.coords[0], object.coords[object.coords.len() - 1]].map(|end| {
-                let end = xy(&end);
-                (0..objects.len())
+            let alike = |j: usize| {
+                j != i
+                    && is_line(&objects[j])
+                    && continues_class(classes.class(objects[j].symbol_id)) == class
+            };
+            let links = |last: bool| -> Vec<usize> {
+                linked.get(i).map_or(Vec::new(), |l| {
+                    l[usize::from(last)]
+                        .iter()
+                        .copied()
+                        .filter(|&j| alike(j))
+                        .collect()
+                })
+            };
+            if is_closed(object) {
+                let links = links(false);
+                return if links.len() >= 2 {
+                    [links.clone(), links]
+                } else {
+                    [Vec::new(), Vec::new()]
+                };
+            }
+            [false, true].map(|last| {
+                let end = xy(&object.coords[if last { object.coords.len() - 1 } else { 0 }]);
+                let mut near: Vec<usize> = (0..objects.len())
                     .filter(|&j| {
-                        let other = &objects[j];
-                        j != i
-                            && is_line(other)
-                            && continues_class(classes.class(other.symbol_id)) == class
-                            && other
+                        alike(j)
+                            && objects[j]
                                 .coords
                                 .windows(2)
                                 .any(|w| distance_to_segment(end, xy(&w[0]), xy(&w[1])) <= touch)
                     })
-                    .collect()
+                    .collect();
+                near.extend(links(last));
+                near.sort_unstable();
+                near.dedup();
+                near
             })
         })
         .collect();
@@ -1865,6 +1899,105 @@ pub(crate) mod tests {
             "{report:?}"
         );
         assert_eq!(report.free_ends[0].touched, ["t"]);
+    }
+
+    #[test]
+    fn a_short_piece_that_links_two_ways_stays_and_is_drawn_onto_them() {
+        // A path piece of 2 mm (below 505's 6.375 mm) links two paths. Both are moved 0.3 mm off
+        // its ends, as a shift does: by geometry alone it is a short line that meets nothing and
+        // goes; its recorded junctions keep it, and the last repair draws its ends onto them.
+        let set = isom();
+        let classes = Classes::of(&set);
+        let georef = georef_at(SCALE);
+        let ways = [
+            line(&set, "506", &[(20.0, -20.0), (20.0, 0.0)]),
+            line(&set, "505", &[(20.0, 0.0), (22.0, 0.0)]),
+            line(&set, "506", &[(22.0, 0.0), (22.0, 20.0)]),
+        ];
+        let reach = MAX_SHIFT_MM.0 + gap(MapKind::Forest, SCALE).0;
+        for linked in [false, true] {
+            let mut objects = ways.to_vec();
+            let junctions = Junctions::record(&mut objects, &classes, &georef);
+            objects[0].coords = line(&set, "506", &[(19.7, -20.0), (19.7, 0.0)]).coords;
+            objects[2].coords = line(&set, "506", &[(22.3, 0.0), (22.3, 20.0)]).coords;
+            junctions::set_aside(&mut objects);
+            let links = if linked {
+                junctions.links(&objects, junctions::ASIDE_TAG, reach)
+            } else {
+                Vec::new()
+            };
+            let gone = drop_too_small(
+                &mut objects,
+                &classes,
+                MapKind::Forest,
+                &georef,
+                &set,
+                &links,
+            );
+            if !linked {
+                assert_eq!(gone, 1, "{objects:?}");
+                continue;
+            }
+            assert_eq!(gone, 0, "{objects:?}");
+            junctions::bring_back(&mut objects);
+            let cut_for = BTreeMap::new();
+            let none = BTreeMap::new();
+            let after = junctions::After {
+                replaced_by: &none,
+                cut_for: &cut_for,
+                rider_reach: &BTreeMap::new(),
+            };
+            let (repaired, free) = junctions.repair_after_cuts(
+                &mut objects,
+                &after,
+                reach,
+                &georef,
+                MapKind::Forest,
+                &set,
+            );
+            assert_eq!(free, [], "{objects:?}");
+            assert!(repaired >= 2, "{repaired}");
+            // Each junction meets again: the end of one drawn onto the other.
+            assert_eq!(end_mm(&objects[0], true), end_mm(&objects[1], false));
+            assert_eq!(end_mm(&objects[1], true), end_mm(&objects[2], false));
+        }
+    }
+
+    #[test]
+    fn a_small_ring_that_links_two_paths_stays() {
+        // Two paths end on a ring of 0.3 mm (its seam elsewhere, so no join takes it), far below
+        // the minimum length: it stays while it links them, so their ends are not left free.
+        let set = isom();
+        let ring = line(
+            &set,
+            "505",
+            &[
+                (10.15, 0.0),
+                (10.3, 0.0),
+                (10.3, 0.3),
+                (10.0, 0.3),
+                (10.0, 0.0),
+                (10.15, 0.0),
+            ],
+        );
+        let objects = vec![
+            line(&set, "505", &[(10.0, -10.0), (10.0, 0.0)]),
+            ring.clone(),
+            line(&set, "505", &[(10.3, 10.3), (10.3, 0.3)]),
+        ];
+        let xy = |o: &MapObject| o.coords.iter().map(|c| (c.x, c.y)).collect::<Vec<_>>();
+        let has_ring = |out: &[MapObject]| out.iter().any(|o| xy(o) == xy(&ring));
+        let (out, report) = run(&set, objects);
+        assert_eq!(report.free_ends, [], "{report:?}");
+        assert!(has_ring(&out), "{out:?}");
+        // A ring that one path ends on goes, as before.
+        let objects = vec![
+            line(&set, "505", &[(10.0, -10.0), (10.0, 0.0)]),
+            ring.clone(),
+        ];
+        let (out, report) = run(&set, objects);
+        assert!(!has_ring(&out), "{out:?}");
+        assert_eq!(report.too_small, 1, "{report:?}");
     }
 
     pub(super) fn tagged(mut object: MapObject, key: &str, value: &str) -> MapObject {
