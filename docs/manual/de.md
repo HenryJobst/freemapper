@@ -1438,6 +1438,14 @@ behandelt es wie in den anderen Bundesländern: Seine Objekte bleiben Kandidaten
 und Wegkreuze, 2 Wasserläufe und einen Brunnen, bei Dahn einen Felsen, 3 Wasserläufe und auf der Waldkarte 6 Wege
 und Fahrwege.
 
+**Saarland: Forstwegenetz.** Die Forstverwaltung des Saarlandes bietet ihr Wegenetz an (CC BY 4.0, Quelle GDI-SL).
+Auf einer Waldkarte liest freemapper die Hauptwege, Nebenwege, Waldwege und Fußwege und behandelt sie wie das
+Landschaftsmodell anderer Bundesländer: Sie bleiben Kandidaten, und zwar nur dort, wo OpenStreetMap im Umkreis von
+10 m keinen Weg hat. Hauptwege und Nebenwege für Lkw werden Fahrwege (504), Waldwege für Pkw Fußwege (505), Fußwege
+kleine Wege (506). Maschinenwege und Rückegassen sind keine Wege; freemapper lässt sie weg, damit keine Gasse auf der
+Karte wie ein Weg aussieht. Die Laserpunkte der Klasse 14, die wie Drähte von Leitungen aussehen, zählen nicht als
+hohe Vegetation.
+
 **Hamburg: Straßenbaumkataster.** Hamburg bietet seine Straßenbäume mit Gattung, Art und Kronendurchmesser an
 (dl-de/by-2-0). freemapper holt sie wie die Bäume in Potsdam; auf Sprint- und Schulhofkarten werden sie zu
 Einzelbäumen, mit einer Krone ab 10 m als 417, sonst als 418. In Blankenese kommen so 13

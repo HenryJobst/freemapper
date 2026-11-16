@@ -200,3 +200,4 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0152](0152-agpl-3.0-or-later.md) | AGPL-3.0-or-later | Accepted, supersedes ADR 0006 | 2026-11-15 |
 | [0153](0153-narrow-openings-in-walls-and-fences-on-the-training-map.md) | Narrow openings in walls and fences on the training map | Accepted | 2026-11-15 |
 | [0154](0154-cargo-deny.md) | cargo-deny checks the dependencies | Accepted | 2026-11-15 |
+| [0155](0155-saarland-forest-roads-and-the-wire-class.md) | Saarland: the forest road network as candidates, and class 14 of the point cloud left out | Accepted | 2026-11-16 |

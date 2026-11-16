@@ -314,8 +314,11 @@ pub struct Nas {
     pub namespaces: Option<String>,
     /// `alkis` (the default) or `basis-dlm`.
     pub model: NasModel,
-    /// `nas` (the default) or `shape`, for a service of the landscape model only.
+    /// `nas` (the default), or `shape` or `forest-roads`, for a service of the landscape model
+    /// only.
     pub schema: NasSchema,
+    /// The feature type of a service of the schema `forest-roads`.
+    pub type_name: Option<String>,
 }
 
 /// One `[[extra.trees]]`: the tree cadastre of a city.

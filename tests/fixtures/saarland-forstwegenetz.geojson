@@ -1,0 +1,261 @@
+{
+ "type": "FeatureCollection",
+ "crs": {
+  "type": "name",
+  "properties": {
+   "name": "EPSG:25832"
+  }
+ },
+ "features": [
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "MultiLineString",
+    "coordinates": [
+     [
+      [
+       355597.5,
+       5464379.1
+      ],
+      [
+       355594.9,
+       5464377.5
+      ],
+      [
+       355587.7,
+       5464374.2
+      ],
+      [
+       355559.1,
+       5464363.9
+      ]
+     ]
+    ]
+   },
+   "properties": {
+    "GmlID": "Forstwegenetz.31",
+    "WEGTYP": 1,
+    "STEIGUNG": -1.3,
+    "WKLASSE": "Hauptweg LKW",
+    "OBJECTID": 31,
+    "SHAPE_Length": 41.4
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "MultiLineString",
+    "coordinates": [
+     [
+      [
+       355621.5,
+       5464024.3
+      ],
+      [
+       355616.2,
+       5464021.3
+      ],
+      [
+       355607.6,
+       5464012.8
+      ],
+      [
+       355602.3,
+       5464001.9
+      ],
+      [
+       355600.4,
+       5463991.1
+      ],
+      [
+       355598.2,
+       5463977.5
+      ],
+      [
+       355593.0,
+       5463961.1
+      ],
+      [
+       355591.5,
+       5463955.4
+      ]
+     ]
+    ]
+   },
+   "properties": {
+    "GmlID": "Forstwegenetz.32",
+    "WEGTYP": 7,
+    "STEIGUNG": 0.0,
+    "WKLASSE": "Rückegasse",
+    "OBJECTID": 32,
+    "SHAPE_Length": 78.1
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "MultiLineString",
+    "coordinates": [
+     [
+      [
+       341552.9,
+       5456805.0
+      ],
+      [
+       341564.7,
+       5456818.8
+      ]
+     ]
+    ]
+   },
+   "properties": {
+    "GmlID": "Forstwegenetz.135",
+    "WEGTYP": 3,
+    "STEIGUNG": 0.0,
+    "WKLASSE": "Nebenweg LKW (eingeschränkt nutzbar)",
+    "OBJECTID": 135,
+    "SHAPE_Length": 18.2
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "MultiLineString",
+    "coordinates": [
+     [
+      [
+       340601.8,
+       5453699.1
+      ],
+      [
+       340587.4,
+       5453720.1
+      ],
+      [
+       340586.5,
+       5453721.4
+      ]
+     ]
+    ]
+   },
+   "properties": {
+    "GmlID": "Forstwegenetz.183",
+    "WEGTYP": 5,
+    "STEIGUNG": 0.0,
+    "WKLASSE": "Waldweg PKW",
+    "OBJECTID": 183,
+    "SHAPE_Length": 27.1
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "MultiLineString",
+    "coordinates": [
+     [
+      [
+       347526.9,
+       5461111.5
+      ],
+      [
+       347525.3,
+       5461119.2
+      ],
+      [
+       347520.7,
+       5461127.1
+      ],
+      [
+       347502.0,
+       5461148.2
+      ]
+     ]
+    ]
+   },
+   "properties": {
+    "GmlID": "Forstwegenetz.328",
+    "WEGTYP": 6,
+    "STEIGUNG": 0.0,
+    "WKLASSE": "Maschinenweg",
+    "OBJECTID": 328,
+    "SHAPE_Length": 45.2
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "MultiLineString",
+    "coordinates": [
+     [
+      [
+       354255.4,
+       5460107.7
+      ],
+      [
+       354233.1,
+       5460105.6
+      ],
+      [
+       354220.9,
+       5460096.4
+      ]
+     ]
+    ]
+   },
+   "properties": {
+    "GmlID": "Forstwegenetz.530",
+    "WEGTYP": 2,
+    "STEIGUNG": 0.0,
+    "WKLASSE": "Nebenweg LKW",
+    "OBJECTID": 530,
+    "SHAPE_Length": 37.7
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "MultiLineString",
+    "coordinates": [
+     [
+      [
+       358642.8,
+       5459861.9
+      ],
+      [
+       358642.5,
+       5459822.5
+      ],
+      [
+       358642.4,
+       5459821.0
+      ],
+      [
+       358640.6,
+       5459812.6
+      ],
+      [
+       358638.5,
+       5459806.9
+      ],
+      [
+       358635.0,
+       5459801.2
+      ],
+      [
+       358631.1,
+       5459794.5
+      ]
+     ]
+    ]
+   },
+   "properties": {
+    "GmlID": "Forstwegenetz.9809",
+    "WEGTYP": 4,
+    "STEIGUNG": 0.0,
+    "WKLASSE": "Fußweg",
+    "OBJECTID": 9809,
+    "SHAPE_Length": 70.0
+   }
+  }
+ ]
+}

@@ -181,6 +181,7 @@ pub(crate) struct RawNas {
     pub namespaces: Option<Text>,
     pub model: Option<Text>,
     pub schema: Option<Text>,
+    pub type_name: Option<Text>,
 }
 
 #[derive(Debug, Deserialize)]

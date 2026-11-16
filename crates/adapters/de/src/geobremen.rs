@@ -58,6 +58,7 @@ pub const ALKIS: NasService = NasService {
     namespaces: None,
     model: NasModel::Alkis,
     schema: NasSchema::Nas,
+    type_name: None,
 };
 
 /// `bez` of a square without a function: a third of the squares have none, and what they are

@@ -294,7 +294,7 @@ mod tests {
 
     /// The full ALKIS of LGB and the tree cadastre of Potsdam belong to Brandenburg, the full
     /// ALKIS of Bremen to Bremen, the landscape models to Bavaria, Saxony-Anhalt and
-    /// Schleswig-Holstein, both to Hesse; the queries over the registry find them for an area there and nowhere else.
+    /// Schleswig-Holstein, both to Hesse, the forest road network to the Saarland; the queries over the registry find them for an area there and nowhere else.
     #[test]
     fn brandenburg_names_the_nas_service_and_the_tree_cadastre() {
         use crate::crs::BoundingBox;
@@ -315,6 +315,7 @@ mod tests {
                         "niedersachsen",
                         "mecklenburgvorpommern",
                         "rheinlandpfalz",
+                        "saarland",
                     ]
                     .contains(&id),
                 "{}",
