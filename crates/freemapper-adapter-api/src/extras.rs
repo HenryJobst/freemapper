@@ -103,6 +103,15 @@ pub struct SetDrawing {
     /// The surveyed stairs of the set, tagged with their own date; they give way to the stairs
     /// of the cadastre.
     pub survey_stairs: &'static [LayerKinds],
+    /// The surveyed areas cut out of the paved areas of the cadastre (green strips); 401
+    /// candidates where no paving stays.
+    pub paving_cuts: &'static [LayerKinds],
+    /// The surveyed paved areas of the set: 501.5 candidates outside the traffic parcels of the
+    /// cadastre.
+    pub surveyed_paving: &'static [LayerKinds],
+    /// `(tag key, value)` of the surveyed paving that is carriageway (hidden 501.11 candidates
+    /// inside the street parcels, drawn on the training map).
+    pub carriageway_tags: &'static [(&'static str, &'static str)],
     /// The layers whose areas are stairs; the engine draws them as stairs, walking direction
     /// from the terrain, and lets a stair of the cadastre at the same place win.
     pub stair_layers: &'static [&'static str],

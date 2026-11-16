@@ -17,7 +17,7 @@ use crate::georef::{GeorefError, Georeferencing};
 use crate::omap::{MapObject, SymbolSet};
 use crate::project::MapKind;
 use crate::sources::osm::OsmFeature;
-pub(crate) use freemapper_adapters_de::berlin::{feature_tags, survey_currency};
+use freemapper_adapters_de::berlin::feature_tags;
 
 /// Layer name of the building parts (`Durchfahrt im Gebäude` …) in `berlin:layer`.
 pub const BUILDING_PARTS_LAYER: &str = "building-parts";
@@ -43,51 +43,6 @@ pub fn building_part_features(buildings: &[Value]) -> Vec<Value> {
         })
         .cloned()
         .collect()
-}
-
-/// The polygons of an area feature (Polygon or MultiPolygon, holes kept) in the map's `crs`; the
-/// layers are in EPSG:25833. Empty for other geometries. Used by the paved builder, which needs
-/// the area itself and not a rule's line or point.
-pub(crate) fn feature_polygons(feature: &Value, crs: Crs) -> Vec<geo_types::Polygon<f64>> {
-    tagged::polygons_in(feature, LAYER_CRS, crs)
-}
-
-/// Berlin's set (ADR 0149).
-pub(crate) fn drawing() -> &'static freemapper_adapter_api::extras::SetDrawing {
-    crate::build::sets::drawing_of_source("geoportal-berlin/").expect("Berlin is built in")
-}
-
-/// The provenance tags of a map object or candidate built from a Berlin feature directly
-/// ([`crate::build::sets::provenance_tags`]).
-pub(crate) fn provenance_tags(
-    layer: &str,
-    feature: &Value,
-    currency: NaiveDate,
-) -> Vec<(String, String)> {
-    crate::build::sets::provenance_tags(drawing(), layer, feature, currency)
-}
-
-/// The Straßenbefahrung codes a candidate carries as `berlin:<code>`. There is no code list, so no
-/// rule reads them; they are for the mapper (reference §14.5).
-pub(crate) const SURVEY_CODES: [&str; 8] =
-    ["material", "hms", "pot", "bor", "gws", "sre", "hdt", "trs"];
-
-/// The tags of an object built from a Straßenbefahrung feature directly: the provenance tags
-/// with the survey date as currency (and `freemapper:currency_guessed=yes` when the `gis_id`
-/// gave none), the survey type as `berlin:layer` and the survey codes.
-pub(crate) fn survey_tags(file: &str, feature: &Value) -> Vec<(String, String)> {
-    let (currency, guessed) = survey_currency(feature);
-    let mut tags = provenance_tags(file, feature, currency);
-    if guessed {
-        tags.push(("freemapper:currency_guessed".to_string(), "yes".to_string()));
-    }
-    let codes = SURVEY_CODES.map(|code| format!("berlin:{code}"));
-    tags.extend(
-        feature_tags(file, feature)
-            .into_iter()
-            .filter(|(k, _)| k == "berlin:layer" || codes.contains(k)),
-    );
-    tags
 }
 
 /// The tagged features of one layer, ready for the rules: a point stays a point, each part of a
@@ -561,7 +516,7 @@ mod tests {
         });
         let mut canopies = crate::build::canopy::canopy_objects(
             &[crate::build::canopy::CanopyInput::Set {
-                drawing: drawing(),
+                drawing: crate::build::sets::drawing_of_source("geoportal-berlin/").unwrap(),
                 layer: "bauwerke-flaechen",
                 features: &[canopy],
                 crs: LAYER_CRS,

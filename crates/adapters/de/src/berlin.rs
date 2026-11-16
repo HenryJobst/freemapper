@@ -639,6 +639,29 @@ static DRAWING: SetDrawing = SetDrawing {
         field: TYPE_KEY,
         kinds: &["cc_treppe"],
     }],
+    // Tree pits (`bn_baumscheibe`, 2–5 m²) are not cut: they are below the ISSprOM minimum at
+    // 1:4000 and too fiddly at 1:1000.
+    paving_cuts: &[LayerKinds {
+        layer: "sb-gruenflaeche",
+        field: TYPE_KEY,
+        kinds: &["ce_gruenflaeche"],
+    }],
+    // Carriageway, sidewalk, cycle track, parking, public square, pedestrian zone and driveway
+    // across the sidewalk.
+    surveyed_paving: &[LayerKinds {
+        layer: "sb-flaechen",
+        field: TYPE_KEY,
+        kinds: &[
+            "cm_fahrbahn",
+            "cl_gehweg",
+            "ch_radweg",
+            "ck_parkflaeche",
+            "ci_oeffentlicher_platz",
+            "cj_fussgaengerzone",
+            "by_gehwegueberfahrt",
+        ],
+    }],
+    carriageway_tags: &[("berlin:layer", "cm_fahrbahn")],
     stair_layers: &[],
     candidate_layers: &[],
     feature_tags: Some(feature_tags),

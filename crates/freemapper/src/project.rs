@@ -3039,7 +3039,9 @@ mod tests {
     const BEYOND_COVERAGE_WARNING: &str = "warning: part of the map area lies outside the supported states. It lies abroad, at sea or in a state freemapper does not support yet, such as Thuringia. The states have no data there, so the orthophoto can be white and ALKIS gives no buildings or land use";
 
     use super::*;
-    use crate::build::paved::{GREEN_LAYER, SURFACE_LAYER};
+    /// Berlin's stored survey layers of green strips and paved surfaces.
+    const GREEN_LAYER: &str = "sb-gruenflaeche";
+    const SURFACE_LAYER: &str = "sb-flaechen";
     use crate::crs::LatLon;
     use crate::fetch::TilePaths as _;
     use crate::omap::{MapCoord, MapObjectKind};

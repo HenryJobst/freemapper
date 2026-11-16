@@ -148,3 +148,13 @@ in place of three Berlin fields. A surveyed stair is tagged by `build/sets.rs::d
 Berlin's survey tags: the provenance tags with the feature's own date, its `<prefix>:layer` and the kept tags. A
 feature without a date of its own gets the fetch date there; Berlin stamps every survey feature at download, so
 none lacks one. Output unchanged (G3/G4).
+
+## Addendum 2026-11-16: a set's surveyed paving (step 4g)
+
+A set names the surveyed areas that are cut out of the paved areas of the cadastre (`paving_cuts`; Berlin: the
+`ce_gruenflaeche` green strips of `sb-gruenflaeche`), its surveyed paved areas that become 501.5 candidates outside
+the traffic parcels (`surveyed_paving`; Berlin: carriageway, sidewalk, cycle track, parking, public square,
+pedestrian zone and driveway of `sb-flaechen`), and the tags of the paving that is carriageway (`carriageway_tags`,
+for the hidden 501.11 candidates). `StreetSurvey::of_set` reads them from the set's stored layers, tags each area
+with `dated_tags` (step 4f), and a cut names the source of the strip's layer. With that, Berlin's survey helpers
+left `build/berlin.rs`. Output unchanged (G3/G4).
