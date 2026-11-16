@@ -290,6 +290,8 @@ pub fn train(
     let (gave_way, cut, cut_for) = give_way(&mut objects, &classes, kind, georef, symbol_set);
     report.gave_way = gave_way;
     report.cut += cut;
+    // Give way cuts ends back by up to the gap: the last repair finds them where they lie now.
+    junctions.follow(&objects, junctions::ASIDE_TAG, within);
     let linked = junctions.links(&objects, junctions::ASIDE_TAG, reach);
     report.too_small = drop_too_small(&mut objects, &classes, kind, georef, symbol_set, &linked);
     let (joined, absorbed) = join_ways(&mut objects, &classes, georef, junctions::ASIDE_TAG);
@@ -924,7 +926,8 @@ pub(crate) struct TooSmall {
 /// applies them; only the objects `considered` can be too small, the others are lines and areas
 /// long and large enough. `linked` (empty, or one entry per object) names, by end, the ways a way
 /// is linked to by a recorded junction (`Junctions::links`): they count as touching that end. A
-/// short closed way linked to at least two ways counts as touching them at both ends.
+/// short closed way linked to ways of at least two keys (`links` names one way per key for a
+/// closed way) counts as touching them at both ends.
 pub(crate) fn too_small(
     objects: &[MapObject],
     classes: &Classes,
@@ -974,6 +977,7 @@ pub(crate) fn too_small(
                 })
             };
             if is_closed(object) {
+                // One way per key: two pieces of one line do not keep a ring.
                 let links = links(false);
                 return if links.len() >= 2 {
                     [links.clone(), links]
@@ -2023,6 +2027,49 @@ pub(crate) mod tests {
             assert_eq!(end_mm(&objects[0], true), end_mm(&objects[1], false));
             assert_eq!(end_mm(&objects[1], true), end_mm(&objects[2], false));
         }
+    }
+
+    #[test]
+    fn a_ring_that_two_pieces_of_one_path_end_near_goes() {
+        // A path ends on a ring of 0.3 mm; give way cut the path in the middle. Its two pieces
+        // are one line: the ring links one way and goes. The piece far from the ring is no link.
+        let set = isom();
+        let classes = Classes::of(&set);
+        let georef = georef_at(SCALE);
+        let ring = line(
+            &set,
+            "505",
+            &[
+                (10.15, 0.0),
+                (10.3, 0.0),
+                (10.3, 0.3),
+                (10.0, 0.3),
+                (10.0, 0.0),
+                (10.15, 0.0),
+            ],
+        );
+        let mut objects = vec![line(&set, "505", &[(10.0, -20.0), (10.0, 0.0)]), ring];
+        let mut junctions = Junctions::record(&mut objects, &classes, &georef);
+        let path = objects.remove(0);
+        let mut far = path.clone();
+        far.coords = line(&set, "505", &[(10.0, -20.0), (10.0, -10.5)]).coords;
+        let mut near = path;
+        near.coords = line(&set, "505", &[(10.0, -9.5), (10.0, 0.0)]).coords;
+        objects.extend([far, near]);
+        let reach = MAX_SHIFT_MM.0 + gap(MapKind::Forest, SCALE).0;
+        junctions.follow(&objects, junctions::JUNCTION_TAG, reach + TOLERANCE_MM);
+        junctions::set_aside(&mut objects);
+        let links = junctions.links(&objects, junctions::ASIDE_TAG, reach);
+        assert_eq!(links[0], [vec![2], vec![2]], "{links:?}");
+        let gone = drop_too_small(
+            &mut objects,
+            &classes,
+            MapKind::Forest,
+            &georef,
+            &set,
+            &links,
+        );
+        assert_eq!(gone, 1, "{objects:?}");
     }
 
     #[test]
