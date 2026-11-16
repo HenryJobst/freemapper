@@ -112,6 +112,11 @@ pub struct SetDrawing {
     /// `(tag key, value)` of the surveyed paving that is carriageway (hidden 501.11 candidates
     /// inside the street parcels, drawn on the training map).
     pub carriageway_tags: &'static [(&'static str, &'static str)],
+    /// The layer name under which the set's rules get the building parts of the stored
+    /// buildings (`Bauteil` with a `bauart`: passages, arcades).
+    pub building_parts: Option<&'static str>,
+    /// The set's layer that dates the stored buildings.
+    pub footprint_dates: Option<FootprintDates>,
     /// The layers whose areas are stairs; the engine draws them as stairs, walking direction
     /// from the terrain, and lets a stair of the cadastre at the same place win.
     pub stair_layers: &'static [&'static str],
@@ -149,6 +154,15 @@ pub enum DedupDistance {
     /// Millimetres on paper, as what the printed map shows twice, but at least `at_least_m`
     /// ground metres: the positional error of the sources does not shrink with the scale.
     Paper { mm: f64, at_least_m: f64 },
+}
+
+/// A layer of a set that dates the stored buildings: `join` sets the date (`aktualit`) of each of
+/// the buildings (first) from the layer's features (second).
+#[derive(Debug, Clone)]
+pub struct FootprintDates {
+    /// The layer's stored file name.
+    pub layer: &'static str,
+    pub join: fn(&mut [Value], &[Value]),
 }
 
 /// The features of one layer of a set whose `field` holds one of `kinds`.
