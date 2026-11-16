@@ -3,7 +3,8 @@
 pub mod assembly;
 pub mod barrier_gaps;
 pub mod barriers;
-pub mod berlin;
+#[cfg(test)]
+mod berlin;
 pub mod buildings;
 pub mod candidate_layers;
 pub mod candidates;

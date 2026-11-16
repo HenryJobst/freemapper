@@ -2131,47 +2131,6 @@ pub fn stored_tree_layers(
     Ok(layers)
 }
 
-/// One stored extra Berlin layer.
-// Read by the Berlin rules and the canopy, stair and tree builders (Berlin plus 1).
-#[derive(Debug, Clone)]
-pub(crate) struct StoredBerlinLayer {
-    pub layer: &'static berlin::ExtraLayer,
-    /// The features as served by the WFS (EPSG:25833, `id` like `bauwerkeflaechen.DEBE…`).
-    pub features: Vec<serde_json::Value>,
-    /// The fetch date, which stands in for the currency (the layers carry no feature dates).
-    pub fetched: NaiveDate,
-}
-
-/// The stored extra Berlin layers that cover the map area plus buffer, in table order. A layer
-/// that was not fetched, is missing or does not cover the area is left out (optional sources:
-/// `fetch` reports this, the export goes on without them). Empty outside Berlin.
-pub(crate) fn stored_berlin_layers(
-    dir: &Path,
-    project: &ProjectFile,
-) -> Result<Vec<StoredBerlinLayer>, ProjectError> {
-    let Some(registers) = registers() else {
-        return Ok(Vec::new());
-    };
-    let region_bbox = project.region_bbox()?;
-    let mut layers = Vec::new();
-    for layer in berlin::extra_layers(project.map_kind.contract()) {
-        if let Some(stored) = extras::stored(
-            &registers,
-            dir,
-            project.extra_sets.records(REGISTERS_SET),
-            &region_bbox,
-            layer.file,
-        )? {
-            layers.push(StoredBerlinLayer {
-                layer,
-                features: stored.features,
-                fetched: stored.fetched,
-            });
-        }
-    }
-    Ok(layers)
-}
-
 /// The stored layers of the sets that bring their rules (ADR 0149) that a map of the project's
 /// kind takes and that cover the map area plus buffer. A layer that was not fetched, is missing
 /// or does not cover the area is left out, as for Berlin's layers.
@@ -2181,7 +2140,8 @@ pub(crate) fn stored_set_layers(
 ) -> Result<Vec<crate::build::sets::SetLayers>, ProjectError> {
     let region_bbox = project.region_bbox()?;
     let mut sets = Vec::new();
-    for (_, set) in extras::drawn_sets(registry()) {
+    // Every set that brings its drawing, Berlin's too, which is not fetched as a set yet.
+    for (_, set) in extras::sets_with_drawing(registry()) {
         let (Some(records), Some(drawing)) =
             (project.extra_sets.get(set.info().key), set.drawing())
         else {
@@ -2211,11 +2171,13 @@ pub(crate) fn stored_set_layers(
 }
 
 /// Whether a layer that gives stairs is stored: the stair terrain is read only then.
-fn stair_layers_stored(layers: &[StoredBerlinLayer], nas: &[StoredNasLayer]) -> bool {
-    registers_drawing().is_some_and(|(drawing, _)| {
-        layers
-            .iter()
-            .any(|l| crate::build::stairs::holds_stairs(drawing, l.layer.file))
+fn stair_layers_stored(sets: &[crate::build::sets::SetLayers], nas: &[StoredNasLayer]) -> bool {
+    sets.iter().any(|set| {
+        set.stair_layers().next().is_some()
+            || set
+                .layers
+                .iter()
+                .any(|l| crate::build::stairs::holds_stairs(set.drawing, &l.name))
     }) || nas.iter().any(|l| l.layer.file == NAS_STAIR_LAYER)
 }
 
@@ -11098,11 +11060,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         // Every extra layer is gone, the buildings still carry the parts.
         let (project, _) = fetch(dir.path(), &fetcher, &cache);
         std::fs::remove_dir_all(dir.path().join("data/berlin")).unwrap();
-        assert!(
-            stored_berlin_layers(dir.path(), &project)
-                .unwrap()
-                .is_empty()
-        );
+        assert!(stored_set_layers(dir.path(), &project).unwrap().is_empty());
         add_passage_part(dir.path());
         let found = berlin_candidates(dir.path());
         assert_eq!(
@@ -11204,10 +11162,11 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             "{messages:?}"
         );
 
-        let stored = stored_berlin_layers(dir.path(), &project).unwrap();
+        let stored = stored_set_layers(dir.path(), &project).unwrap();
         let sizes: Vec<(&str, usize)> = stored
             .iter()
-            .map(|l| (l.layer.file, l.features.len()))
+            .flat_map(|set| set.layers.iter())
+            .map(|l| (l.name.as_str(), l.features.len()))
             .collect();
         assert_eq!(
             sizes,
@@ -11231,7 +11190,8 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         // The stored survey features carry their type and survey date.
         let railings = stored
             .iter()
-            .find(|l| l.layer.file == "sb-gelaender")
+            .flat_map(|set| set.layers.iter())
+            .find(|l| l.name == "sb-gelaender")
             .unwrap();
         assert_eq!(
             railings.features[0]["properties"]["freemapper:layer"],
@@ -11305,11 +11265,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
                     || url.contains("bauwerke")),
             "no Berlin request outside Berlin"
         );
-        assert!(
-            stored_berlin_layers(dir.path(), &project)
-                .unwrap()
-                .is_empty()
-        );
+        assert!(stored_set_layers(dir.path(), &project).unwrap().is_empty());
     }
 
     #[test]

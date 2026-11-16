@@ -127,9 +127,9 @@ fn names_stair(edge: &Value, stair: &Value) -> bool {
 
 /// What the stairs are built from.
 pub struct StairInput<'a> {
-    /// The layers of the set whose stairs rank with the cadastre (Berlin's ALKIS layers and
-    /// street survey, ADR 0149); `None` without one.
-    pub cadastre: Option<CadastreStairs<'a>>,
+    /// The layers of the sets whose stairs rank with the cadastre (Berlin's ALKIS layers and
+    /// street survey, ADR 0149).
+    pub cadastre: Vec<CadastreStairs<'a>>,
     /// The stored NAS `sonstiges-bauwerk` features (the map's CRS); only the stair areas
     /// (1620, 1621) and their bottom edges (1630, by `gehoert_zu`) are used.
     pub nas: &'a [Value],
@@ -374,6 +374,7 @@ fn facing_facade([long, short]: [Axis; 2], facades: &[Polygon<f64>]) -> Axis {
 struct StepEdge<'a> {
     a: Coord<f64>,
     b: Coord<f64>,
+    drawing: &'a SetDrawing,
     layer: &'a str,
     feature: &'a Value,
 }
@@ -414,7 +415,12 @@ impl StepEdge<'_> {
 
 /// The step edges among `features` (each with its layer, in `from`) in `to`, exact duplicates
 /// dropped.
-fn step_edges<'a>(features: &[(&'a str, &'a Value)], from: Crs, to: Crs) -> Vec<StepEdge<'a>> {
+fn step_edges<'a>(
+    drawing: &'a SetDrawing,
+    features: &[(&'a str, &'a Value)],
+    from: Crs,
+    to: Crs,
+) -> Vec<StepEdge<'a>> {
     let mut edges: Vec<StepEdge<'a>> = Vec::new();
     for &(layer, feature) in features {
         for line in lines_in(feature, from, to) {
@@ -424,6 +430,7 @@ fn step_edges<'a>(features: &[(&'a str, &'a Value)], from: Crs, to: Crs) -> Vec<
             let edge = StepEdge {
                 a,
                 b,
+                drawing,
                 layer,
                 feature,
             };
@@ -531,11 +538,18 @@ pub fn stair_objects(
         scale: SymbolScale::new(kind, georef.scale_denominator),
         objects: Vec::new(),
     };
-    let cadastre = input.cadastre.as_ref();
+    // The features of one kind of every set, each with its set and layer.
     let of = |kinds: fn(&SetDrawing) -> &[LayerKinds]| {
-        cadastre.map_or_else(Vec::new, |c| c.of(kinds(c.drawing)))
+        input
+            .cadastre
+            .iter()
+            .flat_map(|c| {
+                c.of(kinds(c.drawing))
+                    .into_iter()
+                    .map(move |(layer, feature)| (c, layer, feature))
+            })
+            .collect::<Vec<_>>()
     };
-    let from = cadastre.map_or(crs, |c| c.crs);
     // Flat stairs face the buildings and the monuments they lie at.
     let facades: Vec<Polygon<f64>> = input
         .buildings
@@ -544,14 +558,14 @@ pub fn stair_objects(
         .chain(
             of(|d| d.facades)
                 .into_iter()
-                .flat_map(|(_, f)| polygons_in(f, from, crs)),
+                .flat_map(|(c, _, f)| polygons_in(f, c.crs, crs)),
         )
         .collect();
     // The stairs of the cadastre: footprint and the objects drawn for it.
     let mut alkis: Vec<(Polygon<f64>, std::ops::Range<usize>)> = Vec::new();
-    for (layer, feature) in of(|d| d.cadastre_stairs) {
-        let drawing = cadastre.expect("features come from the cadastre").drawing;
-        for part in polygons_in(feature, from, crs) {
+    for (cadastre, layer, feature) in of(|d| d.cadastre_stairs) {
+        let drawing = cadastre.drawing;
+        for part in polygons_in(feature, cadastre.crs, crs) {
             if Euclidean.distance(&part, map_area) > buffer_m {
                 continue;
             }
@@ -601,9 +615,13 @@ pub fn stair_objects(
             alkis.push((part, start..stairs.objects.len()));
         }
     }
-    let edges = step_edges(&of(|d| d.step_edges), from, crs);
+    let edges: Vec<StepEdge<'_>> = input
+        .cadastre
+        .iter()
+        .flat_map(|c| step_edges(c.drawing, &c.of(c.drawing.step_edges), c.crs, crs))
+        .collect();
     for flight in flights(&edges) {
-        let drawing = cadastre.expect("edges come from the cadastre").drawing;
+        let drawing = flight[0].drawing;
         let (axis, outline) = flight_axis(&flight, input.terrain);
         if Euclidean.distance(&outline, map_area) > buffer_m {
             continue;
@@ -615,9 +633,9 @@ pub fn stair_objects(
         )?;
         alkis.push((outline, start..stairs.objects.len()));
     }
-    for (layer, feature) in of(|d| d.survey_stairs) {
-        let drawing = cadastre.expect("features come from the cadastre").drawing;
-        for part in polygons_in(feature, from, crs) {
+    for (cadastre, layer, feature) in of(|d| d.survey_stairs) {
+        let drawing = cadastre.drawing;
+        for part in polygons_in(feature, cadastre.crs, crs) {
             if Euclidean.distance(&part, map_area) > buffer_m {
                 continue;
             }
@@ -1058,7 +1076,7 @@ mod tests {
         let draw = |sets: &[SetStairs<'_>]| {
             stair_objects(
                 &StairInput {
-                    cadastre: None,
+                    cadastre: Vec::new(),
                     nas: &[],
                     sets,
                     terrain: None,
@@ -1090,7 +1108,7 @@ mod tests {
         let (georef, area, set) = setup(kind);
         stair_objects(
             &StairInput {
-                cadastre: Some(CadastreStairs {
+                cadastre: vec![CadastreStairs {
                     drawing: crate::build::sets::drawing_of_source("geoportal-berlin/").unwrap(),
                     crs: Crs::Utm33,
                     layers: vec![
@@ -1098,7 +1116,7 @@ mod tests {
                         ("bauwerke-linien", step_edges),
                         ("sb-treppe", survey),
                     ],
-                }),
+                }],
                 nas,
                 sets: &[],
                 terrain,
@@ -1731,7 +1749,7 @@ mod tests {
         });
         let objects = stair_objects(
             &StairInput {
-                cadastre: None,
+                cadastre: Vec::new(),
                 nas: features,
                 sets: &[],
                 terrain: raster.as_ref(),

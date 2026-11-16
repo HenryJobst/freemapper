@@ -243,7 +243,7 @@ pub(super) fn map_lacks_canopies(dir: &Path, map_text: &str) -> Result<bool, Pro
         return Ok(false);
     }
     let project = ProjectFile::load(dir)?;
-    let layers = stored_berlin_layers(dir, &project)?;
+    let sets = stored_set_layers(dir, &project)?;
     let area = project.area()?;
     let georef = Georeferencing::new_in(
         project.crs(),
@@ -255,17 +255,18 @@ pub(super) fn map_lacks_canopies(dir: &Path, map_text: &str) -> Result<bool, Pro
     let stored = read_stored_buildings(dir)?;
     let footprints = stored.as_ref().map_or_else(Vec::new, |b| b.footprints());
     let map_area = area.projected_polygon_in(project.crs());
-    if let Some((drawing, crs)) = registers_drawing() {
-        for layer in layers
+    for set in &sets {
+        for layer in set
+            .layers
             .iter()
-            .filter(|l| drawing.canopy_areas.iter().any(|a| a.layer == l.layer.file))
+            .filter(|l| set.drawing.canopy_areas.iter().any(|a| a.layer == l.name))
         {
             if !canopy_objects(
                 &[CanopyInput::Set {
-                    drawing,
-                    layer: layer.layer.file,
+                    drawing: set.drawing,
+                    layer: &layer.name,
                     features: &layer.features,
-                    crs,
+                    crs: set.crs,
                 }],
                 &footprints,
                 &map_area,
@@ -1490,15 +1491,10 @@ fn read_stored(dir: &Path, project: &ProjectFile, area: &MapArea) -> Result<Stor
     {
         return Err(ProjectError::BuildingsNotFetched);
     }
-    let berlin_layers = stored_berlin_layers(dir, project)?;
     let nas_layers = stored_nas_layers(dir, project)?;
     let set_layers = stored_set_layers(dir, project)?;
     // The terrain for the stair direction, read only when a layer gives stairs.
-    let stair_terrain = if stair_layers_stored(&berlin_layers, &nas_layers)
-        || set_layers
-            .iter()
-            .any(|set| set.stair_layers().next().is_some())
-    {
+    let stair_terrain = if stair_layers_stored(&set_layers, &nas_layers) {
         stored_stair_terrain(dir, project)?
     } else {
         None
@@ -1517,14 +1513,6 @@ fn read_stored(dir: &Path, project: &ProjectFile, area: &MapArea) -> Result<Stor
             features: stored.features,
             fetched: project.buildings.as_ref().map(|record| record.fetched),
         }),
-        berlin: berlin_layers
-            .into_iter()
-            .map(|l| Layer {
-                name: l.layer.file.to_string(),
-                features: l.features,
-                fetched: l.fetched,
-            })
-            .collect(),
         nas: nas_layers
             .into_iter()
             .map(|l| Layer {
