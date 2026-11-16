@@ -52,13 +52,17 @@ pub(super) fn read_stored_buildings(dir: &Path) -> Result<Option<StoredBuildings
     })?;
     // A set may date the buildings from one of its layers, if stored. It is an optional source:
     // an unreadable file leaves the buildings undated.
-    if let Some(dates) =
-        registers_drawing().and_then(|(drawing, _)| drawing.footprint_dates.as_ref())
-        && let Some(layer) = known_berlin_layer(dates.layer)
-        && let Ok(text) = std::fs::read_to_string(berlin_layer_path(dir, layer))
-        && let Ok(dating) = freemapper_sources::layer_file::parse_layer(&text)
-    {
-        (dates.join)(&mut features, &dating);
+    for (_, set) in extras::drawn_sets(registry()) {
+        let Some(dates) = set.drawing().and_then(|d| d.footprint_dates.as_ref()) else {
+            continue;
+        };
+        // The layer is named by the adapter, never read from the project file (ADR 0059).
+        let path = extras::path(dir, &extras::of_set(set), dates.layer);
+        if let Ok(text) = std::fs::read_to_string(path)
+            && let Ok(dating) = freemapper_sources::layer_file::parse_layer(&text)
+        {
+            (dates.join)(&mut features, &dating);
+        }
     }
     let buildings = parse_building_features(&features).buildings;
     Ok(Some(StoredBuildings {

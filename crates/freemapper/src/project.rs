@@ -63,7 +63,6 @@ use crate::sources::region::{
 use crate::sources::trees;
 use crate::space::{Part, SpacePlan};
 use crate::tiles::TileId;
-use freemapper_adapters_de::berlin;
 
 mod export;
 mod extras;
@@ -546,11 +545,12 @@ impl ProjectFile {
         Ok(())
     }
 
-    /// Leaves out the Berlin and NAS layer records whose key is no plain file name or no layer
-    /// of the table, each with a warning. The key is shown escaped, as it may hold control
+    /// Leaves out the layer records of the sets, the NAS and the tree cadastres whose key is no
+    /// plain file name or no layer of the table, each with a warning; a set's are named by the
+    /// state of its adapter. The key is shown escaped, as it may hold control
     /// characters.
     fn drop_unknown_names(&mut self, progress: &mut dyn FnMut(Note)) {
-        let mut keep = |what: &str, key: &str, known: bool| {
+        let mut keep = |what: &str, name_de: &str, key: &str, known: bool| {
             // The catalogs word the reason by this key.
             let reason = if !freemapper_fs::is_plain_name(key) {
                 "name"
@@ -562,38 +562,26 @@ impl ProjectFile {
             progress(note!(
                 "warning-layer-entry-ignored",
                 what = what,
+                german = name_de,
                 key = format!("{key:?}"),
                 reason = reason
             ));
             false
         };
-        let registers = registers();
-        if let Some(layers) = self.extra_sets.get_mut(REGISTERS_SET) {
-            layers.retain(|key, _| {
-                keep(
-                    "Berlin",
-                    key,
-                    registers.as_ref().is_some_and(|family| family.has(key)),
-                )
-            });
-        }
         let sets = extras::drawn_sets(registry());
         self.extra_sets.retain(|set, layers| {
-            // Berlin's set is not drawn through the sets yet; its layers were checked above.
-            if set == REGISTERS_SET {
-                return true;
-            }
-            let Some((_, drawn)) = sets.iter().find(|(_, s)| s.info().key == set) else {
-                return keep("set", set, false);
+            let Some((adapter, drawn)) = sets.iter().find(|(_, s)| s.info().key == set) else {
+                return keep("set", "", set, false);
             };
+            let names = &adapter.info().names;
             let family = extras::of_set(*drawn);
-            layers.retain(|key, _| keep(set, key, family.has(key)));
+            layers.retain(|key, _| keep(&names.en, &names.de, key, family.has(key)));
             true
         });
         self.nas_layers
-            .retain(|key, _| keep("NAS", key, extras::NAS.has(key)));
+            .retain(|key, _| keep("NAS", "", key, extras::NAS.has(key)));
         self.tree_layers
-            .retain(|key, _| keep("tree", key, extras::TREES.has(key)));
+            .retain(|key, _| keep("tree", "", key, extras::TREES.has(key)));
     }
 
     /// The title without control characters, or the folder name of `dir` with each
@@ -681,11 +669,6 @@ impl ProjectFile {
         self.point_clouds.clear();
         self.buildings = None;
         self.land_use = None;
-        if let Some(registers) = registers() {
-            for key in self.extra_sets.records(REGISTERS_SET).keys() {
-                extras::remove(dir, &registers, key);
-            }
-        }
         for (_, set) in extras::drawn_sets(registry()) {
             let family = extras::of_set(set);
             for key in self
@@ -846,6 +829,7 @@ pub(crate) const LAND_USE_RELPATH: &str = "data/alkis-land-use.geojson";
 /// Skipped ALKIS features listed in a progress message.
 const SKIPPED_SHOWN: usize = 5;
 /// Folder of the extra Berlin layers, one `<file>.geojson` per layer (GeoJSON as served, EPSG:25833).
+#[cfg(test)]
 pub(crate) const BERLIN_LAYERS_DIR: &str = "data/berlin";
 /// Folder of the NAS layers (full ALKIS), one `<file>.geojson` per layer (GeoJSON in the map's CRS).
 pub(crate) const NAS_LAYERS_DIR: &str = "data/alkis-nas";
@@ -1223,20 +1207,7 @@ fn fetch_project_parts(
         project.land_use = record;
         project.save(dir)?;
     }
-    let berlin_layers = fetch_berlin_layers_into(
-        dir,
-        fetcher,
-        &area.region_bbox,
-        project.map_kind,
-        mode,
-        skips(Part::ExtraSets),
-        project.extra_sets.records(REGISTERS_SET),
-        progress,
-    );
-    stop_if(cancelled)?;
-    project.extra_sets.set(REGISTERS_SET, berlin_layers);
-    project.save(dir)?;
-    // The sets that bring their rules (ADR 0149), each in reach of an area its region touches.
+    // The sets of extra layers (ADR 0149), each in reach of an area its region touches.
     for (_, set) in extras::drawn_sets(registry()) {
         let key = set.info().key;
         let previous = project.extra_sets.get(key).cloned().unwrap_or_default();
@@ -1343,15 +1314,6 @@ pub(crate) fn mark_stored(
     let k5 = project.k5.as_ref().is_some_and(|r| r.covers(bbox)) && dir.join(K5_RELPATH).exists();
     // Stored layers count only when every record covers the area and its file is there: an
     // area moved within the state is downloaded again.
-    let registers = registers();
-    let berlin_records = project.extra_sets.records(REGISTERS_SET);
-    let berlin_layers = !berlin_records.is_empty()
-        && berlin_records.iter().all(|(key, record)| {
-            record.covers(bbox)
-                && registers
-                    .as_ref()
-                    .is_some_and(|family| extras::is_stored(dir, family, key))
-        });
     let nas_layers = !project.nas_layers.is_empty()
         && project
             .nas_layers
@@ -1361,8 +1323,8 @@ pub(crate) fn mark_stored(
         && project.tree_layers.iter().all(|(key, record)| {
             record.covers(bbox) && extras::is_stored(dir, &extras::TREES, key)
         });
-    // The sets that bring their rules, by the item of the estimate each has. Their records hold
-    // the region box (EPSG:25833), as Berlin's do, which there is the map's CRS too.
+    // The sets of extra layers, by the item of the estimate each has. Their records hold the
+    // region box (EPSG:25833).
     let region_bbox = project.region_bbox().ok();
     let sets: Vec<(&str, bool)> = extras::drawn_sets(registry())
         .into_iter()
@@ -1383,7 +1345,7 @@ pub(crate) fn mark_stored(
             (set.info().estimate.what, stored)
         })
         .collect();
-    if orthophoto || k5 || berlin_layers || nas_layers || tree_layers || sets.iter().any(|s| s.1) {
+    if orthophoto || k5 || nas_layers || tree_layers || sets.iter().any(|s| s.1) {
         for item in &mut estimate.items {
             let stored = match (item.part, item.what.as_str()) {
                 (Part::Orthophoto, _) => orthophoto,
@@ -1391,7 +1353,7 @@ pub(crate) fn mark_stored(
                 (Part::ExtraSets, what) => sets
                     .iter()
                     .find(|(item, _)| *item == what)
-                    .map_or(berlin_layers, |(_, stored)| *stored),
+                    .is_some_and(|(_, stored)| *stored),
                 (
                     Part::StateLayers,
                     crate::layers::NAS_LAYERS_ITEM | crate::layers::DLM_LAYERS_ITEM,
@@ -1877,73 +1839,8 @@ fn fetch_land_use_into(
     }
 }
 
-/// The key of the set of extra layers the engine still fetches and draws by its own code (Berlin's,
-/// ADR 0149); its records are in [`ProjectFile::extra_sets`] like those of every set.
-const REGISTERS_SET: &str = "berlin";
-
-/// The family of the set of extra layers [`REGISTERS_SET`], from the adapter of the
-/// registry that has it; `None` when no adapter of this run has it.
-fn registers() -> Option<extras::Family<'static>> {
-    extras::set_in(registry(), REGISTERS_SET).map(|(_, set)| extras::of_set(set))
-}
-
-/// The drawing of the set of extra layers [`REGISTERS_SET`] and the CRS its layers are
-/// stored in; `None` when no adapter of this run has it.
-pub(crate) fn registers_drawing() -> Option<(
-    &'static freemapper_adapter_api::extras::SetDrawing,
-    crate::crs::Crs,
-)> {
-    let (_, set) = extras::set_in(registry(), REGISTERS_SET)?;
-    Some((set.drawing()?, set.info().crs))
-}
-
-/// The extra Berlin layer the project file records under `key`, from the static table; `None`
-/// for a key no layer has.
-fn known_berlin_layer(key: &str) -> Option<&'static berlin::ExtraLayer> {
-    berlin::EXTRA_LAYERS.iter().find(|layer| layer.file == key)
-}
-
-/// Path of the stored extra Berlin `layer`. It takes a layer of the table, never a name read from
-/// the project file, so the path is always one freemapper built (ADR 0059).
-fn berlin_layer_path(dir: &Path, layer: &berlin::ExtraLayer) -> PathBuf {
-    dir.join(BERLIN_LAYERS_DIR)
-        .join(format!("{}.geojson", layer.file))
-}
-
-/// Downloads the extra Berlin layers of `kind` in `region_bbox` to [`BERLIN_LAYERS_DIR`] and
-/// returns the records that replace `previous`. They only give candidates and a few map
-/// objects, so a layer that fails never fails the fetch: a stored file that still covers the
-/// area stays, one that does not is removed; each case is reported. A layer without objects is
-/// stored as an empty collection. Outside Berlin nothing is requested and stored layers of an
-/// earlier area are removed. Offline, or when the disk plan left the layers out (`skip`), nothing
-/// is downloaded and `previous` stays.
-#[allow(clippy::too_many_arguments)]
-fn fetch_berlin_layers_into(
-    dir: &Path,
-    fetcher: &dyn Fetcher,
-    region_bbox: &BoundingBox,
-    kind: MapKind,
-    mode: FetchMode,
-    skip: bool,
-    previous: &BTreeMap<String, AlkisRecord>,
-    progress: &mut dyn FnMut(Note),
-) -> BTreeMap<String, AlkisRecord> {
-    extras::fetch_key_into(
-        registry(),
-        REGISTERS_SET,
-        dir,
-        fetcher,
-        region_bbox,
-        kind,
-        mode,
-        skip,
-        previous,
-        progress,
-    )
-}
-
 /// Downloads the NAS layers (full ALKIS) of `kind` for `area` to [`NAS_LAYERS_DIR`] and returns
-/// the records that replace `previous`, as [`fetch_berlin_layers_into`] does for the Berlin
+/// the records that replace `previous`, as `extras::fetch_set_into` does for a set's
 /// layers: a layer that fails is a warning and never fails the fetch (a stored file that still
 /// covers the area stays), a layer without objects is stored as an empty collection, outside the
 /// states with a NAS service nothing is requested and stored layers of an earlier area are
@@ -2139,8 +2036,7 @@ pub(crate) fn stored_set_layers(
 ) -> Result<Vec<crate::build::sets::SetLayers>, ProjectError> {
     let region_bbox = project.region_bbox()?;
     let mut sets = Vec::new();
-    // Every set that brings its drawing, Berlin's too, which is not fetched as a set yet.
-    for (_, set) in extras::sets_with_drawing(registry()) {
+    for (_, set) in extras::drawn_sets(registry()) {
         let (Some(records), Some(drawing)) =
             (project.extra_sets.get(set.info().key), set.drawing())
         else {
@@ -3008,6 +2904,33 @@ mod tests {
     const BEYOND_COVERAGE_WARNING: &str = "warning: part of the map area lies outside the supported states. It lies abroad, at sea or in a state freemapper does not support yet, such as Thuringia. The states have no data there, so the orthophoto can be white and ALKIS gives no buildings or land use";
 
     use super::*;
+    use freemapper_adapters_de::berlin;
+
+    /// [`extras::fetch_key_into`] for Berlin's set.
+    #[allow(clippy::too_many_arguments)]
+    fn fetch_berlin_layers_into(
+        dir: &Path,
+        fetcher: &dyn Fetcher,
+        region_bbox: &BoundingBox,
+        kind: MapKind,
+        mode: FetchMode,
+        skip: bool,
+        previous: &BTreeMap<String, AlkisRecord>,
+        progress: &mut dyn FnMut(Note),
+    ) -> BTreeMap<String, AlkisRecord> {
+        extras::fetch_key_into(
+            registry(),
+            "berlin",
+            dir,
+            fetcher,
+            region_bbox,
+            kind,
+            mode,
+            skip,
+            previous,
+            progress,
+        )
+    }
     /// Berlin's stored survey layers of green strips and paved surfaces.
     const GREEN_LAYER: &str = "sb-gruenflaeche";
     const SURFACE_LAYER: &str = "sb-flaechen";
@@ -11425,7 +11348,11 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
 
     /// Path of the stored extra Berlin layer `file` of the table.
     fn layer_path(dir: &Path, file: &str) -> PathBuf {
-        berlin_layer_path(dir, known_berlin_layer(file).expect("a layer of the table"))
+        assert!(
+            berlin::EXTRA_LAYERS.iter().any(|layer| layer.file == file),
+            "a layer of the table"
+        );
+        dir.join(BERLIN_LAYERS_DIR).join(format!("{file}.geojson"))
     }
 
     /// Removes a file a test put outside its temporary folder, also when the test fails.
@@ -11457,6 +11384,27 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
     }
 
     const IGNORED_LAYER_WARNING: &str = "warning: freemapper.toml: ignored the Berlin layer entry";
+
+    /// A layer entry a set does not have is named by the state of the set (ADR 0149).
+    #[test]
+    fn an_unknown_layer_entry_of_a_set_names_its_state() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir, _cache) = berlin_school(&fetcher);
+        let file = dir.path().join(PROJECT_FILE_NAME);
+        let mut text = std::fs::read_to_string(&file).unwrap();
+        text.push_str(
+            "\n[extra_sets.lgv-feinkartierung.no-such-layer]\nbbox = [0.0, 0.0, 1.0, 1.0]\n\
+             fetched = \"2026-11-08\"\ncount = 1\n",
+        );
+        std::fs::write(&file, text).unwrap();
+        let mut warnings = Vec::new();
+        ProjectFile::load_reporting(dir.path(), &mut |m| warnings.push(m.to_string())).unwrap();
+        assert!(
+            warnings.iter().any(|w| w
+                .starts_with("warning: freemapper.toml: ignored the Hamburg layer entry")),
+            "{warnings:?}"
+        );
+    }
 
     /// Berlin's records are a set like the others in memory (`extra_sets["berlin"]`) and keep the
     /// field of older project files on disk, `[berlin_layers.*]` (ADR 0149).

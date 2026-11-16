@@ -476,13 +476,6 @@ mod tests {
             "adapters/mod.rs",
             "freemapper_adapters_de::states::register_backends(",
         ),
-        // The key of the one set of extra layers the project file has a field for.
-        ("project.rs", "const REGISTERS_SET: &str = \"berlin\";"),
-        // The table of Berlin's layers, typed, for the inputs of the draw rules (naming a layer
-        // is allowed; the rules leave when adapters bring rules).
-        ("project.rs", "use freemapper_adapters_de::berlin;"),
-        ("project.rs", "berlin::ExtraLayer"),
-        ("project.rs", "berlin::EXTRA_LAYERS"),
         // The tile download of the tile providers, re-exported for the engine's tests of it.
         ("fetch.rs", "pub use freemapper_adapters_de::tile_fetch::{"),
         // How a product names its tiles, a trait of the tile providers that `derive` reads.
