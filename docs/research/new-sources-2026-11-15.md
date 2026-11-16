@@ -46,6 +46,17 @@ Already decided the same day: Copernicus HRL (not now, idea for Thuringia, see m
 - Geotopes and springs: SL, NRW, HH Geotourismus (small), BW LGRB `ms:gtk` (type attribute not retrievable), ST mining. Nothing usable found in BE, MV, HB, TH.
 - Footpaths and cycle routes: nothing beyond OSM except surface and width (HH, BW).
 
+## Follow-up of 2026-11-16: forest stand sources checked, none built
+
+Four sources that could have fed the vegetation layer were looked at after the ranking above. None gives a density value, which is what ISOM decides on (density and runnability, not species or age).
+
+- **Berlin Forstbetriebskarte 2014** (`gdi.berlin.de/services/wfs/ua_forstbetriebskarte_2014`, dl-de/zero-2-0: "Für die Nutzung der Daten ist die Datenlizenz Deutschland - Zero - Version 2.0 anzuwenden."). Measured in the Dammheide (153 ha): the Berlin point cloud (leaf-off, flight 2021-02-25) puts 82 % on 405 and 0.2 % on green. The map records an understorey on 115 ha (75 %), on 71 ha late-flowering bird cherry with a median height of 7.4 m; there the point cloud has 98 % on 405 and 0.1 % on green. The contradiction is real, its cause is open: a leaf-off flight may under-record a leafless understorey, or the 2014 understorey was never dense or is gone. `s3_1_misch` is a mixture share inside the layer, not a cover. Not built; it needs a field visit to 3 to 5 bird-cherry stands.
+- **ForstBW stands** (`gis.forstbw.de/…/Nachhaltige_Waldwirtschaft/MapServer/2`). The field list holds age (`ALTERVON/BIS/MITTEL`), up to seven species with shares (`BA_n`, `BAA_n`), growth (`DGZ_n`), use type, aims, rejuvenation. No closure, no cover, no height. The earlier note that the service has a "Schlussgrad" was wrong (taken from a sub-pass report, not checked). State forest only. Not built.
+- **DLR Forest Structure** (canopy height RH95, `geoservice.dlr.de/eoc/land/wms`/`wcs`, CC BY 4.0, 10 m, anonymous). Measured against the `nDOM1` of Baden-Württemberg (bDOM20 minus DGM1, 1 m, leaf-on 2025; BW has no point cloud, so no density model exists to compare with) on two 2 × 2 km areas (Black Forest near Freudenstadt, Schönbuch): correlation 0.35 to 0.44, mean deviation 5.6 and 6.8 m, 15 % and 24 % of the cells deviate by more than 10 m. DLR is flat (cells the nDOM calls open sit at a median of 12 to 19 m), misses two clear-cuts that the 2025 orthophoto shows, and has no value (21 %) on a stand edge and in a hollow in the Schönbuch. Change between 2018, 2020 and 2023 is small. Rejected. Not shown by this measurement: a field check, anything on the age of the clear-cuts against the DLR year, state-forest cover in the Schönbuch.
+- **Thuringia Baumarten** (`BAUMARTEN.zip`, CC BY 4.0). Cannot be used: the download host for heights answered with the 970-byte "Serviceinformation" page again on 2026-11-16, so there is no adapter for Thuringia yet.
+
+Still unused: the Saarland state-forest stand map (`schichtung`, `totholz`, no age).
+
 ## Not reached
 - Thuringia (except forest stands and INSPIRE Hydro), MV geotopes and moors, Berlin geotopes, the GDI-DE catalogue.
 - Licence texts read only from web pages: Saarland forest roads (catalogue CC BY 4.0), BW RadVIS, BW Geotopkataster, Thünen moor map.
