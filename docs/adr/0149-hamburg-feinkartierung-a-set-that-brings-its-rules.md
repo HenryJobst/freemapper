@@ -167,3 +167,10 @@ Berlin: `building-parts`); `build/sets.rs::building_part_features` picks them. `
 layer that dates the buildings and the adapter's function that joins the dates (Berlin: the 2022 heights,
 `gebaeudehoehen`, with `join_footprint_dates`, an adapter hook because the join by `gml_id` is Berlin's). The engine
 no longer names the join, so `STILL_NAMED` lost its line. Output unchanged (G3/G4).
+
+## Addendum 2026-11-16: `Part::ExtraSets` (step 5b)
+
+The part of a fetch that holds the sets of extra layers has stood for every set since Hamburg's Feinkartierung, so
+`Part::BerlinLayers` is `Part::ExtraSets` now. The label in the estimate and in the messages stays as it was, so the
+output does not change. The step that was to move the credits onto every set (5a) goes with the storage of Berlin's
+layers in `extra_sets` (5c): only then does a credit read another set's layers. Output unchanged (G3/G4).

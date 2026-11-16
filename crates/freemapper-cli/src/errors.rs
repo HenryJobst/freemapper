@@ -229,7 +229,7 @@ impl Localize for Part {
             Part::OsmUpdate => "word-part-osm-update",
             Part::K5 => "word-part-k-five",
             Part::PointCloud => "word-part-point-cloud",
-            Part::BerlinLayers => "word-part-berlin-layers",
+            Part::ExtraSets => "word-part-berlin-layers",
             Part::StateLayers => "word-part-state-layers",
         };
         text(lang, id, &[])
@@ -684,7 +684,7 @@ mod tests {
         Part::Surface,
         Part::OsmUpdate,
         Part::K5,
-        Part::BerlinLayers,
+        Part::ExtraSets,
         Part::StateLayers,
         Part::PointCloud,
     ];
