@@ -287,6 +287,8 @@ pub fn train(
     report.junctions_repaired += repaired;
     junctions.follow(&objects, junctions::ASIDE_TAG, within);
     report.points_moved = move_points(&mut objects, &classes, kind, georef, symbol_set);
+    // The move can put a tree back into the rim of a forest it stood just outside of.
+    report.trees_in_forest += drop_trees_in_forest(&mut objects, symbol_set);
     let (gave_way, cut, cut_for) = give_way(&mut objects, &classes, kind, georef, symbol_set);
     report.gave_way = gave_way;
     report.cut += cut;
@@ -1618,6 +1620,23 @@ pub(crate) mod tests {
         let (out, report) = train(objects, None, MapKind::Sprint, &georef_at(4000), &set);
         assert_eq!(out, vec![forest, open]);
         assert_eq!(report.trees_in_forest, 2, "{report:?}");
+    }
+
+    #[test]
+    fn a_tree_moved_into_the_rim_of_a_forest_goes() {
+        let set = SymbolSet::issprom_2019();
+        // The forest ends at x = 10 mm; a path along x = 10.4 mm and a second one 1.6 mm east of
+        // it leave the tree standing on the first only the side of the forest to go to.
+        let forest = area(&set, "405", (0.0, 0.0), (10.0, 10.0));
+        let objects = vec![
+            forest,
+            line(&set, "501.6", &[(10.4, -5.0), (10.4, 15.0)]),
+            line(&set, "501.6", &[(12.0, -5.0), (12.0, 15.0)]),
+            point(&set, "418", (10.4, 5.0)),
+        ];
+        let (out, report) = train(objects, None, MapKind::Sprint, &georef_at(4000), &set);
+        let trees = of_code(&set, &out, "418");
+        assert!(trees.is_empty(), "{trees:?} {report:?}");
     }
 
     #[test]
