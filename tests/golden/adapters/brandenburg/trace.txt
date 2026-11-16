@@ -1,10 +1,10 @@
-estimate: orthophoto (DOP20) tile 33366-5807 | Orthophoto | 8.000 MB | cached: false
-estimate: terrain model (DGM1) tile 33366-5807 | Terrain | 1.300 MB | cached: false
-estimate: nDSM tile 33366-5807 | Surface | 15.000 MB | cached: false
-estimate: OSM extract Brandenburg (shared by all projects) | MapData | 300.000 MB | cached: false
-estimate: ALKIS buildings and land use | MapData | 0.500 MB | cached: false
-estimate: full ALKIS structures (NAS) | StateLayers | 0.132 MB | cached: false
-estimate: city tree cadastres | StateLayers | 0.100 MB | cached: false
+estimate: orthophoto (DOP20) tile 33366-5807 | the orthophoto | 8.000 MB | cached: false
+estimate: terrain model (DGM1) tile 33366-5807 | the terrain model | 1.300 MB | cached: false
+estimate: nDSM tile 33366-5807 | the surface model for the nDSM template | 15.000 MB | cached: false
+estimate: OSM extract Brandenburg (shared by all projects) | the ALKIS and OSM map data | 300.000 MB | cached: false
+estimate: ALKIS buildings and land use | the ALKIS and OSM map data | 0.500 MB | cached: false
+estimate: full ALKIS structures (NAS) | the full ALKIS structures, the objects of the landscape model and the tree cadastres | 0.132 MB | cached: false
+estimate: city tree cadastres | the full ALKIS structures, the objects of the landscape model and the tree cadastres | 0.100 MB | cached: false
 GET https://data.geobasis-bb.de/geobasis/information/aktualitaeten/bb_dop_aktualitaet.csv
 GET https://data.geobasis-bb.de/geobasis/daten/dop/rgb_jpg/dop_33366-5807.zip
 GET https://data.geobasis-bb.de/geobasis/information/aktualitaeten/bb_dgm_aktualitaet.csv
