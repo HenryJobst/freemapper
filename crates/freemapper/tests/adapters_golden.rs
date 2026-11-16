@@ -909,8 +909,11 @@ fn replayed_fetch_until(id: &str, cut: Option<&str>) -> Replayed {
         let estimate = estimate_download(&dir, &cache, clock::today()).unwrap();
         for item in &estimate.items {
             add(format!(
-                "estimate: {} | {:?} | {:.3} MB | cached: {}",
-                item.what, item.part, item.megabytes, item.cached
+                "estimate: {} | {} | {:.3} MB | cached: {}",
+                item.what,
+                item.part.label(),
+                item.megabytes,
+                item.cached
             ));
         }
         let cut_off = cut.map(|marker| CutOff::new(&fetcher, marker));
@@ -1039,7 +1042,8 @@ per_state!(
 );
 
 /// The download estimate of a project as a golden row: the tiles, every item (text, megabytes,
-/// cached flag, part, store), the megabytes still to download and the parts stored in place.
+/// cached flag, part, store), the megabytes still to download and the parts stored in place. A
+/// part is written by its label, which a rename of the variant leaves alone.
 fn estimate_row(id: &str, dir: &Path, cache: &Cache) -> serde_json::Value {
     let estimate = estimate_download(dir, cache, clock::today()).unwrap();
     serde_json::json!({
@@ -1049,15 +1053,19 @@ fn estimate_row(id: &str, dir: &Path, cache: &Cache) -> serde_json::Value {
             .items
             .iter()
             .map(|item| format!(
-                "{} | {:.3} MB | cached: {} | {:?} | {:?}",
-                item.what, item.megabytes, item.cached, item.part, item.store
+                "{} | {:.3} MB | cached: {} | {} | {:?}",
+                item.what,
+                item.megabytes,
+                item.cached,
+                item.part.label(),
+                item.store
             ))
             .collect::<Vec<_>>(),
         "total_megabytes": format!("{:.3}", estimate.total_megabytes),
         "in_place": estimate
             .in_place
             .iter()
-            .map(|part| format!("{part:?}"))
+            .map(|part| part.label().to_string())
             .collect::<Vec<_>>(),
     })
 }

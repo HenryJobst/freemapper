@@ -162,7 +162,7 @@ pub(crate) fn estimate_area(
                 bbox,
                 estimate.what,
                 estimate.megabytes_per_km2,
-                Part::BerlinLayers,
+                Part::ExtraSets,
             ));
         }
         for template in adapter.templates() {
@@ -1764,7 +1764,7 @@ mod tests {
         assert!(!k5.part.required());
         assert_eq!(
             (layers.part, layers.store),
-            (Part::BerlinLayers, Store::Project)
+            (Part::ExtraSets, Store::Project)
         );
         assert!(!layers.part.required());
         let other: f64 = estimate

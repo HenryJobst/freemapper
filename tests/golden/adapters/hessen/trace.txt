@@ -1,11 +1,11 @@
-estimate: orthophoto (HVBG WMS) | Orthophoto | 0.576 MB | cached: false
-estimate: terrain model (HVBG DGM1) | Terrain | 2.100 MB | cached: false
-estimate: surface model (HVBG DOM1) | Surface | 3.000 MB | cached: false
-estimate: tile metadata list (HVBG) | Terrain | 1.000 MB | cached: false
-estimate: OSM extract Hesse (shared by all projects) | MapData | 348.000 MB | cached: false
-estimate: ALKIS buildings and land use | MapData | 0.500 MB | cached: false
-estimate: full ALKIS structures (NAS) | StateLayers | 0.144 MB | cached: false
-estimate: objects of the ATKIS Basis-DLM | StateLayers | 0.100 MB | cached: false
+estimate: orthophoto (HVBG WMS) | the orthophoto | 0.576 MB | cached: false
+estimate: terrain model (HVBG DGM1) | the terrain model | 2.100 MB | cached: false
+estimate: surface model (HVBG DOM1) | the surface model for the nDSM template | 3.000 MB | cached: false
+estimate: tile metadata list (HVBG) | the terrain model | 1.000 MB | cached: false
+estimate: OSM extract Hesse (shared by all projects) | the ALKIS and OSM map data | 348.000 MB | cached: false
+estimate: ALKIS buildings and land use | the ALKIS and OSM map data | 0.500 MB | cached: false
+estimate: full ALKIS structures (NAS) | the full ALKIS structures, the objects of the landscape model and the tree cadastres | 0.144 MB | cached: false
+estimate: objects of the ATKIS Basis-DLM | the full ALKIS structures, the objects of the landscape model and the tree cadastres | 0.100 MB | cached: false
 GET https://www.gds-srv.hessen.de/cgi-bin/lika-services/ogc-free-images.ows?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo&LAYERS=he_dop_rgb_info&QUERY_LAYERS=he_dop_rgb_info&STYLES=&CRS=EPSG:25832&BBOX=483554.264,5628622.166,483754.264,5628822.166&WIDTH=100&HEIGHT=100&I=50&J=50&INFO_FORMAT=text/plain
 GET https://www.gds-srv.hessen.de/cgi-bin/lika-services/ogc-free-images.ows?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&LAYERS=he_dop20_rgb&STYLES=&CRS=EPSG:25832&BBOX=483526.4,5628594,483782.2,5628850.4&WIDTH=1279&HEIGHT=1282&FORMAT=image/jpeg
 GET https://gds.hessen.de/INTERSHOP/rest/WFS/HLBG-Geodaten-Site/-/downloadcenter?path=3D-Daten%2FDigitales+Gel%C3%A4ndemodell+%28DGM1%29&navigation=all
