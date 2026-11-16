@@ -741,23 +741,20 @@ impl Checker {
     /// that it did not have, none of a worse grade and none longer by more than the tolerance.
     pub(super) fn allows(&mut self, objects: &[MapObject], i: usize, moved: &MapObject) -> bool {
         let class = self.classes.class(objects[i].symbol_id);
-        // The stretch that moved: the old and the new end and the vertices next to them.
-        let mut frame: Option<[i32; 4]> = None;
-        for c in objects[i].coords.iter().chain(&moved.coords).filter(|c| {
-            let n = moved.coords.len();
-            let near_end = |o: &[MapCoord]| {
-                [o.first(), o.get(1), o.get(n.saturating_sub(2)), o.last()]
-                    .into_iter()
-                    .flatten()
-                    .any(|e| (e.x, e.y) == (c.x, c.y))
-            };
-            near_end(&objects[i].coords) || near_end(&moved.coords)
-        }) {
-            frame = Some(match frame {
+        // The stretch that moved: the old and the new end and the vertex next to them.
+        let n = moved.coords.len();
+        let (was, now) = (&objects[i].coords, &moved.coords);
+        let stretch = if (was[0].x, was[0].y) != (now[0].x, now[0].y) {
+            [was[0], was[1], now[0]]
+        } else {
+            [was[n - 1], was[n - 2], now[n - 1]]
+        };
+        let frame = stretch.iter().fold(None, |frame: Option<[i32; 4]>, c| {
+            Some(match frame {
                 None => [c.x, c.y, c.x, c.y],
                 Some([a, b, x, y]) => [a.min(c.x), b.min(c.y), x.max(c.x), y.max(c.y)],
-            });
-        }
+            })
+        });
         let Some([min_x, min_y, max_x, max_y]) = frame else {
             return true;
         };
