@@ -116,7 +116,7 @@ count = 0
 regions = ["mecklenburgvorpommern"]
 
 [osm]
-extract = "2026-11-07"
+extract = "2026-11-15"
 area = [53.88885591, 11.45814044, 53.89514409, 11.47185956]
 count = 748
 

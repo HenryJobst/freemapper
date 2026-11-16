@@ -65,7 +65,7 @@ count = 0
 regions = ["niedersachsen"]
 
 [osm]
-extract = "2026-11-07"
+extract = "2026-11-15"
 area = [51.86005929, 10.54481699, 51.86994071, 10.56518301]
 count = 221
 

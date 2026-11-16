@@ -21,7 +21,7 @@ regions = ["bayern"]
 [land_use]
 bbox = [725941.0, 5434012.0, 726951.0, 5434926.0]
 fetched = "2026-11-16"
-latest_update = "2026-09-18"
+latest_update = "2026-10-22"
 count = 555
 regions = ["bayern"]
 
