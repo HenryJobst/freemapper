@@ -49,7 +49,7 @@ step by step, each pinned to a fixed version, instead of copying the code.
 
 ## Status
 
-The current version is [v0.23.0](https://github.com/HenryJobst/freemapper/releases/tag/v0.23.0) of
+The current version is [v0.24.0](https://github.com/HenryJobst/freemapper/releases/tag/v0.24.0) of
 16 November 2026 (see the [changes](CHANGELOG.en.md) for what is new).
 
 freemapper makes schoolyard and

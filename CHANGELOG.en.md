@@ -6,6 +6,8 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
+## [0.24.0] - 2026-11-16
+
 ### Changed
 
 - The base map is cleaned lightly, and nothing on it moves (ADR 0157). Lines of one symbol and one source that meet end to end are joined, so a path no longer falls apart into short pieces. A line drawn on a symbol it has to keep apart from leaves the map for the candidate layer of its kind: an earth bank on a ditch, stream, lake shore, railway, road, path or longer earth bank, a ditch or stream along a path, road or building, a fence or wall along a path, road, building, lake shore or stream, a cliff on a way, a stairway along a building, a contour on an earth bank or cliff. It leaves whole when more than half of it lies on the other symbol, else only that stretch. Lines and areas below the norm's minimum size leave too. What leaves carries `freemapper:generalized` with the reason, and the check print draws it. Points, lines that only come too close, and lines of one network stay. The training map starts from the map before this step and does not change. After writing the map, `run` and `export` say in one line how many lines were joined and how many objects left. Existing maps change after `export --force`. A run without `--force` keeps an existing map but writes the candidate layers anew; they then also hold what this version takes off the base map while the kept map still has it, so these objects show twice, and the run says so.
