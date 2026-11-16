@@ -117,50 +117,130 @@ pub fn set_objects(
     let Ok(rules) = Rules::from_toml(set.drawing.rules) else {
         return Ok(Vec::new());
     };
+    let frame = LayerFrame {
+        rules: &rules,
+        kind,
+        map_area,
+        buffer_m,
+        georef,
+        symbol_set,
+    };
     let mut objects = Vec::new();
     for layer in &set.layers {
         if set.drawing.stair_layers.contains(&layer.name.as_str()) {
             continue;
         }
-        let source = set.source(&layer.name);
-        let tagged = with_line_middles(
-            tagged::tagged_features(
-                &source,
-                &layer.features,
-                set.crs,
-                tagged::PointOn::Centroid,
-                |feature| tags_of(set.drawing, &layer.name, feature),
-            ),
-            set.drawing,
-        );
-        let mut drawn = osm_objects(
-            &tagged,
-            &rules,
-            Target::Candidates,
+        objects.extend(layer_objects(set.drawing, set.crs, layer, &frame)?);
+    }
+    Ok(objects)
+}
+
+/// The objects of the building parts among the stored `buildings` (map CRS, fetched on
+/// `fetched`) for every set that names a layer for them, through its rules (Berlin's passages
+/// and arcades), whether its own layers are stored or not.
+pub fn building_part_objects(
+    buildings: &[Value],
+    fetched: NaiveDate,
+    kind: MapKind,
+    map_area: &Polygon<f64>,
+    buffer_m: f64,
+    georef: &Georeferencing,
+    symbol_set: &SymbolSet,
+) -> Result<Vec<MapObject>, GeorefError> {
+    let mut objects = Vec::new();
+    for drawing in all_drawings() {
+        let Some(name) = drawing.building_parts else {
+            continue;
+        };
+        let Ok(rules) = Rules::from_toml(drawing.rules) else {
+            continue;
+        };
+        let parts = Layer {
+            name: name.to_string(),
+            features: building_part_features(buildings),
+            fetched,
+        };
+        let frame = LayerFrame {
+            rules: &rules,
             kind,
             map_area,
             buffer_m,
             georef,
             symbol_set,
-            &source,
-            layer.fetched,
-        )?;
-        if set.drawing.notch_free_layers.contains(&layer.name.as_str()) {
-            drawn = drawn
-                .into_iter()
-                .filter_map(crate::build::notches::drop_notches)
-                .collect();
-        }
-        if set.drawing.candidate_layers.contains(&layer.name.as_str()) {
-            for object in &mut drawn {
-                object
-                    .tags
-                    .push((CANDIDATE_ONLY_KEY.to_string(), "yes".to_string()));
-            }
-        }
-        objects.extend(drawn);
+        };
+        objects.extend(layer_objects(drawing, georef.crs(), &parts, &frame)?);
     }
     Ok(objects)
+}
+
+/// What the objects of one layer of a set are drawn with.
+pub(crate) struct LayerFrame<'a> {
+    pub rules: &'a Rules,
+    pub kind: MapKind,
+    pub map_area: &'a Polygon<f64>,
+    pub buffer_m: f64,
+    pub georef: &'a Georeferencing,
+    pub symbol_set: &'a SymbolSet,
+}
+
+/// The objects of one stored `layer` (in `crs`) of the set `drawing` describes, through
+/// `frame.rules`, each tagged `freemapper:source=<source prefix>/<layer>`: the lines of a
+/// notch-free layer lose their notches, and those of a candidate layer stay candidates.
+pub(crate) fn layer_objects(
+    drawing: &SetDrawing,
+    crs: Crs,
+    layer: &Layer,
+    frame: &LayerFrame<'_>,
+) -> Result<Vec<MapObject>, GeorefError> {
+    let source = format!("{}/{}", drawing.source_prefix, layer.name);
+    let mut drawn = osm_objects(
+        &set_features(drawing, crs, &layer.name, &layer.features),
+        frame.rules,
+        Target::Candidates,
+        frame.kind,
+        frame.map_area,
+        frame.buffer_m,
+        frame.georef,
+        frame.symbol_set,
+        &source,
+        layer.fetched,
+    )?;
+    if drawing.notch_free_layers.contains(&layer.name.as_str()) {
+        drawn = drawn
+            .into_iter()
+            .filter_map(crate::build::notches::drop_notches)
+            .collect();
+    }
+    if drawing.candidate_layers.contains(&layer.name.as_str()) {
+        for object in &mut drawn {
+            object
+                .tags
+                .push((CANDIDATE_ONLY_KEY.to_string(), "yes".to_string()));
+        }
+    }
+    Ok(drawn)
+}
+
+/// The tagged features of `layer` (in `crs`) of the set `drawing` describes, ready for its rules:
+/// a point stays a point, each part of a line is a line, each polygon is its exterior as a closed
+/// line plus a point at its centroid (a rule picks one by its `draw`), and a line the set names in
+/// `line_middles` gives a point at its middle too. Id: `<id_prefix>/<layer>/<feature id>`.
+pub(crate) fn set_features(
+    drawing: &SetDrawing,
+    crs: Crs,
+    layer: &str,
+    features: &[Value],
+) -> Vec<OsmFeature> {
+    with_line_middles(
+        tagged::tagged_features(
+            &format!("{}/{layer}", drawing.id_prefix),
+            features,
+            crs,
+            tagged::PointOn::Centroid,
+            |feature| tags_of(drawing, layer, feature),
+        ),
+        drawing,
+    )
 }
 
 /// `tagged` and, for each line among them of a type `drawing` names in `line_middles`, a point at
@@ -351,6 +431,21 @@ mod tests {
         let hamburg = drawing_of_source("lgv-feinkartierung/fk-treppen").unwrap();
         assert_eq!(hamburg.building_parts, None);
         assert!(hamburg.footprint_dates.is_none());
+    }
+
+    /// A feature is named `<id_prefix>/<layer>/<feature id>`, which stands in for a source id it
+    /// lacks; Berlin keeps its older `berlin/…` (ADR 0149).
+    #[test]
+    fn a_set_names_its_features_by_its_id_prefix() {
+        let berlin = drawing_of_source("geoportal-berlin/").unwrap();
+        assert_eq!(berlin.id_prefix, "berlin");
+        let hamburg = drawing_of_source("lgv-feinkartierung/").unwrap();
+        assert_eq!(hamburg.id_prefix, "lgv-feinkartierung");
+        let lamp = json!({"type": "Feature", "id": "beleuchtung.7",
+            "geometry": {"type": "Point", "coordinates": [392400.0, 5820400.0]},
+            "properties": {}});
+        let tagged = set_features(berlin, Crs::Utm33, "beleuchtung", &[lamp]);
+        assert_eq!(tagged[0].id, "berlin/beleuchtung/beleuchtung.7");
     }
 
     #[test]

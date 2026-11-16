@@ -185,3 +185,15 @@ serialisation picks the fields, so the engine names no field of a region. A set 
 nor compared. The credits read the layers of every set now (the step 5a was to bring): an adapter's credit asks for
 the names of its own layers. Until the switch (step 6) Berlin's set is still fetched and drawn by its own code, so the
 loops over the drawn sets leave it out. Output unchanged (G3/G4, G5).
+
+## Addendum 2026-11-16: Berlin drawn as a set (step 6a)
+
+Berlin's stored layers reach the build as every set's do: `stored_set_layers` reads every set that brings a
+drawing, Berlin's too, and `Stored.berlin` is gone. The canopies, the stairs of the cadastre (`StairInput.cadastre`
+is a list now), the surveyed paving and the objects through the rules (`set_objects`, one layer at a time in
+`layer_objects`) come from `Stored.sets`. Two data keep Berlin's output as it was: `id_prefix` starts the id of a
+feature (`<id_prefix>/<layer>/<feature id>`, the source id of an object whose feature has none; Berlin `berlin`, as
+before, Hamburg `lgv-feinkartierung`), and the building parts are drawn for every set that names a layer for them
+whether its own layers are stored or not (`building_part_objects`), as Berlin's passages always were.
+`build/berlin.rs` holds only the tests of Berlin's rules now, drawn through the generic step. Berlin is still
+fetched by its own code; the switch of the fetch (step 6b) follows. Output unchanged (G3/G4).

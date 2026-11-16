@@ -570,6 +570,8 @@ static DRAWING: SetDrawing = SetDrawing {
     rules: include_str!("../rules/berlin.toml"),
     tag_prefix: "berlin",
     source_prefix: "geoportal-berlin",
+    // The ids keep the form they had before Berlin was a set.
+    id_prefix: "berlin",
     // The ALKIS structure layers, relief and hedges are the cadastre.
     rank: SetRank::Cadastre,
     layer_ranks: &[

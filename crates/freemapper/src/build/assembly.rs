@@ -20,7 +20,6 @@ use serde_json::Value;
 use crate::area::MapArea;
 use crate::build::barrier_gaps::move_points_off_barriers;
 use crate::build::barriers::resolve_barrier_overlaps;
-use crate::build::berlin::{LayerInput, berlin_objects};
 use crate::build::buildings::{building_objects, object_footprints};
 use crate::build::candidates::{Rules, Target, osm_objects};
 use crate::build::canopy::{CanopyInput, canopy_objects};
@@ -104,9 +103,8 @@ pub struct Layer {
 #[derive(Default)]
 pub struct Stored {
     pub buildings: Option<Buildings>,
-    /// The extra layers of Berlin, the full ALKIS (NAS) and the tree cadastres, in table order.
-    pub berlin: Vec<Layer>,
-    /// The layers of the sets that bring their rules (ADR 0149).
+    /// The layers of the sets of extra layers (ADR 0149), then of the full ALKIS (NAS) and of the
+    /// tree cadastres, in table order.
     pub sets: Vec<crate::build::sets::SetLayers>,
     pub nas: Vec<Layer>,
     pub trees: Vec<Layer>,
@@ -205,31 +203,42 @@ fn structures(
         buffer_m,
         ..
     } = frame;
-    let registers = crate::project::registers_drawing();
-    // The layers of the set whose stairs rank with the cadastre.
-    let cadastre_layers: Vec<&Layer> = registers.map_or_else(Vec::new, |(drawing, _)| {
-        stored
-            .berlin
+    // The layers of the sets whose stairs rank with the cadastre.
+    fn stair_layers(set: &crate::build::sets::SetLayers) -> impl Iterator<Item = &Layer> {
+        set.layers
             .iter()
-            .filter(|l| holds_stairs(drawing, &l.name))
-            .collect()
-    });
+            .filter(move |l| holds_stairs(set.drawing, &l.name))
+    }
+    let cadastre: Vec<CadastreStairs<'_>> = stored
+        .sets
+        .iter()
+        .filter_map(|set| {
+            let layers: Vec<(&str, &[Value])> = stair_layers(set)
+                .map(|l| (l.name.as_str(), l.features.as_slice()))
+                .collect();
+            (!layers.is_empty()).then_some(CadastreStairs {
+                drawing: set.drawing,
+                crs: set.crs,
+                layers,
+            })
+        })
+        .collect();
     // The NAS stair areas and bottom edges are in one layer.
     let nas = layer(&stored.nas, NAS_STAIR_LAYER);
     // Canopies are cut at the 521 footprints; flat entrance steps face them.
     let mut canopies = Vec::new();
-    if let Some((drawing, crs)) = registers {
-        for layer in stored
-            .berlin
+    for set in &stored.sets {
+        for layer in set
+            .layers
             .iter()
-            .filter(|l| drawing.canopy_areas.iter().any(|a| a.layer == l.name))
+            .filter(|l| set.drawing.canopy_areas.iter().any(|a| a.layer == l.name))
         {
             canopies.extend(canopy_objects(
                 &[CanopyInput::Set {
-                    drawing,
+                    drawing: set.drawing,
                     layer: &layer.name,
                     features: &layer.features,
-                    crs,
+                    crs: set.crs,
                 }],
                 footprints,
                 map_area,
@@ -265,7 +274,7 @@ fn structures(
             })
         })
         .collect();
-    if cadastre_layers.is_empty() && nas.is_none() && set_stairs.is_empty() {
+    if cadastre.is_empty() && nas.is_none() && set_stairs.is_empty() {
         return Ok(Structures {
             canopies,
             stairs: Vec::new(),
@@ -275,9 +284,10 @@ fn structures(
         layer.map_or(&[], |l| &l.features)
     }
     // Both layers come from one fetch; the later date stands for the currency.
-    let fetched = cadastre_layers
+    let fetched = stored
+        .sets
         .iter()
-        .copied()
+        .flat_map(stair_layers)
         .chain(nas)
         .map(|l| l.fetched)
         .chain(set_stairs.iter().map(|s| s.currency))
@@ -285,16 +295,7 @@ fn structures(
         .expect("one of the layers is stored");
     let stairs = stair_objects(
         &StairInput {
-            cadastre: registers
-                .filter(|_| !cadastre_layers.is_empty())
-                .map(|(drawing, crs)| CadastreStairs {
-                    drawing,
-                    crs,
-                    layers: cadastre_layers
-                        .iter()
-                        .map(|l| (l.name.as_str(), l.features.as_slice()))
-                        .collect(),
-                }),
+            cadastre,
             nas: features(nas),
             sets: &set_stairs,
             terrain: stored.stair_terrain.as_ref(),
@@ -331,40 +332,23 @@ fn cadastre_candidates(
         ..
     } = frame;
     let buildings = dated(&stored.buildings);
-    // The Berlin layers and the building parts of the buildings (passages), through the Berlin
-    // rules. The building parts are in the buildings file (`bauart` is set by the Berlin source
-    // only).
-    let parts = crate::project::registers_drawing()
-        .and_then(|(drawing, _)| drawing.building_parts)
-        .zip(buildings)
-        .map(|(name, (b, fetched))| {
-            (
-                name,
-                crate::build::sets::building_part_features(&b.features),
-                fetched,
-            )
-        });
-    let mut inputs: Vec<LayerInput<'_>> = stored
-        .berlin
-        .iter()
-        .map(|l| LayerInput {
-            file: &l.name,
-            features: &l.features,
-            currency: l.fetched,
-        })
-        .collect();
-    if let Some((name, features, fetched)) = &parts {
-        inputs.push(LayerInput {
-            file: name,
-            features,
-            currency: *fetched,
-        });
-    }
-    let mut cadastre = berlin_objects(&inputs, *map_kind, map_area, *buffer_m, georef, symbol_set)?;
-    // The sets that bring their rules (ADR 0149).
+    // The sets of extra layers through their rules (ADR 0149), then the building parts of the
+    // buildings (passages) for the sets that name a layer for them.
+    let mut cadastre = Vec::new();
     for set in &stored.sets {
         cadastre.extend(crate::build::sets::set_objects(
             set, *map_kind, map_area, *buffer_m, georef, symbol_set,
+        )?);
+    }
+    if let Some((buildings, fetched)) = buildings {
+        cadastre.extend(crate::build::sets::building_part_objects(
+            &buildings.features,
+            fetched,
+            *map_kind,
+            map_area,
+            *buffer_m,
+            georef,
+            symbol_set,
         )?);
     }
     // 522 candidates for the building passages of the ALKIS buildings of any state. Berlin
@@ -428,15 +412,20 @@ fn paved(stored: &Stored, frame: &Frame) -> Result<PavedObjects, GeorefError> {
         .osm
         .as_ref()
         .map(|(features, _)| unpaved_streets(features, georef.crs()));
-    let survey =
-        crate::project::registers_drawing().map_or_else(StreetSurvey::default, |(drawing, crs)| {
-            let layers: Vec<StoredLayer<'_>> = stored
-                .berlin
-                .iter()
-                .map(|l| (l.name.as_str(), l.features.as_slice(), l.fetched))
-                .collect();
-            StreetSurvey::of_set(drawing, crs, &layers, georef.crs())
-        });
+    let mut survey = StreetSurvey::default();
+    for set in &stored.sets {
+        let layers: Vec<StoredLayer<'_>> = set
+            .layers
+            .iter()
+            .map(|l| (l.name.as_str(), l.features.as_slice(), l.fetched))
+            .collect();
+        survey.extend(StreetSurvey::of_set(
+            set.drawing,
+            set.crs,
+            &layers,
+            georef.crs(),
+        ));
+    }
     paved_area_objects(
         &stored.land_use,
         streets.as_deref().unwrap_or_default(),

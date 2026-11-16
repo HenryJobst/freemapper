@@ -59,6 +59,9 @@ pub struct SetDrawing {
     pub tag_prefix: &'static str,
     /// The prefix of the source of the set's objects (`<prefix>/<layer>`); usually the set key.
     pub source_prefix: &'static str,
+    /// The start of the id of a feature of the set: `<id_prefix>/<layer>/<feature id>`, which is
+    /// the source id of an object whose feature has none of its own.
+    pub id_prefix: &'static str,
     /// How the objects of the set rank in the duplicate step.
     pub rank: SetRank,
     /// The rank of the layers whose rank differs from `rank`: a file, or a prefix ending in `*`.

@@ -483,10 +483,6 @@ mod tests {
         ("project.rs", "use freemapper_adapters_de::berlin;"),
         ("project.rs", "berlin::ExtraLayer"),
         ("project.rs", "berlin::EXTRA_LAYERS"),
-        (
-            "project.rs",
-            "berlin::extra_layers(project.map_kind.contract())",
-        ),
         // The tile download of the tile providers, re-exported for the engine's tests of it.
         ("fetch.rs", "pub use freemapper_adapters_de::tile_fetch::{"),
         // How a product names its tiles, a trait of the tile providers that `derive` reads.

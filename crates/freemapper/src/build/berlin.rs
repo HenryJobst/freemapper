@@ -1,4 +1,4 @@
-//! Berlin ALKIS structures and building parts → candidate objects (Berlin plus 1).
+//! The tests of Berlin's draw rules (Berlin plus 1), drawn as every set is (ADR 0149).
 //!
 //! The Geoportal features run through the same [`Rules`] engine as the OSM features
 //! (the rules Berlin's set brings, `crates/adapters/de/rules/berlin.toml`). A feature becomes a tagged feature first: its string
@@ -9,15 +9,12 @@
 use chrono::NaiveDate;
 use serde_json::Value;
 
-use crate::build::candidates::{Rules, Target, osm_objects};
-use crate::build::notches::drop_notches;
-use crate::build::tagged;
+use crate::build::candidates::Rules;
 use crate::crs::Crs;
 use crate::georef::{GeorefError, Georeferencing};
 use crate::omap::{MapObject, SymbolSet};
 use crate::project::MapKind;
 use crate::sources::osm::OsmFeature;
-use freemapper_adapters_de::berlin::feature_tags;
 
 /// The CRS of all Geoportal Berlin layers.
 pub(crate) const LAYER_CRS: Crs = Crs::Utm33;
@@ -32,26 +29,18 @@ pub struct LayerInput<'a> {
     pub currency: NaiveDate,
 }
 
-/// The tagged features of one layer, ready for the rules: a point stays a point, each part of a
-/// MultiLineString is a line, each polygon is its exterior as a closed line plus a point at its
-/// centroid (a rule picks one by its `draw`). Id: `berlin/<layer>/<GeoServer id>`.
+/// Berlin's set (ADR 0149).
+fn drawing() -> &'static freemapper_adapter_api::extras::SetDrawing {
+    crate::build::sets::drawing_of_source("geoportal-berlin/").expect("Berlin is built in")
+}
+
+/// The tagged features of one Berlin layer ([`crate::build::sets::set_features`]).
 pub fn tagged_features(layer: &str, features: &[Value]) -> Vec<OsmFeature> {
-    let tagged = tagged::tagged_features(
-        &format!("berlin/{layer}"),
-        features,
-        LAYER_CRS,
-        tagged::PointOn::Centroid,
-        |feature| feature_tags(layer, feature),
-    );
-    // Berlin's set names the lines that give a point at their middle too (the surveyed benches).
-    match crate::build::sets::drawing_of_source("geoportal-berlin/") {
-        Some(drawing) => crate::build::sets::with_line_middles(tagged, drawing),
-        None => tagged,
-    }
+    crate::build::sets::set_features(drawing(), LAYER_CRS, layer, features)
 }
 
 /// The candidate objects of the stored Berlin layers within `buffer_m` of `map_area`
-/// (EPSG:25833), each tagged `freemapper:source=geoportal-berlin/<layer>`.
+/// (EPSG:25833), through the generic step of the sets ([`crate::build::sets::layer_objects`]).
 pub fn berlin_objects(
     layers: &[LayerInput<'_>],
     kind: MapKind,
@@ -60,28 +49,28 @@ pub fn berlin_objects(
     georef: &Georeferencing,
     symbol_set: &SymbolSet,
 ) -> Result<Vec<MapObject>, GeorefError> {
-    let rules = Rules::berlin();
-    let drawing = crate::build::sets::drawing_of_source("geoportal-berlin/");
+    let rules = Rules::from_toml(drawing().rules).expect("Berlin's rules parse");
+    let frame = crate::build::sets::LayerFrame {
+        rules: &rules,
+        kind,
+        map_area,
+        buffer_m,
+        georef,
+        symbol_set,
+    };
     let mut objects = Vec::new();
     for layer in layers {
-        let found = osm_objects(
-            &tagged_features(layer.file, layer.features),
-            &rules,
-            Target::Candidates,
-            kind,
-            map_area,
-            buffer_m,
-            georef,
-            symbol_set,
-            &format!("geoportal-berlin/{}", layer.file),
-            layer.currency,
-        )?;
-        // Berlin's set names the layers whose lines lose their notches (the kerbs).
-        if drawing.is_some_and(|d| d.notch_free_layers.contains(&layer.file)) {
-            objects.extend(found.into_iter().filter_map(drop_notches));
-        } else {
-            objects.extend(found);
-        }
+        let layer = crate::build::assembly::Layer {
+            name: layer.file.to_string(),
+            features: layer.features.to_vec(),
+            fetched: layer.currency,
+        };
+        objects.extend(crate::build::sets::layer_objects(
+            drawing(),
+            LAYER_CRS,
+            &layer,
+            &frame,
+        )?);
     }
     Ok(objects)
 }
