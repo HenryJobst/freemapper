@@ -69,6 +69,13 @@ pub struct LightReport {
     pub too_small: usize,
 }
 
+impl LightReport {
+    /// The lines and areas that left the map whole or in part, for the candidate layers.
+    pub fn left(&self) -> usize {
+        self.gave_way + self.cut + self.too_small
+    }
+}
+
 /// Cleans `map` lightly; returns what left it, each object tagged with the reason, in the order
 /// the steps took them off.
 pub fn light_level(
@@ -300,7 +307,8 @@ fn split(object: &MapObject, zones: &[Polygon<f64>], min_mm: f64) -> Split {
     let mut along = vec![0.0];
     for w in mm.windows(2) {
         let last = along[along.len() - 1];
-        along.push(last + (w[1].x - w[0].x).hypot(w[1].y - w[0].y));
+        let (dx, dy) = (w[1].x - w[0].x, w[1].y - w[0].y);
+        along.push(last + (dx * dx + dy * dy).sqrt());
     }
     let total = along[along.len() - 1];
     if total <= 0.0 {
@@ -628,14 +636,21 @@ mod tests {
             .collect()
     }
 
-    /// Every vertex of the objects `after` is one of `before`, but the ends of the pieces of a
-    /// cut line, which lie on its course.
-    fn no_vertex_moved(before: &[MapObject], after: &[MapObject]) {
-        let vertices: BTreeSet<(i32, i32)> = before
-            .iter()
-            .flat_map(|o| o.coords.iter().map(|c| (c.x, c.y)))
-            .collect();
-        for object in after {
+    /// Every vertex of the objects on the map `after` and of those `taken` off it is one of
+    /// `before`, but the ends of the pieces of a cut line, which lie on its course; and every
+    /// vertex of `before` is on the map or among what was taken: none is lost.
+    fn no_vertex_moved(before: &[MapObject], after: &[MapObject], taken: &[MapObject]) {
+        let of = |objects: &[MapObject]| -> BTreeSet<(i32, i32)> {
+            objects
+                .iter()
+                .flat_map(|o| o.coords.iter().map(|c| (c.x, c.y)))
+                .collect()
+        };
+        let vertices = of(before);
+        let kept: BTreeSet<(i32, i32)> = of(after).union(&of(taken)).copied().collect();
+        let lost: Vec<&(i32, i32)> = vertices.difference(&kept).collect();
+        assert!(lost.is_empty(), "lost {lost:?}");
+        for object in after.iter().chain(taken) {
             let cut = tag(object, "freemapper:generalized")
                 .is_some_and(|v| v.contains(CUT_WHERE_HIDDEN_BY) || v.contains(HIDDEN_BY));
             let n = object.coords.len();
@@ -663,13 +678,47 @@ mod tests {
         assert_eq!(map.len(), 1);
         assert_eq!(tag(&map[0], "freemapper:source_id"), Some("way/2"));
         assert_eq!(tag(&map[0], "freemapper:also"), Some("osm/way/1"));
-        no_vertex_moved(&[a.clone(), b.clone()], &map);
+        no_vertex_moved(&[a.clone(), b.clone()], &map, &taken);
         // Of two sources, or of two symbols, they stay two.
         let c = from(b.clone(), "alkis", "s1");
         assert_eq!(run(&set, vec![a.clone(), c]).0.len(), 2);
         let mut d = b.clone();
         d.symbol_id = set.id_for_code("506").unwrap();
         assert_eq!(run(&set, vec![a, d]).0.len(), 2);
+    }
+
+    #[test]
+    fn a_join_keeps_both_vertices_where_the_ends_only_touch() {
+        let set = isom();
+        // 5 map units apart, 0.05 m on the ground at 1:10 000: within the touch of a join.
+        let a = from(line(&set, "505", &[(0.0, 0.0), (5.0, 0.0)]), "osm", "way/1");
+        let b = from(
+            line(&set, "505", &[(5.005, 0.0), (12.0, 1.0)]),
+            "osm",
+            "way/2",
+        );
+        let before = vec![a, b];
+        let (map, taken) = run(&set, before.clone());
+        assert_eq!(map.len(), 1);
+        let points: Vec<(i32, i32)> = map[0].coords.iter().map(|c| (c.x, c.y)).collect();
+        assert_eq!(points, [(0, 0), (5_000, 0), (5_005, 0), (12_000, 1_000)]);
+        no_vertex_moved(&before, &map, &taken);
+        // A ring of two pieces whose last end only touches the first keeps that end too.
+        let c = from(
+            line(&set, "505", &[(0.0, 0.0), (10.0, 0.0), (10.0, 10.0)]),
+            "osm",
+            "way/3",
+        );
+        let d = from(
+            line(&set, "505", &[(10.0, 10.0), (0.0, 10.0), (0.0, 0.005)]),
+            "osm",
+            "way/4",
+        );
+        let before = vec![c, d];
+        let (map, taken) = run(&set, before.clone());
+        assert_eq!(map.len(), 1);
+        assert!(map[0].coords.iter().any(|p| (p.x, p.y) == (0, 5)));
+        no_vertex_moved(&before, &map, &taken);
     }
 
     #[test]
@@ -732,7 +781,7 @@ mod tests {
         // Map and candidates together are the bank.
         let together = length_mm(kept) + length_mm(&taken[0]);
         assert!((together - 20.0).abs() < 0.01, "{together}");
-        no_vertex_moved(&before, &map);
+        no_vertex_moved(&before, &map, &taken);
         assert!(overlaps(&set, &map).is_empty());
     }
 

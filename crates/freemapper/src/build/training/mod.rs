@@ -1158,6 +1158,43 @@ pub(crate) mod tests {
         }
     }
 
+    #[test]
+    fn the_training_input_is_the_filter_the_export_had() {
+        use crate::build::cliffs::{GENERALIZED, ROCK};
+        let set = isom();
+        let hidden = |code: &str, value: &str| {
+            let mut o = line(&set, code, &[(0.0, 0.0), (5.0, 0.0)]);
+            o.tags.push((HIDDEN_KEY.to_string(), value.to_string()));
+            o
+        };
+        let map = vec![line(&set, "505", &[(0.0, 0.0), (9.0, 0.0)])];
+        let candidates = vec![
+            area(&set, "520", (0.0, 0.0), (1.0, 1.0)),
+            line(&set, "104", &[(0.0, 1.0), (5.0, 1.0)]),
+            hidden("201", GENERALIZED),
+            hidden("506", HIDDEN_CARRIAGEWAY),
+            hidden("505", "520"),
+            hidden("104", ROCK),
+        ];
+        // The filter of `training_candidates` in `project/export.rs` before ADR 0157.
+        let old: Vec<MapObject> = map
+            .iter()
+            .chain(candidates.iter().skip(1).filter(|o| {
+                !o.tags
+                    .iter()
+                    .any(|(k, v)| k == HIDDEN_KEY && Some(v.as_str()) != Some(HIDDEN_CARRIAGEWAY))
+            }))
+            .cloned()
+            .collect();
+        let input = TrainingInput::of(&map, &candidates);
+        assert_eq!(input.objects().cloned().collect::<Vec<_>>(), old);
+        assert_eq!(input.map, map);
+        assert_eq!(
+            input.candidates,
+            [candidates[1].clone(), candidates[3].clone()]
+        );
+    }
+
     fn run(set: &SymbolSet, objects: Vec<MapObject>) -> (Vec<MapObject>, TrainingReport) {
         train(objects, None, MapKind::Forest, &georef_at(SCALE), set)
     }

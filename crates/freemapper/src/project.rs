@@ -67,6 +67,7 @@ use freemapper_adapters_de::berlin;
 
 mod export;
 mod extras;
+pub use crate::build::light::LightReport;
 pub use crate::build::training::TrainingReport;
 pub use export::*;
 
@@ -2638,6 +2639,9 @@ pub struct RunOutcome {
     /// The preview written with the map (`<name>-preview.webp`); none when the map was kept, or
     /// when the preview failed (the run then warns, `warning-map-preview-failed`).
     pub preview: Option<PathBuf>,
+    /// What the light level took off the base map (ADR 0157). Over a kept map the candidate
+    /// layers hold these objects while the map still has them.
+    pub light: LightReport,
 }
 
 /// The step [`run_project_steps`] is about to start.
@@ -2720,15 +2724,13 @@ pub fn run_project_steps_cancellable(
     stage(RunStage::Map);
     let existing = map_path(dir);
     let mut preview = None;
+    let documents = starter_documents(dir)?;
+    let light = documents.light().clone();
     let map = if existing.exists() && !force {
         let text = std::fs::read_to_string(&existing)
             .map_err(|e| ProjectError::Io(existing.clone(), e))?;
         let old_candidates = text.contains(OLD_CANDIDATES_RELPATH);
-        write_starter_project(
-            dir,
-            &starter_documents(dir)?,
-            MapWrite::Keep { old_candidates },
-        )?;
+        write_starter_project(dir, &documents, MapWrite::Keep { old_candidates })?;
         MapOutcome::Kept {
             old_candidates,
             references_images: text.contains(ORTHOPHOTO_RELPATH),
@@ -2738,7 +2740,6 @@ pub fn run_project_steps_cancellable(
         }
     } else {
         // The preview goes with the map, from the same documents; never next to a kept map.
-        let documents = starter_documents(dir)?;
         let map = export_starter_project_from(dir, &documents, force)?;
         preview = export_map_preview_or_warn(dir, &documents, progress);
         MapOutcome::Written(map)
@@ -2747,6 +2748,7 @@ pub fn run_project_steps_cancellable(
         templates,
         map,
         preview,
+        light,
     })
 }
 
@@ -11820,6 +11822,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
                 attribution: Vec::new(),
             },
             content_settings: ContentSettings::default(),
+            light: Default::default(),
             training: Default::default(),
         };
         let (map, _) = pdf_objects(&documents, true);
@@ -11875,6 +11878,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
                 attribution: Vec::new(),
             },
             content_settings: ContentSettings::default(),
+            light: Default::default(),
             training: crate::build::training::TrainingInput::of(
                 &[street.clone()],
                 &[outline_copy, carriageway.clone(), under_olive.clone()],

@@ -11,10 +11,10 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use freemapper::fetch::{Cache, FetchMode, Fetcher};
 use freemapper::project::{
-    MapOutcome, OcadOutcome, PdfSources, ProjectError, RunOutcome, RunStage, TrainingOutcome,
-    export_candidates_pdf_from, export_ocad_from, export_pdf_from, export_training_from, map_path,
-    map_preview_path, pdf_path, run_project_steps_cancellable, starter_documents,
-    training_map_path, training_ocad_path, training_pdf_path,
+    LightReport, MapOutcome, OcadOutcome, PdfSources, ProjectError, RunOutcome, RunStage,
+    TrainingOutcome, export_candidates_pdf_from, export_ocad_from, export_pdf_from,
+    export_training_from, map_path, map_preview_path, pdf_path, run_project_steps_cancellable,
+    starter_documents, training_map_path, training_ocad_path, training_pdf_path,
 };
 use serde::Deserialize;
 
@@ -701,6 +701,7 @@ fn map_summary(outcome: &RunOutcome) -> String {
             if let Some(preview) = &outcome.preview {
                 lines.push(text("cli-wrote", &[("path", v(preview.display()))]));
             }
+            lines.extend(light_summary(&outcome.light, "cli-summary-map-light"));
         }
         MapOutcome::Kept {
             map,
@@ -710,6 +711,7 @@ fn map_summary(outcome: &RunOutcome) -> String {
             missing_canopies,
         } => {
             lines.push(text("cli-summary-kept-map", &[("path", v(map.display()))]));
+            lines.extend(light_kept(&outcome.light, "cli-summary-map-light-kept"));
             if *old_candidates {
                 lines.push(text("cli-summary-map-old-candidates", &[]));
             }
@@ -728,6 +730,23 @@ fn map_summary(outcome: &RunOutcome) -> String {
         lines.push(text("cli-wrote", &[("path", v(template.display()))]));
     }
     lines.join("\n")
+}
+
+/// The line `id` on what the light level did to a map that was written (ADR 0157); none when it
+/// did nothing.
+pub fn light_summary(light: &LightReport, id: &str) -> Option<String> {
+    (light.joined + light.left() > 0).then(|| {
+        text(
+            id,
+            &[("joined", n(light.joined)), ("left", n(light.left()))],
+        )
+    })
+}
+
+/// The note `id` for a kept map when the light level took objects off the new map: the candidate
+/// layers hold them while the kept map still has them.
+pub fn light_kept(light: &LightReport, id: &str) -> Option<String> {
+    (light.left() > 0).then(|| text(id, &[("left", n(light.left()))]))
 }
 
 /// The summary line of a failed export step.
@@ -965,6 +984,7 @@ mod tests {
             templates: vec![PathBuf::from("/p/orthophoto.png")],
             map: MapOutcome::Written(PathBuf::from("/p/p.omap")),
             preview: None,
+            light: LightReport::default(),
         };
         assert_eq!(
             map_summary(&outcome),
@@ -1072,6 +1092,7 @@ mod tests {
                 missing_canopies: true,
             },
             preview: None,
+            light: LightReport::default(),
         };
         let text = map_summary(&outcome);
         assert!(
@@ -1094,10 +1115,56 @@ mod tests {
                 missing_canopies: false,
             },
             preview: None,
+            light: LightReport::default(),
         };
         let text = map_summary(&outcome);
         assert!(text.contains("templates/candidates.omap"), "{text}");
         assert!(text.contains("force"), "{text}");
+    }
+
+    #[test]
+    fn the_light_level_is_summed_up_and_a_kept_map_is_warned_of_doubles() {
+        let light = LightReport {
+            joined: 12,
+            gave_way: 3,
+            cut: 2,
+            too_small: 4,
+        };
+        let written = RunOutcome {
+            templates: Vec::new(),
+            map: MapOutcome::Written(PathBuf::from("/tmp/x/x.omap")),
+            preview: None,
+            light: light.clone(),
+        };
+        let text = map_summary(&written);
+        assert!(
+            text.contains("12 lines joined, 9 hidden or too small"),
+            "{text}"
+        );
+        assert!(!text.contains("twice"), "{text}");
+        let kept = RunOutcome {
+            map: MapOutcome::Kept {
+                map: PathBuf::from("/tmp/x/x.omap"),
+                old_candidates: false,
+                references_images: true,
+                missing_buildings: false,
+                missing_canopies: false,
+            },
+            ..written.clone()
+        };
+        let text = map_summary(&kept);
+        assert!(text.contains("hold 9 objects or stretches"), "{text}");
+        assert!(text.contains("twice"), "{text}");
+        // Nothing taken, nothing said.
+        let quiet = RunOutcome {
+            light: LightReport::default(),
+            ..kept
+        };
+        assert!(!map_summary(&quiet).contains("twice"));
+        assert_eq!(
+            light_summary(&LightReport::default(), "cli-map-light"),
+            None
+        );
     }
 
     #[test]
@@ -1109,6 +1176,7 @@ mod tests {
             templates: vec![dir.path().join("missing.png")],
             map: MapOutcome::Written(map.clone()),
             preview: None,
+            light: LightReport::default(),
         };
         let pdf = Outputs {
             pdf: Some(Ok(pdf_path(dir.path(), false))),
@@ -1156,6 +1224,7 @@ mod tests {
             templates: Vec::new(),
             map: MapOutcome::Written(map_path(dir.path())),
             preview: None,
+            light: LightReport::default(),
         };
         let training = training(dir.path(), TrainingReport::default());
         std::fs::create_dir_all(dir.path().join("ocad")).unwrap();
@@ -1201,6 +1270,7 @@ mod tests {
             templates: Vec::new(),
             map: MapOutcome::Written(map_path(dir.path())),
             preview: None,
+            light: LightReport::default(),
         };
         let (map, pdf, ocd) = (
             training_map_path(dir.path()),

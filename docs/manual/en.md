@@ -458,9 +458,13 @@ has it. freemapper cleans the map lightly before it writes it (ADR 0157):
 - Lines of one symbol and one source that meet end to end become one line, so a dashed path is drawn
   through and does not fall apart into short pieces. The tag `freemapper:also` names the pieces that went
   into it.
-- A line drawn on a symbol it has to keep apart from, and hidden by it, leaves the map: an earth bank on a
-  ditch, a stream, a railway, a road or a path, a fence or wall on a path or road, a contour on an earth
-  bank, the shorter of two earth banks on each other. When more than half of the line lies on the other
+- A line drawn on a symbol it has to keep apart from, and hidden by it, leaves the map. The line of lower
+  rank gives way; from the top the ranks are building, water area and shore line, railway, road, path,
+  watercourse and stairway, wall, fence and cliff, earth bank, contour. So an earth bank leaves where it
+  lies on a ditch, a stream, a lake shore, a railway, a road, a path or a longer earth bank; a ditch or
+  stream where it runs along a path, a road or a building; a fence or wall along a path, a road, a
+  building, a lake shore or a stream; a cliff on a way; a stairway along a building; a contour on an earth
+  bank or a cliff. When more than half of the line lies on the other
   symbol, the whole line leaves; otherwise only that stretch, and the rest stays as long as it reaches the
   norm's minimum length. A line that only comes too close to another, without lying on it, stays. Point
   symbols such as trees stay too, and so do lines of one network, two paths or a path on a road.
@@ -471,6 +475,11 @@ What leaves is in the candidate layer of its kind, with the reason in the tag `f
 (`hidden by path`, `below the minimum size`); a line that keeps the rest of a cut says `cut where hidden by
 …`. The map and its layers together hold every object. The check print (`--pdf-candidates`) draws these
 candidates too. The training map starts from the map before this clean-up and does not change by it.
+
+A run without `--force` keeps an existing map, which may hold your work. Its candidate layers are written
+anew all the same and then also hold what the clean-up takes off the new map, while the kept map still has
+it: these objects show twice. The run says so; `--force` replaces the map and keeps the old one as
+`.omap.bak`.
 
 A map written by freemapper 0.23.0 or older names one template, `templates/candidates.omap`. A run
 without `--force` leaves such a map alone: it fills that file with every candidate, writes the layers

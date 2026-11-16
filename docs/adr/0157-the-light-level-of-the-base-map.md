@@ -27,7 +27,9 @@ The light level (`build/light.rs`, `light_level`) runs on the objects routed to 
    are joined, by the rules of the training level's join (ADR 0140, step 1: the same symbol classes, sided lines
    never reversed, at a junction of three or more ends only the pair that turns least, below 30°). The joined
    line keeps the tags of the longest piece and names the others in `freemapper:also`
-   (`line_join::join_lines_by`).
+   (`line_join::join_lines_by`). Unlike the training level's join it loses no vertex: where the end of one piece
+   and the start of the next only touch, both stay, and so does the last vertex of a closed chain; only a vertex
+   identical to the one before goes (`Joint::Kept`; the training level keeps `Joint::Merged`).
 2. *Give way.* For every pair that keeps apart (`Relation::Apart`) whose drawn footprints cover each other
    (`Grade::Overlap`), the line of lower rank gives way, with the ranks of ADR 0140: an earth bank to a
    watercourse, a bank line, a railway, a road and a path, a fence or wall to a path or road, a contour to an
@@ -51,13 +53,16 @@ at a cut end, on the line's course. A piece of a closed line is open.
 *Rulings:*
 
 - *After the ticks, not before.* The spec puts the light level before the ticks are oriented. It runs after them
-  and after the points are moved off the barriers, so that one orientation serves the base map and the training
-  input. It turns no line and moves nothing, so the ticks it leaves stay right. *Cost:* two pieces of a fence or
-  bank that the orientation turned to opposite sides do not join.
-- *Only lines give way.* A point symbol lying on a line, a tree on a path, stays on the base map: it is not
-  hidden, the norm draws it over the line, and the training map moves it (ADR 0140, step 5). Areas never lose to a
-  line in the rank table. *Cost:* the base map keeps overlap conflicts of points (220 at Viktoriapark, 150 of them
-  trees on paths; 13 in Bremen). The acceptance "no overlap conflict of an apart pair left" holds for lines.
+  and after the points are moved off the barriers (`move_points_off_barriers`, ADR 0097), so that one orientation
+  serves the base map and the training input. It turns no line and moves nothing, so the ticks it leaves stay
+  right. *Cost:* two pieces of a fence or bank that the orientation turned to opposite sides do not join, and a
+  point that was moved off a fence stays moved when the light level then takes that fence off the map.
+- *Points stay on the base map* (the controller's ruling, 2026-11-16). A point on a line hides nothing, and its
+  true position is what a mapper needs. The user's rule for the base map is that only duplicates and hidden
+  objects go to the layers and nothing is shifted. So only lines give way here; the acceptance line "no overlap
+  conflict of an apart pair left" holds for lines, and the points are settled on the training map (ADR 0140,
+  step 5). Areas never lose to a line in the rank table. *Cost:* the base map keeps overlap conflicts of points
+  (220 at Viktoriapark, 150 of them trees on paths; 13 in Bremen).
 - *One source is one value of `freemapper:source`.* OSM and the cadastre, or two layers of the full ALKIS, are
   never joined: the joined line keeps one source's tags. *Cost:* fewer joins; at the Bastei the 505 objects fall
   by 39 %, not by half.
@@ -88,6 +93,12 @@ at a cut end, on the line's course. A piece of a closed line is open.
   was taken off, now partly as candidates and in another order, so its bytes change too. The training maps and
   their PDFs keep their hashes.
 - `export` takes longer: on Bremen Bürgerpark 3.5 s of 35 s.
+- After writing the map, `run` and `export` print one line on what the light level did (`cli-map-light`), and the
+  MCP summary has it too.
+- A run without `--force` keeps an existing map but writes the candidate layers anew. They then hold what the
+  light level takes off the new map while the kept map still has it, so these objects are there twice. The run
+  says so (`cli-map-light-kept`, in the MCP summary `cli-summary-map-light-kept`) when the light level took
+  anything; `--force` replaces the map.
 - Cost if wrong: the steps are three functions in `build/light.rs`; the ranks and relations stay those of
   `build/conflicts.rs`. Taking the light level out is one call in `Built::place`.
 
@@ -110,7 +121,7 @@ Lengths are mm on paper.
 | Joined / gave way whole / cut / too small | 439 / 127 / 46 / 78 | 86 / 12 / 14 / 40 | 155 / 42 / 23 / 95 |
 | Objects to the layers: terrain, water, paths, barriers | 167, 26, 43, 34 | 15, 0, 20, 35 | 55, 0, 61, 52 |
 | OSM water on other water, OSM stairs on other stairs | 0, 0 → 0, 0 | 0, 0 → 0, 0 | 0, 0 → 0, 0 |
-| Vertices of kept objects moved | 0 (103 new cut ends) | 0 (30) | 0 (45) |
+| Vertices moved / lost (map and what left it) | 0 / 0 (103 new cut ends) | 0 / 0 (30) | 0 / 0 (45) |
 | Training map `.omap` and `.pdf` | same bytes | same bytes | same bytes |
 | `export --training`: real, maximum resident set, `main` → branch | 31.9 s, 359 MiB → 35.4 s, 327 MiB | 9.0 s, 199 MiB → 9.3 s, 194 MiB | 5.3 s, 103 MiB → 5.8 s, 103 MiB |
 

@@ -833,7 +833,8 @@ pub fn export_training_from(
     let kind = project.map_kind;
     let (georef, symbol_set) = (&documents.map.georef, &documents.map.symbol_set);
     // The map's own objects before the light level, the visible candidates and the hidden
-    // carriageways (`build::training::input`); the walkable area and the sheet stay as they are.
+    // carriageways (`build::training::TrainingInput`); the walkable area and the sheet stay as
+    // they are.
     let input: Vec<&MapObject> = documents.training.objects().collect();
     // The rock of a forest or sprint map is generalized more than on the map (ADR 0126): the
     // training map is printed as it is and must stay readable; the candidates keep every cliff.
@@ -1286,9 +1287,16 @@ pub struct StarterDocuments {
     /// The objects the training map starts from: the map's own objects before the light level
     /// and the candidates it draws.
     pub(super) training: crate::build::training::TrainingInput,
+    /// What the light level took off the map (ADR 0157).
+    pub(super) light: crate::build::light::LightReport,
 }
 
 impl StarterDocuments {
+    /// What the light level did to the map of these documents (ADR 0157).
+    pub fn light(&self) -> &crate::build::light::LightReport {
+        &self.light
+    }
+
     /// The candidates cut into the template maps of the candidate layers, every layer in its
     /// order (ADR 0156): together they are [`Self::candidates`], with the outline of the map area
     /// in each.
@@ -1595,6 +1603,7 @@ pub fn place(
         info: built.info.clone(),
         content_settings: content.clone(),
         training: placed.training,
+        light: placed.light,
     })
 }
 

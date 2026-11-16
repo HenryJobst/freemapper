@@ -29,6 +29,8 @@ cli-kept-map = Kept { $path } (it may contain your work)
 cli-map-lacks-templates = The map does not reference the image templates yet. Add them in OOM (Templates > Open template…) or replace the map with --force, which keeps the old one as .omap.bak.
 cli-map-lacks-buildings = The map has no ALKIS buildings yet. To add them, replace it with --force, which keeps the old one as .omap.bak.
 cli-map-lacks-canopies = The map lacks the ALKIS canopies and carports (522) that are now map objects. To add them, run with --force, which keeps the old map as .omap.bak.
+cli-map-light = The base map: { $joined } lines joined, { $left } hidden or too small left for the candidate layers (nothing moved)
+cli-map-light-kept = The candidate layers now also hold { $left } objects or stretches that this version takes off the base map (tagged freemapper:generalized). The kept map still has them, so they show twice. Replace the map with --force to clean it (the old one stays as .omap.bak).
 cli-map-old-candidates = The map still names templates/candidates.omap; this run filled it with every candidate. The candidates now also come in seven layers, one file each (templates/candidates-*.omap). The map lists them after you replace it with --force (the old one stays as .omap.bak), or add them yourself in OOM (Templates > Open template…).
 
 ## PDF
@@ -657,6 +659,8 @@ cli-summary-kept-map = Kept the existing map { $path } (it may contain the mappe
 cli-summary-map-lacks-templates = The map does not reference the image templates yet. Start the pipeline with force to replace it and keep the old one as .omap.bak.
 cli-summary-map-lacks-buildings = The map has no ALKIS buildings yet. Start the pipeline with force to add them; it replaces the map and keeps the old one as .omap.bak.
 cli-summary-map-lacks-canopies = The map lacks the ALKIS canopies and carports (522) that are now map objects. Start the pipeline with force to add them; it replaces the map and keeps the old one as .omap.bak.
+cli-summary-map-light = The base map: { $joined } lines joined, { $left } hidden or too small left for the candidate layers (nothing moved)
+cli-summary-map-light-kept = The candidate layers now also hold { $left } objects or stretches that this version takes off the base map (tagged freemapper:generalized). The kept map still has them, so they show twice. Start the pipeline with force to clean the map; it keeps the old one as .omap.bak.
 cli-summary-map-old-candidates = The map still names templates/candidates.omap; this run filled it with every candidate. The candidates now also come in seven layers, one file each (templates/candidates-*.omap). The map lists them after a run with force (the old map stays as .omap.bak), or the mapper adds them in OOM (Templates > Open template…).
 cli-summary-wrote-ocad = Wrote the OCAD map { $path } ({ $count } objects)
 cli-summary-kept-ocad = Kept the existing OCAD map { $path } (it may contain the mapper's work; force replaces it)
