@@ -51,8 +51,8 @@ nach in einer festen Version ein, statt den Code zu kopieren.
 
 ## Status
 
-Aktuelle Version ist [v0.22.0](https://github.com/HenryJobst/freemapper/releases/tag/v0.22.0) vom
-15. November 2026 (was sich geändert hat, steht in den [Änderungen](CHANGELOG.md)).
+Aktuelle Version ist [v0.23.0](https://github.com/HenryJobst/freemapper/releases/tag/v0.23.0) vom
+16. November 2026 (was sich geändert hat, steht in den [Änderungen](CHANGELOG.md)).
 
 freemapper erzeugt
 Schulhof- und Sprintkarten für fünfzehn Bundesländer: Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg,

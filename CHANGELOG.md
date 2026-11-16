@@ -6,6 +6,8 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+## [0.23.0] - 2026-11-16
+
 ### Geändert
 
 - Die Fußzeile der Gebietsseite verlinkt den Quellcode, „Quellcode (AGPL-3.0-or-later)“ (ADR 0152).

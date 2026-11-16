@@ -6,6 +6,8 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
+## [0.23.0] - 2026-11-16
+
 ### Changed
 
 - The footer of the area page links to the source code, "Source code (AGPL-3.0-or-later)" (ADR 0152).
