@@ -14,13 +14,13 @@ use crate::area::GeoBox;
 use crate::area::{AreaError, MapArea};
 use crate::build::buildings::building_objects;
 use crate::build::candidates::Rules;
-use crate::build::canopy::{CANOPY_LAYER, CanopyInput, canopy_objects};
+use crate::build::canopy::{CanopyInput, canopy_objects};
 use crate::build::content::ContentSettings;
 use crate::build::open_land::{BASE_PART, walkable_base};
 use crate::build::peripheral::{PaperRect, PeripheralInfo, info_block, is_scale_bar};
 use crate::build::points::{GENERALIZATION_SOURCE, HIDDEN_KEY};
 use crate::build::source_block;
-use crate::build::stairs::{NAS_STAIR_LAYER, STEP_EDGE_LAYER, SURVEY_STAIR_LAYER};
+use crate::build::stairs::NAS_STAIR_LAYER;
 use crate::crs::{BoundingBox, Crs};
 use crate::derive::contours::{
     contour_interval_for, contour_lines, contours_from_geojson, contours_to_geojson,
@@ -2214,10 +2214,11 @@ pub(crate) fn stored_set_layers(
 
 /// Whether a layer that gives stairs is stored: the stair terrain is read only then.
 fn stair_layers_stored(layers: &[StoredBerlinLayer], nas: &[StoredNasLayer]) -> bool {
-    layers
-        .iter()
-        .any(|l| [CANOPY_LAYER, STEP_EDGE_LAYER, SURVEY_STAIR_LAYER].contains(&l.layer.file))
-        || nas.iter().any(|l| l.layer.file == NAS_STAIR_LAYER)
+    registers_drawing().is_some_and(|(drawing, _)| {
+        layers
+            .iter()
+            .any(|l| crate::build::stairs::holds_stairs(drawing, l.layer.file))
+    }) || nas.iter().any(|l| l.layer.file == NAS_STAIR_LAYER)
 }
 
 /// The terrain model for the stair direction, in the map's CRS: the stored DGM1 of a per-area

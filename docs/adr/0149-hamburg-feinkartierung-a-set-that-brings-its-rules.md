@@ -136,3 +136,15 @@ the set's drawing, the layer, its features and their CRS in place of the Berlin 
 object built from a set's feature directly come from `build/sets.rs::provenance_tags`, which reads the set's own
 tags and its source prefix. The map's check for canopies that an older map lacks reads the canopy sources of every
 set. Output unchanged (G3/G4).
+
+## Addendum 2026-11-16: stairs of a set's cadastre layers (step 4f)
+
+A set names where its stairs are: the stair areas that rank with the cadastre (`cadastre_stairs`), the step edges
+whose parallel neighbours make a flight (`step_edges`), the areas besides the buildings that a flat stair faces
+(`facades`) and its surveyed stairs (`survey_stairs`), each a list of `LayerKinds`. Berlin names `Treppe` and
+`Freitreppe` of `bauwerke-flaechen`, `Freitreppe` of `bauwerke-linien`, the monuments of `bauwerke-flaechen` and the
+`cc_treppe` of `sb-treppe`. `StairInput` takes a `CadastreStairs` (the set's drawing, the CRS and its stored layers)
+in place of three Berlin fields. A surveyed stair is tagged by `build/sets.rs::dated_tags`, the generic form of
+Berlin's survey tags: the provenance tags with the feature's own date, its `<prefix>:layer` and the kept tags. A
+feature without a date of its own gets the fetch date there; Berlin stamps every survey feature at download, so
+none lacks one. Output unchanged (G3/G4).
