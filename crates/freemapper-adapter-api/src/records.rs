@@ -159,11 +159,12 @@ pub enum Part {
     Terrain,
     /// The orthophoto, the template the mapper draws on.
     Orthophoto,
-    /// The extra Berlin layers (ALKIS structures, tree cadastre): candidates and a few map
-    /// objects, optional like the K5 map.
-    BerlinLayers,
+    /// The sets of extra layers of the adapters (Berlin's ALKIS structures, tree cadastre and
+    /// street survey, Hamburg's Feinkartierung): candidates and a few map objects, optional like
+    /// the K5 map.
+    ExtraSets,
     /// The state layers outside Berlin (full ALKIS from a NAS service, tree cadastres):
-    /// candidates, optional like the Berlin layers.
+    /// candidates, optional like the extra sets.
     StateLayers,
     /// The surface model (nDOM, bDOM, DOM1): only the nDSM template.
     Surface,
@@ -191,7 +192,7 @@ impl Part {
             Part::OsmUpdate => "the update of the cached OSM extract",
             Part::K5 => "the Berlin K5 map template",
             Part::PointCloud => "the laser point clouds for the vegetation candidates",
-            Part::BerlinLayers => {
+            Part::ExtraSets => {
                 "the Berlin ALKIS structures, tree cadastre, street survey and point layers"
             }
             Part::StateLayers => {

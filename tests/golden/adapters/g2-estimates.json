@@ -24,7 +24,7 @@
       "nDSM tile 33390-5816 (surface model (bDOM)) | 30.000 MB | cached: false | Surface | Cache",
       "OSM extract Brandenburg (shared by all projects) | 300.000 MB | cached: false | MapData | Cache",
       "ALKIS buildings and land use | 0.500 MB | cached: false | MapData | Project",
-      "Berlin ALKIS structures, tree cadastre, street survey and point layers | 0.786 MB | cached: false | BerlinLayers | Project",
+      "Berlin ALKIS structures, tree cadastre, street survey and point layers | 0.786 MB | cached: false | ExtraSets | Project",
       "Berlin K5 map (1:5000) template | 0.983 MB | cached: false | K5 | Project"
     ],
     "region": "berlin",
@@ -70,7 +70,7 @@
       "surface model (LGV bDOM 2022) | 4.000 MB | cached: false | Surface | Cache",
       "OSM extract Hamburg (shared by all projects) | 54.000 MB | cached: false | MapData | Cache",
       "ALKIS buildings and land use | 0.500 MB | cached: false | MapData | Project",
-      "Hamburg Feinkartierung (street space and public green) | 0.410 MB | cached: false | BerlinLayers | Project",
+      "Hamburg Feinkartierung (street space and public green) | 0.410 MB | cached: false | ExtraSets | Project",
       "city tree cadastres | 0.100 MB | cached: false | StateLayers | Project"
     ],
     "region": "hamburg",

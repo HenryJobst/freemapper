@@ -1229,7 +1229,7 @@ fn fetch_project_parts(
         &area.region_bbox,
         project.map_kind,
         mode,
-        skips(Part::BerlinLayers),
+        skips(Part::ExtraSets),
         &project.berlin_layers,
         progress,
     );
@@ -1248,7 +1248,7 @@ fn fetch_project_parts(
             &area.region_bbox,
             project.map_kind,
             mode,
-            skips(Part::BerlinLayers),
+            skips(Part::ExtraSets),
             &previous,
             progress,
         );
@@ -1391,7 +1391,7 @@ pub(crate) fn mark_stored(
             let stored = match (item.part, item.what.as_str()) {
                 (Part::Orthophoto, _) => orthophoto,
                 (Part::K5, _) => k5,
-                (Part::BerlinLayers, what) => sets
+                (Part::ExtraSets, what) => sets
                     .iter()
                     .find(|(item, _)| *item == what)
                     .map_or(berlin_layers, |(_, stored)| *stored),
@@ -1425,7 +1425,7 @@ fn drop_sets_taking_nothing(items: &mut Vec<crate::layers::EstimateItem>, kind: 
         .filter(|set| set.layers(kind.contract()).is_empty())
         .map(|set| set.info().estimate.what)
         .collect();
-    items.retain(|item| item.part != Part::BerlinLayers || !idle.contains(&item.what.as_str()));
+    items.retain(|item| item.part != Part::ExtraSets || !idle.contains(&item.what.as_str()));
 }
 
 /// Checks the downloads of an online fetch against the free disk space ([`crate::space::plan`]):
@@ -9897,7 +9897,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             what: what.to_string(),
             megabytes: 6.0,
             cached: false,
-            part: Part::BerlinLayers,
+            part: Part::ExtraSets,
             store: crate::space::Store::Project,
         };
         let what = "Hamburg Feinkartierung (street space and public green)";

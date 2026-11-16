@@ -3,7 +3,7 @@ estimate: terrain model (DGM1) tile 33390-5816 | Terrain | 1.300 MB | cached: fa
 estimate: nDSM tile 33390-5816 (surface model (bDOM)) | Surface | 30.000 MB | cached: false
 estimate: OSM extract Brandenburg (shared by all projects) | MapData | 300.000 MB | cached: false
 estimate: ALKIS buildings and land use | MapData | 0.500 MB | cached: false
-estimate: Berlin ALKIS structures, tree cadastre, street survey and point layers | BerlinLayers | 0.786 MB | cached: false
+estimate: Berlin ALKIS structures, tree cadastre, street survey and point layers | ExtraSets | 0.786 MB | cached: false
 estimate: Berlin K5 map (1:5000) template | K5 | 0.983 MB | cached: false
 GET https://data.geobasis-bb.de/geobasis/information/aktualitaeten/bb_dop_aktualitaet.csv
 GET https://data.geobasis-bb.de/geobasis/daten/dop/rgb_jpg/dop_33390-5816.zip

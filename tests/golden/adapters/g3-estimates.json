@@ -24,7 +24,7 @@
       "nDSM tile 33390-5816 (surface model (bDOM)) | 30.000 MB | cached: true | Surface | Cache",
       "OSM extract Brandenburg (shared by all projects) | 300.000 MB | cached: true | MapData | Cache",
       "ALKIS buildings and land use | 0.500 MB | cached: true | MapData | Project",
-      "Berlin ALKIS structures, tree cadastre, street survey and point layers | 0.786 MB | cached: true | BerlinLayers | Project",
+      "Berlin ALKIS structures, tree cadastre, street survey and point layers | 0.786 MB | cached: true | ExtraSets | Project",
       "Berlin K5 map (1:5000) template | 0.983 MB | cached: true | K5 | Project"
     ],
     "region": "berlin",
