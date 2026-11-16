@@ -1,7 +1,7 @@
 # 0126. Cliffs on the forest map are generalized
 
 Date: 2026-11-14
-Status: Accepted, amended by ADR 0140 (the training level runs on the training map, not on the candidates PDF)
+Status: Accepted, amended by ADR 0140 (the training level runs on the training map, not on the candidates PDF) and ADR 0157 (the cliffs taken off the map are no longer hidden: the check print draws them)
 
 ## Context
 

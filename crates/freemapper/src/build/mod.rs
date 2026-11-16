@@ -17,6 +17,7 @@ pub mod dedup;
 pub mod firm_paths;
 pub mod geometry;
 pub mod landforms;
+pub mod light;
 pub mod line_cuts;
 pub mod line_join;
 pub mod notches;

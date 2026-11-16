@@ -304,6 +304,30 @@ impl Footprints {
         self.items[i] = Arc::new(footprint(object, symbols, classes));
     }
 
+    /// Adds `object` at the end, drawn as [`with`](Self::with) draws it; returns its index.
+    pub fn push(
+        &mut self,
+        object: &MapObject,
+        symbols: &RenderSymbols,
+        classes: &Classes,
+    ) -> usize {
+        self.items
+            .push(Arc::new(footprint(object, symbols, classes)));
+        self.items.len() - 1
+    }
+
+    /// The object `i` is no longer drawn: of class [`Class::Other`], it is in no conflict.
+    pub fn undraw(&mut self, i: usize) {
+        self.items[i] = Arc::new(Footprint {
+            class: Class::Other,
+            footprint: MultiPolygon::new(Vec::new()),
+            centre: MultiLineString(Vec::new()),
+            half_width: 0.0,
+            length: 0.0,
+            bounds: None,
+        });
+    }
+
     /// The object `i` takes the footprint of the object `j` of `other`.
     pub fn adopt(&mut self, i: usize, other: &Footprints, j: usize) {
         self.items[i] = Arc::clone(&other.items[j]);

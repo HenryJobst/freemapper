@@ -452,6 +452,26 @@ with. Each layer also has the outline of the map area. Check the candidates and 
 trace them, or open a layer file and copy and paste the objects. All these maps have the same
 georeferencing.
 
+**What the base map leaves out.** Nothing on the base map is moved; every object lies where its source
+has it. freemapper cleans the map lightly before it writes it (ADR 0157):
+
+- Lines of one symbol and one source that meet end to end become one line, so a dashed path is drawn
+  through and does not fall apart into short pieces. The tag `freemapper:also` names the pieces that went
+  into it.
+- A line drawn on a symbol it has to keep apart from, and hidden by it, leaves the map: an earth bank on a
+  ditch, a stream, a railway, a road or a path, a fence or wall on a path or road, a contour on an earth
+  bank, the shorter of two earth banks on each other. When more than half of the line lies on the other
+  symbol, the whole line leaves; otherwise only that stretch, and the rest stays as long as it reaches the
+  norm's minimum length. A line that only comes too close to another, without lying on it, stays. Point
+  symbols such as trees stay too, and so do lines of one network, two paths or a path on a road.
+- Lines and areas below the norm's minimum size leave: stairs shorter than three steps that do not link two
+  ways, short pieces of paths, ditches and fences, small contour loops, small patches of open land.
+
+What leaves is in the candidate layer of its kind, with the reason in the tag `freemapper:generalized`
+(`hidden by path`, `below the minimum size`); a line that keeps the rest of a cut says `cut where hidden by
+…`. The map and its layers together hold every object. The check print (`--pdf-candidates`) draws these
+candidates too. The training map starts from the map before this clean-up and does not change by it.
+
 A map written by freemapper 0.23.0 or older names one template, `templates/candidates.omap`. A run
 without `--force` leaves such a map alone: it fills that file with every candidate, writes the layers
 beside it and says so. `--force` replaces the map, which then lists the layers, and deletes the old file;
@@ -610,7 +630,7 @@ freemapper run dammheide --training
   face each other (ISOM 2017-2; enlarged like the symbols). Where only its line has room it is drawn as the top line
   201.3, two cliffs back to back closer than that become one rock fin 206, and elsewhere a cliff is cut. The cliffs
   are smoothed, so that the zigzag of the OSM lines goes. What goes is in the terrain layer of the candidates, tagged
-  `freemapper:generalized` with the reason; the check print and the training map leave it out. The contours stop below
+  `freemapper:generalized` with the reason; the check print draws it, the training map leaves it out. The contours stop below
   the cliffs drawn and run on elsewhere; knolls and depressions of the terrain on the rock are hidden. For the heights
   a forest map in a state whose terrain model comes in tiles keeps it as `data/terrain.tif`. A cliff the orthophoto
   shows as rock is kept first (`freemapper:rock-seen`); one it does not show loses nothing, since most faces are

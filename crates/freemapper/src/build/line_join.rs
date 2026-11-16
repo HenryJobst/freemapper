@@ -49,6 +49,30 @@ pub fn join_lines_keyed(
     georef: &Georeferencing,
     key: Option<&str>,
 ) -> (usize, Vec<(String, String)>) {
+    join_grouped(objects, ids, sided, georef, key, |_| None)
+}
+
+/// As [`join_lines`], and only lines of one `group` join: the objects of a symbol are joined
+/// among those `group` gives the same value. Returns how many objects went.
+pub fn join_lines_by(
+    objects: &mut Vec<MapObject>,
+    ids: &[u32],
+    sided: &[u32],
+    georef: &Georeferencing,
+    group: impl Fn(&MapObject) -> Option<String>,
+) -> usize {
+    join_grouped(objects, ids, sided, georef, None, group).0
+}
+
+/// [`join_lines_keyed`] within the groups of `group`.
+fn join_grouped(
+    objects: &mut Vec<MapObject>,
+    ids: &[u32],
+    sided: &[u32],
+    georef: &Georeferencing,
+    key: Option<&str>,
+    group: impl Fn(&MapObject) -> Option<String>,
+) -> (usize, Vec<(String, String)>) {
     let mut absorbed = Vec::new();
     let before = objects.len();
     let mut slots: Vec<Option<MapObject>> = std::mem::take(objects).into_iter().map(Some).collect();
@@ -56,16 +80,16 @@ pub fn join_lines_keyed(
     ids.sort_unstable();
     ids.dedup();
     for id in ids {
-        let candidates: Vec<usize> = slots
-            .iter()
-            .enumerate()
-            .filter(|(_, o)| o.as_ref().is_some_and(|o| joinable(o, id)))
-            .map(|(i, _)| i)
-            .collect();
-        if !candidates.is_empty() {
+        let mut groups: BTreeMap<Option<String>, Vec<usize>> = BTreeMap::new();
+        for (i, o) in slots.iter().enumerate() {
+            if let Some(o) = o.as_ref().filter(|o| joinable(o, id)) {
+                groups.entry(group(o)).or_default().push(i);
+            }
+        }
+        for candidates in groups.values() {
             join_symbol(
                 &mut slots,
-                &candidates,
+                candidates,
                 sided.contains(&id),
                 georef,
                 key.map(|key| (key, &mut absorbed)),

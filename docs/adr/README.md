@@ -171,7 +171,7 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0123](0123-bavaria-the-cadastre-from-files.md) | Bavaria: the cadastre from files | Accepted | 2026-11-14 |
 | [0124](0124-forest-administrations-in-the-permit-notes.md) | Forest administrations in the permit notes | Accepted | 2026-11-14 |
 | [0125](0125-steep-forest-gets-10-m-contours.md) | A steep forest map gets contours every 10 m | Accepted | 2026-11-14 |
-| [0126](0126-cliffs-on-the-forest-map-are-generalized.md) | Cliffs on the forest map are generalized | Accepted, amended by ADR 0140 | 2026-11-14 |
+| [0126](0126-cliffs-on-the-forest-map-are-generalized.md) | Cliffs on the forest map are generalized | Accepted, amended by ADR 0140 and 0157 | 2026-11-14 |
 | [0127](0127-permit-notes-follow-the-map-area.md) | Permit notes follow the map area | Accepted | 2026-11-14 |
 | [0128](0128-bavaria-vegetation-from-the-point-clouds.md) | Bavaria: vegetation from the point clouds | Accepted | 2026-11-14 |
 | [0129](0129-permit-notes-for-hamburg-water-protection-and-forest-functions.md) | Permit notes for Hamburg, water protection and forest functions | Accepted | 2026-11-14 |
@@ -185,7 +185,7 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0137](0137-permit-notes-for-schleswig-holstein.md) | Permit notes for Schleswig-Holstein | Accepted | 2026-11-14 |
 | [0138](0138-vegetation-green-shades-by-the-density-below-3-m.md) | Vegetation: the green shades follow the density below 3 m | Accepted | 2026-11-14 |
 | [0139](0139-permit-notes-for-saxony-asked-at-points.md) | Permit notes for Saxony, asked at points | Accepted | 2026-11-15 |
-| [0140](0140-the-training-map-is-a-product-of-its-own.md) | The training map is a product of its own | Accepted, amends ADR 0080, 0097, 0126 and 0134, amended by ADR 0150, 0151 and 0156 | 2026-11-15 |
+| [0140](0140-the-training-map-is-a-product-of-its-own.md) | The training map is a product of its own | Accepted, amends ADR 0080, 0097, 0126 and 0134, amended by ADR 0150, 0151, 0156 and 0157 | 2026-11-15 |
 | [0141](0141-bavaria-the-dom20-read-by-range.md) | Bavaria: the DOM20 read by range | Accepted | 2026-11-15 |
 | [0142](0142-water-protection-areas-of-the-bfg.md) | Water protection areas of the BfG | Accepted | 2026-11-15 |
 | [0143](0143-water-protection-zones-of-baden-wuerttemberg.md) | Water protection zones of Baden-Württemberg, with the authority in charge | Accepted | 2026-11-15 |
@@ -202,3 +202,4 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0154](0154-cargo-deny.md) | cargo-deny checks the dependencies | Accepted | 2026-11-15 |
 | [0155](0155-saarland-forest-roads-and-the-wire-class.md) | Saarland: the forest road network as candidates, and class 14 of the point cloud left out | Accepted | 2026-11-16 |
 | [0156](0156-candidate-layers.md) | The candidates in seven layers | Accepted, amends ADR 0003, 0010 and 0140 | 2026-11-16 |
+| [0157](0157-the-light-level-of-the-base-map.md) | The light level of the base map | Accepted, amends ADR 0126 and 0140 | 2026-11-16 |

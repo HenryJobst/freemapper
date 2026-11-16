@@ -57,7 +57,10 @@ use crate::build::line_cuts::cut_lines_at_ways;
 use crate::build::line_join::{TOUCH_M, join_lines_keyed};
 use crate::build::open_land::MIN_PIECE_SIDE_MM;
 use crate::build::out_of_bounds::{area_object, short_side};
-use crate::build::points::{FOREST, PAVED_AREA_CODES, SCATTERED_TREES, in_map_units, projected};
+use crate::build::paved::HIDDEN_CARRIAGEWAY;
+use crate::build::points::{
+    FOREST, HIDDEN_KEY, PAVED_AREA_CODES, SCATTERED_TREES, in_map_units, projected,
+};
 use crate::derive::vegetation::{CELL_M, VegetationClass, majority, min_area_m2, outlines};
 use crate::georef::Georeferencing;
 use crate::measure::{PaperMm, PaperMm2, SymbolMm, SymbolMm2, SymbolScale, map_units_per_metre};
@@ -159,6 +162,38 @@ pub struct TrainingReport {
     pub apart_left: f64,
 }
 
+/// The objects the training level starts from (spec 2026-11-14, Order): the map before the light
+/// level (`build/light.rs`) and the candidates the training map draws.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct TrainingInput {
+    /// The objects of the map before the light level.
+    pub map: Vec<MapObject>,
+    /// The candidates but the outline of the map area (the first candidate) and the hidden ones
+    /// (`freemapper:hidden`). The hidden carriageways of the street survey are among them: only
+    /// the training map draws them ([`draw_carriageways`] takes the tag off).
+    pub candidates: Vec<MapObject>,
+}
+
+impl TrainingInput {
+    /// The input of the training map placed as `map` and `candidates`.
+    pub fn of(map: &[MapObject], candidates: &[MapObject]) -> Self {
+        let shown = |o: &&MapObject| {
+            !o.tags
+                .iter()
+                .any(|(k, v)| k == HIDDEN_KEY && v != HIDDEN_CARRIAGEWAY)
+        };
+        Self {
+            map: map.to_vec(),
+            candidates: candidates.iter().skip(1).filter(shown).cloned().collect(),
+        }
+    }
+
+    /// The objects of the map, then the candidates.
+    pub fn objects(&self) -> impl Iterator<Item = &MapObject> {
+        self.map.iter().chain(&self.candidates)
+    }
+}
+
 /// The objects of the training map from the objects of the map and the visible candidates.
 /// `tree_cover` is the share of ground under trees per cell (`data/tree-cover.tif`), when there
 /// is one.
@@ -243,6 +278,23 @@ fn join(
     georef: &Georeferencing,
     key: Option<&str>,
 ) -> (usize, Vec<(String, String)>) {
+    let (ids, sided) = join_ids(classes);
+    let mut joined = 0;
+    let mut absorbed = Vec::new();
+    loop {
+        let (n, went) = join_lines_keyed(objects, &ids, &sided, georef, key);
+        if n == 0 {
+            return (joined, absorbed);
+        }
+        joined += n;
+        absorbed.extend(went);
+    }
+}
+
+/// The symbols whose lines [`join`] joins (the ways, stairways among them, the watercourses, the
+/// earth banks, the barriers and the contours), and those of them never reversed: the lines with
+/// a side (earth banks, cliffs, barriers).
+pub(crate) fn join_ids(classes: &Classes) -> (Vec<u32>, Vec<u32>) {
     use Class::*;
     let ids_of = |of: &[Class]| -> Vec<u32> { of.iter().flat_map(|&c| classes.ids(c)).collect() };
     let ids = ids_of(&[
@@ -256,16 +308,7 @@ fn join(
         Contour,
     ]);
     let sided = ids_of(&[EarthBank, Cliff, Barrier]);
-    let mut joined = 0;
-    let mut absorbed = Vec::new();
-    loop {
-        let (n, went) = join_lines_keyed(objects, &ids, &sided, georef, key);
-        if n == 0 {
-            return (joined, absorbed);
-        }
-        joined += n;
-        absorbed.extend(went);
-    }
+    (ids, sided)
 }
 
 /// Step 2: a point of symbol 531 whose centre lies on a paved area goes; in a park it stays.
@@ -581,7 +624,7 @@ fn give_way(
 const CUT_GAP_TO: &str = "cut: gap to ";
 
 /// The name of `class` in the `freemapper:generalized` value of a cut piece.
-fn class_name(class: Class) -> &'static str {
+pub(crate) fn class_name(class: Class) -> &'static str {
     match class {
         Class::Building => "building",
         Class::WaterArea => "water area",
@@ -631,12 +674,32 @@ fn cut_out(
     let Some(code) = symbol_set.code_for_id(object.symbol_id) else {
         return Vec::new();
     };
+    // Beyond the measure's zone by the tolerance, so that the cut ends are clear of it.
+    let grow = footprints.half_width(loser) + gap + TOLERANCE_MM;
+    let ways: Vec<Polygon<f64>> = conflict_zones(loser, winners, footprints, grow, gap)
+        .iter()
+        .map(|p| projected(&in_map_units(p), georef))
+        .collect();
+    let mut pieces = vec![object.clone()];
+    cut_lines_at_ways(&mut pieces, &[code], &ways, min_m, georef, symbol_set);
+    pieces
+}
+
+/// The zones of the line `loser` of `footprints` round the footprints of `winners`, mm on paper:
+/// each winner's footprint near the loser grown by `grow`, without the discs round the places
+/// where the centre lines cross (the loser's and the winner's half width and `gap`): there the
+/// drawing joins them, as the measure counts it.
+pub(crate) fn conflict_zones(
+    loser: usize,
+    winners: &[usize],
+    footprints: &Footprints,
+    grow: f64,
+    gap: f64,
+) -> Vec<Polygon<f64>> {
     let centre = footprints.centre(loser);
     let Some(frame) = centre.bounding_rect() else {
         return Vec::new();
     };
-    // Beyond the measure's zone by the tolerance, so that the cut ends are clear of it.
-    let grow = footprints.half_width(loser) + gap + TOLERANCE_MM;
     let margin = grow + 1.0;
     let around = Rect::new(
         Coord {
@@ -660,16 +723,14 @@ fn cut_out(
         for crossing in meeting_points(centre, footprints.centre(winner)) {
             zone = zone.difference(&Point(crossing).buffer(radius));
         }
-        ways.extend(zone.0.iter().map(|p| projected(&in_map_units(p), georef)));
+        ways.extend(zone.0);
     }
-    let mut pieces = vec![object.clone()];
-    cut_lines_at_ways(&mut pieces, &[code], &ways, min_m, georef, symbol_set);
-    pieces
+    ways
 }
 
 /// The minimum length of the line `object` on paper: the norm's for stairs, the one the symbol
 /// set gives, else [`MIN_LINE_MM`].
-fn min_length(
+pub(crate) fn min_length(
     object: &MapObject,
     classes: &Classes,
     symbol_set: &SymbolSet,
@@ -745,6 +806,38 @@ fn drop_too_small(
     georef: &Georeferencing,
     symbol_set: &SymbolSet,
 ) -> usize {
+    let TooSmall { gone, as_path } =
+        too_small(objects, classes, kind, georef, symbol_set, &|_| true);
+    for (i, symbol_id) in as_path {
+        let object = &mut objects[i];
+        object.symbol_id = symbol_id;
+        add_generalized(object, STAIR_AS_PATH);
+    }
+    let before = objects.len();
+    let mut flags = gone.into_iter();
+    objects.retain(|_| !flags.next().unwrap_or(false));
+    before - objects.len()
+}
+
+/// What [`too_small`] found.
+pub(crate) struct TooSmall {
+    /// Per object: whether it is below its minimum and goes.
+    pub(crate) gone: Vec<bool>,
+    /// The short stairways that stay, each with the symbol of the way it is drawn as.
+    pub(crate) as_path: Vec<(usize, u32)>,
+}
+
+/// The objects of `objects` below the norm's minimum, by the rules of [`drop_too_small`], which
+/// applies them; only the objects `considered` can be too small, the others are lines and areas
+/// long and large enough.
+pub(crate) fn too_small(
+    objects: &[MapObject],
+    classes: &Classes,
+    kind: MapKind,
+    georef: &Georeferencing,
+    symbol_set: &SymbolSet,
+    considered: &dyn Fn(&MapObject) -> bool,
+) -> TooSmall {
     let scale_denominator = georef.scale_denominator;
     let scale = SymbolScale::drawn_with(symbol_set, scale_denominator);
     let areas = min_areas(kind, symbol_set, scale);
@@ -755,7 +848,9 @@ fn drop_too_small(
     let short: Vec<bool> = objects
         .iter()
         .map(|o| {
-            is_line(o) && drawn(o) < min_length(o, classes, symbol_set, scale).0 - TOLERANCE_MM
+            considered(o)
+                && is_line(o)
+                && drawn(o) < min_length(o, classes, symbol_set, scale).0 - TOLERANCE_MM
         })
         .collect();
     let touch =
@@ -860,6 +955,9 @@ fn drop_too_small(
             if short[i] {
                 return !stays[i];
             }
+            if !considered(object) {
+                return false;
+            }
             let Some(&min_m2) = areas.get(&object.symbol_id) else {
                 return false;
             };
@@ -872,15 +970,10 @@ fn drop_too_small(
             area_m2 < side * side
         })
         .collect();
-    for (i, symbol_id) in as_path {
-        let object = &mut objects[i];
-        object.symbol_id = symbol_id;
-        add_generalized(object, STAIR_AS_PATH);
+    TooSmall {
+        gone: too_small,
+        as_path,
     }
-    let before = objects.len();
-    let mut flags = too_small.into_iter();
-    objects.retain(|_| !flags.next().unwrap_or(false));
-    before - objects.len()
 }
 
 /// Whether a barrier runs along the stairway `objects[stair]` so close that, drawn with the path
@@ -938,7 +1031,7 @@ fn barrier_along(
 }
 
 /// Adds `value` to the `freemapper:generalized` tag of `object`.
-pub(super) fn add_generalized(object: &mut MapObject, value: &str) {
+pub(crate) fn add_generalized(object: &mut MapObject, value: &str) {
     match object.tags.iter_mut().find(|(k, _)| k == GENERALIZED_KEY) {
         Some((_, v)) => {
             v.push_str("; ");
@@ -998,19 +1091,19 @@ fn left(
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use crate::crs::{Crs, ProjectedPoint};
     use crate::omap::{MapCoord, closed_ring};
 
     /// The scale of the tests: a forest map at 1:10 000, symbols at 150 %.
-    pub(super) const SCALE: u32 = 10_000;
+    pub(crate) const SCALE: u32 = 10_000;
 
-    pub(super) fn isom() -> SymbolSet {
+    pub(crate) fn isom() -> SymbolSet {
         SymbolSet::isom_2017_2(MapKind::Forest.symbol_enlargement(SCALE))
     }
 
-    pub(super) fn georef_at(scale: u32) -> Georeferencing {
+    pub(crate) fn georef_at(scale: u32) -> Georeferencing {
         let centre = Crs::Utm33
             .inverse(ProjectedPoint {
                 easting: 392_400.0,
@@ -1025,7 +1118,7 @@ mod tests {
     }
 
     /// A line `code` through `points` (paper mm, y down).
-    pub(super) fn line(set: &SymbolSet, code: &str, points: &[(f64, f64)]) -> MapObject {
+    pub(crate) fn line(set: &SymbolSet, code: &str, points: &[(f64, f64)]) -> MapObject {
         MapObject {
             symbol_id: set.id_for_code(code).unwrap(),
             kind: MapObjectKind::Path,
@@ -1035,7 +1128,7 @@ mod tests {
     }
 
     /// An area `code`: the rectangle from `min` to `max` (paper mm).
-    pub(super) fn area(set: &SymbolSet, code: &str, min: (f64, f64), max: (f64, f64)) -> MapObject {
+    pub(crate) fn area(set: &SymbolSet, code: &str, min: (f64, f64), max: (f64, f64)) -> MapObject {
         let ring: Vec<(i32, i32)> = [
             (min.0, min.1),
             (max.0, min.1),
@@ -1056,7 +1149,7 @@ mod tests {
         }
     }
 
-    pub(super) fn point(set: &SymbolSet, code: &str, p: (f64, f64)) -> MapObject {
+    pub(crate) fn point(set: &SymbolSet, code: &str, p: (f64, f64)) -> MapObject {
         MapObject {
             symbol_id: set.id_for_code(code).unwrap(),
             kind: MapObjectKind::Point { rotation_rad: 0.0 },
@@ -1069,7 +1162,7 @@ mod tests {
         train(objects, None, MapKind::Forest, &georef_at(SCALE), set)
     }
 
-    pub(super) fn of_code<'a>(
+    pub(crate) fn of_code<'a>(
         set: &SymbolSet,
         objects: &'a [MapObject],
         code: &str,
@@ -1079,14 +1172,14 @@ mod tests {
     }
 
     /// Length of a line, mm on paper.
-    pub(super) fn length_mm(object: &MapObject) -> f64 {
+    pub(crate) fn length_mm(object: &MapObject) -> f64 {
         parts(&object.coords)
             .iter()
             .map(|p| length(&p.points))
             .sum()
     }
 
-    fn half_width(set: &SymbolSet, code: &str) -> f64 {
+    pub(crate) fn half_width(set: &SymbolSet, code: &str) -> f64 {
         let object = line(set, code, &[(0.0, 0.0), (10.0, 0.0)]);
         Footprints::of(&[&object], set).half_width(0)
     }

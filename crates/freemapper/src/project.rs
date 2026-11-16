@@ -11820,6 +11820,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
                 attribution: Vec::new(),
             },
             content_settings: ContentSettings::default(),
+            training: Default::default(),
         };
         let (map, _) = pdf_objects(&documents, true);
         assert_eq!(map, [&shown]);
@@ -11833,6 +11834,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         use crate::build::points::test_support::fixture;
         let f = fixture(MapKind::Sprint);
         let outline = f.rect("520", (0.0, 0.0), (1.0, 1.0));
+        let outline_copy = outline.clone();
         let mut street = f.rect("501.5", (0.0, 0.0), (40.0, 12.0));
         street
             .tags
@@ -11873,6 +11875,10 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
                 attribution: Vec::new(),
             },
             content_settings: ContentSettings::default(),
+            training: crate::build::training::TrainingInput::of(
+                &[street.clone()],
+                &[outline_copy, carriageway.clone(), under_olive.clone()],
+            ),
         };
         // Neither the map nor the check print draws it.
         let (check_print, _) = pdf_objects(&documents, true);
@@ -11880,11 +11886,8 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let (map, _) = pdf_objects(&documents, false);
         assert_eq!(map, [&street]);
         // The training level gets it, and only it of the hidden candidates.
-        let training: Vec<&MapObject> = training_candidates(&documents).collect();
-        assert_eq!(training, [&carriageway]);
-        let input: Vec<MapObject> = std::iter::once(street.clone())
-            .chain(training.into_iter().cloned())
-            .collect();
+        let input: Vec<MapObject> = documents.training.objects().cloned().collect();
+        assert_eq!(input, [street.clone(), carriageway.clone()]);
         let (trained, report) =
             crate::build::training::train(input, None, MapKind::Sprint, &f.georef, &f.set);
         assert_eq!(report.carriageways, 1);
