@@ -6,8 +6,8 @@ map. It ships in every release archive next to the program. People read the webs
 
 freemapper makes a starter project for an orienteering map from official geodata of a German state and from
 OpenStreetMap: a georeferenced OpenOrienteering Mapper map (`.omap`) with buildings, paved areas, paths and other
-reliable objects already drawn, templates (orthophoto, hillshade, slope, local relief, nDSM), a candidates map to
-check, and on request an OCAD starting point, printable PDFs, a training map to print and run on as it is, and permit
+reliable objects already drawn, templates (orthophoto, hillshade, slope, local relief, nDSM), seven candidate layers
+to check, and on request an OCAD starting point, printable PDFs, a training map to print and run on as it is, and permit
 notes (who is in charge of the area, a hint, not legal advice). Map kinds: `schoolyard` (1:1000), `sprint` (ISSprOM
 2019, 1:4000 or 1:5000) and `forest` (ISOM 2017-2, 1:15000, 1:10000 or 1:7500; the OSM paths on the map, for a quick
 training in a small forest).
@@ -214,7 +214,7 @@ states such as `running` or `finished` are the same in both languages. This file
 | `start_pipeline` | `dir`; optional `force`, `offline`, `ocad`, `pdf`, `pdf_candidates`, `training`, `pdf_scale_bar`, `pdf_sources`, `permits`, `content`, `content_set`, `contour_interval` (metres, 0: automatic; saved in the project) | Fetches, derives and writes the project in the background. Returns a job id. With `permits: true` it writes the permit notes after the map; a failure there is a warning, not a failed job. |
 | `project_status` | `job_id` | `running`, `finished` or `failed`, with the last progress lines, the warnings, the written files (`files`: kind, path, bytes) and the result or the error. A finished `permits_for_area` job also carries `permits_md`, the text of `permits.md`. |
 | `permits_for_area` | `dir`; optional `offline` | Makes the permit notes of a project (`permits.md`, `permits.json`) in the background. Returns a job id; poll `project_status`. `offline: true` reads only the data an earlier run stored in the project. |
-| `list_layers` | `dir` | The layers of a project: map, candidates, raster templates. |
+| `list_layers` | `dir` | The layers of a project: the map, the seven candidate layers (`candidates-terrain`, `candidates-water`, `candidates-vegetation`, `candidates-paths`, `candidates-barriers`, `candidates-features`, `candidates-out-of-bounds`), the raster templates. |
 | `preview_layer` | `dir`, `layer` | A PNG preview (at most 800 px) of `map` (the map objects as the last run drew them, without the candidates), `orthophoto`, `hillshade`, `slope`, `relief`, `ndsm`, or `k5` in Berlin. |
 | `open_area_selector` | `dir`; optional `kind`, `scale`, `title`, `open_browser`, and the same output switches as `start_pipeline`, `permits` (ticks the box "Permit notes") and `training` (ticks the box "Training map") among them | Opens a page in the browser on this computer where the user draws or picks the area and saves it. Returns the address. |
 | `check_update` | none | Whether a newer freemapper release exists: version, release date, release notes link and download size, or that this one is up to date. Installs nothing. |
@@ -276,9 +276,14 @@ Rules:
 ## What lands in the project folder
 
 - `<name>.omap`: the map for OpenOrienteering Mapper, with the finished map objects and the peripheral information.
-- `templates/`: `orthophoto.jpg`, `hillshade.png`, `slope.png`, `relief.png`, `ndsm.png` with world files, and
-  `candidates.omap`.
-- `ocad/` (with `ocad`): `<name>.ocd`, `<name>-candidates.ocd` and the templates.
+- `templates/`: `orthophoto.jpg`, `hillshade.png`, `slope.png`, `relief.png`, `ndsm.png` with world files, and the
+  seven candidate layers `candidates-terrain.omap`, `candidates-water.omap`, `candidates-vegetation.omap`,
+  `candidates-paths.omap`, `candidates-barriers.omap`, `candidates-features.omap` and
+  `candidates-out-of-bounds.omap`. The map lists them after the raster templates, hidden, at 70 % opacity. A map
+  of 0.23.0 or older that a run keeps still names `candidates.omap`; the run fills it with every candidate and
+  prints `The map still names templates/candidates.omap; …`. Pass that on. `--force` replaces the map and deletes
+  the old file.
+- `ocad/` (with `ocad`): `<name>.ocd`, one `<name>-candidates-<layer>.ocd` per candidate layer and the templates.
 - `<name>.pdf` (with `pdf`) and `<name>-candidates.pdf`, the check print (with `pdf_candidates`).
 - `<name>-training.omap` and `<name>-training.pdf` (with `training`): the training map; with `ocad` also
   `ocad/<name>-training.ocd`. Its map file lists the raster templates and no candidates.
@@ -299,8 +304,9 @@ The cache is shared by all projects: macOS `~/Library/Caches/freemapper`, Linux 
 
 - Open the `.omap` with OpenOrienteering Mapper (free, all systems). Templates can be switched on there.
 - The map holds only what the data shows reliably. Everything uncertain (furniture, barriers, many paths,
-  contours, knolls and banks from the terrain, out-of-bounds areas) is in the candidates map and must be checked
-  against the orthophoto and in the terrain before it is copied into the map. The check print
+  contours, knolls and banks from the terrain, out-of-bounds areas) is in the candidate layers and must be checked
+  against the orthophoto and in the terrain before it is copied into the map. The layers start hidden; the
+  person switches each on in OOM's list of templates (menu *Templates*), where each has its own opacity. The check print
   (`<name>-candidates.pdf`) draws all of it true to position, for checking in the terrain.
 - The training map (`<name>-training.omap`, `<name>-training.pdf`) is printed and used as it is. It holds the map
   and the candidates, cleaned up so that symbols do not lie on each other: it joins lines, cuts out or leaves out
@@ -311,7 +317,7 @@ The cache is shared by all projects: macOS `~/Library/Caches/freemapper`, Linux 
   such as two carriageways or two tracks, become one line on their middle; on a forest map a sidewalk beside a road
   goes. A line too close to another object moves off by up to 0.5 mm on paper before it is cut, and path ends stay
   on the lines they met. In Berlin the carriageways are drawn in the darker brown and the kerbs inside the streets
-  go; the hidden carriageways show as dark areas in the candidates template. Do not map on it: the base map and
+  go; the hidden carriageways show as dark areas in the candidate layer of the paths. Do not map on it: the base map and
   the candidates stay the working material, true to position. freemapper builds the training map from the data, so corrections in OOM do not reach
   it; to renew only the training map, delete `<name>-training.omap` (with `--ocad` also
   `ocad/<name>-training.ocd`) and run again without `--force`, because `--force` also replaces the base map. Its

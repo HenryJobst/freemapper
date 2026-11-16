@@ -29,6 +29,7 @@ cli-kept-map = Kept { $path } (it may contain your work)
 cli-map-lacks-templates = The map does not reference the image templates yet. Add them in OOM (Templates > Open template…) or replace the map with --force, which keeps the old one as .omap.bak.
 cli-map-lacks-buildings = The map has no ALKIS buildings yet. To add them, replace it with --force, which keeps the old one as .omap.bak.
 cli-map-lacks-canopies = The map lacks the ALKIS canopies and carports (522) that are now map objects. To add them, run with --force, which keeps the old map as .omap.bak.
+cli-map-old-candidates = The map still names templates/candidates.omap; this run filled it with every candidate. The candidates now also come in seven layers, one file each (templates/candidates-*.omap). The map lists them after you replace it with --force (the old one stays as .omap.bak), or add them yourself in OOM (Templates > Open template…).
 
 ## PDF
 
@@ -655,6 +656,7 @@ cli-summary-kept-map = Kept the existing map { $path } (it may contain the mappe
 cli-summary-map-lacks-templates = The map does not reference the image templates yet. Start the pipeline with force to replace it and keep the old one as .omap.bak.
 cli-summary-map-lacks-buildings = The map has no ALKIS buildings yet. Start the pipeline with force to add them; it replaces the map and keeps the old one as .omap.bak.
 cli-summary-map-lacks-canopies = The map lacks the ALKIS canopies and carports (522) that are now map objects. Start the pipeline with force to add them; it replaces the map and keeps the old one as .omap.bak.
+cli-summary-map-old-candidates = The map still names templates/candidates.omap; this run filled it with every candidate. The candidates now also come in seven layers, one file each (templates/candidates-*.omap). The map lists them after a run with force (the old map stays as .omap.bak), or the mapper adds them in OOM (Templates > Open template…).
 cli-summary-wrote-ocad = Wrote the OCAD map { $path } ({ $count } objects)
 cli-summary-kept-ocad = Kept the existing OCAD map { $path } (it may contain the mapper's work; force replaces it)
 cli-summary-ocad-left-out = Left out of the OCAD map: { $skipped } objects and { $dropped } degenerate parts
@@ -706,7 +708,7 @@ mcp-tool-find-place = Search a school, park or other place by name (OpenStreetMa
 mcp-param-find-place-query = Name of the school or place, e.g. "Clara-Zetkin-Schule Strausberg".
 mcp-tool-install-update = Install the newest freemapper release over this program. Call it only after the person agreed, with confirm true. The new version applies once the assistant restarts the freemapper server.
 mcp-param-install-update-confirm = true once the person agreed to install the newer version; without it nothing is installed.
-mcp-tool-list-layers = The layers of a project: the map, the candidates and the raster templates, each with its file, whether it is made yet and which step makes it.
+mcp-tool-list-layers = The layers of a project: the map, the seven candidate layers and the raster templates, each with its file, whether it is made yet and which step makes it.
 mcp-param-list-layers-dir = Project folder (absolute path or starting with ~).
 mcp-tool-open-area-selector = Open a page in the browser where the user draws the map area (rectangle or polygon) or picks a place, sees the tiles and the download size, and saves it; saving creates the project folder or changes its area. Returns the URL to give the user. The page runs until the user presses Done; calling again for the same folder returns the same URL.
 mcp-param-open-area-selector-dir = Project folder (absolute path or starting with ~); created when the user saves.

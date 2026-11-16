@@ -48,14 +48,14 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 |---|---|---|---|
 | [0001](0001-rust-with-a-pure-rust-core.md) | Rust with a pure-Rust core | Accepted | 2026-11-06 |
 | [0002](0002-oom-as-primary-output-ocad-and-pdf-as-extras.md) | OOM as the primary output, OCAD and PDF as extra outputs | Accepted, amended by ADR 0080 | 2026-11-06 |
-| [0003](0003-sure-objects-as-map-objects-rest-as-templates.md) | Sure objects as map objects, the rest as templates | Accepted | 2026-11-06 |
+| [0003](0003-sure-objects-as-map-objects-rest-as-templates.md) | Sure objects as map objects, the rest as templates | Accepted, amended by ADR 0156 | 2026-11-06 |
 | [0004](0004-provenance-tags-on-generated-objects.md) | Provenance tags on generated objects | Accepted | 2026-11-06 |
 | [0005](0005-mcp-over-stdio-as-the-lay-interface.md) | MCP over stdio as the interface for non-technical users | Accepted | 2026-11-06 |
 | [0006](0006-gpl-3.0-or-later.md) | GPL-3.0-or-later | Superseded by ADR 0152 | 2026-11-06 |
 | [0007](0007-glossary-first-english-code-bilingual-docs.md) | Glossary first, English code, bilingual user docs | Accepted | 2026-11-06 |
 | [0008](0008-osm-from-geofabrik-extracts.md) | OSM from Geofabrik extracts, not Overpass | Accepted | 2026-11-06 |
 | [0009](0009-area-selection-in-a-local-browser-page.md) | Area selection in a local browser page | Accepted | 2026-11-06 |
-| [0010](0010-templates-as-image-world-file-and-template-map.md) | Raster templates as image plus world file, vector templates as a template map | Accepted | 2026-11-07 |
+| [0010](0010-templates-as-image-world-file-and-template-map.md) | Raster templates as image plus world file, vector templates as a template map | Accepted, amended by ADR 0156 | 2026-11-07 |
 | [0011](0011-re-runnable-projects-and-a-currency-keyed-cache.md) | Re-runnable projects and a cache keyed by data currency | Accepted | 2026-11-07 |
 | [0012](0012-dependencies-at-least-two-weeks-old.md) | Dependencies at least two weeks old | Accepted | 2026-11-07 |
 | [0013](0013-regions-as-data-and-a-raster-region-by-the-area-centre.md) | Regions as data, and a raster region by the area centre | Accepted | 2026-11-07 |
@@ -185,7 +185,7 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0137](0137-permit-notes-for-schleswig-holstein.md) | Permit notes for Schleswig-Holstein | Accepted | 2026-11-14 |
 | [0138](0138-vegetation-green-shades-by-the-density-below-3-m.md) | Vegetation: the green shades follow the density below 3 m | Accepted | 2026-11-14 |
 | [0139](0139-permit-notes-for-saxony-asked-at-points.md) | Permit notes for Saxony, asked at points | Accepted | 2026-11-15 |
-| [0140](0140-the-training-map-is-a-product-of-its-own.md) | The training map is a product of its own | Accepted, amends ADR 0080, 0097, 0126 and 0134, amended by ADR 0150 and 0151 | 2026-11-15 |
+| [0140](0140-the-training-map-is-a-product-of-its-own.md) | The training map is a product of its own | Accepted, amends ADR 0080, 0097, 0126 and 0134, amended by ADR 0150, 0151 and 0156 | 2026-11-15 |
 | [0141](0141-bavaria-the-dom20-read-by-range.md) | Bavaria: the DOM20 read by range | Accepted | 2026-11-15 |
 | [0142](0142-water-protection-areas-of-the-bfg.md) | Water protection areas of the BfG | Accepted | 2026-11-15 |
 | [0143](0143-water-protection-zones-of-baden-wuerttemberg.md) | Water protection zones of Baden-Württemberg, with the authority in charge | Accepted | 2026-11-15 |
@@ -201,3 +201,4 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0153](0153-narrow-openings-in-walls-and-fences-on-the-training-map.md) | Narrow openings in walls and fences on the training map | Accepted | 2026-11-15 |
 | [0154](0154-cargo-deny.md) | cargo-deny checks the dependencies | Accepted | 2026-11-15 |
 | [0155](0155-saarland-forest-roads-and-the-wire-class.md) | Saarland: the forest road network as candidates, and class 14 of the point cloud left out | Accepted | 2026-11-16 |
+| [0156](0156-candidate-layers.md) | The candidates in seven layers | Accepted, amends ADR 0003, 0010 and 0140 | 2026-11-16 |

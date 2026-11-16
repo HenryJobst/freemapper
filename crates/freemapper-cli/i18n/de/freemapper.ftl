@@ -29,6 +29,7 @@ cli-kept-map = { $path } behalten (die Datei kann Ihre Arbeit enthalten)
 cli-map-lacks-templates = Die Karte verweist noch nicht auf die Bildvorlagen. Fügen Sie sie in OOM hinzu (Vorlagen > Vorlage öffnen …) oder ersetzen Sie die Karte mit --force; die alte bleibt als .omap.bak erhalten.
 cli-map-lacks-buildings = Die Karte hat noch keine ALKIS-Gebäude. Um sie zu ergänzen, ersetzen Sie die Karte mit --force; die alte bleibt als .omap.bak erhalten.
 cli-map-lacks-canopies = Der Karte fehlen die ALKIS-Überdachungen und Carports (522), die inzwischen Kartenobjekte sind. Um sie zu ergänzen, starten Sie mit --force; die alte Karte bleibt als .omap.bak erhalten.
+cli-map-old-candidates = Die Karte nennt noch templates/candidates.omap; dieser Lauf hat sie mit allen Kandidaten gefüllt. Die Kandidaten gibt es jetzt auch in sieben Layern, je einer Datei (templates/candidates-*.omap). Die Karte führt sie, wenn Sie sie mit --force ersetzen (die alte bleibt als .omap.bak erhalten), oder Sie fügen sie in OOM selbst hinzu (Vorlagen > Vorlage öffnen …).
 
 ## PDF
 
@@ -655,6 +656,7 @@ cli-summary-kept-map = Die vorhandene Karte { $path } bleibt (sie kann die Arbei
 cli-summary-map-lacks-templates = Die Karte verweist noch nicht auf die Bildvorlagen. Starten Sie die Pipeline mit force, um sie zu ersetzen; die alte bleibt als .omap.bak erhalten.
 cli-summary-map-lacks-buildings = Die Karte hat noch keine ALKIS-Gebäude. Starten Sie die Pipeline mit force, um sie zu ergänzen; das ersetzt die Karte, die alte bleibt als .omap.bak erhalten.
 cli-summary-map-lacks-canopies = Der Karte fehlen die ALKIS-Überdachungen und Carports (522), die jetzt Kartenobjekte sind. Starten Sie die Pipeline mit force, um sie zu ergänzen; das ersetzt die Karte, die alte bleibt als .omap.bak erhalten.
+cli-summary-map-old-candidates = Die Karte nennt noch templates/candidates.omap; dieser Lauf hat sie mit allen Kandidaten gefüllt. Die Kandidaten gibt es jetzt auch in sieben Layern, je einer Datei (templates/candidates-*.omap). Die Karte führt sie nach einem Lauf mit force (die alte Karte bleibt als .omap.bak erhalten), oder die Kartiererin oder der Kartierer fügt sie in OOM hinzu (Vorlagen > Vorlage öffnen …).
 cli-summary-wrote-ocad = OCAD-Karte { $path } geschrieben ({ $count ->
         [one] 1 Objekt
        *[other] { $count } Objekte
@@ -724,7 +726,7 @@ mcp-tool-find-place = Sucht eine Schule, einen Park oder einen anderen Ort nach 
 mcp-param-find-place-query = Name der Schule oder des Ortes, z. B. "Clara-Zetkin-Schule Strausberg".
 mcp-tool-install-update = Installiert die neueste Version von freemapper über dieses Programm. Rufen Sie es erst auf, wenn die Nutzerin oder der Nutzer zugestimmt hat, und mit confirm true. Die neue Version gilt, sobald der Assistent den freemapper-Server neu startet.
 mcp-param-install-update-confirm = true, sobald die Nutzerin oder der Nutzer der Installation der neueren Version zugestimmt hat; ohne das wird nichts installiert.
-mcp-tool-list-layers = Die Ebenen eines Projekts: die Karte, die Kandidaten und die Rastervorlagen, jede mit ihrer Datei, ob es sie schon gibt und welcher Schritt sie erzeugt.
+mcp-tool-list-layers = Die Ebenen eines Projekts: die Karte, die sieben Kandidaten-Layer und die Rastervorlagen, jede mit ihrer Datei, ob es sie schon gibt und welcher Schritt sie erzeugt.
 mcp-param-list-layers-dir = Projektordner (absoluter Pfad oder mit ~ beginnend).
 mcp-tool-open-area-selector = Öffnet eine Seite im Browser, auf der die Nutzerin oder der Nutzer das Kartengebiet zeichnet (Rechteck oder Polygon) oder einen Ort wählt, die Kacheln und die Downloadgröße sieht und speichert; das Speichern legt den Projektordner an oder ändert sein Gebiet. Liefert die URL für die Nutzerin oder den Nutzer. Die Seite läuft, bis „Fertig“ gedrückt wird; ein weiterer Aufruf für denselben Ordner liefert dieselbe URL.
 mcp-param-open-area-selector-dir = Projektordner (absoluter Pfad oder mit ~ beginnend); wird beim Speichern angelegt.
