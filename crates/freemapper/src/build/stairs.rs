@@ -30,15 +30,17 @@
 //! minimum gap of 0.15 mm apart, so the ticks of neighbouring lines do not run into each other.
 
 use chrono::NaiveDate;
+use freemapper_adapter_api::extras::{LayerKinds, SetDrawing};
 use geo::{Area as _, BooleanOps as _, Distance as _, Euclidean, MinimumRotatedRect as _};
 use geo_types::{Coord, Polygon};
 use serde_json::Value;
 
-use crate::build::berlin::{feature_lines, feature_polygons, provenance_tags, survey_tags};
 use crate::build::dedup::{Rank, add_also, rank, source_and_id};
 use crate::build::geometry::{distance_to_segment, xy};
+use crate::build::sets::{dated_tags, provenance_tags};
 use crate::build::state::{NAS_SOURCE, nas_feature_tags};
 use crate::build::symbol_measures::{LINE_GAP_MM, STAIR_FOOTPRINTS_MM};
+use crate::build::tagged::{lines_in, polygons_in};
 use crate::crs::{Crs, ProjectedPoint};
 use crate::derive::ndsm::bilinear;
 use crate::georef::{GeorefError, Georeferencing};
@@ -47,10 +49,6 @@ use crate::omap::{MapObject, MapObjectKind, SymbolSet};
 use crate::project::MapKind;
 use crate::raster::Raster;
 
-/// The layer the stair areas come from.
-const STAIR_LAYER: &str = "bauwerke-flaechen";
-/// `bezbwf` of the stair areas.
-const STAIR_KINDS: [&str; 2] = ["Treppe", "Freitreppe"];
 /// An axis whose ends differ less than this in height does not decide the walking direction.
 pub const STAIR_MIN_RISE_M: f64 = 0.3;
 /// The footprint symbols are 0.4, 0.5, 0.75 and 1 mm wide on paper (symbols at 100 %; at
@@ -71,24 +69,17 @@ const MAX_WIDE_LINES: usize = 100;
 const FACADE_DISTANCE_M: f64 = 0.5;
 /// Axis ends this much farther from a facade than the nearest end count as touching it too.
 const FACADE_TIE_M: f64 = 0.05;
-/// `bezbwf` of the monument areas (flat stairs at them face them).
-const MONUMENT_KIND: &str = "Denkmal, Denkstein, Standbild";
 /// The NAS layer file the stair areas and bottom edges come from (`sources/alkis_nas.rs`).
 pub const NAS_STAIR_LAYER: &str = "sonstiges-bauwerk";
 /// `bauwerksfunktion` of the NAS stair areas (`Treppe`, `Freitreppe`) and of the bottom edge.
 const NAS_STAIR_CODES: [&str; 2] = ["1620", "1621"];
 const NAS_BOTTOM_EDGE_CODE: &str = "1630";
-/// The layer and `bezbwf` of the step edges.
-pub const STEP_EDGE_LAYER: &str = "bauwerke-linien";
-const STEP_EDGE_KIND: &str = "Freitreppe";
 /// Step edges whose middle lies this close to another edge's line belong to one flight.
 const STEP_GAP_M: f64 = 2.0;
 /// Step edges of one flight are parallel within about 15° (the sine of the angle).
 const STEP_PARALLEL_SIN: f64 = 0.26;
 /// Step edges whose ends are this close are the same edge (ALKIS has some twice).
 const DUPLICATE_EDGE_M: f64 = 0.05;
-/// The layer file of the surveyed stairs.
-pub const SURVEY_STAIR_LAYER: &str = "sb-treppe";
 /// A surveyed stair covering this share of the smaller of it and an ALKIS stair is the same,
 /// and so is an OSM stair with this share of its length on a stair of the cadastre.
 const DUPLICATE_STAIR_SHARE: f64 = 0.5;
@@ -104,20 +95,6 @@ pub fn footprint_code(paper_mm: f64) -> &'static str {
         .iter()
         .find(|(below, _)| paper_mm < *below)
         .map_or(WIDEST_FOOTPRINT, |(_, code)| code)
-}
-
-fn is_stair(feature: &Value) -> bool {
-    feature["properties"]["bezbwf"]
-        .as_str()
-        .is_some_and(|kind| STAIR_KINDS.contains(&kind))
-}
-
-fn is_step_edge(feature: &Value) -> bool {
-    feature["properties"]["bezbwf"] == STEP_EDGE_KIND
-}
-
-fn is_survey_stair(feature: &Value) -> bool {
-    feature["properties"][freemapper_adapters_de::berlin::TYPE_KEY] == "cc_treppe"
 }
 
 fn nas_code(feature: &Value) -> Option<&str> {
@@ -150,13 +127,9 @@ fn names_stair(edge: &Value, stair: &Value) -> bool {
 
 /// What the stairs are built from.
 pub struct StairInput<'a> {
-    /// The `bauwerke-flaechen` features (EPSG:25833); only the stair areas are used.
-    pub features: &'a [Value],
-    /// The `bauwerke-linien` features (EPSG:25833); only the `Freitreppe` step edges are used.
-    pub step_edges: &'a [Value],
-    /// The stored `sb-treppe` features (EPSG:25833, stamped with `freemapper:layer` and the
-    /// survey date); they are dropped where an ALKIS stair is.
-    pub survey: &'a [Value],
+    /// The layers of the set whose stairs rank with the cadastre (Berlin's ALKIS layers and
+    /// street survey, ADR 0149); `None` without one.
+    pub cadastre: Option<CadastreStairs<'a>>,
     /// The stored NAS `sonstiges-bauwerk` features (the map's CRS); only the stair areas
     /// (1620, 1621) and their bottom edges (1630, by `gehoert_zu`) are used.
     pub nas: &'a [Value],
@@ -167,6 +140,50 @@ pub struct StairInput<'a> {
     pub terrain: Option<&'a Raster<f32>>,
     /// The 521 footprints in the map's CRS, for the direction of flat entrance steps.
     pub buildings: &'a [Polygon<f64>],
+}
+
+/// The stored layers of a set that holds stairs of the cadastre: the stair areas, step edges,
+/// facades and surveyed stairs its drawing names.
+pub struct CadastreStairs<'a> {
+    pub drawing: &'a SetDrawing,
+    /// The CRS of the layers.
+    pub crs: Crs,
+    /// The stored layers: file name and features.
+    pub layers: Vec<(&'a str, &'a [Value])>,
+}
+
+impl<'a> CadastreStairs<'a> {
+    /// The features of the layers of one of `kinds`, each with its layer, in the order of `kinds`.
+    fn of(&self, kinds: &[LayerKinds]) -> Vec<(&'a str, &'a Value)> {
+        let mut found = Vec::new();
+        for kind in kinds {
+            for (layer, features) in self.layers.iter().filter(|(l, _)| *l == kind.layer) {
+                found.extend(
+                    features
+                        .iter()
+                        .filter(|f| {
+                            f["properties"][kind.field]
+                                .as_str()
+                                .is_some_and(|v| kind.kinds.contains(&v))
+                        })
+                        .map(|f| (*layer, f)),
+                );
+            }
+        }
+        found
+    }
+}
+
+/// Whether `layer` is one of the layers `drawing` takes stairs, step edges or facades from.
+pub fn holds_stairs(drawing: &SetDrawing, layer: &str) -> bool {
+    [
+        drawing.cadastre_stairs,
+        drawing.step_edges,
+        drawing.facades,
+        drawing.survey_stairs,
+    ]
+    .iter()
+    .any(|kinds| kinds.iter().any(|k| k.layer == layer))
 }
 
 /// The stair areas of one layer of a set that brings its rules: every area feature is a stair.
@@ -357,6 +374,7 @@ fn facing_facade([long, short]: [Axis; 2], facades: &[Polygon<f64>]) -> Axis {
 struct StepEdge<'a> {
     a: Coord<f64>,
     b: Coord<f64>,
+    layer: &'a str,
     feature: &'a Value,
 }
 
@@ -394,15 +412,21 @@ impl StepEdge<'_> {
     }
 }
 
-/// The `Freitreppe` step edges of the `bauwerke-linien` `features`, exact duplicates dropped.
-fn step_edges(features: &[Value], crs: Crs) -> Vec<StepEdge<'_>> {
-    let mut edges: Vec<StepEdge<'_>> = Vec::new();
-    for feature in features.iter().filter(|f| is_step_edge(f)) {
-        for line in feature_lines(feature, crs) {
+/// The step edges among `features` (each with its layer, in `from`) in `to`, exact duplicates
+/// dropped.
+fn step_edges<'a>(features: &[(&'a str, &'a Value)], from: Crs, to: Crs) -> Vec<StepEdge<'a>> {
+    let mut edges: Vec<StepEdge<'a>> = Vec::new();
+    for &(layer, feature) in features {
+        for line in lines_in(feature, from, to) {
             let (Some(&a), Some(&b)) = (line.0.first(), line.0.last()) else {
                 continue;
             };
-            let edge = StepEdge { a, b, feature };
+            let edge = StepEdge {
+                a,
+                b,
+                layer,
+                feature,
+            };
             if edge.length() > DUPLICATE_EDGE_M && !edges.iter().any(|e| e.same_as(&edge)) {
                 edges.push(edge);
             }
@@ -507,23 +531,27 @@ pub fn stair_objects(
         scale: SymbolScale::new(kind, georef.scale_denominator),
         objects: Vec::new(),
     };
+    let cadastre = input.cadastre.as_ref();
+    let of = |kinds: fn(&SetDrawing) -> &[LayerKinds]| {
+        cadastre.map_or_else(Vec::new, |c| c.of(kinds(c.drawing)))
+    };
+    let from = cadastre.map_or(crs, |c| c.crs);
     // Flat stairs face the buildings and the monuments they lie at.
     let facades: Vec<Polygon<f64>> = input
         .buildings
         .iter()
         .cloned()
         .chain(
-            input
-                .features
-                .iter()
-                .filter(|f| f["properties"]["bezbwf"] == MONUMENT_KIND)
-                .flat_map(|f| feature_polygons(f, crs)),
+            of(|d| d.facades)
+                .into_iter()
+                .flat_map(|(_, f)| polygons_in(f, from, crs)),
         )
         .collect();
-    // The ALKIS stairs: footprint and the objects drawn for it.
+    // The stairs of the cadastre: footprint and the objects drawn for it.
     let mut alkis: Vec<(Polygon<f64>, std::ops::Range<usize>)> = Vec::new();
-    for feature in input.features.iter().filter(|f| is_stair(f)) {
-        for part in feature_polygons(feature, crs) {
+    for (layer, feature) in of(|d| d.cadastre_stairs) {
+        let drawing = cadastre.expect("features come from the cadastre").drawing;
+        for part in polygons_in(feature, from, crs) {
             if Euclidean.distance(&part, map_area) > buffer_m {
                 continue;
             }
@@ -531,7 +559,7 @@ pub fn stair_objects(
                 continue;
             };
             let (axis, guessed) = walking_axis(axes, input.terrain, &facades);
-            let mut tags = provenance_tags(STAIR_LAYER, feature, currency);
+            let mut tags = provenance_tags(drawing, layer, feature, currency);
             if guessed {
                 tags.push(("freemapper:direction".to_string(), "guessed".to_string()));
             }
@@ -540,16 +568,15 @@ pub fn stair_objects(
             alkis.push((part, start..stairs.objects.len()));
         }
     }
-    // The NAS stairs. They are stored in the map's CRS: no reprojection (`feature_polygons`
-    // takes the layer CRS as given).
+    // The NAS stairs. They are stored in the map's CRS: no reprojection.
     for feature in input.nas.iter().filter(|f| is_nas_stair(f)) {
         let bottom: Vec<_> = input
             .nas
             .iter()
             .filter(|e| is_nas_bottom_edge(e) && names_stair(e, feature))
-            .flat_map(|e| crate::build::tagged::lines_in(e, crs, crs))
+            .flat_map(|e| lines_in(e, crs, crs))
             .collect();
-        for part in crate::build::tagged::polygons_in(feature, crs, crs) {
+        for part in polygons_in(feature, crs, crs) {
             if Euclidean.distance(&part, map_area) > buffer_m {
                 continue;
             }
@@ -574,8 +601,9 @@ pub fn stair_objects(
             alkis.push((part, start..stairs.objects.len()));
         }
     }
-    let edges = step_edges(input.step_edges, crs);
+    let edges = step_edges(&of(|d| d.step_edges), from, crs);
     for flight in flights(&edges) {
+        let drawing = cadastre.expect("edges come from the cadastre").drawing;
         let (axis, outline) = flight_axis(&flight, input.terrain);
         if Euclidean.distance(&outline, map_area) > buffer_m {
             continue;
@@ -583,19 +611,20 @@ pub fn stair_objects(
         let start = stairs.objects.len();
         stairs.push(
             &axis,
-            provenance_tags(STEP_EDGE_LAYER, flight[0].feature, currency),
+            provenance_tags(drawing, flight[0].layer, flight[0].feature, currency),
         )?;
         alkis.push((outline, start..stairs.objects.len()));
     }
-    for feature in input.survey.iter().filter(|f| is_survey_stair(f)) {
-        for part in feature_polygons(feature, crs) {
+    for (layer, feature) in of(|d| d.survey_stairs) {
+        let drawing = cadastre.expect("features come from the cadastre").drawing;
+        for part in polygons_in(feature, from, crs) {
             if Euclidean.distance(&part, map_area) > buffer_m {
                 continue;
             }
             let Some(axes) = axes(&part) else {
                 continue;
             };
-            let tags = survey_tags(SURVEY_STAIR_LAYER, feature);
+            let tags = dated_tags(drawing, layer, feature, currency);
             let id = tags
                 .iter()
                 .find(|(k, _)| k == "freemapper:source_id")
@@ -605,7 +634,7 @@ pub fn stair_objects(
                 .iter()
                 .find(|(footprint, _)| same_stair(footprint, &part))
             {
-                let also = format!("geoportal-berlin/{SURVEY_STAIR_LAYER}/{id}");
+                let also = format!("{}/{layer}/{id}", drawing.source_prefix);
                 for object in &mut stairs.objects[drawn.clone()] {
                     add_also(&mut object.tags, &also);
                 }
@@ -977,6 +1006,40 @@ mod tests {
         objects_with_nas(kind, features, step_edges, survey, &[], terrain, buildings)
     }
 
+    /// A set names where its stairs are (ADR 0149): Berlin's ALKIS stair areas and step edges,
+    /// the monuments flat stairs face, and its surveyed stairs.
+    #[test]
+    fn a_set_names_where_its_stairs_are() {
+        use freemapper_adapter_api::extras::LayerKinds;
+        let berlin = crate::build::sets::drawing_of_source("geoportal-berlin/").unwrap();
+        let named = |kinds: &[LayerKinds]| {
+            kinds
+                .iter()
+                .map(|k| (k.layer, k.field, k.kinds))
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(
+            named(berlin.cadastre_stairs),
+            [("bauwerke-flaechen", "bezbwf", &["Treppe", "Freitreppe"][..])]
+        );
+        assert_eq!(
+            named(berlin.step_edges),
+            [("bauwerke-linien", "bezbwf", &["Freitreppe"][..])]
+        );
+        assert_eq!(
+            named(berlin.facades),
+            [(
+                "bauwerke-flaechen",
+                "bezbwf",
+                &["Denkmal, Denkstein, Standbild"][..]
+            )]
+        );
+        assert_eq!(
+            named(berlin.survey_stairs),
+            [("sb-treppe", "freemapper:layer", &["cc_treppe"][..])]
+        );
+    }
+
     /// A stair of both surveys of a set (a street stair the park survey has too) is drawn once.
     #[test]
     fn a_stair_two_set_layers_hold_is_drawn_once() {
@@ -995,9 +1058,7 @@ mod tests {
         let draw = |sets: &[SetStairs<'_>]| {
             stair_objects(
                 &StairInput {
-                    features: &[],
-                    step_edges: &[],
-                    survey: &[],
+                    cadastre: None,
                     nas: &[],
                     sets,
                     terrain: None,
@@ -1029,9 +1090,15 @@ mod tests {
         let (georef, area, set) = setup(kind);
         stair_objects(
             &StairInput {
-                features,
-                step_edges,
-                survey,
+                cadastre: Some(CadastreStairs {
+                    drawing: crate::build::sets::drawing_of_source("geoportal-berlin/").unwrap(),
+                    crs: Crs::Utm33,
+                    layers: vec![
+                        ("bauwerke-flaechen", features),
+                        ("bauwerke-linien", step_edges),
+                        ("sb-treppe", survey),
+                    ],
+                }),
                 nas,
                 sets: &[],
                 terrain,
@@ -1664,9 +1731,7 @@ mod tests {
         });
         let objects = stair_objects(
             &StairInput {
-                features: &[],
-                step_edges: &[],
-                survey: &[],
+                cadastre: None,
                 nas: features,
                 sets: &[],
                 terrain: raster.as_ref(),

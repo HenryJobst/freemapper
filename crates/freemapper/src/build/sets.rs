@@ -244,6 +244,33 @@ pub(crate) fn provenance_tags(
     tags
 }
 
+/// The tags of an object built from a dated feature of `layer` (a surveyed one) of the set
+/// `drawing` describes directly: the [`provenance_tags`] with the feature's own date as
+/// currency (`currency` without one), `freemapper:currency_guessed=yes` when its date is
+/// guessed, then its `<prefix>:layer` and the [`SetDrawing::kept_tags`] it has.
+pub(crate) fn dated_tags(
+    drawing: &SetDrawing,
+    layer: &str,
+    feature: &Value,
+    currency: NaiveDate,
+) -> Vec<(String, String)> {
+    let own = tags_of(drawing, layer, feature);
+    let value = |key: &str| own.iter().find(|(k, _)| k == key).map(|(_, v)| v.as_str());
+    let dated = value("freemapper:currency")
+        .and_then(|d| d.parse().ok())
+        .unwrap_or(currency);
+    let mut tags = provenance_tags(drawing, layer, feature, dated);
+    if value("freemapper:currency_guessed") == Some("yes") {
+        tags.push(("freemapper:currency_guessed".to_string(), "yes".to_string()));
+    }
+    let layer_key = format!("{}:layer", drawing.tag_prefix);
+    tags.extend(
+        own.into_iter()
+            .filter(|(k, _)| *k == layer_key || drawing.kept_tags.contains(&k.as_str())),
+    );
+    tags
+}
+
 /// `<prefix>:layer=<layer>` and `<prefix>:<property>` for every text and number property.
 pub(crate) fn feature_tags(prefix: &str, layer: &str, feature: &Value) -> Vec<(String, String)> {
     let mut tags = vec![(format!("{prefix}:layer"), layer.to_string())];
