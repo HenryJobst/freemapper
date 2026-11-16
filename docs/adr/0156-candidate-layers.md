@@ -31,15 +31,19 @@ that candidates of one kind go to separate layers, as separate template files, a
   | features | `templates/candidates-features.omap` | monuments, furniture | the other 5xx, 6xx to 9xx |
   | out-of-bounds | `templates/candidates-out-of-bounds.omap` | out-of-bounds | 520 |
 
-  The group of an object is the one the content settings route it by (ADR 0100), read whatever its tags
-  `freemapper:hidden` and `freemapper:candidate-only` say. A canopy (522 with the ALKIS kind `Überdachung` or
+  The layers follow the colour families first: every object of a vegetation code (4xx) goes to vegetation
+  whatever its group (ruling of 2026-11-16 in the review of PR #180). So the green strips of the Berlin street
+  survey, open land 401 of the group streets, are vegetation, not paths. Every other object goes by its group, the
+  one the content settings route it by (ADR 0100), read whatever its tags `freemapper:hidden` and
+  `freemapper:candidate-only` say. A canopy (522 with the ALKIS kind `Überdachung` or
   `Carport`, or a shelter of a set that gives way to them) goes to features before its group is asked: the code
   puts every 522 in the group passages, and a roof is no way. A test checks that every code of the three symbol sets
   at every scale has a layer.
 - The build keeps the candidates as one list (`StarterDocuments.candidates`). Only the writers cut it, so every
   candidate is in exactly one layer, in its order, and the layers together are that list. The check print, the
-  training map and the hidden-candidate rules read the list as before, and their output does not change. The first
-  candidate, the outline of the map area, goes into every layer, so each one shows the area on its own.
+  training map and the hidden-candidate rules read the list as before, and their output does not change. The
+  outline of the map area goes first into every layer, so each one shows the area on its own. `split` finds it by
+  its symbol (501.1, on the forest map 994) and its source OpenStreetMap, not by its place in the list.
 - All seven are written every time, an empty one too: the template list of a map never depends on what a run found.
   The map lists them after the raster templates in the order of the table, each hidden and with an opacity of 0.7
   for when it is switched on. The raster templates keep their settings. The training map lists none (ADR 0140).
@@ -49,8 +53,10 @@ that candidates of one kind go to separate layers, as separate template files, a
   beside it and prints that the map lists the layers after `--force`, or when they are added in OpenOrienteering
   Mapper (`MapOutcome::Kept { old_candidates }`, `cli-map-old-candidates`).
 - OCAD gets `ocad/<name>-candidates-<layer>.ocd`, one per layer, in place of `<name>-candidates.ocd`, listed in the
-  OCAD map as hidden background maps. A replaced OCAD map deletes `<name>-candidates.ocd`; a kept one gets it filled
-  with every candidate when it exists. OCAD layers inside one file were not looked into: the OCAD output has not
+  OCAD map as hidden background maps. A replaced OCAD map deletes `<name>-candidates.ocd`. A kept one that names it
+  among its background maps (the type 8 strings, read by `ocd::file::background_names`) gets it filled with every
+  candidate and the note `cli-ocad-old-candidates` (`OcadOutcome::old_candidates`), as the OOM side decides by the
+  text of the map. A backup restored after `--force` therefore gets its candidates file back on the next run. OCAD layers inside one file were not looked into: the OCAD output has not
   been checked in OCAD yet.
 - The MCP tool `list_layers` names the layers `candidates-terrain` to `candidates-out-of-bounds` in place of
   `candidates`; `preview_layer` has no preview of a candidate layer, as it had none of the candidates.

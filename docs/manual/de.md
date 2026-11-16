@@ -456,7 +456,7 @@ können Sie sich eine Art nach der anderen ansehen:
 |---|---|---|
 | Gelände | `templates/candidates-terrain.omap` | Böschungen, Felsen, Kuppen und Senken, Höhenlinien |
 | Gewässer | `templates/candidates-water.omap` | Bäche, Gräben, Quellen, Brunnen, Teiche |
-| Vegetation | `templates/candidates-vegetation.omap` | offenes Gelände, Vegetationsflächen, Bäume, Hecken |
+| Vegetation | `templates/candidates-vegetation.omap` | offenes Gelände (auch die Grünstreifen der Straßenbefahrung), Vegetationsflächen, Bäume, Hecken |
 | Wege | `templates/candidates-paths.omap` | Wege, Straßen, befestigte Flächen, Treppen, Durchgänge, Brücken |
 | Barrieren | `templates/candidates-barriers.omap` | Mauern, Zäune |
 | Objekte | `templates/candidates-features.omap` | Türme, Denkmäler, Bänke und andere Stadtmöbel, Gebäude, Überdachungen |
@@ -471,7 +471,8 @@ kopieren und einfügen. Alle diese Karten haben dieselbe Georeferenz.
 Eine Karte von freemapper 0.23.0 oder älter nennt eine einzige Vorlage, `templates/candidates.omap`. Ein
 Lauf ohne `--force` lässt eine solche Karte unverändert: Er füllt diese Datei mit allen Kandidaten,
 schreibt die Layer daneben und sagt das. `--force` ersetzt die Karte, die dann die Layer nennt, und löscht
-die alte Datei; die alte Karte bleibt als `.omap.bak` erhalten.
+die alte Datei; die alte Karte bleibt als `.omap.bak` erhalten. Eine OCAD-Karte, die `ocad/<name>-candidates.ocd`
+unter ihren Hintergrundkarten nennt, wird ebenso behandelt.
 
 Auf der Sprintkarte liegt unter allem die **belaufbare Fläche**: eine Fläche im unteren Braun (dem Ton von
 501.5) über das ganze Kartenblatt, im eigenen Kartenteil `base`. Sie füllt alles, was sonst nichts zeigt.

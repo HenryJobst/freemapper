@@ -139,6 +139,13 @@ fn north_line_spacing(kind: MapKind) -> SymbolMm {
     }
 }
 
+/// The symbol of the map area outline in `symbol_set`: 501.1, else the sheet symbol 994.
+pub(crate) fn outline_symbol_id(symbol_set: &SymbolSet) -> Option<u32> {
+    symbol_set
+        .id_for_code(OUTLINE_SYMBOL_CODE)
+        .or_else(|| symbol_set.id_for_code(OUTLINE_FALLBACK_CODE))
+}
+
 /// The exterior ring of the map area as a closed path object.
 pub fn map_area_outline(
     area: &MapArea,
@@ -163,9 +170,7 @@ pub fn map_area_outline(
         tags.push(("freemapper:source_id".to_string(), id.to_string()));
     }
     Ok(MapObject {
-        symbol_id: symbol_set
-            .id_for_code(OUTLINE_SYMBOL_CODE)
-            .or_else(|| symbol_set.id_for_code(OUTLINE_FALLBACK_CODE))
+        symbol_id: outline_symbol_id(symbol_set)
             .expect("symbol set defines 501.1 or the sheet symbols"),
         kind: MapObjectKind::Path,
         coords: closed_ring(&points),

@@ -476,7 +476,10 @@ pub fn map_to_ocd(
         &format!("\tx{cx:.2}\ty{cy:.2}\tz1.00\tv0\tm50\tt50\tb50\tc50\th0\td0\tk0"),
     );
     for background in backgrounds {
-        builder.add_string(8, &background_string(background, &ocad, grivation, scale));
+        builder.add_string(
+            super::file::BACKGROUND_STRING_TYPE,
+            &background_string(background, &ocad, grivation, scale),
+        );
     }
     Ok((builder.finish(), report))
 }
@@ -512,6 +515,32 @@ mod tests {
                 objects,
             }],
             templates: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn background_names_reads_what_the_writer_lists_and_never_panics() {
+        use crate::ocd::file::background_names;
+        let backgrounds = [
+            Background::Map {
+                file_name: "a-candidates.ocd".to_string(),
+                visible: true,
+            },
+            Background::Map {
+                file_name: "a-candidates-terrain.ocd".to_string(),
+                visible: false,
+            },
+        ];
+        let (bytes, _) = map_to_ocd(&doc(Vec::new()), MapKind::Sprint, &backgrounds).unwrap();
+        assert_eq!(
+            background_names(&bytes),
+            ["a-candidates.ocd", "a-candidates-terrain.ocd"]
+        );
+        assert!(background_names(b"edited in OCAD").is_empty());
+        assert!(background_names(&[]).is_empty());
+        // Cut anywhere, the file gives no panic.
+        for len in (0..bytes.len()).step_by(97) {
+            let _ = background_names(&bytes[..len]);
         }
     }
 

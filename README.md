@@ -370,8 +370,9 @@ für Sprint, IOF-Schulsatz 2019 für Schulhof, ISOM 2017-2 für Waldkarten), der
 
 Die Dateien sind noch nicht in OCAD geprüft. Was zu prüfen ist, steht in
 [`docs/ocad/test-checklist.md`](https://github.com/HenryJobst/freemapper/blob/main/docs/ocad/test-checklist.md), z. B. ob „Ersetzen“ beim Laden des
-Symbolsatzes die Randangaben-Symbole (991–994) behält und ob OCAD die Kandidaten-Karte deckungsgleich
-einblendet (sonst als Hintergrundkarte von Hand öffnen). Ordnernamen mit Umlauten werden für die
+Symbolsatzes die Randangaben-Symbole (991–994) behält und ob OCAD die sieben Kandidaten-Layer
+(`<name>-candidates-<layer>.ocd`) als ausgeblendete Hintergrundkarten führt und eingeblendet deckungsgleich zeigt
+(sonst als Hintergrundkarte von Hand öffnen). Ordnernamen mit Umlauten werden für die
 OCAD-Dateien in ASCII geschrieben („Straußberg“ → „Straussberg“).
 
 ## Mit einem KI-Agenten (MCP)

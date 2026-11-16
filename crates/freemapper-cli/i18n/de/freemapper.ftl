@@ -44,6 +44,7 @@ cli-kept-training = Trainingskarte { $path } behalten, damit ein Lauf keine übe
 ## OCAD
 
 cli-ocad-kept = { $path } behalten (die Datei kann Ihre Arbeit enthalten; --force ersetzt sie und behält die alte als .ocd.bak)
+cli-ocad-old-candidates = Die OCAD-Karte nennt noch { $path } als Hintergrundkarte; dieser Lauf hat sie mit allen Kandidaten gefüllt. Die Kandidaten gibt es jetzt auch in sieben Layern, je einer Datei (-candidates-*.ocd). Die OCAD-Karte führt sie, wenn Sie sie mit --force ersetzen (die alte bleibt als .ocd.bak erhalten), oder Sie fügen sie in OCAD selbst als Hintergrundkarten hinzu.
 cli-ocad-wrote = { $count ->
         [one] { $path } geschrieben (1 Objekt)
        *[other] { $path } geschrieben ({ $count } Objekte)
@@ -662,6 +663,7 @@ cli-summary-wrote-ocad = OCAD-Karte { $path } geschrieben ({ $count ->
        *[other] { $count } Objekte
     })
 cli-summary-kept-ocad = Die vorhandene OCAD-Karte { $path } bleibt (sie kann die Arbeit der Kartiererin oder des Kartierers enthalten; force ersetzt sie)
+cli-summary-ocad-old-candidates = Die OCAD-Karte nennt noch { $path } als Hintergrundkarte; dieser Lauf hat sie mit allen Kandidaten gefüllt. Die Kandidaten gibt es jetzt auch in sieben Layern, je einer Datei (-candidates-*.ocd). Die OCAD-Karte führt sie nach einem Lauf mit force (die alte Karte bleibt als .ocd.bak erhalten), oder die Kartiererin oder der Kartierer fügt sie in OCAD als Hintergrundkarten hinzu.
 cli-summary-ocad-left-out = In der OCAD-Karte fehlen: { $skipped ->
         [one] 1 Objekt
        *[other] { $skipped } Objekte

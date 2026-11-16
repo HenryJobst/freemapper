@@ -426,6 +426,50 @@ fn object_record(object: &OcdObject) -> Vec<u8> {
     r
 }
 
+/// The string type of a background map (OCD 12 `ParameterString` type 8).
+pub(crate) const BACKGROUND_STRING_TYPE: i32 = 8;
+
+/// The file names of the background maps an OCD file lists: the first field of each string of
+/// type 8. Every offset is checked, so bytes that are no OCD file, or one OCAD rewrote in a way
+/// this reader does not know, give what can be read and never a panic; no OCD file gives none.
+pub(crate) fn background_names(b: &[u8]) -> Vec<String> {
+    let u32_at = |o: usize| {
+        b.get(o..o + 4)
+            .map(|s| u32::from_le_bytes([s[0], s[1], s[2], s[3]]) as usize)
+    };
+    let i32_at = |o: usize| {
+        b.get(o..o + 4)
+            .map(|s| i32::from_le_bytes([s[0], s[1], s[2], s[3]]))
+    };
+    let mut names = Vec::new();
+    // The OCAD mark 0x0CAD, little-endian.
+    if b.get(0..2) != Some(&[0xAD, 0x0C]) {
+        return names;
+    }
+    let mut block = u32_at(32).unwrap_or(0);
+    let mut blocks = 0;
+    while block != 0 && blocks < 10_000 {
+        for slot in 0..256 {
+            let entry = block + 4 + slot * 16;
+            let (Some(pos), Some(kind)) = (u32_at(entry), i32_at(entry + 8)) else {
+                return names;
+            };
+            if pos == 0 || kind != BACKGROUND_STRING_TYPE {
+                continue;
+            }
+            let Some(rest) = b.get(pos..) else {
+                continue;
+            };
+            let end = rest.iter().position(|&c| c == 0).unwrap_or(rest.len());
+            let text = String::from_utf8_lossy(&rest[..end]);
+            names.push(text.split('\t').next().unwrap_or_default().to_string());
+        }
+        block = u32_at(block).unwrap_or(0);
+        blocks += 1;
+    }
+    names
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

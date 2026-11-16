@@ -440,7 +440,7 @@ at one kind at a time:
 |---|---|---|
 | terrain | `templates/candidates-terrain.omap` | banks, cliffs, knolls and depressions, contours |
 | water | `templates/candidates-water.omap` | brooks, ditches, springs, fountains, ponds |
-| vegetation | `templates/candidates-vegetation.omap` | open land, vegetation areas, trees, hedges |
+| vegetation | `templates/candidates-vegetation.omap` | open land (the green strips of the street survey too), vegetation areas, trees, hedges |
 | paths | `templates/candidates-paths.omap` | paths, streets, paved areas, stairs, passages, bridges |
 | barriers | `templates/candidates-barriers.omap` | walls, fences |
 | features | `templates/candidates-features.omap` | towers, monuments, benches and other street furniture, buildings, canopies |
@@ -455,7 +455,8 @@ georeferencing.
 A map written by freemapper 0.23.0 or older names one template, `templates/candidates.omap`. A run
 without `--force` leaves such a map alone: it fills that file with every candidate, writes the layers
 beside it and says so. `--force` replaces the map, which then lists the layers, and deletes the old file;
-the old map stays as `.omap.bak`.
+the old map stays as `.omap.bak`. An OCAD map that names `ocad/<name>-candidates.ocd` among its background
+maps is treated the same way.
 
 On the sprint map the **walkable area** lies under everything: one area in the lower brown (the tone of
 501.5) over the whole map sheet, in its own map part `base`. It fills whatever nothing else shows.

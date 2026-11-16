@@ -358,8 +358,9 @@ IOF school symbol set 2019 for schoolyards, ISOM 2017-2 for forest maps); it rep
 
 The files have not been checked in OCAD yet. What to check is listed in
 [`docs/ocad/test-checklist.md`](https://github.com/HenryJobst/freemapper/blob/main/docs/ocad/test-checklist.md), e.g. whether "Replace" when loading the
-symbol set keeps the sheet symbols (991–994) and whether OCAD shows the candidates map aligned (else
-open it as a background map by hand). Folder names with umlauts are written in ASCII for the OCAD
+symbol set keeps the sheet symbols (991–994) and whether OCAD lists the seven candidate layers
+(`<name>-candidates-<layer>.ocd`) as hidden background maps and shows them aligned when switched on (else
+open them as background maps by hand). Folder names with umlauts are written in ASCII for the OCAD
 files ("Straußberg" → "Straussberg").
 
 ## With an AI agent (MCP)

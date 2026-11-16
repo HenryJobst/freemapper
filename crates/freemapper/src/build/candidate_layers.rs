@@ -6,6 +6,7 @@
 //! by layer when they are written, so every candidate is in exactly one layer and the layers
 //! together are the candidates.
 
+use crate::build::assembly::outline_symbol_id;
 use crate::build::canopy::is_canopy;
 use crate::build::content::{Classifier, Group};
 use crate::omap::{MapObject, SymbolSet};
@@ -121,34 +122,53 @@ impl CandidateLayer {
     }
 }
 
-/// The layer `o` goes to: that of its group, else a canopy to features (a passage, the other
-/// 522, belongs to the paths), else by its symbol code. A symbol of no code goes to features.
+/// The layer `o` goes to. A canopy goes to features (a passage, the other 522, belongs to the
+/// paths), and every object of a vegetation code (4xx) to vegetation whatever its group: the
+/// layers follow the colour families, so the green strips of a street survey, of the group
+/// streets, are vegetation. Else the layer of its group, else that of its symbol code; a symbol
+/// of no code goes to features.
 fn layer_of(o: &MapObject, classifier: &Classifier, symbol_set: &SymbolSet) -> CandidateLayer {
     let code = symbol_set.code_for_id(o.symbol_id);
     if code == Some("522") && is_canopy(o) {
         return CandidateLayer::Features;
     }
+    let by_code = code.and_then(CandidateLayer::of_code);
+    if by_code == Some(CandidateLayer::Vegetation) {
+        return CandidateLayer::Vegetation;
+    }
     classifier
         .group(o)
         .map(CandidateLayer::of_group)
-        .or_else(|| code.and_then(CandidateLayer::of_code))
+        .or(by_code)
         .unwrap_or(CandidateLayer::Features)
 }
 
+/// Whether `o` is the outline of the map area ([`crate::build::assembly::map_area_outline`]): a
+/// line of the outline symbol from OpenStreetMap. A 501.1 of the cadastre, the street survey or
+/// the paved borders has another source.
+fn is_outline(o: &MapObject, outline_id: Option<u32>) -> bool {
+    Some(o.symbol_id) == outline_id
+        && o.tags
+            .iter()
+            .any(|(k, v)| k == "freemapper:source" && v == "osm")
+}
+
 /// The candidates by layer, every layer of [`CandidateLayer::ALL`] in its order, an empty one too.
-/// The first candidate, the outline of the map area, comes first in every layer, so that each
-/// layer shows the area on its own; every other candidate is in exactly one layer, in the order
-/// of `candidates`.
+/// The outline of the map area comes first in every layer, so that each layer shows the area on
+/// its own; every other candidate is in exactly one layer, in the order of `candidates`.
 pub fn split(
     candidates: &[MapObject],
     symbol_set: &SymbolSet,
 ) -> Vec<(CandidateLayer, Vec<MapObject>)> {
     let classifier = Classifier::new(symbol_set);
+    let outline_id = outline_symbol_id(symbol_set);
+    let (outlines, others): (Vec<&MapObject>, Vec<&MapObject>) =
+        candidates.iter().partition(|o| is_outline(o, outline_id));
     let mut layers: Vec<(CandidateLayer, Vec<MapObject>)> = CandidateLayer::ALL
         .iter()
-        .map(|&layer| (layer, candidates.first().cloned().into_iter().collect()))
+        .map(|&layer| (layer, outlines.iter().map(|o| (*o).clone()).collect()))
         .collect();
-    for object in candidates.iter().skip(1) {
+    for object in others {
         let layer = layer_of(object, &classifier, symbol_set);
         if let Some((_, objects)) = layers.iter_mut().find(|(l, _)| *l == layer) {
             objects.push(object.clone());
@@ -300,6 +320,62 @@ mod tests {
     }
 
     #[test]
+    fn a_vegetation_code_goes_to_vegetation_whatever_its_group() {
+        let f = fixture(MapKind::Sprint);
+        // A green strip of the Berlin street survey: open land of the group streets.
+        let strip = object(
+            &f,
+            "401",
+            &[("freemapper:source", "geoportal-berlin/sb-gruenflaeche")],
+        );
+        assert_eq!(Classifier::new(&f.set).group(&strip), Some(Group::Streets));
+        assert_eq!(layer(&f, &strip), CandidateLayer::Vegetation);
+        // A street area of the same survey stays with the paths.
+        let street = object(
+            &f,
+            "501.5",
+            &[("freemapper:source", "geoportal-berlin/sb-flaechen")],
+        );
+        assert_eq!(layer(&f, &street), CandidateLayer::Paths);
+    }
+
+    #[test]
+    fn the_outline_is_found_by_its_symbol_and_source_wherever_it_lies() {
+        let f = fixture(MapKind::Sprint);
+        let outline = object(
+            &f,
+            "501.1",
+            &[
+                ("freemapper:source", "osm"),
+                ("freemapper:source_id", "way/1"),
+            ],
+        );
+        let pond = object(&f, "301", &[("freemapper:source", "osm")]);
+        let border = object(&f, "501.1", &[("freemapper:source", "generalization")]);
+        let layers = split(&[pond.clone(), outline.clone(), border.clone()], &f.set);
+        for (layer, objects) in &layers {
+            assert_eq!(objects.first(), Some(&outline), "{layer:?}");
+            assert_eq!(objects.iter().filter(|o| **o == outline).count(), 1);
+        }
+        assert_eq!(layers[1].1, [outline.clone(), pond], "water");
+        assert_eq!(
+            layers[3].1,
+            [outline, border],
+            "paths: a border is no outline"
+        );
+        // The forest map draws the outline with the sheet symbol 994.
+        let forest = fixture(MapKind::Forest);
+        let outline = MapObject {
+            symbol_id: outline_symbol_id(&forest.set).unwrap(),
+            ..object(&forest, "101", &[("freemapper:source", "osm")])
+        };
+        let contour = object(&forest, "101", &[("freemapper:source", "lgb-dgm1")]);
+        let layers = split(&[contour.clone(), outline.clone()], &forest.set);
+        assert!(layers.iter().all(|(_, o)| o.first() == Some(&outline)));
+        assert_eq!(layers[0].1, [outline, contour]);
+    }
+
+    #[test]
     fn the_forest_map_puts_its_isom_codes_in_layers() {
         let f = fixture(MapKind::Forest);
         let osm = [("freemapper:source", "osm")];
@@ -317,7 +393,14 @@ mod tests {
     #[test]
     fn the_layers_together_are_the_candidates_and_each_starts_with_the_outline() {
         let f = fixture(MapKind::Sprint);
-        let outline = object(&f, "501.1", &[("freemapper:source_id", "way/1")]);
+        let outline = object(
+            &f,
+            "501.1",
+            &[
+                ("freemapper:source", "osm"),
+                ("freemapper:source_id", "way/1"),
+            ],
+        );
         let mut candidates = vec![outline.clone()];
         for (i, code) in [
             "104", "305", "410.1", "505.1", "518", "531", "520", "401", "531",

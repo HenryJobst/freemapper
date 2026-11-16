@@ -735,6 +735,16 @@ fn failed(id: &str, error: &str) -> String {
     format!("\n{}", text(id, &[("error", v(error))]))
 }
 
+/// `<name>-candidates.ocd` beside the OCAD map of `outcome`: the one candidates file of an older
+/// freemapper (ADR 0156).
+pub fn old_ocad_candidates(outcome: &OcadOutcome) -> PathBuf {
+    let stem = outcome
+        .map
+        .file_stem()
+        .map_or_else(String::new, |s| s.to_string_lossy().into_owned());
+    outcome.map.with_file_name(format!("{stem}-candidates.ocd"))
+}
+
 /// What the OCAD export did, in words for the user.
 fn ocad_summary(outcome: &OcadOutcome) -> String {
     let map = ("path", v(outcome.map.display()));
@@ -746,6 +756,13 @@ fn ocad_summary(outcome: &OcadOutcome) -> String {
             &[map, ("count", n(outcome.objects))],
         )
     }];
+    if outcome.old_candidates {
+        let old = old_ocad_candidates(outcome);
+        lines.push(text(
+            "cli-summary-ocad-old-candidates",
+            &[("path", v(old.display()))],
+        ));
+    }
     lines.extend(outcome.warnings.iter().map(line));
     if outcome.skipped > 0 || outcome.dropped_parts > 0 {
         lines.push(text(
@@ -961,6 +978,7 @@ mod tests {
         let ocad = OcadOutcome {
             map: PathBuf::from("/p/ocad/p.ocd"),
             kept: false,
+            old_candidates: false,
             candidates: vec![
                 PathBuf::from("/p/ocad/p-candidates-terrain.ocd"),
                 PathBuf::from("/p/ocad/p-candidates-water.ocd"),
@@ -985,11 +1003,34 @@ mod tests {
     }
 
     #[test]
+    fn a_kept_ocad_map_with_the_old_candidates_file_says_where_the_layers_are() {
+        let outcome = |old_candidates| OcadOutcome {
+            map: PathBuf::from("/p/ocad/p.ocd"),
+            kept: true,
+            old_candidates,
+            candidates: vec![PathBuf::from("/p/ocad/p-candidates-terrain.ocd")],
+            objects: 1,
+            skipped: 0,
+            dropped_parts: 0,
+            warnings: Vec::new(),
+            map_kind: MapKind::Sprint,
+        };
+        let text = ocad_summary(&outcome(true));
+        assert!(
+            text.contains("The OCAD map still names /p/ocad/p-candidates.ocd"),
+            "{text}"
+        );
+        assert!(text.contains("force"), "{text}");
+        assert!(!ocad_summary(&outcome(false)).contains("still names"));
+    }
+
+    #[test]
     fn ocad_summary_names_the_symbol_set_of_the_map_kind() {
         let summary = |map_kind| {
             ocad_summary(&OcadOutcome {
                 map: PathBuf::from("/p/ocad/p.ocd"),
                 kept: false,
+                old_candidates: false,
                 candidates: vec![PathBuf::from("/p/ocad/p-candidates-terrain.ocd")],
                 objects: 1,
                 skipped: 0,

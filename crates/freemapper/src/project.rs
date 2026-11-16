@@ -7273,33 +7273,91 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         assert!(written.contains(CandidateLayer::Terrain.relpath()));
     }
 
+    /// Writes the OCAD map of `dir` as 0.23.0 did: with `<name>-candidates.ocd` as its one
+    /// candidates background map, and that file beside it. Returns the map and the old file.
+    fn ocad_map_of_0_23(dir: &Path) -> (PathBuf, PathBuf) {
+        let first = export_ocad(dir, true).unwrap();
+        let stem = first
+            .map
+            .file_stem()
+            .unwrap()
+            .to_string_lossy()
+            .into_owned();
+        let old_name = format!("{stem}-candidates.ocd");
+        let documents = starter_documents(dir).unwrap();
+        let (bytes, _) = map_to_ocd(
+            &documents.map,
+            MapKind::Schoolyard,
+            &[Background::Map {
+                file_name: old_name.clone(),
+                visible: true,
+            }],
+        )
+        .unwrap();
+        std::fs::write(&first.map, bytes).unwrap();
+        let old = first.map.with_file_name(old_name);
+        std::fs::write(&old, "candidates of 0.23.0").unwrap();
+        (first.map, old)
+    }
+
+    /// The number of objects of the OCAD file `path`.
+    fn ocd_objects(path: &Path) -> usize {
+        crate::ocd::read::read(&std::fs::read(path).unwrap())
+            .objects
+            .len()
+    }
+
     #[test]
-    fn force_removes_the_old_candidates_files_of_map_and_ocad() {
+    fn a_kept_ocad_map_that_names_the_old_candidates_file_gets_it_refreshed() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir) = derived_school(&fetcher);
+        let (map, old) = ocad_map_of_0_23(dir.path());
+        let before = std::fs::read(&map).unwrap();
+        let kept = export_ocad(dir.path(), false).unwrap();
+        assert!(kept.kept && kept.old_candidates);
+        assert_eq!(std::fs::read(&map).unwrap(), before, "the map is kept");
+        // The old file holds every candidate: the outline once, the layers have it seven times.
+        let layers: usize = kept.candidates.iter().map(|p| ocd_objects(p)).sum();
+        assert_eq!(ocd_objects(&old) + 6, layers);
+    }
+
+    #[test]
+    fn a_kept_ocad_map_that_does_not_name_it_leaves_the_old_file_alone() {
         let fetcher = MapFetcher::default();
         let (dir, _cache_dir) = derived_school(&fetcher);
         let first = export_ocad(dir.path(), false).unwrap();
-        let old_ocd = first.map.with_file_name(format!(
+        assert!(!first.old_candidates);
+        let old = first.map.with_file_name(format!(
             "{}-candidates.ocd",
             first.map.file_stem().unwrap().to_string_lossy()
         ));
-        std::fs::write(&old_ocd, "candidates of 0.23.0").unwrap();
-        // A kept OCAD map of an older version names it: it is refreshed.
+        // The kept map lists the layers; a stray old file is not written, and no note comes.
         let kept = export_ocad(dir.path(), false).unwrap();
-        assert!(kept.kept);
-        let refreshed = crate::ocd::read::read(&std::fs::read(&old_ocd).unwrap());
-        let layers: usize = kept
-            .candidates
-            .iter()
-            .map(|path| {
-                crate::ocd::read::read(&std::fs::read(path).unwrap())
-                    .objects
-                    .len()
-            })
-            .sum();
-        // The outline is in every layer and once in the union.
-        assert_eq!(refreshed.objects.len() + 6, layers);
-        export_ocad(dir.path(), true).unwrap();
+        assert!(kept.kept && !kept.old_candidates);
+        assert!(!old.exists());
+        std::fs::write(&old, "stray").unwrap();
+        let kept = export_ocad(dir.path(), false).unwrap();
+        assert!(!kept.old_candidates);
+        assert_eq!(std::fs::read_to_string(&old).unwrap(), "stray");
+        // A map that is no OCD file names nothing.
+        std::fs::write(&kept.map, "edited in OCAD").unwrap();
+        assert!(!export_ocad(dir.path(), false).unwrap().old_candidates);
+    }
+
+    #[test]
+    fn force_removes_the_old_candidates_files_and_a_restored_backup_heals() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir) = derived_school(&fetcher);
+        let (map, old_ocd) = ocad_map_of_0_23(dir.path());
+        let replaced = export_ocad(dir.path(), true).unwrap();
+        assert!(!replaced.kept && !replaced.old_candidates);
         assert!(!old_ocd.exists());
+        // The user restores the backup of the old map: the next run fills its candidates again.
+        let backup = map.with_extension("ocd.bak");
+        std::fs::copy(&backup, &map).unwrap();
+        let healed = export_ocad(dir.path(), false).unwrap();
+        assert!(healed.kept && healed.old_candidates);
+        assert!(ocd_objects(&old_ocd) > 1);
 
         let old = dir.path().join(OLD_CANDIDATES_RELPATH);
         std::fs::write(&old, "candidates of 0.23.0").unwrap();

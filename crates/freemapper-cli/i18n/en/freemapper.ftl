@@ -44,6 +44,7 @@ cli-kept-training = Kept the training map { $path }, so that a run does not over
 ## OCAD
 
 cli-ocad-kept = Kept { $path } (it may contain your work; --force replaces it and keeps the old one as .ocd.bak)
+cli-ocad-old-candidates = The OCAD map still names { $path } as a background map; this run filled it with every candidate. The candidates now also come in seven layers, one file each (-candidates-*.ocd). The OCAD map lists them after you replace it with --force (the old one stays as .ocd.bak), or add them yourself in OCAD as background maps.
 cli-ocad-wrote = { $count ->
         [one] Wrote { $path } (1 object)
        *[other] Wrote { $path } ({ $count } objects)
@@ -659,6 +660,7 @@ cli-summary-map-lacks-canopies = The map lacks the ALKIS canopies and carports (
 cli-summary-map-old-candidates = The map still names templates/candidates.omap; this run filled it with every candidate. The candidates now also come in seven layers, one file each (templates/candidates-*.omap). The map lists them after a run with force (the old map stays as .omap.bak), or the mapper adds them in OOM (Templates > Open template…).
 cli-summary-wrote-ocad = Wrote the OCAD map { $path } ({ $count } objects)
 cli-summary-kept-ocad = Kept the existing OCAD map { $path } (it may contain the mapper's work; force replaces it)
+cli-summary-ocad-old-candidates = The OCAD map still names { $path } as a background map; this run filled it with every candidate. The candidates now also come in seven layers, one file each (-candidates-*.ocd). The OCAD map lists them after a run with force (the old map stays as .ocd.bak), or the mapper adds them in OCAD as background maps.
 cli-summary-ocad-left-out = Left out of the OCAD map: { $skipped } objects and { $dropped } degenerate parts
 cli-summary-ocad-symbols = In OCAD, choose Symbol > Load Colors and Symbols From… and pick the official symbol set{ $kind ->
         [forest] {" "}ISOM 2017-2

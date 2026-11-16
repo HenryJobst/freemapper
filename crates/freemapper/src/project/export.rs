@@ -405,6 +405,9 @@ pub struct OcadOutcome {
     /// The OCAD map existed and `force` was not set, so it was left alone (it may contain the
     /// mapper's work); candidates and images were refreshed.
     pub kept: bool,
+    /// The kept map names `<name>-candidates.ocd` of an older freemapper as a background map; the
+    /// file was filled with every candidate, the layers were written beside it (ADR 0156).
+    pub old_candidates: bool,
     /// `ocad/<name>-candidates-<layer>.ocd`, one per candidate layer in its order (ADR 0156).
     pub candidates: Vec<PathBuf>,
     pub objects: usize,
@@ -430,8 +433,8 @@ pub(super) fn world_file_path(image: &Path) -> Option<PathBuf> {
 /// `<name>-candidates-<layer>.ocd` per candidate layer, and the raster templates with their world
 /// files as background maps; the candidate layers are hidden background maps (ADR 0156). An
 /// existing `<name>.ocd` is only replaced when `force` is set (kept as `.ocd.bak`); then
-/// `<name>-candidates.ocd` of an older freemapper goes, while a kept map gets it refreshed with
-/// every candidate.
+/// `<name>-candidates.ocd` of an older freemapper goes, while a kept map that names it as a
+/// background map gets it refreshed with every candidate.
 pub fn export_ocad(dir: &Path, force: bool) -> Result<OcadOutcome, ProjectError> {
     export_ocad_from(dir, &starter_documents(dir)?, force)
 }
@@ -460,13 +463,19 @@ pub fn export_ocad_from(
         write_inside(dir, &path, &bytes)?;
         candidates.push(path);
     }
-    let old_candidates = ocad_dir.join(format!("{name}-candidates.ocd"));
+    let old_name = format!("{name}-candidates.ocd");
+    let old_candidates = ocad_dir.join(&old_name);
     let map = ocad_dir.join(format!("{name}.ocd"));
     let kept = map.exists() && !force;
     let (bytes, report) = map_to_ocd(&documents.map, project.map_kind, &backgrounds)?;
+    // A kept map of an older freemapper names the one candidates file as its background map;
+    // a map restored from its backup too. A map that cannot be read names nothing.
+    let kept_names_old = kept
+        && std::fs::read(&map)
+            .map(|b| crate::ocd::file::background_names(&b).contains(&old_name))
+            .unwrap_or(false);
     if kept {
-        // The kept map of an older freemapper names it as its background map.
-        if old_candidates.exists() {
+        if kept_names_old {
             let (bytes, _) = map_to_ocd(&documents.candidates, project.map_kind, &[])?;
             write_inside(dir, &old_candidates, &bytes)?;
         }
@@ -480,6 +489,7 @@ pub fn export_ocad_from(
     Ok(OcadOutcome {
         map,
         kept,
+        old_candidates: kept_names_old,
         candidates,
         objects: report.objects,
         skipped: report.skipped,
@@ -1305,8 +1315,6 @@ pub struct StarterDocuments {
     pub(super) content_settings: ContentSettings,
 }
 
-/// Builds the documents of the project in `dir` from its stored data. They belong to that folder
-/// and to the data as stored at this moment: build them again after a fetch or a derive.
 impl StarterDocuments {
     /// The candidates cut into the template maps of the candidate layers, every layer in its
     /// order (ADR 0156): together they are [`Self::candidates`], with the outline of the map area
@@ -1334,6 +1342,8 @@ impl StarterDocuments {
     }
 }
 
+/// Builds the documents of the project in `dir` from its stored data. They belong to that folder
+/// and to the data as stored at this moment: build them again after a fetch or a derive.
 pub fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
     let built = build_project(dir)?;
     place(&built, &built.saved_content)

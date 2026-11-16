@@ -517,6 +517,13 @@ fn report_ocad(outcome: &OcadOutcome) {
     let map = ("path", v(outcome.map.display()));
     if outcome.kept {
         println!("{}", text("cli-ocad-kept", &[map]));
+        if outcome.old_candidates {
+            let old = pipeline::old_ocad_candidates(outcome);
+            println!(
+                "{}",
+                text("cli-ocad-old-candidates", &[("path", v(old.display()))])
+            );
+        }
     } else {
         println!(
             "{}",
