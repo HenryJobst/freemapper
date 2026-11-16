@@ -1016,8 +1016,11 @@ mod tests {
             map_kind: MapKind::Sprint,
         };
         let text = ocad_summary(&outcome(true));
+        let old = old_ocad_candidates(&outcome(true));
+        assert_eq!(old.file_name().unwrap(), "p-candidates.ocd");
+        assert_eq!(old.parent(), Some(Path::new("/p/ocad")));
         assert!(
-            text.contains("The OCAD map still names /p/ocad/p-candidates.ocd"),
+            text.contains(&format!("The OCAD map still names {}", old.display())),
             "{text}"
         );
         assert!(text.contains("force"), "{text}");
