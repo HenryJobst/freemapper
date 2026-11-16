@@ -10,8 +10,8 @@
 use freemapper_adapter_api::alkis::FetchArea;
 use freemapper_adapter_api::error::FetchError;
 use freemapper_adapter_api::extras::{
-    CONTROL_PROPERTY, ExtraEstimate, ExtraLayerInfo, ExtraNotes, ExtraSet, ExtraSetInfo,
-    FetchedExtra, SetDrawing, SetRank,
+    CONTROL_PROPERTY, DedupDistance, ExtraEstimate, ExtraLayerInfo, ExtraNotes, ExtraSet,
+    ExtraSetInfo, FetchedExtra, PointDedup, SetDrawing, SetRank,
 };
 use freemapper_adapter_api::fetch::Fetcher;
 use freemapper_contract::MapKind;
@@ -127,6 +127,33 @@ static INFO: ExtraSetInfo = ExtraSetInfo {
     },
 };
 
+/// A surveyed bollard or bench this close to an OSM one at the same place is that one (the
+/// distance Berlin's survey uses: the sources place one piece of furniture within about 2 m).
+const FURNITURE_DEDUP: DedupDistance = DedupDistance::Metres(2.0);
+/// A surveyed lamp and an OSM lamp at the same place are one lamp up to 5 m apart: lamps stand 20
+/// to 30 m apart, so 5 m stays well under half the spacing (as for Berlin's lighting cadastre).
+const OSM_LAMP_DEDUP: DedupDistance = DedupDistance::Metres(5.0);
+
+/// The surveyed furniture beats the OSM furniture, as Berlin's does (ADR 0149): on a sprint map
+/// these are the control sites (ADR 0077). The winners are told by the `hamburg:control` kind.
+static POINT_DEDUPS: [PointDedup; 3] = [
+    PointDedup {
+        winner_code: None,
+        winner: ("hamburg:control", "street_lamp"),
+        losers: &[("freemapper:osm", "highway=street_lamp", OSM_LAMP_DEDUP)],
+    },
+    PointDedup {
+        winner_code: None,
+        winner: ("hamburg:control", "bench"),
+        losers: &[("freemapper:osm", "amenity=bench", FURNITURE_DEDUP)],
+    },
+    PointDedup {
+        winner_code: None,
+        winner: ("hamburg:control", "bollard"),
+        losers: &[("freemapper:osm", "barrier=bollard", FURNITURE_DEDUP)],
+    },
+];
+
 static DRAWING: SetDrawing = SetDrawing {
     rules: include_str!("../rules/lgv-feinkartierung.toml"),
     tag_prefix: "hamburg",
@@ -135,8 +162,9 @@ static DRAWING: SetDrawing = SetDrawing {
     rank: SetRank::Survey,
     layer_ranks: &[],
     credited_layers: &[],
-    point_dedups: &[],
-    kept_tags: &[],
+    point_dedups: &POINT_DEDUPS,
+    // The kind of control site a point is: the winners of the point dedups are told by it.
+    kept_tags: &["hamburg:control"],
     control_kinds: &[],
     fountain_tags: &[],
     winning_areas: &[],

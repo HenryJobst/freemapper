@@ -815,6 +815,7 @@ pub fn training_summary(outcome: &TrainingOutcome) -> String {
         + report.cut
         + report.too_small
         + report.furniture
+        + report.trees_in_forest
         + report.inside_olive
         + report.dropped_beside_roads
         + report.kerbs;

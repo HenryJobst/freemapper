@@ -57,6 +57,15 @@ Four sources that could have fed the vegetation layer were looked at after the r
 
 Still unused: the Saarland state-forest stand map (`schichtung`, `totholz`, no age).
 
+## Follow-up of 2026-11-16: Saarland Basis-DLM and the remaining gaps
+
+- **BGR BÜK200** (`services.bgr.de/wms/boden/buek200`): rejected. A soil overview map at 1:200,000 carries nothing that maps at 1:4000 to 1:15000 can use. Capabilities say `Fees: NONE`, credit "BÜK200, © BGR, Hannover, 2018".
+- **Moor maps** stay at ranking 8; nothing new was measured.
+- **Saarland Basis-DLM as Shape** (`…/OD_BDLM_shp_SL/BDLM-SHP-EPSG-25832.zip`, 80.6 MB, anonymous download, a `OD_BDLM_nas_SL` folder sits beside it on the same share as DGM1 and DOM1 2025). The earlier "contradiction" is settled: the data exists. The GDI-DE catalogue lists the Shape layers (VER, VEG, GEB, GEW, REL) as dl-de/by-2-0, credit "© GeoBasis DE/LVGL-SL (year)", updated quarterly. The LVGL page itself sat behind a bot check, so the licence text is read from the catalogue only. ADR 0155 says the Saarland has no Basis-DLM as a WFS; that stays true, the download is the way in.
+- Content, counted by `OBJART_TXT` in the DBF files (whole state): 36,969 `AX_Fahrwegachse` and 32,049 `AX_WegPfadSteig` (`ver02_l`), 21,068 `AX_Gehoelz` and 53 `AX_Sumpf`, 1 `AX_Moor` (`veg03_f`), 19,021 `AX_Wald`, 257 `AX_Leitung` and 140 `AX_Turm` (`sie03_l`, `sie05_p`), 108 + 82 rock objects and 14 cave entrances (`rel01`), 23,065 water axes.
+- Not measured: how much of this OSM and ALKIS do not already hold. No GIS tool was at hand to compare path lengths in a test area. The rule of the first Saarland step still applies: ways nearly all already in OSM gave a small gain there.
+- If built, it would follow ADR 0147 (Basis-DLM in the Shape schema, Rhineland-Palatinate) and fill the open follow-up `AX_Leitung` of ADR 0083 for the Saarland.
+
 ## Not reached
 - Thuringia (except forest stands and INSPIRE Hydro), MV geotopes and moors, Berlin geotopes, the GDI-DE catalogue.
 - Licence texts read only from web pages: Saarland forest roads (catalogue CC BY 4.0), BW RadVIS, BW Geotopkataster, Thünen moor map.

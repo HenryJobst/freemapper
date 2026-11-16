@@ -6,6 +6,12 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+### Geändert
+
+- Ein Zaun an einer Straße, die als Fläche gezeichnet ist (Kataster, 501.5), hat seine Zacken jetzt auf der Seite, die von der Straße wegzeigt; bisher behielt er die Seite seiner Quelle, wenn keine Straßenlinie neben ihm lag (ADR 0158). Auf der Trainingskarte entfallen einzelne Bäume (417, 418) in einer Waldfläche (405), denn der weiße Wald ist die Bäume; auf offenem Gelände bleiben sie. Karte und Trainingskarte ändern sich nach `export --force`.
+- Hamburg: Ein Poller, eine Bank oder eine Leuchte der Feinkartierung ersetzt den OpenStreetMap-Punkt am selben Ort, wie es die Berliner Befahrung schon tut (ADR 0149): bis 2 m bei Pollern und Bänken, bis 5 m bei Leuchten. Der OSM-Punkt steht dann in `freemapper:also`, und auf der Sprintkarte gibt es an dieser Stelle einen Postenstandort weniger. Der Satz der Feinkartierung behält dafür die Art des Postenstandorts (`hamburg:control`) am Kandidaten. Bestehende Karten ändern sich nach `export --force`.
+- Berlin läuft jetzt über denselben Weg wie die Feinkartierung in Hamburg, und die Engine nennt keine Region mehr (ADR 0149). Karten und Projektdateien bleiben gleich. Eine Warnung zu einem unbekannten Ebenen-Eintrag in `freemapper.toml` nennt das Bundesland des Satzes statt immer Berlin.
+
 ### Behoben
 
 - Die Trainingskarte lässt weniger Wegenden frei (ADR 0150, Nachtrag, Issue #168). Ein kurzes Wegstück unter seiner Mindestlänge bleibt, wenn es Wege verbindet, die bleiben, auch wo eine Verschiebung oder ein Schnitt seine Enden von ihnen weggerückt hat, und seine Enden werden wieder an sie gelegt. Ein Pfad, der an einem Gehweg endete, den die Waldkarte weglässt, wird an die Straße gelegt. Eine Straße, die um einen Kreisverkehr herum zu einer Linie verbunden ist, wird wieder an ihren eigenen Ring gelegt. Jedes Ende wird nur verlegt, wenn die verschobene Linie zu allem den Abstand hält, von dem sie Abstand halten muss. In den drei Testgebieten sinken die freien Enden, an denen ein Weg auf einen anderen traf, von 11, 5 und 12 auf 1, 5 und 5 (Bremen Bürgerpark, Viktoriapark, Bastei). Jedes verbliebene nennt das ADR, meist eine Treppe unter drei Stufen, die nirgends hinführt.

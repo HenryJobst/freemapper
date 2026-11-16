@@ -1192,6 +1192,53 @@ mod tests {
         assert_eq!(also("av_poller"), None);
     }
 
+    /// Hamburg's surveyed bollards, benches and lamps beat the OSM ones at the same place, as
+    /// Berlin's do (ADR 0149).
+    #[test]
+    fn hamburg_furniture_replaces_osm_furniture_nearby() {
+        let kind = MapKind::Schoolyard;
+        let (georef, _, set) = setup(kind);
+        let hamburg = |code: &str, control: &str, id: &str, de: f64| {
+            let mut o = osm_point(kind, code, "", id, de, 0.0);
+            o.tags = vec![
+                (
+                    "freemapper:source".into(),
+                    "lgv-feinkartierung/fk-strasse-punkte".into(),
+                ),
+                ("freemapper:source_id".into(), id.into()),
+                ("hamburg:layer".into(), "fk-strasse-punkte".into()),
+                ("hamburg:control".into(), control.into()),
+            ];
+            o
+        };
+        let features = vec![
+            hamburg("544", "bollard", "post", 0.0),
+            hamburg("543", "bench", "bench", 20.0),
+            hamburg("545", "street_lamp", "lamp", 40.0),
+        ];
+        let osm = vec![
+            osm_point(kind, "544", "barrier=bollard", "node/1", 1.0, 0.0), // 1 m
+            osm_point(kind, "544", "barrier=bollard", "node/2", 5.0, 0.0), // another
+            osm_point(kind, "543", "amenity=bench", "node/3", 21.0, 0.0),
+            osm_point(kind, "545", "highway=street_lamp", "node/4", 43.0, 0.0), // 3 m
+            osm_point(kind, "545", "highway=street_lamp", "node/5", 47.0, 0.0), // 7 m
+        ];
+        let (osm, features) =
+            drop_points_near_registers(osm, features, &set, georef.scale_denominator);
+        assert_eq!(ids(&osm), ["node/2", "node/5"]);
+        assert_eq!(features.len(), 3);
+        let also = |id: &str| {
+            features
+                .iter()
+                .find(|o| object_tag(o, "freemapper:source_id") == Some(id))
+                .and_then(|o| object_tag(o, "freemapper:also"))
+                .map(str::to_string)
+        };
+        assert_eq!(also("post").as_deref(), Some("osm/node/1"));
+        assert_eq!(also("bench").as_deref(), Some("osm/node/3"));
+        assert_eq!(also("lamp").as_deref(), Some("osm/node/4"));
+    }
+
     #[test]
     fn sprint_control_sites_of_all_sources_are_thinned_together() {
         use crate::build::control_sites::drop_ambiguous;

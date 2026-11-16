@@ -10133,6 +10133,25 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
                 && source == "lgv-feinkartierung/fk-treppen"),
             "{found:?}"
         );
+        // The kind of control site stays on the point, so that it beats an OSM one nearby.
+        let documents = starter_documents(dir.path()).unwrap();
+        let bench = documents
+            .candidates
+            .parts
+            .iter()
+            .flat_map(|p| &p.objects)
+            .find(|o| {
+                o.tags
+                    .contains(&("hamburg:layer".into(), "fk-strasse-punkte".into()))
+            })
+            .expect("the surveyed bench is a candidate");
+        assert!(
+            bench
+                .tags
+                .contains(&("hamburg:control".into(), "bench".into())),
+            "{:?}",
+            bench.tags
+        );
     }
 
     #[test]

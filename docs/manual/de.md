@@ -999,7 +999,8 @@ Was die Trainingskarte anders macht als die Karte, Schritt für Schritt:
    ist als die 1,0 mm der Norm, etwa ein Tor von 1,5 m, wird auf 1,0 mm verbreitert; beide Enden werden gleich weit
    gekürzt.
 2. Stadtmobiliar (531, etwa Laternen, Papierkörbe und Fahrradständer) auf Straßen und Plätzen entfällt, im Park bleibt
-   es.
+   es. Einzelne Bäume (417, 418) in einer Waldfläche (405) entfallen, denn der weiße Wald ist die Bäume; auf
+   offenem Gelände bleiben sie.
 3. Offenes Gelände eines Parks ist nur dort gelb, wo das nDOM keine Bäume zeigt; der Rest bleibt weißer Wald.
    freemapper liest dafür die Baumbedeckung `data/tree-cover.tif`, die `derive` schreibt: alles ab 3 m Höhe, meist
    Bäume, aber auch Pavillons. Ohne nDOM bleibt der Park, wie er ist.
@@ -1517,7 +1518,8 @@ Erfassungsdatum hat das Kataster nicht, als Stand gilt das Abrufdatum. Bäume in
 Detail (Feinkartierung Straße, dl-de/by-2-0; Feinkartierung Grün, dl-de/zero-2-0). freemapper holt daraus für
 Sprint- und Schulhofkarten Geländer, Zäune, Handläufe, Mauern, Bordsteine, Treppen und Stadtmobiliar. Mit dem
 Inhaltsprofil `balanced` kommen Geländer, Zäune, Mauern, Bordsteine und Treppen direkt auf die Karte; Poller,
-Bänke und Leuchten werden Kandidaten, auf der Sprintkarte als mögliche Postenstandorte (531). Treppenflächen
+Bänke und Leuchten werden Kandidaten, auf der Sprintkarte als mögliche Postenstandorte (531); steht an derselben Stelle ein
+OSM-Punkt (bis 2 m bei Pollern und Bänken, bis 5 m bei Leuchten), gilt der Punkt der Feinkartierung. Treppenflächen
 werden zu Treppen, die Laufrichtung kommt aus dem Geländemodell. In Blankenese bringt das 155 Geländer und Zäune,
 15 Mauern, 36 Bordsteine und 352 Treppenlinien aus 102 Treppenflächen auf die Karte; die OpenStreetMap-Treppen
 an denselben Stellen entfallen (110 auf 40). Dazu kommen 96 Postenstandorte als Kandidaten. Grünstreifen, Sträucher,

@@ -960,7 +960,8 @@ What the training map does differently from the map, step by step:
    contours. The dash pattern then runs through. An opening between walls or fences narrower than the norm's 1.0 mm,
    a gate of 1.5 m say, is widened to 1.0 mm; both ends are shortened by the same length.
 2. Street furniture (531, such as lamps, waste baskets and bicycle stands) on streets and squares goes; in a park it
-   stays.
+   stays. Single trees (417, 418) in a forest area (405) go as well, because the white forest is the trees; on open
+   land they stay.
 3. Open land of a park is yellow only where the nDSM shows no trees; the rest stays white forest. freemapper reads the
    tree cover `data/tree-cover.tif` for this, which `derive` writes: everything from 3 m up, mostly trees, but also
    pavilions. Without an nDSM the park stays as it is.
@@ -1454,7 +1455,8 @@ its currency. Trees in parks and in the port are not in it.
 (Feinkartierung Straße, dl-de/by-2-0; Feinkartierung Grün, dl-de/zero-2-0). freemapper takes railings, fences,
 handrails, walls, curbs, stairs and street furniture from it for sprint and schoolyard maps. Under the content
 profile `balanced` the railings, fences, walls, curbs and stairs go straight onto the map; bollards, benches and
-lamps become candidates, on a sprint map as control sites (531). Stair areas become stairs, their walking
+lamps become candidates, on a sprint map as control sites (531); where an OSM point stands at the same place (up to
+2 m for bollards and benches, up to 5 m for lamps), the point of the Feinkartierung counts. Stair areas become stairs, their walking
 direction from the terrain model. In Blankenese that puts 155 railings and fences, 15 walls, 36 curbs and 352
 stair lines from 102 stair areas onto the map; the OpenStreetMap stairs at the same places go (110 to 40). 96
 control sites come as candidates. Green verges, shrubs, hedges
