@@ -286,6 +286,17 @@ pub(crate) fn feature_tags(prefix: &str, layer: &str, feature: &Value) -> Vec<(S
     tags
 }
 
+/// The building parts (`AX_Bauteil` with a `bauart`) among the normalised stored buildings.
+pub(crate) fn building_part_features(buildings: &[Value]) -> Vec<Value> {
+    buildings
+        .iter()
+        .filter(|f| {
+            f["properties"]["gebnutzbez"] == "Bauteil" && f["properties"]["bauart"].is_string()
+        })
+        .cloned()
+        .collect()
+}
+
 /// The polygons of an area feature in `from`, in `to`, without their holes: a stair is its outline.
 pub(crate) fn stair_areas(feature: &Value, from: Crs, to: Crs) -> Vec<Polygon<f64>> {
     tagged::polygons_in(feature, from, to)
@@ -321,6 +332,25 @@ mod tests {
             tags_of(hamburg, "fk-treppen", &feature),
             feature_tags("hamburg", "fk-treppen", &feature)
         );
+    }
+
+    /// A set may give its rules the building parts of the buildings under a layer name, and date
+    /// the buildings from one of its layers (Berlin: the passages and the 2022 heights, ADR 0149).
+    #[test]
+    fn a_set_may_name_building_parts_and_footprint_dates() {
+        let berlin = drawing_of_source("geoportal-berlin/").unwrap();
+        assert_eq!(berlin.building_parts, Some("building-parts"));
+        let dates = berlin.footprint_dates.as_ref().unwrap();
+        assert_eq!(dates.layer, "gebaeudehoehen");
+        let mut buildings = [json!({"properties": {"oid": "B1"}})];
+        (dates.join)(
+            &mut buildings,
+            &[json!({"properties": {"gml_id": "B1", "grundrissaktualitaet": "2022-03-01"}})],
+        );
+        assert_eq!(buildings[0]["properties"]["aktualit"], "2022-03-01");
+        let hamburg = drawing_of_source("lgv-feinkartierung/fk-treppen").unwrap();
+        assert_eq!(hamburg.building_parts, None);
+        assert!(hamburg.footprint_dates.is_none());
     }
 
     #[test]

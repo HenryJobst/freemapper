@@ -10,7 +10,8 @@ use std::collections::HashSet;
 use chrono::{Datelike, NaiveDate};
 use freemapper_adapter_api::extras::{
     DedupDistance, ExtraEstimate, ExtraLayerInfo, ExtraNotes, ExtraSet, ExtraSetInfo, FetchedExtra,
-    LayerKinds, PointDedup, RasterTemplate, RasterTemplateInfo, SetDrawing, SetRank, TemplateNotes,
+    FootprintDates, LayerKinds, PointDedup, RasterTemplate, RasterTemplateInfo, SetDrawing,
+    SetRank, TemplateNotes,
 };
 use serde_json::{Map, Value};
 
@@ -662,6 +663,12 @@ static DRAWING: SetDrawing = SetDrawing {
         ],
     }],
     carriageway_tags: &[("berlin:layer", "cm_fahrbahn")],
+    building_parts: Some("building-parts"),
+    // Berlin buildings carry no date; the 2022 height layer gives their footprint date.
+    footprint_dates: Some(FootprintDates {
+        layer: "gebaeudehoehen",
+        join: join_footprint_dates,
+    }),
     stair_layers: &[],
     candidate_layers: &[],
     feature_tags: Some(feature_tags),

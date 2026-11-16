@@ -49,13 +49,15 @@ pub(super) fn read_stored_buildings(dir: &Path) -> Result<Option<StoredBuildings
             message: e.to_string(),
         }
     })?;
-    // Berlin buildings carry no date; the 2022 height layer, if stored, gives their footprint
-    // date. It is an optional source: an unreadable file leaves the buildings undated.
-    if let Some(layer) = known_berlin_layer("gebaeudehoehen")
+    // A set may date the buildings from one of its layers, if stored. It is an optional source:
+    // an unreadable file leaves the buildings undated.
+    if let Some(dates) =
+        registers_drawing().and_then(|(drawing, _)| drawing.footprint_dates.as_ref())
+        && let Some(layer) = known_berlin_layer(dates.layer)
         && let Ok(text) = std::fs::read_to_string(berlin_layer_path(dir, layer))
-        && let Ok(heights) = freemapper_sources::layer_file::parse_layer(&text)
+        && let Ok(dating) = freemapper_sources::layer_file::parse_layer(&text)
     {
-        berlin::join_footprint_dates(&mut features, &heights);
+        (dates.join)(&mut features, &dating);
     }
     let buildings = parse_building_features(&features).buildings;
     Ok(Some(StoredBuildings {

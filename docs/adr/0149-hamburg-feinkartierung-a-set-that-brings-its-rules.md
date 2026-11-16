@@ -158,3 +158,12 @@ pedestrian zone and driveway of `sb-flaechen`), and the tags of the paving that 
 for the hidden 501.11 candidates). `StreetSurvey::of_set` reads them from the set's stored layers, tags each area
 with `dated_tags` (step 4f), and a cut names the source of the strip's layer. With that, Berlin's survey helpers
 left `build/berlin.rs`. Output unchanged (G3/G4).
+
+## Addendum 2026-11-16: building parts and footprint dates of a set (step 4h)
+
+Two ties between a set and the stored buildings are data of the set now. `building_parts` names the layer under
+which the set's rules get the building parts of the buildings (`Bauteil` with a `bauart`: passages, arcades;
+Berlin: `building-parts`); `build/sets.rs::building_part_features` picks them. `footprint_dates` names the set's
+layer that dates the buildings and the adapter's function that joins the dates (Berlin: the 2022 heights,
+`gebaeudehoehen`, with `join_footprint_dates`, an adapter hook because the join by `gml_id` is Berlin's). The engine
+no longer names the join, so `STILL_NAMED` lost its line. Output unchanged (G3/G4).
