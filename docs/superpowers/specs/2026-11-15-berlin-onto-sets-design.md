@@ -44,3 +44,23 @@ examples (Viktoriapark, Dammheide) and of the golden net (G1 to G5) byte for byt
 G4 (`tests/golden/adapters/berlin/expected.sha256`) and the two Berlin examples, rebuilt offline from their stored
 data where possible, compared object for object with `scratchpad/sprint/q.py`; G1 (credits) and G5 (project file
 round trip) unchanged.
+
+## As built (2026-11-16)
+
+All six steps are on main (pull requests #163 to #185, ADR 0149 addenda). Where the build differs from the plan above:
+
+- **Step 4 was eight pieces, 4a to 4h**: bench middles, kerb notches, roofs under canopies, a set's own feature tags
+  (an adapter hook, because Berlin's tagging is its own), canopy areas, the stairs of the cadastre, surveyed paving,
+  and building parts with footprint dates (the date join is an adapter hook). Most became data on `SetDrawing`
+  (`LayerKinds` lists), not code.
+- **Step 5 was 5b and 5c.** The credits (5a) needed no step of their own: once Berlin's records are in
+  `extra_sets`, the credit asks for the layer names of every set. `Part::BerlinLayers` is `Part::ExtraSets`.
+  The goldens had to name a part by its label first, because a rename of a variant changed them and a refactor may
+  not change goldens (golden-guard).
+- **Step 6 was 6a and 6b.** 6a drew Berlin through the generic path while its fetch stayed; it needed one datum the
+  plan lacked, `id_prefix` (a feature's id is the source id of an object whose feature has none, and Berlin's
+  stayed `berlin/…`), and the building parts for every set that names a layer for them, stored layers or not.
+  6b set `generic: true`.
+- **Left in the engine on purpose:** the test helpers of `build/berlin.rs` (Berlin's rules drawn through the generic
+  step) and the K5 template, which is a raster template of the adapter, not a set.
+- The golden net was never changed except by the label commit; G3/G4 and G5 held at every step.
