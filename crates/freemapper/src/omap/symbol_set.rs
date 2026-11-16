@@ -3,7 +3,7 @@
 
 use super::OmapError;
 use super::enlarge::enlarge_symbols;
-use crate::measure::PaperMm;
+use crate::measure::{PaperMm, PaperMm2};
 
 /// Symbol number of a norm, e.g. "521" or "501.5".
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -332,6 +332,26 @@ impl SymbolSet {
         (value > 0.0).then(|| PaperMm(value / 1000.0))
     }
 
+    /// The minimum area of the area symbol `id` as the set gives it (already enlarged); `None`
+    /// when 0 or unknown.
+    pub fn minimum_area(&self, id: u32) -> Option<PaperMm2> {
+        if self.symbol_type(id) != Some(4) {
+            return None;
+        }
+        let at = self
+            .symbols_xml
+            .find(&format!(r#"<symbol type="4" id="{id}""#))?;
+        // Only the attributes of this symbol's own `<area_symbol …>` tag.
+        let rest = &self.symbols_xml[at..];
+        let open = rest.find("<area_symbol")?;
+        let tag = &rest[open..open + rest[open..].find('>')?];
+        let value: f64 = first_attribute_after(tag, "<area_symbol", "min_area")?
+            .parse()
+            .ok()?;
+        // OOM stores areas in 1/1000 mm².
+        (value > 0.0).then(|| PaperMm2(value / 1000.0))
+    }
+
     /// Whether an alias of this set answers the code: the set has no symbol of its own for it.
     pub fn is_aliased(&self, code: &str) -> bool {
         self.aliases.iter().any(|(from, _)| from == code)
@@ -431,6 +451,18 @@ mod tests {
         assert_eq!(set.minimum_length(set.id_for_code("532").unwrap()), None);
         assert_eq!(set.minimum_length(set.id_for_code("401").unwrap()), None);
         assert_eq!(set.minimum_length(99_999), None);
+    }
+
+    #[test]
+    fn the_minimum_area_of_a_paved_area_is_read() {
+        // The bundled ISSprOM 2019-2 set gives 501.11 0.5 mm², at 1:4000 at 100 %.
+        let set = SymbolSet::issprom_2019();
+        let heavy = set.id_for_code("501.11").unwrap();
+        assert_eq!(set.minimum_area(heavy), Some(PaperMm2(0.5)));
+        // A line none, an area of 0 none, an unknown id none.
+        assert_eq!(set.minimum_area(set.id_for_code("501.1").unwrap()), None);
+        assert_eq!(set.minimum_area(set.id_for_code("501.12").unwrap()), None);
+        assert_eq!(set.minimum_area(99_999), None);
     }
 
     #[test]

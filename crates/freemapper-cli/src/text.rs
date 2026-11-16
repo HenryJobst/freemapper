@@ -296,6 +296,9 @@ mod tests {
             ("map", v("/p/p-training.omap")),
             ("pdf", v("/p/p-training.pdf")),
             ("joined", n(3)),
+            ("shifted", n(2)),
+            // The line ends left free (`cli-training-free-ends`).
+            ("count", n(3)),
             ("length", v("12.3")),
             // The permit notes (`permits.rs`, `errors.rs`).
             ("missing", v("bfn: HTTP 503")),

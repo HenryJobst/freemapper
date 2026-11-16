@@ -920,12 +920,26 @@ What the training map does differently from the map, step by step:
    every other way a beginning of 1 mm stays at each open place, so that a runner is not surprised by a path
    branching off. Where a fence or wall stands there, the map shows only that. A passage stays only where a way that
    stays runs through it. What lies on the edge, such as the fence round the garden or the road beside it, stays.
-5. A point symbol (a tree, a monument, a fountain and the like) that comes too close to a way, a building, water, a
+5. Lines of one kind that run side by side inside the norm's gap become one line on their middle: the two
+   carriageways of a road, two railway tracks, two paths. The wider symbol stays. Where the two part, both stay and
+   meet in a fork. On a forest map a sidewalk, cycleway or tram track that runs close beside a road goes, because
+   ISOM draws the road alone; where a path runs beside the road only for a stretch, only that stretch goes. On a
+   sprint map paths and tracks may lie on the street area, so nothing changes there.
+6. A line that comes closer to another object than the norm's gap moves away from it by what is missing, at most
+   0.5 mm on paper (2 m at 1:4000, 5 m at 1:10 000). A fence drawn on a stream or right beside a path then stands
+   beside it instead of being cut. The line bends back to its course over a short ramp, or moves whole when most of
+   it is too close. It moves only when that brings it too close to nothing else; otherwise step 8 cuts it as
+   before. Fences, walls and banks keep their tick side. The line then carries `freemapper:generalized` with
+   "shifted: gap to …".
+
+   After steps 5 and 6 a path end that touched a line touches it again: a path that ended on a merged or moved
+   line ends on it, and one that ended on a sidewalk that went ends on the road.
+7. A point symbol (a tree, a monument, a fountain and the like) that comes too close to a way, a building, water, a
    fence or another point moves to the nearest free spot, at most 1.5 mm on paper (6 m at 1:4000, 15 m at
    1:10 000), but never into olive green. Of two points the smaller moves. It then carries `freemapper:moved`. If it
-   finds no spot, it stays where it is and goes in step 6 if it is too close to another symbol there. Trees on
+   finds no spot, it stays where it is and goes in step 8 if it is too close to another symbol there. Trees on
    streets and squares stay where they are.
-6. Where two symbols cover each other or come closer than the norm's gap (0.15 mm between two lines, enlarged like
+8. Where two symbols cover each other or come closer than the norm's gap (0.15 mm between two lines, enlarged like
    the symbols), the one with the lower rank gives way. The rank falls from buildings through water, railways,
    roads, paths, watercourses and stairs, fences, walls and cliffs, banks and contours down to the points. The
    stretch is cut out, crossings stay. If more than half of an object is in conflict, it goes whole; a stretch
@@ -933,17 +947,28 @@ What the training map does differently from the map, step by step:
    runner meets them in the terrain. Contours run
    through buildings and ways and give way only to banks and cliffs. A fence or wall along a stair stays: the norm
    draws it with the stair.
-7. What is below the norm's minimum size goes: short pieces of line, stairs under three steps (1 mm) and small areas
+9. What is below the norm's minimum size goes: short pieces of line, stairs under three steps (1 mm) and small areas
    of open land, forest and green. A short piece that ends on a line of its kind that stays, stays too; for ways,
    stairs and railways every way counts, so a path cut into pieces by steps stays when one end meets a longer
    way. Two short pieces do not keep each other. A stair too short to draw between two ways is drawn as the way
    (it carries `freemapper:generalized`); one at a dead end goes.
 
+   Last, a line end that touched a line before step 5 and lost it in step 8 or 9 is drawn onto what is left of that
+   line, when that lies within 0.5 mm plus the gap. Where nothing is left in reach, the end stays free and the
+   summary line counts it: `3 line ends left free`. Where two lines lay on each other and one was cut for the
+   other, the gap is meant and nothing is drawn back.
+
 On forest and sprint maps the training map also generalizes the cliffs more than the map (chapter 7).
 
-Carriageways, tracks and paths running side by side still stand side by side in this version, and the kerb lines
-stay. Merging them onto a middle line, shifting lines and a colour of its own for the carriageway come later. If
-objects still keep too little gap after all steps, a warning gives the length in mm; look at those places in OOM.
+In Berlin the street survey also has the carriageways. On the training map of a sprint map they are drawn inside the
+street areas in the darker brown of heavy traffic (501.11, 50 % brown), and the kerb lines inside the street areas
+go. The edge of the street area stays. ISSprOM 2019-2 (501) says: "Edges within paved areas are generally not
+represented, unless they serve navigation". The base map and the check print do not draw the
+carriageways. They are hidden candidates. `templates/candidates.omap` and the OCAD candidates hold them, so OOM and
+OCAD show them there as dark brown areas over the streets. They are survey data like the other candidates and can
+help when you map the streets.
+
+If objects still keep too little gap after all steps, a warning gives the length in mm; look at those places in OOM.
 
 Do not map on the training map. freemapper builds it from the downloaded data and the content settings, not from
 the `.omap` files, so corrections you make in OpenOrienteering Mapper never reach it. What it moves or leaves out

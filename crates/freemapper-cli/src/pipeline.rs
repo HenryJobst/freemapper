@@ -762,20 +762,35 @@ fn ocad_summary(outcome: &OcadOutcome) -> String {
 }
 
 /// What the training export wrote, in words for the user: the map and its PDF with what the
-/// training level did, then the OCAD file.
+/// training level did, then the OCAD file. Lines joined end to end and pairs merged side by side
+/// count as joined; paths and trams left out inside a road and kerb lines left out inside a
+/// street count as left out.
 pub fn training_summary(outcome: &TrainingOutcome) -> String {
     let report = &outcome.report;
-    let left =
-        report.gave_way + report.cut + report.too_small + report.furniture + report.inside_olive;
+    let left = report.gave_way
+        + report.cut
+        + report.too_small
+        + report.furniture
+        + report.inside_olive
+        + report.dropped_beside_roads
+        + report.kerbs;
     let mut lines = vec![text(
         "cli-wrote-training",
         &[
             ("map", v(outcome.map.display())),
             ("pdf", v(outcome.pdf.display())),
-            ("joined", n(report.joined)),
+            ("joined", n(report.joined + report.merged)),
+            ("shifted", n(report.shifted)),
             ("left", n(left)),
         ],
     )];
+    // A free end is counted, not hidden; none is not worth a line.
+    if report.junctions_free > 0 {
+        lines.push(text(
+            "cli-training-free-ends",
+            &[("count", n(report.junctions_free))],
+        ));
+    }
     if let Some(ocad) = &outcome.ocad {
         lines.push(text("cli-wrote", &[("path", v(ocad.display()))]));
     }
@@ -1207,6 +1222,13 @@ mod tests {
             inside_olive: 6,
             open_land_cut: 7,
             points_moved: 8,
+            merged: 2,
+            dropped_beside_roads: 3,
+            junctions_repaired: 9,
+            junctions_free: 0,
+            shifted: 4,
+            carriageways: 5,
+            kerbs: 2,
             ..TrainingReport::default()
         };
         let mut outcome = training(dir, report);
@@ -1214,12 +1236,19 @@ mod tests {
         assert_eq!(
             training_summary(&outcome),
             format!(
-                "Wrote {} and {} (the training map: 3 joined, 18 left out or cut)",
+                "Wrote {} and {} (the training map: 5 joined, 4 shifted, 23 left out or cut)",
                 training_map_path(dir).display(),
                 training_pdf_path(dir).display()
             )
         );
         assert!(training_warnings(&outcome).is_empty());
+        outcome.report.junctions_free = 3;
+        assert!(
+            training_summary(&outcome).ends_with("left out or cut)\n3 line ends left free"),
+            "{}",
+            training_summary(&outcome)
+        );
+        outcome.report.junctions_free = 0;
         outcome.ocad = Some(PathBuf::from("/p/ocad/p-training.ocd"));
         assert!(
             training_summary(&outcome).ends_with("\nWrote /p/ocad/p-training.ocd"),

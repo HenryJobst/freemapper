@@ -4,6 +4,8 @@
 //! green strips (Grünstreifen) are cut out of the 501.5 map objects, and its paved surfaces
 //! outside the ALKIS traffic parcels become 501.5 candidates. The survey never replaces ALKIS:
 //! a quarter of the ALKIS street area was not surveyed or was rebuilt since (reference §6).
+//! Its carriageways inside the street parcels become hidden 501.11 candidates
+//! ([`HIDDEN_CARRIAGEWAY`]): only the training map draws them (`build/training/carriageway.rs`).
 
 use chrono::NaiveDate;
 use geo::orient::{Direction, Orient as _};
@@ -15,6 +17,7 @@ use serde_json::Value;
 
 use crate::build::berlin::{feature_polygons, survey_currency, survey_tags};
 use crate::build::out_of_bounds::{LandClip, area_object, clipped_pieces, land_tags};
+use crate::build::points::HIDDEN_KEY;
 use crate::crs::{BoundingBox, Crs};
 use crate::georef::{GeorefError, Georeferencing};
 use crate::measure::{SymbolMm, SymbolScale};
@@ -47,6 +50,18 @@ const SURFACE_TYPES: [&str; 7] = [
     "cj_fussgaengerzone",
     "by_gehwegueberfahrt",
 ];
+/// The survey type of the carriageway.
+const CARRIAGEWAY_TYPE: &str = "cm_fahrbahn";
+/// ISSprOM 2019-2, 501.11 paved area, heavy traffic, without border ("Differences in the brown
+/// colour shall be used to show differences in the traffic"): the surveyed carriageway. 501.10 of
+/// the bundled set is the same fill with the 501.1 border.
+pub const CARRIAGEWAY_CODE: &str = "501.11";
+/// The value of [`HIDDEN_KEY`] on a carriageway candidate: the map and the check print leave it
+/// out, the training map draws it.
+pub const HIDDEN_CARRIAGEWAY: &str = "carriageway";
+/// The land uses of the street parcels a carriageway lies in (`freemapper:nutzart` is the name,
+/// or the name and ` / ` and the refinement).
+pub const STREET_NUTZARTEN: [&str; 2] = ["Straßenverkehr", "Platz"];
 /// ISSprOM 401 open land: the candidate for a surveyed green strip.
 const GREEN_CODE: &str = "401";
 /// Where a green strip and a paved object overlap by less than (1 mm)², or by a strip narrower
@@ -212,7 +227,8 @@ fn survey_areas(file: &str, features: &[Value], types: &[&str], crs: Crs) -> Vec
 /// the map's CRS). A street parcel crossed by one of `unpaved_streets` (same CRS) is a candidate.
 /// The `survey` green strips are cut out of the map objects ([`subtract_green`]) and are 401
 /// candidates where no 501.5 object or candidate stays; its paved surfaces outside the parcels are 501.5 candidates
-/// ([`surveyed_paved_candidates`]).
+/// ([`surveyed_paved_candidates`]), its carriageways inside the street parcels hidden 501.11
+/// candidates ([`carriageway_candidates`]).
 pub fn paved_area_objects(
     land_use: &[LandUse],
     unpaved_streets: &[LineString<f64>],
@@ -240,7 +256,10 @@ pub fn paved_area_objects(
     // strips cut out (`drawn`).
     let mut paved = Vec::new();
     let mut drawn = Vec::new();
+    // The pieces of `paved` from street parcels ([`STREET_NUTZARTEN`]).
+    let mut streets = Vec::new();
     for land in land_use {
+        let street = STREET_NUTZARTEN.contains(&land.nutzart.as_str());
         let reliable = match (land.nutzart.as_str(), land.bez.as_deref()) {
             ("Straßenverkehr", Some(VERGE)) => continue,
             ("Straßenverkehr", _) => true,
@@ -265,6 +284,9 @@ pub fn paved_area_objects(
                 };
                 for piece in clipped_pieces(part, &clip, f64::INFINITY) {
                     target.push(area_object(&piece, symbol_id, land_tags(land), georef)?);
+                    if street {
+                        streets.push(piece.clone());
+                    }
                     paved.push(piece);
                 }
                 continue;
@@ -286,6 +308,9 @@ pub fn paved_area_objects(
                 objects
                     .map
                     .push(area_object(&piece, symbol_id, tags, georef)?);
+                if street {
+                    streets.push(piece.clone());
+                }
                 paved.push(piece);
             }
         }
@@ -309,6 +334,60 @@ pub fn paved_area_objects(
         symbol_id,
         georef,
     )?);
+    if let Some(heavy) = symbol_set.id_for_code(CARRIAGEWAY_CODE) {
+        objects.candidates.extend(carriageway_candidates(
+            &survey.surfaces,
+            &streets,
+            &surface_clip,
+            heavy,
+            georef,
+        )?);
+    }
+    Ok(objects)
+}
+
+/// Hidden candidates with `symbol_id` (501.11) for the surveyed carriageways among `surfaces`,
+/// cut to the 501.5 pieces of the street parcels `streets` (map CRS, inside the clip window, the
+/// green strips cut out), slivers dropped: what the survey found to be carriageway where ALKIS
+/// draws the whole parcel as one paved area. Each carries its area's survey tags and
+/// [`HIDDEN_KEY`]` = `[`HIDDEN_CARRIAGEWAY`].
+fn carriageway_candidates(
+    surfaces: &[SurveyArea],
+    streets: &[Polygon<f64>],
+    clip: &LandClip,
+    symbol_id: u32,
+    georef: &Georeferencing,
+) -> Result<Vec<MapObject>, GeorefError> {
+    let streets: Vec<(&Polygon<f64>, Rect<f64>)> = streets
+        .iter()
+        .filter_map(|s| Some((s, s.bounding_rect()?)))
+        .collect();
+    let mut objects = Vec::new();
+    let carriageways = surfaces.iter().filter(|a| {
+        a.tags
+            .iter()
+            .any(|(k, v)| k == "berlin:layer" && v == CARRIAGEWAY_TYPE)
+    });
+    for area in carriageways {
+        let near: Vec<&Polygon<f64>> = streets
+            .iter()
+            .filter(|(_, bounds)| bounds.intersects(&area.bounds))
+            .map(|(s, _)| *s)
+            .collect();
+        if near.is_empty() {
+            continue;
+        }
+        // The pieces can overlap a little where parcels do; the union keeps them once.
+        let inside = area.polygon.intersection(&geo::unary_union(near));
+        for piece in inside.0 {
+            if clip.is_sliver(&piece, SURVEY_SLIVER_CAP_M) {
+                continue;
+            }
+            let mut tags = area.tags.clone();
+            tags.push((HIDDEN_KEY.to_string(), HIDDEN_CARRIAGEWAY.to_string()));
+            objects.push(area_object(&piece, symbol_id, tags, georef)?);
+        }
+    }
     Ok(objects)
 }
 
@@ -1068,7 +1147,8 @@ mod tests {
             ),
             // A 3 m park path away from any street (150 m²).
             guessed,
-            // The carriageway lies inside the parcel: ALKIS has it already.
+            // The carriageway lies inside the parcel: ALKIS has it already, the training map
+            // draws it from its hidden candidate.
             survey_feature(
                 "cm_fahrbahn",
                 "Fl_20150413_8",
@@ -1088,7 +1168,16 @@ mod tests {
         assert_eq!(objects.map.len(), 1);
         assert!((area_of(&objects.map[0], &f.georef) - 1200.0).abs() < 1.0);
         let paved = set.id_for_code("501.5").unwrap();
-        let candidates = &objects.candidates;
+        let (hidden, candidates): (Vec<MapObject>, Vec<MapObject>) = objects
+            .candidates
+            .iter()
+            .cloned()
+            .partition(|c| tag(c, "freemapper:hidden").is_some());
+        assert_eq!(hidden.len(), 1, "{hidden:?}");
+        assert_eq!(
+            tag(&hidden[0], "freemapper:source_id"),
+            Some("Fl_20150413_8")
+        );
         assert_eq!(candidates.len(), 2, "{candidates:?}");
         assert!(candidates.iter().all(|c| c.symbol_id == paved));
         let sidewalk = &candidates[0];
@@ -1108,6 +1197,105 @@ mod tests {
         assert!((area_of(path, &f.georef) - 150.0).abs() < 1.0);
         assert_eq!(tag(path, "freemapper:currency"), Some("2014-01-01"));
         assert_eq!(tag(path, "freemapper:currency_guessed"), Some("yes"));
+    }
+
+    #[test]
+    fn the_survey_carriageway_is_a_hidden_candidate() {
+        use crate::build::content::{ContentSettings, Profile, route};
+        let f = fixture();
+        let (e, n) = f.centre;
+        // A 100 × 12 m street parcel and a `Weg` beside it; the carriageway runs 20 m past the
+        // parcel's east end and across the `Weg`.
+        let mut way = land("Weg", None, &f);
+        way.footprint = MultiPolygon(vec![Polygon::new(
+            ring(e - 50.0, n + 6.0, 100.0, 10.0),
+            vec![],
+        )]);
+        let surfaces = [
+            survey_feature(
+                "cm_fahrbahn",
+                "Fl_20150413_8",
+                "2015-04-13",
+                &ring(e - 40.0, n - 3.0, 110.0, 6.0),
+            ),
+            survey_feature(
+                "cm_fahrbahn",
+                "Fl_20150413_9",
+                "2015-04-13",
+                &ring(e - 10.0, n + 8.0, 6.0, 6.0),
+            ),
+            // A sidewalk inside the parcel stays as it is: ALKIS has it.
+            survey_feature(
+                "cl_gehweg",
+                "Fl_20150413_10",
+                "2015-04-13",
+                &ring(e - 40.0, n + 3.0, 80.0, 3.0),
+            ),
+        ];
+        let survey = StreetSurvey::from_features(&[], &surfaces, f.georef.crs());
+        let (objects, set) = paved_with(&f, &[land("Straßenverkehr", None, &f), way], &survey);
+        let heavy = set.id_for_code("501.11").unwrap();
+        let carriageways: Vec<&MapObject> = objects
+            .candidates
+            .iter()
+            .filter(|c| c.symbol_id == heavy)
+            .collect();
+        // Only the one in the street parcel, cut to it: 90 × 6 m.
+        assert_eq!(carriageways.len(), 1, "{:?}", objects.candidates);
+        let carriageway = carriageways[0];
+        let area = area_of(carriageway, &f.georef);
+        assert!((area - 540.0).abs() < 1.0, "{area}");
+        for (k, v) in [
+            ("freemapper:hidden", "carriageway"),
+            ("freemapper:source", "geoportal-berlin/sb-flaechen"),
+            ("freemapper:source_id", "Fl_20150413_8"),
+            ("freemapper:currency", "2015-04-13"),
+            ("berlin:layer", "cm_fahrbahn"),
+        ] {
+            assert_eq!(
+                tag(carriageway, k),
+                Some(v),
+                "{k} in {:?}",
+                carriageway.tags
+            );
+        }
+        // The rest is as before: the parcel on the map, the `Weg` and the 20 m past the parcel
+        // as 501.5 candidates, no candidate for the sidewalk.
+        let light = set.id_for_code("501.5").unwrap();
+        assert_eq!(objects.map.len(), 1);
+        assert_eq!(objects.candidates.len(), 3, "{:?}", objects.candidates);
+        assert_eq!(
+            objects
+                .candidates
+                .iter()
+                .filter(|c| c.symbol_id == light)
+                .count(),
+            2
+        );
+        // No content setting puts it on the map.
+        let (mut map, mut candidates) = (objects.map.clone(), objects.candidates.clone());
+        let full = ContentSettings::with_profile(Profile::Full);
+        route(&full, &mut map, &mut candidates, &set);
+        assert!(candidates.contains(carriageway));
+        assert!(!map.iter().any(|o| o.symbol_id == heavy));
+    }
+
+    #[test]
+    fn no_carriageway_without_a_street_parcel_or_outside_berlin() {
+        let f = fixture();
+        let (e, n) = f.centre;
+        let carriageway = survey_feature(
+            "cm_fahrbahn",
+            "Fl_20150413_8",
+            "2015-04-13",
+            &ring(e - 40.0, n - 3.0, 80.0, 6.0),
+        );
+        let survey = StreetSurvey::from_features(&[], &[carriageway], f.georef.crs());
+        let (objects, set) = paved_with(&f, &[land("Weg", None, &f)], &survey);
+        let heavy = set.id_for_code("501.11").unwrap();
+        assert!(!objects.candidates.iter().any(|c| c.symbol_id == heavy));
+        let (objects, _) = paved(&f, &[land("Straßenverkehr", None, &f)]);
+        assert!(!objects.candidates.iter().any(|c| c.symbol_id == heavy));
     }
 
     #[test]

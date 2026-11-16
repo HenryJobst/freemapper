@@ -35,7 +35,8 @@ cli-map-lacks-canopies = Der Karte fehlen die ALKIS-Überdachungen und Carports 
 cli-pdf-without-credits = PDF ohne Quellenangaben: ODbL und dl-de/by-2-0 verlangen, dass Sie die Quellen nennen, wenn Sie die Karte weitergeben; siehe ATTRIBUTION.txt
 cli-wrote-pdf = { $path } geschrieben (die Karte ohne Kandidaten)
 cli-wrote-pdf-candidates = { $path } geschrieben (der Prüfausdruck: die Karte mit jedem Kandidaten, lagetreu; prüfen Sie sie im Gelände)
-cli-wrote-training = { $map } und { $pdf } geschrieben (die Trainingskarte: { $joined } zusammengelegt, { $left } weggelassen oder gekürzt)
+cli-wrote-training = { $map } und { $pdf } geschrieben (die Trainingskarte: { $joined } zusammengelegt, { $shifted } verschoben, { $left } weggelassen oder gekürzt)
+cli-training-free-ends = { $count } Linienenden frei
 cli-training-apart-left = Die Trainingskarte hat noch { $length } mm (auf dem Papier), an denen Objekte zu wenig Abstand halten; prüfen Sie sie in OOM
 cli-kept-training = Trainingskarte { $path } behalten, damit ein Lauf keine überschreibt, die gedruckt oder weitergegeben wurde; zum Erneuern löschen oder --force angeben
 

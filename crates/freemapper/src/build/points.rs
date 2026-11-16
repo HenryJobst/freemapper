@@ -601,7 +601,8 @@ fn group_areas(
     Ok((areas, merged))
 }
 
-/// The paved area candidates ([`PAVED_AREA_CODES`] among `areas` and `candidates`) and the
+/// The paved area candidates ([`PAVED_AREA_CODES`] among `areas` and `candidates`, but the hidden
+/// ones: the carriageways of the street survey, which only the training map draws) and the
 /// footprints of the paths ([`PATH_WIDTHS_MM`] among `candidates` and `map`, buffered by half
 /// their width on paper) in the map's CRS.
 pub(crate) fn way_footprints(
@@ -626,7 +627,7 @@ pub(crate) fn way_footprints(
     let mut footprints: Vec<Polygon<f64>> = areas
         .iter()
         .chain(candidates)
-        .filter(|o| paved_ids.contains(&o.symbol_id))
+        .filter(|o| paved_ids.contains(&o.symbol_id) && tag(o, HIDDEN_KEY).is_none())
         .filter_map(object_polygon)
         .map(|p| projected(&p, georef))
         .collect();
@@ -2455,6 +2456,29 @@ mod tests {
         let mut b = [f64::MAX, f64::MAX, f64::MIN, f64::MIN];
         bounds(point, (0.0, 0.0), &mut b);
         (b[2] - b[0]).max(b[3] - b[1]) / 1000.0
+    }
+
+    #[test]
+    fn a_hidden_carriageway_is_no_way_footprint() {
+        let f = fixture(MapKind::Sprint);
+        let street = f.rect("501.5", (0.0, 0.0), (40.0, 12.0));
+        let mut carriageway = f.rect("501.11", (0.0, 3.0), (40.0, 6.0));
+        let ways = |candidates: &[MapObject]| {
+            way_footprints(
+                std::slice::from_ref(&street),
+                candidates,
+                &[],
+                f.kind,
+                &f.georef,
+                &f.set,
+            )
+            .len()
+        };
+        assert_eq!(ways(&[carriageway.clone()]), 2);
+        carriageway
+            .tags
+            .push((HIDDEN_KEY.to_string(), "carriageway".to_string()));
+        assert_eq!(ways(&[carriageway]), 1);
     }
 
     #[test]

@@ -9,6 +9,7 @@
 //! cuts or drops objects.
 
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use geo::algorithm::buffer::{BufferStyle, LineCap};
 use geo::line_intersection::{LineIntersection, line_intersection};
@@ -228,20 +229,84 @@ struct Footprint {
     bounds: Option<Rect<f64>>,
 }
 
-/// Per object: its class, its centre lines and its drawn footprint, in paper mm (y down).
+/// Per object: its class, its centre lines and its drawn footprint, in paper mm (y down). The
+/// footprints are shared: a set picked from another, or one with an object drawn again, builds
+/// only what is new.
+#[derive(Clone)]
 pub struct Footprints {
-    items: Vec<Footprint>,
+    items: Vec<Arc<Footprint>>,
 }
 
 impl Footprints {
     pub fn of(objects: &[&MapObject], symbol_set: &SymbolSet) -> Self {
         let symbols = RenderSymbols::from_set(symbol_set);
         let classes = Classes::of(symbol_set);
+        Self::with(objects, &symbols, &classes)
+    }
+
+    /// As [`of`](Self::of), with the symbols and classes of the set already read: for a caller
+    /// that measures many small sets of objects.
+    pub fn with(objects: &[&MapObject], symbols: &RenderSymbols, classes: &Classes) -> Self {
         let items = objects
             .iter()
-            .map(|object| footprint(object, &symbols, &classes))
+            .map(|object| Arc::new(footprint(object, symbols, classes)))
             .collect();
         Self { items }
+    }
+
+    /// As [`of`](Self::of) for the objects of the classes `only`; every other object is left
+    /// undrawn, of class [`Class::Other`], so it is in no conflict. The verdict on a pair of the
+    /// objects drawn is the one [`of`](Self::of) gives: a caller that reads only the conflicts
+    /// among these classes saves drawing and measuring the rest.
+    pub fn of_only(objects: &[&MapObject], symbol_set: &SymbolSet, only: &[Class]) -> Self {
+        let symbols = RenderSymbols::from_set(symbol_set);
+        let classes = Classes::of(symbol_set);
+        let undrawn = Arc::new(Footprint {
+            class: Class::Other,
+            footprint: MultiPolygon::new(Vec::new()),
+            centre: MultiLineString(Vec::new()),
+            half_width: 0.0,
+            length: 0.0,
+            bounds: None,
+        });
+        let items = objects
+            .iter()
+            .map(|object| {
+                if only.contains(&classes.class(object.symbol_id)) {
+                    Arc::new(footprint(object, &symbols, &classes))
+                } else {
+                    Arc::clone(&undrawn)
+                }
+            })
+            .collect();
+        Self { items }
+    }
+
+    /// The footprints of the objects `indices` of this set, in that order, as
+    /// [`with`](Self::with) builds them for those objects: nothing is drawn again.
+    pub fn pick(&self, indices: &[usize]) -> Self {
+        Self {
+            items: indices
+                .iter()
+                .map(|&i| Arc::clone(&self.items[i]))
+                .collect(),
+        }
+    }
+
+    /// The object `i` drawn again as `object`, as [`with`](Self::with) draws it.
+    pub fn redraw(
+        &mut self,
+        i: usize,
+        object: &MapObject,
+        symbols: &RenderSymbols,
+        classes: &Classes,
+    ) {
+        self.items[i] = Arc::new(footprint(object, symbols, classes));
+    }
+
+    /// The object `i` takes the footprint of the object `j` of `other`.
+    pub fn adopt(&mut self, i: usize, other: &Footprints, j: usize) {
+        self.items[i] = Arc::clone(&other.items[j]);
     }
 
     pub fn class(&self, i: usize) -> Class {
@@ -424,9 +489,29 @@ pub fn gap(kind: MapKind, scale_denominator: u32) -> PaperMm {
 /// Where the drawn symbols of `footprints` come too close: at most one [`Conflict`] per pair, in
 /// the order of the pairs.
 pub fn conflicts(footprints: &Footprints, kind: MapKind, scale_denominator: u32) -> Vec<Conflict> {
+    conflicts_where(footprints, kind, scale_denominator, |_| true)
+}
+
+/// The conflicts of [`conflicts`] of the pairs whose [`relation`] `keep` holds; the others are
+/// not measured.
+pub fn conflicts_where(
+    footprints: &Footprints,
+    kind: MapKind,
+    scale_denominator: u32,
+    keep: impl Fn(Relation) -> bool,
+) -> Vec<Conflict> {
     let gap = gap(kind, scale_denominator).0;
     let items = &footprints.items;
-    // A uniform grid over the bounding boxes, grown by the gap.
+    pairs(items, gap)
+        .into_iter()
+        .filter(|&(a, b)| keep(relation(items[a].class, items[b].class)))
+        .filter_map(|(a, b)| pair_conflict(items, a, b, gap))
+        .collect()
+}
+
+/// The pairs `a` < `b` of `items` whose bounding boxes, grown by the gap, share a cell of a
+/// uniform grid, sorted.
+fn pairs(items: &[Arc<Footprint>], gap: f64) -> Vec<(usize, usize)> {
     let cell = |v: f64| (v / CELL_MM).floor() as i64;
     let mut grid: HashMap<(i64, i64), Vec<usize>> = HashMap::new();
     for (i, item) in items.iter().enumerate() {
@@ -450,41 +535,130 @@ pub fn conflicts(footprints: &Footprints, kind: MapKind, scale_denominator: u32)
         .collect();
     pairs.sort_unstable();
     pairs.dedup();
-    let mut found = Vec::new();
-    for (a, b) in pairs {
-        let (fa, fb) = (&items[a], &items[b]);
-        if relation(fa.class, fb.class) == Relation::Free {
-            continue;
-        }
-        let (Some(ba), Some(bb)) = (fa.bounds, fb.bounds) else {
-            continue;
-        };
-        if ba.min().x - gap > bb.max().x
-            || bb.min().x - gap > ba.max().x
-            || ba.min().y - gap > bb.max().y
-            || bb.min().y - gap > ba.max().y
-        {
-            continue;
-        }
-        // The lower rank gives way; of the same rank the shorter, of the same length (within
-        // the tolerance) the later.
-        let b_loses = match rank(fb.class).cmp(&rank(fa.class)) {
-            std::cmp::Ordering::Less => true,
-            std::cmp::Ordering::Greater => false,
-            std::cmp::Ordering::Equal => fb.length <= fa.length + TOLERANCE_MM,
-        };
-        let (loser, winner) = if b_loses { (b, a) } else { (a, b) };
-        if let Some((grade, length)) = measure(&items[loser], &items[winner], gap) {
-            found.push(Conflict {
-                loser,
-                winner,
-                classes: (items[loser].class, items[winner].class),
-                grade,
-                length: PaperMm(length),
-            });
+    pairs
+}
+
+/// [`conflicts`] for a caller that measures one set again and again while a few of its objects
+/// change: the verdict on each pair is kept until one of the two objects is
+/// [`forgotten`](Self::forget), so only the pairs of what changed are measured again. The
+/// result is the one [`conflicts`] gives.
+///
+/// The memo keys each verdict by the indices of the two objects, so the caller must keep two
+/// promises between calls: the indices name the same objects (nothing is inserted, removed or
+/// reordered), and every object drawn anew, moved or changed is passed to
+/// [`forget`](Self::forget) before the next call. Each verdict is a function of the two
+/// footprints alone, so nothing else makes one stale.
+#[derive(Default)]
+pub(crate) struct PairMemo {
+    verdicts: HashMap<(usize, usize), Option<Conflict>>,
+}
+
+impl PairMemo {
+    /// The conflicts of `footprints` of the pairs whose [`relation`] `keep` holds, as
+    /// [`conflicts_where`] finds them.
+    pub(crate) fn conflicts_where(
+        &mut self,
+        footprints: &Footprints,
+        kind: MapKind,
+        scale_denominator: u32,
+        keep: impl Fn(Relation) -> bool,
+    ) -> Vec<Conflict> {
+        let gap = gap(kind, scale_denominator).0;
+        let items = &footprints.items;
+        pairs(items, gap)
+            .into_iter()
+            .filter(|&(a, b)| keep(relation(items[a].class, items[b].class)))
+            .filter_map(|(a, b)| {
+                self.verdicts
+                    .entry((a, b))
+                    .or_insert_with(|| pair_conflict(items, a, b, gap))
+                    .clone()
+            })
+            .collect()
+    }
+
+    /// The objects `changed` are drawn anew: their pairs are measured again.
+    pub(crate) fn forget(&mut self, changed: &std::collections::BTreeSet<usize>) {
+        if !changed.is_empty() {
+            self.verdicts
+                .retain(|(a, b), _| !changed.contains(a) && !changed.contains(b));
         }
     }
-    found
+}
+
+/// The conflicts of the object `i` with every other object of `footprints`, as [`conflicts`]
+/// finds them, in the order of the other objects.
+pub fn conflicts_of(
+    footprints: &Footprints,
+    i: usize,
+    kind: MapKind,
+    scale_denominator: u32,
+) -> Vec<Conflict> {
+    let gap = gap(kind, scale_denominator).0;
+    let items = &footprints.items;
+    if matches!(items[i].class, Class::OtherArea | Class::Other) {
+        return Vec::new();
+    }
+    (0..items.len())
+        .filter(|&j| j != i && !matches!(items[j].class, Class::OtherArea | Class::Other))
+        .filter_map(|j| pair_conflict(items, i.min(j), i.max(j), gap))
+        .collect()
+}
+
+/// The conflict of the objects `i` and `j` of `footprints` as [`conflicts_of`] finds it for the
+/// object 0 of a set that holds `i` first and `j` later: the object 0 of the result is `i`, the
+/// object 1 is `j`.
+pub fn conflict_of_first(
+    footprints: &Footprints,
+    i: usize,
+    j: usize,
+    kind: MapKind,
+    scale_denominator: u32,
+) -> Option<Conflict> {
+    let gap = gap(kind, scale_denominator).0;
+    let items = [
+        Arc::clone(&footprints.items[i]),
+        Arc::clone(&footprints.items[j]),
+    ];
+    if items
+        .iter()
+        .any(|item| matches!(item.class, Class::OtherArea | Class::Other))
+    {
+        return None;
+    }
+    pair_conflict(&items, 0, 1, gap)
+}
+
+/// The conflict of the pair `a` < `b` of `items`, if any.
+fn pair_conflict(items: &[Arc<Footprint>], a: usize, b: usize, gap: f64) -> Option<Conflict> {
+    let (fa, fb) = (&items[a], &items[b]);
+    if relation(fa.class, fb.class) == Relation::Free {
+        return None;
+    }
+    let (ba, bb) = (fa.bounds?, fb.bounds?);
+    if ba.min().x - gap > bb.max().x
+        || bb.min().x - gap > ba.max().x
+        || ba.min().y - gap > bb.max().y
+        || bb.min().y - gap > ba.max().y
+    {
+        return None;
+    }
+    // The lower rank gives way; of the same rank the shorter, of the same length (within the
+    // tolerance) the later.
+    let b_loses = match rank(fb.class).cmp(&rank(fa.class)) {
+        std::cmp::Ordering::Less => true,
+        std::cmp::Ordering::Greater => false,
+        std::cmp::Ordering::Equal => fb.length <= fa.length + TOLERANCE_MM,
+    };
+    let (loser, winner) = if b_loses { (b, a) } else { (a, b) };
+    let (grade, length) = measure(&items[loser], &items[winner], gap)?;
+    Some(Conflict {
+        loser,
+        winner,
+        classes: (items[loser].class, items[winner].class),
+        grade,
+        length: PaperMm(length),
+    })
 }
 
 /// The footprint of `winner` cut to the surroundings of `loser`, as far as the measure reaches;

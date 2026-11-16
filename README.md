@@ -336,7 +336,8 @@ Ausdruck ist zum Prüfen im Gelände. Mit beiden Schaltern entstehen beide Datei
 `ocad/<name>-training.ocd`). Sie nimmt Karte und Kandidaten zusammen und räumt sie so auf, dass man sie unverändert
 drucken und laufen kann: Linien werden verbunden, wo zwei Symbole sich zu nah kommen, weicht das schwächere, zu Kleines
 entfällt, in olivgrünen Flächen bleiben nur Gebäude, Gewässer, Höhenlinien und Wege, die hindurchführen, und Bäume rücken
-von Wegen ab. Fahrbahnen und Wege, die nebeneinander laufen, stehen dort noch nebeneinander. Gezeichnet und geprüft wird
+von Wegen ab. Linien einer Art, die nebeneinander laufen, etwa zwei Fahrbahnen, werden eine, und eine Linie, die zu nah
+an etwas liegt, rückt bis 0,5 mm ab, bevor sie geschnitten wird. Gezeichnet und geprüft wird
 weiter in der Karte und den Kandidaten ([Handbuch, Kapitel 10](docs/manual/de.md#die-trainingskarte)).
 
 Was direkt auf die Karte kommt und was Kandidat bleibt, stellt `--content` ein: `safe` lässt es bei den Gebäuden, den ALKIS-Flächen

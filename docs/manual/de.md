@@ -957,32 +957,59 @@ Was die Trainingskarte anders macht als die Karte, Schritt für Schritt:
    nicht von einem abzweigenden Weg überrascht wird. Steht dort ein Zaun oder eine Mauer, zeigt die Karte nur diese.
    Eine Durchfahrt bleibt nur, wo ein Weg hindurchführt, der bleibt. Was auf dem Rand liegt, etwa der Zaun um den
    Garten oder die Straße daneben, bleibt.
-5. Ein Punktsymbol (ein Baum, ein Denkmal, ein Brunnen und dergleichen), das einem Weg, einem Gebäude, Wasser,
+5. Linien einer Art, die innerhalb des Normabstands nebeneinander laufen, werden eine Linie auf ihrer Mitte: die
+   zwei Fahrbahnen einer Straße, zwei Gleise, zwei Wege. Das breitere Symbol bleibt. Wo die beiden auseinandergehen,
+   bleiben beide und treffen sich in einer Gabel. Auf der Waldkarte entfällt ein Gehweg, Radweg oder
+   Straßenbahngleis, das dicht neben einer Straße läuft, denn die ISOM zeichnet nur die Straße; läuft ein Weg nur ein
+   Stück daneben, entfällt nur dieses Stück. Auf der Sprintkarte dürfen Wege und Gleise auf der Straßenfläche liegen,
+   dort ändert sich nichts.
+6. Eine Linie, die einem anderen Objekt näher kommt als der Abstand der Norm, rückt um das Fehlende von ihm ab,
+   höchstens 0,5 mm auf dem Papier (2 m bei 1:4000, 5 m bei 1:10 000). Ein Zaun, der in den Daten auf einem Bach
+   oder dicht neben einem Weg liegt, steht dann daneben, statt geschnitten zu werden. Die Linie kehrt über eine kurze
+   Rampe zu ihrem Verlauf zurück oder rückt ganz, wenn sie fast überall zu nahe ist. Sie rückt nur, wenn sie dabei
+   nichts anderem zu nahe kommt; sonst schneidet Schritt 8 sie wie bisher. Zäune, Mauern und Böschungen behalten
+   ihre Strichseite. Die Linie trägt dann `freemapper:generalized` mit „shifted: gap to …“.
+
+   Nach den Schritten 5 und 6 berührt ein Wegende, das eine Linie berührte, sie wieder: Ein Weg, der an einer
+   zusammengefassten oder verschobenen Linie endete, endet an ihr, und einer, der an einem entfallenen Gehweg
+   endete, endet an der Straße.
+7. Ein Punktsymbol (ein Baum, ein Denkmal, ein Brunnen und dergleichen), das einem Weg, einem Gebäude, Wasser,
    einem Zaun oder einem anderen Punkt zu nahe kommt, rückt auf den nächsten freien Platz, höchstens 1,5 mm auf dem
    Papier (6 m bei 1:4000, 15 m bei 1:10 000), aber nie in olivgrüne Flächen. Von zwei Punkten rückt der kleinere.
-   Er trägt dann `freemapper:moved`. Findet er keinen Platz, bleibt er stehen und entfällt in Schritt 6, wenn er
+   Er trägt dann `freemapper:moved`. Findet er keinen Platz, bleibt er stehen und entfällt in Schritt 8, wenn er
    dort einem anderen Symbol zu nahe kommt. Bäume auf Straßen und Plätzen bleiben stehen.
-6. Wo sich zwei Symbole überdecken oder einander näher kommen als der Abstand der Norm (0,15 mm zwischen zwei Linien,
+8. Wo sich zwei Symbole überdecken oder einander näher kommen als der Abstand der Norm (0,15 mm zwischen zwei Linien,
    vergrößert wie die Symbole), weicht das mit dem niedrigeren Rang. Der Rang fällt von Gebäude über Gewässer, Bahn,
    Straße, Weg, Wasserlauf und Treppe, Zaun, Mauer und Felswand, Böschung und Höhenlinie bis zu den Punkten. Das
    Stück wird ausgeschnitten, Kreuzungen bleiben. Liegt mehr als die Hälfte eines Objekts im Konflikt, entfällt es
    ganz; ein Stück nahe an zwei Symbolen zählt einmal. Mauern und unüberwindbare Zäune werden nur geschnitten, nie
    ganz weggelassen, denn ein Läufer trifft sie im Gelände an. Höhenlinien laufen durch Gebäude und Wege und weichen nur Böschungen und Felswänden. Ein Zaun oder eine
    Mauer entlang einer Treppe bleibt: Die Norm zeichnet sie mit der Treppe.
-7. Was unter der Mindestgröße der Norm liegt, entfällt: kurze Linienstücke, Treppen unter drei Stufen (1 mm) und
+9. Was unter der Mindestgröße der Norm liegt, entfällt: kurze Linienstücke, Treppen unter drei Stufen (1 mm) und
    kleine Flächen von offenem Gelände, Wald und Grün. Ein kurzes Stück, das an einer Linie seiner Art endet, die
    bleibt, bleibt auch; bei Wegen, Treppen und Gleisen zählt jeder Weg, so bleibt ein von Stufen zerteilter Pfad,
    wenn ein Ende auf einen längeren Weg trifft. Zwei kurze Stücke halten einander nicht. Eine Treppe, die zu kurz
    zum Zeichnen ist, wird zwischen zwei Wegen als Weg gezeichnet (sie trägt `freemapper:generalized`); an einem
    Wegende entfällt sie.
 
+   Zum Schluss wird ein Linienende, das vor Schritt 5 eine Linie berührte und sie in Schritt 8 oder 9 verlor, an
+   den Rest dieser Linie gezogen, wenn er höchstens 0,5 mm plus den Abstand entfernt liegt. Liegt nichts mehr in
+   Reichweite, bleibt das Ende frei, und die Zusammenfassung zählt es: `3 Linienenden frei`. Lagen zwei Linien
+   aufeinander und wurde eine für die andere geschnitten, ist die Lücke gewollt; dort wird nichts zurückgezogen.
+
 Auf Wald- und Sprintkarten generalisiert die Trainingskarte außerdem die Felswände stärker als die Karte
 (Kapitel 7).
 
-Fahrbahnen, Gleise und Wege, die nebeneinander laufen, stehen in dieser Version noch nebeneinander, und die
-Bordsteine bleiben. Das Zusammenlegen auf eine Mittellinie, das Verschieben von Linien und eine eigene Farbe für die
-Fahrbahn kommen später. Halten nach allen Schritten noch Objekte zu wenig Abstand, nennt eine Warnung die Länge in mm;
-schauen Sie sich diese Stellen in OOM an.
+In Berlin hat die Straßenbefahrung auch die Fahrbahnen. Die Trainingskarte einer Sprintkarte zeichnet sie in den
+Straßenflächen im dunkleren Braun für starken Verkehr (501.11, 50 % Braun), und die Bordsteine innerhalb der
+Straßenflächen entfallen. Der Rand der Straßenfläche bleibt. Die ISSprOM 2019-2 (501) sagt dazu: „Edges within paved
+areas are generally not represented, unless they serve navigation“. Grundkarte und Prüfausdruck zeichnen
+die Fahrbahnen nicht. Sie sind verborgene Kandidaten. `templates/candidates.omap` und die OCAD-Kandidaten enthalten
+sie, OOM und OCAD zeigen sie dort also als dunkelbraune Flächen über den Straßen. Es sind Vermessungsdaten wie die
+anderen Kandidaten, und sie können beim Kartieren der Straßen helfen.
+
+Halten nach allen Schritten noch Objekte zu wenig Abstand, nennt eine Warnung die Länge in mm; schauen Sie sich diese
+Stellen in OOM an.
 
 Kartieren Sie nicht in der Trainingskarte. freemapper baut sie aus den heruntergeladenen Daten und den
 Inhaltseinstellungen, nicht aus den `.omap`-Dateien; was Sie in OpenOrienteering Mapper korrigieren, kommt nie in
