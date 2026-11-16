@@ -44,7 +44,7 @@ use crate::build::open_land::{
 use crate::build::out_of_bounds::out_of_bounds_objects;
 use crate::build::passages::hide_unreachable as hide_unreachable_passages;
 use crate::build::paved::{
-    GREEN_LAYER, PavedObjects, SURFACE_LAYER, StreetSurvey, paved_area_objects, unpaved_streets,
+    PavedObjects, StoredLayer, StreetSurvey, paved_area_objects, unpaved_streets,
 };
 use crate::build::paved_borders::{border_input, paved_borders as paved_borders_of};
 use crate::build::peripheral::{PaperRect, north_lines};
@@ -416,10 +416,15 @@ fn paved(stored: &Stored, frame: &Frame) -> Result<PavedObjects, GeorefError> {
         .osm
         .as_ref()
         .map(|(features, _)| unpaved_streets(features, georef.crs()));
-    let features =
-        |name: &str| layer(&stored.berlin, name).map_or(&[][..], |l| l.features.as_slice());
     let survey =
-        StreetSurvey::from_features(features(GREEN_LAYER), features(SURFACE_LAYER), georef.crs());
+        crate::project::registers_drawing().map_or_else(StreetSurvey::default, |(drawing, crs)| {
+            let layers: Vec<StoredLayer<'_>> = stored
+                .berlin
+                .iter()
+                .map(|l| (l.name.as_str(), l.features.as_slice(), l.fetched))
+                .collect();
+            StreetSurvey::of_set(drawing, crs, &layers, georef.crs())
+        });
     paved_area_objects(
         &stored.land_use,
         streets.as_deref().unwrap_or_default(),

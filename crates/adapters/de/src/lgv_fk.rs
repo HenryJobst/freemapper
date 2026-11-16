@@ -146,6 +146,9 @@ static DRAWING: SetDrawing = SetDrawing {
     step_edges: &[],
     facades: &[],
     survey_stairs: &[],
+    paving_cuts: &[],
+    surveyed_paving: &[],
+    carriageway_tags: &[],
     stair_layers: &[STAIR_LAYER],
     // The green of the street space: candidates on the base map (the user's decision of
     // 2026-11-15).

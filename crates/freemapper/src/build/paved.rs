@@ -8,6 +8,7 @@
 //! ([`HIDDEN_CARRIAGEWAY`]): only the training map draws them (`build/training/carriageway.rs`).
 
 use chrono::NaiveDate;
+use freemapper_adapter_api::extras::{LayerKinds, SetDrawing};
 use geo::orient::{Direction, Orient as _};
 use geo::{
     Area as _, BooleanOps as _, BoundingRect as _, Distance as _, Euclidean, Intersects as _,
@@ -15,16 +16,16 @@ use geo::{
 use geo_types::{LineString, MultiPolygon, Polygon, Rect};
 use serde_json::Value;
 
-use crate::build::berlin::{feature_polygons, survey_currency, survey_tags};
 use crate::build::out_of_bounds::{LandClip, area_object, clipped_pieces, land_tags};
 use crate::build::points::HIDDEN_KEY;
+use crate::build::sets::dated_tags;
+use crate::build::tagged::polygons_in;
 use crate::crs::{BoundingBox, Crs};
 use crate::georef::{GeorefError, Georeferencing};
 use crate::measure::{SymbolMm, SymbolScale};
 use crate::omap::{MapObject, SymbolSet};
 use crate::sources::alkis::LandUse;
 use crate::sources::osm::{OsmFeature, OsmGeometry};
-use freemapper_adapters_de::berlin::TYPE_KEY;
 
 /// ISSprOM 501.5 paved area, light traffic, without border: a parcel boundary is no visible edge,
 /// and ALKIS does not tell the traffic volume.
@@ -33,25 +34,6 @@ const PAVED_AREA_CODE: &str = "501.5";
 const VERGE: &str = "Begleitfläche Straßenverkehr";
 /// `Platz` refinements that are paved; others (e.g. `Festplatz`, often grass) are candidates.
 const PAVED_SQUARES: [&str; 3] = ["Parkplatz", "Marktplatz", "Fußgängerzone"];
-/// The stored Straßenbefahrung file with the green strips, and the one with the paved surfaces.
-pub const GREEN_LAYER: &str = "sb-gruenflaeche";
-pub const SURFACE_LAYER: &str = "sb-flaechen";
-/// The survey type that is cut out. Tree pits (`bn_baumscheibe`, 2–5 m²) are not: they are below
-/// the ISSprOM minimum at 1:4000 and too fiddly at 1:1000.
-const GREEN_TYPE: &str = "ce_gruenflaeche";
-/// The surveyed paved surfaces: carriageway, sidewalk, cycle track, parking, public square,
-/// pedestrian zone and driveway across the sidewalk.
-const SURFACE_TYPES: [&str; 7] = [
-    "cm_fahrbahn",
-    "cl_gehweg",
-    "ch_radweg",
-    "ck_parkflaeche",
-    "ci_oeffentlicher_platz",
-    "cj_fussgaengerzone",
-    "by_gehwegueberfahrt",
-];
-/// The survey type of the carriageway.
-const CARRIAGEWAY_TYPE: &str = "cm_fahrbahn";
 /// ISSprOM 2019-2, 501.11 paved area, heavy traffic, without border ("Differences in the brown
 /// colour shall be used to show differences in the traffic"): the surveyed carriageway. 501.10 of
 /// the bundled set is the same fill with the 501.1 border.
@@ -159,65 +141,108 @@ pub struct SurveyArea {
     pub guessed: bool,
     /// Provenance with the survey date as currency, the survey type and codes.
     pub tags: Vec<(String, String)>,
+    /// The source of its layer, `<source prefix>/<layer>`.
+    source: String,
+    /// It is carriageway ([`SetDrawing::carriageway_tags`]).
+    carriageway: bool,
 }
 
 /// The areas of the Straßenbefahrung that refine the paved areas; empty outside Berlin.
 #[derive(Debug, Default)]
 pub struct StreetSurvey {
-    /// Green strips (`ce_gruenflaeche`).
+    /// Green strips ([`SetDrawing::paving_cuts`]).
     pub green: Vec<SurveyArea>,
-    /// Paved surfaces ([`SURFACE_TYPES`]).
+    /// Paved surfaces ([`SetDrawing::surveyed_paving`]).
     pub surfaces: Vec<SurveyArea>,
 }
 
+/// One stored layer of a set: its file name, its features and its fetch date.
+pub type StoredLayer<'a> = (&'a str, &'a [Value], NaiveDate);
+
 impl StreetSurvey {
-    /// The green strips among the stored `green` features ([`GREEN_LAYER`]) and the paved
-    /// surfaces among `surfaces` ([`SURFACE_LAYER`]), both EPSG:25833, in `crs`. Other types
-    /// (tree pits) and degenerate polygons are left out.
-    pub fn from_features(green: &[Value], surfaces: &[Value], crs: Crs) -> Self {
+    /// The green strips and paved surfaces the set `drawing` describes among its stored
+    /// `layers` (in `from`), in `to`. Other types (tree pits) and degenerate polygons are left
+    /// out.
+    pub fn of_set(drawing: &SetDrawing, from: Crs, layers: &[StoredLayer<'_>], to: Crs) -> Self {
         Self {
-            green: survey_areas(GREEN_LAYER, green, &[GREEN_TYPE], crs),
-            surfaces: survey_areas(SURFACE_LAYER, surfaces, &SURFACE_TYPES, crs),
+            green: survey_areas(drawing, drawing.paving_cuts, layers, from, to),
+            surfaces: survey_areas(drawing, drawing.surveyed_paving, layers, from, to),
         }
+    }
+
+    /// The street survey of Berlin's stored `green` strips and `surfaces` (EPSG:25833), in `crs`.
+    #[cfg(test)]
+    pub fn from_features(green: &[Value], surfaces: &[Value], crs: Crs) -> Self {
+        let dataset = freemapper_adapters_de::berlin::SURVEY_DATASET_DATE;
+        Self::of_set(
+            crate::build::sets::drawing_of_source("geoportal-berlin/").unwrap(),
+            Crs::Utm33,
+            &[
+                ("sb-gruenflaeche", green, dataset),
+                ("sb-flaechen", surfaces, dataset),
+            ],
+            crs,
+        )
     }
 }
 
-fn survey_areas(file: &str, features: &[Value], types: &[&str], crs: Crs) -> Vec<SurveyArea> {
+fn survey_areas(
+    drawing: &SetDrawing,
+    kinds: &[LayerKinds],
+    layers: &[StoredLayer<'_>],
+    from: Crs,
+    to: Crs,
+) -> Vec<SurveyArea> {
     let mut areas = Vec::new();
-    for feature in features {
-        let typed = feature["properties"][TYPE_KEY]
-            .as_str()
-            .is_some_and(|t| types.contains(&t));
-        if !typed {
-            continue;
-        }
-        let tags = survey_tags(file, feature);
-        let id = tags
-            .iter()
-            .find(|(k, _)| k == "freemapper:source_id")
-            .map(|(_, v)| v.as_str())
-            .or_else(|| feature["id"].as_str())
-            .unwrap_or_default()
-            .to_string();
-        let (surveyed, guessed) = survey_currency(feature);
-        for polygon in feature_polygons(feature, crs) {
-            let polygon = polygon.orient(Direction::Default);
-            // Also skips NaN areas and degenerate rings (a point, a line).
-            let area = polygon.unsigned_area();
-            if area.is_nan() || area <= 0.0 {
-                continue;
+    for kind in kinds {
+        for &(layer, features, fetched) in layers.iter().filter(|(l, _, _)| *l == kind.layer) {
+            let source = format!("{}/{layer}", drawing.source_prefix);
+            for feature in features {
+                let typed = feature["properties"][kind.field]
+                    .as_str()
+                    .is_some_and(|t| kind.kinds.contains(&t));
+                if !typed {
+                    continue;
+                }
+                let tags = dated_tags(drawing, layer, feature, fetched);
+                let value =
+                    |key: &str| tags.iter().find(|(k, _)| k == key).map(|(_, v)| v.as_str());
+                let id = value("freemapper:source_id")
+                    .or_else(|| feature["id"].as_str())
+                    .unwrap_or_default()
+                    .to_string();
+                let surveyed = value("freemapper:currency")
+                    .and_then(|d| d.parse().ok())
+                    .unwrap_or(fetched);
+                let guessed = value("freemapper:currency_guessed") == Some("yes");
+                let carriageway = tags.iter().any(|(k, v)| {
+                    drawing
+                        .carriageway_tags
+                        .iter()
+                        .any(|(key, value)| k == key && v == value)
+                });
+                for polygon in polygons_in(feature, from, to) {
+                    let polygon = polygon.orient(Direction::Default);
+                    // Also skips NaN areas and degenerate rings (a point, a line).
+                    let area = polygon.unsigned_area();
+                    if area.is_nan() || area <= 0.0 {
+                        continue;
+                    }
+                    let Some(bounds) = polygon.bounding_rect() else {
+                        continue;
+                    };
+                    areas.push(SurveyArea {
+                        polygon,
+                        bounds,
+                        id: id.clone(),
+                        surveyed,
+                        guessed,
+                        tags: tags.clone(),
+                        source: source.clone(),
+                        carriageway,
+                    });
+                }
             }
-            let Some(bounds) = polygon.bounding_rect() else {
-                continue;
-            };
-            areas.push(SurveyArea {
-                polygon,
-                bounds,
-                id: id.clone(),
-                surveyed,
-                guessed,
-                tags: tags.clone(),
-            });
         }
     }
     areas
@@ -363,11 +388,7 @@ fn carriageway_candidates(
         .filter_map(|s| Some((s, s.bounding_rect()?)))
         .collect();
     let mut objects = Vec::new();
-    let carriageways = surfaces.iter().filter(|a| {
-        a.tags
-            .iter()
-            .any(|(k, v)| k == "berlin:layer" && v == CARRIAGEWAY_TYPE)
-    });
+    let carriageways = surfaces.iter().filter(|a| a.carriageway);
     for area in carriageways {
         let near: Vec<&Polygon<f64>> = streets
             .iter()
@@ -432,10 +453,7 @@ impl GreenCut<'_> {
             (None, None) => return Vec::new(),
         };
         let mut tags = vec![
-            (
-                "freemapper:cut".to_string(),
-                format!("geoportal-berlin/{GREEN_LAYER}"),
-            ),
+            ("freemapper:cut".to_string(), touching[0].source.clone()),
             ("freemapper:cut_ids".to_string(), ids.join("; ")),
             ("freemapper:cut_currency".to_string(), currency.to_string()),
         ];
@@ -669,6 +687,44 @@ mod tests {
     fn area_of(object: &MapObject, georef: &Georeferencing) -> f64 {
         use geo::Area as _;
         polygon_of(object, georef).unsigned_area()
+    }
+
+    /// A set names the areas cut out of the paved areas of the cadastre and its surveyed paving
+    /// (ADR 0149): Berlin's green strips and paved surfaces of the street survey.
+    #[test]
+    fn a_set_names_its_paving_cuts_and_surveyed_paving() {
+        let berlin = crate::build::sets::drawing_of_source("geoportal-berlin/").unwrap();
+        let named = |kinds: &[freemapper_adapter_api::extras::LayerKinds]| {
+            kinds
+                .iter()
+                .map(|k| (k.layer, k.field, k.kinds))
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(
+            named(berlin.paving_cuts),
+            [(
+                "sb-gruenflaeche",
+                "freemapper:layer",
+                &["ce_gruenflaeche"][..]
+            )]
+        );
+        assert_eq!(
+            named(berlin.surveyed_paving),
+            [(
+                "sb-flaechen",
+                "freemapper:layer",
+                &[
+                    "cm_fahrbahn",
+                    "cl_gehweg",
+                    "ch_radweg",
+                    "ck_parkflaeche",
+                    "ci_oeffentlicher_platz",
+                    "cj_fussgaengerzone",
+                    "by_gehwegueberfahrt",
+                ][..]
+            )]
+        );
+        assert_eq!(berlin.carriageway_tags, [("berlin:layer", "cm_fahrbahn")]);
     }
 
     #[test]
