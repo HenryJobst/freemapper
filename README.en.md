@@ -98,12 +98,13 @@ experience needed. The chapters people use most:
 ## Examples
 
 The repository holds a finished sprint map project for every supported state, with the OOM map, the OCAD
-file and the PDF. Two of them here; clicking a picture shows it in full size, the link below it opens the PDF:
+file, the training map and the check print. Two of them here. The pictures show the training map; clicking one
+shows it in full size, the link below it opens it as a PDF, and the check print is next to it:
 
 | State | Area | Preview |
 |---|---|---|
-| Berlin | [Viktoriapark, Kreuzberg](https://github.com/HenryJobst/freemapper/tree/main/examples/berlin-viktoriapark/) | <a href="examples/berlin-viktoriapark/preview.webp"><img src="examples/berlin-viktoriapark/preview-thumb.webp" width="220" alt="" loading="lazy"></a><br><a href="examples/berlin-viktoriapark/berlin-viktoriapark-candidates.pdf">PDF</a> |
-| Rhineland-Palatinate | [Reichsburg and Cochem old town](https://github.com/HenryJobst/freemapper/tree/main/examples/rheinland-pfalz-cochem/) | <a href="examples/rheinland-pfalz-cochem/preview.webp"><img src="examples/rheinland-pfalz-cochem/preview-thumb.webp" width="220" alt="" loading="lazy"></a><br><a href="examples/rheinland-pfalz-cochem/rheinland-pfalz-cochem-candidates.pdf">PDF</a> |
+| Berlin | [Viktoriapark, Kreuzberg](https://github.com/HenryJobst/freemapper/tree/main/examples/berlin-viktoriapark/) | <a href="examples/berlin-viktoriapark/preview.webp"><img src="examples/berlin-viktoriapark/preview-thumb.webp" width="220" alt="" loading="lazy"></a><br><a href="examples/berlin-viktoriapark/berlin-viktoriapark-training.pdf">PDF</a> · <a href="examples/berlin-viktoriapark/berlin-viktoriapark-candidates.pdf">check print</a> |
+| Rhineland-Palatinate | [Reichsburg and Cochem old town](https://github.com/HenryJobst/freemapper/tree/main/examples/rheinland-pfalz-cochem/) | <a href="examples/rheinland-pfalz-cochem/preview.webp"><img src="examples/rheinland-pfalz-cochem/preview-thumb.webp" width="220" alt="" loading="lazy"></a><br><a href="examples/rheinland-pfalz-cochem/rheinland-pfalz-cochem-training.pdf">PDF</a> · <a href="examples/rheinland-pfalz-cochem/rheinland-pfalz-cochem-candidates.pdf">check print</a> |
 
 All examples with previews, how the areas were chosen and how many objects each map has are in the
 [examples overview](https://github.com/HenryJobst/freemapper/blob/main/examples/README.en.md), with a forest map for every state too (1:10 000). The same area in the three content profiles

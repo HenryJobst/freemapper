@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <map xmlns="http://openorienteering.org/apps/mapper/xml/v2" version="9">
 <notes>© OpenStreetMap contributors, ODbL
-© GeoBasis DE/LVGL-SL (2026), dl-de/by-2-0, Daten geändert
-Lizenz dl-de/by-2-0 (Datenlizenz Deutschland – Namensnennung – Version 2.0): https://www.govdata.de/dl-de/by-2-0
+© GeoBasis DE/LVGL-SL (2026), dl-de/by-2-0, Daten geändert; Forstwegenetz © GDI-SL, CC BY 4.0, Daten geändert
+Lizenz dl-de/by-2-0 (Datenlizenz Deutschland – Namensnennung – Version 2.0): https://www.govdata.de/dl-de/by-2-0. Das Forstwegenetz (GDI-SL) steht laut Katalog unter CC BY 4.0: https://creativecommons.org/licenses/by/4.0/deed.de
 Created with freemapper – https://github.com/HenryJobst/freemapper</notes>
 <georeferencing scale="10000" grid_scale_factor="0.999985" auxiliary_scale_factor="1" declination="3.23" grivation="5.09">
 <projected_crs id="EPSG"><spec language="PROJ.4">+init=epsg:25832</spec><parameter>25832</parameter><ref_point x="322989.867" y="5486469.627"/></projected_crs>
