@@ -52,14 +52,16 @@ pub(super) const JUNCTION_TAG: &str = "freemapper:junction";
 /// helpers copy them) and reports replacements by key, so one key can name several objects.
 pub(super) type Key = u32;
 
-/// One recorded end: of which object, whether it is the last coordinate, where it lay (mm on
-/// paper) and the lines it touched (sorted), with their source ids (sorted, those with an id)
-/// and whether one of them was a way, for the report.
+/// One recorded end: of which object, whether it is the last coordinate, where it lies now (mm on
+/// paper; [`Junctions::follow`] and the repairs keep it up to date, and `gone` is set once the
+/// end is no longer an end of its line) and the lines it touched (sorted), with their source ids
+/// (sorted, those with an id) and whether one of them was a way, for the report.
 #[derive(Debug, Clone)]
 struct End {
     object: Key,
     last: bool,
     at: Coord<f64>,
+    gone: bool,
     touched: Vec<Key>,
     touched_ids: Vec<String>,
     touched_way: bool,
@@ -92,7 +94,7 @@ pub(super) struct Junctions {
 impl Junctions {
     /// Every end of a line object (classes Road, Path, Railway, Stairway, Barrier, Watercourse,
     /// EarthBank) that lies within [`TOUCH_M`] (ground metres, as `line_join`) of another line
-    /// object. Ends of closed lines are not recorded. Every line object of these classes gets
+    /// object, or of its own line's body away from the end (a loop). Ends of closed lines are not recorded. Every line object of these classes gets
     /// the tag [`JUNCTION_TAG`] with its index as its [`Key`] (a tag left from before is
     /// replaced); `train` must call [`forget`] before it returns.
     pub(super) fn record(
@@ -121,12 +123,17 @@ impl Junctions {
             }
             for last in [false, true] {
                 let at = end_point(object, last);
-                let near: Vec<usize> = grid
+                let mut near: Vec<usize> = grid
                     .near(at, touch)
                     .into_iter()
                     .filter(|&j| j != i && distance(&objects[j], at).0 <= touch)
                     .filter(|&j| key_of(&objects[j]).is_some())
                     .collect();
+                // An end on its own line's body closes a loop (a road joined round a
+                // roundabout): it is a junction too.
+                if meets_own_body(object, last, touch) {
+                    near.push(i);
+                }
                 let touched: BTreeSet<Key> =
                     near.iter().filter_map(|&j| key_of(&objects[j])).collect();
                 if !touched.is_empty() {
@@ -138,6 +145,7 @@ impl Junctions {
                         object: key,
                         last,
                         at,
+                        gone: false,
                         touched: touched.into_iter().collect(),
                         touched_ids: ids.into_iter().collect(),
                         touched_way: near
@@ -201,7 +209,7 @@ impl Junctions {
                 .collect()
         };
         let mut links: Vec<[BTreeSet<usize>; 2]> = vec![Default::default(); objects.len()];
-        for end in &self.ends {
+        for end in self.ends.iter().filter(|e| !e.gone) {
             let own = self.family(end.object);
             let mine = of(&own);
             for &t in &end.touched {
@@ -241,6 +249,52 @@ impl Junctions {
             .collect()
     }
 
+    /// Finds every recorded end again after a step that moved lines: the end of a piece of its
+    /// line (or of a line its line went into by a join, keys read from the tag `tag`) within
+    /// `within` mm of where it lay is where it lies now. An end found nowhere is gone: a step cut
+    /// it off with its stretch, or a join made it a vertex inside a line. A step that moves no
+    /// line is followed with the touch distance, one that moves lines with the reach of the
+    /// repairs, so an end is found by its key and its position in turn, never by a distance
+    /// that several steps add up.
+    pub(super) fn follow(&mut self, objects: &[MapObject], tag: &str, within: f64) {
+        let pieces = pieces_by(objects, tag, &self.line_ids);
+        for k in 0..self.ends.len() {
+            if self.ends[k].gone {
+                continue;
+            }
+            match self.resolve(objects, &pieces, &self.ends[k], within) {
+                Some((i, last)) => self.ends[k].at = end_point(&objects[i], last),
+                None => self.ends[k].gone = true,
+            }
+        }
+    }
+
+    /// Where `end` lies now: the end of a piece of its line, or of a line its line went into by a
+    /// join (`pieces` by key), nearest its position and within `within` mm of it (of two as
+    /// near, the earlier object, then the same end as recorded).
+    fn resolve(
+        &self,
+        objects: &[MapObject],
+        pieces: &BTreeMap<Key, Vec<usize>>,
+        end: &End,
+        within: f64,
+    ) -> Option<(usize, bool)> {
+        self.family(end.object)
+            .iter()
+            .filter_map(|key| pieces.get(key))
+            .flatten()
+            .filter(|&&i| is_open_line(&objects[i], &self.line_ids))
+            .flat_map(|&i| [(i, false), (i, true)])
+            .map(|(i, last)| (length(end_point(&objects[i], last), end.at), i, last))
+            .filter(|&(d, _, _)| d <= within)
+            .min_by(|a, b| {
+                a.0.total_cmp(&b.0)
+                    .then(a.1.cmp(&b.1))
+                    .then((a.2 != end.last).cmp(&(b.2 != end.last)))
+            })
+            .map(|(_, i, last)| (i, last))
+    }
+
     /// `key` and the keys of every line it went into by a join, through every later join.
     fn family(&self, key: Key) -> BTreeSet<Key> {
         let mut family = BTreeSet::from([key]);
@@ -270,6 +324,7 @@ impl Junctions {
                 object: e.object,
                 last: e.last,
                 at: e.at,
+                gone: false,
                 touched: vec![e.onto],
                 touched_ids: ids.into_iter().collect(),
                 touched_way: onto.iter().any(|o| self.way_ids.contains(&o.symbol_id)),
@@ -292,7 +347,7 @@ impl Junctions {
     /// reach, a body comes before a recorded end, then the line recorded before the line that
     /// replaced it (`replaced_by` is followed), then the lower key, then the nearer piece.
     pub(super) fn repair(
-        &self,
+        &mut self,
         objects: &mut [MapObject],
         replaced_by: &BTreeMap<Key, Key>,
         reach: f64,
@@ -303,7 +358,8 @@ impl Junctions {
             cut_for: &BTreeMap::new(),
             rider_reach: &BTreeMap::new(),
         };
-        let (repaired, free) = self.settle(objects, &after, reach, georef, None);
+        let within = reach + TOLERANCE_MM;
+        let (repaired, free) = self.settle(objects, &after, reach, within, georef, None);
         (repaired, free.len())
     }
 
@@ -325,7 +381,7 @@ impl Junctions {
     /// Returns how many ends were repaired and the ends left free, in the order of the objects,
     /// each named by its line's source id and symbol code (of `symbol_set`).
     pub(super) fn repair_after_cuts(
-        &self,
+        &mut self,
         objects: &mut [MapObject],
         after: &After,
         reach: f64,
@@ -334,7 +390,10 @@ impl Junctions {
         symbol_set: &SymbolSet,
     ) -> (usize, Vec<FreeEnd>) {
         let mut checker = Checker::new(objects, kind, georef.scale_denominator, symbol_set);
-        let (repaired, free) = self.settle(objects, after, reach, georef, Some(&mut checker));
+        // Followed after every step that moved lines, an end lies where it lay or is gone.
+        let touch = touch_mm(georef);
+        let (repaired, free) =
+            self.settle(objects, after, reach, touch, georef, Some(&mut checker));
         let free = free
             .into_iter()
             .map(|((i, last), loose)| {
@@ -356,13 +415,16 @@ impl Junctions {
     }
 
     /// The repairs of [`repair_after_cuts`](Self::repair_after_cuts): how many ends were
-    /// repaired, and the ends left free by object index and end. Without a `checker`, no end
-    /// moves beyond `reach`.
+    /// repaired, and the ends left free by object index and end. An end is found within `found`
+    /// mm of where it lay ([`resolve`](Self::resolve)); afterwards every end lies where it lies
+    /// now, or is gone. With a `checker`, an end moves only when the moved line makes no new
+    /// conflict; without one, no end moves beyond `reach`.
     fn settle(
-        &self,
+        &mut self,
         objects: &mut [MapObject],
         after: &After,
         reach: f64,
+        found: f64,
         georef: &Georeferencing,
         mut checker: Option<&mut Checker>,
     ) -> (usize, BTreeMap<(usize, bool), Loose>) {
@@ -374,35 +436,17 @@ impl Junctions {
         let touch = touch_mm(georef);
         let within = reach + TOLERANCE_MM;
         // The line objects of each key, in order.
-        let mut pieces: BTreeMap<Key, Vec<usize>> = BTreeMap::new();
-        for (i, object) in objects.iter().enumerate() {
-            if is_line(object, &self.line_ids)
-                && let Some(key) = key_of(object)
-            {
-                pieces.entry(key).or_default().push(i);
-            }
-        }
-        // Where each recorded end is now: the end of a piece of its object, or of a line its
-        // object went into by a join, nearest the recorded position (of two as near, the
-        // earlier object, then the same end as recorded).
+        let pieces = pieces_by(objects, JUNCTION_TAG, &self.line_ids);
+        // Where each recorded end is now.
         let held: Vec<Option<(usize, bool)>> = self
             .ends
             .iter()
             .map(|end| {
-                self.family(end.object)
-                    .iter()
-                    .filter_map(|key| pieces.get(key))
-                    .flatten()
-                    .filter(|&&i| is_open_line(&objects[i], &self.line_ids))
-                    .flat_map(|&i| [(i, false), (i, true)])
-                    .map(|(i, last)| (length(end_point(&objects[i], last), end.at), i, last))
-                    .filter(|&(d, _, _)| d <= within)
-                    .min_by(|a, b| {
-                        a.0.total_cmp(&b.0)
-                            .then(a.1.cmp(&b.1))
-                            .then((a.2 != end.last).cmp(&(b.2 != end.last)))
-                    })
-                    .map(|(_, i, last)| (i, last))
+                if end.gone {
+                    None
+                } else {
+                    self.resolve(objects, &pieces, end, found)
+                }
             })
             .collect();
         // The recorded ends of the objects now: object index → [first, last].
@@ -416,6 +460,9 @@ impl Junctions {
         // by `attach`, or for two pieces of one key) is counted once, and not when another of
         // its records repaired it.
         let mut free: BTreeMap<(usize, bool), Loose> = BTreeMap::new();
+        // The ends that one record found meeting a line or repaired: another record of the same
+        // end does not leave it free.
+        let mut settled: BTreeSet<(usize, bool)> = BTreeSet::new();
         for (end, held) in self.ends.iter().zip(&held) {
             let Some(&(i, last)) = held.as_ref() else {
                 continue;
@@ -442,6 +489,7 @@ impl Junctions {
                 })
                 .collect();
             if meets.contains(&false) {
+                settled.insert((i, last));
                 continue;
             }
             // The lines it may move onto: those it touched (rank 0), the lines they went into by
@@ -479,8 +527,16 @@ impl Junctions {
                     .get(key)
                     .is_some_and(|w| w.iter().any(|k| own.contains(k)))
             };
-            // Every line it may move onto was cut for its own line: the gap is meant.
-            let meant = !ranks.is_empty() && ranks.keys().all(parted);
+            // Every line it may move onto was cut for its own line: the gap is meant. The lines it
+            // touched that a join took into its own line are not among them.
+            let into_own = |k: &Key| self.family(*k).iter().any(|f| own.contains(f));
+            let others: Vec<&Key> = ranks.keys().filter(|k| !into_own(k)).collect();
+            let meant = !others.is_empty() && others.into_iter().all(parted);
+            // Every line it touched went into its own line by a join, which closed a loop: it
+            // meets that line where it meets the line's own body away from the end.
+            let looped = !ranks.is_empty()
+                && ranks.keys().all(into_own)
+                && meets_own_body(&objects[i], last, touch);
             let best = ranks
                 .iter()
                 .flat_map(|(&key, &(rank, far))| {
@@ -504,27 +560,39 @@ impl Junctions {
                         .then(a.3.total_cmp(&b.3))
                         .then(a.4.cmp(&b.4))
                 });
-            // A move beyond the usual reach is made only when it makes no new conflict.
+            // With a checker, a move is made only when it makes no new conflict; without one,
+            // none goes beyond the usual reach.
             let allowed = |checker: &mut Option<&mut Checker>, d: f64, q: Coord<f64>| -> bool {
-                if d <= within {
-                    return true;
+                match checker.as_deref_mut() {
+                    Some(c) => c.allows(objects, i, &with_end(&objects[i], last, q)),
+                    None => d <= within,
                 }
-                checker
-                    .as_deref_mut()
-                    .is_some_and(|c| c.allows(objects, i, &with_end(&objects[i], last, q)))
             };
-            match best {
-                Some((_, _, _, d, _, q)) if d > touch && allowed(&mut checker, d, q) => {
+            // Every line it touched is its own line now and it no longer meets that line's body:
+            // it is drawn onto the body, beyond the stretch next to the end.
+            let target = best.map(|b| (b.3, b.5)).or_else(|| {
+                (!ranks.is_empty() && ranks.keys().all(into_own) && !looped)
+                    .then(|| own_body(&objects[i], last, 2.0 * within))
+                    .flatten()
+                    .filter(|&(d, _)| d <= within)
+            });
+            match target {
+                Some((d, q)) if d > touch && allowed(&mut checker, d, q) => {
                     objects[i] = with_end(&objects[i], last, q);
                     if let Some(c) = checker.as_deref_mut() {
                         c.moved(objects, i);
                     }
                     grid.add(i, &objects[i]);
                     repaired += 1;
-                    free.remove(&(i, last));
+                    settled.insert((i, last));
                 }
                 // It meets the line already, or meets another end and has no line in reach.
-                Some((_, _, _, d, _, _)) if d <= touch => {}
+                Some((d, _)) if d <= touch => {
+                    settled.insert((i, last));
+                }
+                None if looped => {
+                    settled.insert((i, last));
+                }
                 None if !meets.is_empty() || meant => {}
                 _ => {
                     let loose = free.entry((i, last)).or_default();
@@ -533,8 +601,60 @@ impl Junctions {
                 }
             }
         }
+        free.retain(|end, _| !settled.contains(end));
+        // Every end lies where it lies now, after the moves; an end found nowhere is gone.
+        for (end, held) in self.ends.iter_mut().zip(held) {
+            match held {
+                Some((i, last)) => end.at = end_point(&objects[i], last),
+                None => end.gone = true,
+            }
+        }
         (repaired, free)
     }
+}
+
+/// The line objects of `objects` (symbols `line_ids`) by their key in the tag `tag`, in order.
+fn pieces_by(
+    objects: &[MapObject],
+    tag: &str,
+    line_ids: &BTreeSet<u32>,
+) -> BTreeMap<Key, Vec<usize>> {
+    let mut pieces: BTreeMap<Key, Vec<usize>> = BTreeMap::new();
+    for (i, object) in objects.iter().enumerate() {
+        if is_line(object, line_ids)
+            && let Some(key) = key_in(object, tag)
+        {
+            pieces.entry(key).or_default().push(i);
+        }
+    }
+    pieces
+}
+
+/// Whether the end of `object` (the last when `last`) lies within `touch` mm of the line's own
+/// body, away from the end: farther along the line than `2 × touch` from it.
+fn meets_own_body(object: &MapObject, last: bool, touch: f64) -> bool {
+    own_body(object, last, 2.0 * touch).is_some_and(|(d, _)| d <= touch)
+}
+
+/// The distance from the end of `object` (the last when `last`) to the line's own body farther
+/// along it than `skip` mm from that end, and the point of the body nearest the end (of the
+/// part of the end, the first or the last; `None` when the part is no longer than `skip`).
+fn own_body(object: &MapObject, last: bool, skip: f64) -> Option<(f64, Coord<f64>)> {
+    let parts = polylines(object);
+    let line = if last { parts.last()? } else { parts.first()? };
+    let at = end_point(object, last);
+    let total = line.length();
+    let (from, to) = if last {
+        (0.0, total - skip)
+    } else {
+        (skip, total)
+    };
+    if to <= from {
+        return None;
+    }
+    let body = Polyline::new(line.between(from, to));
+    let q = body.point(body.locate(at));
+    Some((length(at, q), q))
 }
 
 /// What the last repair needs to know of the steps before it.
@@ -777,7 +897,7 @@ fn key_in(object: &MapObject, tag: &str) -> Option<Key> {
 
 /// Ends closer than this touch a line (mm on paper): [`TOUCH_M`] at the scale of the map, with
 /// the tolerance of the comparisons.
-fn touch_mm(georef: &Georeferencing) -> f64 {
+pub(super) fn touch_mm(georef: &Georeferencing) -> f64 {
     PaperMm::of_metres(TOUCH_M, georef.scale_denominator).0 + TOLERANCE_MM
 }
 /// A path of a line symbol of `line_ids` with at least two points.
@@ -961,7 +1081,7 @@ mod tests {
         let set = isom();
         let georef = georef_at(SCALE);
         let mut objects = path_on_road(&set);
-        let junctions = Junctions::record(&mut objects, &Classes::of(&set), &georef);
+        let mut junctions = Junctions::record(&mut objects, &Classes::of(&set), &georef);
         assert_eq!(junctions.ends.len(), 1, "{junctions:?}");
         objects[1] = moved(&set, &objects[1], &[(0.0, 10.3), (40.0, 10.3)]);
         let flags = objects[0].coords[1].flags;
@@ -982,7 +1102,7 @@ mod tests {
             tagged(&set, "503", "a", &[(0.0, 10.0), (40.0, 10.0)]),
             tagged(&set, "503", "b", &[(0.0, 10.4), (40.0, 10.4)]),
         ];
-        let junctions = Junctions::record(&mut before, &Classes::of(&set), &georef);
+        let mut junctions = Junctions::record(&mut before, &Classes::of(&set), &georef);
         // The pair becomes its middle line, which keeps the tags of `b`; `a` goes.
         let mut after = vec![
             before[0].clone(),
@@ -999,7 +1119,7 @@ mod tests {
         let set = isom();
         let georef = georef_at(SCALE);
         let mut objects = path_on_road(&set);
-        let junctions = Junctions::record(&mut objects, &Classes::of(&set), &georef);
+        let mut junctions = Junctions::record(&mut objects, &Classes::of(&set), &georef);
         objects[1] = moved(&set, &objects[1], &[(0.0, 11.0), (40.0, 11.0)]);
         let result = junctions.repair(&mut objects, &BTreeMap::new(), 0.5, &georef);
         assert_eq!(result, (0, 1));
@@ -1016,7 +1136,7 @@ mod tests {
             tagged(&set, "505", "p", &ring),
             tagged(&set, "503", "r", &[(0.0, 10.0), (40.0, 10.0)]),
         ];
-        let junctions = Junctions::record(&mut objects, &Classes::of(&set), &georef);
+        let mut junctions = Junctions::record(&mut objects, &Classes::of(&set), &georef);
         assert!(junctions.ends.is_empty(), "{junctions:?}");
         objects[1] = moved(&set, &objects[1], &[(0.0, 10.3), (40.0, 10.3)]);
         let result = junctions.repair(&mut objects, &BTreeMap::new(), 0.5, &georef);
@@ -1033,7 +1153,7 @@ mod tests {
             tagged(&set, "506", "q", &[(20.0, 10.0), (30.0, 0.0)]),
             tagged(&set, "503", "r", &[(0.0, 10.0), (40.0, 10.0)]),
         ];
-        let junctions = Junctions::record(&mut objects, &Classes::of(&set), &georef);
+        let mut junctions = Junctions::record(&mut objects, &Classes::of(&set), &georef);
         assert_eq!(junctions.ends.len(), 2, "{junctions:?}");
         objects[2] = moved(&set, &objects[2], &[(0.0, 10.3), (40.0, 10.3)]);
         let (repaired, free) = junctions.repair(&mut objects, &BTreeMap::new(), 0.5, &georef);
@@ -1058,7 +1178,7 @@ mod tests {
             tagged(&set, "505", "p", &[(20.0, 0.0), (20.0, 10.0)]),
             tagged(&set, "506", "q", &[(20.0, 10.0), (30.0, 20.0)]),
         ];
-        let junctions = Junctions::record(&mut before, &Classes::of(&set), &georef);
+        let mut junctions = Junctions::record(&mut before, &Classes::of(&set), &georef);
         assert_eq!(junctions.ends.len(), 2, "{junctions:?}");
         let mut after = before.clone();
         let result = junctions.repair(&mut after, &BTreeMap::new(), 0.5, &georef);
@@ -1076,7 +1196,7 @@ mod tests {
             tagged(&set, "505", "s", &[(30.0, 0.0), (30.0, 9.8)]),
             tagged(&set, "503", "r", &[(0.0, 10.0), (40.0, 10.0)]),
         ];
-        let junctions = Junctions::record(&mut objects, &Classes::of(&set), &georef);
+        let mut junctions = Junctions::record(&mut objects, &Classes::of(&set), &georef);
         assert_eq!(junctions.ends.len(), 1, "{junctions:?}");
         // The first path goes and the road shifts: the second path is not the first.
         let mut after = vec![
@@ -1093,7 +1213,7 @@ mod tests {
         let set = isom();
         let georef = georef_at(SCALE);
         let mut objects = path_on_road(&set);
-        let junctions = Junctions::record(&mut objects, &Classes::of(&set), &georef);
+        let mut junctions = Junctions::record(&mut objects, &Classes::of(&set), &georef);
         // Both lines are cut in two, and the pieces of the road shift.
         let (path, road) = (&objects[0], &objects[1]);
         let mut after = vec![
@@ -1118,7 +1238,7 @@ mod tests {
         let set = isom();
         let georef = georef_at(SCALE);
         let mut objects = path_on_road(&set);
-        let junctions = Junctions::record(&mut objects, &Classes::of(&set), &georef);
+        let mut junctions = Junctions::record(&mut objects, &Classes::of(&set), &georef);
         // The path is cut right at its end on the road, and the road shifts: the other piece
         // of the path, which meets the end, is no line the end touches.
         let (path, road) = (&objects[0], &objects[1]);
@@ -1301,12 +1421,13 @@ mod tests {
         let mut early = f.objects.clone();
         assert_eq!(
             f.junctions
+                .clone()
                 .repair(&mut early, &f.replaced_by, reach(), &georef),
             (0, 1)
         );
         let after = f.after();
         let mut objects = f.objects.clone();
-        let (repaired, free) = f.junctions.repair_after_cuts(
+        let (repaired, free) = f.junctions.clone().repair_after_cuts(
             &mut objects,
             &after,
             reach(),
@@ -1324,7 +1445,7 @@ mod tests {
         let georef = georef_at(SCALE);
         let f = OnASidewalk::new(&set, true);
         let mut objects = f.objects.clone();
-        let (repaired, free) = f.junctions.repair_after_cuts(
+        let (repaired, free) = f.junctions.clone().repair_after_cuts(
             &mut objects,
             &f.after(),
             reach(),
@@ -1336,6 +1457,218 @@ mod tests {
         assert_eq!(objects, f.objects, "the old end stays");
         assert!(free[0].between_ways, "{free:?}");
         assert_eq!(free[0].touched, ["sidewalk"]);
+    }
+
+    #[test]
+    fn the_last_repair_keeps_the_old_end_where_the_moved_line_comes_too_close() {
+        // The road the path ended on moves 0.5 mm, within reach; drawn onto it, the path's last
+        // stretch would pass 0.9 mm from a point symbol (526 keeps about 1.01 mm from a 505),
+        // which its old end kept clear of (1.08 mm).
+        let set = isom();
+        let georef = georef_at(SCALE);
+        let mut objects = vec![
+            tagged(&set, "505", "p", &[(25.0, 10.0), (20.0, 0.0)]),
+            tagged(&set, "503", "r", &[(0.0, 0.0), (40.0, 0.0)]),
+            point(&set, "526", (19.1, -0.6)),
+        ];
+        let junctions = Junctions::record(&mut objects, &Classes::of(&set), &georef);
+        objects[1] = moved(&set, &objects[1], &[(0.0, -0.5), (40.0, -0.5)]);
+        // The repairs before give way do not check: what they leave too close, give way settles.
+        let mut early = objects.clone();
+        assert_eq!(
+            junctions
+                .clone()
+                .repair(&mut early, &BTreeMap::new(), reach(), &georef),
+            (1, 0)
+        );
+        let before = objects.clone();
+        let (repaired, free) = junctions.clone().repair_after_cuts(
+            &mut objects,
+            &none(),
+            reach(),
+            &georef,
+            MapKind::Forest,
+            &set,
+        );
+        assert_eq!((repaired, free.len()), (0, 1), "{free:?}");
+        assert_eq!(objects, before, "the old end stays");
+        // Without the point the end is drawn onto the road.
+        objects.pop();
+        let (repaired, free) = junctions.clone().repair_after_cuts(
+            &mut objects,
+            &none(),
+            reach(),
+            &georef,
+            MapKind::Forest,
+            &set,
+        );
+        assert_eq!((repaired, free.len()), (1, 0), "{free:?}");
+        assert_eq!(mm(&objects[0].coords[1]), (20.0, -0.5));
+    }
+
+    #[test]
+    fn an_end_is_followed_through_moves_that_add_up_beyond_the_reach() {
+        // The path's end moves twice by 0.5 mm (a shift and the repair after it), 1 mm in all;
+        // then the road it met goes. Followed after each move, the last repair still finds the
+        // end, and counts it free.
+        let set = isom();
+        let georef = georef_at(SCALE);
+        let mut objects = path_on_road(&set);
+        let mut junctions = Junctions::record(&mut objects, &Classes::of(&set), &georef);
+        let within = reach() + TOLERANCE_MM;
+        for y in [10.5, 11.0] {
+            objects[0] = moved(&set, &objects[0], &[(20.0, 0.0), (20.0, y)]);
+            junctions.follow(&objects, JUNCTION_TAG, within);
+        }
+        objects.pop();
+        let (repaired, free) = junctions.repair_after_cuts(
+            &mut objects,
+            &none(),
+            reach(),
+            &georef,
+            MapKind::Forest,
+            &set,
+        );
+        assert_eq!((repaired, free.len()), (0, 1), "{free:?}");
+        assert_eq!(free[0].at, (PaperMm(20.0), PaperMm(11.0)));
+    }
+
+    #[test]
+    fn an_end_that_a_join_took_inside_its_line_is_gone() {
+        // Two paths of one symbol meet end to end on a road; a join makes their ends one vertex
+        // inside a line. That vertex is no end: neither is counted when the road goes.
+        let set = isom();
+        let georef = georef_at(SCALE);
+        let mut objects = vec![
+            tagged(&set, "505", "a", &[(0.0, 0.0), (20.0, 10.0)]),
+            tagged(&set, "505", "b", &[(20.0, 10.0), (40.0, 20.0)]),
+            tagged(&set, "503", "r", &[(0.0, 10.0), (40.0, 10.0)]),
+        ];
+        let mut junctions = Junctions::record(&mut objects, &Classes::of(&set), &georef);
+        join_ways(&set, &mut objects, &mut junctions);
+        assert_eq!(objects.len(), 2, "{objects:?}");
+        junctions.follow(&objects, JUNCTION_TAG, touch_mm(&georef));
+        objects.retain(|o| o.symbol_id == set.id_for_code("505").unwrap());
+        let (_, free) = junctions.repair_after_cuts(
+            &mut objects,
+            &none(),
+            reach(),
+            &georef,
+            MapKind::Forest,
+            &set,
+        );
+        assert_eq!(free, []);
+    }
+
+    #[test]
+    fn an_end_that_meets_a_line_by_one_record_is_not_free_by_another() {
+        // Two lines `a` and `b` went into `h` by joins; `b` keeps a piece that crosses the end
+        // of `h`. The end is recorded for `a` and for `b`, each touching a line that went. For
+        // `a` the end meets the piece of `b`; for `b` that piece is its own line. It meets a
+        // line, so it is not free.
+        let set = isom();
+        let georef = georef_at(SCALE);
+        let path = set.id_for_code("505").unwrap();
+        let mut objects = vec![
+            tagged(&set, "505", "h", &[(0.0, 0.0), (10.0, 0.0)]),
+            tagged(&set, "505", "b", &[(10.0, -5.0), (10.0, 5.0)]),
+        ];
+        let mut junctions = Junctions::record(&mut objects, &Classes::of(&set), &georef);
+        let (h, b) = (key(&objects[0]), key(&objects[1]));
+        let (a, gone) = (100, 101);
+        junctions.ends.clear();
+        for object in [a, b] {
+            junctions.ends.push(End {
+                object,
+                last: true,
+                at: Coord { x: 10.0, y: 0.0 },
+                gone: false,
+                touched: vec![gone],
+                touched_ids: Vec::new(),
+                touched_way: true,
+            });
+        }
+        junctions.absorbed = BTreeMap::from([(a, BTreeSet::from([h])), (b, BTreeSet::from([h]))]);
+        assert!(objects.iter().all(|o| o.symbol_id == path));
+        let (_, free) = junctions.repair_after_cuts(
+            &mut objects,
+            &none(),
+            reach(),
+            &georef,
+            MapKind::Forest,
+            &set,
+        );
+        assert_eq!(free, []);
+    }
+
+    #[test]
+    fn an_end_on_a_line_that_a_join_took_into_its_own_line_meets_it() {
+        // The path `p` ends on the body of the path `t`, which meets `p`'s other end end to end:
+        // a join takes `t` into `p`, whose end now meets its own body. It is not free.
+        let set = isom();
+        let georef = georef_at(SCALE);
+        let mut objects = vec![
+            tagged(&set, "505", "t", &[(0.0, 0.0), (20.0, 0.0)]),
+            tagged(
+                &set,
+                "505",
+                "p",
+                &[
+                    (20.0, 0.0),
+                    (30.0, 0.0),
+                    (30.0, 10.0),
+                    (10.0, 10.0),
+                    (10.0, 0.0),
+                ],
+            ),
+        ];
+        let mut junctions = Junctions::record(&mut objects, &Classes::of(&set), &georef);
+        join_ways(&set, &mut objects, &mut junctions);
+        assert_eq!(objects.len(), 1, "{objects:?}");
+        let (_, free) = junctions.repair_after_cuts(
+            &mut objects,
+            &none(),
+            reach(),
+            &georef,
+            MapKind::Forest,
+            &set,
+        );
+        assert_eq!(free, []);
+    }
+
+    #[test]
+    fn a_road_that_ends_on_its_own_body_is_drawn_back_onto_it() {
+        // A road joined round a roundabout ends on its own body. A merge moves that body 0.07 mm
+        // off its end: the end is drawn back onto it.
+        let set = isom();
+        let georef = georef_at(SCALE);
+        let ring = [
+            (20.0, 10.0),
+            (30.0, 10.0),
+            (30.0, 20.0),
+            (20.0, 20.0),
+            (25.0, 10.0),
+        ];
+        let mut road: Vec<(f64, f64)> = vec![(0.0, 10.0)];
+        road.extend(ring);
+        let mut objects = vec![tagged(&set, "503", "r", &road)];
+        let mut junctions = Junctions::record(&mut objects, &Classes::of(&set), &georef);
+        assert_eq!(junctions.ends.len(), 1, "{junctions:?}");
+        let mut shifted = road.clone();
+        for p in &mut shifted[..3] {
+            p.1 += 0.07;
+        }
+        objects[0] = moved(&set, &objects[0], &shifted);
+        let (repaired, free) = junctions.repair_after_cuts(
+            &mut objects,
+            &none(),
+            reach(),
+            &georef,
+            MapKind::Forest,
+            &set,
+        );
+        assert_eq!((repaired, free.len()), (1, 0), "{free:?}");
+        assert_eq!(mm(objects[0].coords.last().unwrap()), (25.0, 10.07));
     }
 
     #[test]

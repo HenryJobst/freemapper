@@ -142,8 +142,9 @@ fn xy(c: &MapCoord) -> P {
     (f64::from(c.x), f64::from(c.y))
 }
 
+/// The distance from `a` to `b`, by `sqrt` (the same on every system, unlike `hypot`).
 fn distance(a: P, b: P) -> f64 {
-    (a.0 - b.0).hypot(a.1 - b.1)
+    ((a.0 - b.0) * (a.0 - b.0) + (a.1 - b.1) * (a.1 - b.1)).sqrt()
 }
 
 fn length(points: &[P]) -> f64 {
@@ -219,7 +220,7 @@ mod tests {
     }
 
     fn distance(a: (f64, f64), b: (f64, f64)) -> f64 {
-        (a.0 - b.0).hypot(a.1 - b.1)
+        ((a.0 - b.0) * (a.0 - b.0) + (a.1 - b.1) * (a.1 - b.1)).sqrt()
     }
 
     #[test]

@@ -999,6 +999,45 @@ mod tests {
     }
 
     #[test]
+    fn a_tram_that_only_the_merged_road_has_in_its_zone_goes() {
+        // The second pass of the rule for paths and trams in the gap zone of a road. A 503 and
+        // a 502 0.045 mm apart merge, and the 503, the wider stroke, is kept on their middle. A
+        // tram's zone round a road is the tram's drawn half width, the road's half width and the
+        // gap: 0.7875 mm round the 502, 0.825 mm round the 503. The tram lies 0.795 mm beside
+        // the 502 and 0.84 mm from the 503, outside both zones, and 0.8175 mm from the merged
+        // road, inside its zone. Only the pass after the merge finds it.
+        let set = isom();
+        let gap = gap(MapKind::Forest, SCALE).0;
+        let tram = |y: f64| {
+            tagged(
+                line(&set, "509", &[(5.0, y), (35.0, y)]),
+                "freemapper:osm",
+                "railway=tram",
+            )
+        };
+        let objects = vec![
+            sourced(&set, "503", "way/1", &[(0.0, 0.0), (40.0, 0.0)]),
+            sourced(&set, "502", "way/2", &[(0.0, 0.045), (40.0, 0.045)]),
+            tram(0.84),
+        ];
+        let half = |i: usize| Footprints::of(&[&objects[i]], &set).half_width(0);
+        let symbols = RenderSymbols::from_set(&set);
+        let drawn = drawn_half(objects[2].symbol_id, &symbols, &Classes::of(&set));
+        let zone = |road: usize| drawn + half(road) + gap;
+        assert!(half(0) > half(1), "the 503 is kept");
+        assert!(0.795 > zone(1) + TOLERANCE_MM && 0.84 > zone(0) + TOLERANCE_MM);
+        assert!(0.8175 < zone(0) - TOLERANCE_MM);
+        let (out, report) = forest(&set, objects);
+        assert_eq!(report.merged, 1, "{report:?}");
+        assert_eq!(
+            of_code(&set, &out, "509"),
+            Vec::<&MapObject>::new(),
+            "{out:?}"
+        );
+        assert_eq!(report.dropped_beside_roads, 1, "{report:?}");
+    }
+
+    #[test]
     fn a_path_that_leaves_the_road_keeps_its_free_part() {
         let set = isom();
         let objects = vec![

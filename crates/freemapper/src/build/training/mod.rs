@@ -267,11 +267,18 @@ pub fn train(
     let (joined, absorbed) = join(&mut objects, &classes, georef, Some(junctions::ASIDE_TAG));
     report.joined += joined;
     junctions.absorb(&absorbed);
-    let shifted = Junctions::record(&mut objects, &classes, georef);
+    // The ends recorded before the merge are followed through every step that moves lines (by
+    // their position, the join moves none), so that the last repair finds each by its key.
+    let touch = junctions::touch_mm(georef);
+    let within = reach + TOLERANCE_MM;
+    junctions.follow(&objects, junctions::ASIDE_TAG, touch);
+    let mut shifted = Junctions::record(&mut objects, &classes, georef);
     report.shifted = shift_lines(&mut objects, kind, georef, symbol_set);
+    junctions.follow(&objects, junctions::ASIDE_TAG, within);
     // Its free ends are among those the last repair counts.
     let (repaired, _) = shifted.repair(&mut objects, &BTreeMap::new(), reach, georef);
     report.junctions_repaired += repaired;
+    junctions.follow(&objects, junctions::ASIDE_TAG, within);
     report.points_moved = move_points(&mut objects, &classes, kind, georef, symbol_set);
     let (gave_way, cut, cut_for) = give_way(&mut objects, &classes, kind, georef, symbol_set);
     report.gave_way = gave_way;
@@ -1917,7 +1924,7 @@ pub(crate) mod tests {
         let reach = MAX_SHIFT_MM.0 + gap(MapKind::Forest, SCALE).0;
         for linked in [false, true] {
             let mut objects = ways.to_vec();
-            let junctions = Junctions::record(&mut objects, &classes, &georef);
+            let mut junctions = Junctions::record(&mut objects, &classes, &georef);
             objects[0].coords = line(&set, "506", &[(19.7, -20.0), (19.7, 0.0)]).coords;
             objects[2].coords = line(&set, "506", &[(22.3, 0.0), (22.3, 20.0)]).coords;
             junctions::set_aside(&mut objects);
