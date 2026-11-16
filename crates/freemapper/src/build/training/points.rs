@@ -420,7 +420,7 @@ mod tests {
             .footprint(0)
             .iter()
             .flat_map(|p| p.exterior().coords())
-            .map(|c| c.x.hypot(c.y))
+            .map(|c| (c.x * c.x + c.y * c.y).sqrt())
             .fold(0.0, f64::max)
     }
 
@@ -447,7 +447,7 @@ mod tests {
 
     fn shift(from: (f64, f64), to: &MapObject) -> f64 {
         let (x, y) = mm(to);
-        (x - from.0).hypot(y - from.1)
+        ((x - from.0) * (x - from.0) + (y - from.1) * (y - from.1)).sqrt()
     }
 
     /// The pairs that keep apart and come too close on `objects`.

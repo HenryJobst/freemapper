@@ -67,7 +67,7 @@ use crate::tiles::TileId;
 mod export;
 mod extras;
 pub use crate::build::light::LightReport;
-pub use crate::build::training::TrainingReport;
+pub use crate::build::training::{FreeEnd, TrainingReport};
 pub use export::*;
 pub(crate) use extras::ExtraSets;
 

@@ -39,7 +39,7 @@ cli-pdf-without-credits = PDF ohne Quellenangaben: ODbL und dl-de/by-2-0 verlang
 cli-wrote-pdf = { $path } geschrieben (die Karte ohne Kandidaten)
 cli-wrote-pdf-candidates = { $path } geschrieben (der Prüfausdruck: die Karte mit jedem Kandidaten, lagetreu; prüfen Sie sie im Gelände)
 cli-wrote-training = { $map } und { $pdf } geschrieben (die Trainingskarte: { $joined } zusammengelegt, { $shifted } verschoben, { $left } weggelassen oder gekürzt)
-cli-training-free-ends = { $count } Linienenden frei
+cli-training-free-ends = Freie Linienenden: { $ways } dort, wo ein Weg auf einen anderen traf, { $others } an anderen Linien
 cli-training-apart-left = Die Trainingskarte hat noch { $length } mm (auf dem Papier), an denen Objekte zu wenig Abstand halten; prüfen Sie sie in OOM
 cli-kept-training = Trainingskarte { $path } behalten, damit ein Lauf keine überschreibt, die gedruckt oder weitergegeben wurde; zum Erneuern löschen oder --force angeben
 

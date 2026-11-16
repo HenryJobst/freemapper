@@ -1003,10 +1003,17 @@ What the training map does differently from the map, step by step:
    way. Two short pieces do not keep each other. A stair too short to draw between two ways is drawn as the way
    (it carries `freemapper:generalized`); one at a dead end goes.
 
+   A short way piece that linked ways before step 5 stays as long as those ways stay, also where step 6 or 8 moved
+   its ends off them; a small ring stays when it links two ways.
+
    Last, a line end that touched a line before step 5 and lost it in step 8 or 9 is drawn onto what is left of that
-   line, when that lies within 0.5 mm plus the gap. Where nothing is left in reach, the end stays free and the
-   summary line counts it: `3 line ends left free`. Where two lines lay on each other and one was cut for the
-   other, the gap is meant and nothing is drawn back.
+   line, when that lies within 0.5 mm plus the gap and the moved line keeps its gap to everything it keeps apart
+   from. A path that ended on a sidewalk that went beside a road is drawn onto the road, from as far as the sidewalk
+   lay. Where nothing is left in reach, the end stays free and the summary line counts it: `Line ends left free: 1
+   where a way met another way, 2 at other lines`. The first number counts ends of ways that met another way; each
+   is a break in the way network. The second counts the rest, mostly ends on a fence, ditch or earth bank that gave
+   way to a third object. Where two lines lay on each other and one was cut for the other, the gap is meant and
+   nothing is drawn back.
 
 On forest and sprint maps the training map also generalizes the cliffs more than the map (chapter 7).
 

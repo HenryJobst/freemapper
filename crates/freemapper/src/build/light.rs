@@ -574,7 +574,7 @@ fn leave_too_small(
     symbol_set: &SymbolSet,
 ) -> usize {
     let considered = |o: &MapObject| classes.class(o.symbol_id) != Class::Other;
-    let TooSmall { gone, .. } = too_small(map, classes, kind, georef, symbol_set, &considered);
+    let TooSmall { gone, .. } = too_small(map, classes, kind, georef, symbol_set, &considered, &[]);
     let mut n = 0;
     let before = std::mem::take(map);
     for (object, gone) in before.into_iter().zip(gone) {

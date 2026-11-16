@@ -829,11 +829,15 @@ pub fn training_summary(outcome: &TrainingOutcome) -> String {
             ("left", n(left)),
         ],
     )];
-    // A free end is counted, not hidden; none is not worth a line.
-    if report.junctions_free > 0 {
+    // A free end is counted, not hidden; none is not worth a line. The ends where a way met a
+    // way break the way network on print, so they are counted apart.
+    if !report.free_ends.is_empty() {
         lines.push(text(
             "cli-training-free-ends",
-            &[("count", n(report.junctions_free))],
+            &[
+                ("ways", n(report.free_way_ends())),
+                ("others", n(report.free_other_ends())),
+            ],
         ));
     }
     if let Some(ocad) = &outcome.ocad {
@@ -874,7 +878,8 @@ fn apart_left_warning(length: f64, lang: &Lang) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use freemapper::project::{MapKind, TrainingReport};
+    use freemapper::measure::PaperMm;
+    use freemapper::project::{FreeEnd, MapKind, TrainingReport};
 
     fn all_off() -> RunOptions {
         parse(RunRequest::default(), &Lang::english()).unwrap()
@@ -1371,7 +1376,6 @@ mod tests {
             merged: 2,
             dropped_beside_roads: 3,
             junctions_repaired: 9,
-            junctions_free: 0,
             shifted: 4,
             carriageways: 5,
             kerbs: 2,
@@ -1388,13 +1392,23 @@ mod tests {
             )
         );
         assert!(training_warnings(&outcome).is_empty());
-        outcome.report.junctions_free = 3;
+        let end = |between_ways| FreeEnd {
+            source_id: None,
+            symbol: "505".to_string(),
+            at: (PaperMm(1.0), PaperMm(2.0)),
+            touched: Vec::new(),
+            between_ways,
+        };
+        outcome.report.free_ends = vec![end(true), end(false), end(false)];
         assert!(
-            training_summary(&outcome).ends_with("left out or cut)\n3 line ends left free"),
+            training_summary(&outcome).ends_with(
+                "left out or cut)\nLine ends left free: 1 where a way met another way, 2 at other \
+                 lines"
+            ),
             "{}",
             training_summary(&outcome)
         );
-        outcome.report.junctions_free = 0;
+        outcome.report.free_ends.clear();
         outcome.ocad = Some(PathBuf::from("/p/ocad/p-training.ocd"));
         assert!(
             training_summary(&outcome).ends_with("\nWrote /p/ocad/p-training.ocd"),

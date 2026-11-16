@@ -12,6 +12,11 @@ All notable changes to freemapper are listed here, newest first. The format foll
 - Hamburg: a bollard, bench or lamp of the Feinkartierung replaces the OpenStreetMap point at the same place, as Berlin's survey already does (ADR 0149): up to 2 m for bollards and benches, up to 5 m for lamps. The OSM point is then named in `freemapper:also`, and a sprint map has one control site fewer there. For that the set of the Feinkartierung keeps the kind of control site (`hamburg:control`) on the candidate. Existing maps change after `export --force`.
 - Berlin runs through the same path as Hamburg's Feinkartierung now, and the engine names no region any more (ADR 0149). Maps and project files stay as they were. A warning about an unknown layer entry in `freemapper.toml` names the state of its set instead of always Berlin.
 
+### Fixed
+
+- The training map leaves fewer way ends free (ADR 0150, addendum, issue #168). A short way piece below its minimum length stays when it links ways that stay, also where a shift or a cut moved its ends off them, and its ends are drawn onto them again. A path that ended on a sidewalk the forest map leaves out is drawn onto the road. A road joined round a roundabout is drawn back onto its own ring. Each end is drawn only when the moved line keeps its gap to everything it keeps apart from. The free ends where a way met another way fall from 11 to 1 on Bremen Bürgerpark and from 12 to 5 at the Bastei; Viktoriapark keeps its 5. Each one left is named in the ADR: mostly a stair below three steps that leads nowhere.
+- The summary line counts the free ends in two numbers, "Line ends left free: N where a way met another way, N at other lines", instead of "N line ends left free". The first kind breaks the way network on print. The second is mostly an end on a fence, ditch or earth bank that gave way to a third object.
+
 ## [0.24.0] - 2026-11-16
 
 ### Changed

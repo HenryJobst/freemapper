@@ -12,6 +12,11 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 - Hamburg: Ein Poller, eine Bank oder eine Leuchte der Feinkartierung ersetzt den OpenStreetMap-Punkt am selben Ort, wie es die Berliner Befahrung schon tut (ADR 0149): bis 2 m bei Pollern und Bänken, bis 5 m bei Leuchten. Der OSM-Punkt steht dann in `freemapper:also`, und auf der Sprintkarte gibt es an dieser Stelle einen Postenstandort weniger. Der Satz der Feinkartierung behält dafür die Art des Postenstandorts (`hamburg:control`) am Kandidaten. Bestehende Karten ändern sich nach `export --force`.
 - Berlin läuft jetzt über denselben Weg wie die Feinkartierung in Hamburg, und die Engine nennt keine Region mehr (ADR 0149). Karten und Projektdateien bleiben gleich. Eine Warnung zu einem unbekannten Ebenen-Eintrag in `freemapper.toml` nennt das Bundesland des Satzes statt immer Berlin.
 
+### Behoben
+
+- Die Trainingskarte lässt weniger Wegenden frei (ADR 0150, Nachtrag, Issue #168). Ein kurzes Wegstück unter seiner Mindestlänge bleibt, wenn es Wege verbindet, die bleiben, auch wo eine Verschiebung oder ein Schnitt seine Enden von ihnen weggerückt hat, und seine Enden werden wieder an sie gelegt. Ein Pfad, der an einem Gehweg endete, den die Waldkarte weglässt, wird an die Straße gelegt. Eine Straße, die um einen Kreisverkehr herum zu einer Linie verbunden ist, wird wieder an ihren eigenen Ring gelegt. Jedes Ende wird nur verlegt, wenn die verschobene Linie zu allem den Abstand hält, von dem sie Abstand halten muss. Die freien Enden, an denen ein Weg auf einen anderen traf, sinken im Bremer Bürgerpark von 11 auf 1 und an der Bastei von 12 auf 5; im Viktoriapark bleiben es 5. Jedes verbliebene nennt das ADR, meist eine Treppe unter drei Stufen, die nirgends hinführt.
+- Die Zusammenfassung zählt die freien Enden in zwei Zahlen, „Freie Linienenden: N dort, wo ein Weg auf einen anderen traf, N an anderen Linien“, statt „N Linienenden frei“. Die erste Art unterbricht das Wegenetz im Druck. Die zweite ist meist ein Ende an einem Zaun, Graben oder einer Böschung, die einem dritten Objekt gewichen ist.
+
 ## [0.24.0] - 2026-11-16
 
 ### Geändert

@@ -253,3 +253,118 @@ against watercourse and Berlin's stair step lines. The Bremen way pairs left are
 Source: spec `docs/superpowers/specs/2026-11-14-training-map-design.md` ("The second half, as designed on
 2026-11-15", decision 13), plan `docs/superpowers/plans/2026-11-15-training-map-2.md` and its rulings ledger;
 ISSprOM 2019-2 501, §3.3; ISOM 2017-2 502 to 507.
+
+## Addendum (2026-11-16): free line ends (issue #168)
+
+The report counted the free ends and named none, so nobody could tell an end that is fair on print from a break of
+the way network. Named, the 18, 7 and 12 free ends on Bremen Bürgerpark, Viktoriapark and the Bastei held 11, 5 and
+12 ends of ways that had met another way. Most of them had touched a short way piece below its minimum length that
+the minimum sizes dropped after a shift or a cut had moved its ends off the ways it linked, or a sidewalk that went
+beside a road.
+
+**The report.** `TrainingReport::free_ends` replaces `junctions_free`: per end a `FreeEnd` with the source id of its
+line, the symbol code, the position on paper and the source ids of the lines it touched when it was recorded.
+`between_ways` marks the end of a road, path, railway or stairway that touched another of them;
+`free_way_ends()` and `free_other_ends()` count both kinds. Nothing of it reaches the map. The summary line reads
+"Line ends left free: N where a way met another way, N at other lines" ("Freie Linienenden: N dort, wo ein Weg auf
+einen anderen traf, N an anderen Linien"). The CLI has no verbose switch, so it prints the counts only; tests and
+measurements read the ends from the report.
+
+**Short pieces that link ways.** Before the minimum sizes, `Junctions::links` gives, for each end of each way, the
+ways its recorded junctions link it to, when they lie within the reach of the repairs. `too_small` counts them as
+touching that end, so the rules stay as they were: a short way stays when an end continues on a way that stays, a
+short stairway needs both ends and is drawn as the way. A closed way below its minimum length stays when it links ways
+of at least two keys, each with its end still at the junction and the ring within reach of that end, so two pieces
+of one line do not keep a ring. The last repair then draws the ends together again. *Ruling:* a recorded junction counts as a touch
+for the minimum sizes. *Cost:* a piece below the norm's minimum stays where it links ways. In Bremen the ring
+`way/286668359` of 0.98 mm, on which two paths end, is drawn.
+
+**Beyond a sidewalk that went.** `Merged::rider_reach` keeps, for each path or tram that the forest rule dropped or
+cut in the gap zone of a road, how far it lay from the road: the radius of the zone, or for one that went whole the
+farthest of its points from the road, at most twice the radius. In the last repair an end that touched such a line
+reaches the road that replaced it from that far. The five paths on the sidewalk `way/304738451` and the three
+0.9 to 1.2 mm from `way/267420573` in Bremen now end on their roads.
+
+**Loops.** An end on its own line's body away from the end is recorded too, and drawn back onto that body beyond
+twice the reach along the line. The road `way/42307018`, which the first join of the training level takes round the
+south roundabout of Bremen, ended on its own ring, and the merge had moved the ring 0.07 mm off its end: it meets the
+ring again. An end whose touched line went into its own line by a join meets it there and is not counted free.
+
+**M2.** Every move of the last repair is checked as the shift checks its moves (`Checker`, `conflict_of_first`): the
+moved line against every object within 3 mm of the stretch that moved that it keeps apart from. A new conflict, a
+worse grade or a longer conflict (beyond the tolerance) keeps the old end, which is then counted free. The repairs
+before give way check nothing, since give way settles what they leave.
+
+**M3.** The ends recorded before the merge are followed after every step that moves lines
+(`Junctions::follow`): after the repair of the merge, after the join with the touch distance (a join moves nothing),
+after the shift, after its repair and after give way (which cuts ends back by up to the gap) with the reach. The
+last repair finds an end within the touch distance of where
+it was followed to. A join that made an end a vertex inside a line leaves no end, so it is not counted free on
+another end of that line, and moves that add up beyond the reach no longer lose an end. One record of an end that
+meets a line keeps another record of the same end from counting it free. The gap between an end and the line it
+touched is meant both when that line was cut for the end's own line and when the end's own line was cut for it (a
+fence cut back for the path it ended on).
+
+**Smaller items.** A test for the second pass of the rule for paths and trams beside roads fails without it (a
+tram that only the merged road has in its zone). `openings.rs` decides with `sqrt` of squared sums, not `hypot`
+(`distance`, the only such call in code); the tests of `points.rs` and `openings.rs` do too.
+
+### Measured
+
+On 2026-11-16 with the release build after the review of PR #195, merged with main, on copies of the three examples
+(`run --force --training`, then `export --force --training`), counted by the program; "before" is main at the same
+time. Apart conflicts stayed 0 on all three. The Berlin rework on main (ADR 0149) changed the input of Viktoriapark,
+not its free ends.
+
+| | Bremen Bürgerpark | Viktoriapark | Bastei |
+|---|---|---|---|
+| Free ends where a way met another way, before | 11 | 5 | 12 |
+| Free ends where a way met another way, after | 1 | 5 | 5 |
+| Other free ends, before and after | 7 | 2 | 0 |
+| Summary of the training map, after | 476 joined, 170 shifted, 320 left out or cut | 93 joined, 37 shifted, 1124 left out or cut | 248 joined, 57 shifted, 132 left out or cut |
+| Export, user CPU time before / after (least of three) | 35.1 s / 35.2 s | 6.9 s / 6.9 s | 5.7 s / 5.8 s |
+
+The machine was shared (load average 3 to 56), so the times are upper bounds.
+
+### The free ends of ways left
+
+Each one with its reason:
+
+- Bremen, `way/184724893`: the stair `way/184724886` (0.39 mm) leads nowhere. A stair below three steps at a dead
+  end goes (step 9). The path ends 0.27 mm short of `way/237395811`, which it did not touch in the data.
+- Viktoriapark, five ends of paths on stairs below three steps whose other end meets no way: `way/30770228` on
+  `way/775368128` (0.65 mm, up to the edge of a paved area), `way/720631834` on `way/35669039`, both ends of
+  `way/375116770` on `way/375116765` and `way/375116767`, and `way/1467161968` on `way/1468081075`.
+- Bastei, `way/50042494`: the stair `way/750582818` (0.89 mm) leads nowhere.
+- Bastei, `way/1285584865`: the path `way/1285592353` (2.49 mm, below 506's minimum) meets nothing with its ends.
+- Bastei, `way/672142823` and `way/750581126`: the stair `way/750581124` runs through a building. Give way cut it
+  there, and the pieces left were below the minimum length.
+- Bastei, `way/1114870845`: the footway `way/24350052` went whole beside the road `way/36914311`, since more than
+  half of it lay in the road's gap zone. The path ends on its far part, 2.5 mm from the road, beyond twice the zone.
+
+*Ruling (review of PR #195):* the Bastei footway stays parked. The review recommends keeping the far part of a
+dropped rider as a cut piece where other ways end on it, since the norm only forbids drawing inside the road's zone,
+but that changes the rider rule and is left out of this change. *Ruling:* the stair `way/775368128` of Viktoriapark,
+which reaches the edge of a paved area, stays counted as a stair that leads nowhere for now. Both are in issue
+#196, with the rest below.
+
+### Still parked
+
+These items of the second half stay as they were (issue #196). Each needs a ruling, or is harmless:
+
+- Three lines side by side merge in two rounds; a second merge can still loosen the ends the first drew onto the
+  kept line by up to half the distance.
+- Merged and shifted lines are written as plain vertices (Bézier curves flattened, dash flags dropped).
+- A tram that runs partly inside a road is cut there like a path (needs a ruling).
+- A fork that leaves a road at less than 20° is no crossing for the measure, so its first stretch is cut (needs a
+  ruling on the measure).
+- Two pieces of one key with ends of the same flag within reach of each other: following the ends after each step
+  leaves this only within one step, and it is not resolved further.
+- `Junctions::attach` has no direct unit test.
+- Of two lines of one rank and one length in an Apart conflict, neither shifts (needs a ruling).
+- Harmless: the arc positions after a stretch across the seam of a closed line (up to 0.06 mm); `way_footprints`
+  skips every hidden paved candidate; the doc comment of `carriageway.rs` on the kerb rule; a contour shifted for an
+  earth bank that gave way later.
+- The Bastei Path–Path joined conflict of +1.8 mm and the water against watercourse overlaps on lakes, outside the
+  design of the second half.
+- The end-to-end count against the check print (43, 14 and 15 before the final review) was not measured again.

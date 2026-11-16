@@ -57,6 +57,11 @@ pub(super) struct Merged {
     pub(super) replaced_by: BTreeMap<Key, Key>,
     /// The cut ends drawn onto a line: they follow it when it merges again later.
     pub(super) attached: Vec<Attached>,
+    /// How far (mm on paper) the paths and trams that went or were cut in the gap zone of a road
+    /// lay from it, by junction key: the radius of the zone, or for one that went whole the
+    /// farthest of its points from the road, up to twice the radius. An end that met such a line
+    /// is drawn onto the road from as far ([`Junctions`](super::junctions::Junctions)).
+    pub(super) rider_reach: BTreeMap<Key, f64>,
 }
 
 /// Merges what is alike among `objects`. On a forest map first a path (505 to 507 and the
@@ -290,6 +295,29 @@ fn inside_roads(
         }
         if let (Some(from), Some(to)) = (key_of(object), key_of(&objects[road])) {
             out.replaced_by.entry(from).or_insert(to);
+            // The ends that met the rider met the road it stood for: as far from the road as
+            // the rider lay, within its zone, or anywhere along it when it went whole.
+            let zone = road_lines
+                .iter()
+                .filter(|(r, _, _)| *r == road)
+                .map(|(_, _, radius)| *radius)
+                .fold(0.0, f64::max);
+            let far = if pieces.is_empty() {
+                line.points
+                    .iter()
+                    .map(|&p| {
+                        road_lines
+                            .iter()
+                            .map(|(_, l, _)| distance(p, l.point(l.locate(p))))
+                            .fold(f64::INFINITY, f64::min)
+                    })
+                    .fold(zone, f64::max)
+                    .min(2.0 * zone)
+            } else {
+                zone
+            };
+            let reach = out.rider_reach.entry(from).or_insert(0.0);
+            *reach = reach.max(far);
         }
         replaced.insert(rider, pieces);
     }
@@ -813,7 +841,7 @@ mod tests {
             let inner = mm(&piece.coords[0]).x > 20.0;
             assert!(end_touches(&out, i, !inner, SCALE), "{piece:?}");
         }
-        assert_eq!(report.junctions_free, 0, "{report:?}");
+        assert_eq!(report.free_ends.len(), 0, "{report:?}");
     }
 
     #[test]
@@ -874,7 +902,7 @@ mod tests {
                 (mm(&paths[0].coords[0]).x, mm(&paths[0].coords[0]).y)
             ) < 0.02
         );
-        assert_eq!(report.junctions_free, 0, "{report:?}");
+        assert_eq!(report.free_ends.len(), 0, "{report:?}");
         assert_eq!(report.junctions_repaired, 1, "{report:?}");
     }
 
@@ -893,7 +921,7 @@ mod tests {
         ];
         let (out, report) = train(objects, None, MapKind::Forest, &georef_at(scale), &set);
         assert!(report.merged >= 2, "{report:?}");
-        assert_eq!(report.junctions_free, 0, "{report:?}");
+        assert_eq!(report.free_ends.len(), 0, "{report:?}");
         assert!(report.junctions_repaired >= 1, "{report:?}");
         // One line where all three ran together.
         let tracks = of_code(&set, &out, "509");
@@ -968,6 +996,45 @@ mod tests {
             (0.0, 0.0),
             "{report:?}"
         );
+    }
+
+    #[test]
+    fn a_tram_that_only_the_merged_road_has_in_its_zone_goes() {
+        // The second pass of the rule for paths and trams in the gap zone of a road. A 503 and
+        // a 502 0.045 mm apart merge, and the 503, the wider stroke, is kept on their middle. A
+        // tram's zone round a road is the tram's drawn half width, the road's half width and the
+        // gap: 0.7875 mm round the 502, 0.825 mm round the 503. The tram lies 0.795 mm beside
+        // the 502 and 0.84 mm from the 503, outside both zones, and 0.8175 mm from the merged
+        // road, inside its zone. Only the pass after the merge finds it.
+        let set = isom();
+        let gap = gap(MapKind::Forest, SCALE).0;
+        let tram = |y: f64| {
+            tagged(
+                line(&set, "509", &[(5.0, y), (35.0, y)]),
+                "freemapper:osm",
+                "railway=tram",
+            )
+        };
+        let objects = vec![
+            sourced(&set, "503", "way/1", &[(0.0, 0.0), (40.0, 0.0)]),
+            sourced(&set, "502", "way/2", &[(0.0, 0.045), (40.0, 0.045)]),
+            tram(0.84),
+        ];
+        let half = |i: usize| Footprints::of(&[&objects[i]], &set).half_width(0);
+        let symbols = RenderSymbols::from_set(&set);
+        let drawn = drawn_half(objects[2].symbol_id, &symbols, &Classes::of(&set));
+        let zone = |road: usize| drawn + half(road) + gap;
+        assert!(half(0) > half(1), "the 503 is kept");
+        assert!(0.795 > zone(1) + TOLERANCE_MM && 0.84 > zone(0) + TOLERANCE_MM);
+        assert!(0.8175 < zone(0) - TOLERANCE_MM);
+        let (out, report) = forest(&set, objects);
+        assert_eq!(report.merged, 1, "{report:?}");
+        assert_eq!(
+            of_code(&set, &out, "509"),
+            Vec::<&MapObject>::new(),
+            "{out:?}"
+        );
+        assert_eq!(report.dropped_beside_roads, 1, "{report:?}");
     }
 
     #[test]
@@ -1059,7 +1126,7 @@ mod tests {
             }
         }
         assert_eq!(
-            (report.junctions_repaired, report.junctions_free),
+            (report.junctions_repaired, report.free_ends.len()),
             (2, 0),
             "{report:?}"
         );
@@ -1162,7 +1229,7 @@ mod tests {
             (1, 1),
             "{report:?}"
         );
-        assert_eq!(report.junctions_free, 0, "{report:?}");
+        assert_eq!(report.free_ends.len(), 0, "{report:?}");
         assert_eq!(report.junctions_repaired, 2, "{report:?}");
         assert_eq!(of_code(&set, &out, "503").len(), 2, "{out:?}");
         for code in ["505", "506"] {

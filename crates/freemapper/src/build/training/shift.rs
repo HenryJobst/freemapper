@@ -949,7 +949,7 @@ mod tests {
         );
         assert_eq!(report.shifted, 1, "{report:?}");
         assert!(report.junctions_repaired >= 1, "{report:?}");
-        assert_eq!(report.junctions_free, 0, "{report:?}");
+        assert_eq!(report.free_ends.len(), 0, "{report:?}");
         assert_eq!(apart_left(&set, &out), Vec::new(), "{out:?}");
     }
 
