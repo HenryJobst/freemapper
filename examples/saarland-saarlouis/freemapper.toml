@@ -13,14 +13,14 @@ type = "Polygon"
 
 [buildings]
 bbox = [335872.0, 5464571.0, 336863.0, 5465309.0]
-fetched = "2026-11-15"
+fetched = "2026-11-16"
 latest_update = "2026-08-13"
 count = 758
 regions = ["saarland"]
 
 [land_use]
 bbox = [335872.0, 5464571.0, 336863.0, 5465309.0]
-fetched = "2026-11-15"
+fetched = "2026-11-16"
 latest_update = "2026-11-11"
 count = 359
 regions = ["saarland"]
@@ -33,16 +33,16 @@ count = 754
 [orthophoto]
 flight = "10.05.2025"
 flight_label = "Aktualisierung"
-fetched = "2026-11-15"
+fetched = "2026-11-16"
 bbox = [335872.557, 5464571.505, 336862.842, 5465308.876]
 
 [terrain]
-fetched = "2026-11-15"
+fetched = "2026-11-16"
 bbox = [335872.557, 5464571.505, 336862.842, 5465308.876]
 date = "2025"
 
 [surface]
-fetched = "2026-11-15"
+fetched = "2026-11-16"
 bbox = [335872.557, 5464571.505, 336862.842, 5465308.876]
 date = "2025"
 

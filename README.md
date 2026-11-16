@@ -99,12 +99,13 @@ mit der Kommandozeile. Die meistgebrauchten Kapitel:
 ## Beispiele
 
 Für jedes unterstützte Bundesland liegt ein fertiges Sprintkarten-Projekt im Repository, mit OOM-Karte,
-OCAD-Datei und PDF. Zwei Beispiele vorab; ein Klick auf das Bild zeigt es in voller Größe, der Link darunter öffnet das PDF:
+OCAD-Datei, Trainingskarte und Prüfausdruck. Zwei Beispiele vorab. Die Bilder zeigen die Trainingskarte; ein Klick
+zeigt sie in voller Größe, der Link darunter öffnet sie als PDF, daneben steht der Prüfausdruck:
 
 | Bundesland | Gebiet | Vorschau |
 |---|---|---|
-| Berlin | [Viktoriapark, Kreuzberg](https://github.com/HenryJobst/freemapper/tree/main/examples/berlin-viktoriapark/) | <a href="examples/berlin-viktoriapark/preview.webp"><img src="examples/berlin-viktoriapark/preview-thumb.webp" width="220" alt="" loading="lazy"></a><br><a href="examples/berlin-viktoriapark/berlin-viktoriapark-candidates.pdf">PDF</a> |
-| Rheinland-Pfalz | [Reichsburg und Altstadt Cochem](https://github.com/HenryJobst/freemapper/tree/main/examples/rheinland-pfalz-cochem/) | <a href="examples/rheinland-pfalz-cochem/preview.webp"><img src="examples/rheinland-pfalz-cochem/preview-thumb.webp" width="220" alt="" loading="lazy"></a><br><a href="examples/rheinland-pfalz-cochem/rheinland-pfalz-cochem-candidates.pdf">PDF</a> |
+| Berlin | [Viktoriapark, Kreuzberg](https://github.com/HenryJobst/freemapper/tree/main/examples/berlin-viktoriapark/) | <a href="examples/berlin-viktoriapark/preview.webp"><img src="examples/berlin-viktoriapark/preview-thumb.webp" width="220" alt="" loading="lazy"></a><br><a href="examples/berlin-viktoriapark/berlin-viktoriapark-training.pdf">PDF</a> · <a href="examples/berlin-viktoriapark/berlin-viktoriapark-candidates.pdf">Prüfausdruck</a> |
+| Rheinland-Pfalz | [Reichsburg und Altstadt Cochem](https://github.com/HenryJobst/freemapper/tree/main/examples/rheinland-pfalz-cochem/) | <a href="examples/rheinland-pfalz-cochem/preview.webp"><img src="examples/rheinland-pfalz-cochem/preview-thumb.webp" width="220" alt="" loading="lazy"></a><br><a href="examples/rheinland-pfalz-cochem/rheinland-pfalz-cochem-training.pdf">PDF</a> · <a href="examples/rheinland-pfalz-cochem/rheinland-pfalz-cochem-candidates.pdf">Prüfausdruck</a> |
 
 Alle Beispiele mit Vorschau, wie die Gebiete ausgewählt wurden und wie viele Objekte jede Karte hat, stehen in
 der [Beispielübersicht](https://github.com/HenryJobst/freemapper/blob/main/examples/README.md), dort auch eine Waldkarte für jedes Bundesland (1:10 000). Dasselbe Gebiet in den drei Inhaltsprofilen

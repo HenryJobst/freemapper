@@ -547,7 +547,7 @@ in the map part "default part". Break them in OOM where they hide small objects,
 or wall corners.
 
 The example projects in the repository show what the result looks like, one per state:
-[`examples/`](https://github.com/HenryJobst/freemapper/blob/main/examples/README.en.md). Each has the OOM map, the OCAD starting point and the PDF.
+[`examples/`](https://github.com/HenryJobst/freemapper/blob/main/examples/README.en.md). Each has the OOM map, the OCAD starting point, the training map and the check print; the preview images show the training map.
 
 ### Forest maps
 

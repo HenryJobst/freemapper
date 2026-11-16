@@ -1,5 +1,5 @@
 © OpenStreetMap contributors, ODbL
-© GeoBasis DE/LVGL-SL (2026), dl-de/by-2-0, Daten geändert
-Lizenz dl-de/by-2-0 (Datenlizenz Deutschland – Namensnennung – Version 2.0): https://www.govdata.de/dl-de/by-2-0
+© GeoBasis DE/LVGL-SL (2026), dl-de/by-2-0, Daten geändert; Forstwegenetz © GDI-SL, CC BY 4.0, Daten geändert
+Lizenz dl-de/by-2-0 (Datenlizenz Deutschland – Namensnennung – Version 2.0): https://www.govdata.de/dl-de/by-2-0. Das Forstwegenetz (GDI-SL) steht laut Katalog unter CC BY 4.0: https://creativecommons.org/licenses/by/4.0/deed.de
 
 Created with freemapper – https://github.com/HenryJobst/freemapper

@@ -13,53 +13,53 @@ type = "Polygon"
 
 [buildings]
 bbox = [546937.0, 5804068.0, 547945.0, 5804777.0]
-fetched = "2026-11-15"
+fetched = "2026-11-16"
 latest_update = "2022-07-14"
 count = 190
 regions = ["niedersachsen"]
 
 [land_use]
 bbox = [546937.0, 5804068.0, 547945.0, 5804777.0]
-fetched = "2026-11-15"
+fetched = "2026-11-16"
 latest_update = "2026-07-06"
 count = 174
 regions = ["niedersachsen"]
 
 [nas_layers.bauwerk-gewaesser]
 bbox = [546937.0, 5804068.0, 547945.0, 5804777.0]
-fetched = "2026-11-15"
+fetched = "2026-11-16"
 count = 0
 regions = ["niedersachsen"]
 
 [nas_layers.bauwerk-verkehr]
 bbox = [546937.0, 5804068.0, 547945.0, 5804777.0]
-fetched = "2026-11-15"
+fetched = "2026-11-16"
 latest_update = "2017-12-29"
 count = 4
 regions = ["niedersachsen"]
 
 [nas_layers.sonstiges-bauwerk]
 bbox = [546937.0, 5804068.0, 547945.0, 5804777.0]
-fetched = "2026-11-15"
+fetched = "2026-11-16"
 latest_update = "2022-01-04"
 count = 35
 regions = ["niedersachsen"]
 
 [nas_layers.strukturlinie]
 bbox = [546937.0, 5804068.0, 547945.0, 5804777.0]
-fetched = "2026-11-15"
+fetched = "2026-11-16"
 count = 0
 regions = ["niedersachsen"]
 
 [nas_layers.untergeordnetes-gewaesser]
 bbox = [546937.0, 5804068.0, 547945.0, 5804777.0]
-fetched = "2026-11-15"
+fetched = "2026-11-16"
 count = 0
 regions = ["niedersachsen"]
 
 [nas_layers.vegetationsmerkmal]
 bbox = [546937.0, 5804068.0, 547945.0, 5804777.0]
-fetched = "2026-11-15"
+fetched = "2026-11-16"
 count = 0
 regions = ["niedersachsen"]
 
@@ -70,15 +70,15 @@ count = 2848
 
 [orthophoto]
 flight = "06.03.2025"
-fetched = "2026-11-15"
+fetched = "2026-11-16"
 bbox = [546937.531, 5804068.652, 547944.823, 5804776.846]
 
 [terrain]
-fetched = "2026-11-15"
+fetched = "2026-11-16"
 bbox = [546937.531, 5804068.652, 547944.823, 5804776.846]
 date = "2016-04-18"
 
 [surface]
-fetched = "2026-11-15"
+fetched = "2026-11-16"
 bbox = [546937.531, 5804068.652, 547944.823, 5804776.846]
 date = "2016-04-18"

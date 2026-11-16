@@ -570,7 +570,7 @@ gehören zur Karte und liegen im Kartenteil „default part“. Unterbrechen Sie
 verdecken, etwa Steine, Wegenden oder Mauerecken.
 
 Wie das Ergebnis aussieht, zeigen die Beispielprojekte im Repository, eines je Bundesland:
-[`examples/`](https://github.com/HenryJobst/freemapper/blob/main/examples/README.md). Dort liegen OOM-Karte, OCAD-Ausgangsstand und PDF.
+[`examples/`](https://github.com/HenryJobst/freemapper/blob/main/examples/README.md). Dort liegen OOM-Karte, OCAD-Ausgangsstand, Trainingskarte und Prüfausdruck; die Vorschaubilder zeigen die Trainingskarte.
 
 ### Waldkarten
 

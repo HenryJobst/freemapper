@@ -13,63 +13,63 @@ type = "Polygon"
 
 [buildings]
 bbox = [552737.0, 5934347.0, 553646.0, 5935057.0]
-fetched = "2026-11-15"
+fetched = "2026-11-16"
 latest_update = "2026-07-24"
 count = 1002
 regions = ["hamburg"]
 
 [land_use]
 bbox = [552737.0, 5934347.0, 553646.0, 5935057.0]
-fetched = "2026-11-15"
+fetched = "2026-11-16"
 latest_update = "2026-10-08"
 count = 977
 regions = ["hamburg"]
 
 [extra_sets.lgv-feinkartierung.fk-gruen-flaechen]
 bbox = [155411.0, 5946592.0, 156356.0, 5947351.0]
-fetched = "2026-11-15"
+fetched = "2026-11-16"
 count = 5
 regions = ["hamburg"]
 
 [extra_sets.lgv-feinkartierung.fk-gruen-linien]
 bbox = [155411.0, 5946592.0, 156356.0, 5947351.0]
-fetched = "2026-11-15"
+fetched = "2026-11-16"
 count = 52
 regions = ["hamburg"]
 
 [extra_sets.lgv-feinkartierung.fk-gruen-punkte]
 bbox = [155411.0, 5946592.0, 156356.0, 5947351.0]
-fetched = "2026-11-15"
+fetched = "2026-11-16"
 count = 144
 regions = ["hamburg"]
 
 [extra_sets.lgv-feinkartierung.fk-strasse-gruen]
 bbox = [155411.0, 5946592.0, 156356.0, 5947351.0]
-fetched = "2026-11-15"
+fetched = "2026-11-16"
 count = 76
 regions = ["hamburg"]
 
 [extra_sets.lgv-feinkartierung.fk-strasse-linien]
 bbox = [155411.0, 5946592.0, 156356.0, 5947351.0]
-fetched = "2026-11-15"
+fetched = "2026-11-16"
 count = 441
 regions = ["hamburg"]
 
 [extra_sets.lgv-feinkartierung.fk-strasse-punkte]
 bbox = [155411.0, 5946592.0, 156356.0, 5947351.0]
-fetched = "2026-11-15"
+fetched = "2026-11-16"
 count = 650
 regions = ["hamburg"]
 
 [extra_sets.lgv-feinkartierung.fk-treppen]
 bbox = [155411.0, 5946592.0, 156356.0, 5947351.0]
-fetched = "2026-11-15"
+fetched = "2026-11-16"
 count = 325
 regions = ["hamburg"]
 
 [tree_layers.hamburg-strassenbaeume]
 bbox = [552737.0, 5934347.0, 553646.0, 5935057.0]
-fetched = "2026-11-15"
+fetched = "2026-11-16"
 count = 32
 regions = ["hamburg"]
 
@@ -80,15 +80,15 @@ count = 486
 
 [orthophoto]
 flight = "08.04.2026"
-fetched = "2026-11-15"
+fetched = "2026-11-16"
 bbox = [552737.094, 5934347.53, 553645.246, 5935056.183]
 
 [terrain]
-fetched = "2026-11-15"
+fetched = "2026-11-16"
 bbox = [552737.094, 5934347.53, 553645.246, 5935056.183]
 date = "2022-03"
 
 [surface]
-fetched = "2026-11-15"
+fetched = "2026-11-16"
 bbox = [552737.094, 5934347.53, 553645.246, 5935056.183]
 date = "2022"

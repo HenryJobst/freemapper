@@ -13,105 +13,105 @@ type = "Polygon"
 
 [buildings]
 bbox = [267262.0, 5976928.0, 268194.0, 5977668.0]
-fetched = "2026-11-15"
+fetched = "2026-11-16"
 latest_update = "2026-10-20"
 count = 2534
 regions = ["mecklenburgvorpommern"]
 
 [land_use]
 bbox = [267262.0, 5976928.0, 268194.0, 5977668.0]
-fetched = "2026-11-15"
+fetched = "2026-11-16"
 latest_update = "2026-10-20"
 count = 3296
 regions = ["mecklenburgvorpommern"]
 
 [nas_layers.bauwerk-gewaesser]
 bbox = [267262.0, 5976928.0, 268194.0, 5977668.0]
-fetched = "2026-11-15"
+fetched = "2026-11-16"
 count = 0
 regions = ["mecklenburgvorpommern"]
 
 [nas_layers.bauwerk-verkehr]
 bbox = [267262.0, 5976928.0, 268194.0, 5977668.0]
-fetched = "2026-11-15"
+fetched = "2026-11-16"
 latest_update = "2021-09-17"
 count = 4
 regions = ["mecklenburgvorpommern"]
 
 [nas_layers.dlm-bauwerk]
 bbox = [267262.0, 5976928.0, 268194.0, 5977668.0]
-fetched = "2026-11-15"
+fetched = "2026-11-16"
 latest_update = "2024-01-08"
 count = 3
 regions = ["mecklenburgvorpommern"]
 
 [nas_layers.dlm-damm]
 bbox = [267262.0, 5976928.0, 268194.0, 5977668.0]
-fetched = "2026-11-15"
+fetched = "2026-11-16"
 count = 0
 regions = ["mecklenburgvorpommern"]
 
 [nas_layers.dlm-felsen]
 bbox = [267262.0, 5976928.0, 268194.0, 5977668.0]
-fetched = "2026-11-15"
+fetched = "2026-11-16"
 count = 0
 regions = ["mecklenburgvorpommern"]
 
 [nas_layers.dlm-gewaesserachse]
 bbox = [267262.0, 5976928.0, 268194.0, 5977668.0]
-fetched = "2026-11-15"
+fetched = "2026-11-16"
 latest_update = "2023-11-27"
 count = 3
 regions = ["mecklenburgvorpommern"]
 
 [nas_layers.dlm-gewaessermerkmal]
 bbox = [267262.0, 5976928.0, 268194.0, 5977668.0]
-fetched = "2026-11-15"
+fetched = "2026-11-16"
 count = 0
 regions = ["mecklenburgvorpommern"]
 
 [nas_layers.dlm-hoehle]
 bbox = [267262.0, 5976928.0, 268194.0, 5977668.0]
-fetched = "2026-11-15"
+fetched = "2026-11-16"
 count = 0
 regions = ["mecklenburgvorpommern"]
 
 [nas_layers.dlm-turm]
 bbox = [267262.0, 5976928.0, 268194.0, 5977668.0]
-fetched = "2026-11-15"
+fetched = "2026-11-16"
 latest_update = "2023-11-27"
 count = 5
 regions = ["mecklenburgvorpommern"]
 
 [nas_layers.dlm-vegetation]
 bbox = [267262.0, 5976928.0, 268194.0, 5977668.0]
-fetched = "2026-11-15"
+fetched = "2026-11-16"
 latest_update = "2024-01-08"
 count = 11
 regions = ["mecklenburgvorpommern"]
 
 [nas_layers.sonstiges-bauwerk]
 bbox = [267262.0, 5976928.0, 268194.0, 5977668.0]
-fetched = "2026-11-15"
+fetched = "2026-11-16"
 latest_update = "2026-10-20"
 count = 974
 regions = ["mecklenburgvorpommern"]
 
 [nas_layers.strukturlinie]
 bbox = [267262.0, 5976928.0, 268194.0, 5977668.0]
-fetched = "2026-11-15"
+fetched = "2026-11-16"
 count = 0
 regions = ["mecklenburgvorpommern"]
 
 [nas_layers.untergeordnetes-gewaesser]
 bbox = [267262.0, 5976928.0, 268194.0, 5977668.0]
-fetched = "2026-11-15"
+fetched = "2026-11-16"
 count = 0
 regions = ["mecklenburgvorpommern"]
 
 [nas_layers.vegetationsmerkmal]
 bbox = [267262.0, 5976928.0, 268194.0, 5977668.0]
-fetched = "2026-11-15"
+fetched = "2026-11-16"
 count = 0
 regions = ["mecklenburgvorpommern"]
 
@@ -122,15 +122,15 @@ count = 748
 
 [orthophoto]
 flight = "05.09.2024"
-fetched = "2026-11-15"
+fetched = "2026-11-16"
 bbox = [267262.525, 5976928.022, 268193.4, 5977667.318]
 
 [terrain]
-fetched = "2026-11-15"
+fetched = "2026-11-16"
 bbox = [267262.525, 5976928.022, 268193.4, 5977667.318]
 date = "2023-03-01"
 
 [surface]
-fetched = "2026-11-15"
+fetched = "2026-11-16"
 bbox = [267262.525, 5976928.022, 268193.4, 5977667.318]
 date = "2024-09-01"
