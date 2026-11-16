@@ -1,7 +1,7 @@
 # 0003. Sure objects as map objects, the rest as templates
 
 Date: 2026-11-06
-Status: Accepted
+Status: Accepted, amended by ADR 0156 (the candidates in seven layers)
 
 ## Context
 

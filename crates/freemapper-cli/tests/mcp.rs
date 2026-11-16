@@ -259,6 +259,27 @@ fn mcp_creates_a_project_and_lists_layers() {
         text.contains("orthophoto") && text.contains("\"ready\":false"),
         "{text}"
     );
+    // The seven candidate layers by name (ADR 0156).
+    let layers: Value = serde_json::from_str(&text).unwrap();
+    let candidates: Vec<&str> = layers
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|l| l["role"] == "candidates")
+        .map(|l| l["name"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        candidates,
+        [
+            "candidates-terrain",
+            "candidates-water",
+            "candidates-vegetation",
+            "candidates-paths",
+            "candidates-barriers",
+            "candidates-features",
+            "candidates-out-of-bounds",
+        ]
+    );
 
     let (error, text) = session.call(
         "preview_layer",

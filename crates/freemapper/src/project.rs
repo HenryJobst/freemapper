@@ -2619,6 +2619,9 @@ pub enum MapOutcome {
     /// references by path (images and candidates) were refreshed.
     Kept {
         map: PathBuf,
+        /// The map names `templates/candidates.omap` of an older freemapper, which was refreshed
+        /// with every candidate; the candidate layers were written beside it (ADR 0156).
+        old_candidates: bool,
         references_images: bool,
         /// Buildings are stored for the project, but the kept map has none.
         missing_buildings: bool,
@@ -2720,8 +2723,14 @@ pub fn run_project_steps_cancellable(
     let map = if existing.exists() && !force {
         let text = std::fs::read_to_string(&existing)
             .map_err(|e| ProjectError::Io(existing.clone(), e))?;
-        write_starter_project(dir, &starter_documents(dir)?, None)?;
+        let old_candidates = text.contains(OLD_CANDIDATES_RELPATH);
+        write_starter_project(
+            dir,
+            &starter_documents(dir)?,
+            MapWrite::Keep { old_candidates },
+        )?;
         MapOutcome::Kept {
+            old_candidates,
             references_images: text.contains(ORTHOPHOTO_RELPATH),
             missing_buildings: map_lacks_buildings(dir, &text)?,
             missing_canopies: map_lacks_canopies(dir, &text)?,
@@ -3042,6 +3051,7 @@ mod tests {
     /// Berlin's stored survey layers of green strips and paved surfaces.
     const GREEN_LAYER: &str = "sb-gruenflaeche";
     const SURFACE_LAYER: &str = "sb-flaechen";
+    use crate::build::candidate_layers::CandidateLayer;
     use crate::crs::LatLon;
     use crate::fetch::TilePaths as _;
     use crate::omap::{MapCoord, MapObjectKind};
@@ -4846,8 +4856,7 @@ mod tests {
         )
         .unwrap();
         export_starter_project(dir.path(), true).unwrap();
-        let candidates =
-            std::fs::read_to_string(dir.path().join("templates/candidates.omap")).unwrap();
+        let candidates = candidates_text(dir.path());
         assert!(
             candidates.contains(r#"<t k="freemapper:source">laiv-mv-dgm1</t>"#),
             "the contours come from the LAiV M-V DGM1"
@@ -5563,6 +5572,23 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         }
     }
 
+    /// The union of the candidate layer files of `dir`, as one text: what
+    /// `templates/candidates.omap` held before the layers (ADR 0156).
+    fn candidates_text(dir: &Path) -> String {
+        CandidateLayer::ALL
+            .iter()
+            .map(|layer| std::fs::read_to_string(dir.join(layer.relpath())).unwrap())
+            .collect()
+    }
+
+    /// The relative paths of the candidate layer files, in the order of the map's template list.
+    fn candidate_layer_files() -> Vec<String> {
+        CandidateLayer::ALL
+            .iter()
+            .map(|layer| layer.relpath().to_string())
+            .collect()
+    }
+
     fn templates_of(map: &str) -> Vec<String> {
         map.match_indices("<template type=")
             .map(|(i, _)| {
@@ -5577,8 +5603,12 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         let dir = tempfile::tempdir().unwrap();
         school_project(dir.path());
         let map_path = export_starter_project(dir.path(), false).unwrap();
+        // Every layer is written, also with nothing but the outline in it.
+        for layer in CandidateLayer::ALL {
+            assert!(dir.path().join(layer.relpath()).exists(), "{layer:?}");
+        }
         let map = std::fs::read_to_string(map_path).unwrap();
-        assert_eq!(templates_of(&map), ["templates/candidates.omap"]);
+        assert_eq!(templates_of(&map), candidate_layer_files());
         assert!(map.contains(r#"first_front_template="0""#));
         assert!(!map.contains("GeoBasis-DE/LGB"));
     }
@@ -5597,17 +5627,30 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
 
         let map_path = export_starter_project(&project_dir, false).unwrap();
         let map = std::fs::read_to_string(map_path).unwrap();
-        assert_eq!(
-            templates_of(&map),
-            [
-                "templates/orthophoto.jpg",
-                "templates/hillshade.png",
-                "templates/slope.png",
-                "templates/relief.png",
-                "templates/candidates.omap"
-            ]
-        );
+        let mut expected: Vec<String> = [
+            "templates/orthophoto.jpg",
+            "templates/hillshade.png",
+            "templates/slope.png",
+            "templates/relief.png",
+        ]
+        .map(String::from)
+        .to_vec();
+        expected.extend(candidate_layer_files());
+        assert_eq!(templates_of(&map), expected);
         assert!(map.contains(r#"first_front_template="4""#), "{map}");
+        // The raster templates as before; the candidate layers after them, hidden, at 0.7.
+        assert!(
+            map.contains(r#"<ref template="0" visible="true" opacity="1"/>"#),
+            "{map}"
+        );
+        for i in 4..11 {
+            assert!(
+                map.contains(&format!(
+                    r#"<ref template="{i}" visible="false" opacity="0.7"/>"#
+                )),
+                "{i}: {map}"
+            );
+        }
         assert!(map.contains(r#"type="TemplateImage""#));
         let lgb = "© GeoBasis-DE/LGB 2026, dl-de/by-2-0, Daten geändert";
         assert!(map.contains(lgb));
@@ -5892,7 +5935,13 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
             templates.contains(&ORTHOPHOTO_RELPATH.to_string()),
             "{templates:?}"
         );
-        assert!(!templates.contains(&CANDIDATES_RELPATH.to_string()));
+        assert!(!templates.contains(&OLD_CANDIDATES_RELPATH.to_string()));
+        for layer in CandidateLayer::ALL {
+            assert!(
+                !templates.contains(&layer.relpath().to_string()),
+                "{layer:?}"
+            );
+        }
         assert!(!map.contains(r#"type="TemplateMap""#));
         // Walkable area, the trained objects and the sheet, each once, in the map's order.
         assert!(map.contains(r#"<parts count="3" current="1">"#));
@@ -6938,14 +6987,44 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
             .map(|s| s.text.split('\t').next().unwrap())
             .collect();
         assert!(backgrounds.contains(&"orthophoto.jpg"), "{backgrounds:?}");
-        assert!(backgrounds.contains(&format!("{name}-candidates.ocd").as_str()));
+        // One hidden background map per candidate layer, after the images, in their order.
+        let layers: Vec<String> = CandidateLayer::ALL
+            .iter()
+            .map(|layer| format!("{name}-candidates-{}.ocd", layer.name()))
+            .collect();
+        assert_eq!(
+            backgrounds[backgrounds.len() - 7..],
+            layers,
+            "{backgrounds:?}"
+        );
+        assert!(!backgrounds.contains(&format!("{name}-candidates.ocd").as_str()));
+        for layer in &layers {
+            let string = map
+                .strings
+                .iter()
+                .find(|s| s.kind == 8 && s.text.starts_with(layer.as_str()))
+                .unwrap();
+            assert_eq!(string.text, format!("{layer}\ts0\tr1"));
+        }
+        assert_eq!(
+            outcome.candidates,
+            layers.iter().map(|l| ocad.join(l)).collect::<Vec<_>>()
+        );
         let notes = &map.strings.iter().find(|s| s.kind == 1061).unwrap().text;
         assert!(
             notes.contains("github.com/HenryJobst/freemapper"),
             "{notes}"
         );
-        let candidates = crate::ocd::read::read(&std::fs::read(&outcome.candidates).unwrap());
-        assert!(!candidates.objects.is_empty());
+        let objects: usize = outcome
+            .candidates
+            .iter()
+            .map(|path| {
+                crate::ocd::read::read(&std::fs::read(path).unwrap())
+                    .objects
+                    .len()
+            })
+            .sum();
+        assert!(objects > 7, "more than the outline in each layer");
         assert!(outcome.objects > 0);
     }
 
@@ -7004,8 +7083,10 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
             1,
             "the carport is a map object"
         );
-        // The passage is a candidate, in both OCAD and OOM.
-        let candidates = crate::ocd::read::read(&std::fs::read(&outcome.candidates).unwrap());
+        // The passage is a candidate, in both OCAD and OOM, in the layer of the paths.
+        let paths = &outcome.candidates[3];
+        assert!(paths.to_string_lossy().ends_with("-candidates-paths.ocd"));
+        let candidates = crate::ocd::read::read(&std::fs::read(paths).unwrap());
         assert_eq!(
             candidates
                 .objects
@@ -7087,12 +7168,15 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         let outcome = export_ocad(&dir, false).unwrap();
         assert_eq!(outcome.map.file_name().unwrap(), "Straussberg Schule.ocd");
         assert_eq!(
-            outcome.candidates.file_name().unwrap(),
-            "Straussberg Schule-candidates.ocd"
+            outcome.candidates[0].file_name().unwrap(),
+            "Straussberg Schule-candidates-terrain.ocd"
         );
         let map = crate::ocd::read::read(&std::fs::read(&outcome.map).unwrap());
         let background = map.strings.iter().find(|s| s.kind == 8).unwrap();
-        assert_eq!(background.text, "Straussberg Schule-candidates.ocd\ts1\tr1");
+        assert_eq!(
+            background.text,
+            "Straussberg Schule-candidates-terrain.ocd\ts0\tr1"
+        );
     }
 
     #[test]
@@ -7107,7 +7191,7 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
             std::fs::read_to_string(&kept.map).unwrap(),
             "edited in OCAD"
         );
-        assert!(kept.candidates.exists());
+        assert!(kept.candidates.iter().all(|path| path.exists()));
         let replaced = export_ocad(dir.path(), true).unwrap();
         assert!(!replaced.kept);
         let backup = replaced.map.with_extension("ocd.bak");
@@ -7123,18 +7207,195 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         school_project(dir.path());
         let map = export_starter_project(dir.path(), false).unwrap();
         std::fs::write(&map, "edited in OOM").unwrap();
-        let candidates = dir.path().join(CANDIDATES_RELPATH);
-        std::fs::write(&candidates, "candidates of the old area").unwrap();
+        for layer in CandidateLayer::ALL {
+            std::fs::write(dir.path().join(layer.relpath()), "of the old area").unwrap();
+        }
         let fetcher = MapFetcher::default();
         serve_synthetic_tile(&fetcher, school_tile(), "2026-01-26");
-        run(dir.path(), &fetcher, &cache, false);
+        let outcome = run(dir.path(), &fetcher, &cache, false);
+        assert!(matches!(
+            outcome.map,
+            MapOutcome::Kept {
+                old_candidates: false,
+                ..
+            }
+        ));
         assert_eq!(std::fs::read_to_string(&map).unwrap(), "edited in OOM");
-        let text = std::fs::read_to_string(&candidates).unwrap();
-        assert!(
-            text.contains("way/992423119"),
-            "outline of the current area"
+        let text = candidates_text(dir.path());
+        assert_eq!(
+            text.matches("way/992423119").count(),
+            7,
+            "outline of the current area in every layer"
         );
         assert!(text.contains("way/1028507308"), "OSM candidates");
+        // A kept map that does not name the old candidates template does not get it.
+        assert!(!dir.path().join(OLD_CANDIDATES_RELPATH).exists());
+    }
+
+    #[test]
+    fn a_kept_map_of_an_older_version_gets_its_candidates_template_refreshed() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        school_project(dir.path());
+        let map = export_starter_project(dir.path(), false).unwrap();
+        // A map of 0.23.0 names the one candidates template.
+        let edited = r#"edited in OOM <template relpath="templates/candidates.omap">"#;
+        std::fs::write(&map, edited).unwrap();
+        let old = dir.path().join(OLD_CANDIDATES_RELPATH);
+        std::fs::write(&old, "candidates of the old area").unwrap();
+        let fetcher = MapFetcher::default();
+        serve_synthetic_tile(&fetcher, school_tile(), "2026-01-26");
+        let outcome = run(dir.path(), &fetcher, &cache, false);
+        assert!(matches!(
+            outcome.map,
+            MapOutcome::Kept {
+                old_candidates: true,
+                ..
+            }
+        ));
+        assert_eq!(std::fs::read_to_string(&map).unwrap(), edited);
+        // The old file holds every candidate, the layers stand beside it.
+        let documents = starter_documents(dir.path()).unwrap();
+        assert_eq!(
+            std::fs::read(&old).unwrap(),
+            crate::project::export::document_bytes(&documents.candidates).unwrap()
+        );
+        let text = std::fs::read_to_string(&old).unwrap();
+        assert!(text.contains("way/1028507308"), "OSM candidates");
+        assert!(candidates_text(dir.path()).contains("way/1028507308"));
+        // --force replaces the map and takes the old file away with it.
+        run(dir.path(), &fetcher, &cache, true);
+        assert!(!old.exists());
+        assert!(map.with_extension("omap.bak").exists());
+        let written = std::fs::read_to_string(&map).unwrap();
+        assert!(!written.contains(OLD_CANDIDATES_RELPATH));
+        assert!(written.contains(CandidateLayer::Terrain.relpath()));
+    }
+
+    /// Writes the OCAD map of `dir` as 0.23.0 did: with `<name>-candidates.ocd` as its one
+    /// candidates background map, and that file beside it. Returns the map and the old file.
+    fn ocad_map_of_0_23(dir: &Path) -> (PathBuf, PathBuf) {
+        let first = export_ocad(dir, true).unwrap();
+        let stem = first
+            .map
+            .file_stem()
+            .unwrap()
+            .to_string_lossy()
+            .into_owned();
+        let old_name = format!("{stem}-candidates.ocd");
+        let documents = starter_documents(dir).unwrap();
+        let (bytes, _) = map_to_ocd(
+            &documents.map,
+            MapKind::Schoolyard,
+            &[Background::Map {
+                file_name: old_name.clone(),
+                visible: true,
+            }],
+        )
+        .unwrap();
+        std::fs::write(&first.map, bytes).unwrap();
+        let old = first.map.with_file_name(old_name);
+        std::fs::write(&old, "candidates of 0.23.0").unwrap();
+        (first.map, old)
+    }
+
+    /// The number of objects of the OCAD file `path`.
+    fn ocd_objects(path: &Path) -> usize {
+        crate::ocd::read::read(&std::fs::read(path).unwrap())
+            .objects
+            .len()
+    }
+
+    #[test]
+    fn a_kept_ocad_map_that_names_the_old_candidates_file_gets_it_refreshed() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir) = derived_school(&fetcher);
+        let (map, old) = ocad_map_of_0_23(dir.path());
+        let before = std::fs::read(&map).unwrap();
+        let kept = export_ocad(dir.path(), false).unwrap();
+        assert!(kept.kept && kept.old_candidates);
+        assert_eq!(std::fs::read(&map).unwrap(), before, "the map is kept");
+        // The old file holds every candidate: the outline once, the layers have it seven times.
+        let layers: usize = kept.candidates.iter().map(|p| ocd_objects(p)).sum();
+        assert_eq!(ocd_objects(&old) + 6, layers);
+    }
+
+    #[test]
+    fn a_kept_ocad_map_that_does_not_name_it_leaves_the_old_file_alone() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir) = derived_school(&fetcher);
+        let first = export_ocad(dir.path(), false).unwrap();
+        assert!(!first.old_candidates);
+        let old = first.map.with_file_name(format!(
+            "{}-candidates.ocd",
+            first.map.file_stem().unwrap().to_string_lossy()
+        ));
+        // The kept map lists the layers; a stray old file is not written, and no note comes.
+        let kept = export_ocad(dir.path(), false).unwrap();
+        assert!(kept.kept && !kept.old_candidates);
+        assert!(!old.exists());
+        std::fs::write(&old, "stray").unwrap();
+        let kept = export_ocad(dir.path(), false).unwrap();
+        assert!(!kept.old_candidates);
+        assert_eq!(std::fs::read_to_string(&old).unwrap(), "stray");
+        // A map that is no OCD file names nothing.
+        std::fs::write(&kept.map, "edited in OCAD").unwrap();
+        assert!(!export_ocad(dir.path(), false).unwrap().old_candidates);
+    }
+
+    #[test]
+    fn force_removes_the_old_candidates_files_and_a_restored_backup_heals() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir) = derived_school(&fetcher);
+        let (map, old_ocd) = ocad_map_of_0_23(dir.path());
+        let replaced = export_ocad(dir.path(), true).unwrap();
+        assert!(!replaced.kept && !replaced.old_candidates);
+        assert!(!old_ocd.exists());
+        // The user restores the backup of the old map: the next run fills its candidates again.
+        let backup = map.with_extension("ocd.bak");
+        std::fs::copy(&backup, &map).unwrap();
+        let healed = export_ocad(dir.path(), false).unwrap();
+        assert!(healed.kept && healed.old_candidates);
+        assert!(ocd_objects(&old_ocd) > 1);
+
+        let old = dir.path().join(OLD_CANDIDATES_RELPATH);
+        std::fs::write(&old, "candidates of 0.23.0").unwrap();
+        export_starter_project(dir.path(), true).unwrap();
+        assert!(!old.exists());
+        for layer in CandidateLayer::ALL {
+            assert!(dir.path().join(layer.relpath()).exists(), "{layer:?}");
+        }
+    }
+
+    #[test]
+    fn the_layers_together_hold_every_candidate_once() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir) = derived_school(&fetcher);
+        let documents = starter_documents(dir.path()).unwrap();
+        let candidates = &documents.candidates.parts[0].objects;
+        assert!(candidates.len() > 2, "{}", candidates.len());
+        let layers = documents.candidate_layers();
+        let mut union: Vec<&MapObject> = Vec::new();
+        for (_, doc) in &layers {
+            let objects = &doc.parts[0].objects;
+            assert_eq!(objects.first(), candidates.first(), "the outline first");
+            union.extend(objects.iter().skip(1));
+        }
+        assert_eq!(union.len(), candidates.len() - 1);
+        for object in &candidates[1..] {
+            let at = union.iter().position(|o| *o == object).unwrap();
+            union.remove(at);
+        }
+        // The files are the layer documents.
+        export_starter_project(dir.path(), true).unwrap();
+        for (layer, doc) in &layers {
+            assert_eq!(
+                std::fs::read(dir.path().join(layer.relpath())).unwrap(),
+                crate::project::export::document_bytes(doc).unwrap(),
+                "{layer:?}"
+            );
+        }
     }
 
     #[test]
@@ -7153,6 +7414,7 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
             outcome.map,
             MapOutcome::Kept {
                 map: map.clone(),
+                old_candidates: false,
                 references_images: false,
                 missing_buildings: true,
                 missing_canopies: false,
@@ -7168,6 +7430,7 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
             again.map,
             MapOutcome::Kept {
                 map,
+                old_candidates: false,
                 references_images: true,
                 missing_buildings: false,
                 missing_canopies: false,
@@ -10798,6 +11061,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             run(false),
             MapOutcome::Kept {
                 map: map.clone(),
+                old_candidates: false,
                 references_images: true,
                 missing_buildings: false,
                 missing_canopies: true,
@@ -12331,8 +12595,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let fetcher = MapFetcher::default();
         let (dir, _cache_dir, _) = fetched_school(&fetcher);
         export_starter_project(dir.path(), false).unwrap();
-        let candidates =
-            std::fs::read_to_string(dir.path().join("templates/candidates.omap")).unwrap();
+        let candidates = candidates_text(dir.path());
         // The tartan pitch lies on the school grounds; the hydrant stands 63 m away in the street,
         // beyond the 20 m buffer.
         assert!(candidates.contains(r#"<t k="freemapper:source_id">way/1028507308</t>"#));
@@ -12584,8 +12847,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let map =
             std::fs::read_to_string(export_starter_project(dir.path(), false).unwrap()).unwrap();
         assert!(map.contains("Äquidistanz 2,5 m"), "the margin names 2.5 m");
-        let candidates =
-            std::fs::read_to_string(dir.path().join("templates/candidates.omap")).unwrap();
+        let candidates = candidates_text(dir.path());
         let set = MapKind::Forest.symbol_set(10000);
         let (contour, index) = (
             set.id_for_code("101").unwrap(),
@@ -12618,8 +12880,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         assert!(map.contains(r#"id="ISOM 2017-2""#), "the ISOM set");
         assert!(map.contains(r#"<georeferencing scale="10000""#));
         assert!(!map.contains(r#" code="990""#), "no walkable area");
-        let candidates =
-            std::fs::read_to_string(dir.path().join("templates/candidates.omap")).unwrap();
+        let candidates = candidates_text(dir.path());
         assert!(candidates.contains(r#"id="ISOM 2017-2""#));
     }
 
@@ -12646,8 +12907,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         }
         assert!(map.contains(r#"<t k="freemapper:source_id">way/1</t>"#));
         assert!(!map.contains("way/3"), "a sidewalk is left out");
-        let candidates =
-            std::fs::read_to_string(dir.path().join("templates/candidates.omap")).unwrap();
+        let candidates = candidates_text(dir.path());
         assert!(!candidates.contains("way/3"));
     }
 
@@ -12686,8 +12946,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         assert!(map.contains(r#"<t k="freemapper:source_id">DEBBAL0100000030</t>"#));
         assert!(map.contains(&format!(r#"<object type="1" symbol="{paved}""#)));
         assert!(!map.contains("DEBBAL0100000031"), "Weg is a candidate");
-        let candidates =
-            std::fs::read_to_string(dir.path().join("templates/candidates.omap")).unwrap();
+        let candidates = candidates_text(dir.path());
         assert!(candidates.contains(r#"<t k="freemapper:source_id">DEBBAL0100000031</t>"#));
     }
 
@@ -12835,8 +13094,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             assert_eq!(symbols_of(&map, "DEBBAL0100000040").len(), 2, "{kind:?}");
             assert!(map.contains(&format!(r#"symbol="{fill}""#)), "{kind:?}");
             assert!(map.contains(&format!(r#"symbol="{bank}""#)), "{kind:?}");
-            let candidates =
-                std::fs::read_to_string(dir.path().join("templates/candidates.omap")).unwrap();
+            let candidates = candidates_text(dir.path());
             let pond = set.id_for_code("301").unwrap();
             assert_eq!(
                 symbols_of(&candidates, "way/10"),
@@ -12856,7 +13114,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         store_traffic_areas(dir.path());
         let candidates = {
             export_starter_project(dir.path(), false).unwrap();
-            std::fs::read_to_string(dir.path().join("templates/candidates.omap")).unwrap()
+            candidates_text(dir.path())
         };
         let pond = MapKind::Sprint.symbol_set(4000).id_for_code("301").unwrap();
         assert_eq!(symbols_of(&candidates, "way/10"), [pond]);
@@ -12880,8 +13138,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         .unwrap();
         export_starter_project(dir.path(), false).unwrap();
         let map = std::fs::read_to_string(map_path(dir.path())).unwrap();
-        let candidates =
-            std::fs::read_to_string(dir.path().join("templates/candidates.omap")).unwrap();
+        let candidates = candidates_text(dir.path());
         let pond = MapKind::Sprint.symbol_set(4000).id_for_code("301").unwrap();
         assert_eq!(symbols_of(&map, "way/10"), [pond]);
         assert!(symbols_of(&candidates, "way/10").is_empty());
@@ -12896,8 +13153,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             std::fs::read_to_string(export_starter_project(dir.path(), false).unwrap()).unwrap();
         assert!(!map.contains("DEBBAL0100000030"));
         // On the schoolyard map the way parcel is out of bounds (520), not a paved candidate.
-        let candidates =
-            std::fs::read_to_string(dir.path().join("templates/candidates.omap")).unwrap();
+        let candidates = candidates_text(dir.path());
         let out_of_bounds = MapKind::Schoolyard
             .symbol_set(1000)
             .id_for_code("520")
@@ -12978,8 +13234,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             .id_for_code("501.6")
             .unwrap();
         assert_eq!(symbols_of(&map, "way/5"), [firm]);
-        let candidates =
-            std::fs::read_to_string(dir.path().join("templates/candidates.omap")).unwrap();
+        let candidates = candidates_text(dir.path());
         assert!(!candidates.contains("way/5<"));
     }
 
@@ -12988,8 +13243,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let fetcher = MapFetcher::default();
         let (dir, _cache_dir) = sprint_with_ways(&fetcher);
         export_starter_project(dir.path(), false).unwrap();
-        let candidates =
-            std::fs::read_to_string(dir.path().join("templates/candidates.omap")).unwrap();
+        let candidates = candidates_text(dir.path());
         assert!(candidates.contains(r#"<t k="freemapper:source_id">way/2</t>"#));
         assert!(!candidates.contains("way/1<"));
     }
@@ -13000,8 +13254,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let (dir, _cache_dir, _) = fetched_school(&fetcher);
         std::fs::remove_file(dir.path().join(OSM_CANDIDATES_RELPATH)).unwrap();
         export_starter_project(dir.path(), false).unwrap();
-        let candidates =
-            std::fs::read_to_string(dir.path().join("templates/candidates.omap")).unwrap();
+        let candidates = candidates_text(dir.path());
         assert!(!candidates.contains("way/1028507308"), "no OSM candidates");
         assert!(candidates.contains("way/992423119"), "outline stays");
     }
@@ -13039,8 +13292,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             "{messages:?}"
         );
         export_starter_project(dir.path(), false).unwrap();
-        let candidates =
-            std::fs::read_to_string(dir.path().join("templates/candidates.omap")).unwrap();
+        let candidates = candidates_text(dir.path());
         assert!(candidates.contains("way/1028507308"));
     }
 
@@ -13097,8 +13349,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let fetcher = MapFetcher::default();
         let (dir, _cache_dir, _) = fetched_school(&fetcher);
         export_starter_project(dir.path(), false).unwrap();
-        let candidates =
-            std::fs::read_to_string(dir.path().join("templates/candidates.omap")).unwrap();
+        let candidates = candidates_text(dir.path());
         assert!(candidates.contains(r#"<t k="freemapper:source_id">DEBBAL0100000011</t>"#));
         assert!(
             !candidates.contains("DEBBAL0100000010"),
@@ -13122,8 +13373,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let (dir, _cache_dir, _) = fetched_school(&fetcher);
         std::fs::remove_file(dir.path().join(LAND_USE_RELPATH)).unwrap();
         export_starter_project(dir.path(), false).unwrap();
-        let candidates =
-            std::fs::read_to_string(dir.path().join("templates/candidates.omap")).unwrap();
+        let candidates = candidates_text(dir.path());
         assert!(!candidates.contains("alkis-nutzung"));
     }
 
@@ -13135,8 +13385,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         project.land_use.as_mut().unwrap().bbox[2] -= 50.0;
         project.save(dir.path()).unwrap();
         export_starter_project(dir.path(), false).unwrap();
-        let candidates =
-            std::fs::read_to_string(dir.path().join("templates/candidates.omap")).unwrap();
+        let candidates = candidates_text(dir.path());
         assert!(!candidates.contains("alkis-nutzung"));
     }
 
@@ -13512,8 +13761,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let map = std::fs::read_to_string(map_path).unwrap();
         let credit = "Created with freemapper – https://github.com/HenryJobst/freemapper";
         assert!(map.contains(credit), "map notes");
-        let candidates =
-            std::fs::read_to_string(dir.path().join("templates/candidates.omap")).unwrap();
+        let candidates = candidates_text(dir.path());
         assert!(candidates.contains(credit), "candidates notes");
         let attribution = std::fs::read_to_string(dir.path().join("ATTRIBUTION.txt")).unwrap();
         assert!(attribution.contains(credit), "{attribution}");
@@ -13728,14 +13976,14 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         );
         // The export puts them among the candidates, and on the map when the group says so.
         export_starter_project(dir.path(), false).unwrap();
-        let tagged = |path: &Path| {
-            std::fs::read_to_string(path)
-                .unwrap()
-                .matches(r#"<t k="freemapper:point-cloud">lgb-als</t>"#)
+        let count = |text: &str| {
+            text.matches(r#"<t k="freemapper:point-cloud">lgb-als</t>"#)
                 .count()
         };
-        let candidates = dir.path().join("templates/candidates.omap");
-        assert!(tagged(&candidates) >= 2);
+        let tagged = |path: &Path| count(&std::fs::read_to_string(path).unwrap());
+        assert!(count(&candidates_text(dir.path())) >= 2);
+        // The vegetation layer holds them.
+        assert!(tagged(&dir.path().join(CandidateLayer::Vegetation.relpath())) >= 2);
         assert_eq!(tagged(&map_path(dir.path())), 0);
         let mut project = ProjectFile::load(dir.path()).unwrap();
         project.content.as_mut().unwrap().set(
@@ -13744,7 +13992,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         );
         project.save(dir.path()).unwrap();
         export_starter_project(dir.path(), true).unwrap();
-        assert_eq!(tagged(&candidates), 0);
+        assert_eq!(count(&candidates_text(dir.path())), 0);
         assert!(tagged(&map_path(dir.path())) >= 2);
     }
 
@@ -13994,8 +14242,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
     fn export_adds_contour_candidates() {
         let (dir, _cache_dir, _) = derived_school_with_ndsm();
         export_starter_project(dir.path(), false).unwrap();
-        let candidates =
-            std::fs::read_to_string(dir.path().join("templates/candidates.omap")).unwrap();
+        let candidates = candidates_text(dir.path());
         assert!(candidates.contains(r#"<t k="freemapper:source">lgb-dgm1</t>"#));
         let set = MapKind::Schoolyard.symbol_set(1000);
         for code in ["101", "102"] {
@@ -14076,8 +14323,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         )
         .unwrap();
         export_starter_project(dir.path(), false).unwrap();
-        let candidates =
-            std::fs::read_to_string(dir.path().join("templates/candidates.omap")).unwrap();
+        let candidates = candidates_text(dir.path());
         let heights: Vec<&str> = candidates
             .match_indices(r#"<t k="freemapper:height">"#)
             .map(|(i, m)| {
@@ -14124,8 +14370,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         )
         .unwrap();
         export_starter_project(dir.path(), false).unwrap();
-        let candidates =
-            std::fs::read_to_string(dir.path().join("templates/candidates.omap")).unwrap();
+        let candidates = candidates_text(dir.path());
         // Contour heights are whole metres; the landforms carry one decimal.
         let heights: Vec<&str> = candidates
             .match_indices(r#"<t k="freemapper:height">"#)
@@ -14283,8 +14528,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let (dir, _cache_dir, _) = derived_school_with_ndsm();
         std::fs::remove_file(dir.path().join(CONTOURS_RELPATH)).unwrap();
         export_starter_project(dir.path(), false).unwrap();
-        let candidates =
-            std::fs::read_to_string(dir.path().join("templates/candidates.omap")).unwrap();
+        let candidates = candidates_text(dir.path());
         assert!(!candidates.contains("lgb-dgm1"));
     }
 
@@ -14685,7 +14929,8 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let outputs = |written: [PathBuf; 4]| -> Vec<Vec<u8>> {
             written
                 .iter()
-                .chain([&dir.join(CANDIDATES_RELPATH), &dir.join("ATTRIBUTION.txt")])
+                .chain(&CandidateLayer::ALL.map(|layer| dir.join(layer.relpath())))
+                .chain([&dir.join("ATTRIBUTION.txt")])
                 .map(|path| std::fs::read(path).unwrap())
                 .collect()
         };
@@ -14703,7 +14948,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             export_pdf_from(dir, &documents, true, sources).unwrap(),
             export_candidates_pdf_from(dir, &documents, true, sources).unwrap(),
         ]);
-        assert_eq!(separate.len(), 6);
+        assert_eq!(separate.len(), 12);
         for (index, (one, other)) in separate.iter().zip(&shared).enumerate() {
             assert!(!one.is_empty(), "output {index}");
             assert!(one == other, "output {index} differs");

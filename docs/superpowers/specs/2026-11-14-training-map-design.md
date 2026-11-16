@@ -1,6 +1,7 @@
 # Training map, clean base map and candidate layers (design)
 
-Status: Accepted, first half merged (PR #139), second half built 2026-11-15. The user asked for it on 2026-11-14 after looking at
+Status: Accepted, first half merged (PR #139), second half built 2026-11-15, part 1 (candidate layers) built
+2026-11-16 (ADR 0156). The user asked for it on 2026-11-14 after looking at
 the forest example Bremen Bürgerpark, where symbols are drawn on top of each other in heaps.
 
 ## Intent

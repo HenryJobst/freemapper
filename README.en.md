@@ -224,8 +224,9 @@ Result in the project folder:
 - `templates/orthophoto.jpg`, `hillshade.png`, `slope.png`, `relief.png`, `ndsm.png` – templates behind
   the map, each with a world file (`.jgw`/`.pgw`); hillshade, slope, local relief and nDSM can be
   switched on in OOM. nDSM colours: yellow 0.3–1 m, orange 1–2.5 m, light green 2.5–8 m, dark green above 8 m
-- `templates/candidates.omap` – template map with the outline of the map area and candidates from
-  OpenStreetMap to check and copy: hydrants, benches, tables, lamps, poles, playground equipment,
+- `templates/candidates-<layer>.omap` – seven template maps (terrain, water, vegetation, paths, barriers,
+  features, out-of-bounds), hidden when the map opens, each with the outline of the map area and the
+  candidates of its kind to check and copy: hydrants, benches, tables, lamps, poles, playground equipment,
   trees, hedges, walls, fences, cliffs, sports pitches (rules in `assets/rules/osm-candidates.toml`),
   contours, and out-of-bounds areas (520) from the ALKIS land use: on the schoolyard map everything but
   the school's own parcel, on the sprint map private land (residential, commercial, mixed-use and
@@ -345,7 +346,7 @@ also writes the folder `ocad/`:
 
 - `<name>.ocd`: the map in OCAD 12 format (expected to open in OCAD 12 and newer), with georeferencing
   (ETRS89/UTM 33), colours, the map objects and the templates as background maps.
-- `<name>-candidates.ocd`: the candidates as a separate OCAD map.
+- `<name>-candidates-<layer>.ocd`: the candidates, one OCAD map per layer, as hidden background maps.
 - Orthophoto, hillshade, slope, local relief and nDSM with world files, right next to the `.ocd`.
 
 The symbols in the `.ocd` are placeholders: right number, name and main colour, but simple graphics.
@@ -357,8 +358,9 @@ IOF school symbol set 2019 for schoolyards, ISOM 2017-2 for forest maps); it rep
 
 The files have not been checked in OCAD yet. What to check is listed in
 [`docs/ocad/test-checklist.md`](https://github.com/HenryJobst/freemapper/blob/main/docs/ocad/test-checklist.md), e.g. whether "Replace" when loading the
-symbol set keeps the sheet symbols (991–994) and whether OCAD shows the candidates map aligned (else
-open it as a background map by hand). Folder names with umlauts are written in ASCII for the OCAD
+symbol set keeps the sheet symbols (991–994) and whether OCAD lists the seven candidate layers
+(`<name>-candidates-<layer>.ocd`) as hidden background maps and shows them aligned when switched on (else
+open them as background maps by hand). Folder names with umlauts are written in ASCII for the OCAD
 files ("Straußberg" → "Straussberg").
 
 ## With an AI agent (MCP)

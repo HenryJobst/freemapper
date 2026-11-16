@@ -40,6 +40,18 @@ const SIMPLIFY_MM: PaperMm = PaperMm(0.1);
 /// A canopy of which at least this share lies in building footprints is inside a building.
 const INSIDE_BUILDING_SHARE: f64 = 0.9;
 
+/// Whether `o` is a canopy (a roof, carport or shelter) rather than a passage, both 522: an ALKIS
+/// `Überdachung` or `Carport` (a set's canopies carry the same tag), or a shelter of a set that
+/// gives way to them (`SetDrawing::canopy_yielding`).
+pub(crate) fn is_canopy(o: &MapObject) -> bool {
+    o.tags.iter().any(|(k, v)| {
+        (k == "freemapper:alkis" && CANOPY_KINDS.contains(&v.as_str()))
+            || crate::build::sets::all_drawings()
+                .flat_map(|d| d.canopy_yielding.iter())
+                .any(|(key, value)| k == key && v == value)
+    })
+}
+
 /// The provenance tags of a canopy.
 type Tags = Vec<(String, String)>;
 

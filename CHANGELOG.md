@@ -6,6 +6,11 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+### Geändert
+
+- Die Kandidaten liegen in sieben Vorlagenkarten nach Art, `templates/candidates-<layer>.omap` für Gelände (`terrain`), Gewässer (`water`), Vegetation (`vegetation`), Wege (`paths`), Barrieren (`barriers`), Objekte (`features`) und Sperrgebiete (`out-of-bounds`), statt in `templates/candidates.omap` (ADR 0156). Die Karte nennt sie nach den Rastervorlagen. Sie starten ausgeblendet, die Karte zeigt beim Öffnen also nur ihre sicheren Objekte; in OpenOrienteering Mapper blendet man jeden Layer in der Liste der Vorlagen ein und stellt seine Deckkraft ein, anfangs 70 %. Jeder Layer enthält auch den Umriss des Kartengebiets. Flächen und Linien eines Vegetationssymbols (4xx) liegen im Layer Vegetation, auch die Grünstreifen der Berliner Straßenbefahrung. Die OCAD-Ausgabe schreibt `ocad/<name>-candidates-<layer>.ocd` statt `<name>-candidates.ocd`, als ausgeblendete Hintergrundkarten. Prüfausdruck und Trainingskarte sehen dieselben Kandidaten wie bisher. Das MCP-Werkzeug `list_layers` nennt die sieben Layer (`candidates-terrain` usw.).
+- Ein Lauf ohne `--force` behält eine Karte von 0.23.0 oder älter, die `templates/candidates.omap` nennt: Er füllt diese Datei mit allen Kandidaten, schreibt die Layer daneben und sagt, dass die Karte sie nach `--force` nennt oder wenn man sie in OOM hinzufügt. `--force` ersetzt die Karte und löscht die alte Datei. Eine OCAD-Karte, die ein Lauf behält, wird ebenso behandelt, wenn sie `<name>-candidates.ocd` unter ihren Hintergrundkarten nennt: Die Datei wird mit allen Kandidaten gefüllt, und ein Hinweis sagt das. Eine ersetzte OCAD-Karte löscht die Datei; eine danach zurückgeholte Sicherung bekommt sie beim nächsten Lauf wieder.
+
 ## [0.23.0] - 2026-11-16
 
 ### Geändert

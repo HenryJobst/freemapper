@@ -6,6 +6,11 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
+### Changed
+
+- The candidates come in seven template maps by kind, `templates/candidates-<layer>.omap` for terrain, water, vegetation, paths, barriers, features and out-of-bounds, in place of `templates/candidates.omap` (ADR 0156). The map lists them after the raster templates. They start hidden, so the map opens with its sure objects only; in OpenOrienteering Mapper each is switched on in the list of templates and has its own opacity, 70 % to start with. Each layer also has the outline of the map area. Areas and lines of a vegetation symbol (4xx) are in the vegetation layer, the green strips of the Berlin street survey too. The OCAD output writes `ocad/<name>-candidates-<layer>.ocd` in place of `<name>-candidates.ocd`, as hidden background maps. The check print and the training map see the same candidates as before. The MCP tool `list_layers` names the seven layers (`candidates-terrain` and so on).
+- A run without `--force` keeps a map of 0.23.0 or older, which names `templates/candidates.omap`: it fills that file with every candidate, writes the layers beside it and says that the map lists them after `--force`, or when they are added in OOM. `--force` replaces the map and deletes the old file. An OCAD map that a run keeps is treated the same way when it names `<name>-candidates.ocd` among its background maps: the file is filled with every candidate and a note says so. A replaced OCAD map deletes the file; a backup restored afterwards gets it back on the next run.
+
 ## [0.23.0] - 2026-11-16
 
 ### Changed

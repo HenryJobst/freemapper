@@ -1,5 +1,5 @@
 //! The documents of a project and the files written from them: the starter project (map and
-//! candidates template map), the OCAD files and the PDFs (ADR 0091: built once per command).
+//! candidate layers, ADR 0156), the OCAD files and the PDFs (ADR 0091: built once per command).
 //!
 //! What the build reads is stored under `data/` and `templates/`; none of the exports writes a
 //! file the build reads.
@@ -7,6 +7,7 @@
 use super::*;
 use crate::build::assembly::{Buildings, Built, Frame, Layer, Stored, build};
 use crate::build::buildings::object_footprints;
+use crate::build::candidate_layers::{CandidateLayer, split};
 use crate::build::contours::Contours;
 use crate::build::landforms::Landforms;
 use crate::build::paved::HIDDEN_CARRIAGEWAY;
@@ -316,13 +317,13 @@ pub(super) fn canopy_source_tags() -> Vec<String> {
     tags
 }
 
-/// Writes the starter project (map, candidates template map, attribution) into `dir` and
+/// Writes the starter project (map, candidate layers, attribution) into `dir` and
 /// returns the path of the map file.
 ///
 /// An existing map file may already contain the mapper's work: it is only replaced when
 /// `force` is set, and then kept as `<name>.omap.bak`.
 pub fn export_starter_project(dir: &Path, force: bool) -> Result<PathBuf, ProjectError> {
-    write_starter_project(dir, &starter_documents(dir)?, Some(force))
+    write_starter_project(dir, &starter_documents(dir)?, MapWrite::Write { force })
 }
 
 /// [`export_starter_project`] from `documents`, which [`starter_documents`] built for `dir`.
@@ -331,16 +332,27 @@ pub fn export_starter_project_from(
     documents: &StarterDocuments,
     force: bool,
 ) -> Result<PathBuf, ProjectError> {
-    write_starter_project(dir, documents, Some(force))
+    write_starter_project(dir, documents, MapWrite::Write { force })
 }
 
-/// Writes the candidates template map and the attribution, and the map unless `map_force` is
-/// `None` (the map is kept: it may contain the mapper's work). Candidates are a template that
-/// always follows the current map area.
+/// What [`write_starter_project`] does with the map.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum MapWrite {
+    /// Writes it; an existing map only with `force`, kept as `<name>.omap.bak`.
+    Write { force: bool },
+    /// Keeps it, as it may contain the mapper's work. `old_candidates`: it names the candidates
+    /// template of an older freemapper, [`OLD_CANDIDATES_RELPATH`].
+    Keep { old_candidates: bool },
+}
+
+/// Writes the candidate layers and the attribution, and the map unless it is kept. Candidates
+/// are templates that always follow the current map area. A written map names the layers, and
+/// the candidates template of an older freemapper goes; a kept map that still names it gets it
+/// refreshed with every candidate (ADR 0156).
 pub(super) fn write_starter_project(
     dir: &Path,
     documents: &StarterDocuments,
-    map_force: Option<bool>,
+    map_write: MapWrite,
 ) -> Result<PathBuf, ProjectError> {
     let StarterDocuments {
         map,
@@ -349,7 +361,7 @@ pub(super) fn write_starter_project(
         ..
     } = documents;
     let map_path = map_path(dir);
-    if let Some(force) = map_force
+    if let MapWrite::Write { force } = map_write
         && map_path.exists()
     {
         if !force {
@@ -357,10 +369,22 @@ pub(super) fn write_starter_project(
         }
         back_up(dir, &map_path, &map_path.with_extension("omap.bak"))?;
     }
-    write_document(dir, candidates, &dir.join(CANDIDATES_RELPATH))?;
-    if map_force.is_some() {
-        forget_map_preview(dir)?;
-        write_document(dir, map, &map_path)?;
+    for (layer, doc) in documents.candidate_layers() {
+        write_document(dir, &doc, &dir.join(layer.relpath()))?;
+    }
+    let old_candidates = dir.join(OLD_CANDIDATES_RELPATH);
+    match map_write {
+        MapWrite::Write { .. } => {
+            forget_map_preview(dir)?;
+            write_document(dir, map, &map_path)?;
+            freemapper_fs::remove_inside(dir, &old_candidates);
+        }
+        MapWrite::Keep {
+            old_candidates: true,
+        } => write_document(dir, candidates, &old_candidates)?,
+        MapWrite::Keep {
+            old_candidates: false,
+        } => {}
     }
     let attribution = format!("{attribution_text}\n\n{FREEMAPPER_CREDIT}\n");
     write_inside(dir, &dir.join("ATTRIBUTION.txt"), attribution.as_bytes())?;
@@ -381,7 +405,11 @@ pub struct OcadOutcome {
     /// The OCAD map existed and `force` was not set, so it was left alone (it may contain the
     /// mapper's work); candidates and images were refreshed.
     pub kept: bool,
-    pub candidates: PathBuf,
+    /// The kept map names `<name>-candidates.ocd` of an older freemapper as a background map; the
+    /// file was filled with every candidate, the layers were written beside it (ADR 0156).
+    pub old_candidates: bool,
+    /// `ocad/<name>-candidates-<layer>.ocd`, one per candidate layer in its order (ADR 0156).
+    pub candidates: Vec<PathBuf>,
     pub objects: usize,
     /// Objects OCAD cannot take (no symbol for OCAD, no area, outside its drawing area).
     pub skipped: usize,
@@ -401,9 +429,12 @@ pub(super) fn world_file_path(image: &Path) -> Option<PathBuf> {
     Some(image.with_extension(format!("{first}{last}w")))
 }
 
-/// Writes the OCAD starting point into `ocad/`: `<name>.ocd` (OCAD 12) with the map objects,
-/// `<name>-candidates.ocd`, and the raster templates with their world files as background maps.
-/// An existing `<name>.ocd` is only replaced when `force` is set (kept as `.ocd.bak`).
+/// Writes the OCAD starting point into `ocad/`: `<name>.ocd` (OCAD 12) with the map objects, one
+/// `<name>-candidates-<layer>.ocd` per candidate layer, and the raster templates with their world
+/// files as background maps; the candidate layers are hidden background maps (ADR 0156). An
+/// existing `<name>.ocd` is only replaced when `force` is set (kept as `.ocd.bak`); then
+/// `<name>-candidates.ocd` of an older freemapper goes, while a kept map that names it as a
+/// background map gets it refreshed with every candidate.
 pub fn export_ocad(dir: &Path, force: bool) -> Result<OcadOutcome, ProjectError> {
     export_ocad_from(dir, &starter_documents(dir)?, force)
 }
@@ -420,26 +451,45 @@ pub fn export_ocad_from(
     std::fs::create_dir_all(&ocad_dir).map_err(|e| ProjectError::Io(ocad_dir.clone(), e))?;
     let name = ocad_name(dir);
     let (mut backgrounds, warnings) = copy_backgrounds(dir, &ocad_dir, &documents.map.templates)?;
-    let candidates_name = format!("{name}-candidates.ocd");
-    backgrounds.push(Background::Map {
-        file_name: candidates_name.clone(),
-        visible: true,
-    });
-    let candidates = ocad_dir.join(&candidates_name);
-    let (bytes, _) = map_to_ocd(&documents.candidates, project.map_kind, &[])?;
-    write_inside(dir, &candidates, &bytes)?;
+    let mut candidates = Vec::new();
+    for (layer, doc) in documents.candidate_layers() {
+        let file_name = format!("{name}-candidates-{}.ocd", layer.name());
+        backgrounds.push(Background::Map {
+            file_name: file_name.clone(),
+            visible: false,
+        });
+        let path = ocad_dir.join(&file_name);
+        let (bytes, _) = map_to_ocd(&doc, project.map_kind, &[])?;
+        write_inside(dir, &path, &bytes)?;
+        candidates.push(path);
+    }
+    let old_name = format!("{name}-candidates.ocd");
+    let old_candidates = ocad_dir.join(&old_name);
     let map = ocad_dir.join(format!("{name}.ocd"));
     let kept = map.exists() && !force;
     let (bytes, report) = map_to_ocd(&documents.map, project.map_kind, &backgrounds)?;
-    if !kept {
+    // A kept map of an older freemapper names the one candidates file as its background map;
+    // a map restored from its backup too. A map that cannot be read names nothing.
+    let kept_names_old = kept
+        && std::fs::read(&map)
+            .map(|b| crate::ocd::file::background_names(&b).contains(&old_name))
+            .unwrap_or(false);
+    if kept {
+        if kept_names_old {
+            let (bytes, _) = map_to_ocd(&documents.candidates, project.map_kind, &[])?;
+            write_inside(dir, &old_candidates, &bytes)?;
+        }
+    } else {
         if map.exists() {
             back_up(dir, &map, &map.with_extension("ocd.bak"))?;
         }
         write_inside(dir, &map, &bytes)?;
+        freemapper_fs::remove_inside(dir, &old_candidates);
     }
     Ok(OcadOutcome {
         map,
         kept,
+        old_candidates: kept_names_old,
         candidates,
         objects: report.objects,
         skipped: report.skipped,
@@ -1265,6 +1315,33 @@ pub struct StarterDocuments {
     pub(super) content_settings: ContentSettings,
 }
 
+impl StarterDocuments {
+    /// The candidates cut into the template maps of the candidate layers, every layer in its
+    /// order (ADR 0156): together they are [`Self::candidates`], with the outline of the map area
+    /// in each.
+    pub(super) fn candidate_layers(&self) -> Vec<(CandidateLayer, MapDocument)> {
+        let objects: Vec<MapObject> = self
+            .candidates
+            .parts
+            .iter()
+            .flat_map(|p| p.objects.iter().cloned())
+            .collect();
+        split(&objects, &self.candidates.symbol_set)
+            .into_iter()
+            .map(|(layer, objects)| {
+                let doc = MapDocument {
+                    parts: vec![MapPart {
+                        name: "candidates".to_string(),
+                        objects,
+                    }],
+                    ..self.candidates.clone()
+                };
+                (layer, doc)
+            })
+            .collect()
+    }
+}
+
 /// Builds the documents of the project in `dir` from its stored data. They belong to that folder
 /// and to the data as stored at this moment: build them again after a fetch or a derive.
 pub fn starter_documents(dir: &Path) -> Result<StarterDocuments, ProjectError> {
@@ -1375,15 +1452,17 @@ pub fn build_project(dir: &Path) -> Result<BuiltProject, ProjectError> {
         })
     })
     .collect::<Result<_, ProjectError>>()?;
-    templates.push(TemplateRef {
+    // The candidate layers after the rasters, hidden: on opening the map shows only its own
+    // objects (ADR 0156).
+    templates.extend(CandidateLayer::ALL.iter().map(|layer| TemplateRef {
         kind: TemplateKind::Map,
-        relpath: CANDIDATES_RELPATH.to_string(),
+        relpath: layer.relpath().to_string(),
         georeferenced: true,
         crs_spec: None,
-        visible: true,
-        opacity: 0.7,
+        visible: false,
+        opacity: CANDIDATE_LAYER_OPACITY,
         behind_map: false,
-    });
+    }));
     let content = PaperRect::of_bbox(&project.bbox()?, georef)?;
     let mut attribution = vec![OSM_ATTRIBUTION_DE.to_string()];
     attribution.extend(sheet_credit_lines(&project, &registers));
@@ -1559,7 +1638,12 @@ fn content_settings(project: &ProjectFile) -> crate::build::content::ContentSett
     })
 }
 
-pub(crate) const CANDIDATES_RELPATH: &str = "templates/candidates.omap";
+/// The one candidates template of freemapper before the candidate layers (ADR 0156): written
+/// only while a kept map names it, removed when the map is replaced.
+pub(crate) const OLD_CANDIDATES_RELPATH: &str = "templates/candidates.omap";
+
+/// The opacity of a candidate layer when it is switched on.
+pub(crate) const CANDIDATE_LAYER_OPACITY: f32 = 0.7;
 
 pub(super) fn write_document(
     dir: &Path,

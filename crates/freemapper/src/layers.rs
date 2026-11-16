@@ -11,13 +11,14 @@ use freemapper_adapter_api::rasters::{ProviderInfo, RasterKind};
 
 use crate::adapters::registry;
 use crate::area::MapArea;
+use crate::build::candidate_layers::CandidateLayer;
 use crate::crs::{BoundingBox, LatLon, ProjectedPoint, utm33_inverse};
 use crate::fetch::Cache;
 use crate::fetch::Product;
 use crate::project::{
-    BUILDINGS_RELPATH, CANDIDATES_RELPATH, HILLSHADE_RELPATH, K5_RELPATH, LAND_USE_RELPATH,
-    NDSM_RELPATH, ORTHOPHOTO_RELPATH, ProjectError, ProjectFile, RELIEF_RELPATH, SLOPE_RELPATH,
-    check_area, check_size, map_crs, map_path,
+    BUILDINGS_RELPATH, HILLSHADE_RELPATH, K5_RELPATH, LAND_USE_RELPATH, NDSM_RELPATH,
+    ORTHOPHOTO_RELPATH, ProjectError, ProjectFile, RELIEF_RELPATH, SLOPE_RELPATH, check_area,
+    check_size, map_crs, map_path,
 };
 use crate::sources::alkis_nas::NasModel;
 use crate::sources::osm::{MAX_EXTRACT_AGE_DAYS, cached_extract_date, extracts_for};
@@ -367,26 +368,33 @@ fn has_k5(dir: &Path) -> bool {
         })
 }
 
+/// The name of a candidate layer in the layer list: `candidates-<layer>`, the stem of its file.
+fn candidate_layer_name(layer: CandidateLayer) -> &'static str {
+    layer
+        .relpath()
+        .trim_start_matches("templates/")
+        .trim_end_matches(".omap")
+}
+
 pub fn list_layers(dir: &Path) -> Vec<Layer> {
     let map = map_path(dir);
-    let mut layers = vec![
-        Layer {
-            name: "map",
-            file: map.display().to_string(),
-            role: LayerRole::Map,
-            ready: map.exists(),
-            made_by: EXPORT_STEP,
-            description: "the OOM map: buildings and peripheral information",
-        },
-        Layer {
-            name: "candidates",
-            file: dir.join(CANDIDATES_RELPATH).display().to_string(),
-            role: LayerRole::Candidates,
-            ready: dir.join(CANDIDATES_RELPATH).exists(),
-            made_by: EXPORT_STEP,
-            description: "candidates to check: OSM features, contours, out-of-bounds areas",
-        },
-    ];
+    let mut layers = vec![Layer {
+        name: "map",
+        file: map.display().to_string(),
+        role: LayerRole::Map,
+        ready: map.exists(),
+        made_by: EXPORT_STEP,
+        description: "the OOM map: buildings and peripheral information",
+    }];
+    // The candidate layers, each a template map of its own (ADR 0156).
+    layers.extend(CandidateLayer::ALL.iter().map(|layer| Layer {
+        name: candidate_layer_name(*layer),
+        file: dir.join(layer.relpath()).display().to_string(),
+        role: LayerRole::Candidates,
+        ready: dir.join(layer.relpath()).exists(),
+        made_by: EXPORT_STEP,
+        description: layer.description(),
+    }));
     let k5 = has_k5(dir);
     for (name, relpath, description) in RASTER_LAYERS {
         if name == "k5" && !k5 {
@@ -2156,7 +2164,13 @@ mod tests {
             names,
             [
                 "map",
-                "candidates",
+                "candidates-terrain",
+                "candidates-water",
+                "candidates-vegetation",
+                "candidates-paths",
+                "candidates-barriers",
+                "candidates-features",
+                "candidates-out-of-bounds",
                 "orthophoto",
                 "hillshade",
                 "slope",
