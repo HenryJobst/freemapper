@@ -83,6 +83,10 @@ use shift::shift_lines;
 const MAX_ROUNDS: usize = 20;
 /// Street furniture: the x of symbol 531, Prominent man-made feature.
 const FURNITURE_CODE: &str = "531";
+/// The forest, white on the training map: the single trees in it are part of it.
+const FOREST_CODE: &str = "405";
+/// The tree symbols (large and small) of the point trees.
+const TREE_CODES: [&str; 2] = ["417", "418"];
 /// Open land, the only symbol [`open_ground`] reduces.
 const OPEN_LAND_CODE: &str = "401";
 /// The land use of a park, green space or other recreation ground (`freemapper:nutzart` starts
@@ -138,6 +142,8 @@ pub struct TrainingReport {
     pub open_land_cut: usize,
     /// Street furniture on paved areas.
     pub furniture: usize,
+    /// Single trees inside a forest area (405), which shows them.
+    pub trees_in_forest: usize,
     /// Objects inside olive green that went or were cut.
     pub inside_olive: usize,
     /// Point symbols moved off ways, buildings, water and other points.
@@ -215,6 +221,7 @@ pub fn train(
     report.carriageways = carriageways.drawn;
     report.kerbs = carriageways.kerbs;
     report.furniture = drop_furniture(&mut objects, symbol_set);
+    report.trees_in_forest = drop_trees_in_forest(&mut objects, symbol_set);
     if let Some(tree_cover) = tree_cover {
         report.open_land_cut = open_ground(&mut objects, tree_cover, georef, symbol_set);
     }
@@ -337,6 +344,38 @@ fn drop_furniture(objects: &mut Vec<MapObject>, symbol_set: &SymbolSet) -> usize
         let (x, y) = xy(centre);
         let centre = Point::new(x, y);
         !paved
+            .iter()
+            .any(|(frame, area)| frame.intersects(&centre) && area.intersects(&centre))
+    });
+    before - objects.len()
+}
+
+/// Step 2b: a tree point (417, 418) whose centre lies in a forest area (405) goes: the white forest
+/// is the trees, and single ones in it read as open ground. A tree on open land stays. Returns how
+/// many went.
+fn drop_trees_in_forest(objects: &mut Vec<MapObject>, symbol_set: &SymbolSet) -> usize {
+    let Some(forest) = symbol_set.id_for_code(FOREST_CODE) else {
+        return 0;
+    };
+    let trees: BTreeSet<u32> = TREE_CODES
+        .iter()
+        .filter_map(|c| symbol_set.id_for_code(c))
+        .collect();
+    let areas: Vec<(Rect<f64>, Polygon<f64>)> = objects
+        .iter()
+        .filter(|o| o.symbol_id == forest)
+        .filter_map(object_polygon)
+        .filter_map(|p| Some((p.bounding_rect()?, p)))
+        .collect();
+    let before = objects.len();
+    objects.retain(|o| {
+        let is_tree = trees.contains(&o.symbol_id) && matches!(o.kind, MapObjectKind::Point { .. });
+        let Some(centre) = o.coords.first().filter(|_| is_tree) else {
+            return true;
+        };
+        let (x, y) = xy(centre);
+        let centre = Point::new(x, y);
+        !areas
             .iter()
             .any(|(frame, area)| frame.intersects(&centre) && area.intersects(&centre))
     });
@@ -1479,6 +1518,22 @@ pub(crate) mod tests {
         let (out, report) = run(&set, objects);
         assert_eq!(out, vec![street, park]);
         assert_eq!(report.furniture, 1, "{report:?}");
+    }
+
+    #[test]
+    fn single_trees_in_a_forest_go_and_on_open_land_stay() {
+        let set = SymbolSet::issprom_2019();
+        let forest = area(&set, "405", (0.0, 0.0), (10.0, 10.0));
+        let open = point(&set, "418", (30.0, 30.0));
+        let objects = vec![
+            forest.clone(),
+            point(&set, "418", (5.0, 5.0)),
+            point(&set, "417", (7.0, 3.0)),
+            open.clone(),
+        ];
+        let (out, report) = train(objects, None, MapKind::Sprint, &georef_at(4000), &set);
+        assert_eq!(out, vec![forest, open]);
+        assert_eq!(report.trees_in_forest, 2, "{report:?}");
     }
 
     #[test]
