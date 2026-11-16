@@ -206,3 +206,12 @@ through `extras::drawn_sets`, and the code that named the set (`REGISTERS_SET`, 
 every set that names a layer for them. `the_engine_names_no_region` lost the lines of `project.rs` that named
 Berlin's layers. An ignored layer entry is named by the state of its set's adapter (`name_de` for the German
 text; before, every set's were called Berlin's). Output unchanged (G3/G4, G5).
+
+## Addendum 2026-11-16: Hamburg's furniture beats OSM (point dedups)
+
+Hamburg's set names point dedups now, as Berlin's does (the `point_dedups` datum from step 2): a surveyed bollard
+or bench replaces an OSM `barrier=bollard` or `amenity=bench` within 2 m, a surveyed lamp an OSM `highway=street_lamp`
+within 5 m, the distances of Berlin's survey furniture and lighting cadastre. The winners are told by the kind of
+control site the feature already carries (`hamburg:control`), which the set now keeps on the candidate
+(`kept_tags`). The OSM point is named in `freemapper:also`, and on a sprint map the pair is one control site, not two.
+This changes Hamburg's maps; the Blankenese example has to be rebuilt to show it.

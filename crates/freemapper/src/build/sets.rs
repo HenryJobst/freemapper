@@ -535,13 +535,18 @@ mod tests {
     /// first, then the survey (ADR 0149).
     #[test]
     fn berlin_brings_its_point_dedups() {
-        let winners: Vec<(&str, &str)> = point_dedups().map(|d| d.winner).collect();
+        let berlin = drawing_of_source("geoportal-berlin/").unwrap();
+        let winners: Vec<(&str, &str)> = berlin.point_dedups.iter().map(|d| d.winner).collect();
         assert_eq!(winners.len(), 13, "{winners:?}");
         assert_eq!(
             winners[0],
             ("freemapper:source", "geoportal-berlin/beleuchtung")
         );
         assert_eq!(winners[12], ("berlin:layer", "aw_spielgeraet"));
+        // Every set's come after one another in the order of the registry.
+        let all: Vec<(&str, &str)> = point_dedups().map(|d| d.winner).collect();
+        assert_eq!(all[..13], winners[..]);
+        assert!(all.contains(&("hamburg:control", "bench")), "{all:?}");
     }
 
     /// Berlin's control-site kinds, the tags its candidates keep, its fountains and the bridge

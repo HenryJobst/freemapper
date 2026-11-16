@@ -6,6 +6,11 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+### Geändert
+
+- Hamburg: Ein Poller, eine Bank oder eine Leuchte der Feinkartierung ersetzt den OpenStreetMap-Punkt am selben Ort, wie es die Berliner Befahrung schon tut (ADR 0149): bis 2 m bei Pollern und Bänken, bis 5 m bei Leuchten. Der OSM-Punkt steht dann in `freemapper:also`, und auf der Sprintkarte gibt es an dieser Stelle einen Postenstandort weniger. Der Satz der Feinkartierung behält dafür die Art des Postenstandorts (`hamburg:control`) am Kandidaten. Bestehende Karten ändern sich nach `export --force`.
+- Berlin läuft jetzt über denselben Weg wie die Feinkartierung in Hamburg, und die Engine nennt keine Region mehr (ADR 0149). Karten und Projektdateien bleiben gleich. Eine Warnung zu einem unbekannten Ebenen-Eintrag in `freemapper.toml` nennt das Bundesland des Satzes statt immer Berlin.
+
 ## [0.24.0] - 2026-11-16
 
 ### Geändert
