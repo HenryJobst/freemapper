@@ -39,7 +39,7 @@ cli-pdf-without-credits = PDF without source credits: ODbL and dl-de/by-2-0 ask 
 cli-wrote-pdf = Wrote { $path } (the map without candidates)
 cli-wrote-pdf-candidates = Wrote { $path } (the check print: the map with every candidate, true to position; check them in the terrain)
 cli-wrote-training = Wrote { $map } and { $pdf } (the training map: { $joined } joined, { $shifted } shifted, { $left } left out or cut)
-cli-training-free-ends = { $count } line ends left free
+cli-training-free-ends = Line ends left free: { $ways } where a way met another way, { $others } at other lines
 cli-training-apart-left = the training map still has { $length } mm (on paper) where objects keep too little gap; check it in OOM
 cli-kept-training = Kept the training map { $path }, so that a run does not overwrite one that was printed or passed on; delete it or pass --force to renew it
 

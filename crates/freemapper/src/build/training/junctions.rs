@@ -13,13 +13,13 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use geo_types::Coord;
 
-use super::is_closed;
 use super::lines::Polyline;
+use super::{FreeEnd, is_closed};
 use crate::build::conflicts::{Class, Classes, TOLERANCE_MM};
 use crate::build::line_join::TOUCH_M;
 use crate::georef::Georeferencing;
 use crate::measure::PaperMm;
-use crate::omap::{MapCoord, MapObject, MapObjectKind};
+use crate::omap::{MapCoord, MapObject, MapObjectKind, SymbolSet};
 use crate::render::geometry::parts;
 
 /// The classes whose line ends are recorded and whose lines an end can touch.
@@ -33,6 +33,10 @@ const LINE_CLASSES: [Class; 7] = [
     Class::EarthBank,
 ];
 
+/// The classes of the way network: a free end of one of them that touched another is a break of
+/// the network on print.
+const WAY_CLASSES: [Class; 4] = [Class::Road, Class::Path, Class::Railway, Class::Stairway];
+
 /// The side of a cell of the search grid (mm on paper).
 const CELL_MM: f64 = 5.0;
 
@@ -45,13 +49,16 @@ pub(super) const JUNCTION_TAG: &str = "freemapper:junction";
 pub(super) type Key = u32;
 
 /// One recorded end: of which object, whether it is the last coordinate, where it lay (mm on
-/// paper) and the lines it touched (sorted).
+/// paper) and the lines it touched (sorted), with their source ids (sorted, those with an id)
+/// and whether one of them was a way, for the report.
 #[derive(Debug, Clone)]
 struct End {
     object: Key,
     last: bool,
     at: Coord<f64>,
     touched: Vec<Key>,
+    touched_ids: Vec<String>,
+    touched_way: bool,
 }
 
 /// An end that a step drew onto a line while it ran (a cut end of a merged or cut line): of
@@ -71,6 +78,8 @@ pub(super) struct Junctions {
     ends: Vec<End>,
     /// The symbols of [`LINE_CLASSES`].
     line_ids: BTreeSet<u32>,
+    /// The symbols of [`WAY_CLASSES`].
+    way_ids: BTreeSet<u32>,
     /// The keys of lines that a join took into another line, each with the keys of the lines it
     /// went into ([`absorb`](Self::absorb)); a split line can go into several.
     absorbed: BTreeMap<Key, BTreeSet<Key>>,
@@ -88,6 +97,7 @@ impl Junctions {
         georef: &Georeferencing,
     ) -> Self {
         let line_ids: BTreeSet<u32> = LINE_CLASSES.iter().flat_map(|&c| classes.ids(c)).collect();
+        let way_ids: BTreeSet<u32> = WAY_CLASSES.iter().flat_map(|&c| classes.ids(c)).collect();
         for (i, object) in objects.iter_mut().enumerate() {
             object.tags.retain(|(k, _)| k != JUNCTION_TAG);
             if is_line(object, &line_ids) && Key::try_from(i).is_ok() {
@@ -107,18 +117,28 @@ impl Junctions {
             }
             for last in [false, true] {
                 let at = end_point(object, last);
-                let touched: BTreeSet<Key> = grid
+                let near: Vec<usize> = grid
                     .near(at, touch)
                     .into_iter()
                     .filter(|&j| j != i && distance(&objects[j], at).0 <= touch)
-                    .filter_map(|j| key_of(&objects[j]))
+                    .filter(|&j| key_of(&objects[j]).is_some())
                     .collect();
+                let touched: BTreeSet<Key> =
+                    near.iter().filter_map(|&j| key_of(&objects[j])).collect();
                 if !touched.is_empty() {
+                    let ids: BTreeSet<String> = near
+                        .iter()
+                        .filter_map(|&j| source_id(&objects[j]))
+                        .collect();
                     ends.push(End {
                         object: key,
                         last,
                         at,
                         touched: touched.into_iter().collect(),
+                        touched_ids: ids.into_iter().collect(),
+                        touched_way: near
+                            .iter()
+                            .any(|&j| way_ids.contains(&objects[j].symbol_id)),
                     });
                 }
             }
@@ -126,6 +146,7 @@ impl Junctions {
         Self {
             ends,
             line_ids,
+            way_ids,
             absorbed: BTreeMap::new(),
         }
     }
@@ -160,14 +181,24 @@ impl Junctions {
 
     /// Records the ends a step drew onto a line after [`record`](Self::record), as if they had
     /// touched that line before: [`repair`](Self::repair) moves them onto it, or onto what
-    /// replaced it, when it moved, and counts them.
-    pub(super) fn attach(&mut self, ends: &[Attached]) {
-        self.ends.extend(ends.iter().map(|e| End {
-            object: e.object,
-            last: e.last,
-            at: e.at,
-            touched: vec![e.onto],
-        }));
+    /// replaced it, when it moved, and counts them. `objects` are the objects after the step:
+    /// the report names the line an end was drawn onto by its source id.
+    pub(super) fn attach(&mut self, ends: &[Attached], objects: &[MapObject]) {
+        for e in ends {
+            let onto: Vec<&MapObject> = objects
+                .iter()
+                .filter(|o| key_of(o) == Some(e.onto))
+                .collect();
+            let ids: BTreeSet<String> = onto.iter().filter_map(|o| source_id(o)).collect();
+            self.ends.push(End {
+                object: e.object,
+                last: e.last,
+                at: e.at,
+                touched: vec![e.onto],
+                touched_ids: ids.into_iter().collect(),
+                touched_way: onto.iter().any(|o| self.way_ids.contains(&o.symbol_id)),
+            });
+        }
     }
 
     /// After a change: every recorded end whose object still exists but no longer touches a line
@@ -191,7 +222,8 @@ impl Junctions {
         reach: f64,
         georef: &Georeferencing,
     ) -> (usize, usize) {
-        self.repair_after_cuts(objects, replaced_by, &BTreeMap::new(), reach, georef)
+        let (repaired, free) = self.settle(objects, replaced_by, &BTreeMap::new(), reach, georef);
+        (repaired, free.len())
     }
 
     /// As [`repair`](Self::repair), after lines were cut where they kept no gap: `cut_for`
@@ -203,6 +235,9 @@ impl Junctions {
     /// A line that a join took into another ([`absorb`](Self::absorb)) is found on the line it
     /// went into, both as the end's own line and as a line the end touched. One end recorded
     /// more than once is counted free once.
+    ///
+    /// Returns how many ends were repaired and the ends left free, in the order of the objects,
+    /// each named by its line's source id and symbol code (of `symbol_set`).
     pub(super) fn repair_after_cuts(
         &self,
         objects: &mut [MapObject],
@@ -210,7 +245,39 @@ impl Junctions {
         cut_for: &BTreeMap<Key, BTreeSet<Key>>,
         reach: f64,
         georef: &Georeferencing,
-    ) -> (usize, usize) {
+        symbol_set: &SymbolSet,
+    ) -> (usize, Vec<FreeEnd>) {
+        let (repaired, free) = self.settle(objects, replaced_by, cut_for, reach, georef);
+        let free = free
+            .into_iter()
+            .map(|((i, last), loose)| {
+                let object = &objects[i];
+                let at = end_point(object, last);
+                FreeEnd {
+                    source_id: source_id(object),
+                    symbol: symbol_set
+                        .code_for_id(object.symbol_id)
+                        .unwrap_or_default()
+                        .to_string(),
+                    at: (PaperMm(at.x), PaperMm(at.y)),
+                    touched: loose.touched.into_iter().collect(),
+                    between_ways: loose.touched_way && self.way_ids.contains(&object.symbol_id),
+                }
+            })
+            .collect();
+        (repaired, free)
+    }
+
+    /// The repairs of [`repair_after_cuts`](Self::repair_after_cuts): how many ends were
+    /// repaired, and the ends left free by object index and end.
+    fn settle(
+        &self,
+        objects: &mut [MapObject],
+        replaced_by: &BTreeMap<Key, Key>,
+        cut_for: &BTreeMap<Key, BTreeSet<Key>>,
+        reach: f64,
+        georef: &Georeferencing,
+    ) -> (usize, BTreeMap<(usize, bool), Loose>) {
         let touch = touch_mm(georef);
         let within = reach + TOLERANCE_MM;
         // The line objects of each key, in order.
@@ -255,7 +322,7 @@ impl Junctions {
         // The ends left free, by object index and end: one end recorded twice (by `record` and
         // by `attach`, or for two pieces of one key) is counted once, and not when another of
         // its records repaired it.
-        let mut free: BTreeSet<(usize, bool)> = BTreeSet::new();
+        let mut free: BTreeMap<(usize, bool), Loose> = BTreeMap::new();
         for (end, held) in self.ends.iter().zip(&held) {
             let Some(&(i, last)) = held.as_ref() else {
                 continue;
@@ -346,12 +413,38 @@ impl Junctions {
                 Some(_) => {}
                 None if !meets.is_empty() || meant => {}
                 None => {
-                    free.insert((i, last));
+                    let loose = free.entry((i, last)).or_default();
+                    loose.touched.extend(end.touched_ids.iter().cloned());
+                    loose.touched_way |= end.touched_way;
                 }
             }
         }
-        (repaired, free.len())
+        (repaired, free)
     }
+}
+
+/// What the records of one free end name: the lines it touched and whether one was a way.
+#[derive(Debug, Default)]
+struct Loose {
+    touched: BTreeSet<String>,
+    touched_way: bool,
+}
+
+/// The source and id of `object` as `freemapper:also` names them (`osm/way/1`), when it has an
+/// id.
+fn source_id(object: &MapObject) -> Option<String> {
+    let get = |key: &str| {
+        object
+            .tags
+            .iter()
+            .find(|(k, _)| k == key)
+            .map(|(_, v)| v.as_str())
+    };
+    let id = get("freemapper:source_id")?;
+    Some(match get("freemapper:source") {
+        Some(source) => format!("{source}/{id}"),
+        None => id.to_string(),
+    })
 }
 
 /// The tag that holds the [`Key`] of a line object while another recording of the junctions
@@ -796,8 +889,9 @@ mod tests {
             &BTreeMap::new(),
             0.5,
             &georef,
+            &set,
         );
-        assert_eq!(result, (1, 0));
+        assert_eq!((result.0, result.1.len()), (1, 0));
         let path = objects.iter().position(|o| key_of(o) == Some(0)).unwrap();
         assert_eq!(mm(&objects[path].coords[1]), (5.0, 10.3));
     }
@@ -823,8 +917,9 @@ mod tests {
             &BTreeMap::new(),
             0.5,
             &georef,
+            &set,
         );
-        assert_eq!(result, (1, 0));
+        assert_eq!((result.0, result.1.len()), (1, 0));
         let end = mm(objects[0].coords.last().unwrap());
         assert_eq!(end, (5.0, 10.3));
     }
@@ -855,8 +950,9 @@ mod tests {
             &BTreeMap::new(),
             0.5,
             &georef,
+            &set,
         );
-        assert_eq!(result, (0, 0));
+        assert_eq!((result.0, result.1.len()), (0, 0));
         assert_eq!(after, before);
     }
 
@@ -867,12 +963,15 @@ mod tests {
         let georef = georef_at(SCALE);
         let mut objects = path_on_road(&set);
         let mut junctions = Junctions::record(&mut objects, &Classes::of(&set), &georef);
-        junctions.attach(&[Attached {
-            object: key(&objects[0]),
-            last: true,
-            at: Coord { x: 20.0, y: 10.0 },
-            onto: key(&objects[1]),
-        }]);
+        junctions.attach(
+            &[Attached {
+                object: key(&objects[0]),
+                last: true,
+                at: Coord { x: 20.0, y: 10.0 },
+                onto: key(&objects[1]),
+            }],
+            &objects,
+        );
         assert_eq!(junctions.ends.len(), 2, "{junctions:?}");
         let mut after = vec![objects[0].clone()];
         let result = junctions.repair(&mut after, &BTreeMap::new(), 0.5, &georef);

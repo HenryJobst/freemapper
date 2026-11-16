@@ -813,7 +813,7 @@ mod tests {
             let inner = mm(&piece.coords[0]).x > 20.0;
             assert!(end_touches(&out, i, !inner, SCALE), "{piece:?}");
         }
-        assert_eq!(report.junctions_free, 0, "{report:?}");
+        assert_eq!(report.free_ends.len(), 0, "{report:?}");
     }
 
     #[test]
@@ -874,7 +874,7 @@ mod tests {
                 (mm(&paths[0].coords[0]).x, mm(&paths[0].coords[0]).y)
             ) < 0.02
         );
-        assert_eq!(report.junctions_free, 0, "{report:?}");
+        assert_eq!(report.free_ends.len(), 0, "{report:?}");
         assert_eq!(report.junctions_repaired, 1, "{report:?}");
     }
 
@@ -893,7 +893,7 @@ mod tests {
         ];
         let (out, report) = train(objects, None, MapKind::Forest, &georef_at(scale), &set);
         assert!(report.merged >= 2, "{report:?}");
-        assert_eq!(report.junctions_free, 0, "{report:?}");
+        assert_eq!(report.free_ends.len(), 0, "{report:?}");
         assert!(report.junctions_repaired >= 1, "{report:?}");
         // One line where all three ran together.
         let tracks = of_code(&set, &out, "509");
@@ -1059,7 +1059,7 @@ mod tests {
             }
         }
         assert_eq!(
-            (report.junctions_repaired, report.junctions_free),
+            (report.junctions_repaired, report.free_ends.len()),
             (2, 0),
             "{report:?}"
         );
@@ -1162,7 +1162,7 @@ mod tests {
             (1, 1),
             "{report:?}"
         );
-        assert_eq!(report.junctions_free, 0, "{report:?}");
+        assert_eq!(report.free_ends.len(), 0, "{report:?}");
         assert_eq!(report.junctions_repaired, 2, "{report:?}");
         assert_eq!(of_code(&set, &out, "503").len(), 2, "{out:?}");
         for code in ["505", "506"] {

@@ -151,8 +151,9 @@ pub struct TrainingReport {
     /// Line ends moved back onto the line they touched, or onto the line that replaced it.
     pub junctions_repaired: usize,
     /// Line ends that touched a line before the merge and touch none on the training map (the
-    /// junctions are repaired once more after give way and the minimum sizes).
-    pub junctions_free: usize,
+    /// junctions are repaired once more after give way and the minimum sizes), in the order of
+    /// the objects. Kept for the report only: nothing of them is written to the map.
+    pub free_ends: Vec<FreeEnd>,
     /// Conflict length left, mm on paper, by grade, of the pairs of one network that the merge
     /// did not settle (lines of different classes side by side, stretches below the minimum).
     pub overlap_left: f64,
@@ -160,6 +161,38 @@ pub struct TrainingReport {
     /// Conflict length of the pairs that keep apart left, mm on paper: 0 unless the give-way
     /// step stopped at its last round.
     pub apart_left: f64,
+}
+
+impl TrainingReport {
+    /// The free ends of ways (roads, paths, railways, stairways) that touched another way: each
+    /// is a break of the way network on print.
+    pub fn free_way_ends(&self) -> usize {
+        self.free_ends.iter().filter(|e| e.between_ways).count()
+    }
+
+    /// The other free ends: of a way that touched only barriers, watercourses or earth banks, or
+    /// of such a line. Mostly fair on print: the line the end touched was cut or dropped for a
+    /// third object.
+    pub fn free_other_ends(&self) -> usize {
+        self.free_ends.len() - self.free_way_ends()
+    }
+}
+
+/// A line end that touched another line before the training level merged, shifted and cut, and
+/// touches none on the training map.
+#[derive(Debug, Clone, PartialEq)]
+pub struct FreeEnd {
+    /// The line's source and id, as `freemapper:also` names them (`osm/way/1`), when it has an id.
+    pub source_id: Option<String>,
+    /// The code of the line's symbol on the training map.
+    pub symbol: String,
+    /// Where the end lies on the training map, mm on paper (x right, y down, as the map
+    /// coordinates).
+    pub at: (PaperMm, PaperMm),
+    /// The source and id of each line it touched when it was recorded, sorted, those with an id.
+    pub touched: Vec<String>,
+    /// Whether it is the end of a way (road, path, railway, stairway) that touched another way.
+    pub between_ways: bool,
 }
 
 /// The objects the training level starts from (spec 2026-11-14, Order): the map before the light
@@ -221,7 +254,7 @@ pub fn train(
     report.inside_olive = clear_olive(&mut objects, &classes, georef, symbol_set);
     let mut junctions = Junctions::record(&mut objects, &classes, georef);
     let merged = merge(&mut objects, &classes, kind, georef, symbol_set);
-    junctions.attach(&merged.attached);
+    junctions.attach(&merged.attached, &objects);
     let reach = MAX_SHIFT_MM.0 + gap(kind, georef.scale_denominator).0;
     // What is still free here is counted by the last repair below, which sees these ends again.
     (report.junctions_repaired, _) =
@@ -251,10 +284,16 @@ pub fn train(
     // have cut or dropped lines they touched: an end in reach of what is left of its line is
     // drawn onto it, and what stays free is counted.
     junctions::bring_back(&mut objects);
-    let (repaired, free) =
-        junctions.repair_after_cuts(&mut objects, &merged.replaced_by, &cut_for, reach, georef);
+    let (repaired, free) = junctions.repair_after_cuts(
+        &mut objects,
+        &merged.replaced_by,
+        &cut_for,
+        reach,
+        georef,
+        symbol_set,
+    );
     report.junctions_repaired += repaired;
-    report.junctions_free = free;
+    report.free_ends = free;
     (report.overlap_left, report.gap_left, report.apart_left) =
         left(&objects, kind, georef, symbol_set);
     junctions::forget(&mut objects);
@@ -1762,7 +1801,7 @@ pub(crate) mod tests {
         );
         assert!(report.cut >= 1, "{report:?}");
         assert!(report.junctions_repaired >= 1, "{report:?}");
-        assert_eq!(report.junctions_free, 0, "{report:?}");
+        assert_eq!(report.free_ends.len(), 0, "{report:?}");
     }
 
     #[test]
@@ -1770,9 +1809,21 @@ pub(crate) mod tests {
         // An earth bank lies on a ditch over more than half its length: give way drops it, and
         // the path that ended on it beyond the ditch is left with a free end.
         let set = isom();
-        let bank = line(&set, "104", &[(0.0, 0.0), (20.0, 0.0)]);
+        let bank = tagged(
+            line(&set, "104", &[(0.0, 0.0), (20.0, 0.0)]),
+            "freemapper:source_id",
+            "bank",
+        );
         let ditch = line(&set, "306", &[(0.0, 0.0), (12.0, 0.0)]);
-        let path = line(&set, "505", &[(18.0, 10.0), (18.0, 0.0)]);
+        let path = tagged(
+            tagged(
+                line(&set, "505", &[(18.0, 10.0), (18.0, 0.0)]),
+                "freemapper:source",
+                "osm",
+            ),
+            "freemapper:source_id",
+            "way/1",
+        );
         let (out, report) = run(&set, vec![bank, ditch, path.clone()]);
         assert_eq!(
             of_code(&set, &out, "104"),
@@ -1781,7 +1832,39 @@ pub(crate) mod tests {
         );
         assert_eq!(of_code(&set, &out, "505"), vec![&path]);
         assert_eq!(report.gave_way, 1, "{report:?}");
-        assert_eq!(report.junctions_free, 1, "{report:?}");
+        // The report names it, and an end on an earth bank is no break of the way network.
+        assert_eq!(
+            report.free_ends,
+            [FreeEnd {
+                source_id: Some("osm/way/1".to_string()),
+                symbol: "505".to_string(),
+                at: (PaperMm(18.0), PaperMm(0.0)),
+                touched: vec!["bank".to_string()],
+                between_ways: false,
+            }]
+        );
+        assert_eq!((report.free_way_ends(), report.free_other_ends()), (0, 1));
+    }
+
+    #[test]
+    fn a_free_end_between_ways_is_counted_apart() {
+        // The path ends on the middle of a path below its minimum length (6.375 mm for 505 at
+        // 1:10 000) whose ends meet nothing: it goes, and the end is a break of the way network.
+        let set = isom();
+        let short = tagged(
+            line(&set, "505", &[(0.0, 0.0), (4.0, 0.0)]),
+            "freemapper:source_id",
+            "t",
+        );
+        let path = line(&set, "505", &[(2.0, 10.0), (2.0, 0.0)]);
+        let (out, report) = run(&set, vec![short, path.clone()]);
+        assert_eq!(of_code(&set, &out, "505"), [&path], "{out:?}");
+        assert_eq!(
+            (report.free_way_ends(), report.free_other_ends()),
+            (1, 0),
+            "{report:?}"
+        );
+        assert_eq!(report.free_ends[0].touched, ["t"]);
     }
 
     pub(super) fn tagged(mut object: MapObject, key: &str, value: &str) -> MapObject {
