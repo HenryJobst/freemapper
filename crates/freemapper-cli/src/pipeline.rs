@@ -654,7 +654,9 @@ fn result_files(
     }
     if let Some(Ok(ocad)) = &outputs.ocad {
         candidates.push(("ocad", ocad.map.clone()));
-        candidates.push(("ocad-candidates", ocad.candidates.clone()));
+        for path in &ocad.candidates {
+            candidates.push(("ocad-candidates", path.clone()));
+        }
     }
     if matches!(outputs.pdf, Some(Ok(_))) {
         candidates.push(("pdf", pdf_path(dir, false)));
@@ -702,11 +704,15 @@ fn map_summary(outcome: &RunOutcome) -> String {
         }
         MapOutcome::Kept {
             map,
+            old_candidates,
             references_images,
             missing_buildings,
             missing_canopies,
         } => {
             lines.push(text("cli-summary-kept-map", &[("path", v(map.display()))]));
+            if *old_candidates {
+                lines.push(text("cli-summary-map-old-candidates", &[]));
+            }
             if !references_images {
                 lines.push(text("cli-summary-map-lacks-templates", &[]));
             }
@@ -729,6 +735,16 @@ fn failed(id: &str, error: &str) -> String {
     format!("\n{}", text(id, &[("error", v(error))]))
 }
 
+/// `<name>-candidates.ocd` beside the OCAD map of `outcome`: the one candidates file of an older
+/// freemapper (ADR 0156).
+pub fn old_ocad_candidates(outcome: &OcadOutcome) -> PathBuf {
+    let stem = outcome
+        .map
+        .file_stem()
+        .map_or_else(String::new, |s| s.to_string_lossy().into_owned());
+    outcome.map.with_file_name(format!("{stem}-candidates.ocd"))
+}
+
 /// What the OCAD export did, in words for the user.
 fn ocad_summary(outcome: &OcadOutcome) -> String {
     let map = ("path", v(outcome.map.display()));
@@ -740,6 +756,13 @@ fn ocad_summary(outcome: &OcadOutcome) -> String {
             &[map, ("count", n(outcome.objects))],
         )
     }];
+    if outcome.old_candidates {
+        let old = old_ocad_candidates(outcome);
+        lines.push(text(
+            "cli-summary-ocad-old-candidates",
+            &[("path", v(old.display()))],
+        ));
+    }
     lines.extend(outcome.warnings.iter().map(line));
     if outcome.skipped > 0 || outcome.dropped_parts > 0 {
         lines.push(text(
@@ -750,10 +773,12 @@ fn ocad_summary(outcome: &OcadOutcome) -> String {
             ],
         ));
     }
-    lines.push(text(
-        "cli-wrote",
-        &[("path", v(outcome.candidates.display()))],
-    ));
+    lines.extend(
+        outcome
+            .candidates
+            .iter()
+            .map(|path| text("cli-wrote", &[("path", v(path.display()))])),
+    );
     lines.push(text(
         "cli-summary-ocad-symbols",
         &[("kind", v(outcome.map_kind.name()))],
@@ -953,7 +978,11 @@ mod tests {
         let ocad = OcadOutcome {
             map: PathBuf::from("/p/ocad/p.ocd"),
             kept: false,
-            candidates: PathBuf::from("/p/ocad/candidates.omap"),
+            old_candidates: false,
+            candidates: vec![
+                PathBuf::from("/p/ocad/p-candidates-terrain.ocd"),
+                PathBuf::from("/p/ocad/p-candidates-water.ocd"),
+            ],
             objects: 7,
             skipped: 1,
             dropped_parts: 2,
@@ -967,10 +996,35 @@ mod tests {
             ocad_summary(&ocad),
             "\nWrote the OCAD map /p/ocad/p.ocd (7 objects)\nwarning: no hillshade; the OCAD map gets no background from it\n\
              Left out of the OCAD map: 1 objects and 2 degenerate parts\n\
-             Wrote /p/ocad/candidates.omap\nIn OCAD, choose Symbol > Load Colors and Symbols \
+             Wrote /p/ocad/p-candidates-terrain.ocd\nWrote /p/ocad/p-candidates-water.ocd\nIn OCAD, choose Symbol > Load Colors and Symbols \
              From… and pick the official symbol set ISSprOM 2019; it replaces the placeholder \
              symbols by number."
         );
+    }
+
+    #[test]
+    fn a_kept_ocad_map_with_the_old_candidates_file_says_where_the_layers_are() {
+        let outcome = |old_candidates| OcadOutcome {
+            map: PathBuf::from("/p/ocad/p.ocd"),
+            kept: true,
+            old_candidates,
+            candidates: vec![PathBuf::from("/p/ocad/p-candidates-terrain.ocd")],
+            objects: 1,
+            skipped: 0,
+            dropped_parts: 0,
+            warnings: Vec::new(),
+            map_kind: MapKind::Sprint,
+        };
+        let text = ocad_summary(&outcome(true));
+        let old = old_ocad_candidates(&outcome(true));
+        assert_eq!(old.file_name().unwrap(), "p-candidates.ocd");
+        assert_eq!(old.parent(), Some(Path::new("/p/ocad")));
+        assert!(
+            text.contains(&format!("The OCAD map still names {}", old.display())),
+            "{text}"
+        );
+        assert!(text.contains("force"), "{text}");
+        assert!(!ocad_summary(&outcome(false)).contains("still names"));
     }
 
     #[test]
@@ -979,7 +1033,8 @@ mod tests {
             ocad_summary(&OcadOutcome {
                 map: PathBuf::from("/p/ocad/p.ocd"),
                 kept: false,
-                candidates: PathBuf::from("/p/ocad/p-candidates.ocd"),
+                old_candidates: false,
+                candidates: vec![PathBuf::from("/p/ocad/p-candidates-terrain.ocd")],
                 objects: 1,
                 skipped: 0,
                 dropped_parts: 0,
@@ -1011,6 +1066,7 @@ mod tests {
             templates: Vec::new(),
             map: MapOutcome::Kept {
                 map: PathBuf::from("/tmp/x/x.omap"),
+                old_candidates: false,
                 references_images: true,
                 missing_buildings: false,
                 missing_canopies: true,
@@ -1023,6 +1079,25 @@ mod tests {
             "{text}"
         );
         assert!(!text.contains("Berlin"), "{text}");
+        assert!(!text.contains("candidates.omap"), "{text}");
+    }
+
+    #[test]
+    fn a_kept_map_with_the_old_candidates_template_says_where_the_layers_are() {
+        let outcome = RunOutcome {
+            templates: Vec::new(),
+            map: MapOutcome::Kept {
+                map: PathBuf::from("/tmp/x/x.omap"),
+                old_candidates: true,
+                references_images: true,
+                missing_buildings: false,
+                missing_canopies: false,
+            },
+            preview: None,
+        };
+        let text = map_summary(&outcome);
+        assert!(text.contains("templates/candidates.omap"), "{text}");
+        assert!(text.contains("force"), "{text}");
     }
 
     #[test]

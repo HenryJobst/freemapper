@@ -8,7 +8,7 @@
 //! survey) on the map, and those of OpenStreetMap for the groups it maps well (walls, fences,
 //! hedges, water): a wall that the cadastre surveyed is as reliable as a building.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use geo::Contains as _;
 use serde::{Deserialize, Serialize};
@@ -424,6 +424,71 @@ pub struct Routed {
     pub dropped: usize,
 }
 
+/// The group of an object by its symbol and tags: what [`route`] sends and the candidate layer it
+/// goes to (`build/candidate_layers.rs`).
+pub(crate) struct Classifier {
+    group_of: HashMap<u32, Group>,
+    /// The symbols of the tree group areas ([`Group::TREE_AREA_CODES`]).
+    tree_areas: HashSet<u32>,
+    edge_id: Option<u32>,
+    open_land_id: Option<u32>,
+}
+
+impl Classifier {
+    pub(crate) fn new(symbol_set: &SymbolSet) -> Self {
+        let mut group_of: HashMap<u32, Group> = HashMap::new();
+        for group in Group::ALL {
+            for code in group.codes() {
+                if let Some(id) = symbol_set.id_for_code(code) {
+                    group_of.insert(id, group);
+                }
+            }
+        }
+        let tree_areas = Group::TREE_AREA_CODES
+            .iter()
+            .filter_map(|code| symbol_set.id_for_code(code))
+            .collect();
+        Self {
+            group_of,
+            tree_areas,
+            // The edge of a paved area (501.1) of the street survey or the cadastre belongs to
+            // the streets; one from OpenStreetMap is the outline of the map area.
+            edge_id: symbol_set.id_for_code("501.1"),
+            open_land_id: symbol_set.id_for_code("401"),
+        }
+    }
+
+    /// The group of `o`, whatever its tags `freemapper:hidden` and `freemapper:candidate-only`
+    /// say; `None` for an object of no group.
+    pub(crate) fn group(&self, o: &MapObject) -> Option<Group> {
+        if o.tags.iter().any(|(k, _)| k == LANDFORM_KEY) {
+            return Some(Group::Landforms);
+        }
+        if o.tags.iter().any(|(k, _)| k == POINT_CLOUD_KEY) {
+            return Some(Group::Vegetation);
+        }
+        if Some(o.symbol_id) == self.edge_id {
+            return (rank(o) > Some(Rank::Osm)).then_some(Group::Streets);
+        }
+        // The green strips along the streets, as the street survey measured them.
+        if Some(o.symbol_id) == self.open_land_id {
+            return (rank(o) == Some(Rank::Survey)).then_some(Group::Streets);
+        }
+        self.group_of.get(&o.symbol_id).copied().or_else(|| {
+            (self.is_tree_area(o.symbol_id)
+                && o.tags
+                    .iter()
+                    .any(|(k, v)| k == "freemapper:source" && v == GENERALIZATION_SOURCE))
+            .then_some(Group::Trees)
+        })
+    }
+
+    /// Whether `symbol_id` is the symbol of a tree group area (402, 405, 501.3, 416).
+    pub(crate) fn is_tree_area(&self, symbol_id: u32) -> bool {
+        self.tree_areas.contains(&symbol_id)
+    }
+}
+
 /// Sends the objects of `map` and `candidates` by `settings`: an object of a group goes where
 /// its group is sent (a moved object goes to the end of its new list). An object with no group,
 /// a candidate that is hidden (`freemapper:hidden`) and an object the settings leave alone stay.
@@ -433,24 +498,7 @@ pub fn route(
     candidates: &mut Vec<MapObject>,
     symbol_set: &SymbolSet,
 ) -> Routed {
-    let mut group_of: HashMap<u32, Group> = HashMap::new();
-    let mut area_id: HashMap<u32, ()> = HashMap::new();
-    for group in Group::ALL {
-        for code in group.codes() {
-            if let Some(id) = symbol_set.id_for_code(code) {
-                group_of.insert(id, group);
-            }
-        }
-    }
-    for code in Group::TREE_AREA_CODES {
-        if let Some(id) = symbol_set.id_for_code(code) {
-            area_id.insert(id, ());
-        }
-    }
-    // The edge of a paved area (501.1) of the street survey or the cadastre belongs to the
-    // streets; one from OpenStreetMap is the outline of the map area.
-    let edge_id = symbol_set.id_for_code("501.1");
-    let open_land_id = symbol_set.id_for_code("401");
+    let classifier = Classifier::new(symbol_set);
     let out_of_bounds_id = symbol_set.id_for_code("520");
     let tag = |o: &MapObject, key: &str| -> Option<String> {
         o.tags
@@ -458,6 +506,7 @@ pub fn route(
             .find(|(k, _)| k == key)
             .map(|(_, v)| v.clone())
     };
+    // A hidden candidate and one that stays a candidate whatever the profile are left alone.
     let classify = |o: &MapObject| -> Option<Group> {
         if o.tags
             .iter()
@@ -465,24 +514,7 @@ pub fn route(
         {
             return None;
         }
-        if o.tags.iter().any(|(k, _)| k == LANDFORM_KEY) {
-            return Some(Group::Landforms);
-        }
-        if o.tags.iter().any(|(k, _)| k == POINT_CLOUD_KEY) {
-            return Some(Group::Vegetation);
-        }
-        if Some(o.symbol_id) == edge_id {
-            return (rank(o) > Some(Rank::Osm)).then_some(Group::Streets);
-        }
-        // The green strips along the streets, as the street survey measured them.
-        if Some(o.symbol_id) == open_land_id {
-            return (rank(o) == Some(Rank::Survey)).then_some(Group::Streets);
-        }
-        group_of.get(&o.symbol_id).copied().or_else(|| {
-            (area_id.contains_key(&o.symbol_id)
-                && tag(o, "freemapper:source").as_deref() == Some(GENERALIZATION_SOURCE))
-            .then_some(Group::Trees)
-        })
+        classifier.group(o)
     };
     let mut routed = Routed::default();
     let mut moves: Vec<(bool, MapObject)> = Vec::new();
@@ -492,7 +524,7 @@ pub fn route(
             let group = classify(&object);
             // A tree group is as good as the trees it was made of: OpenStreetMap at the least.
             let source_rank = rank(&object).or_else(|| {
-                (group == Some(Group::Trees) && area_id.contains_key(&object.symbol_id))
+                (group == Some(Group::Trees) && classifier.is_tree_area(object.symbol_id))
                     .then_some(Rank::Osm)
             });
             let railway = group == Some(Group::OutOfBounds)

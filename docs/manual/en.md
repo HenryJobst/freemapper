@@ -422,7 +422,7 @@ Among other files, the project folder then holds:
 | File | What it is |
 |---|---|
 | `<name>.omap` | the map for OpenOrienteering Mapper, georeferenced, with buildings, canopies, water and the peripheral information |
-| `templates/` | the templates: orthophoto, hillshade, slope, local relief, nDSM and the candidates map, in Berlin also the K5 (chapter 13) |
+| `templates/` | the templates: orthophoto, hillshade, slope, local relief, nDSM and the seven candidate layers, in Berlin also the K5 (chapter 13) |
 | `ocad/` | with `--ocad`: the OCAD map and its templates |
 | `<name>.pdf` | with `--pdf`: the print-ready map without candidates |
 | `<name>-candidates.pdf` | with `--pdf-candidates`: the check print, the map with every candidate |
@@ -433,10 +433,30 @@ Among other files, the project folder then holds:
 | `permits.md`, `permits.json` | with `--permits` or `freemapper permits`: the permit notes (chapter 12) |
 
 Open the `.omap` file in OOM. The templates are already linked; show and hide them in the *Templates*
-menu. The **candidates** (`templates/candidates.omap`) are a separate map on top: fences, hedges,
-benches, contours, out-of-bounds areas, water from OSM and bridges. Check them and take over what is
-right: trace them, or open the candidates map and copy and paste the objects. Both maps have the same
+menu. The **candidates** lie on top in seven template maps, one per kind of object, so that you can look
+at one kind at a time:
+
+| Layer | File | Holds |
+|---|---|---|
+| terrain | `templates/candidates-terrain.omap` | banks, cliffs, knolls and depressions, contours |
+| water | `templates/candidates-water.omap` | brooks, ditches, springs, fountains, ponds |
+| vegetation | `templates/candidates-vegetation.omap` | open land (the green strips of the street survey too), vegetation areas, trees, hedges |
+| paths | `templates/candidates-paths.omap` | paths, streets, paved areas, stairs, passages, bridges |
+| barriers | `templates/candidates-barriers.omap` | walls, fences |
+| features | `templates/candidates-features.omap` | towers, monuments, benches and other street furniture, buildings, canopies |
+| out-of-bounds | `templates/candidates-out-of-bounds.omap` | areas that shall not be entered |
+
+The layers start hidden, so the map opens with its sure objects only. In the list of templates (menu
+*Templates*) you switch each layer on and off with its checkbox and set its opacity; it is 70 % to start
+with. Each layer also has the outline of the map area. Check the candidates and take over what is right:
+trace them, or open a layer file and copy and paste the objects. All these maps have the same
 georeferencing.
+
+A map written by freemapper 0.23.0 or older names one template, `templates/candidates.omap`. A run
+without `--force` leaves such a map alone: it fills that file with every candidate, writes the layers
+beside it and says so. `--force` replaces the map, which then lists the layers, and deletes the old file;
+the old map stays as `.omap.bak`. An OCAD map that names `ocad/<name>-candidates.ocd` among its background
+maps is treated the same way.
 
 On the sprint map the **walkable area** lies under everything: one area in the lower brown (the tone of
 501.5) over the whole map sheet, in its own map part `base`. It fills whatever nothing else shows.
@@ -584,12 +604,12 @@ freemapper run dammheide --training
 - **Cliffs** from OpenStreetMap are generalized (ADR 0126): in rock country OSM has them cliff by cliff, more than
   2000 at the Bastei. freemapper reads each cliff on the terrain model: how high the rock stands above its slope and
   which side is lower; the tags point there. A way is judged in stretches, and pieces of one face are joined. A
-  stretch less than 3 m above its slope goes to the candidates map. A closed cliff with the lower side outside is a
+  stretch less than 3 m above its slope goes to the candidates (layer terrain). A closed cliff with the lower side outside is a
   rock pillar and becomes 206 (enlarged to the norm's 0.3 mm² where smaller); one with the lower side inside is a
   hollow and stays a cliff. The highest cliffs are kept first; each keeps the gap of 0.25 mm between the sides that
   face each other (ISOM 2017-2; enlarged like the symbols). Where only its line has room it is drawn as the top line
   201.3, two cliffs back to back closer than that become one rock fin 206, and elsewhere a cliff is cut. The cliffs
-  are smoothed, so that the zigzag of the OSM lines goes. What goes is in the candidates map, tagged
+  are smoothed, so that the zigzag of the OSM lines goes. What goes is in the terrain layer of the candidates, tagged
   `freemapper:generalized` with the reason; the check print and the training map leave it out. The contours stop below
   the cliffs drawn and run on elsewhere; knolls and depressions of the terrain on the rock are hidden. For the heights
   a forest map in a state whose terrain model comes in tiles keeps it as `data/terrain.tif`. A cliff the orthophoto
@@ -618,7 +638,7 @@ dl-de/by-2-0, Daten geändert.
 | **Slope:** the darker, the steeper. Helps with banks and stairs. | [![Slope](images/slope-thumb.webp)](images/slope.jpg) |
 | **Local relief:** the terrain minus its smoothed mean (over about 5 m on sprint maps, 3 m on schoolyard maps, 8 m on forest maps). Light is higher than the surroundings, dark lower; the general fall of the ground is gone. Shows mounds, hollows, banks and ditches that the hillshade hides on a slope. | – |
 
-The candidates map also holds the **contours**: every 1 m on schoolyard maps, every 2 m on sprint maps,
+The terrain layer of the candidates also holds the **contours**: every 1 m on schoolyard maps, every 2 m on sprint maps,
 every 5 m, in flat land every 2.5 m or in steep land every 10 m on forest maps ([Forest maps](#forest-maps)), every fifth one an index contour. They are computed from the terrain model and smoothed. For the map
 they are a draft, not a finished result.
 
@@ -661,7 +681,7 @@ cache), mostly 50 to 165 MB in North Rhine-Westphalia, mostly 110 to 500 MB in R
 Saarland and mostly 100 to 600 MB in Bavaria; a park
 usually needs two to four tiles. Only `--content-set vegetation=candidates` (or the area page) makes the next
 `fetch` load them into the shared cache. `derive` writes `data/vegetation.geojson` from them, and the export puts
-the areas into the candidates map. There are none at buildings, in water or on paved areas; roofs that ALKIS no
+the areas into the vegetation layer of the candidates. There are none at buildings, in water or on paved areas; roofs that ALKIS no
 longer has are recognised by their laser echoes too. Where the map already has a park or a wood from ALKIS, the
 candidate shows only the part of another class.
 
@@ -964,8 +984,8 @@ In Berlin the street survey also has the carriageways. On the training map of a 
 street areas in the darker brown of heavy traffic (501.11, 50 % brown), and the kerb lines inside the street areas
 go. The edge of the street area stays. ISSprOM 2019-2 (501) says: "Edges within paved areas are generally not
 represented, unless they serve navigation". The base map and the check print do not draw the
-carriageways. They are hidden candidates. `templates/candidates.omap` and the OCAD candidates hold them, so OOM and
-OCAD show them there as dark brown areas over the streets. They are survey data like the other candidates and can
+carriageways. They are hidden candidates. The layer of the paths (`templates/candidates-paths.omap`) and its OCAD
+file hold them, so OOM and OCAD show them there as dark brown areas over the streets. They are survey data like the other candidates and can
 help when you map the streets.
 
 If objects still keep too little gap after all steps, a warning gives the length in mm; look at those places in OOM.
@@ -983,7 +1003,8 @@ With `--ocad` (or "with an OCAD file"), freemapper writes the folder `ocad/`:
 
 - `<name>.ocd`: the map in OCAD 12 format, with georeferencing, buildings and the templates as
   background maps;
-- `<name>-candidates.ocd`: the candidates as a separate map;
+- `<name>-candidates-<layer>.ocd`: the candidates, one map per layer (`terrain`, `water`, `vegetation`, `paths`,
+  `barriers`, `features`, `out-of-bounds`), listed as hidden background maps;
 - the template images with world files.
 
 The symbols in the OCAD file are placeholders with the right number and colour, but simple graphics.

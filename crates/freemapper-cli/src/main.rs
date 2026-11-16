@@ -517,13 +517,22 @@ fn report_ocad(outcome: &OcadOutcome) {
     let map = ("path", v(outcome.map.display()));
     if outcome.kept {
         println!("{}", text("cli-ocad-kept", &[map]));
+        if outcome.old_candidates {
+            let old = pipeline::old_ocad_candidates(outcome);
+            println!(
+                "{}",
+                text("cli-ocad-old-candidates", &[("path", v(old.display()))])
+            );
+        }
     } else {
         println!(
             "{}",
             text("cli-ocad-wrote", &[map, ("count", n(outcome.objects))])
         );
     }
-    wrote(&outcome.candidates);
+    for path in &outcome.candidates {
+        wrote(path);
+    }
     if outcome.skipped > 0 || outcome.dropped_parts > 0 {
         println!(
             "{}",
@@ -561,11 +570,15 @@ fn print_written(written: pipeline::Written, sources: PdfSources) {
                 }
                 MapOutcome::Kept {
                     map,
+                    old_candidates,
                     references_images,
                     missing_buildings,
                     missing_canopies,
                 } => {
                     kept(map);
+                    if *old_candidates {
+                        println!("{}", text("cli-map-old-candidates", &[]));
+                    }
                     if !references_images {
                         println!("{}", text("cli-map-lacks-templates", &[]));
                     }

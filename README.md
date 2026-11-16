@@ -231,8 +231,9 @@ Ergebnis im Projektordner:
   der Karte, jeweils mit Weltdatei (`.jgw`/`.pgw`); Schummerung, Hangneigung, lokales Relief und nDOM
   lassen sich in OOM einblenden. nDOM-Farben: gelb 0,3–1 m, orange 1–2,5 m, hellgrün 2,5–8 m,
   dunkelgrün über 8 m
-- `templates/candidates.omap` – Vorlagenkarte mit dem Umriss des Kartengebiets und Kandidaten aus
-  OpenStreetMap zum Prüfen und Übernehmen: Hydranten, Bänke, Tische, Laternen, Masten, Spielgeräte,
+- `templates/candidates-<layer>.omap` – sieben Vorlagenkarten (Gelände, Gewässer, Vegetation, Wege,
+  Barrieren, Objekte, Sperrgebiete), beim Öffnen der Karte ausgeblendet, jede mit dem Umriss des
+  Kartengebiets und den Kandidaten ihrer Art zum Prüfen und Übernehmen: Hydranten, Bänke, Tische, Laternen, Masten, Spielgeräte,
   Bäume, Hecken, Mauern, Zäune, Felskanten, Sportplätze (Regeln in `assets/rules/osm-candidates.toml`),
   Höhenlinien und verbotenes Gebiet (520) aus der ALKIS-Nutzung: auf der Schulhofkarte alles außer
   dem Schulgrundstück, auf der Sprintkarte Privatgelände (Wohn-, Gewerbe-, Mischnutzungs- und
@@ -356,7 +357,7 @@ schreibt zusätzlich den Ordner `ocad/`:
 
 - `<name>.ocd`: Karte im OCAD-12-Format (sollte sich in OCAD 12 und neuer öffnen), mit Georeferenz
   (ETRS89/UTM 33), Farben, den Kartenobjekten und den Vorlagen als Hintergrundkarten.
-- `<name>-candidates.ocd`: die Kandidaten als eigene OCAD-Karte.
+- `<name>-candidates-<layer>.ocd`: die Kandidaten, eine OCAD-Karte je Layer, als ausgeblendete Hintergrundkarten.
 - Luftbild, Schummerung, Hangneigung, lokales Relief und nDOM mit Weltdateien, direkt neben der `.ocd`.
 
 Die Symbole in der `.ocd` sind Platzhalter: richtige Nummer, Name und Hauptfarbe, aber einfache
@@ -369,8 +370,9 @@ für Sprint, IOF-Schulsatz 2019 für Schulhof, ISOM 2017-2 für Waldkarten), der
 
 Die Dateien sind noch nicht in OCAD geprüft. Was zu prüfen ist, steht in
 [`docs/ocad/test-checklist.md`](https://github.com/HenryJobst/freemapper/blob/main/docs/ocad/test-checklist.md), z. B. ob „Ersetzen“ beim Laden des
-Symbolsatzes die Randangaben-Symbole (991–994) behält und ob OCAD die Kandidaten-Karte deckungsgleich
-einblendet (sonst als Hintergrundkarte von Hand öffnen). Ordnernamen mit Umlauten werden für die
+Symbolsatzes die Randangaben-Symbole (991–994) behält und ob OCAD die sieben Kandidaten-Layer
+(`<name>-candidates-<layer>.ocd`) als ausgeblendete Hintergrundkarten führt und eingeblendet deckungsgleich zeigt
+(sonst als Hintergrundkarte von Hand öffnen). Ordnernamen mit Umlauten werden für die
 OCAD-Dateien in ASCII geschrieben („Straußberg“ → „Straussberg“).
 
 ## Mit einem KI-Agenten (MCP)

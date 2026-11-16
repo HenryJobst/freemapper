@@ -194,6 +194,24 @@ fn init_and_export(project: &std::path::Path) {
     );
 }
 
+/// The seven candidate layer files of `project` as one text (ADR 0156).
+fn candidate_layers_text(project: &std::path::Path) -> String {
+    [
+        "terrain",
+        "water",
+        "vegetation",
+        "paths",
+        "barriers",
+        "features",
+        "out-of-bounds",
+    ]
+    .iter()
+    .map(|layer| {
+        std::fs::read_to_string(project.join(format!("templates/candidates-{layer}.omap"))).unwrap()
+    })
+    .collect()
+}
+
 #[test]
 fn init_then_export_creates_starter_project() {
     let dir = tempfile::tempdir().unwrap();
@@ -203,7 +221,13 @@ fn init_then_export_creates_starter_project() {
     for file in [
         "freemapper.toml",
         "clara-zetkin-schule.omap",
-        "templates/candidates.omap",
+        "templates/candidates-terrain.omap",
+        "templates/candidates-water.omap",
+        "templates/candidates-vegetation.omap",
+        "templates/candidates-paths.omap",
+        "templates/candidates-barriers.omap",
+        "templates/candidates-features.omap",
+        "templates/candidates-out-of-bounds.omap",
         "ATTRIBUTION.txt",
         "clara-zetkin-schule-preview.webp",
         "data/map-preview.json",
@@ -269,7 +293,9 @@ fn outline_vertices_map_inside_paper() {
     let dir = tempfile::tempdir().unwrap();
     let project = dir.path().join("clara-zetkin-schule");
     init_and_export(&project);
-    let candidates = std::fs::read_to_string(project.join("templates/candidates.omap")).unwrap();
+    // Every candidate layer starts with the outline of the map area.
+    let candidates =
+        std::fs::read_to_string(project.join("templates/candidates-terrain.omap")).unwrap();
     assert!(candidates.contains(r#"<t k="freemapper:source_id">way/992423119</t>"#));
     let parts = candidates.find("<parts ").unwrap();
     let start = parts + candidates[parts..].find("<coords count=\"").unwrap();
@@ -399,10 +425,10 @@ fn live_run_school() {
         );
     }
     let map = std::fs::read_to_string(project.join("clara-zetkin-schule.omap")).unwrap();
-    assert!(map.contains(r#"<templates count="5" first_front_template="4">"#));
+    assert!(map.contains(r#"<templates count="11" first_front_template="4">"#));
     let buildings = map.matches(r#"<t k="freemapper:source">alkis</t>"#).count();
     assert!(buildings >= 5, "{buildings} ALKIS buildings");
-    let candidates = std::fs::read_to_string(project.join("templates/candidates.omap")).unwrap();
+    let candidates = candidate_layers_text(&project);
     assert!(
         candidates.contains("way/1028507308"),
         "OSM tartan pitch as a candidate"
@@ -709,7 +735,13 @@ fn export_ocad_keeps_an_existing_oom_map() {
     assert_eq!(std::fs::read_to_string(&map).unwrap(), "edited in OOM");
     let ocd = project.join("ocad/schule.ocd");
     assert_eq!(&std::fs::read(&ocd).unwrap()[0..2], &[0xAD, 0x0C]);
-    assert!(project.join("ocad/schule-candidates.ocd").exists());
+    assert!(project.join("ocad/schule-candidates-terrain.ocd").exists());
+    assert!(
+        project
+            .join("ocad/schule-candidates-out-of-bounds.ocd")
+            .exists()
+    );
+    assert!(!project.join("ocad/schule-candidates.ocd").exists());
     assert!(
         stdout.contains("schule.ocd") && stdout.contains("Load"),
         "{stdout}"

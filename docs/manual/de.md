@@ -438,7 +438,7 @@ Im Projektordner liegen danach unter anderem:
 | Datei | Was sie ist |
 |---|---|
 | `<name>.omap` | die Karte für OpenOrienteering Mapper, georeferenziert, mit Gebäuden, Überdachungen, Gewässern und Randangaben |
-| `templates/` | die Vorlagen: Luftbild, Schummerung, Hangneigung, lokales Relief, nDOM und die Kandidaten-Karte, in Berlin auch die K5 (Kapitel 13) |
+| `templates/` | die Vorlagen: Luftbild, Schummerung, Hangneigung, lokales Relief, nDOM und die sieben Kandidaten-Layer, in Berlin auch die K5 (Kapitel 13) |
 | `ocad/` | mit `--ocad`: die OCAD-Karte und ihre Vorlagen |
 | `<name>.pdf` | mit `--pdf`: die druckfertige Karte ohne Kandidaten |
 | `<name>-candidates.pdf` | mit `--pdf-candidates`: der Prüfausdruck, die Karte mit allen Kandidaten |
@@ -449,10 +449,30 @@ Im Projektordner liegen danach unter anderem:
 | `permits.md`, `permits.json` | mit `--permits` oder `freemapper permits`: die Hinweise zu Genehmigungen (Kapitel 12) |
 
 Öffnen Sie die `.omap`-Datei in OOM. Die Vorlagen sind schon eingebunden; im Menü *Vorlagen* blenden Sie
-sie ein und aus. Die **Kandidaten** (`templates/candidates.omap`) liegen als eigene Karte darüber. Dort
-stehen Zäune, Hecken, Bänke, Höhenlinien, Sperrgebiete, Gewässer aus OSM und Brücken. Prüfen Sie sie
-und übernehmen Sie, was stimmt: abzeichnen, oder die Kandidaten-Karte öffnen und die Objekte kopieren
-und einfügen. Beide Karten haben dieselbe Georeferenz.
+sie ein und aus. Die **Kandidaten** liegen darüber, in sieben Vorlagenkarten, einer je Objektart. So
+können Sie sich eine Art nach der anderen ansehen:
+
+| Layer | Datei | Inhalt |
+|---|---|---|
+| Gelände | `templates/candidates-terrain.omap` | Böschungen, Felsen, Kuppen und Senken, Höhenlinien |
+| Gewässer | `templates/candidates-water.omap` | Bäche, Gräben, Quellen, Brunnen, Teiche |
+| Vegetation | `templates/candidates-vegetation.omap` | offenes Gelände (auch die Grünstreifen der Straßenbefahrung), Vegetationsflächen, Bäume, Hecken |
+| Wege | `templates/candidates-paths.omap` | Wege, Straßen, befestigte Flächen, Treppen, Durchgänge, Brücken |
+| Barrieren | `templates/candidates-barriers.omap` | Mauern, Zäune |
+| Objekte | `templates/candidates-features.omap` | Türme, Denkmäler, Bänke und andere Stadtmöbel, Gebäude, Überdachungen |
+| Sperrgebiete | `templates/candidates-out-of-bounds.omap` | Flächen, die nicht betreten werden dürfen |
+
+Die Layer starten ausgeblendet, die Karte zeigt beim Öffnen also nur ihre sicheren Objekte. In der Liste
+der Vorlagen (Menü *Vorlagen*) blenden Sie jeden Layer mit seinem Häkchen ein und aus und stellen seine
+Deckkraft ein; sie beginnt bei 70 %. Jeder Layer enthält auch den Umriss des Kartengebiets. Prüfen Sie die
+Kandidaten und übernehmen Sie, was stimmt: abzeichnen, oder eine Layer-Datei öffnen und die Objekte
+kopieren und einfügen. Alle diese Karten haben dieselbe Georeferenz.
+
+Eine Karte von freemapper 0.23.0 oder älter nennt eine einzige Vorlage, `templates/candidates.omap`. Ein
+Lauf ohne `--force` lässt eine solche Karte unverändert: Er füllt diese Datei mit allen Kandidaten,
+schreibt die Layer daneben und sagt das. `--force` ersetzt die Karte, die dann die Layer nennt, und löscht
+die alte Datei; die alte Karte bleibt als `.omap.bak` erhalten. Eine OCAD-Karte, die `ocad/<name>-candidates.ocd`
+unter ihren Hintergrundkarten nennt, wird ebenso behandelt.
 
 Auf der Sprintkarte liegt unter allem die **belaufbare Fläche**: eine Fläche im unteren Braun (dem Ton von
 501.5) über das ganze Kartenblatt, im eigenen Kartenteil `base`. Sie füllt alles, was sonst nichts zeigt.
@@ -607,20 +627,20 @@ freemapper run dammheide --training
 - **Felswände** aus OpenStreetMap werden generalisiert (ADR 0126): Im Felsgebiet stehen sie dort Wand für Wand, an der
   Bastei mehr als 2000. freemapper liest jede Wand am Geländemodell: wie hoch der Fels über seinem Hang steht und
   welche Seite tiefer liegt; dorthin zeigen die Zacken. Eine Linie wird abschnittsweise beurteilt, Stücke einer Wand
-  werden verbunden. Ein Abschnitt, der weniger als 3 m über seinem Hang steht, kommt in die Kandidatenkarte. Eine
+  werden verbunden. Ein Abschnitt, der weniger als 3 m über seinem Hang steht, kommt zu den Kandidaten (Layer Gelände). Eine
   geschlossene Wand mit der tiefen Seite außen ist ein Felsturm und wird zur Fläche 206 (auf die Mindestgröße von
   0,3 mm² vergrößert, wo er kleiner ist); mit der tiefen Seite innen ist sie eine Senke und bleibt eine Wand. Die höchsten
   Wände bleiben zuerst; jede hält 0,25 mm Abstand zwischen den Seiten, die einander zugewandt sind (ISOM 2017-2;
   vergrößert wie die Symbole). Wo nur ihre Linie Platz hat, steht sie als Oberkante 201.3 ohne Zacken, zwei Wände
   Rücken an Rücken, die enger stehen, werden eine Felsrippe 206, sonst wird eine Wand gekürzt. Die Wände werden
-  geglättet, damit das Zickzack der OSM-Linien verschwindet. Was wegfällt, liegt in der Kandidatenkarte, mit dem Grund
+  geglättet, damit das Zickzack der OSM-Linien verschwindet. Was wegfällt, liegt im Kandidaten-Layer Gelände, mit dem Grund
   im Tag `freemapper:generalized`; Prüfausdruck und Trainingskarte lassen es weg. Die Höhenlinien enden unter den
   gezeichneten Wänden und laufen sonst weiter; Kuppen und Senken aus dem Geländemodell auf dem Fels werden
   ausgeblendet. Für die Höhen behält eine Waldkarte in einem Bundesland, dessen Geländemodell in Kacheln kommt, es als
   `data/terrain.tif`. Eine Wand, an der das Orthofoto Fels zeigt, bleibt zuerst (`freemapper:rock-seen`); eine, an der
   es keinen zeigt, verliert nichts, denn die meisten Wände sind senkrecht oder stehen unter Bäumen. Die Trainingskarte
   generalisiert den Fels stärker als die Karte: Wände ab 5 m, keine Oberkanten ohne Zacken, längere Stücke; die
-  Kandidatenkarte behält alle OSM-Wände. Sprintkarten generalisieren ihre Felswände ebenso, mit den Werten der ISSprOM
+  Kandidaten behalten alle OSM-Wände. Sprintkarten generalisieren ihre Felswände ebenso, mit den Werten der ISSprOM
   2019-2 (Wände ab 1,5 m, mindestens 0,9 mm lang; in der Trainingskarte ab 3 m; ADR 0134).
 - Gebäude, Gewässer, Mauern, Zäune, Stromleitungen, Bahnlinien und Sperrgebiete (520) kommen wie bei der
   Sprintkarte. Bänke, Poller, Laternen und anderes Stadtmobiliar fehlen, ebenso Bäume aus Baumkatastern und
@@ -643,7 +663,7 @@ Quelle: GeoSN, dl-de/by-2-0, Daten geändert.
 | **Hangneigung:** je dunkler, desto steiler. Hilft bei Böschungen und Treppen. | [![Hangneigung](images/slope-thumb.webp)](images/slope.jpg) |
 | **Lokales Relief:** das Gelände minus sein geglättetes Mittel (über etwa 5 m auf Sprintkarten, 3 m auf Schulhofkarten, 8 m auf Waldkarten). Hell ist höher als die Umgebung, dunkel tiefer; das allgemeine Gefälle ist weg. Zeigt Hügel, Mulden, Böschungen und Gräben, die die Schummerung am Hang verschluckt. | – |
 
-Dazu kommen die **Höhenlinien** in der Kandidaten-Karte: auf Schulhofkarten alle 1 m, auf Sprintkarten
+Dazu kommen die **Höhenlinien** im Kandidaten-Layer Gelände: auf Schulhofkarten alle 1 m, auf Sprintkarten
 alle 2 m, auf Waldkarten alle 5 m, in flachem Gelände alle 2,5 m oder in steilem alle 10 m ([Waldkarten](#waldkarten)), jede fünfte als
 Zählkurve. Sie sind aus dem Geländemodell berechnet und geglättet. Für die
 Karte sind sie ein Entwurf, kein fertiges Ergebnis.
@@ -690,7 +710,7 @@ Zwischenspeicher etwa 100 MB), meist 50 bis 165 MB in Nordrhein-Westfalen, meist
 Rheinland-Pfalz, etwa 40 MB im Saarland und meist 100 bis 600 MB in Bayern; ein Park braucht meist zwei bis vier
 Kacheln. Erst `--content-set vegetation=candidates`
 (oder auf der Gebietsseite) lädt sie beim nächsten `fetch` in den gemeinsamen Zwischenspeicher. `derive`
-schreibt daraus `data/vegetation.geojson`, und der Export legt die Flächen in die Kandidatenkarte. An Gebäuden,
+schreibt daraus `data/vegetation.geojson`, und der Export legt die Flächen in den Kandidaten-Layer Vegetation. An Gebäuden,
 im Wasser und auf gepflasterten Flächen gibt es keine; auch Dächer, die das ALKIS nicht mehr kennt, erkennt
 freemapper an ihren Laserechos. Wo die Karte schon einen Park oder Wald aus dem ALKIS hat, zeigt der Kandidat
 nur den Teil mit anderer Klasse.
@@ -1004,8 +1024,8 @@ In Berlin hat die Straßenbefahrung auch die Fahrbahnen. Die Trainingskarte eine
 Straßenflächen im dunkleren Braun für starken Verkehr (501.11, 50 % Braun), und die Bordsteine innerhalb der
 Straßenflächen entfallen. Der Rand der Straßenfläche bleibt. Die ISSprOM 2019-2 (501) sagt dazu: „Edges within paved
 areas are generally not represented, unless they serve navigation“. Grundkarte und Prüfausdruck zeichnen
-die Fahrbahnen nicht. Sie sind verborgene Kandidaten. `templates/candidates.omap` und die OCAD-Kandidaten enthalten
-sie, OOM und OCAD zeigen sie dort also als dunkelbraune Flächen über den Straßen. Es sind Vermessungsdaten wie die
+die Fahrbahnen nicht. Sie sind verborgene Kandidaten. Der Layer der Wege (`templates/candidates-paths.omap`) und
+seine OCAD-Datei enthalten sie, OOM und OCAD zeigen sie dort also als dunkelbraune Flächen über den Straßen. Es sind Vermessungsdaten wie die
 anderen Kandidaten, und sie können beim Kartieren der Straßen helfen.
 
 Halten nach allen Schritten noch Objekte zu wenig Abstand, nennt eine Warnung die Länge in mm; schauen Sie sich diese
@@ -1025,7 +1045,8 @@ Mit `--ocad` (oder „mit OCAD-Datei“) entsteht der Ordner `ocad/`:
 
 - `<name>.ocd`: die Karte im OCAD-12-Format, mit Georeferenz, Gebäuden und den Vorlagen als
   Hintergrundkarten;
-- `<name>-candidates.ocd`: die Kandidaten als eigene Karte;
+- `<name>-candidates-<layer>.ocd`: die Kandidaten, eine Karte je Layer (`terrain`, `water`, `vegetation`,
+  `paths`, `barriers`, `features`, `out-of-bounds`), als ausgeblendete Hintergrundkarten eingetragen;
 - die Vorlagenbilder mit Weltdateien.
 
 Die Symbole in der OCAD-Datei sind Platzhalter mit richtiger Nummer und Farbe, aber einfacher Grafik.

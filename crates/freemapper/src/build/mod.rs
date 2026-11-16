@@ -5,6 +5,7 @@ pub mod barrier_gaps;
 pub mod barriers;
 pub mod berlin;
 pub mod buildings;
+pub mod candidate_layers;
 pub mod candidates;
 pub mod canopy;
 pub mod cliffs;

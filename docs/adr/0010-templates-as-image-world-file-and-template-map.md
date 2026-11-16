@@ -1,7 +1,7 @@
 # 0010. Raster templates as image plus world file, vector templates as a template map
 
 Date: 2026-11-07
-Status: Accepted
+Status: Accepted, amended by ADR 0156 (the candidates in seven template maps)
 
 ## Context
 
