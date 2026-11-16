@@ -6,6 +6,11 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+### Behoben
+
+- Die Trainingskarte lässt weniger Wegenden frei (ADR 0150, Nachtrag, Issue #168). Ein kurzes Wegstück unter seiner Mindestlänge bleibt, wenn es Wege verbindet, die bleiben, auch wo eine Verschiebung oder ein Schnitt seine Enden von ihnen weggerückt hat, und seine Enden werden wieder an sie gelegt. Ein Pfad, der an einem Gehweg endete, den die Waldkarte weglässt, wird an die Straße gelegt. Eine Straße, die um einen Kreisverkehr herum zu einer Linie verbunden ist, wird wieder an ihren eigenen Ring gelegt. Jedes Ende wird nur verlegt, wenn die verschobene Linie zu allem den Abstand hält, von dem sie Abstand halten muss. In den drei Testgebieten sinken die freien Enden, an denen ein Weg auf einen anderen traf, von 11, 5 und 12 auf 1, 5 und 5 (Bremen Bürgerpark, Viktoriapark, Bastei). Jedes verbliebene nennt das ADR, meist eine Treppe unter drei Stufen, die nirgends hinführt.
+- Die Zusammenfassung zählt die freien Enden in zwei Zahlen, „Freie Linienenden: N dort, wo ein Weg auf einen anderen traf, N an anderen Linien“, statt „N Linienenden frei“. Die erste Art unterbricht das Wegenetz im Druck. Die zweite ist meist ein Ende an einem Zaun, Graben oder einer Böschung, die einem dritten Objekt gewichen ist.
+
 ## [0.24.0] - 2026-11-16
 
 ### Geändert

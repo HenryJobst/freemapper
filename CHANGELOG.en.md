@@ -6,6 +6,11 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
+### Fixed
+
+- The training map leaves fewer way ends free (ADR 0150, addendum, issue #168). A short way piece below its minimum length stays when it links ways that stay, also where a shift or a cut moved its ends off them, and its ends are drawn onto them again. A path that ended on a sidewalk the forest map leaves out is drawn onto the road. A road joined round a roundabout is drawn back onto its own ring. Each end is drawn only when the moved line keeps its gap to everything it keeps apart from. On the three test areas the free ends where a way met another way fall from 11, 5 and 12 to 1, 5 and 5 (Bremen Bürgerpark, Viktoriapark, Bastei). Each one left is named in the ADR: mostly a stair below three steps that leads nowhere.
+- The summary line counts the free ends in two numbers, "Line ends left free: N where a way met another way, N at other lines", instead of "N line ends left free". The first kind breaks the way network on print. The second is mostly an end on a fence, ditch or earth bank that gave way to a third object.
+
 ## [0.24.0] - 2026-11-16
 
 ### Changed
