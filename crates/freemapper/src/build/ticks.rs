@@ -10,7 +10,7 @@
 //!   nearly meet or that is bent round an area (three sides of a plot, an arc round a sports
 //!   ground). Else a fence beside an area that shall not be entered (520, olive green) has its
 //!   ticks towards that area, else they point away from a road or path running along one side,
-//!   else towards a park (401) beside it. Where none of these decides, the same area lies on both sides: the ticks go to the side
+//!   or a paved area (a street drawn as an area), else towards a park (401) beside it. Where none of these decides, the same area lies on both sides: the ticks go to the side
 //!   where they meet no other symbol that keeps its gap to a fence ([`conflicts::relation`]);
 //!   with room on both sides or on neither the fence stays as it is. A decided side stays where
 //!   its ticks overdraw something: turning is no means against overdrawing. A fence of the map
@@ -44,6 +44,9 @@ const MAP_LIST: usize = 0;
 const OLIVE_CODE: &str = "520";
 /// The park.
 const PARK_CODE: &str = "401";
+/// The paved areas of the cadastre and the survey: a street drawn as an area has no centre line
+/// that [`Others::way_vote`] could look at, so a fence along it is turned away by the area itself.
+const PAVED_CODES: [&str; 4] = ["501", "501.5", "501.10", "501.11"];
 
 /// A fence whose ends are no farther apart than this (ground metres) and than [`CLOSE_SHARE`] of
 /// its length counts as closed.
@@ -106,6 +109,7 @@ pub fn orient_ticks(
             .collect()
     };
     let (olive, park) = (areas(OLIVE_CODE), areas(PARK_CODE));
+    let paved: Vec<Polygon<f64>> = PAVED_CODES.iter().flat_map(|c| areas(c)).collect();
 
     let scale = SymbolScale::drawn_with(symbol_set, georef.scale_denominator);
     let grow = (FENCE_TICK_MM + LINE_GAP_MM + NEAR_MM).on_paper(scale).0;
@@ -158,6 +162,10 @@ pub fn orient_ticks(
         let others = Others::of(lists, &fences, symbol_set);
         for f in fences.iter_mut().filter(|f| f.vote == 0) {
             f.vote = others.way_vote(f, reach_m, georef);
+        }
+        // Away from a street drawn as a paved area.
+        for f in fences.iter_mut().filter(|f| f.vote == 0) {
+            f.vote = -area_vote(&f.samples, &paved);
         }
         for f in fences.iter_mut().filter(|f| f.vote == 0) {
             f.vote = area_vote(&f.samples, &park);
@@ -892,6 +900,33 @@ mod tests {
             path(&f, "501.8", &[(0.0, 2.0), (40.0, 2.0)]),
             east_fence(&f),
         ];
+        assert_eq!(run(&f, &mut objects, None), Turned::default());
+    }
+
+    #[test]
+    fn a_fence_at_the_edge_of_a_paved_area_turns_away_from_it() {
+        let f = fixture(MapKind::Sprint);
+        // A street drawn as an area (501.5, a ring), 10 m wide, ends at the fence: it lies south
+        // of it, on the side of the ticks, and has no centre line of a road.
+        let street = |north: f64| {
+            let mut o = path(
+                &f,
+                "501.5",
+                &[
+                    (0.0, north),
+                    (40.0, north),
+                    (40.0, north - 10.0),
+                    (0.0, north - 10.0),
+                ],
+            );
+            o.coords.last_mut().unwrap().flags = FLAG_CLOSE;
+            o
+        };
+        let mut objects = vec![street(0.0), east_fence(&f)];
+        assert_eq!(run(&f, &mut objects, None).fences, 1);
+        assert!(start(&f, &objects[1]).0 > 30.0, "{:?}", objects[1].coords);
+        // The street north of the fence is on its left: nothing to turn.
+        let mut objects = vec![street(10.0), east_fence(&f)];
         assert_eq!(run(&f, &mut objects, None), Turned::default());
     }
 

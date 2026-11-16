@@ -8,6 +8,7 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ### Changed
 
+- A fence along a street drawn as an area (cadastre, 501.5) now has its ticks on the side that points away from the street; before, it kept the side of its source when no road line lay beside it (ADR 0158). The training map drops single trees (417, 418) in a forest area (405), because the white forest is the trees; on open land they stay. The map and the training map change after `export --force`.
 - Hamburg: a bollard, bench or lamp of the Feinkartierung replaces the OpenStreetMap point at the same place, as Berlin's survey already does (ADR 0149): up to 2 m for bollards and benches, up to 5 m for lamps. The OSM point is then named in `freemapper:also`, and a sprint map has one control site fewer there. For that the set of the Feinkartierung keeps the kind of control site (`hamburg:control`) on the candidate. Existing maps change after `export --force`.
 - Berlin runs through the same path as Hamburg's Feinkartierung now, and the engine names no region any more (ADR 0149). Maps and project files stay as they were. A warning about an unknown layer entry in `freemapper.toml` names the state of its set instead of always Berlin.
 
