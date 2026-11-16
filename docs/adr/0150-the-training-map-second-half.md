@@ -273,8 +273,9 @@ measurements read the ends from the report.
 **Short pieces that link ways.** Before the minimum sizes, `Junctions::links` gives, for each end of each way, the
 ways its recorded junctions link it to, when they lie within the reach of the repairs. `too_small` counts them as
 touching that end, so the rules stay as they were: a short way stays when an end continues on a way that stays, a
-short stairway needs both ends and is drawn as the way. A closed way below its minimum length stays when it links at
-least two ways. The last repair then draws the ends together again. *Ruling:* a recorded junction counts as a touch
+short stairway needs both ends and is drawn as the way. A closed way below its minimum length stays when it links ways
+of at least two keys, each with its end still at the junction and the ring within reach of that end, so two pieces
+of one line do not keep a ring. The last repair then draws the ends together again. *Ruling:* a recorded junction counts as a touch
 for the minimum sizes. *Cost:* a piece below the norm's minimum stays where it links ways. In Bremen the ring
 `way/286668359` of 0.98 mm, on which two paths end, is drawn.
 
@@ -296,29 +297,34 @@ before give way check nothing, since give way settles what they leave.
 
 **M3.** The ends recorded before the merge are followed after every step that moves lines
 (`Junctions::follow`): after the repair of the merge, after the join with the touch distance (a join moves nothing),
-after the shift and after its repair with the reach. The last repair finds an end within the touch distance of where
+after the shift, after its repair and after give way (which cuts ends back by up to the gap) with the reach. The
+last repair finds an end within the touch distance of where
 it was followed to. A join that made an end a vertex inside a line leaves no end, so it is not counted free on
 another end of that line, and moves that add up beyond the reach no longer lose an end. One record of an end that
-meets a line keeps another record of the same end from counting it free.
+meets a line keeps another record of the same end from counting it free. The gap between an end and the line it
+touched is meant both when that line was cut for the end's own line and when the end's own line was cut for it (a
+fence cut back for the path it ended on).
 
 **Smaller items.** A test for the second pass of the rule for paths and trams beside roads fails without it (a
-tram that only the merged road has in its zone). `points.rs` and `openings.rs` decide with `sqrt` of squared sums,
-not `hypot`.
+tram that only the merged road has in its zone). `openings.rs` decides with `sqrt` of squared sums, not `hypot`
+(`distance`, the only such call in code); the tests of `points.rs` and `openings.rs` do too.
 
 ### Measured
 
-On 2026-11-16 with the release build, on copies of the three examples (`run --force --training`, then
-`export --force --training`), counted by the program. Apart conflicts stayed 0 on all three.
+On 2026-11-16 with the release build after the review of PR #195, merged with main, on copies of the three examples
+(`run --force --training`, then `export --force --training`), counted by the program; "before" is main at the same
+time. Apart conflicts stayed 0 on all three. The Berlin rework on main (ADR 0149) changed the input of Viktoriapark,
+not its free ends.
 
 | | Bremen Bürgerpark | Viktoriapark | Bastei |
 |---|---|---|---|
 | Free ends where a way met another way, before | 11 | 5 | 12 |
 | Free ends where a way met another way, after | 1 | 5 | 5 |
 | Other free ends, before and after | 7 | 2 | 0 |
-| Summary of the training map, after | 476 joined, 170 shifted, 320 left out or cut | 93 joined, 35 shifted, 587 left out or cut | 248 joined, 57 shifted, 132 left out or cut |
-| Export, user CPU time before / after (least of six) | 36.9 s / 37.8 s | 10.2 s / 10.2 s | 6.1 s / 6.3 s |
+| Summary of the training map, after | 476 joined, 170 shifted, 320 left out or cut | 93 joined, 37 shifted, 1124 left out or cut | 248 joined, 57 shifted, 132 left out or cut |
+| Export, user CPU time before / after (least of three) | 35.1 s / 35.2 s | 6.9 s / 6.9 s | 5.7 s / 5.8 s |
 
-The machine was shared (load average 18 to 70), so the times are upper bounds.
+The machine was shared (load average 3 to 56), so the times are upper bounds.
 
 ### The free ends of ways left
 
@@ -335,11 +341,16 @@ Each one with its reason:
   there, and the pieces left were below the minimum length.
 - Bastei, `way/1114870845`: the footway `way/24350052` went whole beside the road `way/36914311`, since more than
   half of it lay in the road's gap zone. The path ends on its far part, 2.5 mm from the road, beyond twice the zone.
-  Keeping the far part of such a rider where ways end on it changes the rule of the forest map and needs a ruling.
+
+*Ruling (review of PR #195):* the Bastei footway stays parked. The review recommends keeping the far part of a
+dropped rider as a cut piece where other ways end on it, since the norm only forbids drawing inside the road's zone,
+but that changes the rider rule and is left out of this change. *Ruling:* the stair `way/775368128` of Viktoriapark,
+which reaches the edge of a paved area, stays counted as a stair that leads nowhere for now. Both are in issue
+#196, with the rest below.
 
 ### Still parked
 
-These items of the second half stay as they were. Each needs a ruling, or is harmless:
+These items of the second half stay as they were (issue #196). Each needs a ruling, or is harmless:
 
 - Three lines side by side merge in two rounds; a second merge can still loosen the ends the first drew onto the
   kept line by up to half the distance.
