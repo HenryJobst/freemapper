@@ -1333,20 +1333,44 @@ pub(crate) mod tests {
         assert_eq!(status, 404);
     }
 
+    /// "Done" is answered, and the server stops. The page does what this test does: it asks once
+    /// and finishes whether the answer comes or not (`web/app.js`), because the server closes
+    /// the connection as it stops, and Windows then resets it and may drop the answer. `raw`
+    /// asks again when it gets none, and the server is gone by then, so it is not used here.
     #[tokio::test(flavor = "multi_thread")]
     async fn done_stops_the_server() {
         let (selector, _dir) = selector_with(TileProxy::new()).await;
         let origin = origin_of(&selector.url);
-        let (status, _, body) = request(
-            &selector.url,
-            "POST",
-            "api/done",
-            json_post(&origin),
-            "{}".into(),
-        )
-        .await;
-        assert_eq!(status, 200);
-        assert!(body.contains("\"done\":true"), "{body}");
+        let url = selector.url.clone();
+        let answer = tokio::task::spawn_blocking(move || {
+            use std::io::{Read, Write};
+            let host = url
+                .strip_prefix("http://")
+                .unwrap()
+                .split('/')
+                .next()
+                .unwrap();
+            let prefix = &url[url.find(host).unwrap() + host.len()..];
+            let body = "{}";
+            let request = format!(
+                "POST {prefix}api/done HTTP/1.1\r\nHost: {host}\r\nOrigin: {origin}\r\n\
+                 Content-Type: application/json\r\nContent-Length: {}\r\n\
+                 Connection: close\r\n\r\n{body}",
+                body.len()
+            );
+            let mut stream = std::net::TcpStream::connect(host).unwrap();
+            stream.write_all(request.as_bytes()).unwrap();
+            let mut answer = Vec::new();
+            let _ = stream.read_to_end(&mut answer);
+            String::from_utf8_lossy(&answer).to_string()
+        })
+        .await
+        .unwrap();
+        // An answer that comes is the right one; one that Windows drops does not fail the test.
+        if !answer.is_empty() {
+            assert!(answer.starts_with("HTTP/1.1 200"), "{answer}");
+            assert!(answer.contains("\"done\":true"), "{answer}");
+        }
         tokio::time::timeout(std::time::Duration::from_secs(10), selector.finished())
             .await
             .expect("the server stops after done")
