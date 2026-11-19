@@ -30,7 +30,8 @@ Behörde: Lantmäteriet (Kartografie, Kataster und Grundbuch). Vertrieb: Geotorg
   tragen ein OAuth2-Bearer-Token [doc], und der Asset-Host antwortet ohne eines mit `401` [live]. Es gibt keine
   schlüsselfreie Download-URL und kein schlüsselfreies WMS für Höhen, Orthofoto oder Vektoren. Nach dem Bericht
   eines schwedischen Orientierungsläufers lassen sich außerdem je Vorgang nur wenige Kacheln laden
-  [unverified] — für eine Karte heißt das Handarbeit (§2).
+  [unverified] — für eine Karte heißt das Handarbeit (§2). Schlüsselfrei sind dagegen Bodenbedeckung und
+  Objekthöhe (NMD, 10 m, CC0) und die Schutzgebiete (§7).
 * **Die Metadaten sind schlüsselfrei und brauchbar.** Drei STAC-Kataloge antworten ohne Token, mit Footprint,
   Auflösung, CRS, Dateigröße und einer direkten Asset-URL je Kachel [live]. Ein Adapter kann einen schwedischen
   Download *planen*, ohne Zugangsdaten, und scheitert erst beim Holen.
@@ -55,6 +56,8 @@ Behörde: Lantmäteriet (Kartografie, Kataster und Grundbuch). Vertrieb: Geotorg
 |---|---|---|---|---|---|---|
 | Gebäude | Byggnader (`stac-vektor`) | nein | GeoPackage im Zip | 3006 | CC BY 4.0 | Token, GPKG-Leser |
 | Bodenbedeckung (Wald, Feld, Siedlung) | Marktäcke (`stac-vektor`) | nein | GeoPackage im Zip | 3006 | CC BY 4.0 | Token, GPKG-Leser |
+| Bodenbedeckung, grob | NMD (`lc-nmd`) | **ja** | GeoTIFF, 16 Bit, 10 m | 3006 | CC0 1.0 | 10 m grob, PackBits |
+| Objekthöhe und -täckning (grober nDSM) | NMD tilläggsskikt | **ja** | vier Raster, 10 m | 3006 | CC0 1.0 | 10 m grob |
 | Verwaltungseinheiten, Küstenlinie | Kommun, län och rike | nein | GeoPackage im Zip | 3006 | CC BY 4.0 | Token, GPKG-Leser |
 | Wege, Trassen, kleine Objekte | OSM (`europe/sweden`) | ja | PBF | WGS84 | ODbL | 982 MB Extrakt, kein Teil-Extrakt |
 | Orthofoto | Ortofoto (`stac-bild`, 737 Sammlungen) | nein | COG, 0,16 m RGBI | 3006 | CC BY 4.0 **plus DSGVO-Prüfung** | Token, 8-Bit-COG-Leser, ~0,6 GB je Kachel |
@@ -226,7 +229,7 @@ Die Punktwolke, `25a005-61775_3850_25` [live]: `…/hojd/data/sls/25a005/y25a005
 Namen: DTM `m<E/10000>_<N/10000>.tif` im Ordner `<floor(N/100000)>_3/`; DSM
 `y<Gebiet>-<N/10000>_<E/10000>_<Eoffset/100><Noffset/100>_dsm.tif`; Orthofoto
 `o<N/100>_<E/100>_25_mr<yy>.tif` [live]. Die Südwest-Ecke im Namen ist Lantmäteriets eigenes Indexsystem
-und in HMK – Höjdmodell 2023 vorgeschrieben [doc], siehe §7.4.
+und in HMK – Höjdmodell 2023 vorgeschrieben [doc], siehe §7.5.
 
 Zur Größenordnung: eine Kartenfläche samt Puffer von höchstens 4 km je Seite (`MAX_AREA_SIDE_M` = 20 000 px ×
 0,2 m) berührt **eine bis vier** DTM-Kacheln, **bis zu neun** DSM-Kacheln und **bis zu neun**
@@ -346,13 +349,38 @@ Projekt mischt sie nie mit DHHN2016 einer deutschen Quelle.
   Erlaubnishinweis am meisten braucht: Naturreservate und Natura-2000-Gebiete sind die Stellen, an denen ein
   Orientierungslauf die Erlaubnis der Provinzverwaltung braucht.
 
-### 7.2 Copernicus DEM
+### 7.2 Nationella marktäckedata: Bodenbedeckung ohne Konto
+
+Naturvårdsverket führt mit zehn anderen Behörden (darunter Lantmäteriet und Skogsstyrelsen) eine landesweite
+Bodenbedeckungskarte, die **ohne Konto** abrufbar ist — für freemapper die einzige schlüsselfreie Quelle, die an
+die Stelle von `marktacke` treten könnte:
+
+* **Basisschicht**: 54 thematische Klassen in vier Hierarchiestufen (NMD2023 v2.x), Raster mit **10 m**, CRS
+  SWEREF99 TM (EPSG:3006), als **16-Bit-Ganzzahl** und GeoTIFF mit **PackBits** geliefert; ganz Schweden als
+  Zip mit 2 705 971 730 B [live], die ältere NMD2018 (25 Klassen, 1,4 GB) daneben [live]. Je Provinz einzeln
+  im offenen Verzeichnisindex `…/NMD2018/bas_lan_ogen/` (Stockholm 33 MB) [live] — der Bezug ist also
+  stückelbar, anders als bei Lantmäteriet (§10).
+* **Zusatzschichten**: *objekthöjd och objekttäckning* mit vier 10-m-Rastern (Objekthöhen 0,5–5 m und 5–45 m,
+  dazu der Bedeckungsgrad beider Höhenbänder), ferner Produktivität, Landnutzung, Baumarten, Gebirgswald und
+  Bodenbearbeitung [live] [doc]. Das Höhenband ist ein grober nDSM-Ersatz für die Baumlogik der Trainingskarte
+  — auf 10 m, also ohne Einzelbäume.
+* **Lizenz**: die Policy von Naturvårdsverket sagt „Rapporter, bilder, filmer och ljudklipp ska licensieras med
+  CC-by licens. Övriga data ska licensieras med CC0.“ und „Naturvårdsverkets data som tillgängliggörs med CC0
+  är fria att använda, sprida, göra om, modifiera och bygga vidare på“ [doc] — also CC0 1.0 ohne
+  Namensnennungspflicht (die führen wir trotzdem).
+* **Darstellung**: ein WMS unter `…/inspire/lc-nmd/ows` mit EPSG:3006 und den Layern der Jahre 2018 und 2023
+  antwortet schlüsselfrei [live].
+* **Vorbehalt**: NMD2023 ist noch in Produktion; 2026 liegt der Schwerpunkt auf den Fjällen [doc]. Ob jede
+  Kartenfläche schon in v2.x vorliegt, muss ein Adapter je Fläche prüfen, und die 10 m sind gröber als
+  Lantmäteriets Vektordaten.
+
+### 7.3 Copernicus DEM
 
 `https://copernicus-dem-30m.s3.amazonaws.com/…/Copernicus_DSM_COG_10_N55_00_E013_00_DEM.tif` antwortete `206`
 auf eine Range-Anfrage [live] — ein schlüsselfreier, grober (30 m) Gelände-Rückfall zu den Bedingungen des
 Copernicus DEM (freie Nutzung mit Namensnennung). Zu grob für Höhenlinien im 5-m-Abstand, brauchbar als Prüfung.
 
-### 7.3 Was nicht antwortet
+### 7.4 Was nicht antwortet
 
 | Dienst | Antwort [live] |
 |---|---|
@@ -365,7 +393,7 @@ Copernicus DEM (freie Nutzung mit Namensnennung). Zu grob für Höhenlinien im 5
 Die Topowebb-Endpunkte waren einmal offene Daten mit Schlüssel; die `503` deutet darauf, dass sie für anonyme
 Nutzung geschlossen sind [unverified, ob das dauerhaft ist].
 
-### 7.4 HMK: die Handbücher
+### 7.5 HMK: die Handbücher
 
 Die Handbuchreihe HMK (Handbok i mät- och kartfrågor) liegt als offene PDFs auf `lantmateriet.se` [live], ohne
 Konto: *Höjdmodell 2023*, *Ortofoto 2017*, *Flygburen laserskanning 2024*, *Grundkarta 2025*, *Kartografi
@@ -387,6 +415,20 @@ erwarten darf:
   Ansehen über Dienste sollen kostenfrei sein [doc]. Der Rahmen verlangt also Zugang; die Umsetzung verlangt
   ein Konto (§2) und begrenzt den Bezug (§10). Ob die berichtete Kachelgrenze mit dieser Pflicht im Verhältnis
   steht, ist eine Rechtsfrage und hier nicht beantwortet.
+
+### 7.6 Geodataportalen: ein schlüsselfreier Katalog
+
+`https://www.geodata.se/geodataportalen/srv/eng/csw` ist ein CSW 2.0.2 der schwedischen Geodateninfrastruktur
+und antwortet ohne Konto [live]. Er liefert keine Daten, ist aber der Weg, auf dem die schlüsselfreien Quellen
+auffindbar sind: die Datensätze zu NMD, zu SGU und zu den Länsstyrelsen tragen dort ihre Download- und
+WMS-Adressen [live] — die NMD-Verweise in §7.2 stammen von dort.
+
+Zwei Eigenheiten für den, der ihn abfragt [live]:
+
+* `GetRecords` braucht `CONSTRAINT_LANGUAGE_VERSION=1.1.0`, sonst kommt `MissingParameterValue`.
+* Ein `%` in der CQL-Bedingung lässt den Dienst mit `UnknownFormatConversionException` abbrechen, ein
+  Platzhalter ist also nicht zu gebrauchen. Mehrwortige und schwedische Suchbegriffe treffen schlecht
+  (`AnyText like 'Marktäckedata'` → 0, `'grunddata'` → 19); einzelne Wortstämme treffen.
 
 ---
 
@@ -417,17 +459,18 @@ neuen Formatleser — ein erhebliches Stück Code, und eines, für das ein Zip u
 komprimiert, Prädiktor 1–3**, mit `ModelPixelScale` (33550) und `ModelTiepoint` (33922), in Blöcken von
 höchstens 128 MB. Das schwedische Orthofoto ist 8-Bit-RGBI in einem COG; der Leser lehnt es bei seiner ersten
 Prüfung ab (`samples, bits, format != (1, 32, 3)`). Die 8 Bit je Kanal sind der schwedische Standard (HMK –
-Ortofoto 2017, §7.4), kein Ausreißer einzelner Kacheln. Die Orthofoto-Vorlage bräuchte stattdessen einen
+Ortofoto 2017, §7.5), kein Ausreißer einzelner Kacheln. Die Orthofoto-Vorlage bräuchte stattdessen einen
 gekachelten 8-Bit-Leser mit Bandverschachtelung und entweder einem JPEG- oder einem deflate-Dekoder. Ohne ihn
 gibt es in Schweden gar kein Orthofoto — kein WMS liefert eines, und ein Kachel-Download von 0,6 GB je 2,5 km
 ist die einzige Alternative.
 
-### 8.4 Deflate im Höhenleser
+### 8.4 Deflate und PackBits im Rasterleser
 
 Die COGs von DTM und DSM sind **deflate** (Kompression 8) und 512 × 512 gekachelt [live]. `tiff_range` verlangt
-Kompression **5** und lehnt `8` rundheraus ab. Das ist die kleinste der Lücken: ein weiterer Dekoder neben
-`decode_lzw_block`, dazu eine Testdatei. Damit wird der DTM per Range lesbar wie ein deutsches DOM1 — die
-10-km-Kachel kostet dann nur die Blöcke, die die Kartenfläche braucht.
+Kompression **5** und lehnt `8` rundheraus ab. Mit NMD (§7.2) kommt eine dritte Kompression hinzu: **PackBits**
+(32773), dazu 16-Bit-Ganzzahlen statt Float32. Das ist die kleinste der Lücken: zwei weitere Dekoder neben
+`decode_lzw_block`, dazu je eine Testdatei. Damit wird der DTM per Range lesbar wie ein deutsches DOM1 — die
+10-km-Kachel kostet dann nur die Blöcke, die die Kartenfläche braucht — und NMD lesbar ohne den 2,7-GB-Umweg.
 
 ### 8.5 Das 2,5-km-Gitter gegen `RasterKind::Tiles`
 
@@ -445,9 +488,11 @@ ist, aber ein Adapter darf es nicht voraussetzen.
 `RegionAdapter::rasters` dokumentiert `None` als „the region has ALKIS but no rasters, and no map can have its
 centre in it“ (`crates/freemapper-adapter-api/src/adapter.rs`), und `check_area` lehnt eine Fläche ab, wenn
 `raster_region_in` keinen Adapter findet (`crates/freemapper/src/project.rs`, `ProjectError::OutsideCoverage`).
-Eine schwedische Region allein auf OSM **kann also keine Karte beherbergen**, so viel OSM sie auch hat.
-Schweden als „OSM plus Schutzgebiete“ aufzunehmen braucht eine bewusste Entscheidung, diese Regel für eine
-Region ohne Raster zu lockern — ein ADR, kein Manifest.
+Eine schwedische Region allein auf OSM **kann also keine Karte beherbergen**, so viel OSM sie auch hat. Das
+NMD-Raster aus §7.2 hilft hier nicht: `RasterRecords` (`crates/freemapper-adapter-api/src/project.rs`) kennt
+Kacheln, Orthofoto, Gelände und Oberfläche, keine Bodenbedeckung, und die Regel hängt an diesen dreien.
+Schweden als „OSM und NMD“ aufzunehmen braucht daher eine bewusste Entscheidung, diese Regel für eine Region
+ohne solche Raster zu lockern — ein ADR, kein Manifest.
 
 ### 8.7 Die Grenze
 
@@ -473,8 +518,8 @@ Messungen.
 | Option | Arbeit | Ergebnis |
 |---|---|---|
 | **A. Voller Adapter** | Token-Provider in der Adapter-API und im Fetcher; deflate- (und 8-Bit-)TIFF-Range-Leser; GeoPackage-Leser; `RasterKind`-Gitter in Metern oder ein nähendes Backend; Grenze; Manifest; Namensnennung; Tests mit aufgezeichneten Fixtures; dazu ein Weg für den Bezug, wenn die berichtete Kachelgrenze auch für die API gilt (§10). Etwa 6 bis 11 fokussierte Aufgaben, und das erste freemapper-Feature, das Zugangsdaten halten muss. | Eine schwedische Karte wie eine deutsche: Gebäude, Bodenbedeckung, DTM-Höhenlinien, Orthofoto, nDSM aus Daten mit `other`-Lizenz und unklarer Rechtsgrundlage. |
-| **B. OSM plus Schutzgebiete** | Ein ADR, das eine Region zulässt, deren `rasters()` `None` ist; eine Region mit Grenze und ohne Raster-Backend; `permits`-Quellen für Naturvårdsverket (CC0, schlüsselfrei). Keine Zugangsdaten, kein neues Format. | Eine Karte mit OSM-Wegen, Gebäuden und Landnutzung aus OSM, Höhenlinien aus nichts, kein Orthofoto, kein nDSM. Die Trainingskarte verliert ihre Baumlogik. |
-| **C. Nur Dokumentation** | Diese Datei. | Eine Antwort für die nächste Person, die fragt, einschließlich der fünf Tatsachen, die entscheiden: Token, Kachelgrenze, GeoPackage, deflate-COG, „keine Raster, keine Karte“. |
+| **B. OSM, NMD und Schutzgebiete** | Ein ADR, das eine Region zulässt, deren `rasters()` `None` ist; eine Region mit Grenze und ohne Raster-Backend; OSM als Vektoren; NMD als Bodenbedeckung und grober Objekthöhe (§7.2); Schutzgebiete; ein Leser für 16-Bit-PackBits-TIFF. Keine Zugangsdaten. | Eine Karte mit OSM-Wegen und -Gebäuden, Bodenbedeckung und Baumdichte aus NMD auf 10 m, Schutzgebieten; keine Höhenlinien, kein Orthofoto, keine Einzelbäume. |
+| **C. Nur Dokumentation** | Diese Datei. | Eine Antwort für die nächste Person, die fragt, einschließlich der sechs Tatsachen, die entscheiden: Token, Kachelgrenze, GeoPackage, deflate-COG, NMD als schlüsselfreie Bodenbedeckung, „keine Raster, keine Karte“. |
 
 B ist billig, erzeugt aber eine Karte, die sichtbar ärmer ist als eine deutsche, und braucht ein ADR, das eine
 Regel für alle Regionen ändert. A ist die ehrliche Fassung und hängt an den Zugangsdaten und den beiden Lesern.
@@ -510,6 +555,10 @@ Offene Fragen, bevor A beginnt:
 * Ob jede Orthofoto-Sammlung 0,16 m hat; drei Stichproben in zwei Gebieten hatten es.
 * Ob RH2000 und DHHN2016 sich um eine Konstante unterscheiden, die zählte, wenn eine Karte je beide mischte.
   Für ein schwedisches Projekt allein nicht.
+* Ob NMD2023 v2.x schon jede Kartenfläche abdeckt; die Produktion läuft, 2026 mit Schwerpunkt auf den
+  Fjällen [doc].
+* Ob CC0 auch für die Zusatzschichten des NMD gilt; die Policy spricht von Daten allgemein, die Datensätze
+  selbst tragen keinen Lizenztext [doc].
 * Ob die `503` des Topowebb-WMTS dauerhaft ist.
 * Die genaue Lizenz von `marktacke` je Feature-Klasse; die Sammlung sagt CC BY 4.0.
 
@@ -550,6 +599,13 @@ curl -s 'https://geodatakatalogen.naturvardsverket.se/srv/eng/csw?service=CSW&re
 curl -s -r 0-99 https://copernicus-dem-30m.s3.amazonaws.com/Copernicus_DSM_COG_10_N55_00_E013_00_DEM/Copernicus_DSM_COG_10_N55_00_E013_00_DEM.tif
 curl -s -o /dev/null -w '%{http_code}\n' https://geodata.skogsstyrelsen.se/geoserver/wfs?service=WFS&request=GetCapabilities  # 403
 curl -s -o /dev/null -w '%{http_code}\n' https://api.lantmateriet.se/open/topowebb-ccby/v1/wmts/1.0.0/WMTSCapabilities.xml   # 503
+
+# Bodenbedeckung ohne Konto: NMD und der Katalog der Geodateninfrastruktur
+curl -s 'https://geodata.naturvardsverket.se/inspire/lc-nmd/ows?service=WMS&request=GetCapabilities&version=1.3.0'   # 200, EPSG:3006
+curl -sIL https://geodata.naturvardsverket.se/nedladdning/marktacke/NMD2023/Basskikt_v2_x/NMD2023_basskikt_v2_1.zip   # 2705971730 B
+curl -sIL https://geodata.naturvardsverket.se/nedladdning/marktacke/NMD2018/NMD2018_basskikt_ogeneraliserad_Sverige_v1_1.zip   # 1406790147 B
+curl -s https://geodata.naturvardsverket.se/nedladdning/marktacke/NMD2018/bas_lan_ogen/   # Verzeichnisindex, AB 33 MB
+curl -s 'https://www.geodata.se/geodataportalen/srv/eng/csw?service=CSW&request=GetCapabilities&version=2.0.2'   # CSW 2.0.2
 
 # HMK-Handbücher, schlüsselfreie PDFs
 curl -sI https://www.lantmateriet.se/globalassets/om-lantmateriet/var-samverkan-med-andra/hmk/handbocker/hmk_hojdmodell_2023.pdf   # 200
