@@ -2,7 +2,6 @@
 
 [Website](https://freemapper.de) · [English version](README.en.md) · [Handbuch](docs/manual/de.md) · [Glossar](docs/glossary.md) · [Änderungen](CHANGELOG.md) · [Beispiele](examples/README.md)
 
-[![Zeilenabdeckung](https://img.shields.io/badge/Coverage-95.9%25-brightgreen)](docs/coverage.json) [![MSRV](https://img.shields.io/badge/MSRV-1.88-blue)](Cargo.toml) [![ADRs](https://img.shields.io/badge/ADRs-159-blue)](docs/adr/README.md) [![Hygiene](https://img.shields.io/badge/Hygiene-11-brightgreen)](scripts/check.sh) [![Lizenz](https://img.shields.io/badge/Lizenz-AGPL--3.0--or--later-blue)](LICENSE)
 
 <!-- badges:start -->
 [![Zeilenabdeckung](https://img.shields.io/badge/Coverage-95.9%25-brightgreen)](docs/coverage.json) [![MSRV](https://img.shields.io/badge/MSRV-1.88-blue)](Cargo.toml) [![ADRs](https://img.shields.io/badge/ADRs-159-blue)](docs/adr/README.md) [![Hygiene](https://img.shields.io/badge/Hygiene-12-brightgreen)](scripts/check.sh) [![Lizenz](https://img.shields.io/badge/Lizenz-AGPL--3.0--or--later-blue)](LICENSE)

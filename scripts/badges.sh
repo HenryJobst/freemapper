@@ -108,7 +108,11 @@ for document in README.md README.en.md; do
   ' "$document")
 
   if [ "$check" -eq 1 ]; then
-    if [ "$current" != "$desired" ]; then
+    # A second copy outside the markers is a duplication, not an update: the
+    # block is the only place the badges stand.
+    copies=$(grep -c 'img.shields.io/badge/Coverage-' "$document" || true)
+
+    if [ "$current" != "$desired" ] || [ "$copies" -ne 1 ]; then
       echo "badges.sh: the badges in $document are out of date; run scripts/badges.sh" >&2
       failed=1
     fi
@@ -135,6 +139,11 @@ for line in lines:
         inside = False
         continue
     if not inside:
+        # A copy that an older run left outside the markers is dropped, so the
+        # block is the only place the badges stand. The match is on the shape,
+        # not on equality: such a copy carries the numbers of its own run.
+        if "docs/coverage.json" in line and "img.shields.io/badge/Coverage-" in line:
+            continue
         out.append(line)
 document.write_text("\n".join(out) + "\n")
 PY
