@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Control sites for course setters (ADR 0074, 0077): the street furniture of OSM, the Berlin
 //! street survey and the Berlin lighting cadastre that a sprint map does not draw as a map object
 //! but that makes a good control location, as 531 candidates.

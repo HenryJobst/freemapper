@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Map area: the polygon a map is generated for.
 
 use crate::crs::{BoundingBox, Crs, LatLon};

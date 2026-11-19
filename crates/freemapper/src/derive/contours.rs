@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Contour lines from the DTM (spec §4.4): smoothed, traced, simplified; candidates only.
 
 use geo::{Length as _, Simplify as _};
@@ -235,7 +237,7 @@ const CROWDED_SPACING: SymbolMm = SymbolMm(0.35);
 /// The tests sample the terrain at about this spacing; a percentile and a share need no more.
 const HEIGHT_SAMPLE_M: f64 = 5.0;
 
-/// The smoothed DTM of the map area, sampled about [`HEIGHT_SAMPLE_M`] apart: the height and the
+/// The smoothed DTM of the map area, sampled about `HEIGHT_SAMPLE_M` apart: the height and the
 /// slope of each sampled cell whose centre lies in the area. `NaN` where the DTM has no value.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct AreaTerrain {
@@ -287,7 +289,7 @@ fn crowded_share(slopes_deg: &[f32], interval_m: f64, scale: SymbolScale) -> f64
     crowded as f64 / total as f64
 }
 
-/// The heights and slopes of every cell about [`HEIGHT_SAMPLE_M`] apart of `raster` whose
+/// The heights and slopes of every cell about `HEIGHT_SAMPLE_M` apart of `raster` whose
 /// centre lies in `area` (same CRS), `NaN` included. The slope comes from the two neighbours on
 /// each axis.
 pub fn terrain_inside(raster: &Raster<f32>, area: &geo_types::Polygon<f64>) -> AreaTerrain {

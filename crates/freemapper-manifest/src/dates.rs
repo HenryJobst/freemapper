@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! `date` of a raster table: where the date of the raster is asked.
 
 use chrono::NaiveDate;

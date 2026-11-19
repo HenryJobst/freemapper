@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Carriageways (spec 2026-11-14, "The second half": Carriageways; ISSprOM 2019-2, 501: "Edges
 //! within paved areas are generally not represented, unless they serve navigation", "Differences
 //! in the brown colour shall be used to show differences in the traffic").

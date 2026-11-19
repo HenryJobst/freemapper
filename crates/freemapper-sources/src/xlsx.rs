@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Reading the cells of an xlsx workbook's first sheet (a zip of XML parts), for the metadata
 //! lists that come as spreadsheets.
 

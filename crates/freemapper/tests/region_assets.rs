@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The state boundaries and the OSM extract boundaries in the folders of the manifests
 //! (`crates/adapters/de/manifests/<id>/`) are valid geometries: a ring that crosses itself can put a point near the
 //! crossing into the wrong state or extract.

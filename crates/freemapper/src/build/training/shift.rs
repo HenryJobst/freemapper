@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Step 6 of the training level: shift before cutting (spec 2026-11-14, "The second half, as
 //! designed on 2026-11-15", "Shift"). A line that keeps no gap to an object it keeps apart from
 //! is moved away from it by what is missing to the gap, at most [`MAX_SHIFT_MM`] on paper, when

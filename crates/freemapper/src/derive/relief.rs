@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Local relief template from the DTM: the terrain minus its smoothed mean (an idea of
 //! omapmaker's local relief layer). Banks, knolls, hollows and ditches stand out; the general
 //! fall of the ground does not.

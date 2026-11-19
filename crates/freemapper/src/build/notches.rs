@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The notches of a surveyed line: small detours that leave a line and come back to it, such as
 //! a kerb run around a tree pit (ADR 0149). A set names the layers whose lines lose them
 //! (`SetDrawing::notch_free_layers`).

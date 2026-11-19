@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Reading single members out of huge zip archives by HTTP byte ranges (the central directory
 //! from the archive's end, then one member's local header and data), for the statewide
 //! Hamburg archive and the Hessian municipal ones, and for the Berlin laser archives (zip64,

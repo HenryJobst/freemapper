@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! nDSM template: LGB nDOM point clouds rasterized to heights above ground, where none is
 //! published the bDOM surface model minus the DGM1, as a coloured PNG; and the tree cover read
 //! from it.
@@ -126,8 +128,8 @@ pub(crate) fn bilinear(r: &Raster<f32>, e: f64, n: f64) -> Option<f32> {
     Some((top * (1.0 - ty) + bottom * ty) as f32)
 }
 
-/// The tree cover of `ndsm`: per cell of [`TREE_COVER_CELL_M`], aligned to the origin of the
-/// nDSM, the share of its nDSM cells with data that are at least [`TREE_HEIGHT_M`] high; `NaN`
+/// The tree cover of `ndsm`: per cell of `TREE_COVER_CELL_M`, aligned to the origin of the
+/// nDSM, the share of its nDSM cells with data that are at least `TREE_HEIGHT_M` high; `NaN`
 /// where none has data. The cells at the east and south edge may hold fewer nDSM cells. The
 /// nDSM does not tell trees from other things: everything at least as high counts, mostly trees,
 /// but also a pavilion, a shelter or another structure.

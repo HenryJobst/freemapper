@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Point symbol generalization (ISSprOM 2019-2 §3.1, §3.3, §4.4, §4.5): the point symbols the
 //! build adds keep the minimum gap on paper, a dense group of trees becomes the norm's group
 //! symbol (402, 405 or 501.3, cut at paving and paths; on a white base, a map without the walkable
@@ -867,11 +869,11 @@ fn tree_clusters(
 ///    in a 520 candidate (`out_of_bounds`, or one among `candidates`) stays a candidate tagged
 ///    [`HIDDEN_KEY`]` = 520` and takes no part in the rest: the training map leaves it out;
 /// 2. at least [`GROUP_MIN_TREES`] candidate trees that keep less than the minimum gap from one
-///    another or whose crowns come closer than [`GROUP_CLOSE_MM`], and are no row ([`is_row`]),
+///    another or whose crowns come closer than [`GROUP_CLOSE_MM`], and are no row (`is_row`),
 ///    become a group area (`group_areas`) where it reaches the symbol's minimum: 501.3 on
 ///    paving, else 405 or 402, a 405 off open land with a 416 boundary;
 /// 3. every other point keeps [`POINT_GAP_MM`] (× the enlargement) between the outer edges of
-///    the symbols ([`point_size_mm`]); the smaller of two points goes ([`larger_first`]), and
+///    the symbols ([`point_size_mm`]); the smaller of two points goes (`larger_first`), and
 ///    the kept one names it in `freemapper:generalized` (a map point names no candidate). A
 ///    candidate never drops a map point.
 ///

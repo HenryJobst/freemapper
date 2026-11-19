@@ -203,3 +203,5 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0155](0155-saarland-forest-roads-and-the-wire-class.md) | Saarland: the forest road network as candidates, and class 14 of the point cloud left out | Accepted | 2026-11-16 |
 | [0156](0156-candidate-layers.md) | The candidates in seven layers | Accepted, amends ADR 0003, 0010 and 0140 | 2026-11-16 |
 | [0157](0157-the-light-level-of-the-base-map.md) | The light level of the base map | Accepted, amends ADR 0126 and 0140 | 2026-11-16 |
+| [0158](0158-fences-along-paved-areas-and-trees-in-forest.md) | Fences along paved areas, and single trees in the forest | Accepted | 2026-11-16 |
+| [0159](0159-housekeeping-gates.md) | The repository checks its own housekeeping | Accepted | 2026-11-19 |

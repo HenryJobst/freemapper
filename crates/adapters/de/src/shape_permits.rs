@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Permit sources that are shapefiles in a zip for a whole state (ADR 0131), and the reading
 //! they share with the forest sources of North Rhine-Westphalia (ADR 0124): the zip is
 //! downloaded (50 MB at most), its `.shp` and `.dbf` read, the records whose box meets the map

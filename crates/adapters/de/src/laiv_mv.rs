@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! LAiV Mecklenburg-Vorpommern open data (CC BY 4.0, "©GeoBasis-DE/MV"), all in EPSG:25833:
 //! DGM1 and DOM1 from the MapServer WCS, masked to the 2 km tiles that the Downloadportal's
 //! `overview.php` lists.
@@ -123,7 +125,7 @@ pub(crate) fn overview_url(bbox: &BoundingBox, model: Model) -> String {
     )
 }
 
-/// The start of every [`overview_url`] of `model`, up to the bbox.
+/// The start of every `overview_url` of `model`, up to the bbox.
 pub fn overview_prefix(model: Model) -> String {
     format!("{OVERVIEW}?type[]={}&bbox=", model.overview_type())
 }

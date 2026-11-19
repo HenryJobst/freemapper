@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Project folder and project file (`freemapper.toml`).
 
 use crate::note::{Arg, Note, note};
@@ -361,17 +363,17 @@ pub struct ProjectFile {
     pub land_use: Option<AlkisRecord>,
     /// The layers of the sets of extra layers of the last online `fetch` (ADR 0149), by set key,
     /// then by file name under `data/<set key>`; Berlin's are written as `berlin_layers`, the
-    /// field older project files have ([`ExtraSets`]). A layer without objects in the area is
+    /// field older project files have (`ExtraSets`). A layer without objects in the area is
     /// recorded with count 0.
     #[serde(flatten)]
     pub extra_sets: ExtraSets,
     /// The NAS layers (full ALKIS) of the last online `fetch`, by file name under
-    /// [`NAS_LAYERS_DIR`]; empty outside the states with a NAS service. A layer without objects
+    /// `NAS_LAYERS_DIR`; empty outside the states with a NAS service. A layer without objects
     /// in the area is recorded with count 0, and `latest_update` is the newest `beginnt`.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub nas_layers: BTreeMap<String, AlkisRecord>,
     /// The city tree cadastres of the last online `fetch`, by dataset id under
-    /// [`TREE_LAYERS_DIR`]; empty outside the cities of the table. A dataset without trees in the
+    /// `TREE_LAYERS_DIR`; empty outside the cities of the table. A dataset without trees in the
     /// area is recorded with count 0, and `latest_update` is the newest tree survey date.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub tree_layers: BTreeMap<String, AlkisRecord>,
@@ -381,7 +383,7 @@ pub struct ProjectFile {
     /// The orthophoto from a WMS or WCS (GeoSN, LVermGeo, LGV, HVBG, LVermGeo SH: WMS; LAiV M-V: WCS); LGB orthophotos are tiles.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub orthophoto: Option<WmsRecord>,
-    /// The Berlin K5 map (1:5000) written as a template at [`K5_RELPATH`]; `flight` is the K5
+    /// The Berlin K5 map (1:5000) written as a template at `K5_RELPATH`; `flight` is the K5
     /// dataset date. Berlin only.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub k5: Option<WmsRecord>,
@@ -804,7 +806,7 @@ pub(crate) const NDSM_RELPATH: &str = "templates/ndsm.png";
 /// The Berlin K5 map (1:5000) as fetched; a template the mapper draws on, optional.
 pub(crate) const K5_RELPATH: &str = "templates/k5.png";
 /// The key of the raster template whose record the project file keeps in `k5` and whose file
-/// is [`K5_RELPATH`]: the one template there is. A second one needs a field of its own.
+/// is `K5_RELPATH`: the one template there is. A second one needs a field of its own.
 pub(crate) const K5_TEMPLATE: &str = "k5";
 /// The terrain mosaic of a tile provider (LGB, GeoSN) cut to the map area plus buffer, with its
 /// world file. `derive` writes it for every map (ADR 0134): the export reads the walking direction
@@ -1556,7 +1558,7 @@ fn raster_backend(region_bbox: &BoundingBox) -> Result<&'static dyn RasterBacken
         .ok_or(ProjectError::OutsideCoverage)
 }
 
-/// The raster template recorded in `k5` as the file [`K5_RELPATH`] (PNG and world file) over
+/// The raster template recorded in `k5` as the file `K5_RELPATH` (PNG and world file) over
 /// `bbox`, the map area plus buffer in the map's CRS: the template of the adapter that has it
 /// ([`extras::fetch_template_key_into`]). Optional like the extra layers: a failed request or a
 /// full disk (`skip`) leaves the template out with a warning, never fails the fetch. A stored
@@ -1840,7 +1842,7 @@ fn fetch_land_use_into(
     }
 }
 
-/// Downloads the NAS layers (full ALKIS) of `kind` for `area` to [`NAS_LAYERS_DIR`] and returns
+/// Downloads the NAS layers (full ALKIS) of `kind` for `area` to `NAS_LAYERS_DIR` and returns
 /// the records that replace `previous`, as `extras::fetch_set_into` does for a set's
 /// layers: a layer that fails is a warning and never fails the fetch (a stored file that still
 /// covers the area stays), a layer without objects is stored as an empty collection, outside the
@@ -1948,7 +1950,7 @@ fn fetches_tree_registers(kind: MapKind) -> bool {
     kind != MapKind::Forest
 }
 
-/// Downloads the city tree cadastres for `area` to [`TREE_LAYERS_DIR`] and returns the records
+/// Downloads the city tree cadastres for `area` to `TREE_LAYERS_DIR` and returns the records
 /// that replace `previous`, as [`fetch_nas_layers_into`] does for the NAS layers: a dataset that
 /// fails is a warning and never fails the fetch (a stored file that still covers the area
 /// stays), a dataset without trees is stored as an empty collection, outside the envelopes of

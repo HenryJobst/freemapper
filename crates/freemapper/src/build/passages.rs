@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Reachable building passages (ADR 0076). A 522 candidate that is a passage through or under a
 //! building matters only if a runner can get to it: from walkable ground at one end, or through
 //! a chain of passages (the Lübecker Höfe und Gänge). A passage that touches only buildings, an

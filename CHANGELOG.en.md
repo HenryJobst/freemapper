@@ -6,10 +6,17 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
+### Added
+
+- `scripts/check.sh` bundles the gates for the licence line, the spelling of the English documents, internal links, secrets in the history, declared but unused dependencies, action pins, the ADR index, the changelog pair, rustdoc without warnings, line coverage and the MSRV (ADR 0159). `lefthook.yml` runs the fast gates before a commit and `secrets` before a push; every Rust file carries the line `// SPDX-License-Identifier: AGPL-3.0-or-later`.
+
 ### Changed
 
 - The Sanssouci example is rebuilt with the training-map fixes of ADR 0158 and 0150. The fence along the street on the left of the map's middle has its ticks on the side away from the street now, and the white forest areas in the south west hold no single trees any more: the training map has 240 tree points instead of 725. The base map has one fence more (2282 map objects).
 - The Viktoriapark example is rebuilt with the training-map fixes of ADR 0158 and the free-end repairs of ADR 0150, and so is the README image. The white forest areas of the park hold no single trees any more: the training map has 618 tree points (417, 418) instead of 1164. Three fences along streets have their ticks on the side away from the street, on the map and on the training map. The overview numbers stay (3081 map objects, 829 candidates, 47 symbols), and so do the 5 free way ends. The other 28 examples stay as they were.
+- The declared MSRV rises from 1.88 to 1.99. The workspace's own code does not need it; the manifest of freemapper-core v0.29.0 does, because cargo rejects a member overriding `default-features` of an inherited workspace dependency until 1.99. A CI job checks the claim with 1.99.0 (ADR 0159).
+- Line coverage is measured: 95.9 %. `docs/coverage.json` holds the measurement, the floor sits at 94.0 %, and a run below it fails.
+- Three unused dependencies leave the `freemapper` crate: `crc32fast` and `weezl` belong to `freemapper-sources`, and `freemapper-text` is used by the CLI and the adapter API, not by the engine. `schemars` stays in the CLI with a `cargo-machete` exception, because the `JsonSchema` derive expands to paths in it.
 - A fence along a street drawn as an area (cadastre, 501.5) now has its ticks on the side that points away from the street; before, it kept the side of its source when no road line lay beside it (ADR 0158). The training map drops single trees (417, 418) in a forest area (405), also those the point move puts into the rim of one, because the white forest is the trees; on open land they stay. The map and the training map change after `export --force`.
 - Hamburg: a bollard, bench or lamp of the Feinkartierung replaces the OpenStreetMap point at the same place, as Berlin's survey already does (ADR 0149): up to 2 m for bollards and benches, up to 5 m for lamps. The OSM point is then named in `freemapper:also`, and a sprint map has one control site fewer there. For that the set of the Feinkartierung keeps the kind of control site (`hamburg:control`) on the candidate. Existing maps change after `export --force`.
 - Berlin runs through the same path as Hamburg's Feinkartierung now, and the engine names no region any more (ADR 0149). Maps and project files stay as they were. A warning about an unknown layer entry in `freemapper.toml` names the state of its set instead of always Berlin.

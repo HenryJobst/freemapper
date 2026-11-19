@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Drawing primitives as a one-page PDF: DeviceCMYK colours, painted by colour priority, texts in
 //! the standard fonts Helvetica / Helvetica-Bold with WinAnsi encoding. Paths go through the
 //! compact path writer of freemapper-core (`freemapper_render::pdf_path`, core ADR 0033).

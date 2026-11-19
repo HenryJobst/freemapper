@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The manifests of the German states against the constants they were written from: the
 //! services a manifest builds are the services the code names.
 

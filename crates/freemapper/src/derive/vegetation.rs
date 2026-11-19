@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Vegetation areas from a classified laser point cloud: open land, runnable forest, the green
 //! shades of slow running, walk and impassable vegetation, and undergrowth (ISSprOM 401, 405 to
 //! 410). For parks and, later, forest maps.
@@ -90,7 +92,7 @@ const BUILDING_MARGIN_M: f64 = 1.0;
 /// The cell of [`BuildingMask`].
 const MASK_CELL_M: f64 = 0.5;
 
-/// Where the returns are left out: on the buildings and within [`BUILDING_MARGIN_M`] of them.
+/// Where the returns are left out: on the buildings and within `BUILDING_MARGIN_M` of them.
 pub struct BuildingMask {
     grid: GridSpec,
     data: Vec<bool>,

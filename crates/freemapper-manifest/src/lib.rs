@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The adapter manifest of freemapper (ADR 0082): the TOML file that declares the standard
 //! services of a region adapter, format 1.
 //!

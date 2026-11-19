@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! ALKIS stairs (Berlin `Treppe`, `Freitreppe` areas and `Freitreppe` step edges) →
 //! 532.6–532.9 candidates (Berlin plus 1).
 //!
@@ -9,12 +11,12 @@
 //! steps) faces it, any other one runs along its short axis.
 //!
 //! The `Freitreppe` lines of `bauwerke-linien` are step edges. Parallel edges up to
-//! [`STEP_GAP_M`] apart that overlap along their length form one flight (exact duplicates are
+//! `STEP_GAP_M` apart that overlap along their length form one flight (exact duplicates are
 //! dropped), and the flight is one stair whose walking direction runs across the edges.
 //!
 //! The surveyed stairs (`sb-treppe`, Straßenbefahrung `cc_treppe` polygons) go the same way. ALKIS
 //! wins: a surveyed stair that covers an ALKIS stair area or flight by at least
-//! [`DUPLICATE_STAIR_SHARE`] of the smaller one is the same stair and is dropped; the ALKIS
+//! `DUPLICATE_STAIR_SHARE` of the smaller one is the same stair and is dropped; the ALKIS
 //! stair names it in `freemapper:also`. The survey's `trs` (probably the number of steps) stays
 //! as `berlin:trs`.
 //!
@@ -25,7 +27,7 @@
 //! An edge draws nothing on its own.
 //!
 //! The width across the walking direction, as paper width at the map scale, picks the footprint
-//! symbol nearest to it. A stair wider than [`WIDE_STAIR_FACTOR`] × the widest footprint (a
+//! symbol nearest to it. A stair wider than `WIDE_STAIR_FACTOR` × the widest footprint (a
 //! stadium stand) is drawn as parallel 532.9 lines across its width, one footprint plus the
 //! minimum gap of 0.15 mm apart, so the ticks of neighbouring lines do not run into each other.
 
@@ -396,7 +398,7 @@ impl StepEdge<'_> {
     }
 
     /// Whether `other` is a step of the same flight: nearly parallel, its middle within
-    /// [`STEP_GAP_M`] of this edge's line, and overlapping it along its length.
+    /// `STEP_GAP_M` of this edge's line, and overlapping it along its length.
     fn same_flight(&self, other: &Self) -> bool {
         let (u, v) = (self.unit(), other.unit());
         let cross = |p: Coord<f64>, q: Coord<f64>| p.x * q.y - p.y * q.x;
@@ -520,7 +522,7 @@ fn flight_axis(flight: &[&StepEdge<'_>], terrain: Option<&Raster<f32>>) -> (Axis
 
 /// 532.6–532.9 candidates for the stair areas and the flights of step edges of `input` within
 /// `buffer_m` of `map_area` (map CRS), with the footprints of the symbols of `kind`; `currency`
-/// is the fetch date of the layers. A stair wider than [`WIDE_STAIR_FACTOR`] × the widest
+/// is the fetch date of the layers. A stair wider than `WIDE_STAIR_FACTOR` × the widest
 /// footprint becomes parallel 532.9 lines one footprint plus the minimum gap apart, tagged `freemapper:size=wide`.
 pub fn stair_objects(
     input: &StairInput<'_>,
@@ -722,7 +724,7 @@ fn nas_stair_tags(feature: &Value, currency: NaiveDate) -> Vec<(String, String)>
 
 /// `osm` without the OSM stairs (any footprint symbol, [`STAIR_FOOTPRINTS_MM`]) that lie on a
 /// stair of the cadastre or the survey among `stairs` (the lines of [`stair_objects`]): at least
-/// [`DUPLICATE_STAIR_SHARE`] of the OSM line no farther from the cadastre line than the drawn
+/// `DUPLICATE_STAIR_SHARE` of the OSM line no farther from the cadastre line than the drawn
 /// width of its symbol. The cadastre stair nearest to most of the dropped line names it in
 /// `freemapper:also` (`osm/way/…`). An OSM stair that only crosses one stays, and so does every
 /// other object, in its order.
@@ -844,7 +846,7 @@ fn distance_to_line(p: (f64, f64), object: &MapObject) -> f64 {
         .fold(f64::INFINITY, f64::min)
 }
 
-/// Whether two stair footprints overlap by [`DUPLICATE_STAIR_SHARE`] of the smaller one.
+/// Whether two stair footprints overlap by `DUPLICATE_STAIR_SHARE` of the smaller one.
 fn same_stair(a: &Polygon<f64>, b: &Polygon<f64>) -> bool {
     let smaller = a.unsigned_area().min(b.unsigned_area());
     smaller > 0.0 && a.intersection(b).unsigned_area() >= DUPLICATE_STAIR_SHARE * smaller
@@ -860,7 +862,7 @@ struct StairWriter<'a> {
 
 impl StairWriter<'_> {
     /// One line along `axis` with the footprint nearest to its width; a wide stair (more than
-    /// [`WIDE_STAIR_FACTOR`] × the widest footprint) as parallel lines of the widest footprint,
+    /// `WIDE_STAIR_FACTOR` × the widest footprint) as parallel lines of the widest footprint,
     /// one footprint width plus the minimum gap ([`WIDE_LINE_GAP_MM`]) apart and centred, tagged `freemapper:size=wide`.
     fn push(&mut self, axis: &Axis, mut tags: Vec<(String, String)>) -> Result<(), GeorefError> {
         let to_map = |c: Coord<f64>| {

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The daily check after a command that uses the network anyway (spec 3.3), and in mode `install`
 //! the install that follows it (spec 3.4).
 //!

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! ALKIS buildings and land use from the Geoportal Berlin WFS (dl-de/zero-2-0).
 //!
 //! Features are normalised into the LGB property schema (`oid`, `gebnutzbez`, `funktion`,
@@ -733,7 +735,7 @@ pub fn k5_pieces(grid: &GridSpec) -> Vec<(GridSpec, String)> {
 }
 
 /// Downloads the K5 map over `bbox` (EPSG:25833) from the Berlin WMS, stitched at `pixel_size`
-/// (made coarser when the image would pass [`K5_MAX_SIDE_PX`]), as `out` (PNG) with its world
+/// (made coarser when the image would pass `K5_MAX_SIDE_PX`), as `out` (PNG) with its world
 /// file (`.pgw`), on the template grid of `bbox`.
 pub fn fetch_k5(
     fetcher: &dyn Fetcher,

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The rasters a manifest declares as services: the services of the readers they build, the
 //! backend that fetches them for a map area, and the backends a manifest names.
 

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Helvetica and Helvetica-Bold advance widths (1/1000 em) for the WinAnsi characters 32–255, the
 //! PDF standard fonts freemapper uses for text (metrically equal to Arial).
 //!

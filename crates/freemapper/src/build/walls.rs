@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The two edges of a NAS wall become one 515 centre line (ADR 0063, amendment of 2026-11-09).
 //!
 //! The full ALKIS (NAS) stores many walls as their two edges, `bauwerksfunktion` 1701
@@ -358,8 +360,8 @@ struct Built {
 /// or a short wall stays as stored, it prints as a dot or a bar). Where a
 /// stored centre line (1700 line, 1703) runs, the edges along it are dropped and named on it.
 /// Centre ends that meet at a corner are snapped together (each moves at most half the pair
-/// width). A centre line is a 1700 with the older `beginnt` of its edges, [`PAIRED`] and the
-/// other edges in [`PAIRED_ALSO`]. Other features, and wall features that pair with nothing,
+/// width). A centre line is a 1700 with the older `beginnt` of its edges, `PAIRED` and the
+/// other edges in `PAIRED_ALSO`. Other features, and wall features that pair with nothing,
 /// come back unchanged, in their order.
 pub fn pair_wall_edges(features: &[Value], distance: f64, min_length: f64) -> Vec<Value> {
     let step = (distance * STEP_SHARE).min(STEP_M);
@@ -716,7 +718,7 @@ pub fn pair_wall_edges(features: &[Value], distance: f64, min_length: f64) -> Ve
 }
 
 /// The feature of a centre line: the properties of its edge as a 1700 with the older `beginnt`
-/// of the edges, [`PAIRED`] and the other edges in [`PAIRED_ALSO`].
+/// of the edges, `PAIRED` and the other edges in `PAIRED_ALSO`.
 fn centre_feature(features: &[Value], centre: &Built) -> Value {
     let own = &features[centre.feature];
     let mut feature = own.clone();

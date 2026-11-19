@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Lines cut where other symbols need the room.
 //!
 //! The contours run through all symbols, paving, paths and buildings too (ISSprOM 2019-2, 101).
@@ -9,7 +11,7 @@
 //!
 //! The north lines stop at the ways (ISSprOM 2019-2 §4.6): they are not drawn across paving or
 //! over a path, so the way stays readable. The ways are the paved areas and the firm and unpaved
-//! paths of the map and of the candidates ([`crate::build::points::way_footprints`]).
+//! paths of the map and of the candidates (`crate::build::points::way_footprints`).
 //!
 //! A line is cut where it runs inside one of these footprints; stubs shorter than 1 mm on paper
 //! are dropped, as along a shore.
@@ -34,7 +36,7 @@ pub const NORTH_LINE_CODES: [&str; 1] = ["601"];
 pub const MIN_PIECE_MM: PaperMm = PaperMm(1.0);
 /// The small landforms the contours are cut out at (ISSprOM 2019-2, 101): small earth wall,
 /// small knoll, small elongated knoll, small depression, pit or hole, prominent landform
-/// feature. The stairways come by [`stair_footprints`].
+/// feature. The stairways come by `stair_footprints`.
 pub const CONTOUR_CUT_OUT_CODES: [&str; 6] = ["105", "109", "110", "111", "112", "115"];
 /// The earth wall of ISOM 2017-2, which the contours cross (ISOM 2017-2, 2.11.3 Graphical minimum
 /// dimensions, "Minimum gaps": "Crossings, such as Contours (101) and Earth walls (105, 106)"):

@@ -1,0 +1,24 @@
+# Secret scanning of the history and the working tree (gitleaks, ADR 0070).
+#
+# `scripts/check.sh secrets` and the CI job run `gitleaks git` with `--redact`,
+# so a finding names the rule and the file, never the value.
+#
+# The default rule set of the pinned release is the base. An allowlist entry is
+# a decision: name the file pattern and say why it holds no secret.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Project files that hold no secrets"
+paths = [
+  # The permit files of the examples carry the identifiers of the data sources
+  # under the field `key` (three to forty-two characters, a source name), not
+  # credentials. The generic-api-key rule matches the field name, not a value.
+  '''examples/[^/]+/permits\.json''',
+  # The removed research note `docs/regions/sweden-reference.md` asked the
+  # Swedish API whether it needs authentication with `curl -u abc:def`. Both
+  # sides of that colon are placeholders, and the note is gone from the tree;
+  # this entry only silences the commit that still carries it.
+  '''docs/regions/sweden-reference\.md''',
+]

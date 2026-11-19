@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The cached point-cloud tiles of a provider: one LAS/LAZ file per tile and publication,
 //! `<tile>_<published>.laz` (Bavaria names its tiles like its other files, see
 //! [`crate::ldbv_las`]), checked to be complete before it is kept (ADR 0105).

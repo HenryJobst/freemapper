@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The adapter a manifest gives: identity, boundary, OSM extracts and credit.
 
 use std::borrow::Cow;

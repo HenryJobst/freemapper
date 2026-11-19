@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Contour candidates from the contour lines of `derive`.
 
 use geo::{Contains as _, Distance as _, InteriorPoint as _};

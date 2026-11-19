@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The raster sources of a region: orthophoto, terrain model and surface model. A backend
 //! fetches them and tells `derive` where to read them.
 

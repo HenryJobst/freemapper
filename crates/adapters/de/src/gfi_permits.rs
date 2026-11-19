@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Permit sources that answer only at points (ADR 0139): a WMS whose GetFeatureInfo names what
 //! lies at a point, without its geometry. The fetch lays a grid of cells over the map box, at
 //! most [`MAX_CELLS`], asks at the centre of each cell and stores each answer with its cell as

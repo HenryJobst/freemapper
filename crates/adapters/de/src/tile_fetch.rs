@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The tile download of LGB and GeoSN: where the tiles and their currency lists lie in the
 //! cache, which publication of a tile is current, and the nDSM point clouds of LGB.
 

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The time the permit notes take on a real project, against the real BfN and BKG services and
 //! the real cache. Ignored: it asks the services. Run it with the folder of a copy of a project
 //! whose OSM extract is cached:

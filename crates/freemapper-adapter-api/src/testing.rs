@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! A fetcher for tests: it answers from memory. Behind the feature `testing`, which the
 //! dev-dependencies of the crates that fetch turn on.
 

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The permit sources of the Saarland and Hesse (ADR 0130), described as tables for
 //! [`wfs_permits`](crate::wfs_permits): GeoJSON WFS of the Geoportal Saarland (CC BY 4.0) and of
 //! the HLNUG (CC BY 4.0). The credit lines are verbatim from the services' capabilities or

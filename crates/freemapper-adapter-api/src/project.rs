@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The project as a raster fetch sees it: the records it fills, the folder it writes into and
 //! the checkpoint that saves the project file.
 

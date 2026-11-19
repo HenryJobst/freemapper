@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! ALKIS buildings and land use: the parts of every region an area touches, from the ALKIS
 //! service of its adapter, merged into one collection in the LGB schema.
 

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! `freemapper find`: the OpenStreetMap places for a name, the search the MCP tool `find_place`
 //! runs, so an agent on the command line can show the matches and pass one to `init --osm`.
 

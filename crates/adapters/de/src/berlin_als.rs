@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The laser points of Berlin (Geoportal Berlin, "Airborne Laserscanning (ALS) Primäre 3D
 //! Laserscan-Daten", dl-de/zero-2-0, scan of 2021): one LAS file per km tile in EPSG:25833,
 //! packed into nine zip64 archives of 1 to 51 GB by part of the city (ADR 0105). A tile is read

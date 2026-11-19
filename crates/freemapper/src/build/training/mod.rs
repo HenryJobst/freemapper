@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The training level: the objects of the map and the visible candidates become the objects of
 //! the training map, which is printed and run on without rework, so no drawn symbol may lie on
 //! another or inside its gap (spec 2026-11-14, Part 3).
@@ -6,23 +8,23 @@
 //! 1. lines of one symbol that meet end to end are joined
 //!    ([`join_lines`](crate::build::line_join::join_lines)), and an opening between walls and
 //!    fences narrower than the norm's is widened to it
-//!    ([`widen_openings`](openings::widen_openings)); the carriageways of the street survey are
+//!    (`widen_openings`); the carriageways of the street survey are
 //!    drawn in the street areas and its kerb lines inside them go
-//!    ([`draw_carriageways`](carriageway::draw_carriageways));
+//!    (`draw_carriageways`(carriageway::draw_carriageways));
 //! 2. street furniture (531) on a paved area goes;
 //! 3. open land of a park is reduced to its open ground where the tree cover shows trees
-//!    ([`open_ground`]);
+//!    (`open_ground`);
 //! 4. inside olive green (520) only buildings, water, contours and the ways a runner can cross
-//!    stay ([`clear_olive`](olive::clear_olive));
+//!    stay (`clear_olive`);
 //! 5. what is alike is merged: two roads, railways or paths side by side become their middle,
 //!    and on a forest map a path or tram in the gap zone of a road goes
-//!    ([`merge`](merge::merge)); the line ends that touched a line before touch one after
-//!    ([`Junctions`]), and the lines that meet end to end are joined again;
+//!    (`merge`); the line ends that touched a line before touch one after
+//!    (`Junctions`), and the lines that meet end to end are joined again;
 //! 6. a line that keeps no gap to an object it keeps apart from is shifted off it, by at most
-//!    [`MAX_SHIFT_MM`] and only where that makes no new conflict ([`shift_lines`](shift::shift_lines));
+//!    [`MAX_SHIFT_MM`] and only where that makes no new conflict (`shift_lines`);
 //!    the line ends that touched a line before touch one after;
 //! 7. a point symbol too close to a way, a building, water or another point is moved off
-//!    ([`move_points`](points::move_points));
+//!    (`move_points`);
 //! 8. what keeps no gap to another object ([`conflicts`], the pairs that keep apart) gives way:
 //!    it is cut out there, or dropped when more than half of it is in conflict;
 //! 9. lines and areas below the norm's minimum size go; the ways that meet end to end are
@@ -87,7 +89,7 @@ const FURNITURE_CODE: &str = "531";
 const FOREST_CODE: &str = "405";
 /// The tree symbols (large and small) of the point trees.
 const TREE_CODES: [&str; 2] = ["417", "418"];
-/// Open land, the only symbol [`open_ground`] reduces.
+/// Open land, the only symbol `open_ground` reduces.
 const OPEN_LAND_CODE: &str = "401";
 /// The land use of a park, green space or other recreation ground (`freemapper:nutzart` starts
 /// with it).
@@ -209,7 +211,7 @@ pub struct TrainingInput {
     pub map: Vec<MapObject>,
     /// The candidates but the outline of the map area (the first candidate) and the hidden ones
     /// (`freemapper:hidden`). The hidden carriageways of the street survey are among them: only
-    /// the training map draws them ([`draw_carriageways`] takes the tag off).
+    /// the training map draws them (`draw_carriageways` takes the tag off).
     pub candidates: Vec<MapObject>,
 }
 

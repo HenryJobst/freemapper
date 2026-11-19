@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The region adapters of the German states (ADR 0082): what freemapper needs to map each of
 //! them. The crate knows the api crate and the generic readers of `freemapper-sources`, and
 //! nothing of the engine.

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The listed monuments of seven states for the permit notes (ADR 0144), read by the tables of
 //! [`wfs_permits`](crate::wfs_permits): the WFS of the state offices for monuments in Hesse,
 //! Baden-Württemberg, Bremen, Saxony, Brandenburg, Rhineland-Palatinate and North

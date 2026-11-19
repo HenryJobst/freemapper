@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! A checked manifest: what the tables of format 1 say, in types the builders can use.
 
 use chrono::NaiveDate;

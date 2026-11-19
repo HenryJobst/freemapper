@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Regions: the states freemapper has data for, and which of them cover an area.
 //!
 //! Every state keeps its own ALKIS service: the LGB service returns no features inside Berlin and

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Recorded answers of services: one fetcher keeps what the services answer, one plays it back
 //! without a network. The golden net of the adapters and the fixtures of an adapter use them.
 //!

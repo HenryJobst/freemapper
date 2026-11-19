@@ -1,5 +1,7 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The part of the permit notes that region adapters bring (ADR 0120): districts, green spaces,
-//! public land, monuments, protected objects and the forest administration (ADR 0124), from the [`PermitSource`]s of the adapters
+//! public land, monuments, protected objects and the forest administration (ADR 0124), from the `PermitSource`s of the adapters
 //! whose ground the map area touches.
 //!
 //! The engine knows the kinds of finding, not the region: it measures each finding on the map

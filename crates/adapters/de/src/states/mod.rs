@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The German states as region adapters. Each state is its manifest
 //! (`manifests/<id>/manifest.toml` with its boundary file) plus what no manifest says: the
 //! raster code of its agency, the credit lines that depend on more than a year, the ALKIS of

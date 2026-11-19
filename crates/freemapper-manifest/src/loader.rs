@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Adapters from folders: the user's own (`<config>/freemapper/adapters/<id>/`) and, when the
 //! person asks for them, those of a project (`<project>/adapters/<id>/`).
 //!
@@ -290,7 +292,7 @@ pub fn load_folder(
 const SHARED_GROUND: f64 = 0.01;
 
 /// The adapters of `registry` on whose ground `adapter` lies, or which lie on its ground: the
-/// two have more than [`SHARED_GROUND`] of the smaller one in common. Two neighbours whose
+/// two have more than `SHARED_GROUND` of the smaller one in common. Two neighbours whose
 /// simplified borders cross are not among them.
 pub fn sharing_ground(registry: &Registry, adapter: &dyn RegionAdapter) -> Vec<String> {
     use geo::{Area, BooleanOps};

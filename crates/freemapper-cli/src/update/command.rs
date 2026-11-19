@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! `freemapper update` (spec 3.4 to 3.6): check for a newer release, install it after asking, go
 //! back to the previous version, or store the mode of the daily check.
 //!

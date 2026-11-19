@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The document model of the permit notes: which administrative units and protected areas the
 //! map area lies in, with their shares, which OSM objects tell who runs a part of it, and the
 //! hints whom this usually concerns.

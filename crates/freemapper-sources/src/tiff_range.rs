@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Tiled Float32 TIFFs read by range (ADR 0141): the layout from the IFD, then single blocks, so
 //! a large file is read only where an area needs it.
 

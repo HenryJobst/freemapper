@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! LVermGeo Saxony-Anhalt open data (dl-de/by-2-0, "© GeoBasis-DE / LVermGeo ST"), all in
 //! EPSG:25832: the orthophoto WMS, DGM1 and DOM1 from the WCS, and flight dates from the tile
 //! index WFS. The manifest of Saxony-Anhalt declares these services and fetches from them; this
@@ -39,7 +41,7 @@ impl Model {
         }
     }
 
-    /// The WCS of `self`: `Coverage1`, a `multipart/related` answer, cut to [`COVERAGE`].
+    /// The WCS of `self`: `Coverage1`, a `multipart/related` answer, cut to `COVERAGE`.
     pub fn wcs(self) -> WcsService {
         WcsService {
             url: Cow::Borrowed(self.wcs_endpoint()),

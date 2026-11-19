@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Where a map area lies among the regions: which adapters it touches, whose rasters it uses,
 //! which tiles of a grid a provider publishes. All boxes and points are in EPSG:25833, where
 //! the boundaries are. The functions go through the adapters in the order of the registry, so
@@ -201,11 +203,11 @@ pub fn tiles_touching<O: Outline + ?Sized>(
 /// boundaries are simplified separately (up to 25 m each), so a shared border can leave a gap of
 /// up to about 50 m between two states.
 const UNCOVERED_M: f64 = 50.0;
-/// The spacing of the points [`reaches_beyond_coverage`] tests, half of [`UNCOVERED_M`].
+/// The spacing of the points [`reaches_beyond_coverage`] tests, half of `UNCOVERED_M`.
 const COVERAGE_STEP_M: f64 = 25.0;
 
 /// Whether part of `bbox` (EPSG:25833) lies outside every region of `registry`: a point of it
-/// more than [`UNCOVERED_M`] from all their boundaries, e.g. in Thuringia or another state that
+/// more than `UNCOVERED_M` from all their boundaries, e.g. in Thuringia or another state that
 /// is no region yet, abroad or at sea.
 pub fn reaches_beyond_coverage_in(registry: &Registry, bbox: &BoundingBox) -> bool {
     use geo::{BooleanOps as _, Distance as _, Euclidean};

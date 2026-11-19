@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The laser points of the LVGL Saarland ("3D-Messdaten (2025)", dl-de/by-2-0, "© GeoBasis
 //! DE/LVGL-SL"): one LAZ file per km tile in EPSG:25832, thinned to at most one point per
 //! 0.5 m cell, packed into six zip64 archives of 12 to 26 GB by district on the open-data share

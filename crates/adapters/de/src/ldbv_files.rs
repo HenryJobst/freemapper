@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Files the Bayerische Vermessungsverwaltung publishes under a fixed address and replaces now
 //! and then (height tiles, LoD2 tiles, the land use of a Kreis): the cached copy carries the day
 //! the server last changed the file, so one `HEAD` tells whether it is still the current one.

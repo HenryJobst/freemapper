@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The run routes of the selection page: start a run, follow it, cancel it and open the project
 //! folder (ADR 0090). The page sends the eight options and nothing else; the folder, the cache,
 //! kind, scale and title are the ones the selector started with and the saved project holds.

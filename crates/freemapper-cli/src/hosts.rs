@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The hosts a person allowed for built-in adapters besides those the adapters name (ADR 0110).
 //!
 //! A built-in state asks the hosts of its manifest and no other. When an agency moves a service

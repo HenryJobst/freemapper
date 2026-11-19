@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Candidates from the ALKIS of every state (states plus 1), through the state rules
 //! (`assets/rules/state-candidates.toml`):
 //!

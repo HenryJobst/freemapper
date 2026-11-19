@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The golden net of the region adapter migration (ADR 0082, plan stage A). Five layers, all
 //! offline, recorded from the v0.12.0 behaviour. A refactor must leave every file under
 //! `tests/golden/adapters/` as it is; `FREEMAPPER_BLESS=1` rewrites them on purpose, see

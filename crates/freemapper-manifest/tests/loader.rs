@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Adapters from folders: what loads, in which order, and what is left out with its findings.
 
 use std::path::{Path, PathBuf};

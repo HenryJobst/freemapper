@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The area selection page served by `freemapper select`, spoken to over HTTP as the page does.
 
 use std::io::{BufRead, BufReader, Read, Write};

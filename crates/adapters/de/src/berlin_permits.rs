@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Berlin's sources of the permit notes (ADR 0120): six WFS of the Geoportal Berlin
 //! (dl-de/zero-2-0) for the Bezirke, the green spaces and playgrounds, the land of the Land
 //! Berlin and the Bund, the monuments, the protected objects under nature conservation law and

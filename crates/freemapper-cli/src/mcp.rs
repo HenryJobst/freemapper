@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! `freemapper mcp`: the MCP server on stdio, so an AI agent can make a map for a non-technical
 //! user. The tools are thin wrappers over the library; the pipeline runs as a job the agent polls.
 
@@ -110,6 +112,9 @@ struct ProjectDir {
     dir: String,
 }
 
+// The parameter descriptions carry `<name>` as a placeholder, which the MCP schema shows as
+// written and the catalog keeps; rustdoc would read it as an HTML tag.
+#[allow(rustdoc::invalid_html_tags)]
 #[derive(Deserialize, rmcp::schemars::JsonSchema)]
 struct StartPipeline {
     /// Project folder (absolute path or starting with ~).

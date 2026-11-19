@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Building map objects from source data, following the symbol mapping rules.
 
 pub mod assembly;

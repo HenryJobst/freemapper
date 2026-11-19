@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! freemapper's side of the shared crate `freemapper-fs` (ADR 0067, freemapper-core ADR 0009),
 //! for the engine, the readers and the adapters.
 //!

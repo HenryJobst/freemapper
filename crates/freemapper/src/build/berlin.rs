@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The tests of Berlin's draw rules (Berlin plus 1), drawn as every set is (ADR 0149).
 //!
 //! The Geoportal features run through the same [`Rules`] engine as the OSM features

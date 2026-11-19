@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The generic readers of freemapper (ADR 0082): what reads a standard service or a common file
 //! format and knows no state. A region adapter is built from them, by a manifest that names a
 //! service or by code that calls them.

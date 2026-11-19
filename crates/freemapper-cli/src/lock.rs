@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! One run per project folder across processes (ADR 0090, closing the gap named in ADR 0009).
 //!
 //! `<project>/.freemapper-run.lock` is created exclusively by whoever starts a run, a fetch, a

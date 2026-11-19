@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Features from a WFS 2.0 that answers GeoJSON (the BfN protected areas, the BKG state borders
 //! VG250), asked by a box in WGS 84 and read page by page; and the same for a WFS that answers
 //! only GML 3.2 (the forest offices of Brandenburg), read into GeoJSON features.
@@ -149,7 +151,7 @@ pub fn get_features(
 }
 
 /// [`get_features`] for a service that answers GML 3.2 (`output_format` names it, `gml32` on a
-/// GeoServer). The features come as GeoJSON features with the polygons of [`parse_gml`] and
+/// GeoServer). The features come as GeoJSON features with the polygons of `parse_gml` and
 /// their attributes as properties. Positions stay as the service writes them: with the
 /// `srsName` of the query (WGS 84 as an EPSG URN) that is latitude first.
 pub fn get_gml_features(

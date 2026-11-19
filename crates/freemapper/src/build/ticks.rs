@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Which way the ticks of fences and earth banks point (ISSprOM 2019-2 §104, §201, §518).
 //!
 //! The ticks of a fence (518), an earth bank (104, 104.1), an impassable cliff (201) and a

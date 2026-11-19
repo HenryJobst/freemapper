@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The documents of a project and the files written from them: the starter project (map and
 //! candidate layers, ADR 0156), the OCAD files and the PDFs (ADR 0091: built once per command).
 //!
@@ -1183,7 +1185,7 @@ fn forget_map_preview(dir: &Path) -> Result<(), ProjectError> {
 }
 
 /// The record of the preview in `dir`; none when there is none, it does not read, or it is not a
-/// file of the project folder ([`read_inside`]).
+/// file of the project folder (`read_inside`).
 pub fn read_map_preview_record(dir: &Path) -> Option<MapPreviewRecord> {
     let bytes = read_inside(dir, &dir.join(MAP_PREVIEW_RECORD_RELPATH))?;
     serde_json::from_slice(&bytes).ok()

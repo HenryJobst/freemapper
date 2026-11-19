@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Orthophotos from a state's WMS (GeoSN, LVermGeo) or WCS (LAiV M-V): JPEG pieces of at most
 //! 4000 px at 0.2 m, stitched on the template grid of the map area.
 

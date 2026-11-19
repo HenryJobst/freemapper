@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The classified laser point clouds of LGB Brandenburg (ALS, dl-de/by-2-0): one zip per km tile
 //! with the LAZ file, its currency in a CSV like that of the DGM (ADR 0105).
 

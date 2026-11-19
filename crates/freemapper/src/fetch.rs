@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Tile download with a shared on-disk cache keyed by tile and publication date.
 
 use crate::note::{Note, note};
@@ -350,7 +352,7 @@ fn certificates(trust: &TrustAnchors) -> Vec<ureq::tls::Certificate<'static>> {
 ///
 /// A proxy from the environment is the user's own setting and may be local; its address is not
 /// judged. Behind a proxy that resolves the names itself this resolver is not asked for the
-/// target; [`TargetGuard`] still refuses a target written as an address.
+/// target; `TargetGuard` still refuses a target written as an address.
 #[derive(Debug, Default)]
 pub struct GuardedResolver<R = DefaultResolver> {
     inner: R,
@@ -445,7 +447,7 @@ impl<In: Transport> Connector<In> for TargetGuard {
     }
 }
 
-/// An agent of `config` that connects to public addresses only: [`TargetGuard`] judges the
+/// An agent of `config` that connects to public addresses only: `TargetGuard` judges the
 /// target as it is written, [`GuardedResolver`] the addresses its name resolves to. Every agent
 /// of freemapper that talks to the internet is built here.
 pub fn guarded_agent(config: ureq::config::Config) -> ureq::Agent {

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The pipeline behind `freemapper run`, the MCP tool `start_pipeline` and the run button of the
 //! selection page: fetch, derive, write the map, then the optional OCAD and PDF outputs, the
 //! training map and the permit notes. One function, so the three callers cannot drift apart

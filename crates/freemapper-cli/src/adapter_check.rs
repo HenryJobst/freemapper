@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! `freemapper adapters check <dir>`: whether the folder of an adapter would load from the
 //! adapter folder of a person, what its author should know before passing it on, and with
 //! `--live` what its services deliver for a box inside its boundary (ADR 0082, spec 3.14).

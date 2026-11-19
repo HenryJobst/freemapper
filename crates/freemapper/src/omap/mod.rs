@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! OpenOrienteering Mapper file format (XML, version 9).
 
 pub mod coord;

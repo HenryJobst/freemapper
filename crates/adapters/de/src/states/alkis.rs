@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The ALKIS services of the states: which service serves which state, in which CRS, with which
 //! fallback. The readers are those of `freemapper-sources`; Berlin keeps its own (Geoportal
 //! Berlin WFS), and so does Baden-Württemberg (the views of the LGL). Bremen has no simplified
