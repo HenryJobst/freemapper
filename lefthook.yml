@@ -8,7 +8,7 @@ pre-commit:
     # archive; CI installs the pinned versions. The history scan is long here, so it waits for a
     # push.
     gates:
-      run: scripts/check.sh spdx typos links machete actions adr changelog
+      run: scripts/check.sh spdx typos links machete actions adr changelog badges
 
 pre-push:
   commands:

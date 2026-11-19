@@ -14,6 +14,7 @@
 #   actions    every action in `.github/workflows` hangs on a commit
 #   adr        `docs/adr/README.md` lists exactly the ADRs that exist
 #   changelog  `CHANGELOG.md` and `CHANGELOG.en.md` match `Cargo.toml`
+#   badges     the README badges match the data in the repository
 #   doc        rustdoc builds without warnings
 #   coverage   line coverage is not below its floor or its snapshot
 #   msrv       the workspace builds with the documented MSRV
@@ -188,6 +189,12 @@ gate_changelog() {
   fi
 }
 
+gate_badges() {
+  # Called through `bash` so the gate works before the file carries its
+  # executable bit.
+  bash scripts/badges.sh --check || report "the README badges are out of date; run scripts/badges.sh"
+}
+
 gate_doc() {
   RUSTDOCFLAGS='-D warnings' cargo doc --workspace --no-deps || report "rustdoc warns"
 }
@@ -221,6 +228,8 @@ PY
 )
   fi
   floor=${MERGEWARDEN_COVERAGE_FLOOR:-$coverage_floor}
+
+  echo "check.sh: line coverage $((tenths / 10)).$((tenths % 10)) % (floor $((floor / 10)).$((floor % 10)) %, snapshot $((snapshot / 10)).$((snapshot % 10)) %)"
 
   if [ "$tenths" -lt "$floor" ]; then
     report "line coverage is $((tenths / 10)).$((tenths % 10)) %, below the floor of $((floor / 10)).$((floor % 10)) %"
@@ -257,7 +266,7 @@ gate_msrv() {
     report "the workspace does not build with the documented MSRV $msrv"
 }
 
-cheap=(spdx typos links secrets machete actions adr changelog)
+cheap=(spdx typos links secrets machete actions adr changelog badges)
 gates=()
 spdx_fix=0
 
@@ -275,7 +284,7 @@ fi
 for gate in "${gates[@]}"; do
   case "$gate" in
   spdx) gate_spdx "$spdx_fix" ;;
-  typos | links | secrets | machete | actions | adr | changelog | doc | coverage | msrv)
+  typos | links | secrets | machete | actions | adr | changelog | badges | doc | coverage | msrv)
     "gate_$gate"
     ;;
   *)
