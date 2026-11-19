@@ -31,7 +31,8 @@ Behörde: Lantmäteriet (Kartografie, Kataster und Grundbuch). Vertrieb: Geotorg
   schlüsselfreie Download-URL und kein schlüsselfreies WMS für Höhen, Orthofoto oder Vektoren. Nach dem Bericht
   eines schwedischen Orientierungsläufers lassen sich außerdem je Vorgang nur wenige Kacheln laden
   [unverified] — für eine Karte heißt das Handarbeit (§2). Schlüsselfrei sind dagegen Bodenbedeckung und
-  Objekthöhe (NMD, 10 m, CC0) und die Schutzgebiete (§7).
+  Objekthöhe (NMD, 10 m, CC0) und die Schutzgebiete (§7). Und nicht alles ist kostenlos: Höhen, Vektoren und
+  Orthofoto sind *avgiftsfrei*, das **Oberflächenmodell kostet** (§1).
 * **Die Metadaten sind schlüsselfrei und brauchbar.** Vier STAC-Kataloge antworten ohne Token, mit Footprint,
   Auflösung, CRS, Dateigröße und einer direkten Asset-URL je Kachel [live], und das API-Portal nennt alle
   Schnittstellen samt Kontingent (§4.1). Ein Adapter kann einen schwedischen Download *planen*, ohne
@@ -73,6 +74,15 @@ nDSM, und ohne nDSM kann freemapper einen Park nicht von einem Wald unterscheide
 Trainingskarte nicht setzen, und die Regel „gelb, wo keine Bäume stehen“ der `-training`-Karte hat nichts zu
 lesen. Die deutschen Adapter haben alle ein DOM.
 
+**Gebühr und Rechtsprüfung** stehen je Produkt in der öffentlichen Produktübersicht von Geotorget [live]:
+*avgiftsfrei* sind Markhöjdmodell (1 m und grid 50+), Marktäcke, Byggnad, Kommun/län/rike, Ortnamn, Hydrografi,
+Laserdata Skog, Topografi 10/50/100/250/1M, die topografischen Rasterkarten und die historischen Karten;
+**kostenpflichtig** sind **Ythöjdmodell** (beide Varianten), Laserdata NH, die digitalen Flugbilder und die
+meisten Visningstjänste. Eine *juridisk prövning* verlangen unter anderem Byggnad, Ortofoto,
+Fastighetsindelning, Belägenhetsadress, Hydrografi Nedladdning und Topografi 10 — Markhöjdmodell und Marktäcke
+nicht. Das erklärt die `other`-Lizenz des Oberflächenmodells: es ist das eine Produkt, an dem das nDSM hängt,
+und es kostet Geld.
+
 ---
 
 ## 2. Zugang: Geotorget, Konten und was „kostenlos“ bedeutet
@@ -88,10 +98,10 @@ lesen. Die deutschen Adapter haben alle ein DOM.
   behandelt werden.
 * Die Seite *Öppna data* [doc] trennt davon eine zweite, kleinere Menge von *öppna data* unter **CC0**, wo
   Namensnennung geschätzt, aber nicht gefordert ist. Keines der Produkte aus §1 gehört dazu.
-* Die Produktliste selbst ist keine öffentliche Seite mehr: `/produktlista/...` leitet auf
-  `geotorget.lantmateriet.se` und von dort auf `/obehorig` weiter [live]; der Katalog ist eine
-  JavaScript-Anwendung hinter der Anmeldung. Was ein Produkt kostet und welche Bedingungen es trägt, ist erst
-  nach der Anmeldung zu lesen [doc].
+* Der Produktkatalog ist öffentlich: `geotorget.lantmateriet.se/geodataprodukter` listet 79 Produkte mit
+  Zugangsart, Format, Endpunkt und je einem Vermerk **Avgift** (Gebühr) und **Juridisk prövning**
+  (Rechtsprüfung) [live]. Nur der alte Pfad `/produktlista/...` leitet auf `/obehorig` weiter [live]. Preise
+  und Bedingungen stehen aber auch dort nicht — was ein Produkt kostet, ist erst nach der Anmeldung zu lesen.
 * Ein schwedischer Orientierungsläufer berichtet aus eigener Nutzung (mündlich, 2026-11-18), dass man sich ein
   Konto anlegen muss und je Vorgang nur wenige Kacheln herunterladen kann, und dass das vor etwa einem Jahr
   deutlich schlechter geworden ist [unverified]. Das deckt sich mit dem, was die Server von außen zeigen (Konto
@@ -100,6 +110,14 @@ lesen. Die deutschen Adapter haben alle ein DOM.
   Grenze die Weboberfläche von Geotorget betrifft oder auch die API-Assets unter `dl1.lantmateriet.se`, ist offen
   (§10); die Kontingente im API-Portal (§4.1) sprechen gegen ein API-Limit — davon hängt ab, ob ein Adapter
   überhaupt unbeaufsichtigt laden kann.
+* **Die Anmeldung hängt an einer schwedischen Identität.** „Mina sidor“, der Kontobereich für Grundstücks- und
+  Vermessungsvorgänge, meldet mit **BankID** oder **Freja+** an; BankID setzt eine schwedische Personnummer
+  voraus, Freja+ eine samordningsnummer [live]. Welchen Weg Geotorget selbst nimmt — dieselbe e-legitimation,
+  ein Organisationskonto oder beides —, ist von außen nicht zu sehen und steht in §10. Für eine Person oder
+  einen Verein ohne schwedische Kennung ist das eine Hürde vor der ersten Kachel, nicht erst beim Token.
+* **Geotorget selbst ist öffentlich.** Die Startseite, die Produktübersicht, der *Produktstöd* (Anleitungen)
+  und der Zugang zur Nationalen Geodatenplattform sind ohne Anmeldung erreichbar [live]; verschlossen sind
+  Bestellung, Bedingungen und Download.
 
 **Folge für einen Adapter.** Ein schwedischer Adapter bräuchte eine Zugangsberechtigung, die eine Person für ihr
 eigenes Konto beschafft, aufbewahrt außerhalb des Projektordners und niemals in `freemapper.toml`,
@@ -216,7 +234,8 @@ Das Oberflächenmodell, `items/2026_a2-617_39_5000` [live]: `proj:code` `EPSG:58
 `hojdmodelltyp` `ythöjdmodell`, `insamlingsomrade` `2026_A2`, `upplosningflygbild` `0.15`, Asset
 `…/hojd/data/grid/yhm/2026_a2/y2026_a2-617_39_5000_dsm.tif` mit 229 814 895 B, `info`-Asset mit 0,25 m und
 Ursprung (390 000, 6 177 500), ein `pointmetadata`-Asset `…_class.tif` mit 1 321 508 B, Thumbnail 35 018 B.
-Kein `breakgeometry` hier.
+Kein `breakgeometry` hier. Dass das Produkt **kostenpflichtig** ist, steht in keiner dieser Angaben, sondern
+nur in der Produktübersicht von Geotorget (§1) [live].
 
 Die Punktwolke, `25a005-61775_3850_25` [live]: `…/hojd/data/sls/25a005/y25a005-61775_3850_25.copc.laz`,
 81 714 617 B, `pc:count` 16 464 575, `pc:density` 0,63 pts/m², EPSG:5845.
@@ -524,6 +543,24 @@ Zwei Eigenheiten für den, der ihn abfragt [live]:
   Platzhalter ist also nicht zu gebrauchen. Mehrwortige und schwedische Suchbegriffe treffen schlecht
   (`AnyText like 'Marktäckedata'` → 0, `'grunddata'` → 19); einzelne Wortstämme treffen.
 
+### 7.7 Demodata: Höhen ohne Konto
+
+Lantmäteriet stellt zwei Demogebiete bereit — Göteborg Majorna (Stadt) und Emån (Wald) —, „avgiftsfritt“ für
+„test och utvärdering“; wer sie kommerziell nutzt oder weitergibt, braucht einen Vertrag [live]. Die Dateien
+liegen unter `https://www.lantmateriet.se/geodata_data/demodata_testdata/GEO-demoomrade/`.
+
+* **Oberflächenmodell**: `…/Majorna/Hojddata/Ythojdmodell_flygbilder/M_ythojdmodell_tif.zip` mit 352 615 030 B,
+  für Emån 349 235 175 B [live]. Im Zip liegt `63_3/639_31_7550_2020_dsm.tif` mit **10 000 × 10 000 px,
+  Float32, 0,25 m, EPSG:3006, Nodata −9999, LZW mit Prädiktor 2, Kacheln 256 × 256**, daneben
+  `…_class.tif` (8 Bit, LZW, Nodata 255), ein `saknade_ytor`-RGB-Bild mit 2 m Auflösung und JSON-Sidecars
+  [live].
+* **Laserdata NH** und **Digitala flygbilder** liegen ebenso als Demo vor [live]; dieselben Dateien gibt es
+  laut Seite auch per FTP, `ftp://download-open.lantmateriet.se/Geodata/demodata_testdata/` [doc]. Ein
+  **Orthofoto-Demo gibt es nicht**; die Kompression der Ortofoto-COGs bleibt damit offen (§10).
+* **Folge für §8.4**: Das Demomodell liest `tiff_range` heute schon — ein Float32-Sample, LZW, Kacheln,
+  Geotags, Nodata. Die Produktion dagegen ist **deflate** (§3.4). Die Lücke ist also die Kompression der
+  Produktion, nicht das Format, und sie lässt sich am Demo nicht reproduzieren.
+
 ---
 
 ## 8. Was freemapper bräuchte
@@ -567,7 +604,8 @@ ist die einzige Alternative.
 
 ### 8.4 Deflate und PackBits im Rasterleser
 
-Die COGs von DTM und DSM sind **deflate** (Kompression 8) und 512 × 512 gekachelt [live]. `tiff_range` verlangt
+Die COGs von DTM und DSM sind in Produktion **deflate** (Kompression 8) und 512 × 512 gekachelt [live]; das
+Demomodell aus §7.7 ist dagegen LZW und damit heute schon lesbar. `tiff_range` verlangt
 Kompression **5** und lehnt `8` rundheraus ab. Mit NMD (§7.2) kommt eine dritte Kompression hinzu: **PackBits**
 (32773), dazu 16-Bit-Ganzzahlen statt Float32. Das ist die kleinste der Lücken: zwei weitere Dekoder neben
 `decode_lzw_block`, dazu je eine Testdatei. Damit wird der DTM per Range lesbar wie ein deutsches DOM1 — die
@@ -618,7 +656,7 @@ Messungen.
 
 | Option | Arbeit | Ergebnis |
 |---|---|---|
-| **A. Voller Adapter** | Token-Provider in der Adapter-API und im Fetcher; deflate- (und 8-Bit-)TIFF-Range-Leser; OAPIF-Leser (GeoJSON) und GeoPackage-Leser für Gebäude; `RasterKind`-Gitter in Metern oder ein nähendes Backend; Grenze; Manifest; Namensnennung; Tests mit aufgezeichneten Fixtures; dazu ein Weg für den Bezug, wenn die berichtete Kachelgrenze auch für die API gilt (§10). Etwa 6 bis 11 fokussierte Aufgaben, und das erste freemapper-Feature, das Zugangsdaten halten muss. | Eine schwedische Karte wie eine deutsche: Gebäude, Bodenbedeckung, DTM-Höhenlinien, Orthofoto, nDSM aus Daten mit `other`-Lizenz und unklarer Rechtsgrundlage. |
+| **A. Voller Adapter** | Token-Provider in der Adapter-API und im Fetcher; deflate- (und 8-Bit-)TIFF-Range-Leser; OAPIF-Leser (GeoJSON) und GeoPackage-Leser für Gebäude; `RasterKind`-Gitter in Metern oder ein nähendes Backend; Grenze; Manifest; Namensnennung; Tests mit aufgezeichneten Fixtures; dazu ein Weg für den Bezug, wenn die berichtete Kachelgrenze auch für die API gilt (§10). Etwa 6 bis 11 fokussierte Aufgaben, das erste freemapper-Feature, das Zugangsdaten halten muss — und das erste, für das eine Nutzerin bezahlt (§1). | Eine schwedische Karte wie eine deutsche: Gebäude, Bodenbedeckung, DTM-Höhenlinien, Orthofoto, nDSM aus Daten mit `other`-Lizenz und unklarer Rechtsgrundlage. |
 | **B. OSM, NMD und Schutzgebiete** | Ein ADR, das eine Region zulässt, deren `rasters()` `None` ist; eine Region mit Grenze und ohne Raster-Backend; OSM als Vektoren; NMD als Bodenbedeckung und grober Objekthöhe (§7.2); Schutzgebiete; ein Leser für 16-Bit-PackBits-TIFF. Keine Zugangsdaten. | Eine Karte mit OSM-Wegen und -Gebäuden, Bodenbedeckung und Baumdichte aus NMD auf 10 m, Schutzgebieten; keine Höhenlinien, kein Orthofoto, keine Einzelbäume. |
 | **C. Nur Dokumentation** | Diese Datei. | Eine Antwort für die nächste Person, die fragt, einschließlich der sechs Tatsachen, die entscheiden: Token, Kachelgrenze, GeoPackage, deflate-COG, NMD als schlüsselfreie Bodenbedeckung, „keine Raster, keine Karte“. |
 
@@ -662,6 +700,9 @@ Offene Fragen, bevor A beginnt:
   Fjällen [doc].
 * Ob CC0 auch für die Zusatzschichten des NMD gilt; die Policy spricht von Daten allgemein, die Datensätze
   selbst tragen keinen Lizenztext [doc].
+* Ob die Ortofoto-COGs als Demo vorliegen — die Demodata-Seite listet nur die digitalen Flugbilder [live];
+  damit bleibt ihre Kompression ungeprüft (PackBits? JPEG? deflate?).
+* Was die kostenpflichtigen Produkte kosten; die Übersicht nennt nur „Avgift“, keine Preise [live].
 * Ob die `503` des Topowebb-WMTS dauerhaft ist.
 * Die genaue Lizenz von `marktacke` je Feature-Klasse; die Sammlung sagt CC BY 4.0.
 
@@ -693,6 +734,10 @@ curl -s -X POST https://api.lantmateriet.se/token -d grant_type=client_credentia
 curl -s -X POST https://api.lantmateriet.se/token -u abc:def -d grant_type=client_credentials  # 401
 curl -s -X POST https://apimanager.lantmateriet.se/oauth2/token -d grant_type=client_credentials   # 401, gleiche Form
 curl -s https://apimanager.lantmateriet.se/docs/                                                  # Doku ohne Anmeldung
+
+# Demodata, ohne Konto (§7.7)
+curl -sIL https://www.lantmateriet.se/geodata_data/demodata_testdata/GEO-demoomrade/Majorna/Hojddata/Ythojdmodell_flygbilder/M_ythojdmodell_tif.zip   # 352615030 B
+# im Zip: 639_31_7550_2020_dsm.tif 10000x10000 Float32, 0,25 m, LZW Prädiktor 2, Kacheln 256, Nodata -9999
 
 # OSM und schlüsselfreie Quellen
 curl -sIL https://download.geofabrik.de/europe/sweden-latest.osm.pbf        # 982465405 B
