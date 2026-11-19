@@ -95,9 +95,9 @@ lesen. Die deutschen Adapter haben alle ein DOM.
 * Ein schwedischer Orientierungsläufer berichtet aus eigener Nutzung (mündlich, 2026-11-18), dass man sich ein
   Konto anlegen muss und je Vorgang nur wenige Kacheln herunterladen kann, und dass das vor etwa einem Jahr
   deutlich schlechter geworden ist [unverified]. Das deckt sich mit dem, was die Server von außen zeigen (Konto
-  und Token, §4). Für eine Karte zählt es: 4 km Kantenlänge berühren bis zu neun Orthofoto-Kacheln à 0,6 GB und
-  bis zu neun DSM-Kacheln (§3.5); bei „ein paar Kacheln zur Zeit“ wird der Bezug zur Handarbeit. Ob die Grenze
-  die Weboberfläche von Geotorget betrifft oder auch die API-Assets unter `dl1.lantmateriet.se`, ist offen
+  und Token, §4). Für eine Karte zählt es: 4 km Kantenlänge berühren bis zu neun Orthofoto-Kacheln à 0,6 GB
+  und bis zu neun DSM-Kacheln (§3.5); bei „ein paar Kacheln zur Zeit“ wird der Bezug zur Handarbeit. Ob die
+  Grenze die Weboberfläche von Geotorget betrifft oder auch die API-Assets unter `dl1.lantmateriet.se`, ist offen
   (§10); die Kontingente im API-Portal (§4.1) sprechen gegen ein API-Limit — davon hängt ab, ob ein Adapter
   überhaupt unbeaufsichtigt laden kann.
 
@@ -325,6 +325,20 @@ Meldung nennt `Authorization : Bearer …`) [live]. Das OpenAPI-Dokument führt 
 `default` und `basic_auth` [live]; Basic statt Bearer wäre für den Fetcher der kleinere Eingriff, weil ein
 Header genügt.
 
+### 4.2 Die Verifikationsumgebung
+
+Lantmäteriet betreibt dasselbe Portal auch als Testumgebung, `https://apimanager-ver.lantmateriet.se/devportal/`,
+und auch die ist ohne Anmeldung lesbar [live]. Sie listet **17** APIs: die der Produktion ohne `STAC-karta`,
+dafür `BRAPI` (`/brapi`) und je eine ältere Version von Administrativ indelning und Belägenhetsadress [live].
+Die Kataloge antworten schlüsselfrei (`api-ver.lantmateriet.se`, 61 statt 737 Orthofoto-Sammlungen) [live].
+
+Für einen Adapter taugt sie nicht als Datenquelle: die Assets der Objekte zeigen auf **interne** Hosts über
+`http`, etwa `http://download-app00655-pl-stac-boh-ver.internal.caas4.lm.se/hojd/data/grid/mhm/61_3/m619_35.tif`
+— dieser Name löst öffentlich nicht auf [live], und `UrlPolicy` würde die Adresse ohnehin ablehnen (kein
+`https`, kein öffentlicher Name, §8.1). Ihr Nutzen ist ein anderer: wer Testzugänge bekommt, kann Formate und
+Fehlerfälle prüfen, ohne die Produktion zu berühren — und die 15 APIs der Produktion sind, wie die 17 hier
+zeigen, nicht die ganze Schnittstellenlandschaft.
+
 ---
 
 ## 5. CRS: SWEREF99 TM und RH2000
@@ -420,8 +434,8 @@ die Stelle von `marktacke` treten könnte:
   Bodenbearbeitung [live] [doc]. Das Höhenband ist ein grober nDSM-Ersatz für die Baumlogik der Trainingskarte
   — auf 10 m, also ohne Einzelbäume.
 * **Lizenz**: die Policy von Naturvårdsverket sagt „Rapporter, bilder, filmer och ljudklipp ska licensieras med
-  CC-by licens. Övriga data ska licensieras med CC0.“ und „Naturvårdsverkets data som tillgängliggörs med CC0
-  är fria att använda, sprida, göra om, modifiera och bygga vidare på“ [doc] — also CC0 1.0 ohne
+  CC-by licens. Övriga data ska licensieras med CC0.“ und „Naturvårdsverkets data som tillgängliggörs med
+  CC0 är fria att använda, sprida, göra om, modifiera och bygga vidare på“ [doc] — also CC0 1.0 ohne
   Namensnennungspflicht (die führen wir trotzdem).
 * **Darstellung**: ein WMS unter `…/inspire/lc-nmd/ows` mit EPSG:3006 und den Layern der Jahre 2018 und 2023
   antwortet schlüsselfrei [live].
@@ -677,6 +691,10 @@ curl -s 'https://api.lantmateriet.se/stac-karta/v1/collections/topowebb/items?li
 curl -s https://api.lantmateriet.se/ogc-features/v1/marktacke/collections                 # 200, markytor
 curl -s 'https://api.lantmateriet.se/ogc-features/v1/administrativ-indelning/collections/kommuner/items?limit=1'   # 401
 curl -s https://apimanager.lantmateriet.se/api/am/devportal/v3/apis/8e4e3f62-99f4-4734-8faf-5b3245d3baa8/swagger   # OpenAPI 3.0.3
+
+# Testumgebung
+curl -s 'https://apimanager-ver.lantmateriet.se/api/am/devportal/v3/apis?limit=40'   # 17 APIs
+curl -s https://api-ver.lantmateriet.se/stac-hojd/v1/collections/dtm-cog/items?limit=2   # Assets auf interne Hosts
 
 # HMK-Handbücher, schlüsselfreie PDFs
 curl -sI https://www.lantmateriet.se/globalassets/om-lantmateriet/var-samverkan-med-andra/hmk/handbocker/hmk_hojdmodell_2023.pdf   # 200
