@@ -100,8 +100,9 @@ und es kostet Geld.
   Namensnennung geschätzt, aber nicht gefordert ist. Keines der Produkte aus §1 gehört dazu.
 * Der Produktkatalog ist öffentlich: `geotorget.lantmateriet.se/geodataprodukter` listet 79 Produkte mit
   Zugangsart, Format, Endpunkt und je einem Vermerk **Avgift** (Gebühr) und **Juridisk prövning**
-  (Rechtsprüfung) [live]. Nur der alte Pfad `/produktlista/...` leitet auf `/obehorig` weiter [live]. Preise
-  und Bedingungen stehen aber auch dort nicht — was ein Produkt kostet, ist erst nach der Anmeldung zu lesen.
+  (Rechtsprüfung) [live]. Der alte Pfad `/sv/geodata/vara-produkter/produktlista/` leitet mit `301` genau auf
+  diese Seite um [live], ist also nur ein anderer Name dafür. Preise und Bedingungen stehen auch dort nicht —
+  was ein Produkt kostet, ist erst nach der Anmeldung zu lesen.
 * Ein schwedischer Orientierungsläufer berichtet aus eigener Nutzung (mündlich, 2026-11-18), dass man sich ein
   Konto anlegen muss und je Vorgang nur wenige Kacheln herunterladen kann, und dass das vor etwa einem Jahr
   deutlich schlechter geworden ist [unverified]. Das deckt sich mit dem, was die Server von außen zeigen (Konto
