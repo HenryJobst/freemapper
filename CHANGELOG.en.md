@@ -12,6 +12,7 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ### Changed
 
+- freemapper-core moves to v0.29.1: its manifest reads with cargo before 1.99 again; nothing else changes here, the MSRV stays 1.88 (amendment to ADR 0159).
 - The Sanssouci example is rebuilt with the training-map fixes of ADR 0158 and 0150. The fence along the street on the left of the map's middle has its ticks on the side away from the street now, and the white forest areas in the south west hold no single trees any more: the training map has 240 tree points instead of 725. The base map has one fence more (2282 map objects).
 - The Viktoriapark example is rebuilt with the training-map fixes of ADR 0158 and the free-end repairs of ADR 0150, and so is the README image. The white forest areas of the park hold no single trees any more: the training map has 618 tree points (417, 418) instead of 1164. Three fences along streets have their ticks on the side away from the street, on the map and on the training map. The overview numbers stay (3081 map objects, 829 candidates, 47 symbols), and so do the 5 free way ends. The other 28 examples stay as they were.
 - `deny.toml` ignores `RUSTSEC-2026-0543`: `chrono` is unmaintained, and freemapper uses it directly for the dates in the sidecar and the cache. Moving to `jiff` or `time` is a decision of its own; the advisory names missing maintenance, not a vulnerability (amendment to ADR 0154).

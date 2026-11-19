@@ -12,6 +12,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Geändert
 
+- freemapper-core auf v0.29.1 angehoben: Sein Manifest liest wieder mit Cargo vor 1.99; hier ändert sich nichts weiter, die MSRV bleibt 1.88 (Nachtrag zu ADR 0159).
 - Das Beispiel Sanssouci ist mit den Korrekturen der Trainingskarte aus ADR 0158 und 0150 neu gebaut. Der Zaun an der Straße links in der Kartenmitte hat seine Zacken jetzt auf der von der Straße abgewandten Seite, und in den weißen Waldflächen im Südwesten stehen keine einzelnen Bäume mehr: Die Trainingskarte hat 240 statt 725 Baumpunkte. Die Grundkarte hat einen Zaun mehr (2282 Kartenobjekte).
 - Das Beispiel Viktoriapark ist mit den Korrekturen der Trainingskarte aus ADR 0158 und den reparierten freien Linienenden aus ADR 0150 neu gebaut, ebenso das Bild in der README. In den weißen Waldflächen des Parks stehen keine einzelnen Bäume mehr: Die Trainingskarte hat 618 statt 1164 Baumpunkte (417, 418). Drei Zäune an Straßen haben ihre Zacken jetzt auf der von der Straße abgewandten Seite, in der Karte und in der Trainingskarte. Die Zahlen der Übersicht bleiben (3081 Kartenobjekte, 829 Kandidaten, 47 Symbole), ebenso die 5 freien Wegenden. Die anderen 28 Beispiele bleiben, wie sie sind.
 - `deny.toml` nimmt `RUSTSEC-2026-0543` aus: `chrono` ist nicht mehr gepflegt, und freemapper benutzt es direkt für die Daten in Sidecar und Zwischenspeicher. Der Umstieg auf `jiff` oder `time` ist eine eigene Entscheidung; die Meldung nennt fehlende Pflege, keine Schwachstelle (Nachtrag zu ADR 0154).

@@ -69,5 +69,5 @@ tested the `msrv` claim.
 - Historical plans may keep dangling references, but a link in a living document is a defect now.
 - `typos` will meet another German quote in English text and fail. The answer is an entry in
   `_typos.toml` with its reason, not switching the gate off.
-- freemapper-core publishes the workspace-dependency fix next; this repository does not need it,
+- freemapper-core v0.29.1 carries the workspace-dependency fix. This repository does not need it,
   because its own entry is already written the way older cargo reads it.
