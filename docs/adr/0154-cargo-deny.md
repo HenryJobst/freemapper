@@ -37,3 +37,10 @@ for the same reason (its ADR 0068) and asked the suite to follow.
 
 freemapper-core v0.29.0 (core ADR 0037) reads fonts with skrifa instead of ttf-parser. freemapper pins it, and the
 ignore of RUSTSEC-2026-0192 is gone from `deny.toml`.
+
+## Amendment 2026-11-19
+RUSTSEC-2026-0543 reports `chrono` as unmaintained. Unlike the two rmcp advisories, this one reaches
+freemapper through a direct dependency: the engine writes dates into the sidecar and the cache with
+it. The advisory names missing maintenance, not a vulnerability, and no release replaces the crate
+without a migration to `jiff` or `time`, which is a decision of its own. The ignore is bound to this
+one ID and leaves with that migration.

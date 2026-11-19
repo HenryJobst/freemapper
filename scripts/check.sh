@@ -32,6 +32,13 @@ header='// SPDX-License-Identifier: AGPL-3.0-or-later'
 # Floor of the line coverage in tenths of a percent. It catches a drop and is
 # raised by hand once the code has grown into it; `docs/coverage.json` is the
 # snapshot that follows the last measurement upwards.
+#
+# Coverage instrumentation differs between platforms and compiler patches: the
+# same code measured 96.6 % on macOS and 96.3 % on Linux. A difference within
+# this many tenths of a percent is noise, not a drop, and does not rewrite the
+# snapshot.
+coverage_tolerance=3
+
 coverage_floor=940
 
 failed=0
@@ -211,16 +218,16 @@ PY
   floor=${MERGEWARDEN_COVERAGE_FLOOR:-$coverage_floor}
 
   if [ "$tenths" -lt "$floor" ]; then
-    report "line coverage is $measured %, below the floor of $((floor / 10)).$((floor % 10)) %"
+    report "line coverage is $((tenths / 10)).$((tenths % 10)) %, below the floor of $((floor / 10)).$((floor % 10)) %"
     return
   fi
 
-  if [ "$tenths" -lt "$snapshot" ]; then
-    report "line coverage dropped to $measured %; add tests, or lower docs/coverage.json deliberately"
+  if [ $((tenths + coverage_tolerance)) -lt "$snapshot" ]; then
+    report "line coverage dropped to $((tenths / 10)).$((tenths % 10)) %, below the snapshot of $((snapshot / 10)).$((snapshot % 10)) %; add tests, or lower docs/coverage.json deliberately"
     return
   fi
 
-  if [ "$tenths" -gt "$snapshot" ]; then
+  if [ $((tenths - coverage_tolerance)) -gt "$snapshot" ]; then
     printf '{\n  "lines": "%s.%s"\n}\n' "$((tenths / 10))" "$((tenths % 10))" >docs/coverage.json
     echo "check.sh: snapshot raised to $((tenths / 10)).$((tenths % 10)) % in docs/coverage.json; commit it"
   fi
