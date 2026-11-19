@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! What a fetch records in the project file and reports to the disk-space plan.
 
 use std::borrow::Cow;

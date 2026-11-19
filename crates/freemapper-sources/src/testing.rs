@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Builders of test data for the readers: images and height rasters as the services send
 //! them. Behind the feature `testing`.
 

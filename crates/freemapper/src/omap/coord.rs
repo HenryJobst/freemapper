@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Map coordinates as stored by OOM: 1/1000 mm on paper, y pointing south.
 
 /// The coordinate starts a cubic Bézier curve (it and the next 3 coordinates).

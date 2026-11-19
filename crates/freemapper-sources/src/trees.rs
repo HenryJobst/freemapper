@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! City tree cadastres (single trees with a species, a survey date and sometimes a crown
 //! diameter) for the 417/418 candidates.
 //!

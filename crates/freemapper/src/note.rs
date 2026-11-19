@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Progress lines and warnings as values (ADR 0092, stage 3). The types, the macro `note!` and
 //! the catalogs live in `freemapper-adapter-api`, because the readers and the adapters report
 //! through them (ADR 0082); this module keeps the old paths working.

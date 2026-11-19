@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Credit lines: what a project used of a region, and the lines the region asks for in return.
 
 use chrono::{Datelike, NaiveDate};

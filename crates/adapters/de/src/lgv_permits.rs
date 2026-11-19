@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Hamburg's sources of the permit notes (ADR 0129): six WFS on `geodienste.hamburg.de`
 //! (dl-de/by-2-0) for the Bezirke, the public green spaces, the monuments, the Revierförstereien
 //! and the Bannwald of the Stadtwald, the Erholungswald and the water protection areas.
@@ -5,7 +7,7 @@
 //! All are WFS 2.0.0 that answer GeoJSON as `application/geo+json` and read a box in WGS 84
 //! latitude first with its CRS at the end, the generic reader's way ([`get_features`]). Asked so,
 //! they write the positions latitude first; the parser of the Berlin sources turns them round.
-//! The fetch keeps of every feature only the properties a finding reads ([`Layer::kept`]): the
+//! The fetch keeps of every feature only the properties a finding reads (`Layer::kept`): the
 //! monument list describes each building with its architects, which the notes never carry.
 
 use std::path::Path;

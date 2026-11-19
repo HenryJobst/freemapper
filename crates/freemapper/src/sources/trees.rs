@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Tree cadastres of cities. The reader moved to `freemapper-sources` as `trees` (ADR 0082);
 //! this module keeps the old paths working and holds what picks a dataset by state.
 

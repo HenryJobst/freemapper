@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Symbol enlargement with the same rules as OOM's `Symbol::scale`.
 
 use super::OmapError;

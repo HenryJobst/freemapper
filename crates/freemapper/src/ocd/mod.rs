@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! OCAD 12 output: a starting point for further editing in OCAD.
 
 pub mod convert;

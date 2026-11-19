@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The static checks of `freemapper adapters check`: what loads, and what its author is told.
 
 use std::path::{Path, PathBuf};

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! LGLN Niedersachsen open data (CC BY 4.0, "© GeoBasis-DE/LGLN"), all in EPSG:25832: the
 //! orthophoto from the WMS, DGM1 and DOM1 from the MapServer WCS, and the dates of the height
 //! models and the orthophoto from the STAC APIs (the newest item at the centre of the area).

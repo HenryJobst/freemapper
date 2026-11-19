@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! OSM firm-gravel paths as map objects (ADR 0079).
 //!
 //! `surface=compacted|fine_gravel` ways and `tracktype=grade2` tracks are paved by the norm
@@ -8,7 +10,7 @@
 //! - Where ALKIS or the Berlin survey draws paving as a 501.5 map object, the way is the same
 //!   object: the part of the line within that paving, widened by [`AREA_DEDUP_TOLERANCE_MM`] on
 //!   paper, goes. A 501.5 candidate (an ALKIS `Weg` parcel) is no map object and cuts nothing.
-//! - A piece shorter than [`MIN_LINE_MM`] on paper is a stub, with or without a cut, and goes.
+//! - A piece shorter than `MIN_LINE_MM` on paper is a stub, with or without a cut, and goes.
 
 use geo::{BooleanOps as _, Buffer as _, Euclidean, Intersects as _, Length as _, unary_union};
 use geo_types::{Coord, LineString, MultiLineString, MultiPolygon};

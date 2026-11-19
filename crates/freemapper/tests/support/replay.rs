@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The fetchers of the golden net (layers G3 and G4): one records the answers of the services,
 //! one plays them back without a network. They are `freemapper_sources::replay`; this module
 //! ties them to the fixture store.

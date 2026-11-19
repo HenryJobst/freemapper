@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The steps of a raster fetch that name no state: the orthophoto from a WMS or WCS, the terrain
 //! and the surface model of a provider that serves them per area, and what happens to a surface
 //! model that is left out or fails. The raster backends of the adapters are built from them.
@@ -163,7 +165,7 @@ pub fn warn_missing_tiles(
 
 /// The terrain model (required) and the surface model (a template: a failure costs a warning;
 /// with `skip_surface` it is not read, and the stored one stays while it covers `bbox`) of a
-/// per-area provider whose fetch reports a [`HeightModel`](HeightModel).
+/// per-area provider whose fetch reports a [`HeightModel`].
 /// `fetch(surface, out, progress)` reads one model into `out`; `after(surface, found, project, progress)`
 /// says what is specific to the provider once a model was read.
 #[allow(clippy::type_complexity)]

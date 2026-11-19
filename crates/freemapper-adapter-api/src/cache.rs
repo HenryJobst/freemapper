@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The cache shared by all projects, as an adapter sees it: a root folder with one folder per
 //! provider. How much room the volume has left is the engine's business, not the adapter's.
 

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! freemapper builds OpenOrienteering Mapper starter projects from official geodata and OSM.
 //!
 //! Terms follow `docs/glossary.md`.

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The region adapters built into freemapper and the registry the engine asks (ADR 0082).
 //!
 //! The registry is a type of `freemapper-adapter-api` and knows no adapter. This module fills it

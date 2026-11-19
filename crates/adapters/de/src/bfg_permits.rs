@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The drinking water and medicinal spring protection areas of the BfG (ADR 0142), for the
 //! states whose own services give none: the areas the states report to WasserBLIcK, from the
 //! ArcGIS REST service `INSPIRE/AM` of the Bundesanstalt für Gewässerkunde (CC BY 4.0). They

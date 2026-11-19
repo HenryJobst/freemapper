@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! OCAD 12 binary file builder (layout: `docs/ocad/ocd12-reference.md`).
 //!
 //! Everything is little-endian and packed; records are written field by field at their offsets.

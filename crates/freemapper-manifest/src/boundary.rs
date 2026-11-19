@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The boundary file of an adapter: GeoJSON with one polygon feature, in EPSG:25833 or in
 //! longitude and latitude, read into the EPSG:25833 boundary the region functions ask.
 

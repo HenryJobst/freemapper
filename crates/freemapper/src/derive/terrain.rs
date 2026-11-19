@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Terrain templates from the DTM: mosaic, hillshade and slope.
 
 use freemapper_adapters_de::lgb::ProductTiles as _;

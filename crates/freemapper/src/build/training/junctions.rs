@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Junctions on the training map (spec 2026-11-14, "The second half, as designed on
 //! 2026-11-15", "Junctions survive"): the line ends that touch another line are recorded before
 //! lines are merged or shifted, and afterwards an end that no longer touches is moved onto the

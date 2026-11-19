@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The errors of a fetch, and the errors of the readers they carry.
 
 use std::io;

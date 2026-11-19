@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Height tiles in a ZIP archive of a file server, read member by member with range requests:
 //! the directory of an archive kept in the cache, and a tile of XYZ text kept as a GeoTIFF.
 

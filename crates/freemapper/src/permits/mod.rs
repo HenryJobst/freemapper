@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The permit notes of a map area: who protects it, who runs it, and whom a person asks
 //! (ADR 0117, `docs/superpowers/specs/2026-11-13-permit-notes-design.md`).
 

@@ -1,10 +1,12 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Fetching the inputs of the permit notes: the BfN protected areas and the VG250 units through
 //! the policy of the national sources, the OSM findings from the extract already cached. What
 //! was fetched is stored in the project (`data/permits/`) and read back from there, so a later
 //! offline run gives the same notes.
 //!
 //! The sources of a region adapter (ADR 0120) are asked only when the map area lies on the
-//! adapter's ground, and through [`crate::adapters::asking`], so the adapter's own hosts hold
+//! adapter's ground, and through `crate::adapters::asking`, so the adapter's own hosts hold
 //! for them and the policy of the national sources does not.
 
 use std::collections::HashSet;
@@ -184,7 +186,7 @@ fn on_ground(adapter: &dyn RegionAdapter, area: &MapArea) -> bool {
 }
 
 /// The answers of the permit sources of every adapter of `registry` whose ground the map area
-/// touches, each asked through [`crate::adapters::asking`]. A source that fails is
+/// touches, each asked through `crate::adapters::asking`. A source that fails is
 /// `Unreachable`; the others are asked all the same.
 #[allow(clippy::too_many_arguments)]
 fn regional_answers(

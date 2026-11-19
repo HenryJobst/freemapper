@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! What a region supplies: the trait an adapter implements.
 
 use freemapper_georef::crs::BoundingBox;

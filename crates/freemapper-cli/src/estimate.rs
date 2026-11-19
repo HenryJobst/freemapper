@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The download estimate as JSON, shared by the selection page and the MCP server.
 
 use std::path::Path;

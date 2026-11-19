@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Raster products of all providers (LGB Brandenburg, GeoSN Saxony; dl-de/by-2-0), tile URLs,
 //! and the LGB data currency.
 

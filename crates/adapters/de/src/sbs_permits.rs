@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The permit source of Saxony (ADR 0139): two WMS of the Staatsbetrieb Sachsenforst, asked at
 //! points through [`gfi_permits`](crate::gfi_permits). "Wald nach SächsWaldG" gives the Revier
 //! and the Forstbezirk at a point, "Waldfunktionen in Sachsen" the functions of the forest there:

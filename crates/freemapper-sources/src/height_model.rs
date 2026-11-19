@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! What a fetch of a tiled height model (HVBG Hesse, LVermGeo SH) found besides the raster, and
 //! the mosaic of 1 km tiles named by a tile list (Geobasis NRW, LVermGeo RP).
 

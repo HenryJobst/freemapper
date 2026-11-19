@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The library's errors in the language of the run (ADR 0092, stage 2).
 //!
 //! The error types of the library keep their English `Display` texts for logs and tests. This

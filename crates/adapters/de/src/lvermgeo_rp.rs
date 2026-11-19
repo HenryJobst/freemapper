@@ -1,4 +1,6 @@
-//! LVermGeo Rheinland-Pfalz (`geobasis-rlp.de`, dl-de/by-2-0, "©GeoBasis-DE / LVermGeoRP<year>"):
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
+//! LVermGeo Rheinland-Pfalz (`geobasis-rlp.de`, dl-de/by-2-0, `"©GeoBasis-DE / LVermGeoRP<year>"`):
 //! the DGM1 and DOM1 1 km GeoTIFF tiles (Float32, LZW, EPSG:25832).
 //!
 //! A tile's file name carries the year of its laser scan, which differs per tile. The tile list
@@ -471,7 +473,7 @@ fn kept_metalink(dir: &Path, model: Model) -> Option<HashMap<TileId, String>> {
 }
 
 /// The tile names of the Metalink of `model`, for tiles the tile list gives no year. A kept one
-/// younger than [`RECHECK_AFTER`] is used as it is; else it is downloaded (at most once per run
+/// younger than `RECHECK_AFTER` is used as it is; else it is downloaded (at most once per run
 /// and product, as only `fetch_model` asks) and kept. Offline, or when the download fails, the
 /// kept one of any age. `None`, with a warning, when there is none. DGM1 and DOM1 have a
 /// Metalink each.
@@ -540,7 +542,7 @@ pub const METALINK_MB: f64 = 11.0;
 
 /// Whether a run over `tiles` of the area `bbox` (EPSG:25832) would download the Metalink of
 /// `model` (an estimate before a run): the tile list kept for this area gives one of them no
-/// year, and no Metalink kept within [`RECHECK_AFTER`] can stand in.
+/// year, and no Metalink kept within `RECHECK_AFTER` can stand in.
 pub fn metalink_to_fetch(
     cache: &CacheDir,
     model: Model,
@@ -565,7 +567,7 @@ fn kept_list(dir: &Path, bbox: &BoundingBox) -> Option<TileList> {
     parse_tile_list(&String::from_utf8_lossy(&bytes)).ok()
 }
 
-/// The kept Metalink of `model` if it was downloaded within [`RECHECK_AFTER`].
+/// The kept Metalink of `model` if it was downloaded within `RECHECK_AFTER`.
 fn fresh_metalink(dir: &Path, model: Model) -> Option<HashMap<TileId, String>> {
     let age = crate::clock::age_of(&metalink_path(dir, model))?;
     (age < RECHECK_AFTER)
@@ -576,7 +578,7 @@ fn fresh_metalink(dir: &Path, model: Model) -> Option<HashMap<TileId, String>> {
 /// The tiles among `tiles` of the area `bbox` that need no download (an estimate before a run):
 /// the file the tile list kept for this area names (with its scan year) is cached, the server
 /// answered 404 for it lately, or the list gives the tile no year and a Metalink kept within
-/// [`RECHECK_AFTER`] names no file for it either (or names a cached one). Without such a
+/// `RECHECK_AFTER` names no file for it either (or names a cached one). Without such a
 /// Metalink the run downloads one, and it is taken to name the file. Without a kept list, a file
 /// of any year counts.
 pub fn cached_tiles(

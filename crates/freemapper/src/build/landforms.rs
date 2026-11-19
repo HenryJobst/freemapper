@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Landform candidates from the landforms of `derive` (ADR 0104).
 
 use geo::{Contains as _, Distance as _, InterpolateLine as _, Length as _};

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The source block of the PDF: the attribution lines, shortened when they would take too much
 //! room under the title block (ADR 0081). `ATTRIBUTION.txt` and the OOM map keep the full list.
 //!

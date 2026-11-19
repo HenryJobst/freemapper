@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The OSM objects that tell who runs or protects an area.
 //!
 //! Only areas count: closed ways and multipolygon relations, decided by the geometry. The

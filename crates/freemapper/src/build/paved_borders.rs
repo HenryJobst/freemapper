@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The border of paved areas (ISSprOM 2019-2 §4.5, 501.1).
 //!
 //! "A paved area ... should be bordered (or framed) by the symbol Step or edge of paved area

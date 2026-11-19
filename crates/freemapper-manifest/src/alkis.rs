@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! `[alkis]` of a manifest as the ALKIS source of the readers.
 
 use std::borrow::Cow;

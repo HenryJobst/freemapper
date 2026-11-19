@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The one table of pipeline jobs of a process. The MCP tools and the selection pages share it, so
 //! a run started in one is visible in the other and only one run exists at a time (ADR 0090).
 

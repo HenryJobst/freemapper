@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Step 7 of the training level: no point symbol is drawn on a way; a point that comes too
 //! close to a symbol it keeps apart from is moved off to the nearest spot that frees it (spec
 //! 2026-11-14, "Trees", for every point symbol).

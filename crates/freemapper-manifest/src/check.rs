@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! What `freemapper adapters check` finds in the folder of an adapter without asking a server:
 //! whether the folder loads as it would from the adapter folder of a person, and what its
 //! author should know before passing it on.

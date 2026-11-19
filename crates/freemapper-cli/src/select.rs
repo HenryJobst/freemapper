@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The area selection page: a local web server for one project folder. The user draws or picks the
 //! map area in the browser; saving writes it to `freemapper.toml`.
 //!

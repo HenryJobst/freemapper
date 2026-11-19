@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The laser points of LVermGeo Rheinland-Pfalz (dl-de/by-2-0): one LAZ file per km tile in
 //! EPSG:25832 (ADR 0105). The metadata of a tile gives the day of its scan; the Metalink of the
 //! state lists every file with its size and SHA-256, and a download is kept only when both

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Brandenburg's source of the permit notes (ADR 0124): the Reviere of the Landesbetrieb Forst
 //! Brandenburg (LFB), each with its Oberförsterei, from the INSPIRE WFS of the LFB
 //! (dl-de/by-2-0, "Landesbetrieb Forst Brandenburg").

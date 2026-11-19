@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The permit notes as Markdown (`permits.md`, ADR 0117), and the command that fetches and
 //! writes them: `freemapper permits`, `run --permits` and, later, the MCP tool.
 //!

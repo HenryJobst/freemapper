@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Landform candidates from the DTM: small knolls, small depressions, earth banks and cliffs.
 //!
 //! Contours at 2 m (sprint) or 1 m (schoolyard) miss the small forms of a park: a play mound, a

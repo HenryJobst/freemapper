@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Step 5 of the training level: merge what is alike (spec 2026-11-14, "The second half, as
 //! designed on 2026-11-15", "Merge"). Two lines of one class (roads, railways, paths) that run
 //! side by side inside the gap become one line on their middle over that stretch, and on a

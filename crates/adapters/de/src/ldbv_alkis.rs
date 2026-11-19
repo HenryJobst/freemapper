@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The cadastre of Bavaria. The Bayerische Vermessungsverwaltung has no service for it, only
 //! files: the buildings come from the LoD2 tiles (CityGML, one file per 2 km), the land use
 //! from the Shapefile of each Kreis. [`LdbvAlkis`] downloads the files the map area touches,

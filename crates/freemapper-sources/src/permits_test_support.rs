@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! What the tests of the BfN and VG250 readers share: the Strausberg box, a centre of a
 //! geometry and, for the ignored live tests, a fetcher that asks with `curl`.
 

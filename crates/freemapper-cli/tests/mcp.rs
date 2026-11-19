@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The MCP server spoken to over stdio, as an agent would.
 
 use std::io::{BufRead, BufReader, Read as _, Write};

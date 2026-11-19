@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Bayerische Vermessungsverwaltung (LDBV, `geodaten.bayern.de`, CC BY 4.0): the orthophoto
 //! from the WMS, the DGM1 from 1 km GeoTIFF tiles, and the surface model from the DOM20 tiles
 //! (20 cm, computed from the aerial pictures), which are cached reduced to 1 m.

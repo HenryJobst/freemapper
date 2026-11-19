@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Measures of the symbols as the norm draws them at 100 %, shared by the rules of the build.
 //!
 //! A rule that needs the width of a line or the size of a point symbol takes it from here, so

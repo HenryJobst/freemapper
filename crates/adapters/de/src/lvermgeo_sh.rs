@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The LVermGeo SH Downloadportal (`geodaten.schleswig-holstein.de`, CC BY 4.0, "© GeoBasis-DE/
 //! LVermGeo SH"): the DGM1 and bDOM tiles under an area, looked up through the portal's AJAX
 //! `overview.php` (EPSG:25832, 1 km tiles).
@@ -85,7 +87,7 @@ pub(crate) fn overview_url(bbox: &BoundingBox, product: Product) -> String {
     )
 }
 
-/// The start of every [`overview_url`] of `product`, up to the bbox.
+/// The start of every `overview_url` of `product`, up to the bbox.
 pub fn overview_prefix(product: Product) -> String {
     format!(
         "{PORTAL}/_ajax/overview.php?type[]={}&bbox=",

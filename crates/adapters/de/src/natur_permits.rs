@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Naturdenkmale, geschützte Landschaftsbestandteile and gesetzlich geschützte Biotope of the
 //! states (ADR 0146), read by the tables of [`wfs_permits`](crate::wfs_permits). The national
 //! sources hold none of them. The credit lines are verbatim from the capabilities or the

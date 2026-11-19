@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The raster downloads of the states for the estimate: what each provider would download for
 //! an area, how large it is and what of it is in the cache already.
 
@@ -41,7 +43,7 @@ pub fn items(state: State, area: &EstimateArea, env: &EstimateEnv<'_>) -> Vec<Es
     agency_items(state.agency(), area, env)
 }
 
-/// The raster parts of [`agency_items`]: what a raster backend of `agency` downloads, for an
+/// The raster parts of `agency_items`: what a raster backend of `agency` downloads, for an
 /// adapter that names the backend instead of being one of the states (issue #71). The files
 /// of the cadastre some agencies list too (Bavaria's LoD2 and land use) are no rasters and
 /// stay out.

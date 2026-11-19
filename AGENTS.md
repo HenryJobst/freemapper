@@ -398,6 +398,9 @@ This section is for coding agents in a clone of the repository, not for using th
   `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace --locked`, `cargo deny check`
   (licences, advisories and sources of the dependencies, `deny.toml`; install with `cargo install cargo-deny --locked`). The toolchain is
   pinned in `rust-toolchain.toml`.
+- The housekeeping gates: `scripts/check.sh` runs licence line, spelling, links, history, dependencies, action
+  pins, ADR index and changelog pair; `scripts/check.sh doc coverage msrv` builds the workspace and checks
+  rustdoc, line coverage and the MSRV. CI runs the same commands (ADR 0159).
 - CI runs a pull request on Linux only. Give it the label `all-systems` when the change touches code that
   differs on macOS or Windows (paths, processes, the file system); every push to `main` runs all three.
 - Source code and technical docs are English; terms follow [`docs/glossary.md`](docs/glossary.md). User docs are in

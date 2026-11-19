@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Pacing of Nominatim requests: at most one per second for the whole process (usage policy),
 //! shared by the MCP server, the area selection page and `freemapper find`.
 

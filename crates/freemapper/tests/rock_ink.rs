@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The rock of the Bastei example stays readable (ADR 0126): the ink of the impassable cliffs
 //! (201 with its tags, the top line 201.3) and of the rock pillars and fins (206) on any square
 //! centimetre of paper. Before the generalization the worst square centimetre held 230 % (the

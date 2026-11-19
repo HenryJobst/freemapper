@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The download estimate: what an adapter is asked and the sizes most regions share.
 
 use chrono::NaiveDate;

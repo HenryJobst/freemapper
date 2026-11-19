@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Metalink documents (RFC 5854): the list of the files a download directory offers, as the
 //! portal of Rhineland-Palatinate publishes one per height model.
 

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Step 1b of the training level: an opening between the ends of walls and fences narrower than
 //! the norm's is widened to it.
 //!

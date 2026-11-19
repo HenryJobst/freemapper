@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Program texts from Fluent files (ADR 0092).
 //!
 //! The program independent part (languages, lookup with English fallback, language detection,

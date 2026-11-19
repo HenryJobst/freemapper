@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Step 4 of the training level: inside olive green the training map draws no details (spec
 //! 2026-11-14, "Inside olive green").
 

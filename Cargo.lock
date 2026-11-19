@@ -726,7 +726,6 @@ version = "0.24.0"
 dependencies = [
  "chrono",
  "contour",
- "crc32fast",
  "dirs",
  "freemapper",
  "freemapper-adapter-api",
@@ -736,7 +735,6 @@ dependencies = [
  "freemapper-georef",
  "freemapper-render",
  "freemapper-sources",
- "freemapper-text",
  "fs4",
  "geo",
  "geo-types",
@@ -756,7 +754,6 @@ dependencies = [
  "tiny-skia",
  "toml",
  "ureq",
- "weezl",
  "winapi-util",
  "world_magnetic_model",
  "zip",

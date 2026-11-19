@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The credit lines of the states: the text each licence prescribes, the year it carries and
 //! when it is due.
 
@@ -220,7 +222,7 @@ fn berlin(used: &UsedSources<'_>) -> Vec<String> {
     lines
 }
 
-/// The attribution lines of the city tree cadastres in `registers` ([`drawn_registers`]): one
+/// The attribution lines of the city tree cadastres in `registers` (`drawn_registers`): one
 /// for each dataset that drew trees.
 pub fn tree_attribution(registers: &[&str]) -> Vec<String> {
     crate::states::all_tree_datasets()

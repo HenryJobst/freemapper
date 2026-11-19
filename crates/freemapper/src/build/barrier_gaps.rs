@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Point symbols keep the norm's gap to walls and fences (ISSprOM 2019-2 §3.3).
 //!
 //! ADR 0066 gives two point symbols a gap of 0.15 mm between their outer edges. The same gap

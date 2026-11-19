@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The scripts of the release workflow. `.github/scripts/update-manifest.sh` writes the update
 //! manifest: what it writes must be what freemapper-update reads, and it must still verify once
 //! signed the way the workflow signs it. `.github/scripts/release-tag.sh` names the release. Both

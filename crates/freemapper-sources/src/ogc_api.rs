@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The reader of an "ALKIS vereinfacht" OGC API Features service: paging through a collection,
 //! and parsing buildings and land use in the LGB property schema, which the WFS reader produces
 //! too. Which service serves which state is decided by the caller.
@@ -163,7 +165,7 @@ pub struct ParsedBuildings {
     pub skipped: Vec<String>,
 }
 
-/// Reads the buildings of a GeoJSON FeatureCollection as returned by [`fetch_buildings`].
+/// Reads the buildings of a GeoJSON FeatureCollection as returned by `fetch_buildings`.
 /// A feature without oid or with an unusable geometry is skipped and listed; a document that is
 /// not a FeatureCollection is an error.
 pub fn parse_buildings(geojson: &str) -> Result<ParsedBuildings, AlkisError> {

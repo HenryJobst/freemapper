@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Tagged features for the candidate rules: GeoJSON features (a point, lines or polygons in a
 //! projected CRS) as [`OsmFeature`]s. The tags are the caller's (`berlin:*` for Geoportal Berlin,
 //! `alkis:*` for the state cadastres), so an OSM rule can never match them.

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The water protection zones of Baden-Württemberg (ADR 0143): the WFS of the LUBW
 //! Landesanstalt für Umwelt Baden-Württemberg, under its terms of use for data of the
 //! Umweltinformationssystem (UIS), which ask for the credit line below. Each zone names the

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! What a project has and will download: download estimate, layer list and PNG previews (for the
 //! MCP server and the CLI).
 

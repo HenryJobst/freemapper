@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Float32 GeoTIFF height models: reading (ModelTiepoint and ModelPixelScale, strips or tiles,
 //! with a lenient LZW fallback) and writing (with a world file, or with GeoTIFF tags for caching).
 

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Lengths on paper and what they are on the ground and in map coordinates.
 //!
 //! A rule of the build names a length in one of three units: millimetres on the printed sheet
