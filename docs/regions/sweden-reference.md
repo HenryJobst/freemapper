@@ -119,6 +119,13 @@ und es kostet Geld.
   und der Zugang zur Nationalen Geodatenplattform sind ohne Anmeldung erreichbar [live]; verschlossen sind
   Bestellung, Bedingungen und Download.
 
+* **Ein Konto allein öffnet nichts.** Nach dem Anlegen eines Kontos antwortet das Developer Portal mit
+  `Error 403 : Forbidden — You don't have sufficient privileges to access the Developer Portal` (Bericht vom
+  2026-11-19). Das ist die Rollenprüfung von WSO2, nicht ein falsches Passwort: dem Konto fehlt die
+  Subscriber-Rolle. Lantmäteriets Anleitung sagt, was dann zu tun ist — wer ein API nicht sieht, bestellt die
+  Berechtigung bei Geodata-support (`geodatasupport@lm.se`) [doc]. Zwischen „Konto angelegt“ und „erste
+  Kachel“ liegt also ein Mailwechsel.
+
 **Folge für einen Adapter.** Ein schwedischer Adapter bräuchte eine Zugangsberechtigung, die eine Person für ihr
 eigenes Konto beschafft, aufbewahrt außerhalb des Projektordners und niemals in `freemapper.toml`,
 `ATTRIBUTION.txt` oder einer Fortschrittszeile landet. Das ist eine neue Art von Zustand für freemapper, das
