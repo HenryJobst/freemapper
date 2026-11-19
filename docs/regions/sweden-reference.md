@@ -32,14 +32,16 @@ Behörde: Lantmäteriet (Kartografie, Kataster und Grundbuch). Vertrieb: Geotorg
   eines schwedischen Orientierungsläufers lassen sich außerdem je Vorgang nur wenige Kacheln laden
   [unverified] — für eine Karte heißt das Handarbeit (§2). Schlüsselfrei sind dagegen Bodenbedeckung und
   Objekthöhe (NMD, 10 m, CC0) und die Schutzgebiete (§7).
-* **Die Metadaten sind schlüsselfrei und brauchbar.** Drei STAC-Kataloge antworten ohne Token, mit Footprint,
-  Auflösung, CRS, Dateigröße und einer direkten Asset-URL je Kachel [live]. Ein Adapter kann einen schwedischen
-  Download *planen*, ohne Zugangsdaten, und scheitert erst beim Holen.
+* **Die Metadaten sind schlüsselfrei und brauchbar.** Vier STAC-Kataloge antworten ohne Token, mit Footprint,
+  Auflösung, CRS, Dateigröße und einer direkten Asset-URL je Kachel [live], und das API-Portal nennt alle
+  Schnittstellen samt Kontingent (§4.1). Ein Adapter kann einen schwedischen Download *planen*, ohne
+  Zugangsdaten, und scheitert erst beim Holen.
 * **Die Formate passen nicht.** Höhen und Orthofoto sind Cloud-Optimized GeoTIFFs (`image/tiff;
-  profile=cloud-optimized`) [live], die Vektoren sind als GeoPackage im Zip angekündigt [live, nach ihrer
-  Beschreibung]. freemapper liest gekachelte **LZW**-Float32-TIFFs per Range und hat überhaupt keinen
-  GeoPackage-Leser; die schwedischen COGs sind **deflate**, und das Orthofoto ist 8-Bit-RGB(I) [live]. Nichts im
-  heutigen Code öffnet sie.
+  profile=cloud-optimized`) [live], die Vektoren im Zip als GeoPackage [live, nach ihrer Beschreibung] —
+  **Gebäude nur so**, Bodenbedeckung, Verwaltungseinheiten, Hydrografi und Grundstücksgrenzen dagegen auch als
+  **GeoJSON** über die OGC-Features-API (§4.1). freemapper liest gekachelte **LZW**-Float32-TIFFs per Range und
+  hat keinen GeoPackage-Leser, aber einen GeoJSON-Leser für WFS-2.0-Dienste (§8.2); die schwedischen COGs sind
+  **deflate**, das Orthofoto 8-Bit-RGB(I) [live].
 * **Das CRS passt.** SWEREF99 TM benutzt die Parameter von UTM 33 (GRS80, Mittelmeridian 15° O, k0 0,9996,
   falscher Rechtswert 500 000, kein falscher Hochwert); seine Koordinaten lassen sich also unverändert als
   EPSG:25833 verwenden, und die 10-km-Kacheln des DTM liegen auf freemappers Kilometergitter. Nur das Höhendatum
@@ -55,10 +57,10 @@ Behörde: Lantmäteriet (Kartografie, Kataster und Grundbuch). Vertrieb: Geotorg
 | Kartenobjekt | Schwedisches Produkt | Schlüsselfrei | Format | CRS | Lizenz | Blocker |
 |---|---|---|---|---|---|---|
 | Gebäude | Byggnader (`stac-vektor`) | nein | GeoPackage im Zip | 3006 | CC BY 4.0 | Token, GPKG-Leser |
-| Bodenbedeckung (Wald, Feld, Siedlung) | Marktäcke (`stac-vektor`) | nein | GeoPackage im Zip | 3006 | CC BY 4.0 | Token, GPKG-Leser |
+| Bodenbedeckung (Wald, Feld, Siedlung) | Marktäcke (`stac-vektor`) | nein | GeoPackage im Zip, auch GeoJSON | 3006 | CC BY 4.0 | Token, GPKG- oder OAPIF-Leser |
 | Bodenbedeckung, grob | NMD (`lc-nmd`) | **ja** | GeoTIFF, 16 Bit, 10 m | 3006 | CC0 1.0 | 10 m grob, PackBits |
 | Objekthöhe und -täckning (grober nDSM) | NMD tilläggsskikt | **ja** | vier Raster, 10 m | 3006 | CC0 1.0 | 10 m grob |
-| Verwaltungseinheiten, Küstenlinie | Kommun, län och rike | nein | GeoPackage im Zip | 3006 | CC BY 4.0 | Token, GPKG-Leser |
+| Verwaltungseinheiten, Küstenlinie | Kommun, län och rike | nein | GeoPackage im Zip, auch GeoJSON | 3006 | CC BY 4.0 | Token, GPKG- oder OAPIF-Leser |
 | Wege, Trassen, kleine Objekte | OSM (`europe/sweden`) | ja | PBF | WGS84 | ODbL | 982 MB Extrakt, kein Teil-Extrakt |
 | Orthofoto | Ortofoto (`stac-bild`, 737 Sammlungen) | nein | COG, 0,16 m RGBI | 3006 | CC BY 4.0 **plus DSGVO-Prüfung** | Token, 8-Bit-COG-Leser, ~0,6 GB je Kachel |
 | Gelände (Höhenlinien, Neigungen) | Markhöjdmodell (`dtm-cog`) | nein | COG, 1 m Float32 | 5845 | CC BY 4.0 | Token, deflate im Range-Leser |
@@ -96,7 +98,8 @@ lesen. Die deutschen Adapter haben alle ein DOM.
   und Token, §4). Für eine Karte zählt es: 4 km Kantenlänge berühren bis zu neun Orthofoto-Kacheln à 0,6 GB und
   bis zu neun DSM-Kacheln (§3.5); bei „ein paar Kacheln zur Zeit“ wird der Bezug zur Handarbeit. Ob die Grenze
   die Weboberfläche von Geotorget betrifft oder auch die API-Assets unter `dl1.lantmateriet.se`, ist offen
-  (§10) — davon hängt ab, ob ein Adapter überhaupt unbeaufsichtigt laden kann.
+  (§10); die Kontingente im API-Portal (§4.1) sprechen gegen ein API-Limit — davon hängt ab, ob ein Adapter
+  überhaupt unbeaufsichtigt laden kann.
 
 **Folge für einen Adapter.** Ein schwedischer Adapter bräuchte eine Zugangsberechtigung, die eine Person für ihr
 eigenes Konto beschafft, aufbewahrt außerhalb des Projektordners und niemals in `freemapper.toml`,
@@ -107,13 +110,14 @@ bisher nirgends ein Benutzerkonto braucht.
 
 ## 3. Die STAC-Kataloge
 
-Drei Wurzeln, alle schlüsselfrei [live]:
+Vier Wurzeln, alle schlüsselfrei [live]:
 
 | Katalog | URL | Inhalt |
 |---|---|---|
 | Höjd | `https://api.lantmateriet.se/stac-hojd/v1` | Gelände- und Oberflächenmodelle, Laserdaten |
 | Vektor | `https://api.lantmateriet.se/stac-vektor/v1` | Gebäude, Bodenbedeckung, Adressen, Verwaltungseinheiten |
 | Bild | `https://api.lantmateriet.se/stac-bild/v1` | Orthofoto, 737 Sammlungen |
+| Karta | `https://api.lantmateriet.se/stac-karta/v1` | Topowebb als Rasterpaket, zwei Militärkarten (§3.7) |
 
 Jeder hat `/collections`, `/collections/{id}`, `/collections/{id}/items`, `/collections/{id}/items/{item}`,
 `/search`, `/queryables` und `/conformance` [live]. Das OpenAPI-Dokument von `stac-hojd`
@@ -249,6 +253,22 @@ und `617_39` und deren Asset-URLs. Beobachtungen:
 * `fields` funktioniert; `/conformance` listet `item-search#fields`, `#query`, `#filter`, CQL2 basic/JSON/text
   [live].
 
+### 3.7 Karta: Topowebb und die Militärkarten
+
+Der vierte und kleinste Katalog, drei Sammlungen [live]:
+
+| Sammlung | Titel | Lizenz |
+|---|---|---|
+| `topowebb` | Topografisk webbkarta Nedladdning, raster | `CC-BY-4.0` |
+| `nmk250` | Nationell militär karta 1:250 000 | `other` |
+| `nmk50` | Nationell militär karta 1:50 000 | `other` |
+
+`topowebb` besteht aus zwei Objekten, `topowebb-3006` und `topowebb-3857`, und deren `data`-Asset ist ein
+**GeoPackage**: 175 313 006 592 B für SWEREF99 TM, 156 273 930 240 B für Web Mercator [live]. Das ist ein
+einziges Riesenpaket mit Rasterkacheln — der Code kann es weder öffnen (kein GeoPackage-Leser, §8.2) noch
+laden (`MAX_DOWNLOAD_BYTES` 512 MB). Für eine Orientierungskarte trägt Topowebb ohnehin nichts bei: eine
+fertige kartografische Karte mit Signaturen, kein Gelände- oder Oberflächenmodell.
+
 ---
 
 ## 4. Authentifizierung, wie beobachtet
@@ -269,6 +289,41 @@ der üblichen `invalid_client`-Form. Ein funktionierender Aufruf [unverified, ke
 
 Die Metadatenkataloge brauchen überhaupt kein Token [live], ein Adapter kann einer Person also sagen, *was* er
 laden würde und *wie viel*, bevor es Zugangsdaten gibt.
+
+### 4.1 Das API-Portal
+
+`https://apimanager.lantmateriet.se/devportal/apis` ist **ohne Anmeldung** lesbar [live] und listet alle 15
+veröffentlichten APIs mit Version, Kontextpfad und Kontingent. Sieben davon sind Atom-Download-Feeds —
+`/byggnad/atom`, `/marktacke/atom`, `/administrativindelning/atom`, `/belagenhetsadress/atom`,
+`/fastighetsomrade/atom`, `/hydrografi/atom` und `/ortnamn/atom` —, dazu `OGC-Features` (`/ogc-features`), die
+vier STAC-Kataloge, `FAPI`, `Tumnageldirekt` und ein Demoendpunkt `Hello` [live]. Die Atom-Feeds sind genau die
+Schnittstelle, deren Zip-Adressen in den STAC-Objekten stehen (§3.2).
+
+Die Kontingente stehen offen dabei:
+
+| API | Plan | Grenze | Abonnements |
+|---|---|---|---|
+| `Marktacke_Inspire_Nedladdning` | OpenData | 6000 Requests/min | 405 |
+| `OGC-Features` | FairUse | 240 Requests/min | 759 |
+| `STAC-vektor` | FairUse | 240 Requests/min | 838 |
+
+Alle Angaben [live]. Das ist der Grund, die berichtete Kachelgrenze (§2) **nicht** als API-Kontingent zu lesen:
+240 Anfragen je Minute sind großzügig, und eine Grenze „wenige Kacheln je Vorgang“ steht dort nirgends. Sie
+sitzt also eher in der Weboberfläche von Geotorget oder in einer Abo-Bedingung, die erst nach der Anmeldung
+sichtbar wird (§10).
+
+Auch die Schnittstelle des Portals ist schlüsselfrei: `GET /api/am/devportal/v3/apis?limit=30` liefert alle 15
+APIs als JSON [live] — brauchbar, um die Liste zu prüfen, ohne die Seite zu lesen.
+
+**`OGC-Features` ist der interessante Eintrag.** Es ist eine OGC-API-Features-Schnittstelle unter
+`https://api.lantmateriet.se/ogc-features/v1` (OpenAPI 3.0.3, 65 Pfade) [live] mit den Produkten `marktacke`
+(Collections `markytor` und `sankmarksytor`), `administrativ-indelning` (kommuner, län, rike, je Jahr),
+`fastighetsindelning` und `hydrografi`; **Gebäude fehlen**. Antworten sind `application/geo+json`, die
+Operationen nehmen `bbox`, `limit`, `offset` und einen CQL2-Filter [live]. Die Collection-Metadaten antworten
+ohne Zugangsdaten (`/marktacke/collections` → `200`), die `items` nicht (`401`, „Missing Credentials“, die
+Meldung nennt `Authorization : Bearer …`) [live]. Das OpenAPI-Dokument führt zwei Sicherheitsschemata,
+`default` und `basic_auth` [live]; Basic statt Bearer wäre für den Fetcher der kleinere Eingriff, weil ein
+Header genügt.
 
 ---
 
@@ -446,12 +501,19 @@ keine Ablaufbehandlung, und `UrlPolicy` entscheidet nur über Hosts, nicht über
 Adapter braucht einen Token-Provider in der Adapter-API und die Regel, dass das Token nie in `freemapper.toml`,
 in Cache-Dateinamen, in Fortschrittszeilen oder in `ATTRIBUTION.txt` gelangt.
 
-### 8.2 Ein GeoPackage-Leser
+### 8.2 Ein GeoPackage- und ein OAPIF-Leser
 
 `byggnader`, `marktacke`, `kommun-lan-rike` und das `breakgeometry`-Asset sind GeoPackage, also SQLite mit WKB
 in einer Tabelle. Der Workspace hat überhaupt keine SQLite-Abhängigkeit (`grep sqlite|rusqlite|geopackage` in
-jeder `Cargo.toml` findet nichts) und keinen GeoPackage-Leser. Alles Vektorielle in Schweden käme über einen
-neuen Formatleser — ein erhebliches Stück Code, und eines, für das ein Zip um die Datei entpackt werden muss.
+jeder `Cargo.toml` findet nichts) und keinen GeoPackage-Leser.
+
+**Aber es muss nicht alles GeoPackage sein.** Die OGC-Features-API (§4.1) liefert `marktacke`
+(`markytor`, `sankmarksytor`), `administrativ-indelning` (kommuner, län, rike), `fastighetsindelning` und
+`hydrografi` als **GeoJSON** (`application/geo+json`, `bbox`, `limit`, `offset`, CQL2-Filter). freemapper hat
+mit `geojson_wfs` (`crates/freemapper-sources/src/geojson_wfs.rs`) bereits einen Leser für
+GeoJSON-FeatureCollections samt Paging — er fragt WFS 2.0 mit `typeNames`/`count`/`startIndex`, ein
+OAPIF-Geschwister braucht Pfad-Collections und `limit`/`offset`, aber keinen SQLite-Stack. GeoPackage bleibt
+für die **Gebäude** und das `breakgeometry`-Asset nötig, samt Zip drumherum.
 
 ### 8.3 Ein COG-Leser für das Orthofoto
 
@@ -517,7 +579,7 @@ Messungen.
 
 | Option | Arbeit | Ergebnis |
 |---|---|---|
-| **A. Voller Adapter** | Token-Provider in der Adapter-API und im Fetcher; deflate- (und 8-Bit-)TIFF-Range-Leser; GeoPackage-Leser; `RasterKind`-Gitter in Metern oder ein nähendes Backend; Grenze; Manifest; Namensnennung; Tests mit aufgezeichneten Fixtures; dazu ein Weg für den Bezug, wenn die berichtete Kachelgrenze auch für die API gilt (§10). Etwa 6 bis 11 fokussierte Aufgaben, und das erste freemapper-Feature, das Zugangsdaten halten muss. | Eine schwedische Karte wie eine deutsche: Gebäude, Bodenbedeckung, DTM-Höhenlinien, Orthofoto, nDSM aus Daten mit `other`-Lizenz und unklarer Rechtsgrundlage. |
+| **A. Voller Adapter** | Token-Provider in der Adapter-API und im Fetcher; deflate- (und 8-Bit-)TIFF-Range-Leser; OAPIF-Leser (GeoJSON) und GeoPackage-Leser für Gebäude; `RasterKind`-Gitter in Metern oder ein nähendes Backend; Grenze; Manifest; Namensnennung; Tests mit aufgezeichneten Fixtures; dazu ein Weg für den Bezug, wenn die berichtete Kachelgrenze auch für die API gilt (§10). Etwa 6 bis 11 fokussierte Aufgaben, und das erste freemapper-Feature, das Zugangsdaten halten muss. | Eine schwedische Karte wie eine deutsche: Gebäude, Bodenbedeckung, DTM-Höhenlinien, Orthofoto, nDSM aus Daten mit `other`-Lizenz und unklarer Rechtsgrundlage. |
 | **B. OSM, NMD und Schutzgebiete** | Ein ADR, das eine Region zulässt, deren `rasters()` `None` ist; eine Region mit Grenze und ohne Raster-Backend; OSM als Vektoren; NMD als Bodenbedeckung und grober Objekthöhe (§7.2); Schutzgebiete; ein Leser für 16-Bit-PackBits-TIFF. Keine Zugangsdaten. | Eine Karte mit OSM-Wegen und -Gebäuden, Bodenbedeckung und Baumdichte aus NMD auf 10 m, Schutzgebieten; keine Höhenlinien, kein Orthofoto, keine Einzelbäume. |
 | **C. Nur Dokumentation** | Diese Datei. | Eine Antwort für die nächste Person, die fragt, einschließlich der sechs Tatsachen, die entscheiden: Token, Kachelgrenze, GeoPackage, deflate-COG, NMD als schlüsselfreie Bodenbedeckung, „keine Raster, keine Karte“. |
 
@@ -545,9 +607,10 @@ Offene Fragen, bevor A beginnt:
   Token für jedes Produkt annimmt — alles hinter der Anmeldung. Es wurde kein Konto angelegt, das ist also der
   eine Teil, den eine Person mit Zugang vor dem Start von A bestätigen muss.
 * Ob die Grenze von wenigen Kacheln je Vorgang, die der schwedische Orientierungsläufer berichtet, für die
-  Weboberfläche von Geotorget gilt oder auch für die API-Assets unter `dl1.lantmateriet.se`. Gilt sie auch für
-  die API, kann kein Adapter eine Karte unbeaufsichtigt laden, und A stünde vor einer Aufgabe, die freemapper
-  nirgends sonst hat.
+  Weboberfläche von Geotorget gilt oder auch für die API-Assets unter `dl1.lantmateriet.se`. Das API-Portal
+  nennt 240 bis 6000 Requests je Minute und keine Kachelgrenze (§4.1), spricht also für die Weboberfläche oder
+  für eine Abo-Bedingung; ob zusätzlich eine Tages- oder Volumengrenze auf den Assets liegt, bliebe zu prüfen.
+  Gilt sie auch für die API, kann kein Adapter eine Karte unbeaufsichtigt laden.
 * Ob die `other`-Lizenz von `dsm-cog`, `dsm-skoglig-copc` und `orto-dsm-cog` abgeleitete Produkte in einer
   veröffentlichten Karte erlaubt. Die Sammlung sagt nur `other`; die Bedingungen liegen hinter Geotorget.
 * Ob die Orthofoto-COGs intern JPEG- oder deflate-komprimiert sind — das `info`-Asset einer Orthofoto-Kachel
@@ -606,6 +669,14 @@ curl -sIL https://geodata.naturvardsverket.se/nedladdning/marktacke/NMD2023/Bass
 curl -sIL https://geodata.naturvardsverket.se/nedladdning/marktacke/NMD2018/NMD2018_basskikt_ogeneraliserad_Sverige_v1_1.zip   # 1406790147 B
 curl -s https://geodata.naturvardsverket.se/nedladdning/marktacke/NMD2018/bas_lan_ogen/   # Verzeichnisindex, AB 33 MB
 curl -s 'https://www.geodata.se/geodataportalen/srv/eng/csw?service=CSW&request=GetCapabilities&version=2.0.2'   # CSW 2.0.2
+
+# API-Portal und der vierte STAC-Katalog
+curl -s 'https://apimanager.lantmateriet.se/api/am/devportal/v3/apis?limit=30'   # 15 APIs, JSON, ohne Token
+curl -s https://api.lantmateriet.se/stac-karta/v1/collections                    # topowebb, nmk250, nmk50
+curl -s 'https://api.lantmateriet.se/stac-karta/v1/collections/topowebb/items?limit=2'   # gpkg, 175313006592 B
+curl -s https://api.lantmateriet.se/ogc-features/v1/marktacke/collections                 # 200, markytor
+curl -s 'https://api.lantmateriet.se/ogc-features/v1/administrativ-indelning/collections/kommuner/items?limit=1'   # 401
+curl -s https://apimanager.lantmateriet.se/api/am/devportal/v3/apis/8e4e3f62-99f4-4734-8faf-5b3245d3baa8/swagger   # OpenAPI 3.0.3
 
 # HMK-Handbücher, schlüsselfreie PDFs
 curl -sI https://www.lantmateriet.se/globalassets/om-lantmateriet/var-samverkan-med-andra/hmk/handbocker/hmk_hojdmodell_2023.pdf   # 200
