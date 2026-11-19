@@ -10,6 +10,11 @@ unauthentifizierte Anfragen, nicht auf einem eigenen Download.
 einer amtlichen Seite oder aus den Metadaten des Dienstes. **[unverified]** markiert Aussagen aus Erinnerung oder
 Sekundärquellen.
 
+Nachtrag vom 2026-11-18: Ein schwedischer Orientierungsläufer berichtet aus eigener Nutzung, dass ein Konto
+nötig ist, dass sich je Vorgang nur wenige Kacheln herunterladen lassen und dass das vor etwa einem Jahr
+deutlich schlechter geworden ist. Der Bericht steht in §2, seine Folge für einen Adapter in §9, die offene
+Frage dazu in §10.
+
 Behörde: Lantmäteriet (Kartografie, Kataster und Grundbuch). Vertrieb: Geotorget
 (`geotorget.lantmateriet.se`) und drei STAC-Kataloge auf `api.lantmateriet.se`. CRS: SWEREF99 TM
 (EPSG:3006), Höhen in RH2000, beides zusammen als EPSG:5845. Geofabrik-Extrakt: `europe/sweden`.
@@ -23,7 +28,9 @@ Behörde: Lantmäteriet (Kartografie, Kataster und Grundbuch). Vertrieb: Geotorg
   Datensätze), nicht *öppna data*. Eine Person oder eine Organisation braucht ein Konto, ein *systemkonto*, eine
   Berechtigung je Produkt und für mehrere Produkte einen geprüften Zweck und akzeptierte Bedingungen. Downloads
   tragen ein OAuth2-Bearer-Token [doc], und der Asset-Host antwortet ohne eines mit `401` [live]. Es gibt keine
-  schlüsselfreie Download-URL und kein schlüsselfreies WMS für Höhen, Orthofoto oder Vektoren.
+  schlüsselfreie Download-URL und kein schlüsselfreies WMS für Höhen, Orthofoto oder Vektoren. Nach dem Bericht
+  eines schwedischen Orientierungsläufers lassen sich außerdem je Vorgang nur wenige Kacheln laden
+  [unverified] — für eine Karte heißt das Handarbeit (§2).
 * **Die Metadaten sind schlüsselfrei und brauchbar.** Drei STAC-Kataloge antworten ohne Token, mit Footprint,
   Auflösung, CRS, Dateigröße und einer direkten Asset-URL je Kachel [live]. Ein Adapter kann einen schwedischen
   Download *planen*, ohne Zugangsdaten, und scheitert erst beim Holen.
@@ -80,6 +87,13 @@ lesen. Die deutschen Adapter haben alle ein DOM.
   `geotorget.lantmateriet.se` und von dort auf `/obehorig` weiter [live]; der Katalog ist eine
   JavaScript-Anwendung hinter der Anmeldung. Was ein Produkt kostet und welche Bedingungen es trägt, ist erst
   nach der Anmeldung zu lesen [doc].
+* Ein schwedischer Orientierungsläufer berichtet aus eigener Nutzung (mündlich, 2026-11-18), dass man sich ein
+  Konto anlegen muss und je Vorgang nur wenige Kacheln herunterladen kann, und dass das vor etwa einem Jahr
+  deutlich schlechter geworden ist [unverified]. Das deckt sich mit dem, was die Server von außen zeigen (Konto
+  und Token, §4). Für eine Karte zählt es: 4 km Kantenlänge berühren bis zu neun Orthofoto-Kacheln à 0,6 GB und
+  bis zu neun DSM-Kacheln (§3.5); bei „ein paar Kacheln zur Zeit“ wird der Bezug zur Handarbeit. Ob die Grenze
+  die Weboberfläche von Geotorget betrifft oder auch die API-Assets unter `dl1.lantmateriet.se`, ist offen
+  (§10) — davon hängt ab, ob ein Adapter überhaupt unbeaufsichtigt laden kann.
 
 **Folge für einen Adapter.** Ein schwedischer Adapter bräuchte eine Zugangsberechtigung, die eine Person für ihr
 eigenes Konto beschafft, aufbewahrt außerhalb des Projektordners und niemals in `freemapper.toml`,
@@ -433,9 +447,9 @@ Messungen.
 
 | Option | Arbeit | Ergebnis |
 |---|---|---|
-| **A. Voller Adapter** | Token-Provider in der Adapter-API und im Fetcher; deflate- (und 8-Bit-)TIFF-Range-Leser; GeoPackage-Leser; `RasterKind`-Gitter in Metern oder ein nähendes Backend; Grenze; Manifest; Namensnennung; Tests mit aufgezeichneten Fixtures. Etwa 6 bis 10 fokussierte Aufgaben, und das erste freemapper-Feature, das Zugangsdaten halten muss. | Eine schwedische Karte wie eine deutsche: Gebäude, Bodenbedeckung, DTM-Höhenlinien, Orthofoto, nDSM aus Daten mit `other`-Lizenz und unklarer Rechtsgrundlage. |
+| **A. Voller Adapter** | Token-Provider in der Adapter-API und im Fetcher; deflate- (und 8-Bit-)TIFF-Range-Leser; GeoPackage-Leser; `RasterKind`-Gitter in Metern oder ein nähendes Backend; Grenze; Manifest; Namensnennung; Tests mit aufgezeichneten Fixtures; dazu ein Weg für den Bezug, wenn die berichtete Kachelgrenze auch für die API gilt (§10). Etwa 6 bis 11 fokussierte Aufgaben, und das erste freemapper-Feature, das Zugangsdaten halten muss. | Eine schwedische Karte wie eine deutsche: Gebäude, Bodenbedeckung, DTM-Höhenlinien, Orthofoto, nDSM aus Daten mit `other`-Lizenz und unklarer Rechtsgrundlage. |
 | **B. OSM plus Schutzgebiete** | Ein ADR, das eine Region zulässt, deren `rasters()` `None` ist; eine Region mit Grenze und ohne Raster-Backend; `permits`-Quellen für Naturvårdsverket (CC0, schlüsselfrei). Keine Zugangsdaten, kein neues Format. | Eine Karte mit OSM-Wegen, Gebäuden und Landnutzung aus OSM, Höhenlinien aus nichts, kein Orthofoto, kein nDSM. Die Trainingskarte verliert ihre Baumlogik. |
-| **C. Nur Dokumentation** | Diese Datei. | Eine Antwort für die nächste Person, die fragt, einschließlich der vier Tatsachen, die entscheiden: Token, GeoPackage, deflate-COG, „keine Raster, keine Karte“. |
+| **C. Nur Dokumentation** | Diese Datei. | Eine Antwort für die nächste Person, die fragt, einschließlich der fünf Tatsachen, die entscheiden: Token, Kachelgrenze, GeoPackage, deflate-COG, „keine Raster, keine Karte“. |
 
 B ist billig, erzeugt aber eine Karte, die sichtbar ärmer ist als eine deutsche, und braucht ein ADR, das eine
 Regel für alle Regionen ändert. A ist die ehrliche Fassung und hängt an den Zugangsdaten und den beiden Lesern.
@@ -450,6 +464,8 @@ Offene Fragen, bevor A beginnt:
    Wald.
 3. Ist das Orthofoto einen neuen 8-Bit-COG-Leser wert, angesichts der DSGVO-Prüfung und der 0,6-GB-Kacheln?
 4. Bekommt `RasterKind` ein Gitter in Metern, oder näht jeder Anbieter außerhalb des Kilometergitters selbst?
+5. Gilt die berichtete Grenze von wenigen Kacheln je Vorgang nur im Web-Download von Geotorget, oder auch für
+   die API? Im zweiten Fall braucht der Bezug einer Karte einen Menschen oder eine Warteschlange — siehe §10.
 
 ---
 
@@ -458,6 +474,10 @@ Offene Fragen, bevor A beginnt:
 * Die Token-Anfrage mit echten Client-Zugangsdaten, ihre Gültigkeitsdauer, ihr Auffrischen und ob `dl1` ein
   Token für jedes Produkt annimmt — alles hinter der Anmeldung. Es wurde kein Konto angelegt, das ist also der
   eine Teil, den eine Person mit Zugang vor dem Start von A bestätigen muss.
+* Ob die Grenze von wenigen Kacheln je Vorgang, die der schwedische Orientierungsläufer berichtet, für die
+  Weboberfläche von Geotorget gilt oder auch für die API-Assets unter `dl1.lantmateriet.se`. Gilt sie auch für
+  die API, kann kein Adapter eine Karte unbeaufsichtigt laden, und A stünde vor einer Aufgabe, die freemapper
+  nirgends sonst hat.
 * Ob die `other`-Lizenz von `dsm-cog`, `dsm-skoglig-copc` und `orto-dsm-cog` abgeleitete Produkte in einer
   veröffentlichten Karte erlaubt. Die Sammlung sagt nur `other`; die Bedingungen liegen hinter Geotorget.
 * Ob die Orthofoto-COGs intern JPEG- oder deflate-komprimiert sind — das `info`-Asset einer Orthofoto-Kachel
