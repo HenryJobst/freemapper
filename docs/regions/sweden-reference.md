@@ -225,7 +225,8 @@ Die Punktwolke, `25a005-61775_3850_25` [live]: `…/hojd/data/sls/25a005/y25a005
 
 Namen: DTM `m<E/10000>_<N/10000>.tif` im Ordner `<floor(N/100000)>_3/`; DSM
 `y<Gebiet>-<N/10000>_<E/10000>_<Eoffset/100><Noffset/100>_dsm.tif`; Orthofoto
-`o<N/100>_<E/100>_25_mr<yy>.tif` [live].
+`o<N/100>_<E/100>_25_mr<yy>.tif` [live]. Die Südwest-Ecke im Namen ist Lantmäteriets eigenes Indexsystem
+und in HMK – Höjdmodell 2023 vorgeschrieben [doc], siehe §7.4.
 
 Zur Größenordnung: eine Kartenfläche samt Puffer von höchstens 4 km je Seite (`MAX_AREA_SIDE_M` = 20 000 px ×
 0,2 m) berührt **eine bis vier** DTM-Kacheln, **bis zu neun** DSM-Kacheln und **bis zu neun**
@@ -323,7 +324,7 @@ Projekt mischt sie nie mit DHHN2016 einer deutschen Quelle.
 
 ---
 
-## 7. Schlüsselfreie Quellen
+## 7. Schlüsselfreie Quellen und Dokumentation
 
 ### 7.1 Naturvårdsverket: Schutzgebiete
 
@@ -364,6 +365,29 @@ Copernicus DEM (freie Nutzung mit Namensnennung). Zu grob für Höhenlinien im 5
 Die Topowebb-Endpunkte waren einmal offene Daten mit Schlüssel; die `503` deutet darauf, dass sie für anonyme
 Nutzung geschlossen sind [unverified, ob das dauerhaft ist].
 
+### 7.4 HMK: die Handbücher
+
+Die Handbuchreihe HMK (Handbok i mät- och kartfrågor) liegt als offene PDFs auf `lantmateriet.se` [live], ohne
+Konto: *Höjdmodell 2023*, *Ortofoto 2017*, *Flygburen laserskanning 2024*, *Grundkarta 2025*, *Kartografi
+2025*, *Fotogrammetrisk detaljmätning 2026* und weitere, dazu vier gemeinsame Referenzdokumente
+(*Introduktion*, *Geodatakvalitet*, *Geodetisk infrastruktur*, *Ordlista*). Sie sind keine Datenquelle, sondern
+die Produktionsvorgaben — und damit die `[doc]`-Grundlage für das, was ein Adapter von schwedischen Daten
+erwarten darf:
+
+* **Höhenmodelle**: als Raster normalerweise GeoTIFF, geografisch in einem Gitternetz geteilt, dessen
+  Dateinamen die Koordinaten der **Südwest-Ecke** enthalten, nach Lantmäteriets SWEREF-99-Indexsystem; jede
+  Kompression muss verlustfrei sein (HMK – Höjdmodell 2023, Kap. 2.4). Das erklärt die beobachtete Benennung
+  `m617_38` und die Deflate-Kacheln aus §3.5.
+* **Orthofotos**: Bildtyp PAN, RGB oder CIR (NIR/Rot/Grün), üblich sind **8 Bit je Kanal** (24-Bit-RGB), und
+  für die Abgabe wird unkomprimiertes TIFF/GeoTIFF empfohlen (HMK – Ortofoto 2017, Kap. 2.3.5 und 2.4.2). Das
+  `RGBI` der Landesprodukte [live] ist also der Standard, nicht eine Eigenheit der Kacheln.
+* **Zugang**: HMK – Introduktion 2017 zitiert auf S. 24 die Geodatengesetzgebung (SFS 2010:1767 und 2010:1770):
+  informationsansvariga Behörden müssen Geodaten und Geodatendienste für alle zugänglich machen, die
+  Öffentlichkeit soll Geodaten über das Internet **suchen, ansehen und herunterladen** können, und Suchen und
+  Ansehen über Dienste sollen kostenfrei sein [doc]. Der Rahmen verlangt also Zugang; die Umsetzung verlangt
+  ein Konto (§2) und begrenzt den Bezug (§10). Ob die berichtete Kachelgrenze mit dieser Pflicht im Verhältnis
+  steht, ist eine Rechtsfrage und hier nicht beantwortet.
+
 ---
 
 ## 8. Was freemapper bräuchte
@@ -392,10 +416,11 @@ neuen Formatleser — ein erhebliches Stück Code, und eines, für das ein Zip u
 `tiff_range` (`crates/freemapper-sources/src/tiff_range.rs`, ADR 0141) liest **einen Float32-Sample, LZW
 komprimiert, Prädiktor 1–3**, mit `ModelPixelScale` (33550) und `ModelTiepoint` (33922), in Blöcken von
 höchstens 128 MB. Das schwedische Orthofoto ist 8-Bit-RGBI in einem COG; der Leser lehnt es bei seiner ersten
-Prüfung ab (`samples, bits, format != (1, 32, 3)`). Die Orthofoto-Vorlage bräuchte stattdessen einen gekachelten
-8-Bit-Leser mit Bandverschachtelung und entweder einem JPEG- oder einem deflate-Dekoder. Ohne ihn gibt es in
-Schweden gar kein Orthofoto — kein WMS liefert eines, und ein Kachel-Download von 0,6 GB je 2,5 km ist die
-einzige Alternative.
+Prüfung ab (`samples, bits, format != (1, 32, 3)`). Die 8 Bit je Kanal sind der schwedische Standard (HMK –
+Ortofoto 2017, §7.4), kein Ausreißer einzelner Kacheln. Die Orthofoto-Vorlage bräuchte stattdessen einen
+gekachelten 8-Bit-Leser mit Bandverschachtelung und entweder einem JPEG- oder einem deflate-Dekoder. Ohne ihn
+gibt es in Schweden gar kein Orthofoto — kein WMS liefert eines, und ein Kachel-Download von 0,6 GB je 2,5 km
+ist die einzige Alternative.
 
 ### 8.4 Deflate im Höhenleser
 
@@ -525,6 +550,11 @@ curl -s 'https://geodatakatalogen.naturvardsverket.se/srv/eng/csw?service=CSW&re
 curl -s -r 0-99 https://copernicus-dem-30m.s3.amazonaws.com/Copernicus_DSM_COG_10_N55_00_E013_00_DEM/Copernicus_DSM_COG_10_N55_00_E013_00_DEM.tif
 curl -s -o /dev/null -w '%{http_code}\n' https://geodata.skogsstyrelsen.se/geoserver/wfs?service=WFS&request=GetCapabilities  # 403
 curl -s -o /dev/null -w '%{http_code}\n' https://api.lantmateriet.se/open/topowebb-ccby/v1/wmts/1.0.0/WMTSCapabilities.xml   # 503
+
+# HMK-Handbücher, schlüsselfreie PDFs
+curl -sI https://www.lantmateriet.se/globalassets/om-lantmateriet/var-samverkan-med-andra/hmk/handbocker/hmk_hojdmodell_2023.pdf   # 200
+curl -sI https://www.lantmateriet.se/globalassets/om-lantmateriet/var-samverkan-med-andra/hmk/handbocker/hmk_ortofoto_2017.pdf     # 200
+curl -sI https://www.lantmateriet.se/globalassets/om-lantmateriet/var-samverkan-med-andra/hmk/handbocker/introduktion-2017.pdf    # 200
 ```
 
 Die Maßstabsfaktoren in §5 wurden mit der üblichen Transverse-Mercator-Reihe (GRS 80, `k0` 0,9996, 15° O)
