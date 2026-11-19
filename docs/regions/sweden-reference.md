@@ -325,11 +325,17 @@ Die Kontingente stehen offen dabei:
 | `STAC-vektor` | FairUse | 240 Requests/min | 838 |
 
 Alle Angaben [live]; die Dokumentation sagt es selbst, der Business Plan sei die Policy, die „styr hur många
-API-anrop per minut som tillåts" [doc]. Das ist der Grund, die berichtete Kachelgrenze (§2) **nicht** als
+API-anrop per minut som tillåts“ [doc]. Das ist der Grund, die berichtete Kachelgrenze (§2) **nicht** als
 API-Kontingent zu lesen:
 240 Anfragen je Minute sind großzügig, und eine Grenze „wenige Kacheln je Vorgang“ steht dort nirgends. Sie
 sitzt also eher in der Weboberfläche von Geotorget oder in einer Abo-Bedingung, die erst nach der Anmeldung
 sichtbar wird (§10).
+
+**Zwei Drosseln, nicht eine** [doc]: Der Business Plan hängt am Abonnement, dazu kommt die **Per-Token-Quota der
+Anwendung** — im WSO2-Portal etwa `10PerMin`, wenn man nichts anderes wählt („Per Token Quota“ in der
+Dokumentation von WSO2). Lantmäteriets Anleitung sagt deshalb ausdrücklich, man solle beim Anlegen
+`Unlimited` als „Shared Quota for Application Tokens“ wählen; sonst begrenzt die Anwendung selbst, unabhängig
+vom Tarif, und die wirksame Grenze ist das Minimum aus beidem.
 
 Auch die Schnittstelle des Portals ist schlüsselfrei: `GET /api/am/devportal/v3/apis?limit=30` liefert alle 15
 APIs als JSON [live] — brauchbar, um die Liste zu prüfen, ohne die Seite zu lesen.
