@@ -172,8 +172,13 @@ gate_changelog() {
 
   grep -q "^## \[$version\]" CHANGELOG.md || report "CHANGELOG.md has no section for $version"
   grep -q "^## \[$version\]" CHANGELOG.en.md || report "CHANGELOG.en.md has no section for $version"
-  grep -q '^## \[Unveröffentlicht\]' CHANGELOG.md || report "CHANGELOG.md has no section [Unveröffentlicht]"
-  grep -q '^## \[Unreleased\]' CHANGELOG.en.md || report "CHANGELOG.en.md has no section [Unreleased]"
+
+  # The section for the next change is optional, because a release turns it into
+  # the released one; it must stand in both files or in neither.
+  if [ "$(grep -c '^## \[Unveröffentlicht\]' CHANGELOG.md)" -ne \
+    "$(grep -c '^## \[Unreleased\]' CHANGELOG.en.md)" ]; then
+    report "one changelog has an open section for the next change, the other has not"
+  fi
 
   headings_de=$(grep -E '^## \[' CHANGELOG.md | sed -e 's/^## \[Unveröffentlicht\]/## [Unreleased]/' -e 's/ - .*//')
   headings_en=$(grep -E '^## \[' CHANGELOG.en.md | sed -e 's/ - .*//')
