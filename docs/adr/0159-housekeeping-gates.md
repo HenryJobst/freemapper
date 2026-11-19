@@ -52,10 +52,10 @@ tested the `msrv` claim.
 - Coverage has a floor of 94.0 % in `scripts/check.sh` and the last measurement in
   `docs/coverage.json`. A run below either fails; a run above the snapshot rewrites it, and the
   commit belongs with the change that raised it. The first measurement is 95.9 %.
-- The MSRV rises from 1.88 to 1.99. The workspace's own code does not need it; the manifest of the
-  pinned freemapper-core v0.29.0 does, because cargo rejects a member overriding
-  `default-features` of an inherited workspace dependency until 1.99. freemapper-core has the fix
-  prepared, so the floor can fall with the next core tag.
+- The MSRV stays 1.88 and a job checks it with 1.88.0. freemapper inherits
+  `freemapper-contract` with `default-features = false` on the workspace entry itself, which cargo
+  before 1.99 reads; only a member that overrides an inherited entry needs 1.99, as
+  freemapper-print and freemapper-courseplan do.
 - CI gives the gates their own jobs (`hygiene`, `docs`, `msrv`, `coverage`) beside `deny`, `check`,
   `golden`, `golden-guard` and the release pipeline. The tools are pinned by version and checksum.
 
@@ -69,5 +69,5 @@ tested the `msrv` claim.
 - Historical plans may keep dangling references, but a link in a living document is a defect now.
 - `typos` will meet another German quote in English text and fail. The answer is an entry in
   `_typos.toml` with its reason, not switching the gate off.
-- The next freemapper-core release carries the workspace-dependency fix; until this repository
-  moves to that tag, its MSRV stays at 1.99.
+- freemapper-core publishes the workspace-dependency fix next; this repository does not need it,
+  because its own entry is already written the way older cargo reads it.

@@ -167,14 +167,14 @@ jobs:
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
       - run: scripts/check.sh doc
 
-  # The declared MSRV is a claim until something builds with it. 1.99 is the first cargo that
-  # accepts a member overriding `default-features` of an inherited workspace dependency, and the
-  # pinned freemapper-core tag has one (ADR 0159).
+  # The declared MSRV is a claim until something builds with it (ADR 0159). freemapper keeps its
+  # workspace dependencies at the level where cargo before 1.99 reads them, unlike the two apps
+  # that override `default-features` of an inherited entry.
   msrv:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - run: rustup toolchain install 1.99.0 --profile minimal
+      - run: rustup toolchain install 1.88.0 --profile minimal
       - run: scripts/check.sh msrv
 
   # Line coverage with a floor and a snapshot (docs/coverage.json). It needs an instrumented build
