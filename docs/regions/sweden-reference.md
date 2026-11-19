@@ -280,24 +280,41 @@ fertige kartografische Karte mit Signaturen, kein Gelände- oder Oberflächenmod
 | `POST https://api.lantmateriet.se/token` (`grant_type=client_credentials`, keine Client-Authentifizierung) | `401` `{"error":"invalid_client","error_description":"Unsupported client authentication mechanism"}` |
 | dieselbe mit `-u abc:def` | `401` `{"error":"invalid_client","error_description":"Client credentials are invalid."}` |
 | `GET https://api.lantmateriet.se/token` | `405` |
+| `POST https://apimanager.lantmateriet.se/oauth2/token` (`grant_type=client_credentials`, keine Client-Authentifizierung) | `401` wie oben, `Unsupported client authentication mechanism` |
+| dieselbe mit `-u abc:def` | `401`, `Client credentials are invalid.` |
 
 Zusammengelesen: der Asset-Host will ein **Bearer**-Token (RFC 6750, im Stil eines WSO2 API Manager), der
 Token-Endpunkt will eine **Client**-Berechtigung im `Authorization`-Header eines Formular-POST und antwortet in
-der üblichen `invalid_client`-Form. Ein funktionierender Aufruf [unverified, keine Zugangsdaten vorhanden] ist
-`POST /token` mit `grant_type=client_credentials` und HTTP-Basic-Client-Authentifizierung, der ein
-`access_token` und `expires_in` liefert, das dann als `Authorization: Bearer …` an `dl1.lantmateriet.se` geht.
+der üblichen `invalid_client`-Form. Beide Adressen — `/token` auf `api.` und `/oauth2/token` auf `apimanager.` —
+antworten gleich [live], die dokumentierte ist die zweite.
+
+**Der Ablauf steht offen in der Portal-Dokumentation** (`https://apimanager.lantmateriet.se/docs/`, ohne
+Anmeldung lesbar) [doc]: `POST https://apimanager.lantmateriet.se/oauth2/token` mit
+`Authorization: Basic base64(ConsumerKey:ConsumerSecret)`, `grant_type=client_credentials` und
+`Content-Type: application/x-www-form-urlencoded`; Antwort `access_token`, `token_type: Bearer`,
+`expires_in: 3600`. Ein Refresh-Token gibt es in diesem Flow nicht (es wird nur beim Password- und beim
+Authorization-Code-Flow ausgestellt); nach einer Stunde wird also ein neues geholt.
+
+Zwei Eigenheiten betreffen einen Adapter direkt [doc]:
+
+* Neue Anwendungen erhalten **JWT**-Tokens (RS256), aus der Version 2.6 migrierte **Opaque**. Das Ausstellen
+  eines neuen JWT **widerruft das vorherige**; zwei Prozesse mit demselben Zugang stören sich also, sobald
+  beide erneuern. Die Dokumentation nennt dafür den **Device-Scope** (`device_<beliebig>`): damit bekommt jede
+  Instanz ein eigenes Token.
+* Die Gültigkeitsdauer ist auf Anwendungsebene einstellbar; die Vorgabe sind 3600 Sekunden.
 
 Die Metadatenkataloge brauchen überhaupt kein Token [live], ein Adapter kann einer Person also sagen, *was* er
 laden würde und *wie viel*, bevor es Zugangsdaten gibt.
 
 ### 4.1 Das API-Portal
 
-`https://apimanager.lantmateriet.se/devportal/apis` ist **ohne Anmeldung** lesbar [live] und listet alle 15
-veröffentlichten APIs mit Version, Kontextpfad und Kontingent. Sieben davon sind Atom-Download-Feeds —
-`/byggnad/atom`, `/marktacke/atom`, `/administrativindelning/atom`, `/belagenhetsadress/atom`,
-`/fastighetsomrade/atom`, `/hydrografi/atom` und `/ortnamn/atom` —, dazu `OGC-Features` (`/ogc-features`), die
-vier STAC-Kataloge, `FAPI`, `Tumnageldirekt` und ein Demoendpunkt `Hello` [live]. Die Atom-Feeds sind genau die
-Schnittstelle, deren Zip-Adressen in den STAC-Objekten stehen (§3.2).
+`https://apimanager.lantmateriet.se/devportal/apis` ist **ohne Anmeldung** lesbar [live] und listet 15 APIs mit
+Version, Kontextpfad und Kontingent; laut Dokumentation kann die Anmeldung nötig sein, um *alle* zu sehen
+(„inloggning kan krävas för att lista alla“) [doc], die 15 sind also eine Untergrenze. Sieben davon sind
+Atom-Download-Feeds — `/byggnad/atom`, `/marktacke/atom`, `/administrativindelning/atom`,
+`/belagenhetsadress/atom`, `/fastighetsomrade/atom`, `/hydrografi/atom` und `/ortnamn/atom` —, dazu
+`OGC-Features` (`/ogc-features`), die vier STAC-Kataloge, `FAPI`, `Tumnageldirekt` und ein Demoendpunkt `Hello`
+[live]. Die Atom-Feeds sind genau die Schnittstelle, deren Zip-Adressen in den STAC-Objekten stehen (§3.2).
 
 Die Kontingente stehen offen dabei:
 
@@ -307,7 +324,9 @@ Die Kontingente stehen offen dabei:
 | `OGC-Features` | FairUse | 240 Requests/min | 759 |
 | `STAC-vektor` | FairUse | 240 Requests/min | 838 |
 
-Alle Angaben [live]. Das ist der Grund, die berichtete Kachelgrenze (§2) **nicht** als API-Kontingent zu lesen:
+Alle Angaben [live]; die Dokumentation sagt es selbst, der Business Plan sei die Policy, die „styr hur många
+API-anrop per minut som tillåts" [doc]. Das ist der Grund, die berichtete Kachelgrenze (§2) **nicht** als
+API-Kontingent zu lesen:
 240 Anfragen je Minute sind großzügig, und eine Grenze „wenige Kacheln je Vorgang“ steht dort nirgends. Sie
 sitzt also eher in der Weboberfläche von Geotorget oder in einer Abo-Bedingung, die erst nach der Anmeldung
 sichtbar wird (§10).
@@ -617,9 +636,10 @@ Offene Fragen, bevor A beginnt:
 
 ## 10. Nicht geprüft
 
-* Die Token-Anfrage mit echten Client-Zugangsdaten, ihre Gültigkeitsdauer, ihr Auffrischen und ob `dl1` ein
-  Token für jedes Produkt annimmt — alles hinter der Anmeldung. Es wurde kein Konto angelegt, das ist also der
-  eine Teil, den eine Person mit Zugang vor dem Start von A bestätigen muss.
+* Die Token-Anfrage mit echten Client-Zugangsdaten: Endpunkt, Form und Lebensdauer stehen in der
+  Portal-Dokumentation (§4), ein Aufruf mit gültigen Daten ist aber nicht geprüft, und ob `dl1` ein Token für
+  jedes Produkt annimmt, erst recht nicht — es wurde kein Konto angelegt. Das ist der eine Teil, den eine
+  Person mit Zugang vor dem Start von A bestätigen muss.
 * Ob die Grenze von wenigen Kacheln je Vorgang, die der schwedische Orientierungsläufer berichtet, für die
   Weboberfläche von Geotorget gilt oder auch für die API-Assets unter `dl1.lantmateriet.se`. Das API-Portal
   nennt 240 bis 6000 Requests je Minute und keine Kachelgrenze (§4.1), spricht also für die Weboberfläche oder
@@ -665,6 +685,8 @@ curl -s -o /dev/null -D - https://dl1.lantmateriet.se/hojd/data/grid/mhm/61_3/m6
 curl -s -o /dev/null -D - -H 'Authorization: Bearer abc' …/m617_38.tif                     # 401 invalid_token
 curl -s -X POST https://api.lantmateriet.se/token -d grant_type=client_credentials          # 401 invalid_client
 curl -s -X POST https://api.lantmateriet.se/token -u abc:def -d grant_type=client_credentials  # 401
+curl -s -X POST https://apimanager.lantmateriet.se/oauth2/token -d grant_type=client_credentials   # 401, gleiche Form
+curl -s https://apimanager.lantmateriet.se/docs/                                                  # Doku ohne Anmeldung
 
 # OSM und schlüsselfreie Quellen
 curl -sIL https://download.geofabrik.de/europe/sweden-latest.osm.pbf        # 982465405 B
