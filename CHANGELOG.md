@@ -8,10 +8,12 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Hinzugefügt
 
+- Die READMEs tragen Badges für Zeilenabdeckung, MSRV, ADRs, Zahl der Prüfungen und Lizenz. `scripts/badges.sh` schreibt sie aus den Daten im Repository, und die Prüfung scheitert, wenn sie veralten (Nachtrag zu ADR 0159).
 - `scripts/check.sh` bündelt die Gates für die Lizenzzeile, die Rechtschreibung der englischen Doku, interne Links, Geheimnisse in der Historie, ungenutzte Abhängigkeiten, Action-Pins, den ADR-Index, das Changelog-Paar, rustdoc ohne Warnungen, die Zeilenabdeckung und die MSRV (ADR 0159). `lefthook.yml` ruft die schnellen Gates vor dem Commit und `secrets` vor dem Push; jede Rust-Datei trägt die Zeile `// SPDX-License-Identifier: AGPL-3.0-or-later`.
 
 ### Geändert
 
+- Der Coverage-Job nennt den Messwert in jeder Ausgabe und erkennt auch eine `docs/coverage.json`, die noch nicht versioniert ist; vorher blieb beides unsichtbar.
 - freemapper-core auf v0.29.1 angehoben: Sein Manifest liest wieder mit Cargo vor 1.99; hier ändert sich nichts weiter, die MSRV bleibt 1.88 (Nachtrag zu ADR 0159).
 - Das Beispiel Sanssouci ist mit den Korrekturen der Trainingskarte aus ADR 0158 und 0150 neu gebaut. Der Zaun an der Straße links in der Kartenmitte hat seine Zacken jetzt auf der von der Straße abgewandten Seite, und in den weißen Waldflächen im Südwesten stehen keine einzelnen Bäume mehr: Die Trainingskarte hat 240 statt 725 Baumpunkte. Die Grundkarte hat einen Zaun mehr (2282 Kartenobjekte).
 - Das Beispiel Viktoriapark ist mit den Korrekturen der Trainingskarte aus ADR 0158 und den reparierten freien Linienenden aus ADR 0150 neu gebaut, ebenso das Bild in der README. In den weißen Waldflächen des Parks stehen keine einzelnen Bäume mehr: Die Trainingskarte hat 618 statt 1164 Baumpunkte (417, 418). Drei Zäune an Straßen haben ihre Zacken jetzt auf der von der Straße abgewandten Seite, in der Karte und in der Trainingskarte. Die Zahlen der Übersicht bleiben (3081 Kartenobjekte, 829 Kandidaten, 47 Symbole), ebenso die 5 freien Wegenden. Die anderen 28 Beispiele bleiben, wie sie sind.

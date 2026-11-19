@@ -156,7 +156,7 @@ jobs:
             echo "${GITLEAKS_SHA256}  /tmp/${asset}" | sha256sum -c -
             tar -xzf "/tmp/${asset}" -C "$bin" gitleaks
           fi
-      - run: scripts/check.sh spdx typos links secrets machete actions adr changelog
+      - run: scripts/check.sh spdx typos links secrets machete actions adr changelog badges
 
   # rustdoc with `-D warnings`: a broken intra-doc link or an unclosed HTML tag fails the run.
   docs:
@@ -194,7 +194,10 @@ jobs:
       # A run above the snapshot rewrites it; the commit belongs with the change that raised it.
       - name: The snapshot must be committed
         run: |
-          if ! git diff --exit-code docs/coverage.json; then
+          # `git diff` says nothing about a file the branch does not track yet,
+          # so the status question is the one that catches it.
+          if [ -n "$(git status --porcelain docs/coverage.json)" ]; then
             echo "::error::run scripts/check.sh coverage locally and commit docs/coverage.json"
+            git --no-pager diff docs/coverage.json || true
             exit 1
           fi
