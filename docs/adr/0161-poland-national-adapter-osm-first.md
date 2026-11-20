@@ -20,7 +20,7 @@ foundation and OSM, terrain and orthophoto, buildings and land use, Polish, perm
 - `RegionInfo` has a `country` and a `coverage`. `Coverage::OsmOnly` means the region supplies OSM extracts and
   nothing else: `fetch` and `derive` skip the rasters, the offline fetch stores an empty cadastre, the estimate has no
   ALKIS item, and the map has no templates and no contours. A warning says so (`warning-osm-only-no-terrain`).
-- The project grid stays UTM. Zone 34 is new in freemapper-core (ADR 0040 there); `RegionAdapter::crs_for(centre)`
+- The project grid stays UTM. Zone 34 is new in freemapper-core (ADR 0041 there); `RegionAdapter::crs_for(centre)`
   gives a map the zone of its centre. EPSG:2180 is a source grid for the Polish rasters, not a grid of a project.
 - An area whose centre lies in a region with OSM only and that reaches into a region of another country is refused
   (`area-crosses-country`), because it would be made half from each. A map centred in Germany that reaches into Poland
