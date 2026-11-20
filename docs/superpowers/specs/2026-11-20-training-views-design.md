@@ -41,6 +41,20 @@ A view is a named rule on a symbol (its code and its colours). Three presets and
 3. **freemapper-print**: `--view <name>` on any `.omap`: the view applies to the objects in memory before the sheet
    is rendered. It also works on maps the user edited and on maps not made by freemapper.
 
+## The API in core (agreed with freemapper-print, 2026-11-20)
+
+- `parse(&str) -> Result<View, ViewError>`; `ViewError` carries the wrong code and the reason as data, no text:
+  each program writes its own DE/EN messages (Fluent). `View` has a canonical form (`Display`: presets by name
+  in a fixed order, joined with `+`, then the lists with codes sorted) so file names in freemapper and PDF names
+  in freemapper-print are equal.
+- `View::keeps(code, colours) -> bool` also answers for a code that has no object on the map. freemapper-print
+  uses `keeps("601", …)` to turn off the generation of north lines when the view drops them (`no-north-lines`,
+  `brown-only`).
+- `View::keeps_frame(part_name, tags) -> bool`: the frame is recognised by the map part "peripheral information"
+  or the tag `freemapper:source=sheet`, not by the symbol code, in its own function. Title block, scale bar, credits
+  and course overprint of freemapper-print are sheet elements, not map objects, and always stay.
+- freemapper-print applies the view before `hide_parts`/`hide_shared`.
+
 ## Anti-goals
 
 - No second training pipeline: a view never changes how the map was cleaned (a tree that moved off a path stays
