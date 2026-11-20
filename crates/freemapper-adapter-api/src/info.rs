@@ -72,6 +72,33 @@ pub struct Declared {
     pub last_verified: Option<chrono::NaiveDate>,
 }
 
+/// The country a region lies in; the engine words what a person reaches by it (no German
+/// law for a Polish map).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Country {
+    De,
+    Pl,
+}
+
+impl Country {
+    /// The ISO 3166 code in lower case.
+    pub fn code(self) -> &'static str {
+        match self {
+            Self::De => "de",
+            Self::Pl => "pl",
+        }
+    }
+}
+
+/// What a region supplies besides its OSM extracts.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Coverage {
+    /// Rasters (and, where it has them, ALKIS): a map can have its centre here.
+    Full,
+    /// The OSM extracts only: a map is made from OSM alone, without templates.
+    OsmOnly,
+}
+
 /// Identity and static facts of a region.
 #[derive(Debug, Clone, PartialEq)]
 pub struct RegionInfo {
@@ -83,6 +110,10 @@ pub struct RegionInfo {
     pub names: Names,
     /// The CRS of a map whose centre lies in the region.
     pub crs: Crs,
+    /// The country of the region.
+    pub country: Country,
+    /// What the region supplies besides OSM.
+    pub coverage: Coverage,
     /// What the ALKIS object ids of the region start with (`DEBB`), if it has ALKIS.
     pub object_id_prefix: Option<String>,
     /// The OSM extracts that cover the region.

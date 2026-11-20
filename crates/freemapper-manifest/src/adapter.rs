@@ -316,6 +316,8 @@ pub fn info_of(manifest: &Manifest) -> RegionInfo {
             de: adapter.names.de.clone(),
         },
         crs: adapter.crs,
+        country: freemapper_adapter_api::info::Country::De,
+        coverage: freemapper_adapter_api::info::Coverage::Full,
         object_id_prefix: adapter.object_id_prefix.clone(),
         osm: manifest
             .osm

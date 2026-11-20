@@ -138,6 +138,8 @@ impl StubRegion {
                     de: "Stub".into(),
                 },
                 crs,
+                country: crate::info::Country::De,
+                coverage: crate::info::Coverage::Full,
                 object_id_prefix: None,
                 osm: Vec::new(),
                 credit_short: None,

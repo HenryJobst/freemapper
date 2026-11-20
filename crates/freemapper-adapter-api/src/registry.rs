@@ -139,6 +139,8 @@ mod tests {
                     de: id.to_string(),
                 },
                 crs: freemapper_georef::crs::Crs::Utm33,
+                country: crate::info::Country::De,
+                coverage: crate::info::Coverage::Full,
                 object_id_prefix: None,
                 osm: Vec::new(),
                 credit_short: None,

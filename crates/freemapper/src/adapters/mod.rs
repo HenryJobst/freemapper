@@ -244,6 +244,8 @@ pub(crate) mod test_support {
                     de: "Quadrat".to_string(),
                 },
                 crs: crate::crs::Crs::Utm33,
+                country: freemapper_adapter_api::info::Country::De,
+                coverage: freemapper_adapter_api::info::Coverage::Full,
                 object_id_prefix: None,
                 osm: Vec::new(),
                 credit_short: None,
@@ -642,6 +644,18 @@ mod tests {
             assert!(backends.backend(name).is_some(), "{name}");
         }
         assert!(backends.backend("lvermgeo").is_none());
+    }
+
+    #[test]
+    fn german_regions_are_full_coverage_de() {
+        use freemapper_adapter_api::info::{Country, Coverage};
+        for adapter in builtin().adapters() {
+            let info = adapter.info();
+            assert_eq!(info.country, Country::De, "{}", info.id);
+            assert_eq!(info.coverage, Coverage::Full, "{}", info.id);
+        }
+        assert_eq!(Country::De.code(), "de");
+        assert_eq!(Country::Pl.code(), "pl");
     }
 
     #[test]
