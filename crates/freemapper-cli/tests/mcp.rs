@@ -116,6 +116,14 @@ impl Session {
         (error, texts.into_iter().next().unwrap_or_default())
     }
 
+    /// Calls a tool; returns the whole result with its content blocks.
+    fn call_result(&mut self, tool: &str, arguments: Value) -> Value {
+        self.request(
+            "tools/call",
+            json!({ "name": tool, "arguments": arguments }),
+        )
+    }
+
     /// Calls a tool; returns (is_error, the texts of all content blocks).
     fn call_all(&mut self, tool: &str, arguments: Value) -> (bool, Vec<String>) {
         let result = self.request(
@@ -1535,4 +1543,72 @@ mod update {
             "freemapper 99.0.0"
         );
     }
+}
+
+/// After a run the map has a preview: `preview_layer` answers with a text and a PNG image, and
+/// `list_layers` calls the map ready. A layer without a preview, a layer of another name and a
+/// folder that is no project are refused with what the agent can do about it.
+#[test]
+fn preview_layer_returns_a_png_after_a_run_and_refuses_what_it_cannot_show() {
+    let dir = tempfile::tempdir().unwrap();
+    let (project, cache) = offline_school(dir.path());
+    let mut session = Session::start(&cache);
+    let (error, text) = session.call("start_pipeline", json!({ "dir": project, "offline": true }));
+    assert!(!error, "{text}");
+    let status = wait_for_job(&mut session, &started_job(&text));
+    assert_eq!(status["state"], "finished", "{status}");
+
+    let result = session.call_result("preview_layer", json!({ "dir": project, "layer": "map" }));
+    assert_ne!(result["isError"], true, "{result}");
+    let blocks = result["content"].as_array().unwrap();
+    assert_eq!(blocks.len(), 2, "{result}");
+    assert_eq!(blocks[0]["type"], "text");
+    assert!(
+        blocks[0]["text"].as_str().unwrap().contains("map"),
+        "{result}"
+    );
+    assert_eq!(blocks[1]["type"], "image");
+    assert_eq!(blocks[1]["mimeType"], "image/png");
+    let png = base64_decode(blocks[1]["data"].as_str().unwrap());
+    assert_eq!(&png[..8], b"\x89PNG\r\n\x1a\n", "not a PNG");
+
+    let (_, text) = session.call("list_layers", json!({ "dir": project }));
+    let layers: Value = serde_json::from_str(&text).unwrap();
+    let map = layers
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|l| l["role"] == "map")
+        .unwrap();
+    assert_eq!(map["ready"], true, "{map}");
+
+    // A name that is no layer: the error lists the names that have a preview.
+    let (error, text) = session.call("preview_layer", json!({ "dir": project, "layer": "nope" }));
+    assert!(error);
+    assert!(text.contains("\"nope\"") && text.contains("map"), "{text}");
+    // A folder without a project, for the three tools that take one.
+    let empty = dir.path().join("empty");
+    std::fs::create_dir_all(&empty).unwrap();
+    for tool in ["preview_layer", "list_layers", "estimate_download"] {
+        let (error, text) = session.call(tool, json!({ "dir": empty, "layer": "map" }));
+        assert!(error, "{tool}: {text}");
+        assert!(text.contains("create_project"), "{tool}: {text}");
+    }
+}
+
+/// The bytes of standard base64 (what the image block carries), without a decoder crate.
+fn base64_decode(text: &str) -> Vec<u8> {
+    const ALPHABET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut out = Vec::new();
+    let (mut bits, mut have) = (0u32, 0);
+    for c in text.bytes().filter(|c| *c != b'=') {
+        bits = (bits << 6) | ALPHABET.iter().position(|a| *a == c).unwrap() as u32;
+        have += 6;
+        if have >= 8 {
+            have -= 8;
+            out.push((bits >> have) as u8);
+            bits &= (1 << have) - 1;
+        }
+    }
+    out
 }
