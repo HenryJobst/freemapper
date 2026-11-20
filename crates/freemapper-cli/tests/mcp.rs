@@ -1612,3 +1612,71 @@ fn base64_decode(text: &str) -> Vec<u8> {
     }
     out
 }
+
+/// `start_pipeline` with `ocad`, `pdf` and `pdf_candidates` writes each output after the map
+/// and lists every file under its kind, in the order of the run; the summary says what was
+/// written. Without them the job lists no such file.
+#[test]
+fn start_pipeline_lists_the_ocad_and_pdf_outputs_it_was_asked_for() {
+    let dir = tempfile::tempdir().unwrap();
+    let (project, cache) = offline_school(dir.path());
+    let mut session = Session::start(&cache);
+    let (error, text) = session.call(
+        "start_pipeline",
+        json!({
+            "dir": project, "offline": true,
+            "ocad": true, "pdf": true, "pdf_candidates": true
+        }),
+    );
+    assert!(!error, "{text}");
+    let status = wait_for_job(&mut session, &started_job(&text));
+    assert_eq!(status["state"], "finished", "{status}");
+    let files = listed_files(&status);
+    let kinds: Vec<&str> = files.iter().map(|(kind, _)| kind.as_str()).collect();
+    let position = |kind: &str| kinds.iter().position(|k| *k == kind);
+    assert_eq!(kinds[0], "map", "{status}");
+    let (ocad, pdf, candidates) = (
+        position("ocad"),
+        position("pdf"),
+        position("pdf-candidates"),
+    );
+    assert!(
+        ocad.is_some() && pdf > ocad && candidates > pdf,
+        "ocad, pdf, pdf-candidates in this order: {kinds:?}"
+    );
+    for (kind, path) in &files {
+        assert!(
+            project.join(path).is_file(),
+            "{kind}: {path} is not written"
+        );
+    }
+    assert!(
+        files
+            .iter()
+            .any(|(kind, path)| kind == "pdf" && path.ends_with(".pdf")),
+        "{files:?}"
+    );
+    assert!(
+        files
+            .iter()
+            .any(|(kind, path)| kind == "ocad" && path.ends_with(".ocd")),
+        "{files:?}"
+    );
+    let result = status["result"].as_str().unwrap();
+    assert!(result.contains(".pdf"), "{result}");
+
+    // Without the options no output is listed, and the files of the run before are not.
+    let again = dir.path().join("again");
+    let (project, cache) = offline_school(&again);
+    let mut session = Session::start(&cache);
+    let (_, text) = session.call("start_pipeline", json!({ "dir": project, "offline": true }));
+    let status = wait_for_job(&mut session, &started_job(&text));
+    assert_eq!(status["state"], "finished", "{status}");
+    let kinds: Vec<String> = listed_files(&status).into_iter().map(|(k, _)| k).collect();
+    assert!(
+        kinds
+            .iter()
+            .all(|k| !matches!(k.as_str(), "ocad" | "pdf" | "pdf-candidates")),
+        "{kinds:?}"
+    );
+}
