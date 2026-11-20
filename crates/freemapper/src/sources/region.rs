@@ -626,8 +626,8 @@ mod tests {
 
     #[test]
     fn outside_every_region_is_refused() {
-        // Poland, east of Brandenburg.
-        let elsewhere = around(600_000.0, 5_800_000.0, 300.0);
+        // Prague (Poland east of Brandenburg is a region since ADR 0161).
+        let elsewhere = around_lonlat(50.0755, 14.4378, 300.0);
         assert_eq!(raster_region(&elsewhere), None);
         assert!(regions_for(&elsewhere).is_empty());
         let nan = around(f64::NAN, 5_800_000.0, 300.0);
@@ -647,11 +647,9 @@ mod tests {
             5_894_566.0,
             300.0
         )));
-        // Poland, just east of the Oder at Frankfurt (Oder).
-        assert!(reaches_beyond_coverage(&around(
-            474_000.0,
-            5_799_000.0,
-            600.0
+        // Prague, which is in no region (Słubice, east of the Oder at Frankfurt (Oder), is in Poland).
+        assert!(reaches_beyond_coverage(&around_lonlat(
+            50.0755, 14.4378, 600.0
         )));
         // Inside one state.
         assert!(!reaches_beyond_coverage(&around(

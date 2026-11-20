@@ -731,6 +731,7 @@ dependencies = [
  "freemapper",
  "freemapper-adapter-api",
  "freemapper-adapters-de",
+ "freemapper-adapters-pl",
  "freemapper-contract",
  "freemapper-fs",
  "freemapper-georef",
@@ -802,6 +803,18 @@ dependencies = [
  "tempfile",
  "tiff",
  "zip",
+]
+
+[[package]]
+name = "freemapper-adapters-pl"
+version = "0.24.0"
+dependencies = [
+ "chrono",
+ "freemapper-adapter-api",
+ "freemapper-georef",
+ "geo",
+ "geo-types",
+ "geojson",
 ]
 
 [[package]]

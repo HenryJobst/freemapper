@@ -26,6 +26,8 @@ pub fn builtin_with_hosts(extra: &ExtraHosts) -> Registry {
     let mut registry = Registry::new();
     freemapper_adapters_de::states::register_with_hosts(&mut registry, extra)
         .expect("the built-in states have distinct ids and backends");
+    freemapper_adapters_pl::register_with_hosts(&mut registry, extra)
+        .expect("Poland has an id of its own");
     registry
 }
 
@@ -70,8 +72,24 @@ pub(crate) fn asking<T>(
 /// The names of the regions of the registry in its order, German with `german`, else English:
 /// the list of what freemapper supports, for messages.
 pub fn region_names(german: bool) -> Vec<&'static str> {
+    names_of(german, |_| true)
+}
+
+/// [`region_names`] of the regions that have official geodata of their own (rasters), not those
+/// that have OSM only: for a sentence that says whose official geodata freemapper uses.
+pub fn region_names_with_geodata(german: bool) -> Vec<&'static str> {
+    names_of(german, |info| {
+        info.coverage == freemapper_adapter_api::info::Coverage::Full
+    })
+}
+
+fn names_of(
+    german: bool,
+    keep: impl Fn(&freemapper_adapter_api::info::RegionInfo) -> bool,
+) -> Vec<&'static str> {
     registry()
         .adapters()
+        .filter(|adapter| keep(adapter.info()))
         .map(|adapter| {
             let names = &adapter.info().names;
             if german {
@@ -630,7 +648,7 @@ mod tests {
             "the map area lies outside the supported states (Brandenburg, Berlin, Saxony, \
              Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, Mecklenburg-Vorpommern, \
              North Rhine-Westphalia, Lower Saxony, Rhineland-Palatinate, Saarland, \
-             Baden-Württemberg, Bremen, Bavaria); freemapper has data sources for those only so far"
+             Baden-Württemberg, Bremen, Bavaria, Poland); freemapper has data sources for those only so far"
         );
         assert_eq!(region_names(true)[2], "Sachsen");
     }
@@ -647,34 +665,47 @@ mod tests {
     }
 
     #[test]
-    fn german_regions_are_full_coverage_de() {
+    fn regions_have_their_country_and_coverage() {
         use freemapper_adapter_api::info::{Country, Coverage};
         for adapter in builtin().adapters() {
             let info = adapter.info();
-            assert_eq!(info.country, Country::De, "{}", info.id);
-            assert_eq!(info.coverage, Coverage::Full, "{}", info.id);
+            // Poland has the OSM extracts only so far (ADR 0161); every German state has rasters.
+            let (country, coverage) = if info.id.as_str() == "polska" {
+                (Country::Pl, Coverage::OsmOnly)
+            } else {
+                (Country::De, Coverage::Full)
+            };
+            assert_eq!(info.country, country, "{}", info.id);
+            assert_eq!(info.coverage, coverage, "{}", info.id);
         }
         assert_eq!(Country::De.code(), "de");
         assert_eq!(Country::Pl.code(), "pl");
     }
 
     #[test]
-    fn registry_lists_the_fifteen() {
+    fn registry_lists_the_fifteen_states_and_poland() {
         let built_in = builtin();
         let ids: Vec<&str> = built_in.adapters().map(|a| a.info().id.as_str()).collect();
-        let all: Vec<String> = regions::ALL.iter().map(ToString::to_string).collect();
+        let mut all: Vec<String> = regions::ALL.iter().map(ToString::to_string).collect();
+        assert_eq!(all.len(), 15);
+        all.push("polska".to_string());
         assert_eq!(ids, all);
-        assert_eq!(ids.len(), 15);
         // The eleven that were code first, in the order the region functions always went
         // through them; a state added since comes after them.
         let legacy: Vec<String> = regions::LEGACY.iter().map(ToString::to_string).collect();
         assert_eq!(ids[..11], legacy);
         assert_eq!(
             ids[11..],
-            ["saarland", "badenwuerttemberg", "bremen", "bayern"]
+            [
+                "saarland",
+                "badenwuerttemberg",
+                "bremen",
+                "bayern",
+                "polska"
+            ]
         );
         // The registry of the process is the built-in one unless another was installed.
-        assert_eq!(registry().len(), 15);
+        assert_eq!(registry().len(), 16);
     }
 
     /// G1 records what the enums of v0.12.0 answered; the adapters must say the same.

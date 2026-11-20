@@ -5868,7 +5868,8 @@
   {
     "name": "border:sn-bb:10",
     "regions": [
-      "saxony"
+      "saxony",
+      "polska"
     ],
     "raster_region": "saxony",
     "provider_tiles": [
@@ -5891,18 +5892,20 @@
       }
     ],
     "zone_32": [],
-    "beyond_coverage": true,
+    "beyond_coverage": false,
     "extracts": [
-      "Saxony"
+      "Saxony",
+      "Lubusz Voivodeship"
     ],
     "warnings": []
   },
   {
     "name": "border:sn-bb:11",
     "regions": [
-      "saxony"
+      "saxony",
+      "polska"
     ],
-    "raster_region": "saxony",
+    "raster_region": "polska",
     "provider_tiles": [
       {
         "provider": "geosn",
@@ -5925,18 +5928,20 @@
       }
     ],
     "zone_32": [],
-    "beyond_coverage": true,
+    "beyond_coverage": false,
     "extracts": [
-      "Saxony"
+      "Saxony",
+      "Lubusz Voivodeship"
     ],
     "warnings": []
   },
   {
     "name": "border:sn-bb:12",
     "regions": [
-      "saxony"
+      "saxony",
+      "polska"
     ],
-    "raster_region": null,
+    "raster_region": "polska",
     "provider_tiles": [
       {
         "provider": "geosn",
@@ -5957,16 +5962,18 @@
       }
     ],
     "zone_32": [],
-    "beyond_coverage": true,
+    "beyond_coverage": false,
     "extracts": [
-      "Saxony"
+      "Saxony",
+      "Lubusz Voivodeship"
     ],
     "warnings": []
   },
   {
     "name": "border:sn-bb:13",
     "regions": [
-      "saxony"
+      "saxony",
+      "polska"
     ],
     "raster_region": "saxony",
     "provider_tiles": [
@@ -5989,16 +5996,18 @@
       }
     ],
     "zone_32": [],
-    "beyond_coverage": true,
+    "beyond_coverage": false,
     "extracts": [
-      "Saxony"
+      "Saxony",
+      "Lubusz Voivodeship"
     ],
     "warnings": []
   },
   {
     "name": "border:sn-bb:14",
     "regions": [
-      "saxony"
+      "saxony",
+      "polska"
     ],
     "raster_region": "saxony",
     "provider_tiles": [
@@ -6021,7 +6030,8 @@
     "zone_32": [],
     "beyond_coverage": false,
     "extracts": [
-      "Saxony"
+      "Saxony",
+      "Lubusz Voivodeship"
     ],
     "warnings": []
   },
