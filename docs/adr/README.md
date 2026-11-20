@@ -211,3 +211,4 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0163](0163-test-count-and-budget.md) | The test count and the test budget are data | Accepted | 2026-11-20 |
 | [0164](0164-poland-national-adapter-osm-first.md) | Poland: one national adapter, OSM first | Accepted, amends ADR 0082 | 2026-11-20 |
 | [0165](0165-mutation-tests-on-a-random-part.md) | Mutation tests run on a random part of the diff | Accepted, amends ADR 0161 | 2026-11-20 |
+| [0166](0166-findings-on-running-tests-and-mutation-tests.md) | Findings on running tests and mutation tests | Accepted, supplements ADR 0161 | 2026-11-20 |
