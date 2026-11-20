@@ -19,6 +19,9 @@ flate = "flate"
 # Level of detail: `lod`, `LOD` and `lod2_tiles` in the tile plans.
 lod = "lod"
 LOD = "LOD"
+# The Polish word for yes, accepted by the question of `freemapper update`.
+tak = "tak"
+TAK = "TAK"
 # German field names and values of the state files and the rulings they quote.
 funktion = "funktion"
 FUNKTION = "FUNKTION"

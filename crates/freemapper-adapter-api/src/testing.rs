@@ -138,6 +138,7 @@ impl StubRegion {
                 names: crate::info::Names {
                     en: "Stub".into(),
                     de: "Stub".into(),
+                    pl: None,
                 },
                 crs,
                 country: crate::info::Country::De,

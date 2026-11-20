@@ -109,6 +109,7 @@ fn step_ids() -> Vec<String> {
 fn page_texts_have_the_same_ids_in_both_languages() {
     let english = page_ids("en");
     assert_eq!(english, page_ids("de"));
+    assert_eq!(english, page_ids("pl"));
     assert!(english.len() > 130, "{}", english.len());
     assert!(english.contains("suite-banner-dismiss"));
 }
@@ -120,6 +121,7 @@ fn page_messages_have_no_selectors_and_no_functions() {
     for source in [
         include_str!("../i18n/en/freemapper.ftl"),
         include_str!("../i18n/de/freemapper.ftl"),
+        include_str!("../i18n/pl/freemapper.ftl"),
     ] {
         let mut current = "";
         for line in source.lines() {

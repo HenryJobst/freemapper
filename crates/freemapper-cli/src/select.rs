@@ -110,7 +110,7 @@ async fn adapters() -> Response {
                 .filter(|preview| preview_origin(&preview.wms).is_some());
             json!({
                 "id": info.id.as_str(),
-                "names": { "en": info.names.en, "de": info.names.de },
+                "names": crate::adapters::names_json(&info.names),
                 "preview": preview.map(|preview| json!({
                     "wms": preview.wms,
                     "layer": preview.layer,

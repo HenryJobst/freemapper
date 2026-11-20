@@ -1,10 +1,10 @@
 # freemapper
 
-[Website](https://freemapper.de) · [English version](README.en.md) · [Handbuch](docs/manual/de.md) · [Glossar](docs/glossary.md) · [Änderungen](CHANGELOG.md) · [Beispiele](examples/README.md)
+[Website](https://freemapper.de) · [English version](README.en.md) · [Wersja polska](README.pl.md) · [Handbuch](docs/manual/de.md) · [Glossar](docs/glossary.md) · [Änderungen](CHANGELOG.md) · [Beispiele](examples/README.md)
 
 
 <!-- badges:start -->
-[![Tests](https://img.shields.io/badge/Tests-2983-blue)](docs/tests.json) [![Testbudget](https://img.shields.io/badge/Testbudget-15_min-blue)](docs/tests.json) [![Zeilenabdeckung](https://img.shields.io/badge/Coverage-95.9%25-brightgreen)](docs/coverage.json) [![MSRV](https://img.shields.io/badge/MSRV-1.88-blue)](Cargo.toml) [![ADRs](https://img.shields.io/badge/ADRs-167-blue)](docs/adr/README.md) [![Hygiene](https://img.shields.io/badge/Hygiene-19-brightgreen)](scripts/check.sh) [![Lizenz](https://img.shields.io/badge/Lizenz-AGPL--3.0--or--later-blue)](LICENSE)
+[![Tests](https://img.shields.io/badge/Tests-2988-blue)](docs/tests.json) [![Testbudget](https://img.shields.io/badge/Testbudget-15_min-blue)](docs/tests.json) [![Zeilenabdeckung](https://img.shields.io/badge/Coverage-95.9%25-brightgreen)](docs/coverage.json) [![MSRV](https://img.shields.io/badge/MSRV-1.88-blue)](Cargo.toml) [![ADRs](https://img.shields.io/badge/ADRs-167-blue)](docs/adr/README.md) [![Hygiene](https://img.shields.io/badge/Hygiene-19-brightgreen)](scripts/check.sh) [![Lizenz](https://img.shields.io/badge/Lizenz-AGPL--3.0--or--later-blue)](LICENSE)
 <!-- badges:end -->
 
 <!-- claude-cost:start -->

@@ -14,6 +14,19 @@ const GEOFABRIK: &str = "https://download.geofabrik.de";
 pub struct Names {
     pub en: String,
     pub de: String,
+    /// The Polish name; a region without one is named in English in Polish texts.
+    pub pl: Option<String>,
+}
+
+impl Names {
+    /// The name in the language with the code `code` (`de`, `pl`), English when there is none.
+    pub fn in_lang(&self, code: &str) -> &str {
+        match code {
+            "de" => &self.de,
+            "pl" => self.pl.as_deref().unwrap_or(&self.en),
+            _ => &self.en,
+        }
+    }
 }
 
 /// One OSM extract of Geofabrik a region reads.
@@ -130,6 +143,25 @@ pub struct RegionInfo {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn names(pl: Option<&str>) -> Names {
+        Names {
+            en: "Poland".into(),
+            de: "Polen".into(),
+            pl: pl.map(String::from),
+        }
+    }
+
+    #[test]
+    fn a_region_is_named_in_the_language_asked_for_and_in_english_otherwise() {
+        let with = names(Some("Polska"));
+        assert_eq!(with.in_lang("de"), "Polen");
+        assert_eq!(with.in_lang("pl"), "Polska");
+        assert_eq!(with.in_lang("en"), "Poland");
+        assert_eq!(with.in_lang("fr"), "Poland");
+        // No Polish name: English, not German.
+        assert_eq!(names(None).in_lang("pl"), "Poland");
+    }
 
     /// The ISO 3166 codes, in lower case, as they name the country in files and messages.
     #[test]

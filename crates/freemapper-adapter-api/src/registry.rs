@@ -139,6 +139,7 @@ mod tests {
                 names: Names {
                     en: id.to_string(),
                     de: id.to_string(),
+                    pl: None,
                 },
                 crs: freemapper_georef::crs::Crs::Utm33,
                 country: crate::info::Country::De,

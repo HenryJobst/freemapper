@@ -24,6 +24,7 @@ pub use freemapper_text::Lang;
 pub static NOTES: Catalog = Catalog::new(&[
     ("en", include_str!("../i18n/en/notes.ftl")),
     ("de", include_str!("../i18n/de/notes.ftl")),
+    ("pl", include_str!("../i18n/pl/notes.ftl")),
 ]);
 
 /// What the engine reports while it works: a progress line or a warning.

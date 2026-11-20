@@ -446,8 +446,9 @@ impl Localize for FetchError {
                 // The region in the language of the run; the error carries the English name.
                 let name = freemapper::adapters::registry()
                     .get(&refused.adapter)
-                    .filter(|_| lang.code() == "de")
-                    .map_or(&refused.name, |adapter| &adapter.info().names.de);
+                    .map_or(refused.name.as_str(), |adapter| {
+                        adapter.info().names.in_lang(&lang.code())
+                    });
                 let from = refused.from.as_ref().map_or_else(String::new, |from| {
                     text(lang, "error-fetch-host-redirected-from", &[url(from)])
                 });

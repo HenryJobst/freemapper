@@ -235,7 +235,7 @@ impl Report {
 }
 
 /// The static part of the check: the report, and the adapter with its registry if it loads.
-fn check(dir: &Path, today: NaiveDate, german: bool) -> (Report, Option<Checked>) {
+fn check(dir: &Path, today: NaiveDate, lang: &str) -> (Report, Option<Checked>) {
     // The folder as it was named, without following a link: the name is the id.
     let folder = std::path::absolute(dir).unwrap_or_else(|_| dir.to_path_buf());
     let mut report = Report {
@@ -255,7 +255,7 @@ fn check(dir: &Path, today: NaiveDate, german: bool) -> (Report, Option<Checked>
     ) {
         Ok(checked) => {
             let names = &checked.adapter().info().names;
-            report.name = if german { &names.de } else { &names.en }.clone();
+            report.name = names.in_lang(lang).to_string();
             report.adapter = Some(checked.loaded.clone());
             report.warnings = checked.warnings.clone();
             (report, Some(checked))
@@ -510,8 +510,7 @@ pub fn run(
         )));
     }
     let today = chrono::Local::now().date_naive();
-    let german = crate::text::lang().code() == "de";
-    let (mut report, checked) = check(dir, today, german);
+    let (mut report, checked) = check(dir, today, &crate::text::lang().code());
     if let (Some(checked), Some(live_box)) = (checked, live_box) {
         match live(checked, &live_box, &cache()?) {
             Ok(live) => report.live = Some(live),
@@ -570,7 +569,7 @@ mod tests {
     /// program. That its id is built in is a warning, since from a folder it would not load.
     #[test]
     fn check_passes_the_hamburg_folder() {
-        let (report, checked) = check(&manifests().join("hamburg"), today(), false);
+        let (report, checked) = check(&manifests().join("hamburg"), today(), "en");
         assert!(report.errors.is_empty(), "{:?}", report.errors);
         assert!(report.passed());
         let codes: Vec<&str> = report.warnings.iter().map(|w| w.code).collect();
@@ -602,7 +601,7 @@ mod tests {
             if !folder.is_dir() {
                 continue;
             }
-            let (report, _) = check(&folder, today(), false);
+            let (report, _) = check(&folder, today(), "en");
             assert!(report.errors.is_empty(), "{:?}", report.errors);
             ids.push(report.adapter.unwrap().id);
         }
@@ -619,7 +618,7 @@ mod tests {
             [[[9.7,53.4],[10.3,53.4],[10.3,53.7],[9.7,53.7],[9.7,53.4]]]}}"#,
         )
         .unwrap();
-        let (report, checked) = check(&folder, today(), false);
+        let (report, checked) = check(&folder, today(), "en");
         assert!(checked.is_none() && !report.passed());
         assert_eq!(report.errors[0].code, "boundary.crs");
         let lines = report.lines();
@@ -636,7 +635,7 @@ mod tests {
         let link = dir.path().join("links").join("mine");
         std::fs::create_dir_all(link.parent().unwrap()).unwrap();
         std::os::unix::fs::symlink(&real, &link).unwrap();
-        let (report, _) = check(&link, today(), false);
+        let (report, _) = check(&link, today(), "en");
         assert_eq!(report.errors[0].code, "adapter.folder");
         assert!(!report.passed());
     }
@@ -645,7 +644,7 @@ mod tests {
     fn check_json_output_lists_codes() {
         let dir = tempfile::tempdir().unwrap();
         let folder = write(dir.path());
-        let (report, _) = check(&folder, today(), true);
+        let (report, _) = check(&folder, today(), "de");
         assert_eq!(report.name, "Meins");
         let json: serde_json::Value = serde_json::from_str(&report.json()).unwrap();
         assert_eq!(json["passed"], true);
@@ -664,7 +663,7 @@ mod tests {
                 .replace("revision = 2", "revision = 2\ncolour = \"red\""),
         )
         .unwrap();
-        let (report, _) = check(&folder, today(), false);
+        let (report, _) = check(&folder, today(), "en");
         let json: serde_json::Value = serde_json::from_str(&report.json()).unwrap();
         assert_eq!(json["passed"], false);
         assert_eq!(json["adapter"], serde_json::Value::Null);
@@ -684,7 +683,7 @@ mod tests {
     fn live_box_outside_the_boundary_is_refused() {
         let dir = tempfile::tempdir().unwrap();
         let folder = write(dir.path());
-        let (_, checked) = check(&folder, today(), false);
+        let (_, checked) = check(&folder, today(), "en");
         // Strausberg, far from the square of the adapter.
         let strausberg: LiveBox = "13.84,52.53,13.85,52.54".parse().unwrap();
         let cache = Cache::new(dir.path().join("cache"));
@@ -731,7 +730,7 @@ mod tests {
     fn live_rows_say_what_arrived_and_what_the_stop_left_out() {
         let dir = tempfile::tempdir().unwrap();
         let folder = write(dir.path());
-        let (_, checked) = check(&folder, today(), false);
+        let (_, checked) = check(&folder, today(), "en");
         let checked = checked.unwrap();
         let adapter = checked.adapter();
         let line = |row: &Row| format!("{} {} {}", row.capability, row.state.name(), row.detail);
@@ -776,7 +775,7 @@ mod tests {
     /// cadastre whether it was asked, arrived or is missing.
     #[test]
     fn live_rows_report_the_parts_of_a_stored_fetch() {
-        let (_, checked) = check(&manifests().join("brandenburg"), today(), false);
+        let (_, checked) = check(&manifests().join("brandenburg"), today(), "en");
         let checked = checked.unwrap();
         let adapter = checked.adapter();
         let project = ProjectFile::load(

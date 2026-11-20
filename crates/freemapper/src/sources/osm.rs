@@ -1306,6 +1306,7 @@ mod tests {
                     names: freemapper_adapter_api::info::Names {
                         en: "Square".to_string(),
                         de: "Quadrat".to_string(),
+                        pl: None,
                     },
                     crs: crate::crs::Crs::Utm33,
                     country: freemapper_adapter_api::info::Country::De,
