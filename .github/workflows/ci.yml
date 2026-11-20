@@ -271,6 +271,11 @@ jobs:
         run: |
           cargo mutants --version 2>/dev/null | grep -q "$CARGO_MUTANTS_VERSION" ||
             cargo install cargo-mutants --locked --version "$CARGO_MUTANTS_VERSION" --force
+      # The tests run with nextest, as in the job `check`: 2.6 times as fast as `cargo test`.
+      - name: Install cargo-nextest
+        run: |
+          cargo nextest --version 2>/dev/null | grep -q "$CARGO_NEXTEST_VERSION" ||
+            cargo install cargo-nextest --locked --version "$CARGO_NEXTEST_VERSION" --force
       - run: scripts/check.sh mutants
       - name: The mutants that survived
         if: failure()

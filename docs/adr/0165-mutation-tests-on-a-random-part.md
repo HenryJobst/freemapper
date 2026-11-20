@@ -20,6 +20,9 @@ baseline.
   its share in random order (`--shuffle`) and stops ten minutes after its baseline
   (`MUTANTS_BUDGET_SECONDS`). Every run covers another part. A part that ends with the budget
   is no failure; a mutant that survived before it is.
+- The mutants run their tests with `cargo nextest` (`--test-tool nextest`), as the job `check`
+  does: `cargo test` ran the test binaries one after the other, and the baseline of ten minutes
+  was mostly that.
 - The gate and its rule do not change: a surviving mutant is fixed with a test. The share of the
   diff that a run covers is `MUTANTS_SHARDS` runners times what two jobs finish in ten minutes,
   about a quarter of a large diff and all of a small one. More runners cover more.
