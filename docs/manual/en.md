@@ -1034,6 +1034,24 @@ is in the base map and the candidates, true to position. To write only the train
 the PDF is written again with it. `--force` replaces the base map as well. The uncertain objects of the training map
 come from the candidates; check the course in the terrain before an event, best with the check print.
 
+### Views of the training map
+
+For forms of training freemapper leaves something out of the finished training map: `freemapper run --training --view
+<view>` (or `export`) writes `<name>-training-<view>.omap` and its PDF beside the full map, with `--ocad` also
+`ocad/<name>-training-<view>.ocd`. The map is not computed again, the view is a selection from it. The training map
+itself stays as it is.
+
+| View | What stays |
+|---|---|
+| `no-paths` | everything but roads, paths and stairs (502 to 507, 501.6 to 501.8, 532), for Ultimate maps in the forest |
+| `brown-only` | only brown symbols (contours, banks, knolls, depressions, pits), for contour orienteering; the north lines go |
+| `no-north-lines` | everything but the north lines |
+
+`--view no:505,506` leaves symbols out by code, `--view only:101,102` keeps only these; `+` combines views
+(`no-paths+no-north-lines`), and the option can be repeated. The frame (title, scale, sources) and the base fill
+always stay. A run keeps existing view files unless you pass `--force`. The MCP tool `start_pipeline` takes the same
+views as `training_views`. freemapper-print applies the same views to any `.omap` (`--view`) when you only want to print.
+
 ## 11. OCAD
 
 With `--ocad` (or "with an OCAD file"), freemapper writes the folder `ocad/`:

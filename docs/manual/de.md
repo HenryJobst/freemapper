@@ -1080,6 +1080,25 @@ und rufen `run --training` ohne `--force` auf; das PDF entsteht dabei neu. `--fo
 unsicheren Objekte der Trainingskarte kommen aus den Kandidaten; prüfen Sie die Strecke vor einem Lauf im Gelände, am
 besten mit dem Prüfausdruck.
 
+### Ansichten der Trainingskarte
+
+Für Trainingsformen lässt freemapper aus der fertigen Trainingskarte etwas weg: `freemapper run --training --view <Ansicht>`
+(oder `export`) schreibt neben die volle Karte `<name>-training-<Ansicht>.omap` und ihre PDF, mit `--ocad` auch
+`ocad/<name>-training-<Ansicht>.ocd`. Die Karte wird dafür nicht neu berechnet, die Ansicht ist eine Auswahl aus ihr.
+Die Trainingskarte selbst bleibt unverändert.
+
+| Ansicht | Was bleibt |
+|---|---|
+| `no-paths` | alles außer Straßen, Wegen und Treppen (502 bis 507, 501.6 bis 501.8, 532), für Ultimate-Karten im Wald |
+| `brown-only` | nur braune Symbole (Höhenlinien, Böschungen, Kuppen, Mulden, Löcher), für Isohypsen-OL; die Nordlinien entfallen |
+| `no-north-lines` | alles außer den Nordlinien |
+
+`--view no:505,506` lässt Symbole nach Code weg, `--view only:101,102` behält nur diese; mit `+` lassen sich Ansichten
+verbinden (`no-paths+no-north-lines`), und die Option lässt sich wiederholen. Der Rahmen (Titel, Maßstab, Quellen) und die
+Grundfläche bleiben immer. Ein Lauf behält vorhandene Ansichtsdateien, außer mit `--force`. Der MCP-Befehl `start_pipeline`
+nimmt dieselben Ansichten als `training_views`. freemapper-print wendet dieselben Ansichten auf jede `.omap` an
+(`--view`), wenn Sie nur drucken wollen.
+
 ## 11. OCAD
 
 Mit `--ocad` (oder „mit OCAD-Datei“) entsteht der Ordner `ocad/`:

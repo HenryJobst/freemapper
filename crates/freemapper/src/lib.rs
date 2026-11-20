@@ -4,6 +4,7 @@
 //!
 //! Terms follow `docs/glossary.md`.
 
+pub use freemapper_omap::{View, ViewError};
 pub mod adapters;
 pub mod area;
 pub mod build;

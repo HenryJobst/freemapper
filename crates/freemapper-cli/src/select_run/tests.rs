@@ -28,7 +28,7 @@ impl PipelineRunner for StubRunner {
         control: &RunControl,
         progress: &mut dyn FnMut(Event),
     ) -> Result<RunReport, anyhow::Error> {
-        self.seen.lock().unwrap().push(*options);
+        self.seen.lock().unwrap().push(options.clone());
         let total = 3 + u8::from(options.ocad) + u8::from(options.pdf);
         progress(Event::Phase {
             step: Step::Fetch,
@@ -243,7 +243,7 @@ async fn run_starts_a_job_and_status_follows_it_to_done() {
         json!(["warning: the area touches a second Bundesland"])
     );
     assert_eq!(done["error"], Value::Null);
-    let options = page.runner.seen.lock().unwrap()[0];
+    let options = page.runner.seen.lock().unwrap()[0].clone();
     assert!(options.ocad && options.pdf && !options.pdf_candidates && !options.offline);
     // The project answer shows no run any more.
     let (_, _, text) = request(

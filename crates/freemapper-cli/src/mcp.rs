@@ -137,6 +137,10 @@ struct StartPipeline {
     /// ocad/<name>-training.ocd. An existing training map is kept unless force is true. Default
     /// false.
     training: Option<bool>,
+    /// With training: also write the training map without what a view leaves out, one file set per entry:
+    /// "no-paths", "brown-only", "no-north-lines", or a list such as "no:505,506" or "only:101,102",
+    /// combined with +. The files are <name>-training-<view>.omap and its PDF.
+    training_views: Option<Vec<String>>,
     /// Draw the scale bar on the PDFs. Default false (German maps usually have none; the scale
     /// number stays in the title block).
     pdf_scale_bar: Option<bool>,
@@ -633,6 +637,7 @@ impl FreemapperServer {
                 pdf: req.pdf,
                 pdf_candidates: req.pdf_candidates,
                 training: req.training,
+                training_views: req.training_views,
                 pdf_scale_bar: req.pdf_scale_bar,
                 pdf_sources: req.pdf_sources,
                 permits: req.permits,
@@ -810,6 +815,7 @@ impl FreemapperServer {
                 pdf: req.pdf,
                 pdf_candidates: req.pdf_candidates,
                 training: req.training,
+                training_views: None,
                 pdf_scale_bar: req.pdf_scale_bar,
                 pdf_sources: req.pdf_sources,
                 permits: req.permits,

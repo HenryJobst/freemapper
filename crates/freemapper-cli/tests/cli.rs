@@ -845,6 +845,51 @@ fn run_training_writes_both_files_and_says_so() {
     );
 }
 
+/// `run --training --view` also writes a view of the training map; `--view` without `--training` is a usage
+/// error, and a view that does not parse says what it expects.
+#[test]
+fn run_training_view_writes_the_view_files() {
+    let dir = tempfile::tempdir().unwrap();
+    let (project, cache) = offline_school(dir.path());
+    let output = freemapper()
+        .arg("run")
+        .arg(&project)
+        .args([
+            "--offline",
+            "--training",
+            "--view",
+            "no-north-lines",
+            "--cache-dir",
+        ])
+        .arg(&cache)
+        .output()
+        .unwrap();
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert_eq!(output.status.code(), Some(0), "{stderr}");
+    let map = project.join("school-training-no-north-lines.omap");
+    assert!(std::fs::read_to_string(&map).unwrap().contains("<map"));
+    assert!(
+        std::fs::read(project.join("school-training-no-north-lines.pdf"))
+            .unwrap()
+            .starts_with(b"%PDF-")
+    );
+    let alone = freemapper()
+        .arg("run")
+        .arg(&project)
+        .args(["--offline", "--view", "no-paths"])
+        .output()
+        .unwrap();
+    assert_eq!(alone.status.code(), Some(2));
+    let bad = freemapper()
+        .arg("run")
+        .arg(&project)
+        .args(["--offline", "--training", "--view", "paths", "--lang", "en"])
+        .output()
+        .unwrap();
+    assert_eq!(bad.status.code(), Some(1));
+    assert!(String::from_utf8_lossy(&bad.stderr).contains("not paths"));
+}
+
 /// `run --training` keeps an existing training map as it keeps the map: a note names it and says
 /// that --force replaces it, nothing of the training map is written, and the run ends with 0.
 #[test]

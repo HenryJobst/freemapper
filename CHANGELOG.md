@@ -8,6 +8,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Hinzugefügt
 
+- Ansichten der Trainingskarte (ADR 0160): `run --training --view <Ansicht>` und `export --training --view <Ansicht>` schreiben `<name>-training-<Ansicht>.omap`, ihre PDF und mit `--ocad` die OCAD-Datei, ohne das, was die Ansicht weglässt: `no-paths` (Ultimate-Karte ohne Wege), `brown-only` (Isohypsen-OL, nur braune Symbole), `no-north-lines`, Listen `no:<Codes>` und `only:<Codes>`, kombiniert mit `+`. Rahmen und Grundfläche bleiben. Der MCP-Befehl `start_pipeline` nimmt `training_views`. Die Auswahl kommt aus freemapper-core v0.30.1 und ist dieselbe wie in freemapper-print.
 - Die READMEs tragen Badges für Zeilenabdeckung, MSRV, ADRs, Zahl der Prüfungen und Lizenz. `scripts/badges.sh` schreibt sie aus den Daten im Repository, und die Prüfung scheitert, wenn sie veralten (Nachtrag zu ADR 0159).
 - `scripts/check.sh` bündelt die Gates für die Lizenzzeile, die Rechtschreibung der englischen Doku, interne Links, Geheimnisse in der Historie, ungenutzte Abhängigkeiten, Action-Pins, den ADR-Index, das Changelog-Paar, rustdoc ohne Warnungen, die Zeilenabdeckung und die MSRV (ADR 0159). `lefthook.yml` ruft die schnellen Gates vor dem Commit und `secrets` vor dem Push; jede Rust-Datei trägt die Zeile `// SPDX-License-Identifier: AGPL-3.0-or-later`.
 
