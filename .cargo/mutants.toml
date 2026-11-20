@@ -1,0 +1,3 @@
+# The test doubles are the tools of the tests, not the code they check: a double that returns an
+# empty list has no test that tells `Vec::new()` from `vec![]` (ADR 0165).
+exclude_globs = ["crates/freemapper-adapter-api/src/testing.rs"]

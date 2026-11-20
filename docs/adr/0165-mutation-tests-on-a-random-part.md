@@ -26,6 +26,9 @@ baseline.
 - The gate and its rule do not change: a surviving mutant is fixed with a test. The share of the
   diff that a run covers is `MUTANTS_SHARDS` runners times what two jobs finish in ten minutes,
   about a quarter of a large diff and all of a small one. More runners cover more.
+- The test doubles of `freemapper-adapter-api/src/testing.rs` are left out (`.cargo/mutants.toml`):
+  a double that returns an empty list has an equivalent mutant no test can tell apart. That is
+  the one file; the rule "fix with a test, not with an exclusion" holds for the code they test.
 - A label that starts the run on request was rejected: it leaves the gate to whoever remembers
   it.
 

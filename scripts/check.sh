@@ -344,7 +344,7 @@ gate_hack() {
 
 # Mutation testing on a random part of the diff: a whole-workspace run would take hours, and so
 # would the diff of a large pull request. The mutants of the changed lines are split over
-# `$MUTANTS_SHARDS` runners (this one is `$MUTANTS_SHARD`, from 0); each runs its share in random
+# `$MUTANTS_SHARDS` runners (this one is `$MUTANTS_SHARD`, counted from 0 as cargo-mutants does); each runs its share in random
 # order and stops `$MUTANTS_BUDGET_SECONDS` after the baseline, so a run covers another part each
 # time (ADR 0165). `cargo-mutants` copies the tree without `.git`, so a test that reads the
 # repository's own history fails the baseline there (ADR 0161).
@@ -368,7 +368,7 @@ gate_mutants() {
   local log=target/mutants.log status=0
   : >"$log"
   cargo mutants --in-diff "$diff" --jobs 2 --timeout-multiplier 5 --shuffle --test-tool nextest \
-    --shard "$((shard + 1))/$shards" --sharding round-robin >"$log" 2>&1 &
+    --shard "$shard/$shards" --sharding round-robin >"$log" 2>&1 &
   local pid=$!
   # The budget counts from the end of the baseline, which takes as long as the tests do.
   while kill -0 "$pid" 2>/dev/null && ! grep -q "Unmutated baseline" "$log"; do sleep 5; done
