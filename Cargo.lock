@@ -827,9 +827,12 @@ dependencies = [
  "chrono",
  "freemapper-adapter-api",
  "freemapper-georef",
+ "freemapper-sources",
  "geo",
  "geo-types",
  "geojson",
+ "image",
+ "tempfile",
 ]
 
 [[package]]

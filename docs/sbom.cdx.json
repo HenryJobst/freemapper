@@ -10337,9 +10337,11 @@
         "registry+https://github.com/rust-lang/crates.io-index#chrono@0.4.45",
         "path+file://./crates/freemapper-adapter-api#0.24.0",
         "git+https://github.com/HenryJobst/freemapper-core?tag=v0.31.1#freemapper-georef@0.31.1",
+        "path+file://./crates/freemapper-sources#0.24.0",
         "registry+https://github.com/rust-lang/crates.io-index#geo@0.33.1",
         "registry+https://github.com/rust-lang/crates.io-index#geo-types@0.7.20",
-        "registry+https://github.com/rust-lang/crates.io-index#geojson@1.0.0"
+        "registry+https://github.com/rust-lang/crates.io-index#geojson@1.0.0",
+        "registry+https://github.com/rust-lang/crates.io-index#image@0.25.10"
       ],
       "ref": "path+file://./crates/adapters/pl#freemapper-adapters-pl@0.24.0"
     },

@@ -51,3 +51,10 @@ Probed on real files of the Słubice sheet `N-33-126-C-c-4-3` (NMT 2020, orthoph
 - The index client, the download cap and the estimate follow when the index is reachable again.
 - GUGiK's servers are unreliable (about every third connection fails after 10 s, the index
   database was down for hours). The client needs retries with a wait and a clear message.
+
+## Addendum: the layer of the Polish adapter
+
+`PolskaRasters` warps the GUGiK sheets itself, so `freemapper-adapters-pl` depends on
+`freemapper-sources`, as `freemapper-adapters-de` does. The layer table of `scripts/check.sh
+architecture` (ADR 0162) lists the edge. The index service is reached through a `SheetCatalog`, so the
+adapter holds no network code of its own.
