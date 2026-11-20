@@ -20,7 +20,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 - `scripts/check.sh` bündelt die Gates für die Lizenzzeile, die Rechtschreibung der englischen Doku, interne Links, Geheimnisse in der Historie, ungenutzte Abhängigkeiten, Action-Pins, den ADR-Index, das Changelog-Paar, rustdoc ohne Warnungen, die Zeilenabdeckung und die MSRV (ADR 0159). `lefthook.yml` ruft die schnellen Gates vor dem Commit und `secrets` vor dem Push; jede Rust-Datei trägt die Zeile `// SPDX-License-Identifier: AGPL-3.0-or-later`.
 
 ### Geändert
-- Der Job `mutants` läuft nur noch auf einer Pull Request mit dem Label `mutants` (ADR 0165): Bei einem großen Diff dauert er Stunden, und der übrige Lauf soll unter zehn Minuten bleiben. Die Regel bleibt: Ein überlebender Mutant wird mit einem Test behoben.
+- Der Job `mutants` testet einen zufälligen Teil der Mutanten auf zwölf Runnern und hört zehn Minuten nach der Baseline auf (ADR 0165): Bei einem großen Diff dauerte er Stunden. Die Regel bleibt: Ein überlebender Mutant wird mit einem Test behoben.
 
 - Die Listen der unterstützten Regionen in Meldungen nennen Polen, und `adapters list` zeigt `polska`.
 - Der Job `check` führt die Tests mit `cargo-nextest` aus, 2,6-mal so schnell, und die Doctests mit `cargo test --doc` (Entscheidung 0161).

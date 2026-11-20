@@ -60,5 +60,5 @@ Source: measured in this repository; the sibling ADRs for the same tools there.
 
 ## Addendum (2026-11-20, ADR 0165)
 
-The mutation job no longer runs on every pull request: it runs when the pull request has the label
-`mutants`. See [ADR 0165](0165-mutation-tests-on-request.md).
+The mutation job tests a random part of the mutants on twelve runners, each ten minutes after
+its baseline, not all of them. See [ADR 0165](0165-mutation-tests-on-a-random-part.md).

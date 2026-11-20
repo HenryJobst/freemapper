@@ -342,12 +342,18 @@ gate_hack() {
     report "the workspace does not check with each feature alone"
 }
 
-# Mutation testing on the diff only: a whole-workspace run would take hours.
-# `cargo-mutants` copies the tree without `.git`, so a test that reads the
+# Mutation testing on a random part of the diff: a whole-workspace run would take hours, and so
+# would the diff of a large pull request. The mutants of the changed lines are split over
+# `$MUTANTS_SHARDS` runners (this one is `$MUTANTS_SHARD`, from 0); each runs its share in random
+# order and stops `$MUTANTS_BUDGET_SECONDS` after the baseline, so a run covers another part each
+# time (ADR 0165). `cargo-mutants` copies the tree without `.git`, so a test that reads the
 # repository's own history fails the baseline there (ADR 0161).
 gate_mutants() {
   local base=${MUTANTS_BASE:-github/main}
   local diff=target/mutants.diff
+  local shards=${MUTANTS_SHARDS:-1}
+  local shard=${MUTANTS_SHARD:-0}
+  local budget=${MUTANTS_BUDGET_SECONDS:-600}
 
   mkdir -p target
   git diff "$base"...HEAD -- '*.rs' >"$diff"
@@ -359,12 +365,38 @@ gate_mutants() {
 
   # Exit code 2 is a missed mutant, 3 a timeout: a mutant that makes a loop
   # endless was stopped by the clock, which is how a test catches it.
-  local status=0
-  cargo mutants --in-diff "$diff" --jobs 2 --timeout-multiplier 5 --no-shuffle || status=$?
+  local log=target/mutants.log status=0
+  : >"$log"
+  cargo mutants --in-diff "$diff" --jobs 2 --timeout-multiplier 5 --shuffle \
+    --shard "$((shard + 1))/$shards" --sharding round-robin >"$log" 2>&1 &
+  local pid=$!
+  # The budget counts from the end of the baseline, which takes as long as the tests do.
+  while kill -0 "$pid" 2>/dev/null && ! grep -q "Unmutated baseline" "$log"; do sleep 5; done
+  local waited=0 stopped=0
+  while kill -0 "$pid" 2>/dev/null; do
+    if [ "$waited" -ge "$budget" ]; then
+      # SIGINT lets `cargo-mutants` write what it found so far.
+      kill -INT "$pid" 2>/dev/null || true
+      stopped=1
+      break
+    fi
+    sleep 5
+    waited=$((waited + 5))
+  done
+  wait "$pid" || status=$?
+  cat "$log"
+  if [ -s mutants.out/missed.txt ]; then
+    report "a mutant of the changed lines survived; see mutants.out/missed.txt"
+    return
+  fi
+  if [ "$stopped" = 1 ]; then
+    echo "check.sh: the budget of ${budget}s ended the run; no mutant survived so far" >&2
+    return
+  fi
   case "$status" in
   0) ;;
   3) echo "check.sh: some mutants ran into the timeout; they count as caught" >&2 ;;
-  *) report "a mutant of the changed lines survived or the baseline failed; see mutants.out/" ;;
+  *) report "the baseline failed or a mutant of the changed lines survived; see mutants.out/" ;;
   esac
 }
 
