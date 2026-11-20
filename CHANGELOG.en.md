@@ -8,6 +8,7 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ### Added
 
+- Two badges in the READMEs: the number of tests and the test budget (15 min). `docs/tests.json` holds both; `scripts/check.sh tests` counts the `#[test]` in the sources and fails on a difference (`tests --fix` rewrites it), and the Linux test run in CI fails when it exceeds the budget (ADR 0163).
 - `scripts/check.sh architecture` fails when a crate depends on a sibling against the layer table, when a crate other than the CLI uses the command line, servers, async runtime or update client, or when a reader pulls in the network client `ureq`; a new crate has to be placed in a layer (ADR 0162).
 - The area page offers the views of the training map: three boxes under the "Training map" box (without paths, brown only, without north lines) and a field for a view of your own such as `no:505,506`. Each chosen view becomes a file set beside the training map; the files show in the run's list (ADR 0160).
 - The area page offers the views of the training map: three boxes under the "Training map" box (without paths, brown only, without north lines) and a field for a view of your own such as `no:505,506`. "Without paths" and "brown only" can be ticked on forest maps only. Each chosen view becomes a file set beside the training map; the files show in the run's list (ADR 0160).
