@@ -19,6 +19,7 @@ pub mod layer_file;
 pub mod metalink;
 pub mod nas;
 pub mod ogc_api;
+pub mod orto;
 #[cfg(test)]
 mod permits_test_support;
 pub mod raster;
