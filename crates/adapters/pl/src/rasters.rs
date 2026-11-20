@@ -135,6 +135,11 @@ fn squares_touched(lo: f64, hi: f64) -> f64 {
     (hi / SHEET_SIDE_M).floor() - (lo / SHEET_SIDE_M).floor() + 1.0
 }
 
+/// How many squares of the grid the box `b` touches.
+fn squares_under(b: &BoundingBox) -> f64 {
+    squares_touched(b.min_e, b.max_e) * squares_touched(b.min_n, b.max_n)
+}
+
 /// What `squares` squares weigh at `per_km2` MB a km².
 fn square_megabytes(squares: f64, per_km2: f64) -> f64 {
     squares * SHEET_KM2 * per_km2
@@ -453,7 +458,7 @@ impl RasterBackend for PolskaRasters {
         let Some(pl) = area_in_pl1992(Crs::Utm33, &area.bbox_25833) else {
             return Vec::new();
         };
-        let n = squares_touched(pl.min_e, pl.max_e) * squares_touched(pl.min_n, pl.max_n);
+        let n = squares_under(&pl);
         let item = |what: &str, per_km2: f64, part: Part| EstimateItem {
             what: what.to_string(),
             megabytes: square_megabytes(n, per_km2),
@@ -909,6 +914,14 @@ mod tests {
         assert_eq!(squares_touched(2300.0, 2400.0), 2.0);
         assert_eq!(squares_touched(100.0, 4800.0), 3.0);
         assert_eq!(square_megabytes(3.0, 2.0), 3.0 * SHEET_KM2 * 2.0);
+        // Two squares east and three north are six, not five.
+        let b = BoundingBox {
+            min_e: 2300.0,
+            max_e: 2400.0,
+            min_n: 100.0,
+            max_n: 4800.0,
+        };
+        assert_eq!(squares_under(&b), 6.0);
     }
 
     #[test]
