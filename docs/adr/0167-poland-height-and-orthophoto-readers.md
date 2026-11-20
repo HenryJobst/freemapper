@@ -58,3 +58,10 @@ Probed on real files of the Słubice sheet `N-33-126-C-c-4-3` (NMT 2020, orthoph
 `freemapper-sources`, as `freemapper-adapters-de` does. The layer table of `scripts/check.sh
 architecture` (ADR 0162) lists the edge. The index service is reached through a `SheetCatalog`, so the
 adapter holds no network code of its own.
+
+## Addendum: seams between sheets
+
+At the edge of a sheet the warp reads the outer pixel twice (it clamps) and does not take the pixel of the
+neighbouring sheet. The first sheet wins, so heights within half a pixel of a seam depend on the order of
+the sheets. For 1 m data this stays far below what a contour line shows, and a second pass over the seam
+would cost a lookup into the neighbour for every border pixel. It is a known limit, not a fault.
