@@ -51,6 +51,14 @@ pub struct Sheet<'a> {
     tables: Vec<u8>,
 }
 
+/// How far the two pixel sizes of a sheet may differ, in metres (2^-30, exact in a float).
+const SQUARE_TOLERANCE_M: f64 = 1.0 / 1_073_741_824.0;
+
+/// Whether the pixel sizes `x` and `y` make a square pixel.
+fn is_square(x: f64, y: f64) -> bool {
+    (x - y).abs() <= SQUARE_TOLERANCE_M
+}
+
 impl<'a> Sheet<'a> {
     /// Reads the tags of the sheet; no pixel is decoded yet.
     pub fn open(bytes: &'a [u8]) -> Result<Self, OrtoError> {
@@ -94,7 +102,7 @@ impl<'a> Sheet<'a> {
         if pixel.is_nan() || pixel < FINEST_PIXEL_M {
             return Err(OrtoError::TooFine(pixel));
         }
-        if (pixel - pixel_y).abs() > 1e-9 {
+        if !is_square(pixel, pixel_y) {
             return Err(OrtoError::NonSquare(pixel, pixel_y));
         }
         let [i, j, _, e, n, _, ..] = tie[..] else {
@@ -573,23 +581,32 @@ mod tests {
     }
 
     #[test]
-    fn a_tile_larger_than_declared_is_refused_before_it_is_decoded() {
-        let mut bytes = fixture(0.25, 2180, true);
-        // A sheet of 16 by 8 pixels in two tiles of 8 by 8; the JPEGs hold 16 by 16.
-        for (tag, value) in [(256, 16), (257, 8), (322, 8), (323, 8)] {
-            patch_long(&mut bytes, tag, value);
+    fn a_tile_larger_than_declared_in_either_direction_is_refused_before_it_is_decoded() {
+        // Two tiles of (tw, th) side by side; the JPEGs hold 16 by 16.
+        for (tw, th) in [(8, 8), (8, 16), (16, 8)] {
+            let mut bytes = fixture(0.25, 2180, true);
+            for (tag, value) in [(256, 2 * tw), (257, th), (322, tw), (323, th)] {
+                patch_long(&mut bytes, tag, value);
+            }
+            for tag in [324u16, 325] {
+                let mut key = tag.to_le_bytes().to_vec();
+                key.extend_from_slice(&[4, 0, 4, 0, 0, 0]);
+                let at = bytes.windows(8).rposition(|w| w == key).unwrap() + 4;
+                bytes[at..at + 4].copy_from_slice(&2u32.to_le_bytes());
+            }
+            let r = Sheet::open(&bytes).and_then(|s| s.read_window(&window(0.25, 0, 0, 8)));
+            assert!(
+                matches!(&r, Err(OrtoError::Tile { reason, .. }) if reason.contains("larger")),
+                "{tw} by {th}: {r:?}"
+            );
         }
-        for tag in [324u16, 325] {
-            let mut key = tag.to_le_bytes().to_vec();
-            key.extend_from_slice(&[4, 0, 4, 0, 0, 0]);
-            let at = bytes.windows(8).rposition(|w| w == key).unwrap() + 4;
-            bytes[at..at + 4].copy_from_slice(&2u32.to_le_bytes());
-        }
-        let r = Sheet::open(&bytes).and_then(|s| s.read_window(&window(0.25, 0, 0, 8)));
-        assert!(
-            matches!(&r, Err(OrtoError::Tile { reason, .. }) if reason.contains("larger")),
-            "{r:?}"
-        );
+    }
+
+    #[test]
+    fn pixel_sizes_that_differ_by_no_more_than_the_tolerance_make_a_square() {
+        assert!(is_square(0.25, 0.25));
+        assert!(is_square(1.0, 1.0 + SQUARE_TOLERANCE_M));
+        assert!(!is_square(1.0, 1.0 + 2.0 * SQUARE_TOLERANCE_M));
     }
 
     /// Writes `value` over the 8 bytes at the first place `needle` occurs in `bytes`.
