@@ -57,3 +57,8 @@ freemapper-core ADR 0040 and freemapper-courseplan ADR 0099, and differ where th
   0.9.152, cargo-cyclonedx 0.5.10, installed with `cargo install --locked --version`.
 
 Source: measured in this repository; the sibling ADRs for the same tools there.
+
+## Addendum (2026-11-20, ADR 0165)
+
+The mutation job no longer runs on every pull request: it runs when the pull request has the label
+`mutants`. See [ADR 0165](0165-mutation-tests-on-request.md).

@@ -210,3 +210,4 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0162](0162-crate-layers-as-a-gate.md) | The crate layers are a gate | Accepted | 2026-11-20 |
 | [0163](0163-test-count-and-budget.md) | The test count and the test budget are data | Accepted | 2026-11-20 |
 | [0164](0164-poland-national-adapter-osm-first.md) | Poland: one national adapter, OSM first | Accepted, amends ADR 0082 | 2026-11-20 |
+| [0165](0165-mutation-tests-on-request.md) | Mutation tests run on request | Accepted, amends ADR 0161 | 2026-11-20 |

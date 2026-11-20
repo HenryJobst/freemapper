@@ -20,6 +20,7 @@ All notable changes to freemapper are listed here, newest first. The format foll
 - `scripts/check.sh` bundles the gates for the licence line, the spelling of the English documents, internal links, secrets in the history, declared but unused dependencies, action pins, the ADR index, the changelog pair, rustdoc without warnings, line coverage and the MSRV (ADR 0159). `lefthook.yml` runs the fast gates before a commit and `secrets` before a push; every Rust file carries the line `// SPDX-License-Identifier: AGPL-3.0-or-later`.
 
 ### Changed
+- The job `mutants` runs only on a pull request with the label `mutants` (ADR 0165): on a large diff it takes hours, and the rest of the run must stay under ten minutes. The rule stays: a mutant that survives is fixed with a test.
 
 - The lists of supported regions in messages name Poland, and `adapters list` shows `polska`.
 - The `check` job runs the tests with `cargo-nextest`, 2.6 times as fast, and the doc tests with `cargo test --doc` (ADR 0163).

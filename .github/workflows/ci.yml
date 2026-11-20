@@ -4,7 +4,8 @@ on:
   push:
     branches: [main]
   pull_request:
-    # `labeled`: the label `all-systems` asks for macOS and Windows on a pull request.
+    # `labeled`: the labels `all-systems` (macOS and Windows) and `mutants` (mutation tests) ask for
+    # more on a pull request.
     types: [opened, synchronize, reopened, labeled]
 
 # A newer push to a pull request replaces the run of the older one; runs on main all finish.
@@ -245,11 +246,13 @@ jobs:
             cargo install cargo-hack --locked --version "$CARGO_HACK_VERSION" --force
       - run: scripts/check.sh hack
 
-  # Mutation tests on the lines the pull request changes, not on the workspace (ADR 0161).
+  # Mutation tests on the lines the pull request changes, not on the workspace (ADR 0161). Only on
+  # request: the label `mutants` starts them. The run takes hours on a large diff, and the rest of
+  # CI must stay under ten minutes (ADR 0165).
   mutants:
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'mutants')
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 360
     env:
       MUTANTS_BASE: origin/${{ github.base_ref }}
     steps:
