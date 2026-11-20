@@ -1096,7 +1096,7 @@ Die Trainingskarte selbst bleibt unverändert.
 `--view no:505,506` lässt Symbole nach Code weg, `--view only:101,102` behält nur diese; mit `+` lassen sich Ansichten
 verbinden (`no-paths+no-north-lines`), und die Option lässt sich wiederholen. Der Rahmen (Titel, Maßstab, Quellen) und die
 Grundfläche bleiben immer. Ein Lauf behält vorhandene Ansichtsdateien, außer mit `--force`. Der MCP-Befehl `start_pipeline`
-nimmt dieselben Ansichten als `training_views`. Auf der Gebietsseite erscheinen sie unter dem Häkchen „Trainingskarte“ als drei weitere Häkchen und ein Feld für eine eigene Ansicht. freemapper-print wendet dieselben Ansichten auf jede `.omap` an
+nimmt dieselben Ansichten als `training_views`. Auf der Gebietsseite erscheinen sie unter dem Häkchen „Trainingskarte“ als drei weitere Häkchen und ein Feld für eine eigene Ansicht; „Ohne Wege“ und „Nur braun“ sind nur bei Waldkarten wählbar. freemapper-print wendet dieselben Ansichten auf jede `.omap` an
 (`--view`), wenn Sie nur drucken wollen.
 
 ## 11. OCAD
