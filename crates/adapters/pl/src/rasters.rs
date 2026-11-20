@@ -130,6 +130,16 @@ fn area_in_pl1992(crs: Crs, area: &BoundingBox) -> Option<BoundingBox> {
     })
 }
 
+/// How many squares of a grid of [`SHEET_SIDE_M`] the span `lo..hi` (metres) touches.
+fn squares_touched(lo: f64, hi: f64) -> f64 {
+    (hi / SHEET_SIDE_M).floor() - (lo / SHEET_SIDE_M).floor() + 1.0
+}
+
+/// What `squares` squares weigh at `per_km2` MB a km².
+fn square_megabytes(squares: f64, per_km2: f64) -> f64 {
+    squares * SHEET_KM2 * per_km2
+}
+
 /// What a download of `sheet` is expected to weigh, in MB.
 fn megabytes(product: Product, sheet: &Sheet) -> f64 {
     let b = &sheet.bbox_2180;
@@ -170,6 +180,11 @@ fn refused(sheet: &Sheet, message: impl std::fmt::Display) -> AdapterError {
 }
 
 impl PolskaRasters {
+    /// The most one download may weigh, in bytes.
+    fn cap_bytes(&self) -> u64 {
+        self.cap_mb * 1_000_000
+    }
+
     /// The best sheet per sheet number for `product` over `area`.
     fn choose(
         &self,
@@ -228,7 +243,7 @@ impl PolskaRasters {
                 return Err(not_fetched(product));
             }
             let fetcher = env.fetcher;
-            fetcher.download_to(&sheet.url, &path, self.cap_mb * 1_000_000, env.progress)?;
+            fetcher.download_to(&sheet.url, &path, self.cap_bytes(), env.progress)?;
         }
         let bytes = std::fs::read(&path).map_err(|e| AdapterError::Io(path.clone(), e))?;
         Ok((path, bytes))
@@ -438,12 +453,10 @@ impl RasterBackend for PolskaRasters {
         let Some(pl) = area_in_pl1992(Crs::Utm33, &area.bbox_25833) else {
             return Vec::new();
         };
-        let squares =
-            |lo: f64, hi: f64| ((hi / SHEET_SIDE_M).floor() - (lo / SHEET_SIDE_M).floor()) + 1.0;
-        let n = squares(pl.min_e, pl.max_e) * squares(pl.min_n, pl.max_n);
+        let n = squares_touched(pl.min_e, pl.max_e) * squares_touched(pl.min_n, pl.max_n);
         let item = |what: &str, per_km2: f64, part: Part| EstimateItem {
             what: what.to_string(),
-            megabytes: n * SHEET_KM2 * per_km2,
+            megabytes: square_megabytes(n, per_km2),
             cached: false,
             part,
             store: Store::Cache,
@@ -863,5 +876,92 @@ mod tests {
                 < 1e-6
         );
         assert!(items.iter().all(|i| !i.cached && i.store == Store::Cache));
+    }
+
+    #[test]
+    fn a_sheet_weighs_by_its_area_and_its_product() {
+        let mut sheet = sheet("A", 2020, 1.0, NMT, 0.0);
+        // 2 km by 3 km.
+        sheet.bbox_2180 = BoundingBox {
+            min_e: 1000.0,
+            min_n: 5000.0,
+            max_e: 3000.0,
+            max_n: 8000.0,
+        };
+        let close = |a: f64, b: f64| (a - b).abs() < 1e-9;
+        assert!(close(
+            megabytes(Product::Terrain, &sheet),
+            6.0 * HEIGHT_MB_PER_KM2
+        ));
+        assert!(close(
+            megabytes(Product::Surface, &sheet),
+            6.0 * HEIGHT_MB_PER_KM2
+        ));
+        assert!(close(
+            megabytes(Product::Orthophoto, &sheet),
+            6.0 * ORTHOPHOTO_MB_PER_KM2
+        ));
+    }
+
+    #[test]
+    fn the_squares_of_the_estimate_are_counted_by_the_span() {
+        assert_eq!(squares_touched(10.0, 100.0), 1.0);
+        assert_eq!(squares_touched(2300.0, 2400.0), 2.0);
+        assert_eq!(squares_touched(100.0, 4800.0), 3.0);
+        assert_eq!(square_megabytes(3.0, 2.0), 3.0 * SHEET_KM2 * 2.0);
+    }
+
+    #[test]
+    fn the_cap_is_taken_in_megabytes_of_a_million_bytes() {
+        let backend = PolskaRasters::new(Arc::new(Stub(Vec::new())));
+        assert_eq!(backend.cap_bytes(), 2_048_000_000);
+    }
+
+    #[test]
+    fn the_cache_keeps_each_product_in_its_own_folder_under_its_own_extension() {
+        let (stub, fetcher) = served();
+        let backend = PolskaRasters::new(Arc::new(stub));
+        let scratch = tempfile::tempdir().unwrap();
+        run(&backend, &fetcher, scratch.path(), FetchMode::Online, false)
+            .0
+            .unwrap();
+        let cache = scratch.path().join("cache/gugik");
+        assert!(cache.join("nmt/N-33-126-C-c-4-3_2020.asc").exists());
+        assert!(cache.join("nmpt/N-33-126-C-c-4-3_2020.asc").exists());
+        assert!(cache.join("orto/N-33-126-C-c-4-3_2025.tif").exists());
+    }
+
+    #[test]
+    fn offline_without_the_orthophoto_names_the_orthophoto() {
+        let (stub, fetcher) = served();
+        let backend = PolskaRasters::new(Arc::new(stub));
+        let scratch = tempfile::tempdir().unwrap();
+        run(&backend, &fetcher, scratch.path(), FetchMode::Online, true)
+            .0
+            .unwrap();
+        std::fs::remove_file(
+            scratch
+                .path()
+                .join("cache/gugik/orto/N-33-126-C-c-4-3_2025.tif"),
+        )
+        .unwrap();
+        let (result, _) = run(&backend, &fetcher, scratch.path(), FetchMode::Offline, true);
+        assert!(matches!(result, Err(AdapterError::OrthophotoNotFetched)));
+    }
+
+    #[test]
+    fn an_area_that_weighs_exactly_the_cap_is_still_fetched() {
+        let (_, fetcher) = served();
+        // One orthophoto sheet of exactly 1 km² weighs 8 MB, the cap is 8 MB: the fetch goes on
+        // and fails later on the missing terrain sheets, not on the cap.
+        let stub = Stub(vec![(
+            Product::Orthophoto,
+            sheet("A", 2025, 0.25, ORTO, 1.0),
+        )]);
+        let backend = PolskaRasters::with_cap(Arc::new(stub), 8);
+        let scratch = tempfile::tempdir().unwrap();
+        let (result, _) = run(&backend, &fetcher, scratch.path(), FetchMode::Online, true);
+        let message = result.unwrap_err().to_string();
+        assert!(message.contains("no height"), "{message}");
     }
 }
