@@ -4,6 +4,7 @@
 #   scripts/check.sh                 # all cheap gates
 #   scripts/check.sh typos links     # only these
 #   scripts/check.sh spdx --fix      # write the licence line into files that lack it
+#   scripts/check.sh tests --fix     # rewrite the test count in docs/tests.json
 #   scripts/check.sh sbom --fix      # rewrite docs/sbom.cdx.json
 #
 # Gates:
@@ -18,6 +19,8 @@
 #   sbom       `docs/sbom.cdx.json` is the CycloneDX list of the CLI's dependencies
 #   architecture the crates depend on each other and on driver-only crates only as the layers allow
 #   badges     the README badges match the data in the repository
+#   tests      `docs/tests.json` names the number of tests the sources declare (`tests --fix` rewrites it)
+#   budget     the timed test run (`TEST_SECONDS`) stays within `budget_seconds` of `docs/tests.json`
 #   doc        rustdoc builds without warnings
 #   coverage   line coverage is not below its floor or its snapshot
 #   msrv       the workspace builds with the documented MSRV
@@ -422,7 +425,67 @@ sys.exit(1 if problems else 0)
 ' || report "the crate layers are violated (ADR 0162)"
 }
 
-cheap=(spdx typos links secrets machete actions adr changelog badges sbom architecture)
+# The tests the sources declare: every `#[test]` and `#[tokio::test]`, counted over the tracked
+# Rust files. It needs no build and reads the same on every system, which a run does not
+# (tests for one platform only); doc tests are not counted (ADR 0163).
+tests_declared() {
+  git ls-files -z '*.rs' | xargs -0 grep -hE '^[[:space:]]*#\[(tokio::)?test\b' | wc -l | tr -d ' ' || true
+}
+
+gate_tests() {
+  local fix=$1
+  local declared
+  declared=$(tests_declared)
+
+  if [ "$fix" = 1 ]; then
+    python3 - "$declared" <<'PY'
+import json
+import sys
+
+path = "docs/tests.json"
+with open(path) as handle:
+    data = json.load(handle)
+data["tests"] = int(sys.argv[1])
+with open(path, "w") as handle:
+    json.dump(data, handle, indent=2)
+    handle.write("\n")
+PY
+    return
+  fi
+
+  local recorded
+  recorded=$(python3 -c 'import json; print(json.load(open("docs/tests.json"))["tests"])') ||
+    {
+      report "docs/tests.json is missing or unreadable"
+      return
+    }
+  if [ "$declared" != "$recorded" ]; then
+    report "the sources declare $declared tests, docs/tests.json says $recorded; run scripts/check.sh tests --fix"
+  fi
+}
+
+# CI times its main test run on Linux and passes the seconds in `TEST_SECONDS`. The budget is
+# set by hand with room above the measured time and is raised only with a reason in the commit.
+gate_budget() {
+  local seconds=${TEST_SECONDS:-}
+  local budget
+
+  if [ -z "$seconds" ]; then
+    report "budget needs the seconds of the test run in TEST_SECONDS"
+    return
+  fi
+  budget=$(python3 -c 'import json; print(json.load(open("docs/tests.json"))["budget_seconds"])') ||
+    {
+      report "docs/tests.json is missing or unreadable"
+      return
+    }
+  echo "check.sh: the tests took $seconds s of a budget of $budget s"
+  if [ "$seconds" -gt "$budget" ]; then
+    report "the test run took $seconds s, over the budget of $budget s in docs/tests.json"
+  fi
+}
+
+cheap=(spdx typos links secrets machete actions adr changelog badges sbom architecture tests)
 gates=()
 spdx_fix=0
 
@@ -440,8 +503,9 @@ fi
 for gate in "${gates[@]}"; do
   case "$gate" in
   spdx) gate_spdx "$spdx_fix" ;;
+  tests) gate_tests "$spdx_fix" ;;
   sbom) gate_sbom "$spdx_fix" ;;
-  typos | links | secrets | machete | actions | adr | changelog | badges | architecture | doc | coverage | msrv | complexity | hack | mutants)
+  typos | links | secrets | machete | actions | adr | changelog | badges | budget | architecture | doc | coverage | msrv | complexity | hack | mutants)
     "gate_$gate"
     ;;
   *)

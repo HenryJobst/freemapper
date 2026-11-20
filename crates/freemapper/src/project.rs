@@ -999,7 +999,7 @@ pub(crate) fn check_area(bbox: &BoundingBox) -> Result<(), ProjectError> {
     };
     // A region with OSM only cannot take the rasters and the cadastre of its neighbour, and its
     // extracts end at its border: an area that reaches over the border would be half made
-    // (ADR 0163).
+    // (ADR 0164).
     if region.info().coverage == Coverage::OsmOnly
         && (crate::sources::region::reaches_beyond_coverage(bbox)
             || registry().adapters().any(|other| {
@@ -11799,7 +11799,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
     }
 
     /// An area wholly in Poland is accepted: Poland's own adapter overlaps it, and neighbours do
-    /// not count against it (ADR 0163).
+    /// not count against it (ADR 0164).
     #[test]
     fn check_area_accepts_an_area_wholly_in_poland() {
         assert!(check_area(&lon_lat_box(19.450, 51.760, 19.460, 51.766)).is_ok());

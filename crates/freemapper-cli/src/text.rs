@@ -152,7 +152,7 @@ pub fn states(lang: &Lang) -> String {
 
 /// [`states`] for the middle of a sentence: the last name follows the word for "and". Only the
 /// regions with official geodata of their own: the sentence says whose geodata freemapper uses,
-/// and Poland has OSM only so far (ADR 0163).
+/// and Poland has OSM only so far (ADR 0164).
 pub fn states_in_a_sentence(lang: &Lang) -> String {
     let names = freemapper::adapters::region_names_with_geodata(lang.code() == "de");
     match names.split_last() {

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! A map in Poland (ADR 0163): the region `polska` has OSM extracts only, so a project there
+//! A map in Poland (ADR 0164): the region `polska` has OSM extracts only, so a project there
 //! is made from OSM alone, without templates, and offline from a cached extract.
 
 use std::path::Path;

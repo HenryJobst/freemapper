@@ -687,7 +687,7 @@ mod tests {
         use freemapper_adapter_api::info::{Country, Coverage};
         for adapter in builtin().adapters() {
             let info = adapter.info();
-            // Poland has the OSM extracts only so far (ADR 0163); every German state has rasters.
+            // Poland has the OSM extracts only so far (ADR 0164); every German state has rasters.
             let (country, coverage) = if info.id.as_str() == "polska" {
                 (Country::Pl, Coverage::OsmOnly)
             } else {

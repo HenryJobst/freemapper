@@ -80,7 +80,7 @@ const CP1252_HIGH: [(char, u8); 27] = [
 ];
 
 /// The Polish letters WinAnsi lacks (`ó` and `Ó` are Latin-1) and the letter each is written
-/// with, which stands for it in the PDF (ADR 0163). The PDF has Helvetica without an embedded
+/// with, which stands for it in the PDF (ADR 0164). The PDF has Helvetica without an embedded
 /// font, so the letters themselves cannot be shown.
 pub(crate) const POLISH_BASE: [(char, u8); 16] = [
     ('ą', b'a'),
@@ -144,7 +144,7 @@ mod tests {
     }
 
     /// Helvetica of the PDF has the WinAnsi letters only; the Polish ones WinAnsi lacks print as the
-    /// letter they are written with (ADR 0163). `ó` and `Ó` are Latin-1 and stay.
+    /// letter they are written with (ADR 0164). `ó` and `Ó` are Latin-1 and stay.
     #[test]
     fn win_ansi_falls_back_to_the_base_letter_for_polish() {
         for (polish, plain) in [

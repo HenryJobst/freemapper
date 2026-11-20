@@ -1,4 +1,4 @@
-# 0163. Poland: one national adapter, OSM first
+# 0164. Poland: one national adapter, OSM first
 
 Date: 2026-11-20
 Status: Accepted

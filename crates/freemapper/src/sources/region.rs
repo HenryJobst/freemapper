@@ -628,7 +628,7 @@ mod tests {
 
     #[test]
     fn outside_every_region_is_refused() {
-        // Prague (Poland east of Brandenburg is a region since ADR 0163).
+        // Prague (Poland east of Brandenburg is a region since ADR 0164).
         let elsewhere = around_lonlat(50.0755, 14.4378, 300.0);
         assert_eq!(raster_region(&elsewhere), None);
         assert!(regions_for(&elsewhere).is_empty());

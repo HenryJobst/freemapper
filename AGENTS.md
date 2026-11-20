@@ -403,7 +403,7 @@ This section is for coding agents in a clone of the repository, not for using th
   rustdoc, line coverage and the MSRV. `scripts/check.sh sbom` compares `docs/sbom.cdx.json` (`sbom --fix`
   rewrites it); `complexity`, `hack` and `mutants` (diff against `github/main`) have their own CI jobs. `architecture` fails when a crate
   depends against the layer table or on a crate only the CLI may use. CI runs the
-  tests with `cargo nextest run --workspace` and `cargo test --doc`, and the same gates as above (ADR 0159, 0161, 0162).
+  tests with `cargo nextest run --workspace` and `cargo test --doc`, and the same gates as above (ADR 0159, 0161, 0162, 0163). `tests` compares `docs/tests.json` with the declared `#[test]`s (`tests --fix` rewrites it) and CI holds the timed Linux test run to its `budget`.
 - CI runs a pull request on Linux only. Give it the label `all-systems` when the change touches code that
   differs on macOS or Windows (paths, processes, the file system); every push to `main` runs all three.
 - Source code and technical docs are English; terms follow [`docs/glossary.md`](docs/glossary.md). User docs are in
