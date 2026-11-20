@@ -8,6 +8,7 @@
 
 pub mod aaa;
 pub mod alkis_source;
+pub mod asc;
 pub mod bfn;
 pub mod citygml;
 pub mod dates;
@@ -18,6 +19,7 @@ pub mod layer_file;
 pub mod metalink;
 pub mod nas;
 pub mod ogc_api;
+pub mod orto;
 #[cfg(test)]
 mod permits_test_support;
 pub mod raster;
@@ -29,6 +31,7 @@ pub mod testing;
 pub mod tiff_range;
 pub mod trees;
 pub mod vg250;
+pub mod warp;
 pub mod wcs;
 pub mod wfs;
 pub mod wms;
