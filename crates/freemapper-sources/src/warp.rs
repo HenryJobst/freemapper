@@ -33,21 +33,91 @@ pub fn warp(src: &Raster<f32>, grid: GridSpec, crs: Crs, how: Resample) -> Raste
 pub fn warp_into(dst: &mut Raster<f32>, crs: Crs, src: &Raster<f32>, how: Resample) {
     let grid = dst.grid;
     for y in 0..grid.height {
-        let northing = grid.north - (f64::from(y) + 0.5) * grid.pixel_size;
         for x in 0..grid.width {
             if !dst.get(x, y).is_nan() {
                 continue;
             }
-            let easting = grid.west + (f64::from(x) + 0.5) * grid.pixel_size;
-            let Some(position) = crs.inverse(ProjectedPoint { easting, northing }) else {
+            let Some(source) = source_position(crs, &grid, x, y) else {
                 continue;
             };
-            let source = Pl1992::forward(position);
             if let Some(z) = sample(src, source.easting, source.northing, how) {
                 dst.set(x, y, z);
             }
         }
     }
+}
+
+/// The colour raster `src` (in PL-1992) on the grid `grid` of the project CRS `crs`, as RGBA:
+/// alpha 255 where `src` holds a pixel, 0 (and black) where it does not.
+pub fn warp_rgb(src: &Raster<[u8; 3]>, grid: GridSpec, crs: Crs, how: Resample) -> Raster<[u8; 4]> {
+    let mut out = Raster::filled(grid, [0u8; 4]);
+    warp_rgb_into(&mut out, crs, src, how);
+    out
+}
+
+/// Writes `src` (in PL-1992) into the transparent (alpha 0) pixels of `dst` (in `crs`) where
+/// `src` holds a pixel; a pixel that is already opaque stays, so the first sheet wins.
+pub fn warp_rgb_into(dst: &mut Raster<[u8; 4]>, crs: Crs, src: &Raster<[u8; 3]>, how: Resample) {
+    let grid = dst.grid;
+    for y in 0..grid.height {
+        for x in 0..grid.width {
+            if dst.get(x, y)[3] != 0 {
+                continue;
+            }
+            let Some(source) = source_position(crs, &grid, x, y) else {
+                continue;
+            };
+            if let Some([r, g, b]) = sample_rgb(src, source.easting, source.northing, how) {
+                dst.set(x, y, [r, g, b, 255]);
+            }
+        }
+    }
+}
+
+/// Where the centre of pixel (`x`, `y`) of `grid` (in `crs`) lies in PL-1992.
+fn source_position(crs: Crs, grid: &GridSpec, x: u32, y: u32) -> Option<ProjectedPoint> {
+    let easting = grid.west + (f64::from(x) + 0.5) * grid.pixel_size;
+    let northing = grid.north - (f64::from(y) + 0.5) * grid.pixel_size;
+    crs.inverse(ProjectedPoint { easting, northing })
+        .map(Pl1992::forward)
+}
+
+/// The colour of `src` at a position in its own grid; `None` outside it.
+fn sample_rgb(
+    src: &Raster<[u8; 3]>,
+    easting: f64,
+    northing: f64,
+    how: Resample,
+) -> Option<[u8; 3]> {
+    let g = &src.grid;
+    let fx = (easting - g.west) / g.pixel_size;
+    let fy = (g.north - northing) / g.pixel_size;
+    if !(0.0..f64::from(g.width)).contains(&fx) || !(0.0..f64::from(g.height)).contains(&fy) {
+        return None;
+    }
+    if how == Resample::Nearest {
+        return Some(src.get(fx as u32, fy as u32));
+    }
+    // The four pixel centres around the position; at the edge the outer pixel counts twice.
+    let (gx, gy) = (fx - 0.5, fy - 0.5);
+    let (x0, y0) = (gx.floor(), gy.floor());
+    let (tx, ty) = (gx - x0, gy - y0);
+    let at = |dx: f64, dy: f64| {
+        let x = (x0 + dx).clamp(0.0, f64::from(g.width - 1)) as u32;
+        let y = (y0 + dy).clamp(0.0, f64::from(g.height - 1)) as u32;
+        src.get(x, y)
+    };
+    let corners = [
+        (at(0.0, 0.0), (1.0 - tx) * (1.0 - ty)),
+        (at(1.0, 0.0), tx * (1.0 - ty)),
+        (at(0.0, 1.0), (1.0 - tx) * ty),
+        (at(1.0, 1.0), tx * ty),
+    ];
+    let channel = |c: usize| {
+        let sum: f64 = corners.iter().map(|(p, k)| f64::from(p[c]) * k).sum();
+        sum.round().clamp(0.0, 255.0) as u8
+    };
+    Some([channel(0), channel(1), channel(2)])
 }
 
 /// The height of `src` at a position in its own grid; `None` outside it and where the pixel the
@@ -286,5 +356,75 @@ mod tests {
         assert!(out.get(20, 20).is_nan());
         assert_eq!(out.get(2, 20), 1.0);
         assert_eq!(out.get(37, 20), 2.0);
+    }
+    /// A colour sheet like [`sheet`]: the colour of a pixel is `c` of its centre.
+    fn rgb_sheet(
+        dx: f64,
+        dy: f64,
+        width: u32,
+        height: u32,
+        c: impl Fn(f64, f64) -> [u8; 3],
+    ) -> Raster<[u8; 3]> {
+        let (pl, _) = place();
+        let grid = GridSpec {
+            west: (pl.easting + dx).floor(),
+            north: (pl.northing + dy).floor(),
+            pixel_size: 1.0,
+            width,
+            height,
+        };
+        let mut r = Raster::filled(grid, [0u8; 3]);
+        for y in 0..height {
+            for x in 0..width {
+                let e = grid.west + f64::from(x) + 0.5;
+                let n = grid.north - f64::from(y) - 0.5;
+                r.set(x, y, c(e, n));
+            }
+        }
+        r
+    }
+
+    #[test]
+    fn a_flat_colour_stays_and_what_the_sheet_does_not_cover_is_transparent() {
+        let src = rgb_sheet(-10.0, 10.0, 20, 20, |_, _| [10, 200, 90]);
+        for how in [Resample::Bilinear, Resample::Nearest] {
+            let out = warp_rgb(&src, target(60), Crs::Utm33, how);
+            assert_eq!(out.get(30, 30), [10, 200, 90, 255], "{how:?}");
+            assert_eq!(out.get(0, 0), [0, 0, 0, 0], "{how:?}");
+            assert_eq!(out.get(59, 59), [0, 0, 0, 0], "{how:?}");
+        }
+    }
+
+    #[test]
+    fn a_colour_gradient_is_read_between_the_pixels_within_one_level() {
+        let (pl, _) = place();
+        let red = |e: f64| (128.0 + (e - pl.easting)) as u8;
+        let src = rgb_sheet(-60.0, 60.0, 120, 120, |e, _| [red(e), 0, 0]);
+        let grid = target(40);
+        let out = warp_rgb(&src, grid, Crs::Utm33, Resample::Bilinear);
+        for (x, y) in [(5, 5), (20, 20), (33, 12)] {
+            let p = centre_in_pl(&grid, x, y);
+            let want = 128.0 + (p.easting - pl.easting) - 0.5;
+            let got = f64::from(out.get(x, y)[0]);
+            assert!(
+                (got - want).abs() <= 1.5,
+                "({x}, {y}): {got} against {want}"
+            );
+        }
+    }
+
+    #[test]
+    fn the_first_colour_sheet_wins_and_a_gap_stays_transparent() {
+        let a = rgb_sheet(-30.0, 30.0, 20, 60, |_, _| [1, 1, 1]);
+        let b = rgb_sheet(-30.0, 30.0, 20, 60, |_, _| [2, 2, 2]);
+        let c = rgb_sheet(10.0, 30.0, 20, 60, |_, _| [3, 3, 3]);
+        let grid = target(40);
+        let mut out = warp_rgb(&a, grid, Crs::Utm33, Resample::Bilinear);
+        for next in [&b, &c] {
+            warp_rgb_into(&mut out, Crs::Utm33, next, Resample::Bilinear);
+        }
+        assert_eq!(out.get(2, 20), [1, 1, 1, 255]);
+        assert_eq!(out.get(20, 20)[3], 0);
+        assert_eq!(out.get(37, 20), [3, 3, 3, 255]);
     }
 }
