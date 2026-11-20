@@ -178,4 +178,15 @@ mod tests {
         };
         assert_eq!(r.grid, expected);
     }
+
+    #[test]
+    fn a_cell_larger_than_one_scales_the_extent_and_the_centre_shift() {
+        let corner = "ncols 2\nnrows 3\nxllcorner 10\nyllcorner 20\ncellsize 2\n1 2 3 4 5 6\n";
+        let g = read_asc(corner.as_bytes()).unwrap().grid;
+        assert_eq!((g.west, g.north, g.pixel_size), (10.0, 26.0, 2.0));
+        let centre = corner
+            .replace("xllcorner 10", "xllcenter 11")
+            .replace("yllcorner 20", "yllcenter 21");
+        assert_eq!(read_asc(centre.as_bytes()).unwrap().grid, g);
+    }
 }

@@ -34,8 +34,6 @@ pub enum OrtoError {
     NotJpegTiles,
     #[error("tile {0} lies outside the file")]
     Truncated(usize),
-    #[error("the tile size {0} by {1} is not usable")]
-    TileSize(u32, u32),
     #[error("tile {tile} cannot be decoded: {reason}")]
     Tile { tile: usize, reason: String },
 }
@@ -111,9 +109,6 @@ impl<'a> Sheet<'a> {
                 .into_u32()
                 .map_err(tiff)?,
         );
-        if tile.0 == 0 || tile.1 == 0 {
-            return Err(OrtoError::TileSize(tile.0, tile.1));
-        }
         let offsets = tag(&mut d, Tag::TileOffsets, "TileOffsets")?
             .into_u64_vec()
             .map_err(tiff)?;
@@ -244,6 +239,11 @@ mod tests {
     /// A sheet of 2 by 2 tiles of 16 pixels with the pixel size `pixel` and its north-west
     /// corner at (1000, 2000); every tile has its own flat colour: red, green, blue, white.
     fn fixture(pixel: f64, epsg: u16, repeat_tables: bool) -> Vec<u8> {
+        fixture_at(pixel, epsg, repeat_tables, (0.0, 0.0))
+    }
+
+    /// Like [`fixture`], with the tie point at raster position `tie_ij` instead of (0, 0).
+    fn fixture_at(pixel: f64, epsg: u16, repeat_tables: bool, tie_ij: (f64, f64)) -> Vec<u8> {
         let colours = [[250, 20, 20], [20, 250, 20], [20, 20, 250], [250, 250, 250]];
         let mut tiles = Vec::new();
         for c in colours {
@@ -278,10 +278,16 @@ mod tests {
             }
             t
         };
-        build_tiff(&tiles, &tables, pixel, epsg)
+        build_tiff(&tiles, &tables, pixel, epsg, tie_ij)
     }
 
-    fn build_tiff(tiles: &[Vec<u8>], tables: &[u8], pixel: f64, epsg: u16) -> Vec<u8> {
+    fn build_tiff(
+        tiles: &[Vec<u8>],
+        tables: &[u8],
+        pixel: f64,
+        epsg: u16,
+        tie_ij: (f64, f64),
+    ) -> Vec<u8> {
         let mut f = vec![b'I', b'I', 42, 0, 0, 0, 0, 0];
         let put = |f: &mut Vec<u8>, bytes: &[u8]| {
             let at = f.len() as u32;
@@ -303,7 +309,10 @@ mod tests {
         let counts_at = put(&mut f, &longs(&counts));
         let tables_at = put(&mut f, tables);
         let scale_at = put(&mut f, &doubles(&[pixel, pixel, 0.0]));
-        let tie_at = put(&mut f, &doubles(&[0.0, 0.0, 0.0, 1000.0, 2000.0, 0.0]));
+        let tie_at = put(
+            &mut f,
+            &doubles(&[tie_ij.0, tie_ij.1, 0.0, 1000.0, 2000.0, 0.0]),
+        );
         let keys = [1, 1, 0, 2, 1025, 0, 1, 1, 3072, 0, 1, epsg];
         let keys_at = put(&mut f, &shorts(&keys));
         let bits_at = put(&mut f, &shorts(&[8, 8, 8]));
@@ -376,6 +385,7 @@ mod tests {
         let r = read_orto(&bytes, &window(0.25, 12, 3, 8)).unwrap().unwrap();
         assert_eq!(r.grid.west, 1003.0);
         assert_eq!(r.grid.north, 2000.0 - 0.75);
+        assert_eq!((r.grid.width, r.grid.height), (8, 8));
         assert!(near(r.get(0, 0), [250, 20, 20]));
         assert!(near(r.get(7, 0), [20, 250, 20]));
     }
@@ -456,33 +466,73 @@ mod tests {
     }
 
     #[test]
-    fn a_tile_size_of_zero_is_refused_and_does_not_divide_by_it() {
+    fn a_tile_size_of_zero_is_refused_by_the_tiff_reader_before_any_division() {
+        // `read_window` divides by the tile size; the `tiff` crate never lets a zero through.
         for tag in [322, 323] {
             let mut bytes = fixture(0.25, 2180, true);
             patch_long(&mut bytes, tag, 0);
-            assert!(matches!(
-                Sheet::open(&bytes),
-                Err(OrtoError::TileSize(..) | OrtoError::Tiff(_))
-            ));
+            assert!(matches!(Sheet::open(&bytes), Err(OrtoError::Tiff(_))));
         }
     }
 
     #[test]
     fn a_tile_that_decodes_smaller_than_declared_is_an_error_and_not_a_panic() {
-        let mut bytes = fixture(0.25, 2180, true);
-        // The file now declares one tile of 32 pixels, the JPEG holds 16.
-        patch_long(&mut bytes, 322, 32);
-        patch_long(&mut bytes, 323, 32);
-        for tag in [324u16, 325] {
-            let mut key = tag.to_le_bytes().to_vec();
-            key.extend_from_slice(&[4, 0, 4, 0, 0, 0]);
-            let at = bytes.windows(8).rposition(|w| w == key).unwrap() + 4;
-            bytes[at..at + 4].copy_from_slice(&1u32.to_le_bytes());
+        // The file declares tiles of (32, 16) or (16, 32), the JPEGs hold 16 by 16.
+        for (tw, th) in [(32, 16), (16, 32)] {
+            let mut bytes = fixture(0.25, 2180, true);
+            patch_long(&mut bytes, 322, tw);
+            patch_long(&mut bytes, 323, th);
+            for tag in [324u16, 325] {
+                let mut key = tag.to_le_bytes().to_vec();
+                key.extend_from_slice(&[4, 0, 4, 0, 0, 0]);
+                let at = bytes.windows(8).rposition(|w| w == key).unwrap() + 4;
+                bytes[at..at + 4].copy_from_slice(&2u32.to_le_bytes());
+            }
+            let r = Sheet::open(&bytes).and_then(|s| s.read_window(&window(0.25, 0, 0, 32)));
+            assert!(
+                matches!(r, Err(OrtoError::Tile { .. } | OrtoError::Truncated(_))),
+                "{tw} by {th}: {r:?}"
+            );
         }
-        let r = Sheet::open(&bytes).and_then(|s| s.read_window(&window(0.25, 0, 0, 32)));
-        assert!(
-            matches!(r, Err(OrtoError::Tile { .. } | OrtoError::Truncated(_))),
-            "{r:?}"
-        );
+    }
+
+    #[test]
+    fn the_tie_point_may_name_a_raster_position_other_than_the_corner() {
+        // The point (1000, 2000) lies at pixel (4, 8): the corner is 1 m west and 2 m north.
+        let bytes = fixture_at(0.25, 2180, true, (4.0, 8.0));
+        let g = Sheet::open(&bytes).unwrap().grid;
+        assert_eq!((g.west, g.north), (999.0, 2002.0));
+    }
+
+    #[test]
+    fn a_pixel_of_exactly_the_finest_size_is_read() {
+        let bytes = fixture(FINEST_PIXEL_M, 2180, true);
+        assert!(Sheet::open(&bytes).is_ok());
+    }
+
+    #[test]
+    fn a_window_beside_the_sheet_reads_nothing_even_when_it_overlaps_in_one_direction() {
+        let bytes = fixture(0.25, 2180, true);
+        // East of the sheet, but in the rows of the sheet.
+        let east = BoundingBox {
+            min_e: 1100.0,
+            min_n: 1995.0,
+            max_e: 1110.0,
+            max_n: 2000.0,
+        };
+        assert_eq!(read_orto(&bytes, &east).unwrap(), None);
+        // In the columns of the sheet, but south of it.
+        let south = BoundingBox {
+            min_e: 1000.0,
+            min_n: 1900.0,
+            max_e: 1004.0,
+            max_n: 1910.0,
+        };
+        assert_eq!(read_orto(&bytes, &south).unwrap(), None);
+    }
+
+    #[test]
+    fn a_table_stream_that_ends_inside_a_marker_gives_no_tables() {
+        assert!(table_segments(&[0xFF, 0xFF, 0xFF]).is_empty());
     }
 }

@@ -156,7 +156,9 @@ fn sample(src: &Raster<f32>, easting: f64, northing: f64, how: Resample) -> Opti
         .iter()
         .filter(|(z, _)| !z.is_nan())
         .fold((0.0, 0.0), |(s, w), (z, k)| (s + f64::from(*z) * k, w + k));
-    (weight > 0.0).then(|| (sum / weight) as f32)
+    // The pixel the position lies in is one of the four and holds a height, and a corner of it
+    // always has a weight above zero, so `weight` is never zero here.
+    Some((sum / weight) as f32)
 }
 
 #[cfg(test)]
@@ -426,5 +428,102 @@ mod tests {
         assert_eq!(out.get(2, 20), [1, 1, 1, 255]);
         assert_eq!(out.get(20, 20)[3], 0);
         assert_eq!(out.get(37, 20), [3, 3, 3, 255]);
+    }
+
+    /// A 4 by 3 grid of 2 m pixels with the north-west corner at (100, 200), in no CRS at all.
+    fn plain_grid() -> GridSpec {
+        GridSpec {
+            west: 100.0,
+            north: 200.0,
+            pixel_size: 2.0,
+            width: 4,
+            height: 3,
+        }
+    }
+
+    /// Positions between pixel centres (centres lie at 101, 103, 105, 107 east and 199, 197, 195
+    /// north), with different fractions in the two directions.
+    const PROBES: [(f64, f64); 3] = [(103.7, 197.6), (105.9, 195.4), (101.3, 198.8)];
+
+    fn plane(e: f64, n: f64) -> f32 {
+        (0.1 * (e - 100.0) + 0.3 * (200.0 - n)) as f32
+    }
+
+    #[test]
+    fn a_height_between_pixels_of_two_metres_is_read_where_the_plane_has_it() {
+        let mut src = Raster::filled(plain_grid(), 0.0f32);
+        for y in 0..3 {
+            for x in 0..4 {
+                src.set(
+                    x,
+                    y,
+                    plane(101.0 + 2.0 * f64::from(x), 199.0 - 2.0 * f64::from(y)),
+                );
+            }
+        }
+        for (e, n) in PROBES {
+            let got = sample(&src, e, n, Resample::Bilinear).unwrap();
+            assert!((got - plane(e, n)).abs() < 1e-4, "({e}, {n}): {got}");
+        }
+        // Nearest takes the pixel the position lies in: pixel (1, 1) for the first probe.
+        assert_eq!(
+            sample(&src, 103.7, 197.6, Resample::Nearest),
+            Some(plane(103.0, 197.0))
+        );
+        // Within the outer half pixel the outer pixel counts twice.
+        assert_eq!(
+            sample(&src, 100.4, 199.5, Resample::Bilinear),
+            Some(plane(101.0, 199.0))
+        );
+        assert_eq!(sample(&src, 99.0, 197.0, Resample::Bilinear), None);
+        assert_eq!(sample(&src, 108.5, 197.0, Resample::Bilinear), None);
+    }
+
+    #[test]
+    fn a_colour_between_pixels_of_two_metres_is_read_where_the_gradient_has_it() {
+        let mut src = Raster::filled(plain_grid(), [0u8; 3]);
+        for y in 0..3u32 {
+            for x in 0..4u32 {
+                src.set(x, y, [(10 + 20 * x) as u8, (5 + 30 * y) as u8, 100]);
+            }
+        }
+        let want = [[37, 26, 100], [59, 59, 100], [13, 8, 100]];
+        for ((e, n), want) in PROBES.into_iter().zip(want) {
+            assert_eq!(
+                sample_rgb(&src, e, n, Resample::Bilinear),
+                Some(want),
+                "({e}, {n})"
+            );
+        }
+        assert_eq!(
+            sample_rgb(&src, 103.7, 197.6, Resample::Nearest),
+            Some([30, 35, 100])
+        );
+        assert_eq!(sample_rgb(&src, 99.0, 197.0, Resample::Bilinear), None);
+        assert_eq!(sample_rgb(&src, 103.0, 193.5, Resample::Bilinear), None);
+    }
+
+    #[test]
+    fn the_centre_of_a_pixel_of_two_metres_projects_to_the_place_it_names() {
+        let (_, utm) = place();
+        let grid = GridSpec {
+            west: utm.easting.floor(),
+            north: utm.northing.floor(),
+            pixel_size: 2.0,
+            width: 10,
+            height: 10,
+        };
+        let got = source_position(Crs::Utm33, &grid, 3, 5).unwrap();
+        // Pixel (3, 5) has its centre 7 m east and 11 m south of the corner.
+        let want = Pl1992::forward(
+            Crs::Utm33
+                .inverse(ProjectedPoint {
+                    easting: grid.west + 7.0,
+                    northing: grid.north - 11.0,
+                })
+                .unwrap(),
+        );
+        assert!((got.easting - want.easting).abs() < 1e-6, "{got:?}");
+        assert!((got.northing - want.northing).abs() < 1e-6, "{got:?}");
     }
 }
