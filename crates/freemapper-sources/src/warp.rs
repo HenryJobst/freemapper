@@ -526,4 +526,13 @@ mod tests {
         assert!((got.easting - want.easting).abs() < 1e-6, "{got:?}");
         assert!((got.northing - want.northing).abs() < 1e-6, "{got:?}");
     }
+
+    #[test]
+    fn a_hole_among_the_four_pixels_is_weighed_away_and_the_rest_keeps_its_height() {
+        let mut src = Raster::filled(plain_grid(), 10.0f32);
+        // The first probe lies between pixels (1, 0), (2, 0), (1, 1) and (2, 1) and in (1, 1).
+        src.set(2, 1, f32::NAN);
+        let got = sample(&src, 103.7, 197.6, Resample::Bilinear).unwrap();
+        assert!((got - 10.0).abs() < 1e-5, "{got}");
+    }
 }
