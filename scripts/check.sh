@@ -402,7 +402,8 @@ gate_mutants() {
 
 # The crates form layers: `freemapper-adapter-api` is the contract and knows no sibling; the
 # `sources` read archives and rasters, the `manifest` crate reads the data manifests on top of
-# them, `adapters-de` builds the German adapters on both, `freemapper` is the library and
+# them, `adapters-de` builds the German adapters on both, `adapters-pl` the Polish one on the
+# sources (the readers of the GUGiK rasters), `freemapper` is the library and
 # `freemapper-cli` the driver. Every edge is listed here, so a new one shows in the diff. Arguments,
 # the MCP and web servers, the async runtime and the update client belong to the CLI; only the
 # library fetches over the network, so the readers and adapters stay offline (ADR 0162). Every
@@ -417,7 +418,7 @@ ALLOWED = {
     "freemapper-sources": {"freemapper-adapter-api"},
     "freemapper-manifest": {"freemapper-adapter-api", "freemapper-sources"},
     "freemapper-adapters-de": {"freemapper-adapter-api", "freemapper-manifest", "freemapper-sources"},
-    "freemapper-adapters-pl": {"freemapper-adapter-api"},
+    "freemapper-adapters-pl": {"freemapper-adapter-api", "freemapper-sources"},
     "freemapper": {
         "freemapper-adapter-api", "freemapper-adapters-de", "freemapper-adapters-pl",
         "freemapper-sources",
