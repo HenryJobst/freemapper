@@ -205,3 +205,4 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0157](0157-the-light-level-of-the-base-map.md) | The light level of the base map | Accepted, amends ADR 0126 and 0140 | 2026-11-16 |
 | [0158](0158-fences-along-paved-areas-and-trees-in-forest.md) | Fences along paved areas, and single trees in the forest | Accepted | 2026-11-16 |
 | [0159](0159-housekeeping-gates.md) | The repository checks its own housekeeping | Accepted | 2026-11-19 |
+| [0160](0160-training-views.md) | Training views | Accepted | 2026-11-20 |
