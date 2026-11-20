@@ -18,7 +18,7 @@ use crate::raster::{GridSpec, Raster};
 
 /// The coarsest pixel the reader refuses to go below: the 0.05 m flights are 1.4 GB a sheet, so
 /// nothing finer than 0.2 m is read (the plan takes the 0.25 m sheets).
-const FINEST_PIXEL_M: f64 = 0.2;
+pub const FINEST_PIXEL_M: f64 = 0.2;
 
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
 pub enum OrtoError {
@@ -230,20 +230,27 @@ pub fn read_orto(bytes: &[u8], window: &BoundingBox) -> Result<Option<Raster<[u8
     Sheet::open(bytes)?.read_window(window)
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    const TILE: u32 = 16;
+/// A synthetic sheet like the ones of GUGiK (2 by 2 tiles of 16 pixels with a flat colour each:
+/// red, green, blue, white), for the tests of this crate and of the adapters that read it.
+#[cfg(any(test, feature = "testing"))]
+pub mod test_support {
+    pub const TILE: u32 = 16;
 
     /// A sheet of 2 by 2 tiles of 16 pixels with the pixel size `pixel` and its north-west
     /// corner at (1000, 2000); every tile has its own flat colour: red, green, blue, white.
-    fn fixture(pixel: f64, epsg: u16, repeat_tables: bool) -> Vec<u8> {
-        fixture_at(pixel, epsg, repeat_tables, (0.0, 0.0))
+    pub fn fixture(pixel: f64, epsg: u16, repeat_tables: bool) -> Vec<u8> {
+        fixture_at(pixel, epsg, repeat_tables, (0.0, 0.0), (1000.0, 2000.0))
     }
 
-    /// Like [`fixture`], with the tie point at raster position `tie_ij` instead of (0, 0).
-    fn fixture_at(pixel: f64, epsg: u16, repeat_tables: bool, tie_ij: (f64, f64)) -> Vec<u8> {
+    /// Like [`fixture`], with the tie point at raster position `tie_ij` instead of (0, 0), where
+    /// the sheet lies at `origin` (easting, northing) in PL-1992.
+    pub fn fixture_at(
+        pixel: f64,
+        epsg: u16,
+        repeat_tables: bool,
+        tie_ij: (f64, f64),
+        origin: (f64, f64),
+    ) -> Vec<u8> {
         let colours = [[250, 20, 20], [20, 250, 20], [20, 20, 250], [250, 250, 250]];
         let mut tiles = Vec::new();
         for c in colours {
@@ -278,7 +285,7 @@ mod tests {
             }
             t
         };
-        build_tiff(&tiles, &tables, pixel, epsg, tie_ij)
+        build_tiff(&tiles, &tables, pixel, epsg, tie_ij, origin)
     }
 
     fn build_tiff(
@@ -287,6 +294,7 @@ mod tests {
         pixel: f64,
         epsg: u16,
         tie_ij: (f64, f64),
+        origin: (f64, f64),
     ) -> Vec<u8> {
         let mut f = vec![b'I', b'I', 42, 0, 0, 0, 0, 0];
         let put = |f: &mut Vec<u8>, bytes: &[u8]| {
@@ -311,7 +319,7 @@ mod tests {
         let scale_at = put(&mut f, &doubles(&[pixel, pixel, 0.0]));
         let tie_at = put(
             &mut f,
-            &doubles(&[tie_ij.0, tie_ij.1, 0.0, 1000.0, 2000.0, 0.0]),
+            &doubles(&[tie_ij.0, tie_ij.1, 0.0, origin.0, origin.1, 0.0]),
         );
         let keys = [1, 1, 0, 2, 1025, 0, 1, 1, 3072, 0, 1, epsg];
         let keys_at = put(&mut f, &shorts(&keys));
@@ -350,6 +358,12 @@ mod tests {
         f[4..8].copy_from_slice(&ifd_at.to_le_bytes());
         f
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::test_support::*;
+    use super::*;
 
     /// A window in PL-1992 around the pixel (x, y) of the fixture, `size` pixels a side.
     fn window(pixel: f64, x: u32, y: u32, size: u32) -> BoundingBox {
@@ -499,7 +513,7 @@ mod tests {
     #[test]
     fn the_tie_point_may_name_a_raster_position_other_than_the_corner() {
         // The point (1000, 2000) lies at pixel (4, 8): the corner is 1 m west and 2 m north.
-        let bytes = fixture_at(0.25, 2180, true, (4.0, 8.0));
+        let bytes = fixture_at(0.25, 2180, true, (4.0, 8.0), (1000.0, 2000.0));
         let g = Sheet::open(&bytes).unwrap().grid;
         assert_eq!((g.west, g.north), (999.0, 2002.0));
     }
