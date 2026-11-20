@@ -4,7 +4,7 @@
 
 
 <!-- badges:start -->
-[![Tests](https://img.shields.io/badge/Tests-2903-blue)](docs/tests.json) [![Test budget](https://img.shields.io/badge/Test_budget-15_min-blue)](docs/tests.json) [![Line coverage](https://img.shields.io/badge/Coverage-95.9%25-brightgreen)](docs/coverage.json) [![MSRV](https://img.shields.io/badge/MSRV-1.88-blue)](Cargo.toml) [![ADRs](https://img.shields.io/badge/ADRs-165-blue)](docs/adr/README.md) [![Hygiene](https://img.shields.io/badge/Hygiene-19-brightgreen)](scripts/check.sh) [![License](https://img.shields.io/badge/License-AGPL--3.0--or--later-blue)](LICENSE)
+[![Tests](https://img.shields.io/badge/Tests-2913-blue)](docs/tests.json) [![Test budget](https://img.shields.io/badge/Test_budget-15_min-blue)](docs/tests.json) [![Line coverage](https://img.shields.io/badge/Coverage-95.9%25-brightgreen)](docs/coverage.json) [![MSRV](https://img.shields.io/badge/MSRV-1.88-blue)](Cargo.toml) [![ADRs](https://img.shields.io/badge/ADRs-165-blue)](docs/adr/README.md) [![Hygiene](https://img.shields.io/badge/Hygiene-19-brightgreen)](scripts/check.sh) [![License](https://img.shields.io/badge/License-AGPL--3.0--or--later-blue)](LICENSE)
 <!-- badges:end -->
 
 <!-- claude-cost:start -->
@@ -32,7 +32,6 @@ the mapper has to judge. Drawing and field checking stay in OOM or OCAD.
   Geoportal Berlin, GeoSN, LVermGeo, LGV, HVBG, LVermGeo SH, LAiV M-V, Geobasis NRW, LGLN, LVermGeo RP, LVGL, LGL,
   the Landesamt GeoInformation Bremen and the Bayerische Vermessungsverwaltung);
   schoolyard maps 1:1000, sprint maps 1:4000 and forest maps 1:15 000, 1:10 000 or 1:7500.
-- Poland (preview): a map anywhere in Poland from OpenStreetMap alone, with no contours or orthophoto yet; the area must lie wholly in Poland.
 - Examples: one finished project per state with the OOM map, the OCAD starting point and the PDF, see
   [Examples](#examples).
 

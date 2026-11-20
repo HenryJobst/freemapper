@@ -770,4 +770,85 @@ mod tests {
         assert_eq!(json["live"][1]["state"], "failed");
         assert_eq!(json["live_warnings"][0], "warning: slow");
     }
+
+    /// What a live check of the Brandenburg adapter reports for the stored fetch of the offline
+    /// school: the rasters by product, the ALKIS counts, the NAS layers, and for each tree
+    /// cadastre whether it was asked, arrived or is missing.
+    #[test]
+    fn live_rows_report_the_parts_of_a_stored_fetch() {
+        let (_, checked) = check(&manifests().join("brandenburg"), today(), false);
+        let checked = checked.unwrap();
+        let adapter = checked.adapter();
+        let project = ProjectFile::load(
+            &Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/offline-school/project"),
+        )
+        .unwrap();
+        let line = |row: &Row| format!("{} {}: {}", row.capability, row.state.name(), row.detail);
+        let all = |rows: Vec<Row>| rows.iter().map(line).collect::<Vec<_>>();
+
+        let lines = all(rows(adapter, Some(&project), None, &[]));
+        assert_eq!(
+            lines[0],
+            "rasters ok: orthophoto (DOP20): one tile, terrain model (DGM1): one tile"
+        );
+        assert_eq!(lines[1], "alkis-buildings ok: one object");
+        assert_eq!(lines[2], "alkis-land-use ok: 2 objects");
+        assert_eq!(lines[3], "nas ok: 4 layers, 0 objects");
+        // The tree cadastres of the adapter, none of them asked: outside their datasets.
+        let trees: Vec<&String> = lines[4..].iter().collect();
+        assert!(!trees.is_empty());
+        assert!(
+            trees.iter().all(|l| l.starts_with("trees/")
+                && l.ends_with("not-asked: the box lies outside the dataset")),
+            "{trees:?}"
+        );
+
+        // Asked and not arrived: failed, with the error of the stop on the first one only.
+        let asked: Vec<String> = adapter
+            .tree_datasets()
+            .iter()
+            .map(|dataset| dataset.id.to_string())
+            .collect();
+        let stopped = all(rows(
+            adapter,
+            Some(&project),
+            Some("HTTP 503".into()),
+            &asked,
+        ));
+        let failed: Vec<&String> = stopped.iter().filter(|l| l.contains(" failed: ")).collect();
+        assert_eq!(failed.len(), 1, "{stopped:?}");
+        assert!(
+            failed[0].starts_with("trees/") && failed[0].ends_with("HTTP 503"),
+            "{failed:?}"
+        );
+        assert!(
+            stopped
+                .iter()
+                .any(|l| l.contains("not-asked: an earlier part failed"))
+        );
+        // The stop no capability stands for is a line of its own.
+        let area = all(rows(adapter, Some(&project), Some("no space".into()), &[]));
+        assert_eq!(area.last().unwrap(), "fetch failed: no space");
+
+        // A tree cadastre that arrived says how many trees.
+        let mut project = project;
+        let first = asked[0].clone();
+        project.tree_layers.insert(
+            first.clone(),
+            freemapper::project::AlkisRecord {
+                bbox: [0.0; 4],
+                fetched: today(),
+                latest_update: None,
+                count: 7,
+                regions: Vec::new(),
+            },
+        );
+        let lines = all(rows(adapter, Some(&project), None, &[]));
+        assert!(
+            lines
+                .iter()
+                .any(|l| l == &format!("trees/{first} ok: 7 trees")),
+            "{lines:?}"
+        );
+    }
 }

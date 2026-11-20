@@ -4,7 +4,7 @@
 
 
 <!-- badges:start -->
-[![Tests](https://img.shields.io/badge/Tests-2903-blue)](docs/tests.json) [![Testbudget](https://img.shields.io/badge/Testbudget-15_min-blue)](docs/tests.json) [![Zeilenabdeckung](https://img.shields.io/badge/Coverage-95.9%25-brightgreen)](docs/coverage.json) [![MSRV](https://img.shields.io/badge/MSRV-1.88-blue)](Cargo.toml) [![ADRs](https://img.shields.io/badge/ADRs-165-blue)](docs/adr/README.md) [![Hygiene](https://img.shields.io/badge/Hygiene-19-brightgreen)](scripts/check.sh) [![Lizenz](https://img.shields.io/badge/Lizenz-AGPL--3.0--or--later-blue)](LICENSE)
+[![Tests](https://img.shields.io/badge/Tests-2913-blue)](docs/tests.json) [![Testbudget](https://img.shields.io/badge/Testbudget-15_min-blue)](docs/tests.json) [![Zeilenabdeckung](https://img.shields.io/badge/Coverage-95.9%25-brightgreen)](docs/coverage.json) [![MSRV](https://img.shields.io/badge/MSRV-1.88-blue)](Cargo.toml) [![ADRs](https://img.shields.io/badge/ADRs-165-blue)](docs/adr/README.md) [![Hygiene](https://img.shields.io/badge/Hygiene-19-brightgreen)](scripts/check.sh) [![Lizenz](https://img.shields.io/badge/Lizenz-AGPL--3.0--or--later-blue)](LICENSE)
 <!-- badges:end -->
 
 <!-- claude-cost:start -->
@@ -34,7 +34,6 @@ in OOM oder OCAD.
   Geoportal Berlin, GeoSN, LVermGeo, LGV, HVBG, LVermGeo SH, LAiV M-V, Geobasis NRW, LGLN, LVermGeo RP, LVGL, LGL,
   dem Landesamt GeoInformation Bremen und der Bayerischen Vermessungsverwaltung);
   Schulhofkarten 1:1000, Sprintkarten 1:4000 und Waldkarten 1:15 000, 1:10 000 oder 1:7500.
-- Polen (Vorschau): eine Karte irgendwo in Polen allein aus OpenStreetMap, noch ohne Höhenlinien und Orthofoto; das Gebiet muss ganz in Polen liegen.
 - Beispiele: je Bundesland ein fertiges Projekt mit OOM-Karte, OCAD-Ausgangsstand und PDF, siehe
   [Beispiele](#beispiele).
 
