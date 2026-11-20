@@ -152,6 +152,12 @@ pub enum ProjectError {
         crate::adapters::region_names(false).join(", ")
     )]
     OutsideCoverage,
+    /// A map whose centre lies in a region with OSM only (Poland) and whose area reaches into a
+    /// region of another country: it would be made half from each.
+    #[error(
+        "the map area lies on both sides of a country border; maps across a border are not supported yet, so draw the area inside one country"
+    )]
+    AreaCrossesCountry,
     #[error("{}: {message}; run `freemapper fetch` again", path.display())]
     StoredBuildings { path: PathBuf, message: String },
     /// A part the run needs does not fit on its volume.
@@ -980,8 +986,17 @@ fn default_crs() -> u32 {
 /// Refuses a map area plus buffer outside every supported region or larger than the templates
 /// can cover.
 pub(crate) fn check_area(bbox: &BoundingBox) -> Result<(), ProjectError> {
-    if raster_region_in(registry(), bbox).is_none() {
+    let Some(region) = raster_region_in(registry(), bbox) else {
         return Err(ProjectError::OutsideCoverage);
+    };
+    // A region with OSM only cannot take the rasters and the cadastre of its neighbour: an area
+    // that also overlaps a region of another country would be half made (ADR 0161).
+    if region.info().coverage == Coverage::OsmOnly
+        && registry()
+            .adapters()
+            .any(|other| other.info().country != region.info().country && overlaps_in(other, bbox))
+    {
+        return Err(ProjectError::AreaCrossesCountry);
     }
     check_size(bbox)
 }
@@ -1158,7 +1173,13 @@ fn fetch_project_parts(
     project.provider = provider;
     let bbox = project.bbox()?;
     check_size(&bbox)?;
-    if crate::sources::region::reaches_beyond_coverage(&region_bbox) {
+    // Part of the area on the ground of a region with OSM only has no terrain model or cadastre
+    // either: a map centred next to Poland says so, as one that reaches beyond every region does.
+    let beside_osm_only = !osm_only(&region_bbox)
+        && registry().adapters().any(|adapter| {
+            adapter.info().coverage == Coverage::OsmOnly && overlaps_in(adapter, &region_bbox)
+        });
+    if beside_osm_only || crate::sources::region::reaches_beyond_coverage(&region_bbox) {
         progress(note!("warning-beyond-coverage"));
     }
     // Offline nothing is downloaded, so nothing needs room.

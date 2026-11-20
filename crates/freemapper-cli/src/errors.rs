@@ -214,6 +214,9 @@ impl Localize for ProjectError {
                 "error-project-outside-coverage",
                 &[("states", v(crate::text::states(lang)))],
             ),
+            ProjectError::AreaCrossesCountry => {
+                text(lang, "error-project-area-crosses-country", &[])
+            }
             ProjectError::NotEnoughSpace(shortfall) => shortfall.localize(lang),
         }
     }
@@ -874,6 +877,7 @@ mod tests {
                 height_m: 120.6,
             },
             ProjectError::OutsideCoverage,
+            ProjectError::AreaCrossesCountry,
         ];
         errors.extend(area_errors().into_iter().map(ProjectError::Area));
         errors.extend(georef_errors().into_iter().map(ProjectError::Georef));
