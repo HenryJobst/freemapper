@@ -322,6 +322,7 @@ page-view-brown-only = Brown only (contour orienteering)
 page-view-no-north-lines = Without north lines
 page-view-custom = Another view
 page-help-views = Each ticked view is one more file next to the training map, `<name>-training-<view>.omap` and its PDF, with OCAD also an OCAD file. Another view is `no:505,506` (leave out symbols) or `only:101,102` (keep only these); `+` combines views. Title, scale and sources always stay.
+page-help-views-forest = Without paths and brown only are for forest maps only.
 page-opt-scale-bar = Scale bar on the PDFs
 page-help-scale-bar = German maps usually have none.
 page-opt-sources = Source lines on the PDFs

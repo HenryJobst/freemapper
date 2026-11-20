@@ -592,6 +592,7 @@ $("kind").addEventListener("change", () => {
   fillScales($("kind").value);
   // The buffer depends on the map kind.
   updatePreview();
+  notifyRun();
 });
 
 $("save").addEventListener("click", () => saveArea(true));

@@ -1050,7 +1050,7 @@ itself stays as it is.
 `--view no:505,506` leaves symbols out by code, `--view only:101,102` keeps only these; `+` combines views
 (`no-paths+no-north-lines`), and the option can be repeated. The frame (title, scale, sources) and the base fill
 always stay. A run keeps existing view files unless you pass `--force`. The MCP tool `start_pipeline` takes the same
-views as `training_views`. On the area page they appear under the "Training map" box as three more boxes and a field for a view of your own. freemapper-print applies the same views to any `.omap` (`--view`) when you only want to print.
+views as `training_views`. On the area page they appear under the "Training map" box as three more boxes and a field for a view of your own; "Without paths" and "Brown only" can be chosen on forest maps only. freemapper-print applies the same views to any `.omap` (`--view`) when you only want to print.
 
 ## 11. OCAD
 

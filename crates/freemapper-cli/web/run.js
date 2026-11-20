@@ -121,6 +121,14 @@ function refresh() {
   // The views are files beside the training output: they need it ticked.
   $r("run-views").hidden = !$r("run-training").checked;
   $r("run-views").disabled = running;
+  // Without paths and brown only make sense on forest maps; the other kinds keep the rest.
+  const forest = document.getElementById("kind").value === "forest";
+  for (const id of ["run-view-no-paths", "run-view-brown-only"]) {
+    const box = $r(id);
+    if (!forest) box.checked = false;
+    box.disabled = running || !forest;
+  }
+  $r("run-views-forest-only").hidden = forest;
   $r("run-sources-warning").hidden = !(withPdf && $r("run-pdf-sources").value === "credit-only");
   for (const id of ["ocad", "pdf", "pdf-candidates", "training", "permits", "offline", "force"]) {
     $r(`${RUN_ID_PREFIX}${id}`).disabled = running;

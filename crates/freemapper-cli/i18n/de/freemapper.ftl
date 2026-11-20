@@ -322,6 +322,7 @@ page-view-brown-only = Nur braun (Isohypsen-OL)
 page-view-no-north-lines = Ohne Nordlinien
 page-view-custom = Weitere Ansicht
 page-help-views = Jede angehakte Ansicht ist eine weitere Datei neben der Trainingskarte, `<name>-training-<Ansicht>.omap` und ihre PDF, mit OCAD auch eine OCAD-Datei. Eine weitere Ansicht ist `no:505,506` (Symbole weglassen) oder `only:101,102` (nur diese behalten); `+` verbindet Ansichten. Titel, Maßstab und Quellen bleiben immer.
+page-help-views-forest = Ohne Wege und nur braun gibt es nur für Waldkarten.
 page-opt-scale-bar = Maßstabsleiste in die PDFs
 page-help-scale-bar = Deutsche Karten haben meist keine.
 page-opt-sources = Quellenangabe in den PDFs
