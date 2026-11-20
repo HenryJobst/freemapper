@@ -16,6 +16,7 @@
 #   adr        `docs/adr/README.md` lists exactly the ADRs that exist
 #   changelog  `CHANGELOG.md` and `CHANGELOG.en.md` match `Cargo.toml`
 #   sbom       `docs/sbom.cdx.json` is the CycloneDX list of the CLI's dependencies
+#   architecture the crates depend on each other and on driver-only crates only as the layers allow
 #   badges     the README badges match the data in the repository
 #   doc        rustdoc builds without warnings
 #   coverage   line coverage is not below its floor or its snapshot
@@ -364,7 +365,60 @@ gate_mutants() {
   esac
 }
 
-cheap=(spdx typos links secrets machete actions adr changelog badges sbom)
+# The crates form layers: `freemapper-adapter-api` is the contract and knows no sibling; the
+# `sources` read archives and rasters, the `manifest` crate reads the data manifests on top of
+# them, `adapters-de` builds the German adapters on both, `freemapper` is the library and
+# `freemapper-cli` the driver. Every edge is listed here, so a new one shows in the diff. Arguments,
+# the MCP and web servers, the async runtime and the update client belong to the CLI; only the
+# library fetches over the network, so the readers and adapters stay offline (ADR 0162). Every
+# workspace member must be placed in a layer, so a new crate is a decision.
+gate_architecture() {
+  cargo metadata --format-version 1 --no-deps --locked | python3 -c '
+import json
+import sys
+
+ALLOWED = {
+    "freemapper-adapter-api": set(),
+    "freemapper-sources": {"freemapper-adapter-api"},
+    "freemapper-manifest": {"freemapper-adapter-api", "freemapper-sources"},
+    "freemapper-adapters-de": {"freemapper-adapter-api", "freemapper-manifest", "freemapper-sources"},
+    "freemapper": {"freemapper-adapter-api", "freemapper-adapters-de", "freemapper-sources"},
+    "freemapper-cli": {"freemapper", "freemapper-manifest"},
+}
+# Third-party and suite crates only the driver may use.
+DRIVER_ONLY = {
+    "anyhow", "axum", "clap", "freemapper-update", "freemapper-web", "rmcp", "rust-embed",
+    "schemars", "tokio",
+}
+# Crate -> the only workspace crates that may depend on it.
+OWNED = {"ureq": {"freemapper", "freemapper-cli"}}
+
+packages = json.load(sys.stdin)["packages"]
+members = {package["name"] for package in packages}
+problems = []
+for package in packages:
+    name = package["name"]
+    if name not in ALLOWED:
+        problems.append(f"{name} is in no layer; add it to ALLOWED in gate_architecture")
+        continue
+    for dependency in package["dependencies"]:
+        if dependency["kind"] == "dev":
+            continue
+        target = dependency["name"]
+        if target in members and target not in ALLOWED[name]:
+            problems.append(f"{name} may not depend on {target}")
+        if name != "freemapper-cli" and target in DRIVER_ONLY:
+            problems.append(f"{name} depends on {target}, which only freemapper-cli may use")
+        if target in OWNED and name not in OWNED[target]:
+            problems.append(f"{name} may not depend on {target}; only {sorted(OWNED[target])} may")
+
+for problem in problems:
+    print(problem, file=sys.stderr)
+sys.exit(1 if problems else 0)
+' || report "the crate layers are violated (ADR 0162)"
+}
+
+cheap=(spdx typos links secrets machete actions adr changelog badges sbom architecture)
 gates=()
 spdx_fix=0
 
@@ -383,7 +437,7 @@ for gate in "${gates[@]}"; do
   case "$gate" in
   spdx) gate_spdx "$spdx_fix" ;;
   sbom) gate_sbom "$spdx_fix" ;;
-  typos | links | secrets | machete | actions | adr | changelog | badges | doc | coverage | msrv | complexity | hack | mutants)
+  typos | links | secrets | machete | actions | adr | changelog | badges | architecture | doc | coverage | msrv | complexity | hack | mutants)
     "gate_$gate"
     ;;
   *)

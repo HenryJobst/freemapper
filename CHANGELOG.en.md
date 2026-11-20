@@ -8,6 +8,8 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ### Added
 
+- `scripts/check.sh architecture` fails when a crate depends on a sibling against the layer table, when a crate other than the CLI uses the command line, servers, async runtime or update client, or when a reader pulls in the network client `ureq`; a new crate has to be placed in a layer (ADR 0162).
+- The area page offers the views of the training map: three boxes under the "Training map" box (without paths, brown only, without north lines) and a field for a view of your own such as `no:505,506`. Each chosen view becomes a file set beside the training map; the files show in the run's list (ADR 0160).
 - The area page offers the views of the training map: three boxes under the "Training map" box (without paths, brown only, without north lines) and a field for a view of your own such as `no:505,506`. "Without paths" and "brown only" can be ticked on forest maps only. Each chosen view becomes a file set beside the training map; the files show in the run's list (ADR 0160).
 - CI mutates the Rust lines a branch changes (`cargo-mutants --in-diff`, job `mutants`) and fails when a test does not catch a mutant; a job `hack` checks the workspace with each feature alone; `scripts/check.sh complexity` fails above the cognitive complexity of 57 (`clippy.toml`); `scripts/check.sh sbom` compares `docs/sbom.cdx.json`, the CycloneDX list of the CLI's dependencies, with a fresh one (ADR 0161).
 - A property test with `proptest` for the zip directory reader: any bytes are read or refused, never a panic (ADR 0161).
