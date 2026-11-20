@@ -14,8 +14,8 @@ training in a small forest).
 
 Supported states: Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein,
 Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony, Rhineland-Palatinate,
-Saarland, Baden-Württemberg, Bremen and Bavaria. Thuringia has no data sources yet; an area there fails with a message that says so. Tell the
-user before you start if the place lies outside these states.
+Saarland, Baden-Württemberg, Bremen and Bavaria. Thuringia has no data sources yet; an area there fails with a message that says so. Poland is a preview: OpenStreetMap only, no
+contours or orthophoto yet, and the area must lie wholly in Poland. Tell the user before you start if the place lies outside these states.
 
 ## Install
 
@@ -401,7 +401,7 @@ This section is for coding agents in a clone of the repository, not for using th
 - The housekeeping gates: `scripts/check.sh` runs licence line, spelling, links, history, dependencies, action
   pins, ADR index and changelog pair; `scripts/check.sh doc coverage msrv` builds the workspace and checks
   rustdoc, line coverage and the MSRV. `scripts/check.sh sbom` compares `docs/sbom.cdx.json` (`sbom --fix`
-  rewrites it); `complexity`, `hack` and `mutants` (diff against `github/main`) have their own CI jobs. `architecture` fails when a crate
+  rewrites it); `complexity`, `hack` and `mutants` (diff against `github/main`; `mutants` tests a random part on twelve runners, ten minutes after the baseline, ADR 0165) have their own CI jobs. `architecture` fails when a crate
   depends against the layer table or on a crate only the CLI may use. CI runs the
   tests with `cargo nextest run --workspace` and `cargo test --doc`, and the same gates as above (ADR 0159, 0161, 0162, 0163). `tests` compares `docs/tests.json` with the declared `#[test]`s (`tests --fix` rewrites it) and CI holds the timed Linux test run to its `budget`.
 - CI runs a pull request on Linux only. Give it the label `all-systems` when the change touches code that

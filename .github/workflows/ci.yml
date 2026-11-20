@@ -245,13 +245,21 @@ jobs:
             cargo install cargo-hack --locked --version "$CARGO_HACK_VERSION" --force
       - run: scripts/check.sh hack
 
-  # Mutation tests on the lines the pull request changes, not on the workspace (ADR 0161).
+  # Mutation tests on a random part of the lines the pull request changes, spread over twelve
+  # runners; each stops ten minutes after its baseline (ADR 0161, 0165).
   mutants:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
     env:
       MUTANTS_BASE: origin/${{ github.base_ref }}
+      MUTANTS_SHARD: ${{ matrix.shard }}
+      MUTANTS_SHARDS: 12
+      MUTANTS_BUDGET_SECONDS: 600
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -263,6 +271,11 @@ jobs:
         run: |
           cargo mutants --version 2>/dev/null | grep -q "$CARGO_MUTANTS_VERSION" ||
             cargo install cargo-mutants --locked --version "$CARGO_MUTANTS_VERSION" --force
+      # The tests run with nextest, as in the job `check`: 2.6 times as fast as `cargo test`.
+      - name: Install cargo-nextest
+        run: |
+          cargo nextest --version 2>/dev/null | grep -q "$CARGO_NEXTEST_VERSION" ||
+            cargo install cargo-nextest --locked --version "$CARGO_NEXTEST_VERSION" --force
       - run: scripts/check.sh mutants
       - name: The mutants that survived
         if: failure()

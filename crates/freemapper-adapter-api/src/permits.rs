@@ -349,6 +349,8 @@ mod tests {
                     de: "Kahl".into(),
                 },
                 crs: Crs::Utm33,
+                country: crate::info::Country::De,
+                coverage: crate::info::Coverage::Full,
                 object_id_prefix: None,
                 osm: Vec::new(),
                 credit_short: None,

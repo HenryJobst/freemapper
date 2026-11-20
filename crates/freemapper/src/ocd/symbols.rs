@@ -102,8 +102,9 @@ impl OcdColour {
     }
 }
 
-/// ASCII for parameter strings and symbol names: German letters transliterated, other non-ASCII
-/// characters dropped, tabs replaced by spaces.
+/// ASCII for parameter strings and symbol names: German letters transliterated, Polish letters
+/// written as the letter they are formed from, other non-ASCII characters dropped, tabs replaced
+/// by spaces.
 pub fn ascii(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
     for c in text.chars() {
@@ -116,11 +117,18 @@ pub fn ascii(text: &str) -> String {
             'Ü' => out.push_str("Ue"),
             '©' => out.push_str("(c)"),
             'ß' => out.push_str("ss"),
+            'ó' => out.push('o'),
+            'Ó' => out.push('O'),
             '–' | '—' => out.push('-'),
             '·' => out.push('-'),
             '\t' => out.push(' '),
             c if c.is_ascii() && !c.is_ascii_control() || c == '\r' || c == '\n' => out.push(c),
-            _ => {}
+            c => out.extend(
+                crate::render::metrics::POLISH_BASE
+                    .iter()
+                    .find(|(letter, _)| *letter == c)
+                    .map(|&(_, base)| char::from(base)),
+            ),
         }
     }
     out
@@ -574,6 +582,10 @@ mod tests {
         );
         assert_eq!(ascii("© GeoBasis-DE/LGB"), "(c) GeoBasis-DE/LGB");
         assert_eq!(ascii("Ω"), "");
+        assert_eq!(
+            ascii("Świnoujście Łódź, Żółć Wągrów"),
+            "Swinoujscie Lodz, Zolc Wagrow"
+        );
     }
 
     #[test]

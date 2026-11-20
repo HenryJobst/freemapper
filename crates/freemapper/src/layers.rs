@@ -148,13 +148,16 @@ pub(crate) fn estimate_area(
             store: Store::Cache,
         });
     }
-    items.push(EstimateItem {
-        what: "ALKIS buildings and land use".to_string(),
-        megabytes: ALKIS_MB,
-        cached: alkis_cached,
-        part: Part::MapData,
-        store: Store::Project,
-    });
+    // A region with OSM only has no cadastre to download.
+    if !crate::project::osm_only(bbox) {
+        items.push(EstimateItem {
+            what: "ALKIS buildings and land use".to_string(),
+            megabytes: ALKIS_MB,
+            cached: alkis_cached,
+            part: Part::MapData,
+            store: Store::Project,
+        });
+    }
     // The adapters the area touches bring the sets of extra layers and the raster templates
     // they fetch themselves (Berlin's registers and surveys, and its K5 map), each with its item.
     for adapter in freemapper_adapter_api::geometry::regions_for_in(registry(), bbox) {

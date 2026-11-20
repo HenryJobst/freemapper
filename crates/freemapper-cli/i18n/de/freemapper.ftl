@@ -474,6 +474,8 @@ error-project-terrain-not-fetched = Für dieses Kartengebiet ist kein Geländemo
 error-project-candidates-outdated = Die gespeicherten OSM-Kandidaten decken das Kartengebiet nicht ab; rufen Sie `freemapper fetch` auf
 error-project-stored = { $path }: { $message }; rufen Sie `freemapper fetch` noch einmal auf
 error-project-area-too-large = Das Kartengebiet mit Puffer misst { $width } × { $height } m, mehr als { $limit } m je Seite; verkleinern Sie das Kartengebiet oder buffer_m in freemapper.toml
+error-project-area-crosses-country = Das Kartengebiet liegt auf beiden Seiten einer Landesgrenze; Karten über eine Grenze hinweg werden noch nicht unterstützt, zeichnen Sie das Gebiet innerhalb eines Landes
+error-project-permits-not-for-region = Die Genehmigungshinweise gibt es für diese Region noch nicht: Sie fragen deutsche Dienste ab und nennen deutsche Behörden
 error-project-outside-coverage = Das Kartengebiet liegt außerhalb der unterstützten Bundesländer ({ $states }); bisher hat freemapper nur für diese Datenquellen
 
 ## Fehler: Speicherplatz

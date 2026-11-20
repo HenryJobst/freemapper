@@ -2,7 +2,7 @@
 
 //! What a region supplies: the trait an adapter implements.
 
-use freemapper_georef::crs::BoundingBox;
+use freemapper_georef::crs::{BoundingBox, Crs, LatLon};
 use geo_types::MultiPolygon;
 
 use crate::alkis::AlkisSource;
@@ -34,6 +34,13 @@ pub trait RegionAdapter: Send + Sync {
     /// or came from a folder. `None`: the adapter has no manifest and asks as its code asks.
     fn policy(&self) -> Option<&UrlPolicy> {
         None
+    }
+
+    /// The CRS of a map whose centre lies at `centre` in this region. The default is the one CRS
+    /// of the region ([`RegionInfo::crs`]); a region that spans several zones (Poland) answers by
+    /// position. A map stays in this one CRS, also where its area reaches into the next zone.
+    fn crs_for(&self, _centre: LatLon) -> Crs {
+        self.info().crs
     }
 
     /// The boundary in EPSG:25833, parsed once and valid.

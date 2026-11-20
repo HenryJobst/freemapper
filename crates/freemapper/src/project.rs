@@ -65,6 +65,7 @@ use crate::sources::region::{
 use crate::sources::trees;
 use crate::space::{Part, SpacePlan};
 use crate::tiles::TileId;
+use freemapper_adapter_api::info::Coverage;
 
 mod export;
 mod extras;
@@ -153,6 +154,18 @@ pub enum ProjectError {
         crate::adapters::region_names(false).join(", ")
     )]
     OutsideCoverage,
+    /// A map whose centre lies in a region with OSM only (Poland) and whose area reaches into a
+    /// region of another country: it would be made half from each.
+    #[error(
+        "the map area lies on both sides of a country border; maps across a border are not supported yet, so draw the area inside one country"
+    )]
+    AreaCrossesCountry,
+    /// The permit notes of a map in a region with OSM only (Poland): their services, their
+    /// authorities and their law are German.
+    #[error(
+        "the permit notes are not available for this region yet: they ask German services and name German authorities"
+    )]
+    PermitsNotForRegion,
     #[error("{}: {message}; run `freemapper fetch` again", path.display())]
     StoredBuildings { path: PathBuf, message: String },
     /// A part the run needs does not fit on its volume.
@@ -962,9 +975,16 @@ pub fn set_contour_interval(
     Ok(project)
 }
 
+/// Whether a map of `region_bbox` (EPSG:25833) is made from OSM alone: its region supplies
+/// the OSM extracts and nothing else ([`Coverage::OsmOnly`]), so no raster is fetched or derived.
+pub(crate) fn osm_only(region_bbox: &BoundingBox) -> bool {
+    raster_region_in(registry(), region_bbox)
+        .is_some_and(|adapter| adapter.info().coverage == Coverage::OsmOnly)
+}
+
 /// The CRS of a map of `region_bbox` (EPSG:25833): that of its raster region.
 pub(crate) fn map_crs(region_bbox: &BoundingBox) -> Crs {
-    raster_region_in(registry(), region_bbox).map_or(Crs::Utm33, |adapter| adapter.info().crs)
+    freemapper_adapter_api::geometry::map_crs_in(registry(), region_bbox)
 }
 
 fn default_crs() -> u32 {
@@ -974,10 +994,29 @@ fn default_crs() -> u32 {
 /// Refuses a map area plus buffer outside every supported region or larger than the templates
 /// can cover.
 pub(crate) fn check_area(bbox: &BoundingBox) -> Result<(), ProjectError> {
-    if raster_region_in(registry(), bbox).is_none() {
+    let Some(region) = raster_region_in(registry(), bbox) else {
         return Err(ProjectError::OutsideCoverage);
+    };
+    // A region with OSM only cannot take the rasters and the cadastre of its neighbour, and its
+    // extracts end at its border: an area that reaches over the border would be half made
+    // (ADR 0164).
+    if region.info().coverage == Coverage::OsmOnly
+        && (crate::sources::region::reaches_beyond_coverage(bbox)
+            || registry().adapters().any(|other| {
+                other.info().country != region.info().country && overlaps_in(other, bbox)
+            }))
+    {
+        return Err(ProjectError::AreaCrossesCountry);
     }
     check_size(bbox)
+}
+
+/// Whether a map that is not in a region with OSM only has part of its area on the ground of one.
+fn beside_osm_only(region_bbox: &BoundingBox) -> bool {
+    !osm_only(region_bbox)
+        && registry().adapters().any(|adapter| {
+            adapter.info().coverage == Coverage::OsmOnly && overlaps_in(adapter, region_bbox)
+        })
 }
 
 /// Refuses a map area plus buffer larger than the templates can cover. The templates are built
@@ -1135,7 +1174,7 @@ fn fetch_project_parts(
     if crs != project.crs() {
         progress(note!(
             "warning-other-zone",
-            zone = if crs == Crs::Utm32 { "32" } else { "33" },
+            zone = crs.utm_zone().to_string(),
             epsg = crs.epsg().to_string()
         ));
         project.crs = crs.epsg();
@@ -1152,7 +1191,11 @@ fn fetch_project_parts(
     project.provider = provider;
     let bbox = project.bbox()?;
     check_size(&bbox)?;
-    if crate::sources::region::reaches_beyond_coverage(&region_bbox) {
+    // Part of the area on the ground of a region with OSM only has no terrain model or cadastre
+    // either: a map centred next to Poland says so, as one that reaches beyond every region does.
+    if beside_osm_only(&region_bbox)
+        || crate::sources::region::reaches_beyond_coverage(&region_bbox)
+    {
         progress(note!("warning-beyond-coverage"));
     }
     // Offline nothing is downloaded, so nothing needs room.
@@ -1180,7 +1223,12 @@ fn fetch_project_parts(
                 region_bbox,
             },
         );
-        raster_backend(&region_bbox)?.fetch(env, p, &bbox)?;
+        if !osm_only(&region_bbox) {
+            raster_backend(&region_bbox)?.fetch(env, p, &bbox)?;
+        }
+    }
+    if osm_only(&region_bbox) {
+        progress(note!("warning-osm-only-no-terrain"));
     }
     stop_if(cancelled)?;
     project.save(dir)?;
@@ -1708,6 +1756,14 @@ fn fetch_buildings_into(
 ) -> Result<Option<AlkisRecord>, ProjectError> {
     let bbox = &area.bbox;
     let path = dir.join(BUILDINGS_RELPATH);
+    // A region with OSM only has no cadastre: an empty collection stands for no buildings,
+    // online and offline alike, and no ALKIS line is shown.
+    if osm_only(&area.region_bbox) {
+        if !path.exists() {
+            write_inside(dir, &path, br#"{"features":[],"type":"FeatureCollection"}"#)?;
+        }
+        return Ok(None);
+    }
     if mode == FetchMode::Offline {
         if previous.is_none() && path.exists() {
             progress(note!("warning-alkis-coverage-unknown"));
@@ -1789,6 +1845,10 @@ fn fetch_land_use_into(
 ) -> Option<Option<AlkisRecord>> {
     let bbox = &area.bbox;
     let path = dir.join(LAND_USE_RELPATH);
+    // A region with OSM only has no cadastre to be missing.
+    if osm_only(&area.region_bbox) {
+        return None;
+    }
     if mode == FetchMode::Offline {
         if previous.is_none() || !path.exists() {
             progress(note!("progress-alkis-no-land-use-stored"));
@@ -2139,6 +2199,10 @@ pub fn derive_project_cancellable(
     stop_if(cancelled)?;
     let mut project = ProjectFile::load_reporting(dir, progress)?;
     check_folders(dir, &WRITTEN_FOLDERS)?;
+    // A region with OSM only has no raster to derive: the export draws the OSM objects.
+    if osm_only(&project.region_bbox()?) {
+        return Ok(Vec::new());
+    }
     if project.tiles.is_empty() && project.terrain.is_none() {
         return Err(ProjectError::NotFetched);
     }
@@ -11680,6 +11744,98 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
                 .any(|m| m.contains("leads out of the project folder")),
             "{messages:?}"
         );
+    }
+
+    /// An area in Łódź: a region with OSM only has no cadastre, so an online fetch asks no server
+    /// and says nothing about ALKIS.
+    #[test]
+    fn online_fetch_in_an_osm_only_region_asks_no_cadastre() {
+        let area = FetchArea::new(
+            BoundingBox {
+                min_e: 806_500.0,
+                min_n: 5_737_500.0,
+                max_e: 807_500.0,
+                max_n: 5_738_500.0,
+            },
+            Crs::Utm34,
+        );
+        assert!(osm_only(&area.region_bbox));
+        let fetcher = MapFetcher::default();
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = CacheDir::new(cache_dir.path().to_path_buf());
+        let dir = tempfile::tempdir().unwrap();
+        let mut messages = Vec::new();
+        let mut progress = |note: Note| messages.push(note.to_string());
+        let record = fetch_buildings_into(
+            dir.path(),
+            &fetcher,
+            &cache,
+            &area,
+            FetchMode::Online,
+            None,
+            &mut progress,
+        )
+        .unwrap();
+        let land_use = fetch_land_use_into(
+            dir.path(),
+            &fetcher,
+            &cache,
+            &area,
+            FetchMode::Online,
+            None,
+            &mut progress,
+        );
+        assert!(record.is_none() && land_use.is_none());
+        assert!(messages.is_empty(), "{messages:?}");
+        assert!(dir.path().join(BUILDINGS_RELPATH).exists());
+    }
+
+    /// The projected box (EPSG:25833) of a lon/lat rectangle, as `check_area` gets it.
+    fn lon_lat_box(west: f64, south: f64, east: f64, north: f64) -> BoundingBox {
+        let text = format!(
+            r#"{{"type":"Feature","properties":{{}},"geometry":{{"type":"Polygon","coordinates":[[[{west},{south}],[{east},{south}],[{east},{north}],[{west},{north}],[{west},{south}]]]}}}}"#
+        );
+        MapArea::from_geojson(&text).unwrap().projected_bbox()
+    }
+
+    /// An area wholly in Poland is accepted: Poland's own adapter overlaps it, and neighbours do
+    /// not count against it (ADR 0164).
+    #[test]
+    fn check_area_accepts_an_area_wholly_in_poland() {
+        assert!(check_area(&lon_lat_box(19.450, 51.760, 19.460, 51.766)).is_ok());
+        assert!(check_area(&lon_lat_box(14.566, 52.346, 14.580, 52.352)).is_ok());
+    }
+
+    /// Over the Olza at Cieszyn the box reaches into Czechia, which no adapter covers: refused,
+    /// and so is the strip of Frankfurt (Oder) beside Słubice, which another country's adapter
+    /// covers.
+    #[test]
+    fn check_area_refuses_an_area_over_a_border_of_poland() {
+        for (west, south, east, north) in [
+            (18.620, 49.746, 18.650, 49.752),
+            (14.550, 52.346, 14.580, 52.352),
+        ] {
+            let result = check_area(&lon_lat_box(west, south, east, north));
+            assert!(
+                matches!(result, Err(ProjectError::AreaCrossesCountry)),
+                "{result:?}"
+            );
+        }
+    }
+
+    /// A map centred in Germany with a strip of Poland is beside a region with OSM only; one in
+    /// Poland, or far from it, is not.
+    #[test]
+    fn beside_osm_only_tells_the_strip_of_a_neighbour() {
+        assert!(beside_osm_only(&lon_lat_box(
+            14.520, 52.340, 14.570, 52.346
+        )));
+        assert!(!beside_osm_only(&lon_lat_box(
+            19.450, 51.760, 19.460, 51.766
+        )));
+        assert!(!beside_osm_only(&lon_lat_box(
+            13.370, 52.510, 13.380, 52.516
+        )));
     }
 
     /// The Sanssouci area (Potsdam) as a fetch area, where the tree fixture stands.

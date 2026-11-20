@@ -583,7 +583,7 @@ dependencies = [
  "libc",
  "option-ext",
  "redox_users",
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -631,7 +631,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -747,6 +747,7 @@ dependencies = [
  "freemapper",
  "freemapper-adapter-api",
  "freemapper-adapters-de",
+ "freemapper-adapters-pl",
  "freemapper-contract",
  "freemapper-fs",
  "freemapper-georef",
@@ -820,6 +821,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "freemapper-adapters-pl"
+version = "0.24.0"
+dependencies = [
+ "chrono",
+ "freemapper-adapter-api",
+ "freemapper-georef",
+ "geo",
+ "geo-types",
+ "geojson",
+]
+
+[[package]]
 name = "freemapper-cli"
 version = "0.24.0"
 dependencies = [
@@ -850,8 +863,8 @@ dependencies = [
 
 [[package]]
 name = "freemapper-contract"
-version = "0.30.1"
-source = "git+https://github.com/HenryJobst/freemapper-core?tag=v0.30.1#5d0793a6b1d0826171307493a3ddccacc1970aa9"
+version = "0.31.1"
+source = "git+https://github.com/HenryJobst/freemapper-core?tag=v0.31.1#650132ba395d36cb7a0c014c93548070c2123caa"
 dependencies = [
  "freemapper-omap",
  "serde",
@@ -861,8 +874,8 @@ dependencies = [
 
 [[package]]
 name = "freemapper-course"
-version = "0.30.1"
-source = "git+https://github.com/HenryJobst/freemapper-core?tag=v0.30.1#5d0793a6b1d0826171307493a3ddccacc1970aa9"
+version = "0.31.1"
+source = "git+https://github.com/HenryJobst/freemapper-core?tag=v0.31.1#650132ba395d36cb7a0c014c93548070c2123caa"
 dependencies = [
  "freemapper-georef",
  "freemapper-omap",
@@ -873,16 +886,16 @@ dependencies = [
 
 [[package]]
 name = "freemapper-fs"
-version = "0.30.1"
-source = "git+https://github.com/HenryJobst/freemapper-core?tag=v0.30.1#5d0793a6b1d0826171307493a3ddccacc1970aa9"
+version = "0.31.1"
+source = "git+https://github.com/HenryJobst/freemapper-core?tag=v0.31.1#650132ba395d36cb7a0c014c93548070c2123caa"
 dependencies = [
  "same-file",
 ]
 
 [[package]]
 name = "freemapper-georef"
-version = "0.30.1"
-source = "git+https://github.com/HenryJobst/freemapper-core?tag=v0.30.1#5d0793a6b1d0826171307493a3ddccacc1970aa9"
+version = "0.31.1"
+source = "git+https://github.com/HenryJobst/freemapper-core?tag=v0.31.1#650132ba395d36cb7a0c014c93548070c2123caa"
 
 [[package]]
 name = "freemapper-manifest"
@@ -903,8 +916,8 @@ dependencies = [
 
 [[package]]
 name = "freemapper-omap"
-version = "0.30.1"
-source = "git+https://github.com/HenryJobst/freemapper-core?tag=v0.30.1#5d0793a6b1d0826171307493a3ddccacc1970aa9"
+version = "0.31.1"
+source = "git+https://github.com/HenryJobst/freemapper-core?tag=v0.31.1#650132ba395d36cb7a0c014c93548070c2123caa"
 dependencies = [
  "quick-xml",
  "thiserror 2.0.21",
@@ -912,8 +925,8 @@ dependencies = [
 
 [[package]]
 name = "freemapper-render"
-version = "0.30.1"
-source = "git+https://github.com/HenryJobst/freemapper-core?tag=v0.30.1#5d0793a6b1d0826171307493a3ddccacc1970aa9"
+version = "0.31.1"
+source = "git+https://github.com/HenryJobst/freemapper-core?tag=v0.31.1#650132ba395d36cb7a0c014c93548070c2123caa"
 dependencies = [
  "freemapper-course",
  "freemapper-omap",
@@ -957,8 +970,8 @@ dependencies = [
 
 [[package]]
 name = "freemapper-text"
-version = "0.30.1"
-source = "git+https://github.com/HenryJobst/freemapper-core?tag=v0.30.1#5d0793a6b1d0826171307493a3ddccacc1970aa9"
+version = "0.31.1"
+source = "git+https://github.com/HenryJobst/freemapper-core?tag=v0.31.1#650132ba395d36cb7a0c014c93548070c2123caa"
 dependencies = [
  "fluent-bundle",
  "fluent-syntax",
@@ -967,8 +980,8 @@ dependencies = [
 
 [[package]]
 name = "freemapper-update"
-version = "0.30.1"
-source = "git+https://github.com/HenryJobst/freemapper-core?tag=v0.30.1#5d0793a6b1d0826171307493a3ddccacc1970aa9"
+version = "0.31.1"
+source = "git+https://github.com/HenryJobst/freemapper-core?tag=v0.31.1#650132ba395d36cb7a0c014c93548070c2123caa"
 dependencies = [
  "flate2",
  "freemapper-fs",
@@ -982,8 +995,8 @@ dependencies = [
 
 [[package]]
 name = "freemapper-web"
-version = "0.30.1"
-source = "git+https://github.com/HenryJobst/freemapper-core?tag=v0.30.1#5d0793a6b1d0826171307493a3ddccacc1970aa9"
+version = "0.31.1"
+source = "git+https://github.com/HenryJobst/freemapper-core?tag=v0.31.1#650132ba395d36cb7a0c014c93548070c2123caa"
 dependencies = [
  "axum",
  "getrandom 0.4.3",
@@ -2287,7 +2300,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys 0.12.1",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -2653,7 +2666,7 @@ dependencies = [
  "getrandom 0.4.3",
  "once_cell",
  "rustix 1.1.6",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -3137,7 +3150,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]

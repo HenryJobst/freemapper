@@ -79,12 +79,36 @@ const CP1252_HIGH: [(char, u8); 27] = [
     ('Ÿ', 0x9F),
 ];
 
-/// The WinAnsi byte of a character; "?" for characters WinAnsi lacks.
+/// The Polish letters WinAnsi lacks (`ó` and `Ó` are Latin-1) and the letter each is written
+/// with, which stands for it in the PDF (ADR 0164). The PDF has Helvetica without an embedded
+/// font, so the letters themselves cannot be shown.
+pub(crate) const POLISH_BASE: [(char, u8); 16] = [
+    ('ą', b'a'),
+    ('ć', b'c'),
+    ('ę', b'e'),
+    ('ł', b'l'),
+    ('ń', b'n'),
+    ('ś', b's'),
+    ('ź', b'z'),
+    ('ż', b'z'),
+    ('Ą', b'A'),
+    ('Ć', b'C'),
+    ('Ę', b'E'),
+    ('Ł', b'L'),
+    ('Ń', b'N'),
+    ('Ś', b'S'),
+    ('Ź', b'Z'),
+    ('Ż', b'Z'),
+];
+
+/// The WinAnsi byte of a character; for a Polish letter WinAnsi lacks, the letter it is written
+/// with; "?" for other characters WinAnsi lacks.
 pub(crate) fn win_ansi(c: char) -> u8 {
     match c as u32 {
         0x20..=0x7E | 0xA0..=0xFF => c as u8,
         _ => CP1252_HIGH
             .iter()
+            .chain(POLISH_BASE.iter())
             .find(|(ch, _)| *ch == c)
             .map_or(b'?', |&(_, b)| b),
     }
@@ -117,6 +141,35 @@ mod tests {
         assert_eq!(win_ansi('–'), 0x96);
         assert_eq!(win_ansi('€'), 0x80);
         assert_eq!(win_ansi('Ω'), b'?');
+    }
+
+    /// Helvetica of the PDF has the WinAnsi letters only; the Polish ones WinAnsi lacks print as the
+    /// letter they are written with (ADR 0164). `ó` and `Ó` are Latin-1 and stay.
+    #[test]
+    fn win_ansi_falls_back_to_the_base_letter_for_polish() {
+        for (polish, plain) in [
+            ('ą', 'a'),
+            ('ć', 'c'),
+            ('ę', 'e'),
+            ('ł', 'l'),
+            ('ń', 'n'),
+            ('ś', 's'),
+            ('ź', 'z'),
+            ('ż', 'z'),
+            ('Ą', 'A'),
+            ('Ć', 'C'),
+            ('Ę', 'E'),
+            ('Ł', 'L'),
+            ('Ń', 'N'),
+            ('Ś', 'S'),
+            ('Ź', 'Z'),
+            ('Ż', 'Z'),
+        ] {
+            assert_eq!(win_ansi(polish), plain as u8, "{polish}");
+        }
+        assert_eq!(win_ansi('ó'), 0xF3);
+        assert_eq!(win_ansi('Ó'), 0xD3);
+        assert_eq!(text_width("Łódź", false), text_width("Lódz", false));
     }
 
     #[test]

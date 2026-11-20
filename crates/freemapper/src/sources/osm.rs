@@ -1308,6 +1308,8 @@ mod tests {
                         de: "Quadrat".to_string(),
                     },
                     crs: crate::crs::Crs::Utm33,
+                    country: freemapper_adapter_api::info::Country::De,
+                    coverage: freemapper_adapter_api::info::Coverage::Full,
                     object_id_prefix: None,
                     osm: (0..extracts)
                         .map(|i| OsmExtractInfo {

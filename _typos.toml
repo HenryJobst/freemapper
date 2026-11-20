@@ -10,6 +10,8 @@
 # The International Orienteering Federation, written as IOF in running text and
 # as `iof` in file and element names.
 IOF = "IOF"
+# The class prefix of the BDOT10k layers (`OT_BUBD_A`).
+OT = "OT"
 iof = "iof"
 Iof = "Iof"
 # `deflate` and `inflate` shortened in the names of compression levels.
