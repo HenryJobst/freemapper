@@ -126,3 +126,15 @@ pub struct RegionInfo {
     /// and Berlin).
     pub preview: Option<PreviewInfo>,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The ISO 3166 codes, in lower case, as they name the country in files and messages.
+    #[test]
+    fn a_country_has_its_iso_code() {
+        assert_eq!(Country::De.code(), "de");
+        assert_eq!(Country::Pl.code(), "pl");
+    }
+}

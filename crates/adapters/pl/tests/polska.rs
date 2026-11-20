@@ -159,3 +159,28 @@ fn the_zone_follows_the_centre() {
         Crs::Utm33
     );
 }
+
+/// The adapter declares itself (revision and day of its check) and has a policy that names no
+/// host of its own: the OSM extracts come through the core hosts.
+#[test]
+fn the_adapter_declares_itself_and_owns_a_policy() {
+    let registry = polska();
+    let adapter = registry.adapters().next().unwrap();
+    let declared = adapter.declared().expect("the adapter declares itself");
+    assert_eq!(declared.revision, 1);
+    assert!(declared.last_verified.is_some());
+    let policy = adapter.policy().expect("the adapter has a policy");
+    assert!(policy.hosts().next().is_none());
+}
+
+/// A host a person allowed for `polska` is in its policy, and no other.
+#[test]
+fn an_allowed_host_is_in_the_policy() {
+    let mut registry = Registry::new();
+    let extra =
+        std::collections::BTreeMap::from([("polska".to_string(), vec!["example.pl".to_string()])]);
+    freemapper_adapters_pl::register_with_hosts(&mut registry, &extra).unwrap();
+    let policy = registry.adapters().next().unwrap().policy().unwrap();
+    assert!(policy.allows_host("example.pl"));
+    assert!(!policy.allows_host("example.com"));
+}
