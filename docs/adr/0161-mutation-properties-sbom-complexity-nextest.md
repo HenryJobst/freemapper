@@ -62,3 +62,8 @@ Source: measured in this repository; the sibling ADRs for the same tools there.
 
 The mutation job tests a random part of the mutants on twelve runners, each ten minutes after
 its baseline, not all of them. See [ADR 0165](0165-mutation-tests-on-a-random-part.md).
+
+## Addendum (2026-11-20, ADR 0166)
+
+Findings on running the tests and the mutation tests, and what follows for this repository: see
+[ADR 0166](0166-findings-on-running-tests-and-mutation-tests.md).
