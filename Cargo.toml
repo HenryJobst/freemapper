@@ -68,6 +68,8 @@ serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1.0.154", features = ["float_roundtrip", "raw_value"] }
 sha2 = "0.11.1"
 tempfile = "3.27.0"
+# Tests only: property tests for the readers of untrusted bytes (ADR 0161).
+proptest = { version = "1.7.0", default-features = false, features = ["std"] }
 thiserror = "2.0.21"
 tiff = "0.11.3"
 # The raster backend of the map preview (pure Rust, BSD-3-Clause); no PNG support needed.

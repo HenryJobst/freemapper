@@ -9,12 +9,15 @@ All notable changes to freemapper are listed here, newest first. The format foll
 ### Added
 
 - The area page offers the views of the training map: three boxes under the "Training map" box (without paths, brown only, without north lines) and a field for a view of your own such as `no:505,506`. Each chosen view becomes a file set beside the training map; the files show in the run's list (ADR 0160).
+- CI mutates the Rust lines a branch changes (`cargo-mutants --in-diff`, job `mutants`) and fails when a test does not catch a mutant; a job `hack` checks the workspace with each feature alone; `scripts/check.sh complexity` fails above the cognitive complexity of 57 (`clippy.toml`); `scripts/check.sh sbom` compares `docs/sbom.cdx.json`, the CycloneDX list of the CLI's dependencies, with a fresh one (ADR 0161).
+- A property test with `proptest` for the zip directory reader: any bytes are read or refused, never a panic (ADR 0161).
 - Views of the training map (ADR 0160): `run --training --view <view>` and `export --training --view <view>` write `<name>-training-<view>.omap`, its PDF and, with `--ocad`, the OCAD file, without what the view leaves out: `no-paths` (Ultimate map without paths), `brown-only` (contour orienteering, brown symbols only), `no-north-lines`, lists `no:<codes>` and `only:<codes>`, combined with `+`. The frame and the base fill stay. The MCP tool `start_pipeline` takes `training_views`. The selection comes from freemapper-core v0.30.1 and is the same as in freemapper-print.
 - The READMEs carry badges for line coverage, MSRV, ADRs, the number of checks and the licence. `scripts/badges.sh` writes them from the data in the repository, and the check fails when they are out of date (amendment to ADR 0159).
 - `scripts/check.sh` bundles the gates for the licence line, the spelling of the English documents, internal links, secrets in the history, declared but unused dependencies, action pins, the ADR index, the changelog pair, rustdoc without warnings, line coverage and the MSRV (ADR 0159). `lefthook.yml` runs the fast gates before a commit and `secrets` before a push; every Rust file carries the line `// SPDX-License-Identifier: AGPL-3.0-or-later`.
 
 ### Changed
 
+- The `check` job runs the tests with `cargo-nextest`, 2.6 times as fast, and the doc tests with `cargo test --doc` (ADR 0161).
 - The coverage job reports the measurement on every run and catches a `docs/coverage.json` that is not committed yet; both were invisible before.
 - freemapper-core moves to v0.29.1: its manifest reads with cargo before 1.99 again; nothing else changes here, the MSRV stays 1.88 (amendment to ADR 0159).
 - The Sanssouci example is rebuilt with the training-map fixes of ADR 0158 and 0150. The fence along the street on the left of the map's middle has its ticks on the side away from the street now, and the white forest areas in the south west hold no single trees any more: the training map has 240 tree points instead of 725. The base map has one fence more (2282 map objects).
