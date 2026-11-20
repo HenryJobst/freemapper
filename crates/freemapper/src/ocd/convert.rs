@@ -397,11 +397,13 @@ fn background_string(
 }
 
 /// OCAD's grid and zone code (`grid × 1000 + zone`, grid 8 = ETRS89/UTM, Germany), as in OOM's
-/// `ocd_georef_fields.cpp`: zone 32N 8007, zone 33N 8008.
+/// `ocd_georef_fields.cpp`: zone 32N 8007, zone 33N 8008, zone 34N 8009 (the code follows the zone minus 25;
+/// not checked in OCAD yet, like the rest of the OCAD output).
 fn ocad_grid_code(crs: crate::crs::Crs) -> u32 {
     match crs {
         crate::crs::Crs::Utm32 => 8007,
         crate::crs::Crs::Utm33 => 8008,
+        crate::crs::Crs::Utm34 => 8009,
     }
 }
 
@@ -487,6 +489,14 @@ pub fn map_to_ocd(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn ocad_grid_code_follows_the_utm_zone() {
+        use crate::crs::Crs;
+        for (crs, code) in [(Crs::Utm32, 8007), (Crs::Utm33, 8008), (Crs::Utm34, 8009)] {
+            assert_eq!(ocad_grid_code(crs), code);
+        }
+    }
     use crate::crs::LatLon;
     use crate::ocd::read::{ReadFile, read};
     use crate::omap::{MapPart, SymbolSet, closed_ring};

@@ -962,7 +962,7 @@ pub fn set_contour_interval(
 
 /// The CRS of a map of `region_bbox` (EPSG:25833): that of its raster region.
 pub(crate) fn map_crs(region_bbox: &BoundingBox) -> Crs {
-    raster_region_in(registry(), region_bbox).map_or(Crs::Utm33, |adapter| adapter.info().crs)
+    freemapper_adapter_api::geometry::map_crs_in(registry(), region_bbox)
 }
 
 fn default_crs() -> u32 {
@@ -1133,7 +1133,7 @@ fn fetch_project_parts(
     if crs != project.crs() {
         progress(note!(
             "warning-other-zone",
-            zone = if crs == Crs::Utm32 { "32" } else { "33" },
+            zone = crs.utm_zone().to_string(),
             epsg = crs.epsg().to_string()
         ));
         project.crs = crs.epsg();

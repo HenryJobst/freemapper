@@ -110,3 +110,82 @@ impl Fetcher for MapFetcher {
         Ok(self.modified.borrow().get(url).copied())
     }
 }
+
+/// A region adapter without data, for the tests of the engine: a boundary, a CRS rule and nothing
+/// else. It has no ALKIS and no rasters.
+pub struct StubRegion {
+    info: crate::info::RegionInfo,
+    boundary: geo_types::MultiPolygon<f64>,
+    zone_by_position: bool,
+}
+
+impl StubRegion {
+    /// A region `id` with `boundary` (EPSG:25833). With `zone_by_position` its maps take the zone of
+    /// their centre ([`freemapper_georef::crs::Crs::for_position`]), otherwise `crs`.
+    pub fn new(
+        id: &'static str,
+        crs: freemapper_georef::crs::Crs,
+        boundary: geo_types::MultiPolygon<f64>,
+        zone_by_position: bool,
+    ) -> Self {
+        let id = crate::records::AdapterId::built_in(id);
+        Self {
+            info: crate::info::RegionInfo {
+                id: id.clone(),
+                provider: id,
+                names: crate::info::Names {
+                    en: "Stub".into(),
+                    de: "Stub".into(),
+                },
+                crs,
+                object_id_prefix: None,
+                osm: Vec::new(),
+                credit_short: None,
+                preview: None,
+            },
+            boundary,
+            zone_by_position,
+        }
+    }
+}
+
+impl crate::adapter::RegionAdapter for StubRegion {
+    fn info(&self) -> &crate::info::RegionInfo {
+        &self.info
+    }
+
+    fn boundary(&self) -> &geo_types::MultiPolygon<f64> {
+        &self.boundary
+    }
+
+    fn alkis(&self) -> Option<&dyn crate::alkis::AlkisSource> {
+        None
+    }
+
+    fn attribution(
+        &self,
+        _used: &crate::credit::UsedSources<'_>,
+    ) -> Vec<crate::credit::CreditLine> {
+        Vec::new()
+    }
+
+    fn rasters(&self) -> Option<&dyn crate::rasters::RasterBackend> {
+        None
+    }
+
+    fn estimate(
+        &self,
+        _area: &crate::estimate::EstimateArea,
+        _env: &crate::estimate::EstimateEnv<'_>,
+    ) -> Vec<crate::records::EstimateItem> {
+        Vec::new()
+    }
+
+    fn crs_for(&self, centre: freemapper_georef::crs::LatLon) -> freemapper_georef::crs::Crs {
+        if self.zone_by_position {
+            freemapper_georef::crs::Crs::for_position(centre)
+        } else {
+            self.info.crs
+        }
+    }
+}
