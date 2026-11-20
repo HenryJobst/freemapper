@@ -5,7 +5,7 @@
 #   scripts/badges.sh --check    # fail when a block is out of date
 #
 # Every number has a source in the repository: the coverage from
-# `docs/coverage.json`, the ADRs from `docs/adr/`, the crates from the member
+# `docs/coverage.json`, the tests and their budget from `docs/tests.json`, the ADRs from `docs/adr/`, the crates from the member
 # manifests, the MSRV and the licence from `Cargo.toml`, and the checks from
 # the gates in `scripts/check.sh`. A number that cannot be read fails the run
 # instead of showing a value nobody measured.
@@ -48,6 +48,13 @@ decisions=$(number 'docs/adr/[0-9]*.md')
 crates=$(number 'crates/**/Cargo.toml')
 msrv=$(sed -n 's/^rust-version = "\(.*\)"/\1/p' Cargo.toml | head -n 1)
 licence=$(sed -n 's/^license = "\(.*\)"/\1/p' Cargo.toml | head -n 1)
+tests=$(python3 -c 'import json; print(json.load(open("docs/tests.json"))["tests"])')
+budget_seconds=$(python3 -c 'import json; print(json.load(open("docs/tests.json"))["budget_seconds"])')
+if [ "$budget_seconds" -ge 120 ]; then
+  budget="$((budget_seconds / 60)) min"
+else
+  budget="$budget_seconds s"
+fi
 checks=$(grep -c '^gate_[a-z_]*()' scripts/check.sh)
 
 if [ -z "$msrv" ] || [ -z "$licence" ]; then
@@ -62,17 +69,23 @@ shields() {
 
 badge_block() {
   local language=$1
-  local coverage_label msrv_label decisions_label hygiene_label licence_label
+  local coverage_label msrv_label decisions_label hygiene_label licence_label tests_alt budget_alt budget_label
   local coverage_alt licence_alt
 
   if [ "$language" = de ]; then
     coverage_label=Coverage
     coverage_alt=Zeilenabdeckung
+    tests_alt=Tests
+    budget_alt=Testbudget
+    budget_label=Testbudget
     licence_label=Lizenz
     licence_alt=Lizenz
   else
     coverage_label=Coverage
     coverage_alt="Line coverage"
+    tests_alt=Tests
+    budget_alt="Test budget"
+    budget_label=Test_budget
     licence_label=License
     licence_alt=License
   fi
@@ -82,7 +95,7 @@ badge_block() {
   hygiene_label=Hygiene
 
   cat <<EOF
-[![$coverage_alt](https://img.shields.io/badge/$coverage_label-$(shields "$coverage")%25-brightgreen)](docs/coverage.json) [![$msrv_label](https://img.shields.io/badge/$msrv_label-$(shields "$msrv")-blue)](Cargo.toml) [![$decisions_label](https://img.shields.io/badge/$decisions_label-$decisions-blue)](docs/adr/README.md) [![Hygiene](https://img.shields.io/badge/$hygiene_label-$checks-brightgreen)](scripts/check.sh) [![$licence_alt](https://img.shields.io/badge/$(shields "$licence_label")-$(shields "$licence")-blue)](LICENSE)
+[![$tests_alt](https://img.shields.io/badge/Tests-$tests-blue)](docs/tests.json) [![$budget_alt](https://img.shields.io/badge/$budget_label-$(shields "$budget")-blue)](docs/tests.json) [![$coverage_alt](https://img.shields.io/badge/$coverage_label-$(shields "$coverage")%25-brightgreen)](docs/coverage.json) [![$msrv_label](https://img.shields.io/badge/$msrv_label-$(shields "$msrv")-blue)](Cargo.toml) [![$decisions_label](https://img.shields.io/badge/$decisions_label-$decisions-blue)](docs/adr/README.md) [![Hygiene](https://img.shields.io/badge/$hygiene_label-$checks-brightgreen)](scripts/check.sh) [![$licence_alt](https://img.shields.io/badge/$(shields "$licence_label")-$(shields "$licence")-blue)](LICENSE)
 EOF
 }
 
@@ -156,5 +169,5 @@ fi
 if [ "$check" -eq 1 ]; then
   echo "badges.sh: up to date"
 else
-  echo "badges.sh: written ($coverage % coverage, $decisions ADRs, $crates crates, MSRV $msrv, $checks checks)"
+  echo "badges.sh: written ($tests tests, budget $budget, $coverage % coverage, $decisions ADRs, $crates crates, MSRV $msrv, $checks checks)"
 fi

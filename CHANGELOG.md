@@ -8,6 +8,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Hinzugefügt
 
+- Zwei Badges in den READMEs: die Zahl der Tests und das Testbudget (15 min). `docs/tests.json` hält beides; `scripts/check.sh tests` zählt die `#[test]` im Quelltext und scheitert bei Abweichung (`tests --fix` schreibt neu), und der Linux-Testlauf in der CI scheitert, wenn er das Budget überschreitet (Entscheidung 0163).
 - `scripts/check.sh architecture` scheitert, wenn ein Crate gegen die Schichtentabelle von einem Geschwister-Crate abhängt, ein anderes Crate als die CLI Befehlszeile, Server, asynchrone Laufzeit oder Update-Client nutzt oder ein Leser den Netzwerk-Client `ureq` einbindet; ein neues Crate muss einer Schicht zugeordnet werden (Entscheidung 0162).
 - Die Gebietsseite bietet die Ansichten der Trainingskarte an: unter dem Häkchen „Trainingskarte“ drei Häkchen (ohne Wege, nur braun, ohne Nordlinien) und ein Feld für eine eigene Ansicht wie `no:505,506`. Jede gewählte Ansicht wird eine Dateigruppe neben der Trainingskarte; die Dateien erscheinen in der Liste des Laufs (ADR 0160).
 - Die Gebietsseite bietet die Ansichten der Trainingskarte an: unter dem Häkchen „Trainingskarte“ drei Häkchen (ohne Wege, nur braun, ohne Nordlinien) und ein Feld für eine eigene Ansicht wie `no:505,506`. „Ohne Wege“ und „nur braun“ lassen sich nur bei Waldkarten ankreuzen. Jede gewählte Ansicht wird eine Dateigruppe neben der Trainingskarte; die Dateien erscheinen in der Liste des Laufs (ADR 0160).
