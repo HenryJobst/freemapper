@@ -558,4 +558,158 @@ mod tests {
             .to_string();
         assert!(error.contains("asked for 8 bytes from byte 0"), "{error}");
     }
+
+    /// The offset of the IFD entry of `tag` in a little-endian classic TIFF.
+    fn entry_at(bytes: &[u8], tag: u16) -> usize {
+        let ifd = u32::from_le_bytes(bytes[4..8].try_into().unwrap()) as usize;
+        let n = u16::from_le_bytes(bytes[ifd..ifd + 2].try_into().unwrap()) as usize;
+        (0..n)
+            .map(|i| ifd + 2 + i * 12)
+            .find(|at| u16::from_le_bytes(bytes[*at..*at + 2].try_into().unwrap()) == tag)
+            .unwrap_or_else(|| panic!("no tag {tag}"))
+    }
+
+    /// The test file with the inline value of `tag` set to `value`.
+    fn with_value(tag: u16, value: u32) -> MapFetcher {
+        let grid = grid();
+        let mut bytes = crate::testing::tiled_float_tiff(&grid, &values(&grid), 16, 3, None);
+        let at = entry_at(&bytes, tag);
+        let kind = u16::from_le_bytes(bytes[at + 2..at + 4].try_into().unwrap());
+        match kind {
+            3 => bytes[at + 8..at + 10].copy_from_slice(&(value as u16).to_le_bytes()),
+            4 => bytes[at + 8..at + 12].copy_from_slice(&value.to_le_bytes()),
+            other => panic!("type {other}"),
+        }
+        let server = MapFetcher::default();
+        server.insert(URL, bytes);
+        server
+    }
+
+    /// The test file without the entry of `tag`: its number is one no reader knows.
+    fn without(tag: u16) -> MapFetcher {
+        let grid = grid();
+        let mut bytes = crate::testing::tiled_float_tiff(&grid, &values(&grid), 16, 3, None);
+        let at = entry_at(&bytes, tag);
+        bytes[at..at + 2].copy_from_slice(&60_000u16.to_le_bytes());
+        let server = MapFetcher::default();
+        server.insert(URL, bytes);
+        server
+    }
+
+    /// A file the reader cannot read by range says what it has instead, so the caller can read
+    /// it another way; one that is no TIFF at all says that.
+    #[test]
+    fn a_tiff_of_another_kind_is_refused_with_what_it_has() {
+        let refused = |server: MapFetcher| read_layout(&server, URL).unwrap().unwrap_err();
+        let cases: [(MapFetcher, &str); 12] = [
+            (with_value(259, 1), "compression 1, not LZW"),
+            (with_value(317, 4), "predictor 4"),
+            (with_value(317, 0), "predictor 0"),
+            (with_value(284, 2), "planes stored apart"),
+            (with_value(258, 16), "1 samples of 16 bit (format 3)"),
+            (with_value(339, 1), "1 samples of 32 bit (format 1)"),
+            (with_value(277, 3), "3 samples of 32 bit"),
+            (with_value(256, 0), "0 x 24 px in blocks of 16 x 16"),
+            (with_value(323, 0), "40 x 24 px in blocks of 16 x 0"),
+            // Taller than the blocks of the file say: more blocks than it has offsets for.
+            (
+                with_value(257, 48),
+                "6 offsets and 6 byte counts for 9 blocks",
+            ),
+            (without(33922), "no tag 33922"),
+            (without(256), "no tag 256"),
+        ];
+        for (server, expected) in cases {
+            let error = refused(server);
+            assert!(error.contains(expected), "{expected}: {error}");
+        }
+        // A tile table of the wrong type is named by its tag and type.
+        assert!(refused(with_value_kind(324, 5)).contains("tag 324 of type 5"));
+        // No tag of the block size at all, or an empty IFD.
+        assert!(refused(without(322)).contains("not tiled"));
+        let grid = grid();
+        let mut bytes = crate::testing::tiled_float_tiff(&grid, &values(&grid), 16, 3, None);
+        let ifd = u32::from_le_bytes(bytes[4..8].try_into().unwrap()) as usize;
+        bytes[ifd..ifd + 2].copy_from_slice(&0u16.to_le_bytes());
+        let server = MapFetcher::default();
+        server.insert(URL, bytes.clone());
+        assert!(refused(server).contains("an IFD of 0 entries"));
+        // The header says what the file is.
+        for (magic, expected) in [
+            (&b"II+\0"[..], "BigTIFF"),
+            (&b"MM\0+"[..], "BigTIFF"),
+            (&b"GIF8"[..], "not a TIFF"),
+        ] {
+            bytes[..4].copy_from_slice(magic);
+            let server = MapFetcher::default();
+            server.insert(URL, bytes.clone());
+            let error = refused(server);
+            assert!(error.contains(expected), "{expected}: {error}");
+        }
+    }
+
+    /// The test file with the type of the entry of `tag` changed to `kind`.
+    fn with_value_kind(tag: u16, kind: u16) -> MapFetcher {
+        let grid = grid();
+        let mut bytes = crate::testing::tiled_float_tiff(&grid, &values(&grid), 16, 3, None);
+        let at = entry_at(&bytes, tag);
+        bytes[at + 2..at + 4].copy_from_slice(&kind.to_le_bytes());
+        let server = MapFetcher::default();
+        server.insert(URL, bytes);
+        server
+    }
+
+    /// Blocks that do not lie one after the other are read apart; a block the file does not
+    /// have and a block that does not decode are errors that name the block; the predictor of
+    /// the file decides how a row is undone.
+    #[test]
+    fn blocks_are_read_apart_checked_and_decoded_by_the_predictor() {
+        let server = served(None);
+        let layout = read_layout(&server, URL).unwrap().unwrap();
+        let fetcher = Counting {
+            inner: &server,
+            asked: RefCell::new(Vec::new()),
+        };
+        // Blocks 0 and 2 have block 1 between them in the file.
+        let blocks = read_blocks(&fetcher, URL, &layout, &[2, 0, 2]).unwrap();
+        assert_eq!(fetcher.asked.borrow().len(), 2);
+        assert_eq!(blocks.iter().map(|(i, _)| *i).collect::<Vec<_>>(), [0, 2]);
+        let error = read_blocks(&server, URL, &layout, &[6]).unwrap_err();
+        assert!(error.to_string().contains("no block 6 of 6"), "{error}");
+        // A block of garbage is no LZW stream.
+        let mut bytes = server.responses.borrow()[URL].clone();
+        let start = layout.offsets[3] as usize;
+        let end = start + layout.counts[3] as usize;
+        bytes[start..end].fill(0xFF);
+        let broken = MapFetcher::default();
+        broken.insert(URL, bytes);
+        let error = read_blocks(&broken, URL, &layout, &[3]).unwrap_err();
+        assert!(error.to_string().contains("block 3:"), "{error}");
+        assert!(read_blocks(&broken, URL, &layout, &[0, 1]).is_ok());
+        // The file without a predictor gives the same pixels as the one with it.
+        let grid = grid();
+        let plain = MapFetcher::default();
+        plain.insert(
+            URL,
+            crate::testing::tiled_float_tiff(&grid, &values(&grid), 16, 1, None),
+        );
+        let plain_layout = read_layout(&plain, URL).unwrap().unwrap();
+        assert_eq!(plain_layout.predictor, 1);
+        // NoData is NaN, which is never equal to itself: compare the bits.
+        let bits = |blocks: Vec<(usize, Vec<f32>)>| -> Vec<(usize, Vec<u32>)> {
+            blocks
+                .into_iter()
+                .map(|(i, b)| (i, b.into_iter().map(f32::to_bits).collect()))
+                .collect()
+        };
+        let (plain_blocks, blocks) = (
+            read_blocks(&plain, URL, &plain_layout, &[0, 4]).unwrap(),
+            read_blocks(&server, URL, &layout, &[0, 4]).unwrap(),
+        );
+        assert!(
+            plain_blocks[1].1.iter().any(|z| z.is_nan()),
+            "block 4 has padding"
+        );
+        assert_eq!(bits(plain_blocks), bits(blocks));
+    }
 }
