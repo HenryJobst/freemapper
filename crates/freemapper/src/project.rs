@@ -63,6 +63,7 @@ use crate::sources::region::{
 use crate::sources::trees;
 use crate::space::{Part, SpacePlan};
 use crate::tiles::TileId;
+use freemapper_adapter_api::info::Coverage;
 
 mod export;
 mod extras;
@@ -960,6 +961,13 @@ pub fn set_contour_interval(
     Ok(project)
 }
 
+/// Whether a map of `region_bbox` (EPSG:25833) is made from OSM alone: its region supplies
+/// the OSM extracts and nothing else ([`Coverage::OsmOnly`]), so no raster is fetched or derived.
+pub(crate) fn osm_only(region_bbox: &BoundingBox) -> bool {
+    raster_region_in(registry(), region_bbox)
+        .is_some_and(|adapter| adapter.info().coverage == Coverage::OsmOnly)
+}
+
 /// The CRS of a map of `region_bbox` (EPSG:25833): that of its raster region.
 pub(crate) fn map_crs(region_bbox: &BoundingBox) -> Crs {
     freemapper_adapter_api::geometry::map_crs_in(registry(), region_bbox)
@@ -1178,7 +1186,12 @@ fn fetch_project_parts(
                 region_bbox,
             },
         );
-        raster_backend(&region_bbox)?.fetch(env, p, &bbox)?;
+        if !osm_only(&region_bbox) {
+            raster_backend(&region_bbox)?.fetch(env, p, &bbox)?;
+        }
+    }
+    if osm_only(&region_bbox) {
+        progress(note!("warning-osm-only-no-terrain"));
     }
     stop_if(cancelled)?;
     project.save(dir)?;
@@ -1707,6 +1720,14 @@ fn fetch_buildings_into(
     let bbox = &area.bbox;
     let path = dir.join(BUILDINGS_RELPATH);
     if mode == FetchMode::Offline {
+        // A region with OSM only has no cadastre: an empty collection stands for no buildings,
+        // as the online fetch of a region without ALKIS stores it.
+        if osm_only(&area.region_bbox) {
+            if !path.exists() {
+                write_inside(dir, &path, br#"{"features":[],"type":"FeatureCollection"}"#)?;
+            }
+            return Ok(None);
+        }
         if previous.is_none() && path.exists() {
             progress(note!("warning-alkis-coverage-unknown"));
         }
@@ -1788,6 +1809,10 @@ fn fetch_land_use_into(
     let bbox = &area.bbox;
     let path = dir.join(LAND_USE_RELPATH);
     if mode == FetchMode::Offline {
+        // A region with OSM only has no cadastre to be missing.
+        if osm_only(&area.region_bbox) {
+            return None;
+        }
         if previous.is_none() || !path.exists() {
             progress(note!("progress-alkis-no-land-use-stored"));
         }
@@ -2137,6 +2162,10 @@ pub fn derive_project_cancellable(
     stop_if(cancelled)?;
     let mut project = ProjectFile::load_reporting(dir, progress)?;
     check_folders(dir, &WRITTEN_FOLDERS)?;
+    // A region with OSM only has no raster to derive: the export draws the OSM objects.
+    if osm_only(&project.region_bbox()?) {
+        return Ok(Vec::new());
+    }
     if project.tiles.is_empty() && project.terrain.is_none() {
         return Err(ProjectError::NotFetched);
     }
