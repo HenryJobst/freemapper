@@ -186,6 +186,55 @@ fn an_area_over_the_oder_is_refused() {
     assert!(!dir.path().join("oder").join("freemapper.toml").exists());
 }
 
+/// A box across the Olza at Cieszyn reaches into Czechia, for which freemapper has no source: it
+/// is refused as well, not mapped up to the border only.
+#[test]
+fn an_area_over_the_olza_is_refused() {
+    let dir = tempfile::tempdir().unwrap();
+    let area = dir.path().join("olza.geojson");
+    std::fs::write(
+        &area,
+        r#"{"type":"Feature","properties":{},"geometry":{"type":"Polygon","coordinates":[[[18.620,49.746],[18.650,49.746],[18.650,49.752],[18.620,49.752],[18.620,49.746]]]}}"#,
+    )
+    .unwrap();
+    let init = freemapper()
+        .arg("init")
+        .arg(dir.path().join("olza"))
+        .arg("--geojson")
+        .arg(&area)
+        .output()
+        .unwrap();
+    assert_eq!(init.status.code(), Some(1), "{init:?}");
+    let stderr = String::from_utf8_lossy(&init.stderr);
+    assert!(
+        stderr.contains("both sides of a country border"),
+        "{stderr}"
+    );
+}
+
+/// The permit notes ask German services and name German authorities: for a map in Poland they
+/// would say that no protected area lies there. They are refused until Poland has its own.
+#[test]
+fn permit_notes_are_refused_for_a_polish_map() {
+    let dir = tempfile::tempdir().unwrap();
+    let project = project_over(dir.path(), "lodz", 19.450, 51.760, 19.460, 51.766);
+    for offline in [true, false] {
+        let mut cmd = freemapper();
+        cmd.arg("permits").arg(&project);
+        if offline {
+            cmd.arg("--offline");
+        }
+        let out = cmd.output().unwrap();
+        assert_eq!(out.status.code(), Some(1), "{out:?}");
+        let stderr = String::from_utf8_lossy(&out.stderr);
+        assert!(
+            stderr.contains("not available for this region yet"),
+            "{stderr}"
+        );
+        assert!(!project.join("permits.md").exists());
+    }
+}
+
 #[test]
 fn an_area_wholly_in_slubice_is_not_refused_for_its_border() {
     let dir = tempfile::tempdir().unwrap();

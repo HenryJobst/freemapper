@@ -8,7 +8,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Hinzugefügt
 
-- Polen als Vorschau (ADR 0161): `freemapper init` nimmt ein Gebiet irgendwo in Polen an, und `run` macht die Karte allein aus OpenStreetMap, mit dem Auszug der Woiwodschaft (60 bis 300 MB, für alle Projekte gemeinsam). Höhenlinien, Orthofoto und andere Vorlagen gibt es noch nicht, ebenso keine Gebäude und Nutzung aus dem Kataster; eine Warnung sagt das. Die Karte liegt in der UTM-Zone ihres Mittelpunkts, östlich von 18° O in Zone 34. Die Gebietsseite zeigt das Luftbild von GUGiK. Ein Gebiet, das über eine Grenze in ein anderes Land reicht, wird abgelehnt. Im PDF stehen polnische Buchstaben, die Helvetica nicht hat, als der Buchstabe, mit dem sie geschrieben werden (`ł` als `l`).
+- Polen als Vorschau (ADR 0161): `freemapper init` nimmt ein Gebiet irgendwo in Polen an, und `run` macht die Karte allein aus OpenStreetMap, mit dem Auszug der Woiwodschaft (60 bis 300 MB, für alle Projekte gemeinsam). Höhenlinien, Orthofoto und andere Vorlagen gibt es noch nicht, ebenso keine Gebäude und Nutzung aus dem Kataster; eine Warnung sagt das. Die Karte liegt in der UTM-Zone ihres Mittelpunkts, östlich von 18° O in Zone 34. Die Gebietsseite zeigt das Luftbild von GUGiK. Ein Gebiet, das über die Grenze Polens reicht, wird abgelehnt. Die Grenze ist die Staatsgrenze von OpenStreetMap, nicht das Schnittpolygon der Auszüge. Die Genehmigungshinweise gibt es für eine Karte in Polen noch nicht: Sie würden deutsche Dienste fragen. Im PDF und in den OCAD-Dateien stehen polnische Buchstaben, die Helvetica nicht hat, als der Buchstabe, mit dem sie geschrieben werden (`ł` als `l`); die OCAD-Dateien tun das auch in Dateinamen und Texten.
 
 ### Geändert
 

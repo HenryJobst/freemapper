@@ -158,6 +158,10 @@ pub enum ProjectError {
         "the map area lies on both sides of a country border; maps across a border are not supported yet, so draw the area inside one country"
     )]
     AreaCrossesCountry,
+    /// The permit notes of a map in a region with OSM only (Poland): their services, their
+    /// authorities and their law are German.
+    #[error("the permit notes are not available for this region yet: they ask German services and name German authorities")]
+    PermitsNotForRegion,
     #[error("{}: {message}; run `freemapper fetch` again", path.display())]
     StoredBuildings { path: PathBuf, message: String },
     /// A part the run needs does not fit on its volume.
@@ -989,12 +993,14 @@ pub(crate) fn check_area(bbox: &BoundingBox) -> Result<(), ProjectError> {
     let Some(region) = raster_region_in(registry(), bbox) else {
         return Err(ProjectError::OutsideCoverage);
     };
-    // A region with OSM only cannot take the rasters and the cadastre of its neighbour: an area
-    // that also overlaps a region of another country would be half made (ADR 0161).
+    // A region with OSM only cannot take the rasters and the cadastre of its neighbour, and its
+    // extracts end at its border: an area that reaches over the border would be half made
+    // (ADR 0161).
     if region.info().coverage == Coverage::OsmOnly
-        && registry()
-            .adapters()
-            .any(|other| other.info().country != region.info().country && overlaps_in(other, bbox))
+        && (crate::sources::region::reaches_beyond_coverage(bbox)
+            || registry().adapters().any(|other| {
+                other.info().country != region.info().country && overlaps_in(other, bbox)
+            }))
     {
         return Err(ProjectError::AreaCrossesCountry);
     }

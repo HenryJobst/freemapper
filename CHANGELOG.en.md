@@ -8,7 +8,7 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ### Added
 
-- Poland as a preview (ADR 0161): `freemapper init` accepts an area anywhere in Poland and `run` makes the map from OpenStreetMap alone, with the extract of the voivodeship (60 to 300 MB, shared by all projects). There are no contours, orthophoto or other templates yet, and no buildings or land use from the cadastre; a warning says so. The map takes the UTM zone of its centre, zone 34 east of 18° E. The area page shows the GUGiK aerial photo. An area that reaches over a border into another country is refused. In the PDF, Polish letters that Helvetica lacks print as the letter they are written with (`ł` as `l`).
+- Poland as a preview (ADR 0161): `freemapper init` accepts an area anywhere in Poland and `run` makes the map from OpenStreetMap alone, with the extract of the voivodeship (60 to 300 MB, shared by all projects). There are no contours, orthophoto or other templates yet, and no buildings or land use from the cadastre; a warning says so. The map takes the UTM zone of its centre, zone 34 east of 18° E. The area page shows the GUGiK aerial photo. An area that reaches over the border of Poland is refused. The border is the state border of OpenStreetMap, not the clipping polygon of the extracts. The permit notes are not made for a map in Poland yet: they would ask German services. In the PDF and in the OCAD files, Polish letters that Helvetica lacks print as the letter they are written with (`ł` as `l`); the OCAD files do the same in file names and texts.
 
 ### Changed
 

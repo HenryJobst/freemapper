@@ -217,6 +217,9 @@ impl Localize for ProjectError {
             ProjectError::AreaCrossesCountry => {
                 text(lang, "error-project-area-crosses-country", &[])
             }
+            ProjectError::PermitsNotForRegion => {
+                text(lang, "error-project-permits-not-for-region", &[])
+            }
             ProjectError::NotEnoughSpace(shortfall) => shortfall.localize(lang),
         }
     }
@@ -878,6 +881,7 @@ mod tests {
             },
             ProjectError::OutsideCoverage,
             ProjectError::AreaCrossesCountry,
+            ProjectError::PermitsNotForRegion,
         ];
         errors.extend(area_errors().into_iter().map(ProjectError::Area));
         errors.extend(georef_errors().into_iter().map(ProjectError::Georef));

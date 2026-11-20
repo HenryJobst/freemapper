@@ -75,6 +75,28 @@ fn berlin_and_prague_are_outside() {
     }
 }
 
+/// The boundary is the state border, not the clipping polygon of the extracts, which reaches
+/// kilometres into Germany and Czechia.
+#[test]
+fn border_towns_of_the_neighbours_are_outside() {
+    let registry = polska();
+    let adapter = registry.get("polska").unwrap();
+    for (name, lat, lon) in [
+        ("Frankfurt (Oder)", 52.340, 14.540),
+        ("Görlitz", 51.150, 14.990),
+        ("Guben", 51.950, 14.720),
+        ("Bad Muskau", 51.550, 14.720),
+        ("Český Těšín", 49.750, 18.620),
+    ] {
+        let (e, n) = point(lat, lon);
+        assert!(!contains_point_in(adapter, e, n), "{name}");
+    }
+    for (name, lat, lon) in [("Słubice", 52.350, 14.560), ("Cieszyn", 49.750, 18.630)] {
+        let (e, n) = point(lat, lon);
+        assert!(contains_point_in(adapter, e, n), "{name}");
+    }
+}
+
 #[test]
 fn sixteen_extracts_with_unique_prefixes() {
     let registry = polska();

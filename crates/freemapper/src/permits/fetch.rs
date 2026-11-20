@@ -31,7 +31,7 @@ use crate::permits::store::{
     store_inputs_in, stored_for,
 };
 use crate::permits::{Missing, PermitsError};
-use crate::project::ProjectFile;
+use crate::project::{ProjectError, ProjectFile};
 use crate::sources::osm::{cached_extracts, extracts_for, read_extract};
 
 /// The file each WFS answer streams into, in [`PERMITS_DIR`]; removed afterwards.
@@ -80,6 +80,11 @@ pub fn fetch_inputs_in(
     offline: bool,
     progress: &mut dyn FnMut(Note),
 ) -> Result<Inputs, PermitsError> {
+    // The sources, the authorities and the law of the notes are German: a map in a region with
+    // OSM only would get a false all-clear.
+    if crate::project::osm_only(&project.region_bbox()?) {
+        return Err(ProjectError::PermitsNotForRegion.into());
+    }
     let area = project.area()?;
     let bbox = map_box(&area);
     if offline {

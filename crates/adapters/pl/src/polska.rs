@@ -1,7 +1,9 @@
-//! The adapter `polska`: Poland as one region. Its boundary and the boundaries of its OSM
-//! extracts are the clipping polygons Geofabrik publishes (ODbL, from `index-v1.json`), embedded as
-//! GeoJSON in WGS 84 and projected to EPSG:25833 once on first use. Stage 1 has the OSM extracts
-//! only: no rasters, no ALKIS (`Coverage::OsmOnly`).
+//! The adapter `polska`: Poland as one region. Its boundary is the state border of OpenStreetMap
+//! (relation 49715, ODbL, simplified to about 40 m). The boundaries of its OSM extracts are the
+//! clipping polygons Geofabrik publishes (from `index-v1.json`); they reach past the border and
+//! only choose the extract. All are embedded as GeoJSON in WGS 84 and projected to EPSG:25833
+//! once on first use. Stage 1 has the OSM extracts only: no rasters, no ALKIS
+//! (`Coverage::OsmOnly`).
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -25,7 +27,7 @@ use geo_types::MultiPolygon;
 /// The id of the adapter.
 pub const POLSKA: &str = "polska";
 
-/// Poland from Geofabrik (`europe/poland`), WGS 84.
+/// The state border of Poland (OSM relation 49715), WGS 84.
 const POLAND_BOUNDARY: &str = include_str!("../data/poland.geojson");
 
 /// The voivodeships as Geofabrik extracts them: id, English name, size of the extract in MB at the

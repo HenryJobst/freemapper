@@ -31,6 +31,14 @@ foundation and OSM, terrain and orthophoto, buildings and land use, Polish, perm
   (`ł` as `l`). Stage 4 embeds a font.
 - The lists of supported regions in messages name Poland; the sentence "official geodata of …" lists the regions with
   rasters only.
+- The boundary of `polska` is the state border of OpenStreetMap (relation 49715, simplified to about 40 m). The Geofabrik
+  clipping polygons reach up to 4 km past it and serve only to choose the extracts: used as the boundary, they would
+  take German and Czech border towns for Polish ones. An area of a map in Poland that reaches beyond the border (50 m
+  margin) is refused for every neighbour, not only Germany.
+- The permit notes ask German services and name German authorities: a map in Poland gets the error "not available for
+  this region yet" until stage 5.
+- There are no buildings on a Polish map before stage 3: the OSM rules take none, and the warning says so.
+- A manifest adapter is always German and full coverage; one on Polish ground would be refused as crossing a border.
 - Poland is a preview in the READMEs, the manual and the release notes until Polish is a program language (stage 4).
 
 ## Consequences

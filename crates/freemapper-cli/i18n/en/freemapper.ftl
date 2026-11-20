@@ -465,6 +465,7 @@ error-project-candidates-outdated = the stored OSM candidates do not cover the m
 error-project-stored = { $path }: { $message }; run `freemapper fetch` again
 error-project-area-too-large = map area plus buffer is { $width } × { $height } m, more than { $limit } m per side; reduce the map area or buffer_m in freemapper.toml
 error-project-area-crosses-country = the map area lies on both sides of a country border; maps across a border are not supported yet, so draw the area inside one country
+error-project-permits-not-for-region = the permit notes are not available for this region yet: they ask German services and name German authorities
 error-project-outside-coverage = the map area lies outside the supported states ({ $states }); freemapper has data sources for those only so far
 
 ## Errors: disk space

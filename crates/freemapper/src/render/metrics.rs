@@ -80,7 +80,7 @@ const CP1252_HIGH: [(char, u8); 27] = [
 /// The Polish letters WinAnsi lacks (`ó` and `Ó` are Latin-1) and the letter each is written
 /// with, which stands for it in the PDF (ADR 0161). The PDF has Helvetica without an embedded
 /// font, so the letters themselves cannot be shown.
-const POLISH_BASE: [(char, u8); 16] = [
+pub(crate) const POLISH_BASE: [(char, u8); 16] = [
     ('ą', b'a'),
     ('ć', b'c'),
     ('ę', b'e'),
