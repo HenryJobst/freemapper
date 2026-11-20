@@ -46,8 +46,15 @@ pub struct Sheet {
 /// The best sheet for every sheet number, best first: LiDAR over photogrammetry, a finer pixel
 /// over a coarser one, a newer flight over an older one; what is still equal goes by the sheet
 /// number and the address, so the same index always gives the same answer.
-pub fn best_per_cell(sheets: &[Sheet]) -> Vec<Sheet> {
-    let mut ranked: Vec<&Sheet> = sheets.iter().collect();
+///
+/// Sheets with a pixel finer than `finest_m` are left out before the choice, so that a cell with
+/// a 0.05 m and a 0.25 m orthophoto falls back to the 0.25 m one instead of failing on the
+/// finer one. The caller passes the sheets of one [`Product`]; two products share sheet numbers.
+pub fn best_per_cell(sheets: &[Sheet], finest_m: f64) -> Vec<Sheet> {
+    let mut ranked: Vec<&Sheet> = sheets
+        .iter()
+        .filter(|s| s.resolution_m >= finest_m)
+        .collect();
     ranked.sort_by(|a, b| {
         a.source
             .cmp(&b.source)
@@ -86,7 +93,7 @@ mod tests {
 
     /// The year and resolution of the sheet that wins among `candidates`, all of one number.
     fn winner(candidates: &[Sheet]) -> (u16, f64) {
-        let best = best_per_cell(candidates);
+        let best = best_per_cell(candidates, 0.0);
         assert_eq!(best.len(), 1, "{best:?}");
         (best[0].year, best[0].resolution_m)
     }
@@ -138,8 +145,26 @@ mod tests {
     }
 
     #[test]
+    fn a_sheet_finer_than_the_limit_never_wins_and_the_coarser_one_takes_its_place() {
+        use SheetSource::*;
+        let all = [
+            sheet("A", 2024, 0.05, Photogrammetry),
+            sheet("A", 2022, 0.25, Photogrammetry),
+            sheet("B", 2024, 0.05, Photogrammetry),
+        ];
+        let best = best_per_cell(&all, 0.2);
+        // B has only the 0.05 m flight: nothing is better than no sheet.
+        assert_eq!(
+            best.iter()
+                .map(|s| (s.godlo.as_str(), s.year))
+                .collect::<Vec<_>>(),
+            [("A", 2022)]
+        );
+    }
+
+    #[test]
     fn nothing_in_nothing_out() {
-        assert!(best_per_cell(&[]).is_empty());
+        assert!(best_per_cell(&[], 0.0).is_empty());
     }
 
     #[test]
@@ -151,7 +176,7 @@ mod tests {
             sheet("B", 2022, 1.0, Lidar),
             sheet("A", 2018, 5.0, Lidar),
         ];
-        let best = best_per_cell(&all);
+        let best = best_per_cell(&all, 0.0);
         assert_eq!(best.len(), 2);
         // LiDAR 1 m 2022 (B) ranks above LiDAR 1 m 2020 (A).
         assert_eq!(
@@ -169,8 +194,8 @@ mod tests {
         let mut b = sheet("A", 2021, 1.0, Lidar);
         a.url = "https://opendata.example/a".into();
         b.url = "https://opendata.example/b".into();
-        let forward = best_per_cell(&[a.clone(), b.clone()]);
-        let backward = best_per_cell(&[b, a]);
+        let forward = best_per_cell(&[a.clone(), b.clone()], 0.0);
+        let backward = best_per_cell(&[b, a], 0.0);
         assert_eq!(forward, backward);
         assert_eq!(forward[0].url, "https://opendata.example/a");
     }

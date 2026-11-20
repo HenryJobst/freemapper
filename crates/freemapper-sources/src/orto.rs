@@ -34,6 +34,8 @@ pub enum OrtoError {
     NotJpegTiles,
     #[error("tile {0} lies outside the file")]
     Truncated(usize),
+    #[error("the tile size {0} by {1} is not usable")]
+    TileSize(u32, u32),
     #[error("tile {tile} cannot be decoded: {reason}")]
     Tile { tile: usize, reason: String },
 }
@@ -87,7 +89,7 @@ impl<'a> Sheet<'a> {
             return Err(OrtoError::Crs(epsg));
         }
         let pixel = scale.first().copied().unwrap_or(0.0);
-        if pixel < FINEST_PIXEL_M {
+        if pixel.is_nan() || pixel < FINEST_PIXEL_M {
             return Err(OrtoError::TooFine(pixel));
         }
         let [i, j, _, e, n, _] = tie[..] else {
@@ -109,6 +111,9 @@ impl<'a> Sheet<'a> {
                 .into_u32()
                 .map_err(tiff)?,
         );
+        if tile.0 == 0 || tile.1 == 0 {
+            return Err(OrtoError::TileSize(tile.0, tile.1));
+        }
         let offsets = tag(&mut d, Tag::TileOffsets, "TileOffsets")?
             .into_u64_vec()
             .map_err(tiff)?;
@@ -185,12 +190,20 @@ impl<'a> Sheet<'a> {
         let mut jpeg = vec![0xFF, 0xD8];
         jpeg.extend_from_slice(&self.tables);
         jpeg.extend_from_slice(&tile[2..]);
-        image::load_from_memory_with_format(&jpeg, image::ImageFormat::Jpeg)
+        let image = image::load_from_memory_with_format(&jpeg, image::ImageFormat::Jpeg)
             .map(|i| i.to_rgb8())
             .map_err(|e| OrtoError::Tile {
                 tile: index,
                 reason: e.to_string(),
-            })
+            })?;
+        // A damaged tile can decode to less than the file declares; reading it would panic.
+        if image.width() < self.tile.0 || image.height() < self.tile.1 {
+            return Err(OrtoError::Tile {
+                tile: index,
+                reason: format!("decoded to {} by {}", image.width(), image.height()),
+            });
+        }
+        Ok(image)
     }
 }
 
@@ -432,5 +445,44 @@ mod tests {
         // The tags sit at the end of the file: cutting them away fails at open, a sheet with a
         // bad tile fails at the tile. Either way no panic and no silent black.
         assert!(r.is_err() || r.unwrap().read_window(&window(0.25, 0, 0, 32)).is_err());
+    }
+
+    /// Sets the value of the one-entry LONG tag `tag` in the IFD of the fixture.
+    fn patch_long(bytes: &mut [u8], tag: u16, value: u32) {
+        let mut key = tag.to_le_bytes().to_vec();
+        key.extend_from_slice(&[4, 0, 1, 0, 0, 0]);
+        let at = bytes.windows(8).rposition(|w| w == key).unwrap() + 8;
+        bytes[at..at + 4].copy_from_slice(&value.to_le_bytes());
+    }
+
+    #[test]
+    fn a_tile_size_of_zero_is_refused_and_does_not_divide_by_it() {
+        for tag in [322, 323] {
+            let mut bytes = fixture(0.25, 2180, true);
+            patch_long(&mut bytes, tag, 0);
+            assert!(matches!(
+                Sheet::open(&bytes),
+                Err(OrtoError::TileSize(..) | OrtoError::Tiff(_))
+            ));
+        }
+    }
+
+    #[test]
+    fn a_tile_that_decodes_smaller_than_declared_is_an_error_and_not_a_panic() {
+        let mut bytes = fixture(0.25, 2180, true);
+        // The file now declares one tile of 32 pixels, the JPEG holds 16.
+        patch_long(&mut bytes, 322, 32);
+        patch_long(&mut bytes, 323, 32);
+        for tag in [324u16, 325] {
+            let mut key = tag.to_le_bytes().to_vec();
+            key.extend_from_slice(&[4, 0, 4, 0, 0, 0]);
+            let at = bytes.windows(8).rposition(|w| w == key).unwrap() + 4;
+            bytes[at..at + 4].copy_from_slice(&1u32.to_le_bytes());
+        }
+        let r = Sheet::open(&bytes).and_then(|s| s.read_window(&window(0.25, 0, 0, 32)));
+        assert!(
+            matches!(r, Err(OrtoError::Tile { .. } | OrtoError::Truncated(_))),
+            "{r:?}"
+        );
     }
 }
