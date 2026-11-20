@@ -1740,15 +1740,15 @@ fn fetch_buildings_into(
 ) -> Result<Option<AlkisRecord>, ProjectError> {
     let bbox = &area.bbox;
     let path = dir.join(BUILDINGS_RELPATH);
-    if mode == FetchMode::Offline {
-        // A region with OSM only has no cadastre: an empty collection stands for no buildings,
-        // as the online fetch of a region without ALKIS stores it.
-        if osm_only(&area.region_bbox) {
-            if !path.exists() {
-                write_inside(dir, &path, br#"{"features":[],"type":"FeatureCollection"}"#)?;
-            }
-            return Ok(None);
+    // A region with OSM only has no cadastre: an empty collection stands for no buildings,
+    // online and offline alike, and no ALKIS line is shown.
+    if osm_only(&area.region_bbox) {
+        if !path.exists() {
+            write_inside(dir, &path, br#"{"features":[],"type":"FeatureCollection"}"#)?;
         }
+        return Ok(None);
+    }
+    if mode == FetchMode::Offline {
         if previous.is_none() && path.exists() {
             progress(note!("warning-alkis-coverage-unknown"));
         }
@@ -1829,11 +1829,11 @@ fn fetch_land_use_into(
 ) -> Option<Option<AlkisRecord>> {
     let bbox = &area.bbox;
     let path = dir.join(LAND_USE_RELPATH);
+    // A region with OSM only has no cadastre to be missing.
+    if osm_only(&area.region_bbox) {
+        return None;
+    }
     if mode == FetchMode::Offline {
-        // A region with OSM only has no cadastre to be missing.
-        if osm_only(&area.region_bbox) {
-            return None;
-        }
         if previous.is_none() || !path.exists() {
             progress(note!("progress-alkis-no-land-use-stored"));
         }
@@ -11673,6 +11673,50 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
                 .any(|m| m.contains("leads out of the project folder")),
             "{messages:?}"
         );
+    }
+
+    /// An area in Łódź: a region with OSM only has no cadastre, so an online fetch asks no server
+    /// and says nothing about ALKIS.
+    #[test]
+    fn online_fetch_in_an_osm_only_region_asks_no_cadastre() {
+        let area = FetchArea::new(
+            BoundingBox {
+                min_e: 806_500.0,
+                min_n: 5_737_500.0,
+                max_e: 807_500.0,
+                max_n: 5_738_500.0,
+            },
+            Crs::Utm34,
+        );
+        assert!(osm_only(&area.region_bbox));
+        let fetcher = MapFetcher::default();
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = CacheDir::new(cache_dir.path().to_path_buf());
+        let dir = tempfile::tempdir().unwrap();
+        let mut messages = Vec::new();
+        let mut progress = |note: Note| messages.push(note.to_string());
+        let record = fetch_buildings_into(
+            dir.path(),
+            &fetcher,
+            &cache,
+            &area,
+            FetchMode::Online,
+            None,
+            &mut progress,
+        )
+        .unwrap();
+        let land_use = fetch_land_use_into(
+            dir.path(),
+            &fetcher,
+            &cache,
+            &area,
+            FetchMode::Online,
+            None,
+            &mut progress,
+        );
+        assert!(record.is_none() && land_use.is_none());
+        assert!(messages.is_empty(), "{messages:?}");
+        assert!(dir.path().join(BUILDINGS_RELPATH).exists());
     }
 
     /// The Sanssouci area (Potsdam) as a fetch area, where the tree fixture stands.
