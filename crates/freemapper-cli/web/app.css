@@ -353,3 +353,15 @@ label.group-row > select {
 #preview-image.computing {
   opacity: 0.45;
 }
+
+#run-views {
+  border: none;
+  margin: 0 0 8px 24px;
+  padding: 0;
+  min-width: 0;
+}
+
+#run-views legend {
+  font-weight: 600;
+  padding: 0;
+}
