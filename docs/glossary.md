@@ -309,3 +309,43 @@ Orienteering Maps 2019 (IOF).
 | Aktualisierungsmanifest | update manifest | `freemapper-update.json` in jedem Release: Version, Datum, Versionshinweise, kleinste Version, die sich selbst aktualisieren kann, und je System Adresse, Größe und SHA-256 der Programmdatei; mit minisign signiert (`.minisig`). | `Manifest`, `parse_manifest` |
 | Aktualisierungsmodus | update mode | Was die tägliche Prüfung bei einer neueren Version tut: `notify` (Hinweis, Standard), `install` (installiert nach einem gelungenen Befehl) oder `off`; in `settings.toml`, überschreibbar mit `FREEMAPPER_UPDATE`. | `Mode`, `update --mode` |
 | Tägliche Prüfung | daily check | Prüfung auf eine neuere Version, höchstens einmal in 24 Stunden, nach `init`, `select`, `fetch` und `run` und im MCP-Server; der letzte Versuch steht in `update-check.json` im Zwischenspeicher. | `start_background_check`, `CheckRecord` |
+
+## Polski / Polish
+
+Die polnischen Texte (`pl` in den Katalogen, `docs/manual/pl.md`, `README.pl.md`) nutzen diese Begriffe. Ein Begriff,
+der hier fehlt, wird zuerst hier ergänzt. Die Symbolnamen folgen den polnischen Ausgaben der IOF-Normen, wo es sie
+gibt; sonst gilt die hier genannte Wendung. / The Polish texts use these terms; a missing term is added here first.
+
+| Deutsch | English | Polski |
+|---|---|---|
+| Orientierungslauf (OL) | orienteering | bieg na orientację (BnO) |
+| OL-Karte | orienteering map | mapa do biegu na orientację |
+| Sprintkarte | sprint map | mapa sprintowa |
+| Waldkarte | forest map | mapa leśna |
+| Schulhofkarte | schoolyard map | mapa dziedzińca szkolnego |
+| Trainingskarte | training map | mapa treningowa |
+| Kartengebiet | map area | obszar mapy |
+| Kartierer | mapper | kartograf (osoba rysująca mapę) |
+| Maßstab | scale | skala |
+| Symbol | symbol | znak (znak mapy) |
+| Höhenlinie | contour | warstwica |
+| Orthofoto | orthophoto | ortofotomapa |
+| Geländemodell (DGM) | terrain model (DTM) | numeryczny model terenu (NMT) |
+| Oberflächenmodell (DOM) | surface model (DSM) | numeryczny model pokrycia terenu (NMPT) |
+| Bundesland | state | (Deutschland) kraj związkowy; (Polen) województwo |
+| Kreis | district | powiat |
+| Gemeinde | municipality | gmina |
+| Regionsadapter | region adapter | adapter regionu |
+| Kandidatenebene | candidate layer | warstwa kandydatów |
+| Kandidat | candidate | kandydat (obiekt do sprawdzenia w terenie) |
+| Genehmigungshinweise | permit notes | wskazówki dotyczące zgód |
+| Quellenangabe | credit line | informacja o źródle danych |
+| Zwischenspeicher | cache | pamięć podręczna |
+| Projektordner | project folder | folder projektu |
+| Lauf (der Pipeline) | run | uruchomienie |
+| Warnung | warning | ostrzeżenie |
+| Fehler | error | błąd |
+| Offline | offline | tryb offline |
+| Selbstaktualisierung | self-update | samoaktualizacja |
+| Katasterdaten (Polen: EGiB) | cadastre (Poland: EGiB) | ewidencja gruntów i budynków (EGiB) |
+| Landesamt (Polen: GUGiK) | national survey (Poland: GUGiK) | Główny Urząd Geodezji i Kartografii (GUGiK) |
