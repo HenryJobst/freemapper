@@ -1011,6 +1011,14 @@ pub(crate) fn check_area(bbox: &BoundingBox) -> Result<(), ProjectError> {
     check_size(bbox)
 }
 
+/// Whether a map that is not in a region with OSM only has part of its area on the ground of one.
+fn beside_osm_only(region_bbox: &BoundingBox) -> bool {
+    !osm_only(region_bbox)
+        && registry().adapters().any(|adapter| {
+            adapter.info().coverage == Coverage::OsmOnly && overlaps_in(adapter, region_bbox)
+        })
+}
+
 /// Refuses a map area plus buffer larger than the templates can cover. The templates are built
 /// in the map's CRS, so this is checked there too: the two UTM grids are rotated against each
 /// other, and a box that fits in one may not fit in the other.
@@ -1185,11 +1193,9 @@ fn fetch_project_parts(
     check_size(&bbox)?;
     // Part of the area on the ground of a region with OSM only has no terrain model or cadastre
     // either: a map centred next to Poland says so, as one that reaches beyond every region does.
-    let beside_osm_only = !osm_only(&region_bbox)
-        && registry().adapters().any(|adapter| {
-            adapter.info().coverage == Coverage::OsmOnly && overlaps_in(adapter, &region_bbox)
-        });
-    if beside_osm_only || crate::sources::region::reaches_beyond_coverage(&region_bbox) {
+    if beside_osm_only(&region_bbox)
+        || crate::sources::region::reaches_beyond_coverage(&region_bbox)
+    {
         progress(note!("warning-beyond-coverage"));
     }
     // Offline nothing is downloaded, so nothing needs room.
@@ -11782,6 +11788,54 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         assert!(record.is_none() && land_use.is_none());
         assert!(messages.is_empty(), "{messages:?}");
         assert!(dir.path().join(BUILDINGS_RELPATH).exists());
+    }
+
+    /// The projected box (EPSG:25833) of a lon/lat rectangle, as `check_area` gets it.
+    fn lon_lat_box(west: f64, south: f64, east: f64, north: f64) -> BoundingBox {
+        let text = format!(
+            r#"{{"type":"Feature","properties":{{}},"geometry":{{"type":"Polygon","coordinates":[[[{west},{south}],[{east},{south}],[{east},{north}],[{west},{north}],[{west},{south}]]]}}}}"#
+        );
+        MapArea::from_geojson(&text).unwrap().projected_bbox()
+    }
+
+    /// An area wholly in Poland is accepted: Poland's own adapter overlaps it, and neighbours do
+    /// not count against it (ADR 0163).
+    #[test]
+    fn check_area_accepts_an_area_wholly_in_poland() {
+        assert!(check_area(&lon_lat_box(19.450, 51.760, 19.460, 51.766)).is_ok());
+        assert!(check_area(&lon_lat_box(14.566, 52.346, 14.580, 52.352)).is_ok());
+    }
+
+    /// Over the Olza at Cieszyn the box reaches into Czechia, which no adapter covers: refused,
+    /// and so is the strip of Frankfurt (Oder) beside Słubice, which another country's adapter
+    /// covers.
+    #[test]
+    fn check_area_refuses_an_area_over_a_border_of_poland() {
+        for (west, south, east, north) in [
+            (18.620, 49.746, 18.650, 49.752),
+            (14.550, 52.346, 14.580, 52.352),
+        ] {
+            let result = check_area(&lon_lat_box(west, south, east, north));
+            assert!(
+                matches!(result, Err(ProjectError::AreaCrossesCountry)),
+                "{result:?}"
+            );
+        }
+    }
+
+    /// A map centred in Germany with a strip of Poland is beside a region with OSM only; one in
+    /// Poland, or far from it, is not.
+    #[test]
+    fn beside_osm_only_tells_the_strip_of_a_neighbour() {
+        assert!(beside_osm_only(&lon_lat_box(
+            14.520, 52.340, 14.570, 52.346
+        )));
+        assert!(!beside_osm_only(&lon_lat_box(
+            19.450, 51.760, 19.460, 51.766
+        )));
+        assert!(!beside_osm_only(&lon_lat_box(
+            13.370, 52.510, 13.380, 52.516
+        )));
     }
 
     /// The Sanssouci area (Potsdam) as a fetch area, where the tree fixture stands.

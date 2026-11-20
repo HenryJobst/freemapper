@@ -311,6 +311,22 @@ pub(crate) mod test_support {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The regions with geodata of their own leave out Poland, which has OSM only, and keep the
+    /// states.
+    #[test]
+    fn region_names_with_geodata_leave_out_osm_only_regions() {
+        for german in [true, false] {
+            let all = region_names(german);
+            let geodata = region_names_with_geodata(german);
+            assert!(!geodata.is_empty() && geodata.len() < all.len());
+            assert!(geodata.contains(&"Brandenburg"));
+            assert!(all.contains(&"Brandenburg"));
+            assert!(geodata.iter().all(|name| all.contains(name)));
+            let polish = if german { "Polen" } else { "Poland" };
+            assert!(all.contains(&polish) && !geodata.contains(&polish));
+        }
+    }
     #[allow(unused_imports)]
     use crate::sources::region::ids::{IdFacts as _, regions};
 
