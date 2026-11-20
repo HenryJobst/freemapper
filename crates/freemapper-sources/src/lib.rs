@@ -8,6 +8,7 @@
 
 pub mod aaa;
 pub mod alkis_source;
+pub mod asc;
 pub mod bfn;
 pub mod citygml;
 pub mod dates;
@@ -29,6 +30,7 @@ pub mod testing;
 pub mod tiff_range;
 pub mod trees;
 pub mod vg250;
+pub mod warp;
 pub mod wcs;
 pub mod wfs;
 pub mod wms;
