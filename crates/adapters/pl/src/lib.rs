@@ -6,5 +6,6 @@
 //! Terms follow `docs/glossary.md`.
 
 pub mod polska;
+pub mod sheets;
 
 pub use polska::{register, register_with_hosts};
