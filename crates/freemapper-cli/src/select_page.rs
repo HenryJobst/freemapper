@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Consistency tests of the embedded page (`web/`): its texts in the catalog, ids and labels, the
 //! suite's page rules. No JavaScript runner is needed; the files are read as text.
 #![cfg(test)]
@@ -68,7 +70,7 @@ fn has_text(ids: &BTreeSet<String>, id: &str) -> bool {
 
 /// The kinds of the files a run reports (`pipeline.rs`); the run panel names each with
 /// `page-file-kind-<kind>`.
-const FILE_KINDS: [&str; 11] = [
+const FILE_KINDS: [&str; 14] = [
     "map",
     "preview",
     "template",
@@ -79,6 +81,9 @@ const FILE_KINDS: [&str; 11] = [
     "training-map",
     "training-pdf",
     "training-ocad",
+    "training-view-map",
+    "training-view-pdf",
+    "training-view-ocad",
     "permits",
 ];
 
@@ -247,6 +252,10 @@ fn index_has_labels_for_every_option() {
         "run-pdf",
         "run-pdf-candidates",
         "run-training",
+        "run-view-no-paths",
+        "run-view-brown-only",
+        "run-view-no-north-lines",
+        "run-view-custom",
         "run-pdf-scale-bar",
         "run-pdf-sources",
         "run-offline",
@@ -277,6 +286,7 @@ fn run_js_names_no_path_field() {
         "pdf",
         "pdf_candidates",
         "training",
+        "training_views",
         "pdf_scale_bar",
         "pdf_sources",
         "permits",

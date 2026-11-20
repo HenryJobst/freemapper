@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! In-memory model of an OOM map document.
 
 use super::coord::{FLAG_CLOSE, FLAG_HOLE, MapCoord};

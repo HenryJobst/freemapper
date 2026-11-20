@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Cliffs on the forest and the sprint map (ISOM 2017-2 and ISSprOM 2019-2, 201 and 206;
 //! ADR 0126, ADR 0134).
 //!

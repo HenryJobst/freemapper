@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! ALKIS buildings and land use from the states' "ALKIS vereinfacht" WFS (GeoSN, LVermGeo, HVBG,
 //! LVermGeo SH; GML 3.2 only), read into GeoJSON features with the LGB property schema (the
 //! attribute names are the same).

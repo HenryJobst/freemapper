@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! A stub of the GitHub release hosts for the update tests of `tests/cli.rs` and `tests/mcp.rs`.
 //! They need a build with the `test-stub` feature (`cargo test -p freemapper-cli --features
 //! test-stub`): only there does the program take `FREEMAPPER_UPDATE_TEST_BASE`, count as a release

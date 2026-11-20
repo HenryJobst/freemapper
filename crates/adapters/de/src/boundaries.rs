@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The boundaries of the states: the outline every question of "does this lie in the state"
 //! is asked of. Each is the boundary file of the state's manifest (`manifests/<id>/boundary.geojson`),
 //! embedded GeoJSON in EPSG:25833, simplified to 25 m, parsed on first use.

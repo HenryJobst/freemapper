@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The pipeline behind `freemapper run`, the MCP tool `start_pipeline` and the run button of the
 //! selection page: fetch, derive, write the map, then the optional OCAD and PDF outputs, the
 //! training map and the permit notes. One function, so the three callers cannot drift apart
@@ -12,14 +14,16 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use freemapper::fetch::{Cache, FetchMode, Fetcher};
 use freemapper::project::{
     LightReport, MapOutcome, OcadOutcome, PdfSources, ProjectError, RunOutcome, RunStage,
-    TrainingOutcome, export_candidates_pdf_from, export_ocad_from, export_pdf_from,
-    export_training_from, map_path, map_preview_path, pdf_path, run_project_steps_cancellable,
-    starter_documents, training_map_path, training_ocad_path, training_pdf_path,
+    TrainingOutcome, TrainingViewFiles, export_candidates_pdf_from, export_ocad_from,
+    export_pdf_from, export_training_from, export_training_views, map_path, map_preview_path,
+    pdf_path, run_project_steps_cancellable, starter_documents, training_map_path,
+    training_ocad_path, training_pdf_path, training_view_paths,
 };
+use freemapper::{View, ViewError};
 use serde::Deserialize;
 
 /// What a run does besides fetch, derive and the OOM map.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct RunOptions {
     /// Replace an existing map and keep the old one as `.omap.bak`.
     pub force: bool,
@@ -31,6 +35,9 @@ pub struct RunOptions {
     /// Also write the training map, its PDF and, with `ocad`, its OCAD file. An existing one is
     /// kept as the map is, unless `force`.
     pub training: bool,
+    /// With `training`: also write the training map without what each view leaves out
+    /// (`<name>-training-<view>.omap`, its PDF, with `ocad` its OCAD file; ADR 0160).
+    pub training_views: Vec<View>,
     pub pdf_scale_bar: bool,
     pub pdf_sources: PdfSources,
     /// Also write the permit notes after the map (ADR 0117). A failure there is a warning and
@@ -51,6 +58,7 @@ pub struct RunRequest {
     pub pdf: Option<bool>,
     pub pdf_candidates: Option<bool>,
     pub training: Option<bool>,
+    pub training_views: Option<Vec<String>>,
     pub pdf_scale_bar: Option<bool>,
     pub pdf_sources: Option<String>,
     pub permits: Option<bool>,
@@ -77,11 +85,33 @@ pub fn parse(request: RunRequest, lang: &Lang) -> Result<RunOptions, String> {
         pdf: request.pdf.unwrap_or(false),
         pdf_candidates: request.pdf_candidates.unwrap_or(false),
         training: request.training.unwrap_or(false),
+        training_views: parse_views(request.training_views.as_deref().unwrap_or(&[]), lang)?,
         pdf_scale_bar: request.pdf_scale_bar.unwrap_or(false),
         pdf_sources,
         permits: request.permits.unwrap_or(false),
         fail_fast: false,
     })
+}
+
+/// The views `texts` name (`no-paths`, `brown-only+no-north-lines`, `no:505,506` …), or the message for the
+/// first one that does not parse.
+pub fn parse_views(texts: &[String], lang: &Lang) -> Result<Vec<View>, String> {
+    texts
+        .iter()
+        .map(|t| {
+            View::parse(t).map_err(|e| match e {
+                ViewError::UnknownName(name) => {
+                    TEXTS.text(lang, "cli-view-unknown", &[("value", v(name))])
+                }
+                ViewError::EmptyList(list) => {
+                    TEXTS.text(lang, "cli-view-empty", &[("value", v(list))])
+                }
+                ViewError::BadCode(code) => {
+                    TEXTS.text(lang, "cli-view-bad-code", &[("value", v(code))])
+                }
+            })
+        })
+        .collect()
 }
 
 /// The spelling of `sources` in requests, flags and the project answer.
@@ -498,6 +528,57 @@ pub fn run(
                 Err(e) => summary.push_str(&failed("cli-summary-training-failed", e)),
             }
             outputs.training = Some(result);
+            if !options.training_views.is_empty() {
+                // A view that has its files stays, as the training map does, unless `force`.
+                let (kept, todo): (Vec<&View>, Vec<&View>) =
+                    options.training_views.iter().partition(|view| {
+                        let files = training_view_paths(dir, view, options.ocad);
+                        !options.force
+                            && std::iter::once(&files.map)
+                                .chain(&files.ocad)
+                                .any(|p| p.exists())
+                    });
+                for view in kept {
+                    outputs
+                        .training_views
+                        .push(training_view_paths(dir, view, options.ocad));
+                    summary.push('\n');
+                    summary.push_str(&text(
+                        "cli-summary-kept-training-view",
+                        &[("view", v(view.to_string()))],
+                    ));
+                }
+                if let (Ok(d), false) = (&documents, todo.is_empty()) {
+                    let views: Vec<View> = todo.into_iter().cloned().collect();
+                    match settle(
+                        fail_fast,
+                        export_training_views(
+                            dir,
+                            d,
+                            &views,
+                            options.force,
+                            options.pdf_scale_bar,
+                            options.pdf_sources,
+                            options.ocad,
+                        ),
+                    )? {
+                        Ok(written) => {
+                            for files in written {
+                                summary.push('\n');
+                                summary.push_str(&text(
+                                    "cli-summary-training-view",
+                                    &[
+                                        ("map", v(files.map.display())),
+                                        ("pdf", v(files.pdf.display())),
+                                    ],
+                                ));
+                                outputs.training_views.push(files);
+                            }
+                        }
+                        Err(e) => summary.push_str(&failed("cli-summary-training-view-failed", &e)),
+                    }
+                }
+            }
         }
     }
     // The permit notes come last: they ask other services, and the map is whole without them. A
@@ -618,6 +699,8 @@ struct Outputs {
     pdf: Option<Result<PathBuf, String>>,
     pdf_candidates: Option<Result<PathBuf, String>>,
     training: Option<Result<Training, String>>,
+    /// The files of the views of the training map, written or kept.
+    training_views: Vec<TrainingViewFiles>,
 }
 
 /// What the training step did.
@@ -681,6 +764,13 @@ fn result_files(
             }
         }
         Some(Err(_)) | None => {}
+    }
+    for files in &outputs.training_views {
+        candidates.push(("training-view-map", files.map.clone()));
+        candidates.push(("training-view-pdf", files.pdf.clone()));
+        if let Some(ocad) = &files.ocad {
+            candidates.push(("training-view-ocad", ocad.clone()));
+        }
     }
     if let Some(written) = permits {
         candidates.push(("permits", written.markdown.clone()));
@@ -829,11 +919,15 @@ pub fn training_summary(outcome: &TrainingOutcome) -> String {
             ("left", n(left)),
         ],
     )];
-    // A free end is counted, not hidden; none is not worth a line.
-    if report.junctions_free > 0 {
+    // A free end is counted, not hidden; none is not worth a line. The ends where a way met a
+    // way break the way network on print, so they are counted apart.
+    if !report.free_ends.is_empty() {
         lines.push(text(
             "cli-training-free-ends",
-            &[("count", n(report.junctions_free))],
+            &[
+                ("ways", n(report.free_way_ends())),
+                ("others", n(report.free_other_ends())),
+            ],
         ));
     }
     if let Some(ocad) = &outcome.ocad {
@@ -874,7 +968,8 @@ fn apart_left_warning(length: f64, lang: &Lang) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use freemapper::project::{MapKind, TrainingReport};
+    use freemapper::measure::PaperMm;
+    use freemapper::project::{FreeEnd, MapKind, TrainingReport};
 
     fn all_off() -> RunOptions {
         parse(RunRequest::default(), &Lang::english()).unwrap()
@@ -929,6 +1024,30 @@ mod tests {
         };
         assert!(parse(request, &Lang::english()).unwrap().permits);
         assert!(serde_json::from_str::<RunRequest>(r#"{"permits":true}"#).is_ok());
+    }
+
+    #[test]
+    fn parse_reads_training_views_and_names_a_bad_one() {
+        let request = RunRequest {
+            training: Some(true),
+            training_views: Some(vec!["no-paths".into(), "brown-only+no-north-lines".into()]),
+            ..RunRequest::default()
+        };
+        let options = parse(request, &Lang::english()).unwrap();
+        assert_eq!(options.training_views.len(), 2);
+        assert_eq!(
+            options.training_views[1].to_string(),
+            "brown-only+no-north-lines"
+        );
+        assert!(serde_json::from_str::<RunRequest>(r#"{"training_views":["no-paths"]}"#).is_ok());
+        let bad = RunRequest {
+            training_views: Some(vec!["paths".into()]),
+            ..RunRequest::default()
+        };
+        assert_eq!(
+            parse(bad, &Lang::english()).unwrap_err(),
+            "a view is no-paths, brown-only, no-north-lines, no:<codes> or only:<codes>, not paths"
+        );
     }
 
     #[test]
@@ -1371,7 +1490,6 @@ mod tests {
             merged: 2,
             dropped_beside_roads: 3,
             junctions_repaired: 9,
-            junctions_free: 0,
             shifted: 4,
             carriageways: 5,
             kerbs: 2,
@@ -1388,13 +1506,23 @@ mod tests {
             )
         );
         assert!(training_warnings(&outcome).is_empty());
-        outcome.report.junctions_free = 3;
+        let end = |between_ways| FreeEnd {
+            source_id: None,
+            symbol: "505".to_string(),
+            at: (PaperMm(1.0), PaperMm(2.0)),
+            touched: Vec::new(),
+            between_ways,
+        };
+        outcome.report.free_ends = vec![end(true), end(false), end(false)];
         assert!(
-            training_summary(&outcome).ends_with("left out or cut)\n3 line ends left free"),
+            training_summary(&outcome).ends_with(
+                "left out or cut)\nLine ends left free: 1 where a way met another way, 2 at other \
+                 lines"
+            ),
             "{}",
             training_summary(&outcome)
         );
-        outcome.report.junctions_free = 0;
+        outcome.report.free_ends.clear();
         outcome.ocad = Some(PathBuf::from("/p/ocad/p-training.ocd"));
         assert!(
             training_summary(&outcome).ends_with("\nWrote /p/ocad/p-training.ocd"),

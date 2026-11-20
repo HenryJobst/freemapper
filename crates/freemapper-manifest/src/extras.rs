@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! `[[extra.nas]]` and `[[extra.trees]]` of a manifest as the services of the readers.
 
 use std::borrow::Cow;

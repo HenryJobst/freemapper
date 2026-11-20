@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The region adapter a manifest gives.
 //!
 //! [`ManifestAdapter`] answers what the manifest declares: who the region is, where it lies,

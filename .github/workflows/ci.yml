@@ -16,6 +16,20 @@ env:
   # Line numbers in backtraces are enough here; full debug info only makes linking and the
   # cache slower.
   CARGO_PROFILE_DEV_DEBUG: line-tables-only
+  # The tools of the gates in scripts/check.sh, pinned so that a new release never changes a rule
+  # without a commit here (ADR 0159).
+  TYPOS_VERSION: "1.52.2"
+  TYPOS_SHA256: "3b13d1291281d39d01822e54035636487a7a0f228e70097899b1e33aeb0e7e93"
+  LYCHEE_VERSION: "0.24.2"
+  LYCHEE_SHA256: "1f4e0ef7f6554a6ed33dd7ac144fb2e1bbed98598e7af973042fc5cd43951c9a"
+  GITLEAKS_VERSION: "8.30.1"
+  GITLEAKS_SHA256: "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
+  CARGO_MACHETE_VERSION: "0.9.1"
+  CARGO_LLVM_COV_VERSION: "0.9.1"
+  CARGO_MUTANTS_VERSION: "27.1.0"
+  CARGO_HACK_VERSION: "0.6.46"
+  CARGO_NEXTEST_VERSION: "0.9.152"
+  CARGO_CYCLONEDX_VERSION: "0.5.10"
 
 jobs:
   # Licences, advisories, bans and sources of the dependencies (deny.toml, ADR 0154).
@@ -51,7 +65,15 @@ jobs:
         run: brew install minisign
       - run: cargo fmt --all --check
       - run: cargo clippy --locked --workspace --all-targets -- -D warnings
-      - run: cargo test --locked --workspace
+      - name: Install cargo-nextest
+        shell: bash
+        run: |
+          cargo nextest --version 2>/dev/null | grep -q "$CARGO_NEXTEST_VERSION" ||
+            cargo install cargo-nextest --locked --version "$CARGO_NEXTEST_VERSION" --force
+      # nextest runs the test binaries side by side: 2.6 times as fast as `cargo test` (ADR 0161).
+      - run: cargo nextest run --locked --workspace
+      # nextest does not run doc tests.
+      - run: cargo test --locked --workspace --doc
       # The update command and the MCP update tools against a stub server, and `find` against a
       # stored search answer: only a debug build with this feature reaches them.
       - run: cargo clippy --locked -p freemapper-cli --all-targets --features test-stub -- -D warnings
@@ -102,3 +124,140 @@ jobs:
         env:
           BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event.before }}
           HEAD: ${{ github.event_name == 'pull_request' && 'HEAD' || github.sha }}
+
+  # Everything that needs no build: the licence line, spelling, links, the history, declared but
+  # unused dependencies, action pins, the ADR index and the changelog pair (ADR 0159).
+  hygiene:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # gitleaks walks the whole history, not only the working tree.
+          fetch-depth: 0
+      - name: Cache the tools
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/bin/cargo-machete
+            ~/.cargo/bin/typos
+            ~/.cargo/bin/lychee
+            ~/.cargo/bin/gitleaks
+            ~/.cargo/bin/cargo-cyclonedx
+          key: hygiene-${{ runner.os }}-${{ env.CARGO_CYCLONEDX_VERSION }}-${{ env.CARGO_MACHETE_VERSION }}-${{ env.TYPOS_VERSION }}-${{ env.LYCHEE_VERSION }}-${{ env.GITLEAKS_VERSION }}
+      - name: Install the tools
+        run: |
+          set -eu
+          cargo-machete --version 2>/dev/null | grep -q "$CARGO_MACHETE_VERSION" ||
+            cargo install cargo-machete --locked --version "$CARGO_MACHETE_VERSION" --force
+          cargo cyclonedx --version 2>/dev/null | grep -q "$CARGO_CYCLONEDX_VERSION" ||
+            cargo install cargo-cyclonedx --locked --version "$CARGO_CYCLONEDX_VERSION" --force
+          bin="$HOME/.cargo/bin"
+          mkdir -p "$bin"
+          if ! typos --version 2>/dev/null | grep -q "$TYPOS_VERSION"; then
+            asset="typos-v${TYPOS_VERSION}-x86_64-unknown-linux-musl.tar.gz"
+            curl -sSfL "https://github.com/crate-ci/typos/releases/download/v${TYPOS_VERSION}/${asset}" -o "/tmp/${asset}"
+            echo "${TYPOS_SHA256}  /tmp/${asset}" | sha256sum -c -
+            tar -xzf "/tmp/${asset}" -C "$bin" ./typos
+          fi
+          if ! lychee --version 2>/dev/null | grep -q "$LYCHEE_VERSION"; then
+            asset="lychee-x86_64-unknown-linux-gnu.tar.gz"
+            curl -sSfL "https://github.com/lycheeverse/lychee/releases/download/lychee-v${LYCHEE_VERSION}/${asset}" -o "/tmp/${asset}"
+            echo "${LYCHEE_SHA256}  /tmp/${asset}" | sha256sum -c -
+            tar -xzf "/tmp/${asset}" -C "$bin" --strip-components=1 "lychee-x86_64-unknown-linux-gnu/lychee"
+          fi
+          if ! gitleaks version 2>/dev/null | grep -q "$GITLEAKS_VERSION"; then
+            asset="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+            curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/${asset}" -o "/tmp/${asset}"
+            echo "${GITLEAKS_SHA256}  /tmp/${asset}" | sha256sum -c -
+            tar -xzf "/tmp/${asset}" -C "$bin" gitleaks
+          fi
+      - run: scripts/check.sh spdx typos links secrets machete actions adr changelog badges sbom architecture
+
+  # rustdoc with `-D warnings`: a broken intra-doc link or an unclosed HTML tag fails the run.
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: rustup toolchain install
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+      - run: scripts/check.sh doc
+
+  # The declared MSRV is a claim until something builds with it (ADR 0159). freemapper keeps its
+  # workspace dependencies at the level where cargo before 1.99 reads them, unlike the two apps
+  # that override `default-features` of an inherited entry.
+  msrv:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: rustup toolchain install 1.88.0 --profile minimal
+      - run: scripts/check.sh msrv
+
+  # Line coverage with a floor and a snapshot (docs/coverage.json). It needs an instrumented build
+  # in its own target directory, so it is a job of its own.
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: rustup toolchain install
+      - run: rustup component add llvm-tools-preview
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+      - name: Install cargo-llvm-cov
+        run: |
+          cargo llvm-cov --version 2>/dev/null | grep -q "$CARGO_LLVM_COV_VERSION" ||
+            cargo install cargo-llvm-cov --locked --version "$CARGO_LLVM_COV_VERSION" --force
+      - run: scripts/check.sh coverage
+      # A run above the snapshot rewrites it; the commit belongs with the change that raised it.
+      - name: The snapshot must be committed
+        run: |
+          # `git diff` says nothing about a file the branch does not track yet,
+          # so the status question is the one that catches it.
+          if [ -n "$(git status --porcelain docs/coverage.json)" ]; then
+            echo "::error::run scripts/check.sh coverage locally and commit docs/coverage.json"
+            git --no-pager diff docs/coverage.json || true
+            exit 1
+          fi
+
+  # Clippy's cognitive complexity against the baseline in clippy.toml (ADR 0161).
+  complexity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: rustup toolchain install
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+      - run: scripts/check.sh complexity
+
+  # Each feature alone and none, a compile check (ADR 0161).
+  hack:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: rustup toolchain install
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+      - name: Install cargo-hack
+        run: |
+          cargo hack --version 2>/dev/null | grep -q "$CARGO_HACK_VERSION" ||
+            cargo install cargo-hack --locked --version "$CARGO_HACK_VERSION" --force
+      - run: scripts/check.sh hack
+
+  # Mutation tests on the lines the pull request changes, not on the workspace (ADR 0161).
+  mutants:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      MUTANTS_BASE: origin/${{ github.base_ref }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The diff needs the base branch.
+          fetch-depth: 0
+      - run: rustup toolchain install
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+      - name: Install cargo-mutants
+        run: |
+          cargo mutants --version 2>/dev/null | grep -q "$CARGO_MUTANTS_VERSION" ||
+            cargo install cargo-mutants --locked --version "$CARGO_MUTANTS_VERSION" --force
+      - run: scripts/check.sh mutants
+      - name: The mutants that survived
+        if: failure()
+        run: cat mutants.out/missed.txt || true

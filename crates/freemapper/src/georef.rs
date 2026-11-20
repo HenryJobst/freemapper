@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Georeferencing of a map: reference point, scale, declination, grivation and the transform
 //! between projected coordinates and map coordinates.
 

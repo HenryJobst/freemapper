@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! LVGL Saarland open data (dl-de/by-2-0, "© GeoBasis DE/LVGL-SL"), all in EPSG:25832: the
 //! orthophoto from the free WMS, the terrain and the surface model (2025) from the district
 //! archives of the open-data share, read tile by tile with range requests.

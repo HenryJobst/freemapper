@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The fetcher an adapter downloads through, and the tiles a fetch leaves in the cache.
 
 use std::io::Write as _;

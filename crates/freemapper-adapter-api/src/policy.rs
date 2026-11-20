@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Where a request may go: the URL rules for adapters (ADR 0082, spec 3.8).
 //!
 //! A manifest is untrusted input. Its URLs are `https` on port 443, name a host by its DNS name

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The region adapters of a run: those built into the program, those of the user's folder and,
 //! when the person asks for them, those of a project (ADR 0082, spec 3.7).
 //!

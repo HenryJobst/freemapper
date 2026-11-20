@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! OSM features → candidate objects for the candidates template map (spec §4.5).
 
 use std::collections::HashMap;
@@ -31,7 +33,7 @@ pub enum Draw {
     ShortLine(f64),
     Line,
     /// A way drawn as an area: a strip along it of this width on the ground (metres), or of its
-    /// `width` tag (see [`CORRIDOR_WIDTH_RANGE_M`]).
+    /// `width` tag (see `CORRIDOR_WIDTH_RANGE_M`).
     Corridor(f64),
     Area,
 }

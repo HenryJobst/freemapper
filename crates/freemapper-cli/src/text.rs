@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Program texts from Fluent files (ADR 0092).
 //!
 //! The program independent part (languages, lookup with English fallback, language detection,
@@ -150,7 +152,7 @@ pub fn states(lang: &Lang) -> String {
 
 /// [`states`] for the middle of a sentence: the last name follows the word for "and". Only the
 /// regions with official geodata of their own: the sentence says whose geodata freemapper uses,
-/// and Poland has OSM only so far (ADR 0161).
+/// and Poland has OSM only so far (ADR 0163).
 pub fn states_in_a_sentence(lang: &Lang) -> String {
     let names = freemapper::adapters::region_names_with_geodata(lang.code() == "de");
     match names.split_last() {
@@ -300,7 +302,8 @@ mod tests {
             ("joined", n(3)),
             ("shifted", n(2)),
             // The line ends left free (`cli-training-free-ends`).
-            ("count", n(3)),
+            ("ways", n(2)),
+            ("others", n(1)),
             ("length", v("12.3")),
             // The permit notes (`permits.rs`, `errors.rs`).
             ("missing", v("bfn: HTTP 503")),
@@ -334,6 +337,7 @@ mod tests {
             ("authority", v("Landratsamt Ludwigsburg")),
             ("links", v("yes")),
             ("known", v("no")),
+            ("view", v("no-paths")),
             (
                 "gaps",
                 v("Die Stadt Potsdam führt ihre Denkmalliste selbst"),

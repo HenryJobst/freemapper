@@ -1045,10 +1045,18 @@ Was die Trainingskarte anders macht als die Karte, Schritt für Schritt:
    zum Zeichnen ist, wird zwischen zwei Wegen als Weg gezeichnet (sie trägt `freemapper:generalized`); an einem
    Wegende entfällt sie.
 
+   Ein kurzes Wegstück, das vor Schritt 5 Wege verband, bleibt, solange diese Wege bleiben, auch wo Schritt 6 oder
+   8 seine Enden von ihnen weggerückt hat; ein kleiner Ring bleibt, wenn er zwei Wege verbindet.
+
    Zum Schluss wird ein Linienende, das vor Schritt 5 eine Linie berührte und sie in Schritt 8 oder 9 verlor, an
-   den Rest dieser Linie gezogen, wenn er höchstens 0,5 mm plus den Abstand entfernt liegt. Liegt nichts mehr in
-   Reichweite, bleibt das Ende frei, und die Zusammenfassung zählt es: `3 Linienenden frei`. Lagen zwei Linien
-   aufeinander und wurde eine für die andere geschnitten, ist die Lücke gewollt; dort wird nichts zurückgezogen.
+   den Rest dieser Linie gezogen, wenn er höchstens 0,5 mm plus den Abstand entfernt liegt und die verlegte Linie
+   zu allem den Abstand hält, von dem sie Abstand halten muss. Ein Pfad, der an einem Gehweg endete, der neben einer
+   Straße entfiel, wird an die Straße gezogen, so weit der Gehweg von ihr lag. Liegt nichts mehr in Reichweite,
+   bleibt das Ende frei, und die Zusammenfassung zählt es: `Freie Linienenden: 1 dort, wo ein Weg auf einen anderen
+   traf, 2 an anderen Linien`. Die erste Zahl zählt Enden von Wegen, die auf einen anderen Weg trafen; jedes
+   unterbricht das Wegenetz. Die zweite zählt den Rest, meist Enden an einem Zaun, Graben oder einer Böschung, die
+   einem dritten Objekt gewichen ist. Lagen zwei Linien aufeinander und wurde eine für die andere geschnitten, ist
+   die Lücke gewollt; dort wird nichts zurückgezogen.
 
 Auf Wald- und Sprintkarten generalisiert die Trainingskarte außerdem die Felswände stärker als die Karte
 (Kapitel 7).
@@ -1071,6 +1079,25 @@ Trainingskarte neu zu schreiben, löschen Sie `<name>-training.omap` (mit `--oca
 und rufen `run --training` ohne `--force` auf; das PDF entsteht dabei neu. `--force` ersetzt auch die Grundkarte. Die
 unsicheren Objekte der Trainingskarte kommen aus den Kandidaten; prüfen Sie die Strecke vor einem Lauf im Gelände, am
 besten mit dem Prüfausdruck.
+
+### Ansichten der Trainingskarte
+
+Für Trainingsformen lässt freemapper aus der fertigen Trainingskarte etwas weg: `freemapper run --training --view <Ansicht>`
+(oder `export`) schreibt neben die volle Karte `<name>-training-<Ansicht>.omap` und ihre PDF, mit `--ocad` auch
+`ocad/<name>-training-<Ansicht>.ocd`. Die Karte wird dafür nicht neu berechnet, die Ansicht ist eine Auswahl aus ihr.
+Die Trainingskarte selbst bleibt unverändert.
+
+| Ansicht | Was bleibt |
+|---|---|
+| `no-paths` | alles außer Straßen, Wegen und Treppen (502 bis 507, 501.6 bis 501.8, 532), für Ultimate-Karten im Wald |
+| `brown-only` | nur braune Symbole (Höhenlinien, Böschungen, Kuppen, Mulden, Löcher), für Isohypsen-OL; die Nordlinien entfallen |
+| `no-north-lines` | alles außer den Nordlinien |
+
+`--view no:505,506` lässt Symbole nach Code weg, `--view only:101,102` behält nur diese; mit `+` lassen sich Ansichten
+verbinden (`no-paths+no-north-lines`), und die Option lässt sich wiederholen. Der Rahmen (Titel, Maßstab, Quellen) und die
+Grundfläche bleiben immer. Ein Lauf behält vorhandene Ansichtsdateien, außer mit `--force`. Der MCP-Befehl `start_pipeline`
+nimmt dieselben Ansichten als `training_views`. Auf der Gebietsseite erscheinen sie unter dem Häkchen „Trainingskarte“ als drei weitere Häkchen und ein Feld für eine eigene Ansicht; „Ohne Wege“ und „Nur braun“ sind nur bei Waldkarten wählbar. freemapper-print wendet dieselben Ansichten auf jede `.omap` an
+(`--view`), wenn Sie nur drucken wollen.
 
 ## 11. OCAD
 

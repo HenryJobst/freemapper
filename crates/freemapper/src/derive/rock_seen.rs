@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Where the orthophoto shows rock (ADR 0126): for a forest map, the share of rock-coloured
 //! pixels in every metre of the orthophoto, so that a cliff the photo confirms goes first.
 //!

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The 3D-Messdaten of Geobasis NRW (dl-de/zero-2-0): one LAZ file per km tile in EPSG:25832,
 //! listed with its size and date in an `index.json` (ADR 0105). The classes follow the AdV scheme:
 //! ground (2), last echoes above ground (20), intermediate echoes (1), and synthetic fill points

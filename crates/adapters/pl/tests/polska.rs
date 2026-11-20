@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The adapter `polska`: where Poland lies and which OSM extracts a map area reads.
 
 use freemapper_adapter_api::adapter::RegionAdapter;

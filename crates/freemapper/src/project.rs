@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Project folder and project file (`freemapper.toml`).
 
 use crate::note::{Arg, Note, note};
@@ -68,7 +70,7 @@ use freemapper_adapter_api::info::Coverage;
 mod export;
 mod extras;
 pub use crate::build::light::LightReport;
-pub use crate::build::training::TrainingReport;
+pub use crate::build::training::{FreeEnd, TrainingReport};
 pub use export::*;
 pub(crate) use extras::ExtraSets;
 
@@ -160,7 +162,9 @@ pub enum ProjectError {
     AreaCrossesCountry,
     /// The permit notes of a map in a region with OSM only (Poland): their services, their
     /// authorities and their law are German.
-    #[error("the permit notes are not available for this region yet: they ask German services and name German authorities")]
+    #[error(
+        "the permit notes are not available for this region yet: they ask German services and name German authorities"
+    )]
     PermitsNotForRegion,
     #[error("{}: {message}; run `freemapper fetch` again", path.display())]
     StoredBuildings { path: PathBuf, message: String },
@@ -372,17 +376,17 @@ pub struct ProjectFile {
     pub land_use: Option<AlkisRecord>,
     /// The layers of the sets of extra layers of the last online `fetch` (ADR 0149), by set key,
     /// then by file name under `data/<set key>`; Berlin's are written as `berlin_layers`, the
-    /// field older project files have ([`ExtraSets`]). A layer without objects in the area is
+    /// field older project files have (`ExtraSets`). A layer without objects in the area is
     /// recorded with count 0.
     #[serde(flatten)]
     pub extra_sets: ExtraSets,
     /// The NAS layers (full ALKIS) of the last online `fetch`, by file name under
-    /// [`NAS_LAYERS_DIR`]; empty outside the states with a NAS service. A layer without objects
+    /// `NAS_LAYERS_DIR`; empty outside the states with a NAS service. A layer without objects
     /// in the area is recorded with count 0, and `latest_update` is the newest `beginnt`.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub nas_layers: BTreeMap<String, AlkisRecord>,
     /// The city tree cadastres of the last online `fetch`, by dataset id under
-    /// [`TREE_LAYERS_DIR`]; empty outside the cities of the table. A dataset without trees in the
+    /// `TREE_LAYERS_DIR`; empty outside the cities of the table. A dataset without trees in the
     /// area is recorded with count 0, and `latest_update` is the newest tree survey date.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub tree_layers: BTreeMap<String, AlkisRecord>,
@@ -392,7 +396,7 @@ pub struct ProjectFile {
     /// The orthophoto from a WMS or WCS (GeoSN, LVermGeo, LGV, HVBG, LVermGeo SH: WMS; LAiV M-V: WCS); LGB orthophotos are tiles.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub orthophoto: Option<WmsRecord>,
-    /// The Berlin K5 map (1:5000) written as a template at [`K5_RELPATH`]; `flight` is the K5
+    /// The Berlin K5 map (1:5000) written as a template at `K5_RELPATH`; `flight` is the K5
     /// dataset date. Berlin only.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub k5: Option<WmsRecord>,
@@ -815,7 +819,7 @@ pub(crate) const NDSM_RELPATH: &str = "templates/ndsm.png";
 /// The Berlin K5 map (1:5000) as fetched; a template the mapper draws on, optional.
 pub(crate) const K5_RELPATH: &str = "templates/k5.png";
 /// The key of the raster template whose record the project file keeps in `k5` and whose file
-/// is [`K5_RELPATH`]: the one template there is. A second one needs a field of its own.
+/// is `K5_RELPATH`: the one template there is. A second one needs a field of its own.
 pub(crate) const K5_TEMPLATE: &str = "k5";
 /// The terrain mosaic of a tile provider (LGB, GeoSN) cut to the map area plus buffer, with its
 /// world file. `derive` writes it for every map (ADR 0134): the export reads the walking direction
@@ -995,7 +999,7 @@ pub(crate) fn check_area(bbox: &BoundingBox) -> Result<(), ProjectError> {
     };
     // A region with OSM only cannot take the rasters and the cadastre of its neighbour, and its
     // extracts end at its border: an area that reaches over the border would be half made
-    // (ADR 0161).
+    // (ADR 0163).
     if region.info().coverage == Coverage::OsmOnly
         && (crate::sources::region::reaches_beyond_coverage(bbox)
             || registry().adapters().any(|other| {
@@ -1596,7 +1600,7 @@ fn raster_backend(region_bbox: &BoundingBox) -> Result<&'static dyn RasterBacken
         .ok_or(ProjectError::OutsideCoverage)
 }
 
-/// The raster template recorded in `k5` as the file [`K5_RELPATH`] (PNG and world file) over
+/// The raster template recorded in `k5` as the file `K5_RELPATH` (PNG and world file) over
 /// `bbox`, the map area plus buffer in the map's CRS: the template of the adapter that has it
 /// ([`extras::fetch_template_key_into`]). Optional like the extra layers: a failed request or a
 /// full disk (`skip`) leaves the template out with a warning, never fails the fetch. A stored
@@ -1892,7 +1896,7 @@ fn fetch_land_use_into(
     }
 }
 
-/// Downloads the NAS layers (full ALKIS) of `kind` for `area` to [`NAS_LAYERS_DIR`] and returns
+/// Downloads the NAS layers (full ALKIS) of `kind` for `area` to `NAS_LAYERS_DIR` and returns
 /// the records that replace `previous`, as `extras::fetch_set_into` does for a set's
 /// layers: a layer that fails is a warning and never fails the fetch (a stored file that still
 /// covers the area stays), a layer without objects is stored as an empty collection, outside the
@@ -2000,7 +2004,7 @@ fn fetches_tree_registers(kind: MapKind) -> bool {
     kind != MapKind::Forest
 }
 
-/// Downloads the city tree cadastres for `area` to [`TREE_LAYERS_DIR`] and returns the records
+/// Downloads the city tree cadastres for `area` to `TREE_LAYERS_DIR` and returns the records
 /// that replace `previous`, as [`fetch_nas_layers_into`] does for the NAS layers: a dataset that
 /// fails is a warning and never fails the fetch (a stored file that still covers the area
 /// stays), a dataset without trees is stored as an empty collection, outside the envelopes of
@@ -5928,6 +5932,61 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         let map = std::fs::read_to_string(&outcome.map).unwrap();
         assert!(omap_has_symbol(&map, set, "518"), "the candidate fence");
         assert!(omap_has_symbol(&map, set, "521"), "the building of the map");
+    }
+
+    #[test]
+    fn a_training_view_leaves_out_its_symbols_and_keeps_the_frame() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir) = sprint_with_paving_and_fence(&fetcher);
+        let documents = starter_documents(dir.path()).unwrap();
+        let set = &documents.map.symbol_set;
+        let views = [
+            crate::View::parse("no:518").unwrap(),
+            crate::View::parse("brown-only").unwrap(),
+        ];
+        let written = export_training_views(
+            dir.path(),
+            &documents,
+            &views,
+            false,
+            false,
+            PdfSources::Auto,
+            false,
+        )
+        .unwrap();
+        assert_eq!(written.len(), 2);
+        assert!(
+            written[0]
+                .map
+                .to_string_lossy()
+                .ends_with("-training-no-518.omap")
+        );
+        let without_fence = std::fs::read_to_string(&written[0].map).unwrap();
+        assert!(!omap_has_symbol(&without_fence, set, "518"));
+        assert!(
+            omap_has_symbol(&without_fence, set, "521"),
+            "the building stays"
+        );
+        let brown = std::fs::read_to_string(&written[1].map).unwrap();
+        assert!(!omap_has_symbol(&brown, set, "521"));
+        assert!(brown.contains(r#"<part name="peripheral information">"#));
+        assert!(
+            std::fs::read(&written[1].pdf)
+                .unwrap()
+                .starts_with(b"%PDF-")
+        );
+        // The training map itself is not written, and a view file stays unless `force`.
+        assert!(!training_map_path(dir.path()).exists());
+        let again = export_training_views(
+            dir.path(),
+            &documents,
+            &views[..1],
+            false,
+            false,
+            PdfSources::Auto,
+            false,
+        );
+        assert!(matches!(again, Err(ProjectError::MapExists(_))));
     }
 
     #[test]

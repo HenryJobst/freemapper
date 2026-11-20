@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! `freemapper` command line interface.
 
 mod adapter_check;
@@ -32,8 +34,9 @@ use freemapper::places::{find_places, place_area};
 use freemapper::project::{
     MapKind, MapOutcome, OcadOutcome, PdfSources, ProjectFile, TrainingOutcome, derive_project,
     export_candidates_pdf_from, export_map_preview_or_warn, export_ocad_from, export_pdf_from,
-    export_starter_project_from, export_training_from, fetch_project, init_project, map_path,
-    parse_contour_interval, set_content, set_contour_interval, starter_documents,
+    export_starter_project_from, export_training_from, export_training_views, fetch_project,
+    init_project, map_path, parse_contour_interval, set_content, set_contour_interval,
+    starter_documents,
 };
 
 use text::{n, text, v};
@@ -108,6 +111,13 @@ enum Commands {
         /// unless you pass --force, and --force also replaces an existing training map.
         #[arg(long)]
         training: bool,
+        /// With --training: also write the training map without what a view leaves out, as
+        /// `<name>-training-<view>.omap` and its PDF (with --ocad also an OCAD file). Views:
+        /// `no-paths` (no roads, paths, stairs), `brown-only` (only brown symbols and the frame),
+        /// `no-north-lines`, or a list `no:<codes>` / `only:<codes>`; combine with `+`. Repeat the
+        /// option for several files
+        #[arg(long = "view", requires = "training")]
+        view: Vec<String>,
         /// Draw the scale bar on the PDFs (off by default, German maps usually have none; the
         /// scale number stays in the title block).
         #[arg(long)]
@@ -172,6 +182,13 @@ enum Commands {
         /// you pass --force.
         #[arg(long)]
         training: bool,
+        /// With --training: also write the training map without what a view leaves out, as
+        /// `<name>-training-<view>.omap` and its PDF (with --ocad also an OCAD file). Views:
+        /// `no-paths` (no roads, paths, stairs), `brown-only` (only brown symbols and the frame),
+        /// `no-north-lines`, or a list `no:<codes>` / `only:<codes>`; combine with `+`. An
+        /// existing view file stays unless you pass --force
+        #[arg(long = "view", requires = "training")]
+        view: Vec<String>,
         /// Draw the scale bar on the PDFs (off by default; the scale number stays in the title block).
         #[arg(long)]
         pdf_scale_bar: bool,
@@ -890,11 +907,14 @@ fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
             pdf,
             pdf_candidates,
             training,
+            view,
             pdf_scale_bar,
             pdf_sources,
             content,
             adapters: _,
         } => {
+            let views =
+                pipeline::parse_views(&view, &crate::text::lang()).map_err(anyhow::Error::msg)?;
             let _lock = lock_folder(&dir)?;
             content.save(&dir)?;
             // Built once for every output of this command (ADR 0091).
@@ -949,6 +969,28 @@ fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
                 for warning in pipeline::training_warnings(&outcome) {
                     report(&warning);
                 }
+                if !views.is_empty() {
+                    for files in export_training_views(
+                        &dir,
+                        &documents,
+                        &views,
+                        force,
+                        pdf_scale_bar,
+                        pdf_sources.into(),
+                        ocad,
+                    )? {
+                        println!(
+                            "{}",
+                            text(
+                                "cli-summary-training-view",
+                                &[
+                                    ("map", v(files.map.display())),
+                                    ("pdf", v(files.pdf.display())),
+                                ],
+                            )
+                        );
+                    }
+                }
             }
         }
         Commands::Fetch {
@@ -990,6 +1032,7 @@ fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
             pdf,
             pdf_candidates,
             training,
+            view,
             pdf_scale_bar,
             pdf_sources,
             permits,
@@ -998,6 +1041,8 @@ fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
             cache,
             adapters: _,
         } => {
+            let training_views =
+                pipeline::parse_views(&view, &crate::text::lang()).map_err(anyhow::Error::msg)?;
             let _lock = lock_folder(&dir)?;
             content.save(&dir)?;
             contours.save(&dir)?;
@@ -1008,6 +1053,7 @@ fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
                 pdf,
                 pdf_candidates,
                 training,
+                training_views,
                 pdf_scale_bar,
                 pdf_sources: pdf_sources.into(),
                 permits,

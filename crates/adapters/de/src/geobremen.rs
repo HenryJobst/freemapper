@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Landesamt GeoInformation Bremen ("GeoBremen") open data (CC BY 4.0), all in EPSG:25832: the
 //! orthophoto from the WMS, whose layers are named by flight year and city; the terrain model
 //! (DGM1) and the surface model (DOM1) of the laser scans, as XYZ text out of one archive per

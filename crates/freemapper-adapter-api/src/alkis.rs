@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! ALKIS buildings and land use: the area they are fetched for, what a source delivers, and
 //! the trait a source implements.
 

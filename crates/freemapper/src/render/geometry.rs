@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Path geometry for rendering (`docs/render/oom-render-reference.md` §2, §7): parts, Bézier
 //! flattening, arc length, dashes, mid-symbol positions and border offsets.
 //!

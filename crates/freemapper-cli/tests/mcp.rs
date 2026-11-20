@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The MCP server spoken to over stdio, as an agent would.
 
 use std::io::{BufRead, BufReader, Read as _, Write};
@@ -180,6 +182,7 @@ fn mcp_lists_the_tools() {
             && start["inputSchema"]["properties"]["pdf"].is_object()
             && start["inputSchema"]["properties"]["pdf_candidates"].is_object()
             && start["inputSchema"]["properties"]["training"].is_object()
+            && start["inputSchema"]["properties"]["training_views"].is_object()
             && start["inputSchema"]["properties"]["pdf_scale_bar"].is_object()
             && start["inputSchema"]["properties"]["pdf_sources"].is_object(),
         "{start}"

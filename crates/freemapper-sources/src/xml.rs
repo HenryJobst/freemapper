@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! What the XML readers share.
 
 /// The character an XML entity reference (`amp`, `#228`, `#xE4`) stands for.

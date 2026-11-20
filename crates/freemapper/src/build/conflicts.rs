@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Where drawn symbols come too close: the yardstick of a readable map.
 //!
 //! Every object is drawn as the renderer draws it (`render/draw.rs`) and becomes its footprint on
@@ -748,7 +750,7 @@ fn measure(loser: &Footprint, winner: &Footprint, gap: f64) -> Option<(Grade, f6
 }
 
 /// The length of the centre line of the line `loser` (mm on paper) in the zones of all `winners`
-/// together, each zone as [`measure`] draws it (the winner's footprint grown by the loser's half
+/// together, each zone as `measure` draws it (the winner's footprint grown by the loser's half
 /// width and the gap, without the discs where the centre lines cross): a stretch near two winners
 /// counts once. Stretches below [`MIN_CONFLICT`] do not count; 0 for areas and points.
 pub fn length_in_zones(

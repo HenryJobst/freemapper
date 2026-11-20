@@ -19,6 +19,8 @@ freemapper-manifest = { path = "crates/freemapper-manifest" }
 freemapper-sources = { path = "crates/freemapper-sources" }
 # Shared crates of the suite, all pinned to one release tag of freemapper-core (ADR 0067), so the
 # lock file holds a single copy of the core workspace.
+# The views of a finished map (core ADR 0039): which symbols a training view keeps.
+freemapper-omap = { git = "https://github.com/HenryJobst/freemapper-core", tag = "v0.31.1" }
 freemapper-fs = { git = "https://github.com/HenryJobst/freemapper-core", tag = "v0.31.1" }
 freemapper-georef = { git = "https://github.com/HenryJobst/freemapper-core", tag = "v0.31.1" }
 freemapper-web = { git = "https://github.com/HenryJobst/freemapper-core", tag = "v0.31.1" }
@@ -67,6 +69,8 @@ serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1.0.154", features = ["float_roundtrip", "raw_value"] }
 sha2 = "0.11.1"
 tempfile = "3.27.0"
+# Tests only: property tests for the readers of untrusted bytes (ADR 0161).
+proptest = { version = "1.7.0", default-features = false, features = ["std"] }
 thiserror = "2.0.21"
 tiff = "0.11.3"
 # The raster backend of the map preview (pure Rust, BSD-3-Clause); no PNG support needed.

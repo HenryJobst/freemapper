@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Permit sources of the states that need no code of their own (ADR 0130): WFS 2.0 services
 //! that answer GeoJSON, read by a table of their layers. Each layer says which attributes give
 //! the name, the zone or the office of a finding; the fetch keeps those attributes and nothing

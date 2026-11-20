@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The adapters a program knows, in the order the region functions go through them.
 
 use std::collections::BTreeMap;

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The region adapters built into freemapper and the registry the engine asks (ADR 0082).
 //!
 //! The registry is a type of `freemapper-adapter-api` and knows no adapter. This module fills it
@@ -669,7 +671,7 @@ mod tests {
         use freemapper_adapter_api::info::{Country, Coverage};
         for adapter in builtin().adapters() {
             let info = adapter.info();
-            // Poland has the OSM extracts only so far (ADR 0161); every German state has rasters.
+            // Poland has the OSM extracts only so far (ADR 0163); every German state has rasters.
             let (country, coverage) = if info.id.as_str() == "polska" {
                 (Country::Pl, Coverage::OsmOnly)
             } else {

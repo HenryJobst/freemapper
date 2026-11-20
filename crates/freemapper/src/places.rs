@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Place search: find the map area by name or OSM id (Nominatim; spec §4.1 allows it for a single
 //! element). Data © OpenStreetMap contributors, ODbL.
 

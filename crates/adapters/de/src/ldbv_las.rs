@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The laser point clouds of the Bayerische Vermessungsverwaltung (CC BY 4.0): one LAZ file per
 //! km tile in EPSG:25832 under an address that follows from the tile (ADR 0128). No list names
 //! the tiles, so a tile is kept like Bavaria's other files ([`crate::ldbv_files`]): named by the

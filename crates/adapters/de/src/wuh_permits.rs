@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! North Rhine-Westphalia's sources of the permit notes (ADR 0124): the Forstbetriebsbezirke of
 //! the Landesbetrieb Wald und Holz NRW, each with its Regionalforstamt, and the Staatswald, both
 //! as shapefiles on the open data portal of NRW (dl-de/by-2-0).
@@ -6,7 +8,7 @@
 //! `.dbf`, keeps the records whose box meets the map box (EPSG:25832) and turns them into GeoJSON
 //! features as longitude, latitude. Every row of the Forstbetriebsbezirke also names the
 //! forester with first and last name, e-mail, phone and mobile number: a feature keeps only the
-//! fields of [`Layer::kept`], so none of that is stored or reaches the notes.
+//! fields of `Layer::kept`, so none of that is stored or reaches the notes.
 
 use std::path::Path;
 

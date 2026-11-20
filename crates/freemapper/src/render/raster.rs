@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Drawing primitives as a raster image: the map preview next to the map file (`tiny-skia`, pure
 //! Rust). The same primitives and the same painting order as [`super::pdf`], in sRGB on white.
 //! Texts are left out: there is no font here, and the map part holds no text objects.

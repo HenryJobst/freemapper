@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The OOM symbol definitions as far as the renderer needs them (`docs/render/oom-render-reference.md`).
 //!
 //! Lengths stay in OOM units (0.001 mm); colours are indices = priorities.

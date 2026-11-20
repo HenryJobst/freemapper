@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! A small OCD 12 reader for tests: walks the index chains and decodes what the builder writes.
 
 use super::file::{OBJECT_BLOCK_SIZE, STRING_BLOCK_SIZE, SYMBOL_BLOCK_SIZE};

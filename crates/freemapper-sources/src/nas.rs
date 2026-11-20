@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The full ALKIS from the states' NAS WFS (NAS-konform, GML 3.2 only, AdV namespace `adv:`):
 //! surveyed walls, fences, hedges, embankment edges, bridges and monuments for candidates.
 //!
@@ -281,7 +283,7 @@ const FOREST_ROAD_CLASSES: [ForestRoadClass; 5] = [
 
 /// The features of a GeoJSON answer of the forest road network (ADR 0155) as
 /// [`parse_nas_gml`] gives them: `nas_type` and the codes from the road class
-/// ([`FOREST_ROAD_CLASSES`]), `oid` and `id` from `GmlID`. A road of another class is left out
+/// (`FOREST_ROAD_CLASSES`), `oid` and `id` from `GmlID`. A road of another class is left out
 /// and still counts as returned, because the cap of the service is on the answer.
 pub fn parse_forest_roads(text: &str) -> Result<NasAnswer, AlkisError> {
     let answer: Value = serde_json::from_str(text).map_err(|e| {

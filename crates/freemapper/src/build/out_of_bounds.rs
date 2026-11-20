@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Private land (ALKIS land use) → 520 out-of-bounds candidates (spec §4.5).
 
 use geo::{Area as _, BooleanOps as _, Length as _};

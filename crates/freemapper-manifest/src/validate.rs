@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The validator: from the tables as parsed to a checked [`Manifest`], or to the findings.
 //!
 //! Every value is checked against a closed list, a range or a pattern, and every URL against

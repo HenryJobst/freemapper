@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Duplicate candidates of several sources (ADR 0047, 0051, 0055): the same wall, tree or lamp
 //! from the cadastre, a register, the survey and OSM is kept once. The rank comes from
 //! `freemapper:source`: register > ALKIS > survey > OSM > landscape model ([`Rank`]). The source that loses is
@@ -55,14 +57,14 @@ pub fn rank(object: &MapObject) -> Option<Rank> {
 /// The source of the objects of a landscape model starts with this.
 const LANDSCAPE_SOURCE: &str = "atkis-dlm/";
 /// A point of a landscape model this close to a point of a higher rank with the same symbol is
-/// the same object; a line of one with [`LINE_DEDUP_SHARE`] of its length this close to such a
+/// the same object; a line of one with `LINE_DEDUP_SHARE` of its length this close to such a
 /// line too. Wider than the cadastre's distances: both sides are only a few metres accurate.
 const LANDSCAPE_POINT_DEDUP_M: f64 = 15.0;
 const LANDSCAPE_LINE_DEDUP_M: f64 = 10.0;
 
 /// A tree candidate this close to one of a higher rank is the same tree and is dropped.
 const TREE_DEDUP_M: f64 = 2.0;
-/// A line candidate with at least this share of its length within [`LINE_DEDUP_M`] of a line of a
+/// A line candidate with at least this share of its length within `LINE_DEDUP_M` of a line of a
 /// higher rank with the same symbol is the same object and is dropped.
 const LINE_DEDUP_SHARE: f64 = 0.8;
 const LINE_DEDUP_M: f64 = 1.5;
@@ -79,8 +81,8 @@ const TREE_CODES: [&str; 2] = ["417", "418"];
 /// The tower symbols (high tower, small tower).
 const TOWER_CODES: [&str; 2] = ["524", "525"];
 
-/// Drops the survey lines ([`LINE_DEDUP_CODES`]: `sb-mauer`, `sb-gelaender`) with at least
-/// [`LINE_DEDUP_SHARE`] of their length within [`LINE_DEDUP_M`] of a `cadastre` line of a higher
+/// Drops the survey lines (`LINE_DEDUP_CODES`: `sb-mauer`, `sb-gelaender`) with at least
+/// `LINE_DEDUP_SHARE` of their length within `LINE_DEDUP_M` of a `cadastre` line of a higher
 /// rank with the same symbol, and the winner names them in `freemapper:also`
 /// (`geoportal-berlin/sb-…/<gis_id>`). Returns the other objects in their order, then the kept
 /// survey objects. No register has lines, so ALKIS lines never lose here. Run
@@ -104,8 +106,8 @@ pub fn drop_cadastre_lines_by_rank(
     others
 }
 
-/// Drops the OSM line candidates ([`LINE_DEDUP_CODES`]) with at least [`LINE_DEDUP_SHARE`] of
-/// their length within [`LINE_DEDUP_M`] of a `cadastre` line (ALKIS, NAS or survey) with the same
+/// Drops the OSM line candidates (`LINE_DEDUP_CODES`) with at least `LINE_DEDUP_SHARE` of
+/// their length within `LINE_DEDUP_M` of a `cadastre` line (ALKIS, NAS or survey) with the same
 /// symbol: the cadastre surveyed them. The `cadastre` object nearest to most of the dropped line
 /// names it in `freemapper:also` (`osm/way/…`, several joined by `; `).
 pub fn drop_osm_lines_near_cadastre(
@@ -124,10 +126,10 @@ pub fn drop_osm_lines_near_cadastre(
 }
 
 /// Drops the objects of a landscape model (`landscape`, [`Rank::Landscape`]) that `others` have:
-/// a point within [`LANDSCAPE_POINT_DEDUP_M`] of a point of a higher rank with the same symbol
-/// (the [`TREE_CODES`] count as one: a tree is the same tree whatever size a source gives it;
-/// so do the [`TOWER_CODES`], which OpenStreetMap gives by height and the model by function),
-/// and a line with [`LINE_DEDUP_SHARE`] of its length within [`LANDSCAPE_LINE_DEDUP_M`] of such
+/// a point within `LANDSCAPE_POINT_DEDUP_M` of a point of a higher rank with the same symbol
+/// (the `TREE_CODES` count as one: a tree is the same tree whatever size a source gives it;
+/// so do the `TOWER_CODES`, which OpenStreetMap gives by height and the model by function),
+/// and a line with `LINE_DEDUP_SHARE` of its length within `LANDSCAPE_LINE_DEDUP_M` of such
 /// a line (any line symbol). The object that stays names the dropped one in `freemapper:also`
 /// (`atkis-dlm/<layer>/<id>`). Returns the landscape objects that stay, in their order.
 pub fn drop_landscape_near_others(
@@ -246,7 +248,7 @@ pub(crate) fn add_also(tags: &mut Vec<(String, String)>, also: &str) {
     }
 }
 
-/// Drops the `losers` lines ([`LINE_DEDUP_CODES`]) that follow a line with the same symbol among
+/// Drops the `losers` lines (`LINE_DEDUP_CODES`) that follow a line with the same symbol among
 /// the `winners` for which `is_winner` holds, and names them in that winner's `freemapper:also`.
 fn drop_lines_near(
     losers: Vec<MapObject>,
@@ -411,7 +413,7 @@ fn drop_lines_within(
     kept
 }
 
-/// Drops the tree points (the [`TREE_CODES`] symbols) within [`TREE_DEDUP_M`] of a tree point of
+/// Drops the tree points (the `TREE_CODES` symbols) within `TREE_DEDUP_M` of a tree point of
 /// a higher rank: an OSM `natural=tree` at a register or cadastre tree, a NAS tree at a register
 /// tree. The register knows the crown, so it wins. Everything else stays, in its order. Returns
 /// the OSM and the `cadastre` candidates.
@@ -498,7 +500,7 @@ fn area_may_win(code: &str, object: &MapObject) -> bool {
         })
 }
 
-/// Drops the `candidates` areas ([`AREA_DEDUPS`]: passages, canopies, areas that shall not be
+/// Drops the `candidates` areas (`AREA_DEDUPS`: passages, canopies, areas that shall not be
 /// entered, bridges) of which at least the listed share lies within [`AREA_DEDUP_TOLERANCE_MM`]
 /// of the areas with the same symbol and a higher [`Rank`], among the `candidates` themselves
 /// and the `others` (map objects such as the canopies, other candidates such as the ALKIS land
@@ -718,7 +720,7 @@ const POINT_DEDUPS: [PointDedup; 2] = [
     },
 ];
 
-/// One entry of [`POINT_DEDUPS`] or of a set, as the step uses it.
+/// One entry of `POINT_DEDUPS` or of a set, as the step uses it.
 struct PointRule {
     winner: (&'static str, &'static str),
     winner_code: Option<&'static str>,
@@ -784,12 +786,12 @@ pub(crate) fn tag_holds(value: &str, wanted: &str) -> bool {
 }
 
 /// The registers win over the survey and OSM, and the survey furniture over OSM
-/// ([`POINT_DEDUPS`]): an OSM street lamp within [`OSM_LAMP_DEDUP_M`] or a survey mast within
-/// [`FURNITURE_DEDUP_M`] of a lamp of the lighting cadastre, an OSM or survey fountain (drinking
-/// water) within [`FOUNTAIN_DEDUP`] of a point of the fountain (drinking water) register, an
-/// OSM fountain or well within [`FOUNTAIN_DEDUP`] of a full ALKIS (NAS) one, an OSM fountain,
-/// well or drinking-water point within [`FOUNTAIN_DEDUP`] of the survey one (ADR 0087), and
-/// an OSM hydrant, bench, mast, flag pole or play item within [`FURNITURE_DEDUP_M`] of the
+/// (`POINT_DEDUPS`): an OSM street lamp within `OSM_LAMP_DEDUP_M` or a survey mast within
+/// `FURNITURE_DEDUP_M` of a lamp of the lighting cadastre, an OSM or survey fountain (drinking
+/// water) within `FOUNTAIN_DEDUP` of a point of the fountain (drinking water) register, an
+/// OSM fountain or well within `FOUNTAIN_DEDUP` of a full ALKIS (NAS) one, an OSM fountain,
+/// well or drinking-water point within `FOUNTAIN_DEDUP` of the survey one (ADR 0087), and
+/// an OSM hydrant, bench, mast, flag pole or play item within `FURNITURE_DEDUP_M` of the
 /// survey one are dropped. A line (bench, play item) counts by the middle of its extent. The
 /// winner names each dropped object in `freemapper:also` (`osm/node/1`,
 /// `geoportal-berlin/sb-moebel/<gis_id>`). Returns the OSM and the other (`cadastre`: cadastre,

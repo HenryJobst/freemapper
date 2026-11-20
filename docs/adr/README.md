@@ -195,7 +195,7 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0147](0147-rhineland-palatinate-basis-dlm-in-the-shape-schema.md) | Rhineland-Palatinate: the landscape model in the AdV Shape schema | Accepted | 2026-11-15 |
 | [0148](0148-permit-sources-from-arcgis-rest-services.md) | Permit sources from ArcGIS REST services | Accepted | 2026-11-15 |
 | [0149](0149-hamburg-feinkartierung-a-set-that-brings-its-rules.md) | Hamburg's Feinkartierung, the first set of extra layers that brings its rules | Accepted | 2026-11-15 |
-| [0150](0150-the-training-map-second-half.md) | The training map, second half | Accepted, amends ADR 0140 | 2026-11-15 |
+| [0150](0150-the-training-map-second-half.md) | The training map, second half | Accepted, amends ADR 0140; addendum 2026-11-16 (free line ends) | 2026-11-15 |
 | [0151](0151-ticks-of-closed-and-enclosing-fences.md) | Ticks of closed and enclosing fences | Accepted, amends ADR 0140 | 2026-11-15 |
 | [0152](0152-agpl-3.0-or-later.md) | AGPL-3.0-or-later | Accepted, supersedes ADR 0006 | 2026-11-15 |
 | [0153](0153-narrow-openings-in-walls-and-fences-on-the-training-map.md) | Narrow openings in walls and fences on the training map | Accepted | 2026-11-15 |
@@ -203,4 +203,9 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0155](0155-saarland-forest-roads-and-the-wire-class.md) | Saarland: the forest road network as candidates, and class 14 of the point cloud left out | Accepted | 2026-11-16 |
 | [0156](0156-candidate-layers.md) | The candidates in seven layers | Accepted, amends ADR 0003, 0010 and 0140 | 2026-11-16 |
 | [0157](0157-the-light-level-of-the-base-map.md) | The light level of the base map | Accepted, amends ADR 0126 and 0140 | 2026-11-16 |
-| [0161](0161-poland-national-adapter-osm-first.md) | Poland: one national adapter, OSM first | Accepted, amends ADR 0082 | 2026-11-20 |
+| [0158](0158-fences-along-paved-areas-and-trees-in-forest.md) | Fences along paved areas, and single trees in the forest | Accepted | 2026-11-16 |
+| [0159](0159-housekeeping-gates.md) | The repository checks its own housekeeping | Accepted | 2026-11-19 |
+| [0160](0160-training-views.md) | Training views | Accepted | 2026-11-20 |
+| [0161](0161-mutation-properties-sbom-complexity-nextest.md) | Mutation tests on the diff, property tests, nextest, SBOM and a complexity limit | Accepted | 2026-11-20 |
+| [0162](0162-crate-layers-as-a-gate.md) | The crate layers are a gate | Accepted | 2026-11-20 |
+| [0163](0163-poland-national-adapter-osm-first.md) | Poland: one national adapter, OSM first | Accepted, amends ADR 0082 | 2026-11-20 |

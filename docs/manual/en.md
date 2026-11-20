@@ -1003,10 +1003,17 @@ What the training map does differently from the map, step by step:
    way. Two short pieces do not keep each other. A stair too short to draw between two ways is drawn as the way
    (it carries `freemapper:generalized`); one at a dead end goes.
 
+   A short way piece that linked ways before step 5 stays as long as those ways stay, also where step 6 or 8 moved
+   its ends off them; a small ring stays when it links two ways.
+
    Last, a line end that touched a line before step 5 and lost it in step 8 or 9 is drawn onto what is left of that
-   line, when that lies within 0.5 mm plus the gap. Where nothing is left in reach, the end stays free and the
-   summary line counts it: `3 line ends left free`. Where two lines lay on each other and one was cut for the
-   other, the gap is meant and nothing is drawn back.
+   line, when that lies within 0.5 mm plus the gap and the moved line keeps its gap to everything it keeps apart
+   from. A path that ended on a sidewalk that went beside a road is drawn onto the road, from as far as the sidewalk
+   lay. Where nothing is left in reach, the end stays free and the summary line counts it: `Line ends left free: 1
+   where a way met another way, 2 at other lines`. The first number counts ends of ways that met another way; each
+   is a break in the way network. The second counts the rest, mostly ends on a fence, ditch or earth bank that gave
+   way to a third object. Where two lines lay on each other and one was cut for the other, the gap is meant and
+   nothing is drawn back.
 
 On forest and sprint maps the training map also generalizes the cliffs more than the map (chapter 7).
 
@@ -1026,6 +1033,24 @@ is in the base map and the candidates, true to position. To write only the train
 `<name>-training.omap` (with `--ocad` also `ocad/<name>-training.ocd`) and call `run --training` without `--force`;
 the PDF is written again with it. `--force` replaces the base map as well. The uncertain objects of the training map
 come from the candidates; check the course in the terrain before an event, best with the check print.
+
+### Views of the training map
+
+For forms of training freemapper leaves something out of the finished training map: `freemapper run --training --view
+<view>` (or `export`) writes `<name>-training-<view>.omap` and its PDF beside the full map, with `--ocad` also
+`ocad/<name>-training-<view>.ocd`. The map is not computed again, the view is a selection from it. The training map
+itself stays as it is.
+
+| View | What stays |
+|---|---|
+| `no-paths` | everything but roads, paths and stairs (502 to 507, 501.6 to 501.8, 532), for Ultimate maps in the forest |
+| `brown-only` | only brown symbols (contours, banks, knolls, depressions, pits), for contour orienteering; the north lines go |
+| `no-north-lines` | everything but the north lines |
+
+`--view no:505,506` leaves symbols out by code, `--view only:101,102` keeps only these; `+` combines views
+(`no-paths+no-north-lines`), and the option can be repeated. The frame (title, scale, sources) and the base fill
+always stay. A run keeps existing view files unless you pass `--force`. The MCP tool `start_pipeline` takes the same
+views as `training_views`. On the area page they appear under the "Training map" box as three more boxes and a field for a view of your own; "Without paths" and "Brown only" can be chosen on forest maps only. freemapper-print applies the same views to any `.omap` (`--view`) when you only want to print.
 
 ## 11. OCAD
 

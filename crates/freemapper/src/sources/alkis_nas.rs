@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Full ALKIS from a NAS service. The reader moved to `freemapper-sources` as `nas` (ADR 0082);
 //! this module keeps the old paths working and holds what picks a service by state.
 

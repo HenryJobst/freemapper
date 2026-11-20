@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The light level: the base map is cleaned lightly, and nothing on it moves (spec 2026-11-14,
 //! Part 2, "The light level"; ADR 0157).
 //!
@@ -15,7 +17,7 @@
 //!    what stays of it must reach its minimum length. A gap conflict without overlap stays: both
 //!    objects can still be told apart. Points and areas stay, and so do the pairs of one network
 //!    ([`Relation::Joined`]);
-//! 3. what is below the norm's minimum size leaves ([`too_small`]).
+//! 3. what is below the norm's minimum size leaves (`too_small`).
 //!
 //! What leaves carries `freemapper:generalized` with the reason and no `freemapper:hidden`. No
 //! vertex of what stays moves: a cut line keeps its own vertices and gets new ones only at the
@@ -563,7 +565,7 @@ fn stretch(
 
 /// Step 3: the lines of the classes of the measure (not the others, so the north lines and the
 /// borders of paved areas stay) and the areas with a minimum size that are below it leave
-/// ([`too_small`]). A stairway below its minimum stays where both its ends continue on a way
+/// (`too_small`). A stairway below its minimum stays where both its ends continue on a way
 /// that stays: on the base map it stays a stairway. Returns how many left.
 fn leave_too_small(
     map: &mut Vec<MapObject>,
@@ -574,7 +576,7 @@ fn leave_too_small(
     symbol_set: &SymbolSet,
 ) -> usize {
     let considered = |o: &MapObject| classes.class(o.symbol_id) != Class::Other;
-    let TooSmall { gone, .. } = too_small(map, classes, kind, georef, symbol_set, &considered);
+    let TooSmall { gone, .. } = too_small(map, classes, kind, georef, symbol_set, &considered, &[]);
     let mut n = 0;
     let before = std::mem::take(map);
     for (object, gone) in before.into_iter().zip(gone) {

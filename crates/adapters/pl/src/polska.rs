@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The adapter `polska`: Poland as one region. Its boundary is the state border of OpenStreetMap
 //! (relation 49715, ODbL, simplified to about 40 m). The boundaries of its OSM extracts are the
 //! clipping polygons Geofabrik publishes (from `index-v1.json`); they reach past the border and

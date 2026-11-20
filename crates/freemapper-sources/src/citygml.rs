@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The buildings of a CityGML 1.0 file (the LoD2 tiles of the AdV profile), read as a stream:
 //! of each building its outline at ground level, its ids, its function and the date of the
 //! outline. Walls and roofs are passed over; a file is never held in memory as a whole.

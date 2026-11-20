@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Administrative units of the BKG (Verwaltungsgebiete 1:250 000, VG250): Land, Kreis,
 //! Verwaltungsgemeinschaft and Gemeinde, read by a box in WGS 84.
 //!

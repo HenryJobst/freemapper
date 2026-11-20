@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The monuments of Schleswig-Holstein (ADR 0145): the Landesamt für Denkmalpflege publishes its
 //! list of monuments only as one GeoJSON file for the whole state (about 52 MB, EPSG:25832, a new
 //! one each week, CC BY 4.0). The file is kept in the shared download cache as the statewide

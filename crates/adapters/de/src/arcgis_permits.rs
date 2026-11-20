@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Permit sources from ArcGIS REST map services (ADR 0148): a layer's `query` asked by a box in
 //! WGS 84, answered as GeoJSON in WGS 84, page by page while the service says more follow
 //! (`exceededTransferLimit`). The BfG's water protection areas (ADR 0142) are read so; a table

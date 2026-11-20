@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Symbol sets: symbols copied verbatim from OOM symbol set files, colours in the CMYK of IOF
 //! "Printing and Colour Definitions" Rev. 4 (see `assets/symbol-sets/README.md`).
 

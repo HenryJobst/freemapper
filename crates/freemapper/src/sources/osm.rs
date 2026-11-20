@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! OpenStreetMap data (ODbL) from the Geofabrik extracts: one per state, and one per government
 //! district (Regierungsbezirk) in North Rhine-Westphalia.
 
@@ -692,7 +694,7 @@ pub(crate) fn cached_extracts(cache: &Cache, source: &ExtractRef) -> Vec<Extract
 
 /// Makes the extract of `source` available in `cache`. Online, the state is checked on every
 /// call and the extract (a few hundred MB) downloaded only when the cached one is more than
-/// [`MAX_EXTRACT_AGE_DAYS`] older; offline, the newest cached extract is used.
+/// `MAX_EXTRACT_AGE_DAYS` older; offline, the newest cached extract is used.
 pub fn fetch_extract(
     fetcher: &dyn Fetcher,
     cache: &Cache,

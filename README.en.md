@@ -2,6 +2,11 @@
 
 [Website](https://freemapper.de/en/) · [Deutsche Version](README.md) · [User manual](docs/manual/en.md) · [Glossary](docs/glossary.md) · [Changes](CHANGELOG.en.md) · [Examples](examples/README.en.md)
 
+
+<!-- badges:start -->
+[![Line coverage](https://img.shields.io/badge/Coverage-95.9%25-brightgreen)](docs/coverage.json) [![MSRV](https://img.shields.io/badge/MSRV-1.88-blue)](Cargo.toml) [![ADRs](https://img.shields.io/badge/ADRs-163-blue)](docs/adr/README.md) [![Hygiene](https://img.shields.io/badge/Hygiene-17-brightgreen)](scripts/check.sh) [![License](https://img.shields.io/badge/License-AGPL--3.0--or--later-blue)](LICENSE)
+<!-- badges:end -->
+
 <!-- claude-cost:start -->
 [![AI effort (Claude API): $3,761](https://img.shields.io/badge/AI%20effort%20%28Claude%20API%29-%243%2C761-8A2BE2)](docs/ai-cost/history.csv)
 <!-- claude-cost:end -->

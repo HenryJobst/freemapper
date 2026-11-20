@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Orthophoto template: DOP20 tiles (or one WMS image) mosaicked and clipped to the map area.
 
 use freemapper_adapters_de::lgb::ProductTiles as _;

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! GeoSN Saxony open data (dl-de/by-2-0, source note "GeoSN"): 2 km tiles of the terrain and
 //! surface models, their currency and download links from the ArcGIS tile index.
 

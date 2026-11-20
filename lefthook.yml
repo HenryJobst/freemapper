@@ -4,3 +4,13 @@ pre-commit:
       run: cargo fmt --all --check
     clippy:
       run: cargo clippy --workspace --all-targets -- -D warnings
+    # The gates that need no build (ADR 0159). The tools come from `cargo install` or a release
+    # archive; CI installs the pinned versions. The history scan is long here, so it waits for a
+    # push.
+    gates:
+      run: scripts/check.sh spdx typos links machete actions adr changelog badges sbom architecture
+
+pre-push:
+  commands:
+    secrets:
+      run: scripts/check.sh secrets

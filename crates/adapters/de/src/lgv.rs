@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! LGV Hamburg open data (dl-de/by-2-0, "Freie und Hansestadt Hamburg, Landesbetrieb
 //! Geoinformation und Vermessung (LGV)"), all in EPSG:25832: ALKIS from the OGC API with its
 //! ASCII spellings normalised to the LGB ones.

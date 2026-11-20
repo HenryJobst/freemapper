@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! `[orthophoto]`, `[terrain]` and `[surface]` of a manifest that are standard services: the
 //! services of the readers, and the raster backend that fetches them for a map area.
 

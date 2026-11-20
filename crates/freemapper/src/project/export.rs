@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The documents of a project and the files written from them: the starter project (map and
 //! candidate layers, ADR 0156), the OCAD files and the PDFs (ADR 0091: built once per command).
 //!
@@ -13,6 +15,7 @@ use crate::build::landforms::Landforms;
 use crate::build::ticks::read_terrain;
 use crate::build::training::train;
 use crate::build::vegetation::Vegetation;
+use freemapper_omap::{SymbolColours, View};
 
 /// The stored ALKIS buildings, read once per export: parsed, and the raw features (the Berlin
 /// building parts are picked from these).
@@ -788,6 +791,56 @@ pub struct TrainingOutcome {
     pub warnings: Vec<Note>,
 }
 
+/// The training map as a document, the report of its level and the warnings: what [`export_training_from`] and
+/// [`export_training_views`] write from.
+fn build_training(
+    dir: &Path,
+    project: &ProjectFile,
+    documents: &StarterDocuments,
+) -> (MapDocument, TrainingReport, Vec<Note>) {
+    let kind = project.map_kind;
+    let (georef, symbol_set) = (&documents.map.georef, &documents.map.symbol_set);
+    // The map's own objects before the light level, the visible candidates and the hidden
+    // carriageways (`build::training::TrainingInput`); the walkable area and the sheet stay as
+    // they are.
+    let input: Vec<&MapObject> = documents.training.objects().collect();
+    // The rock of a forest or sprint map is generalized more than on the map (ADR 0126): the
+    // training map is printed as it is and must stay readable; the candidates keep every cliff.
+    let objects = if matches!(kind, MapKind::Forest | MapKind::Sprint) {
+        training_rock(dir, kind, &input, documents)
+    } else {
+        input.into_iter().cloned().collect()
+    };
+    let tree_cover = read_float_raster(&dir.join(TREE_COVER_RELPATH)).ok();
+    let mut warnings = Vec::new();
+    // A derive of an older freemapper wrote the nDSM but no tree cover: the parks stay whole.
+    if tree_cover.is_none() && dir.join(NDSM_RELPATH).exists() {
+        warnings.push(note!("warning-training-no-tree-cover"));
+    }
+    let (trained, report) = train(objects, tree_cover.as_ref(), kind, georef, symbol_set);
+    let part = |name: &'static str| documents.map.parts.iter().filter(move |p| p.name == name);
+    let mut parts: Vec<MapPart> = part(BASE_PART).cloned().collect();
+    parts.push(MapPart {
+        name: "default part".to_string(),
+        objects: trained,
+    });
+    parts.extend(part(SHEET_PART).cloned());
+    let training = MapDocument {
+        notes: documents.map.notes.clone(),
+        georef: georef.clone(),
+        symbol_set: symbol_set.clone(),
+        parts,
+        templates: documents
+            .map
+            .templates
+            .iter()
+            .filter(|t| t.kind != TemplateKind::Map)
+            .cloned()
+            .collect(),
+    };
+    (training, report, warnings)
+}
+
 /// Writes the training map, its PDF and, with `ocad`, `ocad/<stem>-training.ocd`. An existing
 /// training map is kept unless `force` (then `<stem>-training.omap.bak`).
 ///
@@ -836,46 +889,7 @@ pub fn export_training_from(
         check_folders(dir, &[OCAD_DIR])?;
     }
     let kind = project.map_kind;
-    let (georef, symbol_set) = (&documents.map.georef, &documents.map.symbol_set);
-    // The map's own objects before the light level, the visible candidates and the hidden
-    // carriageways (`build::training::TrainingInput`); the walkable area and the sheet stay as
-    // they are.
-    let input: Vec<&MapObject> = documents.training.objects().collect();
-    // The rock of a forest or sprint map is generalized more than on the map (ADR 0126): the
-    // training map is printed as it is and must stay readable; the candidates keep every cliff.
-    let objects = if matches!(kind, MapKind::Forest | MapKind::Sprint) {
-        training_rock(dir, kind, &input, documents)
-    } else {
-        input.into_iter().cloned().collect()
-    };
-    let tree_cover = read_float_raster(&dir.join(TREE_COVER_RELPATH)).ok();
-    let mut warnings = Vec::new();
-    // A derive of an older freemapper wrote the nDSM but no tree cover: the parks stay whole.
-    if tree_cover.is_none() && dir.join(NDSM_RELPATH).exists() {
-        warnings.push(note!("warning-training-no-tree-cover"));
-    }
-    let (trained, report) = train(objects, tree_cover.as_ref(), kind, georef, symbol_set);
-    let part = |name: &'static str| documents.map.parts.iter().filter(move |p| p.name == name);
-    let mut parts: Vec<MapPart> = part(BASE_PART).cloned().collect();
-    parts.push(MapPart {
-        name: "default part".to_string(),
-        objects: trained,
-    });
-    parts.extend(part(SHEET_PART).cloned());
-    let training = MapDocument {
-        notes: documents.map.notes.clone(),
-        georef: georef.clone(),
-        symbol_set: symbol_set.clone(),
-        parts,
-        templates: documents
-            .map
-            .templates
-            .iter()
-            .filter(|t| t.kind != TemplateKind::Map)
-            .cloned()
-            .collect(),
-    };
-
+    let (training, report, mut warnings) = build_training(dir, &project, documents);
     // Every file is built before the first is written.
     let map_bytes = document_bytes(&training)?;
     let drawn: Vec<&MapObject> = training
@@ -917,6 +931,134 @@ pub fn export_training_from(
         report,
         warnings,
     })
+}
+
+/// The files of one view of the training map: [`training_view_paths`].
+#[derive(Debug, Clone, PartialEq)]
+pub struct TrainingViewFiles {
+    pub map: PathBuf,
+    pub pdf: PathBuf,
+    /// `ocad/<name>-training-<view>.ocd`, when OCAD output was asked for.
+    pub ocad: Option<PathBuf>,
+}
+
+/// `<name>-training-<view>.omap` and `.pdf`, with `ocad` also `ocad/<name>-training-<view>.ocd`; the view
+/// as its file token (freemapper-core ADR 0039).
+pub fn training_view_paths(dir: &Path, view: &View, ocad: bool) -> TrainingViewFiles {
+    let token = view.file_token();
+    TrainingViewFiles {
+        map: beside_map(dir, &format!("-training-{token}.omap")),
+        pdf: beside_map(dir, &format!("-training-{token}.pdf")),
+        ocad: ocad.then(|| {
+            dir.join(OCAD_DIR)
+                .join(format!("{}-training-{token}.ocd", ocad_name(dir)))
+        }),
+    }
+}
+
+/// The training map without what `view` leaves out. The frame (the sheet part, the part "peripheral
+/// information", the objects tagged as sheet) and the base part (the walkable-area fill, as in
+/// freemapper-print) stay; the objects of the other parts stay when the view keeps
+/// their symbol. The templates stay as they are.
+fn training_view(training: &MapDocument, view: &View) -> MapDocument {
+    let colours = SymbolColours::from_xml(
+        &training.symbol_set.colors_xml,
+        &training.symbol_set.symbols_xml,
+    );
+    let parts = training
+        .parts
+        .iter()
+        .map(|part| MapPart {
+            name: part.name.clone(),
+            objects: part
+                .objects
+                .iter()
+                .filter(|o| {
+                    part.name == SHEET_PART
+                        || part.name == BASE_PART
+                        || View::keeps_frame(&part.name, &o.tags)
+                        || training
+                            .symbol_set
+                            .code_for_id(o.symbol_id)
+                            .is_some_and(|code| colours.keeps(view, code))
+                })
+                .cloned()
+                .collect(),
+        })
+        .collect();
+    MapDocument {
+        parts,
+        ..training.clone()
+    }
+}
+
+/// Writes one file set per view of `views` beside the training map (`<name>-training-<view>.omap`, its PDF and,
+/// with `ocad`, its OCAD file), cut from the training map built now; the training map itself is not touched. An
+/// existing file of a view is kept unless `force` (then `.bak`).
+pub fn export_training_views(
+    dir: &Path,
+    documents: &StarterDocuments,
+    views: &[View],
+    force: bool,
+    scale_bar: bool,
+    sources: PdfSources,
+    ocad: bool,
+) -> Result<Vec<TrainingViewFiles>, ProjectError> {
+    let project = ProjectFile::load(dir)?;
+    let kind = project.map_kind;
+    let planned: Vec<(&View, TrainingViewFiles)> = views
+        .iter()
+        .map(|v| (v, training_view_paths(dir, v, ocad)))
+        .collect();
+    if !force
+        && let Some(path) = planned
+            .iter()
+            .flat_map(|(_, f)| std::iter::once(&f.map).chain(&f.ocad))
+            .find(|path| path.exists())
+    {
+        return Err(ProjectError::MapExists(path.clone()));
+    }
+    if ocad {
+        check_folders(dir, &[OCAD_DIR])?;
+    }
+    let (training, _, _) = build_training(dir, &project, documents);
+    let ocad_dir = dir.join(OCAD_DIR);
+    let mut written = Vec::new();
+    for (view, files) in planned {
+        let document = training_view(&training, view);
+        let map_bytes = document_bytes(&document)?;
+        let drawn: Vec<&MapObject> = document
+            .parts
+            .iter()
+            .filter(|p| p.name != SHEET_PART)
+            .flat_map(|p| &p.objects)
+            .collect();
+        let pdf_bytes = pdf_bytes(dir, &project, documents, &drawn, scale_bar, sources)?;
+        let ocad_file = match &files.ocad {
+            Some(path) => {
+                let backgrounds = plan_backgrounds(dir, &ocad_dir, &document.templates)?;
+                let (bytes, _) = map_to_ocd(&document, kind, &backgrounds.backgrounds)?;
+                Some((path, bytes, backgrounds))
+            }
+            None => None,
+        };
+        if files.map.exists() {
+            back_up(dir, &files.map, &files.map.with_extension("omap.bak"))?;
+        }
+        write_inside(dir, &files.map, &map_bytes)?;
+        write_inside(dir, &files.pdf, &pdf_bytes)?;
+        if let Some((path, bytes, backgrounds)) = ocad_file {
+            std::fs::create_dir_all(&ocad_dir)
+                .map_err(|e| ProjectError::Io(ocad_dir.clone(), e))?;
+            if path.exists() {
+                back_up(dir, path, &path.with_extension("ocd.bak"))?;
+            }
+            write_inside(dir, path, &bytes)?;
+            backgrounds.copy(dir)?;
+        }
+        written.push(files);
+    }
+    Ok(written)
 }
 
 pub(super) fn write_pdf_file(
@@ -1183,7 +1325,7 @@ fn forget_map_preview(dir: &Path) -> Result<(), ProjectError> {
 }
 
 /// The record of the preview in `dir`; none when there is none, it does not read, or it is not a
-/// file of the project folder ([`read_inside`]).
+/// file of the project folder (`read_inside`).
 pub fn read_map_preview_record(dir: &Path) -> Option<MapPreviewRecord> {
     let bytes = read_inside(dir, &dir.join(MAP_PREVIEW_RECORD_RELPATH))?;
     serde_json::from_slice(&bytes).ok()

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! ALKIS traffic areas → 501.5 paved areas of the sprint map (spec §4.5).
 //!
 //! In Berlin the Straßenbefahrung (street survey 2014–2016, Berlin plus 2) refines them: its
@@ -256,10 +258,10 @@ fn survey_areas(
 
 /// 501.5 objects for the traffic areas of `land_use`, clipped to `clip` (map area plus buffer,
 /// the map's CRS). A street parcel crossed by one of `unpaved_streets` (same CRS) is a candidate.
-/// The `survey` green strips are cut out of the map objects ([`subtract_green`]) and are 401
+/// The `survey` green strips are cut out of the map objects (`subtract_green`) and are 401
 /// candidates where no 501.5 object or candidate stays; its paved surfaces outside the parcels are 501.5 candidates
-/// ([`surveyed_paved_candidates`]), its carriageways inside the street parcels hidden 501.11
-/// candidates ([`carriageway_candidates`]).
+/// (`surveyed_paved_candidates`), its carriageways inside the street parcels hidden 501.11
+/// candidates (`carriageway_candidates`).
 pub fn paved_area_objects(
     land_use: &[LandUse],
     unpaved_streets: &[LineString<f64>],

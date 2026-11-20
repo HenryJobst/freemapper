@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Map objects → drawing primitives tagged with a colour priority (`docs/render/oom-render-reference.md`).
 //!
 //! Paper millimetres with y down.

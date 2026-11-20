@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The parser and validator of the adapter manifest against the sample manifests of the design
 //! and against manifests with one defect each.
 

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Progress lines and warnings as values (ADR 0092, stage 3).
 //!
 //! The engine reports what it does through a callback. It hands over a [`Note`]: a message id

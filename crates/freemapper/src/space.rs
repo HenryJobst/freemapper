@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Disk space: how much the volumes freemapper writes to have free, and which parts of a fetch
 //! fit there while a reserve stays free.
 

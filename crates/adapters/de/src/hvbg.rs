@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! HVBG Hesse open data (dl-de/zero-2-0, "Hessische Verwaltung für Bodenmanagement und
 //! Geoinformation"), all in EPSG:25832: the DGM1 and DOM1 1 km tiles read by byte ranges out of
 //! the Downloadcenter's municipal zips, found through the DGM/DOM metadata list.

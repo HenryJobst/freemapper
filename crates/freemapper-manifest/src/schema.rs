@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The tables and keys of format 1 as the TOML parser reads them: every table refuses a key it
 //! does not know, and every value keeps its place in the file for the findings of the
 //! validator. Which keys belong to which `kind` is the validator's part.

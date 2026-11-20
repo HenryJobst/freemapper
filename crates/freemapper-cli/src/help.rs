@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! `--help` and the parse errors in the language of the run (ADR 0092, stage 4).
 //!
 //! The doc comments of the derive stay the English help; the catalog holds the same text under

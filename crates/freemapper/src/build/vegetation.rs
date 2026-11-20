@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Vegetation from the point clouds stops at the areas that shall not be entered (ADR 0105).
 //!
 //! ISSprOM 4.5, 520: an area that shall not be entered is olive green and shows no vegetation.

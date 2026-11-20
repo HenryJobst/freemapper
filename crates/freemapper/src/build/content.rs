@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! What goes straight onto the map and what stays a candidate (ADR 0100).
 //!
 //! The build puts every object on the map or among the candidates by the rule that made it

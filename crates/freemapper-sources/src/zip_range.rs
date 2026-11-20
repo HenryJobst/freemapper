@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Reading single members out of huge zip archives by HTTP byte ranges (the central directory
 //! from the archive's end, then one member's local header and data), for the statewide
 //! Hamburg archive and the Hessian municipal ones, and for the Berlin laser archives (zip64,
@@ -649,6 +651,38 @@ mod tests {
         assert!(err.to_string().contains("bytes"), "{err}");
     }
 
+    /// One central directory entry with the three variable fields, everything else zero.
+    fn entry(name: &str, extra: &[u8], comment: &[u8]) -> Vec<u8> {
+        let mut bytes = vec![0; 46];
+        bytes[..4].copy_from_slice(&[0x50, 0x4b, 0x01, 0x02]);
+        bytes[28..30].copy_from_slice(&(name.len() as u16).to_le_bytes());
+        bytes[30..32].copy_from_slice(&(extra.len() as u16).to_le_bytes());
+        bytes[32..34].copy_from_slice(&(comment.len() as u16).to_le_bytes());
+        bytes.extend_from_slice(name.as_bytes());
+        bytes.extend_from_slice(extra);
+        bytes.extend_from_slice(comment);
+        bytes
+    }
+
+    #[test]
+    fn an_entry_of_exactly_the_fixed_length_is_read() {
+        let members = parse_directory(&entry("", &[], &[]), 1).unwrap();
+        assert_eq!(members.len(), 1);
+        assert_eq!(members[0].name, "");
+    }
+
+    #[test]
+    fn the_next_entry_starts_after_name_extra_and_comment() {
+        let mut directory = entry("a", &[0x34, 0x12, 0, 0], b"xyz");
+        directory.extend(entry("bc", &[], b"q"));
+        let names: Vec<_> = parse_directory(&directory, 2)
+            .unwrap()
+            .into_iter()
+            .map(|m| m.name)
+            .collect();
+        assert_eq!(names, ["a", "bc"]);
+    }
+
     #[test]
     fn truncated_directory_is_an_error() {
         let zip = archive(&[
@@ -930,5 +964,23 @@ mod tests {
             "x\\dgm1_32_448_5538_1_he.tif"
         );
         assert!(lookup("dgm1_32_449_5538_").is_none());
+    }
+
+    proptest::proptest! {
+        /// The central directory comes from a server: whatever bytes arrive, reading it ends in members or in a
+        /// message, never in a panic, and never yields more members than the end record announced. The bytes start
+        /// with the signature of an entry about half the time, so the reader gets past its first check.
+        #[test]
+        fn a_directory_of_any_bytes_is_read_or_refused(
+            signed in proptest::bool::ANY,
+            body in proptest::collection::vec(proptest::num::u8::ANY, 0..160),
+            count in 0u16..6,
+        ) {
+            let mut bytes = if signed { vec![0x50, 0x4b, 0x01, 0x02] } else { Vec::new() };
+            bytes.extend(body);
+            if let Ok(members) = parse_directory(&bytes, count) {
+                proptest::prop_assert!(members.len() <= usize::from(count));
+            }
+        }
     }
 }

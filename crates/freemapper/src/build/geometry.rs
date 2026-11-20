@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Geometry of map objects that several build modules share.
 
 use crate::omap::{MapCoord, MapObject, MapObjectKind};

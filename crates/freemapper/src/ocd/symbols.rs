@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Colours and placeholder symbols for OCAD, read from the OOM symbol set, and the freemapper code
 //! → OCAD symbol number table.
 //!
@@ -29,7 +31,7 @@ const NUMBERS: [(&str, i32); 11] = [
 
 /// The OCAD number of a freemapper symbol code. OCAD reads the part after the dot as a three-place
 /// decimal ("501.1" = 501.100); the hedge is 411.002 in ISSprOM 2019-2 but 410.002 in the school
-/// set, which follows the first 2019 edition. The exceptions of [`NUMBERS`] belong to the ISSprOM
+/// set, which follows the first 2019 edition. The exceptions of `NUMBERS` belong to the ISSprOM
 /// sets; a forest map's ISOM codes follow the decimal rule.
 pub fn ocad_number(code: &str, kind: MapKind) -> Option<i32> {
     if code == "410.1" && kind == MapKind::Schoolyard {

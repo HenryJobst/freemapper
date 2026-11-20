@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! What is wrong with a manifest, with the place and a stable code.
 
 use std::fmt;

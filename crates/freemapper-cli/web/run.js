@@ -26,6 +26,13 @@ function optionField(root, name) {
   return root.querySelector(`#${RUN_ID_PREFIX}${name.replaceAll("_", "-")}`);
 }
 
+/** The views the form asks for: the ticked presets, then the typed one. */
+function viewsFromForm(root) {
+  const views = [...root.querySelectorAll("#run-views input[type=checkbox]:checked")].map((box) => box.value);
+  const typed = root.querySelector("#run-view-custom").value.trim();
+  return typed ? [...views, typed] : views;
+}
+
 /** The nine options of a run from the form inside `root`; the PDF-only ones are off without a PDF. */
 function optionsFromForm(root) {
   const field = (id) => optionField(root, id);
@@ -38,6 +45,7 @@ function optionsFromForm(root) {
     pdf: field("pdf").checked,
     pdf_candidates: field("pdf-candidates").checked,
     training: field("training").checked,
+    training_views: field("training").checked ? viewsFromForm(root) : [],
     pdf_scale_bar: withPdf && field("pdf-scale-bar").checked,
     pdf_sources: withPdf ? field("pdf-sources").value : "auto",
     permits: field("permits").checked,
@@ -110,6 +118,17 @@ function refresh() {
   $r("run-pdf-scale-bar").disabled = running || !withPdf;
   $r("run-pdf-sources").disabled = running || !withPdf;
   $r("run-pdf-hint").hidden = withPdf;
+  // The views are files beside the training output: they need it ticked.
+  $r("run-views").hidden = !$r("run-training").checked;
+  $r("run-views").disabled = running;
+  // Without paths and brown only make sense on forest maps; the other kinds keep the rest.
+  const forest = document.getElementById("kind").value === "forest";
+  for (const id of ["run-view-no-paths", "run-view-brown-only"]) {
+    const box = $r(id);
+    if (!forest) box.checked = false;
+    box.disabled = running || !forest;
+  }
+  $r("run-views-forest-only").hidden = forest;
   $r("run-sources-warning").hidden = !(withPdf && $r("run-pdf-sources").value === "credit-only");
   for (const id of ["ocad", "pdf", "pdf-candidates", "training", "permits", "offline", "force"]) {
     $r(`${RUN_ID_PREFIX}${id}`).disabled = running;

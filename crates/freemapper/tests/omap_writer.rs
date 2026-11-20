@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 use freemapper::crs::{EPSG_UTM33, LatLon, ProjectedPoint};
 use freemapper::georef::Georeferencing;
 use freemapper::omap::{

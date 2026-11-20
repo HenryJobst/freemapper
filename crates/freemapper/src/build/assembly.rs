@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The map assembly (ADR 0115): the objects of all sources, put together to the map and the
 //! candidates in a fixed order of steps.
 //!
@@ -465,7 +467,7 @@ fn osm(
 }
 
 /// Builds every object of the map `frame` describes from the `stored` data ([`Built`]): draws
-/// the sources, resolves the duplicates between them ([`resolve`]) and puts the lists of the map
+/// the sources, resolves the duplicates between them (`resolve`) and puts the lists of the map
 /// and of the candidates in their order. `saved` are the content settings of the project.
 pub fn build(frame: Frame, stored: Stored, saved: &ContentSettings) -> Result<Built, GeorefError> {
     let map_area = frame.area.projected_polygon_in(frame.georef.crs());
@@ -671,7 +673,7 @@ struct Surroundings {
     pub rock_seen: Option<Raster<f32>>,
 }
 
-/// What the sources drew, before the duplicates between them are resolved ([`resolve`]).
+/// What the sources drew, before the duplicates between them are resolved (`resolve`).
 struct Drawn {
     /// The OSM objects of the candidates rules and of the map rules (the firm-gravel ways).
     pub osm_candidates: Vec<MapObject>,
@@ -691,7 +693,7 @@ struct Drawn {
     pub open_land: OpenLandObjects,
 }
 
-/// What [`resolve`] leaves of the [`Drawn`] objects.
+/// What `resolve` leaves of the [`Drawn`] objects.
 struct Resolved {
     /// The candidates of OSM (first) and of the cadastres, the group areas and the OSM map
     /// objects, after the point generalization.

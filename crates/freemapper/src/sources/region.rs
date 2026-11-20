@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Regions: the states freemapper has data for, and which of them cover an area.
 //!
 //! Every state keeps its own ALKIS service: the LGB service returns no features inside Berlin and
@@ -626,7 +628,7 @@ mod tests {
 
     #[test]
     fn outside_every_region_is_refused() {
-        // Prague (Poland east of Brandenburg is a region since ADR 0161).
+        // Prague (Poland east of Brandenburg is a region since ADR 0163).
         let elsewhere = around_lonlat(50.0755, 14.4378, 300.0);
         assert_eq!(raster_region(&elsewhere), None);
         assert!(regions_for(&elsewhere).is_empty());

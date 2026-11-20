@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Parks, meadows and woods (ALKIS land use) → 401, 403 and 405 areas (ISSprOM 2019-2 §4.4,
 //! ADR 0069), and the walkable area (belaufbare Fläche) under the whole sprint map.
 //!

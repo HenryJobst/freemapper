@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Keeps the program under test away from the configuration of whoever runs the tests.
 
 use std::path::Path;

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Geobasis NRW (`www.opengeodata.nrw.de`, dl-de/zero-2-0, "Geobasisdaten © Geobasis NRW
 //! (Bezirksregierung Köln)"): the DGM1 and DOM1 1 km GeoTIFF tiles (Float32, LZW, EPSG:25832).
 //!

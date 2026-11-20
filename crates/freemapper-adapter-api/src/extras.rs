@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Extra sources a region may have beside rasters and ALKIS vereinfacht: a full ALKIS (NAS)
 //! service and the tree cadastres of its cities, which an adapter names as data (the readers are
 //! in `freemapper-sources`), and sets of layers an adapter fetches with code of its own

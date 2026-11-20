@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! LGL Baden-Württemberg open data (dl-de/by-2-0, "Datenquelle: LGL, www.lgl-bw.de"), all in
 //! EPSG:25832: the orthophoto from the WMS, dated by the flight tiles of a WFS; the terrain
 //! model (DGM1, XYZ text) and the normalised surface model (nDOM1, GeoTIFF) out of the 2 km

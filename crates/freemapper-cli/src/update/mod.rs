@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! The app side of the self-update (spec 3.8): the HTTP source, the app's identity and keys,
 //! whether this build may update itself, the settings folder, the `update` command and the daily
 //! check after network commands. The pure parts live in `freemapper-update`.

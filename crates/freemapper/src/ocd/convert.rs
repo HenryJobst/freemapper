@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! A freemapper map document as an OCAD 12 file (`docs/ocad/ocd12-reference.md`).
 //!
 //! OCAD has no grid scale factor, so every coordinate is re-projected: paper → EPSG:25833 with the

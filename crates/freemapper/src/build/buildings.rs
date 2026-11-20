@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! ALKIS buildings → 521 building objects (spec §4.5).
 
 use geo::{Area as _, Distance as _, Euclidean, Simplify as _};

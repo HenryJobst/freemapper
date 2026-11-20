@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //! Helvetica and Helvetica-Bold advance widths (1/1000 em) for the WinAnsi characters 32–255, the
 //! PDF standard fonts freemapper uses for text (metrically equal to Arial).
 //!
@@ -78,7 +80,7 @@ const CP1252_HIGH: [(char, u8); 27] = [
 ];
 
 /// The Polish letters WinAnsi lacks (`ó` and `Ó` are Latin-1) and the letter each is written
-/// with, which stands for it in the PDF (ADR 0161). The PDF has Helvetica without an embedded
+/// with, which stands for it in the PDF (ADR 0163). The PDF has Helvetica without an embedded
 /// font, so the letters themselves cannot be shown.
 pub(crate) const POLISH_BASE: [(char, u8); 16] = [
     ('ą', b'a'),
@@ -142,7 +144,7 @@ mod tests {
     }
 
     /// Helvetica of the PDF has the WinAnsi letters only; the Polish ones WinAnsi lacks print as the
-    /// letter they are written with (ADR 0161). `ó` and `Ó` are Latin-1 and stay.
+    /// letter they are written with (ADR 0163). `ó` and `Ó` are Latin-1 and stay.
     #[test]
     fn win_ansi_falls_back_to_the_base_letter_for_polish() {
         for (polish, plain) in [
