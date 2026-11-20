@@ -1425,6 +1425,58 @@ mod tests {
     }
 
     #[test]
+    fn forest_rules_from_the_mapper_osm_tables() {
+        let area = |t: &[(&str, &str)]| forest_symbol(t, true);
+        let candidate = |code: &str| Some((code.to_string(), Target::Candidates));
+        assert_eq!(area(&[("natural", "wetland")]), candidate("308"));
+        assert_eq!(
+            area(&[("natural", "wetland"), ("intermittent", "yes")]),
+            candidate("310")
+        );
+        assert_eq!(
+            area(&[("natural", "wetland"), ("foot", "impassable")]),
+            candidate("307.1")
+        );
+        assert_eq!(area(&[("natural", "bare_rock")]), candidate("214"));
+        assert_eq!(area(&[("natural", "dune")]), candidate("213"));
+        assert_eq!(
+            area(&[("natural", "beach"), ("surface", "sand")]),
+            candidate("213")
+        );
+        assert_eq!(area(&[("natural", "beach")]), None);
+        assert_eq!(area(&[("landuse", "orchard")]), candidate("413"));
+        assert_eq!(area(&[("landuse", "vineyard")]), candidate("414"));
+        assert_eq!(
+            forest_symbol(&[("man_made", "cutline")], false),
+            candidate("508")
+        );
+        let node = |t: &[(&str, &str)], kind| {
+            Rules::embedded()
+                .symbol_for(&tags(t), &OsmGeometry::Point(at(0.0, 0.0)), kind)
+                .map(|m| m.code)
+        };
+        for (tag, forest, sprint) in [
+            (("amenity", "hunting_stand"), "525", "525"),
+            (("amenity", "feeding_place"), "527", "527"),
+            (("amenity", "watering_place"), "313", "313"),
+            (("natural", "cave_entrance"), "203.2", "203.1"),
+            (("natural", "stone"), "205", "205"),
+            (("natural", "bush"), "418", "418"),
+        ] {
+            assert_eq!(
+                node(&[tag], MapKind::Forest),
+                Some(forest.into()),
+                "{tag:?}"
+            );
+            assert_eq!(
+                node(&[tag], MapKind::Sprint),
+                Some(sprint.into()),
+                "{tag:?}"
+            );
+        }
+    }
+
+    #[test]
     fn forest_land_cover_is_open_land_heath_and_scrub() {
         let area = |t: &[(&str, &str)]| forest_symbol(t, true);
         let candidate = |code: &str| Some((code.to_string(), Target::Candidates));

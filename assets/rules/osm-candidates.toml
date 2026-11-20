@@ -759,3 +759,104 @@ sprint = "525"
 when = ["man_made=tower|communications_tower|chimney|water_tower|lighthouse"]
 draw = "point"
 sprint = "524"
+
+# Rules from the OSM tables of OpenOrienteering Mapper (`symbol sets/OSM-ISSprOM 2019.crt` and
+# `OSM-ISOM 2017-2.crt`, GPL-3.0-or-later, from osm2xmap by Semyon Yakimov), candidates only: OSM
+# tags these features unevenly, so a person looks at each one on the orthophoto first.
+#
+# Marsh: an impassable one first, then an intermittent one (indistinct marsh), then any other.
+[[rule]]
+when = ["natural=wetland", "foot=impassable"]
+draw = "area"
+sprint = "307.1"
+forest = "307.1"
+
+[[rule]]
+when = ["natural=wetland", "intermittent=yes"]
+draw = "area"
+sprint = "310"
+forest = "310"
+
+[[rule]]
+when = ["natural=wetland"]
+draw = "area"
+sprint = "308"
+forest = "308"
+
+# Hunting stands are small towers (525), feeding places and fodder racks 527, a watering place a
+# prominent water feature (313).
+[[rule]]
+when = ["amenity=hunting_stand"]
+draw = "point"
+sprint = "525"
+forest = "525"
+
+[[rule]]
+when = ["amenity=feeding_place"]
+draw = "point"
+sprint = "527"
+forest = "527"
+
+[[rule]]
+when = ["amenity=watering_place"]
+draw = "point"
+sprint = "313"
+forest = "313"
+
+# A cut line through the forest: narrow ride.
+[[rule]]
+when = ["man_made=cutline"]
+draw = "line"
+sprint = "508"
+forest = "508"
+
+# Rock and sand. ISOM 2017-2 draws a cave with a distinct entrance as 203.2, ISSprOM 2019 as 203.1.
+[[rule]]
+when = ["natural=cave_entrance"]
+draw = "point"
+sprint = "203.1"
+forest = "203.2"
+
+[[rule]]
+when = ["natural=bare_rock"]
+draw = "area"
+sprint = "214"
+forest = "214"
+
+[[rule]]
+when = ["natural=stone"]
+draw = "point"
+sprint = "205"
+forest = "205"
+
+[[rule]]
+when = ["natural=sand|dune"]
+draw = "area"
+sprint = "213"
+forest = "213"
+
+[[rule]]
+when = ["natural=beach", "surface=sand"]
+draw = "area"
+sprint = "213"
+forest = "213"
+
+# Orchards and vineyards.
+[[rule]]
+when = ["landuse=orchard"]
+draw = "area"
+sprint = "413"
+forest = "413"
+
+[[rule]]
+when = ["landuse=vineyard"]
+draw = "area"
+sprint = "414"
+forest = "414"
+
+# A prominent bush.
+[[rule]]
+when = ["natural=bush"]
+draw = "point"
+sprint = "418"
+forest = "418"
