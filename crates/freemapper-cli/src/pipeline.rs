@@ -1027,6 +1027,30 @@ mod tests {
     }
 
     #[test]
+    fn parse_reads_training_views_and_names_a_bad_one() {
+        let request = RunRequest {
+            training: Some(true),
+            training_views: Some(vec!["no-paths".into(), "brown-only+no-north-lines".into()]),
+            ..RunRequest::default()
+        };
+        let options = parse(request, &Lang::english()).unwrap();
+        assert_eq!(options.training_views.len(), 2);
+        assert_eq!(
+            options.training_views[1].to_string(),
+            "brown-only+no-north-lines"
+        );
+        assert!(serde_json::from_str::<RunRequest>(r#"{"training_views":["no-paths"]}"#).is_ok());
+        let bad = RunRequest {
+            training_views: Some(vec!["paths".into()]),
+            ..RunRequest::default()
+        };
+        assert_eq!(
+            parse(bad, &Lang::english()).unwrap_err(),
+            "a view is no-paths, brown-only, no-north-lines, no:<codes> or only:<codes>, not paths"
+        );
+    }
+
+    #[test]
     fn parse_reads_training() {
         let request = RunRequest {
             training: Some(true),
