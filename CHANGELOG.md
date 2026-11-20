@@ -6,7 +6,13 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+### Hinzugefügt
+
+- Polen als Vorschau (ADR 0161): `freemapper init` nimmt ein Gebiet irgendwo in Polen an, und `run` macht die Karte allein aus OpenStreetMap, mit dem Auszug der Woiwodschaft (60 bis 300 MB, für alle Projekte gemeinsam). Höhenlinien, Orthofoto und andere Vorlagen gibt es noch nicht, ebenso keine Gebäude und Nutzung aus dem Kataster; eine Warnung sagt das. Die Karte liegt in der UTM-Zone ihres Mittelpunkts, östlich von 18° O in Zone 34. Die Gebietsseite zeigt das Luftbild von GUGiK. Ein Gebiet, das über eine Grenze in ein anderes Land reicht, wird abgelehnt. Im PDF stehen polnische Buchstaben, die Helvetica nicht hat, als der Buchstabe, mit dem sie geschrieben werden (`ł` als `l`).
+
 ### Geändert
+
+- Die Listen der unterstützten Regionen in Meldungen nennen Polen, und `adapters list` zeigt `polska`.
 
 - Ein Zaun an einer Straße, die als Fläche gezeichnet ist (Kataster, 501.5), hat seine Zacken jetzt auf der Seite, die von der Straße wegzeigt; bisher behielt er die Seite seiner Quelle, wenn keine Straßenlinie neben ihm lag (ADR 0158). Auf der Trainingskarte entfallen einzelne Bäume (417, 418) in einer Waldfläche (405), denn der weiße Wald ist die Bäume; auf offenem Gelände bleiben sie. Karte und Trainingskarte ändern sich nach `export --force`.
 - Hamburg: Ein Poller, eine Bank oder eine Leuchte der Feinkartierung ersetzt den OpenStreetMap-Punkt am selben Ort, wie es die Berliner Befahrung schon tut (ADR 0149): bis 2 m bei Pollern und Bänken, bis 5 m bei Leuchten. Der OSM-Punkt steht dann in `freemapper:also`, und auf der Sprintkarte gibt es an dieser Stelle einen Postenstandort weniger. Der Satz der Feinkartierung behält dafür die Art des Postenstandorts (`hamburg:control`) am Kandidaten. Bestehende Karten ändern sich nach `export --force`.

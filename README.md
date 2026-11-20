@@ -29,6 +29,7 @@ in OOM oder OCAD.
   Geoportal Berlin, GeoSN, LVermGeo, LGV, HVBG, LVermGeo SH, LAiV M-V, Geobasis NRW, LGLN, LVermGeo RP, LVGL, LGL,
   dem Landesamt GeoInformation Bremen und der Bayerischen Vermessungsverwaltung);
   Schulhofkarten 1:1000, Sprintkarten 1:4000 und Waldkarten 1:15 000, 1:10 000 oder 1:7500.
+- Polen (Vorschau): eine Karte irgendwo in Polen allein aus OpenStreetMap, noch ohne Höhenlinien und Orthofoto; das Gebiet muss ganz in Polen liegen.
 - Beispiele: je Bundesland ein fertiges Projekt mit OOM-Karte, OCAD-Ausgangsstand und PDF, siehe
   [Beispiele](#beispiele).
 

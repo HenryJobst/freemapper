@@ -14,8 +14,8 @@ training in a small forest).
 
 Supported states: Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein,
 Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony, Rhineland-Palatinate,
-Saarland, Baden-Württemberg, Bremen and Bavaria. Thuringia has no data sources yet; an area there fails with a message that says so. Tell the
-user before you start if the place lies outside these states.
+Saarland, Baden-Württemberg, Bremen and Bavaria. Thuringia has no data sources yet; an area there fails with a message that says so. Poland is a preview: OpenStreetMap only, no
+contours or orthophoto yet, and the area must lie wholly in Poland. Tell the user before you start if the place lies outside these states.
 
 ## Install
 

@@ -27,6 +27,7 @@ the mapper has to judge. Drawing and field checking stay in OOM or OCAD.
   Geoportal Berlin, GeoSN, LVermGeo, LGV, HVBG, LVermGeo SH, LAiV M-V, Geobasis NRW, LGLN, LVermGeo RP, LVGL, LGL,
   the Landesamt GeoInformation Bremen and the Bayerische Vermessungsverwaltung);
   schoolyard maps 1:1000, sprint maps 1:4000 and forest maps 1:15 000, 1:10 000 or 1:7500.
+- Poland (preview): a map anywhere in Poland from OpenStreetMap alone, with no contours or orthophoto yet; the area must lie wholly in Poland.
 - Examples: one finished project per state with the OOM map, the OCAD starting point and the PDF, see
   [Examples](#examples).
 

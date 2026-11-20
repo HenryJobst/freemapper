@@ -6,7 +6,13 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
+### Added
+
+- Poland as a preview (ADR 0161): `freemapper init` accepts an area anywhere in Poland and `run` makes the map from OpenStreetMap alone, with the extract of the voivodeship (60 to 300 MB, shared by all projects). There are no contours, orthophoto or other templates yet, and no buildings or land use from the cadastre; a warning says so. The map takes the UTM zone of its centre, zone 34 east of 18° E. The area page shows the GUGiK aerial photo. An area that reaches over a border into another country is refused. In the PDF, Polish letters that Helvetica lacks print as the letter they are written with (`ł` as `l`).
+
 ### Changed
+
+- The lists of supported regions in messages name Poland, and `adapters list` shows `polska`.
 
 - A fence along a street drawn as an area (cadastre, 501.5) now has its ticks on the side that points away from the street; before, it kept the side of its source when no road line lay beside it (ADR 0158). The training map drops single trees (417, 418) in a forest area (405), because the white forest is the trees; on open land they stay. The map and the training map change after `export --force`.
 - Hamburg: a bollard, bench or lamp of the Feinkartierung replaces the OpenStreetMap point at the same place, as Berlin's survey already does (ADR 0149): up to 2 m for bollards and benches, up to 5 m for lamps. The OSM point is then named in `freemapper:also`, and a sprint map has one control site fewer there. For that the set of the Feinkartierung keeps the kind of control site (`hamburg:control`) on the candidate. Existing maps change after `export --force`.

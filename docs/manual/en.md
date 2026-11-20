@@ -58,7 +58,7 @@ On request freemapper also writes the **print-ready map as a PDF**, a **check pr
     OSM extract is cached, the update of that extract. It warns for each part it leaves out. Every map
     needs the map data, the terrain model and the orthophoto. If those do not fit, freemapper stops
     before it downloads anything.
-- An area in **Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony, Rhineland-Palatinate, Saarland, Baden-Württemberg, Bremen or Bavaria**. Thuringia is still missing.
+- An area in **Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony, Rhineland-Palatinate, Saarland, Baden-Württemberg, Bremen or Bavaria**. Thuringia is still missing. Poland is a preview: a map there comes from OpenStreetMap alone, without contours, orthophoto or cadastre, and the area must lie wholly in Poland.
 - Optionally an AI assistant such as Claude, so you do not have to type commands.
 
 ## 3. Installation

@@ -203,3 +203,4 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0155](0155-saarland-forest-roads-and-the-wire-class.md) | Saarland: the forest road network as candidates, and class 14 of the point cloud left out | Accepted | 2026-11-16 |
 | [0156](0156-candidate-layers.md) | The candidates in seven layers | Accepted, amends ADR 0003, 0010 and 0140 | 2026-11-16 |
 | [0157](0157-the-light-level-of-the-base-map.md) | The light level of the base map | Accepted, amends ADR 0126 and 0140 | 2026-11-16 |
+| [0161](0161-poland-national-adapter-osm-first.md) | Poland: one national adapter, OSM first | Accepted, amends ADR 0082 | 2026-11-20 |
