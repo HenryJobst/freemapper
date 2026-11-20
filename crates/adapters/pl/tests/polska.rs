@@ -3,7 +3,7 @@
 //! The adapter `polska`: where Poland lies and which OSM extracts a map area reads.
 
 use freemapper_adapter_api::adapter::RegionAdapter;
-use freemapper_adapter_api::geometry::{contains_point_in, within_margin};
+use freemapper_adapter_api::geometry::{contains_point_in, map_crs_in, within_margin};
 use freemapper_adapter_api::info::{Country, Coverage};
 use freemapper_adapter_api::registry::Registry;
 use freemapper_georef::crs::{BoundingBox, Crs, LatLon};
@@ -158,6 +158,32 @@ fn the_zone_follows_the_centre() {
         }),
         Crs::Utm33
     );
+}
+
+/// A map area around Opole that reaches over the zone border at 18° E has one zone, that of its
+/// centre, and the real adapter says so (not only a stand-in region).
+#[test]
+fn an_area_over_the_zone_border_has_the_zone_of_its_centre() {
+    let registry = polska();
+    // 17.7° to 18.4° E: the border lies inside. The centre is 17.95° E, 18.05° E.
+    let area = |lon: f64| {
+        let a = Crs::Utm33.forward(LatLon {
+            lat: 50.6,
+            lon: lon - 0.25,
+        });
+        let b = Crs::Utm33.forward(LatLon {
+            lat: 50.8,
+            lon: lon + 0.25,
+        });
+        BoundingBox {
+            min_e: a.easting,
+            min_n: a.northing,
+            max_e: b.easting,
+            max_n: b.northing,
+        }
+    };
+    assert_eq!(map_crs_in(&registry, &area(17.95)), Crs::Utm33);
+    assert_eq!(map_crs_in(&registry, &area(18.05)), Crs::Utm34);
 }
 
 /// The adapter declares itself (revision and day of its check) and has a policy that names no

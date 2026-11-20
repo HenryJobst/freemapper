@@ -30,6 +30,8 @@ pub enum OrtoError {
     Crs(u32),
     #[error("the pixel of {0} m is finer than the 0.25 m orthophoto freemapper reads")]
     TooFine(f64),
+    #[error("the pixels are not square ({0} by {1} m)")]
+    NonSquare(f64, f64),
     #[error("the orthophoto is not made of JPEG tiles")]
     NotJpegTiles,
     #[error("tile {0} lies outside the file")]
@@ -47,6 +49,14 @@ pub struct Sheet<'a> {
     offsets: Vec<u64>,
     counts: Vec<u64>,
     tables: Vec<u8>,
+}
+
+/// How far the two pixel sizes of a sheet may differ, in metres (2^-30, exact in a float).
+const SQUARE_TOLERANCE_M: f64 = 1.0 / 1_073_741_824.0;
+
+/// Whether the pixel sizes `x` and `y` make a square pixel.
+fn is_square(x: f64, y: f64) -> bool {
+    (x - y).abs() <= SQUARE_TOLERANCE_M
 }
 
 impl<'a> Sheet<'a> {
@@ -86,17 +96,29 @@ impl<'a> Sheet<'a> {
         if epsg != 2180 {
             return Err(OrtoError::Crs(epsg));
         }
-        let pixel = scale.first().copied().unwrap_or(0.0);
+        let [pixel, pixel_y, ..] = scale[..] else {
+            return Err(OrtoError::MissingTag("ModelPixelScale"));
+        };
         if pixel.is_nan() || pixel < FINEST_PIXEL_M {
             return Err(OrtoError::TooFine(pixel));
         }
-        let [i, j, _, e, n, _] = tie[..] else {
+        if !is_square(pixel, pixel_y) {
+            return Err(OrtoError::NonSquare(pixel, pixel_y));
+        }
+        let [i, j, _, e, n, _, ..] = tie[..] else {
             return Err(OrtoError::MissingTag("ModelTiepoint"));
+        };
+        // GTRasterTypeGeoKey (1025): 2 is PixelIsPoint, where the tie point names the centre of a
+        // pixel and not its north-west corner.
+        let half = if keys.chunks(4).skip(1).any(|k| k[0] == 1025 && k[3] == 2) {
+            0.5
+        } else {
+            0.0
         };
         // The tie point names a raster position; (0, 0) is the north-west corner of the sheet.
         let grid = GridSpec {
-            west: e - i * pixel,
-            north: n + j * pixel,
+            west: e - (i + half) * pixel,
+            north: n + (j + half) * pixel,
             pixel_size: pixel,
             width,
             height,
@@ -185,12 +207,20 @@ impl<'a> Sheet<'a> {
         let mut jpeg = vec![0xFF, 0xD8];
         jpeg.extend_from_slice(&self.tables);
         jpeg.extend_from_slice(&tile[2..]);
-        let image = image::load_from_memory_with_format(&jpeg, image::ImageFormat::Jpeg)
-            .map(|i| i.to_rgb8())
-            .map_err(|e| OrtoError::Tile {
-                tile: index,
-                reason: e.to_string(),
-            })?;
+        let broken = |reason: String| OrtoError::Tile {
+            tile: index,
+            reason,
+        };
+        let decoder = image::codecs::jpeg::JpegDecoder::new(Cursor::new(&jpeg[..]))
+            .map_err(|e| broken(e.to_string()))?;
+        // The size is read before the pixels, so a damaged tile cannot ask for gigabytes.
+        let (width, height) = image::ImageDecoder::dimensions(&decoder);
+        if width > self.tile.0 || height > self.tile.1 {
+            return Err(broken(format!("{width} by {height}, larger than declared")));
+        }
+        let image = image::DynamicImage::from_decoder(decoder)
+            .map_err(|e| broken(e.to_string()))?
+            .to_rgb8();
         // A damaged tile can decode to less than the file declares; reading it would panic.
         if image.width() < self.tile.0 || image.height() < self.tile.1 {
             return Err(OrtoError::Tile {
@@ -548,5 +578,82 @@ mod tests {
     #[test]
     fn a_table_stream_that_ends_inside_a_marker_gives_no_tables() {
         assert!(table_segments(&[0xFF, 0xFF, 0xFF]).is_empty());
+    }
+
+    #[test]
+    fn a_tile_larger_than_declared_in_either_direction_is_refused_before_it_is_decoded() {
+        // Two tiles of (tw, th) side by side; the JPEGs hold 16 by 16.
+        for (tw, th) in [(8, 8), (8, 16), (16, 8)] {
+            let mut bytes = fixture(0.25, 2180, true);
+            for (tag, value) in [(256, 2 * tw), (257, th), (322, tw), (323, th)] {
+                patch_long(&mut bytes, tag, value);
+            }
+            for tag in [324u16, 325] {
+                let mut key = tag.to_le_bytes().to_vec();
+                key.extend_from_slice(&[4, 0, 4, 0, 0, 0]);
+                let at = bytes.windows(8).rposition(|w| w == key).unwrap() + 4;
+                bytes[at..at + 4].copy_from_slice(&2u32.to_le_bytes());
+            }
+            let r = Sheet::open(&bytes).and_then(|s| s.read_window(&window(0.25, 0, 0, 8)));
+            assert!(
+                matches!(&r, Err(OrtoError::Tile { reason, .. }) if reason.contains("larger")),
+                "{tw} by {th}: {r:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn pixel_sizes_that_differ_by_no_more_than_the_tolerance_make_a_square() {
+        assert!(is_square(0.25, 0.25));
+        assert!(is_square(1.0, 1.0 + SQUARE_TOLERANCE_M));
+        assert!(!is_square(1.0, 1.0 + 2.0 * SQUARE_TOLERANCE_M));
+    }
+
+    /// Writes `value` over the 8 bytes at the first place `needle` occurs in `bytes`.
+    fn patch_bytes(bytes: &mut [u8], needle: &[u8], value: &[u8]) {
+        let at = bytes
+            .windows(needle.len())
+            .position(|w| w == needle)
+            .unwrap();
+        bytes[at..at + value.len()].copy_from_slice(value);
+    }
+
+    #[test]
+    fn pixels_that_are_not_square_are_refused() {
+        let mut bytes = fixture(0.25, 2180, true);
+        let scale: Vec<u8> = [0.25f64, 0.25, 0.0]
+            .iter()
+            .flat_map(|v| v.to_le_bytes())
+            .collect();
+        let wrong: Vec<u8> = [0.25f64, 0.5, 0.0]
+            .iter()
+            .flat_map(|v| v.to_le_bytes())
+            .collect();
+        patch_bytes(&mut bytes, &scale, &wrong);
+        assert!(matches!(
+            Sheet::open(&bytes),
+            Err(OrtoError::NonSquare(x, y)) if x == 0.25 && y == 0.5
+        ));
+    }
+
+    #[test]
+    fn a_pixel_is_point_sheet_has_its_corner_half_a_pixel_further_out() {
+        let mut bytes = fixture_at(0.25, 2180, true, (4.0, 8.0), (1000.0, 2000.0));
+        // GTRasterTypeGeoKey 1025: the value 1 (PixelIsArea) becomes 2 (PixelIsPoint).
+        let key: Vec<u8> = [1025u16, 0, 1, 1]
+            .iter()
+            .flat_map(|v| v.to_le_bytes())
+            .collect();
+        let point: Vec<u8> = [1025u16, 0, 1, 2]
+            .iter()
+            .flat_map(|v| v.to_le_bytes())
+            .collect();
+        patch_bytes(&mut bytes, &key, &point);
+        let g = Sheet::open(&bytes).unwrap().grid;
+        // Pixel (4, 8) has its centre on (1000, 2000): its corner is 4.5 and 8.5 pixels away.
+        assert_eq!(
+            (g.west, g.north),
+            (1000.0 - 4.5 * 0.25, 2000.0 + 8.5 * 0.25)
+        );
     }
 }
