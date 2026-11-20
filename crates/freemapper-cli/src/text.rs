@@ -335,6 +335,7 @@ mod tests {
             ("authority", v("Landratsamt Ludwigsburg")),
             ("links", v("yes")),
             ("known", v("no")),
+            ("view", v("no-paths")),
             (
                 "gaps",
                 v("Die Stadt Potsdam führt ihre Denkmalliste selbst"),

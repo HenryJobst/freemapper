@@ -5877,6 +5877,61 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
     }
 
     #[test]
+    fn a_training_view_leaves_out_its_symbols_and_keeps_the_frame() {
+        let fetcher = MapFetcher::default();
+        let (dir, _cache_dir) = sprint_with_paving_and_fence(&fetcher);
+        let documents = starter_documents(dir.path()).unwrap();
+        let set = &documents.map.symbol_set;
+        let views = [
+            crate::View::parse("no:518").unwrap(),
+            crate::View::parse("brown-only").unwrap(),
+        ];
+        let written = export_training_views(
+            dir.path(),
+            &documents,
+            &views,
+            false,
+            false,
+            PdfSources::Auto,
+            false,
+        )
+        .unwrap();
+        assert_eq!(written.len(), 2);
+        assert!(
+            written[0]
+                .map
+                .to_string_lossy()
+                .ends_with("-training-no-518.omap")
+        );
+        let without_fence = std::fs::read_to_string(&written[0].map).unwrap();
+        assert!(!omap_has_symbol(&without_fence, set, "518"));
+        assert!(
+            omap_has_symbol(&without_fence, set, "521"),
+            "the building stays"
+        );
+        let brown = std::fs::read_to_string(&written[1].map).unwrap();
+        assert!(!omap_has_symbol(&brown, set, "521"));
+        assert!(brown.contains(r#"<part name="peripheral information">"#));
+        assert!(
+            std::fs::read(&written[1].pdf)
+                .unwrap()
+                .starts_with(b"%PDF-")
+        );
+        // The training map itself is not written, and a view file stays unless `force`.
+        assert!(!training_map_path(dir.path()).exists());
+        let again = export_training_views(
+            dir.path(),
+            &documents,
+            &views[..1],
+            false,
+            false,
+            PdfSources::Auto,
+            false,
+        );
+        assert!(matches!(again, Err(ProjectError::MapExists(_))));
+    }
+
+    #[test]
     fn an_existing_training_map_is_kept() {
         let fetcher = MapFetcher::default();
         let (dir, _cache_dir) = derived_school(&fetcher);
