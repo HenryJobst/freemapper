@@ -119,7 +119,7 @@ cli-check-passed-warnings = { $folder } doorstaat de controle, met { $count ->
         [one] één waarschuwing
        *[other] { $count } waarschuwingen
     }
-cli-check-failed = { $folder } faalt bij de controle
+cli-check-failed = { $folder } doorstaat de controle niet
 cli-check-no-folder = er is geen map { $folder }
 cli-check-live-ok = { $capability } ok: { $detail }
 cli-check-live-failed = { $capability } MISLUKT: { $detail }
@@ -531,7 +531,7 @@ error-reason-unexpected-character = onverwacht teken
 error-reason-not-https = geen https
 error-reason-user-info = gebruikersinformatie
 error-reason-port = een andere poort dan 443
-error-reason-host-not-declared = de host is niet een van de gedeclareerde hosts
+error-reason-host-not-declared = de host staat niet bij de gedeclareerde hosts
 error-reason-local-address = een adres van deze computer of van het lokale netwerk, niet van een server op internet
 error-reason-too-many-redirects = meer dan { $count } doorverwijzingen
 error-reason-redirect-nowhere = een doorverwijzing (HTTP { $status }) naar nergens

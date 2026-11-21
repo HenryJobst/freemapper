@@ -167,7 +167,7 @@ cli-lock-who-mcp = un agente de IA (MCP)
 cli-lock-who-page = la página de selección
 cli-lock-who-unknown = otro programa
 cli-lock-failed = no se pudo bloquear la carpeta del proyecto para esta ejecución: { $error }
-cli-lock-stuck = hay algo que no es un archivo de bloqueo en el camino y no se pudo eliminar
+cli-lock-stuck = algo que no es un archivo de bloqueo estorba y no se pudo eliminar
 
 ## Run routes of the selection page
 
@@ -236,7 +236,7 @@ page-project-volume = carpeta del proyecto
 page-no-room = no cabe en el disco
 page-no-room-skip = No todo cabe en el disco (freemapper mantiene { $reserve } libres). La descarga omite las partes marcadas. Libera primero algo de espacio si las necesitas:
 page-no-room-stop = No hay suficiente espacio en disco (freemapper mantiene { $reserve } libres). Sin las partes marcadas no hay mapa, así que la descarga se detiene antes de bajar nada. Libera primero algo de espacio:
-page-disk-unknown = freemapper no puede leer el espacio libre en disco ({ $error }). Descarga sin la comprobación.
+page-disk-unknown = freemapper no puede leer el espacio libre en disco ({ $error }). Descarga los datos sin esa comprobación.
 page-too-large = El área es demasiado grande: como máximo { $max } m por lado (con margen). Elige una más pequeña.
 page-outside = El área queda fuera de los estados federados admitidos ({ $states }); freemapper aún no tiene fuentes de datos para otras regiones.
 page-outside-unknown = El área queda fuera de las regiones que freemapper admite; allí aún no tiene fuentes de datos.
@@ -275,7 +275,7 @@ page-content-heading = Qué va al mapa
 page-content-help = El perfil decide qué va directamente al mapa y qué queda como candidato por revisar. Lo que elijas para un grupo prevalece sobre el perfil. Se guarda con el área.
 page-content-profile-legend = Perfil
 page-content-profile-safe = Seguro
-page-content-profile-safe-hint = Cada objeto se queda donde lo pone la construcción: los edificios y las superficies del catastro van al mapa; muros, vallas, árboles y gran parte de OpenStreetMap (estanques, caminos sin superficie conocida) quedan como candidatos.
+page-content-profile-safe-hint = Cada objeto se queda donde lo pone la generación: los edificios y las superficies del catastro van al mapa; muros, vallas, árboles y gran parte de OpenStreetMap (estanques, caminos sin superficie conocida) quedan como candidatos.
 page-content-profile-balanced = Equilibrado
 page-content-profile-balanced-hint = Los objetos del catastro, de los registros y del levantamiento de calles van al mapa, con las curvas de nivel y las zonas prohibidas a lo largo de las vías del tren. Muros, vallas, setos, taludes, escaleras, agua, árboles, monumentos, pasos, caminos y vías férreas vienen además de OpenStreetMap. El mobiliario urbano, las demás zonas prohibidas y las formas del modelo del terreno quedan como candidatos.
 page-content-profile-full = Completo
@@ -321,7 +321,7 @@ page-opt-pdf = PDF imprimible
 page-help-pdf = Solo los objetos del mapa, sin candidatos.
 page-opt-pdf-candidates = Impresión de control con todos los candidatos
 page-opt-training = Mapa de entrenamiento
-page-help-training = El mapa y todos los candidatos, limpiado para imprimirlo tal cual; con OCAD, también como archivo OCAD.
+page-help-training = El mapa y todos los candidatos, limpiados para imprimirlos tal cual; con OCAD, también como archivo OCAD.
 page-views-heading = Vistas del mapa de entrenamiento
 page-view-no-paths = Sin caminos (mapa Ultimate)
 page-view-brown-only = Solo marrón (orientación por curvas de nivel)
@@ -524,7 +524,7 @@ error-fetch-not-found = { $name } no se encontró en el servidor
 error-fetch-refused = { $url }: el servidor rechazó la solicitud (HTTP { $status })
 error-fetch-refused-detail = { $url }: el servidor rechazó la solicitud (HTTP { $status }): { $detail }
 error-fetch-too-large = la descarga de { $url } es mayor de { $limit } MB; detenida
-error-fetch-not-stored = no hay { $label } guardado para esta área del mapa: falta { $path }, no se puede leer o no la cubre; ejecuta primero `freemapper fetch` con conexión
+error-fetch-not-stored = no hay datos guardados para esta área del mapa ({ $label }): falta { $path }, no se puede leer o no la cubre; ejecuta primero `freemapper fetch` con conexión
 error-fetch-range-ignored = { $url }: el servidor ignoró el rango de bytes { $range } (HTTP { $status })
 error-fetch-not-allowed = { $url }: freemapper no envía solicitudes a esta dirección: { $reason }
 error-fetch-host-not-named-allow = { $target }: freemapper no envía solicitudes a esta dirección: el adaptador de { $name } no nombra el host { $host }{ $from }. Si el servicio se ha movido allí, permite el host con `freemapper adapters allow-host { $adapter } { $host }` e infórmalo en https://github.com/HenryJobst/freemapper/issues
@@ -544,7 +544,7 @@ error-reason-host-not-declared = el host no es uno de los hosts declarados
 error-reason-local-address = una dirección de este ordenador o de la red local, no de un servidor de internet
 error-reason-too-many-redirects = más de { $count } redirecciones
 error-reason-redirect-nowhere = una redirección (HTTP { $status }) a ninguna parte
-error-fetch-currency-csv = CSV de vigencia, línea { $line }: { $message }
+error-fetch-currency-csv = CSV de fechas de los datos, línea { $line }: { $message }
 error-alkis = datos de ALKIS no válidos: { $message }
 error-osm = datos de OSM: { $message }
 
@@ -612,7 +612,7 @@ help-arg-force = Sustituye un archivo de mapa existente y conserva el anterior c
 help-export-ocad = Escribe también un punto de partida para OCAD en `ocad/` (formato OCAD 12); un mapa OOM existente se conserva a menos que indiques --force
 help-export-pdf = Escribe también `<name>.pdf`, el mapa imprimible (solo los objetos del mapa, sin candidatos); un mapa OOM existente se conserva a menos que indiques --force
 help-export-pdf-candidates = Escribe también `<name>-candidates.pdf`, la impresión de control: el mapa con todos los candidatos, fiel a la posición; un mapa OOM existente se conserva a menos que indiques --force
-help-export-training = Escribe también el mapa de entrenamiento `<name>-training.omap` y su PDF `<name>-training.pdf`: el mapa y todos los candidatos, limpiado para imprimirlo tal cual; con --ocad también `ocad/<name>-training.ocd`. Un mapa OOM existente se conserva a menos que indiques --force, y --force sustituye también un mapa de entrenamiento existente
+help-export-training = Escribe también el mapa de entrenamiento `<name>-training.omap` y su PDF `<name>-training.pdf`: el mapa y todos los candidatos, limpiados para imprimirlos tal cual; con --ocad también `ocad/<name>-training.ocd`. Un mapa OOM existente se conserva a menos que indiques --force, y --force sustituye también un mapa de entrenamiento existente
 help-export-view = Con --training: escribe también el mapa de entrenamiento sin lo que omite una vista, como `<name>-training-<view>.omap` y su PDF (con --ocad también un archivo OCAD). Vistas: `no-paths` (sin calles, caminos ni escaleras), `brown-only` (solo símbolos marrones y el marco), `no-north-lines`, o una lista `no:<codes>` / `only:<codes>`; combínalas con `+`. Repite la opción para varios archivos
 help-export-pdf-scale-bar = Dibuja la barra de escala en los PDF (desactivada por defecto, los mapas alemanes no suelen llevarla; el número de escala se mantiene en el cajetín)
 help-export-pdf-sources = Líneas de fuentes en los PDF: `auto` imprime la lista completa y solo la acorta si ocuparía más de 5 líneas, `full` no la acorta nunca, `credit-only` imprime solo la línea de créditos de freemapper (ODbL y dl-de/by-2-0 piden entonces que nombres las fuentes al compartir el mapa). ATTRIBUTION.txt lista siempre todas las fuentes
@@ -628,7 +628,7 @@ help-run-offline = Usa solo la caché, sin acceso a la red
 help-run-ocad = Escribe también un punto de partida para OCAD en `ocad/` (formato OCAD 12)
 help-run-pdf = Escribe también `<name>.pdf`, el mapa imprimible (solo los objetos del mapa, sin candidatos)
 help-run-pdf-candidates = Escribe también `<name>-candidates.pdf`, la impresión de control: el mapa con todos los candidatos, fiel a la posición
-help-run-training = Escribe también el mapa de entrenamiento `<name>-training.omap` y su PDF `<name>-training.pdf`: el mapa y todos los candidatos, limpiado para imprimirlo tal cual; con --ocad también `ocad/<name>-training.ocd`. Un mapa de entrenamiento existente se conserva a menos que indiques --force
+help-run-training = Escribe también el mapa de entrenamiento `<name>-training.omap` y su PDF `<name>-training.pdf`: el mapa y todos los candidatos, limpiados para imprimirlos tal cual; con --ocad también `ocad/<name>-training.ocd`. Un mapa de entrenamiento existente se conserva a menos que indiques --force
 help-run-view = Con --training: escribe también el mapa de entrenamiento sin lo que omite una vista, como `<name>-training-<view>.omap` y su PDF (con --ocad también un archivo OCAD). Vistas: `no-paths` (sin calles, caminos ni escaleras), `brown-only` (solo símbolos marrones y el marco), `no-north-lines`, o una lista `no:<codes>` / `only:<codes>`; combínalas con `+`. Un archivo de vista existente se conserva a menos que indiques --force
 help-run-pdf-scale-bar = Dibuja la barra de escala en los PDF (desactivada por defecto; el número de escala se mantiene en el cajetín)
 help-run-pdf-sources = Líneas de fuentes en los PDF: `auto` imprime la lista completa y solo la acorta si ocuparía más de 5 líneas, `full` no la acorta nunca, `credit-only` imprime solo la línea de créditos de freemapper (ODbL y dl-de/by-2-0 piden entonces que nombres las fuentes al compartir el mapa). ATTRIBUTION.txt lista siempre todas las fuentes
@@ -662,7 +662,7 @@ help-adapters-list-project = Lee también los adaptadores de la carpeta `adapter
 help-adapters-check = Comprueba la carpeta de un adaptador antes de usarlo o de pasarlo a otros: si se cargaría, qué debería saber su autor y, con --live, si sus servicios responden. Código de salida 0: lo supera; 1: tiene hallazgos; 2: la comprobación no pudo ejecutarse
 help-adapters-check-dir = La carpeta del adaptador; su nombre es el id del adaptador
 help-adapters-check-live = Consulta también los servicios del adaptador para el recuadro que indica --bbox y dice qué entrega cada uno. Las solicitudes se quedan en los hosts que declara el manifiesto
-help-adapters-check-bbox = El recuadro de la comprobación en vivo en grados, como minLon,minLat,maxLon,maxLat. Está dentro del límite del adaptador; bastan 150 m por 150 m
+help-adapters-check-bbox = El recuadro de la comprobación en vivo en grados, como minLon,minLat,maxLon,maxLat. Debe estar dentro del límite del adaptador; bastan 150 m por 150 m
 help-adapters-check-json = Imprime el resultado como JSON
 help-adapters-allow-host = Permite a un adaptador integrado un host más: para un estado federado cuyo servicio se movió a un servidor que su adaptador aún no nombra. El mensaje sobre la dirección rechazada dice qué host. El host se comprueba como el de un manifiesto, y freemapper solo se conecta a servidores de internet
 help-adapters-allow-host-adapter = El id del adaptador integrado, como lo muestra `adapters list`
@@ -778,7 +778,7 @@ mcp-param-start-pipeline-pdf-candidates = Escribe también <name>-candidates.pdf
 mcp-param-start-pipeline-pdf-scale-bar = Dibuja la barra de escala en los PDF. Por defecto false (los mapas alemanes no suelen llevarla; el número de escala se mantiene en el cajetín).
 mcp-param-start-pipeline-pdf-sources = Líneas de fuentes en los PDF: "auto" (predeterminado; la lista completa, acortada solo si ocupa más de 5 líneas), "full" (nunca acortada) o "credit-only" (solo la línea de créditos de freemapper; ODbL y dl-de/by-2-0 exigen entonces nombrar las fuentes al compartir el mapa). ATTRIBUTION.txt lista siempre todas las fuentes.
 mcp-param-start-pipeline-permits = Escribe también las notas de permisos (permits.md y permits.json) después del mapa: unidades administrativas, áreas protegidas y quién gestiona el terreno. Un fallo ahí es un aviso, no un trabajo fallido. Por defecto false.
-mcp-param-start-pipeline-training = Escribe también el mapa de entrenamiento <name>-training.omap y su PDF <name>-training.pdf: el mapa y todos los candidatos, limpiado para imprimirlo tal cual; con ocad también ocad/<name>-training.ocd. Un mapa de entrenamiento existente se conserva a menos que force sea true. Por defecto false.
+mcp-param-start-pipeline-training = Escribe también el mapa de entrenamiento <name>-training.omap y su PDF <name>-training.pdf: el mapa y todos los candidatos, limpiados para imprimirlos tal cual; con ocad también ocad/<name>-training.ocd. Un mapa de entrenamiento existente se conserva a menos que force sea true. Por defecto false.
 mcp-param-start-pipeline-training-views = Con training: escribe también el mapa de entrenamiento sin lo que omite una vista, un juego de archivos por entrada: "no-paths", "brown-only", "no-north-lines", o una lista como "no:505,506" o "only:101,102", combinadas con +. Los archivos son <name>-training-<view>.omap y su PDF.
 mcp-instructions = freemapper crea proyectos iniciales de OpenOrienteering Mapper para mapas de orientación (patio escolar 1:1000, sprint 1:4000, bosque 1:15000) a partir de geodatos oficiales de { $states } y de OSM. Flujo de trabajo: find_place (busca la escuela o el área por nombre; elige un resultado con has_area) → create_project (una carpeta nueva, ruta absoluta, con el osm_id) → estimate_download (di a la persona cuánto se descargará) → start_pipeline (devuelve un id de trabajo; la descarga puede tardar minutos) → project_status (consulta cada pocos segundos hasta que el estado sea finished o failed) → list_layers y preview_layer (muestra las plantillas a la persona). Después la persona abre el archivo del mapa en OpenOrienteering Mapper. Cuando ningún lugar encaja o la persona quiere dibujar el área, open_area_selector abre en el navegador una página donde la persona dibuja o elige el área y la guarda (esto crea el proyecto); continúa con estimate_download cuando la persona diga que está guardada. Las rutas deben ser absolutas o empezar por ~. Solo se ejecuta un proceso a la vez. permits_for_area crea las notas de permisos de un proyecto (unidades administrativas, áreas protegidas, quién gestiona el terreno; una orientación, no asesoramiento jurídico) como un trabajo igual que start_pipeline. check_update dice si existe un freemapper más nuevo; install_update lo instala, solo con confirm: true después de que la persona haya aceptado, y luego el asistente reinicia el servidor de freemapper.
 
@@ -787,7 +787,7 @@ cli-contour-interval-auto = Equidistancia de las curvas de nivel en freemapper.t
 help-arg-contour-interval = Equidistancia de las curvas de nivel en metros, p. ej. `2.5`, o `auto` para la del tipo de mapa (un mapa de bosque: 5 m, 2,5 m donde es llano, 10 m donde es empinado). Se guarda en freemapper.toml; derive traza las curvas de nivel con ella
 cli-content-saved = Ajuste de contenido guardado en freemapper.toml: { $summary }
 cli-content-invalid = No se puede leer el ajuste de contenido: { $detail }
-help-arg-content = Qué va directamente al mapa: `safe` deja cada objeto donde lo pone la construcción, `balanced` (predeterminado) pone en el mapa los objetos del catastro y de los registros, `full` pone todo en el mapa. La elección se guarda en freemapper.toml
+help-arg-content = Qué va directamente al mapa: `safe` deja cada objeto donde lo pone la generación, `balanced` (predeterminado) pone en el mapa los objetos del catastro y de los registros, `full` pone todo en el mapa. La elección se guarda en freemapper.toml
 help-arg-content-set = Envía un grupo de objetos a `map`, `candidates` u `off`, como `GROUP=PLACE`, p. ej. `walls=map`; se puede repetir. Grupos: walls, fences, hedges, slopes, stairs, trees, water-features, monuments, furniture, passages, contours, landforms, vegetation, out-of-bounds, paths, streets. Se guarda en freemapper.toml
 mcp-param-create-project-content = Qué va directamente al mapa: "safe", "balanced" (predeterminado) o "full". Se guarda en el proyecto. balanced pone en el mapa los objetos del catastro y de los registros, full pone todo en él.
 mcp-param-create-project-content-set = Grupos enviados a un sitio distinto del que indica el perfil, como "group=place" con place map, candidates u off, p. ej. "walls=map". Grupos: walls, fences, hedges, slopes, stairs, trees, water-features, monuments, furniture, passages, contours, landforms, vegetation, out-of-bounds, paths, streets.
@@ -854,7 +854,7 @@ permits-level = { $level ->
 permits-admin-line = { $level }: { $name }, { $share }
 permits-share = { $percent }%
 permits-share-below-one = < 1%
-permits-at-edge = Tocado en el borde (menos del 0,5% del área del mapa):
+permits-at-edge = Tocadas en el borde (menos del 0,5% del área del mapa):
 permits-at-edge-generalised = VG250 está generalizado a la escala 1:250 000. Una unidad que solo toca el borde puede ser un efecto de ello.
 permits-kind = { $kind ->
         [nationalpark] Parque nacional
@@ -878,7 +878,7 @@ permits-osm-protect-class = clase de protección { $class }
 permits-quoted = "{ $text }"
 permits-osm-unnamed = sin nombre
 permits-osm-operator = Gestor según OSM: { $operator }
-permits-osm-enclosing-gap = Aquí pueden faltar áreas de OpenStreetMap que encierran todo el área del mapa sin tener una esquina dentro, y también áreas protegidas mapeadas en OSM como relación con `type=boundary`. Las partes del BfN y de VG250 no se ven afectadas.
+permits-osm-enclosing-gap = Aquí pueden faltar áreas de OpenStreetMap que encierran toda el área del mapa sin tener una esquina dentro, y también áreas protegidas mapeadas en OSM como relación con `type=boundary`. Las partes del BfN y de VG250 no se ven afectadas.
 permits-operator-line = { $name } ({ $roles ->
         [operator] gestor
         [owner] propietario
@@ -902,8 +902,8 @@ permits-hint-national-park = Un parque nacional tiene normas propias. Pregunta p
 permits-hint-nsg-paths = En una reserva natural normalmente hay que ceñirse a los caminos. Para una carrera fuera de los caminos, pregunta a la autoridad de conservación de la naturaleza.
 permits-hint-natura2000 = Una zona FFH o una zona de protección de aves (Natura 2000) toca el área del mapa. Para un evento, la autoridad de conservación de la naturaleza puede pedir una evaluación de sus efectos.
 permits-hint-order-office = { $amt ->
-        [none] Para calles, plazas y otros terrenos públicos suele ser competente el Ordnungsamt (oficina de orden público) del Gemeinde { $gemeinde }.
-       *[other] Para calles, plazas y otros terrenos públicos suele ser competente el Ordnungsamt (oficina de orden público): { $amt }, para el Gemeinde { $gemeinde }.
+        [none] Para calles, plazas y otros terrenos públicos suele ser competente el Ordnungsamt (oficina de orden público) del municipio (Gemeinde) { $gemeinde }.
+       *[other] Para calles, plazas y otros terrenos públicos suele ser competente el Ordnungsamt (oficina de orden público): { $amt }, para el municipio (Gemeinde) { $gemeinde }.
     }
 permits-hint-park-operator = Gestor de un parque o jardín en el área del mapa según OpenStreetMap: { $operator }. Pregúntale antes de usarlo.
 permits-hint-school-operator = Gestor de la escuela o institución según OpenStreetMap: { $operator }. Para sus terrenos, pregunta a la dirección de la escuela o a este organismo.
@@ -958,9 +958,9 @@ permits-hint-monument-lower-authority = { $known ->
         [yes] . Aquí es la propia ciudad de { $kreis }.
         [no] , normalmente el { $kreis }{ $gemeinde ->
             [none] .
-           *[other] ; en algunos estados federados es el Gemeinde { $gemeinde }.
+           *[other] ; en algunos estados federados es el municipio { $gemeinde }.
         }
-       *[unknown] {" "}(normalmente el Landkreis o la kreisfreie Stadt, en algunos estados federados el Gemeinde).
+       *[unknown] {" "}(normalmente el Landkreis o la kreisfreie Stadt, en algunos estados federados el municipio).
     }
 permits-hint-nature-object-lower-authority = { $kreisfrei ->
         [yes] Los monumentos naturales, los elementos protegidos del paisaje y los biotopos protegidos del mapa competen a la autoridad inferior de conservación de la naturaleza (untere Naturschutzbehörde). Aquí es la propia ciudad de { $kreis }.
@@ -1035,7 +1035,7 @@ permits-hint-forest-function = { $kind ->
             [none] {""}
            *[other] {" "}({ $names })
         }. Salirse de los caminos suele estar prohibido allí; no coloques controles en él sin preguntar a la autoridad forestal.
-       *[closed] Hay un área forestal en la que no se debe entrar en el área del mapa{ $names ->
+       *[closed] Hay un área forestal de acceso prohibido en el área del mapa{ $names ->
             [none] {""}
            *[other] {" "}({ $names })
         }. Déjala fuera del recorrido.

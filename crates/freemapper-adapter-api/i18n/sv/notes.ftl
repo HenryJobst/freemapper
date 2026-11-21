@@ -100,7 +100,7 @@ progress-beyond-border-no-data = kartområdet sträcker sig över delstatsgräns
 
 ## OSM
 
-warning-osm-extract-missing-kept = ingen OSM-extrakt i cachen; behåller de sparade OSM-kandidaterna från { $date }
+warning-osm-extract-missing-kept = inget OSM-extrakt i cachen; behåller de sparade OSM-kandidaterna från { $date }
 progress-osm-extract-read = läser OSM-extrakt { $region } från { $date }
 progress-osm-candidates = { $count } OSM-kandidatobjekt
 
@@ -110,7 +110,7 @@ progress-permits-fetch = hämtar { $source }-data för tillståndsnoteringarna
 progress-permits-osm = läser OSM-extrakt { $region } från { $date } för tillståndsnoteringarna
 progress-permits-stored = läser de sparade uppgifterna för tillståndsnoteringarna
 warning-permits-source-unreachable = { $source } gick inte att läsa, så tillståndsnoteringarna utelämnar den: { $error }
-warning-permits-osm-no-extract = ingen OSM-extrakt finns i cachen för det här kartområdet, så tillståndsnoteringarna utelämnar OSM; `freemapper fetch` laddar ner den
+warning-permits-osm-no-extract = inget OSM-extrakt finns i cachen för det här kartområdet, så tillståndsnoteringarna utelämnar OSM; `freemapper fetch` laddar ner det
 
 ## ALKIS
 

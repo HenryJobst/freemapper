@@ -81,10 +81,10 @@ word-stac-no-image = el STAC no lista ninguna imagen en el centro del área del 
 word-stac-no-answer = la búsqueda STAC no dio una respuesta utilizable ({ $error })
 warning-downloadcenter-no-file = el Downloadcenter no tiene ningún archivo para { $places }
 warning-downloadcenter-no-file-empty = el Downloadcenter no tiene ningún archivo para { $places }; { $count ->
-        [one] la tesela
-        [many] las teselas
-       *[other] las teselas
-    } { $names } quedaron vacías
+        [one] la tesela { $names } quedó vacía
+        [many] las teselas { $names } quedaron vacías
+       *[other] las teselas { $names } quedaron vacías
+    }
 progress-k-five-unchanged = plantilla K5 sin cambios
 progress-k-five-download = descargando el mapa K5 (1:5000) del WMS del Geoportal Berlin
 warning-k-five-unavailable = la plantilla del mapa K5 no está disponible ({ $detail }); omitida
@@ -176,7 +176,7 @@ warning-trees-skipped = catastro de árboles de { $id } no disponible ({ $detail
 ## Deriving the templates
 
 progress-writing = escribiendo { $path }
-progress-contours-steep = curvas de nivel cada { $interval } m: el terreno es tan empinado que curvas de nivel cada { $default } m se juntarían; un intervalo de curvas de { $default } m en el proyecto las mantiene separadas (`--contour-interval { $default }`)
+progress-contours-steep = curvas de nivel cada { $interval } m: el terreno es tan empinado que las curvas de nivel cada { $default } m se juntarían; una equidistancia de { $default } m fijada en el proyecto las conserva (`--contour-interval { $default }`)
 warning-osm-only-no-terrain = aún no hay datos de terreno para esta región: el mapa se hace solo con OpenStreetMap, sin curvas de nivel, plantillas ni edificios
 progress-no-ndsm-recorded = no hay nDSM registrado; ejecuta `freemapper fetch` para la plantilla nDSM
 warning-ndsm-tile-invalid = tesela nDSM no válida { $tile } en freemapper.toml; omitida
@@ -208,7 +208,7 @@ warning-point-cloud-unavailable-cached = nube de puntos { $tile } no disponible 
 warning-point-cloud-unavailable-skipped = nube de puntos { $tile } no disponible ({ $reason }); allí no hay candidatos de vegetación
 warning-point-clouds-unavailable = las nubes de puntos láser no están disponibles ({ $reason }); los candidatos de vegetación usan las teselas en caché, si las hay
 progress-no-point-clouds = aún no hay nubes de puntos láser para la vegetación aquí: el estado federado no publica ninguna que freemapper pueda leer, o no en el sistema de coordenadas del mapa
-warning-point-clouds-not-fetched = se eligió la vegetación, pero no hay nubes de puntos cargadas; ejecuta `freemapper fetch` para cargarlas
+warning-point-clouds-not-fetched = se eligió la vegetación, pero no hay nubes de puntos descargadas; ejecuta `freemapper fetch` para descargarlas
 warning-point-cloud-unreadable = nube de puntos { $tile } ilegible ({ $error }); borra { $path } y ejecuta `freemapper fetch`
 warning-osm-nrw-nearest = no hay ningún extracto de distrito de Renania del Norte-Westfalia a menos de 100 m del área; se lee el más cercano, { $district }
 warning-osm-disk-full-cached = el disco está lleno, así que freemapper usa el extracto de OSM en caché del { $date }. Libera espacio y ejecuta `freemapper fetch` otra vez para obtener uno más reciente

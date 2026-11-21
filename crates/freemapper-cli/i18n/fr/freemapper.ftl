@@ -30,7 +30,7 @@ cli-kept-map = { $path } conservé (il peut contenir votre travail)
 cli-map-lacks-templates = La carte ne référence pas encore les modèles d'image. Ajoutez-les dans OOM (Modèles > Ouvrir un modèle…) ou remplacez la carte avec --force, qui conserve l'ancienne sous le nom .omap.bak.
 cli-map-lacks-buildings = La carte ne contient pas encore les bâtiments ALKIS. Pour les ajouter, remplacez-la avec --force, qui conserve l'ancienne sous le nom .omap.bak.
 cli-map-lacks-canopies = La carte n'a pas les auvents et abris à voitures ALKIS (522) qui sont désormais des objets de la carte. Pour les ajouter, lancez avec --force, qui conserve l'ancienne carte sous le nom .omap.bak.
-cli-map-light = La carte de base : { $joined } lignes réunies, { $left } cachés ou trop petits laissés aux couches de candidats (rien déplacé)
+cli-map-light = La carte de base : { $joined } lignes réunies, { $left } objets cachés ou trop petits laissés aux couches de candidats (rien déplacé)
 cli-map-light-kept = Les couches de candidats contiennent maintenant aussi { $left } objets ou tronçons que cette version retire de la carte de base (marqués freemapper:generalized). La carte conservée les a encore, ils apparaissent donc deux fois. Remplacez la carte avec --force pour la nettoyer (l'ancienne reste sous le nom .omap.bak).
 cli-map-old-candidates = La carte nomme encore templates/candidates.omap ; cette exécution l'a rempli de tous les candidats. Les candidats existent désormais aussi en sept couches, un fichier chacune (templates/candidates-*.omap). La carte les liste une fois remplacée avec --force (l'ancienne reste sous le nom .omap.bak), ou ajoutez-les vous-même dans OOM (Modèles > Ouvrir un modèle…).
 
@@ -275,11 +275,11 @@ page-content-heading = Ce qui va sur la carte
 page-content-help = Le profil décide de ce qui va directement sur la carte et de ce qui reste un candidat à vérifier. Un choix pour un groupe l'emporte sur le profil. Il est enregistré avec la zone.
 page-content-profile-legend = Profil
 page-content-profile-safe = Prudent
-page-content-profile-safe-hint = Chaque objet reste là où la construction le place : les bâtiments et les surfaces du cadastre vont sur la carte ; les murs, clôtures, arbres et beaucoup d'objets d'OpenStreetMap (étangs, chemins sans revêtement connu) restent des candidats.
+page-content-profile-safe-hint = Chaque objet reste là où l'assemblage de la carte le place : les bâtiments et les surfaces du cadastre vont sur la carte ; les murs, clôtures, arbres et beaucoup d'objets d'OpenStreetMap (étangs, chemins sans revêtement connu) restent des candidats.
 page-content-profile-balanced = Équilibré
 page-content-profile-balanced-hint = Les objets du cadastre, des registres et du relevé des rues vont sur la carte, avec les courbes de niveau et les zones interdites le long des voies ferrées. Murs, clôtures, haies, talus, escaliers, eaux, arbres, monuments, passages, chemins et voies ferrées viennent aussi d'OpenStreetMap. Le mobilier urbain, les autres zones interdites et les formes issues du modèle de terrain restent des candidats.
 page-content-profile-full = Complet
-page-content-profile-full-hint = Tout va sur la carte, comme dans l'impression de contrôle ; seuls les candidats cachés restent dehors.
+page-content-profile-full-hint = Tout va sur la carte, comme dans l'impression de contrôle ; seuls les candidats cachés restent exclus.
 page-content-groups-legend = Par groupe
 page-content-groups-help = « Comme dans le profil » suit le profil. Ce que cela signifie pour un groupe dépend de l'origine de chaque objet.
 page-content-place-profile = Comme dans le profil
@@ -433,7 +433,7 @@ update-no-asset = la version n'a pas de programme pour ce système ({ $platform 
 update-no-previous = il n'y a pas de version précédente à restaurer ({ $path } est absent)
 update-failed = la mise à jour a échoué : { $error }
 update-mode-set = Mode de mise à jour réglé sur { $mode } dans { $path }.
-update-mode-env = FREEMAPPER_UPDATE={ $value } remplace ce réglage tant qu'elle est définie.
+update-mode-env = FREEMAPPER_UPDATE={ $value } remplace ce réglage tant que cette variable est définie.
 update-mode-failed = impossible d'écrire { $path } : { $error }
 update-notice = freemapper { $new } est disponible (vous avez { $old }). Mise à jour avec : freemapper update
 update-applies-next-start = La nouvelle version s'applique dès le prochain démarrage de freemapper.
@@ -441,9 +441,9 @@ update-install-failed = freemapper { $new } n'a pas été installé : { $error }
 update-no-config-dir = aucun dossier de configuration sur ce système ; définissez FREEMAPPER_CONFIG_DIR
 mcp-adapter-note = Note pour la personne : au démarrage, le serveur freemapper a trouvé ceci dans les dossiers d'adaptateurs. Transmettez-le ; la personne corrige le dossier ou le supprime, puis redémarre le serveur.
     { $lines }
-update-mcp-note = Note pour la personne : freemapper { $new } est disponible (celui-ci est { $old }). Demandez-lui avant d'appeler install_update.
+update-mcp-note = Note pour la personne : freemapper { $new } est disponible (la version actuelle est { $old }). Demandez-lui avant d'appeler install_update.
 update-mcp-needs-confirm = rien n'a été installé ; demandez d'abord à la personne et appelez install_update avec confirm: true une fois qu'elle a accepté
-update-mcp-note-manual = Note pour la personne : freemapper { $new } est disponible (celui-ci est { $old }), mais install_update ne peut pas l'installer ; installez { $needed } ou plus récent à la main, voir { $notes }
+update-mcp-note-manual = Note pour la personne : freemapper { $new } est disponible (la version actuelle est { $old }), mais install_update ne peut pas l'installer ; installez { $needed } ou plus récent à la main, voir { $notes }
 update-mcp-note-bad-signature = Note pour la personne : la version la plus récente de freemapper n'a pas pu être vérifiée ({ $error }) ; rien n'a été installé. Dites-le-lui, et ne l'installez pas d'une autre manière.
 update-mcp-restart-now = Redémarrez maintenant le serveur MCP freemapper ; il exécute encore l'ancienne version.
 
@@ -651,7 +651,7 @@ help-update-check = Vérifier seulement : code de sortie 10 s'il existe une vers
 help-update-yes = Installer sans demander ; nécessaire quand l'entrée n'est pas un terminal
 help-update-version = Installer cette version (x.y.z) au lieu de la plus récente, y compris une plus ancienne
 help-update-rollback = Revenir à la version que la dernière mise à jour a remplacée
-help-update-mode = Enregistrer ce que fait la vérification quotidienne quand elle trouve une version plus récente (par défaut : notify). Fonctionne dans toutes les versions, car elle écrit seulement le réglage
+help-update-mode = Enregistrer ce que fait la vérification quotidienne quand elle trouve une version plus récente (par défaut : notify). Fonctionne dans toutes les versions, car l'option ne fait qu'écrire le réglage
 help-adapters = Afficher les adaptateurs régionaux : les Länder et pays pour lesquels freemapper a des sources de données
 help-adapters-list = Lister les adaptateurs avec leur origine (intégré, votre dossier, un projet), leur révision, la date de leur dernière vérification et les hôtes qu'ils interrogent
 help-adapters-list-json = Afficher la liste en JSON
@@ -685,7 +685,7 @@ cli-summary-kept-map = Carte existante { $path } conservée (elle peut contenir 
 cli-summary-map-lacks-templates = La carte ne référence pas encore les modèles d'image. Lancez le pipeline avec force pour la remplacer et conserver l'ancienne sous le nom .omap.bak.
 cli-summary-map-lacks-buildings = La carte ne contient pas encore les bâtiments ALKIS. Lancez le pipeline avec force pour les ajouter ; il remplace la carte et conserve l'ancienne sous le nom .omap.bak.
 cli-summary-map-lacks-canopies = La carte n'a pas les auvents et abris à voitures ALKIS (522) qui sont désormais des objets de la carte. Lancez le pipeline avec force pour les ajouter ; il remplace la carte et conserve l'ancienne sous le nom .omap.bak.
-cli-summary-map-light = La carte de base : { $joined } lignes réunies, { $left } cachés ou trop petits laissés aux couches de candidats (rien déplacé)
+cli-summary-map-light = La carte de base : { $joined } lignes réunies, { $left } objets cachés ou trop petits laissés aux couches de candidats (rien déplacé)
 cli-summary-map-light-kept = Les couches de candidats contiennent maintenant aussi { $left } objets ou tronçons que cette version retire de la carte de base (marqués freemapper:generalized). La carte conservée les a encore, ils apparaissent donc deux fois. Lancez le pipeline avec force pour nettoyer la carte ; il conserve l'ancienne sous le nom .omap.bak.
 cli-summary-map-old-candidates = La carte nomme encore templates/candidates.omap ; cette exécution l'a rempli de tous les candidats. Les candidats existent désormais aussi en sept couches, un fichier chacune (templates/candidates-*.omap). La carte les liste après une exécution avec force (l'ancienne carte reste sous le nom .omap.bak), ou le cartographe les ajoute dans OOM (Modèles > Ouvrir un modèle…).
 cli-summary-wrote-ocad = Carte OCAD { $path } écrite ({ $count } objets)
@@ -704,7 +704,7 @@ cli-summary-pdf-failed = l'export PDF a échoué : { $error }
 cli-summary-wrote-pdf-candidates = Impression de contrôle { $path } écrite (la carte avec tous les candidats, à leur position exacte)
 cli-summary-pdf-candidates-failed = l'export de l'impression de contrôle a échoué : { $error }
 cli-summary-training-failed = l'export de la carte d'entraînement a échoué : { $error }
-cli-summary-kept-training = Carte d'entraînement existante { $path } conservée, pour qu'une exécution n'écrase pas une carte imprimée ou transmise ; supprimez-la ou réglez force pour la renouveler
+cli-summary-kept-training = Carte d'entraînement existante { $path } conservée, pour qu'une exécution n'écrase pas une carte imprimée ou transmise ; supprimez-la ou activez force pour la renouveler
 
 ## The MCP server. The descriptions of the tools and parameters equal the texts in `src/mcp.rs`; a test compares them.
 
@@ -783,7 +783,7 @@ cli-contour-interval-auto = Équidistance dans freemapper.toml : automatique (ce
 help-arg-contour-interval = Équidistance en mètres, p. ex. `2.5`, ou `auto` pour celle du type de carte (carte de forêt : 5 m, 2,5 m en terrain plat, 10 m en terrain raide). Enregistrée dans freemapper.toml ; derive trace les courbes de niveau avec elle
 cli-content-saved = Réglage du contenu enregistré dans freemapper.toml : { $summary }
 cli-content-invalid = Impossible de lire le réglage du contenu : { $detail }
-help-arg-content = Ce qui va directement sur la carte : `safe` laisse chaque objet là où la construction le place, `balanced` (par défaut) met sur la carte les objets du cadastre et des registres, `full` met tout sur la carte. Le choix est enregistré dans freemapper.toml
+help-arg-content = Ce qui va directement sur la carte : `safe` laisse chaque objet là où l'assemblage de la carte le place, `balanced` (par défaut) met sur la carte les objets du cadastre et des registres, `full` met tout sur la carte. Le choix est enregistré dans freemapper.toml
 help-arg-content-set = Envoyer un groupe d'objets vers `map`, `candidates` ou `off`, sous la forme `GROUPE=LIEU`, p. ex. `walls=map` ; peut être répété. Groupes : walls, fences, hedges, slopes, stairs, trees, water-features, monuments, furniture, passages, contours, landforms, vegetation, out-of-bounds, paths, streets. Enregistré dans freemapper.toml
 mcp-param-create-project-content = Ce qui va directement sur la carte : "safe", "balanced" (par défaut) ou "full". Enregistré dans le projet. balanced met sur la carte les objets du cadastre et des registres, full met tout dessus.
 mcp-param-create-project-content-set = Groupes envoyés ailleurs que selon le profil, sous la forme "groupe=lieu" avec le lieu map, candidates ou off, p. ex. "walls=map". Groupes : walls, fences, hedges, slopes, stairs, trees, water-features, monuments, furniture, passages, contours, landforms, vegetation, out-of-bounds, paths, streets.
@@ -798,7 +798,7 @@ mcp-error-content = Impossible de lire le réglage du contenu : { $detail }
 ## `permits-*` id is used. The quote "Nicht für Planungszwecke geeignet." is the BfN's own
 ## wording and stays German in every language.
 
-help-permits = Écrire les notes d'autorisation d'un projet (permits.md et permits.json) : les unités administratives, zones protégées et gestionnaires que touche la zone de la carte, et à qui il faut généralement s'adresser. Elle interroge le BfN et le BKG et, là où le Land de la zone de la carte a ses propres services ouverts, ceux-ci via les hôtes de son adaptateur (liste dans le manuel, chapitre 12) ; en Rhénanie-du-Nord-Westphalie elle télécharge pour cela environ 32 Mo la première fois, en Brandebourg environ 4 Mo, ensuite seulement des fichiers plus récents. Elle lit l'extrait OSM déjà en cache ; --offline utilise ce qui a été téléchargé avant
+help-permits = Écrire les notes d'autorisation d'un projet (permits.md et permits.json) : les unités administratives, zones protégées et gestionnaires que touche la zone de la carte, et à qui il faut généralement s'adresser. La commande interroge le BfN et le BKG et, là où le Land de la zone de la carte a ses propres services ouverts, ceux-ci via les hôtes de son adaptateur (liste dans le manuel, chapitre 12) ; en Rhénanie-du-Nord-Westphalie elle télécharge pour cela environ 32 Mo la première fois, en Brandebourg environ 4 Mo, ensuite seulement des fichiers plus récents. Elle lit l'extrait OSM déjà en cache ; --offline utilise ce qui a été téléchargé avant
 help-permits-dir = Dossier de projet
 help-permits-offline = Utiliser seulement les données téléchargées avant, sans accès au réseau
 help-run-permits = Écrire aussi les notes d'autorisation (permits.md et permits.json) après la carte ; interroge le BfN, le BKG et les services ouverts du Land (manuel, chapitre 12). Un échec à ce stade est un avertissement et la carte reste
@@ -986,8 +986,8 @@ permits-none-state-forest = Selon { $source }, aucune forêt domaniale du Land n
 permits-forest-units-reach = Un office forestier est compétent pour la forêt de son ressort. Son ressort peut aussi englober des villes et des champs.
 permits-state-forest-office = compétent : { $office }
 permits-hint-forest-office = { $units ->
-        [none] Office forestier compétent pour la forêt de la zone de la carte : { $office } ({ $administration }). Adressez-vous-y tôt si vous prévoyez un événement en forêt.
-       *[other] Office forestier compétent pour la forêt de la zone de la carte : { $office } ({ $administration }), { $units }. Adressez-vous-y tôt si vous prévoyez un événement en forêt.
+        [none] Office forestier compétent pour la forêt de la zone de la carte : { $office } ({ $administration }). Contactez-le tôt si vous prévoyez un événement en forêt.
+       *[other] Office forestier compétent pour la forêt de la zone de la carte : { $office } ({ $administration }), { $units }. Contactez-le tôt si vous prévoyez un événement en forêt.
     }
 permits-hint-forest-owner = { $office ->
         [known] Un événement en forêt exige l'accord des propriétaires forestiers. L'office forestier peut généralement dire à qui appartient la forêt. Dans plusieurs Länder, un événement organisé en forêt doit aussi être déclaré à l'autorité forestière ou autorisé par elle.

@@ -236,7 +236,7 @@ page-project-volume = cartella del progetto
 page-no-room = non c'è spazio sul disco
 page-no-room-skip = Non c'è spazio sul disco per tutto (freemapper tiene { $reserve } liberi). Il download omette le parti contrassegnate. Libera prima dello spazio se ti servono:
 page-no-room-stop = Spazio su disco insufficiente (freemapper tiene { $reserve } liberi). Senza le parti contrassegnate non c'è carta, quindi il download si ferma prima di scaricare qualsiasi cosa. Libera prima dello spazio:
-page-disk-unknown = freemapper non riesce a leggere lo spazio libero su disco ({ $error }). Scarica senza il controllo.
+page-disk-unknown = freemapper non riesce a leggere lo spazio libero su disco ({ $error }). Il download procede senza il controllo.
 page-too-large = L'area è troppo grande: al massimo { $max } m per lato (con margine). Scegline una più piccola.
 page-outside = L'area si trova fuori dai Land supportati ({ $states }); freemapper non ha ancora fonti di dati per altre regioni.
 page-outside-unknown = L'area si trova fuori dalle regioni supportate da freemapper; lì non ha ancora fonti di dati.
@@ -335,7 +335,7 @@ page-opt-sources = Righe delle fonti sui PDF
 page-sources-auto = automatiche
 page-sources-full = complete
 page-sources-credit-only = solo freemapper
-page-warn-credit-only = I PDF citeranno allora solo freemapper. Le licenze dei dati (ODbL, dl-de/by-2-0) richiedono l'attribuzione quando passi la carta ad altri; le fonti le citi allora tu. ATTRIBUTION.txt le elenca tutte.
+page-warn-credit-only = In questo caso i PDF citano solo freemapper. Le licenze dei dati (ODbL, dl-de/by-2-0) richiedono l'attribuzione quando passi la carta ad altri; le fonti devi quindi citarle tu. ATTRIBUTION.txt le elenca tutte.
 page-need-pdf = La barra della scala e le righe delle fonti valgono solo se si crea un PDF.
 page-opt-offline = Solo cache, nessuna rete
 page-opt-force = Sostituisci le carte esistenti
@@ -439,7 +439,7 @@ update-notice = freemapper { $new } è disponibile (hai { $old }). Aggiorna con:
 update-applies-next-start = La nuova versione si applica dal prossimo avvio di freemapper.
 update-install-failed = freemapper { $new } non è stato installato: { $error }
 update-no-config-dir = nessuna cartella di configurazione su questo sistema; imposta FREEMAPPER_CONFIG_DIR
-mcp-adapter-note = Nota per la persona: all'avvio il server freemapper ha trovato questo nelle cartelle degli adattatori. Giralo; la persona corregge la cartella o la rimuove, poi riavvia il server.
+mcp-adapter-note = Nota per la persona: all'avvio il server freemapper ha trovato questo nelle cartelle degli adattatori. Riferiscilo; la persona corregge la cartella o la rimuove, poi riavvia il server.
     { $lines }
 update-mcp-note = Nota per la persona: freemapper { $new } è disponibile (questa è { $old }). Chiedi alla persona prima di chiamare install_update.
 update-mcp-needs-confirm = non è stato installato nulla; chiedi prima alla persona e chiama install_update con confirm: true quando è d'accordo
@@ -523,7 +523,7 @@ error-fetch-not-found = { $name } non trovato sul server
 error-fetch-refused = { $url }: il server ha rifiutato la richiesta (HTTP { $status })
 error-fetch-refused-detail = { $url }: il server ha rifiutato la richiesta (HTTP { $status }): { $detail }
 error-fetch-too-large = il download di { $url } supera { $limit } MB; interrotto
-error-fetch-not-stored = nessun { $label } salvato per questa area della carta: { $path } manca, non si può leggere o non la copre; esegui prima `freemapper fetch` online
+error-fetch-not-stored = nessun dato salvato per questa area della carta ({ $label }): { $path } manca, non si può leggere o non la copre; esegui prima `freemapper fetch` online
 error-fetch-range-ignored = { $url }: il server ha ignorato l'intervallo di byte { $range } (HTTP { $status })
 error-fetch-not-allowed = { $url }: freemapper non invia richieste a questo indirizzo: { $reason }
 error-fetch-host-not-named-allow = { $target }: freemapper non invia richieste a questo indirizzo: l'adattatore di { $name } non nomina l'host { $host }{ $from }. Se il servizio si è spostato lì, consenti l'host con `freemapper adapters allow-host { $adapter } { $host }` e segnalalo su https://github.com/HenryJobst/freemapper/issues
@@ -647,7 +647,7 @@ help-select-pdf-sources = La pagina parte con questa scelta di righe delle fonti
 help-find = Elenca i luoghi OpenStreetMap per un nome, prima le aree, con l'id per init --osm
 help-find-query = Nome del luogo, es. "Clara-Zetkin-Schule Strausberg"
 help-find-json = Stampa le corrispondenze come JSON, con gli stessi campi dello strumento MCP find_place
-help-mcp = Serve gli strumenti a un agente IA via MCP (stdin/stdout)
+help-mcp = Fornisce gli strumenti a un agente IA via MCP (stdin/stdout)
 help-update = Installa un freemapper più recente dalle release di GitHub, dopo aver chiesto. Una build dai sorgenti dice invece come aggiornarla
 help-update-check = Solo controllo: codice di uscita 10 se esiste una versione più recente, 0 se questa è aggiornata
 help-update-yes = Installa senza chiedere; serve quando l'input non è un terminale
@@ -810,7 +810,7 @@ cli-permits-failed = impossibile scrivere le note sui permessi: { $error }
 cli-permits-source-left-out = le note sui permessi omettono { $source }: { $reason }
 cli-permits-not-read = non è stato letto
 error-permits-stored = { $path }: { $message }; scarica di nuovo online le note sui permessi
-error-permits-nothing-read = nessuna fonte delle note sui permessi ha potuto essere letta ({ $missing }); scaricale prima online
+error-permits-nothing-read = non è stato possibile leggere alcuna fonte delle note sui permessi ({ $missing }); scaricale prima online
 error-permits-missing-not-read = { $source }: non letto
 
 permits-title = Note sui permessi
@@ -872,7 +872,7 @@ permits-protected-link = Testo di legge: { $url }
 permits-protected-site-link = Pagina del sito (Natura 2000): { $url }
 permits-protected-year = Anno dei dati presso il BfN: { $year }
 permits-osm-line = { $kind }: { $name }, { $share } (OSM { $id })
-permits-osm-protect-class = protect class { $class }
+permits-osm-protect-class = classe di protezione { $class }
 permits-quoted = "{ $text }"
 permits-osm-unnamed = senza nome
 permits-osm-operator = Gestore secondo OSM: { $operator }
@@ -900,8 +900,8 @@ permits-hint-national-park = Un parco nazionale ha regole proprie. Rivolgiti per
 permits-hint-nsg-paths = In una riserva naturale di solito bisogna restare sui sentieri. Per una corsa fuori dai sentieri, rivolgiti all'autorità per la tutela della natura.
 permits-hint-natura2000 = Un'area FFH o un'area di protezione degli uccelli (Natura 2000) tocca l'area della carta. Per una manifestazione l'autorità per la tutela della natura può chiedere una valutazione dei suoi effetti.
 permits-hint-order-office = { $amt ->
-        [none] Per strade, piazze e altri terreni pubblici di solito è competente l'Ordnungsamt (ufficio per l'ordine pubblico) del Gemeinde { $gemeinde }.
-       *[other] Per strade, piazze e altri terreni pubblici di solito è competente l'Ordnungsamt (ufficio per l'ordine pubblico): { $amt }, per il Gemeinde { $gemeinde }.
+        [none] Per strade, piazze e altri terreni pubblici di solito è competente l'Ordnungsamt (ufficio per l'ordine pubblico) del comune { $gemeinde }.
+       *[other] Per strade, piazze e altri terreni pubblici di solito è competente l'Ordnungsamt (ufficio per l'ordine pubblico): { $amt }, per il comune { $gemeinde }.
     }
 permits-hint-park-operator = Gestore di un parco o giardino nell'area della carta secondo OpenStreetMap: { $operator }. Chiedi prima di usarlo.
 permits-hint-school-operator = Gestore della scuola o dell'istituzione secondo OpenStreetMap: { $operator }. Per il suo terreno, rivolgiti al dirigente scolastico o a questo ente.
@@ -917,7 +917,7 @@ permits-none-monuments = Secondo { $source }, nell'area della carta non si trova
 permits-none-protected-objects = Secondo { $source }, nell'area della carta non si trova nessuno degli oggetti protetti che contiene.
 permits-none-sampled = Nei punti interrogati, { $source } qui non nomina nulla.
 permits-gaps = I dati di { $source } non sono completi: { $gaps }.
-permits-sampled = { $source } risponde solo per singoli punti. freemapper ha interrogato una griglia di punti sulla carta: le quote sono stime, e ciò che si trova tra i punti può mancare.
+permits-sampled = { $source } risponde solo per singoli punti. freemapper ha interrogato una griglia di punti sulla carta: le percentuali sono stime, e ciò che si trova tra i punti può mancare.
 permits-share-line = { $name }: { $share }
 permits-count-line = { $name }: { $count }
 permits-green-space-district = Bezirk { $district }
@@ -956,9 +956,9 @@ permits-hint-monument-lower-authority = { $known ->
         [yes] . Qui è la città di { $kreis } stessa.
         [no] , di solito il { $kreis }{ $gemeinde ->
             [none] .
-           *[other] ; in alcuni Land è il Gemeinde { $gemeinde }.
+           *[other] ; in alcuni Land è il comune { $gemeinde }.
         }
-       *[unknown] {" "}(di solito il Landkreis o la kreisfreie Stadt, in alcuni Land il Gemeinde).
+       *[unknown] {" "}(di solito il Landkreis o la kreisfreie Stadt, in alcuni Land il comune).
     }
 permits-hint-nature-object-lower-authority = { $kreisfrei ->
         [yes] I monumenti naturali, gli elementi paesaggistici protetti e i biotopi protetti sulla carta sono di competenza dell'autorità inferiore per la tutela della natura (untere Naturschutzbehörde). Qui è la città di { $kreis } stessa.
@@ -978,8 +978,8 @@ permits-hint-owner-share = { $unnamed ->
        *[no] Secondo i dati aperti del Land, { $share } dell'area della carta appartiene al proprietario "{ $owner }".
     }
 permits-hint-owners-unknown = { $rest ->
-        [yes] I proprietari del resto dell'area non si possono ricavare dai dati aperti. Con un interesse legittimo (un organizzatore, per esempio) puoi chiedere un estratto al catasto fondiario (Grundbuchamt); per i terreni pubblici aiuta l'Ordnungsamt o l'ufficio parchi competente.
-       *[no] I proprietari di queste aree non si possono ricavare dai dati aperti. Con un interesse legittimo (un organizzatore, per esempio) puoi chiedere un estratto al catasto fondiario (Grundbuchamt); per i terreni pubblici aiuta l'Ordnungsamt o l'ufficio parchi competente.
+        [yes] I proprietari del resto dell'area non si possono ricavare dai dati aperti. Con un interesse legittimo (un organizzatore, per esempio) puoi chiedere un estratto all'ufficio del libro fondiario (Grundbuchamt); per i terreni pubblici aiuta l'Ordnungsamt o l'ufficio parchi competente.
+       *[no] I proprietari di queste aree non si possono ricavare dai dati aperti. Con un interesse legittimo (un organizzatore, per esempio) puoi chiedere un estratto all'ufficio del libro fondiario (Grundbuchamt); per i terreni pubblici aiuta l'Ordnungsamt o l'ufficio parchi competente.
     }
 permits-section-forest-units = Amministrazione forestale ({ $source })
 permits-section-state-forest = Foresta demaniale del Land ({ $source })

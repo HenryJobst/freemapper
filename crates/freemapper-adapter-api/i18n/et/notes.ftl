@@ -122,7 +122,7 @@ warning-alkis-land-use-none = ALKIS-i maakasutus pole saadaval ({ $error }); kee
 
 ## The Berlin layers
 
-progress-berlin-none-stored = Berliini ALKIS-i rajatisi pole salvestatud; treppide, müüride, puude ja katuste jaoks tuleb käivitada `freemapper fetch` võrguühendusega
+progress-berlin-none-stored = Berliini ALKIS-i rajatisi pole salvestatud; treppide, müüride, puude ja varjualuste jaoks tuleb käivitada `freemapper fetch` võrguühendusega
 progress-berlin-removing = salvestatud Berliini kihtide eemaldamine: kaardiala ei asu enam Berliini lähedal
 progress-berlin-download = Berliini ALKIS-i rajatiste, puukatastri, tänavamõõdistuse ja punktkihtide allalaadimine
 progress-berlin-features = { $count } Berliini { $file } objekti

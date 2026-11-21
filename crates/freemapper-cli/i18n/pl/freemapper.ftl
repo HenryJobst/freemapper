@@ -21,14 +21,14 @@ cli-no-cache-dir = brak folderu pamięci podręcznej w tym systemie; podaj --cac
 ## fetch, derive, run, export
 
 cli-fetched-tiles = { $count ->
-        [one] Pobrano 1 kafelek
-        [few] Pobrano { $count } kafelki
-        [many] Pobrano { $count } kafelków
-       *[other] Pobrano { $count } kafelka
+        [one] Pobrano 1 arkusz
+        [few] Pobrano { $count } arkusze
+        [many] Pobrano { $count } arkuszy
+       *[other] Pobrano { $count } arkusza
     }
 cli-wrote = Zapisano { $path }
 cli-kept-map = Zachowano { $path } (może zawierać twoją pracę)
-cli-map-lacks-templates = Mapa nie odwołuje się jeszcze do podkładów rastrowych. Dodaj je w OOM (Templates > Open template…) albo zastąp mapę przez --force, co zachowuje starą jako .omap.bak.
+cli-map-lacks-templates = Mapa nie odwołuje się jeszcze do szablonów rastrowych. Dodaj je w OOM (Templates > Open template…) albo zastąp mapę przez --force, co zachowuje starą jako .omap.bak.
 cli-map-lacks-buildings = Mapa nie ma jeszcze budynków z ALKIS. Aby je dodać, zastąp mapę przez --force, co zachowuje starą jako .omap.bak.
 cli-map-lacks-canopies = Mapie brakuje wiat i carportów z ALKIS (522), które są teraz obiektami mapy. Aby je dodać, uruchom z --force, co zachowuje starą mapę jako .omap.bak.
 cli-map-light = Mapa bazowa: połączono { $joined } linii, { $left } ukrytych lub zbyt małych obiektów zostawiono w warstwach kandydatów (nic nie przesunięto)
@@ -154,10 +154,10 @@ cli-check-raster-orthophoto = ortofotomapa
 cli-check-raster-terrain = numeryczny model terenu
 cli-check-raster-surface = numeryczny model pokrycia terenu
 cli-check-raster-tiles = { $product }: { $count ->
-        [one] jeden kafelek
-        [few] { $count } kafelki
-        [many] { $count } kafelków
-       *[other] { $count } kafelka
+        [one] jeden arkusz
+        [few] { $count } arkusze
+        [many] { $count } arkuszy
+       *[other] { $count } arkusza
     }
 
 ## Listy w zdaniach
@@ -229,8 +229,8 @@ page-summary = Obszar
 page-source-osm = Z OpenStreetMap: { $name }
 page-source-drawn = Narysowany ręcznie
 page-size = Rozmiar z buforem: { $width } × { $height } m
-page-tiles-one = Kafelki ({ $n }): { $names }
-page-tiles-other = Kafelki ({ $n }): { $names }
+page-tiles-one = Arkusze ({ $n }): { $names }
+page-tiles-other = Arkusze ({ $n }): { $names }
 page-download = Pobieranie: około { $mb } MB
 page-download-none = Pobieranie: wszystko jest już w pamięci podręcznej
 page-download-details = Co zostanie pobrane
@@ -263,7 +263,7 @@ page-saved = Zapisano w freemapper.toml.
 page-zone-changed = Zapisano. Obszar leży teraz w innej strefie UTM; freemapper pobierze jego dane ponownie przy następnym uruchomieniu.
 page-provider-changed = Zapisano. Wysokości i zdjęcia lotnicze nowego obszaru pochodzą od innego dostawcy danych; freemapper pobierze jego dane ponownie przy następnym uruchomieniu.
 page-save-stale = freemapper.toml zmieniono w innym oknie lub innym programem od czasu, gdy ta strona go odczytała. Nic nie zapisano; strona zna teraz zapisany stan. Zapisz ponownie, aby zastąpić go obszarem pokazanym tutaj.
-page-has-map = Istniejąca mapa (.omap) zostaje bez zmian; freemapper tworzy nowe podkłady i kandydatów dla nowego obszaru. Opcja "Zastąp istniejącą mapę" poniżej (albo "freemapper run --force") tworzy od nowa także mapę i zachowuje starą jako .omap.bak.
+page-has-map = Istniejąca mapa (.omap) zostaje bez zmian; freemapper tworzy nowe szablony i kandydatów dla nowego obszaru. Opcja "Zastąp istniejącą mapę" poniżej (albo "freemapper run --force") tworzy od nowa także mapę i zachowuje starą jako .omap.bak.
 page-done = Gotowe
 page-source = Kod źródłowy (AGPL-3.0-or-later)
 page-closed = Gotowe. Możesz zamknąć to okno.
@@ -361,7 +361,7 @@ page-force-text = Istniejąca mapa zostanie zastąpiona, a przy zaznaczonej "Map
 page-force-cancel = Anuluj
 page-force-confirm = Zastąp
 page-step-fetch = Pobieranie danych
-page-step-derive = Obliczanie podkładów
+page-step-derive = Obliczanie szablonów
 page-step-map = Zapisywanie mapy
 page-step-ocad = Zapisywanie projektu OCAD
 page-step-pdf = Zapisywanie PDF
@@ -371,7 +371,7 @@ page-step-permits = Zapisywanie wskazówek dotyczących zgód
 page-step-line = Krok { $index } z { $total }: { $label }
 page-starting = Uruchomienie się rozpoczyna …
 page-file-kind-map = mapa
-page-file-kind-template = podkład
+page-file-kind-template = szablon
 page-file-kind-ocad = mapa OCAD
 page-file-kind-ocad-candidates = kandydaci OCAD
 page-file-kind-pdf = PDF
@@ -469,7 +469,7 @@ error-io-disk-full = dysk jest pełny, więc freemapper nie mógł zapisać { $p
 error-project-already-exists = projekt już istnieje: { $path }
 error-project-map-exists = mapa już istnieje (może zawierać twoją pracę); użyj --force, aby ją zastąpić: { $path }
 error-project-invalid-scale = nieprawidłowa skala 1:{ $scale }
-error-project-invalid-contour-interval = nieprawidłowy przekrój warstwic { $interval } m w freemapper.toml; musi być większy niż 0
+error-project-invalid-contour-interval = nieprawidłowe cięcie warstwic { $interval } m w freemapper.toml; musi być większe niż 0
 error-project-scale-not-allowed = skala 1:{ $scale } nie jest dozwolona dla map typu { $kind }; użyj { $allowed }
 error-project-scale-not-allowed-enlarge = skala 1:{ $scale } nie jest dozwolona dla map typu { $kind }; użyj { $allowed }. Rysuj w skali 1:4000, freemapper-print powiększa do 1:3000 przy drukowaniu
 word-kind-schoolyard = dziedziniec szkolny
@@ -477,10 +477,10 @@ word-kind-sprint = sprint
 word-kind-forest = las
 error-project-toml = nieprawidłowy plik projektu: { $message }
 error-project-unknown-adapter = plik projektu wskazuje adapter "{ $adapter }", którego ten freemapper nie ma; może go dostarczyć nowszy freemapper (`freemapper update`), może pochodzić z folderu adapterów użytkownika (pokazuje go `freemapper adapters list`) albo, z opcją --adapters-from-project w wierszu poleceń, z folderu `adapters` projektu (tylko dla projektu, któremu ufasz)
-error-project-not-fetched = nie pobrano jeszcze kafelków; najpierw uruchom `freemapper fetch`
+error-project-not-fetched = nie pobrano jeszcze arkuszy; najpierw uruchom `freemapper fetch`
 error-project-ocd = eksport OCAD: { $message }
 error-project-template-outdated = { $path }: obraz i plik georeferencji nie pasują do obszaru mapy; uruchom ponownie `freemapper derive`
-error-project-tiles-outdated = obszar mapy wymaga kafelków { $tiles }, które nie zostały pobrane; uruchom `freemapper fetch`
+error-project-tiles-outdated = obszar mapy wymaga arkuszy { $tiles }, które nie zostały pobrane; uruchom `freemapper fetch`
 error-project-buildings-not-fetched = brak zapisanych budynków ALKIS dla tego obszaru mapy; najpierw uruchom `freemapper fetch` online
 error-project-orthophoto-not-fetched = brak zapisanej ortofotomapy dla tego obszaru mapy; najpierw uruchom `freemapper fetch` online
 error-project-terrain-not-fetched = brak zapisanego numerycznego modelu terenu dla tego obszaru mapy; najpierw uruchom `freemapper fetch` online
@@ -508,19 +508,19 @@ word-part-point-cloud = laserowe chmury punktów dla kandydatów roślinności
 ## Błędy: pobieranie
 
 error-fetch-http = pobieranie { $url } nie powiodło się: { $message }
-error-fetch-corrupt-archive = pobrany plik { $url } nie jest kompletnym archiwum kafelków: { $message }
+error-fetch-corrupt-archive = pobrany plik { $url } nie jest kompletnym archiwum arkuszy: { $message }
 error-fetch-corrupt-extract = pobrany plik { $url } nie jest kompletnym wyciągiem OSM: { $message }
 error-fetch-tiles-not-covered = { $count ->
-        [one] kafelek { $tiles } nie jest objęty opublikowanymi kafelkami; zmniejsz obszar mapy lub buffer_m w freemapper.toml
-        [few] kafelki { $tiles } nie są objęte opublikowanymi kafelkami; zmniejsz obszar mapy lub buffer_m w freemapper.toml
-        [many] kafelki { $tiles } nie są objęte opublikowanymi kafelkami; zmniejsz obszar mapy lub buffer_m w freemapper.toml
-       *[other] kafelki { $tiles } nie są objęte opublikowanymi kafelkami; zmniejsz obszar mapy lub buffer_m w freemapper.toml
+        [one] arkusz { $tiles } nie jest objęty opublikowanymi arkuszami; zmniejsz obszar mapy lub buffer_m w freemapper.toml
+        [few] arkusze { $tiles } nie są objęte opublikowanymi arkuszami; zmniejsz obszar mapy lub buffer_m w freemapper.toml
+        [many] arkusze { $tiles } nie są objęte opublikowanymi arkuszami; zmniejsz obszar mapy lub buffer_m w freemapper.toml
+       *[other] arkusze { $tiles } nie są objęte opublikowanymi arkuszami; zmniejsz obszar mapy lub buffer_m w freemapper.toml
     }
 error-fetch-missing-offline = { $count ->
-        [one] tryb offline i brak w pamięci podręcznej: { $product }, kafelek { $tiles }; uruchom `freemapper fetch` online
-        [few] tryb offline i brak w pamięci podręcznej: { $product }, kafelki { $tiles }; uruchom `freemapper fetch` online
-        [many] tryb offline i brak w pamięci podręcznej: { $product }, kafelki { $tiles }; uruchom `freemapper fetch` online
-       *[other] tryb offline i brak w pamięci podręcznej: { $product }, kafelki { $tiles }; uruchom `freemapper fetch` online
+        [one] tryb offline i brak w pamięci podręcznej: { $product }, arkusz { $tiles }; uruchom `freemapper fetch` online
+        [few] tryb offline i brak w pamięci podręcznej: { $product }, arkusze { $tiles }; uruchom `freemapper fetch` online
+        [many] tryb offline i brak w pamięci podręcznej: { $product }, arkusze { $tiles }; uruchom `freemapper fetch` online
+       *[other] tryb offline i brak w pamięci podręcznej: { $product }, arkusze { $tiles }; uruchom `freemapper fetch` online
     }
 word-product-orthophoto = ortofotomapa (DOP20)
 word-product-dtm = numeryczny model terenu (DGM1)
@@ -558,9 +558,9 @@ error-osm = dane OSM: { $message }
 
 ## Błędy: szablony i rastry
 
-error-derive-zip = archiwum kafelków: { $message }
+error-derive-zip = archiwum arkuszy: { $message }
 error-derive-image = obraz: { $message }
-error-derive-no-tiles = brak kafelków, z których można wyliczyć dane
+error-derive-no-tiles = brak arkuszy, z których można wyliczyć dane
 error-derive-area-too-large = obszar mapy zbyt duży dla jednego szablonu: { $width } × { $height } pikseli (najwyżej { $limit } na bok); zmniejsz obszar mapy lub buffer_m w freemapper.toml
 error-raster-world-file = nieprawidłowy plik georeferencji: { $message }
 error-raster-misaligned = rastry nie są wyrównane do tej samej siatki pikseli: { $message }
@@ -619,7 +619,7 @@ help-export-dir = Folder projektu
 help-arg-force = Zastąp istniejący plik mapy i zachowaj starą wersję jako `<name>.omap.bak`
 help-export-ocad = Zapisz też punkt startowy OCAD w `ocad/` (format OCAD 12); istniejąca mapa OOM zostaje wtedy bez zmian, chyba że podasz --force
 help-export-pdf = Zapisz też `<name>.pdf`, mapę do wydruku (tylko obiekty mapy, bez kandydatów); istniejąca mapa OOM zostaje wtedy bez zmian, chyba że podasz --force
-help-export-pdf-candidates = Zapisz też `<name>-candidates.pdf`, wydruk do sprawdzenia: mapa ze wszystkimi kandydatami, zgodnie z położeniem; istniejąca mapa OOM zostaje wtedy bez zmian, chyba że podasz --force
+help-export-pdf-candidates = Zapisz też `<name>-candidates.pdf`, wydruk kontrolny: mapa ze wszystkimi kandydatami, zgodnie z położeniem; istniejąca mapa OOM zostaje wtedy bez zmian, chyba że podasz --force
 help-export-training = Zapisz też mapę treningową `<name>-training.omap` i jej PDF `<name>-training.pdf`: mapa i wszyscy kandydaci, uporządkowane do wydruku w tej postaci; z --ocad także `ocad/<name>-training.ocd`. Istniejąca mapa OOM zostaje wtedy bez zmian, chyba że podasz --force, a --force zastępuje też istniejącą mapę treningową
 help-export-view = Z --training: zapisz też mapę treningową bez tego, co pomija widok, jako `<name>-training-<view>.omap` i jej PDF (z --ocad także plik OCAD). Widoki: `no-paths` (bez dróg, ścieżek, schodów), `brown-only` (tylko brązowe znaki i ramka), `no-north-lines`, albo lista `no:<codes>` / `only:<codes>`; łącz za pomocą `+`. Powtórz opcję, aby uzyskać kilka plików
 help-export-pdf-scale-bar = Narysuj podziałkę liniową w plikach PDF (domyślnie wyłączone, niemieckie mapy zwykle jej nie mają; liczba skali pozostaje w tabliczce tytułowej)
@@ -627,7 +627,7 @@ help-export-pdf-sources = Wiersze źródeł w plikach PDF: `auto` drukuje pełn�
 help-fetch = Pobierz dane dla obszaru mapy (ortofotomapę, numeryczny model terenu, nDSM, budynki ALKIS, OSM)
 help-fetch-dir = Folder projektu
 help-fetch-offline = Użyj tylko pamięci podręcznej, bez dostępu do sieci
-help-arg-cache-dir = Folder pamięci podręcznej dla pobranych kafelków (domyślnie: systemowy folder pamięci podręcznej + `freemapper`)
+help-arg-cache-dir = Folder pamięci podręcznej dla pobranych arkuszy (domyślnie: systemowy folder pamięci podręcznej + `freemapper`)
 help-derive = Wylicz szablony (ortofotomapę, cieniowanie, spadki, rzeźbę lokalną, nDSM), warstwice i formy terenu z pobranych danych
 help-derive-dir = Folder projektu
 help-run = Pobierz, wylicz i zapisz za jednym razem
@@ -635,7 +635,7 @@ help-run-dir = Folder projektu
 help-run-offline = Użyj tylko pamięci podręcznej, bez dostępu do sieci
 help-run-ocad = Zapisz też punkt startowy OCAD w `ocad/` (format OCAD 12)
 help-run-pdf = Zapisz też `<name>.pdf`, mapę do wydruku (tylko obiekty mapy, bez kandydatów)
-help-run-pdf-candidates = Zapisz też `<name>-candidates.pdf`, wydruk do sprawdzenia: mapa ze wszystkimi kandydatami, zgodnie z położeniem
+help-run-pdf-candidates = Zapisz też `<name>-candidates.pdf`, wydruk kontrolny: mapa ze wszystkimi kandydatami, zgodnie z położeniem
 help-run-training = Zapisz też mapę treningową `<name>-training.omap` i jej PDF `<name>-training.pdf`: mapa i wszyscy kandydaci, uporządkowane do wydruku w tej postaci; z --ocad także `ocad/<name>-training.ocd`. Istniejąca mapa treningowa zostaje, chyba że podasz --force
 help-run-view = Z --training: zapisz też mapę treningową bez tego, co pomija widok, jako `<name>-training-<view>.omap` i jej PDF (z --ocad także plik OCAD). Widoki: `no-paths` (bez dróg, ścieżek, schodów), `brown-only` (tylko brązowe znaki i ramka), `no-north-lines`, albo lista `no:<codes>` / `only:<codes>`; łącz za pomocą `+`. Istniejący plik widoku zostaje, chyba że podasz --force
 help-run-pdf-scale-bar = Narysuj podziałkę liniową w plikach PDF (domyślnie wyłączone; liczba skali pozostaje w tabliczce tytułowej)
@@ -649,7 +649,7 @@ help-select-port = Port na 127.0.0.1 (domyślnie: wolny)
 help-select-offline = Strona startuje z zaznaczonym "tylko pamięć podręczna, bez sieci"
 help-select-ocad = Strona startuje z zaznaczonym projektem startowym OCAD
 help-select-pdf = Strona startuje z zaznaczonym PDF do wydruku
-help-select-pdf-candidates = Strona startuje z zaznaczonym wydrukiem do sprawdzenia (wszyscy kandydaci)
+help-select-pdf-candidates = Strona startuje z zaznaczonym wydrukiem kontrolnym (wszyscy kandydaci)
 help-select-training = Strona startuje z zaznaczoną mapą treningową
 help-select-pdf-scale-bar = Strona startuje z zaznaczoną podziałką liniową w plikach PDF
 help-select-pdf-sources = Strona startuje z tym wyborem wierszy źródeł w plikach PDF, jak dla `run`
@@ -693,15 +693,15 @@ cli-summary-training-view-failed = Widok mapy treningowej nie powiódł się: { 
 cli-estimate-disk-unreadable = nie można odczytać wolnego miejsca na dysku dla { $path } ({ $message })
 cli-summary-wrote-map = Zapisano mapę { $path }
 cli-summary-kept-map = Zachowano istniejącą mapę { $path } (może zawierać pracę kartografa)
-cli-summary-map-lacks-templates = Mapa nie odwołuje się jeszcze do szablonów obrazowych. Uruchom potok z force, aby ją zastąpić; stara wersja zostanie jako .omap.bak.
+cli-summary-map-lacks-templates = Mapa nie odwołuje się jeszcze do szablonów rastrowych. Uruchom potok z force, aby ją zastąpić; stara wersja zostanie jako .omap.bak.
 cli-summary-map-lacks-buildings = Mapa nie ma jeszcze budynków ALKIS. Uruchom potok z force, aby je dodać; zastąpi to mapę, a stara wersja zostanie jako .omap.bak.
-cli-summary-map-lacks-canopies = W mapie brakuje wiat i garaży otwartych z ALKIS (522), które są teraz obiektami mapy. Uruchom potok z force, aby je dodać; zastąpi to mapę, a stara wersja zostanie jako .omap.bak.
+cli-summary-map-lacks-canopies = W mapie brakuje wiat i carportów z ALKIS (522), które są teraz obiektami mapy. Uruchom potok z force, aby je dodać; zastąpi to mapę, a stara wersja zostanie jako .omap.bak.
 cli-summary-map-light = Mapa bazowa: połączono { $joined } linii, { $left } ukrytych lub zbyt małych obiektów trafiło do warstw kandydatów (nic nie przesunięto)
 cli-summary-map-light-kept = Warstwy kandydatów zawierają teraz także { $left } obiektów lub odcinków, które ta wersja zdejmuje z mapy bazowej (z oznaczeniem freemapper:generalized). Zachowana mapa nadal je ma, więc są widoczne dwa razy. Uruchom potok z force, aby oczyścić mapę; stara wersja zostanie jako .omap.bak.
 cli-summary-map-old-candidates = Mapa nadal wskazuje templates/candidates.omap; to uruchomienie wypełniło go wszystkimi kandydatami. Kandydaci są teraz dostępni także w siedmiu warstwach, po jednym pliku (templates/candidates-*.omap). Mapa wymienia je po uruchomieniu z force (stara mapa zostaje jako .omap.bak) albo kartograf dodaje je w OOM (Templates > Open template…).
 cli-summary-wrote-ocad = Zapisano mapę OCAD { $path } ({ $count } obiektów)
 cli-summary-kept-ocad = Zachowano istniejącą mapę OCAD { $path } (może zawierać pracę kartografa; force ją zastępuje)
-cli-summary-ocad-old-candidates = Mapa OCAD nadal wskazuje { $path } jako mapę tła; to uruchomienie wypełniło ją wszystkimi kandydatami. Kandydaci są teraz dostępni także w siedmiu warstwach, po jednym pliku (-candidates-*.ocd). Mapa OCAD wymienia je po uruchomieniu z force (stara mapa zostaje jako .ocd.bak) albo kartograf dodaje je w OCAD jako mapy tła.
+cli-summary-ocad-old-candidates = Mapa OCAD nadal wskazuje { $path } jako mapę w tle; to uruchomienie wypełniło ją wszystkimi kandydatami. Kandydaci są teraz dostępni także w siedmiu warstwach, po jednym pliku (-candidates-*.ocd). Mapa OCAD wymienia je po uruchomieniu z force (stara mapa zostaje jako .ocd.bak) albo kartograf dodaje je w OCAD jako mapy w tle.
 cli-summary-ocad-left-out = Pominięto w mapie OCAD: { $skipped } obiektów i { $dropped } zdegenerowanych części
 cli-summary-ocad-symbols = W OCAD wybierz Symbol > Load Colors and Symbols From… i wskaż oficjalny zestaw znaków{ $kind ->
         [forest] {" "}ISOM 2017-2
@@ -712,8 +712,8 @@ cli-summary-ocad-failed = Eksport OCAD nie powiódł się: { $error }
 cli-summary-pdf-without-credits = PDF bez informacji o źródłach: ODbL i dl-de/by-2-0 wymagają podania źródeł przy przekazywaniu mapy; zobacz ATTRIBUTION.txt
 cli-summary-wrote-pdf = Zapisano mapę { $path } (bez kandydatów)
 cli-summary-pdf-failed = Eksport PDF nie powiódł się: { $error }
-cli-summary-wrote-pdf-candidates = Zapisano wydruk do sprawdzenia { $path } (mapa ze wszystkimi kandydatami, zgodnie z położeniem)
-cli-summary-pdf-candidates-failed = Eksport wydruku do sprawdzenia nie powiódł się: { $error }
+cli-summary-wrote-pdf-candidates = Zapisano wydruk kontrolny { $path } (mapa ze wszystkimi kandydatami, zgodnie z położeniem)
+cli-summary-pdf-candidates-failed = Eksport wydruku kontrolnego nie powiódł się: { $error }
 cli-summary-training-failed = Eksport mapy treningowej nie powiódł się: { $error }
 cli-summary-kept-training = Zachowano istniejącą mapę treningową { $path }, aby uruchomienie nie nadpisało mapy, która została wydrukowana lub przekazana dalej; usuń ją lub ustaw force, aby ją odnowić
 
@@ -726,14 +726,14 @@ mcp-error-no-project = w { $path } nie ma projektu freemapper; najpierw użyj cr
 mcp-error-unknown-kind = nieznany rodzaj { $kind }; użyj "schoolyard", "sprint" lub "forest"
 mcp-error-reading = odczyt { $path }: { $error }
 mcp-error-one-area-source = podaj dokładnie jedno z: osm_id (z find_place) lub geojson
-mcp-error-page-open = strona wyboru obszaru dla tego projektu jest nadal otwarta; poproś użytkownika, aby zapisał obszar i nacisnął Done na stronie, a potem uruchom potok
+mcp-error-page-open = strona wyboru obszaru dla tego projektu jest nadal otwarta; poproś użytkownika, aby zapisał obszar i nacisnął Gotowe na stronie, a potem uruchom potok
 mcp-error-no-job = brak zadania { $job }; start_pipeline i permits_for_area zwracają identyfikatory zadań tej sesji
 mcp-error-job-running = { $job } nadal działa dla { $path }; naraz działa jeden potok, bo projekty dzielą pamięć podręczną pobierania. Uruchom ten, gdy project_status zgłosi finished lub failed
 mcp-error-page-start = nie można uruchomić strony: { $error }
 mcp-created-project = Utworzono projekt { $path } dla { $area } ({ $kind }, 1:{ $scale }). Dalej: estimate_download, potem start_pipeline.
 mcp-created-project-given-area = Utworzono projekt { $path } dla podanego obszaru ({ $kind }, 1:{ $scale }). Dalej: estimate_download, potem start_pipeline.
 mcp-page-already-open = Strona dla tego folderu jest już otwarta; zachowuje ustawienia, z którymi została otwarta.
-mcp-page-next = Poproś użytkownika, aby wybrał obszar na stronie, nacisnął Save, a potem Done.
+mcp-page-next = Poproś użytkownika, aby wybrał obszar na stronie, nacisnął Zapisz, a potem Gotowe.
 mcp-preview-of = Podgląd warstwy { $layer }
 mcp-permits-next = Wskazówki dotyczące zgód są w trakcie tworzenia. Odpytuj project_status z tym job_id; gdy zadanie się zakończy, permits_md zawiera tekst permits.md. Przekaż go jako wskazówkę, nie poradę prawną.
 mcp-tool-check-update = Czy istnieje nowsze wydanie freemapper: jego wersja, data wydania, uwagi do wydania i rozmiar pobierania, albo informacja, że ta wersja jest aktualna. Niczego nie instaluje.
@@ -745,22 +745,22 @@ mcp-param-create-project-osm-id = Obiekt OSM obszaru mapy z find_place, np. "way
 mcp-param-create-project-part = Z osm_id: której części obszaru złożonego z kilku oddzielnych części użyć (1 to największa).
 mcp-param-create-project-scale = Mianownik skali: schoolyard 1000 (domyślnie); sprint 4000 (domyślnie) lub 5000; forest 15000 (domyślnie), 10000 lub 7500. Inne wartości są odrzucane; dla 1:3000 rysuj w 4000, freemapper-print powiększa przy drukowaniu.
 mcp-param-create-project-title = Tytuł mapy do informacji na marginesie (domyślnie: nazwa folderu).
-mcp-tool-estimate-download = Co start_pipeline pobierze dla projektu: kafelki, każde pobranie z rozmiarem w MB, czy jest w pamięci podręcznej i czy mieści się na dysku, ile MB zostało do pobrania, a w disk wolne miejsce w pamięci podręcznej i na woluminach projektu wraz z komunikatami o tym, co się nie mieści (przekaż je użytkownikowi).
+mcp-tool-estimate-download = Co start_pipeline pobierze dla projektu: arkusze, każde pobranie z rozmiarem w MB, czy jest w pamięci podręcznej i czy mieści się na dysku, ile MB zostało do pobrania, a w disk wolne miejsce w pamięci podręcznej i na woluminach projektu wraz z komunikatami o tym, co się nie mieści (przekaż je użytkownikowi).
 mcp-param-estimate-download-dir = Folder projektu (ścieżka bezwzględna lub zaczynająca się od ~).
 mcp-tool-find-place = Wyszukaj szkołę, park lub inne miejsce po nazwie (OpenStreetMap Nominatim). Zwraca do 5 dopasowań, najpierw obszary; obszarem mapy mogą być tylko dopasowania z has_area. Pusta lista oznacza, że niczego nie znaleziono.
 mcp-param-find-place-query = Nazwa szkoły lub miejsca, np. "Clara-Zetkin-Schule Strausberg".
-mcp-tool-install-update = Zainstaluj najnowsze wydanie freemapper nad tym programem. Wywołuj tylko po zgodzie osoby, z confirm true. Nowa wersja zacznie działać po ponownym uruchomieniu serwera freemapper przez asystenta.
+mcp-tool-install-update = Zainstaluj najnowsze wydanie freemapper w miejsce tego programu. Wywołuj tylko po zgodzie osoby, z confirm true. Nowa wersja zacznie działać po ponownym uruchomieniu serwera freemapper przez asystenta.
 mcp-param-install-update-confirm = true, gdy osoba zgodziła się na instalację nowszej wersji; bez tego nic nie jest instalowane.
 mcp-tool-list-layers = Warstwy projektu: mapa, siedem warstw kandydatów i szablony rastrowe, każda z plikiem, informacją, czy już powstała, i krokiem, który ją tworzy.
 mcp-param-list-layers-dir = Folder projektu (ścieżka bezwzględna lub zaczynająca się od ~).
-mcp-tool-open-area-selector = Otwórz w przeglądarce stronę, na której użytkownik rysuje obszar mapy (prostokąt lub wielokąt) albo wskazuje miejsce, widzi kafelki i rozmiar pobierania, i zapisuje go; zapis tworzy folder projektu lub zmienia jego obszar. Zwraca adres URL do przekazania użytkownikowi. Strona działa, dopóki użytkownik nie naciśnie Done; ponowne wywołanie dla tego samego folderu zwraca ten sam adres URL.
+mcp-tool-open-area-selector = Otwórz w przeglądarce stronę, na której użytkownik rysuje obszar mapy (prostokąt lub wielokąt) albo wskazuje miejsce, widzi arkusze i rozmiar pobierania, i zapisuje go; zapis tworzy folder projektu lub zmienia jego obszar. Zwraca adres URL do przekazania użytkownikowi. Strona działa, dopóki użytkownik nie naciśnie Gotowe; ponowne wywołanie dla tego samego folderu zwraca ten sam adres URL.
 mcp-param-open-area-selector-dir = Folder projektu (ścieżka bezwzględna lub zaczynająca się od ~); tworzony, gdy użytkownik zapisze.
 mcp-param-open-area-selector-kind = Rodzaj mapy nowego projektu: "schoolyard" (domyślnie, 1:1000), "sprint" (1:4000) lub "forest" (1:15000).
 mcp-param-open-area-selector-ocad = Panel uruchomienia startuje z zaznaczonym projektem startowym OCAD. Domyślnie false.
 mcp-param-open-area-selector-offline = Panel uruchomienia startuje z zaznaczonym "tylko pamięć podręczna, bez sieci". Domyślnie false.
 mcp-param-open-area-selector-open-browser = Otwórz też stronę w domyślnej przeglądarce tego komputera. Domyślnie true.
 mcp-param-open-area-selector-pdf = Panel uruchomienia startuje z zaznaczonym PDF do wydruku. Domyślnie false.
-mcp-param-open-area-selector-pdf-candidates = Panel uruchomienia startuje z zaznaczonym wydrukiem do sprawdzenia (wszyscy kandydaci). Domyślnie false.
+mcp-param-open-area-selector-pdf-candidates = Panel uruchomienia startuje z zaznaczonym wydrukiem kontrolnym (wszyscy kandydaci). Domyślnie false.
 mcp-param-open-area-selector-pdf-scale-bar = Panel uruchomienia startuje z zaznaczoną podziałką liniową w plikach PDF. Domyślnie false.
 mcp-param-open-area-selector-pdf-sources = Wiersze źródeł w plikach PDF, z którymi startuje panel: "auto" (domyślnie), "full" lub "credit-only", jak dla start_pipeline.
 mcp-param-open-area-selector-permits = Panel uruchomienia startuje z zaznaczonymi wskazówkami dotyczącymi zgód. Domyślnie false.
@@ -781,7 +781,7 @@ mcp-param-start-pipeline-force = Zastąp istniejący plik mapy i zachowaj starą
 mcp-param-start-pipeline-ocad = Zapisz też punkt startowy OCAD w folderze ocad/ (format OCAD 12, dla osób pracujących w OCAD). Domyślnie false.
 mcp-param-start-pipeline-offline = Użyj tylko pamięci podręcznej pobierania, bez dostępu do sieci. Domyślnie false.
 mcp-param-start-pipeline-pdf = Zapisz też <name>.pdf, mapę gotową do wydruku (tylko obiekty mapy, bez kandydatów). Domyślnie false.
-mcp-param-start-pipeline-pdf-candidates = Zapisz też <name>-candidates.pdf, wydruk do sprawdzenia: mapa ze wszystkimi kandydatami, zgodnie z położeniem (sprawdź ich w terenie). Domyślnie false.
+mcp-param-start-pipeline-pdf-candidates = Zapisz też <name>-candidates.pdf, wydruk kontrolny: mapa ze wszystkimi kandydatami, zgodnie z położeniem (sprawdź ich w terenie). Domyślnie false.
 mcp-param-start-pipeline-pdf-scale-bar = Narysuj podziałkę liniową w plikach PDF. Domyślnie false (niemieckie mapy zwykle jej nie mają; liczba skali pozostaje w tabliczce tytułowej).
 mcp-param-start-pipeline-pdf-sources = Wiersze źródeł w plikach PDF: "auto" (domyślnie; pełna lista, skracana tylko wtedy, gdy zajmuje więcej niż 5 wierszy), "full" (nigdy nie skracana) lub "credit-only" (tylko wiersz z informacją o freemapper; ODbL i dl-de/by-2-0 wymagają wtedy podania źródeł przy przekazywaniu mapy). ATTRIBUTION.txt zawsze zawiera wszystkie źródła.
 mcp-param-start-pipeline-permits = Zapisz też wskazówki dotyczące zgód (permits.md i permits.json) po mapie: jednostki administracyjne, obszary chronione i kto zarządza terenem. Błąd w tym kroku to ostrzeżenie, a nie nieudane zadanie. Domyślnie false.
@@ -789,19 +789,19 @@ mcp-param-start-pipeline-training = Zapisz też mapę treningową <name>-trainin
 mcp-param-start-pipeline-training-views = Z training: zapisz też mapę treningową bez tego, co pomija widok, po jednym zestawie plików na wpis: "no-paths", "brown-only", "no-north-lines", albo lista, taka jak "no:505,506" lub "only:101,102", łączona za pomocą +. Pliki to <name>-training-<view>.omap i jego PDF.
 mcp-instructions = freemapper tworzy projekty startowe OpenOrienteering Mapper dla map do biegu na orientację (dziedziniec szkolny 1:1000, sprint 1:4000, las 1:15000) z oficjalnych danych geodezyjnych: { $states }, oraz z OSM. Przebieg: find_place (wyszukaj szkołę lub obszar po nazwie; wybierz wynik z has_area) → create_project (nowy folder, ścieżka bezwzględna, z osm_id) → estimate_download (powiedz użytkownikowi, ile zostanie pobrane) → start_pipeline (zwraca identyfikator zadania; pobieranie może trwać kilka minut) → project_status (odpytuj co kilka sekund, aż stan będzie finished lub failed) → list_layers i preview_layer (pokaż użytkownikowi szablony). Następnie użytkownik otwiera plik mapy w OpenOrienteering Mapper. Gdy żadne miejsce nie pasuje albo użytkownik chce narysować obszar, open_area_selector otwiera w przeglądarce stronę, na której użytkownik rysuje lub wybiera obszar i go zapisuje (to tworzy projekt); kontynuuj od estimate_download, gdy użytkownik powie, że zapisał. Ścieżki muszą być bezwzględne lub zaczynać się od ~. Naraz działa jeden potok. permits_for_area przygotowuje wskazówki dotyczące zgód dla projektu (jednostki administracyjne, obszary chronione, kto zarządza terenem; wskazówka, nie porada prawna) jako zadanie, tak jak start_pipeline. check_update mówi, czy istnieje nowszy freemapper; install_update go instaluje, tylko z confirm: true po zgodzie osoby, a asystent następnie ponownie uruchamia serwer freemapper.
 
-cli-contour-interval-saved = Przekrój warstwic zapisany w freemapper.toml: { $interval } m; derive wyznacza warstwice w tym przekroju
-cli-contour-interval-auto = Przekrój warstwic w freemapper.toml: automatyczny (zależny od rodzaju mapy; mapa leśna ma 2,5 m na terenie płaskim i 10 m na stromym)
-help-arg-contour-interval = Przekrój warstwic w metrach, np. `2.5`, albo `auto` dla przekroju właściwego rodzajowi mapy (mapa leśna: 5 m, 2,5 m na terenie płaskim, 10 m na stromym). Zapisany w freemapper.toml; derive wyznacza warstwice w tym przekroju
+cli-contour-interval-saved = Cięcie warstwic zapisane w freemapper.toml: { $interval } m; derive wyznacza warstwice przy tym cięciu
+cli-contour-interval-auto = Cięcie warstwic w freemapper.toml: automatyczne (zależne od rodzaju mapy; mapa leśna ma 2,5 m na terenie płaskim i 10 m na stromym)
+help-arg-contour-interval = Cięcie warstwic w metrach, np. `2.5`, albo `auto` dla cięcia właściwego rodzajowi mapy (mapa leśna: 5 m, 2,5 m na terenie płaskim, 10 m na stromym). Zapisane w freemapper.toml; derive wyznacza warstwice przy tym cięciu
 cli-content-saved = Ustawienie zawartości zapisane w freemapper.toml: { $summary }
 cli-content-invalid = Nie można odczytać ustawienia zawartości: { $detail }
 help-arg-content = Co trafia bezpośrednio na mapę: `safe` zostawia każdy obiekt tam, gdzie umieszcza go budowa mapy, `balanced` (domyślnie) umieszcza na mapie obiekty z katastru i rejestrów, `full` umieszcza na mapie wszystko. Wybór jest zapisywany w freemapper.toml
 help-arg-content-set = Skieruj grupę obiektów do `map`, `candidates` lub `off`, jako `GROUP=PLACE`, np. `walls=map`; można powtarzać. Grupy: walls, fences, hedges, slopes, stairs, trees, water-features, monuments, furniture, passages, contours, landforms, vegetation, out-of-bounds, paths, streets. Zapisane w freemapper.toml
 mcp-param-create-project-content = Co trafia bezpośrednio na mapę: "safe", "balanced" (domyślnie) lub "full". Zapisane w projekcie. balanced umieszcza na mapie obiekty z katastru i rejestrów, full umieszcza na niej wszystko.
 mcp-param-create-project-content-set = Grupy skierowane gdzie indziej, niż mówi profil, jako "group=place", gdzie place to map, candidates lub off, np. "walls=map". Grupy: walls, fences, hedges, slopes, stairs, trees, water-features, monuments, furniture, passages, contours, landforms, vegetation, out-of-bounds, paths, streets.
-mcp-param-create-project-contour-interval = Przekrój warstwic w metrach, np. 2.5; 0 wraca do wyboru automatycznego (zależnego od rodzaju mapy; mapa leśna ma 2,5 m na terenie płaskim i 10 m na stromym). Zapisany w projekcie; następny derive wyznacza warstwice w tym przekroju.
+mcp-param-create-project-contour-interval = Cięcie warstwic w metrach, np. 2.5; 0 wraca do wyboru automatycznego (zależnego od rodzaju mapy; mapa leśna ma 2,5 m na terenie płaskim i 10 m na stromym). Zapisane w projekcie; następny derive wyznacza warstwice przy tym cięciu.
 mcp-param-start-pipeline-content = Zmień przed uruchomieniem, co trafia bezpośrednio na mapę: "safe", "balanced" lub "full". Zapisane w projekcie. Domyślnie: ustawienie projektu, a w razie braku balanced.
 mcp-param-start-pipeline-content-set = Grupy skierowane gdzie indziej, niż mówi profil, jako "group=place", gdzie place to map, candidates lub off, np. "fences=candidates". Zapisane w projekcie.
-mcp-param-start-pipeline-contour-interval = Przekrój warstwic w metrach, np. 2.5; 0 wraca do wyboru automatycznego (zależnego od rodzaju mapy; mapa leśna ma 2,5 m na terenie płaskim i 10 m na stromym). Zapisany w projekcie; następny derive wyznacza warstwice w tym przekroju.
+mcp-param-start-pipeline-contour-interval = Cięcie warstwic w metrach, np. 2.5; 0 wraca do wyboru automatycznego (zależnego od rodzaju mapy; mapa leśna ma 2,5 m na terenie płaskim i 10 m na stromym). Zapisane w projekcie; następny derive wyznacza warstwice przy tym cięciu.
 mcp-error-content = Nie można odczytać ustawienia zawartości: { $detail }
 
 ## Wskazówki dotyczące zgód (`freemapper permits`, `run --permits`, ADR 0117). Identyfikatory `permits-hint-*`
@@ -997,8 +997,8 @@ permits-hint-owner-share = { $unnamed ->
        *[no] Według otwartych danych kraju związkowego { $share } obszaru mapy należy do właściciela "{ $owner }".
     }
 permits-hint-owners-unknown = { $rest ->
-        [yes] Właścicieli reszty obszaru nie da się ustalić z otwartych danych. Mając uzasadniony interes (na przykład jako organizator), możesz poprosić księgę wieczystą (Grundbuchamt) o wypis; w sprawie gruntów publicznych pomoże właściwy Ordnungsamt lub urząd zieleni.
-       *[no] Właścicieli tych obszarów nie da się ustalić z otwartych danych. Mając uzasadniony interes (na przykład jako organizator), możesz poprosić księgę wieczystą (Grundbuchamt) o wypis; w sprawie gruntów publicznych pomoże właściwy Ordnungsamt lub urząd zieleni.
+        [yes] Właścicieli reszty obszaru nie da się ustalić z otwartych danych. Mając uzasadniony interes (na przykład jako organizator), możesz poprosić urząd ksiąg wieczystych (Grundbuchamt) o wypis; w sprawie gruntów publicznych pomoże właściwy Ordnungsamt lub urząd zieleni.
+       *[no] Właścicieli tych obszarów nie da się ustalić z otwartych danych. Mając uzasadniony interes (na przykład jako organizator), możesz poprosić urząd ksiąg wieczystych (Grundbuchamt) o wypis; w sprawie gruntów publicznych pomoże właściwy Ordnungsamt lub urząd zieleni.
     }
 permits-section-forest-units = Administracja leśna ({ $source })
 permits-section-state-forest = Lasy państwowe kraju związkowego ({ $source })

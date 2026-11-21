@@ -21,7 +21,7 @@ cli-no-cache-dir = šioje sistemoje nėra talpyklos katalogo; nurodykite --cache
 ## fetch, derive, run, export
 
 cli-fetched-tiles = { $count ->
-        [one] Atsisiųsta 1 plytelė
+        [one] Atsisiųsta { $count } plytelė
         [few] Atsisiųstos { $count } plytelės
        *[other] Atsisiųsta { $count } plytelių
     }
@@ -42,14 +42,14 @@ cli-wrote-pdf-candidates = Įrašyta { $path } (tikrinimo spaudinys: žemėlapis
 cli-wrote-training = Įrašyta { $map } ir { $pdf } (treniruočių žemėlapis: sujungta { $joined }, pastumta { $shifted }, praleista arba išpjauta { $left })
 cli-training-free-ends = Laisvai paliktų linijų galų: { $ways } ten, kur kelias susitiko su kitu keliu, { $others } ties kitomis linijomis
 cli-training-apart-left = treniruočių žemėlapyje vis dar yra { $length } mm (popieriuje), kur objektų tarpai per maži; patikrinkite jį OOM
-cli-kept-training = Palikta treniruočių žemėlapis { $path }, kad paleidimas neperrašytų atspausdinto ar kitiems perduoto; ištrinkite jį arba nurodykite --force, kad jį atnaujintumėte
+cli-kept-training = Paliktas treniruočių žemėlapis { $path }, kad paleidimas neperrašytų atspausdinto ar kitiems perduoto; ištrinkite jį arba nurodykite --force, kad jį atnaujintumėte
 
 ## OCAD
 
 cli-ocad-kept = Palikta { $path } (joje gali būti jūsų darbo; --force ją pakeičia, o senąją palieka kaip .ocd.bak)
 cli-ocad-old-candidates = OCAD žemėlapis vis dar nurodo { $path } kaip fono žemėlapį; šis paleidimas jį užpildė visais kandidatais. Kandidatai dabar taip pat pateikiami septyniais sluoksniais, po vieną failą (-candidates-*.ocd). OCAD žemėlapis juos išvardija, kai jį pakeičiate su --force (senasis lieka kaip .ocd.bak), arba pridėkite juos patys OCAD kaip fono žemėlapius.
 cli-ocad-wrote = { $count ->
-        [one] Įrašyta { $path } (1 objektas)
+        [one] Įrašyta { $path } ({ $count } objektas)
         [few] Įrašyta { $path } ({ $count } objektai)
        *[other] Įrašyta { $path } ({ $count } objektų)
     }
@@ -62,7 +62,7 @@ cli-ocad-load-symbols = OCAD pasirinkite Symbol > Load Colors and Symbols From�
 
 ## select
 
-cli-select-running = Ploto pasirinkimas { $path }: paspauskite „Done“ puslapyje arba Ctrl+C, kad sustabdytumėte.
+cli-select-running = Ploto pasirinkimas { $path }: paspauskite „Baigta“ puslapyje arba Ctrl+C, kad sustabdytumėte.
 cli-select-no-browser = Naršyklės atidaryti nepavyko ({ $error }); atidarykite aukščiau nurodytą adresą.
 
 ## find
@@ -118,7 +118,7 @@ cli-check-error = klaida: { $finding }
 cli-check-warning = įspėjimas: { $finding }
 cli-check-passed = { $folder } patikrą išlaiko
 cli-check-passed-warnings = { $folder } patikrą išlaiko, su { $count ->
-        [one] vienu įspėjimu
+        [one] { $count } įspėjimu
         [few] { $count } įspėjimais
        *[other] { $count } įspėjimų
     }
@@ -134,13 +134,13 @@ cli-check-detail-stopped = ankstesnė dalis nepavyko
 cli-check-detail-see-warnings = žr. įspėjimus
 cli-check-detail-outside-dataset = langelis yra už duomenų rinkinio ribų
 cli-check-detail-objects = { $count ->
-        [one] vienas objektas
+        [one] { $count } objektas
         [few] { $count } objektai
        *[other] { $count } objektų
     }
 cli-check-detail-layers = { $layers } sluoksnių, { $count } objektų
 cli-check-detail-trees = { $count ->
-        [one] vienas medis
+        [one] { $count } medis
         [few] { $count } medžiai
        *[other] { $count } medžių
     }
@@ -149,7 +149,7 @@ cli-check-raster-orthophoto = ortofoto
 cli-check-raster-terrain = reljefo modelis
 cli-check-raster-surface = paviršiaus modelis
 cli-check-raster-tiles = { $product }: { $count ->
-        [one] viena plytelė
+        [one] { $count } plytelė
         [few] { $count } plytelės
        *[other] { $count } plytelių
     }
@@ -201,8 +201,8 @@ cli-map-image-bad-request = Peržiūros užklausa netinkama. Siųskite JSON obje
 ## these words.
 
 page-title = freemapper – ploto pasirinkimas
-page-heading = Pasirink žemėlapio plotą
-page-update-available = Yra freemapper { $version }. Atnaujink su
+page-heading = Pasirinkite žemėlapio plotą
+page-update-available = Yra freemapper { $version }. Atnaujinkite su
 page-update-notes = Laidos pastabos
 page-folder = Projekto aplankas
 page-pick = Ieškoti vietos
@@ -211,14 +211,14 @@ page-search-button = Ieškoti
 page-searching = Ieškoma …
 page-no-results = Nieko nerasta.
 page-point-only = tik taškas, ne plotas
-page-draw = Nubraižyk pats
+page-draw = Nubraižykite patys
 page-rectangle = Stačiakampis
 page-polygon = Daugiakampis
 page-finish-polygon = Uždaryti daugiakampį
 page-clear = Išvalyti
-page-hint-rectangle = Spustelėk du priešingus žemėlapio kampus.
-page-hint-polygon = Spustelėk kampus paeiliui. Kad uždarytum, spustelėk pirmąjį kampą, spustelėk dukart arba pasirink „Uždaryti daugiakampį“. Esc atšaukia, Backspace pašalina paskutinį kampą.
-page-hint-idle = Pasirink vietą iš paieškos arba nubraižyk plotą pats.
+page-hint-rectangle = Spustelėkite du priešingus žemėlapio kampus.
+page-hint-polygon = Spustelėkite kampus paeiliui. Kad uždarytumėte, spustelėkite pirmąjį kampą, spustelėkite dukart arba pasirinkite „Uždaryti daugiakampį“. Esc atšaukia, Backspace pašalina paskutinį kampą.
+page-hint-idle = Pasirinkite vietą iš paieškos arba nubraižykite plotą patys.
 page-summary = Plotas
 page-source-osm = Iš OpenStreetMap: { $name }
 page-source-drawn = Nubraižyta ranka
@@ -234,10 +234,10 @@ page-disk-volume = laisva { $free }, reikia apie { $needed }
 page-cache-volume = talpykla
 page-project-volume = projekto aplankas
 page-no-room = netelpa diske
-page-no-room-skip = Ne viskas telpa diske (freemapper palieka { $reserve } laisvos). Atsisiuntimas praleidžia pažymėtas dalis. Jei jų reikia, pirmiausia atlaisvink vietos:
-page-no-room-stop = Nepakanka disko vietos (freemapper palieka { $reserve } laisvos). Be pažymėtų dalių žemėlapio nėra, todėl atsisiuntimas sustoja dar nieko neatsisiuntęs. Pirmiausia atlaisvink vietos:
+page-no-room-skip = Ne viskas telpa diske (freemapper palieka { $reserve } laisvos). Atsisiuntimas praleidžia pažymėtas dalis. Jei jų reikia, pirmiausia atlaisvinkite vietos:
+page-no-room-stop = Nepakanka disko vietos (freemapper palieka { $reserve } laisvos). Be pažymėtų dalių žemėlapio nėra, todėl atsisiuntimas sustoja dar nieko neatsisiuntęs. Pirmiausia atlaisvinkite vietos:
 page-disk-unknown = freemapper negali nuskaityti laisvos disko vietos ({ $error }). Atsisiunčia be patikros.
-page-too-large = Plotas per didelis: ne daugiau kaip { $max } m vienoje pusėje (su buferiu). Pasirink mažesnį.
+page-too-large = Plotas per didelis: ne daugiau kaip { $max } m vienoje pusėje (su buferiu). Pasirinkite mažesnį.
 page-outside = Plotas yra už palaikomų federalinių žemių ribų ({ $states }); kitiems regionams freemapper duomenų šaltinių dar neturi.
 page-outside-unknown = Plotas yra už regionų, kuriuos freemapper palaiko, ribų; ten jis duomenų šaltinių dar neturi.
 page-adapters-failed = Aerofotonuotraukų sąrašo gauti nepavyksta ({ $detail }). Žemėlapyje rodomas tik OpenStreetMap; viskas kita veikia.
@@ -256,14 +256,14 @@ page-saving = Saugoma …
 page-saved = Išsaugota faile freemapper.toml.
 page-zone-changed = Išsaugota. Plotas dabar yra kitoje UTM zonoje; kitą kartą paleidus freemapper jo duomenis atsisiunčia iš naujo.
 page-provider-changed = Išsaugota. Naujo ploto aukščių ir aerofotonuotraukų duomenis teikia kitas tiekėjas; kitą kartą paleidus freemapper jo duomenis atsisiunčia iš naujo.
-page-save-stale = freemapper.toml buvo pakeistas kitame lange arba kitos programos, kai šis puslapis jį perskaitė. Nieko neišsaugota; puslapis dabar žino išsaugotą būseną. Išsaugok dar kartą, kad ją pakeistum čia rodomu plotu.
+page-save-stale = freemapper.toml buvo pakeistas kitame lange arba kitos programos, kai šis puslapis jį perskaitė. Nieko neišsaugota; puslapis dabar žino išsaugotą būseną. Išsaugokite dar kartą, kad ją pakeistumėte čia rodomu plotu.
 page-has-map = Esamas žemėlapis (.omap) lieka nepakeistas; freemapper sukuria naujus šablonus ir kandidatus naujam plotui. Parinktis „Pakeisti esamą žemėlapį“ žemiau (arba „freemapper run --force“) sukuria ir žemėlapį iš naujo, o senąjį palieka kaip .omap.bak.
 page-done = Baigta
 page-source = Pirminis kodas (AGPL-3.0-or-later)
-page-closed = Baigta. Gali uždaryti šį langą.
+page-closed = Baigta. Galite uždaryti šį langą.
 page-next = Toliau: freemapper run "{ $dir }"
 page-made-files = Sukurta: { $files }. Aplankas: { $dir }
-page-back-to-agent = Pasakyk savo DI asistentui, kad plotas išsaugotas.
+page-back-to-agent = Pasakykite savo DI asistentui, kad plotas išsaugotas.
 page-nothing-saved = Nieko neišsaugota.
 page-failed = Klaida: { $error }
 page-layer-osm = OpenStreetMap
@@ -298,7 +298,7 @@ page-content-group-furniture = Gatvių įranga ir žibintai
 page-content-group-passages = Praėjimai
 page-content-group-contours = Horizontalės
 page-content-group-landforms = Kalvelės, įdubos, šlaitai ir skardžiai iš reljefo modelio
-page-content-group-vegetation = Augmenija iš lazerinių taškų debesų (Brandenburgas, Berlynas, Šiaurės Reinas-Vestfalija, Reinlandas-Pfalcas, Zaarlandas ir Bavarija; išjungta, kol pasirinksi; atsisiunčia apie 40–600 MB vienam km²)
+page-content-group-vegetation = Augmenija iš lazerinių taškų debesų (Brandenburgas, Berlynas, Šiaurės Reinas-Vestfalija, Reinlandas-Pfalcas, Zaarlandas ir Bavarija; išjungta, kol pasirinksite; atsisiunčia apie 40–600 MB vienam km²)
 page-content-group-out-of-bounds = Draudžiami plotai
 page-content-group-paths = Keliai ir geležinkeliai
 page-content-group-streets = Gatvės ir aikštės
@@ -335,7 +335,7 @@ page-opt-sources = Šaltinių eilutės PDF failuose
 page-sources-auto = automatinės
 page-sources-full = pilnos
 page-sources-credit-only = tik freemapper
-page-warn-credit-only = Tada PDF nurodo tik freemapper. Duomenų licencijos (ODbL, dl-de/by-2-0) reikalauja nurodyti šaltinį, kai perduodi žemėlapį toliau; tada šaltinius nurodai pats. ATTRIBUTION.txt išvardija juos visus.
+page-warn-credit-only = Tada PDF nurodo tik freemapper. Duomenų licencijos (ODbL, dl-de/by-2-0) reikalauja nurodyti šaltinį, kai perduodate žemėlapį toliau; tada šaltinius nurodote patys. ATTRIBUTION.txt išvardija juos visus.
 page-need-pdf = Mastelio liniuotė ir šaltinių eilutės taikomos tik kuriant PDF.
 page-opt-offline = Tik talpykla, be tinklo
 page-opt-force = Pakeisti esamus žemėlapius
@@ -351,7 +351,7 @@ page-where-files = Failai yra projekto aplanke:
 page-open-folder = Atidaryti aplanką
 page-log-label = Paleidimo žurnalas
 page-force-title = Pakeisti esamus žemėlapius?
-page-force-text = Esamas žemėlapis bus pakeistas, o jei pažymėtas „Treniruočių žemėlapis“, ir treniruočių žemėlapis. Tavo pakeitimai nežus: seni failai lieka projekto aplanke kaip .omap.bak. Tęsti?
+page-force-text = Esamas žemėlapis bus pakeistas, o jei pažymėtas „Treniruočių žemėlapis“, ir treniruočių žemėlapis. Jūsų pakeitimai nežus: seni failai lieka projekto aplanke kaip .omap.bak. Tęsti?
 page-force-cancel = Atšaukti
 page-force-confirm = Pakeisti
 page-step-fetch = Atsisiunčiami duomenys
@@ -390,7 +390,7 @@ page-kept-map = Esamas žemėlapis paliktas nepakeistas. „Pakeisti esamą žem
 page-no-files = Failų nesukurta.
 page-opened-folder = Aplankas atidarytas.
 page-open-failed = { $message } Aplankas: { $dir }
-page-why-no-area = Pirmiausia pasirink plotą.
+page-why-no-area = Pirmiausia pasirinkite plotą.
 page-why-checking = Skaičiuojama peržiūra …
 page-why-too-large = Plotas per didelis.
 page-why-outside = Plotas yra už palaikomų federalinių žemių ribų.
@@ -408,7 +408,7 @@ suite-banner-dismiss = Uždaryti
 
 ## update (spec 3.4 to 3.6)
 
-update-source-build = Šis freemapper sukompiliuotas iš pirminio kodo. Atnaujink jį su git pull ir cargo build --release --locked.
+update-source-build = Šis freemapper sukompiliuotas iš pirminio kodo. Atnaujinkite jį su git pull ir cargo build --release --locked.
 update-current = freemapper { $version } yra naujausias.
 update-available = Yra freemapper { $new } (jūsų { $old }), išleistas { $released }.
 update-details =
@@ -521,7 +521,7 @@ error-fetch-not-found = { $name } serveryje nerasta
 error-fetch-refused = { $url }: serveris atsisakė užklausos (HTTP { $status })
 error-fetch-refused-detail = { $url }: serveris atsisakė užklausos (HTTP { $status }): { $detail }
 error-fetch-too-large = { $url } atsisiuntimas didesnis nei { $limit } MB; sustabdyta
-error-fetch-not-stored = šiam žemėlapio plotui neišsaugota: { $label }: { $path } trūksta, jo neįmanoma perskaityti arba jis plotui neapima; pirmiausia paleiskite `freemapper fetch` su tinklo ryšiu
+error-fetch-not-stored = šiam žemėlapio plotui neišsaugota: { $label }: { $path } trūksta, jo neįmanoma perskaityti arba jis neapima ploto; pirmiausia paleiskite `freemapper fetch` su tinklo ryšiu
 error-fetch-range-ignored = { $url }: serveris ignoravo baitų intervalą { $range } (HTTP { $status })
 error-fetch-not-allowed = { $url }: freemapper nesiunčia užklausų šiuo adresu: { $reason }
 error-fetch-host-not-named-allow = { $target }: freemapper nesiunčia užklausų šiuo adresu: { $name } adapteris nenurodo hosto { $host }{ $from }. Jei paslauga persikėlė ten, leiskite hostą komanda `freemapper adapters allow-host { $adapter } { $host }` ir praneškite apie tai adresu https://github.com/HenryJobst/freemapper/issues
@@ -545,7 +545,7 @@ error-reason-too-many-redirects = daugiau nei { $count ->
        *[other] { $count } nukreipimų
     }
 error-reason-redirect-nowhere = nukreipimas (HTTP { $status }) į niekur
-error-fetch-currency-csv = valiutų CSV eilutė { $line }: { $message }
+error-fetch-currency-csv = aktualumo CSV eilutė { $line }: { $message }
 error-alkis = netinkami ALKIS duomenys: { $message }
 error-osm = OSM duomenys: { $message }
 
@@ -719,7 +719,7 @@ mcp-error-no-project = aplanke { $path } freemapper projekto nėra; pirmiausia n
 mcp-error-unknown-kind = nežinoma rūšis { $kind }; naudokite "schoolyard", "sprint" arba "forest"
 mcp-error-reading = skaitoma { $path }: { $error }
 mcp-error-one-area-source = nurodykite lygiai vieną: osm_id (iš find_place) arba geojson
-mcp-error-page-open = šio projekto ploto pasirinkimo puslapis vis dar atidarytas; paprašykite naudotojo išsaugoti plotą ir puslapyje paspausti Done, tada paleiskite konvejerį
+mcp-error-page-open = šio projekto ploto pasirinkimo puslapis vis dar atidarytas; paprašykite naudotojo išsaugoti plotą ir puslapyje paspausti „Baigta“, tada paleiskite konvejerį
 mcp-error-no-job = užduoties { $job } nėra; start_pipeline ir permits_for_area grąžina šios sesijos užduočių id
 mcp-error-job-running = { $job } vis dar vykdoma projektui { $path }; vienu metu vyksta vienas konvejeris, nes projektai dalijasi atsisiuntimų talpykla. Šį paleiskite, kai project_status praneš finished arba failed
 mcp-error-page-start = puslapio paleisti nepavyksta: { $error }
@@ -734,7 +734,7 @@ mcp-created-project-given-area = Sukurtas projektas { $path } nurodytam plotui (
        *[sprint] sprintas
     }, 1:{ $scale }). Toliau: estimate_download, tada start_pipeline.
 mcp-page-already-open = Šio aplanko puslapis jau atidarytas; jis išlaiko nustatymus, su kuriais buvo atidarytas.
-mcp-page-next = Paprašykite naudotojo puslapyje pasirinkti plotą, paspausti Save ir tada Done.
+mcp-page-next = Paprašykite naudotojo puslapyje pasirinkti plotą, paspausti „Išsaugoti“ ir tada „Baigta“.
 mcp-preview-of = { $layer } peržiūra
 mcp-permits-next = Leidimų pastabos kuriamos. Klauskite project_status su šiuo job_id; kai bus finished, permits_md turės permits.md tekstą. Perduokite jį kaip užuominą, o ne teisinę konsultaciją.
 mcp-tool-check-update = Ar yra naujesnė freemapper laida: jos versija, išleidimo data, laidos pastabos ir atsisiuntimo dydis, arba kad ši yra naujausia. Nieko neįdiegia.
@@ -754,7 +754,7 @@ mcp-tool-install-update = Įdiegti naujausią freemapper laidą ant šios progra
 mcp-param-install-update-confirm = true, kai naudotojas sutiko įdiegti naujesnę versiją; be to nieko neįdiegiama.
 mcp-tool-list-layers = Projekto sluoksniai: žemėlapis, septyni kandidatų sluoksniai ir rasterių šablonai, kiekvienas su savo failu, ar jis jau sukurtas ir kuris žingsnis jį sukuria.
 mcp-param-list-layers-dir = Projekto aplankas (absoliutus kelias arba pradedantis ~).
-mcp-tool-open-area-selector = Atidaryti naršyklėje puslapį, kuriame naudotojas nubraižo žemėlapio plotą (stačiakampį ar daugiakampį) arba parenka vietą, mato plyteles ir atsisiuntimo dydį ir jį išsaugo; išsaugojus sukuriamas projekto aplankas arba pakeičiamas jo plotas. Grąžina URL, kurį reikia duoti naudotojui. Puslapis veikia, kol naudotojas paspaudžia Done; kvietus dar kartą tam pačiam aplankui, grąžinamas tas pats URL.
+mcp-tool-open-area-selector = Atidaryti naršyklėje puslapį, kuriame naudotojas nubraižo žemėlapio plotą (stačiakampį ar daugiakampį) arba parenka vietą, mato plyteles ir atsisiuntimo dydį ir jį išsaugo; išsaugojus sukuriamas projekto aplankas arba pakeičiamas jo plotas. Grąžina URL, kurį reikia duoti naudotojui. Puslapis veikia, kol naudotojas paspaudžia „Baigta“; kvietus dar kartą tam pačiam aplankui, grąžinamas tas pats URL.
 mcp-param-open-area-selector-dir = Projekto aplankas (absoliutus kelias arba pradedantis ~); sukuriamas, kai naudotojas išsaugo.
 mcp-param-open-area-selector-kind = Naujo projekto žemėlapio rūšis: "schoolyard" (numatyta, 1:1000), "sprint" (1:4000) arba "forest" (1:15000).
 mcp-param-open-area-selector-ocad = Paleidimo skydelis prasideda su pažymėtu OCAD pradiniu projektu. Numatyta false.
@@ -962,7 +962,7 @@ permits-hint-monument-authority = { $offices ->
 permits-hint-monument-lower-authority = { $known ->
         [no] Ar žemėlapio plote yra saugomų paminklų, čia esantys duomenys tikrai pasakyti negali.
        *[yes] Žemėlapio plote yra saugomų paminklų.
-    } Ar paleidimas jų paliečia, pavyzdžiui, kontrolinis punktas prie paminklo ar ruožas per saugomą vietą, sprendžia žemesnioji paminklosaugos institucija (untere Denkmalschutzbehörde){ $kreisfrei ->
+    } Ar bėgimas jų paliečia, pavyzdžiui, kontrolinis punktas prie paminklo ar ruožas per saugomą vietą, sprendžia žemesnioji paminklosaugos institucija (untere Denkmalschutzbehörde){ $kreisfrei ->
         [yes] . Čia tai pats miestas { $kreis }.
         [no] , paprastai { $kreis }{ $gemeinde ->
             [none] .
@@ -988,8 +988,8 @@ permits-hint-owner-share = { $unnamed ->
        *[no] Pagal federalinės žemės atvirus duomenis { $share } žemėlapio ploto priklauso savininkui "{ $owner }".
     }
 permits-hint-owners-unknown = { $rest ->
-        [yes] Likusios ploto dalies savininkų iš atvirų duomenų nustatyti negalima. Turėdami teisėtą interesą (pavyzdžiui, kaip organizatorius) galite paprašyti išrašo žemės knygos tarnybos (Grundbuchamt); dėl viešosios žemės padeda kompetentingas Ordnungsamt arba parkų skyrius.
-       *[no] Šių plotų savininkų iš atvirų duomenų nustatyti negalima. Turėdami teisėtą interesą (pavyzdžiui, kaip organizatorius) galite paprašyti išrašo žemės knygos tarnybos (Grundbuchamt); dėl viešosios žemės padeda kompetentingas Ordnungsamt arba parkų skyrius.
+        [yes] Likusios ploto dalies savininkų iš atvirų duomenų nustatyti negalima. Turėdami teisėtą interesą (pavyzdžiui, kaip organizatorius) galite paprašyti žemės knygos tarnybos (Grundbuchamt) išrašo; dėl viešosios žemės padeda kompetentingas Ordnungsamt arba parkų skyrius.
+       *[no] Šių plotų savininkų iš atvirų duomenų nustatyti negalima. Turėdami teisėtą interesą (pavyzdžiui, kaip organizatorius) galite paprašyti žemės knygos tarnybos (Grundbuchamt) išrašo; dėl viešosios žemės padeda kompetentingas Ordnungsamt arba parkų skyrius.
     }
 permits-section-forest-units = Miškų administracija ({ $source })
 permits-section-state-forest = Federalinės žemės miškas ({ $source })

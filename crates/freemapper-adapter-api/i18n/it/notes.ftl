@@ -180,7 +180,7 @@ warning-trees-skipped = catasto degli alberi { $id } non disponibile ({ $detail 
 ## Deriving the templates
 
 progress-writing = scrittura di { $path }
-progress-contours-steep = curve di livello ogni { $interval } m: il terreno è così ripido che curve di livello ogni { $default } m si sovrapporrebbero; un'equidistanza di { $default } m nel progetto le mantiene distinte (`--contour-interval { $default }`)
+progress-contours-steep = curve di livello ogni { $interval } m: il terreno è così ripido che curve di livello ogni { $default } m si sovrapporrebbero; un'equidistanza di { $default } m nel progetto le mantiene comunque (`--contour-interval { $default }`)
 warning-osm-only-no-terrain = ancora nessun dato del terreno per questa regione: la carta è fatta solo con OpenStreetMap, senza curve di livello, template ed edifici
 progress-no-ndsm-recorded = nessun nDSM registrato; esegui `freemapper fetch` per il template nDSM
 warning-ndsm-tile-invalid = riquadro nDSM { $tile } non valido in freemapper.toml; saltato
@@ -226,7 +226,7 @@ progress-sh-bdom-download = scaricamento del riquadro bDOM { $tile } ({ $megabyt
 progress-sh-dgm-not-in-atom = il riquadro DGM1 { $tile } non è nella directory INSPIRE ATOM; scaricamento del suo XYZ ({ $megabytes } MB)
 progress-sh-dgm-atom-unreadable = il riquadro DGM1 { $tile } della directory INSPIRE ATOM non si legge ({ $error }); scaricamento del suo XYZ ({ $megabytes } MB)
 progress-sh-tile = riquadro { $tile }: { $text }
-progress-sh-download-again = riquadro { $tile }: il download non si legge ({ $message }); lo scarico ancora una volta
+progress-sh-download-again = riquadro { $tile }: il download non si legge ({ $message }); viene scaricato di nuovo
 warning-sh-portal-no-date = il Downloadportal non dà una data per il riquadro { $model } { $tile }
 warning-sh-dgm-xyz-used = il riquadro DGM1 { $tile } non è nella directory INSPIRE ATOM; si è usato il suo XYZ dal Downloadportal
 warning-sh-dgm-xyz-used-unreadable = il riquadro DGM1 { $tile } della directory INSPIRE ATOM non si legge ({ $error }); si è usato il suo XYZ dal Downloadportal

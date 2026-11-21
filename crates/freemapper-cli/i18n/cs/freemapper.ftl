@@ -739,7 +739,7 @@ mcp-param-create-project-osm-id = Objekt OSM území mapy z find_place, např. "
 mcp-param-create-project-part = S osm_id: kterou část oblasti o několika samostatných částech použít (1 je největší).
 mcp-param-create-project-scale = Jmenovatel měřítka: schoolyard 1000 (výchozí); sprint 4000 (výchozí) nebo 5000; forest 15000 (výchozí), 10000 nebo 7500. Jiné hodnoty jsou odmítnuty; pro 1:3000 kreslete v 4000, freemapper-print při tisku zvětší.
 mcp-param-create-project-title = Název mapy pro okrajové údaje (výchozí: název složky).
-mcp-tool-estimate-download = Co start_pipeline pro projekt stáhne: dlaždice, každé stažení s velikostí v MB, zda je v mezipaměti a zda se vejde na disk, ještě stahované MB a pod disk volné místo svazků mezipaměti a projektu se zprávami o tom, co se nevejde (sdělte to uživateli).
+mcp-tool-estimate-download = Co start_pipeline pro projekt stáhne: dlaždice, každé stažení s velikostí v MB, zda je v mezipaměti a zda se vejde na disk, ještě stahované MB a v poli disk volné místo svazků mezipaměti a projektu se zprávami o tom, co se nevejde (sdělte to uživateli).
 mcp-param-estimate-download-dir = Složka projektu (absolutní cesta nebo začínající ~).
 mcp-tool-find-place = Vyhledá školu, park nebo jiné místo podle názvu (OpenStreetMap Nominatim). Vrací nejvýše 5 shod, oblasti první; územím mapy mohou být jen shody s has_area. Prázdný seznam znamená, že nic nebylo nalezeno.
 mcp-param-find-place-query = Název školy nebo místa, např. "Clara-Zetkin-Schule Strausberg".
@@ -803,7 +803,7 @@ mcp-error-content = Nastavení obsahu nelze přečíst: { $detail }
 ## `permits-*` id is used. The quote "Nicht für Planungszwecke geeignet." is the BfN's own
 ## wording and stays German in every language.
 
-help-permits = Zapíše poznámky k povolením projektu (permits.md a permits.json): správní celky, chráněná území a provozovatele, kterých se území mapy dotýká, a koho se to obvykle týká ptát. Dotazuje se BfN a BKG a, má-li spolková země území mapy vlastní otevřené služby, i jich přes hostitele jejího adaptéru (seznam v manuálu, kapitola 12); v Severním Porýní-Vestfálsku při prvním použití stahuje kolem 32 MB, v Braniborsku kolem 4 MB, později jen novější soubory. Čte výřez OSM, který už je v mezipaměti; --offline použije to, co bylo staženo dříve
+help-permits = Zapíše poznámky k povolením projektu (permits.md a permits.json): správní celky, chráněná území a provozovatele, kterých se území mapy dotýká, a koho je obvykle třeba požádat. Dotazuje se BfN a BKG a, má-li spolková země území mapy vlastní otevřené služby, i těch přes hostitele jejího adaptéru (seznam v manuálu, kapitola 12); v Severním Porýní-Vestfálsku při prvním použití stahuje kolem 32 MB, v Braniborsku kolem 4 MB, později jen novější soubory. Čte výřez OSM, který už je v mezipaměti; --offline použije to, co bylo staženo dříve
 help-permits-dir = Složka projektu
 help-permits-offline = Použije jen dříve stažená data, bez přístupu k síti
 help-run-permits = Zapíše po mapě také poznámky k povolením (permits.md a permits.json); dotazuje se BfN, BKG a otevřených služeb spolkové země (manuál, kapitola 12). Selhání tam je upozornění a mapa zůstane

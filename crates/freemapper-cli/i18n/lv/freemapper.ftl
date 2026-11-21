@@ -201,8 +201,8 @@ cli-map-image-bad-request = Priekšskatījuma pieprasījums nav derīgs. Nosūti
 ## these words.
 
 page-title = freemapper – apgabala izvēle
-page-heading = Izvēlies kartes apgabalu
-page-update-available = Ir pieejams freemapper { $version }. Atjaunini ar
+page-heading = Izvēlieties kartes apgabalu
+page-update-available = Ir pieejams freemapper { $version }. Atjauniniet ar
 page-update-notes = Laidiena piezīmes
 page-folder = Projekta mape
 page-pick = Meklēt vietu
@@ -211,14 +211,14 @@ page-search-button = Meklēt
 page-searching = Meklē …
 page-no-results = Nekas nav atrasts.
 page-point-only = tikai punkts, nevis apgabals
-page-draw = Zīmē pats
+page-draw = Zīmējiet paši
 page-rectangle = Taisnstūris
 page-polygon = Daudzstūris
 page-finish-polygon = Aizvērt daudzstūri
 page-clear = Notīrīt
-page-hint-rectangle = Noklikšķini kartē uz diviem pretējiem stūriem.
-page-hint-polygon = Noklikšķini uz stūriem pēc kārtas. Lai daudzstūri aizvērtu, noklikšķini uz pirmā stūra, veic dubultklikšķi vai nospied „Aizvērt daudzstūri“. Esc atceļ, Backspace noņem pēdējo stūri.
-page-hint-idle = Izvēlies vietu no meklēšanas rezultātiem vai uzzīmē apgabalu pats.
+page-hint-rectangle = Noklikšķiniet kartē uz diviem pretējiem stūriem.
+page-hint-polygon = Noklikšķiniet uz stūriem pēc kārtas. Lai daudzstūri aizvērtu, noklikšķiniet uz pirmā stūra, veiciet dubultklikšķi vai nospiediet „Aizvērt daudzstūri“. Esc atceļ, Backspace noņem pēdējo stūri.
+page-hint-idle = Izvēlieties vietu no meklēšanas rezultātiem vai uzzīmējiet apgabalu paši.
 page-summary = Apgabals
 page-source-osm = No OpenStreetMap: { $name }
 page-source-drawn = Uzzīmēts ar roku
@@ -234,10 +234,10 @@ page-disk-volume = { $free } brīvas, vajadzīgas apmēram { $needed }
 page-cache-volume = kešatmiņa
 page-project-volume = projekta mape
 page-no-room = neietilpst diskā
-page-no-room-skip = Ne viss ietilpst diskā (freemapper patur { $reserve } brīvu). Lejupielāde izlaiž atzīmētās daļas. Ja tās ir vajadzīgas, vispirms atbrīvo vietu:
-page-no-room-stop = Diskā nepietiek vietas (freemapper patur { $reserve } brīvu). Bez atzīmētajām daļām kartes nav, tāpēc lejupielāde apstājas, pirms kaut ko lejupielādē. Vispirms atbrīvo vietu:
+page-no-room-skip = Ne viss ietilpst diskā (freemapper patur { $reserve } brīvu). Lejupielāde izlaiž atzīmētās daļas. Ja tās ir vajadzīgas, vispirms atbrīvojiet vietu:
+page-no-room-stop = Diskā nepietiek vietas (freemapper patur { $reserve } brīvu). Bez atzīmētajām daļām kartes nav, tāpēc lejupielāde apstājas, pirms kaut ko lejupielādē. Vispirms atbrīvojiet vietu:
 page-disk-unknown = freemapper nevar nolasīt brīvo vietu diskā ({ $error }). Tas lejupielādē bez pārbaudes.
-page-too-large = Apgabals ir pārāk liels: ne vairāk kā { $max } m katrā malā (ar buferi). Lūdzu, izvēlies mazāku.
+page-too-large = Apgabals ir pārāk liels: ne vairāk kā { $max } m katrā malā (ar buferi). Lūdzu, izvēlieties mazāku.
 page-outside = Apgabals atrodas ārpus atbalstītajām federālajām zemēm ({ $states }); freemapper citiem reģioniem datu avotu vēl nav.
 page-outside-unknown = Apgabals atrodas ārpus reģioniem, ko freemapper atbalsta; tur tam vēl nav datu avotu.
 page-adapters-failed = Aerofotogrāfijas nevar uzskaitīt ({ $detail }). Karte rāda tikai OpenStreetMap; viss pārējais darbojas.
@@ -256,14 +256,14 @@ page-saving = Saglabā …
 page-saved = Saglabāts failā freemapper.toml.
 page-zone-changed = Saglabāts. Apgabals tagad atrodas citā UTM zonā; freemapper nākamajā palaišanā datus lejupielādēs no jauna.
 page-provider-changed = Saglabāts. Jaunā apgabala augstuma un aerofotogrāfiju datus sniedz cits datu nodrošinātājs; freemapper nākamajā palaišanā datus lejupielādēs no jauna.
-page-save-stale = freemapper.toml kopš šīs lapas nolasīšanas ir mainīts citā logā vai ar citu programmu. Nekas netika saglabāts; lapa tagad zina saglabāto stāvokli. Saglabā vēlreiz, lai to aizstātu ar šeit redzamo apgabalu.
+page-save-stale = freemapper.toml kopš šīs lapas nolasīšanas ir mainīts citā logā vai ar citu programmu. Nekas netika saglabāts; lapa tagad zina saglabāto stāvokli. Saglabājiet vēlreiz, lai to aizstātu ar šeit redzamo apgabalu.
 page-has-map = Esošā karte (.omap) paliek, kāda bija; freemapper izveido jaunas veidnes un kandidātus jaunajam apgabalam. Opcija „Aizstāt esošo karti“ zemāk (vai „freemapper run --force“) izveido arī karti no jauna un vecā paliek kā .omap.bak.
 page-done = Gatavs
 page-source = Pirmkods (AGPL-3.0-or-later)
-page-closed = Gatavs. Vari aizvērt šo logu.
+page-closed = Gatavs. Varat aizvērt šo logu.
 page-next = Tālāk: freemapper run "{ $dir }"
 page-made-files = Izveidots: { $files }. Mape: { $dir }
-page-back-to-agent = Pasaki savam AI asistentam, ka apgabals ir saglabāts.
+page-back-to-agent = Pasakiet savam AI asistentam, ka apgabals ir saglabāts.
 page-nothing-saved = Nekas netika saglabāts.
 page-failed = Kļūda: { $error }
 page-layer-osm = OpenStreetMap
@@ -298,7 +298,7 @@ page-content-group-furniture = Ielu aprīkojums un laternas
 page-content-group-passages = Caurejas
 page-content-group-contours = Horizontāles
 page-content-group-landforms = Pauguri, ieplakas, nogāzes un klintis no reljefa modeļa
-page-content-group-vegetation = Veģetācija no lāzera punktu mākoņiem (Brandenburga, Berlīne, Ziemeļreina-Vestfālene, Reinzeme-Pfalce, Zāra un Bavārija; izslēgta, kamēr to neizvēlies; lejupielādē apmēram 40 līdz 600 MB uz km²)
+page-content-group-vegetation = Veģetācija no lāzera punktu mākoņiem (Brandenburga, Berlīne, Ziemeļreina-Vestfālene, Reinzeme-Pfalce, Zāra un Bavārija; izslēgta, kamēr to neizvēlaties; lejupielādē apmēram 40 līdz 600 MB uz km²)
 page-content-group-out-of-bounds = Aizliegtās zonas
 page-content-group-paths = Takas un dzelzceļi
 page-content-group-streets = Ielas un laukumi
@@ -335,7 +335,7 @@ page-opt-sources = Avotu rindas PDF failos
 page-sources-auto = automātiski
 page-sources-full = pilnas
 page-sources-credit-only = tikai freemapper
-page-warn-credit-only = Tad PDF failos minēts tikai freemapper. Datu licences (ODbL, dl-de/by-2-0) prasa norādīt avotus, kad karte tiek nodota tālāk; tad avotus norādi pats. ATTRIBUTION.txt tos uzskaita visus.
+page-warn-credit-only = Tad PDF failos minēts tikai freemapper. Datu licences (ODbL, dl-de/by-2-0) prasa norādīt avotus, kad karte tiek nodota tālāk; tad avotus norādāt paši. ATTRIBUTION.txt tos uzskaita visus.
 page-need-pdf = Mēroga līnija un avotu rindas attiecas tikai tad, kad tiek veidots PDF.
 page-opt-offline = Tikai kešatmiņa, bez tīkla
 page-opt-force = Aizstāt esošās kartes
@@ -351,7 +351,7 @@ page-where-files = Faili atrodas projekta mapē:
 page-open-folder = Atvērt mapi
 page-log-label = Palaišanas žurnāls
 page-force-title = Aizstāt esošās kartes?
-page-force-text = Esošā karte tiek aizstāta, un, ja atzīmēts „Treniņu karte“, arī treniņu karte. Tavi labojumi neaiziet zudumā: vecie faili paliek projekta mapē kā .omap.bak. Turpināt?
+page-force-text = Esošā karte tiek aizstāta, un, ja atzīmēts „Treniņu karte“, arī treniņu karte. Jūsu labojumi neaiziet zudumā: vecie faili paliek projekta mapē kā .omap.bak. Turpināt?
 page-force-cancel = Atcelt
 page-force-confirm = Aizstāt
 
@@ -391,7 +391,7 @@ page-kept-map = Esošā karte tika atstāta nemainīta. „Aizstāt esošo karti
 page-no-files = Faili netika izveidoti.
 page-opened-folder = Mape ir atvērta.
 page-open-failed = { $message } Mape: { $dir }
-page-why-no-area = Vispirms izvēlies apgabalu.
+page-why-no-area = Vispirms izvēlieties apgabalu.
 page-why-checking = Priekšskatījums tiek aprēķināts …
 page-why-too-large = Apgabals ir pārāk liels.
 page-why-outside = Apgabals atrodas ārpus atbalstītajām federālajām zemēm.
@@ -483,7 +483,7 @@ error-project-stored = { $path }: { $message }; vēlreiz palaidiet `freemapper f
 error-project-area-too-large = kartes apgabals plus buferis ir { $width } × { $height } m, vairāk nekā { $limit } m katrā malā; samaziniet kartes apgabalu vai buffer_m failā freemapper.toml
 error-project-area-crosses-country = kartes apgabals atrodas abpus valsts robežai; kartes pāri robežai vēl netiek atbalstītas, tāpēc uzzīmējiet apgabalu vienas valsts iekšienē
 error-project-permits-not-for-region = atļauju piezīmes šim reģionam vēl nav pieejamas: tās vaicā Vācijas pakalpojumiem un nosauc Vācijas iestādes
-error-project-outside-coverage = kartes apgabals atrodas ārpus atbalstītajiem reģioniem ({ $states }); freemapper pagaidām ir datu avoti tikai tiem
+error-project-outside-coverage = kartes apgabals atrodas ārpus atbalstītajām federālajām zemēm ({ $states }); freemapper pagaidām ir datu avoti tikai tiem
 
 ## Errors: disk space
 
@@ -542,7 +542,7 @@ error-reason-host-not-declared = serveris nav viens no deklarētajiem serveriem
 error-reason-local-address = šī datora vai vietējā tīkla adrese, nevis interneta servera adrese
 error-reason-too-many-redirects = vairāk nekā { $count } novirzījumi
 error-reason-redirect-nowhere = novirze (HTTP { $status }) uz nekurieni
-error-fetch-currency-csv = valūtas CSV rinda { $line }: { $message }
+error-fetch-currency-csv = aktualitātes CSV rinda { $line }: { $message }
 error-alkis = nederīgi ALKIS dati: { $message }
 error-osm = OSM dati: { $message }
 
@@ -643,7 +643,7 @@ help-select-pdf-candidates = Lapa sākas ar atzīmētu pārbaudes izdruku (visi 
 help-select-training = Lapa sākas ar atzīmētu treniņu karti
 help-select-pdf-scale-bar = Lapa sākas ar atzīmētu mēroga līniju PDF failos
 help-select-pdf-sources = Lapa sākas ar šādu avotu rindu izvēli PDF failos, kā `run`
-help-find = Uzskaitīt OpenStreetMap vietas pēc nosaukuma, vispirms apgabalus, ar id priekš init --osm
+help-find = Uzskaitīt OpenStreetMap vietas pēc nosaukuma, vispirms apgabalus, ar id komandai init --osm
 help-find-query = Vietas nosaukums, piem., „Clara-Zetkin-Schule Strausberg“
 help-find-json = Izdrukāt atbilstības kā JSON, tie paši lauki kā MCP rīkam find_place
 help-mcp = Piedāvāt rīkus AI aģentam, izmantojot MCP (stdin/stdout)
@@ -1046,7 +1046,7 @@ permits-road-line = { $class ->
        *[kreisstrasse] Kreisstraße (apriņķa ceļš)
     }: { $refs }
 permits-hint-road-class = { $class ->
-        [autobahn] Autobahn { $refs } iet cauri kartes apgabalam. Distanci pa to drīkst šķērsot tikai pa tiltiem vai caur apakšizejām.
+        [autobahn] Autobahn { $refs } iet cauri kartes apgabalam. Distanci drīkst vest pāri tai tikai pa tiltiem vai caur apakšizejām.
         [bundesstrasse] Bundesstraße { $refs } iet cauri kartes apgabalam. Slēgšanu vai šķērsošanu ar uzraugiem pasūta ceļu satiksmes iestāde (Straßenverkehrsbehörde); ceļu parasti uztur Bund ar federālās zemes ceļu pārvaldes starpniecību, lielākās pilsētās bieži pati pilsēta.
         [landesstrasse] Landes- vai Staatsstraße { $refs } iet cauri kartes apgabalam. Slēgšanu vai šķērsošanu ar uzraugiem pasūta ceļu satiksmes iestāde (Straßenverkehrsbehörde); ceļu parasti uztur federālā zeme, lielākās pilsētās bieži pati pilsēta.
        *[kreisstrasse] Kreisstraße { $refs } iet cauri kartes apgabalam. Slēgšanu vai šķērsošanu ar uzraugiem pasūta ceļu satiksmes iestāde (Straßenverkehrsbehörde); ceļu parasti uztur Kreis, lielākās pilsētās bieži pati pilsēta.

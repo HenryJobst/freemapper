@@ -6,6 +6,10 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+### Geändert
+
+- Zweite Durchsicht der 19 neuen Programmsprachen durch unabhängige Leser (maschinell, kein Muttersprachler): falsche Begriffe, Grammatik, uneinheitliche Anrede, englische Reste und feste Zahlwörter in Pluralzweigen sind korrigiert. Nur Texte, keine Meldungs-IDs (ADR 0169).
+
 ### Hinzugefügt
 
 - Die OCAD-Platzhaltersymbole übernehmen mehr aus dem Symbolsatz: kombinierte Symbole wie das Gebäude bekommen ihre Randlinie als eigenes Liniensymbol, das die Fläche als Rand nennt (die Nummer ist die nächste freie nach der der Fläche); Flächen mit Schraffur (Vegetation, Linienraster) tragen Farbe, Strichbreite, Abstand und Winkel, auch als Kreuzschraffur. Mapper liest das Gebäude als kombiniertes Symbol (#232, erster Teil).

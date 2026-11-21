@@ -362,7 +362,7 @@ error-place-invalid-answer = netinkamas vietos paieškos atsakymas: { $detail }
 error-place-not-found = { $id } nerasta. Nominatim išvardija tik pažymėtus OSM objektus, todėl nepažymėto multipoligono išorinio kelio ten nėra. Vietoj jo naudokite multipoligono santykį (--osm relation/<id>) arba išsaugokite kontūrą kaip GeoJSON ir naudokite --geojson
 error-place-is-a-point = { $id } yra taškas, o ne plotas; pasirinkite jo teritoriją (kelią arba santykį)
 error-place-no-such-part = { $id } turi { $count ->
-        [one] 1 dalį
+        [one] { $count } dalį
         [few] { $count } dalis
        *[other] { $count } dalių
     }; dalies { $part } nėra

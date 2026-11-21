@@ -31,7 +31,7 @@ cli-kept-map = Файл { $path } оставлен без изменений (в
 cli-map-lacks-templates = В карте пока нет ссылок на растровые подложки. Добавь их в OOM (Подложки > Открыть подложку…) или замени карту через --force, старая останется как .omap.bak.
 cli-map-lacks-buildings = В карте пока нет зданий ALKIS. Чтобы добавить их, замени карту через --force, старая останется как .omap.bak.
 cli-map-lacks-canopies = В карте нет навесов и открытых парковочных навесов ALKIS (522), которые теперь стали объектами карты. Чтобы добавить их, запусти с --force, старая карта останется как .omap.bak.
-cli-map-light = Базовая карта: объединено линий: { $joined }, скрыто или слишком мало и оставлено для слоёв кандидатов: { $left } (ничего не сдвигалось)
+cli-map-light = Базовая карта: объединено линий: { $joined }, оставлено для слоёв кандидатов скрытых или слишком мелких: { $left } (ничего не сдвигалось)
 cli-map-light-kept = Слои кандидатов теперь содержат ещё объекты или участки, которые эта версия убирает с базовой карты: { $left } (с тегом freemapper:generalized). В сохранённой карте они всё ещё есть, поэтому показаны дважды. Замени карту через --force, чтобы очистить её (старая останется как .omap.bak).
 cli-map-old-candidates = Карта всё ещё ссылается на templates/candidates.omap; этот запуск заполнил его всеми кандидатами. Теперь кандидаты есть и в семи слоях, по одному файлу на слой (templates/candidates-*.omap). Карта перечислит их после замены через --force (старая останется как .omap.bak), либо добавь их сам в OOM (Подложки > Открыть подложку…).
 
@@ -78,12 +78,12 @@ cli-find-nothing = для «{ $query }» место не найдено; поп�
 ## adapters (ADR 0082). A finding of a manifest arrives in `{ $finding }` with its file, line, key
 ## and code, in English.
 
-cli-adapter-skipped = warning: адаптер в { $folder } пропущен: { $finding }
-cli-adapter-note = warning: адаптер в { $folder } загружается, но: { $finding }
-cli-adapter-from-project = warning: используется адаптер { $adapter } из папки проекта; он может обращаться к этим хостам: { $hosts }
-cli-adapter-overlaps = warning: адаптер { $adapter } покрывает также территорию { $others }; его объекты попадают на тамошние карты
-cli-adapter-dir-relative = warning: FREEMAPPER_ADAPTER_DIR не является абсолютным путём ({ $path }); значение игнорируется
-cli-adapters-no-project = warning: { $path } не является папкой; адаптеры проекта не читались
+cli-adapter-skipped = предупреждение: адаптер в { $folder } пропущен: { $finding }
+cli-adapter-note = предупреждение: адаптер в { $folder } загружается, но: { $finding }
+cli-adapter-from-project = предупреждение: используется адаптер { $adapter } из папки проекта; он может обращаться к этим хостам: { $hosts }
+cli-adapter-overlaps = предупреждение: адаптер { $adapter } покрывает также территорию { $others }; его объекты попадают на тамошние карты
+cli-adapter-dir-relative = предупреждение: FREEMAPPER_ADAPTER_DIR не является абсолютным путём ({ $path }); значение игнорируется
+cli-adapters-no-project = предупреждение: { $path } не является папкой; адаптеры проекта не читались
 cli-adapters-overlaps = пересекается с: { $others }
 cli-adapters-line = { $adapter }  { $name }  { $source }  ревизия { $revision }  проверен { $checked }  хосты: { $hosts }
 cli-adapters-source-built-in = встроенный
@@ -106,18 +106,18 @@ cli-allow-host-write = не удалось записать { $file }: { $detail
 cli-allow-host-unreadable = { $file } не читается ({ $detail }); сначала исправь или удали файл; ничего не изменено
 cli-disallow-host-removed = freemapper больше не обращается к { $host } для { $name }
 cli-disallow-host-absent = { $host } не был разрешён для { $name }; отменять нечего
-cli-allowed-hosts-unreadable = warning: { $file } не читается ({ $detail }); дополнительные хосты не разрешены
-cli-allowed-hosts-ignored = warning: { $file }: запись { $host } для { $adapter } игнорируется: { $reason }
+cli-allowed-hosts-unreadable = предупреждение: { $file } не читается ({ $detail }); дополнительные хосты не разрешены
+cli-allowed-hosts-ignored = предупреждение: { $file }: запись { $host } для { $adapter } игнорируется: { $reason }
 cli-allowed-hosts-no-adapter = у freemapper нет встроенного адаптера с таким именем
-cli-allowed-host-redundant = warning: { $host } теперь один из хостов, которые называет адаптер для { $name }; твоя запись в { $file } удалена
+cli-allowed-host-redundant = предупреждение: { $host } теперь один из хостов, которые называет адаптер для { $name }; твоя запись в { $file } удалена
 cli-adapters-allowed = разрешено тобой: { $hosts }
 
 ## adapters check. A finding arrives in `{ $finding }` as in the lines above. `{ $capability }` is
 ## a fixed word (`rasters`, `alkis-buildings`, `nas`, `osm`), the same in every language.
 
 cli-check-adapter = адаптер { $adapter } ({ $name }), ревизия { $revision }, хосты: { $hosts }
-cli-check-error = error: { $finding }
-cli-check-warning = warning: { $finding }
+cli-check-error = ошибка: { $finding }
+cli-check-warning = предупреждение: { $finding }
 cli-check-passed = { $folder } проходит проверку
 cli-check-passed-warnings = { $folder } проходит проверку, { $count ->
         [one] с { $count } предупреждением
@@ -167,7 +167,7 @@ cli-list-and = { $first } и { $last }
 
 ## Folder lock
 
-cli-lock-held = другой запуск freemapper использует эту папку (с { $time }, запущен: { $who }). Дождись его или сначала останови.
+cli-lock-held = другой запуск freemapper использует эту папку (с { $time }, запущен { $who }). Дождись его или сначала останови.
 cli-lock-who-cli = терминалом
 cli-lock-who-mcp = ИИ-агентом (MCP)
 cli-lock-who-page = страницей выбора
@@ -438,7 +438,7 @@ update-no-manifest-version = выпуска { $version } нет, или он н�
 update-no-asset = в выпуске нет программы для этой системы ({ $platform }); ничего не установлено
 update-no-previous = нет предыдущей версии для возврата ({ $path } отсутствует)
 update-failed = обновление не удалось: { $error }
-update-mode-set = Режим обновления установлен в { $mode } в { $path }.
+update-mode-set = Режим обновления установлен: { $mode }, запись в { $path }.
 update-mode-env = FREEMAPPER_UPDATE={ $value } переопределяет эту настройку, пока задана.
 update-mode-failed = не удалось записать { $path }: { $error }
 update-notice = Доступен freemapper { $new } (у тебя { $old }). Обновить: freemapper update
@@ -616,7 +616,7 @@ help-init-title = Название карты для периферийной и
 help-export = Записать стартовый проект (карта OOM, подложки, указание источников) в папку проекта
 help-export-dir = Папка проекта
 help-arg-force = Заменить существующий файл карты, старый сохранить как `<name>.omap.bak`
-help-export-ocad = Дополнительно записать стартовую точку OCAD в `ocad/` (формат OCAD 12); существующая карта OOM тогда остаётся, если не передать --force
+help-export-ocad = Дополнительно записать стартовый проект OCAD в `ocad/` (формат OCAD 12); существующая карта OOM тогда остаётся, если не передать --force
 help-export-pdf = Дополнительно записать `<name>.pdf`, карту для печати (только объекты карты, без кандидатов); существующая карта OOM тогда остаётся, если не передать --force
 help-export-pdf-candidates = Дополнительно записать `<name>-candidates.pdf`, проверочную печать: карту со всеми кандидатами, точно по положению; существующая карта OOM тогда остаётся, если не передать --force
 help-export-training = Дополнительно записать тренировочную карту `<name>-training.omap` и её PDF `<name>-training.pdf`: карту и всех кандидатов, приведённых в порядок для печати как есть; с --ocad также `ocad/<name>-training.ocd`. Существующая карта OOM тогда остаётся, если не передать --force, а --force заменяет и существующую тренировочную карту
@@ -632,7 +632,7 @@ help-derive-dir = Папка проекта
 help-run = Загрузить, вычислить и экспортировать за один раз
 help-run-dir = Папка проекта
 help-run-offline = Использовать только кэш, без доступа к сети
-help-run-ocad = Дополнительно записать стартовую точку OCAD в `ocad/` (формат OCAD 12)
+help-run-ocad = Дополнительно записать стартовый проект OCAD в `ocad/` (формат OCAD 12)
 help-run-pdf = Дополнительно записать `<name>.pdf`, карту для печати (только объекты карты, без кандидатов)
 help-run-pdf-candidates = Дополнительно записать `<name>-candidates.pdf`, проверочную печать: карту со всеми кандидатами, точно по положению
 help-run-training = Дополнительно записать тренировочную карту `<name>-training.omap` и её PDF `<name>-training.pdf`: карту и всех кандидатов, приведённых в порядок для печати как есть; с --ocad также `ocad/<name>-training.ocd`. Существующая тренировочная карта остаётся, если не передать --force
@@ -695,7 +695,7 @@ cli-summary-kept-map = Существующая карта { $path } остав�
 cli-summary-map-lacks-templates = В карте пока нет ссылок на растровые подложки. Запусти конвейер с force, чтобы заменить её, старая останется как .omap.bak.
 cli-summary-map-lacks-buildings = В карте пока нет зданий ALKIS. Запусти конвейер с force, чтобы добавить их; он заменяет карту, старая остаётся как .omap.bak.
 cli-summary-map-lacks-canopies = В карте нет навесов и открытых парковочных навесов ALKIS (522), которые теперь стали объектами карты. Запусти конвейер с force, чтобы добавить их; он заменяет карту, старая остаётся как .omap.bak.
-cli-summary-map-light = Базовая карта: объединено линий: { $joined }, скрыто или слишком мало и оставлено для слоёв кандидатов: { $left } (ничего не сдвигалось)
+cli-summary-map-light = Базовая карта: объединено линий: { $joined }, оставлено для слоёв кандидатов скрытых или слишком мелких: { $left } (ничего не сдвигалось)
 cli-summary-map-light-kept = Слои кандидатов теперь содержат ещё объекты или участки, которые эта версия убирает с базовой карты: { $left } (с тегом freemapper:generalized). В сохранённой карте они всё ещё есть, поэтому показаны дважды. Запусти конвейер с force, чтобы очистить карту; старая остаётся как .omap.bak.
 cli-summary-map-old-candidates = Карта всё ещё ссылается на templates/candidates.omap; этот запуск заполнил его всеми кандидатами. Теперь кандидаты есть и в семи слоях, по одному файлу на слой (templates/candidates-*.omap). Карта перечислит их после запуска с force (старая карта останется как .omap.bak), либо картограф добавит их в OOM (Подложки > Открыть подложку…).
 cli-summary-wrote-ocad = Записана карта OCAD { $path } (объектов: { $count })
@@ -777,7 +777,7 @@ mcp-param-permits-for-area-offline = Читать только данные, с�
 mcp-tool-start-pipeline = Загрузить данные, вычислить подложки и записать стартовый проект (fetch, derive, export). Работает в фоне и возвращает job_id; опрашивай project_status. Одновременно идёт один конвейер. Существующую карту оставляет, если force не true.
 mcp-param-start-pipeline-dir = Папка проекта (абсолютный путь или начинающийся с ~).
 mcp-param-start-pipeline-force = Заменить существующий файл карты, старый сохранить как .omap.bak. По умолчанию false.
-mcp-param-start-pipeline-ocad = Дополнительно записать стартовую точку OCAD в папку ocad/ (формат OCAD 12, для тех, кто работает в OCAD). По умолчанию false.
+mcp-param-start-pipeline-ocad = Дополнительно записать стартовый проект OCAD в папку ocad/ (формат OCAD 12, для тех, кто работает в OCAD). По умолчанию false.
 mcp-param-start-pipeline-offline = Использовать только кэш загрузок, без доступа к сети. По умолчанию false.
 mcp-param-start-pipeline-pdf = Дополнительно записать <name>.pdf, карту, готовую к печати (только объекты карты, без кандидатов). По умолчанию false.
 mcp-param-start-pipeline-pdf-candidates = Дополнительно записать <name>-candidates.pdf, проверочную печать: карту со всеми кандидатами, точно по положению (проверь их на местности). По умолчанию false.
@@ -808,7 +808,7 @@ mcp-error-content = Не удаётся прочитать настройку с
 ## `permits-*` id is used. The quote "Nicht für Planungszwecke geeignet." is the BfN's own
 ## wording and stays German in every language.
 
-help-permits = Записать заметки о разрешениях для проекта (permits.md и permits.json): административные единицы, охраняемые территории и владельцы, которых касается область карты, и к кому обычно приходится обращаться. Команда обращается к BfN и BKG и, если у федеральной земли области карты есть собственные открытые сервисы, к ним через хосты её адаптера (список в руководстве, глава 12); в Северном Рейне-Вестфалии при первом разе загружает для этого около 32 МБ, в Бранденбурге около 4 МБ, позже только более новые файлы. Она читает уже кэшированную выгрузку OSM; --offline использует то, что загружено раньше
+help-permits = Записать заметки о разрешениях для проекта (permits.md и permits.json): административные единицы, охраняемые территории и владельцы, которых касается область карты, и к кому обычно приходится обращаться. Команда обращается к BfN и BKG и, если у федеральной земли области карты есть собственные открытые сервисы, к ним через хосты её адаптера (список в руководстве, глава 12); в Северном Рейне-Вестфалии в первый раз загружает для этого около 32 МБ, в Бранденбурге около 4 МБ, позже только более новые файлы. Она читает уже кэшированную выгрузку OSM; --offline использует то, что загружено раньше
 help-permits-dir = Папка проекта
 help-permits-offline = Использовать только ранее загруженные данные, без доступа к сети
 help-run-permits = Дополнительно записать заметки о разрешениях (permits.md и permits.json) после карты; обращается к BfN, BKG и открытым сервисам федеральной земли (руководство, глава 12). Сбой там даёт предупреждение, а карта остаётся

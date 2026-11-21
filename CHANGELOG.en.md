@@ -6,6 +6,10 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
+### Changed
+
+- Second read of the 19 new program languages by independent readers (machine, no native speaker): wrong terms, grammar, mixed forms of address, leftover English and fixed numerals in plural branches are corrected. Texts only, no message ids (ADR 0169).
+
 ### Added
 
 - The OCAD placeholder symbols take more from the symbol set: combined symbols such as the building get their outline as a line symbol of its own, which the area names as its border (its number is the next free one after the area's); areas with hatching (vegetation, line patterns) carry colour, line width, spacing and angle, also as a cross hatch. Mapper reads the building as a combined symbol (#232, first part).
