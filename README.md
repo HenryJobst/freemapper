@@ -56,8 +56,8 @@ nach in einer festen Version ein, statt den Code zu kopieren.
 
 ## Status
 
-Aktuelle Version ist [v0.24.0](https://github.com/HenryJobst/freemapper/releases/tag/v0.24.0) vom
-16. November 2026 (was sich geändert hat, steht in den [Änderungen](CHANGELOG.md)).
+Aktuelle Version ist [v0.25.0](https://github.com/HenryJobst/freemapper/releases/tag/v0.25.0) vom
+21. November 2026 (was sich geändert hat, steht in den [Änderungen](CHANGELOG.md)).
 
 freemapper erzeugt
 Schulhof- und Sprintkarten für fünfzehn Bundesländer: Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg,
@@ -84,7 +84,7 @@ Dienste Standarddienste sind, lässt sich als Ordner mit einem Manifest ergänze
 für weitere Bundesländer, zuerst Sachsen (Gewässerachsen, Hecken und Baumreihen aus dem Basis-DLM, die Bäume von Leipzig
 und Dresden), dann Sachsen-Anhalt und Hamburg. Später kommen Hallenkarten für Hallen-OL, die letzten englischen
 Reste in den deutschen Programmtexten (`--lang de`). Thüringen, das letzte Bundesland, das noch fehlt, folgt, sobald sein Server für die
-Höhendaten wieder erreichbar ist. Die Nachbarländer kommen später. Design:
+Höhendaten wieder erreichbar ist. Polen gibt es als Vorschau allein aus OpenStreetMap (ADR 0164); die übrigen Nachbarländer kommen später. Die Programmtexte gibt es auf Deutsch, Englisch und Polnisch und in 18 weiteren Sprachen, die maschinell entworfen und nicht von Muttersprachlern gelesen sind. Design:
 [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](https://github.com/HenryJobst/freemapper/blob/main/docs/superpowers/specs/2026-11-07-freemapper-design.md).
 
 Auf Wunsch schreibt freemapper Hinweise zu Genehmigungen neben die Karte, in die Datei `permits.md` (`freemapper permits`, `run --permits`, auf der Gebietsseite oder über den KI-Assistenten). Sie nennt für das Kartengebiet Bundesland, Kreis, Amt und Gemeinde aus VG250 des BKG, die Schutzgebiete des BfN und Betreiber aus OpenStreetMap, jeweils mit Anteil, Quelle und Datenstand, und sagt, wen man meist fragt. Sie ist ein Hinweis und keine Rechtsauskunft. Einzelheiten stehen im [Handbuch, Kapitel 12](docs/manual/de.md#12-hinweise-zu-genehmigungen). In Berlin kommen Bezirk, Grünanlagen, Eigentum von Bundesland und Bund, Denkmale und Naturdenkmale aus dem Geoportal Berlin dazu. In Hamburg kommen Bezirk, Grünanlagen, Denkmale, Stadtwald und Wasserschutzgebiete aus dem Geoportal Hamburg. In Brandenburg, Berlin, Hamburg, Nordrhein-Westfalen, im Saarland, in Sachsen und in Schleswig-Holstein nennen die Hinweise auch die Forstdienststelle. Wasserschutzgebiete nennen sie in allen Bundesländern, Denkmale in elf, Naturdenkmale und geschützte Biotope in dreizehn, Waldfunktionen in mehreren.
