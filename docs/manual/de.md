@@ -84,11 +84,11 @@ freemapper ist ein einzelnes Programm ohne Installer.
    - **macOS:** „kann nicht geöffnet werden …“ → *Systemeinstellungen › Datenschutz & Sicherheit* →
      *Trotzdem öffnen*.
 
-**Kein Doppelklick auf `freemapper.exe`:** freemapper hat kein Fenster, es ist ein Kommandozeilenprogramm. Ein Doppelklick öffnet
-kurz ein Konsolenfenster, zeigt die Hilfe und wartet auf Enter; arbeiten lässt es sich nur im Terminal. Unter Windows
-öffnen Sie die PowerShell (Startmenü › „PowerShell“), wechseln mit `cd` in den Ordner mit `freemapper.exe`
-(oder im Explorer: Ordner öffnen, in die Adresszeile `powershell` tippen, Enter) und rufen dort `.\freemapper.exe`
-mit einem Befehl auf, z. B. `.\freemapper.exe select meine-karte`.
+**Doppelklick unter Windows:** Ein Doppelklick auf `freemapper.exe` öffnet die Gebietsseite im Browser (wie `freemapper select`)
+und legt den Projektordner unter `Dokumente\freemapper\karte-<Datum>` an; das Konsolenfenster bleibt offen, solange
+das Programm läuft, und das Schließen beendet es. Alles andere, etwa `run`, `permits` oder `update`, geben Sie in der PowerShell
+ein: Startmenü › „PowerShell“, mit `cd` in den Ordner mit `freemapper.exe` wechseln (oder im Explorer in der Adresszeile
+`powershell` tippen) und dort z. B. `.\freemapper.exe run <Ordner>` aufrufen.
 
 Merken Sie sich den **vollständigen Pfad** zum Programm, z. B. `C:\Users\Anna\Documents\freemapper\freemapper.exe`
 oder `/Users/anna/Documents/freemapper/freemapper`. Der Assistent braucht ihn.
