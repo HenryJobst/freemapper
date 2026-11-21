@@ -216,3 +216,4 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0168](0168-polish-program-language.md) | Polish as a program language | Accepted, supplements ADR 0092 and ADR 0164 | 2026-11-21 |
 | [0169](0169-more-program-languages.md) | More program languages | Accepted, supplements ADR 0168 | 2026-11-21 |
 | [0170](0170-poland-rasters-from-gugik.md) | Poland gets its rasters from GUGiK, without a cadastre | Accepted, supplements ADR 0164 and 0167 | 2026-11-21 |
+| [0173](0173-faster-mutation-runs.md) | Faster mutation runs | Accepted, amends ADR 0165 | 2026-11-21 |

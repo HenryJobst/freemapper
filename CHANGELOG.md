@@ -10,6 +10,10 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 - Polen holt Höhenmodell (NMT), Oberflächenmodell (NMPT) und Orthofoto von GUGiK: Schummerung, Hangneigung, Relief, nDSM, Höhenlinien und Luftbild für ein Gebiet in Polen. Gebäude und Landnutzung kommen weiter aus OpenStreetMap; Polen bleibt Vorschau (ADR 0170). Der OSM-Auszug einer Woiwodschaft wird wieder gefunden (Geofabrik hat die Ordner umgestellt).
 
+### Geändert
+
+- Die Mutationstests laufen schneller: Der Lauf baut die Tests einmal im Baum des Runners und kopiert dieses Ziel in die Arbeitskopien, das Zeitlimit je Mutant sinkt auf das Doppelte der Testzeit, und die Rechenschritte des Newton-Verfahrens in Polen sind ausgenommen (ADR 0173).
+
 ## [0.25.0] - 2026-11-21
 
 ### Geändert

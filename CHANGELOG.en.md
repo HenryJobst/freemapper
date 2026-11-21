@@ -10,6 +10,10 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 - Poland takes its terrain model (NMT), surface model (NMPT) and orthophoto from GUGiK: hillshade, slope, relief, nDSM, contours and aerial photo for an area in Poland. Buildings and land use still come from OpenStreetMap; Poland stays a preview (ADR 0170). The OSM extract of a voivodeship is found again (Geofabrik moved its folders).
 
+### Changed
+
+- The mutation tests run faster: the run builds the tests once in the tree of the runner and copies that target into its working copies, the timeout per mutant drops to twice the test time, and the arithmetic of Newton's method in Poland is left out (ADR 0173).
+
 ## [0.25.0] - 2026-11-21
 
 ### Changed
