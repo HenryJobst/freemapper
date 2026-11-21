@@ -198,6 +198,7 @@ fn symbol_table(
                         color: border.color,
                         width: border.width,
                         dash: border.dash,
+                        double: None,
                     },
                     icon_color: icon_colors.get(&border.color).copied().unwrap_or(0),
                 });

@@ -12,6 +12,7 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ### Added
 
+- The OCAD placeholders of line symbols with edge lines (paved and unpaved paths) take the edge lines as a double line, dashed as in the symbol set (#232, third part).
 - The OCAD placeholders of point symbols draw dot and ring as the symbol set does (bush: a dot with a circle line), no longer a single disc (#232, second part).
 - The OCAD placeholder symbols take more from the symbol set: combined symbols such as the building get their outline as a line symbol of its own, which the area names as its border (its number is the next free one after the area's); areas with hatching (vegetation, line patterns) carry colour, line width, spacing and angle, also as a cross hatch. Mapper reads the building as a combined symbol (#232, first part).
 - Check tool `tools/mapper-inspect`: opens an `.omap` or `.ocd` with the importer of OpenOrienteering Mapper and prints colours, symbols, objects and georeferencing as JSON. The test `mapper_ocd` uses it to compare the `.ocd` of two examples and their candidate layers with the `.omap` (objects, colours, scale, georeferencing); without the tool (`FREEMAPPER_MAPPER_INSPECT`) it is skipped. Mapper reads our `.ocd` without errors. The tool is not part of the program or of the release archives (#230).
