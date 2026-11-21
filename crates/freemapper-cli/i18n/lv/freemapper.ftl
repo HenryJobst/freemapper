@@ -815,6 +815,7 @@ error-permits-missing-not-read = { $source }: nenolasīts
 
 permits-title = Atļauju piezīmes
 permits-disclaimer = Norāde, nevis juridisks padoms. Lēmumu pieņem kompetentās iestādes. Datu datumu un precizitāti skatiet tabulā sadaļā „Avoti un datu datums“; teritorijas var trūkt vai būt novecojušas (BfN: apvienots reizi gadā, „Nicht für Planungszwecke geeignet.“, tas ir, nav piemērots plānošanai).
+permits-disclaimer-regional = Norāde, nevis juridisks padoms. Lēmumu pieņem kompetentās iestādes. Datu datumu un precizitāti skatiet tabulā sadaļā „Avoti un datu datums“; teritorijas var trūkt vai būt novecojušas.
 permits-bfn-merge = BfN reizi gadā apvieno federālo zemju datus un atzīmē tos kā nepiemērotus plānošanai. Lēmumu pieņem federālās zemes iestādes.
 permits-created = Sastādīts { $date } kartes apgabalam: { $kind ->
         [schoolyard] skolas pagalma karte
@@ -877,6 +878,7 @@ permits-quoted = „{ $text }“
 permits-osm-unnamed = bez nosaukuma
 permits-osm-operator = Apsaimniekotājs pēc OSM: { $operator }
 permits-osm-enclosing-gap = OpenStreetMap teritorijas, kas ietver visu kartes apgabalu bez stūra tā iekšienē, šeit var trūkt, tāpat kā aizsargājamās teritorijas, kas OSM kartētas kā relācija ar `type=boundary`. BfN un VG250 daļas tas neskar.
+permits-osm-enclosing-gap-short = Šeit var trūkt OpenStreetMap laukumu, kas ieskauj visu kartes apgabalu, bet kuru stūris neatrodas tajā.
 permits-operator-line = { $name } ({ $roles ->
         [operator] apsaimniekotājs
         [owner] īpašnieks
@@ -899,6 +901,7 @@ permits-hint-nature-authority = { $kreisfrei ->
 permits-hint-national-park = Nacionālajam parkam ir savi noteikumi. Vērsieties pie nacionālā parka pārvaldes savlaicīgi.
 permits-hint-nsg-paths = Dabas liegumā parasti jāturas pie takām. Skrējienam ārpus takām vaicājiet dabas aizsardzības iestādei.
 permits-hint-natura2000 = FFH teritorija vai putnu aizsardzības teritorija (Natura 2000) skar kartes apgabalu. Pasākumam dabas aizsardzības iestāde var prasīt ietekmes novērtējumu.
+permits-hint-protected-areas-pl = Kartes apgabalā atrodas aizsargājamas teritorijas vai dabas aizsardzības objekti. Nacionālā parka, ainavu parka vai dabas rezervāta gadījumā parasti jāvēršas parka vai rezervāta administrācijā; par pārējām teritorijām un objektiem, kas ir atbildīgais, parasti var pateikt vojevodistes reģionālā vides aizsardzības direkcija (RDOŚ). Jautājiet laikus, ja tur plānojat pasākumu.
 permits-hint-order-office = { $amt ->
         [none] Ielām, laukumiem un citai publiskai zemei parasti atbildīgs ir Gemeinde { $gemeinde } Ordnungsamt (sabiedriskās kārtības birojs).
        *[other] Ielām, laukumiem un citai publiskai zemei parasti atbildīgs ir Ordnungsamt (sabiedriskās kārtības birojs): { $amt }, Gemeinde { $gemeinde }.
@@ -936,6 +939,17 @@ permits-object-kind = { $kind ->
         [natural-monument] Dabas piemineklis (Naturdenkmal)
         [protected-landscape-part] Aizsargājams ainavas elements (geschützter Landschaftsbestandteil)
         [biotope] Likumā aizsargāts biotops (geschütztes Biotop)
+        [national-park] Nacionālais parks (park narodowy)
+        [park-buffer-zone] Parka aizsargjosla (otulina)
+        [landscape-park] Ainavu parks (park krajobrazowy)
+        [nature-reserve] Dabas rezervāts (rezerwat przyrody)
+        [protected-landscape-area] Aizsargājamā ainavu teritorija (obszar chronionego krajobrazu)
+        [natura2000-habitats] Natura 2000 teritorija biotopiem (SOO)
+        [natura2000-birds] Natura 2000 teritorija putniem (OSO)
+        [ecological-site] Ekoloģiskā teritorija (użytek ekologiczny)
+        [landscape-complex] Dabas un ainavu komplekss (zespół przyrodniczo-krajobrazowy)
+        [documentation-site] Dokumentācijas vieta (stanowisko dokumentacyjne)
+        [natural-monument-pl] Dabas piemineklis (pomnik przyrody)
        *[special-rules] Teritorija ar īpašiem noteikumiem
     }
 permits-object-count = objekti: { $count }
@@ -994,6 +1008,10 @@ permits-hint-forest-office = { $units ->
 permits-hint-forest-owner = { $office ->
         [known] Pasākumam mežā vajadzīga meža īpašnieku piekrišana. Mežniecība parasti var pateikt, kam pieder mežs. Vairākās federālajās zemēs organizēts pasākums mežā jāpiesaka meža iestādei vai tā jāatļauj.
        *[unknown] Pasākumam mežā vajadzīga meža īpašnieku piekrišana. Vairākās federālajās zemēs organizēts pasākums mežā jāpiesaka meža iestādei vai tā jāatļauj. Šīs piezīmes nenosauc šeit atbildīgo mežniecību; to var pateikt federālās zemes meža pārvalde vai zemākā meža iestāde.
+    }
+permits-hint-forest-owner-pl = { $office ->
+        [known] Pasākumam mežā parasti ir vajadzīga meža īpašnieka piekrišana. Iepriekš minētā mežniecība (Nadleśnictwo) parasti var pateikt, kas mežu kopj. Mežs, kas nepieder Valsts mežiem, piemēram, privātais mežs, šo piezīmju datos nav.
+       *[unknown] Pasākumam mežā parasti ir vajadzīga meža īpašnieka piekrišana. Šīs piezīmes kartes apgabalam nenosauc nevienu Valsts mežu mežniecību; dati aptver tikai Valsts mežus, tāpēc mežs var piederēt kādam citam, piemēram, privātam īpašniekam. Īpašnieks jānoskaidro atsevišķi.
     }
 permits-section-water-protection = Ūdens aizsardzības zonas ({ $source })
 permits-section-forest-functions = Meža funkcijas un aizsargājamais mežs ({ $source })

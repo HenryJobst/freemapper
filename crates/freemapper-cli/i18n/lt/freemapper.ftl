@@ -826,6 +826,7 @@ error-permits-missing-not-read = { $source }: neperskaityta
 
 permits-title = Leidimų pastabos
 permits-disclaimer = Užuomina, o ne teisinė konsultacija. Sprendžia kompetentingos institucijos. Duomenų datą ir tikslumą rasite lentelėje po antrašte „Šaltiniai ir duomenų data“; plotų gali trūkti arba jie gali būti pasenę (BfN: sujungiama kartą per metus, „Nicht für Planungszwecke geeignet.“, t. y. netinka planavimui).
+permits-disclaimer-regional = Užuomina, o ne teisinė konsultacija. Sprendžia kompetentingos institucijos. Duomenų datą ir tikslumą rasite lentelėje po antrašte „Šaltiniai ir duomenų data“; plotų gali trūkti arba jie gali būti pasenę.
 permits-bfn-merge = BfN kartą per metus sujungia federalinių žemių duomenis ir pažymi juos kaip netinkamus planavimui. Sprendžia federalinės žemės institucijos.
 permits-created = Sudaryta { $date } { $kind ->
         [schoolyard] mokyklos kiemo žemėlapio
@@ -888,6 +889,7 @@ permits-quoted = "{ $text }"
 permits-osm-unnamed = be pavadinimo
 permits-osm-operator = Valdytojas pagal OSM: { $operator }
 permits-osm-enclosing-gap = Čia gali trūkti OpenStreetMap plotų, kurie apima visą žemėlapio plotą be kampo jo viduje, taip pat saugomų teritorijų, OSM pažymėtų kaip santykis su `type=boundary`. BfN ir VG250 dalys to neliečia.
+permits-osm-enclosing-gap-short = Čia gali trūkti „OpenStreetMap“ plotų, kurie supa visą žemėlapio sritį, bet nė vienas jų kampas nėra joje.
 permits-operator-line = { $name } ({ $roles ->
         [operator] valdytojas
         [owner] savininkas
@@ -910,6 +912,7 @@ permits-hint-nature-authority = { $kreisfrei ->
 permits-hint-national-park = Nacionalinis parkas turi savo taisyklių. Anksti kreipkitės į nacionalinio parko administraciją.
 permits-hint-nsg-paths = Gamtos rezervate paprastai reikia laikytis takų. Bėgti ne takais leidimo klauskite gamtos apsaugos institucijos.
 permits-hint-natura2000 = FFH teritorija arba paukščių apsaugos teritorija (Natura 2000) paliečia žemėlapio plotą. Renginiui gamtos apsaugos institucija gali pareikalauti poveikio vertinimo.
+permits-hint-protected-areas-pl = Žemėlapio srityje yra saugomų teritorijų arba gamtos apsaugos objektų. Nacionalinio parko, kraštovaizdžio parko ar gamtos rezervato atveju paprastai kreipiamasi į parko ar rezervato administraciją; dėl kitų teritorijų ir objektų, kas atsakingas, paprastai pasakys vaivadijos regioninė aplinkos apsaugos direkcija (RDOŚ). Teiraukitės iš anksto, jei ten planuojate renginį.
 permits-hint-order-office = { $amt ->
         [none] Gatvėms, aikštėms ir kitai viešai žemei paprastai atsakingas Gemeinde { $gemeinde } Ordnungsamt (viešosios tvarkos tarnyba).
        *[other] Gatvėms, aikštėms ir kitai viešai žemei paprastai atsakingas Ordnungsamt (viešosios tvarkos tarnyba): { $amt }, Gemeinde { $gemeinde }.
@@ -947,6 +950,17 @@ permits-object-kind = { $kind ->
         [natural-monument] Gamtos paminklas (Naturdenkmal)
         [protected-landscape-part] Saugomas kraštovaizdžio elementas (geschützter Landschaftsbestandteil)
         [biotope] Teisiškai saugomas biotopas (geschütztes Biotop)
+        [national-park] Nacionalinis parkas (park narodowy)
+        [park-buffer-zone] Parko apsaugos zona (otulina)
+        [landscape-park] Kraštovaizdžio parkas (park krajobrazowy)
+        [nature-reserve] Gamtos rezervatas (rezerwat przyrody)
+        [protected-landscape-area] Saugomo kraštovaizdžio teritorija (obszar chronionego krajobrazu)
+        [natura2000-habitats] „Natura 2000“ teritorija buveinėms (SOO)
+        [natura2000-birds] „Natura 2000“ teritorija paukščiams (OSO)
+        [ecological-site] Ekologinė teritorija (użytek ekologiczny)
+        [landscape-complex] Gamtos ir kraštovaizdžio kompleksas (zespół przyrodniczo-krajobrazowy)
+        [documentation-site] Dokumentavimo vieta (stanowisko dokumentacyjne)
+        [natural-monument-pl] Gamtos paminklas (pomnik przyrody)
        *[special-rules] Plotas su ypatingomis taisyklėmis
     }
 permits-object-count = objektų: { $count }
@@ -1005,6 +1019,10 @@ permits-hint-forest-office = { $units ->
 permits-hint-forest-owner = { $office ->
         [known] Renginiui miške reikia miško savininkų sutikimo. Miškų tarnyba paprastai gali pasakyti, kam miškas priklauso. Keliose federalinėse žemėse organizuotą renginį miške taip pat reikia pranešti miškų institucijai arba gauti jos leidimą.
        *[unknown] Renginiui miške reikia miško savininkų sutikimo. Keliose federalinėse žemėse organizuotą renginį miške taip pat reikia pranešti miškų institucijai arba gauti jos leidimą. Šios pastabos neįvardija čia atsakingos miškų tarnybos; ją gali pasakyti federalinės žemės miškų administracija arba žemesnioji miškų institucija.
+    }
+permits-hint-forest-owner-pl = { $office ->
+        [known] Renginiui miške paprastai reikia miško savininko sutikimo. Aukščiau nurodyta miškų urėdija (Nadleśnictwo) paprastai gali pasakyti, kas miške tvarkosi. Miško, kuris nepriklauso valstybiniams miškams, pavyzdžiui, privataus miško, šių pastabų duomenyse nėra.
+       *[unknown] Renginiui miške paprastai reikia miško savininko sutikimo. Šios pastabos žemėlapio sričiai nenurodo jokios valstybinių miškų urėdijos; duomenys apima tik valstybinius miškus, todėl miškas gali priklausyti kam nors kitam, pavyzdžiui, privačiam savininkui. Savininką reikia išsiaiškinti atskirai.
     }
 permits-section-water-protection = Vandens apsaugos zonos ({ $source })
 permits-section-forest-functions = Miško funkcijos ir apsauginis miškas ({ $source })

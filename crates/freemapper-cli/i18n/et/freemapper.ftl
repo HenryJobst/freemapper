@@ -808,6 +808,7 @@ error-permits-missing-not-read = { $source }: ei loetud
 
 permits-title = Loamärkmed
 permits-disclaimer = Vihje, mitte õigusnõu. Otsustavad pädevad ametiasutused. Andmete kuupäeva ja täpsuse kohta vt tabelit jaotise „Allikad ja andmete kuupäev“ all; alasid võib puududa või need võivad olla aegunud (BfN: ühendatud kord aastas, „Nicht für Planungszwecke geeignet.“ ehk planeerimiseks sobimatu).
+permits-disclaimer-regional = Vihje, mitte õigusnõu. Otsustavad pädevad ametiasutused. Andmete kuupäeva ja täpsuse kohta vt tabelit jaotise „Allikad ja andmete kuupäev“ all; alasid võib puududa või need võivad olla aegunud.
 permits-bfn-merge = BfN ühendab liidumaade andmed kord aastas ja märgib need planeerimiseks sobimatuks. Otsustavad liidumaa ametiasutused.
 permits-created = Tehtud { $date } { $kind ->
         [schoolyard] koolihoovikaardi
@@ -870,6 +871,7 @@ permits-quoted = „{ $text }“
 permits-osm-unnamed = nimeta
 permits-osm-operator = Haldaja OSM-i järgi: { $operator }
 permits-osm-enclosing-gap = OpenStreetMapi alad, mis ümbritsevad kogu kaardiala ilma nurgata selle sees, võivad siit puududa, samuti OSM-is relatsioonina `type=boundary` kaardistatud kaitsealad. BfN-i ja VG250 osi see ei puuduta.
+permits-osm-enclosing-gap-short = OpenStreetMapi alad, mis ümbritsevad kogu kaardiala ilma ühegi nurgata selle sees, võivad siit puududa.
 permits-operator-line = { $name } ({ $roles ->
         [operator] haldaja
         [owner] omanik
@@ -892,6 +894,7 @@ permits-hint-nature-authority = { $kreisfrei ->
 permits-hint-national-park = Rahvuspargil on oma reeglid. Rahvuspargi haldusega tuleb ühendust võtta varakult.
 permits-hint-nsg-paths = Looduskaitsealal tuleb tavaliselt hoida radadest kinni. Jooksuks väljaspool radu tuleb küsida looduskaitseasutuselt.
 permits-hint-natura2000 = FFH-ala või linnukaitseala (Natura 2000) puudutab kaardiala. Ürituse jaoks võib looduskaitseasutus nõuda mõjude hindamist.
+permits-hint-protected-areas-pl = Kaardialal asuvad kaitsealad või looduskaitseobjektid. Rahvuspargi, maastikukaitseala või looduskaitseala puhul on tavaliselt kontaktiks pargi või kaitseala haldus; ülejäänud alade ja objektide puhul oskab tavaliselt öelda, kes vastutab, vojevoodkonna regionaalne keskkonnakaitse direktoraat (RDOŚ). Küsige õigel ajal, kui seal on ürituse plaan.
 permits-hint-order-office = { $amt ->
         [none] Tänavate, väljakute ja muu avaliku maa eest vastutab tavaliselt omavalitsuse { $gemeinde } Ordnungsamt (avaliku korra amet).
        *[other] Tänavate, väljakute ja muu avaliku maa eest vastutab tavaliselt Ordnungsamt (avaliku korra amet): { $amt }, omavalitsuse { $gemeinde } jaoks.
@@ -929,6 +932,17 @@ permits-object-kind = { $kind ->
         [natural-monument] Loodusmälestis (Naturdenkmal)
         [protected-landscape-part] Kaitstud maastikuelement (geschützter Landschaftsbestandteil)
         [biotope] Seadusega kaitstud biotoop (geschütztes Biotop)
+        [national-park] Rahvuspark (park narodowy)
+        [park-buffer-zone] Pargi puhvertsoon (otulina)
+        [landscape-park] Maastikupark (park krajobrazowy)
+        [nature-reserve] Looduskaitseala (rezerwat przyrody)
+        [protected-landscape-area] Maastikukaitseala (obszar chronionego krajobrazu)
+        [natura2000-habitats] Natura 2000 ala elupaikadele (SOO)
+        [natura2000-birds] Natura 2000 ala lindudele (OSO)
+        [ecological-site] Ökoloogiline ala (użytek ekologiczny)
+        [landscape-complex] Loodus- ja maastikukompleks (zespół przyrodniczo-krajobrazowy)
+        [documentation-site] Dokumentatsioonikoht (stanowisko dokumentacyjne)
+        [natural-monument-pl] Loodusmälestis (pomnik przyrody)
        *[special-rules] Erireeglitega ala
     }
 permits-object-count = { $count } objekti
@@ -987,6 +1001,10 @@ permits-hint-forest-office = { $units ->
 permits-hint-forest-owner = { $office ->
         [known] Üritus metsas vajab metsaomanike nõusolekut. Metsaamet oskab tavaliselt öelda, kes metsa omab. Mitmes liidumaal tuleb organiseeritud üritusest metsas ka metsaasutust teavitada või saada selle luba.
        *[unknown] Üritus metsas vajab metsaomanike nõusolekut. Mitmes liidumaal tuleb organiseeritud üritusest metsas ka metsaasutust teavitada või saada selle luba. Need märkmed ei nimeta siin vastutavat metsaametit; seda oskab öelda liidumaa metsahaldus või alumine metsaasutus.
+    }
+permits-hint-forest-owner-pl = { $office ->
+        [known] Metsas toimuv üritus vajab tavaliselt metsaomaniku nõusolekut. Eespool nimetatud metsapiirkond (Nadleśnictwo) oskab tavaliselt öelda, kes metsa eest hoolitseb. Mets, mis ei kuulu riigimetsadele, näiteks eramets, ei ole nende märkuste andmetes.
+       *[unknown] Metsas toimuv üritus vajab tavaliselt metsaomaniku nõusolekut. Need märkused ei nimeta kaardiala jaoks ühtegi riigimetsade metsapiirkonda; andmed hõlmavad ainult riigimetsi, seega võib mets kuuluda kellelegi teisele, näiteks eraomanikule. Omanik tuleb välja selgitada eraldi.
     }
 permits-section-water-protection = Veekaitsealad ({ $source })
 permits-section-forest-functions = Metsafunktsioonid ja kaitsemets ({ $source })

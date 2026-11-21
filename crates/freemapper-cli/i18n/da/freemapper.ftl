@@ -808,6 +808,7 @@ error-permits-missing-not-read = { $source }: ikke læst
 
 permits-title = Tilladelsesnoter
 permits-disclaimer = Et fingerpeg, ikke juridisk rådgivning. De kompetente myndigheder afgør. Se tabellen under "Kilder og datadato" for datoen og nøjagtigheden af dataene; områder kan mangle eller være forældede (BfN: samles én gang om året, "Nicht für Planungszwecke geeignet.", det vil sige ikke egnet til planlægning).
+permits-disclaimer-regional = Et fingerpeg, ikke juridisk rådgivning. De kompetente myndigheder afgør. Se tabellen under "Kilder og datadato" for datoen og nøjagtigheden af dataene; områder kan mangle eller være forældede.
 permits-bfn-merge = BfN samler delstaternes data én gang om året og markerer dem som ikke egnede til planlægning. Delstatens myndigheder afgør.
 permits-created = Lavet den { $date } til kortområdet for et { $kind ->
         [schoolyard] skolegårdskort
@@ -870,6 +871,7 @@ permits-quoted = "{ $text }"
 permits-osm-unnamed = uden navn
 permits-osm-operator = Driftsherre ifølge OSM: { $operator }
 permits-osm-enclosing-gap = OpenStreetMap-områder, der omslutter hele kortområdet uden et hjørne inde i det, kan mangle her, og det samme gælder beskyttede områder, der er kortlagt i OSM som en relation med `type=boundary`. Delene fra BfN og VG250 er ikke berørt.
+permits-osm-enclosing-gap-short = OpenStreetMap-områder, der omslutter hele kortområdet uden et hjørne inde i det, kan mangle her.
 permits-operator-line = { $name } ({ $roles ->
         [operator] driftsherre
         [owner] ejer
@@ -892,6 +894,7 @@ permits-hint-nature-authority = { $kreisfrei ->
 permits-hint-national-park = En nationalpark har sine egne regler. Spørg nationalparkens administration i god tid.
 permits-hint-nsg-paths = I et naturreservat skal man som regel holde sig til stierne. Spørg naturbeskyttelsesmyndigheden, hvis et løb skal gå uden for stierne.
 permits-hint-natura2000 = Et FFH-område eller et fuglebeskyttelsesområde (Natura 2000) berører kortområdet. Til en begivenhed kan naturbeskyttelsesmyndigheden kræve en vurdering af virkningerne.
+permits-hint-protected-areas-pl = I kortområdet ligger beskyttede områder eller beskyttede naturobjekter. Ved en nationalpark, en landskabspark eller et naturreservat er parkens eller reservatets administration det sædvanlige kontaktpunkt; for de øvrige områder og objekter kan den regionale direktion for miljøbeskyttelse (RDOŚ) i voivodskabet som regel sige, hvem der er ansvarlig. Spørg i god tid, hvis et arrangement er planlagt dér.
 permits-hint-order-office = { $amt ->
         [none] For gader, pladser og andet offentligt areal er Ordnungsamt (ordensmyndigheden) i kommunen { $gemeinde } som regel ansvarlig.
        *[other] For gader, pladser og andet offentligt areal er Ordnungsamt (ordensmyndigheden) som regel ansvarlig: { $amt }, for kommunen { $gemeinde }.
@@ -929,6 +932,17 @@ permits-object-kind = { $kind ->
         [natural-monument] Naturmonument (Naturdenkmal)
         [protected-landscape-part] Beskyttet landskabselement (geschützter Landschaftsbestandteil)
         [biotope] Lovmæssigt beskyttet biotop (geschütztes Biotop)
+        [national-park] Nationalpark (park narodowy)
+        [park-buffer-zone] Bufferzone om en park (otulina)
+        [landscape-park] Landskabspark (park krajobrazowy)
+        [nature-reserve] Naturreservat (rezerwat przyrody)
+        [protected-landscape-area] Beskyttet landskabsområde (obszar chronionego krajobrazu)
+        [natura2000-habitats] Natura 2000-område for naturtyper (SOO)
+        [natura2000-birds] Natura 2000-område for fugle (OSO)
+        [ecological-site] Økologisk område (użytek ekologiczny)
+        [landscape-complex] Natur- og landskabskompleks (zespół przyrodniczo-krajobrazowy)
+        [documentation-site] Dokumentationssted (stanowisko dokumentacyjne)
+        [natural-monument-pl] Naturmindesmærke (pomnik przyrody)
        *[special-rules] Område med særlige regler
     }
 permits-object-count = { $count } objekter
@@ -987,6 +1001,10 @@ permits-hint-forest-office = { $units ->
 permits-hint-forest-owner = { $office ->
         [known] En begivenhed i skoven kræver skovejernes samtykke. Skovdistriktet kan som regel sige, hvem der ejer skoven. I flere delstater skal en organiseret begivenhed i skoven også anmeldes til skovmyndigheden eller tillades af den.
        *[unknown] En begivenhed i skoven kræver skovejernes samtykke. I flere delstater skal en organiseret begivenhed i skoven også anmeldes til skovmyndigheden eller tillades af den. Disse noter nævner ikke det ansvarlige skovdistrikt her; delstatens skovforvaltning eller den lokale skovmyndighed kan fortælle det.
+    }
+permits-hint-forest-owner-pl = { $office ->
+        [known] Et arrangement i skoven kræver normalt skovejerens samtykke. Skovdistriktet (Nadleśnictwo), der er nævnt ovenfor, kan som regel sige, hvem der forvalter skoven. Skov, der ikke tilhører Statsskovene, for eksempel privat skov, findes ikke i data for disse noter.
+       *[unknown] Et arrangement i skoven kræver normalt skovejerens samtykke. Disse noter nævner intet skovdistrikt under Statsskovene for kortområdet; data dækker kun Statsskovene, så skoven kan tilhøre en anden, for eksempel en privat ejer. Hvem ejeren er, må undersøges særskilt.
     }
 permits-section-water-protection = Vandbeskyttelsesområder ({ $source })
 permits-section-forest-functions = Skovfunktioner og beskyttet skov ({ $source })

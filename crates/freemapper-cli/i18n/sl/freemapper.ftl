@@ -822,6 +822,7 @@ error-permits-missing-not-read = { $source }: ni prebrano
 
 permits-title = Napotki za dovoljenja
 permits-disclaimer = Namig, ne pravni nasvet. Odločajo pristojni organi. Za datum in natančnost podatkov glej tabelo pod „Viri in datum podatkov“; območja lahko manjkajo ali so zastarela (BfN: združeno enkrat na leto, „Nicht für Planungszwecke geeignet.“, torej ni primerno za načrtovanje).
+permits-disclaimer-regional = Namig, ne pravni nasvet. Odločajo pristojni organi. Za datum in natančnost podatkov glej tabelo pod „Viri in datum podatkov“; območja lahko manjkajo ali so zastarela.
 permits-bfn-merge = BfN enkrat na leto združi podatke zveznih dežel in jih označi kot neprimerne za načrtovanje. Odločajo organi zvezne dežele.
 permits-created = Izdelano { $date } za območje { $kind ->
         [schoolyard] karte šolskega dvorišča
@@ -884,6 +885,7 @@ permits-quoted = „{ $text }“
 permits-osm-unnamed = brez imena
 permits-osm-operator = Upravljavec po OSM: { $operator }
 permits-osm-enclosing-gap = Območja OpenStreetMap, ki obkrožajo celotno območje karte brez vogala znotraj njega, tu lahko manjkajo, prav tako zavarovana območja, ki so v OSM vrisana kot relacija s `type=boundary`. Deli iz BfN in VG250 tega ne zadeva.
+permits-osm-enclosing-gap-short = Tu lahko manjkajo območja OpenStreetMap, ki obkrožajo celotno območje karte, a nobeno njihovo oglišče ni v njem.
 permits-operator-line = { $name } ({ $roles ->
         [operator] upravljavec
         [owner] lastnik
@@ -906,6 +908,7 @@ permits-hint-nature-authority = { $kreisfrei ->
 permits-hint-national-park = Narodni park ima lastna pravila. Zgodaj vprašaj upravo narodnega parka.
 permits-hint-nsg-paths = V naravnem rezervatu se je običajno treba držati poti. Za tek izven poti vprašaj organ za varstvo narave.
 permits-hint-natura2000 = Območje FFH ali območje zaščite ptic (Natura 2000) posega na območje karte. Za prireditev lahko organ za varstvo narave zahteva oceno vplivov.
+permits-hint-protected-areas-pl = Na območju karte ležijo zavarovana območja ali objekti varstva narave. Pri narodnem parku, krajinskem parku ali naravnem rezervatu je običajni stik uprava parka ali rezervata; za druga območja in objekte običajno pove, kdo je pristojen, Regionalna direkcija za varstvo okolja (RDOŚ) vojvodine. Vprašajte pravočasno, če tam načrtujete prireditev.
 permits-hint-order-office = { $amt ->
         [none] Za ulice, trge in drugo javno zemljišče je običajno pristojen Ordnungsamt (urad za javni red) občine { $gemeinde }.
        *[other] Za ulice, trge in drugo javno zemljišče je običajno pristojen Ordnungsamt (urad za javni red): { $amt }, za občino { $gemeinde }.
@@ -943,6 +946,17 @@ permits-object-kind = { $kind ->
         [natural-monument] Naravni spomenik (Naturdenkmal)
         [protected-landscape-part] Zavarovan krajinski element (geschützter Landschaftsbestandteil)
         [biotope] Zakonsko zavarovan biotop (geschütztes Biotop)
+        [national-park] Narodni park (park narodowy)
+        [park-buffer-zone] Varovalni pas parka (otulina)
+        [landscape-park] Krajinski park (park krajobrazowy)
+        [nature-reserve] Naravni rezervat (rezerwat przyrody)
+        [protected-landscape-area] Zavarovano krajinsko območje (obszar chronionego krajobrazu)
+        [natura2000-habitats] Območje Natura 2000 za habitate (SOO)
+        [natura2000-birds] Območje Natura 2000 za ptice (OSO)
+        [ecological-site] Ekološko območje (użytek ekologiczny)
+        [landscape-complex] Naravni in krajinski kompleks (zespół przyrodniczo-krajobrazowy)
+        [documentation-site] Dokumentacijsko najdišče (stanowisko dokumentacyjne)
+        [natural-monument-pl] Naravni spomenik (pomnik przyrody)
        *[special-rules] Območje s posebnimi pravili
     }
 permits-object-count = objektov: { $count }
@@ -1001,6 +1015,10 @@ permits-hint-forest-office = { $units ->
 permits-hint-forest-owner = { $office ->
         [known] Za prireditev v gozdu je potrebno soglasje lastnikov gozda. Gozdarski urad običajno lahko pove, kdo je lastnik gozda. V več zveznih deželah je treba organizirano prireditev v gozdu tudi prijaviti gozdarskemu organu ali pridobiti njegovo dovoljenje.
        *[unknown] Za prireditev v gozdu je potrebno soglasje lastnikov gozda. V več zveznih deželah je treba organizirano prireditev v gozdu tudi prijaviti gozdarskemu organu ali pridobiti njegovo dovoljenje. Ti napotki ne navajajo pristojnega gozdarskega urada; povesta ti lahko gozdarska uprava zvezne dežele ali spodnji gozdarski organ.
+    }
+permits-hint-forest-owner-pl = { $office ->
+        [known] Prireditev v gozdu običajno potrebuje soglasje lastnika gozda. Zgoraj navedena gozdna uprava (Nadleśnictwo) običajno lahko pove, kdo gozd upravlja. Gozda, ki ne pripada državnim gozdovom, na primer zasebnega gozda, v podatkih teh opomb ni.
+       *[unknown] Prireditev v gozdu običajno potrebuje soglasje lastnika gozda. Te opombe za območje karte ne navajajo nobene gozdne uprave državnih gozdov; podatki zajemajo samo državne gozdove, zato gozd lahko pripada komu drugemu, na primer zasebnemu lastniku. Kdo je lastnik, je treba ugotoviti posebej.
     }
 permits-section-water-protection = Vodovarstvena območja ({ $source })
 permits-section-forest-functions = Gozdne funkcije in varovalni gozd ({ $source })

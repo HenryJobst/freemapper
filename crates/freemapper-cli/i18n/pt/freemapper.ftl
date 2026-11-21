@@ -816,6 +816,7 @@ error-permits-missing-not-read = { $source }: não lida
 
 permits-title = Notas de licenciamento
 permits-disclaimer = Uma indicação, não aconselhamento jurídico. As autoridades competentes decidem. Para a data e a exatidão dos dados, vê a tabela em "Fontes e data dos dados"; podem faltar áreas ou estar desatualizadas (BfN: reunidas uma vez por ano, "Nicht für Planungszwecke geeignet.", isto é, não adequadas ao planeamento).
+permits-disclaimer-regional = Uma indicação, não aconselhamento jurídico. As autoridades competentes decidem. Para a data e a exatidão dos dados, vê a tabela em "Fontes e data dos dados"; podem faltar áreas ou estar desatualizadas.
 permits-bfn-merge = O BfN reúne os dados dos estados federados uma vez por ano e marca-os como não adequados ao planeamento. As autoridades do estado federado decidem.
 permits-created = Feitas em { $date } para a área do mapa de um { $kind ->
         [schoolyard] mapa de recreio escolar
@@ -878,6 +879,7 @@ permits-quoted = "{ $text }"
 permits-osm-unnamed = sem nome
 permits-osm-operator = Gestor segundo o OSM: { $operator }
 permits-osm-enclosing-gap = Podem faltar aqui áreas do OpenStreetMap que envolvem toda a área do mapa sem um canto dentro dela, e também áreas protegidas mapeadas no OSM como relação com `type=boundary`. As partes do BfN e do VG250 não são afetadas.
+permits-osm-enclosing-gap-short = Aqui podem faltar áreas do OpenStreetMap que envolvem toda a área do mapa sem ter um canto dentro dela.
 permits-operator-line = { $name } ({ $roles ->
         [operator] gestor
         [owner] proprietário
@@ -900,6 +902,7 @@ permits-hint-nature-authority = { $kreisfrei ->
 permits-hint-national-park = Um parque nacional tem regras próprias. Pergunta cedo à administração do parque nacional.
 permits-hint-nsg-paths = Numa reserva natural costuma ser obrigatório manter-se nos caminhos. Para uma corrida fora dos caminhos, pergunta à autoridade de conservação da natureza.
 permits-hint-natura2000 = Uma área FFH ou uma área de proteção de aves (Natura 2000) toca a área do mapa. Para um evento, a autoridade de conservação da natureza pode exigir uma avaliação dos seus efeitos.
+permits-hint-protected-areas-pl = Na área do mapa há áreas ou objetos protegidos de conservação da natureza. Para um parque nacional, um parque paisagístico ou uma reserva natural, o contacto habitual é a administração do parque ou da reserva; para as outras áreas e objetos, a Direção Regional de Proteção do Ambiente (RDOŚ) do voivodato costuma poder dizer quem é o responsável. Pergunta cedo se planeias um evento aí.
 permits-hint-order-office = { $amt ->
         [none] Para ruas, praças e outros terrenos públicos costuma ser competente o Ordnungsamt (serviço de ordem pública) do Gemeinde { $gemeinde }.
        *[other] Para ruas, praças e outros terrenos públicos costuma ser competente o Ordnungsamt (serviço de ordem pública): { $amt }, para o Gemeinde { $gemeinde }.
@@ -937,6 +940,17 @@ permits-object-kind = { $kind ->
         [natural-monument] Monumento natural (Naturdenkmal)
         [protected-landscape-part] Elemento de paisagem protegido (geschützter Landschaftsbestandteil)
         [biotope] Biótopo legalmente protegido (geschütztes Biotop)
+        [national-park] Parque nacional (park narodowy)
+        [park-buffer-zone] Zona tampão de um parque (otulina)
+        [landscape-park] Parque paisagístico (park krajobrazowy)
+        [nature-reserve] Reserva natural (rezerwat przyrody)
+        [protected-landscape-area] Área de paisagem protegida (obszar chronionego krajobrazu)
+        [natura2000-habitats] Sítio Natura 2000 para habitats (SOO)
+        [natura2000-birds] Sítio Natura 2000 para aves (OSO)
+        [ecological-site] Área ecológica (użytek ekologiczny)
+        [landscape-complex] Complexo natural e paisagístico (zespół przyrodniczo-krajobrazowy)
+        [documentation-site] Sítio de documentação (stanowisko dokumentacyjne)
+        [natural-monument-pl] Monumento natural (pomnik przyrody)
        *[special-rules] Área com regras especiais
     }
 permits-object-count = { $count } objetos
@@ -995,6 +1009,10 @@ permits-hint-forest-office = { $units ->
 permits-hint-forest-owner = { $office ->
         [known] Um evento na floresta precisa do consentimento dos proprietários florestais. O serviço florestal costuma poder dizer quem é o proprietário da floresta. Em vários estados federados, um evento organizado na floresta tem também de ser comunicado à autoridade florestal ou autorizado por ela.
        *[unknown] Um evento na floresta precisa do consentimento dos proprietários florestais. Em vários estados federados, um evento organizado na floresta tem também de ser comunicado à autoridade florestal ou autorizado por ela. Estas notas não nomeiam o serviço florestal competente aqui; a administração florestal do estado federado ou a autoridade florestal inferior podem dizer-to.
+    }
+permits-hint-forest-owner-pl = { $office ->
+        [known] Um evento na floresta costuma precisar do consentimento do proprietário da floresta. O distrito florestal (Nadleśnictwo) indicado acima costuma poder dizer quem cuida da floresta. A floresta que não pertence às Florestas do Estado, por exemplo uma floresta privada, não consta dos dados destas notas.
+       *[unknown] Um evento na floresta costuma precisar do consentimento do proprietário da floresta. Estas notas não indicam nenhum distrito florestal das Florestas do Estado para a área do mapa; os dados abrangem apenas as Florestas do Estado, por isso a floresta pode pertencer a outra pessoa, por exemplo a um proprietário privado. Quem é o proprietário tem de ser apurado à parte.
     }
 permits-section-water-protection = Áreas de proteção da água ({ $source })
 permits-section-forest-functions = Funções da floresta e floresta protegida ({ $source })

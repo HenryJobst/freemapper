@@ -434,7 +434,9 @@ fn hint_text(lang: &Lang, notes: &PermitNotes, hint: &Hint) -> String {
     if hint.key == hint_key::FOREST_OFFICE && !has(&args, "units") {
         args.push(("units".into(), "none".into()));
     }
-    if hint.key == hint_key::FOREST_OWNER && !has(&args, "office") {
+    if (hint.key == hint_key::FOREST_OWNER || hint.key == hint_key::FOREST_OWNER_PL)
+        && !has(&args, "office")
+    {
         args.push(("office".into(), "unknown".into()));
     }
     if hint.key == hint_key::STATE_FOREST && !has(&args, "office") {
@@ -1075,70 +1077,97 @@ pub fn render_markdown(notes: &PermitNotes, lang: &Lang) -> String {
         MapKind::Sprint => "sprint",
         MapKind::Forest => "forest",
     };
+    // Notes of a region without the German national sources (Poland, ADR 0175) have no status
+    // for VG250 and the BfN: they name neither, nor the German units, authorities and roads.
+    let national = status(notes, "vg250").is_some();
     let mut blocks = vec![
         format!("# {}", t(lang, "permits-title", &[])),
-        t(lang, "permits-disclaimer", &[]),
-        t(lang, "permits-bfn-merge", &[]),
         t(
             lang,
-            "permits-created",
-            &[
-                ("date", arg(notes.created)),
-                ("kind", arg(kind)),
-                ("area", arg(decimal(lang, notes.area_m2 / 10_000.0, 1))),
-            ],
+            if national {
+                "permits-disclaimer"
+            } else {
+                "permits-disclaimer-regional"
+            },
+            &[],
         ),
     ];
+    if national {
+        blocks.push(t(lang, "permits-bfn-merge", &[]));
+    }
+    blocks.push(t(
+        lang,
+        "permits-created",
+        &[
+            ("date", arg(notes.created)),
+            ("kind", arg(kind)),
+            ("area", arg(decimal(lang, notes.area_m2 / 10_000.0, 1))),
+        ],
+    ));
 
-    blocks.push(heading("permits-section-admin"));
-    if !was_read(notes, "vg250") {
-        blocks.push(not_read(lang, "vg250"));
-    } else if notes.admin.is_empty() {
-        blocks.push(t(lang, "permits-none-admin", &[]));
-    } else {
-        blocks.extend(with_edge(
-            lang,
-            &notes.admin,
-            |s| admin_line(lang, s),
-            Some(t(lang, "permits-at-edge-generalised", &[])),
-        ));
+    if national {
+        blocks.push(heading("permits-section-admin"));
+        if !was_read(notes, "vg250") {
+            blocks.push(not_read(lang, "vg250"));
+        } else if notes.admin.is_empty() {
+            blocks.push(t(lang, "permits-none-admin", &[]));
+        } else {
+            blocks.extend(with_edge(
+                lang,
+                &notes.admin,
+                |s| admin_line(lang, s),
+                Some(t(lang, "permits-at-edge-generalised", &[])),
+            ));
+        }
     }
 
     for part in &notes.regional {
         blocks.extend(regional_blocks(lang, part));
     }
 
-    blocks.push(heading("permits-section-protected"));
-    if !was_read(notes, "bfn") {
-        blocks.push(not_read(lang, "bfn"));
-    } else if notes.protected.is_empty() {
-        blocks.push(t(lang, "permits-none-protected", &[]));
-    } else {
-        blocks.extend(with_edge(
-            lang,
-            &notes.protected,
-            |s| protected_lines(lang, s),
-            None,
-        ));
-    }
-
-    let osm = was_read(notes, "osm");
-    let gap = t(lang, "permits-osm-enclosing-gap", &[]);
-    blocks.push(heading("permits-section-osm-protected"));
-    if !osm {
-        blocks.push(not_read(lang, "osm"));
-    } else {
-        if notes.osm_protected.is_empty() {
-            blocks.push(t(lang, "permits-none-osm-protected", &[]));
+    if national {
+        blocks.push(heading("permits-section-protected"));
+        if !was_read(notes, "bfn") {
+            blocks.push(not_read(lang, "bfn"));
+        } else if notes.protected.is_empty() {
+            blocks.push(t(lang, "permits-none-protected", &[]));
         } else {
             blocks.extend(with_edge(
                 lang,
-                &notes.osm_protected,
-                |s| osm_lines(lang, s),
+                &notes.protected,
+                |s| protected_lines(lang, s),
                 None,
             ));
         }
-        blocks.push(gap.clone());
+    }
+
+    let osm = was_read(notes, "osm");
+    let gap = t(
+        lang,
+        if national {
+            "permits-osm-enclosing-gap"
+        } else {
+            "permits-osm-enclosing-gap-short"
+        },
+        &[],
+    );
+    if national {
+        blocks.push(heading("permits-section-osm-protected"));
+        if !osm {
+            blocks.push(not_read(lang, "osm"));
+        } else {
+            if notes.osm_protected.is_empty() {
+                blocks.push(t(lang, "permits-none-osm-protected", &[]));
+            } else {
+                blocks.extend(with_edge(
+                    lang,
+                    &notes.osm_protected,
+                    |s| osm_lines(lang, s),
+                    None,
+                ));
+            }
+            blocks.push(gap.clone());
+        }
     }
 
     blocks.push(heading("permits-section-operators"));
@@ -1158,31 +1187,33 @@ pub fn render_markdown(notes: &PermitNotes, lang: &Lang) -> String {
         blocks.push(gap);
     }
 
-    // The classified roads (ADR 0133), from the same extract.
-    blocks.push(heading("permits-section-roads"));
-    if !osm {
-        blocks.push(not_read(lang, "osm"));
-    } else if notes.roads.is_empty() {
-        blocks.push(t(lang, "permits-none-roads", &[]));
-    } else {
-        let lines: Vec<String> = notes
-            .roads
-            .iter()
-            .map(|r| {
-                format!(
-                    "- {}",
-                    t(
-                        lang,
-                        "permits-road-line",
-                        &[
-                            ("class", arg(serde_name(r.class))),
-                            ("refs", arg(md(&r.refs.join(", ")))),
-                        ],
+    // The classified roads (ADR 0133), from the same extract; their classes are German.
+    if national {
+        blocks.push(heading("permits-section-roads"));
+        if !osm {
+            blocks.push(not_read(lang, "osm"));
+        } else if notes.roads.is_empty() {
+            blocks.push(t(lang, "permits-none-roads", &[]));
+        } else {
+            let lines: Vec<String> = notes
+                .roads
+                .iter()
+                .map(|r| {
+                    format!(
+                        "- {}",
+                        t(
+                            lang,
+                            "permits-road-line",
+                            &[
+                                ("class", arg(serde_name(r.class))),
+                                ("refs", arg(md(&r.refs.join(", ")))),
+                            ],
+                        )
                     )
-                )
-            })
-            .collect();
-        blocks.push(lines.join("\n"));
+                })
+                .collect();
+            blocks.push(lines.join("\n"));
+        }
     }
 
     blocks.push(heading("permits-section-hints"));
@@ -1236,6 +1267,8 @@ fn used_ids() -> Vec<String> {
             hint_key::WATER_PROTECTION,
             hint_key::FOREST_FUNCTION,
             hint_key::ROAD_CLASS,
+            hint_key::PROTECTED_AREAS_PL,
+            hint_key::FOREST_OWNER_PL,
         ]
         .map(String::from),
     );
@@ -1665,6 +1698,36 @@ mod tests {
                 ],
             }],
         }
+    }
+
+    #[test]
+    fn polish_notes_leave_out_the_german_sections_and_names() {
+        let mut notes = viktoriapark();
+        notes.admin.clear();
+        notes.regional.clear();
+        notes.sources.retain(|s| s.id == "osm");
+        notes.hints = vec![
+            hint(hint_key::PROTECTED_AREAS_PL, &[]),
+            hint(hint_key::FOREST_OWNER_PL, &[("office", "unknown")]),
+        ];
+        for lang in [de(), Lang::english()] {
+            let text = render_markdown(&notes, &lang);
+            for forbidden in [
+                "VG250",
+                "BfN",
+                "Bundesamt für Naturschutz",
+                "Bezirk",
+                "Gemeinde",
+                "Kreis",
+                "Grundbuchamt",
+                "Ordnungsamt",
+            ] {
+                assert!(!text.contains(forbidden), "{forbidden}\n{text}");
+            }
+        }
+        let text = render_markdown(&notes, &Lang::english());
+        assert!(text.contains("Regional Directorate for Environmental Protection"));
+        assert!(text.contains("State Forests"), "{text}");
     }
 
     #[test]

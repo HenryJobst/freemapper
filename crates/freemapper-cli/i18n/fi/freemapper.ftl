@@ -808,6 +808,7 @@ error-permits-missing-not-read = { $source }: ei luettu
 
 permits-title = Lupahuomautukset
 permits-disclaimer = Vihje, ei oikeudellista neuvontaa. Toimivaltaiset viranomaiset päättävät. Tietojen päivämäärän ja tarkkuuden löydät taulukosta kohdassa "Lähteet ja tietojen päivämäärä"; alueita voi puuttua tai ne voivat olla vanhentuneita (BfN: yhdistetään kerran vuodessa, "Nicht für Planungszwecke geeignet.", eli ei sovellu suunnitteluun).
+permits-disclaimer-regional = Vihje, ei oikeudellista neuvontaa. Toimivaltaiset viranomaiset päättävät. Tietojen päivämäärän ja tarkkuuden löydät taulukosta kohdassa "Lähteet ja tietojen päivämäärä"; alueita voi puuttua tai ne voivat olla vanhentuneita.
 permits-bfn-merge = BfN yhdistää osavaltioiden tiedot kerran vuodessa ja merkitsee ne soveltumattomiksi suunnitteluun. Osavaltion viranomaiset päättävät.
 permits-created = Laadittu { $date } { $kind ->
         [schoolyard] koulunpihakartan
@@ -870,6 +871,7 @@ permits-quoted = "{ $text }"
 permits-osm-unnamed = ilman nimeä
 permits-osm-operator = Hallinnoija OSM:n mukaan: { $operator }
 permits-osm-enclosing-gap = OpenStreetMapin alueet, jotka ympäröivät koko kartta-alueen ilman että yksikään kulma on sen sisällä, voivat puuttua tästä, samoin suojelualueet, jotka on kartoitettu OSM:ään relaationa `type=boundary`. BfN:n ja VG250:n osat eivät ole tästä kärsineet.
+permits-osm-enclosing-gap-short = OpenStreetMapin alueet, jotka ympäröivät koko kartta-alueen ilman yhtään kulmaa sen sisällä, voivat puuttua tästä.
 permits-operator-line = { $name } ({ $roles ->
         [operator] hallinnoija
         [owner] omistaja
@@ -892,6 +894,7 @@ permits-hint-nature-authority = { $kreisfrei ->
 permits-hint-national-park = Kansallispuistolla on omat sääntönsä. Kysy kansallispuiston hallinnolta ajoissa.
 permits-hint-nsg-paths = Luonnonsuojelualueella on yleensä pysyttävä poluilla. Jos haluat juosta polkujen ulkopuolella, kysy luonnonsuojeluviranomaiselta.
 permits-hint-natura2000 = FFH-alue tai lintujensuojelualue (Natura 2000) koskettaa kartta-aluetta. Tapahtumaa varten luonnonsuojeluviranomainen voi pyytää vaikutusten arviointia.
+permits-hint-protected-areas-pl = Kartta-alueella on luonnonsuojelun suojelualueita tai suojelukohteita. Kansallispuiston, maisemapuiston tai luonnonsuojelualueen osalta yleensä puiston tai suojelualueen hallinto on oikea yhteyspaikka; muiden alueiden ja kohteiden osalta voivodikunnan alueellinen ympäristönsuojelun johtokunta (RDOŚ) osaa yleensä kertoa, kuka vastaa. Kysy ajoissa, kun suunnittelet tapahtumaa sinne.
 permits-hint-order-office = { $amt ->
         [none] Katujen, aukioiden ja muun yleisen maan osalta vastuussa on yleensä kunnan { $gemeinde } Ordnungsamt (järjestysvirasto).
        *[other] Katujen, aukioiden ja muun yleisen maan osalta vastuussa on yleensä Ordnungsamt (järjestysvirasto): { $amt }, kunnalle { $gemeinde }.
@@ -929,6 +932,17 @@ permits-object-kind = { $kind ->
         [natural-monument] Luonnonmuistomerkki (Naturdenkmal)
         [protected-landscape-part] Suojeltu maisemaelementti (geschützter Landschaftsbestandteil)
         [biotope] Lailla suojeltu biotooppi (geschütztes Biotop)
+        [national-park] Kansallispuisto (park narodowy)
+        [park-buffer-zone] Puiston suojavyöhyke (otulina)
+        [landscape-park] Maisemapuisto (park krajobrazowy)
+        [nature-reserve] Luonnonsuojelualue (rezerwat przyrody)
+        [protected-landscape-area] Suojeltu maisema-alue (obszar chronionego krajobrazu)
+        [natura2000-habitats] Natura 2000 -alue elinympäristöille (SOO)
+        [natura2000-birds] Natura 2000 -alue linnuille (OSO)
+        [ecological-site] Ekologinen alue (użytek ekologiczny)
+        [landscape-complex] Luonto- ja maisemakokonaisuus (zespół przyrodniczo-krajobrazowy)
+        [documentation-site] Dokumentointikohde (stanowisko dokumentacyjne)
+        [natural-monument-pl] Luonnonmuistomerkki (pomnik przyrody)
        *[special-rules] Alue erityissäännöin
     }
 permits-object-count = { $count } kohdetta
@@ -987,6 +1001,10 @@ permits-hint-forest-office = { $units ->
 permits-hint-forest-owner = { $office ->
         [known] Tapahtuma metsässä vaatii metsänomistajien suostumuksen. Metsätoimisto osaa yleensä kertoa, kuka metsän omistaa. Useissa osavaltioissa järjestetystä tapahtumasta metsässä on myös ilmoitettava metsäviranomaiselle tai saatava sen lupa.
        *[unknown] Tapahtuma metsässä vaatii metsänomistajien suostumuksen. Useissa osavaltioissa järjestetystä tapahtumasta metsässä on myös ilmoitettava metsäviranomaiselle tai saatava sen lupa. Nämä huomautukset eivät nimeä tässä vastuussa olevaa metsätoimistoa; osavaltion metsähallinto tai alempi metsäviranomainen osaa kertoa.
+    }
+permits-hint-forest-owner-pl = { $office ->
+        [known] Metsässä järjestettävä tapahtuma tarvitsee yleensä metsänomistajan suostumuksen. Edellä mainittu metsäpiiri (Nadleśnictwo) osaa yleensä kertoa, kuka metsästä huolehtii. Metsä, joka ei kuulu valtion metsille, esimerkiksi yksityismetsä, ei ole näiden huomautusten tiedoissa.
+       *[unknown] Metsässä järjestettävä tapahtuma tarvitsee yleensä metsänomistajan suostumuksen. Nämä huomautukset eivät nimeä kartta-alueelle yhtään valtion metsien metsäpiiriä; tiedot kattavat vain valtion metsät, joten metsä voi kuulua jollekin muulle, esimerkiksi yksityiselle omistajalle. Omistaja on selvitettävä erikseen.
     }
 permits-section-water-protection = Vedensuojelualueet ({ $source })
 permits-section-forest-functions = Metsän toiminnot ja suojametsä ({ $source })

@@ -808,6 +808,7 @@ error-permits-missing-not-read = { $source }: nem lett beolvasva
 
 permits-title = Engedélyezési tudnivalók
 permits-disclaimer = Útmutatás, nem jogi tanács. Az illetékes hatóságok döntenek. Az adatok keltéhez és pontosságához lásd a „Források és az adatok kelte” alatti táblázatot; területek hiányozhatnak vagy elavultak lehetnek (BfN: évente egyszer egyesítik, „Nicht für Planungszwecke geeignet.”, vagyis tervezési célra nem alkalmas).
+permits-disclaimer-regional = Útmutatás, nem jogi tanács. Az illetékes hatóságok döntenek. Az adatok keltéhez és pontosságához lásd a „Források és az adatok kelte” alatti táblázatot; területek hiányozhatnak vagy elavultak lehetnek.
 permits-bfn-merge = A BfN évente egyszer egyesíti a tartományok adatait, és tervezési célra alkalmatlannak jelöli őket. A tartomány hatóságai döntenek.
 permits-created = Készült: { $date }, egy { $kind ->
         [schoolyard] iskolaudvari térkép
@@ -870,6 +871,7 @@ permits-quoted = "{ $text }"
 permits-osm-unnamed = név nélkül
 permits-osm-operator = Üzemeltető az OSM szerint: { $operator }
 permits-osm-enclosing-gap = Itt hiányozhatnak az olyan OpenStreetMap-területek, amelyek az egész térképterületet körbeveszik anélkül, hogy egy sarkuk benne lenne, valamint az OSM-ben `type=boundary` relációként térképezett védett területek. A BfN és a VG250 részei ezt nem érintik.
+permits-osm-enclosing-gap-short = Az OpenStreetMap azon területei, amelyek az egész térképterületet körülveszik, de egyetlen sarkuk sincs benne, itt hiányozhatnak.
 permits-operator-line = { $name } ({ $roles ->
         [operator] üzemeltető
         [owner] tulajdonos
@@ -892,6 +894,7 @@ permits-hint-nature-authority = { $kreisfrei ->
 permits-hint-national-park = A nemzeti parknak saját szabályai vannak. Kérdezze meg korán a nemzeti park igazgatóságát.
 permits-hint-nsg-paths = Természetvédelmi területen rendszerint az utakon kell maradni. Utakon kívüli futáshoz kérdezze a természetvédelmi hatóságot.
 permits-hint-natura2000 = Egy FFH-terület vagy madárvédelmi terület (Natura 2000) érinti a térképterületet. Rendezvényhez a természetvédelmi hatóság hatásvizsgálatot kérhet.
+permits-hint-protected-areas-pl = A térképterületen természetvédelmi védett területek vagy védett objektumok találhatók. Nemzeti park, tájpark vagy természetvédelmi terület esetén rendszerint a park vagy a rezervátum igazgatósága az első kapcsolat; a többi területnél és objektumnál a vajdaság regionális környezetvédelmi igazgatósága (RDOŚ) általában meg tudja mondani, ki az illetékes. Kérdezz időben, ha ott rendezvényt tervezel.
 permits-hint-order-office = { $amt ->
         [none] Utcák, terek és más közterületek ügyében rendszerint a(z) { $gemeinde } község Ordnungsamtja (közrendi hivatal) illetékes.
        *[other] Utcák, terek és más közterületek ügyében rendszerint az Ordnungsamt (közrendi hivatal) illetékes: { $amt }, a(z) { $gemeinde } községhez.
@@ -929,6 +932,17 @@ permits-object-kind = { $kind ->
         [natural-monument] Természeti emlék (Naturdenkmal)
         [protected-landscape-part] Védett tájelem (geschützter Landschaftsbestandteil)
         [biotope] Törvény által védett biotóp (geschütztes Biotop)
+        [national-park] Nemzeti park (park narodowy)
+        [park-buffer-zone] A park védőövezete (otulina)
+        [landscape-park] Tájpark (park krajobrazowy)
+        [nature-reserve] Természetvédelmi terület (rezerwat przyrody)
+        [protected-landscape-area] Védett tájterület (obszar chronionego krajobrazu)
+        [natura2000-habitats] Natura 2000 terület élőhelyekre (SOO)
+        [natura2000-birds] Natura 2000 terület madarakra (OSO)
+        [ecological-site] Ökológiai terület (użytek ekologiczny)
+        [landscape-complex] Természeti és táji együttes (zespół przyrodniczo-krajobrazowy)
+        [documentation-site] Dokumentációs lelőhely (stanowisko dokumentacyjne)
+        [natural-monument-pl] Természeti emlék (pomnik przyrody)
        *[special-rules] Különleges szabályokkal bíró terület
     }
 permits-object-count = { $count } objektum
@@ -987,6 +1001,10 @@ permits-hint-forest-office = { $units ->
 permits-hint-forest-owner = { $office ->
         [known] Az erdőben tartott rendezvényhez az erdőtulajdonosok beleegyezése kell. Az erdészeti hivatal rendszerint meg tudja mondani, ki az erdő tulajdonosa. Több tartományban a szervezett erdei rendezvényt az erdészeti hatóságnak is be kell jelenteni, vagy engedélyeztetni kell vele.
        *[unknown] Az erdőben tartott rendezvényhez az erdőtulajdonosok beleegyezése kell. Több tartományban a szervezett erdei rendezvényt az erdészeti hatóságnak is be kell jelenteni, vagy engedélyeztetni kell vele. Ezek a tudnivalók nem nevezik meg az itt illetékes erdészeti hivatalt; a tartomány erdészeti igazgatása vagy az alsó fokú erdészeti hatóság meg tudja mondani.
+    }
+permits-hint-forest-owner-pl = { $office ->
+        [known] Az erdőben tartott rendezvényhez rendszerint az erdő tulajdonosának hozzájárulása kell. A fent megnevezett erdészeti körzet (Nadleśnictwo) általában meg tudja mondani, ki gondozza az erdőt. Az Állami Erdőkhöz nem tartozó erdő, például a magánerdő, nincs benne e megjegyzések adataiban.
+       *[unknown] Az erdőben tartott rendezvényhez rendszerint az erdő tulajdonosának hozzájárulása kell. E megjegyzések a térképterülethez nem neveznek meg az Állami Erdők erdészeti körzetet; az adatok csak az Állami Erdőket fedik le, így az erdő másé is lehet, például magántulajdonosé. A tulajdonost külön kell kideríteni.
     }
 permits-section-water-protection = Vízvédelmi területek ({ $source })
 permits-section-forest-functions = Erdőfunkciók és védett erdő ({ $source })

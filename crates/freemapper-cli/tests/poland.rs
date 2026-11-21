@@ -219,27 +219,34 @@ fn an_area_over_the_olza_is_refused() {
     );
 }
 
-/// The permit notes ask German services and name German authorities: for a map in Poland they
-/// would say that no protected area lies there. They are refused until Poland has its own.
+/// The permit notes of a map in Poland come from Polish services (ADR 0175) and name no German
+/// unit or authority. Offline with nothing stored, the run says what is missing: OSM alone, as
+/// VG250 and the BfN are not asked there.
 #[test]
-fn permit_notes_are_refused_for_a_polish_map() {
+fn permit_notes_of_a_polish_map_need_stored_inputs_offline() {
     let dir = tempfile::tempdir().unwrap();
     let project = project_over(dir.path(), "lodz", 19.450, 51.760, 19.460, 51.766);
-    for offline in [true, false] {
-        let mut cmd = freemapper();
-        cmd.arg("permits").arg(&project);
-        if offline {
-            cmd.arg("--offline");
-        }
-        let out = cmd.output().unwrap();
-        assert_eq!(out.status.code(), Some(1), "{out:?}");
-        let stderr = String::from_utf8_lossy(&out.stderr);
-        assert!(
-            stderr.contains("not available for this region yet"),
-            "{stderr}"
-        );
-        assert!(!project.join("permits.md").exists());
-    }
+    let out = freemapper()
+        .arg("permits")
+        .arg(&project)
+        .arg("--offline")
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(1), "{out:?}");
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        stderr.contains("no source of the permit notes could be read"),
+        "{stderr}"
+    );
+    assert!(
+        !stderr.contains("not available for this region"),
+        "{stderr}"
+    );
+    assert!(
+        !stderr.contains("vg250") && !stderr.contains("bfn"),
+        "{stderr}"
+    );
+    assert!(!project.join("permits.md").exists());
 }
 
 #[test]

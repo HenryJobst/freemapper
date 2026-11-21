@@ -808,6 +808,7 @@ error-permits-missing-not-read = { $source }: niet gelezen
 
 permits-title = Vergunningsnotities
 permits-disclaimer = Een hint, geen juridisch advies. De bevoegde instanties beslissen. Zie voor de datum en nauwkeurigheid van de gegevens de tabel onder "Bronnen en gegevensdatum"; gebieden kunnen ontbreken of verouderd zijn (BfN: eens per jaar samengevoegd, "Nicht für Planungszwecke geeignet.", dat wil zeggen niet geschikt voor planning).
+permits-disclaimer-regional = Een hint, geen juridisch advies. De bevoegde instanties beslissen. Zie voor de datum en nauwkeurigheid van de gegevens de tabel onder "Bronnen en gegevensdatum"; gebieden kunnen ontbreken of verouderd zijn.
 permits-bfn-merge = De BfN voegt de gegevens van de deelstaten eens per jaar samen en markeert ze als niet geschikt voor planning. De instanties van de deelstaat beslissen.
 permits-created = Gemaakt op { $date } voor het kaartgebied van een { $kind ->
         [schoolyard] schoolpleinkaart
@@ -870,6 +871,7 @@ permits-quoted = "{ $text }"
 permits-osm-unnamed = zonder naam
 permits-osm-operator = Beheerder volgens OSM: { $operator }
 permits-osm-enclosing-gap = OpenStreetMap-gebieden die het hele kaartgebied omsluiten zonder een hoek erin kunnen hier ontbreken, en ook beschermde gebieden die in OSM als relatie met `type=boundary` zijn getekend. De delen van de BfN en VG250 worden hierdoor niet getroffen.
+permits-osm-enclosing-gap-short = OpenStreetMap-vlakken die het hele kaartgebied omsluiten zonder een hoek erin te hebben, kunnen hier ontbreken.
 permits-operator-line = { $name } ({ $roles ->
         [operator] beheerder
         [owner] eigenaar
@@ -892,6 +894,7 @@ permits-hint-nature-authority = { $kreisfrei ->
 permits-hint-national-park = Een nationaal park heeft eigen regels. Vraag de parkbeheerder vroeg.
 permits-hint-nsg-paths = In een natuurreservaat moet je meestal op de paden blijven. Vraag voor een loop buiten de paden de natuurbeschermingsinstantie.
 permits-hint-natura2000 = Een FFH-gebied of een vogelbeschermingsgebied (Natura 2000) raakt het kaartgebied. Voor een evenement kan de natuurbeschermingsinstantie een beoordeling van de effecten vragen.
+permits-hint-protected-areas-pl = In het kaartgebied liggen beschermde gebieden of beschermde natuurobjecten. Bij een nationaal park, een landschapspark of een natuurreservaat is de beheerder van het park of reservaat meestal het aanspreekpunt; voor de overige gebieden en objecten kan de Regionale Directie voor Milieubescherming (RDOŚ) van het woiwodschap meestal zeggen wie bevoegd is. Vraag het op tijd als daar een evenement gepland wordt.
 permits-hint-order-office = { $amt ->
         [none] Voor straten, pleinen en andere openbare grond is meestal het Ordnungsamt (dienst openbare orde) van de Gemeinde { $gemeinde } verantwoordelijk.
        *[other] Voor straten, pleinen en andere openbare grond is meestal het Ordnungsamt (dienst openbare orde) verantwoordelijk: { $amt }, voor de Gemeinde { $gemeinde }.
@@ -929,6 +932,17 @@ permits-object-kind = { $kind ->
         [natural-monument] Natuurmonument (Naturdenkmal)
         [protected-landscape-part] Beschermd landschapselement (geschützter Landschaftsbestandteil)
         [biotope] Wettelijk beschermd biotoop (geschütztes Biotop)
+        [national-park] Nationaal park (park narodowy)
+        [park-buffer-zone] Bufferzone van een park (otulina)
+        [landscape-park] Landschapspark (park krajobrazowy)
+        [nature-reserve] Natuurreservaat (rezerwat przyrody)
+        [protected-landscape-area] Beschermd landschapsgebied (obszar chronionego krajobrazu)
+        [natura2000-habitats] Natura 2000-gebied voor habitats (SOO)
+        [natura2000-birds] Natura 2000-gebied voor vogels (OSO)
+        [ecological-site] Ecologisch gebied (użytek ekologiczny)
+        [landscape-complex] Natuur- en landschapscomplex (zespół przyrodniczo-krajobrazowy)
+        [documentation-site] Documentatiesite (stanowisko dokumentacyjne)
+        [natural-monument-pl] Natuurmonument (pomnik przyrody)
        *[special-rules] Gebied met bijzondere regels
     }
 permits-object-count = { $count } objecten
@@ -987,6 +1001,10 @@ permits-hint-forest-office = { $units ->
 permits-hint-forest-owner = { $office ->
         [known] Een evenement in het bos heeft de toestemming van de boseigenaren nodig. Het bosbeheerkantoor kan meestal zeggen wie de eigenaar van het bos is. In meerdere deelstaten moet een georganiseerd evenement in het bos ook worden gemeld bij de bosinstantie of door haar worden toegestaan.
        *[unknown] Een evenement in het bos heeft de toestemming van de boseigenaren nodig. In meerdere deelstaten moet een georganiseerd evenement in het bos ook worden gemeld bij de bosinstantie of door haar worden toegestaan. Deze notities noemen het verantwoordelijke bosbeheerkantoor hier niet; het bosbeheer van de deelstaat of de lagere bosinstantie kan het je zeggen.
+    }
+permits-hint-forest-owner-pl = { $office ->
+        [known] Een evenement in het bos heeft meestal de toestemming van de boseigenaar nodig. Het hierboven genoemde boswachterijdistrict (Nadleśnictwo) kan meestal zeggen wie het bos beheert. Bos dat niet bij de Staatsbossen hoort, bijvoorbeeld privébos, staat niet in de gegevens van deze notities.
+       *[unknown] Een evenement in het bos heeft meestal de toestemming van de boseigenaar nodig. Deze notities noemen voor het kaartgebied geen bosdistrict van de Staatsbossen; de gegevens omvatten alleen de Staatsbossen, dus het bos kan van iemand anders zijn, bijvoorbeeld van een particuliere eigenaar. Wie de eigenaar is, moet apart worden uitgezocht.
     }
 permits-section-water-protection = Waterbeschermingsgebieden ({ $source })
 permits-section-forest-functions = Bosfuncties en beschermd bos ({ $source })
