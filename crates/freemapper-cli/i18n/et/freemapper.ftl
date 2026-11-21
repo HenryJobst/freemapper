@@ -28,7 +28,7 @@ cli-wrote = Kirjutatud { $path }
 cli-kept-map = { $path } jäi alles (see võib sisaldada kasutaja tööd)
 cli-map-lacks-templates = Kaart ei viita veel pildimallidele. Need tuleb lisada OOM-is (Mallid > Ava mall …) või kaart asendada lülitiga --force, mis jätab vana alles failina .omap.bak.
 cli-map-lacks-buildings = Kaardil pole veel ALKIS-i hooneid. Nende lisamiseks tuleb kaart asendada lülitiga --force, mis jätab vana alles failina .omap.bak.
-cli-map-lacks-canopies = Kaardil puuduvad ALKIS-i katused ja autokatused (522), mis on nüüd kaardiobjektid. Nende lisamiseks tuleb käivitada lülitiga --force, mis jätab vana kaardi alles failina .omap.bak.
+cli-map-lacks-canopies = Kaardil puuduvad ALKIS-i varjualused ja autovarjualused (522), mis on nüüd kaardiobjektid. Nende lisamiseks tuleb käivitada lülitiga --force, mis jätab vana kaardi alles failina .omap.bak.
 cli-map-light = Aluskaart: { $joined } joont liidetud, { $left } peidetud või liiga väikest jäeti kandidaatkihtidesse (midagi ei nihutatud)
 cli-map-light-kept = Kandidaatkihid sisaldavad nüüd ka { $left } objekti või lõiku, mille see versioon aluskaardilt eemaldab (märgitud freemapper:generalized). Säilitatud kaardil on need alles, seega paistavad need kaks korda. Kaardi puhastamiseks tuleb see asendada lülitiga --force (vana jääb failina .omap.bak).
 cli-map-old-candidates = Kaart nimetab endiselt faili templates/candidates.omap; see käivitus täitis selle kõigi kandidaatidega. Kandidaadid tulevad nüüd ka seitsmes kihis, igaüks eraldi failis (templates/candidates-*.omap). Kaart loetleb need pärast asendamist lülitiga --force (vana jääb failina .omap.bak) või need saab ise OOM-is lisada (Mallid > Ava mall …).
@@ -433,13 +433,13 @@ update-notice = freemapper { $new } on saadaval (kasutusel { $old }). Värskenda
 update-applies-next-start = Uus versioon rakendub freemapperi järgmisest käivitusest.
 update-install-failed = freemapper { $new } ei installitud: { $error }
 update-no-config-dir = sellel süsteemil pole seadistuskausta; tuleb määrata FREEMAPPER_CONFIG_DIR
-mcp-adapter-note = Märkus inimesele: oma käivitusel leidis freemapperi server adapterikaustade kohta järgmist. Anna see edasi; inimene parandab kausta või eemaldab selle ja käivitab seejärel serveri uuesti.
+mcp-adapter-note = Märkus inimesele: oma käivitusel leidis freemapperi server adapterikaustade kohta järgmist. See tuleb edasi anda; inimene parandab kausta või eemaldab selle ja käivitab seejärel serveri uuesti.
     { $lines }
 update-mcp-note = Märkus inimesele: freemapper { $new } on saadaval (praegune on { $old }). Enne install_update kutsumist tuleb temalt luba küsida.
 update-mcp-needs-confirm = midagi ei installitud; esmalt tuleb inimeselt küsida ja kutsuda install_update väärtusega confirm: true, kui ta nõustub
 update-mcp-note-manual = Märkus inimesele: freemapper { $new } on saadaval (praegune on { $old }), kuid install_update ei saa seda installida; { $needed } või uuem tuleb installida käsitsi, vt { $notes }
 update-mcp-note-bad-signature = Märkus inimesele: uusimat freemapperi väljalaset ei saanud kontrollida ({ $error }); midagi ei installitud. Tuleb temale teatada ja seda mitte muul viisil installida.
-update-mcp-restart-now = Freemapperi MCP-server tuleb nüüd taaskäivitada; see töötab veel vana versiooniga.
+update-mcp-restart-now = freemapperi MCP-server tuleb nüüd taaskäivitada; see töötab veel vana versiooniga.
 
 ## Errors. In English each text equals the message of the library's error type, which stays
 ## English for logs and tests. Parts that other programs word (the operating system, parsers,
@@ -535,7 +535,7 @@ error-reason-host-not-declared = host ei ole deklareeritud hostide hulgas
 error-reason-local-address = selle arvuti või kohtvõrgu aadress, mitte internetis oleva serveri oma
 error-reason-too-many-redirects = rohkem kui { $count } ümbersuunamist
 error-reason-redirect-nowhere = ümbersuunamine (HTTP { $status }) eikuhugi
-error-fetch-currency-csv = valuuta-CSV rida { $line }: { $message }
+error-fetch-currency-csv = ajakohasuse-CSV rida { $line }: { $message }
 error-alkis = kehtetud ALKIS-i andmed: { $message }
 error-osm = OSM-i andmed: { $message }
 
@@ -678,7 +678,7 @@ cli-summary-wrote-map = Kirjutatud kaart { $path }
 cli-summary-kept-map = Olemasolev kaart { $path } jäi alles (see võib sisaldada kaardistaja tööd)
 cli-summary-map-lacks-templates = Kaart ei viita veel pildimallidele. Selle asendamiseks tuleb käivitada töövoog valikuga force; vana jääb alles failina .omap.bak.
 cli-summary-map-lacks-buildings = Kaardil pole veel ALKIS-i hooneid. Nende lisamiseks tuleb käivitada töövoog valikuga force; see asendab kaardi ja jätab vana alles failina .omap.bak.
-cli-summary-map-lacks-canopies = Kaardil puuduvad ALKIS-i katused ja autokatused (522), mis on nüüd kaardiobjektid. Nende lisamiseks tuleb käivitada töövoog valikuga force; see asendab kaardi ja jätab vana alles failina .omap.bak.
+cli-summary-map-lacks-canopies = Kaardil puuduvad ALKIS-i varjualused ja autovarjualused (522), mis on nüüd kaardiobjektid. Nende lisamiseks tuleb käivitada töövoog valikuga force; see asendab kaardi ja jätab vana alles failina .omap.bak.
 cli-summary-map-light = Aluskaart: { $joined } joont liidetud, { $left } peidetud või liiga väikest jäeti kandidaatkihtidesse (midagi ei nihutatud)
 cli-summary-map-light-kept = Kandidaatkihid sisaldavad nüüd ka { $left } objekti või lõiku, mille see versioon aluskaardilt eemaldab (märgitud freemapper:generalized). Säilitatud kaardil on need alles, seega paistavad need kaks korda. Kaardi puhastamiseks tuleb käivitada töövoog valikuga force; see jätab vana alles failina .omap.bak.
 cli-summary-map-old-candidates = Kaart nimetab endiselt faili templates/candidates.omap; see käivitus täitis selle kõigi kandidaatidega. Kandidaadid tulevad nüüd ka seitsmes kihis, igaüks eraldi failis (templates/candidates-*.omap). Kaart loetleb need pärast käivitust valikuga force (vana kaart jääb failina .omap.bak) või kaardistaja lisab need OOM-is (Mallid > Ava mall …).
@@ -753,7 +753,7 @@ mcp-param-open-area-selector-training = Käivituspaneel algab märgitud treening
 mcp-tool-preview-layer = Kihi PNG-eelvaade (kuni 800 px): map (viimase käivituse kirjutatud kaardiobjektide pilt, ilma kandidaatideta) või rastermall: orthophoto, hillshade, slope, relief, ndsm või k5 Berliinis.
 mcp-param-preview-layer-dir = Projektikaust (absoluutne tee või ~-ga algav).
 mcp-param-preview-layer-layer = "map", "orthophoto", "hillshade", "slope", "relief", "ndsm" või "k5" (ainult Berliin).
-mcp-tool-project-status = Tööoleku start_pipeline või permits_for_area töö kohta: running, finished või failed, viimased edenemisread, hoiatused, kirjutatud failid ning tulemus või viga. Lõppenud permits_for_area töö kannab ka faili permits.md teksti väljal permits_md.
+mcp-tool-project-status = Töö olek (start_pipeline või permits_for_area): running, finished või failed, viimased edenemisread, hoiatused, kirjutatud failid ning tulemus või viga. Lõppenud permits_for_area töö kannab ka faili permits.md teksti väljal permits_md.
 mcp-param-project-status-job-id = Töö-id käsust start_pipeline või permits_for_area, nt "job-1".
 mcp-tool-permits-for-area = Tee projekti loamärkmed: kaardiala haldusüksused, selles asuvad kaitsealad ja kes seal maad haldab, koos ametiasutustega, kellelt küsida; vihje, mitte õigusnõu. Kirjutab kausta permits.md ja permits.json. Töötab taustal ja tagastab job_id; tuleb küsida project_status, mille vastus kannab töö lõppedes faili permits.md teksti väljal permits_md. Korraga töötab üks töö.
 mcp-param-permits-for-area-dir = Projektikaust (absoluutne tee või ~-ga algav).
@@ -792,7 +792,7 @@ mcp-error-content = Sisuseadet ei saa lugeda: { $detail }
 ## `permits-*` id is used. The quote "Nicht für Planungszwecke geeignet." is the BfN's own
 ## wording and stays German in every language.
 
-help-permits = Kirjuta projekti loamärkmed (permits.md ja permits.json): haldusüksused, kaitsealad ja haldajad, mida kaardiala puudutab, ning see, kellelt see tavaliselt luba küsida tähendab. See küsib BfN-ilt ja BKG-lt ning kui kaardiala liidumaal on oma avatud teenused, siis neid selle adapteri hostide kaudu (loend käsiraamatu 12. peatükis); Nordrhein-Westfalenis laaditakse selleks esimesel korral alla umbes 32 MB, Brandenburgis umbes 4 MB, hiljem ainult uuemad failid. See loeb juba vahemällu salvestatud OSM-i väljavõtet; --offline kasutab varem alla laaditut
+help-permits = Kirjuta projekti loamärkmed (permits.md ja permits.json): haldusüksused, kaitsealad ja haldajad, mida kaardiala puudutab, ning see, kellelt tavaliselt luba tuleb küsida. See küsib BfN-ilt ja BKG-lt ning kui kaardiala liidumaal on oma avatud teenused, siis neid selle adapteri hostide kaudu (loend käsiraamatu 12. peatükis); Nordrhein-Westfalenis laaditakse selleks esimesel korral alla umbes 32 MB, Brandenburgis umbes 4 MB, hiljem ainult uuemad failid. See loeb juba vahemällu salvestatud OSM-i väljavõtet; --offline kasutab varem alla laaditut
 help-permits-dir = Projektikaust
 help-permits-offline = Kasuta ainult varem alla laaditud andmeid, ilma võrguühenduseta
 help-run-permits = Kirjuta pärast kaarti ka loamärkmed (permits.md ja permits.json); küsib BfN-ilt, BKG-lt ja liidumaa avatud teenustelt (käsiraamat, 12. peatükk). Rike seal on hoiatus ja kaart jääb alles

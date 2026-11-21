@@ -71,8 +71,8 @@ progress-surface-tiles-kept = freemapper conserve le modèle de surface en cache
 progress-orthophoto-unchanged = orthophotographie inchangée
 progress-orthophoto-unchanged-dated = orthophotographie inchangée ({ $label } { $date })
 progress-orthophoto-download = téléchargement de l'orthophotographie depuis { $provider } { $service }
-progress-orthophoto-in-leaf = l'orthophotographie a été prise le { $date }, arbres feuillus ; leurs cimes cachent ce qui se trouve dessous
-progress-orthophoto-bare = l'orthophotographie a été prise le { $date }, arbres sans feuilles
+progress-orthophoto-in-leaf = l'orthophotographie a été prise le { $date }, avec les arbres en feuilles ; leurs cimes cachent ce qui se trouve dessous
+progress-orthophoto-bare = l'orthophotographie a été prise le { $date }, avec les arbres sans feuilles
 warning-lgln-orthophoto-kept = orthophotographie (LGLN WMS) : { $reason } ; l'orthophotographie enregistrée et sa date de vol { $date } sont conservées
 warning-lgln-orthophoto-undated = orthophotographie (LGLN WMS) : pas de date de vol, { $reason }
 word-stac-no-image = le STAC ne liste aucune image au centre de la zone de la carte
@@ -122,7 +122,7 @@ warning-alkis-land-use-none = occupation du sol ALKIS indisponible ({ $error }) 
 
 ## The Berlin layers
 
-progress-berlin-none-stored = aucune structure ALKIS de Berlin enregistrée ; lancez `freemapper fetch` en ligne pour les escaliers, murs, arbres et couronnes
+progress-berlin-none-stored = aucune structure ALKIS de Berlin enregistrée ; lancez `freemapper fetch` en ligne pour les escaliers, murs, arbres et auvents
 progress-berlin-removing = suppression des couches de Berlin enregistrées : la zone de la carte n'est plus près de Berlin
 progress-berlin-download = téléchargement des structures ALKIS de Berlin, du cadastre des arbres, du relevé des rues et des couches de points
 progress-berlin-features = { $count } objets { $file } de Berlin
@@ -173,7 +173,7 @@ warning-trees-skipped = cadastre des arbres { $id } indisponible ({ $detail }) ;
 ## Deriving the templates
 
 progress-writing = écriture de { $path }
-progress-contours-steep = courbes de niveau tous les { $interval } m : le terrain est si raide que des courbes tous les { $default } m se confondraient ; une équidistance de { $default } m dans le projet les garde distinctes (`--contour-interval { $default }`)
+progress-contours-steep = courbes de niveau tous les { $interval } m : le terrain est si raide que des courbes tous les { $default } m se confondraient ; une équidistance de { $default } m dans le projet les conserve (`--contour-interval { $default }`)
 warning-osm-only-no-terrain = pas encore de données de terrain pour cette région : la carte est faite à partir d'OpenStreetMap seul, sans courbes de niveau, modèles ni bâtiments
 progress-no-ndsm-recorded = aucun nDSM enregistré ; lancez `freemapper fetch` pour le modèle nDSM
 warning-ndsm-tile-invalid = tuile nDSM { $tile } non valide dans freemapper.toml ; ignorée

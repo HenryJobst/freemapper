@@ -32,7 +32,7 @@ cli-map-lacks-buildings = O mapa ainda não tem edifícios ALKIS. Para os adicio
 cli-map-lacks-canopies = Ao mapa faltam as coberturas e abrigos de automóveis do ALKIS (522) que agora são objetos do mapa. Para os adicionar, executa com --force, que guarda o mapa antigo como .omap.bak.
 cli-map-light = O mapa base: { $joined } linhas unidas, { $left } escondidos ou demasiado pequenos deixados para as camadas de candidatos (nada foi movido)
 cli-map-light-kept = As camadas de candidatos passam a conter também { $left } objetos ou troços que esta versão tira do mapa base (marcados freemapper:generalized). O mapa mantido ainda os tem, por isso aparecem duas vezes. Substitui o mapa com --force para o limpar (o antigo fica como .omap.bak).
-cli-map-old-candidates = O mapa ainda refere templates/candidates.omap; esta execução preencheu-o com todos os candidatos. Os candidatos vêm agora também em sete camadas, um ficheiro cada (templates/candidates-*.omap). O mapa lista-as depois de o substituíres com --force (o antigo fica como .omap.bak), ou adiciona-as tu no OOM (Templates > Open template…).
+cli-map-old-candidates = O mapa ainda refere templates/candidates.omap; esta execução preencheu-o com todos os candidatos. Os candidatos vêm agora também em sete camadas, cada uma num ficheiro (templates/candidates-*.omap). O mapa lista-as depois de o substituíres com --force (o antigo fica como .omap.bak), ou adiciona-as tu no OOM (Templates > Open template…).
 
 ## PDF
 
@@ -47,7 +47,7 @@ cli-kept-training = Mantido o mapa de treino { $path }, para que uma execução 
 ## OCAD
 
 cli-ocad-kept = Mantido { $path } (pode conter o teu trabalho; --force substitui-o e guarda o antigo como .ocd.bak)
-cli-ocad-old-candidates = O mapa OCAD ainda refere { $path } como mapa de fundo; esta execução preencheu-o com todos os candidatos. Os candidatos vêm agora também em sete camadas, um ficheiro cada (-candidates-*.ocd). O mapa OCAD lista-as depois de o substituíres com --force (o antigo fica como .ocd.bak), ou adiciona-as tu no OCAD como mapas de fundo.
+cli-ocad-old-candidates = O mapa OCAD ainda refere { $path } como mapa de fundo; esta execução preencheu-o com todos os candidatos. Os candidatos vêm agora também em sete camadas, cada uma num ficheiro (-candidates-*.ocd). O mapa OCAD lista-as depois de o substituíres com --force (o antigo fica como .ocd.bak), ou adiciona-as tu no OCAD como mapas de fundo.
 cli-ocad-wrote = { $count ->
         [one] Escrito { $path } ({ $count } objeto)
         [many] Escrito { $path } ({ $count } de objetos)
@@ -58,7 +58,7 @@ cli-ocad-load-symbols = No OCAD, escolhe Symbol > Load Colors and Symbols From�
         [forest] {" "}ISOM 2017-2
         [schoolyard] , o conjunto escolar da IOF 2019
        *[other] {" "}ISSprOM 2019
-    }; ele substitui os símbolos provisórios do freemapper pelo número.
+    }; este substitui os símbolos provisórios do freemapper pelos de igual número.
 
 ## select
 
@@ -161,7 +161,7 @@ cli-list-and = { $first } e { $last }
 
 ## Folder lock
 
-cli-lock-held = outra execução do freemapper está a usar esta pasta (desde { $time }, iniciada por { $who }). Espera por ela ou pára-a primeiro.
+cli-lock-held = outra execução do freemapper está a usar esta pasta (desde { $time }, iniciada por { $who }). Espera por ela ou para-a primeiro.
 cli-lock-who-cli = o terminal
 cli-lock-who-mcp = um agente de IA (MCP)
 cli-lock-who-page = a página de seleção
@@ -235,7 +235,7 @@ page-cache-volume = cache
 page-project-volume = pasta do projeto
 page-no-room = não cabe no disco
 page-no-room-skip = Nem tudo cabe no disco (o freemapper mantém { $reserve } livres). A obtenção deixa de fora as partes assinaladas. Liberta primeiro espaço, se precisares delas:
-page-no-room-stop = Espaço em disco insuficiente (o freemapper mantém { $reserve } livres). Sem as partes assinaladas não há mapa, por isso a obtenção pára antes de descarregar seja o que for. Liberta primeiro espaço:
+page-no-room-stop = Espaço em disco insuficiente (o freemapper mantém { $reserve } livres). Sem as partes assinaladas não há mapa, por isso a obtenção para antes de descarregar seja o que for. Liberta primeiro espaço:
 page-disk-unknown = o freemapper não consegue ler o espaço livre em disco ({ $error }). Obtém os dados sem essa verificação.
 page-too-large = A área é demasiado grande: no máximo { $max } m por lado (com margem). Escolhe uma mais pequena.
 page-outside = A área fica fora dos estados federados suportados ({ $states }); o freemapper ainda não tem fontes de dados para outras regiões.
@@ -445,7 +445,7 @@ update-mcp-note = Nota para a pessoa: o freemapper { $new } está disponível (e
 update-mcp-needs-confirm = nada foi instalado; pergunta primeiro à pessoa e chama install_update com confirm: true quando ela concordar
 update-mcp-note-manual = Nota para a pessoa: o freemapper { $new } está disponível (este é o { $old }), mas install_update não o consegue instalar; instala manualmente { $needed } ou mais recente, ver { $notes }
 update-mcp-note-bad-signature = Nota para a pessoa: não foi possível verificar a versão mais recente do freemapper ({ $error }); nada foi instalado. Diz-lho e não a instales de outra forma.
-update-mcp-restart-now = Reinicia agora o servidor MCP do freemapper; ele ainda executa a versão antiga.
+update-mcp-restart-now = Reinicia agora o servidor MCP do freemapper; ainda executa a versão antiga.
 
 ## Errors. In English each text equals the message of the library's error type, which stays
 ## English for logs and tests. Parts that other programs word (the operating system, parsers,
@@ -535,7 +535,7 @@ error-reason-not-a-dns-name = não é um nome DNS
 error-reason-no-domain = um nome deste computador ou sem domínio
 error-reason-local-name = um nome da rede local
 error-reason-ip-address = um endereço IP, não um nome DNS
-error-reason-unexpected-character = caráter inesperado
+error-reason-unexpected-character = carácter inesperado
 error-reason-not-https = não é https
 error-reason-user-info = informação de utilizador
 error-reason-port = uma porta diferente de 443
@@ -554,8 +554,8 @@ error-derive-image = imagem: { $message }
 error-derive-no-tiles = nenhum mosaico de onde derivar
 error-derive-area-too-large = área do mapa demasiado grande para um só modelo: { $width } × { $height } píxeis (no máximo { $limit } por lado); reduz a área do mapa ou buffer_m em freemapper.toml
 error-raster-world-file = world file inválido: { $message }
-error-raster-misaligned = as rasters não estão alinhadas na mesma grelha de píxeis: { $message }
-error-raster-pixel-size = as rasters têm tamanhos de píxel diferentes: { $message }
+error-raster-misaligned = os rasters não estão alinhados na mesma grelha de píxeis: { $message }
+error-raster-pixel-size = os rasters têm tamanhos de píxel diferentes: { $message }
 
 ## Errors: map area, georeferencing, map file, OCAD file
 
@@ -689,16 +689,16 @@ cli-summary-map-lacks-buildings = O mapa ainda não tem edifícios ALKIS. Inicia
 cli-summary-map-lacks-canopies = Ao mapa faltam as coberturas e abrigos de automóveis do ALKIS (522) que agora são objetos do mapa. Inicia o pipeline com force para os adicionar; substitui o mapa e guarda o antigo como .omap.bak.
 cli-summary-map-light = O mapa base: { $joined } linhas unidas, { $left } escondidos ou demasiado pequenos deixados para as camadas de candidatos (nada foi movido)
 cli-summary-map-light-kept = As camadas de candidatos passam a conter também { $left } objetos ou troços que esta versão tira do mapa base (marcados freemapper:generalized). O mapa mantido ainda os tem, por isso aparecem duas vezes. Inicia o pipeline com force para limpar o mapa; guarda o antigo como .omap.bak.
-cli-summary-map-old-candidates = O mapa ainda refere templates/candidates.omap; esta execução preencheu-o com todos os candidatos. Os candidatos vêm agora também em sete camadas, um ficheiro cada (templates/candidates-*.omap). O mapa lista-as depois de uma execução com force (o mapa antigo fica como .omap.bak), ou o cartógrafo adiciona-as no OOM (Templates > Open template…).
+cli-summary-map-old-candidates = O mapa ainda refere templates/candidates.omap; esta execução preencheu-o com todos os candidatos. Os candidatos vêm agora também em sete camadas, cada uma num ficheiro (templates/candidates-*.omap). O mapa lista-as depois de uma execução com force (o mapa antigo fica como .omap.bak), ou o cartógrafo adiciona-as no OOM (Templates > Open template…).
 cli-summary-wrote-ocad = Escrito o mapa OCAD { $path } ({ $count } objetos)
 cli-summary-kept-ocad = Mantido o mapa OCAD existente { $path } (pode conter o trabalho do cartógrafo; force substitui-o)
-cli-summary-ocad-old-candidates = O mapa OCAD ainda refere { $path } como mapa de fundo; esta execução preencheu-o com todos os candidatos. Os candidatos vêm agora também em sete camadas, um ficheiro cada (-candidates-*.ocd). O mapa OCAD lista-as depois de uma execução com force (o mapa antigo fica como .ocd.bak), ou o cartógrafo adiciona-as no OCAD como mapas de fundo.
+cli-summary-ocad-old-candidates = O mapa OCAD ainda refere { $path } como mapa de fundo; esta execução preencheu-o com todos os candidatos. Os candidatos vêm agora também em sete camadas, cada uma num ficheiro (-candidates-*.ocd). O mapa OCAD lista-as depois de uma execução com force (o mapa antigo fica como .ocd.bak), ou o cartógrafo adiciona-as no OCAD como mapas de fundo.
 cli-summary-ocad-left-out = Deixados fora do mapa OCAD: { $skipped } objetos e { $dropped } partes degeneradas
 cli-summary-ocad-symbols = No OCAD, escolhe Symbol > Load Colors and Symbols From… e seleciona o conjunto de símbolos oficial{ $kind ->
         [forest] {" "}ISOM 2017-2
         [schoolyard] , o conjunto escolar da IOF 2019
        *[other] {" "}ISSprOM 2019
-    }; ele substitui os símbolos provisórios pelo número.
+    }; este substitui os símbolos provisórios pelos de igual número.
 cli-summary-ocad-failed = A exportação OCAD falhou: { $error }
 cli-summary-pdf-without-credits = PDF sem créditos das fontes: a ODbL e a dl-de/by-2-0 pedem que nomeies as fontes ao passares o mapa a outros; ver ATTRIBUTION.txt
 cli-summary-wrote-pdf = Escrito o mapa { $path } (sem candidatos)
@@ -778,7 +778,7 @@ mcp-param-start-pipeline-pdf-sources = Linhas de fontes nos PDF: "auto" (predefi
 mcp-param-start-pipeline-permits = Escrever também as notas de licenciamento (permits.md e permits.json) depois do mapa: unidades administrativas, áreas protegidas e quem gere o terreno. Uma falha aí é um aviso, não um trabalho falhado. Predefinição false.
 mcp-param-start-pipeline-training = Escrever também o mapa de treino <name>-training.omap e o seu PDF <name>-training.pdf: o mapa e todos os candidatos, limpos para serem impressos tal como estão; com ocad também ocad/<name>-training.ocd. Um mapa de treino existente é mantido, a menos que force seja true. Predefinição false.
 mcp-param-start-pipeline-training-views = Com training: escrever também o mapa de treino sem o que uma vista omite, um conjunto de ficheiros por entrada: "no-paths", "brown-only", "no-north-lines", ou uma lista como "no:505,506" ou "only:101,102", combinada com +. Os ficheiros são <name>-training-<view>.omap e o seu PDF.
-mcp-instructions = O freemapper cria projetos iniciais para o OpenOrienteering Mapper de mapas de orientação (recreio escolar 1:1000, sprint 1:4000, floresta 1:15000) a partir de geodados oficiais de { $states } e do OSM. Fluxo: find_place (procurar a escola ou a área por nome; escolher um resultado com has_area) → create_project (uma nova pasta, caminho absoluto, com o osm_id) → estimate_download (dizer ao utilizador quanto será descarregado) → start_pipeline (devolve um id de trabalho; a descarga pode demorar minutos) → project_status (consultar a cada poucos segundos até o estado ser finished ou failed) → list_layers e preview_layer (mostrar ao utilizador os modelos). O utilizador abre depois o ficheiro do mapa no OpenOrienteering Mapper. Quando nenhum local serve ou o utilizador quer desenhar a área, open_area_selector abre no navegador uma página onde o utilizador desenha ou escolhe a área e a guarda (isto cria o projeto); continua com estimate_download quando o utilizador disser que está guardada. Os caminhos têm de ser absolutos ou começar por ~. Só corre um pipeline de cada vez. permits_for_area cria as notas de licenciamento de um projeto (unidades administrativas, áreas protegidas, quem gere o terreno; uma indicação, não aconselhamento jurídico) como um trabalho igual a start_pipeline. check_update diz se existe um freemapper mais recente; install_update instala-o, só com confirm: true depois de a pessoa concordar, e o assistente reinicia então o servidor freemapper.
+mcp-instructions = O freemapper cria projetos iniciais de mapas de orientação para o OpenOrienteering Mapper (recreio escolar 1:1000, sprint 1:4000, floresta 1:15000) a partir de geodados oficiais de { $states } e do OSM. Fluxo: find_place (procurar a escola ou a área por nome; escolher um resultado com has_area) → create_project (uma nova pasta, caminho absoluto, com o osm_id) → estimate_download (dizer ao utilizador quanto será descarregado) → start_pipeline (devolve um id de trabalho; a descarga pode demorar minutos) → project_status (consultar a cada poucos segundos até o estado ser finished ou failed) → list_layers e preview_layer (mostrar ao utilizador os modelos). O utilizador abre depois o ficheiro do mapa no OpenOrienteering Mapper. Quando nenhum local serve ou o utilizador quer desenhar a área, open_area_selector abre no navegador uma página onde o utilizador desenha ou escolhe a área e a guarda (isto cria o projeto); continua com estimate_download quando o utilizador disser que está guardada. Os caminhos têm de ser absolutos ou começar por ~. Só corre um pipeline de cada vez. permits_for_area cria as notas de licenciamento de um projeto (unidades administrativas, áreas protegidas, quem gere o terreno; uma indicação, não aconselhamento jurídico) como um trabalho igual a start_pipeline. check_update diz se existe um freemapper mais recente; install_update instala-o, só com confirm: true depois de a pessoa concordar, e o assistente reinicia então o servidor freemapper.
 
 cli-contour-interval-saved = Equidistância das curvas de nível guardada em freemapper.toml: { $interval } m; derive traça as curvas de nível com ela
 cli-contour-interval-auto = Equidistância das curvas de nível em freemapper.toml: automática (a do tipo de mapa; um mapa de floresta tem 2,5 m em terreno plano e 10 m em terreno íngreme)
@@ -800,7 +800,7 @@ mcp-error-content = Não é possível ler a definição de conteúdo: { $detail 
 ## `permits-*` id is used. The quote "Nicht für Planungszwecke geeignet." is the BfN's own
 ## wording and stays German in every language.
 
-help-permits = Escrever as notas de licenciamento de um projeto (permits.md e permits.json): as unidades administrativas, áreas protegidas e gestores que a área do mapa toca, e a quem isso costuma obrigar a perguntar. Consulta o BfN e o BKG e, onde o estado federado da área do mapa tem serviços abertos próprios, esses através dos anfitriões do seu adaptador (lista no manual, capítulo 12); na Renânia do Norte-Vestefália descarrega para isso cerca de 32 MB da primeira vez, em Brandemburgo cerca de 4 MB, depois só ficheiros mais recentes. Lê o extrato OSM já guardado na cache; --offline usa o que foi obtido antes
+help-permits = Escrever as notas de licenciamento de um projeto (permits.md e permits.json): as unidades administrativas, áreas protegidas e gestores que a área do mapa toca, e a quem, por norma, é preciso perguntar. Consulta o BfN e o BKG e, onde o estado federado da área do mapa tem serviços abertos próprios, esses através dos anfitriões do seu adaptador (lista no manual, capítulo 12); na Renânia do Norte-Vestefália descarrega para isso cerca de 32 MB da primeira vez, em Brandemburgo cerca de 4 MB, depois só ficheiros mais recentes. Lê o extrato OSM já guardado na cache; --offline usa o que foi obtido antes
 help-permits-dir = Pasta do projeto
 help-permits-offline = Usar só os dados obtidos antes, sem acesso à rede
 help-run-permits = Escrever também as notas de licenciamento (permits.md e permits.json) depois do mapa; consulta o BfN, o BKG e os serviços abertos do estado federado (manual, capítulo 12). Uma falha aí é um aviso e o mapa fica
@@ -829,7 +829,7 @@ permits-section-hints = Indicações
 permits-section-sources = Fontes e data dos dados
 permits-none-admin = O VG250 não nomeia nenhuma unidade administrativa para a área do mapa.
 permits-none-protected = Segundo o BfN, nenhuma área protegida fica na área do mapa.
-permits-none-osm-protected = O OpenStreetMap não nomeia nenhuma área protegida na área do mapa que o BfN ainda não liste.
+permits-none-osm-protected = O OpenStreetMap não nomeia nenhuma área protegida na área do mapa que o BfN não liste já.
 permits-none-operators = O OpenStreetMap não nomeia nenhum gestor nem proprietário para a área do mapa.
 permits-none-hints = Sem indicações.
 permits-section-not-read = Os dados de { $source } não foram lidos, por isso esta secção está vazia, embora possa haver entradas.
@@ -1043,7 +1043,7 @@ permits-none-roads = Segundo o OpenStreetMap, nenhuma Autobahn nem Bundes-, Land
 permits-road-line = { $class ->
         [autobahn] Autobahn (autoestrada)
         [bundesstrasse] Bundesstraße (estrada federal)
-        [landesstrasse] Landesstraße ou Staatsstraße (estrada estadual)
+        [landesstrasse] Landesstraße ou Staatsstraße (estrada do estado federado)
        *[kreisstrasse] Kreisstraße (estrada distrital)
     }: { $refs }
 permits-hint-road-class = { $class ->

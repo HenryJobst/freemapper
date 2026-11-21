@@ -6,7 +6,7 @@ note-warning = попередження: { $text }
 
 warning-other-zone = територія карти лежить у зоні UTM { $zone } (EPSG:{ $epsg }); freemapper знову завантажує все в цій зоні
 warning-other-state = територія карти тепер потрапила в дані іншої федеральної землі; freemapper знову завантажує все
-warning-beyond-coverage = частина території карти лежить за межами підтримуваних федеральних земель: за кордоном, у морі або в землі, яку freemapper ще не підтримує, наприклад у Тюрингії. Там немає даних, тому ортофото може бути білим, а ALKIS не дає ні будівель, ні землекористування
+warning-beyond-coverage = частина території карти лежить за межами підтримуваних федеральних земель: за кордоном, у морі або у федеральній землі, яку freemapper ще не підтримує, наприклад у Тюрингії. Там немає даних, тому ортофото може бути білим, а ALKIS не дає ні будівель, ні землекористування
 # A warning whose text is an error.
 warning-error = { $error }
 
@@ -89,9 +89,9 @@ warning-lgln-orthophoto-undated = ортофото (LGLN WMS): немає дат
 word-stac-no-image = пошук STAC не знаходить знімка в центрі території карти
 word-stac-no-answer = пошук STAC не дав придатної відповіді ({ $error })
 warning-downloadcenter-no-file = у Downloadcenter немає файлу для { $places }
-warning-downloadcenter-no-file-empty = у Downloadcenter немає файлу для { $places }; { $count ->
-        [one] плитка
-        [few] плитки
+warning-downloadcenter-no-file-empty = у Downloadcenter немає файлу для { $places }; шаблони для { $count ->
+        [one] плитки
+        [few] плиток
         [many] плиток
        *[other] плиток
     } { $names } залишилися порожніми
@@ -101,7 +101,7 @@ warning-k-five-unavailable = шаблон карти K5 недоступний (
 
 ## The state border
 
-progress-beyond-border = територія карти виходить за межі кордону федеральної землі; за ним шаблони порожні всюди, де закінчуються ортофото та моделі висот { $provider }. ALKIS і OSM беруться з обох земель
+progress-beyond-border = територія карти виходить за межі кордону федеральної землі; за ним шаблони порожні всюди, де закінчуються ортофото та моделі висот { $provider }. ALKIS і OSM беруться з обох федеральних земель
 progress-beyond-border-no-data = територія карти виходить за межі кордону федеральної землі; даних { $provider } для { $tiles } немає, тому шаблони там залишаються порожніми
 
 ## OSM
@@ -153,7 +153,7 @@ warning-berlin-buildings-missing = для цієї території в Бер�
 ## The full ALKIS layers (NAS)
 
 progress-nas-none-stored = повних споруд ALKIS не збережено; запустіть `freemapper fetch` з мережею, щоб отримати стіни, огорожі, живоплоти та мости
-progress-nas-removing = видалення збережених повних шарів ALKIS: територія карти вже не в землі зі службою NAS
+progress-nas-removing = видалення збережених повних шарів ALKIS: територія карти вже не у федеральній землі зі службою NAS
 warning-nas-folder-outside = повні шари ALKIS пропущено ({ $folder } виходить за межі папки проєкту)
 progress-nas-download = завантаження повних споруд ALKIS (NAS)
 progress-nas-features = об'єктів ALKIS NAS { $file }: { $count }
@@ -164,7 +164,7 @@ warning-nas-layer-skipped = ALKIS NAS { $file }: недоступно ({ $detail
 ## The objects of a landscape model (ATKIS Basis-DLM)
 
 progress-dlm-none-stored = об'єктів ATKIS Basis-DLM не збережено; запустіть `freemapper fetch` з мережею, щоб отримати джерела, печери, вежі, пам'ятки та фонтани
-progress-dlm-removing = видалення збережених шарів ATKIS Basis-DLM: територія карти вже не в землі, яка їх надає
+progress-dlm-removing = видалення збережених шарів ATKIS Basis-DLM: територія карти вже не у федеральній землі, яка їх надає
 warning-dlm-folder-outside = шари ATKIS Basis-DLM пропущено ({ $folder } виходить за межі папки проєкту)
 progress-dlm-download = завантаження об'єктів ATKIS Basis-DLM
 progress-dlm-features = об'єктів ATKIS Basis-DLM { $file }: { $count }
@@ -232,7 +232,7 @@ progress-sh-bdom-download = завантаження плитки bDOM { $tile }
 progress-sh-dgm-not-in-atom = плитки DGM1 { $tile } немає в каталозі INSPIRE ATOM; завантажується її XYZ ({ $megabytes } МБ)
 progress-sh-dgm-atom-unreadable = плитка DGM1 { $tile } з каталогу INSPIRE ATOM не читається ({ $error }); завантажується її XYZ ({ $megabytes } МБ)
 progress-sh-tile = плитка { $tile }: { $text }
-progress-sh-download-again = плитка { $tile }: завантажене не читається ({ $message }); завантажую ще раз
+progress-sh-download-again = плитка { $tile }: завантажене не читається ({ $message }); завантажується ще раз
 warning-sh-portal-no-date = Downloadportal не дає дати для плитки { $model } { $tile }
 warning-sh-dgm-xyz-used = плитки DGM1 { $tile } немає в каталозі INSPIRE ATOM; використано її XYZ із Downloadportal
 warning-sh-dgm-xyz-used-unreadable = плитка DGM1 { $tile } з каталогу INSPIRE ATOM не читається ({ $error }); використано її XYZ із Downloadportal

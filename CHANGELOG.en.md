@@ -6,6 +6,10 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
+### Changed
+
+- Second read of the 19 new program languages by independent readers (machine, no native speaker): wrong terms, grammar, mixed forms of address, leftover English and fixed numerals in plural branches are corrected. Texts only, no message ids (ADR 0169).
+
 ### Added
 
 - 18 more program languages (cs, nl, da, fr, sv, nb, fi, sk, et, it, sl, hu, lt, lv, es, pt, ru, uk) as texts for the help, messages, area page and MCP. They are machine drafts and not read by native speakers; README and manual exist only in German, English and Polish (ADR 0169). The question of `freemapper update` takes the yes of every language.

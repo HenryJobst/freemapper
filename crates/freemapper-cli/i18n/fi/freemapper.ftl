@@ -116,20 +116,20 @@ cli-check-error = virhe: { $finding }
 cli-check-warning = varoitus: { $finding }
 cli-check-passed = { $folder } läpäisee tarkistuksen
 cli-check-passed-warnings = { $folder } läpäisee tarkistuksen, { $count ->
-        [one] yksi varoitus
-       *[other] { $count } varoitusta
+        [one] yhdellä varoituksella
+       *[other] { $count } varoituksella
     }
 cli-check-failed = { $folder } ei läpäise tarkistusta
 cli-check-no-folder = kansiota { $folder } ei ole
 cli-check-live-ok = { $capability } ok: { $detail }
 cli-check-live-failed = { $capability } EPÄONNISTUI: { $detail }
 cli-check-live-not-asked = { $capability } ei kysytty: { $detail }
-cli-check-live-box-outside = ruutu ei ole sovittimen { $adapter } rajojen sisällä; live-tarkistus kysyy palveluilta paikkaa, jonka sovitin kattaa
+cli-check-live-box-outside = suorakulmio ei ole sovittimen { $adapter } rajojen sisällä; live-tarkistus kysyy palveluilta paikkaa, jonka sovitin kattaa
 cli-check-live-cannot = live-tarkistusta ei voi ajaa: { $detail }
 cli-check-detail-not-declared = sovitin ei ilmoita yhtään
 cli-check-detail-stopped = aiempi osa epäonnistui
 cli-check-detail-see-warnings = katso varoitukset
-cli-check-detail-outside-dataset = ruutu on aineiston ulkopuolella
+cli-check-detail-outside-dataset = suorakulmio on aineiston ulkopuolella
 cli-check-detail-objects = { $count ->
         [one] yksi kohde
        *[other] { $count } kohdetta
@@ -155,7 +155,7 @@ cli-list-and = { $first } ja { $last }
 
 ## Folder lock
 
-cli-lock-held = toinen freemapper-ajo käyttää tätä kansiota (alkaen { $time }, käynnistänyt { $who }). Odota sitä tai pysäytä se ensin.
+cli-lock-held = toinen freemapper-ajo käyttää tätä kansiota (alkaen { $time }, käynnistäjä: { $who }). Odota sitä tai pysäytä se ensin.
 cli-lock-who-cli = pääte
 cli-lock-who-mcp = tekoälyagentti (MCP)
 cli-lock-who-page = valintasivu
@@ -535,7 +535,7 @@ error-reason-host-not-declared = palvelin ei ole ilmoitettujen palvelimien jouko
 error-reason-local-address = tämän tietokoneen tai paikallisverkon osoite, ei internetin palvelimen
 error-reason-too-many-redirects = yli { $count } uudelleenohjausta
 error-reason-redirect-nowhere = uudelleenohjaus (HTTP { $status }) ei minnekään
-error-fetch-currency-csv = valuutta-CSV, rivi { $line }: { $message }
+error-fetch-currency-csv = ajantasaisuus-CSV, rivi { $line }: { $message }
 error-alkis = virheelliset ALKIS-tiedot: { $message }
 error-osm = OSM-tiedot: { $message }
 
@@ -652,8 +652,8 @@ help-adapters-list-json = Tulosta luettelo JSON-muodossa
 help-adapters-list-project = Lue myös tämän projektikansion kansion `adapters` sovittimet, kuten --adapters-from-project tekisi
 help-adapters-check = Tarkista sovittimen kansio ennen käyttöä tai eteenpäin antamista: latautuisiko se, mitä sen tekijän pitäisi tietää, ja valitsimella --live vastaavatko sen palvelut. Poistumiskoodi 0: läpäisee; 1: sisältää havaintoja; 2: tarkistusta ei voitu ajaa
 help-adapters-check-dir = Sovittimen kansio; sen nimi on sovittimen tunnus
-help-adapters-check-live = Kysy myös sovittimen palveluilta valitsimen --bbox nimeämää ruutua ja kerro, mitä kukin tuottaa. Pyynnöt pysyvät manifestin ilmoittamilla palvelimilla
-help-adapters-check-bbox = Live-tarkistuksen ruutu asteina, muodossa minLon,minLat,maxLon,maxLat. Sen on oltava sovittimen rajojen sisällä; 150 m × 150 m riittää
+help-adapters-check-live = Kysy myös sovittimen palveluilta valitsimen --bbox nimeämää suorakulmiota ja kerro, mitä kukin tuottaa. Pyynnöt pysyvät manifestin ilmoittamilla palvelimilla
+help-adapters-check-bbox = Live-tarkistuksen suorakulmio asteina, muodossa minLon,minLat,maxLon,maxLat. Sen on oltava sovittimen rajojen sisällä; 150 m × 150 m riittää
 help-adapters-check-json = Tulosta tulos JSON-muodossa
 help-adapters-allow-host = Salli sisäänrakennetulle sovittimelle yksi palvelin lisää: osavaltiolle, jonka palvelu on siirtynyt palvelimelle, jota sen sovitin ei vielä nimeä. Hylättyä osoitetta koskeva viesti kertoo palvelimen. Palvelin tarkistetaan kuten manifestin palvelin, ja freemapper yhdistää edelleen vain internetin palvelimiin
 help-adapters-allow-host-adapter = Sisäänrakennetun sovittimen tunnus, kuten `adapters list` sen näyttää
@@ -792,7 +792,7 @@ mcp-error-content = Sisältöasetusta ei voi lukea: { $detail }
 ## `permits-*` id is used. The quote "Nicht für Planungszwecke geeignet." is the BfN's own
 ## wording and stays German in every language.
 
-help-permits = Kirjoita projektin lupahuomautukset (permits.md ja permits.json): hallinnolliset yksiköt, suojelualueet ja hallinnoijat, joita kartta-alue koskettaa, sekä keneltä se yleensä tarkoittaa kysymistä. Se kysyy BfN:ltä ja BKG:ltä ja, kun kartta-alueen osavaltiolla on omia avoimia palveluja, niiltä sovittimensa palvelinten kautta (luettelo oppaan luvussa 12); Nordrhein-Westfalenissa se lataa tätä varten ensimmäisellä kerralla noin 32 MB, Brandenburgissa noin 4 MB, myöhemmin vain uudemmat tiedostot. Se lukee jo välimuistissa olevan OSM-otteen; --offline käyttää aiemmin haettua
+help-permits = Kirjoita projektin lupahuomautukset (permits.md ja permits.json): hallinnolliset yksiköt, suojelualueet ja hallinnoijat, joita kartta-alue koskettaa, sekä se, keneltä lupaa yleensä pitää kysyä. Se kysyy BfN:ltä ja BKG:ltä ja, kun kartta-alueen osavaltiolla on omia avoimia palveluja, niiltä sovittimensa palvelinten kautta (luettelo oppaan luvussa 12); Nordrhein-Westfalenissa se lataa tätä varten ensimmäisellä kerralla noin 32 MB, Brandenburgissa noin 4 MB, myöhemmin vain uudemmat tiedostot. Se lukee jo välimuistissa olevan OSM-otteen; --offline käyttää aiemmin haettua
 help-permits-dir = Projektikansio
 help-permits-offline = Käytä vain aiemmin haettuja tietoja, ei verkkoyhteyttä
 help-run-permits = Kirjoita myös lupahuomautukset (permits.md ja permits.json) kartan jälkeen; kysyy BfN:ltä, BKG:ltä ja osavaltion avoimilta palveluilta (opas, luku 12). Epäonnistuminen siinä on varoitus, ja kartta säilyy
@@ -808,11 +808,11 @@ error-permits-missing-not-read = { $source }: ei luettu
 permits-title = Lupahuomautukset
 permits-disclaimer = Vihje, ei oikeudellista neuvontaa. Toimivaltaiset viranomaiset päättävät. Tietojen päivämäärän ja tarkkuuden löydät taulukosta kohdassa "Lähteet ja tietojen päivämäärä"; alueita voi puuttua tai ne voivat olla vanhentuneita (BfN: yhdistetään kerran vuodessa, "Nicht für Planungszwecke geeignet.", eli ei sovellu suunnitteluun).
 permits-bfn-merge = BfN yhdistää osavaltioiden tiedot kerran vuodessa ja merkitsee ne soveltumattomiksi suunnitteluun. Osavaltion viranomaiset päättävät.
-permits-created = Laadittu { $date }: { $kind ->
+permits-created = Laadittu { $date } { $kind ->
         [schoolyard] koulunpihakartan
         [forest] metsäkartan
        *[other] sprinttikartan
-    } kartta-alue ({ $area } ha).
+    } kartta-alueelle ({ $area } ha).
 permits-section-admin = Hallinnolliset yksiköt
 permits-section-protected = Suojelualueet (BfN)
 permits-section-osm-protected = Lisää suojelualueita OpenStreetMapista
@@ -900,7 +900,7 @@ permits-hint-school-operator = Koulun tai laitoksen hallinnoija OpenStreetMapin 
 permits-section-districts = Bezirke (piirit, { $source })
 permits-section-green-spaces = Viheralueet ({ $source })
 permits-section-owners = Osavaltion ja liittovaltion (Bund) maa ({ $source })
-permits-section-monuments = Muistomerkit ja suojellut kohteet ({ $source })
+permits-section-monuments = Muistomerkit ({ $source })
 permits-section-protected-objects = Luonnonmuistomerkit ja muut suojellut kohteet ({ $source })
 permits-none-districts = Lähteen { $source } mukaan kartta-alue ei ole missään Bezirkissä.
 permits-none-green-spaces = Lähteen { $source } mukaan kartta-alueella ei ole yleistä viheraluetta.
@@ -938,7 +938,7 @@ permits-hint-district-office = { $offices ->
        *[berlin] Katujen, aukioiden ja viheralueiden osalta Bezirkissä { $district } vastuussa ovat yleensä Bezirksamt { $district } -viraston Ordnungsamt (järjestysvirasto) ja Straßen- und Grünflächenamt (katu- ja viheralueyksikkö).
     }
 permits-hint-monument-authority = { $offices ->
-        [hamburg] Kartta-alueen muistomerkkien osalta vastuussa on Denkmalschutzamt Hamburg (muinaismuistovirasto).
+        [hamburg] Kartta-alueen muistomerkkien osalta vastuussa on Denkmalschutzamt Hamburg (muistomerkkien suojeluvirasto).
        *[berlin] Bezirkin { $district } muistomerkkien osalta vastuussa on Bezirksamt { $district } -viraston alempi muistomerkkiviranomainen (untere Denkmalschutzbehörde).
     }
 permits-hint-monument-lower-authority = { $known ->

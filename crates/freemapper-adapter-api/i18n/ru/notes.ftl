@@ -2,7 +2,7 @@
 # Ids: progress- for progress lines, warning- for warnings, word- for names inside other
 # messages. A warning gets its prefix from note-warning.
 
-note-warning = warning: { $text }
+note-warning = предупреждение: { $text }
 
 warning-other-zone = область карты лежит в зоне UTM { $zone } (EPSG:{ $epsg }); freemapper загружает всё заново в этой зоне
 warning-other-state = область карты теперь лежит в данных другой федеральной земли; freemapper загружает всё заново
@@ -286,7 +286,7 @@ warning-nrw-list-no-date = список плиток не даёт даты дл
 
 ## After `init`
 
-note-scale-outside-norm = note: 1:5000 нет в норме спринта; freemapper-print предупреждает об этом, а символы остаются в 100 %
+note-scale-outside-norm = примечание: 1:5000 нет в норме спринта; freemapper-print предупреждает об этом, а символы остаются в 100 %
 
 ## The detail of an error with many forms: a place, a layer
 

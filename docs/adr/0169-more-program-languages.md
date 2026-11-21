@@ -28,3 +28,4 @@ ADR 0168 added Polish by adding catalogs, with no change in freemapper-core. The
 - The binary grows by about 2 MB of text.
 - A catalog that is wrong in a language only shows in that language; the tests check ids and
   variables, not the wording.
+- A second machine read (21 November 2026) fixed wrong terms, grammar and plural branches in all 19 catalogs. It is no substitute for a native speaker; the doubtful terms are listed for them.

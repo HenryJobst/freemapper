@@ -161,7 +161,7 @@ warning-dlm-layer-skipped = ATKIS Basis-DLM { $file } utilgængelig ({ $detail }
 
 ## Tree cadastres
 
-progress-trees-none-stored = intet bytrækatastre gemt; kør `freemapper fetch` online for de enkelte træer
+progress-trees-none-stored = intet bytrækataster gemt; kør `freemapper fetch` online for de enkelte træer
 progress-trees-removing = fjerner de gemte trækatastre: kortområdet ligger ikke længere i en by med et
 warning-trees-folder-outside = bytrækatastre sprunget over ({ $folder } fører ud af projektmappen)
 progress-trees-download = henter bytrækatastrene
@@ -240,7 +240,7 @@ warning-rp-list-unreadable-kept = LVermGeo RP's flisefortegnelse kunne ikke læs
 warning-rp-metalink-not-kept = LVermGeo RP's Metalink blev ikke beholdt: { $error }
 warning-rp-metalink-unreadable-kept = LVermGeo RP's Metalink for { $model } kunne ikke læses ({ $detail }); brugte den, der blev beholdt fra en tidligere kørsel
 warning-rp-metalink-unreadable = LVermGeo RP's Metalink for { $model } kunne ikke læses ({ $detail }), så de fliser, hvis flisefortegnelse ikke giver noget flyveår, forbliver uden højder
-warning-rp-tile-without-name = { $model }-flisen { $tile }: dette 1 km-kvadrat har ingen højder i kortet. LVermGeo RP's flisefortegnelse (Laserbefliegung) { $note } for det, så filnavnet er ikke kendt{ $either ->
+warning-rp-tile-without-name = { $model }-flisen { $tile }: dette 1 km-kvadrat har ingen højder i kortet. LVermGeo RP's flisefortegnelse (Laserbefliegung) { $note } for det, så filnavnet ikke er kendt{ $either ->
         [metalink] , og dets Metalink nævner heller ingen fil til det
        *[none] {""}
     }

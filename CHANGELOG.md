@@ -6,6 +6,10 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+### Geändert
+
+- Zweite Durchsicht der 19 neuen Programmsprachen durch unabhängige Leser (maschinell, kein Muttersprachler): falsche Begriffe, Grammatik, uneinheitliche Anrede, englische Reste und feste Zahlwörter in Pluralzweigen sind korrigiert. Nur Texte, keine Meldungs-IDs (ADR 0169).
+
 ### Hinzugefügt
 
 - 18 weitere Programmsprachen (cs, nl, da, fr, sv, nb, fi, sk, et, it, sl, hu, lt, lv, es, pt, ru, uk) als Texte für Hilfe, Meldungen, Gebietsseite und MCP. Sie sind maschinell entworfen und nicht von Muttersprachlern gelesen; README und Handbuch gibt es nur auf Deutsch, Englisch und Polnisch (ADR 0169). Die Rückfrage von `freemapper update` nimmt das Ja jeder Sprache.
