@@ -8,6 +8,7 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ### Changed
 
+- freemapper uses freemapper-core v0.31.2: fixes in the views of the training map (the no-north-lines and brown-only views knew only code 601, the real codes are 601.1 to 601.4) and a fault in `water()` with NaN; the interface stays.
 - The question of `freemapper update` also takes the spelled-out yes of Czech, Slovak, Estonian, Latvian, Lithuanian, Finnish, Ukrainian and Russian (`ano`, `áno`, `jah`, `jā`, `taip`, `kyllä`, `так`, `д`, `да`).
 - Second read of the 19 new program languages by independent readers (machine, no native speaker): wrong terms, grammar, mixed forms of address, leftover English and fixed numerals in plural branches are corrected. Texts only, no message ids (ADR 0169).
 
