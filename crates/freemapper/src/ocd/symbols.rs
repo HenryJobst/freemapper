@@ -753,6 +753,29 @@ mod tests {
     }
 
     #[test]
+    fn an_area_border_needs_a_width() {
+        let area = |width: f64| OomSymbol {
+            kind: 4,
+            area_color: Some(2),
+            border: Some((7, width)),
+            ..OomSymbol::default()
+        };
+        let border = |width: f64| match placeholder_kind(&HashMap::new(), &area(width)) {
+            Some(PlaceholderKind::Area { border, .. }) => border,
+            other => panic!("{other:?}"),
+        };
+        assert_eq!(
+            border(200.0),
+            Some(Border {
+                color: 7,
+                width: 20,
+                dash: None
+            })
+        );
+        assert_eq!(border(0.0), None);
+    }
+
+    #[test]
     fn placeholder_colour_is_the_symbols_colour() {
         let kinds = [
             PlaceholderKind::Point {
