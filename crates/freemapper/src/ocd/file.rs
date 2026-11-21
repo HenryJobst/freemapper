@@ -11,7 +11,7 @@ pub(crate) const OBJECT_BLOCK_SIZE: usize = 4 + 256 * 40;
 /// Size of a string index block: next + 256 entries of 16 bytes.
 pub(crate) const STRING_BLOCK_SIZE: usize = 4 + 256 * 16;
 const HEADER_SIZE: usize = 60;
-use super::symbols::Hatch;
+use super::symbols::{Hatch, Ring};
 
 const BASE_SYMBOL_SIZE: usize = 796;
 const OBJECT_HEADER_SIZE: usize = 56;
@@ -53,8 +53,12 @@ pub enum TextAlign {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum OcdSymbolKind {
-    /// A filled disc of `diameter` (0.01 mm).
-    Point { color: i16, diameter: i16 },
+    /// A filled disc of `diameter` (0.01 mm; 0 for none) and an optional ring around it.
+    Point {
+        color: i16,
+        diameter: i16,
+        ring: Option<Ring>,
+    },
     /// A line of `width` (0.01 mm), optionally dashed (dash, gap).
     Line {
         color: i16,
@@ -100,7 +104,11 @@ impl OcdSymbol {
     /// Reach of the rendering beyond the coordinates (0.01 mm).
     fn extent(&self) -> i32 {
         match self.kind {
-            OcdSymbolKind::Point { diameter, .. } => (i32::from(diameter) + 1) / 2,
+            OcdSymbolKind::Point { diameter, ring, .. } => {
+                let dot = i32::from(diameter);
+                let ring = ring.map_or(0, |r| i32::from(r.diameter) + i32::from(r.width));
+                (dot.max(ring) + 1) / 2
+            }
             OcdSymbolKind::Line { width, .. } => i32::from(width) / 2,
             OcdSymbolKind::Area { .. } | OcdSymbolKind::Text { .. } => 0,
         }
@@ -334,7 +342,10 @@ fn icon(symbol: &OcdSymbol) -> [u8; 484] {
 
 fn symbol_record(symbol: &OcdSymbol) -> Vec<u8> {
     let size = match symbol.kind {
-        OcdSymbolKind::Point { .. } => 824,
+        // 800 bytes and 3 units of 8 bytes for each element: a dot, a ring or both.
+        OcdSymbolKind::Point { diameter, ring, .. } => {
+            800 + 24 * (usize::from(diameter > 0) + usize::from(ring.is_some()))
+        }
         OcdSymbolKind::Line { .. } => 872,
         OcdSymbolKind::Area { .. } => 832,
         OcdSymbolKind::Text { .. } => 1036,
@@ -357,13 +368,29 @@ fn symbol_record(symbol: &OcdSymbol) -> Vec<u8> {
     r[184..668].copy_from_slice(&icon(symbol));
     let b = BASE_SYMBOL_SIZE;
     match symbol.kind {
-        OcdSymbolKind::Point { color, diameter } => {
-            // One dot element of 3 units: 16-byte header and the centre point.
-            put_u16(&mut r, b, 3);
-            put_i16(&mut r, b + 4, 4);
-            put_i16(&mut r, b + 8, color);
-            put_i16(&mut r, b + 12, diameter);
-            put_i16(&mut r, b + 14, 1);
+        OcdSymbolKind::Point {
+            color,
+            diameter,
+            ring,
+        } => {
+            // Each element has 3 units: a 16-byte header and the centre point.
+            let mut at = b + 4;
+            if let Some(ring) = ring {
+                put_i16(&mut r, at, 3);
+                put_i16(&mut r, at + 4, ring.color);
+                put_i16(&mut r, at + 6, ring.width);
+                put_i16(&mut r, at + 8, ring.diameter);
+                put_i16(&mut r, at + 10, 1);
+                at += 24;
+            }
+            if diameter > 0 {
+                put_i16(&mut r, at, 4);
+                put_i16(&mut r, at + 4, color);
+                put_i16(&mut r, at + 8, diameter);
+                put_i16(&mut r, at + 10, 1);
+                at += 24;
+            }
+            put_u16(&mut r, b, ((at - b - 4) / 8) as u16);
         }
         OcdSymbolKind::Line { color, width, dash } => {
             put_i16(&mut r, b, color);
@@ -505,6 +532,7 @@ mod tests {
             kind: OcdSymbolKind::Point {
                 color: 3,
                 diameter: 50,
+                ring: None,
             },
             icon_color: 10,
         }
@@ -598,6 +626,53 @@ mod tests {
         assert_eq!(file.strings.len(), 300);
         assert_eq!(file.objects[299].coords[0].0, 2990);
         assert_eq!(file.strings[299].text, "Colour 299\tn299");
+    }
+
+    #[test]
+    fn point_symbol_with_ring_and_dot() {
+        let point = |diameter, ring| {
+            let mut b = OcdBuilder::new();
+            b.add_symbol(OcdSymbol {
+                number: 311_000,
+                name: "Well".into(),
+                kind: OcdSymbolKind::Point {
+                    color: 3,
+                    diameter,
+                    ring,
+                },
+                icon_color: 0,
+            })
+            .unwrap();
+            read(&b.finish()).symbols.remove(0)
+        };
+        let ring = Ring {
+            color: 9,
+            width: 20,
+            diameter: 100,
+        };
+        let both = point(40, Some(ring));
+        assert_eq!((both.size, both.extent), (848, 60));
+        let at = |off: usize| i16::from_le_bytes([both.bytes[off], both.bytes[off + 1]]);
+        assert_eq!(at(796), 6, "units");
+        // The ring comes first: type 3, colour, line width, centre-line diameter, one point.
+        assert_eq!(
+            [at(800), at(804), at(806), at(808), at(810)],
+            [3, 9, 20, 100, 1]
+        );
+        // Then the dot: type 4, colour, diameter, one point.
+        assert_eq!([at(824), at(828), at(832), at(834)], [4, 3, 40, 1]);
+        let only_ring = point(0, Some(ring));
+        assert_eq!((only_ring.size, only_ring.extent), (824, 60));
+        assert_eq!(
+            i16::from_le_bytes([only_ring.bytes[796], only_ring.bytes[797]]),
+            3
+        );
+        let only_dot = point(40, None);
+        assert_eq!((only_dot.size, only_dot.extent), (824, 20));
+        assert_eq!(
+            i16::from_le_bytes([only_dot.bytes[800], only_dot.bytes[801]]),
+            4
+        );
     }
 
     #[test]
