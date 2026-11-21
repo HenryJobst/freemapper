@@ -84,10 +84,10 @@ word-stac-no-image = STAC nevedie v strede oblasti mapy žiadny snímok
 word-stac-no-answer = vyhľadávanie v STAC nedalo použiteľnú odpoveď ({ $error })
 warning-downloadcenter-no-file = Downloadcenter nemá súbor pre { $places }
 warning-downloadcenter-no-file-empty = Downloadcenter nemá súbor pre { $places }; { $count ->
-        [one] dlaždica
-        [few] dlaždice
-       *[other] dlaždíc
-    } { $names } zostalo prázdnych
+        [one] dlaždica { $names } zostala prázdna
+        [few] dlaždice { $names } zostali prázdne
+       *[other] dlaždíc { $names } zostalo prázdnych
+    }
 progress-k-five-unchanged = podklad K5 nezmenený
 progress-k-five-download = sťahuje sa mapa K5 (1:5000) zo služby WMS Geoportal Berlin
 warning-k-five-unavailable = mapový podklad K5 nie je k dispozícii ({ $detail }); preskočené

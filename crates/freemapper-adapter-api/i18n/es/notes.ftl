@@ -81,10 +81,10 @@ word-stac-no-image = el STAC no lista ninguna imagen en el centro del área del 
 word-stac-no-answer = la búsqueda STAC no dio una respuesta utilizable ({ $error })
 warning-downloadcenter-no-file = el Downloadcenter no tiene ningún archivo para { $places }
 warning-downloadcenter-no-file-empty = el Downloadcenter no tiene ningún archivo para { $places }; { $count ->
-        [one] la tesela
-        [many] las teselas
-       *[other] las teselas
-    } { $names } quedaron vacías
+        [one] la tesela { $names } quedó vacía
+        [many] las teselas { $names } quedaron vacías
+       *[other] las teselas { $names } quedaron vacías
+    }
 progress-k-five-unchanged = plantilla K5 sin cambios
 progress-k-five-download = descargando el mapa K5 (1:5000) del WMS del Geoportal Berlin
 warning-k-five-unavailable = la plantilla del mapa K5 no está disponible ({ $detail }); omitida
