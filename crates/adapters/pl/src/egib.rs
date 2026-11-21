@@ -135,7 +135,7 @@ pub fn read_page(layer: Layer, body: &[u8], url: &str) -> Result<Page, FetchErro
                         ));
                     }
                     page.next = attribute(&e, "next");
-                } else if draft.is_none() && name == layer.element() {
+                } else if name == layer.element() {
                     draft = Some(Feature {
                         id: String::new(),
                         kind: String::new(),
