@@ -577,6 +577,7 @@ cli-arg-version = Näytä versio
 cli-help-help = Näytä komennon ohje
 cli-arg-help-command = Komento, jonka ohje näytetään, esimerkiksi run
 cli-parse-hint = Lisätietoja saat valitsimella '--help'.
+cli-double-click-start = freemapper avaa selaimessa sivun, jolla valitset kartta-alueen. Projektikansio on { $path }. Sulje tämä ikkuna lopettaaksesi ohjelman.
 cli-parse-unknown-argument = odottamaton argumentti { $arg }
 cli-parse-missing-required = pakollinen argumentti puuttuu: { $args }
 cli-parse-invalid-value = virheellinen arvo { $value } kohteelle { $arg }

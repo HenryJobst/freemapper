@@ -593,6 +593,7 @@ cli-arg-version = Показать версию
 cli-help-help = Показать справку по команде
 cli-arg-help-command = Команда, справку по которой показать, например run
 cli-parse-hint = Подробнее: '--help'.
+cli-double-click-start = freemapper открывает в браузере страницу, на которой вы выбираете область карты. Папка проекта: { $path }. Закройте это окно, чтобы завершить программу.
 cli-parse-unknown-argument = неожиданный аргумент { $arg }
 cli-parse-missing-required = не хватает обязательного аргумента: { $args }
 cli-parse-invalid-value = недопустимое значение { $value } для { $arg }

@@ -577,6 +577,7 @@ cli-arg-version = Versie tonen
 cli-help-help = De help van een opdracht tonen
 cli-arg-help-command = De opdracht waarvan de help wordt getoond, bijvoorbeeld run
 cli-parse-hint = Probeer '--help' voor meer informatie.
+cli-double-click-start = freemapper opent in de browser de pagina waar u het kaartgebied kiest. De projectmap is { $path }. Sluit dit venster om het programma te beëindigen.
 cli-parse-unknown-argument = onverwacht argument { $arg }
 cli-parse-missing-required = vereist argument ontbreekt: { $args }
 cli-parse-invalid-value = ongeldige waarde { $value } voor { $arg }

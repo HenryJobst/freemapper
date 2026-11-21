@@ -577,6 +577,7 @@ cli-arg-version = Verzió megjelenítése
 cli-help-help = Egy parancs súgójának megjelenítése
 cli-arg-help-command = A parancs, amelynek a súgóját mutatja, például run
 cli-parse-hint = További információért próbálja: '--help'.
+cli-double-click-start = A freemapper megnyitja a böngészőben azt az oldalt, ahol kiválasztja a térkép területét. A projektmappa: { $path }. A program befejezéséhez zárja be ezt az ablakot.
 cli-parse-unknown-argument = váratlan argumentum: { $arg }
 cli-parse-missing-required = hiányzó kötelező argumentum: { $args }
 cli-parse-invalid-value = érvénytelen érték: { $value } ehhez: { $arg }
