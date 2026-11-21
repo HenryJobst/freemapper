@@ -620,8 +620,28 @@ mod tests {
             let again = Pl1992::forward(back);
             assert!((again.easting - p.easting).abs() < 1e-3, "{lat} {lon}");
             assert!((again.northing - p.northing).abs() < 1e-3, "{lat} {lon}");
+            // The position itself, to a tenth of a millimetre.
+            assert!((back.lat - lat).abs() < 1e-9, "{lat} {lon}: {}", back.lat);
+            assert!((back.lon - lon).abs() < 1e-9, "{lat} {lon}: {}", back.lon);
         }
         assert!(pl1992_inverse(f64::NAN, 5e5).is_none());
+    }
+
+    #[test]
+    fn a_character_reference_in_a_value_is_read() {
+        let xml = page(0, 1, None).replace("<ms:RODZAJ>m<", "<ms:RODZAJ>a&amp;b&lt;c<");
+        let page = read_page(Layer::Buildings, xml.as_bytes(), URL).unwrap();
+        assert_eq!(page.features[0].kind, "a&b<c");
+    }
+
+    #[test]
+    fn an_answer_cut_after_a_feature_is_an_error() {
+        let whole = page(0, 2, None);
+        let cut = whole
+            .trim_end()
+            .trim_end_matches("</wfs:FeatureCollection>");
+        assert!(read_page(Layer::Buildings, cut.as_bytes(), URL).is_err());
+        assert!(read_page(Layer::Buildings, whole.as_bytes(), URL).is_ok());
     }
 
     /// A building of the fixture lies where Słubice is.
