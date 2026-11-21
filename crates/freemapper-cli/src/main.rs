@@ -23,6 +23,7 @@ mod text;
 mod tiles;
 mod update;
 
+use std::io::IsTerminal as _;
 use std::path::PathBuf;
 
 use anyhow::Context;
@@ -778,6 +779,30 @@ impl From<Kind> for MapKind {
     }
 }
 
+/// Whether the program was most likely started by a double click in the file manager: on Windows,
+/// without any argument, on a console. The window closes with the program, so the person would see
+/// nothing; a bare `freemapper` typed in a terminal looks the same and only waits for Enter once.
+fn opened_by_double_click(
+    windows: bool,
+    arg_count: usize,
+    stdin_tty: bool,
+    stdout_tty: bool,
+) -> bool {
+    windows && arg_count == 1 && stdin_tty && stdout_tty
+}
+
+/// Prints the help and a line on how to start the program, then waits for Enter so the window stays.
+fn show_help_and_wait(command: &mut clap::Command) -> std::process::ExitCode {
+    if let Ok(help) = help::help_of(command, &[]) {
+        print!("{help}");
+    }
+    println!("\n{}", text("cli-double-click-hint", &[]));
+    println!("{}", text("cli-double-click-enter", &[]));
+    let mut line = String::new();
+    let _ = std::io::stdin().read_line(&mut line);
+    std::process::ExitCode::SUCCESS
+}
+
 fn main() -> std::process::ExitCode {
     // The language first: the help and the parse errors need it.
     let args: Vec<std::ffi::OsString> = std::env::args_os().collect();
@@ -807,6 +832,14 @@ fn main() -> std::process::ExitCode {
         }
     };
     let mut command = help::localized(Cli::command(), &lang);
+    if opened_by_double_click(
+        cfg!(windows),
+        args.len(),
+        std::io::stdin().is_terminal(),
+        std::io::stdout().is_terminal(),
+    ) {
+        return show_help_and_wait(&mut command);
+    }
     let matches = match command.clone().try_get_matches_from(args) {
         Ok(matches) => matches,
         Err(error) => return parse_error(error),
@@ -1199,6 +1232,16 @@ fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_bare_start_on_a_windows_console_counts_as_a_double_click() {
+        assert!(opened_by_double_click(true, 1, true, true));
+        // Another system, an argument, a pipe in or out: an ordinary run.
+        assert!(!opened_by_double_click(false, 1, true, true));
+        assert!(!opened_by_double_click(true, 2, true, true));
+        assert!(!opened_by_double_click(true, 1, false, true));
+        assert!(!opened_by_double_click(true, 1, true, false));
+    }
 
     #[test]
     fn select_takes_the_run_flags_as_page_defaults() {

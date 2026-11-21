@@ -155,7 +155,8 @@ freemapper ist ein einzelnes Programm ohne Installer. Es muss nicht selbst gebau
      entpackten Ordner `xattr -d com.apple.quarantine freemapper`.
    - **Linux:** keine Warnung; ggf. `chmod +x freemapper`.
 4. Prüfen im Terminal (Windows: PowerShell) im entpackten Ordner: `./freemapper --version`
-   (Windows: `.\freemapper.exe --version`).
+   (Windows: `.\freemapper.exe --version`). Ein Doppelklick auf das Programm genügt nicht: Es hat kein Fenster und
+   läuft nur im Terminal (Windows: PowerShell, im Explorer in der Adresszeile `powershell` eingeben).
 
 `freemapper update` lädt nach einer Rückfrage die neueste Version und ersetzt das Programm an
 derselben Stelle. Vorher prüft es die Signatur der Version, und das alte Programm bleibt für

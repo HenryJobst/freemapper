@@ -78,6 +78,12 @@ freemapper is a single program without an installer.
    - **Windows:** "Windows protected your PC" → *More info* → *Run anyway*.
    - **macOS:** "cannot be opened …" → *System Settings › Privacy & Security* → *Open Anyway*.
 
+**Do not double-click `freemapper.exe`:** freemapper has no window, it is a command-line program. A double click opens a
+console window for a moment, shows the help and waits for Enter; you can only work with it in a terminal. On Windows
+open PowerShell (Start menu › "PowerShell"), change with `cd` into the folder with `freemapper.exe` (or in
+Explorer: open the folder, type `powershell` into the address bar, press Enter) and call `.\freemapper.exe` there
+with a command, for example `.\freemapper.exe select my-map`.
+
 Note the **full path** to the program, e.g. `C:\Users\Anna\Documents\freemapper\freemapper.exe` or
 `/Users/anna/Documents/freemapper/freemapper`. The assistant needs it.
 

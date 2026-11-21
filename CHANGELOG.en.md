@@ -9,6 +9,7 @@ All notable changes to freemapper are listed here, newest first. The format foll
 ### Added
 
 - Poland takes buildings and land use from the cadastre EGiB of GUGiK, the counterpart of ALKIS: the building footprints with their kind (residential, farm, office building and so on) and the parcels with their land use class (forest, trees, grassland, arable land, water, road). A parcel of two different uses stays without an area, so that a field does not take the colour of the wood beside it. The service of GUGiK answers in pages of 1000 objects; freemapper reads page by page. When the service is down, the run stops with its message. BDOT10k as a fallback follows (ADR 0171). Poland stays a preview and has no permit notes yet.
+- A double click on `freemapper.exe` on Windows shows the help with a note on how to start the program in a terminal and waits for Enter, instead of closing the window at once. A bare call in a terminal shows the same help and also waits for Enter once. The manual and the README say that freemapper is a command-line program with no window.
 - Poland takes its terrain model (NMT), surface model (NMPT) and orthophoto from GUGiK: hillshade, slope, relief, nDSM, contours and aerial photo for an area in Poland. Buildings and land use still come from OpenStreetMap; Poland stays a preview (ADR 0170). The OSM extract of a voivodeship is found again (Geofabrik moved its folders).
 
 ### Changed
