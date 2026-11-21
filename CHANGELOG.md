@@ -14,6 +14,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Geändert
 
+- Die Beispielseite `examples/README.md` zeigt nur noch die Karten: erst die Sprint-, direkt danach die Waldkarten. Der Text dazu (Erzeugung, Zahlen, Quellen, Auswahl der Gebiete, Lizenzen) steht auf der neuen Seite `examples/hintergrund.md`.
 - freemapper nutzt freemapper-core v0.31.2: Korrekturen in den Ansichten der Trainingskarte (Nordlinien- und Nur-braun-Ansicht kannten nur den Code 601, die echten Codes sind 601.1 bis 601.4) und ein Fehler bei `water()` mit NaN; die Schnittstelle bleibt.
 - Die Rückfrage von `freemapper update` nimmt auch das ausgeschriebene Ja von Tschechisch, Slowakisch, Estnisch, Lettisch, Litauisch, Finnisch, Ukrainisch und Russisch (`ano`, `áno`, `jah`, `jā`, `taip`, `kyllä`, `так`, `д`, `да`).
 - Zweite Durchsicht der 19 neuen Programmsprachen durch unabhängige Leser (maschinell, kein Muttersprachler): falsche Begriffe, Grammatik, uneinheitliche Anrede, englische Reste und feste Zahlwörter in Pluralzweigen sind korrigiert. Nur Texte, keine Meldungs-IDs (ADR 0169).
