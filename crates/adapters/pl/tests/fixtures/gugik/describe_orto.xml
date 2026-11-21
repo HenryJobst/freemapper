@@ -1,0 +1,1336 @@
+<?xml version='1.0' encoding="UTF-8" ?>
+<schema
+   targetNamespace="http://www.gugik.gov.pl" 
+   xmlns:gugik="http://www.gugik.gov.pl" 
+   xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+   xmlns="http://www.w3.org/2001/XMLSchema"
+   xmlns:gml="http://www.opengis.net/gml/3.2"
+   elementFormDefault="qualified" version="0.1" >
+
+  <import namespace="http://www.opengis.net/gml/3.2"
+          schemaLocation="http://schemas.opengis.net/gml/3.2.1/gml.xsd" />
+
+  <element name="SkorowidzOrtofomapy1957" 
+           type="gugik:SkorowidzOrtofomapy1957Type" 
+           substitutionGroup="gml:AbstractFeature" />
+
+  <complexType name="SkorowidzOrtofomapy1957Type">
+    <complexContent>
+      <extension base="gml:AbstractFeatureType">
+        <sequence>
+          <element name="msGeometry" type="gml:GeometryPropertyType" minOccurs="0" maxOccurs="1"/>
+          <element name="godlo" minOccurs="0" type="string"/>
+          <element name="akt_rok" minOccurs="0" type="integer"/>
+          <element name="piksel" minOccurs="0" type="double"/>
+          <element name="kolor" minOccurs="0" type="string"/>
+          <element name="zrodlo_danych" minOccurs="0" type="string"/>
+          <element name="uklad_xy" minOccurs="0" type="string"/>
+          <element name="modul_archiwizacji" minOccurs="0" type="string"/>
+          <element name="nr_zglosz" minOccurs="0" type="string"/>
+          <element name="akt_data" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="czy_ark_wypelniony" minOccurs="0" type="string"/>
+          <element name="url_do_pobrania" minOccurs="0" type="string"/>
+          <element name="dt_pzgik" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="wlk_pliku_mb" minOccurs="0" type="double"/>
+        </sequence>
+      </extension>
+    </complexContent>
+  </complexType>
+
+  <element name="SkorowidzOrtofomapy1958" 
+           type="gugik:SkorowidzOrtofomapy1958Type" 
+           substitutionGroup="gml:AbstractFeature" />
+
+  <complexType name="SkorowidzOrtofomapy1958Type">
+    <complexContent>
+      <extension base="gml:AbstractFeatureType">
+        <sequence>
+          <element name="msGeometry" type="gml:GeometryPropertyType" minOccurs="0" maxOccurs="1"/>
+          <element name="godlo" minOccurs="0" type="string"/>
+          <element name="akt_rok" minOccurs="0" type="integer"/>
+          <element name="piksel" minOccurs="0" type="double"/>
+          <element name="kolor" minOccurs="0" type="string"/>
+          <element name="zrodlo_danych" minOccurs="0" type="string"/>
+          <element name="uklad_xy" minOccurs="0" type="string"/>
+          <element name="modul_archiwizacji" minOccurs="0" type="string"/>
+          <element name="nr_zglosz" minOccurs="0" type="string"/>
+          <element name="akt_data" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="czy_ark_wypelniony" minOccurs="0" type="string"/>
+          <element name="url_do_pobrania" minOccurs="0" type="string"/>
+          <element name="dt_pzgik" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="wlk_pliku_mb" minOccurs="0" type="double"/>
+        </sequence>
+      </extension>
+    </complexContent>
+  </complexType>
+
+  <element name="SkorowidzOrtofomapy1961" 
+           type="gugik:SkorowidzOrtofomapy1961Type" 
+           substitutionGroup="gml:AbstractFeature" />
+
+  <complexType name="SkorowidzOrtofomapy1961Type">
+    <complexContent>
+      <extension base="gml:AbstractFeatureType">
+        <sequence>
+          <element name="msGeometry" type="gml:GeometryPropertyType" minOccurs="0" maxOccurs="1"/>
+          <element name="godlo" minOccurs="0" type="string"/>
+          <element name="akt_rok" minOccurs="0" type="integer"/>
+          <element name="piksel" minOccurs="0" type="double"/>
+          <element name="kolor" minOccurs="0" type="string"/>
+          <element name="zrodlo_danych" minOccurs="0" type="string"/>
+          <element name="uklad_xy" minOccurs="0" type="string"/>
+          <element name="modul_archiwizacji" minOccurs="0" type="string"/>
+          <element name="nr_zglosz" minOccurs="0" type="string"/>
+          <element name="akt_data" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="czy_ark_wypelniony" minOccurs="0" type="string"/>
+          <element name="url_do_pobrania" minOccurs="0" type="string"/>
+          <element name="dt_pzgik" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="wlk_pliku_mb" minOccurs="0" type="double"/>
+        </sequence>
+      </extension>
+    </complexContent>
+  </complexType>
+
+  <element name="SkorowidzOrtofomapy1965" 
+           type="gugik:SkorowidzOrtofomapy1965Type" 
+           substitutionGroup="gml:AbstractFeature" />
+
+  <complexType name="SkorowidzOrtofomapy1965Type">
+    <complexContent>
+      <extension base="gml:AbstractFeatureType">
+        <sequence>
+          <element name="msGeometry" type="gml:GeometryPropertyType" minOccurs="0" maxOccurs="1"/>
+          <element name="godlo" minOccurs="0" type="string"/>
+          <element name="akt_rok" minOccurs="0" type="integer"/>
+          <element name="piksel" minOccurs="0" type="double"/>
+          <element name="kolor" minOccurs="0" type="string"/>
+          <element name="zrodlo_danych" minOccurs="0" type="string"/>
+          <element name="uklad_xy" minOccurs="0" type="string"/>
+          <element name="modul_archiwizacji" minOccurs="0" type="string"/>
+          <element name="nr_zglosz" minOccurs="0" type="string"/>
+          <element name="akt_data" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="czy_ark_wypelniony" minOccurs="0" type="string"/>
+          <element name="url_do_pobrania" minOccurs="0" type="string"/>
+          <element name="dt_pzgik" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="wlk_pliku_mb" minOccurs="0" type="double"/>
+        </sequence>
+      </extension>
+    </complexContent>
+  </complexType>
+
+  <element name="SkorowidzOrtofomapy1967" 
+           type="gugik:SkorowidzOrtofomapy1967Type" 
+           substitutionGroup="gml:AbstractFeature" />
+
+  <complexType name="SkorowidzOrtofomapy1967Type">
+    <complexContent>
+      <extension base="gml:AbstractFeatureType">
+        <sequence>
+          <element name="msGeometry" type="gml:GeometryPropertyType" minOccurs="0" maxOccurs="1"/>
+          <element name="godlo" minOccurs="0" type="string"/>
+          <element name="akt_rok" minOccurs="0" type="integer"/>
+          <element name="piksel" minOccurs="0" type="double"/>
+          <element name="kolor" minOccurs="0" type="string"/>
+          <element name="zrodlo_danych" minOccurs="0" type="string"/>
+          <element name="uklad_xy" minOccurs="0" type="string"/>
+          <element name="modul_archiwizacji" minOccurs="0" type="string"/>
+          <element name="nr_zglosz" minOccurs="0" type="string"/>
+          <element name="akt_data" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="czy_ark_wypelniony" minOccurs="0" type="string"/>
+          <element name="url_do_pobrania" minOccurs="0" type="string"/>
+          <element name="dt_pzgik" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="wlk_pliku_mb" minOccurs="0" type="double"/>
+        </sequence>
+      </extension>
+    </complexContent>
+  </complexType>
+
+  <element name="SkorowidzOrtofomapy1969" 
+           type="gugik:SkorowidzOrtofomapy1969Type" 
+           substitutionGroup="gml:AbstractFeature" />
+
+  <complexType name="SkorowidzOrtofomapy1969Type">
+    <complexContent>
+      <extension base="gml:AbstractFeatureType">
+        <sequence>
+          <element name="msGeometry" type="gml:GeometryPropertyType" minOccurs="0" maxOccurs="1"/>
+          <element name="godlo" minOccurs="0" type="string"/>
+          <element name="akt_rok" minOccurs="0" type="integer"/>
+          <element name="piksel" minOccurs="0" type="double"/>
+          <element name="kolor" minOccurs="0" type="string"/>
+          <element name="zrodlo_danych" minOccurs="0" type="string"/>
+          <element name="uklad_xy" minOccurs="0" type="string"/>
+          <element name="modul_archiwizacji" minOccurs="0" type="string"/>
+          <element name="nr_zglosz" minOccurs="0" type="string"/>
+          <element name="akt_data" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="czy_ark_wypelniony" minOccurs="0" type="string"/>
+          <element name="url_do_pobrania" minOccurs="0" type="string"/>
+          <element name="dt_pzgik" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="wlk_pliku_mb" minOccurs="0" type="double"/>
+        </sequence>
+      </extension>
+    </complexContent>
+  </complexType>
+
+  <element name="SkorowidzOrtofomapy1971" 
+           type="gugik:SkorowidzOrtofomapy1971Type" 
+           substitutionGroup="gml:AbstractFeature" />
+
+  <complexType name="SkorowidzOrtofomapy1971Type">
+    <complexContent>
+      <extension base="gml:AbstractFeatureType">
+        <sequence>
+          <element name="msGeometry" type="gml:GeometryPropertyType" minOccurs="0" maxOccurs="1"/>
+          <element name="godlo" minOccurs="0" type="string"/>
+          <element name="akt_rok" minOccurs="0" type="integer"/>
+          <element name="piksel" minOccurs="0" type="double"/>
+          <element name="kolor" minOccurs="0" type="string"/>
+          <element name="zrodlo_danych" minOccurs="0" type="string"/>
+          <element name="uklad_xy" minOccurs="0" type="string"/>
+          <element name="modul_archiwizacji" minOccurs="0" type="string"/>
+          <element name="nr_zglosz" minOccurs="0" type="string"/>
+          <element name="akt_data" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="czy_ark_wypelniony" minOccurs="0" type="string"/>
+          <element name="url_do_pobrania" minOccurs="0" type="string"/>
+          <element name="dt_pzgik" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="wlk_pliku_mb" minOccurs="0" type="double"/>
+        </sequence>
+      </extension>
+    </complexContent>
+  </complexType>
+
+  <element name="SkorowidzOrtofomapy1972" 
+           type="gugik:SkorowidzOrtofomapy1972Type" 
+           substitutionGroup="gml:AbstractFeature" />
+
+  <complexType name="SkorowidzOrtofomapy1972Type">
+    <complexContent>
+      <extension base="gml:AbstractFeatureType">
+        <sequence>
+          <element name="msGeometry" type="gml:GeometryPropertyType" minOccurs="0" maxOccurs="1"/>
+          <element name="godlo" minOccurs="0" type="string"/>
+          <element name="akt_rok" minOccurs="0" type="integer"/>
+          <element name="piksel" minOccurs="0" type="double"/>
+          <element name="kolor" minOccurs="0" type="string"/>
+          <element name="zrodlo_danych" minOccurs="0" type="string"/>
+          <element name="uklad_xy" minOccurs="0" type="string"/>
+          <element name="modul_archiwizacji" minOccurs="0" type="string"/>
+          <element name="nr_zglosz" minOccurs="0" type="string"/>
+          <element name="akt_data" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="czy_ark_wypelniony" minOccurs="0" type="string"/>
+          <element name="url_do_pobrania" minOccurs="0" type="string"/>
+          <element name="dt_pzgik" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="wlk_pliku_mb" minOccurs="0" type="double"/>
+        </sequence>
+      </extension>
+    </complexContent>
+  </complexType>
+
+  <element name="SkorowidzOrtofomapy1973" 
+           type="gugik:SkorowidzOrtofomapy1973Type" 
+           substitutionGroup="gml:AbstractFeature" />
+
+  <complexType name="SkorowidzOrtofomapy1973Type">
+    <complexContent>
+      <extension base="gml:AbstractFeatureType">
+        <sequence>
+          <element name="msGeometry" type="gml:GeometryPropertyType" minOccurs="0" maxOccurs="1"/>
+          <element name="godlo" minOccurs="0" type="string"/>
+          <element name="akt_rok" minOccurs="0" type="integer"/>
+          <element name="piksel" minOccurs="0" type="double"/>
+          <element name="kolor" minOccurs="0" type="string"/>
+          <element name="zrodlo_danych" minOccurs="0" type="string"/>
+          <element name="uklad_xy" minOccurs="0" type="string"/>
+          <element name="modul_archiwizacji" minOccurs="0" type="string"/>
+          <element name="nr_zglosz" minOccurs="0" type="string"/>
+          <element name="akt_data" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="czy_ark_wypelniony" minOccurs="0" type="string"/>
+          <element name="url_do_pobrania" minOccurs="0" type="string"/>
+          <element name="dt_pzgik" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="wlk_pliku_mb" minOccurs="0" type="double"/>
+        </sequence>
+      </extension>
+    </complexContent>
+  </complexType>
+
+  <element name="SkorowidzOrtofomapy1976" 
+           type="gugik:SkorowidzOrtofomapy1976Type" 
+           substitutionGroup="gml:AbstractFeature" />
+
+  <complexType name="SkorowidzOrtofomapy1976Type">
+    <complexContent>
+      <extension base="gml:AbstractFeatureType">
+        <sequence>
+          <element name="msGeometry" type="gml:GeometryPropertyType" minOccurs="0" maxOccurs="1"/>
+          <element name="godlo" minOccurs="0" type="string"/>
+          <element name="akt_rok" minOccurs="0" type="integer"/>
+          <element name="piksel" minOccurs="0" type="double"/>
+          <element name="kolor" minOccurs="0" type="string"/>
+          <element name="zrodlo_danych" minOccurs="0" type="string"/>
+          <element name="uklad_xy" minOccurs="0" type="string"/>
+          <element name="modul_archiwizacji" minOccurs="0" type="string"/>
+          <element name="nr_zglosz" minOccurs="0" type="string"/>
+          <element name="akt_data" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="czy_ark_wypelniony" minOccurs="0" type="string"/>
+          <element name="url_do_pobrania" minOccurs="0" type="string"/>
+          <element name="dt_pzgik" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="wlk_pliku_mb" minOccurs="0" type="double"/>
+        </sequence>
+      </extension>
+    </complexContent>
+  </complexType>
+
+  <element name="SkorowidzOrtofomapy1979" 
+           type="gugik:SkorowidzOrtofomapy1979Type" 
+           substitutionGroup="gml:AbstractFeature" />
+
+  <complexType name="SkorowidzOrtofomapy1979Type">
+    <complexContent>
+      <extension base="gml:AbstractFeatureType">
+        <sequence>
+          <element name="msGeometry" type="gml:GeometryPropertyType" minOccurs="0" maxOccurs="1"/>
+          <element name="godlo" minOccurs="0" type="string"/>
+          <element name="akt_rok" minOccurs="0" type="integer"/>
+          <element name="piksel" minOccurs="0" type="double"/>
+          <element name="kolor" minOccurs="0" type="string"/>
+          <element name="zrodlo_danych" minOccurs="0" type="string"/>
+          <element name="uklad_xy" minOccurs="0" type="string"/>
+          <element name="modul_archiwizacji" minOccurs="0" type="string"/>
+          <element name="nr_zglosz" minOccurs="0" type="string"/>
+          <element name="akt_data" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="czy_ark_wypelniony" minOccurs="0" type="string"/>
+          <element name="url_do_pobrania" minOccurs="0" type="string"/>
+          <element name="dt_pzgik" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="wlk_pliku_mb" minOccurs="0" type="double"/>
+        </sequence>
+      </extension>
+    </complexContent>
+  </complexType>
+
+  <element name="SkorowidzOrtofomapy1980" 
+           type="gugik:SkorowidzOrtofomapy1980Type" 
+           substitutionGroup="gml:AbstractFeature" />
+
+  <complexType name="SkorowidzOrtofomapy1980Type">
+    <complexContent>
+      <extension base="gml:AbstractFeatureType">
+        <sequence>
+          <element name="msGeometry" type="gml:GeometryPropertyType" minOccurs="0" maxOccurs="1"/>
+          <element name="godlo" minOccurs="0" type="string"/>
+          <element name="akt_rok" minOccurs="0" type="integer"/>
+          <element name="piksel" minOccurs="0" type="double"/>
+          <element name="kolor" minOccurs="0" type="string"/>
+          <element name="zrodlo_danych" minOccurs="0" type="string"/>
+          <element name="uklad_xy" minOccurs="0" type="string"/>
+          <element name="modul_archiwizacji" minOccurs="0" type="string"/>
+          <element name="nr_zglosz" minOccurs="0" type="string"/>
+          <element name="akt_data" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="czy_ark_wypelniony" minOccurs="0" type="string"/>
+          <element name="url_do_pobrania" minOccurs="0" type="string"/>
+          <element name="dt_pzgik" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="wlk_pliku_mb" minOccurs="0" type="double"/>
+        </sequence>
+      </extension>
+    </complexContent>
+  </complexType>
+
+  <element name="SkorowidzOrtofomapy1982" 
+           type="gugik:SkorowidzOrtofomapy1982Type" 
+           substitutionGroup="gml:AbstractFeature" />
+
+  <complexType name="SkorowidzOrtofomapy1982Type">
+    <complexContent>
+      <extension base="gml:AbstractFeatureType">
+        <sequence>
+          <element name="msGeometry" type="gml:GeometryPropertyType" minOccurs="0" maxOccurs="1"/>
+          <element name="godlo" minOccurs="0" type="string"/>
+          <element name="akt_rok" minOccurs="0" type="integer"/>
+          <element name="piksel" minOccurs="0" type="double"/>
+          <element name="kolor" minOccurs="0" type="string"/>
+          <element name="zrodlo_danych" minOccurs="0" type="string"/>
+          <element name="uklad_xy" minOccurs="0" type="string"/>
+          <element name="modul_archiwizacji" minOccurs="0" type="string"/>
+          <element name="nr_zglosz" minOccurs="0" type="string"/>
+          <element name="akt_data" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="czy_ark_wypelniony" minOccurs="0" type="string"/>
+          <element name="url_do_pobrania" minOccurs="0" type="string"/>
+          <element name="dt_pzgik" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="wlk_pliku_mb" minOccurs="0" type="double"/>
+        </sequence>
+      </extension>
+    </complexContent>
+  </complexType>
+
+  <element name="SkorowidzOrtofomapy1984" 
+           type="gugik:SkorowidzOrtofomapy1984Type" 
+           substitutionGroup="gml:AbstractFeature" />
+
+  <complexType name="SkorowidzOrtofomapy1984Type">
+    <complexContent>
+      <extension base="gml:AbstractFeatureType">
+        <sequence>
+          <element name="msGeometry" type="gml:GeometryPropertyType" minOccurs="0" maxOccurs="1"/>
+          <element name="godlo" minOccurs="0" type="string"/>
+          <element name="akt_rok" minOccurs="0" type="integer"/>
+          <element name="piksel" minOccurs="0" type="double"/>
+          <element name="kolor" minOccurs="0" type="string"/>
+          <element name="zrodlo_danych" minOccurs="0" type="string"/>
+          <element name="uklad_xy" minOccurs="0" type="string"/>
+          <element name="modul_archiwizacji" minOccurs="0" type="string"/>
+          <element name="nr_zglosz" minOccurs="0" type="string"/>
+          <element name="akt_data" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="czy_ark_wypelniony" minOccurs="0" type="string"/>
+          <element name="url_do_pobrania" minOccurs="0" type="string"/>
+          <element name="dt_pzgik" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="wlk_pliku_mb" minOccurs="0" type="double"/>
+        </sequence>
+      </extension>
+    </complexContent>
+  </complexType>
+
+  <element name="SkorowidzOrtofomapy1987" 
+           type="gugik:SkorowidzOrtofomapy1987Type" 
+           substitutionGroup="gml:AbstractFeature" />
+
+  <complexType name="SkorowidzOrtofomapy1987Type">
+    <complexContent>
+      <extension base="gml:AbstractFeatureType">
+        <sequence>
+          <element name="msGeometry" type="gml:GeometryPropertyType" minOccurs="0" maxOccurs="1"/>
+          <element name="godlo" minOccurs="0" type="string"/>
+          <element name="akt_rok" minOccurs="0" type="integer"/>
+          <element name="piksel" minOccurs="0" type="double"/>
+          <element name="kolor" minOccurs="0" type="string"/>
+          <element name="zrodlo_danych" minOccurs="0" type="string"/>
+          <element name="uklad_xy" minOccurs="0" type="string"/>
+          <element name="modul_archiwizacji" minOccurs="0" type="string"/>
+          <element name="nr_zglosz" minOccurs="0" type="string"/>
+          <element name="akt_data" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="czy_ark_wypelniony" minOccurs="0" type="string"/>
+          <element name="url_do_pobrania" minOccurs="0" type="string"/>
+          <element name="dt_pzgik" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="wlk_pliku_mb" minOccurs="0" type="double"/>
+        </sequence>
+      </extension>
+    </complexContent>
+  </complexType>
+
+  <element name="SkorowidzOrtofomapy1990" 
+           type="gugik:SkorowidzOrtofomapy1990Type" 
+           substitutionGroup="gml:AbstractFeature" />
+
+  <complexType name="SkorowidzOrtofomapy1990Type">
+    <complexContent>
+      <extension base="gml:AbstractFeatureType">
+        <sequence>
+          <element name="msGeometry" type="gml:GeometryPropertyType" minOccurs="0" maxOccurs="1"/>
+          <element name="godlo" minOccurs="0" type="string"/>
+          <element name="akt_rok" minOccurs="0" type="integer"/>
+          <element name="piksel" minOccurs="0" type="double"/>
+          <element name="kolor" minOccurs="0" type="string"/>
+          <element name="zrodlo_danych" minOccurs="0" type="string"/>
+          <element name="uklad_xy" minOccurs="0" type="string"/>
+          <element name="modul_archiwizacji" minOccurs="0" type="string"/>
+          <element name="nr_zglosz" minOccurs="0" type="string"/>
+          <element name="akt_data" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="czy_ark_wypelniony" minOccurs="0" type="string"/>
+          <element name="url_do_pobrania" minOccurs="0" type="string"/>
+          <element name="dt_pzgik" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="wlk_pliku_mb" minOccurs="0" type="double"/>
+        </sequence>
+      </extension>
+    </complexContent>
+  </complexType>
+
+  <element name="SkorowidzOrtofomapy1992" 
+           type="gugik:SkorowidzOrtofomapy1992Type" 
+           substitutionGroup="gml:AbstractFeature" />
+
+  <complexType name="SkorowidzOrtofomapy1992Type">
+    <complexContent>
+      <extension base="gml:AbstractFeatureType">
+        <sequence>
+          <element name="msGeometry" type="gml:GeometryPropertyType" minOccurs="0" maxOccurs="1"/>
+          <element name="godlo" minOccurs="0" type="string"/>
+          <element name="akt_rok" minOccurs="0" type="integer"/>
+          <element name="piksel" minOccurs="0" type="double"/>
+          <element name="kolor" minOccurs="0" type="string"/>
+          <element name="zrodlo_danych" minOccurs="0" type="string"/>
+          <element name="uklad_xy" minOccurs="0" type="string"/>
+          <element name="modul_archiwizacji" minOccurs="0" type="string"/>
+          <element name="nr_zglosz" minOccurs="0" type="string"/>
+          <element name="akt_data" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="czy_ark_wypelniony" minOccurs="0" type="string"/>
+          <element name="url_do_pobrania" minOccurs="0" type="string"/>
+          <element name="dt_pzgik" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="wlk_pliku_mb" minOccurs="0" type="double"/>
+        </sequence>
+      </extension>
+    </complexContent>
+  </complexType>
+
+  <element name="SkorowidzOrtofomapy1995" 
+           type="gugik:SkorowidzOrtofomapy1995Type" 
+           substitutionGroup="gml:AbstractFeature" />
+
+  <complexType name="SkorowidzOrtofomapy1995Type">
+    <complexContent>
+      <extension base="gml:AbstractFeatureType">
+        <sequence>
+          <element name="msGeometry" type="gml:GeometryPropertyType" minOccurs="0" maxOccurs="1"/>
+          <element name="godlo" minOccurs="0" type="string"/>
+          <element name="akt_rok" minOccurs="0" type="integer"/>
+          <element name="piksel" minOccurs="0" type="double"/>
+          <element name="kolor" minOccurs="0" type="string"/>
+          <element name="zrodlo_danych" minOccurs="0" type="string"/>
+          <element name="uklad_xy" minOccurs="0" type="string"/>
+          <element name="modul_archiwizacji" minOccurs="0" type="string"/>
+          <element name="nr_zglosz" minOccurs="0" type="string"/>
+          <element name="akt_data" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="czy_ark_wypelniony" minOccurs="0" type="string"/>
+          <element name="url_do_pobrania" minOccurs="0" type="string"/>
+          <element name="dt_pzgik" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="wlk_pliku_mb" minOccurs="0" type="double"/>
+        </sequence>
+      </extension>
+    </complexContent>
+  </complexType>
+
+  <element name="SkorowidzOrtofomapy1996" 
+           type="gugik:SkorowidzOrtofomapy1996Type" 
+           substitutionGroup="gml:AbstractFeature" />
+
+  <complexType name="SkorowidzOrtofomapy1996Type">
+    <complexContent>
+      <extension base="gml:AbstractFeatureType">
+        <sequence>
+          <element name="msGeometry" type="gml:GeometryPropertyType" minOccurs="0" maxOccurs="1"/>
+          <element name="godlo" minOccurs="0" type="string"/>
+          <element name="akt_rok" minOccurs="0" type="integer"/>
+          <element name="piksel" minOccurs="0" type="double"/>
+          <element name="kolor" minOccurs="0" type="string"/>
+          <element name="zrodlo_danych" minOccurs="0" type="string"/>
+          <element name="uklad_xy" minOccurs="0" type="string"/>
+          <element name="modul_archiwizacji" minOccurs="0" type="string"/>
+          <element name="nr_zglosz" minOccurs="0" type="string"/>
+          <element name="akt_data" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="czy_ark_wypelniony" minOccurs="0" type="string"/>
+          <element name="url_do_pobrania" minOccurs="0" type="string"/>
+          <element name="dt_pzgik" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="wlk_pliku_mb" minOccurs="0" type="double"/>
+        </sequence>
+      </extension>
+    </complexContent>
+  </complexType>
+
+  <element name="SkorowidzOrtofomapy1997" 
+           type="gugik:SkorowidzOrtofomapy1997Type" 
+           substitutionGroup="gml:AbstractFeature" />
+
+  <complexType name="SkorowidzOrtofomapy1997Type">
+    <complexContent>
+      <extension base="gml:AbstractFeatureType">
+        <sequence>
+          <element name="msGeometry" type="gml:GeometryPropertyType" minOccurs="0" maxOccurs="1"/>
+          <element name="godlo" minOccurs="0" type="string"/>
+          <element name="akt_rok" minOccurs="0" type="integer"/>
+          <element name="piksel" minOccurs="0" type="double"/>
+          <element name="kolor" minOccurs="0" type="string"/>
+          <element name="zrodlo_danych" minOccurs="0" type="string"/>
+          <element name="uklad_xy" minOccurs="0" type="string"/>
+          <element name="modul_archiwizacji" minOccurs="0" type="string"/>
+          <element name="nr_zglosz" minOccurs="0" type="string"/>
+          <element name="akt_data" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="czy_ark_wypelniony" minOccurs="0" type="string"/>
+          <element name="url_do_pobrania" minOccurs="0" type="string"/>
+          <element name="dt_pzgik" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="wlk_pliku_mb" minOccurs="0" type="double"/>
+        </sequence>
+      </extension>
+    </complexContent>
+  </complexType>
+
+  <element name="SkorowidzOrtofomapy1998" 
+           type="gugik:SkorowidzOrtofomapy1998Type" 
+           substitutionGroup="gml:AbstractFeature" />
+
+  <complexType name="SkorowidzOrtofomapy1998Type">
+    <complexContent>
+      <extension base="gml:AbstractFeatureType">
+        <sequence>
+          <element name="msGeometry" type="gml:GeometryPropertyType" minOccurs="0" maxOccurs="1"/>
+          <element name="godlo" minOccurs="0" type="string"/>
+          <element name="akt_rok" minOccurs="0" type="integer"/>
+          <element name="piksel" minOccurs="0" type="double"/>
+          <element name="kolor" minOccurs="0" type="string"/>
+          <element name="zrodlo_danych" minOccurs="0" type="string"/>
+          <element name="uklad_xy" minOccurs="0" type="string"/>
+          <element name="modul_archiwizacji" minOccurs="0" type="string"/>
+          <element name="nr_zglosz" minOccurs="0" type="string"/>
+          <element name="akt_data" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="czy_ark_wypelniony" minOccurs="0" type="string"/>
+          <element name="url_do_pobrania" minOccurs="0" type="string"/>
+          <element name="dt_pzgik" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="wlk_pliku_mb" minOccurs="0" type="double"/>
+        </sequence>
+      </extension>
+    </complexContent>
+  </complexType>
+
+  <element name="SkorowidzOrtofomapy1999" 
+           type="gugik:SkorowidzOrtofomapy1999Type" 
+           substitutionGroup="gml:AbstractFeature" />
+
+  <complexType name="SkorowidzOrtofomapy1999Type">
+    <complexContent>
+      <extension base="gml:AbstractFeatureType">
+        <sequence>
+          <element name="msGeometry" type="gml:GeometryPropertyType" minOccurs="0" maxOccurs="1"/>
+          <element name="godlo" minOccurs="0" type="string"/>
+          <element name="akt_rok" minOccurs="0" type="integer"/>
+          <element name="piksel" minOccurs="0" type="double"/>
+          <element name="kolor" minOccurs="0" type="string"/>
+          <element name="zrodlo_danych" minOccurs="0" type="string"/>
+          <element name="uklad_xy" minOccurs="0" type="string"/>
+          <element name="modul_archiwizacji" minOccurs="0" type="string"/>
+          <element name="nr_zglosz" minOccurs="0" type="string"/>
+          <element name="akt_data" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="czy_ark_wypelniony" minOccurs="0" type="string"/>
+          <element name="url_do_pobrania" minOccurs="0" type="string"/>
+          <element name="dt_pzgik" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="wlk_pliku_mb" minOccurs="0" type="double"/>
+        </sequence>
+      </extension>
+    </complexContent>
+  </complexType>
+
+  <element name="SkorowidzOrtofomapy2000" 
+           type="gugik:SkorowidzOrtofomapy2000Type" 
+           substitutionGroup="gml:AbstractFeature" />
+
+  <complexType name="SkorowidzOrtofomapy2000Type">
+    <complexContent>
+      <extension base="gml:AbstractFeatureType">
+        <sequence>
+          <element name="msGeometry" type="gml:GeometryPropertyType" minOccurs="0" maxOccurs="1"/>
+          <element name="godlo" minOccurs="0" type="string"/>
+          <element name="akt_rok" minOccurs="0" type="integer"/>
+          <element name="piksel" minOccurs="0" type="double"/>
+          <element name="kolor" minOccurs="0" type="string"/>
+          <element name="zrodlo_danych" minOccurs="0" type="string"/>
+          <element name="uklad_xy" minOccurs="0" type="string"/>
+          <element name="modul_archiwizacji" minOccurs="0" type="string"/>
+          <element name="nr_zglosz" minOccurs="0" type="string"/>
+          <element name="akt_data" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="czy_ark_wypelniony" minOccurs="0" type="string"/>
+          <element name="url_do_pobrania" minOccurs="0" type="string"/>
+          <element name="dt_pzgik" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="wlk_pliku_mb" minOccurs="0" type="double"/>
+        </sequence>
+      </extension>
+    </complexContent>
+  </complexType>
+
+  <element name="SkorowidzOrtofomapy2001" 
+           type="gugik:SkorowidzOrtofomapy2001Type" 
+           substitutionGroup="gml:AbstractFeature" />
+
+  <complexType name="SkorowidzOrtofomapy2001Type">
+    <complexContent>
+      <extension base="gml:AbstractFeatureType">
+        <sequence>
+          <element name="msGeometry" type="gml:GeometryPropertyType" minOccurs="0" maxOccurs="1"/>
+          <element name="godlo" minOccurs="0" type="string"/>
+          <element name="akt_rok" minOccurs="0" type="integer"/>
+          <element name="piksel" minOccurs="0" type="double"/>
+          <element name="kolor" minOccurs="0" type="string"/>
+          <element name="zrodlo_danych" minOccurs="0" type="string"/>
+          <element name="uklad_xy" minOccurs="0" type="string"/>
+          <element name="modul_archiwizacji" minOccurs="0" type="string"/>
+          <element name="nr_zglosz" minOccurs="0" type="string"/>
+          <element name="akt_data" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="czy_ark_wypelniony" minOccurs="0" type="string"/>
+          <element name="url_do_pobrania" minOccurs="0" type="string"/>
+          <element name="dt_pzgik" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="wlk_pliku_mb" minOccurs="0" type="double"/>
+        </sequence>
+      </extension>
+    </complexContent>
+  </complexType>
+
+  <element name="SkorowidzOrtofomapy2002" 
+           type="gugik:SkorowidzOrtofomapy2002Type" 
+           substitutionGroup="gml:AbstractFeature" />
+
+  <complexType name="SkorowidzOrtofomapy2002Type">
+    <complexContent>
+      <extension base="gml:AbstractFeatureType">
+        <sequence>
+          <element name="msGeometry" type="gml:GeometryPropertyType" minOccurs="0" maxOccurs="1"/>
+          <element name="godlo" minOccurs="0" type="string"/>
+          <element name="akt_rok" minOccurs="0" type="integer"/>
+          <element name="piksel" minOccurs="0" type="double"/>
+          <element name="kolor" minOccurs="0" type="string"/>
+          <element name="zrodlo_danych" minOccurs="0" type="string"/>
+          <element name="uklad_xy" minOccurs="0" type="string"/>
+          <element name="modul_archiwizacji" minOccurs="0" type="string"/>
+          <element name="nr_zglosz" minOccurs="0" type="string"/>
+          <element name="akt_data" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="czy_ark_wypelniony" minOccurs="0" type="string"/>
+          <element name="url_do_pobrania" minOccurs="0" type="string"/>
+          <element name="dt_pzgik" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="wlk_pliku_mb" minOccurs="0" type="double"/>
+        </sequence>
+      </extension>
+    </complexContent>
+  </complexType>
+
+  <element name="SkorowidzOrtofomapy2003" 
+           type="gugik:SkorowidzOrtofomapy2003Type" 
+           substitutionGroup="gml:AbstractFeature" />
+
+  <complexType name="SkorowidzOrtofomapy2003Type">
+    <complexContent>
+      <extension base="gml:AbstractFeatureType">
+        <sequence>
+          <element name="msGeometry" type="gml:GeometryPropertyType" minOccurs="0" maxOccurs="1"/>
+          <element name="godlo" minOccurs="0" type="string"/>
+          <element name="akt_rok" minOccurs="0" type="integer"/>
+          <element name="piksel" minOccurs="0" type="double"/>
+          <element name="kolor" minOccurs="0" type="string"/>
+          <element name="zrodlo_danych" minOccurs="0" type="string"/>
+          <element name="uklad_xy" minOccurs="0" type="string"/>
+          <element name="modul_archiwizacji" minOccurs="0" type="string"/>
+          <element name="nr_zglosz" minOccurs="0" type="string"/>
+          <element name="akt_data" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="czy_ark_wypelniony" minOccurs="0" type="string"/>
+          <element name="url_do_pobrania" minOccurs="0" type="string"/>
+          <element name="dt_pzgik" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="wlk_pliku_mb" minOccurs="0" type="double"/>
+        </sequence>
+      </extension>
+    </complexContent>
+  </complexType>
+
+  <element name="SkorowidzOrtofomapy2004" 
+           type="gugik:SkorowidzOrtofomapy2004Type" 
+           substitutionGroup="gml:AbstractFeature" />
+
+  <complexType name="SkorowidzOrtofomapy2004Type">
+    <complexContent>
+      <extension base="gml:AbstractFeatureType">
+        <sequence>
+          <element name="msGeometry" type="gml:GeometryPropertyType" minOccurs="0" maxOccurs="1"/>
+          <element name="godlo" minOccurs="0" type="string"/>
+          <element name="akt_rok" minOccurs="0" type="integer"/>
+          <element name="piksel" minOccurs="0" type="double"/>
+          <element name="kolor" minOccurs="0" type="string"/>
+          <element name="zrodlo_danych" minOccurs="0" type="string"/>
+          <element name="uklad_xy" minOccurs="0" type="string"/>
+          <element name="modul_archiwizacji" minOccurs="0" type="string"/>
+          <element name="nr_zglosz" minOccurs="0" type="string"/>
+          <element name="akt_data" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="czy_ark_wypelniony" minOccurs="0" type="string"/>
+          <element name="url_do_pobrania" minOccurs="0" type="string"/>
+          <element name="dt_pzgik" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="wlk_pliku_mb" minOccurs="0" type="double"/>
+        </sequence>
+      </extension>
+    </complexContent>
+  </complexType>
+
+  <element name="SkorowidzOrtofomapy2005" 
+           type="gugik:SkorowidzOrtofomapy2005Type" 
+           substitutionGroup="gml:AbstractFeature" />
+
+  <complexType name="SkorowidzOrtofomapy2005Type">
+    <complexContent>
+      <extension base="gml:AbstractFeatureType">
+        <sequence>
+          <element name="msGeometry" type="gml:GeometryPropertyType" minOccurs="0" maxOccurs="1"/>
+          <element name="godlo" minOccurs="0" type="string"/>
+          <element name="akt_rok" minOccurs="0" type="integer"/>
+          <element name="piksel" minOccurs="0" type="double"/>
+          <element name="kolor" minOccurs="0" type="string"/>
+          <element name="zrodlo_danych" minOccurs="0" type="string"/>
+          <element name="uklad_xy" minOccurs="0" type="string"/>
+          <element name="modul_archiwizacji" minOccurs="0" type="string"/>
+          <element name="nr_zglosz" minOccurs="0" type="string"/>
+          <element name="akt_data" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="czy_ark_wypelniony" minOccurs="0" type="string"/>
+          <element name="url_do_pobrania" minOccurs="0" type="string"/>
+          <element name="dt_pzgik" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="wlk_pliku_mb" minOccurs="0" type="double"/>
+        </sequence>
+      </extension>
+    </complexContent>
+  </complexType>
+
+  <element name="SkorowidzOrtofomapy2006" 
+           type="gugik:SkorowidzOrtofomapy2006Type" 
+           substitutionGroup="gml:AbstractFeature" />
+
+  <complexType name="SkorowidzOrtofomapy2006Type">
+    <complexContent>
+      <extension base="gml:AbstractFeatureType">
+        <sequence>
+          <element name="msGeometry" type="gml:GeometryPropertyType" minOccurs="0" maxOccurs="1"/>
+          <element name="godlo" minOccurs="0" type="string"/>
+          <element name="akt_rok" minOccurs="0" type="integer"/>
+          <element name="piksel" minOccurs="0" type="double"/>
+          <element name="kolor" minOccurs="0" type="string"/>
+          <element name="zrodlo_danych" minOccurs="0" type="string"/>
+          <element name="uklad_xy" minOccurs="0" type="string"/>
+          <element name="modul_archiwizacji" minOccurs="0" type="string"/>
+          <element name="nr_zglosz" minOccurs="0" type="string"/>
+          <element name="akt_data" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="czy_ark_wypelniony" minOccurs="0" type="string"/>
+          <element name="url_do_pobrania" minOccurs="0" type="string"/>
+          <element name="dt_pzgik" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="wlk_pliku_mb" minOccurs="0" type="double"/>
+        </sequence>
+      </extension>
+    </complexContent>
+  </complexType>
+
+  <element name="SkorowidzOrtofomapy2007" 
+           type="gugik:SkorowidzOrtofomapy2007Type" 
+           substitutionGroup="gml:AbstractFeature" />
+
+  <complexType name="SkorowidzOrtofomapy2007Type">
+    <complexContent>
+      <extension base="gml:AbstractFeatureType">
+        <sequence>
+          <element name="msGeometry" type="gml:GeometryPropertyType" minOccurs="0" maxOccurs="1"/>
+          <element name="godlo" minOccurs="0" type="string"/>
+          <element name="akt_rok" minOccurs="0" type="integer"/>
+          <element name="piksel" minOccurs="0" type="double"/>
+          <element name="kolor" minOccurs="0" type="string"/>
+          <element name="zrodlo_danych" minOccurs="0" type="string"/>
+          <element name="uklad_xy" minOccurs="0" type="string"/>
+          <element name="modul_archiwizacji" minOccurs="0" type="string"/>
+          <element name="nr_zglosz" minOccurs="0" type="string"/>
+          <element name="akt_data" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="czy_ark_wypelniony" minOccurs="0" type="string"/>
+          <element name="url_do_pobrania" minOccurs="0" type="string"/>
+          <element name="dt_pzgik" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="wlk_pliku_mb" minOccurs="0" type="double"/>
+        </sequence>
+      </extension>
+    </complexContent>
+  </complexType>
+
+  <element name="SkorowidzOrtofomapy2008" 
+           type="gugik:SkorowidzOrtofomapy2008Type" 
+           substitutionGroup="gml:AbstractFeature" />
+
+  <complexType name="SkorowidzOrtofomapy2008Type">
+    <complexContent>
+      <extension base="gml:AbstractFeatureType">
+        <sequence>
+          <element name="msGeometry" type="gml:GeometryPropertyType" minOccurs="0" maxOccurs="1"/>
+          <element name="godlo" minOccurs="0" type="string"/>
+          <element name="akt_rok" minOccurs="0" type="integer"/>
+          <element name="piksel" minOccurs="0" type="double"/>
+          <element name="kolor" minOccurs="0" type="string"/>
+          <element name="zrodlo_danych" minOccurs="0" type="string"/>
+          <element name="uklad_xy" minOccurs="0" type="string"/>
+          <element name="modul_archiwizacji" minOccurs="0" type="string"/>
+          <element name="nr_zglosz" minOccurs="0" type="string"/>
+          <element name="akt_data" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="czy_ark_wypelniony" minOccurs="0" type="string"/>
+          <element name="url_do_pobrania" minOccurs="0" type="string"/>
+          <element name="dt_pzgik" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="wlk_pliku_mb" minOccurs="0" type="double"/>
+        </sequence>
+      </extension>
+    </complexContent>
+  </complexType>
+
+  <element name="SkorowidzOrtofomapy2009" 
+           type="gugik:SkorowidzOrtofomapy2009Type" 
+           substitutionGroup="gml:AbstractFeature" />
+
+  <complexType name="SkorowidzOrtofomapy2009Type">
+    <complexContent>
+      <extension base="gml:AbstractFeatureType">
+        <sequence>
+          <element name="msGeometry" type="gml:GeometryPropertyType" minOccurs="0" maxOccurs="1"/>
+          <element name="godlo" minOccurs="0" type="string"/>
+          <element name="akt_rok" minOccurs="0" type="integer"/>
+          <element name="piksel" minOccurs="0" type="double"/>
+          <element name="kolor" minOccurs="0" type="string"/>
+          <element name="zrodlo_danych" minOccurs="0" type="string"/>
+          <element name="uklad_xy" minOccurs="0" type="string"/>
+          <element name="modul_archiwizacji" minOccurs="0" type="string"/>
+          <element name="nr_zglosz" minOccurs="0" type="string"/>
+          <element name="akt_data" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="czy_ark_wypelniony" minOccurs="0" type="string"/>
+          <element name="url_do_pobrania" minOccurs="0" type="string"/>
+          <element name="dt_pzgik" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="wlk_pliku_mb" minOccurs="0" type="double"/>
+        </sequence>
+      </extension>
+    </complexContent>
+  </complexType>
+
+  <element name="SkorowidzOrtofomapy2010" 
+           type="gugik:SkorowidzOrtofomapy2010Type" 
+           substitutionGroup="gml:AbstractFeature" />
+
+  <complexType name="SkorowidzOrtofomapy2010Type">
+    <complexContent>
+      <extension base="gml:AbstractFeatureType">
+        <sequence>
+          <element name="msGeometry" type="gml:GeometryPropertyType" minOccurs="0" maxOccurs="1"/>
+          <element name="godlo" minOccurs="0" type="string"/>
+          <element name="akt_rok" minOccurs="0" type="integer"/>
+          <element name="piksel" minOccurs="0" type="double"/>
+          <element name="kolor" minOccurs="0" type="string"/>
+          <element name="zrodlo_danych" minOccurs="0" type="string"/>
+          <element name="uklad_xy" minOccurs="0" type="string"/>
+          <element name="modul_archiwizacji" minOccurs="0" type="string"/>
+          <element name="nr_zglosz" minOccurs="0" type="string"/>
+          <element name="akt_data" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="czy_ark_wypelniony" minOccurs="0" type="string"/>
+          <element name="url_do_pobrania" minOccurs="0" type="string"/>
+          <element name="dt_pzgik" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="wlk_pliku_mb" minOccurs="0" type="double"/>
+        </sequence>
+      </extension>
+    </complexContent>
+  </complexType>
+
+  <element name="SkorowidzOrtofomapy2011" 
+           type="gugik:SkorowidzOrtofomapy2011Type" 
+           substitutionGroup="gml:AbstractFeature" />
+
+  <complexType name="SkorowidzOrtofomapy2011Type">
+    <complexContent>
+      <extension base="gml:AbstractFeatureType">
+        <sequence>
+          <element name="msGeometry" type="gml:GeometryPropertyType" minOccurs="0" maxOccurs="1"/>
+          <element name="godlo" minOccurs="0" type="string"/>
+          <element name="akt_rok" minOccurs="0" type="integer"/>
+          <element name="piksel" minOccurs="0" type="double"/>
+          <element name="kolor" minOccurs="0" type="string"/>
+          <element name="zrodlo_danych" minOccurs="0" type="string"/>
+          <element name="uklad_xy" minOccurs="0" type="string"/>
+          <element name="modul_archiwizacji" minOccurs="0" type="string"/>
+          <element name="nr_zglosz" minOccurs="0" type="string"/>
+          <element name="akt_data" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="czy_ark_wypelniony" minOccurs="0" type="string"/>
+          <element name="url_do_pobrania" minOccurs="0" type="string"/>
+          <element name="dt_pzgik" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="wlk_pliku_mb" minOccurs="0" type="double"/>
+        </sequence>
+      </extension>
+    </complexContent>
+  </complexType>
+
+  <element name="SkorowidzOrtofomapy2012" 
+           type="gugik:SkorowidzOrtofomapy2012Type" 
+           substitutionGroup="gml:AbstractFeature" />
+
+  <complexType name="SkorowidzOrtofomapy2012Type">
+    <complexContent>
+      <extension base="gml:AbstractFeatureType">
+        <sequence>
+          <element name="msGeometry" type="gml:GeometryPropertyType" minOccurs="0" maxOccurs="1"/>
+          <element name="godlo" minOccurs="0" type="string"/>
+          <element name="akt_rok" minOccurs="0" type="integer"/>
+          <element name="piksel" minOccurs="0" type="double"/>
+          <element name="kolor" minOccurs="0" type="string"/>
+          <element name="zrodlo_danych" minOccurs="0" type="string"/>
+          <element name="uklad_xy" minOccurs="0" type="string"/>
+          <element name="modul_archiwizacji" minOccurs="0" type="string"/>
+          <element name="nr_zglosz" minOccurs="0" type="string"/>
+          <element name="akt_data" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="czy_ark_wypelniony" minOccurs="0" type="string"/>
+          <element name="url_do_pobrania" minOccurs="0" type="string"/>
+          <element name="dt_pzgik" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="wlk_pliku_mb" minOccurs="0" type="double"/>
+        </sequence>
+      </extension>
+    </complexContent>
+  </complexType>
+
+  <element name="SkorowidzOrtofomapy2013" 
+           type="gugik:SkorowidzOrtofomapy2013Type" 
+           substitutionGroup="gml:AbstractFeature" />
+
+  <complexType name="SkorowidzOrtofomapy2013Type">
+    <complexContent>
+      <extension base="gml:AbstractFeatureType">
+        <sequence>
+          <element name="msGeometry" type="gml:GeometryPropertyType" minOccurs="0" maxOccurs="1"/>
+          <element name="godlo" minOccurs="0" type="string"/>
+          <element name="akt_rok" minOccurs="0" type="integer"/>
+          <element name="piksel" minOccurs="0" type="double"/>
+          <element name="kolor" minOccurs="0" type="string"/>
+          <element name="zrodlo_danych" minOccurs="0" type="string"/>
+          <element name="uklad_xy" minOccurs="0" type="string"/>
+          <element name="modul_archiwizacji" minOccurs="0" type="string"/>
+          <element name="nr_zglosz" minOccurs="0" type="string"/>
+          <element name="akt_data" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="czy_ark_wypelniony" minOccurs="0" type="string"/>
+          <element name="url_do_pobrania" minOccurs="0" type="string"/>
+          <element name="dt_pzgik" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="wlk_pliku_mb" minOccurs="0" type="double"/>
+        </sequence>
+      </extension>
+    </complexContent>
+  </complexType>
+
+  <element name="SkorowidzOrtofomapy2014" 
+           type="gugik:SkorowidzOrtofomapy2014Type" 
+           substitutionGroup="gml:AbstractFeature" />
+
+  <complexType name="SkorowidzOrtofomapy2014Type">
+    <complexContent>
+      <extension base="gml:AbstractFeatureType">
+        <sequence>
+          <element name="msGeometry" type="gml:GeometryPropertyType" minOccurs="0" maxOccurs="1"/>
+          <element name="godlo" minOccurs="0" type="string"/>
+          <element name="akt_rok" minOccurs="0" type="integer"/>
+          <element name="piksel" minOccurs="0" type="double"/>
+          <element name="kolor" minOccurs="0" type="string"/>
+          <element name="zrodlo_danych" minOccurs="0" type="string"/>
+          <element name="uklad_xy" minOccurs="0" type="string"/>
+          <element name="modul_archiwizacji" minOccurs="0" type="string"/>
+          <element name="nr_zglosz" minOccurs="0" type="string"/>
+          <element name="akt_data" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="czy_ark_wypelniony" minOccurs="0" type="string"/>
+          <element name="url_do_pobrania" minOccurs="0" type="string"/>
+          <element name="dt_pzgik" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="wlk_pliku_mb" minOccurs="0" type="double"/>
+        </sequence>
+      </extension>
+    </complexContent>
+  </complexType>
+
+  <element name="SkorowidzOrtofomapy2015" 
+           type="gugik:SkorowidzOrtofomapy2015Type" 
+           substitutionGroup="gml:AbstractFeature" />
+
+  <complexType name="SkorowidzOrtofomapy2015Type">
+    <complexContent>
+      <extension base="gml:AbstractFeatureType">
+        <sequence>
+          <element name="msGeometry" type="gml:GeometryPropertyType" minOccurs="0" maxOccurs="1"/>
+          <element name="godlo" minOccurs="0" type="string"/>
+          <element name="akt_rok" minOccurs="0" type="integer"/>
+          <element name="piksel" minOccurs="0" type="double"/>
+          <element name="kolor" minOccurs="0" type="string"/>
+          <element name="zrodlo_danych" minOccurs="0" type="string"/>
+          <element name="uklad_xy" minOccurs="0" type="string"/>
+          <element name="modul_archiwizacji" minOccurs="0" type="string"/>
+          <element name="nr_zglosz" minOccurs="0" type="string"/>
+          <element name="akt_data" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="czy_ark_wypelniony" minOccurs="0" type="string"/>
+          <element name="url_do_pobrania" minOccurs="0" type="string"/>
+          <element name="dt_pzgik" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="wlk_pliku_mb" minOccurs="0" type="double"/>
+        </sequence>
+      </extension>
+    </complexContent>
+  </complexType>
+
+  <element name="SkorowidzOrtofomapy2016" 
+           type="gugik:SkorowidzOrtofomapy2016Type" 
+           substitutionGroup="gml:AbstractFeature" />
+
+  <complexType name="SkorowidzOrtofomapy2016Type">
+    <complexContent>
+      <extension base="gml:AbstractFeatureType">
+        <sequence>
+          <element name="msGeometry" type="gml:GeometryPropertyType" minOccurs="0" maxOccurs="1"/>
+          <element name="godlo" minOccurs="0" type="string"/>
+          <element name="akt_rok" minOccurs="0" type="integer"/>
+          <element name="piksel" minOccurs="0" type="double"/>
+          <element name="kolor" minOccurs="0" type="string"/>
+          <element name="zrodlo_danych" minOccurs="0" type="string"/>
+          <element name="uklad_xy" minOccurs="0" type="string"/>
+          <element name="modul_archiwizacji" minOccurs="0" type="string"/>
+          <element name="nr_zglosz" minOccurs="0" type="string"/>
+          <element name="akt_data" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="czy_ark_wypelniony" minOccurs="0" type="string"/>
+          <element name="url_do_pobrania" minOccurs="0" type="string"/>
+          <element name="dt_pzgik" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="wlk_pliku_mb" minOccurs="0" type="double"/>
+        </sequence>
+      </extension>
+    </complexContent>
+  </complexType>
+
+  <element name="SkorowidzOrtofomapy2017" 
+           type="gugik:SkorowidzOrtofomapy2017Type" 
+           substitutionGroup="gml:AbstractFeature" />
+
+  <complexType name="SkorowidzOrtofomapy2017Type">
+    <complexContent>
+      <extension base="gml:AbstractFeatureType">
+        <sequence>
+          <element name="msGeometry" type="gml:GeometryPropertyType" minOccurs="0" maxOccurs="1"/>
+          <element name="godlo" minOccurs="0" type="string"/>
+          <element name="akt_rok" minOccurs="0" type="integer"/>
+          <element name="piksel" minOccurs="0" type="double"/>
+          <element name="kolor" minOccurs="0" type="string"/>
+          <element name="zrodlo_danych" minOccurs="0" type="string"/>
+          <element name="uklad_xy" minOccurs="0" type="string"/>
+          <element name="modul_archiwizacji" minOccurs="0" type="string"/>
+          <element name="nr_zglosz" minOccurs="0" type="string"/>
+          <element name="akt_data" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="czy_ark_wypelniony" minOccurs="0" type="string"/>
+          <element name="url_do_pobrania" minOccurs="0" type="string"/>
+          <element name="dt_pzgik" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="wlk_pliku_mb" minOccurs="0" type="double"/>
+        </sequence>
+      </extension>
+    </complexContent>
+  </complexType>
+
+  <element name="SkorowidzOrtofomapy2018" 
+           type="gugik:SkorowidzOrtofomapy2018Type" 
+           substitutionGroup="gml:AbstractFeature" />
+
+  <complexType name="SkorowidzOrtofomapy2018Type">
+    <complexContent>
+      <extension base="gml:AbstractFeatureType">
+        <sequence>
+          <element name="msGeometry" type="gml:GeometryPropertyType" minOccurs="0" maxOccurs="1"/>
+          <element name="godlo" minOccurs="0" type="string"/>
+          <element name="akt_rok" minOccurs="0" type="integer"/>
+          <element name="piksel" minOccurs="0" type="double"/>
+          <element name="kolor" minOccurs="0" type="string"/>
+          <element name="zrodlo_danych" minOccurs="0" type="string"/>
+          <element name="uklad_xy" minOccurs="0" type="string"/>
+          <element name="modul_archiwizacji" minOccurs="0" type="string"/>
+          <element name="nr_zglosz" minOccurs="0" type="string"/>
+          <element name="akt_data" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="czy_ark_wypelniony" minOccurs="0" type="string"/>
+          <element name="url_do_pobrania" minOccurs="0" type="string"/>
+          <element name="dt_pzgik" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="wlk_pliku_mb" minOccurs="0" type="double"/>
+        </sequence>
+      </extension>
+    </complexContent>
+  </complexType>
+
+  <element name="SkorowidzOrtofomapy2019" 
+           type="gugik:SkorowidzOrtofomapy2019Type" 
+           substitutionGroup="gml:AbstractFeature" />
+
+  <complexType name="SkorowidzOrtofomapy2019Type">
+    <complexContent>
+      <extension base="gml:AbstractFeatureType">
+        <sequence>
+          <element name="msGeometry" type="gml:GeometryPropertyType" minOccurs="0" maxOccurs="1"/>
+          <element name="godlo" minOccurs="0" type="string"/>
+          <element name="akt_rok" minOccurs="0" type="integer"/>
+          <element name="piksel" minOccurs="0" type="double"/>
+          <element name="kolor" minOccurs="0" type="string"/>
+          <element name="zrodlo_danych" minOccurs="0" type="string"/>
+          <element name="uklad_xy" minOccurs="0" type="string"/>
+          <element name="modul_archiwizacji" minOccurs="0" type="string"/>
+          <element name="nr_zglosz" minOccurs="0" type="string"/>
+          <element name="akt_data" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="czy_ark_wypelniony" minOccurs="0" type="string"/>
+          <element name="url_do_pobrania" minOccurs="0" type="string"/>
+          <element name="dt_pzgik" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="wlk_pliku_mb" minOccurs="0" type="double"/>
+        </sequence>
+      </extension>
+    </complexContent>
+  </complexType>
+
+  <element name="SkorowidzOrtofomapy2020" 
+           type="gugik:SkorowidzOrtofomapy2020Type" 
+           substitutionGroup="gml:AbstractFeature" />
+
+  <complexType name="SkorowidzOrtofomapy2020Type">
+    <complexContent>
+      <extension base="gml:AbstractFeatureType">
+        <sequence>
+          <element name="msGeometry" type="gml:GeometryPropertyType" minOccurs="0" maxOccurs="1"/>
+          <element name="godlo" minOccurs="0" type="string"/>
+          <element name="akt_rok" minOccurs="0" type="integer"/>
+          <element name="piksel" minOccurs="0" type="double"/>
+          <element name="kolor" minOccurs="0" type="string"/>
+          <element name="zrodlo_danych" minOccurs="0" type="string"/>
+          <element name="uklad_xy" minOccurs="0" type="string"/>
+          <element name="modul_archiwizacji" minOccurs="0" type="string"/>
+          <element name="nr_zglosz" minOccurs="0" type="string"/>
+          <element name="akt_data" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="czy_ark_wypelniony" minOccurs="0" type="string"/>
+          <element name="url_do_pobrania" minOccurs="0" type="string"/>
+          <element name="dt_pzgik" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="wlk_pliku_mb" minOccurs="0" type="double"/>
+        </sequence>
+      </extension>
+    </complexContent>
+  </complexType>
+
+  <element name="SkorowidzOrtofomapy2021" 
+           type="gugik:SkorowidzOrtofomapy2021Type" 
+           substitutionGroup="gml:AbstractFeature" />
+
+  <complexType name="SkorowidzOrtofomapy2021Type">
+    <complexContent>
+      <extension base="gml:AbstractFeatureType">
+        <sequence>
+          <element name="msGeometry" type="gml:GeometryPropertyType" minOccurs="0" maxOccurs="1"/>
+          <element name="godlo" minOccurs="0" type="string"/>
+          <element name="akt_rok" minOccurs="0" type="integer"/>
+          <element name="piksel" minOccurs="0" type="double"/>
+          <element name="kolor" minOccurs="0" type="string"/>
+          <element name="zrodlo_danych" minOccurs="0" type="string"/>
+          <element name="uklad_xy" minOccurs="0" type="string"/>
+          <element name="modul_archiwizacji" minOccurs="0" type="string"/>
+          <element name="nr_zglosz" minOccurs="0" type="string"/>
+          <element name="akt_data" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="czy_ark_wypelniony" minOccurs="0" type="string"/>
+          <element name="url_do_pobrania" minOccurs="0" type="string"/>
+          <element name="dt_pzgik" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="wlk_pliku_mb" minOccurs="0" type="double"/>
+        </sequence>
+      </extension>
+    </complexContent>
+  </complexType>
+
+  <element name="SkorowidzOrtofomapy2022" 
+           type="gugik:SkorowidzOrtofomapy2022Type" 
+           substitutionGroup="gml:AbstractFeature" />
+
+  <complexType name="SkorowidzOrtofomapy2022Type">
+    <complexContent>
+      <extension base="gml:AbstractFeatureType">
+        <sequence>
+          <element name="msGeometry" type="gml:GeometryPropertyType" minOccurs="0" maxOccurs="1"/>
+          <element name="godlo" minOccurs="0" type="string"/>
+          <element name="akt_rok" minOccurs="0" type="integer"/>
+          <element name="piksel" minOccurs="0" type="double"/>
+          <element name="kolor" minOccurs="0" type="string"/>
+          <element name="zrodlo_danych" minOccurs="0" type="string"/>
+          <element name="uklad_xy" minOccurs="0" type="string"/>
+          <element name="modul_archiwizacji" minOccurs="0" type="string"/>
+          <element name="nr_zglosz" minOccurs="0" type="string"/>
+          <element name="akt_data" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="czy_ark_wypelniony" minOccurs="0" type="string"/>
+          <element name="url_do_pobrania" minOccurs="0" type="string"/>
+          <element name="dt_pzgik" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="wlk_pliku_mb" minOccurs="0" type="double"/>
+        </sequence>
+      </extension>
+    </complexContent>
+  </complexType>
+
+  <element name="SkorowidzOrtofomapy2023" 
+           type="gugik:SkorowidzOrtofomapy2023Type" 
+           substitutionGroup="gml:AbstractFeature" />
+
+  <complexType name="SkorowidzOrtofomapy2023Type">
+    <complexContent>
+      <extension base="gml:AbstractFeatureType">
+        <sequence>
+          <element name="msGeometry" type="gml:GeometryPropertyType" minOccurs="0" maxOccurs="1"/>
+          <element name="godlo" minOccurs="0" type="string"/>
+          <element name="akt_rok" minOccurs="0" type="integer"/>
+          <element name="piksel" minOccurs="0" type="double"/>
+          <element name="kolor" minOccurs="0" type="string"/>
+          <element name="zrodlo_danych" minOccurs="0" type="string"/>
+          <element name="uklad_xy" minOccurs="0" type="string"/>
+          <element name="modul_archiwizacji" minOccurs="0" type="string"/>
+          <element name="nr_zglosz" minOccurs="0" type="string"/>
+          <element name="akt_data" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="czy_ark_wypelniony" minOccurs="0" type="string"/>
+          <element name="url_do_pobrania" minOccurs="0" type="string"/>
+          <element name="dt_pzgik" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="wlk_pliku_mb" minOccurs="0" type="double"/>
+        </sequence>
+      </extension>
+    </complexContent>
+  </complexType>
+
+  <element name="SkorowidzOrtofomapy2024" 
+           type="gugik:SkorowidzOrtofomapy2024Type" 
+           substitutionGroup="gml:AbstractFeature" />
+
+  <complexType name="SkorowidzOrtofomapy2024Type">
+    <complexContent>
+      <extension base="gml:AbstractFeatureType">
+        <sequence>
+          <element name="msGeometry" type="gml:GeometryPropertyType" minOccurs="0" maxOccurs="1"/>
+          <element name="godlo" minOccurs="0" type="string"/>
+          <element name="akt_rok" minOccurs="0" type="integer"/>
+          <element name="piksel" minOccurs="0" type="double"/>
+          <element name="kolor" minOccurs="0" type="string"/>
+          <element name="zrodlo_danych" minOccurs="0" type="string"/>
+          <element name="uklad_xy" minOccurs="0" type="string"/>
+          <element name="modul_archiwizacji" minOccurs="0" type="string"/>
+          <element name="nr_zglosz" minOccurs="0" type="string"/>
+          <element name="akt_data" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="czy_ark_wypelniony" minOccurs="0" type="string"/>
+          <element name="url_do_pobrania" minOccurs="0" type="string"/>
+          <element name="dt_pzgik" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="wlk_pliku_mb" minOccurs="0" type="double"/>
+        </sequence>
+      </extension>
+    </complexContent>
+  </complexType>
+
+  <element name="SkorowidzOrtofomapy2025" 
+           type="gugik:SkorowidzOrtofomapy2025Type" 
+           substitutionGroup="gml:AbstractFeature" />
+
+  <complexType name="SkorowidzOrtofomapy2025Type">
+    <complexContent>
+      <extension base="gml:AbstractFeatureType">
+        <sequence>
+          <element name="msGeometry" type="gml:GeometryPropertyType" minOccurs="0" maxOccurs="1"/>
+          <element name="godlo" minOccurs="0" type="string"/>
+          <element name="akt_rok" minOccurs="0" type="integer"/>
+          <element name="piksel" minOccurs="0" type="double"/>
+          <element name="kolor" minOccurs="0" type="string"/>
+          <element name="zrodlo_danych" minOccurs="0" type="string"/>
+          <element name="uklad_xy" minOccurs="0" type="string"/>
+          <element name="modul_archiwizacji" minOccurs="0" type="string"/>
+          <element name="nr_zglosz" minOccurs="0" type="string"/>
+          <element name="akt_data" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="czy_ark_wypelniony" minOccurs="0" type="string"/>
+          <element name="url_do_pobrania" minOccurs="0" type="string"/>
+          <element name="dt_pzgik" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="wlk_pliku_mb" minOccurs="0" type="double"/>
+        </sequence>
+      </extension>
+    </complexContent>
+  </complexType>
+
+  <element name="SkorowidzOrtofomapy2026" 
+           type="gugik:SkorowidzOrtofomapy2026Type" 
+           substitutionGroup="gml:AbstractFeature" />
+
+  <complexType name="SkorowidzOrtofomapy2026Type">
+    <complexContent>
+      <extension base="gml:AbstractFeatureType">
+        <sequence>
+          <element name="msGeometry" type="gml:GeometryPropertyType" minOccurs="0" maxOccurs="1"/>
+          <element name="godlo" minOccurs="0" type="string"/>
+          <element name="akt_rok" minOccurs="0" type="integer"/>
+          <element name="piksel" minOccurs="0" type="double"/>
+          <element name="kolor" minOccurs="0" type="string"/>
+          <element name="zrodlo_danych" minOccurs="0" type="string"/>
+          <element name="uklad_xy" minOccurs="0" type="string"/>
+          <element name="modul_archiwizacji" minOccurs="0" type="string"/>
+          <element name="nr_zglosz" minOccurs="0" type="string"/>
+          <element name="akt_data" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="czy_ark_wypelniony" minOccurs="0" type="string"/>
+          <element name="url_do_pobrania" minOccurs="0" type="string"/>
+          <element name="dt_pzgik" minOccurs="0" type="gml:TimeInstantType"/>
+          <element name="wlk_pliku_mb" minOccurs="0" type="double"/>
+        </sequence>
+      </extension>
+    </complexContent>
+  </complexType>
+
+</schema>

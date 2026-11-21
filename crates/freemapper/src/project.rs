@@ -154,13 +154,13 @@ pub enum ProjectError {
         crate::adapters::region_names("en").join(", ")
     )]
     OutsideCoverage,
-    /// A map whose centre lies in a region with OSM only (Poland) and whose area reaches into a
+    /// A map whose centre lies in a region without a cadastre (Poland) and whose area reaches into a
     /// region of another country: it would be made half from each.
     #[error(
         "the map area lies on both sides of a country border; maps across a border are not supported yet, so draw the area inside one country"
     )]
     AreaCrossesCountry,
-    /// The permit notes of a map in a region with OSM only (Poland): their services, their
+    /// The permit notes of a map in a region without a cadastre (Poland): their services, their
     /// authorities and their law are German.
     #[error(
         "the permit notes are not available for this region yet: they ask German services and name German authorities"
@@ -982,6 +982,13 @@ pub(crate) fn osm_only(region_bbox: &BoundingBox) -> bool {
         .is_some_and(|adapter| adapter.info().coverage == Coverage::OsmOnly)
 }
 
+/// Whether the region of a map of `region_bbox` has no cadastre (ALKIS): the buildings and the
+/// land use come from OSM alone. That holds for [`Coverage::OsmOnly`] and [`Coverage::Rasters`].
+pub(crate) fn no_cadastre(region_bbox: &BoundingBox) -> bool {
+    raster_region_in(registry(), region_bbox)
+        .is_some_and(|adapter| adapter.info().coverage != Coverage::Full)
+}
+
 /// The CRS of a map of `region_bbox` (EPSG:25833): that of its raster region.
 pub(crate) fn map_crs(region_bbox: &BoundingBox) -> Crs {
     freemapper_adapter_api::geometry::map_crs_in(registry(), region_bbox)
@@ -997,10 +1004,10 @@ pub(crate) fn check_area(bbox: &BoundingBox) -> Result<(), ProjectError> {
     let Some(region) = raster_region_in(registry(), bbox) else {
         return Err(ProjectError::OutsideCoverage);
     };
-    // A region with OSM only cannot take the rasters and the cadastre of its neighbour, and its
-    // extracts end at its border: an area that reaches over the border would be half made
+    // A region without a cadastre cannot take the rasters and the cadastre of its neighbour, and
+    // its extracts end at its border: an area that reaches over the border would be half made
     // (ADR 0164).
-    if region.info().coverage == Coverage::OsmOnly
+    if region.info().coverage != Coverage::Full
         && (crate::sources::region::reaches_beyond_coverage(bbox)
             || registry().adapters().any(|other| {
                 other.info().country != region.info().country && overlaps_in(other, bbox)
@@ -1011,11 +1018,12 @@ pub(crate) fn check_area(bbox: &BoundingBox) -> Result<(), ProjectError> {
     check_size(bbox)
 }
 
-/// Whether a map that is not in a region with OSM only has part of its area on the ground of one.
+/// Whether a map in a region with a cadastre has part of its area on the ground of a region
+/// without one.
 fn beside_osm_only(region_bbox: &BoundingBox) -> bool {
-    !osm_only(region_bbox)
+    !no_cadastre(region_bbox)
         && registry().adapters().any(|adapter| {
-            adapter.info().coverage == Coverage::OsmOnly && overlaps_in(adapter, region_bbox)
+            adapter.info().coverage != Coverage::Full && overlaps_in(adapter, region_bbox)
         })
 }
 
@@ -1756,9 +1764,9 @@ fn fetch_buildings_into(
 ) -> Result<Option<AlkisRecord>, ProjectError> {
     let bbox = &area.bbox;
     let path = dir.join(BUILDINGS_RELPATH);
-    // A region with OSM only has no cadastre: an empty collection stands for no buildings,
-    // online and offline alike, and no ALKIS line is shown.
-    if osm_only(&area.region_bbox) {
+    // A region without a cadastre: an empty collection stands for no buildings, online and
+    // offline alike, and no ALKIS line is shown.
+    if no_cadastre(&area.region_bbox) {
         if !path.exists() {
             write_inside(dir, &path, br#"{"features":[],"type":"FeatureCollection"}"#)?;
         }
@@ -1845,8 +1853,8 @@ fn fetch_land_use_into(
 ) -> Option<Option<AlkisRecord>> {
     let bbox = &area.bbox;
     let path = dir.join(LAND_USE_RELPATH);
-    // A region with OSM only has no cadastre to be missing.
-    if osm_only(&area.region_bbox) {
+    // A region without a cadastre has none to be missing.
+    if no_cadastre(&area.region_bbox) {
         return None;
     }
     if mode == FetchMode::Offline {
@@ -11746,10 +11754,10 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         );
     }
 
-    /// An area in Łódź: a region with OSM only has no cadastre, so an online fetch asks no server
-    /// and says nothing about ALKIS.
+    /// An area in Łódź: Poland has rasters but no cadastre, so an online fetch of the buildings
+    /// asks no server and says nothing about ALKIS.
     #[test]
-    fn online_fetch_in_an_osm_only_region_asks_no_cadastre() {
+    fn online_fetch_in_a_region_without_a_cadastre_asks_no_cadastre() {
         let area = FetchArea::new(
             BoundingBox {
                 min_e: 806_500.0,
@@ -11759,7 +11767,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             },
             Crs::Utm34,
         );
-        assert!(osm_only(&area.region_bbox));
+        assert!(no_cadastre(&area.region_bbox) && !osm_only(&area.region_bbox));
         let fetcher = MapFetcher::default();
         let cache_dir = tempfile::tempdir().unwrap();
         let cache = CacheDir::new(cache_dir.path().to_path_buf());
@@ -11823,7 +11831,7 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         }
     }
 
-    /// A map centred in Germany with a strip of Poland is beside a region with OSM only; one in
+    /// A map centred in Germany with a strip of Poland is beside a region without a cadastre; one in
     /// Poland, or far from it, is not.
     #[test]
     fn beside_osm_only_tells_the_strip_of_a_neighbour() {

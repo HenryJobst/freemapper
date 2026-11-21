@@ -82,7 +82,7 @@ pub fn region_names(lang: &str) -> Vec<&'static str> {
 /// that have OSM only: for a sentence that says whose official geodata freemapper uses.
 pub fn region_names_with_geodata(lang: &str) -> Vec<&'static str> {
     names_of(lang, |info| {
-        info.coverage == freemapper_adapter_api::info::Coverage::Full
+        info.coverage != freemapper_adapter_api::info::Coverage::OsmOnly
     })
 }
 
@@ -307,14 +307,14 @@ pub(crate) mod test_support {
 mod tests {
     use super::*;
 
-    /// The regions with geodata of their own leave out Poland, which has OSM only, and keep the
-    /// states.
+    /// The regions with geodata of their own are the states and Poland, which has the rasters of
+    /// GUGiK; a region with OSM only would be left out.
     #[test]
-    fn region_names_with_geodata_leave_out_osm_only_regions() {
+    fn region_names_with_geodata_name_the_regions_with_rasters() {
         for lang in ["de", "en", "pl"] {
             let all = region_names(lang);
             let geodata = region_names_with_geodata(lang);
-            assert!(!geodata.is_empty() && geodata.len() < all.len());
+            assert!(!geodata.is_empty() && geodata.len() <= all.len());
             assert!(geodata.contains(&"Brandenburg"));
             assert!(all.contains(&"Brandenburg"));
             assert!(geodata.iter().all(|name| all.contains(name)));
@@ -323,7 +323,7 @@ mod tests {
                 "pl" => "Polska",
                 _ => "Poland",
             };
-            assert!(all.contains(&polish) && !geodata.contains(&polish));
+            assert!(all.contains(&polish) && geodata.contains(&polish));
         }
     }
     #[allow(unused_imports)]
@@ -686,9 +686,9 @@ mod tests {
         use freemapper_adapter_api::info::{Country, Coverage};
         for adapter in builtin().adapters() {
             let info = adapter.info();
-            // Poland has the OSM extracts only so far (ADR 0164); every German state has rasters.
+            // Poland has rasters but no cadastre so far (ADR 0164); every German state has both.
             let (country, coverage) = if info.id.as_str() == "polska" {
-                (Country::Pl, Coverage::OsmOnly)
+                (Country::Pl, Coverage::Rasters)
             } else {
                 (Country::De, Coverage::Full)
             };

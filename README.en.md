@@ -4,7 +4,7 @@
 
 
 <!-- badges:start -->
-[![Tests](https://img.shields.io/badge/Tests-2999-blue)](docs/tests.json) [![Test budget](https://img.shields.io/badge/Test_budget-15_min-blue)](docs/tests.json) [![Line coverage](https://img.shields.io/badge/Coverage-95.9%25-brightgreen)](docs/coverage.json) [![MSRV](https://img.shields.io/badge/MSRV-1.88-blue)](Cargo.toml) [![ADRs](https://img.shields.io/badge/ADRs-169-blue)](docs/adr/README.md) [![Hygiene](https://img.shields.io/badge/Hygiene-19-brightgreen)](scripts/check.sh) [![License](https://img.shields.io/badge/License-AGPL--3.0--or--later-blue)](LICENSE)
+[![Tests](https://img.shields.io/badge/Tests-3003-blue)](docs/tests.json) [![Test budget](https://img.shields.io/badge/Test_budget-15_min-blue)](docs/tests.json) [![Line coverage](https://img.shields.io/badge/Coverage-95.9%25-brightgreen)](docs/coverage.json) [![MSRV](https://img.shields.io/badge/MSRV-1.88-blue)](Cargo.toml) [![ADRs](https://img.shields.io/badge/ADRs-169-blue)](docs/adr/README.md) [![Hygiene](https://img.shields.io/badge/Hygiene-19-brightgreen)](scripts/check.sh) [![License](https://img.shields.io/badge/License-AGPL--3.0--or--later-blue)](LICENSE)
 <!-- badges:end -->
 
 <!-- claude-cost:start -->
@@ -83,7 +83,7 @@ further states,
 first Saxony (water axes, hedges and tree rows from the Basis-DLM, the trees of Leipzig and Dresden), then
 Saxony-Anhalt and Hamburg. Later come gym maps for indoor orienteering, and the last English remains in the German program texts (`--lang de`).
 Thuringia, the last state still missing, follows once its height-data server is
-back. Poland is available as a preview from OpenStreetMap alone (ADR 0164); the other neighbouring countries come later. The program texts exist in German, English and Polish and in 18 more languages, drafted by machine and not read by native speakers. Design:
+back. Poland is available as a preview: terrain model and aerial photo from GUGiK, buildings and land use from OpenStreetMap (ADR 0164, 0170); the other neighbouring countries come later. The program texts exist in German, English and Polish and in 18 more languages, drafted by machine and not read by native speakers. Design:
 [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](https://github.com/HenryJobst/freemapper/blob/main/docs/superpowers/specs/2026-11-07-freemapper-design.md).
 
 On request freemapper writes permit notes next to the map, into the file `permits.md` (`freemapper permits`, `run --permits`, on the area page or through the AI assistant). For the map area it names the state, Kreis, Amt and Gemeinde from the BKG's VG250, the protected areas of the BfN and operators from OpenStreetMap, each with its share, source and data date, and says whom one usually asks. It is a hint, not legal advice. The details are in the [user manual, chapter 12](docs/manual/en.md#12-permit-notes). In Berlin the Bezirk, green spaces, land of the state and the Bund, monuments and natural monuments come from the Geoportal Berlin as well. In Hamburg the Bezirk, green spaces, monuments, the Stadtwald and water protection areas come from the Geoportal Hamburg. In Brandenburg, Berlin, Hamburg, North Rhine-Westphalia, Saarland, Saxony and Schleswig-Holstein the notes also name the forest office. They name water protection areas in every state, monuments in eleven, natural monuments and protected biotopes in thirteen, forest functions in several.

@@ -6,6 +6,10 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
+### Added
+
+- Poland takes its terrain model (NMT), surface model (NMPT) and orthophoto from GUGiK: hillshade, slope, relief, nDSM, contours and aerial photo for an area in Poland. Buildings and land use still come from OpenStreetMap; Poland stays a preview (ADR 0170). The OSM extract of a voivodeship is found again (Geofabrik moved its folders).
+
 ## [0.25.0] - 2026-11-21
 
 ### Changed

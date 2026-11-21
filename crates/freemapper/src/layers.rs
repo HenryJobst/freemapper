@@ -148,8 +148,8 @@ pub(crate) fn estimate_area(
             store: Store::Cache,
         });
     }
-    // A region with OSM only has no cadastre to download.
-    if !crate::project::osm_only(bbox) {
+    // A region without a cadastre has none to download.
+    if !crate::project::no_cadastre(bbox) {
         items.push(EstimateItem {
             what: "ALKIS buildings and land use".to_string(),
             megabytes: ALKIS_MB,
