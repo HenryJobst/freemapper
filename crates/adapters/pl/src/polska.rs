@@ -372,3 +372,114 @@ pub fn register_with_hosts(
 pub fn register(registry: &mut Registry) -> Result<(), DuplicateAdapter> {
     register_with_hosts(registry, &BTreeMap::new())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::NaiveDate;
+    use freemapper_adapter_api::cache::CacheDir;
+    use freemapper_adapter_api::fetch::FetchMode;
+    use freemapper_adapter_api::project::RasterRecords;
+    use freemapper_adapter_api::records::{NdsmRecord, TileRecord, WcsRecord, WmsRecord};
+    use freemapper_adapter_api::testing::MapFetcher;
+    use std::path::{Path, PathBuf};
+
+    struct Project {
+        dir: PathBuf,
+        tiles: Vec<TileRecord>,
+        ndsm_tiles: Vec<NdsmRecord>,
+        orthophoto: Option<WmsRecord>,
+        terrain: Option<WcsRecord>,
+        surface: Option<WcsRecord>,
+    }
+
+    impl RasterProject for Project {
+        fn records(&mut self) -> freemapper_adapter_api::project::RasterRecords<'_> {
+            RasterRecords {
+                tiles: &mut self.tiles,
+                ndsm_tiles: &mut self.ndsm_tiles,
+                orthophoto: &mut self.orthophoto,
+                terrain: &mut self.terrain,
+                surface: &mut self.surface,
+            }
+        }
+
+        fn save(&mut self) -> Result<(), AdapterError> {
+            Ok(())
+        }
+
+        fn dir(&self) -> &Path {
+            &self.dir
+        }
+
+        fn region_bbox(&self) -> BoundingBox {
+            area()
+        }
+
+        fn crs(&self) -> Crs {
+            Crs::Utm33
+        }
+    }
+
+    /// A 20 m box at Słubice in UTM 33.
+    fn area() -> BoundingBox {
+        BoundingBox {
+            min_e: 483_400.0,
+            min_n: 5_800_800.0,
+            max_e: 483_420.0,
+            max_n: 5_800_820.0,
+        }
+    }
+
+    /// The guarded rasters give the estimate of the backend: the three downloads of GUGiK.
+    #[test]
+    fn the_guarded_rasters_give_the_estimate_of_the_backend() {
+        let polska = Polska::new(&[]);
+        let rasters = polska.rasters().expect("the rasters of GUGiK");
+        let cache = CacheDir::new(std::env::temp_dir().join("freemapper-pl-guarded-estimate"));
+        let items = rasters.estimate(
+            &EstimateArea {
+                bbox_25833: area(),
+                map_bbox: area(),
+                today: NaiveDate::from_ymd_opt(2026, 11, 21).unwrap(),
+            },
+            &EstimateEnv { cache: &cache },
+        );
+        assert_eq!(items.len(), 3, "{items:?}");
+        assert!(items.iter().all(|item| item.what.contains("GUGiK")));
+    }
+
+    /// The guarded rasters hand the fetch to the backend and give its error back: with no answer
+    /// from the index, a fetch fails and writes nothing.
+    #[test]
+    fn the_guarded_rasters_pass_the_fetch_on_and_its_error_back() {
+        let polska = Polska::new(&[]);
+        let rasters = polska.rasters().expect("the rasters of GUGiK");
+        let scratch = tempfile::tempdir().unwrap();
+        let cache = CacheDir::new(scratch.path().join("cache"));
+        let regions = Registry::new();
+        let fetcher = MapFetcher::default();
+        let mut progress = |_| {};
+        let mut env = AdapterEnv {
+            fetcher: &fetcher,
+            regions: &regions,
+            cache: &cache,
+            mode: FetchMode::Online,
+            today: NaiveDate::from_ymd_opt(2026, 11, 21).unwrap(),
+            skip_surface: false,
+            progress: &mut progress,
+        };
+        let mut project = Project {
+            dir: scratch.path().join("project"),
+            tiles: Vec::new(),
+            ndsm_tiles: Vec::new(),
+            orthophoto: None,
+            terrain: None,
+            surface: None,
+        };
+        std::fs::create_dir_all(&project.dir).unwrap();
+        let result = rasters.fetch(&mut env, &mut project, &area());
+        assert!(result.is_err(), "{result:?}");
+        assert!(project.terrain.is_none());
+    }
+}

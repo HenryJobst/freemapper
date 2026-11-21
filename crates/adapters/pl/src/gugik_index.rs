@@ -159,22 +159,28 @@ impl SheetCatalog for GugikIndex {
         let layers = self.layers(fetcher, product)?;
         let url = sheets_url(product, &layers, area);
         let read = get_with_retries(fetcher, &url, |body| read_sheets(product, body, &url))?;
-        for reason in read.skipped.iter().take(WARNED_INDIVIDUALLY) {
-            progress(note!(
-                "warning-error",
-                error = Arg::error(SheetSkipped(reason.clone()))
-            ));
-        }
-        if read.skipped.len() > WARNED_INDIVIDUALLY {
-            progress(note!(
-                "warning-error",
-                error = Arg::error(SheetSkipped(format!(
-                    "{} more sheets of the index are skipped for the same reasons",
-                    read.skipped.len() - WARNED_INDIVIDUALLY
-                )))
-            ));
-        }
+        warn_about(&read.skipped, progress);
         Ok(read.sheets)
+    }
+}
+
+/// Tells `progress` about the sheets that were skipped: the first [`WARNED_INDIVIDUALLY`] by
+/// reason, the rest as a count.
+fn warn_about(skipped: &[String], progress: &mut dyn FnMut(Note)) {
+    for reason in skipped.iter().take(WARNED_INDIVIDUALLY) {
+        progress(note!(
+            "warning-error",
+            error = Arg::error(SheetSkipped(reason.clone()))
+        ));
+    }
+    if skipped.len() > WARNED_INDIVIDUALLY {
+        progress(note!(
+            "warning-error",
+            error = Arg::error(SheetSkipped(format!(
+                "{} more sheets of the index are skipped for the same reasons",
+                skipped.len() - WARNED_INDIVIDUALLY
+            )))
+        ));
     }
 }
 
@@ -244,11 +250,9 @@ fn read_layers(product: Product, body: &[u8], url: &str) -> Result<Vec<String>, 
         match reader.read_event_into(&mut buffer) {
             Ok(Event::Start(e) | Event::Empty(e)) if local(e.name().as_ref()) == "element" => {
                 let name = attribute(&e, "name").unwrap_or_default();
-                if let Some(year) = name
-                    .strip_prefix(prefix)
-                    .filter(|rest| rest.len() == 4 && rest.bytes().all(|b| b.is_ascii_digit()))
-                    .and_then(|rest| rest.parse::<u16>().ok())
-                    .filter(|year| *year >= min_year)
+                if is_layer(&name, prefix)
+                    && let Some(year) = name[prefix.len()..].parse::<u16>().ok()
+                    && year >= min_year
                 {
                     years.push(year);
                 }
@@ -536,6 +540,114 @@ mod tests {
         assert!(!is_layer("SkorowidzNMPT2022", "SkorowidzNMT"));
         // Four characters that are not all digits do not pass on the length alone.
         assert!(!is_layer("SkorowidzNMTabcd", "SkorowidzNMT"));
+    }
+
+    #[test]
+    fn at_most_five_skipped_sheets_are_named_and_the_rest_is_counted() {
+        let lines = |count: usize| {
+            let skipped: Vec<String> = (0..count).map(|i| format!("sheet {i}")).collect();
+            let mut lines = Vec::new();
+            warn_about(&skipped, &mut |note| lines.push(note.to_string()));
+            lines
+        };
+        assert!(lines(0).is_empty());
+        assert_eq!(lines(4).len(), 4);
+        // Exactly five are all named, with no line that counts the rest.
+        let five = lines(5);
+        assert_eq!(five.len(), 5, "{five:?}");
+        assert!(five.iter().all(|l| !l.contains("more sheets")), "{five:?}");
+        let nine = lines(9);
+        assert_eq!(nine.len(), 6, "{nine:?}");
+        assert!(nine[5].contains("4 more sheets"), "{nine:?}");
+    }
+
+    /// Only the `element`s of a `DescribeFeatureType` answer are layers; a type or an attribute
+    /// with a name of the same shape is not, and a year below the oldest asked for is left out.
+    #[test]
+    fn the_layers_are_the_elements_of_the_description_and_nothing_else() {
+        let xml = r#"<schema>
+            <element name="SkorowidzNMT2017" type="x"/>
+            <element name="SkorowidzNMT2020" type="x"/>
+            <complexType name="SkorowidzNMT2019"/>
+            <attribute name="SkorowidzNMT2021"/>
+            <element name="SkorowidzNMT2022"></element>
+        </schema>"#;
+        let layers = read_layers(Product::Terrain, xml.as_bytes(), "u").unwrap();
+        assert_eq!(
+            layers,
+            ["SkorowidzNMT2017", "SkorowidzNMT2020", "SkorowidzNMT2022"]
+        );
+        // The orthophoto starts with the year `MIN_ORTO_YEAR`; the flights before it are left out.
+        let orto = format!(
+            r#"<schema><element name="SkorowidzOrtofomapy{}"/><element name="SkorowidzOrtofomapy{}"/></schema>"#,
+            MIN_ORTO_YEAR - 1,
+            MIN_ORTO_YEAR
+        );
+        let layers = read_layers(Product::Orthophoto, orto.as_bytes(), "u").unwrap();
+        assert_eq!(layers, [format!("SkorowidzOrtofomapy{MIN_ORTO_YEAR}")]);
+    }
+
+    /// An escaped character in a field (`&amp;` in an address) is read as the character.
+    #[test]
+    fn an_escaped_ampersand_in_a_field_is_read_as_an_ampersand() {
+        let xml = NMT_SLUBICE.replacen(
+            "73426_993517_N-33-126-C-c-3-4.asc",
+            "73426_993517_N-33-126-C-c-3-4.asc?a=1&amp;b=2",
+            1,
+        );
+        let read = read(Product::Terrain, &xml);
+        assert!(
+            read.sheets.iter().any(|s| s.url.ends_with(".asc?a=1&b=2")),
+            "{:?}",
+            read.sheets
+        );
+    }
+
+    /// An answer that stops before the collection closes is an error, even after a whole sheet.
+    #[test]
+    fn an_answer_cut_off_after_a_sheet_is_an_error() {
+        let end = NMT_SLUBICE.rfind("</wfs:member>").unwrap() + "</wfs:member>".len();
+        let result = read_sheets(Product::Terrain, &NMT_SLUBICE.as_bytes()[..end], "u");
+        assert!(result.is_err(), "{result:?}");
+    }
+
+    /// An extent that is empty on one axis only is empty.
+    #[test]
+    fn an_extent_empty_on_one_axis_is_an_empty_extent() {
+        for (from, to) in [
+            (
+                "<gml:lowerCorner>505645.150000 195671.250000</gml:lowerCorner>",
+                "<gml:lowerCorner>509000.000000 195671.250000</gml:lowerCorner>",
+            ),
+            (
+                "<gml:lowerCorner>505645.150000 195671.250000</gml:lowerCorner>",
+                "<gml:lowerCorner>505645.150000 199000.000000</gml:lowerCorner>",
+            ),
+        ] {
+            let xml = NMT_SLUBICE.replace(from, to);
+            let read = read(Product::Terrain, &xml);
+            assert!(
+                read.skipped
+                    .iter()
+                    .any(|why| why.contains("an empty extent")),
+                "{to}: {:?}",
+                read.skipped
+            );
+        }
+    }
+
+    #[test]
+    fn a_corner_is_exactly_two_finite_numbers() {
+        assert_eq!(
+            parse_corner("505645.15 195671.25"),
+            Some((505645.15, 195671.25))
+        );
+        assert_eq!(parse_corner("1"), None);
+        assert_eq!(parse_corner("1 2 3"), None);
+        assert_eq!(parse_corner("1 x"), None);
+        assert_eq!(parse_corner("inf 5"), None);
+        assert_eq!(parse_corner("5 inf"), None);
+        assert_eq!(parse_corner("NaN 5"), None);
     }
 
     #[test]
