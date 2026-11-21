@@ -73,7 +73,7 @@ fn texts_follow_lang_switch_and_environment() {
 fn an_unknown_language_is_a_usage_error() {
     let dir = tempfile::tempdir().unwrap();
     let output = freemapper_in(&[("LANG", "de_DE.UTF-8")])
-        .args(["--lang", "fr", "init"])
+        .args(["--lang", "ja", "init"])
         .arg(dir.path().join("a"))
         .args(["--geojson", FIXTURE])
         .output()
@@ -81,7 +81,7 @@ fn an_unknown_language_is_a_usage_error() {
     assert_eq!(output.status.code(), Some(2));
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("fr") && stderr.contains("en, de"),
+        stderr.contains("ja") && stderr.contains("en, de, pl"),
         "{stderr}"
     );
     assert!(

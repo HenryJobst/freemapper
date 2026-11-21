@@ -349,3 +349,6 @@ gibt; sonst gilt die hier genannte Wendung. / The Polish texts use these terms; 
 | Selbstaktualisierung | self-update | samoaktualizacja |
 | Katasterdaten (Polen: EGiB) | cadastre (Poland: EGiB) | ewidencja gruntów i budynków (EGiB) |
 | Landesamt (Polen: GUGiK) | national survey (Poland: GUGiK) | Główny Urząd Geodezji i Kartografii (GUGiK) |
+
+Die Begriffe der übrigen Programmsprachen (cs, nl, da, fr, sv, nb, fi, sk, et, it, sl, hu, lt, lv, es, pt, ru, uk) stehen in
+[`glossary-languages.md`](glossary-languages.md). / The terms of the other program languages are in `glossary-languages.md`.

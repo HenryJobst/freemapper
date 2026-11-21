@@ -8,6 +8,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Hinzugefügt
 
+- 18 weitere Programmsprachen (cs, nl, da, fr, sv, nb, fi, sk, et, it, sl, hu, lt, lv, es, pt, ru, uk) als Texte für Hilfe, Meldungen, Gebietsseite und MCP. Sie sind maschinell entworfen und nicht von Muttersprachlern gelesen; README und Handbuch gibt es nur auf Deutsch, Englisch und Polnisch (ADR 0169). Die Rückfrage von `freemapper update` nimmt das Ja jeder Sprache.
 - Polnisch als Programmsprache: `--lang pl`, `FREEMAPPER_LANG=pl` und die Systemsprache wählen die polnischen Texte (Hilfe, Meldungen, Gebietsseite, MCP-Beschreibungen). Dazu `README.pl.md` und ein gekürztes Handbuch `docs/manual/pl.md`. Die Texte sind maschinell entworfen und warten auf die Durchsicht durch eine Muttersprachlerin oder einen Muttersprachler; Polen bleibt Vorschau (ADR 0168).
 - `adapters list --json` und die Gebietsseite nennen `names.pl`, wo ein Adapter einen polnischen Namen hat (Polen: `Polska`); die bisherigen Schlüssel bleiben.
 - Die Rückfrage von `freemapper update` nimmt auch `t` und `tak` als Ja.

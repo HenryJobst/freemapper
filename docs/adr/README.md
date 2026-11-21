@@ -213,3 +213,5 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0165](0165-mutation-tests-on-a-random-part.md) | Mutation tests run on a random part of the diff | Accepted, amends ADR 0161 | 2026-11-20 |
 | [0166](0166-findings-on-running-tests-and-mutation-tests.md) | Findings on running tests and mutation tests | Accepted, supplements ADR 0161 | 2026-11-20 |
 | [0167](0167-poland-height-and-orthophoto-readers.md) | Poland: readers and warp for the national height model and orthophoto | Accepted, supplements ADR 0164 | 2026-11-20 |
+| [0168](0168-polish-program-language.md) | Polish as a program language | Accepted, supplements ADR 0092 and ADR 0164 | 2026-11-21 |
+| [0169](0169-more-program-languages.md) | More program languages | Accepted, supplements ADR 0168 | 2026-11-21 |
