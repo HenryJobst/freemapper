@@ -78,11 +78,12 @@ pub fn region_names(lang: &str) -> Vec<&'static str> {
     names_of(lang, |_| true)
 }
 
-/// [`region_names`] of the regions that have official geodata of their own (rasters), not those
-/// that have OSM only: for a sentence that says whose official geodata freemapper uses.
+/// [`region_names`] of the regions that have the full official geodata (rasters and cadastre), not
+/// those that have OSM only or no cadastre (Poland, a preview): for a sentence that says whose
+/// official geodata freemapper uses.
 pub fn region_names_with_geodata(lang: &str) -> Vec<&'static str> {
     names_of(lang, |info| {
-        info.coverage != freemapper_adapter_api::info::Coverage::OsmOnly
+        info.coverage == freemapper_adapter_api::info::Coverage::Full
     })
 }
 
@@ -307,14 +308,14 @@ pub(crate) mod test_support {
 mod tests {
     use super::*;
 
-    /// The regions with geodata of their own are the states and Poland, which has the rasters of
-    /// GUGiK; a region with OSM only would be left out.
+    /// The regions with the full geodata leave out Poland, which has no cadastre yet, and keep
+    /// the states.
     #[test]
-    fn region_names_with_geodata_name_the_regions_with_rasters() {
+    fn region_names_with_geodata_leave_out_regions_without_a_cadastre() {
         for lang in ["de", "en", "pl"] {
             let all = region_names(lang);
             let geodata = region_names_with_geodata(lang);
-            assert!(!geodata.is_empty() && geodata.len() <= all.len());
+            assert!(!geodata.is_empty() && geodata.len() < all.len());
             assert!(geodata.contains(&"Brandenburg"));
             assert!(all.contains(&"Brandenburg"));
             assert!(geodata.iter().all(|name| all.contains(name)));
@@ -323,7 +324,7 @@ mod tests {
                 "pl" => "Polska",
                 _ => "Poland",
             };
-            assert!(all.contains(&polish) && geodata.contains(&polish));
+            assert!(all.contains(&polish) && !geodata.contains(&polish));
         }
     }
     #[allow(unused_imports)]

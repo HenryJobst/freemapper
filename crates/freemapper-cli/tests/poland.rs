@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! A map in Poland (ADR 0164): the region `polska` has OSM extracts only, so a project there
-//! is made from OSM alone, without templates, and offline from a cached extract.
+//! A map in Poland (ADR 0164, 0170): the region `polska` has OSM extracts and the rasters of
+//! GUGiK, and no cadastre.
 
 use std::path::Path;
 use std::process::Command;
@@ -32,8 +32,10 @@ fn cache_with_extract(dir: &Path) -> std::path::PathBuf {
     cache
 }
 
+/// A project in Łódź keeps its zone and its title, and an offline run with only the OSM extract in
+/// the cache stops where the sheets of GUGiK are missing, and says to fetch online first.
 #[test]
-fn osm_only_region_makes_a_project_without_templates() {
+fn a_polish_project_needs_the_sheets_of_gugik_for_an_offline_run() {
     let dir = tempfile::tempdir().unwrap();
     let project = dir.path().join("Szkoła Podstawowa nr 5, Łódź");
     let cache = cache_with_extract(dir.path());
@@ -45,6 +47,10 @@ fn osm_only_region_makes_a_project_without_templates() {
         .output()
         .unwrap();
     assert!(init.status.success(), "{init:?}");
+    let toml = std::fs::read_to_string(project.join("freemapper.toml")).unwrap();
+    // The zone of Łódź is 34 and the title keeps its diacritics.
+    assert!(toml.contains("25834"), "{toml}");
+    assert!(toml.contains("Szkoła Podstawowa nr 5, Łódź"), "{toml}");
     let run = freemapper()
         .arg("run")
         .arg(&project)
@@ -52,44 +58,17 @@ fn osm_only_region_makes_a_project_without_templates() {
         .arg(&cache)
         .output()
         .unwrap();
-    let stdout = String::from_utf8_lossy(&run.stdout);
+    assert_eq!(run.status.code(), Some(1), "{run:?}");
     let stderr = String::from_utf8_lossy(&run.stderr);
-    assert!(run.status.success(), "{stdout}\n{stderr}");
-    let omap = std::fs::read_dir(&project)
-        .unwrap()
-        .filter_map(Result::ok)
-        .map(|e| e.path())
-        .find(|p| p.extension().is_some_and(|e| e == "omap"))
-        .expect("a map was written");
-    let text = std::fs::read_to_string(&omap).unwrap();
-    // The zone of Łódź is 34, the title keeps its diacritics, and the credit names OSM only.
-    assert!(text.contains("25834"), "{text}");
-    assert!(text.contains("Szkoła Podstawowa nr 5, Łódź"), "{text}");
-    let attribution = std::fs::read_to_string(project.join("ATTRIBUTION.txt")).unwrap();
-    assert!(attribution.contains("OpenStreetMap"), "{attribution}");
-    assert!(!attribution.contains("GUGiK"), "{attribution}");
-    // No raster template: nothing of a terrain model or an orthophoto exists for this region yet.
-    for template in [
-        "orthophoto.jpg",
-        "hillshade.png",
-        "slope.png",
-        "relief.png",
-        "ndsm.png",
-    ] {
-        assert!(
-            !project.join("templates").join(template).exists(),
-            "{template}"
-        );
-    }
     assert!(
-        stderr.contains("no terrain data for this region yet")
-            || stdout.contains("no terrain data for this region yet"),
-        "{stdout}\n{stderr}"
+        stderr.contains("no terrain model stored") && stderr.contains("freemapper fetch"),
+        "{stderr}"
     );
 }
 
-/// The estimate of a map in Łódź names the one OSM extract of its voivodeship and no raster, and
-/// the extract of a recent run in the cache is not downloaded again.
+/// The estimate of a map in Łódź names the one OSM extract of its voivodeship and the sheets of
+/// GUGiK, and the extract of a recent run in the cache is not downloaded again; the sheets still
+/// are.
 #[test]
 fn estimate_lists_one_extract_for_lodz() {
     use freemapper::fetch::Cache;
@@ -105,20 +84,39 @@ fn estimate_lists_one_extract_for_lodz() {
     let today = chrono::NaiveDate::from_ymd_opt(2026, 11, 20).unwrap();
     let empty = Cache::new(dir.path().join("empty-cache"));
     let estimate = freemapper::layers::estimate_download(&project, &empty, today).unwrap();
-    assert_eq!(estimate.items.len(), 1, "{:?}", estimate.items);
-    let item = &estimate.items[0];
-    assert!(item.what.contains("Łódź Voivodeship"), "{}", item.what);
-    assert!((item.megabytes - 132.9).abs() < 0.05, "{}", item.megabytes);
-    assert!(!item.cached);
-    assert!((estimate.total_megabytes - 132.9).abs() < 0.05);
-    let warm = Cache::new(cache_with_extract(dir.path()));
-    let estimate = freemapper::layers::estimate_download(&project, &warm, today).unwrap();
+    let (extracts, sheets): (Vec<_>, Vec<_>) = estimate
+        .items
+        .iter()
+        .partition(|item| item.what.contains("Voivodeship"));
+    assert_eq!(extracts.len(), 1, "{:?}", estimate.items);
     assert!(
-        estimate.items.iter().all(|item| item.cached),
+        extracts[0].what.contains("Łódź Voivodeship"),
+        "{}",
+        extracts[0].what
+    );
+    assert!(
+        (extracts[0].megabytes - 132.9).abs() < 0.05,
+        "{}",
+        extracts[0].megabytes
+    );
+    assert!(!extracts[0].cached);
+    assert!(
+        !sheets.is_empty() && sheets.iter().all(|item| item.what.contains("GUGiK")),
         "{:?}",
         estimate.items
     );
-    assert!(estimate.total_megabytes < 0.01);
+    let warm = Cache::new(cache_with_extract(dir.path()));
+    let estimate = freemapper::layers::estimate_download(&project, &warm, today).unwrap();
+    for item in &estimate.items {
+        assert_eq!(item.cached, item.what.contains("Voivodeship"), "{item:?}");
+    }
+    let sheets: f64 = estimate
+        .items
+        .iter()
+        .filter(|item| !item.cached)
+        .map(|item| item.megabytes)
+        .sum();
+    assert!((estimate.total_megabytes - sheets).abs() < 0.05);
 }
 
 /// A GeoJSON rectangle (lon/lat) in `dir`, and the project made from it.

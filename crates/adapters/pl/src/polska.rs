@@ -5,7 +5,7 @@
 //! clipping polygons Geofabrik publishes (from `index-v1.json`); they reach past the border and
 //! only choose the extract. All are embedded as GeoJSON in WGS 84 and projected to EPSG:25833
 //! once on first use. Stage 2 adds the rasters of GUGiK (terrain model, surface model and
-//! orthophoto, [`PolskaRasters`], wired but not yet switched on by the coverage); there is no cadastre yet (no ALKIS), so the buildings come
+//! orthophoto, [`crate::rasters::PolskaRasters`]); there is no cadastre yet (no ALKIS), so the buildings come
 //! with stage 3. The adapter asks the two hosts of GUGiK and no other ([`HOSTS`]).
 
 use std::collections::BTreeMap;

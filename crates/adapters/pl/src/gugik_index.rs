@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! The sheet index of GUGiK: which sheets of the terrain model (NMT), the surface model (NMPT) and
-//! the orthophoto touch a map area. [`GugikIndex`] is the [`SheetCatalog`] of [`PolskaRasters`]
+//! the orthophoto touch a map area. [`GugikIndex`] is the [`SheetCatalog`] of [`crate::rasters::PolskaRasters`]
 //! (`crate::rasters`).
 //!
 //! The index is one WFS 2.0.0 per product with one layer per flight year
@@ -523,6 +523,35 @@ mod tests {
     use super::*;
     use freemapper_adapter_api::policy::{PolicyFetcher, UrlPolicy};
     use freemapper_adapter_api::testing::MapFetcher;
+
+    #[test]
+    fn a_layer_name_is_the_prefix_and_exactly_four_digits() {
+        assert!(is_layer("SkorowidzNMT2022", "SkorowidzNMT"));
+        // The prefix alone, a letter among the digits, one digit too many or too few, another
+        // prefix: none is a layer of the product.
+        assert!(!is_layer("SkorowidzNMT", "SkorowidzNMT"));
+        assert!(!is_layer("SkorowidzNMT20x2", "SkorowidzNMT"));
+        assert!(!is_layer("SkorowidzNMT20222", "SkorowidzNMT"));
+        assert!(!is_layer("SkorowidzNMT202", "SkorowidzNMT"));
+        assert!(!is_layer("SkorowidzNMPT2022", "SkorowidzNMT"));
+        // Four characters that are not all digits do not pass on the length alone.
+        assert!(!is_layer("SkorowidzNMTabcd", "SkorowidzNMT"));
+    }
+
+    #[test]
+    fn the_five_xml_entities_are_read_and_others_are_not() {
+        for (name, ch) in [
+            ("amp", '&'),
+            ("lt", '<'),
+            ("gt", '>'),
+            ("quot", '"'),
+            ("apos", '\''),
+        ] {
+            assert_eq!(entity(name), Some(ch), "{name}");
+        }
+        assert_eq!(entity("nbsp"), None);
+        assert_eq!(entity(""), None);
+    }
 
     const NMT_SLUBICE: &str = include_str!("../tests/fixtures/gugik/nmt_slubice.xml");
     const NMT_KRAKOW: &str = include_str!("../tests/fixtures/gugik/nmt_krakow.xml");
