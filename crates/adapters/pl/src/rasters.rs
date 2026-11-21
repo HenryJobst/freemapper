@@ -100,7 +100,7 @@ impl PolskaRasters {
 
 /// `area` (in `crs`) as a box in PL-1992 with a small margin; `None` when a corner has no
 /// position on the globe.
-fn area_in_pl1992(crs: Crs, area: &BoundingBox) -> Option<BoundingBox> {
+pub(crate) fn area_in_pl1992(crs: Crs, area: &BoundingBox) -> Option<BoundingBox> {
     let corners = [
         (area.min_e, area.min_n),
         (area.min_e, area.max_n),

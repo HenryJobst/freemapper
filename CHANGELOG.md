@@ -8,6 +8,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Hinzugefügt
 
+- Polen holt Gebäude und Landnutzung aus dem Kataster EGiB von GUGiK, dem Gegenstück zu ALKIS: die Gebäudegrundrisse mit ihrer Art (Wohn-, Wirtschafts-, Bürogebäude und so weiter) und die Flurstücke mit ihrer Nutzungsklasse (Wald, Gehölz, Grünland, Acker, Gewässer, Straße). Ein Flurstück mit zwei verschiedenen Nutzungen bleibt ohne Fläche, damit ein Acker nicht die Farbe des Waldes daneben bekommt. Der Dienst von GUGiK antwortet seitenweise mit je 1000 Objekten; freemapper liest Seite für Seite. Geht der Dienst nicht, bricht der Lauf mit der Meldung ab. BDOT10k als Rückfall folgt noch (ADR 0171). Polen bleibt Vorschau und hat noch keine Genehmigungshinweise.
 - Polen holt Höhenmodell (NMT), Oberflächenmodell (NMPT) und Orthofoto von GUGiK: Schummerung, Hangneigung, Relief, nDSM, Höhenlinien und Luftbild für ein Gebiet in Polen. Gebäude und Landnutzung kommen weiter aus OpenStreetMap; Polen bleibt Vorschau (ADR 0170). Der OSM-Auszug einer Woiwodschaft wird wieder gefunden (Geofabrik hat die Ordner umgestellt).
 
 ### Geändert

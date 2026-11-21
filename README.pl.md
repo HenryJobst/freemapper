@@ -77,10 +77,10 @@ z mapy miasta; dwie krawędzie muru stają się jedną linią pośrodku. Znaki p
 przez normę, a gęste grupy drzew stają się widocznymi powierzchniami. Parki są żółte, a pole przejścia w kolorze brązowym leży pod mapą sprintową. Tam, gdzie mury, ogrodzenia i żywopłoty nakładają się na
 papierze, zostaje mocniejsza linia.
 
-**Polska jest wersją zapoznawczą (preview).** Model terenu, warstwice i ortofotomapa pochodzą z GUGiK, budynki i
-użytkowanie terenu na razie tylko z OpenStreetMap. Obszar mapy musi leżeć w całości w Polsce. Mapa z takimi danymi to
-punkt wyjścia do dalszej pracy, a nie porównywalny odpowiednik map z krajów związkowych wymienionych wyżej. Dane
-urzędowe o budynkach (EGiB, BDOT10k) są w przygotowaniu. Komunikaty programu i tekst tego pliku mogą w polskiej wersji różnić się
+**Polska jest wersją zapoznawczą (preview).** Model terenu, warstwice, ortofotomapa, budynki i
+użytkowanie terenu pochodzą z GUGiK (ewidencja gruntów i budynków, EGiB). Obszar mapy musi leżeć w całości w Polsce. Mapa z takimi danymi to
+punkt wyjścia do dalszej pracy, a nie porównywalny odpowiednik map z krajów związkowych wymienionych wyżej. Baza BDOT10k
+jako zapasowe źródło budynków jest w przygotowaniu. Komunikaty programu i tekst tego pliku mogą w polskiej wersji różnić się
 od niemieckiej i angielskiej.
 
 freemapper jest nadal w rozwoju. Kolejny kraj związkowy, którego usługi są
@@ -316,7 +316,7 @@ ortofotomapa i teren pochodzą z kraju związkowego, w którym leży środek obs
 [podręczniku użytkownika, rozdział 13](docs/manual/en.md#13-regions-and-border-areas). Po jednym przykładowym projekcie dla każdego kraju związkowego jest w
 [`examples/`](https://github.com/HenryJobst/freemapper/blob/main/examples/README.en.md).
 
-Polska nie ma tu wiersza, bo jest wersją zapoznawczą: teren i ortofotomapa z GUGiK, budynki tylko z OpenStreetMap
+Polska nie ma tu wiersza, bo jest wersją zapoznawczą: teren, ortofotomapa i budynki z GUGiK (EGiB)
 (zob. [Status](#status)).
 
 ## Mapa jako PDF

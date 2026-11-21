@@ -73,6 +73,28 @@ What this means for the choice of a sheet:
 `NumDaneWys/NMT/76153/76153_1192530_N-33-126-C-c-3-4.asc`, `ortofotomapa/76966/…tif`). The client
 accepts only `https` and this host.
 
+## Stage 3: the cadastre EGiB (measured 21 November 2026)
+
+- **Service.** `https://mapy.geoportal.gov.pl/wss/service/PZGIK/EGIB/WFS/UslugaZbiorcza`, WFS
+  2.0.0, layers `ms:budynki` and `ms:dzialki`. `GetCapabilities` takes about 2 s, a page of 500
+  features under 1 s. `CountDefault` is 1000; an answer with `numberMatched="unknown"` and a
+  `next` attribute on the collection (its ampersands as `&amp;`) when the page is full.
+- **Format.** GML 3.2, `gml:Polygon` with `gml:exterior` and `gml:interior`, `posList` of `N E`
+  pairs in EPSG:2180 (`srsName="urn:ogc:def:crs:EPSG::2180"`). The box of a request is north first.
+  A request without `SRSNAME` answers in the same CRS.
+- **Buildings (`ms:budynki`).** `ID_BUDYNKU` (`080505_4.0001.2682_BUD`), `RODZAJ` (a letter: `m`,
+  `b`, ...), `KONDYGNACJE_NADZIEMNE`, `KONDYGNACJE_PODZIEMNE` (floors above and below ground).
+- **Parcels (`ms:dzialki`).** `ID_DZIALKI`, `NUMER_DZIALKI`, `NUMER_OBREBU`, `NAZWA_OBREBU`,
+  `NAZWA_GMINY`, `POLE_EWIDENYJNE`, `KLASOUZYTKI_EGIB` (the register classes of the parcel,
+  comma-separated: `B`, `Bi`, `Bp`, `dr`, `B,Bp`), `GRUPA_REJESTROWA`, `DATA`.
+- **Słubice, 500 m square.** 484 parcels in one page of 766 KB; at the Oder bridge 148 buildings
+  and 203 parcels of the classes `B`, `Bi`, `Bp`, `Bz` and `dr`.
+- **BDOT10k.** The index `PobieranieBDOT10k` (`ms:BDOT10k_powiaty`, 380 powiats) lists per powiat
+  `TERYT`, `NAZWA_POWIATU`, `Data_aktualizacji` and `URL_GML`
+  (`https://opendata.geoportal.gov.pl/bdot10k/schemat2021/04/0401_GML.zip`). Without
+  `PROPERTYNAME=TERYT,NAZWA_POWIATU,URL_GML,Data_aktualizacji` the answer is 63 MB in 68 s. One
+  GML archive of a powiat is about 54 MB. The client for it is not written.
+
 ## Open
 
 - Whether the index lists all years in one request with several `TYPENAMES`, and whether the

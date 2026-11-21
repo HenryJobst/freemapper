@@ -79,8 +79,8 @@ pub fn region_names(lang: &str) -> Vec<&'static str> {
 }
 
 /// [`region_names`] of the regions that have the full official geodata (rasters and cadastre), not
-/// those that have OSM only or no cadastre (Poland, a preview): for a sentence that says whose
-/// official geodata freemapper uses.
+/// those that have OSM only or no cadastre: for a sentence that says whose official geodata
+/// freemapper uses.
 pub fn region_names_with_geodata(lang: &str) -> Vec<&'static str> {
     names_of(lang, |info| {
         info.coverage == freemapper_adapter_api::info::Coverage::Full
@@ -308,23 +308,21 @@ pub(crate) mod test_support {
 mod tests {
     use super::*;
 
-    /// The regions with the full geodata leave out Poland, which has no cadastre yet, and keep
-    /// the states.
+    /// Every built-in region has the full geodata at present, Poland among them; the list leaves
+    /// out one that has not.
     #[test]
-    fn region_names_with_geodata_leave_out_regions_without_a_cadastre() {
+    fn region_names_with_geodata_name_the_regions_with_rasters_and_a_cadastre() {
         for lang in ["de", "en", "pl"] {
             let all = region_names(lang);
             let geodata = region_names_with_geodata(lang);
-            assert!(!geodata.is_empty() && geodata.len() < all.len());
+            assert_eq!(geodata, all);
             assert!(geodata.contains(&"Brandenburg"));
-            assert!(all.contains(&"Brandenburg"));
-            assert!(geodata.iter().all(|name| all.contains(name)));
             let polish = match lang {
                 "de" => "Polen",
                 "pl" => "Polska",
                 _ => "Poland",
             };
-            assert!(all.contains(&polish) && !geodata.contains(&polish));
+            assert!(geodata.contains(&polish));
         }
     }
     #[allow(unused_imports)]
@@ -687,12 +685,14 @@ mod tests {
         use freemapper_adapter_api::info::{Country, Coverage};
         for adapter in builtin().adapters() {
             let info = adapter.info();
-            // Poland has rasters but no cadastre so far (ADR 0164); every German state has both.
-            let (country, coverage) = if info.id.as_str() == "polska" {
-                (Country::Pl, Coverage::Rasters)
+            // Poland has the rasters and the cadastre of GUGiK (ADR 0170, 0171), as every German
+            // state has its own.
+            let country = if info.id.as_str() == "polska" {
+                Country::Pl
             } else {
-                (Country::De, Coverage::Full)
+                Country::De
             };
+            let coverage = Coverage::Full;
             assert_eq!(info.country, country, "{}", info.id);
             assert_eq!(info.coverage, coverage, "{}", info.id);
         }

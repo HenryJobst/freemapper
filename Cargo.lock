@@ -834,6 +834,7 @@ dependencies = [
  "geojson",
  "image",
  "quick-xml",
+ "serde_json",
  "tempfile",
 ]
 

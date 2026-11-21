@@ -65,7 +65,7 @@ use crate::sources::region::{
 use crate::sources::trees;
 use crate::space::{Part, SpacePlan};
 use crate::tiles::TileId;
-use freemapper_adapter_api::info::Coverage;
+use freemapper_adapter_api::info::{Country, Coverage};
 
 mod export;
 mod extras;
@@ -983,10 +983,18 @@ pub(crate) fn osm_only(region_bbox: &BoundingBox) -> bool {
 }
 
 /// Whether the region of a map of `region_bbox` has no cadastre (ALKIS): the buildings and the
-/// land use come from OSM alone. That holds for [`Coverage::OsmOnly`] and [`Coverage::Rasters`].
+/// land use come from OSM alone. That holds for [`Coverage::OsmOnly`] and [`Coverage::Rasters`]
+/// (no built-in region is one of them at present).
 pub(crate) fn no_cadastre(region_bbox: &BoundingBox) -> bool {
     raster_region_in(registry(), region_bbox)
         .is_some_and(|adapter| adapter.info().coverage != Coverage::Full)
+}
+
+/// Whether the region of a map of `region_bbox` lies outside Germany: what only German sources
+/// can give (the permit notes) is not available there.
+pub(crate) fn outside_germany(region_bbox: &BoundingBox) -> bool {
+    raster_region_in(registry(), region_bbox)
+        .is_some_and(|adapter| adapter.info().country != Country::De)
 }
 
 /// The CRS of a map of `region_bbox` (EPSG:25833): that of its raster region.
@@ -1005,9 +1013,10 @@ pub(crate) fn check_area(bbox: &BoundingBox) -> Result<(), ProjectError> {
         return Err(ProjectError::OutsideCoverage);
     };
     // A region without a cadastre cannot take the rasters and the cadastre of its neighbour, and
-    // its extracts end at its border: an area that reaches over the border would be half made
-    // (ADR 0164).
-    if region.info().coverage != Coverage::Full
+    // the same holds outside Germany: the rasters of a map are those of one country, and its
+    // extracts end at its border, so an area that reaches over the border would be half made
+    // (ADR 0164). A map centred in Germany with a strip abroad still gets its warning.
+    if (region.info().coverage != Coverage::Full || region.info().country != Country::De)
         && (crate::sources::region::reaches_beyond_coverage(bbox)
             || registry().adapters().any(|other| {
                 other.info().country != region.info().country && overlaps_in(other, bbox)
@@ -1018,12 +1027,14 @@ pub(crate) fn check_area(bbox: &BoundingBox) -> Result<(), ProjectError> {
     check_size(bbox)
 }
 
-/// Whether a map in a region with a cadastre has part of its area on the ground of a region
-/// without one.
-fn beside_osm_only(region_bbox: &BoundingBox) -> bool {
+/// Whether a map in a region with a cadastre has part of its area on the ground of a region of
+/// another country: the rasters of its own region end at the border.
+fn beside_another_country(region_bbox: &BoundingBox) -> bool {
     !no_cadastre(region_bbox)
-        && registry().adapters().any(|adapter| {
-            adapter.info().coverage != Coverage::Full && overlaps_in(adapter, region_bbox)
+        && raster_region_in(registry(), region_bbox).is_some_and(|home| {
+            registry().adapters().any(|adapter| {
+                adapter.info().country != home.info().country && overlaps_in(adapter, region_bbox)
+            })
         })
 }
 
@@ -1201,7 +1212,7 @@ fn fetch_project_parts(
     check_size(&bbox)?;
     // Part of the area on the ground of a region with OSM only has no terrain model or cadastre
     // either: a map centred next to Poland says so, as one that reaches beyond every region does.
-    if beside_osm_only(&region_bbox)
+    if beside_another_country(&region_bbox)
         || crate::sources::region::reaches_beyond_coverage(&region_bbox)
     {
         progress(note!("warning-beyond-coverage"));
@@ -11754,10 +11765,10 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         );
     }
 
-    /// An area in Łódź: Poland has rasters but no cadastre, so an online fetch of the buildings
-    /// asks no server and says nothing about ALKIS.
+    /// An area in Łódź: Poland has a cadastre (EGiB), so an online fetch of the buildings and of
+    /// the land use asks its service, once each, and stores what comes back.
     #[test]
-    fn online_fetch_in_a_region_without_a_cadastre_asks_no_cadastre() {
+    fn online_fetch_in_poland_asks_the_cadastre_of_gugik() {
         let area = FetchArea::new(
             BoundingBox {
                 min_e: 806_500.0,
@@ -11767,13 +11778,16 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             },
             Crs::Utm34,
         );
-        assert!(no_cadastre(&area.region_bbox) && !osm_only(&area.region_bbox));
+        assert!(!no_cadastre(&area.region_bbox) && outside_germany(&area.region_bbox));
         let fetcher = MapFetcher::default();
+        fetcher.insert_prefix(
+            "https://mapy.geoportal.gov.pl/wss/service/PZGIK/EGIB/WFS/UslugaZbiorcza",
+            br#"<wfs:FeatureCollection xmlns:wfs="w"></wfs:FeatureCollection>"#.to_vec(),
+        );
         let cache_dir = tempfile::tempdir().unwrap();
         let cache = CacheDir::new(cache_dir.path().to_path_buf());
         let dir = tempfile::tempdir().unwrap();
-        let mut messages = Vec::new();
-        let mut progress = |note: Note| messages.push(note.to_string());
+        let mut progress = |_: Note| {};
         let record = fetch_buildings_into(
             dir.path(),
             &fetcher,
@@ -11793,8 +11807,11 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             None,
             &mut progress,
         );
-        assert!(record.is_none() && land_use.is_none());
-        assert!(messages.is_empty(), "{messages:?}");
+        assert!(record.is_some() && land_use.is_some());
+        let log = fetcher.log.borrow();
+        assert_eq!(log.len(), 2, "{log:?}");
+        assert!(log[0].contains("TYPENAMES=ms:budynki"), "{log:?}");
+        assert!(log[1].contains("TYPENAMES=ms:dzialki"), "{log:?}");
         assert!(dir.path().join(BUILDINGS_RELPATH).exists());
     }
 
@@ -11831,17 +11848,17 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         }
     }
 
-    /// A map centred in Germany with a strip of Poland is beside a region without a cadastre; one in
-    /// Poland, or far from it, is not.
+    /// A map centred in Germany with a strip of Poland is beside a region of another country; one
+    /// in Poland, or far from it, is not.
     #[test]
-    fn beside_osm_only_tells_the_strip_of_a_neighbour() {
-        assert!(beside_osm_only(&lon_lat_box(
+    fn beside_another_country_tells_the_strip_of_a_neighbour() {
+        assert!(beside_another_country(&lon_lat_box(
             14.520, 52.340, 14.570, 52.346
         )));
-        assert!(!beside_osm_only(&lon_lat_box(
+        assert!(!beside_another_country(&lon_lat_box(
             19.450, 51.760, 19.460, 51.766
         )));
-        assert!(!beside_osm_only(&lon_lat_box(
+        assert!(!beside_another_country(&lon_lat_box(
             13.370, 52.510, 13.380, 52.516
         )));
     }

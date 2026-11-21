@@ -12,7 +12,7 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use freemapper_adapter_api::adapter::RegionAdapter;
-use freemapper_adapter_api::alkis::AlkisSource;
+use freemapper_adapter_api::alkis::{AlkisPart, AlkisSource, FetchArea};
 use freemapper_adapter_api::credit::{CreditLine, UsedSources};
 use freemapper_adapter_api::env::AdapterEnv;
 use freemapper_adapter_api::error::{AdapterError, Remedy};
@@ -31,6 +31,7 @@ use freemapper_georef::crs::{BoundingBox, Crs, LatLon};
 use geo::MapCoords;
 use geo_types::MultiPolygon;
 
+use crate::egib;
 use crate::gugik_index::{DOWNLOAD_HOST, GugikIndex, INDEX_HOST};
 use crate::rasters::{PROVIDER, PolskaRasters};
 
@@ -177,6 +178,7 @@ pub struct Polska {
     declared: Declared,
     policy: UrlPolicy,
     rasters: GuardedRasters,
+    cadastre: PolskaCadastre,
     boundary: MultiPolygon<f64>,
     extracts: Vec<MultiPolygon<f64>>,
 }
@@ -209,12 +211,15 @@ impl Polska {
         });
         Self {
             declared: Declared {
-                revision: 2,
+                revision: 3,
                 hosts: HOSTS.iter().map(ToString::to_string).collect(),
-                last_verified: chrono::NaiveDate::from_ymd_opt(2026, 11, 20),
+                last_verified: chrono::NaiveDate::from_ymd_opt(2026, 11, 21),
             },
             rasters: GuardedRasters {
                 inner: PolskaRasters::new(Arc::new(GugikIndex::new())),
+                policy: policy.clone(),
+            },
+            cadastre: PolskaCadastre {
                 policy: policy.clone(),
             },
             policy,
@@ -230,9 +235,8 @@ impl Polska {
                 // The zone of a map is chosen by its centre ([`RegionAdapter::crs_for`]).
                 crs: Crs::Utm33,
                 country: Country::Pl,
-                // Rasters from GUGiK, no cadastre yet: the buildings and the land use come from OSM
-                // until Stage 3 (ADR 0164).
-                coverage: Coverage::Rasters,
+                // Rasters and the cadastre (EGiB) of GUGiK (ADR 0170, 0171).
+                coverage: Coverage::Full,
                 object_id_prefix: None,
                 osm,
                 credit_short: None,
@@ -279,14 +283,15 @@ impl RegionAdapter for Polska {
     }
 
     fn alkis(&self) -> Option<&dyn AlkisSource> {
-        None
+        Some(&self.cadastre)
     }
 
     /// The credit of GUGiK for a project whose rasters came from it and holds a terrain model
     /// or an orthophoto.
     fn attribution(&self, used: &UsedSources<'_>) -> Vec<CreditLine> {
         let holds = used.terrain.is_some() || used.orthophoto.is_some();
-        if used.rasters_from(PROVIDER) && holds {
+        let cadastre = used.alkis_fetches(POLSKA).next().is_some();
+        if (used.rasters_from(PROVIDER) && holds) || cadastre {
             vec![CreditLine::new(CREDIT)]
         } else {
             Vec::new()
@@ -308,6 +313,46 @@ impl RegionAdapter for Polska {
 
     fn crs_for(&self, centre: LatLon) -> Crs {
         Crs::for_position(centre)
+    }
+}
+
+/// The cadastre of GUGiK (EGiB, [`crate::egib`]) with every request held to the hosts of the
+/// adapter's policy, as [`GuardedRasters`] holds the rasters.
+struct PolskaCadastre {
+    policy: UrlPolicy,
+}
+
+impl PolskaCadastre {
+    /// `layer` in the area as the engine reads it, built by `part` in the CRS of the map.
+    fn read(
+        &self,
+        env: &mut AdapterEnv<'_>,
+        area: &FetchArea,
+        layer: egib::Layer,
+        part: fn(&[egib::Feature], Crs) -> AlkisPart,
+    ) -> Result<AlkisPart, AdapterError> {
+        let fetcher = PolicyFetcher::new(env.fetcher, &self.policy);
+        let bbox = egib::area_2180(area)?;
+        let features = egib::fetch_all(&fetcher, layer, &bbox)?;
+        Ok(part(&features, area.crs))
+    }
+}
+
+impl AlkisSource for PolskaCadastre {
+    fn buildings(
+        &self,
+        env: &mut AdapterEnv<'_>,
+        area: &FetchArea,
+    ) -> Result<AlkisPart, AdapterError> {
+        self.read(env, area, egib::Layer::Buildings, egib::buildings)
+    }
+
+    fn land_use(
+        &self,
+        env: &mut AdapterEnv<'_>,
+        area: &FetchArea,
+    ) -> Result<AlkisPart, AdapterError> {
+        self.read(env, area, egib::Layer::Parcels, egib::land_use)
     }
 }
 
