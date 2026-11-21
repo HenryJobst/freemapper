@@ -719,6 +719,67 @@ mod tests {
     }
 
     #[test]
+    fn area_fill_and_cross_hatch_follow_the_symbol() {
+        let hatched = |inner: Option<i16>, hatches: Vec<(f64, f64, f64, i16)>| OomSymbol {
+            area_color: inner,
+            hatches,
+            ..OomSymbol::default()
+        };
+        let area = |s: &OomSymbol| match area_kind(s, None) {
+            PlaceholderKind::Area {
+                color, fill, hatch, ..
+            } => (color, fill, hatch),
+            other => panic!("{other:?}"),
+        };
+        let line = (0.0, 600.0, 100.0, 5);
+        // Hatching alone leaves the area unfilled; a fill colour or no hatching fills it.
+        assert_eq!(area(&hatched(None, vec![line])).0, 5);
+        assert!(!area(&hatched(None, vec![line])).1);
+        assert!(area(&hatched(Some(3), vec![line])).1);
+        assert_eq!(area(&hatched(Some(3), vec![line])).0, 3);
+        assert!(area(&hatched(None, vec![])).1);
+        // A second set of the same spacing, width and colour makes a cross hatch.
+        let across = (std::f64::consts::FRAC_PI_2, 600.0, 100.0, 5);
+        let cross = area(&hatched(None, vec![line, across])).2.unwrap();
+        assert_eq!((cross.angle, cross.cross_angle), (0, Some(900)));
+        for other in [
+            (0.5, 700.0, 100.0, 5),
+            (0.5, 600.0, 200.0, 5),
+            (0.5, 600.0, 100.0, 6),
+        ] {
+            let plain = area(&hatched(None, vec![line, other])).2.unwrap();
+            assert_eq!(plain.cross_angle, None, "{other:?}");
+        }
+    }
+
+    #[test]
+    fn placeholder_colour_is_the_symbols_colour() {
+        let kinds = [
+            PlaceholderKind::Point {
+                color: 3,
+                diameter: 10,
+            },
+            PlaceholderKind::Line {
+                color: 4,
+                width: 10,
+                dash: None,
+            },
+            PlaceholderKind::Area {
+                color: 5,
+                fill: true,
+                hatch: None,
+                border: None,
+            },
+            PlaceholderKind::Text {
+                color: 6,
+                size: 100,
+                bold: false,
+            },
+        ];
+        assert_eq!(kinds.map(|k| k.color()), [3, 4, 5, 6]);
+    }
+
+    #[test]
     fn line_area_point_text_placeholders() {
         let set = SymbolSet::issprom_2019().with_sheet_symbols();
         let all = placeholders(&set);

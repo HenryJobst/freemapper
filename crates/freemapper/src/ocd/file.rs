@@ -601,6 +601,40 @@ mod tests {
     }
 
     #[test]
+    fn hatched_area_with_border_record() {
+        let mut b = OcdBuilder::new();
+        b.add_symbol(OcdSymbol {
+            number: 408_100,
+            name: "Hatched".into(),
+            kind: OcdSymbolKind::Area {
+                color: 7,
+                fill: false,
+                hatch: Some(Hatch {
+                    color: 21,
+                    width: 40,
+                    distance: 150,
+                    angle: 900,
+                    cross_angle: Some(1800),
+                }),
+                border: Some(521_001),
+            },
+            icon_color: 0,
+        })
+        .unwrap();
+        let file = read(&b.finish());
+        let a = &file.symbols[0].bytes;
+        let at = |off: usize| i16::from_le_bytes([a[off], a[off + 1]]);
+        assert_eq!(i32::from_le_bytes(a[796..800].try_into().unwrap()), 521_001);
+        assert_eq!(at(800), 0, "no fill colour");
+        assert_eq!(at(802), 2, "cross hatch");
+        assert_eq!(
+            [at(804), at(806), at(808), at(810), at(812)],
+            [21, 40, 150, 900, 1800]
+        );
+        assert_eq!((a[814], a[815]), (0, 1), "fill off, border on");
+    }
+
+    #[test]
     fn symbol_record_sizes() {
         let file = read(&builder().finish());
         let sizes: Vec<(u8, i32)> = file.symbols.iter().map(|s| (s.otp, s.size)).collect();
