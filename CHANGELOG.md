@@ -8,17 +8,19 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Hinzugefügt
 
+- Polen holt Gebäude und Landnutzung aus dem Kataster EGiB von GUGiK, dem Gegenstück zu ALKIS: die Gebäudegrundrisse mit ihrer Art (Wohn-, Wirtschafts-, Bürogebäude und so weiter) und die Flurstücke mit ihrer Nutzungsklasse (Wald, Gehölz, Grünland, Acker, Gewässer, Straße). Ein Flurstück mit zwei verschiedenen Nutzungen bleibt ohne Fläche, damit ein Acker nicht die Farbe des Waldes daneben bekommt. Der Dienst von GUGiK antwortet seitenweise mit je 1000 Objekten; freemapper liest Seite für Seite. Geht der Dienst nicht, bricht der Lauf mit der Meldung ab. BDOT10k als Rückfall folgt noch (ADR 0171). Polen bleibt Vorschau und hat noch keine Genehmigungshinweise.
 - Polen holt Höhenmodell (NMT), Oberflächenmodell (NMPT) und Orthofoto von GUGiK: Schummerung, Hangneigung, Relief, nDSM, Höhenlinien und Luftbild für ein Gebiet in Polen. Gebäude und Landnutzung kommen weiter aus OpenStreetMap; Polen bleibt Vorschau (ADR 0170). Der OSM-Auszug einer Woiwodschaft wird wieder gefunden (Geofabrik hat die Ordner umgestellt).
 
 ### Geändert
 
 - Die Mutationstests laufen schneller: Der Lauf baut die Tests einmal im Baum des Runners und kopiert dieses Ziel in die Arbeitskopien, das Zeitlimit je Mutant sinkt auf das Doppelte der Testzeit, und die Rechenschritte des Newton-Verfahrens in Polen sind ausgenommen (ADR 0173).
+- Die Beispielseite `examples/README.md` zeigt nur noch die Karten: erst die Sprint-, direkt danach die Waldkarten. Der Text dazu (Erzeugung, Zahlen, Quellen, Auswahl der Gebiete, Lizenzen) steht auf der neuen Seite `examples/hintergrund.md`.
+- README und Handbuch gibt es nur auf Deutsch und Englisch. Die polnische README und das gekürzte polnische Handbuch entfallen; das Programm selbst behält alle seine Sprachen (ADR 0172).
 
 ## [0.25.0] - 2026-11-21
 
 ### Geändert
 
-- Die Beispielseite `examples/README.md` zeigt nur noch die Karten: erst die Sprint-, direkt danach die Waldkarten. Der Text dazu (Erzeugung, Zahlen, Quellen, Auswahl der Gebiete, Lizenzen) steht auf der neuen Seite `examples/hintergrund.md`.
 - freemapper nutzt freemapper-core v0.31.2: Korrekturen in den Ansichten der Trainingskarte (Nordlinien- und Nur-braun-Ansicht kannten nur den Code 601, die echten Codes sind 601.1 bis 601.4) und ein Fehler bei `water()` mit NaN; die Schnittstelle bleibt.
 - Die Rückfrage von `freemapper update` nimmt auch das ausgeschriebene Ja von Tschechisch, Slowakisch, Estnisch, Lettisch, Litauisch, Finnisch, Ukrainisch und Russisch (`ano`, `áno`, `jah`, `jā`, `taip`, `kyllä`, `так`, `д`, `да`).
 - Zweite Durchsicht der 19 neuen Programmsprachen durch unabhängige Leser (maschinell, kein Muttersprachler): falsche Begriffe, Grammatik, uneinheitliche Anrede, englische Reste und feste Zahlwörter in Pluralzweigen sind korrigiert. Nur Texte, keine Meldungs-IDs (ADR 0169).

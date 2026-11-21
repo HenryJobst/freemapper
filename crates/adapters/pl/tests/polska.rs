@@ -46,20 +46,20 @@ fn extracts_of(adapter: &dyn RegionAdapter, bbox: &BoundingBox) -> Vec<String> {
 }
 
 #[test]
-fn polska_is_a_polish_region_with_rasters_and_no_cadastre() {
+fn polska_is_a_polish_region_with_rasters_and_a_cadastre() {
     let registry = polska();
     let adapter = registry.get("polska").unwrap();
     let info = adapter.info();
     assert_eq!(info.country, Country::Pl);
-    // Rasters from GUGiK, the buildings and land use from OSM until the cadastre of Stage 3.
-    assert_eq!(info.coverage, Coverage::Rasters);
+    // Rasters and the cadastre (EGiB) of GUGiK.
+    assert_eq!(info.coverage, Coverage::Full);
     assert_eq!(info.names.en, "Poland");
     assert_eq!(info.names.de, "Polen");
-    // The rasters are those of GUGiK, and the region names their provider; the cadastre is stage 3.
+    // The rasters are those of GUGiK, and the region names their provider.
     let rasters = adapter.rasters().expect("the rasters of GUGiK");
     assert_eq!(rasters.provider().id.as_str(), "gugik");
     assert_eq!(info.provider.as_str(), "gugik");
-    assert!(adapter.alkis().is_none());
+    assert!(adapter.alkis().is_some());
 }
 
 #[test]
@@ -198,7 +198,7 @@ fn the_adapter_declares_itself_and_owns_a_policy_of_the_hosts_of_gugik() {
     let registry = polska();
     let adapter = registry.adapters().next().unwrap();
     let declared = adapter.declared().expect("the adapter declares itself");
-    assert_eq!(declared.revision, 2);
+    assert_eq!(declared.revision, 3);
     assert!(declared.last_verified.is_some());
     let hosts = ["mapy.geoportal.gov.pl", "opendata.geoportal.gov.pl"];
     // What it declares (`adapters list`) is what its policy lets through.
@@ -247,6 +247,33 @@ fn the_credit_of_gugik_follows_the_rasters() {
     assert_eq!(lines, ["© GUGiK, geoportal.gov.pl"]);
     used.raster_provider = Some(AdapterId::built_in("lgb"));
     assert!(adapter.attribution(&used).is_empty());
+}
+
+/// The credit of GUGiK also stands in the attribution of a project that holds objects of its
+/// cadastre, whatever its rasters were.
+#[test]
+fn the_credit_of_gugik_follows_the_cadastre() {
+    use freemapper_adapter_api::credit::{AlkisUse, UsedSources};
+    use freemapper_adapter_api::records::AdapterId;
+    let registry = polska();
+    let adapter = registry.get("polska").unwrap();
+    let fetched = chrono::NaiveDate::from_ymd_opt(2026, 11, 21).unwrap();
+    let mut used = UsedSources::default();
+    used.alkis.push(AlkisUse {
+        regions: vec![AdapterId::built_in("lgb")],
+        fetched,
+    });
+    assert!(adapter.attribution(&used).is_empty());
+    used.alkis.push(AlkisUse {
+        regions: vec![AdapterId::built_in("polska")],
+        fetched,
+    });
+    let lines: Vec<_> = adapter
+        .attribution(&used)
+        .into_iter()
+        .map(|c| c.text)
+        .collect();
+    assert_eq!(lines, ["© GUGiK, geoportal.gov.pl"]);
 }
 
 /// A host a person allowed for `polska` is in its policy, and no other.

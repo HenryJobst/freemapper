@@ -5,6 +5,7 @@
 //!
 //! Terms follow `docs/glossary.md`.
 
+pub mod egib;
 pub mod gugik_index;
 pub mod polska;
 pub mod rasters;

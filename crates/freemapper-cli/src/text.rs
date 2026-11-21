@@ -170,8 +170,7 @@ pub fn states(lang: &Lang) -> String {
 }
 
 /// [`states`] for the middle of a sentence: the last name follows the word for "and". Only the
-/// regions with official geodata of their own: the sentence says whose geodata freemapper uses,
-/// and Poland has OSM only so far (ADR 0164).
+/// regions with official geodata of their own: the sentence says whose geodata freemapper uses.
 pub fn states_in_a_sentence(lang: &Lang) -> String {
     let names = freemapper::adapters::region_names_with_geodata(&lang.code());
     match names.split_last() {
@@ -471,13 +470,13 @@ mod tests {
             states_in_a_sentence(&english),
             "Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, \
              Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony, Rhineland-Palatinate, \
-             Saarland, Baden-Württemberg, Bremen and Bavaria"
+             Saarland, Baden-Württemberg, Bremen, Bavaria and Poland"
         );
         assert_eq!(
             states_in_a_sentence(&german),
             "Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg, Hessen, Schleswig-Holstein, \
              Mecklenburg-Vorpommern, Nordrhein-Westfalen, Niedersachsen, Rheinland-Pfalz, \
-             Saarland, Baden-Württemberg, Bremen und Bayern"
+             Saarland, Baden-Württemberg, Bremen, Bayern und Polen"
         );
         let instructions = TEXTS.text(
             &english,
@@ -486,7 +485,7 @@ mod tests {
         );
         assert!(
             instructions.contains("geodata of Brandenburg, Berlin, Saxony,")
-                && instructions.contains("Bremen and Bavaria, and from OSM"),
+                && instructions.contains("Bavaria and Poland, and from OSM"),
             "{instructions}"
         );
     }

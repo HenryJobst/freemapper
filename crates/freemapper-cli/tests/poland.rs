@@ -66,9 +66,9 @@ fn a_polish_project_needs_the_sheets_of_gugik_for_an_offline_run() {
     );
 }
 
-/// The estimate of a map in Łódź names the one OSM extract of its voivodeship and the sheets of
-/// GUGiK, and the extract of a recent run in the cache is not downloaded again; the sheets still
-/// are.
+/// The estimate of a map in Łódź names the one OSM extract of its voivodeship, the sheets of
+/// GUGiK and the buildings and land use of its cadastre, and the extract of a recent run in the
+/// cache is not downloaded again; the rest still is.
 #[test]
 fn estimate_lists_one_extract_for_lodz() {
     use freemapper::fetch::Cache;
@@ -88,6 +88,12 @@ fn estimate_lists_one_extract_for_lodz() {
         .items
         .iter()
         .partition(|item| item.what.contains("Voivodeship"));
+    // The cadastre is no sheet of GUGiK's rasters: its item names EGiB and not ALKIS.
+    let (cadastre, sheets): (Vec<_>, Vec<_>) = sheets
+        .into_iter()
+        .partition(|item| item.what.contains("EGiB"));
+    assert_eq!(cadastre.len(), 1, "{:?}", estimate.items);
+    assert!(cadastre.iter().all(|item| !item.what.contains("ALKIS")));
     assert_eq!(extracts.len(), 1, "{:?}", estimate.items);
     assert!(
         extracts[0].what.contains("Łódź Voivodeship"),
@@ -109,6 +115,7 @@ fn estimate_lists_one_extract_for_lodz() {
     let estimate = freemapper::layers::estimate_download(&project, &warm, today).unwrap();
     for item in &estimate.items {
         assert_eq!(item.cached, item.what.contains("Voivodeship"), "{item:?}");
+        assert!(!item.what.contains("ALKIS"), "{item:?}");
     }
     let sheets: f64 = estimate
         .items

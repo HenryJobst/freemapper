@@ -1,10 +1,10 @@
 # freemapper
 
-[Website](https://freemapper.de) · [English version](README.en.md) · [Wersja polska](README.pl.md) · [Handbuch](docs/manual/de.md) · [Glossar](docs/glossary.md) · [Änderungen](CHANGELOG.md) · [Beispiele](examples/README.md)
+[Website](https://freemapper.de) · [English version](README.en.md) · [Handbuch](docs/manual/de.md) · [Glossar](docs/glossary.md) · [Änderungen](CHANGELOG.md) · [Beispiele](examples/README.md)
 
 
 <!-- badges:start -->
-[![Tests](https://img.shields.io/badge/Tests-3026-blue)](docs/tests.json) [![Testbudget](https://img.shields.io/badge/Testbudget-15_min-blue)](docs/tests.json) [![Zeilenabdeckung](https://img.shields.io/badge/Coverage-95.9%25-brightgreen)](docs/coverage.json) [![MSRV](https://img.shields.io/badge/MSRV-1.88-blue)](Cargo.toml) [![ADRs](https://img.shields.io/badge/ADRs-171-blue)](docs/adr/README.md) [![Hygiene](https://img.shields.io/badge/Hygiene-19-brightgreen)](scripts/check.sh) [![Lizenz](https://img.shields.io/badge/Lizenz-AGPL--3.0--or--later-blue)](LICENSE)
+[![Tests](https://img.shields.io/badge/Tests-3048-blue)](docs/tests.json) [![Testbudget](https://img.shields.io/badge/Testbudget-15_min-blue)](docs/tests.json) [![Zeilenabdeckung](https://img.shields.io/badge/Coverage-95.9%25-brightgreen)](docs/coverage.json) [![MSRV](https://img.shields.io/badge/MSRV-1.88-blue)](Cargo.toml) [![ADRs](https://img.shields.io/badge/ADRs-173-blue)](docs/adr/README.md) [![Hygiene](https://img.shields.io/badge/Hygiene-19-brightgreen)](scripts/check.sh) [![Lizenz](https://img.shields.io/badge/Lizenz-AGPL--3.0--or--later-blue)](LICENSE)
 <!-- badges:end -->
 
 <!-- claude-cost:start -->
@@ -84,7 +84,7 @@ Dienste Standarddienste sind, lässt sich als Ordner mit einem Manifest ergänze
 für weitere Bundesländer, zuerst Sachsen (Gewässerachsen, Hecken und Baumreihen aus dem Basis-DLM, die Bäume von Leipzig
 und Dresden), dann Sachsen-Anhalt und Hamburg. Später kommen Hallenkarten für Hallen-OL, die letzten englischen
 Reste in den deutschen Programmtexten (`--lang de`). Thüringen, das letzte Bundesland, das noch fehlt, folgt, sobald sein Server für die
-Höhendaten wieder erreichbar ist. Polen gibt es als Vorschau: Höhenmodell und Luftbild von GUGiK, Gebäude und Landnutzung aus OpenStreetMap (ADR 0164, 0170); die übrigen Nachbarländer kommen später. Die Programmtexte gibt es auf Deutsch, Englisch und Polnisch und in 18 weiteren Sprachen, die maschinell entworfen und nicht von Muttersprachlern gelesen sind. Design:
+Höhendaten wieder erreichbar ist. Polen gibt es als Vorschau: Höhenmodell, Luftbild, Gebäude und Landnutzung von GUGiK, dem Kataster EGiB (ADR 0164, 0170, 0171); die übrigen Nachbarländer kommen später. Die Programmtexte gibt es auf Deutsch, Englisch und Polnisch und in 18 weiteren Sprachen, die maschinell entworfen und nicht von Muttersprachlern gelesen sind. Design:
 [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](https://github.com/HenryJobst/freemapper/blob/main/docs/superpowers/specs/2026-11-07-freemapper-design.md).
 
 Auf Wunsch schreibt freemapper Hinweise zu Genehmigungen neben die Karte, in die Datei `permits.md` (`freemapper permits`, `run --permits`, auf der Gebietsseite oder über den KI-Assistenten). Sie nennt für das Kartengebiet Bundesland, Kreis, Amt und Gemeinde aus VG250 des BKG, die Schutzgebiete des BfN und Betreiber aus OpenStreetMap, jeweils mit Anteil, Quelle und Datenstand, und sagt, wen man meist fragt. Sie ist ein Hinweis und keine Rechtsauskunft. Einzelheiten stehen im [Handbuch, Kapitel 12](docs/manual/de.md#12-hinweise-zu-genehmigungen). In Berlin kommen Bezirk, Grünanlagen, Eigentum von Bundesland und Bund, Denkmale und Naturdenkmale aus dem Geoportal Berlin dazu. In Hamburg kommen Bezirk, Grünanlagen, Denkmale, Stadtwald und Wasserschutzgebiete aus dem Geoportal Hamburg. In Brandenburg, Berlin, Hamburg, Nordrhein-Westfalen, im Saarland, in Sachsen und in Schleswig-Holstein nennen die Hinweise auch die Forstdienststelle. Wasserschutzgebiete nennen sie in allen Bundesländern, Denkmale in elf, Naturdenkmale und geschützte Biotope in dreizehn, Waldfunktionen in mehreren.

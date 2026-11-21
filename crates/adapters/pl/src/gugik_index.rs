@@ -204,7 +204,7 @@ struct Read {
     skipped: Vec<String>,
 }
 
-fn http_error(url: &str, message: impl Into<String>) -> FetchError {
+pub(crate) fn http_error(url: &str, message: impl Into<String>) -> FetchError {
     FetchError::Http {
         url: url.to_string(),
         message: message.into(),
@@ -212,18 +212,18 @@ fn http_error(url: &str, message: impl Into<String>) -> FetchError {
 }
 
 /// An OGC exception report (the server sends one with status 200) as the error it is.
-fn report_error(url: &str, body: &[u8]) -> FetchError {
+pub(crate) fn report_error(url: &str, body: &[u8]) -> FetchError {
     let detail = ogc_exception(body).unwrap_or_else(|| "an exception report".to_string());
     http_error(url, format!("the index service answered with {detail}"))
 }
 
 /// The local part of a qualified XML name.
-fn local(name: &str) -> String {
+pub(crate) fn local(name: &str) -> String {
     name.rsplit(':').next().unwrap_or_default().to_string()
 }
 
 /// The character an XML entity (`amp` in `&amp;`) stands for.
-fn entity(name: &str) -> Option<char> {
+pub(crate) fn entity(name: &str) -> Option<char> {
     match name {
         "amp" => Some('&'),
         "lt" => Some('<'),
@@ -272,12 +272,16 @@ fn read_layers(product: Product, body: &[u8], url: &str) -> Result<Vec<String>, 
 }
 
 /// The value of the attribute `name` (any prefix) of `element`.
-fn attribute(element: &BytesStart<'_>, name: &str) -> Option<String> {
+pub(crate) fn attribute(element: &BytesStart<'_>, name: &str) -> Option<String> {
     element
         .attributes()
         .flatten()
         .find(|a| local(a.key.as_ref()) == name)
-        .map(|a| a.value.to_string())
+        .map(|a| {
+            // The value as written (`&amp;` and all) when it holds an entity that is no XML's.
+            a.normalized_value(quick_xml::XmlVersion::Implicit1_0)
+                .map_or_else(|_| a.value.to_string(), |v| v.to_string())
+        })
 }
 
 /// The fields of one feature the client reads, by their local element names.
