@@ -8,6 +8,7 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ### Added
 
+- Check tool `tools/mapper-inspect`: opens an `.omap` or `.ocd` with the importer of OpenOrienteering Mapper and prints colours, symbols, objects and georeferencing as JSON. The test `mapper_ocd` uses it to compare the `.ocd` of two examples and their candidate layers with the `.omap` (objects, colours, scale, georeferencing); without the tool (`FREEMAPPER_MAPPER_INSPECT`) it is skipped. Mapper reads our `.ocd` without errors. The tool is not part of the program or of the release archives (#230).
 - 18 more program languages (cs, nl, da, fr, sv, nb, fi, sk, et, it, sl, hu, lt, lv, es, pt, ru, uk) as texts for the help, messages, area page and MCP. They are machine drafts and not read by native speakers; README and manual exist only in German, English and Polish (ADR 0169). The question of `freemapper update` takes the yes of every language.
 - Polish as a program language: `--lang pl`, `FREEMAPPER_LANG=pl` and the system language choose the Polish texts (help, messages, area page, MCP descriptions). Also `README.pl.md` and a shortened manual `docs/manual/pl.md`. The texts are machine drafts and wait for a read-through by a native speaker; Poland stays a preview (ADR 0168).
 - `adapters list --json` and the area page give `names.pl` where an adapter has a Polish name (Poland: `Polska`); the existing keys stay.
