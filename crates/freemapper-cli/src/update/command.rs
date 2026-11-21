@@ -286,6 +286,15 @@ fn is_yes(answer: &str) -> bool {
             | "da"
             | "i"
             | "igen"
+            | "ano"
+            | "áno"
+            | "jah"
+            | "jā"
+            | "kyllä"
+            | "taip"
+            | "так"
+            | "д"
+            | "да"
     )
 }
 
@@ -362,10 +371,19 @@ mod tests {
             "d",
             "i",
             "igen",
+            "ANO",
+            "Áno",
+            "jah",
+            "Jā",
+            "kyllä",
+            "taip",
+            "Так",
+            "д",
+            "Да",
         ] {
             assert!(is_yes(yes), "{yes:?}");
         }
-        for no in ["", "\n", "n", "no", "nein", "nie", "yess", "maybe"] {
+        for no in ["", "\n", "n", "no", "nein", "nie", "ne", "nej", "ei", "нет", "ні", "yess", "maybe"] {
             assert!(!is_yes(no), "{no:?}");
         }
     }
