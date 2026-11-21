@@ -55,8 +55,8 @@ krok po kroku, każdy przypięty do stałej wersji, zamiast kopiować kod.
 
 ## Status
 
-Aktualna wersja to [v0.24.0](https://github.com/HenryJobst/freemapper/releases/tag/v0.24.0) z
-16 listopada 2026 (zob. [zmiany](CHANGELOG.en.md), co nowego).
+Aktualna wersja to [v0.25.0](https://github.com/HenryJobst/freemapper/releases/tag/v0.25.0) z
+21 listopada 2026 (zob. [zmiany](CHANGELOG.en.md), co nowego).
 
 freemapper tworzy mapy dziedzińców szkolnych i
 mapy sprintowe dla piętnastu krajów związkowych: Brandenburgii, Berlina, Saksonii, Saksonii-Anhalt, Hamburga, Hesji,

@@ -54,8 +54,8 @@ step by step, each pinned to a fixed version, instead of copying the code.
 
 ## Status
 
-The current version is [v0.24.0](https://github.com/HenryJobst/freemapper/releases/tag/v0.24.0) of
-16 November 2026 (see the [changes](CHANGELOG.en.md) for what is new).
+The current version is [v0.25.0](https://github.com/HenryJobst/freemapper/releases/tag/v0.25.0) of
+21 November 2026 (see the [changes](CHANGELOG.en.md) for what is new).
 
 freemapper makes schoolyard and
 sprint maps for fifteen states: Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse,
@@ -83,7 +83,7 @@ further states,
 first Saxony (water axes, hedges and tree rows from the Basis-DLM, the trees of Leipzig and Dresden), then
 Saxony-Anhalt and Hamburg. Later come gym maps for indoor orienteering, and the last English remains in the German program texts (`--lang de`).
 Thuringia, the last state still missing, follows once its height-data server is
-back. The neighbouring countries come later. Design:
+back. Poland is available as a preview from OpenStreetMap alone (ADR 0164); the other neighbouring countries come later. The program texts exist in German, English and Polish and in 18 more languages, drafted by machine and not read by native speakers. Design:
 [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](https://github.com/HenryJobst/freemapper/blob/main/docs/superpowers/specs/2026-11-07-freemapper-design.md).
 
 On request freemapper writes permit notes next to the map, into the file `permits.md` (`freemapper permits`, `run --permits`, on the area page or through the AI assistant). For the map area it names the state, Kreis, Amt and Gemeinde from the BKG's VG250, the protected areas of the BfN and operators from OpenStreetMap, each with its share, source and data date, and says whom one usually asks. It is a hint, not legal advice. The details are in the [user manual, chapter 12](docs/manual/en.md#12-permit-notes). In Berlin the Bezirk, green spaces, land of the state and the Bund, monuments and natural monuments come from the Geoportal Berlin as well. In Hamburg the Bezirk, green spaces, monuments, the Stadtwald and water protection areas come from the Geoportal Hamburg. In Brandenburg, Berlin, Hamburg, North Rhine-Westphalia, Saarland, Saxony and Schleswig-Holstein the notes also name the forest office. They name water protection areas in every state, monuments in eleven, natural monuments and protected biotopes in thirteen, forest functions in several.
