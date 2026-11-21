@@ -7,6 +7,7 @@
 
 pub mod egib;
 pub mod gugik_index;
+pub mod permits;
 pub mod polska;
 pub mod rasters;
 pub mod sheets;

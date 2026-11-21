@@ -5,8 +5,9 @@
 //! clipping polygons Geofabrik publishes (from `index-v1.json`); they reach past the border and
 //! only choose the extract. All are embedded as GeoJSON in WGS 84 and projected to EPSG:25833
 //! once on first use. Stage 2 adds the rasters of GUGiK (terrain model, surface model and
-//! orthophoto, [`crate::rasters::PolskaRasters`]); there is no cadastre yet (no ALKIS), so the buildings come
-//! with stage 3. The adapter asks the two hosts of GUGiK and no other ([`HOSTS`]).
+//! orthophoto, [`crate::rasters::PolskaRasters`]) and stage 3 the cadastre EGiB ([`crate::egib`]).
+//! The permit notes come from the GDOŚ and the PRG ([`crate::permits`], ADR 0175). The adapter
+//! asks the two hosts of GUGiK and the host of the GDOŚ and no other ([`HOSTS`]).
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -20,6 +21,7 @@ use freemapper_adapter_api::estimate::{EstimateArea, EstimateEnv};
 use freemapper_adapter_api::info::{
     Country, Coverage, Declared, Names, OsmExtractInfo, PreviewInfo, RegionInfo,
 };
+use freemapper_adapter_api::permits::PermitSource;
 use freemapper_adapter_api::policy::{Owner, PolicyFetcher, UrlPolicy};
 use freemapper_adapter_api::project::RasterProject;
 use freemapper_adapter_api::rasters::{
@@ -33,6 +35,7 @@ use geo_types::MultiPolygon;
 
 use crate::egib;
 use crate::gugik_index::{DOWNLOAD_HOST, GugikIndex, INDEX_HOST};
+use crate::permits::GDOS_HOST;
 use crate::rasters::{PROVIDER, PolskaRasters};
 
 /// The id of the adapter.
@@ -43,10 +46,11 @@ pub const POLSKA: &str = "polska";
 pub const CREDIT: &str = "© GUGiK, geoportal.gov.pl";
 
 /// The hosts the adapter asks besides what a person allowed: the sheet index and the services of
-/// GUGiK ([`INDEX_HOST`]) and the download of its sheets ([`DOWNLOAD_HOST`]). The OSM extracts
+/// GUGiK ([`INDEX_HOST`]: rasters, cadastre and the boundaries of the PRG), the download of its
+/// sheets ([`DOWNLOAD_HOST`]) and the services of the GDOŚ ([`GDOS_HOST`]). The OSM extracts
 /// come through the core hosts, and the area page asks the WMS of `mapy.geoportal.gov.pl` itself,
 /// in the browser.
-pub const HOSTS: [&str; 2] = [INDEX_HOST, DOWNLOAD_HOST];
+pub const HOSTS: [&str; 3] = [INDEX_HOST, DOWNLOAD_HOST, GDOS_HOST];
 
 /// The state border of Poland (OSM relation 49715), WGS 84.
 const POLAND_BOUNDARY: &str = include_str!("../data/poland.geojson");
@@ -179,6 +183,7 @@ pub struct Polska {
     policy: UrlPolicy,
     rasters: GuardedRasters,
     cadastre: PolskaCadastre,
+    permits: Vec<Box<dyn PermitSource>>,
     boundary: MultiPolygon<f64>,
     extracts: Vec<MultiPolygon<f64>>,
 }
@@ -211,9 +216,9 @@ impl Polska {
         });
         Self {
             declared: Declared {
-                revision: 3,
+                revision: 4,
                 hosts: HOSTS.iter().map(ToString::to_string).collect(),
-                last_verified: chrono::NaiveDate::from_ymd_opt(2026, 11, 21),
+                last_verified: chrono::NaiveDate::from_ymd_opt(2026, 11, 22),
             },
             rasters: GuardedRasters {
                 inner: PolskaRasters::new(Arc::new(GugikIndex::new())),
@@ -223,6 +228,7 @@ impl Polska {
                 policy: policy.clone(),
             },
             policy,
+            permits: crate::permits::sources(),
             info: RegionInfo {
                 id: id.clone(),
                 // The rasters are those of GUGiK ([`PolskaRasters`]).
@@ -276,6 +282,11 @@ impl RegionAdapter for Polska {
 
     fn boundary(&self) -> &MultiPolygon<f64> {
         &self.boundary
+    }
+
+    /// The protected areas of the GDOŚ and the forest districts of the PRG (ADR 0175).
+    fn permit_sources(&self) -> &[Box<dyn PermitSource>] {
+        &self.permits
     }
 
     fn extract_boundary(&self, index: usize) -> Option<&MultiPolygon<f64>> {

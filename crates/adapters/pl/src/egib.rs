@@ -109,6 +109,25 @@ pub struct Page {
 /// Reads a page. An exception report, an answer that is no feature collection and one that ends
 /// early are errors the caller asks again for.
 pub fn read_page(layer: Layer, body: &[u8], url: &str) -> Result<Page, FetchError> {
+    read_members(
+        layer.element(),
+        layer.id_field(),
+        layer.kind_field(),
+        body,
+        url,
+    )
+}
+
+/// [`read_page`] for any MapServer layer of GUGiK: `element` is the feature element (`budynki`),
+/// `id_field` fills [`Feature::id`] and `kind_field` [`Feature::kind`]. The permit notes read
+/// the units of the forest administration of the PRG with it (ADR 0175).
+pub fn read_members(
+    element: &str,
+    id_field: &str,
+    kind_field: &str,
+    body: &[u8],
+    url: &str,
+) -> Result<Page, FetchError> {
     if is_ogc_report(body) {
         return Err(report_error(url, body));
     }
@@ -135,7 +154,7 @@ pub fn read_page(layer: Layer, body: &[u8], url: &str) -> Result<Page, FetchErro
                         ));
                     }
                     page.next = attribute(&e, "next");
-                } else if name == layer.element() {
+                } else if name == element {
                     draft = Some(Feature {
                         id: String::new(),
                         kind: String::new(),
@@ -157,9 +176,9 @@ pub fn read_page(layer: Layer, body: &[u8], url: &str) -> Result<Page, FetchErro
                 depth = depth.saturating_sub(1);
                 let name = local(e.name().as_ref());
                 if let Some(d) = draft.as_mut() {
-                    if name == layer.id_field() {
+                    if name == id_field {
                         d.id = text.trim().to_string();
-                    } else if name == layer.kind_field() {
+                    } else if name == kind_field {
                         d.kind = text.trim().to_string();
                     } else if name == "posList" {
                         ring = Some(read_ring(&text, url)?);
@@ -167,7 +186,7 @@ pub fn read_page(layer: Layer, body: &[u8], url: &str) -> Result<Page, FetchErro
                         rings.extend(ring.take());
                     } else if name == "Polygon" && !rings.is_empty() {
                         d.polygons.push(std::mem::take(&mut rings));
-                    } else if name == layer.element()
+                    } else if name == element
                         && let Some(done) = draft.take()
                     {
                         page.features.push(done);
