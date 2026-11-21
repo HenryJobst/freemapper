@@ -18,7 +18,7 @@ use freemapper_adapter_api::estimate::{EstimateArea, EstimateEnv};
 use freemapper_adapter_api::fetch::{FetchMode, Fetcher};
 use freemapper_adapter_api::fs::write_inside;
 use freemapper_adapter_api::note;
-use freemapper_adapter_api::note::Arg;
+use freemapper_adapter_api::note::{Arg, Note};
 use freemapper_adapter_api::project::RasterProject;
 use freemapper_adapter_api::rasters::{ProviderInfo, RasterBackend, RasterKind};
 use freemapper_adapter_api::records::{
@@ -59,12 +59,15 @@ const MARGIN_M: f64 = 5.0;
 
 /// Which sheets of a product touch an area: the index service of GUGiK, or a stand-in.
 pub trait SheetCatalog: Send + Sync {
-    /// Every sheet of `product` (all years, all resolutions) that touches `area` in PL-1992.
+    /// Every sheet of `product` (all years, all resolutions) that touches `area` in PL-1992 and
+    /// that this program can read. A sheet the index lists wrongly is left out and reported
+    /// through `progress` as a warning; the others stay.
     fn sheets(
         &self,
         fetcher: &dyn Fetcher,
         product: Product,
         area: &BoundingBox,
+        progress: &mut dyn FnMut(Note),
     ) -> Result<Vec<Sheet>, AdapterError>;
 }
 
@@ -196,27 +199,32 @@ impl PolskaRasters {
         fetcher: &dyn Fetcher,
         product: Product,
         area: &BoundingBox,
+        progress: &mut dyn FnMut(Note),
     ) -> Result<Vec<Sheet>, AdapterError> {
         let finest = match product {
             Product::Orthophoto => FINEST_PIXEL_M,
             _ => 0.0,
         };
-        let all = self.catalog.sheets(fetcher, product, area)?;
+        let all = self.catalog.sheets(fetcher, product, area, progress)?;
         Ok(best_per_cell(&all, finest))
     }
 
     /// The file of `sheet` in the shared cache. The sheet number comes from the server, so
-    /// nothing but letters, digits and dashes is let into the name.
+    /// nothing but letters, digits, dashes and single dots is let into the name.
     fn cache_file(
         env: &AdapterEnv<'_>,
         product: Product,
         sheet: &Sheet,
     ) -> Result<PathBuf, AdapterError> {
+        // Letters, digits and dashes (`N-33-126-C-c-4-3`) and the dots of the old numbering
+        // (`7.125.11.08`); never a leading dot or two in a row, so no name leads out of the folder.
         let clean = !sheet.godlo.is_empty()
+            && !sheet.godlo.starts_with('.')
+            && !sheet.godlo.contains("..")
             && sheet
                 .godlo
                 .chars()
-                .all(|c| c.is_ascii_alphanumeric() || c == '-');
+                .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '.');
         if !clean {
             return Err(refused(
                 sheet,
@@ -295,19 +303,30 @@ impl PolskaRasters {
         let crs = project.crs();
         let grid = GridSpec::covering(bbox, ORTHOPHOTO_PIXEL_M);
         let mut rgba = Raster::filled(grid, [0u8; 4]);
+        let mut unreadable = None;
         for sheet in sheets {
             let (path, bytes) = self.sheet_bytes(env, Product::Orthophoto, sheet)?;
-            let window = orto::Sheet::open(&bytes)
-                .and_then(|s| s.read_window(area))
-                .map_err(|e| {
+            let read = orto::Sheet::open(&bytes).and_then(|s| s.read_window(area));
+            match read {
+                Ok(Some(window)) => warp_rgb_into(&mut rgba, crs, &window, Resample::Bilinear),
+                Ok(None) => {}
+                // A sheet of an old flight may carry a coordinate system the reader does not know
+                // (the old sheet numbers of 2014 do): it is left out with a warning, and the area
+                // is still covered by the sheets of other flights. It is not kept in the cache.
+                Err(e) => {
                     let _ = std::fs::remove_file(&path);
-                    refused(sheet, e)
-                })?;
-            if let Some(window) = window {
-                warp_rgb_into(&mut rgba, crs, &window, Resample::Bilinear);
+                    (env.progress)(note!(
+                        "warning-error",
+                        error = Arg::error(refused(sheet, &e))
+                    ));
+                    unreadable.get_or_insert_with(|| refused(sheet, e));
+                }
             }
         }
         if rgba.data.iter().all(|p| p[3] == 0) {
+            if let Some(error) = unreadable {
+                return Err(error);
+            }
             return Err(AdapterError::Fetch(FetchError::Http {
                 url: "GUGiK".into(),
                 message: "the orthophoto sheets hold no pixel inside the map area".into(),
@@ -372,12 +391,12 @@ impl RasterBackend for PolskaRasters {
             })
         })?;
         let fetcher = env.fetcher;
-        let terrain = self.choose(fetcher, Product::Terrain, &area)?;
-        let photo = self.choose(fetcher, Product::Orthophoto, &area)?;
+        let terrain = self.choose(fetcher, Product::Terrain, &area, &mut *env.progress)?;
+        let photo = self.choose(fetcher, Product::Orthophoto, &area, &mut *env.progress)?;
         let surface = if env.skip_surface {
             Vec::new()
         } else {
-            self.choose(fetcher, Product::Surface, &area)?
+            self.choose(fetcher, Product::Surface, &area, &mut *env.progress)?
         };
         // The cap counts what the sheets weigh, cached or not: a map area that needs more than
         // the cap is too large for this provider whichever run asks.
@@ -570,6 +589,7 @@ mod tests {
             _: &dyn Fetcher,
             product: Product,
             _: &BoundingBox,
+            _: &mut dyn FnMut(Note),
         ) -> Result<Vec<Sheet>, AdapterError> {
             Ok(self
                 .0
@@ -822,6 +842,56 @@ mod tests {
         assert!(!cached.exists());
     }
 
+    const OLD_ORTO: &str = "https://opendata.geoportal.gov.pl/ortofotomapa/70076/B-OLD.tif";
+
+    /// A sheet of an old flight that cannot be read is left out, and the map is still made from
+    /// the other sheets; with nothing else to read, the fetch fails.
+    #[test]
+    fn an_unreadable_orthophoto_sheet_is_left_out_while_another_covers_the_area() {
+        let (_, fetcher) = served();
+        fetcher.insert(OLD_ORTO, b"not a tiff".to_vec());
+        let both = Stub(vec![
+            (
+                Product::Terrain,
+                sheet("N-33-126-C-c-4-3", 2020, 1.0, NMT, 0.08),
+            ),
+            (
+                Product::Orthophoto,
+                sheet("N-33-126-C-c-4-3", 2025, 0.25, ORTO, 0.008),
+            ),
+            (
+                Product::Orthophoto,
+                sheet("B-OLD", 2014, 0.25, OLD_ORTO, 0.008),
+            ),
+        ]);
+        let backend = PolskaRasters::new(Arc::new(both));
+        let scratch = tempfile::tempdir().unwrap();
+        let (result, project) = run(&backend, &fetcher, scratch.path(), FetchMode::Online, true);
+        assert!(result.is_ok(), "{result:?}");
+        assert!(project.dir().join(WMS_ORTHOPHOTO_RELPATH).exists());
+        assert!(
+            !scratch
+                .path()
+                .join("cache/gugik/orto/B-OLD_2014.tif")
+                .exists()
+        );
+
+        let only_old = Stub(vec![
+            (
+                Product::Terrain,
+                sheet("N-33-126-C-c-4-3", 2020, 1.0, NMT, 0.08),
+            ),
+            (
+                Product::Orthophoto,
+                sheet("B-OLD", 2014, 0.25, OLD_ORTO, 0.008),
+            ),
+        ]);
+        let backend = PolskaRasters::new(Arc::new(only_old));
+        let scratch = tempfile::tempdir().unwrap();
+        let (result, _) = run(&backend, &fetcher, scratch.path(), FetchMode::Online, true);
+        assert!(result.is_err());
+    }
+
     #[test]
     fn a_sheet_number_that_is_a_path_is_refused_before_any_download() {
         let (_, fetcher) = served();
@@ -834,6 +904,34 @@ mod tests {
         let (result, _) = run(&backend, &fetcher, scratch.path(), FetchMode::Online, true);
         assert!(result.is_err());
         assert!(fetcher.log.borrow().is_empty());
+    }
+
+    /// The sheets of the old numbering (`7.125.11.08`, Kraków and other cities) have dots in their
+    /// number: they are cached under it, and a number that climbs out of the folder is not.
+    #[test]
+    fn a_sheet_number_of_the_old_numbering_is_cached_under_its_number() {
+        let scratch = tempfile::tempdir().unwrap();
+        let registry = Registry::new();
+        let cache = CacheDir::new(scratch.path().join("cache"));
+        let fetcher = MapFetcher::default();
+        let path = |godlo: &str| {
+            let mut progress = |_| {};
+            let env = AdapterEnv {
+                fetcher: &fetcher,
+                regions: &registry,
+                cache: &cache,
+                mode: FetchMode::Online,
+                today: NaiveDate::from_ymd_opt(2026, 11, 21).unwrap(),
+                skip_surface: false,
+                progress: &mut progress,
+            };
+            PolskaRasters::cache_file(&env, Product::Terrain, &sheet(godlo, 2021, 1.0, NMT, 0.08))
+        };
+        let ok = path("7.125.11.08").unwrap();
+        assert!(ok.ends_with("nmt/7.125.11.08_2021.asc"), "{ok:?}");
+        for bad in [".", "..", "a..b", ".hidden", "a/b", ""] {
+            assert!(path(bad).is_err(), "{bad:?}");
+        }
     }
 
     #[test]

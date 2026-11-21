@@ -49,9 +49,15 @@ impl OsmExtractInfo {
         format!("{GEOFABRIK}/{}-latest.osm.pbf", self.geofabrik_path)
     }
 
-    /// Where Geofabrik says how current the extract is.
+    /// Where Geofabrik says how current the extract is. A region that has a folder of its own
+    /// (`europe/poland/lubuskie/lubuskie`) keeps its updates inside that folder.
     pub fn state_url(&self) -> String {
-        format!("{GEOFABRIK}/{}-updates/state.txt", self.geofabrik_path)
+        match self.geofabrik_path.rsplit_once('/') {
+            Some((folder, name)) if folder.rsplit('/').next() == Some(name) => {
+                format!("{GEOFABRIK}/{folder}/updates/state.txt")
+            }
+            _ => format!("{GEOFABRIK}/{}-updates/state.txt", self.geofabrik_path),
+        }
     }
 }
 
@@ -110,6 +116,9 @@ impl Country {
 pub enum Coverage {
     /// Rasters (and, where it has them, ALKIS): a map can have its centre here.
     Full,
+    /// Rasters but no cadastre: the engine fetches and derives the templates, draws the buildings
+    /// and land use from OSM, and refuses an area that reaches over the border of the country.
+    Rasters,
     /// The OSM extracts only: a map is made from OSM alone, without templates.
     OsmOnly,
 }
@@ -164,6 +173,29 @@ mod tests {
     }
 
     /// The ISO 3166 codes, in lower case, as they name the country in files and messages.
+    #[test]
+    fn an_extract_in_a_folder_of_its_own_keeps_its_updates_there() {
+        let extract = |path: &str| OsmExtractInfo {
+            geofabrik_path: path.into(),
+            megabytes: 1.0,
+            label: String::new(),
+            prefix: String::new(),
+        };
+        let own = extract("europe/poland/lubuskie/lubuskie");
+        assert_eq!(
+            own.url(),
+            "https://download.geofabrik.de/europe/poland/lubuskie/lubuskie-latest.osm.pbf"
+        );
+        assert_eq!(
+            own.state_url(),
+            "https://download.geofabrik.de/europe/poland/lubuskie/updates/state.txt"
+        );
+        assert_eq!(
+            extract("europe/germany/brandenburg").state_url(),
+            "https://download.geofabrik.de/europe/germany/brandenburg-updates/state.txt"
+        );
+    }
+
     #[test]
     fn a_country_has_its_iso_code() {
         assert_eq!(Country::De.code(), "de");

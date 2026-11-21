@@ -82,9 +82,9 @@ pub fn fetch_inputs_in(
     offline: bool,
     progress: &mut dyn FnMut(Note),
 ) -> Result<Inputs, PermitsError> {
-    // The sources, the authorities and the law of the notes are German: a map in a region with
-    // OSM only would get a false all-clear.
-    if crate::project::osm_only(&project.region_bbox()?) {
+    // The sources, the authorities and the law of the notes are German: a map in a region without
+    // a cadastre (Poland) would get a false all-clear.
+    if crate::project::no_cadastre(&project.region_bbox()?) {
         return Err(ProjectError::PermitsNotForRegion.into());
     }
     let area = project.area()?;

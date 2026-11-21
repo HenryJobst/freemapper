@@ -825,6 +825,7 @@ name = "freemapper-adapters-pl"
 version = "0.25.0"
 dependencies = [
  "chrono",
+ "freemapper",
  "freemapper-adapter-api",
  "freemapper-georef",
  "freemapper-sources",
@@ -832,6 +833,7 @@ dependencies = [
  "geo-types",
  "geojson",
  "image",
+ "quick-xml",
  "tempfile",
 ]
 

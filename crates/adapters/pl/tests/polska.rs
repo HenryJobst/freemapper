@@ -46,15 +46,20 @@ fn extracts_of(adapter: &dyn RegionAdapter, bbox: &BoundingBox) -> Vec<String> {
 }
 
 #[test]
-fn polska_is_an_osm_only_polish_region() {
+fn polska_is_a_polish_region_with_rasters_and_no_cadastre() {
     let registry = polska();
     let adapter = registry.get("polska").unwrap();
     let info = adapter.info();
     assert_eq!(info.country, Country::Pl);
-    assert_eq!(info.coverage, Coverage::OsmOnly);
+    // Rasters from GUGiK, the buildings and land use from OSM until the cadastre of Stage 3.
+    assert_eq!(info.coverage, Coverage::Rasters);
     assert_eq!(info.names.en, "Poland");
     assert_eq!(info.names.de, "Polen");
-    assert!(adapter.rasters().is_none() && adapter.alkis().is_none());
+    // The rasters are those of GUGiK, and the region names their provider; the cadastre is stage 3.
+    let rasters = adapter.rasters().expect("the rasters of GUGiK");
+    assert_eq!(rasters.provider().id.as_str(), "gugik");
+    assert_eq!(info.provider.as_str(), "gugik");
+    assert!(adapter.alkis().is_none());
 }
 
 #[test]
@@ -186,17 +191,62 @@ fn an_area_over_the_zone_border_has_the_zone_of_its_centre() {
     assert_eq!(map_crs_in(&registry, &area(18.05)), Crs::Utm34);
 }
 
-/// The adapter declares itself (revision and day of its check) and has a policy that names no
-/// host of its own: the OSM extracts come through the core hosts.
+/// The adapter declares itself (revision and day of its check) and has a policy that names the
+/// two hosts of GUGiK and no other: the OSM extracts come through the core hosts.
 #[test]
-fn the_adapter_declares_itself_and_owns_a_policy() {
+fn the_adapter_declares_itself_and_owns_a_policy_of_the_hosts_of_gugik() {
     let registry = polska();
     let adapter = registry.adapters().next().unwrap();
     let declared = adapter.declared().expect("the adapter declares itself");
-    assert_eq!(declared.revision, 1);
+    assert_eq!(declared.revision, 2);
     assert!(declared.last_verified.is_some());
+    let hosts = ["mapy.geoportal.gov.pl", "opendata.geoportal.gov.pl"];
+    // What it declares (`adapters list`) is what its policy lets through.
+    assert_eq!(declared.hosts, hosts);
     let policy = adapter.policy().expect("the adapter has a policy");
-    assert!(policy.hosts().next().is_none());
+    assert_eq!(policy.hosts().collect::<Vec<_>>(), hosts);
+    for url in [
+        "https://mapy.geoportal.gov.pl/wss/service/PZGIK/ORTO/WFS/Skorowidze?SERVICE=WFS",
+        "https://opendata.geoportal.gov.pl/NumDaneWys/NMT/73426/x.asc",
+    ] {
+        assert!(policy.check_url(url).is_ok(), "{url}");
+    }
+    for url in [
+        "https://download.geofabrik.de/europe/poland-latest.osm.pbf",
+        "https://geoportal.gov.pl/x",
+        "https://evil.example.com/opendata.geoportal.gov.pl",
+        "http://opendata.geoportal.gov.pl/x.asc",
+    ] {
+        assert!(policy.check_url(url).is_err(), "{url}");
+    }
+}
+
+/// The credit line of GUGiK stands in the attribution of a project whose rasters came from it,
+/// and in none that holds no raster of it.
+#[test]
+fn the_credit_of_gugik_follows_the_rasters() {
+    use freemapper_adapter_api::credit::UsedSources;
+    use freemapper_adapter_api::records::{AdapterId, WcsRecord};
+    let registry = polska();
+    let adapter = registry.get("polska").unwrap();
+    let terrain = WcsRecord {
+        fetched: chrono::NaiveDate::from_ymd_opt(2026, 11, 21).unwrap(),
+        bbox: [0.0; 4],
+        date: Some("2020".into()),
+    };
+    let mut used = UsedSources::default();
+    assert!(adapter.attribution(&used).is_empty());
+    used.raster_provider = Some(AdapterId::built_in("gugik"));
+    assert!(adapter.attribution(&used).is_empty());
+    used.terrain = Some(&terrain);
+    let lines: Vec<_> = adapter
+        .attribution(&used)
+        .into_iter()
+        .map(|c| c.text)
+        .collect();
+    assert_eq!(lines, ["© GUGiK, geoportal.gov.pl"]);
+    used.raster_provider = Some(AdapterId::built_in("lgb"));
+    assert!(adapter.attribution(&used).is_empty());
 }
 
 /// A host a person allowed for `polska` is in its policy, and no other.

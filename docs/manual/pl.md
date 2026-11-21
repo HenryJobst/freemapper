@@ -301,8 +301,8 @@ freemapper run las --training
 
 Ścieżki pochodzą z OSM i trafiają od razu na mapę (na przykład drogi główne jako 502, inne drogi jako 503, drogi
 leśne jako 504, wąskie ścieżki jako 506, słabo widoczne jako 507, schody jako 532). W skali 1:10 000 freemapper
-rysuje znaki w 150 %, w 1:7500 w 200 %, jak przewiduje norma dla map powiększonych. W Polsce mapa leśna ma na razie
-tylko obiekty z OSM, bez warstwic (rozdział 13).
+rysuje znaki w 150 %, w 1:7500 w 200 %, jak przewiduje norma dla map powiększonych. W Polsce mapa leśna ma ścieżki z OSM,
+a warstwice z modelu terenu GUGiK (rozdział 13).
 
 ## 8. Co pokazują szablony
 
