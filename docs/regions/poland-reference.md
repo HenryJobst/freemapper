@@ -95,6 +95,26 @@ accepts only `https` and this host.
   `PROPERTYNAME=TERYT,NAZWA_POWIATU,URL_GML,Data_aktualizacji` the answer is 63 MB in 68 s. One
   GML archive of a powiat is about 54 MB. The client for it is not written.
 
+## Permit notes (measured 22 November 2026)
+
+- **GDOŚ WFS** `https://sdi.gdos.gov.pl/wfs` (GeoServer, WFS 2.0, `outputFormat=application/json`): 11
+  layers answer (national parks, park buffer zones, landscape parks, nature reserves, protected
+  landscape areas, Natura 2000 habitats and birds, ecological sites, landscape complexes,
+  documentation sites, natural monuments). Park layers also hold the buffer zones, named
+  "... - otulina".
+- **Axis order.** `srsName=EPSG:4326` with `bbox=minLon,minLat,maxLon,maxLat,EPSG:4326` gives
+  longitude-first GeoJSON. The URN `urn:ogc:def:crs:EPSG::4326` gives latitude-first, `EPSG:2180`
+  northing-first.
+- **Attributes.** `nazwa`, `kodinspire`; Natura 2000 also `kod` (PLB, PLH, PLC); natural monuments
+  `gatunek`, `typ`, `podtyp`, `obiekt`, `data_utwor`, `link`; documentation sites `rzedna`. Polygons are
+  large (up to 4.6 MB for one landscape protection area).
+- **PRG WFS** (MapServer): GML 3.2 only, JSON is refused with 400. Layers `U06_Nadlesnictwo` (forest
+  districts) and `U07_Regionalna_dyrekcja_lasow_panstwowych`; `PROPERTYNAME` drops the 700 KB directorate
+  polygon. `JPT_KOD_JE`, `JPT_NAZWA_` (district names in capitals). A district code `17-02` belongs to the
+  directorate `17` (checked on Warsaw samples only). The box with the URN `EPSG:2180` is northing-first.
+- **Not done.** Gmina, powiat and voivodeship: the districts section assumes Bezirke.
+- **Coverage.** The PRG layer covers the State Forests only, not private forest.
+
 ## Open
 
 - Whether the index lists all years in one request with several `TYPENAMES`, and whether the

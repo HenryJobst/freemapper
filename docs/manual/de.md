@@ -1447,6 +1447,18 @@ fragt es für die Hinweise nicht. Die Dienste eines Bundeslandes fragt es nur f�
 liegt, und nur über die Hosts, die der Adapter dieses Bundeslandes nennt. `adapters
 allow-host` gilt für die Dienste des Bundes nicht.
 
+### Hinweise zu Genehmigungen in Polen
+
+Für ein Kartengebiet in Polen kommen die Hinweise aus zwei polnischen Diensten, nicht aus BfN und BKG: den
+Naturschutzschichten der Generaldirektion für Umweltschutz (GDOŚ, `sdi.gdos.gov.pl`: Nationalparks,
+Landschaftsparks, Naturschutzgebiete, Landschaftsschutzgebiete, Natura 2000, Naturdenkmäler und mehr) und den
+Forstbezirken der Staatsforsten aus dem Landesregister der Grenzen (PRG, `mapy.geoportal.gov.pl`). Die Hinweise
+nennen weder Kreis noch Gemeinde noch Ordnungsamt, weil es sie dort so nicht gibt. Sie sagen, dass die Verwaltung
+eines Parks oder Reservats und die Regionaldirektion für Umweltschutz (RDOŚ) meist sagen können, wer zuständig
+ist, und dass eine Veranstaltung im Wald meist die Zustimmung des Waldeigentümers braucht. In den Daten sind nur
+die Staatsforsten, kein Privatwald. Die Hinweistexte hat noch kein Polnischsprecher gelesen. Die Hinweise sind
+ein Hinweis, keine Rechtsberatung. `--offline` liest, was ein früherer Lauf gespeichert hat, wie in Deutschland.
+
 ## 13. Regionen und Grenzgebiete
 
 | Bundesland | Daten von | Besonderheiten |
