@@ -110,6 +110,24 @@ fn page_texts_have_the_same_ids_in_both_languages() {
     let english = page_ids("en");
     assert_eq!(english, page_ids("de"));
     assert_eq!(english, page_ids("pl"));
+    assert_eq!(english, page_ids("cs"));
+    assert_eq!(english, page_ids("nl"));
+    assert_eq!(english, page_ids("da"));
+    assert_eq!(english, page_ids("fr"));
+    assert_eq!(english, page_ids("sv"));
+    assert_eq!(english, page_ids("nb"));
+    assert_eq!(english, page_ids("fi"));
+    assert_eq!(english, page_ids("sk"));
+    assert_eq!(english, page_ids("et"));
+    assert_eq!(english, page_ids("it"));
+    assert_eq!(english, page_ids("sl"));
+    assert_eq!(english, page_ids("hu"));
+    assert_eq!(english, page_ids("lt"));
+    assert_eq!(english, page_ids("lv"));
+    assert_eq!(english, page_ids("es"));
+    assert_eq!(english, page_ids("pt"));
+    assert_eq!(english, page_ids("ru"));
+    assert_eq!(english, page_ids("uk"));
     assert!(english.len() > 130, "{}", english.len());
     assert!(english.contains("suite-banner-dismiss"));
 }
@@ -122,6 +140,24 @@ fn page_messages_have_no_selectors_and_no_functions() {
         include_str!("../i18n/en/freemapper.ftl"),
         include_str!("../i18n/de/freemapper.ftl"),
         include_str!("../i18n/pl/freemapper.ftl"),
+        include_str!("../i18n/cs/freemapper.ftl"),
+        include_str!("../i18n/nl/freemapper.ftl"),
+        include_str!("../i18n/da/freemapper.ftl"),
+        include_str!("../i18n/fr/freemapper.ftl"),
+        include_str!("../i18n/sv/freemapper.ftl"),
+        include_str!("../i18n/nb/freemapper.ftl"),
+        include_str!("../i18n/fi/freemapper.ftl"),
+        include_str!("../i18n/sk/freemapper.ftl"),
+        include_str!("../i18n/et/freemapper.ftl"),
+        include_str!("../i18n/it/freemapper.ftl"),
+        include_str!("../i18n/sl/freemapper.ftl"),
+        include_str!("../i18n/hu/freemapper.ftl"),
+        include_str!("../i18n/lt/freemapper.ftl"),
+        include_str!("../i18n/lv/freemapper.ftl"),
+        include_str!("../i18n/es/freemapper.ftl"),
+        include_str!("../i18n/pt/freemapper.ftl"),
+        include_str!("../i18n/ru/freemapper.ftl"),
+        include_str!("../i18n/uk/freemapper.ftl"),
     ] {
         let mut current = "";
         for line in source.lines() {

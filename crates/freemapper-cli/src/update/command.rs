@@ -270,7 +270,22 @@ fn ask() -> anyhow::Result<bool> {
 fn is_yes(answer: &str) -> bool {
     matches!(
         answer.trim().to_lowercase().as_str(),
-        "y" | "yes" | "j" | "ja" | "t" | "tak"
+        "y" | "yes"
+            | "j"
+            | "ja"
+            | "t"
+            | "tak"
+            | "o"
+            | "oui"
+            | "s"
+            | "si"
+            | "sí"
+            | "sì"
+            | "sim"
+            | "d"
+            | "da"
+            | "i"
+            | "igen"
     )
 }
 
@@ -331,7 +346,23 @@ mod tests {
 
     #[test]
     fn only_yes_installs() {
-        for yes in ["y\n", "Y", " yes \r\n", "j", "Ja", "t", "TAK"] {
+        for yes in [
+            "y\n",
+            "Y",
+            " yes \r\n",
+            "j",
+            "Ja",
+            "t",
+            "TAK",
+            "o",
+            "Oui",
+            "s",
+            "Sí",
+            "sim",
+            "d",
+            "i",
+            "igen",
+        ] {
             assert!(is_yes(yes), "{yes:?}");
         }
         for no in ["", "\n", "n", "no", "nein", "nie", "yess", "maybe"] {

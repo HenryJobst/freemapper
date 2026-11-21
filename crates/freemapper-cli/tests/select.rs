@@ -852,10 +852,10 @@ fn api_texts_language_comes_from_lang_then_the_browser_then_english() {
     assert_eq!(answer["lang"], "de");
     assert_eq!(answer["texts"]["page-heading"], "Kartengebiet wählen");
     assert_eq!(
-        texts_answer(&[], &NO_LANGUAGE, Some("fr, en;q=0.5"))["lang"],
+        texts_answer(&[], &NO_LANGUAGE, Some("ja, en;q=0.5"))["lang"],
         "en"
     );
-    let answer = texts_answer(&[], &NO_LANGUAGE, Some("fr"));
+    let answer = texts_answer(&[], &NO_LANGUAGE, Some("ja"));
     assert_eq!(answer["lang"], "en");
     assert_eq!(answer["texts"]["page-title"], "freemapper – area selection");
     assert_eq!(texts_answer(&[], &NO_LANGUAGE, None)["lang"], "en");
