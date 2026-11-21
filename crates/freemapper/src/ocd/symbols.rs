@@ -169,9 +169,11 @@ pub fn colours(set: &SymbolSet) -> Vec<OcdColour> {
 /// What a placeholder looks like, in OCAD units (0.01 mm).
 #[derive(Debug, Clone, PartialEq)]
 pub enum PlaceholderKind {
+    /// A dot of `diameter` (0 for none) with an optional ring around it.
     Point {
         color: i16,
         diameter: i16,
+        ring: Option<Ring>,
     },
     Line {
         color: i16,
@@ -190,6 +192,15 @@ pub enum PlaceholderKind {
         size: i16,
         bold: bool,
     },
+}
+
+/// A circle line of a point symbol, in OCAD units (0.01 mm).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Ring {
+    pub color: i16,
+    pub width: i16,
+    /// Of the centre line: the outer diameter less the width.
+    pub diameter: i16,
 }
 
 /// Parallel lines in an area, in OCAD units (0.01 mm; the angle in 0.1°).
@@ -225,7 +236,15 @@ impl PlaceholderKind {
     /// The OCAD symbol kind; texts get the alignment of their objects.
     pub fn ocd_kind(&self, align: TextAlign) -> OcdSymbolKind {
         match *self {
-            Self::Point { color, diameter } => OcdSymbolKind::Point { color, diameter },
+            Self::Point {
+                color,
+                diameter,
+                ring,
+            } => OcdSymbolKind::Point {
+                color,
+                diameter,
+                ring,
+            },
             Self::Line { color, width, dash } => OcdSymbolKind::Line { color, width, dash },
             Self::Area {
                 color,
@@ -452,17 +471,41 @@ fn placeholder_kind(symbols: &HashMap<u32, OomSymbol>, s: &OomSymbol) -> Option<
     let fallback = s.first_color.unwrap_or(0);
     match s.kind {
         1 => {
-            let (inner, radius, outer, outer_width) = s.point.unwrap_or((-1, 0.0, -1, 0.0));
-            let (color, diameter) = if outer >= 0 && outer_width > 0.0 {
-                (outer, 2.0 * (radius + outer_width))
-            } else if inner >= 0 && radius > 0.0 {
-                (inner, 2.0 * radius)
-            } else {
-                (fallback, f64::from(DEFAULT_DOT) * 10.0)
+            let (inner, radius, outer, outer_width) = s.point.unwrap_or_default();
+            let dot = (inner >= 0 && radius > 0.0).then_some((inner, 2.0 * radius));
+            let ring = (outer >= 0 && outer_width > 0.0).then_some(outer);
+            let (color, diameter, ring) = match (dot, ring) {
+                // A ring around nothing is a disc, which a circle element cannot draw.
+                (None, Some(outer)) if radius <= 0.0 => (outer, 2.0 * outer_width, None),
+                (None, Some(outer)) => (
+                    outer,
+                    0.0,
+                    Some(Ring {
+                        color: outer,
+                        width: ocad_units(outer_width),
+                        diameter: ocad_units(2.0 * radius + outer_width),
+                    }),
+                ),
+                (Some((color, diameter)), Some(outer)) => (
+                    color,
+                    diameter,
+                    Some(Ring {
+                        color: outer,
+                        width: ocad_units(outer_width),
+                        diameter: ocad_units(2.0 * radius + outer_width),
+                    }),
+                ),
+                (Some((color, diameter)), None) => (color, diameter, None),
+                (None, None) => (fallback, f64::from(DEFAULT_DOT) * 10.0, None),
             };
             Some(PlaceholderKind::Point {
                 color,
-                diameter: ocad_units(diameter),
+                diameter: if diameter > 0.0 {
+                    ocad_units(diameter)
+                } else {
+                    0
+                },
+                ring,
             })
         }
         2 => {
@@ -753,6 +796,74 @@ mod tests {
     }
 
     #[test]
+    fn point_rings_and_dots() {
+        let point = |inner: i16, radius: f64, outer: i16, width: f64| {
+            let s = OomSymbol {
+                kind: 1,
+                point: Some((inner, radius, outer, width)),
+                first_color: Some(1),
+                ..OomSymbol::default()
+            };
+            placeholder_kind(&HashMap::new(), &s)
+        };
+        let ring = |color, width, diameter| {
+            Some(Ring {
+                color,
+                width,
+                diameter,
+            })
+        };
+        // Radius 300 and ring width 100 (OOM 0.001 mm): the centre line has Ø 70, in 0.01 mm.
+        assert_eq!(
+            point(2, 300.0, 5, 100.0),
+            Some(PlaceholderKind::Point {
+                color: 2,
+                diameter: 60,
+                ring: ring(5, 10, 70)
+            })
+        );
+        assert_eq!(
+            point(-1, 300.0, 5, 100.0),
+            Some(PlaceholderKind::Point {
+                color: 5,
+                diameter: 0,
+                ring: ring(5, 10, 70)
+            })
+        );
+        // Without a point element the symbol is a 0.5 mm dot in its first colour.
+        let bare = OomSymbol {
+            kind: 1,
+            first_color: Some(8),
+            ..OomSymbol::default()
+        };
+        assert_eq!(
+            placeholder_kind(&HashMap::new(), &bare),
+            Some(PlaceholderKind::Point {
+                color: 8,
+                diameter: 50,
+                ring: None
+            })
+        );
+        // A ring around nothing is a disc of the ring's outer diameter.
+        assert_eq!(
+            point(-1, 0.0, 5, 100.0),
+            Some(PlaceholderKind::Point {
+                color: 5,
+                diameter: 20,
+                ring: None
+            })
+        );
+        assert_eq!(
+            point(2, 300.0, -1, 0.0),
+            Some(PlaceholderKind::Point {
+                color: 2,
+                diameter: 60,
+                ring: None
+            })
+        );
+    }
+
+    #[test]
     fn an_area_border_needs_a_width() {
         let area = |width: f64| OomSymbol {
             kind: 4,
@@ -781,6 +892,7 @@ mod tests {
             PlaceholderKind::Point {
                 color: 3,
                 diameter: 10,
+                ring: None,
             },
             PlaceholderKind::Line {
                 color: 4,
@@ -827,8 +939,13 @@ mod tests {
         assert_eq!(
             by_code("418").kind,
             PlaceholderKind::Point {
-                color: 3,
-                diameter: 80
+                color: 21,
+                diameter: 20,
+                ring: Some(Ring {
+                    color: 3,
+                    width: 30,
+                    diameter: 50
+                })
             }
         );
         assert_eq!(
