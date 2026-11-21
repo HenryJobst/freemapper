@@ -11,6 +11,8 @@ pub(crate) const OBJECT_BLOCK_SIZE: usize = 4 + 256 * 40;
 /// Size of a string index block: next + 256 entries of 16 bytes.
 pub(crate) const STRING_BLOCK_SIZE: usize = 4 + 256 * 16;
 const HEADER_SIZE: usize = 60;
+use super::symbols::Hatch;
+
 const BASE_SYMBOL_SIZE: usize = 796;
 const OBJECT_HEADER_SIZE: usize = 56;
 /// Icon palette index of white (5 × 5 × 5 colour cube).
@@ -52,18 +54,19 @@ pub enum TextAlign {
 #[derive(Debug, Clone, PartialEq)]
 pub enum OcdSymbolKind {
     /// A filled disc of `diameter` (0.01 mm).
-    Point {
-        color: i16,
-        diameter: i16,
-    },
+    Point { color: i16, diameter: i16 },
     /// A line of `width` (0.01 mm), optionally dashed (dash, gap).
     Line {
         color: i16,
         width: i16,
         dash: Option<(i16, i16)>,
     },
+    /// A filled and/or hatched area. `border` is the number of a line symbol; the symbol table sets it.
     Area {
         color: i16,
+        fill: bool,
+        hatch: Option<Hatch>,
+        border: Option<i32>,
     },
     /// Arial at `size` (pt × 10).
     Text {
@@ -107,7 +110,7 @@ impl OcdSymbol {
         match self.kind {
             OcdSymbolKind::Point { color, .. }
             | OcdSymbolKind::Line { color, .. }
-            | OcdSymbolKind::Area { color }
+            | OcdSymbolKind::Area { color, .. }
             | OcdSymbolKind::Text { color, .. } => color,
         }
     }
@@ -373,9 +376,27 @@ fn symbol_record(symbol: &OcdSymbol) -> Vec<u8> {
                 put_i16(&mut r, b + 14, gap);
             }
         }
-        OcdSymbolKind::Area { color } => {
-            put_i16(&mut r, b + 4, color);
-            r[b + 18] = 1;
+        OcdSymbolKind::Area {
+            color,
+            fill,
+            hatch,
+            border,
+        } => {
+            put_i16(&mut r, b + 4, if fill { color } else { 0 });
+            if let Some(h) = hatch {
+                // Mode 1 draws one set of lines, 2 a second one across.
+                put_i16(&mut r, b + 6, if h.cross_angle.is_some() { 2 } else { 1 });
+                put_i16(&mut r, b + 8, h.color);
+                put_i16(&mut r, b + 10, h.width);
+                put_i16(&mut r, b + 12, h.distance);
+                put_i16(&mut r, b + 14, h.angle);
+                put_i16(&mut r, b + 16, h.cross_angle.unwrap_or(0));
+            }
+            if let Some(number) = border {
+                put_i32(&mut r, b, number);
+                r[b + 19] = 1;
+            }
+            r[b + 18] = u8::from(fill);
         }
         OcdSymbolKind::Text {
             color,
@@ -506,7 +527,12 @@ mod tests {
         OcdSymbol {
             number: 521000,
             name: "Building".into(),
-            kind: OcdSymbolKind::Area { color: 2 },
+            kind: OcdSymbolKind::Area {
+                color: 2,
+                fill: true,
+                hatch: None,
+                border: None,
+            },
             icon_color: 0,
         }
     }
