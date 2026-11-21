@@ -648,27 +648,27 @@ mod tests {
         let ring = Ring {
             color: 9,
             width: 20,
-            diameter: 100,
+            diameter: 101,
         };
         let both = point(40, Some(ring));
-        assert_eq!((both.size, both.extent), (848, 60));
+        assert_eq!((both.size, both.extent), (848, 61));
         let at = |off: usize| i16::from_le_bytes([both.bytes[off], both.bytes[off + 1]]);
         assert_eq!(at(796), 6, "units");
         // The ring comes first: type 3, colour, line width, centre-line diameter, one point.
         assert_eq!(
             [at(800), at(804), at(806), at(808), at(810)],
-            [3, 9, 20, 100, 1]
+            [3, 9, 20, 101, 1]
         );
         // Then the dot: type 4, colour, diameter, one point.
         assert_eq!([at(824), at(828), at(832), at(834)], [4, 3, 40, 1]);
         let only_ring = point(0, Some(ring));
-        assert_eq!((only_ring.size, only_ring.extent), (824, 60));
+        assert_eq!((only_ring.size, only_ring.extent), (824, 61));
         assert_eq!(
             i16::from_le_bytes([only_ring.bytes[796], only_ring.bytes[797]]),
             3
         );
-        let only_dot = point(40, None);
-        assert_eq!((only_dot.size, only_dot.extent), (824, 20));
+        let only_dot = point(41, None);
+        assert_eq!((only_dot.size, only_dot.extent), (824, 21));
         assert_eq!(
             i16::from_le_bytes([only_dot.bytes[800], only_dot.bytes[801]]),
             4

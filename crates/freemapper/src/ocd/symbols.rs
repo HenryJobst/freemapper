@@ -471,7 +471,7 @@ fn placeholder_kind(symbols: &HashMap<u32, OomSymbol>, s: &OomSymbol) -> Option<
     let fallback = s.first_color.unwrap_or(0);
     match s.kind {
         1 => {
-            let (inner, radius, outer, outer_width) = s.point.unwrap_or((-1, 0.0, -1, 0.0));
+            let (inner, radius, outer, outer_width) = s.point.unwrap_or_default();
             let dot = (inner >= 0 && radius > 0.0).then_some((inner, 2.0 * radius));
             let ring = (outer >= 0 && outer_width > 0.0).then_some(outer);
             let (color, diameter, ring) = match (dot, ring) {
@@ -828,6 +828,20 @@ mod tests {
                 color: 5,
                 diameter: 0,
                 ring: ring(5, 10, 70)
+            })
+        );
+        // Without a point element the symbol is a 0.5 mm dot in its first colour.
+        let bare = OomSymbol {
+            kind: 1,
+            first_color: Some(8),
+            ..OomSymbol::default()
+        };
+        assert_eq!(
+            placeholder_kind(&HashMap::new(), &bare),
+            Some(PlaceholderKind::Point {
+                color: 8,
+                diameter: 50,
+                ring: None
             })
         );
         // A ring around nothing is a disc of the ring's outer diameter.
