@@ -12,6 +12,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Hinzugefügt
 
+- Die OCAD-Platzhalter von Liniensymbolen mit Randlinien (befestigte und unbefestigte Wege) übernehmen die Randlinien als Doppellinie, gestrichelt wie im Symbolsatz (#232, dritter Teil).
 - Die OCAD-Platzhalter von Punktsymbolen zeichnen Punkt und Ring wie der Symbolsatz (Busch: Punkt mit Kreislinie), nicht mehr nur eine Scheibe (#232, zweiter Teil).
 - Die OCAD-Platzhaltersymbole übernehmen mehr aus dem Symbolsatz: kombinierte Symbole wie das Gebäude bekommen ihre Randlinie als eigenes Liniensymbol, das die Fläche als Rand nennt (die Nummer ist die nächste freie nach der der Fläche); Flächen mit Schraffur (Vegetation, Linienraster) tragen Farbe, Strichbreite, Abstand und Winkel, auch als Kreuzschraffur. Mapper liest das Gebäude als kombiniertes Symbol (#232, erster Teil).
 - Prüfwerkzeug `tools/mapper-inspect`: öffnet eine `.omap` oder `.ocd` mit dem Importer von OpenOrienteering Mapper und gibt Farben, Symbole, Objekte und Georeferenz als JSON aus. Der Test `mapper_ocd` vergleicht damit die `.ocd` zweier Beispiele und ihrer Kandidatenschichten mit der `.omap` (Objekte, Farben, Maßstab, Georeferenz); ohne das Werkzeug (`FREEMAPPER_MAPPER_INSPECT`) wird er übersprungen. Mapper liest unsere `.ocd` ohne Fehler. Das Werkzeug gehört nicht zum Programm und nicht zu den Release-Archiven (#230).

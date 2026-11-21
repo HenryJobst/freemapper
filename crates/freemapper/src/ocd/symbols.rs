@@ -179,6 +179,7 @@ pub enum PlaceholderKind {
         color: i16,
         width: i16,
         dash: Option<(i16, i16)>,
+        double: Option<Double>,
     },
     Area {
         color: i16,
@@ -192,6 +193,18 @@ pub enum PlaceholderKind {
         size: i16,
         bold: bool,
     },
+}
+
+/// The edge lines of a line symbol: OCAD calls them a double line. Sizes in OCAD units (0.01 mm).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Double {
+    /// Of the edge lines, on both sides.
+    pub color: i16,
+    pub edge_width: i16,
+    /// Between the edge lines, as OCAD counts it: the line width less the edge width plus twice
+    /// the shift of the edges.
+    pub distance: i16,
+    pub dash: Option<(i16, i16)>,
 }
 
 /// A circle line of a point symbol, in OCAD units (0.01 mm).
@@ -245,7 +258,17 @@ impl PlaceholderKind {
                 diameter,
                 ring,
             },
-            Self::Line { color, width, dash } => OcdSymbolKind::Line { color, width, dash },
+            Self::Line {
+                color,
+                width,
+                dash,
+                double,
+            } => OcdSymbolKind::Line {
+                color,
+                width,
+                dash,
+                double,
+            },
             Self::Area {
                 color,
                 fill,
@@ -295,6 +318,8 @@ struct OomSymbol {
     kind: u32,
     line: Option<OomLine>,
     border: Option<(i16, f64)>,
+    /// Shift and dashes (dash, gap) of `border`, in OOM 0.001 mm.
+    border_edge: (f64, Option<(f64, f64)>),
     area_color: Option<i16>,
     pattern_color: Option<i16>,
     /// Hatch patterns: (angle rad, spacing, width, colour).
@@ -382,6 +407,13 @@ fn oom_symbols(set: &SymbolSet) -> HashMap<u32, OomSymbol> {
                     "border" if symbol.border.is_none() => {
                         if let Some(c) = color_of(&e, "color") {
                             symbol.border = Some((c, num(&e, "width").unwrap_or(0.0)));
+                            let dash = (attr(&e, "dashed").as_deref() == Some("true")).then(|| {
+                                (
+                                    num(&e, "dash_length").unwrap_or(0.0),
+                                    num(&e, "break_length").unwrap_or(0.0),
+                                )
+                            });
+                            symbol.border_edge = (num(&e, "shift").unwrap_or(0.0), dash);
                         }
                     }
                     "area_symbol"
@@ -516,10 +548,26 @@ fn placeholder_kind(symbols: &HashMap<u32, OomSymbol>, s: &OomSymbol) -> Option<
                     _ => (fallback, f64::from(DEFAULT_WIDTH) * 10.0, None),
                 },
             };
+            // Edge lines beside a main line: both sides alike, the way OOM writes one `<border>`.
+            let double = match (s.line, s.border) {
+                (Some((_, line_width, _)), Some((edge_color, edge_width)))
+                    if line_width > 0.0 && edge_width > 0.0 =>
+                {
+                    let (shift, edge_dash) = s.border_edge;
+                    Some(Double {
+                        color: edge_color,
+                        edge_width: ocad_units(edge_width),
+                        distance: ocad_units(line_width - edge_width + 2.0 * shift),
+                        dash: edge_dash.map(|(d, g)| (ocad_units(d), ocad_units(g))),
+                    })
+                }
+                _ => None,
+            };
             Some(PlaceholderKind::Line {
                 color,
                 width: ocad_units(width),
                 dash: dash.map(|(d, g)| (ocad_units(d), ocad_units(g))),
+                double,
             })
         }
         4 => Some(area_kind(
@@ -555,13 +603,16 @@ fn placeholder_kind(symbols: &HashMap<u32, OomSymbol>, s: &OomSymbol) -> Option<
                     color: if color >= 0 { color } else { fallback },
                     width: ocad_units(width.max(f64::from(DEFAULT_WIDTH) * 10.0)),
                     dash: dash.map(|(d, g)| (ocad_units(d), ocad_units(g))),
+                    double: None,
                 }),
             ];
             let parts: Vec<PlaceholderKind> =
                 parts.into_iter().chain(own.into_iter().flatten()).collect();
             // OCAD has no combined symbols: the area carries the first line part as its border.
             let line = parts.iter().find_map(|k| match *k {
-                PlaceholderKind::Line { color, width, dash } => Some(Border { color, width, dash }),
+                PlaceholderKind::Line {
+                    color, width, dash, ..
+                } => Some(Border { color, width, dash }),
                 _ => None,
             });
             let area = parts.iter().find_map(|k| match *k {
@@ -796,6 +847,36 @@ mod tests {
     }
 
     #[test]
+    fn line_edges_follow_the_border() {
+        let line = |line_width: f64, border: Option<(i16, f64)>| {
+            let s = OomSymbol {
+                kind: 2,
+                line: Some((14, line_width, None)),
+                border,
+                border_edge: (50.0, Some((2000.0, 250.0))),
+                ..OomSymbol::default()
+            };
+            match placeholder_kind(&HashMap::new(), &s) {
+                Some(PlaceholderKind::Line { double, .. }) => double,
+                other => panic!("{other:?}"),
+            }
+        };
+        // Width 350, edges 100 wide and 50 off the line: 350 - 100 + 2 * 50, in 0.01 mm.
+        assert_eq!(
+            line(350.0, Some((15, 100.0))),
+            Some(Double {
+                color: 15,
+                edge_width: 10,
+                distance: 35,
+                dash: Some((200, 25))
+            })
+        );
+        assert_eq!(line(350.0, Some((15, 0.0))), None);
+        assert_eq!(line(0.0, Some((15, 100.0))), None);
+        assert_eq!(line(350.0, None), None);
+    }
+
+    #[test]
     fn point_rings_and_dots() {
         let point = |inner: i16, radius: f64, outer: i16, width: f64| {
             let s = OomSymbol {
@@ -898,6 +979,7 @@ mod tests {
                 color: 4,
                 width: 10,
                 dash: None,
+                double: None,
             },
             PlaceholderKind::Area {
                 color: 5,
@@ -929,7 +1011,13 @@ mod tests {
             PlaceholderKind::Line {
                 color: 14,
                 width: 35,
-                dash: None
+                dash: None,
+                double: Some(Double {
+                    color: 15,
+                    edge_width: 10,
+                    distance: 35,
+                    dash: Some((200, 25))
+                })
             }
         );
         assert!(matches!(

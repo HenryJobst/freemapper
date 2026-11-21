@@ -11,7 +11,7 @@ pub(crate) const OBJECT_BLOCK_SIZE: usize = 4 + 256 * 40;
 /// Size of a string index block: next + 256 entries of 16 bytes.
 pub(crate) const STRING_BLOCK_SIZE: usize = 4 + 256 * 16;
 const HEADER_SIZE: usize = 60;
-use super::symbols::{Hatch, Ring};
+use super::symbols::{Double, Hatch, Ring};
 
 const BASE_SYMBOL_SIZE: usize = 796;
 const OBJECT_HEADER_SIZE: usize = 56;
@@ -64,6 +64,7 @@ pub enum OcdSymbolKind {
         color: i16,
         width: i16,
         dash: Option<(i16, i16)>,
+        double: Option<Double>,
     },
     /// A filled and/or hatched area. `border` is the number of a line symbol; the symbol table sets it.
     Area {
@@ -109,7 +110,10 @@ impl OcdSymbol {
                 let ring = ring.map_or(0, |r| i32::from(r.diameter) + i32::from(r.width));
                 (dot.max(ring) + 1) / 2
             }
-            OcdSymbolKind::Line { width, .. } => i32::from(width) / 2,
+            OcdSymbolKind::Line { width, double, .. } => {
+                let edges = double.map_or(0, |d| i32::from(d.distance) + i32::from(d.edge_width));
+                i32::from(width).max(edges) / 2
+            }
             OcdSymbolKind::Area { .. } | OcdSymbolKind::Text { .. } => 0,
         }
     }
@@ -392,7 +396,12 @@ fn symbol_record(symbol: &OcdSymbol) -> Vec<u8> {
             }
             put_u16(&mut r, b, ((at - b - 4) / 8) as u16);
         }
-        OcdSymbolKind::Line { color, width, dash } => {
+        OcdSymbolKind::Line {
+            color,
+            width,
+            dash,
+            double,
+        } => {
             put_i16(&mut r, b, color);
             put_i16(&mut r, b + 2, width);
             // Round joins and caps.
@@ -401,6 +410,19 @@ fn symbol_record(symbol: &OcdSymbol) -> Vec<u8> {
                 put_i16(&mut r, b + 10, dash);
                 put_i16(&mut r, b + 12, dash);
                 put_i16(&mut r, b + 14, gap);
+            }
+            if let Some(d) = double {
+                // 1: both edge lines solid, 3: both dashed.
+                put_u16(&mut r, b + 26, if d.dash.is_some() { 3 } else { 1 });
+                put_i16(&mut r, b + 32, d.color);
+                put_i16(&mut r, b + 34, d.color);
+                put_i16(&mut r, b + 36, d.distance);
+                put_i16(&mut r, b + 38, d.edge_width);
+                put_i16(&mut r, b + 40, d.edge_width);
+                if let Some((dash, gap)) = d.dash {
+                    put_i16(&mut r, b + 42, dash);
+                    put_i16(&mut r, b + 44, gap);
+                }
             }
         }
         OcdSymbolKind::Area {
@@ -546,6 +568,7 @@ mod tests {
                 color: 14,
                 width: 35,
                 dash: Some((200, 25)),
+                double: None,
             },
             icon_color: 0,
         }
@@ -626,6 +649,47 @@ mod tests {
         assert_eq!(file.strings.len(), 300);
         assert_eq!(file.objects[299].coords[0].0, 2990);
         assert_eq!(file.strings[299].text, "Colour 299\tn299");
+    }
+
+    #[test]
+    fn line_symbol_with_edge_lines_record() {
+        let line = |dash| {
+            let mut b = OcdBuilder::new();
+            b.add_symbol(OcdSymbol {
+                number: 501_006,
+                name: "Path".into(),
+                kind: OcdSymbolKind::Line {
+                    color: 14,
+                    width: 35,
+                    dash: None,
+                    double: Some(Double {
+                        color: 15,
+                        edge_width: 10,
+                        distance: 41,
+                        dash,
+                    }),
+                },
+                icon_color: 0,
+            })
+            .unwrap();
+            read(&b.finish()).symbols.remove(0)
+        };
+        let solid = line(None);
+        let at = |s: &super::super::read::ReadSymbol, off: usize| {
+            i16::from_le_bytes([s.bytes[off], s.bytes[off + 1]])
+        };
+        // Mode, left and right colour, distance, left and right width, dash and gap.
+        assert_eq!(
+            [822, 828, 830, 832, 834, 836, 838, 840].map(|o| at(&solid, o)),
+            [1, 15, 15, 41, 10, 10, 0, 0]
+        );
+        assert_eq!(solid.extent, 25, "(41 + 10) / 2, more than the line itself");
+        let dashed = line(Some((200, 25)));
+        assert_eq!(
+            [822, 838, 840].map(|o| at(&dashed, o)),
+            [3, 200, 25],
+            "both edges dashed"
+        );
     }
 
     #[test]
