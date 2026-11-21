@@ -14,13 +14,13 @@ All notable changes to freemapper are listed here, newest first. The format foll
 ### Changed
 
 - The mutation tests run faster: the run builds the tests once in the tree of the runner and copies that target into its working copies, the timeout per mutant drops to twice the test time, and the arithmetic of Newton's method in Poland is left out (ADR 0173).
+- The examples page `examples/README.en.md` shows only the maps now: the sprint maps first, the forest maps right after. The text (how they were made, numbers, sources, how the areas were chosen, licences) moved to the new page `examples/background.en.md`.
+- README and manual exist in German and English only. The Polish README and the shortened Polish manual are removed; the program itself keeps all its languages (ADR 0172).
 
 ## [0.25.0] - 2026-11-21
 
 ### Changed
 
-- The examples page `examples/README.en.md` shows only the maps now: the sprint maps first, the forest maps right after. The text (how they were made, numbers, sources, how the areas were chosen, licences) moved to the new page `examples/background.en.md`.
-- README and manual exist in German and English only. The Polish README and the shortened Polish manual are removed; the program itself keeps all its languages (ADR 0172).
 - freemapper uses freemapper-core v0.31.2: fixes in the views of the training map (the no-north-lines and brown-only views knew only code 601, the real codes are 601.1 to 601.4) and a fault in `water()` with NaN; the interface stays.
 - The question of `freemapper update` also takes the spelled-out yes of Czech, Slovak, Estonian, Latvian, Lithuanian, Finnish, Ukrainian and Russian (`ano`, `áno`, `jah`, `jā`, `taip`, `kyllä`, `так`, `д`, `да`).
 - Second read of the 19 new program languages by independent readers (machine, no native speaker): wrong terms, grammar, mixed forms of address, leftover English and fixed numerals in plural branches are corrected. Texts only, no message ids (ADR 0169).
