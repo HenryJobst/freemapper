@@ -1,6 +1,6 @@
 # freemapper
 
-[Website](https://freemapper.de) · [English version](README.en.md) · [Wersja polska](README.pl.md) · [Handbuch](docs/manual/de.md) · [Glossar](docs/glossary.md) · [Änderungen](CHANGELOG.md) · [Beispiele](examples/README.md)
+[Website](https://freemapper.de) · [English version](README.en.md) · [Handbuch](docs/manual/de.md) · [Glossar](docs/glossary.md) · [Änderungen](CHANGELOG.md) · [Beispiele](examples/README.md)
 
 
 <!-- badges:start -->

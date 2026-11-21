@@ -20,6 +20,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 ### Geändert
 
 - Die Beispielseite `examples/README.md` zeigt nur noch die Karten: erst die Sprint-, direkt danach die Waldkarten. Der Text dazu (Erzeugung, Zahlen, Quellen, Auswahl der Gebiete, Lizenzen) steht auf der neuen Seite `examples/hintergrund.md`.
+- README und Handbuch gibt es nur auf Deutsch und Englisch. Die polnische README und das gekürzte polnische Handbuch entfallen; das Programm selbst behält alle seine Sprachen (ADR 0172).
 - freemapper nutzt freemapper-core v0.31.2: Korrekturen in den Ansichten der Trainingskarte (Nordlinien- und Nur-braun-Ansicht kannten nur den Code 601, die echten Codes sind 601.1 bis 601.4) und ein Fehler bei `water()` mit NaN; die Schnittstelle bleibt.
 - Die Rückfrage von `freemapper update` nimmt auch das ausgeschriebene Ja von Tschechisch, Slowakisch, Estnisch, Lettisch, Litauisch, Finnisch, Ukrainisch und Russisch (`ano`, `áno`, `jah`, `jā`, `taip`, `kyllä`, `так`, `д`, `да`).
 - Zweite Durchsicht der 19 neuen Programmsprachen durch unabhängige Leser (maschinell, kein Muttersprachler): falsche Begriffe, Grammatik, uneinheitliche Anrede, englische Reste und feste Zahlwörter in Pluralzweigen sind korrigiert. Nur Texte, keine Meldungs-IDs (ADR 0169).
@@ -71,6 +72,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Geändert
 
+- README und Handbuch gibt es nur auf Deutsch und Englisch. Die polnische README und das gekürzte polnische Handbuch entfallen; das Programm selbst behält alle seine Sprachen (ADR 0172).
 - Die Grundkarte wird leicht bereinigt, und auf ihr wird nichts verschoben (ADR 0157). Linien eines Symbols und einer Quelle, die Ende an Ende liegen, werden verbunden; ein Weg zerfällt nicht mehr in kurze Stücke. Eine Linie, die auf einem Symbol liegt, zu dem sie Abstand halten muss, verlässt die Karte und kommt in den Kandidaten-Layer ihrer Art: eine Böschung auf einem Graben, Bach, Seeufer, einer Bahn, Straße, einem Weg oder einer längeren Böschung, ein Graben oder Bach entlang eines Wegs, einer Straße oder eines Gebäudes, ein Zaun oder eine Mauer entlang eines Wegs, einer Straße, eines Gebäudes, eines Seeufers oder Bachs, eine Felswand auf einem Weg, eine Treppe an einem Gebäude, eine Höhenlinie auf einer Böschung oder Felswand. Liegt mehr als die Hälfte von ihr auf dem anderen Symbol, geht sie ganz, sonst nur dieser Abschnitt. Linien und Flächen unter der Mindestgröße der Norm gehen ebenfalls. Was die Karte verlässt, trägt `freemapper:generalized` mit dem Grund, und der Prüfausdruck zeichnet es. Punkte, Linien, die einer anderen nur zu nahe kommen, und Linien eines Netzes bleiben. Die Trainingskarte geht von der Karte vor diesem Schritt aus und ändert sich nicht. Nach dem Schreiben der Karte sagen `run` und `export` in einer Zeile, wie viele Linien verbunden wurden und wie viele Objekte gegangen sind. Bestehende Karten ändern sich nach `export --force`. Ein Lauf ohne `--force` behält eine vorhandene Karte, schreibt die Kandidaten-Layer aber neu; sie enthalten dann auch, was diese Version von der Grundkarte nimmt, während die behaltene Karte es noch hat. Diese Objekte erscheinen also doppelt, und der Lauf sagt das.
 - Der Prüfausdruck zeichnet jetzt die Felswände, die die Generalisierung des Felses von einer Wald- oder Sprintkarte genommen hat (ADR 0126); sie tragen kein `freemapper:hidden=generalized` mehr. Die Trainingskarte lässt sie weiter weg.
 - Die Kandidaten liegen in sieben Vorlagenkarten nach Art, `templates/candidates-<layer>.omap` für Gelände (`terrain`), Gewässer (`water`), Vegetation (`vegetation`), Wege (`paths`), Barrieren (`barriers`), Objekte (`features`) und Sperrgebiete (`out-of-bounds`), statt in `templates/candidates.omap` (ADR 0156). Die Karte nennt sie nach den Rastervorlagen. Sie starten ausgeblendet, die Karte zeigt beim Öffnen also nur ihre sicheren Objekte; in OpenOrienteering Mapper blendet man jeden Layer in der Liste der Vorlagen ein und stellt seine Deckkraft ein, anfangs 70 %. Jeder Layer enthält auch den Umriss des Kartengebiets. Flächen und Linien eines Vegetationssymbols (4xx) liegen im Layer Vegetation, auch die Grünstreifen der Berliner Straßenbefahrung. Die OCAD-Ausgabe schreibt `ocad/<name>-candidates-<layer>.ocd` statt `<name>-candidates.ocd`, als ausgeblendete Hintergrundkarten. Prüfausdruck und Trainingskarte sehen dieselben Kandidaten wie bisher. Das MCP-Werkzeug `list_layers` nennt die sieben Layer (`candidates-terrain` usw.).
@@ -81,6 +83,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Geändert
 
+- README und Handbuch gibt es nur auf Deutsch und Englisch. Die polnische README und das gekürzte polnische Handbuch entfallen; das Programm selbst behält alle seine Sprachen (ADR 0172).
 - Die Fußzeile der Gebietsseite verlinkt den Quellcode, „Quellcode (AGPL-3.0-or-later)“ (ADR 0152).
 - Lizenz: AGPL-3.0-or-later statt GPL-3.0-or-later (ADR 0152), wie freemapper-core, freemapper-print und freemapper-courseplan. Wer eine geänderte Version als Netzwerkdienst betreibt, muss ihren Quelltext anbieten. Die Symbolsätze von OpenOrienteering Mapper behalten GPL-3.0. Veröffentlichungen bis 0.22.0 bleiben GPL-3.0-or-later.
 - Das Bild oben in der README und die Vorschau des Viktoriapark-Beispiels zeigen jetzt die Trainingskarte statt des Prüfausdrucks; das Beispiel hat dazu `berlin-viktoriapark-training.omap` und `berlin-viktoriapark-training.pdf`. Der Prüfausdruck bleibt daneben verlinkt.
@@ -126,6 +129,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Geändert
 
+- README und Handbuch gibt es nur auf Deutsch und Englisch. Die polnische README und das gekürzte polnische Handbuch entfallen; das Programm selbst behält alle seine Sprachen (ADR 0172).
 - Die 30 Beispiele sind mit dem Stand nach ADR 0140 neu gebaut: Höhenlinien laufen über Wege und befestigte Flächen (in Viktoriapark 82 statt 272 Höhenlinienstücke), an Treppen sind sie ausgeschnitten (in Blankenese 460 statt 332 Stücke), die Zaunstriche zeigen von Wegen weg, und doppelte OSM-Gewässer und -Treppen fehlen (Bürgerpark 7 statt 12 Gewässer, Altstadt Bremen 41 statt 67 OSM-Treppen). Das PDF jedes Beispiels heißt jetzt Prüfausdruck; die Genehmigungshinweise sind unverändert.
 - Höhenlinien laufen auf allen Karten durch Wege und befestigte Flächen, wie die ISSprOM 2019-2 (101) es verlangt; das nimmt den Schnitt an Wegen aus ADR 0097 zurück. Sie enden an Treppen und an den kleinen Geländeformen 105, 109 bis 112 und 115, auf Waldkarten nicht an Erdwällen (105, die ISOM lässt Höhenlinien sie kreuzen), und weiter unter Felswänden. Nordlinien enden weiter an Wegen (ADR 0140).
 - Die Zacken eines Zauns zeigen bei einem geschlossenen Zaun nach innen, sonst zur olivgrünen Fläche daneben, weg von einem Weg, der am Zaun entlangführt, und zum Park. Liegt auf beiden Seiten dieselbe Fläche, nehmen sie die Seite, auf der sie nichts überdecken (ADR 0140, ergänzt ADR 0097).
@@ -149,6 +153,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Geändert
 
+- README und Handbuch gibt es nur auf Deutsch und Englisch. Die polnische README und das gekürzte polnische Handbuch entfallen; das Programm selbst behält alle seine Sprachen (ADR 0172).
 - Bayern: Das Oberflächenmodell (DOM20) wird stückweise gelesen, Block für Block (ADR 0141). freemapper liest nur die 51-m-Blöcke, die das Kartengebiet braucht, statt ganzer Kacheln von 32 bis 56 MB, und eine spätere Karte in derselben Kachel liest nur die Blöcke, die noch fehlen. Am Schmausenbuck sind das 92 MB statt etwa 212 MB, bei Zelle für Zelle gleichem Oberflächenmodell. Früher zwischengespeicherte Kacheln bleiben gültig.
 - Vegetation aus Laserpunktwolken (ADR 0138): Die Grünabstufungen 406, 408 und 410 folgen jetzt dem, was in der Schicht steht, durch die man läuft: dem Anteil der Laserpunkte zwischen 0,8 und 3 m an allen Punkten unter 3 m (ab 20 %, 35 % und 50 %). Vorher zählte ein Index auch die Kronen mit, und Hochwald ohne Unterwuchs erreichte fast den Wert eines Dickichts, denn alle Befliegungen der Bundesländer finden ohne Laub statt. Am Schmausenbuck, gemessen an der Kronenhöhe aus den Sommer-Luftbildern, erscheinen 71 % der Dickichte grün (vorher 29 %) und 7 % des Hochwalds (vorher 11 %). Parks und Städte bekommen mehr grüne Flächen (Sanssouci 205 statt 54); Waldkarten ändern sich weniger, weil ihre Mindestfläche größer ist. Stangenholz mit freiem Stammraum bleibt gut belaufbarer Wald. Bestehende Karten bekommen das mit `run --force`. Die neun Beispiele mit Vegetation sind neu gebaut.
 
@@ -176,6 +181,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Geändert
 
+- README und Handbuch gibt es nur auf Deutsch und Englisch. Die polnische README und das gekürzte polnische Handbuch entfallen; das Programm selbst behält alle seine Sprachen (ADR 0172).
 - Vegetation aus Laserpunktwolken (ADR 0136): Die Umrisse folgen jetzt dem Rand der Vegetation statt den 3-m-Stufen der Zellen. freemapper zeichnet sie auf einem dreimal feineren, leicht weichgezeichneten Raster; Ecken werden etwas abgerundet. Die neun Beispiele mit Punktwolken-Vegetation sind neu gebaut.
 - Felswände auf Sprintkarten (ADR 0134): Auch Sprintkarten generalisieren ihre Felswände, nach den Werten der ISSprOM 2019-2 (Mindesthöhe 1,5 m, Mindestlänge 0,9 mm), und ihre Trainings-PDF stärker (Wände ab 3 m, keine Oberkanten ohne Zacken). `derive` behält das Geländemosaik eines Kachel-Bundeslands jetzt für jede Karte; damit zeigen die Zacken von Böschungen und Stützmauern auch dort bergab.
 - Felswände auf Waldkarten (ADR 0126): Die Trainings-PDF generalisiert den Fels stärker als die Karte (Wände ab 5 m über dem Hang, keine Oberkanten ohne Zacken, längere Stücke), auch wenn die Felsen nur Kandidaten sind; die Kandidatenkarte behält alle OSM-Wände. Eine Wand, an der das Orthofoto Fels zeigt, bleibt in der Rangfolge zuerst; dafür schreibt `derive` bei Waldkarten `data/rock-seen.tif`.
@@ -196,6 +202,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Geändert
 
+- README und Handbuch gibt es nur auf Deutsch und Englisch. Die polnische README und das gekürzte polnische Handbuch entfallen; das Programm selbst behält alle seine Sprachen (ADR 0172).
 - Beispiele: Die 14 Sprintkarten in `examples/` sind neu gebaut, alle außer Regensburg, das schon vom aktuellen Stand stammt. Sie zeigen jetzt, was Version 0.18.0 zeichnet. Kleine kompakte Flächen fallen nicht mehr weg (ADR 0122), deshalb haben die Altstädte mehr Sperrflächen (520) unter den Kandidaten und mehr befestigte Flächen (501.5) in der Karte: Lübeck hat 1834 statt 1365 Kandidaten, Wismar 1660 statt 1416. Mit dem kompakten Pfadschreiber sind die 14 Trainingskarten zusammen 5,6 statt 10,1 MB groß. Die Tabellen und Zahlen in `examples/README.md` und die Gegenüberstellung der drei Inhaltsprofile für Cochem sind neu gezählt.
 
 ### Behoben
@@ -212,6 +219,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Geändert
 
+- README und Handbuch gibt es nur auf Deutsch und Englisch. Die polnische README und das gekürzte polnische Handbuch entfallen; das Programm selbst behält alle seine Sprachen (ADR 0172).
 - Kleinere PDFs: `--pdf` und `--pdf-candidates` schreiben ihre Pfade mit dem kompakten Pfadschreiber aus freemapper-core 0.26.0 (Entscheidung 0033 in freemapper-core). Die Koordinaten der Pfade werden auf 1/1000 Punkt gerundet. Kleine Formen mit mindestens vier Punkten innerhalb von 7 mm, etwa die Punkte der Punktsymbole, stehen relativ zu ihrem ersten Punkt, sodass sich wiederholte Symbole gut komprimieren lassen. Die 26 PDFs der 12 Beispielkarten mit Daten (ohne die Dammheide) schrumpfen um 22 bis 79 %, zusammen von 16,9 MB auf 8,3 MB; die Karte von Sanssouci von 1,45 MB auf 304 KB. Die Karten sehen gleich aus: mit poppler bei 150 dpi gerastert, weichen 6 von 113 Millionen Pixeln um mehr als 12 % ab. Texte, Schriften, Farben, Seitengröße und der Zuschnitt auf das Kartengebiet bleiben, wie sie waren. Eine Form mit einer Koordinate, die keine endliche Zahl ist, wird ausgelassen, statt die Seite zu beschädigen. Alle Bibliotheken aus freemapper-core sind auf v0.26.0 angehoben; sonst ändert 0.26.0 für freemapper nichts.
 - Schul- und Waldkarten: Die Mindestgrößen der Norm wachsen jetzt mit den Symbolen (ADR 0118). Auf der Schulkarte (Symbole 125 %) ist das kleinste Gebäude oder Dach 0,625 mm statt 0,5 mm groß, auf der Waldkarte 1:10 000 (150 %) 0,75 mm; ebenso die kürzeste Linie nach ISSprOM 4.5, die kleinsten Flächen von Sperrgebiet, Pflaster, Grün, offenem Land und Gewässern, die kürzeste Höhenlinie und der kleinste Höhenlinienring, Geländeformen und die kleinste Vegetationsfläche. Solche Karten zeigen damit etwas weniger Kleinteiliges. Sprintkarten (100 %) bleiben gleich. Höhenlinien, Geländeformen und Vegetation eines bestehenden Projekts ändern sich erst, wenn `derive` neu läuft. Das Beispiel Dammheide ist damit neu gebaut. Weggefallen sind vor allem kleine Gebäude und Überdachungen in den Siedlungen und kurze Zählkurven: 560 statt 757 Gebäude, 7 statt 24 Überdachungen.
 - Intern: Maße auf dem Papier haben jetzt einen Typ (ADR 0118). Ein Papiermaß (`PaperMm`) gilt auf dem gedruckten Blatt, ein Symbolmaß (`SymbolMm`) wächst mit der Symbolvergrößerung der Kartenart und lässt sich ohne sie nicht umrechnen. Die rund 45 von Hand geschriebenen Umrechnungen in Geländemeter und Kartenkoordinaten sind ersetzt; Linienabstand, Linienbreiten und Punktgrößen der Norm stehen einmal in `build/symbol_measures.rs`. Kein Maß ändert sich, die Karten bleiben gleich.
@@ -236,6 +244,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Geändert
 
+- README und Handbuch gibt es nur auf Deutsch und Englisch. Die polnische README und das gekürzte polnische Handbuch entfallen; das Programm selbst behält alle seine Sprachen (ADR 0172).
 - freemapper-core 0.25.0: Der Vertrag der Suite kennt die Maßstäbe der Waldkarte (0.23.0) und die Äquidistanz in `[contours] interval_m` (0.25.0), und freemapper schreibt beide.
 - Intern: Das Platzieren der Objekte nach den Inhaltseinstellungen liegt jetzt im neuen Modul „Kartenaufbau“ (`build/assembly.rs`, ADR 0115) statt zwischen den Dateizugriffen des Projekts. Es liest keine Datei und lässt sich mit wenigen Objekten im Speicher testen. Erster von drei Schritten; die Karten bleiben Byte für Byte gleich.
 - Intern: Auch die Auflösung der Doppel zwischen den Quellen (Register vor ALKIS vor Befahrung vor OSM) und die Punktgeneralisierung liegen jetzt im Kartenaufbau (`assembly::resolve`, ADR 0115, Schritt 2). Das Projekt zeichnet die Quellen und übergibt sie; die Reihenfolge der Schritte steht an einer Stelle.
@@ -258,6 +267,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Geändert
 
+- README und Handbuch gibt es nur auf Deutsch und Englisch. Die polnische README und das gekürzte polnische Handbuch entfallen; das Programm selbst behält alle seine Sprachen (ADR 0172).
 - Die Bilder der Gebietsseite im Handbuch sind neu aufgenommen (Gebietsauswahl, Optionen, Fortschritt), dazu ein Bild des Abschnitts „Was auf die Karte kommt“ mit allen Gruppen. Der Hinweis zum Profil „Ausgewogen“ auf der Seite nennt jetzt, was das Profil tut: Höhenlinien und die Sperrgebiete an Bahngleisen kommen auf die Karte, Treppen, Böschungen, Denkmäler und Durchgänge auch aus OpenStreetMap.
 - Die Beispiele Sanssouci, Viktoriapark, Monschau, Cochem und Saarlouis sind mit `--content-set vegetation=candidates` neu gebaut: Ihre Trainingskarten zeigen jetzt die Vegetation aus den Punktwolken. Die Kartenobjekte der ersten vier sind unverändert; Saarlouis hat durch die Korrektur der Nutzungsarten 109 statt 32 Straßenflächen und die Saar aus ALKIS. Bautzen bleibt ohne Vegetation, weil Sachsen zurzeit keine Punktwolken anbietet.
 - Die Grenzen von Niedersachsen und Schleswig-Holstein überlappen sich in der Elbmündung nicht mehr. Die Kataster beider Bundesländer führen dieselben 89 km² Wasser vor Cuxhaven; freemapper teilt die Fläche jetzt an der Linie gleichen Abstands zu den beiden Anspruchslinien (ADR 0113). Für Karten ändert sich nichts, dort ist offenes Wasser.
@@ -284,6 +294,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Geändert
 
+- README und Handbuch gibt es nur auf Deutsch und Englisch. Die polnische README und das gekürzte polnische Handbuch entfallen; das Programm selbst behält alle seine Sprachen (ADR 0172).
 - Intern: Die Tests laufen schneller. Die Abhängigkeiten werden auch im Entwicklungs-Build voll optimiert (einmal gebaut, danach aus dem Cache), die eigenen Crates bleiben unoptimiert. In der CI sinkt der Job `check` von 8 bis 10 auf 5,5 bis 7 Minuten, das Golden-Netz von 2 bis 3 auf 1 bis 2 Minuten je System; die Ausgaben des Golden-Netzes sind byte-gleich geblieben. Die CI schreibt nur noch Zeilennummern als Debug-Information, und ein neuer Push auf einen Pull Request bricht dessen älteren Lauf ab. Ein Pull Request läuft nur noch auf Linux; mit dem Label `all-systems` und bei jedem Push auf main laufen alle drei Systeme. Der erste Debug-Build nach dem Update übersetzt die Abhängigkeiten einmal neu; der Release-Build ändert sich nicht.
 - Alle zwölf Beispiele sind mit dem Standardprofil `balanced` neu gebaut. Zehn davon stammten noch aus der Zeit vor den Inhaltsprofilen; jetzt stehen Höhenlinien, Wege, Treppen, Mauern und Bäume in ihren Karten, und Kandidaten bleiben vor allem Sperrflächen, Kontrollstandorte und Böschungen. Die [Gegenüberstellung](examples/vergleich.md) zeigt dasselbe Gebiet, Cochem, in den drei Profilen `safe`, `balanced` und `full`, mit je einem PDF. Die Zahlen in der Beispielübersicht und im Handbuch sind nachgezählt.
 - MCP: Was der Server beim Start an den Adapterordnern der Person auszusetzen hat (ein Ordner wird weggelassen oder lädt nur mit Einschränkung), steht jetzt einmal als Hinweis im ersten Tool-Ergebnis. Bisher stand es nur auf stderr, das weder der Agent noch die Person zu sehen bekommt.
@@ -321,6 +332,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Geändert
 
+- README und Handbuch gibt es nur auf Deutsch und Englisch. Die polnische README und das gekürzte polnische Handbuch entfallen; das Programm selbst behält alle seine Sprachen (ADR 0172).
 - Anfragen gehen nur noch an Server im Internet (ADR 0106). freemapper verbindet sich nicht mehr mit einer Adresse dieses Rechners oder des lokalen Netzes, gleich ob eine URL sie nennt, ein Hostname dorthin auflöst oder ein Server dorthin weiterleitet. Das gilt für die Downloads, die Kartenkacheln der Gebietsseite und das Selbst-Update. Ein Proxy aus der Umgebung (`HTTPS_PROXY`) funktioniert weiter, auch ein lokaler. Eine Anfrage, die nicht gesendet wird, nennt den Grund in der Sprache des Laufs.
 - Die Anfragen für ein Bundesland bleiben auf den Hosts, die sein Manifest erklärt, Weiterleitungen eingeschlossen (höchstens drei): ALKIS, die Raster, das volle ALKIS, die Baumkataster sowie die Register und die K5 Berlins. Leitet ein Server freemapper zu einem Host weiter, den niemand erklärt hat, geht dorthin keine Anfrage; dasselbe gilt für eine vierte Weiterleitung in Folge, eine Weiterleitung auf `http` und eine Adresse in einer Antwort auf einem solchen Host. Die Meldung beginnt mit der abgelehnten Adresse, nennt das Bundesland und sagt, was zu tun ist. Ein Adapter aus einem Ordner ist genauso an seine eigenen Hosts gebunden und fügt einem eingebauten Bundesland keinen hinzu. Vor der Umstellung wurde jedes Bundesland an zwei Orten unter dieser Regel live abgerufen.
 - Intern: Die elf Bundesländer sind Manifeste plus Code (ADR 0107). Jedes hat einen Ordner in `crates/adapters/de/manifests/` mit seinem Manifest und seiner Grenzdatei; Sachsen-Anhalt braucht keinen Raster-Code mehr. Das Golden-Netz bestätigt dieselben Anfragen und byte-gleiche Dateien.
@@ -344,6 +356,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Geändert
 
+- README und Handbuch gibt es nur auf Deutsch und Englisch. Die polnische README und das gekürzte polnische Handbuch entfallen; das Programm selbst behält alle seine Sprachen (ADR 0172).
 - Inhaltsprofile (ADR 0100): Was direkt auf die Karte kommt und was Kandidat bleibt, ist einstellbar, `safe` (bisheriger Stand), `balanced` (neue Voreinstellung: Straßen mit Bordsteinen und Grünstreifen und Treppen aus ALKIS, den Registern und der Straßenbefahrung sowie Mauern, Zäune, Hecken, Wasser, Bäume, Baumgruppen, Wege, Gleise, Böschungen, Durchgänge, Denkmäler, Türme und oberirdische Rohrleitungen auch aus OSM sowie die Höhenlinien und die Sperrgebiete entlang von Bahngleisen kommen auf die Karte) und `full` (alles). Einzelne Gruppen lassen sich abweichend einstellen. `init`, `export` und `run` nehmen `--content` und `--content-set <gruppe>=map|candidates|off`, MCP `content` und `content_set`; gespeichert wird die Wahl in `freemapper.toml` (`[content]`). Höhenlinien enden jetzt auch auf der Karte an Wegen.
 - Befestigte Flächen (501.5) bekommen ihren schwarzen Rand 501.1, wie es die Norm (ISSprOM §4.5) vorsieht (ADR 0099). Kein Rand entsteht dort, wo schon eine Kante gezeichnet ist: an Gebäudeumrissen, Gewässern, vorhandenen 501.1-Linien (Bordsteine der Straßenbefahrung) und am Kartenrand. Befestigte OSM-Wege der Klasse `service` (Zufahrten, Hofwege) kommen als 501.6 bis 501.9 dazu, ohne Breite als 501.8.
 - OSM-Wege mit befestigter Oberfläche (Asphalt, Pflaster, Beton, Kleinpflaster …) kommen als Linien 501.6 bis 501.9 mit schwarzem Rand in die Karte, wie Kieswege (ADR 0098). Vorher fehlten sie, wo die ALKIS- und Berliner Flächen sie nicht enthalten, etwa Parkwege im Biesdorfer Park; wo eine Pflasterfläche liegt, schneidet `build/firm_paths.rs` sie weg. Straßen und Gehwege bleiben ohne Regel.
@@ -374,6 +387,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Geändert
 
+- README und Handbuch gibt es nur auf Deutsch und Englisch. Die polnische README und das gekürzte polnische Handbuch entfallen; das Programm selbst behält alle seine Sprachen (ADR 0172).
 - `AGENTS.md`: Agenten, die Befehle ausführen können, nutzen zuerst die Kommandozeile. Ein `freemapper run` wartet, bis die Karte fertig ist, während über MCP jeder Statusabruf eine eigene Runde kostet. MCP bleibt der Weg für Assistenten ohne Shell. Neu sind ein eigener Ablauf für die Kommandozeile, der Verweis auf `--help`, der Hinweis auf zu kurze Zeitlimits und dass `init --place` den besten Treffer nimmt, ohne die anderen zu nennen.
 - Kartenart und reservierte Wörter kommen aus der gemeinsamen Bibliothek `freemapper-contract` (ADR 0095, Stufe 4 des Vertragstests). Die Namen `schoolyard` und `sprint`, die Maßstäbe einer Kartenart, der Tag `freemapper:source` mit seinen reservierten Werten, die Namen der Kartenteile und der Dateiname `freemapper.toml` stehen jetzt einmal in freemapper-core v0.18.0, und freemapper-print und freemapper-courseplan können dieselben Definitionen benutzen. Karten und Projektdateien bleiben Byte für Byte gleich. Alle Kernbibliotheken sind auf v0.18.0 festgelegt. Bibliothek: `MapKind` hat neu `ALL`, `name`, `from_name` und `contract`.
 
@@ -393,6 +407,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Geändert
 
+- README und Handbuch gibt es nur auf Deutsch und Englisch. Die polnische README und das gekürzte polnische Handbuch entfallen; das Programm selbst behält alle seine Sprachen (ADR 0172).
 - Bibliothek: Die Rückruffunktion für den Fortschritt bekommt statt einer fertigen Zeile (`&str`) einen Wert `Note` mit Kennung und Angaben; `to_string()` gibt die englische Zeile wie bisher, `Note::text` die Zeile in einer Sprache, `Note::is_warning` sagt, ob es eine Warnung ist. `HeightModel::warnings` und `OcadOutcome::warnings` enthalten solche Werte statt Zeichenketten, ebenso `AreaError::Place` und `ProjectError::Layer`; `MapKind::scale_note` gibt einen zurück. Die Texte liegen in `crates/freemapper/i18n/`.
 
 ## [0.10.0] - 2026-11-11
@@ -409,6 +424,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Geändert
 
+- README und Handbuch gibt es nur auf Deutsch und Englisch. Die polnische README und das gekürzte polnische Handbuch entfallen; das Programm selbst behält alle seine Sprachen (ADR 0172).
 - Ein Fehler im Terminal steht jetzt in einer Zeile, `error: …` oder `Fehler: …`, die Ursache folgt nach einem Doppelpunkt. Vorher stand dort `Error: …` und die Ursache darunter unter „Caused by:“. Der Exit-Code bleibt 1.
 - `export` und `run` bauen Karte und Kandidatenvorlage nur noch einmal je Befehl statt einmal je Ausgabe (ADR 0091). Mit `--ocad --pdf --pdf-candidates` waren es bisher vier Durchläufe über alle gespeicherten Ebenen, jetzt ist es bei `export` einer und bei `run` zwei. Die geschriebenen Dateien sind Byte für Byte dieselben.
 - Gebietsauswahl: Der lokale Server läuft jetzt auf der gemeinsamen Bibliothek `freemapper-web` aus freemapper-core v0.11.0 (ADR 0090, Stufe 1; ADR 0009 und 0067, Nachtrag). Die Seite sieht gleich aus. Die Prüfungen sind strenger: Ein POST braucht den `Origin` der Seite und `Content-Type: application/json`, sonst antwortet der Server mit 403. Wer die Routen mit einem eigenen Skript aufruft, muss beides senden. Anfragen mit `Sec-Fetch-Site: cross-site` werden abgelehnt, jede Antwort trägt `X-Content-Type-Options: nosniff`, und ein Anfragekörper darf höchstens 1 MiB groß sein (ein Umriss mit 5000 Punkten braucht etwa 150 KB). Alle Kernbibliotheken sind jetzt auf dasselbe Tag v0.11.0 festgelegt.
@@ -431,6 +447,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Geändert
 
+- README und Handbuch gibt es nur auf Deutsch und Englisch. Die polnische README und das gekürzte polnische Handbuch entfallen; das Programm selbst behält alle seine Sprachen (ADR 0172).
 - Koordinatensysteme und Kacheln kommen jetzt aus `freemapper-georef` (freemapper-core v0.5.1). `crs` und `tiles` in freemapper geben die Typen unter den alten Pfaden weiter, das Verhalten ändert sich nicht. Die Projektion rechnet mit der gemeinsamen Transversal-Mercator-Implementierung. `freemapper-fs` steht jetzt ebenfalls auf v0.5.1.
 
 ### Hinzugefügt
@@ -449,6 +466,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Geändert
 
+- README und Handbuch gibt es nur auf Deutsch und Englisch. Die polnische README und das gekürzte polnische Handbuch entfallen; das Programm selbst behält alle seine Sprachen (ADR 0172).
 - Alle elf Beispiele sind mit dem aktuellen Code neu erzeugt. Das PDF jedes Beispiels ist die Trainingskarte (`<name>-candidates.pdf`), und `preview.jpg` ist daraus gerendert, weil die Karte allein sehr schlicht ist. Kartenobjekte, Kandidaten und Symbole in der Beispielübersicht sind neu gezählt, und die Kieswege 501.6 bis 501.9 stehen in allen Beispielen als Kartenobjekte. Nur Cochem und Blankenese haben zusätzlich die Karte ohne Kandidaten (`<name>.pdf`, `preview-map.jpg`). Die Namensnennung des Viktoriaparks nennt wieder die Öffentliche Beleuchtung.
 - Der Standard von `--pdf` ändert sich. Es schreibt jetzt `<name>.pdf` mit genau den Objekten der OOM-Karte, ohne Kandidaten und ohne Maßstabsleiste. Die Trainingskarte mit allen Kandidaten steht in `<name>-candidates.pdf` und kommt mit `--pdf-candidates`; beide Schalter zusammen schreiben beide Dateien. Die Maßstabsleiste auf den PDFs gibt es nur mit `--pdf-scale-bar` (deutsche OL-Karten haben meist keine); die Maßstabszahl bleibt im Titelblock. Das alte Verhalten ist `--pdf-candidates --pdf-scale-bar`. Gilt auch für `run` und die MCP-Parameter `pdf`, `pdf_candidates`, `pdf_scale_bar`. OOM- und OCAD-Karte behalten die Leiste. Ändert ADR 0002 (ADR 0080).
 - Die Trainingskarte des Viktoriaparks (`berlin-viktoriapark-candidates.pdf`, `preview.jpg`) ist mit der gekürzten Quellenangabe neu erzeugt (vier statt neun Zeilen). Die übrigen Beispiele haben höchstens fünf Zeilen und bleiben unverändert; die Karteninhalte sind identisch.
@@ -486,6 +504,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Geändert
 
+- README und Handbuch gibt es nur auf Deutsch und Englisch. Die polnische README und das gekürzte polnische Handbuch entfallen; das Programm selbst behält alle seine Sprachen (ADR 0172).
 - Die Beispiele Viktoriapark und Lübeck sind mit den neuen OSM-Regeln neu gebaut. Viktoriapark: Kartenobjekte 789 auf 740 (505.1: 58 auf 9, weil verdichteter Kies zum Kandidaten wird), Kandidaten 2.089 auf 2.327 (531: 5 auf 121, davon 116 Kontrollstandorte; 520: 73 auf 117; 522: 179 auf 211; 501.6: 45 neu, 501.9: 4 neu; 526: 1 auf 3). Lübeck: Kartenobjekte 2.294 auf 2.281, Kandidaten 1.528 auf 1.859 (522: 185 auf 280; 531: 0 auf 195; 520: 1.090 auf 1.125; 526: 0 auf 10; 501.6: 13 neu; 505.1: 35 auf 16). Die gespeicherten OSM-Objekte steigen von 755 auf 1.371 (Viktoriapark) und von 234 auf 927 (Lübeck).
 - Verdichteter Kies und Feinkies (`surface=compacted|fine_gravel`) ist nach ISSprOM 501 fest und deshalb kein unbefestigter Weg mehr in der Karte, sondern ein 501.6-bis-501.9-Kandidat nach `width`. Ab 3 m Breite sind unbefestigte Wege 505.2. Ein Wirtschaftsweg ohne `surface` folgt `tracktype` (ADR 0073).
 - Baumgruppenflächen (402, 405) verdecken keine Wege mehr. freemapper schneidet sie auch an befestigten Kandidaten und an Wegen (505, 506, 507) aus. Die punktierte Vegetationsgrenze (416) gibt es nur noch auf der Schulhofkarte, auf der Sprintkarte zeigt sich der weiße Wald auf Gelb oder Braun. Im Viktoriapark bleiben dadurch mehr Bäume Punkte (1 128 statt 835), die 49 Grenzlinien entfallen (ADR 0069).
@@ -507,6 +526,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Geändert
 
+- README und Handbuch gibt es nur auf Deutsch und Englisch. Die polnische README und das gekürzte polnische Handbuch entfallen; das Programm selbst behält alle seine Sprachen (ADR 0172).
 - Zu dicht stehende Punkte werden ausgedünnt. Kämen sich zwei Punktsymbole auf dem Papier näher, als die Norm erlaubt, behält freemapper das größere, dann das aus der besseren Quelle, dann das mit der größeren Krone. Der bleibende Punkt nennt die anderen in `freemapper:generalized`. Das ändert Kandidaten und Trainingskarte in jedem Bundesland, auch in Berlin. Die Kartenobjekte bleiben gleich (ADR 0066).
 - Bäume und andere Punkte in Sperrgebiet-Kandidaten (520) bleiben in den Kandidaten mit `freemapper:hidden=520`, die Trainingskarte lässt sie aber weg. Auf Schulhofkarten zeigt das PDF deshalb keinen Punkt außerhalb des Schulgeländes (ADR 0066).
 - Doppel: Register vor ALKIS vor Straßenbefahrung vor OSM gilt jetzt in jedem Bundesland und auch für Bäche und Gräben (305, 306). Eine OSM-Linie, die zu mindestens 80 % ihrer Länge höchstens 1,5 m neben einer Linie des vollständigen ALKIS mit demselben Symbol liegt, fällt weg, und `freemapper:also` nennt sie (ADR 0063).
@@ -528,6 +548,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Geändert
 
+- README und Handbuch gibt es nur auf Deutsch und Englisch. Die polnische README und das gekürzte polnische Handbuch entfallen; das Programm selbst behält alle seine Sprachen (ADR 0172).
 - Bibliotheks-API (Crate `freemapper`): Die Funktionen, die Vorlagen und gespeicherte Daten schreiben, bekommen den Projektordner als zusätzliches Argument `root` vor dem Ausgabepfad. Das betrifft `write_gray_png`, `write_ndsm_png`, `build_orthophoto`, `build_orthophoto_from_image`, `wms::fetch_orthophoto`, `wms::fetch_orthophoto_from`, `wms::fetch_k5`, `geosn::fetch_orthophoto` und die `fetch_model`-Funktionen der Höhenmodell-Quellen. `OcadOutcome` hat das neue Feld `warnings`. Kommandozeile und MCP bleiben gleich.
 
 ### Behoben
@@ -552,6 +573,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Geändert
 
+- README und Handbuch gibt es nur auf Deutsch und Englisch. Die polnische README und das gekürzte polnische Handbuch entfallen; das Programm selbst behält alle seine Sprachen (ADR 0172).
 - Berlin: Die befestigten Flächen (501.5) enthalten die vermessenen Grünstreifen nicht mehr, freemapper schneidet sie aus. Baumscheiben bleiben darin. Ein Grünstreifen wird nur dort Kandidat 401, wo freemapper ihn ausgeschnitten hat oder wo er neben den befestigten Flächen liegt. Eine beschnittene Fläche nennt die Grünstreifen in `freemapper:cut`, `freemapper:cut_ids` und `freemapper:cut_currency`. Eine vorhandene Karte ändert sich erst mit `run --force`.
 - Berlin: Kurze Linienstücke aus ALKIS und der Straßenbefahrung, die Ende an Ende aneinanderstoßen, fügt freemapper zu einer Linie zusammen. Sie nennt die übrigen Stücke in `freemapper:also` und trägt das älteste Aufnahmedatum. Danach fallen Linien unter 1 mm auf dem Papier weg, jetzt auch bei ALKIS.
 - Berlin: Gibt es ein Objekt mehrfach, gewinnt das Register vor ALKIS, ALKIS vor der Straßenbefahrung und diese vor OSM. Ein vermessener Fahrgastunterstand, der mindestens zur Hälfte unter einer ALKIS-Überdachung liegt, fällt weg. Das bleibende Objekt nennt die anderen in `freemapper:also`, vermessene als `geoportal-berlin/<Ebene>/<gis_id>`. Jeder Berliner Kandidat trägt den Tag `berlin:layer`.
@@ -567,6 +589,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Geändert
 
+- README und Handbuch gibt es nur auf Deutsch und Englisch. Die polnische README und das gekürzte polnische Handbuch entfallen; das Programm selbst behält alle seine Sprachen (ADR 0172).
 - Kleingärten (ALKIS-Nutzung „Sport-, Freizeit- und Erholungsfläche“ mit `bez` „Kleingarten“) sind in jedem Bundesland Kandidaten für verbotenes Gebiet (520). Parks, Sportanlagen und Spielplätze bleiben offen.
 
 ### Behoben
@@ -583,6 +606,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Geändert
 
+- README und Handbuch gibt es nur auf Deutsch und Englisch. Die polnische README und das gekürzte polnische Handbuch entfallen; das Programm selbst behält alle seine Sprachen (ADR 0172).
 - Die Nordlinien liegen im Kartenteil „default part“ bei den übrigen Kartenobjekten, mit dem Tag `freemapper:source=north-lines`. In OOM lassen sie sich an kleinen Objekten unterbrechen, und in der Trainingskarte liegen Mauern und Zäune darüber. Titel, Maßstab und Namensnennung bleiben im Teil „peripheral information“. Eine vorhandene Karte ändert sich erst mit `run --force`.
 - Die Farben folgen den IOF-Druck- und Farbdefinitionen Rev. 4 (September 2024, gültig ab 1.12.2024) statt der älteren Werte aus dem OOM-Symbolsatz: Braun ist 25/75/100/0 statt 0/56/100/18, Grün 80/0/100/0 statt 76/0/91/0, Braun 50 % 10/35/50/0. Gebäude sind wie in ISSprOM 2019-2 mit 50 % Schwarz gefüllt statt 60 %. Das gilt für OOM-Karte, OCAD-Datei und Trainings-PDF. Namen und Reihenfolge der Farben bleiben gleich.
 - Längere Meldungen sind klarer formuliert.
@@ -610,6 +634,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Geändert
 
+- README und Handbuch gibt es nur auf Deutsch und Englisch. Die polnische README und das gekürzte polnische Handbuch entfallen; das Programm selbst behält alle seine Sprachen (ADR 0172).
 - Jedes Bundesland hat eine Zeile in der Regionentabelle des README. Die Einzelheiten stehen im Handbuch.
 - Die Größenschätzung vor dem Download zählt bei Bundesländern mit Kacheln ganze Kacheln und markiert die, die schon im Cache liegen.
 - Ältere Projekte verwerfen ihre gespeicherten Objekte, wenn sich der Rasterdaten-Anbieter ändert, und speichern diese Änderung.
@@ -639,6 +664,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Geändert
 
+- README und Handbuch gibt es nur auf Deutsch und Englisch. Die polnische README und das gekürzte polnische Handbuch entfallen; das Programm selbst behält alle seine Sprachen (ADR 0172).
 - Das README führt die Regionen in einer gleichrangigen Tabelle statt in getrennten Abschnitten für Berlin und Sachsen.
 - Die OSM-Fortschrittsmeldungen nennen den Auszug, den sie laden (Brandenburg oder Sachsen).
 

@@ -28,7 +28,7 @@ stage 4 expected a release of freemapper-core with a new language. That is not n
 - **Answer to the update question.** `t` and `tak` mean yes besides `y` and `j`.
 - **Wording.** A state of Poland is a `województwo`, a state of Germany `kraj związkowy`; the
   glossary has a Polish section that the catalogs follow.
-- **Documents.** `README.pl.md` is a translation of the English README. `docs/manual/pl.md` is a
+- **Documents.** (Superseded by ADR 0172.) `README.pl.md` was a translation of the English README. `docs/manual/pl.md` is a
   shortened manual (what a user in Poland needs, same chapter numbers as the English one), not a
   translation of the 190 KB of the English manual, most of which describes German states.
   There is no Polish changelog.

@@ -312,7 +312,7 @@ Orienteering Maps 2019 (IOF).
 
 ## Polski / Polish
 
-Die polnischen Texte (`pl` in den Katalogen, `docs/manual/pl.md`, `README.pl.md`) nutzen diese Begriffe. Ein Begriff,
+Die polnischen Texte (`pl` in den Katalogen) nutzen diese Begriffe. Ein Begriff,
 der hier fehlt, wird zuerst hier ergänzt. Die Symbolnamen folgen den polnischen Ausgaben der IOF-Normen, wo es sie
 gibt; sonst gilt die hier genannte Wendung. / The Polish texts use these terms; a missing term is added here first.
 
