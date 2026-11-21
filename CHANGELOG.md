@@ -8,6 +8,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Geändert
 
+- Die Rückfrage von `freemapper update` nimmt auch das ausgeschriebene Ja von Tschechisch, Slowakisch, Estnisch, Lettisch, Litauisch, Finnisch, Ukrainisch und Russisch (`ano`, `áno`, `jah`, `jā`, `taip`, `kyllä`, `так`, `д`, `да`).
 - Zweite Durchsicht der 19 neuen Programmsprachen durch unabhängige Leser (maschinell, kein Muttersprachler): falsche Begriffe, Grammatik, uneinheitliche Anrede, englische Reste und feste Zahlwörter in Pluralzweigen sind korrigiert. Nur Texte, keine Meldungs-IDs (ADR 0169).
 
 ### Hinzugefügt
