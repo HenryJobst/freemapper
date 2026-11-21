@@ -276,6 +276,10 @@ jobs:
         run: |
           cargo nextest --version 2>/dev/null | grep -q "$CARGO_NEXTEST_VERSION" ||
             cargo install cargo-nextest --locked --version "$CARGO_NEXTEST_VERSION" --force
+      # The copies of the tree that `cargo mutants` builds in start from this build (`--copy-target`),
+      # so the baseline compiles little more than the changed crates (ADR 0173).
+      - name: Build the tests once
+        run: cargo nextest run --workspace --no-run --locked
       - run: scripts/check.sh mutants
       - name: The mutants that survived
         if: failure()

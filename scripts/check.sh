@@ -367,7 +367,7 @@ gate_mutants() {
   # endless was stopped by the clock, which is how a test catches it.
   local log=target/mutants.log status=0
   : >"$log"
-  cargo mutants --in-diff "$diff" --jobs 2 --timeout-multiplier 5 --shuffle --test-tool nextest \
+  cargo mutants --in-diff "$diff" --jobs 2 --timeout-multiplier 2 --copy-target true --shuffle --test-tool nextest \
     --shard "$shard/$shards" --sharding round-robin >"$log" 2>&1 &
   local pid=$!
   # The budget counts from the end of the baseline, which takes as long as the tests do.
