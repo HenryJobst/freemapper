@@ -383,7 +383,9 @@ mod tests {
         ] {
             assert!(is_yes(yes), "{yes:?}");
         }
-        for no in ["", "\n", "n", "no", "nein", "nie", "ne", "nej", "ei", "нет", "ні", "yess", "maybe"] {
+        for no in [
+            "", "\n", "n", "no", "nein", "nie", "ne", "nej", "ei", "нет", "ні", "yess", "maybe",
+        ] {
             assert!(!is_yes(no), "{no:?}");
         }
     }
