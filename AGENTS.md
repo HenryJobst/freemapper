@@ -91,6 +91,11 @@ turn that costs tokens. Use MCP only when you cannot run commands (see the next 
 `freemapper --help` lists the commands, `freemapper <command> --help` their switches. Pass `--lang en` when you
 parse the output; this file quotes the English texts.
 
+On Windows, a call without any argument on a console (a double click on `freemapper.exe`, or a bare `freemapper` in a
+terminal) is the same as `select Documents\freemapper\karte-<date>`: it opens the area page and does not print the help. Always pass
+a command and `--help` when you want the help. A person who double-clicks the program gets the area page; tell them to use PowerShell for
+all other commands.
+
 ```sh
 freemapper init <dir> --place "Clara-Zetkin-Schule Strausberg" --kind schoolyard --title "Clara-Zetkin-Schule"
 freemapper run <dir> --pdf
