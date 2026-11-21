@@ -577,6 +577,7 @@ cli-arg-version = Visa version
 cli-help-help = Visa hjälpen för ett kommando
 cli-arg-help-command = Kommandot som hjälpen ska visas för, till exempel run
 cli-parse-hint = Försök med '--help' för mer information.
+cli-double-click-start = freemapper öppnar sidan där du väljer kartområdet i webbläsaren. Projektmappen är { $path }. Stäng det här fönstret för att avsluta programmet.
 cli-parse-unknown-argument = oväntat argument { $arg }
 cli-parse-missing-required = obligatoriskt argument saknas: { $args }
 cli-parse-invalid-value = ogiltigt värde { $value } för { $arg }

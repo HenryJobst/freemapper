@@ -588,6 +588,7 @@ cli-arg-version = Zobrazit verzi
 cli-help-help = Zobrazí nápovědu k příkazu
 cli-arg-help-command = Příkaz, k němuž se má zobrazit nápověda, například run
 cli-parse-hint = Další informace získáte pomocí '--help'.
+cli-double-click-start = freemapper otevře v prohlížeči stránku, na které vyberete oblast mapy. Složka projektu je { $path }. Zavřením tohoto okna program ukončíte.
 cli-parse-unknown-argument = neočekávaný argument { $arg }
 cli-parse-missing-required = chybí povinný argument: { $args }
 cli-parse-invalid-value = neplatná hodnota { $value } pro { $arg }

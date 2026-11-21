@@ -587,6 +587,7 @@ cli-arg-version = Rodyti versiją
 cli-help-help = Rodyti komandos žinyną
 cli-arg-help-command = Komanda, kurios žinyną rodyti, pavyzdžiui, run
 cli-parse-hint = Daugiau informacijos gausite su '--help'.
+cli-double-click-start = freemapper naršyklėje atidaro puslapį, kuriame pasirenkate žemėlapio plotą. Projekto aplankas yra { $path }. Uždarykite šį langą, kad baigtumėte programą.
 cli-parse-unknown-argument = netikėtas argumentas { $arg }
 cli-parse-missing-required = trūksta privalomo argumento: { $args }
 cli-parse-invalid-value = netinkama reikšmė { $value } argumentui { $arg }

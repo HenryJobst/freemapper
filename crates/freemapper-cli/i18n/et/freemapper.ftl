@@ -577,6 +577,7 @@ cli-arg-version = Näita versiooni
 cli-help-help = Näita käsu abi
 cli-arg-help-command = Käsk, mille abi näidata, näiteks run
 cli-parse-hint = Lisateabe saamiseks vt '--help'.
+cli-double-click-start = freemapper avab brauseris lehe, kus valid kaardi ala. Projektikaust on { $path }. Programmi lõpetamiseks sulge see aken.
 cli-parse-unknown-argument = ootamatu argument { $arg }
 cli-parse-missing-required = puudub nõutav argument: { $args }
 cli-parse-invalid-value = kehtetu väärtus { $value } argumendile { $arg }

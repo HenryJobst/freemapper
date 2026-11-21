@@ -584,6 +584,7 @@ cli-arg-version = Parādīt versiju
 cli-help-help = Parādīt komandas palīdzību
 cli-arg-help-command = Komanda, kuras palīdzību rādīt, piemēram, run
 cli-parse-hint = Plašāku informāciju skatiet ar '--help'.
+cli-double-click-start = freemapper pārlūkprogrammā atver lapu, kurā izvēlaties kartes apgabalu. Projekta mape ir { $path }. Aizveriet šo logu, lai beigtu programmu.
 cli-parse-unknown-argument = neparedzēts arguments { $arg }
 cli-parse-missing-required = trūkst obligātā argumenta: { $args }
 cli-parse-invalid-value = nederīga vērtība { $value } argumentam { $arg }

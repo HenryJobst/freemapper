@@ -78,6 +78,12 @@ freemapper is a single program without an installer.
    - **Windows:** "Windows protected your PC" → *More info* → *Run anyway*.
    - **macOS:** "cannot be opened …" → *System Settings › Privacy & Security* → *Open Anyway*.
 
+**Double click on Windows:** A double click on `freemapper.exe` opens the area page in the browser (like `freemapper select`)
+and creates the project folder under `Documents\freemapper\karte-<date>`; the console window stays open while the program
+runs, and closing it ends the program. Everything else, such as `run`, `permits` or `update`, you type in PowerShell:
+Start menu › "PowerShell", change with `cd` into the folder with `freemapper.exe` (or type `powershell` into the address
+bar in Explorer) and call for example `.\freemapper.exe run <folder>` there.
+
 Note the **full path** to the program, e.g. `C:\Users\Anna\Documents\freemapper\freemapper.exe` or
 `/Users/anna/Documents/freemapper/freemapper`. The assistant needs it.
 

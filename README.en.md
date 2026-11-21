@@ -4,7 +4,7 @@
 
 
 <!-- badges:start -->
-[![Tests](https://img.shields.io/badge/Tests-3048-blue)](docs/tests.json) [![Test budget](https://img.shields.io/badge/Test_budget-15_min-blue)](docs/tests.json) [![Line coverage](https://img.shields.io/badge/Coverage-95.9%25-brightgreen)](docs/coverage.json) [![MSRV](https://img.shields.io/badge/MSRV-1.88-blue)](Cargo.toml) [![ADRs](https://img.shields.io/badge/ADRs-173-blue)](docs/adr/README.md) [![Hygiene](https://img.shields.io/badge/Hygiene-19-brightgreen)](scripts/check.sh) [![License](https://img.shields.io/badge/License-AGPL--3.0--or--later-blue)](LICENSE)
+[![Tests](https://img.shields.io/badge/Tests-3050-blue)](docs/tests.json) [![Test budget](https://img.shields.io/badge/Test_budget-15_min-blue)](docs/tests.json) [![Line coverage](https://img.shields.io/badge/Coverage-95.9%25-brightgreen)](docs/coverage.json) [![MSRV](https://img.shields.io/badge/MSRV-1.88-blue)](Cargo.toml) [![ADRs](https://img.shields.io/badge/ADRs-173-blue)](docs/adr/README.md) [![Hygiene](https://img.shields.io/badge/Hygiene-19-brightgreen)](scripts/check.sh) [![License](https://img.shields.io/badge/License-AGPL--3.0--or--later-blue)](LICENSE)
 <!-- badges:end -->
 
 <!-- claude-cost:start -->
@@ -152,7 +152,8 @@ freemapper is a single program without an installer. You do not need to build it
      `xattr -d com.apple.quarantine freemapper`.
    - **Linux:** no warning; if needed `chmod +x freemapper`.
 4. Check in a terminal (Windows: PowerShell) in the unpacked folder: `./freemapper --version`
-   (Windows: `.\freemapper.exe --version`).
+   (Windows: `.\freemapper.exe --version`). On Windows a double click opens the area page in the browser; all other
+   commands you type in PowerShell (in Explorer type `powershell` into the address bar).
 
 `freemapper update` asks, then downloads the newest release and puts it in place of the program, at
 the same path. It checks the release's signature first, and the old program stays for

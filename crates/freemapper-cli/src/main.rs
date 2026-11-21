@@ -23,6 +23,7 @@ mod text;
 mod tiles;
 mod update;
 
+use std::io::IsTerminal as _;
 use std::path::PathBuf;
 
 use anyhow::Context;
@@ -778,6 +779,46 @@ impl From<Kind> for MapKind {
     }
 }
 
+/// Whether the program was most likely started by a double click in the file manager: on Windows,
+/// without any argument, on a console. A bare `freemapper` typed in a terminal looks the same.
+fn opened_by_double_click(
+    windows: bool,
+    arg_count: usize,
+    stdin_tty: bool,
+    stdout_tty: bool,
+) -> bool {
+    windows && arg_count == 1 && stdin_tty && stdout_tty
+}
+
+/// The project folder of a double click: the first `karte-<date>` (then `karte-<date>-2`, …) in
+/// `<root>` that does not exist yet, so a second start does not reopen the first map.
+fn double_click_folder(root: &std::path::Path, today: chrono::NaiveDate) -> PathBuf {
+    let base = format!("karte-{today}");
+    let mut folder = root.join(&base);
+    let mut number = 2;
+    while folder.exists() {
+        folder = root.join(format!("{base}-{number}"));
+        number += 1;
+    }
+    folder
+}
+
+/// The arguments a double click stands for: `select <folder>`, with the folder below the person's
+/// documents (else the home folder, else the working folder). Said in a line first, because the
+/// console window is all the person sees of the program besides the browser.
+fn double_click_args(program: std::ffi::OsString) -> Vec<std::ffi::OsString> {
+    let root = dirs::document_dir()
+        .or_else(dirs::home_dir)
+        .unwrap_or_default()
+        .join("freemapper");
+    let folder = double_click_folder(&root, chrono::Local::now().date_naive());
+    println!(
+        "{}",
+        text("cli-double-click-start", &[("path", v(folder.display()))])
+    );
+    vec![program, "select".into(), folder.into_os_string()]
+}
+
 fn main() -> std::process::ExitCode {
     // The language first: the help and the parse errors need it.
     let args: Vec<std::ffi::OsString> = std::env::args_os().collect();
@@ -807,6 +848,16 @@ fn main() -> std::process::ExitCode {
         }
     };
     let mut command = help::localized(Cli::command(), &lang);
+    let args = if opened_by_double_click(
+        cfg!(windows),
+        args.len(),
+        std::io::stdin().is_terminal(),
+        std::io::stdout().is_terminal(),
+    ) {
+        double_click_args(args.into_iter().next().unwrap_or_default())
+    } else {
+        args
+    };
     let matches = match command.clone().try_get_matches_from(args) {
         Ok(matches) => matches,
         Err(error) => return parse_error(error),
@@ -1199,6 +1250,32 @@ fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_bare_start_on_a_windows_console_counts_as_a_double_click() {
+        assert!(opened_by_double_click(true, 1, true, true));
+        // Another system, an argument, a pipe in or out: an ordinary run.
+        assert!(!opened_by_double_click(false, 1, true, true));
+        assert!(!opened_by_double_click(true, 2, true, true));
+        assert!(!opened_by_double_click(true, 1, false, true));
+        assert!(!opened_by_double_click(true, 1, true, false));
+    }
+
+    #[test]
+    fn a_double_click_takes_the_first_free_folder_of_the_day() {
+        let root = tempfile::tempdir().unwrap();
+        let day = chrono::NaiveDate::from_ymd_opt(2026, 11, 21).unwrap();
+        let first = double_click_folder(root.path(), day);
+        assert_eq!(first, root.path().join("karte-2026-11-21"));
+        std::fs::create_dir(&first).unwrap();
+        let second = double_click_folder(root.path(), day);
+        assert_eq!(second, root.path().join("karte-2026-11-21-2"));
+        std::fs::create_dir(&second).unwrap();
+        assert_eq!(
+            double_click_folder(root.path(), day),
+            root.path().join("karte-2026-11-21-3")
+        );
+    }
 
     #[test]
     fn select_takes_the_run_flags_as_page_defaults() {
