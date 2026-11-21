@@ -9,6 +9,7 @@
 use std::sync::OnceLock;
 
 pub use freemapper_adapter_api::adapter::RegionAdapter;
+pub use freemapper_adapter_api::info::Names;
 pub use freemapper_adapter_api::registry::Registry;
 
 /// The adapters built into the program: the German states of `freemapper-adapters-de` with
@@ -73,33 +74,26 @@ pub(crate) fn asking<T>(
 
 /// The names of the regions of the registry in its order, German with `german`, else English:
 /// the list of what freemapper supports, for messages.
-pub fn region_names(german: bool) -> Vec<&'static str> {
-    names_of(german, |_| true)
+pub fn region_names(lang: &str) -> Vec<&'static str> {
+    names_of(lang, |_| true)
 }
 
 /// [`region_names`] of the regions that have official geodata of their own (rasters), not those
 /// that have OSM only: for a sentence that says whose official geodata freemapper uses.
-pub fn region_names_with_geodata(german: bool) -> Vec<&'static str> {
-    names_of(german, |info| {
+pub fn region_names_with_geodata(lang: &str) -> Vec<&'static str> {
+    names_of(lang, |info| {
         info.coverage == freemapper_adapter_api::info::Coverage::Full
     })
 }
 
 fn names_of(
-    german: bool,
+    lang: &str,
     keep: impl Fn(&freemapper_adapter_api::info::RegionInfo) -> bool,
 ) -> Vec<&'static str> {
     registry()
         .adapters()
         .filter(|adapter| keep(adapter.info()))
-        .map(|adapter| {
-            let names = &adapter.info().names;
-            if german {
-                names.de.as_str()
-            } else {
-                names.en.as_str()
-            }
-        })
+        .map(|adapter| adapter.info().names.in_lang(lang))
         .collect()
 }
 
@@ -262,6 +256,7 @@ pub(crate) mod test_support {
                 names: Names {
                     en: "Square".to_string(),
                     de: "Quadrat".to_string(),
+                    pl: None,
                 },
                 crs: crate::crs::Crs::Utm33,
                 country: freemapper_adapter_api::info::Country::De,
@@ -316,14 +311,18 @@ mod tests {
     /// states.
     #[test]
     fn region_names_with_geodata_leave_out_osm_only_regions() {
-        for german in [true, false] {
-            let all = region_names(german);
-            let geodata = region_names_with_geodata(german);
+        for lang in ["de", "en", "pl"] {
+            let all = region_names(lang);
+            let geodata = region_names_with_geodata(lang);
             assert!(!geodata.is_empty() && geodata.len() < all.len());
             assert!(geodata.contains(&"Brandenburg"));
             assert!(all.contains(&"Brandenburg"));
             assert!(geodata.iter().all(|name| all.contains(name)));
-            let polish = if german { "Polen" } else { "Poland" };
+            let polish = match lang {
+                "de" => "Polen",
+                "pl" => "Polska",
+                _ => "Poland",
+            };
             assert!(all.contains(&polish) && !geodata.contains(&polish));
         }
     }
@@ -668,7 +667,7 @@ mod tests {
              North Rhine-Westphalia, Lower Saxony, Rhineland-Palatinate, Saarland, \
              Baden-Württemberg, Bremen, Bavaria, Poland); freemapper has data sources for those only so far"
         );
-        assert_eq!(region_names(true)[2], "Sachsen");
+        assert_eq!(region_names("de")[2], "Sachsen");
     }
 
     /// The backends alone: no adapter, and every backend a built-in manifest names.

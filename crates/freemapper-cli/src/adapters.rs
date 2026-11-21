@@ -161,8 +161,7 @@ fn report_lines(assembled: &Assembled) -> Vec<String> {
             ],
         ));
         if !adapter.overlaps.is_empty() {
-            let german = crate::text::lang().code() == "de";
-            let others = region_names(assembled, &adapter.overlaps, german);
+            let others = region_names(assembled, &adapter.overlaps, &crate::text::lang().code());
             lines.push(text(
                 "cli-adapter-overlaps",
                 &[
@@ -278,8 +277,7 @@ pub fn list(json: bool, project: Option<&Path>) {
     for line in allowed.lines.into_iter().chain(warning_lines(&assembled)) {
         eprintln!("{line}");
     }
-    let german = crate::text::lang().code() == "de";
-    for line in list_lines(&assembled, user.dir.as_deref(), german) {
+    for line in list_lines(&assembled, user.dir.as_deref(), &crate::text::lang().code()) {
         println!("{line}");
     }
 }
@@ -291,11 +289,20 @@ fn allowed_for<'a>(assembled: &'a Assembled, id: &str) -> &'a [String] {
 
 /// The regions of the adapters `ids` by their names, as a person knows them; German with
 /// `german`. An id the registry does not hold stays as it is.
-fn region_names<'a>(assembled: &'a Assembled, ids: &'a [String], german: bool) -> Vec<&'a str> {
+/// The names of a region for the JSON listings: `pl` appears only when the region has one, so the
+/// keys that existed before stay as they were.
+pub(crate) fn names_json(names: &freemapper::adapters::Names) -> serde_json::Value {
+    let mut json = serde_json::json!({ "en": names.en, "de": names.de });
+    if let Some(pl) = &names.pl {
+        json["pl"] = serde_json::Value::from(pl.as_str());
+    }
+    json
+}
+
+fn region_names<'a>(assembled: &'a Assembled, ids: &'a [String], lang: &str) -> Vec<&'a str> {
     ids.iter()
         .map(|id| match assembled.registry.get(id) {
-            Some(other) if german => other.info().names.de.as_str(),
-            Some(other) => other.info().names.en.as_str(),
+            Some(other) => other.info().names.in_lang(lang),
             None => id.as_str(),
         })
         .collect()
@@ -320,7 +327,7 @@ fn source_of(assembled: &Assembled, id: &str) -> &'static str {
 }
 
 /// The lines of the list; the names of the regions are German with `german`.
-fn list_lines(assembled: &Assembled, user: Option<&Path>, german: bool) -> Vec<String> {
+fn list_lines(assembled: &Assembled, user: Option<&Path>, lang: &str) -> Vec<String> {
     let mut lines: Vec<String> = assembled
         .registry
         .adapters()
@@ -338,11 +345,7 @@ fn list_lines(assembled: &Assembled, user: Option<&Path>, german: bool) -> Vec<S
                     || text("cli-adapters-never-checked", &[]),
                     |day| day.to_string(),
                 );
-            let name = if german {
-                &info.names.de
-            } else {
-                &info.names.en
-            };
+            let name = info.names.in_lang(lang);
             let line = text(
                 "cli-adapters-line",
                 &[
@@ -370,7 +373,7 @@ fn list_lines(assembled: &Assembled, user: Option<&Path>, german: bool) -> Vec<S
             match overlaps_of(assembled, info.id.as_str()) {
                 [] => line,
                 others => {
-                    let others = region_names(assembled, others, german);
+                    let others = region_names(assembled, others, lang);
                     let others = text("cli-adapters-overlaps", &[("others", v(others.join(", ")))]);
                     format!("{line}  {others}")
                 }
@@ -393,7 +396,7 @@ fn list_json(assembled: &Assembled, user: Option<&Path>) -> String {
             let declared = adapter.declared();
             serde_json::json!({
                 "id": info.id.as_str(),
-                "names": { "en": info.names.en, "de": info.names.de },
+                "names": names_json(&info.names),
                 "provider": info.provider.as_str(),
                 "source": source_of(assembled, info.id.as_str()),
                 "revision": declared.map(|declared| declared.revision),
@@ -434,6 +437,34 @@ fn list_json(assembled: &Assembled, user: Option<&Path>) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_polish_name_is_listed_only_where_there_is_one() {
+        let mut names = freemapper::adapters::Names {
+            en: "Poland".into(),
+            de: "Polen".into(),
+            pl: None,
+        };
+        assert_eq!(
+            names_json(&names),
+            serde_json::json!({"en": "Poland", "de": "Polen"})
+        );
+        names.pl = Some("Polska".into());
+        assert_eq!(
+            names_json(&names),
+            serde_json::json!({"en": "Poland", "de": "Polen", "pl": "Polska"})
+        );
+    }
+
+    #[test]
+    fn the_list_names_a_region_in_polish() {
+        let assembled = assemble(None, None);
+        let lines = list_lines(&assembled, None, "pl");
+        assert!(
+            lines.iter().any(|l| l.starts_with("polska  Polska  ")),
+            "{lines:?}"
+        );
+    }
 
     const SQUARE: &str = r#"{"type":"Feature","properties":{},"geometry":{"type":"Polygon","coordinates":
         [[[400000,5800000],[401000,5800000],[401000,5801000],[400000,5801000],[400000,5800000]]]}}"#;
@@ -693,7 +724,7 @@ land_use_type = "ave:NutzungFlurstueck"
         write(user.path(), "useradapter", &manifest("useradapter"));
         write(user.path(), "zweiter", &manifest("zweiter"));
         let assembled = assemble(Some(user.path()), None);
-        let lines = list_lines(&assembled, Some(user.path()), false);
+        let lines = list_lines(&assembled, Some(user.path()), "en");
         assert_eq!(lines.len(), 19);
         assert!(
             lines[4]
@@ -715,7 +746,7 @@ land_use_type = "ave:NutzungFlurstueck"
             format!("Your adapters are read from {}", user.path().display())
         );
         // The German list has the German names.
-        let german = list_lines(&assembled, Some(user.path()), true);
+        let german = list_lines(&assembled, Some(user.path()), "de");
         assert!(german[2].starts_with("saxony  Sachsen  "), "{}", german[2]);
         assert!(
             german[16].starts_with("useradapter  Beispiel useradapter  "),

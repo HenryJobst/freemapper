@@ -223,12 +223,11 @@ fn write_changed(path: &Path, stored: Stored) -> Result<(), String> {
 
 /// The name of the region of the adapter `id` in the language of the run.
 fn name_of(built_in: &Registry, id: &str) -> String {
-    let german = crate::text::lang().code() == "de";
     built_in.get(id).map_or_else(
         || id.to_string(),
         |adapter| {
             let names = &adapter.info().names;
-            if german { &names.de } else { &names.en }.clone()
+            names.in_lang(&crate::text::lang().code()).to_string()
         },
     )
 }

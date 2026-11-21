@@ -151,7 +151,7 @@ pub enum ProjectError {
     AreaTooLarge { width_m: f64, height_m: f64 },
     #[error(
         "the map area lies outside the supported states ({}); freemapper has data sources for those only so far",
-        crate::adapters::region_names(false).join(", ")
+        crate::adapters::region_names("en").join(", ")
     )]
     OutsideCoverage,
     /// A map whose centre lies in a region with OSM only (Poland) and whose area reaches into a

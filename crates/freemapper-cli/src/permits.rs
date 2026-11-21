@@ -160,10 +160,10 @@ fn link(url: &str) -> String {
     if plain { format!("<{url}>") } else { md(url) }
 }
 
-/// A number with `decimals` decimals in the way of `lang` (a decimal comma in German).
+/// A number with `decimals` decimals in the way of `lang` (a decimal comma in German and Polish).
 fn decimal(lang: &Lang, value: f64, decimals: usize) -> String {
     let text = format!("{value:.decimals$}");
-    if lang.code() == "de" {
+    if matches!(lang.code().as_str(), "de" | "pl") {
         text.replace('.', ",")
     } else {
         text
@@ -1245,6 +1245,14 @@ fn used_ids() -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_decimal_comma_holds_for_german_and_polish_only() {
+        let lang = |code| TEXTS.parse_lang_arg(code).unwrap();
+        assert_eq!(decimal(&lang("de"), 1.25, 1), "1,2");
+        assert_eq!(decimal(&lang("pl"), 1.26, 1), "1,3");
+        assert_eq!(decimal(&lang("en"), 1.26, 1), "1.3");
+    }
     use crate::text::TEXTS;
     use chrono::NaiveDate;
     use freemapper::permits::notes::{

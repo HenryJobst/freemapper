@@ -28,6 +28,7 @@ const ENGLISH: &str = include_str!("../i18n/en/freemapper.ftl");
 pub static TEXTS: Catalog = Catalog::new(&[
     ("en", ENGLISH),
     ("de", include_str!("../i18n/de/freemapper.ftl")),
+    ("pl", include_str!("../i18n/pl/freemapper.ftl")),
 ]);
 
 /// The language of this run, set once at start.
@@ -147,14 +148,14 @@ pub fn text(id: &str, args: &[(&str, FluentValue)]) -> String {
 /// The names of the supported states in `lang`, in the order of the registry and joined by
 /// commas: for a list in parentheses.
 pub fn states(lang: &Lang) -> String {
-    freemapper::adapters::region_names(lang.code() == "de").join(", ")
+    freemapper::adapters::region_names(&lang.code()).join(", ")
 }
 
 /// [`states`] for the middle of a sentence: the last name follows the word for "and". Only the
 /// regions with official geodata of their own: the sentence says whose geodata freemapper uses,
 /// and Poland has OSM only so far (ADR 0164).
 pub fn states_in_a_sentence(lang: &Lang) -> String {
-    let names = freemapper::adapters::region_names_with_geodata(lang.code() == "de");
+    let names = freemapper::adapters::region_names_with_geodata(&lang.code());
     match names.split_last() {
         Some((last, first)) if !first.is_empty() => TEXTS.text(
             lang,
@@ -571,5 +572,16 @@ mod tests {
         assert!(named(&[("LANG", "en_US.UTF-8")]));
         assert!(named(&[("FREEMAPPER_LANG", "de")]));
         assert!(names_a_lang(Some("en"), &env(&[])));
+    }
+
+    #[test]
+    fn pl_is_chosen_by_lang_arg_and_by_system_language() {
+        assert_eq!(TEXTS.parse_lang_arg("pl").unwrap().code(), "pl");
+        assert_eq!(TEXTS.parse_lang_arg("PL").unwrap().code(), "pl");
+        let env = |name: &str| (name == "LANG").then(|| "pl_PL.UTF-8".to_owned());
+        assert_eq!(TEXTS.detect_lang(None, &env).code(), "pl");
+        // Others still fall back to English.
+        let env = |name: &str| (name == "LANG").then(|| "fr_FR.UTF-8".to_owned());
+        assert_eq!(TEXTS.detect_lang(None, &env).code(), "en");
     }
 }
