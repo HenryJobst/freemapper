@@ -1782,9 +1782,16 @@ allowed hosts per state, and `freemapper adapters disallow-host hessen new-serve
 
 ## 15. Messages and what to do
 
-freemapper has German and English texts. The language comes from `--lang de` or `--lang en`, else from the
+freemapper has German and English texts and 19 more languages (see below). The language comes from `--lang de` or `--lang en`, else from the
 environment variable `FREEMAPPER_LANG`, else from the system language (`LANG`), else it is English. On Windows
 `LANG` is usually not set; use `--lang de` there if you want German.
+
+The program also speaks Polish, Czech, Danish, Spanish, Estonian, Finnish, French, Hungarian, Italian, Lithuanian,
+Latvian, Norwegian (Bokmål), Dutch, Portuguese, Russian, Slovak, Slovene, Swedish and Ukrainian (`--lang pl`,
+`--lang cs` and so on). These texts are drafted by machine, no native speaker has read them, and mistakes are
+possible. Corrections are welcome as an issue or a pull request: the texts live per language in
+`crates/freemapper-cli/i18n/<language>/freemapper.ftl` and `crates/freemapper-adapter-api/i18n/<language>/notes.ftl`,
+and the guide is `crates/freemapper-cli/i18n/README.md`.
 
 German covers the lines the program prints at the end of a step, such as "Wrote …" and the hints after `run`
 and `export`, and the error messages. An error message starts with `error:` (German `Fehler:`), and the program

@@ -1864,9 +1864,16 @@ adapters disallow-host hessen neuer-server.hessen.de` nimmt einen zurück.
 
 ## 15. Meldungen und was zu tun ist
 
-freemapper kennt Deutsch und Englisch. Die Sprache kommt aus `--lang de` oder `--lang en`, sonst aus der
+freemapper kennt Deutsch und Englisch und 19 weitere Sprachen (siehe unten). Die Sprache kommt aus `--lang de` oder `--lang en`, sonst aus der
 Umgebungsvariable `FREEMAPPER_LANG`, sonst aus der Sprache des Systems (`LANG`), sonst ist sie Englisch. Unter
 Windows ist `LANG` meist nicht gesetzt; dort hilft `--lang de`.
+
+Das Programm spricht außerdem Polnisch, Tschechisch, Dänisch, Spanisch, Estnisch, Finnisch, Französisch, Ungarisch,
+Italienisch, Litauisch, Lettisch, Norwegisch (Bokmål), Niederländisch, Portugiesisch, Russisch, Slowakisch,
+Slowenisch, Schwedisch und Ukrainisch (`--lang pl`, `--lang cs` und so weiter). Diese Texte sind maschinell
+entworfen, kein Muttersprachler hat sie gelesen, und Fehler sind möglich. Korrekturen sind willkommen, als Issue oder
+als Pull Request: Die Texte liegen je Sprache in `crates/freemapper-cli/i18n/<Sprache>/freemapper.ftl` und
+`crates/freemapper-adapter-api/i18n/<Sprache>/notes.ftl`, die Anleitung steht in `crates/freemapper-cli/i18n/README.md`.
 
 Übersetzt sind die Zeilen, die das Programm am Ende eines Schritts ausgibt, etwa „… geschrieben“ und die Hinweise
 nach `run` und `export`, und die Fehlermeldungen. Eine Fehlermeldung beginnt mit `Fehler:` (englisch `error:`),

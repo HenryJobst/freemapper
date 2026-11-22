@@ -27,6 +27,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Geändert
 
+- Handbuch und README sagen, dass die Programmtexte außer Deutsch und Englisch maschinell entworfen und nicht von Muttersprachlern gelesen sind, nennen die 19 weiteren Sprachen und laden zu Korrekturen als Issue oder Pull Request ein.
 - Das Beispiel Słubice ist mit dem Stand von `main` neu gebaut: Sein PDF bettet jetzt Arimo ein und zeigt „Słubice“ statt „Slubice“ (Issue 267). Der Lauf hat auch den BDOT10k-Rückfall mitgenommen: Die Landnutzung hat 853 statt 108 Flächen, die Kandidatenebene „out-of-bounds“ ist größer.
 - Das Beispiel Sanssouci ist mit v0.26.0 neu gebaut: Die Trainingskarte hat einen Baumpunkt weniger, die Kandidatenebene der Vegetation drei OSM-Flächen mehr (zwei Weinberge). Die Grundkarte hat dieselben 2282 Objekte. Der Lauf hat dabei auch den Brandenburger OSM-Auszug über die neue Geofabrik-Adresse geladen.
 - Das Beispiel Szczeliniec ist mit BDOT10k als Rückfall für die Bodennutzung neu gebaut: Die Karte hat 565 statt 552 Objekte, die Bodennutzung 46 statt 10 Teile, die Kandidatenebenen Vegetation und Außerhalb der Grenzen haben sich leicht geändert.

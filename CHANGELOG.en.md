@@ -27,6 +27,7 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ### Changed
 
+- The manual and the README say that the program texts besides German and English are drafted by machine and not read by native speakers, name the 19 further languages and invite corrections as an issue or a pull request.
 - The Słubice example is rebuilt with the state of `main`: its PDF now embeds Arimo and shows "Słubice" instead of "Slubice" (issue 267). The run also took the BDOT10k fallback along: land use has 853 instead of 108 areas, and the out-of-bounds candidate layer is larger.
 - The Sanssouci example is rebuilt with v0.26.0: the training map has one tree point fewer, the vegetation candidate layer three more OSM areas (two vineyards). The base map has the same 2282 objects. The run also loaded the Brandenburg OSM extract through the new Geofabrik address.
 - The Szczeliniec example is rebuilt with BDOT10k as the fallback for land use: the map holds 565 objects instead of 552, the land use has 46 parts instead of 10, and the vegetation and out-of-bounds candidate layers changed a little.
