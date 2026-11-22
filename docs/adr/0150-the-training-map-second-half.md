@@ -368,3 +368,25 @@ These items of the second half stay as they were (issue #196). Each needs a ruli
 - The Bastei Path–Path joined conflict of +1.8 mm and the water against watercourse overlaps on lakes, outside the
   design of the second half.
 - The end-to-end count against the check print (43, 14 and 15 before the final review) was not measured again.
+
+## Addendum (2026-11-22): the gap left in Regensburg and Bautzen (issue #177)
+
+After the rebuilt examples (PR #175) the program warned of objects that keep too little gap in Regensburg (1.6 mm on
+paper), Bautzen (1.2 mm) and Blankenese (1.0 mm). Measured again with v0.26.0, the pairs that keep apart were one wall
+against one way in each of two towns: in Bautzen the wall 515 `way/1072766608` against the path 501.6
+`way/651721080` (1.15 mm), in Regensburg the retaining wall 513.2 `way/1571411662` against the path 505.1
+`way/1571411665` (1.59 mm). Blankenese showed no such pair any more; what it still holds (a way against a way of the
+same network) is not counted.
+
+**Where it arose.** Right after give way no pair that keeps apart is left. The conflict is there before the last
+repair, so after `drop_too_small` and `join_ways`; the repair of the line ends does not cause it. A test with two ways
+that meet at a bend and a wall inside the bend did not reproduce it, so the exact step is not pinned down; the fix does
+not depend on it.
+
+**Fix.** Give way runs a second time after `join_ways` and cuts what the joined ways left in a gap. Walls are still
+only cut (they were already, `KEPT_BARRIER_CODES`). On the three towns the warning is gone for Regensburg and Bautzen;
+Blankenese had none. *Ruling:* the training map keeps the gap after the ways are joined. *Cost:* give way runs twice;
+a second round of cuts can take a short piece off a wall that the first round left.
+
+The committed examples are not rebuilt by this change; they pick it up the next time they are rebuilt for another
+reason.

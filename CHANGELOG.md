@@ -6,6 +6,10 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+### Behoben
+
+- Die Trainingskarte hält den Abstand zwischen einer Mauer und einem Weg auch nach dem Zusammenfügen der Wege (Issue #177): Regensburg und Bautzen meldeten dort 1,6 und 1,2 mm zu geringen Abstand, jetzt nichts mehr. Der Abstandsschritt läuft nach dem Zusammenfügen noch einmal (ADR 0150, Nachtrag). Die Beispiele im Repository sind noch nicht neu gebaut.
+
 ### Geändert
 
 - Das Beispiel Sanssouci ist mit v0.26.0 neu gebaut: Die Trainingskarte hat einen Baumpunkt weniger, die Kandidatenebene der Vegetation drei OSM-Flächen mehr (zwei Weinberge). Die Grundkarte hat dieselben 2282 Objekte. Der Lauf hat dabei auch den Brandenburger OSM-Auszug über die neue Geofabrik-Adresse geladen.

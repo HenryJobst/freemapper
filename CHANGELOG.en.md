@@ -6,6 +6,10 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
+### Fixed
+
+- The training map keeps the gap between a wall and a way after the ways are joined (issue #177): Regensburg and Bautzen reported 1.6 and 1.2 mm of too little gap there, now nothing. The gap step runs once more after the join (ADR 0150, addendum). The examples in the repository are not rebuilt yet.
+
 ### Changed
 
 - The Sanssouci example is rebuilt with v0.26.0: the training map has one tree point fewer, the vegetation candidate layer three more OSM areas (two vineyards). The base map has the same 2282 objects. The run also loaded the Brandenburg OSM extract through the new Geofabrik address.
