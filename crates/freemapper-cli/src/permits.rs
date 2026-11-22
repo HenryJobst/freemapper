@@ -987,6 +987,48 @@ fn regional_blocks(lang: &Lang, part: &RegionalNotes) -> Vec<String> {
             }
         }
     }
+    if let Some(register) = &part.register_monuments {
+        blocks.push(heading(
+            PermitSection::MonumentRegister,
+            "permits-section-register-monuments",
+        ));
+        if register.total == 0 {
+            blocks.push(none(
+                PermitSection::MonumentRegister,
+                "permits-none-register-monuments",
+            ));
+        } else {
+            blocks.push(t(
+                lang,
+                "permits-register-monuments-total",
+                &[("count", arg(register.total))],
+            ));
+            let lines: Vec<String> = register
+                .names
+                .iter()
+                .map(|n| {
+                    format!(
+                        "- {}",
+                        t(
+                            lang,
+                            "permits-count-line",
+                            &[("name", arg(md(&n.name))), ("count", arg(n.count))],
+                        )
+                    )
+                })
+                .collect();
+            if !lines.is_empty() {
+                blocks.push(lines.join("\n"));
+            }
+            if register.left > 0 {
+                blocks.push(t(
+                    lang,
+                    "permits-register-monuments-left",
+                    &[("count", arg(register.left))],
+                ));
+            }
+        }
+    }
     if let Some(objects) = &part.protected_objects {
         blocks.push(heading(
             PermitSection::ProtectedObjects,
@@ -1307,6 +1349,7 @@ fn used_ids() -> Vec<String> {
             hint_key::GMINA_NATURE_PL,
             hint_key::GMINA_ROADS_PL,
             hint_key::GMINA_LAND_PL,
+            hint_key::MONUMENT_REGISTER_PL,
         ]
         .map(String::from),
     );
@@ -1724,6 +1767,7 @@ mod tests {
                 water_protection: None,
                 forest_functions: None,
                 admin_units: None,
+                register_monuments: None,
                 sources: vec![
                     regional_status("bezirke", "Bezirksgrenzen (ALKIS Berlin)", None),
                     regional_status("gruenanlagen", "Grünanlagenbestand", None),
@@ -1825,6 +1869,12 @@ mod tests {
                 assert!(text.contains("Słubice"), "{code} {key}\n{text}");
                 assert!(!text.contains("{ $"), "{code} {key}\n{text}");
             }
+            notes.hints = vec![hint(hint_key::MONUMENT_REGISTER_PL, &[])];
+            let text = render_markdown(&notes, &lang);
+            assert!(
+                !text.contains("{ $") && text.contains("36"),
+                "{code}\n{text}"
+            );
             notes.hints = vec![hint(hint_key::GMINA_NATURE_PL, &[])];
             let text = render_markdown(&notes, &lang);
             assert!(

@@ -198,12 +198,13 @@ fn the_adapter_declares_itself_and_owns_a_policy_of_the_hosts_of_gugik() {
     let registry = polska();
     let adapter = registry.adapters().next().unwrap();
     let declared = adapter.declared().expect("the adapter declares itself");
-    assert_eq!(declared.revision, 5);
+    assert_eq!(declared.revision, 6);
     assert!(declared.last_verified.is_some());
     let hosts = [
         "mapy.geoportal.gov.pl",
         "opendata.geoportal.gov.pl",
         "sdi.gdos.gov.pl",
+        "usluga.zabytek.gov.pl",
     ];
     // What it declares (`adapters list`) is what its policy lets through.
     assert_eq!(declared.hosts, hosts);
@@ -302,5 +303,5 @@ fn polska_brings_the_permit_sources_of_the_gdos_and_the_prg() {
         .iter()
         .map(|s| s.info().key)
         .collect();
-    assert_eq!(keys, ["gdos", "prg", "prg-granice"]);
+    assert_eq!(keys, ["gdos", "prg", "prg-granice", "nid-zabytki"]);
 }

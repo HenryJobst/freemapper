@@ -150,6 +150,9 @@ pub enum PermitSection {
     /// The administrative units the area lies in (ADR 0181): where the national VG250 does not
     /// apply, a region brings its own.
     AdminUnits,
+    /// The register of monuments of a region that gives no position (ADR 0184): the monuments
+    /// in the rectangle around the map area, counted, with their names.
+    MonumentRegister,
 }
 
 /// One finding of a regional source with its geometry.
@@ -187,6 +190,10 @@ pub enum FindingKind {
         /// The entry of the monument in the list of the state.
         link: Option<String>,
     },
+    /// A monument of a register that gives no position: it lies somewhere in the rectangle the
+    /// source asked, which the finding's geometry then is (ADR 0184). The name as the register
+    /// writes it; `None` when it writes none.
+    RegisterMonument { name: Option<String> },
     /// The unit of a forest administration the area belongs to. All three as the notes print
     /// them, proper names in German in every language.
     ForestUnit {
