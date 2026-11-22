@@ -478,6 +478,7 @@ error-project-toml = neveljavna datoteka projekta: { $message }
 error-project-unknown-adapter = datoteka projekta navaja adapter „{ $adapter }“, ki ga ta freemapper nima; novejši freemapper ga morda prinese (`freemapper update`), ali pa prihaja iz tvoje mape z adapterji (prikaže ga `freemapper adapters list`) ali, z --adapters-from-project v ukazni vrstici, iz mape `adapters` projekta (samo za projekt, ki mu zaupaš)
 error-project-not-fetched = ploščice še niso prenesene; najprej zaženi `freemapper fetch`
 error-project-ocd = izvoz OCAD: { $message }
+error-project-pdf = PDF: { $message }
 error-project-template-outdated = { $path }: slika in world datoteka se ne ujemata z območjem karte; znova zaženi `freemapper derive`
 error-project-tiles-outdated = območje karte potrebuje ploščice { $tiles }, ki niso bile prenesene; zaženi `freemapper fetch`
 error-project-buildings-not-fetched = za to območje karte ni shranjenih stavb iz ALKIS; najprej zaženi `freemapper fetch` z omrežjem

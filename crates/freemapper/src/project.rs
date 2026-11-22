@@ -76,6 +76,9 @@ pub(crate) use extras::ExtraSets;
 
 pub const PROJECT_FILE_NAME: &str = freemapper_contract::tags::SIDECAR_FILE;
 
+/// What a PDF page of the map can fail with (the font subsets of freemapper-core).
+pub use freemapper_render::pdf::PdfError;
+
 #[derive(Debug, thiserror::Error)]
 pub enum ProjectError {
     #[error("{}", crate::space::io_error_text(.0, .1))]
@@ -126,6 +129,8 @@ pub enum ProjectError {
     Layer(Note),
     #[error("OCAD export: {0}")]
     Ocd(#[from] crate::ocd::file::OcdBuildError),
+    #[error("PDF: {0}")]
+    Pdf(#[from] PdfError),
     #[error(
         "{}: image and world file do not match the map area; run `freemapper derive` again",
         .0.display()
@@ -5887,13 +5892,9 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         assert!(contains(&pdf, b"0 0 0 0.5 k"), "building");
         assert!(contains(&pdf, b"0.1 0.35 0.5 0 k"), "pitch");
         assert!(contains(&pdf, b"0.25 0.75 1 0 K"), "contours");
-        // Texts are WinAnsi hex strings in the content stream.
-        let credit: String = "github.com/HenryJobst/freemapper"
-            .bytes()
-            .map(|b| format!("{b:02X}"))
-            .collect();
+        // Texts are glyph ids of the embedded font; the table of the font reads them back.
         assert!(
-            contains(&pdf, credit.as_bytes()),
+            crate::render::pdf::shown_text(&file).contains("github.com/HenryJobst/freemapper"),
             "credit line on the sheet"
         );
     }
@@ -6355,11 +6356,11 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         let b = crate::render::pdf::content_of(&std::fs::read(&cand_pdf).unwrap());
         assert_ne!(a, b);
         assert!(a.len() < b.len(), "the candidates add drawing operators");
-        let credit: String = "github.com/HenryJobst/freemapper"
-            .bytes()
-            .map(|b| format!("{b:02X}"))
-            .collect();
-        assert!(contains(&a, credit.as_bytes()), "sheet is complete");
+        assert!(
+            crate::render::pdf::shown_text(&std::fs::read(&map_pdf).unwrap())
+                .contains("github.com/HenryJobst/freemapper"),
+            "sheet is complete"
+        );
         // The tartan pitch is a candidate: only the candidates PDF paints it.
         assert!(!contains(&a, b"0.1 0.35 0.5 0 k"));
         assert!(contains(&b, b"0.1 0.35 0.5 0 k"));
@@ -6877,14 +6878,9 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
         }
     }
 
-    fn hex(text: &str) -> String {
-        text.bytes().map(|b| format!("{b:02X}")).collect()
-    }
-
-    /// Whether the content stream of the PDF shows `text` (ASCII only).
+    /// Whether the PDF shows `text`.
     fn pdf_shows(pdf: &std::path::Path, text: &str) -> bool {
-        let content = crate::render::pdf::content_of(&std::fs::read(pdf).unwrap());
-        contains(&content, hex(text).as_bytes())
+        crate::render::pdf::shown_text(&std::fs::read(pdf).unwrap()).contains(text)
     }
 
     #[test]
@@ -6971,17 +6967,19 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
     fn scale_bar_is_off_in_the_pdf_unless_asked() {
         let dir = tempfile::tempdir().unwrap();
         school_project(dir.path());
-        let content = |bar: bool| {
+        let file = |bar: bool| {
             let path = export_pdf(dir.path(), bar, PdfSources::Auto).unwrap();
-            crate::render::pdf::content_of(&std::fs::read(path).unwrap())
+            std::fs::read(path).unwrap()
         };
-        let without = content(false);
-        let with = content(true);
-        assert!(with.len() > without.len(), "the bar adds drawing operators");
+        let (without, with) = (file(false), file(true));
+        assert!(
+            crate::render::pdf::content_of(&with).len()
+                > crate::render::pdf::content_of(&without).len(),
+            "the bar adds drawing operators"
+        );
         // The scale number in the title block stays in both.
-        let label: String = "stab 1:".bytes().map(|b| format!("{b:02X}")).collect();
-        assert!(contains(&without, label.as_bytes()));
-        assert!(contains(&with, label.as_bytes()));
+        assert!(crate::render::pdf::shown_text(&without).contains("stab 1:"));
+        assert!(crate::render::pdf::shown_text(&with).contains("stab 1:"));
         // The OOM map keeps the bar.
         let documents = starter_documents(dir.path()).unwrap();
         assert!(

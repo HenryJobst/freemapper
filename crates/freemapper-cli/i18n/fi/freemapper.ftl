@@ -466,6 +466,7 @@ error-project-toml = virheellinen projektitiedosto: { $message }
 error-project-unknown-adapter = projektitiedosto nimeää sovittimen "{ $adapter }", jota tällä freemapperilla ei ole; uudempi freemapper voi tuoda sen (`freemapper update`), tai se tulee sovitinkansiostasi (`freemapper adapters list` näyttää sen) tai, komentorivin valitsimella --adapters-from-project, projektin kansiosta `adapters` (vain projektille, johon luotat)
 error-project-not-fetched = ruutuja ei ole vielä haettu; aja ensin `freemapper fetch`
 error-project-ocd = OCAD-vienti: { $message }
+error-project-pdf = PDF: { $message }
 error-project-template-outdated = { $path }: kuva ja world-tiedosto eivät vastaa kartta-aluetta; aja `freemapper derive` uudelleen
 error-project-tiles-outdated = kartta-alue tarvitsee ruudut { $tiles }, joita ei haettu; aja `freemapper fetch`
 error-project-buildings-not-fetched = tälle kartta-alueelle ei ole tallennettu ALKIS-rakennuksia; aja ensin `freemapper fetch` verkossa

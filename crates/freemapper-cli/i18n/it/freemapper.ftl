@@ -472,6 +472,7 @@ error-project-toml = file di progetto non valido: { $message }
 error-project-unknown-adapter = il file di progetto nomina l'adattatore "{ $adapter }", che questo freemapper non ha; una versione più recente di freemapper potrebbe averlo (`freemapper update`), oppure viene dalla tua cartella degli adattatori (`freemapper adapters list` lo mostra) o, con --adapters-from-project sulla riga di comando, dalla cartella `adapters` del progetto (solo per un progetto di cui ti fidi)
 error-project-not-fetched = nessun riquadro ancora scaricato; esegui prima `freemapper fetch`
 error-project-ocd = esportazione OCAD: { $message }
+error-project-pdf = PDF: { $message }
 error-project-template-outdated = { $path }: l'immagine e il world file non corrispondono all'area della carta; esegui di nuovo `freemapper derive`
 error-project-tiles-outdated = l'area della carta richiede i riquadri { $tiles } che non sono stati scaricati; esegui `freemapper fetch`
 error-project-buildings-not-fetched = nessun edificio ALKIS salvato per questa area della carta; esegui prima `freemapper fetch` online

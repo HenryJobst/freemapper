@@ -466,6 +466,7 @@ error-project-toml = ungültige Projektdatei: { $message }
 error-project-unknown-adapter = Die Projektdatei nennt den Adapter „{ $adapter }“, den dieses freemapper nicht hat; ein neueres freemapper bringt ihn vielleicht mit (`freemapper update`), oder er kommt aus Ihrem Adapterordner (`freemapper adapters list` zeigt ihn) oder, mit --adapters-from-project auf der Kommandozeile, aus dem Ordner `adapters` des Projekts (nur für ein Projekt, dem Sie vertrauen)
 error-project-not-fetched = Es sind noch keine Kacheln geladen; rufen Sie zuerst `freemapper fetch` auf
 error-project-ocd = OCAD-Export: { $message }
+error-project-pdf = PDF-Ausgabe: { $message }
 error-project-template-outdated = { $path }: Bild und Weltdatei passen nicht zum Kartengebiet; rufen Sie `freemapper derive` noch einmal auf
 error-project-tiles-outdated = Das Kartengebiet braucht die Kacheln { $tiles }, die nicht geladen sind; rufen Sie `freemapper fetch` auf
 error-project-buildings-not-fetched = Für dieses Kartengebiet sind keine ALKIS-Gebäude gespeichert; rufen Sie zuerst `freemapper fetch` mit Netzverbindung auf

@@ -472,6 +472,7 @@ error-project-toml = netinkamas projekto failas: { $message }
 error-project-unknown-adapter = projekto faile nurodytas adapteris "{ $adapter }", kurio šis freemapper neturi; jį gali atnešti naujesnis freemapper (`freemapper update`), arba jis yra jūsų adapterių aplanke (`freemapper adapters list` jį parodo), arba, su komandinės eilutės parinktimi --adapters-from-project, projekto aplanke `adapters` (tik jūsų pasitikimam projektui)
 error-project-not-fetched = plytelių dar neatsisiųsta; pirmiausia paleiskite `freemapper fetch`
 error-project-ocd = OCAD eksportas: { $message }
+error-project-pdf = PDF: { $message }
 error-project-template-outdated = { $path }: vaizdas ir world failas neatitinka žemėlapio ploto; dar kartą paleiskite `freemapper derive`
 error-project-tiles-outdated = žemėlapio plotui reikia plytelių { $tiles }, kurios neatsisiųstos; paleiskite `freemapper fetch`
 error-project-buildings-not-fetched = šiam žemėlapio plotui ALKIS pastatų neišsaugota; pirmiausia paleiskite `freemapper fetch` su tinklo ryšiu

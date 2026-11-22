@@ -466,6 +466,7 @@ error-project-toml = kehtetu projektifail: { $message }
 error-project-unknown-adapter = projektifail nimetab adapterit „{ $adapter }“, mida see freemapper ei tunne; seda võib tuua uuem freemapper (`freemapper update`), see võib pärineda adapterite kaustast (`freemapper adapters list` näitab seda) või käsurea lülitiga --adapters-from-project projekti kaustast `adapters` (ainult usaldatud projekti puhul)
 error-project-not-fetched = ruute pole veel alla laaditud; esmalt tuleb käivitada `freemapper fetch`
 error-project-ocd = OCAD-i eksport: { $message }
+error-project-pdf = PDF: { $message }
 error-project-template-outdated = { $path }: pilt ja world-fail ei vasta kaardialale; tuleb käivitada `freemapper derive` uuesti
 error-project-tiles-outdated = kaardiala vajab ruute { $tiles }, mida ei laaditud alla; tuleb käivitada `freemapper fetch`
 error-project-buildings-not-fetched = sellele kaardialale pole ALKIS-i hooneid salvestatud; esmalt tuleb käivitada `freemapper fetch` võrguühendusega

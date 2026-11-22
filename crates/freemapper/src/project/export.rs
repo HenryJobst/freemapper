@@ -1114,7 +1114,7 @@ pub(super) fn pdf_bytes(
         clip,
         &symbols.colours,
         &project.display_title(dir),
-    ))
+    )?)
 }
 
 /// The preview of the map: a lossless WebP of what the map PDF draws in the map area.

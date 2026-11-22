@@ -472,6 +472,7 @@ error-project-toml = ficheiro de projeto inválido: { $message }
 error-project-unknown-adapter = o ficheiro de projeto nomeia o adaptador "{ $adapter }", que este freemapper não tem; um freemapper mais recente pode trazê-lo (`freemapper update`), ou vem da tua pasta de adaptadores (`freemapper adapters list` mostra-o) ou, com --adapters-from-project na linha de comandos, da pasta `adapters` do projeto (só para um projeto em que confies)
 error-project-not-fetched = ainda não foram obtidos mosaicos; executa primeiro `freemapper fetch`
 error-project-ocd = exportação OCAD: { $message }
+error-project-pdf = PDF: { $message }
 error-project-template-outdated = { $path }: a imagem e o world file não correspondem à área do mapa; executa `freemapper derive` de novo
 error-project-tiles-outdated = a área do mapa precisa dos mosaicos { $tiles }, que não foram obtidos; executa `freemapper fetch`
 error-project-buildings-not-fetched = nenhum edifício ALKIS guardado para esta área do mapa; executa primeiro `freemapper fetch` com rede

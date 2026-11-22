@@ -466,6 +466,7 @@ error-project-toml = ongeldig projectbestand: { $message }
 error-project-unknown-adapter = het projectbestand noemt de adapter "{ $adapter }", die deze freemapper niet heeft; een nieuwere freemapper kan hem meebrengen (`freemapper update`), of hij komt uit jouw adaptermap (`freemapper adapters list` toont hem) of, met --adapters-from-project op de opdrachtregel, uit de map `adapters` van het project (alleen voor een project dat je vertrouwt)
 error-project-not-fetched = nog geen tegels opgehaald; voer eerst `freemapper fetch` uit
 error-project-ocd = OCAD-export: { $message }
+error-project-pdf = PDF: { $message }
 error-project-template-outdated = { $path }: afbeelding en worldfile komen niet overeen met het kaartgebied; voer `freemapper derive` opnieuw uit
 error-project-tiles-outdated = het kaartgebied heeft tegels { $tiles } nodig die niet zijn opgehaald; voer `freemapper fetch` uit
 error-project-buildings-not-fetched = geen ALKIS-gebouwen opgeslagen voor dit kaartgebied; voer eerst `freemapper fetch` online uit

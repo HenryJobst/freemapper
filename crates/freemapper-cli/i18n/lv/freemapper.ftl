@@ -473,6 +473,7 @@ error-project-toml = nederīgs projekta fails: { $message }
 error-project-unknown-adapter = projekta fails nosauc adapteri „{ $adapter }“, kura šim freemapper nav; jaunāks freemapper to var nodrošināt (`freemapper update`), vai arī tas nāk no jūsu adapteru mapes (`freemapper adapters list` to parāda) vai, ar --adapters-from-project komandrindā, no projekta mapes `adapters` (tikai projektam, kuram uzticaties)
 error-project-not-fetched = flīzes vēl nav lejupielādētas; vispirms palaidiet `freemapper fetch`
 error-project-ocd = OCAD eksports: { $message }
+error-project-pdf = PDF: { $message }
 error-project-template-outdated = { $path }: attēls un world fails neatbilst kartes apgabalam; vēlreiz palaidiet `freemapper derive`
 error-project-tiles-outdated = kartes apgabalam vajadzīgas flīzes { $tiles }, kas netika lejupielādētas; palaidiet `freemapper fetch`
 error-project-buildings-not-fetched = šim kartes apgabalam nav saglabātu ALKIS ēku; vispirms palaidiet `freemapper fetch` tiešsaistē
