@@ -109,18 +109,18 @@ warning-permits-osm-no-extract = pro toto území mapy není v mezipaměti žád
 
 ## ALKIS
 
-warning-alkis-coverage-unknown = pokrytí budovami ALKIS není známo; zaznamenáte ho spuštěním `freemapper fetch` online
-progress-alkis-buildings-download = stahuji budovy ALKIS
-progress-alkis-buildings = budov ALKIS: { $count }
-warning-alkis-no-buildings = v území mapy nebyly nalezeny žádné budovy ALKIS
-progress-alkis-skipped = přeskočeno prvků ALKIS ({ $count }): { $list }
-warning-alkis-buildings-changed = budovy ALKIS se u zdroje změnily ({ $changes })
-progress-alkis-no-land-use-stored = není uloženo žádné využití pozemků ALKIS; pro kandidáty zakázaného prostoru spusťte online `freemapper fetch`
-progress-alkis-land-use-download = stahuji využití pozemků ALKIS
-progress-alkis-land-use-parts = částí využití pozemků ALKIS: { $count }
-warning-alkis-land-use-kept = využití pozemků ALKIS není k dispozici ({ $error }); ponechávám uložené využití pozemků
-warning-alkis-land-use-removed = využití pozemků ALKIS není k dispozici ({ $error }); uložené využití pozemků už nepokrývá území mapy, proto ho freemapper odstranil
-warning-alkis-land-use-none = využití pozemků ALKIS není k dispozici ({ $error }); žádní kandidáti zakázaného prostoru
+warning-alkis-coverage-unknown = pokrytí budovami { $cadastre } není známo; zaznamenáte ho spuštěním `freemapper fetch` online
+progress-alkis-buildings-download = stahuji budovy { $cadastre }
+progress-alkis-buildings = budov { $cadastre }: { $count }
+warning-alkis-no-buildings = v území mapy nebyly nalezeny žádné budovy { $cadastre }
+progress-alkis-skipped = přeskočeno prvků { $cadastre } ({ $count }): { $list }
+warning-alkis-buildings-changed = budovy { $cadastre } se u zdroje změnily ({ $changes })
+progress-alkis-no-land-use-stored = není uloženo žádné využití pozemků { $cadastre }; pro kandidáty zakázaného prostoru spusťte online `freemapper fetch`
+progress-alkis-land-use-download = stahuji využití pozemků { $cadastre }
+progress-alkis-land-use-parts = částí využití pozemků { $cadastre }: { $count }
+warning-alkis-land-use-kept = využití pozemků { $cadastre } není k dispozici ({ $error }); ponechávám uložené využití pozemků
+warning-alkis-land-use-removed = využití pozemků { $cadastre } není k dispozici ({ $error }); uložené využití pozemků už nepokrývá území mapy, proto ho freemapper odstranil
+warning-alkis-land-use-none = využití pozemků { $cadastre } není k dispozici ({ $error }); žádní kandidáti zakázaného prostoru
 
 ## The Berlin layers
 

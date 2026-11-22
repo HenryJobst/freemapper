@@ -108,18 +108,18 @@ warning-permits-osm-no-extract = za to območje karte v predpomnilniku ni izvle�
 
 ## ALKIS
 
-warning-alkis-coverage-unknown = pokritost stavb ALKIS ni znana; za zapis zaženi `freemapper fetch` z omrežjem
-progress-alkis-buildings-download = prenašam stavbe ALKIS
-progress-alkis-buildings = stavb ALKIS: { $count }
-warning-alkis-no-buildings = na območju karte ni najdenih stavb ALKIS
-progress-alkis-skipped = preskočeni objekti ALKIS ({ $count }): { $list }
-warning-alkis-buildings-changed = stavbe ALKIS so se pri ponudniku spremenile ({ $changes })
-progress-alkis-no-land-use-stored = raba tal ALKIS ni shranjena; za kandidate prepovedanih območij zaženi `freemapper fetch` z omrežjem
-progress-alkis-land-use-download = prenašam rabo tal ALKIS
-progress-alkis-land-use-parts = delov rabe tal ALKIS: { $count }
-warning-alkis-land-use-kept = raba tal ALKIS ni na voljo ({ $error }); ohranjena je shranjena raba tal
-warning-alkis-land-use-removed = raba tal ALKIS ni na voljo ({ $error }); shranjena raba tal ne pokriva več območja karte, zato jo je freemapper odstranil
-warning-alkis-land-use-none = raba tal ALKIS ni na voljo ({ $error }); ni kandidatov prepovedanih območij
+warning-alkis-coverage-unknown = pokritost stavb { $cadastre } ni znana; za zapis zaženi `freemapper fetch` z omrežjem
+progress-alkis-buildings-download = prenašam stavbe { $cadastre }
+progress-alkis-buildings = stavb { $cadastre }: { $count }
+warning-alkis-no-buildings = na območju karte ni najdenih stavb { $cadastre }
+progress-alkis-skipped = preskočeni objekti { $cadastre } ({ $count }): { $list }
+warning-alkis-buildings-changed = stavbe { $cadastre } so se pri ponudniku spremenile ({ $changes })
+progress-alkis-no-land-use-stored = raba tal { $cadastre } ni shranjena; za kandidate prepovedanih območij zaženi `freemapper fetch` z omrežjem
+progress-alkis-land-use-download = prenašam rabo tal { $cadastre }
+progress-alkis-land-use-parts = delov rabe tal { $cadastre }: { $count }
+warning-alkis-land-use-kept = raba tal { $cadastre } ni na voljo ({ $error }); ohranjena je shranjena raba tal
+warning-alkis-land-use-removed = raba tal { $cadastre } ni na voljo ({ $error }); shranjena raba tal ne pokriva več območja karte, zato jo je freemapper odstranil
+warning-alkis-land-use-none = raba tal { $cadastre } ni na voljo ({ $error }); ni kandidatov prepovedanih območij
 
 ## The Berlin layers
 

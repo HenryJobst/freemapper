@@ -120,18 +120,18 @@ warning-permits-osm-no-extract = для цієї території карти �
 
 ## ALKIS
 
-warning-alkis-coverage-unknown = покриття будівлями ALKIS невідоме; запустіть `freemapper fetch` з мережею, щоб його записати
-progress-alkis-buildings-download = завантаження будівель ALKIS
-progress-alkis-buildings = будівель ALKIS: { $count }
-warning-alkis-no-buildings = на території карти не знайдено будівель ALKIS
-progress-alkis-skipped = пропущено об'єктів ALKIS: { $count }: { $list }
-warning-alkis-buildings-changed = будівлі ALKIS змінилися в постачальника ({ $changes })
-progress-alkis-no-land-use-stored = землекористування ALKIS не збережено; запустіть `freemapper fetch` з мережею, щоб отримати кандидатів заборонених зон
-progress-alkis-land-use-download = завантаження землекористування ALKIS
-progress-alkis-land-use-parts = ділянок землекористування ALKIS: { $count }
-warning-alkis-land-use-kept = землекористування ALKIS недоступне ({ $error }); зберігається наявне землекористування
-warning-alkis-land-use-removed = землекористування ALKIS недоступне ({ $error }); збережене землекористування більше не покриває територію карти, тому freemapper його видалив
-warning-alkis-land-use-none = землекористування ALKIS недоступне ({ $error }); кандидатів заборонених зон немає
+warning-alkis-coverage-unknown = покриття будівлями { $cadastre } невідоме; запустіть `freemapper fetch` з мережею, щоб його записати
+progress-alkis-buildings-download = завантаження будівель { $cadastre }
+progress-alkis-buildings = будівель { $cadastre }: { $count }
+warning-alkis-no-buildings = на території карти не знайдено будівель { $cadastre }
+progress-alkis-skipped = пропущено об'єктів { $cadastre }: { $count }: { $list }
+warning-alkis-buildings-changed = будівлі { $cadastre } змінилися в постачальника ({ $changes })
+progress-alkis-no-land-use-stored = землекористування { $cadastre } не збережено; запустіть `freemapper fetch` з мережею, щоб отримати кандидатів заборонених зон
+progress-alkis-land-use-download = завантаження землекористування { $cadastre }
+progress-alkis-land-use-parts = ділянок землекористування { $cadastre }: { $count }
+warning-alkis-land-use-kept = землекористування { $cadastre } недоступне ({ $error }); зберігається наявне землекористування
+warning-alkis-land-use-removed = землекористування { $cadastre } недоступне ({ $error }); збережене землекористування більше не покриває територію карти, тому freemapper його видалив
+warning-alkis-land-use-none = землекористування { $cadastre } недоступне ({ $error }); кандидатів заборонених зон немає
 
 ## The Berlin layers
 

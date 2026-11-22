@@ -119,30 +119,30 @@ warning-permits-osm-no-extract = šiam žemėlapio plotui talpykloje nėra OSM i
 
 ## ALKIS
 
-warning-alkis-coverage-unknown = ALKIS pastatų aprėptis nežinoma; paleiskite `freemapper fetch` su tinklo ryšiu, kad ji būtų užfiksuota
-progress-alkis-buildings-download = atsisiunčiami ALKIS pastatai
+warning-alkis-coverage-unknown = { $cadastre } pastatų aprėptis nežinoma; paleiskite `freemapper fetch` su tinklo ryšiu, kad ji būtų užfiksuota
+progress-alkis-buildings-download = atsisiunčiami { $cadastre } pastatai
 progress-alkis-buildings = { $count ->
-        [one] { $count } ALKIS pastatas
-        [few] { $count } ALKIS pastatai
-       *[other] { $count } ALKIS pastatų
+        [one] { $count } { $cadastre } pastatas
+        [few] { $count } { $cadastre } pastatai
+       *[other] { $count } { $cadastre } pastatų
     }
-warning-alkis-no-buildings = žemėlapio plote ALKIS pastatų nerasta
+warning-alkis-no-buildings = žemėlapio plote { $cadastre } pastatų nerasta
 progress-alkis-skipped = praleista { $count ->
-        [one] { $count } ALKIS objektas
-        [few] { $count } ALKIS objektai
-       *[other] { $count } ALKIS objektų
+        [one] { $count } { $cadastre } objektas
+        [few] { $count } { $cadastre } objektai
+       *[other] { $count } { $cadastre } objektų
     }: { $list }
-warning-alkis-buildings-changed = ALKIS pastatai tiekėjo pusėje pasikeitė ({ $changes })
-progress-alkis-no-land-use-stored = ALKIS žemės naudojimas neišsaugotas; kandidatams už ribų paleiskite `freemapper fetch` su tinklo ryšiu
-progress-alkis-land-use-download = atsisiunčiamas ALKIS žemės naudojimas
+warning-alkis-buildings-changed = { $cadastre } pastatai tiekėjo pusėje pasikeitė ({ $changes })
+progress-alkis-no-land-use-stored = { $cadastre } žemės naudojimas neišsaugotas; kandidatams už ribų paleiskite `freemapper fetch` su tinklo ryšiu
+progress-alkis-land-use-download = atsisiunčiamas { $cadastre } žemės naudojimas
 progress-alkis-land-use-parts = { $count ->
-        [one] { $count } ALKIS žemės naudojimo dalis
-        [few] { $count } ALKIS žemės naudojimo dalys
-       *[other] { $count } ALKIS žemės naudojimo dalių
+        [one] { $count } { $cadastre } žemės naudojimo dalis
+        [few] { $count } { $cadastre } žemės naudojimo dalys
+       *[other] { $count } { $cadastre } žemės naudojimo dalių
     }
-warning-alkis-land-use-kept = ALKIS žemės naudojimas nepasiekiamas ({ $error }); paliekamas išsaugotas žemės naudojimas
-warning-alkis-land-use-removed = ALKIS žemės naudojimas nepasiekiamas ({ $error }); išsaugotas žemės naudojimas nebeapima žemėlapio ploto, todėl freemapper jį pašalino
-warning-alkis-land-use-none = ALKIS žemės naudojimas nepasiekiamas ({ $error }); kandidatų už ribų nėra
+warning-alkis-land-use-kept = { $cadastre } žemės naudojimas nepasiekiamas ({ $error }); paliekamas išsaugotas žemės naudojimas
+warning-alkis-land-use-removed = { $cadastre } žemės naudojimas nepasiekiamas ({ $error }); išsaugotas žemės naudojimas nebeapima žemėlapio ploto, todėl freemapper jį pašalino
+warning-alkis-land-use-none = { $cadastre } žemės naudojimas nepasiekiamas ({ $error }); kandidatų už ribų nėra
 
 ## The Berlin layers
 

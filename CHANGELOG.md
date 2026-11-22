@@ -6,6 +6,10 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+### Geändert
+
+- Karten in Polen nennen den Kataster beim Namen: Die Fortschrittszeilen und Warnungen beim Laden von Gebäuden und Landnutzung sagen „EGiB“ statt „ALKIS“ (dieselben Meldungen tragen den Namen als Wert `cadastre`; Karten in Deutschland lesen sich unverändert). Dazu stimmt die Abbildung des EGiB-Katasters jetzt mit dem Dienst überein, geprüft an echten Daten aus Słubice, Białystok und zwei Dörfern in Podlasie: Die Gebäudearten `z` (Krankenhaus), `s` (Behälter, Silo, Lager) und `k` (Bildung, Kultur, Sport) waren vertauscht, und die Nutzungsklassen tragen im Dienst ihre Bodenklasse (`RIVa`, `PsVI`, `ŁV`, `LsIV`) und Vorsätze (`Br/RV`, `W/ŁIV`, `Lzr/PsVI`), was bisher alle ländlichen Flurstücke aus der Nutzung fallen ließ. Gräben (`W`) und Unland (`N`) neben einer einzigen Nutzung ändern sie nicht mehr; `B` wird Wohnbaufläche, `Ba` Industrie- und Gewerbefläche, `Tk` Bahnverkehr, `Wsr` stehendes Gewässer.
+
 ## [0.26.0] - 2026-11-22
 
 ### Hinzugefügt

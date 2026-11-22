@@ -114,18 +114,18 @@ warning-permits-osm-no-extract = tälle kartta-alueelle ei ole OSM-otetta välim
 
 ## ALKIS
 
-warning-alkis-coverage-unknown = ALKIS-rakennusten kattavuus tuntematon; aja `freemapper fetch` verkossa tallentaaksesi sen
-progress-alkis-buildings-download = ladataan ALKIS-rakennuksia
-progress-alkis-buildings = { $count } ALKIS-rakennusta
-warning-alkis-no-buildings = kartta-alueelta ei löytynyt ALKIS-rakennuksia
-progress-alkis-skipped = ohitettiin { $count } ALKIS-kohdetta: { $list }
-warning-alkis-buildings-changed = ALKIS-rakennukset muuttuivat lähteessä ({ $changes })
-progress-alkis-no-land-use-stored = ALKIS-maankäyttöä ei ole tallennettu; aja `freemapper fetch` verkossa kiellettyjen alueiden ehdokkaita varten
-progress-alkis-land-use-download = ladataan ALKIS-maankäyttöä
-progress-alkis-land-use-parts = { $count } ALKIS-maankäytön osaa
-warning-alkis-land-use-kept = ALKIS-maankäyttö ei ole saatavilla ({ $error }); säilytetään tallennettu maankäyttö
-warning-alkis-land-use-removed = ALKIS-maankäyttö ei ole saatavilla ({ $error }); tallennettu maankäyttö ei enää kata kartta-aluetta, joten freemapper poisti sen
-warning-alkis-land-use-none = ALKIS-maankäyttö ei ole saatavilla ({ $error }); ei kiellettyjen alueiden ehdokkaita
+warning-alkis-coverage-unknown = { $cadastre }-rakennusten kattavuus tuntematon; aja `freemapper fetch` verkossa tallentaaksesi sen
+progress-alkis-buildings-download = ladataan { $cadastre }-rakennuksia
+progress-alkis-buildings = { $count } { $cadastre }-rakennusta
+warning-alkis-no-buildings = kartta-alueelta ei löytynyt { $cadastre }-rakennuksia
+progress-alkis-skipped = ohitettiin { $count } { $cadastre }-kohdetta: { $list }
+warning-alkis-buildings-changed = { $cadastre }-rakennukset muuttuivat lähteessä ({ $changes })
+progress-alkis-no-land-use-stored = { $cadastre }-maankäyttöä ei ole tallennettu; aja `freemapper fetch` verkossa kiellettyjen alueiden ehdokkaita varten
+progress-alkis-land-use-download = ladataan { $cadastre }-maankäyttöä
+progress-alkis-land-use-parts = { $count } { $cadastre }-maankäytön osaa
+warning-alkis-land-use-kept = { $cadastre }-maankäyttö ei ole saatavilla ({ $error }); säilytetään tallennettu maankäyttö
+warning-alkis-land-use-removed = { $cadastre }-maankäyttö ei ole saatavilla ({ $error }); tallennettu maankäyttö ei enää kata kartta-aluetta, joten freemapper poisti sen
+warning-alkis-land-use-none = { $cadastre }-maankäyttö ei ole saatavilla ({ $error }); ei kiellettyjen alueiden ehdokkaita
 
 ## The Berlin layers
 

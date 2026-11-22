@@ -107,18 +107,18 @@ warning-permits-osm-no-extract = aucun extrait OSM n'est en cache pour cette zon
 
 ## ALKIS
 
-warning-alkis-coverage-unknown = couverture des bâtiments ALKIS inconnue ; lancez `freemapper fetch` en ligne pour l'enregistrer
-progress-alkis-buildings-download = téléchargement des bâtiments ALKIS
-progress-alkis-buildings = { $count } bâtiments ALKIS
-warning-alkis-no-buildings = aucun bâtiment ALKIS trouvé dans la zone de la carte
-progress-alkis-skipped = { $count } objets ALKIS ignorés : { $list }
-warning-alkis-buildings-changed = les bâtiments ALKIS ont changé chez le fournisseur ({ $changes })
-progress-alkis-no-land-use-stored = aucune occupation du sol ALKIS enregistrée ; lancez `freemapper fetch` en ligne pour les candidats de zones interdites
-progress-alkis-land-use-download = téléchargement de l'occupation du sol ALKIS
-progress-alkis-land-use-parts = { $count } parties d'occupation du sol ALKIS
-warning-alkis-land-use-kept = occupation du sol ALKIS indisponible ({ $error }) ; l'occupation du sol enregistrée est conservée
-warning-alkis-land-use-removed = occupation du sol ALKIS indisponible ({ $error }) ; l'occupation du sol enregistrée ne couvre plus la zone de la carte, freemapper l'a donc supprimée
-warning-alkis-land-use-none = occupation du sol ALKIS indisponible ({ $error }) ; pas de candidats de zones interdites
+warning-alkis-coverage-unknown = couverture des bâtiments { $cadastre } inconnue ; lancez `freemapper fetch` en ligne pour l'enregistrer
+progress-alkis-buildings-download = téléchargement des bâtiments { $cadastre }
+progress-alkis-buildings = { $count } bâtiments { $cadastre }
+warning-alkis-no-buildings = aucun bâtiment { $cadastre } trouvé dans la zone de la carte
+progress-alkis-skipped = { $count } objets { $cadastre } ignorés : { $list }
+warning-alkis-buildings-changed = les bâtiments { $cadastre } ont changé chez le fournisseur ({ $changes })
+progress-alkis-no-land-use-stored = aucune occupation du sol { $cadastre } enregistrée ; lancez `freemapper fetch` en ligne pour les candidats de zones interdites
+progress-alkis-land-use-download = téléchargement de l'occupation du sol { $cadastre }
+progress-alkis-land-use-parts = { $count } parties d'occupation du sol { $cadastre }
+warning-alkis-land-use-kept = occupation du sol { $cadastre } indisponible ({ $error }) ; l'occupation du sol enregistrée est conservée
+warning-alkis-land-use-removed = occupation du sol { $cadastre } indisponible ({ $error }) ; l'occupation du sol enregistrée ne couvre plus la zone de la carte, freemapper l'a donc supprimée
+warning-alkis-land-use-none = occupation du sol { $cadastre } indisponible ({ $error }) ; pas de candidats de zones interdites
 
 ## The Berlin layers
 

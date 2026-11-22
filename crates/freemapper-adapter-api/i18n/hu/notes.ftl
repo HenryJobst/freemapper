@@ -110,18 +110,18 @@ warning-permits-osm-no-extract = ehhez a térképterülethez nincs gyorsítótá
 
 ## ALKIS
 
-warning-alkis-coverage-unknown = az ALKIS-épületek lefedettsége ismeretlen; rögzítéséhez futtassa a `freemapper fetch` parancsot online
-progress-alkis-buildings-download = ALKIS-épületek letöltése
-progress-alkis-buildings = { $count } ALKIS-épület
-warning-alkis-no-buildings = a térképterületen nincs ALKIS-épület
-progress-alkis-skipped = { $count } ALKIS-elem kihagyva: { $list }
-warning-alkis-buildings-changed = az ALKIS-épületek megváltoztak a forrásnál ({ $changes })
-progress-alkis-no-land-use-stored = nincs eltárolt ALKIS-földhasználat; a tiltott területek jelöltjeihez futtassa a `freemapper fetch` parancsot online
-progress-alkis-land-use-download = ALKIS-földhasználat letöltése
-progress-alkis-land-use-parts = { $count } ALKIS-földhasználati rész
-warning-alkis-land-use-kept = az ALKIS-földhasználat nem érhető el ({ $error }); a tárolt földhasználatot megtartjuk
-warning-alkis-land-use-removed = az ALKIS-földhasználat nem érhető el ({ $error }); a tárolt földhasználat már nem fedi le a térképterületet, ezért a freemapper eltávolította
-warning-alkis-land-use-none = az ALKIS-földhasználat nem érhető el ({ $error }); nincsenek tiltott terület jelöltek
+warning-alkis-coverage-unknown = az { $cadastre }-épületek lefedettsége ismeretlen; rögzítéséhez futtassa a `freemapper fetch` parancsot online
+progress-alkis-buildings-download = { $cadastre }-épületek letöltése
+progress-alkis-buildings = { $count } { $cadastre }-épület
+warning-alkis-no-buildings = a térképterületen nincs { $cadastre }-épület
+progress-alkis-skipped = { $count } { $cadastre }-elem kihagyva: { $list }
+warning-alkis-buildings-changed = az { $cadastre }-épületek megváltoztak a forrásnál ({ $changes })
+progress-alkis-no-land-use-stored = nincs eltárolt { $cadastre }-földhasználat; a tiltott területek jelöltjeihez futtassa a `freemapper fetch` parancsot online
+progress-alkis-land-use-download = { $cadastre }-földhasználat letöltése
+progress-alkis-land-use-parts = { $count } { $cadastre }-földhasználati rész
+warning-alkis-land-use-kept = az { $cadastre }-földhasználat nem érhető el ({ $error }); a tárolt földhasználatot megtartjuk
+warning-alkis-land-use-removed = az { $cadastre }-földhasználat nem érhető el ({ $error }); a tárolt földhasználat már nem fedi le a térképterületet, ezért a freemapper eltávolította
+warning-alkis-land-use-none = az { $cadastre }-földhasználat nem érhető el ({ $error }); nincsenek tiltott terület jelöltek
 
 ## The Berlin layers
 

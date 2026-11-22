@@ -6,6 +6,10 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
+### Changed
+
+- Maps in Poland name their cadastre: the progress lines and warnings of the download of buildings and land use say "EGiB" instead of "ALKIS" (the same messages carry the name as the value `cadastre`; maps in Germany read as before). The mapping of the EGiB cadastre now also matches the service, checked against real data from Słubice, Białystok and two villages in Podlasie: the building kinds `z` (hospital), `s` (tank, silo, storage) and `k` (education, culture, sport) were swapped, and the land use classes carry their soil class in the service (`RIVa`, `PsVI`, `ŁV`, `LsIV`) and prefixes (`Br/RV`, `W/ŁIV`, `Lzr/PsVI`), which dropped every rural parcel from the land use until now. Ditches (`W`) and waste land (`N`) beside a single use no longer change it; `B` becomes residential land, `Ba` industrial and commercial land, `Tk` railway, `Wsr` standing water.
+
 ## [0.26.0] - 2026-11-22
 
 ### Added

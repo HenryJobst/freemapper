@@ -114,18 +114,18 @@ warning-permits-osm-no-extract = inget OSM-extrakt finns i cachen för det här 
 
 ## ALKIS
 
-warning-alkis-coverage-unknown = täckningen för ALKIS-byggnader är okänd; kör `freemapper fetch` online för att spara den
-progress-alkis-buildings-download = laddar ner ALKIS-byggnader
-progress-alkis-buildings = { $count } ALKIS-byggnader
-warning-alkis-no-buildings = inga ALKIS-byggnader hittades i kartområdet
-progress-alkis-skipped = hoppade över { $count } ALKIS-objekt: { $list }
-warning-alkis-buildings-changed = ALKIS-byggnaderna har ändrats hos källan ({ $changes })
-progress-alkis-no-land-use-stored = ingen ALKIS-markanvändning sparad; kör `freemapper fetch` online för kandidater till förbjudna områden
-progress-alkis-land-use-download = laddar ner ALKIS-markanvändning
-progress-alkis-land-use-parts = { $count } ALKIS-markanvändningsdelar
-warning-alkis-land-use-kept = ALKIS-markanvändning är inte tillgänglig ({ $error }); behåller den sparade markanvändningen
-warning-alkis-land-use-removed = ALKIS-markanvändning är inte tillgänglig ({ $error }); den sparade markanvändningen täcker inte längre kartområdet, så freemapper tog bort den
-warning-alkis-land-use-none = ALKIS-markanvändning är inte tillgänglig ({ $error }); inga kandidater till förbjudna områden
+warning-alkis-coverage-unknown = täckningen för { $cadastre }-byggnader är okänd; kör `freemapper fetch` online för att spara den
+progress-alkis-buildings-download = laddar ner { $cadastre }-byggnader
+progress-alkis-buildings = { $count } { $cadastre }-byggnader
+warning-alkis-no-buildings = inga { $cadastre }-byggnader hittades i kartområdet
+progress-alkis-skipped = hoppade över { $count } { $cadastre }-objekt: { $list }
+warning-alkis-buildings-changed = { $cadastre }-byggnaderna har ändrats hos källan ({ $changes })
+progress-alkis-no-land-use-stored = ingen { $cadastre }-markanvändning sparad; kör `freemapper fetch` online för kandidater till förbjudna områden
+progress-alkis-land-use-download = laddar ner { $cadastre }-markanvändning
+progress-alkis-land-use-parts = { $count } { $cadastre }-markanvändningsdelar
+warning-alkis-land-use-kept = { $cadastre }-markanvändning är inte tillgänglig ({ $error }); behåller den sparade markanvändningen
+warning-alkis-land-use-removed = { $cadastre }-markanvändning är inte tillgänglig ({ $error }); den sparade markanvändningen täcker inte längre kartområdet, så freemapper tog bort den
+warning-alkis-land-use-none = { $cadastre }-markanvändning är inte tillgänglig ({ $error }); inga kandidater till förbjudna områden
 
 ## The Berlin layers
 

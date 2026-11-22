@@ -107,18 +107,18 @@ warning-permits-osm-no-extract = intet OSM-udtræk er cachet for dette kortområ
 
 ## ALKIS
 
-warning-alkis-coverage-unknown = dækningen af ALKIS-bygninger er ukendt; kør `freemapper fetch` online for at registrere den
-progress-alkis-buildings-download = henter ALKIS-bygninger
-progress-alkis-buildings = { $count } ALKIS-bygninger
-warning-alkis-no-buildings = ingen ALKIS-bygninger fundet i kortområdet
-progress-alkis-skipped = sprang { $count } ALKIS-objekter over: { $list }
-warning-alkis-buildings-changed = ALKIS-bygninger er ændret hos leverandøren ({ $changes })
-progress-alkis-no-land-use-stored = ingen ALKIS-arealanvendelse gemt; kør `freemapper fetch` online for kandidater til forbudte områder
-progress-alkis-land-use-download = henter ALKIS-arealanvendelse
-progress-alkis-land-use-parts = { $count } dele af ALKIS-arealanvendelsen
-warning-alkis-land-use-kept = ALKIS-arealanvendelse utilgængelig ({ $error }); beholder den gemte arealanvendelse
-warning-alkis-land-use-removed = ALKIS-arealanvendelse utilgængelig ({ $error }); den gemte arealanvendelse dækker ikke længere kortområdet, så freemapper fjernede den
-warning-alkis-land-use-none = ALKIS-arealanvendelse utilgængelig ({ $error }); ingen kandidater til forbudte områder
+warning-alkis-coverage-unknown = dækningen af { $cadastre }-bygninger er ukendt; kør `freemapper fetch` online for at registrere den
+progress-alkis-buildings-download = henter { $cadastre }-bygninger
+progress-alkis-buildings = { $count } { $cadastre }-bygninger
+warning-alkis-no-buildings = ingen { $cadastre }-bygninger fundet i kortområdet
+progress-alkis-skipped = sprang { $count } { $cadastre }-objekter over: { $list }
+warning-alkis-buildings-changed = { $cadastre }-bygninger er ændret hos leverandøren ({ $changes })
+progress-alkis-no-land-use-stored = ingen { $cadastre }-arealanvendelse gemt; kør `freemapper fetch` online for kandidater til forbudte områder
+progress-alkis-land-use-download = henter { $cadastre }-arealanvendelse
+progress-alkis-land-use-parts = { $count } dele af { $cadastre }-arealanvendelsen
+warning-alkis-land-use-kept = { $cadastre }-arealanvendelse utilgængelig ({ $error }); beholder den gemte arealanvendelse
+warning-alkis-land-use-removed = { $cadastre }-arealanvendelse utilgængelig ({ $error }); den gemte arealanvendelse dækker ikke længere kortområdet, så freemapper fjernede den
+warning-alkis-land-use-none = { $cadastre }-arealanvendelse utilgængelig ({ $error }); ingen kandidater til forbudte områder
 
 ## The Berlin layers
 
