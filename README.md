@@ -1,7 +1,5 @@
 <p align="center"><img src="docs/banner/banner.de.svg" alt="freemapper – Orientierungslaufkarten aus offenen Geodaten"></p>
 
-# freemapper
-
 [Website](https://freemapper.de) · [English version](README.en.md) · [Handbuch](docs/manual/de.md) · [Glossar](docs/glossary.md) · [Änderungen](CHANGELOG.md) · [Beispiele](examples/README.md)
 
 
