@@ -3450,6 +3450,35 @@ mod tests {
         assert_eq!(back, found);
     }
 
+    /// The forest-office hint of a Polish map names the units of the district when the source
+    /// gives them and carries no `units` argument when it gives none.
+    #[test]
+    fn the_polish_forest_office_hint_names_units_only_when_there_are_some() {
+        let with_unit = |unit: Option<&str>| {
+            let finding = area(
+                FindingKind::ForestUnit {
+                    administration: "Regionalna Dyrekcja Lasów Państwowych w Warszawie".into(),
+                    office: "Nadleśnictwo Chojnów".into(),
+                    unit: unit.map(str::to_string),
+                },
+                square(12.9, 51.9, 13.2, 52.2),
+            );
+            let regional = vec![regional("prg", PermitSection::ForestUnits, vec![finding])];
+            notes(MapKind::Forest, &polish(vec![], regional))
+        };
+        let named = with_unit(Some("Obręb Północ"));
+        assert_eq!(
+            hint(&named, hint_key::FOREST_OFFICE)[0].args["units"],
+            "Obręb Północ"
+        );
+        let bare = with_unit(None);
+        assert!(
+            !hint(&bare, hint_key::FOREST_OFFICE)[0]
+                .args
+                .contains_key("units")
+        );
+    }
+
     /// Without a forest district the general hint says the owner is to be found out apart; a
     /// map without forest gets no forest hint; no object, no protected-areas hint.
     #[test]
