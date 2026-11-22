@@ -46,7 +46,7 @@ in OOM oder OCAD.
 | Land | Stand | Gebiet |
 |---|---|---|
 | Deutschland | fertig | 15 von 16 Bundesländern, Thüringen fehlt noch ([Tabelle](#regionen)) |
-| Polen | Vorschau | Höhenmodell, Luftbild, Gebäude und Landnutzung von GUGiK, Genehmigungshinweise |
+| Polen | nutzbar | Sprint- und Waldkarten für ganz Polen: Höhenmodell, Luftbild, Gebäude und Landnutzung von GUGiK (Kataster EGiB), Genehmigungshinweise; [Beispiele](examples/international.md) |
 
 Weitere Länder sind geplant; Liste und Fortschritt stehen in [Issue 227](https://github.com/HenryJobst/freemapper/issues/227).
 
@@ -97,7 +97,7 @@ Dienste Standarddienste sind, lässt sich als Ordner mit einem Manifest ergänze
 für weitere Bundesländer, zuerst Sachsen (Gewässerachsen, Hecken und Baumreihen aus dem Basis-DLM, die Bäume von Leipzig
 und Dresden), dann Sachsen-Anhalt und Hamburg. Später kommen Hallenkarten für Hallen-OL, die letzten englischen
 Reste in den deutschen Programmtexten (`--lang de`). Thüringen, das letzte Bundesland, das noch fehlt, folgt, sobald sein Server für die
-Höhendaten wieder erreichbar ist. Polen gibt es als Vorschau: Höhenmodell, Luftbild, Gebäude und Landnutzung von GUGiK, dem Kataster EGiB, dazu Genehmigungshinweise (ADR 0164, 0170, 0171, 0175); die übrigen Nachbarländer kommen später. Die Programmtexte gibt es auf Deutsch, Englisch und Polnisch und in 18 weiteren Sprachen, die maschinell entworfen und nicht von Muttersprachlern gelesen sind. Design:
+Höhendaten wieder erreichbar ist. Polen ist nutzbar: Höhenmodell, Luftbild, Gebäude und Landnutzung von GUGiK, dem Kataster EGiB, dazu Genehmigungshinweise und Beispiele (ADR 0164, 0170, 0171, 0175); die übrigen Nachbarländer kommen später. Die Programmtexte gibt es auf Deutsch, Englisch und Polnisch und in 18 weiteren Sprachen, die maschinell entworfen und nicht von Muttersprachlern gelesen sind. Design:
 [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](https://github.com/HenryJobst/freemapper/blob/main/docs/superpowers/specs/2026-11-07-freemapper-design.md).
 
 Auf Wunsch schreibt freemapper Hinweise zu Genehmigungen neben die Karte, in die Datei `permits.md` (`freemapper permits`, `run --permits`, auf der Gebietsseite oder über den KI-Assistenten). Sie nennt für das Kartengebiet Bundesland, Kreis, Amt und Gemeinde aus VG250 des BKG, die Schutzgebiete des BfN und Betreiber aus OpenStreetMap, jeweils mit Anteil, Quelle und Datenstand, und sagt, wen man meist fragt. Sie ist ein Hinweis und keine Rechtsauskunft. Einzelheiten stehen im [Handbuch, Kapitel 12](docs/manual/de.md#12-hinweise-zu-genehmigungen). In Berlin kommen Bezirk, Grünanlagen, Eigentum von Bundesland und Bund, Denkmale und Naturdenkmale aus dem Geoportal Berlin dazu. In Hamburg kommen Bezirk, Grünanlagen, Denkmale, Stadtwald und Wasserschutzgebiete aus dem Geoportal Hamburg. In Brandenburg, Berlin, Hamburg, Nordrhein-Westfalen, im Saarland, in Sachsen und in Schleswig-Holstein nennen die Hinweise auch die Forstdienststelle. Wasserschutzgebiete nennen sie in allen Bundesländern, Denkmale in elf, Naturdenkmale und geschützte Biotope in dreizehn, Waldfunktionen in mehreren.
