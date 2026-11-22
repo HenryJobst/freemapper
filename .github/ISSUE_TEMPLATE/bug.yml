@@ -1,0 +1,23 @@
+name: Fehler / Bug
+description: Etwas funktioniert nicht oder liefert ein falsches Ergebnis. / Something does not work or gives a wrong result.
+labels: [bug]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Ausgabe von `freemapper --version`. / Output of `freemapper --version`.
+    validations:
+      required: true
+  - type: input
+    id: area
+    attributes:
+      label: Ort oder Bundesland / Place or state
+      description: Wo liegt das Kartengebiet? / Where is the map area?
+  - type: textarea
+    id: what
+    attributes:
+      label: Was ist passiert? / What happened?
+      description: Befehl, Meldung (`error:` / `Fehler:`) und was du erwartet hast. / The command, the message and what you expected.
+    validations:
+      required: true

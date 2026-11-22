@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Handbuch / user manual
+    url: https://github.com/HenryJobst/freemapper/blob/main/docs/manual/de.md
+    about: Die Antwort steht vielleicht schon im Handbuch. / The answer may already be in the manual.

@@ -8,6 +8,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Hinzugefügt
 
+- Issues von Nutzern fallen auf: Ein Workflow setzt auf jedes Issue, das nicht vom Eigentümer oder einem Mitarbeiter stammt, das Label `von-nutzer`; zwei Vorlagen (Fehler, Wunsch) fragen Version, Ort und Ablauf ab (ADR 0180).
 - Polen füllt Gelände ohne Katasterdaten aus BDOT10k, der topographischen Objektdatenbank von GUGiK: Wo der EGiB-Dienst für das Kartengebiet keine Gebäude liefert (Gemeinden ohne Katasterdienst) oder ausfällt, kommen die Gebäude aus BDOT10k; wo die Flurstücke weniger als ein Viertel des Gebiets mit einer Nutzungsklasse abdecken (die großen Städte senden sie meist leer), ergänzt BDOT10k die Landnutzung (Wald, Gehölz, Grünland, Acker, Wasser, Wohn- und Gewerbeflächen, Plätze, Parkplätze, Friedhöfe, Grünanlagen). EGiB hat Vorrang. Dafür lädt freemapper das GML-Archiv des betroffenen Powiats (7 bis 89 MB, im Cache) und liest nur die nötigen Klassen; fällt BDOT10k aus, bleibt es bei einer Warnung (ADR 0178)
 
 ### Behoben
