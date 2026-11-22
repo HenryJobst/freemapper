@@ -18,6 +18,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 ### Geändert
 
 - Das Beispiel Sanssouci ist mit v0.26.0 neu gebaut: Die Trainingskarte hat einen Baumpunkt weniger, die Kandidatenebene der Vegetation drei OSM-Flächen mehr (zwei Weinberge). Die Grundkarte hat dieselben 2282 Objekte. Der Lauf hat dabei auch den Brandenburger OSM-Auszug über die neue Geofabrik-Adresse geladen.
+- Das Beispiel Szczeliniec ist mit BDOT10k als Rückfall für die Bodennutzung neu gebaut: Die Karte hat 565 statt 552 Objekte, die Bodennutzung 46 statt 10 Teile, die Kandidatenebenen Vegetation und Außerhalb der Grenzen haben sich leicht geändert.
 - Die Core-Crates (`freemapper-core`) stehen auf v0.32.0. Das Tag macht die Einbettung der Schrift Arimo öffentlich, die das Seiten-PDF später nutzt; die Schnittstelle, die freemapper heute nutzt, bleibt gleich.
 
 ## [0.26.0] - 2026-11-22
