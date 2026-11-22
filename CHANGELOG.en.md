@@ -6,6 +6,10 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
+### Added
+
+- The two examples for Poland are here: a sprint map of the town centre of Słubice (`examples/polska-slubice-sprint`) and a forest map near Łagów (`examples/polska-lagow-forest`), both with a training map, a check print and OCAD files. The new page [`examples/international.en.md`](examples/international.en.md) lists them, one sprint map and one forest map per country.
+
 ## [0.26.0] - 2026-11-22
 
 ### Added
