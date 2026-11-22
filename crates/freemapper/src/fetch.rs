@@ -21,7 +21,7 @@ pub use freemapper_adapter_api::error::FetchError;
 pub(crate) use freemapper_adapter_api::error::tile_names;
 pub use freemapper_adapter_api::error::{HostNotNamed, Remedy};
 pub(crate) use freemapper_adapter_api::fetch::status_answer_error;
-pub use freemapper_adapter_api::fetch::{ByteRange, FetchMode, FetchedTile, Fetcher};
+pub use freemapper_adapter_api::fetch::{ATTEMPTS, ByteRange, FetchMode, FetchedTile, Fetcher};
 #[cfg(test)]
 pub(crate) use freemapper_adapter_api::fetch::{
     download_with_retries, get_limited_with_retries, get_with_retries,

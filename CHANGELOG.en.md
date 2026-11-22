@@ -12,6 +12,7 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ### Fixed
 
+- A geodata service that does not answer for a moment no longer ends the run at the first failure (issue #219): the OSM extract (state file and PBF file), the pages of the OGC API, the place search, the lists and archives of the state tile services, the point clouds and the downloads for Poland ask up to three times like the other services. 429 (too many requests) and 408 are asked again too. If that does not work either, the message says that the service is probably overloaded or under maintenance, how often freemapper asked, and that the run can start again in a few minutes; what is downloaded is kept (ADR 0180).
 - GUGiK orthophoto sheets that hold uncompressed RGB instead of JPEG tiles (older flights such as M-34-88-D-a-4 of 2003 near Chochołów) are read. Before, the run said "the orthophoto is not made of JPEG tiles" and left the sheet out.
 - The training map keeps the gap between a wall and a way after the ways are joined (issue #177): Regensburg and Bautzen reported 1.6 and 1.2 mm of too little gap there, now nothing. The gap step runs once more after the join (ADR 0150, addendum). The examples in the repository are not rebuilt yet.
 - The page PDF embeds the font Arimo and shows letters such as ł, ą, č, ř and ő themselves instead of their base letter or `?` ("Słubice" instead of "Slubice"; issue 267, ADR 0179). The PDF grows by the font subsets; the example PDFs in the repository stay until the example is rebuilt.

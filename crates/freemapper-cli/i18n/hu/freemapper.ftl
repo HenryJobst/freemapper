@@ -496,6 +496,7 @@ word-part-point-cloud = a növényzetjelöltekhez tartozó lézerpontfelhők
 ## Errors: downloads
 
 error-fetch-http = a(z) { $url } letöltése sikertelen: { $message }
+error-fetch-http-temporary = a(z) { $url } letöltése sikertelen: { $message }. A szolgáltatás valószínűleg túlterhelt vagy karbantartás alatt áll; a freemapper legfeljebb { $attempts } alkalommal próbálkozott. Indítsa újra a futtatást néhány perc múlva; ami már letöltődött, megmarad.
 error-fetch-corrupt-archive = a(z) { $url } letöltése nem teljes csempearchívum: { $message }
 error-fetch-corrupt-extract = a(z) { $url } letöltése nem teljes OSM-kivonat: { $message }
 error-fetch-tiles-not-covered = { $count ->

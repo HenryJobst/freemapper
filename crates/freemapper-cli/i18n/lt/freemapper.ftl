@@ -502,6 +502,7 @@ word-part-point-cloud = augmenijos kandidatų lazerinių taškų debesys
 ## Errors: downloads
 
 error-fetch-http = { $url } atsisiuntimas nepavyko: { $message }
+error-fetch-http-temporary = { $url } atsisiuntimas nepavyko: { $message }. Paslauga greičiausiai perkrauta arba vykdoma priežiūra; freemapper bandė iki { $attempts } kartų. Paleiskite vykdymą iš naujo po kelių minučių; jau atsisiųsta išsaugoma.
 error-fetch-corrupt-archive = { $url } atsisiuntimas nėra pilnas plytelių archyvas: { $message }
 error-fetch-corrupt-extract = { $url } atsisiuntimas nėra pilna OSM ištrauka: { $message }
 error-fetch-tiles-not-covered = { $count ->

@@ -11,7 +11,7 @@ use crate::records::Product;
 
 #[derive(Debug, thiserror::Error)]
 pub enum FetchError {
-    #[error("download of {url} failed: {message}")]
+    #[error("{}", http_text(.url, .message))]
     Http { url: String, message: String },
     #[error("{}", io_error_text(.0, .1))]
     Io(PathBuf, std::io::Error),
@@ -168,7 +168,44 @@ pub enum AdapterError {
     Engine(Box<dyn std::error::Error + Send + Sync>),
 }
 
+/// The text of [`FetchError::Http`]; for a failure that tends to pass (a busy or restarting server) it says
+/// that the person can ask again later.
+fn http_text(url: &str, message: &str) -> String {
+    let base = format!("download of {url} failed: {message}");
+    if is_temporary_message(message) {
+        format!(
+            "{base}. The service is probably overloaded or under maintenance; freemapper asked up to {} times. Run it again in a few minutes; what is already downloaded is kept.",
+            crate::fetch::ATTEMPTS
+        )
+    } else {
+        base
+    }
+}
+
+/// Whether the message of a [`FetchError::Http`] describes a failure of the service that tends to pass: a server error
+/// (5xx), too many requests (429), a request timeout (408) or a timeout. A refused or reset connection is asked again
+/// too, but is not named a busy service: the person may be offline.
+pub fn is_temporary_message(message: &str) -> bool {
+    if let Some(status) = message.strip_prefix("http status: ") {
+        let code: u16 = status
+            .split_whitespace()
+            .next()
+            .and_then(|code| code.parse().ok())
+            .unwrap_or(0);
+        return code >= 500 || code == 408 || code == 429;
+    }
+    let message = message.to_lowercase();
+    ["timed out", "timeout"]
+        .iter()
+        .any(|word| message.contains(word))
+}
+
 impl FetchError {
+    /// Whether the failure is one that tends to pass, so that asking again later may work.
+    pub fn is_temporary(&self) -> bool {
+        matches!(self, FetchError::Http { message, .. } if is_temporary_message(message))
+    }
+
     /// Whether writing failed because the volume is full.
     pub fn is_disk_full(&self) -> bool {
         matches!(self, FetchError::Io(_, e) if is_storage_full(e))

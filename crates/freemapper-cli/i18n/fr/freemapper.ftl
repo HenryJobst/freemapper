@@ -502,6 +502,7 @@ word-part-point-cloud = les nuages de points laser pour les candidats de végét
 ## Errors: downloads
 
 error-fetch-http = le téléchargement de { $url } a échoué : { $message }
+error-fetch-http-temporary = le téléchargement de { $url } a échoué : { $message }. Le service est probablement surchargé ou en maintenance ; freemapper a essayé jusqu'à { $attempts } fois. Relancez l'exécution dans quelques minutes ; ce qui est déjà téléchargé est conservé.
 error-fetch-corrupt-archive = le téléchargement de { $url } n'est pas une archive de tuiles complète : { $message }
 error-fetch-corrupt-extract = le téléchargement de { $url } n'est pas un extrait OSM complet : { $message }
 error-fetch-tiles-not-covered = { $count ->

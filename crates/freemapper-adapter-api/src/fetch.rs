@@ -116,11 +116,16 @@ pub struct FetchedTile {
 /// An answer of HTTP `status` (400 or more) with `body` as [`FetchError`]: 404 is
 /// [`FetchError::NotFound`], another 4xx [`FetchError::Refused`] with the text of an OGC
 /// exception report in `body` (MapServer answers a WCS request outside its coverage with a 400
-/// `ows:ExceptionReport`), a 5xx a (retried) [`FetchError::Http`] with the
+/// `ows:ExceptionReport`), a 5xx, 408 or 429 a (retried) [`FetchError::Http`] with the
 /// words the HTTP client uses for a status (`http status: 503`).
 pub fn status_answer_error(url: &str, status: u16, body: &[u8]) -> FetchError {
     match status {
         404 => FetchError::NotFound(url.to_string()),
+        // Too many requests and a request timeout pass; they are asked again like a 5xx.
+        408 | 429 => FetchError::Http {
+            url: url.to_string(),
+            message: format!("http status: {status}"),
+        },
         400..500 => FetchError::Refused {
             url: url.to_string(),
             status,

@@ -496,6 +496,7 @@ word-part-point-cloud = de laserpuntenwolken voor de vegetatiekandidaten
 ## Errors: downloads
 
 error-fetch-http = download van { $url } mislukt: { $message }
+error-fetch-http-temporary = download van { $url } mislukt: { $message }. De dienst is waarschijnlijk overbelast of in onderhoud; freemapper heeft maximaal { $attempts } keer geprobeerd. Start de run over enkele minuten opnieuw; wat al is gedownload, blijft bewaard.
 error-fetch-corrupt-archive = download van { $url } is geen compleet tegelarchief: { $message }
 error-fetch-corrupt-extract = download van { $url } is geen compleet OSM-extract: { $message }
 error-fetch-tiles-not-covered = { $count ->

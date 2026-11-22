@@ -227,6 +227,7 @@ mod tests {
             ("program", v("open")),
             ("files", v("a.omap")),
             ("message", v("m")),
+            ("attempts", n(3)),
             ("scale", v(4000)),
             ("kind", v("k")),
             ("allowed", v("1:4000")),

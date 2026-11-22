@@ -509,6 +509,7 @@ word-part-point-cloud = laserowe chmury punktów dla kandydatów roślinności
 ## Błędy: pobieranie
 
 error-fetch-http = pobieranie { $url } nie powiodło się: { $message }
+error-fetch-http-temporary = pobieranie { $url } nie powiodło się: { $message }. Usługa jest prawdopodobnie przeciążona lub w trakcie konserwacji; freemapper próbował do { $attempts } razy. Uruchom przebieg ponownie za kilka minut; to, co już pobrano, zostaje zachowane.
 error-fetch-corrupt-archive = pobrany plik { $url } nie jest kompletnym archiwum arkuszy: { $message }
 error-fetch-corrupt-extract = pobrany plik { $url } nie jest kompletnym wyciągiem OSM: { $message }
 error-fetch-tiles-not-covered = { $count ->

@@ -23,6 +23,7 @@
 //! so they give no area to paint; OSM has them. The hosts are the two of GUGiK the adapter
 //! already asks ([`crate::gugik_index::INDEX_HOST`], [`crate::gugik_index::DOWNLOAD_HOST`]).
 
+use freemapper_adapter_api::fetch::download_with_retries;
 use std::collections::BTreeMap;
 use std::fs::File;
 use std::io::{BufReader, Read};
@@ -773,7 +774,7 @@ fn fill_capped(
         };
         let path = cache_file(env, package, &stamp);
         if !path.exists() {
-            fetcher.download_to(&package.url, &path, cap_bytes, &mut *env.progress)?;
+            download_with_retries(fetcher, &package.url, &path, cap_bytes, &mut *env.progress)?;
             remove_older(&path, &package.teryt);
         }
         let read = read_archive(&path, gap.classes(), bbox).inspect_err(|_| {

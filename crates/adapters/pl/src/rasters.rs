@@ -9,6 +9,7 @@
 //! The catalog is the one part that needs the index service of GUGiK; everything else works on
 //! the files, so it is built and tested without it.
 
+use freemapper_adapter_api::fetch::download_with_retries;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -256,7 +257,7 @@ impl PolskaRasters {
                 return Err(not_fetched(product));
             }
             let fetcher = env.fetcher;
-            fetcher.download_to(&sheet.url, &path, self.cap_bytes(), env.progress)?;
+            download_with_retries(fetcher, &sheet.url, &path, self.cap_bytes(), env.progress)?;
         }
         let bytes = std::fs::read(&path).map_err(|e| AdapterError::Io(path.clone(), e))?;
         Ok((path, bytes))
