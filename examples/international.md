@@ -6,7 +6,7 @@ Je eine Sprintkarte und eine Waldkarte pro Land zeigen, dass freemapper dort Kar
 
 ## Polen
 
-Gelände, Luftbild, Gebäude und Landnutzung kommen von GUGiK (Kataster EGiB), Wege und Gewässer aus OpenStreetMap. Hinweise zu Genehmigungen gibt es für Polen noch nicht.
+Gelände, Luftbild, Gebäude und Landnutzung kommen von GUGiK (Kataster EGiB), Wege und Gewässer aus OpenStreetMap.
 
 | Vorschau | Kartenart | Gebiet | Kartenobjekte | Kandidaten | Symbole |
 |---|---|---|---:|---:|---:|

@@ -6,7 +6,7 @@ One sprint map and one forest map per country show that freemapper makes maps th
 
 ## Poland
 
-Terrain, orthophoto, buildings and land use come from GUGiK (the cadastre EGiB), paths and water from OpenStreetMap. There are no permit notes for Poland yet.
+Terrain, orthophoto, buildings and land use come from GUGiK (the cadastre EGiB), paths and water from OpenStreetMap.
 
 | Preview | Kind | Area | Map objects | Candidates | Symbols |
 |---|---|---|---:|---:|---:|
