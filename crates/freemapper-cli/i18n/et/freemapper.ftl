@@ -496,6 +496,7 @@ word-part-point-cloud = taimestiku kandidaatide laserpunktipilved
 ## Errors: downloads
 
 error-fetch-http = { $url } allalaadimine ebaõnnestus: { $message }
+error-fetch-http-temporary = { $url } allalaadimine ebaõnnestus: { $message }. Teenus on tõenäoliselt üle koormatud või hoolduses; freemapper küsis kuni { $attempts } korda. Käivitage käitus mõne minuti pärast uuesti; juba alla laaditu säilib.
 error-fetch-corrupt-archive = { $url } allalaadimine ei ole täielik ruudu-arhiiv: { $message }
 error-fetch-corrupt-extract = { $url } allalaadimine ei ole täielik OSM-i väljavõte: { $message }
 error-fetch-tiles-not-covered = { $count ->
@@ -992,6 +993,9 @@ permits-hint-owners-unknown = { $rest ->
 permits-section-forest-units = Metsahaldus ({ $source })
 permits-section-state-forest = Riigimets ({ $source })
 permits-none-forest-units = { $source } järgi ei asu kaardiala ühegi metsaameti tööpiirkonnas.
+permits-section-admin-units = Haldusüksused ({ $source })
+permits-none-admin-units = Registri { $source } järgi ei asu kaardiala üheski haldusüksuses.
+permits-admin-unit-code = { $name } (TERYT { $code })
 permits-none-state-forest = { $source } järgi ei asu kaardialal riigimetsa.
 permits-forest-units-reach = Metsaamet vastutab oma piirkonna metsa eest. Selle piirkond võib hõlmata ka linnu ja põlde.
 permits-state-forest-office = vastutaja: { $office }

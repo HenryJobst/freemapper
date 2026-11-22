@@ -507,6 +507,7 @@ word-part-point-cloud = laserová mračna bodů pro kandidáty vegetace
 ## Errors: downloads
 
 error-fetch-http = stažení { $url } selhalo: { $message }
+error-fetch-http-temporary = stažení { $url } selhalo: { $message }. Služba je pravděpodobně přetížená nebo v údržbě; freemapper se ptal až { $attempts }krát. Spusťte běh za několik minut znovu; co už je stažené, zůstává zachováno.
 error-fetch-corrupt-archive = stažení { $url } není úplný archiv dlaždic: { $message }
 error-fetch-corrupt-extract = stažení { $url } není úplný výřez OSM: { $message }
 error-fetch-tiles-not-covered = { $count ->
@@ -1003,6 +1004,9 @@ permits-hint-owners-unknown = { $rest ->
 permits-section-forest-units = Lesní správa ({ $source })
 permits-section-state-forest = Les spolkové země ({ $source })
 permits-none-forest-units = Podle { $source } území mapy neleží v působnosti žádného lesního úřadu.
+permits-section-admin-units = Správní jednotky ({ $source })
+permits-none-admin-units = Podle { $source } oblast mapy neleží v žádné správní jednotce registru.
+permits-admin-unit-code = { $name } (TERYT { $code })
 permits-none-state-forest = Podle { $source } v území mapy neleží žádný les spolkové země.
 permits-forest-units-reach = Lesní úřad odpovídá za les ve své působnosti. Jeho působnost může zahrnovat i města a pole.
 permits-state-forest-office = příslušný úřad: { $office }

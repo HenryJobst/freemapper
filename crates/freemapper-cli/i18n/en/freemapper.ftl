@@ -496,6 +496,7 @@ word-part-point-cloud = the laser point clouds for the vegetation candidates
 ## Errors: downloads
 
 error-fetch-http = download of { $url } failed: { $message }
+error-fetch-http-temporary = download of { $url } failed: { $message }. The service is probably overloaded or under maintenance; freemapper asked up to { $attempts } times. Run it again in a few minutes; what is already downloaded is kept.
 error-fetch-corrupt-archive = download of { $url } is not a complete tile archive: { $message }
 error-fetch-corrupt-extract = download of { $url } is not a complete OSM extract: { $message }
 error-fetch-tiles-not-covered = { $count ->
@@ -992,6 +993,9 @@ permits-hint-owners-unknown = { $rest ->
 permits-section-forest-units = Forest administration ({ $source })
 permits-section-state-forest = State forest ({ $source })
 permits-none-forest-units = According to { $source }, the map area lies in the area of no forest office.
+permits-section-admin-units = Administrative units ({ $source })
+permits-none-admin-units = According to { $source }, the map area lies in no administrative unit of the register.
+permits-admin-unit-code = { $name } (TERYT { $code })
 permits-none-state-forest = According to { $source }, no state forest lies in the map area.
 permits-forest-units-reach = A forest office is in charge of the forest in its area. Its area can take in towns and fields as well.
 permits-state-forest-office = in charge: { $office }

@@ -508,6 +508,7 @@ word-part-point-cloud = laserske oblake točk za kandidate vegetacije
 ## Errors: downloads
 
 error-fetch-http = prenos { $url } ni uspel: { $message }
+error-fetch-http-temporary = prenos { $url } ni uspel: { $message }. Storitev je verjetno preobremenjena ali v vzdrževanju; freemapper je poskusil do { $attempts }-krat. Zaženite zagon čez nekaj minut znova; že prenesano se ohrani.
 error-fetch-corrupt-archive = prenos { $url } ni popoln arhiv ploščic: { $message }
 error-fetch-corrupt-extract = prenos { $url } ni popoln izvleček OSM: { $message }
 error-fetch-tiles-not-covered = { $count ->
@@ -1006,6 +1007,9 @@ permits-hint-owners-unknown = { $rest ->
 permits-section-forest-units = Gozdarska uprava ({ $source })
 permits-section-state-forest = Državni gozd ({ $source })
 permits-none-forest-units = Po { $source } območje karte ne leži na območju nobenega gozdarskega urada.
+permits-section-admin-units = Upravne enote ({ $source })
+permits-none-admin-units = Po podatkih { $source } območje zemljevida ne leži v nobeni upravni enoti registra.
+permits-admin-unit-code = { $name } (TERYT { $code })
 permits-none-state-forest = Po { $source } na območju karte ni državnega gozda.
 permits-forest-units-reach = Gozdarski urad je pristojen za gozd na svojem območju. Njegovo območje lahko zajema tudi mesta in polja.
 permits-state-forest-office = pristojen: { $office }

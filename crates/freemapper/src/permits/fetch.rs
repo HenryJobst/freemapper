@@ -1797,7 +1797,11 @@ mod poland {
                 .iter()
                 .map(|r| (r.adapter.as_str(), r.source.key.as_str()))
                 .collect::<Vec<_>>(),
-            [("polska", "gdos"), ("polska", "prg")]
+            [
+                ("polska", "gdos"),
+                ("polska", "prg"),
+                ("polska", "prg-granice")
+            ]
         );
         let today = "2026-11-22".parse().unwrap();
         let notes = write_permit_notes(dir.path(), &project, &online, today).unwrap();
@@ -1833,6 +1837,8 @@ mod poland {
             units[0].item.administration,
             "Regionalna Dyrekcja Lasów Państwowych w Warszawie"
         );
+        // No gmina answers for the sample around Warsaw: the section is there and says so.
+        assert_eq!(part.admin_units, Some(Vec::new()));
         let stored = std::fs::read_to_string(dir.path().join("permits.json")).unwrap();
         assert!(
             !stored.contains("vg250") && !stored.contains("bfn"),
@@ -1971,5 +1977,131 @@ mod poland {
             matches!(r.findings, SourceInput::Read { .. })
         };
         assert!(!state("gdos") && state("prg"));
+    }
+
+    /// A map area of about 300 × 200 m in Słubice: min lon, min lat, max lon, max lat.
+    const SLUBICE: [f64; 4] = [14.558, 52.349, 14.562, 52.351];
+
+    const BASE: &str = "https://mapy.geoportal.gov.pl/wss/service/PZGIK/PRG/WFS/AdministrativeBoundaries?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=ms:";
+
+    fn project_at(area: [f64; 4]) -> (TempDir, ProjectFile) {
+        let dir = tempfile::tempdir().unwrap();
+        let [w, s, e, n] = area;
+        let geojson = format!(
+            r#"{{"type":"Polygon","coordinates":[[[{w},{s}],[{e},{s}],[{e},{n}],[{w},{n}],[{w},{s}]]]}}"#
+        );
+        let area = MapArea::from_geojson(&geojson).unwrap();
+        let project = init_project(
+            dir.path(),
+            &area,
+            MapKind::Sprint,
+            None,
+            "2026-11-22".parse().unwrap(),
+            None,
+        )
+        .unwrap();
+        (dir, project)
+    }
+
+    /// Serves the units of the PRG for Słubice; the GDOŚ and the forest districts answer empty.
+    /// `failing` makes the layer of units with that type name answer a server error.
+    fn serve_slubice(fetcher: &MapFetcher, failing: Option<&str>) {
+        let empty_gdos = br#"{"type":"FeatureCollection","features":[]}"#.to_vec();
+        let empty_xml = fixture("prg-gminy-slubice.xml");
+        let empty_xml = String::from_utf8(empty_xml).unwrap();
+        let empty_xml = empty_xml.split("<wfs:member>").next().unwrap().to_string()
+            + "</wfs:FeatureCollection>";
+        let probe = MapFetcher::default();
+        probe.insert_prefix("https://sdi.gdos.gov.pl/", empty_gdos.clone());
+        probe.insert_prefix(&format!("{BASE}U06"), empty_xml.clone().into_bytes());
+        probe.insert_prefix(&format!("{BASE}A03"), fixture("prg-gminy-slubice.xml"));
+        probe.insert_prefix(&format!("{BASE}A02"), fixture("prg-powiaty-slubice.xml"));
+        probe.insert_prefix(&format!("{BASE}A01"), fixture("prg-woj-slubice.xml"));
+        let registry = crate::adapters::registry();
+        let polska = registry.get("polska").unwrap();
+        let [w, s, e, n] = SLUBICE;
+        let rect = geo_types::Rect::new(
+            geo_types::coord! { x: w, y: s },
+            geo_types::coord! { x: e, y: n },
+        );
+        let scratch = tempfile::tempdir().unwrap();
+        let part = scratch.path().join("probe.part");
+        for source in polska.permit_sources() {
+            let _ = source.fetch(&probe, &rect, &part);
+        }
+        for url in probe.log.borrow().iter() {
+            let body = if url.starts_with("https://sdi.gdos.gov.pl/") {
+                empty_gdos.clone()
+            } else if url.starts_with(&format!("{BASE}U06")) {
+                empty_xml.clone().into_bytes()
+            } else if url.starts_with(&format!("{BASE}A03")) {
+                fixture("prg-gminy-slubice.xml")
+            } else if url.starts_with(&format!("{BASE}A02")) {
+                fixture("prg-powiaty-slubice.xml")
+            } else {
+                fixture("prg-woj-slubice.xml")
+            };
+            if failing.is_some_and(|f| url.starts_with(&format!("{BASE}{f}"))) {
+                fetcher.failing.borrow_mut().push(url.clone());
+            }
+            fetcher.insert(url, body);
+        }
+    }
+
+    #[test]
+    fn the_notes_of_a_map_area_in_slubice_name_voivodeship_powiat_and_gmina() {
+        let (dir, project) = project_at(SLUBICE);
+        let fetcher = MapFetcher::default();
+        serve_slubice(&fetcher, None);
+        let online = fetch(&project, dir.path(), &fetcher, false).unwrap();
+        let today = "2026-11-22".parse().unwrap();
+        let notes = write_permit_notes(dir.path(), &project, &online, today).unwrap();
+        let units: Vec<(&str, &str, f64)> = notes.regional[0]
+            .admin_units
+            .as_ref()
+            .unwrap()
+            .iter()
+            .map(|s| (s.item.name.as_str(), s.item.code.as_str(), s.percent))
+            .collect();
+        assert_eq!(
+            units,
+            [
+                ("województwo lubuskie", "08", 100.0),
+                ("powiat słubicki", "0805", 100.0),
+                ("gmina miejsko-wiejska Słubice", "0805053", 100.0),
+            ]
+        );
+        let stored = std::fs::read_to_string(dir.path().join("permits.json")).unwrap();
+        assert!(stored.contains("\"admin_units\""), "{stored}");
+
+        // Offline, the stored answers give the same notes without asking a server.
+        let silent = MapFetcher::default();
+        let offline = fetch(&project, dir.path(), &silent, true).unwrap();
+        assert!(silent.log.borrow().is_empty());
+        let again = write_permit_notes(dir.path(), &project, &offline, today).unwrap();
+        assert_eq!(again, notes);
+    }
+
+    /// The units are one source: when its service is down, the other sources of the notes stay
+    /// and the section is left out.
+    #[test]
+    fn a_failing_register_of_units_is_a_warning_not_a_failure() {
+        let (dir, project) = project_at(SLUBICE);
+        let fetcher = MapFetcher::default();
+        serve_slubice(&fetcher, Some("A02"));
+        let inputs = fetch(&project, dir.path(), &fetcher, false).unwrap();
+        let read = |key: &str| {
+            let r = inputs
+                .regional
+                .iter()
+                .find(|r| r.source.key == key)
+                .unwrap();
+            matches!(r.findings, SourceInput::Read { .. })
+        };
+        assert!(read("gdos") && read("prg") && !read("prg-granice"));
+        let today = "2026-11-22".parse().unwrap();
+        let notes = write_permit_notes(dir.path(), &project, &inputs, today).unwrap();
+        assert_eq!(notes.regional[0].admin_units, None);
+        assert!(notes.regional[0].protected_objects.is_some());
     }
 }

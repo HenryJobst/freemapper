@@ -4,6 +4,7 @@
 //! surface models, their currency and download links from the ArcGIS tile index.
 
 use crate::sources::lgb::ProductTiles as _;
+use freemapper_adapter_api::fetch::get_with_retries;
 use std::borrow::Cow;
 use std::path::Path;
 
@@ -155,7 +156,7 @@ pub fn flight_date(fetcher: &dyn Fetcher, bbox: &BoundingBox) -> Option<String> 
         e + 10.1,
         n + 10.1
     );
-    let bytes = fetcher.get(&url).ok()?;
+    let bytes = get_with_retries(fetcher, &url, |bytes| Ok(bytes.to_vec())).ok()?;
     parse_flight_date(&String::from_utf8_lossy(&bytes))
 }
 

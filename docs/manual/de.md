@@ -1449,11 +1449,14 @@ allow-host` gilt für die Dienste des Bundes nicht.
 
 ### Hinweise zu Genehmigungen in Polen
 
-Für ein Kartengebiet in Polen kommen die Hinweise aus zwei polnischen Diensten, nicht aus BfN und BKG: den
+Für ein Kartengebiet in Polen kommen die Hinweise aus polnischen Diensten, nicht aus BfN und BKG: den
 Naturschutzschichten der Generaldirektion für Umweltschutz (GDOŚ, `sdi.gdos.gov.pl`: Nationalparks,
-Landschaftsparks, Naturschutzgebiete, Landschaftsschutzgebiete, Natura 2000, Naturdenkmäler und mehr) und den
-Forstbezirken der Staatsforsten aus dem Landesregister der Grenzen (PRG, `mapy.geoportal.gov.pl`). Die Hinweise
-nennen weder Kreis noch Gemeinde noch Ordnungsamt, weil es sie dort so nicht gibt. Sie sagen, dass die Verwaltung
+Landschaftsparks, Naturschutzgebiete, Landschaftsschutzgebiete, Natura 2000, Naturdenkmäler und mehr) und, aus dem
+Landesregister der Grenzen (PRG, `mapy.geoportal.gov.pl`), den Forstbezirken der Staatsforsten und den
+Verwaltungseinheiten. Der Abschnitt „Verwaltungseinheiten“ steht vorn. Er nennt die Woiwodschaft (województwo), den
+Powiat und die Gmina, in denen das Kartengebiet liegt, mit ihrem TERYT-Code und ihrem Anteil am Gebiet; ein Gebiet an
+einer Grenze führt jede Einheit auf, die es berührt. Die Gmina ist die Gemeinde, bei der man für eine Veranstaltung
+zuerst nachfragt. Die Hinweise nennen weder Kreis noch Gemeinde noch Ordnungsamt, weil es sie dort so nicht gibt. Sie sagen, dass die Verwaltung
 eines Parks oder Reservats und die Regionaldirektion für Umweltschutz (RDOŚ) meist sagen können, wer zuständig
 ist, und dass eine Veranstaltung im Wald meist die Zustimmung des Waldeigentümers braucht. In den Daten sind nur
 die Staatsforsten, kein Privatwald. Die Hinweistexte hat noch kein Polnischsprecher gelesen. Die Hinweise sind

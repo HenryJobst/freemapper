@@ -496,6 +496,7 @@ word-part-point-cloud = laserpunktskyene for vegetasjonskandidatene
 ## Errors: downloads
 
 error-fetch-http = nedlastingen av { $url } feilet: { $message }
+error-fetch-http-temporary = nedlastingen av { $url } feilet: { $message }. Tjenesten er sannsynligvis overbelastet eller under vedlikehold; freemapper har spurt opptil { $attempts } ganger. Start kjøringen på nytt om noen minutter; det som allerede er lastet ned, beholdes.
 error-fetch-corrupt-archive = nedlastingen av { $url } er ikke et fullstendig flisarkiv: { $message }
 error-fetch-corrupt-extract = nedlastingen av { $url } er ikke et fullstendig OSM-utdrag: { $message }
 error-fetch-tiles-not-covered = { $count ->
@@ -992,6 +993,9 @@ permits-hint-owners-unknown = { $rest ->
 permits-section-forest-units = Skogforvaltning ({ $source })
 permits-section-state-forest = Delstatsskog ({ $source })
 permits-none-forest-units = Ifølge { $source } ligger kartområdet i området til ikke noe skogkontor.
+permits-section-admin-units = Administrative enheter ({ $source })
+permits-none-admin-units = Ifølge { $source } ligger kartområdet ikke i noen administrativ enhet i registeret.
+permits-admin-unit-code = { $name } (TERYT { $code })
 permits-none-state-forest = Ifølge { $source } ligger det ingen delstatsskog i kartområdet.
 permits-forest-units-reach = Et skogkontor er ansvarlig for skogen i sitt område. Området kan også omfatte byer og jorder.
 permits-state-forest-office = ansvarlig: { $office }

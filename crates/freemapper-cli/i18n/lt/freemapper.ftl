@@ -502,6 +502,7 @@ word-part-point-cloud = augmenijos kandidatų lazerinių taškų debesys
 ## Errors: downloads
 
 error-fetch-http = { $url } atsisiuntimas nepavyko: { $message }
+error-fetch-http-temporary = { $url } atsisiuntimas nepavyko: { $message }. Paslauga greičiausiai perkrauta arba vykdoma priežiūra; freemapper bandė iki { $attempts } kartų. Paleiskite vykdymą iš naujo po kelių minučių; jau atsisiųsta išsaugoma.
 error-fetch-corrupt-archive = { $url } atsisiuntimas nėra pilnas plytelių archyvas: { $message }
 error-fetch-corrupt-extract = { $url } atsisiuntimas nėra pilna OSM ištrauka: { $message }
 error-fetch-tiles-not-covered = { $count ->
@@ -1010,6 +1011,9 @@ permits-hint-owners-unknown = { $rest ->
 permits-section-forest-units = Miškų administracija ({ $source })
 permits-section-state-forest = Federalinės žemės miškas ({ $source })
 permits-none-forest-units = Pagal { $source } žemėlapio plotas nepatenka į jokios miškų tarnybos veiklos plotą.
+permits-section-admin-units = Administraciniai vienetai ({ $source })
+permits-none-admin-units = Pagal { $source } žemėlapio teritorija nepatenka į jokį registro administracinį vienetą.
+permits-admin-unit-code = { $name } (TERYT { $code })
 permits-none-state-forest = Pagal { $source } žemėlapio plote federalinės žemės miško nėra.
 permits-forest-units-reach = Miškų tarnyba atsako už savo ploto mišką. Jos plotas gali apimti ir miestus bei laukus.
 permits-state-forest-office = atsakinga: { $office }

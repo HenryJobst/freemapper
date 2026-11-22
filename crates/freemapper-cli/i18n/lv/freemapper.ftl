@@ -503,6 +503,7 @@ word-part-point-cloud = lāzera punktu mākoņi veģetācijas kandidātiem
 ## Errors: downloads
 
 error-fetch-http = { $url } lejupielāde neizdevās: { $message }
+error-fetch-http-temporary = { $url } lejupielāde neizdevās: { $message }. Pakalpojums, iespējams, ir pārslogots vai tiek apkopts; freemapper mēģināja līdz { $attempts } reizēm. Palaidiet izpildi vēlreiz pēc dažām minūtēm; jau lejupielādētais tiek saglabāts.
 error-fetch-corrupt-archive = { $url } lejupielāde nav pilns flīžu arhīvs: { $message }
 error-fetch-corrupt-extract = { $url } lejupielāde nav pilns OSM izvilkums: { $message }
 error-fetch-tiles-not-covered = { $count ->
@@ -999,6 +1000,9 @@ permits-hint-owners-unknown = { $rest ->
 permits-section-forest-units = Meža pārvalde ({ $source })
 permits-section-state-forest = Valsts mežs ({ $source })
 permits-none-forest-units = Pēc { $source } datiem kartes apgabals neatrodas nevienas mežniecības (Forstamt) teritorijā.
+permits-section-admin-units = Administratīvās vienības ({ $source })
+permits-none-admin-units = Saskaņā ar { $source } kartes teritorija neatrodas nevienā reģistra administratīvajā vienībā.
+permits-admin-unit-code = { $name } (TERYT { $code })
 permits-none-state-forest = Pēc { $source } datiem kartes apgabalā nav valsts meža.
 permits-forest-units-reach = Mežniecība atbild par mežu savā teritorijā. Tās teritorija var ietvert arī pilsētas un laukus.
 permits-state-forest-office = atbildīga: { $office }

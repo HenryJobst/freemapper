@@ -502,6 +502,7 @@ word-part-point-cloud = les nuages de points laser pour les candidats de végét
 ## Errors: downloads
 
 error-fetch-http = le téléchargement de { $url } a échoué : { $message }
+error-fetch-http-temporary = le téléchargement de { $url } a échoué : { $message }. Le service est probablement surchargé ou en maintenance ; freemapper a essayé jusqu'à { $attempts } fois. Relancez l'exécution dans quelques minutes ; ce qui est déjà téléchargé est conservé.
 error-fetch-corrupt-archive = le téléchargement de { $url } n'est pas une archive de tuiles complète : { $message }
 error-fetch-corrupt-extract = le téléchargement de { $url } n'est pas un extrait OSM complet : { $message }
 error-fetch-tiles-not-covered = { $count ->
@@ -998,6 +999,9 @@ permits-hint-owners-unknown = { $rest ->
 permits-section-forest-units = Administration forestière ({ $source })
 permits-section-state-forest = Forêt domaniale du Land ({ $source })
 permits-none-forest-units = Selon { $source }, la zone de la carte ne se trouve dans le ressort d'aucun office forestier.
+permits-section-admin-units = Unités administratives ({ $source })
+permits-none-admin-units = Selon { $source }, la zone de la carte ne se trouve dans aucune unité administrative du registre.
+permits-admin-unit-code = { $name } (TERYT { $code })
 permits-none-state-forest = Selon { $source }, aucune forêt domaniale du Land ne se trouve dans la zone de la carte.
 permits-forest-units-reach = Un office forestier est compétent pour la forêt de son ressort. Son ressort peut aussi englober des villes et des champs.
 permits-state-forest-office = compétent : { $office }

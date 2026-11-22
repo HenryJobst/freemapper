@@ -508,6 +508,7 @@ word-part-point-cloud = лазерні хмари точок для кандид
 ## Errors: downloads
 
 error-fetch-http = завантаження { $url } не вдалося: { $message }
+error-fetch-http-temporary = завантаження { $url } не вдалося: { $message }. Сервіс, імовірно, перевантажений або на обслуговуванні; freemapper намагався до { $attempts } разів. Запустіть виконання знову через кілька хвилин; уже завантажене зберігається.
 error-fetch-corrupt-archive = завантаження { $url } не є повним архівом плиток: { $message }
 error-fetch-corrupt-extract = завантаження { $url } не є повним витягом OSM: { $message }
 error-fetch-tiles-not-covered = { $count ->
@@ -1008,6 +1009,9 @@ permits-hint-owners-unknown = { $rest ->
 permits-section-forest-units = Лісове управління ({ $source })
 permits-section-state-forest = Ліс федеральної землі ({ $source })
 permits-none-forest-units = За даними { $source }, територія карти не лежить у зоні жодного лісництва (Forstamt).
+permits-section-admin-units = Адміністративні одиниці ({ $source })
+permits-none-admin-units = За даними { $source } територія карти не належить до жодної адміністративної одиниці реєстру.
+permits-admin-unit-code = { $name } (TERYT { $code })
 permits-none-state-forest = За даними { $source }, на території карти немає лісу федеральної землі.
 permits-forest-units-reach = Лісництво відповідає за ліс у своїй зоні. Його зона може охоплювати також міста й поля.
 permits-state-forest-office = відповідальний: { $office }

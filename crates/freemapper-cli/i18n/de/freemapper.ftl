@@ -496,6 +496,7 @@ word-part-point-cloud = die Laserpunktwolken für die Vegetations-Kandidaten
 ## Fehler: Herunterladen
 
 error-fetch-http = Das Herunterladen von { $url } ist gescheitert: { $message }
+error-fetch-http-temporary = Das Herunterladen von { $url } ist gescheitert: { $message }. Der Dienst ist vermutlich überlastet oder in Wartung; freemapper hat bis zu { $attempts } Mal gefragt. Starten Sie den Lauf in einigen Minuten noch einmal; was schon heruntergeladen ist, bleibt erhalten.
 error-fetch-corrupt-archive = Von { $url } kam kein vollständiges Kachelarchiv: { $message }
 error-fetch-corrupt-extract = Von { $url } kam kein vollständiger OSM-Auszug: { $message }
 error-fetch-tiles-not-covered = { $count ->
@@ -1009,6 +1010,9 @@ permits-hint-owners-unknown = { $rest ->
 permits-section-forest-units = Forstverwaltung ({ $source })
 permits-section-state-forest = Staatswald ({ $source })
 permits-none-forest-units = Laut { $source } liegt das Kartengebiet im Bereich keiner Forstdienststelle.
+permits-section-admin-units = Verwaltungseinheiten ({ $source })
+permits-none-admin-units = Laut { $source } liegt das Kartengebiet in keiner Verwaltungseinheit des Registers.
+permits-admin-unit-code = { $name } (TERYT { $code })
 permits-none-state-forest = Laut { $source } liegt im Kartengebiet kein Staatswald.
 permits-forest-units-reach = Die Forstdienststelle ist für den Wald in ihrem Bereich zuständig. Ihr Bereich kann auch Siedlungen und Felder umfassen.
 permits-state-forest-office = zuständig: { $office }

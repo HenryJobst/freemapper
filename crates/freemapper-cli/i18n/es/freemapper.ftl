@@ -503,6 +503,7 @@ word-part-point-cloud = las nubes de puntos láser para los candidatos de vegeta
 ## Errors: downloads
 
 error-fetch-http = falló la descarga de { $url }: { $message }
+error-fetch-http-temporary = falló la descarga de { $url }: { $message }. El servicio probablemente está sobrecargado o en mantenimiento; freemapper lo intentó hasta { $attempts } veces. Vuelva a ejecutar en unos minutos; lo que ya se descargó se conserva.
 error-fetch-corrupt-archive = la descarga de { $url } no es un archivo de teselas completo: { $message }
 error-fetch-corrupt-extract = la descarga de { $url } no es un extracto de OSM completo: { $message }
 error-fetch-tiles-not-covered = { $count ->
@@ -1002,6 +1003,9 @@ permits-hint-owners-unknown = { $rest ->
 permits-section-forest-units = Administración forestal ({ $source })
 permits-section-state-forest = Bosque del estado ({ $source })
 permits-none-forest-units = Según { $source }, el área del mapa no está en la demarcación de ninguna oficina forestal.
+permits-section-admin-units = Unidades administrativas ({ $source })
+permits-none-admin-units = Según { $source }, la zona del mapa no se encuentra en ninguna unidad administrativa del registro.
+permits-admin-unit-code = { $name } (TERYT { $code })
 permits-none-state-forest = Según { $source }, ningún bosque del estado está en el área del mapa.
 permits-forest-units-reach = Una oficina forestal es competente para el bosque de su demarcación. Su demarcación puede abarcar también ciudades y campos.
 permits-state-forest-office = competente: { $office }

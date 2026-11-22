@@ -496,6 +496,7 @@ word-part-point-cloud = de laserpuntenwolken voor de vegetatiekandidaten
 ## Errors: downloads
 
 error-fetch-http = download van { $url } mislukt: { $message }
+error-fetch-http-temporary = download van { $url } mislukt: { $message }. De dienst is waarschijnlijk overbelast of in onderhoud; freemapper heeft maximaal { $attempts } keer geprobeerd. Start de run over enkele minuten opnieuw; wat al is gedownload, blijft bewaard.
 error-fetch-corrupt-archive = download van { $url } is geen compleet tegelarchief: { $message }
 error-fetch-corrupt-extract = download van { $url } is geen compleet OSM-extract: { $message }
 error-fetch-tiles-not-covered = { $count ->
@@ -992,6 +993,9 @@ permits-hint-owners-unknown = { $rest ->
 permits-section-forest-units = Bosbeheer ({ $source })
 permits-section-state-forest = Staatsbos ({ $source })
 permits-none-forest-units = Volgens { $source } ligt het kaartgebied in het gebied van geen bosbeheerkantoor.
+permits-section-admin-units = Bestuurlijke eenheden ({ $source })
+permits-none-admin-units = Volgens { $source } ligt het kaartgebied in geen enkele bestuurlijke eenheid van het register.
+permits-admin-unit-code = { $name } (TERYT { $code })
 permits-none-state-forest = Volgens { $source } ligt er geen staatsbos in het kaartgebied.
 permits-forest-units-reach = Een bosbeheerkantoor is verantwoordelijk voor het bos in zijn gebied. Zijn gebied kan ook steden en akkers omvatten.
 permits-state-forest-office = verantwoordelijk: { $office }

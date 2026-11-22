@@ -3,6 +3,7 @@
 //! The classified laser point clouds of LGB Brandenburg (ALS, dl-de/by-2-0): one zip per km tile
 //! with the LAZ file, its currency in a CSV like that of the DGM (ADR 0105).
 
+use freemapper_adapter_api::fetch::get_with_retries;
 use std::fs::File;
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
@@ -103,7 +104,7 @@ impl PointCloudBackend for LgbAlsBackend {
             std::fs::read(&csv_path).unwrap_or_default()
         } else {
             (env.progress)(note!("progress-downloading", url = ALS_CURRENCY_CSV));
-            match env.fetcher.get(ALS_CURRENCY_CSV) {
+            match get_with_retries(env.fetcher, ALS_CURRENCY_CSV, |csv| Ok(csv.to_vec())) {
                 Ok(csv) => csv,
                 Err(FetchError::Cancelled) => return Err(FetchError::Cancelled.into()),
                 Err(e) => {

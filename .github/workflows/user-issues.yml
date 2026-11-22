@@ -1,7 +1,7 @@
 name: Issues of users
 
 # Marks every issue that comes from neither the maintainer, a collaborator nor a bot with the label
-# `von-nutzer` (ADR 0180), so that the issues of users stand out from the maintainer's own and are
+# `von-nutzer` (ADR 0182), so that the issues of users stand out from the maintainer's own and are
 # looked at first. Only the label is set; the text of the issue is never read.
 on:
   issues:

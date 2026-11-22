@@ -496,6 +496,7 @@ word-part-point-cloud = a növényzetjelöltekhez tartozó lézerpontfelhők
 ## Errors: downloads
 
 error-fetch-http = a(z) { $url } letöltése sikertelen: { $message }
+error-fetch-http-temporary = a(z) { $url } letöltése sikertelen: { $message }. A szolgáltatás valószínűleg túlterhelt vagy karbantartás alatt áll; a freemapper legfeljebb { $attempts } alkalommal próbálkozott. Indítsa újra a futtatást néhány perc múlva; ami már letöltődött, megmarad.
 error-fetch-corrupt-archive = a(z) { $url } letöltése nem teljes csempearchívum: { $message }
 error-fetch-corrupt-extract = a(z) { $url } letöltése nem teljes OSM-kivonat: { $message }
 error-fetch-tiles-not-covered = { $count ->
@@ -992,6 +993,9 @@ permits-hint-owners-unknown = { $rest ->
 permits-section-forest-units = Erdészeti igazgatás ({ $source })
 permits-section-state-forest = Tartományi erdő ({ $source })
 permits-none-forest-units = A(z) { $source } szerint a térképterület egyetlen erdészeti hivatal területén sincs.
+permits-section-admin-units = Közigazgatási egységek ({ $source })
+permits-none-admin-units = A(z) { $source } szerint a térképterület a nyilvántartás egyetlen közigazgatási egységében sem fekszik.
+permits-admin-unit-code = { $name } (TERYT { $code })
 permits-none-state-forest = A(z) { $source } szerint nincs tartományi erdő a térképterületen.
 permits-forest-units-reach = Az erdészeti hivatal a saját területén lévő erdőért felel. A területe városokat és mezőket is magában foglalhat.
 permits-state-forest-office = illetékes: { $office }

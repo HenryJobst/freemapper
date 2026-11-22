@@ -508,6 +508,7 @@ word-part-point-cloud = лазерные облака точек для канд
 ## Errors: downloads
 
 error-fetch-http = загрузка { $url } не удалась: { $message }
+error-fetch-http-temporary = загрузка { $url } не удалась: { $message }. Сервис, вероятно, перегружен или на обслуживании; freemapper пытался до { $attempts } раз. Запустите выполнение снова через несколько минут; уже загруженное сохраняется.
 error-fetch-corrupt-archive = загрузка { $url } не является полным архивом плиток: { $message }
 error-fetch-corrupt-extract = загрузка { $url } не является полной выгрузкой OSM: { $message }
 error-fetch-tiles-not-covered = { $count ->
@@ -1013,6 +1014,9 @@ permits-hint-owners-unknown = { $rest ->
 permits-section-forest-units = Лесное управление ({ $source })
 permits-section-state-forest = Лес федеральной земли ({ $source })
 permits-none-forest-units = По данным { $source }, область карты не лежит в районе ни одного лесничества.
+permits-section-admin-units = Административные единицы ({ $source })
+permits-none-admin-units = Согласно { $source } территория карты не входит ни в одну административную единицу реестра.
+permits-admin-unit-code = { $name } (TERYT { $code })
 permits-none-state-forest = По данным { $source }, в области карты нет леса федеральной земли.
 permits-forest-units-reach = Лесничество отвечает за лес в своём районе. Его район может охватывать также города и поля.
 permits-state-forest-office = отвечает: { $office }

@@ -496,6 +496,7 @@ word-part-point-cloud = laserpunktskyerne til vegetationskandidaterne
 ## Errors: downloads
 
 error-fetch-http = download af { $url } mislykkedes: { $message }
+error-fetch-http-temporary = download af { $url } mislykkedes: { $message }. Tjenesten er sandsynligvis overbelastet eller under vedligeholdelse; freemapper har spurgt op til { $attempts } gange. Start kørslen igen om nogle minutter; det, der allerede er hentet, bevares.
 error-fetch-corrupt-archive = download af { $url } er ikke et komplet flisearkiv: { $message }
 error-fetch-corrupt-extract = download af { $url } er ikke et komplet OSM-udtræk: { $message }
 error-fetch-tiles-not-covered = { $count ->
@@ -992,6 +993,9 @@ permits-hint-owners-unknown = { $rest ->
 permits-section-forest-units = Skovforvaltning ({ $source })
 permits-section-state-forest = Delstatsskov ({ $source })
 permits-none-forest-units = Ifølge { $source } ligger kortområdet i intet skovdistrikt.
+permits-section-admin-units = Administrative enheder ({ $source })
+permits-none-admin-units = Ifølge { $source } ligger kortområdet ikke i nogen administrativ enhed i registret.
+permits-admin-unit-code = { $name } (TERYT { $code })
 permits-none-state-forest = Ifølge { $source } ligger ingen delstatsskov i kortområdet.
 permits-forest-units-reach = Et skovdistrikt er ansvarligt for skoven i sit område. Dets område kan også omfatte byer og marker.
 permits-state-forest-office = ansvarlig: { $office }

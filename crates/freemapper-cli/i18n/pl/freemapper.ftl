@@ -509,6 +509,7 @@ word-part-point-cloud = laserowe chmury punktów dla kandydatów roślinności
 ## Błędy: pobieranie
 
 error-fetch-http = pobieranie { $url } nie powiodło się: { $message }
+error-fetch-http-temporary = pobieranie { $url } nie powiodło się: { $message }. Usługa jest prawdopodobnie przeciążona lub w trakcie konserwacji; freemapper próbował do { $attempts } razy. Uruchom przebieg ponownie za kilka minut; to, co już pobrano, zostaje zachowane.
 error-fetch-corrupt-archive = pobrany plik { $url } nie jest kompletnym archiwum arkuszy: { $message }
 error-fetch-corrupt-extract = pobrany plik { $url } nie jest kompletnym wyciągiem OSM: { $message }
 error-fetch-tiles-not-covered = { $count ->
@@ -1019,6 +1020,9 @@ permits-hint-owners-unknown = { $rest ->
 permits-section-forest-units = Administracja leśna ({ $source })
 permits-section-state-forest = Lasy państwowe kraju związkowego ({ $source })
 permits-none-forest-units = Według { $source } obszar mapy nie leży w obszarze żadnego urzędu leśnego.
+permits-section-admin-units = Jednostki administracyjne ({ $source })
+permits-none-admin-units = Według { $source } obszar mapy nie leży w żadnej jednostce administracyjnej rejestru.
+permits-admin-unit-code = { $name } (TERYT { $code })
 permits-none-state-forest = Według { $source } w obszarze mapy nie leży żaden las państwowy kraju związkowego.
 permits-forest-units-reach = Urząd leśny odpowiada za las na swoim obszarze. Jego obszar może obejmować także miasta i pola.
 permits-state-forest-office = właściwy: { $office }

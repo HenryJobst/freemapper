@@ -502,6 +502,7 @@ word-part-point-cloud = le nuvole di punti laser per i candidati di vegetazione
 ## Errors: downloads
 
 error-fetch-http = download di { $url } fallito: { $message }
+error-fetch-http-temporary = download di { $url } fallito: { $message }. Il servizio è probabilmente sovraccarico o in manutenzione; freemapper ha provato fino a { $attempts } volte. Riavvii l'esecuzione tra qualche minuto; ciò che è già stato scaricato viene conservato.
 error-fetch-corrupt-archive = il download di { $url } non è un archivio di riquadri completo: { $message }
 error-fetch-corrupt-extract = il download di { $url } non è un estratto OSM completo: { $message }
 error-fetch-tiles-not-covered = { $count ->
@@ -1000,6 +1001,9 @@ permits-hint-owners-unknown = { $rest ->
 permits-section-forest-units = Amministrazione forestale ({ $source })
 permits-section-state-forest = Foresta demaniale del Land ({ $source })
 permits-none-forest-units = Secondo { $source }, l'area della carta non si trova nel territorio di alcun ufficio forestale.
+permits-section-admin-units = Unità amministrative ({ $source })
+permits-none-admin-units = Secondo { $source }, l'area della mappa non si trova in nessuna unità amministrativa del registro.
+permits-admin-unit-code = { $name } (TERYT { $code })
 permits-none-state-forest = Secondo { $source }, nell'area della carta non si trova alcuna foresta demaniale del Land.
 permits-forest-units-reach = Un ufficio forestale è competente per il bosco nel suo territorio. Il suo territorio può comprendere anche città e campi.
 permits-state-forest-office = competente: { $office }

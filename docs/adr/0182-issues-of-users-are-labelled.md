@@ -1,4 +1,4 @@
-# ADR 0180: Issues of users are labelled
+# ADR 0182: Issues of users are labelled
 
 Date: 2026-11-22
 

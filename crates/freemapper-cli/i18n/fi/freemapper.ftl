@@ -496,6 +496,7 @@ word-part-point-cloud = kasvillisuusehdokkaiden laserpistepilvet
 ## Errors: downloads
 
 error-fetch-http = osoitteen { $url } lataus epäonnistui: { $message }
+error-fetch-http-temporary = osoitteen { $url } lataus epäonnistui: { $message }. Palvelu on todennäköisesti ylikuormitettu tai huollossa; freemapper yritti enintään { $attempts } kertaa. Käynnistä ajo muutaman minuutin kuluttua uudelleen; jo ladattu säilyy.
 error-fetch-corrupt-archive = osoitteen { $url } lataus ei ole täydellinen ruutuarkisto: { $message }
 error-fetch-corrupt-extract = osoitteen { $url } lataus ei ole täydellinen OSM-ote: { $message }
 error-fetch-tiles-not-covered = { $count ->
@@ -992,6 +993,9 @@ permits-hint-owners-unknown = { $rest ->
 permits-section-forest-units = Metsähallinto ({ $source })
 permits-section-state-forest = Valtion metsä ({ $source })
 permits-none-forest-units = Lähteen { $source } mukaan kartta-alue ei ole minkään metsätoimiston alueella.
+permits-section-admin-units = Hallintoyksiköt ({ $source })
+permits-none-admin-units = Lähteen { $source } mukaan karttaalue ei ole minkään rekisterin hallintoyksikön alueella.
+permits-admin-unit-code = { $name } (TERYT { $code })
 permits-none-state-forest = Lähteen { $source } mukaan kartta-alueella ei ole valtion metsää.
 permits-forest-units-reach = Metsätoimisto vastaa alueensa metsästä. Sen alue voi kattaa myös kaupunkeja ja peltoja.
 permits-state-forest-office = vastuussa: { $office }
