@@ -6,6 +6,10 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
+### Fixed
+
+- An offline run (`run --offline`, `fetch --offline`) for a map area in Poland no longer asks the GUGiK index service. It reads the sheets an online run recorded in the project (`data/gugik-sheets.json`); when nothing is recorded it says at once that the data must be fetched online first. Before, it failed with a network error when the service was unreachable.
+
 ## [0.26.0] - 2026-11-22
 
 ### Added
