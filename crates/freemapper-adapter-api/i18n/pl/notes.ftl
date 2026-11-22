@@ -193,6 +193,7 @@ warning-surface-unusable = model pokrycia terenu nie nadaje się do użycia ({ $
 ## Downloads and the cache
 
 progress-downloading = pobieranie { $url }
+progress-retry-wait = usługa jest zajęta; kolejna próba za { $seconds } s
 progress-downloaded = pobrano { $megabytes } MB
 progress-downloaded-of = pobrano { $megabytes } z { $total } MB
 progress-tile-index-download = pobieranie indeksu arkuszy { $product }

@@ -225,6 +225,7 @@ warning-surface-unusable = Oberflächenmodell nicht verwendbar ({ $error }); ruf
 ## Downloads und der Zwischenspeicher
 
 progress-downloading = { $url } wird geladen
+progress-retry-wait = Der Dienst ist ausgelastet; neuer Versuch in { $seconds } s
 progress-downloaded = { $megabytes } MB geladen
 progress-downloaded-of = { $megabytes } MB von { $total } MB geladen
 progress-tile-index-download = Kachelübersicht für { $product } wird geladen

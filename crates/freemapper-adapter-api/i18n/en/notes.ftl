@@ -187,6 +187,7 @@ warning-surface-unusable = surface model unusable ({ $error }); run `freemapper 
 ## Downloads and the cache
 
 progress-downloading = downloading { $url }
+progress-retry-wait = the service is busy; trying again in { $seconds } s
 progress-downloaded = downloaded { $megabytes } MB
 progress-downloaded-of = downloaded { $megabytes } MB of { $total } MB
 progress-tile-index-download = downloading the { $product } tile index

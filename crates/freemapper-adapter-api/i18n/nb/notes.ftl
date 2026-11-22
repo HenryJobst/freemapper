@@ -194,6 +194,7 @@ warning-surface-unusable = overflatemodellen er ubrukelig ({ $error }); kjør `f
 ## Downloads and the cache
 
 progress-downloading = laster ned { $url }
+progress-retry-wait = tjenesten er opptatt; prøver igjen om { $seconds } s
 progress-downloaded = lastet ned { $megabytes } MB
 progress-downloaded-of = lastet ned { $megabytes } MB av { $total } MB
 progress-tile-index-download = laster ned flisindeksen for { $product }

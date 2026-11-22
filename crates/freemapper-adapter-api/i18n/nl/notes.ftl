@@ -187,6 +187,7 @@ warning-surface-unusable = oppervlaktemodel onbruikbaar ({ $error }); voer `free
 ## Downloads and the cache
 
 progress-downloading = { $url } wordt gedownload
+progress-retry-wait = de dienst is druk; nieuwe poging over { $seconds } s
 progress-downloaded = { $megabytes } MB gedownload
 progress-downloaded-of = { $megabytes } MB van { $total } MB gedownload
 progress-tile-index-download = de tegelindex van { $product } wordt gedownload

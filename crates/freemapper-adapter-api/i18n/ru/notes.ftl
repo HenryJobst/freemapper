@@ -196,6 +196,7 @@ warning-surface-unusable = модель поверхности непригод�
 ## Downloads and the cache
 
 progress-downloading = загрузка { $url }
+progress-retry-wait = сервис занят; следующая попытка через { $seconds } с
 progress-downloaded = загружено { $megabytes } МБ
 progress-downloaded-of = загружено { $megabytes } МБ из { $total } МБ
 progress-tile-index-download = загрузка индекса плиток { $product }
