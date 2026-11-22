@@ -44,11 +44,15 @@ with open("docs/coverage.json") as handle:
     print(json.load(handle)["lines"])
 PY
 )
+# The ADR count and the test count stand rounded down ("170+", "3000+"), so that a pull request
+# that adds one of them does not rewrite the README and collide with the next (ADR 0176).
 decisions=$(number 'docs/adr/[0-9]*.md')
+decisions_shown="$((decisions / 10 * 10))%2B"
 crates=$(number 'crates/**/Cargo.toml')
 msrv=$(sed -n 's/^rust-version = "\(.*\)"/\1/p' Cargo.toml | head -n 1)
 licence=$(sed -n 's/^license = "\(.*\)"/\1/p' Cargo.toml | head -n 1)
 tests=$(python3 -c 'import json; print(json.load(open("docs/tests.json"))["tests"])')
+tests_shown="$tests%2B"
 budget_seconds=$(python3 -c 'import json; print(json.load(open("docs/tests.json"))["budget_seconds"])')
 if [ "$budget_seconds" -ge 120 ]; then
   budget="$((budget_seconds / 60)) min"
@@ -95,7 +99,7 @@ badge_block() {
   hygiene_label=Hygiene
 
   cat <<EOF
-[![$tests_alt](https://img.shields.io/badge/Tests-$tests-blue)](docs/tests.json) [![$budget_alt](https://img.shields.io/badge/$budget_label-$(shields "$budget")-blue)](docs/tests.json) [![$coverage_alt](https://img.shields.io/badge/$coverage_label-$(shields "$coverage")%25-brightgreen)](docs/coverage.json) [![$msrv_label](https://img.shields.io/badge/$msrv_label-$(shields "$msrv")-blue)](Cargo.toml) [![$decisions_label](https://img.shields.io/badge/$decisions_label-$decisions-blue)](docs/adr/README.md) [![Hygiene](https://img.shields.io/badge/$hygiene_label-$checks-brightgreen)](scripts/check.sh) [![$licence_alt](https://img.shields.io/badge/$(shields "$licence_label")-$(shields "$licence")-blue)](LICENSE)
+[![$tests_alt](https://img.shields.io/badge/Tests-$tests_shown-blue)](docs/tests.json) [![$budget_alt](https://img.shields.io/badge/$budget_label-$(shields "$budget")-blue)](docs/tests.json) [![$coverage_alt](https://img.shields.io/badge/$coverage_label-$(shields "$coverage")%25-brightgreen)](docs/coverage.json) [![$msrv_label](https://img.shields.io/badge/$msrv_label-$(shields "$msrv")-blue)](Cargo.toml) [![$decisions_label](https://img.shields.io/badge/$decisions_label-$decisions_shown-blue)](docs/adr/README.md) [![Hygiene](https://img.shields.io/badge/$hygiene_label-$checks-brightgreen)](scripts/check.sh) [![$licence_alt](https://img.shields.io/badge/$(shields "$licence_label")-$(shields "$licence")-blue)](LICENSE)
 EOF
 }
 
@@ -169,5 +173,5 @@ fi
 if [ "$check" -eq 1 ]; then
   echo "badges.sh: up to date"
 else
-  echo "badges.sh: written ($tests tests, budget $budget, $coverage % coverage, $decisions ADRs, $crates crates, MSRV $msrv, $checks checks)"
+  echo "badges.sh: written ($tests+ tests, budget $budget, $coverage % coverage, $((decisions / 10 * 10))+ ADRs, $crates crates, MSRV $msrv, $checks checks)"
 fi

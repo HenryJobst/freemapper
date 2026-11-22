@@ -19,7 +19,7 @@
 #   sbom       `docs/sbom.cdx.json` is the CycloneDX list of the CLI's dependencies
 #   architecture the crates depend on each other and on driver-only crates only as the layers allow
 #   badges     the README badges match the data in the repository
-#   tests      `docs/tests.json` names the number of tests the sources declare (`tests --fix` rewrites it)
+#   tests      `docs/tests.json` names the number of tests the sources declare, rounded down to a hundred (`tests --fix` rewrites it)
 #   budget     the timed test run (`TEST_SECONDS`) stays within `budget_seconds` of `docs/tests.json`
 #   doc        rustdoc builds without warnings
 #   coverage   line coverage is not below its floor or its snapshot
@@ -470,6 +470,20 @@ gate_tests() {
   local declared
   declared=$(tests_declared)
 
+  # `docs/tests.json` names the count rounded down to a hundred, so a pull request that adds a
+  # test does not rewrite it (ADR 0176). The gate holds when the declared count lies in
+  # `[recorded, recorded + 100)`; `--fix` rewrites it when it does not.
+  local recorded
+  recorded=$(python3 -c 'import json; print(json.load(open("docs/tests.json"))["tests"])') ||
+    {
+      report "docs/tests.json is missing or unreadable"
+      return
+    }
+
+  if [ "$declared" -ge "$recorded" ] && [ "$declared" -lt "$((recorded + 100))" ]; then
+    return
+  fi
+
   if [ "$fix" = 1 ]; then
     python3 - "$declared" <<'PY'
 import json
@@ -478,7 +492,7 @@ import sys
 path = "docs/tests.json"
 with open(path) as handle:
     data = json.load(handle)
-data["tests"] = int(sys.argv[1])
+data["tests"] = int(sys.argv[1]) // 100 * 100
 with open(path, "w") as handle:
     json.dump(data, handle, indent=2)
     handle.write("\n")
@@ -486,15 +500,7 @@ PY
     return
   fi
 
-  local recorded
-  recorded=$(python3 -c 'import json; print(json.load(open("docs/tests.json"))["tests"])') ||
-    {
-      report "docs/tests.json is missing or unreadable"
-      return
-    }
-  if [ "$declared" != "$recorded" ]; then
-    report "the sources declare $declared tests, docs/tests.json says $recorded; run scripts/check.sh tests --fix"
-  fi
+  report "the sources declare $declared tests, docs/tests.json says at least $recorded; run scripts/check.sh tests --fix"
 }
 
 # CI times its main test run on Linux and passes the seconds in `TEST_SECONDS`. The budget is
