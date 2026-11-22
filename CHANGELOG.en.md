@@ -6,6 +6,10 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
+### Changed
+
+- Maps in Poland name their cadastre: the progress lines and warnings of the download of buildings and land use say "EGiB" instead of "ALKIS" (the same messages carry the name as the value `cadastre`; maps in Germany read as before). The mapping of the EGiB cadastre now also matches the service, checked against real data from Słubice, Białystok and two villages in Podlasie: the building kinds `z` (hospital), `s` (tank, silo, storage) and `k` (education, culture, sport) were swapped, and the land use classes carry their soil class in the service (`RIVa`, `PsVI`, `ŁV`, `LsIV`) and prefixes (`Br/RV`, `W/ŁIV`, `Lzr/PsVI`), which dropped every rural parcel from the land use until now. Ditches (`W`) and waste land (`N`) beside a single use no longer change it; `B` becomes residential land, `Ba` industrial and commercial land, `Tk` railway, `Wsr` standing water.
+
 ## [0.26.0] - 2026-11-22
 
 ### Added
@@ -23,7 +27,6 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 - The badges for tests and ADRs show the rounded-down number ("3000+", "170+"), and `docs/tests.json` keeps the number rounded down to a hundred. A pull request that adds a test or an ADR no longer changes the README and no longer collides with others (ADR 0176).
 - The mutation tests of a pull request show a surviving mutant but no longer hold the merge. A nightly run checks the last day's changes and opens an issue when a mutant survives (ADR 0174).
-- Maps in Poland name their cadastre: the progress lines and warnings of the download of buildings and land use say "EGiB" instead of "ALKIS" (the same messages carry the name as the value `cadastre`; maps in Germany read as before). The mapping of the EGiB cadastre now also matches the service, checked against real data from Słubice, Białystok and two villages in Podlasie: the building kinds `z` (hospital), `s` (tank, silo, storage) and `k` (education, culture, sport) were swapped, and the land use classes carry their soil class in the service (`RIVa`, `PsVI`, `ŁV`, `LsIV`) and prefixes (`Br/RV`, `W/ŁIV`, `Lzr/PsVI`), which dropped every rural parcel from the land use until now. Ditches (`W`) and waste land (`N`) beside a single use no longer change it; `B` becomes residential land, `Ba` industrial and commercial land, `Tk` railway, `Wsr` standing water.
 - The mutation tests run faster: the run builds the tests once in the tree of the runner and copies that target into its working copies, the timeout per mutant drops to twice the test time, and the arithmetic of Newton's method in Poland is left out (ADR 0173).
 - The examples page `examples/README.en.md` shows only the maps now: the sprint maps first, the forest maps right after. The text (how they were made, numbers, sources, how the areas were chosen, licences) moved to the new page `examples/background.en.md`.
 - README and manual exist in German and English only. The Polish README and the shortened Polish manual are removed; the program itself keeps all its languages (ADR 0172).
