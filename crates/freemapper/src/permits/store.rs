@@ -731,4 +731,31 @@ mod tests {
         let back: Record = serde_json::from_value(polish).unwrap();
         assert!(!back.national);
     }
+
+    /// Notes are written only when some source was read: with none, the write is refused and
+    /// leaves no file behind.
+    #[test]
+    fn notes_are_not_written_when_no_source_was_read() {
+        use crate::project::{MapKind, init_project};
+        let dir = tempfile::tempdir().unwrap();
+        let area = MapArea::from_geojson(
+            r#"{"type":"Polygon","coordinates":[[[12.985,52.383],[12.995,52.383],[12.995,52.388],[12.985,52.388],[12.985,52.383]]]}"#,
+        )
+        .unwrap();
+        let today = NaiveDate::from_ymd_opt(2026, 11, 22).unwrap();
+        let project = init_project(dir.path(), &area, MapKind::Sprint, None, today, None).unwrap();
+        let inputs = Inputs {
+            national: true,
+            admin: SourceInput::NotRead,
+            protected: SourceInput::NotRead,
+            osm: SourceInput::NotRead,
+            regional: Vec::new(),
+        };
+        let result = write_permit_notes(dir.path(), &project, &inputs, today);
+        assert!(
+            matches!(result, Err(PermitsError::NothingRead { .. })),
+            "{result:?}"
+        );
+        assert!(!dir.path().join(PERMITS_JSON).exists());
+    }
 }
