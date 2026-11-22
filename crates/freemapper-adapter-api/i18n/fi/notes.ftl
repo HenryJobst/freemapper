@@ -194,6 +194,7 @@ warning-surface-unusable = pintamalli ei ole käyttökelpoinen ({ $error }); aja
 ## Downloads and the cache
 
 progress-downloading = ladataan { $url }
+progress-retry-wait = palvelu on kuormitettu; yritetään uudelleen { $seconds } s kuluttua
 progress-downloaded = ladattu { $megabytes } MB
 progress-downloaded-of = ladattu { $megabytes } MB / { $total } MB
 progress-tile-index-download = ladataan ruutuindeksi: { $product }

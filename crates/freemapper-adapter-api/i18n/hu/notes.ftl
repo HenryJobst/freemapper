@@ -190,6 +190,7 @@ warning-surface-unusable = a felszínmodell használhatatlan ({ $error }); futta
 ## Downloads and the cache
 
 progress-downloading = { $url } letöltése
+progress-retry-wait = a szolgáltatás foglalt; új próbálkozás { $seconds } mp múlva
 progress-downloaded = letöltve: { $megabytes } MB
 progress-downloaded-of = letöltve: { $megabytes } MB / { $total } MB
 progress-tile-index-download = a(z) { $product } csempeindex letöltése

@@ -7,7 +7,7 @@ use crate::note::{Arg, Note, note};
 use std::path::{Path, PathBuf};
 
 use chrono::NaiveDate;
-use freemapper_adapter_api::fetch::{download_with_retries, get_with_retries};
+use freemapper_adapter_api::fetch::{download_with_retries, get_patiently};
 use freemapper_adapter_api::info::OsmExtractInfo;
 use freemapper_adapter_api::records::AdapterId;
 
@@ -743,7 +743,7 @@ fn refresh_extract(
 ) -> Result<Extract, FetchError> {
     // Geofabrik answers 503 now and then under load or while it writes new extracts; both requests
     // go through the retrying helpers of the fetch layer (#219).
-    let date = get_with_retries(fetcher, &source.state_url(), |state| {
+    let date = get_patiently(fetcher, &source.state_url(), |state| {
         parse_state_date(&String::from_utf8_lossy(state)).ok_or_else(|| FetchError::Http {
             url: source.state_url(),
             message: "no timestamp in the state file".to_string(),

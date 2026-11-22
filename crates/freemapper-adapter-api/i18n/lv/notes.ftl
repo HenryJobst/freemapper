@@ -187,6 +187,7 @@ warning-surface-unusable = virsmas modelis nav lietojams ({ $error }); palaidiet
 ## Downloads and the cache
 
 progress-downloading = lejupielādē { $url }
+progress-retry-wait = pakalpojums ir aizņemts; jauns mēģinājums pēc { $seconds } s
 progress-downloaded = lejupielādēts { $megabytes } MB
 progress-downloaded-of = lejupielādēts { $megabytes } MB no { $total } MB
 progress-tile-index-download = lejupielādē { $product } flīžu indeksu

@@ -189,6 +189,7 @@ warning-surface-unusable = model povrchu je nepoužitelný ({ $error }); spusťt
 ## Downloads and the cache
 
 progress-downloading = stahuji { $url }
+progress-retry-wait = služba je vytížená; další pokus za { $seconds } s
 progress-downloaded = staženo { $megabytes } MB
 progress-downloaded-of = staženo { $megabytes } z { $total } MB
 progress-tile-index-download = stahuji index dlaždic produktu { $product }

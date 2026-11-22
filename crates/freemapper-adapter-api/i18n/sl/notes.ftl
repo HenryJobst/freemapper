@@ -188,6 +188,7 @@ warning-surface-unusable = model površja je neuporaben ({ $error }); zaženi `f
 ## Downloads and the cache
 
 progress-downloading = prenašam { $url }
+progress-retry-wait = storitev je zasedena; nov poskus čez { $seconds } s
 progress-downloaded = preneseno { $megabytes } MB
 progress-downloaded-of = preneseno { $megabytes } MB od { $total } MB
 progress-tile-index-download = prenašam kazalo ploščic { $product }

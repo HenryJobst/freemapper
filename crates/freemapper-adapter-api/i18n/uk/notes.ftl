@@ -200,6 +200,7 @@ warning-surface-unusable = модель поверхні непридатна ({
 ## Downloads and the cache
 
 progress-downloading = завантаження { $url }
+progress-retry-wait = сервіс зайнятий; наступна спроба через { $seconds } с
 progress-downloaded = завантажено { $megabytes } МБ
 progress-downloaded-of = завантажено { $megabytes } МБ із { $total } МБ
 progress-tile-index-download = завантаження індексу плиток { $product }

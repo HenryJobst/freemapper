@@ -194,6 +194,7 @@ warning-surface-unusable = modello di superficie inutilizzabile ({ $error }); es
 ## Downloads and the cache
 
 progress-downloading = scaricamento di { $url }
+progress-retry-wait = il servizio è occupato; nuovo tentativo tra { $seconds } s
 progress-downloaded = scaricati { $megabytes } MB
 progress-downloaded-of = scaricati { $megabytes } MB di { $total } MB
 progress-tile-index-download = scaricamento dell'indice dei riquadri { $product }

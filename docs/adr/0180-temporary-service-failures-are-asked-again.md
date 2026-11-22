@@ -35,3 +35,22 @@ other requests already ask up to three times (`get_with_retries` and its sibling
 - A request that fails with a 5xx for a lasting reason is asked three times before it ends the run; the cost is
   six seconds of waiting.
 - `status_answer_error` no longer returns `Refused` for 408 and 429, which no caller treated as a request to change.
+
+## Addendum (2026-11-22): longer pauses for a busy service
+
+The first version kept the pauses of 2 s and 4 s. That bridges a dropped connection but not a service that is busy for
+minutes, which is what #219 met at Geofabrik. A request now has a `Patience`:
+
+- `Brief` (place search, lists, range requests): 2 s and 4 s; a `Retry-After` of the service counts up to 10 s, because
+  a person may be waiting.
+- `Long` (downloads of a run, the OSM state file): when the service is busy (503, 429, 408) 5 s and 15 s, a `Retry-After`
+  up to 60 s; every other failure keeps 2 s and 4 s. A pause of 5 s or more shows the progress line
+  `progress-retry-wait`.
+
+`Retry-After` is read from the response in `HttpFetcher` and put into the message of the error
+(`http status: 503 (retry after 30 s)`), so no field was added to `FetchError::Http` and no caller changed. Only seconds
+are read; a date in the header is left out. The tests wait no time (`pause_after` is zero in tests); `pause_secs`
+holds the rule and is tested.
+
+The cost is that a run against a service that stays down takes up to 20 s (5 + 15) or, with `Retry-After`, up to two
+minutes longer to end than before.

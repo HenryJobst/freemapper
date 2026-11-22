@@ -187,6 +187,7 @@ warning-surface-unusable = pinnamudel on kasutuskõlbmatu ({ $error }); tuleb k�
 ## Downloads and the cache
 
 progress-downloading = allalaadimine: { $url }
+progress-retry-wait = teenus on hõivatud; uus katse { $seconds } s pärast
 progress-downloaded = alla laaditud { $megabytes } MB
 progress-downloaded-of = alla laaditud { $megabytes } MB / { $total } MB
 progress-tile-index-download = { $product } ruuduindeksi allalaadimine

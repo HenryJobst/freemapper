@@ -194,6 +194,7 @@ warning-surface-unusable = ytmodellen är oanvändbar ({ $error }); kör `freema
 ## Downloads and the cache
 
 progress-downloading = laddar ner { $url }
+progress-retry-wait = tjänsten är upptagen; försöker igen om { $seconds } s
 progress-downloaded = nedladdat { $megabytes } MB
 progress-downloaded-of = nedladdat { $megabytes } MB av { $total } MB
 progress-tile-index-download = laddar ner rutindexet för { $product }

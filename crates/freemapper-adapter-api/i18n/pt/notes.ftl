@@ -190,6 +190,7 @@ warning-surface-unusable = modelo de superfície inutilizável ({ $error }); exe
 ## Downloads and the cache
 
 progress-downloading = a descarregar { $url }
+progress-retry-wait = o serviço está ocupado; nova tentativa em { $seconds } s
 progress-downloaded = descarregados { $megabytes } MB
 progress-downloaded-of = descarregados { $megabytes } MB de { $total } MB
 progress-tile-index-download = a descarregar o índice de mosaicos de { $product }

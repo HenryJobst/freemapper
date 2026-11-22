@@ -243,6 +243,7 @@ warning-surface-unusable = paviršiaus modelis netinkamas naudoti ({ $error }); 
 ## Downloads and the cache
 
 progress-downloading = atsisiunčiama { $url }
+progress-retry-wait = paslauga užimta; kitas bandymas po { $seconds } s
 progress-downloaded = atsisiųsta { $megabytes } MB
 progress-downloaded-of = atsisiųsta { $megabytes } MB iš { $total } MB
 progress-tile-index-download = atsisiunčiamas { $product } plytelių indeksas

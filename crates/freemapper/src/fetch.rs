@@ -20,7 +20,6 @@ pub use freemapper_adapter_api::error::CurrencyCsvError;
 pub use freemapper_adapter_api::error::FetchError;
 pub(crate) use freemapper_adapter_api::error::tile_names;
 pub use freemapper_adapter_api::error::{HostNotNamed, Remedy};
-pub(crate) use freemapper_adapter_api::fetch::status_answer_error;
 pub use freemapper_adapter_api::fetch::{ATTEMPTS, ByteRange, FetchMode, FetchedTile, Fetcher};
 #[cfg(test)]
 pub(crate) use freemapper_adapter_api::fetch::{
@@ -32,6 +31,7 @@ pub(crate) use freemapper_adapter_api::fetch::{
 };
 use freemapper_adapter_api::fetch::{megabytes, too_large};
 pub(crate) use freemapper_adapter_api::fetch::{one_line, write_inside};
+pub(crate) use freemapper_adapter_api::fetch::{status_answer_error, status_answer_error_with};
 use freemapper_adapter_api::policy::{self, UrlPolicy};
 pub use freemapper_adapter_api::policy::{
     PolicyError, REASONS as POLICY_REASONS, dns_name, redirect_target,
@@ -844,7 +844,13 @@ impl Fetcher for HttpFetcher {
                 .as_reader()
                 .take(MAX_ERROR_BODY_BYTES)
                 .read_to_end(&mut body);
-            return Err(status_answer_error(url, status, &body));
+            // The seconds a busy service asks to wait; a date in the header is left out.
+            let retry_after = response
+                .headers()
+                .get("retry-after")
+                .and_then(|value| value.to_str().ok())
+                .and_then(|value| value.trim().parse::<u64>().ok());
+            return Err(status_answer_error_with(url, status, &body, retry_after));
         }
         // One byte more than allowed, so an oversized answer shows instead of being cut off.
         let mut bytes = Vec::new();
@@ -2834,6 +2840,36 @@ mod tests {
             )
             .unwrap_err();
         assert!(err.to_string().contains("byte range"), "{err}");
+    }
+
+    /// A server that answers 503 with `Retry-After: 7` to every request.
+    fn busy_with_retry_after() -> String {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let url = format!("http://{}/state.txt", listener.local_addr().unwrap());
+        std::thread::spawn(move || {
+            use std::io::{Read as _, Write as _};
+            for stream in listener.incoming().flatten() {
+                let mut stream = stream;
+                let mut request = [0u8; 1024];
+                let _ = stream.read(&mut request);
+                let _ = write!(
+                    stream,
+                    "HTTP/1.1 503 Service Unavailable\r\nRetry-After: 7\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+                );
+            }
+        });
+        url
+    }
+
+    #[test]
+    fn a_retry_after_of_a_busy_service_reaches_the_error() {
+        let url = busy_with_retry_after();
+        let err = HttpFetcher::local().get(&url).unwrap_err();
+        assert!(
+            matches!(&err, FetchError::Http { message, .. } if message == "http status: 503 (retry after 7 s)"),
+            "{err}"
+        );
+        assert!(err.is_temporary());
     }
 
     /// A server answering every request with `status` and `body`; counts the connections.
