@@ -105,6 +105,15 @@ pub mod hint_key {
     /// Arg `office`: `known` when a [`FOREST_OFFICE`] hint is there, else `unknown`. For a map
     /// area with forest in Poland (ADR 0175), in place of [`FOREST_OWNER`].
     pub const FOREST_OWNER_PL: &str = "permits-hint-forest-owner-pl";
+    /// Arg `gmina` (the municipalities of the map joined with ", "; missing when none is known):
+    /// a natural monument, an ecological site, a nature and landscape complex or a documentation
+    /// site lies on the map in Poland. The council of the gmina establishes them (ADR 0183).
+    pub const GMINA_NATURE_PL: &str = "permits-hint-gmina-nature-pl";
+    /// Arg `gmina`: the road manager and the traffic permit of an event on public roads in
+    /// Poland (ADR 0183).
+    pub const GMINA_ROADS_PL: &str = "permits-hint-gmina-roads-pl";
+    /// Arg `gmina`: land of the gmina, which the wójt manages (ADR 0183).
+    pub const GMINA_LAND_PL: &str = "permits-hint-gmina-land-pl";
 }
 
 /// The credit line of the OSM data, as on the map.
@@ -1058,6 +1067,26 @@ fn regional_hints(forest: bool, operated: &[&OsmFinding], regional: &[HintFacts]
     if regional.iter().any(|f| f.nature_objects) {
         hints.push(Hint::new(hint_key::PROTECTED_AREAS_PL, &[]));
     }
+    // The municipalities of the map, from the administrative units of the register; where
+    // none was read the hint of the nature objects names no gmina and the others stay out.
+    let municipalities = regional
+        .iter()
+        .flat_map(|f| &f.municipalities)
+        .fold(Vec::<&str>::new(), |mut all, name| {
+            if !all.contains(&name.as_str()) {
+                all.push(name);
+            }
+            all
+        })
+        .join(", ");
+    let gmina: Vec<(&str, &str)> = if municipalities.is_empty() {
+        Vec::new()
+    } else {
+        vec![("gmina", municipalities.as_str())]
+    };
+    if regional.iter().any(|f| f.gmina_nature_forms) {
+        hints.push(Hint::new(hint_key::GMINA_NATURE_PL, &gmina));
+    }
     if forest {
         let offices: Vec<_> = regional.iter().flat_map(|f| &f.forest_offices).collect();
         for office in &offices {
@@ -1095,6 +1124,10 @@ fn regional_hints(forest: bool, operated: &[&OsmFinding], regional: &[HintFacts]
             hint_key::SCHOOL_OPERATOR,
             &[("operator", operator)],
         ));
+    }
+    if !gmina.is_empty() {
+        hints.push(Hint::new(hint_key::GMINA_ROADS_PL, &gmina));
+        hints.push(Hint::new(hint_key::GMINA_LAND_PL, &gmina));
     }
     once(hints)
 }
@@ -3567,7 +3600,143 @@ mod tests {
         );
         // A town without forest: OSM read, no forest object on the map.
         let found = notes(MapKind::Sprint, &polish(vec![], vec![park]));
+        assert_eq!(
+            keys(&found),
+            [hint_key::PROTECTED_AREAS_PL, hint_key::GMINA_NATURE_PL]
+        );
+    }
+
+    /// The municipalities of the register as a regional source (ADR 0181).
+    fn municipality(name: &str, code: &str, g: MultiPolygon<f64>) -> PermitFinding {
+        area(
+            FindingKind::AdminUnit {
+                level: freemapper_adapter_api::permits::AdminUnitLevel::Municipality,
+                name: name.into(),
+                code: code.into(),
+            },
+            g,
+        )
+    }
+
+    /// A natural monument, an ecological site, a nature and landscape complex and a
+    /// documentation site are established by the council of the gmina: the hint names the gmina
+    /// of the map, and the hints for roads and for land of the gmina follow (ADR 0183).
+    #[test]
+    fn polish_hints_name_the_gmina_where_it_is_the_body_to_ask() {
+        let granice =
+            |units: Vec<PermitFinding>| regional("prg-granice", PermitSection::AdminUnits, units);
+        let objects = |kind| {
+            regional(
+                "gdos",
+                PermitSection::ProtectedObjects,
+                vec![polish_object(
+                    kind,
+                    "Wojtek",
+                    square(13.0, 52.0, 13.001, 52.001),
+                )],
+            )
+        };
+        let whole = || square(12.9, 51.9, 13.2, 52.2);
+        for kind in [
+            ProtectedObjectKind::NaturalMonumentPl,
+            ProtectedObjectKind::EcologicalSite,
+            ProtectedObjectKind::LandscapeComplex,
+            ProtectedObjectKind::DocumentationSite,
+        ] {
+            let found = notes(
+                MapKind::Sprint,
+                &polish(
+                    vec![],
+                    vec![
+                        objects(kind),
+                        granice(vec![municipality(
+                            "gmina miejska Słubice",
+                            "0805053",
+                            whole(),
+                        )]),
+                    ],
+                ),
+            );
+            assert_eq!(
+                keys(&found),
+                [
+                    hint_key::PROTECTED_AREAS_PL,
+                    hint_key::GMINA_NATURE_PL,
+                    hint_key::GMINA_ROADS_PL,
+                    hint_key::GMINA_LAND_PL,
+                ],
+                "{kind:?}"
+            );
+            for key in [
+                hint_key::GMINA_NATURE_PL,
+                hint_key::GMINA_ROADS_PL,
+                hint_key::GMINA_LAND_PL,
+            ] {
+                assert_eq!(
+                    hint(&found, key)[0].args,
+                    args(&[("gmina", "gmina miejska Słubice")]),
+                    "{kind:?} {key}"
+                );
+            }
+        }
+
+        // Two gminas: by share, and one that lies only at the edge is left out.
+        let found = notes(
+            MapKind::Sprint,
+            &polish(
+                vec![],
+                vec![granice(vec![
+                    municipality("gmina B", "0001022", square(13.07, 51.9, 13.2, 52.2)),
+                    municipality("gmina A", "0001012", square(12.9, 51.9, 13.07, 52.2)),
+                    municipality("gmina C", "0001032", square(13.2, 51.9, 13.2005, 52.2)),
+                ])],
+            ),
+        );
+        assert_eq!(
+            keys(&found),
+            [hint_key::GMINA_ROADS_PL, hint_key::GMINA_LAND_PL]
+        );
+        assert_eq!(
+            hint(&found, hint_key::GMINA_ROADS_PL)[0].args,
+            args(&[("gmina", "gmina A, gmina B")])
+        );
+    }
+
+    /// Only what applies: a national park has no gmina hint, and without the municipalities of
+    /// the register the hints about roads and land stay out while the nature hint names no gmina.
+    #[test]
+    fn polish_gmina_hints_only_where_the_data_supports_them() {
+        let park = |kind| {
+            regional(
+                "gdos",
+                PermitSection::ProtectedObjects,
+                vec![polish_object(
+                    kind,
+                    "Park",
+                    square(13.0, 52.0, 13.001, 52.001),
+                )],
+            )
+        };
+        let found = notes(
+            MapKind::Sprint,
+            &polish(vec![], vec![park(ProtectedObjectKind::NationalPark)]),
+        );
         assert_eq!(keys(&found), [hint_key::PROTECTED_AREAS_PL]);
+        let found = notes(
+            MapKind::Sprint,
+            &polish(vec![], vec![park(ProtectedObjectKind::NaturalMonumentPl)]),
+        );
+        assert_eq!(
+            keys(&found),
+            [hint_key::PROTECTED_AREAS_PL, hint_key::GMINA_NATURE_PL]
+        );
+        assert!(hint(&found, hint_key::GMINA_NATURE_PL)[0].args.is_empty());
+        // Municipalities that were not read: no hint at all.
+        let found = notes(MapKind::Sprint, &polish(vec![], vec![]));
+        assert!(keys(&found).is_empty(), "{:?}", found.hints);
+        // A German map area gets none of them.
+        let found = notes(MapKind::Sprint, &inputs(city_state(), vec![], vec![]));
+        assert!(!keys(&found).contains(&hint_key::GMINA_ROADS_PL));
     }
 
     /// The German path is as before: all three sources, the German hints, the roads.

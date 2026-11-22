@@ -1395,10 +1395,20 @@ parks, landscape parks, nature reserves, protected landscape areas, Natura 2000,
 from the national boundary register (PRG, `mapy.geoportal.gov.pl`), the forest districts of the State Forests and
 the administrative units. The section "Administrative units" comes first. It names the voivodeship
 (województwo), the powiat and the gmina the map area lies in, each with its TERYT code and its share of the
-area, so a map area on a border lists every unit it touches. The gmina is the municipality to ask first about
-an event. The notes name no Kreis, Gemeinde or Ordnungsamt, because those do not exist there. They say that the
-administration of a park or reserve and the Regional Directorate for Environmental Protection (RDOŚ) can usually
-say who is in charge, and that an event in the forest usually needs the owner's consent. Only the State Forests
+area, so a map area on a border lists every unit it touches. The notes name no Kreis or Ordnungsamt, because
+those do not exist there. They say that the administration of a park or reserve and the Regional Directorate for
+Environmental Protection (RDOŚ) can usually say who is in charge, and that an event in the forest usually needs the
+owner's consent. The gmina is named where the statutes make it the body to ask: for a natural monument, an
+ecological site, a nature and landscape complex or a documentation site, the gmina council establishes the
+object and its resolution says who supervises it and which bans apply, so the notes point to the gmina office for
+that resolution (Nature Conservation Act, art. 44). For an event on streets they say that the traffic permit
+(Road Traffic Act, art. 65, at least 30 days ahead) comes from the starosta for powiat and gmina roads, from the
+mayor in a city with powiat rights and from the voivodeship marshal or the GDDKiA otherwise, and that the head of
+the gmina (wójt, burmistrz, prezydent miasta) manages the gmina roads and decides on occupying the lane (Public
+Roads Act, art. 19 and 40). For land that belongs to the gmina the same head manages it and represents the gmina
+(Act on Gmina Self-Government, art. 30 and 31); the notes do not know which land is municipal, so they say "if".
+The wójt does not issue the permit for an event on a road, and the Nature Conservation Act names no permit for an
+event at a natural monument: the resolution decides. Monuments, mass events and assemblies get no gmina hint. Only the State Forests
 are in the data; private forest is not. The German wording of these hints has not been read by a Polish speaker.
 The notes are a hint, not legal advice. `--offline` reads what an earlier run stored, as in Germany.
 

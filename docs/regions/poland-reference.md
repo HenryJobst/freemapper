@@ -121,6 +121,24 @@ accepts only `https` and this host.
   forest districts.
 - **Coverage.** The PRG layer covers the State Forests only, not private forest.
 
+### Who to ask, by statute (ADR 0183, read 22 November 2026)
+
+Consolidated texts from `api.sejm.gov.pl/eli/acts/DU/<year>/<pos>/text.pdf`; the full table with the
+article numbers and what could not be verified is in
+[ADR 0183](../adr/0183-poland-gmina-as-a-contact-in-the-permit-notes.md). Short form:
+
+- Natural monuments, ecological sites, landscape complexes, documentation sites: the council of the
+  gmina establishes them and the resolution names the supervisor and the bans (art. 44 ust. 1 and 2 of
+  the Nature Conservation Act, Dz. U. 2026 poz. 1315). The Act names no permit for third parties.
+- Gmina roads: wójt, burmistrz or prezydent miasta is the manager (art. 19 ust. 2 pkt 4, Public Roads
+  Act, Dz. U. 2025 poz. 889). The permit for an event that hinders traffic (art. 65 and 65b of the Road
+  Traffic Act, Dz. U. 2024 poz. 1251) comes from the traffic management body: starosta for powiat and
+  gmina roads, prezydent miasta in cities with powiat rights (art. 10 ust. 5 and 6).
+- Land of the gmina: the wójt manages municipal property and represents the gmina (art. 30 ust. 2 pkt 3
+  and art. 31, Act on Gmina Self-Government, Dz. U. 2026 poz. 662).
+- Not verified: who the supervisor of a natural monument is in a given resolution; which land is
+  municipal; the articles for Natura 2000 and the parks; the Prawo o zgromadzeniach.
+
 ## Addendum 22 November 2026: EGiB codes checked against the live service
 
 ADR 0171 listed the building letters and parcel classes as not verified. Checked now; the ADR

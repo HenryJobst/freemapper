@@ -1455,10 +1455,21 @@ Landschaftsparks, Naturschutzgebiete, Landschaftsschutzgebiete, Natura 2000, Nat
 Landesregister der Grenzen (PRG, `mapy.geoportal.gov.pl`), den Forstbezirken der Staatsforsten und den
 Verwaltungseinheiten. Der Abschnitt „Verwaltungseinheiten“ steht vorn. Er nennt die Woiwodschaft (województwo), den
 Powiat und die Gmina, in denen das Kartengebiet liegt, mit ihrem TERYT-Code und ihrem Anteil am Gebiet; ein Gebiet an
-einer Grenze führt jede Einheit auf, die es berührt. Die Gmina ist die Gemeinde, bei der man für eine Veranstaltung
-zuerst nachfragt. Die Hinweise nennen weder Kreis noch Gemeinde noch Ordnungsamt, weil es sie dort so nicht gibt. Sie sagen, dass die Verwaltung
+einer Grenze führt jede Einheit auf, die es berührt. Die Hinweise nennen weder Kreis noch Ordnungsamt, weil es sie dort so nicht gibt. Sie sagen, dass die Verwaltung
 eines Parks oder Reservats und die Regionaldirektion für Umweltschutz (RDOŚ) meist sagen können, wer zuständig
-ist, und dass eine Veranstaltung im Wald meist die Zustimmung des Waldeigentümers braucht. In den Daten sind nur
+ist, und dass eine Veranstaltung im Wald meist die Zustimmung des Waldeigentümers braucht. Die Gmina steht dort,
+wo das Gesetz sie zur Anlaufstelle macht: Ein Naturdenkmal, eine ökologische Fläche, ein Natur- und
+Landschaftskomplex oder eine Dokumentationsstätte legt der Gemeinderat (rada gminy) fest, und sein Beschluss nennt,
+wer das Objekt beaufsichtigt und welche Verbote gelten; die Hinweise verweisen deshalb für den Beschluss an das Amt
+der Gmina (Naturschutzgesetz, Art. 44). Für eine Veranstaltung auf Straßen sagen sie, dass die Verkehrsgenehmigung
+(Straßenverkehrsgesetz, Art. 65, mindestens 30 Tage vorher) bei Powiat- und Gemeindestraßen der Starost erteilt, in
+einer Stadt mit Powiat-Rechten der Stadtpräsident, sonst der Marschall der Woiwodschaft oder die GDDKiA, und dass der
+Leiter der Gmina (Wójt, Burmistrz, Prezydent miasta) die Gemeindestraßen verwaltet und über die Inanspruchnahme der
+Fahrbahn entscheidet (Gesetz über die öffentlichen Straßen, Art. 19 und 40). Land der Gmina verwaltet derselbe
+Leiter und vertritt die Gmina (Gemeindeselbstverwaltungsgesetz, Art. 30 und 31); welches Land der Gmina gehört,
+wissen die Hinweise nicht und sagen deshalb „falls“. Die Genehmigung für eine Veranstaltung auf einer Straße erteilt
+der Wójt nicht, und für ein Naturdenkmal nennt das Naturschutzgesetz keine Genehmigung: Der Beschluss entscheidet.
+Denkmale, Massenveranstaltungen und Versammlungen bekommen keinen Gmina-Hinweis. In den Daten sind nur
 die Staatsforsten, kein Privatwald. Die Hinweistexte hat noch kein Polnischsprecher gelesen. Die Hinweise sind
 ein Hinweis, keine Rechtsberatung. `--offline` liest, was ein früherer Lauf gespeichert hat, wie in Deutschland.
 
