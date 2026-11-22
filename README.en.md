@@ -1,3 +1,5 @@
+<p align="center"><img src="docs/banner/banner.en.svg" alt="freemapper – Orienteering maps from open geodata"></p>
+
 # freemapper
 
 [Website](https://freemapper.de/en/) · [Deutsche Version](README.md) · [User manual](docs/manual/en.md) · [Glossary](docs/glossary.md) · [Changes](CHANGELOG.en.md) · [Examples](examples/README.en.md)
