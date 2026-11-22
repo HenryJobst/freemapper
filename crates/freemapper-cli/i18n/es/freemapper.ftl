@@ -503,6 +503,7 @@ word-part-point-cloud = las nubes de puntos láser para los candidatos de vegeta
 ## Errors: downloads
 
 error-fetch-http = falló la descarga de { $url }: { $message }
+error-fetch-http-temporary = falló la descarga de { $url }: { $message }. El servicio probablemente está sobrecargado o en mantenimiento; freemapper lo intentó hasta { $attempts } veces. Vuelva a ejecutar en unos minutos; lo que ya se descargó se conserva.
 error-fetch-corrupt-archive = la descarga de { $url } no es un archivo de teselas completo: { $message }
 error-fetch-corrupt-extract = la descarga de { $url } no es un extracto de OSM completo: { $message }
 error-fetch-tiles-not-covered = { $count ->

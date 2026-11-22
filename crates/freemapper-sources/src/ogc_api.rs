@@ -5,6 +5,7 @@
 //! too. Which service serves which state is decided by the caller.
 
 use chrono::NaiveDate;
+use freemapper_adapter_api::fetch::get_with_retries;
 use serde_json::Value;
 
 use crate::crs::{BoundingBox, Crs, ProjectedPoint};
@@ -125,7 +126,7 @@ pub fn collection_features_in(
     let mut visited = Vec::new();
     let mut next = Some(collection_url_in(endpoint, bbox, crs));
     while let Some(url) = next.take() {
-        let bytes = fetcher.get(&url)?;
+        let bytes = get_with_retries(fetcher, &url, |bytes| Ok(bytes.to_vec()))?;
         let page: Value =
             serde_json::from_slice(&bytes).map_err(|e| invalid(format!("{url}: {e}")))?;
         let page_features = page["features"]

@@ -503,6 +503,7 @@ word-part-point-cloud = lāzera punktu mākoņi veģetācijas kandidātiem
 ## Errors: downloads
 
 error-fetch-http = { $url } lejupielāde neizdevās: { $message }
+error-fetch-http-temporary = { $url } lejupielāde neizdevās: { $message }. Pakalpojums, iespējams, ir pārslogots vai tiek apkopts; freemapper mēģināja līdz { $attempts } reizēm. Palaidiet izpildi vēlreiz pēc dažām minūtēm; jau lejupielādētais tiek saglabāts.
 error-fetch-corrupt-archive = { $url } lejupielāde nav pilns flīžu arhīvs: { $message }
 error-fetch-corrupt-extract = { $url } lejupielāde nav pilns OSM izvilkums: { $message }
 error-fetch-tiles-not-covered = { $count ->

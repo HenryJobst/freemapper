@@ -508,6 +508,7 @@ word-part-point-cloud = лазерні хмари точок для кандид
 ## Errors: downloads
 
 error-fetch-http = завантаження { $url } не вдалося: { $message }
+error-fetch-http-temporary = завантаження { $url } не вдалося: { $message }. Сервіс, імовірно, перевантажений або на обслуговуванні; freemapper намагався до { $attempts } разів. Запустіть виконання знову через кілька хвилин; уже завантажене зберігається.
 error-fetch-corrupt-archive = завантаження { $url } не є повним архівом плиток: { $message }
 error-fetch-corrupt-extract = завантаження { $url } не є повним витягом OSM: { $message }
 error-fetch-tiles-not-covered = { $count ->

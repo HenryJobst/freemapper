@@ -5,6 +5,7 @@
 //! state lists every file with its size and SHA-256, and a download is kept only when both
 //! match. The classes follow the AdV scheme: ground (2) and everything above it (20).
 
+use freemapper_adapter_api::fetch::get_with_retries;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::LazyLock;
@@ -214,8 +215,8 @@ impl PointCloudBackend for RpLasBackend {
                 }
                 continue;
             }
-            let published = match env.fetcher.get(&metadata_url(tile)).and_then(|bytes| {
-                creation_date(&bytes).ok_or_else(|| FetchError::CorruptArchive {
+            let published = match get_with_retries(env.fetcher, &metadata_url(tile), |bytes| {
+                creation_date(bytes).ok_or_else(|| FetchError::CorruptArchive {
                     url: metadata_url(tile),
                     message: "no creation date".to_string(),
                 })

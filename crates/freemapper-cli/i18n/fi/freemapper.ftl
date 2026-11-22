@@ -496,6 +496,7 @@ word-part-point-cloud = kasvillisuusehdokkaiden laserpistepilvet
 ## Errors: downloads
 
 error-fetch-http = osoitteen { $url } lataus epäonnistui: { $message }
+error-fetch-http-temporary = osoitteen { $url } lataus epäonnistui: { $message }. Palvelu on todennäköisesti ylikuormitettu tai huollossa; freemapper yritti enintään { $attempts } kertaa. Käynnistä ajo muutaman minuutin kuluttua uudelleen; jo ladattu säilyy.
 error-fetch-corrupt-archive = osoitteen { $url } lataus ei ole täydellinen ruutuarkisto: { $message }
 error-fetch-corrupt-extract = osoitteen { $url } lataus ei ole täydellinen OSM-ote: { $message }
 error-fetch-tiles-not-covered = { $count ->

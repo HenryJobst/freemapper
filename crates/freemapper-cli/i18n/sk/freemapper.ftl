@@ -502,6 +502,7 @@ word-part-point-cloud = laserové mračná bodov pre kandidátov vegetácie
 ## Errors: downloads
 
 error-fetch-http = sťahovanie { $url } zlyhalo: { $message }
+error-fetch-http-temporary = sťahovanie { $url } zlyhalo: { $message }. Služba je pravdepodobne preťažená alebo v údržbe; freemapper sa pýtal až { $attempts }-krát. Spustite beh o niekoľko minút znova; to, čo je už stiahnuté, zostane zachované.
 error-fetch-corrupt-archive = stiahnuté { $url } nie je úplný archív dlaždíc: { $message }
 error-fetch-corrupt-extract = stiahnuté { $url } nie je úplný výrez OSM: { $message }
 error-fetch-tiles-not-covered = { $count ->

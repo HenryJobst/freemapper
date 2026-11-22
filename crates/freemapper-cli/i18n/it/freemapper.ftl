@@ -502,6 +502,7 @@ word-part-point-cloud = le nuvole di punti laser per i candidati di vegetazione
 ## Errors: downloads
 
 error-fetch-http = download di { $url } fallito: { $message }
+error-fetch-http-temporary = download di { $url } fallito: { $message }. Il servizio è probabilmente sovraccarico o in manutenzione; freemapper ha provato fino a { $attempts } volte. Riavvii l'esecuzione tra qualche minuto; ciò che è già stato scaricato viene conservato.
 error-fetch-corrupt-archive = il download di { $url } non è un archivio di riquadri completo: { $message }
 error-fetch-corrupt-extract = il download di { $url } non è un estratto OSM completo: { $message }
 error-fetch-tiles-not-covered = { $count ->

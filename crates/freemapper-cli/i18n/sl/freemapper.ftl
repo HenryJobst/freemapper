@@ -508,6 +508,7 @@ word-part-point-cloud = laserske oblake točk za kandidate vegetacije
 ## Errors: downloads
 
 error-fetch-http = prenos { $url } ni uspel: { $message }
+error-fetch-http-temporary = prenos { $url } ni uspel: { $message }. Storitev je verjetno preobremenjena ali v vzdrževanju; freemapper je poskusil do { $attempts }-krat. Zaženite zagon čez nekaj minut znova; že prenesano se ohrani.
 error-fetch-corrupt-archive = prenos { $url } ni popoln arhiv ploščic: { $message }
 error-fetch-corrupt-extract = prenos { $url } ni popoln izvleček OSM: { $message }
 error-fetch-tiles-not-covered = { $count ->

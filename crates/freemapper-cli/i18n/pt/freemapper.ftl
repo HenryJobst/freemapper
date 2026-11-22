@@ -502,6 +502,7 @@ word-part-point-cloud = as nuvens de pontos laser para os candidatos de vegetaç
 ## Errors: downloads
 
 error-fetch-http = a descarga de { $url } falhou: { $message }
+error-fetch-http-temporary = a descarga de { $url } falhou: { $message }. O serviço provavelmente está sobrecarregado ou em manutenção; o freemapper tentou até { $attempts } vezes. Execute novamente dentro de alguns minutos; o que já foi descarregado é mantido.
 error-fetch-corrupt-archive = a descarga de { $url } não é um arquivo de mosaicos completo: { $message }
 error-fetch-corrupt-extract = a descarga de { $url } não é um extrato OSM completo: { $message }
 error-fetch-tiles-not-covered = { $count ->

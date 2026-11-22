@@ -204,7 +204,7 @@ fn lgb_currency_table(
         FetchMode::Online => {
             let url = product.currency_csv_url();
             progress(note!("progress-downloading", url = url));
-            fetcher.get(url)?
+            get_with_retries(fetcher, url, |bytes| Ok(bytes.to_vec()))?
         }
         FetchMode::Offline => match std::fs::read(&csv_path) {
             Ok(bytes) => bytes,
@@ -303,7 +303,7 @@ fn fetch_tile(
         }
     } else {
         progress(note!("progress-downloading", url = &url));
-        let bytes = fetcher.get(&url)?;
+        let bytes = get_with_retries(fetcher, &url, |bytes| Ok(bytes.to_vec()))?;
         check_archive(&bytes, product, tile).map_err(|message| FetchError::CorruptArchive {
             url: url.clone(),
             message,
@@ -399,7 +399,7 @@ pub fn fetch_ndsm_tiles(
             progress(note!("progress-ndsm-cached", tile = tile.name()));
         } else {
             progress(note!("progress-downloading", url = &url));
-            let bytes = match fetcher.get(&url).and_then(|b| check_las(&url, b)) {
+            let bytes = match get_with_retries(fetcher, &url, |b| check_las(&url, b.to_vec())) {
                 Ok(bytes) => bytes,
                 Err(e) => {
                     if let Some((published, path)) = unavailable(Arg::error(e), progress) {

@@ -367,6 +367,15 @@ impl Localize for FetchError {
     fn localize(&self, lang: &Lang) -> String {
         let url = |url: &String| ("url", v(url));
         match self {
+            FetchError::Http { url: from, message } if self.is_temporary() => text(
+                lang,
+                "error-fetch-http-temporary",
+                &[
+                    url(from),
+                    ("message", v(message)),
+                    ("attempts", n(freemapper::fetch::ATTEMPTS as usize)),
+                ],
+            ),
             FetchError::Http { url: from, message } => text(
                 lang,
                 "error-fetch-http",
@@ -707,6 +716,14 @@ mod tests {
             FetchError::Http {
                 url: url(),
                 message: "timeout".into(),
+            },
+            FetchError::Http {
+                url: url(),
+                message: "http status: 503".into(),
+            },
+            FetchError::Http {
+                url: url(),
+                message: "http status: 502".into(),
             },
             FetchError::Io(PathBuf::from("a/b.zip"), missing()),
             FetchError::Io(PathBuf::from("a/b.zip"), disk_full()),

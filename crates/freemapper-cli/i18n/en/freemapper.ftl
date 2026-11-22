@@ -496,6 +496,7 @@ word-part-point-cloud = the laser point clouds for the vegetation candidates
 ## Errors: downloads
 
 error-fetch-http = download of { $url } failed: { $message }
+error-fetch-http-temporary = download of { $url } failed: { $message }. The service is probably overloaded or under maintenance; freemapper asked up to { $attempts } times. Run it again in a few minutes; what is already downloaded is kept.
 error-fetch-corrupt-archive = download of { $url } is not a complete tile archive: { $message }
 error-fetch-corrupt-extract = download of { $url } is not a complete OSM extract: { $message }
 error-fetch-tiles-not-covered = { $count ->

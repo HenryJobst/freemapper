@@ -4,6 +4,7 @@
 //! element). Data © OpenStreetMap contributors, ODbL.
 
 use crate::note::note;
+use freemapper_adapter_api::fetch::get_with_retries;
 use serde_json::Value;
 
 use crate::area::{AreaError, MapArea};
@@ -183,7 +184,7 @@ fn square_metres(area: f64) -> String {
 }
 
 pub fn find_places(fetcher: &dyn Fetcher, query: &str) -> Result<Vec<PlaceCandidate>, PlaceError> {
-    let bytes = fetcher.get(&search_url(query))?;
+    let bytes = get_with_retries(fetcher, &search_url(query), |bytes| Ok(bytes.to_vec()))?;
     Ok(parse_search(&String::from_utf8_lossy(&bytes))?)
 }
 
@@ -192,7 +193,7 @@ pub fn place_area(
     osm_id: &str,
     part: Option<usize>,
 ) -> Result<MapArea, PlaceError> {
-    let bytes = fetcher.get(&lookup_url(osm_id)?)?;
+    let bytes = get_with_retries(fetcher, &lookup_url(osm_id)?, |bytes| Ok(bytes.to_vec()))?;
     Ok(area_from_lookup(
         &String::from_utf8_lossy(&bytes),
         osm_id,

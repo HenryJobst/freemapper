@@ -7,6 +7,7 @@ use crate::note::{Arg, Note, note};
 use std::path::{Path, PathBuf};
 
 use chrono::NaiveDate;
+use freemapper_adapter_api::fetch::{download_with_retries, get_with_retries};
 use freemapper_adapter_api::info::OsmExtractInfo;
 use freemapper_adapter_api::records::AdapterId;
 
@@ -740,12 +741,14 @@ fn refresh_extract(
     newest: Option<Extract>,
     progress: &mut dyn FnMut(Note),
 ) -> Result<Extract, FetchError> {
-    let state = fetcher.get(&source.state_url())?;
-    let date =
-        parse_state_date(&String::from_utf8_lossy(&state)).ok_or_else(|| FetchError::Http {
+    // Geofabrik answers 503 now and then under load or while it writes new extracts; both requests
+    // go through the retrying helpers of the fetch layer (#219).
+    let date = get_with_retries(fetcher, &source.state_url(), |state| {
+        parse_state_date(&String::from_utf8_lossy(state)).ok_or_else(|| FetchError::Http {
             url: source.state_url(),
             message: "no timestamp in the state file".to_string(),
-        })?;
+        })
+    })?;
     if let Some(cached) = newest.filter(|e| (date - e.date).num_days() <= MAX_EXTRACT_AGE_DAYS) {
         progress(note!(
             "progress-osm-extract-cached",
@@ -763,8 +766,7 @@ fn refresh_extract(
         .osm_dir()
         .join(format!("{}{date}{EXTRACT_SUFFIX}", source.prefix()));
     let part = path.with_extension("pbf.part");
-    let result = fetcher
-        .download_to(&source.url(), &part, MAX_EXTRACT_BYTES, progress)
+    let result = download_with_retries(fetcher, &source.url(), &part, MAX_EXTRACT_BYTES, progress)
         .and_then(|()| check_pbf(&part, &source.url()));
     let header_date = match result {
         Ok(header_date) => header_date,
@@ -1848,6 +1850,96 @@ mod tests {
         let extract = online(&fetcher, &cache).unwrap();
         assert_eq!(extract.date.to_string(), "2026-11-06");
         assert_eq!(extracts(&cache), ["brandenburg_2026-11-06.osm.pbf"]);
+    }
+
+    /// Serves like `MapFetcher`, but the first `refusals` requests of each kind meet a 503, as Geofabrik
+    /// answers under load (#219).
+    struct Busy<'a> {
+        inner: &'a MapFetcher,
+        gets: std::cell::Cell<u32>,
+        downloads: std::cell::Cell<u32>,
+        refusals: u32,
+    }
+
+    impl Busy<'_> {
+        fn unavailable(url: &str) -> FetchError {
+            FetchError::Http {
+                url: url.to_string(),
+                message: "http status: 503".to_string(),
+            }
+        }
+    }
+
+    impl Fetcher for Busy<'_> {
+        fn get(&self, url: &str) -> Result<Vec<u8>, FetchError> {
+            self.gets.set(self.gets.get() + 1);
+            if self.gets.get() <= self.refusals {
+                return Err(Self::unavailable(url));
+            }
+            self.inner.get(url)
+        }
+
+        fn download_to(
+            &self,
+            url: &str,
+            path: &Path,
+            max_bytes: u64,
+            progress: &mut dyn FnMut(Note),
+        ) -> Result<(), FetchError> {
+            self.downloads.set(self.downloads.get() + 1);
+            if self.downloads.get() <= self.refusals {
+                return Err(Self::unavailable(url));
+            }
+            self.inner.download_to(url, path, max_bytes, progress)
+        }
+    }
+
+    #[test]
+    fn a_busy_server_is_asked_again_for_the_state_file_and_the_extract() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(dir.path().to_path_buf());
+        let fetcher = MapFetcher::default();
+        serve(&fetcher, "2026-11-06");
+        let busy = Busy {
+            inner: &fetcher,
+            gets: 0.into(),
+            downloads: 0.into(),
+            refusals: 2,
+        };
+        let extract = fetch_extract(
+            &busy,
+            &cache,
+            &extract_of("brandenburg", 0),
+            FetchMode::Online,
+            &mut |_| {},
+        )
+        .unwrap();
+        assert_eq!(extract.date.to_string(), "2026-11-06");
+        assert_eq!((busy.gets.get(), busy.downloads.get()), (3, 3));
+    }
+
+    #[test]
+    fn a_server_that_stays_busy_fails_after_the_attempts() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(dir.path().to_path_buf());
+        let fetcher = MapFetcher::default();
+        serve(&fetcher, "2026-11-06");
+        let busy = Busy {
+            inner: &fetcher,
+            gets: 0.into(),
+            downloads: 0.into(),
+            refusals: 99,
+        };
+        let err = fetch_extract(
+            &busy,
+            &cache,
+            &extract_of("brandenburg", 0),
+            FetchMode::Online,
+            &mut |_| {},
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("503"), "{err}");
+        assert_eq!(busy.gets.get(), freemapper_adapter_api::fetch::ATTEMPTS);
     }
 
     /// Serves like `MapFetcher`, but every download into a file meets a full disk.

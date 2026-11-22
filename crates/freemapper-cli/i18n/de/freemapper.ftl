@@ -496,6 +496,7 @@ word-part-point-cloud = die Laserpunktwolken für die Vegetations-Kandidaten
 ## Fehler: Herunterladen
 
 error-fetch-http = Das Herunterladen von { $url } ist gescheitert: { $message }
+error-fetch-http-temporary = Das Herunterladen von { $url } ist gescheitert: { $message }. Der Dienst ist vermutlich überlastet oder in Wartung; freemapper hat bis zu { $attempts } Mal gefragt. Starten Sie den Lauf in einigen Minuten noch einmal; was schon heruntergeladen ist, bleibt erhalten.
 error-fetch-corrupt-archive = Von { $url } kam kein vollständiges Kachelarchiv: { $message }
 error-fetch-corrupt-extract = Von { $url } kam kein vollständiger OSM-Auszug: { $message }
 error-fetch-tiles-not-covered = { $count ->

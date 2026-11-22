@@ -508,6 +508,7 @@ word-part-point-cloud = лазерные облака точек для канд
 ## Errors: downloads
 
 error-fetch-http = загрузка { $url } не удалась: { $message }
+error-fetch-http-temporary = загрузка { $url } не удалась: { $message }. Сервис, вероятно, перегружен или на обслуживании; freemapper пытался до { $attempts } раз. Запустите выполнение снова через несколько минут; уже загруженное сохраняется.
 error-fetch-corrupt-archive = загрузка { $url } не является полным архивом плиток: { $message }
 error-fetch-corrupt-extract = загрузка { $url } не является полной выгрузкой OSM: { $message }
 error-fetch-tiles-not-covered = { $count ->

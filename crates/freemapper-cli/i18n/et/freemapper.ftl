@@ -496,6 +496,7 @@ word-part-point-cloud = taimestiku kandidaatide laserpunktipilved
 ## Errors: downloads
 
 error-fetch-http = { $url } allalaadimine ebaõnnestus: { $message }
+error-fetch-http-temporary = { $url } allalaadimine ebaõnnestus: { $message }. Teenus on tõenäoliselt üle koormatud või hoolduses; freemapper küsis kuni { $attempts } korda. Käivitage käitus mõne minuti pärast uuesti; juba alla laaditu säilib.
 error-fetch-corrupt-archive = { $url } allalaadimine ei ole täielik ruudu-arhiiv: { $message }
 error-fetch-corrupt-extract = { $url } allalaadimine ei ole täielik OSM-i väljavõte: { $message }
 error-fetch-tiles-not-covered = { $count ->

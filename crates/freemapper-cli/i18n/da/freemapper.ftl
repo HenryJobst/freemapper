@@ -496,6 +496,7 @@ word-part-point-cloud = laserpunktskyerne til vegetationskandidaterne
 ## Errors: downloads
 
 error-fetch-http = download af { $url } mislykkedes: { $message }
+error-fetch-http-temporary = download af { $url } mislykkedes: { $message }. Tjenesten er sandsynligvis overbelastet eller under vedligeholdelse; freemapper har spurgt op til { $attempts } gange. Start kørslen igen om nogle minutter; det, der allerede er hentet, bevares.
 error-fetch-corrupt-archive = download af { $url } er ikke et komplet flisearkiv: { $message }
 error-fetch-corrupt-extract = download af { $url } er ikke et komplet OSM-udtræk: { $message }
 error-fetch-tiles-not-covered = { $count ->
