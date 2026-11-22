@@ -402,7 +402,7 @@ fn touches(object: &Object, bbox: &BoundingBox) -> bool {
 }
 
 /// The objects of `classes` in the archive `path` that touch `bbox`. A class the archive has no
-/// file for is empty. An entry that unpacks to more than [`MAX_ENTRY_BYTES`] is
+/// file for is empty. An entry that unpacks to more than `MAX_ENTRY_BYTES` is
 /// [`FetchError::TooLarge`], and a file that is no archive is an error.
 pub fn read_archive(
     path: &Path,
