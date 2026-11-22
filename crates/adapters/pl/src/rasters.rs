@@ -366,6 +366,75 @@ impl PolskaRasters {
     }
 }
 
+/// The sheets an online run used, as the project keeps them for an offline run.
+struct StoredSheets {
+    terrain: Vec<Sheet>,
+    orthophoto: Vec<Sheet>,
+    /// `None` when no run has chosen surface sheets yet.
+    surface: Option<Vec<Sheet>>,
+}
+
+const SHEETS_RELPATH: &str = "data/gugik-sheets.json";
+
+fn sheets_to_json(sheets: &[Sheet]) -> serde_json::Value {
+    sheets
+        .iter()
+        .map(|s| serde_json::json!({"godlo": s.godlo, "year": s.year, "url": s.url}))
+        .collect()
+}
+
+/// A sheet as stored: only what the cache file and its name need. The extent and the pixel size
+/// are not read offline (the cap was checked online).
+fn sheets_from_json(value: &serde_json::Value) -> Option<Vec<Sheet>> {
+    value
+        .as_array()?
+        .iter()
+        .map(|v| {
+            Some(Sheet {
+                godlo: v.get("godlo")?.as_str()?.to_string(),
+                year: u16::try_from(v.get("year")?.as_u64()?).ok()?,
+                resolution_m: 0.0,
+                source: crate::sheets::SheetSource::Unknown,
+                url: v.get("url")?.as_str()?.to_string(),
+                bbox_2180: BoundingBox {
+                    min_e: 0.0,
+                    min_n: 0.0,
+                    max_e: 0.0,
+                    max_n: 0.0,
+                },
+            })
+        })
+        .collect()
+}
+
+fn read_stored(dir: &std::path::Path) -> Option<StoredSheets> {
+    let text = std::fs::read_to_string(dir.join(SHEETS_RELPATH)).ok()?;
+    let v: serde_json::Value = serde_json::from_str(&text).ok()?;
+    Some(StoredSheets {
+        terrain: sheets_from_json(v.get("terrain")?)?,
+        orthophoto: sheets_from_json(v.get("orthophoto")?)?,
+        surface: v.get("surface").and_then(sheets_from_json),
+    })
+}
+
+fn write_stored(
+    dir: &std::path::Path,
+    terrain: &[Sheet],
+    orthophoto: &[Sheet],
+    surface: Option<&[Sheet]>,
+) -> Result<(), AdapterError> {
+    let mut v = serde_json::json!({
+        "terrain": sheets_to_json(terrain),
+        "orthophoto": sheets_to_json(orthophoto),
+    });
+    if let Some(surface) = surface {
+        v["surface"] = sheets_to_json(surface);
+    }
+    let text = serde_json::to_string_pretty(&v).unwrap_or_default();
+    write_inside(dir, &dir.join(SHEETS_RELPATH), text.as_bytes())
+        .map_err(|(p, e)| AdapterError::Io(p, e))
+}
+
 /// The years of `sheets` as one text, `2020` or `2018, 2020`.
 fn years(sheets: &[Sheet]) -> String {
     let mut years: Vec<u16> = sheets.iter().map(|s| s.year).collect();
@@ -397,12 +466,27 @@ impl RasterBackend for PolskaRasters {
             })
         })?;
         let fetcher = env.fetcher;
-        let terrain = self.choose(fetcher, Product::Terrain, &area, &mut *env.progress)?;
-        let photo = self.choose(fetcher, Product::Orthophoto, &area, &mut *env.progress)?;
-        let surface = if env.skip_surface {
-            Vec::new()
+        let mut stored = read_stored(project.dir());
+        let (terrain, photo, surface) = if env.mode == FetchMode::Offline {
+            let stored = stored.take();
+            // An offline run never asks the index service: it reads the sheets an online run
+            // recorded in the project, and without them there is nothing to look up.
+            let stored = stored.ok_or(AdapterError::TerrainNotFetched)?;
+            let surface = if env.skip_surface {
+                Vec::new()
+            } else {
+                stored.surface.unwrap_or_default()
+            };
+            (stored.terrain, stored.orthophoto, surface)
         } else {
-            self.choose(fetcher, Product::Surface, &area, &mut *env.progress)?
+            let terrain = self.choose(fetcher, Product::Terrain, &area, &mut *env.progress)?;
+            let photo = self.choose(fetcher, Product::Orthophoto, &area, &mut *env.progress)?;
+            let surface = if env.skip_surface {
+                Vec::new()
+            } else {
+                self.choose(fetcher, Product::Surface, &area, &mut *env.progress)?
+            };
+            (terrain, photo, surface)
         };
         // The cap counts what the sheets weigh, cached or not: a map area that needs more than
         // the cap is too large for this provider whichever run asks.
@@ -421,6 +505,15 @@ impl RasterBackend for PolskaRasters {
             }));
         }
         let dir = project.dir().to_path_buf();
+        if env.mode == FetchMode::Online {
+            // A run that leaves the surface model out keeps the sheets recorded for it before.
+            let kept = if env.skip_surface {
+                stored.and_then(|s| s.surface)
+            } else {
+                Some(surface.clone())
+            };
+            write_stored(&dir, &terrain, &photo, kept.as_deref())?;
+        }
         project.records().tiles.clear();
         project.records().ndsm_tiles.clear();
 
@@ -887,6 +980,58 @@ mod tests {
             calls,
             "nothing is downloaded offline"
         );
+    }
+
+    /// A catalog that must not be asked.
+    struct Forbidden;
+
+    impl SheetCatalog for Forbidden {
+        fn sheets(
+            &self,
+            _: &dyn Fetcher,
+            _: Product,
+            _: &BoundingBox,
+            _: &mut dyn FnMut(Note),
+        ) -> Result<Vec<Sheet>, AdapterError> {
+            panic!("an offline run asked the index service");
+        }
+    }
+
+    #[test]
+    fn offline_never_asks_the_catalog_and_says_to_fetch_online_when_nothing_is_stored() {
+        let (_, fetcher) = served();
+        let backend = PolskaRasters::new(Arc::new(Forbidden));
+        let scratch = tempfile::tempdir().unwrap();
+        let (result, _) = run(&backend, &fetcher, scratch.path(), FetchMode::Offline, true);
+        assert!(matches!(result, Err(AdapterError::TerrainNotFetched)));
+        assert!(fetcher.log.borrow().is_empty());
+    }
+
+    #[test]
+    fn offline_after_an_online_run_reads_the_recorded_sheets_without_the_catalog() {
+        let (stub, fetcher) = served();
+        let scratch = tempfile::tempdir().unwrap();
+        run(
+            &PolskaRasters::new(Arc::new(stub)),
+            &fetcher,
+            scratch.path(),
+            FetchMode::Online,
+            false,
+        )
+        .0
+        .unwrap();
+        let calls = fetcher.log.borrow().len();
+        let backend = PolskaRasters::new(Arc::new(Forbidden));
+        let (again, project) = run(
+            &backend,
+            &fetcher,
+            scratch.path(),
+            FetchMode::Offline,
+            false,
+        );
+        again.unwrap();
+        assert!(project.terrain.is_some() && project.surface.is_some());
+        assert_eq!(fetcher.log.borrow().len(), calls);
     }
 
     #[test]
