@@ -439,6 +439,9 @@ fn hint_text(lang: &Lang, notes: &PermitNotes, hint: &Hint) -> String {
     {
         args.push(("office".into(), "unknown".into()));
     }
+    if hint.key == hint_key::GMINA_NATURE_PL && !has(&args, "gmina") {
+        args.push(("gmina".into(), "none".into()));
+    }
     if hint.key == hint_key::STATE_FOREST && !has(&args, "office") {
         args.push(("office".into(), "none".into()));
     }
@@ -1301,6 +1304,9 @@ fn used_ids() -> Vec<String> {
             hint_key::ROAD_CLASS,
             hint_key::PROTECTED_AREAS_PL,
             hint_key::FOREST_OWNER_PL,
+            hint_key::GMINA_NATURE_PL,
+            hint_key::GMINA_ROADS_PL,
+            hint_key::GMINA_LAND_PL,
         ]
         .map(String::from),
     );
@@ -1793,6 +1799,46 @@ mod tests {
         let text = render_markdown(&notes, &Lang::english());
         assert!(text.contains("Regional Directorate for Environmental Protection"));
         assert!(text.contains("State Forests"), "{text}");
+    }
+
+    /// The hints that name the gmina fill its name in every language, and the nature hint reads
+    /// on without one (ADR 0183).
+    #[test]
+    fn the_gmina_hints_name_the_gmina_in_every_language() {
+        let mut notes = viktoriapark();
+        notes.admin.clear();
+        notes.regional.clear();
+        notes.sources.retain(|s| s.id == "osm");
+        let gmina = [("gmina", "gmina miejska Słubice")];
+        for code in [
+            "en", "de", "pl", "cs", "da", "es", "et", "fi", "fr", "hu", "it", "lt", "lv", "nb",
+            "nl", "pt", "ru", "sk", "sl", "sv", "uk",
+        ] {
+            let lang = TEXTS.parse_lang_arg(code).unwrap();
+            for key in [
+                hint_key::GMINA_NATURE_PL,
+                hint_key::GMINA_ROADS_PL,
+                hint_key::GMINA_LAND_PL,
+            ] {
+                notes.hints = vec![hint(key, &gmina)];
+                let text = render_markdown(&notes, &lang);
+                assert!(text.contains("Słubice"), "{code} {key}\n{text}");
+                assert!(!text.contains("{ $"), "{code} {key}\n{text}");
+            }
+            notes.hints = vec![hint(hint_key::GMINA_NATURE_PL, &[])];
+            let text = render_markdown(&notes, &lang);
+            assert!(
+                !text.contains("{ $") && !text.contains("none"),
+                "{code}\n{text}"
+            );
+        }
+        notes.hints = vec![hint(hint_key::GMINA_ROADS_PL, &gmina)];
+        let text = render_markdown(&notes, &Lang::english());
+        assert!(text.contains("art. 65 of the Road Traffic Act"), "{text}");
+        assert!(
+            text.contains("starosta for powiat and gmina roads"),
+            "{text}"
+        );
     }
 
     #[test]

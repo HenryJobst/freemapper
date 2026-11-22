@@ -52,7 +52,7 @@ gminas (A03). Measured on 22 November 2026 at Słubice, Kościan and Poznań, Us
 
 - **Hints that name the gmina.** The Polish hints still say nothing about which office of the
   gmina decides small objects (natural monuments, ecological sites). The gmina is now in the notes,
-  the competence is still not checked.
+  the competence is still not checked. Read and decided in [ADR 0183](0183-poland-gmina-as-a-contact-in-the-permit-notes.md).
 - **Cities with powiat rights** show a powiat and a gmina of the same name (`powiat Poznań`,
   `gmina miejska Poznań`). That is how the register has them.
 - The sub-gmina units (`miasto`, `obszar wiejski`, `dzielnica`) were read from the TERYT convention
