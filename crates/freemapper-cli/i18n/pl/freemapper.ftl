@@ -825,6 +825,7 @@ error-permits-missing-not-read = { $source }: nie odczytano
 
 permits-title = Wskazówki dotyczące zgód
 permits-disclaimer = Wskazówka, nie porada prawna. Decydują właściwe organy. Datę i dokładność danych podaje tabela w części "Źródła i data danych"; obszarów może brakować lub mogą być nieaktualne (BfN: dane łączone raz w roku, "Nicht für Planungszwecke geeignet.", czyli nieodpowiednie do celów planistycznych).
+permits-disclaimer-regional = Wskazówka, nie porada prawna. Decydują właściwe organy. Datę i dokładność danych podaje tabela w części "Źródła i data danych"; obszarów może brakować lub mogą być nieaktualne.
 permits-bfn-merge = BfN łączy dane krajów związkowych raz w roku i oznacza je jako nieodpowiednie do celów planistycznych. Decydują organy kraju związkowego.
 permits-created = Sporządzono dnia { $date } dla obszaru mapy: { $kind ->
         [schoolyard] mapa dziedzińca szkolnego
@@ -887,6 +888,7 @@ permits-quoted = "{ $text }"
 permits-osm-unnamed = bez nazwy
 permits-osm-operator = Zarządca według OSM: { $operator }
 permits-osm-enclosing-gap = Obszarów OpenStreetMap, które otaczają cały obszar mapy bez żadnego wierzchołka wewnątrz niego, może tu brakować, podobnie jak obszarów chronionych zapisanych w OSM jako relacja z `type=boundary`. Części z BfN i VG250 nie dotyczy to.
+permits-osm-enclosing-gap-short = Obszarów OpenStreetMap, które otaczają cały obszar mapy bez żadnego wierzchołka wewnątrz niego, może tu brakować.
 permits-operator-line = { $name } ({ $roles ->
         [operator] zarządca
         [owner] właściciel
@@ -909,6 +911,7 @@ permits-hint-nature-authority = { $kreisfrei ->
 permits-hint-national-park = Park narodowy ma własne zasady. Zapytaj zarząd parku narodowego odpowiednio wcześnie.
 permits-hint-nsg-paths = W rezerwacie przyrody zwykle trzeba trzymać się ścieżek. Aby biec poza ścieżkami, zapytaj organ ochrony przyrody.
 permits-hint-natura2000 = Obszar FFH lub obszar ochrony ptaków (Natura 2000) dotyka obszaru mapy. Przy imprezie organ ochrony przyrody może zażądać oceny jej oddziaływania.
+permits-hint-protected-areas-pl = W obszarze mapy leżą obszary lub obiekty ochrony przyrody. W przypadku parku narodowego, parku krajobrazowego lub rezerwatu zwykle pierwszym kontaktem jest administracja parku lub rezerwatu; w przypadku pozostałych obszarów i obiektów właściwy organ zwykle wskaże Regionalna Dyrekcja Ochrony Środowiska (RDOŚ) właściwa dla województwa. Zapytaj odpowiednio wcześnie, gdy planujesz tam imprezę.
 permits-hint-order-office = { $amt ->
         [none] Za ulice, place i inne tereny publiczne zwykle odpowiada Ordnungsamt (urząd porządku publicznego) gminy { $gemeinde }.
        *[other] Za ulice, place i inne tereny publiczne zwykle odpowiada Ordnungsamt (urząd porządku publicznego): { $amt }, dla gminy { $gemeinde }.
@@ -951,6 +954,17 @@ permits-object-kind = { $kind ->
         [natural-monument] Pomnik przyrody (Naturdenkmal)
         [protected-landscape-part] Chroniony element krajobrazu (geschützter Landschaftsbestandteil)
         [biotope] Prawnie chroniony biotop (geschütztes Biotop)
+        [national-park] Park narodowy
+        [park-buffer-zone] Otulina parku
+        [landscape-park] Park krajobrazowy
+        [nature-reserve] Rezerwat przyrody
+        [protected-landscape-area] Obszar chronionego krajobrazu
+        [natura2000-habitats] Obszar Natura 2000 (siedliska, SOO)
+        [natura2000-birds] Obszar Natura 2000 (ptaki, OSO)
+        [ecological-site] Użytek ekologiczny
+        [landscape-complex] Zespół przyrodniczo-krajobrazowy
+        [documentation-site] Stanowisko dokumentacyjne
+        [natural-monument-pl] Pomnik przyrody
        *[special-rules] Obszar ze szczególnymi zasadami
     }
 permits-object-count = { $count ->
@@ -1014,6 +1028,10 @@ permits-hint-forest-office = { $units ->
 permits-hint-forest-owner = { $office ->
         [known] Impreza w lesie wymaga zgody właścicieli lasu. Urząd leśny zwykle może powiedzieć, kto jest właścicielem. W kilku krajach związkowych zorganizowaną imprezę w lesie trzeba ponadto zgłosić organowi leśnemu lub uzyskać jego zezwolenie.
        *[unknown] Impreza w lesie wymaga zgody właścicieli lasu. W kilku krajach związkowych zorganizowaną imprezę w lesie trzeba ponadto zgłosić organowi leśnemu lub uzyskać jego zezwolenie. Te wskazówki nie wskazują właściwego tu urzędu leśnego; może to powiedzieć administracja leśna kraju związkowego lub dolny organ leśny.
+    }
+permits-hint-forest-owner-pl = { $office ->
+        [known] Impreza w lesie zwykle wymaga zgody właściciela lasu. Wymienione wyżej nadleśnictwo zwykle może powiedzieć, kto opiekuje się lasem. Lasu, który nie należy do Lasów Państwowych, na przykład lasu prywatnego, nie ma w danych tych wskazówek.
+       *[unknown] Impreza w lesie zwykle wymaga zgody właściciela lasu. Te wskazówki nie wskazują dla obszaru mapy żadnego nadleśnictwa Lasów Państwowych; dane obejmują tylko Lasy Państwowe, więc las może należeć do kogoś innego, na przykład do właściciela prywatnego. Właściciela trzeba ustalić osobno.
     }
 permits-section-water-protection = Strefy ochrony wód ({ $source })
 permits-section-forest-functions = Funkcje lasu i lasy ochronne ({ $source })

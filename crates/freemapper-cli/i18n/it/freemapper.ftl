@@ -816,6 +816,7 @@ error-permits-missing-not-read = { $source }: non letto
 
 permits-title = Note sui permessi
 permits-disclaimer = Un'indicazione, non una consulenza legale. Decidono le autorità competenti. Per la data e la precisione dei dati vedi la tabella sotto "Fonti e data dei dati"; le aree possono mancare o essere superate (BfN: unite una volta all'anno, "Nicht für Planungszwecke geeignet.", cioè non adatto alla pianificazione).
+permits-disclaimer-regional = Un'indicazione, non una consulenza legale. Decidono le autorità competenti. Per la data e la precisione dei dati vedi la tabella sotto "Fonti e data dei dati"; le aree possono mancare o essere superate.
 permits-bfn-merge = Il BfN unisce i dati dei Land una volta all'anno e li contrassegna come non adatti alla pianificazione. Decidono le autorità del Land.
 permits-created = Creato il { $date } per l'area di una { $kind ->
         [schoolyard] carta da cortile scolastico
@@ -878,6 +879,7 @@ permits-quoted = "{ $text }"
 permits-osm-unnamed = senza nome
 permits-osm-operator = Gestore secondo OSM: { $operator }
 permits-osm-enclosing-gap = Qui possono mancare le aree di OpenStreetMap che racchiudono l'intera area della carta senza un angolo al suo interno, e così le aree protette mappate in OSM come relazione con `type=boundary`. Le parti del BfN e di VG250 non ne sono toccate.
+permits-osm-enclosing-gap-short = Qui possono mancare le aree di OpenStreetMap che circondano l'intera area della mappa senza avere un angolo al suo interno.
 permits-operator-line = { $name } ({ $roles ->
         [operator] gestore
         [owner] proprietario
@@ -900,6 +902,7 @@ permits-hint-nature-authority = { $kreisfrei ->
 permits-hint-national-park = Un parco nazionale ha regole proprie. Rivolgiti per tempo all'amministrazione del parco nazionale.
 permits-hint-nsg-paths = In una riserva naturale di solito bisogna restare sui sentieri. Per una corsa fuori dai sentieri, rivolgiti all'autorità per la tutela della natura.
 permits-hint-natura2000 = Un'area FFH o un'area di protezione degli uccelli (Natura 2000) tocca l'area della carta. Per una manifestazione l'autorità per la tutela della natura può chiedere una valutazione dei suoi effetti.
+permits-hint-protected-areas-pl = Nell'area della mappa si trovano aree o oggetti protetti per la conservazione della natura. Per un parco nazionale, un parco paesaggistico o una riserva naturale il contatto abituale è l'amministrazione del parco o della riserva; per le altre aree e oggetti la Direzione regionale per la protezione dell'ambiente (RDOŚ) del voivodato di solito può dire chi è competente. Chiedi per tempo se pianifichi un evento lì.
 permits-hint-order-office = { $amt ->
         [none] Per strade, piazze e altri terreni pubblici di solito è competente l'Ordnungsamt (ufficio per l'ordine pubblico) del comune { $gemeinde }.
        *[other] Per strade, piazze e altri terreni pubblici di solito è competente l'Ordnungsamt (ufficio per l'ordine pubblico): { $amt }, per il comune { $gemeinde }.
@@ -937,6 +940,17 @@ permits-object-kind = { $kind ->
         [natural-monument] Monumento naturale (Naturdenkmal)
         [protected-landscape-part] Elemento paesaggistico protetto (geschützter Landschaftsbestandteil)
         [biotope] Biotopo protetto per legge (geschütztes Biotop)
+        [national-park] Parco nazionale (park narodowy)
+        [park-buffer-zone] Zona cuscinetto di un parco (otulina)
+        [landscape-park] Parco paesaggistico (park krajobrazowy)
+        [nature-reserve] Riserva naturale (rezerwat przyrody)
+        [protected-landscape-area] Area di paesaggio protetto (obszar chronionego krajobrazu)
+        [natura2000-habitats] Sito Natura 2000 per gli habitat (SOO)
+        [natura2000-birds] Sito Natura 2000 per gli uccelli (OSO)
+        [ecological-site] Area ecologica (użytek ekologiczny)
+        [landscape-complex] Complesso naturale e paesaggistico (zespół przyrodniczo-krajobrazowy)
+        [documentation-site] Sito di documentazione (stanowisko dokumentacyjne)
+        [natural-monument-pl] Monumento naturale (pomnik przyrody)
        *[special-rules] Area con regole particolari
     }
 permits-object-count = { $count } oggetti
@@ -995,6 +1009,10 @@ permits-hint-forest-office = { $units ->
 permits-hint-forest-owner = { $office ->
         [known] Una manifestazione nel bosco richiede il consenso dei proprietari del bosco. L'ufficio forestale di solito sa dire chi possiede il bosco. In diversi Land una manifestazione organizzata nel bosco va anche notificata all'autorità forestale o da essa autorizzata.
        *[unknown] Una manifestazione nel bosco richiede il consenso dei proprietari del bosco. In diversi Land una manifestazione organizzata nel bosco va anche notificata all'autorità forestale o da essa autorizzata. Queste note non nominano l'ufficio forestale competente qui; te lo può dire l'amministrazione forestale del Land o l'autorità forestale inferiore.
+    }
+permits-hint-forest-owner-pl = { $office ->
+        [known] Un evento nel bosco di solito richiede il consenso del proprietario del bosco. Il distretto forestale (Nadleśnictwo) indicato sopra di solito sa dire chi si occupa del bosco. Il bosco che non appartiene alle Foreste di Stato, ad esempio un bosco privato, non è nei dati di queste note.
+       *[unknown] Un evento nel bosco di solito richiede il consenso del proprietario del bosco. Queste note non indicano alcun distretto forestale delle Foreste di Stato per l'area della mappa; i dati comprendono solo le Foreste di Stato, quindi il bosco può appartenere a qualcun altro, ad esempio a un proprietario privato. Chi sia il proprietario va accertato separatamente.
     }
 permits-section-water-protection = Aree di protezione delle acque ({ $source })
 permits-section-forest-functions = Funzioni del bosco e bosco protetto ({ $source })

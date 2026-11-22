@@ -808,6 +808,7 @@ error-permits-missing-not-read = { $source }: not read
 
 permits-title = Permit notes
 permits-disclaimer = A hint, not legal advice. The competent authorities decide. For the data date and accuracy see the table under "Sources and data date"; areas can be missing or out of date (BfN: merged once a year, "Nicht für Planungszwecke geeignet.", that is, not suitable for planning).
+permits-disclaimer-regional = A hint, not legal advice. The competent authorities decide. For the data date and accuracy see the table under "Sources and data date"; areas can be missing or out of date.
 permits-bfn-merge = The BfN merges the data of the states once a year and marks them as not suitable for planning. The authorities of the state decide.
 permits-created = Made on { $date } for the map area of a { $kind ->
         [schoolyard] schoolyard map
@@ -870,6 +871,7 @@ permits-quoted = "{ $text }"
 permits-osm-unnamed = without a name
 permits-osm-operator = Operator according to OSM: { $operator }
 permits-osm-enclosing-gap = OpenStreetMap areas that enclose the whole map area without a corner inside it can be missing here, and so can protected areas mapped in OSM as a relation with `type=boundary`. The parts from the BfN and VG250 are not affected.
+permits-osm-enclosing-gap-short = OpenStreetMap areas that enclose the whole map area without a corner inside it can be missing here.
 permits-operator-line = { $name } ({ $roles ->
         [operator] operator
         [owner] owner
@@ -892,6 +894,7 @@ permits-hint-nature-authority = { $kreisfrei ->
 permits-hint-national-park = A national park has rules of its own. Ask the national park administration early.
 permits-hint-nsg-paths = In a nature reserve you usually have to keep to the paths. For a run off the paths, ask the nature conservation authority.
 permits-hint-natura2000 = An FFH area or a bird protection area (Natura 2000) touches the map area. For an event the nature conservation authority may ask for an assessment of its effects.
+permits-hint-protected-areas-pl = Protected areas or objects of nature conservation lie in the map area. For a national park, a landscape park or a nature reserve the administration of the park or reserve is the usual contact; for the other areas and objects the Regional Directorate for Environmental Protection (RDOŚ) of the voivodeship can usually say who is in charge. Ask early when you plan an event there.
 permits-hint-order-office = { $amt ->
         [none] For streets, squares and other public land the Ordnungsamt (public order office) of the Gemeinde { $gemeinde } is usually in charge.
        *[other] For streets, squares and other public land the Ordnungsamt (public order office) is usually in charge: { $amt }, for the Gemeinde { $gemeinde }.
@@ -929,6 +932,17 @@ permits-object-kind = { $kind ->
         [natural-monument] Natural monument (Naturdenkmal)
         [protected-landscape-part] Protected landscape feature (geschützter Landschaftsbestandteil)
         [biotope] Legally protected biotope (geschütztes Biotop)
+        [national-park] National park (park narodowy)
+        [park-buffer-zone] Buffer zone of a park (otulina)
+        [landscape-park] Landscape park (park krajobrazowy)
+        [nature-reserve] Nature reserve (rezerwat przyrody)
+        [protected-landscape-area] Protected landscape area (obszar chronionego krajobrazu)
+        [natura2000-habitats] Natura 2000 site for habitats (SOO)
+        [natura2000-birds] Natura 2000 site for birds (OSO)
+        [ecological-site] Ecological site (użytek ekologiczny)
+        [landscape-complex] Nature and landscape complex (zespół przyrodniczo-krajobrazowy)
+        [documentation-site] Documentation site (stanowisko dokumentacyjne)
+        [natural-monument-pl] Natural monument (pomnik przyrody)
        *[special-rules] Area with special rules
     }
 permits-object-count = { $count } objects
@@ -987,6 +1001,10 @@ permits-hint-forest-office = { $units ->
 permits-hint-forest-owner = { $office ->
         [known] An event in the forest needs the consent of the forest owners. The forest office can usually say who owns the forest. In several states an organised event in the forest must also be reported to the forest authority or allowed by it.
        *[unknown] An event in the forest needs the consent of the forest owners. In several states an organised event in the forest must also be reported to the forest authority or allowed by it. These notes do not name the forest office in charge here; the forest administration of the state or the lower forest authority can tell you.
+    }
+permits-hint-forest-owner-pl = { $office ->
+        [known] An event in the forest usually needs the consent of the forest owner. The forest district (Nadleśnictwo) named above can usually say who looks after the forest. Forest that does not belong to the State Forests, a private forest for example, is not in the data of these notes.
+       *[unknown] An event in the forest usually needs the consent of the forest owner. These notes name no forest district of the State Forests for this map area; the data cover the State Forests only, so the forest may belong to someone else, a private owner for example. Who the owner is has to be found out separately.
     }
 permits-section-water-protection = Water protection areas ({ $source })
 permits-section-forest-functions = Forest functions and protected forest ({ $source })

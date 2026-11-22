@@ -29,7 +29,7 @@ use crate::permits::notes::{Inputs, SourceInput};
 use crate::permits::osm::{OsmFinding, findings, wants};
 use crate::permits::regional::RegionalSource;
 use crate::permits::store::{
-    PERMITS_DIR, RawInputs, RawRegional, area_key, load_inputs_in, something_fetched,
+    PERMITS_DIR, RawInputs, RawRegional, area_key, load_inputs_as, something_fetched,
     store_inputs_in, stored_for,
 };
 use crate::permits::{Missing, PermitsError};
@@ -82,12 +82,19 @@ pub fn fetch_inputs_in(
     offline: bool,
     progress: &mut dyn FnMut(Note),
 ) -> Result<Inputs, PermitsError> {
-    // The sources, the authorities and the law of the notes are German: a map in a region of
-    // another country (Poland) would get a false all-clear.
-    if crate::project::outside_germany(&project.region_bbox()?) {
+    let area = project.area()?;
+    // The national sources, the authorities and the law of the notes are German: a map in a
+    // region of another country would get a false all-clear from them. It gets notes only
+    // from the permit sources of a region adapter whose ground it lies on (Poland, ADR 0175),
+    // and from OSM; with none it is refused.
+    let national = !crate::project::outside_germany(&project.region_bbox()?);
+    if !national
+        && !registry
+            .adapters()
+            .any(|a| !a.permit_sources().is_empty() && on_ground(a, &area))
+    {
         return Err(ProjectError::PermitsNotForRegion.into());
     }
-    let area = project.area()?;
     let bbox = map_box(&area);
     if offline {
         progress(note!("progress-permits-stored"));
@@ -97,16 +104,22 @@ pub fn fetch_inputs_in(
             && (!covers(&stored.bbox, &bbox)
                 || stored.area.is_some_and(|key| key != area_key(&area)))
         {
+            let sources: &[&str] = if national {
+                &["vg250", "bfn", "osm"]
+            } else {
+                &["osm"]
+            };
             return Err(PermitsError::NothingRead {
-                missing: ["vg250", "bfn", "osm"]
+                missing: sources
+                    .iter()
                     .map(|source| Missing {
                         source: source.to_string(),
                         reason: Some("stored for another map area".to_string()),
                     })
-                    .into(),
+                    .collect(),
             });
         }
-        return load_inputs_in(registry, dir);
+        return load_inputs_as(registry, dir, national);
     }
     let today = clock::today();
     let folder = dir.join(PERMITS_DIR);
@@ -114,10 +127,10 @@ pub fn fetch_inputs_in(
     std::fs::create_dir_all(&folder).map_err(|e| PermitsError::Io(folder.clone(), e))?;
     let part = folder.join(PART);
     let policy = UrlPolicy::national();
-    let national = PolicyFetcher::new(fetcher, &policy);
+    let national_fetcher = PolicyFetcher::new(fetcher, &policy);
     let mut ask = |label: &str, service: &GeoJsonWfs, types: Vec<&'static str>| {
         progress(note!("progress-permits-fetch", source = label));
-        let answer = fetch_source(&national, service, &types, &bbox, &part);
+        let answer = fetch_source(&national_fetcher, service, &types, &bbox, &part);
         freemapper_fs::remove_inside(dir, &part);
         match answer {
             Ok(features) => SourceInput::Read {
@@ -135,27 +148,37 @@ pub fn fetch_inputs_in(
             }
         }
     };
-    let admin = keyed(
-        ask(
-            "VG250",
-            &VG250,
-            AdminLevel::ALL.map(AdminLevel::type_name).into(),
-        ),
-        &AdminLevel::ALL,
-    );
-    let protected = keyed(
-        ask(
-            "BfN",
-            &BFN,
-            ProtectedKind::ALL.map(ProtectedKind::type_name).into(),
-        ),
-        &ProtectedKind::ALL,
-    );
+    // The national sources are asked only for a map area in Germany.
+    let admin = if national {
+        keyed(
+            ask(
+                "VG250",
+                &VG250,
+                AdminLevel::ALL.map(AdminLevel::type_name).into(),
+            ),
+            &AdminLevel::ALL,
+        )
+    } else {
+        SourceInput::NotRead
+    };
+    let protected = if national {
+        keyed(
+            ask(
+                "BfN",
+                &BFN,
+                ProtectedKind::ALL.map(ProtectedKind::type_name).into(),
+            ),
+            &ProtectedKind::ALL,
+        )
+    } else {
+        SourceInput::NotRead
+    };
     let osm = osm_findings(project, &area, cache, progress)?;
     let regional = regional_answers(registry, &area, &bbox, dir, fetcher, &part, cache, progress);
     let raw = RawInputs {
         bbox,
         area: area_key(&area),
+        national,
         admin,
         protected,
         osm,
@@ -164,7 +187,7 @@ pub fn fetch_inputs_in(
     // When nothing was read, the data of an earlier fetch stay for `--offline`.
     something_fetched(&raw)?;
     store_inputs_in(registry, dir, &raw).map_err(|e| PermitsError::Io(folder, e))?;
-    load_inputs_in(registry, dir)
+    load_inputs_as(registry, dir, national)
 }
 
 /// Whether the map area polygon lies on the ground of `adapter` (its boundary, without the
@@ -443,6 +466,32 @@ mod tests {
         let mut ids: Vec<&str> = inputs.regional.iter().map(|r| r.adapter.as_str()).collect();
         ids.dedup();
         ids
+    }
+
+    /// A map area in Germany is never refused for its region, also when no adapter brings permit
+    /// sources: the national sources are its own (ADR 0175).
+    #[test]
+    fn a_german_map_without_regional_sources_is_not_refused_for_its_region() {
+        let (dir, project) = project();
+        let root = tempfile::tempdir().unwrap();
+        let cache = Cache::new(root.path().to_path_buf());
+        let error = fetch_inputs_in(
+            &Registry::new(),
+            &project,
+            dir.path(),
+            &MapFetcher::default(),
+            &cache,
+            true,
+            &mut |_: Note| {},
+        )
+        .expect_err("nothing is stored");
+        assert!(
+            !matches!(
+                error,
+                PermitsError::Project(ProjectError::PermitsNotForRegion)
+            ),
+            "{error:?}"
+        );
     }
 
     fn project() -> (TempDir, ProjectFile) {
@@ -1613,5 +1662,314 @@ mod tests {
             );
             assert_eq!(items.len(), 2);
         });
+    }
+}
+
+/// The permit notes of a map area in Poland (ADR 0175): the GDOŚ and the PRG answer, the German
+/// national sources are not asked.
+#[cfg(test)]
+mod poland {
+    use super::*;
+    use crate::fetch::test_support::MapFetcher;
+    use crate::permits::store::write_permit_notes;
+    use crate::project::{MapKind, init_project};
+    use freemapper_adapter_api::permits::ProtectedObjectKind;
+    use tempfile::TempDir;
+
+    const FIXTURES: &str = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../adapters/pl/tests/fixtures/permits/"
+    );
+
+    /// A map area of about 700 × 550 m in Warsaw: min lon, min lat, max lon, max lat.
+    const AREA: [f64; 4] = [20.995, 52.195, 21.005, 52.200];
+
+    fn project() -> (TempDir, ProjectFile) {
+        let dir = tempfile::tempdir().unwrap();
+        let [w, s, e, n] = AREA;
+        let geojson = format!(
+            r#"{{"type":"Polygon","coordinates":[[[{w},{s}],[{e},{s}],[{e},{n}],[{w},{n}],[{w},{s}]]]}}"#
+        );
+        let area = MapArea::from_geojson(&geojson).unwrap();
+        let project = init_project(
+            dir.path(),
+            &area,
+            MapKind::Sprint,
+            None,
+            "2026-11-22".parse().unwrap(),
+            None,
+        )
+        .unwrap();
+        (dir, project)
+    }
+
+    fn fixture(name: &str) -> Vec<u8> {
+        std::fs::read(format!("{FIXTURES}{name}")).unwrap()
+    }
+
+    /// A national park that covers the map area, a landscape park and nothing else.
+    fn gdos_answer(url: &str) -> Vec<u8> {
+        let park = |name: &str| {
+            format!(
+                r#"{{"type":"FeatureCollection","features":[{{"type":"Feature","properties":{{"nazwa":"{name}"}},"geometry":{{"type":"MultiPolygon","coordinates":[[[[20.9,52.1],[21.1,52.1],[21.1,52.3],[20.9,52.3],[20.9,52.1]]]]}}}}]}}"#
+            )
+            .into_bytes()
+        };
+        if url.contains("typeNames=GDOS:ParkiNarodowe&") {
+            park("Kampinoski Park Narodowy")
+        } else if url.contains("typeNames=GDOS:ParkiKrajobrazowe&") {
+            park("Mazowiecki Park Krajobrazowy - otulina")
+        } else {
+            br#"{"type":"FeatureCollection","features":[]}"#.to_vec()
+        }
+    }
+
+    /// Serves the GDOŚ and the PRG as the sources ask for them, learned from a probe that
+    /// answers everything empty.
+    fn serve(fetcher: &MapFetcher) {
+        let probe = MapFetcher::default();
+        probe.insert_prefix(
+            "https://sdi.gdos.gov.pl/",
+            br#"{"type":"FeatureCollection","features":[]}"#.to_vec(),
+        );
+        // A district found makes the PRG ask for its directorate too.
+        probe.insert_prefix(
+            "https://mapy.geoportal.gov.pl/",
+            fixture("prg-nadlesnictwa.xml"),
+        );
+        let registry = crate::adapters::registry();
+        let polska = registry.get("polska").unwrap();
+        let rect = geo_types::Rect::new(
+            geo_types::coord! { x: AREA[0], y: AREA[1] },
+            geo_types::coord! { x: AREA[2], y: AREA[3] },
+        );
+        let scratch = tempfile::tempdir().unwrap();
+        let part = scratch.path().join("probe.part");
+        for source in polska.permit_sources() {
+            let _ = source.fetch(&probe, &rect, &part);
+        }
+        for url in probe.log.borrow().iter() {
+            let body = if url.starts_with("https://sdi.gdos.gov.pl/") {
+                gdos_answer(url)
+            } else if url.contains("U06_Nadlesnictwo") {
+                fixture("prg-nadlesnictwa.xml")
+            } else {
+                fixture("prg-rdlp.xml")
+            };
+            fetcher.insert(url, body);
+        }
+    }
+
+    fn fetch(
+        project: &ProjectFile,
+        dir: &Path,
+        fetcher: &dyn Fetcher,
+        offline: bool,
+    ) -> Result<Inputs, PermitsError> {
+        let root = tempfile::tempdir().unwrap();
+        let cache = Cache::new(root.path().to_path_buf());
+        fetch_inputs(project, dir, fetcher, &cache, offline, &mut |_: Note| {})
+    }
+
+    #[test]
+    fn a_polish_map_area_is_asked_without_vg250_and_the_bfn() {
+        let (dir, project) = project();
+        let fetcher = MapFetcher::default();
+        serve(&fetcher);
+        let online = fetch(&project, dir.path(), &fetcher, false).unwrap();
+        assert!(!online.national);
+        assert_eq!(online.admin, SourceInput::NotRead);
+        assert_eq!(online.protected, SourceInput::NotRead);
+        // No German service was asked, and the extract of the voivodeship is not cached.
+        let asked = fetcher.log.borrow().clone();
+        assert!(!asked.is_empty());
+        assert!(
+            asked
+                .iter()
+                .all(|u| u.starts_with("https://sdi.gdos.gov.pl/")
+                    || u.starts_with("https://mapy.geoportal.gov.pl/")),
+            "{asked:?}"
+        );
+        assert_eq!(online.osm, SourceInput::NotRead);
+        assert_eq!(
+            online
+                .regional
+                .iter()
+                .map(|r| (r.adapter.as_str(), r.source.key.as_str()))
+                .collect::<Vec<_>>(),
+            [("polska", "gdos"), ("polska", "prg")]
+        );
+        let today = "2026-11-22".parse().unwrap();
+        let notes = write_permit_notes(dir.path(), &project, &online, today).unwrap();
+        assert_eq!(notes.sources.len(), 1);
+        assert_eq!(notes.sources[0].id, "osm");
+        let part = &notes.regional[0];
+        assert_eq!(part.adapter, "polska");
+        let kinds: Vec<_> = part
+            .protected_objects
+            .as_ref()
+            .unwrap()
+            .iter()
+            .map(|o| (o.kind, o.name.as_deref()))
+            .collect();
+        assert_eq!(
+            kinds,
+            [
+                (
+                    ProtectedObjectKind::NationalPark,
+                    Some("Kampinoski Park Narodowy")
+                ),
+                (
+                    ProtectedObjectKind::ParkBufferZone,
+                    Some("Mazowiecki Park Krajobrazowy - otulina")
+                ),
+            ]
+        );
+        // The forest district of the sample covers the whole map area; OSM could not be read, so
+        // the notes rather name the forest office.
+        let units = part.forest_units.as_ref().unwrap();
+        assert_eq!(units[0].item.office, "Nadleśnictwo Chojnów");
+        assert_eq!(
+            units[0].item.administration,
+            "Regionalna Dyrekcja Lasów Państwowych w Warszawie"
+        );
+        let stored = std::fs::read_to_string(dir.path().join("permits.json")).unwrap();
+        assert!(
+            !stored.contains("vg250") && !stored.contains("bfn"),
+            "{stored}"
+        );
+
+        // Offline, the stored inputs give the same notes.
+        let offline = fetch(&project, dir.path(), &MapFetcher::default(), true).unwrap();
+        assert!(!offline.national);
+        assert_eq!(offline.regional, online.regional);
+        let again = write_permit_notes(dir.path(), &project, &offline, today).unwrap();
+        assert_eq!(again, notes);
+    }
+
+    /// The record says that the German sources were not asked, so a later offline run does not
+    /// list them as missing.
+    #[test]
+    fn offline_data_of_another_polish_area_name_only_osm_as_missing() {
+        let (dir, project) = project();
+        let fetcher = MapFetcher::default();
+        serve(&fetcher);
+        fetch(&project, dir.path(), &fetcher, false).unwrap();
+        // Another map area in Poland: the stored inputs are for the first.
+        let other = {
+            let (dir2, project2) = {
+                let dir2 = tempfile::tempdir().unwrap();
+                let area = MapArea::from_geojson(
+                    r#"{"type":"Polygon","coordinates":[[[19.45,51.76],[19.46,51.76],[19.46,51.766],[19.45,51.766],[19.45,51.76]]]}"#,
+                )
+                .unwrap();
+                let p = init_project(
+                    dir2.path(),
+                    &area,
+                    MapKind::Sprint,
+                    None,
+                    "2026-11-22".parse().unwrap(),
+                    None,
+                )
+                .unwrap();
+                (dir2, p)
+            };
+            copy_permits(dir.path(), dir2.path());
+            fetch(&project2, dir2.path(), &MapFetcher::default(), true)
+        };
+        let Err(PermitsError::NothingRead { missing }) = other else {
+            panic!("stored for another map area: {other:?}");
+        };
+        assert_eq!(
+            missing
+                .iter()
+                .map(|m| m.source.as_str())
+                .collect::<Vec<_>>(),
+            ["osm"]
+        );
+    }
+
+    fn ask_in(registry: &Registry, project: &ProjectFile, dir: &Path) -> PermitsError {
+        let root = tempfile::tempdir().unwrap();
+        let cache = Cache::new(root.path().to_path_buf());
+        let fetcher = MapFetcher::default();
+        fetch_inputs_in(
+            registry,
+            project,
+            dir,
+            &fetcher,
+            &cache,
+            true,
+            &mut |_: Note| {},
+        )
+        .expect_err("nothing is stored")
+    }
+
+    fn not_for_region(error: &PermitsError) -> bool {
+        matches!(
+            error,
+            PermitsError::Project(ProjectError::PermitsNotForRegion)
+        )
+    }
+
+    /// Both sides of the refusal: no source of a region adapter is only a reason to refuse a
+    /// map outside Germany (ADR 0175).
+    #[test]
+    fn a_map_outside_germany_needs_a_region_with_permit_sources() {
+        let (dir, project) = project();
+        // Poland with the adapters: asked, so nothing is refused for its region.
+        assert!(!not_for_region(&ask_in(
+            crate::adapters::registry(),
+            &project,
+            dir.path()
+        )));
+        // Poland without any adapter: refused.
+        assert!(not_for_region(&ask_in(
+            &Registry::new(),
+            &project,
+            dir.path()
+        )));
+    }
+
+    fn copy_permits(from: &Path, to: &Path) {
+        fn copy(from: &Path, to: &Path) {
+            std::fs::create_dir_all(to).unwrap();
+            for entry in std::fs::read_dir(from).unwrap().flatten() {
+                let target = to.join(entry.file_name());
+                if entry.path().is_dir() {
+                    copy(&entry.path(), &target);
+                } else {
+                    std::fs::copy(entry.path(), target).unwrap();
+                }
+            }
+        }
+        copy(&from.join(PERMITS_DIR), &to.join(PERMITS_DIR));
+    }
+
+    #[test]
+    fn a_service_that_is_down_leaves_that_source_unreachable() {
+        let (dir, project) = project();
+        let fetcher = MapFetcher::default();
+        serve(&fetcher);
+        // The GDOŚ is down: its layers answer a server error. The PRG is still read.
+        let gdos: Vec<String> = fetcher
+            .responses
+            .borrow()
+            .keys()
+            .filter(|u| u.starts_with("https://sdi.gdos.gov.pl/"))
+            .cloned()
+            .collect();
+        assert!(!gdos.is_empty());
+        fetcher.failing.borrow_mut().extend(gdos);
+        let inputs = fetch(&project, dir.path(), &fetcher, false).unwrap();
+        let state = |key: &str| {
+            let r = inputs
+                .regional
+                .iter()
+                .find(|r| r.source.key == key)
+                .unwrap();
+            matches!(r.findings, SourceInput::Read { .. })
+        };
+        assert!(!state("gdos") && state("prg"));
     }
 }

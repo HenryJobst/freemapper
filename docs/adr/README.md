@@ -220,5 +220,6 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0172](0172-readme-and-manual-in-german-and-english-only.md) | README and manual in German and English only | Accepted, supersedes a paragraph of ADR 0168 | 2026-11-21 |
 | [0173](0173-faster-mutation-runs.md) | Faster mutation runs | Accepted, amends ADR 0165 | 2026-11-21 |
 | [0174](0174-mutation-tests-do-not-block-merges.md) | Mutation tests do not block merges; a nightly run reports | Accepted, amends ADR 0161 and 0165 | 2026-11-21 |
+| [0175](0175-poland-permit-notes.md) | Permit notes in Poland | Accepted, amends a paragraph of ADR 0171 | 2026-11-22 |
 | [0176](0176-rounded-counts-in-the-badges.md) | Rounded counts in the badges | Accepted, amends ADR 0070 and 0163 | 2026-11-22 |
 | [0177](0177-download-badge-counts-program-archives.md) | The download badge counts the program archives | Accepted, amends ADR 0070, 0163 and 0176 | 2026-11-22 |

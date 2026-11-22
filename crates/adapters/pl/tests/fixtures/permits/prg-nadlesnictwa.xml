@@ -1,0 +1,59 @@
+<?xml version='1.0' encoding="UTF-8" ?>
+<wfs:FeatureCollection
+   xmlns:ms="http://mapserver.gis.umn.edu/mapserver"
+   xmlns:gml="http://www.opengis.net/gml/3.2"
+   xmlns:wfs="http://www.opengis.net/wfs/2.0"
+   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+   xsi:schemaLocation="http://mapserver.gis.umn.edu/mapserver http://mapy.geoportal.gov.pl/wss/service/PZGIK/PRG/WFS/AdministrativeBoundaries?SERVICE=WFS&amp;VERSION=2.0.0&amp;REQUEST=DescribeFeatureType&amp;TYPENAME=ms:U06_Nadlesnictwo&amp;OUTPUTFORMAT=application%2Fgml%2Bxml%3B%20version%3D3.2 http://www.opengis.net/wfs/2.0 http://schemas.opengis.net/wfs/2.0/wfs.xsd http://www.opengis.net/gml/3.2 http://schemas.opengis.net/gml/3.2.1/gml.xsd"
+   timeStamp="2026-11-21T23:07:35" numberMatched="2" numberReturned="2">
+      <wfs:boundedBy>
+      	<gml:Envelope srsName="urn:ogc:def:crs:EPSG::2180">
+      		<gml:lowerCorner>449195.330000 582799.280000</gml:lowerCorner>
+      		<gml:upperCorner>524409.450000 656699.230000</gml:upperCorner>
+      	</gml:Envelope>
+      </wfs:boundedBy>
+<!-- WARNING: FeatureId item 'ptid' not found in typename 'U06_Nadlesnictwo'. -->
+    <wfs:member>
+      <ms:U06_Nadlesnictwo>
+        <gml:boundedBy>
+        	<gml:Envelope srsName="urn:ogc:def:crs:EPSG::2180">
+        		<gml:lowerCorner>449195.330000 589497.610000</gml:lowerCorner>
+        		<gml:upperCorner>497627.410000 656699.230000</gml:upperCorner>
+        	</gml:Envelope>
+        </gml:boundedBy>
+        <ms:msGeometry>
+          <gml:Polygon gml:id=".1" srsName="urn:ogc:def:crs:EPSG::2180">
+            <gml:exterior>
+              <gml:LinearRing>
+                <gml:posList srsDimension="2">449195.33 589497.61 449195.33 656699.23 497627.41 656699.23 497627.41 589497.61 449195.33 589497.61</gml:posList>
+              </gml:LinearRing>
+            </gml:exterior>
+          </gml:Polygon>
+        </ms:msGeometry>
+        <ms:JPT_KOD_JE>17-02</ms:JPT_KOD_JE>
+        <ms:JPT_NAZWA_>NADLEŚNICTWO CHOJNÓW</ms:JPT_NAZWA_>
+      </ms:U06_Nadlesnictwo>
+    </wfs:member>
+    <wfs:member>
+      <ms:U06_Nadlesnictwo>
+        <gml:boundedBy>
+        	<gml:Envelope srsName="urn:ogc:def:crs:EPSG::2180">
+        		<gml:lowerCorner>484181.020000 582799.280000</gml:lowerCorner>
+        		<gml:upperCorner>524409.450000 647818.540000</gml:upperCorner>
+        	</gml:Envelope>
+        </gml:boundedBy>
+        <ms:msGeometry>
+          <gml:Polygon gml:id=".1" srsName="urn:ogc:def:crs:EPSG::2180">
+            <gml:exterior>
+              <gml:LinearRing>
+                <gml:posList srsDimension="2">484181.02 582799.28 484181.02 647818.54 524409.45 647818.54 524409.45 582799.28 484181.02 582799.28</gml:posList>
+              </gml:LinearRing>
+            </gml:exterior>
+          </gml:Polygon>
+        </ms:msGeometry>
+        <ms:JPT_KOD_JE>17-05</ms:JPT_KOD_JE>
+        <ms:JPT_NAZWA_>NADLEŚNICTWO JABŁONNA</ms:JPT_NAZWA_>
+      </ms:U06_Nadlesnictwo>
+    </wfs:member>
+</wfs:FeatureCollection>
+

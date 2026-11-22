@@ -825,6 +825,7 @@ error-permits-missing-not-read = { $source }: nicht gelesen
 
 permits-title = Hinweise zu Genehmigungen
 permits-disclaimer = Hinweis, keine Rechtsauskunft. Maßgeblich sind die zuständigen Behörden. Datenstand und Genauigkeit siehe Tabelle unter „Quellen und Datenstand“; Flächen können fehlen oder veraltet sein (BfN: jährliche Zusammenführung, „Nicht für Planungszwecke geeignet.“).
+permits-disclaimer-regional = Hinweis, keine Rechtsauskunft. Maßgeblich sind die zuständigen Behörden. Datenstand und Genauigkeit siehe Tabelle unter „Quellen und Datenstand“; Flächen können fehlen oder veraltet sein.
 permits-bfn-merge = Das BfN führt die Daten der Bundesländer einmal im Jahr zusammen und weist sie als nicht für Planungszwecke geeignet aus. Maßgeblich sind die Landesbehörden.
 permits-created = Erstellt am { $date } für das Kartengebiet einer { $kind ->
         [schoolyard] Schulhofkarte
@@ -887,6 +888,7 @@ permits-quoted = „{ $text }“
 permits-osm-unnamed = ohne Namen
 permits-osm-operator = Betreiber laut OSM: { $operator }
 permits-osm-enclosing-gap = OpenStreetMap-Flächen, die das ganze Kartengebiet umschließen und keine Ecke darin haben, können hier fehlen, ebenso Schutzgebiete, die in OSM als Relation mit `type=boundary` erfasst sind. Die Angaben von BfN und VG250 sind davon nicht betroffen.
+permits-osm-enclosing-gap-short = OpenStreetMap-Flächen, die das ganze Kartengebiet umschließen und keine Ecke darin haben, können hier fehlen.
 permits-operator-line = { $name } ({ $roles ->
         [operator] Betreiber
         [owner] Eigentümer
@@ -909,6 +911,7 @@ permits-hint-nature-authority = { $kreisfrei ->
 permits-hint-national-park = Im Nationalpark gelten eigene Regeln. Fragen Sie früh bei der Nationalparkverwaltung nach.
 permits-hint-nsg-paths = Im Naturschutzgebiet gilt meist ein Wegegebot. Für einen Lauf abseits der Wege fragen Sie die Naturschutzbehörde.
 permits-hint-natura2000 = Ein FFH-Gebiet oder ein Vogelschutzgebiet (Natura 2000) berührt das Kartengebiet. Für eine Veranstaltung kann die Naturschutzbehörde eine Prüfung der Verträglichkeit verlangen.
+permits-hint-protected-areas-pl = Im Kartengebiet liegen Schutzgebiete oder Schutzobjekte des Naturschutzes. Bei einem Nationalpark, einem Landschaftspark oder einem Naturschutzgebiet ist meist die Verwaltung des Parks oder Reservats der Ansprechpartner; bei den übrigen Gebieten und Objekten kann die Regionale Direktion für Umweltschutz (RDOŚ) der Woiwodschaft meist sagen, wer zuständig ist. Fragen Sie früh nach, wenn Sie dort eine Veranstaltung planen.
 permits-hint-order-office = { $amt ->
         [none] Für Straßen, Plätze und andere öffentliche Flächen ist meist das Ordnungsamt der Gemeinde { $gemeinde } zuständig.
        *[other] Für Straßen, Plätze und andere öffentliche Flächen ist meist das Ordnungsamt zuständig: { $amt }, für die Gemeinde { $gemeinde }.
@@ -946,6 +949,17 @@ permits-object-kind = { $kind ->
         [natural-monument] Naturdenkmal
         [protected-landscape-part] Geschützter Landschaftsbestandteil
         [biotope] Geschütztes Biotop
+        [national-park] Nationalpark (park narodowy)
+        [park-buffer-zone] Pufferzone eines Parks (otulina)
+        [landscape-park] Landschaftspark (park krajobrazowy)
+        [nature-reserve] Naturreservat (rezerwat przyrody)
+        [protected-landscape-area] Landschaftsschutzgebiet (obszar chronionego krajobrazu)
+        [natura2000-habitats] Natura-2000-Gebiet für Lebensräume (SOO)
+        [natura2000-birds] Natura-2000-Gebiet für Vögel (OSO)
+        [ecological-site] Ökologische Fläche (użytek ekologiczny)
+        [landscape-complex] Natur- und Landschaftskomplex (zespół przyrodniczo-krajobrazowy)
+        [documentation-site] Dokumentationsstätte (stanowisko dokumentacyjne)
+        [natural-monument-pl] Naturdenkmal (pomnik przyrody)
        *[special-rules] Fläche mit besonderer Regelung
     }
 permits-object-count = { $count } Objekte
@@ -1004,6 +1018,10 @@ permits-hint-forest-office = { $units ->
 permits-hint-forest-owner = { $office ->
         [known] Für eine Veranstaltung im Wald brauchen Sie die Zustimmung der Waldbesitzer. Wem der Wald gehört, kann meist die Forstdienststelle sagen. In mehreren Bundesländern ist eine organisierte Veranstaltung im Wald außerdem der Forstbehörde anzuzeigen oder von ihr zu genehmigen.
        *[unknown] Für eine Veranstaltung im Wald brauchen Sie die Zustimmung der Waldbesitzer. In mehreren Bundesländern ist eine organisierte Veranstaltung im Wald außerdem der Forstbehörde anzuzeigen oder von ihr zu genehmigen. Welche Forstdienststelle hier zuständig ist, bestimmen diese Hinweise nicht; Auskunft gibt die Forstverwaltung des Bundeslandes oder die untere Forstbehörde.
+    }
+permits-hint-forest-owner-pl = { $office ->
+        [known] Für eine Veranstaltung im Wald brauchen Sie in der Regel die Zustimmung des Waldbesitzers. Wer den Wald betreut, kann meist das oben genannte Forstamt (Nadleśnictwo) sagen. Wald, der nicht zu den Staatsforsten gehört, etwa Privatwald, steht nicht in den Daten dieser Hinweise.
+       *[unknown] Für eine Veranstaltung im Wald brauchen Sie in der Regel die Zustimmung des Waldbesitzers. Diese Hinweise nennen für das Kartengebiet kein Forstamt der Staatsforsten; die Daten umfassen nur die Staatsforsten, der Wald kann also jemand anderem gehören, etwa einem privaten Eigentümer. Wer der Eigentümer ist, muss gesondert geklärt werden.
     }
 permits-section-water-protection = Wasserschutzgebiete ({ $source })
 permits-section-forest-functions = Waldfunktionen und Schutzwald ({ $source })

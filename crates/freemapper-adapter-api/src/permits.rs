@@ -241,6 +241,30 @@ pub enum ProtectedObjectKind {
     Biotope,
     /// An area with special rules inside a protected area.
     SpecialRules,
+    /// A Polish national park (park narodowy), without its buffer zone (ADR 0175).
+    NationalPark,
+    /// The buffer zone (otulina) of a Polish national or landscape park.
+    ParkBufferZone,
+    /// A Polish landscape park (park krajobrazowy).
+    LandscapePark,
+    /// A Polish nature reserve (rezerwat przyrody).
+    NatureReserve,
+    /// A Polish protected landscape area (obszar chronionego krajobrazu).
+    ProtectedLandscapeArea,
+    /// A Natura 2000 site for habitats (special area of conservation, `PLH` or `PLC`).
+    Natura2000Habitats,
+    /// A Natura 2000 site for birds (special protection area, `PLB`).
+    Natura2000Birds,
+    /// A Polish ecological site (użytek ekologiczny).
+    EcologicalSite,
+    /// A Polish nature and landscape complex (zespół przyrodniczo-krajobrazowy).
+    LandscapeComplex,
+    /// A Polish documentation site (stanowisko dokumentacyjne): a geological or similar
+    /// site of scientific interest.
+    DocumentationSite,
+    /// A Polish natural monument (pomnik przyrody): a tree, a boulder or a small area. Not
+    /// [`Self::NaturalMonument`], whose notes name the German term and law.
+    NaturalMonumentPl,
 }
 
 /// The functions and protections of forest the notes know.
@@ -279,14 +303,11 @@ pub fn inner_zone(zone: &str) -> Option<bool> {
 }
 
 impl ProtectedObjectKind {
-    /// Whether the lower nature conservation authority looks after the object itself.
+    /// Whether the lower nature conservation authority looks after the object itself. Every
+    /// Polish kind counts: the notes name the park administration and the regional
+    /// directorate for them (ADR 0175).
     pub fn needs_nature_authority(self) -> bool {
-        matches!(
-            self,
-            ProtectedObjectKind::NaturalMonument
-                | ProtectedObjectKind::ProtectedLandscapePart
-                | ProtectedObjectKind::Biotope
-        )
+        !matches!(self, ProtectedObjectKind::SpecialRules)
     }
 }
 
@@ -388,5 +409,42 @@ mod tests {
         assert!(ProtectedObjectKind::NaturalMonument.needs_nature_authority());
         assert!(ProtectedObjectKind::ProtectedLandscapePart.needs_nature_authority());
         assert!(!ProtectedObjectKind::SpecialRules.needs_nature_authority());
+    }
+
+    #[test]
+    fn every_polish_kind_names_the_nature_authority() {
+        for kind in [
+            ProtectedObjectKind::NationalPark,
+            ProtectedObjectKind::ParkBufferZone,
+            ProtectedObjectKind::LandscapePark,
+            ProtectedObjectKind::NatureReserve,
+            ProtectedObjectKind::ProtectedLandscapeArea,
+            ProtectedObjectKind::Natura2000Habitats,
+            ProtectedObjectKind::Natura2000Birds,
+            ProtectedObjectKind::EcologicalSite,
+            ProtectedObjectKind::LandscapeComplex,
+            ProtectedObjectKind::DocumentationSite,
+            ProtectedObjectKind::NaturalMonumentPl,
+        ] {
+            assert!(kind.needs_nature_authority(), "{kind:?}");
+        }
+    }
+
+    #[test]
+    fn the_names_of_the_kinds_in_permits_json_are_kebab_case() {
+        let name = |kind| serde_json::to_value(kind).unwrap();
+        assert_eq!(name(ProtectedObjectKind::NationalPark), "national-park");
+        assert_eq!(
+            name(ProtectedObjectKind::Natura2000Birds),
+            "natura2000-birds"
+        );
+        assert_eq!(
+            name(ProtectedObjectKind::ProtectedLandscapeArea),
+            "protected-landscape-area"
+        );
+        assert_eq!(
+            name(ProtectedObjectKind::NaturalMonument),
+            "natural-monument"
+        );
     }
 }

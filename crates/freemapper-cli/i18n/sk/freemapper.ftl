@@ -816,6 +816,7 @@ error-permits-missing-not-read = { $source }: neprečítané
 
 permits-title = Poznámky k povoleniam
 permits-disclaimer = Orientačná pomôcka, nie právna rada. Rozhodujú príslušné úrady. Dátum a presnosť dát nájdeš v tabuľke pod "Zdroje a dátum dát"; plochy môžu chýbať alebo byť zastarané (BfN: zlučované raz ročne, "Nicht für Planungszwecke geeignet.", teda nevhodné na plánovanie).
+permits-disclaimer-regional = Orientačná pomôcka, nie právna rada. Rozhodujú príslušné úrady. Dátum a presnosť dát nájdeš v tabuľke pod "Zdroje a dátum dát"; plochy môžu chýbať alebo byť zastarané.
 permits-bfn-merge = BfN zlučuje dáta spolkových krajín raz ročne a označuje ich ako nevhodné na plánovanie. Rozhodujú úrady spolkovej krajiny.
 permits-created = Vytvorené { $date } pre oblasť { $kind ->
         [schoolyard] mapy školského dvora
@@ -878,6 +879,7 @@ permits-quoted = "{ $text }"
 permits-osm-unnamed = bez názvu
 permits-osm-operator = Prevádzkovateľ podľa OSM: { $operator }
 permits-osm-enclosing-gap = Plochy OpenStreetMap, ktoré obklopujú celú oblasť mapy bez rohu v nej, tu môžu chýbať, rovnako ako chránené územia mapované v OSM ako relácia s `type=boundary`. Časti z BfN a VG250 sa to netýka.
+permits-osm-enclosing-gap-short = Plochy OpenStreetMap, ktoré obklopujú celé územie mapy bez toho, aby v ňom ležal niektorý ich roh, tu môžu chýbať.
 permits-operator-line = { $name } ({ $roles ->
         [operator] prevádzkovateľ
         [owner] vlastník
@@ -900,6 +902,7 @@ permits-hint-nature-authority = { $kreisfrei ->
 permits-hint-national-park = Národný park má vlastné pravidlá. Obráť sa na správu národného parku včas.
 permits-hint-nsg-paths = V prírodnej rezervácii sa zvyčajne treba držať ciest. Pre beh mimo ciest sa obráť na orgán ochrany prírody.
 permits-hint-natura2000 = Územie FFH alebo chránené vtáčie územie (Natura 2000) sa dotýka oblasti mapy. Pri podujatí môže orgán ochrany prírody požadovať posúdenie jeho vplyvu.
+permits-hint-protected-areas-pl = V území mapy ležia chránené územia alebo chránené objekty ochrany prírody. Pri národnom parku, krajinnom parku alebo prírodnej rezervácii je zvyčajným kontaktom správa parku alebo rezervácie; pri ostatných územiach a objektoch vie zvyčajne povedať, kto je príslušný, Regionálne riaditeľstvo ochrany životného prostredia (RDOŚ) vojvodstva. Opýtajte sa včas, ak tam plánujete podujatie.
 permits-hint-order-office = { $amt ->
         [none] Za ulice, námestia a iné verejné pozemky je zvyčajne príslušný Ordnungsamt (úrad verejného poriadku) obce (Gemeinde) { $gemeinde }.
        *[other] Za ulice, námestia a iné verejné pozemky je zvyčajne príslušný Ordnungsamt (úrad verejného poriadku): { $amt }, pre obec (Gemeinde) { $gemeinde }.
@@ -937,6 +940,17 @@ permits-object-kind = { $kind ->
         [natural-monument] Prírodná pamiatka (Naturdenkmal)
         [protected-landscape-part] Chránený krajinný prvok (geschützter Landschaftsbestandteil)
         [biotope] Zákonom chránený biotop (geschütztes Biotop)
+        [national-park] Národný park (park narodowy)
+        [park-buffer-zone] Ochranné pásmo parku (otulina)
+        [landscape-park] Krajinný park (park krajobrazowy)
+        [nature-reserve] Prírodná rezervácia (rezerwat przyrody)
+        [protected-landscape-area] Chránená krajinná oblasť (obszar chronionego krajobrazu)
+        [natura2000-habitats] Lokalita Natura 2000 pre biotopy (SOO)
+        [natura2000-birds] Lokalita Natura 2000 pre vtáky (OSO)
+        [ecological-site] Ekologická plocha (użytek ekologiczny)
+        [landscape-complex] Prírodný a krajinný celok (zespół przyrodniczo-krajobrazowy)
+        [documentation-site] Dokumentačná lokalita (stanowisko dokumentacyjne)
+        [natural-monument-pl] Prírodná pamiatka (pomnik przyrody)
        *[special-rules] Oblasť so zvláštnymi pravidlami
     }
 permits-object-count = { $count } objektov
@@ -995,6 +1009,10 @@ permits-hint-forest-office = { $units ->
 permits-hint-forest-owner = { $office ->
         [known] Podujatie v lese vyžaduje súhlas vlastníkov lesa. Kto les vlastní, zvyčajne povie lesný úrad. V niektorých spolkových krajinách sa musí organizované podujatie v lese navyše ohlásiť lesnému orgánu alebo ho tento orgán musí povoliť.
        *[unknown] Podujatie v lese vyžaduje súhlas vlastníkov lesa. V niektorých spolkových krajinách sa musí organizované podujatie v lese navyše ohlásiť lesnému orgánu alebo ho tento orgán musí povoliť. Tieto poznámky tu príslušný lesný úrad neuvádzajú; poradí lesná správa spolkovej krajiny alebo nižší lesný orgán.
+    }
+permits-hint-forest-owner-pl = { $office ->
+        [known] Podujatie v lese zvyčajne potrebuje súhlas vlastníka lesa. Hore uvedená lesná správa (Nadleśnictwo) vie zvyčajne povedať, kto sa o les stará. Les, ktorý nepatrí Štátnym lesom, napríklad súkromný les, nie je v údajoch týchto poznámok.
+       *[unknown] Podujatie v lese zvyčajne potrebuje súhlas vlastníka lesa. Tieto poznámky pre územie mapy neuvádzajú žiadnu lesnú správu Štátnych lesov; údaje zahŕňajú len Štátne lesy, takže les môže patriť niekomu inému, napríklad súkromnému vlastníkovi. Kto je vlastníkom, treba zistiť osobitne.
     }
 permits-section-water-protection = Ochranné pásma vôd ({ $source })
 permits-section-forest-functions = Funkcie lesa a ochranný les ({ $source })

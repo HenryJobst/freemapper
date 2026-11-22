@@ -808,6 +808,7 @@ error-permits-missing-not-read = { $source }: inte läst
 
 permits-title = Tillståndsnoteringar
 permits-disclaimer = En vägledning, inte juridisk rådgivning. De behöriga myndigheterna beslutar. För datadatum och noggrannhet, se tabellen under "Källor och datadatum"; områden kan saknas eller vara föråldrade (BfN: sammanförs en gång per år, "Nicht für Planungszwecke geeignet.", det vill säga inte lämpliga för planering).
+permits-disclaimer-regional = En vägledning, inte juridisk rådgivning. De behöriga myndigheterna beslutar. För datadatum och noggrannhet, se tabellen under "Källor och datadatum"; områden kan saknas eller vara föråldrade.
 permits-bfn-merge = BfN sammanför delstaternas data en gång per år och markerar dem som inte lämpliga för planering. Delstatens myndigheter beslutar.
 permits-created = Gjord den { $date } för kartområdet till en { $kind ->
         [schoolyard] skolgårdskarta
@@ -870,6 +871,7 @@ permits-quoted = "{ $text }"
 permits-osm-unnamed = utan namn
 permits-osm-operator = Huvudman enligt OSM: { $operator }
 permits-osm-enclosing-gap = OpenStreetMap-områden som omsluter hela kartområdet utan något hörn inuti det kan saknas här, och det kan skyddade områden som i OSM är kartlagda som en relation med `type=boundary`. Delarna från BfN och VG250 påverkas inte.
+permits-osm-enclosing-gap-short = OpenStreetMap-områden som omsluter hela kartområdet utan att ha ett hörn inuti det kan saknas här.
 permits-operator-line = { $name } ({ $roles ->
         [operator] huvudman
         [owner] ägare
@@ -892,6 +894,7 @@ permits-hint-nature-authority = { $kreisfrei ->
 permits-hint-national-park = En nationalpark har egna regler. Fråga nationalparksförvaltningen i god tid.
 permits-hint-nsg-paths = I ett naturreservat måste du oftast hålla dig på stigarna. För ett lopp utanför stigarna, fråga naturvårdsmyndigheten.
 permits-hint-natura2000 = Ett FFH-område eller ett fågelskyddsområde (Natura 2000) berör kartområdet. För ett arrangemang kan naturvårdsmyndigheten kräva en bedömning av dess effekter.
+permits-hint-protected-areas-pl = I kartområdet ligger skyddade områden eller skyddade naturobjekt. För en nationalpark, en landskapspark eller ett naturreservat är parkens eller reservatets förvaltning vanligen kontaktpunkten; för de övriga områdena och objekten kan den regionala direktionen för miljöskydd (RDOŚ) i vojvodskapet oftast säga vem som är ansvarig. Fråga i god tid när ett evenemang planeras där.
 permits-hint-order-office = { $amt ->
         [none] För gator, torg och annan offentlig mark är oftast Ordnungsamt (ordningskontoret) i kommunen { $gemeinde } ansvarigt.
        *[other] För gator, torg och annan offentlig mark är oftast Ordnungsamt (ordningskontoret) ansvarigt: { $amt }, för kommunen { $gemeinde }.
@@ -929,6 +932,17 @@ permits-object-kind = { $kind ->
         [natural-monument] Naturminne (Naturdenkmal)
         [protected-landscape-part] Skyddad landskapsdel (geschützter Landschaftsbestandteil)
         [biotope] Lagskyddad biotop (geschütztes Biotop)
+        [national-park] Nationalpark (park narodowy)
+        [park-buffer-zone] Buffertzon kring en park (otulina)
+        [landscape-park] Landskapspark (park krajobrazowy)
+        [nature-reserve] Naturreservat (rezerwat przyrody)
+        [protected-landscape-area] Skyddat landskapsområde (obszar chronionego krajobrazu)
+        [natura2000-habitats] Natura 2000-område för livsmiljöer (SOO)
+        [natura2000-birds] Natura 2000-område för fåglar (OSO)
+        [ecological-site] Ekologiskt område (użytek ekologiczny)
+        [landscape-complex] Natur- och landskapskomplex (zespół przyrodniczo-krajobrazowy)
+        [documentation-site] Dokumentationsplats (stanowisko dokumentacyjne)
+        [natural-monument-pl] Naturminne (pomnik przyrody)
        *[special-rules] Område med särskilda regler
     }
 permits-object-count = { $count } objekt
@@ -987,6 +1001,10 @@ permits-hint-forest-office = { $units ->
 permits-hint-forest-owner = { $office ->
         [known] Ett arrangemang i skogen kräver skogsägarnas samtycke. Skogsmyndigheten kan oftast säga vem som äger skogen. I flera delstater måste ett organiserat arrangemang i skogen också anmälas till skogsmyndigheten eller tillåtas av den.
        *[unknown] Ett arrangemang i skogen kräver skogsägarnas samtycke. I flera delstater måste ett organiserat arrangemang i skogen också anmälas till skogsmyndigheten eller tillåtas av den. De här noteringarna nämner inte den skogsmyndighet som ansvarar här; delstatens skogsförvaltning eller den lägre skogsmyndigheten kan säga det.
+    }
+permits-hint-forest-owner-pl = { $office ->
+        [known] Ett evenemang i skogen kräver vanligen skogsägarens samtycke. Skogsdistriktet (Nadleśnictwo) som nämns ovan kan oftast säga vem som sköter skogen. Skog som inte tillhör Statsskogarna, till exempel privatskog, finns inte i uppgifterna i dessa anteckningar.
+       *[unknown] Ett evenemang i skogen kräver vanligen skogsägarens samtycke. Dessa anteckningar nämner inget skogsdistrikt i Statsskogarna för kartområdet; uppgifterna omfattar bara Statsskogarna, så skogen kan tillhöra någon annan, till exempel en privat ägare. Vem ägaren är måste utredas separat.
     }
 permits-section-water-protection = Vattenskyddsområden ({ $source })
 permits-section-forest-functions = Skogsfunktioner och skyddsskog ({ $source })

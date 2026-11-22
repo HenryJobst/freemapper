@@ -192,15 +192,19 @@ fn an_area_over_the_zone_border_has_the_zone_of_its_centre() {
 }
 
 /// The adapter declares itself (revision and day of its check) and has a policy that names the
-/// two hosts of GUGiK and no other: the OSM extracts come through the core hosts.
+/// two hosts of GUGiK, the host of the GDOŚ and no other: the OSM extracts come through the core hosts.
 #[test]
 fn the_adapter_declares_itself_and_owns_a_policy_of_the_hosts_of_gugik() {
     let registry = polska();
     let adapter = registry.adapters().next().unwrap();
     let declared = adapter.declared().expect("the adapter declares itself");
-    assert_eq!(declared.revision, 3);
+    assert_eq!(declared.revision, 4);
     assert!(declared.last_verified.is_some());
-    let hosts = ["mapy.geoportal.gov.pl", "opendata.geoportal.gov.pl"];
+    let hosts = [
+        "mapy.geoportal.gov.pl",
+        "opendata.geoportal.gov.pl",
+        "sdi.gdos.gov.pl",
+    ];
     // What it declares (`adapters list`) is what its policy lets through.
     assert_eq!(declared.hosts, hosts);
     let policy = adapter.policy().expect("the adapter has a policy");
@@ -208,6 +212,7 @@ fn the_adapter_declares_itself_and_owns_a_policy_of_the_hosts_of_gugik() {
     for url in [
         "https://mapy.geoportal.gov.pl/wss/service/PZGIK/ORTO/WFS/Skorowidze?SERVICE=WFS",
         "https://opendata.geoportal.gov.pl/NumDaneWys/NMT/73426/x.asc",
+        "https://sdi.gdos.gov.pl/wfs?service=WFS",
     ] {
         assert!(policy.check_url(url).is_ok(), "{url}");
     }
@@ -286,4 +291,16 @@ fn an_allowed_host_is_in_the_policy() {
     let policy = registry.adapters().next().unwrap().policy().unwrap();
     assert!(policy.allows_host("example.pl"));
     assert!(!policy.allows_host("example.com"));
+}
+
+#[test]
+fn polska_brings_the_permit_sources_of_the_gdos_and_the_prg() {
+    let registry = polska();
+    let adapter = registry.get("polska").unwrap();
+    let keys: Vec<&str> = adapter
+        .permit_sources()
+        .iter()
+        .map(|s| s.info().key)
+        .collect();
+    assert_eq!(keys, ["gdos", "prg"]);
 }

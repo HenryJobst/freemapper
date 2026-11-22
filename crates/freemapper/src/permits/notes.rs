@@ -99,6 +99,12 @@ pub mod hint_key {
     /// Args `kind` (`recreation`, `protected`, `natural`, `closed`) and, where known, `names`
     /// (joined with ", "): forest with that function or protection on the map.
     pub const FOREST_FUNCTION: &str = "permits-hint-forest-function";
+    /// No args: protected areas or objects of the GDOŚ lie on the map in Poland (ADR 0175). In
+    /// place of the hints that name German authorities.
+    pub const PROTECTED_AREAS_PL: &str = "permits-hint-protected-areas-pl";
+    /// Arg `office`: `known` when a [`FOREST_OFFICE`] hint is there, else `unknown`. For a map
+    /// area with forest in Poland (ADR 0175), in place of [`FOREST_OWNER`].
+    pub const FOREST_OWNER_PL: &str = "permits-hint-forest-owner-pl";
 }
 
 /// The credit line of the OSM data, as on the map.
@@ -124,6 +130,10 @@ impl<T> SourceInput<T> {
 /// What the three national sources and the regional ones gave for the map area.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Inputs {
+    /// Whether the German national sources (VG250, BfN) belong to the map area. `false` in a
+    /// region of another country (Poland, ADR 0175): `admin` and `protected` are then
+    /// `NotRead`, and the notes name neither them nor the German authorities.
+    pub national: bool,
     pub admin: SourceInput<AdminUnit>,
     pub protected: SourceInput<ProtectedArea>,
     pub osm: SourceInput<OsmFinding>,
@@ -154,7 +164,8 @@ pub struct PermitNotes {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub roads: Vec<RoadEntry>,
     pub hints: Vec<Hint>,
-    /// `vg250`, `bfn`, `osm`, in this order.
+    /// `vg250`, `bfn`, `osm`, in this order; only `osm` for a region without the German
+    /// national sources (ADR 0175).
     pub sources: Vec<SourceStatus>,
     /// What the region adapters brought, one entry per adapter (ADR 0120). Missing in notes
     /// written before it existed and in notes of a map area no adapter brings sources for.
@@ -295,13 +306,24 @@ pub fn assemble(
             Some((f, geometry, share))
         })
         .collect();
-    let osm_protected = osm_protected(&osm, &bfn);
+    // OSM protected areas are those "the BfN does not list": without the BfN there is no such
+    // list (ADR 0175).
+    let osm_protected = if inputs.national {
+        osm_protected(&osm, &bfn)
+    } else {
+        Vec::new()
+    };
     let operated: Vec<&OsmFinding> = osm
         .iter()
         .map(|(f, _, _)| *f)
         .filter(|f| f.kind == OsmFindingKind::Operated)
         .collect();
-    let roads = roads(&plane, inputs.osm.items());
+    // The classes of road are German (Autobahn, Bundes-, Landes-, Kreisstraße).
+    let roads = if inputs.national {
+        roads(&plane, inputs.osm.items())
+    } else {
+        Vec::new()
+    };
     let (mut regional, facts) = assemble_regional(&plane, &inputs.regional);
     // Forest hints and the forest offices belong to a map area with forest: a forest map, an
     // area with forest in OSM, or one where OSM could not tell (ADR 0127). A Revier also covers
@@ -316,7 +338,15 @@ pub fn assemble(
             part.forest_units = None;
         }
     }
-    let hints = hints(forest, &admin, &protected, &operated, &roads, &facts);
+    let hints = hints(
+        inputs.national,
+        forest,
+        &admin,
+        &protected,
+        &operated,
+        &roads,
+        &facts,
+    );
     PermitNotes {
         schema: SCHEMA,
         created: today,
@@ -328,11 +358,15 @@ pub fn assemble(
         operators: operators(&operated),
         roads,
         hints,
-        sources: vec![
-            status("vg250", &inputs.admin, BKG_CREDIT),
-            status("bfn", &inputs.protected, BFN_CREDIT),
-            status("osm", &inputs.osm, OSM_CREDIT),
-        ],
+        sources: if inputs.national {
+            vec![
+                status("vg250", &inputs.admin, BKG_CREDIT),
+                status("bfn", &inputs.protected, BFN_CREDIT),
+                status("osm", &inputs.osm, OSM_CREDIT),
+            ]
+        } else {
+            vec![status("osm", &inputs.osm, OSM_CREDIT)]
+        },
         regional,
     }
 }
@@ -710,6 +744,7 @@ fn runners<'a>(operated: &[&'a OsmFinding], objects: &[&str]) -> BTreeSet<&'a st
 
 /// The hints, in the order of [`hint_key`], each key and args once.
 fn hints(
+    national: bool,
     forest: bool,
     admin: &[Share<AdminEntry>],
     protected: &[Share<ProtectedEntry>],
@@ -717,6 +752,9 @@ fn hints(
     roads: &[RoadEntry],
     regional: &[HintFacts],
 ) -> Vec<Hint> {
+    if !national {
+        return regional_hints(forest, operated, regional);
+    }
     // Within a level the first unit has the largest share.
     let largest = |level: AdminLevel| admin.iter().map(|s| &s.item).find(|u| u.level == level);
     let any_protected =
@@ -997,6 +1035,11 @@ fn hints(
         Hint::new(hint_key::OWNERS_UNKNOWN, &[("rest", "yes")])
     });
 
+    once(hints)
+}
+
+/// Each hint once, in order.
+fn once(hints: Vec<Hint>) -> Vec<Hint> {
     let mut once: Vec<Hint> = Vec::with_capacity(hints.len());
     for hint in hints {
         if !once.contains(&hint) {
@@ -1004,6 +1047,56 @@ fn hints(
         }
     }
     once
+}
+
+/// The hints of a map area in a region without the German national sources (Poland, ADR 0175):
+/// the protected areas and objects the region's sources found, the forest districts of a map
+/// area with forest, and the operators OSM names. Nothing here assumes a Kreis, a Gemeinde or
+/// the German law of forest and land registers.
+fn regional_hints(forest: bool, operated: &[&OsmFinding], regional: &[HintFacts]) -> Vec<Hint> {
+    let mut hints = Vec::new();
+    if regional.iter().any(|f| f.nature_objects) {
+        hints.push(Hint::new(hint_key::PROTECTED_AREAS_PL, &[]));
+    }
+    if forest {
+        let offices: Vec<_> = regional.iter().flat_map(|f| &f.forest_offices).collect();
+        for office in &offices {
+            let units = office.units.join(", ");
+            let mut args = vec![
+                ("office", office.office.as_str()),
+                ("administration", office.administration.as_str()),
+            ];
+            if !units.is_empty() {
+                args.push(("units", units.as_str()));
+            }
+            hints.push(Hint::new(hint_key::FOREST_OFFICE, &args));
+        }
+        let office = if offices.is_empty() {
+            "unknown"
+        } else {
+            "known"
+        };
+        hints.push(Hint::new(hint_key::FOREST_OWNER_PL, &[("office", office)]));
+    }
+    for operator in runners(operated, &["leisure=park", "leisure=garden"]) {
+        hints.push(Hint::new(
+            hint_key::PARK_OPERATOR,
+            &[("operator", operator)],
+        ));
+    }
+    let schools = [
+        "amenity=school",
+        "amenity=kindergarten",
+        "amenity=college",
+        "amenity=university",
+    ];
+    for operator in runners(operated, &schools) {
+        hints.push(Hint::new(
+            hint_key::SCHOOL_OPERATOR,
+            &[("operator", operator)],
+        ));
+    }
+    once(hints)
 }
 
 /// The status of one source; the credit, with the year of the fetch, only when it was read.
@@ -1111,6 +1204,7 @@ mod tests {
         osm: Vec<OsmFinding>,
     ) -> Inputs {
         Inputs {
+            national: true,
             admin: read(admin),
             protected: read(protected),
             osm: read(osm),
@@ -1762,6 +1856,7 @@ mod tests {
         let found = notes(
             MapKind::Schoolyard,
             &Inputs {
+                national: true,
                 admin: SourceInput::Unreachable {
                     reason: "HTTP 503".into(),
                 },
@@ -1966,6 +2061,7 @@ mod tests {
         let found = notes(
             MapKind::Schoolyard,
             &Inputs {
+                national: true,
                 admin: read(vec![
                     brandenburg(),
                     unit(
@@ -2072,6 +2168,7 @@ mod tests {
 
     fn with_regional(admin: Vec<AdminUnit>, regional: Vec<RegionalInput>) -> Inputs {
         Inputs {
+            national: true,
             regional,
             ..inputs(admin, vec![], vec![])
         }
@@ -3247,5 +3344,150 @@ mod tests {
         // A section no source fills is not written.
         assert!(value["regional"][0].get("monuments").is_none());
         assert!(!json.contains("coordinates"));
+    }
+
+    // Notes of a region without the German national sources (Poland, ADR 0175).
+
+    /// What a Polish map area gets from the GDOŚ and the PRG and from OSM: the German national
+    /// sources are not asked.
+    fn polish(osm: Vec<OsmFinding>, regional: Vec<RegionalInput>) -> Inputs {
+        Inputs {
+            national: false,
+            admin: SourceInput::NotRead,
+            protected: SourceInput::NotRead,
+            osm: read(osm),
+            regional,
+        }
+    }
+
+    fn polish_forest_unit(g: MultiPolygon<f64>) -> PermitFinding {
+        area(
+            FindingKind::ForestUnit {
+                administration: "Regionalna Dyrekcja Lasów Państwowych w Warszawie".into(),
+                office: "Nadleśnictwo Chojnów".into(),
+                unit: None,
+            },
+            g,
+        )
+    }
+
+    fn polish_object(kind: ProtectedObjectKind, name: &str, g: MultiPolygon<f64>) -> PermitFinding {
+        area(
+            FindingKind::ProtectedObject {
+                kind,
+                name: Some(name.into()),
+                citation: None,
+            },
+            g,
+        )
+    }
+
+    /// The notes of a Polish map area name neither VG250 nor the BfN, and none of their
+    /// German units, authorities or roads; the protected areas and the forest district come
+    /// from the regional sources, with hints that assume no Kreis or Gemeinde.
+    #[test]
+    fn a_polish_map_area_gets_notes_without_the_german_national_sources() {
+        let regional = vec![
+            regional(
+                "gdos",
+                PermitSection::ProtectedObjects,
+                vec![polish_object(
+                    ProtectedObjectKind::NationalPark,
+                    "Kampinoski Park Narodowy",
+                    square(12.9, 51.9, 13.2, 52.2),
+                )],
+            ),
+            regional(
+                "prg",
+                PermitSection::ForestUnits,
+                vec![polish_forest_unit(square(12.9, 51.9, 13.2, 52.2))],
+            ),
+        ];
+        // OSM would give a classified road and a protected area too: both are German notions
+        // here and stay out.
+        let osm = vec![
+            road("way/1", "B 1", &[(12.9, 52.05), (13.2, 52.05)]),
+            finding(
+                OsmFindingKind::ProtectedArea,
+                "relation/2",
+                "boundary=protected_area",
+                square(12.9, 51.9, 13.2, 52.2),
+            ),
+        ];
+        let found = notes(MapKind::Forest, &polish(osm, regional));
+        assert_eq!(
+            found
+                .sources
+                .iter()
+                .map(|s| s.id.as_str())
+                .collect::<Vec<_>>(),
+            ["osm"]
+        );
+        assert!(found.admin.is_empty() && found.protected.is_empty());
+        assert!(found.osm_protected.is_empty() && found.roads.is_empty());
+        let json = serde_json::to_string(&found).unwrap();
+        assert!(!json.contains("vg250") && !json.contains("bfn"), "{json}");
+        assert_eq!(
+            keys(&found),
+            [
+                hint_key::PROTECTED_AREAS_PL,
+                hint_key::FOREST_OFFICE,
+                hint_key::FOREST_OWNER_PL,
+            ],
+            "{:?}",
+            found.hints
+        );
+        assert_eq!(
+            hint(&found, hint_key::FOREST_OWNER_PL)[0].args,
+            args(&[("office", "known")])
+        );
+        let objects = found.regional[0].protected_objects.as_ref().unwrap();
+        assert_eq!(objects[0].kind, ProtectedObjectKind::NationalPark);
+        assert!(objects[0].percent.is_some_and(|p| p > 99.0));
+        // The notes read back from their JSON are the same.
+        let back: PermitNotes =
+            serde_json::from_str(&serde_json::to_string(&found).unwrap()).unwrap();
+        assert_eq!(back, found);
+    }
+
+    /// Without a forest district the general hint says the owner is to be found out apart; a
+    /// map without forest gets no forest hint; no object, no protected-areas hint.
+    #[test]
+    fn a_polish_map_area_without_findings_gets_only_what_applies() {
+        let found = notes(MapKind::Forest, &polish(vec![], vec![]));
+        assert_eq!(keys(&found), [hint_key::FOREST_OWNER_PL]);
+        assert_eq!(
+            hint(&found, hint_key::FOREST_OWNER_PL)[0].args,
+            args(&[("office", "unknown")])
+        );
+        let park = regional(
+            "gdos",
+            PermitSection::ProtectedObjects,
+            vec![polish_object(
+                ProtectedObjectKind::NaturalMonumentPl,
+                "Wojtek",
+                square(13.0, 52.0, 13.001, 52.001),
+            )],
+        );
+        // A town without forest: OSM read, no forest object on the map.
+        let found = notes(MapKind::Sprint, &polish(vec![], vec![park]));
+        assert_eq!(keys(&found), [hint_key::PROTECTED_AREAS_PL]);
+    }
+
+    /// The German path is as before: all three sources, the German hints, the roads.
+    #[test]
+    fn a_german_map_area_keeps_its_three_sources_and_hints() {
+        let found = notes(MapKind::Sprint, &inputs(city_state(), vec![], vec![]));
+        assert_eq!(
+            found
+                .sources
+                .iter()
+                .map(|s| s.id.as_str())
+                .collect::<Vec<_>>(),
+            ["vg250", "bfn", "osm"]
+        );
+        assert!(keys(&found).contains(&hint_key::CITY_STATE));
+        assert!(keys(&found).contains(&hint_key::OWNERS_UNKNOWN));
+        assert!(!keys(&found).contains(&hint_key::PROTECTED_AREAS_PL));
     }
 }
