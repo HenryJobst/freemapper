@@ -28,7 +28,12 @@ orthophoto from it.
   over the border.
 - **A sheet that cannot be read is left out.** Sheets of old flights with the old sheet numbers
   can carry a coordinate system the reader does not know (EPSG:32767); the fetch warns and uses
-  the sheets of other flights, and fails only when nothing is left.
+  the sheets of other flights, and fails only when nothing is left. Addendum: the sheets of the
+  old numbering lie in PL-2000 (zone 5 to 8, EPSG:2176 to 2179), written with the EPSG code or as
+  a user-defined transverse Mercator (32767 with the parameters). The reader knows these zones
+  (parameters compared with a small tolerance) and the warp goes from them; only a sheet in a
+  system outside PL-1992 and PL-2000 is left out. The height sheets (ASC) carry no system, and
+  the index names PL-1992 for all of them in the regions checked.
 - **The OSM extracts lie in the folder of the voivodeship,**
   `europe/poland/<id>/<id>-latest.osm.pbf`. Geofabrik's redirect from the old address points to
   an address that does not exist.
