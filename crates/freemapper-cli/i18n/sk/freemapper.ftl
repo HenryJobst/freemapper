@@ -472,6 +472,7 @@ error-project-toml = neplatný súbor projektu: { $message }
 error-project-unknown-adapter = súbor projektu uvádza adaptér "{ $adapter }", ktorý tento freemapper nemá; môže ho priniesť novší freemapper (`freemapper update`), alebo pochádza z tvojho priečinka adaptérov (zobrazí ho `freemapper adapters list`) či, s --adapters-from-project na príkazovom riadku, z priečinka `adapters` projektu (iba pre projekt, ktorému dôveruješ)
 error-project-not-fetched = zatiaľ nie sú stiahnuté žiadne dlaždice; najprv spusti `freemapper fetch`
 error-project-ocd = export OCAD: { $message }
+error-project-pdf = PDF: { $message }
 error-project-template-outdated = { $path }: obrázok a world file nezodpovedajú oblasti mapy; spusti `freemapper derive` znova
 error-project-tiles-outdated = oblasť mapy potrebuje dlaždice { $tiles }, ktoré neboli stiahnuté; spusti `freemapper fetch`
 error-project-buildings-not-fetched = pre túto oblasť mapy nie sú uložené budovy z ALKIS; najprv spusti `freemapper fetch` online

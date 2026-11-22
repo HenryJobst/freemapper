@@ -472,6 +472,7 @@ error-project-toml = fichier de projet non valide : { $message }
 error-project-unknown-adapter = le fichier de projet nomme l'adaptateur « { $adapter } », que ce freemapper n'a pas ; un freemapper plus récent peut l'apporter (`freemapper update`), ou il vient de votre dossier d'adaptateurs (`freemapper adapters list` le montre) ou, avec --adapters-from-project en ligne de commande, du dossier `adapters` du projet (seulement pour un projet de confiance)
 error-project-not-fetched = aucune tuile téléchargée pour l'instant ; lancez d'abord `freemapper fetch`
 error-project-ocd = export OCAD : { $message }
+error-project-pdf = PDF: { $message }
 error-project-template-outdated = { $path } : l'image et le fichier de géoréférencement ne correspondent pas à la zone de la carte ; relancez `freemapper derive`
 error-project-tiles-outdated = la zone de la carte a besoin des tuiles { $tiles } qui n'ont pas été téléchargées ; lancez `freemapper fetch`
 error-project-buildings-not-fetched = aucun bâtiment ALKIS enregistré pour cette zone de carte ; lancez d'abord `freemapper fetch` en ligne

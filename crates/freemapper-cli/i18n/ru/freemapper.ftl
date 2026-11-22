@@ -478,6 +478,7 @@ error-project-toml = недопустимый файл проекта: { $messag
 error-project-unknown-adapter = в файле проекта назван адаптер «{ $adapter }», которого нет в этом freemapper; его может принести более новый freemapper (`freemapper update`), либо он из твоей папки адаптеров (его покажет `freemapper adapters list`), либо, с --adapters-from-project в командной строке, из папки `adapters` проекта (только для проекта, которому ты доверяешь)
 error-project-not-fetched = плитки ещё не загружены; сначала выполни `freemapper fetch`
 error-project-ocd = экспорт OCAD: { $message }
+error-project-pdf = PDF: { $message }
 error-project-template-outdated = { $path }: изображение и world-файл не соответствуют области карты; выполни `freemapper derive` снова
 error-project-tiles-outdated = для области карты нужны плитки { $tiles }, которые не были загружены; выполни `freemapper fetch`
 error-project-buildings-not-fetched = для этой области карты не сохранены здания ALKIS; сначала выполни `freemapper fetch` онлайн

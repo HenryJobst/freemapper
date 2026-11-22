@@ -479,6 +479,7 @@ error-project-toml = nieprawidłowy plik projektu: { $message }
 error-project-unknown-adapter = plik projektu wskazuje adapter "{ $adapter }", którego ten freemapper nie ma; może go dostarczyć nowszy freemapper (`freemapper update`), może pochodzić z folderu adapterów użytkownika (pokazuje go `freemapper adapters list`) albo, z opcją --adapters-from-project w wierszu poleceń, z folderu `adapters` projektu (tylko dla projektu, któremu ufasz)
 error-project-not-fetched = nie pobrano jeszcze arkuszy; najpierw uruchom `freemapper fetch`
 error-project-ocd = eksport OCAD: { $message }
+error-project-pdf = PDF: { $message }
 error-project-template-outdated = { $path }: obraz i plik georeferencji nie pasują do obszaru mapy; uruchom ponownie `freemapper derive`
 error-project-tiles-outdated = obszar mapy wymaga arkuszy { $tiles }, które nie zostały pobrane; uruchom `freemapper fetch`
 error-project-buildings-not-fetched = brak zapisanych budynków ALKIS dla tego obszaru mapy; najpierw uruchom `freemapper fetch` online

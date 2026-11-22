@@ -12,6 +12,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Behoben
 
+- Das Seiten-PDF bettet die Schrift Arimo ein und zeigt Buchstaben wie ł, ą, č, ř und ő selbst, statt sie durch den Grundbuchstaben oder `?` zu ersetzen („Słubice“ statt „Slubice“; Issue 267, ADR 0178). Das PDF wird um die Schriftteilmengen größer; die Beispiel-PDFs im Repository bleiben, bis das Beispiel neu gebaut wird.
 - Ein Offline-Lauf (`run --offline`, `fetch --offline`) für ein Kartengebiet in Polen fragt den Indexdienst von GUGiK nicht mehr, sondern liest die Bögen, die der Online-Lauf im Projekt (`data/gugik-sheets.json`) vermerkt hat; ist nichts vermerkt, meldet er sofort, dass erst online geholt werden muss. Vorher scheiterte er bei nicht erreichbarem Dienst mit einem Netzfehler.
 
 ### Geändert

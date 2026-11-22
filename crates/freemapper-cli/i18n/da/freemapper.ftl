@@ -466,6 +466,7 @@ error-project-toml = ugyldig projektfil: { $message }
 error-project-unknown-adapter = projektfilen nævner adapteren "{ $adapter }", som denne freemapper ikke har; en nyere freemapper kan have den (`freemapper update`), eller den kommer fra din adaptermappe (`freemapper adapters list` viser den) eller, med --adapters-from-project på kommandolinjen, fra mappen `adapters` i projektet (kun for et projekt, du stoler på)
 error-project-not-fetched = ingen fliser hentet endnu; kør først `freemapper fetch`
 error-project-ocd = OCAD-eksport: { $message }
+error-project-pdf = PDF: { $message }
 error-project-template-outdated = { $path }: billede og verdensfil passer ikke til kortområdet; kør `freemapper derive` igen
 error-project-tiles-outdated = kortområdet har brug for fliserne { $tiles }, som ikke blev hentet; kør `freemapper fetch`
 error-project-buildings-not-fetched = ingen ALKIS-bygninger gemt for dette kortområde; kør først `freemapper fetch` online

@@ -466,6 +466,7 @@ error-project-toml = ogiltig projektfil: { $message }
 error-project-unknown-adapter = projektfilen anger adaptern "{ $adapter }", som den här freemapper inte har; en nyare freemapper kan ha den (`freemapper update`), eller så kommer den från din adaptermapp (`freemapper adapters list` visar den) eller, med --adapters-from-project på kommandoraden, från mappen `adapters` i projektet (bara för ett projekt du litar på)
 error-project-not-fetched = inga rutor hämtade ännu; kör först `freemapper fetch`
 error-project-ocd = OCAD-export: { $message }
+error-project-pdf = PDF: { $message }
 error-project-template-outdated = { $path }: bild och world-fil stämmer inte med kartområdet; kör `freemapper derive` igen
 error-project-tiles-outdated = kartområdet behöver rutorna { $tiles } som inte hämtades; kör `freemapper fetch`
 error-project-buildings-not-fetched = inga ALKIS-byggnader sparade för det här kartområdet; kör först `freemapper fetch` online

@@ -466,6 +466,7 @@ error-project-toml = invalid project file: { $message }
 error-project-unknown-adapter = the project file names the adapter "{ $adapter }", which this freemapper does not have; a newer freemapper may bring it (`freemapper update`), or it comes from your adapter folder (`freemapper adapters list` shows it) or, with --adapters-from-project on the command line, from the folder `adapters` of the project (only for a project you trust)
 error-project-not-fetched = no tiles fetched yet; run `freemapper fetch` first
 error-project-ocd = OCAD export: { $message }
+error-project-pdf = PDF: { $message }
 error-project-template-outdated = { $path }: image and world file do not match the map area; run `freemapper derive` again
 error-project-tiles-outdated = the map area needs tiles { $tiles } that were not fetched; run `freemapper fetch`
 error-project-buildings-not-fetched = no ALKIS buildings stored for this map area; run `freemapper fetch` online first

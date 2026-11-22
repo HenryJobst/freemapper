@@ -12,6 +12,7 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ### Fixed
 
+- The page PDF embeds the font Arimo and shows letters such as ł, ą, č, ř and ő themselves instead of their base letter or `?` ("Słubice" instead of "Slubice"; issue 267, ADR 0178). The PDF grows by the font subsets; the example PDFs in the repository stay until the example is rebuilt.
 - An offline run (`run --offline`, `fetch --offline`) for a map area in Poland no longer asks the GUGiK index service. It reads the sheets an online run recorded in the project (`data/gugik-sheets.json`); when nothing is recorded it says at once that the data must be fetched online first. Before, it failed with a network error when the service was unreachable.
 
 ### Changed

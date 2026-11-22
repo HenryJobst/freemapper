@@ -171,6 +171,9 @@ impl Localize for ProjectError {
                 "error-project-ocd",
                 &[("message", v(e.localize(lang)))],
             ),
+            ProjectError::Pdf(e) => {
+                text(lang, "error-project-pdf", &[("message", v(e.to_string()))])
+            }
             ProjectError::TemplateOutdated(file) => {
                 text(lang, "error-project-template-outdated", &[path(file)])
             }
@@ -892,6 +895,7 @@ mod tests {
         errors.extend(fetch_errors().into_iter().map(ProjectError::Fetch));
         errors.extend(derive_errors().into_iter().map(ProjectError::Derive));
         errors.extend(ocd_errors().into_iter().map(ProjectError::Ocd));
+        errors.push(ProjectError::Pdf(freemapper::project::PdfError::NotFinite));
         errors.extend(
             PARTS
                 .into_iter()

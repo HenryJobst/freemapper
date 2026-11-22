@@ -473,6 +473,7 @@ error-project-toml = archivo de proyecto no válido: { $message }
 error-project-unknown-adapter = el archivo de proyecto nombra el adaptador "{ $adapter }", que este freemapper no tiene; quizá lo traiga un freemapper más nuevo (`freemapper update`), o viene de tu carpeta de adaptadores (`freemapper adapters list` lo muestra) o, con --adapters-from-project en la línea de comandos, de la carpeta `adapters` del proyecto (solo para un proyecto de confianza)
 error-project-not-fetched = aún no se descargó ninguna tesela; ejecuta primero `freemapper fetch`
 error-project-ocd = exportación a OCAD: { $message }
+error-project-pdf = PDF: { $message }
 error-project-template-outdated = { $path }: la imagen y el world file no coinciden con el área del mapa; ejecuta `freemapper derive` otra vez
 error-project-tiles-outdated = el área del mapa necesita las teselas { $tiles }, que no se descargaron; ejecuta `freemapper fetch`
 error-project-buildings-not-fetched = no hay edificios de ALKIS guardados para esta área del mapa; ejecuta primero `freemapper fetch` con conexión

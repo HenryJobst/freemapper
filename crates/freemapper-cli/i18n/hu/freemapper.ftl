@@ -466,6 +466,7 @@ error-project-toml = érvénytelen projektfájl: { $message }
 error-project-unknown-adapter = a projektfájl a(z) "{ $adapter }" adaptert nevezi meg, amellyel ez a freemapper nem rendelkezik; egy újabb freemapper hozhatja (`freemapper update`), vagy az adaptermappájából származik (a `freemapper adapters list` mutatja), vagy a parancssorban a --adapters-from-project kapcsolóval a projekt `adapters` mappájából (csak megbízható projekthez)
 error-project-not-fetched = még nincs letöltött csempe; előbb futtassa a `freemapper fetch` parancsot
 error-project-ocd = OCAD-export: { $message }
+error-project-pdf = PDF: { $message }
 error-project-template-outdated = { $path }: a kép és a világfájl nem egyezik a térképterülettel; futtassa újra a `freemapper derive` parancsot
 error-project-tiles-outdated = a térképterülethez olyan csempék kellenek ({ $tiles }), amelyek nincsenek letöltve; futtassa a `freemapper fetch` parancsot
 error-project-buildings-not-fetched = ehhez a térképterülethez nincs eltárolt ALKIS-épület; előbb futtassa a `freemapper fetch` parancsot online
