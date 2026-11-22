@@ -14,6 +14,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Geändert
 
+- Die Abzeichen für Tests und ADRs zeigen die abgerundete Zahl („3000+“, „170+“), und `docs/tests.json` hält die Zahl auf hundert abgerundet. Ein Pull Request, der einen Test oder ein ADR hinzufügt, ändert die README damit nicht mehr und kollidiert nicht mit anderen (ADR 0176).
 - Die Mutationstests laufen schneller: Der Lauf baut die Tests einmal im Baum des Runners und kopiert dieses Ziel in die Arbeitskopien, das Zeitlimit je Mutant sinkt auf das Doppelte der Testzeit, und die Rechenschritte des Newton-Verfahrens in Polen sind ausgenommen (ADR 0173).
 - Die Beispielseite `examples/README.md` zeigt nur noch die Karten: erst die Sprint-, direkt danach die Waldkarten. Der Text dazu (Erzeugung, Zahlen, Quellen, Auswahl der Gebiete, Lizenzen) steht auf der neuen Seite `examples/hintergrund.md`.
 - README und Handbuch gibt es nur auf Deutsch und Englisch. Die polnische README und das gekürzte polnische Handbuch entfallen; das Programm selbst behält alle seine Sprachen (ADR 0172).
