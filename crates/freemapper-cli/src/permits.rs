@@ -1700,6 +1700,38 @@ mod tests {
         }
     }
 
+    /// A forest hint without its `office` falls back to the text for an unknown office, and no
+    /// other hint takes that fallback: a state forest without an office reads "none".
+    #[test]
+    fn the_office_of_a_forest_hint_falls_back_per_key() {
+        let notes = viktoriapark();
+        let en = Lang::english();
+        let text = |key: &str, args: &[(&str, &str)]| hint_text(&en, &notes, &hint(key, args));
+        for key in [hint_key::FOREST_OWNER, hint_key::FOREST_OWNER_PL] {
+            let unknown = text(key, &[]);
+            assert!(
+                unknown.contains("not name the forest office")
+                    || unknown.contains("name no forest"),
+                "{key}: {unknown}"
+            );
+            assert_eq!(unknown, text(key, &[("office", "unknown")]));
+            assert_ne!(unknown, text(key, &[("office", "known")]));
+        }
+        let state = text(
+            hint_key::STATE_FOREST,
+            &[("owner", "Land X"), ("percent", "12")],
+        );
+        assert!(!state.contains("In charge"), "{state}");
+        assert!(!state.contains("unknown"), "{state}");
+        assert_eq!(
+            state,
+            text(
+                hint_key::STATE_FOREST,
+                &[("owner", "Land X"), ("percent", "12"), ("office", "none")]
+            )
+        );
+    }
+
     #[test]
     fn polish_notes_leave_out_the_german_sections_and_names() {
         let mut notes = viktoriapark();

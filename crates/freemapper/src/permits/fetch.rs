@@ -468,6 +468,32 @@ mod tests {
         ids
     }
 
+    /// A map area in Germany is never refused for its region, also when no adapter brings permit
+    /// sources: the national sources are its own (ADR 0175).
+    #[test]
+    fn a_german_map_without_regional_sources_is_not_refused_for_its_region() {
+        let (dir, project) = project();
+        let root = tempfile::tempdir().unwrap();
+        let cache = Cache::new(root.path().to_path_buf());
+        let error = fetch_inputs_in(
+            &Registry::new(),
+            &project,
+            dir.path(),
+            &MapFetcher::default(),
+            &cache,
+            true,
+            &mut |_: Note| {},
+        )
+        .expect_err("nothing is stored");
+        assert!(
+            !matches!(
+                error,
+                PermitsError::Project(ProjectError::PermitsNotForRegion)
+            ),
+            "{error:?}"
+        );
+    }
+
     fn project() -> (TempDir, ProjectFile) {
         let dir = tempfile::tempdir().unwrap();
         let [w, s, e, n] = AREA;
@@ -1861,6 +1887,48 @@ mod poland {
                 .collect::<Vec<_>>(),
             ["osm"]
         );
+    }
+
+    fn ask_in(registry: &Registry, project: &ProjectFile, dir: &Path) -> PermitsError {
+        let root = tempfile::tempdir().unwrap();
+        let cache = Cache::new(root.path().to_path_buf());
+        let fetcher = MapFetcher::default();
+        fetch_inputs_in(
+            registry,
+            project,
+            dir,
+            &fetcher,
+            &cache,
+            true,
+            &mut |_: Note| {},
+        )
+        .expect_err("nothing is stored")
+    }
+
+    fn not_for_region(error: &PermitsError) -> bool {
+        matches!(
+            error,
+            PermitsError::Project(ProjectError::PermitsNotForRegion)
+        )
+    }
+
+    /// Both sides of the refusal: no source of a region adapter is only a reason to refuse a
+    /// map outside Germany (ADR 0175).
+    #[test]
+    fn a_map_outside_germany_needs_a_region_with_permit_sources() {
+        let (dir, project) = project();
+        // Poland with the adapters: asked, so nothing is refused for its region.
+        assert!(!not_for_region(&ask_in(
+            &crate::adapters::registry(),
+            &project,
+            dir.path()
+        )));
+        // Poland without any adapter: refused.
+        assert!(not_for_region(&ask_in(
+            &Registry::new(),
+            &project,
+            dir.path()
+        )));
     }
 
     fn copy_permits(from: &Path, to: &Path) {

@@ -696,4 +696,39 @@ mod tests {
         assert_eq!(feature["geometry"]["type"], "LineString");
         assert_eq!(osm_finding(&feature), Some(road));
     }
+
+    fn record(national: bool) -> Record {
+        let source = || SourceRecord {
+            state: Outcome::Read,
+            fetched: None,
+            count: Some(1),
+            reason: None,
+        };
+        Record {
+            schema: 1,
+            bbox: [13.0, 52.0, 13.1, 52.1],
+            area: None,
+            national,
+            vg250: source(),
+            bfn: source(),
+            osm: source(),
+            regional: Vec::new(),
+        }
+    }
+
+    /// German output stays as it was: the field is written only for a region without the
+    /// national sources, and a record without it reads as German (ADR 0175).
+    #[test]
+    fn the_national_flag_is_written_only_when_false_and_read_back() {
+        assert!(is_true(&true));
+        assert!(!is_true(&false));
+        let german = serde_json::to_value(record(true)).unwrap();
+        assert!(german.get("national").is_none(), "{german}");
+        let polish = serde_json::to_value(record(false)).unwrap();
+        assert_eq!(polish["national"], false);
+        let back: Record = serde_json::from_value(german).unwrap();
+        assert!(back.national);
+        let back: Record = serde_json::from_value(polish).unwrap();
+        assert!(!back.national);
+    }
 }

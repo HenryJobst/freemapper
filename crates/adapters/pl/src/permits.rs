@@ -784,6 +784,60 @@ mod tests {
         assert_eq!(lists[0].len(), GDOS_PAGE);
     }
 
+    /// A collection of `n` point features, each with `pad` bytes of padding.
+    fn collection(n: usize, pad: usize) -> Vec<u8> {
+        let feature = json!({"type": "Feature",
+            "properties": {"nazwa": "X", "pad": "x".repeat(pad)},
+            "geometry": {"type": "Point", "coordinates": [20.56, 52.31]}});
+        serde_json::to_vec(&json!({"type": "FeatureCollection", "features": vec![feature; n]}))
+            .unwrap()
+    }
+
+    /// Answers every layer at its first page and nothing else, with `first` for the first layer.
+    fn only_first_pages(bbox: &Rect<f64>, first: Vec<u8>) -> MapFetcher {
+        let fetcher = MapFetcher::default();
+        for (i, (_, type_name, _)) in GDOS_LAYERS.iter().enumerate() {
+            let body = if i == 0 {
+                first.clone()
+            } else {
+                collection(0, 0)
+            };
+            fetcher.insert(&gdos_url(type_name, bbox, 0), body);
+        }
+        fetcher
+    }
+
+    #[test]
+    fn a_page_one_short_of_full_is_the_last_one() {
+        let bbox = Rect::new(Coord { x: 20.55, y: 52.30 }, Coord { x: 20.57, y: 52.32 });
+        let fetcher = only_first_pages(&bbox, collection(GDOS_PAGE - 1, 0));
+        let part = tempfile::tempdir().unwrap().keep().join("page.part");
+        let lists = gdos().fetch(&fetcher, &bbox, &part).unwrap();
+        assert_eq!(lists[0].len(), GDOS_PAGE - 1);
+        assert_eq!(fetcher.calls.get(), 11);
+    }
+
+    #[test]
+    fn a_full_page_is_not_the_last_one() {
+        let bbox = Rect::new(Coord { x: 20.55, y: 52.30 }, Coord { x: 20.57, y: 52.32 });
+        // The second page of the first layer is not served: asking for it fails the fetch.
+        let fetcher = only_first_pages(&bbox, collection(GDOS_PAGE, 0));
+        let part = tempfile::tempdir().unwrap().keep().join("page.part");
+        assert!(gdos().fetch(&fetcher, &bbox, &part).is_err());
+    }
+
+    #[test]
+    fn an_answer_of_several_megabytes_is_read() {
+        // Landscape protection areas come as polygons of several megabytes.
+        let bbox = Rect::new(Coord { x: 20.55, y: 52.30 }, Coord { x: 20.57, y: 52.32 });
+        let big = collection(1, 3 * 1024 * 1024);
+        assert!(big.len() > 3 * 1024 * 1024);
+        let fetcher = only_first_pages(&bbox, big);
+        let part = tempfile::tempdir().unwrap().keep().join("page.part");
+        let lists = gdos().fetch(&fetcher, &bbox, &part).unwrap();
+        assert_eq!(lists[0].len(), 1);
+    }
+
     #[test]
     fn the_districts_come_with_their_directorate_and_positions_in_wgs_84() {
         let fetcher = MapFetcher::default();

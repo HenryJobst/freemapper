@@ -292,3 +292,15 @@ fn an_allowed_host_is_in_the_policy() {
     assert!(policy.allows_host("example.pl"));
     assert!(!policy.allows_host("example.com"));
 }
+
+#[test]
+fn polska_brings_the_permit_sources_of_the_gdos_and_the_prg() {
+    let registry = polska();
+    let adapter = registry.get("polska").unwrap();
+    let keys: Vec<&str> = adapter
+        .permit_sources()
+        .iter()
+        .map(|s| s.info().key)
+        .collect();
+    assert_eq!(keys, ["gdos", "prg"]);
+}
