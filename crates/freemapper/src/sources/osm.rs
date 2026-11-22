@@ -493,9 +493,9 @@ pub fn features_from_geojson(text: &str) -> Result<Vec<OsmFeature>, OsmError> {
 
 /// The Brandenburg extract; it holds Berlin too.
 pub const EXTRACT_URL: &str =
-    "https://download.geofabrik.de/europe/germany/brandenburg-latest.osm.pbf";
+    "https://download.geofabrik.de/europe/germany/brandenburg/brandenburg-latest.osm.pbf";
 pub const STATE_URL: &str =
-    "https://download.geofabrik.de/europe/germany/brandenburg-updates/state.txt";
+    "https://download.geofabrik.de/europe/germany/brandenburg/updates/state.txt";
 /// A cached extract this much older than Geofabrik's state is still used.
 pub(crate) const MAX_EXTRACT_AGE_DAYS: i64 = 7;
 const EXTRACT_SUFFIX: &str = ".osm.pbf";
@@ -893,11 +893,11 @@ mod tests {
         let saxony = extract_of("saxony", 0);
         assert_eq!(
             saxony.url(),
-            "https://download.geofabrik.de/europe/germany/sachsen-latest.osm.pbf"
+            "https://download.geofabrik.de/europe/germany/sachsen/sachsen-latest.osm.pbf"
         );
         assert_eq!(
             saxony.state_url(),
-            "https://download.geofabrik.de/europe/germany/sachsen-updates/state.txt"
+            "https://download.geofabrik.de/europe/germany/sachsen/updates/state.txt"
         );
         fetcher.insert(&saxony.state_url(), state("2026-11-06"));
         fetcher.insert(&saxony.url(), std::fs::read(FIXTURE_PBF).unwrap());
@@ -942,11 +942,11 @@ mod tests {
         let hamburg = extract_of("hamburg", 0);
         assert_eq!(
             hamburg.url(),
-            "https://download.geofabrik.de/europe/germany/hamburg-latest.osm.pbf"
+            "https://download.geofabrik.de/europe/germany/hamburg/hamburg-latest.osm.pbf"
         );
         assert_eq!(
             hamburg.state_url(),
-            "https://download.geofabrik.de/europe/germany/hamburg-updates/state.txt"
+            "https://download.geofabrik.de/europe/germany/hamburg/updates/state.txt"
         );
         assert_eq!(hamburg.label(), "Hamburg");
     }
@@ -956,11 +956,11 @@ mod tests {
         let hessen = extract_of("hessen", 0);
         assert_eq!(
             hessen.url(),
-            "https://download.geofabrik.de/europe/germany/hessen-latest.osm.pbf"
+            "https://download.geofabrik.de/europe/germany/hessen/hessen-latest.osm.pbf"
         );
         assert_eq!(
             hessen.state_url(),
-            "https://download.geofabrik.de/europe/germany/hessen-updates/state.txt"
+            "https://download.geofabrik.de/europe/germany/hessen/updates/state.txt"
         );
         assert_eq!(hessen.label(), "Hesse");
         assert_eq!(hessen.megabytes(), 348.0);
@@ -971,11 +971,11 @@ mod tests {
         let sh = extract_of("schleswigholstein", 0);
         assert_eq!(
             sh.url(),
-            "https://download.geofabrik.de/europe/germany/schleswig-holstein-latest.osm.pbf"
+            "https://download.geofabrik.de/europe/germany/schleswig-holstein/schleswig-holstein-latest.osm.pbf"
         );
         assert_eq!(
             sh.state_url(),
-            "https://download.geofabrik.de/europe/germany/schleswig-holstein-updates/state.txt"
+            "https://download.geofabrik.de/europe/germany/schleswig-holstein/updates/state.txt"
         );
         assert_eq!(sh.label(), "Schleswig-Holstein");
         assert_eq!(sh.megabytes(), 159.0);
@@ -986,11 +986,11 @@ mod tests {
         let mv = extract_of("mecklenburgvorpommern", 0);
         assert_eq!(
             mv.url(),
-            "https://download.geofabrik.de/europe/germany/mecklenburg-vorpommern-latest.osm.pbf"
+            "https://download.geofabrik.de/europe/germany/mecklenburg-vorpommern/mecklenburg-vorpommern-latest.osm.pbf"
         );
         assert_eq!(
             mv.state_url(),
-            "https://download.geofabrik.de/europe/germany/mecklenburg-vorpommern-updates/state.txt"
+            "https://download.geofabrik.de/europe/germany/mecklenburg-vorpommern/updates/state.txt"
         );
         assert_eq!(mv.label(), "Mecklenburg-Vorpommern");
         assert_eq!(mv.megabytes(), 128.8);
@@ -1001,11 +1001,11 @@ mod tests {
         let ni = extract_of("niedersachsen", 0);
         assert_eq!(
             ni.url(),
-            "https://download.geofabrik.de/europe/germany/niedersachsen-latest.osm.pbf"
+            "https://download.geofabrik.de/europe/germany/niedersachsen/niedersachsen-latest.osm.pbf"
         );
         assert_eq!(
             ni.state_url(),
-            "https://download.geofabrik.de/europe/germany/niedersachsen-updates/state.txt"
+            "https://download.geofabrik.de/europe/germany/niedersachsen/updates/state.txt"
         );
         assert_eq!(ni.label(), "Lower Saxony");
         assert_eq!(ni.megabytes(), 510.0);
@@ -1028,11 +1028,11 @@ mod tests {
         let rp = extract_of("rheinlandpfalz", 0);
         assert_eq!(
             rp.url(),
-            "https://download.geofabrik.de/europe/germany/rheinland-pfalz-latest.osm.pbf"
+            "https://download.geofabrik.de/europe/germany/rheinland-pfalz/rheinland-pfalz-latest.osm.pbf"
         );
         assert_eq!(
             rp.state_url(),
-            "https://download.geofabrik.de/europe/germany/rheinland-pfalz-updates/state.txt"
+            "https://download.geofabrik.de/europe/germany/rheinland-pfalz/updates/state.txt"
         );
         assert_eq!(rp.label(), "Rhineland-Palatinate");
         assert_eq!(rp.megabytes(), 275.0);
@@ -1066,11 +1066,11 @@ mod tests {
         );
         assert_eq!(
             koeln.url(),
-            "https://download.geofabrik.de/europe/germany/nordrhein-westfalen/koeln-regbez-latest.osm.pbf"
+            "https://download.geofabrik.de/europe/germany/nordrhein-westfalen/koeln-regbez/koeln-regbez-latest.osm.pbf"
         );
         assert_eq!(
             koeln.state_url(),
-            "https://download.geofabrik.de/europe/germany/nordrhein-westfalen/koeln-regbez-updates/state.txt"
+            "https://download.geofabrik.de/europe/germany/nordrhein-westfalen/koeln-regbez/updates/state.txt"
         );
         assert_eq!(koeln.label(), "North Rhine-Westphalia, Köln");
         assert_eq!(koeln.megabytes(), 225.2);
@@ -1085,8 +1085,8 @@ mod tests {
             let base = format!(
                 "https://download.geofabrik.de/europe/germany/nordrhein-westfalen/{slug}-regbez"
             );
-            assert_eq!(source.url(), format!("{base}-latest.osm.pbf"));
-            assert_eq!(source.state_url(), format!("{base}-updates/state.txt"));
+            assert_eq!(source.url(), format!("{base}/{slug}-regbez-latest.osm.pbf"));
+            assert_eq!(source.state_url(), format!("{base}/updates/state.txt"));
             assert_eq!(source.prefix(), format!("nrw-{slug}_"));
         }
         // Places well inside the other four districts read only their own extract.
@@ -1343,7 +1343,7 @@ mod tests {
         let read = extracts_for_in(&square(1), &inside, &mut |m| messages.push(m.to_string()));
         assert_eq!(
             read.iter().map(|e| e.url()).collect::<Vec<_>>(),
-            ["https://download.geofabrik.de/europe/square/part-0-latest.osm.pbf"]
+            ["https://download.geofabrik.de/europe/square/part-0/part-0-latest.osm.pbf"]
         );
         assert_eq!((read[0].adapter.as_str(), read[0].index), ("square", 0));
         assert!(messages.is_empty(), "{messages:?}");

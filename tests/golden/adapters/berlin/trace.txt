@@ -48,6 +48,6 @@ GET https://gdi.berlin.de/services/wfs/zierbrunnen?service=WFS&version=2.0.0&req
 GET https://gdi.berlin.de/services/wfs/trinkwasserbrunnen?service=WFS&version=2.0.0&request=GetFeature&typeNames=trinkwasserbrunnen:trinkwasserbrunnen&outputFormat=application/json&count=5000&bbox=390073,5816416,390327,5816676,urn:ogc:def:crs:EPSG::25833
 GET https://gdi.berlin.de/services/wfs/ua_gebaeudehoehen?service=WFS&version=2.0.0&request=GetFeature&typeNames=ua_gebaeudehoehen:gebaeudehoehen&outputFormat=application/json&count=5000&bbox=390073,5816416,390327,5816676,urn:ogc:def:crs:EPSG::25833
 GET https://gdi.berlin.de/services/wms/k5_farbe?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&LAYERS=k5_farbe&STYLES=&CRS=EPSG:25833&BBOX=390073.5,5816416.75,390326.75,5816676&WIDTH=1013&HEIGHT=1037&FORMAT=image/png
-GET https://download.geofabrik.de/europe/germany/brandenburg-updates/state.txt
-GET https://download.geofabrik.de/europe/germany/brandenburg-latest.osm.pbf [to file]
+GET https://download.geofabrik.de/europe/germany/brandenburg/updates/state.txt
+GET https://download.geofabrik.de/europe/germany/brandenburg/brandenburg-latest.osm.pbf [to file]
 result: fetched

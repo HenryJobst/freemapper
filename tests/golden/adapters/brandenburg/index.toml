@@ -101,6 +101,6 @@ bytes = 42
 
 [[response]]
 method = "GET"
-url = "https://download.geofabrik.de/europe/germany/brandenburg-updates/state.txt"
+url = "https://download.geofabrik.de/europe/germany/brandenburg/updates/state.txt"
 body = "f666bcf2a4268254d68791557831463a238aa29902432c0c6f65730f98b0e08d"
 bytes = 113

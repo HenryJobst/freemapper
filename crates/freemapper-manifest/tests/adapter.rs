@@ -237,11 +237,11 @@ fn geofabrik_urls_equal_the_osm_rs_constants_for_hamburg_and_hessen() {
     let extract = &info.osm[0];
     assert_eq!(
         extract.url(),
-        "https://download.geofabrik.de/europe/germany/hamburg-latest.osm.pbf"
+        "https://download.geofabrik.de/europe/germany/hamburg/hamburg-latest.osm.pbf"
     );
     assert_eq!(
         extract.state_url(),
-        "https://download.geofabrik.de/europe/germany/hamburg-updates/state.txt"
+        "https://download.geofabrik.de/europe/germany/hamburg/updates/state.txt"
     );
     assert_eq!(
         (
@@ -263,7 +263,7 @@ fn geofabrik_urls_equal_the_osm_rs_constants_for_hamburg_and_hessen() {
     .unwrap();
     assert_eq!(
         adapter.info().osm[0].url(),
-        "https://download.geofabrik.de/europe/germany/hessen-latest.osm.pbf"
+        "https://download.geofabrik.de/europe/germany/hessen/hessen-latest.osm.pbf"
     );
     assert_eq!(adapter.info().osm[0].prefix, "hessen_");
 }
@@ -366,7 +366,7 @@ fn each_extract_has_its_boundary() {
     assert_eq!(adapter.info().osm[4].prefix, "nrw-muenster_");
     assert_eq!(
         adapter.info().osm[3].url(),
-        "https://download.geofabrik.de/europe/germany/nordrhein-westfalen/koeln-regbez-latest.osm.pbf"
+        "https://download.geofabrik.de/europe/germany/nordrhein-westfalen/koeln-regbez/koeln-regbez-latest.osm.pbf"
     );
     for index in 0..5 {
         let boundary = adapter.extract_boundary(index).unwrap();

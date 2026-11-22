@@ -33,7 +33,7 @@ impl Names {
 #[derive(Debug, Clone, PartialEq)]
 pub struct OsmExtractInfo {
     /// The path of the extract on the Geofabrik server, without `-latest.osm.pbf`
-    /// (`europe/germany/brandenburg`).
+    /// (`europe/germany/brandenburg`); `europe/poland/lubuskie/lubuskie` names the folder too.
     pub geofabrik_path: String,
     /// The size of the download, for the estimate.
     pub megabytes: f64,
@@ -44,20 +44,32 @@ pub struct OsmExtractInfo {
 }
 
 impl OsmExtractInfo {
-    /// Where the extract is downloaded from.
-    pub fn url(&self) -> String {
-        format!("{GEOFABRIK}/{}-latest.osm.pbf", self.geofabrik_path)
+    /// The folder of the extract and its name. Geofabrik keeps every extract in a folder of its
+    /// own, `europe/germany/hessen/hessen-latest.osm.pbf`; the old address
+    /// `europe/germany/hessen-latest.osm.pbf` redirects to a place that does not exist (checked
+    /// 21 November 2026). A path that already ends in `<name>/<name>` stays as it is; one that
+    /// ends in `<name>` only, as the manifests of earlier versions and the adapters of a person's
+    /// own folder write it, gets the folder.
+    fn folder_and_name(&self) -> (&str, &str) {
+        match self.geofabrik_path.rsplit_once('/') {
+            Some((folder, name)) if folder.rsplit('/').next() == Some(name) => (folder, name),
+            _ => (
+                self.geofabrik_path.as_str(),
+                self.geofabrik_path.rsplit('/').next().unwrap_or_default(),
+            ),
+        }
     }
 
-    /// Where Geofabrik says how current the extract is. A region that has a folder of its own
-    /// (`europe/poland/lubuskie/lubuskie`) keeps its updates inside that folder.
+    /// Where the extract is downloaded from.
+    pub fn url(&self) -> String {
+        let (folder, name) = self.folder_and_name();
+        format!("{GEOFABRIK}/{folder}/{name}-latest.osm.pbf")
+    }
+
+    /// Where Geofabrik says how current the extract is: in the folder of the extract.
     pub fn state_url(&self) -> String {
-        match self.geofabrik_path.rsplit_once('/') {
-            Some((folder, name)) if folder.rsplit('/').next() == Some(name) => {
-                format!("{GEOFABRIK}/{folder}/updates/state.txt")
-            }
-            _ => format!("{GEOFABRIK}/{}-updates/state.txt", self.geofabrik_path),
-        }
+        let (folder, _) = self.folder_and_name();
+        format!("{GEOFABRIK}/{folder}/updates/state.txt")
     }
 }
 
@@ -174,7 +186,7 @@ mod tests {
 
     /// The ISO 3166 codes, in lower case, as they name the country in files and messages.
     #[test]
-    fn an_extract_in_a_folder_of_its_own_keeps_its_updates_there() {
+    fn an_extract_lies_in_a_folder_of_its_own_whichever_way_the_path_is_written() {
         let extract = |path: &str| OsmExtractInfo {
             geofabrik_path: path.into(),
             megabytes: 1.0,
@@ -190,9 +202,15 @@ mod tests {
             own.state_url(),
             "https://download.geofabrik.de/europe/poland/lubuskie/updates/state.txt"
         );
+        // The path without the folder name, as the manifests write it.
+        let short = extract("europe/germany/brandenburg");
         assert_eq!(
-            extract("europe/germany/brandenburg").state_url(),
-            "https://download.geofabrik.de/europe/germany/brandenburg-updates/state.txt"
+            short.url(),
+            "https://download.geofabrik.de/europe/germany/brandenburg/brandenburg-latest.osm.pbf"
+        );
+        assert_eq!(
+            short.state_url(),
+            "https://download.geofabrik.de/europe/germany/brandenburg/updates/state.txt"
         );
     }
 
