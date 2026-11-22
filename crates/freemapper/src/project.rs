@@ -11868,9 +11868,16 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         // cadastre requests are the ones this test is about.
         let log = fetcher.log.borrow();
         let egib: Vec<_> = log.iter().filter(|u| u.contains("/EGIB/WFS/")).collect();
-        assert_eq!(egib.len(), 2, "{log:?}");
-        assert!(egib[0].contains("TYPENAMES=ms:budynki"), "{log:?}");
-        assert!(egib[1].contains("TYPENAMES=ms:dzialki"), "{log:?}");
+        // An empty first answer is asked twice more before it counts as a gap.
+        assert_eq!(egib.len(), 6, "{log:?}");
+        assert!(
+            egib[..3].iter().all(|u| u.contains("TYPENAMES=ms:budynki")),
+            "{log:?}"
+        );
+        assert!(
+            egib[3..].iter().all(|u| u.contains("TYPENAMES=ms:dzialki")),
+            "{log:?}"
+        );
         assert!(dir.path().join(BUILDINGS_RELPATH).exists());
     }
 
