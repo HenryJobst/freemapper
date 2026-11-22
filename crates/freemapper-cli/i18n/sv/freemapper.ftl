@@ -660,6 +660,7 @@ help-adapters-check-bbox = Live-kontrollens ruta i grader, som minLon,minLat,max
 help-adapters-check-json = Skriv ut resultatet som JSON
 help-adapters-probe = Fråga varje tjänst som de inbyggda adaptrarna nämner en gång och säg om den svarar: ok, slow, moved eller error. Slutkoden är 0 även när en tjänst misslyckas; resultatet är svaret
 help-adapters-probe-json = Skriv ut resultatet som JSON
+help-adapters-probe-status = Läs gårdagens status från den här filen (den får saknas) och skriv ut den nya statusen som JSON: En tjänst är nere efter två dåliga nätter i rad. Ändringarna går till standardfel
 help-adapters-allow-host = Tillåt en inbyggd adapter ytterligare en värd: för en delstat vars tjänst har flyttat till en server som adaptern ännu inte anger. Meddelandet om den nekade adressen säger vilken värd. Värden kontrolleras som en värd i ett manifest, och freemapper ansluter fortfarande bara till servrar på internet
 help-adapters-allow-host-adapter = Den inbyggda adapterns id, som `adapters list` visar det
 help-adapters-allow-host-host = Värden som ska tillåtas: ett DNS-namn, ingen adress, ingen port

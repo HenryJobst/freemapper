@@ -667,6 +667,7 @@ help-adapters-check-bbox = Dzīvās pārbaudes taisnstūris grādos kā minLon,m
 help-adapters-check-json = Izdrukāt rezultātu kā JSON
 help-adapters-probe = Vienreiz pieprasīt katru pakalpojumu, ko min iebūvētie adapteri, un pateikt, vai tas atbild: ok, slow, moved vai error. Izejas kods ir 0 arī tad, ja pakalpojums neizdodas; rezultāts ir atbilde
 help-adapters-probe-json = Izdrukāt rezultātu kā JSON
+help-adapters-probe-status = Nolasīt iepriekšējās nakts statusu no šī faila (tā var nebūt) un izdrukāt jauno statusu kā JSON: pakalpojums ir nepieejams pēc divām sliktām naktīm pēc kārtas. Izmaiņas iet uz standarta kļūdu izvadi
 help-adapters-allow-host = Atļaut iebūvētam adapterim vēl vienu serveri: federālajai zemei, kuras pakalpojums pārcēlies uz serveri, ko tās adapteris vēl nenosauc. Ziņojums par noraidīto adresi pasaka, kuru serveri. Serveris tiek pārbaudīts kā manifesta serveris, un freemapper joprojām savienojas tikai ar interneta serveriem
 help-adapters-allow-host-adapter = Iebūvētā adaptera id, kā to rāda `adapters list`
 help-adapters-allow-host-host = Atļaujamais serveris: DNS nosaukums, nevis adrese, bez porta

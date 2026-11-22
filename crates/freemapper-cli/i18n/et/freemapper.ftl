@@ -660,6 +660,7 @@ help-adapters-check-bbox = Reaalajakontrolli kast kraadides kujul minLon,minLat,
 help-adapters-check-json = Trüki tulemus JSON-ina
 help-adapters-probe = Päri iga sisseehitatud adapterite nimetatud teenust üks kord ja ütle, kas see vastab: ok, slow, moved või error. Väljumiskood on 0 ka siis, kui teenus ebaõnnestub; tulemus on vastus
 help-adapters-probe-json = Trüki tulemus JSON-ina
+help-adapters-probe-status = Loe eelmise öö olek sellest failist (see võib puududa) ja prindi uus olek JSON-ina: teenus on maas pärast kahte halba ööd järjest. Muudatused lähevad standardveavoogu
 help-adapters-allow-host = Luba sisseehitatud adapterile üks host juurde: liidumaa jaoks, mille teenus on kolinud serverisse, mida selle adapter veel ei nimeta. Teade keelatud aadressi kohta ütleb, milline host. Hosti kontrollitakse nagu manifesti hosti ja freemapper ühendub endiselt ainult internetis olevate serveritega
 help-adapters-allow-host-adapter = Sisseehitatud adapteri id, nagu `adapters list` seda näitab
 help-adapters-allow-host-host = Lubatav host: DNS-nimi, mitte aadress, mitte port

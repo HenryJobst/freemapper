@@ -25,6 +25,7 @@ pub mod probe;
 pub mod project;
 pub mod raster;
 pub mod render;
+pub mod service_status;
 pub mod sources;
 pub mod space;
 pub mod tiles;

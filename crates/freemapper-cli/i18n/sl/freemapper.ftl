@@ -674,6 +674,7 @@ help-adapters-check-bbox = Okvir živega preverjanja v stopinjah, kot minLon,min
 help-adapters-check-json = Rezultat izpiše kot JSON
 help-adapters-probe = Enkrat povprašati vsako storitev, ki jo navajajo vgrajeni adapterji, in povedati, ali odgovarja: ok, slow, moved ali error. Izhodna koda je 0 tudi, če storitev odpove; rezultat je odgovor
 help-adapters-probe-json = Rezultat izpiše kot JSON
+help-adapters-probe-status = Prebrati stanje prejšnje noči iz te datoteke (lahko manjka) in izpisati novo stanje kot JSON: storitev je nedosegljiva po dveh slabih nočeh zapored. Spremembe gredo na standardni izhod za napake
 help-adapters-allow-host = Vgrajenemu adapterju dovoli še enega gostitelja: za zvezno deželo, katere storitev se je preselila na strežnik, ki ga njen adapter še ne navaja. Sporočilo o zavrnjenem naslovu pove, kateri gostitelj. Gostitelj se preveri kot gostitelj manifesta, freemapper pa se še vedno povezuje samo s strežniki na internetu
 help-adapters-allow-host-adapter = Id vgrajenega adapterja, kot ga prikaže `adapters list`
 help-adapters-allow-host-host = Gostitelj, ki se dovoli: ime DNS, ne naslov, ne vrata
