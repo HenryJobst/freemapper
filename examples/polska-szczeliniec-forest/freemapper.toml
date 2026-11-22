@@ -19,7 +19,7 @@ count = 12
 [land_use]
 bbox = [594251.0, 5592524.0, 595798.0, 5593649.0]
 fetched = "2026-11-22"
-count = 10
+count = 46
 
 [osm]
 extract = "2026-11-20"

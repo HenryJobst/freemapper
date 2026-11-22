@@ -1915,9 +1915,15 @@ fn fetch_land_use_into(
     });
     match downloaded {
         Ok(land_use) => {
+            // In Poland the count also holds the parts BDOT10k filled in where EGiB had none.
+            let source = if cadastre == "EGiB" {
+                "EGiB/BDOT10k"
+            } else {
+                cadastre
+            };
             progress(note!(
                 "progress-alkis-land-use-parts",
-                cadastre = cadastre,
+                cadastre = source,
                 count = land_use.len()
             ));
             Some(Some(AlkisRecord {

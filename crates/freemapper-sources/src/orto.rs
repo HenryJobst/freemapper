@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! Orthophoto sheets of GUGiK: a tiled TIFF with JPEG tiles (YCbCr) in PL-1992 (EPSG:2180) or,
+//! Orthophoto sheets of GUGiK: a tiled TIFF with JPEG tiles (YCbCr), or with uncompressed RGB tiles
+//! (some old flights), in PL-1992 (EPSG:2180) or,
 //! for the sheets of older flights, in PL-2000 zone 5 to 8 (EPSG:2176 to 2179), written either
 //! with its EPSG code or as a user-defined transverse Mercator (code 32767 with its parameters).
 //!
@@ -44,7 +45,7 @@ pub enum OrtoError {
     TooFine(f64),
     #[error("the pixels are not square ({0} by {1} m)")]
     NonSquare(f64, f64),
-    #[error("the orthophoto is not made of JPEG tiles")]
+    #[error("the orthophoto is neither made of JPEG tiles nor uncompressed 8-bit RGB")]
     NotJpegTiles,
     #[error("tile {0} lies outside the file")]
     Truncated(usize),
@@ -196,6 +197,8 @@ pub struct Sheet<'a> {
     offsets: Vec<u64>,
     counts: Vec<u64>,
     tables: Vec<u8>,
+    /// Whether the tiles hold plain 8-bit RGB (compression 1) instead of JPEG.
+    raw: bool,
 }
 
 /// How far the two pixel sizes of a sheet may differ, in metres (2^-30, exact in a float).
@@ -217,13 +220,35 @@ impl<'a> Sheet<'a> {
                 .map_err(tiff)?
                 .ok_or(OrtoError::MissingTag(name))
         };
-        if tag(&mut d, Tag::Compression, "Compression")?
+        let raw = match tag(&mut d, Tag::Compression, "Compression")?
             .into_u32()
             .map_err(tiff)?
-            != 7
         {
-            return Err(OrtoError::NotJpegTiles);
-        }
+            7 => false,
+            // Uncompressed: only chunky 8-bit RGB, which is what the old flights hold.
+            1 => {
+                let samples = tag(&mut d, Tag::SamplesPerPixel, "SamplesPerPixel")?
+                    .into_u32()
+                    .map_err(tiff)?;
+                let photometric = tag(&mut d, Tag::PhotometricInterpretation, "Photometric")?
+                    .into_u32()
+                    .map_err(tiff)?;
+                let bits = tag(&mut d, Tag::BitsPerSample, "BitsPerSample")?
+                    .into_u32_vec()
+                    .map_err(tiff)?;
+                let planar = d
+                    .find_tag(Tag::PlanarConfiguration)
+                    .map_err(tiff)?
+                    .map(|v| v.into_u32().map_err(tiff))
+                    .transpose()?
+                    .unwrap_or(1);
+                if samples != 3 || photometric != 2 || planar != 1 || bits != [8, 8, 8] {
+                    return Err(OrtoError::NotJpegTiles);
+                }
+                true
+            }
+            _ => return Err(OrtoError::NotJpegTiles),
+        };
         let scale = tag(&mut d, Tag::ModelPixelScaleTag, "ModelPixelScale")?
             .into_f64_vec()
             .map_err(tiff)?;
@@ -298,6 +323,7 @@ impl<'a> Sheet<'a> {
             offsets,
             counts,
             tables,
+            raw,
         })
     }
 
@@ -397,8 +423,15 @@ impl<'a> Sheet<'a> {
             .ok()
             .zip(usize::try_from(count).ok())
             .and_then(|(o, c)| self.bytes.get(o..o.checked_add(c)?))
-            .filter(|t| t.starts_with(&[0xFF, 0xD8]))
+            .filter(|t| self.raw || t.starts_with(&[0xFF, 0xD8]))
             .ok_or(OrtoError::Truncated(index))?;
+        if self.raw {
+            let (w, h) = self.tile;
+            return image::RgbImage::from_raw(w, h, tile.to_vec()).ok_or(OrtoError::Tile {
+                tile: index,
+                reason: format!("{} bytes, not {w} by {h} pixels of RGB", tile.len()),
+            });
+        }
         let mut jpeg = vec![0xFF, 0xD8];
         jpeg.extend_from_slice(&self.tables);
         jpeg.extend_from_slice(&tile[2..]);
@@ -494,6 +527,24 @@ pub mod test_support {
         build_tiff(&tiles, &tables, pixel, keys, doubles, (0.0, 0.0), origin)
     }
 
+    /// Like [`fixture`] with uncompressed RGB tiles, as some old flights are.
+    pub fn fixture_uncompressed(pixel: f64, epsg: u16) -> Vec<u8> {
+        let colours = [[250, 20, 20], [20, 250, 20], [20, 20, 250], [250, 250, 250]];
+        let tiles: Vec<Vec<u8>> = colours
+            .iter()
+            .map(|c| {
+                c.iter()
+                    .copied()
+                    .cycle()
+                    .take((TILE * TILE * 3) as usize)
+                    .collect()
+            })
+            .collect();
+        let keys = [1, 1, 0, 2, 1025, 0, 1, 1, 3072, 0, 1, epsg];
+        // No tables means no JPEG: `build_tiff` then writes compression 1 and RGB.
+        build_tiff(&tiles, &[], pixel, &keys, &[], (0.0, 0.0), (1000.0, 2000.0))
+    }
+
     /// The four JPEG tiles and the tables stream of the fixtures.
     fn parts(repeat_tables: bool) -> (Vec<Vec<u8>>, Vec<u8>) {
         let colours = [[250, 20, 20], [20, 250, 20], [20, 20, 250], [250, 250, 250]];
@@ -576,19 +627,21 @@ pub mod test_support {
             (256, 4, 1, side),
             (257, 4, 1, side),
             (258, 3, 3, bits_at),
-            (259, 3, 1, 7),
-            (262, 3, 1, 6),
+            (259, 3, 1, if tables.is_empty() { 1 } else { 7 }),
+            (262, 3, 1, if tables.is_empty() { 2 } else { 6 }),
             (277, 3, 1, 3),
             (322, 4, 1, TILE),
             (323, 4, 1, TILE),
             (324, 4, 4, offsets_at),
             (325, 4, 4, counts_at),
-            (347, 7, tables.len() as u32, tables_at),
             (33550, 12, 3, scale_at),
             (33922, 12, 6, tie_at),
             (34735, 3, keys.len() as u32, keys_at),
             (339, 3, 1, 1),
         ];
+        if !tables.is_empty() {
+            entries.push((347, 7, tables.len() as u32, tables_at));
+        }
         if !doubles.is_empty() {
             entries.push((34736, 12, doubles.len() as u32, doubles_at));
         }
@@ -626,6 +679,17 @@ mod tests {
 
     fn near(a: [u8; 3], b: [u8; 3]) -> bool {
         a.iter().zip(b).all(|(x, y)| x.abs_diff(y) < 12)
+    }
+
+    #[test]
+    fn uncompressed_rgb_tiles_decode_like_jpeg_ones() {
+        let bytes = fixture_uncompressed(0.25, 2180);
+        let r = read_orto(&bytes, &window(0.25, 0, 0, 32)).unwrap().unwrap();
+        assert_eq!((r.grid.width, r.grid.height), (32, 32));
+        assert_eq!(r.get(3, 3), [250, 20, 20]);
+        assert_eq!(r.get(20, 3), [20, 250, 20]);
+        assert_eq!(r.get(3, 20), [20, 20, 250]);
+        assert_eq!(r.get(20, 20), [250, 250, 250]);
     }
 
     #[test]
