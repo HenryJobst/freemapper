@@ -223,4 +223,5 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0175](0175-poland-permit-notes.md) | Permit notes in Poland | Accepted, amends a paragraph of ADR 0171 | 2026-11-22 |
 | [0176](0176-rounded-counts-in-the-badges.md) | Rounded counts in the badges | Accepted, amends ADR 0070 and 0163 | 2026-11-22 |
 | [0177](0177-download-badge-counts-program-archives.md) | The download badge counts the program archives | Accepted, amends ADR 0070, 0163 and 0176 | 2026-11-22 |
-| [0178](0178-page-pdf-embeds-arimo.md) | The page PDF embeds Arimo | Accepted, amends a paragraph of ADR 0164 | 2026-11-22 |
+| [0178](0178-poland-bdot10k-fallback.md) | BDOT10k fills where the Polish cadastre gives nothing | Accepted, completes ADR 0171 | 2026-11-22 |
+| [0179](0179-page-pdf-embeds-arimo.md) | The page PDF embeds Arimo | Accepted, amends a paragraph of ADR 0164 | 2026-11-22 |

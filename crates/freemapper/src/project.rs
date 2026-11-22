@@ -11858,10 +11858,13 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             "{lines:?}"
         );
         assert!(lines.iter().all(|l| !l.contains("ALKIS")), "{lines:?}");
+        // The stand-in answers with nothing, so the BDOT10k fallback asks its index as well; the
+        // cadastre requests are the ones this test is about.
         let log = fetcher.log.borrow();
-        assert_eq!(log.len(), 2, "{log:?}");
-        assert!(log[0].contains("TYPENAMES=ms:budynki"), "{log:?}");
-        assert!(log[1].contains("TYPENAMES=ms:dzialki"), "{log:?}");
+        let egib: Vec<_> = log.iter().filter(|u| u.contains("/EGIB/WFS/")).collect();
+        assert_eq!(egib.len(), 2, "{log:?}");
+        assert!(egib[0].contains("TYPENAMES=ms:budynki"), "{log:?}");
+        assert!(egib[1].contains("TYPENAMES=ms:dzialki"), "{log:?}");
         assert!(dir.path().join(BUILDINGS_RELPATH).exists());
     }
 

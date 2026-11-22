@@ -143,6 +143,9 @@ progress-alkis-land-use-parts = { $count ->
 warning-alkis-land-use-kept = { $cadastre } žemės naudojimas nepasiekiamas ({ $error }); paliekamas išsaugotas žemės naudojimas
 warning-alkis-land-use-removed = { $cadastre } žemės naudojimas nepasiekiamas ({ $error }); išsaugotas žemės naudojimas nebeapima žemėlapio ploto, todėl freemapper jį pašalino
 warning-alkis-land-use-none = { $cadastre } žemės naudojimas nepasiekiamas ({ $error }); kandidatų už ribų nėra
+progress-bdot-filled = pridėta { $count } BDOT10k objektų ({ $what }), kur EGiB nieko neduoda ({ $powiat })
+warning-bdot-failed = BDOT10k negalėjo užpildyti EGiB spragos ({ $what }): { $error }
+warning-bdot-instead = EGiB nepasiekiamas ({ $error }); vietoj jo naudojamas BDOT10k ({ $what }, { $powiat })
 
 ## The Berlin layers
 

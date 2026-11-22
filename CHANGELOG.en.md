@@ -6,17 +6,19 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
-### Changed
+### Added
 
-- The Sanssouci example is rebuilt with v0.26.0: the training map has one tree point fewer, the vegetation candidate layer three more OSM areas (two vineyards). The base map has the same 2282 objects. The run also loaded the Brandenburg OSM extract through the new Geofabrik address.
+- Poland fills ground without cadastre data from BDOT10k, the topographic object database of GUGiK: where the EGiB service gives no buildings for the map area (municipalities without a cadastre service) or fails, the buildings come from BDOT10k; where the parcels cover less than a quarter of the area with a land use class (the big cities mostly send none), BDOT10k adds the land use (forest, copse, grassland, farmland, water, residential and industrial land, squares, car parks, cemeteries, green spaces). EGiB comes first. For this freemapper downloads the GML archive of the powiat concerned (7 to 89 MB, kept in the cache) and reads only the classes it needs; when BDOT10k fails, a warning is all that happens (ADR 0178)
 
 ### Fixed
 
-- The page PDF embeds the font Arimo and shows letters such as ł, ą, č, ř and ő themselves instead of their base letter or `?` ("Słubice" instead of "Slubice"; issue 267, ADR 0178). The PDF grows by the font subsets; the example PDFs in the repository stay until the example is rebuilt.
+- The training map keeps the gap between a wall and a way after the ways are joined (issue #177): Regensburg and Bautzen reported 1.6 and 1.2 mm of too little gap there, now nothing. The gap step runs once more after the join (ADR 0150, addendum). The examples in the repository are not rebuilt yet.
+- The page PDF embeds the font Arimo and shows letters such as ł, ą, č, ř and ő themselves instead of their base letter or `?` ("Słubice" instead of "Slubice"; issue 267, ADR 0179). The PDF grows by the font subsets; the example PDFs in the repository stay until the example is rebuilt.
 - An offline run (`run --offline`, `fetch --offline`) for a map area in Poland no longer asks the GUGiK index service. It reads the sheets an online run recorded in the project (`data/gugik-sheets.json`); when nothing is recorded it says at once that the data must be fetched online first. Before, it failed with a network error when the service was unreachable.
 
 ### Changed
 
+- The Sanssouci example is rebuilt with v0.26.0: the training map has one tree point fewer, the vegetation candidate layer three more OSM areas (two vineyards). The base map has the same 2282 objects. The run also loaded the Brandenburg OSM extract through the new Geofabrik address.
 - The core crates (`freemapper-core`) are pinned to v0.32.0. The tag makes the embedding of the font Arimo public, which the page PDF will use later; the interface freemapper uses today stays the same.
 
 ## [0.26.0] - 2026-11-22

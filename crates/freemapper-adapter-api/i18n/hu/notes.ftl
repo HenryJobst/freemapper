@@ -122,6 +122,9 @@ progress-alkis-land-use-parts = { $count } { $cadastre }-földhasználati rész
 warning-alkis-land-use-kept = az { $cadastre }-földhasználat nem érhető el ({ $error }); a tárolt földhasználatot megtartjuk
 warning-alkis-land-use-removed = az { $cadastre }-földhasználat nem érhető el ({ $error }); a tárolt földhasználat már nem fedi le a térképterületet, ezért a freemapper eltávolította
 warning-alkis-land-use-none = az { $cadastre }-földhasználat nem érhető el ({ $error }); nincsenek tiltott terület jelöltek
+progress-bdot-filled = { $count } BDOT10k-objektum ({ $what }) hozzáadva ott, ahol az EGiB nem ad semmit ({ $powiat })
+warning-bdot-failed = A BDOT10k nem tudta kitölteni az EGiB hiányát ({ $what }): { $error }
+warning-bdot-instead = Az EGiB nem érhető el ({ $error }); helyette a BDOT10k szolgál ({ $what }, { $powiat })
 
 ## The Berlin layers
 

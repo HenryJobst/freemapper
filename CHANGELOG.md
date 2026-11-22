@@ -6,17 +6,19 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
-### Geändert
+### Hinzugefügt
 
-- Das Beispiel Sanssouci ist mit v0.26.0 neu gebaut: Die Trainingskarte hat einen Baumpunkt weniger, die Kandidatenebene der Vegetation drei OSM-Flächen mehr (zwei Weinberge). Die Grundkarte hat dieselben 2282 Objekte. Der Lauf hat dabei auch den Brandenburger OSM-Auszug über die neue Geofabrik-Adresse geladen.
+- Polen füllt Gelände ohne Katasterdaten aus BDOT10k, der topographischen Objektdatenbank von GUGiK: Wo der EGiB-Dienst für das Kartengebiet keine Gebäude liefert (Gemeinden ohne Katasterdienst) oder ausfällt, kommen die Gebäude aus BDOT10k; wo die Flurstücke weniger als ein Viertel des Gebiets mit einer Nutzungsklasse abdecken (die großen Städte senden sie meist leer), ergänzt BDOT10k die Landnutzung (Wald, Gehölz, Grünland, Acker, Wasser, Wohn- und Gewerbeflächen, Plätze, Parkplätze, Friedhöfe, Grünanlagen). EGiB hat Vorrang. Dafür lädt freemapper das GML-Archiv des betroffenen Powiats (7 bis 89 MB, im Cache) und liest nur die nötigen Klassen; fällt BDOT10k aus, bleibt es bei einer Warnung (ADR 0178)
 
 ### Behoben
 
-- Das Seiten-PDF bettet die Schrift Arimo ein und zeigt Buchstaben wie ł, ą, č, ř und ő selbst, statt sie durch den Grundbuchstaben oder `?` zu ersetzen („Słubice“ statt „Slubice“; Issue 267, ADR 0178). Das PDF wird um die Schriftteilmengen größer; die Beispiel-PDFs im Repository bleiben, bis das Beispiel neu gebaut wird.
+- Die Trainingskarte hält den Abstand zwischen einer Mauer und einem Weg auch nach dem Zusammenfügen der Wege (Issue #177): Regensburg und Bautzen meldeten dort 1,6 und 1,2 mm zu geringen Abstand, jetzt nichts mehr. Der Abstandsschritt läuft nach dem Zusammenfügen noch einmal (ADR 0150, Nachtrag). Die Beispiele im Repository sind noch nicht neu gebaut.
+- Das Seiten-PDF bettet die Schrift Arimo ein und zeigt Buchstaben wie ł, ą, č, ř und ő selbst, statt sie durch den Grundbuchstaben oder `?` zu ersetzen („Słubice“ statt „Slubice“; Issue 267, ADR 0179). Das PDF wird um die Schriftteilmengen größer; die Beispiel-PDFs im Repository bleiben, bis das Beispiel neu gebaut wird.
 - Ein Offline-Lauf (`run --offline`, `fetch --offline`) für ein Kartengebiet in Polen fragt den Indexdienst von GUGiK nicht mehr, sondern liest die Bögen, die der Online-Lauf im Projekt (`data/gugik-sheets.json`) vermerkt hat; ist nichts vermerkt, meldet er sofort, dass erst online geholt werden muss. Vorher scheiterte er bei nicht erreichbarem Dienst mit einem Netzfehler.
 
 ### Geändert
 
+- Das Beispiel Sanssouci ist mit v0.26.0 neu gebaut: Die Trainingskarte hat einen Baumpunkt weniger, die Kandidatenebene der Vegetation drei OSM-Flächen mehr (zwei Weinberge). Die Grundkarte hat dieselben 2282 Objekte. Der Lauf hat dabei auch den Brandenburger OSM-Auszug über die neue Geofabrik-Adresse geladen.
 - Die Core-Crates (`freemapper-core`) stehen auf v0.32.0. Das Tag macht die Einbettung der Schrift Arimo öffentlich, die das Seiten-PDF später nutzt; die Schnittstelle, die freemapper heute nutzt, bleibt gleich.
 
 ## [0.26.0] - 2026-11-22

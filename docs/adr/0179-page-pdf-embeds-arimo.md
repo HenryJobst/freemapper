@@ -1,4 +1,4 @@
-# ADR 0178: The page PDF embeds Arimo
+# ADR 0179: The page PDF embeds Arimo
 
 Date: 2026-11-22
 
