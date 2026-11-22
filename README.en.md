@@ -39,6 +39,15 @@ the mapper has to judge. Drawing and field checking stay in OOM or OCAD.
 - Examples: one finished project per state with the OOM map, the OCAD starting point and the PDF, see
   [Examples](#examples).
 
+## Supported countries
+
+| Country | Status | Area |
+|---|---|---|
+| Germany | complete | 15 of 16 states, Thuringia is missing ([table](#regions)) |
+| Poland | preview | terrain model, orthophoto, buildings and land use from GUGiK, permit notes |
+
+More countries are planned; the list and progress are in [issue 227](https://github.com/HenryJobst/freemapper/issues/227).
+
 ## The freemapper suite
 
 freemapper is the first step of a tool chain for orienteering maps. Two follow-up projects are under

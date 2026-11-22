@@ -41,6 +41,15 @@ in OOM oder OCAD.
 - Beispiele: je Bundesland ein fertiges Projekt mit OOM-Karte, OCAD-Ausgangsstand und PDF, siehe
   [Beispiele](#beispiele).
 
+## Unterstützte Länder
+
+| Land | Stand | Gebiet |
+|---|---|---|
+| Deutschland | fertig | 15 von 16 Bundesländern, Thüringen fehlt noch ([Tabelle](#regionen)) |
+| Polen | Vorschau | Höhenmodell, Luftbild, Gebäude und Landnutzung von GUGiK, Genehmigungshinweise |
+
+Weitere Länder sind geplant; Liste und Fortschritt stehen in [Issue 227](https://github.com/HenryJobst/freemapper/issues/227).
+
 ## Die freemapper-Suite
 
 freemapper ist der erste Schritt einer Werkzeugkette für Orientierungslauf-Karten. Zwei Folgeprojekte
