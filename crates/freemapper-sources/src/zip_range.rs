@@ -269,8 +269,19 @@ pub fn read_member(
     url: &str,
     member: &Member,
 ) -> Result<Vec<u8>, FetchError> {
+    read_member_up_to(fetcher, url, member, MAX_MEMBER_BYTES)
+}
+
+/// Like [`read_member`], with the limit for the packed and the unpacked size given by the caller
+/// (for text members that are large but pack well, such as the road files of a mountain powiat).
+pub fn read_member_up_to(
+    fetcher: &dyn Fetcher,
+    url: &str,
+    member: &Member,
+    max_bytes: u64,
+) -> Result<Vec<u8>, FetchError> {
     let too_large = || refused(url, format!("{}: member too large", member.name));
-    if member.compressed > MAX_MEMBER_BYTES {
+    if member.compressed > max_bytes {
         return Err(too_large());
     }
     let data_start = data_start(fetcher, url, member)?;
@@ -284,11 +295,11 @@ pub fn read_member(
     )?;
     let bytes = match member.method {
         0 => data,
-        8 => miniz_oxide::inflate::decompress_to_vec_with_limit(&data, MAX_MEMBER_BYTES as usize)
+        8 => miniz_oxide::inflate::decompress_to_vec_with_limit(&data, max_bytes as usize)
             .map_err(|e| match e.status {
-            miniz_oxide::inflate::TINFLStatus::HasMoreOutput => too_large(),
-            status => refused(url, format!("{}: {status:?}", member.name)),
-        })?,
+                miniz_oxide::inflate::TINFLStatus::HasMoreOutput => too_large(),
+                status => refused(url, format!("{}: {status:?}", member.name)),
+            })?,
         method => {
             return Err(refused(
                 url,
@@ -724,6 +735,25 @@ mod tests {
         let err = read_member(&fetcher, "https://example.org/dgm.zip", &member).unwrap_err();
         assert!(err.to_string().contains("too large"), "{err}");
         assert_eq!(fetcher.calls.get(), 0);
+    }
+
+    #[test]
+    fn a_larger_limit_reads_a_member_the_default_refuses() {
+        let size = (MAX_MEMBER_BYTES + 1) as usize;
+        let zip = archive(&[("zeros.xml", vec![0; size], true)]);
+        let fetcher = MapFetcher::default();
+        fetcher.insert("https://example.org/roads.zip", zip);
+        let members = read_directory(&fetcher, "https://example.org/roads.zip").unwrap();
+        let err = read_member(&fetcher, "https://example.org/roads.zip", &members[0]).unwrap_err();
+        assert!(err.to_string().contains("too large"), "{err}");
+        let bytes = read_member_up_to(
+            &fetcher,
+            "https://example.org/roads.zip",
+            &members[0],
+            2 * MAX_MEMBER_BYTES,
+        )
+        .unwrap();
+        assert_eq!(bytes.len(), size);
     }
 
     #[test]

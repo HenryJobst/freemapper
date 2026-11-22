@@ -47,8 +47,10 @@ rank `Landscape` was tied to the source prefix `atkis-dlm/`.
   of the powiat archive by HTTP byte range (ADR 0017: central directory, then the member, checked
   against its CRC). Measured at 0805: 1.94 MB plus 0.07 MB packed against the 53.9 MB archive. The
   set therefore needs no cache directory (an `ExtraSet` has none), and what it fetched is stored
-  in the project like every set. A member above 64 MB unpacked is refused by the shared reader and
-  fails the layer with a warning; the largest class file measured is 19.7 MB.
+  in the project like every set. The shared reader refuses a member above 64 MB unpacked, and the road
+  axes of powiat 0208 (kłodzki, mountains) are 76.5 MB unpacked (8.3 MB packed), found by the live
+  run of the Szczeliniec example. The set therefore reads its class files with its own limit of
+  256 MB (`read_member_up_to`); the shared limit stays for everything else.
 - **Rules** (`rules/bdot-roads.toml`, forest only), by the measured values:
 
   | BDOT10k | ISOM |

@@ -21,6 +21,18 @@ bbox = [594251.0, 5592524.0, 595798.0, 5593649.0]
 fetched = "2026-11-22"
 count = 46
 
+[extra_sets.bdot10k.bdot-drogi]
+bbox = [594251.0, 5592524.0, 595798.0, 5593649.0]
+fetched = "2026-11-22"
+count = 22
+regions = ["polska"]
+
+[extra_sets.bdot10k.bdot-sciezki]
+bbox = [594251.0, 5592524.0, 595798.0, 5593649.0]
+fetched = "2026-11-22"
+count = 51
+regions = ["polska"]
+
 [osm]
 extract = "2026-11-20"
 area = [50.47710169, 16.32858827, 50.48699831, 16.35016173]
