@@ -6,6 +6,8 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+## [0.26.0] - 2026-11-22
+
 ### Hinzugefügt
 
 - Polen bekommt Genehmigungshinweise: Für ein Kartengebiet in Polen fragt `freemapper permits` die Naturschutzschichten der GDOŚ (Nationalparks, Landschaftsparks, Naturschutzgebiete, Natura 2000, Naturdenkmäler und mehr) und die Forstbezirke der Staatsforsten aus dem PRG. VG250 und BfN entfallen, ebenso Bezirke, Straßen und die deutschen Amtsnamen; die Hinweise nennen Park- oder Reservatsverwaltung, die Regionaldirektion RDOŚ und die Zustimmung des Waldeigentümers. Privatwald steht nicht in den Daten. Ausgabe und Hinweise für Deutschland bleiben unverändert. Die polnischen Hinweistexte hat noch kein Polnischsprecher gelesen (ADR 0175).
