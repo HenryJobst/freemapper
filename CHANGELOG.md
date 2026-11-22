@@ -6,6 +6,8 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+## [0.27.0] - 2026-11-22
+
 ### Hinzugefügt
 
 - Eine Waldkarte in Polen bekommt Straßen und Wege aus BDOT10k als Kandidaten: die Straßenachsen (`OT_SKDR_L`, 13 822 Linien im Powiat Słubice, davon 9 357 auf nacktem Boden) und die Fuß- und Radwege (`OT_SKRP_L`). Klasse und Belag bestimmen die ISOM-Klasse (502 Straße, 503 Fahrweg, 504 Fahrspur, 505 Pfad, 506 kleiner Pfad). Die Objekte stehen unter OpenStreetMap: Wo OSM innerhalb von 10 m einen Weg hat, entfällt das Objekt, den Rest prüft man am Orthofoto. freemapper liest nur die zwei Klassendateien aus dem Archiv des Powiats, per Bereichsabfrage: 2 MB statt 54 MB. Neu im Programm ist ein Rang `Landscape` für Ebenen eines Adapters, der unter OSM steht. Sprint- und Schulhofkarten lesen die Ebenen nicht; die Gleise (`OT_SKTR_L`) bleiben bei OSM (ADR 0187)

@@ -69,7 +69,7 @@ nach in einer festen Version ein, statt den Code zu kopieren.
 
 ## Status
 
-Aktuelle Version ist [v0.26.0](https://github.com/HenryJobst/freemapper/releases/tag/v0.26.0) vom
+Aktuelle Version ist [v0.27.0](https://github.com/HenryJobst/freemapper/releases/tag/v0.27.0) vom
 22. November 2026 (was sich geändert hat, steht in den [Änderungen](CHANGELOG.md)).
 
 freemapper erzeugt
