@@ -1,0 +1,42 @@
+map_kind = "forest"
+scale_denominator = 10000
+declination_date = "2026-11-22"
+buffer_m = 100.0
+crs = 25833
+provider = "gugik"
+title = "Szczeliniec"
+tiles = []
+
+[map_area]
+coordinates = [[[16.33, 50.478], [16.34875, 50.478], [16.34875, 50.4861], [16.33, 50.4861], [16.33, 50.478]]]
+type = "Polygon"
+
+[buildings]
+bbox = [594251.0, 5592524.0, 595798.0, 5593649.0]
+fetched = "2026-11-22"
+count = 12
+
+[land_use]
+bbox = [594251.0, 5592524.0, 595798.0, 5593649.0]
+fetched = "2026-11-22"
+count = 10
+
+[osm]
+extract = "2026-11-20"
+area = [50.47710169, 16.32858827, 50.48699831, 16.35016173]
+count = 226
+
+[orthophoto]
+flight = "2016, 2025"
+fetched = "2026-11-22"
+bbox = [594251.09, 5592524.064, 595797.539, 5593648.68]
+
+[terrain]
+fetched = "2026-11-22"
+bbox = [594251.09, 5592524.064, 595797.539, 5593648.68]
+date = "2025"
+
+[surface]
+fetched = "2026-11-22"
+bbox = [594251.09, 5592524.064, 595797.539, 5593648.68]
+date = "2025"

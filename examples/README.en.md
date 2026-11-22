@@ -52,5 +52,6 @@ Forest maps (ISOM 2017-2) at 1:10 000 for a quick training in a forest, one area
 
 - [Background](background.en.md): how the examples were made, what the numbers mean, the files of an example, how the areas were chosen and the licences
 - [Comparison](compare.en.md): the same area in the three content profiles
+- [Outside Germany](international.en.md): a sprint map and a forest map in Poland
 
 Created with freemapper – https://github.com/HenryJobst/freemapper

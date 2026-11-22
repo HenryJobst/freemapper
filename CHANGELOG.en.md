@@ -6,10 +6,6 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
-### Changed
-
-- Maps in Poland name their cadastre: the progress lines and warnings of the download of buildings and land use say "EGiB" instead of "ALKIS" (the same messages carry the name as the value `cadastre`; maps in Germany read as before). The mapping of the EGiB cadastre now also matches the service, checked against real data from Słubice, Białystok and two villages in Podlasie: the building kinds `z` (hospital), `s` (tank, silo, storage) and `k` (education, culture, sport) were swapped, and the land use classes carry their soil class in the service (`RIVa`, `PsVI`, `ŁV`, `LsIV`) and prefixes (`Br/RV`, `W/ŁIV`, `Lzr/PsVI`), which dropped every rural parcel from the land use until now. Ditches (`W`) and waste land (`N`) beside a single use no longer change it; `B` becomes residential land, `Ba` industrial and commercial land, `Tk` railway, `Wsr` standing water.
-
 ## [0.26.0] - 2026-11-22
 
 ### Added
@@ -18,10 +14,12 @@ All notable changes to freemapper are listed here, newest first. The format foll
 - Poland takes buildings and land use from the cadastre EGiB of GUGiK, the counterpart of ALKIS: the building footprints with their kind (residential, farm, office building and so on) and the parcels with their land use class (forest, trees, grassland, arable land, water, road). A parcel of two different uses stays without an area, so that a field does not take the colour of the wood beside it. The service of GUGiK answers in pages of 1000 objects; freemapper reads page by page. When the service is down, the run stops with its message. BDOT10k as a fallback follows (ADR 0171). Poland stays a preview and has no permit notes yet.
 - A double click on `freemapper.exe` on Windows opens the area page in the browser, like `freemapper select`, with the project folder `Documents\freemapper\karte-<date>` (`-2`, … for a second start on the same day). The console window stays open while the program runs. A bare `freemapper` in a terminal on Windows does the same; the two cannot be told apart without `unsafe` code. The manual and the README say how to call the other commands in PowerShell.
 - Poland takes its terrain model (NMT), surface model (NMPT) and orthophoto from GUGiK: hillshade, slope, relief, nDSM, contours and aerial photo for an area in Poland. Buildings and land use still come from OpenStreetMap; Poland stays a preview (ADR 0170). The OSM extract of a voivodeship is found again (Geofabrik moved its folders).
+- The two examples for Poland are here: a sprint map of the town centre of Słubice (`examples/polska-slubice-sprint`) and a forest map at Szczeliniec Wielki in the Stołowe Mountains (`examples/polska-szczeliniec-forest`), both with a training map, a check print and OCAD files. The new page [`examples/international.en.md`](examples/international.en.md) lists them, one sprint map and one forest map per country.
 
 ### Fixed
 
 - The OSM download failed in every state with "http status: 404" (issue #244): Geofabrik moved each extract into a folder of its own, for example `europe/germany/hessen/hessen-latest.osm.pbf` instead of `europe/germany/hessen-latest.osm.pbf`, and the old address leads nowhere. freemapper now uses the new address, also for `updates/state.txt`; adapters in a person's own folder that name the old path keep working.
+- Poland: orthophoto sheets of older flights in the coordinate system PL-2000 (zones 5 to 8, EPSG:2176 to 2179, also written as a user-defined transverse Mercator with the code 32767) are read and warped into the grid of the map, where they used to be skipped with the warning "not in EPSG:2180". Areas near Słubice and Łagów were affected: part of the orthophoto template was missing. A sheet in any other system is still left out, and the warning now names its code or its parameters.
 
 ### Changed
 
@@ -30,10 +28,7 @@ All notable changes to freemapper are listed here, newest first. The format foll
 - The mutation tests run faster: the run builds the tests once in the tree of the runner and copies that target into its working copies, the timeout per mutant drops to twice the test time, and the arithmetic of Newton's method in Poland is left out (ADR 0173).
 - The examples page `examples/README.en.md` shows only the maps now: the sprint maps first, the forest maps right after. The text (how they were made, numbers, sources, how the areas were chosen, licences) moved to the new page `examples/background.en.md`.
 - README and manual exist in German and English only. The Polish README and the shortened Polish manual are removed; the program itself keeps all its languages (ADR 0172).
-
-### Fixed
-
-- Poland: orthophoto sheets of older flights in the coordinate system PL-2000 (zones 5 to 8, EPSG:2176 to 2179, also written as a user-defined transverse Mercator with the code 32767) are read and warped into the grid of the map, where they used to be skipped with the warning "not in EPSG:2180". Areas near Słubice and Łagów were affected: part of the orthophoto template was missing. A sheet in any other system is still left out, and the warning now names its code or its parameters.
+- Maps in Poland name their cadastre: the progress lines and warnings of the download of buildings and land use say "EGiB" instead of "ALKIS" (the same messages carry the name as the value `cadastre`; maps in Germany read as before). The mapping of the EGiB cadastre now also matches the service, checked against real data from Słubice, Białystok and two villages in Podlasie: the building kinds `z` (hospital), `s` (tank, silo, storage) and `k` (education, culture, sport) were swapped, and the land use classes carry their soil class in the service (`RIVa`, `PsVI`, `ŁV`, `LsIV`) and prefixes (`Br/RV`, `W/ŁIV`, `Lzr/PsVI`), which dropped every rural parcel from the land use until now. Ditches (`W`) and waste land (`N`) beside a single use no longer change it; `B` becomes residential land, `Ba` industrial and commercial land, `Tk` railway, `Wsr` standing water.
 
 ## [0.25.0] - 2026-11-21
 
