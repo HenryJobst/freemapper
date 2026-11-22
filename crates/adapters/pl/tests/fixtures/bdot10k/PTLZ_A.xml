@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gml:FeatureCollection xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:ot="urn:gugik:specyfikacje:gmlas:bazaDanychObiektowTopograficznych10k:2.0" gml:id="GUGiK_OT_PTLZ_A" xsi:schemaLocation="urn:gugik:specyfikacje:gmlas:bazaDanychObiektowTopograficznych10k:2.0 ../XSD/BDOT10k_BDOO.xsd">
+	<gml:featureMember>
+		<ot:OT_PTLZ_A gml:id="PL.PZGiK.333.BDOT10k_2DDDAEB2-B616-1ABF-E053-CC2BA8C0C90E_2024-10-21T000000">
+			<ot:lokalnyId>2DDDAEB2-B616-1ABF-E053-CC2BA8C0C90E</ot:lokalnyId>
+			<ot:zrodloDanychGeometrycznych>ortofotomapa</ot:zrodloDanychGeometrycznych>
+			<ot:kodKarto10k>0010_706</ot:kodKarto10k>
+			<ot:geometria>
+				<gml:Polygon gml:id="id-9aec89ec-253f-47a0-817d-7c1c0b8d7e15-0" srsName="EPSG:2180" srsDimension="2">
+					<gml:exterior>
+						<gml:LinearRing>
+							<gml:posList>197831.07 507759.60 197879.44 507712.77 197796.14 507652.62 197814.40 507709.07 197826.62 507751.68 197831.07 507759.60</gml:posList>
+						</gml:LinearRing>
+					</gml:exterior>
+				</gml:Polygon>
+			</ot:geometria>
+			<ot:rodzaj>zadrzewienie</ot:rodzaj>
+			<ot:kategoria>liściasty</ot:kategoria>
+		</ot:OT_PTLZ_A>
+	</gml:featureMember>
+	<gml:featureMember>
+		<ot:OT_PTLZ_A gml:id="PL.PZGiK.333.BDOT10k_2DDDAEB2-B78A-1ABF-E053-CC2BA8C0C90E_2023-12-31T120000">
+			<ot:lokalnyId>2DDDAEB2-B78A-1ABF-E053-CC2BA8C0C90E</ot:lokalnyId>
+			<ot:zrodloDanychGeometrycznych>ortofotomapa</ot:zrodloDanychGeometrycznych>
+			<ot:kodKarto10k>0010_703</ot:kodKarto10k>
+			<ot:geometria>
+				<gml:Polygon gml:id="id-d56422fa-fd5b-4700-a3aa-426a6da41cc2-0" srsName="EPSG:2180" srsDimension="2">
+					<gml:exterior>
+						<gml:LinearRing>
+							<gml:posList>208518.57 495596.29 208545.43 495633.86 208581.08 495638.06 208593.13 495650.64 208604.14 495686.81 208642.41 495688.38 208649.37 495631.80 208645.37 495634.14 208638.20 495645.69 208633.52 495650.75 208629.82 495653.77 208625.44 495654.90 208619.55 495653.76 208614.91 495652.58 208610.69 495649.76 208586.02 495604.69 208580.59 495596.99 208574.92 495595.48 208571.77 495597.02 208568.66 495601.22 208565.79 495608.01 208562.92 495612.62 208559.14 495614.58 208553.93 495614.51 208548.27 495611.56 208534.11 495600.23 208529.32 495599.33 208518.57 495596.29</gml:posList>
+						</gml:LinearRing>
+					</gml:exterior>
+				</gml:Polygon>
+			</ot:geometria>
+			<ot:rodzaj>las</ot:rodzaj>
+			<ot:kategoria>liściasty</ot:kategoria>
+		</ot:OT_PTLZ_A>
+	</gml:featureMember>
+	<gml:featureMember>
+		<ot:OT_PTLZ_A gml:id="PL.PZGiK.333.BDOT10k_2DDDAEB2-B9BF-1ABF-E053-CC2BA8C0C90E_2023-12-31T120000">
+			<ot:lokalnyId>2DDDAEB2-B9BF-1ABF-E053-CC2BA8C0C90E</ot:lokalnyId>
+			<ot:zrodloDanychGeometrycznych>ortofotomapa</ot:zrodloDanychGeometrycznych>
+			<ot:kodKarto10k>0010_703</ot:kodKarto10k>
+			<ot:geometria>
+				<gml:Polygon gml:id="id-57adca34-19c5-4c38-a540-27bea74059c7-0" srsName="EPSG:2180" srsDimension="2">
+					<gml:exterior>
+						<gml:LinearRing>
+							<gml:posList>209745.06 487584.65 209749.31 487600.53 209754.28 487630.31 209763.44 487688.74 209764.21 487726.93 209762.68 487749.08 209822.12 487781.81 209838.50 487774.42 209846.42 487585.82 209752.39 487557.83 209745.06 487584.65</gml:posList>
+						</gml:LinearRing>
+					</gml:exterior>
+				</gml:Polygon>
+			</ot:geometria>
+			<ot:rodzaj>las</ot:rodzaj>
+			<ot:kategoria>liściasty</ot:kategoria>
+		</ot:OT_PTLZ_A>
+	</gml:featureMember>
+	<gml:featureMember>
+		<ot:OT_PTLZ_A gml:id="PL.PZGiK.333.BDOT10k_2DDDAEB2-B7C0-1ABF-E053-CC2BA8C0C90E_2024-10-21T000000">
+			<ot:lokalnyId>2DDDAEB2-B7C0-1ABF-E053-CC2BA8C0C90E</ot:lokalnyId>
+			<ot:zrodloDanychGeometrycznych>pomiar terenowy</ot:zrodloDanychGeometrycznych>
+			<ot:kodKarto10k>0010_709</ot:kodKarto10k>
+			<ot:geometria>
+				<gml:Polygon gml:id="id-d6b62226-c90a-4c9e-984f-7a936876846c-0" srsName="EPSG:2180" srsDimension="2">
+					<gml:exterior>
+						<gml:LinearRing>
+							<gml:posList>209679.73 502861.26 209659.46 502858.58 209627.30 502846.47 209615.20 502832.48 209610.66 502819.61 209594.01 502824.91 209562.98 502824.15 209543.69 502813.94 209502.83 502818.86 209490.80 502899.57 209553.53 502904.74 209570.55 502912.31 209580.39 502932.74 209580.01 502950.90 209583.41 502960.73 209620.63 502989.15 209638.98 503023.86 209668.24 503115.61 209672.20 503133.47 209666.19 503161.74 209662.24 503186.99 209654.35 503214.22 209646.85 503241.05 209686.51 503234.34 209732.67 503226.84 209759.58 503222.84 209775.51 503220.74 209771.74 503166.48 209769.96 503131.75 209764.51 503009.57 209760.60 502941.59 209753.87 502864.71 209752.70 502839.12 209739.02 502837.05 209713.56 502839.87 209689.80 502848.36 209680.18 502860.24 209679.73 502861.26</gml:posList>
+						</gml:LinearRing>
+					</gml:exterior>
+				</gml:Polygon>
+			</ot:geometria>
+			<ot:rodzaj>zagajnik</ot:rodzaj>
+			<ot:kategoria>iglasty</ot:kategoria>
+		</ot:OT_PTLZ_A>
+	</gml:featureMember>
+</gml:FeatureCollection>

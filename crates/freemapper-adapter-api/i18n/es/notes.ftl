@@ -122,6 +122,9 @@ progress-alkis-land-use-parts = { $count } partes de uso del suelo de { $cadastr
 warning-alkis-land-use-kept = usos del suelo de { $cadastre } no disponibles ({ $error }); se conservan los guardados
 warning-alkis-land-use-removed = usos del suelo de { $cadastre } no disponibles ({ $error }); los guardados ya no cubren el área del mapa, así que freemapper los eliminó
 warning-alkis-land-use-none = usos del suelo de { $cadastre } no disponibles ({ $error }); no hay candidatos de zonas prohibidas
+progress-bdot-filled = { $count } objetos de BDOT10k ({ $what }) añadidos donde EGiB no da nada ({ $powiat })
+warning-bdot-failed = BDOT10k no pudo cubrir el hueco de EGiB ({ $what }): { $error }
+warning-bdot-instead = EGiB no está disponible ({ $error }); se usa BDOT10k en su lugar ({ $what }, { $powiat })
 
 ## The Berlin layers
 

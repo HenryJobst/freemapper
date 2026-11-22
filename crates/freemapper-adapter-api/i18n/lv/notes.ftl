@@ -119,6 +119,9 @@ progress-alkis-land-use-parts = { $cadastre } zemes izmantošanas daļas: { $cou
 warning-alkis-land-use-kept = { $cadastre } zemes izmantošana nav pieejama ({ $error }); tiek atstāta saglabātā zemes izmantošana
 warning-alkis-land-use-removed = { $cadastre } zemes izmantošana nav pieejama ({ $error }); saglabātā zemes izmantošana kartes apgabalu vairs neaptver, tāpēc freemapper to noņēma
 warning-alkis-land-use-none = { $cadastre } zemes izmantošana nav pieejama ({ $error }); nav aizliegto zonu kandidātu
+progress-bdot-filled = pievienoti { $count } BDOT10k objekti ({ $what }) tur, kur EGiB nedod neko ({ $powiat })
+warning-bdot-failed = BDOT10k nevarēja aizpildīt EGiB trūkumu ({ $what }): { $error }
+warning-bdot-instead = EGiB nav pieejams ({ $error }); tā vietā izmanto BDOT10k ({ $what }, { $powiat })
 
 ## The Berlin layers
 

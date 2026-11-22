@@ -33,6 +33,7 @@ use freemapper_georef::crs::{BoundingBox, Crs, LatLon};
 use geo::MapCoords;
 use geo_types::MultiPolygon;
 
+use crate::bdot10k::{self, Gap};
 use crate::egib;
 use crate::gugik_index::{DOWNLOAD_HOST, GugikIndex, INDEX_HOST};
 use crate::permits::GDOS_HOST;
@@ -298,7 +299,8 @@ impl RegionAdapter for Polska {
     }
 
     /// The credit of GUGiK for a project whose rasters came from it and holds a terrain model
-    /// or an orthophoto.
+    /// or an orthophoto, or that has buildings or land use of the cadastre or of BDOT10k (the
+    /// same office and the same credit line).
     fn attribution(&self, used: &UsedSources<'_>) -> Vec<CreditLine> {
         let holds = used.terrain.is_some() || used.orthophoto.is_some();
         let cadastre = used.alkis_fetches(POLSKA).next().is_some();
@@ -334,36 +336,122 @@ struct PolskaCadastre {
 }
 
 impl PolskaCadastre {
-    /// `layer` in the area as the engine reads it, built by `part` in the CRS of the map.
-    fn read(
-        &self,
-        env: &mut AdapterEnv<'_>,
+    /// The features of `layer` in the area as EGiB gives them, with the box (EPSG:2180).
+    fn egib(
+        fetcher: &PolicyFetcher<'_>,
         area: &FetchArea,
         layer: egib::Layer,
-        part: fn(&[egib::Feature], Crs) -> AlkisPart,
-    ) -> Result<AlkisPart, AdapterError> {
-        let fetcher = PolicyFetcher::new(env.fetcher, &self.policy);
+    ) -> Result<(Vec<egib::Feature>, BoundingBox), AdapterError> {
         let bbox = egib::area_2180(area)?;
-        let features = egib::fetch_all(&fetcher, layer, &bbox)?;
-        Ok(part(&features, area.crs))
+        let features = egib::fetch_all(fetcher, layer, &bbox).map_err(AdapterError::from);
+        features.map(|f| (f, bbox))
+    }
+
+    /// What BDOT10k holds for `gap`, with the notes that tell the person. `None` when it holds
+    /// nothing (or the run is offline); the failure of BDOT10k is a warning and no error,
+    /// because the map without it is what it was before.
+    fn bdot(
+        env: &mut AdapterEnv<'_>,
+        fetcher: &PolicyFetcher<'_>,
+        bbox: &BoundingBox,
+        gap: Gap,
+    ) -> Option<bdot10k::Filled> {
+        match bdot10k::fill(env, fetcher, bbox, gap) {
+            Ok(filled) if !filled.objects.is_empty() => Some(filled),
+            Ok(_) => None,
+            Err(e) => {
+                (env.progress)(bdot10k::failed_note(gap, e));
+                None
+            }
+        }
     }
 }
 
 impl AlkisSource for PolskaCadastre {
+    /// The buildings of EGiB; where it gives none (a municipality without a cadastre service) or
+    /// fails, those of BDOT10k (ADR 0178).
     fn buildings(
         &self,
         env: &mut AdapterEnv<'_>,
         area: &FetchArea,
     ) -> Result<AlkisPart, AdapterError> {
-        self.read(env, area, egib::Layer::Buildings, egib::buildings)
+        let fetcher = PolicyFetcher::new(env.fetcher, &self.policy);
+        let first = Self::egib(&fetcher, area, egib::Layer::Buildings);
+        match first {
+            Ok((features, _)) if !features.is_empty() => Ok(egib::buildings(&features, area.crs)),
+            Ok((empty, bbox)) => {
+                let part = Self::bdot(env, &fetcher, &bbox, Gap::Buildings).map(|filled| {
+                    let part = bdot10k::buildings(&filled.objects, area.crs);
+                    (env.progress)(bdot10k::filled_note(
+                        Gap::Buildings,
+                        part.features.len(),
+                        &filled.powiats,
+                    ));
+                    part
+                });
+                Ok(part.unwrap_or_else(|| egib::buildings(&empty, area.crs)))
+            }
+            Err(AdapterError::Fetch(error)) => {
+                let Ok(bbox) = egib::area_2180(area) else {
+                    return Err(AdapterError::Fetch(error));
+                };
+                let Some(filled) = Self::bdot(env, &fetcher, &bbox, Gap::Buildings) else {
+                    return Err(AdapterError::Fetch(error));
+                };
+                let part = bdot10k::buildings(&filled.objects, area.crs);
+                (env.progress)(bdot10k::instead_note(
+                    Gap::Buildings,
+                    error,
+                    &filled.powiats,
+                ));
+                Ok(part)
+            }
+            Err(other) => Err(other),
+        }
     }
 
+    /// The land use of EGiB; where its parcels give a land use for less than
+    /// [`bdot10k::MIN_LAND_USE_SHARE`] of the area (the big cities send most parcels without a
+    /// class) or EGiB fails, that of BDOT10k beside it, left out where EGiB has one (ADR 0178).
     fn land_use(
         &self,
         env: &mut AdapterEnv<'_>,
         area: &FetchArea,
     ) -> Result<AlkisPart, AdapterError> {
-        self.read(env, area, egib::Layer::Parcels, egib::land_use)
+        let fetcher = PolicyFetcher::new(env.fetcher, &self.policy);
+        let first = Self::egib(&fetcher, area, egib::Layer::Parcels);
+        let (features, bbox, failure) = match first {
+            Ok((features, bbox)) => {
+                if !bdot10k::land_use_is_thin(&features, &bbox) {
+                    return Ok(egib::land_use(&features, area.crs));
+                }
+                (features, bbox, None)
+            }
+            Err(AdapterError::Fetch(error)) => {
+                let Ok(bbox) = egib::area_2180(area) else {
+                    return Err(AdapterError::Fetch(error));
+                };
+                (Vec::new(), bbox, Some(error))
+            }
+            Err(other) => return Err(other),
+        };
+        let own = egib::land_use(&features, area.crs);
+        let Some(filled) = Self::bdot(env, &fetcher, &bbox, Gap::LandUse) else {
+            return failure.map_or(Ok(own), |error| Err(AdapterError::Fetch(error)));
+        };
+        let covered: Vec<_> = features
+            .iter()
+            .filter(|f| egib::parcel_land_use(&f.kind).is_some())
+            .flat_map(|f| f.polygons.iter().filter_map(|p| bdot10k::to_polygon(p)))
+            .collect();
+        let mut part = own;
+        let extra = bdot10k::land_use(&filled.objects, area.crs, &covered);
+        (env.progress)(match failure {
+            Some(error) => bdot10k::instead_note(Gap::LandUse, error, &filled.powiats),
+            None => bdot10k::filled_note(Gap::LandUse, extra.features.len(), &filled.powiats),
+        });
+        part.features.extend(extra.features);
+        Ok(part)
     }
 }
 

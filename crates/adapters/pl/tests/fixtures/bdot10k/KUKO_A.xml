@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gml:FeatureCollection xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:ot="urn:gugik:specyfikacje:gmlas:bazaDanychObiektowTopograficznych10k:2.0" gml:id="GUGiK_OT_KUKO_A" xsi:schemaLocation="urn:gugik:specyfikacje:gmlas:bazaDanychObiektowTopograficznych10k:2.0 ../XSD/BDOT10k_BDOO.xsd">
+	<gml:featureMember>
+		<ot:OT_KUKO_A gml:id="PL.PZGiK.333.BDOT10k_2DDDAEB2-4C1F-1ABF-E053-CC2BA8C0C90E_2024-10-21T000000">
+			<ot:lokalnyId>2DDDAEB2-4C1F-1ABF-E053-CC2BA8C0C90E</ot:lokalnyId>
+			<ot:zrodloDanychGeometrycznych>ortofotomapa</ot:zrodloDanychGeometrycznych>
+			<ot:rodzaj>stacja paliw</ot:rodzaj>
+			<ot:geometria>
+				<gml:Polygon gml:id="id-8bf49e24-6f86-46e1-898d-c7c98b6a04cf-0" srsName="EPSG:2180" srsDimension="2">
+					<gml:exterior>
+						<gml:LinearRing>
+							<gml:posList>197969.35 507319.89 197993.21 507317.25 197991.98 507305.98 197999.54 507305.55 197999.36 507299.39 198003.91 507299.20 198003.66 507293.19 197993.91 507293.36 197993.43 507284.68 197993.67 507260.18 197980.35 507260.06 197979.43 507263.78 197977.34 507266.19 197974.04 507269.76 197971.76 507272.49 197968.75 507277.07 197965.46 507284.81 197964.32 507290.02 197963.99 507295.79 197964.99 507303.57 197966.62 507310.72 197969.35 507319.89</gml:posList>
+						</gml:LinearRing>
+					</gml:exterior>
+				</gml:Polygon>
+			</ot:geometria>
+		</ot:OT_KUKO_A>
+	</gml:featureMember>
+	<gml:featureMember>
+		<ot:OT_KUKO_A gml:id="PL.PZGiK.333.BDOT10k_2DDDAEB2-4C20-1ABF-E053-CC2BA8C0C90E_2024-10-21T000000">
+			<ot:lokalnyId>2DDDAEB2-4C20-1ABF-E053-CC2BA8C0C90E</ot:lokalnyId>
+			<ot:zrodloDanychGeometrycznych>ortofotomapa</ot:zrodloDanychGeometrycznych>
+			<ot:rodzaj>stacja paliw</ot:rodzaj>
+			<ot:geometria>
+				<gml:Polygon gml:id="id-cc3bc72e-f052-403c-aa86-272f5377c2b8-0" srsName="EPSG:2180" srsDimension="2">
+					<gml:exterior>
+						<gml:LinearRing>
+							<gml:posList>197587.38 507542.71 197557.28 507540.31 197542.66 507539.50 197539.77 507539.34 197540.28 507571.57 197542.78 507575.74 197543.14 507586.97 197534.38 507587.70 197535.27 507598.61 197542.43 507597.99 197556.26 507597.09 197567.27 507592.32 197592.33 507590.81 197591.95 507587.14 197587.38 507542.71</gml:posList>
+						</gml:LinearRing>
+					</gml:exterior>
+				</gml:Polygon>
+			</ot:geometria>
+		</ot:OT_KUKO_A>
+	</gml:featureMember>
+	<gml:featureMember>
+		<ot:OT_KUKO_A gml:id="PL.PZGiK.333.BDOT10k_428de722-9d32-416f-a9ed-42b7bd24f819_2024-10-21T000000">
+			<ot:lokalnyId>428de722-9d32-416f-a9ed-42b7bd24f819</ot:lokalnyId>
+			<ot:zrodloDanychGeometrycznych>ortofotomapa</ot:zrodloDanychGeometrycznych>
+			<ot:rodzaj>stacja paliw</ot:rodzaj>
+			<ot:geometria>
+				<gml:Polygon gml:id="id-66318b8d-1ff8-4552-870f-65fad680a1c9-0" srsName="EPSG:2180" srsDimension="2">
+					<gml:exterior>
+						<gml:LinearRing>
+							<gml:posList>217497.21 505198.89 217477.97 505202.34 217479.64 505225.39 217450.10 505227.43 217433.88 505229.15 217429.62 505232.40 217427.37 505237.50 217427.45 505241.26 217428.54 505243.84 217447.33 505269.06 217449.50 505271.32 217453.80 505276.66 217459.34 505287.62 217460.34 505290.44 217462.35 505295.53 217475.00 505319.31 217486.58 505332.48 217510.93 505327.45 217523.71 505318.73 217521.89 505308.84 217519.64 505296.63 217517.23 505286.06 217515.57 505278.80 217521.49 505278.03 217519.19 505263.76 217517.70 505245.74 217533.19 505246.96 217539.80 505233.40 217532.75 505216.49 217519.03 505218.11 217498.51 505219.29 217497.21 505198.89</gml:posList>
+						</gml:LinearRing>
+					</gml:exterior>
+				</gml:Polygon>
+			</ot:geometria>
+		</ot:OT_KUKO_A>
+	</gml:featureMember>
+</gml:FeatureCollection>

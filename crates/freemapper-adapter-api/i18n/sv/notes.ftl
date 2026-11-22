@@ -126,6 +126,9 @@ progress-alkis-land-use-parts = { $count } { $cadastre }-markanvändningsdelar
 warning-alkis-land-use-kept = { $cadastre }-markanvändning är inte tillgänglig ({ $error }); behåller den sparade markanvändningen
 warning-alkis-land-use-removed = { $cadastre }-markanvändning är inte tillgänglig ({ $error }); den sparade markanvändningen täcker inte längre kartområdet, så freemapper tog bort den
 warning-alkis-land-use-none = { $cadastre }-markanvändning är inte tillgänglig ({ $error }); inga kandidater till förbjudna områden
+progress-bdot-filled = { $count } BDOT10k-objekt ({ $what }) tillagda där EGiB inte ger något ({ $powiat })
+warning-bdot-failed = BDOT10k kunde inte fylla luckan i EGiB ({ $what }): { $error }
+warning-bdot-instead = EGiB är inte tillgänglig ({ $error }); BDOT10k används i stället ({ $what }, { $powiat })
 
 ## The Berlin layers
 
