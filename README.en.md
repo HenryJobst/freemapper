@@ -6,7 +6,11 @@
 
 
 <!-- badges:start -->
-[![Tests](https://img.shields.io/badge/Tests-3000%2B-blue)](docs/tests.json) [![Test budget](https://img.shields.io/badge/Test_budget-15_min-blue)](docs/tests.json) [![Line coverage](https://img.shields.io/badge/Coverage-95.9%25-brightgreen)](docs/coverage.json) [![MSRV](https://img.shields.io/badge/MSRV-1.88-blue)](Cargo.toml) [![ADRs](https://img.shields.io/badge/ADRs-170%2B-blue)](docs/adr/README.md) [![Hygiene](https://img.shields.io/badge/Hygiene-19-brightgreen)](scripts/check.sh) [![License](https://img.shields.io/badge/License-AGPL--3.0--or--later-blue)](LICENSE)
+[![Version](https://img.shields.io/github/v/release/HenryJobst/freemapper?label=version)](https://github.com/HenryJobst/freemapper/releases/latest) [![Downloads](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/HenryJobst/freemapper/badges/downloads.en.json)](https://github.com/HenryJobst/freemapper/releases/latest) [![Commits](https://img.shields.io/github/commit-activity/t/HenryJobst/freemapper?label=Commits)](https://github.com/HenryJobst/freemapper/commits/main) [![CI](https://img.shields.io/github/actions/workflow/status/HenryJobst/freemapper/ci.yml?branch=main&label=CI)](https://github.com/HenryJobst/freemapper/actions/workflows/ci.yml)
+
+[![Tests](https://img.shields.io/badge/Tests-3000%2B-blue)](docs/tests.json) [![Test budget](https://img.shields.io/badge/Test_budget-15_min-blue)](docs/tests.json) [![Line coverage](https://img.shields.io/badge/Coverage-95.9%25-brightgreen)](docs/coverage.json) [![Hygiene](https://img.shields.io/badge/Hygiene-19-brightgreen)](scripts/check.sh)
+
+[![MSRV](https://img.shields.io/badge/MSRV-1.88-blue)](Cargo.toml) [![ADRs](https://img.shields.io/badge/ADRs-170%2B-blue)](docs/adr/README.md) [![License](https://img.shields.io/badge/License-AGPL--3.0--or--later-blue)](LICENSE)
 <!-- badges:end -->
 
 <!-- claude-cost:start -->

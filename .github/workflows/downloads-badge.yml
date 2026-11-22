@@ -1,0 +1,37 @@
+name: Downloads badge
+
+# The README badge for the downloads of the program (ADR 0177). shields.io cannot tell the release
+# archives from their checksums, so this job counts them and keeps the result on the branch
+# `badges`, which holds nothing else.
+on:
+  schedule:
+    - cron: "17 4 * * *"
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  count:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Count the archive downloads
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/badges"
+          DOWNLOADS_LABEL=Downloads bash scripts/downloads.sh "$GITHUB_REPOSITORY" >"$RUNNER_TEMP/badges/downloads.json"
+          DOWNLOADS_LABEL=downloads bash scripts/downloads.sh "$GITHUB_REPOSITORY" >"$RUNNER_TEMP/badges/downloads.en.json"
+          cat "$RUNNER_TEMP/badges/downloads.json"
+      - name: Publish on the branch badges
+        run: |
+          cd "$RUNNER_TEMP/badges"
+          git init -q -b badges
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add downloads.json downloads.en.json
+          git commit -q -m "chore(badges): download count"
+          git push -q --force "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" badges
