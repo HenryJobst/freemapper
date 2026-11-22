@@ -16,7 +16,6 @@
 <a href="https://github.com/HenryJobst/freemapper/releases"><img src="https://img.shields.io/github/downloads/HenryJobst/freemapper/total?label=downloads" alt="downloads"></a>
 <a href="https://github.com/HenryJobst/freemapper/commits/main"><img src="https://img.shields.io/github/commit-activity/t/HenryJobst/freemapper?label=commits" alt="commits"></a>
 <a href="https://github.com/HenryJobst/freemapper/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/HenryJobst/freemapper/ci.yml?branch=main&label=CI" alt="CI"></a>
-<a href="LICENSE"><img src="https://img.shields.io/github/license/HenryJobst/freemapper?label=license" alt="license"></a>
 </p>
 
 <p align="center"><a href="examples/berlin-viktoriapark/preview.webp"><img src="examples/berlin-viktoriapark/preview-medium.webp" alt="Training map of Viktoriapark, Berlin-Kreuzberg, made by freemapper" width="760"></a><br><sub>Viktoriapark, Berlin-Kreuzberg (sprint 1:4000), made by freemapper from open data. The image is the training map, ready to print and run on; click for the full size, or take the <a href="examples/berlin-viktoriapark/berlin-viktoriapark-training.pdf">PDF</a> to print. The <a href="examples/berlin-viktoriapark/berlin-viktoriapark-candidates.pdf">check print</a> shows every candidate true to position; more under <a href="examples/README.en.md">examples</a>.</sub></p>
