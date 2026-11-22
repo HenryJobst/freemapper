@@ -138,6 +138,12 @@ progress-feinkartierung-download = prenašam hamburško Feinkartierung (cestni p
 progress-feinkartierung-features = Feinkartierung { $file }: objektov { $count }
 warning-feinkartierung-layer-kept = Feinkartierung { $file } ni na voljo ({ $detail }); ohranjen je shranjeni sloj
 warning-feinkartierung-layer-skipped = Feinkartierung { $file } ni na voljo ({ $detail }); sloj preskočen
+progress-bdot-roads-none-stored = shranjenih cest in poti BDOT10k ni; za ceste in poti iz registra zaženite `freemapper fetch` na spletu
+progress-bdot-roads-removing = odstranjujem shranjene ceste in poti BDOT10k: območje zemljevida ni več na Poljskem
+progress-bdot-roads-download = prenašam ceste in poti BDOT10k
+progress-bdot-roads-features = BDOT10k { $file }: { $count } objektov
+warning-bdot-roads-layer-kept = BDOT10k { $file } ni na voljo ({ $detail }); shranjeni sloj ostane
+warning-bdot-roads-layer-skipped = BDOT10k { $file } ni na voljo ({ $detail }); sloj preskočen
 error-extra-layer-unknown = ni sloj mape { $folder }
 warning-berlin-buildings-missing = za to območje v Berlinu ni shranjenih stavb ALKIS; za prenos iz Geoportala Berlin zaženi `freemapper fetch`
 

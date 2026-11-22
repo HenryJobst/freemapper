@@ -140,6 +140,12 @@ progress-feinkartierung-download = a hamburgi Feinkartierung letöltése (utcat�
 progress-feinkartierung-features = { $count } Feinkartierung { $file } objektum
 warning-feinkartierung-layer-kept = a Feinkartierung { $file } nem érhető el ({ $detail }); a tárolt réteget megtartjuk
 warning-feinkartierung-layer-skipped = a Feinkartierung { $file } nem érhető el ({ $detail }); a réteget kihagytuk
+progress-bdot-roads-none-stored = nincs mentett BDOT10k út és ösvény; a nyilvántartás útjaihoz és ösvényeihez futtasd online a `freemapper fetch` parancsot
+progress-bdot-roads-removing = a mentett BDOT10k utak és ösvények eltávolítása: a térképterület már nem Lengyelországban van
+progress-bdot-roads-download = a BDOT10k utak és ösvények letöltése
+progress-bdot-roads-features = { $count } BDOT10k { $file } objektum
+warning-bdot-roads-layer-kept = a BDOT10k { $file } nem érhető el ({ $detail }); a mentett réteg megmarad
+warning-bdot-roads-layer-skipped = a BDOT10k { $file } nem érhető el ({ $detail }); a réteg kimarad
 error-extra-layer-unknown = nem a(z) { $folder } rétege
 warning-berlin-buildings-missing = Berlinben ehhez a területhez nincs eltárolt ALKIS-épület; a `freemapper fetch` letölti őket a Geoportal Berlinről
 

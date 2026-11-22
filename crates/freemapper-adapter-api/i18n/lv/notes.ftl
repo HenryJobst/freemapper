@@ -137,6 +137,12 @@ progress-feinkartierung-download = lejupielādē Hamburgas Feinkartierung (ielu 
 progress-feinkartierung-features = Feinkartierung { $file } objekti: { $count }
 warning-feinkartierung-layer-kept = Feinkartierung { $file } nav pieejams ({ $detail }); tiek atstāts saglabātais slānis
 warning-feinkartierung-layer-skipped = Feinkartierung { $file } nav pieejams ({ $detail }); slānis izlaists
+progress-bdot-roads-none-stored = saglabātu BDOT10k ceļu un taku nav; palaidiet `freemapper fetch` tiešsaistē, lai iegūtu reģistra ceļus un takas
+progress-bdot-roads-removing = tiek noņemti saglabātie BDOT10k ceļi un takas: kartes apgabals vairs neatrodas Polijā
+progress-bdot-roads-download = tiek lejupielādēti BDOT10k ceļi un takas
+progress-bdot-roads-features = BDOT10k { $file } objekti: { $count }
+warning-bdot-roads-layer-kept = BDOT10k { $file } nav pieejams ({ $detail }); saglabātais slānis paliek
+warning-bdot-roads-layer-skipped = BDOT10k { $file } nav pieejams ({ $detail }); slānis izlaists
 error-extra-layer-unknown = nav { $folder } slānis
 warning-berlin-buildings-missing = šim apgabalam Berlīnē nav saglabātu ALKIS ēku; palaidiet `freemapper fetch`, lai tās iegūtu no Geoportal Berlin
 

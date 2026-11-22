@@ -169,6 +169,12 @@ progress-feinkartierung-features = { $count ->
     }
 warning-feinkartierung-layer-kept = Feinkartierung { $file } nepasiekiamas ({ $detail }); paliekamas išsaugotas sluoksnis
 warning-feinkartierung-layer-skipped = Feinkartierung { $file } nepasiekiamas ({ $detail }); sluoksnis praleistas
+progress-bdot-roads-none-stored = išsaugotų BDOT10k kelių ir takų nėra; paleiskite `freemapper fetch` prisijungę prie tinklo, kad gautumėte registro kelius ir takus
+progress-bdot-roads-removing = šalinami išsaugoti BDOT10k keliai ir takai: žemėlapio sritis nebėra Lenkijoje
+progress-bdot-roads-download = atsisiunčiami BDOT10k keliai ir takai
+progress-bdot-roads-features = BDOT10k { $file } objektų: { $count }
+warning-bdot-roads-layer-kept = BDOT10k { $file } nepasiekiamas ({ $detail }); paliekamas išsaugotas sluoksnis
+warning-bdot-roads-layer-skipped = BDOT10k { $file } nepasiekiamas ({ $detail }); sluoksnis praleistas
 error-extra-layer-unknown = tai ne { $folder } sluoksnis
 warning-berlin-buildings-missing = šiam Berlyno plotui ALKIS pastatų neišsaugota; paleiskite `freemapper fetch`, kad gautumėte juos iš Geoportal Berlin
 

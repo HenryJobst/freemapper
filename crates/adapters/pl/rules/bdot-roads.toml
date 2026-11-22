@@ -1,0 +1,57 @@
+# BDOT10k roads and paths on a forest map (ADR 0187), in the syntax of the engine's rule files.
+# The tags are `bdot:<property>` of a feature and `bdot:layer=<file>`. The layers are fetched for
+# a forest map only; the objects rank below OpenStreetMap, so under `balanced` they are
+# candidates where OpenStreetMap has no path within 10 m (the decision of ADR 0135 for the
+# German landscape model). `bdot:szerokosc` is the width of the surface in metres, where the
+# register has one. A road class or material the rules do not name draws nothing.
+#
+# Road classes (`klasaDrogi`): autostrada (motorway), droga główna ruchu przyśpieszonego (express
+# road), droga główna (main), droga zbiorcza (collector) are the roads of 502; droga lokalna
+# (local) and droga dojazdowa (access) the public minor roads; droga wewnętrzna (internal) the
+# private, field and forest roads, of which 70 % are bare ground (powiat słubicki).
+
+[[rule]]
+when = ["bdot:layer=bdot-drogi", "bdot:klasaDrogi=autostrada|droga główna ruchu przyśpieszonego|droga główna|droga zbiorcza"]
+draw = "line"
+forest = "502"
+
+# A paved minor road at least 5 m wide is a wide road, else a road, as the OSM residential road.
+[[rule]]
+when = ["bdot:layer=bdot-drogi", "bdot:klasaDrogi=droga lokalna|droga dojazdowa", "bdot:materialNawierzchni=masa bitumiczna|beton|kostka prefabrykowana|kostka kamienna|bruk|płyty betonowe", "bdot:szerokosc>=5"]
+draw = "line"
+forest = "502"
+
+[[rule]]
+when = ["bdot:layer=bdot-drogi", "bdot:materialNawierzchni=masa bitumiczna|beton|kostka prefabrykowana|kostka kamienna|bruk|płyty betonowe"]
+draw = "line"
+forest = "503"
+
+# Gravel and crushed stone: a vehicle track, as an OSM road with an unpaved surface.
+[[rule]]
+when = ["bdot:layer=bdot-drogi", "bdot:materialNawierzchni=żwir|tłuczeń"]
+draw = "line"
+forest = "504"
+
+# Bare ground: a minor public road is a vehicle track, an internal road (field and forest
+# roads, no width in the register) a footpath-wide track, as the OSM track without a tracktype.
+[[rule]]
+when = ["bdot:layer=bdot-drogi", "bdot:klasaDrogi=droga lokalna|droga dojazdowa", "bdot:materialNawierzchni=grunt naturalny"]
+draw = "line"
+forest = "504"
+
+[[rule]]
+when = ["bdot:layer=bdot-drogi", "bdot:klasaDrogi=droga wewnętrzna", "bdot:materialNawierzchni=grunt naturalny"]
+draw = "line"
+forest = "505"
+
+# Footways and cycle ways (`OT_SKRP_L`, `rodzaj`): a path (ścieżka) is a small path, a cycle way
+# and an avenue or arcade a footpath.
+[[rule]]
+when = ["bdot:layer=bdot-sciezki", "bdot:rodzaj=ścieżka"]
+draw = "line"
+forest = "506"
+
+[[rule]]
+when = ["bdot:layer=bdot-sciezki", "bdot:rodzaj=droga dla rowerów|aleja lub pasaż"]
+draw = "line"
+forest = "505"

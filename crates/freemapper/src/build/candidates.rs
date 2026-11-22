@@ -179,6 +179,13 @@ impl Rules {
         Self::from_toml(rules).expect("Berlin's rules are valid")
     }
 
+    /// The BDOT10k rules, which the roads set of Poland brings (ADR 0187): `bdot:*` tags only.
+    pub fn bdot() -> Self {
+        let rules =
+            crate::build::sets::drawing_of_source("bdot10k/").map_or("", |drawing| drawing.rules);
+        Self::from_toml(rules).expect("the BDOT10k rules are valid")
+    }
+
     /// The ALKIS vereinfacht rules (`assets/rules/state-candidates.toml`): `alkis:*` tags only.
     pub fn states() -> Self {
         Self::from_toml(STATE_RULES).expect("embedded state rules are valid")
@@ -1217,6 +1224,7 @@ mod tests {
             .iter()
             .chain(&Rules::berlin().0)
             .chain(&Rules::states().0)
+            .chain(&Rules::bdot().0)
         {
             for (code, kind) in [
                 (&rule.schoolyard, MapKind::Schoolyard),
@@ -1233,6 +1241,66 @@ mod tests {
                 }
             }
         }
+    }
+
+    /// The BDOT10k roads and paths of a forest map (ADR 0187): the class and the surface give
+    /// the ISOM class, as the OSM rules do for a road, a track and a path.
+    #[test]
+    fn bdot_roads_and_paths_follow_the_isom_classes() {
+        let rules = Rules::bdot();
+        let code = |layer: &str, pairs: &[(&str, &str)], kind: MapKind| {
+            let mut all = vec![("bdot:layer", layer)];
+            all.extend_from_slice(pairs);
+            rules
+                .symbol_for(&tags(&all), &way(), kind)
+                .map(|m| (m.code, m.target))
+        };
+        let road = |pairs: &[(&str, &str)]| code("bdot-drogi", pairs, MapKind::Forest);
+        let some = |c: &str| Some((c.to_string(), Target::Candidates));
+        for class in [
+            "autostrada",
+            "droga główna ruchu przyśpieszonego",
+            "droga główna",
+            "droga zbiorcza",
+        ] {
+            let tags = [
+                ("bdot:klasaDrogi", class),
+                ("bdot:materialNawierzchni", "masa bitumiczna"),
+            ];
+            assert_eq!(road(&tags), some("502"), "{class}");
+        }
+        let local = |material: &'static str, width: Option<&'static str>| {
+            let mut t = vec![
+                ("bdot:klasaDrogi", "droga lokalna"),
+                ("bdot:materialNawierzchni", material),
+            ];
+            t.extend(width.map(|w| ("bdot:szerokosc", w)));
+            road(&t)
+        };
+        assert_eq!(local("masa bitumiczna", Some("6")), some("502"));
+        assert_eq!(local("masa bitumiczna", Some("4.5")), some("503"));
+        assert_eq!(local("kostka prefabrykowana", None), some("503"));
+        assert_eq!(local("żwir", None), some("504"));
+        assert_eq!(local("grunt naturalny", None), some("504"));
+        let internal = |material: &'static str| {
+            road(&[
+                ("bdot:klasaDrogi", "droga wewnętrzna"),
+                ("bdot:materialNawierzchni", material),
+            ])
+        };
+        assert_eq!(internal("grunt naturalny"), some("505"));
+        assert_eq!(internal("tłuczeń"), some("504"));
+        assert_eq!(internal("płyty betonowe"), some("503"));
+        // A material the rules do not name draws nothing.
+        assert_eq!(internal("drewno"), None);
+        let way = |kind: &str| code("bdot-sciezki", &[("bdot:rodzaj", kind)], MapKind::Forest);
+        assert_eq!(way("ścieżka"), some("506"));
+        assert_eq!(way("droga dla rowerów"), some("505"));
+        assert_eq!(way("aleja lub pasaż"), some("505"));
+        // Only a forest map takes the layers.
+        let tags = [("bdot:klasaDrogi", "droga lokalna")];
+        assert_eq!(code("bdot-drogi", &tags, MapKind::Sprint), None);
+        assert_eq!(code("bdot-drogi", &tags, MapKind::Schoolyard), None);
     }
 
     #[test]

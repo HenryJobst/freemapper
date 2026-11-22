@@ -1,0 +1,230 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gml:FeatureCollection xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:ot="urn:gugik:specyfikacje:gmlas:bazaDanychObiektowTopograficznych10k:2.0" gml:id="GUGiK_OT_SKRP_L" xsi:schemaLocation="urn:gugik:specyfikacje:gmlas:bazaDanychObiektowTopograficznych10k:2.0 ../XSD/BDOT10k_BDOO.xsd">
+		<gml:featureMember>
+		<ot:OT_SKRP_L gml:id="PL.PZGiK.333.BDOT10k_2DDDAEB3-3C3B-1ABF-E053-CC2BA8C0C90E_2023-12-31T120000">
+			<ot:lokalnyId>2DDDAEB3-3C3B-1ABF-E053-CC2BA8C0C90E</ot:lokalnyId>
+			<ot:przestrzenNazw>PL.PZGiK.333.BDOT10k</ot:przestrzenNazw>
+			<ot:wersja>2023-12-31T12:00:00</ot:wersja>
+			<ot:poczatekWersjiObiektu>2023-12-31T12:00:00</ot:poczatekWersjiObiektu>
+			<ot:oznaczenieZmiany>GI-TOPO.600.116.2023</ot:oznaczenieZmiany>
+			<ot:zrodloDanychGeometrycznych>ortofotomapa</ot:zrodloDanychGeometrycznych>
+			<ot:kategoriaIstnienia>eksploatowany</ot:kategoriaIstnienia>
+			<ot:kodKarto10k>0010_128_2</ot:kodKarto10k>
+			<ot:rodzaj>aleja lub pasaż</ot:rodzaj>
+			<ot:materialNawierzchni>kostka prefabrykowana</ot:materialNawierzchni>
+			<ot:polozenie>na powierzchni gruntu</ot:polozenie>
+			<ot:szerokosc uom="m">3.5</ot:szerokosc>
+			<ot:geometria>
+				<gml:Curve gml:id="id-bbce7c51-58ec-487a-98db-881d0388518d-0" srsName="EPSG:2180" srsDimension="2">
+					<gml:segments>
+						<gml:LineStringSegment>
+							<gml:posList>199811.75 506630.72 199813.71 506638.23 199824.32 506678.91</gml:posList>
+						</gml:LineStringSegment>
+					</gml:segments>
+				</gml:Curve>
+			</ot:geometria>
+		</ot:OT_SKRP_L>
+	</gml:featureMember>
+	<gml:featureMember>
+		<ot:OT_SKRP_L gml:id="PL.PZGiK.333.BDOT10k_5f24661a-3b19-4984-8152-561881a4d830_2024-10-21T000000">
+			<ot:lokalnyId>5f24661a-3b19-4984-8152-561881a4d830</ot:lokalnyId>
+			<ot:przestrzenNazw>PL.PZGiK.333.BDOT10k</ot:przestrzenNazw>
+			<ot:wersja>2024-10-21T00:00:00</ot:wersja>
+			<ot:poczatekWersjiObiektu>2024-10-21T00:00:00</ot:poczatekWersjiObiektu>
+			<ot:oznaczenieZmiany>DN.I.273.1.2024.5</ot:oznaczenieZmiany>
+			<ot:zrodloDanychGeometrycznych>ortofotomapa</ot:zrodloDanychGeometrycznych>
+			<ot:kategoriaIstnienia>eksploatowany</ot:kategoriaIstnienia>
+			<ot:kodKarto10k>0010_128_2</ot:kodKarto10k>
+			<ot:rodzaj>aleja lub pasaż</ot:rodzaj>
+			<ot:materialNawierzchni>żwir</ot:materialNawierzchni>
+			<ot:polozenie>na powierzchni gruntu</ot:polozenie>
+			<ot:szerokosc uom="m">3.0</ot:szerokosc>
+			<ot:geometria>
+				<gml:Curve gml:id="id-c56c8543-2ee9-4cee-a893-77e0e7ce4bd6-0" srsName="EPSG:2180" srsDimension="2">
+					<gml:segments>
+						<gml:LineStringSegment>
+							<gml:posList>199170.91 507333.42 199188.65 507350.47 199192.63 507354.29</gml:posList>
+						</gml:LineStringSegment>
+					</gml:segments>
+				</gml:Curve>
+			</ot:geometria>
+		</ot:OT_SKRP_L>
+	</gml:featureMember>
+	<gml:featureMember>
+		<ot:OT_SKRP_L gml:id="PL.PZGiK.333.BDOT10k_2DDDAEB3-3CBB-1ABF-E053-CC2BA8C0C90E_2024-10-21T000000">
+			<ot:lokalnyId>2DDDAEB3-3CBB-1ABF-E053-CC2BA8C0C90E</ot:lokalnyId>
+			<ot:przestrzenNazw>PL.PZGiK.333.BDOT10k</ot:przestrzenNazw>
+			<ot:wersja>2024-10-21T00:00:00</ot:wersja>
+			<ot:poczatekWersjiObiektu>2024-10-21T00:00:00</ot:poczatekWersjiObiektu>
+			<ot:oznaczenieZmiany>DN.I.273.1.2024.5</ot:oznaczenieZmiany>
+			<ot:zrodloDanychGeometrycznych>ortofotomapa</ot:zrodloDanychGeometrycznych>
+			<ot:kategoriaIstnienia>eksploatowany</ot:kategoriaIstnienia>
+			<ot:kodKarto10k>0010_128_2</ot:kodKarto10k>
+			<ot:rodzaj>aleja lub pasaż</ot:rodzaj>
+			<ot:materialNawierzchni>grunt naturalny</ot:materialNawierzchni>
+			<ot:polozenie>na powierzchni gruntu</ot:polozenie>
+			<ot:szerokosc uom="m">3.0</ot:szerokosc>
+			<ot:geometria>
+				<gml:Curve gml:id="id-eecccecd-ddb8-4587-8e15-9e58f631d2fc-0" srsName="EPSG:2180" srsDimension="2">
+					<gml:segments>
+						<gml:LineStringSegment>
+							<gml:posList>198106.22 509760.61 198274.29 509725.75 198262.62 509675.77 198115.06 509707.92</gml:posList>
+						</gml:LineStringSegment>
+					</gml:segments>
+				</gml:Curve>
+			</ot:geometria>
+		</ot:OT_SKRP_L>
+	</gml:featureMember>
+	<gml:featureMember>
+		<ot:OT_SKRP_L gml:id="PL.PZGiK.333.BDOT10k_2DDDAEB3-3C42-1ABF-E053-CC2BA8C0C90E_2024-10-21T000000">
+			<ot:lokalnyId>2DDDAEB3-3C42-1ABF-E053-CC2BA8C0C90E</ot:lokalnyId>
+			<ot:przestrzenNazw>PL.PZGiK.333.BDOT10k</ot:przestrzenNazw>
+			<ot:wersja>2024-10-21T00:00:00</ot:wersja>
+			<ot:poczatekWersjiObiektu>2024-10-21T00:00:00</ot:poczatekWersjiObiektu>
+			<ot:oznaczenieZmiany>DN.I.273.1.2024.5</ot:oznaczenieZmiany>
+			<ot:zrodloDanychGeometrycznych>ortofotomapa</ot:zrodloDanychGeometrycznych>
+			<ot:kategoriaIstnienia>eksploatowany</ot:kategoriaIstnienia>
+			<ot:kodKarto10k>0010_128_1</ot:kodKarto10k>
+			<ot:rodzaj>aleja lub pasaż</ot:rodzaj>
+			<ot:materialNawierzchni>kostka kamienna</ot:materialNawierzchni>
+			<ot:polozenie>na powierzchni gruntu</ot:polozenie>
+			<ot:identyfikatorSIMC>0935736</ot:identyfikatorSIMC>
+			<ot:identyfikatorULIC>08725</ot:identyfikatorULIC>
+			<ot:szerokosc uom="m">7.0</ot:szerokosc>
+			<ot:ulicaCecha>ul.</ot:ulicaCecha>
+			<ot:ulicaNazwa1>Kochanowskiego</ot:ulicaNazwa1>
+			<ot:geometria>
+				<gml:Curve gml:id="id-ede59858-08e3-4fd9-8965-fd9e074a3605-0" srsName="EPSG:2180" srsDimension="2">
+					<gml:segments>
+						<gml:LineStringSegment>
+							<gml:posList>198228.27 507524.78 198239.78 507522.85 198273.70 507517.49 198288.17 507515.57</gml:posList>
+						</gml:LineStringSegment>
+					</gml:segments>
+				</gml:Curve>
+			</ot:geometria>
+		</ot:OT_SKRP_L>
+	</gml:featureMember>
+	<gml:featureMember>
+		<ot:OT_SKRP_L gml:id="PL.PZGiK.333.BDOT10k_b0fe8687-a3cf-449d-b97a-d8083623b4f4_2024-10-21T000000">
+			<ot:lokalnyId>b0fe8687-a3cf-449d-b97a-d8083623b4f4</ot:lokalnyId>
+			<ot:przestrzenNazw>PL.PZGiK.333.BDOT10k</ot:przestrzenNazw>
+			<ot:wersja>2024-10-21T00:00:00</ot:wersja>
+			<ot:poczatekWersjiObiektu>2024-10-21T00:00:00</ot:poczatekWersjiObiektu>
+			<ot:oznaczenieZmiany>DN.I.273.1.2024.5</ot:oznaczenieZmiany>
+			<ot:zrodloDanychGeometrycznych>ortofotomapa</ot:zrodloDanychGeometrycznych>
+			<ot:kategoriaIstnienia>eksploatowany</ot:kategoriaIstnienia>
+			<ot:informacjaDodatkowa>dopuszczony ruch pieszy</ot:informacjaDodatkowa>
+			<ot:kodKarto10k>0010_129</ot:kodKarto10k>
+			<ot:rodzaj>droga dla rowerów</ot:rodzaj>
+			<ot:materialNawierzchni>masa bitumiczna</ot:materialNawierzchni>
+			<ot:polozenie>na powierzchni gruntu</ot:polozenie>
+			<ot:geometria>
+				<gml:Curve gml:id="id-4646b88c-3e87-4a39-80b4-23bd59dc1efd-0" srsName="EPSG:2180" srsDimension="2">
+					<gml:segments>
+						<gml:LineStringSegment>
+							<gml:posList>199368.85 503330.14 199374.21 503295.84 199381.51 503250.59 199389.53 503193.42 199395.86 503149.38 199398.29 503123.11 199404.86 503085.64 199411.92 503052.07 199421.72 503011.06</gml:posList>
+						</gml:LineStringSegment>
+					</gml:segments>
+				</gml:Curve>
+			</ot:geometria>
+		</ot:OT_SKRP_L>
+	</gml:featureMember>
+	<gml:featureMember>
+		<ot:OT_SKRP_L gml:id="PL.PZGiK.333.BDOT10k_2DDDAEB3-3BDD-1ABF-E053-CC2BA8C0C90E_2024-10-21T000000">
+			<ot:lokalnyId>2DDDAEB3-3BDD-1ABF-E053-CC2BA8C0C90E</ot:lokalnyId>
+			<ot:przestrzenNazw>PL.PZGiK.333.BDOT10k</ot:przestrzenNazw>
+			<ot:wersja>2024-10-21T00:00:00</ot:wersja>
+			<ot:poczatekWersjiObiektu>2024-10-21T00:00:00</ot:poczatekWersjiObiektu>
+			<ot:oznaczenieZmiany>DN.I.273.1.2024.5</ot:oznaczenieZmiany>
+			<ot:zrodloDanychGeometrycznych>ortofotomapa</ot:zrodloDanychGeometrycznych>
+			<ot:kategoriaIstnienia>eksploatowany</ot:kategoriaIstnienia>
+			<ot:kodKarto10k>0010_129</ot:kodKarto10k>
+			<ot:rodzaj>aleja lub pasaż</ot:rodzaj>
+			<ot:materialNawierzchni>masa bitumiczna</ot:materialNawierzchni>
+			<ot:polozenie>na powierzchni gruntu</ot:polozenie>
+			<ot:szerokosc uom="m">2.0</ot:szerokosc>
+			<ot:geometria>
+				<gml:Curve gml:id="id-b49af7f6-6f65-40c1-8b5a-7cafc119627b-0" srsName="EPSG:2180" srsDimension="2">
+					<gml:segments>
+						<gml:LineStringSegment>
+							<gml:posList>197960.36 507496.06 197980.22 507542.45</gml:posList>
+						</gml:LineStringSegment>
+					</gml:segments>
+				</gml:Curve>
+			</ot:geometria>
+		</ot:OT_SKRP_L>
+	</gml:featureMember>
+	<gml:featureMember>
+		<ot:OT_SKRP_L gml:id="PL.PZGiK.333.BDOT10k_f36fc32c-1b1e-49c0-bc2e-9f84770b8d55_2024-10-21T000000">
+			<ot:lokalnyId>f36fc32c-1b1e-49c0-bc2e-9f84770b8d55</ot:lokalnyId>
+			<ot:przestrzenNazw>PL.PZGiK.333.BDOT10k</ot:przestrzenNazw>
+			<ot:wersja>2024-10-21T00:00:00</ot:wersja>
+			<ot:poczatekWersjiObiektu>2024-10-21T00:00:00</ot:poczatekWersjiObiektu>
+			<ot:oznaczenieZmiany>DN.I.273.1.2024.5</ot:oznaczenieZmiany>
+			<ot:zrodloDanychGeometrycznych>ortofotomapa</ot:zrodloDanychGeometrycznych>
+			<ot:kategoriaIstnienia>eksploatowany</ot:kategoriaIstnienia>
+			<ot:informacjaDodatkowa>dopuszczony ruch pieszy</ot:informacjaDodatkowa>
+			<ot:kodKarto10k>0010_129</ot:kodKarto10k>
+			<ot:rodzaj>droga dla rowerów</ot:rodzaj>
+			<ot:materialNawierzchni>kostka prefabrykowana</ot:materialNawierzchni>
+			<ot:polozenie>na powierzchni gruntu</ot:polozenie>
+			<ot:geometria>
+				<gml:Curve gml:id="id-519caaf1-c4bd-4a34-bc26-51986922562a-0" srsName="EPSG:2180" srsDimension="2">
+					<gml:segments>
+						<gml:LineStringSegment>
+							<gml:posList>197583.09 507350.57 197597.70 507328.81 197611.67 507310.79 197625.14 507298.61 197653.36 507282.93 197686.03 507267.44 197724.84 507252.99 197756.66 507241.62 197780.21 507234.64 197789.14 507232.37 197813.33 507227.98 197833.14 507226.20 197853.76 507225.71 197912.70 507226.85 197949.07 507227.33 198051.69 507228.63 198071.98 507227.66 198086.34 507225.91 198094.39 507225.77</gml:posList>
+						</gml:LineStringSegment>
+					</gml:segments>
+				</gml:Curve>
+			</ot:geometria>
+		</ot:OT_SKRP_L>
+	</gml:featureMember>
+	<gml:featureMember>
+		<ot:OT_SKRP_L gml:id="PL.PZGiK.333.BDOT10k_2DDDAEB3-3BE1-1ABF-E053-CC2BA8C0C90E_2024-10-21T000000">
+			<ot:lokalnyId>2DDDAEB3-3BE1-1ABF-E053-CC2BA8C0C90E</ot:lokalnyId>
+			<ot:przestrzenNazw>PL.PZGiK.333.BDOT10k</ot:przestrzenNazw>
+			<ot:wersja>2024-10-21T00:00:00</ot:wersja>
+			<ot:poczatekWersjiObiektu>2024-10-21T00:00:00</ot:poczatekWersjiObiektu>
+			<ot:oznaczenieZmiany>DN.I.273.1.2024.5</ot:oznaczenieZmiany>
+			<ot:zrodloDanychGeometrycznych>ortofotomapa</ot:zrodloDanychGeometrycznych>
+			<ot:kategoriaIstnienia>eksploatowany</ot:kategoriaIstnienia>
+			<ot:kodKarto10k>0010_128_2</ot:kodKarto10k>
+			<ot:rodzaj>aleja lub pasaż</ot:rodzaj>
+			<ot:materialNawierzchni>beton</ot:materialNawierzchni>
+			<ot:polozenie>na powierzchni gruntu</ot:polozenie>
+			<ot:szerokosc uom="m">4.0</ot:szerokosc>
+			<ot:geometria>
+				<gml:Curve gml:id="id-fa5037e4-2ffc-4724-9f71-ed02182662ef-0" srsName="EPSG:2180" srsDimension="2">
+					<gml:segments>
+						<gml:LineStringSegment>
+							<gml:posList>198185.37 507872.82 198178.36 507849.12</gml:posList>
+						</gml:LineStringSegment>
+					</gml:segments>
+				</gml:Curve>
+			</ot:geometria>
+		</ot:OT_SKRP_L>
+	</gml:featureMember>
+	<gml:featureMember>
+		<ot:OT_SKRP_L gml:id="PL.PZGiK.333.BDOT10k_2DDDAEB3-3BCD-1ABF-E053-CC2BA8C0C90E_2024-10-21T000000">
+			<ot:lokalnyId>2DDDAEB3-3BCD-1ABF-E053-CC2BA8C0C90E</ot:lokalnyId>
+			<ot:przestrzenNazw>PL.PZGiK.333.BDOT10k</ot:przestrzenNazw>
+			<ot:wersja>2024-10-21T00:00:00</ot:wersja>
+			<ot:poczatekWersjiObiektu>2024-10-21T00:00:00</ot:poczatekWersjiObiektu>
+			<ot:oznaczenieZmiany>DN.I.273.1.2024.5</ot:oznaczenieZmiany>
+			<ot:zrodloDanychGeometrycznych>ortofotomapa</ot:zrodloDanychGeometrycznych>
+			<ot:kategoriaIstnienia>eksploatowany</ot:kategoriaIstnienia>
+			<ot:kodKarto10k>0010_129</ot:kodKarto10k>
+			<ot:rodzaj>ścieżka</ot:rodzaj>
+			<ot:polozenie>ponad powierzchnią gruntu poziom 1</ot:polozenie>
+			<ot:geometria>
+				<gml:Curve gml:id="id-ad914b99-7ebe-4950-a788-15cc641bb939-0" srsName="EPSG:2180" srsDimension="2">
+					<gml:segments>
+						<gml:LineStringSegment>
+							<gml:posList>199632.89 506918.91 199653.86 506898.98</gml:posList>
+						</gml:LineStringSegment>
+					</gml:segments>
+				</gml:Curve>
+			</ot:geometria>
+		</ot:OT_SKRP_L>
+	</gml:featureMember>
+</gml:FeatureCollection>
