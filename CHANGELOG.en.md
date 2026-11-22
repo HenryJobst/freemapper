@@ -6,6 +6,8 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
+## [0.27.0] - 2026-11-22
+
 ### Added
 
 - A forest map in Poland gets roads and paths from BDOT10k as candidates: the road axes (`OT_SKDR_L`, 13,822 lines in powiat Słubice, 9,357 of them on bare ground) and the footways and cycle ways (`OT_SKRP_L`). The class and the surface give the ISOM class (502 road, 503 vehicle road, 504 vehicle track, 505 footpath, 506 small path). The objects rank below OpenStreetMap: where OSM has a path within 10 m the object goes, and the rest is checked against the orthophoto. freemapper reads only the two class files from the archive of the powiat, by byte range: 2 MB instead of 54 MB. New in the program is a rank `Landscape` for the layers of an adapter that sit below OSM. Sprint and schoolyard maps do not read the layers; the railway tracks (`OT_SKTR_L`) stay with OSM (ADR 0187)
