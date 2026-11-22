@@ -8,6 +8,7 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ### Added
 
+- Issues of users stand out: a workflow sets the label `von-nutzer` on every issue that does not come from the owner or a collaborator; two forms (bug, request) ask for the version, the place and what happened (ADR 0182).
 - The permit notes for a map area in Poland name the voivodeship, powiat and gmina it lies in, with their TERYT codes and their shares of the area; a map area on a border lists every unit it touches. The units come from the boundary register (PRG) of GUGiK, the service that already gives the forest districts, in three requests. When the service fails, the notes leave the section out and keep the rest (ADR 0181)
 - Poland fills ground without cadastre data from BDOT10k, the topographic object database of GUGiK: where the EGiB service gives no buildings for the map area (municipalities without a cadastre service) or fails, the buildings come from BDOT10k; where the parcels cover less than a quarter of the area with a land use class (the big cities mostly send none), BDOT10k adds the land use (forest, copse, grassland, farmland, water, residential and industrial land, squares, car parks, cemeteries, green spaces). EGiB comes first. For this freemapper downloads the GML archive of the powiat concerned (7 to 89 MB, kept in the cache) and reads only the classes it needs; when BDOT10k fails, a warning is all that happens (ADR 0178)
 

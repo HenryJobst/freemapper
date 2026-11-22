@@ -1,0 +1,11 @@
+name: Wunsch / Feature request
+description: Eine Idee oder ein fehlendes Bundesland oder Land. / An idea, or a state or country that is missing.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: wish
+    attributes:
+      label: Was soll freemapper können? / What should freemapper do?
+      description: Wofür brauchst du es (Schule, Park, Sprint, Wald)? / What do you need it for?
+    validations:
+      required: true
