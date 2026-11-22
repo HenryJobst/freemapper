@@ -317,6 +317,14 @@ fn overlaps_of<'a>(assembled: &'a Assembled, id: &str) -> &'a [String] {
         .map_or(&[], |loaded| &loaded.overlaps)
 }
 
+/// Whether the adapter `id` is one from a folder that took the place of a built-in one.
+fn replaces_built_in(assembled: &Assembled, id: &str) -> bool {
+    assembled
+        .loaded
+        .iter()
+        .any(|loaded| loaded.id == id && loaded.replaces_built_in)
+}
+
 /// Where the adapter `id` comes from, as the JSON says it.
 fn source_of(assembled: &Assembled, id: &str) -> &'static str {
     match assembled.loaded.iter().find(|loaded| loaded.id == id) {
@@ -406,6 +414,7 @@ fn list_json(assembled: &Assembled, user: Option<&Path>) -> String {
                 "hosts": declared.map(|declared| declared.hosts.clone()).unwrap_or_default(),
                 "allowed_hosts": allowed_for(assembled, info.id.as_str()),
                 "overlaps": overlaps_of(assembled, info.id.as_str()),
+                "replaces_built_in": replaces_built_in(assembled, info.id.as_str()),
             })
         })
         .collect();
@@ -646,7 +655,7 @@ land_use_type = "ave:NutzungFlurstueck"
     }
 
     #[test]
-    fn a_broken_folder_is_a_warning_and_a_built_in_adapter_stays() {
+    fn a_folder_with_the_id_of_a_built_in_state_replaces_it_and_a_broken_one_is_left_out() {
         let user = tempfile::tempdir().unwrap();
         write(user.path(), "hamburg", &manifest("hamburg"));
         write(
@@ -655,21 +664,52 @@ land_use_type = "ave:NutzungFlurstueck"
             &manifest("broken").replace("https://", "http://"),
         );
         let assembled = assemble(Some(user.path()), None);
+        // The state keeps its place and its count: the folder took its place.
         assert_eq!(assembled.registry.len(), 16);
         assert_eq!(
             assembled.registry.get("hamburg").unwrap().info().names.en,
-            "Hamburg"
+            "Sample hamburg"
         );
+        assert_eq!(source_of(&assembled, "hamburg"), "user");
+        assert!(replaces_built_in(&assembled, "hamburg"));
+        assert!(!replaces_built_in(&assembled, "berlin"));
         let lines = report_lines(&assembled);
         assert_eq!(lines.len(), 2, "{lines:?}");
-        assert!(
-            lines[0].starts_with("warning: the adapter in "),
-            "{}",
-            lines[0]
-        );
         assert!(lines[0].contains("is left out: "), "{}", lines[0]);
         assert!(lines[0].contains("[policy.url]"), "{}", lines[0]);
-        assert!(lines[1].contains("[adapter.duplicate]"), "{}", lines[1]);
+        assert!(
+            lines[1].contains("[adapter.replaces-built-in]"),
+            "{}",
+            lines[1]
+        );
+        let json: serde_json::Value =
+            serde_json::from_str(&list_json(&assembled, Some(user.path()))).unwrap();
+        let hamburg = json["adapters"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|a| a["id"] == "hamburg")
+            .unwrap();
+        assert_eq!(hamburg["replaces_built_in"], true);
+        assert_eq!(hamburg["source"], "user");
+    }
+
+    /// A built-in state is replaced once: a folder of the project with the same id does not
+    /// replace the one of the person's folder.
+    #[test]
+    fn a_state_is_replaced_once() {
+        let user = tempfile::tempdir().unwrap();
+        write(user.path(), "hamburg", &manifest("hamburg"));
+        let project = tempfile::tempdir().unwrap();
+        let adapters = project_dir(project.path());
+        write(&adapters, "hamburg", &manifest("hamburg"));
+        let assembled = assemble(Some(user.path()), Some(&adapters));
+        assert_eq!(assembled.registry.len(), 16);
+        let lines = report_lines(&assembled);
+        assert!(
+            lines.iter().any(|l| l.contains("[adapter.duplicate]")),
+            "{lines:?}"
+        );
     }
 
     /// A host that is an address, a wildcard or this computer keeps the adapter out, in the

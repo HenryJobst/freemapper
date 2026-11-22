@@ -233,3 +233,4 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0185](0185-adapters-probe-asks-each-service-once.md) | `adapters probe` asks each service once | Accepted | 2026-11-22 |
 | [0186](0186-nightly-service-status-on-the-branch-status.md) | The nightly service status lives on the branch `status` | Accepted | 2026-11-22 |
 | [0187](0187-poland-bdot10k-roads-and-paths-on-forest-maps.md) | BDOT10k roads and paths on forest maps | Accepted, extends ADR 0178 | 2026-11-22 |
+| [0188](0188-a-folder-adapter-replaces-a-built-in-one.md) | A folder adapter replaces a built-in one | Accepted | 2026-11-22 |

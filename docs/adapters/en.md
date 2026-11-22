@@ -276,9 +276,16 @@ Services move, and flight years change. What an adapter needs over time:
   `revision` when the change alters the data a map gets: another service, another product, another year.
 - For a built-in state, users can help themselves until the next version: the message about the refused
   address names the command `freemapper adapters allow-host <id> <host>`. Ask them to report the move.
+- A moved service of a built-in state that its manifest declares can also be corrected without a release: copy
+  the manifest folder of the state (`crates/adapters/de/manifests/<id>/`) into your adapter folder, change the
+  address and `[net] hosts`, and check it with `adapters check`. A folder in your adapter folder with the id of a
+  built-in state takes its place (once, with the note `adapter.replaces-built-in`; a project folder does not,
+  and one that declares services needs a `provider` of its own); `adapters list` shows it as `user` and the JSON
+  says `replaces_built_in`. Addresses that still sit in the code of the state (permit sources, tree cadastres)
+  are not in the manifest and stay as they are.
 - A new key of the format needs a newer freemapper. Set `min_freemapper` to the version that introduced the
   key, so that an older program says "needs a newer freemapper" and not "unknown key".
 
-There is no scheduled live check of all adapters yet; broken services are noticed by people who make maps. An
+A nightly run asks every service of the built-in states once (`freemapper adapters probe`, `services-nightly.yml`) and opens an issue when one fails two nights in a row; addresses that still sit in code join as they move into manifests. An
 adapter in the repository whose maintainer does not answer stays in as long as it works. When it breaks and
 nobody fixes it, the maintainer of freemapper fixes it or takes it out with a changelog entry.

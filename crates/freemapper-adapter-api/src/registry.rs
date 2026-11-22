@@ -2,7 +2,7 @@
 
 //! The adapters a program knows, in the order the region functions go through them.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
 use crate::adapter::RegionAdapter;
@@ -17,6 +17,9 @@ pub struct Registry {
     adapters: Vec<Arc<dyn RegionAdapter>>,
     /// The raster backends of the adapter crates, by the name a manifest calls them.
     backends: BTreeMap<String, Arc<dyn RasterBackend>>,
+    /// The ids of the adapters built into the program, which an adapter from a folder may
+    /// replace (ADR 0188); see [`Registry::mark_builtin`].
+    builtin: BTreeSet<String>,
 }
 
 /// A second raster backend with a name the registry holds already.
@@ -43,6 +46,41 @@ impl Registry {
         }
         self.adapters.push(adapter);
         Ok(())
+    }
+
+    /// Notes the adapters now in the registry as the built-in ones: the program calls it once
+    /// when it has added them. Only these can be replaced by [`Registry::replace`].
+    pub fn mark_builtin(&mut self) {
+        self.builtin = self
+            .adapters
+            .iter()
+            .map(|adapter| adapter.info().id.to_string())
+            .collect();
+    }
+
+    /// Whether `id` is an adapter built into the program that no folder has replaced yet.
+    pub fn is_builtin(&self, id: &str) -> bool {
+        self.builtin.contains(id)
+    }
+
+    /// Puts `adapter` in the place of the built-in adapter with the same id, so that the
+    /// order stays as it was, and returns the one it replaced. An id that is not built in
+    /// (or was replaced already) is [`DuplicateAdapter`]: a folder replaces a built-in
+    /// adapter once and no other.
+    pub fn replace(
+        &mut self,
+        adapter: Arc<dyn RegionAdapter>,
+    ) -> Result<Arc<dyn RegionAdapter>, DuplicateAdapter> {
+        let id = adapter.info().id.clone();
+        if !self.builtin.remove(id.as_str()) {
+            return Err(DuplicateAdapter(id));
+        }
+        let place = self
+            .adapters
+            .iter()
+            .position(|other| other.info().id == id)
+            .expect("a built-in id has its adapter");
+        Ok(std::mem::replace(&mut self.adapters[place], adapter))
     }
 
     /// Makes the raster backend `backend` known as `name`: the code of an adapter crate that
@@ -173,5 +211,28 @@ mod tests {
         let refused = registry.add(plain("beta")).unwrap_err();
         assert_eq!(refused.0.as_str(), "beta");
         assert_eq!(registry.len(), 1);
+    }
+
+    #[test]
+    fn a_built_in_adapter_is_replaced_once_in_its_place() {
+        let mut registry = Registry::new();
+        registry.add(plain("beta")).unwrap();
+        registry.add(plain("alpha")).unwrap();
+        registry.mark_builtin();
+        registry.add(plain("gamma")).unwrap();
+        assert!(registry.is_builtin("beta") && !registry.is_builtin("gamma"));
+
+        let before = registry.replace(plain("beta")).unwrap();
+        assert_eq!(before.info().id.as_str(), "beta");
+        let ids: Vec<&str> = registry.adapters().map(|a| a.info().id.as_str()).collect();
+        assert_eq!(ids, ["beta", "alpha", "gamma"]);
+        // Once replaced it is no built-in any more, and an adapter that was added later never was.
+        assert!(!registry.is_builtin("beta"));
+        assert_eq!(
+            registry.replace(plain("beta")).err().unwrap().0.as_str(),
+            "beta"
+        );
+        assert!(registry.replace(plain("gamma")).is_err());
+        assert!(registry.replace(plain("unknown")).is_err());
     }
 }

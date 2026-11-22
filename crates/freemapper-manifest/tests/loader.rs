@@ -97,6 +97,7 @@ fn folder_adapters_load_after_the_built_ins_in_the_order_of_their_ids() {
             last_verified: None,
             // The three adapters lie on the same square.
             overlaps: vec!["sample".to_string(), "alpha".to_string()],
+            replaces_built_in: false,
         }
     );
     let zeta = registry.get("zeta").unwrap();
@@ -218,14 +219,46 @@ fn a_boundary_that_crosses_itself_is_left_out() {
     assert_eq!(code, "boundary.invalid");
 }
 
-/// Review focus 4: an id is taken once. A folder cannot replace an adapter the program has,
-/// nor one loaded before it.
+/// The folder of a project, which can come from someone else, replaces nothing; and a replacement
+/// of the person's folder that declares services cannot share the provider (the cache folder) of
+/// the adapter it replaces (ADR 0188).
 #[test]
-fn folder_adapter_cannot_replace_a_builtin() {
+fn a_project_folder_and_a_shared_provider_do_not_replace_a_builtin() {
     let dir = tempfile::tempdir().unwrap();
-    let changed = manifest("sample").replace("Sample\", de", "Replaced\", de");
+    write(dir.path(), "sample", &manifest("sample"));
+    let mut registry = Registry::new();
+    registry
+        .add(built_in("sample", &manifest("sample"), &Registry::new()))
+        .unwrap();
+    registry.mark_builtin();
+    let project = [AdapterDir {
+        path: dir.path().to_path_buf(),
+        origin: Origin::Project,
+    }];
+    let (loaded, warnings) = load_dirs(&mut registry, &project, RUNNING);
+    assert!(loaded.is_empty());
+    assert_eq!(skipped(&warnings).0, "adapter.duplicate");
+    assert!(registry.is_builtin("sample"));
+    // The person's folder with the provider of the built-in adapter and services of its own.
+    let (loaded, warnings) = load_dirs(&mut registry, &user(dir.path()), RUNNING);
+    assert!(loaded.is_empty());
+    assert_eq!(skipped(&warnings).0, "adapter.provider-shared");
+    assert!(registry.is_builtin("sample"));
+}
+
+/// Review focus 4: an id is taken once. A folder cannot replace an adapter that is no built-in
+/// one (one loaded before it); a built-in one it replaces, once (ADR 0188).
+#[test]
+fn folder_adapter_replaces_only_a_builtin_and_only_once() {
+    let dir = tempfile::tempdir().unwrap();
+    // A replacement that declares services is its own provider: it must not write into the
+    // cache of the adapter it replaces.
+    let changed = manifest("sample")
+        .replace("Sample\", de", "Replaced\", de")
+        .replace("[adapter]\n", "[adapter]\nprovider = \"sampleown\"\n");
     assert_ne!(changed, manifest("sample"));
     let folder = write(dir.path(), "sample", &changed);
+    // An adapter the registry holds but nobody marked as built in: refused.
     let mut registry = Registry::new();
     registry
         .add(built_in("sample", &manifest("sample"), &Registry::new()))
@@ -236,11 +269,27 @@ fn folder_adapter_cannot_replace_a_builtin() {
     assert_eq!(code, "adapter.duplicate");
     assert_eq!(warning.folder, folder);
     assert!(
-        warning.findings[0].message.contains("cannot replace"),
+        warning.findings[0]
+            .message
+            .contains("replaces a built-in one"),
         "{warning:?}"
     );
-    assert_eq!(registry.len(), 1);
     assert_eq!(registry.get("sample").unwrap().info().names.en, "Sample");
+    // Marked as built in, it is replaced in its place, with a note.
+    registry.mark_builtin();
+    let (loaded, warnings) = load_dirs(&mut registry, &user(dir.path()), RUNNING);
+    assert_eq!(loaded.len(), 1);
+    assert!(loaded[0].replaces_built_in);
+    assert!(loaded[0].overlaps.is_empty(), "{:?}", loaded[0].overlaps);
+    assert_eq!(warnings.len(), 1);
+    assert!(!warnings[0].skipped);
+    assert_eq!(warnings[0].findings[0].code, "adapter.replaces-built-in");
+    assert_eq!(registry.len(), 1);
+    assert_eq!(registry.get("sample").unwrap().info().names.en, "Replaced");
+    // Once: a second folder with the id finds an adapter that is no built-in one any more.
+    let (loaded, warnings) = load_dirs(&mut registry, &user(dir.path()), RUNNING);
+    assert!(loaded.is_empty());
+    assert_eq!(skipped(&warnings).0, "adapter.duplicate");
     // The same folder in a second place (a project) is refused as well.
     let mut registry = Registry::new();
     let twice = [user(dir.path()), user(dir.path())].concat();

@@ -274,7 +274,8 @@ warning does not.
 | `manifest.file-missing` | A file the manifest names is not there or cannot be read. |
 | `adapter.folder` | The folder is a link, has too many files or cannot be read. |
 | `adapter.needs-newer` | The manifest asks for a newer freemapper. |
-| `adapter.duplicate` | The id is taken. A folder cannot replace another adapter. |
+| `adapter.duplicate` | The id is taken. A folder replaces a built-in adapter, once, and no other. |
+| `adapter.replaces-built-in` | A note, the adapter loads: it takes the place of the built-in adapter with its id. |
 | `adapter.provider-shared` | Services of its own under the provider of another adapter. |
 | `boundary.too-large` | A boundary file over 2 MiB or with more than a million vertices. |
 | `boundary.format` | Not GeoJSON with one polygon feature. |
@@ -291,7 +292,7 @@ Warnings:
 | `adapter.rules-not-read` | The folder has a `rules.toml`, which this freemapper does not read. |
 | `check.never-verified` | The manifest has no `last_verified`. |
 | `check.verified-long-ago` | `last_verified` is more than twelve months ago. |
-| `check.built-in-id` | An adapter with this id is built into the program; from an adapter folder this one does not load. |
+| `check.built-in-id` | An adapter with this id is built into the program; from an adapter folder this one replaces it. |
 | `check.prefix-shared` | A built-in adapter has the same `object_id_prefix`. |
 | `check.boundary-area` | The boundary encloses under 1 km² or over 2 000 000 km²: probably the wrong unit. |
 | `check.shares-ground` | The adapter lies on the ground of another one: the two have more than a hundredth of the smaller region in common. A map there gets the objects of both. |

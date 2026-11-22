@@ -39,7 +39,8 @@ use std::path::PathBuf;
 /// | `manifest.backend-missing` | a raster backend this program does not have |
 /// | `adapter.folder` | a folder of an adapter that is a link, has too many files or cannot be read |
 /// | `adapter.needs-newer` | the manifest asks for a newer freemapper |
-/// | `adapter.duplicate` | the id is taken; a folder cannot replace an adapter |
+/// | `adapter.duplicate` | the id is taken; a folder replaces a built-in adapter, once, and no other |
+/// | `adapter.replaces-built-in` | a note: the adapter takes the place of the built-in one with its id |
 /// | `adapter.provider-shared` | services of its own under the provider of another adapter |
 /// | `adapter.rules-not-read` | a `rules.toml`, which this freemapper does not read (the adapter loads) |
 /// | `manifest.file-missing` | a file the manifest names is not there or cannot be read |
