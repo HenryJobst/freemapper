@@ -121,13 +121,18 @@ impl SheetCrs {
         .into_iter()
         .find(|c| {
             let p = c.projection();
-            (p.lon0 - lon0).abs() <= ANGLE_TOLERANCE_DEG
-                && (p.lat0 - lat0).abs() <= ANGLE_TOLERANCE_DEG
-                && (p.false_easting - easting).abs() <= METRE_TOLERANCE
-                && (p.false_northing - northing).abs() <= METRE_TOLERANCE
-                && (p.k0 - k0).abs() <= SCALE_TOLERANCE
+            within(p.lon0, lon0, ANGLE_TOLERANCE_DEG)
+                && within(p.lat0, lat0, ANGLE_TOLERANCE_DEG)
+                && within(p.false_easting, easting, METRE_TOLERANCE)
+                && within(p.false_northing, northing, METRE_TOLERANCE)
+                && within(p.k0, k0, SCALE_TOLERANCE)
         })
     }
+}
+
+/// Whether `a` and `b` differ by no more than `tolerance`.
+fn within(a: f64, b: f64, tolerance: f64) -> bool {
+    (a - b).abs() <= tolerance
 }
 
 /// The value of a GeoKey stored as a double in `GeoDoubleParamsTag` (location 34736).
@@ -745,6 +750,37 @@ mod tests {
         feet[31] = 9002;
         let bytes = fixture_with_keys(0.5, &feet, &ZONE5, (0.0, 0.0));
         assert!(matches!(Sheet::open(&bytes), Err(OrtoError::UserCrs(_))));
+    }
+
+    #[test]
+    fn parameters_are_compared_within_the_tolerance_in_both_directions() {
+        // [lon0, lat0, easting, northing, k0] of PL-2000 zone 7 and of PL-1992.
+        let zone7 = [21.0, 0.0, 7_500_000.0, 0.0, 0.999_923];
+        let pl1992 = [19.0, 0.0, 500_000.0, -5_300_000.0, 0.9993];
+        let steps = [
+            ANGLE_TOLERANCE_DEG,
+            ANGLE_TOLERANCE_DEG,
+            METRE_TOLERANCE,
+            METRE_TOLERANCE,
+            SCALE_TOLERANCE,
+        ];
+        let find = |v: [f64; 5]| SheetCrs::from_parameters(v[0], v[1], v[2], v[3], v[4]);
+        assert_eq!(find(zone7), Some(SheetCrs::Pl2000(7)));
+        assert_eq!(find(pl1992), Some(SheetCrs::Pl1992));
+        for (known, crs) in [(zone7, SheetCrs::Pl2000(7)), (pl1992, SheetCrs::Pl1992)] {
+            for i in 0..5 {
+                for sign in [-1.0, 1.0] {
+                    let mut inside = known;
+                    inside[i] += sign * 0.5 * steps[i];
+                    assert_eq!(find(inside), Some(crs), "inside {i} {sign}");
+                    let mut outside = known;
+                    outside[i] += sign * 2.0 * steps[i];
+                    assert_eq!(find(outside), None, "outside {i} {sign}");
+                }
+            }
+        }
+        assert!(within(100.0, 100.4, 0.5) && within(100.4, 100.0, 0.5));
+        assert!(!within(100.0, 100.6, 0.5) && !within(100.6, 100.0, 0.5));
     }
 
     #[test]

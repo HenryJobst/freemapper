@@ -195,6 +195,28 @@ fn sample(src: &Raster<f32>, easting: f64, northing: f64, how: Resample) -> Opti
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_source_position_of_a_pixel_is_its_centre_in_the_grid() {
+        // A grid in UTM 33 with a skew origin and a pixel of 0.2 m; read through the UTM 33
+        // projection itself, the position must come back as the pixel centre.
+        let grid = GridSpec {
+            west: 400_000.0,
+            north: 5_800_000.0,
+            pixel_size: 0.2,
+            width: 50,
+            height: 50,
+        };
+        let utm = Crs::Utm33.transverse_mercator();
+        let p = source_position_in(Crs::Utm33, &grid, 7, 3, &utm).unwrap();
+        // 400000 + 7.5 * 0.2 and 5800000 - 3.5 * 0.2.
+        assert!((p.easting - 400_001.5).abs() < 1e-3, "{p:?}");
+        assert!((p.northing - 5_799_999.3).abs() < 1e-3, "{p:?}");
+        let q = source_position_in(Crs::Utm33, &grid, 20, 11, &utm).unwrap();
+        assert!((q.easting - 400_004.1).abs() < 1e-3, "{q:?}");
+        assert!((q.northing - 5_799_997.7).abs() < 1e-3, "{q:?}");
+    }
+
     use crate::crs::LatLon;
 
     /// A position in Słubice: PL-1992 and UTM 33 of the same place.
