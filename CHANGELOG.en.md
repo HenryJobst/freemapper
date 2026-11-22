@@ -6,6 +6,8 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
+## [0.26.0] - 2026-11-22
+
 ### Added
 
 - Poland gets permit notes: for a map area in Poland `freemapper permits` asks the nature protection layers of the GDOŚ (national parks, landscape parks, nature reserves, Natura 2000, natural monuments and more) and the forest districts of the State Forests from the PRG. VG250 and the BfN are left out, as are districts, roads and the German authority names; the hints name the park or reserve administration, the Regional Directorate RDOŚ and the forest owner's consent. Private forest is not in the data. Output and hints for Germany stay as they were. No Polish speaker has read the Polish hint texts yet (ADR 0175).
