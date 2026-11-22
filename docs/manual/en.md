@@ -1408,8 +1408,14 @@ the gmina (wójt, burmistrz, prezydent miasta) manages the gmina roads and decid
 Roads Act, art. 19 and 40). For land that belongs to the gmina the same head manages it and represents the gmina
 (Act on Gmina Self-Government, art. 30 and 31); the notes do not know which land is municipal, so they say "if".
 The wójt does not issue the permit for an event on a road, and the Nature Conservation Act names no permit for an
-event at a natural monument: the resolution decides. Monuments, mass events and assemblies get no gmina hint. Only the State Forests
-are in the data; private forest is not. The German wording of these hints has not been read by a Polish speaker.
+event at a natural monument: the resolution decides. Mass events and assemblies get no gmina hint. Monuments come from the register of immovable monuments of the NID
+(`usluga.zabytek.gov.pl`, one request per map area): the notes count the monuments in the rectangle around the map
+area and name the most common names with their counts (at most ten). The register gives no positions, so the notes
+say to check on the map where they lie. The hint names the permit of the voivodeship monument conservator for work
+at a monument and in its surroundings (Act on the Protection of Monuments, art. 36); the Act names no run.
+Archaeological sites and the Pomniki historii are not in the layer. Only the State Forests
+are in the data; private forest is not, and the notes say that the starosta supervises forest that the State
+Treasury does not own. The German wording of these hints has not been read by a Polish speaker.
 The notes are a hint, not legal advice. `--offline` reads what an earlier run stored, as in Germany.
 
 ## 13. Regions and border areas

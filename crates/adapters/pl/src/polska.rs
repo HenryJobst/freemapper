@@ -7,7 +7,7 @@
 //! once on first use. Stage 2 adds the rasters of GUGiK (terrain model, surface model and
 //! orthophoto, [`crate::rasters::PolskaRasters`]) and stage 3 the cadastre EGiB ([`crate::egib`]).
 //! The permit notes come from the GDOŚ and the PRG ([`crate::permits`], ADR 0175). The adapter
-//! asks the two hosts of GUGiK and the host of the GDOŚ and no other ([`HOSTS`]).
+//! asks the two hosts of GUGiK, the host of the GDOŚ and the host of the NID and no other ([`HOSTS`]).
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -36,7 +36,7 @@ use geo_types::MultiPolygon;
 use crate::bdot10k::{self, Gap};
 use crate::egib;
 use crate::gugik_index::{DOWNLOAD_HOST, GugikIndex, INDEX_HOST};
-use crate::permits::GDOS_HOST;
+use crate::permits::{GDOS_HOST, NID_HOST};
 use crate::rasters::{PROVIDER, PolskaRasters};
 
 /// The id of the adapter.
@@ -48,10 +48,10 @@ pub const CREDIT: &str = "© GUGiK, geoportal.gov.pl";
 
 /// The hosts the adapter asks besides what a person allowed: the sheet index and the services of
 /// GUGiK ([`INDEX_HOST`]: rasters, cadastre and the boundaries of the PRG), the download of its
-/// sheets ([`DOWNLOAD_HOST`]) and the services of the GDOŚ ([`GDOS_HOST`]). The OSM extracts
+/// sheets ([`DOWNLOAD_HOST`]) and the services of the GDOŚ ([`GDOS_HOST`]) and the register of the NID ([`NID_HOST`]). The OSM extracts
 /// come through the core hosts, and the area page asks the WMS of `mapy.geoportal.gov.pl` itself,
 /// in the browser.
-pub const HOSTS: [&str; 3] = [INDEX_HOST, DOWNLOAD_HOST, GDOS_HOST];
+pub const HOSTS: [&str; 4] = [INDEX_HOST, DOWNLOAD_HOST, GDOS_HOST, NID_HOST];
 
 /// The state border of Poland (OSM relation 49715), WGS 84.
 const POLAND_BOUNDARY: &str = include_str!("../data/poland.geojson");
@@ -217,7 +217,7 @@ impl Polska {
         });
         Self {
             declared: Declared {
-                revision: 5,
+                revision: 6,
                 hosts: HOSTS.iter().map(ToString::to_string).collect(),
                 last_verified: chrono::NaiveDate::from_ymd_opt(2026, 11, 22),
             },

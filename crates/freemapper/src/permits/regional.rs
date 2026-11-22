@@ -23,6 +23,10 @@ use crate::permits::notes::{Plane, Share, SourceInput, SourceStatus, status};
 /// The most links to monuments the notes give; the others are counted.
 pub const MAX_MONUMENT_LINKS: usize = 20;
 
+/// The most names of monuments the notes give for a register without positions (ADR 0184); the
+/// other monuments are counted.
+pub const MAX_REGISTER_MONUMENT_NAMES: usize = 10;
+
 /// A text in the languages of the program, as the notes store it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Words {
@@ -115,8 +119,29 @@ pub struct RegionalNotes {
     /// descending (ADR 0181).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub admin_units: Option<Vec<Share<AdminUnitEntry>>>,
+    /// The monuments of a register without positions, in the rectangle around the map area
+    /// (ADR 0184).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub register_monuments: Option<RegisterMonuments>,
     /// The sources of the adapter, in its order.
     pub sources: Vec<RegionalStatus>,
+}
+
+/// The monuments of a register that gives no position: how many, and the names of the first few.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RegisterMonuments {
+    pub total: usize,
+    /// The names as the register writes them with how often each occurs, by count descending,
+    /// then by name; at most [`MAX_REGISTER_MONUMENT_NAMES`] names.
+    pub names: Vec<RegisterMonumentName>,
+    /// The monuments that no name line covers: the ones beyond the cap and those without a name.
+    pub left: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RegisterMonumentName {
+    pub name: String,
+    pub count: usize,
 }
 
 /// An administrative unit of a region, the name as the register writes it.
@@ -250,6 +275,9 @@ pub(crate) struct HintFacts {
     /// The municipalities (Polish gminas) on the map that are more than an edge, by share,
     /// descending, as the register writes them; all of them when each lies only at the edge.
     pub municipalities: Vec<String>,
+    /// The monuments of a register without positions in the rectangle around the map area
+    /// (Poland, ADR 0184).
+    pub register_monuments: usize,
     /// The types of the biotopes on the map, by share, descending (ADR 0146).
     pub biotopes: Vec<String>,
     /// The districts that hold a protected object the lower nature conservation authority
@@ -438,6 +466,8 @@ fn one_adapter(
     let water_protection = read(PermitSection::WaterProtection).then(|| water_protection(&on_map));
     let forest_functions = read(PermitSection::ForestFunctions).then(|| forest_functions(&on_map));
     let admin_units = read(PermitSection::AdminUnits).then(|| admin_units(&on_map));
+    let register_monuments =
+        read(PermitSection::MonumentRegister).then(|| register_monuments(&on_map));
 
     let facts = HintFacts {
         districts: districts
@@ -466,6 +496,7 @@ fn one_adapter(
             )
         }),
         municipalities: municipalities(admin_units.iter().flatten()),
+        register_monuments: register_monuments.as_ref().map_or(0, |m| m.total),
         biotopes: {
             let mut biotopes: Vec<(&ProtectedObjectEntry, f64)> = protected_objects
                 .iter()
@@ -543,6 +574,7 @@ fn one_adapter(
         water_protection,
         forest_functions,
         admin_units,
+        register_monuments,
         sources: inputs
             .iter()
             .map(|i| RegionalStatus {
@@ -755,6 +787,35 @@ fn forest_functions(on_map: &[(&Placed<'_>, f64)]) -> Vec<Share<ForestFunctionEn
         }
     }
     by_share(summed, Clone::clone)
+}
+
+/// The monuments of a register without positions: counted, the names counted per name.
+fn register_monuments(on_map: &[(&Placed<'_>, f64)]) -> RegisterMonuments {
+    let mut total = 0;
+    let mut by_name: BTreeMap<&str, usize> = BTreeMap::new();
+    for (p, _) in on_map {
+        if let FindingKind::RegisterMonument { name } = p.kind {
+            total += 1;
+            if let Some(name) = name {
+                *by_name.entry(name.as_str()).or_default() += 1;
+            }
+        }
+    }
+    let mut names: Vec<RegisterMonumentName> = by_name
+        .into_iter()
+        .map(|(name, count)| RegisterMonumentName {
+            name: name.to_string(),
+            count,
+        })
+        .collect();
+    names.sort_by(|a, b| b.count.cmp(&a.count).then_with(|| a.name.cmp(&b.name)));
+    names.truncate(MAX_REGISTER_MONUMENT_NAMES);
+    let listed: usize = names.iter().map(|n| n.count).sum();
+    RegisterMonuments {
+        total,
+        names,
+        left: total - listed,
+    }
 }
 
 fn monuments(on_map: &[(&Placed<'_>, f64)]) -> Monuments {

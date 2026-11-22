@@ -285,3 +285,19 @@ class). The threshold of the fallback is 0.25. A building kind in words
 - Whether the index lists all years in one request with several `TYPENAMES`, and whether the
   service limits the number of features, is settled in the client and noted in its tests.
 - Stability over days is not known; this is one session's measurement.
+
+## Register of monuments of the NID (ADR 0184)
+
+- **Service.** `https://usluga.zabytek.gov.pl/INSPIRE_IMD/service.svc/get`, WMS 1.3.0, layer
+  `Immovable_Monuments`, only `GetFeatureInfo` (no feature download). With `CRS=EPSG:4326` the box is
+  latitude first. The whole map box as one pixel (`WIDTH=1&HEIGHT=1&I=0&J=0`, `INFO_FORMAT=text/xml`,
+  `FEATURE_COUNT=5000`) returns every monument that meets the box.
+- **Answer.** GML `FeatureCollection` with `Layer` elements and `Attribute Name` children
+  (`INSPIREID`, `SITENAME`, `NATIONALMONUMENTSRECORD`, ...), no geometry. Entries repeat: Kraków
+  2108 entries with 39 repeated INSPIREIDs; merged by INSPIREID. An empty box gives a self-closing
+  `FeatureCollection`; an error gives HTTP 200 with a `ServiceExceptionReport`.
+- **Gaps.** Archaeological sites and Pomniki historii are not in the layer.
+- **Licence.** Credit "© Narodowy Instytut Dziedzictwa (CC BY 4.0)"; the wording is not prescribed
+  and was not confirmed with the NID.
+- **Law.** Ustawa o ochronie zabytków, art. 36 ust. 1 pkt 1, 2 and 11 (Dz. U. 2024 poz. 1292);
+  Ustawa o lasach, art. 5 ust. 1 pkt 2 (Dz. U. 2025 poz. 567), checked 22 November 2026.

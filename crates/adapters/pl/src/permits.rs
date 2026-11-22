@@ -15,6 +15,11 @@
 //! code of its county (four digits) and its voivodeship (two), so each municipality gives three
 //! findings with its own polygon and the notes sum the shares.
 //!
+//! The register of immovable monuments of the National Heritage Institute (NID, ADR 0184) has no
+//! geometry in its WMS. The fetch asks `GetFeatureInfo` with the whole map box as one pixel and
+//! gets every monument of the box with its name; the notes count them and name the first few,
+//! and say that the data give no position.
+//!
 //! The Nadleśnictwo (forest district) of the State Forests belongs to a regional directorate
 //! (RDLP) whose code is the part of the district's code before the hyphen (`17-02` in `17`).
 //! The fetch asks both layers, the second without geometry, and stores the name of the
@@ -23,17 +28,20 @@
 use std::path::Path;
 
 use freemapper_adapter_api::error::FetchError;
-use freemapper_adapter_api::fetch::{Fetcher, get_limited_with_retries, get_with_retries};
+use freemapper_adapter_api::fetch::{
+    Fetcher, get_limited_with_retries, get_with_retries, is_ogc_report,
+};
 use freemapper_adapter_api::permits::{
     AdminUnitLevel, FindingKind, PermitFinding, PermitSection, PermitSource, PermitSourceInfo,
     ProtectedObjectKind, Wording,
 };
 use freemapper_georef::crs::{LatLon, Pl1992};
 use geo_types::{Geometry, Rect};
+use quick_xml::events::Event;
 use serde_json::{Value, json};
 
 use crate::egib::{Feature, pl1992_inverse, read_members};
-use crate::gugik_index::http_error;
+use crate::gugik_index::{attribute, entity, http_error, local, report_error};
 
 /// The host of the GDOŚ services.
 pub const GDOS_HOST: &str = "sdi.gdos.gov.pl";
@@ -44,6 +52,20 @@ const GDOS_WFS: &str = "https://sdi.gdos.gov.pl/wfs";
 /// The WFS of the administrative boundaries of the PRG.
 const PRG_WFS: &str =
     "https://mapy.geoportal.gov.pl/wss/service/PZGIK/PRG/WFS/AdministrativeBoundaries";
+
+/// The host of the register of monuments of the NID.
+pub const NID_HOST: &str = "usluga.zabytek.gov.pl";
+
+/// The WMS of the register of immovable monuments (INSPIRE, layer `Immovable_Monuments`).
+const NID_WMS: &str = "https://usluga.zabytek.gov.pl/INSPIRE_IMD/service.svc/get";
+
+/// The credit of the NID: its data are open under CC BY 4.0 (dane.gov.pl, dataset 1130); the
+/// licence names no wording, so the notes name the institute and the licence (ADR 0184).
+pub const NID_CREDIT: &str = "© Narodowy Instytut Dziedzictwa (CC BY 4.0)";
+
+/// The most monuments one request asks for. The service answers one monument without it; a
+/// full answer means the box is far larger than a map area and is an error, not a partial list.
+const NID_COUNT: usize = 5000;
 
 /// The credit of the GDOŚ. Its page on the reuse of information allows reuse, also commercial
 /// and in derivatives, without a fee (ADR 0175).
@@ -204,6 +226,29 @@ pub fn sources() -> Vec<Box<dyn PermitSource>> {
                 gaps: None,
                 layers: &["gminy"],
                 sections: &[PermitSection::AdminUnits],
+                offices: None,
+            },
+        }),
+        Box::new(NidRegister {
+            info: PermitSourceInfo {
+                key: "nid-zabytki",
+                label: Wording {
+                    en: "NID",
+                    de: "NID",
+                },
+                what: Wording {
+                    en: "register of immovable monuments (names only, no positions)",
+                    de: "Denkmalregister (nur Namen, keine Positionen)",
+                },
+                credit: NID_CREDIT,
+                note: None,
+                sampled: false,
+                gaps: Some(Wording {
+                    en: "archaeological sites and the Historic Monuments (Pomniki historii) are not in it",
+                    de: "archäologische Stätten und die Pomniki historii fehlen darin",
+                }),
+                layers: &["zabytki"],
+                sections: &[PermitSection::MonumentRegister],
                 offices: None,
             },
         }),
@@ -621,6 +666,176 @@ impl PermitSource for PrgAdmin {
             }
         }
         found
+    }
+}
+
+/// The register of immovable monuments of the NID (ADR 0184).
+struct NidRegister {
+    info: PermitSourceInfo,
+}
+
+/// The `GetFeatureInfo` request that asks for every monument of `bbox`: the whole box as one
+/// pixel. EPSG:4326 in WMS 1.3.0 has the latitude first.
+fn nid_url(bbox: &Rect<f64>) -> String {
+    format!(
+        "{NID_WMS}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo&LAYERS=Immovable_Monuments\
+         &QUERY_LAYERS=Immovable_Monuments&CRS=EPSG:4326&BBOX={},{},{},{}\
+         &WIDTH=1&HEIGHT=1&I=0&J=0&INFO_FORMAT=text/xml&FEATURE_COUNT={NID_COUNT}",
+        bbox.min().y,
+        bbox.min().x,
+        bbox.max().y,
+        bbox.max().x,
+    )
+}
+
+/// One monument of the register: its INSPIREID, its name and its kind (both may be blank).
+type Monument = (String, String, String);
+
+/// The monuments of a `GetFeatureInfo` answer in the order they come. The service answers with
+/// status 200 also for an error, then with an exception report instead of the collection.
+fn read_monuments(url: &str, body: &[u8]) -> Result<Vec<Monument>, FetchError> {
+    if is_ogc_report(body) {
+        return Err(report_error(url, body));
+    }
+    let mut reader = quick_xml::Reader::from_reader(body);
+    let mut buffer = Vec::new();
+    let mut depth = 0_usize;
+    let mut root = false;
+    let mut field: Option<String> = None;
+    let mut text = String::new();
+    let mut values: std::collections::BTreeMap<String, String> = Default::default();
+    let mut monuments = Vec::new();
+    loop {
+        let event = reader
+            .read_event_into(&mut buffer)
+            .map_err(|e| http_error(url, format!("the answer is no XML: {e}")))?;
+        match event {
+            Event::Start(e) => {
+                let name = local(e.name().as_ref());
+                if depth == 0 {
+                    if name != "FeatureCollection" {
+                        return Err(http_error(
+                            url,
+                            format!("the answer is no feature collection but <{name}>"),
+                        ));
+                    }
+                    root = true;
+                } else if name == "Layer" {
+                    values.clear();
+                } else if name == "Attribute" {
+                    field = attribute(&e, "Name");
+                    text.clear();
+                }
+                depth += 1;
+            }
+            Event::Empty(e) => {
+                // An answer with no monument is an empty root element.
+                let name = local(e.name().as_ref());
+                if depth == 0 && name == "FeatureCollection" {
+                    root = true;
+                }
+            }
+            Event::Text(t) if field.is_some() => text.push_str(t.as_ref()),
+            Event::CData(c) if field.is_some() => {
+                text.push_str(c.as_ref());
+            }
+            Event::GeneralRef(r) if field.is_some() => {
+                if let Some(c) = entity(r.as_ref()) {
+                    text.push(c);
+                }
+            }
+            Event::End(e) => {
+                depth = depth.saturating_sub(1);
+                let name = local(e.name().as_ref());
+                if name == "Attribute" {
+                    if let Some(field) = field.take() {
+                        values.insert(field, text.trim().to_string());
+                    }
+                } else if name == "Layer" {
+                    let get = |key: &str| values.get(key).cloned().unwrap_or_default();
+                    let id = get("INSPIREID");
+                    if !id.is_empty() {
+                        monuments.push((id, get("SITENAME"), get("NATIONALMONUMENTSRECORD")));
+                    }
+                }
+            }
+            Event::Eof => break,
+            _ => {}
+        }
+        buffer.clear();
+    }
+    if !root {
+        return Err(http_error(url, "the answer is no feature collection"));
+    }
+    if monuments.len() >= NID_COUNT {
+        return Err(http_error(
+            url,
+            format!("the service sent {NID_COUNT} monuments or more, the box is too large"),
+        ));
+    }
+    Ok(monuments)
+}
+
+/// The polygon of `bbox` as GeoJSON: the position a monument without one gets.
+fn rectangle(bbox: &Rect<f64>) -> Value {
+    let (w, s, e, n) = (bbox.min().x, bbox.min().y, bbox.max().x, bbox.max().y);
+    json!({"type": "Polygon", "coordinates": [[[w, s], [e, s], [e, n], [w, n], [w, s]]]})
+}
+
+impl PermitSource for NidRegister {
+    fn info(&self) -> &PermitSourceInfo {
+        &self.info
+    }
+
+    fn fetch(
+        &self,
+        fetcher: &dyn Fetcher,
+        bbox: &Rect<f64>,
+        part: &Path,
+    ) -> Result<Vec<Vec<Value>>, FetchError> {
+        let url = nid_url(bbox);
+        let found = get_limited_with_retries(fetcher, &url, part, MAX_BYTES, |bytes| {
+            read_monuments(&url, bytes)
+        })?;
+        // One monument of the register can come several times (an entry with several parts):
+        // merged by its INSPIREID, the first name that is not blank stays.
+        let mut merged: Vec<Monument> = Vec::new();
+        for (id, name, kind) in found {
+            match merged.iter_mut().find(|m| m.0 == id) {
+                Some(known) if known.1.is_empty() => known.1 = name,
+                Some(_) => {}
+                None => merged.push((id, name, kind)),
+            }
+        }
+        let rectangle = rectangle(bbox);
+        let features = merged
+            .into_iter()
+            .map(|(id, name, kind)| {
+                json!({
+                    "type": "Feature",
+                    "properties": {"id": id, "nazwa": name, "rodzaj": kind},
+                    "geometry": rectangle,
+                })
+            })
+            .collect();
+        Ok(vec![features])
+    }
+
+    fn findings(&self, layer: &str, features: &[Value]) -> Vec<PermitFinding> {
+        if layer != "zabytki" {
+            return Vec::new();
+        }
+        features
+            .iter()
+            .filter_map(|feature| {
+                Some(PermitFinding {
+                    kind: FindingKind::RegisterMonument {
+                        name: property(feature, "nazwa"),
+                    },
+                    geometry: geometry_of(feature)?,
+                })
+            })
+            .collect()
     }
 }
 
@@ -1371,5 +1586,102 @@ mod tests {
         assert_eq!(infos[2].credit, "© GUGiK, geoportal.gov.pl");
         assert_eq!(infos[2].sections, [PermitSection::AdminUnits]);
         assert_eq!(infos[2].layers, ["gminy"]);
+    }
+
+    const NID_SLUBICE: &str = include_str!("../tests/fixtures/permits/nid-slubice.xml");
+    const NID_KRAKOW: &str = include_str!("../tests/fixtures/permits/nid-krakow.xml");
+    const NID_EMPTY: &str = include_str!("../tests/fixtures/permits/nid-empty.xml");
+
+    fn nid() -> NidRegister {
+        let source = sources()
+            .into_iter()
+            .find(|s| s.info().key == "nid-zabytki")
+            .expect("the register is a source");
+        NidRegister {
+            info: source.info().clone(),
+        }
+    }
+
+    fn nid_box() -> Rect<f64> {
+        Rect::new(
+            Coord {
+                x: 19.93,
+                y: 50.055,
+            },
+            Coord {
+                x: 19.96,
+                y: 50.073,
+            },
+        )
+    }
+
+    fn nid_answer(bbox: &Rect<f64>, body: &str) -> MapFetcher {
+        let fetcher = MapFetcher::default();
+        fetcher.insert(&nid_url(bbox), body.as_bytes().to_vec());
+        fetcher
+    }
+
+    #[test]
+    fn the_register_asks_the_whole_box_as_one_pixel_with_the_latitude_first() {
+        let url = nid_url(&nid_box());
+        assert!(url.contains("BBOX=50.055,19.93,50.073,19.96"), "{url}");
+        assert!(url.contains("WIDTH=1&HEIGHT=1&I=0&J=0"), "{url}");
+    }
+
+    #[test]
+    fn a_monument_that_comes_twice_counts_once_and_names_stay() {
+        let bbox = nid_box();
+        let fetcher = nid_answer(&bbox, NID_KRAKOW);
+        let lists = nid().fetch(&fetcher, &bbox, Path::new("unused")).unwrap();
+        assert_eq!(lists[0].len(), 8);
+        let names: Vec<Option<String>> = nid()
+            .findings("zabytki", &lists[0])
+            .into_iter()
+            .map(|f| match f.kind {
+                FindingKind::RegisterMonument { name } => name,
+                other => panic!("{other:?}"),
+            })
+            .collect();
+        assert_eq!(names.len(), 8);
+        assert_eq!(
+            names
+                .iter()
+                .filter(|n| n.as_deref() == Some("działka"))
+                .count(),
+            2
+        );
+        assert_eq!(
+            names
+                .iter()
+                .filter(|n| n.as_deref() == Some("kamienica, ob. muzeum farmacji"))
+                .count(),
+            1
+        );
+    }
+
+    #[test]
+    fn the_register_in_slubice_has_eleven_monuments_in_seventeen_entries() {
+        let bbox = Rect::new(Coord { x: 14.55, y: 52.34 }, Coord { x: 14.57, y: 52.36 });
+        let fetcher = nid_answer(&bbox, NID_SLUBICE);
+        let lists = nid().fetch(&fetcher, &bbox, Path::new("unused")).unwrap();
+        assert_eq!(lists[0].len(), 11);
+    }
+
+    #[test]
+    fn an_empty_answer_is_no_monument_and_no_failure() {
+        let bbox = nid_box();
+        let fetcher = nid_answer(&bbox, NID_EMPTY);
+        let lists = nid().fetch(&fetcher, &bbox, Path::new("unused")).unwrap();
+        assert!(lists[0].is_empty());
+    }
+
+    #[test]
+    fn an_error_in_the_body_of_a_200_answer_is_a_failure() {
+        let bbox = nid_box();
+        let report = r#"<?xml version="1.0"?><ServiceExceptionReport version="1.3.0"><ServiceException code="LayerNotDefined">no such layer</ServiceException></ServiceExceptionReport>"#;
+        let fetcher = nid_answer(&bbox, report);
+        assert!(nid().fetch(&fetcher, &bbox, Path::new("unused")).is_err());
+        let fetcher = nid_answer(&bbox, "<html>nope</html>");
+        assert!(nid().fetch(&fetcher, &bbox, Path::new("unused")).is_err());
     }
 }
