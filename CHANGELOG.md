@@ -27,6 +27,10 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 - Die Beispielseite `examples/README.md` zeigt nur noch die Karten: erst die Sprint-, direkt danach die Waldkarten. Der Text dazu (Erzeugung, Zahlen, Quellen, Auswahl der Gebiete, Lizenzen) steht auf der neuen Seite `examples/hintergrund.md`.
 - README und Handbuch gibt es nur auf Deutsch und Englisch. Die polnische README und das gekürzte polnische Handbuch entfallen; das Programm selbst behält alle seine Sprachen (ADR 0172).
 
+### Behoben
+
+- Polen: Orthofoto-Blätter älterer Befliegungen im Koordinatensystem PL-2000 (Zone 5 bis 8, EPSG:2176 bis 2179, auch als benutzerdefinierte Transversal-Mercator-Angabe mit dem Code 32767) werden gelesen und in das Raster der Karte umgerechnet, statt mit der Warnung "not in EPSG:2180" übersprungen zu werden. Davon betroffen waren Gebiete etwa bei Słubice und Łagów, wo ein Teil der Orthofoto-Vorlage fehlte. Ein Blatt in einem anderen System wird weiter ausgelassen, die Warnung nennt jetzt dessen Code oder die Parameter.
+
 ## [0.25.0] - 2026-11-21
 
 ### Geändert

@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! Orthophoto sheets of GUGiK: a tiled TIFF with JPEG tiles (YCbCr) in PL-1992 (EPSG:2180).
+//! Orthophoto sheets of GUGiK: a tiled TIFF with JPEG tiles (YCbCr) in PL-1992 (EPSG:2180) or,
+//! for the sheets of older flights, in PL-2000 zone 5 to 8 (EPSG:2176 to 2179), written either
+//! with its EPSG code or as a user-defined transverse Mercator (code 32767 with its parameters).
 //!
 //! The `tiff` crate cannot read them: the tag `JPEGTables` holds the quantisation and Huffman
 //! tables three times over, each with its own start and end marker, and its decoder stops with
@@ -10,6 +12,8 @@
 
 use std::io::Cursor;
 
+use freemapper_georef::crs::ProjectedPoint;
+use freemapper_georef::tm::{GRS80, TransverseMercator};
 use tiff::decoder::Decoder;
 use tiff::tags::Tag;
 
@@ -26,8 +30,16 @@ pub enum OrtoError {
     Tiff(String),
     #[error("the orthophoto lacks the tag {0}")]
     MissingTag(&'static str),
-    #[error("the orthophoto is not in EPSG:2180 (EPSG:{0})")]
+    #[error(
+        "the orthophoto is in EPSG:{0}, which freemapper does not read (it reads EPSG:2180 and \
+         the PL-2000 zones 5 to 8, EPSG:2176 to 2179)"
+    )]
     Crs(u32),
+    #[error(
+        "the orthophoto is in a user-defined coordinate system ({0}) that is none of EPSG:2180 \
+         and EPSG:2176 to 2179"
+    )]
+    UserCrs(String),
     #[error("the pixel of {0} m is finer than the 0.25 m orthophoto freemapper reads")]
     TooFine(f64),
     #[error("the pixels are not square ({0} by {1} m)")]
@@ -40,10 +52,145 @@ pub enum OrtoError {
     Tile { tile: usize, reason: String },
 }
 
+/// The coordinate system a sheet is in.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SheetCrs {
+    /// PL-1992, EPSG:2180.
+    Pl1992,
+    /// PL-2000, zone 5 to 8 (central meridian 15, 18, 21 or 24 degrees): EPSG:2176 to 2179.
+    Pl2000(u8),
+}
+
+/// How far a user-defined parameter may lie from the one of a known system: a millionth of a
+/// degree (0.1 m on the ground), a millimetre and a scale of 1e-9.
+const ANGLE_TOLERANCE_DEG: f64 = 1e-6;
+const METRE_TOLERANCE: f64 = 1e-3;
+const SCALE_TOLERANCE: f64 = 1e-9;
+
+impl SheetCrs {
+    /// The EPSG code.
+    pub fn epsg(self) -> u32 {
+        match self {
+            Self::Pl1992 => 2180,
+            Self::Pl2000(zone) => 2171 + u32::from(zone),
+        }
+    }
+
+    /// The system of an EPSG code, if it is one of those the reader knows.
+    pub fn from_epsg(epsg: u32) -> Option<Self> {
+        match epsg {
+            2180 => Some(Self::Pl1992),
+            2176..=2179 => Some(Self::Pl2000((epsg - 2171) as u8)),
+            _ => None,
+        }
+    }
+
+    /// The projection on GRS80 (the WGS84 of the user-defined sheets differs by well below a
+    /// millimetre here).
+    pub fn projection(self) -> TransverseMercator {
+        match self {
+            Self::Pl1992 => TransverseMercator {
+                ellipsoid: GRS80,
+                lat0: 0.0,
+                lon0: 19.0,
+                k0: 0.9993,
+                false_easting: 500_000.0,
+                false_northing: -5_300_000.0,
+            },
+            Self::Pl2000(zone) => TransverseMercator {
+                ellipsoid: GRS80,
+                lat0: 0.0,
+                lon0: f64::from(zone) * 3.0,
+                k0: 0.999_923,
+                false_easting: f64::from(zone) * 1_000_000.0 + 500_000.0,
+                false_northing: 0.0,
+            },
+        }
+    }
+
+    /// The known system a user-defined transverse Mercator describes: central meridian, latitude
+    /// of origin, false easting and northing and scale, each within a small tolerance.
+    fn from_parameters(lon0: f64, lat0: f64, easting: f64, northing: f64, k0: f64) -> Option<Self> {
+        [
+            Self::Pl1992,
+            Self::Pl2000(5),
+            Self::Pl2000(6),
+            Self::Pl2000(7),
+            Self::Pl2000(8),
+        ]
+        .into_iter()
+        .find(|c| {
+            let p = c.projection();
+            within(p.lon0, lon0, ANGLE_TOLERANCE_DEG)
+                && within(p.lat0, lat0, ANGLE_TOLERANCE_DEG)
+                && within(p.false_easting, easting, METRE_TOLERANCE)
+                && within(p.false_northing, northing, METRE_TOLERANCE)
+                && within(p.k0, k0, SCALE_TOLERANCE)
+        })
+    }
+}
+
+/// Whether `a` and `b` differ by no more than `tolerance`.
+fn within(a: f64, b: f64, tolerance: f64) -> bool {
+    (a - b).abs() <= tolerance
+}
+
+/// The value of a GeoKey stored as a double in `GeoDoubleParamsTag` (location 34736).
+fn geo_double(keys: &[u16], doubles: &[f64], key: u16) -> Option<f64> {
+    keys.chunks(4)
+        .skip(1)
+        .find(|k| k.len() == 4 && k[0] == key && k[1] == 34736)
+        .and_then(|k| doubles.get(usize::from(k[3])).copied())
+}
+
+/// The coordinate system the GeoKeys name: `ProjectedCSTypeGeoKey` (3072) as an EPSG code, or,
+/// when that is 32767 (user-defined), the parameters of a transverse Mercator.
+fn sheet_crs(keys: &[u16], doubles: &[f64]) -> Result<SheetCrs, OrtoError> {
+    let key = |id: u16| {
+        keys.chunks(4)
+            .skip(1)
+            .find(|k| k.len() == 4 && k[0] == id && k[1] == 0)
+            .map(|k| k[3])
+    };
+    let epsg = u32::from(key(3072).unwrap_or(0));
+    if epsg != 32767 {
+        return SheetCrs::from_epsg(epsg).ok_or(OrtoError::Crs(epsg));
+    }
+    let double = |id| geo_double(keys, doubles, id);
+    // ProjCoordTransGeoKey 3075: 1 is CT_TransverseMercator. The linear unit (3076), if given,
+    // must be the metre (9001).
+    let metres = key(3076).is_none_or(|u| u == 9001);
+    let parameters = (|| {
+        Some((
+            double(3080)?,
+            double(3081).unwrap_or(0.0),
+            double(3082)?,
+            double(3083)?,
+            double(3092)?,
+        ))
+    })();
+    match (key(3075), metres, parameters) {
+        (Some(1), true, Some((lon0, lat0, e, n, k0))) => SheetCrs::from_parameters(
+            lon0, lat0, e, n, k0,
+        )
+        .ok_or_else(|| {
+            OrtoError::UserCrs(format!(
+                "transverse Mercator, central meridian {lon0}, latitude {lat0}, false easting {e}, \
+                     false northing {n}, scale {k0}"
+            ))
+        }),
+        (Some(ct), _, _) => Err(OrtoError::UserCrs(format!("projection method {ct}"))),
+        (None, ..) => Err(OrtoError::UserCrs("no projection method".into())),
+    }
+}
+
 /// An orthophoto sheet held in memory.
 pub struct Sheet<'a> {
     bytes: &'a [u8],
-    /// The whole sheet: north-west corner and pixel size in PL-1992.
+    /// The coordinate system of the sheet.
+    pub crs: SheetCrs,
+    /// The whole sheet: north-west corner and pixel size in its own coordinate system
+    /// ([`Sheet::crs`], PL-1992 for most).
     pub grid: GridSpec,
     tile: (u32, u32),
     offsets: Vec<u64>,
@@ -86,16 +233,15 @@ impl<'a> Sheet<'a> {
         let keys = tag(&mut d, Tag::GeoKeyDirectoryTag, "GeoKeyDirectory")?
             .into_u16_vec()
             .map_err(tiff)?;
+        let doubles = d
+            .find_tag(Tag::GeoDoubleParamsTag)
+            .map_err(tiff)?
+            .map(|v| v.into_f64_vec().map_err(tiff))
+            .transpose()?
+            .unwrap_or_default();
         // Entries of four values after the header of four: the key, the location, the count and
         // the value. ProjectedCSTypeGeoKey is 3072.
-        let epsg = keys
-            .chunks(4)
-            .skip(1)
-            .find(|k| k[0] == 3072)
-            .map_or(0, |k| u32::from(k[3]));
-        if epsg != 2180 {
-            return Err(OrtoError::Crs(epsg));
-        }
+        let crs = sheet_crs(&keys, &doubles)?;
         let [pixel, pixel_y, ..] = scale[..] else {
             return Err(OrtoError::MissingTag("ModelPixelScale"));
         };
@@ -146,6 +292,7 @@ impl<'a> Sheet<'a> {
             .unwrap_or_default();
         Ok(Self {
             bytes,
+            crs,
             grid,
             tile,
             offsets,
@@ -154,8 +301,56 @@ impl<'a> Sheet<'a> {
         })
     }
 
-    /// The pixels of `window` (PL-1992), cut to whole pixels of the sheet; `None` where the
-    /// window does not touch the sheet.
+    /// `area` (PL-1992) as a window in the coordinate system of the sheet: the area itself for a
+    /// PL-1992 sheet, otherwise the box around its projected edges.
+    pub fn window_for(&self, area: &BoundingBox) -> BoundingBox {
+        if self.crs == SheetCrs::Pl1992 {
+            return *area;
+        }
+        let (from, to) = (SheetCrs::Pl1992.projection(), self.crs.projection());
+        const STEPS: u32 = 16;
+        let mut out: Option<BoundingBox> = None;
+        for i in 0..=STEPS {
+            for j in 0..=STEPS {
+                let (fi, fj) = (
+                    f64::from(i) / f64::from(STEPS),
+                    f64::from(j) / f64::from(STEPS),
+                );
+                let p = ProjectedPoint {
+                    easting: area.min_e + fi * (area.max_e - area.min_e),
+                    northing: area.min_n + fj * (area.max_n - area.min_n),
+                };
+                let (lat, lon) = from.inverse(p.easting, p.northing);
+                let (e, n) = to.forward(lat, lon);
+                let b = out.get_or_insert(BoundingBox {
+                    min_e: e,
+                    min_n: n,
+                    max_e: e,
+                    max_n: n,
+                });
+                b.min_e = b.min_e.min(e);
+                b.max_e = b.max_e.max(e);
+                b.min_n = b.min_n.min(n);
+                b.max_n = b.max_n.max(n);
+            }
+        }
+        out.unwrap_or(*area)
+    }
+
+    /// The position of a point of the sheet grid in PL-1992 (for tests and callers that need it).
+    pub fn to_pl1992(&self, p: ProjectedPoint) -> ProjectedPoint {
+        if self.crs == SheetCrs::Pl1992 {
+            return p;
+        }
+        let (lat, lon) = self.crs.projection().inverse(p.easting, p.northing);
+        let (easting, northing) = SheetCrs::Pl1992.projection().forward(lat, lon);
+        ProjectedPoint { easting, northing }
+    }
+
+    /// The pixels of `window` in the coordinate system of the sheet (see [`Sheet::window_for`]),
+    /// cut to whole pixels of the sheet; `None` where the window does not touch the sheet. The
+    /// raster is in the grid of the sheet, so a sheet that is not in PL-1992 has to be warped by
+    /// its [`Sheet::crs`].
     pub fn read_window(&self, window: &BoundingBox) -> Result<Option<Raster<[u8; 3]>>, OrtoError> {
         let g = &self.grid;
         let px = |metres: f64| metres / g.pixel_size;
@@ -281,6 +476,26 @@ pub mod test_support {
         tie_ij: (f64, f64),
         origin: (f64, f64),
     ) -> Vec<u8> {
+        let (tiles, tables) = parts(repeat_tables);
+        let keys = [1, 1, 0, 2, 1025, 0, 1, 1, 3072, 0, 1, epsg];
+        build_tiff(&tiles, &tables, pixel, &keys, &[], tie_ij, origin)
+    }
+
+    /// Like [`fixture`], with the GeoKey directory `keys` and the GeoDoubleParams `doubles` as
+    /// given and the north-west corner at `origin`, for the sheets that define their coordinate
+    /// system themselves.
+    pub fn fixture_with_keys(
+        pixel: f64,
+        keys: &[u16],
+        doubles: &[f64],
+        origin: (f64, f64),
+    ) -> Vec<u8> {
+        let (tiles, tables) = parts(true);
+        build_tiff(&tiles, &tables, pixel, keys, doubles, (0.0, 0.0), origin)
+    }
+
+    /// The four JPEG tiles and the tables stream of the fixtures.
+    fn parts(repeat_tables: bool) -> (Vec<Vec<u8>>, Vec<u8>) {
         let colours = [[250, 20, 20], [20, 250, 20], [20, 20, 250], [250, 250, 250]];
         let mut tiles = Vec::new();
         for c in colours {
@@ -315,14 +530,15 @@ pub mod test_support {
             }
             t
         };
-        build_tiff(&tiles, &tables, pixel, epsg, tie_ij, origin)
+        (tiles, tables)
     }
 
     fn build_tiff(
         tiles: &[Vec<u8>],
         tables: &[u8],
         pixel: f64,
-        epsg: u16,
+        keys: &[u16],
+        doubles: &[f64],
         tie_ij: (f64, f64),
         origin: (f64, f64),
     ) -> Vec<u8> {
@@ -341,22 +557,22 @@ pub mod test_support {
             counts.push(t.len() as u32);
         }
         let longs = |v: &[u32]| v.iter().flat_map(|x| x.to_le_bytes()).collect::<Vec<_>>();
-        let doubles = |v: &[f64]| v.iter().flat_map(|x| x.to_le_bytes()).collect::<Vec<_>>();
+        let doubles_bytes = |v: &[f64]| v.iter().flat_map(|x| x.to_le_bytes()).collect::<Vec<_>>();
         let shorts = |v: &[u16]| v.iter().flat_map(|x| x.to_le_bytes()).collect::<Vec<_>>();
         let offsets_at = put(&mut f, &longs(&offsets));
         let counts_at = put(&mut f, &longs(&counts));
         let tables_at = put(&mut f, tables);
-        let scale_at = put(&mut f, &doubles(&[pixel, pixel, 0.0]));
+        let scale_at = put(&mut f, &doubles_bytes(&[pixel, pixel, 0.0]));
         let tie_at = put(
             &mut f,
-            &doubles(&[tie_ij.0, tie_ij.1, 0.0, origin.0, origin.1, 0.0]),
+            &doubles_bytes(&[tie_ij.0, tie_ij.1, 0.0, origin.0, origin.1, 0.0]),
         );
-        let keys = [1, 1, 0, 2, 1025, 0, 1, 1, 3072, 0, 1, epsg];
-        let keys_at = put(&mut f, &shorts(&keys));
+        let keys_at = put(&mut f, &shorts(keys));
+        let doubles_at = put(&mut f, &doubles_bytes(doubles));
         let bits_at = put(&mut f, &shorts(&[8, 8, 8]));
         // (tag, type, count, value or offset); types: 3 SHORT, 4 LONG, 12 DOUBLE, 7 UNDEFINED.
         let side = 2 * TILE;
-        let entries: [(u16, u16, u32, u32); 15] = [
+        let mut entries: Vec<(u16, u16, u32, u32)> = vec![
             (256, 4, 1, side),
             (257, 4, 1, side),
             (258, 3, 3, bits_at),
@@ -373,7 +589,9 @@ pub mod test_support {
             (34735, 3, keys.len() as u32, keys_at),
             (339, 3, 1, 1),
         ];
-        let mut entries = entries.to_vec();
+        if !doubles.is_empty() {
+            entries.push((34736, 12, doubles.len() as u32, doubles_at));
+        }
         entries.sort_by_key(|e| e.0);
         let ifd_at = f.len() as u32;
         f.extend_from_slice(&(entries.len() as u16).to_le_bytes());
@@ -467,6 +685,156 @@ mod tests {
     fn another_grid_is_refused_with_its_code() {
         let bytes = fixture(0.25, 25833, true);
         assert!(matches!(Sheet::open(&bytes), Err(OrtoError::Crs(25833))));
+    }
+
+    /// The GeoKeys of a sheet of GUGiK that defines PL-2000 zone 5 itself (the header of
+    /// `5.176.17.3`, 2011): user-defined (32767), transverse Mercator, metres, and the five
+    /// parameters in the GeoDoubleParams (central meridian, latitude of origin, false easting,
+    /// false northing, scale).
+    fn user_keys() -> Vec<u16> {
+        let entries: [[u16; 4]; 12] = [
+            [1024, 0, 1, 1],
+            [1025, 0, 1, 1],
+            [2048, 0, 1, 4326],
+            [3072, 0, 1, 32767],
+            [3074, 0, 1, 32767],
+            [3075, 0, 1, 1],
+            [3076, 0, 1, 9001],
+            [3080, 34736, 1, 0],
+            [3081, 34736, 1, 1],
+            [3082, 34736, 1, 2],
+            [3083, 34736, 1, 3],
+            [3092, 34736, 1, 4],
+        ];
+        let mut keys = vec![1, 1, 0, 12];
+        keys.extend(entries.iter().flatten());
+        keys
+    }
+
+    const ZONE5: [f64; 5] = [15.0, 0.0, 5_500_000.0, 0.0, 0.999_923];
+
+    #[test]
+    fn the_pl2000_zones_are_read_by_their_epsg_codes() {
+        for (epsg, zone) in [(2176, 5), (2177, 6), (2178, 7), (2179, 8)] {
+            let bytes = fixture(0.25, epsg, true);
+            let s = Sheet::open(&bytes).unwrap();
+            assert_eq!(s.crs, SheetCrs::Pl2000(zone));
+            assert_eq!(s.crs.epsg(), u32::from(epsg));
+        }
+        let bytes = fixture(0.25, 2180, true);
+        assert_eq!(Sheet::open(&bytes).unwrap().crs, SheetCrs::Pl1992);
+    }
+
+    #[test]
+    fn a_user_defined_transverse_mercator_of_pl2000_is_read() {
+        let bytes = fixture_with_keys(0.5, &user_keys(), &ZONE5, (5_468_000.0, 5_802_500.0));
+        let s = Sheet::open(&bytes).unwrap();
+        assert_eq!(s.crs, SheetCrs::Pl2000(5));
+        assert_eq!((s.grid.west, s.grid.north), (5_468_000.0, 5_802_500.0));
+        // Within the tolerance of the parameters, outside it, and with an unknown method.
+        let near = [15.0 + 5e-7, 0.0, 5_500_000.0 + 5e-4, 0.0, 0.999_923];
+        let bytes = fixture_with_keys(0.5, &user_keys(), &near, (0.0, 0.0));
+        assert_eq!(Sheet::open(&bytes).unwrap().crs, SheetCrs::Pl2000(5));
+        let far = [15.0, 0.0, 5_500_001.0, 0.0, 0.999_923];
+        let bytes = fixture_with_keys(0.5, &user_keys(), &far, (0.0, 0.0));
+        assert!(matches!(Sheet::open(&bytes), Err(OrtoError::UserCrs(_))));
+        let mut utm = user_keys();
+        utm[27] = 32; // another projection method
+        let bytes = fixture_with_keys(0.5, &utm, &ZONE5, (0.0, 0.0));
+        let Err(OrtoError::UserCrs(why)) = Sheet::open(&bytes) else {
+            panic!("a method other than transverse Mercator is refused");
+        };
+        assert!(why.contains("method 32"), "{why}");
+        // Feet are not metres.
+        let mut feet = user_keys();
+        feet[31] = 9002;
+        let bytes = fixture_with_keys(0.5, &feet, &ZONE5, (0.0, 0.0));
+        assert!(matches!(Sheet::open(&bytes), Err(OrtoError::UserCrs(_))));
+    }
+
+    #[test]
+    fn parameters_are_compared_within_the_tolerance_in_both_directions() {
+        // [lon0, lat0, easting, northing, k0] of PL-2000 zone 7 and of PL-1992.
+        let zone7 = [21.0, 0.0, 7_500_000.0, 0.0, 0.999_923];
+        let pl1992 = [19.0, 0.0, 500_000.0, -5_300_000.0, 0.9993];
+        let steps = [
+            ANGLE_TOLERANCE_DEG,
+            ANGLE_TOLERANCE_DEG,
+            METRE_TOLERANCE,
+            METRE_TOLERANCE,
+            SCALE_TOLERANCE,
+        ];
+        let find = |v: [f64; 5]| SheetCrs::from_parameters(v[0], v[1], v[2], v[3], v[4]);
+        assert_eq!(find(zone7), Some(SheetCrs::Pl2000(7)));
+        assert_eq!(find(pl1992), Some(SheetCrs::Pl1992));
+        for (known, crs) in [(zone7, SheetCrs::Pl2000(7)), (pl1992, SheetCrs::Pl1992)] {
+            for i in 0..5 {
+                for sign in [-1.0, 1.0] {
+                    let mut inside = known;
+                    inside[i] += sign * 0.5 * steps[i];
+                    assert_eq!(find(inside), Some(crs), "inside {i} {sign}");
+                    let mut outside = known;
+                    outside[i] += sign * 2.0 * steps[i];
+                    assert_eq!(find(outside), None, "outside {i} {sign}");
+                }
+            }
+        }
+        assert!(within(100.0, 100.4, 0.5) && within(100.4, 100.0, 0.5));
+        assert!(!within(100.0, 100.6, 0.5) && !within(100.6, 100.0, 0.5));
+    }
+
+    #[test]
+    fn the_projections_agree_with_proj() {
+        // Reference values of cs2cs (PROJ 9, GRS80, no datum shift) for the point of PL-1992
+        // E 197747.0 N 507596.0 (Slubice) and one east of it.
+        let at = SheetCrs::Pl1992.projection();
+        let (lat, lon) = at.inverse(197_747.0, 507_596.0);
+        assert!((lat - 52.350_797_228).abs() < 1e-8 && (lon - 14.559_993_446).abs() < 1e-8);
+        for (zone, e, n) in [
+            (5, 5_470_020.383_4, 5_802_021.358_9),
+            (6, 6_265_652.053_2, 5_807_503.265_0),
+            (7, 7_061_447.877_2, 5_821_480.513_6),
+            (8, 7_857_556.739_2, 5_844_000.518_7),
+        ] {
+            let (x, y) = SheetCrs::Pl2000(zone).projection().forward(lat, lon);
+            assert!(
+                (x - e).abs() < 0.001 && (y - n).abs() < 0.001,
+                "zone {zone}: {x} {y}"
+            );
+        }
+        // The PL-1992 here is the one of the core.
+        let ll = freemapper_georef::crs::LatLon { lat, lon };
+        let core = freemapper_georef::crs::Pl1992::forward(ll);
+        assert!(
+            (core.easting - 197_747.0).abs() < 0.001 && (core.northing - 507_596.0).abs() < 0.001
+        );
+    }
+
+    #[test]
+    fn a_window_of_a_pl2000_sheet_is_the_box_of_its_projected_area() {
+        let bytes = fixture_with_keys(0.5, &user_keys(), &ZONE5, (5_470_000.0, 5_802_100.0));
+        let s = Sheet::open(&bytes).unwrap();
+        let area = BoundingBox {
+            min_e: 197_700.0,
+            min_n: 507_550.0,
+            max_e: 197_800.0,
+            max_n: 507_650.0,
+        };
+        let w = s.window_for(&area);
+        // PL-1992 is turned by about 3 degrees against zone 5 here, so the box is wider than 100 m.
+        assert!(w.width() > 100.0 && w.width() < 110.0, "{w:?}");
+        assert!((w.min_e - 5_470_000.0).abs() < 100.0 && (w.min_n - 5_802_000.0).abs() < 100.0);
+        // A PL-1992 sheet keeps the window as it is.
+        let plain = fixture(0.25, 2180, true);
+        assert_eq!(Sheet::open(&plain).unwrap().window_for(&area), area);
+        // The corner of the window comes back to its PL-1992 position.
+        let back = s.to_pl1992(ProjectedPoint {
+            easting: 5_470_020.383_4,
+            northing: 5_802_021.358_9,
+        });
+        assert!(
+            (back.easting - 197_747.0).abs() < 0.001 && (back.northing - 507_596.0).abs() < 0.001
+        );
     }
 
     #[test]

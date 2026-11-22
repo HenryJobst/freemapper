@@ -8,7 +8,10 @@
 //! already filled keeps its value, a pixel it left empty falls to the next sheet. That is the
 //! mosaic, and where two sheets overlap the first one wins.
 
+use freemapper_georef::tm::TransverseMercator;
+
 use crate::crs::{Crs, Pl1992, ProjectedPoint};
+use crate::orto::SheetCrs;
 use crate::raster::{GridSpec, Raster};
 
 /// How a height is read between the pixels of the source.
@@ -58,16 +61,28 @@ pub fn warp_rgb(src: &Raster<[u8; 3]>, grid: GridSpec, crs: Crs, how: Resample) 
 /// Writes `src` (in PL-1992) into the transparent (alpha 0) pixels of `dst` (in `crs`) where
 /// `src` holds a pixel; a pixel that is already opaque stays, so the first sheet wins.
 pub fn warp_rgb_into(dst: &mut Raster<[u8; 4]>, crs: Crs, src: &Raster<[u8; 3]>, how: Resample) {
+    warp_rgb_into_from(dst, crs, src, &SheetCrs::Pl1992.projection(), how);
+}
+
+/// Like [`warp_rgb_into`] for a source in another transverse Mercator system, such as a sheet
+/// in PL-2000: `source` is the projection of `src`.
+pub fn warp_rgb_into_from(
+    dst: &mut Raster<[u8; 4]>,
+    crs: Crs,
+    src: &Raster<[u8; 3]>,
+    source: &TransverseMercator,
+    how: Resample,
+) {
     let grid = dst.grid;
     for y in 0..grid.height {
         for x in 0..grid.width {
             if dst.get(x, y)[3] != 0 {
                 continue;
             }
-            let Some(source) = source_position(crs, &grid, x, y) else {
+            let Some(at) = source_position_in(crs, &grid, x, y, source) else {
                 continue;
             };
-            if let Some([r, g, b]) = sample_rgb(src, source.easting, source.northing, how) {
+            if let Some([r, g, b]) = sample_rgb(src, at.easting, at.northing, how) {
                 dst.set(x, y, [r, g, b, 255]);
             }
         }
@@ -80,6 +95,22 @@ fn source_position(crs: Crs, grid: &GridSpec, x: u32, y: u32) -> Option<Projecte
     let northing = grid.north - (f64::from(y) + 0.5) * grid.pixel_size;
     crs.inverse(ProjectedPoint { easting, northing })
         .map(Pl1992::forward)
+}
+
+/// Where the centre of pixel (`x`, `y`) of `grid` (in `crs`) lies in the system of `source`.
+fn source_position_in(
+    crs: Crs,
+    grid: &GridSpec,
+    x: u32,
+    y: u32,
+    source: &TransverseMercator,
+) -> Option<ProjectedPoint> {
+    let easting = grid.west + (f64::from(x) + 0.5) * grid.pixel_size;
+    let northing = grid.north - (f64::from(y) + 0.5) * grid.pixel_size;
+    crs.inverse(ProjectedPoint { easting, northing }).map(|p| {
+        let (easting, northing) = source.forward(p.lat, p.lon);
+        ProjectedPoint { easting, northing }
+    })
 }
 
 /// The colour of `src` at a position in its own grid; `None` outside it.
@@ -164,6 +195,28 @@ fn sample(src: &Raster<f32>, easting: f64, northing: f64, how: Resample) -> Opti
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_source_position_of_a_pixel_is_its_centre_in_the_grid() {
+        // A grid in UTM 33 with a skew origin and a pixel of 0.2 m; read through the UTM 33
+        // projection itself, the position must come back as the pixel centre.
+        let grid = GridSpec {
+            west: 400_000.0,
+            north: 5_800_000.0,
+            pixel_size: 0.2,
+            width: 50,
+            height: 50,
+        };
+        let utm = Crs::Utm33.transverse_mercator();
+        let p = source_position_in(Crs::Utm33, &grid, 7, 3, &utm).unwrap();
+        // 400000 + 7.5 * 0.2 and 5800000 - 3.5 * 0.2.
+        assert!((p.easting - 400_001.5).abs() < 1e-3, "{p:?}");
+        assert!((p.northing - 5_799_999.3).abs() < 1e-3, "{p:?}");
+        let q = source_position_in(Crs::Utm33, &grid, 20, 11, &utm).unwrap();
+        assert!((q.easting - 400_004.1).abs() < 1e-3, "{q:?}");
+        assert!((q.northing - 5_799_997.7).abs() < 1e-3, "{q:?}");
+    }
+
     use crate::crs::LatLon;
 
     /// A position in Słubice: PL-1992 and UTM 33 of the same place.

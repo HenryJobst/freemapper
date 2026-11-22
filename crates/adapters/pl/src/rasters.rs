@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! The rasters of Poland from GUGiK: the terrain model (NMT), the surface model (NMPT) and the
-//! orthophoto, per sheet in PL-1992 (EPSG:2180). A fetch asks a [`SheetCatalog`] which sheets touch
+//! orthophoto, per sheet in PL-1992 (EPSG:2180; orthophoto sheets of old flights also in PL-2000). A fetch asks a [`SheetCatalog`] which sheets touch
 //! the map area, keeps the best one per sheet number ([`best_per_cell`]), downloads them into the
 //! shared cache and warps them into the grid of the map, where `derive` finds them like those of
 //! any per-area provider: `data/dgm1.tif`, `data/dom1.tif` and `data/orthophoto-wms.jpg`.
@@ -32,7 +32,7 @@ use freemapper_sources::raster::{GridSpec, Raster};
 use freemapper_sources::raster_fetch::{
     SURFACE_RELPATH, TERRAIN_RELPATH, WMS_ORTHOPHOTO_RELPATH, keep_stored_surface, keep_surface,
 };
-use freemapper_sources::warp::{Resample, warp_into, warp_rgb_into};
+use freemapper_sources::warp::{Resample, warp_into, warp_rgb_into_from};
 use freemapper_sources::wms::ORTHOPHOTO_PIXEL_M;
 
 use crate::sheets::{Product, Sheet, best_per_cell};
@@ -306,9 +306,15 @@ impl PolskaRasters {
         let mut unreadable = None;
         for sheet in sheets {
             let (path, bytes) = self.sheet_bytes(env, Product::Orthophoto, sheet)?;
-            let read = orto::Sheet::open(&bytes).and_then(|s| s.read_window(area));
+            let read = orto::Sheet::open(&bytes).and_then(|s| {
+                let projection = s.crs.projection();
+                s.read_window(&s.window_for(area))
+                    .map(|w| w.map(|w| (w, projection)))
+            });
             match read {
-                Ok(Some(window)) => warp_rgb_into(&mut rgba, crs, &window, Resample::Bilinear),
+                Ok(Some((window, projection))) => {
+                    warp_rgb_into_from(&mut rgba, crs, &window, &projection, Resample::Bilinear);
+                }
                 Ok(None) => {}
                 // A sheet of an old flight may carry a coordinate system the reader does not know
                 // (the old sheet numbers of 2014 do): it is left out with a warning, and the area
@@ -512,7 +518,8 @@ mod tests {
     use freemapper_adapter_api::registry::Registry;
     use freemapper_adapter_api::testing::MapFetcher;
     use freemapper_georef::crs::LatLon;
-    use freemapper_sources::orto::test_support::fixture_at;
+    use freemapper_sources::orto::SheetCrs;
+    use freemapper_sources::orto::test_support::{fixture_at, fixture_with_keys};
     use std::path::Path;
 
     /// Słubice: the place of the tests in PL-1992 and UTM 33.
@@ -746,6 +753,60 @@ mod tests {
         assert!(
             has([250, 20, 20]) && has([20, 250, 20]) && has([20, 20, 250]) && has([250, 250, 250])
         );
+    }
+
+    /// The orthophoto sheet around the place in PL-2000 zone 5, as old flights have it: once with
+    /// its EPSG code, once user-defined (32767) with the parameters. Zone 5 has the central
+    /// meridian of UTM 33, so the sheet lies straight in the project grid and the four colours
+    /// must lie where the place is, in their quarters.
+    #[test]
+    fn a_pl2000_orthophoto_sheet_is_warped_to_where_it_lies() {
+        let (_, utm) = place();
+        let zone5 = SheetCrs::Pl2000(5).projection();
+        let (e, n) = zone5.forward(52.35, 14.57);
+        let origin = (e - 4.0, n + 4.0);
+        let user_keys: Vec<u16> = vec![
+            1, 1, 0, 7, // header: seven keys
+            3072, 0, 1, 32767, // user-defined projected system
+            3075, 0, 1, 1, // transverse Mercator
+            3080, 34736, 1, 0, // central meridian
+            3081, 34736, 1, 1, // latitude of origin
+            3082, 34736, 1, 2, // false easting
+            3083, 34736, 1, 3, // false northing
+            3092, 34736, 1, 4, // scale
+        ];
+        let doubles = [15.0, 0.0, 5_500_000.0, 0.0, 0.999_923];
+        for sheet_bytes in [
+            fixture_at(0.25, 2176, true, (0.0, 0.0), origin),
+            fixture_with_keys(0.25, &user_keys, &doubles, origin),
+        ] {
+            let (stub, fetcher) = served();
+            fetcher.insert(ORTO, sheet_bytes);
+            let backend = PolskaRasters::new(Arc::new(stub));
+            let scratch = tempfile::tempdir().unwrap();
+            run(&backend, &fetcher, scratch.path(), FetchMode::Online, true)
+                .0
+                .unwrap();
+            let dir = scratch.path().join("project/data");
+            let image = image::open(dir.join("orthophoto-wms.jpg"))
+                .unwrap()
+                .into_rgb8();
+            let world = std::fs::read_to_string(dir.join("orthophoto-wms.jgw")).unwrap();
+            let v: Vec<f64> = world.lines().map(|l| l.trim().parse().unwrap()).collect();
+            let (pixel, west, north) = (v[0], v[4], v[5]);
+            let colour_at = |de: f64, dn: f64| {
+                let x = ((utm.easting + de - west) / pixel).round() as u32;
+                let y = ((north - (utm.northing + dn)) / pixel).round() as u32;
+                image.get_pixel(x, y).0
+            };
+            let near = |p: [u8; 3], q: [u8; 3]| p.iter().zip(q).all(|(a, b)| a.abs_diff(b) < 40);
+            // A sheet in zone 5 straight in the UTM grid: red north-west of the place, green
+            // north-east, blue south-west, white south-east.
+            assert!(near(colour_at(-2.0, 2.0), [250, 20, 20]));
+            assert!(near(colour_at(2.0, 2.0), [20, 250, 20]));
+            assert!(near(colour_at(-2.0, -2.0), [20, 20, 250]));
+            assert!(near(colour_at(2.0, -2.0), [250, 250, 250]));
+        }
     }
 
     #[test]

@@ -27,6 +27,10 @@ All notable changes to freemapper are listed here, newest first. The format foll
 - The examples page `examples/README.en.md` shows only the maps now: the sprint maps first, the forest maps right after. The text (how they were made, numbers, sources, how the areas were chosen, licences) moved to the new page `examples/background.en.md`.
 - README and manual exist in German and English only. The Polish README and the shortened Polish manual are removed; the program itself keeps all its languages (ADR 0172).
 
+### Fixed
+
+- Poland: orthophoto sheets of older flights in the coordinate system PL-2000 (zones 5 to 8, EPSG:2176 to 2179, also written as a user-defined transverse Mercator with the code 32767) are read and warped into the grid of the map, where they used to be skipped with the warning "not in EPSG:2180". Areas near Słubice and Łagów were affected: part of the orthophoto template was missing. A sheet in any other system is still left out, and the warning now names its code or its parameters.
+
 ## [0.25.0] - 2026-11-21
 
 ### Changed
