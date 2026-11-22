@@ -12,14 +12,18 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ### Fixed
 
+- GUGiK orthophoto sheets that hold uncompressed RGB instead of JPEG tiles (older flights such as M-34-88-D-a-4 of 2003 near Chochołów) are read. Before, the run said "the orthophoto is not made of JPEG tiles" and left the sheet out.
 - The training map keeps the gap between a wall and a way after the ways are joined (issue #177): Regensburg and Bautzen reported 1.6 and 1.2 mm of too little gap there, now nothing. The gap step runs once more after the join (ADR 0150, addendum). The examples in the repository are not rebuilt yet.
 - The page PDF embeds the font Arimo and shows letters such as ł, ą, č, ř and ő themselves instead of their base letter or `?` ("Słubice" instead of "Slubice"; issue 267, ADR 0179). The PDF grows by the font subsets; the example PDFs in the repository stay until the example is rebuilt.
+- The progress line for land use in Poland names "EGiB/BDOT10k", because the count also holds the parts BDOT10k filled in. The manual and AGENTS.md call Poland "usable" like the README, not "preview".
+- Buildings in Poland whose kind the cadastre gives as a word instead of a letter (`budynekMieszkalny`, `budynekNiemieszkalny`) now get their German name (residential, other building) instead of the raw text. The manual no longer describes Poland as a map "from OpenStreetMap alone".
 - An offline run (`run --offline`, `fetch --offline`) for a map area in Poland no longer asks the GUGiK index service. It reads the sheets an online run recorded in the project (`data/gugik-sheets.json`); when nothing is recorded it says at once that the data must be fetched online first. Before, it failed with a network error when the service was unreachable.
 
 ### Changed
 
 - The Słubice example is rebuilt with the state of `main`: its PDF now embeds Arimo and shows "Słubice" instead of "Slubice" (issue 267). The run also took the BDOT10k fallback along: land use has 853 instead of 108 areas, and the out-of-bounds candidate layer is larger.
 - The Sanssouci example is rebuilt with v0.26.0: the training map has one tree point fewer, the vegetation candidate layer three more OSM areas (two vineyards). The base map has the same 2282 objects. The run also loaded the Brandenburg OSM extract through the new Geofabrik address.
+- The Szczeliniec example is rebuilt with BDOT10k as the fallback for land use: the map holds 565 objects instead of 552, the land use has 46 parts instead of 10, and the vegetation and out-of-bounds candidate layers changed a little.
 - The core crates (`freemapper-core`) are pinned to v0.32.0. The tag makes the embedding of the font Arimo public, which the page PDF will use later; the interface freemapper uses today stays the same.
 
 ## [0.26.0] - 2026-11-22

@@ -329,7 +329,9 @@ pub(crate) fn geometry(feature: &Feature, crs: Crs) -> Option<Value> {
 /// `mt`, `mz` residential, `a` and `u` accommodation and trade, `d` communication and stations,
 /// `o`, `e` culture and schools, `f` sport, `r` places of worship, `x` listed structures. No
 /// answer of the service held one yet; they are mapped to the same names as the coarse letters.
-/// A kind the table does not know keeps its letter, so the data stays readable.
+/// Some municipalities send the kind in words: `budynekMieszkalny` is residential and
+/// `budynekNiemieszkalny` non-residential without saying what for. A kind the table does not know
+/// keeps its text, so the data stays readable.
 pub fn building_function(kind: &str) -> String {
     match kind.trim() {
         "m" | "mj" | "md" | "mt" | "mz" => "Wohngebäude",
@@ -342,7 +344,8 @@ pub fn building_function(kind: &str) -> String {
         "z" => "Gebäude für Gesundheit und Pflege",
         "k" | "o" | "e" => "Gebäude für Bildung, Wissenschaft und Kultur",
         "f" => "Gebäude für Sport",
-        "i" | "r" | "x" => "Sonstiges Gebäude",
+        "i" | "r" | "x" | "budynekNiemieszkalny" => "Sonstiges Gebäude",
+        "budynekMieszkalny" => "Wohngebäude",
         other => other,
     }
     .to_string()
@@ -751,6 +754,8 @@ mod tests {
             ("k", "Gebäude für Bildung, Wissenschaft und Kultur"),
             ("f", "Gebäude für Sport"),
             ("i", "Sonstiges Gebäude"),
+            ("budynekMieszkalny", "Wohngebäude"),
+            ("budynekNiemieszkalny", "Sonstiges Gebäude"),
             ("q", "q"),
         ];
         for (kind, name) in table {

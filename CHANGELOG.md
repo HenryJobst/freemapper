@@ -12,14 +12,18 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Behoben
 
+- Orthofoto-Bögen von GUGiK, die nicht aus JPEG-Kacheln bestehen, sondern unkomprimiertes RGB enthalten (ältere Befliegungen wie M-34-88-D-a-4 von 2003 bei Chochołów), werden gelesen. Vorher meldete der Lauf „the orthophoto is not made of JPEG tiles“ und ließ den Bogen aus.
 - Die Trainingskarte hält den Abstand zwischen einer Mauer und einem Weg auch nach dem Zusammenfügen der Wege (Issue #177): Regensburg und Bautzen meldeten dort 1,6 und 1,2 mm zu geringen Abstand, jetzt nichts mehr. Der Abstandsschritt läuft nach dem Zusammenfügen noch einmal (ADR 0150, Nachtrag). Die Beispiele im Repository sind noch nicht neu gebaut.
 - Das Seiten-PDF bettet die Schrift Arimo ein und zeigt Buchstaben wie ł, ą, č, ř und ő selbst, statt sie durch den Grundbuchstaben oder `?` zu ersetzen („Słubice“ statt „Slubice“; Issue 267, ADR 0179). Das PDF wird um die Schriftteilmengen größer; die Beispiel-PDFs im Repository bleiben, bis das Beispiel neu gebaut wird.
+- Die Fortschrittszeile zur Landnutzung in Polen nennt „EGiB/BDOT10k“, weil die Zahl auch die von BDOT10k ergänzten Teile enthält. Handbuch und AGENTS.md nennen Polen wie die README „nutzbar“ statt „Vorschau“.
+- Gebäude in Polen, deren Art der Kataster als Wort statt als Buchstabe liefert (`budynekMieszkalny`, `budynekNiemieszkalny`), bekommen jetzt ihren deutschen Namen (Wohngebäude, Sonstiges Gebäude) statt des Rohtexts. Das Handbuch beschreibt Polen nicht mehr als Karte „allein aus OpenStreetMap“.
 - Ein Offline-Lauf (`run --offline`, `fetch --offline`) für ein Kartengebiet in Polen fragt den Indexdienst von GUGiK nicht mehr, sondern liest die Bögen, die der Online-Lauf im Projekt (`data/gugik-sheets.json`) vermerkt hat; ist nichts vermerkt, meldet er sofort, dass erst online geholt werden muss. Vorher scheiterte er bei nicht erreichbarem Dienst mit einem Netzfehler.
 
 ### Geändert
 
 - Das Beispiel Słubice ist mit dem Stand von `main` neu gebaut: Sein PDF bettet jetzt Arimo ein und zeigt „Słubice“ statt „Slubice“ (Issue 267). Der Lauf hat auch den BDOT10k-Rückfall mitgenommen: Die Landnutzung hat 853 statt 108 Flächen, die Kandidatenebene „out-of-bounds“ ist größer.
 - Das Beispiel Sanssouci ist mit v0.26.0 neu gebaut: Die Trainingskarte hat einen Baumpunkt weniger, die Kandidatenebene der Vegetation drei OSM-Flächen mehr (zwei Weinberge). Die Grundkarte hat dieselben 2282 Objekte. Der Lauf hat dabei auch den Brandenburger OSM-Auszug über die neue Geofabrik-Adresse geladen.
+- Das Beispiel Szczeliniec ist mit BDOT10k als Rückfall für die Bodennutzung neu gebaut: Die Karte hat 565 statt 552 Objekte, die Bodennutzung 46 statt 10 Teile, die Kandidatenebenen Vegetation und Außerhalb der Grenzen haben sich leicht geändert.
 - Die Core-Crates (`freemapper-core`) stehen auf v0.32.0. Das Tag macht die Einbettung der Schrift Arimo öffentlich, die das Seiten-PDF später nutzt; die Schnittstelle, die freemapper heute nutzt, bleibt gleich.
 
 ## [0.26.0] - 2026-11-22
