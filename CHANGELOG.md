@@ -6,17 +6,19 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+### Hinzugefügt
+
+- Polen füllt Gelände ohne Katasterdaten aus BDOT10k, der topographischen Objektdatenbank von GUGiK: Wo der EGiB-Dienst für das Kartengebiet keine Gebäude liefert (Gemeinden ohne Katasterdienst) oder ausfällt, kommen die Gebäude aus BDOT10k; wo die Flurstücke weniger als ein Viertel des Gebiets mit einer Nutzungsklasse abdecken (die großen Städte senden sie meist leer), ergänzt BDOT10k die Landnutzung (Wald, Gehölz, Grünland, Acker, Wasser, Wohn- und Gewerbeflächen, Plätze, Parkplätze, Friedhöfe, Grünanlagen). EGiB hat Vorrang. Dafür lädt freemapper das GML-Archiv des betroffenen Powiats (7 bis 89 MB, im Cache) und liest nur die nötigen Klassen; fällt BDOT10k aus, bleibt es bei einer Warnung (ADR 0178)
+
 ### Behoben
 
 - Die Trainingskarte hält den Abstand zwischen einer Mauer und einem Weg auch nach dem Zusammenfügen der Wege (Issue #177): Regensburg und Bautzen meldeten dort 1,6 und 1,2 mm zu geringen Abstand, jetzt nichts mehr. Der Abstandsschritt läuft nach dem Zusammenfügen noch einmal (ADR 0150, Nachtrag). Die Beispiele im Repository sind noch nicht neu gebaut.
+- Ein Offline-Lauf (`run --offline`, `fetch --offline`) für ein Kartengebiet in Polen fragt den Indexdienst von GUGiK nicht mehr, sondern liest die Bögen, die der Online-Lauf im Projekt (`data/gugik-sheets.json`) vermerkt hat; ist nichts vermerkt, meldet er sofort, dass erst online geholt werden muss. Vorher scheiterte er bei nicht erreichbarem Dienst mit einem Netzfehler.
 
 ### Geändert
 
 - Das Beispiel Sanssouci ist mit v0.26.0 neu gebaut: Die Trainingskarte hat einen Baumpunkt weniger, die Kandidatenebene der Vegetation drei OSM-Flächen mehr (zwei Weinberge). Die Grundkarte hat dieselben 2282 Objekte. Der Lauf hat dabei auch den Brandenburger OSM-Auszug über die neue Geofabrik-Adresse geladen.
-
-### Behoben
-
-- Ein Offline-Lauf (`run --offline`, `fetch --offline`) für ein Kartengebiet in Polen fragt den Indexdienst von GUGiK nicht mehr, sondern liest die Bögen, die der Online-Lauf im Projekt (`data/gugik-sheets.json`) vermerkt hat; ist nichts vermerkt, meldet er sofort, dass erst online geholt werden muss. Vorher scheiterte er bei nicht erreichbarem Dienst mit einem Netzfehler.
+- Die Core-Crates (`freemapper-core`) stehen auf v0.32.0. Das Tag macht die Einbettung der Schrift Arimo öffentlich, die das Seiten-PDF später nutzt; die Schnittstelle, die freemapper heute nutzt, bleibt gleich.
 
 ## [0.26.0] - 2026-11-22
 

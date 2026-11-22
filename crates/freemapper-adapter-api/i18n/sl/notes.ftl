@@ -120,6 +120,9 @@ progress-alkis-land-use-parts = delov rabe tal { $cadastre }: { $count }
 warning-alkis-land-use-kept = raba tal { $cadastre } ni na voljo ({ $error }); ohranjena je shranjena raba tal
 warning-alkis-land-use-removed = raba tal { $cadastre } ni na voljo ({ $error }); shranjena raba tal ne pokriva več območja karte, zato jo je freemapper odstranil
 warning-alkis-land-use-none = raba tal { $cadastre } ni na voljo ({ $error }); ni kandidatov prepovedanih območij
+progress-bdot-filled = dodanih { $count } objektov BDOT10k ({ $what }), kjer EGiB ne daje ničesar ({ $powiat })
+warning-bdot-failed = BDOT10k ni mogel zapolniti vrzeli v EGiB ({ $what }): { $error }
+warning-bdot-instead = EGiB ni dostopen ({ $error }); namesto njega se uporablja BDOT10k ({ $what }, { $powiat })
 
 ## The Berlin layers
 

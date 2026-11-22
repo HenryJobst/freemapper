@@ -125,6 +125,9 @@ progress-alkis-land-use-parts = { $count } častí využitia pôdy { $cadastre }
 warning-alkis-land-use-kept = využitie pôdy { $cadastre } nie je k dispozícii ({ $error }); ponecháva sa uložené využitie pôdy
 warning-alkis-land-use-removed = využitie pôdy { $cadastre } nie je k dispozícii ({ $error }); uložené využitie pôdy už nepokrýva oblasť mapy, preto ho freemapper odstránil
 warning-alkis-land-use-none = využitie pôdy { $cadastre } nie je k dispozícii ({ $error }); bez kandidátov na plochy, do ktorých sa nesmie vstupovať
+progress-bdot-filled = doplnených { $count } objektov BDOT10k ({ $what }) tam, kde EGiB nič nedáva ({ $powiat })
+warning-bdot-failed = BDOT10k nemohol zaplniť medzeru v EGiB ({ $what }): { $error }
+warning-bdot-instead = EGiB nie je dostupný ({ $error }); namiesto neho sa použilo BDOT10k ({ $what }, { $powiat })
 
 ## The Berlin layers
 

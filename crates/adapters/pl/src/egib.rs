@@ -300,7 +300,7 @@ fn to_map(crs: Crs, (north, east): (f64, f64)) -> Option<[f64; 2]> {
 }
 
 /// The geometry of a feature as GeoJSON in `crs`; `None` when a point has no position.
-fn geometry(feature: &Feature, crs: Crs) -> Option<Value> {
+pub(crate) fn geometry(feature: &Feature, crs: Crs) -> Option<Value> {
     let polygons = feature
         .polygons
         .iter()
@@ -395,7 +395,7 @@ fn is_neutral_class(class: &str) -> bool {
 /// The land use of a parcel whose register classes are `classes` (`ŁV,N`): that of its classes
 /// when they all mean the same, ditches and waste land left aside, else none. A parcel of arable
 /// land and a wood is neither.
-fn parcel_land_use(classes: &str) -> Option<(&'static str, Option<&'static str>)> {
+pub(crate) fn parcel_land_use(classes: &str) -> Option<(&'static str, Option<&'static str>)> {
     let mut uses = classes
         .split(',')
         .filter(|c| !is_neutral_class(c))

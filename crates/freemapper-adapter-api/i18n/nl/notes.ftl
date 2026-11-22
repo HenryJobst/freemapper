@@ -119,6 +119,9 @@ progress-alkis-land-use-parts = { $count } { $cadastre }-grondgebruiksdelen
 warning-alkis-land-use-kept = { $cadastre }-grondgebruik niet beschikbaar ({ $error }); het opgeslagen grondgebruik blijft behouden
 warning-alkis-land-use-removed = { $cadastre }-grondgebruik niet beschikbaar ({ $error }); het opgeslagen grondgebruik dekt het kaartgebied niet meer, dus freemapper heeft het verwijderd
 warning-alkis-land-use-none = { $cadastre }-grondgebruik niet beschikbaar ({ $error }); geen kandidaten voor verboden gebied
+progress-bdot-filled = { $count } BDOT10k-objecten ({ $what }) aangevuld waar EGiB niets geeft ({ $powiat })
+warning-bdot-failed = BDOT10k kon de leemte in EGiB niet vullen ({ $what }): { $error }
+warning-bdot-instead = EGiB is niet beschikbaar ({ $error }); in plaats daarvan BDOT10k gebruikt ({ $what }, { $powiat })
 
 ## The Berlin layers
 
