@@ -12,6 +12,10 @@ All notable changes to freemapper are listed here, newest first. The format foll
 - A double click on `freemapper.exe` on Windows opens the area page in the browser, like `freemapper select`, with the project folder `Documents\freemapper\karte-<date>` (`-2`, … for a second start on the same day). The console window stays open while the program runs. A bare `freemapper` in a terminal on Windows does the same; the two cannot be told apart without `unsafe` code. The manual and the README say how to call the other commands in PowerShell.
 - Poland takes its terrain model (NMT), surface model (NMPT) and orthophoto from GUGiK: hillshade, slope, relief, nDSM, contours and aerial photo for an area in Poland. Buildings and land use still come from OpenStreetMap; Poland stays a preview (ADR 0170). The OSM extract of a voivodeship is found again (Geofabrik moved its folders).
 
+### Fixed
+
+- The OSM download failed in every state with "http status: 404" (issue #244): Geofabrik moved each extract into a folder of its own, for example `europe/germany/hessen/hessen-latest.osm.pbf` instead of `europe/germany/hessen-latest.osm.pbf`, and the old address leads nowhere. freemapper now uses the new address, also for `updates/state.txt`; adapters in a person's own folder that name the old path keep working.
+
 ### Changed
 
 - The badges for tests and ADRs show the rounded-down number ("3000+", "170+"), and `docs/tests.json` keeps the number rounded down to a hundred. A pull request that adds a test or an ADR no longer changes the README and no longer collides with others (ADR 0176).

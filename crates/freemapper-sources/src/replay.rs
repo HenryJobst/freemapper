@@ -613,7 +613,7 @@ mod tests {
         let replay = ReplayFetcher::from_dir(dir.path())
             .unwrap()
             .with_extract(b"pbf");
-        let url = "https://download.geofabrik.de/europe/germany/hamburg-latest.osm.pbf";
+        let url = "https://download.geofabrik.de/europe/germany/hamburg/hamburg-latest.osm.pbf";
         assert_eq!(replay.get(url).unwrap(), b"pbf");
         let file = dir.path().join("out").join("extract.osm.pbf");
         replay.download_to(url, &file, 10, &mut |_| {}).unwrap();
