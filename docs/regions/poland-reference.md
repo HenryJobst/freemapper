@@ -272,8 +272,8 @@ Chochołów (E 561324, N 172781), Czarny Dunajec centre (E 561964, N 172655) and
 (E 532323, N 184714) answer `numberReturned="0"` every time, while Nowy Targ, Jabłonka and the
 rest of powiat 1211 answer. Of 45 random points inside the border, one answered nothing. The
 service also answers empty sporadically for a 500 m cell (a cell with zero in one run held 735
-buildings in the next, 600 m box), so an empty answer is not proof of a gap; the fallback treats
-it as one. Land use classes (`KLASOUZYTKI_EGIB`, 600 m boxes, share of the box covered by parcels
+buildings in the next, 600 m box), so an empty answer is not proof of a gap; the client asks an empty first
+answer twice more, and the fallback treats a third empty one as a gap. Land use classes (`KLASOUZYTKI_EGIB`, 600 m boxes, share of the box covered by parcels
 with a usable class): Słubice 0.60, Poznań 0.63, a village of powiat 2002 0.99; Warszawa, Białystok,
 Gdańsk, Lublin, Zakopane 0.0 (empty class) and Kraków and Wrocław 0.0 (the class is the text
 `brak_uprawnień` / `brak uprawnień`, "no authorisation"); five of seven rural points 0.0 (empty

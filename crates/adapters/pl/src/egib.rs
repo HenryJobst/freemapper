@@ -35,6 +35,10 @@ pub const PAGE: usize = 1000;
 /// thousand features, so a service that keeps pointing to a next page is stopped here.
 const MAX_PAGES: usize = 200;
 
+/// How often an empty first page is asked again: the service answers empty now and then for a
+/// box that holds buildings in the next request.
+const EMPTY_RETRIES: usize = 2;
+
 /// The two layers of the service the client reads.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Layer {
@@ -238,9 +242,14 @@ pub fn fetch_all(
     let mut seen = HashSet::new();
     let mut visited = HashSet::new();
     let mut url = first_url(layer, bbox);
+    let mut empty_retries = EMPTY_RETRIES;
     for _ in 0..MAX_PAGES {
         visited.insert(url.clone());
         let page = get_with_retries(fetcher, &url, |body| read_page(layer, body, &url))?;
+        if page.features.is_empty() && features.is_empty() && empty_retries > 0 {
+            empty_retries -= 1;
+            continue;
+        }
         let full = page.features.len() >= PAGE;
         features.extend(
             page.features
@@ -648,6 +657,30 @@ mod tests {
         let error = fetch_all(&pages, Layer::Buildings, &slubice()).unwrap_err();
         assert!(error.to_string().contains("more than 200 pages"), "{error}");
         assert_eq!(pages.asked.borrow().len(), MAX_PAGES);
+    }
+
+    #[test]
+    fn an_empty_first_page_is_asked_again_before_it_counts_as_a_gap() {
+        let empty = page(0, 0, None);
+        let pages = Pages::new(vec![empty.clone(), empty.clone(), page(0, 2, None)]);
+        assert_eq!(
+            fetch_all(&pages, Layer::Buildings, &slubice())
+                .unwrap()
+                .len(),
+            2
+        );
+        let pages = Pages::new(vec![
+            empty.clone(),
+            empty.clone(),
+            empty.clone(),
+            page(0, 2, None),
+        ]);
+        assert!(
+            fetch_all(&pages, Layer::Buildings, &slubice())
+                .unwrap()
+                .is_empty()
+        );
+        assert_eq!(pages.asked.borrow().len(), 1 + EMPTY_RETRIES);
     }
 
     #[test]
