@@ -15,6 +15,7 @@ All notable changes to freemapper are listed here, newest first. The format foll
 ### Changed
 
 - The badges for tests and ADRs show the rounded-down number ("3000+", "170+"), and `docs/tests.json` keeps the number rounded down to a hundred. A pull request that adds a test or an ADR no longer changes the README and no longer collides with others (ADR 0176).
+- The mutation tests of a pull request show a surviving mutant but no longer hold the merge. A nightly run checks the last day's changes and opens an issue when a mutant survives (ADR 0174).
 - The mutation tests run faster: the run builds the tests once in the tree of the runner and copies that target into its working copies, the timeout per mutant drops to twice the test time, and the arithmetic of Newton's method in Poland is left out (ADR 0173).
 - The examples page `examples/README.en.md` shows only the maps now: the sprint maps first, the forest maps right after. The text (how they were made, numbers, sources, how the areas were chosen, licences) moved to the new page `examples/background.en.md`.
 - README and manual exist in German and English only. The Polish README and the shortened Polish manual are removed; the program itself keeps all its languages (ADR 0172).

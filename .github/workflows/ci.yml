@@ -246,11 +246,14 @@ jobs:
       - run: scripts/check.sh hack
 
   # Mutation tests on a random part of the lines the pull request changes, spread over twelve
-  # runners; each stops ten minutes after its baseline (ADR 0161, 0165).
+  # runners; each stops ten minutes after its baseline (ADR 0161, 0165). A surviving mutant is
+  # shown but does not stop a merge: the nightly run of `mutants-nightly.yml` opens an issue for it
+  # (ADR 0174).
   mutants:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 40
+    continue-on-error: true
     strategy:
       fail-fast: false
       matrix:
