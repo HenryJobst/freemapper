@@ -300,9 +300,10 @@ Dienste ziehen um, und Flugjahre wechseln. Was ein Adapter über die Zeit brauch
   sie, den Umzug zu melden.
 - Einen umgezogenen Dienst eines eingebauten Bundeslands, den sein Manifest nennt, können Sie auch ohne Release
   korrigieren: Kopieren Sie den Manifestordner des Landes (`crates/adapters/de/manifests/<Kennung>/`) in Ihren
-  Adapterordner, ändern Sie Adresse und `[net] hosts` und prüfen Sie ihn mit `adapters check`. Ein Ordner mit
-  der Kennung eines eingebauten Landes tritt an dessen Stelle (einmal, mit dem Hinweis
-  `adapter.replaces-built-in`); `adapters list` zeigt ihn als `user`, das JSON sagt `replaces_built_in`.
+  Adapterordner, ändern Sie Adresse und `[net] hosts` und prüfen Sie ihn mit `adapters check`. Ein Ordner in
+  Ihrem Adapterordner mit der Kennung eines eingebauten Landes tritt an dessen Stelle (einmal, mit dem Hinweis
+  `adapter.replaces-built-in`; ein Projektordner tut das nicht, und einer, der Dienste erklärt, braucht einen
+  eigenen `provider`); `adapters list` zeigt ihn als `user`, das JSON sagt `replaces_built_in`.
   Adressen, die noch im Code des Landes stehen (Quellen der Genehmigungshinweise, Baumkataster), stehen nicht
   im Manifest und bleiben, wie sie sind.
 - Ein neuer Schlüssel des Formats braucht ein neueres freemapper. Setzen Sie `min_freemapper` auf die

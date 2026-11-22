@@ -278,8 +278,9 @@ Services move, and flight years change. What an adapter needs over time:
   address names the command `freemapper adapters allow-host <id> <host>`. Ask them to report the move.
 - A moved service of a built-in state that its manifest declares can also be corrected without a release: copy
   the manifest folder of the state (`crates/adapters/de/manifests/<id>/`) into your adapter folder, change the
-  address and `[net] hosts`, and check it with `adapters check`. A folder with the id of a built-in state takes
-  its place (once, with the note `adapter.replaces-built-in`); `adapters list` shows it as `user` and the JSON
+  address and `[net] hosts`, and check it with `adapters check`. A folder in your adapter folder with the id of a
+  built-in state takes its place (once, with the note `adapter.replaces-built-in`; a project folder does not,
+  and one that declares services needs a `provider` of its own); `adapters list` shows it as `user` and the JSON
   says `replaces_built_in`. Addresses that still sit in the code of the state (permit sources, tree cadastres)
   are not in the manifest and stay as they are.
 - A new key of the format needs a newer freemapper. Set `min_freemapper` to the version that introduced the

@@ -245,7 +245,7 @@ pub fn load_folder(
         return Err(vec![needs_newer(&path, &id, needed, running)]);
     }
     let manifest = crate::parse(&text, folder)?;
-    check_fit(registry, &manifest, &path, running)?;
+    check_fit(registry, &manifest, &path, running, origin)?;
     let mut entry = Loaded {
         id: manifest.adapter.id.clone(),
         origin,
@@ -254,7 +254,7 @@ pub fn load_folder(
         hosts: manifest.hosts.clone(),
         last_verified: manifest.adapter.last_verified,
         overlaps: Vec::new(),
-        replaces_built_in: registry.is_builtin(&manifest.adapter.id),
+        replaces_built_in: origin == Origin::User && registry.is_builtin(&manifest.adapter.id),
     };
     let adapter = ManifestAdapter::new(manifest, &FolderFiles::new(folder), Parse::Now, registry)
         .map_err(|findings| {
@@ -361,6 +361,7 @@ fn check_fit(
     manifest: &Manifest,
     path: &Path,
     running: Version,
+    origin: Origin,
 ) -> Result<(), Vec<ManifestError>> {
     let id = &manifest.adapter.id;
     if manifest.adapter.min_freemapper > running {
@@ -371,15 +372,18 @@ fn check_fit(
             running,
         )]);
     }
-    // A folder may take the place of a built-in adapter (ADR 0187), once; any other id that is
-    // taken stays taken.
-    if registry.get(id).is_some() && !registry.is_builtin(id) {
+    // The adapter folder of the person may take the place of a built-in adapter (ADR 0187),
+    // once. The folder of a project may not: it can come from someone else, and the person
+    // passed only the flag for more adapters, not for other sources of a state. Any other id
+    // that is taken stays taken.
+    let replaceable = origin == Origin::User && registry.is_builtin(id);
+    if registry.get(id).is_some() && !replaceable {
         return Err(vec![finding(
             "adapter.duplicate",
             path,
             format!(
-                "an adapter with the id {id} exists already; an adapter from a folder replaces \
-                 only a built-in one, and only once"
+                "an adapter with the id {id} exists already; the adapter folder of a person \
+                 replaces a built-in one, once, and nothing else replaces an adapter"
             ),
         )]);
     }
@@ -393,7 +397,6 @@ fn check_fit(
     if declares_services
         && registry
             .adapters()
-            .filter(|other| other.info().id.as_str() != id.as_str())
             .any(|other| other.info().provider.as_str() == provider)
     {
         return Err(vec![finding(

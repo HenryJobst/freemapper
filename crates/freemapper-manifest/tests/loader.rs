@@ -219,12 +219,43 @@ fn a_boundary_that_crosses_itself_is_left_out() {
     assert_eq!(code, "boundary.invalid");
 }
 
+/// The folder of a project, which can come from someone else, replaces nothing; and a replacement
+/// of the person's folder that declares services cannot share the provider (the cache folder) of
+/// the adapter it replaces (ADR 0187).
+#[test]
+fn a_project_folder_and_a_shared_provider_do_not_replace_a_builtin() {
+    let dir = tempfile::tempdir().unwrap();
+    write(dir.path(), "sample", &manifest("sample"));
+    let mut registry = Registry::new();
+    registry
+        .add(built_in("sample", &manifest("sample"), &Registry::new()))
+        .unwrap();
+    registry.mark_builtin();
+    let project = [AdapterDir {
+        path: dir.path().to_path_buf(),
+        origin: Origin::Project,
+    }];
+    let (loaded, warnings) = load_dirs(&mut registry, &project, RUNNING);
+    assert!(loaded.is_empty());
+    assert_eq!(skipped(&warnings).0, "adapter.duplicate");
+    assert!(registry.is_builtin("sample"));
+    // The person's folder with the provider of the built-in adapter and services of its own.
+    let (loaded, warnings) = load_dirs(&mut registry, &user(dir.path()), RUNNING);
+    assert!(loaded.is_empty());
+    assert_eq!(skipped(&warnings).0, "adapter.provider-shared");
+    assert!(registry.is_builtin("sample"));
+}
+
 /// Review focus 4: an id is taken once. A folder cannot replace an adapter that is no built-in
 /// one (one loaded before it); a built-in one it replaces, once (ADR 0187).
 #[test]
 fn folder_adapter_replaces_only_a_builtin_and_only_once() {
     let dir = tempfile::tempdir().unwrap();
-    let changed = manifest("sample").replace("Sample\", de", "Replaced\", de");
+    // A replacement that declares services is its own provider: it must not write into the
+    // cache of the adapter it replaces.
+    let changed = manifest("sample")
+        .replace("Sample\", de", "Replaced\", de")
+        .replace("[adapter]\n", "[adapter]\nprovider = \"sampleown\"\n");
     assert_ne!(changed, manifest("sample"));
     let folder = write(dir.path(), "sample", &changed);
     // An adapter the registry holds but nobody marked as built in: refused.
@@ -238,7 +269,9 @@ fn folder_adapter_replaces_only_a_builtin_and_only_once() {
     assert_eq!(code, "adapter.duplicate");
     assert_eq!(warning.folder, folder);
     assert!(
-        warning.findings[0].message.contains("only a built-in one"),
+        warning.findings[0]
+            .message
+            .contains("replaces a built-in one"),
         "{warning:?}"
     );
     assert_eq!(registry.get("sample").unwrap().info().names.en, "Sample");
