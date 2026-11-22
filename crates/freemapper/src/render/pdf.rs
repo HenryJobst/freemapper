@@ -517,6 +517,10 @@ mod tests {
         let shown = shown_text(&pdf);
         assert!(shown.contains("Słubice ©"), "{shown:?}");
         assert!(shown.contains("Říčany Šiauliai"), "{shown:?}");
+        // The size is set in points: 2.5 mm and 2 mm.
+        let content = content_of(&pdf);
+        assert!(find(&content, b"7.086614 Tf").is_some(), "2.5 mm in points");
+        assert!(find(&content, b"5.66929").is_some(), "2 mm in points");
     }
 
     #[test]
