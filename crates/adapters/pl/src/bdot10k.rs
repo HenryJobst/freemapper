@@ -60,7 +60,7 @@ pub const MIN_LAND_USE_SHARE: f64 = 0.25;
 
 /// The most a map area may touch: a box of a few square kilometres lies in one powiat, rarely
 /// in two or three. More is a box that is not a map area.
-const MAX_PACKAGES: usize = 6;
+pub(crate) const MAX_PACKAGES: usize = 6;
 
 /// The most one class file may hold unpacked. The largest measured is 136 MB (`OT_RTLW_L`, which
 /// the client never reads); the buildings of Warszawa are the largest class it reads.

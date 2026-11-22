@@ -144,6 +144,12 @@ progress-feinkartierung-download = ladataan Hampurin Feinkartierung (katutila ja
 progress-feinkartierung-features = { $count } Feinkartierung-kohdetta ({ $file })
 warning-feinkartierung-layer-kept = Feinkartierung { $file } ei saatavilla ({ $detail }); säilytetään tallennettu taso
 warning-feinkartierung-layer-skipped = Feinkartierung { $file } ei saatavilla ({ $detail }); taso ohitettu
+progress-bdot-roads-none-stored = tallennettuja BDOT10k-teitä ja polkuja ei ole; hae rekisterin tiet ja polut ajamalla `freemapper fetch` verkossa
+progress-bdot-roads-removing = tallennetut BDOT10k-tiet ja -polut poistetaan: karttalue ei ole enää Puolassa
+progress-bdot-roads-download = ladataan BDOT10k-teitä ja -polkuja
+progress-bdot-roads-features = { $count } BDOT10k-kohdetta tasossa { $file }
+warning-bdot-roads-layer-kept = BDOT10k { $file } ei ole saatavilla ({ $detail }); tallennettu taso säilytetään
+warning-bdot-roads-layer-skipped = BDOT10k { $file } ei ole saatavilla ({ $detail }); taso ohitetaan
 error-extra-layer-unknown = ei ole kansion { $folder } taso
 warning-berlin-buildings-missing = tälle alueelle Berliinissä ei ole tallennettu ALKIS-rakennuksia; aja `freemapper fetch` hakeaksesi ne Geoportal Berlinistä
 

@@ -1,0 +1,372 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gml:FeatureCollection xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:ot="urn:gugik:specyfikacje:gmlas:bazaDanychObiektowTopograficznych10k:2.0" gml:id="GUGiK_OT_SKDR_L" xsi:schemaLocation="urn:gugik:specyfikacje:gmlas:bazaDanychObiektowTopograficznych10k:2.0 ../XSD/BDOT10k_BDOO.xsd">
+		<gml:featureMember>
+		<ot:OT_SKDR_L gml:id="PL.PZGiK.333.BDOT10k_2DDDAEB2-FF60-1ABF-E053-CC2BA8C0C90E_2023-12-31T120000">
+			<ot:lokalnyId>2DDDAEB2-FF60-1ABF-E053-CC2BA8C0C90E</ot:lokalnyId>
+			<ot:przestrzenNazw>PL.PZGiK.333.BDOT10k</ot:przestrzenNazw>
+			<ot:wersja>2023-12-31T12:00:00</ot:wersja>
+			<ot:poczatekWersjiObiektu>2023-12-31T12:00:00</ot:poczatekWersjiObiektu>
+			<ot:oznaczenieZmiany>GI-TOPO.600.116.2023</ot:oznaczenieZmiany>
+			<ot:zrodloDanychGeometrycznych>ortofotomapa</ot:zrodloDanychGeometrycznych>
+			<ot:kategoriaIstnienia>eksploatowany</ot:kategoriaIstnienia>
+			<ot:kategoriaZarzadzania>wewnętrzna</ot:kategoriaZarzadzania>
+			<ot:klasaDrogi>droga wewnętrzna</ot:klasaDrogi>
+			<ot:materialNawierzchni>kostka prefabrykowana</ot:materialNawierzchni>
+			<ot:liczbaJezdniDrogi>1</ot:liczbaJezdniDrogi>
+			<ot:polozenie>na powierzchni gruntu</ot:polozenie>
+			<ot:szerokoscNawierzchni uom="m">5.5</ot:szerokoscNawierzchni>
+			<ot:geometria>
+				<gml:Curve gml:id="id-7443f715-ec9b-48b8-a73e-891adb96380a-0" srsName="EPSG:2180" srsDimension="2">
+					<gml:segments>
+						<gml:LineStringSegment>
+							<gml:posList>197541.27 507826.41 197550.86 507897.51 197551.90 507905.20</gml:posList>
+						</gml:LineStringSegment>
+					</gml:segments>
+				</gml:Curve>
+			</ot:geometria>
+		</ot:OT_SKDR_L>
+	</gml:featureMember>
+	<gml:featureMember>
+		<ot:OT_SKDR_L gml:id="PL.PZGiK.333.BDOT10k_2DDDAEB3-03C6-1ABF-E053-CC2BA8C0C90E_2024-10-21T000000">
+			<ot:lokalnyId>2DDDAEB3-03C6-1ABF-E053-CC2BA8C0C90E</ot:lokalnyId>
+			<ot:przestrzenNazw>PL.PZGiK.333.BDOT10k</ot:przestrzenNazw>
+			<ot:wersja>2024-10-21T00:00:00</ot:wersja>
+			<ot:poczatekWersjiObiektu>2024-10-21T00:00:00</ot:poczatekWersjiObiektu>
+			<ot:oznaczenieZmiany>DN.I.273.1.2024.5</ot:oznaczenieZmiany>
+			<ot:zrodloDanychGeometrycznych>ortofotomapa</ot:zrodloDanychGeometrycznych>
+			<ot:kategoriaIstnienia>eksploatowany</ot:kategoriaIstnienia>
+			<ot:kategoriaZarzadzania>gminna</ot:kategoriaZarzadzania>
+			<ot:klasaDrogi>droga lokalna</ot:klasaDrogi>
+			<ot:materialNawierzchni>beton</ot:materialNawierzchni>
+			<ot:liczbaJezdniDrogi>1</ot:liczbaJezdniDrogi>
+			<ot:polozenie>na powierzchni gruntu</ot:polozenie>
+			<ot:szerokoscNawierzchni uom="m">3.5</ot:szerokoscNawierzchni>
+			<ot:numerDrogi>103045F</ot:numerDrogi>
+			<ot:geometria>
+				<gml:Curve gml:id="id-aa628d09-cb4d-432a-b3c9-2be80b4aa254-0" srsName="EPSG:2180" srsDimension="2">
+					<gml:segments>
+						<gml:LineStringSegment>
+							<gml:posList>198736.61 507755.78 198725.82 507776.72 198718.86 507786.70 198711.76 507797.37</gml:posList>
+						</gml:LineStringSegment>
+					</gml:segments>
+				</gml:Curve>
+			</ot:geometria>
+		</ot:OT_SKDR_L>
+	</gml:featureMember>
+	<gml:featureMember>
+		<ot:OT_SKDR_L gml:id="PL.PZGiK.333.BDOT10k_2DDDAEB2-FF69-1ABF-E053-CC2BA8C0C90E_2024-10-21T000000">
+			<ot:lokalnyId>2DDDAEB2-FF69-1ABF-E053-CC2BA8C0C90E</ot:lokalnyId>
+			<ot:przestrzenNazw>PL.PZGiK.333.BDOT10k</ot:przestrzenNazw>
+			<ot:wersja>2024-10-21T00:00:00</ot:wersja>
+			<ot:poczatekWersjiObiektu>2024-10-21T00:00:00</ot:poczatekWersjiObiektu>
+			<ot:oznaczenieZmiany>DN.I.273.1.2024.5</ot:oznaczenieZmiany>
+			<ot:zrodloDanychGeometrycznych>ortofotomapa</ot:zrodloDanychGeometrycznych>
+			<ot:kategoriaIstnienia>eksploatowany</ot:kategoriaIstnienia>
+			<ot:kategoriaZarzadzania>wewnętrzna</ot:kategoriaZarzadzania>
+			<ot:klasaDrogi>droga wewnętrzna</ot:klasaDrogi>
+			<ot:materialNawierzchni>grunt naturalny</ot:materialNawierzchni>
+			<ot:liczbaJezdniDrogi>1</ot:liczbaJezdniDrogi>
+			<ot:polozenie>na powierzchni gruntu</ot:polozenie>
+			<ot:geometria>
+				<gml:Curve gml:id="id-a9547b45-73c1-476e-bd61-4537976ec1fa-0" srsName="EPSG:2180" srsDimension="2">
+					<gml:segments>
+						<gml:LineStringSegment>
+							<gml:posList>199848.77 505601.21 199871.65 505628.94 199874.11 505631.93 199898.43 505661.41</gml:posList>
+						</gml:LineStringSegment>
+					</gml:segments>
+				</gml:Curve>
+			</ot:geometria>
+		</ot:OT_SKDR_L>
+	</gml:featureMember>
+	<gml:featureMember>
+		<ot:OT_SKDR_L gml:id="PL.PZGiK.333.BDOT10k_2DDDAEB2-DE02-1ABF-E053-CC2BA8C0C90E_2024-10-21T000000">
+			<ot:lokalnyId>2DDDAEB2-DE02-1ABF-E053-CC2BA8C0C90E</ot:lokalnyId>
+			<ot:przestrzenNazw>PL.PZGiK.333.BDOT10k</ot:przestrzenNazw>
+			<ot:wersja>2024-10-21T00:00:00</ot:wersja>
+			<ot:poczatekWersjiObiektu>2024-10-21T00:00:00</ot:poczatekWersjiObiektu>
+			<ot:oznaczenieZmiany>DN.I.273.1.2024.5</ot:oznaczenieZmiany>
+			<ot:zrodloDanychGeometrycznych>ortofotomapa</ot:zrodloDanychGeometrycznych>
+			<ot:kategoriaIstnienia>eksploatowany</ot:kategoriaIstnienia>
+			<ot:kategoriaZarzadzania>gminna</ot:kategoriaZarzadzania>
+			<ot:klasaDrogi>droga lokalna</ot:klasaDrogi>
+			<ot:materialNawierzchni>masa bitumiczna</ot:materialNawierzchni>
+			<ot:liczbaJezdniDrogi>1</ot:liczbaJezdniDrogi>
+			<ot:polozenie>na powierzchni gruntu</ot:polozenie>
+			<ot:szerokoscNawierzchni uom="m">6.7</ot:szerokoscNawierzchni>
+			<ot:numerDrogi>103032F</ot:numerDrogi>
+			<ot:geometria>
+				<gml:Curve gml:id="id-c227d9ae-24a5-4868-b96d-c2563574485e-0" srsName="EPSG:2180" srsDimension="2">
+					<gml:segments>
+						<gml:LineStringSegment>
+							<gml:posList>198163.19 507964.30 198152.00 507928.67 198145.98 507909.86 198137.60 507883.70 198131.95 507857.90 198130.30 507850.31</gml:posList>
+						</gml:LineStringSegment>
+					</gml:segments>
+				</gml:Curve>
+			</ot:geometria>
+		</ot:OT_SKDR_L>
+	</gml:featureMember>
+	<gml:featureMember>
+		<ot:OT_SKDR_L gml:id="PL.PZGiK.333.BDOT10k_d0f1b27a-1f15-4949-bbeb-afa209cb756a_2023-12-31T120000">
+			<ot:lokalnyId>d0f1b27a-1f15-4949-bbeb-afa209cb756a</ot:lokalnyId>
+			<ot:przestrzenNazw>PL.PZGiK.333.BDOT10k</ot:przestrzenNazw>
+			<ot:wersja>2023-12-31T12:00:00</ot:wersja>
+			<ot:poczatekWersjiObiektu>2023-12-31T12:00:00</ot:poczatekWersjiObiektu>
+			<ot:oznaczenieZmiany>GI-TOPO.600.116.2023</ot:oznaczenieZmiany>
+			<ot:zrodloDanychGeometrycznych>ortofotomapa</ot:zrodloDanychGeometrycznych>
+			<ot:kategoriaIstnienia>eksploatowany</ot:kategoriaIstnienia>
+			<ot:kategoriaZarzadzania>krajowa</ot:kategoriaZarzadzania>
+			<ot:klasaDrogi>droga główna ruchu przyśpieszonego</ot:klasaDrogi>
+			<ot:materialNawierzchni>masa bitumiczna</ot:materialNawierzchni>
+			<ot:liczbaJezdniDrogi>1</ot:liczbaJezdniDrogi>
+			<ot:polozenie>na powierzchni gruntu</ot:polozenie>
+			<ot:szerokoscNawierzchni uom="m">6.8</ot:szerokoscNawierzchni>
+			<ot:numerDrogi>29</ot:numerDrogi>
+			<ot:geometria>
+				<gml:Curve gml:id="id-842a1500-0092-4766-aa42-114b08cdd36a-0" srsName="EPSG:2180" srsDimension="2">
+					<gml:segments>
+						<gml:LineStringSegment>
+							<gml:posList>198397.73 507341.46 198344.92 507339.85</gml:posList>
+						</gml:LineStringSegment>
+					</gml:segments>
+				</gml:Curve>
+			</ot:geometria>
+		</ot:OT_SKDR_L>
+	</gml:featureMember>
+	<gml:featureMember>
+		<ot:OT_SKDR_L gml:id="PL.PZGiK.333.BDOT10k_2DDDAEB3-0218-1ABF-E053-CC2BA8C0C90E_2024-10-21T000000">
+			<ot:lokalnyId>2DDDAEB3-0218-1ABF-E053-CC2BA8C0C90E</ot:lokalnyId>
+			<ot:przestrzenNazw>PL.PZGiK.333.BDOT10k</ot:przestrzenNazw>
+			<ot:wersja>2024-10-21T00:00:00</ot:wersja>
+			<ot:poczatekWersjiObiektu>2024-10-21T00:00:00</ot:poczatekWersjiObiektu>
+			<ot:oznaczenieZmiany>DN.I.273.1.2024.5</ot:oznaczenieZmiany>
+			<ot:zrodloDanychGeometrycznych>ortofotomapa</ot:zrodloDanychGeometrycznych>
+			<ot:kategoriaIstnienia>eksploatowany</ot:kategoriaIstnienia>
+			<ot:kategoriaZarzadzania>gminna</ot:kategoriaZarzadzania>
+			<ot:klasaDrogi>droga lokalna</ot:klasaDrogi>
+			<ot:materialNawierzchni>kostka kamienna</ot:materialNawierzchni>
+			<ot:liczbaJezdniDrogi>1</ot:liczbaJezdniDrogi>
+			<ot:polozenie>na powierzchni gruntu</ot:polozenie>
+			<ot:szerokoscNawierzchni uom="m">6.0</ot:szerokoscNawierzchni>
+			<ot:numerDrogi>103019F</ot:numerDrogi>
+			<ot:geometria>
+				<gml:Curve gml:id="id-e804a935-3411-42a0-bdad-863459717fd8-0" srsName="EPSG:2180" srsDimension="2">
+					<gml:segments>
+						<gml:LineStringSegment>
+							<gml:posList>197689.19 507547.62 197691.04 507544.80 197704.34 507524.51 197718.19 507503.39 197737.12 507474.53</gml:posList>
+						</gml:LineStringSegment>
+					</gml:segments>
+				</gml:Curve>
+			</ot:geometria>
+		</ot:OT_SKDR_L>
+	</gml:featureMember>
+	<gml:featureMember>
+		<ot:OT_SKDR_L gml:id="PL.PZGiK.333.BDOT10k_2DDDAEB2-E571-1ABF-E053-CC2BA8C0C90E_2024-10-21T000000">
+			<ot:lokalnyId>2DDDAEB2-E571-1ABF-E053-CC2BA8C0C90E</ot:lokalnyId>
+			<ot:przestrzenNazw>PL.PZGiK.333.BDOT10k</ot:przestrzenNazw>
+			<ot:wersja>2024-10-21T00:00:00</ot:wersja>
+			<ot:poczatekWersjiObiektu>2024-10-21T00:00:00</ot:poczatekWersjiObiektu>
+			<ot:oznaczenieZmiany>DN.I.273.1.2024.5</ot:oznaczenieZmiany>
+			<ot:zrodloDanychGeometrycznych>ortofotomapa</ot:zrodloDanychGeometrycznych>
+			<ot:kategoriaIstnienia>eksploatowany</ot:kategoriaIstnienia>
+			<ot:kategoriaZarzadzania>powiatowa</ot:kategoriaZarzadzania>
+			<ot:klasaDrogi>droga zbiorcza</ot:klasaDrogi>
+			<ot:materialNawierzchni>masa bitumiczna</ot:materialNawierzchni>
+			<ot:liczbaJezdniDrogi>1</ot:liczbaJezdniDrogi>
+			<ot:polozenie>na powierzchni gruntu</ot:polozenie>
+			<ot:szerokoscNawierzchni uom="m">5.5</ot:szerokoscNawierzchni>
+			<ot:numerDrogi>1252F</ot:numerDrogi>
+			<ot:geometria>
+				<gml:Curve gml:id="id-a8f3c6f6-dcf3-40b0-a6ec-dfe49b226ed4-0" srsName="EPSG:2180" srsDimension="2">
+					<gml:segments>
+						<gml:LineStringSegment>
+							<gml:posList>199926.55 502034.93 199953.73 502001.34 200031.61 501891.40 200116.13 501772.71 200161.96 501714.43 200188.45 501677.87 200200.90 501656.67 200209.38 501637.86 200219.33 501610.16 200220.51 501606.87 200244.87 501540.35 200257.66 501504.54 200267.92 501472.55 200280.63 501435.82 200292.05 501400.91 200303.03 501367.38 200327.14 501295.58 200340.07 501251.23 200341.97 501244.72 200352.55 501216.73 200359.19 501199.15 200377.74 501167.63 200393.37 501147.49 200413.24 501127.36 200427.98 501115.30 200437.87 501107.22 200460.66 501087.35 200472.84 501072.78 200495.10 501034.37 200502.21 501019.80 200505.96 501012.12 200516.82 500989.86 200527.52 500969.48 200541.72 500942.44 200543.92 500938.38 200555.77 500916.48 200564.77 500902.44 200580.40 500881.77 200605.31 500851.84 200614.92 500840.60 200644.52 500806.00 200678.16 500766.53 200687.60 500754.02 200710.75 500723.35 200757.90 500659.24 200771.78 500639.70</gml:posList>
+						</gml:LineStringSegment>
+					</gml:segments>
+				</gml:Curve>
+			</ot:geometria>
+		</ot:OT_SKDR_L>
+	</gml:featureMember>
+	<gml:featureMember>
+		<ot:OT_SKDR_L gml:id="PL.PZGiK.333.BDOT10k_2DDDAEB2-FFDA-1ABF-E053-CC2BA8C0C90E_2023-12-31T120000">
+			<ot:lokalnyId>2DDDAEB2-FFDA-1ABF-E053-CC2BA8C0C90E</ot:lokalnyId>
+			<ot:przestrzenNazw>PL.PZGiK.333.BDOT10k</ot:przestrzenNazw>
+			<ot:wersja>2023-12-31T12:00:00</ot:wersja>
+			<ot:poczatekWersjiObiektu>2023-12-31T12:00:00</ot:poczatekWersjiObiektu>
+			<ot:oznaczenieZmiany>GI-TOPO.600.116.2023</ot:oznaczenieZmiany>
+			<ot:zrodloDanychGeometrycznych>ortofotomapa</ot:zrodloDanychGeometrycznych>
+			<ot:kategoriaIstnienia>eksploatowany</ot:kategoriaIstnienia>
+			<ot:kategoriaZarzadzania>wewnętrzna</ot:kategoriaZarzadzania>
+			<ot:klasaDrogi>droga wewnętrzna</ot:klasaDrogi>
+			<ot:materialNawierzchni>masa bitumiczna</ot:materialNawierzchni>
+			<ot:liczbaJezdniDrogi>1</ot:liczbaJezdniDrogi>
+			<ot:polozenie>na powierzchni gruntu</ot:polozenie>
+			<ot:szerokoscNawierzchni uom="m">6.4</ot:szerokoscNawierzchni>
+			<ot:geometria>
+				<gml:Curve gml:id="id-9dc7c082-e384-45cf-8eac-b4d10dfdf269-0" srsName="EPSG:2180" srsDimension="2">
+					<gml:segments>
+						<gml:LineStringSegment>
+							<gml:posList>197832.55 507345.39 197842.66 507344.07 197895.46 507337.20 197926.36 507333.17</gml:posList>
+						</gml:LineStringSegment>
+					</gml:segments>
+				</gml:Curve>
+			</ot:geometria>
+		</ot:OT_SKDR_L>
+	</gml:featureMember>
+	<gml:featureMember>
+		<ot:OT_SKDR_L gml:id="PL.PZGiK.333.BDOT10k_2DDDAEB2-FF92-1ABF-E053-CC2BA8C0C90E_2024-10-21T000000">
+			<ot:lokalnyId>2DDDAEB2-FF92-1ABF-E053-CC2BA8C0C90E</ot:lokalnyId>
+			<ot:przestrzenNazw>PL.PZGiK.333.BDOT10k</ot:przestrzenNazw>
+			<ot:wersja>2024-10-21T00:00:00</ot:wersja>
+			<ot:poczatekWersjiObiektu>2024-10-21T00:00:00</ot:poczatekWersjiObiektu>
+			<ot:oznaczenieZmiany>DN.I.273.1.2024.5</ot:oznaczenieZmiany>
+			<ot:zrodloDanychGeometrycznych>ortofotomapa</ot:zrodloDanychGeometrycznych>
+			<ot:kategoriaIstnienia>eksploatowany</ot:kategoriaIstnienia>
+			<ot:kategoriaZarzadzania>wewnętrzna</ot:kategoriaZarzadzania>
+			<ot:klasaDrogi>droga wewnętrzna</ot:klasaDrogi>
+			<ot:materialNawierzchni>płyty betonowe</ot:materialNawierzchni>
+			<ot:liczbaJezdniDrogi>1</ot:liczbaJezdniDrogi>
+			<ot:polozenie>na powierzchni gruntu</ot:polozenie>
+			<ot:szerokoscNawierzchni uom="m">3.0</ot:szerokoscNawierzchni>
+			<ot:geometria>
+				<gml:Curve gml:id="id-18d053ea-007d-4f5b-9f79-63f472b89edd-0" srsName="EPSG:2180" srsDimension="2">
+					<gml:segments>
+						<gml:LineStringSegment>
+							<gml:posList>199481.84 507440.74 199468.46 507411.17 199460.88 507400.97</gml:posList>
+						</gml:LineStringSegment>
+					</gml:segments>
+				</gml:Curve>
+			</ot:geometria>
+		</ot:OT_SKDR_L>
+	</gml:featureMember>
+	<gml:featureMember>
+		<ot:OT_SKDR_L gml:id="PL.PZGiK.333.BDOT10k_2DDDAEB2-E6CA-1ABF-E053-CC2BA8C0C90E_2024-10-21T000000">
+			<ot:lokalnyId>2DDDAEB2-E6CA-1ABF-E053-CC2BA8C0C90E</ot:lokalnyId>
+			<ot:przestrzenNazw>PL.PZGiK.333.BDOT10k</ot:przestrzenNazw>
+			<ot:wersja>2024-10-21T00:00:00</ot:wersja>
+			<ot:poczatekWersjiObiektu>2024-10-21T00:00:00</ot:poczatekWersjiObiektu>
+			<ot:oznaczenieZmiany>DN.I.273.1.2024.5</ot:oznaczenieZmiany>
+			<ot:zrodloDanychGeometrycznych>ortofotomapa</ot:zrodloDanychGeometrycznych>
+			<ot:kategoriaIstnienia>eksploatowany</ot:kategoriaIstnienia>
+			<ot:kategoriaZarzadzania>wewnętrzna</ot:kategoriaZarzadzania>
+			<ot:klasaDrogi>droga wewnętrzna</ot:klasaDrogi>
+			<ot:materialNawierzchni>bruk</ot:materialNawierzchni>
+			<ot:liczbaJezdniDrogi>1</ot:liczbaJezdniDrogi>
+			<ot:polozenie>na powierzchni gruntu</ot:polozenie>
+			<ot:szerokoscNawierzchni uom="m">2.0</ot:szerokoscNawierzchni>
+			<ot:geometria>
+				<gml:Curve gml:id="id-6abf4e7d-8eae-4abb-8ef0-01ac43bb97f0-0" srsName="EPSG:2180" srsDimension="2">
+					<gml:segments>
+						<gml:LineStringSegment>
+							<gml:posList>199123.55 503923.96 199110.45 503944.10 199095.50 503973.03 199082.17 504008.46 199073.23 504045.03 199064.29 504081.60 199059.42 504117.68 199059.32 504131.02</gml:posList>
+						</gml:LineStringSegment>
+					</gml:segments>
+				</gml:Curve>
+			</ot:geometria>
+		</ot:OT_SKDR_L>
+	</gml:featureMember>
+	<gml:featureMember>
+		<ot:OT_SKDR_L gml:id="PL.PZGiK.333.BDOT10k_2DDDAEB3-00EA-1ABF-E053-CC2BA8C0C90E_2024-10-21T000000">
+			<ot:lokalnyId>2DDDAEB3-00EA-1ABF-E053-CC2BA8C0C90E</ot:lokalnyId>
+			<ot:przestrzenNazw>PL.PZGiK.333.BDOT10k</ot:przestrzenNazw>
+			<ot:wersja>2024-10-21T00:00:00</ot:wersja>
+			<ot:poczatekWersjiObiektu>2024-10-21T00:00:00</ot:poczatekWersjiObiektu>
+			<ot:oznaczenieZmiany>DN.I.273.1.2024.5</ot:oznaczenieZmiany>
+			<ot:zrodloDanychGeometrycznych>ortofotomapa</ot:zrodloDanychGeometrycznych>
+			<ot:kategoriaIstnienia>eksploatowany</ot:kategoriaIstnienia>
+			<ot:kategoriaZarzadzania>wewnętrzna</ot:kategoriaZarzadzania>
+			<ot:klasaDrogi>droga wewnętrzna</ot:klasaDrogi>
+			<ot:materialNawierzchni>beton</ot:materialNawierzchni>
+			<ot:liczbaJezdniDrogi>1</ot:liczbaJezdniDrogi>
+			<ot:polozenie>na powierzchni gruntu</ot:polozenie>
+			<ot:szerokoscNawierzchni uom="m">5.0</ot:szerokoscNawierzchni>
+			<ot:geometria>
+				<gml:Curve gml:id="id-d9e4e58a-b987-42c8-baf2-420925ee12cb-0" srsName="EPSG:2180" srsDimension="2">
+					<gml:segments>
+						<gml:LineStringSegment>
+							<gml:posList>198310.06 508389.79 198305.14 508376.19 198302.57 508363.07 198299.29 508345.73 198295.12 508330.02 198240.88 508340.60</gml:posList>
+						</gml:LineStringSegment>
+					</gml:segments>
+				</gml:Curve>
+			</ot:geometria>
+		</ot:OT_SKDR_L>
+	</gml:featureMember>
+	<gml:featureMember>
+		<ot:OT_SKDR_L gml:id="PL.PZGiK.333.BDOT10k_2DDDAEB3-0326-1ABF-E053-CC2BA8C0C90E_2024-10-21T000000">
+			<ot:lokalnyId>2DDDAEB3-0326-1ABF-E053-CC2BA8C0C90E</ot:lokalnyId>
+			<ot:przestrzenNazw>PL.PZGiK.333.BDOT10k</ot:przestrzenNazw>
+			<ot:wersja>2024-10-21T00:00:00</ot:wersja>
+			<ot:poczatekWersjiObiektu>2024-10-21T00:00:00</ot:poczatekWersjiObiektu>
+			<ot:oznaczenieZmiany>DN.I.273.1.2024.5</ot:oznaczenieZmiany>
+			<ot:zrodloDanychGeometrycznych>ortofotomapa</ot:zrodloDanychGeometrycznych>
+			<ot:kategoriaIstnienia>eksploatowany</ot:kategoriaIstnienia>
+			<ot:kategoriaZarzadzania>gminna</ot:kategoriaZarzadzania>
+			<ot:klasaDrogi>droga lokalna</ot:klasaDrogi>
+			<ot:materialNawierzchni>kostka prefabrykowana</ot:materialNawierzchni>
+			<ot:liczbaJezdniDrogi>1</ot:liczbaJezdniDrogi>
+			<ot:polozenie>na powierzchni gruntu</ot:polozenie>
+			<ot:szerokoscNawierzchni uom="m">6.0</ot:szerokoscNawierzchni>
+			<ot:numerDrogi>103057F</ot:numerDrogi>
+			<ot:geometria>
+				<gml:Curve gml:id="id-f9711b35-681d-4c47-bba4-93045601411c-0" srsName="EPSG:2180" srsDimension="2">
+					<gml:segments>
+						<gml:LineStringSegment>
+							<gml:posList>198217.94 508236.19 198224.16 508266.13 198234.73 508312.77</gml:posList>
+						</gml:LineStringSegment>
+					</gml:segments>
+				</gml:Curve>
+			</ot:geometria>
+		</ot:OT_SKDR_L>
+	</gml:featureMember>
+	<gml:featureMember>
+		<ot:OT_SKDR_L gml:id="PL.PZGiK.333.BDOT10k_2DDDAEB2-FE91-1ABF-E053-CC2BA8C0C90E_2024-10-21T000000">
+			<ot:lokalnyId>2DDDAEB2-FE91-1ABF-E053-CC2BA8C0C90E</ot:lokalnyId>
+			<ot:przestrzenNazw>PL.PZGiK.333.BDOT10k</ot:przestrzenNazw>
+			<ot:wersja>2024-10-21T00:00:00</ot:wersja>
+			<ot:poczatekWersjiObiektu>2024-10-21T00:00:00</ot:poczatekWersjiObiektu>
+			<ot:oznaczenieZmiany>DN.I.273.1.2024.5</ot:oznaczenieZmiany>
+			<ot:zrodloDanychGeometrycznych>ortofotomapa</ot:zrodloDanychGeometrycznych>
+			<ot:kategoriaIstnienia>eksploatowany</ot:kategoriaIstnienia>
+			<ot:informacjaDodatkowa>linia umowna</ot:informacjaDodatkowa>
+			<ot:kategoriaZarzadzania>wewnętrzna</ot:kategoriaZarzadzania>
+			<ot:klasaDrogi>droga wewnętrzna</ot:klasaDrogi>
+			<ot:materialNawierzchni>masa bitumiczna</ot:materialNawierzchni>
+			<ot:liczbaJezdniDrogi>1</ot:liczbaJezdniDrogi>
+			<ot:polozenie>na powierzchni gruntu</ot:polozenie>
+			<ot:geometria>
+				<gml:Curve gml:id="id-d8f530bf-0959-4c7f-a73a-854d2eccb516-0" srsName="EPSG:2180" srsDimension="2">
+					<gml:segments>
+						<gml:LineStringSegment>
+							<gml:posList>199739.30 505991.42 199756.71 506012.13</gml:posList>
+						</gml:LineStringSegment>
+					</gml:segments>
+				</gml:Curve>
+			</ot:geometria>
+		</ot:OT_SKDR_L>
+	</gml:featureMember>
+	<gml:featureMember>
+		<ot:OT_SKDR_L gml:id="PL.PZGiK.333.BDOT10k_2DDDAEB3-0245-1ABF-E053-CC2BA8C0C90E_2024-10-21T000000">
+			<ot:lokalnyId>2DDDAEB3-0245-1ABF-E053-CC2BA8C0C90E</ot:lokalnyId>
+			<ot:przestrzenNazw>PL.PZGiK.333.BDOT10k</ot:przestrzenNazw>
+			<ot:wersja>2024-10-21T00:00:00</ot:wersja>
+			<ot:poczatekWersjiObiektu>2024-10-21T00:00:00</ot:poczatekWersjiObiektu>
+			<ot:oznaczenieZmiany>DN.I.273.1.2024.5</ot:oznaczenieZmiany>
+			<ot:zrodloDanychGeometrycznych>ortofotomapa</ot:zrodloDanychGeometrycznych>
+			<ot:kategoriaIstnienia>eksploatowany</ot:kategoriaIstnienia>
+			<ot:kategoriaZarzadzania>gminna</ot:kategoriaZarzadzania>
+			<ot:klasaDrogi>droga lokalna</ot:klasaDrogi>
+			<ot:materialNawierzchni>grunt naturalny</ot:materialNawierzchni>
+			<ot:liczbaJezdniDrogi>1</ot:liczbaJezdniDrogi>
+			<ot:polozenie>na powierzchni gruntu</ot:polozenie>
+			<ot:numerDrogi>103024F</ot:numerDrogi>
+			<ot:geometria>
+				<gml:Curve gml:id="id-ac989fa5-865c-41b7-8550-a85d85b716d7-0" srsName="EPSG:2180" srsDimension="2">
+					<gml:segments>
+						<gml:LineStringSegment>
+							<gml:posList>199571.51 508882.97 199557.73 508865.80 199527.13 508827.94 199485.97 508776.80</gml:posList>
+						</gml:LineStringSegment>
+					</gml:segments>
+				</gml:Curve>
+			</ot:geometria>
+		</ot:OT_SKDR_L>
+	</gml:featureMember>
+</gml:FeatureCollection>

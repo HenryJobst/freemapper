@@ -196,6 +196,10 @@ pub struct PointDedup {
 /// The rank of a set's objects among the sources of the same object.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SetRank {
+    /// A landscape model that ranks below OpenStreetMap, as the ATKIS Basis-DLM does (ADR 0135):
+    /// its objects stay candidates under `balanced` and go where a higher rank has the same
+    /// object (BDOT10k roads, ADR 0187).
+    Landscape,
     /// A street survey, as Berlin's Straßenbefahrung.
     Survey,
     /// A cadastre.

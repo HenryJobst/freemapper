@@ -150,6 +150,12 @@ progress-feinkartierung-download = завантаження Feinkartierung Га�
 progress-feinkartierung-features = об'єктів Feinkartierung { $file }: { $count }
 warning-feinkartierung-layer-kept = Feinkartierung { $file }: недоступно ({ $detail }); зберігається наявний шар
 warning-feinkartierung-layer-skipped = Feinkartierung { $file }: недоступно ({ $detail }); шар пропущено
+progress-bdot-roads-none-stored = збережених доріг і стежок BDOT10k немає; запустіть `freemapper fetch` онлайн, щоб отримати дороги й стежки з реєстру
+progress-bdot-roads-removing = видаляються збережені дороги й стежки BDOT10k: область карти більше не лежить у Польщі
+progress-bdot-roads-download = завантаження доріг і стежок BDOT10k
+progress-bdot-roads-features = об'єктів BDOT10k { $file }: { $count }
+warning-bdot-roads-layer-kept = BDOT10k { $file } недоступний ({ $detail }); збережений шар лишається
+warning-bdot-roads-layer-skipped = BDOT10k { $file } недоступний ({ $detail }); шар пропущено
 error-extra-layer-unknown = це не шар { $folder }
 warning-berlin-buildings-missing = для цієї території в Берліні не збережено будівель ALKIS; запустіть `freemapper fetch`, щоб отримати їх із Geoportal Berlin
 

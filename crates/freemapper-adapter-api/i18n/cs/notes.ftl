@@ -139,6 +139,12 @@ progress-feinkartierung-download = stahuji Feinkartierung Hamburku (uliční pro
 progress-feinkartierung-features = Feinkartierung { $file }, objektů: { $count }
 warning-feinkartierung-layer-kept = Feinkartierung { $file } není k dispozici ({ $detail }); ponechávám uloženou vrstvu
 warning-feinkartierung-layer-skipped = Feinkartierung { $file } není k dispozici ({ $detail }); vrstva přeskočena
+progress-bdot-roads-none-stored = nejsou uloženy žádné silnice a cesty BDOT10k; pro silnice a cesty z databáze spusťte online `freemapper fetch`
+progress-bdot-roads-removing = odstraňuji uložené silnice a cesty BDOT10k: území mapy už není v Polsku
+progress-bdot-roads-download = stahuji silnice a cesty BDOT10k
+progress-bdot-roads-features = BDOT10k { $file }, objektů: { $count }
+warning-bdot-roads-layer-kept = BDOT10k { $file } není k dispozici ({ $detail }); ponechávám uloženou vrstvu
+warning-bdot-roads-layer-skipped = BDOT10k { $file } není k dispozici ({ $detail }); vrstva přeskočena
 error-extra-layer-unknown = není vrstvou složky { $folder }
 warning-berlin-buildings-missing = pro tuto oblast nejsou v Berlíně uloženy žádné budovy ALKIS; získáte je z Geoportal Berlin příkazem `freemapper fetch`
 

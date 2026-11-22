@@ -259,8 +259,9 @@ order mark; a class without an object is a 454-byte file.
 | `OT_KUSC_A` | cmentarz komunalny 23, wyznaniowy 12, wojenny 3, zespół sakralny 3 | Friedhof (not the church grounds) |
 | `OT_KUSK_A` | kompleks sportowo-rekreacyjny 8, park lub skwer 3 | Sport-, ... / Grünanlage for the park |
 
-Not read: `OT_SKDR_L` and `OT_SKJZ_L` (roads, lines; `klasaDrogi`, `materialNawierzchni`, no
-width), `OT_SKTR_L` (tracks), `OT_PTRK_A` bushes, `OT_PTWZ_A` pits, `OT_PTGN_A`, `OT_OIMK_A`
+Read since ADR 0187 (forest maps only, see the addendum below): `OT_SKDR_L` and `OT_SKRP_L`. Not
+read: `OT_SKJZ_L` (carriageway lines, repeat the axes), `OT_SKTR_L` (railway track, not tracks of
+the forest), `OT_PTRK_A` bushes, `OT_PTWZ_A` pits, `OT_PTGN_A`, `OT_OIMK_A`
 wetlands (532 objects overlapping forest and grass), `OT_BUZT_A`, `OT_KUPG_A` and the rest.
 
 **Licence.** `geoportal.gov.pl/en/data/topographic-objects-database-bdot10k`: the database "is
@@ -301,3 +302,35 @@ class). The threshold of the fallback is 0.25. A building kind in words
   and was not confirmed with the NID.
 - **Law.** Ustawa o ochronie zabytków, art. 36 ust. 1 pkt 1, 2 and 11 (Dz. U. 2024 poz. 1292);
   Ustawa o lasach, art. 5 ust. 1 pkt 2 (Dz. U. 2025 poz. 567), checked 22 November 2026.
+
+## Addendum 22 November 2026: BDOT10k roads and paths (measured, ADR 0187)
+
+Powiat 0805 (słubicki), archive of 22 January 2026, GML of 21 October 2024 for the roads.
+
+**Classes.** `OT_SKDR_L` road axes (13 822, 19.7 MB), `OT_SKJZ_L` carriageway lines (14 147, 20.6 MB,
+repeat the axes), `OT_SKRP_L` footways and cycle ways (540, 0.7 MB), `OT_SKTR_L` **railway** track
+(273, 0.4 MB; `rodzajPojazduSzynowego` kolej, `funkcjaToru`, `rodzajTorow`). A geometry is one
+`gml:Curve` of one `gml:LineStringSegment` with `posList` of **E N** pairs in EPSG:2180 (all 13 822
+roads have a single segment; the reader joins several, should one come).
+
+**Attributes (SKDR_L).** `kategoriaIstnienia` eksploatowany 13 821, w budowie 1; `klasaDrogi` droga
+wewnętrzna 9 726, lokalna 2 437, zbiorcza 909, główna ruchu przyśpieszonego 314, główna 226,
+dojazdowa 179, autostrada 31; `materialNawierzchni` grunt naturalny 9 357, masa bitumiczna 2 711,
+kostka prefabrykowana 501, bruk 373, płyty betonowe 350, beton 232, tłuczeń 165, żwir 77, kostka
+kamienna 56; `szerokoscNawierzchni` (m) on 4 247 (none of the 9 357 roads on bare ground; nearly every paved road); `liczbaJezdniDrogi` 1 or 2; `polozenie` na powierzchni gruntu 13 618, ponad
+powierzchnią gruntu poziom 1 88, pod powierzchnią gruntu 3 (a missing `polozenie` is the rest);
+`zrodloDanychGeometrycznych` ortofotomapa 12 548, mapa topograficzna 10k 1 033, pomiar terenowy 228,
+mapa zasadnicza 13. `numerDrogi` and `nazwa` on the numbered roads.
+
+**Attributes (SKRP_L).** `rodzaj` aleja lub pasaż 374, droga dla rowerów 128, ścieżka 38;
+`materialNawierzchni` kostka prefabrykowana 223, grunt naturalny 177, masa bitumiczna 64, kostka
+kamienna 17, żwir 9, płyty betonowe 5, beton 5; `szerokosc` 1.5 to 7 m (3.0: 172, 1.5: 91, 2.0: 46).
+
+**Reading single members.** The archive answers byte ranges (`Accept-Ranges: bytes`). The two class
+files are 1 943 505 and 65 334 bytes packed (deflate, 90 and 91 %); with the central directory
+about 2.1 MB for the whole map instead of the 53.9 MB archive.
+
+**Dense where?** 119 axis pieces in 1 km² at Słubice.
+
+**Not measured:** other powiats; the share of the BDOT10k length that OpenStreetMap lacks.
+

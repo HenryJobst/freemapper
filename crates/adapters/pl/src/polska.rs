@@ -18,6 +18,7 @@ use freemapper_adapter_api::credit::{CreditLine, UsedSources};
 use freemapper_adapter_api::env::AdapterEnv;
 use freemapper_adapter_api::error::{AdapterError, Remedy};
 use freemapper_adapter_api::estimate::{EstimateArea, EstimateEnv};
+use freemapper_adapter_api::extras::ExtraSet;
 use freemapper_adapter_api::info::{
     Country, Coverage, Declared, Names, OsmExtractInfo, PreviewInfo, RegionInfo,
 };
@@ -185,6 +186,7 @@ pub struct Polska {
     rasters: GuardedRasters,
     cadastre: PolskaCadastre,
     permits: Vec<Box<dyn PermitSource>>,
+    extras: Vec<Box<dyn ExtraSet>>,
     boundary: MultiPolygon<f64>,
     extracts: Vec<MultiPolygon<f64>>,
 }
@@ -217,7 +219,7 @@ impl Polska {
         });
         Self {
             declared: Declared {
-                revision: 6,
+                revision: 7,
                 hosts: HOSTS.iter().map(ToString::to_string).collect(),
                 last_verified: chrono::NaiveDate::from_ymd_opt(2026, 11, 22),
             },
@@ -230,6 +232,7 @@ impl Polska {
             },
             policy,
             permits: crate::permits::sources(),
+            extras: vec![Box::new(crate::bdot_roads::Roads)],
             info: RegionInfo {
                 id: id.clone(),
                 // The rasters are those of GUGiK ([`PolskaRasters`]).
@@ -290,6 +293,11 @@ impl RegionAdapter for Polska {
         &self.permits
     }
 
+    /// The roads and paths of BDOT10k for a forest map (ADR 0187).
+    fn extras(&self) -> &[Box<dyn ExtraSet>] {
+        &self.extras
+    }
+
     fn extract_boundary(&self, index: usize) -> Option<&MultiPolygon<f64>> {
         self.extracts.get(index)
     }
@@ -304,7 +312,14 @@ impl RegionAdapter for Polska {
     fn attribution(&self, used: &UsedSources<'_>) -> Vec<CreditLine> {
         let holds = used.terrain.is_some() || used.orthophoto.is_some();
         let cadastre = used.alkis_fetches(POLSKA).next().is_some();
-        if (used.rasters_from(PROVIDER) && holds) || cadastre {
+        // The roads and paths of BDOT10k are of the same office.
+        let roads = used.extra_layers.iter().any(|(name, count)| {
+            *count > 0
+                && crate::bdot_roads::CLASSES
+                    .iter()
+                    .any(|(layer, _)| layer == name)
+        });
+        if (used.rasters_from(PROVIDER) && holds) || cadastre || roads {
             vec![CreditLine::new(CREDIT)]
         } else {
             Vec::new()

@@ -157,6 +157,15 @@ progress-feinkartierung-features = { $count ->
     } der Feinkartierung { $file }
 warning-feinkartierung-layer-kept = Feinkartierung { $file } nicht verfügbar ({ $detail }); die gespeicherte Ebene bleibt
 warning-feinkartierung-layer-skipped = Feinkartierung { $file } nicht verfügbar ({ $detail }); Ebene übersprungen
+progress-bdot-roads-none-stored = Keine BDOT10k-Straßen und -Wege gespeichert; rufen Sie `freemapper fetch` mit Netzverbindung auf, um die Straßen und Wege des Registers zu erhalten
+progress-bdot-roads-removing = Die gespeicherten BDOT10k-Straßen und -Wege werden entfernt: Das Kartengebiet liegt nicht mehr in Polen
+progress-bdot-roads-download = Die BDOT10k-Straßen und -Wege werden geladen
+progress-bdot-roads-features = { $count ->
+        [one] 1 Objekt
+       *[other] { $count } Objekte
+    } der BDOT10k-Ebene { $file }
+warning-bdot-roads-layer-kept = BDOT10k { $file } nicht verfügbar ({ $detail }); die gespeicherte Ebene bleibt
+warning-bdot-roads-layer-skipped = BDOT10k { $file } nicht verfügbar ({ $detail }); Ebene übersprungen
 error-extra-layer-unknown = keine Ebene von { $folder }
 warning-berlin-buildings-missing = Für dieses Gebiet in Berlin sind keine ALKIS-Gebäude gespeichert; rufen Sie `freemapper fetch` auf, um sie vom Geoportal Berlin zu laden
 

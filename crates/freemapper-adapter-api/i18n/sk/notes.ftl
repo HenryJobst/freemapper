@@ -143,6 +143,12 @@ progress-feinkartierung-download = sťahuje sa hamburské Feinkartierung (uličn
 progress-feinkartierung-features = { $count } objektov Feinkartierung { $file }
 warning-feinkartierung-layer-kept = Feinkartierung { $file } nie je k dispozícii ({ $detail }); ponecháva sa uložená vrstva
 warning-feinkartierung-layer-skipped = Feinkartierung { $file } nie je k dispozícii ({ $detail }); vrstva preskočená
+progress-bdot-roads-none-stored = nie sú uložené žiadne cesty a chodníky BDOT10k; na získanie ciest a chodníkov z registra spustite online `freemapper fetch`
+progress-bdot-roads-removing = odstraňujem uložené cesty a chodníky BDOT10k: oblasť mapy už nie je v Poľsku
+progress-bdot-roads-download = sťahujem cesty a chodníky BDOT10k
+progress-bdot-roads-features = BDOT10k { $file }, objektov: { $count }
+warning-bdot-roads-layer-kept = BDOT10k { $file } nie je k dispozícii ({ $detail }); ponechávam uloženú vrstvu
+warning-bdot-roads-layer-skipped = BDOT10k { $file } nie je k dispozícii ({ $detail }); vrstva preskočená
 error-extra-layer-unknown = nie je vrstva z { $folder }
 warning-berlin-buildings-missing = pre túto oblasť v Berlíne nie sú uložené budovy ALKIS; `freemapper fetch` ich stiahne z Geoportal Berlin
 
