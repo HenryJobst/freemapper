@@ -1937,6 +1937,24 @@ mod poland {
         )));
     }
 
+    /// The permit sources must belong to a region whose ground the map area touches: German
+    /// states with permit sources of their own are no reason to take a map in Warsaw.
+    #[test]
+    fn permit_sources_of_regions_far_away_do_not_serve_a_map_outside_germany() {
+        let (dir, project) = project();
+        let mut german = Registry::new();
+        freemapper_adapters_de::states::register_with_hosts(
+            &mut german,
+            &crate::adapters::ExtraHosts::new(),
+        )
+        .unwrap();
+        assert!(
+            german.adapters().any(|a| !a.permit_sources().is_empty()),
+            "the test needs a German state with permit sources"
+        );
+        assert!(not_for_region(&ask_in(&german, &project, dir.path())));
+    }
+
     fn copy_permits(from: &Path, to: &Path) {
         fn copy(from: &Path, to: &Path) {
             std::fs::create_dir_all(to).unwrap();
