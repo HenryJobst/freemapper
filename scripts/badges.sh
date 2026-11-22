@@ -74,7 +74,7 @@ shields() {
 badge_block() {
   local language=$1
   local coverage_label msrv_label decisions_label hygiene_label licence_label tests_alt budget_alt budget_label
-  local coverage_alt licence_alt
+  local coverage_alt licence_alt version_label downloads_alt
 
   if [ "$language" = de ]; then
     coverage_label=Coverage
@@ -84,6 +84,8 @@ badge_block() {
     budget_label=Testbudget
     licence_label=Lizenz
     licence_alt=Lizenz
+    version_label=Version
+    downloads_alt=Downloads
   else
     coverage_label=Coverage
     coverage_alt="Line coverage"
@@ -92,15 +94,25 @@ badge_block() {
     budget_label=Test_budget
     licence_label=License
     licence_alt=License
+    version_label=version
+    downloads_alt=Downloads
   fi
 
   msrv_label=MSRV
   decisions_label=ADRs
   hygiene_label=Hygiene
 
-  cat <<EOF
-[![$tests_alt](https://img.shields.io/badge/Tests-$tests_shown-blue)](docs/tests.json) [![$budget_alt](https://img.shields.io/badge/$budget_label-$(shields "$budget")-blue)](docs/tests.json) [![$coverage_alt](https://img.shields.io/badge/$coverage_label-$(shields "$coverage")%25-brightgreen)](docs/coverage.json) [![$msrv_label](https://img.shields.io/badge/$msrv_label-$(shields "$msrv")-blue)](Cargo.toml) [![$decisions_label](https://img.shields.io/badge/$decisions_label-$decisions_shown-blue)](docs/adr/README.md) [![Hygiene](https://img.shields.io/badge/$hygiene_label-$checks-brightgreen)](scripts/check.sh) [![$licence_alt](https://img.shields.io/badge/$(shields "$licence_label")-$(shields "$licence")-blue)](LICENSE)
-EOF
+  local raw=https://raw.githubusercontent.com/HenryJobst/freemapper/badges
+  local downloads_file=downloads.json
+  local group_live group_quality group_facts
+  [ "$language" = en ] && downloads_file=downloads.en.json
+
+  # Three groups: how the project stands live, what the gates measured, what the repository declares.
+  group_live="[![Version](https://img.shields.io/github/v/release/HenryJobst/freemapper?label=$(shields "$version_label"))](https://github.com/HenryJobst/freemapper/releases/latest) [![$downloads_alt](https://img.shields.io/endpoint?url=$raw/$downloads_file)](https://github.com/HenryJobst/freemapper/releases/latest) [![Commits](https://img.shields.io/github/commit-activity/t/HenryJobst/freemapper?label=Commits)](https://github.com/HenryJobst/freemapper/commits/main) [![CI](https://img.shields.io/github/actions/workflow/status/HenryJobst/freemapper/ci.yml?branch=main&label=CI)](https://github.com/HenryJobst/freemapper/actions/workflows/ci.yml)"
+  group_quality="[![$tests_alt](https://img.shields.io/badge/Tests-$tests_shown-blue)](docs/tests.json) [![$budget_alt](https://img.shields.io/badge/$budget_label-$(shields "$budget")-blue)](docs/tests.json) [![$coverage_alt](https://img.shields.io/badge/$coverage_label-$(shields "$coverage")%25-brightgreen)](docs/coverage.json) [![Hygiene](https://img.shields.io/badge/$hygiene_label-$checks-brightgreen)](scripts/check.sh)"
+  group_facts="[![$msrv_label](https://img.shields.io/badge/$msrv_label-$(shields "$msrv")-blue)](Cargo.toml) [![$decisions_label](https://img.shields.io/badge/$decisions_label-$decisions_shown-blue)](docs/adr/README.md) [![$licence_alt](https://img.shields.io/badge/$(shields "$licence_label")-$(shields "$licence")-blue)](LICENSE)"
+
+  printf '%s\n\n%s\n\n%s\n' "$group_live" "$group_quality" "$group_facts"
 }
 
 failed=0
