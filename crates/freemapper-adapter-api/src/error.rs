@@ -182,8 +182,9 @@ fn http_text(url: &str, message: &str) -> String {
     }
 }
 
-/// Whether the message of a [`FetchError::Http`] describes a failure that tends to pass: a server error (5xx), too
-/// many requests (429), a request timeout (408), or a timeout, reset or refused connection.
+/// Whether the message of a [`FetchError::Http`] describes a failure of the service that tends to pass: a server error
+/// (5xx), too many requests (429), a request timeout (408) or a timeout. A refused or reset connection is asked again
+/// too, but is not named a busy service: the person may be offline.
 pub fn is_temporary_message(message: &str) -> bool {
     if let Some(status) = message.strip_prefix("http status: ") {
         let code: u16 = status
@@ -194,7 +195,7 @@ pub fn is_temporary_message(message: &str) -> bool {
         return code >= 500 || code == 408 || code == 429;
     }
     let message = message.to_lowercase();
-    ["timed out", "timeout", "connection", "reset by peer", "dns"]
+    ["timed out", "timeout"]
         .iter()
         .any(|word| message.contains(word))
 }

@@ -85,6 +85,8 @@
       "GET https://www.geodatenportal.sachsen-anhalt.de/wss/service/ST_LVermGeo_ATKIS_WFS_BDLM_OpenData/guest?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=adv:AX_Gewaesserachse&SRSNAME=urn:ogc:def:crs:EPSG::25832&BBOX=647400,5739493,647657,5739754,urn:ogc:def:crs:EPSG::25832&COUNT=100000&NAMESPACES=xmlns(adv,http://www.adv-online.de/namespaces/adv/gid/7.1) [to file]",
       "GET https://download.geofabrik.de/europe/germany/sachsen-anhalt/updates/state.txt",
       "GET https://download.geofabrik.de/europe/germany/sachsen-anhalt/sachsen-anhalt-latest.osm.pbf [to file] (no network)",
+      "GET https://download.geofabrik.de/europe/germany/sachsen-anhalt/sachsen-anhalt-latest.osm.pbf [to file] (no network)",
+      "GET https://download.geofabrik.de/europe/germany/sachsen-anhalt/sachsen-anhalt-latest.osm.pbf [to file] (no network)",
       "result: download of https://download.geofabrik.de/europe/germany/sachsen-anhalt/sachsen-anhalt-latest.osm.pbf failed: connection refused"
     ],
     "project_file": [
@@ -187,6 +189,8 @@
       "GET https://data.geobasis-bb.de/geobasis/information/aktualitaeten/bb_dop_aktualitaet.csv",
       "GET https://data.geobasis-bb.de/geobasis/daten/dop/rgb_jpg/dop_33366-5807.zip",
       "GET https://data.geobasis-bb.de/geobasis/information/aktualitaeten/bb_dgm_aktualitaet.csv (no network)",
+      "GET https://data.geobasis-bb.de/geobasis/information/aktualitaeten/bb_dgm_aktualitaet.csv (no network)",
+      "GET https://data.geobasis-bb.de/geobasis/information/aktualitaeten/bb_dgm_aktualitaet.csv (no network)",
       "result: download of https://data.geobasis-bb.de/geobasis/information/aktualitaeten/bb_dgm_aktualitaet.csv failed: connection refused"
     ],
     "project_file": [
@@ -214,7 +218,11 @@
       "HEAD https://data.geobasis-bb.de/geobasis/daten/ndom/NDOM_33366-5807_LAS12.laz (no network)",
       "warning: nDSM tile 33366-5807 unavailable (download of https://data.geobasis-bb.de/geobasis/daten/ndom/NDOM_33366-5807_LAS12.laz failed: connection refused); skipped",
       "GET https://data.geobasis-bb.de/geobasis/information/aktualitaeten/bb_bdom_aktualitaet.csv (no network)",
+      "GET https://data.geobasis-bb.de/geobasis/information/aktualitaeten/bb_bdom_aktualitaet.csv (no network)",
+      "GET https://data.geobasis-bb.de/geobasis/information/aktualitaeten/bb_bdom_aktualitaet.csv (no network)",
       "warning: surface model (bDOM) unavailable (download of https://data.geobasis-bb.de/geobasis/information/aktualitaeten/bb_bdom_aktualitaet.csv failed: connection refused); no nDSM template for 33366-5807",
+      "GET https://ogc-api.geobasis-bb.de/alkis-vereinfacht/v1/collections/gebaeude_bauwerk/items?f=json&bbox=366400,5807543,366655,5807804&bbox-crs=http://www.opengis.net/def/crs/EPSG/0/25833&crs=http://www.opengis.net/def/crs/EPSG/0/25833&limit=10000 (no network)",
+      "GET https://ogc-api.geobasis-bb.de/alkis-vereinfacht/v1/collections/gebaeude_bauwerk/items?f=json&bbox=366400,5807543,366655,5807804&bbox-crs=http://www.opengis.net/def/crs/EPSG/0/25833&crs=http://www.opengis.net/def/crs/EPSG/0/25833&limit=10000 (no network)",
       "GET https://ogc-api.geobasis-bb.de/alkis-vereinfacht/v1/collections/gebaeude_bauwerk/items?f=json&bbox=366400,5807543,366655,5807804&bbox-crs=http://www.opengis.net/def/crs/EPSG/0/25833&crs=http://www.opengis.net/def/crs/EPSG/0/25833&limit=10000 (no network)",
       "result: download of https://ogc-api.geobasis-bb.de/alkis-vereinfacht/v1/collections/gebaeude_bauwerk/items?f=json&bbox=366400,5807543,366655,5807804&bbox-crs=http://www.opengis.net/def/crs/EPSG/0/25833&crs=http://www.opengis.net/def/crs/EPSG/0/25833&limit=10000 failed: connection refused"
     ],
@@ -267,6 +275,8 @@
       "GET https://opendata.potsdam.de/api/explore/v2.1/catalog/datasets/baeume-2-stadtkarte-potsdam/exports/geojson?where=in_bbox(geo_point_2d,52.401793,13.036068,52.404207,13.039932) [to file]",
       "GET https://opendata.potsdam.de/api/explore/v2.1/catalog/datasets/baeume-3-stadtkarte-potsdam/exports/geojson?where=in_bbox(geo_point_2d,52.401793,13.036068,52.404207,13.039932) [to file]",
       "GET https://download.geofabrik.de/europe/germany/brandenburg/updates/state.txt",
+      "GET https://download.geofabrik.de/europe/germany/brandenburg/brandenburg-latest.osm.pbf [to file] (no network)",
+      "GET https://download.geofabrik.de/europe/germany/brandenburg/brandenburg-latest.osm.pbf [to file] (no network)",
       "GET https://download.geofabrik.de/europe/germany/brandenburg/brandenburg-latest.osm.pbf [to file] (no network)",
       "result: download of https://download.geofabrik.de/europe/germany/brandenburg/brandenburg-latest.osm.pbf failed: connection refused"
     ],
@@ -473,6 +483,8 @@
       "GET https://www.gds.hessen.de/wfs2/aaa-suite/cgi-bin/atkis-bdlm/nas/wfs?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=adv:AX_Turm&SRSNAME=urn:ogc:def:crs:EPSG::25832&BBOX=483526,5628594,483783,5628851,urn:ogc:def:crs:EPSG::25832&COUNT=100000&NAMESPACES=xmlns(adv,http://www.adv-online.de/namespaces/adv/gid/7.1) [to file]",
       "GET https://www.gds.hessen.de/wfs2/aaa-suite/cgi-bin/atkis-bdlm/nas/wfs?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=adv:AX_Gewaesserachse&SRSNAME=urn:ogc:def:crs:EPSG::25832&BBOX=483526,5628594,483783,5628851,urn:ogc:def:crs:EPSG::25832&COUNT=100000&NAMESPACES=xmlns(adv,http://www.adv-online.de/namespaces/adv/gid/7.1) [to file]",
       "GET https://download.geofabrik.de/europe/germany/hessen/updates/state.txt",
+      "GET https://download.geofabrik.de/europe/germany/hessen/hessen-latest.osm.pbf [to file] (no network)",
+      "GET https://download.geofabrik.de/europe/germany/hessen/hessen-latest.osm.pbf [to file] (no network)",
       "GET https://download.geofabrik.de/europe/germany/hessen/hessen-latest.osm.pbf [to file] (no network)",
       "result: download of https://download.geofabrik.de/europe/germany/hessen/hessen-latest.osm.pbf failed: connection refused"
     ],

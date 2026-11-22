@@ -21,10 +21,12 @@ other requests already ask up to three times (`get_with_retries` and its sibling
 2. **What is asked again:** a 5xx, now also 408 and 429 (`status_answer_error` makes them `FetchError::Http`
    instead of `Refused`), and timeouts and connection errors. **What is not:** 404, other refused requests, hosts the
    adapter does not name, a download over its limit and a full disk.
-3. **The final message says what happened.** `FetchError::Http` with a failure that tends to pass
+3. **The final message says what happened.** `FetchError::Http` with a status of 5xx, 408 or 429 or a timeout
    (`is_temporary_message`) reads: the service is probably overloaded or under maintenance, freemapper asked up to three
    times, run it again in a few minutes, what is already downloaded is kept. The text is in all 21 languages
-   (`error-fetch-http-temporary`); the English text equals the library's message, as for every error.
+   (`error-fetch-http-temporary`); the English text equals the library's message, as for every error. A refused or
+   reset connection is asked again like the rest, but keeps its plain message: the person may be offline, and "the
+   service is overloaded" would send them the wrong way.
 
 ## Consequences
 
