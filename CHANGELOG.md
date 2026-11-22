@@ -12,6 +12,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Behoben
 
+- Die Trainingskarte hält den Abstand zwischen einer Mauer und einem Weg auch nach dem Zusammenfügen der Wege (Issue #177): Regensburg und Bautzen meldeten dort 1,6 und 1,2 mm zu geringen Abstand, jetzt nichts mehr. Der Abstandsschritt läuft nach dem Zusammenfügen noch einmal (ADR 0150, Nachtrag). Die Beispiele im Repository sind noch nicht neu gebaut.
 - Ein Offline-Lauf (`run --offline`, `fetch --offline`) für ein Kartengebiet in Polen fragt den Indexdienst von GUGiK nicht mehr, sondern liest die Bögen, die der Online-Lauf im Projekt (`data/gugik-sheets.json`) vermerkt hat; ist nichts vermerkt, meldet er sofort, dass erst online geholt werden muss. Vorher scheiterte er bei nicht erreichbarem Dienst mit einem Netzfehler.
 
 ### Geändert

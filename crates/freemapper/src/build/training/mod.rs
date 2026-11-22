@@ -291,7 +291,7 @@ pub fn train(
     report.points_moved = move_points(&mut objects, &classes, kind, georef, symbol_set);
     // The move can put a tree back into the rim of a forest it stood just outside of.
     report.trees_in_forest += drop_trees_in_forest(&mut objects, symbol_set);
-    let (gave_way, cut, cut_for) = give_way(&mut objects, &classes, kind, georef, symbol_set);
+    let (gave_way, cut, mut cut_for) = give_way(&mut objects, &classes, kind, georef, symbol_set);
     report.gave_way = gave_way;
     report.cut += cut;
     // Give way cuts ends back by up to the gap: the last repair finds them where they lie now.
@@ -301,6 +301,15 @@ pub fn train(
     let (joined, absorbed) = join_ways(&mut objects, &classes, georef, junctions::ASIDE_TAG);
     report.joined += joined;
     junctions.absorb(&absorbed);
+    // On real maps (Bautzen, Regensburg) a wall and a way keep too little gap only after the ways
+    // were joined; give way looks once more at what is left.
+    let (gave_way, cut, cut_again) = give_way(&mut objects, &classes, kind, georef, symbol_set);
+    report.gave_way += gave_way;
+    report.cut += cut;
+    for (key, winners) in cut_again {
+        cut_for.entry(key).or_default().extend(winners);
+    }
+    junctions.follow(&objects, junctions::ASIDE_TAG, within);
     // Once more over the ends recorded before the merge, after give way and the minimum sizes
     // have cut or dropped lines they touched: an end in reach of what is left of its line is
     // drawn onto it, and what stays free is counted.
