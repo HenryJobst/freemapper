@@ -22,6 +22,6 @@ GET https://isk.geobasis-bb.de/ows/alkis_nas_wfs?SERVICE=WFS&VERSION=2.0.0&REQUE
 GET https://opendata.potsdam.de/api/explore/v2.1/catalog/datasets/baeume-1-stadtkarte-potsdam/exports/geojson?where=in_bbox(geo_point_2d,52.401793,13.036068,52.404207,13.039932) [to file]
 GET https://opendata.potsdam.de/api/explore/v2.1/catalog/datasets/baeume-2-stadtkarte-potsdam/exports/geojson?where=in_bbox(geo_point_2d,52.401793,13.036068,52.404207,13.039932) [to file]
 GET https://opendata.potsdam.de/api/explore/v2.1/catalog/datasets/baeume-3-stadtkarte-potsdam/exports/geojson?where=in_bbox(geo_point_2d,52.401793,13.036068,52.404207,13.039932) [to file]
-GET https://download.geofabrik.de/europe/germany/brandenburg-updates/state.txt
-GET https://download.geofabrik.de/europe/germany/brandenburg-latest.osm.pbf [to file]
+GET https://download.geofabrik.de/europe/germany/brandenburg/updates/state.txt
+GET https://download.geofabrik.de/europe/germany/brandenburg/brandenburg-latest.osm.pbf [to file]
 result: fetched
