@@ -12,7 +12,7 @@
 <!-- badges:end -->
 
 <!-- claude-cost:start -->
-[![AI effort (Claude API): $3,761](https://img.shields.io/badge/AI%20effort%20%28Claude%20API%29-%243%2C761-8A2BE2)](docs/ai-cost/history.csv)
+[![AI effort (Claude API): $4,016](https://img.shields.io/badge/AI%20effort%20%28Claude%20API%29-%244%2C016-8A2BE2)](docs/ai-cost/history.csv)
 <!-- claude-cost:end -->
 
 <p align="center"><a href="examples/berlin-viktoriapark/preview.webp"><img src="examples/berlin-viktoriapark/preview-medium.webp" alt="Training map of Viktoriapark, Berlin-Kreuzberg, made by freemapper" width="760"></a><br><sub>Viktoriapark, Berlin-Kreuzberg (sprint 1:4000), made by freemapper from open data. The image is the training map, ready to print and run on; click for the full size, or take the <a href="examples/berlin-viktoriapark/berlin-viktoriapark-training.pdf">PDF</a> to print. The <a href="examples/berlin-viktoriapark/berlin-viktoriapark-candidates.pdf">check print</a> shows every candidate true to position; more under <a href="examples/README.en.md">examples</a>.</sub></p>
