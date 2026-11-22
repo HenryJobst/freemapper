@@ -340,6 +340,7 @@ mod tests {
             ("kreis", v("Landkreis Märkisch-Oderland")),
             ("amt", v("Amt Märkische Schweiz")),
             ("gemeinde", v("Buckow")),
+            ("gmina", v("gmina miejska Słubice")),
             ("text", v("Alte Eichen")),
             ("district", v("Friedrichshain-Kreuzberg")),
             ("owner", v("Land Berlin")),

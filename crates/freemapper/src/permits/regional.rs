@@ -243,6 +243,13 @@ pub(crate) struct HintFacts {
     pub monument_gaps: bool,
     /// Naturdenkmale, protected landscape parts or biotopes lie on the map (ADR 0146).
     pub nature_objects: bool,
+    /// A kind of protected object that the council of a gmina establishes lies on the map: a
+    /// natural monument, an ecological site, a nature and landscape complex or a documentation
+    /// site (Polish Nature Conservation Act, art. 44; ADR 0183).
+    pub gmina_nature_forms: bool,
+    /// The municipalities (Polish gminas) on the map that are more than an edge, by share,
+    /// descending, as the register writes them; all of them when each lies only at the edge.
+    pub municipalities: Vec<String>,
     /// The types of the biotopes on the map, by share, descending (ADR 0146).
     pub biotopes: Vec<String>,
     /// The districts that hold a protected object the lower nature conservation authority
@@ -449,6 +456,16 @@ fn one_adapter(
             .iter()
             .flatten()
             .any(|o| o.kind.needs_nature_authority()),
+        gmina_nature_forms: protected_objects.iter().flatten().any(|o| {
+            matches!(
+                o.kind,
+                ProtectedObjectKind::NaturalMonumentPl
+                    | ProtectedObjectKind::EcologicalSite
+                    | ProtectedObjectKind::LandscapeComplex
+                    | ProtectedObjectKind::DocumentationSite
+            )
+        }),
+        municipalities: municipalities(admin_units.iter().flatten()),
         biotopes: {
             let mut biotopes: Vec<(&ProtectedObjectEntry, f64)> = protected_objects
                 .iter()
@@ -580,6 +597,20 @@ fn admin_units(on_map: &[(&Placed<'_>, f64)]) -> Vec<Share<AdminUnitEntry>> {
     list.into_iter()
         .map(|(entry, share)| Share::new(entry, share.min(1.0)))
         .collect()
+}
+
+/// The municipalities of the units: those that are more than an edge, else all of them. The
+/// units come by share, descending.
+fn municipalities<'a>(units: impl Iterator<Item = &'a Share<AdminUnitEntry>>) -> Vec<String> {
+    let all: Vec<&Share<AdminUnitEntry>> = units
+        .filter(|s| s.item.level == AdminUnitLevel::Municipality)
+        .collect();
+    let more_than_edge: Vec<&&Share<AdminUnitEntry>> = all.iter().filter(|s| !s.at_edge).collect();
+    if more_than_edge.is_empty() {
+        all.iter().map(|s| s.item.name.clone()).collect()
+    } else {
+        more_than_edge.iter().map(|s| s.item.name.clone()).collect()
+    }
 }
 
 fn green_spaces(on_map: &[(&Placed<'_>, f64)]) -> GreenSpaces {

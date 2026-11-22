@@ -1,4 +1,4 @@
-# ADR 0183: `adapters probe` asks each service once
+# ADR 0184: `adapters probe` asks each service once
 
 Date: 2026-11-22
 
