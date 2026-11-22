@@ -360,6 +360,11 @@ enum AdaptersCommand {
         /// Print the result as JSON.
         #[arg(long)]
         json: bool,
+        /// Read the status of last night from this file (it may be missing) and print the new
+        /// status as JSON: a service is down after two bad nights in a row. The changes go to
+        /// standard error.
+        #[arg(long, value_name = "FILE")]
+        status: Option<PathBuf>,
     },
     /// Allow a built-in adapter one more host: for a state whose service moved to a server
     /// its adapter does not name yet. The message about the refused address says which host.
@@ -1226,11 +1231,22 @@ fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
             return adapter_check::run(&dir, bbox.filter(|_| live), json, || cache.cache());
         }
         Commands::Adapters {
-            command: AdaptersCommand::Probe { json },
+            command: AdaptersCommand::Probe { json, status },
         } => {
             let (targets, hosts) = freemapper::probe::builtin_targets();
             let outcomes = freemapper::probe::probe(&HttpFetcher::new(), &targets, &hosts);
-            if json {
+            if let Some(file) = status {
+                let previous = std::fs::read_to_string(&file)
+                    .ok()
+                    .and_then(|text| serde_json::from_str(&text).ok())
+                    .unwrap_or_default();
+                let today = freemapper::clock::today().format("%Y-%m-%d").to_string();
+                let status = freemapper::service_status::update(&outcomes, &previous, &today);
+                for line in freemapper::service_status::transitions(&status) {
+                    eprintln!("{line}");
+                }
+                println!("{}", serde_json::to_string_pretty(&status)?);
+            } else if json {
                 println!("{}", freemapper::probe::to_json(&outcomes));
             } else {
                 for line in freemapper::probe::lines(&outcomes) {

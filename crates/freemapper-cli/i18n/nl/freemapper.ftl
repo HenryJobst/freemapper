@@ -660,6 +660,7 @@ help-adapters-check-bbox = Het kader van de live controle in graden, als minLon,
 help-adapters-check-json = Het resultaat als JSON tonen
 help-adapters-probe = Elke dienst die de ingebouwde adapters noemen één keer bevragen en zeggen of hij antwoordt: ok, slow, moved of error. De afsluitcode is 0, ook als een dienst faalt; het resultaat is het antwoord
 help-adapters-probe-json = Het resultaat als JSON tonen
+help-adapters-probe-status = Lees de status van afgelopen nacht uit dit bestand (het mag ontbreken) en druk de nieuwe status af als JSON: een dienst ligt eruit na twee slechte nachten achter elkaar. De wijzigingen gaan naar standaardfout
 help-adapters-allow-host = Een ingebouwde adapter nog een host toestaan: voor een deelstaat waarvan de service is verhuisd naar een server die zijn adapter nog niet noemt. De melding over het geweigerde adres zegt welke host. De host wordt gecontroleerd als een host van een manifest, en freemapper maakt nog steeds alleen verbinding met servers op internet
 help-adapters-allow-host-adapter = De id van de ingebouwde adapter, zoals `adapters list` hem toont
 help-adapters-allow-host-host = De toe te staan host: een DNS-naam, geen adres, geen poort

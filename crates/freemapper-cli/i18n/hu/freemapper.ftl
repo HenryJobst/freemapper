@@ -660,6 +660,7 @@ help-adapters-check-bbox = Az élő ellenőrzés téglalapja fokban, minLon,minL
 help-adapters-check-json = Az eredmény kiírása JSON-ként
 help-adapters-probe = Minden, a beépített adapterek által megnevezett szolgáltatást egyszer lekérdez, és megmondja, válaszol-e: ok, slow, moved vagy error. A kilépési kód akkor is 0, ha egy szolgáltatás hibázik; az eredmény maga a válasz
 help-adapters-probe-json = Az eredmény kiírása JSON-ként
+help-adapters-probe-status = Az előző éjszaka állapotát ebből a fájlból olvassa (hiányozhat), és az új állapotot JSON-ként írja ki: egy szolgáltatás két egymást követő rossz éjszaka után számít kiesettnek. A változások a standard hibakimenetre mennek
 help-adapters-allow-host = Egy beépített adapternek még egy hoszt engedélyezése: olyan tartományhoz, amelynek szolgáltatása olyan szerverre költözött, amelyet az adaptere még nem nevez meg. Az elutasított címről szóló üzenet megmondja, melyik hoszt. A hosztot úgy ellenőrzi, mint egy manifest hosztját, és a freemapper továbbra is csak internetes szerverekhez kapcsolódik
 help-adapters-allow-host-adapter = A beépített adapter azonosítója, ahogy az `adapters list` mutatja
 help-adapters-allow-host-host = Az engedélyezendő hoszt: DNS-név, nem cím, nem port

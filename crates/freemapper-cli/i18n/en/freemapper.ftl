@@ -660,6 +660,7 @@ help-adapters-check-bbox = The box of the live check in degrees, as minLon,minLa
 help-adapters-check-json = Print the result as JSON
 help-adapters-probe = Ask every service the built-in adapters name once and say whether it answers: ok, slow, moved or error. Exit code 0 also when a service fails; the result is the answer
 help-adapters-probe-json = Print the result as JSON
+help-adapters-probe-status = Read the status of last night from this file (it may be missing) and print the new status as JSON: a service is down after two bad nights in a row. The changes go to standard error
 help-adapters-allow-host = Allow a built-in adapter one more host: for a state whose service moved to a server its adapter does not name yet. The message about the refused address says which host. The host is checked like a host of a manifest, and freemapper still connects to servers on the internet only
 help-adapters-allow-host-adapter = The id of the built-in adapter, as `adapters list` shows it
 help-adapters-allow-host-host = The host to allow: a DNS name, no address, no port

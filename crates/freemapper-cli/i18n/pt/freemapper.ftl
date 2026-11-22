@@ -668,6 +668,7 @@ help-adapters-check-bbox = A caixa da verificação em direto em graus, como min
 help-adapters-check-json = Imprimir o resultado como JSON
 help-adapters-probe = Consultar uma vez cada serviço que os adaptadores integrados nomeiam e dizer se responde: ok, slow, moved ou error. O código de saída é 0 mesmo quando um serviço falha; o resultado é a resposta
 help-adapters-probe-json = Imprimir o resultado como JSON
+help-adapters-probe-status = Ler o estado da noite anterior deste ficheiro (pode faltar) e imprimir o novo estado como JSON: um serviço está em baixo após duas noites más seguidas. As alterações vão para o erro padrão
 help-adapters-allow-host = Permitir a um adaptador integrado mais um anfitrião: para um estado federado cujo serviço se mudou para um servidor que o seu adaptador ainda não nomeia. A mensagem sobre o endereço recusado diz qual é o anfitrião. O anfitrião é verificado como um anfitrião de um manifesto, e o freemapper continua a ligar-se apenas a servidores na internet
 help-adapters-allow-host-adapter = O id do adaptador integrado, como `adapters list` o mostra
 help-adapters-allow-host-host = O anfitrião a permitir: um nome DNS, sem endereço, sem porta

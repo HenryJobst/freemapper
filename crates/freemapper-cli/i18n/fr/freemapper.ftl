@@ -666,6 +666,7 @@ help-adapters-check-bbox = Le cadre de la vérification en direct en degrés, so
 help-adapters-check-json = Afficher le résultat en JSON
 help-adapters-probe = Interroger une fois chaque service que nomment les adaptateurs intégrés et dire s'il répond : ok, slow, moved ou error. Le code de sortie est 0 même quand un service échoue ; le résultat est la réponse
 help-adapters-probe-json = Afficher le résultat en JSON
+help-adapters-probe-status = Lire l'état de la nuit précédente dans ce fichier (il peut manquer) et afficher le nouvel état en JSON : un service est hors service après deux mauvaises nuits de suite. Les changements vont sur la sortie d'erreur standard
 help-adapters-allow-host = Autoriser un hôte de plus pour un adaptateur intégré : pour un Land dont le service a déménagé vers un serveur que son adaptateur ne nomme pas encore. Le message sur l'adresse refusée indique quel hôte. L'hôte est vérifié comme un hôte de manifeste, et freemapper ne se connecte toujours qu'à des serveurs sur Internet
 help-adapters-allow-host-adapter = L'identifiant de l'adaptateur intégré, tel que `adapters list` le montre
 help-adapters-allow-host-host = L'hôte à autoriser : un nom DNS, pas d'adresse, pas de port

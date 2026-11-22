@@ -671,6 +671,7 @@ help-adapters-check-bbox = Výřez živé kontroly ve stupních, jako minLon,min
 help-adapters-check-json = Vypíše výsledek jako JSON
 help-adapters-probe = Každou službu, kterou vestavěné adaptéry uvádějí, jednou dotázat a říct, zda odpovídá: ok, slow, moved nebo error. Návratový kód je 0 i při selhání služby; výsledek je odpověď
 help-adapters-probe-json = Vypíše výsledek jako JSON
+help-adapters-probe-status = Přečíst stav z minulé noci z tohoto souboru (smí chybět) a vypsat nový stav jako JSON: služba je vyřazená po dvou špatných nocích za sebou. Změny jdou na standardní chybový výstup
 help-adapters-allow-host = Povolí vestavěnému adaptéru jednoho dalšího hostitele: pro spolkovou zemi, jejíž služba se přestěhovala na server, který její adaptér ještě neuvádí. Zpráva o odmítnuté adrese říká, o kterého hostitele jde. Hostitel se kontroluje jako hostitel manifestu a freemapper se stále připojuje jen k serverům na internetu
 help-adapters-allow-host-adapter = ID vestavěného adaptéru, jak ho ukazuje `adapters list`
 help-adapters-allow-host-host = Hostitel k povolení: název DNS, žádná adresa, žádný port

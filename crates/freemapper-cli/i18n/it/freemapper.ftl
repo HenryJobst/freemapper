@@ -668,6 +668,7 @@ help-adapters-check-bbox = Il riquadro del controllo live in gradi, come minLon,
 help-adapters-check-json = Stampa il risultato come JSON
 help-adapters-probe = Interrogare una volta ogni servizio nominato dagli adattatori integrati e dire se risponde: ok, slow, moved o error. Il codice di uscita è 0 anche quando un servizio fallisce; il risultato è la risposta
 help-adapters-probe-json = Stampa il risultato come JSON
+help-adapters-probe-status = Leggere lo stato della notte precedente da questo file (può mancare) e stampare il nuovo stato come JSON: un servizio è fuori uso dopo due notti negative di fila. Le variazioni vanno sullo standard error
 help-adapters-allow-host = Consente a un adattatore integrato un host in più: per un Land il cui servizio si è spostato su un server che il suo adattatore non nomina ancora. Il messaggio sull'indirizzo rifiutato dice quale host. L'host viene verificato come un host di un manifest, e freemapper si collega comunque solo a server su internet
 help-adapters-allow-host-adapter = L'id dell'adattatore integrato, come lo mostra `adapters list`
 help-adapters-allow-host-host = L'host da consentire: un nome DNS, nessun indirizzo, nessuna porta

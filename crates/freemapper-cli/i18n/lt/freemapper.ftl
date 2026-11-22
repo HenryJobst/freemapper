@@ -670,6 +670,7 @@ help-adapters-check-bbox = Gyvos patikros langelis laipsniais, kaip minLon,minLa
 help-adapters-check-json = Išspausdinti rezultatą kaip JSON
 help-adapters-probe = Vieną kartą užklausti kiekvieną integruotų adapterių nurodytą paslaugą ir pasakyti, ar ji atsako: ok, slow, moved arba error. Išėjimo kodas yra 0 ir tada, kai paslauga nepavyksta; rezultatas yra atsakymas
 help-adapters-probe-json = Išspausdinti rezultatą kaip JSON
+help-adapters-probe-status = Perskaityti praėjusios nakties būseną iš šio failo (jo gali nebūti) ir išspausdinti naują būseną kaip JSON: paslauga laikoma neveikiančia po dviejų blogų naktų iš eilės. Pokyčiai eina į standartinę klaidų išvestį
 help-adapters-allow-host = Leisti įtaisytam adapteriui dar vieną hostą: federalinei žemei, kurios paslauga persikėlė į serverį, kurio jos adapteris dar nenurodo. Pranešimas apie atmestą adresą pasako, kuris hostas. Hostas tikrinamas kaip manifesto hostas, o freemapper vis tiek jungiasi tik prie interneto serverių
 help-adapters-allow-host-adapter = Įtaisyto adapterio id, kaip rodo `adapters list`
 help-adapters-allow-host-host = Leidžiamas hostas: DNS vardas, ne adresas, be prievado
