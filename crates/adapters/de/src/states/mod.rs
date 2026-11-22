@@ -357,6 +357,11 @@ const BY_EXTRACT_BOUNDARIES: [(&str, &str); 7] = [
     ),
 ];
 
+/// The texts of all manifests, for what reads them without a state (the reachability probe).
+pub fn manifest_texts() -> &'static [&'static str] {
+    &MANIFESTS
+}
+
 /// The text of the manifest of `state`.
 pub fn manifest_text(state: State) -> &'static str {
     let index = State::ALL

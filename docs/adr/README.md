@@ -230,3 +230,4 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0182](0182-issues-of-users-are-labelled.md) | Issues of users are labelled | Accepted | 2026-11-22 |
 | [0183](0183-poland-gmina-as-a-contact-in-the-permit-notes.md) | The gmina as a contact in the Polish permit notes | Accepted, completes ADR 0175 and 0181 | 2026-11-22 |
 | [0184](0184-poland-monument-register-in-the-permit-notes.md) | The register of monuments of the NID in the Polish permit notes | Accepted, completes ADR 0183 | 2026-11-22 |
+| [0185](0185-adapters-probe-asks-each-service-once.md) | `adapters probe` asks each service once | Accepted | 2026-11-22 |

@@ -354,6 +354,13 @@ enum AdaptersCommand {
         #[command(flatten)]
         cache: CacheArgs,
     },
+    /// Ask every service the built-in adapters name once and say whether it answers: ok, slow,
+    /// moved or error. Exit code 0 also when a service fails; the result is the answer.
+    Probe {
+        /// Print the result as JSON.
+        #[arg(long)]
+        json: bool,
+    },
     /// Allow a built-in adapter one more host: for a state whose service moved to a server
     /// its adapter does not name yet. The message about the refused address says which host.
     /// The host is checked like a host of a manifest, and freemapper still connects to
@@ -1217,6 +1224,19 @@ fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
                 },
         } => {
             return adapter_check::run(&dir, bbox.filter(|_| live), json, || cache.cache());
+        }
+        Commands::Adapters {
+            command: AdaptersCommand::Probe { json },
+        } => {
+            let (targets, hosts) = freemapper::probe::builtin_targets();
+            let outcomes = freemapper::probe::probe(&HttpFetcher::new(), &targets, &hosts);
+            if json {
+                println!("{}", freemapper::probe::to_json(&outcomes));
+            } else {
+                for line in freemapper::probe::lines(&outcomes) {
+                    println!("{line}");
+                }
+            }
         }
         Commands::Adapters {
             command: AdaptersCommand::AllowHost { adapter, host },
