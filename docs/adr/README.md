@@ -228,3 +228,4 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0180](0180-temporary-service-failures-are-asked-again.md) | A service that is down for a moment is asked again; if it stays down, the message says so | Accepted | 2026-11-22 |
 | [0181](0181-poland-administrative-units-in-the-permit-notes.md) | Administrative units in the Polish permit notes | Accepted, completes ADR 0175 | 2026-11-22 |
 | [0182](0182-issues-of-users-are-labelled.md) | Issues of users are labelled | Accepted | 2026-11-22 |
+| [0183](0183-adapters-probe-asks-each-service-once.md) | `adapters probe` asks each service once | Accepted | 2026-11-22 |

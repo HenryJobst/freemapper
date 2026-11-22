@@ -21,6 +21,7 @@ pub mod ocd;
 pub mod omap;
 pub mod permits;
 pub mod places;
+pub mod probe;
 pub mod project;
 pub mod raster;
 pub mod render;

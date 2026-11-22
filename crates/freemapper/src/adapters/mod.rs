@@ -523,6 +523,11 @@ mod tests {
             "derive/terrain.rs",
             "use freemapper_adapters_de::lgb::ProductTiles as _;",
         ),
+        // The manifests of the built-in states, whose services the reachability probe asks.
+        (
+            "probe.rs",
+            "targets(freemapper_adapters_de::states::manifest_texts())",
+        ),
         // The endpoints of the cadastre of two states, for the helpers the engine's tests use.
         (
             "sources/alkis.rs",
