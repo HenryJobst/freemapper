@@ -12,6 +12,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Behoben
 
+- Orthofoto-Bögen von GUGiK, die nicht aus JPEG-Kacheln bestehen, sondern unkomprimiertes RGB enthalten (ältere Befliegungen wie M-34-88-D-a-4 von 2003 bei Chochołów), werden gelesen. Vorher meldete der Lauf „the orthophoto is not made of JPEG tiles“ und ließ den Bogen aus.
 - Die Trainingskarte hält den Abstand zwischen einer Mauer und einem Weg auch nach dem Zusammenfügen der Wege (Issue #177): Regensburg und Bautzen meldeten dort 1,6 und 1,2 mm zu geringen Abstand, jetzt nichts mehr. Der Abstandsschritt läuft nach dem Zusammenfügen noch einmal (ADR 0150, Nachtrag). Die Beispiele im Repository sind noch nicht neu gebaut.
 - Das Seiten-PDF bettet die Schrift Arimo ein und zeigt Buchstaben wie ł, ą, č, ř und ő selbst, statt sie durch den Grundbuchstaben oder `?` zu ersetzen („Słubice“ statt „Slubice“; Issue 267, ADR 0179). Das PDF wird um die Schriftteilmengen größer; die Beispiel-PDFs im Repository bleiben, bis das Beispiel neu gebaut wird.
 - Die Fortschrittszeile zur Landnutzung in Polen nennt „EGiB/BDOT10k“, weil die Zahl auch die von BDOT10k ergänzten Teile enthält. Handbuch und AGENTS.md nennen Polen wie die README „nutzbar“ statt „Vorschau“.
