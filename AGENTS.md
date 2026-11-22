@@ -15,7 +15,7 @@ training in a small forest).
 Supported states: Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein,
 Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony, Rhineland-Palatinate,
 Saarland, Baden-Württemberg, Bremen and Bavaria. Thuringia has no data sources yet; an area there fails with a message that says so. Poland is usable: terrain model, contours,
-orthophoto, buildings and land use from GUGiK (the cadastre EGiB, BDOT10k where it gives nothing), permit notes from GDOŚ, the State Forests and the boundary register (voivodeship, powiat and gmina), and the area must lie wholly in Poland. Tell the user before you start if the place lies outside these states.
+orthophoto, buildings and land use from GUGiK (the cadastre EGiB, BDOT10k where it gives nothing), permit notes from GDOŚ, the State Forests, the boundary register (voivodeship, powiat and gmina) and the monument register of the NID, and the area must lie wholly in Poland. Tell the user before you start if the place lies outside these states.
 
 ## Install
 

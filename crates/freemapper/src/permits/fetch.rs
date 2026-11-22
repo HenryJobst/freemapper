@@ -1732,6 +1732,10 @@ mod poland {
             "https://sdi.gdos.gov.pl/",
             br#"{"type":"FeatureCollection","features":[]}"#.to_vec(),
         );
+        probe.insert_prefix(
+            "https://usluga.zabytek.gov.pl/",
+            br#"<?xml version="1.0"?><FeatureCollection/>"#.to_vec(),
+        );
         // A district found makes the PRG ask for its directorate too.
         probe.insert_prefix(
             "https://mapy.geoportal.gov.pl/",
@@ -1751,6 +1755,8 @@ mod poland {
         for url in probe.log.borrow().iter() {
             let body = if url.starts_with("https://sdi.gdos.gov.pl/") {
                 gdos_answer(url)
+            } else if url.starts_with("https://usluga.zabytek.gov.pl/") {
+                br#"<?xml version="1.0"?><FeatureCollection/>"#.to_vec()
             } else if url.contains("U06_Nadlesnictwo") {
                 fixture("prg-nadlesnictwa.xml")
             } else {
@@ -1787,7 +1793,8 @@ mod poland {
             asked
                 .iter()
                 .all(|u| u.starts_with("https://sdi.gdos.gov.pl/")
-                    || u.starts_with("https://mapy.geoportal.gov.pl/")),
+                    || u.starts_with("https://mapy.geoportal.gov.pl/")
+                    || u.starts_with("https://usluga.zabytek.gov.pl/")),
             "{asked:?}"
         );
         assert_eq!(online.osm, SourceInput::NotRead);
@@ -1800,7 +1807,8 @@ mod poland {
             [
                 ("polska", "gdos"),
                 ("polska", "prg"),
-                ("polska", "prg-granice")
+                ("polska", "prg-granice"),
+                ("polska", "nid-zabytki")
             ]
         );
         let today = "2026-11-22".parse().unwrap();
@@ -1937,6 +1945,24 @@ mod poland {
         )));
     }
 
+    /// The permit sources must belong to a region whose ground the map area touches: German
+    /// states with permit sources of their own are no reason to take a map in Warsaw.
+    #[test]
+    fn permit_sources_of_regions_far_away_do_not_serve_a_map_outside_germany() {
+        let (dir, project) = project();
+        let mut german = Registry::new();
+        freemapper_adapters_de::states::register_with_hosts(
+            &mut german,
+            &crate::adapters::ExtraHosts::new(),
+        )
+        .unwrap();
+        assert!(
+            german.adapters().any(|a| !a.permit_sources().is_empty()),
+            "the test needs a German state with permit sources"
+        );
+        assert!(not_for_region(&ask_in(&german, &project, dir.path())));
+    }
+
     fn copy_permits(from: &Path, to: &Path) {
         fn copy(from: &Path, to: &Path) {
             std::fs::create_dir_all(to).unwrap();
@@ -2013,6 +2039,10 @@ mod poland {
             + "</wfs:FeatureCollection>";
         let probe = MapFetcher::default();
         probe.insert_prefix("https://sdi.gdos.gov.pl/", empty_gdos.clone());
+        probe.insert_prefix(
+            "https://usluga.zabytek.gov.pl/",
+            br#"<?xml version="1.0"?><FeatureCollection/>"#.to_vec(),
+        );
         probe.insert_prefix(&format!("{BASE}U06"), empty_xml.clone().into_bytes());
         probe.insert_prefix(&format!("{BASE}A03"), fixture("prg-gminy-slubice.xml"));
         probe.insert_prefix(&format!("{BASE}A02"), fixture("prg-powiaty-slubice.xml"));
@@ -2032,6 +2062,8 @@ mod poland {
         for url in probe.log.borrow().iter() {
             let body = if url.starts_with("https://sdi.gdos.gov.pl/") {
                 empty_gdos.clone()
+            } else if url.starts_with("https://usluga.zabytek.gov.pl/") {
+                br#"<?xml version="1.0"?><FeatureCollection/>"#.to_vec()
             } else if url.starts_with(&format!("{BASE}U06")) {
                 empty_xml.clone().into_bytes()
             } else if url.starts_with(&format!("{BASE}A03")) {
@@ -2103,5 +2135,103 @@ mod poland {
         let notes = write_permit_notes(dir.path(), &project, &inputs, today).unwrap();
         assert_eq!(notes.regional[0].admin_units, None);
         assert!(notes.regional[0].protected_objects.is_some());
+    }
+
+    /// The URLs the register of monuments was asked at in `fetcher`.
+    fn nid_urls(fetcher: &MapFetcher) -> Vec<String> {
+        fetcher
+            .responses
+            .borrow()
+            .keys()
+            .filter(|u| u.starts_with("https://usluga.zabytek.gov.pl/"))
+            .cloned()
+            .collect()
+    }
+
+    #[test]
+    fn the_monument_register_is_counted_by_name_and_read_again_offline() {
+        let (dir, project) = project_at(SLUBICE);
+        let fetcher = MapFetcher::default();
+        serve_slubice(&fetcher, None);
+        let urls = nid_urls(&fetcher);
+        assert_eq!(urls.len(), 1, "{urls:?}");
+        fetcher.insert(&urls[0], fixture("nid-krakow.xml"));
+        let online = fetch(&project, dir.path(), &fetcher, false).unwrap();
+        let today = "2026-11-22".parse().unwrap();
+        let notes = write_permit_notes(dir.path(), &project, &online, today).unwrap();
+        let register = notes.regional[0].register_monuments.as_ref().unwrap();
+        // Nine entries, one of them twice: eight monuments, "działka" twice.
+        assert_eq!(register.total, 8);
+        assert_eq!(register.left, 0);
+        assert_eq!(register.names[0].name, "działka");
+        assert_eq!(register.names[0].count, 2);
+        assert_eq!(register.names.len(), 7);
+        assert!(
+            notes
+                .hints
+                .iter()
+                .any(|h| h.key == "permits-hint-monument-register-pl")
+        );
+
+        let silent = MapFetcher::default();
+        let offline = fetch(&project, dir.path(), &silent, true).unwrap();
+        assert!(silent.log.borrow().is_empty());
+        let again = write_permit_notes(dir.path(), &project, &offline, today).unwrap();
+        assert_eq!(again, notes);
+    }
+
+    #[test]
+    fn an_empty_monument_register_says_so_and_a_failing_one_is_left_out() {
+        let (dir, project) = project_at(SLUBICE);
+        let fetcher = MapFetcher::default();
+        serve_slubice(&fetcher, None);
+        let today = "2026-11-22".parse().unwrap();
+        let inputs = fetch(&project, dir.path(), &fetcher, false).unwrap();
+        let notes = write_permit_notes(dir.path(), &project, &inputs, today).unwrap();
+        assert_eq!(
+            notes.regional[0].register_monuments.as_ref().unwrap().total,
+            0
+        );
+        assert!(
+            !notes
+                .hints
+                .iter()
+                .any(|h| h.key == "permits-hint-monument-register-pl")
+        );
+
+        let (dir, project) = project_at(SLUBICE);
+        let fetcher = MapFetcher::default();
+        serve_slubice(&fetcher, None);
+        fetcher.failing.borrow_mut().extend(nid_urls(&fetcher));
+        let inputs = fetch(&project, dir.path(), &fetcher, false).unwrap();
+        let notes = write_permit_notes(dir.path(), &project, &inputs, today).unwrap();
+        assert_eq!(notes.regional[0].register_monuments, None);
+        assert!(notes.regional[0].protected_objects.is_some());
+    }
+
+    #[test]
+    fn the_register_names_are_capped_and_the_rest_is_counted() {
+        let (dir, project) = project_at(SLUBICE);
+        let fetcher = MapFetcher::default();
+        serve_slubice(&fetcher, None);
+        let urls = nid_urls(&fetcher);
+        let entries: String = (0..25)
+            .map(|i| {
+                format!(
+                    r#"<gml:featureMember><Layer Name="Immovable_Monuments"><Attribute Name="INSPIREID">id{i}</Attribute><Attribute Name="SITENAME">name{i:02}</Attribute></Layer></gml:featureMember>"#
+                )
+            })
+            .collect();
+        let body = format!(
+            r#"<?xml version="1.0"?><FeatureCollection xmlns:gml="http://www.opengis.net/gml">{entries}</FeatureCollection>"#
+        );
+        fetcher.insert(&urls[0], body.into_bytes());
+        let inputs = fetch(&project, dir.path(), &fetcher, false).unwrap();
+        let today = "2026-11-22".parse().unwrap();
+        let notes = write_permit_notes(dir.path(), &project, &inputs, today).unwrap();
+        let register = notes.regional[0].register_monuments.as_ref().unwrap();
+        assert_eq!(register.total, 25);
+        assert_eq!(register.names.len(), 10);
+        assert_eq!(register.left, 15);
     }
 }

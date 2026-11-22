@@ -114,6 +114,9 @@ pub mod hint_key {
     pub const GMINA_ROADS_PL: &str = "permits-hint-gmina-roads-pl";
     /// Arg `gmina`: land of the gmina, which the wójt manages (ADR 0183).
     pub const GMINA_LAND_PL: &str = "permits-hint-gmina-land-pl";
+    /// No args: monuments of the register lie in the rectangle around the map area in Poland;
+    /// the voivodeship conservator decides on work at them (ADR 0184).
+    pub const MONUMENT_REGISTER_PL: &str = "permits-hint-monument-register-pl";
 }
 
 /// The credit line of the OSM data, as on the map.
@@ -1086,6 +1089,9 @@ fn regional_hints(forest: bool, operated: &[&OsmFinding], regional: &[HintFacts]
     };
     if regional.iter().any(|f| f.gmina_nature_forms) {
         hints.push(Hint::new(hint_key::GMINA_NATURE_PL, &gmina));
+    }
+    if regional.iter().any(|f| f.register_monuments > 0) {
+        hints.push(Hint::new(hint_key::MONUMENT_REGISTER_PL, &[]));
     }
     if forest {
         let offices: Vec<_> = regional.iter().flat_map(|f| &f.forest_offices).collect();

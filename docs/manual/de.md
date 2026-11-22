@@ -1469,8 +1469,14 @@ Fahrbahn entscheidet (Gesetz über die öffentlichen Straßen, Art. 19 und 40). 
 Leiter und vertritt die Gmina (Gemeindeselbstverwaltungsgesetz, Art. 30 und 31); welches Land der Gmina gehört,
 wissen die Hinweise nicht und sagen deshalb „falls“. Die Genehmigung für eine Veranstaltung auf einer Straße erteilt
 der Wójt nicht, und für ein Naturdenkmal nennt das Naturschutzgesetz keine Genehmigung: Der Beschluss entscheidet.
-Denkmale, Massenveranstaltungen und Versammlungen bekommen keinen Gmina-Hinweis. In den Daten sind nur
-die Staatsforsten, kein Privatwald. Die Hinweistexte hat noch kein Polnischsprecher gelesen. Die Hinweise sind
+Massenveranstaltungen und Versammlungen bekommen keinen Gmina-Hinweis. Die Denkmale kommen aus dem Register der
+unbeweglichen Denkmale des NID (`usluga.zabytek.gov.pl`, eine Anfrage je Kartengebiet): Die Hinweise zählen die
+Denkmale im Rechteck um das Kartengebiet und nennen die häufigsten Namen mit ihrer Anzahl (höchstens zehn). Das
+Register liefert keine Positionen, deshalb steht dort, dass man auf der Karte nachsehen muss, wo sie liegen. Der
+Hinweis nennt die Genehmigung des Woiwodschafts-Denkmalpflegers für Arbeiten an einem Denkmal und in seinem Umfeld
+(Denkmalschutzgesetz, Art. 36); einen Lauf nennt das Gesetz nicht. Archäologische Stätten und die Pomniki historii
+fehlen in der Schicht. In den Daten sind nur die Staatsforsten, kein Privatwald; die Hinweise sagen, dass der
+Starost Wald beaufsichtigt, der nicht dem Staatsschatz gehört. Die Hinweistexte hat noch kein Polnischsprecher gelesen. Die Hinweise sind
 ein Hinweis, keine Rechtsberatung. `--offline` liest, was ein früherer Lauf gespeichert hat, wie in Deutschland.
 
 ## 13. Regionen und Grenzgebiete
@@ -1858,9 +1864,16 @@ adapters disallow-host hessen neuer-server.hessen.de` nimmt einen zurück.
 
 ## 15. Meldungen und was zu tun ist
 
-freemapper kennt Deutsch und Englisch. Die Sprache kommt aus `--lang de` oder `--lang en`, sonst aus der
+freemapper kennt Deutsch und Englisch und 19 weitere Sprachen (siehe unten). Die Sprache kommt aus `--lang de` oder `--lang en`, sonst aus der
 Umgebungsvariable `FREEMAPPER_LANG`, sonst aus der Sprache des Systems (`LANG`), sonst ist sie Englisch. Unter
 Windows ist `LANG` meist nicht gesetzt; dort hilft `--lang de`.
+
+Das Programm spricht außerdem Polnisch, Tschechisch, Dänisch, Spanisch, Estnisch, Finnisch, Französisch, Ungarisch,
+Italienisch, Litauisch, Lettisch, Norwegisch (Bokmål), Niederländisch, Portugiesisch, Russisch, Slowakisch,
+Slowenisch, Schwedisch und Ukrainisch (`--lang pl`, `--lang cs` und so weiter). Diese Texte sind maschinell
+entworfen, kein Muttersprachler hat sie gelesen, und Fehler sind möglich. Korrekturen sind willkommen, als Issue oder
+als Pull Request: Die Texte liegen je Sprache in `crates/freemapper-cli/i18n/<Sprache>/freemapper.ftl` und
+`crates/freemapper-adapter-api/i18n/<Sprache>/notes.ftl`, die Anleitung steht in `crates/freemapper-cli/i18n/README.md`.
 
 Übersetzt sind die Zeilen, die das Programm am Ende eines Schritts ausgibt, etwa „… geschrieben“ und die Hinweise
 nach `run` und `export`, und die Fehlermeldungen. Eine Fehlermeldung beginnt mit `Fehler:` (englisch `error:`),

@@ -1004,6 +1004,10 @@ permits-section-state-forest = Valsts mežs ({ $source })
 permits-none-forest-units = Pēc { $source } datiem kartes apgabals neatrodas nevienas mežniecības (Forstamt) teritorijā.
 permits-section-admin-units = Administratīvās vienības ({ $source })
 permits-none-admin-units = Saskaņā ar { $source } kartes teritorija neatrodas nevienā reģistra administratīvajā vienībā.
+permits-section-register-monuments = Nacionālā reģistra pieminekļi ({ $source })
+permits-none-register-monuments = Saskaņā ar { $source } taisnstūrī ap kartes apgabalu nav neviena reģistrēta pieminekļa.
+permits-register-monuments-total = Reģistrēti pieminekļi taisnstūrī ap kartes apgabalu: { $count }. Reģistrs nenorāda atrašanās vietu, tāpēc šīs piezīmes nevar pateikt, kur tie atrodas; tas jāpārbauda kartē.
+permits-register-monuments-left = Vēl { $count } šeit tikai saskaitīti, bez nosaukumiem.
 permits-admin-unit-code = { $name } (TERYT { $code })
 permits-none-state-forest = Pēc { $source } datiem kartes apgabalā nav valsts meža.
 permits-forest-units-reach = Mežniecība atbild par mežu savā teritorijā. Tās teritorija var ietvert arī pilsētas un laukus.
@@ -1017,9 +1021,10 @@ permits-hint-forest-owner = { $office ->
        *[unknown] Pasākumam mežā vajadzīga meža īpašnieku piekrišana. Vairākās federālajās zemēs organizēts pasākums mežā jāpiesaka meža iestādei vai tā jāatļauj. Šīs piezīmes nenosauc šeit atbildīgo mežniecību; to var pateikt federālās zemes meža pārvalde vai zemākā meža iestāde.
     }
 permits-hint-forest-owner-pl = { $office ->
-        [known] Pasākumam mežā parasti ir vajadzīga meža īpašnieka piekrišana. Iepriekš minētā mežniecība (Nadleśnictwo) parasti var pateikt, kas mežu kopj. Mežs, kas nepieder Valsts mežiem, piemēram, privātais mežs, šo piezīmju datos nav.
-       *[unknown] Pasākumam mežā parasti ir vajadzīga meža īpašnieka piekrišana. Šīs piezīmes kartes apgabalam nenosauc nevienu Valsts mežu mežniecību; dati aptver tikai Valsts mežus, tāpēc mežs var piederēt kādam citam, piemēram, privātam īpašniekam. Īpašnieks jānoskaidro atsevišķi.
+        [known] Pasākumam mežā parasti ir vajadzīga meža īpašnieka piekrišana. Iepriekš minētā mežniecība (Nadleśnictwo) parasti var pateikt, kas mežu kopj. Mežs, kas nepieder Valsts mežiem, piemēram, privātais mežs, šo piezīmju datos nav. Mežu, kas nepieder valstij, piemēram, privātu vai pašvaldības mežu, meža apsaimniekošanas jomā uzrauga starosts (starosta) (Mežu likums, 5. panta 1. daļas 2. punkts); jautājiet tur birojā (starostwo powiatowe).
+       *[unknown] Pasākumam mežā parasti ir vajadzīga meža īpašnieka piekrišana. Šīs piezīmes kartes apgabalam nenosauc nevienu Valsts mežu mežniecību; dati aptver tikai Valsts mežus, tāpēc mežs var piederēt kādam citam, piemēram, privātam īpašniekam. Īpašnieks jānoskaidro atsevišķi. Mežu, kas nepieder valstij, piemēram, privātu vai pašvaldības mežu, meža apsaimniekošanas jomā uzrauga starosts (starosta) (Mežu likums, 5. panta 1. daļas 2. punkts); jautājiet tur birojā (starostwo powiatowe).
     }
+permits-hint-monument-register-pl = Taisnstūrī ap kartes apgabalu atrodas nacionālā reģistra pieminekļi. To atrašanās vietu datos nav, tāpēc kartē pārbaudiet, kur tie ir. Saskaņā ar Pieminekļu aizsardzības likuma (ustawa o ochronie zabytków) 36. panta 1. daļu darbiem reģistrētā piemineklī, būvdarbiem pieminekļa apkārtnē un citām darbībām, kas varētu mainīt tā būtību vai izskatu, vajadzīga vojevodistes pieminekļu konservatora (Wojewódzki Konserwator Zabytków) atļauja. Likums neminē skrējienu vai kontrolpunktu kā tādu; jautājiet konservatora birojā, ja pasākums skar pieminekli vai tā apkārtni.
 permits-hint-gmina-nature-pl = { $gmina ->
         [none] Kartes teritorijā atrodas dabas piemineklis (pomnik przyrody), ekoloģiskā teritorija (użytek ekologiczny), dabas un ainavu komplekss (zespół przyrodniczo-krajobrazowy) vai dokumentācijas vieta (stanowisko dokumentacyjne). Tos nodibina gminas dome ar lēmumu, kurā norādīts, kas uzrauga objektu un kādi aizliegumi ir spēkā (Dabas aizsardzības likuma 44. pants). Pats likums šeit pasākumam neparedz nekādu atļauju. Lūdziet lēmumu un uzraudzības personu tās gminas iestādē, kuras teritorijā objekts atrodas.
        *[other] Kartes teritorijā atrodas dabas piemineklis (pomnik przyrody), ekoloģiskā teritorija (użytek ekologiczny), dabas un ainavu komplekss (zespół przyrodniczo-krajobrazowy) vai dokumentācijas vieta (stanowisko dokumentacyjne). Tos nodibina gminas dome ar lēmumu, kurā norādīts, kas uzrauga objektu un kādi aizliegumi ir spēkā (Dabas aizsardzības likuma 44. pants). Pats likums šeit pasākumam neparedz nekādu atļauju. Lūdziet lēmumu un uzraudzības personu tās gminas ({ $gmina }) iestādē, kuras teritorijā objekts atrodas.

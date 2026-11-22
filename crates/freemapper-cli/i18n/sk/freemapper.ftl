@@ -1005,6 +1005,10 @@ permits-section-state-forest = Štátny les ({ $source })
 permits-none-forest-units = Podľa { $source } oblasť mapy neleží v pôsobnosti žiadneho lesného úradu.
 permits-section-admin-units = Správne jednotky ({ $source })
 permits-none-admin-units = Podľa { $source } oblasť mapy neleží v žiadnej správnej jednotke registra.
+permits-section-register-monuments = Pamiatky národného registra ({ $source })
+permits-none-register-monuments = Podľa { $source } v obdĺžniku okolo oblasti mapy neleží žiadna zapísaná pamiatka.
+permits-register-monuments-total = Zapísané pamiatky v obdĺžniku okolo oblasti mapy: { $count }. Register neuvádza polohu, tieto upozornenia preto nevedia povedať, kde ležia; treba to overiť na mape.
+permits-register-monuments-left = Ďalších { $count } je tu len započítaných, bez názvov.
 permits-admin-unit-code = { $name } (TERYT { $code })
 permits-none-state-forest = Podľa { $source } v oblasti mapy neleží žiadny štátny les.
 permits-forest-units-reach = Lesný úrad je príslušný za les vo svojej oblasti. Jeho oblasť môže zahŕňať aj mestá a polia.
@@ -1018,9 +1022,10 @@ permits-hint-forest-owner = { $office ->
        *[unknown] Podujatie v lese vyžaduje súhlas vlastníkov lesa. V niektorých spolkových krajinách sa musí organizované podujatie v lese navyše ohlásiť lesnému orgánu alebo ho tento orgán musí povoliť. Tieto poznámky tu príslušný lesný úrad neuvádzajú; poradí lesná správa spolkovej krajiny alebo nižší lesný orgán.
     }
 permits-hint-forest-owner-pl = { $office ->
-        [known] Podujatie v lese zvyčajne potrebuje súhlas vlastníka lesa. Hore uvedená lesná správa (Nadleśnictwo) vie zvyčajne povedať, kto sa o les stará. Les, ktorý nepatrí Štátnym lesom, napríklad súkromný les, nie je v údajoch týchto poznámok.
-       *[unknown] Podujatie v lese zvyčajne potrebuje súhlas vlastníka lesa. Tieto poznámky pre územie mapy neuvádzajú žiadnu lesnú správu Štátnych lesov; údaje zahŕňajú len Štátne lesy, takže les môže patriť niekomu inému, napríklad súkromnému vlastníkovi. Kto je vlastníkom, treba zistiť osobitne.
+        [known] Podujatie v lese zvyčajne potrebuje súhlas vlastníka lesa. Hore uvedená lesná správa (Nadleśnictwo) vie zvyčajne povedať, kto sa o les stará. Les, ktorý nepatrí Štátnym lesom, napríklad súkromný les, nie je v údajoch týchto poznámok. Les, ktorý nepatrí štátu, napríklad súkromný alebo obecný les, podlieha v lesnom hospodárstve dozoru starostu (starosta) (zákon o lesoch, čl. 5 ods. 1 bod 2); opýtajte sa tam na úrade (starostwo powiatowe).
+       *[unknown] Podujatie v lese zvyčajne potrebuje súhlas vlastníka lesa. Tieto poznámky pre územie mapy neuvádzajú žiadnu lesnú správu Štátnych lesov; údaje zahŕňajú len Štátne lesy, takže les môže patriť niekomu inému, napríklad súkromnému vlastníkovi. Kto je vlastníkom, treba zistiť osobitne. Les, ktorý nepatrí štátu, napríklad súkromný alebo obecný les, podlieha v lesnom hospodárstve dozoru starostu (starosta) (zákon o lesoch, čl. 5 ods. 1 bod 2); opýtajte sa tam na úrade (starostwo powiatowe).
     }
+permits-hint-monument-register-pl = V obdĺžniku okolo oblasti mapy ležia pamiatky národného registra. Ich poloha v dátach nie je, overte na mape, kde sú. Podľa čl. 36 ods. 1 zákona o ochrane pamiatok (ustawa o ochronie zabytków) vyžadujú práce na zapísanej pamiatke, stavebné práce v okolí pamiatky a iné činnosti, ktoré by mohli zmeniť jej podstatu alebo vzhľad, povolenie vojvodského pamiatkara (Wojewódzki Konserwator Zabytków). Zákon neuvádza beh ani kontrolu ako takú; opýtajte sa úradu pamiatkara, ak sa podujatie dotýka pamiatky alebo jej okolia.
 permits-hint-gmina-nature-pl = { $gmina ->
         [none] V oblasti mapy leží prírodná pamiatka (pomnik przyrody), ekologická plocha (użytek ekologiczny), prírodný a krajinný celok (zespół przyrodniczo-krajobrazowy) alebo dokumentačná lokalita (stanowisko dokumentacyjne). Zriaďuje ich zastupiteľstvo gminy uznesením, ktoré určuje, kto nad objektom dohliada a aké zákazy platia (čl. 44 zákona o ochrane prírody). Zákon sám pre podujatie tu žiadne povolenie nestanovuje. Požiadajte úrad gminy, na ktorej území objekt leží, o uznesenie a o určenie dohliadajúcej osoby.
        *[other] V oblasti mapy leží prírodná pamiatka (pomnik przyrody), ekologická plocha (użytek ekologiczny), prírodný a krajinný celok (zespół przyrodniczo-krajobrazowy) alebo dokumentačná lokalita (stanowisko dokumentacyjne). Zriaďuje ich zastupiteľstvo gminy uznesením, ktoré určuje, kto nad objektom dohliada a aké zákazy platia (čl. 44 zákona o ochrane prírody). Zákon sám pre podujatie tu žiadne povolenie nestanovuje. Požiadajte úrad gminy ({ $gmina }), na ktorej území objekt leží, o uznesenie a o určenie dohliadajúcej osoby.

@@ -61,8 +61,8 @@ Where the notes say "the gmina office" they mean the office of that body.
   - `permits-hint-gmina-land-pl` when a gmina is known. It says that, if land belongs to the gmina,
     the wójt manages it and represents the gmina, and to ask for consent. It says the notes do not
     show who owns the land.
-- **Not added.** No hint for monuments (the Polish notes read no monument source; a register of
-  the national heritage institute would be one), none for mass events, none for assemblies, no
+- **Not added.** No hint for monuments (the Polish notes read no monument source then; ADR 0184 adds the
+  register of the NID), none for mass events, none for assemblies, no
   road category from OSM (the Polish classes are not in the tags reliably).
 - **Facts.** `HintFacts` gets `gmina_nature_forms` and `municipalities` (`regional.rs`). The
   municipalities come from the existing `admin_units` section; no new request, no new host, the

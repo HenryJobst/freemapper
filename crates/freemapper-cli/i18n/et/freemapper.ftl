@@ -997,6 +997,10 @@ permits-section-state-forest = Riigimets ({ $source })
 permits-none-forest-units = { $source } järgi ei asu kaardiala ühegi metsaameti tööpiirkonnas.
 permits-section-admin-units = Haldusüksused ({ $source })
 permits-none-admin-units = Registri { $source } järgi ei asu kaardiala üheski haldusüksuses.
+permits-section-register-monuments = Riikliku registri mälestised ({ $source })
+permits-none-register-monuments = Allika { $source } järgi ei asu kaardiala ümber olevas ristkülikus ühtegi registreeritud mälestist.
+permits-register-monuments-total = Registreeritud mälestisi kaardiala ümber olevas ristkülikus: { $count }. Register ei anna asukohta, seega need märkused ei saa öelda, kus need asuvad; seda tuleb kaardilt kontrollida.
+permits-register-monuments-left = Veel { $count } on siin ainult loetud, ilma nimedeta.
 permits-admin-unit-code = { $name } (TERYT { $code })
 permits-none-state-forest = { $source } järgi ei asu kaardialal riigimetsa.
 permits-forest-units-reach = Metsaamet vastutab oma piirkonna metsa eest. Selle piirkond võib hõlmata ka linnu ja põlde.
@@ -1010,9 +1014,10 @@ permits-hint-forest-owner = { $office ->
        *[unknown] Üritus metsas vajab metsaomanike nõusolekut. Mitmes liidumaal tuleb organiseeritud üritusest metsas ka metsaasutust teavitada või saada selle luba. Need märkmed ei nimeta siin vastutavat metsaametit; seda oskab öelda liidumaa metsahaldus või alumine metsaasutus.
     }
 permits-hint-forest-owner-pl = { $office ->
-        [known] Metsas toimuv üritus vajab tavaliselt metsaomaniku nõusolekut. Eespool nimetatud metsapiirkond (Nadleśnictwo) oskab tavaliselt öelda, kes metsa eest hoolitseb. Mets, mis ei kuulu riigimetsadele, näiteks eramets, ei ole nende märkuste andmetes.
-       *[unknown] Metsas toimuv üritus vajab tavaliselt metsaomaniku nõusolekut. Need märkused ei nimeta kaardiala jaoks ühtegi riigimetsade metsapiirkonda; andmed hõlmavad ainult riigimetsi, seega võib mets kuuluda kellelegi teisele, näiteks eraomanikule. Omanik tuleb välja selgitada eraldi.
+        [known] Metsas toimuv üritus vajab tavaliselt metsaomaniku nõusolekut. Eespool nimetatud metsapiirkond (Nadleśnictwo) oskab tavaliselt öelda, kes metsa eest hoolitseb. Mets, mis ei kuulu riigimetsadele, näiteks eramets, ei ole nende märkuste andmetes. Metsa, mis ei kuulu riigile, näiteks era- või vallametsa, metsamajanduse üle teostab järelevalvet starosta (starosta) (metsaseadus, art. 5 ust. 1 pkt 2); küsige seal ametist (starostwo powiatowe).
+       *[unknown] Metsas toimuv üritus vajab tavaliselt metsaomaniku nõusolekut. Need märkused ei nimeta kaardiala jaoks ühtegi riigimetsade metsapiirkonda; andmed hõlmavad ainult riigimetsi, seega võib mets kuuluda kellelegi teisele, näiteks eraomanikule. Omanik tuleb välja selgitada eraldi. Metsa, mis ei kuulu riigile, näiteks era- või vallametsa, metsamajanduse üle teostab järelevalvet starosta (starosta) (metsaseadus, art. 5 ust. 1 pkt 2); küsige seal ametist (starostwo powiatowe).
     }
+permits-hint-monument-register-pl = Kaardiala ümber olevas ristkülikus asuvad riikliku registri mälestised. Nende asukohti andmetes pole, kontrollige kaardilt, kus need on. Mälestiste kaitse seaduse (ustawa o ochronie zabytków) art. 36 ust. 1 järgi vajavad registreeritud mälestise töid, mälestise ümbruse ehitustöid ja muid tegevusi, mis võivad muuta selle olemust või väljanägemist, vojevoodkonna muinsuskaitsja (Wojewódzki Konserwator Zabytków) luba. Seadus ei nimeta jooksu ega kontrollpunkti kui sellist; küsige muinsuskaitsja ametist, kui üritus puudutab mälestist või selle ümbrust.
 permits-hint-gmina-nature-pl = { $gmina ->
         [none] Kaardialal asub loodusmälestis (pomnik przyrody), ökoloogiline ala (użytek ekologiczny), loodus- ja maastikukompleks (zespół przyrodniczo-krajobrazowy) või dokumentatsioonikoht (stanowisko dokumentacyjne). Need kehtestab gmina volikogu otsusega, milles on märgitud, kes objekti üle järelevalvet teeb ja millised keelud kehtivad (loodushoiu seaduse art 44). Seadus ise ei nimeta siin ürituse jaoks mingit luba. Küsige otsust ja järelevalvajat selle gmina ametist, mille territooriumil objekt asub.
        *[other] Kaardialal asub loodusmälestis (pomnik przyrody), ökoloogiline ala (użytek ekologiczny), loodus- ja maastikukompleks (zespół przyrodniczo-krajobrazowy) või dokumentatsioonikoht (stanowisko dokumentacyjne). Need kehtestab gmina volikogu otsusega, milles on märgitud, kes objekti üle järelevalvet teeb ja millised keelud kehtivad (loodushoiu seaduse art 44). Seadus ise ei nimeta siin ürituse jaoks mingit luba. Küsige otsust ja järelevalvajat selle gmina ({ $gmina }) ametist, mille territooriumil objekt asub.

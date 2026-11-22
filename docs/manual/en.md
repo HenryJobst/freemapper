@@ -1408,8 +1408,14 @@ the gmina (wójt, burmistrz, prezydent miasta) manages the gmina roads and decid
 Roads Act, art. 19 and 40). For land that belongs to the gmina the same head manages it and represents the gmina
 (Act on Gmina Self-Government, art. 30 and 31); the notes do not know which land is municipal, so they say "if".
 The wójt does not issue the permit for an event on a road, and the Nature Conservation Act names no permit for an
-event at a natural monument: the resolution decides. Monuments, mass events and assemblies get no gmina hint. Only the State Forests
-are in the data; private forest is not. The German wording of these hints has not been read by a Polish speaker.
+event at a natural monument: the resolution decides. Mass events and assemblies get no gmina hint. Monuments come from the register of immovable monuments of the NID
+(`usluga.zabytek.gov.pl`, one request per map area): the notes count the monuments in the rectangle around the map
+area and name the most common names with their counts (at most ten). The register gives no positions, so the notes
+say to check on the map where they lie. The hint names the permit of the voivodeship monument conservator for work
+at a monument and in its surroundings (Act on the Protection of Monuments, art. 36); the Act names no run.
+Archaeological sites and the Pomniki historii are not in the layer. Only the State Forests
+are in the data; private forest is not, and the notes say that the starosta supervises forest that the State
+Treasury does not own. The German wording of these hints has not been read by a Polish speaker.
 The notes are a hint, not legal advice. `--offline` reads what an earlier run stored, as in Germany.
 
 ## 13. Regions and border areas
@@ -1776,9 +1782,16 @@ allowed hosts per state, and `freemapper adapters disallow-host hessen new-serve
 
 ## 15. Messages and what to do
 
-freemapper has German and English texts. The language comes from `--lang de` or `--lang en`, else from the
+freemapper has German and English texts and 19 more languages (see below). The language comes from `--lang de` or `--lang en`, else from the
 environment variable `FREEMAPPER_LANG`, else from the system language (`LANG`), else it is English. On Windows
 `LANG` is usually not set; use `--lang de` there if you want German.
+
+The program also speaks Polish, Czech, Danish, Spanish, Estonian, Finnish, French, Hungarian, Italian, Lithuanian,
+Latvian, Norwegian (Bokmål), Dutch, Portuguese, Russian, Slovak, Slovene, Swedish and Ukrainian (`--lang pl`,
+`--lang cs` and so on). These texts are drafted by machine, no native speaker has read them, and mistakes are
+possible. Corrections are welcome as an issue or a pull request: the texts live per language in
+`crates/freemapper-cli/i18n/<language>/freemapper.ftl` and `crates/freemapper-adapter-api/i18n/<language>/notes.ftl`,
+and the guide is `crates/freemapper-cli/i18n/README.md`.
 
 German covers the lines the program prints at the end of a step, such as "Wrote …" and the hints after `run`
 and `export`, and the error messages. An error message starts with `error:` (German `Fehler:`), and the program

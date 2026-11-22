@@ -1024,6 +1024,10 @@ permits-section-state-forest = Lasy państwowe kraju związkowego ({ $source })
 permits-none-forest-units = Według { $source } obszar mapy nie leży w obszarze żadnego urzędu leśnego.
 permits-section-admin-units = Jednostki administracyjne ({ $source })
 permits-none-admin-units = Według { $source } obszar mapy nie leży w żadnej jednostce administracyjnej rejestru.
+permits-section-register-monuments = Zabytki z krajowego rejestru ({ $source })
+permits-none-register-monuments = Według { $source } w prostokącie wokół obszaru mapy nie leży żaden zabytek wpisany do rejestru.
+permits-register-monuments-total = Zabytki wpisane do rejestru w prostokącie wokół obszaru mapy: { $count }. Rejestr nie podaje położenia, więc te wskazówki nie mówią, gdzie one leżą; trzeba to sprawdzić na mapie.
+permits-register-monuments-left = Kolejnych { $count } jest tu tylko policzonych, bez nazw.
 permits-admin-unit-code = { $name } (TERYT { $code })
 permits-none-state-forest = Według { $source } w obszarze mapy nie leży żaden las państwowy kraju związkowego.
 permits-forest-units-reach = Urząd leśny odpowiada za las na swoim obszarze. Jego obszar może obejmować także miasta i pola.
@@ -1037,9 +1041,10 @@ permits-hint-forest-owner = { $office ->
        *[unknown] Impreza w lesie wymaga zgody właścicieli lasu. W kilku krajach związkowych zorganizowaną imprezę w lesie trzeba ponadto zgłosić organowi leśnemu lub uzyskać jego zezwolenie. Te wskazówki nie wskazują właściwego tu urzędu leśnego; może to powiedzieć administracja leśna kraju związkowego lub dolny organ leśny.
     }
 permits-hint-forest-owner-pl = { $office ->
-        [known] Impreza w lesie zwykle wymaga zgody właściciela lasu. Wymienione wyżej nadleśnictwo zwykle może powiedzieć, kto opiekuje się lasem. Lasu, który nie należy do Lasów Państwowych, na przykład lasu prywatnego, nie ma w danych tych wskazówek.
-       *[unknown] Impreza w lesie zwykle wymaga zgody właściciela lasu. Te wskazówki nie wskazują dla obszaru mapy żadnego nadleśnictwa Lasów Państwowych; dane obejmują tylko Lasy Państwowe, więc las może należeć do kogoś innego, na przykład do właściciela prywatnego. Właściciela trzeba ustalić osobno.
+        [known] Impreza w lesie zwykle wymaga zgody właściciela lasu. Wymienione wyżej nadleśnictwo zwykle może powiedzieć, kto opiekuje się lasem. Lasu, który nie należy do Lasów Państwowych, na przykład lasu prywatnego, nie ma w danych tych wskazówek. Las niebędący własnością Skarbu Państwa, na przykład las prywatny lub gminny, podlega w zakresie gospodarki leśnej nadzorowi starosty (ustawa o lasach, art. 5 ust. 1 pkt 2); zapytaj wtedy w starostwie powiatowym.
+       *[unknown] Impreza w lesie zwykle wymaga zgody właściciela lasu. Te wskazówki nie wskazują dla obszaru mapy żadnego nadleśnictwa Lasów Państwowych; dane obejmują tylko Lasy Państwowe, więc las może należeć do kogoś innego, na przykład do właściciela prywatnego. Właściciela trzeba ustalić osobno. Las niebędący własnością Skarbu Państwa, na przykład las prywatny lub gminny, podlega w zakresie gospodarki leśnej nadzorowi starosty (ustawa o lasach, art. 5 ust. 1 pkt 2); zapytaj wtedy w starostwie powiatowym.
     }
+permits-hint-monument-register-pl = Zabytki z krajowego rejestru leżą w prostokącie wokół obszaru mapy. Ich położenia nie ma w danych, więc sprawdź na mapie, gdzie się znajdują. Według art. 36 ust. 1 ustawy o ochronie zabytków pozwolenia wojewódzkiego konserwatora zabytków wymaga prowadzenie prac przy zabytku wpisanym do rejestru, roboty budowlane w otoczeniu zabytku oraz inne działania, które mogłyby naruszyć substancję lub zmienić wygląd zabytku. Ustawa nie wymienia biegu ani punktu kontrolnego jako takich; zapytaj urząd konserwatora, jeśli impreza dotyka zabytku lub jego otoczenia.
 permits-hint-gmina-nature-pl = { $gmina ->
         [none] W obszarze mapy leży pomnik przyrody, użytek ekologiczny, zespół przyrodniczo-krajobrazowy lub stanowisko dokumentacyjne. Ustanawia je rada gminy w drodze uchwały, która określa, kto sprawuje nadzór nad obiektem i jakie zakazy obowiązują (art. 44 ustawy o ochronie przyrody). Sama ustawa nie przewiduje tu żadnego zezwolenia na imprezę. Zapytaj w urzędzie gminy, na której terenie leży obiekt, o uchwałę i osobę sprawującą nadzór.
        *[other] W obszarze mapy leży pomnik przyrody, użytek ekologiczny, zespół przyrodniczo-krajobrazowy lub stanowisko dokumentacyjne. Ustanawia je rada gminy w drodze uchwały, która określa, kto sprawuje nadzór nad obiektem i jakie zakazy obowiązują (art. 44 ustawy o ochronie przyrody). Sama ustawa nie przewiduje tu żadnego zezwolenia na imprezę. Zapytaj w urzędzie gminy ({ $gmina }), na której terenie leży obiekt, o uchwałę i osobę sprawującą nadzór.
