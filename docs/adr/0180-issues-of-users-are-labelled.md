@@ -11,8 +11,8 @@ issue of a user stands among them and can be overlooked, although it should be l
 
 ## Decision
 
-A workflow sets the label `von-nutzer` on every issue whose author is not the owner, a member or a
-collaborator (`author_association`). It sets only the label and never reads the text of the issue,
+A workflow sets the label `von-nutzer` on every issue whose author is not the owner, a member, a
+collaborator (`author_association`) or a bot (the nightly mutation tests open issues). It sets only the label and never reads the text of the issue,
 so an issue cannot steer it. The label has its own colour (orange, as the banner). Two issue forms
 (bug, request) ask for the version, the place and what happened; they set `bug` or `enhancement`.
 The issues of the project itself are opened without a form and stay without the label. A search
