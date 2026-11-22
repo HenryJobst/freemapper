@@ -27,7 +27,7 @@ use freemapper_adapter_api::extras::{
 use freemapper_adapter_api::fetch::{Fetcher, get_with_retries};
 use freemapper_contract::MapKind;
 use freemapper_georef::crs::{BoundingBox, Crs};
-use freemapper_sources::zip_range::{find_member, read_member, read_members};
+use freemapper_sources::zip_range::{find_member, read_member_up_to, read_members};
 use quick_xml::events::Event;
 use serde_json::{Value, json};
 
@@ -253,6 +253,10 @@ pub fn features(lines: &[Line], crs: Crs) -> Vec<Value> {
         .collect()
 }
 
+/// The limit for one class file, packed and unpacked. The road axes of powiat 0208 (kłodzki, a
+/// mountain district) are 76.5 MB unpacked and 8.3 MB packed, above the 64 MB of the shared reader.
+const MAX_CLASS_BYTES: u64 = 256 << 20;
+
 /// The lines of `class` in the archive of `package`, read as one member by byte ranges.
 fn read_class(
     fetcher: &dyn Fetcher,
@@ -266,7 +270,7 @@ fn read_class(
     let Some(member) = find_member(&members, |name| name.ends_with(&suffix)) else {
         return Ok(Vec::new());
     };
-    let bytes = read_member(fetcher, &package.url, member)?;
+    let bytes = read_member_up_to(fetcher, &package.url, member, MAX_CLASS_BYTES)?;
     read_lines(BufReader::new(bytes.as_slice()), class, bbox, &package.url)
 }
 
