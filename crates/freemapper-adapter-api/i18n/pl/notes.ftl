@@ -113,18 +113,18 @@ warning-permits-osm-no-extract = dla tego obszaru mapy brak wyciągu OSM w pami�
 
 ## ALKIS
 
-warning-alkis-coverage-unknown = zasięg budynków ALKIS nieznany; uruchom `freemapper fetch` online, aby go zapisać
-progress-alkis-buildings-download = pobieranie budynków ALKIS
-progress-alkis-buildings = budynki ALKIS: { $count }
-warning-alkis-no-buildings = w obszarze mapy nie znaleziono budynków ALKIS
-progress-alkis-skipped = pominięto obiekty ALKIS: { $count }, { $list }
-warning-alkis-buildings-changed = budynki ALKIS zmieniły się u źródła ({ $changes })
-progress-alkis-no-land-use-stored = brak zapisanych użytków gruntowych ALKIS; uruchom `freemapper fetch` online, aby dostać kandydatów na tereny zakazane
-progress-alkis-land-use-download = pobieranie użytków gruntowych ALKIS
-progress-alkis-land-use-parts = części użytków gruntowych ALKIS: { $count }
-warning-alkis-land-use-kept = użytki gruntowe ALKIS niedostępne ({ $error }); zachowuję zapisane użytki
-warning-alkis-land-use-removed = użytki gruntowe ALKIS niedostępne ({ $error }); zapisane użytki nie pokrywają już obszaru mapy, więc freemapper je usunął
-warning-alkis-land-use-none = użytki gruntowe ALKIS niedostępne ({ $error }); brak kandydatów na tereny zakazane
+warning-alkis-coverage-unknown = zasięg budynków { $cadastre } nieznany; uruchom `freemapper fetch` online, aby go zapisać
+progress-alkis-buildings-download = pobieranie budynków { $cadastre }
+progress-alkis-buildings = budynki { $cadastre }: { $count }
+warning-alkis-no-buildings = w obszarze mapy nie znaleziono budynków { $cadastre }
+progress-alkis-skipped = pominięto obiekty { $cadastre }: { $count }, { $list }
+warning-alkis-buildings-changed = budynki { $cadastre } zmieniły się u źródła ({ $changes })
+progress-alkis-no-land-use-stored = brak zapisanych użytków gruntowych { $cadastre }; uruchom `freemapper fetch` online, aby dostać kandydatów na tereny zakazane
+progress-alkis-land-use-download = pobieranie użytków gruntowych { $cadastre }
+progress-alkis-land-use-parts = części użytków gruntowych { $cadastre }: { $count }
+warning-alkis-land-use-kept = użytki gruntowe { $cadastre } niedostępne ({ $error }); zachowuję zapisane użytki
+warning-alkis-land-use-removed = użytki gruntowe { $cadastre } niedostępne ({ $error }); zapisane użytki nie pokrywają już obszaru mapy, więc freemapper je usunął
+warning-alkis-land-use-none = użytki gruntowe { $cadastre } niedostępne ({ $error }); brak kandydatów na tereny zakazane
 
 ## The Berlin layers
 

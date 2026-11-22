@@ -110,18 +110,18 @@ warning-permits-osm-no-extract = no hay ningún extracto de OSM en caché para e
 
 ## ALKIS
 
-warning-alkis-coverage-unknown = se desconoce la cobertura de edificios de ALKIS; ejecuta `freemapper fetch` con conexión para registrarla
-progress-alkis-buildings-download = descargando los edificios de ALKIS
-progress-alkis-buildings = { $count } edificios de ALKIS
-warning-alkis-no-buildings = no se encontraron edificios de ALKIS en el área del mapa
-progress-alkis-skipped = se omitieron { $count } elementos de ALKIS: { $list }
-warning-alkis-buildings-changed = los edificios de ALKIS cambiaron en el origen ({ $changes })
-progress-alkis-no-land-use-stored = no hay usos del suelo de ALKIS guardados; ejecuta `freemapper fetch` con conexión para los candidatos de zonas prohibidas
-progress-alkis-land-use-download = descargando los usos del suelo de ALKIS
-progress-alkis-land-use-parts = { $count } partes de uso del suelo de ALKIS
-warning-alkis-land-use-kept = usos del suelo de ALKIS no disponibles ({ $error }); se conservan los guardados
-warning-alkis-land-use-removed = usos del suelo de ALKIS no disponibles ({ $error }); los guardados ya no cubren el área del mapa, así que freemapper los eliminó
-warning-alkis-land-use-none = usos del suelo de ALKIS no disponibles ({ $error }); no hay candidatos de zonas prohibidas
+warning-alkis-coverage-unknown = se desconoce la cobertura de edificios de { $cadastre }; ejecuta `freemapper fetch` con conexión para registrarla
+progress-alkis-buildings-download = descargando los edificios de { $cadastre }
+progress-alkis-buildings = { $count } edificios de { $cadastre }
+warning-alkis-no-buildings = no se encontraron edificios de { $cadastre } en el área del mapa
+progress-alkis-skipped = se omitieron { $count } elementos de { $cadastre }: { $list }
+warning-alkis-buildings-changed = los edificios de { $cadastre } cambiaron en el origen ({ $changes })
+progress-alkis-no-land-use-stored = no hay usos del suelo de { $cadastre } guardados; ejecuta `freemapper fetch` con conexión para los candidatos de zonas prohibidas
+progress-alkis-land-use-download = descargando los usos del suelo de { $cadastre }
+progress-alkis-land-use-parts = { $count } partes de uso del suelo de { $cadastre }
+warning-alkis-land-use-kept = usos del suelo de { $cadastre } no disponibles ({ $error }); se conservan los guardados
+warning-alkis-land-use-removed = usos del suelo de { $cadastre } no disponibles ({ $error }); los guardados ya no cubren el área del mapa, así que freemapper los eliminó
+warning-alkis-land-use-none = usos del suelo de { $cadastre } no disponibles ({ $error }); no hay candidatos de zonas prohibidas
 
 ## The Berlin layers
 

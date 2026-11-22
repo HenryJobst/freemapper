@@ -114,18 +114,18 @@ warning-permits-osm-no-extract = ikke noe OSM-utdrag i hurtigbufferet for dette 
 
 ## ALKIS
 
-warning-alkis-coverage-unknown = dekningen av ALKIS-bygninger er ukjent; kjør `freemapper fetch` tilkoblet for å registrere den
-progress-alkis-buildings-download = laster ned ALKIS-bygninger
-progress-alkis-buildings = { $count } ALKIS-bygninger
-warning-alkis-no-buildings = ingen ALKIS-bygninger funnet i kartområdet
-progress-alkis-skipped = hoppet over { $count } ALKIS-objekter: { $list }
-warning-alkis-buildings-changed = ALKIS-bygninger er endret hos leverandøren ({ $changes })
-progress-alkis-no-land-use-stored = ingen ALKIS-arealbruk lagret; kjør `freemapper fetch` tilkoblet for forbudsområdekandidater
-progress-alkis-land-use-download = laster ned ALKIS-arealbruk
-progress-alkis-land-use-parts = { $count } ALKIS-arealbruksdeler
-warning-alkis-land-use-kept = ALKIS-arealbruk ikke tilgjengelig ({ $error }); beholder den lagrede arealbruken
-warning-alkis-land-use-removed = ALKIS-arealbruk ikke tilgjengelig ({ $error }); den lagrede arealbruken dekker ikke lenger kartområdet, så freemapper fjernet den
-warning-alkis-land-use-none = ALKIS-arealbruk ikke tilgjengelig ({ $error }); ingen forbudsområdekandidater
+warning-alkis-coverage-unknown = dekningen av { $cadastre }-bygninger er ukjent; kjør `freemapper fetch` tilkoblet for å registrere den
+progress-alkis-buildings-download = laster ned { $cadastre }-bygninger
+progress-alkis-buildings = { $count } { $cadastre }-bygninger
+warning-alkis-no-buildings = ingen { $cadastre }-bygninger funnet i kartområdet
+progress-alkis-skipped = hoppet over { $count } { $cadastre }-objekter: { $list }
+warning-alkis-buildings-changed = { $cadastre }-bygninger er endret hos leverandøren ({ $changes })
+progress-alkis-no-land-use-stored = ingen { $cadastre }-arealbruk lagret; kjør `freemapper fetch` tilkoblet for forbudsområdekandidater
+progress-alkis-land-use-download = laster ned { $cadastre }-arealbruk
+progress-alkis-land-use-parts = { $count } { $cadastre }-arealbruksdeler
+warning-alkis-land-use-kept = { $cadastre }-arealbruk ikke tilgjengelig ({ $error }); beholder den lagrede arealbruken
+warning-alkis-land-use-removed = { $cadastre }-arealbruk ikke tilgjengelig ({ $error }); den lagrede arealbruken dekker ikke lenger kartområdet, så freemapper fjernet den
+warning-alkis-land-use-none = { $cadastre }-arealbruk ikke tilgjengelig ({ $error }); ingen forbudsområdekandidater
 
 ## The Berlin layers
 

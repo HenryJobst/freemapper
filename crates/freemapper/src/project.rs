@@ -997,6 +997,16 @@ pub(crate) fn outside_germany(region_bbox: &BoundingBox) -> bool {
         .is_some_and(|adapter| adapter.info().country != Country::De)
 }
 
+/// The name of the cadastre of the region of a map of `region_bbox`: ALKIS for the German
+/// states, EGiB for Poland. The progress lines and warnings of the cadastre downloads name it.
+pub(crate) fn cadastre_name(region_bbox: &BoundingBox) -> &'static str {
+    if outside_germany(region_bbox) {
+        "EGiB"
+    } else {
+        "ALKIS"
+    }
+}
+
 /// The CRS of a map of `region_bbox` (EPSG:25833): that of its raster region.
 pub(crate) fn map_crs(region_bbox: &BoundingBox) -> Crs {
     freemapper_adapter_api::geometry::map_crs_in(registry(), region_bbox)
@@ -1774,6 +1784,7 @@ fn fetch_buildings_into(
     progress: &mut dyn FnMut(Note),
 ) -> Result<Option<AlkisRecord>, ProjectError> {
     let bbox = &area.bbox;
+    let cadastre = cadastre_name(&area.region_bbox);
     let path = dir.join(BUILDINGS_RELPATH);
     // A region without a cadastre: an empty collection stands for no buildings, online and
     // offline alike, and no ALKIS line is shown.
@@ -1785,7 +1796,7 @@ fn fetch_buildings_into(
     }
     if mode == FetchMode::Offline {
         if previous.is_none() && path.exists() {
-            progress(note!("warning-alkis-coverage-unknown"));
+            progress(note!("warning-alkis-coverage-unknown", cadastre = cadastre));
         }
         let covered = previous.is_none_or(|record| record.covers(bbox));
         return if path.exists() && covered {
@@ -1794,20 +1805,28 @@ fn fetch_buildings_into(
             Err(ProjectError::BuildingsNotFetched)
         };
     }
-    progress(note!("progress-alkis-buildings-download"));
+    progress(note!(
+        "progress-alkis-buildings-download",
+        cadastre = cadastre
+    ));
     let text = fetch_buildings_in(&mut alkis_env(fetcher, cache, mode, &mut *progress), area)?;
     let parsed = parse_buildings(&text).map_err(FetchError::from)?;
     write_inside(dir, &path, text.as_bytes())?;
     let count = parsed.buildings.len();
-    progress(note!("progress-alkis-buildings", count = count));
+    progress(note!(
+        "progress-alkis-buildings",
+        cadastre = cadastre,
+        count = count
+    ));
     if count == 0 {
-        progress(note!("warning-alkis-no-buildings"));
+        progress(note!("warning-alkis-no-buildings", cadastre = cadastre));
     }
     if !parsed.skipped.is_empty() {
         let shown = parsed.skipped.iter().take(SKIPPED_SHOWN).cloned();
         let more = parsed.skipped.len() > SKIPPED_SHOWN;
         progress(note!(
             "progress-alkis-skipped",
+            cadastre = cadastre,
             count = parsed.skipped.len(),
             list = format!(
                 "{}{}",
@@ -1842,6 +1861,7 @@ fn fetch_buildings_into(
         if !changes.is_empty() {
             progress(note!(
                 "warning-alkis-buildings-changed",
+                cadastre = cadastre,
                 changes = changes.join(", ")
             ));
         }
@@ -1863,6 +1883,7 @@ fn fetch_land_use_into(
     progress: &mut dyn FnMut(Note),
 ) -> Option<Option<AlkisRecord>> {
     let bbox = &area.bbox;
+    let cadastre = cadastre_name(&area.region_bbox);
     let path = dir.join(LAND_USE_RELPATH);
     // A region without a cadastre has none to be missing.
     if no_cadastre(&area.region_bbox) {
@@ -1870,11 +1891,17 @@ fn fetch_land_use_into(
     }
     if mode == FetchMode::Offline {
         if previous.is_none() || !path.exists() {
-            progress(note!("progress-alkis-no-land-use-stored"));
+            progress(note!(
+                "progress-alkis-no-land-use-stored",
+                cadastre = cadastre
+            ));
         }
         return None;
     }
-    progress(note!("progress-alkis-land-use-download"));
+    progress(note!(
+        "progress-alkis-land-use-download",
+        cadastre = cadastre
+    ));
     let fetched = fetch_land_use_in(&mut alkis_env(fetcher, cache, mode, &mut *progress), area);
     let downloaded = fetched.and_then(|text| {
         let land_use = parse_land_use(&text).map_err(FetchError::from)?;
@@ -1885,6 +1912,7 @@ fn fetch_land_use_into(
         Ok(land_use) => {
             progress(note!(
                 "progress-alkis-land-use-parts",
+                cadastre = cadastre,
                 count = land_use.len()
             ));
             Some(Some(AlkisRecord {
@@ -1902,19 +1930,28 @@ fn fetch_land_use_into(
         }
         Err(e) => match previous.filter(|_| path.exists()) {
             Some(record) if record.covers(bbox) => {
-                progress(note!("warning-alkis-land-use-kept", error = Arg::error(e)));
+                progress(note!(
+                    "warning-alkis-land-use-kept",
+                    cadastre = cadastre,
+                    error = Arg::error(e)
+                ));
                 None
             }
             Some(_) => {
                 progress(note!(
                     "warning-alkis-land-use-removed",
+                    cadastre = cadastre,
                     error = Arg::error(e)
                 ));
                 freemapper_fs::remove_inside(dir, &path);
                 Some(None)
             }
             None => {
-                progress(note!("warning-alkis-land-use-none", error = Arg::error(e)));
+                progress(note!(
+                    "warning-alkis-land-use-none",
+                    cadastre = cadastre,
+                    error = Arg::error(e)
+                ));
                 None
             }
         },
@@ -11787,7 +11824,8 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         let cache_dir = tempfile::tempdir().unwrap();
         let cache = CacheDir::new(cache_dir.path().to_path_buf());
         let dir = tempfile::tempdir().unwrap();
-        let mut progress = |_: Note| {};
+        let mut lines = Vec::new();
+        let mut progress = |note: Note| lines.push(note.to_string());
         let record = fetch_buildings_into(
             dir.path(),
             &fetcher,
@@ -11808,11 +11846,45 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             &mut progress,
         );
         assert!(record.is_some() && land_use.is_some());
+        // The lines name the cadastre of Poland, not the German one.
+        assert!(
+            lines
+                .iter()
+                .any(|l| l.contains("downloading EGiB buildings")),
+            "{lines:?}"
+        );
+        assert!(
+            lines
+                .iter()
+                .any(|l| l.contains("downloading EGiB land use")),
+            "{lines:?}"
+        );
+        assert!(lines.iter().all(|l| !l.contains("ALKIS")), "{lines:?}");
         let log = fetcher.log.borrow();
         assert_eq!(log.len(), 2, "{log:?}");
         assert!(log[0].contains("TYPENAMES=ms:budynki"), "{log:?}");
         assert!(log[1].contains("TYPENAMES=ms:dzialki"), "{log:?}");
         assert!(dir.path().join(BUILDINGS_RELPATH).exists());
+    }
+
+    /// The progress lines of the cadastre downloads say ALKIS for a map in Germany and EGiB for
+    /// one in Poland; the same message ids serve both.
+    #[test]
+    fn the_cadastre_lines_name_the_cadastre_of_the_region() {
+        let berlin = lon_lat_box(13.370, 52.510, 13.380, 52.516);
+        let lodz = lon_lat_box(19.450, 51.760, 19.460, 51.766);
+        assert_eq!(cadastre_name(&berlin), "ALKIS");
+        assert_eq!(cadastre_name(&lodz), "EGiB");
+        let line = |bbox: &BoundingBox| {
+            note!(
+                "progress-alkis-buildings",
+                cadastre = cadastre_name(bbox),
+                count = 3
+            )
+            .to_string()
+        };
+        assert_eq!(line(&berlin), "3 ALKIS buildings");
+        assert_eq!(line(&lodz), "3 EGiB buildings");
     }
 
     /// The projected box (EPSG:25833) of a lon/lat rectangle, as `check_area` gets it.

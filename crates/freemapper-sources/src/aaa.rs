@@ -81,6 +81,7 @@ impl AaaAlkis {
 fn skipped_note(count: usize, shown: &[&str], more: bool) -> Note {
     note!(
         "progress-alkis-skipped",
+        cadastre = "ALKIS",
         count = count,
         list = format!("{}{}", shown.join("; "), if more { "; …" } else { "" })
     )
