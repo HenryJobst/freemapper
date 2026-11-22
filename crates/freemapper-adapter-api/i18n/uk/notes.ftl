@@ -132,6 +132,9 @@ progress-alkis-land-use-parts = ділянок землекористуванн�
 warning-alkis-land-use-kept = землекористування { $cadastre } недоступне ({ $error }); зберігається наявне землекористування
 warning-alkis-land-use-removed = землекористування { $cadastre } недоступне ({ $error }); збережене землекористування більше не покриває територію карти, тому freemapper його видалив
 warning-alkis-land-use-none = землекористування { $cadastre } недоступне ({ $error }); кандидатів заборонених зон немає
+progress-bdot-filled = додано { $count } об'єктів BDOT10k ({ $what }) там, де EGiB нічого не дає ({ $powiat })
+warning-bdot-failed = BDOT10k не зміг заповнити прогалину в EGiB ({ $what }): { $error }
+warning-bdot-instead = EGiB недоступний ({ $error }); замість нього використано BDOT10k ({ $what }, { $powiat })
 
 ## The Berlin layers
 

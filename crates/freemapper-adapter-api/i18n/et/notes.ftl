@@ -119,6 +119,9 @@ progress-alkis-land-use-parts = { $count } { $cadastre }-i maakasutuse osa
 warning-alkis-land-use-kept = { $cadastre }-i maakasutus pole saadaval ({ $error }); salvestatud maakasutus jääb alles
 warning-alkis-land-use-removed = { $cadastre }-i maakasutus pole saadaval ({ $error }); salvestatud maakasutus ei kata enam kaardiala, seetõttu freemapper eemaldas selle
 warning-alkis-land-use-none = { $cadastre }-i maakasutus pole saadaval ({ $error }); keelualade kandidaate pole
+progress-bdot-filled = { $count } BDOT10k objekti ({ $what }) lisatud seal, kus EGiB ei anna midagi ({ $powiat })
+warning-bdot-failed = BDOT10k ei suutnud EGiB lünka täita ({ $what }): { $error }
+warning-bdot-instead = EGiB pole kättesaadav ({ $error }); selle asemel kasutati BDOT10k-d ({ $what }, { $powiat })
 
 ## The Berlin layers
 

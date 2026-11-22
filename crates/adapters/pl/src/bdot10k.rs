@@ -805,7 +805,7 @@ fn remove_older(kept: &Path, teryt: &str) {
 /// The note that says BDOT10k fills a gap.
 pub fn filled_note(gap: Gap, count: usize, powiats: &[String]) -> Note {
     note!(
-        "progress-bdot10k-filled",
+        "progress-bdot-filled",
         what = gap.words(),
         count = count,
         powiat = powiats.join(", ")
@@ -815,7 +815,7 @@ pub fn filled_note(gap: Gap, count: usize, powiats: &[String]) -> Note {
 /// The note that says EGiB failed and BDOT10k stands in for it.
 pub fn instead_note(gap: Gap, error: FetchError, powiats: &[String]) -> Note {
     note!(
-        "warning-bdot10k-instead",
+        "warning-bdot-instead",
         what = gap.words(),
         error = Arg::error(error),
         powiat = powiats.join(", ")
@@ -825,7 +825,7 @@ pub fn instead_note(gap: Gap, error: FetchError, powiats: &[String]) -> Note {
 /// The note that says BDOT10k could not fill a gap.
 pub fn failed_note(gap: Gap, error: AdapterError) -> Note {
     note!(
-        "warning-bdot10k-failed",
+        "warning-bdot-failed",
         what = gap.words(),
         error = Arg::error(error)
     )
