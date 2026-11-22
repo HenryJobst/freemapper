@@ -107,18 +107,18 @@ warning-permits-osm-no-extract = selle kaardiala OSM-i väljavõtet pole vahemä
 
 ## ALKIS
 
-warning-alkis-coverage-unknown = ALKIS-i hoonete katvus on teadmata; selle salvestamiseks tuleb käivitada `freemapper fetch` võrguühendusega
-progress-alkis-buildings-download = ALKIS-i hoonete allalaadimine
-progress-alkis-buildings = { $count } ALKIS-i hoonet
-warning-alkis-no-buildings = kaardialal ei leitud ALKIS-i hooneid
-progress-alkis-skipped = jäeti vahele { $count } ALKIS-i objekti: { $list }
-warning-alkis-buildings-changed = ALKIS-i hooned muutusid allikas ({ $changes })
-progress-alkis-no-land-use-stored = ALKIS-i maakasutust pole salvestatud; keelualade kandidaatide jaoks tuleb käivitada `freemapper fetch` võrguühendusega
-progress-alkis-land-use-download = ALKIS-i maakasutuse allalaadimine
-progress-alkis-land-use-parts = { $count } ALKIS-i maakasutuse osa
-warning-alkis-land-use-kept = ALKIS-i maakasutus pole saadaval ({ $error }); salvestatud maakasutus jääb alles
-warning-alkis-land-use-removed = ALKIS-i maakasutus pole saadaval ({ $error }); salvestatud maakasutus ei kata enam kaardiala, seetõttu freemapper eemaldas selle
-warning-alkis-land-use-none = ALKIS-i maakasutus pole saadaval ({ $error }); keelualade kandidaate pole
+warning-alkis-coverage-unknown = { $cadastre }-i hoonete katvus on teadmata; selle salvestamiseks tuleb käivitada `freemapper fetch` võrguühendusega
+progress-alkis-buildings-download = { $cadastre }-i hoonete allalaadimine
+progress-alkis-buildings = { $count } { $cadastre }-i hoonet
+warning-alkis-no-buildings = kaardialal ei leitud { $cadastre }-i hooneid
+progress-alkis-skipped = jäeti vahele { $count } { $cadastre }-i objekti: { $list }
+warning-alkis-buildings-changed = { $cadastre }-i hooned muutusid allikas ({ $changes })
+progress-alkis-no-land-use-stored = { $cadastre }-i maakasutust pole salvestatud; keelualade kandidaatide jaoks tuleb käivitada `freemapper fetch` võrguühendusega
+progress-alkis-land-use-download = { $cadastre }-i maakasutuse allalaadimine
+progress-alkis-land-use-parts = { $count } { $cadastre }-i maakasutuse osa
+warning-alkis-land-use-kept = { $cadastre }-i maakasutus pole saadaval ({ $error }); salvestatud maakasutus jääb alles
+warning-alkis-land-use-removed = { $cadastre }-i maakasutus pole saadaval ({ $error }); salvestatud maakasutus ei kata enam kaardiala, seetõttu freemapper eemaldas selle
+warning-alkis-land-use-none = { $cadastre }-i maakasutus pole saadaval ({ $error }); keelualade kandidaate pole
 
 ## The Berlin layers
 

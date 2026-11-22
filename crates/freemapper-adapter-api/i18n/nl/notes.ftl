@@ -107,18 +107,18 @@ warning-permits-osm-no-extract = voor dit kaartgebied staat geen OSM-extract in 
 
 ## ALKIS
 
-warning-alkis-coverage-unknown = dekking van ALKIS-gebouwen onbekend; voer `freemapper fetch` online uit om die vast te leggen
-progress-alkis-buildings-download = ALKIS-gebouwen worden gedownload
-progress-alkis-buildings = { $count } ALKIS-gebouwen
-warning-alkis-no-buildings = geen ALKIS-gebouwen gevonden in het kaartgebied
-progress-alkis-skipped = { $count } ALKIS-objecten overgeslagen: { $list }
-warning-alkis-buildings-changed = ALKIS-gebouwen zijn bij de bron gewijzigd ({ $changes })
-progress-alkis-no-land-use-stored = geen ALKIS-grondgebruik opgeslagen; voer `freemapper fetch` online uit voor kandidaten buiten het kaartgebied
-progress-alkis-land-use-download = ALKIS-grondgebruik wordt gedownload
-progress-alkis-land-use-parts = { $count } ALKIS-grondgebruiksdelen
-warning-alkis-land-use-kept = ALKIS-grondgebruik niet beschikbaar ({ $error }); het opgeslagen grondgebruik blijft behouden
-warning-alkis-land-use-removed = ALKIS-grondgebruik niet beschikbaar ({ $error }); het opgeslagen grondgebruik dekt het kaartgebied niet meer, dus freemapper heeft het verwijderd
-warning-alkis-land-use-none = ALKIS-grondgebruik niet beschikbaar ({ $error }); geen kandidaten voor verboden gebied
+warning-alkis-coverage-unknown = dekking van { $cadastre }-gebouwen onbekend; voer `freemapper fetch` online uit om die vast te leggen
+progress-alkis-buildings-download = { $cadastre }-gebouwen worden gedownload
+progress-alkis-buildings = { $count } { $cadastre }-gebouwen
+warning-alkis-no-buildings = geen { $cadastre }-gebouwen gevonden in het kaartgebied
+progress-alkis-skipped = { $count } { $cadastre }-objecten overgeslagen: { $list }
+warning-alkis-buildings-changed = { $cadastre }-gebouwen zijn bij de bron gewijzigd ({ $changes })
+progress-alkis-no-land-use-stored = geen { $cadastre }-grondgebruik opgeslagen; voer `freemapper fetch` online uit voor kandidaten buiten het kaartgebied
+progress-alkis-land-use-download = { $cadastre }-grondgebruik wordt gedownload
+progress-alkis-land-use-parts = { $count } { $cadastre }-grondgebruiksdelen
+warning-alkis-land-use-kept = { $cadastre }-grondgebruik niet beschikbaar ({ $error }); het opgeslagen grondgebruik blijft behouden
+warning-alkis-land-use-removed = { $cadastre }-grondgebruik niet beschikbaar ({ $error }); het opgeslagen grondgebruik dekt het kaartgebied niet meer, dus freemapper heeft het verwijderd
+warning-alkis-land-use-none = { $cadastre }-grondgebruik niet beschikbaar ({ $error }); geen kandidaten voor verboden gebied
 
 ## The Berlin layers
 

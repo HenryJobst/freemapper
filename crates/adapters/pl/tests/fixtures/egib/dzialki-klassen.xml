@@ -1,0 +1,455 @@
+<?xml version='1.0' encoding="UTF-8" ?>
+<wfs:FeatureCollection
+   xmlns:ms="http://mapserver.gis.umn.edu/mapserver"
+   xmlns:gml="http://www.opengis.net/gml/3.2"
+   xmlns:wfs="http://www.opengis.net/wfs/2.0"
+   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+   xsi:schemaLocation="http://mapserver.gis.umn.edu/mapserver https://mapy.geoportal.gov.pl/wss/service/PZGIK/EGIB/WFS/UslugaZbiorcza?SERVICE=WFS&amp;VERSION=2.0.0&amp;REQUEST=DescribeFeatureType&amp;TYPENAME=ms:dzialki&amp;OUTPUTFORMAT=application%2Fgml%2Bxml%3B%20version%3D3.2 http://www.opengis.net/wfs/2.0 http://schemas.opengis.net/wfs/2.0/wfs.xsd http://www.opengis.net/gml/3.2 http://schemas.opengis.net/gml/3.2.1/gml.xsd"
+   timeStamp="2026-11-22T01:06:47" numberMatched="694" numberReturned="15">
+      <wfs:boundedBy>
+      	<gml:Envelope srsName="urn:ogc:def:crs:EPSG::2180">
+      		<gml:lowerCorner>507068.180000 197434.904000</gml:lowerCorner>
+      		<gml:upperCorner>508758.716000 199131.078000</gml:upperCorner>
+      	</gml:Envelope>
+      </wfs:boundedBy>
+    <wfs:member>
+      <ms:dzialki gml:id="dzialki.200204_2.0003.251/1">
+        <gml:boundedBy>
+        	<gml:Envelope srsName="urn:ogc:def:crs:EPSG::2180">
+        		<gml:lowerCorner>601197.756000 800250.309000</gml:lowerCorner>
+        		<gml:upperCorner>601232.565000 800271.438000</gml:upperCorner>
+        	</gml:Envelope>
+        </gml:boundedBy>
+        <ms:geom>
+          <gml:Polygon gml:id="dzialki.200204_2.0003.251/1.1" srsName="urn:ogc:def:crs:EPSG::2180">
+            <gml:exterior>
+              <gml:LinearRing>
+                <gml:posList srsDimension="2">601232.302000 800271.438000 601232.565000 800250.699000 601197.756000 800250.309000 601199.580000 800271.052000 601232.302000 800271.438000 </gml:posList>
+              </gml:LinearRing>
+            </gml:exterior>
+          </gml:Polygon>
+        </ms:geom>
+        <ms:ID_DZIALKI>200204_2.0003.251/1</ms:ID_DZIALKI>
+        <ms:NUMER_DZIALKI>251/1</ms:NUMER_DZIALKI>
+        <ms:NUMER_OBREBU>3</ms:NUMER_OBREBU>
+        <ms:NUMER_JEDNOSTKI>200204_2</ms:NUMER_JEDNOSTKI>
+        <ms:NAZWA_OBREBU>BORKI</ms:NAZWA_OBREBU>
+        <ms:NAZWA_GMINY>GM. GRÓDEK</ms:NAZWA_GMINY>
+        <ms:POLE_EWIDENYJNE>0.07</ms:POLE_EWIDENYJNE>
+        <ms:KLASOUZYTKI_EGIB>B</ms:KLASOUZYTKI_EGIB>
+        <ms:GRUPA_REJESTROWA>7</ms:GRUPA_REJESTROWA>
+        <ms:DATA>2026-11-21</ms:DATA>
+      </ms:dzialki>
+    </wfs:member>
+<wfs:member>
+      <ms:dzialki gml:id="dzialki.080505_4.0001.640/2">
+        <gml:boundedBy>
+        	<gml:Envelope srsName="urn:ogc:def:crs:EPSG::2180">
+        		<gml:lowerCorner>507598.779000 197999.815000</gml:lowerCorner>
+        		<gml:upperCorner>507623.858000 198022.591000</gml:upperCorner>
+        	</gml:Envelope>
+        </gml:boundedBy>
+        <ms:geom>
+          <gml:Polygon gml:id="dzialki.080505_4.0001.640/2.1" srsName="urn:ogc:def:crs:EPSG::2180">
+            <gml:exterior>
+              <gml:LinearRing>
+                <gml:posList srsDimension="2">507623.858000 198013.333000 507620.616000 198006.019000 507617.873000 197999.815000 507598.779000 198009.149000 507605.199000 198022.591000 507623.858000 198013.333000 </gml:posList>
+              </gml:LinearRing>
+            </gml:exterior>
+          </gml:Polygon>
+        </ms:geom>
+        <ms:ID_DZIALKI>080505_4.0001.640/2</ms:ID_DZIALKI>
+        <ms:NUMER_DZIALKI>640/2</ms:NUMER_DZIALKI>
+        <ms:NUMER_OBREBU>1</ms:NUMER_OBREBU>
+        <ms:NUMER_JEDNOSTKI>080505_4</ms:NUMER_JEDNOSTKI>
+        <ms:NAZWA_OBREBU>1 M.SŁUBICE</ms:NAZWA_OBREBU>
+        <ms:NAZWA_GMINY>M. SŁUBICE</ms:NAZWA_GMINY>
+        <ms:POLE_EWIDENYJNE>0.0312</ms:POLE_EWIDENYJNE>
+        <ms:KLASOUZYTKI_EGIB>Ba</ms:KLASOUZYTKI_EGIB>
+        <ms:GRUPA_REJESTROWA>15</ms:GRUPA_REJESTROWA>
+        <ms:DATA>2026-11-21</ms:DATA>
+      </ms:dzialki>
+    </wfs:member>
+<wfs:member>
+      <ms:dzialki gml:id="dzialki.080505_4.0001.1258/10">
+        <gml:boundedBy>
+        	<gml:Envelope srsName="urn:ogc:def:crs:EPSG::2180">
+        		<gml:lowerCorner>507407.163000 198059.186000</gml:lowerCorner>
+        		<gml:upperCorner>507431.246000 198107.137000</gml:upperCorner>
+        	</gml:Envelope>
+        </gml:boundedBy>
+        <ms:geom>
+          <gml:Polygon gml:id="dzialki.080505_4.0001.1258/10.1" srsName="urn:ogc:def:crs:EPSG::2180">
+            <gml:exterior>
+              <gml:LinearRing>
+                <gml:posList srsDimension="2">507407.163000 198073.378000 507431.246000 198107.137000 507428.440000 198059.186000 507407.163000 198073.378000 </gml:posList>
+              </gml:LinearRing>
+            </gml:exterior>
+          </gml:Polygon>
+        </ms:geom>
+        <ms:ID_DZIALKI>080505_4.0001.1258/10</ms:ID_DZIALKI>
+        <ms:NUMER_DZIALKI>1258/10</ms:NUMER_DZIALKI>
+        <ms:NUMER_OBREBU>1</ms:NUMER_OBREBU>
+        <ms:NUMER_JEDNOSTKI>080505_4</ms:NUMER_JEDNOSTKI>
+        <ms:NAZWA_OBREBU>1 M.SŁUBICE</ms:NAZWA_OBREBU>
+        <ms:NAZWA_GMINY>M. SŁUBICE</ms:NAZWA_GMINY>
+        <ms:POLE_EWIDENYJNE>0.053</ms:POLE_EWIDENYJNE>
+        <ms:KLASOUZYTKI_EGIB>Bi</ms:KLASOUZYTKI_EGIB>
+        <ms:GRUPA_REJESTROWA>4</ms:GRUPA_REJESTROWA>
+        <ms:DATA>2026-11-21</ms:DATA>
+      </ms:dzialki>
+    </wfs:member>
+<wfs:member>
+      <ms:dzialki gml:id="dzialki.080505_4.0001.470/3">
+        <gml:boundedBy>
+        	<gml:Envelope srsName="urn:ogc:def:crs:EPSG::2180">
+        		<gml:lowerCorner>507860.117000 198150.881000</gml:lowerCorner>
+        		<gml:upperCorner>507949.595000 198248.065000</gml:upperCorner>
+        	</gml:Envelope>
+        </gml:boundedBy>
+        <ms:geom>
+          <gml:Polygon gml:id="dzialki.080505_4.0001.470/3.1" srsName="urn:ogc:def:crs:EPSG::2180">
+            <gml:exterior>
+              <gml:LinearRing>
+                <gml:posList srsDimension="2">507930.940000 198242.146000 507949.595000 198170.182000 507882.437000 198150.881000 507860.117000 198152.962000 507875.532000 198248.065000 507930.940000 198242.146000 </gml:posList>
+              </gml:LinearRing>
+            </gml:exterior>
+          </gml:Polygon>
+        </ms:geom>
+        <ms:ID_DZIALKI>080505_4.0001.470/3</ms:ID_DZIALKI>
+        <ms:NUMER_DZIALKI>470/3</ms:NUMER_DZIALKI>
+        <ms:NUMER_OBREBU>1</ms:NUMER_OBREBU>
+        <ms:NUMER_JEDNOSTKI>080505_4</ms:NUMER_JEDNOSTKI>
+        <ms:NAZWA_OBREBU>1 M.SŁUBICE</ms:NAZWA_OBREBU>
+        <ms:NAZWA_GMINY>M. SŁUBICE</ms:NAZWA_GMINY>
+        <ms:POLE_EWIDENYJNE>0.6341</ms:POLE_EWIDENYJNE>
+        <ms:KLASOUZYTKI_EGIB>Bz</ms:KLASOUZYTKI_EGIB>
+        <ms:GRUPA_REJESTROWA>4</ms:GRUPA_REJESTROWA>
+        <ms:DATA>2026-11-21</ms:DATA>
+      </ms:dzialki>
+    </wfs:member>
+<wfs:member>
+      <ms:dzialki gml:id="dzialki.080505_4.0001.482/2">
+        <gml:boundedBy>
+        	<gml:Envelope srsName="urn:ogc:def:crs:EPSG::2180">
+        		<gml:lowerCorner>507858.246000 197825.372000</gml:lowerCorner>
+        		<gml:upperCorner>507860.785000 197830.589000</gml:upperCorner>
+        	</gml:Envelope>
+        </gml:boundedBy>
+        <ms:geom>
+          <gml:Polygon gml:id="dzialki.080505_4.0001.482/2.1" srsName="urn:ogc:def:crs:EPSG::2180">
+            <gml:exterior>
+              <gml:LinearRing>
+                <gml:posList srsDimension="2">507858.246000 197825.418000 507860.785000 197830.589000 507860.483000 197825.372000 507858.246000 197825.418000 </gml:posList>
+              </gml:LinearRing>
+            </gml:exterior>
+          </gml:Polygon>
+        </ms:geom>
+        <ms:ID_DZIALKI>080505_4.0001.482/2</ms:ID_DZIALKI>
+        <ms:NUMER_DZIALKI>482/2</ms:NUMER_DZIALKI>
+        <ms:NUMER_OBREBU>1</ms:NUMER_OBREBU>
+        <ms:NUMER_JEDNOSTKI>080505_4</ms:NUMER_JEDNOSTKI>
+        <ms:NAZWA_OBREBU>1 M.SŁUBICE</ms:NAZWA_OBREBU>
+        <ms:NAZWA_GMINY>M. SŁUBICE</ms:NAZWA_GMINY>
+        <ms:POLE_EWIDENYJNE>0.0006</ms:POLE_EWIDENYJNE>
+        <ms:KLASOUZYTKI_EGIB>dr</ms:KLASOUZYTKI_EGIB>
+        <ms:GRUPA_REJESTROWA>4</ms:GRUPA_REJESTROWA>
+        <ms:DATA>2026-11-21</ms:DATA>
+      </ms:dzialki>
+    </wfs:member>
+<wfs:member>
+      <ms:dzialki gml:id="dzialki.080505_5.0010.792/3">
+        <gml:boundedBy>
+        	<gml:Envelope srsName="urn:ogc:def:crs:EPSG::2180">
+        		<gml:lowerCorner>507080.289000 197450.304000</gml:lowerCorner>
+        		<gml:upperCorner>507358.389000 198216.842000</gml:upperCorner>
+        	</gml:Envelope>
+        </gml:boundedBy>
+        <ms:geom>
+          <gml:Polygon gml:id="dzialki.080505_5.0010.792/3.1" srsName="urn:ogc:def:crs:EPSG::2180">
+            <gml:exterior>
+              <gml:LinearRing>
+                <gml:posList srsDimension="2">507206.098000 198115.361000 507216.655000 198096.607000 507216.788000 198076.303000 507218.258000 197965.241000 507213.868000 197849.815000 507221.284000 197782.860000 507249.476000 197694.811000 507277.379000 197638.780000 507312.110000 197590.271000 507358.389000 197564.667000 507352.791000 197553.014000 507342.829000 197532.242000 507303.518000 197450.304000 507268.739000 197467.476000 507243.251000 197484.051000 507228.099000 197497.110000 507211.382000 197523.219000 507194.312000 197571.633000 507161.599000 197721.237000 507144.880000 197737.075000 507083.588000 197827.881000 507080.289000 197865.014000 507080.461000 197902.449000 507080.369000 198041.805000 507086.193000 198212.410000 507093.843000 198216.842000 507109.245000 198208.696000 507136.048000 198186.273000 507164.621000 198160.650000 507176.104000 198145.454000 507206.098000 198115.361000 </gml:posList>
+              </gml:LinearRing>
+            </gml:exterior>
+            <gml:interior>
+              <gml:LinearRing>
+                <gml:posList srsDimension="2">507113.920000 198188.685000 507114.535000 198193.138000 507098.188000 198199.727000 507096.766000 198134.568000 507099.897000 198129.601000 507100.049000 198063.887000 507113.787000 198062.243000 507113.792000 198063.245000 507123.608000 198084.490000 507129.331000 198079.937000 507144.230000 198099.680000 507162.555000 198123.782000 507168.719000 198131.708000 507181.478000 198121.884000 507181.460000 198123.105000 507172.585000 198137.884000 507160.527000 198142.668000 507160.078000 198143.344000 507158.751000 198147.770000 507160.360000 198155.995000 507113.920000 198188.685000 </gml:posList>
+              </gml:LinearRing>
+            </gml:interior>
+          </gml:Polygon>
+        </ms:geom>
+        <ms:ID_DZIALKI>080505_5.0010.792/3</ms:ID_DZIALKI>
+        <ms:NUMER_DZIALKI>792/3</ms:NUMER_DZIALKI>
+        <ms:NUMER_OBREBU>10</ms:NUMER_OBREBU>
+        <ms:NUMER_JEDNOSTKI>080505_5</ms:NUMER_JEDNOSTKI>
+        <ms:NAZWA_OBREBU>ŚWIECKO</ms:NAZWA_OBREBU>
+        <ms:NAZWA_GMINY>GM. SŁUBICE</ms:NAZWA_GMINY>
+        <ms:POLE_EWIDENYJNE>7.89</ms:POLE_EWIDENYJNE>
+        <ms:KLASOUZYTKI_EGIB>Wp</ms:KLASOUZYTKI_EGIB>
+        <ms:GRUPA_REJESTROWA>1</ms:GRUPA_REJESTROWA>
+        <ms:DATA>2026-11-21</ms:DATA>
+      </ms:dzialki>
+    </wfs:member>
+<wfs:member>
+      <ms:dzialki gml:id="dzialki.200204_2.0019.53">
+        <gml:boundedBy>
+        	<gml:Envelope srsName="urn:ogc:def:crs:EPSG::2180">
+        		<gml:lowerCorner>600315.948000 800941.620000</gml:lowerCorner>
+        		<gml:upperCorner>600643.096000 801211.751000</gml:upperCorner>
+        	</gml:Envelope>
+        </gml:boundedBy>
+        <ms:geom>
+          <gml:Polygon gml:id="dzialki.200204_2.0019.53.1" srsName="urn:ogc:def:crs:EPSG::2180">
+            <gml:exterior>
+              <gml:LinearRing>
+                <gml:posList srsDimension="2">600360.675000 800941.620000 600315.948000 801005.680000 600596.524000 801211.751000 600643.096000 801148.956000 600360.675000 800941.620000 </gml:posList>
+              </gml:LinearRing>
+            </gml:exterior>
+          </gml:Polygon>
+        </ms:geom>
+        <ms:ID_DZIALKI>200204_2.0019.53</ms:ID_DZIALKI>
+        <ms:NUMER_DZIALKI>53</ms:NUMER_DZIALKI>
+        <ms:NUMER_OBREBU>19</ms:NUMER_OBREBU>
+        <ms:NUMER_JEDNOSTKI>200204_2</ms:NUMER_JEDNOSTKI>
+        <ms:NAZWA_OBREBU>NOWOSIÓŁKI</ms:NAZWA_OBREBU>
+        <ms:NAZWA_GMINY>GM. GRÓDEK</ms:NAZWA_GMINY>
+        <ms:POLE_EWIDENYJNE>2.7269</ms:POLE_EWIDENYJNE>
+        <ms:KLASOUZYTKI_EGIB>LsVI</ms:KLASOUZYTKI_EGIB>
+        <ms:GRUPA_REJESTROWA>7</ms:GRUPA_REJESTROWA>
+        <ms:DATA>2026-11-21</ms:DATA>
+      </ms:dzialki>
+    </wfs:member>
+<wfs:member>
+      <ms:dzialki gml:id="dzialki.200204_2.0019.52">
+        <gml:boundedBy>
+        	<gml:Envelope srsName="urn:ogc:def:crs:EPSG::2180">
+        		<gml:lowerCorner>600360.675000 800694.148000</gml:lowerCorner>
+        		<gml:upperCorner>600805.253000 801148.956000</gml:upperCorner>
+        	</gml:Envelope>
+        </gml:boundedBy>
+        <ms:geom>
+          <gml:Polygon gml:id="dzialki.200204_2.0019.52.1" srsName="urn:ogc:def:crs:EPSG::2180">
+            <gml:exterior>
+              <gml:LinearRing>
+                <gml:posList srsDimension="2">600805.253000 800694.148000 600680.757000 800828.301000 600489.198000 800883.718000 600374.713000 800921.521000 600360.675000 800941.620000 600643.096000 801148.956000 600712.284000 801055.673000 600775.179000 800981.636000 600805.253000 800694.148000 </gml:posList>
+              </gml:LinearRing>
+            </gml:exterior>
+          </gml:Polygon>
+        </ms:geom>
+        <ms:ID_DZIALKI>200204_2.0019.52</ms:ID_DZIALKI>
+        <ms:NUMER_DZIALKI>52</ms:NUMER_DZIALKI>
+        <ms:NUMER_OBREBU>19</ms:NUMER_OBREBU>
+        <ms:NUMER_JEDNOSTKI>200204_2</ms:NUMER_JEDNOSTKI>
+        <ms:NAZWA_OBREBU>NOWOSIÓŁKI</ms:NAZWA_OBREBU>
+        <ms:NAZWA_GMINY>GM. GRÓDEK</ms:NAZWA_GMINY>
+        <ms:POLE_EWIDENYJNE>8.5558</ms:POLE_EWIDENYJNE>
+        <ms:KLASOUZYTKI_EGIB>N,Ls</ms:KLASOUZYTKI_EGIB>
+        <ms:GRUPA_REJESTROWA>1</ms:GRUPA_REJESTROWA>
+        <ms:DATA>2026-11-21</ms:DATA>
+      </ms:dzialki>
+    </wfs:member>
+<wfs:member>
+      <ms:dzialki gml:id="dzialki.200204_2.0003.243/1">
+        <gml:boundedBy>
+        	<gml:Envelope srsName="urn:ogc:def:crs:EPSG::2180">
+        		<gml:lowerCorner>601305.709000 800380.215000</gml:lowerCorner>
+        		<gml:upperCorner>601330.112000 800432.399000</gml:upperCorner>
+        	</gml:Envelope>
+        </gml:boundedBy>
+        <ms:geom>
+          <gml:Polygon gml:id="dzialki.200204_2.0003.243/1.1" srsName="urn:ogc:def:crs:EPSG::2180">
+            <gml:exterior>
+              <gml:LinearRing>
+                <gml:posList srsDimension="2">601329.224000 800432.399000 601329.869000 800394.493000 601330.112000 800380.215000 601306.617000 800380.256000 601305.709000 800431.879000 601329.224000 800432.399000 </gml:posList>
+              </gml:LinearRing>
+            </gml:exterior>
+          </gml:Polygon>
+        </ms:geom>
+        <ms:ID_DZIALKI>200204_2.0003.243/1</ms:ID_DZIALKI>
+        <ms:NUMER_DZIALKI>243/1</ms:NUMER_DZIALKI>
+        <ms:NUMER_OBREBU>3</ms:NUMER_OBREBU>
+        <ms:NUMER_JEDNOSTKI>200204_2</ms:NUMER_JEDNOSTKI>
+        <ms:NAZWA_OBREBU>BORKI</ms:NAZWA_OBREBU>
+        <ms:NAZWA_GMINY>GM. GRÓDEK</ms:NAZWA_GMINY>
+        <ms:POLE_EWIDENYJNE>0.1217</ms:POLE_EWIDENYJNE>
+        <ms:KLASOUZYTKI_EGIB>PsVI</ms:KLASOUZYTKI_EGIB>
+        <ms:GRUPA_REJESTROWA>7</ms:GRUPA_REJESTROWA>
+        <ms:DATA>2026-11-21</ms:DATA>
+      </ms:dzialki>
+    </wfs:member>
+<wfs:member>
+      <ms:dzialki gml:id="dzialki.200803_2.0021.146">
+        <gml:boundedBy>
+        	<gml:Envelope srsName="urn:ogc:def:crs:EPSG::2180">
+        		<gml:lowerCorner>641359.879000 760122.229000</gml:lowerCorner>
+        		<gml:upperCorner>641658.766000 760409.221000</gml:upperCorner>
+        	</gml:Envelope>
+        </gml:boundedBy>
+        <ms:geom>
+          <gml:Polygon gml:id="dzialki.200803_2.0021.146.1" srsName="urn:ogc:def:crs:EPSG::2180">
+            <gml:exterior>
+              <gml:LinearRing>
+                <gml:posList srsDimension="2">641359.879000 760127.441000 641654.494000 760409.221000 641658.766000 760403.105000 641365.127000 760122.229000 641359.879000 760127.441000 </gml:posList>
+              </gml:LinearRing>
+            </gml:exterior>
+          </gml:Polygon>
+        </ms:geom>
+        <ms:ID_DZIALKI>200803_2.0021.146</ms:ID_DZIALKI>
+        <ms:NUMER_DZIALKI>146</ms:NUMER_DZIALKI>
+        <ms:NUMER_OBREBU>21</ms:NUMER_OBREBU>
+        <ms:NUMER_JEDNOSTKI>200803_2</ms:NUMER_JEDNOSTKI>
+        <ms:NAZWA_OBREBU>ZABIELE</ms:NAZWA_OBREBU>
+        <ms:NAZWA_GMINY>JAŚWIŁY</ms:NAZWA_GMINY>
+        <ms:POLE_EWIDENYJNE>0.3</ms:POLE_EWIDENYJNE>
+        <ms:KLASOUZYTKI_EGIB>ŁV,N</ms:KLASOUZYTKI_EGIB>
+        <ms:GRUPA_REJESTROWA>7</ms:GRUPA_REJESTROWA>
+        <ms:DATA>2026-11-21</ms:DATA>
+      </ms:dzialki>
+    </wfs:member>
+<wfs:member>
+      <ms:dzialki gml:id="dzialki.200204_2.0003.245">
+        <gml:boundedBy>
+        	<gml:Envelope srsName="urn:ogc:def:crs:EPSG::2180">
+        		<gml:lowerCorner>601202.185000 800336.117000</gml:lowerCorner>
+        		<gml:upperCorner>601279.837000 800364.608000</gml:upperCorner>
+        	</gml:Envelope>
+        </gml:boundedBy>
+        <ms:geom>
+          <gml:Polygon gml:id="dzialki.200204_2.0003.245.1" srsName="urn:ogc:def:crs:EPSG::2180">
+            <gml:exterior>
+              <gml:LinearRing>
+                <gml:posList srsDimension="2">601239.735000 800363.116000 601279.320000 800361.106000 601279.837000 800336.117000 601202.185000 800336.891000 601210.264000 800364.608000 601239.735000 800363.116000 </gml:posList>
+              </gml:LinearRing>
+            </gml:exterior>
+          </gml:Polygon>
+        </ms:geom>
+        <ms:ID_DZIALKI>200204_2.0003.245</ms:ID_DZIALKI>
+        <ms:NUMER_DZIALKI>245</ms:NUMER_DZIALKI>
+        <ms:NUMER_OBREBU>3</ms:NUMER_OBREBU>
+        <ms:NUMER_JEDNOSTKI>200204_2</ms:NUMER_JEDNOSTKI>
+        <ms:NAZWA_OBREBU>BORKI</ms:NAZWA_OBREBU>
+        <ms:NAZWA_GMINY>GM. GRÓDEK</ms:NAZWA_GMINY>
+        <ms:POLE_EWIDENYJNE>0.194</ms:POLE_EWIDENYJNE>
+        <ms:KLASOUZYTKI_EGIB>Br/RVI</ms:KLASOUZYTKI_EGIB>
+        <ms:GRUPA_REJESTROWA>7</ms:GRUPA_REJESTROWA>
+        <ms:DATA>2026-11-21</ms:DATA>
+      </ms:dzialki>
+    </wfs:member>
+<wfs:member>
+      <ms:dzialki gml:id="dzialki.200204_2.0019.31">
+        <gml:boundedBy>
+        	<gml:Envelope srsName="urn:ogc:def:crs:EPSG::2180">
+        		<gml:lowerCorner>600716.682000 800064.358000</gml:lowerCorner>
+        		<gml:upperCorner>600931.242000 800280.729000</gml:upperCorner>
+        	</gml:Envelope>
+        </gml:boundedBy>
+        <ms:geom>
+          <gml:Polygon gml:id="dzialki.200204_2.0019.31.1" srsName="urn:ogc:def:crs:EPSG::2180">
+            <gml:exterior>
+              <gml:LinearRing>
+                <gml:posList srsDimension="2">600722.031000 800116.396000 600730.464000 800148.310000 600909.009000 800280.729000 600931.242000 800226.559000 600716.682000 800064.358000 600722.031000 800116.396000 </gml:posList>
+              </gml:LinearRing>
+            </gml:exterior>
+          </gml:Polygon>
+        </ms:geom>
+        <ms:ID_DZIALKI>200204_2.0019.31</ms:ID_DZIALKI>
+        <ms:NUMER_DZIALKI>31</ms:NUMER_DZIALKI>
+        <ms:NUMER_OBREBU>19</ms:NUMER_OBREBU>
+        <ms:NUMER_JEDNOSTKI>200204_2</ms:NUMER_JEDNOSTKI>
+        <ms:NAZWA_OBREBU>NOWOSIÓŁKI</ms:NAZWA_OBREBU>
+        <ms:NAZWA_GMINY>GM. GRÓDEK</ms:NAZWA_GMINY>
+        <ms:POLE_EWIDENYJNE>1.4323</ms:POLE_EWIDENYJNE>
+        <ms:KLASOUZYTKI_EGIB>W/ŁIV,ŁV,ŁIV</ms:KLASOUZYTKI_EGIB>
+        <ms:GRUPA_REJESTROWA>7</ms:GRUPA_REJESTROWA>
+        <ms:DATA>2026-11-21</ms:DATA>
+      </ms:dzialki>
+    </wfs:member>
+<wfs:member>
+      <ms:dzialki gml:id="dzialki.200204_2.0003.250/4">
+        <gml:boundedBy>
+        	<gml:Envelope srsName="urn:ogc:def:crs:EPSG::2180">
+        		<gml:lowerCorner>601362.528000 800251.918000</gml:lowerCorner>
+        		<gml:upperCorner>601449.666000 800312.873000</gml:upperCorner>
+        	</gml:Envelope>
+        </gml:boundedBy>
+        <ms:geom>
+          <gml:Polygon gml:id="dzialki.200204_2.0003.250/4.1" srsName="urn:ogc:def:crs:EPSG::2180">
+            <gml:exterior>
+              <gml:LinearRing>
+                <gml:posList srsDimension="2">601446.615000 800289.606000 601442.748000 800261.604000 601441.586000 800253.171000 601393.674000 800252.414000 601366.645000 800251.980000 601362.528000 800251.918000 601362.555000 800312.873000 601368.997000 800312.643000 601449.666000 800311.687000 601446.615000 800289.606000 </gml:posList>
+              </gml:LinearRing>
+            </gml:exterior>
+          </gml:Polygon>
+        </ms:geom>
+        <ms:ID_DZIALKI>200204_2.0003.250/4</ms:ID_DZIALKI>
+        <ms:NUMER_DZIALKI>250/4</ms:NUMER_DZIALKI>
+        <ms:NUMER_OBREBU>3</ms:NUMER_OBREBU>
+        <ms:NUMER_JEDNOSTKI>200204_2</ms:NUMER_JEDNOSTKI>
+        <ms:NAZWA_OBREBU>BORKI</ms:NAZWA_OBREBU>
+        <ms:NAZWA_GMINY>GM. GRÓDEK</ms:NAZWA_GMINY>
+        <ms:POLE_EWIDENYJNE>0.4952</ms:POLE_EWIDENYJNE>
+        <ms:KLASOUZYTKI_EGIB>Lzr/RVI,Lzr/RV</ms:KLASOUZYTKI_EGIB>
+        <ms:GRUPA_REJESTROWA>7</ms:GRUPA_REJESTROWA>
+        <ms:DATA>2026-11-21</ms:DATA>
+      </ms:dzialki>
+    </wfs:member>
+<wfs:member>
+      <ms:dzialki gml:id="dzialki.200803_2.0005.364">
+        <gml:boundedBy>
+        	<gml:Envelope srsName="urn:ogc:def:crs:EPSG::2180">
+        		<gml:lowerCorner>640054.289000 760331.944000</gml:lowerCorner>
+        		<gml:upperCorner>640154.545000 760433.193000</gml:upperCorner>
+        	</gml:Envelope>
+        </gml:boundedBy>
+        <ms:geom>
+          <gml:Polygon gml:id="dzialki.200803_2.0005.364.1" srsName="urn:ogc:def:crs:EPSG::2180">
+            <gml:exterior>
+              <gml:LinearRing>
+                <gml:posList srsDimension="2">640119.970000 760331.944000 640054.289000 760395.218000 640083.429000 760433.193000 640154.545000 760365.215000 640125.380000 760337.148000 640119.970000 760331.944000 </gml:posList>
+              </gml:LinearRing>
+            </gml:exterior>
+          </gml:Polygon>
+        </ms:geom>
+        <ms:ID_DZIALKI>200803_2.0005.364</ms:ID_DZIALKI>
+        <ms:NUMER_DZIALKI>364</ms:NUMER_DZIALKI>
+        <ms:NUMER_OBREBU>5</ms:NUMER_OBREBU>
+        <ms:NUMER_JEDNOSTKI>200803_2</ms:NUMER_JEDNOSTKI>
+        <ms:NAZWA_OBREBU>DOLISTOWO STARE</ms:NAZWA_OBREBU>
+        <ms:NAZWA_GMINY>JAŚWIŁY</ms:NAZWA_GMINY>
+        <ms:POLE_EWIDENYJNE>0.46</ms:POLE_EWIDENYJNE>
+        <ms:KLASOUZYTKI_EGIB>K</ms:KLASOUZYTKI_EGIB>
+        <ms:GRUPA_REJESTROWA>4</ms:GRUPA_REJESTROWA>
+        <ms:DATA>2026-11-21</ms:DATA>
+      </ms:dzialki>
+    </wfs:member>
+<wfs:member>
+      <ms:dzialki gml:id="dzialki.080505_4.0001.438">
+        <gml:boundedBy>
+        	<gml:Envelope srsName="urn:ogc:def:crs:EPSG::2180">
+        		<gml:lowerCorner>507068.180000 197434.904000</gml:lowerCorner>
+        		<gml:upperCorner>508758.716000 199119.402000</gml:upperCorner>
+        	</gml:Envelope>
+        </gml:boundedBy>
+        <ms:geom>
+          <gml:Polygon gml:id="dzialki.080505_4.0001.438.1" srsName="urn:ogc:def:crs:EPSG::2180">
+            <gml:exterior>
+              <gml:LinearRing>
+                <gml:posList srsDimension="2">508743.204000 197875.282000 508758.022000 197879.489000 508758.716000 197847.784000 508701.830000 197844.353000 508662.622000 197841.991000 508603.764000 197798.189000 508578.467000 197778.762000 508525.014000 197745.209000 508383.906000 197689.908000 508336.128000 197662.793000 508215.659000 197589.076000 508137.659000 197536.839000 507997.569000 197455.011000 507778.698000 197434.904000 507736.108000 197437.696000 507698.636000 197445.601000 507621.571000 197466.203000 507560.206000 197483.056000 507433.911000 197525.762000 507404.043000 197537.846000 507358.389000 197564.667000 507312.110000 197590.271000 507277.379000 197638.780000 507249.476000 197694.811000 507221.284000 197782.860000 507213.868000 197849.815000 507218.258000 197965.241000 507216.788000 198076.303000 507216.655000 198096.607000 507216.556000 198113.064000 507216.371000 198142.273000 507216.286000 198143.270000 507216.061000 198145.693000 507202.654000 198290.634000 507204.316000 198454.064000 507232.851000 198618.402000 507231.884000 198704.451000 507214.065000 198817.243000 507191.330000 198912.228000 507157.139000 198987.540000 507105.916000 199064.082000 507068.180000 199101.362000 507086.700000 199119.402000 507102.144000 199103.974000 507110.519000 199094.418000 507125.306000 199075.828000 507140.455000 199054.322000 507153.657000 199033.780000 507172.522000 198999.995000 507179.610000 198985.447000 507190.279000 198958.893000 507198.155000 198934.810000 507214.318000 198885.404000 507226.018000 198838.968000 507227.294000 198826.603000 507238.577000 198781.366000 507240.220000 198778.281000 507242.808000 198765.217000 507243.741000 198760.660000 507247.601000 198738.559000 507248.068000 198735.358000 507250.589000 198709.565000 507250.755000 198706.017000 507251.930000 198673.758000 507251.429000 198634.311000 507250.716000 198626.024000 507249.627000 198617.287000 507223.186000 198474.108000 507220.550000 198454.573000 507219.757000 198441.212000 507219.305000 198289.241000 507219.904000 198271.548000 507228.217000 198188.731000 507229.765000 198173.266000 507231.098000 198154.802000 507231.221000 198153.125000 507231.812000 198137.567000 507232.087000 198094.786000 507232.134000 198077.474000 507232.366000 198039.800000 507232.433000 198001.677000 507231.754000 197967.260000 507231.510000 197954.662000 507229.848000 197872.664000 507229.602000 197833.502000 507236.673000 197783.622000 507269.085000 197689.754000 507285.096000 197650.159000 507282.707000 197648.965000 507293.603000 197628.626000 507309.068000 197608.470000 507319.491000 197599.217000 507355.600000 197576.657000 507389.210000 197560.692000 507393.532000 197561.543000 507421.358000 197550.518000 507433.598000 197545.535000 507472.993000 197529.680000 507488.146000 197523.846000 507499.291000 197519.834000 507510.254000 197516.192000 507513.451000 197518.534000 507519.409000 197516.619000 507655.620000 197476.336000 507659.496000 197475.278000 507663.447000 197474.334000 507726.711000 197459.921000 507732.086000 197458.766000 507737.444000 197457.730000 507742.797000 197456.954000 507748.216000 197456.263000 507753.591000 197455.648000 507759.063000 197455.270000 507764.545000 197455.083000 507769.973000 197455.133000 507775.444000 197455.315000 507780.902000 197455.728000 507786.320000 197456.138000 507832.424000 197459.934000 507849.192000 197461.293000 507941.545000 197469.685000 507952.941000 197472.159000 507958.770000 197473.845000 507981.554000 197479.666000 508009.551000 197486.888000 508012.490000 197488.103000 508124.767000 197556.847000 508284.847000 197654.422000 508338.725000 197687.196000 508355.349000 197697.125000 508358.139000 197701.929000 508367.967000 197705.769000 508397.089000 197714.216000 508425.365000 197724.189000 508475.298000 197743.678000 508490.394000 197750.637000 508528.441000 197770.720000 508543.907000 197779.673000 508557.675000 197788.171000 508567.381000 197794.571000 508576.455000 197801.165000 508619.573000 197835.147000 508633.275000 197844.844000 508643.489000 197851.302000 508653.486000 197856.244000 508664.061000 197859.796000 508674.758000 197862.413000 508685.610000 197864.577000 508743.204000 197875.282000 </gml:posList>
+              </gml:LinearRing>
+            </gml:exterior>
+          </gml:Polygon>
+        </ms:geom>
+        <ms:ID_DZIALKI>080505_4.0001.438</ms:ID_DZIALKI>
+        <ms:NUMER_DZIALKI>438</ms:NUMER_DZIALKI>
+        <ms:NUMER_OBREBU>1</ms:NUMER_OBREBU>
+        <ms:NUMER_JEDNOSTKI>080505_4</ms:NUMER_JEDNOSTKI>
+        <ms:NAZWA_OBREBU>1 M.SŁUBICE</ms:NAZWA_OBREBU>
+        <ms:NAZWA_GMINY>M. SŁUBICE</ms:NAZWA_GMINY>
+        <ms:POLE_EWIDENYJNE>5.6878</ms:POLE_EWIDENYJNE>
+        <ms:KLASOUZYTKI_EGIB>Tr</ms:KLASOUZYTKI_EGIB>
+        <ms:GRUPA_REJESTROWA>1</ms:GRUPA_REJESTROWA>
+        <ms:DATA>2026-11-21</ms:DATA>
+      </ms:dzialki>
+    </wfs:member>
+</wfs:FeatureCollection>

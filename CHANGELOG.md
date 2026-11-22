@@ -6,10 +6,6 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
-### Hinzugefügt
-
-- Die zwei Beispiele für Polen sind da: eine Sprintkarte der Innenstadt von Słubice (`examples/polska-slubice-sprint`) und eine Waldkarte am Szczeliniec Wielki im Tafelgebirge (`examples/polska-szczeliniec-forest`), beide mit Trainingskarte, Prüfausdruck und OCAD-Dateien. Die neue Seite [`examples/international.md`](examples/international.md) führt sie auf, eine Sprint- und eine Waldkarte je Land.
-
 ## [0.26.0] - 2026-11-22
 
 ### Hinzugefügt
@@ -18,10 +14,12 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 - Polen holt Gebäude und Landnutzung aus dem Kataster EGiB von GUGiK, dem Gegenstück zu ALKIS: die Gebäudegrundrisse mit ihrer Art (Wohn-, Wirtschafts-, Bürogebäude und so weiter) und die Flurstücke mit ihrer Nutzungsklasse (Wald, Gehölz, Grünland, Acker, Gewässer, Straße). Ein Flurstück mit zwei verschiedenen Nutzungen bleibt ohne Fläche, damit ein Acker nicht die Farbe des Waldes daneben bekommt. Der Dienst von GUGiK antwortet seitenweise mit je 1000 Objekten; freemapper liest Seite für Seite. Geht der Dienst nicht, bricht der Lauf mit der Meldung ab. BDOT10k als Rückfall folgt noch (ADR 0171). Polen bleibt Vorschau und hat noch keine Genehmigungshinweise.
 - Ein Doppelklick auf `freemapper.exe` unter Windows öffnet die Gebietsseite im Browser, wie `freemapper select`, mit dem Projektordner `Dokumente\freemapper\karte-<Datum>` (bei einem zweiten Start am selben Tag `-2`, …). Das Konsolenfenster bleibt offen, solange das Programm läuft. Dasselbe gilt für ein nacktes `freemapper` in einem Terminal unter Windows; ohne `unsafe`-Code lassen sich beide nicht trennen. Handbuch und README sagen, wie man die anderen Befehle in der PowerShell aufruft.
 - Polen holt Höhenmodell (NMT), Oberflächenmodell (NMPT) und Orthofoto von GUGiK: Schummerung, Hangneigung, Relief, nDSM, Höhenlinien und Luftbild für ein Gebiet in Polen. Gebäude und Landnutzung kommen weiter aus OpenStreetMap; Polen bleibt Vorschau (ADR 0170). Der OSM-Auszug einer Woiwodschaft wird wieder gefunden (Geofabrik hat die Ordner umgestellt).
+- Die zwei Beispiele für Polen sind da: eine Sprintkarte der Innenstadt von Słubice (`examples/polska-slubice-sprint`) und eine Waldkarte am Szczeliniec Wielki im Tafelgebirge (`examples/polska-szczeliniec-forest`), beide mit Trainingskarte, Prüfausdruck und OCAD-Dateien. Die neue Seite [`examples/international.md`](examples/international.md) führt sie auf, eine Sprint- und eine Waldkarte je Land.
 
 ### Behoben
 
 - Der OSM-Download scheiterte in allen Bundesländern mit „http status: 404“ (Issue #244): Geofabrik hat jeden Auszug in einen eigenen Ordner verschoben, etwa `europe/germany/hessen/hessen-latest.osm.pbf` statt `europe/germany/hessen-latest.osm.pbf`, und die alte Adresse führt ins Leere. freemapper nimmt jetzt die neue Adresse, auch für die Datei `updates/state.txt`; Adapter im eigenen Ordner mit dem alten Pfad laufen weiter.
+- Polen: Orthofoto-Blätter älterer Befliegungen im Koordinatensystem PL-2000 (Zone 5 bis 8, EPSG:2176 bis 2179, auch als benutzerdefinierte Transversal-Mercator-Angabe mit dem Code 32767) werden gelesen und in das Raster der Karte umgerechnet, statt mit der Warnung "not in EPSG:2180" übersprungen zu werden. Davon betroffen waren Gebiete etwa bei Słubice und Łagów, wo ein Teil der Orthofoto-Vorlage fehlte. Ein Blatt in einem anderen System wird weiter ausgelassen, die Warnung nennt jetzt dessen Code oder die Parameter.
 
 ### Geändert
 
@@ -30,10 +28,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 - Die Mutationstests laufen schneller: Der Lauf baut die Tests einmal im Baum des Runners und kopiert dieses Ziel in die Arbeitskopien, das Zeitlimit je Mutant sinkt auf das Doppelte der Testzeit, und die Rechenschritte des Newton-Verfahrens in Polen sind ausgenommen (ADR 0173).
 - Die Beispielseite `examples/README.md` zeigt nur noch die Karten: erst die Sprint-, direkt danach die Waldkarten. Der Text dazu (Erzeugung, Zahlen, Quellen, Auswahl der Gebiete, Lizenzen) steht auf der neuen Seite `examples/hintergrund.md`.
 - README und Handbuch gibt es nur auf Deutsch und Englisch. Die polnische README und das gekürzte polnische Handbuch entfallen; das Programm selbst behält alle seine Sprachen (ADR 0172).
-
-### Behoben
-
-- Polen: Orthofoto-Blätter älterer Befliegungen im Koordinatensystem PL-2000 (Zone 5 bis 8, EPSG:2176 bis 2179, auch als benutzerdefinierte Transversal-Mercator-Angabe mit dem Code 32767) werden gelesen und in das Raster der Karte umgerechnet, statt mit der Warnung "not in EPSG:2180" übersprungen zu werden. Davon betroffen waren Gebiete etwa bei Słubice und Łagów, wo ein Teil der Orthofoto-Vorlage fehlte. Ein Blatt in einem anderen System wird weiter ausgelassen, die Warnung nennt jetzt dessen Code oder die Parameter.
+- Karten in Polen nennen den Kataster beim Namen: Die Fortschrittszeilen und Warnungen beim Laden von Gebäuden und Landnutzung sagen „EGiB“ statt „ALKIS“ (dieselben Meldungen tragen den Namen als Wert `cadastre`; Karten in Deutschland lesen sich unverändert). Dazu stimmt die Abbildung des EGiB-Katasters jetzt mit dem Dienst überein, geprüft an echten Daten aus Słubice, Białystok und zwei Dörfern in Podlasie: Die Gebäudearten `z` (Krankenhaus), `s` (Behälter, Silo, Lager) und `k` (Bildung, Kultur, Sport) waren vertauscht, und die Nutzungsklassen tragen im Dienst ihre Bodenklasse (`RIVa`, `PsVI`, `ŁV`, `LsIV`) und Vorsätze (`Br/RV`, `W/ŁIV`, `Lzr/PsVI`), was bisher alle ländlichen Flurstücke aus der Nutzung fallen ließ. Gräben (`W`) und Unland (`N`) neben einer einzigen Nutzung ändern sie nicht mehr; `B` wird Wohnbaufläche, `Ba` Industrie- und Gewerbefläche, `Tk` Bahnverkehr, `Wsr` stehendes Gewässer.
 
 ## [0.25.0] - 2026-11-21
 

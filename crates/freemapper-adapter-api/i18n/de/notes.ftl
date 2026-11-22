@@ -112,27 +112,27 @@ warning-permits-osm-no-extract = Für dieses Kartengebiet ist kein OSM-Auszug im
 
 ## ALKIS
 
-warning-alkis-coverage-unknown = Unbekannt, welches Gebiet die ALKIS-Gebäude abdecken; rufen Sie `freemapper fetch` mit Netzverbindung auf, damit es vermerkt wird
-progress-alkis-buildings-download = ALKIS-Gebäude werden geladen
+warning-alkis-coverage-unknown = Unbekannt, welches Gebiet die { $cadastre }-Gebäude abdecken; rufen Sie `freemapper fetch` mit Netzverbindung auf, damit es vermerkt wird
+progress-alkis-buildings-download = { $cadastre }-Gebäude werden geladen
 progress-alkis-buildings = { $count ->
-        [one] 1 ALKIS-Gebäude
-       *[other] { $count } ALKIS-Gebäude
+        [one] 1 { $cadastre }-Gebäude
+       *[other] { $count } { $cadastre }-Gebäude
     }
-warning-alkis-no-buildings = Im Kartengebiet wurden keine ALKIS-Gebäude gefunden
+warning-alkis-no-buildings = Im Kartengebiet wurden keine { $cadastre }-Gebäude gefunden
 progress-alkis-skipped = { $count ->
-        [one] 1 ALKIS-Objekt
-       *[other] { $count } ALKIS-Objekte
+        [one] 1 { $cadastre }-Objekt
+       *[other] { $count } { $cadastre }-Objekte
     } übersprungen: { $list }
-warning-alkis-buildings-changed = Die ALKIS-Gebäude haben sich beim Anbieter geändert ({ $changes })
-progress-alkis-no-land-use-stored = Keine ALKIS-Nutzung gespeichert; rufen Sie `freemapper fetch` mit Netzverbindung auf, um Kandidaten für verbotene Gebiete zu erhalten
-progress-alkis-land-use-download = ALKIS-Nutzung wird geladen
+warning-alkis-buildings-changed = Die { $cadastre }-Gebäude haben sich beim Anbieter geändert ({ $changes })
+progress-alkis-no-land-use-stored = Keine { $cadastre }-Nutzung gespeichert; rufen Sie `freemapper fetch` mit Netzverbindung auf, um Kandidaten für verbotene Gebiete zu erhalten
+progress-alkis-land-use-download = { $cadastre }-Nutzung wird geladen
 progress-alkis-land-use-parts = { $count ->
-        [one] 1 ALKIS-Nutzungsfläche
-       *[other] { $count } ALKIS-Nutzungsflächen
+        [one] 1 { $cadastre }-Nutzungsfläche
+       *[other] { $count } { $cadastre }-Nutzungsflächen
     }
-warning-alkis-land-use-kept = ALKIS-Nutzung nicht verfügbar ({ $error }); die gespeicherte Nutzung bleibt
-warning-alkis-land-use-removed = ALKIS-Nutzung nicht verfügbar ({ $error }); die gespeicherte Nutzung deckt das Kartengebiet nicht mehr ab, freemapper hat sie deshalb entfernt
-warning-alkis-land-use-none = ALKIS-Nutzung nicht verfügbar ({ $error }); keine Kandidaten für verbotene Gebiete
+warning-alkis-land-use-kept = { $cadastre }-Nutzung nicht verfügbar ({ $error }); die gespeicherte Nutzung bleibt
+warning-alkis-land-use-removed = { $cadastre }-Nutzung nicht verfügbar ({ $error }); die gespeicherte Nutzung deckt das Kartengebiet nicht mehr ab, freemapper hat sie deshalb entfernt
+warning-alkis-land-use-none = { $cadastre }-Nutzung nicht verfügbar ({ $error }); keine Kandidaten für verbotene Gebiete
 
 ## Die Berliner Ebenen
 

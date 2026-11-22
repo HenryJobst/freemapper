@@ -318,24 +318,31 @@ fn geometry(feature: &Feature, crs: Crs) -> Option<Value> {
     Some(json!({"type": "MultiPolygon", "coordinates": polygons}))
 }
 
-/// The `funktion` of a building of the register's kind `RODZAJ`. The letters are the kinds of
-/// the ordinance on the register: `m` residential, `g` farm and other outbuildings, `p`
-/// industrial, `t` transport and communication, `h` commercial and services, `z` tanks and
-/// silos, `b` office, `s` hospitals, `o` education, science and culture, `k` sports, `i` other.
+/// The `funktion` of a building of the register's kind `RODZAJ`. The letters are the kinds by
+/// the Classification of Fixed Assets (KŚT) of the ordinance on the register, checked against the
+/// live service on 22 November 2026 (`docs/regions/poland-reference.md`): `m` residential, `g`
+/// production, services and farm buildings, `p` industrial, `t` transport and communication, `h`
+/// commercial and services, `s` tank, silo and storage building, `b` office, `z` hospital and
+/// other health care, `k` education, science, culture and sport, `i` other non-residential.
+///
+/// The newer register data may carry the finer letters of the building classes (PKOB): `mj`, `md`,
+/// `mt`, `mz` residential, `a` and `u` accommodation and trade, `d` communication and stations,
+/// `o`, `e` culture and schools, `f` sport, `r` places of worship, `x` listed structures. No
+/// answer of the service held one yet; they are mapped to the same names as the coarse letters.
 /// A kind the table does not know keeps its letter, so the data stays readable.
 pub fn building_function(kind: &str) -> String {
-    match kind {
-        "m" => "Wohngebäude",
+    match kind.trim() {
+        "m" | "mj" | "md" | "mt" | "mz" => "Wohngebäude",
         "g" => "Gebäude für Wirtschaft und Gewerbe",
         "p" => "Industriegebäude",
-        "t" => "Gebäude für Verkehr und Nachrichtenwesen",
-        "h" => "Handels- und Dienstleistungsgebäude",
-        "z" => "Behälter, Silo und Speichergebäude",
+        "t" | "d" => "Gebäude für Verkehr und Nachrichtenwesen",
+        "h" | "a" | "u" => "Handels- und Dienstleistungsgebäude",
+        "s" => "Behälter, Silo und Speichergebäude",
         "b" => "Bürogebäude",
-        "s" => "Gebäude für Gesundheit und Pflege",
-        "o" => "Gebäude für Bildung, Wissenschaft und Kultur",
-        "k" => "Gebäude für Sport",
-        "i" => "Sonstiges Gebäude",
+        "z" => "Gebäude für Gesundheit und Pflege",
+        "k" | "o" | "e" => "Gebäude für Bildung, Wissenschaft und Kultur",
+        "f" => "Gebäude für Sport",
+        "i" | "r" | "x" => "Sonstiges Gebäude",
         other => other,
     }
     .to_string()
@@ -343,28 +350,56 @@ pub fn building_function(kind: &str) -> String {
 
 /// The land use of one register class of a parcel, as `(nutzart, bez)` in the LGB spellings the
 /// map reads. Only what is clear: a class the table does not know, or one that does not say what
-/// lies on the ground (built-up land, waste land), gives `None`.
+/// lies on the ground, gives `None`.
 ///
-/// `Ls` forest, `Lz` trees and shrubs outside the forest, `Ł` meadow, `Ps` pasture, `R` arable,
-/// `S` orchard, `Br` and `Wsr` are left out (a ditch is too narrow for an area), `Wp` running and
-/// `Ws` standing water, `dr` road.
+/// The classes are those of the ordinance on the register (§ 8 and § 68, checked against the live
+/// service on 22 November 2026). A farmland, pasture, meadow, forest or wood class carries its
+/// soil class after the letters (`RIVa`, `PsVI`, `ŁV`, `LsIV`, `LzV`), which does not matter here.
+/// A class can also carry a prefix and a slash for land of a second kind on that soil: `Br/RV`
+/// farmland with buildings, `W/ŁIV` a ditch on meadow soil (both read as the soil underneath),
+/// `Lzr/PsVI` trees and shrubs on farmland and `Wsr/PsIV` a pond on it.
+///
+/// `Ls` forest, `Lz` and `Lzr` trees and shrubs, `Ł` meadow, `Ps` pasture, `R` arable, `S`
+/// orchard, `Wp` running and `Ws` and `Wsr` standing water, `dr` road, `Tk` railway, `B`
+/// residential and `Ba` industrial land, `Bz` recreation (no `bez`, so the map ignores it until a
+/// park is known). Left out: `Bi` other built-up land (schools, offices, trade), `Bp` urban land
+/// not built on, `Ti` other transport land, `Tp` land for roads that are to be built, `K` mining
+/// land, `N` waste land, `W` ditches (too narrow), `Wm` sea, `Tr` and unknown classes.
 pub fn land_use_of_class(class: &str) -> Option<(&'static str, Option<&'static str>)> {
-    match class.trim() {
-        "Ls" => Some(("Wald", None)),
-        "Lz" => Some(("Gehölz", None)),
-        "Ł" | "Ps" => Some(("Landwirtschaft", Some("Grünland"))),
-        "R" | "S" => Some(("Landwirtschaft", None)),
-        "Wp" => Some(("Fließgewässer", None)),
-        "Ws" => Some(("Stehendes Gewässer", None)),
-        "dr" => Some(("Straßenverkehr", None)),
+    let class = class.trim();
+    let (prefix, soil) = class.split_once('/').unwrap_or(("", class));
+    // The soil class (Roman numerals and their letters) starts at the first `I`, `V` or `X`.
+    let letters = soil.split(['I', 'V', 'X']).next().unwrap_or(soil);
+    match (prefix, letters) {
+        ("Lzr", _) | (_, "Lz") => Some(("Gehölz", None)),
+        ("Wsr", _) | (_, "Wsr" | "Ws") => Some(("Stehendes Gewässer", None)),
+        (_, "Ls") => Some(("Wald", None)),
+        (_, "Ł" | "Ps") => Some(("Landwirtschaft", Some("Grünland"))),
+        (_, "R" | "S") => Some(("Landwirtschaft", None)),
+        ("", "Wp") => Some(("Fließgewässer", None)),
+        ("", "dr") => Some(("Straßenverkehr", None)),
+        ("", "Tk") => Some(("Bahnverkehr", None)),
+        ("", "B") => Some(("Wohnbaufläche", None)),
+        ("", "Ba") => Some(("Industrie- und Gewerbefläche", None)),
+        ("", "Bz") => Some(("Sport-, Freizeit- und Erholungsfläche", None)),
         _ => None,
     }
 }
 
-/// The land use of a parcel whose register classes are `classes` (`B,Bp`): that of its classes
-/// when they all mean the same, else none. A parcel of arable land and a wood is neither.
+/// A class that adds nothing to a parcel: a ditch (`W`) or waste land (`N`) beside meadow or
+/// forest does not turn it into something else.
+fn is_neutral_class(class: &str) -> bool {
+    matches!(class.trim(), "W" | "N")
+}
+
+/// The land use of a parcel whose register classes are `classes` (`ŁV,N`): that of its classes
+/// when they all mean the same, ditches and waste land left aside, else none. A parcel of arable
+/// land and a wood is neither.
 fn parcel_land_use(classes: &str) -> Option<(&'static str, Option<&'static str>)> {
-    let mut uses = classes.split(',').map(land_use_of_class);
+    let mut uses = classes
+        .split(',')
+        .filter(|c| !is_neutral_class(c))
+        .map(land_use_of_class);
     let first = uses.next()??;
     uses.all(|u| u == Some(first)).then_some(first)
 }
@@ -426,6 +461,8 @@ mod tests {
 
     const BUILDINGS: &str = include_str!("../tests/fixtures/egib/budynki-slubice.xml");
     const PARCELS: &str = include_str!("../tests/fixtures/egib/dzialki-slubice.xml");
+    const BUILDING_KINDS: &str = include_str!("../tests/fixtures/egib/budynki-rodzaje.xml");
+    const PARCEL_CLASSES: &str = include_str!("../tests/fixtures/egib/dzialki-klassen.xml");
     const URL: &str = "https://mapy.geoportal.gov.pl/x";
 
     /// Answers the requests in order and keeps their addresses.
@@ -703,15 +740,16 @@ mod tests {
     fn the_kinds_of_buildings_have_names() {
         let table = [
             ("m", "Wohngebäude"),
+            ("mj", "Wohngebäude"),
             ("g", "Gebäude für Wirtschaft und Gewerbe"),
             ("p", "Industriegebäude"),
             ("t", "Gebäude für Verkehr und Nachrichtenwesen"),
             ("h", "Handels- und Dienstleistungsgebäude"),
-            ("z", "Behälter, Silo und Speichergebäude"),
+            ("s", "Behälter, Silo und Speichergebäude"),
             ("b", "Bürogebäude"),
-            ("s", "Gebäude für Gesundheit und Pflege"),
-            ("o", "Gebäude für Bildung, Wissenschaft und Kultur"),
-            ("k", "Gebäude für Sport"),
+            ("z", "Gebäude für Gesundheit und Pflege"),
+            ("k", "Gebäude für Bildung, Wissenschaft und Kultur"),
+            ("f", "Gebäude für Sport"),
             ("i", "Sonstiges Gebäude"),
             ("q", "q"),
         ];
@@ -720,28 +758,97 @@ mod tests {
         }
     }
 
+    /// Ten buildings of the live service, one per letter that occurred in 2 000 buildings of
+    /// Słubice, Białystok and two villages of Podlasie (22 November 2026).
+    #[test]
+    fn every_letter_of_the_live_buildings_has_a_name() {
+        let page = read_page(Layer::Buildings, BUILDING_KINDS.as_bytes(), URL).unwrap();
+        let kinds: Vec<_> = page.features.iter().map(|f| f.kind.as_str()).collect();
+        assert_eq!(kinds, ["b", "g", "h", "i", "k", "m", "p", "s", "t", "z"]);
+        for f in &page.features {
+            assert_ne!(building_function(&f.kind), f.kind, "{}", f.kind);
+        }
+    }
+
     #[test]
     fn the_classes_of_parcels_have_their_land_use() {
+        let grass = Some(("Landwirtschaft", Some("Grünland")));
+        let field = Some(("Landwirtschaft", None));
         let table = [
             ("Ls", Some(("Wald", None))),
+            ("LsVI", Some(("Wald", None))),
             ("Lz", Some(("Gehölz", None))),
-            ("Ł", Some(("Landwirtschaft", Some("Grünland")))),
-            ("Ps", Some(("Landwirtschaft", Some("Grünland")))),
-            ("R", Some(("Landwirtschaft", None))),
-            ("S", Some(("Landwirtschaft", None))),
+            ("LzV", Some(("Gehölz", None))),
+            ("Lzr/PsVI", Some(("Gehölz", None))),
+            ("Ł", grass),
+            ("ŁIV", grass),
+            ("Ps", grass),
+            ("PsVI", grass),
+            ("W/ŁIV", grass),
+            ("R", field),
+            ("RIVa", field),
+            ("RIIIb", field),
+            ("Br/RV", field),
+            ("Br/PsVI", grass),
+            ("S", field),
             ("Wp", Some(("Fließgewässer", None))),
             ("Ws", Some(("Stehendes Gewässer", None))),
+            ("Wsr", Some(("Stehendes Gewässer", None))),
+            ("Wsr/PsIV", Some(("Stehendes Gewässer", None))),
             ("dr", Some(("Straßenverkehr", None))),
-            ("B", None),
+            ("Tk", Some(("Bahnverkehr", None))),
+            ("B", Some(("Wohnbaufläche", None))),
+            ("Ba", Some(("Industrie- und Gewerbefläche", None))),
+            ("Bz", Some(("Sport-, Freizeit- und Erholungsfläche", None))),
+            ("Bi", None),
             ("Bp", None),
+            ("Ti", None),
+            ("Tp", None),
+            ("K", None),
+            ("Tr", None),
             ("N", None),
-            ("Wsr", None),
+            ("W", None),
+            ("Br", None),
             ("", None),
         ];
         for (class, expected) in table {
             assert_eq!(land_use_of_class(class), expected, "{class:?}");
         }
         assert_eq!(land_use_of_class(" Ls "), Some(("Wald", None)));
+    }
+
+    /// Fifteen parcels of the live service of Podlasie and Słubice, one per class that occurred
+    /// (the soil classes `V` and `VI` and the compound ones).
+    #[test]
+    fn the_live_classes_of_parcels_are_read_and_mapped() {
+        let page = read_page(Layer::Parcels, PARCEL_CLASSES.as_bytes(), URL).unwrap();
+        let uses: Vec<_> = page
+            .features
+            .iter()
+            .map(|f| (f.kind.as_str(), parcel_land_use(&f.kind).map(|u| u.0)))
+            .collect();
+        let expected = [
+            ("B", Some("Wohnbaufläche")),
+            ("Ba", Some("Industrie- und Gewerbefläche")),
+            ("Bi", None),
+            ("Bz", Some("Sport-, Freizeit- und Erholungsfläche")),
+            ("dr", Some("Straßenverkehr")),
+            ("Wp", Some("Fließgewässer")),
+            ("LsVI", Some("Wald")),
+            ("N,Ls", Some("Wald")),
+            ("PsVI", Some("Landwirtschaft")),
+            ("ŁV,N", Some("Landwirtschaft")),
+            ("Br/RVI", Some("Landwirtschaft")),
+            ("W/ŁIV,ŁV,ŁIV", Some("Landwirtschaft")),
+            ("Lzr/RVI,Lzr/RV", Some("Gehölz")),
+            ("K", None),
+            ("Tr", None),
+        ];
+        let mut sorted: Vec<_> = uses.clone();
+        sorted.sort();
+        let mut expected_sorted = expected.to_vec();
+        expected_sorted.sort();
+        assert_eq!(sorted, expected_sorted);
     }
 
     #[test]
@@ -756,6 +863,15 @@ mod tests {
         assert_eq!(parcel_land_use("Ls,B"), None);
         assert_eq!(parcel_land_use("B,Ls"), None);
         assert_eq!(parcel_land_use("B,Bp"), None);
+        // A ditch or waste land beside one use does not make a second.
+        assert_eq!(
+            parcel_land_use("ŁV,N,W"),
+            Some(("Landwirtschaft", Some("Grünland")))
+        );
+        assert_eq!(parcel_land_use("N,Ls"), Some(("Wald", None)));
+        assert_eq!(parcel_land_use("W/PsIV,PsV,Wsr/PsIV"), None);
+        assert_eq!(parcel_land_use("N"), None);
+        assert_eq!(parcel_land_use("W,N"), None);
         assert_eq!(parcel_land_use(""), None);
     }
 
@@ -763,11 +879,16 @@ mod tests {
     fn land_use_keeps_the_parcels_with_a_clear_use() {
         let page = read_page(Layer::Parcels, PARCELS.as_bytes(), URL).unwrap();
         let part = land_use(&page.features, Crs::Utm33);
-        // Of the built-up parcel, the road and the parcel of two built-up classes only the road.
-        assert_eq!(part.features.len(), 1);
-        let properties = &part.features[0]["properties"];
-        assert_eq!(properties["nutzart"], "Straßenverkehr");
-        assert!(properties.get("bez").is_none());
+        // Of the residential parcel, the road and the parcel of two built-up classes (`B,Bp`)
+        // the first two.
+        assert_eq!(part.features.len(), 2);
+        let uses: Vec<_> = part
+            .features
+            .iter()
+            .map(|f| f["properties"]["nutzart"].as_str().unwrap())
+            .collect();
+        assert_eq!(uses, ["Wohnbaufläche", "Straßenverkehr"]);
+        assert!(part.features[1]["properties"].get("bez").is_none());
         let meadow = Feature {
             id: "D9".into(),
             kind: "Ł".into(),

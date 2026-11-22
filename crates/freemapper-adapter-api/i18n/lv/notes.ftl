@@ -107,18 +107,18 @@ warning-permits-osm-no-extract = šim kartes apgabalam kešatmiņā nav OSM izvi
 
 ## ALKIS
 
-warning-alkis-coverage-unknown = ALKIS ēku pārklājums nav zināms; palaidiet `freemapper fetch` tiešsaistē, lai to ierakstītu
-progress-alkis-buildings-download = lejupielādē ALKIS ēkas
-progress-alkis-buildings = ALKIS ēkas: { $count }
-warning-alkis-no-buildings = kartes apgabalā netika atrastas ALKIS ēkas
-progress-alkis-skipped = izlaisti ALKIS objekti: { $count }: { $list }
-warning-alkis-buildings-changed = ALKIS ēkas avotā mainījušās ({ $changes })
-progress-alkis-no-land-use-stored = nav saglabātas ALKIS zemes izmantošanas; aizliegto zonu kandidātiem palaidiet `freemapper fetch` tiešsaistē
-progress-alkis-land-use-download = lejupielādē ALKIS zemes izmantošanu
-progress-alkis-land-use-parts = ALKIS zemes izmantošanas daļas: { $count }
-warning-alkis-land-use-kept = ALKIS zemes izmantošana nav pieejama ({ $error }); tiek atstāta saglabātā zemes izmantošana
-warning-alkis-land-use-removed = ALKIS zemes izmantošana nav pieejama ({ $error }); saglabātā zemes izmantošana kartes apgabalu vairs neaptver, tāpēc freemapper to noņēma
-warning-alkis-land-use-none = ALKIS zemes izmantošana nav pieejama ({ $error }); nav aizliegto zonu kandidātu
+warning-alkis-coverage-unknown = { $cadastre } ēku pārklājums nav zināms; palaidiet `freemapper fetch` tiešsaistē, lai to ierakstītu
+progress-alkis-buildings-download = lejupielādē { $cadastre } ēkas
+progress-alkis-buildings = { $cadastre } ēkas: { $count }
+warning-alkis-no-buildings = kartes apgabalā netika atrastas { $cadastre } ēkas
+progress-alkis-skipped = izlaisti { $cadastre } objekti: { $count }: { $list }
+warning-alkis-buildings-changed = { $cadastre } ēkas avotā mainījušās ({ $changes })
+progress-alkis-no-land-use-stored = nav saglabātas { $cadastre } zemes izmantošanas; aizliegto zonu kandidātiem palaidiet `freemapper fetch` tiešsaistē
+progress-alkis-land-use-download = lejupielādē { $cadastre } zemes izmantošanu
+progress-alkis-land-use-parts = { $cadastre } zemes izmantošanas daļas: { $count }
+warning-alkis-land-use-kept = { $cadastre } zemes izmantošana nav pieejama ({ $error }); tiek atstāta saglabātā zemes izmantošana
+warning-alkis-land-use-removed = { $cadastre } zemes izmantošana nav pieejama ({ $error }); saglabātā zemes izmantošana kartes apgabalu vairs neaptver, tāpēc freemapper to noņēma
+warning-alkis-land-use-none = { $cadastre } zemes izmantošana nav pieejama ({ $error }); nav aizliegto zonu kandidātu
 
 ## The Berlin layers
 

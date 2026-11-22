@@ -1,0 +1,245 @@
+<?xml version='1.0' encoding="UTF-8" ?>
+<wfs:FeatureCollection
+   xmlns:ms="http://mapserver.gis.umn.edu/mapserver"
+   xmlns:gml="http://www.opengis.net/gml/3.2"
+   xmlns:wfs="http://www.opengis.net/wfs/2.0"
+   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+   xsi:schemaLocation="http://mapserver.gis.umn.edu/mapserver https://mapy.geoportal.gov.pl/wss/service/PZGIK/EGIB/WFS/UslugaZbiorcza?SERVICE=WFS&amp;VERSION=2.0.0&amp;REQUEST=DescribeFeatureType&amp;TYPENAME=ms:budynki&amp;OUTPUTFORMAT=application%2Fgml%2Bxml%3B%20version%3D3.2 http://www.opengis.net/wfs/2.0 http://schemas.opengis.net/wfs/2.0/wfs.xsd http://www.opengis.net/gml/3.2 http://schemas.opengis.net/gml/3.2.1/gml.xsd"
+   timeStamp="2026-11-22T01:07:20" numberMatched="25" numberReturned="10">
+      <wfs:boundedBy>
+      	<gml:Envelope srsName="urn:ogc:def:crs:EPSG::2180">
+      		<gml:lowerCorner>640109.819000 760381.605000</gml:lowerCorner>
+      		<gml:upperCorner>640543.229000 761487.687000</gml:upperCorner>
+      	</gml:Envelope>
+      </wfs:boundedBy>
+    <wfs:member>
+      <ms:budynki gml:id="budynki.146510_8.0310.28_BUD">
+        <gml:boundedBy>
+        	<gml:Envelope srsName="urn:ogc:def:crs:EPSG::2180">
+        		<gml:lowerCorner>487351.715370 637220.620359</gml:lowerCorner>
+        		<gml:upperCorner>487369.275565 637233.258701</gml:upperCorner>
+        	</gml:Envelope>
+        </gml:boundedBy>
+        <ms:geom>
+          <gml:Polygon gml:id="budynki.146510_8.0310.28_BUD.1" srsName="urn:ogc:def:crs:EPSG::2180">
+            <gml:exterior>
+              <gml:LinearRing>
+                <gml:posList srsDimension="2">487369.275565 637227.857405 487366.635805 637220.620359 487351.715370 637226.032198 487354.374838 637233.258701 487369.275565 637227.857405 </gml:posList>
+              </gml:LinearRing>
+            </gml:exterior>
+          </gml:Polygon>
+        </ms:geom>
+        <ms:ID_BUDYNKU>146510_8.0310.28_BUD</ms:ID_BUDYNKU>
+        <ms:RODZAJ>b</ms:RODZAJ>
+        <ms:KONDYGNACJE_NADZIEMNE>3</ms:KONDYGNACJE_NADZIEMNE>
+        <ms:KONDYGNACJE_PODZIEMNE></ms:KONDYGNACJE_PODZIEMNE>
+      </ms:budynki>
+    </wfs:member>
+<wfs:member>
+      <ms:budynki gml:id="budynki.200204_2.0003.7_BUD">
+        <gml:boundedBy>
+        	<gml:Envelope srsName="urn:ogc:def:crs:EPSG::2180">
+        		<gml:lowerCorner>601222.343000 800447.972000</gml:lowerCorner>
+        		<gml:upperCorner>601227.404000 800454.037000</gml:upperCorner>
+        	</gml:Envelope>
+        </gml:boundedBy>
+        <ms:geom>
+          <gml:Polygon gml:id="budynki.200204_2.0003.7_BUD.1" srsName="urn:ogc:def:crs:EPSG::2180">
+            <gml:exterior>
+              <gml:LinearRing>
+                <gml:posList srsDimension="2">601227.144000 800447.972000 601222.343000 800448.168000 601222.604000 800454.037000 601227.404000 800453.831000 601227.144000 800447.972000 </gml:posList>
+              </gml:LinearRing>
+            </gml:exterior>
+          </gml:Polygon>
+        </ms:geom>
+        <ms:ID_BUDYNKU>200204_2.0003.7_BUD</ms:ID_BUDYNKU>
+        <ms:RODZAJ>g</ms:RODZAJ>
+        <ms:KONDYGNACJE_NADZIEMNE>1</ms:KONDYGNACJE_NADZIEMNE>
+        <ms:KONDYGNACJE_PODZIEMNE>1</ms:KONDYGNACJE_PODZIEMNE>
+      </ms:budynki>
+    </wfs:member>
+<wfs:member>
+      <ms:budynki gml:id="budynki.206101_1.0007.41_BUD">
+        <gml:boundedBy>
+        	<gml:Envelope srsName="urn:ogc:def:crs:EPSG::2180">
+        		<gml:lowerCorner>590671.323892 775290.309189</gml:lowerCorner>
+        		<gml:upperCorner>590687.865286 775307.099413</gml:upperCorner>
+        	</gml:Envelope>
+        </gml:boundedBy>
+        <ms:geom>
+          <gml:Polygon gml:id="budynki.206101_1.0007.41_BUD.1" srsName="urn:ogc:def:crs:EPSG::2180">
+            <gml:exterior>
+              <gml:LinearRing>
+                <gml:posList srsDimension="2">590677.414286 775307.099413 590687.865286 775296.100685 590681.784871 775290.309189 590671.323892 775301.308614 590677.414286 775307.099413 </gml:posList>
+              </gml:LinearRing>
+            </gml:exterior>
+          </gml:Polygon>
+        </ms:geom>
+        <ms:ID_BUDYNKU>206101_1.0007.41_BUD</ms:ID_BUDYNKU>
+        <ms:RODZAJ>h</ms:RODZAJ>
+        <ms:KONDYGNACJE_NADZIEMNE></ms:KONDYGNACJE_NADZIEMNE>
+        <ms:KONDYGNACJE_PODZIEMNE></ms:KONDYGNACJE_PODZIEMNE>
+      </ms:budynki>
+    </wfs:member>
+<wfs:member>
+      <ms:budynki gml:id="budynki.206101_1.0007.8_BUD">
+        <gml:boundedBy>
+        	<gml:Envelope srsName="urn:ogc:def:crs:EPSG::2180">
+        		<gml:lowerCorner>590924.559291 775166.859655</gml:lowerCorner>
+        		<gml:upperCorner>590936.797853 775175.705780</gml:upperCorner>
+        	</gml:Envelope>
+        </gml:boundedBy>
+        <ms:geom>
+          <gml:Polygon gml:id="budynki.206101_1.0007.8_BUD.1" srsName="urn:ogc:def:crs:EPSG::2180">
+            <gml:exterior>
+              <gml:LinearRing>
+                <gml:posList srsDimension="2">590926.260682 775175.705780 590936.797853 775170.526743 590935.037290 775166.859655 590924.559291 775172.024527 590926.260682 775175.705780 </gml:posList>
+              </gml:LinearRing>
+            </gml:exterior>
+          </gml:Polygon>
+        </ms:geom>
+        <ms:ID_BUDYNKU>206101_1.0007.8_BUD</ms:ID_BUDYNKU>
+        <ms:RODZAJ>i</ms:RODZAJ>
+        <ms:KONDYGNACJE_NADZIEMNE></ms:KONDYGNACJE_NADZIEMNE>
+        <ms:KONDYGNACJE_PODZIEMNE></ms:KONDYGNACJE_PODZIEMNE>
+      </ms:budynki>
+    </wfs:member>
+<wfs:member>
+      <ms:budynki gml:id="budynki.080505_4.0001.2251_BUD">
+        <gml:boundedBy>
+        	<gml:Envelope srsName="urn:ogc:def:crs:EPSG::2180">
+        		<gml:lowerCorner>507840.020000 197954.161000</gml:lowerCorner>
+        		<gml:upperCorner>507874.250000 197974.043000</gml:upperCorner>
+        	</gml:Envelope>
+        </gml:boundedBy>
+        <ms:geom>
+          <gml:Polygon gml:id="budynki.080505_4.0001.2251_BUD.1" srsName="urn:ogc:def:crs:EPSG::2180">
+            <gml:exterior>
+              <gml:LinearRing>
+                <gml:posList srsDimension="2">507840.431000 197954.363000 507840.020000 197973.318000 507873.904000 197974.043000 507874.250000 197954.937000 507841.203000 197954.161000 507841.194000 197954.380000 507840.431000 197954.363000 </gml:posList>
+              </gml:LinearRing>
+            </gml:exterior>
+          </gml:Polygon>
+        </ms:geom>
+        <ms:ID_BUDYNKU>080505_4.0001.2251_BUD</ms:ID_BUDYNKU>
+        <ms:RODZAJ>k</ms:RODZAJ>
+        <ms:KONDYGNACJE_NADZIEMNE>3</ms:KONDYGNACJE_NADZIEMNE>
+        <ms:KONDYGNACJE_PODZIEMNE>0</ms:KONDYGNACJE_PODZIEMNE>
+      </ms:budynki>
+    </wfs:member>
+<wfs:member>
+      <ms:budynki gml:id="budynki.206101_1.0007.6_BUD">
+        <gml:boundedBy>
+        	<gml:Envelope srsName="urn:ogc:def:crs:EPSG::2180">
+        		<gml:lowerCorner>590889.915328 775172.032097</gml:lowerCorner>
+        		<gml:upperCorner>590905.551249 775185.751229</gml:upperCorner>
+        	</gml:Envelope>
+        </gml:boundedBy>
+        <ms:geom>
+          <gml:Polygon gml:id="budynki.206101_1.0007.6_BUD.1" srsName="urn:ogc:def:crs:EPSG::2180">
+            <gml:exterior>
+              <gml:LinearRing>
+                <gml:posList srsDimension="2">590893.743631 775185.751229 590905.551249 775180.242680 590901.657983 775172.032097 590889.915328 775177.465911 590893.743631 775185.751229 </gml:posList>
+              </gml:LinearRing>
+            </gml:exterior>
+          </gml:Polygon>
+        </ms:geom>
+        <ms:ID_BUDYNKU>206101_1.0007.6_BUD</ms:ID_BUDYNKU>
+        <ms:RODZAJ>m</ms:RODZAJ>
+        <ms:KONDYGNACJE_NADZIEMNE></ms:KONDYGNACJE_NADZIEMNE>
+        <ms:KONDYGNACJE_PODZIEMNE></ms:KONDYGNACJE_PODZIEMNE>
+      </ms:budynki>
+    </wfs:member>
+<wfs:member>
+      <ms:budynki gml:id="budynki.206101_1.0007.40_BUD">
+        <gml:boundedBy>
+        	<gml:Envelope srsName="urn:ogc:def:crs:EPSG::2180">
+        		<gml:lowerCorner>590677.414286 775296.100685</gml:lowerCorner>
+        		<gml:upperCorner>590693.537214 775312.494157</gml:upperCorner>
+        	</gml:Envelope>
+        </gml:boundedBy>
+        <ms:geom>
+          <gml:Polygon gml:id="budynki.206101_1.0007.40_BUD.1" srsName="urn:ogc:def:crs:EPSG::2180">
+            <gml:exterior>
+              <gml:LinearRing>
+                <gml:posList srsDimension="2">590683.146083 775312.494157 590693.537214 775301.499616 590687.865286 775296.100685 590677.414286 775307.099413 590683.146083 775312.494157 </gml:posList>
+              </gml:LinearRing>
+            </gml:exterior>
+          </gml:Polygon>
+        </ms:geom>
+        <ms:ID_BUDYNKU>206101_1.0007.40_BUD</ms:ID_BUDYNKU>
+        <ms:RODZAJ>p</ms:RODZAJ>
+        <ms:KONDYGNACJE_NADZIEMNE></ms:KONDYGNACJE_NADZIEMNE>
+        <ms:KONDYGNACJE_PODZIEMNE></ms:KONDYGNACJE_PODZIEMNE>
+      </ms:budynki>
+    </wfs:member>
+<wfs:member>
+      <ms:budynki gml:id="budynki.206101_1.0008.662_BUD">
+        <gml:boundedBy>
+        	<gml:Envelope srsName="urn:ogc:def:crs:EPSG::2180">
+        		<gml:lowerCorner>591356.248295 776304.246818</gml:lowerCorner>
+        		<gml:upperCorner>591363.765616 776312.184105</gml:upperCorner>
+        	</gml:Envelope>
+        </gml:boundedBy>
+        <ms:geom>
+          <gml:Polygon gml:id="budynki.206101_1.0008.662_BUD.1" srsName="urn:ogc:def:crs:EPSG::2180">
+            <gml:exterior>
+              <gml:LinearRing>
+                <gml:posList srsDimension="2">591359.402473 776312.184105 591363.765616 776309.622788 591360.632093 776304.246818 591356.248295 776306.799553 591359.402473 776312.184105 </gml:posList>
+              </gml:LinearRing>
+            </gml:exterior>
+          </gml:Polygon>
+        </ms:geom>
+        <ms:ID_BUDYNKU>206101_1.0008.662_BUD</ms:ID_BUDYNKU>
+        <ms:RODZAJ>s</ms:RODZAJ>
+        <ms:KONDYGNACJE_NADZIEMNE></ms:KONDYGNACJE_NADZIEMNE>
+        <ms:KONDYGNACJE_PODZIEMNE></ms:KONDYGNACJE_PODZIEMNE>
+      </ms:budynki>
+    </wfs:member>
+<wfs:member>
+      <ms:budynki gml:id="budynki.206101_1.0007.7_BUD">
+        <gml:boundedBy>
+        	<gml:Envelope srsName="urn:ogc:def:crs:EPSG::2180">
+        		<gml:lowerCorner>590913.975019 775172.024527</gml:lowerCorner>
+        		<gml:upperCorner>590926.260682 775180.918242</gml:upperCorner>
+        	</gml:Envelope>
+        </gml:boundedBy>
+        <ms:geom>
+          <gml:Polygon gml:id="budynki.206101_1.0007.7_BUD.1" srsName="urn:ogc:def:crs:EPSG::2180">
+            <gml:exterior>
+              <gml:LinearRing>
+                <gml:posList srsDimension="2">590915.675712 775180.918242 590926.260682 775175.705780 590924.559291 775172.024527 590913.975019 775177.246966 590915.675712 775180.918242 </gml:posList>
+              </gml:LinearRing>
+            </gml:exterior>
+          </gml:Polygon>
+        </ms:geom>
+        <ms:ID_BUDYNKU>206101_1.0007.7_BUD</ms:ID_BUDYNKU>
+        <ms:RODZAJ>t</ms:RODZAJ>
+        <ms:KONDYGNACJE_NADZIEMNE></ms:KONDYGNACJE_NADZIEMNE>
+        <ms:KONDYGNACJE_PODZIEMNE></ms:KONDYGNACJE_PODZIEMNE>
+      </ms:budynki>
+    </wfs:member>
+<wfs:member>
+      <ms:budynki gml:id="budynki.080505_4.0001.2607_BUD">
+        <gml:boundedBy>
+        	<gml:Envelope srsName="urn:ogc:def:crs:EPSG::2180">
+        		<gml:lowerCorner>507673.232000 198174.285000</gml:lowerCorner>
+        		<gml:upperCorner>507689.640000 198187.014000</gml:upperCorner>
+        	</gml:Envelope>
+        </gml:boundedBy>
+        <ms:geom>
+          <gml:Polygon gml:id="budynki.080505_4.0001.2607_BUD.1" srsName="urn:ogc:def:crs:EPSG::2180">
+            <gml:exterior>
+              <gml:LinearRing>
+                <gml:posList srsDimension="2">507673.232000 198174.883000 507673.540000 198187.014000 507689.640000 198186.594000 507689.250000 198174.490000 507682.288000 198174.665000 507682.280000 198174.285000 507678.103000 198174.380000 507678.111000 198174.760000 507673.232000 198174.883000 </gml:posList>
+              </gml:LinearRing>
+            </gml:exterior>
+          </gml:Polygon>
+        </ms:geom>
+        <ms:ID_BUDYNKU>080505_4.0001.2607_BUD</ms:ID_BUDYNKU>
+        <ms:RODZAJ>z</ms:RODZAJ>
+        <ms:KONDYGNACJE_NADZIEMNE>3</ms:KONDYGNACJE_NADZIEMNE>
+        <ms:KONDYGNACJE_PODZIEMNE>1</ms:KONDYGNACJE_PODZIEMNE>
+      </ms:budynki>
+    </wfs:member>
+</wfs:FeatureCollection>

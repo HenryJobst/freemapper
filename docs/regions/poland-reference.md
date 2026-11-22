@@ -115,6 +115,86 @@ accepts only `https` and this host.
 - **Not done.** Gmina, powiat and voivodeship: the districts section assumes Bezirke.
 - **Coverage.** The PRG layer covers the State Forests only, not private forest.
 
+## Addendum 22 November 2026: EGiB codes checked against the live service
+
+ADR 0171 listed the building letters and parcel classes as not verified. Checked now; the ADR
+stays as it was.
+
+**Samples** (`ms:budynki` and `ms:dzialki`, one page each, User-Agent `freemapper-research`):
+Słubice (N 507300 to 507900, E 197600 to 198200), Warszawa Śródmieście (N 487000 to 487600, E
+636800 to 637400), Białystok (N 590000 to 591500, E 775000 to 776500) and two villages of Podlasie
+(powiats 2002 and 2008: N 600000 to 601500, E 800000 to 801500; N 640000 to 641500, E 760000 to
+761500).
+
+**Building letters (`RODZAJ`).** The service has no code table (`DescribeFeatureType` says only
+`string`), and the text of the ordinance (Dz.U. 2021 poz. 1390) names the kind only as "by the
+Classification of Fixed Assets (KŚT)" without the letters. The letters come from two official
+documents: the reply of the Ministry of Development and Technology to a petition (5 June 2025,
+DAB-III.053.8.2025, `gov.pl/attachment/55e4c6f7-df33-426f-8345-566c497bb1c7`) and the list of the
+district office of Brzeziny on the building data (`powiat-brzeziny.pl`, after the ordinance of
+29 November 2013). Both say: `m` residential, `g` production, services and farm buildings, `t`
+transport and communication, `k` education, science, culture and sport, `z` hospitals and other
+health care, `b` office, `h` commercial and services, `p` industrial, `s` tank, silo and storage
+building, `i` other non-residential. The first version of the client had `z`, `s` and `k` wrong
+(tank, hospital and sport) and `o` unused. Counts per letter:
+
+| Area | b | g | h | i | k | m | p | s | t | z |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Słubice (583) | 8 | 0 | 110 | 107 | 10 | 167 | 1 | 0 | 177 | 3 |
+| Warszawa (127) | 38 | 0 | 11 | 24 | 6 | 48 | 0 | 0 | 0 | 0 |
+| Białystok (935) | 11 | 2 | 86 | 131 | 11 | 569 | 10 | 36 | 86 | 0 |
+| Village 2002 (8) | 0 | 1 | 0 | 2 | 0 | 5 | 0 | 0 | 0 | 0 |
+| Village 2008 (25) | 0 | 18 | 0 | 2 | 0 | 5 | 0 | 0 | 0 | 0 |
+
+No other letter occurred. The Brzeziny list also gives the finer building classes of the newer
+scheme (PKOB: `mj`, `md`, `mt`, `mz`, `a`, `u`, `d`, `o`, `e`, `f`, `r`, `x`; `t` there means
+garages, `h` hotels). No answer of the service held one; the client maps them to the same names as
+the coarse letters, so data in that scheme would still read. The data cannot settle the letters by
+itself (`t` is 177 of 583 buildings in Słubice, which fits garages and sheds as well as transport);
+the table rests on the two documents.
+
+**Parcel classes (`KLASOUZYTKI_EGIB`).** The ordinance (§ 8, § 68) gives: `B` residential land, `Ba`
+industrial, `Bi` other built-up, `Bp` urban land not built on, `Bz` recreation and leisure, `K`
+mining land, `dr` roads, `Tk` railway, `Ti` other transport land, `Tp` land set aside for roads and
+railways to be built, `Wm`, `Wp`, `Ws` sea, running and standing water, `Tr` miscellaneous land,
+`N` waste land, and the farm and forest classes `R` arable, `Ł` meadow, `Ps` pasture, `S` orchard,
+`Br` farmland with buildings, `Lzr` trees and shrubs on farmland, `Wsr` ponds, `W` ditches, `Ls`
+forest, `Lz` trees and shrubs. `Bz` is recreation land (the first version had it as unknown), `Tp`
+is not "industrial" but land for planned roads.
+
+What the service really sends differs from the plain letters: the classes of farm and forest land
+carry their soil class (`RIVa`, `RIIIb`, `ŁV`, `PsVI`, `LsIV`, `LzV`), and a class can have a prefix
+and a slash for a second kind of land on that soil (`Br/RV`, `W/ŁIV`, `Lzr/PsVI`, `Wsr/PsIV`). The
+first version knew only the bare letters, so every rural parcel had no land use. Counts of parcels
+by class in the five samples:
+
+| Area | Parcels | Classes |
+|---|---|---|
+| Słubice | 694 | `B` 348, `Bi` 206, `Bp` 72, `dr` 55, `Bz` 6, `Ba` 2, `B,Bp` 2, `Wp` 1, `Tr` 1, `B,Bi` 1 |
+| Warszawa | 267 | no class at all (the attribute is empty) |
+| Białystok | 972 | 14 `dr`, 8 `B`, 5 `RVI`, 1 `Ls`; 944 empty |
+| Village 2002 | 193 | `R`, `Ps`, `Ł`, `Ls` with all soil classes and the prefixes `Br/`, `W/`, `Lzr/`, `Wsr/`; `dr` 18, `B` 12, `Wp` 1, `N` beside others in several |
+| Village 2008 | 350 | `Ł`, `Ps`, `R`, `Lz` with soil classes; `N` and `W` beside them in many; `dr` 19, `Wp` 1, `K` 1 |
+
+So in the big cities (Warszawa, Białystok) the national service gives no classes for most parcels:
+the land use of a map there is nearly empty. That is a gap in the data, not in the client.
+
+**Mapping now** (`land_use_of_class` in `crates/adapters/pl/src/egib.rs`): the soil class is cut
+off, a prefix `Lzr` gives `Gehölz`, `Wsr` `Stehendes Gewässer`, `Br` and `W` the soil underneath.
+`Ls` Wald, `Lz` Gehölz, `Ł` and `Ps` Landwirtschaft (Grünland), `R` and `S` Landwirtschaft, `Wp`
+Fließgewässer, `Ws` and `Wsr` Stehendes Gewässer, `dr` Straßenverkehr, `Tk` Bahnverkehr, `B`
+Wohnbaufläche, `Ba` Industrie- und Gewerbefläche, `Bz` Sport-, Freizeit- und Erholungsfläche (without
+`bez`, so the map draws nothing for it yet). Left out: `Bi`, `Bp`, `Ti`, `Tp`, `K`, `Tr`, `Wm`,
+`N`, a bare `W` and `Br`. A parcel of several classes has a use only when they all give the same one;
+ditches (`W`) and waste land (`N`) among them are not counted. That last rule is a decision made on
+the samples (a meadow with a strip of waste land is still a meadow) and has no source in the
+ordinance.
+
+Still unverified: the finer PKOB letters (none occurred), whether `Bi` should be a mixed-use area
+(schools, offices and shops are in it), whether `Bz` should draw as a park (it holds sports grounds
+and allotments as well), the classes of the cities with empty values, and whether `Tk` railway land
+should be out-of-bounds private ground as in Germany (it is, through `Bahnverkehr`).
+
 ## Open
 
 - Whether the index lists all years in one request with several `TYPENAMES`, and whether the

@@ -107,18 +107,18 @@ warning-permits-osm-no-extract = no OSM extract is cached for this map area, so 
 
 ## ALKIS
 
-warning-alkis-coverage-unknown = ALKIS buildings coverage unknown; run `freemapper fetch` online to record it
-progress-alkis-buildings-download = downloading ALKIS buildings
-progress-alkis-buildings = { $count } ALKIS buildings
-warning-alkis-no-buildings = no ALKIS buildings found in the map area
-progress-alkis-skipped = skipped { $count } ALKIS features: { $list }
-warning-alkis-buildings-changed = ALKIS buildings changed upstream ({ $changes })
-progress-alkis-no-land-use-stored = no ALKIS land use stored; run `freemapper fetch` online for out-of-bounds candidates
-progress-alkis-land-use-download = downloading ALKIS land use
-progress-alkis-land-use-parts = { $count } ALKIS land use parts
-warning-alkis-land-use-kept = ALKIS land use unavailable ({ $error }); keeping the stored land use
-warning-alkis-land-use-removed = ALKIS land use unavailable ({ $error }); the stored land use no longer covers the map area, so freemapper removed it
-warning-alkis-land-use-none = ALKIS land use unavailable ({ $error }); no out-of-bounds candidates
+warning-alkis-coverage-unknown = { $cadastre } buildings coverage unknown; run `freemapper fetch` online to record it
+progress-alkis-buildings-download = downloading { $cadastre } buildings
+progress-alkis-buildings = { $count } { $cadastre } buildings
+warning-alkis-no-buildings = no { $cadastre } buildings found in the map area
+progress-alkis-skipped = skipped { $count } { $cadastre } features: { $list }
+warning-alkis-buildings-changed = { $cadastre } buildings changed upstream ({ $changes })
+progress-alkis-no-land-use-stored = no { $cadastre } land use stored; run `freemapper fetch` online for out-of-bounds candidates
+progress-alkis-land-use-download = downloading { $cadastre } land use
+progress-alkis-land-use-parts = { $count } { $cadastre } land use parts
+warning-alkis-land-use-kept = { $cadastre } land use unavailable ({ $error }); keeping the stored land use
+warning-alkis-land-use-removed = { $cadastre } land use unavailable ({ $error }); the stored land use no longer covers the map area, so freemapper removed it
+warning-alkis-land-use-none = { $cadastre } land use unavailable ({ $error }); no out-of-bounds candidates
 
 ## The Berlin layers
 
