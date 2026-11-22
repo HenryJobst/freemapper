@@ -11887,6 +11887,96 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         assert_eq!(line(&lodz), "3 EGiB buildings");
     }
 
+    /// Offline, the lines about a stored file name the cadastre of the region and follow what
+    /// is stored: no file, a file without a record, and a file with a record that covers the area.
+    #[test]
+    fn offline_cadastre_lines_follow_the_stored_file() {
+        let cases = [
+            // (area, the cadastre named in the lines)
+            (
+                FetchArea::new(
+                    BoundingBox {
+                        min_e: 806_500.0,
+                        min_n: 5_737_500.0,
+                        max_e: 807_500.0,
+                        max_n: 5_738_500.0,
+                    },
+                    Crs::Utm34,
+                ),
+                "EGiB",
+            ),
+            (
+                FetchArea::new(lon_lat_box(13.370, 52.510, 13.380, 52.516), Crs::Utm33),
+                "ALKIS",
+            ),
+        ];
+        for (area, cadastre) in cases {
+            let covering = AlkisRecord {
+                bbox: [
+                    area.bbox.min_e.floor() - 10.0,
+                    area.bbox.min_n.floor() - 10.0,
+                    area.bbox.max_e.ceil() + 10.0,
+                    area.bbox.max_n.ceil() + 10.0,
+                ],
+                fetched: NaiveDate::from_ymd_opt(2026, 1, 1).unwrap(),
+                latest_update: None,
+                count: 0,
+                regions: Vec::new(),
+            };
+            let fetcher = MapFetcher::default();
+            let cache_dir = tempfile::tempdir().unwrap();
+            let cache = CacheDir::new(cache_dir.path().to_path_buf());
+            let unknown = format!("{cadastre} buildings coverage unknown");
+            let no_land_use = format!("no {cadastre} land use stored");
+            // (file stored, record) -> (coverage warning, land use line)
+            for (stored, record, warns, says) in [
+                (false, None, false, true),
+                (true, None, true, true),
+                (true, Some(&covering), false, false),
+            ] {
+                let dir = tempfile::tempdir().unwrap();
+                if stored {
+                    for relpath in [BUILDINGS_RELPATH, LAND_USE_RELPATH] {
+                        let file = dir.path().join(relpath);
+                        std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+                        std::fs::write(file, r#"{"features":[],"type":"FeatureCollection"}"#)
+                            .unwrap();
+                    }
+                }
+                let mut lines = Vec::new();
+                let mut progress = |note: Note| lines.push(note.to_string());
+                let _ = fetch_buildings_into(
+                    dir.path(),
+                    &fetcher,
+                    &cache,
+                    &area,
+                    FetchMode::Offline,
+                    record,
+                    &mut progress,
+                );
+                let _ = fetch_land_use_into(
+                    dir.path(),
+                    &fetcher,
+                    &cache,
+                    &area,
+                    FetchMode::Offline,
+                    record,
+                    &mut progress,
+                );
+                let case = format!(
+                    "{cadastre} stored={stored} record={}: {lines:?}",
+                    record.is_some()
+                );
+                assert_eq!(lines.iter().any(|l| l.contains(&unknown)), warns, "{case}");
+                assert_eq!(
+                    lines.iter().any(|l| l.contains(&no_land_use)),
+                    says,
+                    "{case}"
+                );
+            }
+        }
+    }
+
     /// The projected box (EPSG:25833) of a lon/lat rectangle, as `check_area` gets it.
     fn lon_lat_box(west: f64, south: f64, east: f64, north: f64) -> BoundingBox {
         let text = format!(
