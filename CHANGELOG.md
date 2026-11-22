@@ -6,6 +6,10 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+### Geändert
+
+- Das Beispiel Sanssouci ist mit v0.26.0 neu gebaut: Die Trainingskarte hat einen Baumpunkt weniger, die Kandidatenebene der Vegetation drei OSM-Flächen mehr (zwei Weinberge). Die Grundkarte hat dieselben 2282 Objekte. Der Lauf hat dabei auch den Brandenburger OSM-Auszug über die neue Geofabrik-Adresse geladen.
+
 ### Behoben
 
 - Ein Offline-Lauf (`run --offline`, `fetch --offline`) für ein Kartengebiet in Polen fragt den Indexdienst von GUGiK nicht mehr, sondern liest die Bögen, die der Online-Lauf im Projekt (`data/gugik-sheets.json`) vermerkt hat; ist nichts vermerkt, meldet er sofort, dass erst online geholt werden muss. Vorher scheiterte er bei nicht erreichbarem Dienst mit einem Netzfehler.
