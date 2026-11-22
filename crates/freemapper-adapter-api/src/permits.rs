@@ -147,6 +147,9 @@ pub enum PermitSection {
     /// Forest with a function or a protection of forest law: Erholungswald, Bannwald,
     /// Naturwald, areas closed to the public.
     ForestFunctions,
+    /// The administrative units the area lies in (ADR 0181): where the national VG250 does not
+    /// apply, a region brings its own.
+    AdminUnits,
 }
 
 /// One finding of a regional source with its geometry.
@@ -218,6 +221,13 @@ pub enum FindingKind {
         /// The name of the area, or what the data say about it ("von hoher Bedeutung").
         name: Option<String>,
     },
+    /// An administrative unit the area lies in, the name as the register writes it, with the
+    /// code of the register (ADR 0181).
+    AdminUnit {
+        level: AdminUnitLevel,
+        name: String,
+        code: String,
+    },
     /// A protected object of nature conservation law.
     ProtectedObject {
         kind: ProtectedObjectKind,
@@ -226,6 +236,18 @@ pub enum FindingKind {
         /// The legal act, as the data cite it.
         citation: Option<String>,
     },
+}
+
+/// The levels of administrative unit a region brings, top down (ADR 0181).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum AdminUnitLevel {
+    /// The first level below the state (Polish województwo).
+    Region,
+    /// The second level (Polish powiat).
+    County,
+    /// The municipality (Polish gmina).
+    Municipality,
 }
 
 /// The kinds of protected object the national sources do not have.

@@ -2358,6 +2358,73 @@ mod tests {
         );
     }
 
+    /// A map area on the border of two municipalities of one county: each municipality has its
+    /// share, and the county and the region, found once per municipality, are summed (ADR 0181).
+    #[test]
+    fn admin_units_of_a_straddling_area_are_summed_level_by_level() {
+        use freemapper_adapter_api::permits::AdminUnitLevel;
+        let unit = |level, name: &str, code: &str, g| {
+            area(
+                FindingKind::AdminUnit {
+                    level,
+                    name: name.into(),
+                    code: code.into(),
+                },
+                g,
+            )
+        };
+        let west = || square(12.9, 51.9, 13.07, 52.2);
+        let east = || square(13.07, 51.9, 13.2, 52.2);
+        let found: Vec<PermitFinding> = [
+            (west(), "0001012", "gmina A"),
+            (east(), "0001022", "gmina B"),
+        ]
+        .into_iter()
+        .flat_map(|(g, code, name)| {
+            [
+                unit(AdminUnitLevel::Municipality, name, code, g.clone()),
+                unit(AdminUnitLevel::County, "powiat X", "0001", g.clone()),
+                unit(AdminUnitLevel::Region, "wojewodztwo Y", "00", g),
+            ]
+        })
+        .collect();
+        let notes = notes(
+            MapKind::Sprint,
+            &with_regional(
+                city_state(),
+                vec![regional("granice", PermitSection::AdminUnits, found)],
+            ),
+        );
+        let units: Vec<(AdminUnitLevel, &str, f64)> = notes.regional[0]
+            .admin_units
+            .as_ref()
+            .unwrap()
+            .iter()
+            .map(|s| (s.item.level, s.item.name.as_str(), s.percent))
+            .collect();
+        assert_eq!(units.len(), 4, "{units:?}");
+        assert_eq!(
+            (units[0].0, units[0].1),
+            (AdminUnitLevel::Region, "wojewodztwo Y")
+        );
+        assert!(near(units[0].2, 100.0), "{units:?}");
+        assert_eq!(
+            (units[1].0, units[1].1),
+            (AdminUnitLevel::County, "powiat X")
+        );
+        assert!(near(units[1].2, 100.0), "{units:?}");
+        assert_eq!(units[2].1, "gmina A");
+        assert!(near(units[2].2, 70.0), "{units:?}");
+        assert_eq!(units[3].1, "gmina B");
+        assert!(near(units[3].2, 30.0), "{units:?}");
+        let value = serde_json::to_value(&notes).unwrap();
+        assert_eq!(value["regional"][0]["admin_units"][0]["item"]["code"], "00");
+        assert_eq!(
+            value["regional"][0]["admin_units"][3]["item"]["level"],
+            "municipality"
+        );
+    }
+
     #[test]
     fn bezirk_shares_and_the_bezirksamt_hints() {
         let monument = FindingKind::Monument {

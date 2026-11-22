@@ -9,6 +9,12 @@
 //! GeoJSON has (with the URN `urn:ogc:def:crs:EPSG::4326` it writes latitude first). The PRG WFS
 //! is a MapServer that answers GML 3.2 only, in EPSG:2180 with the northing first.
 //!
+//! The administrative units come from the same register (ADR 0181): the fetch asks the
+//! municipalities (gminy) of the box with their polygons and the names of the counties (powiaty)
+//! and voivodeships (województwa) without polygons. A municipality's code (TERYT) starts with the
+//! code of its county (four digits) and its voivodeship (two), so each municipality gives three
+//! findings with its own polygon and the notes sum the shares.
+//!
 //! The Nadleśnictwo (forest district) of the State Forests belongs to a regional directorate
 //! (RDLP) whose code is the part of the district's code before the hyphen (`17-02` in `17`).
 //! The fetch asks both layers, the second without geometry, and stores the name of the
@@ -19,8 +25,8 @@ use std::path::Path;
 use freemapper_adapter_api::error::FetchError;
 use freemapper_adapter_api::fetch::{Fetcher, get_limited_with_retries, get_with_retries};
 use freemapper_adapter_api::permits::{
-    FindingKind, PermitFinding, PermitSection, PermitSource, PermitSourceInfo, ProtectedObjectKind,
-    Wording,
+    AdminUnitLevel, FindingKind, PermitFinding, PermitSection, PermitSource, PermitSourceInfo,
+    ProtectedObjectKind, Wording,
 };
 use freemapper_georef::crs::{LatLon, Pl1992};
 use geo_types::{Geometry, Rect};
@@ -178,6 +184,26 @@ pub fn sources() -> Vec<Box<dyn PermitSource>> {
                 }),
                 layers: &["nadlesnictwa"],
                 sections: &[PermitSection::ForestUnits],
+                offices: None,
+            },
+        }),
+        Box::new(PrgAdmin {
+            info: PermitSourceInfo {
+                key: "prg-granice",
+                label: Wording {
+                    en: "GUGiK (PRG)",
+                    de: "GUGiK (PRG)",
+                },
+                what: Wording {
+                    en: "administrative units (voivodeship, powiat, gmina)",
+                    de: "Verwaltungseinheiten (Woiwodschaft, Powiat, Gmina)",
+                },
+                credit: PRG_CREDIT,
+                note: None,
+                sampled: false,
+                gaps: None,
+                layers: &["gminy"],
+                sections: &[PermitSection::AdminUnits],
                 offices: None,
             },
         }),
@@ -460,6 +486,144 @@ impl PermitSource for Prg {
     }
 }
 
+/// The administrative units of the PRG: voivodeship, powiat and gmina (ADR 0181).
+struct PrgAdmin {
+    info: PermitSourceInfo,
+}
+
+/// The kind of a gmina as the last digit of its TERYT code says it, in front of its name.
+fn gmina_kind(code: &str) -> &'static str {
+    match code.chars().last() {
+        Some('1') => "gmina miejska",
+        Some('2') => "gmina wiejska",
+        Some('3') => "gmina miejsko-wiejska",
+        Some('4') => "miasto",
+        Some('5') => "obszar wiejski",
+        Some('8') => "dzielnica",
+        Some('9') => "delegatura",
+        _ => "gmina",
+    }
+}
+
+/// `name` with `prefix` and a space in front, unless it begins with it already (the register
+/// writes `powiat słubicki` but `lubuskie`).
+fn with_prefix(prefix: &str, name: &str) -> String {
+    if name.to_lowercase().starts_with(prefix) {
+        name.to_string()
+    } else {
+        format!("{prefix} {name}")
+    }
+}
+
+impl PermitSource for PrgAdmin {
+    fn info(&self) -> &PermitSourceInfo {
+        &self.info
+    }
+
+    fn fetch(
+        &self,
+        fetcher: &dyn Fetcher,
+        bbox: &Rect<f64>,
+        _part: &Path,
+    ) -> Result<Vec<Vec<Value>>, FetchError> {
+        let municipalities = prg_features(
+            fetcher,
+            "A03_Granice_gmin",
+            "msGeometry,JPT_KOD_JE,JPT_NAZWA_",
+            bbox,
+        )?;
+        if municipalities.is_empty() {
+            return Ok(vec![Vec::new()]);
+        }
+        let counties = prg_features(
+            fetcher,
+            "A02_Granice_powiatow",
+            "JPT_KOD_JE,JPT_NAZWA_",
+            bbox,
+        )?;
+        let voivodeships = prg_features(
+            fetcher,
+            "A01_Granice_wojewodztw",
+            "JPT_KOD_JE,JPT_NAZWA_",
+            bbox,
+        )?;
+        // The name of the unit whose code is the first `len` characters of `code`.
+        let name_of = |units: &[Feature], code: &str, len: usize| {
+            let prefix = code.get(..len)?;
+            units
+                .iter()
+                .find(|u| u.id == prefix)
+                .map(|u| (u.id.clone(), u.kind.clone()))
+        };
+        let features = municipalities
+            .iter()
+            .filter_map(|m| {
+                let geometry = prg_geometry(m)?;
+                let county = name_of(&counties, &m.id, 4);
+                let voivodeship = name_of(&voivodeships, &m.id, 2);
+                Some(json!({
+                    "type": "Feature",
+                    "properties": {
+                        "kod": m.id,
+                        "nazwa": m.kind,
+                        "powiat_kod": county.as_ref().map(|c| &c.0),
+                        "powiat": county.as_ref().map(|c| &c.1),
+                        "woj_kod": voivodeship.as_ref().map(|v| &v.0),
+                        "woj": voivodeship.as_ref().map(|v| &v.1),
+                    },
+                    "geometry": geometry,
+                }))
+            })
+            .collect();
+        Ok(vec![features])
+    }
+
+    fn findings(&self, layer: &str, features: &[Value]) -> Vec<PermitFinding> {
+        if layer != "gminy" {
+            return Vec::new();
+        }
+        let mut found = Vec::new();
+        for feature in features {
+            let Some(geometry) = geometry_of(feature) else {
+                continue;
+            };
+            let unit = |level, code: &str, name: String| PermitFinding {
+                kind: FindingKind::AdminUnit {
+                    level,
+                    name,
+                    code: code.to_string(),
+                },
+                geometry: geometry.clone(),
+            };
+            // A unit whose name the register did not answer is left out, not guessed.
+            if let (Some(code), Some(name)) =
+                (property(feature, "woj_kod"), property(feature, "woj"))
+            {
+                found.push(unit(
+                    AdminUnitLevel::Region,
+                    &code,
+                    with_prefix("województwo", &name),
+                ));
+            }
+            if let (Some(code), Some(name)) =
+                (property(feature, "powiat_kod"), property(feature, "powiat"))
+            {
+                found.push(unit(
+                    AdminUnitLevel::County,
+                    &code,
+                    with_prefix("powiat", &name),
+                ));
+            }
+            if let (Some(code), Some(name)) = (property(feature, "kod"), property(feature, "nazwa"))
+            {
+                let name = format!("{} {name}", gmina_kind(&code));
+                found.push(unit(AdminUnitLevel::Municipality, &code, name));
+            }
+        }
+        found
+    }
+}
+
 /// `NADLEŚNICTWO GOLUB-DOBRZYŃ` as `Nadleśnictwo Golub-Dobrzyń`: the register writes the names
 /// of the districts in capitals. A name that is not all capitals stays as it is.
 fn title_case(name: &str) -> String {
@@ -538,6 +702,230 @@ mod tests {
     ];
     const DISTRICTS: &str = include_str!("../tests/fixtures/permits/prg-nadlesnictwa.xml");
     const DIRECTORATES: &str = include_str!("../tests/fixtures/permits/prg-rdlp.xml");
+    const GMINY_SLUBICE: &str = include_str!("../tests/fixtures/permits/prg-gminy-slubice.xml");
+    const POWIATY_SLUBICE: &str = include_str!("../tests/fixtures/permits/prg-powiaty-slubice.xml");
+    const WOJ_SLUBICE: &str = include_str!("../tests/fixtures/permits/prg-woj-slubice.xml");
+    const GMINY_KOSCIAN: &str = include_str!("../tests/fixtures/permits/prg-gminy-koscian.xml");
+    const POWIATY_KOSCIAN: &str = include_str!("../tests/fixtures/permits/prg-powiaty-koscian.xml");
+    const WOJ_KOSCIAN: &str = include_str!("../tests/fixtures/permits/prg-woj-koscian.xml");
+
+    fn prg_admin() -> PrgAdmin {
+        let source = sources()
+            .into_iter()
+            .nth(2)
+            .expect("the units are the third");
+        PrgAdmin {
+            info: source.info().clone(),
+        }
+    }
+
+    /// A fetcher that answers the three layers of units for `bbox` with the fixtures.
+    fn admin_fetcher(bbox: &Rect<f64>, answers: [&str; 3]) -> MapFetcher {
+        let fetcher = MapFetcher::default();
+        let props = "JPT_KOD_JE,JPT_NAZWA_";
+        fetcher.insert(
+            &prg_url(
+                "ms:A03_Granice_gmin",
+                "msGeometry,JPT_KOD_JE,JPT_NAZWA_",
+                bbox,
+            ),
+            answers[0].as_bytes().to_vec(),
+        );
+        fetcher.insert(
+            &prg_url("ms:A02_Granice_powiatow", props, bbox),
+            answers[1].as_bytes().to_vec(),
+        );
+        fetcher.insert(
+            &prg_url("ms:A01_Granice_wojewodztw", props, bbox),
+            answers[2].as_bytes().to_vec(),
+        );
+        fetcher
+    }
+
+    /// The units as (level, name, code) of the findings of a fetch.
+    fn units(source: &PrgAdmin, lists: &[Vec<Value>]) -> Vec<(AdminUnitLevel, String, String)> {
+        source
+            .findings("gminy", &lists[0])
+            .into_iter()
+            .map(|f| match f.kind {
+                FindingKind::AdminUnit { level, name, code } => (level, name, code),
+                other => panic!("{other:?}"),
+            })
+            .collect()
+    }
+
+    #[test]
+    fn a_map_area_in_slubice_names_voivodeship_powiat_and_gmina() {
+        let bbox = Rect::new(
+            Coord {
+                x: 14.558,
+                y: 52.349,
+            },
+            Coord {
+                x: 14.562,
+                y: 52.351,
+            },
+        );
+        let fetcher = admin_fetcher(&bbox, [GMINY_SLUBICE, POWIATY_SLUBICE, WOJ_SLUBICE]);
+        let lists = prg_admin()
+            .fetch(&fetcher, &bbox, Path::new("unused"))
+            .unwrap();
+        assert_eq!(fetcher.calls.get(), 3);
+        assert_eq!(
+            units(&prg_admin(), &lists),
+            [
+                (
+                    AdminUnitLevel::Region,
+                    "województwo lubuskie".into(),
+                    "08".into()
+                ),
+                (
+                    AdminUnitLevel::County,
+                    "powiat słubicki".into(),
+                    "0805".into()
+                ),
+                (
+                    AdminUnitLevel::Municipality,
+                    "gmina miejsko-wiejska Słubice".into(),
+                    "0805053".into()
+                ),
+            ]
+        );
+        // The sample polygon lies around Słubice: positions are longitude, latitude.
+        let found = prg_admin().findings("gminy", &lists[0]);
+        assert!(geo::Contains::contains(
+            &found[2].geometry,
+            &Point::new(14.56, 52.35)
+        ));
+    }
+
+    /// A map area on the border of two gminas of one powiat: two municipalities, and the county
+    /// and voivodeship appear once per municipality for the notes to sum.
+    #[test]
+    fn a_map_area_that_straddles_two_gminas_gives_both() {
+        let bbox = Rect::new(Coord { x: 16.64, y: 52.07 }, Coord { x: 16.66, y: 52.09 });
+        let fetcher = admin_fetcher(&bbox, [GMINY_KOSCIAN, POWIATY_KOSCIAN, WOJ_KOSCIAN]);
+        let lists = prg_admin()
+            .fetch(&fetcher, &bbox, Path::new("unused"))
+            .unwrap();
+        let found = units(&prg_admin(), &lists);
+        assert_eq!(found.len(), 6);
+        let names: Vec<&str> = found
+            .iter()
+            .filter(|(level, ..)| *level == AdminUnitLevel::Municipality)
+            .map(|(_, name, _)| name.as_str())
+            .collect();
+        assert_eq!(names, ["gmina wiejska Kościan", "gmina miejska Kościan"]);
+        assert!(
+            found
+                .iter()
+                .any(|(_, n, c)| n == "powiat kościański" && c == "3011")
+        );
+        assert!(
+            found
+                .iter()
+                .any(|(_, n, c)| n == "województwo wielkopolskie" && c == "30")
+        );
+    }
+
+    #[test]
+    fn without_a_gmina_the_names_of_the_upper_levels_are_not_asked() {
+        let bbox = Rect::new(
+            Coord {
+                x: 14.558,
+                y: 52.349,
+            },
+            Coord {
+                x: 14.562,
+                y: 52.351,
+            },
+        );
+        let empty = GMINY_SLUBICE
+            .split("<wfs:member>")
+            .next()
+            .unwrap()
+            .to_string()
+            + "</wfs:FeatureCollection>";
+        let fetcher = admin_fetcher(&bbox, [&empty, "", ""]);
+        let lists = prg_admin()
+            .fetch(&fetcher, &bbox, Path::new("unused"))
+            .unwrap();
+        assert_eq!(lists, vec![Vec::<Value>::new()]);
+        assert_eq!(fetcher.calls.get(), 1);
+    }
+
+    /// A level whose name the register did not answer is left out; the others stay.
+    #[test]
+    fn a_missing_name_of_a_level_leaves_that_level_out() {
+        let bbox = Rect::new(
+            Coord {
+                x: 14.558,
+                y: 52.349,
+            },
+            Coord {
+                x: 14.562,
+                y: 52.351,
+            },
+        );
+        let none = POWIATY_SLUBICE
+            .split("<wfs:member>")
+            .next()
+            .unwrap()
+            .to_string()
+            + "</wfs:FeatureCollection>";
+        let fetcher = admin_fetcher(&bbox, [GMINY_SLUBICE, &none, WOJ_SLUBICE]);
+        let lists = prg_admin()
+            .fetch(&fetcher, &bbox, Path::new("unused"))
+            .unwrap();
+        let levels: Vec<_> = units(&prg_admin(), &lists).iter().map(|u| u.0).collect();
+        assert_eq!(
+            levels,
+            [AdminUnitLevel::Region, AdminUnitLevel::Municipality]
+        );
+    }
+
+    #[test]
+    fn a_failing_service_is_an_error_of_the_source() {
+        let bbox = Rect::new(
+            Coord {
+                x: 14.558,
+                y: 52.349,
+            },
+            Coord {
+                x: 14.562,
+                y: 52.351,
+            },
+        );
+        let fetcher = MapFetcher::default();
+        assert!(
+            prg_admin()
+                .fetch(&fetcher, &bbox, Path::new("unused"))
+                .is_err()
+        );
+        // The second request fails: no half answer.
+        let fetcher = admin_fetcher(
+            &bbox,
+            [GMINY_SLUBICE, "<ows:ExceptionReport/>", WOJ_SLUBICE],
+        );
+        assert!(
+            prg_admin()
+                .fetch(&fetcher, &bbox, Path::new("unused"))
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn the_kind_of_a_gmina_follows_the_last_digit_of_its_code() {
+        assert_eq!(gmina_kind("3011011"), "gmina miejska");
+        assert_eq!(gmina_kind("3011032"), "gmina wiejska");
+        assert_eq!(gmina_kind("0805053"), "gmina miejsko-wiejska");
+        assert_eq!(gmina_kind("x"), "gmina");
+        assert_eq!(with_prefix("powiat", "powiat Poznań"), "powiat Poznań");
+        assert_eq!(
+            with_prefix("województwo", "lubuskie"),
+            "województwo lubuskie"
+        );
+    }
 
     fn gdos() -> Gdos {
         let Some(source) = sources().into_iter().next() else {
@@ -980,5 +1368,8 @@ mod tests {
         assert_eq!(infos[0].sections, [PermitSection::ProtectedObjects]);
         assert_eq!(infos[1].credit, "© GUGiK, geoportal.gov.pl");
         assert_eq!(infos[1].sections, [PermitSection::ForestUnits]);
+        assert_eq!(infos[2].credit, "© GUGiK, geoportal.gov.pl");
+        assert_eq!(infos[2].sections, [PermitSection::AdminUnits]);
+        assert_eq!(infos[2].layers, ["gminy"]);
     }
 }

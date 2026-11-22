@@ -332,6 +332,7 @@ mod tests {
             ("year", v(2024)),
             ("title", v("Verordnung")),
             ("class", v("4")),
+            ("code", v("0805")),
             ("operator", v("Stadt Buckow")),
             ("roles", v("both")),
             ("objects", v("`leisure=park`")),
