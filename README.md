@@ -17,13 +17,6 @@
 [![KI-Aufwand (Claude API): 3.761 $](https://img.shields.io/badge/KI--Aufwand%20%28Claude%20API%29-3.761%20%24-8A2BE2)](docs/ai-cost/history.csv)
 <!-- claude-cost:end -->
 
-<p align="center">
-<a href="https://github.com/HenryJobst/freemapper/releases/latest"><img src="https://img.shields.io/github/v/release/HenryJobst/freemapper?label=Version" alt="Version"></a>
-<a href="https://github.com/HenryJobst/freemapper/releases"><img src="https://img.shields.io/github/downloads/HenryJobst/freemapper/total?label=Downloads" alt="Downloads"></a>
-<a href="https://github.com/HenryJobst/freemapper/commits/main"><img src="https://img.shields.io/github/commit-activity/t/HenryJobst/freemapper?label=Commits" alt="Commits"></a>
-<a href="https://github.com/HenryJobst/freemapper/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/HenryJobst/freemapper/ci.yml?branch=main&label=CI" alt="CI"></a>
-</p>
-
 <p align="center"><a href="examples/berlin-viktoriapark/preview.webp"><img src="examples/berlin-viktoriapark/preview-medium.webp" alt="Trainingskarte Viktoriapark, Berlin-Kreuzberg, von freemapper erzeugt" width="760"></a><br><sub>Viktoriapark, Berlin-Kreuzberg (Sprint 1:4000), von freemapper aus offenen Daten erzeugt. Das Bild ist die Trainingskarte, die man so drucken und laufen kann; ein Klick zeigt sie in voller Größe, als <a href="examples/berlin-viktoriapark/berlin-viktoriapark-training.pdf">PDF</a> zum Drucken. Der <a href="examples/berlin-viktoriapark/berlin-viktoriapark-candidates.pdf">Prüfausdruck</a> zeigt alle Kandidaten lagetreu; mehr unter <a href="examples/README.md">Beispiele</a>.</sub></p>
 
 freemapper erzeugt aus amtlichen Geodaten (Geländemodell, nDOM, Luftbild, ALKIS) und OpenStreetMap

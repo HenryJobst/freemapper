@@ -17,13 +17,6 @@
 [![AI effort (Claude API): $3,761](https://img.shields.io/badge/AI%20effort%20%28Claude%20API%29-%243%2C761-8A2BE2)](docs/ai-cost/history.csv)
 <!-- claude-cost:end -->
 
-<p align="center">
-<a href="https://github.com/HenryJobst/freemapper/releases/latest"><img src="https://img.shields.io/github/v/release/HenryJobst/freemapper?label=version" alt="version"></a>
-<a href="https://github.com/HenryJobst/freemapper/releases"><img src="https://img.shields.io/github/downloads/HenryJobst/freemapper/total?label=downloads" alt="downloads"></a>
-<a href="https://github.com/HenryJobst/freemapper/commits/main"><img src="https://img.shields.io/github/commit-activity/t/HenryJobst/freemapper?label=commits" alt="commits"></a>
-<a href="https://github.com/HenryJobst/freemapper/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/HenryJobst/freemapper/ci.yml?branch=main&label=CI" alt="CI"></a>
-</p>
-
 <p align="center"><a href="examples/berlin-viktoriapark/preview.webp"><img src="examples/berlin-viktoriapark/preview-medium.webp" alt="Training map of Viktoriapark, Berlin-Kreuzberg, made by freemapper" width="760"></a><br><sub>Viktoriapark, Berlin-Kreuzberg (sprint 1:4000), made by freemapper from open data. The image is the training map, ready to print and run on; click for the full size, or take the <a href="examples/berlin-viktoriapark/berlin-viktoriapark-training.pdf">PDF</a> to print. The <a href="examples/berlin-viktoriapark/berlin-viktoriapark-candidates.pdf">check print</a> shows every candidate true to position; more under <a href="examples/README.en.md">examples</a>.</sub></p>
 
 freemapper turns official geodata (terrain model, nDSM, orthophoto, ALKIS cadastre) and OpenStreetMap
