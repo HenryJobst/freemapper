@@ -8,7 +8,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Hinzugefügt
 
-- Die zwei Beispiele für Polen sind da: eine Sprintkarte der Innenstadt von Słubice (`examples/polska-slubice-sprint`) und eine Waldkarte bei Łagów (`examples/polska-lagow-forest`), beide mit Trainingskarte, Prüfausdruck und OCAD-Dateien. Die neue Seite [`examples/international.md`](examples/international.md) führt sie auf, eine Sprint- und eine Waldkarte je Land.
+- Die zwei Beispiele für Polen sind da: eine Sprintkarte der Innenstadt von Słubice (`examples/polska-slubice-sprint`) und eine Waldkarte am Szczeliniec Wielki im Tafelgebirge (`examples/polska-szczeliniec-forest`), beide mit Trainingskarte, Prüfausdruck und OCAD-Dateien. Die neue Seite [`examples/international.md`](examples/international.md) führt sie auf, eine Sprint- und eine Waldkarte je Land.
 
 ## [0.26.0] - 2026-11-22
 

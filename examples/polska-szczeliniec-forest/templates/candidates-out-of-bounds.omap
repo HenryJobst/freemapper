@@ -3,9 +3,9 @@
 <notes>© OpenStreetMap contributors, ODbL
 © GUGiK, geoportal.gov.pl
 Created with freemapper – https://github.com/HenryJobst/freemapper</notes>
-<georeferencing scale="10000" grid_scale_factor="0.999604" auxiliary_scale_factor="1" declination="5.66" grivation="5.45">
-<projected_crs id="EPSG"><spec language="PROJ.4">+init=epsg:25833</spec><parameter>25833</parameter><ref_point x="518320.638" y="5797782.37"/></projected_crs>
-<geographic_crs id="Geographic coordinates"><spec language="PROJ.4">+proj=latlong +datum=WGS84</spec><ref_point_deg lat="52.33005" lon="15.26885"/></geographic_crs>
+<georeferencing scale="10000" grid_scale_factor="0.999711" auxiliary_scale_factor="1" declination="5.67" grivation="4.64">
+<projected_crs id="EPSG"><spec language="PROJ.4">+init=epsg:25833</spec><parameter>25833</parameter><ref_point x="595024.258" y="5593086.33"/></projected_crs>
+<geographic_crs id="Geographic coordinates"><spec language="PROJ.4">+proj=latlong +datum=WGS84</spec><ref_point_deg lat="50.48205" lon="16.339374999999997"/></geographic_crs>
 </georeferencing>
 <colors count="35">
 <color priority="0" name="Purple for course overprint" c="0.35" m="0.85" y="0" k="0" opacity="1"><spotcolors knockout="true"><namedcolor>PURPLE</namedcolor></spotcolors><cmyk method="custom"/><rgb method="cmyk" r="0.65" g="0.15" b="1"/></color>
@@ -680,12 +680,8 @@ The purple line will extend a bit into the finish symbol. This is a shortcoming 
 <symbol type="2" id="194" code="994" name="Bar scale line"><description>Bar scale and its ticks in the peripheral information. Width 0.25 mm. (freemapper)</description><line_symbol color="2" line_width="250" minimum_length="0" join_style="1" cap_style="0" start_offset="0" end_offset="0" segment_length="4000" end_length="0" show_at_least_one_symbol="true" minimum_mid_symbol_count="0" minimum_mid_symbol_count_when_closed="0" dash_length="4000" break_length="1000" dashes_in_group="1" in_group_break_length="500" mid_symbols_per_spot="1" mid_symbol_distance="0"/></symbol>
 </symbols>
 <parts count="1" current="0">
-<part name="candidates"><objects count="5">
-<object type="1" symbol="194"><tags><t k="freemapper:source">osm</t></tags><coords count="5">-55597 50796;64490 38889;55585 -50802;-64479 -38897;-55597 50796 18;</coords><pattern rotation="0"><coord x="0" y="0"/></pattern></object>
-<object type="1" symbol="71"><tags><t k="freemapper:source">osm</t><t k="freemapper:source_id">way/251276718</t><t k="freemapper:osm">natural=wetland</t><t k="freemapper:currency">2026-11-20</t></tags><coords count="27">28659 -15303;29994 -12870;29780 -8370;33029 -6810;32992 -5539;30527 -3799;29549 -3150;28211 -549;24860 1115;26409 2618;29706 2092;32403 -316;35534 -3225;39241 -1870;40250 4916;44499 9910;48715 8749;56763 8880;57886 6251;51770 3691;49248 -2965;45386 -12258;40496 -16453;35383 -18415;32442 -19614;29116 -18343;28659 -15303 18;</coords><pattern rotation="0"><coord x="0" y="0"/></pattern></object>
-<object type="1" symbol="71"><tags><t k="freemapper:source">osm</t><t k="freemapper:source_id">way/311820180</t><t k="freemapper:osm">natural=wetland</t><t k="freemapper:currency">2026-11-20</t></tags><coords count="35">-48095 -35357;-46379 -34621;-44748 -33661;-43132 -33714;-41524 -33635;-37482 -32786;-35205 -32062;-32631 -31842;-30605 -32776;-27911 -32223;-26101 -31843;-24496 -30061;-23561 -27607;-23029 -24855;-22258 -21006;-21700 -18430;-21553 -15640;-21521 -14004;-21015 -10646;-24472 -10174;-27202 -8911;-29579 -8028;-32526 -8082;-34871 -9920;-34661 -13047;-33990 -16306;-34697 -19083;-37011 -21486;-40476 -25025;-43437 -26543;-47337 -27926;-49490 -28705;-49639 -29769;-49183 -31281;-48095 -35357 18;</coords><pattern rotation="0"><coord x="0" y="0"/></pattern></object>
-<object type="1" symbol="71"><tags><t k="freemapper:source">osm</t><t k="freemapper:source_id">way/515534429</t><t k="freemapper:osm">natural=wetland</t><t k="freemapper:currency">2026-11-20</t></tags><coords count="29">21063 40113;19521 60813;22366 55071;32672 46099;35988 43214;33362 39041;30633 37308;28541 37361;27806 38378;27910 40563;23862 39125;22916 37476;21377 35892;20891 35552;17631 33269;19969 30289;23492 31134;25023 29331;25297 25902;28416 22155;28368 19406;26498 17064;25901 16942;24337 16627;17770 22116;13929 28308;11994 30006;13875 34538;21063 40113 18;</coords><pattern rotation="0"><coord x="0" y="0"/></pattern></object>
-<object type="1" symbol="66"><tags><t k="freemapper:source">osm</t><t k="freemapper:source_id">way/813435999</t><t k="freemapper:osm">waterway=drain</t><t k="freemapper:currency">2026-11-20</t><t k="freemapper:generalized">below the minimum size</t></tags><coords count="2">-22258 -21006;-21081 -20405;</coords><pattern rotation="0"><coord x="0" y="0"/></pattern></object>
+<part name="candidates"><objects count="1">
+<object type="1" symbol="194"><tags><t k="freemapper:source">osm</t></tags><coords count="5">-61767 51405;70673 38248;61755 -51412;-70663 -38258;-61767 51405 18;</coords><pattern rotation="0"><coord x="0" y="0"/></pattern></object>
 </objects></part>
 </parts>
 <templates count="0" first_front_template="0">
