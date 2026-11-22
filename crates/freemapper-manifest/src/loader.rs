@@ -54,6 +54,8 @@ pub struct Loaded {
     /// The adapters loaded before it on whose ground it lies: a map there gets the objects of
     /// both.
     pub overlaps: Vec<String>,
+    /// Whether it took the place of the built-in adapter with its id (ADR 0187).
+    pub replaces_built_in: bool,
 }
 
 /// What is wrong with the folder of an adapter.
@@ -117,8 +119,9 @@ fn finding(code: &'static str, path: &Path, message: impl Into<String>) -> Manif
 ///
 /// Findings beside those of the manifest and its boundary files: `adapter.folder` (a link, a
 /// name that is no id, too many files), `adapter.needs-newer`, `adapter.duplicate` (the id is
-/// taken; a folder cannot replace an adapter), `adapter.provider-shared`, and, for an adapter
-/// that loads, `adapter.rules-not-read`.
+/// taken by an adapter that is not built in, or a built-in one a folder replaced already),
+/// `adapter.provider-shared`, and, for an adapter that loads, `adapter.rules-not-read` and
+/// `adapter.replaces-built-in`.
 pub fn load_dirs(
     registry: &mut Registry,
     dirs: &[AdapterDir],
@@ -251,6 +254,7 @@ pub fn load_folder(
         hosts: manifest.hosts.clone(),
         last_verified: manifest.adapter.last_verified,
         overlaps: Vec::new(),
+        replaces_built_in: registry.is_builtin(&manifest.adapter.id),
     };
     let adapter = ManifestAdapter::new(manifest, &FolderFiles::new(folder), Parse::Now, registry)
         .map_err(|findings| {
@@ -268,10 +272,26 @@ pub fn load_folder(
         .asking_declared_hosts_only();
     let adapter: Arc<dyn RegionAdapter> = Arc::new(adapter);
     entry.overlaps = sharing_ground(registry, adapter.as_ref());
-    registry
-        .add(adapter)
-        .map_err(|taken| one("adapter.duplicate", taken.to_string()))?;
     let mut notes = Vec::new();
+    if entry.replaces_built_in {
+        registry
+            .replace(adapter)
+            .map_err(|taken| one("adapter.duplicate", taken.to_string()))?;
+        notes.push(finding(
+            "adapter.replaces-built-in",
+            &folder.join(MANIFEST_FILE),
+            format!(
+                "this adapter replaces the adapter {} that is built into freemapper; only what its \
+                 manifest declares changes, and a newer freemapper that changes the built-in one \
+                 does not reach this region until the folder is removed",
+                entry.id
+            ),
+        ));
+    } else {
+        registry
+            .add(adapter)
+            .map_err(|taken| one("adapter.duplicate", taken.to_string()))?;
+    }
     if files
         .iter()
         .any(|file| file.file_name().is_some_and(|name| name == "rules.toml"))
@@ -299,6 +319,8 @@ pub fn sharing_ground(registry: &Registry, adapter: &dyn RegionAdapter) -> Vec<S
     let bounds = adapter.bounds();
     registry
         .adapters()
+        // An adapter that replaces a built-in one does not share ground with its predecessor.
+        .filter(|other| other.info().id != adapter.info().id)
         .filter(|other| {
             // The box first: the boundary of an adapter far away is not even parsed.
             let theirs = other.bounds();
@@ -349,12 +371,15 @@ fn check_fit(
             running,
         )]);
     }
-    if registry.get(id).is_some() {
+    // A folder may take the place of a built-in adapter (ADR 0187), once; any other id that is
+    // taken stays taken.
+    if registry.get(id).is_some() && !registry.is_builtin(id) {
         return Err(vec![finding(
             "adapter.duplicate",
             path,
             format!(
-                "an adapter with the id {id} exists already; an adapter from a folder cannot replace it"
+                "an adapter with the id {id} exists already; an adapter from a folder replaces \
+                 only a built-in one, and only once"
             ),
         )]);
     }
@@ -368,6 +393,7 @@ fn check_fit(
     if declares_services
         && registry
             .adapters()
+            .filter(|other| other.info().id.as_str() != id.as_str())
             .any(|other| other.info().provider.as_str() == provider)
     {
         return Err(vec![finding(
