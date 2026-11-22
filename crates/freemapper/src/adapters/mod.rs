@@ -31,7 +31,7 @@ pub fn builtin_with_hosts(extra: &ExtraHosts) -> Registry {
         .expect("the built-in states have distinct ids and backends");
     freemapper_adapters_pl::register_with_hosts(&mut registry, extra)
         .expect("Poland has an id of its own");
-    // What an adapter from a folder may replace (ADR 0187).
+    // What an adapter from a folder may replace (ADR 0188).
     registry.mark_builtin();
     registry
 }

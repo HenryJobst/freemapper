@@ -137,6 +137,12 @@ progress-feinkartierung-download = Hamburgi Feinkartierungi (tänavaruum ja aval
 progress-feinkartierung-features = { $count } Feinkartierungi { $file } objekti
 warning-feinkartierung-layer-kept = Feinkartierung { $file } pole saadaval ({ $detail }); salvestatud kiht jääb alles
 warning-feinkartierung-layer-skipped = Feinkartierung { $file } pole saadaval ({ $detail }); kiht jäeti vahele
+progress-bdot-roads-none-stored = salvestatud BDOT10k teid ja radu pole; registri teede ja radade saamiseks käivita võrgus `freemapper fetch`
+progress-bdot-roads-removing = salvestatud BDOT10k teed ja rajad eemaldatakse: kaardiala ei asu enam Poolas
+progress-bdot-roads-download = BDOT10k teede ja radade allalaadimine
+progress-bdot-roads-features = { $count } BDOT10k { $file } objekti
+warning-bdot-roads-layer-kept = BDOT10k { $file } pole saadaval ({ $detail }); salvestatud kiht jääb alles
+warning-bdot-roads-layer-skipped = BDOT10k { $file } pole saadaval ({ $detail }); kiht jäetakse vahele
 error-extra-layer-unknown = ei ole kaustas { $folder } olev kiht
 warning-berlin-buildings-missing = selle ala ALKIS-i hooneid Berliinis pole salvestatud; Geoportal Berlinist saamiseks tuleb käivitada `freemapper fetch`
 

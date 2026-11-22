@@ -18,7 +18,7 @@ pub struct Registry {
     /// The raster backends of the adapter crates, by the name a manifest calls them.
     backends: BTreeMap<String, Arc<dyn RasterBackend>>,
     /// The ids of the adapters built into the program, which an adapter from a folder may
-    /// replace (ADR 0187); see [`Registry::mark_builtin`].
+    /// replace (ADR 0188); see [`Registry::mark_builtin`].
     builtin: BTreeSet<String>,
 }
 

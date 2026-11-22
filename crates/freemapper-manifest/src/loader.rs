@@ -54,7 +54,7 @@ pub struct Loaded {
     /// The adapters loaded before it on whose ground it lies: a map there gets the objects of
     /// both.
     pub overlaps: Vec<String>,
-    /// Whether it took the place of the built-in adapter with its id (ADR 0187).
+    /// Whether it took the place of the built-in adapter with its id (ADR 0188).
     pub replaces_built_in: bool,
 }
 
@@ -372,7 +372,7 @@ fn check_fit(
             running,
         )]);
     }
-    // The adapter folder of the person may take the place of a built-in adapter (ADR 0187),
+    // The adapter folder of the person may take the place of a built-in adapter (ADR 0188),
     // once. The folder of a project may not: it can come from someone else, and the person
     // passed only the flag for more adapters, not for other sources of a state. Any other id
     // that is taken stays taken.

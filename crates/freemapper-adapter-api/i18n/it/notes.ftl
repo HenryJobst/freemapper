@@ -144,6 +144,12 @@ progress-feinkartierung-download = scaricamento della Feinkartierung di Amburgo 
 progress-feinkartierung-features = { $count } oggetti Feinkartierung { $file }
 warning-feinkartierung-layer-kept = Feinkartierung { $file } non disponibile ({ $detail }); si tiene il livello salvato
 warning-feinkartierung-layer-skipped = Feinkartierung { $file } non disponibile ({ $detail }); livello saltato
+progress-bdot-roads-none-stored = nessuna strada o sentiero BDOT10k salvato; esegui `freemapper fetch` online per ottenere le strade e i sentieri del registro
+progress-bdot-roads-removing = rimozione delle strade e dei sentieri BDOT10k salvati: l'area della mappa non è più in Polonia
+progress-bdot-roads-download = scaricamento delle strade e dei sentieri BDOT10k
+progress-bdot-roads-features = { $count } oggetti BDOT10k { $file }
+warning-bdot-roads-layer-kept = BDOT10k { $file } non disponibile ({ $detail }); il livello salvato resta
+warning-bdot-roads-layer-skipped = BDOT10k { $file } non disponibile ({ $detail }); livello saltato
 error-extra-layer-unknown = non è un livello di { $folder }
 warning-berlin-buildings-missing = nessun edificio ALKIS salvato per quest'area a Berlino; esegui `freemapper fetch` per ottenerli dal Geoportal Berlin
 

@@ -1,4 +1,4 @@
-# ADR 0187: A folder adapter replaces a built-in one
+# ADR 0188: A folder adapter replaces a built-in one
 
 Date: 2026-11-22
 

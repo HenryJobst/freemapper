@@ -53,6 +53,7 @@ pub(crate) fn rank_of_source(source: &str) -> Option<crate::build::dedup::Rank> 
     let drawing = drawing_of_source(source)?;
     let layer = source.split_once('/').map_or("", |(_, layer)| layer);
     Some(match drawing.rank_of(layer) {
+        SetRank::Landscape => Rank::Landscape,
         SetRank::Survey => Rank::Survey,
         SetRank::Cadastre => Rank::Alkis,
         SetRank::Register => Rank::Register,

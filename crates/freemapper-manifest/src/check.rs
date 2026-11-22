@@ -91,7 +91,7 @@ pub fn check_folder(
             "adapter.id",
             format!(
                 "an adapter with the id {} is built into this freemapper; from an adapter \
-                 folder this one replaces it (ADR 0187)",
+                 folder this one replaces it (ADR 0188)",
                 loaded.id
             ),
         );

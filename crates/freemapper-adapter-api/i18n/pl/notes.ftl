@@ -143,6 +143,12 @@ progress-feinkartierung-download = pobieranie Feinkartierung Hamburga (przestrze
 progress-feinkartierung-features = obiekty Feinkartierung { $file }: { $count }
 warning-feinkartierung-layer-kept = Feinkartierung { $file } niedostępne ({ $detail }); zachowuję zapisaną warstwę
 warning-feinkartierung-layer-skipped = Feinkartierung { $file } niedostępne ({ $detail }); pominięto warstwę
+progress-bdot-roads-none-stored = brak zapisanych dróg i ścieżek BDOT10k; uruchom `freemapper fetch` online, aby dostać drogi i ścieżki z bazy
+progress-bdot-roads-removing = usuwam zapisane drogi i ścieżki BDOT10k: obszar mapy nie leży już w Polsce
+progress-bdot-roads-download = pobieranie dróg i ścieżek BDOT10k
+progress-bdot-roads-features = obiekty BDOT10k { $file }: { $count }
+warning-bdot-roads-layer-kept = BDOT10k { $file } niedostępne ({ $detail }); zachowuję zapisaną warstwę
+warning-bdot-roads-layer-skipped = BDOT10k { $file } niedostępne ({ $detail }); pominięto warstwę
 error-extra-layer-unknown = to nie jest warstwa { $folder }
 warning-berlin-buildings-missing = brak zapisanych budynków ALKIS dla tego obszaru w Berlinie; uruchom `freemapper fetch`, aby pobrać je z Geoportalu Berlina
 

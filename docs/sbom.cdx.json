@@ -10336,6 +10336,7 @@
       "dependsOn": [
         "registry+https://github.com/rust-lang/crates.io-index#chrono@0.4.45",
         "path+file://./crates/freemapper-adapter-api#0.26.0",
+        "git+https://github.com/HenryJobst/freemapper-core?tag=v0.32.0#freemapper-contract@0.32.0",
         "git+https://github.com/HenryJobst/freemapper-core?tag=v0.32.0#freemapper-georef@0.32.0",
         "path+file://./crates/freemapper-sources#0.26.0",
         "registry+https://github.com/rust-lang/crates.io-index#geo@0.33.1",

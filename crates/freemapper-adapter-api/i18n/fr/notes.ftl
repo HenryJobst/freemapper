@@ -137,6 +137,12 @@ progress-feinkartierung-download = téléchargement de la Feinkartierung de Hamb
 progress-feinkartierung-features = { $count } objets { $file } de la Feinkartierung
 warning-feinkartierung-layer-kept = { $file } de la Feinkartierung indisponible ({ $detail }) ; la couche enregistrée est conservée
 warning-feinkartierung-layer-skipped = { $file } de la Feinkartierung indisponible ({ $detail }) ; couche ignorée
+progress-bdot-roads-none-stored = aucune route ni aucun chemin BDOT10k enregistré ; lancez `freemapper fetch` en ligne pour obtenir les routes et les chemins du registre
+progress-bdot-roads-removing = suppression des routes et chemins BDOT10k enregistrés : la zone de la carte n'est plus en Pologne
+progress-bdot-roads-download = téléchargement des routes et chemins BDOT10k
+progress-bdot-roads-features = { $count } objets BDOT10k { $file }
+warning-bdot-roads-layer-kept = BDOT10k { $file } indisponible ({ $detail }) ; la couche enregistrée est conservée
+warning-bdot-roads-layer-skipped = BDOT10k { $file } indisponible ({ $detail }) ; couche ignorée
 error-extra-layer-unknown = pas une couche de { $folder }
 warning-berlin-buildings-missing = aucun bâtiment ALKIS enregistré pour cette zone à Berlin ; lancez `freemapper fetch` pour les obtenir du Geoportal Berlin
 

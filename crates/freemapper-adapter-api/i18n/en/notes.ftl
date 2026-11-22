@@ -137,6 +137,12 @@ progress-feinkartierung-download = downloading the Hamburg Feinkartierung (stree
 progress-feinkartierung-features = { $count } Feinkartierung { $file } features
 warning-feinkartierung-layer-kept = Feinkartierung { $file } unavailable ({ $detail }); keeping the stored layer
 warning-feinkartierung-layer-skipped = Feinkartierung { $file } unavailable ({ $detail }); layer skipped
+progress-bdot-roads-none-stored = no BDOT10k roads and paths stored; run `freemapper fetch` online for the roads and paths of the register
+progress-bdot-roads-removing = removing the stored BDOT10k roads and paths: the map area is no longer in Poland
+progress-bdot-roads-download = downloading the BDOT10k roads and paths
+progress-bdot-roads-features = { $count } BDOT10k { $file } features
+warning-bdot-roads-layer-kept = BDOT10k { $file } unavailable ({ $detail }); keeping the stored layer
+warning-bdot-roads-layer-skipped = BDOT10k { $file } unavailable ({ $detail }); layer skipped
 error-extra-layer-unknown = not a layer of { $folder }
 warning-berlin-buildings-missing = no ALKIS buildings stored for this area in Berlin; run `freemapper fetch` to get them from the Geoportal Berlin
 

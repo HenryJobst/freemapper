@@ -221,7 +221,7 @@ fn a_boundary_that_crosses_itself_is_left_out() {
 
 /// The folder of a project, which can come from someone else, replaces nothing; and a replacement
 /// of the person's folder that declares services cannot share the provider (the cache folder) of
-/// the adapter it replaces (ADR 0187).
+/// the adapter it replaces (ADR 0188).
 #[test]
 fn a_project_folder_and_a_shared_provider_do_not_replace_a_builtin() {
     let dir = tempfile::tempdir().unwrap();
@@ -247,7 +247,7 @@ fn a_project_folder_and_a_shared_provider_do_not_replace_a_builtin() {
 }
 
 /// Review focus 4: an id is taken once. A folder cannot replace an adapter that is no built-in
-/// one (one loaded before it); a built-in one it replaces, once (ADR 0187).
+/// one (one loaded before it); a built-in one it replaces, once (ADR 0188).
 #[test]
 fn folder_adapter_replaces_only_a_builtin_and_only_once() {
     let dir = tempfile::tempdir().unwrap();

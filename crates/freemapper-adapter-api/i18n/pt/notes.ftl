@@ -140,6 +140,12 @@ progress-feinkartierung-download = a descarregar a Feinkartierung de Hamburgo (e
 progress-feinkartierung-features = { $count } objetos { $file } da Feinkartierung
 warning-feinkartierung-layer-kept = Feinkartierung { $file } indisponível ({ $detail }); mantém-se a camada guardada
 warning-feinkartierung-layer-skipped = Feinkartierung { $file } indisponível ({ $detail }); camada ignorada
+progress-bdot-roads-none-stored = não há estradas nem caminhos BDOT10k guardados; execute `freemapper fetch` online para obter as estradas e os caminhos do registo
+progress-bdot-roads-removing = a remover as estradas e os caminhos BDOT10k guardados: a área do mapa já não está na Polónia
+progress-bdot-roads-download = a transferir as estradas e os caminhos BDOT10k
+progress-bdot-roads-features = { $count } objetos BDOT10k { $file }
+warning-bdot-roads-layer-kept = BDOT10k { $file } indisponível ({ $detail }); a camada guardada mantém-se
+warning-bdot-roads-layer-skipped = BDOT10k { $file } indisponível ({ $detail }); camada ignorada
 error-extra-layer-unknown = não é uma camada de { $folder }
 warning-berlin-buildings-missing = nenhum edifício ALKIS guardado para esta área em Berlim; executa `freemapper fetch` para os obter do Geoportal Berlin
 

@@ -6,6 +6,7 @@
 //! Terms follow `docs/glossary.md`.
 
 pub mod bdot10k;
+pub mod bdot_roads;
 pub mod egib;
 pub mod gugik_index;
 pub mod permits;

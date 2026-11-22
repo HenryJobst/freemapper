@@ -137,6 +137,12 @@ progress-feinkartierung-download = de Hamburgse Feinkartierung (straatruimte en 
 progress-feinkartierung-features = { $count } Feinkartierung-{ $file }-objecten
 warning-feinkartierung-layer-kept = Feinkartierung { $file } niet beschikbaar ({ $detail }); de opgeslagen laag blijft behouden
 warning-feinkartierung-layer-skipped = Feinkartierung { $file } niet beschikbaar ({ $detail }); laag overgeslagen
+progress-bdot-roads-none-stored = geen BDOT10k-wegen en -paden opgeslagen; voer `freemapper fetch` online uit om de wegen en paden uit het register te krijgen
+progress-bdot-roads-removing = de opgeslagen BDOT10k-wegen en -paden worden verwijderd: het kaartgebied ligt niet meer in Polen
+progress-bdot-roads-download = BDOT10k-wegen en -paden downloaden
+progress-bdot-roads-features = { $count } BDOT10k-objecten in { $file }
+warning-bdot-roads-layer-kept = BDOT10k { $file } niet beschikbaar ({ $detail }); de opgeslagen laag blijft
+warning-bdot-roads-layer-skipped = BDOT10k { $file } niet beschikbaar ({ $detail }); laag overgeslagen
 error-extra-layer-unknown = geen laag van { $folder }
 warning-berlin-buildings-missing = geen ALKIS-gebouwen opgeslagen voor dit gebied in Berlijn; voer `freemapper fetch` uit om ze van de Geoportal Berlin te halen
 
