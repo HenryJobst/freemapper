@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gml:FeatureCollection xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:ot="urn:gugik:specyfikacje:gmlas:bazaDanychObiektowTopograficznych10k:2.0" gml:id="GUGiK_OT_PTZB_A" xsi:schemaLocation="urn:gugik:specyfikacje:gmlas:bazaDanychObiektowTopograficznych10k:2.0 ../XSD/BDOT10k_BDOO.xsd">
+	<gml:featureMember>
+		<ot:OT_PTZB_A gml:id="PL.PZGiK.333.BDOT10k_2DDDAEB2-CC94-1ABF-E053-CC2BA8C0C90E_2024-10-21T000000">
+			<ot:lokalnyId>2DDDAEB2-CC94-1ABF-E053-CC2BA8C0C90E</ot:lokalnyId>
+			<ot:zrodloDanychGeometrycznych>ortofotomapa</ot:zrodloDanychGeometrycznych>
+			<ot:geometria>
+				<gml:Polygon gml:id="id-35057a27-b23e-49bf-866a-bcdb4803ce9c-0" srsName="EPSG:2180" srsDimension="2">
+					<gml:exterior>
+						<gml:LinearRing>
+							<gml:posList>197982.13 507701.40 197982.49 507696.49 197982.98 507691.41 197983.05 507690.79 197983.39 507687.52 197983.56 507685.65 197983.90 507681.77 197984.90 507670.71 197978.93 507670.17 197979.61 507659.07 197980.68 507648.55 197978.29 507644.24 197963.28 507642.59 197963.21 507645.80 197963.45 507660.57 197963.54 507676.09 197963.63 507690.64 197963.96 507690.74 197963.90 507700.38 197967.51 507700.42 197982.13 507701.40</gml:posList>
+						</gml:LinearRing>
+					</gml:exterior>
+				</gml:Polygon>
+			</ot:geometria>
+			<ot:rodzaj>pozostała zabudowa</ot:rodzaj>
+			<ot:charakter>gęsta</ot:charakter>
+			<ot:roslinnosc>brak</ot:roslinnosc>
+		</ot:OT_PTZB_A>
+	</gml:featureMember>
+	<gml:featureMember>
+		<ot:OT_PTZB_A gml:id="PL.PZGiK.333.BDOT10k_2DDDAEB2-CC85-1ABF-E053-CC2BA8C0C90E_2024-10-21T000000">
+			<ot:lokalnyId>2DDDAEB2-CC85-1ABF-E053-CC2BA8C0C90E</ot:lokalnyId>
+			<ot:zrodloDanychGeometrycznych>ortofotomapa</ot:zrodloDanychGeometrycznych>
+			<ot:geometria>
+				<gml:Polygon gml:id="id-0829b6ed-be75-4266-a798-fa0f653f6d1d-0" srsName="EPSG:2180" srsDimension="2">
+					<gml:exterior>
+						<gml:LinearRing>
+							<gml:posList>197689.24 507624.44 197696.78 507608.55 197701.60 507598.97 197704.91 507592.38 197711.75 507579.12 197714.27 507574.23 197718.03 507567.34 197714.70 507565.17 197708.07 507560.85 197689.19 507547.62 197685.37 507559.98 197684.82 507571.53 197684.54 507573.19 197682.78 507582.37 197682.27 507587.96 197666.90 507587.58 197670.11 507618.85 197681.54 507620.35 197686.36 507622.71 197689.24 507624.44</gml:posList>
+						</gml:LinearRing>
+					</gml:exterior>
+				</gml:Polygon>
+			</ot:geometria>
+			<ot:rodzaj>pozostała zabudowa</ot:rodzaj>
+			<ot:charakter>gęsta</ot:charakter>
+			<ot:roslinnosc>brak</ot:roslinnosc>
+		</ot:OT_PTZB_A>
+	</gml:featureMember>
+	<gml:featureMember>
+		<ot:OT_PTZB_A gml:id="PL.PZGiK.333.BDOT10k_2DDDAEB2-CD4A-1ABF-E053-CC2BA8C0C90E_2024-10-21T000000">
+			<ot:lokalnyId>2DDDAEB2-CD4A-1ABF-E053-CC2BA8C0C90E</ot:lokalnyId>
+			<ot:zrodloDanychGeometrycznych>ortofotomapa</ot:zrodloDanychGeometrycznych>
+			<ot:kodKarto10k>0010_723</ot:kodKarto10k>
+			<ot:geometria>
+				<gml:Polygon gml:id="id-2bfe1583-35ab-484e-8536-a134d4a439a8-0" srsName="EPSG:2180" srsDimension="2">
+					<gml:exterior>
+						<gml:LinearRing>
+							<gml:posList>197981.00 507749.65 197977.46 507758.12 197983.02 507761.16 198025.74 507784.43 198023.33 507788.93 198018.42 507798.05 198016.03 507802.50 198026.32 507808.06 198024.39 507811.70 198031.24 507815.39 198031.55 507814.85 198041.35 507819.97 198042.91 507816.97 198045.45 507812.22 198047.83 507807.79 198050.20 507809.07 198090.46 507830.92 198097.49 507834.74 198105.86 507816.69 198103.57 507800.30 198113.65 507798.89 198120.62 507797.57 198122.31 507806.71 198128.89 507807.64 198143.59 507809.72 198158.38 507811.81 198163.25 507812.50 198164.19 507802.31 198165.57 507787.28 198114.48 507784.72 198093.86 507778.13 198088.64 507816.20 198029.12 507783.92 198027.36 507781.54 198029.56 507777.39 198037.60 507763.17 198013.72 507757.25 197996.30 507753.35 197981.00 507749.65</gml:posList>
+						</gml:LinearRing>
+					</gml:exterior>
+				</gml:Polygon>
+			</ot:geometria>
+			<ot:rodzaj>pozostała zabudowa</ot:rodzaj>
+			<ot:charakter>gęsta</ot:charakter>
+			<ot:roslinnosc>trawa</ot:roslinnosc>
+		</ot:OT_PTZB_A>
+	</gml:featureMember>
+	<gml:featureMember>
+		<ot:OT_PTZB_A gml:id="PL.PZGiK.333.BDOT10k_2DDDAEB2-CD37-1ABF-E053-CC2BA8C0C90E_2024-10-21T000000">
+			<ot:lokalnyId>2DDDAEB2-CD37-1ABF-E053-CC2BA8C0C90E</ot:lokalnyId>
+			<ot:zrodloDanychGeometrycznych>ortofotomapa</ot:zrodloDanychGeometrycznych>
+			<ot:geometria>
+				<gml:Polygon gml:id="id-0a25f16f-68e2-4c01-8147-98179b38328e-0" srsName="EPSG:2180" srsDimension="2">
+					<gml:exterior>
+						<gml:LinearRing>
+							<gml:posList>197993.21 507317.25 198000.91 507316.40 198003.81 507316.08 198017.59 507314.83 198032.31 507314.79 198044.84 507314.91 198045.15 507302.92 198045.26 507295.65 198040.76 507292.66 198003.66 507293.19 198003.91 507299.20 197999.36 507299.39 197999.54 507305.55 197991.98 507305.98 197993.21 507317.25</gml:posList>
+						</gml:LinearRing>
+					</gml:exterior>
+				</gml:Polygon>
+			</ot:geometria>
+			<ot:rodzaj>wielorodzinna</ot:rodzaj>
+			<ot:charakter>gęsta</ot:charakter>
+			<ot:roslinnosc>brak</ot:roslinnosc>
+		</ot:OT_PTZB_A>
+	</gml:featureMember>
+	<gml:featureMember>
+		<ot:OT_PTZB_A gml:id="PL.PZGiK.333.BDOT10k_25805f21-6076-4c19-a19e-28094de3583d_2024-10-21T000000">
+			<ot:lokalnyId>25805f21-6076-4c19-a19e-28094de3583d</ot:lokalnyId>
+			<ot:zrodloDanychGeometrycznych>ortofotomapa</ot:zrodloDanychGeometrycznych>
+			<ot:geometria>
+				<gml:Polygon gml:id="id-4976b83e-2a28-45de-aef5-9b75c219139f-0" srsName="EPSG:2180" srsDimension="2">
+					<gml:exterior>
+						<gml:LinearRing>
+							<gml:posList>203837.84 507005.87 203807.34 507017.49 203819.93 507053.18 203850.10 507042.15 203837.84 507005.87</gml:posList>
+						</gml:LinearRing>
+					</gml:exterior>
+				</gml:Polygon>
+			</ot:geometria>
+			<ot:rodzaj>jednorodzinna</ot:rodzaj>
+			<ot:charakter>luźna</ot:charakter>
+			<ot:roslinnosc>brak</ot:roslinnosc>
+		</ot:OT_PTZB_A>
+	</gml:featureMember>
+</gml:FeatureCollection>

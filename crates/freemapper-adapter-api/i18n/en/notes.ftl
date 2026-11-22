@@ -119,6 +119,9 @@ progress-alkis-land-use-parts = { $count } { $cadastre } land use parts
 warning-alkis-land-use-kept = { $cadastre } land use unavailable ({ $error }); keeping the stored land use
 warning-alkis-land-use-removed = { $cadastre } land use unavailable ({ $error }); the stored land use no longer covers the map area, so freemapper removed it
 warning-alkis-land-use-none = { $cadastre } land use unavailable ({ $error }); no out-of-bounds candidates
+progress-bdot10k-filled = { $count } BDOT10k { $what } filled in where EGiB gives none ({ $powiat })
+warning-bdot10k-failed = BDOT10k could not fill the gap in EGiB ({ $what }): { $error }
+warning-bdot10k-instead = EGiB is unavailable ({ $error }); using the BDOT10k { $what } of { $powiat } instead
 
 ## The Berlin layers
 

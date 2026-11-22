@@ -6,9 +6,9 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
-### Geändert
+### Hinzugefügt
 
-- Das Beispiel Sanssouci ist mit v0.26.0 neu gebaut: Die Trainingskarte hat einen Baumpunkt weniger, die Kandidatenebene der Vegetation drei OSM-Flächen mehr (zwei Weinberge). Die Grundkarte hat dieselben 2282 Objekte. Der Lauf hat dabei auch den Brandenburger OSM-Auszug über die neue Geofabrik-Adresse geladen.
+- Polen füllt Gelände ohne Katasterdaten aus BDOT10k, der topographischen Objektdatenbank von GUGiK: Wo der EGiB-Dienst für das Kartengebiet keine Gebäude liefert (Gemeinden ohne Katasterdienst) oder ausfällt, kommen die Gebäude aus BDOT10k; wo die Flurstücke weniger als ein Viertel des Gebiets mit einer Nutzungsklasse abdecken (die großen Städte senden sie meist leer), ergänzt BDOT10k die Landnutzung (Wald, Gehölz, Grünland, Acker, Wasser, Wohn- und Gewerbeflächen, Plätze, Parkplätze, Friedhöfe, Grünanlagen). EGiB hat Vorrang. Dafür lädt freemapper das GML-Archiv des betroffenen Powiats (7 bis 89 MB, im Cache) und liest nur die nötigen Klassen; fällt BDOT10k aus, bleibt es bei einer Warnung (ADR 0178)
 
 ### Behoben
 
@@ -16,6 +16,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Geändert
 
+- Das Beispiel Sanssouci ist mit v0.26.0 neu gebaut: Die Trainingskarte hat einen Baumpunkt weniger, die Kandidatenebene der Vegetation drei OSM-Flächen mehr (zwei Weinberge). Die Grundkarte hat dieselben 2282 Objekte. Der Lauf hat dabei auch den Brandenburger OSM-Auszug über die neue Geofabrik-Adresse geladen.
 - Die Core-Crates (`freemapper-core`) stehen auf v0.32.0. Das Tag macht die Einbettung der Schrift Arimo öffentlich, die das Seiten-PDF später nutzt; die Schnittstelle, die freemapper heute nutzt, bleibt gleich.
 
 ## [0.26.0] - 2026-11-22

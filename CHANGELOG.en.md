@@ -6,9 +6,9 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
-### Changed
+### Added
 
-- The Sanssouci example is rebuilt with v0.26.0: the training map has one tree point fewer, the vegetation candidate layer three more OSM areas (two vineyards). The base map has the same 2282 objects. The run also loaded the Brandenburg OSM extract through the new Geofabrik address.
+- Poland fills ground without cadastre data from BDOT10k, the topographic object database of GUGiK: where the EGiB service gives no buildings for the map area (municipalities without a cadastre service) or fails, the buildings come from BDOT10k; where the parcels cover less than a quarter of the area with a land use class (the big cities mostly send none), BDOT10k adds the land use (forest, copse, grassland, farmland, water, residential and industrial land, squares, car parks, cemeteries, green spaces). EGiB comes first. For this freemapper downloads the GML archive of the powiat concerned (7 to 89 MB, kept in the cache) and reads only the classes it needs; when BDOT10k fails, a warning is all that happens (ADR 0178)
 
 ### Fixed
 
@@ -16,6 +16,7 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ### Changed
 
+- The Sanssouci example is rebuilt with v0.26.0: the training map has one tree point fewer, the vegetation candidate layer three more OSM areas (two vineyards). The base map has the same 2282 objects. The run also loaded the Brandenburg OSM extract through the new Geofabrik address.
 - The core crates (`freemapper-core`) are pinned to v0.32.0. The tag makes the embedding of the font Arimo public, which the page PDF will use later; the interface freemapper uses today stays the same.
 
 ## [0.26.0] - 2026-11-22

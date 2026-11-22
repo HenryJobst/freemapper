@@ -133,6 +133,9 @@ progress-alkis-land-use-parts = { $count ->
 warning-alkis-land-use-kept = { $cadastre }-Nutzung nicht verfügbar ({ $error }); die gespeicherte Nutzung bleibt
 warning-alkis-land-use-removed = { $cadastre }-Nutzung nicht verfügbar ({ $error }); die gespeicherte Nutzung deckt das Kartengebiet nicht mehr ab, freemapper hat sie deshalb entfernt
 warning-alkis-land-use-none = { $cadastre }-Nutzung nicht verfügbar ({ $error }); keine Kandidaten für verbotene Gebiete
+progress-bdot10k-filled = { $count } { $what } aus BDOT10k ergänzt, wo EGiB keine liefert ({ $powiat })
+warning-bdot10k-failed = BDOT10k konnte die Lücke in EGiB nicht füllen ({ $what }): { $error }
+warning-bdot10k-instead = EGiB ist nicht erreichbar ({ $error }); stattdessen { $what } aus BDOT10k ({ $powiat })
 
 ## Die Berliner Ebenen
 

@@ -89,11 +89,8 @@ accepts only `https` and this host.
   comma-separated: `B`, `Bi`, `Bp`, `dr`, `B,Bp`), `GRUPA_REJESTROWA`, `DATA`.
 - **Słubice, 500 m square.** 484 parcels in one page of 766 KB; at the Oder bridge 148 buildings
   and 203 parcels of the classes `B`, `Bi`, `Bp`, `Bz` and `dr`.
-- **BDOT10k.** The index `PobieranieBDOT10k` (`ms:BDOT10k_powiaty`, 380 powiats) lists per powiat
-  `TERYT`, `NAZWA_POWIATU`, `Data_aktualizacji` and `URL_GML`
-  (`https://opendata.geoportal.gov.pl/bdot10k/schemat2021/04/0401_GML.zip`). Without
-  `PROPERTYNAME=TERYT,NAZWA_POWIATU,URL_GML,Data_aktualizacji` the answer is 63 MB in 68 s. One
-  GML archive of a powiat is about 54 MB. The client for it is not written.
+- **BDOT10k.** See "Addendum 22 November 2026: BDOT10k" below; the client is `bdot10k.rs`
+  (ADR 0178).
 
 ## Permit notes (measured 22 November 2026)
 
@@ -194,6 +191,67 @@ Still unverified: the finer PKOB letters (none occurred), whether `Bi` should be
 (schools, offices and shops are in it), whether `Bz` should draw as a park (it holds sports grounds
 and allotments as well), the classes of the cities with empty values, and whether `Tk` railway land
 should be out-of-bounds private ground as in Germany (it is, through `Bahnverkehr`).
+
+## Addendum 22 November 2026: BDOT10k (measured, ADR 0178)
+
+**Service.** The WFS `https://mapy.geoportal.gov.pl/wss/service/PZGIK/BDOT/WFS/PobieranieBDOT10k`
+(`Fees` and `AccessConstraints` both `NONE`) has one layer, `ms:BDOT10k_powiaty`, 380 powiats. It
+lists packages and holds no objects: no BDOT10k WFS cuts out an area (other paths below
+`PZGIK/BDOT/WFS` answer 401; `integracja.gugik.gov.pl` has none). The earlier note that the index
+"ignores the box" was the axis order: `BBOX=<north>,<east>,<north>,<east>,urn:ogc:def:crs:EPSG::2180`
+works and returns the powiat the box touches (`TERYT` 0805 for Słubice), 1.5 KB with
+`PROPERTYNAME=TERYT,NAZWA_POWIATU,URL_GML,Data_aktualizacji`. `Data_aktualizacji` of the index
+(2024-04-04) is not the date of the file: 0805 has `Last-Modified` 22 January 2026 and
+objects of version 2024-10-21.
+
+**Archives.** `https://opendata.geoportal.gov.pl/bdot10k/schemat2021/<WW>/<TTTT>_GML.zip`, `200
+application/octet-stream`, `Accept-Ranges: bytes`. Sizes: Tarnów 7.6 MB, Płock 9.1, Białystok 15.6,
+miechowski 17.4, Gdynia 29.4, suski 32.1, Kraków 35.2, Wrocław 37.0, Poznań 36.5, nowotarski 56.8,
+słubicki 53.9, Warszawa 89.0 MB. The 0805 archive unpacks to 264 MB in 75 files (73 classes and
+two XSD files); the largest are `OT_RTLW_L` 136 MB, `OT_BUBD_A` 32.5 MB (21 940 buildings),
+`OT_SKJZ_L` and `OT_SKDR_L` about 20 MB. Download 17 s at home bandwidth. A file starts with a byte
+order mark; a class without an object is a 454-byte file.
+
+**GML.** GML 3.2, namespace `urn:gugik:specyfikacje:gmlas:bazaDanychObiektowTopograficznych10k:2.0`,
+`ot:OT_<class>` in `gml:featureMember`, one `gml:Polygon` in `ot:geometria`, `srsName="EPSG:2180"`,
+`posList` of **E N** pairs (EGiB: N E).
+
+**Classes, values (powiat 0805) and mapping.**
+
+| Class | Attribute (values) | Mapped to |
+|---|---|---|
+| `OT_BUBD_A` buildings (21 940) | `kodKst` 101 to 110, `kategoriaIstnienia` (eksploatowany 21 491, nieczynny 169, w budowie 180, zniszczony 100), `identyfikatorEGiB`, `zrodloDanychGeometrycznych` (EGiB 20 657, ortofotomapa 994, mapa zasadnicza 264, pomiar terenowy 23) | letter of the register by `kodKst` (counts equal those of `funkcjaOgolnaBudynku`: 110 m 9454, 108 g 7882, 102 t 2903, 103 h 515, 104 s 276, 101 p 271, 109 i 268, 105 b 179, 107 k 157, 106 z 34), then `building_function` |
+| `OT_PTLZ_A` forest | `rodzaj`: zagajnik 1570, las 1143, zadrzewienie 33 | Wald, Wald, Gehölz |
+| `OT_PTTR_A` | roślinność trawiasta 1606, uprawa na gruntach ornych 349 | Landwirtschaft / Grünland, Landwirtschaft |
+| `OT_PTUT_A` permanent crops | sad, szkółka roślin, plantacja, ogródki działkowe | Landwirtschaft; allotments Kleingarten |
+| `OT_PTWP_A` water | woda stojąca 971, woda płynąca 28 | Stehendes Gewässer, Fließgewässer |
+| `OT_PTZB_A` built-up | jednorodzinna 1274, pozostała zabudowa 616, wielorodzinna 247, przemysłowo-składowa 198, handlowo-usługowa 130 | Wohnbaufläche, none, Wohnbaufläche, Industrie- und Gewerbefläche, none |
+| `OT_PTNZ_A` | teren pod urządzeniami technicznymi lub budowlami 99, teren przemysłowo-składowy 51 | none, Industrie- und Gewerbefläche |
+| `OT_PTPL_A` squares | `materialNawierzchni`: kostka prefabrykowana 94, grunt naturalny 48, masa bitumiczna 32, beton 27, ... | Platz, except grunt naturalny, żwir, tłuczeń |
+| `OT_KUKO_A` | stacja paliw 45, parking 13, ... | parking: Platz / Parkplatz |
+| `OT_KUSC_A` | cmentarz komunalny 23, wyznaniowy 12, wojenny 3, zespół sakralny 3 | Friedhof (not the church grounds) |
+| `OT_KUSK_A` | kompleks sportowo-rekreacyjny 8, park lub skwer 3 | Sport-, ... / Grünanlage for the park |
+
+Not read: `OT_SKDR_L` and `OT_SKJZ_L` (roads, lines; `klasaDrogi`, `materialNawierzchni`, no
+width), `OT_SKTR_L` (tracks), `OT_PTRK_A` bushes, `OT_PTWZ_A` pits, `OT_PTGN_A`, `OT_OIMK_A`
+wetlands (532 objects overlapping forest and grass), `OT_BUZT_A`, `OT_KUPG_A` and the rest.
+
+**Licence.** `geoportal.gov.pl/en/data/topographic-objects-database-bdot10k`: the database "is
+provided free of charge and can be used for any purpose"; no attribution wording. The legal basis
+is the ordinance of 27 July 2021. `Fees`/`AccessConstraints` of the WFS: `NONE`.
+
+**The gaps in EGiB** (buildings, `ms:budynki`, 600 m boxes, three tries each):
+Chochołów (E 561324, N 172781), Czarny Dunajec centre (E 561964, N 172655) and Lipnica Wielka
+(E 532323, N 184714) answer `numberReturned="0"` every time, while Nowy Targ, Jabłonka and the
+rest of powiat 1211 answer. Of 45 random points inside the border, one answered nothing. The
+service also answers empty sporadically for a 500 m cell (a cell with zero in one run held 735
+buildings in the next, 600 m box), so an empty answer is not proof of a gap; the fallback treats
+it as one. Land use classes (`KLASOUZYTKI_EGIB`, 600 m boxes, share of the box covered by parcels
+with a usable class): Słubice 0.60, Poznań 0.63, a village of powiat 2002 0.99; Warszawa, Białystok,
+Gdańsk, Lublin, Zakopane 0.0 (empty class) and Kraków and Wrocław 0.0 (the class is the text
+`brak_uprawnień` / `brak uprawnień`, "no authorisation"); five of seven rural points 0.0 (empty
+class). The threshold of the fallback is 0.25. A building kind in words
+(`RODZAJ` = `budynekNiemieszkalny`) came back at 52.851 N, 14.824 E (West Pomerania).
 
 ## Open
 
