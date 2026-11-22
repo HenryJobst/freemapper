@@ -12,6 +12,7 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ### Fixed
 
+- GUGiK orthophoto sheets that hold uncompressed RGB instead of JPEG tiles (older flights such as M-34-88-D-a-4 of 2003 near Chochołów) are read. Before, the run said "the orthophoto is not made of JPEG tiles" and left the sheet out.
 - The training map keeps the gap between a wall and a way after the ways are joined (issue #177): Regensburg and Bautzen reported 1.6 and 1.2 mm of too little gap there, now nothing. The gap step runs once more after the join (ADR 0150, addendum). The examples in the repository are not rebuilt yet.
 - The page PDF embeds the font Arimo and shows letters such as ł, ą, č, ř and ő themselves instead of their base letter or `?` ("Słubice" instead of "Slubice"; issue 267, ADR 0179). The PDF grows by the font subsets; the example PDFs in the repository stay until the example is rebuilt.
 - An offline run (`run --offline`, `fetch --offline`) for a map area in Poland no longer asks the GUGiK index service. It reads the sheets an online run recorded in the project (`data/gugik-sheets.json`); when nothing is recorded it says at once that the data must be fetched online first. Before, it failed with a network error when the service was unreachable.
