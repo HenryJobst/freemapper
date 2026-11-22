@@ -1389,11 +1389,14 @@ services.
 
 ### Permit notes in Poland
 
-For a map area in Poland the notes come from two Polish services, not from the BfN and the BKG: the nature
+For a map area in Poland the notes come from Polish services, not from the BfN and the BKG: the nature
 protection layers of the General Directorate for Environmental Protection (GDOŚ, `sdi.gdos.gov.pl`: national
-parks, landscape parks, nature reserves, protected landscape areas, Natura 2000, natural monuments and more) and
-the forest districts of the State Forests from the national boundary register (PRG, `mapy.geoportal.gov.pl`).
-The notes name no Kreis, Gemeinde or Ordnungsamt, because those do not exist there. They say that the
+parks, landscape parks, nature reserves, protected landscape areas, Natura 2000, natural monuments and more) and,
+from the national boundary register (PRG, `mapy.geoportal.gov.pl`), the forest districts of the State Forests and
+the administrative units. The section "Administrative units" comes first. It names the voivodeship
+(województwo), the powiat and the gmina the map area lies in, each with its TERYT code and its share of the
+area, so a map area on a border lists every unit it touches. The gmina is the municipality to ask first about
+an event. The notes name no Kreis, Gemeinde or Ordnungsamt, because those do not exist there. They say that the
 administration of a park or reserve and the Regional Directorate for Environmental Protection (RDOŚ) can usually
 say who is in charge, and that an event in the forest usually needs the owner's consent. Only the State Forests
 are in the data; private forest is not. The German wording of these hints has not been read by a Polish speaker.

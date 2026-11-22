@@ -18,9 +18,9 @@ use freemapper::permits::notes::{
     ProtectedEntry, Share, SourceStatus, hint_key,
 };
 use freemapper::permits::regional::{
-    ForestFunctionEntry, ForestUnitEntry, GreenSpaceEntry, PermitSection, ProtectedObjectEntry,
-    ProtectedObjectKind, RegionalNotes, RegionalStatus, StateForestEntry, WaterProtectionEntry,
-    Words,
+    AdminUnitEntry, ForestFunctionEntry, ForestUnitEntry, GreenSpaceEntry, PermitSection,
+    ProtectedObjectEntry, ProtectedObjectKind, RegionalNotes, RegionalStatus, StateForestEntry,
+    WaterProtectionEntry, Words,
 };
 use freemapper::permits::store::{PERMITS_JSON, PERMITS_MD, write_permit_notes};
 use freemapper::project::{MapKind, ProjectFile};
@@ -652,6 +652,27 @@ fn green_space_line(lang: &Lang, s: &Share<GreenSpaceEntry>) -> String {
     )
 }
 
+/// "województwo lubuskie (TERYT 08): 100 %" (ADR 0181).
+fn admin_unit_line(lang: &Lang, s: &Share<AdminUnitEntry>) -> String {
+    let u = &s.item;
+    let name = t(
+        lang,
+        "permits-admin-unit-code",
+        &[("name", arg(md(&u.name))), ("code", arg(md(&u.code)))],
+    );
+    format!(
+        "- {}",
+        t(
+            lang,
+            "permits-share-line",
+            &[
+                ("name", arg(name)),
+                ("share", arg(share_text(lang, s.percent)))
+            ],
+        )
+    )
+}
+
 /// "Oberförsterei Barnim, Revier Werneuchen (Landesbetrieb Forst Brandenburg): 60 %".
 fn forest_unit_line(lang: &Lang, s: &Share<ForestUnitEntry>) -> String {
     let u = &s.item;
@@ -830,6 +851,17 @@ fn regional_blocks(lang: &Lang, part: &RegionalNotes) -> Vec<String> {
         t(lang, id, &[("source", arg(section_label(section)))])
     };
     let mut blocks = Vec::new();
+    if let Some(units) = &part.admin_units {
+        blocks.push(heading(
+            PermitSection::AdminUnits,
+            "permits-section-admin-units",
+        ));
+        if units.is_empty() {
+            blocks.push(none(PermitSection::AdminUnits, "permits-none-admin-units"));
+        } else {
+            blocks.extend(with_edge(lang, units, |s| admin_unit_line(lang, s), None));
+        }
+    }
     if let Some(districts) = &part.districts {
         blocks.push(heading(
             PermitSection::Districts,
@@ -1685,6 +1717,7 @@ mod tests {
                 state_forest: None,
                 water_protection: None,
                 forest_functions: None,
+                admin_units: None,
                 sources: vec![
                     regional_status("bezirke", "Bezirksgrenzen (ALKIS Berlin)", None),
                     regional_status("gruenanlagen", "Grünanlagenbestand", None),

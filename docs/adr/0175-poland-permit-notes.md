@@ -33,7 +33,8 @@ layers, and the national boundary register (PRG) the forest districts of the Sta
 
 ## Not decided here
 
-- **Gmina, powiat, voivodeship** as a districts section: it assumes Bezirke.
+- **Gmina, powiat, voivodeship** as a districts section: it assumes Bezirke. Done in
+  [ADR 0181](0181-poland-administrative-units-in-the-permit-notes.md) as a section of its own.
 - **Who decides for small objects.** Natural monuments and ecological sites are decided at municipal
   level in Poland; the hint does not name the gmina because that was not verified.
 - **Private forest** is not in the PRG layer; the hint and the source `gaps` text say so.

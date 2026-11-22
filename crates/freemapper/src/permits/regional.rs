@@ -12,7 +12,7 @@ use std::collections::BTreeMap;
 
 /// The kinds the regional part names, for the writers of the notes.
 pub use freemapper_adapter_api::permits::{
-    DistrictOffices, ForestFunctionKind, PermitSection, ProtectedObjectKind,
+    AdminUnitLevel, DistrictOffices, ForestFunctionKind, PermitSection, ProtectedObjectKind,
 };
 use freemapper_adapter_api::permits::{FindingKind, PermitFinding, PermitSourceInfo};
 use geo_types::{Coord, Geometry, MultiPolygon};
@@ -111,8 +111,21 @@ pub struct RegionalNotes {
     /// One entry per function of forest and name, by share, descending.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub forest_functions: Option<Vec<Share<ForestFunctionEntry>>>,
+    /// The administrative units on the map, level by level top down, within a level by share,
+    /// descending (ADR 0181).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub admin_units: Option<Vec<Share<AdminUnitEntry>>>,
     /// The sources of the adapter, in its order.
     pub sources: Vec<RegionalStatus>,
+}
+
+/// An administrative unit of a region, the name as the register writes it.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct AdminUnitEntry {
+    pub level: AdminUnitLevel,
+    pub name: String,
+    /// The code of the register (the Polish TERYT).
+    pub code: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -417,6 +430,7 @@ fn one_adapter(
     let state_forest = read(PermitSection::StateForest).then(|| state_forest(&on_map));
     let water_protection = read(PermitSection::WaterProtection).then(|| water_protection(&on_map));
     let forest_functions = read(PermitSection::ForestFunctions).then(|| forest_functions(&on_map));
+    let admin_units = read(PermitSection::AdminUnits).then(|| admin_units(&on_map));
 
     let facts = HintFacts {
         districts: districts
@@ -511,6 +525,7 @@ fn one_adapter(
         state_forest,
         water_protection,
         forest_functions,
+        admin_units,
         sources: inputs
             .iter()
             .map(|i| RegionalStatus {
@@ -539,6 +554,32 @@ fn districts(on_map: &[(&Placed<'_>, f64)]) -> Vec<Share<DistrictEntry>> {
         }
     }
     by_share(summed, |name| DistrictEntry { name: name.clone() })
+}
+
+/// The units summed over their findings (a unit of several parts has one entry), level by level
+/// top down, within a level by share descending.
+fn admin_units(on_map: &[(&Placed<'_>, f64)]) -> Vec<Share<AdminUnitEntry>> {
+    let mut summed: BTreeMap<AdminUnitEntry, f64> = BTreeMap::new();
+    for (p, share) in on_map {
+        if let FindingKind::AdminUnit { level, name, code } = p.kind {
+            let key = AdminUnitEntry {
+                level: *level,
+                name: name.clone(),
+                code: code.clone(),
+            };
+            *summed.entry(key).or_default() += share;
+        }
+    }
+    let mut list: Vec<(AdminUnitEntry, f64)> = summed.into_iter().collect();
+    list.sort_by(|(a, x), (b, y)| {
+        a.level
+            .cmp(&b.level)
+            .then_with(|| y.total_cmp(x))
+            .then_with(|| a.cmp(b))
+    });
+    list.into_iter()
+        .map(|(entry, share)| Share::new(entry, share.min(1.0)))
+        .collect()
 }
 
 fn green_spaces(on_map: &[(&Placed<'_>, f64)]) -> GreenSpaces {

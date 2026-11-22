@@ -109,7 +109,16 @@ accepts only `https` and this host.
   districts) and `U07_Regionalna_dyrekcja_lasow_panstwowych`; `PROPERTYNAME` drops the 700 KB directorate
   polygon. `JPT_KOD_JE`, `JPT_NAZWA_` (district names in capitals). A district code `17-02` belongs to the
   directorate `17` (checked on Warsaw samples only). The box with the URN `EPSG:2180` is northing-first.
-- **Not done.** Gmina, powiat and voivodeship: the districts section assumes Bezirke.
+- **Administrative units** (ADR 0181), same service: `A01_Granice_wojewodztw`, `A02_Granice_powiatow`,
+  `A03_Granice_gmin` (also `A04` towns, `A05` registration units, `A06` registration precincts). Same
+  GML 3.2, same `JPT_KOD_JE` (TERYT code) and `JPT_NAZWA_`. A voivodeship has 2 digits, a powiat 4, a
+  gmina 7; the last digit of a gmina is its kind (1 urban, 2 rural, 3 urban-rural, 4 and 5 the town and
+  the rural part of an urban-rural gmina, 8 a district, 9 a delegation). Names: `lubuskie` (no word
+  "województwo"), `powiat słubicki`, `powiat Poznań`, `Słubice`. Słubice box: one gmina `0805053`, powiat
+  `0805`, voivodeship `08`. Kościan box: gminas `3011032` and `3011011`, both named `Kościan`. Polygons:
+  voivodeship 466 KB, powiat 79 KB, gmina 21 KB (Słubice) to 87 KB (two gminas at Kościan); the notes
+  ask the polygons of the gminas only. `PROPERTYNAME` works on these layers too. Credit as for the
+  forest districts.
 - **Coverage.** The PRG layer covers the State Forests only, not private forest.
 
 ## Addendum 22 November 2026: EGiB codes checked against the live service

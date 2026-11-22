@@ -217,7 +217,7 @@ impl Polska {
         });
         Self {
             declared: Declared {
-                revision: 4,
+                revision: 5,
                 hosts: HOSTS.iter().map(ToString::to_string).collect(),
                 last_verified: chrono::NaiveDate::from_ymd_opt(2026, 11, 22),
             },
