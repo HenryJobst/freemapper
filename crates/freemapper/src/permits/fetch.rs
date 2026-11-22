@@ -1919,7 +1919,7 @@ mod poland {
         let (dir, project) = project();
         // Poland with the adapters: asked, so nothing is refused for its region.
         assert!(!not_for_region(&ask_in(
-            &crate::adapters::registry(),
+            crate::adapters::registry(),
             &project,
             dir.path()
         )));
