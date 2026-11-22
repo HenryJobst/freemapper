@@ -61,7 +61,7 @@ Auf Wunsch erzeugt freemapper zusätzlich die **druckfertige Karte als PDF**, ei
     wenn schon ein älterer OSM-Auszug da ist, auch dessen Aktualisierung. Für jeden ausgelassenen Teil
     warnt es. Kartendaten, Geländemodell und Luftbild braucht jede Karte. Passen sie nicht, bricht
     freemapper ab, bevor es etwas lädt.
-- Ein Gebiet in **Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg, Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern, Nordrhein-Westfalen, Niedersachsen, Rheinland-Pfalz, dem Saarland, Baden-Württemberg, Bremen oder Bayern**. Thüringen fehlt noch. Polen ist eine Vorschau: Die Karte dort kombiniert OpenStreetMap mit dem Kataster EGiB, Orthofoto und Gelände von GUGiK, und das Gebiet muss ganz in Polen liegen. Gebäude und Landnutzung kommen in Polen aus dem Kataster EGiB; wo er nichts liefert (Gemeinden ohne Katasterdienst, Städte mit leeren Nutzungsklassen), füllt BDOT10k auf, wofür das GML-Archiv des Powiats (7 bis 89 MB) in den Cache geladen wird.
+- Ein Gebiet in **Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg, Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern, Nordrhein-Westfalen, Niedersachsen, Rheinland-Pfalz, dem Saarland, Baden-Württemberg, Bremen oder Bayern**. Thüringen fehlt noch. Polen ist nutzbar: Die Karte dort kombiniert OpenStreetMap mit dem Kataster EGiB, Orthofoto und Gelände von GUGiK, und das Gebiet muss ganz in Polen liegen. Gebäude und Landnutzung kommen in Polen aus dem Kataster EGiB; wo er nichts liefert (Gemeinden ohne Katasterdienst, Städte mit leeren Nutzungsklassen), füllt BDOT10k auf, wofür das GML-Archiv des Powiats (7 bis 89 MB) in den Cache geladen wird.
 - Optional einen KI-Assistenten, z. B. Claude. Dann müssen Sie keine Befehle tippen.
 
 ## 3. Installation

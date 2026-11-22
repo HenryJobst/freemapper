@@ -14,6 +14,7 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 - The training map keeps the gap between a wall and a way after the ways are joined (issue #177): Regensburg and Bautzen reported 1.6 and 1.2 mm of too little gap there, now nothing. The gap step runs once more after the join (ADR 0150, addendum). The examples in the repository are not rebuilt yet.
 - The page PDF embeds the font Arimo and shows letters such as ł, ą, č, ř and ő themselves instead of their base letter or `?` ("Słubice" instead of "Slubice"; issue 267, ADR 0179). The PDF grows by the font subsets; the example PDFs in the repository stay until the example is rebuilt.
+- The progress line for land use in Poland names "EGiB/BDOT10k", because the count also holds the parts BDOT10k filled in. The manual and AGENTS.md call Poland "usable" like the README, not "preview".
 - Buildings in Poland whose kind the cadastre gives as a word instead of a letter (`budynekMieszkalny`, `budynekNiemieszkalny`) now get their German name (residential, other building) instead of the raw text. The manual no longer describes Poland as a map "from OpenStreetMap alone".
 - An offline run (`run --offline`, `fetch --offline`) for a map area in Poland no longer asks the GUGiK index service. It reads the sheets an online run recorded in the project (`data/gugik-sheets.json`); when nothing is recorded it says at once that the data must be fetched online first. Before, it failed with a network error when the service was unreachable.
 
