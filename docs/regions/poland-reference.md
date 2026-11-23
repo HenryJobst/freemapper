@@ -297,11 +297,55 @@ class). The threshold of the fallback is 0.25. A building kind in words
   (`INSPIREID`, `SITENAME`, `NATIONALMONUMENTSRECORD`, ...), no geometry. Entries repeat: Kraków
   2108 entries with 39 repeated INSPIREIDs; merged by INSPIREID. An empty box gives a self-closing
   `FeatureCollection`; an error gives HTTP 200 with a `ServiceExceptionReport`.
-- **Gaps.** Archaeological sites and Pomniki historii are not in the layer.
+- **Gaps.** Archaeological sites and Pomniki historii are not in the layer (checked 23 November 2026: the
+  Kopiec Kościuszki of Kraków, a Pomnik historii, appears only through its register entries, no `NID_N_18_PH` id).
 - **Licence.** Credit "© Narodowy Instytut Dziedzictwa (CC BY 4.0)"; the wording is not prescribed
   and was not confirmed with the NID.
 - **Law.** Ustawa o ochronie zabytków, art. 36 ust. 1 pkt 1, 2 and 11 (Dz. U. 2024 poz. 1292);
   Ustawa o lasach, art. 5 ust. 1 pkt 2 (Dz. U. 2025 poz. 567), checked 22 November 2026.
+
+## Register of archaeological monuments of the NID (ADR 0190)
+
+Measured 23 November 2026, anonymous, `User-Agent` of the program only.
+
+- **Service.** `https://usluga.zabytek.gov.pl/INSPIRE_AMD/service.svc/get`, WMS 1.3.0, layer
+  `Archaeological_Monuments`, the same software and the same `GetFeatureInfo` request as the register of
+  immovable monuments (whole map box as one pixel, latitude first). The capabilities list this one layer.
+  Dataset 210 of dane.gov.pl ("Rejestr zabytków archeologicznych", CC BY 4.0, quarterly) names this WMS, a REST API
+  and a CSV.
+- **Answer.** `Layer` elements with `Attribute Name` children in camel case (`inspireID`, `siteName`,
+  `nationalMonumentsRecord`, `siteProtectionClassification` = `archaeological`), no geometry. The reader lowers
+  the names, so both registers use one parser. Entries repeat (Biskupin: 9 entries, 8 ids). Biskupin box
+  (52.79 to 52.80, 17.74 to 17.752): 5 KB in 0.4 s; Kraków Stare Miasto box (50.055 to 50.073, 19.93 to 19.96): 67
+  entries, 64 ids, 38 KB in 0.5 s; Słubice: empty `FeatureCollection`. The whole of Poland as one box: 2.8 MB in
+  2.8 s, so the cap of 5000 entries holds.
+- **Names.** Mostly the place and a site number (`Biskupin, st. 10`, `Kraków-Stare Miasto, st. 2`; `st.` is
+  stanowisko, site), so grouped names repeat little.
+- **CSV.** `https://api.dane.gov.pl/media/resources/20261002/V_OTWARTE_DANE_ZESTWIENIE_ZRA.csv` (2.6 MB, 843 rows,
+  encoding not UTF-8) has gmina and village but no coordinates; not used.
+- **AZP.** `https://usluga.zabytek.gov.pl/WFS_AZP/service.svc/get` gives only the sheet grid of the Archaeological
+  Record of Poland ("Sekcje Archeologicznego Zdjęcia Polski"), not the sites. The sites of the AZP that are not in
+  the register are not open data; not covered.
+- **Law.** Ustawa o ochronie zabytków, art. 36 ust. 1: pkt 12 searching for hidden or abandoned movable monuments
+  with electronic or technical devices (the amendment Dz. U. 2023 poz. 1904 added a notification route for adults
+  with the owner's consent; how it sits beside the permit was not settled from secondary sources), archaeological
+  research as a permit of its own. The pkt number of the research was not confirmed; the hint names art. 36 ust. 1
+  only. Check on ISAP before a release.
+
+## Pomniki historii (measured, not built)
+
+- **Service.** `https://usluga.zabytek.gov.pl/INSPIRE_WFS_MHD/service.svc/get`, WFS 2.0.0, feature type
+  `gmgml:Monuments_of_History`, `outputFormat=application/vnd.geo+json`, EPSG:2180 only.
+  `GetFeature` needs `typeNames`. The whole country: 387 features (184 INSPIREIDs, 134 names), 2.0 MB, 2.5 s, with
+  polygons, lines or points. Properties: `INSPIREID` (`..._PH.<n>`), `SITENAME`, `NATIONALMONUMENTSRECORD`,
+  `SITEPROTECTIONCLASSIFICATION` (`cultural`, `landscape`, `archaeological`), `LEGALFOUNDATIONDOCUMENT` (a
+  `zabytek.pl` link).
+- **BBOX.** `bbox=<northing min>,<easting min>,<northing max>,<easting max>,EPSG:2180` works (axis order
+  northing first; without the CRS suffix the answer is the whole country; `urn:ogc:def:crs:EPSG::2180` and 4326
+  fail with a server error). Kraków 243000,563000,244000,565000 gives the Kopiec Kościuszki, 11 KB.
+- **Archaeological Pomniki historii.** Biskupin (reserve), Ostrów Lednicki and Krzemionki have
+  `SITEPROTECTIONCLASSIFICATION` `archaeological`.
+- **Licence.** Dataset 168 of dane.gov.pl, CC BY 4.0.
 
 ## Addendum 22 November 2026: BDOT10k roads and paths (measured, ADR 0187)
 

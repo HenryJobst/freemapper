@@ -1808,7 +1808,8 @@ mod poland {
                 ("polska", "gdos"),
                 ("polska", "prg"),
                 ("polska", "prg-granice"),
-                ("polska", "nid-zabytki")
+                ("polska", "nid-zabytki"),
+                ("polska", "nid-archeologia")
             ]
         );
         let today = "2026-11-22".parse().unwrap();
@@ -2137,15 +2138,92 @@ mod poland {
         assert!(notes.regional[0].protected_objects.is_some());
     }
 
-    /// The URLs the register of monuments was asked at in `fetcher`.
+    /// The URLs the register of immovable monuments was asked at in `fetcher`.
     fn nid_urls(fetcher: &MapFetcher) -> Vec<String> {
+        urls_of(fetcher, "https://usluga.zabytek.gov.pl/INSPIRE_IMD/")
+    }
+
+    /// The URLs the register of archaeological monuments was asked at in `fetcher`.
+    fn archaeology_urls(fetcher: &MapFetcher) -> Vec<String> {
+        urls_of(fetcher, "https://usluga.zabytek.gov.pl/INSPIRE_AMD/")
+    }
+
+    fn urls_of(fetcher: &MapFetcher, prefix: &str) -> Vec<String> {
         fetcher
             .responses
             .borrow()
             .keys()
-            .filter(|u| u.starts_with("https://usluga.zabytek.gov.pl/"))
+            .filter(|u| u.starts_with(prefix))
             .cloned()
             .collect()
+    }
+
+    #[test]
+    fn the_archaeological_register_is_counted_by_name_and_read_again_offline() {
+        let (dir, project) = project_at(SLUBICE);
+        let fetcher = MapFetcher::default();
+        serve_slubice(&fetcher, None);
+        let urls = archaeology_urls(&fetcher);
+        assert_eq!(urls.len(), 1, "{urls:?}");
+        fetcher.insert(&urls[0], fixture("nid-archeologia-biskupin.xml"));
+        let online = fetch(&project, dir.path(), &fetcher, false).unwrap();
+        let today = "2026-11-22".parse().unwrap();
+        let notes = write_permit_notes(dir.path(), &project, &online, today).unwrap();
+        let register = notes.regional[0].register_archaeology.as_ref().unwrap();
+        // Nine entries, one of them twice: eight sites, "Biskupin" twice.
+        assert_eq!(register.total, 8);
+        assert_eq!(register.left, 0);
+        assert_eq!(register.names[0].name, "Biskupin");
+        assert_eq!(register.names[0].count, 2);
+        assert_eq!(register.names.len(), 7);
+        // The immovable register was empty: its section says so and its hint stays away.
+        assert_eq!(
+            notes.regional[0].register_monuments.as_ref().unwrap().total,
+            0
+        );
+        let hints: Vec<_> = notes.hints.iter().map(|h| h.key.as_str()).collect();
+        assert!(hints.contains(&"permits-hint-archaeology-register-pl"));
+        assert!(!hints.contains(&"permits-hint-monument-register-pl"));
+
+        let silent = MapFetcher::default();
+        let offline = fetch(&project, dir.path(), &silent, true).unwrap();
+        assert!(silent.log.borrow().is_empty());
+        let again = write_permit_notes(dir.path(), &project, &offline, today).unwrap();
+        assert_eq!(again, notes);
+    }
+
+    #[test]
+    fn the_two_registers_do_not_mix_their_counts_or_hints() {
+        let (dir, project) = project_at(SLUBICE);
+        let fetcher = MapFetcher::default();
+        serve_slubice(&fetcher, None);
+        fetcher.insert(&nid_urls(&fetcher)[0], fixture("nid-krakow.xml"));
+        let today = "2026-11-22".parse().unwrap();
+        let inputs = fetch(&project, dir.path(), &fetcher, false).unwrap();
+        let notes = write_permit_notes(dir.path(), &project, &inputs, today).unwrap();
+        let part = &notes.regional[0];
+        assert_eq!(part.register_monuments.as_ref().unwrap().total, 8);
+        assert_eq!(part.register_archaeology.as_ref().unwrap().total, 0);
+        let hints: Vec<_> = notes.hints.iter().map(|h| h.key.as_str()).collect();
+        assert!(hints.contains(&"permits-hint-monument-register-pl"));
+        assert!(!hints.contains(&"permits-hint-archaeology-register-pl"));
+    }
+
+    #[test]
+    fn a_failing_archaeological_register_is_left_out_and_the_rest_stays() {
+        let (dir, project) = project_at(SLUBICE);
+        let fetcher = MapFetcher::default();
+        serve_slubice(&fetcher, None);
+        fetcher
+            .failing
+            .borrow_mut()
+            .extend(archaeology_urls(&fetcher));
+        let today = "2026-11-22".parse().unwrap();
+        let inputs = fetch(&project, dir.path(), &fetcher, false).unwrap();
+        let notes = write_permit_notes(dir.path(), &project, &inputs, today).unwrap();
+        assert_eq!(notes.regional[0].register_archaeology, None);
+        assert!(notes.regional[0].register_monuments.is_some());
+        assert!(notes.regional[0].protected_objects.is_some());
     }
 
     #[test]
