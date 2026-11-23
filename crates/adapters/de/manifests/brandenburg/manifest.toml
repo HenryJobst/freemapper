@@ -81,6 +81,35 @@ fields = { kind = "GATTUNG", id = "BAUMNUMMER", species = "GA_LANG", crown = "KR
 attribution = "Quelle: © GeoDaten-KVA / Stadt Frankfurt (Oder), dl-de/by-2-0"
 max_bytes = 268435456
 
+# The protected objects (issue #273): the Naturdenkmale and Landschaftsbestandteile of the Landkreise
+# in the forest service, and the protected biotopes of the biotope register of the LfU.
+[[permits.wfs]]
+key = "naturdenkmale"
+label = { en = "Landesbetrieb Forst Brandenburg", de = "Landesbetrieb Forst Brandenburg" }
+what = { en = "Naturdenkmale and geschützte Landschaftsbestandteile of the Landkreise", de = "Naturdenkmale und geschützte Landschaftsbestandteile der Landkreise" }
+credit = "Landesbetrieb Forst Brandenburg, Datenlizenz Deutschland – Namensnennung – Version 2.0 (https://www.govdata.de/dl-de/by-2-0)"
+gaps = { en = "the data are of the end of 2017, later ones are missing", de = "Die Daten haben den Stand Ende 2017, spätere fehlen" }
+sections = ["protected-objects"]
+url = "https://www.brandenburg-forst.de/geoserver/IWFK/ows"
+output_format = "application/json"
+layers = [
+    { key = "naturdenkmale", type_name = "IWFK:lkrs_nd_pu", reading = "object", object = "natural-monument", name = "name", citation = "rvo_rgl" },
+    { key = "landschaftsbestandteile", type_name = "IWFK:lkrs_glb_fl", reading = "object", object = "protected-landscape-part", name = "name", citation = "rvo_rgl" },
+]
+
+[[permits.wfs]]
+key = "biotope"
+label = { en = "Landesamt für Umwelt Brandenburg", de = "Landesamt für Umwelt Brandenburg" }
+what = { en = "protected biotopes of the biotope register", de = "geschützte Biotope der Biotopkartierung" }
+credit = "© Landesamt für Umwelt Brandenburg; Datenlizenz Deutschland – Namensnennung – Version 2.0 (https://www.govdata.de/dl-de/by-2-0)"
+sections = ["protected-objects"]
+url = "https://inspire.brandenburg.de/services/bbk_wfs"
+output_format = "application/geo%2Bjson"
+layers = [
+    { key = "flaechen", type_name = "app:bbk_fl", reading = "object", object = "biotope", name = "biotyp_t", only_attribute = "bbgnat_t", only_values = ["geschützter Biotop nach § 18"] },
+    { key = "punkte", type_name = "app:bbk_pu", reading = "object", object = "biotope", name = "biotyp_t", only_attribute = "bbgnat_t", only_values = ["geschützter Biotop nach § 18"] },
+]
+
 [preview]
 wms = "https://isk.geobasis-bb.de/mapproxy/dop20c/service/wms"
 layer = "bebb_dop20c"
