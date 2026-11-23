@@ -6,6 +6,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
 use crate::adapter::RegionAdapter;
+use crate::permits::PermitSourceFactory;
 use crate::rasters::RasterBackend;
 use crate::records::AdapterId;
 
@@ -20,6 +21,8 @@ pub struct Registry {
     /// The ids of the adapters built into the program, which an adapter from a folder may
     /// replace (ADR 0188); see [`Registry::mark_builtin`].
     builtin: BTreeSet<String>,
+    /// What turns the permit sources a manifest declares into sources.
+    permit_factory: Option<Arc<dyn PermitSourceFactory>>,
 }
 
 /// A second raster backend with a name the registry holds already.
@@ -95,6 +98,17 @@ impl Registry {
         }
         self.backends.insert(name.to_string(), backend);
         Ok(())
+    }
+
+    /// Makes `factory` the maker of the permit sources that manifests declare. A second one
+    /// replaces the first.
+    pub fn set_permit_factory(&mut self, factory: Arc<dyn PermitSourceFactory>) {
+        self.permit_factory = Some(factory);
+    }
+
+    /// The maker of declared permit sources, if the program has one.
+    pub fn permit_factory(&self) -> Option<Arc<dyn PermitSourceFactory>> {
+        self.permit_factory.clone()
     }
 
     /// The raster backend with this name.

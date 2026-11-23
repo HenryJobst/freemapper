@@ -349,6 +349,99 @@ pub fn plain_key(name: &str) -> bool {
             .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
 }
 
+/// A WFS permit source as a manifest declares it (`[[permits.wfs]]`, issue #273): the same table
+/// the code of a state wrote in Rust, as owned data. A [`PermitSourceFactory`] turns it into a
+/// source.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DeclaredWfs {
+    /// The key of the source, as [`PermitSourceInfo::key`].
+    pub key: String,
+    pub label: DeclaredWording,
+    pub what: DeclaredWording,
+    pub credit: String,
+    /// Where the data are not complete although they cover the state; see
+    /// [`PermitSourceInfo::gaps`].
+    pub gaps: Option<DeclaredWording>,
+    pub sections: Vec<PermitSection>,
+    /// The address of the service.
+    pub url: String,
+    pub output_format: String,
+    /// The service answers GML 3.2 only (ADR 0137).
+    pub gml: bool,
+    /// The EPSG number of the CRS the service is asked and answers in, where it is not WGS 84
+    /// (ADR 0144).
+    pub native_crs: Option<u32>,
+    pub layers: Vec<DeclaredLayer>,
+}
+
+/// [`Wording`] as owned text.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DeclaredWording {
+    pub en: String,
+    pub de: String,
+}
+
+/// One layer of a declared source: its key, its WFS type and how its features are read.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DeclaredLayer {
+    pub key: String,
+    pub type_name: String,
+    pub reading: DeclaredReading,
+}
+
+/// How the features of a declared layer become findings, with the attributes they read; the
+/// kinds are those of the table of a state (ADR 0130).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum DeclaredReading {
+    /// A water protection area or zone.
+    Water {
+        name: String,
+        zone: String,
+        citation: Option<String>,
+        /// The attribute and the value that mark a planned zone.
+        planned: Option<(String, String)>,
+    },
+    /// Forest with a function or protection.
+    Function {
+        kind: ForestFunctionKind,
+        name: Option<String>,
+    },
+    /// A unit of a forest administration.
+    Unit {
+        administration: String,
+        prefix: String,
+        office: String,
+    },
+    /// Forest of the state.
+    StateForest {
+        owner: String,
+        prefix: String,
+        office: String,
+    },
+    /// A protected object of nature conservation law (ADR 0146).
+    Object {
+        kind: ProtectedObjectKind,
+        name: Option<String>,
+        citation: Option<String>,
+        /// The attribute and the values that make a feature count.
+        only: Option<(String, Vec<String>)>,
+    },
+    /// A listed monument.
+    Monument {
+        kind: String,
+        kind_from: Option<String>,
+        /// The attribute of the link and the start it must have.
+        link: Option<(String, String)>,
+    },
+}
+
+/// Makes the sources a manifest declares. The adapter crate that reads the permit services
+/// registers one in the registry; an adapter whose manifest declares permit sources needs it.
+pub trait PermitSourceFactory: Send + Sync {
+    /// The source of `declared`.
+    fn wfs(&self, declared: &DeclaredWfs) -> Box<dyn PermitSource>;
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

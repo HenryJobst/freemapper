@@ -12,6 +12,10 @@ use std::path::{Path, PathBuf};
 
 use chrono::NaiveDate;
 use freemapper_adapter_api::extras::{NasModel, NasSchema, TreeFormat};
+use freemapper_adapter_api::permits::{
+    DeclaredLayer, DeclaredReading, DeclaredWfs, DeclaredWording, ForestFunctionKind,
+    PermitSection, ProtectedObjectKind,
+};
 use freemapper_adapter_api::policy;
 use freemapper_georef::crs::Crs;
 use freemapper_sources::nas::NAS_LAYERS;
@@ -25,7 +29,8 @@ use crate::model::{
 };
 use crate::schema::{
     Params, Raw, RawAdapter, RawAlkis, RawAttribution, RawBoundary, RawDate, RawEstimate,
-    RawExtract, RawNas, RawPreview, RawRaster, RawTrees, Text,
+    RawExtract, RawNas, RawPermitLayer, RawPermitWfs, RawPreview, RawRaster, RawTrees, RawWording,
+    Text,
 };
 use crate::{FORMAT, MANIFEST_FILE, MAX_MANIFEST_BYTES, MAX_URLS};
 
@@ -570,6 +575,7 @@ impl Check<'_> {
         };
         let nas = self.nas_services(&raw.extra.nas, crs);
         let trees = self.tree_cadastres(&raw.extra.trees, crs);
+        let permits = self.permit_sources(&raw.permits.wfs);
         let preview = match &raw.preview {
             Some(preview) => self.preview(preview).map(Some),
             None => Some(None),
@@ -598,6 +604,7 @@ impl Check<'_> {
             surface: surface?,
             nas: nas?,
             trees: trees?,
+            permits: permits?,
             preview: preview?,
             estimate: estimate?,
         })
@@ -2014,6 +2021,485 @@ impl Check<'_> {
             }
         }
         fine.then_some(cadastres)
+    }
+
+    /// `[[permits.wfs]]`: the WFS sources of the permit notes (issue #273).
+    fn permit_sources(&mut self, raw: &[RawPermitWfs]) -> Option<Vec<DeclaredWfs>> {
+        let mut fine = true;
+        if raw.len() > 12 {
+            self.fail(
+                "manifest.value",
+                &raw[12].key.span(),
+                "permits.wfs",
+                "more than 12 permit sources",
+            );
+            fine = false;
+        }
+        let mut sources: Vec<DeclaredWfs> = Vec::new();
+        for source in raw {
+            let key = self.matching(
+                &source.key,
+                "permits.wfs.key",
+                "manifest.value",
+                |text| is_slug(text, 40),
+                "the key of a permit source: lower-case letters, digits and hyphens",
+            );
+            if let Some(key) = &key
+                && sources.iter().any(|other| &other.key == key)
+            {
+                self.fail(
+                    "manifest.value",
+                    &source.key.span(),
+                    "permits.wfs.key",
+                    format!("the key {key} is used by two permit sources"),
+                );
+                fine = false;
+            }
+            let label = self.wording(&source.label, "permits.wfs.label");
+            let what = self.wording(&source.what, "permits.wfs.what");
+            let gaps = match &source.gaps {
+                Some(gaps) => self.wording(gaps, "permits.wfs.gaps").map(Some),
+                None => Some(None),
+            };
+            let credit = self.text(
+                &source.credit,
+                "permits.wfs.credit",
+                "manifest.attribution",
+                400,
+            );
+            let url = self.url(&source.url, "permits.wfs.url");
+            let output_format = self.text(
+                &source.output_format,
+                "permits.wfs.output_format",
+                "manifest.value",
+                100,
+            );
+            let native_crs = match &source.native_crs {
+                Some(crs) => self
+                    .crs(crs, "permits.wfs.native_crs")
+                    .map(|crs| Some(crs.epsg())),
+                None => Some(None),
+            };
+            let mut sections = Some(Vec::new());
+            if source.sections.is_empty() {
+                self.fail(
+                    "manifest.value",
+                    &source.key.span(),
+                    "permits.wfs.sections",
+                    "a permit source fills at least one section of the notes",
+                );
+                sections = None;
+            }
+            for section in &source.sections {
+                let kind = self.kebab::<PermitSection>(section, "permits.wfs.sections");
+                sections = sections.zip(kind).map(|(mut all, kind)| {
+                    all.push(kind);
+                    all
+                });
+            }
+            let mut layers = Some(Vec::new());
+            if !(1..=8).contains(&source.layers.len()) {
+                self.fail(
+                    "manifest.value",
+                    &source.key.span(),
+                    "permits.wfs.layers",
+                    "a permit source has 1 to 8 layers",
+                );
+                layers = None;
+            }
+            for layer in &source.layers {
+                let one = self.permit_layer(layer);
+                if let (Some(all), Some(one)) = (&layers, &one)
+                    && all.iter().any(|other: &DeclaredLayer| other.key == one.key)
+                {
+                    self.fail(
+                        "manifest.value",
+                        &layer.key.span(),
+                        "permits.wfs.layers.key",
+                        format!("the key {} is used by two layers of one source", one.key),
+                    );
+                    layers = None;
+                    continue;
+                }
+                layers = layers.zip(one).map(|(mut all, one)| {
+                    all.push(one);
+                    all
+                });
+            }
+            let gml = source.gml.as_ref().is_some_and(|gml| *gml.get_ref());
+            match (
+                key,
+                label,
+                what,
+                gaps,
+                credit,
+                url,
+                output_format,
+                native_crs,
+                sections,
+                layers,
+            ) {
+                (
+                    Some(key),
+                    Some(label),
+                    Some(what),
+                    Some(gaps),
+                    Some(credit),
+                    Some(url),
+                    Some(output_format),
+                    Some(native_crs),
+                    Some(sections),
+                    Some(layers),
+                ) => sources.push(DeclaredWfs {
+                    key,
+                    label,
+                    what,
+                    credit,
+                    gaps,
+                    sections,
+                    url,
+                    output_format,
+                    gml,
+                    native_crs,
+                    layers,
+                }),
+                _ => fine = false,
+            }
+        }
+        fine.then_some(sources)
+    }
+
+    fn wording(&mut self, raw: &RawWording, key: &str) -> Option<DeclaredWording> {
+        let en = self.text(&raw.en, &format!("{key}.en"), "manifest.value", 200);
+        let de = self.text(&raw.de, &format!("{key}.de"), "manifest.value", 200);
+        Some(DeclaredWording { en: en?, de: de? })
+    }
+
+    /// A value of an enumeration the program knows by its kebab-case name.
+    fn kebab<T: serde::de::DeserializeOwned>(&mut self, value: &Text, key: &str) -> Option<T> {
+        let named = T::deserialize(
+            serde::de::value::StrDeserializer::<serde::de::value::Error>::new(value.get_ref()),
+        );
+        match named {
+            Ok(kind) => Some(kind),
+            Err(_) => {
+                let shown: String = value
+                    .get_ref()
+                    .chars()
+                    .filter(|c| !c.is_control())
+                    .take(60)
+                    .collect();
+                self.fail(
+                    "manifest.value",
+                    &value.span(),
+                    key,
+                    format!("`{shown}` is not a name this freemapper knows"),
+                );
+                None
+            }
+        }
+    }
+
+    fn attribute(&mut self, value: &Text, key: &str) -> Option<String> {
+        self.matching(
+            value,
+            key,
+            "manifest.value",
+            is_field,
+            "the name of an attribute of the service",
+        )
+    }
+
+    fn optional_attribute(&mut self, value: Option<&Text>, key: &str) -> Option<Option<String>> {
+        match value {
+            Some(value) => self.attribute(value, key).map(Some),
+            None => Some(None),
+        }
+    }
+
+    /// A key a reading needs.
+    fn needed<'v>(
+        &mut self,
+        value: Option<&'v Text>,
+        layer: &RawPermitLayer,
+        key: &str,
+    ) -> Option<&'v Text> {
+        if value.is_none() {
+            self.fail(
+                "manifest.missing-key",
+                &layer.reading.span(),
+                key,
+                format!("the reading `{}` needs `{key}`", layer.reading.get_ref()),
+            );
+        }
+        value
+    }
+
+    /// The keys of `layer` that do not belong to its reading, as findings.
+    fn foreign(&mut self, layer: &RawPermitLayer, allowed: &[&str]) -> bool {
+        let given: [(&str, bool); 15] = [
+            ("name", layer.name.is_some()),
+            ("zone", layer.zone.is_some()),
+            ("citation", layer.citation.is_some()),
+            ("planned_attribute", layer.planned_attribute.is_some()),
+            ("planned_value", layer.planned_value.is_some()),
+            ("function", layer.function.is_some()),
+            ("administration", layer.administration.is_some()),
+            ("prefix", layer.prefix.is_some()),
+            ("office", layer.office.is_some()),
+            ("owner", layer.owner.is_some()),
+            ("object", layer.object.is_some()),
+            (
+                "only_attribute",
+                layer.only_attribute.is_some() || layer.only_values.is_some(),
+            ),
+            ("monument", layer.monument.is_some()),
+            ("kind_from", layer.kind_from.is_some()),
+            (
+                "link_attribute",
+                layer.link_attribute.is_some() || layer.link_prefix.is_some(),
+            ),
+        ];
+        let mut clean = true;
+        for (name, present) in given {
+            if present && !allowed.contains(&name) {
+                self.fail(
+                    "manifest.unknown-key",
+                    &layer.reading.span(),
+                    name,
+                    format!(
+                        "the reading `{}` has no key `{name}`",
+                        layer.reading.get_ref()
+                    ),
+                );
+                clean = false;
+            }
+        }
+        clean
+    }
+
+    fn permit_layer(&mut self, layer: &RawPermitLayer) -> Option<DeclaredLayer> {
+        let key = self.matching(
+            &layer.key,
+            "permits.wfs.layers.key",
+            "manifest.value",
+            |text| is_slug(text, 40),
+            "the key of a layer: lower-case letters, digits and hyphens",
+        );
+        let type_name = self.matching(
+            &layer.type_name,
+            "permits.wfs.layers.type_name",
+            "manifest.value",
+            is_type_name,
+            "a feature type, with or without a prefix",
+        );
+        let k = "permits.wfs.layers";
+        let reading = match layer.reading.get_ref().as_str() {
+            "water" => {
+                let clean = self.foreign(
+                    layer,
+                    &[
+                        "name",
+                        "zone",
+                        "citation",
+                        "planned_attribute",
+                        "planned_value",
+                    ],
+                );
+                let name = self
+                    .needed(layer.name.as_ref(), layer, "name")
+                    .and_then(|v| self.attribute(v, &format!("{k}.name")));
+                let zone = self
+                    .needed(layer.zone.as_ref(), layer, "zone")
+                    .and_then(|v| self.attribute(v, &format!("{k}.zone")));
+                let citation =
+                    self.optional_attribute(layer.citation.as_ref(), &format!("{k}.citation"));
+                let planned = match (&layer.planned_attribute, &layer.planned_value) {
+                    (None, None) => Some(None),
+                    (Some(attribute), Some(value)) => {
+                        let attribute =
+                            self.attribute(attribute, &format!("{k}.planned_attribute"));
+                        let value =
+                            self.text(value, &format!("{k}.planned_value"), "manifest.value", 100);
+                        attribute.zip(value).map(Some)
+                    }
+                    _ => {
+                        self.fail(
+                            "manifest.missing-key",
+                            &layer.reading.span(),
+                            "planned_attribute",
+                            "`planned_attribute` and `planned_value` come together",
+                        );
+                        None
+                    }
+                };
+                match (clean, name, zone, citation, planned) {
+                    (true, Some(name), Some(zone), Some(citation), Some(planned)) => {
+                        Some(DeclaredReading::Water {
+                            name,
+                            zone,
+                            citation,
+                            planned,
+                        })
+                    }
+                    _ => None,
+                }
+            }
+            "function" => {
+                let clean = self.foreign(layer, &["function", "name"]);
+                let kind = self
+                    .needed(layer.function.as_ref(), layer, "function")
+                    .and_then(|v| self.kebab::<ForestFunctionKind>(v, &format!("{k}.function")));
+                let name = self.optional_attribute(layer.name.as_ref(), &format!("{k}.name"));
+                match (clean, kind, name) {
+                    (true, Some(kind), Some(name)) => {
+                        Some(DeclaredReading::Function { kind, name })
+                    }
+                    _ => None,
+                }
+            }
+            reading @ ("unit" | "state-forest") => {
+                let clean = if reading == "unit" {
+                    self.foreign(layer, &["administration", "prefix", "office"])
+                } else {
+                    self.foreign(layer, &["owner", "prefix", "office"])
+                };
+                let (label_key, label) = if reading == "unit" {
+                    ("administration", layer.administration.as_ref())
+                } else {
+                    ("owner", layer.owner.as_ref())
+                };
+                let label = self
+                    .needed(label, layer, label_key)
+                    .and_then(|v| self.text(v, &format!("{k}.{label_key}"), "manifest.value", 100));
+                let prefix = self
+                    .needed(layer.prefix.as_ref(), layer, "prefix")
+                    .and_then(|v| self.text(v, &format!("{k}.prefix"), "manifest.value", 100));
+                let office = self
+                    .needed(layer.office.as_ref(), layer, "office")
+                    .and_then(|v| self.attribute(v, &format!("{k}.office")));
+                match (clean, label, prefix, office) {
+                    (true, Some(label), Some(prefix), Some(office)) if reading == "unit" => {
+                        Some(DeclaredReading::Unit {
+                            administration: label,
+                            prefix,
+                            office,
+                        })
+                    }
+                    (true, Some(label), Some(prefix), Some(office)) => {
+                        Some(DeclaredReading::StateForest {
+                            owner: label,
+                            prefix,
+                            office,
+                        })
+                    }
+                    _ => None,
+                }
+            }
+            "object" => {
+                let clean = self.foreign(layer, &["object", "name", "citation", "only_attribute"]);
+                let kind = self
+                    .needed(layer.object.as_ref(), layer, "object")
+                    .and_then(|v| self.kebab::<ProtectedObjectKind>(v, &format!("{k}.object")));
+                let name = self.optional_attribute(layer.name.as_ref(), &format!("{k}.name"));
+                let citation =
+                    self.optional_attribute(layer.citation.as_ref(), &format!("{k}.citation"));
+                let only = match (&layer.only_attribute, &layer.only_values) {
+                    (None, None) => Some(None),
+                    (Some(attribute), Some(values)) if (1..=8).contains(&values.len()) => {
+                        let attribute = self.attribute(attribute, &format!("{k}.only_attribute"));
+                        let mut all = Some(Vec::new());
+                        for value in values {
+                            let value = self.text(
+                                value,
+                                &format!("{k}.only_values"),
+                                "manifest.value",
+                                100,
+                            );
+                            all = all.zip(value).map(|(mut all, value)| {
+                                all.push(value);
+                                all
+                            });
+                        }
+                        attribute.zip(all).map(Some)
+                    }
+                    _ => {
+                        self.fail(
+                            "manifest.value",
+                            &layer.reading.span(),
+                            "only_attribute",
+                            "`only_attribute` comes with 1 to 8 `only_values`",
+                        );
+                        None
+                    }
+                };
+                match (clean, kind, name, citation, only) {
+                    (true, Some(kind), Some(name), Some(citation), Some(only)) => {
+                        Some(DeclaredReading::Object {
+                            kind,
+                            name,
+                            citation,
+                            only,
+                        })
+                    }
+                    _ => None,
+                }
+            }
+            "monument" => {
+                let clean = self.foreign(layer, &["monument", "kind_from", "link_attribute"]);
+                let kind = self
+                    .needed(layer.monument.as_ref(), layer, "monument")
+                    .and_then(|v| self.text(v, &format!("{k}.monument"), "manifest.value", 100));
+                let kind_from =
+                    self.optional_attribute(layer.kind_from.as_ref(), &format!("{k}.kind_from"));
+                let link = match (&layer.link_attribute, &layer.link_prefix) {
+                    (None, None) => Some(None),
+                    (Some(attribute), Some(prefix)) => {
+                        let attribute = self.attribute(attribute, &format!("{k}.link_attribute"));
+                        let prefix =
+                            self.text(prefix, &format!("{k}.link_prefix"), "manifest.value", 200);
+                        attribute.zip(prefix).map(Some)
+                    }
+                    _ => {
+                        self.fail(
+                            "manifest.missing-key",
+                            &layer.reading.span(),
+                            "link_attribute",
+                            "`link_attribute` and `link_prefix` come together",
+                        );
+                        None
+                    }
+                };
+                match (clean, kind, kind_from, link) {
+                    (true, Some(kind), Some(kind_from), Some(link)) => {
+                        Some(DeclaredReading::Monument {
+                            kind,
+                            kind_from,
+                            link,
+                        })
+                    }
+                    _ => None,
+                }
+            }
+            other => {
+                let shown: String = other.chars().filter(|c| !c.is_control()).take(40).collect();
+                self.fail(
+                    "manifest.value",
+                    &layer.reading.span(),
+                    "permits.wfs.layers.reading",
+                    format!(
+                        "`{shown}` is no reading; the readings are water, function, unit, \
+                         state-forest, object and monument"
+                    ),
+                );
+                None
+            }
+        };
+        Some(DeclaredLayer {
+            key: key?,
+            type_name: type_name?,
+            reading: reading?,
+        })
     }
 
     fn preview(&mut self, raw: &RawPreview) -> Option<Preview> {

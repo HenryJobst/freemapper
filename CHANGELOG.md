@@ -6,6 +6,10 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+### Hinzugefügt
+
+- Die Quellen der Genehmigungshinweise können im Manifest stehen: `[[permits.wfs]]` beschreibt einen WFS-Dienst mit seinen Schichten und deren Lesearten (Issue #273, Stufe 2a). Der Validator prüft Adresse, Host, Namen und die Schlüssel je Leseart; ein Ordner-Adapter kann sie erklären, `adapters probe` fragt ihre Adressen an. Als Erstes sind die geschützten Objekte Hamburgs aus dem Code ins Manifest gezogen; die Hinweise lesen sich unverändert (ADR 0189).
+
 ## [0.27.0] - 2026-11-22
 
 ### Hinzugefügt

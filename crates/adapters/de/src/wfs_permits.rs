@@ -11,8 +11,8 @@
 use std::path::Path;
 
 use freemapper_adapter_api::permits::{
-    FindingKind, ForestFunctionKind, PermitFinding, PermitSection, PermitSource, PermitSourceInfo,
-    ProtectedObjectKind, Wording,
+    DeclaredReading, DeclaredWfs, FindingKind, ForestFunctionKind, PermitFinding, PermitSection,
+    PermitSource, PermitSourceFactory, PermitSourceInfo, ProtectedObjectKind, Wording,
 };
 use freemapper_sources::geojson_wfs::{
     GeoJsonWfs, LatLonBox, ProjectedBox, get_features, get_gml_features, get_projected_features,
@@ -250,6 +250,142 @@ pub fn native_source(
         layers,
         gml,
         native: Some(native),
+    })
+}
+
+/// Makes the permit sources that a manifest declares (`[[permits.wfs]]`, issue #273) from the
+/// same table the code of a state writes. The texts are kept for the rest of the run, as the
+/// tables of the code are: a manifest holds at most 64 KiB, and an adapter is made once.
+pub struct TableFactory;
+
+impl PermitSourceFactory for TableFactory {
+    fn wfs(&self, declared: &DeclaredWfs) -> Box<dyn PermitSource> {
+        declared_source(declared)
+    }
+}
+
+fn kept(text: &str) -> &'static str {
+    Box::leak(text.to_string().into_boxed_str())
+}
+
+fn kept_all<T>(items: Vec<T>) -> &'static [T] {
+    Box::leak(items.into_boxed_slice())
+}
+
+fn wording(declared: &freemapper_adapter_api::permits::DeclaredWording) -> Wording {
+    Wording {
+        en: kept(&declared.en),
+        de: kept(&declared.de),
+    }
+}
+
+fn reading(declared: &DeclaredReading) -> Reading {
+    let pair = |(a, b): &(String, String)| (kept(a), kept(b));
+    match declared {
+        DeclaredReading::Water {
+            name,
+            zone,
+            citation,
+            planned,
+        } => Reading::Water {
+            name: kept(name),
+            zone: kept(zone),
+            citation: citation.as_deref().map(kept),
+            planned: planned.as_ref().map(pair),
+        },
+        DeclaredReading::Function { kind, name } => Reading::Function {
+            kind: *kind,
+            name: name.as_deref().map(kept),
+        },
+        DeclaredReading::Unit {
+            administration,
+            prefix,
+            office,
+        } => Reading::Unit {
+            administration: kept(administration),
+            prefix: kept(prefix),
+            office: kept(office),
+        },
+        DeclaredReading::StateForest {
+            owner,
+            prefix,
+            office,
+        } => Reading::StateForest {
+            owner: kept(owner),
+            prefix: kept(prefix),
+            office: kept(office),
+        },
+        DeclaredReading::Object {
+            kind,
+            name,
+            citation,
+            only,
+        } => Reading::Object {
+            kind: *kind,
+            name: name.as_deref().map(kept),
+            citation: citation.as_deref().map(kept),
+            only: only.as_ref().map(|(attribute, values)| {
+                (
+                    kept(attribute),
+                    kept_all(values.iter().map(|value| kept(value)).collect()),
+                )
+            }),
+        },
+        DeclaredReading::Monument {
+            kind,
+            kind_from,
+            link,
+        } => Reading::Monument {
+            kind: kept(kind),
+            kind_from: kind_from.as_deref().map(kept),
+            link: link.as_ref().map(pair),
+        },
+    }
+}
+
+/// The source of a declared table.
+fn declared_source(declared: &DeclaredWfs) -> Box<dyn PermitSource> {
+    let keys: &'static [&'static str] = kept_all(
+        declared
+            .layers
+            .iter()
+            .map(|layer| kept(&layer.key))
+            .collect(),
+    );
+    let layers: &'static [Layer] = kept_all(
+        declared
+            .layers
+            .iter()
+            .map(|layer| {
+                (
+                    kept(&layer.key),
+                    kept(&layer.type_name),
+                    reading(&layer.reading),
+                )
+            })
+            .collect(),
+    );
+    Box::new(TableSource {
+        info: PermitSourceInfo {
+            key: kept(&declared.key),
+            label: wording(&declared.label),
+            what: wording(&declared.what),
+            credit: kept(&declared.credit),
+            note: None,
+            sampled: false,
+            gaps: declared.gaps.as_ref().map(wording),
+            layers: keys,
+            sections: kept_all(declared.sections.clone()),
+            offices: None,
+        },
+        service: GeoJsonWfs {
+            base: kept(&declared.url),
+            output_format: kept(&declared.output_format),
+            bbox_crs_suffix: true,
+        },
+        layers,
+        gml: declared.gml,
+        native: declared.native_crs.and_then(Crs::from_epsg),
     })
 }
 
@@ -732,5 +868,89 @@ mod tests {
         let point = serde_json::json!({"type": "Feature", "properties": {"NAME": "x"},
             "geometry": {"type": "Point", "coordinates": [49.3, 6.85]}});
         assert!(table().findings("zones", &[point]).is_empty());
+    }
+
+    /// Answers every request with one feature that holds the attributes the tables read, and
+    /// notes the addresses.
+    #[derive(Default)]
+    struct Recorder(std::cell::RefCell<Vec<String>>);
+
+    impl Fetcher for Recorder {
+        fn get(&self, url: &str) -> Result<Vec<u8>, FetchError> {
+            self.0.borrow_mut().push(url.to_string());
+            Ok(
+                br#"{"type":"FeatureCollection","features":[{"type":"Feature",
+                "geometry":{"type":"Point","coordinates":[9.95,53.55]},
+                "properties":{"schutzgebiet":"Eiche","rechtsgrundlage":"VO","paragraf":"P30",
+                "other":"must not be kept"}}]}"#
+                    .to_vec(),
+            )
+        }
+    }
+
+    /// The sources a manifest declares are read as the tables of the code were (issue #273):
+    /// Hamburg's protected objects, which were a table in the code until they moved into its
+    /// manifest, gave these requests and these findings.
+    #[test]
+    fn the_declared_sources_of_hamburg_ask_and_keep_what_the_table_did() {
+        let text = include_str!("../manifests/hamburg/manifest.toml");
+        let manifest = freemapper_manifest::parse(text, Path::new("hamburg")).unwrap();
+        let declared: Vec<Box<dyn PermitSource>> =
+            manifest.permits.iter().map(declared_source).collect();
+        let keys: Vec<(&str, &[&str])> = declared
+            .iter()
+            .map(|source| (source.info().key, source.info().layers))
+            .collect();
+        assert_eq!(
+            keys,
+            [
+                ("naturdenkmale", &["naturdenkmale"][..]),
+                ("biotope", &["flaechen", "punkte"][..])
+            ]
+        );
+        assert_eq!(
+            declared[0].info().sections,
+            [PermitSection::ProtectedObjects]
+        );
+        assert_eq!(declared[0].info().label.de, "Geoportal Hamburg");
+        let bbox = Rect::new(Coord { x: 9.9, y: 53.5 }, Coord { x: 10.0, y: 53.6 });
+        let dir = tempfile::tempdir().unwrap();
+        let asked = Recorder::default();
+        let found: Vec<Vec<Vec<Value>>> = declared
+            .iter()
+            .map(|source| {
+                source
+                    .fetch(&asked, &bbox, &dir.path().join("part"))
+                    .unwrap()
+            })
+            .collect();
+        let urls = asked.0.into_inner();
+        assert_eq!(urls.len(), 3);
+        for (url, (base, type_name)) in urls.iter().zip([
+            (
+                "https://geodienste.hamburg.de/HH_WFS_Schutzgebiete",
+                "de.hh.up:nr_f_naturdenkmal",
+            ),
+            (
+                "https://geodienste.hamburg.de/HH_WFS_Biotopkataster",
+                "de.hh.up:flaechenhafte_biotope_geschuetzt",
+            ),
+            (
+                "https://geodienste.hamburg.de/HH_WFS_Biotopkataster",
+                "de.hh.up:punkthafte_biotope_geschuetzt",
+            ),
+        ]) {
+            assert!(url.starts_with(base) && url.contains(type_name), "{url}");
+            assert!(
+                url.contains("application/geo%2Bjson") || url.contains("geo%2Bjson"),
+                "{url}"
+            );
+        }
+        // Each layer keeps the attributes of its reading and nothing else.
+        let kept = |layer: &Vec<Value>| layer[0]["properties"].as_object().unwrap().len();
+        assert!(
+            found.iter().flatten().all(|layer| kept(layer) <= 2),
+            "{found:?}"
+        );
     }
 }

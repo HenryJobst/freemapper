@@ -30,6 +30,8 @@ pub(crate) struct Raw {
     pub surface: Option<RawRaster>,
     #[serde(default)]
     pub extra: RawExtra,
+    #[serde(default)]
+    pub permits: RawPermits,
     pub preview: Option<RawPreview>,
     #[serde(default)]
     pub estimate: RawEstimate,
@@ -217,6 +219,64 @@ pub(crate) struct RawTreeFields {
     pub species: Option<Text>,
     pub crown: Option<Text>,
     pub gone: Option<Text>,
+}
+
+/// `[permits]`: the sources of the permit notes the adapter declares.
+#[derive(Debug, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct RawPermits {
+    #[serde(default)]
+    pub wfs: Vec<RawPermitWfs>,
+}
+
+/// `[[permits.wfs]]`: a WFS service read by a table of its layers.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct RawPermitWfs {
+    pub key: Text,
+    pub label: RawWording,
+    pub what: RawWording,
+    pub credit: Text,
+    pub gaps: Option<RawWording>,
+    pub sections: Vec<Text>,
+    pub url: Text,
+    pub output_format: Text,
+    pub gml: Option<Spanned<bool>>,
+    pub native_crs: Option<Spanned<i64>>,
+    pub layers: Vec<RawPermitLayer>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct RawWording {
+    pub en: Text,
+    pub de: Text,
+}
+
+/// `[[permits.wfs.layers]]`: the keys of all readings.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct RawPermitLayer {
+    pub key: Text,
+    pub type_name: Text,
+    pub reading: Text,
+    pub name: Option<Text>,
+    pub zone: Option<Text>,
+    pub citation: Option<Text>,
+    pub planned_attribute: Option<Text>,
+    pub planned_value: Option<Text>,
+    pub function: Option<Text>,
+    pub administration: Option<Text>,
+    pub prefix: Option<Text>,
+    pub office: Option<Text>,
+    pub owner: Option<Text>,
+    pub object: Option<Text>,
+    pub only_attribute: Option<Text>,
+    pub only_values: Option<Vec<Text>>,
+    pub monument: Option<Text>,
+    pub kind_from: Option<Text>,
+    pub link_attribute: Option<Text>,
+    pub link_prefix: Option<Text>,
 }
 
 #[derive(Debug, Deserialize)]

@@ -1,0 +1,280 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
+//! The permit sources a manifest declares (`[[permits.wfs]]`, issue #273): what the validator
+//! accepts and refuses, and what the adapter makes of them.
+
+use std::borrow::Cow;
+use std::path::Path;
+use std::sync::Arc;
+
+use freemapper_adapter_api::adapter::RegionAdapter;
+use freemapper_adapter_api::permits::{
+    DeclaredReading, DeclaredWfs, ForestFunctionKind, PermitSection, PermitSource,
+    PermitSourceFactory, ProtectedObjectKind,
+};
+use freemapper_adapter_api::registry::Registry;
+use freemapper_manifest::adapter::{AdapterFiles, ManifestAdapter, Parse};
+use freemapper_manifest::{ManifestError, parse};
+
+fn sample() -> String {
+    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/invalid/unknown-key.toml");
+    std::fs::read_to_string(path)
+        .unwrap()
+        .replace("colour = \"red\"\n", "")
+}
+
+/// The sample manifest with `table` appended.
+fn with(table: &str) -> String {
+    format!("{}\n{table}", sample())
+}
+
+const HEAD: &str = "[[permits.wfs]]\nkey = \"natur\"\n\
+    label = { en = \"Geoportal\", de = \"Geoportal\" }\n\
+    what = { en = \"protected objects\", de = \"geschützte Objekte\" }\n\
+    credit = \"Datenlizenz Deutschland Namensnennung 2.0\"\n\
+    sections = [\"protected-objects\"]\n\
+    url = \"https://geo.example.org/wfs\"\n\
+    output_format = \"application/geo%2Bjson\"\n";
+
+fn codes(findings: &[ManifestError]) -> Vec<(&'static str, String)> {
+    findings
+        .iter()
+        .map(|finding| (finding.code, finding.key.clone()))
+        .collect()
+}
+
+fn refused(table: &str) -> Vec<(&'static str, String)> {
+    codes(&parse(&with(table), Path::new("sample")).unwrap_err())
+}
+
+#[test]
+fn every_reading_is_declared_and_read() {
+    let table = format!(
+        "{HEAD}layers = [\n\
+         {{ key = \"zones\", type_name = \"x:zones\", reading = \"water\", name = \"NAME\", zone = \"ZONE\", citation = \"VO\", planned_attribute = \"STATUS\", planned_value = \"geplant\" }},\n\
+         {{ key = \"function\", type_name = \"x:fn\", reading = \"function\", function = \"recreation\", name = \"NAME\" }},\n\
+         {{ key = \"units\", type_name = \"x:units\", reading = \"unit\", administration = \"Landesforst\", prefix = \"Revier \", office = \"REVIER\" }},\n\
+         {{ key = \"state\", type_name = \"x:state\", reading = \"state-forest\", owner = \"Land\", prefix = \"Amt \", office = \"AMT\" }},\n\
+         {{ key = \"objects\", type_name = \"ns:obj\", reading = \"object\", object = \"biotope\", name = \"ART\", only_attribute = \"SCHUTZ\", only_values = [\"1\", \"2\"] }},\n\
+         {{ key = \"monuments\", type_name = \"x:mon\", reading = \"monument\", monument = \"Baudenkmal\", kind_from = \"ART\", link_attribute = \"LISTE\", link_prefix = \"https://example.org/list\" }},\n\
+         ]\n"
+    );
+    let manifest = parse(&with(&table), Path::new("sample")).unwrap();
+    assert_eq!(manifest.permits.len(), 1);
+    let source: &DeclaredWfs = &manifest.permits[0];
+    assert_eq!(source.key, "natur");
+    assert_eq!(source.sections, [PermitSection::ProtectedObjects]);
+    assert_eq!(source.url, "https://geo.example.org/wfs");
+    assert!(!source.gml && source.native_crs.is_none() && source.gaps.is_none());
+    let readings: Vec<&DeclaredReading> = source.layers.iter().map(|l| &l.reading).collect();
+    assert_eq!(
+        readings[0],
+        &DeclaredReading::Water {
+            name: "NAME".into(),
+            zone: "ZONE".into(),
+            citation: Some("VO".into()),
+            planned: Some(("STATUS".into(), "geplant".into())),
+        }
+    );
+    assert_eq!(
+        readings[1],
+        &DeclaredReading::Function {
+            kind: ForestFunctionKind::Recreation,
+            name: Some("NAME".into())
+        }
+    );
+    assert!(matches!(readings[2], DeclaredReading::Unit { office, .. } if office == "REVIER"));
+    assert!(matches!(readings[3], DeclaredReading::StateForest { owner, .. } if owner == "Land"));
+    assert_eq!(
+        readings[4],
+        &DeclaredReading::Object {
+            kind: ProtectedObjectKind::Biotope,
+            name: Some("ART".into()),
+            citation: None,
+            only: Some(("SCHUTZ".into(), vec!["1".into(), "2".into()])),
+        }
+    );
+    assert!(matches!(
+        readings[5],
+        DeclaredReading::Monument { link: Some((a, p)), .. } if a == "LISTE" && p == "https://example.org/list"
+    ));
+}
+
+#[test]
+fn a_native_crs_and_gaps_and_gml_are_read() {
+    let table = format!(
+        "{HEAD}gml = true\nnative_crs = 25832\ngaps = {{ en = \"later data are missing\", de = \"spätere fehlen\" }}\n\
+         layers = [{{ key = \"a\", type_name = \"x:a\", reading = \"object\", object = \"natural-monument\" }}]\n"
+    );
+    let manifest = parse(&with(&table), Path::new("sample")).unwrap();
+    let source = &manifest.permits[0];
+    assert!(source.gml);
+    assert_eq!(source.native_crs, Some(25832));
+    assert_eq!(source.gaps.as_ref().unwrap().de, "spätere fehlen");
+}
+
+#[test]
+fn what_is_wrong_is_named_with_its_key() {
+    let layer =
+        |extra: &str| format!("{HEAD}layers = [{{ key = \"a\", type_name = \"x:a\", {extra} }}]\n");
+    // A reading nobody knows.
+    assert_eq!(
+        refused(&layer("reading = \"swamp\"")),
+        [("manifest.value", "permits.wfs.layers.reading".to_string())]
+    );
+    // A key that does not belong to the reading, and one it needs.
+    assert_eq!(
+        refused(&layer(
+            "reading = \"object\", object = \"biotope\", zone = \"Z\""
+        )),
+        [("manifest.unknown-key", "zone".to_string())]
+    );
+    assert_eq!(
+        refused(&layer("reading = \"object\"")),
+        [("manifest.missing-key", "object".to_string())]
+    );
+    // A kind the program does not know.
+    assert_eq!(
+        refused(&layer("reading = \"object\", object = \"dragon\"")),
+        [("manifest.value", "permits.wfs.layers.object".to_string())]
+    );
+    // A pair that comes together.
+    assert_eq!(
+        refused(&layer(
+            "reading = \"object\", object = \"biotope\", only_attribute = \"A\""
+        )),
+        [("manifest.value", "only_attribute".to_string())]
+    );
+}
+
+#[test]
+fn the_service_is_held_to_the_hosts_of_the_manifest() {
+    let table = HEAD.replace("geo.example.org", "other.example.org")
+        + "layers = [{ key = \"a\", type_name = \"x:a\", reading = \"object\", object = \"biotope\" }]\n";
+    assert_eq!(
+        refused(&table),
+        [("policy.host-not-declared", "permits.wfs.url".to_string())]
+    );
+    // A query does not belong into the address.
+    let table = HEAD.replace("/wfs\"", "/wfs?map=a\"")
+        + "layers = [{ key = \"a\", type_name = \"x:a\", reading = \"object\", object = \"biotope\" }]\n";
+    assert_eq!(
+        refused(&table),
+        [("policy.url", "permits.wfs.url".to_string())]
+    );
+}
+
+#[test]
+fn keys_and_sections_are_checked() {
+    let layers = "layers = [{ key = \"a\", type_name = \"x:a\", reading = \"object\", object = \"biotope\" }]\n";
+    // Two sources with one key.
+    let twice = format!("{HEAD}{layers}\n{HEAD}{layers}");
+    assert_eq!(
+        refused(&twice),
+        [("manifest.value", "permits.wfs.key".to_string())]
+    );
+    // A section that does not exist, and a source without layers.
+    let section = HEAD.replace("protected-objects", "treasure") + layers;
+    assert_eq!(
+        refused(&section),
+        [("manifest.value", "permits.wfs.sections".to_string())]
+    );
+    assert_eq!(
+        refused(&format!("{HEAD}layers = []\n")),
+        [("manifest.value", "permits.wfs.layers".to_string())]
+    );
+    // Two layers with one key.
+    let layer = "{ key = \"a\", type_name = \"x:a\", reading = \"object\", object = \"biotope\" }";
+    assert_eq!(
+        refused(&format!("{HEAD}layers = [{layer}, {layer}]\n")),
+        [("manifest.value", "permits.wfs.layers.key".to_string())]
+    );
+}
+
+/// What the registry's factory makes.
+struct Made;
+
+impl PermitSourceFactory for Made {
+    fn wfs(&self, declared: &DeclaredWfs) -> Box<dyn PermitSource> {
+        struct One(freemapper_adapter_api::permits::PermitSourceInfo);
+        impl PermitSource for One {
+            fn info(&self) -> &freemapper_adapter_api::permits::PermitSourceInfo {
+                &self.0
+            }
+            fn fetch(
+                &self,
+                _: &dyn freemapper_adapter_api::fetch::Fetcher,
+                _: &geo_types::Rect<f64>,
+                _: &Path,
+            ) -> Result<Vec<Vec<serde_json::Value>>, freemapper_adapter_api::error::FetchError>
+            {
+                Ok(Vec::new())
+            }
+            fn findings(
+                &self,
+                _: &str,
+                _: &[serde_json::Value],
+            ) -> Vec<freemapper_adapter_api::permits::PermitFinding> {
+                Vec::new()
+            }
+        }
+        let key: &'static str = Box::leak(declared.key.clone().into_boxed_str());
+        Box::new(One(freemapper_adapter_api::permits::PermitSourceInfo {
+            key,
+            label: freemapper_adapter_api::permits::Wording { en: "", de: "" },
+            what: freemapper_adapter_api::permits::Wording { en: "", de: "" },
+            credit: "",
+            note: None,
+            sampled: false,
+            gaps: None,
+            layers: &[],
+            sections: &[],
+            offices: None,
+        }))
+    }
+}
+
+struct Square;
+
+impl AdapterFiles for Square {
+    fn read(&self, _: &str) -> Result<Cow<'static, str>, String> {
+        Ok(Cow::Borrowed(
+            r#"{"type":"Feature","properties":{},"geometry":{"type":"Polygon","coordinates":
+            [[[400000,5800000],[401000,5800000],[401000,5801000],[400000,5801000],[400000,5800000]]]}}"#,
+        ))
+    }
+}
+
+#[test]
+fn the_adapter_makes_its_sources_with_the_factory_of_the_registry() {
+    let table = format!(
+        "{HEAD}layers = [{{ key = \"a\", type_name = \"x:a\", reading = \"object\", object = \"biotope\" }}]\n"
+    );
+    let manifest = || parse(&with(&table), Path::new("sample")).unwrap();
+    // A program without a factory cannot read what the manifest declares.
+    let findings = ManifestAdapter::new(manifest(), &Square, Parse::Now, &Registry::new())
+        .err()
+        .expect("no factory, no adapter");
+    assert_eq!(
+        codes(&findings),
+        [("manifest.backend-missing", "permits.wfs".to_string())]
+    );
+    let mut registry = Registry::new();
+    registry.set_permit_factory(Arc::new(Made));
+    let adapter = ManifestAdapter::new(manifest(), &Square, Parse::Now, &registry).unwrap();
+    let keys: Vec<&str> = adapter
+        .permit_sources()
+        .iter()
+        .map(|s| s.info().key)
+        .collect();
+    assert_eq!(keys, ["natur"]);
+    // A manifest that declares none needs no factory.
+    let plain = ManifestAdapter::new(
+        parse(&sample(), Path::new("sample")).unwrap(),
+        &Square,
+        Parse::Now,
+        &Registry::new(),
+    )
+    .unwrap();
+    assert!(plain.permit_sources().is_empty());
+}

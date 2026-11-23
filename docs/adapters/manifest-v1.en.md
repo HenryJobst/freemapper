@@ -221,6 +221,43 @@ At most 32: the tree cadastres of cities, read from an Opendatasoft GeoJSON expo
 | `attribution` | text | yes | The credit of the cadastre, at most 400, with `{year}` at most once. |
 | `max_bytes` | whole number | yes | 1 to 268 435 456. |
 
+## `[[permits.wfs]]`
+
+A source of the permit notes: a WFS service that answers GeoJSON (or GML 3.2), read by a table of its
+layers. Each layer says which attributes give the name, the zone or the office of a finding; the program keeps
+those attributes and nothing else. At most 12 sources with 1 to 8 layers each. A manifest that declares one
+needs freemapper 0.28.0 or later (`min_freemapper`). The tables of the built-in states move here
+one by one (issue #273); `adapters probe` asks every `url`.
+
+| Key | Type | Required | Meaning and limits |
+|---|---|---|---|
+| `key` | text | yes | The name of the source: lower-case letters, digits and hyphens, at most 40; one per source. The program stores its layers as `<key>-<layer>.geojson`. |
+| `label` | `{ en, de }` | yes | Who publishes it, the same words for all sources of one portal; at most 200 characters each. |
+| `what` | `{ en, de }` | yes | What the source holds, short. |
+| `credit` | text | yes | The credit line or licence text, verbatim as the publisher gives it; at most 400. The notes print it. |
+| `gaps` | `{ en, de }` | no | Where the data are not complete although they cover the region. |
+| `sections` | list of texts | yes | The sections of the notes it fills: `districts`, `green-spaces`, `owners`, `monuments`, `protected-objects`, `forest-units`, `state-forest`, `water-protection`, `forest-functions`, `admin-units`, … (the names of the program). |
+| `url` | URL | yes | The address of the service, on a host of `[net] hosts`, no query. |
+| `output_format` | text | yes | The `outputFormat` the service names for GeoJSON, URL-encoded as it needs it (`application/geo%2Bjson`). With `gml = true` the one for GML 3.2. |
+| `gml` | yes/no | no | The service answers GML 3.2 only. |
+| `native_crs` | whole number | no | 25832 or 25833: the service finds nothing by a box in WGS 84 or answers only in its own CRS, so it is asked in this one. |
+| `layers` | list of tables | yes | The layers, below. |
+
+A layer has `key` (a name as above, unique in its source), `type_name` (the WFS feature type) and `reading`,
+which says how its features become findings and which further keys it takes:
+
+| `reading` | Keys | Meaning |
+|---|---|---|
+| `water` | `name`, `zone` (both required), `citation`, `planned_attribute` with `planned_value` | A water protection area or zone; where the layer has planned zones, the attribute and the value that mark one. |
+| `function` | `function` (required: `recreation`, `protected`, `natural`, `closed`), `name` | Forest with a function or a protection. |
+| `unit` | `administration`, `prefix`, `office` (all required) | A unit of a forest administration; the office is `prefix` and the attribute `office`. |
+| `state-forest` | `owner`, `prefix`, `office` (all required) | Forest of the state and the office that looks after it. |
+| `object` | `object` (required: the kind of protected object, such as `natural-monument`, `protected-landscape-part`, `biotope`), `name`, `citation`, `only_attribute` with `only_values` (1 to 8) | A protected object of nature conservation law; with `only`, a feature counts only when the attribute holds one of the values. |
+| `monument` | `monument` (required: the kind), `kind_from`, `link_attribute` with `link_prefix` | A listed monument; the link counts when the attribute starts with `link_prefix`. |
+
+A key of another reading is `manifest.unknown-key`; a key a reading needs and the layer lacks is
+`manifest.missing-key`. A program without the reader of these tables answers `manifest.backend-missing`.
+
 ## `[preview]`
 
 The aerial photo on the map of the area page. Optional.
