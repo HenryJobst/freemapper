@@ -39,8 +39,6 @@ than an f64 and fails a plain JSON parse. Dataset 168 of dane.gov.pl names CC BY
 
 ## Law as read on ISAP and in the Sejm API on 23 November 2026
 
-Dz. U. 2024 poz. 1292 is the last consolidated text. Since 1 May 2025 (Dz. U. 2023 poz. 1904, art. 3) art. 36 ust. 1
-pkt 12 (searching with devices) is repealed and art. 36b puts an adult's search under the owner's consent and a
-notification in an app; art. 36 ust. 1 pkt 5 (archaeological research) stays. Since 3 June 2026 (Dz. U. 2025 poz.
+Dz. U. 2024 poz. 1292 is the last consolidated text. Art. 36 ust. 1 pkt 5 (archaeological research) and pkt 12 (searching with devices) still apply: the repeal of pkt 12 (Dz. U. 2023 poz. 1904, art. 3) was moved to 1 January 2027 (Dz. U. 2025 poz. 537), and art. 36b then puts an adult's search under the owner's consent and a notification in an app. Since 3 June 2026 (Dz. U. 2025 poz.
 1673) pkt 2, 7 and 9 to 11 are repealed and art. 36aa asks a notification for work in the surroundings. Hints name
 art. 36 ust. 1 only for work at a registered monument (pkt 1), which stays.

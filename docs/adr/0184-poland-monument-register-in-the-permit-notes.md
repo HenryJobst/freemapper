@@ -57,3 +57,16 @@ Checked live on 22 November 2026:
 - **Positions.** A WMS rendering of the layer or a second query on a smaller box could narrow where
   the monuments lie. Not worth it for a hint.
 - **The Polish legal wording** needs a Polish reader before release.
+
+## Addendum, 23 November 2026: notification for building work in the surroundings
+
+Dz. U. 2025 poz. 1673 (in force since 3 June 2026) repealed art. 36 ust. 1 pkt 2, 7, 9, 10 and 11 of the Act and
+added art. 36aa: building work in the surroundings of a monument, a change of use, devices and signs on a monument
+and other actions that could change its substance or appearance now need a notification to the voivodeship
+conservator, who can object within 60 days (ust. 3) and then require a permit (ust. 10); the person may also apply
+for a permit instead (ust. 13). Checked in the text of the act on the Sejm ELI API. The hint `permits-hint-monument-register-pl`
+keeps the permit for conservation, restoration and building work at a registered monument (pkt 1) and names the
+notification for the rest, with its date and the 60 days. The wording "need the permit ... building work in its
+surroundings and other actions" of the decision above no longer holds. Not checked: how the conservators handle
+notifications in practice. The texts changed in all 21 catalogs; English, German and Polish by hand, the other 18
+machine-made and unreviewed as before. The adapter revision stays 8, because no source, host or rule changed.

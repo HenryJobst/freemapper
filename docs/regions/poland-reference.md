@@ -301,8 +301,13 @@ class). The threshold of the fallback is 0.25. A building kind in words
   Kopiec Kościuszki of Kraków, a Pomnik historii, appears only through its register entries, no `NID_N_18_PH` id).
 - **Licence.** Credit "© Narodowy Instytut Dziedzictwa (CC BY 4.0)"; the wording is not prescribed
   and was not confirmed with the NID.
-- **Law.** Ustawa o ochronie zabytków, art. 36 ust. 1 pkt 1, 2 and 11 (Dz. U. 2024 poz. 1292);
-  Ustawa o lasach, art. 5 ust. 1 pkt 2 (Dz. U. 2025 poz. 567), checked 22 November 2026.
+- **Law.** Ustawa o ochronie zabytków, art. 36 ust. 1 pkt 1 (permit: conservation, restoration and building work at
+  a registered monument) and, since 3 June 2026 (Dz. U. 2025 poz. 1673), art. 36aa (notification instead of permit
+  for building work in the surroundings of a monument, a change of use, devices and signs on a monument and other
+  actions that could change substance or appearance; the conservator may object within 60 days, art. 36aa ust. 3,
+  and then require a permit, ust. 10); pkt 2, 7, 9, 10 and 11 of art. 36 ust. 1 were repealed by that act. Checked
+  on the Sejm ELI API (`api.sejm.gov.pl/eli`) on 23 November 2026. Ustawa o lasach, art. 5 ust. 1 pkt 2
+  (Dz. U. 2025 poz. 567), checked 22 November 2026.
 
 ## Register of archaeological monuments of the NID (ADR 0190)
 
@@ -326,9 +331,17 @@ Measured 23 November 2026, anonymous, `User-Agent` of the program only.
 - **AZP.** `https://usluga.zabytek.gov.pl/WFS_AZP/service.svc/get` gives only the sheet grid of the Archaeological
   Record of Poland ("Sekcje Archeologicznego Zdjęcia Polski"), not the sites. The sites of the AZP that are not in
   the register are not open data; not covered.
-- **Law.** Ustawa o ochronie zabytków, art. 36 ust. 1 pkt 5 archaeological research; pkt 12 (searching with devices)
-  was repealed on 1 May 2025 and replaced by the notification of art. 36b (checked 23 November 2026, see the section
-  on the Pomniki historii).
+- **Law.** Ustawa o ochronie zabytków, art. 36 ust. 1, checked on the Sejm ELI API on 23 November 2026: pkt 5
+  archaeological research and pkt 12 searching for hidden or abandoned movable monuments with electronic or
+  technical devices (and diving equipment) need the permit of the voivodeship conservator; pkt 1 conservation,
+  restoration and building work at a registered monument likewise. The amendment Dz. U. 2023 poz. 1904 repeals
+  pkt 12 and adds art. 36b (an adult may search with the consent of the owner and the holder of the property after
+  a notification in the search register through the app of the ministry), art. 36c (searches forbidden among others
+  on registered monuments and within 10 m of them, on cemeteries and in cultural parks) and art. 36d. Its entry into
+  force was moved twice: to 1 May 2025 (Dz. U. 2024 poz. 647) and then to 1 January 2027 (Dz. U. 2025 poz. 537, in
+  force since 1 May 2025). So on 23 November 2026 pkt 12 still applies and art. 36b is not yet in force; the hint
+  says so and names the date. Dz. U. 2025 poz. 1673, art. 4, adapts that amendment to 1 January 2027. Check the date
+  again before each release; the legislator moved it before.
 
 ## Pomniki historii (ADR 0191)
 
@@ -359,9 +372,7 @@ Measured again 23 November 2026, anonymous, `User-Agent` of the program only.
 - **Law, read on the Sejm API (`api.sejm.gov.pl/eli`) on 23 November 2026.** Art. 15 ust. 1: the President, by
   regulation, on the minister's motion, may declare a registered immovable monument or a cultural park of special
   value a Pomnik historii. Art. 36 ust. 1 (consolidated text Dz. U. 2024 poz. 1292): pkt 1 work at a registered
-  monument, pkt 5 archaeological research, pkt 12 searching with devices. The amendment Dz. U. 2023 poz. 1904 (in force
-  1 May 2025, art. 3) repeals pkt 12 and adds art. 36b: an adult searches with the consent of the owner and the
-  possessor after notifying the search in the ministry's app; art. 36c has the finder's duties; art. 109e a fine.
+  monument, pkt 5 archaeological research, pkt 12 searching with devices. The amendment Dz. U. 2023 poz. 1904 repeals pkt 12 and adds art. 36b (an adult searches with the consent of the owner and the possessor after notifying the search in the ministry's app), art. 36c (the finder's duties) and art. 109e (a fine); its entry into force was moved to 1 January 2027 (Dz. U. 2025 poz. 537), so pkt 12 still applies on 23 November 2026.
   Dz. U. 2025 poz. 1673 (in force 3 June 2026) repeals art. 36 ust. 1 pkt 2, 7 and 9 to 11 and adds art. 36aa: a
   notification, not a permit, for building work in the surroundings, a change of use, signs and other actions that could
   change the look. The hint on the archaeological register (ADR 0190) says "art. 36 ust. 1" for research and work at a

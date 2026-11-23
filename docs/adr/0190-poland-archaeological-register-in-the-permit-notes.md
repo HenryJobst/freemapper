@@ -50,3 +50,21 @@ The register of immovable monuments (ADR 0184) holds no archaeological sites. Ch
 - **Sites only in the AZP record.** No open source.
 - **The Polish legal wording** needs a Polish reader before release; so does the point of the Act for the
   research permit.
+
+## Addendum, 23 November 2026: the legal wording checked
+
+The decision left two points open; both are settled from the texts on the Sejm ELI API (`api.sejm.gov.pl/eli`):
+
+- Archaeological research is art. 36 ust. 1 pkt 5; searching with electronic or technical devices is pkt 12.
+- The amendment Dz. U. 2023 poz. 1904 repeals pkt 12 and adds art. 36b (an adult, with the consent of the owner
+  and the holder of the property, after a notification through the app of the ministry), art. 36c (ban on such
+  searches among others on registered monuments and within 10 m of them) and art. 36d (the search register).
+  It is **not yet in force**: its entry into force was moved to 1 May 2025 (Dz. U. 2024 poz. 647) and then to
+  1 January 2027 (Dz. U. 2025 poz. 537; Dz. U. 2025 poz. 1673, art. 4, adapts it to that date). On 23 November 2026
+  the permit of pkt 12 therefore still applies. An earlier assumption that the permit had ended on 1 May 2025 is wrong.
+
+The hint `permits-hint-archaeology-register-pl` now names pkt 5, pkt 12 and pkt 1 (conservation, restoration and
+building work at a registered monument), says that the permit for searches falls away on 1 January 2027, and names
+what replaces it (art. 36b, 36c). It does not say "regulates". The date can move again; the reference file says to
+check it before each release. The texts changed in all 21 catalogs, by hand in English, German and Polish and
+machine-made and unreviewed in the other 18 as before. The adapter revision stays 8.

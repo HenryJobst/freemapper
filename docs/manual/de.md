@@ -1473,17 +1473,16 @@ Massenveranstaltungen und Versammlungen bekommen keinen Gmina-Hinweis. Die Denkm
 unbeweglichen Denkmale des NID (`usluga.zabytek.gov.pl`, eine Anfrage je Kartengebiet): Die Hinweise zählen die
 Denkmale im Rechteck um das Kartengebiet und nennen die häufigsten Namen mit ihrer Anzahl (höchstens zehn). Das
 Register liefert keine Positionen, deshalb steht dort, dass man auf der Karte nachsehen muss, wo sie liegen. Der
-Hinweis nennt die Genehmigung des Woiwodschafts-Denkmalpflegers für Arbeiten an einem Denkmal und in seinem Umfeld
-(Denkmalschutzgesetz, Art. 36); einen Lauf nennt das Gesetz nicht. Eine zweite Anfrage fragt das Register der archäologischen Denkmale (Buch C des Registers) genauso ab; der Abschnitt
-hat dieselbe Form, und der Hinweis sagt, dass das Gesetz die Suche nach Denkmalen mit Metallsonden regelt und
-archäologische Forschungen und Arbeiten an einer eingetragenen Stätte unter die Genehmigung des Konservators stellt.
-Fundstellen, die nur in der archäologischen Kartei (AZP) stehen und nicht im Register eingetragen sind, sind nicht
-abgedeckt. Die Pomniki historii (Denkmäler der Geschichte) kommen aus einem WFS des NID mit ihren wahren Positionen: Der
-Abschnitt nennt die Zahl der Denkmäler im Kartengebiet und, getrennt davon, die nur im Rechteck um das Kartengebiet,
-mit Namen (höchstens zehn je Liste); ein Denkmal aus mehreren Teilen zählt einmal. Der Hinweis sagt, dass der Präsident
-ein eingetragenes unbewegliches Denkmal oder einen Kulturpark zum Pomnik historii erklärt (Art. 15 Abs. 1), dass Arbeiten
-an einem eingetragenen Denkmal die Genehmigung des Woiwodschafts-Denkmalpflegers brauchen (Art. 36 Abs. 1) und dass in
-einem Kulturpark der Beschluss des Gemeinderats entscheidet; einen Lauf nennt das Gesetz nicht. In den Daten sind nur die Staatsforsten, kein Privatwald; die Hinweise sagen, dass der
+Hinweis nennt die Genehmigung des Woiwodschafts-Denkmalpflegers für Konservierungs-, Restaurierungs- und Bauarbeiten an
+einem Denkmal (Denkmalschutzgesetz, Art. 36 Abs. 1) und sagt, dass seit dem 3. Juni 2026 Bauarbeiten im Umfeld und
+einige andere Handlungen nur eine Meldung brauchen, der der Konservator binnen 60 Tagen widersprechen kann (Art. 36aa);
+einen Lauf nennt das Gesetz nicht. Eine zweite Anfrage fragt das Register der archäologischen Denkmale (Buch C des Registers) genauso ab; der Abschnitt
+hat dieselbe Form, und der Hinweis sagt, dass archäologische Forschungen und die Suche mit Metallsonden die
+Genehmigung des Konservators brauchen (Art. 36 Abs. 1 Pkt 5 und 12), dass die Genehmigung für die Suche am 1. Januar 2027
+entfällt und durch die Zustimmung des Eigentümers plus eine Meldung in der App des Ministeriums ersetzt wird (Art. 36b)
+und dass eingetragene Denkmale samt einem Streifen von 10 m dann für solche Suchen gesperrt sind (Art. 36c).
+Fundstellen, die nur in der archäologischen Kartei (AZP) stehen und nicht im Register eingetragen sind, und die
+Pomniki historii sind nicht abgedeckt. In den Daten sind nur die Staatsforsten, kein Privatwald; die Hinweise sagen, dass der
 Starost Wald beaufsichtigt, der nicht dem Staatsschatz gehört. Die Hinweistexte hat noch kein Polnischsprecher gelesen. Die Hinweise sind
 ein Hinweis, keine Rechtsberatung. `--offline` liest, was ein früherer Lauf gespeichert hat, wie in Deutschland.
 
