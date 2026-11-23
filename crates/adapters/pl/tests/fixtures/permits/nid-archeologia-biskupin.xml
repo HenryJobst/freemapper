@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FeatureCollection xmlns="http://www.intergraph.com/geomedia/gml" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:gml="http://www.opengis.net/gml" xmlns:xlink="http://www.w3.org/1999/xlink"><gml:featureMember><Layer Name="Archaeological_Monuments"><Attribute Name="inspireID">PL.1.9.ZIPOZ.NID_A_04_AR.39028</Attribute><Attribute Name="legalFoundationDate">18/08/1958</Attribute><Attribute Name="legalFoundationDocument">B-17 z 1958-08-18; 
+
+
+
+
+
+</Attribute><Attribute Name="nationalMonumentsRecord">settlement</Attribute><Attribute Name="percentageUnderDesignation">100</Attribute><Attribute Name="siteName">Biskupin, st. 10</Attribute><Attribute Name="siteProtectionClassification">archaeological</Attribute></Layer></gml:featureMember><gml:featureMember><Layer Name="Archaeological_Monuments"><Attribute Name="inspireID">PL.1.9.ZIPOZ.NID_A_04_AR.1069</Attribute><Attribute Name="legalFoundationDate">16/11/1995</Attribute><Attribute Name="legalFoundationDocument">147/C z 1995-11-16; 
+
+
+
+
+
+</Attribute><Attribute Name="nationalMonumentsRecord">settlement</Attribute><Attribute Name="percentageUnderDesignation">100</Attribute><Attribute Name="siteName">Biskupin</Attribute><Attribute Name="siteProtectionClassification">archaeological</Attribute></Layer></gml:featureMember><gml:featureMember><Layer Name="Archaeological_Monuments"><Attribute Name="inspireID">PL.1.9.ZIPOZ.NID_A_04_AR.1074</Attribute><Attribute Name="legalFoundationDate">19/08/1958</Attribute><Attribute Name="legalFoundationDocument">B-16 z 1958-08-19; 
+C/164 z 2005-11-21; 
+
+
+
+
+</Attribute><Attribute Name="nationalMonumentsRecord">settlement</Attribute><Attribute Name="percentageUnderDesignation">100</Attribute><Attribute Name="siteName">Biskupin, st. 15,15a</Attribute><Attribute Name="siteProtectionClassification">archaeological</Attribute></Layer></gml:featureMember><gml:featureMember><Layer Name="Archaeological_Monuments"><Attribute Name="inspireID">PL.1.9.ZIPOZ.NID_A_04_AR.70699</Attribute><Attribute Name="legalFoundationDate">06/02/2006</Attribute><Attribute Name="legalFoundationDocument">C/148 z 2006-02-06; 
+brak numeru z 2006-08-07; 
+
+
+
+
+</Attribute><Attribute Name="nationalMonumentsRecord">monument</Attribute><Attribute Name="percentageUnderDesignation">100</Attribute><Attribute Name="siteName">Biskupin</Attribute><Attribute Name="siteProtectionClassification">archaeological</Attribute></Layer></gml:featureMember><gml:featureMember><Layer Name="Archaeological_Monuments"><Attribute Name="inspireID">PL.1.9.ZIPOZ.NID_A_04_AR.1069</Attribute><Attribute Name="legalFoundationDate">16/11/1995</Attribute><Attribute Name="legalFoundationDocument">147/C z 1995-11-16; 
+
+
+
+
+
+</Attribute><Attribute Name="nationalMonumentsRecord">settlement</Attribute><Attribute Name="percentageUnderDesignation">100</Attribute><Attribute Name="siteName">Biskupin</Attribute><Attribute Name="siteProtectionClassification">archaeological</Attribute></Layer></gml:featureMember><gml:featureMember><Layer Name="Archaeological_Monuments"><Attribute Name="inspireID">PL.1.9.ZIPOZ.NID_A_04_AR.36186</Attribute><Attribute Name="legalFoundationDate">18/08/1958</Attribute><Attribute Name="legalFoundationDocument">B-18 z 1958-08-18; 
+
+
+
+
+
+</Attribute><Attribute Name="nationalMonumentsRecord">settlement</Attribute><Attribute Name="percentageUnderDesignation">100</Attribute><Attribute Name="siteName">Biskupin, st. 18</Attribute><Attribute Name="siteProtectionClassification">archaeological</Attribute></Layer></gml:featureMember><gml:featureMember><Layer Name="Archaeological_Monuments"><Attribute Name="inspireID">PL.1.9.ZIPOZ.NID_A_04_AR.36193</Attribute><Attribute Name="legalFoundationDate">20/07/1935</Attribute><Attribute Name="legalFoundationDocument">B-7 z 1935-07-20; 
+C/148 z 2006-02-06; 
+
+
+
+
+</Attribute><Attribute Name="nationalMonumentsRecord">settlement</Attribute><Attribute Name="percentageUnderDesignation">100</Attribute><Attribute Name="siteName">Biskupin, st. 4</Attribute><Attribute Name="siteProtectionClassification">archaeological</Attribute></Layer></gml:featureMember><gml:featureMember><Layer Name="Archaeological_Monuments"><Attribute Name="inspireID">PL.1.9.ZIPOZ.NID_A_04_AR.36191</Attribute><Attribute Name="legalFoundationDate">18/08/1958</Attribute><Attribute Name="legalFoundationDocument">B-19 z 1958-08-18; 
+
+
+
+
+
+</Attribute><Attribute Name="nationalMonumentsRecord">settlement</Attribute><Attribute Name="percentageUnderDesignation">100</Attribute><Attribute Name="siteName">Biskupin, st. 6</Attribute><Attribute Name="siteProtectionClassification">archaeological</Attribute></Layer></gml:featureMember><gml:featureMember><Layer Name="Archaeological_Monuments"><Attribute Name="inspireID">PL.1.9.ZIPOZ.NID_A_04_AR.36181</Attribute><Attribute Name="legalFoundationDate">18/08/1958</Attribute><Attribute Name="legalFoundationDocument">B-20 z 1958-08-18; 
+
+
+
+
+
+</Attribute><Attribute Name="nationalMonumentsRecord">settlement</Attribute><Attribute Name="percentageUnderDesignation">100</Attribute><Attribute Name="siteName">Biskupin, st. 2</Attribute><Attribute Name="siteProtectionClassification">archaeological</Attribute></Layer></gml:featureMember></FeatureCollection>

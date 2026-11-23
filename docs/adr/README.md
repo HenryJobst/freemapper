@@ -235,3 +235,4 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0187](0187-poland-bdot10k-roads-and-paths-on-forest-maps.md) | BDOT10k roads and paths on forest maps | Accepted, extends ADR 0178 | 2026-11-22 |
 | [0188](0188-a-folder-adapter-replaces-a-built-in-one.md) | A folder adapter replaces a built-in one | Accepted | 2026-11-22 |
 | [0189](0189-permit-sources-as-manifest-data.md) | Permit sources as manifest data | Accepted | 2026-11-23 |
+| [0190](0190-poland-archaeological-register-in-the-permit-notes.md) | The register of archaeological monuments of the NID in the Polish permit notes | Accepted, extends ADR 0184 | 2026-11-23 |

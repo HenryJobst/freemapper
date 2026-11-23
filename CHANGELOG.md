@@ -8,6 +8,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Hinzugefügt
 
+- Die Genehmigungshinweise für ein Kartengebiet in Polen zählen auch die archäologischen Denkmale des Registers des NID (Buch C) im Rechteck um das Kartengebiet, mit ihren Namen (höchstens zehn, der Rest wird gezählt). Es ist eine zweite Anfrage an denselben Host wie das Register der unbeweglichen Denkmale; die Antwort hat keine Positionen, deshalb steht in den Hinweisen, dass man auf der Karte nachsehen muss, wo sie liegen. Ein Hinweis sagt, dass das Denkmalschutzgesetz die Suche nach Denkmalen mit Metallsonden regelt und archäologische Forschungen und Arbeiten an einer eingetragenen Stätte unter die Genehmigung des Woiwodschafts-Denkmalpflegers stellt (Art. 36 Abs. 1); einen Spaziergang oder Lauf nennt es nicht. Fundstellen, die nur in der archäologischen Kartei (AZP) stehen, und die Pomniki historii sind nicht abgedeckt (ADR 0190)
 - Die Quellen der Genehmigungshinweise können im Manifest stehen: `[[permits.wfs]]` beschreibt einen WFS-Dienst mit seinen Schichten und deren Lesearten (Issue #273, Stufe 2a). Der Validator prüft Adresse, Host, Namen und die Schlüssel je Leseart; ein Ordner-Adapter kann sie erklären, `adapters probe` fragt ihre Adressen an. Als Erstes sind die geschützten Objekte Hamburgs, des Saarlands, Brandenburgs, Berlins, Hessens, Nordrhein-Westfalens und Schleswig-Holsteins (Naturdenkmale, Landschaftsbestandteile, Biotope) aus dem Code ins Manifest gezogen; die Hinweise lesen sich unverändert (ADR 0189).
 
 ## [0.27.0] - 2026-11-22

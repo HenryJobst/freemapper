@@ -1474,8 +1474,11 @@ unbeweglichen Denkmale des NID (`usluga.zabytek.gov.pl`, eine Anfrage je Karteng
 Denkmale im Rechteck um das Kartengebiet und nennen die häufigsten Namen mit ihrer Anzahl (höchstens zehn). Das
 Register liefert keine Positionen, deshalb steht dort, dass man auf der Karte nachsehen muss, wo sie liegen. Der
 Hinweis nennt die Genehmigung des Woiwodschafts-Denkmalpflegers für Arbeiten an einem Denkmal und in seinem Umfeld
-(Denkmalschutzgesetz, Art. 36); einen Lauf nennt das Gesetz nicht. Archäologische Stätten und die Pomniki historii
-fehlen in der Schicht. In den Daten sind nur die Staatsforsten, kein Privatwald; die Hinweise sagen, dass der
+(Denkmalschutzgesetz, Art. 36); einen Lauf nennt das Gesetz nicht. Eine zweite Anfrage fragt das Register der archäologischen Denkmale (Buch C des Registers) genauso ab; der Abschnitt
+hat dieselbe Form, und der Hinweis sagt, dass das Gesetz die Suche nach Denkmalen mit Metallsonden regelt und
+archäologische Forschungen und Arbeiten an einer eingetragenen Stätte unter die Genehmigung des Konservators stellt.
+Fundstellen, die nur in der archäologischen Kartei (AZP) stehen und nicht im Register eingetragen sind, und die
+Pomniki historii sind nicht abgedeckt. In den Daten sind nur die Staatsforsten, kein Privatwald; die Hinweise sagen, dass der
 Starost Wald beaufsichtigt, der nicht dem Staatsschatz gehört. Die Hinweistexte hat noch kein Polnischsprecher gelesen. Die Hinweise sind
 ein Hinweis, keine Rechtsberatung. `--offline` liest, was ein früherer Lauf gespeichert hat, wie in Deutschland.
 

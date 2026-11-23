@@ -117,6 +117,9 @@ pub mod hint_key {
     /// No args: monuments of the register lie in the rectangle around the map area in Poland;
     /// the voivodeship conservator decides on work at them (ADR 0184).
     pub const MONUMENT_REGISTER_PL: &str = "permits-hint-monument-register-pl";
+    /// No args: archaeological monuments of the register lie in the rectangle around the map area
+    /// in Poland; searching and digging at them needs the conservator's permit (ADR 0190).
+    pub const ARCHAEOLOGY_REGISTER_PL: &str = "permits-hint-archaeology-register-pl";
 }
 
 /// The credit line of the OSM data, as on the map.
@@ -1092,6 +1095,9 @@ fn regional_hints(forest: bool, operated: &[&OsmFinding], regional: &[HintFacts]
     }
     if regional.iter().any(|f| f.register_monuments > 0) {
         hints.push(Hint::new(hint_key::MONUMENT_REGISTER_PL, &[]));
+    }
+    if regional.iter().any(|f| f.register_archaeology > 0) {
+        hints.push(Hint::new(hint_key::ARCHAEOLOGY_REGISTER_PL, &[]));
     }
     if forest {
         let offices: Vec<_> = regional.iter().flat_map(|f| &f.forest_offices).collect();
