@@ -326,26 +326,48 @@ Measured 23 November 2026, anonymous, `User-Agent` of the program only.
 - **AZP.** `https://usluga.zabytek.gov.pl/WFS_AZP/service.svc/get` gives only the sheet grid of the Archaeological
   Record of Poland ("Sekcje Archeologicznego Zdjęcia Polski"), not the sites. The sites of the AZP that are not in
   the register are not open data; not covered.
-- **Law.** Ustawa o ochronie zabytków, art. 36 ust. 1: pkt 12 searching for hidden or abandoned movable monuments
-  with electronic or technical devices (the amendment Dz. U. 2023 poz. 1904 added a notification route for adults
-  with the owner's consent; how it sits beside the permit was not settled from secondary sources), archaeological
-  research as a permit of its own. The pkt number of the research was not confirmed; the hint names art. 36 ust. 1
-  only. Check on ISAP before a release.
+- **Law.** Ustawa o ochronie zabytków, art. 36 ust. 1 pkt 5 archaeological research; pkt 12 (searching with devices)
+  was repealed on 1 May 2025 and replaced by the notification of art. 36b (checked 23 November 2026, see the section
+  on the Pomniki historii).
 
-## Pomniki historii (measured, not built)
+## Pomniki historii (ADR 0191)
+
+Measured again 23 November 2026, anonymous, `User-Agent` of the program only.
 
 - **Service.** `https://usluga.zabytek.gov.pl/INSPIRE_WFS_MHD/service.svc/get`, WFS 2.0.0, feature type
-  `gmgml:Monuments_of_History`, `outputFormat=application/vnd.geo+json`, EPSG:2180 only.
-  `GetFeature` needs `typeNames`. The whole country: 387 features (184 INSPIREIDs, 134 names), 2.0 MB, 2.5 s, with
-  polygons, lines or points. Properties: `INSPIREID` (`..._PH.<n>`), `SITENAME`, `NATIONALMONUMENTSRECORD`,
-  `SITEPROTECTIONCLASSIFICATION` (`cultural`, `landscape`, `archaeological`), `LEGALFOUNDATIONDOCUMENT` (a
-  `zabytek.pl` link).
-- **BBOX.** `bbox=<northing min>,<easting min>,<northing max>,<easting max>,EPSG:2180` works (axis order
-  northing first; without the CRS suffix the answer is the whole country; `urn:ogc:def:crs:EPSG::2180` and 4326
-  fail with a server error). Kraków 243000,563000,244000,565000 gives the Kopiec Kościuszki, 11 KB.
+  `gmgml:Monuments_of_History`, `outputFormat=application/vnd.geo%2Bjson` (the `+` must be written `%2B`;
+  `application/json` is refused), EPSG:2180 only. `GetFeature` needs `typeNames`. The whole country: 387 features
+  (184 INSPIREIDs, 134 names), 2.0 MB, 2.5 s, with polygons, lines or points. A monument has several parts
+  (Tarnowskie Góry: 55, Przemyśl: 48). Properties: `INSPIREID` (`..._PH.<n>`), `SITENAME`,
+  `NATIONALMONUMENTSRECORD`, `SITEPROTECTIONCLASSIFICATION` (`cultural`, `landscape`, `archaeological`),
+  `LEGALFOUNDATIONDATE`, `LEGALFOUNDATIONDOCUMENT` (a `zabytek.pl` link), `PERCENTAGEUNDERDESIGNATION`.
+- **Coordinates.** GeoJSON with `"crs": "EPSG:2180"`, easting first (`[563837.95, 243217.53]` is the Kopiec
+  Kościuszki area), converted by the adapter with `pl1992_inverse`.
+- **BBOX.** `bbox=<northing min>,<easting min>,<northing max>,<easting max>,EPSG:2180` works (northing first).
+  Without the CRS suffix the box is read differently: Kraków (242905,563698,245146,565102) gave one of the two parts,
+  Słubice nothing (an earlier note that this returns the whole country could not be reproduced).
+  `urn:ogc:def:crs:EPSG::2180` and `EPSG:4326` give an `ExceptionReport` with status 200, as does the wrong output
+  format. The Kraków box of the fixture (242905,563671,245146,565130): 2 parts of one monument, 11 KB, 0.7 s.
+- **Empty answer.** `{"type": "FeatureCollection", ..., "features": [  ], "bbox": [1.79769313486232e308,
+  1.79769313486232e308, -1.79769313486232e308, -1.79769313486232e308] }`: the numbers exceed an f64, so a plain JSON
+  parse fails; the adapter reads the members raw.
 - **Archaeological Pomniki historii.** Biskupin (reserve), Ostrów Lednicki and Krzemionki have
-  `SITEPROTECTIONCLASSIFICATION` `archaeological`.
-- **Licence.** Dataset 168 of dane.gov.pl, CC BY 4.0.
+  `SITEPROTECTIONCLASSIFICATION` `archaeological` and are also in the archaeological register.
+- **Kopiec Kościuszki.** It is in this layer as `NID_N_12_PH.15423` (two polygon parts); the register of immovable
+  monuments knows it only through its entries, with no `PH` id (see above).
+- **Licence.** Dataset 168 of dane.gov.pl, CC BY 4.0; credit as for the other NID sources.
+- **Law, read on the Sejm API (`api.sejm.gov.pl/eli`) on 23 November 2026.** Art. 15 ust. 1: the President, by
+  regulation, on the minister's motion, may declare a registered immovable monument or a cultural park of special
+  value a Pomnik historii. Art. 36 ust. 1 (consolidated text Dz. U. 2024 poz. 1292): pkt 1 work at a registered
+  monument, pkt 5 archaeological research, pkt 12 searching with devices. The amendment Dz. U. 2023 poz. 1904 (in force
+  1 May 2025, art. 3) repeals pkt 12 and adds art. 36b: an adult searches with the consent of the owner and the
+  possessor after notifying the search in the ministry's app; art. 36c has the finder's duties; art. 109e a fine.
+  Dz. U. 2025 poz. 1673 (in force 3 June 2026) repeals art. 36 ust. 1 pkt 2, 7 and 9 to 11 and adds art. 36aa: a
+  notification, not a permit, for building work in the surroundings, a change of use, signs and other actions that could
+  change the look. The hint on the archaeological register (ADR 0190) says "art. 36 ust. 1" for research and work at a
+  registered site, which still holds (pkt 1 and 5); its words on searching with devices ("regulates") hold, the permit
+  of pkt 12 is gone. The hint on the register of immovable monuments (ADR 0184) names a permit for work "in its
+  surroundings", which is a notification since 3 June 2026; not changed here, see the ADR.
 
 ## Addendum 22 November 2026: BDOT10k roads and paths (measured, ADR 0187)
 

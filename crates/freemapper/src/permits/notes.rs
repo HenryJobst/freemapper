@@ -120,6 +120,10 @@ pub mod hint_key {
     /// No args: archaeological monuments of the register lie in the rectangle around the map area
     /// in Poland; searching and digging at them needs the conservator's permit (ADR 0190).
     pub const ARCHAEOLOGY_REGISTER_PL: &str = "permits-hint-archaeology-register-pl";
+    /// No args: a monument of history lies in or near the map area in Poland; it is a monument
+    /// of the register or a cultural park, and the voivodeship conservator decides on work at
+    /// it (ADR 0191).
+    pub const HISTORY_REGISTER_PL: &str = "permits-hint-history-register-pl";
 }
 
 /// The credit line of the OSM data, as on the map.
@@ -414,6 +418,13 @@ impl Plane {
         let p = self.crs.forward(LatLon { lat: c.y, lon: c.x });
         (p.easting.is_finite() && p.northing.is_finite())
             .then_some(geo_types::coord! { x: p.easting, y: p.northing })
+    }
+
+    /// A line (WGS 84, x = longitude) in the plane; `None` when it has fewer than two positions
+    /// or one is no finite position.
+    pub(crate) fn project_line(&self, line: &LineString<f64>) -> Option<LineString<f64>> {
+        let points: Option<Vec<_>> = line.0.iter().map(|c| self.project_point(*c)).collect();
+        points.filter(|p| p.len() >= 2).map(LineString::new)
     }
 
     /// Whether a projected line touches the map area.
@@ -1099,6 +1110,9 @@ fn regional_hints(forest: bool, operated: &[&OsmFinding], regional: &[HintFacts]
     if regional.iter().any(|f| f.register_archaeology > 0) {
         hints.push(Hint::new(hint_key::ARCHAEOLOGY_REGISTER_PL, &[]));
     }
+    if regional.iter().any(|f| f.register_history > 0) {
+        hints.push(Hint::new(hint_key::HISTORY_REGISTER_PL, &[]));
+    }
     if forest {
         let offices: Vec<_> = regional.iter().flat_map(|f| &f.forest_offices).collect();
         for office in &offices {
@@ -1163,7 +1177,7 @@ pub(crate) fn status<T>(id: &str, input: &SourceInput<T>, credit: &str) -> Sourc
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::permits::regional::MAX_MONUMENT_LINKS;
+    use crate::permits::regional::{MAX_MONUMENT_LINKS, RegisterMonuments};
     use geo_types::{Coord, LineString, Polygon};
 
     const FETCHED: NaiveDate = NaiveDate::from_ymd_opt(2026, 11, 13).unwrap();
@@ -3766,5 +3780,298 @@ mod tests {
         assert!(keys(&found).contains(&hint_key::CITY_STATE));
         assert!(keys(&found).contains(&hint_key::OWNERS_UNKNOWN));
         assert!(!keys(&found).contains(&hint_key::PROTECTED_AREAS_PL));
+    }
+    // The monuments of history (ADR 0191).
+
+    fn history_part(
+        id: &str,
+        name: Option<&str>,
+        geometry: geo_types::Geometry<f64>,
+    ) -> PermitFinding {
+        PermitFinding {
+            kind: FindingKind::RegisterHistory {
+                id: id.into(),
+                name: name.map(String::from),
+            },
+            geometry,
+        }
+    }
+
+    fn rectangle(
+        min_lon: f64,
+        min_lat: f64,
+        max_lon: f64,
+        max_lat: f64,
+    ) -> geo_types::Geometry<f64> {
+        geo_types::Geometry::Polygon(square(min_lon, min_lat, max_lon, max_lat).0.remove(0))
+    }
+
+    fn path(positions: &[(f64, f64)]) -> geo_types::Geometry<f64> {
+        geo_types::Geometry::LineString(LineString::from(positions.to_vec()))
+    }
+
+    fn dot(lon: f64, lat: f64) -> geo_types::Geometry<f64> {
+        geo_types::Geometry::Point(geo_types::Point::new(lon, lat))
+    }
+
+    /// Inside the map area (13.0-13.1 E, 52.0-52.1 N) and outside it.
+    fn inside() -> geo_types::Geometry<f64> {
+        rectangle(13.04, 52.04, 13.06, 52.06)
+    }
+
+    fn outside() -> geo_types::Geometry<f64> {
+        rectangle(13.2, 52.2, 13.21, 52.21)
+    }
+
+    fn history_notes(findings: Vec<PermitFinding>) -> PermitNotes {
+        let source = regional("pomniki", PermitSection::HistoryRegister, findings);
+        poland(vec![source])
+    }
+
+    /// The inputs of a region without the German national sources, as Poland's.
+    fn poland(regional: Vec<RegionalInput>) -> PermitNotes {
+        let inputs = Inputs {
+            national: false,
+            ..with_regional(vec![], regional)
+        };
+        notes(MapKind::Sprint, &inputs)
+    }
+
+    fn counted(register: &RegisterMonuments) -> (usize, Vec<(&str, usize)>, usize) {
+        (
+            register.total,
+            register
+                .names
+                .iter()
+                .map(|n| (n.name.as_str(), n.count))
+                .collect(),
+            register.left,
+        )
+    }
+
+    /// Every kind of shape is in the area when it touches the map and nearby when it does not;
+    /// an edge that only touches an area, a corner that touches a point or a line counts as on
+    /// the map for the point and the line (their border counts), not for the area.
+    #[test]
+    fn monuments_of_history_are_in_the_area_or_nearby_by_their_shape() {
+        let found = history_notes(vec![
+            history_part("area-in", Some("Fläche innen"), inside()),
+            history_part("area-out", Some("Fläche außen"), outside()),
+            // Shares only an edge with the map: no overlap.
+            history_part(
+                "area-edge",
+                Some("Fläche am Rand"),
+                rectangle(13.1, 52.0, 13.2, 52.1),
+            ),
+            history_part(
+                "line-in",
+                Some("Linie quer"),
+                path(&[(12.9, 52.05), (13.2, 52.05)]),
+            ),
+            history_part(
+                "line-3",
+                Some("Linie drei"),
+                path(&[(13.01, 52.01), (13.02, 52.02), (13.03, 52.01)]),
+            ),
+            history_part(
+                "line-out",
+                Some("Linie außen"),
+                path(&[(13.3, 52.05), (13.4, 52.05)]),
+            ),
+            history_part(
+                "line-corner",
+                Some("Linie Ecke"),
+                path(&[(13.1, 52.1), (13.2, 52.2)]),
+            ),
+            history_part(
+                "line-near-corner",
+                Some("Linie neben Ecke"),
+                path(&[(13.1001, 52.1), (13.2, 52.2)]),
+            ),
+            history_part("line-one", Some("Linie ein Punkt"), path(&[(13.05, 52.05)])),
+            history_part(
+                "line-bad",
+                Some("Linie Fehler"),
+                path(&[(13.05, 52.05), (13.05, 95.0)]),
+            ),
+            history_part("point-in", Some("Punkt innen"), dot(13.05, 52.05)),
+            history_part("point-out", Some("Punkt außen"), dot(13.3, 52.3)),
+            history_part("point-corner", Some("Punkt Ecke"), dot(13.1, 52.1)),
+            history_part(
+                "point-near-corner",
+                Some("Punkt neben Ecke"),
+                dot(13.1001, 52.1),
+            ),
+        ]);
+        let history = found.regional[0].register_history.as_ref().unwrap();
+        let names = |r: &RegisterMonuments| -> Vec<String> {
+            let mut names: Vec<String> = r.names.iter().map(|n| n.name.clone()).collect();
+            names.sort();
+            names
+        };
+        assert_eq!(
+            names(&history.in_area),
+            [
+                "Fläche innen",
+                "Linie Ecke",
+                "Linie drei",
+                "Linie quer",
+                "Punkt Ecke",
+                "Punkt innen"
+            ]
+        );
+        assert_eq!(history.in_area.total, 6);
+        assert_eq!(
+            names(&history.nearby),
+            [
+                "Fläche am Rand",
+                "Fläche außen",
+                "Linie Fehler",
+                "Linie außen",
+                "Linie ein Punkt",
+                "Linie neben Ecke",
+                "Punkt außen",
+                "Punkt neben Ecke"
+            ]
+        );
+        assert_eq!(history.nearby.total, 8);
+        assert!(keys(&found).contains(&hint_key::HISTORY_REGISTER_PL));
+    }
+
+    /// A multi-line counts when one of its lines crosses; one with a broken line still counts
+    /// by the others.
+    #[test]
+    fn a_multi_line_monument_of_history_counts_by_its_lines_that_can_be_placed() {
+        let multi = |lines: Vec<Vec<(f64, f64)>>| {
+            geo_types::Geometry::MultiLineString(geo_types::MultiLineString::new(
+                lines.into_iter().map(LineString::from).collect(),
+            ))
+        };
+        let found = history_notes(vec![
+            history_part(
+                "a",
+                Some("A"),
+                multi(vec![
+                    vec![(13.3, 52.3), (13.4, 52.3)],
+                    vec![(13.0, 52.05), (13.2, 52.05)],
+                ]),
+            ),
+            history_part(
+                "b",
+                Some("B"),
+                multi(vec![
+                    vec![(13.05, 95.0), (13.06, 52.05)],
+                    vec![(13.0, 52.05), (13.2, 52.05)],
+                ]),
+            ),
+            history_part(
+                "c",
+                Some("C"),
+                multi(vec![vec![(13.3, 52.3), (13.4, 52.3)]]),
+            ),
+        ]);
+        let history = found.regional[0].register_history.as_ref().unwrap();
+        assert_eq!(counted(&history.in_area), (2, vec![("A", 1), ("B", 1)], 0));
+        assert_eq!(counted(&history.nearby), (1, vec![("C", 1)], 0));
+    }
+
+    /// A monument with several parts counts once, in the area when any part touches the map,
+    /// and takes the first name that any part has.
+    #[test]
+    fn a_monument_of_history_with_several_parts_counts_once() {
+        let found = history_notes(vec![
+            history_part("m", None, outside()),
+            history_part("m", Some("Name M"), path(&[(12.9, 52.05), (13.2, 52.05)])),
+            history_part("m", Some("Anders"), inside()),
+            history_part("n", None, outside()),
+            history_part("n", Some("Name N"), dot(13.3, 52.3)),
+            history_part("n", Some("Anders"), dot(13.4, 52.4)),
+            history_part("o", Some("Erst"), outside()),
+            history_part("o", Some("Zweit"), outside()),
+            history_part("p", Some("Name P"), outside()),
+        ]);
+        let history = found.regional[0].register_history.as_ref().unwrap();
+        assert_eq!(counted(&history.in_area), (1, vec![("Name M", 1)], 0));
+        assert_eq!(
+            counted(&history.nearby),
+            (3, vec![("Erst", 1), ("Name N", 1), ("Name P", 1)], 0)
+        );
+    }
+
+    /// At most ten names; the monuments beyond them and those without a name are counted as the
+    /// rest. Names with the same text are one line with their count, the longest first, then by
+    /// name. The area and the rectangle are capped each.
+    #[test]
+    fn the_names_of_monuments_of_history_are_capped_at_ten() {
+        let many = |count: usize, shape: fn() -> geo_types::Geometry<f64>, tag: &str| {
+            (0..count)
+                .map(|i| history_part(&format!("{tag}{i}"), Some(&format!("{tag}{i:02}")), shape()))
+                .collect::<Vec<_>>()
+        };
+        for (count, listed, left) in [(9, 9, 0), (10, 10, 0), (11, 10, 1), (25, 10, 15)] {
+            let found = history_notes(many(count, inside, "n"));
+            let history = found.regional[0].register_history.as_ref().unwrap();
+            assert_eq!(history.in_area.total, count);
+            assert_eq!(history.in_area.names.len(), listed, "{count}");
+            assert_eq!(history.in_area.left, left, "{count}");
+            assert_eq!(history.nearby.total, 0);
+            assert_eq!(history.nearby.left, 0);
+        }
+        // Both lists are capped on their own.
+        let mut both = many(11, inside, "i");
+        both.extend(many(12, outside, "o"));
+        let found = history_notes(both);
+        let history = found.regional[0].register_history.as_ref().unwrap();
+        assert_eq!((history.in_area.total, history.in_area.left), (11, 1));
+        assert_eq!((history.nearby.total, history.nearby.left), (12, 2));
+        assert_eq!(history.nearby.names.len(), 10);
+        // Monuments without a name are only counted; equal names are one line with a count.
+        let found = history_notes(vec![
+            history_part("1", Some("B"), inside()),
+            history_part("2", Some("B"), inside()),
+            history_part("3", Some("A"), inside()),
+            history_part("4", Some("C"), inside()),
+            history_part("5", None, inside()),
+        ]);
+        let history = found.regional[0].register_history.as_ref().unwrap();
+        assert_eq!(
+            counted(&history.in_area),
+            (5, vec![("B", 2), ("A", 1), ("C", 1)], 1)
+        );
+    }
+
+    /// No monument: the section is there and says so, no hint. Only a monument in the rectangle
+    /// already brings the hint. A source that was down leaves the section and the hint out.
+    #[test]
+    fn the_hint_on_monuments_of_history_follows_the_count_and_the_source() {
+        let found = history_notes(vec![]);
+        let history = found.regional[0].register_history.as_ref().unwrap();
+        assert_eq!((history.in_area.total, history.nearby.total), (0, 0));
+        assert!(!keys(&found).contains(&hint_key::HISTORY_REGISTER_PL));
+
+        let found = history_notes(vec![history_part("a", Some("A"), outside())]);
+        assert!(keys(&found).contains(&hint_key::HISTORY_REGISTER_PL));
+        let found = history_notes(vec![history_part("a", Some("A"), inside())]);
+        assert_eq!(
+            keys(&found)
+                .iter()
+                .filter(|k| **k == hint_key::HISTORY_REGISTER_PL)
+                .count(),
+            1
+        );
+
+        let down = RegionalInput {
+            findings: SourceInput::Unreachable {
+                reason: "HTTP 503".into(),
+            },
+            ..regional("pomniki", PermitSection::HistoryRegister, vec![])
+        };
+        let found = poland(vec![down]);
+        assert_eq!(found.regional[0].register_history, None);
+        assert!(!keys(&found).contains(&hint_key::HISTORY_REGISTER_PL));
+        // The notes survive their own file.
+        let found = history_notes(vec![history_part("a", Some("A"), inside())]);
+        let json = serde_json::to_string(&found).unwrap();
+        assert_eq!(serde_json::from_str::<PermitNotes>(&json).unwrap(), found);
     }
 }

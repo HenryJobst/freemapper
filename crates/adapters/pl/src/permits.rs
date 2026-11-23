@@ -20,7 +20,11 @@
 //! gets every monument of the box with its name; the notes count them and name the first few,
 //! and say that the data give no position. The register of archaeological monuments (the book C
 //! of the register, ADR 0190) is a second service of the same host with the same kind of answer
-//! and gets the same treatment in a section of its own.
+//! and gets the same treatment in a section of its own. The monuments of history (Pomniki
+//! historii, ADR 0191) are a WFS with the true shapes; the fetch asks the map box in EPSG:2180
+//! (northing first, the CRS at the end of the box) and converts the GeoJSON, which has the
+//! easting first, to WGS 84, so the notes can tell a monument in the map area from one in the
+//! rectangle around it.
 //!
 //! The Nadleśnictwo (forest district) of the State Forests belongs to a regional directorate
 //! (RDLP) whose code is the part of the district's code before the hyphen (`17-02` in `17`).
@@ -64,6 +68,10 @@ const NID_WMS: &str = "https://usluga.zabytek.gov.pl/INSPIRE_IMD/service.svc/get
 /// The WMS of the register of archaeological monuments (INSPIRE, layer `Archaeological_Monuments`,
 /// ADR 0190): the sites entered in the book C of the register.
 const NID_ARCHAEOLOGY_WMS: &str = "https://usluga.zabytek.gov.pl/INSPIRE_AMD/service.svc/get";
+
+/// The WFS of the monuments of history (INSPIRE, type `gmgml:Monuments_of_History`, ADR 0191):
+/// GeoJSON with true polygons, lines and points, only in EPSG:2180.
+const NID_HISTORY_WFS: &str = "https://usluga.zabytek.gov.pl/INSPIRE_WFS_MHD/service.svc/get";
 
 /// The credit of the NID: its data are open under CC BY 4.0 (dane.gov.pl, dataset 1130); the
 /// licence names no wording, so the notes name the institute and the licence (ADR 0184).
@@ -282,6 +290,26 @@ pub fn sources() -> Vec<Box<dyn PermitSource>> {
                 offices: None,
             },
             register: Register::Archaeological,
+        }),
+        Box::new(NidHistory {
+            info: PermitSourceInfo {
+                key: "nid-pomniki",
+                label: Wording {
+                    en: "NID",
+                    de: "NID",
+                },
+                what: Wording {
+                    en: "monuments of history (Pomniki historii, with their positions)",
+                    de: "Denkmäler der Geschichte (Pomniki historii, mit Positionen)",
+                },
+                credit: NID_CREDIT,
+                note: None,
+                sampled: false,
+                gaps: None,
+                layers: &["pomniki"],
+                sections: &[PermitSection::HistoryRegister],
+                offices: None,
+            },
         }),
     ]
 }
@@ -901,6 +929,127 @@ impl PermitSource for NidRegister {
                     kind: match self.register {
                         Register::Immovable => FindingKind::RegisterMonument { name },
                         Register::Archaeological => FindingKind::RegisterArchaeology { name },
+                    },
+                    geometry: geometry_of(feature)?,
+                })
+            })
+            .collect()
+    }
+}
+
+/// The monuments of history of the NID (ADR 0191): a WFS with the true shapes.
+struct NidHistory {
+    info: PermitSourceInfo,
+}
+
+/// The request for every monument of history in `bbox`. The service takes the box only with the
+/// CRS at its end and the northing first; without it the box is read in another way.
+fn history_url(bbox: &Rect<f64>) -> String {
+    let (min_n, min_e, max_n, max_e) = box_2180(bbox);
+    format!(
+        "{NID_HISTORY_WFS}?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature\
+         &TYPENAMES=gmgml:Monuments_of_History&OUTPUTFORMAT=application/vnd.geo%2Bjson\
+         &BBOX={min_n},{min_e},{max_n},{max_e},EPSG:2180"
+    )
+}
+
+/// The coordinates of a GeoJSON geometry in EPSG:2180 (easting first, as the service writes
+/// them) as WGS 84 with the longitude first; `None` for a position that is no number or no
+/// position.
+fn history_coordinates(coordinates: &Value) -> Option<Value> {
+    let list = coordinates.as_array()?;
+    if list.first()?.is_number() {
+        let east = list.first()?.as_f64()?;
+        let north = list.get(1)?.as_f64()?;
+        let p = pl1992_inverse(east, north)?;
+        return Some(json!([p.lon, p.lat]));
+    }
+    list.iter()
+        .map(history_coordinates)
+        .collect::<Option<Vec<_>>>()
+        .map(Value::Array)
+}
+
+/// The monuments of an answer, one feature per part: its INSPIREID, its name and its shape in
+/// WGS 84. A part without an id is left out; an answer that is no feature collection, or a part
+/// whose shape cannot be read, fails the whole answer, because a count would be wrong.
+fn read_history(url: &str, body: &[u8]) -> Result<Vec<Value>, FetchError> {
+    if is_ogc_report(body) {
+        return Err(report_error(url, body));
+    }
+    // An empty answer carries a box of the largest numbers (`1.79769313486232e308`), which is
+    // more than an f64 holds: the members are read raw, so only the ones needed are parsed.
+    let members: std::collections::BTreeMap<String, &serde_json::value::RawValue> =
+        serde_json::from_slice(body)
+            .map_err(|e| http_error(url, format!("the answer is no JSON object: {e}")))?;
+    let member =
+        |key: &str| -> Option<Value> { serde_json::from_str(members.get(key)?.get()).ok() };
+    let parts = member("features")
+        .and_then(|features| match features {
+            Value::Array(parts) => Some(parts),
+            _ => None,
+        })
+        .filter(|_| member("type").as_ref().and_then(Value::as_str) == Some("FeatureCollection"))
+        .ok_or_else(|| http_error(url, "the answer is no feature collection"))?;
+    let mut out = Vec::new();
+    for part in &parts {
+        let Some(id) = property(part, "INSPIREID") else {
+            continue;
+        };
+        let geometry = part
+            .get("geometry")
+            .and_then(|g| {
+                Some(json!({
+                    "type": g.get("type")?,
+                    "coordinates": history_coordinates(g.get("coordinates")?)?,
+                }))
+            })
+            .ok_or_else(|| http_error(url, format!("the monument {id} has no usable position")))?;
+        let feature = json!({
+            "type": "Feature",
+            "properties": {"id": id, "nazwa": property(part, "SITENAME")},
+            "geometry": geometry,
+        });
+        if geometry_of(&feature).is_none() {
+            return Err(http_error(
+                url,
+                format!("the monument {id} has no usable position"),
+            ));
+        }
+        out.push(feature);
+    }
+    Ok(out)
+}
+
+impl PermitSource for NidHistory {
+    fn info(&self) -> &PermitSourceInfo {
+        &self.info
+    }
+
+    fn fetch(
+        &self,
+        fetcher: &dyn Fetcher,
+        bbox: &Rect<f64>,
+        part: &Path,
+    ) -> Result<Vec<Vec<Value>>, FetchError> {
+        let url = history_url(bbox);
+        let features = get_limited_with_retries(fetcher, &url, part, MAX_BYTES, |bytes| {
+            read_history(&url, bytes)
+        })?;
+        Ok(vec![features])
+    }
+
+    fn findings(&self, layer: &str, features: &[Value]) -> Vec<PermitFinding> {
+        if layer != "pomniki" {
+            return Vec::new();
+        }
+        features
+            .iter()
+            .filter_map(|feature| {
+                Some(PermitFinding {
+                    kind: FindingKind::RegisterHistory {
+                        id: property(feature, "id")?,
+                        name: property(feature, "nazwa"),
                     },
                     geometry: geometry_of(feature)?,
                 })
@@ -1905,5 +2054,261 @@ mod tests {
                 .fetch(&fetcher, &bbox, Path::new("unused-nid-5"))
                 .is_err()
         );
+    }
+    const HISTORY_KRAKOW: &str = include_str!("../tests/fixtures/permits/nid-pomniki-krakow.json");
+    const HISTORY_EMPTY: &str = include_str!("../tests/fixtures/permits/nid-pomniki-empty.json");
+
+    fn history() -> NidHistory {
+        let source = sources()
+            .into_iter()
+            .find(|s| s.info().key == "nid-pomniki")
+            .expect("the monuments of history are a source");
+        NidHistory {
+            info: source.info().clone(),
+        }
+    }
+
+    /// The box of the Kraków fixture: Kopiec Kościuszki.
+    fn history_box() -> Rect<f64> {
+        Rect::new(Coord { x: 19.89, y: 50.05 }, Coord { x: 19.91, y: 50.07 })
+    }
+
+    fn history_answer(body: &str) -> MapFetcher {
+        let fetcher = MapFetcher::default();
+        fetcher.insert(&history_url(&history_box()), body.as_bytes().to_vec());
+        fetcher
+    }
+
+    fn history_fetch(body: &str, part: &str) -> Result<Vec<Value>, FetchError> {
+        let fetcher = history_answer(body);
+        history()
+            .fetch(&fetcher, &history_box(), Path::new(part))
+            .map(|mut lists| lists.remove(0))
+    }
+
+    /// A feature as the service writes it, with `coordinates` in EPSG:2180, easting first.
+    fn history_part(id: &str, name: Option<&str>, geometry: &str) -> String {
+        let name = name.map_or(String::new(), |n| format!(r#", "SITENAME": "{n}""#));
+        format!(
+            r#"{{"type": "Feature", "id": "x", "properties": {{"INSPIREID": "{id}"{name}}}, "geometry": {geometry}}}"#
+        )
+    }
+
+    fn history_collection(parts: &[String]) -> String {
+        format!(
+            r#"{{"type": "FeatureCollection", "crs": "EPSG:2180", "features": [{}]}}"#,
+            parts.join(",")
+        )
+    }
+
+    #[test]
+    fn the_monuments_of_history_ask_the_box_in_2180_with_the_northing_first() {
+        let url = history_url(&history_box());
+        // The corners of the box in EPSG:2180 (cs2cs): the northings 242905 and 245146 come
+        // first and third, the eastings 563671 and 565130 second and fourth.
+        assert_eq!(
+            url,
+            "https://usluga.zabytek.gov.pl/INSPIRE_WFS_MHD/service.svc/get?SERVICE=WFS\
+             &VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=gmgml:Monuments_of_History\
+             &OUTPUTFORMAT=application/vnd.geo%2Bjson\
+             &BBOX=242905,563671,245146,565130,EPSG:2180"
+        );
+        assert!(url.starts_with(&format!("https://{NID_HOST}/")), "{url}");
+    }
+
+    #[test]
+    fn the_monuments_of_history_come_with_their_positions_in_wgs_84() {
+        let features = history_fetch(HISTORY_KRAKOW, "unused-history-1").unwrap();
+        // Two parts of one monument; each keeps its id and name.
+        assert_eq!(features.len(), 2);
+        for f in &features {
+            assert_eq!(
+                f["properties"]["id"], "PL.1.9.ZIPOZ.NID_N_12_PH.15423",
+                "{f}"
+            );
+            assert_eq!(
+                f["properties"]["nazwa"],
+                "Kraków - Kopiec Kościuszki z otoczeniem"
+            );
+            assert_eq!(f["geometry"]["type"], "Polygon");
+        }
+        // The first corner is 563837.95 E, 243217.53 N: longitude first, in the box.
+        let corner = &features[0]["geometry"]["coordinates"][0][0];
+        let (lon, lat) = (corner[0].as_f64().unwrap(), corner[1].as_f64().unwrap());
+        assert!((19.89..19.91).contains(&lon), "{lon}");
+        assert!((50.05..50.07).contains(&lat), "{lat}");
+        let findings = history().findings("pomniki", &features);
+        assert_eq!(findings.len(), 2);
+        for f in &findings {
+            assert_eq!(
+                f.kind,
+                FindingKind::RegisterHistory {
+                    id: "PL.1.9.ZIPOZ.NID_N_12_PH.15423".into(),
+                    name: Some("Kraków - Kopiec Kościuszki z otoczeniem".into()),
+                }
+            );
+            assert!(matches!(f.geometry, Geometry::Polygon(_)));
+        }
+    }
+
+    #[test]
+    fn no_monument_of_history_is_no_failure() {
+        let features = history_fetch(HISTORY_EMPTY, "unused-history-2").unwrap();
+        assert!(features.is_empty());
+        assert!(history().findings("pomniki", &features).is_empty());
+    }
+
+    #[test]
+    fn every_shape_of_a_monument_of_history_is_read() {
+        let polygon = r#"{"type": "Polygon", "coordinates": [[[563837.9, 243217.5], [563845.7, 243219.3], [563848.9, 243220.3], [563837.9, 243217.5]]]}"#;
+        let multi = format!(
+            r#"{{"type": "MultiPolygon", "coordinates": [{}]}}"#,
+            &polygon[polygon.find("[[[").unwrap()..polygon.len() - 1]
+        );
+        let point = r#"{"type": "Point", "coordinates": [563837.9, 243217.5]}"#;
+        let line = r#"{"type": "LineString", "coordinates": [[563837.9, 243217.5], [563845.7, 243219.3]]}"#;
+        let multi_line = r#"{"type": "MultiLineString", "coordinates": [[[563837.9, 243217.5], [563845.7, 243219.3]]]}"#;
+        let multi_point = r#"{"type": "MultiPoint", "coordinates": [[563837.9, 243217.5]]}"#;
+        let body = history_collection(&[
+            history_part("a", Some("A"), polygon),
+            history_part("b", Some("B"), &multi),
+            history_part("c", Some("C"), point),
+            history_part("d", Some("D"), line),
+            history_part("e", Some("E"), multi_line),
+            history_part("f", Some("F"), multi_point),
+        ]);
+        let features = history_fetch(&body, "unused-history-3").unwrap();
+        let kinds: Vec<&str> = features
+            .iter()
+            .map(|f| f["geometry"]["type"].as_str().unwrap())
+            .collect();
+        assert_eq!(
+            kinds,
+            [
+                "Polygon",
+                "MultiPolygon",
+                "Point",
+                "LineString",
+                "MultiLineString",
+                "MultiPoint"
+            ]
+        );
+        let findings = history().findings("pomniki", &features);
+        assert_eq!(findings.len(), 6);
+        let point = findings
+            .iter()
+            .find_map(|f| match &f.geometry {
+                Geometry::Point(p) => Some(*p),
+                _ => None,
+            })
+            .unwrap();
+        // 563837.9 E, 243217.5 N is 19.89201 E, 50.05279 N (cs2cs).
+        assert!((point.x() - 19.89201).abs() < 0.0001, "{point:?}");
+        assert!((point.y() - 50.05279).abs() < 0.0001, "{point:?}");
+        // A third value (a height) does not matter.
+        let z = history_part(
+            "z",
+            None,
+            r#"{"type": "Point", "coordinates": [563837.9, 243217.5, 200.0]}"#,
+        );
+        assert_eq!(
+            history_fetch(&history_collection(&[z]), "unused-history-4")
+                .unwrap()
+                .len(),
+            1
+        );
+    }
+
+    #[test]
+    fn a_part_without_an_id_is_left_out_and_a_blank_name_is_none() {
+        let point = r#"{"type": "Point", "coordinates": [563837.9, 243217.5]}"#;
+        let no_id = format!(
+            r#"{{"type": "Feature", "properties": {{"SITENAME": "ohne"}}, "geometry": {point}}}"#
+        );
+        let blank = history_part("b", Some("  "), point);
+        let body = history_collection(&[no_id, blank]);
+        let features = history_fetch(&body, "unused-history-5").unwrap();
+        assert_eq!(features.len(), 1);
+        let findings = history().findings("pomniki", &features);
+        assert_eq!(
+            findings[0].kind,
+            FindingKind::RegisterHistory {
+                id: "b".into(),
+                name: None
+            }
+        );
+        // Another layer name gives nothing; a feature without an id gives no finding.
+        assert!(history().findings("zabytki", &features).is_empty());
+        assert!(
+            history()
+                .findings(
+                    "pomniki",
+                    &[json!({"properties": {}, "geometry": features[0]["geometry"]})]
+                )
+                .is_empty()
+        );
+    }
+
+    #[test]
+    fn a_broken_answer_fails_the_source() {
+        let point = r#"{"type": "Point", "coordinates": [563837.9, 243217.5]}"#;
+        let report = r#"<?xml version="1.0"?><ExceptionReport><Exception exceptionCode="InvalidParameterValue"/></ExceptionReport>"#;
+        let bad: [(&str, String); 10] = [
+            ("report", report.to_string()),
+            ("html", "<html>nope</html>".to_string()),
+            ("empty object", "{}".to_string()),
+            (
+                "no features",
+                r#"{"type": "FeatureCollection"}"#.to_string(),
+            ),
+            (
+                "other type",
+                r#"{"type": "Feature", "features": []}"#.to_string(),
+            ),
+            (
+                "features no list",
+                r#"{"type": "FeatureCollection", "features": {}}"#.to_string(),
+            ),
+            (
+                "no geometry",
+                history_collection(&[
+                    r#"{"type": "Feature", "properties": {"INSPIREID": "x"}}"#.to_string()
+                ]),
+            ),
+            (
+                "text coordinates",
+                history_collection(&[history_part(
+                    "x",
+                    None,
+                    r#"{"type": "Point", "coordinates": ["a", "b"]}"#,
+                )]),
+            ),
+            (
+                "one number",
+                history_collection(&[history_part(
+                    "x",
+                    None,
+                    r#"{"type": "Point", "coordinates": [563837.9]}"#,
+                )]),
+            ),
+            (
+                "unknown type",
+                history_collection(&[history_part(
+                    "x",
+                    None,
+                    r#"{"type": "Circle", "coordinates": [563837.9, 243217.5]}"#,
+                )]),
+            ),
+        ];
+        for (n, (what, body)) in bad.iter().enumerate() {
+            let part = format!("unused-history-bad-{n}");
+            assert!(history_fetch(body, &part).is_err(), "{what}");
+        }
+        // One bad part among good ones fails the whole answer: a count would be wrong.
+        let body = history_collection(&[
+            history_part("a", None, point),
+            history_part("x", None, r#"{"type": "Point", "coordinates": ["a", 1]}"#),
+        ]);
+        assert!(history_fetch(&body, "unused-history-6").is_err());
     }
 }
