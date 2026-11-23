@@ -1098,4 +1098,36 @@ mod tests {
             );
         }
     }
+
+    /// Hesse's protected biotopes, which were a table in the code until they moved into its
+    /// manifest (issue #273), give the requests, the gaps note and the credit the table gave.
+    #[test]
+    fn the_declared_source_of_hessen_asks_and_keeps_what_the_table_did() {
+        let text = include_str!("../manifests/hessen/manifest.toml");
+        let manifest = freemapper_manifest::parse(text, Path::new("hessen")).unwrap();
+        let declared: Vec<Box<dyn PermitSource>> =
+            manifest.permits.iter().map(declared_source).collect();
+        assert_eq!(declared.len(), 1);
+        let info = declared[0].info();
+        assert_eq!((info.key, info.layers), ("biotope", &["biotope"][..]));
+        assert_eq!(info.sections, [PermitSection::ProtectedObjects]);
+        assert_eq!(info.label.de, "HLNUG");
+        assert!(info.gaps.unwrap().de.contains("1992 bis 2006"));
+        assert!(info.credit.contains("Creative Commons BY 4.0"));
+        let bbox = Rect::new(Coord { x: 8.6, y: 50.1 }, Coord { x: 8.7, y: 50.2 });
+        let dir = tempfile::tempdir().unwrap();
+        let asked = Recorder::default();
+        declared[0]
+            .fetch(&asked, &bbox, &dir.path().join("part"))
+            .unwrap();
+        let urls = asked.0.into_inner();
+        assert_eq!(urls.len(), 1);
+        assert!(
+            urls[0].starts_with("https://geodienste-umwelt.hessen.de/arcgis/services/inspire/lebensraeume_biotope/MapServer/WFSServer")
+                && urls[0].contains("inspire_lebensraeume_biotope:GESCH_BIOTOPE")
+                && urls[0].contains("GEOJSON"),
+            "{}",
+            urls[0]
+        );
+    }
 }
