@@ -98,6 +98,22 @@ namespaces = "xmlns(adv,http://www.adv-online.de/namespaces/adv/gid/7.1)"
 max_count = 100000
 max_bytes = 268435456
 
+# The Naturdenkmale and Landschaftsbestandteile of the LfU, single ones and areas (issue #273).
+[[permits.wfs]]
+key = "naturschutz"
+label = { en = "Bayerisches Landesamt für Umwelt", de = "Bayerisches Landesamt für Umwelt" }
+what = { en = "Naturdenkmale and Landschaftsbestandteile", de = "Naturdenkmale und Landschaftsbestandteile" }
+credit = "Creative Commons Namensnennung 4.0 International (CC BY 4.0); Datenquelle: Bayerisches Landesamt für Umwelt, www.lfu.bayern.de"
+sections = ["protected-objects"]
+url = "https://www.lfu.bayern.de/gdi/wfs/natur/schutzgebiete"
+output_format = "GEOJSON"
+layers = [
+    { key = "naturdenkmale-punkte", type_name = "natur_wfsschutzgebiete:naturdenkmal_punktfoermig", reading = "object", object = "natural-monument", name = "name" },
+    { key = "naturdenkmale-flaechen", type_name = "natur_wfsschutzgebiete:naturdenkmal_flaechig", reading = "object", object = "natural-monument", name = "name" },
+    { key = "landschaftsbestandteile-punkte", type_name = "natur_wfsschutzgebiete:landschaftsbestandteil_punktfoermig", reading = "object", object = "protected-landscape-part", name = "name" },
+    { key = "landschaftsbestandteile-flaechen", type_name = "natur_wfsschutzgebiete:landschaftsbestandteil_flaechig", reading = "object", object = "protected-landscape-part", name = "name" },
+]
+
 [preview]
 wms = "https://geoservices.bayern.de/od/wms/dop/v1/dop20"
 layer = "by_dop20c"
