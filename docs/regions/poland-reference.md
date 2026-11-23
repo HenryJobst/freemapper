@@ -301,8 +301,13 @@ class). The threshold of the fallback is 0.25. A building kind in words
   Kopiec Kościuszki of Kraków, a Pomnik historii, appears only through its register entries, no `NID_N_18_PH` id).
 - **Licence.** Credit "© Narodowy Instytut Dziedzictwa (CC BY 4.0)"; the wording is not prescribed
   and was not confirmed with the NID.
-- **Law.** Ustawa o ochronie zabytków, art. 36 ust. 1 pkt 1, 2 and 11 (Dz. U. 2024 poz. 1292);
-  Ustawa o lasach, art. 5 ust. 1 pkt 2 (Dz. U. 2025 poz. 567), checked 22 November 2026.
+- **Law.** Ustawa o ochronie zabytków, art. 36 ust. 1 pkt 1 (permit: conservation, restoration and building work at
+  a registered monument) and, since 3 June 2026 (Dz. U. 2025 poz. 1673), art. 36aa (notification instead of permit
+  for building work in the surroundings of a monument, a change of use, devices and signs on a monument and other
+  actions that could change substance or appearance; the conservator may object within 60 days, art. 36aa ust. 3,
+  and then require a permit, ust. 10); pkt 2, 7, 9, 10 and 11 of art. 36 ust. 1 were repealed by that act. Checked
+  on the Sejm ELI API (`api.sejm.gov.pl/eli`) on 23 November 2026. Ustawa o lasach, art. 5 ust. 1 pkt 2
+  (Dz. U. 2025 poz. 567), checked 22 November 2026.
 
 ## Register of archaeological monuments of the NID (ADR 0190)
 
@@ -326,11 +331,17 @@ Measured 23 November 2026, anonymous, `User-Agent` of the program only.
 - **AZP.** `https://usluga.zabytek.gov.pl/WFS_AZP/service.svc/get` gives only the sheet grid of the Archaeological
   Record of Poland ("Sekcje Archeologicznego Zdjęcia Polski"), not the sites. The sites of the AZP that are not in
   the register are not open data; not covered.
-- **Law.** Ustawa o ochronie zabytków, art. 36 ust. 1: pkt 12 searching for hidden or abandoned movable monuments
-  with electronic or technical devices (the amendment Dz. U. 2023 poz. 1904 added a notification route for adults
-  with the owner's consent; how it sits beside the permit was not settled from secondary sources), archaeological
-  research as a permit of its own. The pkt number of the research was not confirmed; the hint names art. 36 ust. 1
-  only. Check on ISAP before a release.
+- **Law.** Ustawa o ochronie zabytków, art. 36 ust. 1, checked on the Sejm ELI API on 23 November 2026: pkt 5
+  archaeological research and pkt 12 searching for hidden or abandoned movable monuments with electronic or
+  technical devices (and diving equipment) need the permit of the voivodeship conservator; pkt 1 conservation,
+  restoration and building work at a registered monument likewise. The amendment Dz. U. 2023 poz. 1904 repeals
+  pkt 12 and adds art. 36b (an adult may search with the consent of the owner and the holder of the property after
+  a notification in the search register through the app of the ministry), art. 36c (searches forbidden among others
+  on registered monuments and within 10 m of them, on cemeteries and in cultural parks) and art. 36d. Its entry into
+  force was moved twice: to 1 May 2025 (Dz. U. 2024 poz. 647) and then to 1 January 2027 (Dz. U. 2025 poz. 537, in
+  force since 1 May 2025). So on 23 November 2026 pkt 12 still applies and art. 36b is not yet in force; the hint
+  says so and names the date. Dz. U. 2025 poz. 1673, art. 4, adapts that amendment to 1 January 2027. Check the date
+  again before each release; the legislator moved it before.
 
 ## Pomniki historii (measured, not built)
 
