@@ -375,10 +375,7 @@ Measured again 23 November 2026, anonymous, `User-Agent` of the program only.
   monument, pkt 5 archaeological research, pkt 12 searching with devices. The amendment Dz. U. 2023 poz. 1904 repeals pkt 12 and adds art. 36b (an adult searches with the consent of the owner and the possessor after notifying the search in the ministry's app), art. 36c (the finder's duties) and art. 109e (a fine); its entry into force was moved to 1 January 2027 (Dz. U. 2025 poz. 537), so pkt 12 still applies on 23 November 2026.
   Dz. U. 2025 poz. 1673 (in force 3 June 2026) repeals art. 36 ust. 1 pkt 2, 7 and 9 to 11 and adds art. 36aa: a
   notification, not a permit, for building work in the surroundings, a change of use, signs and other actions that could
-  change the look. The hint on the archaeological register (ADR 0190) says "art. 36 ust. 1" for research and work at a
-  registered site, which still holds (pkt 1 and 5); its words on searching with devices ("regulates") hold, the permit
-  of pkt 12 is gone. The hint on the register of immovable monuments (ADR 0184) names a permit for work "in its
-  surroundings", which is a notification since 3 June 2026; not changed here, see the ADR.
+  change the look. The hints on the archaeological register (ADR 0190) and the register of immovable monuments (ADR 0184) follow this law since the update of 23 November 2026; the permit of pkt 12 still applies until 1 January 2027, so check the date before every release.
 
 ## Addendum 22 November 2026: BDOT10k roads and paths (measured, ADR 0187)
 
