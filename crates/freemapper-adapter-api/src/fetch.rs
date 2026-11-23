@@ -261,11 +261,8 @@ pub fn is_ogc_report(body: &[u8]) -> bool {
 
 /// Attempts per request to a server that drops connections now and then (gdi.berlin.de, GeoSN).
 pub const ATTEMPTS: u32 = 3;
-/// The pause before the second attempt; the third waits twice as long. None in tests.
-#[cfg(not(any(test, feature = "testing")))]
+/// The pause before the second attempt; the third waits twice as long.
 const RETRY_DELAY: Duration = Duration::from_secs(2);
-#[cfg(any(test, feature = "testing"))]
-const RETRY_DELAY: Duration = Duration::ZERO;
 /// The pauses of a [`Patience::Long`] request that met a busy service (503, 429, 408), before the second and the third
 /// attempt.
 const BUSY_PAUSES: [u64; 2] = [5, 15];
@@ -306,12 +303,29 @@ fn pause_secs(patience: Patience, attempt: u32, error: &FetchError) -> Option<u6
     }
 }
 
-/// The pause before attempt `attempt + 1` after `error`; none in tests.
+/// The pause before attempt `attempt + 1` after `error`.
 pub fn pause_after(patience: Patience, attempt: u32, error: &FetchError) -> Duration {
-    if cfg!(any(test, feature = "testing")) {
-        return Duration::ZERO;
-    }
     pause_secs(patience, attempt, error).map_or(RETRY_DELAY * attempt, Duration::from_secs)
+}
+
+/// Waits for `pause`. The `testing` feature does not sleep, so that runs of tests of other crates stay fast; the
+/// tests of this crate note the pause in [`SLEPT`] instead of sleeping.
+#[cfg(not(test))]
+fn wait(pause: Duration) {
+    if !cfg!(feature = "testing") {
+        std::thread::sleep(pause);
+    }
+}
+
+#[cfg(test)]
+thread_local! {
+    /// The pauses [`wait`] was asked for on this thread.
+    static SLEPT: std::cell::RefCell<Vec<Duration>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+
+#[cfg(test)]
+fn wait(pause: Duration) {
+    SLEPT.with(|slept| slept.borrow_mut().push(pause));
 }
 
 /// Downloads `url` and reads it with `check`, up to [`ATTEMPTS`] times: server errors, resets
@@ -389,7 +403,7 @@ fn retrying<T>(
             // Asking again does not free disk space.
             Err(ref e) if e.is_disk_full() => return result,
             Err(ref e) if attempt < attempts => {
-                std::thread::sleep(pause_after(patience, attempt, e));
+                wait(pause_after(patience, attempt, e));
                 attempt += 1;
             }
             _ => return result,
@@ -428,7 +442,7 @@ pub fn download_with_retries(
                         seconds = pause.as_secs().to_string()
                     ));
                 }
-                std::thread::sleep(pause);
+                wait(pause);
                 attempt += 1;
             }
             _ => return result,
@@ -473,7 +487,7 @@ pub fn get_range_with_retries(
                 | FetchError::Cancelled,
             ) => return result,
             Err(ref e) if attempt < ATTEMPTS => {
-                std::thread::sleep(pause_after(Patience::Brief, attempt, e));
+                wait(pause_after(Patience::Brief, attempt, e));
                 attempt += 1;
             }
             _ => return result,
@@ -548,8 +562,270 @@ mod patience_tests {
     }
 
     #[test]
-    fn a_wait_in_the_message_is_still_a_temporary_failure() {
-        let asked = status_answer_error_with("https://geo.example.org/x", 503, b"", Some(30));
-        assert!(asked.is_temporary());
+    fn the_last_busy_pause_is_the_longest_one() {
+        let busy = http("http status: 503");
+        assert_eq!(pause_secs(Patience::Long, 3, &busy), Some(15));
+        assert_eq!(pause_secs(Patience::Long, 9, &busy), Some(15));
+    }
+
+    #[test]
+    fn a_pause_is_what_the_service_asked_or_grows_with_the_attempt() {
+        let busy = http("http status: 503");
+        assert_eq!(
+            pause_after(Patience::Long, 1, &busy),
+            Duration::from_secs(5)
+        );
+        assert_eq!(
+            pause_after(Patience::Long, 2, &busy),
+            Duration::from_secs(15)
+        );
+        let other = http("connection reset");
+        assert_eq!(
+            pause_after(Patience::Brief, 1, &other),
+            Duration::from_secs(2)
+        );
+        assert_eq!(
+            pause_after(Patience::Brief, 2, &other),
+            Duration::from_secs(4)
+        );
+        assert_eq!(
+            pause_after(Patience::Long, 1, &other),
+            Duration::from_secs(2)
+        );
+    }
+
+    #[test]
+    fn a_refused_request_is_not_retried_as_a_server_error() {
+        for status in [400, 403, 410, 499] {
+            let error = status_answer_error("https://geo.example.org/x", status, b"");
+            assert!(matches!(error, FetchError::Refused { .. }), "{status}");
+            assert!(!error.is_temporary(), "{status}");
+        }
+        for status in [408, 429, 500, 503] {
+            let error = status_answer_error("https://geo.example.org/x", status, b"");
+            assert!(matches!(error, FetchError::Http { .. }), "{status}");
+        }
+    }
+
+    #[test]
+    fn only_a_busy_status_names_the_wait_in_its_message() {
+        for status in [500, 502] {
+            let error =
+                status_answer_error_with("https://geo.example.org/x", status, b"", Some(30));
+            assert!(!error.to_string().contains("retry after"), "{error}");
+        }
+        for status in [503, 429, 408] {
+            let error = status_answer_error_with("https://geo.example.org/x", status, b"", Some(7));
+            assert!(error.to_string().contains("(retry after 7 s)"), "{error}");
+        }
+        let plain = status_answer_error_with("https://geo.example.org/x", 503, b"", None);
+        assert!(!plain.to_string().contains("retry after"), "{plain}");
+    }
+}
+
+#[cfg(test)]
+mod retry_tests {
+    use std::cell::{Cell, RefCell};
+
+    use super::*;
+
+    const URL: &str = "https://geo.example.org/x";
+
+    fn http(message: &str) -> FetchError {
+        FetchError::Http {
+            url: URL.to_string(),
+            message: message.to_string(),
+        }
+    }
+
+    fn full() -> FetchError {
+        FetchError::Io(
+            PathBuf::from("a/b"),
+            std::io::Error::from(std::io::ErrorKind::StorageFull),
+        )
+    }
+
+    fn slept() -> Vec<Duration> {
+        SLEPT.with(|slept| std::mem::take(&mut *slept.borrow_mut()))
+    }
+
+    /// Answers every request with `answer`, counts them.
+    struct Counting {
+        calls: Cell<u32>,
+        answer: Box<dyn Fn() -> Result<Vec<u8>, FetchError>>,
+    }
+
+    impl Counting {
+        fn new(answer: impl Fn() -> Result<Vec<u8>, FetchError> + 'static) -> Self {
+            slept();
+            Self {
+                calls: Cell::new(0),
+                answer: Box::new(answer),
+            }
+        }
+    }
+
+    impl Fetcher for Counting {
+        fn get(&self, _url: &str) -> Result<Vec<u8>, FetchError> {
+            self.calls.set(self.calls.get() + 1);
+            (self.answer)()
+        }
+
+        fn get_range(&self, url: &str, _range: ByteRange) -> Result<Vec<u8>, FetchError> {
+            self.get(url)
+        }
+
+        fn download_to(
+            &self,
+            url: &str,
+            _path: &Path,
+            _max_bytes: u64,
+            _progress: &mut dyn FnMut(Note),
+        ) -> Result<(), FetchError> {
+            self.get(url).map(|_| ())
+        }
+    }
+
+    fn keep(bytes: &[u8]) -> Result<Vec<u8>, FetchError> {
+        Ok(bytes.to_vec())
+    }
+
+    #[test]
+    fn a_failing_request_is_asked_as_often_as_allowed_and_waits_between() {
+        for (attempts, calls) in [(1, 1), (2, 2), (3, 3), (4, 4)] {
+            let fetcher = Counting::new(|| Err(http("http status: 500")));
+            let result = get_with_attempts(&fetcher, URL, attempts, keep);
+            assert!(result.is_err());
+            assert_eq!(fetcher.calls.get(), calls, "attempts {attempts}");
+            assert_eq!(slept().len() as u32, calls - 1, "attempts {attempts}");
+        }
+    }
+
+    #[test]
+    fn a_request_that_works_the_second_time_gives_its_answer() {
+        let fetcher = Counting::new(|| Err(http("connection reset")));
+        let tries = Cell::new(0);
+        let result = retrying(3, Patience::Brief, || {
+            tries.set(tries.get() + 1);
+            if tries.get() < 2 {
+                fetcher.get(URL)
+            } else {
+                Ok(vec![7])
+            }
+        });
+        assert_eq!(result.unwrap(), vec![7]);
+        assert_eq!(fetcher.calls.get(), 1);
+        assert_eq!(slept(), vec![Duration::from_secs(2)]);
+    }
+
+    #[test]
+    fn a_full_disk_and_a_refusal_are_not_asked_again() {
+        let fetcher = Counting::new(|| Err(full()));
+        assert!(get_with_retries(&fetcher, URL, keep).is_err());
+        assert_eq!(fetcher.calls.get(), 1);
+        let fetcher = Counting::new(|| Err(FetchError::NotFound(URL.to_string())));
+        assert!(get_with_retries(&fetcher, URL, keep).is_err());
+        assert_eq!(fetcher.calls.get(), 1);
+    }
+
+    #[test]
+    fn a_download_is_asked_up_to_the_attempts_and_tells_of_a_long_wait_only() {
+        let path = Path::new("/nonexistent/part");
+        let mut notes = 0;
+        let fetcher = Counting::new(|| Err(http("connection reset")));
+        let result = download_with_retries(&fetcher, URL, path, 10, &mut |_| notes += 1);
+        assert!(result.is_err());
+        assert_eq!(fetcher.calls.get(), ATTEMPTS);
+        assert_eq!(notes, 0, "a short pause is not announced");
+        assert_eq!(slept().len() as u32, ATTEMPTS - 1);
+
+        let fetcher = Counting::new(|| Err(http("http status: 503")));
+        let result = download_with_retries(&fetcher, URL, path, 10, &mut |_| notes += 1);
+        assert!(result.is_err());
+        assert_eq!(fetcher.calls.get(), ATTEMPTS);
+        assert_eq!(notes, 2, "a busy service is announced before each wait");
+        assert_eq!(
+            slept(),
+            vec![Duration::from_secs(5), Duration::from_secs(15)]
+        );
+    }
+
+    #[test]
+    fn a_download_that_is_refused_or_missing_is_not_asked_again() {
+        let fetcher = Counting::new(|| Err(FetchError::NotFound(URL.to_string())));
+        let result = download_with_retries(&fetcher, URL, Path::new("/x"), 10, &mut |_| {});
+        assert!(matches!(result, Err(FetchError::NotFound(_))));
+        assert_eq!(fetcher.calls.get(), 1);
+        let fetcher = Counting::new(|| Err(FetchError::Cancelled));
+        assert!(download_with_retries(&fetcher, URL, Path::new("/x"), 10, &mut |_| {}).is_err());
+        assert_eq!(fetcher.calls.get(), 1);
+    }
+
+    #[test]
+    fn a_download_does_not_ask_again_for_a_full_disk() {
+        let fetcher = Counting::new(|| Err(full()));
+        let result = download_with_retries(&fetcher, URL, Path::new("/x"), 10, &mut |_| {});
+        assert!(result.is_err());
+        assert_eq!(fetcher.calls.get(), 1);
+    }
+
+    #[test]
+    fn a_download_that_works_is_ok_without_waiting() {
+        let fetcher = Counting::new(|| Ok(Vec::new()));
+        let seen = RefCell::new(0);
+        download_with_retries(&fetcher, URL, Path::new("/x"), 10, &mut |_| {
+            *seen.borrow_mut() += 1;
+        })
+        .unwrap();
+        assert_eq!(fetcher.calls.get(), 1);
+        assert!(slept().is_empty());
+    }
+
+    #[test]
+    fn a_range_is_returned_as_read() {
+        let fetcher = Counting::new(|| Ok(vec![1, 2, 3]));
+        let bytes =
+            get_range_with_retries(&fetcher, URL, ByteRange::From { start: 4, len: 3 }).unwrap();
+        assert_eq!(bytes, vec![1, 2, 3]);
+        let bytes = get_range_with_retries(&fetcher, URL, ByteRange::Last(5)).unwrap();
+        assert_eq!(bytes, vec![1, 2, 3]);
+    }
+
+    #[test]
+    fn a_range_of_the_wrong_length_is_asked_again_and_then_an_error() {
+        let fetcher = Counting::new(|| Ok(vec![1, 2]));
+        let error = get_range_with_retries(&fetcher, URL, ByteRange::From { start: 4, len: 3 })
+            .unwrap_err()
+            .to_string();
+        assert!(
+            error.contains("3 bytes from byte 4, got 2 bytes"),
+            "{error}"
+        );
+        assert_eq!(fetcher.calls.get(), ATTEMPTS);
+        let fetcher = Counting::new(|| Ok(Vec::new()));
+        assert!(get_range_with_retries(&fetcher, URL, ByteRange::Last(5)).is_err());
+        assert_eq!(fetcher.calls.get(), ATTEMPTS);
+    }
+
+    #[test]
+    fn a_range_a_server_ignores_is_not_asked_again() {
+        let fetcher = Counting::new(|| {
+            Err(FetchError::RangeIgnored {
+                url: URL.to_string(),
+                range: "bytes=0-9".to_string(),
+                status: 200,
+            })
+        });
+        let result = get_range_with_retries(&fetcher, URL, ByteRange::Last(5));
+        assert!(matches!(result, Err(FetchError::RangeIgnored { .. })));
+        assert_eq!(fetcher.calls.get(), 1);
+    }
+
+    #[test]
+    fn a_failing_range_is_asked_up_to_the_attempts() {
+        let fetcher = Counting::new(|| Err(http("http status: 502")));
+        assert!(get_range_with_retries(&fetcher, URL, ByteRange::Last(5)).is_err());
+        assert_eq!(fetcher.calls.get(), ATTEMPTS);
+        assert_eq!(slept().len() as u32, ATTEMPTS - 1);
     }
 }
