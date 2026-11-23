@@ -8,7 +8,7 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ### Added
 
-- The sources of the permit notes can live in the manifest: `[[permits.wfs]]` describes a WFS service with its layers and their readings (issue #273, stage 2a). The validator checks the address, the host, the names and the keys of each reading; an adapter folder can declare them, and `adapters probe` asks their addresses. The first to move from code into a manifest are the protected objects of Hamburg, Saarland and Brandenburg (Naturdenkmale, landscape components, biotopes); the notes read the same (ADR 0189).
+- The sources of the permit notes can live in the manifest: `[[permits.wfs]]` describes a WFS service with its layers and their readings (issue #273, stage 2a). The validator checks the address, the host, the names and the keys of each reading; an adapter folder can declare them, and `adapters probe` asks their addresses. The first to move from code into a manifest are the protected objects of Hamburg, Saarland, Brandenburg and Berlin (Naturdenkmale, landscape components, biotopes); the notes read the same (ADR 0189).
 
 ## [0.27.0] - 2026-11-22
 

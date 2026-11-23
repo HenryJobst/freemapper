@@ -32,50 +32,6 @@ const BIOTOPE: ProtectedObjectKind = ProtectedObjectKind::Biotope;
 /// The service of the Bavarian LfU, which Bavaria's manifest names as a host.
 pub const BAYERN: &str = "https://www.lfu.bayern.de/gdi/wfs/natur/schutzgebiete";
 
-/// Berlin: the biotopes of the Umweltatlas whose protection is certain (`schutz_ges` 1, not the
-/// suspected ones).
-pub fn berlin() -> Box<dyn PermitSource> {
-    const CERTAIN: Option<(&str, &[&str])> = Some(("schutz_ges", &["1"]));
-    source(
-        "biotope",
-        crate::berlin_permits::LABEL,
-        Wording {
-            en: "protected biotopes (Umweltatlas, biotope types 2024)",
-            de: "geschützte Biotope (Umweltatlas, Biotoptypen 2024)",
-        },
-        crate::berlin_permits::LICENCE,
-        &["flaechen", "punkte"],
-        OBJECTS,
-        "https://gdi.berlin.de/services/wfs/ua_biotoptypen_2024",
-        "application/json",
-        {
-            const LAYERS: &[Layer] = &[
-                (
-                    "flaechen",
-                    "ua_biotoptypen_2024:bc_gesetzschutz_f",
-                    Reading::Object {
-                        kind: BIOTOPE,
-                        name: Some("bt_name"),
-                        citation: None,
-                        only: CERTAIN,
-                    },
-                ),
-                (
-                    "punkte",
-                    "ua_biotoptypen_2024:ba_gesetzschutz_p",
-                    Reading::Object {
-                        kind: BIOTOPE,
-                        name: Some("bt_name"),
-                        citation: None,
-                        only: CERTAIN,
-                    },
-                ),
-            ];
-            LAYERS
-        },
-    )
-}
-
 const LFULG: Wording = Wording {
     en: "Sächsisches Landesamt für Umwelt, Landwirtschaft und Geologie",
     de: "Sächsisches Landesamt für Umwelt, Landwirtschaft und Geologie",
