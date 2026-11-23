@@ -581,13 +581,8 @@ impl StateAdapter {
             .collect(),
             // The protected objects of Hamburg are declared in its manifest (issue #273).
             State::Hamburg => crate::lgv_permits::sources(),
-            State::Saarland => [
-                crate::state_permits::saarland(),
-                crate::natur_permits::saarland(),
-            ]
-            .into_iter()
-            .flatten()
-            .collect(),
+            // The protected objects of Saarland are declared in its manifest (issue #273).
+            State::Saarland => crate::state_permits::saarland(),
             State::Hessen => [
                 crate::state_permits::hessen(),
                 vec![

@@ -164,56 +164,6 @@ pub fn berlin() -> Box<dyn PermitSource> {
     )
 }
 
-/// Saarland: the Naturdenkmale and the protected biotopes of the Geoportal Saarland. Its
-/// geschützte Landschaftsbestandteile stay out: one ordinance among them was found invalid, and
-/// the table does not mark which.
-pub fn saarland() -> Vec<Box<dyn PermitSource>> {
-    vec![
-        source(
-            "naturdenkmale",
-            crate::state_permits::SAARLAND,
-            Wording {
-                en: "Naturdenkmale",
-                de: "Naturdenkmale",
-            },
-            crate::state_permits::SAARLAND_CREDIT,
-            &["naturdenkmale"],
-            OBJECTS,
-            "https://geoportal.saarland.de/arcgis/services/Internet/Schutzgebiete_INS/MapServer/WFSServer",
-            "GEOJSON",
-            {
-                const LAYERS: &[Layer] = &[(
-                    "naturdenkmale",
-                    "Naturdenkmal_Flaechen",
-                    object(ND, Some("NAME"), Some("RECHTSGR")),
-                )];
-                LAYERS
-            },
-        ),
-        source(
-            "biotope",
-            crate::state_permits::SAARLAND,
-            Wording {
-                en: "protected biotopes of the biotope register",
-                de: "geschützte Biotope des Biotopkatasters",
-            },
-            crate::state_permits::SAARLAND_CREDIT,
-            &["biotope"],
-            OBJECTS,
-            "https://geoportal.saarland.de/arcgis/services/Internet/Biotopkataster/MapServer/WFSServer",
-            "GEOJSON",
-            {
-                const LAYERS: &[Layer] = &[(
-                    "biotope",
-                    "Geschuetzte_Biotope_f",
-                    object(BIOTOPE, Some("BEZEICHNUNG"), None),
-                )];
-                LAYERS
-            },
-        ),
-    ]
-}
-
 const LFULG: Wording = Wording {
     en: "Sächsisches Landesamt für Umwelt, Landwirtschaft und Geologie",
     de: "Sächsisches Landesamt für Umwelt, Landwirtschaft und Geologie",

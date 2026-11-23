@@ -953,4 +953,53 @@ mod tests {
             "{found:?}"
         );
     }
+
+    /// Saarland's protected objects, which were a table in the code until they moved into its
+    /// manifest (issue #273), give the requests and the credit the table gave.
+    #[test]
+    fn the_declared_sources_of_saarland_ask_and_keep_what_the_table_did() {
+        let text = include_str!("../manifests/saarland/manifest.toml");
+        let manifest = freemapper_manifest::parse(text, Path::new("saarland")).unwrap();
+        let declared: Vec<Box<dyn PermitSource>> =
+            manifest.permits.iter().map(declared_source).collect();
+        let keys: Vec<(&str, &[&str])> = declared
+            .iter()
+            .map(|source| (source.info().key, source.info().layers))
+            .collect();
+        assert_eq!(
+            keys,
+            [
+                ("naturdenkmale", &["naturdenkmale"][..]),
+                ("biotope", &["biotope"][..])
+            ]
+        );
+        for source in &declared {
+            assert_eq!(source.info().sections, [PermitSection::ProtectedObjects]);
+            assert_eq!(source.info().label.de, "Geoportal Saarland");
+            assert!(source.info().credit.contains("{year}"));
+        }
+        let bbox = Rect::new(Coord { x: 6.9, y: 49.2 }, Coord { x: 7.0, y: 49.3 });
+        let dir = tempfile::tempdir().unwrap();
+        let asked = Recorder::default();
+        for source in &declared {
+            source
+                .fetch(&asked, &bbox, &dir.path().join("part"))
+                .unwrap();
+        }
+        let urls = asked.0.into_inner();
+        assert_eq!(urls.len(), 2);
+        for (url, (base, type_name)) in urls.iter().zip([
+            (
+                "https://geoportal.saarland.de/arcgis/services/Internet/Schutzgebiete_INS/MapServer/WFSServer",
+                "Naturdenkmal_Flaechen",
+            ),
+            (
+                "https://geoportal.saarland.de/arcgis/services/Internet/Biotopkataster/MapServer/WFSServer",
+                "Geschuetzte_Biotope_f",
+            ),
+        ]) {
+            assert!(url.starts_with(base) && url.contains(type_name), "{url}");
+            assert!(url.contains("GEOJSON"), "{url}");
+        }
+    }
 }
