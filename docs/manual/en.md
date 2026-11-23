@@ -1411,18 +1411,16 @@ The wójt does not issue the permit for an event on a road, and the Nature Conse
 event at a natural monument: the resolution decides. Mass events and assemblies get no gmina hint. Monuments come from the register of immovable monuments of the NID
 (`usluga.zabytek.gov.pl`, one request per map area): the notes count the monuments in the rectangle around the map
 area and name the most common names with their counts (at most ten). The register gives no positions, so the notes
-say to check on the map where they lie. The hint names the permit of the voivodeship monument conservator for work
-at a monument and in its surroundings (Act on the Protection of Monuments, art. 36); the Act names no run.
+say to check on the map where they lie. The hint names the permit of the voivodeship monument conservator for conservation, restoration and building
+work at a monument (Act on the Protection of Monuments, art. 36 ust. 1) and says that since 3 June 2026 building work in
+its surroundings and some other actions need only a notification, to which the conservator can object within 60 days
+(art. 36aa); the Act names no run.
 A second request asks the register of archaeological monuments (the book C of the register) the same way; its section
-has the same form and its hint says that the Act regulates searching for monuments with metal detectors and makes
-archaeological research and work at a registered site subject to the conservator's permit. Sites that are only in the
-archaeological record (AZP) and not entered in the register are not covered. The Pomniki historii (monuments of
-history) come from a WFS of the NID with their true positions: the section gives the number of monuments in the map
-area and, apart from it, those only in the rectangle around the map area, with names (at most ten per list); a
-monument with several parts counts once. The hint says that the President declares a registered immovable monument or
-a cultural park a Pomnik historii (art. 15 ust. 1), that work at a registered monument needs the permit of the
-voivodeship monument conservator (art. 36 ust. 1) and that in a cultural park the resolution of the gmina council
-decides; the Act names no run. Only the State Forests
+has the same form and its hint says that archaeological research and searching with metal detectors need the
+conservator's permit (art. 36 ust. 1 pkt 5 and 12), that the permit for searches falls away on 1 January 2027 and is
+replaced by the owner's consent plus a notification in the app of the ministry (art. 36b), and that registered
+monuments and their 10 m belt are then closed to such searches (art. 36c). Sites that are only in the
+archaeological record (AZP) and not entered in the register, and the Pomniki historii, are not covered. Only the State Forests
 are in the data; private forest is not, and the notes say that the starosta supervises forest that the State
 Treasury does not own. The German wording of these hints has not been read by a Polish speaker.
 The notes are a hint, not legal advice. `--offline` reads what an earlier run stored, as in Germany.
