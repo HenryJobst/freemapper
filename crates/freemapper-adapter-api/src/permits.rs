@@ -156,6 +156,9 @@ pub enum PermitSection {
     /// The register of archaeological monuments of a region that gives no position (ADR 0190):
     /// the sites in the rectangle around the map area, counted, with their names.
     ArchaeologyRegister,
+    /// The monuments of history of a region, with their positions (ADR 0191): the notes count
+    /// those in the map area and those that lie only in the rectangle around it, with names.
+    HistoryRegister,
 }
 
 /// One finding of a regional source with its geometry.
@@ -200,6 +203,10 @@ pub enum FindingKind {
     /// An archaeological monument of a register that gives no position: it lies somewhere in the
     /// rectangle the source asked, which the finding's geometry then is (ADR 0190).
     RegisterArchaeology { name: Option<String> },
+    /// A monument of history (Polish Pomnik historii) with its true position (ADR 0191). A
+    /// monument can come in several parts (polygons, lines, points) with one `id`; the notes
+    /// count it once.
+    RegisterHistory { id: String, name: Option<String> },
     /// The unit of a forest administration the area belongs to. All three as the notes print
     /// them, proper names in German in every language.
     ForestUnit {

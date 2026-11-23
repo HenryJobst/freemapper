@@ -19,8 +19,8 @@ use freemapper::permits::notes::{
 };
 use freemapper::permits::regional::{
     AdminUnitEntry, ForestFunctionEntry, ForestUnitEntry, GreenSpaceEntry, PermitSection,
-    ProtectedObjectEntry, ProtectedObjectKind, RegionalNotes, RegionalStatus, StateForestEntry,
-    WaterProtectionEntry, Words,
+    ProtectedObjectEntry, ProtectedObjectKind, RegionalNotes, RegionalStatus, RegisterMonuments,
+    StateForestEntry, WaterProtectionEntry, Words,
 };
 use freemapper::permits::store::{PERMITS_JSON, PERMITS_MD, write_permit_notes};
 use freemapper::project::{MapKind, ProjectFile};
@@ -832,6 +832,33 @@ const REGISTER_ARCHAEOLOGY_IDS: RegisterIds = RegisterIds {
     left: "permits-register-archaeology-left",
 };
 
+/// The list of the names of a register and the sentence on the monuments left without a name
+/// line, each when there is something to say.
+fn register_names(lang: &Lang, register: &RegisterMonuments, left_id: &str) -> Vec<String> {
+    let mut blocks = Vec::new();
+    let lines: Vec<String> = register
+        .names
+        .iter()
+        .map(|n| {
+            format!(
+                "- {}",
+                t(
+                    lang,
+                    "permits-count-line",
+                    &[("name", arg(md(&n.name))), ("count", arg(n.count))],
+                )
+            )
+        })
+        .collect();
+    if !lines.is_empty() {
+        blocks.push(lines.join("\n"));
+    }
+    if register.left > 0 {
+        blocks.push(t(lang, left_id, &[("count", arg(register.left))]));
+    }
+    blocks
+}
+
 fn regional_blocks(lang: &Lang, part: &RegionalNotes) -> Vec<String> {
     // The sources that fill a section, by their labels in order; the first source of the
     // adapter when none names it.
@@ -1027,25 +1054,26 @@ fn regional_blocks(lang: &Lang, part: &RegionalNotes) -> Vec<String> {
             blocks.push(none(section, ids.none));
         } else {
             blocks.push(t(lang, ids.total, &[("count", arg(register.total))]));
-            let lines: Vec<String> = register
-                .names
-                .iter()
-                .map(|n| {
-                    format!(
-                        "- {}",
-                        t(
-                            lang,
-                            "permits-count-line",
-                            &[("name", arg(md(&n.name))), ("count", arg(n.count))],
-                        )
-                    )
-                })
-                .collect();
-            if !lines.is_empty() {
-                blocks.push(lines.join("\n"));
-            }
-            if register.left > 0 {
-                blocks.push(t(lang, ids.left, &[("count", arg(register.left))]));
+            blocks.extend(register_names(lang, register, ids.left));
+        }
+    }
+    if let Some(history) = &part.register_history {
+        let section = PermitSection::HistoryRegister;
+        blocks.push(heading(section, "permits-section-register-history"));
+        if history.in_area.total == 0 && history.nearby.total == 0 {
+            blocks.push(none(section, "permits-none-register-history"));
+        }
+        for (register, total) in [
+            (&history.in_area, "permits-register-history-in-area"),
+            (&history.nearby, "permits-register-history-nearby"),
+        ] {
+            if register.total > 0 {
+                blocks.push(t(lang, total, &[("count", arg(register.total))]));
+                blocks.extend(register_names(
+                    lang,
+                    register,
+                    "permits-register-history-left",
+                ));
             }
         }
     }
@@ -1371,6 +1399,7 @@ fn used_ids() -> Vec<String> {
             hint_key::GMINA_LAND_PL,
             hint_key::MONUMENT_REGISTER_PL,
             hint_key::ARCHAEOLOGY_REGISTER_PL,
+            hint_key::HISTORY_REGISTER_PL,
         ]
         .map(String::from),
     );
@@ -1790,6 +1819,7 @@ mod tests {
                 admin_units: None,
                 register_monuments: None,
                 register_archaeology: None,
+                register_history: None,
                 sources: vec![
                     regional_status("bezirke", "Bezirksgrenzen (ALKIS Berlin)", None),
                     regional_status("gruenanlagen", "Grünanlagenbestand", None),
@@ -1901,6 +1931,15 @@ mod tests {
             let text = render_markdown(&notes, &lang);
             assert!(
                 !text.contains("{ $") && text.contains("36") && text.contains("zabytk"),
+                "{code}\n{text}"
+            );
+            notes.hints = vec![hint(hint_key::HISTORY_REGISTER_PL, &[])];
+            let text = render_markdown(&notes, &lang);
+            assert!(
+                !text.contains("{ $")
+                    && text.contains("Pomnik")
+                    && text.contains("15")
+                    && text.contains("36"),
                 "{code}\n{text}"
             );
             notes.hints = vec![hint(hint_key::GMINA_NATURE_PL, &[])];
@@ -2340,6 +2379,82 @@ mod tests {
         // One register absent leaves the other alone.
         let text = render(None, register(0, 0));
         assert!(text.contains(none_a) && !text.contains(none_m), "{text}");
+    }
+
+    /// The monuments of history (ADR 0191): "none" only when both lists are empty, each list with
+    /// its own sentence, names and rest, and the rest sentence only when something is left.
+    #[test]
+    fn monuments_of_history_say_what_lies_in_the_area_and_what_only_near_it() {
+        use freemapper::permits::regional::{
+            RegisterHistory, RegisterMonumentName, RegisterMonuments,
+        };
+        let list = |total: usize, left: usize, name: &str| RegisterMonuments {
+            total,
+            names: if name.is_empty() {
+                Vec::new()
+            } else {
+                vec![RegisterMonumentName {
+                    name: name.into(),
+                    count: total - left,
+                }]
+            },
+            left,
+        };
+        let render = |in_area, nearby| {
+            let mut notes = viktoriapark();
+            notes.regional[0].register_history = Some(RegisterHistory { in_area, nearby });
+            render_markdown(&notes, &Lang::english())
+        };
+        let none = "no monument of history lies in the rectangle";
+        let in_area = "Monuments of history in the map area: ";
+        let nearby = "Further monuments of history in the rectangle around the map area, but not in the map area: ";
+        let left = "more are only counted here, without their names.";
+
+        let text = render(list(0, 0, ""), list(0, 0, ""));
+        assert!(text.contains(none), "{text}");
+        assert!(text.contains("## Monuments of history ("), "{text}");
+        assert!(!text.contains(in_area) && !text.contains(nearby), "{text}");
+
+        // Only the rectangle: its sentence, its names, no "none", no area sentence.
+        let text = render(list(0, 0, ""), list(2, 0, "Kopiec"));
+        assert!(text.contains(&format!("{nearby}2.")), "{text}");
+        assert!(text.contains("- Kopiec"), "{text}");
+        assert!(!text.contains(none) && !text.contains(in_area), "{text}");
+        assert!(!text.contains(left), "{text}");
+
+        // Only the area.
+        let text = render(list(3, 0, "Wawel"), list(0, 0, ""));
+        assert!(text.contains(&format!("{in_area}3.")), "{text}");
+        assert!(!text.contains(none) && !text.contains(nearby), "{text}");
+
+        // Both, each with a rest of its own, in this order.
+        let text = render(list(4, 1, "Wawel"), list(2, 0, "Kopiec"));
+        assert_eq!(text.matches(left).count(), 1, "{text}");
+        assert!(text.contains("1 more are only counted"), "{text}");
+        let (a, w, l, n, k) = (
+            text.find(in_area).unwrap(),
+            text.find("- Wawel").unwrap(),
+            text.find(left).unwrap(),
+            text.find(nearby).unwrap(),
+            text.find("- Kopiec").unwrap(),
+        );
+        assert!(a < w && w < l && l < n && n < k, "{text}");
+        let text = render(list(4, 0, "Wawel"), list(5, 5, ""));
+        assert!(text.contains("5 more are only counted"), "{text}");
+        assert!(!text.contains("- Kopiec"), "{text}");
+        assert_eq!(text.matches(left).count(), 1, "{text}");
+
+        // A Polish and a German text exist for the same sentences.
+        let mut notes = viktoriapark();
+        notes.regional[0].register_history = Some(RegisterHistory {
+            in_area: list(3, 0, "Wawel"),
+            nearby: list(0, 0, ""),
+        });
+        let text = render_markdown(&notes, &de());
+        assert!(
+            text.contains("Denkmäler der Geschichte im Kartengebiet: 3."),
+            "{text}"
+        );
     }
 
     /// Biotopes and the lower nature authority for protected objects in words (ADR 0146).

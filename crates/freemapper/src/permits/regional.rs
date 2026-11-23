@@ -15,7 +15,7 @@ pub use freemapper_adapter_api::permits::{
     AdminUnitLevel, DistrictOffices, ForestFunctionKind, PermitSection, ProtectedObjectKind,
 };
 use freemapper_adapter_api::permits::{FindingKind, PermitFinding, PermitSourceInfo};
-use geo_types::{Coord, Geometry, MultiPolygon};
+use geo_types::{Coord, Geometry, LineString, MultiPolygon};
 use serde::{Deserialize, Serialize};
 
 use crate::permits::notes::{Plane, Share, SourceInput, SourceStatus, status};
@@ -127,8 +127,19 @@ pub struct RegionalNotes {
     /// map area (ADR 0190).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub register_archaeology: Option<RegisterMonuments>,
+    /// The monuments of history of a region with positions (ADR 0191).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub register_history: Option<RegisterHistory>,
     /// The sources of the adapter, in its order.
     pub sources: Vec<RegionalStatus>,
+}
+
+/// The monuments of history: those that touch the map area and those that lie only in the
+/// rectangle around it. A monument with several parts counts once.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RegisterHistory {
+    pub in_area: RegisterMonuments,
+    pub nearby: RegisterMonuments,
 }
 
 /// The monuments of a register that gives no position: how many, and the names of the first few.
@@ -285,6 +296,9 @@ pub(crate) struct HintFacts {
     /// The archaeological monuments of a register without positions in the rectangle around the
     /// map area (Poland, ADR 0190).
     pub register_archaeology: usize,
+    /// The monuments of history in the rectangle around the map area, in the area or not (Poland,
+    /// ADR 0191).
+    pub register_history: usize,
     /// The types of the biotopes on the map, by share, descending (ADR 0146).
     pub biotopes: Vec<String>,
     /// The districts that hold a protected object the lower nature conservation authority
@@ -326,6 +340,7 @@ struct Placed<'a> {
 enum Shape {
     Area(MultiPolygon<f64>),
     Points(Vec<Coord<f64>>),
+    Lines(Vec<LineString<f64>>),
 }
 
 impl Shape {
@@ -343,6 +358,12 @@ impl Shape {
             Geometry::Point(p) => Some(Shape::Points(
                 plane.project_point(p.0).into_iter().collect(),
             )),
+            Geometry::LineString(l) => {
+                Some(Shape::Lines(plane.project_line(l).into_iter().collect()))
+            }
+            Geometry::MultiLineString(ml) => Some(Shape::Lines(
+                ml.0.iter().filter_map(|l| plane.project_line(l)).collect(),
+            )),
             _ => None,
         }
     }
@@ -353,6 +374,7 @@ impl Shape {
         match self {
             Shape::Area(area) => plane.share(area),
             Shape::Points(points) => points.iter().any(|c| plane.contains(*c)).then_some(0.0),
+            Shape::Lines(lines) => lines.iter().any(|l| plane.crosses(l)).then_some(0.0),
         }
     }
 
@@ -363,6 +385,8 @@ impl Shape {
             Shape::Points(points) => points
                 .iter()
                 .any(|c| plane.contains(*c) && geo::Contains::contains(district, c)),
+            // No source of lines feeds the districts; a line is in none.
+            Shape::Lines(_) => false,
         }
     }
 }
@@ -485,6 +509,8 @@ fn one_adapter(
             _ => None,
         })
     });
+    let register_history =
+        read(PermitSection::HistoryRegister).then(|| count_history(plane, &placed));
 
     let facts = HintFacts {
         districts: districts
@@ -515,6 +541,9 @@ fn one_adapter(
         municipalities: municipalities(admin_units.iter().flatten()),
         register_monuments: register_monuments.as_ref().map_or(0, |m| m.total),
         register_archaeology: register_archaeology.as_ref().map_or(0, |m| m.total),
+        register_history: register_history
+            .as_ref()
+            .map_or(0, |h| h.in_area.total + h.nearby.total),
         biotopes: {
             let mut biotopes: Vec<(&ProtectedObjectEntry, f64)> = protected_objects
                 .iter()
@@ -594,6 +623,7 @@ fn one_adapter(
         admin_units,
         register_monuments,
         register_archaeology,
+        register_history,
         sources: inputs
             .iter()
             .map(|i| RegionalStatus {
@@ -814,14 +844,50 @@ fn count_register(
     on_map: &[(&Placed<'_>, f64)],
     pick: impl Fn(&FindingKind) -> Option<&Option<String>>,
 ) -> RegisterMonuments {
+    count_names(
+        on_map
+            .iter()
+            .filter_map(|(p, _)| pick(p.kind))
+            .map(Option::as_deref),
+    )
+}
+
+/// The monuments of history: each counts once however many parts it has, in the area when one
+/// of its parts touches the map, else nearby (every finding the source gave lies in the
+/// rectangle around the map). The name is the first one any part has.
+fn count_history(plane: &Plane, placed: &[Placed<'_>]) -> RegisterHistory {
+    let mut by_id: BTreeMap<&str, (Option<&str>, bool)> = BTreeMap::new();
+    for p in placed {
+        if let FindingKind::RegisterHistory { id, name } = p.kind {
+            let entry = by_id.entry(id.as_str()).or_default();
+            entry.0 = entry.0.or(name.as_deref());
+            entry.1 |= p.shape.on_map(plane).is_some();
+        }
+    }
+    let of = |in_area: bool| {
+        count_names(
+            by_id
+                .values()
+                .filter(|(_, on_map)| *on_map == in_area)
+                .map(|(name, _)| *name),
+        )
+    };
+    RegisterHistory {
+        in_area: of(true),
+        nearby: of(false),
+    }
+}
+
+/// `names` of monuments counted: the total, the names with their counts (at most
+/// [`MAX_REGISTER_MONUMENT_NAMES`], by count descending, then by name) and the monuments no name
+/// line covers.
+fn count_names<'a>(names: impl Iterator<Item = Option<&'a str>>) -> RegisterMonuments {
     let mut total = 0;
     let mut by_name: BTreeMap<&str, usize> = BTreeMap::new();
-    for (p, _) in on_map {
-        if let Some(name) = pick(p.kind) {
-            total += 1;
-            if let Some(name) = name {
-                *by_name.entry(name.as_str()).or_default() += 1;
-            }
+    for name in names {
+        total += 1;
+        if let Some(name) = name {
+            *by_name.entry(name).or_default() += 1;
         }
     }
     let mut names: Vec<RegisterMonumentName> = by_name
@@ -908,7 +974,7 @@ fn protected_objects(on_map: &[(&Placed<'_>, f64)]) -> Vec<ProtectedObjectEntry>
             continue;
         };
         match p.shape {
-            Shape::Points(_) => {
+            Shape::Points(_) | Shape::Lines(_) => {
                 *points
                     .entry((*kind, name.clone(), citation.clone()))
                     .or_default() += 1;
