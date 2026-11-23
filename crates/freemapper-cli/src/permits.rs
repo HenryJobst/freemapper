@@ -2312,6 +2312,7 @@ mod tests {
             "{text}"
         );
         assert!(!text.contains("Die Links führen"), "{text}");
+        assert!(!text.contains("ohne Link nur gezählt"), "{text}");
         assert!(
             text.contains("Der Bestand von Geoportal Berlin ist nicht vollständig: Die Stadt Potsdam führt ihre Denkmalliste selbst."),
             "{text}"
