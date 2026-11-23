@@ -64,6 +64,32 @@ backend = "lgl-bw"
 [surface]
 backend = "lgl-bw"
 
+# The Naturdenkmale of the LUBW, single ones and areas (issue #273). The biotopes stay out: their
+# terms of use need a request for any commercial use.
+[[permits.wfs]]
+key = "naturdenkmale"
+label = { en = "LUBW", de = "LUBW" }
+what = { en = "Naturdenkmale, single", de = "Naturdenkmale, Einzelgebilde" }
+credit = "Grundlage: Daten aus dem Umweltinformationssystem (UIS) der LUBW Landesanstalt für Umwelt Baden-Württemberg"
+sections = ["protected-objects"]
+url = "https://rips-gdi.lubw.baden-wuerttemberg.de/arcgis/services/wfs/Naturdenkmal_Einzelgebilde/MapServer/WFSServer"
+output_format = "GEOJSON"
+layers = [
+    { key = "naturdenkmale", type_name = "Naturdenkmal_Einzelgebilde", reading = "object", object = "natural-monument", name = "OBJEKT" },
+]
+
+[[permits.wfs]]
+key = "flaechennaturdenkmale"
+label = { en = "LUBW", de = "LUBW" }
+what = { en = "Naturdenkmale, areas", de = "Naturdenkmale, flächenhaft" }
+credit = "Grundlage: Daten aus dem Umweltinformationssystem (UIS) der LUBW Landesanstalt für Umwelt Baden-Württemberg"
+sections = ["protected-objects"]
+url = "https://rips-gdi.lubw.baden-wuerttemberg.de/arcgis/services/wfs/Naturdenkmal_Flaechenhaft/MapServer/WFSServer"
+output_format = "GEOJSON"
+layers = [
+    { key = "naturdenkmale", type_name = "Naturdenkmal_Flaechenhaft", reading = "object", object = "natural-monument", name = "OBJEKT" },
+]
+
 [preview]
 wms = "https://owsproxy.lgl-bw.de/owsproxy/ows/WMS_LGL-BW_ATKIS_DOP_20_C"
 layer = "IMAGES_DOP_20_RGB"

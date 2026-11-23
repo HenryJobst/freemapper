@@ -1254,4 +1254,44 @@ mod tests {
         assert!(info.gaps.is_some());
         assert_eq!(info.credit, "© GeoBasis-DE/LVermGeo SH/CC BY 4.0");
     }
+
+    /// Baden-Württemberg's Naturdenkmale, which were a table in the code until they moved into
+    /// its manifest (issue #273), give the requests and the credit the table gave.
+    #[test]
+    fn the_declared_sources_of_baden_wuerttemberg_ask_and_keep_what_the_table_did() {
+        let text = include_str!("../manifests/badenwuerttemberg/manifest.toml");
+        let manifest = freemapper_manifest::parse(text, Path::new("badenwuerttemberg")).unwrap();
+        let declared: Vec<Box<dyn PermitSource>> =
+            manifest.permits.iter().map(declared_source).collect();
+        let keys: Vec<&str> = declared.iter().map(|source| source.info().key).collect();
+        assert_eq!(keys, ["naturdenkmale", "flaechennaturdenkmale"]);
+        for source in &declared {
+            assert_eq!(source.info().layers, ["naturdenkmale"]);
+            assert_eq!(source.info().sections, [PermitSection::ProtectedObjects]);
+            assert_eq!(source.info().label.de, "LUBW");
+            assert!(source.info().credit.contains("UIS"));
+        }
+        let bbox = Rect::new(Coord { x: 9.1, y: 48.7 }, Coord { x: 9.2, y: 48.8 });
+        let dir = tempfile::tempdir().unwrap();
+        let asked = Recorder::default();
+        for source in &declared {
+            source
+                .fetch(&asked, &bbox, &dir.path().join("part"))
+                .unwrap();
+        }
+        let urls = asked.0.into_inner();
+        assert_eq!(urls.len(), 2);
+        for (url, service) in urls
+            .iter()
+            .zip(["Naturdenkmal_Einzelgebilde", "Naturdenkmal_Flaechenhaft"])
+        {
+            assert!(
+                url.starts_with(&format!(
+                    "https://rips-gdi.lubw.baden-wuerttemberg.de/arcgis/services/wfs/{service}/MapServer/WFSServer"
+                )) && url.contains(service)
+                    && url.contains("GEOJSON"),
+                "{url}"
+            );
+        }
+    }
 }

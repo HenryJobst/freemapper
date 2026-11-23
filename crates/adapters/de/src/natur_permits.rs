@@ -198,59 +198,6 @@ pub fn bayern() -> Box<dyn PermitSource> {
     )
 }
 
-/// Baden-Württemberg: the Naturdenkmale of the LUBW, single ones and areas. The biotopes stay
-/// out: their terms of use need a request for any commercial use.
-pub fn baden_wuerttemberg() -> Vec<Box<dyn PermitSource>> {
-    const LABEL: Wording = Wording {
-        en: "LUBW",
-        de: "LUBW",
-    };
-    vec![
-        source(
-            "naturdenkmale",
-            LABEL,
-            Wording {
-                en: "Naturdenkmale, single",
-                de: "Naturdenkmale, Einzelgebilde",
-            },
-            crate::lubw_permits::CREDIT,
-            &["naturdenkmale"],
-            OBJECTS,
-            "https://rips-gdi.lubw.baden-wuerttemberg.de/arcgis/services/wfs/Naturdenkmal_Einzelgebilde/MapServer/WFSServer",
-            "GEOJSON",
-            {
-                const LAYERS: &[Layer] = &[(
-                    "naturdenkmale",
-                    "Naturdenkmal_Einzelgebilde",
-                    object(ND, Some("OBJEKT"), None),
-                )];
-                LAYERS
-            },
-        ),
-        source(
-            "flaechennaturdenkmale",
-            LABEL,
-            Wording {
-                en: "Naturdenkmale, areas",
-                de: "Naturdenkmale, flächenhaft",
-            },
-            crate::lubw_permits::CREDIT,
-            &["naturdenkmale"],
-            OBJECTS,
-            "https://rips-gdi.lubw.baden-wuerttemberg.de/arcgis/services/wfs/Naturdenkmal_Flaechenhaft/MapServer/WFSServer",
-            "GEOJSON",
-            {
-                const LAYERS: &[Layer] = &[(
-                    "naturdenkmale",
-                    "Naturdenkmal_Flaechenhaft",
-                    object(ND, Some("OBJEKT"), None),
-                )];
-                LAYERS
-            },
-        ),
-    ]
-}
-
 /// The map service of the NLWKN, which Lower Saxony's manifest names as a host.
 pub const NIEDERSACHSEN: &str =
     "https://www.umweltkarten-niedersachsen.de/arcgis/rest/services/Natur_wms/MapServer";
