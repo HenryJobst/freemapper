@@ -616,7 +616,8 @@ impl StateAdapter {
                     crate::bfg_permits::source(),
                     crate::denkmal_permits::sachsen(),
                 ],
-                crate::natur_permits::sachsen(),
+                // The Flächennaturdenkmale and biotopes of the LfULG are declared in its
+                // manifest (issue #273).
             ]
             .into_iter()
             .flatten()
