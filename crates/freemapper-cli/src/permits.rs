@@ -2279,6 +2279,69 @@ mod tests {
         );
     }
 
+    /// The two registers without positions (ADR 0184, 0190) say "none" only at a total of zero,
+    /// and name the monuments left without a name line only when there are some.
+    #[test]
+    fn registers_say_none_at_zero_and_the_rest_only_when_there_is_one() {
+        use freemapper::permits::regional::{RegisterMonumentName, RegisterMonuments};
+        let register = |total: usize, left: usize| {
+            Some(RegisterMonuments {
+                total,
+                names: vec![RegisterMonumentName {
+                    name: "Kościół".into(),
+                    count: 1,
+                }],
+                left,
+            })
+        };
+        let render = |monuments, archaeology| {
+            let mut notes = viktoriapark();
+            notes.regional[0].register_monuments = monuments;
+            notes.regional[0].register_archaeology = archaeology;
+            render_markdown(&notes, &Lang::english())
+        };
+        let none_m = "no registered monument lies in the rectangle";
+        let none_a = "no registered archaeological monument lies in the rectangle";
+        let total_m = "Registered monuments in the rectangle around the map area: 7.";
+        let total_a =
+            "Registered archaeological monuments in the rectangle around the map area: 4.";
+        let left = "more are only counted here, without their names.";
+
+        // No total: the "none" sentence, no total, no names, no rest.
+        let text = render(register(0, 0), register(0, 0));
+        assert!(text.contains(none_m), "{text}");
+        assert!(text.contains(none_a), "{text}");
+        assert!(!text.contains("Registered "), "{text}");
+        assert!(!text.contains("Kościół"), "{text}");
+        assert!(!text.contains(left), "{text}");
+
+        // A total with nothing left: total and names, no "none", no rest.
+        let text = render(register(7, 0), register(4, 0));
+        assert!(text.contains(total_m), "{text}");
+        assert!(text.contains(total_a), "{text}");
+        assert!(!text.contains(none_m) && !text.contains(none_a), "{text}");
+        assert!(text.contains("- Kościół"), "{text}");
+        assert!(!text.contains(left), "{text}");
+
+        // The registers do not lean on each other: one with a rest, one without, and back.
+        let text = render(register(7, 1), register(4, 0));
+        assert_eq!(text.matches(left).count(), 1, "{text}");
+        assert!(text.contains("1 more are only counted"), "{text}");
+        let monuments_at = text.find(total_m).unwrap();
+        let archaeology_at = text.find(total_a).unwrap();
+        let left_at = text.find(left).unwrap();
+        assert!(monuments_at < left_at && left_at < archaeology_at, "{text}");
+
+        let text = render(register(7, 0), register(4, 3));
+        assert_eq!(text.matches(left).count(), 1, "{text}");
+        assert!(text.contains("3 more are only counted"), "{text}");
+        assert!(text.find(total_a).unwrap() < text.find(left).unwrap());
+
+        // One register absent leaves the other alone.
+        let text = render(None, register(0, 0));
+        assert!(text.contains(none_a) && !text.contains(none_m), "{text}");
+    }
+
     /// Biotopes and the lower nature authority for protected objects in words (ADR 0146).
     #[test]
     fn biotopes_and_the_lower_nature_authority_are_written() {
