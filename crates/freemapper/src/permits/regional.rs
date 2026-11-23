@@ -123,6 +123,10 @@ pub struct RegionalNotes {
     /// (ADR 0184).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub register_monuments: Option<RegisterMonuments>,
+    /// The archaeological monuments of a register without positions, in the rectangle around the
+    /// map area (ADR 0190).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub register_archaeology: Option<RegisterMonuments>,
     /// The sources of the adapter, in its order.
     pub sources: Vec<RegionalStatus>,
 }
@@ -278,6 +282,9 @@ pub(crate) struct HintFacts {
     /// The monuments of a register without positions in the rectangle around the map area
     /// (Poland, ADR 0184).
     pub register_monuments: usize,
+    /// The archaeological monuments of a register without positions in the rectangle around the
+    /// map area (Poland, ADR 0190).
+    pub register_archaeology: usize,
     /// The types of the biotopes on the map, by share, descending (ADR 0146).
     pub biotopes: Vec<String>,
     /// The districts that hold a protected object the lower nature conservation authority
@@ -466,8 +473,18 @@ fn one_adapter(
     let water_protection = read(PermitSection::WaterProtection).then(|| water_protection(&on_map));
     let forest_functions = read(PermitSection::ForestFunctions).then(|| forest_functions(&on_map));
     let admin_units = read(PermitSection::AdminUnits).then(|| admin_units(&on_map));
-    let register_monuments =
-        read(PermitSection::MonumentRegister).then(|| register_monuments(&on_map));
+    let register_monuments = read(PermitSection::MonumentRegister).then(|| {
+        count_register(&on_map, |kind| match kind {
+            FindingKind::RegisterMonument { name } => Some(name),
+            _ => None,
+        })
+    });
+    let register_archaeology = read(PermitSection::ArchaeologyRegister).then(|| {
+        count_register(&on_map, |kind| match kind {
+            FindingKind::RegisterArchaeology { name } => Some(name),
+            _ => None,
+        })
+    });
 
     let facts = HintFacts {
         districts: districts
@@ -497,6 +514,7 @@ fn one_adapter(
         }),
         municipalities: municipalities(admin_units.iter().flatten()),
         register_monuments: register_monuments.as_ref().map_or(0, |m| m.total),
+        register_archaeology: register_archaeology.as_ref().map_or(0, |m| m.total),
         biotopes: {
             let mut biotopes: Vec<(&ProtectedObjectEntry, f64)> = protected_objects
                 .iter()
@@ -575,6 +593,7 @@ fn one_adapter(
         forest_functions,
         admin_units,
         register_monuments,
+        register_archaeology,
         sources: inputs
             .iter()
             .map(|i| RegionalStatus {
@@ -789,12 +808,16 @@ fn forest_functions(on_map: &[(&Placed<'_>, f64)]) -> Vec<Share<ForestFunctionEn
     by_share(summed, Clone::clone)
 }
 
-/// The monuments of a register without positions: counted, the names counted per name.
-fn register_monuments(on_map: &[(&Placed<'_>, f64)]) -> RegisterMonuments {
+/// The monuments of a register without positions: counted, the names counted per name. `pick`
+/// gives the name of a finding of the register and `None` for any other finding.
+fn count_register(
+    on_map: &[(&Placed<'_>, f64)],
+    pick: impl Fn(&FindingKind) -> Option<&Option<String>>,
+) -> RegisterMonuments {
     let mut total = 0;
     let mut by_name: BTreeMap<&str, usize> = BTreeMap::new();
     for (p, _) in on_map {
-        if let FindingKind::RegisterMonument { name } = p.kind {
+        if let Some(name) = pick(p.kind) {
             total += 1;
             if let Some(name) = name {
                 *by_name.entry(name.as_str()).or_default() += 1;

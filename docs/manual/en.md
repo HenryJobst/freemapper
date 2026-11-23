@@ -1413,7 +1413,10 @@ event at a natural monument: the resolution decides. Mass events and assemblies 
 area and name the most common names with their counts (at most ten). The register gives no positions, so the notes
 say to check on the map where they lie. The hint names the permit of the voivodeship monument conservator for work
 at a monument and in its surroundings (Act on the Protection of Monuments, art. 36); the Act names no run.
-Archaeological sites and the Pomniki historii are not in the layer. Only the State Forests
+A second request asks the register of archaeological monuments (the book C of the register) the same way; its section
+has the same form and its hint says that the Act regulates searching for monuments with metal detectors and makes
+archaeological research and work at a registered site subject to the conservator's permit. Sites that are only in the
+archaeological record (AZP) and not entered in the register, and the Pomniki historii, are not covered. Only the State Forests
 are in the data; private forest is not, and the notes say that the starosta supervises forest that the State
 Treasury does not own. The German wording of these hints has not been read by a Polish speaker.
 The notes are a hint, not legal advice. `--offline` reads what an earlier run stored, as in Germany.

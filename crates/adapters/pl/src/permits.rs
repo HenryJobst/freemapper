@@ -18,7 +18,9 @@
 //! The register of immovable monuments of the National Heritage Institute (NID, ADR 0184) has no
 //! geometry in its WMS. The fetch asks `GetFeatureInfo` with the whole map box as one pixel and
 //! gets every monument of the box with its name; the notes count them and name the first few,
-//! and say that the data give no position.
+//! and say that the data give no position. The register of archaeological monuments (the book C
+//! of the register, ADR 0190) is a second service of the same host with the same kind of answer
+//! and gets the same treatment in a section of its own.
 //!
 //! The Nadleśnictwo (forest district) of the State Forests belongs to a regional directorate
 //! (RDLP) whose code is the part of the district's code before the hyphen (`17-02` in `17`).
@@ -58,6 +60,10 @@ pub const NID_HOST: &str = "usluga.zabytek.gov.pl";
 
 /// The WMS of the register of immovable monuments (INSPIRE, layer `Immovable_Monuments`).
 const NID_WMS: &str = "https://usluga.zabytek.gov.pl/INSPIRE_IMD/service.svc/get";
+
+/// The WMS of the register of archaeological monuments (INSPIRE, layer `Archaeological_Monuments`,
+/// ADR 0190): the sites entered in the book C of the register.
+const NID_ARCHAEOLOGY_WMS: &str = "https://usluga.zabytek.gov.pl/INSPIRE_AMD/service.svc/get";
 
 /// The credit of the NID: its data are open under CC BY 4.0 (dane.gov.pl, dataset 1130); the
 /// licence names no wording, so the notes name the institute and the licence (ADR 0184).
@@ -251,6 +257,31 @@ pub fn sources() -> Vec<Box<dyn PermitSource>> {
                 sections: &[PermitSection::MonumentRegister],
                 offices: None,
             },
+            register: Register::Immovable,
+        }),
+        Box::new(NidRegister {
+            info: PermitSourceInfo {
+                key: "nid-archeologia",
+                label: Wording {
+                    en: "NID",
+                    de: "NID",
+                },
+                what: Wording {
+                    en: "register of archaeological monuments (names only, no positions)",
+                    de: "Register der archäologischen Denkmale (nur Namen, keine Positionen)",
+                },
+                credit: NID_CREDIT,
+                note: None,
+                sampled: false,
+                gaps: Some(Wording {
+                    en: "sites that are only in the archaeological record (AZP) and not entered in the register are not in it",
+                    de: "Fundstellen, die nur in der archäologischen Kartei (AZP) stehen und nicht im Register eingetragen sind, fehlen darin",
+                }),
+                layers: &["archeologia"],
+                sections: &[PermitSection::ArchaeologyRegister],
+                offices: None,
+            },
+            register: Register::Archaeological,
         }),
     ]
 }
@@ -669,17 +700,53 @@ impl PermitSource for PrgAdmin {
     }
 }
 
-/// The register of immovable monuments of the NID (ADR 0184).
+/// The two registers of the NID that answer alike: the immovable monuments (ADR 0184) and the
+/// archaeological ones (ADR 0190).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Register {
+    Immovable,
+    Archaeological,
+}
+
+impl Register {
+    /// The WMS of the register.
+    fn wms(self) -> &'static str {
+        match self {
+            Self::Immovable => NID_WMS,
+            Self::Archaeological => NID_ARCHAEOLOGY_WMS,
+        }
+    }
+
+    /// The layer of the WMS.
+    fn layer(self) -> &'static str {
+        match self {
+            Self::Immovable => "Immovable_Monuments",
+            Self::Archaeological => "Archaeological_Monuments",
+        }
+    }
+
+    /// The layer of the source whose findings the register gives.
+    fn source_layer(self) -> &'static str {
+        match self {
+            Self::Immovable => "zabytki",
+            Self::Archaeological => "archeologia",
+        }
+    }
+}
+
+/// A register of monuments of the NID.
 struct NidRegister {
     info: PermitSourceInfo,
+    register: Register,
 }
 
 /// The `GetFeatureInfo` request that asks for every monument of `bbox`: the whole box as one
 /// pixel. EPSG:4326 in WMS 1.3.0 has the latitude first.
-fn nid_url(bbox: &Rect<f64>) -> String {
+fn nid_url(register: Register, bbox: &Rect<f64>) -> String {
+    let (wms, layer) = (register.wms(), register.layer());
     format!(
-        "{NID_WMS}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo&LAYERS=Immovable_Monuments\
-         &QUERY_LAYERS=Immovable_Monuments&CRS=EPSG:4326&BBOX={},{},{},{}\
+        "{wms}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo&LAYERS={layer}\
+         &QUERY_LAYERS={layer}&CRS=EPSG:4326&BBOX={},{},{},{}\
          &WIDTH=1&HEIGHT=1&I=0&J=0&INFO_FORMAT=text/xml&FEATURE_COUNT={NID_COUNT}",
         bbox.min().y,
         bbox.min().x,
@@ -688,7 +755,7 @@ fn nid_url(bbox: &Rect<f64>) -> String {
     )
 }
 
-/// One monument of the register: its INSPIREID, its name and its kind (both may be blank).
+/// One monument of the register: its INSPIRE id, its name and its kind (both may be blank).
 type Monument = (String, String, String);
 
 /// The monuments of a `GetFeatureInfo` answer in the order they come. The service answers with
@@ -749,13 +816,14 @@ fn read_monuments(url: &str, body: &[u8]) -> Result<Vec<Monument>, FetchError> {
                 let name = local(e.name().as_ref());
                 if name == "Attribute" {
                     if let Some(field) = field.take() {
-                        values.insert(field, text.trim().to_string());
+                        // The two registers write the names of the attributes in different cases.
+                        values.insert(field.to_ascii_lowercase(), text.trim().to_string());
                     }
                 } else if name == "Layer" {
                     let get = |key: &str| values.get(key).cloned().unwrap_or_default();
-                    let id = get("INSPIREID");
+                    let id = get("inspireid");
                     if !id.is_empty() {
-                        monuments.push((id, get("SITENAME"), get("NATIONALMONUMENTSRECORD")));
+                        monuments.push((id, get("sitename"), get("nationalmonumentsrecord")));
                     }
                 }
             }
@@ -793,7 +861,7 @@ impl PermitSource for NidRegister {
         bbox: &Rect<f64>,
         part: &Path,
     ) -> Result<Vec<Vec<Value>>, FetchError> {
-        let url = nid_url(bbox);
+        let url = nid_url(self.register, bbox);
         let found = get_limited_with_retries(fetcher, &url, part, MAX_BYTES, |bytes| {
             read_monuments(&url, bytes)
         })?;
@@ -822,15 +890,17 @@ impl PermitSource for NidRegister {
     }
 
     fn findings(&self, layer: &str, features: &[Value]) -> Vec<PermitFinding> {
-        if layer != "zabytki" {
+        if layer != self.register.source_layer() {
             return Vec::new();
         }
         features
             .iter()
             .filter_map(|feature| {
+                let name = property(feature, "nazwa");
                 Some(PermitFinding {
-                    kind: FindingKind::RegisterMonument {
-                        name: property(feature, "nazwa"),
+                    kind: match self.register {
+                        Register::Immovable => FindingKind::RegisterMonument { name },
+                        Register::Archaeological => FindingKind::RegisterArchaeology { name },
                     },
                     geometry: geometry_of(feature)?,
                 })
@@ -1592,14 +1662,26 @@ mod tests {
     const NID_KRAKOW: &str = include_str!("../tests/fixtures/permits/nid-krakow.xml");
     const NID_EMPTY: &str = include_str!("../tests/fixtures/permits/nid-empty.xml");
 
-    fn nid() -> NidRegister {
+    const NID_BISKUPIN: &str =
+        include_str!("../tests/fixtures/permits/nid-archeologia-biskupin.xml");
+
+    fn register(key: &str, register: Register) -> NidRegister {
         let source = sources()
             .into_iter()
-            .find(|s| s.info().key == "nid-zabytki")
+            .find(|s| s.info().key == key)
             .expect("the register is a source");
         NidRegister {
             info: source.info().clone(),
+            register,
         }
+    }
+
+    fn nid() -> NidRegister {
+        register("nid-zabytki", Register::Immovable)
+    }
+
+    fn archaeology() -> NidRegister {
+        register("nid-archeologia", Register::Archaeological)
     }
 
     fn nid_box() -> Rect<f64> {
@@ -1617,22 +1699,150 @@ mod tests {
 
     fn nid_answer(bbox: &Rect<f64>, body: &str) -> MapFetcher {
         let fetcher = MapFetcher::default();
-        fetcher.insert(&nid_url(bbox), body.as_bytes().to_vec());
+        fetcher.insert(
+            &nid_url(Register::Immovable, bbox),
+            body.as_bytes().to_vec(),
+        );
+        fetcher
+    }
+
+    fn archaeology_answer(bbox: &Rect<f64>, body: &str) -> MapFetcher {
+        let fetcher = MapFetcher::default();
+        fetcher.insert(
+            &nid_url(Register::Archaeological, bbox),
+            body.as_bytes().to_vec(),
+        );
         fetcher
     }
 
     #[test]
     fn the_register_asks_the_whole_box_as_one_pixel_with_the_latitude_first() {
-        let url = nid_url(&nid_box());
+        let url = nid_url(Register::Immovable, &nid_box());
         assert!(url.contains("BBOX=50.055,19.93,50.073,19.96"), "{url}");
         assert!(url.contains("WIDTH=1&HEIGHT=1&I=0&J=0"), "{url}");
+        assert!(
+            url.starts_with("https://usluga.zabytek.gov.pl/INSPIRE_IMD/service.svc/get?"),
+            "{url}"
+        );
+        assert!(
+            url.contains("LAYERS=Immovable_Monuments&QUERY_LAYERS=Immovable_Monuments&"),
+            "{url}"
+        );
+    }
+
+    #[test]
+    fn the_archaeological_register_asks_its_own_service_and_layer() {
+        let url = nid_url(Register::Archaeological, &nid_box());
+        assert!(
+            url.starts_with("https://usluga.zabytek.gov.pl/INSPIRE_AMD/service.svc/get?"),
+            "{url}"
+        );
+        assert!(
+            url.contains("LAYERS=Archaeological_Monuments&QUERY_LAYERS=Archaeological_Monuments&"),
+            "{url}"
+        );
+        assert!(url.contains("BBOX=50.055,19.93,50.073,19.96"), "{url}");
+        assert!(url.ends_with("FEATURE_COUNT=5000"), "{url}");
+        assert!(url.starts_with(&format!("https://{NID_HOST}/")), "{url}");
+    }
+
+    #[test]
+    fn the_archaeological_register_counts_a_site_once_and_keeps_every_name() {
+        let bbox = Rect::new(Coord { x: 17.74, y: 52.79 }, Coord { x: 17.752, y: 52.8 });
+        let fetcher = archaeology_answer(&bbox, NID_BISKUPIN);
+        let lists = archaeology()
+            .fetch(&fetcher, &bbox, Path::new("unused-archaeology-1"))
+            .unwrap();
+        // Nine entries, one id twice: eight sites.
+        assert_eq!(lists[0].len(), 8);
+        let names: Vec<Option<String>> = archaeology()
+            .findings("archeologia", &lists[0])
+            .into_iter()
+            .map(|f| match f.kind {
+                FindingKind::RegisterArchaeology { name } => name,
+                other => panic!("{other:?}"),
+            })
+            .collect();
+        assert_eq!(names.len(), 8);
+        assert_eq!(
+            names
+                .iter()
+                .filter(|n| n.as_deref() == Some("Biskupin"))
+                .count(),
+            2
+        );
+        assert!(names.contains(&Some("Biskupin, st. 15,15a".to_string())));
+        // The register gives no position: the rectangle of the box stands in.
+        assert!(lists[0].iter().all(|f| f["geometry"]["type"] == "Polygon"));
+        // The kind of an entry stays: id 1069 is a settlement.
+        let kind = |id: &str| {
+            let hit = lists[0]
+                .iter()
+                .find(|f| f["properties"]["id"] == format!("PL.1.9.ZIPOZ.NID_A_04_AR.{id}"));
+            hit.map(|f| f["properties"]["rodzaj"].clone())
+        };
+        assert_eq!(kind("1069"), Some(json!("settlement")));
+        assert_eq!(kind("0"), None);
+    }
+
+    #[test]
+    fn each_register_reads_only_its_own_layer() {
+        let bbox = nid_box();
+        let fetcher = nid_answer(&bbox, NID_KRAKOW);
+        let lists = nid()
+            .fetch(&fetcher, &bbox, Path::new("unused-archaeology-2"))
+            .unwrap();
+        assert!(archaeology().findings("zabytki", &lists[0]).is_empty());
+        assert!(nid().findings("archeologia", &lists[0]).is_empty());
+        assert_eq!(nid().findings("zabytki", &lists[0]).len(), 8);
+        // A feature without a position gives no finding.
+        let bare = [json!({"properties": {"nazwa": "x"}})];
+        assert!(archaeology().findings("archeologia", &bare).is_empty());
+    }
+
+    #[test]
+    fn the_archaeological_register_answers_empty_and_fails_like_the_other() {
+        let bbox = nid_box();
+        let fetcher = archaeology_answer(&bbox, NID_EMPTY);
+        let lists = archaeology()
+            .fetch(&fetcher, &bbox, Path::new("unused-archaeology-3"))
+            .unwrap();
+        assert!(lists[0].is_empty());
+        let report = r#"<?xml version="1.0"?><ServiceExceptionReport version="1.3.0"><ServiceException code="LayerNotDefined">no such layer</ServiceException></ServiceExceptionReport>"#;
+        let fetcher = archaeology_answer(&bbox, report);
+        assert!(
+            archaeology()
+                .fetch(&fetcher, &bbox, Path::new("unused-archaeology-4"))
+                .is_err()
+        );
+        // The immovable register's URL is not served by this fetcher: nothing to read.
+        let fetcher = nid_answer(&bbox, NID_KRAKOW);
+        assert!(
+            archaeology()
+                .fetch(&fetcher, &bbox, Path::new("unused-archaeology-5"))
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn the_two_registers_are_two_sources_with_their_own_sections() {
+        let infos: Vec<_> = sources().into_iter().map(|s| s.info().clone()).collect();
+        let nid = infos.iter().find(|i| i.key == "nid-zabytki").unwrap();
+        let arch = infos.iter().find(|i| i.key == "nid-archeologia").unwrap();
+        assert_eq!(nid.sections, [PermitSection::MonumentRegister]);
+        assert_eq!(arch.sections, [PermitSection::ArchaeologyRegister]);
+        assert_eq!(arch.layers, ["archeologia"]);
+        assert_eq!(arch.credit, "© Narodowy Instytut Dziedzictwa (CC BY 4.0)");
+        assert!(!arch.sampled);
     }
 
     #[test]
     fn a_monument_that_comes_twice_counts_once_and_names_stay() {
         let bbox = nid_box();
         let fetcher = nid_answer(&bbox, NID_KRAKOW);
-        let lists = nid().fetch(&fetcher, &bbox, Path::new("unused")).unwrap();
+        let lists = nid()
+            .fetch(&fetcher, &bbox, Path::new("unused-nid-1"))
+            .unwrap();
         assert_eq!(lists[0].len(), 8);
         let names: Vec<Option<String>> = nid()
             .findings("zabytki", &lists[0])
@@ -1663,7 +1873,9 @@ mod tests {
     fn the_register_in_slubice_has_eleven_monuments_in_seventeen_entries() {
         let bbox = Rect::new(Coord { x: 14.55, y: 52.34 }, Coord { x: 14.57, y: 52.36 });
         let fetcher = nid_answer(&bbox, NID_SLUBICE);
-        let lists = nid().fetch(&fetcher, &bbox, Path::new("unused")).unwrap();
+        let lists = nid()
+            .fetch(&fetcher, &bbox, Path::new("unused-nid-2"))
+            .unwrap();
         assert_eq!(lists[0].len(), 11);
     }
 
@@ -1671,7 +1883,9 @@ mod tests {
     fn an_empty_answer_is_no_monument_and_no_failure() {
         let bbox = nid_box();
         let fetcher = nid_answer(&bbox, NID_EMPTY);
-        let lists = nid().fetch(&fetcher, &bbox, Path::new("unused")).unwrap();
+        let lists = nid()
+            .fetch(&fetcher, &bbox, Path::new("unused-nid-3"))
+            .unwrap();
         assert!(lists[0].is_empty());
     }
 
@@ -1680,8 +1894,16 @@ mod tests {
         let bbox = nid_box();
         let report = r#"<?xml version="1.0"?><ServiceExceptionReport version="1.3.0"><ServiceException code="LayerNotDefined">no such layer</ServiceException></ServiceExceptionReport>"#;
         let fetcher = nid_answer(&bbox, report);
-        assert!(nid().fetch(&fetcher, &bbox, Path::new("unused")).is_err());
+        assert!(
+            nid()
+                .fetch(&fetcher, &bbox, Path::new("unused-nid-4"))
+                .is_err()
+        );
         let fetcher = nid_answer(&bbox, "<html>nope</html>");
-        assert!(nid().fetch(&fetcher, &bbox, Path::new("unused")).is_err());
+        assert!(
+            nid()
+                .fetch(&fetcher, &bbox, Path::new("unused-nid-5"))
+                .is_err()
+        );
     }
 }

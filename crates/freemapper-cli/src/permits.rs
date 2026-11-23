@@ -810,6 +810,28 @@ fn object_line(lang: &Lang, o: &ProtectedObjectEntry) -> String {
 }
 
 /// The sections of one regional part; a section whose source was not read is left out.
+/// The texts of a register of monuments without positions (ADR 0184, ADR 0190).
+struct RegisterIds {
+    heading: &'static str,
+    none: &'static str,
+    total: &'static str,
+    left: &'static str,
+}
+
+const REGISTER_MONUMENT_IDS: RegisterIds = RegisterIds {
+    heading: "permits-section-register-monuments",
+    none: "permits-none-register-monuments",
+    total: "permits-register-monuments-total",
+    left: "permits-register-monuments-left",
+};
+
+const REGISTER_ARCHAEOLOGY_IDS: RegisterIds = RegisterIds {
+    heading: "permits-section-register-archaeology",
+    none: "permits-none-register-archaeology",
+    total: "permits-register-archaeology-total",
+    left: "permits-register-archaeology-left",
+};
+
 fn regional_blocks(lang: &Lang, part: &RegionalNotes) -> Vec<String> {
     // The sources that fill a section, by their labels in order; the first source of the
     // adapter when none names it.
@@ -987,22 +1009,24 @@ fn regional_blocks(lang: &Lang, part: &RegionalNotes) -> Vec<String> {
             }
         }
     }
-    if let Some(register) = &part.register_monuments {
-        blocks.push(heading(
+    for (register, section, ids) in [
+        (
+            &part.register_monuments,
             PermitSection::MonumentRegister,
-            "permits-section-register-monuments",
-        ));
+            REGISTER_MONUMENT_IDS,
+        ),
+        (
+            &part.register_archaeology,
+            PermitSection::ArchaeologyRegister,
+            REGISTER_ARCHAEOLOGY_IDS,
+        ),
+    ] {
+        let Some(register) = register else { continue };
+        blocks.push(heading(section, ids.heading));
         if register.total == 0 {
-            blocks.push(none(
-                PermitSection::MonumentRegister,
-                "permits-none-register-monuments",
-            ));
+            blocks.push(none(section, ids.none));
         } else {
-            blocks.push(t(
-                lang,
-                "permits-register-monuments-total",
-                &[("count", arg(register.total))],
-            ));
+            blocks.push(t(lang, ids.total, &[("count", arg(register.total))]));
             let lines: Vec<String> = register
                 .names
                 .iter()
@@ -1021,11 +1045,7 @@ fn regional_blocks(lang: &Lang, part: &RegionalNotes) -> Vec<String> {
                 blocks.push(lines.join("\n"));
             }
             if register.left > 0 {
-                blocks.push(t(
-                    lang,
-                    "permits-register-monuments-left",
-                    &[("count", arg(register.left))],
-                ));
+                blocks.push(t(lang, ids.left, &[("count", arg(register.left))]));
             }
         }
     }
@@ -1350,6 +1370,7 @@ fn used_ids() -> Vec<String> {
             hint_key::GMINA_ROADS_PL,
             hint_key::GMINA_LAND_PL,
             hint_key::MONUMENT_REGISTER_PL,
+            hint_key::ARCHAEOLOGY_REGISTER_PL,
         ]
         .map(String::from),
     );
@@ -1768,6 +1789,7 @@ mod tests {
                 forest_functions: None,
                 admin_units: None,
                 register_monuments: None,
+                register_archaeology: None,
                 sources: vec![
                     regional_status("bezirke", "Bezirksgrenzen (ALKIS Berlin)", None),
                     regional_status("gruenanlagen", "Grünanlagenbestand", None),
@@ -1873,6 +1895,12 @@ mod tests {
             let text = render_markdown(&notes, &lang);
             assert!(
                 !text.contains("{ $") && text.contains("36"),
+                "{code}\n{text}"
+            );
+            notes.hints = vec![hint(hint_key::ARCHAEOLOGY_REGISTER_PL, &[])];
+            let text = render_markdown(&notes, &lang);
+            assert!(
+                !text.contains("{ $") && text.contains("36") && text.contains("zabytk"),
                 "{code}\n{text}"
             );
             notes.hints = vec![hint(hint_key::GMINA_NATURE_PL, &[])];

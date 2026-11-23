@@ -153,6 +153,9 @@ pub enum PermitSection {
     /// The register of monuments of a region that gives no position (ADR 0184): the monuments
     /// in the rectangle around the map area, counted, with their names.
     MonumentRegister,
+    /// The register of archaeological monuments of a region that gives no position (ADR 0190):
+    /// the sites in the rectangle around the map area, counted, with their names.
+    ArchaeologyRegister,
 }
 
 /// One finding of a regional source with its geometry.
@@ -194,6 +197,9 @@ pub enum FindingKind {
     /// source asked, which the finding's geometry then is (ADR 0184). The name as the register
     /// writes it; `None` when it writes none.
     RegisterMonument { name: Option<String> },
+    /// An archaeological monument of a register that gives no position: it lies somewhere in the
+    /// rectangle the source asked, which the finding's geometry then is (ADR 0190).
+    RegisterArchaeology { name: Option<String> },
     /// The unit of a forest administration the area belongs to. All three as the notes print
     /// them, proper names in German in every language.
     ForestUnit {
