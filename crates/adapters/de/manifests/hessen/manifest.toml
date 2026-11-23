@@ -77,6 +77,20 @@ fields = { kind = "Lateinischer Name", id = "Objekt ID", crown = "Kronen Durchme
 attribution = "Stadt Frankfurt am Main, Baumkataster, dl-de/by-2-0"
 max_bytes = 67108864
 
+# The protected biotopes of the old Hessian biotope mapping (1992 to 2006, INSPIRE), issue #273.
+[[permits.wfs]]
+key = "biotope"
+label = { en = "HLNUG", de = "HLNUG" }
+what = { en = "protected biotopes of the Hessian biotope mapping", de = "geschützte Biotope der Hessischen Biotopkartierung" }
+credit = "Lizenz: Creative Commons BY 4.0 (https://creativecommons.org/licenses/by/4.0/deed.de). Quellenvermerk für Daten: „Darstellung auf der Grundlage von Daten des Hessischen Landesamtes für Naturschutz, Umwelt und Geologie (HLNUG)“."
+gaps = { en = "the mapping is of 1992 to 2006; newer biotopes are missing", de = "Die Kartierung stammt aus den Jahren 1992 bis 2006; neuere Biotope fehlen" }
+sections = ["protected-objects"]
+url = "https://geodienste-umwelt.hessen.de/arcgis/services/inspire/lebensraeume_biotope/MapServer/WFSServer"
+output_format = "GEOJSON"
+layers = [
+    { key = "biotope", type_name = "inspire_lebensraeume_biotope:GESCH_BIOTOPE", reading = "object", object = "biotope", name = "BIOTYP_BEZ" },
+]
+
 [preview]
 wms = "https://www.gds-srv.hessen.de/cgi-bin/lika-services/ogc-free-images.ows"
 layer = "he_dop_rgb"

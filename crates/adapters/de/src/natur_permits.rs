@@ -251,40 +251,6 @@ pub fn baden_wuerttemberg() -> Vec<Box<dyn PermitSource>> {
     ]
 }
 
-/// Hesse: the protected biotopes of the old Hessian biotope mapping (1992 to 2006, INSPIRE).
-pub fn hessen() -> Box<dyn PermitSource> {
-    with_gaps(
-        source(
-            "biotope",
-            Wording {
-                en: "HLNUG",
-                de: "HLNUG",
-            },
-            Wording {
-                en: "protected biotopes of the Hessian biotope mapping",
-                de: "geschützte Biotope der Hessischen Biotopkartierung",
-            },
-            crate::state_permits::HLNUG_CREDIT,
-            &["biotope"],
-            OBJECTS,
-            "https://geodienste-umwelt.hessen.de/arcgis/services/inspire/lebensraeume_biotope/MapServer/WFSServer",
-            "GEOJSON",
-            {
-                const LAYERS: &[Layer] = &[(
-                    "biotope",
-                    "inspire_lebensraeume_biotope:GESCH_BIOTOPE",
-                    object(BIOTOPE, Some("BIOTYP_BEZ"), None),
-                )];
-                LAYERS
-            },
-        ),
-        Wording {
-            en: "the mapping is of 1992 to 2006; newer biotopes are missing",
-            de: "Die Kartierung stammt aus den Jahren 1992 bis 2006; neuere Biotope fehlen",
-        },
-    )
-}
-
 /// North Rhine-Westphalia: the protected biotopes of LINFOS, without their type (the service
 /// gives it only in a report page).
 pub fn nordrhein_westfalen() -> Box<dyn PermitSource> {

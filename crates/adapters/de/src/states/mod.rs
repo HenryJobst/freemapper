@@ -578,12 +578,10 @@ impl StateAdapter {
             State::Hamburg => crate::lgv_permits::sources(),
             // The protected objects of Saarland are declared in its manifest (issue #273).
             State::Saarland => crate::state_permits::saarland(),
+            // The protected biotopes of Hesse are declared in its manifest (issue #273).
             State::Hessen => [
                 crate::state_permits::hessen(),
-                vec![
-                    crate::denkmal_permits::hessen(),
-                    crate::natur_permits::hessen(),
-                ],
+                vec![crate::denkmal_permits::hessen()],
             ]
             .into_iter()
             .flatten()
