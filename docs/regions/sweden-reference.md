@@ -89,6 +89,10 @@ Fastighetsindelning, Belägenhetsadress, Hydrografi Nedladdning und Topografi 10
 nicht. Das erklärt die `other`-Lizenz des Oberflächenmodells: es ist das eine Produkt, an dem das nDSM hängt,
 und es kostet Geld.
 
+**Ortofoto Nedladdning** nennt die Übersicht nicht eindeutig. Im Bestellvorgang des Geotorget steht es mit **0 kr**
+(Bericht vom 2026-11-23, von einer Person mit Konto gelesen, nicht von hier geprüft). Es ist also gebührenfrei und
+braucht trotzdem die Rechtsprüfung.
+
 ---
 
 ## 2. Zugang: Geotorget, Konten und was „kostenlos“ bedeutet
@@ -142,6 +146,15 @@ und es kostet Geld.
   Produkt. Der Preis des Ythöjdmodells (Nedladdning, från flygbilder; es gibt eine Variante mit und eine ohne
   Farbe, mit verschiedenen Preisen) steht vor Abschluss der Bestellung im Geotorget, mit der Gebühr der eigenen
   Nutzungskategorie inklusive Mehrwertsteuer.
+* **Das Antragsformular verlangt eine Personnummer** (Bericht vom 2026-11-23). Produkte mit *juridisk prövning*,
+  darunter Byggnad und Ortofoto, führen im Geotorget auf die „Ansökan om tillgång till information som innehåller
+  personuppgifter“. Das Formular fragt Personnummer, Namen, Telefon und E-Mail der sökande, den Rechtsgrund nach
+  der DSGVO, den Ort der Speicherung (EU/EES oder außerhalb, Letzteres nur mit besonderem Beschluss) und drei
+  Freitexte: Verwendung (900 Zeichen), Spridning (900) und Gebiet (200). Ohne Personnummer lässt es sich nicht
+  absenden. Wer in Schweden nicht gemeldet ist, kommt an diesen Produkten also nicht vorbei, bis der Support einen
+  anderen Weg nennt (Anfrage vom 2026-11-23, Antwort offen). Ein Beschluss kann nach § 37 Verwaltungsgesetz
+  widerrufen werden, wenn Angaben falsch oder irreführend sind, und kann Bedingungen für die Weiterverwendung
+  enthalten. Das trifft nicht nur freemapper, sondern jede Person, die später über freemapper bestellt.
 
 **Folge für einen Adapter.** Ein schwedischer Adapter bräuchte eine Zugangsberechtigung, die eine Person für ihr
 eigenes Konto beschafft, aufbewahrt außerhalb des Projektordners und niemals in `freemapper.toml`,
@@ -749,6 +762,8 @@ Offene Fragen, bevor A beginnt:
   selbst tragen keinen Lizenztext [doc].
 * Ob die Ortofoto-COGs als Demo vorliegen — die Demodata-Seite listet nur die digitalen Flugbilder [live];
   damit bleibt ihre Kompression ungeprüft (PackBits? JPEG? deflate?).
+* Ob eine Person ohne schwedische Personnummer Produkte mit Rechtsprüfung beantragen kann und wie (Anfrage an den
+  Support vom 2026-11-23, Antwort offen). Davon hängen Byggnad und Ortofoto für alle Nutzer außerhalb Schwedens ab.
 * Was die kostenpflichtigen Produkte kosten; die Übersicht nennt nur „Avgift“, keine Preise [live]. Der Support
   sagt, dass der Preis erst im Bestellvorgang des Geotorget erscheint, je Nutzungskategorie und mit Mehrwertsteuer
   (§2). Das Ythöjdmodell gibt es mit und ohne Farbe zu verschiedenen Preisen.
