@@ -582,6 +582,130 @@ mod tests {
         assert!(wide.is_some(), "a surveyed width stays a number");
     }
 
+    #[test]
+    fn an_entity_in_a_field_is_read_as_its_character() {
+        let line = &lines(
+            "SKDR_L",
+            &one(
+                "SKDR_L",
+                "<ot:rodzaj>a &amp; b &lt; c</ot:rodzaj>",
+                "198000 507000 198100 507000",
+            ),
+        )[0];
+        assert_eq!(line.field("rodzaj"), "a & b < c");
+    }
+
+    #[test]
+    fn an_empty_element_inside_an_object_is_no_second_root() {
+        let text = one("SKDR_L", "<ot:rodzaj/>", "198000 507000 198100 507000");
+        assert_eq!(lines("SKDR_L", &text).len(), 1);
+    }
+
+    #[test]
+    fn a_file_that_ends_inside_the_collection_is_an_error_even_after_closed_members() {
+        let whole = one("SKDR_L", "", "198000 507000 198100 507000");
+        let cut = whole.replace("</gml:FeatureCollection>", "");
+        let error = read_lines(Cursor::new(cut.as_bytes()), "SKDR_L", &box_2180(), "f");
+        assert!(error.is_err());
+        let other = "<gml:Other/>";
+        assert!(read_lines(Cursor::new(other.as_bytes()), "SKDR_L", &box_2180(), "f").is_err());
+    }
+
+    #[test]
+    fn a_width_must_be_finite_and_above_zero_and_the_next_field_is_tried() {
+        let width_of = |fields: &str| {
+            width(
+                &lines(
+                    "SKDR_L",
+                    &one("SKDR_L", fields, "198000 507000 198100 507000"),
+                )[0],
+            )
+        };
+        assert_eq!(
+            width_of("<ot:szerokoscNawierzchni>inf</ot:szerokoscNawierzchni>"),
+            None
+        );
+        assert_eq!(
+            width_of("<ot:szerokoscNawierzchni>-5</ot:szerokoscNawierzchni>"),
+            None
+        );
+        assert_eq!(
+            width_of("<ot:szerokoscNawierzchni>0</ot:szerokoscNawierzchni>"),
+            None
+        );
+        assert_eq!(
+            width_of(
+                "<ot:szerokoscNawierzchni>0</ot:szerokoscNawierzchni>\
+                 <ot:szerokosc>3.5</ot:szerokosc>"
+            ),
+            Some(3.5)
+        );
+    }
+
+    #[test]
+    fn a_line_is_kept_only_when_it_meets_the_box_on_every_side() {
+        // Each line misses the box on one side only and runs through its span on the other axis.
+        let cases = [
+            ("west", "150000 507000 180000 507000"),
+            ("east", "210000 507000 230000 507000"),
+            ("south", "198000 450000 198000 480000"),
+            ("north", "198000 520000 198000 540000"),
+        ];
+        for (side, points) in cases {
+            let text = one("SKDR_L", "", points);
+            assert!(lines("SKDR_L", &text).is_empty(), "{side}");
+        }
+        let inside = one("SKDR_L", "", "198000 507000 198100 507000");
+        assert_eq!(lines("SKDR_L", &inside).len(), 1);
+        // An object without a geometry has no position.
+        let none = "<gml:FeatureCollection xmlns:gml=\"g\" xmlns:ot=\"u\"><gml:featureMember>\
+            <ot:OT_SKDR_L><ot:lokalnyId>Z</ot:lokalnyId></ot:OT_SKDR_L></gml:featureMember>\
+            </gml:FeatureCollection>";
+        assert!(lines("SKDR_L", none).is_empty());
+    }
+
+    #[test]
+    fn the_set_has_its_drawing_rules() {
+        let drawing = Roads.drawing().expect("the drawing of the set");
+        assert_eq!(drawing.source_prefix, KEY);
+    }
+
+    /// An index answer that names the powiat of the fixtures `count` times.
+    fn index_of(count: usize) -> String {
+        let start = INDEX.find("<wfs:member>").unwrap();
+        let end = INDEX.find("</wfs:FeatureCollection>").unwrap();
+        format!(
+            "{}{}{}",
+            &INDEX[..start],
+            INDEX[start..end].repeat(count),
+            &INDEX[end..]
+        )
+    }
+
+    #[test]
+    fn a_box_over_more_than_the_most_powiats_fails_both_layers_and_the_most_is_taken() {
+        let archive = served_archive();
+        for count in [MAX_PACKAGES + 1, MAX_PACKAGES + 2] {
+            let fetcher = MapFetcher::default();
+            fetcher.insert_prefix(INDEX_ENDPOINT, index_of(count).into_bytes());
+            fetcher.insert(ARCHIVE_URL, archive.clone());
+            let fetched = Roads.fetch(&fetcher, &region(), MapKind::Forest);
+            assert_eq!(fetched.len(), 2);
+            for f in &fetched {
+                let error = f.features.as_ref().unwrap_err().to_string();
+                assert!(
+                    error.contains(&format!("touches {count} powiats")),
+                    "{error}"
+                );
+            }
+        }
+        let fetcher = MapFetcher::default();
+        fetcher.insert_prefix(INDEX_ENDPOINT, index_of(MAX_PACKAGES).into_bytes());
+        fetcher.insert(ARCHIVE_URL, archive);
+        let fetched = Roads.fetch(&fetcher, &region(), MapKind::Forest);
+        assert!(fetched.iter().all(|f| f.features.is_ok()));
+    }
+
     /// The region box (EPSG:25833) around the fixtures.
     fn region() -> BoundingBox {
         let corner = |east, north| {
@@ -597,29 +721,30 @@ mod tests {
         }
     }
 
+    fn served_archive() -> Vec<u8> {
+        archive(&[
+            (
+                "PL.PZGiK.333.0805/BDOT10k/PL.PZGiK.333.0805__OT_SKDR_L.xml",
+                SKDR.as_bytes().to_vec(),
+                true,
+            ),
+            (
+                "PL.PZGiK.333.0805/BDOT10k/PL.PZGiK.333.0805__OT_SKRP_L.xml",
+                SKRP.as_bytes().to_vec(),
+                true,
+            ),
+            (
+                "PL.PZGiK.333.0805/BDOT10k/PL.PZGiK.333.0805__OT_BUBD_A.xml",
+                b"not read".to_vec(),
+                true,
+            ),
+        ])
+    }
+
     fn served() -> MapFetcher {
         let fetcher = MapFetcher::default();
         fetcher.insert_prefix(INDEX_ENDPOINT, INDEX.as_bytes().to_vec());
-        fetcher.insert(
-            ARCHIVE_URL,
-            archive(&[
-                (
-                    "PL.PZGiK.333.0805/BDOT10k/PL.PZGiK.333.0805__OT_SKDR_L.xml",
-                    SKDR.as_bytes().to_vec(),
-                    true,
-                ),
-                (
-                    "PL.PZGiK.333.0805/BDOT10k/PL.PZGiK.333.0805__OT_SKRP_L.xml",
-                    SKRP.as_bytes().to_vec(),
-                    true,
-                ),
-                (
-                    "PL.PZGiK.333.0805/BDOT10k/PL.PZGiK.333.0805__OT_BUBD_A.xml",
-                    b"not read".to_vec(),
-                    true,
-                ),
-            ]),
-        );
+        fetcher.insert(ARCHIVE_URL, served_archive());
         fetcher
     }
 

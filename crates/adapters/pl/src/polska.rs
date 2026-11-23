@@ -590,6 +590,16 @@ mod tests {
         }
     }
 
+    /// The adapter offers the roads of BDOT10k as its set of extra layers.
+    #[test]
+    fn the_adapter_offers_the_road_layers_as_an_extra_set() {
+        let polska = Polska::new(&[]);
+        let extras = polska.extras();
+        assert_eq!(extras.len(), 1);
+        assert_eq!(extras[0].info().key, crate::bdot_roads::KEY);
+        assert!(extras[0].drawing().is_some());
+    }
+
     /// The guarded rasters give the estimate of the backend: the three downloads of GUGiK.
     #[test]
     fn the_guarded_rasters_give_the_estimate_of_the_backend() {
