@@ -1002,4 +1002,63 @@ mod tests {
             assert!(url.contains("GEOJSON"), "{url}");
         }
     }
+
+    /// Brandenburg's protected objects, which were a table in the code until they moved into its
+    /// manifest (issue #273), give the requests, the gaps note and the credit the table gave.
+    #[test]
+    fn the_declared_sources_of_brandenburg_ask_and_keep_what_the_table_did() {
+        let text = include_str!("../manifests/brandenburg/manifest.toml");
+        let manifest = freemapper_manifest::parse(text, Path::new("brandenburg")).unwrap();
+        let declared: Vec<Box<dyn PermitSource>> =
+            manifest.permits.iter().map(declared_source).collect();
+        let keys: Vec<(&str, &[&str])> = declared
+            .iter()
+            .map(|source| (source.info().key, source.info().layers))
+            .collect();
+        assert_eq!(
+            keys,
+            [
+                (
+                    "naturdenkmale",
+                    &["naturdenkmale", "landschaftsbestandteile"][..]
+                ),
+                ("biotope", &["flaechen", "punkte"][..])
+            ]
+        );
+        assert!(declared[0].info().gaps.unwrap().de.contains("2017"));
+        assert!(declared[1].info().gaps.is_none());
+        for source in &declared {
+            assert_eq!(source.info().sections, [PermitSection::ProtectedObjects]);
+        }
+        let bbox = Rect::new(Coord { x: 13.5, y: 52.5 }, Coord { x: 13.6, y: 52.6 });
+        let dir = tempfile::tempdir().unwrap();
+        let asked = Recorder::default();
+        for source in &declared {
+            source
+                .fetch(&asked, &bbox, &dir.path().join("part"))
+                .unwrap();
+        }
+        let urls = asked.0.into_inner();
+        assert_eq!(urls.len(), 4);
+        for (url, (base, type_name)) in urls.iter().zip([
+            (
+                "https://www.brandenburg-forst.de/geoserver/IWFK/ows",
+                "IWFK:lkrs_nd_pu",
+            ),
+            (
+                "https://www.brandenburg-forst.de/geoserver/IWFK/ows",
+                "IWFK:lkrs_glb_fl",
+            ),
+            (
+                "https://inspire.brandenburg.de/services/bbk_wfs",
+                "app:bbk_fl",
+            ),
+            (
+                "https://inspire.brandenburg.de/services/bbk_wfs",
+                "app:bbk_pu",
+            ),
+        ]) {
+            assert!(url.starts_with(base) && url.contains(type_name), "{url}");
+        }
+    }
 }

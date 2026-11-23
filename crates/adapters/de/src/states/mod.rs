@@ -571,10 +571,10 @@ impl StateAdapter {
             .into_iter()
             .flatten()
             .collect(),
+            // The protected objects of Brandenburg are declared in its manifest (issue #273).
             State::Brandenburg => [
                 crate::lfb_permits::sources(),
                 crate::denkmal_permits::brandenburg(),
-                crate::natur_permits::brandenburg(),
             ]
             .into_iter()
             .flatten()
