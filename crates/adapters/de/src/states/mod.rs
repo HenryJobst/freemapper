@@ -602,10 +602,10 @@ impl StateAdapter {
             .into_iter()
             .flatten()
             .collect(),
+            // The Naturdenkmale of Baden-Württemberg are declared in its manifest (issue #273).
             State::BadenWuerttemberg => [
                 vec![crate::lubw_permits::source()],
                 crate::denkmal_permits::baden_wuerttemberg(),
-                crate::natur_permits::baden_wuerttemberg(),
             ]
             .into_iter()
             .flatten()
