@@ -560,6 +560,8 @@ fn recorded_hosts(state: State) -> Vec<String> {
             ldbv::FILES,
             ldbv_las::TILES,
             bfg_permits::BASE,
+            // The Naturdenkmale of the LfU, declared in the manifest (ADR 0146, issue #273).
+            "https://www.lfu.bayern.de/gdi/wfs/natur/schutzgebiete",
         ],
         _ => &[],
     };
