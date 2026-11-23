@@ -1400,4 +1400,53 @@ mod tests {
             );
         }
     }
+
+    /// Bavaria's Naturdenkmale and Landschaftsbestandteile, which were a table in the code until
+    /// they moved into its manifest (issue #273), give the requests and the credit the table gave.
+    #[test]
+    fn the_declared_source_of_bayern_asks_and_keeps_what_the_table_did() {
+        let text = include_str!("../manifests/bayern/manifest.toml");
+        let manifest = freemapper_manifest::parse(text, Path::new("bayern")).unwrap();
+        let declared: Vec<Box<dyn PermitSource>> =
+            manifest.permits.iter().map(declared_source).collect();
+        assert_eq!(declared.len(), 1);
+        let info = declared[0].info();
+        assert_eq!(
+            (info.key, info.layers),
+            (
+                "naturschutz",
+                &[
+                    "naturdenkmale-punkte",
+                    "naturdenkmale-flaechen",
+                    "landschaftsbestandteile-punkte",
+                    "landschaftsbestandteile-flaechen"
+                ][..]
+            )
+        );
+        assert_eq!(info.sections, [PermitSection::ProtectedObjects]);
+        assert_eq!(info.label.de, "Bayerisches Landesamt für Umwelt");
+        assert!(info.gaps.is_none());
+        assert!(info.credit.contains("CC BY 4.0"));
+        let bbox = Rect::new(Coord { x: 11.5, y: 48.1 }, Coord { x: 11.6, y: 48.2 });
+        let dir = tempfile::tempdir().unwrap();
+        let asked = Recorder::default();
+        declared[0]
+            .fetch(&asked, &bbox, &dir.path().join("part"))
+            .unwrap();
+        let urls = asked.0.into_inner();
+        assert_eq!(urls.len(), 4);
+        for (url, type_name) in urls.iter().zip([
+            "natur_wfsschutzgebiete:naturdenkmal_punktfoermig",
+            "natur_wfsschutzgebiete:naturdenkmal_flaechig",
+            "natur_wfsschutzgebiete:landschaftsbestandteil_punktfoermig",
+            "natur_wfsschutzgebiete:landschaftsbestandteil_flaechig",
+        ]) {
+            assert!(
+                url.starts_with("https://www.lfu.bayern.de/gdi/wfs/natur/schutzgebiete")
+                    && url.contains(type_name)
+                    && url.contains("GEOJSON"),
+                "{url}"
+            );
+        }
+    }
 }

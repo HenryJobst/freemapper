@@ -632,7 +632,8 @@ impl StateAdapter {
             ],
             // The Naturdenkmale of Saxony-Anhalt are declared in its manifest (issue #273).
             State::SaxonyAnhalt => vec![crate::bfg_permits::source()],
-            State::Bayern => vec![crate::bfg_permits::source(), crate::natur_permits::bayern()],
+            // The Naturdenkmale of the LfU are declared in its manifest (issue #273).
+            State::Bayern => vec![crate::bfg_permits::source()],
             State::Niedersachsen => vec![
                 crate::bfg_permits::source(),
                 crate::natur_permits::niedersachsen(),

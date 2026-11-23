@@ -29,9 +29,6 @@ const ND: ProtectedObjectKind = ProtectedObjectKind::NaturalMonument;
 const GLB: ProtectedObjectKind = ProtectedObjectKind::ProtectedLandscapePart;
 const BIOTOPE: ProtectedObjectKind = ProtectedObjectKind::Biotope;
 
-/// The service of the Bavarian LfU, which Bavaria's manifest names as a host.
-pub const BAYERN: &str = "https://www.lfu.bayern.de/gdi/wfs/natur/schutzgebiete";
-
 const LFULG: Wording = Wording {
     en: "Sächsisches Landesamt für Umwelt, Landwirtschaft und Geologie",
     de: "Sächsisches Landesamt für Umwelt, Landwirtschaft und Geologie",
@@ -99,56 +96,6 @@ pub fn sachsen() -> Vec<Box<dyn PermitSource>> {
             },
         ),
     ]
-}
-
-/// Bavaria: the Naturdenkmale and Landschaftsbestandteile of the LfU.
-pub fn bayern() -> Box<dyn PermitSource> {
-    source(
-        "naturschutz",
-        Wording {
-            en: "Bayerisches Landesamt für Umwelt",
-            de: "Bayerisches Landesamt für Umwelt",
-        },
-        Wording {
-            en: "Naturdenkmale and Landschaftsbestandteile",
-            de: "Naturdenkmale und Landschaftsbestandteile",
-        },
-        "Creative Commons Namensnennung 4.0 International (CC BY 4.0); Datenquelle: Bayerisches Landesamt für Umwelt, www.lfu.bayern.de",
-        &[
-            "naturdenkmale-punkte",
-            "naturdenkmale-flaechen",
-            "landschaftsbestandteile-punkte",
-            "landschaftsbestandteile-flaechen",
-        ],
-        OBJECTS,
-        BAYERN,
-        "GEOJSON",
-        {
-            const LAYERS: &[Layer] = &[
-                (
-                    "naturdenkmale-punkte",
-                    "natur_wfsschutzgebiete:naturdenkmal_punktfoermig",
-                    object(ND, Some("name"), None),
-                ),
-                (
-                    "naturdenkmale-flaechen",
-                    "natur_wfsschutzgebiete:naturdenkmal_flaechig",
-                    object(ND, Some("name"), None),
-                ),
-                (
-                    "landschaftsbestandteile-punkte",
-                    "natur_wfsschutzgebiete:landschaftsbestandteil_punktfoermig",
-                    object(GLB, Some("name"), None),
-                ),
-                (
-                    "landschaftsbestandteile-flaechen",
-                    "natur_wfsschutzgebiete:landschaftsbestandteil_flaechig",
-                    object(GLB, Some("name"), None),
-                ),
-            ];
-            LAYERS
-        },
-    )
 }
 
 /// The map service of the NLWKN, which Lower Saxony's manifest names as a host.

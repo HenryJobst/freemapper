@@ -13,7 +13,7 @@ use freemapper_adapters_de::states::alkis::{
 };
 use freemapper_adapters_de::states::{State, StateAdapter, StateFiles};
 use freemapper_adapters_de::{
-    bfg_permits, geobremen, ldbv, ldbv_las, lgl_bw, lgv, lubw_permits, lvgl, natur_permits, states,
+    bfg_permits, geobremen, ldbv, ldbv_las, lgl_bw, lgv, lubw_permits, lvgl, states,
 };
 use freemapper_georef::crs::{BoundingBox, Crs};
 use freemapper_manifest::adapter::{ManifestAdapter, Parse};
@@ -560,8 +560,8 @@ fn recorded_hosts(state: State) -> Vec<String> {
             ldbv::FILES,
             ldbv_las::TILES,
             bfg_permits::BASE,
-            // The Naturdenkmale of the LfU (ADR 0146).
-            natur_permits::BAYERN,
+            // The Naturdenkmale of the LfU, declared in the manifest (ADR 0146, issue #273).
+            "https://www.lfu.bayern.de/gdi/wfs/natur/schutzgebiete",
         ],
         _ => &[],
     };
