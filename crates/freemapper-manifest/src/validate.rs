@@ -330,6 +330,12 @@ impl Check<'_> {
 
     /// A URL the policy accepts, without a query, on a declared host. It counts.
     fn url(&mut self, value: &Text, key: &str) -> Option<String> {
+        self.url_with(value, key, false)
+    }
+
+    /// [`Self::url`]; with `query` the address may carry a fixed query that selects the service on
+    /// the server (`?mapfile=glb`), of plain `name=value` pairs.
+    fn url_with(&mut self, value: &Text, key: &str, query: bool) -> Option<String> {
         self.urls += 1;
         if self.urls == MAX_URLS + 1 {
             self.fail(
@@ -347,7 +353,25 @@ impl Check<'_> {
                 return None;
             }
         };
-        if url.contains(['?', '#']) {
+        let plain_query = |text: &str| {
+            text.split_once('?').is_none_or(|(_, q)| {
+                !q.is_empty()
+                    && q.split('&').all(|pair| {
+                        pair.split_once('=').is_some_and(|(name, value)| {
+                            !name.is_empty()
+                                && name.chars().chain(value.chars()).all(|c| {
+                                    c.is_ascii_alphanumeric() || matches!(c, '_' | '-' | '.')
+                                })
+                        })
+                    })
+            })
+        };
+        let refused = if query {
+            url.contains('#') || !plain_query(url)
+        } else {
+            url.contains(['?', '#'])
+        };
+        if refused {
             let shown = url.split(['?', '#']).next().unwrap_or_default();
             self.fail(
                 "policy.url",
@@ -2067,7 +2091,7 @@ impl Check<'_> {
                 "manifest.attribution",
                 400,
             );
-            let url = self.url(&source.url, "permits.wfs.url");
+            let url = self.url_with(&source.url, "permits.wfs.url", true);
             let output_format = self.text(
                 &source.output_format,
                 "permits.wfs.output_format",

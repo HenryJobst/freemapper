@@ -55,6 +55,33 @@ schema = "shape"
 max_count = 100000
 max_bytes = 268435456
 
+# The Naturdenkmale and geschützte Landschaftsbestandteile of the LfU's nature conservation service
+# (one WFS per topic, ODbL), issue #273. Its biotope mapping holds the unprotected biotopes too and
+# stays out.
+[[permits.wfs]]
+key = "naturdenkmale"
+label = { en = "Landesamt für Umwelt Rheinland-Pfalz", de = "Landesamt für Umwelt Rheinland-Pfalz" }
+what = { en = "Naturdenkmale", de = "Naturdenkmale" }
+credit = "Landesamt für Umwelt Rheinland-Pfalz; Nutzung entsprechend den Lizenzbestimmungen der Open Database License (ODbL) mit Quellenangabe"
+sections = ["protected-objects"]
+url = "https://geoportal.naturschutz.rlp.de/kartendienst_naturschutz/apps/service/wfs_getmap.php?mapfile=naturdenkmale"
+output_format = "application/json;%20subtype=geojson"
+layers = [
+    { key = "naturdenkmale", type_name = "ms:naturdenkmale", reading = "object", object = "natural-monument", name = "bezeichnung", citation = "rvolink" },
+]
+
+[[permits.wfs]]
+key = "landschaftsbestandteile"
+label = { en = "Landesamt für Umwelt Rheinland-Pfalz", de = "Landesamt für Umwelt Rheinland-Pfalz" }
+what = { en = "geschützte Landschaftsbestandteile", de = "geschützte Landschaftsbestandteile" }
+credit = "Landesamt für Umwelt Rheinland-Pfalz; Nutzung entsprechend den Lizenzbestimmungen der Open Database License (ODbL) mit Quellenangabe"
+sections = ["protected-objects"]
+url = "https://geoportal.naturschutz.rlp.de/kartendienst_naturschutz/apps/service/wfs_getmap.php?mapfile=glb"
+output_format = "application/json;%20subtype=geojson"
+layers = [
+    { key = "landschaftsbestandteile", type_name = "ms:glb", reading = "object", object = "protected-landscape-part", name = "bezeichnung", citation = "rvolink" },
+]
+
 [preview]
 wms = "https://geo4.service24.rlp.de/wms/rp_dop20.fcgi"
 layer = "rp_dop20"

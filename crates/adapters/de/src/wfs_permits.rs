@@ -1294,4 +1294,51 @@ mod tests {
             );
         }
     }
+
+    /// Rhineland-Palatinate's Naturdenkmale and Landschaftsbestandteile, which were a table in the
+    /// code until they moved into its manifest (issue #273), give the requests and the credit
+    /// the table gave; the query that selects the service on the server stays in the address.
+    #[test]
+    fn the_declared_sources_of_rheinland_pfalz_ask_and_keep_what_the_table_did() {
+        let text = include_str!("../manifests/rheinlandpfalz/manifest.toml");
+        let manifest = freemapper_manifest::parse(text, Path::new("rheinlandpfalz")).unwrap();
+        let declared: Vec<Box<dyn PermitSource>> =
+            manifest.permits.iter().map(declared_source).collect();
+        let keys: Vec<(&str, &[&str])> = declared
+            .iter()
+            .map(|source| (source.info().key, source.info().layers))
+            .collect();
+        assert_eq!(
+            keys,
+            [
+                ("naturdenkmale", &["naturdenkmale"][..]),
+                ("landschaftsbestandteile", &["landschaftsbestandteile"][..])
+            ]
+        );
+        for source in &declared {
+            assert_eq!(source.info().sections, [PermitSection::ProtectedObjects]);
+            assert!(source.info().credit.contains("ODbL"));
+        }
+        let bbox = Rect::new(Coord { x: 7.4, y: 50.3 }, Coord { x: 7.5, y: 50.4 });
+        let dir = tempfile::tempdir().unwrap();
+        let asked = Recorder::default();
+        for source in &declared {
+            source
+                .fetch(&asked, &bbox, &dir.path().join("part"))
+                .unwrap();
+        }
+        let urls = asked.0.into_inner();
+        assert_eq!(urls.len(), 2);
+        for (url, (mapfile, type_name)) in urls
+            .iter()
+            .zip([("naturdenkmale", "ms:naturdenkmale"), ("glb", "ms:glb")])
+        {
+            assert!(
+                url.starts_with(&format!(
+                    "https://geoportal.naturschutz.rlp.de/kartendienst_naturschutz/apps/service/wfs_getmap.php?mapfile={mapfile}&"
+                )) && url.contains(type_name),
+                "{url}"
+            );
+        }
+    }
 }
