@@ -249,4 +249,27 @@ mod tests {
         assert!(registry.replace(plain("gamma")).is_err());
         assert!(registry.replace(plain("unknown")).is_err());
     }
+
+    struct NoFactory;
+
+    impl crate::permits::PermitSourceFactory for NoFactory {
+        fn wfs(
+            &self,
+            _declared: &crate::permits::DeclaredWfs,
+        ) -> Box<dyn crate::permits::PermitSource> {
+            unreachable!("the registry only hands the factory on")
+        }
+    }
+
+    #[test]
+    fn the_permit_factory_is_kept_and_a_second_one_replaces_it() {
+        let mut registry = Registry::new();
+        assert!(registry.permit_factory().is_none());
+        let first: Arc<dyn crate::permits::PermitSourceFactory> = Arc::new(NoFactory);
+        registry.set_permit_factory(first.clone());
+        assert!(Arc::ptr_eq(&registry.permit_factory().unwrap(), &first));
+        let second: Arc<dyn crate::permits::PermitSourceFactory> = Arc::new(NoFactory);
+        registry.set_permit_factory(second.clone());
+        assert!(Arc::ptr_eq(&registry.permit_factory().unwrap(), &second));
+    }
 }

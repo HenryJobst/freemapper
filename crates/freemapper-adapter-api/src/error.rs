@@ -268,3 +268,53 @@ pub fn io_error_text(path: &Path, e: &io::Error) -> String {
         format!("{}: {e}", path.display())
     }
 }
+
+#[cfg(test)]
+mod temporary_tests {
+    use super::*;
+
+    #[test]
+    fn server_errors_limits_and_timeouts_pass_again() {
+        for message in [
+            "http status: 500",
+            "http status: 503",
+            "http status: 408",
+            "http status: 429",
+            "http status: 503 (retry after 30 s)",
+            "operation timed out",
+            "Timeout while reading",
+        ] {
+            assert!(is_temporary_message(message), "{message}");
+        }
+    }
+
+    #[test]
+    fn refusals_and_a_lost_connection_are_not_temporary() {
+        for message in [
+            "http status: 404",
+            "http status: 400",
+            "http status: 407",
+            "http status: 409",
+            "http status: 428",
+            "http status: 430",
+            "http status: 499",
+            "http status: ",
+            "connection refused",
+            "connection reset",
+        ] {
+            assert!(!is_temporary_message(message), "{message}");
+        }
+    }
+
+    #[test]
+    fn only_a_temporary_http_failure_is_temporary() {
+        let http = |message: &str| FetchError::Http {
+            url: "https://geo.example.org/x".to_string(),
+            message: message.to_string(),
+        };
+        assert!(http("http status: 502").is_temporary());
+        assert!(!http("connection refused").is_temporary());
+        assert!(!FetchError::NotFound("https://geo.example.org/x".to_string()).is_temporary());
+        assert!(!FetchError::Cancelled.is_temporary());
+    }
+}

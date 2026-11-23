@@ -367,6 +367,8 @@ endpoints = ["https://b.example.org/t", "https://a.example.org/items"]
         };
         let slow = outcome(&target, Ok(()), SLOW + Duration::from_secs(1));
         assert_eq!(slow.status, Status::Slow);
+        // Exactly as long as the limit is still in time.
+        assert_eq!(outcome(&target, Ok(()), SLOW).status, Status::Ok);
         let refused = outcome(
             &target,
             Err(FetchError::Refused {

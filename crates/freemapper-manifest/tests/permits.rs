@@ -310,3 +310,147 @@ fn a_feature_type_may_hold_letters_beyond_ascii() {
         );
     }
 }
+
+fn messages(table: &str) -> Vec<String> {
+    parse(&with(table), Path::new("sample"))
+        .unwrap_err()
+        .into_iter()
+        .map(|finding| finding.message)
+        .collect()
+}
+
+#[test]
+fn optional_pairs_may_be_left_out_and_come_together() {
+    let layer =
+        |extra: &str| format!("{HEAD}layers = [{{ key = \"a\", type_name = \"x:a\", {extra} }}]\n");
+    // Without the optional pair a reading is still read.
+    let water = parse(
+        &with(&layer("reading = \"water\", name = \"N\", zone = \"Z\"")),
+        Path::new("sample"),
+    )
+    .unwrap();
+    assert!(matches!(
+        &water.permits[0].layers[0].reading,
+        DeclaredReading::Water { planned: None, .. }
+    ));
+    let monument = parse(
+        &with(&layer("reading = \"monument\", monument = \"Baudenkmal\"")),
+        Path::new("sample"),
+    )
+    .unwrap();
+    assert!(matches!(
+        &monument.permits[0].layers[0].reading,
+        DeclaredReading::Monument { link: None, .. }
+    ));
+    // Half of a pair is refused.
+    assert_eq!(
+        refused(&layer(
+            "reading = \"monument\", monument = \"B\", link_prefix = \"https://example.org/\""
+        )),
+        [("manifest.missing-key", "link_attribute".to_string())]
+    );
+}
+
+#[test]
+fn only_values_come_one_to_eight_with_their_attribute() {
+    let layer = |values: usize| {
+        let list: Vec<String> = (0..values).map(|n| format!("\"{n}\"")).collect();
+        format!(
+            "{HEAD}layers = [{{ key = \"a\", type_name = \"x:a\", reading = \"object\", object = \"biotope\", only_attribute = \"A\", only_values = [{}] }}]\n",
+            list.join(", ")
+        )
+    };
+    for fine in [1, 8] {
+        assert!(
+            parse(&with(&layer(fine)), Path::new("sample")).is_ok(),
+            "{fine}"
+        );
+    }
+    for bad in [0, 9] {
+        assert_eq!(
+            refused(&layer(bad)),
+            [("manifest.value", "only_attribute".to_string())],
+            "{bad}"
+        );
+    }
+}
+
+#[test]
+fn a_half_given_pair_counts_as_given_for_a_reading_without_it() {
+    let layer =
+        |extra: &str| format!("{HEAD}layers = [{{ key = \"a\", type_name = \"x:a\", {extra} }}]\n");
+    // `only_values` alone, and `link_prefix` alone, are keys the reading does not have.
+    assert!(
+        refused(&layer(
+            "reading = \"water\", name = \"N\", zone = \"Z\", only_values = [\"1\"]"
+        ))
+        .contains(&("manifest.unknown-key", "only_attribute".to_string()))
+    );
+    assert!(
+        refused(&layer(
+            "reading = \"object\", object = \"biotope\", link_prefix = \"https://example.org/\""
+        ))
+        .contains(&("manifest.unknown-key", "link_attribute".to_string()))
+    );
+}
+
+#[test]
+fn a_name_in_a_finding_is_shown_without_control_characters() {
+    let layer =
+        |extra: &str| format!("{HEAD}layers = [{{ key = \"a\", type_name = \"x:a\", {extra} }}]\n");
+    let kind = messages(&layer("reading = \"object\", object = \"dra\\ngon\""));
+    assert_eq!(kind.len(), 1);
+    assert!(kind[0].contains("`dragon`"), "{}", kind[0]);
+    let reading = messages(&layer("reading = \"sw\\namp\""));
+    assert_eq!(reading.len(), 1);
+    assert!(reading[0].contains("`swamp`"), "{}", reading[0]);
+}
+
+#[test]
+fn at_most_twelve_sources_are_declared() {
+    let sources = |count: usize| {
+        (0..count)
+            .map(|n| {
+                format!(
+                    "{}layers = [{{ key = \"a\", type_name = \"x:a\", reading = \"object\", object = \"biotope\" }}]\n",
+                    HEAD.replace("\"natur\"", &format!("\"s{n}\""))
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
+    };
+    assert_eq!(
+        parse(&with(&sources(12)), Path::new("sample"))
+            .unwrap()
+            .permits
+            .len(),
+        12
+    );
+    assert_eq!(
+        refused(&sources(13)),
+        [("manifest.value", "permits.wfs".to_string())]
+    );
+}
+
+#[test]
+fn the_permit_sources_are_handed_over_once() {
+    let table = format!(
+        "{HEAD}layers = [{{ key = \"a\", type_name = \"x:a\", reading = \"object\", object = \"biotope\" }}]\n"
+    );
+    let mut registry = Registry::new();
+    registry.set_permit_factory(Arc::new(Made));
+    let mut adapter = ManifestAdapter::new(
+        parse(&with(&table), Path::new("sample")).unwrap(),
+        &Square,
+        Parse::Now,
+        &registry,
+    )
+    .unwrap();
+    let taken: Vec<&str> = adapter
+        .take_permit_sources()
+        .iter()
+        .map(|s| s.info().key)
+        .collect();
+    assert_eq!(taken, ["natur"]);
+    assert!(adapter.permit_sources().is_empty());
+}
