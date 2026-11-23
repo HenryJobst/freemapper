@@ -1124,4 +1124,17 @@ mod tests {
     fn freemapper_adapter_api_reasons() -> [&'static str; 12] {
         freemapper::fetch::POLICY_REASONS
     }
+
+    #[test]
+    fn a_failure_that_does_not_pass_does_not_blame_the_service() {
+        let http = |message: &str| FetchError::Http {
+            url: "https://example.org/a.zip".to_owned(),
+            message: message.to_owned(),
+        };
+        let lost = http("connection refused").localize(&de());
+        assert!(lost.contains("connection refused"), "{lost}");
+        assert!(!lost.contains("überlastet"), "{lost}");
+        let busy = http("http status: 503").localize(&de());
+        assert!(busy.contains("überlastet"), "{busy}");
+    }
 }
