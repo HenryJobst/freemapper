@@ -545,6 +545,39 @@ pub mod test_support {
         build_tiff(&tiles, &[], pixel, &keys, &[], (0.0, 0.0), (1000.0, 2000.0))
     }
 
+    /// Like [`fixture`], but the tiles carry no quantisation or Huffman tables of their own: they
+    /// sit only in the JpegTables tag, as in the real files, so a sheet that loses the tag cannot
+    /// be decoded.
+    pub fn fixture_tables_only_in_tag(pixel: f64, epsg: u16) -> Vec<u8> {
+        let (tiles, tables) = parts(false);
+        let tiles: Vec<Vec<u8>> = tiles
+            .iter()
+            .map(|jpeg| {
+                let (mut out, mut at) = (vec![0xFF, 0xD8], 2);
+                while jpeg[at + 1] != 0xDA {
+                    let end =
+                        at + 2 + usize::from(u16::from_be_bytes([jpeg[at + 2], jpeg[at + 3]]));
+                    if !matches!(jpeg[at + 1], 0xDB | 0xC4) {
+                        out.extend_from_slice(&jpeg[at..end]);
+                    }
+                    at = end;
+                }
+                out.extend_from_slice(&jpeg[at..]);
+                out
+            })
+            .collect();
+        let keys = [1, 1, 0, 2, 1025, 0, 1, 1, 3072, 0, 1, epsg];
+        build_tiff(
+            &tiles,
+            &tables,
+            pixel,
+            &keys,
+            &[],
+            (0.0, 0.0),
+            (1000.0, 2000.0),
+        )
+    }
+
     /// The four JPEG tiles and the tables stream of the fixtures.
     fn parts(repeat_tables: bool) -> (Vec<Vec<u8>>, Vec<u8>) {
         let colours = [[250, 20, 20], [20, 250, 20], [20, 20, 250], [250, 250, 250]];
@@ -939,6 +972,49 @@ mod tests {
         key.extend_from_slice(&[4, 0, 1, 0, 0, 0]);
         let at = bytes.windows(8).rposition(|w| w == key).unwrap() + 8;
         bytes[at..at + 4].copy_from_slice(&value.to_le_bytes());
+    }
+
+    #[test]
+    fn tables_that_only_the_tag_holds_are_applied_to_every_tile() {
+        let bytes = fixture_tables_only_in_tag(0.25, 2180);
+        let r = read_orto(&bytes, &window(0.25, 0, 0, 32)).unwrap().unwrap();
+        assert!(near(r.get(3, 3), [250, 20, 20]));
+        assert!(near(r.get(20, 20), [250, 250, 250]));
+    }
+
+    /// Replaces the tag and value of the one-entry SHORT entry `from` in the IFD.
+    fn patch_short(bytes: &mut [u8], from: u16, to: u16, value: u16) {
+        let mut key = from.to_le_bytes().to_vec();
+        key.extend_from_slice(&[3, 0, 1, 0, 0, 0]);
+        let at = bytes.windows(8).rposition(|w| w == key).unwrap();
+        bytes[at..at + 2].copy_from_slice(&to.to_le_bytes());
+        bytes[at + 8..at + 10].copy_from_slice(&value.to_le_bytes());
+    }
+
+    #[test]
+    fn uncompressed_tiles_must_be_chunky_8_bit_rgb_in_every_respect() {
+        let ok = fixture_uncompressed(0.25, 2180);
+        assert!(Sheet::open(&ok).is_ok());
+        // Each case breaks exactly one condition the `tiff` reader still lets through: the
+        // photometric interpretation, or 16 bits for each of the three samples. (Other sample
+        // counts and planar layouts the reader refuses itself.)
+        let mut not_rgb = ok.clone();
+        patch_short(&mut not_rgb, 262, 262, 1);
+        assert!(matches!(
+            Sheet::open(&not_rgb),
+            Err(OrtoError::NotJpegTiles)
+        ));
+
+        let mut sixteen_bit = ok.clone();
+        let eights: Vec<u8> = [8u16; 3].iter().flat_map(|b| b.to_le_bytes()).collect();
+        let at = sixteen_bit.windows(6).position(|w| w == eights).unwrap();
+        for i in 0..3 {
+            sixteen_bit[at + 2 * i..at + 2 * i + 2].copy_from_slice(&16u16.to_le_bytes());
+        }
+        assert!(matches!(
+            Sheet::open(&sixteen_bit),
+            Err(OrtoError::NotJpegTiles)
+        ));
     }
 
     #[test]

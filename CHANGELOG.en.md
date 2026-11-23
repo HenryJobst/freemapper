@@ -15,6 +15,7 @@ All notable changes to freemapper are listed here, newest first. The format foll
 ### Changed
 
 - The Polish permit hints on monuments follow the law as of 23 November 2026. Since 3 June 2026 (Dz. U. 2025 poz. 1673), building work in the surroundings of a monument and some other actions need only a notification to the conservator, who can object within 60 days (art. 36aa); the permit stays for conservation, restoration and building work at the registered monument. The hint on archaeological monuments names research (art. 36 ust. 1 pkt 5) and metal-detector searches (pkt 12) as needing a permit and says that the permit for searches falls away on 1 January 2027 and is replaced by the owner's consent plus a notification through an app (art. 36b, 36c). The hint stays a hint, not legal advice.
+- Internal: more tests for the mutation check (issue #312): the tile and nDSM downloads of the state adapters, the manifest texts, the paged reading of OGC API collections and the opening of Polish orthophoto sheets (photometric interpretation, bits per sample, tables only in the JpegTables tag) now have tests in their own crate. No behaviour changes.
 
 ## [0.27.0] - 2026-11-22
 

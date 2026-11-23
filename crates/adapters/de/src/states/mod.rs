@@ -778,6 +778,15 @@ pub(crate) fn all_tree_datasets() -> Vec<TreeDataset> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn manifest_texts_are_the_manifests_of_all_states_in_order() {
+        let texts = manifest_texts();
+        assert_eq!(texts.len(), State::ALL.len());
+        for (text, state) in texts.iter().zip(State::ALL) {
+            assert_eq!(*text, manifest_text(state));
+            assert!(text.len() > 100, "{state:?}");
+        }
+    }
 
     /// The area page draws one layer per aerial photo. Two states with the same service and
     /// layer (Brandenburg and Berlin) must name it alike in every field, or the page would
