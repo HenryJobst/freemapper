@@ -630,10 +630,8 @@ impl StateAdapter {
                 crate::bfg_permits::source(),
                 crate::denkmal_permits::rheinland_pfalz(),
             ],
-            State::SaxonyAnhalt => vec![
-                crate::bfg_permits::source(),
-                crate::natur_permits::sachsen_anhalt(),
-            ],
+            // The Naturdenkmale of Saxony-Anhalt are declared in its manifest (issue #273).
+            State::SaxonyAnhalt => vec![crate::bfg_permits::source()],
             State::Bayern => vec![crate::bfg_permits::source(), crate::natur_permits::bayern()],
             State::Niedersachsen => vec![
                 crate::bfg_permits::source(),

@@ -249,7 +249,7 @@ Bundesländer ziehen nach und nach hierher um (Issue #273); `adapters probe` fra
 | `native_crs` | ganze Zahl | nein | 25832 oder 25833: Der Dienst findet nichts mit einem Rechteck in WGS 84 oder antwortet nur in seinem eigenen KBS und wird deshalb darin gefragt. |
 | `layers` | Liste von Tabellen | ja | Die Schichten, unten. |
 
-Eine Schicht hat `key` (ein Name wie oben, einmalig in ihrer Quelle), `type_name` (der WFS-Objekttyp) und
+Eine Schicht hat `key` (ein Name wie oben, einmalig in ihrer Quelle), `type_name` (der WFS-Objekttyp; Buchstaben wie `ä` sind erlaubt und gehen prozentkodiert in die Anfrage) und
 `reading`, das sagt, wie ihre Objekte zu Funden werden und welche weiteren Schlüssel sie nimmt:
 
 | `reading` | Schlüssel | Bedeutung |

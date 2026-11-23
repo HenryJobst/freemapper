@@ -243,7 +243,7 @@ one by one (issue #273); `adapters probe` asks every `url`.
 | `native_crs` | whole number | no | 25832 or 25833: the service finds nothing by a box in WGS 84 or answers only in its own CRS, so it is asked in this one. |
 | `layers` | list of tables | yes | The layers, below. |
 
-A layer has `key` (a name as above, unique in its source), `type_name` (the WFS feature type) and `reading`,
+A layer has `key` (a name as above, unique in its source), `type_name` (the WFS feature type; letters such as `ä` are allowed and go into the request percent-encoded) and `reading`,
 which says how its features become findings and which further keys it takes:
 
 | `reading` | Keys | Meaning |

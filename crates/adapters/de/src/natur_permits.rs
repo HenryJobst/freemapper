@@ -101,53 +101,6 @@ pub fn sachsen() -> Vec<Box<dyn PermitSource>> {
     ]
 }
 
-/// Saxony-Anhalt: the Naturdenkmale and geschützte Landschaftsbestandteile of the LAU. Its
-/// biotopes are only given out on request, its single trees are not in the service.
-pub fn sachsen_anhalt() -> Box<dyn PermitSource> {
-    with_gaps(
-        source(
-            "naturschutz",
-            Wording {
-                en: "Landesamt für Umweltschutz Sachsen-Anhalt",
-                de: "Landesamt für Umweltschutz Sachsen-Anhalt",
-            },
-            Wording {
-                en: "Naturdenkmale and geschützte Landschaftsbestandteile",
-                de: "Naturdenkmale und geschützte Landschaftsbestandteile",
-            },
-            "Datenlizenz Deutschland Namensnennung 2.0; Quellenvermerk: Landesamt für Umweltschutz Sachsen-Anhalt",
-            &["flaechen", "punkte", "landschaftsbestandteile"],
-            OBJECTS,
-            "https://geodatenportal.sachsen-anhalt.de/ows_lau_wfs_naturschutz",
-            "GEOJSON",
-            {
-                const LAYERS: &[Layer] = &[
-                    (
-                        "flaechen",
-                        "ps:Fl%C3%A4chenhafte_Naturdenkmale",
-                        object(ND, Some("Gebietsname"), None),
-                    ),
-                    (
-                        "punkte",
-                        "ps:Fl%C3%A4chennaturdenkmale",
-                        object(ND, Some("Gebietsname"), None),
-                    ),
-                    (
-                        "landschaftsbestandteile",
-                        "ps:Gesch%C3%BCtzte_Landschaftsbestandteile",
-                        object(GLB, Some("Gebietsname"), None),
-                    ),
-                ];
-                LAYERS
-            },
-        ),
-        Wording {
-            en: "Naturdenkmale that are single trees and the protected biotopes are not in them",
-            de: "Naturdenkmale, die einzelne Bäume sind, und die geschützten Biotope fehlen darin",
-        },
-    )
-}
-
 /// Bavaria: the Naturdenkmale and Landschaftsbestandteile of the LfU.
 pub fn bayern() -> Box<dyn PermitSource> {
     source(
