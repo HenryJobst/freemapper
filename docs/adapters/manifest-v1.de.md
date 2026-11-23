@@ -241,7 +241,7 @@ Bundesländer ziehen nach und nach hierher um (Issue #273); `adapters probe` fra
 | `label` | `{ en, de }` | ja | Wer veröffentlicht, dieselben Worte für alle Quellen eines Portals; je höchstens 200 Zeichen. |
 | `what` | `{ en, de }` | ja | Was die Quelle enthält, kurz. |
 | `credit` | Text | ja | Die Quellenangabe oder der Lizenztext, wörtlich wie der Herausgeber sie nennt; höchstens 400. Die Hinweise drucken sie. |
-| `gaps` | `{ en, de }` | nein | Wo die Daten nicht vollständig sind, obwohl sie die Region abdecken. |
+| `gaps` | `{ en, de }` | nein | Wo die Daten nicht vollständig sind, obwohl sie die Region abdecken; bis zu 400 Zeichen je Sprache. |
 | `sections` | Liste von Texten | ja | Die Abschnitte der Hinweise, die sie füllt: `districts`, `green-spaces`, `owners`, `monuments`, `protected-objects`, `forest-units`, `state-forest`, `water-protection`, `forest-functions`, `admin-units`, … (die Namen des Programms). |
 | `url` | URL | ja | Die Adresse des Dienstes, auf einem Host aus `[net] hosts`, ohne Query. |
 | `output_format` | Text | ja | Das `outputFormat`, mit dem der Dienst GeoJSON nennt, URL-kodiert, wie er es braucht (`application/geo%2Bjson`). Mit `gml = true` das für GML 3.2. |

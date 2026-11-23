@@ -1168,4 +1168,90 @@ mod tests {
             );
         }
     }
+
+    macro_rules! fixture {
+        ($name:literal) => {
+            include_str!(concat!("../../../../tests/fixtures/permits-states/", $name))
+        };
+    }
+
+    /// Schleswig-Holstein's INSPIRE answers in GML 3.2 become Naturdenkmale (points) and
+    /// Landschaftsbestandteile (areas) named by their `text`, in WGS 84 with the longitude first.
+    /// The source is the one its manifest declares (issue #273); until then a table in the code
+    /// gave the same findings.
+    #[test]
+    fn schleswig_holstein_objects_from_the_inspire_service() {
+        use freemapper_adapter_api::permits::{FindingKind, ProtectedObjectKind};
+        const SERVICE: &str = "https://service.gdi-sh.de/SH_INSPIREDOWNLOAD_AI_PS";
+        let text = include_str!("../manifests/schleswigholstein/manifest.toml");
+        let manifest = freemapper_manifest::parse(text, Path::new("schleswigholstein")).unwrap();
+        assert_eq!(manifest.permits.len(), 1);
+        let source = declared_source(&manifest.permits[0]);
+        let base = format!(
+            "{SERVICE}?service=WFS&version=2.0.0&request=GetFeature\
+             &outputFormat=application%2Fgml%2Bxml%3B%20version%3D3.2\
+             &srsName=urn:ogc:def:crs:EPSG::4326&typeNames="
+        );
+        let fetcher = MapFetcher::default();
+        for (t, file) in [
+            ("app:Naturdenkmale", fixture!("sh-naturdenkmale.gml")),
+            (
+                "app:geschuetzte_Landschaftsbestandteile",
+                fixture!("sh-landschaftsbestandteile.gml"),
+            ),
+        ] {
+            fetcher.insert_prefix(&format!("{base}{t}&"), file.as_bytes().to_vec());
+        }
+        let part = tempfile::tempdir().unwrap();
+        let bbox = Rect::new(Coord { x: 9.55, y: 54.60 }, Coord { x: 9.90, y: 54.78 });
+        let layers = source
+            .fetch(&fetcher, &bbox, &part.path().join("x.part"))
+            .unwrap();
+        let found = |i: usize| -> Vec<(ProtectedObjectKind, String)> {
+            source
+                .findings(source.info().layers[i], &layers[i])
+                .into_iter()
+                .map(|f| {
+                    for c in geo::CoordsIter::coords_iter(&f.geometry) {
+                        assert!(
+                            (8.0..11.5).contains(&c.x) && (53.3..55.1).contains(&c.y),
+                            "{c:?}"
+                        );
+                    }
+                    match f.kind {
+                        FindingKind::ProtectedObject { kind, name, .. } => (kind, name.unwrap()),
+                        other => panic!("{other:?}"),
+                    }
+                })
+                .collect()
+        };
+        let monuments = found(0);
+        assert_eq!(monuments.len(), 4);
+        assert!(
+            monuments
+                .iter()
+                .all(|(kind, _)| *kind == ProtectedObjectKind::NaturalMonument)
+        );
+        assert!(
+            monuments
+                .iter()
+                .any(|(_, name)| name == "6 Stieleichen an der Schlei zwischen Boknis und Pagerö")
+        );
+        assert_eq!(
+            found(1),
+            [
+                "Biotopflächen Segeberger Landstrasse",
+                "Schlamersdorfer Trockenhang",
+                "Schmiederedder"
+            ]
+            .map(|name| (
+                ProtectedObjectKind::ProtectedLandscapePart,
+                name.to_string()
+            ))
+        );
+        let info = source.info();
+        assert_eq!(info.key, "naturschutz");
+        assert!(info.gaps.is_some());
+        assert_eq!(info.credit, "© GeoBasis-DE/LVermGeo SH/CC BY 4.0");
+    }
 }
