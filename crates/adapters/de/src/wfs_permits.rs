@@ -264,6 +264,24 @@ impl PermitSourceFactory for TableFactory {
     }
 }
 
+/// `text` with every letter outside ASCII written as `%XX` per byte of its UTF-8, as a feature type
+/// goes into a request (`Flächen` becomes `Fl%C3%A4chen`).
+fn percent_encoded(text: &str) -> String {
+    text.chars()
+        .map(|c| {
+            if c.is_ascii() {
+                c.to_string()
+            } else {
+                let mut buffer = [0; 4];
+                c.encode_utf8(&mut buffer)
+                    .bytes()
+                    .map(|b| format!("%{b:02X}"))
+                    .collect()
+            }
+        })
+        .collect()
+}
+
 fn kept(text: &str) -> &'static str {
     Box::leak(text.to_string().into_boxed_str())
 }
@@ -359,7 +377,7 @@ fn declared_source(declared: &DeclaredWfs) -> Box<dyn PermitSource> {
             .map(|layer| {
                 (
                     kept(&layer.key),
-                    kept(&layer.type_name),
+                    kept(&percent_encoded(&layer.type_name)),
                     reading(&layer.reading),
                 )
             })
@@ -1337,6 +1355,47 @@ mod tests {
                 url.starts_with(&format!(
                     "https://geoportal.naturschutz.rlp.de/kartendienst_naturschutz/apps/service/wfs_getmap.php?mapfile={mapfile}&"
                 )) && url.contains(type_name),
+                "{url}"
+            );
+        }
+    }
+
+    /// Saxony-Anhalt's Naturdenkmale and Landschaftsbestandteile, which were a table in the code
+    /// until they moved into its manifest (issue #273), give the requests, the gaps note and the
+    /// credit the table gave; a letter such as `ä` in a feature type is written percent-encoded.
+    #[test]
+    fn the_declared_source_of_sachsen_anhalt_asks_and_keeps_what_the_table_did() {
+        let text = include_str!("../manifests/saxonyanhalt/manifest.toml");
+        let manifest = freemapper_manifest::parse(text, Path::new("saxonyanhalt")).unwrap();
+        let declared: Vec<Box<dyn PermitSource>> =
+            manifest.permits.iter().map(declared_source).collect();
+        assert_eq!(declared.len(), 1);
+        let info = declared[0].info();
+        assert_eq!(
+            (info.key, info.layers),
+            (
+                "naturschutz",
+                &["flaechen", "punkte", "landschaftsbestandteile"][..]
+            )
+        );
+        assert_eq!(info.sections, [PermitSection::ProtectedObjects]);
+        assert!(info.gaps.unwrap().de.contains("einzelne Bäume"));
+        let bbox = Rect::new(Coord { x: 11.6, y: 52.1 }, Coord { x: 11.7, y: 52.2 });
+        let dir = tempfile::tempdir().unwrap();
+        let asked = Recorder::default();
+        declared[0]
+            .fetch(&asked, &bbox, &dir.path().join("part"))
+            .unwrap();
+        let urls = asked.0.into_inner();
+        assert_eq!(urls.len(), 3);
+        for (url, type_name) in urls.iter().zip([
+            "ps:Fl%C3%A4chenhafte_Naturdenkmale",
+            "ps:Fl%C3%A4chennaturdenkmale",
+            "ps:Gesch%C3%BCtzte_Landschaftsbestandteile",
+        ]) {
+            assert!(
+                url.starts_with("https://geodatenportal.sachsen-anhalt.de/ows_lau_wfs_naturschutz")
+                    && url.contains(type_name),
                 "{url}"
             );
         }

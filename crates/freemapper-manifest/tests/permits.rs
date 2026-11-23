@@ -291,3 +291,22 @@ fn the_adapter_makes_its_sources_with_the_factory_of_the_registry() {
     .unwrap();
     assert!(plain.permit_sources().is_empty());
 }
+
+#[test]
+fn a_feature_type_may_hold_letters_beyond_ascii() {
+    let layers = |type_name: &str| {
+        format!(
+            "layers = [{{ key = \"a\", type_name = \"{type_name}\", reading = \"object\", object = \"biotope\" }}]\n"
+        )
+    };
+    let table = format!("{HEAD}{}", layers("ps:Flächennaturdenkmale"));
+    assert!(parse(&with(&table), Path::new("sample")).is_ok());
+    for bad in ["ps:Fl%C3%A4chen", "ps:a b", "ps:a:b", "1x", "ps:"] {
+        let table = format!("{HEAD}{}", layers(bad));
+        assert_eq!(
+            refused(&table),
+            [("manifest.value", "permits.wfs.layers.type_name".to_string())],
+            "{bad}"
+        );
+    }
+}

@@ -168,6 +168,22 @@ fn is_type_name(text: &str) -> bool {
     parts.next().is_none() && first.is_some_and(is_field) && second.is_none_or(is_field)
 }
 
+/// A feature type of a permit service: [`is_type_name`], and letters such as `ä` in the name
+/// (`ps:Flächennaturdenkmale`); the request writes them percent-encoded.
+fn is_permit_type_name(text: &str) -> bool {
+    let part = |part: &str| {
+        let mut chars = part.chars();
+        (1..=60).contains(&part.chars().count())
+            && chars.next().is_some_and(|c| c.is_alphabetic() || c == '_')
+            && part
+                .chars()
+                .all(|c| c.is_alphanumeric() || matches!(c, '_' | '.' | '-'))
+    };
+    let mut parts = text.split(':');
+    let (first, second) = (parts.next(), parts.next());
+    parts.next().is_none() && first.is_some_and(part) && second.is_none_or(part)
+}
+
 /// A path of an extract on the Geofabrik server (`europe/germany/hessen`).
 fn is_geofabrik_path(text: &str) -> bool {
     let segments: Vec<&str> = text.split('/').collect();
@@ -2314,7 +2330,7 @@ impl Check<'_> {
             &layer.type_name,
             "permits.wfs.layers.type_name",
             "manifest.value",
-            is_type_name,
+            is_permit_type_name,
             "a feature type, with or without a prefix",
         );
         let k = "permits.wfs.layers";
