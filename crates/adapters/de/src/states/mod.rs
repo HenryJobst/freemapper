@@ -564,13 +564,8 @@ impl StateAdapter {
         // The BfG's protection areas where the state's own services give none (ADR 0142), the
         // monuments of the state offices where they are open (ADR 0144).
         let permits: Vec<Box<dyn PermitSource>> = match state {
-            State::Berlin => [
-                crate::berlin_permits::sources(),
-                vec![crate::natur_permits::berlin()],
-            ]
-            .into_iter()
-            .flatten()
-            .collect(),
+            // The protected biotopes of Berlin are declared in its manifest (issue #273).
+            State::Berlin => crate::berlin_permits::sources(),
             // The protected objects of Brandenburg are declared in its manifest (issue #273).
             State::Brandenburg => [
                 crate::lfb_permits::sources(),

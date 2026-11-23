@@ -37,6 +37,21 @@ backend = "lgb"
 [surface]
 backend = "lgb"
 
+# The protected biotopes of the Umweltatlas whose protection is certain (`schutz_ges` 1, not the
+# suspected ones), issue #273.
+[[permits.wfs]]
+key = "biotope"
+label = { en = "Geoportal Berlin", de = "Geoportal Berlin" }
+what = { en = "protected biotopes (Umweltatlas, biotope types 2024)", de = "geschützte Biotope (Umweltatlas, Biotoptypen 2024)" }
+credit = "Für die Nutzung der Daten ist die Datenlizenz Deutschland - Zero - Version 2.0 anzuwenden. Die Lizenz ist über https://www.govdata.de/dl-de/zero-2-0 abrufbar."
+sections = ["protected-objects"]
+url = "https://gdi.berlin.de/services/wfs/ua_biotoptypen_2024"
+output_format = "application/json"
+layers = [
+    { key = "flaechen", type_name = "ua_biotoptypen_2024:bc_gesetzschutz_f", reading = "object", object = "biotope", name = "bt_name", only_attribute = "schutz_ges", only_values = ["1"] },
+    { key = "punkte", type_name = "ua_biotoptypen_2024:ba_gesetzschutz_p", reading = "object", object = "biotope", name = "bt_name", only_attribute = "schutz_ges", only_values = ["1"] },
+]
+
 [preview]
 wms = "https://isk.geobasis-bb.de/mapproxy/dop20c/service/wms"
 layer = "bebb_dop20c"
