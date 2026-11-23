@@ -1416,7 +1416,13 @@ at a monument and in its surroundings (Act on the Protection of Monuments, art. 
 A second request asks the register of archaeological monuments (the book C of the register) the same way; its section
 has the same form and its hint says that the Act regulates searching for monuments with metal detectors and makes
 archaeological research and work at a registered site subject to the conservator's permit. Sites that are only in the
-archaeological record (AZP) and not entered in the register, and the Pomniki historii, are not covered. Only the State Forests
+archaeological record (AZP) and not entered in the register are not covered. The Pomniki historii (monuments of
+history) come from a WFS of the NID with their true positions: the section gives the number of monuments in the map
+area and, apart from it, those only in the rectangle around the map area, with names (at most ten per list); a
+monument with several parts counts once. The hint says that the President declares a registered immovable monument or
+a cultural park a Pomnik historii (art. 15 ust. 1), that work at a registered monument needs the permit of the
+voivodeship monument conservator (art. 36 ust. 1) and that in a cultural park the resolution of the gmina council
+decides; the Act names no run. Only the State Forests
 are in the data; private forest is not, and the notes say that the starosta supervises forest that the State
 Treasury does not own. The German wording of these hints has not been read by a Polish speaker.
 The notes are a hint, not legal advice. `--offline` reads what an earlier run stored, as in Germany.

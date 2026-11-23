@@ -1755,6 +1755,8 @@ mod poland {
         for url in probe.log.borrow().iter() {
             let body = if url.starts_with("https://sdi.gdos.gov.pl/") {
                 gdos_answer(url)
+            } else if url.starts_with("https://usluga.zabytek.gov.pl/INSPIRE_WFS_MHD/") {
+                fixture("nid-pomniki-empty.json")
             } else if url.starts_with("https://usluga.zabytek.gov.pl/") {
                 br#"<?xml version="1.0"?><FeatureCollection/>"#.to_vec()
             } else if url.contains("U06_Nadlesnictwo") {
@@ -1809,7 +1811,8 @@ mod poland {
                 ("polska", "prg"),
                 ("polska", "prg-granice"),
                 ("polska", "nid-zabytki"),
-                ("polska", "nid-archeologia")
+                ("polska", "nid-archeologia"),
+                ("polska", "nid-pomniki")
             ]
         );
         let today = "2026-11-22".parse().unwrap();
@@ -2063,6 +2066,8 @@ mod poland {
         for url in probe.log.borrow().iter() {
             let body = if url.starts_with("https://sdi.gdos.gov.pl/") {
                 empty_gdos.clone()
+            } else if url.starts_with("https://usluga.zabytek.gov.pl/INSPIRE_WFS_MHD/") {
+                fixture("nid-pomniki-empty.json")
             } else if url.starts_with("https://usluga.zabytek.gov.pl/") {
                 br#"<?xml version="1.0"?><FeatureCollection/>"#.to_vec()
             } else if url.starts_with(&format!("{BASE}U06")) {
@@ -2311,5 +2316,118 @@ mod poland {
         assert_eq!(register.total, 25);
         assert_eq!(register.names.len(), 10);
         assert_eq!(register.left, 15);
+    }
+    /// The URLs the monuments of history were asked at in `fetcher`.
+    fn history_urls(fetcher: &MapFetcher) -> Vec<String> {
+        urls_of(fetcher, "https://usluga.zabytek.gov.pl/INSPIRE_WFS_MHD/")
+    }
+
+    fn history_names(register: &crate::permits::regional::RegisterMonuments) -> Vec<(&str, usize)> {
+        register
+            .names
+            .iter()
+            .map(|n| (n.name.as_str(), n.count))
+            .collect()
+    }
+
+    #[test]
+    fn a_monument_of_history_outside_the_map_is_counted_in_the_rectangle_only() {
+        let (dir, project) = project_at(SLUBICE);
+        let fetcher = MapFetcher::default();
+        serve_slubice(&fetcher, None);
+        let urls = history_urls(&fetcher);
+        assert_eq!(urls.len(), 1, "{urls:?}");
+        assert!(urls[0].contains("&BBOX=507"), "{}", urls[0]);
+        // The fixture is the Kopiec Kościuszki in Kraków, two parts of one monument.
+        fetcher.insert(&urls[0], fixture("nid-pomniki-krakow.json"));
+        let online = fetch(&project, dir.path(), &fetcher, false).unwrap();
+        let today = "2026-11-22".parse().unwrap();
+        let notes = write_permit_notes(dir.path(), &project, &online, today).unwrap();
+        let history = notes.regional[0].register_history.as_ref().unwrap();
+        assert_eq!(history.in_area.total, 0);
+        assert_eq!(history.nearby.total, 1);
+        assert_eq!(
+            history_names(&history.nearby),
+            [("Kraków - Kopiec Kościuszki z otoczeniem", 1)]
+        );
+        assert_eq!(history.nearby.left, 0);
+        assert!(
+            notes
+                .hints
+                .iter()
+                .any(|h| h.key == "permits-hint-history-register-pl")
+        );
+        // The other registers are untouched.
+        assert_eq!(
+            notes.regional[0]
+                .register_archaeology
+                .as_ref()
+                .unwrap()
+                .total,
+            0
+        );
+
+        let silent = MapFetcher::default();
+        let offline = fetch(&project, dir.path(), &silent, true).unwrap();
+        assert!(silent.log.borrow().is_empty());
+        let again = write_permit_notes(dir.path(), &project, &offline, today).unwrap();
+        assert_eq!(again, notes);
+    }
+
+    #[test]
+    fn a_monument_of_history_on_the_map_is_counted_in_the_area() {
+        let (dir, project) = project_at(SLUBICE);
+        let fetcher = MapFetcher::default();
+        serve_slubice(&fetcher, None);
+        // The centre of the map area in EPSG:2180 (easting first) and a point in Kraków; the
+        // monument "a" has a part in each place and counts once, in the area.
+        let part = |id: &str, name: &str, east: f64, north: f64| {
+            format!(
+                r#"{{"type": "Feature", "properties": {{"INSPIREID": "{id}", "SITENAME": "{name}"}}, "geometry": {{"type": "Point", "coordinates": [{east}, {north}]}}}}"#
+            )
+        };
+        let body = format!(
+            r#"{{"type": "FeatureCollection", "features": [{}, {}, {}]}}"#,
+            part("a", "Słubice - Test", 197742.0, 507507.39),
+            part("a", "Słubice - Test", 563837.9, 243217.5),
+            part("b", "Kraków - Test", 563837.9, 243217.5),
+        );
+        fetcher.insert(&history_urls(&fetcher)[0], body.into_bytes());
+        let inputs = fetch(&project, dir.path(), &fetcher, false).unwrap();
+        let today = "2026-11-22".parse().unwrap();
+        let notes = write_permit_notes(dir.path(), &project, &inputs, today).unwrap();
+        let history = notes.regional[0].register_history.as_ref().unwrap();
+        assert_eq!(history_names(&history.in_area), [("Słubice - Test", 1)]);
+        assert_eq!(history.in_area.total, 1);
+        assert_eq!(history_names(&history.nearby), [("Kraków - Test", 1)]);
+        assert_eq!(history.nearby.total, 1);
+    }
+
+    #[test]
+    fn no_monument_of_history_says_so_and_a_failing_source_is_left_out() {
+        let (dir, project) = project_at(SLUBICE);
+        let fetcher = MapFetcher::default();
+        serve_slubice(&fetcher, None);
+        let inputs = fetch(&project, dir.path(), &fetcher, false).unwrap();
+        let today = "2026-11-22".parse().unwrap();
+        let notes = write_permit_notes(dir.path(), &project, &inputs, today).unwrap();
+        let history = notes.regional[0].register_history.as_ref().unwrap();
+        assert_eq!((history.in_area.total, history.nearby.total), (0, 0));
+        assert!(
+            !notes
+                .hints
+                .iter()
+                .any(|h| h.key == "permits-hint-history-register-pl")
+        );
+
+        let (dir, project) = project_at(SLUBICE);
+        let fetcher = MapFetcher::default();
+        serve_slubice(&fetcher, None);
+        fetcher.failing.borrow_mut().extend(history_urls(&fetcher));
+        let inputs = fetch(&project, dir.path(), &fetcher, false).unwrap();
+        let notes = write_permit_notes(dir.path(), &project, &inputs, today).unwrap();
+        assert_eq!(notes.regional[0].register_history, None);
+        assert!(notes.regional[0].register_monuments.is_some());
+        assert!(notes.regional[0].protected_objects.is_some());
     }
 }
