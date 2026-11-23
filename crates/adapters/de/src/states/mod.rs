@@ -586,12 +586,10 @@ impl StateAdapter {
             .into_iter()
             .flatten()
             .collect(),
+            // The protected objects of Schleswig-Holstein are declared in its manifest (issue #273).
             State::SchleswigHolstein => [
                 crate::state_permits::schleswig_holstein(),
-                vec![
-                    crate::ldsh_permits::source(),
-                    crate::natur_permits::schleswig_holstein(),
-                ],
+                vec![crate::ldsh_permits::source()],
             ]
             .into_iter()
             .flatten()

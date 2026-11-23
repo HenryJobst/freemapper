@@ -2055,10 +2055,10 @@ impl Check<'_> {
                 );
                 fine = false;
             }
-            let label = self.wording(&source.label, "permits.wfs.label");
-            let what = self.wording(&source.what, "permits.wfs.what");
+            let label = self.wording(&source.label, "permits.wfs.label", 200);
+            let what = self.wording(&source.what, "permits.wfs.what", 200);
             let gaps = match &source.gaps {
-                Some(gaps) => self.wording(gaps, "permits.wfs.gaps").map(Some),
+                Some(gaps) => self.wording(gaps, "permits.wfs.gaps", 400).map(Some),
                 None => Some(None),
             };
             let credit = self.text(
@@ -2169,9 +2169,9 @@ impl Check<'_> {
         fine.then_some(sources)
     }
 
-    fn wording(&mut self, raw: &RawWording, key: &str) -> Option<DeclaredWording> {
-        let en = self.text(&raw.en, &format!("{key}.en"), "manifest.value", 200);
-        let de = self.text(&raw.de, &format!("{key}.de"), "manifest.value", 200);
+    fn wording(&mut self, raw: &RawWording, key: &str, longest: usize) -> Option<DeclaredWording> {
+        let en = self.text(&raw.en, &format!("{key}.en"), "manifest.value", longest);
+        let de = self.text(&raw.de, &format!("{key}.de"), "manifest.value", longest);
         Some(DeclaredWording { en: en?, de: de? })
     }
 

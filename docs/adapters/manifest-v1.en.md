@@ -235,7 +235,7 @@ one by one (issue #273); `adapters probe` asks every `url`.
 | `label` | `{ en, de }` | yes | Who publishes it, the same words for all sources of one portal; at most 200 characters each. |
 | `what` | `{ en, de }` | yes | What the source holds, short. |
 | `credit` | text | yes | The credit line or licence text, verbatim as the publisher gives it; at most 400. The notes print it. |
-| `gaps` | `{ en, de }` | no | Where the data are not complete although they cover the region. |
+| `gaps` | `{ en, de }` | no | Where the data are not complete although they cover the region; up to 400 characters per language. |
 | `sections` | list of texts | yes | The sections of the notes it fills: `districts`, `green-spaces`, `owners`, `monuments`, `protected-objects`, `forest-units`, `state-forest`, `water-protection`, `forest-functions`, `admin-units`, … (the names of the program). |
 | `url` | URL | yes | The address of the service, on a host of `[net] hosts`, no query. |
 | `output_format` | text | yes | The `outputFormat` the service names for GeoJSON, URL-encoded as it needs it (`application/geo%2Bjson`). With `gml = true` the one for GML 3.2. |

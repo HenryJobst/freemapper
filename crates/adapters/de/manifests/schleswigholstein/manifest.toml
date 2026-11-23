@@ -102,6 +102,23 @@ fields = { kind = "art_bot", id = "baumnr", species = "art_de", crown = "kronenm
 attribution = "Herausgeber: Stadtverwaltung Norderstedt, dl-de/by-2-0"
 max_bytes = 268435456
 
+# The Naturdenkmale and geschützte Landschaftsbestandteile of the INSPIRE service (a deegree WFS that
+# answers GML 3.2 only, CC BY 4.0), issue #273. The Kreise reported few of them.
+[[permits.wfs]]
+key = "naturschutz"
+label = { en = "INSPIRE protected sites of Schleswig-Holstein", de = "INSPIRE-Schutzgebiete Schleswig-Holstein" }
+what = { en = "Naturdenkmale, geschützte Landschaftsbestandteile", de = "Naturdenkmale, geschützte Landschaftsbestandteile" }
+credit = "© GeoBasis-DE/LVermGeo SH/CC BY 4.0"
+gaps = { en = "The Naturdenkmale come almost only from the Kreis Schleswig-Flensburg, the Landschaftsbestandteile only from Kiel, Lübeck and the Kreise Plön, Schleswig-Flensburg and Stormarn; ask the lower nature conservation authority for the others", de = "Die Naturdenkmale stammen fast nur aus dem Kreis Schleswig-Flensburg, die Landschaftsbestandteile nur aus Kiel, Lübeck und den Kreisen Plön, Schleswig-Flensburg und Stormarn; die übrigen kennt die untere Naturschutzbehörde" }
+sections = ["protected-objects"]
+url = "https://service.gdi-sh.de/SH_INSPIREDOWNLOAD_AI_PS"
+output_format = "application%2Fgml%2Bxml%3B%20version%3D3.2"
+gml = true
+layers = [
+    { key = "naturdenkmale", type_name = "app:Naturdenkmale", reading = "object", object = "natural-monument", name = "text" },
+    { key = "landschaftsbestandteile", type_name = "app:geschuetzte_Landschaftsbestandteile", reading = "object", object = "protected-landscape-part", name = "text" },
+]
+
 [preview]
 wms = "https://dienste.gdi-sh.de/WMS_SH_DOP20col_OpenGBD"
 layer = "sh_dop20_rgb"
