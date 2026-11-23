@@ -17,6 +17,7 @@ use freemapper_adapter_api::error::Remedy;
 use freemapper_adapter_api::estimate::{EstimateArea, EstimateEnv};
 use freemapper_adapter_api::extras::{NasService, TreeDataset};
 use freemapper_adapter_api::info::{Declared, Names, OsmExtractInfo, PreviewInfo, RegionInfo};
+use freemapper_adapter_api::permits::PermitSource;
 use freemapper_adapter_api::policy::{Owner, UrlPolicy};
 use freemapper_adapter_api::rasters::RasterBackend;
 use freemapper_adapter_api::records::{AdapterId, EstimateItem};
@@ -115,6 +116,8 @@ pub struct ManifestAdapter {
     rasters: Option<Arc<dyn RasterBackend>>,
     nas: Vec<NasService>,
     trees: Vec<TreeDataset>,
+    /// The permit sources of `[[permits.wfs]]`, made by the factory of the registry.
+    permits: Vec<Box<dyn PermitSource>>,
     declared: Declared,
     /// The hosts the requests are held to, for an adapter from a folder.
     policy: Option<Arc<UrlPolicy>>,
@@ -220,6 +223,24 @@ impl ManifestAdapter {
             Some(_) => DeclaredRasters::new(&manifest)
                 .map(|declared| Arc::new(declared) as Arc<dyn RasterBackend>),
         };
+        let mut permits: Vec<Box<dyn PermitSource>> = Vec::new();
+        if !manifest.permits.is_empty() {
+            match backends.permit_factory() {
+                Some(factory) => {
+                    permits = manifest
+                        .permits
+                        .iter()
+                        .map(|declared| factory.wfs(declared))
+                        .collect();
+                }
+                None => findings.push(finding(
+                    "manifest.backend-missing",
+                    "permits.wfs",
+                    "this freemapper cannot read the permit sources a manifest declares"
+                        .to_string(),
+                )),
+            }
+        }
         let (Some(boundary), true) = (boundary, findings.is_empty()) else {
             return Err(findings);
         };
@@ -237,6 +258,7 @@ impl ManifestAdapter {
                 .iter()
                 .map(|trees| crate::extras::tree_dataset(trees, &info.id))
                 .collect(),
+            permits,
             declared: Declared {
                 revision: manifest.adapter.revision,
                 hosts: manifest.hosts.clone(),
@@ -248,6 +270,12 @@ impl ManifestAdapter {
             extracts,
             policy: None,
         })
+    }
+
+    /// The permit sources of `[[permits.wfs]]`, handed over once: an adapter that wraps this one
+    /// and answers the permit sources itself takes them to join its own.
+    pub fn take_permit_sources(&mut self) -> Vec<Box<dyn PermitSource>> {
+        std::mem::take(&mut self.permits)
     }
 
     /// The adapter with its requests kept on the hosts of `[net] hosts`, redirects included:
@@ -378,6 +406,10 @@ impl RegionAdapter for ManifestAdapter {
 
     fn tree_datasets(&self) -> &[TreeDataset] {
         &self.trees
+    }
+
+    fn permit_sources(&self) -> &[Box<dyn PermitSource>] {
+        &self.permits
     }
 
     /// The credit of the manifest once the project holds something of the region, with the

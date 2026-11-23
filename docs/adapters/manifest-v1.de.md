@@ -227,6 +227,44 @@ Höchstens 32: die Baumkataster von Städten, gelesen aus einem GeoJSON-Export v
 | `attribution` | Text | ja | Die Quellenangabe des Katasters, höchstens 400, mit `{year}` höchstens einmal. |
 | `max_bytes` | ganze Zahl | ja | 1 bis 268 435 456. |
 
+## `[[permits.wfs]]`
+
+Eine Quelle der Genehmigungshinweise: ein WFS-Dienst, der GeoJSON (oder GML 3.2) liefert, gelesen nach einer
+Tabelle seiner Schichten. Jede Schicht sagt, welche Attribute Name, Zone oder Amt eines Funds ergeben; das
+Programm behält diese Attribute und sonst nichts. Höchstens 12 Quellen mit je 1 bis 8 Schichten. Ein Manifest,
+das eine erklärt, braucht freemapper 0.28.0 oder neuer (`min_freemapper`). Die Tabellen der eingebauten
+Bundesländer ziehen nach und nach hierher um (Issue #273); `adapters probe` fragt jede `url` an.
+
+| Schlüssel | Typ | Pflicht | Bedeutung und Grenzen |
+|---|---|---|---|
+| `key` | Text | ja | Der Name der Quelle: Kleinbuchstaben, Ziffern und Bindestriche, höchstens 40; einmalig je Manifest. Das Programm speichert ihre Schichten als `<key>-<Schicht>.geojson`. |
+| `label` | `{ en, de }` | ja | Wer veröffentlicht, dieselben Worte für alle Quellen eines Portals; je höchstens 200 Zeichen. |
+| `what` | `{ en, de }` | ja | Was die Quelle enthält, kurz. |
+| `credit` | Text | ja | Die Quellenangabe oder der Lizenztext, wörtlich wie der Herausgeber sie nennt; höchstens 400. Die Hinweise drucken sie. |
+| `gaps` | `{ en, de }` | nein | Wo die Daten nicht vollständig sind, obwohl sie die Region abdecken. |
+| `sections` | Liste von Texten | ja | Die Abschnitte der Hinweise, die sie füllt: `districts`, `green-spaces`, `owners`, `monuments`, `protected-objects`, `forest-units`, `state-forest`, `water-protection`, `forest-functions`, `admin-units`, … (die Namen des Programms). |
+| `url` | URL | ja | Die Adresse des Dienstes, auf einem Host aus `[net] hosts`, ohne Query. |
+| `output_format` | Text | ja | Das `outputFormat`, mit dem der Dienst GeoJSON nennt, URL-kodiert, wie er es braucht (`application/geo%2Bjson`). Mit `gml = true` das für GML 3.2. |
+| `gml` | ja/nein | nein | Der Dienst antwortet nur mit GML 3.2. |
+| `native_crs` | ganze Zahl | nein | 25832 oder 25833: Der Dienst findet nichts mit einem Rechteck in WGS 84 oder antwortet nur in seinem eigenen KBS und wird deshalb darin gefragt. |
+| `layers` | Liste von Tabellen | ja | Die Schichten, unten. |
+
+Eine Schicht hat `key` (ein Name wie oben, einmalig in ihrer Quelle), `type_name` (der WFS-Objekttyp) und
+`reading`, das sagt, wie ihre Objekte zu Funden werden und welche weiteren Schlüssel sie nimmt:
+
+| `reading` | Schlüssel | Bedeutung |
+|---|---|---|
+| `water` | `name`, `zone` (beide Pflicht), `citation`, `planned_attribute` mit `planned_value` | Ein Wasserschutzgebiet oder eine Zone; hat die Schicht geplante Zonen, das Attribut und der Wert, die eine kennzeichnen. |
+| `function` | `function` (Pflicht: `recreation`, `protected`, `natural`, `closed`), `name` | Wald mit einer Funktion oder einem Schutz. |
+| `unit` | `administration`, `prefix`, `office` (alle Pflicht) | Eine Einheit einer Forstverwaltung; das Amt ist `prefix` und das Attribut `office`. |
+| `state-forest` | `owner`, `prefix`, `office` (alle Pflicht) | Landeswald und das Amt, das ihn betreut. |
+| `object` | `object` (Pflicht: die Art des Schutzobjekts, etwa `natural-monument`, `protected-landscape-part`, `biotope`), `name`, `citation`, `only_attribute` mit `only_values` (1 bis 8) | Ein geschütztes Objekt des Naturschutzrechts; mit `only` zählt ein Objekt nur, wenn das Attribut einen der Werte hat. |
+| `monument` | `monument` (Pflicht: die Art), `kind_from`, `link_attribute` mit `link_prefix` | Ein Denkmal der Liste; der Link zählt, wenn das Attribut mit `link_prefix` beginnt. |
+
+Ein Schlüssel einer anderen Leseart ist `manifest.unknown-key`; ein Schlüssel, den eine Leseart braucht und der
+Schicht fehlt, ist `manifest.missing-key`. Ein Programm ohne den Leser dieser Tabellen antwortet mit
+`manifest.backend-missing`.
+
 ## `[preview]`
 
 Das Luftbild auf der Karte der Gebietsseite. Die Tabelle kann fehlen.

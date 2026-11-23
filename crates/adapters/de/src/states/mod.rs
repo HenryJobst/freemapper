@@ -437,6 +437,7 @@ const AGENCIES: [Agency; 14] = [
 /// Adds the raster backends of this crate to `registry`, each under the name the manifests
 /// call it by.
 pub fn register_backends(registry: &mut Registry) -> Result<(), DuplicateBackend> {
+    registry.set_permit_factory(Arc::new(crate::wfs_permits::TableFactory));
     for agency in AGENCIES {
         if let (Some(name), Some(backend)) = (backend_name(agency), rasters::backend(agency)) {
             let backend = Estimating {
@@ -535,10 +536,12 @@ impl StateAdapter {
             .unwrap_or_else(|findings| broken(findings));
         // A state asks the hosts of its manifest and no other, redirects included (ADR 0106):
         // what the manifest declares, and what is code here.
-        let manifest =
+        let mut manifest =
             ManifestAdapter::new(manifest, &StateFiles(state), Parse::OnFirstUse, backends)
                 .unwrap_or_else(|findings| broken(findings))
                 .held_to_its_hosts(Remedy::AllowHost, extra);
+        // The permit sources the manifest declares (issue #273) come after those of the code.
+        let declared_permits = manifest.take_permit_sources();
         let policy = manifest
             .policy()
             .expect("the manifest was just bound to its hosts")
@@ -576,13 +579,8 @@ impl StateAdapter {
             .into_iter()
             .flatten()
             .collect(),
-            State::Hamburg => [
-                crate::lgv_permits::sources(),
-                crate::natur_permits::hamburg(),
-            ]
-            .into_iter()
-            .flatten()
-            .collect(),
+            // The protected objects of Hamburg are declared in its manifest (issue #273).
+            State::Hamburg => crate::lgv_permits::sources(),
             State::Saarland => [
                 crate::state_permits::saarland(),
                 crate::natur_permits::saarland(),
@@ -664,6 +662,8 @@ impl StateAdapter {
             ],
             State::MecklenburgVorpommern => vec![crate::bfg_permits::source()],
         };
+        let mut permits = permits;
+        permits.extend(declared_permits);
         Self {
             state,
             alkis,

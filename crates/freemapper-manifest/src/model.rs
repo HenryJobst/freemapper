@@ -24,6 +24,8 @@ pub struct Manifest {
     pub nas: Vec<Nas>,
     /// `[[extra.trees]]`.
     pub trees: Vec<Trees>,
+    /// `[[permits.wfs]]`: the sources of the permit notes.
+    pub permits: Vec<freemapper_adapter_api::permits::DeclaredWfs>,
     pub preview: Option<Preview>,
     pub estimate: Estimate,
 }

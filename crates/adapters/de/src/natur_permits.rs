@@ -164,62 +164,6 @@ pub fn berlin() -> Box<dyn PermitSource> {
     )
 }
 
-/// Hamburg: the Naturdenkmale of the protected areas service and the protected biotopes of the
-/// biotope register, each with the credit its service names.
-pub fn hamburg() -> Vec<Box<dyn PermitSource>> {
-    vec![
-        source(
-            "naturdenkmale",
-            crate::lgv_permits::LABEL,
-            Wording {
-                en: "Naturdenkmale",
-                de: "Naturdenkmale",
-            },
-            "Datenlizenz Deutschland Namensnennung 2.0, Quellenvermerk: Freie und Hansestadt Hamburg, Behörde für Umwelt und Energie",
-            &["naturdenkmale"],
-            OBJECTS,
-            "https://geodienste.hamburg.de/HH_WFS_Schutzgebiete",
-            "application/geo%2Bjson",
-            {
-                const LAYERS: &[Layer] = &[(
-                    "naturdenkmale",
-                    "de.hh.up:nr_f_naturdenkmal",
-                    object(ND, Some("schutzgebiet"), Some("rechtsgrundlage")),
-                )];
-                LAYERS
-            },
-        ),
-        source(
-            "biotope",
-            crate::lgv_permits::LABEL,
-            Wording {
-                en: "protected biotopes of the biotope register",
-                de: "geschützte Biotope des Biotopkatasters",
-            },
-            "Datenlizenz Deutschland Namensnennung 2.0, Quellenvermerk: Freie und Hansestadt Hamburg, Behörde für Umwelt, Klima, Energie und Agrarwirtschaft",
-            &["flaechen", "punkte"],
-            OBJECTS,
-            "https://geodienste.hamburg.de/HH_WFS_Biotopkataster",
-            "application/geo%2Bjson",
-            {
-                const LAYERS: &[Layer] = &[
-                    (
-                        "flaechen",
-                        "de.hh.up:flaechenhafte_biotope_geschuetzt",
-                        object(BIOTOPE, Some("paragraf"), None),
-                    ),
-                    (
-                        "punkte",
-                        "de.hh.up:punkthafte_biotope_geschuetzt",
-                        object(BIOTOPE, Some("paragraf"), None),
-                    ),
-                ];
-                LAYERS
-            },
-        ),
-    ]
-}
-
 /// Saarland: the Naturdenkmale and the protected biotopes of the Geoportal Saarland. Its
 /// geschützte Landschaftsbestandteile stay out: one ordinance among them was found invalid, and
 /// the table does not mark which.

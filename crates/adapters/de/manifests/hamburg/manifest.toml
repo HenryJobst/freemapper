@@ -63,6 +63,33 @@ fields = { kind = "gattung_deutsch", id = "baumid", species = "art_deutsch", cro
 attribution = "Freie und Hansestadt Hamburg, Behörde für Umwelt, Klima, Energie und Agrarwirtschaft, dl-de/by-2-0"
 max_bytes = 268435456
 
+# The protected objects of nature conservation law, read by the table of the Geoportal Hamburg
+# (ADR 0146). The source is data since issue #273: a correction of an address needs no release.
+[[permits.wfs]]
+key = "naturdenkmale"
+label = { en = "Geoportal Hamburg", de = "Geoportal Hamburg" }
+what = { en = "Naturdenkmale", de = "Naturdenkmale" }
+credit = "Datenlizenz Deutschland Namensnennung 2.0, Quellenvermerk: Freie und Hansestadt Hamburg, Behörde für Umwelt und Energie"
+sections = ["protected-objects"]
+url = "https://geodienste.hamburg.de/HH_WFS_Schutzgebiete"
+output_format = "application/geo%2Bjson"
+layers = [
+    { key = "naturdenkmale", type_name = "de.hh.up:nr_f_naturdenkmal", reading = "object", object = "natural-monument", name = "schutzgebiet", citation = "rechtsgrundlage" },
+]
+
+[[permits.wfs]]
+key = "biotope"
+label = { en = "Geoportal Hamburg", de = "Geoportal Hamburg" }
+what = { en = "protected biotopes of the biotope register", de = "geschützte Biotope des Biotopkatasters" }
+credit = "Datenlizenz Deutschland Namensnennung 2.0, Quellenvermerk: Freie und Hansestadt Hamburg, Behörde für Umwelt, Klima, Energie und Agrarwirtschaft"
+sections = ["protected-objects"]
+url = "https://geodienste.hamburg.de/HH_WFS_Biotopkataster"
+output_format = "application/geo%2Bjson"
+layers = [
+    { key = "flaechen", type_name = "de.hh.up:flaechenhafte_biotope_geschuetzt", reading = "object", object = "biotope", name = "paragraf" },
+    { key = "punkte", type_name = "de.hh.up:punkthafte_biotope_geschuetzt", reading = "object", object = "biotope", name = "paragraf" },
+]
+
 [preview]
 wms = "https://geodienste.hamburg.de/wms_dop_zeitreihe_unbelaubt"
 layer = "dop_zeitreihe_unbelaubt"

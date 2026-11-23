@@ -918,6 +918,7 @@ dependencies = [
  "geo-types",
  "geojson",
  "serde",
+ "serde_json",
  "tempfile",
  "toml",
 ]
