@@ -15,6 +15,11 @@ nötig ist, dass sich je Vorgang nur wenige Kacheln herunterladen lassen und das
 deutlich schlechter geworden ist. Der Bericht steht in §2, seine Folge für einen Adapter in §9, die offene
 Frage dazu in §10.
 
+Nachtrag vom 2026-11-23: Der Geodatasupport hat auf die Anfrage zum 403 geantwortet (§2, §4.3). Ein Privatkonto
+hat keinen Zugang zum API-Portal, daher der Fehler. Es lädt mit Basic-Authentifizierung (Benutzername und
+Passwort), und jede Bestellung läuft über Geotorget, auch die gebührenfreier Produkte. Die Subscriber-Rolle
+und der Token-Ablauf aus §4 gelten damit nicht für diesen Weg.
+
 Behörde: Lantmäteriet (Kartografie, Kataster und Grundbuch). Vertrieb: Geotorget
 (`geotorget.lantmateriet.se`) und drei STAC-Kataloge auf `api.lantmateriet.se`. CRS: SWEREF99 TM
 (EPSG:3006), Höhen in RH2000, beides zusammen als EPSG:5845. Geofabrik-Extrakt: `europe/sweden`.
@@ -27,9 +32,10 @@ Behörde: Lantmäteriet (Kartografie, Kataster und Grundbuch). Vertrieb: Geotorg
   Produkte *värdefulla datamängder* („wertvolle Datensätze“, nach der EU-Richtlinie über hochwertige
   Datensätze), nicht *öppna data*. Eine Person oder eine Organisation braucht ein Konto, ein *systemkonto*, eine
   Berechtigung je Produkt und für mehrere Produkte einen geprüften Zweck und akzeptierte Bedingungen. Downloads
-  tragen ein OAuth2-Bearer-Token [doc], und der Asset-Host antwortet ohne eines mit `401` [live]. Es gibt keine
-  schlüsselfreie Download-URL und kein schlüsselfreies WMS für Höhen, Orthofoto oder Vektoren. Nach dem Bericht
-  eines schwedischen Orientierungsläufers lassen sich außerdem je Vorgang nur wenige Kacheln laden
+  brauchen bei einem Privatkonto Basic-Authentifizierung [doc, Support], über das API-Portal ein
+  OAuth2-Bearer-Token [doc], und der Asset-Host antwortet ohne beides mit `401` und `Basic realm` [live]. Es gibt
+  keine schlüsselfreie Download-URL und kein schlüsselfreies WMS für Höhen, Orthofoto oder Vektoren. Nach dem
+  Bericht eines schwedischen Orientierungsläufers lassen sich außerdem je Vorgang nur wenige Kacheln laden
   [unverified] — für eine Karte heißt das Handarbeit (§2). Schlüsselfrei sind dagegen Bodenbedeckung und
   Objekthöhe (NMD, 10 m, CC0) und die Schutzgebiete (§7). Und nicht alles ist kostenlos: Höhen, Vektoren und
   Orthofoto sind *avgiftsfrei*, das **Oberflächenmodell kostet** (§1).
@@ -126,6 +132,16 @@ und es kostet Geld.
   Subscriber-Rolle. Lantmäteriets Anleitung sagt, was dann zu tun ist — wer ein API nicht sieht, bestellt die
   Berechtigung bei Geodata-support (`geodatasupport@lm.se`) [doc]. Zwischen „Konto angelegt“ und „erste
   Kachel“ liegt also ein Mailwechsel.
+* **Die Antwort des Supports** (2026-11-23) [doc, Support]: Das Konto war ein **Privatkonto**, und Privatkonten
+  haben keinen Zugang zur API-Portal-Oberfläche. Das war der Grund des 403, eine fehlende Rolle war es nicht.
+  Der Support verweist auf Basic-Authentifizierung mit Benutzername und Passwort für die Produkte, für die man
+  Berechtigung hat. Das Portal verwaltet nur Schlüssel für APIs, auf die man schon Zugriff hat. **Bestellt wird
+  ausschließlich im Geotorget**, mit Annahme der Bedingungen und den Angaben für eine mögliche Prüfung, auch bei
+  gebührenfreien Produkten; zu dem Zeitpunkt war nichts bestellt. Suchen und Blättern im STAC-Katalog ist ohne
+  Anmeldung offen, der Download von `dl1.lantmateriet.se` verlangt Anmeldung und Berechtigung für das
+  Produkt. Der Preis des Ythöjdmodells (Nedladdning, från flygbilder; es gibt eine Variante mit und eine ohne
+  Farbe, mit verschiedenen Preisen) steht vor Abschluss der Bestellung im Geotorget, mit der Gebühr der eigenen
+  Nutzungskategorie inklusive Mehrwertsteuer.
 
 **Folge für einen Adapter.** Ein schwedischer Adapter bräuchte eine Zugangsberechtigung, die eine Person für ihr
 eigenes Konto beschafft, aufbewahrt außerhalb des Projektordners und niemals in `freemapper.toml`,
@@ -331,7 +347,18 @@ Zwei Eigenheiten betreffen einen Adapter direkt [doc]:
 * Die Gültigkeitsdauer ist auf Anwendungsebene einstellbar; die Vorgabe sind 3600 Sekunden.
 
 Die Metadatenkataloge brauchen überhaupt kein Token [live], ein Adapter kann einer Person also sagen, *was* er
-laden würde und *wie viel*, bevor es Zugangsdaten gibt.
+laden würde und *wie viel*, bevor es Zugangsdaten gibt. Am 2026-11-23 antworteten `stac-hojd` und `stac-bild`
+unter `/collections` weiter mit `200` ohne Anmeldung, und `dl1.lantmateriet.se` mit `401` und
+`www-authenticate: Basic realm="Authorization Server"` [live].
+
+### 4.3 Basic-Authentifizierung für Privatkonten
+
+Der Support nennt für ein Privatkonto Basic-Authentifizierung mit Benutzername und Passwort statt des
+Token-Ablaufs [doc, Support]. Dazu passt die Antwort von `dl1`, die einen `Basic`-Bereich meldet (§4, erste Zeile)
+[live]. Der Ablauf mit Token (oben) gilt für Konten, die das API-Portal benutzen können. Ein Aufruf mit echten
+Zugangsdaten ist nicht geprüft (§10). Für einen Adapter heißt das: ein `Authorization: Basic`-Header genügt,
+kein Token-Provider mit Ablauf und Erneuerung; die Zugangsdaten selbst bleiben aber ebenso außerhalb des
+Projektordners (§8.1).
 
 ### 4.1 Das API-Portal
 
@@ -357,6 +384,12 @@ API-Kontingent zu lesen:
 240 Anfragen je Minute sind großzügig, und eine Grenze „wenige Kacheln je Vorgang“ steht dort nirgends. Sie
 sitzt also eher in der Weboberfläche von Geotorget oder in einer Abo-Bedingung, die erst nach der Anmeldung
 sichtbar wird (§10).
+
+**Auch die Seite zur Verfügbarkeit nennt Grenzen** [doc, Support]
+(`lantmateriet.se/sv/geodata/vara-produkter/produktsupport/tillganglighet-geodatatjanster/`): Für Download-Dienste
+(STAC) gilt eine Begrenzung der **gleichzeitigen Downloads je Nutzer**, für APIs ein Höchstwert an Anrufen je
+Zeitraum, bei Überschreitung antwortet der Dienst mit `HTTP 429`. Die Seite nennt dafür keine Zahlen [live].
+Es wird also nicht nur die Anrufrate begrenzt.
 
 **Zwei Drosseln, nicht eine** [doc]: Der Business Plan hängt am Abonnement, dazu kommt die **Per-Token-Quota der
 Anwendung** — im WSO2-Portal etwa `10PerMin`, wenn man nichts anderes wählt („Per Token Quota“ in der
@@ -583,7 +616,9 @@ eine URL und sonst nichts; der HTTP-Fetcher setzt `User-Agent`, `Range` und `Acc
 Header (`crates/freemapper/src/fetch.rs`). Es gibt keinen Platz für ein Bearer-Token, keinen Token-Endpunkt,
 keine Ablaufbehandlung, und `UrlPolicy` entscheidet nur über Hosts, nicht über Zugangsdaten. Ein schwedischer
 Adapter braucht einen Token-Provider in der Adapter-API und die Regel, dass das Token nie in `freemapper.toml`,
-in Cache-Dateinamen, in Fortschrittszeilen oder in `ATTRIBUTION.txt` gelangt.
+in Cache-Dateinamen, in Fortschrittszeilen oder in `ATTRIBUTION.txt` gelangt. Für ein Privatkonto (§4.3) genügt
+ein fester Basic-Header statt eines Providers mit Ablauf; die Regel für den Aufbewahrungsort gilt unverändert,
+ebenso eine Obergrenze für gleichzeitige Downloads je Nutzer (§4.1).
 
 ### 8.2 Ein GeoPackage- und ein OAPIF-Leser
 
@@ -689,13 +724,17 @@ Offene Fragen, bevor A beginnt:
 ## 10. Nicht geprüft
 
 * Die Token-Anfrage mit echten Client-Zugangsdaten: Endpunkt, Form und Lebensdauer stehen in der
-  Portal-Dokumentation (§4), ein Aufruf mit gültigen Daten ist aber nicht geprüft, und ob `dl1` ein Token für
-  jedes Produkt annimmt, erst recht nicht — es wurde kein Konto angelegt. Das ist der eine Teil, den eine
-  Person mit Zugang vor dem Start von A bestätigen muss.
+  Portal-Dokumentation (§4), ein Aufruf mit gültigen Daten ist aber nicht geprüft. Für das Privatkonto, das
+  hier vorliegt, entfällt der Token-Weg ohnehin (§4.3); offen ist der Aufruf von `dl1` mit Basic-Authentifizierung
+  und Berechtigung für ein bestelltes Produkt. Das ist der eine Teil, den eine Person mit Zugang vor dem Start
+  von A bestätigen muss. Er wartet auf die Bestellung im Geotorget.
 * Ob die Grenze von wenigen Kacheln je Vorgang, die der schwedische Orientierungsläufer berichtet, für die
   Weboberfläche von Geotorget gilt oder auch für die API-Assets unter `dl1.lantmateriet.se`. Das API-Portal
   nennt 240 bis 6000 Requests je Minute und keine Kachelgrenze (§4.1), spricht also für die Weboberfläche oder
   für eine Abo-Bedingung; ob zusätzlich eine Tages- oder Volumengrenze auf den Assets liegt, bliebe zu prüfen.
+  Der Support nennt seit dem 2026-11-23 eine Grenze für **gleichzeitige** STAC-Downloads je Nutzer (§4.1); das
+  passt zu „wenige Kacheln zur Zeit“, ohne dass eine Zahl feststeht. Ein Adapter, der Kacheln nacheinander
+  holt, bliebe möglicherweise darunter.
   Gilt sie auch für die API, kann kein Adapter eine Karte unbeaufsichtigt laden.
 * Ob die `other`-Lizenz von `dsm-cog`, `dsm-skoglig-copc` und `orto-dsm-cog` abgeleitete Produkte in einer
   veröffentlichten Karte erlaubt. Die Sammlung sagt nur `other`; die Bedingungen liegen hinter Geotorget.
@@ -710,7 +749,9 @@ Offene Fragen, bevor A beginnt:
   selbst tragen keinen Lizenztext [doc].
 * Ob die Ortofoto-COGs als Demo vorliegen — die Demodata-Seite listet nur die digitalen Flugbilder [live];
   damit bleibt ihre Kompression ungeprüft (PackBits? JPEG? deflate?).
-* Was die kostenpflichtigen Produkte kosten; die Übersicht nennt nur „Avgift“, keine Preise [live].
+* Was die kostenpflichtigen Produkte kosten; die Übersicht nennt nur „Avgift“, keine Preise [live]. Der Support
+  sagt, dass der Preis erst im Bestellvorgang des Geotorget erscheint, je Nutzungskategorie und mit Mehrwertsteuer
+  (§2). Das Ythöjdmodell gibt es mit und ohne Farbe zu verschiedenen Preisen.
 * Ob die `503` des Topowebb-WMTS dauerhaft ist.
 * Die genaue Lizenz von `marktacke` je Feature-Klasse; die Sammlung sagt CC BY 4.0.
 
@@ -734,6 +775,12 @@ curl -s 'https://api.lantmateriet.se/stac-hojd/v1/search?collections=dtm-cog&bbo
 curl -s https://api.lantmateriet.se/stac-bild/v1/collections/orto-a2-2026/items/o61775_3825_25_mr26
 curl -s https://api.lantmateriet.se/stac-vektor/v1/collections/byggnader/items/1281
 curl -s https://api.lantmateriet.se/stac-vektor/v1/collections/kommun-lan-rike/items/aktuell
+
+# Zustand vom 2026-11-23, ohne Anmeldung
+curl -s -o /dev/null -w '%{http_code}' https://api.lantmateriet.se/stac-hojd/v1/collections   # 200
+curl -s -o /dev/null -w '%{http_code}' https://api.lantmateriet.se/stac-bild/v1/collections   # 200
+curl -s -o /dev/null -D - https://dl1.lantmateriet.se/hojd/data/grid/mhm/61_3/m617_38.tif     # 401, Basic realm
+curl -sL https://www.lantmateriet.se/sv/geodata/vara-produkter/produktsupport/tillganglighet-geodatatjanster/   # Grenzen §4.1
 
 # Authentifizierung
 curl -s -o /dev/null -D - https://dl1.lantmateriet.se/hojd/data/grid/mhm/61_3/m617_38.tif   # 401
