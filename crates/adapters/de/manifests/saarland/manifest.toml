@@ -55,6 +55,32 @@ layers = ["dlm-fahrweg", "dlm-weg"]
 max_count = 20000
 max_bytes = 67108864
 
+# The protected objects of the Geoportal Saarland (issue #273). The geschützte Landschaftsbestandteile
+# stay out: one ordinance among them was found invalid, and the table does not mark which.
+[[permits.wfs]]
+key = "naturdenkmale"
+label = { en = "Geoportal Saarland", de = "Geoportal Saarland" }
+what = { en = "Naturdenkmale", de = "Naturdenkmale" }
+credit = "Quellenvermerk: © GDI-SL ({year}); Lizenz: Creative Commons Namensnennung 4.0 International (CC BY 4.0)"
+sections = ["protected-objects"]
+url = "https://geoportal.saarland.de/arcgis/services/Internet/Schutzgebiete_INS/MapServer/WFSServer"
+output_format = "GEOJSON"
+layers = [
+    { key = "naturdenkmale", type_name = "Naturdenkmal_Flaechen", reading = "object", object = "natural-monument", name = "NAME", citation = "RECHTSGR" },
+]
+
+[[permits.wfs]]
+key = "biotope"
+label = { en = "Geoportal Saarland", de = "Geoportal Saarland" }
+what = { en = "protected biotopes of the biotope register", de = "geschützte Biotope des Biotopkatasters" }
+credit = "Quellenvermerk: © GDI-SL ({year}); Lizenz: Creative Commons Namensnennung 4.0 International (CC BY 4.0)"
+sections = ["protected-objects"]
+url = "https://geoportal.saarland.de/arcgis/services/Internet/Biotopkataster/MapServer/WFSServer"
+output_format = "GEOJSON"
+layers = [
+    { key = "biotope", type_name = "Geschuetzte_Biotope_f", reading = "object", object = "biotope", name = "BEZEICHNUNG" },
+]
+
 [orthophoto]
 backend = "lvgl"
 
