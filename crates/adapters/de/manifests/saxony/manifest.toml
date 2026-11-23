@@ -61,6 +61,34 @@ fields = { kind = "gattung", id = "baumnummer", species = "ga_lang_deutsch", cro
 attribution = "Stadt Leipzig, Baumkataster, dl-de/by-2-0"
 max_bytes = 268435456
 
+# The Flächennaturdenkmale and the register of the protected biotopes of the LfULG (issue #273).
+# The Naturdenkmale that are single trees or rocks are kept by the Landkreise.
+[[permits.wfs]]
+key = "naturdenkmale"
+label = { en = "Sächsisches Landesamt für Umwelt, Landwirtschaft und Geologie", de = "Sächsisches Landesamt für Umwelt, Landwirtschaft und Geologie" }
+what = { en = "Flächennaturdenkmale", de = "Flächennaturdenkmale" }
+credit = "Datenlizenz Deutschland 2.0 - Variante mit Namensnennung; Quelle: Sächsisches Landesamt für Umwelt, Landwirtschaft und Geologie"
+gaps = { en = "Naturdenkmale that are single trees or rocks are kept by the Landkreise and are not in these data", de = "Naturdenkmale, die einzelne Bäume oder Felsen sind, führen die Landkreise; sie fehlen hier" }
+sections = ["protected-objects"]
+url = "https://luis.sachsen.de/arcgis/services/natur/schutzgebiete/MapServer/WFSServer"
+output_format = "GEOJSON"
+layers = [
+    { key = "naturdenkmale", type_name = "schutzgebiete:Flaechennaturdenkmaeler", reading = "object", object = "natural-monument", name = "NAME" },
+]
+
+[[permits.wfs]]
+key = "biotope"
+label = { en = "Sächsisches Landesamt für Umwelt, Landwirtschaft und Geologie", de = "Sächsisches Landesamt für Umwelt, Landwirtschaft und Geologie" }
+what = { en = "register of the legally protected biotopes", de = "Verzeichnis der gesetzlich geschützten Biotope" }
+credit = "Datenlizenz Deutschland 2.0 - Variante mit Namensnennung; Quelle: Sächsisches Landesamt für Umwelt, Landwirtschaft und Geologie"
+sections = ["protected-objects"]
+url = "https://luis.sachsen.de/arcgis/services/natur/gesetz_gesch_biotope/MapServer/WFSServer"
+output_format = "GEOJSON"
+layers = [
+    { key = "flaechen", type_name = "gesetz_gesch_biotope:BTPVZ_f_neu", reading = "object", object = "biotope", name = "BTTP26_BEZ" },
+    { key = "punkte", type_name = "gesetz_gesch_biotope:BTPVZ_p_neu", reading = "object", object = "biotope", name = "BTTP26_BEZ" },
+]
+
 [preview]
 wms = "https://geodienste.sachsen.de/wms_geosn_dop-rgb/guest"
 layer = "sn_dop_020"

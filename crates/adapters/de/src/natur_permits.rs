@@ -8,7 +8,7 @@
 use freemapper_adapter_api::permits::{PermitSection, PermitSource, ProtectedObjectKind, Wording};
 
 use crate::denkmal_permits::with_gaps;
-use crate::wfs_permits::{Layer, Reading, source};
+use crate::wfs_permits::Reading;
 
 const OBJECTS: &[PermitSection] = &[PermitSection::ProtectedObjects];
 
@@ -27,76 +27,6 @@ const fn object(
 
 const ND: ProtectedObjectKind = ProtectedObjectKind::NaturalMonument;
 const GLB: ProtectedObjectKind = ProtectedObjectKind::ProtectedLandscapePart;
-const BIOTOPE: ProtectedObjectKind = ProtectedObjectKind::Biotope;
-
-const LFULG: Wording = Wording {
-    en: "Sächsisches Landesamt für Umwelt, Landwirtschaft und Geologie",
-    de: "Sächsisches Landesamt für Umwelt, Landwirtschaft und Geologie",
-};
-
-const LFULG_CREDIT: &str = "Datenlizenz Deutschland 2.0 - Variante mit Namensnennung; Quelle: Sächsisches Landesamt für Umwelt, Landwirtschaft und Geologie";
-
-/// Saxony: the Flächennaturdenkmale and the register of protected biotopes of the LfULG. The
-/// Naturdenkmale that are single trees or rocks are kept by the Landkreise.
-pub fn sachsen() -> Vec<Box<dyn PermitSource>> {
-    vec![
-        with_gaps(
-            source(
-                "naturdenkmale",
-                LFULG,
-                Wording {
-                    en: "Flächennaturdenkmale",
-                    de: "Flächennaturdenkmale",
-                },
-                LFULG_CREDIT,
-                &["naturdenkmale"],
-                OBJECTS,
-                "https://luis.sachsen.de/arcgis/services/natur/schutzgebiete/MapServer/WFSServer",
-                "GEOJSON",
-                {
-                    const LAYERS: &[Layer] = &[(
-                        "naturdenkmale",
-                        "schutzgebiete:Flaechennaturdenkmaeler",
-                        object(ND, Some("NAME"), None),
-                    )];
-                    LAYERS
-                },
-            ),
-            Wording {
-                en: "Naturdenkmale that are single trees or rocks are kept by the Landkreise and are not in these data",
-                de: "Naturdenkmale, die einzelne Bäume oder Felsen sind, führen die Landkreise; sie fehlen hier",
-            },
-        ),
-        source(
-            "biotope",
-            LFULG,
-            Wording {
-                en: "register of the legally protected biotopes",
-                de: "Verzeichnis der gesetzlich geschützten Biotope",
-            },
-            LFULG_CREDIT,
-            &["flaechen", "punkte"],
-            OBJECTS,
-            "https://luis.sachsen.de/arcgis/services/natur/gesetz_gesch_biotope/MapServer/WFSServer",
-            "GEOJSON",
-            {
-                const LAYERS: &[Layer] = &[
-                    (
-                        "flaechen",
-                        "gesetz_gesch_biotope:BTPVZ_f_neu",
-                        object(BIOTOPE, Some("BTTP26_BEZ"), None),
-                    ),
-                    (
-                        "punkte",
-                        "gesetz_gesch_biotope:BTPVZ_p_neu",
-                        object(BIOTOPE, Some("BTTP26_BEZ"), None),
-                    ),
-                ];
-                LAYERS
-            },
-        ),
-    ]
-}
 
 /// The map service of the NLWKN, which Lower Saxony's manifest names as a host.
 pub const NIEDERSACHSEN: &str =

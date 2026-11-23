@@ -1449,4 +1449,68 @@ mod tests {
             );
         }
     }
+
+    /// Saxony's Flächennaturdenkmale and protected biotopes, which were a table in the code until
+    /// they moved into its manifest (issue #273), give the requests, the gaps note and the
+    /// credit the table gave.
+    #[test]
+    fn the_declared_sources_of_sachsen_ask_and_keep_what_the_table_did() {
+        let text = include_str!("../manifests/saxony/manifest.toml");
+        let manifest = freemapper_manifest::parse(text, Path::new("saxony")).unwrap();
+        let declared: Vec<Box<dyn PermitSource>> =
+            manifest.permits.iter().map(declared_source).collect();
+        assert_eq!(declared.len(), 2);
+        let (monuments, biotopes) = (declared[0].info(), declared[1].info());
+        assert_eq!(
+            (monuments.key, monuments.layers),
+            ("naturdenkmale", &["naturdenkmale"][..])
+        );
+        assert_eq!(
+            (biotopes.key, biotopes.layers),
+            ("biotope", &["flaechen", "punkte"][..])
+        );
+        assert_eq!(monuments.sections, [PermitSection::ProtectedObjects]);
+        assert_eq!(biotopes.sections, [PermitSection::ProtectedObjects]);
+        assert!(
+            monuments
+                .gaps
+                .unwrap()
+                .de
+                .contains("einzelne Bäume oder Felsen")
+        );
+        assert!(biotopes.gaps.is_none());
+        assert!(monuments.credit.contains("Sächsisches Landesamt"));
+        let bbox = Rect::new(Coord { x: 13.7, y: 51.0 }, Coord { x: 13.8, y: 51.1 });
+        let dir = tempfile::tempdir().unwrap();
+        let asked = Recorder::default();
+        for (n, source) in declared.iter().enumerate() {
+            source
+                .fetch(&asked, &bbox, &dir.path().join(format!("part{n}")))
+                .unwrap();
+        }
+        let urls = asked.0.into_inner();
+        assert_eq!(urls.len(), 3);
+        for (url, (service, type_name)) in urls.iter().zip([
+            (
+                "natur/schutzgebiete",
+                "schutzgebiete:Flaechennaturdenkmaeler",
+            ),
+            (
+                "natur/gesetz_gesch_biotope",
+                "gesetz_gesch_biotope:BTPVZ_f_neu",
+            ),
+            (
+                "natur/gesetz_gesch_biotope",
+                "gesetz_gesch_biotope:BTPVZ_p_neu",
+            ),
+        ]) {
+            assert!(
+                url.starts_with(&format!(
+                    "https://luis.sachsen.de/arcgis/services/{service}/MapServer/WFSServer"
+                )) && url.contains(type_name)
+                    && url.contains("GEOJSON"),
+                "{url}"
+            );
+        }
+    }
 }
