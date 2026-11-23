@@ -251,42 +251,6 @@ pub fn baden_wuerttemberg() -> Vec<Box<dyn PermitSource>> {
     ]
 }
 
-/// North Rhine-Westphalia: the protected biotopes of LINFOS, without their type (the service
-/// gives it only in a report page).
-pub fn nordrhein_westfalen() -> Box<dyn PermitSource> {
-    source(
-        "biotope",
-        Wording {
-            en: "LINFOS",
-            de: "LINFOS",
-        },
-        Wording {
-            en: "legally protected biotopes",
-            de: "gesetzlich geschützte Biotope",
-        },
-        crate::wuh_permits::LINFOS_CREDIT,
-        &["flaechen", "punkte"],
-        OBJECTS,
-        "https://www.wfs.nrw.de/umwelt/linfos",
-        "GEOJSON",
-        {
-            const LAYERS: &[Layer] = &[
-                (
-                    "flaechen",
-                    "wfs_linfos:gbt_polygon",
-                    object(BIOTOPE, None, None),
-                ),
-                (
-                    "punkte",
-                    "wfs_linfos:gbt_point",
-                    object(BIOTOPE, None, None),
-                ),
-            ];
-            LAYERS
-        },
-    )
-}
-
 /// The map service of the NLWKN, which Lower Saxony's manifest names as a host.
 pub const NIEDERSACHSEN: &str =
     "https://www.umweltkarten-niedersachsen.de/arcgis/rest/services/Natur_wms/MapServer";

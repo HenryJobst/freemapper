@@ -112,6 +112,21 @@ fields = { kind = "art_botani", id = "id", date = "edatum", species = "art_deuts
 attribution = "Stadt Dortmund, Baumkataster, dl-de/zero-2-0"
 max_bytes = 268435456
 
+# The legally protected biotopes of LINFOS, without their type (the service gives it only in a
+# report page), issue #273.
+[[permits.wfs]]
+key = "biotope"
+label = { en = "LINFOS", de = "LINFOS" }
+what = { en = "legally protected biotopes", de = "gesetzlich geschützte Biotope" }
+credit = "Open Data - Dieses Angebot vom Landesamt für Natur, Umwelt und Verbraucherschutz Nordrhein-Westfalen ist lizensiert unter der Datenlizenz Deutschland Namensnennung 2.0 (https://www.govdata.de/dl-de/by-2-0). Datensätze unter dieser Lizenz müssen bei Weiterverwendung mit dem Quellenverweis „Land NRW“ versehen werden."
+sections = ["protected-objects"]
+url = "https://www.wfs.nrw.de/umwelt/linfos"
+output_format = "GEOJSON"
+layers = [
+    { key = "flaechen", type_name = "wfs_linfos:gbt_polygon", reading = "object", object = "biotope" },
+    { key = "punkte", type_name = "wfs_linfos:gbt_point", reading = "object", object = "biotope" },
+]
+
 [preview]
 wms = "https://www.wms.nrw.de/geobasis/wms_nw_dop"
 layer = "nw_dop_rgb"
