@@ -1130,4 +1130,42 @@ mod tests {
             urls[0]
         );
     }
+
+    /// North Rhine-Westphalia's protected biotopes, which were a table in the code until they
+    /// moved into its manifest (issue #273), give the requests and the credit the table gave.
+    #[test]
+    fn the_declared_source_of_nordrhein_westfalen_asks_and_keeps_what_the_table_did() {
+        let text = include_str!("../manifests/nordrheinwestfalen/manifest.toml");
+        let manifest = freemapper_manifest::parse(text, Path::new("nordrheinwestfalen")).unwrap();
+        let declared: Vec<Box<dyn PermitSource>> =
+            manifest.permits.iter().map(declared_source).collect();
+        assert_eq!(declared.len(), 1);
+        let info = declared[0].info();
+        assert_eq!(
+            (info.key, info.layers),
+            ("biotope", &["flaechen", "punkte"][..])
+        );
+        assert_eq!(info.sections, [PermitSection::ProtectedObjects]);
+        assert_eq!(info.label.de, "LINFOS");
+        assert!(info.credit.contains("Land NRW"));
+        let bbox = Rect::new(Coord { x: 6.9, y: 51.4 }, Coord { x: 7.0, y: 51.5 });
+        let dir = tempfile::tempdir().unwrap();
+        let asked = Recorder::default();
+        declared[0]
+            .fetch(&asked, &bbox, &dir.path().join("part"))
+            .unwrap();
+        let urls = asked.0.into_inner();
+        assert_eq!(urls.len(), 2);
+        for (url, type_name) in urls
+            .iter()
+            .zip(["wfs_linfos:gbt_polygon", "wfs_linfos:gbt_point"])
+        {
+            assert!(
+                url.starts_with("https://www.wfs.nrw.de/umwelt/linfos")
+                    && url.contains(type_name)
+                    && url.contains("GEOJSON"),
+                "{url}"
+            );
+        }
+    }
 }

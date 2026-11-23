@@ -596,12 +596,10 @@ impl StateAdapter {
             .into_iter()
             .flatten()
             .collect(),
+            // The protected biotopes of North Rhine-Westphalia are declared in its manifest (issue #273).
             State::NordrheinWestfalen => [
                 crate::wuh_permits::sources(),
-                vec![
-                    crate::denkmal_permits::nordrhein_westfalen(),
-                    crate::natur_permits::nordrhein_westfalen(),
-                ],
+                vec![crate::denkmal_permits::nordrhein_westfalen()],
             ]
             .into_iter()
             .flatten()
