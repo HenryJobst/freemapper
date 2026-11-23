@@ -169,7 +169,8 @@ enum Request {
 
 fn request_for(url: &str) -> Request {
     let lower = url.to_ascii_lowercase();
-    if lower.contains('?') {
+    // A fixed query that selects the service (`?mapfile=glb`) stays; the question follows it.
+    if lower.contains('?') && lower.contains("service=") {
         return Request::Get(url.to_string());
     }
     if lower.ends_with("/items") {
@@ -189,7 +190,10 @@ fn request_for(url: &str) -> Request {
     } else {
         "WFS"
     };
-    Request::Get(format!("{url}?service={service}&request=GetCapabilities"))
+    let joint = if lower.contains('?') { '&' } else { '?' };
+    Request::Get(format!(
+        "{url}{joint}service={service}&request=GetCapabilities"
+    ))
 }
 
 fn outcome(target: &Target, answer: Result<(), FetchError>, took: Duration) -> Outcome {
@@ -405,7 +409,14 @@ endpoints = ["https://b.example.org/t", "https://a.example.org/items"]
             request_for("https://h.de/v1/collections/a/items"),
             get("https://h.de/v1/collections/a/items?limit=1")
         );
-        assert_eq!(request_for("https://h.de/x?a=1"), get("https://h.de/x?a=1"));
+        assert_eq!(
+            request_for("https://h.de/x?a=1"),
+            get("https://h.de/x?a=1&service=WFS&request=GetCapabilities")
+        );
+        assert_eq!(
+            request_for("https://h.de/x?service=WFS&request=GetCapabilities"),
+            get("https://h.de/x?service=WFS&request=GetCapabilities")
+        );
         let head = |u: &str| Request::Head(u.to_string());
         assert_eq!(
             request_for("https://h.de/b/c-latest.osm.pbf"),

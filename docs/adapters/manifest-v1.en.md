@@ -237,7 +237,7 @@ one by one (issue #273); `adapters probe` asks every `url`.
 | `credit` | text | yes | The credit line or licence text, verbatim as the publisher gives it; at most 400. The notes print it. |
 | `gaps` | `{ en, de }` | no | Where the data are not complete although they cover the region; up to 400 characters per language. |
 | `sections` | list of texts | yes | The sections of the notes it fills: `districts`, `green-spaces`, `owners`, `monuments`, `protected-objects`, `forest-units`, `state-forest`, `water-protection`, `forest-functions`, `admin-units`, … (the names of the program). |
-| `url` | URL | yes | The address of the service, on a host of `[net] hosts`, no query. |
+| `url` | URL | yes | The address of the service, on a host of `[net] hosts`. Unlike every other URL it may carry a fixed query of plain `name=value` pairs that selects the service on the server (`?mapfile=glb`); the requests append their own parameters. |
 | `output_format` | text | yes | The `outputFormat` the service names for GeoJSON, URL-encoded as it needs it (`application/geo%2Bjson`). With `gml = true` the one for GML 3.2. |
 | `gml` | yes/no | no | The service answers GML 3.2 only. |
 | `native_crs` | whole number | no | 25832 or 25833: the service finds nothing by a box in WGS 84 or answers only in its own CRS, so it is asked in this one. |

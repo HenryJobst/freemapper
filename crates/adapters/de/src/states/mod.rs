@@ -625,16 +625,11 @@ impl StateAdapter {
                 crate::bfg_permits::source(),
                 crate::denkmal_permits::bremen(),
             ],
-            State::RheinlandPfalz => [
-                vec![
-                    crate::bfg_permits::source(),
-                    crate::denkmal_permits::rheinland_pfalz(),
-                ],
-                crate::natur_permits::rheinland_pfalz(),
-            ]
-            .into_iter()
-            .flatten()
-            .collect(),
+            // The Naturdenkmale of Rhineland-Palatinate are declared in its manifest (issue #273).
+            State::RheinlandPfalz => vec![
+                crate::bfg_permits::source(),
+                crate::denkmal_permits::rheinland_pfalz(),
+            ],
             State::SaxonyAnhalt => vec![
                 crate::bfg_permits::source(),
                 crate::natur_permits::sachsen_anhalt(),

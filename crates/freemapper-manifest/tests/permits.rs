@@ -155,13 +155,26 @@ fn the_service_is_held_to_the_hosts_of_the_manifest() {
         refused(&table),
         [("policy.host-not-declared", "permits.wfs.url".to_string())]
     );
-    // A query does not belong into the address.
-    let table = HEAD.replace("/wfs\"", "/wfs?map=a\"")
-        + "layers = [{ key = \"a\", type_name = \"x:a\", reading = \"object\", object = \"biotope\" }]\n";
-    assert_eq!(
-        refused(&table),
-        [("policy.url", "permits.wfs.url".to_string())]
-    );
+    // A fixed query that selects the service on the server is kept; a fragment or anything but
+    // plain `name=value` pairs is not.
+    let layers = "layers = [{ key = \"a\", type_name = \"x:a\", reading = \"object\", object = \"biotope\" }]\n";
+    let table = HEAD.replace("/wfs\"", "/wfs?map=a\"") + layers;
+    let kept = parse(&with(&table), Path::new("sample")).unwrap();
+    assert!(kept.permits[0].url.ends_with("/wfs?map=a"));
+    for bad in [
+        "/wfs?map=a#b",
+        "/wfs?",
+        "/wfs?map",
+        "/wfs?map=a%20b",
+        "/wfs?a=b&&c=d",
+    ] {
+        let table = HEAD.replace("/wfs\"", &format!("{bad}\"")) + layers;
+        assert_eq!(
+            refused(&table),
+            [("policy.url", "permits.wfs.url".to_string())],
+            "{bad}"
+        );
+    }
 }
 
 #[test]
