@@ -757,6 +757,25 @@ mod tests {
     }
 
     #[test]
+    fn a_member_exactly_as_large_as_the_limit_is_read_and_one_more_is_refused() {
+        let body = vec![7_u8; 1000];
+        let fetcher = MapFetcher::default();
+        fetcher.insert(
+            "https://example.org/roads.zip",
+            archive(&[("a.xml", body.clone(), false)]),
+        );
+        let url = "https://example.org/roads.zip";
+        let members = read_directory(&fetcher, url).unwrap();
+        assert_eq!(members[0].compressed, 1000);
+        assert_eq!(
+            read_member_up_to(&fetcher, url, &members[0], 1000).unwrap(),
+            body
+        );
+        let err = read_member_up_to(&fetcher, url, &members[0], 999).unwrap_err();
+        assert!(err.to_string().contains("too large"), "{err}");
+    }
+
+    #[test]
     fn member_inflating_too_far_is_refused() {
         let zip = archive(&[("zeros.tif", vec![0; (MAX_MEMBER_BYTES + 1) as usize], true)]);
         let fetcher = MapFetcher::default();
