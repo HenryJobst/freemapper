@@ -179,9 +179,78 @@ mod tests {
         assert!(error.contains(URL), "{error}");
     }
 
+    /// A file of a square of 10 m for each of the given south-west corners in EPSG:25832.
+    fn squares(corners: &[(f64, f64)]) -> Vec<u8> {
+        let features: Vec<_> = corners
+            .iter()
+            .map(|&(e, n)| {
+                serde_json::json!({"type": "Feature", "properties": {"LayerName": "Baudenkmal"},
+                    "geometry": {"type": "Polygon", "coordinates": [[
+                        [e, n], [e + 10.0, n], [e + 10.0, n + 10.0], [e, n + 10.0], [e, n]]]}})
+            })
+            .collect();
+        serde_json::to_vec(&serde_json::json!({"type": "FeatureCollection", "features": features}))
+            .unwrap()
+    }
+
+    #[test]
+    fn a_feature_is_kept_where_its_box_meets_the_map_and_only_there() {
+        let bbox = Rect::new(
+            geo_types::Coord { x: 10.13, y: 54.32 },
+            geo_types::Coord { x: 10.15, y: 54.33 },
+        );
+        let cut = crate::wfs_permits::projected_box(Crs::Utm32, &bbox);
+        let (mid_e, mid_n) = ((cut.min_x + cut.max_x) / 2.0, (cut.min_y + cut.max_y) / 2.0);
+        let run = |corners: &[(f64, f64)]| {
+            let fetcher = MapFetcher::default();
+            fetcher.insert(URL, squares(corners));
+            let part = tempfile::tempdir().unwrap();
+            source()
+                .fetch(&fetcher, &bbox, &part.path().join("p.part"))
+                .unwrap()
+                .remove(0)
+                .len()
+        };
+        // One in the middle is kept.
+        assert_eq!(run(&[(mid_e, mid_n)]), 1);
+        // One beyond each side is left out, though it lies within the other three.
+        assert_eq!(run(&[(cut.min_x - 100.0, mid_n)]), 0, "west");
+        assert_eq!(run(&[(cut.max_x + 100.0, mid_n)]), 0, "east");
+        assert_eq!(run(&[(mid_e, cut.min_y - 100.0)]), 0, "south");
+        assert_eq!(run(&[(mid_e, cut.max_y + 100.0)]), 0, "north");
+        // One that only touches a side meets the box.
+        assert_eq!(run(&[(cut.min_x - 10.0, mid_n)]), 1, "touches the west");
+        assert_eq!(run(&[(cut.max_x, mid_n)]), 1, "touches the east");
+        assert_eq!(run(&[(mid_e, cut.min_y - 10.0)]), 1, "touches the south");
+        assert_eq!(run(&[(mid_e, cut.max_y)]), 1, "touches the north");
+    }
+
+    #[test]
+    fn a_file_of_some_hundred_kilobytes_is_read() {
+        let mut file: serde_json::Value = serde_json::from_slice(&squares(&[(0.0, 0.0)])).unwrap();
+        file["padding"] = "x".repeat(300_000).into();
+        let fetcher = MapFetcher::default();
+        fetcher.insert(URL, serde_json::to_vec(&file).unwrap());
+        let part = tempfile::tempdir().unwrap();
+        let bbox = Rect::new(
+            geo_types::Coord { x: 10.13, y: 54.32 },
+            geo_types::Coord { x: 10.15, y: 54.33 },
+        );
+        assert!(
+            source()
+                .fetch(&fetcher, &bbox, &part.path().join("p.part"))
+                .is_ok()
+        );
+    }
+
     #[test]
     fn an_answer_that_is_no_geojson_is_not_kept() {
         assert!(looks_like_geojson(b"<html>maintenance</html>").is_err());
         assert!(looks_like_geojson(br#"{"type": "FeatureCollection", "features": []}"#).is_ok());
+        // Each of the three marks alone does not do.
+        assert!(looks_like_geojson(br#"{"type": "Feature""#).is_err());
+        assert!(looks_like_geojson(br#"x "FeatureCollection"}"#).is_err());
+        assert!(looks_like_geojson(br#"{"type": "Other"}"#).is_err());
+        assert!(looks_like_geojson(br#"  {"type": "FeatureCollection"}  "#).is_ok());
     }
 }
