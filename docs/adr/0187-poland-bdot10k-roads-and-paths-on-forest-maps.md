@@ -95,3 +95,18 @@ rank `Landscape` was tied to the source prefix `atkis-dlm/`.
   to check against the orthophoto; `full` puts them on the map like the DLM paths.
 - Another country's landscape model can use `SetRank::Landscape` with a rule file and a reader, no
   engine code.
+
+## Addendum 24 November 2026: the internal bare-ground road checked
+
+The line "wewnętrzna, bare ground, 505" was a judgement (see Decision). Four lowland forests (Bory Tucholskie, Puszcza
+Notecka, Kampinos, Słubice forests) now give numbers; the tables and the method are in
+[poland-reference.md](../regions/poland-reference.md#addendum-24-november-2026-bare-ground-internal-roads-in-lowland-forests-measured-adr-0187).
+
+- 120 sampled lines of this class in forest: 95 not discernible on the orthophoto, 14 at 2.5 m or wider, 11 narrower.
+- Of the lines that OSM covers (33 to 47 % of the class in forest), most lie on `highway=track`, and 92 % of those
+  tracks have no `tracktype` or grade 3 to 5, which the forest rules of OSM draw as 505.
+- The measurement shows no majority against 505, so **the rule stays**. The adapter revision is unchanged.
+- Local and access roads on bare ground (504) and internal roads on gravel (504) were checked the same way: 78 % and
+  87 % of the discernible lines are 2.5 m or wider. `ścieżka` (506): 11 of 11 narrow.
+- Open: `aleja lub pasaż` on bare ground (505), 21 of 24 sampled alleys under 2.5 m, mostly cemeteries. Whether a width
+  rule helps on forest maps needs a forest sample.

@@ -444,7 +444,80 @@ about 2.1 MB for the whole map instead of the 53.9 MB archive.
 
 **Dense where?** 119 axis pieces in 1 km² at Słubice.
 
-**Not measured:** other powiats; the share of the BDOT10k length that OpenStreetMap lacks.
+**Not measured:** other powiats; the share of the BDOT10k length that OpenStreetMap lacks (for forests see the addendum of 24 November 2026 below).
+
+## Addendum 24 November 2026: bare-ground internal roads in lowland forests (measured, ADR 0187)
+
+The rule `droga wewnętrzna` on `grunt naturalny` is 505 (ADR 0187). The first look at it, the Szczeliniec example
+(mountains, tourist trails), had 5 such lines. This is the check on four lowland forests. Archives of January 2026,
+`OT_SKDR_L` and `OT_SKRP_L` read as members by byte range (ADR 0017), orthophoto of the GUGiK WMS
+`StandardResolution` (the one the adapter loads), OSM by Overpass for a 10 x 10 km window per powiat.
+
+| Powiat (forest) | Archive | Read | Internal, bare ground (powiat) | In OSM forest of the window | OSM way within 10 m for 80 % of the line |
+|---|---|---|---|---|---|
+| 0416 tucholski (Bory Tucholskie) | 64.7 MB | 2.48 MB | 12 279 lines, 3 294 km | 253 lines, 68 km | 42 % (`track` 86, `path` 12, road 9, none 146) |
+| 3002 czarnkowsko-trzcianecki (Puszcza Notecka) | 110.8 MB | 3.86 MB | 16 681, 5 302 km | 524, 184 km | 47 % (`track` 234, `path` 14, none 276) |
+| 1414 nowodworski (Kampinos) | 40.4 MB | 2.48 MB | 6 396, 1 704 km | 84, 21 km | 40 % (`track` 9, `path` 8, `service` 15, road 2, none 50) |
+| 0805 słubicki (Słubice forests) | 53.9 MB | 2.01 MB | 8 368, 2 665 km | 850, 233 km | 33 % (`track` 276, `path` 1, `service` 3, none 570) |
+
+No internal road on bare ground has a `szerokoscNawierzchni` in any of the four powiats (0 of 43 724), so the rule
+cannot take a width from the register. `zrodloDanychGeometrycznych` is `ortofotomapa` for 87 to 100 % of the lines
+(`mapa topograficzna 10k` for most of the rest at 0416 and 0805).
+
+**OSM as the second reference.** Of the internal bare-ground lines in forest that OSM covers, 88 to 99 % lie on a
+`highway=track` at Tuchola (86 of 98), Notecka (234 of 248) and Słubice (276 of 280); Kampinos is the exception
+(9 of 34, with 15 `service` and 8 `path`). Of the 605 tracks, 92 % have no `tracktype` or grade 3 to 5, which the forest
+rules of OSM draw as 505 (ADR 0116); grade 1 and 2, drawn as 504, are 8 % (Tuchola 2, Notecka 8, Kampinos 2,
+Słubice 37). The other way round: of the OSM `track` length in forest (5 m samples, 1 455 to 31 487 per window)
+BDOT10k has a line within 10 m for 53 to 65 %, and 87 to 98 % of those are internal bare-ground roads. 53 to 67 % of
+the BDOT lines in forest have no OSM way; those are the candidates the rule produces.
+
+**Orthophoto, sight check.** A random sample of up to 30 lines per cell, the line drawn over a 60 m tile with a 2.5 m
+and a 5 m bar, one reader. Classes: wide (4 m and more), track (2.5 to 4 m), path (under 2.5 m), not discernible.
+
+| Class, surface (rule) | Sample | Wide | Track | Path | Not discernible | Discernible at 2.5 m or more |
+|---|---|---|---|---|---|---|
+| internal, bare ground, forest, Tuchola (505) | 30 | 0 | 6 | 4 | 20 | 6 of 10 |
+| internal, bare ground, forest, Notecka (505) | 30 | 0 | 4 | 0 | 26 | 4 of 4 |
+| internal, bare ground, forest, Kampinos (505) | 30 | 0 | 2 | 5 | 23 | 2 of 7 |
+| internal, bare ground, forest, Słubice (505) | 30 | 0 | 2 | 2 | 26 | 2 of 4 |
+| **internal, bare ground, forest, together** | 120 | 0 | 14 | 11 | 95 | **14 of 25 (56 %)** |
+| local or access road, bare ground (504) | 30 | 3 | 15 | 5 | 7 | 18 of 23 (78 %) |
+| internal, gravel or crushed stone (504) | 30 | 4 | 16 | 3 | 7 | 20 of 23 (87 %) |
+| alley or arcade, bare ground (505) | 24 | 0 | 3 | 21 | 0 | 3 of 24 (12 %) |
+| footway ścieżka (506) | 26 | 0 | 0 | 11 | 15 | 0 of 11 |
+
+The last four rows pool the four windows (they are mostly outside forest, so they measure the class, not the forest).
+Of the 120 internal lines, those with an OSM way within 10 m (56) gave track 10, path 5, not discernible 41; those
+without (64) track 4, path 6, not discernible 54.
+
+**Reading.**
+
+- 79 % of the sampled internal bare-ground lines in forest cannot be seen on the orthophoto (canopy, forest rides,
+  lines along stand edges). They stay candidates for a check in the terrain, as ADR 0187 has it. Their width is not
+  measured.
+- Of the 25 that can be seen, 14 are 2.5 m wide or more and 11 are narrower. That does not contradict 505 for the
+  class and does not show a better value: a 504 split would need wide lines (none of 25 is 4 m or more), a 506 would
+  need a majority of paths (44 % are). The OSM reference agrees with 505: most matching ways are tracks, and 92 % of
+  those are drawn 505 by the OSM rules too.
+- 504 for local and access roads on bare ground (78 % at 2.5 m or more) and for internal roads on gravel (87 %)
+  stands. 506 for `ścieżka` stands (11 of 11 narrow where seen).
+- **The rule for `droga wewnętrzna` stays 505; nothing in the adapter changed.**
+- Left open: `aleja lub pasaż` on bare ground is 505, and 21 of 24 sampled alleys are under 2.5 m. They are cemetery
+  alleys and paths between blocks of flats, not forest (`szerokosc` is 1.0 m on all 731 at Notecka, 1.0 to 4.0 m
+  elsewhere). A width rule (`szerokosc` under 2.5 to 506) is the candidate; it needs a forest sample first, since
+  on a forest map these alleys are rare.
+
+**Not proven.** One reader, single pass, no second opinion; widths read at about 0.25 m per pixel, error half a metre,
+so the 2.5 m boundary is soft. The orthophotos differ by area (Tuchola and Notecka leaf-off, Kampinos in summer),
+which decides how many tracks show. "Forest" is the OSM `natural=wood` and `landuse=forest` outer rings of the window;
+four windows of 10 x 10 km are no sample of Poland. The sample is random, not weighted by length. Whether the 79 %
+without a visible line are rides or mapping errors is not decided. The 10 m and 80 % thresholds of the OSM match are
+those of the duplicate step, not tuned.
+
+**Cost.** 10.8 MB of member reads for the four powiats (central directories included), about 220 WMS tiles of 60 m,
+four Overpass windows. Three more member reads for powiats picked by a wrong TERYT code (2214 tczewski, 1415
+ostrołęcki, 0415 toruński, 11 MB) were thrown away; the codes of the Bory Tucholskie and of Kampinos are 0416 and 1414.
 
 ## Addendum 24 November 2026: what BDOT10k says about `Bi` parcels (measured, ADR 0194)
 
