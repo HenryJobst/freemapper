@@ -44,8 +44,20 @@ pub enum Reading {
     /// A unit of a forest administration: `office` is `prefix` and the attribute.
     Unit {
         administration: &'static str,
+        /// The attribute whose text follows `administration`, where the administration is
+        /// named by the feature (a Bezirksamt).
+        administration_from: Option<&'static str>,
         prefix: &'static str,
         office: &'static str,
+    },
+    /// A district of a city state, named by the attribute.
+    District { name: &'static str },
+    /// A public green space: its name, or where that is blank the attribute `fallback`, and its
+    /// district, which the attribute holds as a number (from 1) into the list of names.
+    GreenSpace {
+        name: &'static str,
+        fallback: Option<&'static str>,
+        district: Option<(&'static str, &'static [&'static str])>,
     },
     /// Forest of the state: `owner` as the notes name it, and the forest office that looks
     /// after it, `prefix` and the attribute `office`.
@@ -88,7 +100,28 @@ impl Reading {
                 .flatten()
                 .collect(),
             Reading::Function { name, .. } => name.into_iter().collect(),
-            Reading::Unit { office, .. } | Reading::StateForest { office, .. } => vec![office],
+            Reading::Unit {
+                administration_from,
+                office,
+                ..
+            } => [Some(office), administration_from]
+                .into_iter()
+                .flatten()
+                .collect(),
+            Reading::StateForest { office, .. } => vec![office],
+            Reading::District { name } => vec![name],
+            Reading::GreenSpace {
+                name,
+                fallback,
+                district,
+            } => [
+                Some(name),
+                fallback,
+                district.map(|(attribute, _)| attribute),
+            ]
+            .into_iter()
+            .flatten()
+            .collect(),
             Reading::Object {
                 name,
                 citation,
@@ -317,12 +350,29 @@ fn reading(declared: &DeclaredReading) -> Reading {
         },
         DeclaredReading::Unit {
             administration,
+            administration_from,
             prefix,
             office,
         } => Reading::Unit {
             administration: kept(administration),
+            administration_from: administration_from.as_deref().map(kept),
             prefix: kept(prefix),
             office: kept(office),
+        },
+        DeclaredReading::District { name } => Reading::District { name: kept(name) },
+        DeclaredReading::GreenSpace {
+            name,
+            fallback,
+            district,
+        } => Reading::GreenSpace {
+            name: kept(name),
+            fallback: fallback.as_deref().map(kept),
+            district: district.as_ref().map(|(attribute, names)| {
+                (
+                    kept(attribute),
+                    kept_all(names.iter().map(|name| kept(name)).collect()),
+                )
+            }),
         },
         DeclaredReading::StateForest {
             owner,
@@ -394,7 +444,7 @@ pub(crate) fn declared_source(declared: &DeclaredWfs) -> Box<dyn PermitSource> {
             gaps: declared.gaps.as_ref().map(wording),
             layers: keys,
             sections: kept_all(declared.sections.clone()),
-            offices: None,
+            offices: declared.offices,
         },
         service: GeoJsonWfs {
             base: kept(&declared.url),
@@ -609,12 +659,33 @@ pub(crate) fn finding(reading: Reading, feature: &Value) -> Option<PermitFinding
         },
         Reading::Unit {
             administration,
+            administration_from,
             prefix,
             office,
         } => FindingKind::ForestUnit {
-            administration: administration.to_string(),
+            administration: match administration_from {
+                Some(attribute) => format!("{administration}{}", text(feature, attribute)?),
+                None => administration.to_string(),
+            },
             office: format!("{prefix}{}", name_case(&text(feature, office)?)),
             unit: None,
+        },
+        Reading::District { name } => FindingKind::District {
+            name: text(feature, name)?,
+        },
+        Reading::GreenSpace {
+            name,
+            fallback,
+            district,
+        } => FindingKind::GreenSpace {
+            name: text(feature, name)
+                .or_else(|| fallback.and_then(|f| text(feature, f)))
+                .unwrap_or_default(),
+            district: district.and_then(|(attribute, names)| {
+                let index: usize = text(feature, attribute)?.parse().ok()?;
+                names.get(index.checked_sub(1)?).map(|n| (*n).to_string())
+            }),
+            dedication: None,
         },
         Reading::StateForest {
             owner,

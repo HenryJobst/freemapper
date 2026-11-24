@@ -13,8 +13,8 @@ use std::path::{Path, PathBuf};
 use chrono::NaiveDate;
 use freemapper_adapter_api::extras::{NasModel, NasSchema, TreeFormat};
 use freemapper_adapter_api::permits::{
-    DeclaredLayer, DeclaredReading, DeclaredWfs, DeclaredWording, ForestFunctionKind,
-    PermitSection, ProtectedObjectKind,
+    DeclaredLayer, DeclaredReading, DeclaredWfs, DeclaredWording, DistrictOffices,
+    ForestFunctionKind, PermitSection, ProtectedObjectKind,
 };
 use freemapper_adapter_api::policy;
 use freemapper_georef::crs::Crs;
@@ -2120,6 +2120,12 @@ impl Check<'_> {
                     .map(|crs| Some(crs.epsg())),
                 None => Some(None),
             };
+            let offices = match &source.offices {
+                Some(value) => self
+                    .kebab::<DistrictOffices>(value, "permits.wfs.offices")
+                    .map(Some),
+                None => Some(None),
+            };
             let mut sections = Some(Vec::new());
             if source.sections.is_empty() {
                 self.fail(
@@ -2176,6 +2182,7 @@ impl Check<'_> {
                 url,
                 output_format,
                 native_crs,
+                offices,
                 sections,
                 layers,
             ) {
@@ -2188,6 +2195,7 @@ impl Check<'_> {
                     Some(url),
                     Some(output_format),
                     Some(native_crs),
+                    Some(offices),
                     Some(sections),
                     Some(layers),
                 ) => sources.push(DeclaredWfs {
@@ -2201,6 +2209,7 @@ impl Check<'_> {
                     output_format,
                     gml,
                     native_crs,
+                    offices,
                     layers,
                 }),
                 _ => fine = false,
@@ -2277,7 +2286,7 @@ impl Check<'_> {
 
     /// The keys of `layer` that do not belong to its reading, as findings.
     fn foreign(&mut self, layer: &RawPermitLayer, allowed: &[&str]) -> bool {
-        let given: [(&str, bool); 15] = [
+        let given: [(&str, bool); 18] = [
             ("name", layer.name.is_some()),
             ("zone", layer.zone.is_some()),
             ("citation", layer.citation.is_some()),
@@ -2295,6 +2304,15 @@ impl Check<'_> {
             ),
             ("monument", layer.monument.is_some()),
             ("kind_from", layer.kind_from.is_some()),
+            (
+                "administration_attribute",
+                layer.administration_attribute.is_some(),
+            ),
+            ("fallback", layer.fallback.is_some()),
+            (
+                "district_attribute",
+                layer.district_attribute.is_some() || layer.districts.is_some(),
+            ),
             (
                 "link_attribute",
                 layer.link_attribute.is_some() || layer.link_prefix.is_some(),
@@ -2400,7 +2418,15 @@ impl Check<'_> {
             }
             reading @ ("unit" | "state-forest") => {
                 let clean = if reading == "unit" {
-                    self.foreign(layer, &["administration", "prefix", "office"])
+                    self.foreign(
+                        layer,
+                        &[
+                            "administration",
+                            "administration_attribute",
+                            "prefix",
+                            "office",
+                        ],
+                    )
                 } else {
                     self.foreign(layer, &["owner", "prefix", "office"])
                 };
@@ -2418,19 +2444,80 @@ impl Check<'_> {
                 let office = self
                     .needed(layer.office.as_ref(), layer, "office")
                     .and_then(|v| self.attribute(v, &format!("{k}.office")));
-                match (clean, label, prefix, office) {
-                    (true, Some(label), Some(prefix), Some(office)) if reading == "unit" => {
+                let administration_from = self.optional_attribute(
+                    layer.administration_attribute.as_ref(),
+                    &format!("{k}.administration_attribute"),
+                );
+                match (clean, label, prefix, office, administration_from) {
+                    (true, Some(label), Some(prefix), Some(office), Some(administration_from))
+                        if reading == "unit" =>
+                    {
                         Some(DeclaredReading::Unit {
                             administration: label,
+                            administration_from,
                             prefix,
                             office,
                         })
                     }
-                    (true, Some(label), Some(prefix), Some(office)) => {
+                    (true, Some(label), Some(prefix), Some(office), _) => {
                         Some(DeclaredReading::StateForest {
                             owner: label,
                             prefix,
                             office,
+                        })
+                    }
+                    _ => None,
+                }
+            }
+            "district" => {
+                let clean = self.foreign(layer, &["name"]);
+                let name = self
+                    .needed(layer.name.as_ref(), layer, "name")
+                    .and_then(|v| self.attribute(v, &format!("{k}.name")));
+                match (clean, name) {
+                    (true, Some(name)) => Some(DeclaredReading::District { name }),
+                    _ => None,
+                }
+            }
+            "green-space" => {
+                let clean = self.foreign(layer, &["name", "fallback", "district_attribute"]);
+                let name = self
+                    .needed(layer.name.as_ref(), layer, "name")
+                    .and_then(|v| self.attribute(v, &format!("{k}.name")));
+                let fallback =
+                    self.optional_attribute(layer.fallback.as_ref(), &format!("{k}.fallback"));
+                let district = match (&layer.district_attribute, &layer.districts) {
+                    (None, None) => Some(None),
+                    (Some(attribute), Some(names)) if (1..=16).contains(&names.len()) => {
+                        let attribute =
+                            self.attribute(attribute, &format!("{k}.district_attribute"));
+                        let mut all = Some(Vec::new());
+                        for name in names {
+                            let name =
+                                self.text(name, &format!("{k}.districts"), "manifest.value", 100);
+                            all = all.zip(name).map(|(mut all, name)| {
+                                all.push(name);
+                                all
+                            });
+                        }
+                        attribute.zip(all).map(Some)
+                    }
+                    _ => {
+                        self.fail(
+                            "manifest.value",
+                            &layer.reading.span(),
+                            "district_attribute",
+                            "`district_attribute` comes with 1 to 16 `districts`",
+                        );
+                        None
+                    }
+                };
+                match (clean, name, fallback, district) {
+                    (true, Some(name), Some(fallback), Some(district)) => {
+                        Some(DeclaredReading::GreenSpace {
+                            name,
+                            fallback,
+                            district,
                         })
                     }
                     _ => None,
@@ -2529,7 +2616,7 @@ impl Check<'_> {
                     "permits.wfs.layers.reading",
                     format!(
                         "`{shown}` is no reading; the readings are water, function, unit, \
-                         state-forest, object and monument"
+                         state-forest, district, green-space, object and monument"
                     ),
                 );
                 None

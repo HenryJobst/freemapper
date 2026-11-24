@@ -454,3 +454,142 @@ fn the_permit_sources_are_handed_over_once() {
     assert_eq!(taken, ["natur"]);
     assert!(adapter.permit_sources().is_empty());
 }
+
+#[test]
+fn districts_green_spaces_and_a_unit_named_by_its_feature_are_declared() {
+    let table = format!(
+        "{HEAD}offices = \"hamburg\"\nlayers = [\n\
+         {{ key = \"d\", type_name = \"x:d\", reading = \"district\", name = \"BEZIRK\" }},\n\
+         {{ key = \"g\", type_name = \"x:g\", reading = \"green-space\", name = \"NAME\", fallback = \"ART\", district_attribute = \"NR\", districts = [\"Mitte\", \"Nord\"] }},\n\
+         {{ key = \"h\", type_name = \"x:h\", reading = \"green-space\", name = \"NAME\" }},\n\
+         {{ key = \"u\", type_name = \"x:u\", reading = \"unit\", administration = \"Bezirksamt \", administration_attribute = \"BEZIRK\", prefix = \"Revier \", office = \"REVIER\" }},\n\
+         ]\n"
+    );
+    let manifest = parse(&with(&table), Path::new("sample")).unwrap();
+    let source = &manifest.permits[0];
+    assert_eq!(
+        source.offices,
+        Some(freemapper_adapter_api::permits::DistrictOffices::Hamburg)
+    );
+    let readings: Vec<&DeclaredReading> = source.layers.iter().map(|l| &l.reading).collect();
+    assert_eq!(
+        readings[0],
+        &DeclaredReading::District {
+            name: "BEZIRK".into()
+        }
+    );
+    assert_eq!(
+        readings[1],
+        &DeclaredReading::GreenSpace {
+            name: "NAME".into(),
+            fallback: Some("ART".into()),
+            district: Some(("NR".into(), vec!["Mitte".into(), "Nord".into()])),
+        }
+    );
+    assert_eq!(
+        readings[2],
+        &DeclaredReading::GreenSpace {
+            name: "NAME".into(),
+            fallback: None,
+            district: None,
+        }
+    );
+    assert_eq!(
+        readings[3],
+        &DeclaredReading::Unit {
+            administration: "Bezirksamt ".into(),
+            administration_from: Some("BEZIRK".into()),
+            prefix: "Revier ".into(),
+            office: "REVIER".into(),
+        }
+    );
+    // A source without `offices` names none.
+    let plain = parse(
+        &with(&format!(
+            "{HEAD}layers = [{{ key = \"a\", type_name = \"x:a\", reading = \"district\", name = \"N\" }}]\n"
+        )),
+        Path::new("sample"),
+    )
+    .unwrap();
+    assert_eq!(plain.permits[0].offices, None);
+}
+
+#[test]
+fn the_keys_of_the_new_readings_are_checked() {
+    let layer =
+        |extra: &str| format!("{HEAD}layers = [{{ key = \"a\", type_name = \"x:a\", {extra} }}]\n");
+    // A district needs its name and takes no other key.
+    assert_eq!(
+        refused(&layer("reading = \"district\"")),
+        [("manifest.missing-key", "name".to_string())]
+    );
+    assert_eq!(
+        refused(&layer(
+            "reading = \"district\", name = \"N\", fallback = \"F\""
+        )),
+        [("manifest.unknown-key", "fallback".to_string())]
+    );
+    // A green space needs its name; the district list comes with its attribute, 1 to 16 names.
+    assert_eq!(
+        refused(&layer("reading = \"green-space\"")),
+        [("manifest.missing-key", "name".to_string())]
+    );
+    assert_eq!(
+        refused(&layer(
+            "reading = \"green-space\", name = \"N\", districts = [\"A\"]"
+        )),
+        [("manifest.value", "district_attribute".to_string())]
+    );
+    assert_eq!(
+        refused(&layer(
+            "reading = \"green-space\", name = \"N\", district_attribute = \"NR\", districts = []"
+        )),
+        [("manifest.value", "district_attribute".to_string())]
+    );
+    let names: Vec<String> = (0..17).map(|n| format!("\"{n}\"")).collect();
+    assert_eq!(
+        refused(&layer(&format!(
+            "reading = \"green-space\", name = \"N\", district_attribute = \"NR\", districts = [{}]",
+            names.join(", ")
+        ))),
+        [("manifest.value", "district_attribute".to_string())]
+    );
+    let sixteen: Vec<String> = (0..16).map(|n| format!("\"{n}\"")).collect();
+    assert!(
+        parse(
+            &with(&layer(&format!(
+                "reading = \"green-space\", name = \"N\", district_attribute = \"NR\", districts = [{}]",
+                sixteen.join(", ")
+            ))),
+            Path::new("sample")
+        )
+        .is_ok()
+    );
+    // Either half of the district pair is a key a district does not have.
+    for half in ["districts = [\"A\"]", "district_attribute = \"NR\""] {
+        assert_eq!(
+            refused(&layer(&format!(
+                "reading = \"district\", name = \"N\", {half}"
+            ))),
+            [("manifest.unknown-key", "district_attribute".to_string())],
+            "{half}"
+        );
+    }
+    // The attribute of an administration belongs to the unit only.
+    assert_eq!(
+        refused(&layer(
+            "reading = \"state-forest\", owner = \"O\", prefix = \"P\", office = \"A\", administration_attribute = \"B\""
+        )),
+        [(
+            "manifest.unknown-key",
+            "administration_attribute".to_string()
+        )]
+    );
+    // An office of a city state the program does not know.
+    assert_eq!(
+        refused(&format!(
+            "{HEAD}offices = \"bremen\"\nlayers = [{{ key = \"a\", type_name = \"x:a\", reading = \"district\", name = \"N\" }}]\n"
+        )),
+        [("manifest.value", "permits.wfs.offices".to_string())]
+    );
+}

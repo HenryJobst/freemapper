@@ -246,6 +246,7 @@ Bundesländer ziehen nach und nach hierher um (Issue #273); `adapters probe` fra
 | `url` | URL | ja | Die Adresse des Dienstes, auf einem Host aus `[net] hosts`. Anders als jede andere URL darf sie eine feste Query aus einfachen `name=wert`-Paaren tragen, die den Dienst auf dem Server wählt (`?mapfile=glb`); die Anfragen hängen ihre eigenen Parameter an. |
 | `output_format` | Text | ja | Das `outputFormat`, mit dem der Dienst GeoJSON nennt, URL-kodiert, wie er es braucht (`application/geo%2Bjson`). Mit `gml = true` das für GML 3.2. |
 | `gml` | ja/nein | nein | Der Dienst antwortet nur mit GML 3.2. |
+| `offices` | Text | nein | `berlin` oder `hamburg`: Die Quelle hält die Bezirke dieses Stadtstaats, und die Hinweise nennen die Ämter seiner Bezirke (eine Quelle mit der Leseart `district`). |
 | `native_crs` | ganze Zahl | nein | 25832 oder 25833: Der Dienst findet nichts mit einem Rechteck in WGS 84 oder antwortet nur in seinem eigenen KBS und wird deshalb darin gefragt. |
 | `layers` | Liste von Tabellen | ja | Die Schichten, unten. |
 
@@ -256,7 +257,9 @@ Eine Schicht hat `key` (ein Name wie oben, einmalig in ihrer Quelle), `type_name
 |---|---|---|
 | `water` | `name`, `zone` (beide Pflicht), `citation`, `planned_attribute` mit `planned_value` | Ein Wasserschutzgebiet oder eine Zone; hat die Schicht geplante Zonen, das Attribut und der Wert, die eine kennzeichnen. |
 | `function` | `function` (Pflicht: `recreation`, `protected`, `natural`, `closed`), `name` | Wald mit einer Funktion oder einem Schutz. |
-| `unit` | `administration`, `prefix`, `office` (alle Pflicht) | Eine Einheit einer Forstverwaltung; das Amt ist `prefix` und das Attribut `office`. |
+| `unit` | `administration`, `prefix`, `office` (alle Pflicht), `administration_attribute` | Eine Einheit einer Forstverwaltung; das Amt ist `prefix` und das Attribut `office`. Mit `administration_attribute` ist die Verwaltung `administration` und der Text dieses Attributs (`Bezirksamt ` und der Bezirk). |
+| `district` | `name` (Pflicht) | Ein Bezirk eines Stadtstaats, benannt durch das Attribut. |
+| `green-space` | `name` (Pflicht), `fallback`, `district_attribute` mit `districts` (1 bis 16 Namen) | Eine öffentliche Grünanlage: ihr Name, oder wo er leer ist das Attribut `fallback`; das Attribut `district_attribute` hält die Nummer ihres Bezirks (ab 1) in der Liste `districts`. |
 | `state-forest` | `owner`, `prefix`, `office` (alle Pflicht) | Landeswald und das Amt, das ihn betreut. |
 | `object` | `object` (Pflicht: die Art des Schutzobjekts, etwa `natural-monument`, `protected-landscape-part`, `biotope`), `name`, `citation`, `only_attribute` mit `only_values` (1 bis 8) | Ein geschütztes Objekt des Naturschutzrechts; mit `only` zählt ein Objekt nur, wenn das Attribut einen der Werte hat. |
 | `monument` | `monument` (Pflicht: die Art), `kind_from`, `link_attribute` mit `link_prefix` | Ein Denkmal der Liste; der Link zählt, wenn das Attribut mit `link_prefix` beginnt. |
