@@ -240,6 +240,7 @@ one by one (issue #273); `adapters probe` asks every `url`.
 | `url` | URL | yes | The address of the service, on a host of `[net] hosts`. Unlike every other URL it may carry a fixed query of plain `name=value` pairs that selects the service on the server (`?mapfile=glb`); the requests append their own parameters. |
 | `output_format` | text | yes | The `outputFormat` the service names for GeoJSON, URL-encoded as it needs it (`application/geo%2Bjson`). With `gml = true` the one for GML 3.2. |
 | `gml` | yes/no | no | The service answers GML 3.2 only. |
+| `offices` | text | no | `berlin` or `hamburg`: the source holds the districts of that city state and the notes name the offices of its districts (a source with the reading `district`). |
 | `native_crs` | whole number | no | 25832 or 25833: the service finds nothing by a box in WGS 84 or answers only in its own CRS, so it is asked in this one. |
 | `layers` | list of tables | yes | The layers, below. |
 
@@ -250,7 +251,9 @@ which says how its features become findings and which further keys it takes:
 |---|---|---|
 | `water` | `name`, `zone` (both required), `citation`, `planned_attribute` with `planned_value` | A water protection area or zone; where the layer has planned zones, the attribute and the value that mark one. |
 | `function` | `function` (required: `recreation`, `protected`, `natural`, `closed`), `name` | Forest with a function or a protection. |
-| `unit` | `administration`, `prefix`, `office` (all required) | A unit of a forest administration; the office is `prefix` and the attribute `office`. |
+| `unit` | `administration`, `prefix`, `office` (all required), `administration_attribute` | A unit of a forest administration; the office is `prefix` and the attribute `office`. With `administration_attribute` the administration is `administration` followed by the text of that attribute (`Bezirksamt ` and the Bezirk). |
+| `district` | `name` (required) | A district of a city state, named by the attribute. |
+| `green-space` | `name` (required), `fallback`, `district_attribute` with `districts` (1 to 16 names) | A public green space: its name, or where that is blank the attribute `fallback`; the attribute `district_attribute` holds the number of its district (from 1) in the list `districts`. |
 | `state-forest` | `owner`, `prefix`, `office` (all required) | Forest of the state and the office that looks after it. |
 | `object` | `object` (required: the kind of protected object, such as `natural-monument`, `protected-landscape-part`, `biotope`), `name`, `citation`, `only_attribute` with `only_values` (1 to 8) | A protected object of nature conservation law; with `only`, a feature counts only when the attribute holds one of the values. |
 | `monument` | `monument` (required: the kind), `kind_from`, `link_attribute` with `link_prefix` | A listed monument; the link counts when the attribute starts with `link_prefix`. |

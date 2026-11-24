@@ -569,8 +569,8 @@ impl StateAdapter {
             State::Berlin => crate::berlin_permits::sources(),
             // The protected objects of Brandenburg are declared in its manifest (issue #273).
             State::Brandenburg => crate::lfb_permits::sources(),
-            // The protected objects of Hamburg are declared in its manifest (issue #273).
-            State::Hamburg => crate::lgv_permits::sources(),
+            // The sources of Hamburg are declared in its manifest (issue #273).
+            State::Hamburg => Vec::new(),
             // The sources of Saarland, Hesse and Schleswig-Holstein that had tables in the code are
             // declared in their manifests (issue #273).
             State::Saarland | State::Hessen => Vec::new(),

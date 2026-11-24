@@ -384,6 +384,9 @@ pub struct DeclaredWfs {
     /// The EPSG number of the CRS the service is asked and answers in, where it is not WGS 84
     /// (ADR 0144).
     pub native_crs: Option<u32>,
+    /// The offices of the districts of a city state, for a source of its districts
+    /// ([`PermitSourceInfo::offices`]).
+    pub offices: Option<DistrictOffices>,
     pub layers: Vec<DeclaredLayer>,
 }
 
@@ -419,11 +422,22 @@ pub enum DeclaredReading {
         kind: ForestFunctionKind,
         name: Option<String>,
     },
-    /// A unit of a forest administration.
+    /// A unit of a forest administration; with `administration_from` the administration is
+    /// `administration` and the text of that attribute.
     Unit {
         administration: String,
+        administration_from: Option<String>,
         prefix: String,
         office: String,
+    },
+    /// A district of a city state, named by an attribute.
+    District { name: String },
+    /// A public green space: its name (or, where that is blank, the text of `fallback`) and its
+    /// district, which the attribute gives as a number into the list of names.
+    GreenSpace {
+        name: String,
+        fallback: Option<String>,
+        district: Option<(String, Vec<String>)>,
     },
     /// Forest of the state.
     StateForest {

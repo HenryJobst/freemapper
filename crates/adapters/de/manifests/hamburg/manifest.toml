@@ -63,6 +63,85 @@ fields = { kind = "gattung_deutsch", id = "baumid", species = "art_deutsch", cro
 attribution = "Freie und Hansestadt Hamburg, Behörde für Umwelt, Klima, Energie und Agrarwirtschaft, dl-de/by-2-0"
 max_bytes = 268435456
 
+# The other six services of the Geoportal Hamburg, which had a table in the code (issue #273). Their order is
+# that of the sections of the notes.
+[[permits.wfs]]
+key = "bezirke"
+label = { en = "Geoportal Hamburg", de = "Geoportal Hamburg" }
+what = { en = "Bezirk borders", de = "Bezirksgrenzen" }
+credit = "Datenlizenz Deutschland Namensnennung 2.0, Quellenvermerk: Freie und Hansestadt Hamburg, Landesbetrieb Geoinformation und Vermessung"
+sections = ["districts"]
+url = "https://geodienste.hamburg.de/HH_WFS_Verwaltungsgrenzen"
+output_format = "application/geo%2Bjson"
+offices = "hamburg"
+layers = [
+    { key = "bezirke", type_name = "de.hh.up:bezirke", reading = "district", name = "bezirk_name" },
+]
+
+[[permits.wfs]]
+key = "gruenanlagen"
+label = { en = "Geoportal Hamburg", de = "Geoportal Hamburg" }
+what = { en = "list of public green spaces (Grünplan)", de = "Verzeichnis der öffentlichen Grünanlagen (Grünplan)" }
+credit = "Datenlizenz Deutschland Namensnennung 2.0, Quellenvermerk: Freie und Hansestadt Hamburg, Behörde für Umwelt und Energie"
+sections = ["green-spaces"]
+url = "https://geodienste.hamburg.de/HH_WFS_Gruenplan"
+output_format = "application/geo%2Bjson"
+layers = [
+    { key = "gruenanlagen", type_name = "de.hh.up:verzeichnis_oeffentlicher_gruenanlagen", reading = "green-space", name = "benennung", fallback = "gruen_art", district_attribute = "bezirk", districts = ["Hamburg-Mitte", "Altona", "Eimsbüttel", "Hamburg-Nord", "Wandsbek", "Bergedorf", "Harburg"] },
+]
+
+[[permits.wfs]]
+key = "denkmale"
+label = { en = "Geoportal Hamburg", de = "Geoportal Hamburg" }
+what = { en = "monuments (Denkmalschutz)", de = "Denkmale (Denkmalschutz)" }
+credit = "Datenlizenz Deutschland Namensnennung 2.0, Quellenvermerk: Freie und Hansestadt Hamburg, zuständige Behörde"
+sections = ["monuments"]
+url = "https://geodienste.hamburg.de/HH_WFS_Denkmalschutz"
+output_format = "application/geo%2Bjson"
+layers = [
+    { key = "gartendenkmale", type_name = "de.hh.up:flaechen_gartendenkmale", reading = "monument", monument = "Gartendenkmal" },
+    { key = "ensembles", type_name = "de.hh.up:ensembles", reading = "monument", monument = "Ensemble" },
+    { key = "gebaeude", type_name = "de.hh.up:gebaeude", reading = "monument", monument = "Baudenkmal" },
+]
+
+[[permits.wfs]]
+key = "wald"
+label = { en = "Geoportal Hamburg", de = "Geoportal Hamburg" }
+what = { en = "forest in Hamburg (Revierförstereien and Bannwald)", de = "Wald in Hamburg (Revierförstereien und Bannwald)" }
+credit = "Datenlizenz Deutschland Namensnennung 2.0, Quellenvermerk: Freie und Hansestadt Hamburg, Behörde für Umwelt, Klima, Energie und Agrarwirtschaft (BUKEA)"
+sections = ["forest-units", "forest-functions"]
+url = "https://geodienste.hamburg.de/HH_WFS_Wald_in_Hamburg"
+output_format = "application/geo%2Bjson"
+layers = [
+    { key = "stadtwald", type_name = "de.hh.up:wald_stadtwald_hamburg", reading = "unit", administration = "Bezirksamt ", administration_attribute = "bezirk", prefix = "Revierförsterei ", office = "foersterei" },
+    { key = "bannwald", type_name = "de.hh.up:bannwald_stadtwald_hamburg", reading = "function", function = "protected", name = "name" },
+    { key = "bannwald-heuckenlock", type_name = "de.hh.up:bannwald_heuckenlock", reading = "function", function = "protected", name = "name" },
+]
+
+[[permits.wfs]]
+key = "waldfunktionen"
+label = { en = "Geoportal Hamburg", de = "Geoportal Hamburg" }
+what = { en = "forest functions (Erholungswald)", de = "Waldfunktionen (Erholungswald)" }
+credit = "Datenlizenz Deutschland Namensnennung 2.0, Quellenvermerk: Freie und Hansestadt Hamburg, Behörde für Umwelt, Klima, Energie und Agrarwirtschaft (BUKEA)"
+sections = ["forest-functions"]
+url = "https://geodienste.hamburg.de/HH_WFS_Waldfunktionen"
+output_format = "application/geo%2Bjson"
+layers = [
+    { key = "erholungswald", type_name = "de.hh.up:waldfunktionen_erholungswald", reading = "function", function = "recreation", name = "erhl_text" },
+]
+
+[[permits.wfs]]
+key = "wasserschutzgebiete"
+label = { en = "Geoportal Hamburg", de = "Geoportal Hamburg" }
+what = { en = "water protection areas", de = "Wasserschutzgebiete" }
+credit = "Datenlizenz Deutschland Namensnennung 2.0, Quellenvermerk: Freie und Hansestadt Hamburg, Behörde für Umwelt und Energie"
+sections = ["water-protection"]
+url = "https://geodienste.hamburg.de/HH_WFS_Wasserschutzgebiete"
+output_format = "application/geo%2Bjson"
+layers = [
+    { key = "wasserschutzgebiete", type_name = "de.hh.up:wasserschutzgebiete", reading = "water", name = "gebietsname", zone = "schutzzone", citation = "rechtsgrundlage" },
+]
+
 # The protected objects of nature conservation law, read by the table of the Geoportal Hamburg
 # (ADR 0146). The source is data since issue #273: a correction of an address needs no release.
 [[permits.wfs]]
