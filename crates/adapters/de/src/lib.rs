@@ -44,7 +44,8 @@ pub mod lvgl;
 pub mod lvgl_las;
 pub mod natur_permits;
 pub mod nrw_3dm;
-pub mod sbs_permits;
+#[cfg(test)]
+mod sbs_permits;
 pub mod shape_permits;
 #[cfg(test)]
 mod state_permits;

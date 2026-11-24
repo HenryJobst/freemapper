@@ -580,15 +580,9 @@ impl StateAdapter {
             State::NordrheinWestfalen => Vec::new(),
             // The sources of Baden-Württemberg are declared in its manifest (issue #273).
             State::BadenWuerttemberg => Vec::new(),
-            State::Saxony => [
-                crate::sbs_permits::sources(),
-                vec![crate::bfg_permits::source()],
-                // The Flächennaturdenkmale and biotopes of the LfULG are declared in its
-                // manifest (issue #273).
-            ]
-            .into_iter()
-            .flatten()
-            .collect(),
+            // The Sachsenforst, the monuments, the Flächennaturdenkmale and the biotopes are
+            // declared in its manifest (issue #273).
+            State::Saxony => vec![crate::bfg_permits::source()],
             State::Bremen => vec![crate::bfg_permits::source()],
             // The Naturdenkmale of Rhineland-Palatinate are declared in its manifest (issue #273).
             State::RheinlandPfalz => vec![crate::bfg_permits::source()],
@@ -956,11 +950,11 @@ mod tests {
                 ),
                 "saxony" => (
                     &[
-                        "sachsenforst",
                         "bfg",
                         "denkmale",
                         "naturdenkmale",
                         "biotope",
+                        "sachsenforst",
                     ],
                     "https://cardomap3.idu.de/lfds/public/ogc.ashx?PKGID=5",
                 ),

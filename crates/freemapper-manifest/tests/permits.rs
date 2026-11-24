@@ -1105,3 +1105,449 @@ fn the_names_of_forest_offices_follow_the_rules_a_layer_declares() {
         );
     }
 }
+
+const POINT_HEAD: &str = "[[permits.getfeatureinfo]]\nkey = \"forst\"\n\
+    label = { en = \"Forest\", de = \"Forst\" }\n\
+    what = { en = \"forest units\", de = \"Forstbezirke\" }\n\
+    credit = \"Datenlizenz Deutschland Namensnennung 2.0\"\n\
+    sections = [\"forest-units\"]\n";
+
+const POINT_REVIER: &str = "{ key = \"reviere\", url = \"https://geo.example.org/wms\", wms_layers = \"Reviere\", one = true, reading = \"unit\", administration = \"Forst\", prefix = \"Bezirk \", office = \"B\", office_renames = [{ starts_with = \"Nationalpark\", name = \"Nationalparkverwaltung\" }] }";
+
+const POINT_CODES: &str = "{ key = \"funktionen\", url = \"https://geo.example.org/wms2\", wms_layers = \"7,46,101\", reading = \"function-code\", code_attribute = \"WFZ\", name = \"GNM\", codes = [{ code = \"7110\", function = \"recreation\" }, { code = \"1110\", function = \"protected\", label = \"Boden\" }], water_prefix = \"211\", water_length = 5, zone = \"KNM\", zone_after = \" Z \" }";
+
+#[test]
+fn a_source_asked_at_points_declares_its_services_in_its_layers() {
+    let table = format!("{POINT_HEAD}layers = [{POINT_REVIER}, {POINT_CODES}]\n");
+    let manifest = parse(&with(&table), Path::new("sample")).unwrap();
+    let source = &manifest.permits[0];
+    assert!(source.getfeatureinfo && !source.shapefile && !source.gml);
+    assert_eq!(source.url, "");
+    assert_eq!(source.output_format, "");
+    assert_eq!(source.native_crs, None);
+    assert!(source.offices.is_none());
+    let revier = &source.layers[0];
+    assert_eq!(revier.type_name, "");
+    let query = revier.query.as_ref().unwrap();
+    assert_eq!(query.url, "https://geo.example.org/wms");
+    assert_eq!(query.layers, "Reviere");
+    assert!(query.one);
+    match &revier.reading {
+        DeclaredReading::Unit { rules, .. } => assert_eq!(
+            rules.renames,
+            [(
+                "Nationalpark".to_string(),
+                "Nationalparkverwaltung".to_string()
+            )]
+        ),
+        other => panic!("{other:?}"),
+    }
+    let funktionen = &source.layers[1];
+    let query = funktionen.query.as_ref().unwrap();
+    assert_eq!(query.layers, "7,46,101");
+    assert!(!query.one);
+    match &funktionen.reading {
+        DeclaredReading::FunctionCode {
+            code,
+            name,
+            codes,
+            water,
+        } => {
+            assert_eq!(code, "WFZ");
+            assert_eq!(name.as_deref(), Some("GNM"));
+            assert_eq!(codes.len(), 2);
+            assert_eq!(codes[0].code, "7110");
+            assert_eq!(codes[0].kind, ForestFunctionKind::Recreation);
+            assert_eq!(codes[0].label, None);
+            assert_eq!(codes[1].kind, ForestFunctionKind::Protected);
+            assert_eq!(codes[1].label.as_deref(), Some("Boden"));
+            let water = water.as_ref().unwrap();
+            assert_eq!(
+                (water.prefix.as_str(), water.length, water.zone.as_str()),
+                ("211", 5, "KNM")
+            );
+            assert_eq!(water.after, " Z ");
+        }
+        other => panic!("{other:?}"),
+    }
+    // Without the water codes and the name, and a table of one code.
+    let plain = format!(
+        "{POINT_HEAD}layers = [{{ key = \"f\", url = \"https://geo.example.org/wms\", wms_layers = \"1\", reading = \"function-code\", code_attribute = \"C\", codes = [{{ code = \"1\", function = \"natural\" }}] }}]\n"
+    );
+    let manifest = parse(&with(&plain), Path::new("sample")).unwrap();
+    assert!(!manifest.permits[0].layers[0].query.as_ref().unwrap().one);
+    assert!(matches!(
+        manifest.permits[0].layers[0].reading,
+        DeclaredReading::FunctionCode {
+            name: None,
+            water: None,
+            ..
+        }
+    ));
+    // The tables come in the order of services, shapefiles, points.
+    let both = format!(
+        "{POINT_HEAD}layers = [{POINT_REVIER}]\n\n{HEAD}layers = [{{ key = \"a\", type_name = \"x:a\", reading = \"district\", name = \"N\" }}]\n"
+    );
+    let keys: Vec<String> = parse(&with(&both), Path::new("sample"))
+        .unwrap()
+        .permits
+        .into_iter()
+        .map(|source| source.key)
+        .collect();
+    assert_eq!(keys, ["natur", "forst"]);
+}
+
+#[test]
+fn what_is_wrong_with_a_source_asked_at_points_is_named() {
+    let one = |layer: &str| refused(&format!("{POINT_HEAD}layers = [{layer}]\n"));
+    // The keys of a service or a zip are no keys of it, and it has no address of its own.
+    for (extra, key) in [
+        ("output_format = \"GEOJSON\"\n", "output_format"),
+        ("gml = true\n", "gml"),
+        ("native_crs = 25832\n", "native_crs"),
+        ("offices = \"berlin\"\n", "offices"),
+        ("crs = 25832\n", "crs"),
+    ] {
+        assert_eq!(
+            refused(&format!("{POINT_HEAD}{extra}layers = [{POINT_REVIER}]\n")),
+            [("manifest.unknown-key", key.to_string())],
+            "{key}"
+        );
+    }
+    assert_eq!(
+        refused(&format!(
+            "{POINT_HEAD}url = \"https://geo.example.org/wms\"\nlayers = [{POINT_REVIER}]\n"
+        )),
+        [("manifest.unknown-key", "url".to_string())]
+    );
+    // A layer needs its service and its layers; a feature type is no key of it.
+    assert_eq!(
+        one(&POINT_REVIER.replace("url = \"https://geo.example.org/wms\", ", "")),
+        [("manifest.missing-key", "url".to_string())]
+    );
+    assert_eq!(
+        one(&POINT_REVIER.replace("wms_layers = \"Reviere\", ", "")),
+        [("manifest.missing-key", "wms_layers".to_string())]
+    );
+    assert_eq!(
+        one(&POINT_REVIER.replace(
+            "key = \"reviere\", ",
+            "key = \"reviere\", type_name = \"x:a\", "
+        )),
+        [("manifest.unknown-key", "type_name".to_string())]
+    );
+    // The service is asked as it is, and its host is one of the manifest.
+    assert_eq!(
+        one(&POINT_REVIER.replace("wms\"", "wms?a=b\"")),
+        [(
+            "policy.url",
+            "permits.getfeatureinfo.layers.url".to_string()
+        )]
+    );
+    assert_eq!(
+        one(&POINT_REVIER.replace("geo.example.org", "other.example.org")),
+        [(
+            "policy.host-not-declared",
+            "permits.getfeatureinfo.layers.url".to_string()
+        )]
+    );
+    // The layers are names of a WMS, at most 24, in at most 200 characters.
+    for layers in ["", "a b", "a,,b", "a;b"] {
+        assert_eq!(
+            one(&POINT_REVIER.replace("\"Reviere\"", &format!("\"{layers}\""))),
+            [(
+                "manifest.value",
+                "permits.getfeatureinfo.layers.wms_layers".to_string()
+            )],
+            "{layers}"
+        );
+    }
+    let many = |n: usize| {
+        (0..n)
+            .map(|i| format!("l{i}"))
+            .collect::<Vec<_>>()
+            .join(",")
+    };
+    assert!(
+        parse(
+            &with(&format!(
+                "{POINT_HEAD}layers = [{}]\n",
+                POINT_REVIER.replace("Reviere", &many(24))
+            )),
+            Path::new("sample")
+        )
+        .is_ok()
+    );
+    assert_eq!(
+        one(&POINT_REVIER.replace("Reviere", &many(25))),
+        [(
+            "manifest.value",
+            "permits.getfeatureinfo.layers.wms_layers".to_string()
+        )]
+    );
+    let long = format!("{}a", "a".repeat(100));
+    let text = format!("{long},{long}");
+    assert!(text.len() > 200);
+    assert_eq!(
+        one(&POINT_REVIER.replace("Reviere", &text)),
+        [(
+            "manifest.value",
+            "permits.getfeatureinfo.layers.wms_layers".to_string()
+        )]
+    );
+    // The three keys belong to these layers only.
+    for (extra, key) in [
+        ("url = \"https://geo.example.org/wfs\", ", "url"),
+        ("wms_layers = \"a\", ", "wms_layers"),
+        ("one = true, ", "one"),
+    ] {
+        assert_eq!(
+            refused(&format!(
+                "{HEAD}layers = [{{ key = \"a\", type_name = \"x:a\", {extra}reading = \"district\", name = \"N\" }}]\n"
+            )),
+            [("manifest.unknown-key", key.to_string())],
+            "{key}"
+        );
+        assert_eq!(
+            refused(&format!(
+                "{SHAPE_HEAD}layers = [{{ key = \"w\", {extra}reading = \"water\", name = \"N\", zone = \"Z\" }}]\n"
+            )),
+            [("manifest.unknown-key", key.to_string())],
+            "{key}"
+        );
+    }
+    // A source asked at points has 1 to 8 layers.
+    assert_eq!(
+        refused(&format!("{POINT_HEAD}layers = []\n")),
+        [(
+            "manifest.value",
+            "permits.getfeatureinfo.layers".to_string()
+        )]
+    );
+    // Its key is one of the permit sources, whatever the table.
+    assert_eq!(
+        refused(&format!(
+            "{POINT_HEAD}layers = [{POINT_REVIER}]\n\n{}layers = [{{ key = \"a\", type_name = \"x:a\", reading = \"district\", name = \"N\" }}]\n",
+            HEAD.replace("\"natur\"", "\"forst\"")
+        )),
+        [("manifest.value", "permits.getfeatureinfo.key".to_string())]
+    );
+}
+
+#[test]
+fn the_keys_of_the_function_code_and_the_office_renames_are_checked() {
+    let one = |layer: &str| refused(&format!("{POINT_HEAD}layers = [{layer}]\n"));
+    let codes_key = "codes = [{ code = \"7110\", function = \"recreation\" }, { code = \"1110\", function = \"protected\", label = \"Boden\" }], ";
+    // The reading needs its attribute and 1 to 8 codes.
+    assert_eq!(
+        one(&POINT_CODES.replace("code_attribute = \"WFZ\", ", "")),
+        [("manifest.missing-key", "code_attribute".to_string())]
+    );
+    assert_eq!(
+        one(&POINT_CODES.replace(codes_key, "")),
+        [("manifest.value", "codes".to_string())]
+    );
+    assert_eq!(
+        one(&POINT_CODES.replace(codes_key, "codes = [], ")),
+        [("manifest.value", "codes".to_string())]
+    );
+    let codes = |n: usize| {
+        let list: Vec<String> = (0..n)
+            .map(|i| format!("{{ code = \"c{i}\", function = \"natural\" }}"))
+            .collect();
+        POINT_CODES.replace(codes_key, &format!("codes = [{}], ", list.join(", ")))
+    };
+    assert!(
+        parse(
+            &with(&format!("{POINT_HEAD}layers = [{}]\n", codes(8))),
+            Path::new("sample")
+        )
+        .is_ok()
+    );
+    assert_eq!(one(&codes(9)), [("manifest.value", "codes".to_string())]);
+    // A code names a function the program knows.
+    assert_eq!(
+        one(&POINT_CODES.replace("\"recreation\"", "\"picnic\"")),
+        [(
+            "manifest.value",
+            "permits.wfs.layers.codes.function".to_string()
+        )]
+    );
+    // The four keys of the water codes come together, or none of them.
+    for half in [
+        "water_prefix = \"211\", ",
+        "water_length = 5, ",
+        "zone = \"KNM\", ",
+        "zone_after = \" Z \"",
+    ] {
+        let layer = POINT_CODES.replace(half, "");
+        let layer = if half.starts_with("zone_after") {
+            layer.replace(", }", " }")
+        } else {
+            layer
+        };
+        assert_eq!(
+            one(&layer),
+            [("manifest.missing-key", "water_prefix".to_string())],
+            "{half}"
+        );
+    }
+    let without = POINT_CODES
+        .replace("water_prefix = \"211\", ", "")
+        .replace("water_length = 5, ", "")
+        .replace("zone = \"KNM\", ", "")
+        .replace(", zone_after = \" Z \"", "");
+    assert!(
+        parse(
+            &with(&format!("{POINT_HEAD}layers = [{without}]\n")),
+            Path::new("sample")
+        )
+        .is_ok()
+    );
+    for length in ["0", "21"] {
+        assert_eq!(
+            one(&POINT_CODES.replace("water_length = 5", &format!("water_length = {length}"))),
+            [(
+                "manifest.value",
+                "permits.wfs.layers.water_length".to_string()
+            )],
+            "{length}"
+        );
+    }
+    // No other reading has these keys.
+    for extra in [
+        "code_attribute = \"C\"",
+        "codes = [{ code = \"1\", function = \"natural\" }]",
+        "water_prefix = \"211\"",
+        "water_length = 5",
+        "zone_after = \" Z \"",
+        "office_renames = [{ starts_with = \"a\", name = \"b\" }]",
+    ] {
+        // A pair is named by its first key.
+        let key = match extra.split(' ').next().unwrap() {
+            "codes" => "code_attribute",
+            "water_length" | "zone_after" => "water_prefix",
+            other => other,
+        };
+        assert_eq!(
+            refused(&format!(
+                "{HEAD}layers = [{{ key = \"a\", type_name = \"x:a\", reading = \"district\", name = \"N\", {extra} }}]\n"
+            )),
+            [("manifest.unknown-key", key.to_string())],
+            "{key}"
+        );
+    }
+    // One or two renames of an office, on a unit and on the state forest.
+    let renames = |n: usize| {
+        let list: Vec<String> = (0..n)
+            .map(|i| format!("{{ starts_with = \"a{i}\", name = \"Name {i}\" }}"))
+            .collect();
+        format!("office_renames = [{}]", list.join(", "))
+    };
+    let revier = |renames: &str| {
+        POINT_REVIER.replace(
+            "office_renames = [{ starts_with = \"Nationalpark\", name = \"Nationalparkverwaltung\" }]",
+            renames,
+        )
+    };
+    for n in [1, 2] {
+        assert!(
+            parse(
+                &with(&format!("{POINT_HEAD}layers = [{}]\n", revier(&renames(n)))),
+                Path::new("sample")
+            )
+            .is_ok(),
+            "{n}"
+        );
+    }
+    for n in [0, 3] {
+        assert_eq!(
+            one(&revier(&renames(n))),
+            [("manifest.value", "office_renames".to_string())],
+            "{n}"
+        );
+    }
+    let state_forest = format!(
+        "{HEAD}layers = [{{ key = \"a\", type_name = \"x:a\", reading = \"state-forest\", owner = \"Land\", prefix = \"Amt \", office = \"B\", {} }}]\n",
+        renames(1)
+    );
+    assert!(parse(&with(&state_forest), Path::new("sample")).is_ok());
+}
+
+#[test]
+fn what_holds_up_to_300_characters_and_label_up_to_200() {
+    let layers =
+        "layers = [{ key = \"a\", type_name = \"x:a\", reading = \"district\", name = \"N\" }]\n";
+    let with_what = |n: usize| HEAD.replace("geschützte Objekte", &"x".repeat(n));
+    assert!(
+        parse(
+            &with(&format!("{}{layers}", with_what(300))),
+            Path::new("sample")
+        )
+        .is_ok()
+    );
+    assert_eq!(
+        refused(&format!("{}{layers}", with_what(301))),
+        [("manifest.value", "permits.wfs.what.de".to_string())]
+    );
+    let with_label = |n: usize| {
+        HEAD.replace(
+            "label = { en = \"Geoportal\", de = \"Geoportal\" }",
+            &format!(
+                "label = {{ en = \"Geoportal\", de = \"{}\" }}",
+                "x".repeat(n)
+            ),
+        )
+    };
+    assert!(
+        parse(
+            &with(&format!("{}{layers}", with_label(200))),
+            Path::new("sample")
+        )
+        .is_ok()
+    );
+    assert_eq!(
+        refused(&format!("{}{layers}", with_label(201))),
+        [("manifest.value", "permits.wfs.label.de".to_string())]
+    );
+}
+
+#[test]
+fn the_messages_name_the_kind_of_the_source() {
+    // A WFS source without its address.
+    assert_eq!(
+        messages(&format!(
+            "{}layers = [{{ key = \"a\", type_name = \"x:a\", reading = \"district\", name = \"N\" }}]\n",
+            HEAD.replace("url = \"https://geo.example.org/wfs\"\n", "")
+        )),
+        ["a WFS source needs `url`"]
+    );
+    // A foreign key of a shapefile source and of a source asked at points.
+    assert_eq!(
+        messages(&format!("{SHAPE_HEAD}gml = true\n{SHAPE_LAYER}")),
+        ["a shapefile source has no key `gml`"]
+    );
+    assert_eq!(
+        messages(&format!(
+            "{POINT_HEAD}gml = true\nlayers = [{POINT_REVIER}]\n"
+        )),
+        ["a source asked at points has no key `gml`"]
+    );
+    // A feature type in a layer of either.
+    assert_eq!(
+        messages(&format!(
+            "{SHAPE_HEAD}layers = [{{ key = \"w\", type_name = \"x:w\", reading = \"water\", name = \"N\", zone = \"Z\" }}]\n"
+        )),
+        ["the layer of a shapefile source has no feature type"]
+    );
+    assert_eq!(
+        messages(&format!(
+            "{POINT_HEAD}layers = [{}]\n",
+            POINT_REVIER.replace(
+                "key = \"reviere\", ",
+                "key = \"reviere\", type_name = \"x:a\", "
+            )
+        )),
+        ["the layer of a source asked at points has no feature type"]
+    );
+}

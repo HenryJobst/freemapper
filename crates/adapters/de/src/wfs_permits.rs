@@ -29,6 +29,8 @@ use crate::fetch::{FetchError, Fetcher};
 /// `exceptions` gets that prefix instead.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct OfficeRules {
+    /// A name that starts with the first text of a pair is the second text, whole.
+    pub renames: &'static [(&'static str, &'static str)],
     pub unless: Option<&'static str>,
     pub exceptions: &'static [(&'static str, &'static str)],
 }
@@ -36,6 +38,13 @@ pub struct OfficeRules {
 /// The name of the forest office `raw` as the notes give it: with the `prefix` and, where the
 /// name is all in capitals, in the case of a name, unless `rules` say otherwise.
 fn office_name(raw: &str, prefix: &str, rules: OfficeRules) -> String {
+    if let Some((_, whole)) = rules
+        .renames
+        .iter()
+        .find(|(start, _)| raw.starts_with(start))
+    {
+        return (*whole).to_string();
+    }
     if rules
         .unless
         .is_some_and(|unless| raw.to_lowercase().contains(&unless.to_lowercase()))
@@ -134,6 +143,24 @@ pub enum Reading {
         kind_from: Option<&'static str>,
         link: Option<(&'static str, &'static str)>,
     },
+    /// The function of a forest named by a code (Saxony): the codes of `codes` are functions of
+    /// forest, the codes of `water` zones of a drinking water protection area.
+    FunctionCode {
+        code: &'static str,
+        name: Option<&'static str>,
+        codes: &'static [(&'static str, ForestFunctionKind, Option<&'static str>)],
+        water: Option<WaterCodes>,
+    },
+}
+
+/// The codes of a zone of a drinking water protection area: `length` characters, starting with
+/// `prefix`. The attribute `zone` ends in the zone, after the text `after`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct WaterCodes {
+    pub prefix: &'static str,
+    pub length: usize,
+    pub zone: &'static str,
+    pub after: &'static str,
 }
 
 impl Reading {
@@ -204,6 +231,12 @@ impl Reading {
             Reading::Monument {
                 kind_from, link, ..
             } => [kind_from, link.map(|(attribute, _)| attribute)]
+                .into_iter()
+                .flatten()
+                .collect(),
+            Reading::FunctionCode {
+                code, name, water, ..
+            } => [Some(code), name, water.map(|w| w.zone)]
                 .into_iter()
                 .flatten()
                 .collect(),
@@ -402,6 +435,13 @@ pub(crate) fn wording(declared: &freemapper_adapter_api::permits::DeclaredWordin
 
 fn office_rules(declared: &freemapper_adapter_api::permits::DeclaredOfficeRules) -> OfficeRules {
     OfficeRules {
+        renames: kept_all(
+            declared
+                .renames
+                .iter()
+                .map(|(start, whole)| (kept(start), kept(whole)))
+                .collect(),
+        ),
         unless: declared.unless.as_deref().map(kept),
         exceptions: kept_all(
             declared
@@ -514,6 +554,27 @@ pub(crate) fn reading(declared: &DeclaredReading) -> Reading {
             kind_from: kind_from.as_deref().map(kept),
             link: link.as_ref().map(pair),
         },
+        DeclaredReading::FunctionCode {
+            code,
+            name,
+            codes,
+            water,
+        } => Reading::FunctionCode {
+            code: kept(code),
+            name: name.as_deref().map(kept),
+            codes: kept_all(
+                codes
+                    .iter()
+                    .map(|c| (kept(&c.code), c.kind, c.label.as_deref().map(kept)))
+                    .collect(),
+            ),
+            water: water.as_ref().map(|w| WaterCodes {
+                prefix: kept(&w.prefix),
+                length: w.length,
+                zone: kept(&w.zone),
+                after: kept(&w.after),
+            }),
+        },
     }
 }
 
@@ -521,6 +582,9 @@ pub(crate) fn reading(declared: &DeclaredReading) -> Reading {
 pub(crate) fn declared_source(declared: &DeclaredWfs) -> Box<dyn PermitSource> {
     if declared.shapefile {
         return crate::shape_permits::declared_shape_source(declared);
+    }
+    if declared.getfeatureinfo {
+        return crate::gfi_permits::declared_source(declared);
     }
     let keys: &'static [&'static str] = kept_all(
         declared
@@ -887,6 +951,35 @@ pub(crate) fn finding(reading: Reading, feature: &Value) -> Option<PermitFinding
                     .filter(|l| l.starts_with(list) && !l.contains(char::is_whitespace))
             }),
         },
+        Reading::FunctionCode {
+            code,
+            name,
+            codes,
+            water,
+        } => {
+            let code = text(feature, code)?;
+            let name = name.and_then(|n| text(feature, n));
+            if let Some((_, kind, label)) = codes.iter().find(|(c, _, _)| *c == code) {
+                FindingKind::ForestFunction {
+                    kind: *kind,
+                    name: label.map(str::to_string).or(name),
+                }
+            } else {
+                let water = water?;
+                if code.len() != water.length || !code.starts_with(water.prefix) {
+                    return None;
+                }
+                FindingKind::WaterProtection {
+                    name,
+                    zone: text(feature, water.zone).and_then(|n| {
+                        n.split_once(water.after)
+                            .map(|(_, zone)| zone_name(zone.trim()))
+                    }),
+                    citation: None,
+                    authority: None,
+                }
+            }
+        }
     };
     Some(PermitFinding { kind, geometry })
 }

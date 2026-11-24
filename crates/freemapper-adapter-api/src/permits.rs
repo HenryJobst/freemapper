@@ -376,13 +376,17 @@ pub struct DeclaredWfs {
     /// [`PermitSourceInfo::gaps`].
     pub gaps: Option<DeclaredWording>,
     pub sections: Vec<PermitSection>,
-    /// The address of the service, or, for a shapefile, of the zip that holds it.
+    /// The address of the service, or, for a shapefile, of the zip that holds it; empty for a
+    /// source asked at points, whose layers name their own services.
     pub url: String,
     /// The `outputFormat` for GeoJSON or GML; empty for a shapefile.
     pub output_format: String,
     /// The source is one shapefile in a zip (`[[permits.shapefile]]`, issue #273): `url` is the
     /// zip, `native_crs` the CRS of its positions, and it has one layer without a feature type.
     pub shapefile: bool,
+    /// The source is a WMS asked at points (`[[permits.getfeatureinfo]]`, issue #273, ADR 0139):
+    /// every layer has a [`DeclaredQuery`] and no feature type.
+    pub getfeatureinfo: bool,
     /// The service answers GML 3.2 only (ADR 0137).
     pub gml: bool,
     /// The EPSG number of the CRS the service is asked and answers in, where it is not WGS 84
@@ -409,7 +413,19 @@ pub struct DeclaredWording {
 pub struct DeclaredLayer {
     pub key: String,
     pub type_name: String,
+    /// The WMS and its layers, for a source asked at points.
+    pub query: Option<DeclaredQuery>,
     pub reading: DeclaredReading,
+}
+
+/// What a layer of a source asked at points asks: the WMS, the layers it asks at once and
+/// whether the layers do not overlap.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DeclaredQuery {
+    pub url: String,
+    pub layers: String,
+    /// The layers do not overlap (the Reviere of a state): a point keeps its first feature only.
+    pub one: bool,
 }
 
 /// How the features of a declared layer become findings, with the attributes they read; the
@@ -494,6 +510,35 @@ pub enum DeclaredReading {
         /// The attribute of the link and the start it must have.
         link: Option<(String, String)>,
     },
+    /// The function of a forest, named by a code: the codes of the table are forest functions,
+    /// and the codes of `water` are zones of a drinking water protection area.
+    FunctionCode {
+        /// The attribute of the code.
+        code: String,
+        /// The attribute of the name.
+        name: Option<String>,
+        codes: Vec<DeclaredCode>,
+        water: Option<DeclaredWaterCodes>,
+    },
+}
+
+/// A code of a forest function and what it stands for.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DeclaredCode {
+    pub code: String,
+    pub kind: ForestFunctionKind,
+    /// The name the notes give the function; it replaces the one of the attribute.
+    pub label: Option<String>,
+}
+
+/// The codes that stand for a zone of a drinking water protection area: those of `length`
+/// characters that start with `prefix`. The attribute `zone` ends in the zone, after `after`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DeclaredWaterCodes {
+    pub prefix: String,
+    pub length: usize,
+    pub zone: String,
+    pub after: String,
 }
 
 /// How the name of a forest office becomes the name the notes give it, where `prefix` alone is
@@ -501,6 +546,8 @@ pub enum DeclaredReading {
 /// `exceptions` gets that prefix instead of `prefix`.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct DeclaredOfficeRules {
+    /// Names that start with the first text of a pair are the second text, whole.
+    pub renames: Vec<(String, String)>,
     pub unless: Option<String>,
     /// Pairs of a name and the prefix it gets.
     pub exceptions: Vec<(String, String)>,
