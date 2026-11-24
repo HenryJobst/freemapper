@@ -48,3 +48,6 @@ PDF of the annex at `https://api.sejm.gov.pl/eli/acts/DU/2021/1390/text.pdf`):
   reduces it to the open ground like any park.
 - `Bi` stays the largest unmapped class in a Polish town (472 of the first 1000 parcels of Słubice).
 - Open: a source that splits `Bi` (the BDOT10k `PTZB_A` layer and `KUSC_A` cemeteries already do for the fallback).
+  Measured on 24 November 2026 in [ADR 0194](0194-poland-cemeteries-on-bi-parcels-from-bdot10k.md): `PTZB_A` does not split
+  `Bi` (it follows the orthophoto, not the register); `KUSC_A` does for cemeteries, which become `Friedhof` candidates;
+  schools and hospitals (`KUOS_A`, `KUOZ_A`) are found but have no land use that fits, shops and offices have no class.

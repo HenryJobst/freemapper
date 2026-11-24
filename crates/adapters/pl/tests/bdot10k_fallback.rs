@@ -38,6 +38,11 @@ fn area() -> FetchArea {
 }
 
 fn archive() -> Vec<u8> {
+    archive_with(true)
+}
+
+/// The archive of the powiat, with or without the file of the cemeteries.
+fn archive_with(cemeteries: bool) -> Vec<u8> {
     let name = |c: &str| format!("PL.PZGiK.333.0805/BDOT10k/PL.PZGiK.333.0805__OT_{c}.xml");
     let mut writer = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
     for (class, text) in [
@@ -46,7 +51,11 @@ fn archive() -> Vec<u8> {
         ("PTLZ_A", include_str!("fixtures/bdot10k/PTLZ_A.xml")),
         ("PTPL_A", include_str!("fixtures/bdot10k/PTPL_A.xml")),
         ("PTZB_A", include_str!("fixtures/bdot10k/PTZB_A.xml")),
-    ] {
+        ("KUSC_A", include_str!("fixtures/bdot10k/KUSC_A.xml")),
+    ]
+    .into_iter()
+    .filter(|(class, _)| cemeteries || *class != "KUSC_A")
+    {
         writer
             .start_file(name(class), zip::write::SimpleFileOptions::default())
             .unwrap();
@@ -106,6 +115,7 @@ fn square(north: f64, east: f64, side: f64) -> [(f64, f64); 5] {
 struct Run {
     _scratch: tempfile::TempDir,
     cache: CacheDir,
+    mode: FetchMode,
     notes: Vec<(String, bool)>,
 }
 
@@ -116,6 +126,7 @@ impl Run {
         Self {
             _scratch: scratch,
             cache,
+            mode: FetchMode::Online,
             notes: Vec::new(),
         }
     }
@@ -136,7 +147,7 @@ impl Run {
             fetcher,
             regions: &registry,
             cache: &self.cache,
-            mode: FetchMode::Online,
+            mode: self.mode,
             today: NaiveDate::from_ymd_opt(2026, 11, 22).unwrap(),
             skip_surface: false,
             progress: &mut progress,
@@ -255,7 +266,9 @@ fn parcels_that_cover_the_area_keep_bdot10k_away_from_the_land_use() {
     let mut run = Run::new();
     let part = run.land_use(&fetcher).unwrap();
     assert_eq!(oids(&part), ["P0"]);
-    assert!(!asked_bdot(&fetcher));
+    // Only the cemeteries are asked, by byte ranges: no archive in the cache, no land use read.
+    assert!(!cached_archive(&run));
+    assert!(run.notes.is_empty());
 }
 
 #[test]
@@ -320,4 +333,114 @@ fn every_address_the_fallback_asks_is_on_a_host_of_the_adapter() {
             "{url}"
         );
     }
+}
+
+/// Whether a powiat archive was downloaded whole into the cache.
+fn cached_archive(run: &Run) -> bool {
+    let dir = run
+        .cache
+        .provider_dir(freemapper_adapters_pl::rasters::PROVIDER)
+        .join("bdot10k");
+    dir.read_dir()
+        .is_ok_and(|mut entries| entries.next().is_some())
+}
+
+/// Parcels where EGiB gives a land use for a quarter of the box (two woods in the south) and a
+/// `Bi` parcel on the cemetery of the fixture (at 507 700 to 507 783 north, 197 888 to 197 970
+/// east) and one on the church grounds (507 560 to 507 645 north, 197 653 to 197 780 east).
+fn parcels_with(on_cemetery: &str) -> String {
+    parcels(&[
+        ("Ls", square(507_405.0, 197_783.0, 300.0)),
+        ("Ls", square(507_405.0, 197_483.0, 100.0)),
+        ("Bi", square(507_540.0, 197_640.0, 150.0)),
+        (on_cemetery, square(507_650.0, 197_850.0, 200.0)),
+    ])
+}
+
+fn friedhof_ids(part: &AlkisPart) -> Vec<String> {
+    part.features
+        .iter()
+        .filter(|f| f["properties"]["nutzart"] == "Friedhof")
+        .map(|f| f["properties"]["oid"].as_str().unwrap().to_string())
+        .collect()
+}
+
+#[test]
+fn a_cemetery_on_a_bi_parcel_is_a_friedhof_and_church_grounds_are_not() {
+    let fetcher = served(EMPTY, &parcels_with("Bi"));
+    let mut run = Run::new();
+    let part = run.land_use(&fetcher).unwrap();
+    // The two woods of EGiB (a `Bi` parcel gives no land use) and one cemetery.
+    assert_eq!(part.features.len(), 3, "{:?}", oids(&part));
+    let friedhof = friedhof_ids(&part);
+    assert_eq!(friedhof.len(), 1);
+    assert!(friedhof[0].starts_with("BDOT10k.KUSC_A."), "{friedhof:?}");
+    assert!(
+        run.has_note("1 BDOT10k cemeteries filled in", false),
+        "{:?}",
+        run.notes
+    );
+    assert!(!cached_archive(&run));
+}
+
+#[test]
+fn a_cemetery_on_a_parcel_with_a_land_use_is_left_to_egib() {
+    for class in ["Bz", "Lz", "B", "Ls"] {
+        let fetcher = served(EMPTY, &parcels_with(class));
+        let mut run = Run::new();
+        let part = run.land_use(&fetcher).unwrap();
+        assert!(friedhof_ids(&part).is_empty(), "{class}");
+        assert!(run.notes.is_empty(), "{class}: {:?}", run.notes);
+    }
+}
+
+#[test]
+fn a_cemetery_on_a_parcel_of_mixed_classes_is_a_friedhof() {
+    // `Bi,Bz` is a parcel without a land use of its own (ADR 0171).
+    let fetcher = served(EMPTY, &parcels_with("Bi,Bz"));
+    let mut run = Run::new();
+    let part = run.land_use(&fetcher).unwrap();
+    assert_eq!(friedhof_ids(&part).len(), 1);
+}
+
+#[test]
+fn offline_no_cemetery_is_asked() {
+    let fetcher = served(EMPTY, &parcels_with("Bi"));
+    let mut run = Run::new();
+    run.mode = FetchMode::Offline;
+    let part = run.land_use(&fetcher).unwrap();
+    assert!(friedhof_ids(&part).is_empty());
+    assert!(!fetcher.log.borrow().iter().any(|u| u.starts_with(INDEX)));
+    assert!(run.notes.is_empty());
+}
+
+#[test]
+fn a_failing_index_is_a_warning_and_the_land_use_stays_that_of_egib() {
+    let fetcher = served(EMPTY, &parcels_with("Bi"));
+    fetcher.refusing.borrow_mut().push(INDEX.to_string());
+    let mut run = Run::new();
+    let part = run.land_use(&fetcher).unwrap();
+    assert_eq!(oids(&part), ["P0", "P1"].map(String::from));
+    assert!(run.has_note("BDOT10k could not fill the gap in EGiB (cemeteries)", true));
+}
+
+#[test]
+fn an_archive_without_a_cemetery_file_adds_nothing_and_says_nothing() {
+    let fetcher = served(EMPTY, &parcels_with("Bi"));
+    fetcher.insert(ARCHIVE, archive_with(false));
+    let mut run = Run::new();
+    let part = run.land_use(&fetcher).unwrap();
+    assert!(friedhof_ids(&part).is_empty());
+    assert_eq!(part.features.len(), 2);
+    assert!(run.notes.is_empty());
+}
+
+#[test]
+fn a_box_in_no_powiat_adds_nothing_and_says_nothing() {
+    let fetcher = served(EMPTY, &parcels_with("Bi"));
+    fetcher.insert_prefix(INDEX, EMPTY.as_bytes().to_vec());
+    let mut run = Run::new();
+    let part = run.land_use(&fetcher).unwrap();
+    assert_eq!(part.features.len(), 2);
+    assert!(run.notes.is_empty());
 }
