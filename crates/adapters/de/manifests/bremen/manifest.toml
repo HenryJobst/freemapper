@@ -50,6 +50,21 @@ max_bytes = 268435456
 
 # A preview is one layer, and the service has one per city: the area page shows the aerial photo
 # of the city of Bremen, and none of Bremerhaven.
+# The Kulturdenkmale of the Landesamt für Denkmalpflege, GML 3.2, with the link into the list; the archaeological monuments need the owner's consent and stay out (issue #273).
+[[permits.wfs]]
+key = "denkmale"
+label = { en = "Landesamt für Denkmalpflege Bremen", de = "Landesamt für Denkmalpflege Bremen" }
+what = { en = "Einzeldenkmale and Ensembles", de = "Einzeldenkmale und Ensembles" }
+credit = "Creative Commons Namensnennung (CC-BY), Quellenvermerk: Freie Hansestadt Bremen, Senator für Kultur"
+sections = ["monuments"]
+url = "https://geodienste.bremen.de/wfs_kulturdenkmale"
+output_format = "application%2Fgml%2Bxml%3B%20version%3D3.2"
+gml = true
+layers = [
+    { key = "einzeldenkmale", type_name = "app:einzeldenkmale", reading = "monument", monument = "Einzeldenkmal", link_attribute = "link", link_prefix = "https://denkmalpflege.bremen.de/" },
+    { key = "ensembles", type_name = "app:ensembles", reading = "monument", monument = "Ensemble", link_attribute = "link", link_prefix = "https://denkmalpflege.bremen.de/" },
+]
+
 [preview]
 wms = "https://geodienste.bremen.de/wms_dop_lb"
 layer = "dop10_2025_HB"

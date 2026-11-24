@@ -81,6 +81,39 @@ fields = { kind = "GATTUNG", id = "BAUMNUMMER", species = "GA_LANG", crown = "KR
 attribution = "Quelle: © GeoDaten-KVA / Stadt Frankfurt (Oder), dl-de/by-2-0"
 max_bytes = 268435456
 
+# The Baudenkmale and the Bodendenkmale of the BLDAM, GML 3.2, asked in its CRS (a box in WGS 84 finds nothing there) (issue #273).
+[[permits.wfs]]
+key = "baudenkmale"
+label = { en = "BLDAM", de = "BLDAM" }
+what = { en = "Baudenkmale, Gartendenkmale, Denkmalbereiche", de = "Baudenkmale, Gartendenkmale, Denkmalbereiche" }
+credit = "© Denkmaldaten/BLDAM {year}"
+gaps = { en = "the city of Potsdam keeps its own list of monuments, which is not in these data", de = "Die Stadt Potsdam führt ihre Denkmalliste selbst; sie ist nicht in diesen Daten" }
+sections = ["monuments"]
+url = "https://gis-bldam-brandenburg.de/ows/baudenkmale"
+output_format = "application%2Fgml%2Bxml%3B%20version%3D3.2"
+gml = true
+native_crs = 25832
+layers = [
+    { key = "punkte", type_name = "ms:Baudenkmal-Punkt", reading = "monument", monument = "Baudenkmal" },
+    { key = "flaechen", type_name = "ms:Baudenkmal-Polygon", reading = "monument", monument = "Baudenkmal" },
+    { key = "gartendenkmale", type_name = "ms:Baudenkmal-Gartendenkmal", reading = "monument", monument = "Gartendenkmal" },
+    { key = "denkmalbereiche", type_name = "ms:Denkmal-mit-Flaechencharakter", reading = "monument", monument = "Denkmalbereich" },
+]
+
+[[permits.wfs]]
+key = "bodendenkmale"
+label = { en = "BLDAM", de = "BLDAM" }
+what = { en = "Bodendenkmale", de = "Bodendenkmale" }
+credit = "Quelle: © Denkmaldaten/Brandenburgisches Landesamt für Denkmalpflege und Archäologisches Landesmuseum (BLDAM), dl-de/by-2-0"
+sections = ["monuments"]
+url = "https://gis-bldam-brandenburg.de/ows/bodendenkmale"
+output_format = "application%2Fgml%2Bxml%3B%20version%3D3.2"
+gml = true
+native_crs = 25832
+layers = [
+    { key = "flaechen", type_name = "ms:Bodendenkmal-Flaechen", reading = "monument", monument = "Bodendenkmal" },
+]
+
 # The protected objects (issue #273): the Naturdenkmale and Landschaftsbestandteile of the Landkreise
 # in the forest service, and the protected biotopes of the biotope register of the LfU.
 [[permits.wfs]]

@@ -64,6 +64,33 @@ backend = "lgl-bw"
 [surface]
 backend = "lgl-bw"
 
+# The two WFS of the Landesamt für Denkmalpflege behind the LGL's proxy; the type names go without their prefix (issue #273).
+[[permits.wfs]]
+key = "denkmale"
+label = { en = "Landesamt für Denkmalpflege Baden-Württemberg", de = "Landesamt für Denkmalpflege Baden-Württemberg" }
+what = { en = "Kulturdenkmale and Gesamtanlagen", de = "Kulturdenkmale und Gesamtanlagen" }
+credit = "Es gelten die Lizenzbedingungen „Datenlizenz Deutschland -Namensnennung -Version 2.0“ bzw. „dl-de/by-2-0” (https://www.govdata.de/dl-de/by-2-0) mit Angabe der Datenquelle: dl-de/by-2-0: Landesamt für Denkmalpflege im Regierungspräsidium Stuttgart, www.denkmalpflege-bw.de"
+sections = ["monuments"]
+url = "https://owsproxy.lgl-bw.de/owsproxy/wfs/WFS_LAD_Kulturdenkmale_Bau_Kunstdenkmalpflege"
+output_format = "application/json"
+layers = [
+    { key = "kulturdenkmale", type_name = "v_bau_kunstdenkmalpflege_kulturdenkmale", reading = "monument", monument = "Kulturdenkmal" },
+    { key = "gesamtanlagen", type_name = "v_bau_kunstdenkmalpflege_gesamtanlagen", reading = "monument", monument = "Gesamtanlage" },
+]
+
+[[permits.wfs]]
+key = "archaeologie"
+label = { en = "Landesamt für Denkmalpflege Baden-Württemberg", de = "Landesamt für Denkmalpflege Baden-Württemberg" }
+what = { en = "archaeological monuments and Grabungsschutzgebiete", de = "archäologische Kulturdenkmale und Grabungsschutzgebiete" }
+credit = "Es gelten die Lizenzbedingungen „Datenlizenz Deutschland -Namensnennung -Version 2.0“ bzw. „dl-de/by-2-0” (https://www.govdata.de/dl-de/by-2-0) mit Angabe der Datenquelle: dl-de/by-2-0: Landesamt für Denkmalpflege im Regierungspräsidium Stuttgart, www.denkmalpflege-bw.de"
+sections = ["monuments"]
+url = "https://owsproxy.lgl-bw.de/owsproxy/wfs/WFS_LAD_Archaeologische_Kulturdenkmale_BW"
+output_format = "application/json"
+layers = [
+    { key = "kulturdenkmale", type_name = "v_archaeologie_kulturdenkmale", reading = "monument", monument = "Archäologisches Kulturdenkmal" },
+    { key = "grabungsschutzgebiete", type_name = "v_archaeologie_grabungsschutzgebiete", reading = "monument", monument = "Grabungsschutzgebiet" },
+]
+
 # The Naturdenkmale of the LUBW, single ones and areas (issue #273). The biotopes stay out: their
 # terms of use need a request for any commercial use.
 [[permits.wfs]]

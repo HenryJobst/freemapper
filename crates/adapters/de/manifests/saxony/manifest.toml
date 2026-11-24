@@ -61,6 +61,21 @@ fields = { kind = "gattung", id = "baumnummer", species = "ga_lang_deutsch", cro
 attribution = "Stadt Leipzig, Baumkataster, dl-de/by-2-0"
 max_bytes = 268435456
 
+# The Kulturdenkmale of the Landesamt für Denkmalpflege Sachsen (cardo), GML 3.2, as areas and as points (issue #273).
+[[permits.wfs]]
+key = "denkmale"
+label = { en = "Landesamt für Denkmalpflege Sachsen", de = "Landesamt für Denkmalpflege Sachsen" }
+what = { en = "Kulturdenkmale", de = "Kulturdenkmale" }
+credit = "Landesamt für Denkmalpflege Sachsen, Creative Commons Namensnennung 3.0 Deutschland (CC BY 3.0 DE)"
+sections = ["monuments"]
+url = "https://cardomap3.idu.de/lfds/public/ogc.ashx?PKGID=5"
+output_format = "application%2Fgml%2Bxml%3B%20version%3D3.2"
+gml = true
+layers = [
+    { key = "flaechen", type_name = "cls:L1", reading = "monument", monument = "Kulturdenkmal" },
+    { key = "punkte", type_name = "cls:L3", reading = "monument", monument = "Kulturdenkmal" },
+]
+
 # The Flächennaturdenkmale and the register of the protected biotopes of the LfULG (issue #273).
 # The Naturdenkmale that are single trees or rocks are kept by the Landkreise.
 [[permits.wfs]]

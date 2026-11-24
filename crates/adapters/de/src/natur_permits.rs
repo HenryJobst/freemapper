@@ -5,10 +5,59 @@
 //! sources hold none of them. The credit lines are verbatim from the capabilities or the
 //! catalogue entries (research `naturschutzobjekte-2026-11-15.md`).
 
-use freemapper_adapter_api::permits::{PermitSection, PermitSource, ProtectedObjectKind, Wording};
+use std::path::Path;
 
-use crate::denkmal_permits::with_gaps;
+use freemapper_adapter_api::permits::{
+    PermitFinding, PermitSection, PermitSource, PermitSourceInfo, ProtectedObjectKind, Wording,
+};
+use geo_types::Rect;
+use serde_json::Value;
+
+use crate::fetch::{CacheDir, FetchError, Fetcher};
 use crate::wfs_permits::Reading;
+
+/// A source whose data have the gaps `gaps` (ADR 0144); everything else is `inner`'s.
+struct WithGaps {
+    inner: Box<dyn PermitSource>,
+    info: PermitSourceInfo,
+}
+
+fn with_gaps(inner: Box<dyn PermitSource>, gaps: Wording) -> Box<dyn PermitSource> {
+    let info = PermitSourceInfo {
+        gaps: Some(gaps),
+        ..inner.info().clone()
+    };
+    Box::new(WithGaps { inner, info })
+}
+
+impl PermitSource for WithGaps {
+    fn info(&self) -> &PermitSourceInfo {
+        &self.info
+    }
+
+    fn fetch(
+        &self,
+        fetcher: &dyn Fetcher,
+        bbox: &Rect<f64>,
+        part: &Path,
+    ) -> Result<Vec<Vec<Value>>, FetchError> {
+        self.inner.fetch(fetcher, bbox, part)
+    }
+
+    fn fetch_cached(
+        &self,
+        fetcher: &dyn Fetcher,
+        bbox: &Rect<f64>,
+        part: &Path,
+        cache: &CacheDir,
+    ) -> Result<Vec<Vec<Value>>, FetchError> {
+        self.inner.fetch_cached(fetcher, bbox, part, cache)
+    }
+
+    fn findings(&self, layer: &str, features: &[Value]) -> Vec<PermitFinding> {
+        self.inner.findings(layer, features)
+    }
+}
 
 const OBJECTS: &[PermitSection] = &[PermitSection::ProtectedObjects];
 

@@ -112,6 +112,23 @@ fields = { kind = "art_botani", id = "id", date = "edatum", species = "art_deuts
 attribution = "Stadt Dortmund, Baumkataster, dl-de/zero-2-0"
 max_bytes = 268435456
 
+# The monuments of the state's WFS, GML 3.2 in its CRS, each of the kind its attribute `kategorie` names (issue #273).
+[[permits.wfs]]
+key = "denkmale"
+label = { en = "Land NRW", de = "Land NRW" }
+what = { en = "monuments under the Denkmalschutzgesetz", de = "Denkmäler nach dem Denkmalschutzgesetz" }
+credit = "Datenlizenz Deutschland – Zero – Version 2.0 (https://www.govdata.de/dl-de/zero-2-0)"
+gaps = { en = "the state gathers the monuments Gemeinde by Gemeinde, and not every Gemeinde is in them yet", de = "Das Land trägt die Denkmäler Gemeinde für Gemeinde zusammen, und noch ist nicht jede Gemeinde darin" }
+sections = ["monuments"]
+url = "https://www.wfs.nrw.de/wfs/denkmal"
+output_format = "application%2Fgml%2Bxml%3B%20version%3D3.2"
+gml = true
+native_crs = 25832
+layers = [
+    { key = "punkte", type_name = "denkmal:denkmal_punkte", reading = "monument", monument = "Denkmal", kind_from = "kategorie" },
+    { key = "flaechen", type_name = "denkmal:denkmal_flaechen", reading = "monument", monument = "Denkmal", kind_from = "kategorie" },
+]
+
 # The legally protected biotopes of LINFOS, without their type (the service gives it only in a
 # report page), issue #273.
 [[permits.wfs]]
