@@ -3714,7 +3714,7 @@ mod tests {
                 vec![granice(vec![
                     municipality("gmina B", "0001022", square(13.07, 51.9, 13.2, 52.2)),
                     municipality("gmina A", "0001012", square(12.9, 51.9, 13.07, 52.2)),
-                    municipality("gmina C", "0001032", square(13.2, 51.9, 13.2005, 52.2)),
+                    municipality("gmina C", "0001032", square(13.0998, 51.9, 13.2, 52.2)),
                 ])],
             ),
         );
@@ -3725,6 +3725,21 @@ mod tests {
         assert_eq!(
             hint(&found, hint_key::GMINA_ROADS_PL)[0].args,
             args(&[("gmina", "gmina A, gmina B")])
+        );
+        // Where every gmina lies only at the edge, they all stay.
+        let found = notes(
+            MapKind::Sprint,
+            &polish(
+                vec![],
+                vec![granice(vec![
+                    municipality("gmina C", "0001032", square(13.0998, 51.9, 13.2, 52.2)),
+                    municipality("gmina D", "0001042", square(12.9, 51.9, 13.0004, 52.2)),
+                ])],
+            ),
+        );
+        assert_eq!(
+            hint(&found, hint_key::GMINA_ROADS_PL)[0].args,
+            args(&[("gmina", "gmina D, gmina C")])
         );
     }
 
