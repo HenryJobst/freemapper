@@ -220,8 +220,22 @@ ditches (`W`) and waste land (`N`) among them are not counted. That last rule is
 the samples (a meadow with a strip of waste land is still a meadow) and has no source in the
 ordinance.
 
-Still unverified: the finer PKOB letters (none occurred), the classes of the cities with empty values, and whether `Tk` railway land
+Still unverified: the finer PKOB letters (none occurred, see the addendum of 24 November 2026 on building kinds), the classes of the cities with empty values, and whether `Tk` railway land
 should be out-of-bounds private ground as in Germany (it is, through `Bahnverkehr`).
+
+## Addendum 24 November 2026: building kinds in words, PKOB letters not seen (ADR 0195)
+
+Sampled again on `mapy.geoportal.gov.pl` (`ms:budynki`): Słubice 421 buildings, Kraków 161, Gdańsk 107, Wrocław 135,
+Łódź 66, together with the earlier samples about 3000. Only the letters `b g h i k m p s t z` occurred; none of the PKOB
+letters (`mj`, `md`, `a`, `u`, `r`, ...). Whether the service ever sends them stays open and costs nothing, because the
+table already maps them.
+
+What did occur: **Poznań (powiat 3064) sends the KŚT class names in words, cut off at 20 characters**: `budynki
+mieszkalne` (528 of 1000 buildings in one box), `pozostałe budynki ni` 192, `budynki transportu i` 115,
+`budynki handlowo-usł` 51, `budynki produkcyjne,` 38, `budynki biurowe` 26, `zbiorniki, silosy i ` 23, `budynki
+oświaty, nau` 15, `budynki przemysłowe` 11, `budynki szpitali i i` 1. They are the ten groups of `kodKst` 101 to 110 and
+map to the letters `m i t h g b s k p z`. `kind_of_words` in `egib.rs` does that (prefix match); the `funktion` was the
+raw text before. Revision 13. One of the four boxes also held plain letters, so both forms mix.
 
 ## Addendum 24 November 2026: `Bz` and `Bi` read from the annex (ADR 0192)
 
