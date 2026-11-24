@@ -13,8 +13,9 @@ use std::path::{Path, PathBuf};
 use chrono::NaiveDate;
 use freemapper_adapter_api::extras::{NasModel, NasSchema, TreeFormat};
 use freemapper_adapter_api::permits::{
-    DeclaredLayer, DeclaredOfficeRules, DeclaredReading, DeclaredWfs, DeclaredWording,
-    DistrictOffices, ForestFunctionKind, PermitSection, ProtectedObjectKind,
+    DeclaredCode, DeclaredLayer, DeclaredOfficeRules, DeclaredQuery, DeclaredReading,
+    DeclaredWaterCodes, DeclaredWfs, DeclaredWording, DistrictOffices, ForestFunctionKind,
+    PermitSection, ProtectedObjectKind,
 };
 use freemapper_adapter_api::policy;
 use freemapper_georef::crs::Crs;
@@ -28,7 +29,7 @@ use crate::model::{
     TreeFields, Trees, Version, Wfs,
 };
 use crate::schema::{
-    Params, Raw, RawAdapter, RawAlkis, RawAttribution, RawBoundary, RawDate, RawEstimate,
+    Params, Raw, RawAdapter, RawAlkis, RawAttribution, RawBoundary, RawCode, RawDate, RawEstimate,
     RawExtract, RawNas, RawPermitLayer, RawPermitWfs, RawPreview, RawRaster, RawTrees, RawWording,
     Text,
 };
@@ -166,6 +167,35 @@ fn is_type_name(text: &str) -> bool {
     let mut parts = text.split(':');
     let (first, second) = (parts.next(), parts.next());
     parts.next().is_none() && first.is_some_and(is_field) && second.is_none_or(is_field)
+}
+
+/// The kinds of a permit source table.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum PermitKind {
+    /// `[[permits.wfs]]`.
+    Wfs,
+    /// `[[permits.shapefile]]`.
+    Shapefile,
+    /// `[[permits.getfeatureinfo]]`.
+    Points,
+}
+
+impl PermitKind {
+    fn table(self) -> &'static str {
+        match self {
+            PermitKind::Wfs => "permits.wfs",
+            PermitKind::Shapefile => "permits.shapefile",
+            PermitKind::Points => "permits.getfeatureinfo",
+        }
+    }
+
+    fn noun(self) -> &'static str {
+        match self {
+            PermitKind::Wfs => "WFS source",
+            PermitKind::Shapefile => "shapefile source",
+            PermitKind::Points => "source asked at points",
+        }
+    }
 }
 
 /// A feature type of a permit service: [`is_type_name`], and letters such as `ä` in the name
@@ -615,7 +645,11 @@ impl Check<'_> {
         };
         let nas = self.nas_services(&raw.extra.nas, crs);
         let trees = self.tree_cadastres(&raw.extra.trees, crs);
-        let permits = self.permit_sources(&raw.permits.wfs, &raw.permits.shapefile);
+        let permits = self.permit_sources(
+            &raw.permits.wfs,
+            &raw.permits.shapefile,
+            &raw.permits.getfeatureinfo,
+        );
         let preview = match &raw.preview {
             Some(preview) => self.preview(preview).map(Some),
             None => Some(None),
@@ -2063,20 +2097,27 @@ impl Check<'_> {
         fine.then_some(cadastres)
     }
 
-    /// `[[permits.wfs]]` and `[[permits.shapefile]]`: the sources of the permit notes
-    /// (issue #273). A shapefile source has the keys of a WFS one, but `url` is a zip, `crs` the
-    /// CRS of its positions and its one layer has no feature type; it has no `output_format`,
-    /// `gml`, `native_crs` or `offices`.
+    /// `[[permits.wfs]]`, `[[permits.shapefile]]` and `[[permits.getfeatureinfo]]`: the sources
+    /// of the permit notes (issue #273). A shapefile source has the keys of a WFS one, but `url`
+    /// is a zip, `crs` the CRS of its positions and its one layer has no feature type; it has no
+    /// `output_format`, `gml`, `native_crs` or `offices`. A source asked at points has no `url`
+    /// either: every layer names its WMS (`url`, `wms_layers`, `one`) and has no feature type.
     fn permit_sources(
         &mut self,
         wfs: &[RawPermitWfs],
         shapefiles: &[RawPermitWfs],
+        points: &[RawPermitWfs],
     ) -> Option<Vec<DeclaredWfs>> {
         let mut fine = true;
-        let all: Vec<(&RawPermitWfs, bool)> = wfs
+        let all: Vec<(&RawPermitWfs, PermitKind)> = wfs
             .iter()
-            .map(|source| (source, false))
-            .chain(shapefiles.iter().map(|source| (source, true)))
+            .map(|source| (source, PermitKind::Wfs))
+            .chain(
+                shapefiles
+                    .iter()
+                    .map(|source| (source, PermitKind::Shapefile)),
+            )
+            .chain(points.iter().map(|source| (source, PermitKind::Points)))
             .collect();
         if all.len() > 12 {
             self.fail(
@@ -2088,12 +2129,10 @@ impl Check<'_> {
             fine = false;
         }
         let mut sources: Vec<DeclaredWfs> = Vec::new();
-        for (source, shapefile) in all {
-            let table = if shapefile {
-                "permits.shapefile"
-            } else {
-                "permits.wfs"
-            };
+        for (source, kind) in all {
+            let shapefile = kind == PermitKind::Shapefile;
+            let points = kind == PermitKind::Points;
+            let table = kind.table();
             let key = self.matching(
                 &source.key,
                 &format!("{table}.key"),
@@ -2113,7 +2152,7 @@ impl Check<'_> {
                 fine = false;
             }
             let label = self.wording(&source.label, &format!("{table}.label"), 200);
-            let what = self.wording(&source.what, &format!("{table}.what"), 200);
+            let what = self.wording(&source.what, &format!("{table}.what"), 300);
             let gaps = match &source.gaps {
                 Some(gaps) => self.wording(gaps, &format!("{table}.gaps"), 400).map(Some),
                 None => Some(None),
@@ -2124,13 +2163,35 @@ impl Check<'_> {
                 "manifest.attribution",
                 400,
             );
-            let url = self.url_with(&source.url, &format!("{table}.url"), !shapefile);
-            let (output_format, native_crs, offices, gml) = if shapefile {
+            let url = match (&source.url, points) {
+                (Some(url), false) => self.url_with(url, &format!("{table}.url"), !shapefile),
+                (None, false) => {
+                    self.fail(
+                        "manifest.missing-key",
+                        &source.key.span(),
+                        "url",
+                        format!("a {} needs `url`", kind.noun()),
+                    );
+                    None
+                }
+                (None, true) => Some(String::new()),
+                (Some(url), true) => {
+                    self.fail(
+                        "manifest.unknown-key",
+                        &url.span(),
+                        "url",
+                        "a source asked at points has no key `url`; its layers have one",
+                    );
+                    None
+                }
+            };
+            let (output_format, native_crs, offices, gml) = if shapefile || points {
                 let foreign = [
                     ("output_format", source.output_format.is_some()),
                     ("gml", source.gml.is_some()),
                     ("native_crs", source.native_crs.is_some()),
                     ("offices", source.offices.is_some()),
+                    ("crs", points && source.crs.is_some()),
                 ];
                 let mut clean = true;
                 for (name, present) in foreign {
@@ -2139,31 +2200,40 @@ impl Check<'_> {
                             "manifest.unknown-key",
                             &source.key.span(),
                             name,
-                            format!("a shapefile source has no key `{name}`"),
+                            format!("a {} has no key `{name}`", kind.noun()),
                         );
                         clean = false;
                     }
                 }
-                let crs = match &source.crs {
-                    Some(crs) => self
-                        .crs(crs, "permits.shapefile.crs")
-                        .map(|crs| Some(crs.epsg())),
-                    None => {
-                        self.fail(
-                            "manifest.missing-key",
-                            &source.key.span(),
-                            "crs",
-                            "a shapefile source needs `crs`",
-                        );
-                        None
-                    }
-                };
-                (
-                    clean.then(String::new),
-                    crs,
-                    clean.then_some(None),
-                    clean.then_some(false),
-                )
+                if points {
+                    (
+                        clean.then(String::new),
+                        clean.then_some(None),
+                        clean.then_some(None),
+                        clean.then_some(false),
+                    )
+                } else {
+                    let crs = match &source.crs {
+                        Some(crs) => self
+                            .crs(crs, "permits.shapefile.crs")
+                            .map(|crs| Some(crs.epsg())),
+                        None => {
+                            self.fail(
+                                "manifest.missing-key",
+                                &source.key.span(),
+                                "crs",
+                                "a shapefile source needs `crs`",
+                            );
+                            None
+                        }
+                    };
+                    (
+                        clean.then(String::new),
+                        crs,
+                        clean.then_some(None),
+                        clean.then_some(false),
+                    )
+                }
             } else {
                 if source.crs.is_some() {
                     self.fail(
@@ -2242,7 +2312,7 @@ impl Check<'_> {
                 layers = None;
             }
             for layer in &source.layers {
-                let one = self.permit_layer(layer, shapefile);
+                let one = self.permit_layer(layer, kind);
                 if let (Some(all), Some(one)) = (&layers, &one)
                     && all.iter().any(|other: &DeclaredLayer| other.key == one.key)
                 {
@@ -2299,6 +2369,7 @@ impl Check<'_> {
                     url,
                     output_format,
                     shapefile,
+                    getfeatureinfo: points,
                     gml,
                     native_crs,
                     offices,
@@ -2379,7 +2450,7 @@ impl Check<'_> {
 
     /// The keys of `layer` that do not belong to its reading, as findings.
     fn foreign(&mut self, layer: &RawPermitLayer, allowed: &[&str]) -> bool {
-        let given: [(&str, bool); 27] = [
+        let given: [(&str, bool); 30] = [
             ("name", layer.name.is_some()),
             ("zone", layer.zone.is_some()),
             ("citation", layer.citation.is_some()),
@@ -2417,6 +2488,17 @@ impl Check<'_> {
             ("point_names", layer.point_names.is_some()),
             ("office_unless", layer.office_unless.is_some()),
             ("office_exceptions", layer.office_exceptions.is_some()),
+            ("office_renames", layer.office_renames.is_some()),
+            (
+                "code_attribute",
+                layer.code_attribute.is_some() || layer.codes.is_some(),
+            ),
+            (
+                "water_prefix",
+                layer.water_prefix.is_some()
+                    || layer.water_length.is_some()
+                    || layer.zone_after.is_some(),
+            ),
             (
                 "district_attribute",
                 layer.district_attribute.is_some() || layer.districts.is_some(),
@@ -2484,13 +2566,133 @@ impl Check<'_> {
                 exceptions = None;
             }
         }
+        let mut renames = Some(Vec::new());
+        if let Some(list) = &layer.office_renames {
+            if (1..=2).contains(&list.len()) {
+                for rename in list {
+                    let start = self.text(
+                        &rename.starts_with,
+                        &format!("{k}.office_renames"),
+                        "manifest.value",
+                        60,
+                    );
+                    let name = self.text(
+                        &rename.name,
+                        &format!("{k}.office_renames"),
+                        "manifest.value",
+                        100,
+                    );
+                    renames = renames.zip(start.zip(name)).map(|(mut all, pair)| {
+                        all.push(pair);
+                        all
+                    });
+                }
+            } else {
+                self.fail(
+                    "manifest.value",
+                    &layer.reading.span(),
+                    "office_renames",
+                    "`office_renames` names 1 or 2 offices",
+                );
+                renames = None;
+            }
+        }
         Some(DeclaredOfficeRules {
+            renames: renames?,
             unless: unless?,
             exceptions: exceptions?,
         })
     }
 
-    fn permit_layer(&mut self, layer: &RawPermitLayer, shapefile: bool) -> Option<DeclaredLayer> {
+    /// One entry of `codes`.
+    fn function_code(&mut self, entry: &RawCode) -> Option<DeclaredCode> {
+        let k = "permits.wfs.layers.codes";
+        let code = self.text(&entry.code, &format!("{k}.code"), "manifest.value", 20);
+        let kind = self.kebab::<ForestFunctionKind>(&entry.function, &format!("{k}.function"));
+        let label = match &entry.label {
+            Some(label) => self
+                .text(label, &format!("{k}.label"), "manifest.value", 100)
+                .map(Some),
+            None => Some(None),
+        };
+        Some(DeclaredCode {
+            code: code?,
+            kind: kind?,
+            label: label?,
+        })
+    }
+
+    /// `url`, `wms_layers` and `one` of a layer of a source asked at points; no other layer has
+    /// them.
+    fn permit_query(
+        &mut self,
+        layer: &RawPermitLayer,
+        points: bool,
+    ) -> Option<Option<DeclaredQuery>> {
+        if !points {
+            let mut clean = true;
+            for (name, present) in [
+                ("url", layer.url.is_some()),
+                ("wms_layers", layer.wms_layers.is_some()),
+                ("one", layer.one.is_some()),
+            ] {
+                if present {
+                    self.fail(
+                        "manifest.unknown-key",
+                        &layer.key.span(),
+                        name,
+                        format!("only a layer of a source asked at points has `{name}`"),
+                    );
+                    clean = false;
+                }
+            }
+            return clean.then_some(None);
+        }
+        let url = match &layer.url {
+            Some(url) => self.url_with(url, "permits.getfeatureinfo.layers.url", false),
+            None => {
+                self.fail(
+                    "manifest.missing-key",
+                    &layer.key.span(),
+                    "url",
+                    "a layer of a source asked at points needs `url`",
+                );
+                None
+            }
+        };
+        let layers = match &layer.wms_layers {
+            Some(layers) => self.matching(
+                layers,
+                "permits.getfeatureinfo.layers.wms_layers",
+                "manifest.value",
+                |text| {
+                    text.len() <= 200
+                        && text.split(',').count() <= 24
+                        && text.split(',').all(is_layer)
+                },
+                "up to 24 names of layers of the WMS, separated by commas",
+            ),
+            None => {
+                self.fail(
+                    "manifest.missing-key",
+                    &layer.key.span(),
+                    "wms_layers",
+                    "a layer of a source asked at points needs `wms_layers`",
+                );
+                None
+            }
+        };
+        let one = layer.one.as_ref().is_some_and(|one| *one.get_ref());
+        Some(Some(DeclaredQuery {
+            url: url?,
+            layers: layers?,
+            one,
+        }))
+    }
+
+    fn permit_layer(&mut self, layer: &RawPermitLayer, kind: PermitKind) -> Option<DeclaredLayer> {
+        let shapefile = kind == PermitKind::Shapefile;
+        let points = kind == PermitKind::Points;
         let key = self.matching(
             &layer.key,
             "permits.wfs.layers.key",
@@ -2498,7 +2700,7 @@ impl Check<'_> {
             |text| is_slug(text, 40),
             "the key of a layer: lower-case letters, digits and hyphens",
         );
-        let type_name = match (&layer.type_name, shapefile) {
+        let type_name = match (&layer.type_name, shapefile || points) {
             (Some(name), false) => self.matching(
                 name,
                 "permits.wfs.layers.type_name",
@@ -2521,11 +2723,12 @@ impl Check<'_> {
                     "manifest.unknown-key",
                     &name.span(),
                     "type_name",
-                    "the layer of a shapefile source has no feature type",
+                    format!("the layer of a {} has no feature type", kind.noun()),
                 );
                 None
             }
         };
+        let query = self.permit_query(layer, points);
         let k = "permits.wfs.layers";
         let reading = match layer.reading.get_ref().as_str() {
             "water" => {
@@ -2655,6 +2858,7 @@ impl Check<'_> {
                             "unit_attribute",
                             "office_unless",
                             "office_exceptions",
+                            "office_renames",
                         ],
                     )
                 } else {
@@ -2666,6 +2870,7 @@ impl Check<'_> {
                             "office",
                             "office_unless",
                             "office_exceptions",
+                            "office_renames",
                         ],
                     )
                 };
@@ -2988,6 +3193,92 @@ impl Check<'_> {
                     _ => None,
                 }
             }
+            "function-code" => {
+                let clean = self.foreign(
+                    layer,
+                    &[
+                        "code_attribute",
+                        "name",
+                        "codes",
+                        "water_prefix",
+                        "water_length",
+                        "zone",
+                        "zone_after",
+                    ],
+                );
+                let code = self
+                    .needed(layer.code_attribute.as_ref(), layer, "code_attribute")
+                    .and_then(|v| self.attribute(v, &format!("{k}.code_attribute")));
+                let name = self.optional_attribute(layer.name.as_ref(), &format!("{k}.name"));
+                let mut codes = Some(Vec::new());
+                match &layer.codes {
+                    Some(list) if (1..=8).contains(&list.len()) => {
+                        for entry in list {
+                            let one = self.function_code(entry);
+                            codes = codes.zip(one).map(|(mut all, one)| {
+                                all.push(one);
+                                all
+                            });
+                        }
+                    }
+                    _ => {
+                        self.fail(
+                            "manifest.value",
+                            &layer.reading.span(),
+                            "codes",
+                            "`codes` names 1 to 8 codes",
+                        );
+                        codes = None;
+                    }
+                }
+                let water = match (
+                    &layer.water_prefix,
+                    &layer.water_length,
+                    &layer.zone,
+                    &layer.zone_after,
+                ) {
+                    (None, None, None, None) => Some(None),
+                    (Some(prefix), Some(length), Some(zone), Some(after)) => {
+                        let prefix =
+                            self.text(prefix, &format!("{k}.water_prefix"), "manifest.value", 20);
+                        let length = self.integer(length, &format!("{k}.water_length"), 1, 20);
+                        let zone = self.attribute(zone, &format!("{k}.zone"));
+                        let after =
+                            self.text(after, &format!("{k}.zone_after"), "manifest.value", 20);
+                        match (prefix, length, zone, after) {
+                            (Some(prefix), Some(length), Some(zone), Some(after)) => {
+                                Some(Some(DeclaredWaterCodes {
+                                    prefix,
+                                    length: length as usize,
+                                    zone,
+                                    after,
+                                }))
+                            }
+                            _ => None,
+                        }
+                    }
+                    _ => {
+                        self.fail(
+                            "manifest.missing-key",
+                            &layer.reading.span(),
+                            "water_prefix",
+                            "`water_prefix`, `water_length`, `zone` and `zone_after` come together",
+                        );
+                        None
+                    }
+                };
+                match (clean, code, name, codes, water) {
+                    (true, Some(code), Some(name), Some(codes), Some(water)) => {
+                        Some(DeclaredReading::FunctionCode {
+                            code,
+                            name,
+                            codes,
+                            water,
+                        })
+                    }
+                    _ => None,
+                }
+            }
             other => {
                 let shown: String = other.chars().filter(|c| !c.is_control()).take(40).collect();
                 self.fail(
@@ -2996,7 +3287,8 @@ impl Check<'_> {
                     "permits.wfs.layers.reading",
                     format!(
                         "`{shown}` is no reading; the readings are water, function, unit, \
-                         state-forest, district, green-space, playground, owner, object and monument"
+                         state-forest, district, green-space, playground, owner, object, monument and \
+                         function-code"
                     ),
                 );
                 None
@@ -3005,6 +3297,7 @@ impl Check<'_> {
         Some(DeclaredLayer {
             key: key?,
             type_name: type_name?,
+            query: query?,
             reading: reading?,
         })
     }

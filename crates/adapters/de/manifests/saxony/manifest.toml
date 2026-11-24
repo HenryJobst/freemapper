@@ -104,6 +104,22 @@ layers = [
     { key = "punkte", type_name = "gesetz_gesch_biotope:BTPVZ_p_neu", reading = "object", object = "biotope", name = "BTTP26_BEZ" },
 ]
 
+# The two WMS of the Staatsbetrieb Sachsenforst, asked at points (issue #273, ADR 0139): "Wald nach SächsWaldG" gives the Revier
+# and the Forstbezirk at a point, "Waldfunktionen in Sachsen" the functions of the forest there. The layers of the functions
+# are Erholungswald (7), Naturwaldzelle (46), Bodenschutzwald nach SächsWaldG (101) and the zones of the drinking water
+# protection areas of reservoirs (80 to 84), streams (86 to 88) and ground water (90 to 94). A Revier is in charge in the
+# state forest; the Reviere write the name of the national park's office in 40 characters, which cuts it.
+[[permits.getfeatureinfo]]
+key = "sachsenforst"
+label = { en = "Staatsbetrieb Sachsenforst", de = "Staatsbetrieb Sachsenforst" }
+what = { en = "Forstbezirke and Reviere (in charge in the state forest; for other forest the lower forest authority of the Landkreis), Erholungswald, Naturwaldzellen, Bodenschutzwald, drinking water protection zones in the forest", de = "Forstbezirke und Reviere (zuständig im Staatswald; für anderen Wald die untere Forstbehörde des Landkreises), Erholungswald, Naturwaldzellen, Bodenschutzwald, Trinkwasserschutzzonen im Wald" }
+credit = "Datenlizenz Deutschland 2.0 – Namensnennung (dl-de/by-2-0) unter Angabe der Quelle: \"Geodaten Sachsenforst\""
+sections = ["forest-units", "forest-functions", "water-protection"]
+layers = [
+    { key = "reviere", url = "https://www.forsten.sachsen.de/kartendienste/wald/MapServer/WMSServer", wms_layers = "Reviere", one = true, reading = "unit", administration = "Staatsbetrieb Sachsenforst", prefix = "Forstbezirk ", office = "FBZ_NAME", unit_attribute = "REV_NAME", unit_prefix = "Revier ", office_renames = [{ starts_with = "Nationalpark", name = "Nationalpark- und Forstverwaltung Sächsische Schweiz" }] },
+    { key = "waldfunktionen", url = "https://www.forsten.sachsen.de/kartendienste/waldfunktionen/MapServer/WMSServer", wms_layers = "7,46,101,80,81,82,83,84,86,87,88,90,91,92,93,94", reading = "function-code", code_attribute = "WFZ", name = "GNM", codes = [{ code = "7110", function = "recreation" }, { code = "4151", function = "natural" }, { code = "1110", function = "protected", label = "Bodenschutzwald" }], water_prefix = "211", water_length = 5, zone = "KNM", zone_after = " Z " },
+]
+
 [preview]
 wms = "https://geodienste.sachsen.de/wms_geosn_dop-rgb/guest"
 layer = "sn_dop_020"
