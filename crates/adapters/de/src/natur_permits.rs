@@ -133,3 +133,115 @@ pub fn niedersachsen() -> Box<dyn PermitSource> {
         },
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::fetch::test_support::MapFetcher;
+    use freemapper_adapter_api::permits::FindingKind;
+    use geo_types::{Coord, Geometry, Point};
+    use serde_json::json;
+
+    /// A source with answers of its own for each way of asking.
+    struct Inner {
+        info: PermitSourceInfo,
+    }
+
+    impl PermitSource for Inner {
+        fn info(&self) -> &PermitSourceInfo {
+            &self.info
+        }
+
+        fn fetch(
+            &self,
+            _fetcher: &dyn Fetcher,
+            _bbox: &Rect<f64>,
+            _part: &Path,
+        ) -> Result<Vec<Vec<Value>>, FetchError> {
+            Ok(vec![vec![json!("plain")]])
+        }
+
+        fn fetch_cached(
+            &self,
+            _fetcher: &dyn Fetcher,
+            _bbox: &Rect<f64>,
+            _part: &Path,
+            _cache: &CacheDir,
+        ) -> Result<Vec<Vec<Value>>, FetchError> {
+            Ok(vec![vec![json!("cached"), json!("twice")]])
+        }
+
+        fn findings(&self, layer: &str, features: &[Value]) -> Vec<PermitFinding> {
+            features
+                .iter()
+                .map(|_| PermitFinding {
+                    kind: FindingKind::District {
+                        name: layer.to_string(),
+                    },
+                    geometry: Geometry::Point(Point::new(1.0, 2.0)),
+                })
+                .collect()
+        }
+    }
+
+    fn inner() -> Box<dyn PermitSource> {
+        Box::new(Inner {
+            info: PermitSourceInfo {
+                key: "inner",
+                label: Wording { en: "L", de: "L" },
+                what: Wording { en: "w", de: "w" },
+                credit: "credit",
+                note: Some("note"),
+                sampled: true,
+                gaps: None,
+                layers: &["a", "b"],
+                sections: OBJECTS,
+                offices: None,
+            },
+        })
+    }
+
+    #[test]
+    fn gaps_are_added_and_everything_else_is_the_inner_sources() {
+        let gaps = Wording {
+            en: "gap",
+            de: "Lücke",
+        };
+        let source = with_gaps(inner(), gaps);
+        assert_eq!(source.info().gaps, Some(gaps));
+        let expected = PermitSourceInfo {
+            gaps: Some(gaps),
+            ..inner().info().clone()
+        };
+        assert_eq!(source.info(), &expected);
+
+        let fetcher = MapFetcher::default();
+        let bbox = Rect::new(Coord { x: 0.0, y: 0.0 }, Coord { x: 1.0, y: 1.0 });
+        let scratch = tempfile::tempdir().unwrap();
+        let part = scratch.path().join("p.part");
+        assert_eq!(
+            source.fetch(&fetcher, &bbox, &part).unwrap(),
+            vec![vec![json!("plain")]]
+        );
+        let cache = CacheDir::new(scratch.path().join("cache"));
+        assert_eq!(
+            source.fetch_cached(&fetcher, &bbox, &part, &cache).unwrap(),
+            vec![vec![json!("cached"), json!("twice")]]
+        );
+        let found = source.findings("a", &[json!(1), json!(2)]);
+        assert_eq!(found.len(), 2);
+        assert_eq!(
+            found[0].kind,
+            FindingKind::District {
+                name: "a".to_string()
+            }
+        );
+    }
+
+    #[test]
+    fn lower_saxony_names_the_gap_of_its_biotopes() {
+        let source = niedersachsen();
+        let gaps = source.info().gaps.expect("the biotopes are missing");
+        assert!(gaps.en.contains("biotopes"));
+    }
+}

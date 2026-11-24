@@ -310,11 +310,20 @@ pub fn pause_after(patience: Patience, attempt: u32, error: &FetchError) -> Dura
 
 /// Waits for `pause`. The `testing` feature does not sleep, so that runs of tests of other crates stay fast; the
 /// tests of this crate note the pause in [`SLEPT`] instead of sleeping.
-#[cfg(not(test))]
 fn wait(pause: Duration) {
-    if !cfg!(feature = "testing") {
-        std::thread::sleep(pause);
+    nap(pause, cfg!(all(feature = "testing", not(test))), sleep_for);
+}
+
+/// Calls `sleep` with `pause` unless `skip`.
+fn nap(pause: Duration, skip: bool, sleep: impl FnOnce(Duration)) {
+    if !skip {
+        sleep(pause);
     }
+}
+
+#[cfg(not(test))]
+fn sleep_for(pause: Duration) {
+    std::thread::sleep(pause);
 }
 
 #[cfg(test)]
@@ -324,7 +333,7 @@ thread_local! {
 }
 
 #[cfg(test)]
-fn wait(pause: Duration) {
+fn sleep_for(pause: Duration) {
     SLEPT.with(|slept| slept.borrow_mut().push(pause));
 }
 
@@ -699,6 +708,25 @@ mod retry_tests {
             assert_eq!(fetcher.calls.get(), calls, "attempts {attempts}");
             assert_eq!(slept().len() as u32, calls - 1, "attempts {attempts}");
         }
+    }
+
+    #[test]
+    fn a_pause_is_slept_unless_skipped() {
+        let asked = RefCell::new(Vec::new());
+        nap(Duration::from_secs(3), false, |p| {
+            asked.borrow_mut().push(p)
+        });
+        assert_eq!(*asked.borrow(), vec![Duration::from_secs(3)]);
+        asked.borrow_mut().clear();
+        nap(Duration::from_secs(3), true, |p| asked.borrow_mut().push(p));
+        assert!(asked.borrow().is_empty());
+    }
+
+    #[test]
+    fn wait_notes_its_pause() {
+        slept();
+        wait(Duration::from_secs(4));
+        assert_eq!(slept(), vec![Duration::from_secs(4)]);
     }
 
     #[test]

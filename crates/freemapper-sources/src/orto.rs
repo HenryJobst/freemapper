@@ -982,6 +982,17 @@ mod tests {
         assert!(near(r.get(20, 20), [250, 250, 250]));
     }
 
+    #[test]
+    fn the_tables_only_fixture_strips_the_tables_from_its_tiles() {
+        // The tiles of `fixture` carry their own quantisation tables; those of the tag-only fixture
+        // must hold none, so it has at least one marker less per tile.
+        let count = |bytes: &[u8]| bytes.windows(2).filter(|w| *w == [0xFF, 0xDB]).count();
+        let own = count(&fixture(0.25, 2180, false));
+        let only_tag = count(&fixture_tables_only_in_tag(0.25, 2180));
+        assert!(only_tag >= 1, "the tag still holds the tables");
+        assert!(own >= only_tag + 4, "{own} markers against {only_tag}");
+    }
+
     /// Replaces the tag and value of the one-entry SHORT entry `from` in the IFD.
     fn patch_short(bytes: &mut [u8], from: u16, to: u16, value: u16) {
         let mut key = from.to_le_bytes().to_vec();
