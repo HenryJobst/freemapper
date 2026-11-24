@@ -1867,6 +1867,23 @@ mod tests {
         );
     }
 
+    /// A nature hint of a gmina without the gmina reads the text for "none" and leaves no
+    /// placeholder behind; a hint that names its gmina does not.
+    #[test]
+    fn the_nature_hint_of_a_gmina_without_one_falls_back_to_none() {
+        let notes = viktoriapark();
+        for code in ["en", "de", "pl"] {
+            let lang = TEXTS.parse_lang_arg(code).unwrap();
+            let text = |args: &[(&str, &str)]| {
+                hint_text(&lang, &notes, &hint(hint_key::GMINA_NATURE_PL, args))
+            };
+            let bare = text(&[]);
+            assert_eq!(bare, text(&[("gmina", "none")]), "{code}");
+            assert!(!bare.contains("$gmina"), "{code}: {bare}");
+            assert_ne!(bare, text(&[("gmina", "Słubice")]), "{code}");
+        }
+    }
+
     #[test]
     fn polish_notes_leave_out_the_german_sections_and_names() {
         let mut notes = viktoriapark();

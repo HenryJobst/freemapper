@@ -1353,6 +1353,12 @@ mod tests {
         assert_eq!(gmina_kind("3011011"), "gmina miejska");
         assert_eq!(gmina_kind("3011032"), "gmina wiejska");
         assert_eq!(gmina_kind("0805053"), "gmina miejsko-wiejska");
+        assert_eq!(gmina_kind("1465011"), "gmina miejska");
+        assert_eq!(gmina_kind("1465014"), "miasto");
+        assert_eq!(gmina_kind("1465015"), "obszar wiejski");
+        assert_eq!(gmina_kind("1465018"), "dzielnica");
+        assert_eq!(gmina_kind("1465019"), "delegatura");
+        assert_eq!(gmina_kind("1465016"), "gmina");
         assert_eq!(gmina_kind("x"), "gmina");
         assert_eq!(with_prefix("powiat", "powiat Poznań"), "powiat Poznań");
         assert_eq!(
@@ -2026,6 +2032,91 @@ mod tests {
             .fetch(&fetcher, &bbox, Path::new("unused-nid-2"))
             .unwrap();
         assert_eq!(lists[0].len(), 11);
+    }
+
+    /// A register answer with `layers` as (id, name) entries; no name is a blank one.
+    fn nid_xml(layers: &[(&str, Option<&str>)]) -> String {
+        let members: String = layers
+            .iter()
+            .map(|(id, name)| {
+                format!(
+                    r#"<gml:featureMember><Layer Name="Immovable_Monuments"><Attribute Name="INSPIREID">{id}</Attribute><Attribute Name="SITENAME">{}</Attribute></Layer></gml:featureMember>"#,
+                    name.unwrap_or_default()
+                )
+            })
+            .collect();
+        format!(
+            r#"<?xml version="1.0"?><FeatureCollection xmlns="http://www.intergraph.com/geomedia/gml" xmlns:gml="http://www.opengis.net/gml">{members}</FeatureCollection>"#
+        )
+    }
+
+    #[test]
+    fn every_entry_of_the_answer_is_read_once() {
+        let url = "https://example.test/nid";
+        let xml = nid_xml(&[("a", Some("one")), ("b", Some("two"))]);
+        let found = read_monuments(url, xml.as_bytes()).unwrap();
+        assert_eq!(
+            found,
+            [
+                ("a".to_string(), "one".to_string(), String::new()),
+                ("b".to_string(), "two".to_string(), String::new()),
+            ]
+        );
+        // A single entry is one monument, not one more for each element that closes after it.
+        let xml = nid_xml(&[("a", Some("one"))]);
+        assert_eq!(read_monuments(url, xml.as_bytes()).unwrap().len(), 1);
+    }
+
+    #[test]
+    fn an_empty_element_of_another_name_is_no_feature_collection() {
+        let url = "https://example.test/nid";
+        assert!(read_monuments(url, b"<Other/>").is_err());
+        assert!(
+            read_monuments(url, b"<FeatureCollection/>")
+                .unwrap()
+                .is_empty()
+        );
+    }
+
+    #[test]
+    fn a_name_in_a_cdata_section_or_with_an_entity_is_read_whole() {
+        let url = "https://example.test/nid";
+        let xml = r#"<FeatureCollection><Layer><Attribute Name="INSPIREID">a</Attribute><Attribute Name="SITENAME"><![CDATA[Dwór <A>]]></Attribute></Layer><Layer><Attribute Name="INSPIREID">b</Attribute><Attribute Name="SITENAME">Młyn &amp; spichlerz</Attribute></Layer></FeatureCollection>"#;
+        let names: Vec<String> = read_monuments(url, xml.as_bytes())
+            .unwrap()
+            .into_iter()
+            .map(|m| m.1)
+            .collect();
+        assert_eq!(names, ["Dwór <A>", "Młyn & spichlerz"]);
+    }
+
+    #[test]
+    fn an_entry_that_comes_twice_keeps_its_first_name_that_is_not_blank() {
+        let bbox = nid_box();
+        let fetch = |layers: &[(&str, Option<&str>)], part: &str| {
+            let fetcher = nid_answer(&bbox, &nid_xml(layers));
+            let lists = nid().fetch(&fetcher, &bbox, Path::new(part)).unwrap();
+            lists[0]
+                .iter()
+                .map(|f| f["properties"]["nazwa"].as_str().unwrap().to_string())
+                .collect::<Vec<_>>()
+        };
+        // A name that is there stays; a blank one gives way to the next.
+        assert_eq!(
+            fetch(
+                &[("a", Some("first")), ("a", Some("second"))],
+                "unused-nid-6"
+            ),
+            ["first"]
+        );
+        assert_eq!(
+            fetch(&[("a", None), ("a", Some("second"))], "unused-nid-7"),
+            ["second"]
+        );
+        assert_eq!(
+            fetch(&[("a", Some("first")), ("a", None)], "unused-nid-8"),
+            ["first"]
+        );
     }
 
     #[test]
