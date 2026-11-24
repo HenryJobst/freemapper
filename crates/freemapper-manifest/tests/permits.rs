@@ -1511,3 +1511,43 @@ fn what_holds_up_to_300_characters_and_label_up_to_200() {
         [("manifest.value", "permits.wfs.label.de".to_string())]
     );
 }
+
+#[test]
+fn the_messages_name_the_kind_of_the_source() {
+    // A WFS source without its address.
+    assert_eq!(
+        messages(&format!(
+            "{}layers = [{{ key = \"a\", type_name = \"x:a\", reading = \"district\", name = \"N\" }}]\n",
+            HEAD.replace("url = \"https://geo.example.org/wfs\"\n", "")
+        )),
+        ["a WFS source needs `url`"]
+    );
+    // A foreign key of a shapefile source and of a source asked at points.
+    assert_eq!(
+        messages(&format!("{SHAPE_HEAD}gml = true\n{SHAPE_LAYER}")),
+        ["a shapefile source has no key `gml`"]
+    );
+    assert_eq!(
+        messages(&format!(
+            "{POINT_HEAD}gml = true\nlayers = [{POINT_REVIER}]\n"
+        )),
+        ["a source asked at points has no key `gml`"]
+    );
+    // A feature type in a layer of either.
+    assert_eq!(
+        messages(&format!(
+            "{SHAPE_HEAD}layers = [{{ key = \"w\", type_name = \"x:w\", reading = \"water\", name = \"N\", zone = \"Z\" }}]\n"
+        )),
+        ["the layer of a shapefile source has no feature type"]
+    );
+    assert_eq!(
+        messages(&format!(
+            "{POINT_HEAD}layers = [{}]\n",
+            POINT_REVIER.replace(
+                "key = \"reviere\", ",
+                "key = \"reviere\", type_name = \"x:a\", "
+            )
+        )),
+        ["the layer of a source asked at points has no feature type"]
+    );
+}
