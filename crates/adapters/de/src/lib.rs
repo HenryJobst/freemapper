@@ -24,7 +24,8 @@ pub mod ldbv_alkis;
 pub mod ldbv_files;
 pub mod ldbv_las;
 pub mod ldsh_permits;
-pub mod lfb_permits;
+#[cfg(test)]
+mod lfb_permits;
 pub mod lgb;
 pub mod lgb_als;
 pub mod lgl_bw;
@@ -50,7 +51,8 @@ mod state_permits;
 pub mod states;
 pub mod tile_fetch;
 pub mod wfs_permits;
-pub mod wuh_permits;
+#[cfg(test)]
+mod wuh_permits;
 mod xyz_archive;
 
 // The state modules were written inside `freemapper`. These private modules give them the paths

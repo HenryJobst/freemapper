@@ -258,18 +258,30 @@ Eine Schicht hat `key` (ein Name wie oben, einmalig in ihrer Quelle), `type_name
 |---|---|---|
 | `water` | `name`, `zone` (beide Pflicht), `citation`, `planned_attribute` mit `planned_value` und `planned_label`, `authority`, `name_form` | Ein Wasserschutzgebiet oder eine Zone; hat die Schicht geplante Zonen, das Attribut und der Wert, die eine kennzeichnen (die Zone sagt dann `planned_label` in Klammern, standardmäßig `geplant`). `authority` ist das Attribut der zuständigen Behörde. `name_form = "register"` liest den Namen, wie ein Register ihn schreibt: ohne Anführungszeichen und die Nummer am Ende, in der Schreibweise eines Namens. |
 | `function` | `function` (Pflicht: `recreation`, `protected`, `natural`, `closed`), `name` | Wald mit einer Funktion oder einem Schutz. |
-| `unit` | `administration`, `prefix`, `office` (alle Pflicht), `administration_attribute`, `unit_attribute` mit `unit_prefix` | Eine Einheit einer Forstverwaltung; das Amt ist `prefix` und das Attribut `office`. Mit `administration_attribute` ist die Verwaltung `administration` und der Text dieses Attributs (`Bezirksamt ` und der Bezirk). Mit `unit_attribute` und `unit_prefix` nennt der Fund auch eine kleinere Einheit im Amt (`Revier ` und sein Name). |
+| `unit` | `administration`, `prefix`, `office` (alle Pflicht), `administration_attribute`, `unit_attribute` mit `unit_prefix` | Eine Einheit einer Forstverwaltung; das Amt ist `prefix` und das Attribut `office`. Mit `administration_attribute` ist die Verwaltung `administration` und der Text dieses Attributs (`Bezirksamt ` und der Bezirk). Mit `unit_attribute` und `unit_prefix` nennt der Fund auch eine kleinere Einheit im Amt (`Revier ` und sein Name). `office_unless` und `office_exceptions` (1 bis 4 Paare aus `name` und `prefix`) sagen, wie aus einem Amtsnamen der Name der Hinweise wird: Ein Name, der `office_unless` enthält (in jeder Schreibweise), bleibt wie er ist, ein Name der Ausnahmen bekommt diesen Vorsatz statt `prefix`. |
 | `district` | `name` (Pflicht) | Ein Bezirk eines Stadtstaats, benannt durch das Attribut. |
 | `green-space` | `name` (Pflicht), `fallback`, `district_attribute` mit `districts` (1 bis 16 Namen), `dedication`, `name_form` | Eine öffentliche Grünanlage: ihr Name, oder wo er leer ist das Attribut `fallback`. `district_attribute` hält die Nummer ihres Bezirks (ab 1) in der Liste `districts`, ohne die Liste den Namen des Bezirks. `dedication` ist das Attribut, das sagt, ob sie für die Öffentlichkeit gewidmet ist. `name_form = "park"` nimmt den Teil des Namens vor einem Komma (den Park, zu dem ein Teil gehört). |
 | `playground` | keine | Ein öffentlicher Spielplatz; die Hinweise zählen sie. |
 | `owner` | `owner_attribute` (Pflicht), `owners` (Pflicht, 1 bis 8 Namen) | Ein Flurstück eines öffentlichen Eigentümers: Das Attribut nennt den Eigentümer, und nur ein Eigentümer der Liste kommt mit Namen; den Namen jedes anderen lassen die Hinweise weg. |
-| `state-forest` | `owner`, `prefix`, `office` (alle Pflicht) | Landeswald und das Amt, das ihn betreut. |
+| `state-forest` | `owner`, `prefix`, `office` (alle Pflicht), `office_unless`, `office_exceptions` | Landeswald und das Amt, das ihn betreut; der Amtsname folgt denselben Regeln wie bei einer `unit`. |
 | `object` | `object` (Pflicht: die Art des Schutzobjekts, etwa `natural-monument`, `protected-landscape-part`, `biotope`), `name`, `citation`, `only_attribute` mit `only_values` (1 bis 8), `point_names` (1 bis 4 Attribute) | Ein geschütztes Objekt des Naturschutzrechts; mit `only` zählt ein Objekt nur, wenn das Attribut einen der Werte hat. Ein Punkt (ein Baum, ein Findling) nimmt seinen Namen aus dem ersten Attribut von `point_names`, das einen Wert hat; eine Fläche nimmt `name`. |
 | `monument` | `monument` (Pflicht: die Art), `kind_from`, `link_attribute` mit `link_prefix` | Ein Denkmal der Liste; der Link zählt, wenn das Attribut mit `link_prefix` beginnt. |
 
 Ein Schlüssel einer anderen Leseart ist `manifest.unknown-key`; ein Schlüssel, den eine Leseart braucht und der
 Schicht fehlt, ist `manifest.missing-key`. Ein Programm ohne den Leser dieser Tabellen antwortet mit
 `manifest.backend-missing`.
+
+## `[[permits.shapefile]]`
+
+Eine Quelle der Genehmigungshinweise, die ein Shapefile in einer Zip-Datei für das ganze Bundesland ist. Sie hat die
+Schlüssel einer `[[permits.wfs]]`-Quelle, mit diesen Unterschieden: `url` ist die Adresse der Zip-Datei (https, ein
+Host aus `[net] hosts`, keine Abfrage), `crs` ist das KBS ihrer Positionen (25832 oder 25833), und sie hat kein
+`output_format`, `gml`, `native_crs` und `offices`. `layers` hat genau eine Schicht mit `key` und `reading` wie oben,
+aber ohne `type_name`; das Programm liest `.shp` und `.dbf` der Zip-Datei, behält die Datensätze, deren Rechteck das
+Kartengebiet trifft, und von jedem nur die Attribute, die die Leseart nennt. Die Zip-Datei liegt im Download-Cache und
+wird nur neu geladen, wenn der Server eine neuere hat (höchstens 50 MB). Beide Tabellen zusammen halten höchstens
+12 Quellen; die Quellen von `[[permits.wfs]]` kommen in den Hinweisen zuerst, dann die von `[[permits.shapefile]]`,
+je in der Reihenfolge des Manifests. `adapters probe` fragt die Zip-Datei mit einem HEAD an.
 
 ## `[preview]`
 

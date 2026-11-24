@@ -569,7 +569,7 @@ impl StateAdapter {
             State::Berlin => Vec::new(),
             // The Reviere and the forest functions of Brandenburg are declared in its manifest
             // (issue #273); its water protection areas are a shapefile.
-            State::Brandenburg => crate::lfb_permits::sources(),
+            State::Brandenburg => Vec::new(),
             // The sources of Hamburg are declared in its manifest (issue #273).
             State::Hamburg => Vec::new(),
             // The sources of Saarland, Hesse and Schleswig-Holstein that had tables in the code are
@@ -577,7 +577,7 @@ impl StateAdapter {
             State::Saarland | State::Hessen => Vec::new(),
             State::SchleswigHolstein => vec![crate::ldsh_permits::source()],
             // The protected biotopes of North Rhine-Westphalia are declared in its manifest (issue #273).
-            State::NordrheinWestfalen => crate::wuh_permits::sources(),
+            State::NordrheinWestfalen => Vec::new(),
             // The sources of Baden-Württemberg are declared in its manifest (issue #273).
             State::BadenWuerttemberg => Vec::new(),
             State::Saxony => [
@@ -903,13 +903,13 @@ mod tests {
                 ),
                 "brandenburg" => (
                     &[
-                        "wasserschutzgebiete",
                         "reviere",
                         "waldfunktionen",
                         "baudenkmale",
                         "bodendenkmale",
                         "naturdenkmale",
                         "biotope",
+                        "wasserschutzgebiete",
                     ],
                     "https://gis-bldam-brandenburg.de/ows/baudenkmale",
                 ),
@@ -988,12 +988,12 @@ mod tests {
                 ),
                 "nordrheinwestfalen" => (
                     &[
-                        "forstbetriebsbezirke",
-                        "staatswald",
                         "linfos",
-                        "wasserschutzgebiete",
                         "denkmale",
                         "biotope",
+                        "forstbetriebsbezirke",
+                        "staatswald",
+                        "wasserschutzgebiete",
                     ],
                     "https://www.opengeodata.nrw.de/produkte/umwelt_klima/wald_forst/wald/x.zip",
                 ),

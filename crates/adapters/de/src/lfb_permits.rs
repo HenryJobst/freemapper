@@ -1,53 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! Brandenburg's sources of the permit notes (ADR 0124). The Reviere and the forest functions of
-//! the Landesbetrieb Forst Brandenburg (LFB) are declared in the manifest of the state (issue
-//! #273); what stays here is the shapefile of the water protection areas, a kind of table the
-//! manifest does not describe yet. The tests of the Reviere read the answers of the LFB through
-//! the declared table: the INSPIRE WFS is a GeoServer that answers GML 3.2 only (`gml32`; it
+//! The fixtures of Brandenburg's permit sources (ADR 0124), read through the tables its manifest
+//! declares (issue #273): the Reviere and the forest functions of the Landesbetrieb Forst
+//! Brandenburg (LFB) and the water protection areas of the LfU. The tests of the Reviere read
+//! the answers of the LFB: the INSPIRE WFS is a GeoServer that answers GML 3.2 only (`gml32`; it
 //! refuses `application/json`) and writes the positions latitude first.
 
-use freemapper_adapter_api::permits::{PermitSection, PermitSource, Wording};
-
-use crate::wfs_permits::Reading;
-
-/// The sources Brandenburg's code brings: the water protection areas.
-pub fn sources() -> Vec<Box<dyn PermitSource>> {
-    vec![wasserschutzgebiete()]
-}
-
-/// The water protection areas of the LfU as one shapefile for the state (ADR 0131, about
-/// 4 MB, on a host of Brandenburg's manifest); GovData: CC BY 4.0.
-fn wasserschutzgebiete() -> Box<dyn PermitSource> {
-    crate::shape_permits::source(
-        "wasserschutzgebiete",
-        Wording {
-            en: "Landesamt für Umwelt Brandenburg",
-            de: "Landesamt für Umwelt Brandenburg",
-        },
-        Wording {
-            en: "water protection areas",
-            de: "Wasserschutzgebiete",
-        },
-        "Landesamt für Umwelt Brandenburg (LfU), Creative Commons Namensnennung 4.0 \
-         International (CC BY 4.0)",
-        &["wasserschutzgebiete"],
-        &[PermitSection::WaterProtection],
-        "https://data.geobasis-bb.de/geofachdaten/Wasser/Gewaesserbewirtschaftung/wsg.zip",
-        crate::crs::Crs::Utm33,
-        Reading::Water {
-            name: "KLARNAME",
-            zone: "SCHUTZZONE",
-            citation: Some("FUNDSTELLE"),
-            planned: None,
-            planned_label: "geplant",
-            authority: None,
-            register_names: false,
-        },
-    )
-}
-
-#[cfg(test)]
 mod tests {
     use std::path::Path;
 

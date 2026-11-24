@@ -261,7 +261,15 @@ mod tests {
                 "Rosenberg bei Bilstein",
             ),
         ] {
-            let found = read(crate::wuh_permits::sources(), "linfos", layer, file);
+            let found = read(
+                declared(
+                    "nordrheinwestfalen",
+                    include_str!("../manifests/nordrheinwestfalen/manifest.toml"),
+                ),
+                "linfos",
+                layer,
+                file,
+            );
             assert_eq!(
                 found[0],
                 FindingKind::ForestFunction {
