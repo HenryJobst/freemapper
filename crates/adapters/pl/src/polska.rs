@@ -219,9 +219,9 @@ impl Polska {
         });
         Self {
             declared: Declared {
-                revision: 9,
+                revision: 10,
                 hosts: HOSTS.iter().map(ToString::to_string).collect(),
-                last_verified: chrono::NaiveDate::from_ymd_opt(2026, 11, 23),
+                last_verified: chrono::NaiveDate::from_ymd_opt(2026, 11, 24),
             },
             rasters: GuardedRasters {
                 inner: PolskaRasters::new(Arc::new(GugikIndex::new())),

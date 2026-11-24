@@ -177,7 +177,7 @@ the coarse letters, so data in that scheme would still read. The data cannot set
 itself (`t` is 177 of 583 buildings in Słubice, which fits garages and sheds as well as transport);
 the table rests on the two documents.
 
-**Parcel classes (`KLASOUZYTKI_EGIB`).** The ordinance (§ 8, § 68) gives: `B` residential land, `Ba`
+**Parcel classes (`KLASOUZYTKI_EGIB`).** The ordinance (§ 9 ust. 3) gives: `B` residential land, `Ba`
 industrial, `Bi` other built-up, `Bp` urban land not built on, `Bz` recreation and leisure, `K`
 mining land, `dr` roads, `Tk` railway, `Ti` other transport land, `Tp` land set aside for roads and
 railways to be built, `Wm`, `Wp`, `Ws` sea, running and standing water, `Tr` miscellaneous land,
@@ -207,17 +207,35 @@ the land use of a map there is nearly empty. That is a gap in the data, not in t
 off, a prefix `Lzr` gives `Gehölz`, `Wsr` `Stehendes Gewässer`, `Br` and `W` the soil underneath.
 `Ls` Wald, `Lz` Gehölz, `Ł` and `Ps` Landwirtschaft (Grünland), `R` and `S` Landwirtschaft, `Wp`
 Fließgewässer, `Ws` and `Wsr` Stehendes Gewässer, `dr` Straßenverkehr, `Tk` Bahnverkehr, `B`
-Wohnbaufläche, `Ba` Industrie- und Gewerbefläche, `Bz` Sport-, Freizeit- und Erholungsfläche (without
-`bez`, so the map draws nothing for it yet). Left out: `Bi`, `Bp`, `Ti`, `Tp`, `K`, `Tr`, `Wm`,
+Wohnbaufläche, `Ba` Industrie- und Gewerbefläche, `Bz` Sport-, Freizeit- und Erholungsfläche with `bez`
+`Erholungsfläche` (a 401 lawn candidate, never a map object; see the addendum below). Left out: `Bi`, `Bp`, `Ti`, `Tp`, `K`, `Tr`, `Wm`,
 `N`, a bare `W` and `Br`. A parcel of several classes has a use only when they all give the same one;
 ditches (`W`) and waste land (`N`) among them are not counted. That last rule is a decision made on
 the samples (a meadow with a strip of waste land is still a meadow) and has no source in the
 ordinance.
 
-Still unverified: the finer PKOB letters (none occurred), whether `Bi` should be a mixed-use area
-(schools, offices and shops are in it), whether `Bz` should draw as a park (it holds sports grounds
-and allotments as well), the classes of the cities with empty values, and whether `Tk` railway land
+Still unverified: the finer PKOB letters (none occurred), the classes of the cities with empty values, and whether `Tk` railway land
 should be out-of-bounds private ground as in Germany (it is, through `Bahnverkehr`).
+
+## Addendum 24 November 2026: `Bz` and `Bi` read from the annex (ADR 0192)
+
+The classes are in § 9 ust. 3 of the ordinance (Dz. U. 2021 poz. 1390; the first version of this file said § 68, which
+the ordinance does not have); what belongs to each is in Załącznik nr 1, lp. 13 to 17 (PDF
+`https://api.sejm.gov.pl/eli/acts/DU/2021/1390/text.pdf`, read as text).
+
+- `Bz` "tereny rekreacyjno-wypoczynkowe", lp. 17, land not under buildings: recreation centres, playgrounds, beaches,
+  kept parks, squares and green strips (not in street lanes), historic sites, sports grounds, fairgrounds, zoological
+  and botanical gardens, unkept green that is no forest or tree land, family allotment gardens on land unfit for
+  farming. Mixed, so the map takes it as a 401 lawn candidate (`bez` `Erholungsfläche`), not as a park and not as
+  private ground.
+- `Bi` "inne tereny zabudowane", lp. 15: land under buildings other than homes, industrial and storage buildings with
+  their yards, the land between and next to them, active cemeteries (and inactive ones not counted as trees), animal
+  burial grounds. No single land use of the map fits (school yard, shop, office, cemetery), so it stays unmapped.
+- `Bp` is "zurbanizowane tereny niezabudowane lub w trakcie zabudowy": urban land not built on or being built on
+  (lp. 16), land where building began or where houses were pulled down for new building.
+- Live service, Słubice, 24 November 2026 (box of the fixture, first 1000 parcels): `Bi` 472, `B` 352, `Bp` 88, `dr` 47,
+  `Bz` 4, `Bz,Lz` 2, `Bi,Bz` 1 and a few farm classes. Kraków (Rynek area) sends `brak_uprawnień` for all 255 parcels
+  asked, as noted below.
 
 ## Addendum 22 November 2026: BDOT10k (measured, ADR 0178)
 
