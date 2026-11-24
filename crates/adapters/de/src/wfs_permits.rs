@@ -39,7 +39,7 @@ pub enum Reading {
         planned_label: &'static str,
         /// The attribute of the authority in charge.
         authority: Option<&'static str>,
-        /// The name is one of a register, read by [`register_name`].
+        /// The name is one of a register: without quotes and the number at its end.
         register_names: bool,
     },
     /// Forest with a function or protection, named by an attribute where the layer has one.
@@ -1007,6 +1007,16 @@ mod tests {
         assert_eq!(name_case("BAD SEGEBERG"), "Bad Segeberg");
         assert_eq!(name_case("NEUMÜNSTER-HAHNKAMP"), "Neumünster-Hahnkamp");
         assert_eq!(name_case("Rastpfuhl/Puettlingen"), "Rastpfuhl/Puettlingen");
+    }
+
+    /// A name of a register loses its quotes, its backslashes and the number at its end; a name
+    /// that is only a number keeps it.
+    #[test]
+    fn a_register_name_is_cleaned_to_a_name() {
+        assert_eq!(register_name(r#"\"MAHDENTAL\" 111032"#), "Mahdental");
+        assert_eq!(register_name("BAD SEGEBERG 12"), "Bad Segeberg");
+        assert_eq!(register_name("111032"), "111032");
+        assert_eq!(register_name("Brunnen Nord"), "Brunnen Nord");
     }
 
     /// A water zone or a forest function must be an area; a point is left out.

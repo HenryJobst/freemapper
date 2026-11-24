@@ -668,6 +668,16 @@ fn the_keys_of_the_unit_and_water_extras_are_checked() {
             "{half}"
         );
     }
+    // The pair of a unit is a pair for a reading without it too, whichever half is given.
+    for half in ["unit_attribute = \"R\"", "unit_prefix = \"R \""] {
+        assert!(
+            refused(&layer(&format!(
+                "reading = \"state-forest\", owner = \"O\", prefix = \"P\", office = \"A\", {half}"
+            )))
+            .contains(&("manifest.unknown-key", "unit_attribute".to_string())),
+            "{half}"
+        );
+    }
     // A state forest has no unit within it, nor a water zone.
     assert_eq!(
         refused(&layer(
