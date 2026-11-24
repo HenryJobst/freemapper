@@ -108,5 +108,14 @@ Notecka, Kampinos, Słubice forests) now give numbers; the tables and the method
 - The measurement shows no majority against 505, so **the rule stays**. The adapter revision is unchanged.
 - Local and access roads on bare ground (504) and internal roads on gravel (504) were checked the same way: 78 % and
   87 % of the discernible lines are 2.5 m or wider. `ścieżka` (506): 11 of 11 narrow.
-- Open: `aleja lub pasaż` on bare ground (505), 21 of 24 sampled alleys under 2.5 m, mostly cemeteries. Whether a width
-  rule helps on forest maps needs a forest sample.
+- `aleja lub pasaż` on bare ground (505): 21 of 24 sampled alleys under 2.5 m, mostly cemeteries, outside forest. The
+  forest sample is the next addendum.
+
+## Addendum 24 November 2026: alleys in forest checked
+
+In the same four powiats 16 bare-ground alleys lie in forest (BDOT10k `las`; 1.2 % of the bare-ground alleys, 1.3 km),
+plus 143 on other surfaces. Seven of the 16 can be seen on the orthophoto, all of them paths under 2.5 m, none wider; of
+32 sampled other-surface alleys 4 are 2.5 m or wider. No majority of the discernible lines contradicts 505 (a footpath),
+so **the rule stays and the adapter revision is unchanged**. A width rule to 506 has no backing. Tables, method and
+limits are in
+[poland-reference.md](../regions/poland-reference.md#addendum-24-november-2026-alleys-in-forest-same-four-powiats-measured-adr-0187).
