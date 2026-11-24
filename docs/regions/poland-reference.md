@@ -503,10 +503,9 @@ without (64) track 4, path 6, not discernible 54.
 - 504 for local and access roads on bare ground (78 % at 2.5 m or more) and for internal roads on gravel (87 %)
   stands. 506 for `ścieżka` stands (11 of 11 narrow where seen).
 - **The rule for `droga wewnętrzna` stays 505; nothing in the adapter changed.**
-- Left open: `aleja lub pasaż` on bare ground is 505, and 21 of 24 sampled alleys are under 2.5 m. They are cemetery
-  alleys and paths between blocks of flats, not forest (`szerokosc` is 1.0 m on all 731 at Notecka, 1.0 to 4.0 m
-  elsewhere). A width rule (`szerokosc` under 2.5 to 506) is the candidate; it needs a forest sample first, since
-  on a forest map these alleys are rare.
+- Left open at the time: `aleja lub pasaż` on bare ground is 505, and 21 of 24 sampled alleys are under 2.5 m. They are
+  cemetery alleys and paths between blocks of flats, not forest (`szerokosc` is 1.0 m on all 731 at Notecka, 1.0 to
+  4.0 m elsewhere). The forest sample followed the same day, see the next addendum.
 
 **Not proven.** One reader, single pass, no second opinion; widths read at about 0.25 m per pixel, error half a metre,
 so the 2.5 m boundary is soft. The orthophotos differ by area (Tuchola and Notecka leaf-off, Kampinos in summer),
@@ -518,6 +517,76 @@ those of the duplicate step, not tuned.
 **Cost.** 10.8 MB of member reads for the four powiats (central directories included), about 220 WMS tiles of 60 m,
 four Overpass windows. Three more member reads for powiats picked by a wrong TERYT code (2214 tczewski, 1415
 ostrołęcki, 0415 toruński, 11 MB) were thrown away; the codes of the Bory Tucholskie and of Kampinos are 0416 and 1414.
+
+## Addendum 24 November 2026: alleys in forest, same four powiats (measured, ADR 0187)
+
+The rule is `bdot:rodzaj=droga dla rowerów|aleja lub pasaż` on `OT_SKRP_L`, 505, for every surface (no material or width
+in the condition). The first addendum found 21 of 24 sampled bare-ground alleys under 2.5 m, mostly cemeteries and
+estates. This is the forest sample. Same four powiats, same method: `OT_SKRP_L` read as a member by byte range (1.3 to
+2.2 MB each, plus `OT_PTLZ_A` of 1.4 to 3.6 MB for the forest), orthophoto of the GUGiK WMS `StandardResolution`.
+
+**Forest here is BDOT10k `OT_PTLZ_A` with `rodzaj=las`, not OSM.** The Overpass servers returned 502 and 504 for every
+window query after the first (Tuchola), so the other three powiats could not be done with OSM. A line counts as in
+forest when the middle vertex of its polyline lies in a `las` polygon (holes cut out). `zagajnik` and `zadrzewienie` do
+not count. For Tuchola the OSM windows gave 1 bare-ground and 20 other-surface alleys in forest against 5 and 23 from
+`las`, so the two definitions differ by a few lines, not by a pattern.
+
+| Powiat | Alleys | Bare ground | In forest, bare ground | In forest, other surface |
+|---|---|---|---|---|
+| 0416 tucholski | 793 | 242 (20.3 km) | 5 (342 m) | 23 (3.9 km) |
+| 3002 czarnkowsko-trzcianecki | 1 390 | 731 (53.2 km) | 8 (419 m) | 30 (9.6 km) |
+| 1414 nowodworski | 1 024 | 165 (12.3 km) | 0 | 81 (5.4 km) |
+| 0805 słubicki | 374 | 176 (22.6 km) | 3 (561 m) | 9 (0.7 km) |
+| **Together** | 3 581 | 1 314 | **16 (1.3 km, 1.2 % of the bare-ground alleys)** | 143 |
+
+Of the 143 other-surface alleys 83 are paved with `kostka prefabrykowana`, 49 with `żwir` or `tłuczeń`, the rest concrete,
+slabs, asphalt or without a material. `zrodloDanychGeometrycznych` is `ortofotomapa` on all 16 bare-ground lines. `szerokosc` on them: 1.0 m
+on all 8 at Notecka (that powiat has 1.0 m on every bare-ground alley, so it is a default, not a measurement), 3.0 m on
+all 5 at Tuchola, 2.0 m on the 3 at Słubice.
+
+**Orthophoto, sight check.** All 16 bare-ground lines and a random 32 of the 143 others (seed fixed, so the draw can be
+repeated), drawn over a 60 m tile with a 2.5 m and a 5 m bar, one reader. Classes as before.
+
+| Sample | n | Wide (4 m and more) | Track (2.5 to 4 m) | Path (under 2.5 m) | Not discernible |
+|---|---|---|---|---|---|
+| bare ground, Tuchola | 5 | 0 | 0 | 4 | 1 |
+| bare ground, Notecka | 8 | 0 | 0 | 2 | 6 |
+| bare ground, Nowy Dwór (Kampinos) | 0 | | | | |
+| bare ground, Słubice | 3 | 0 | 0 | 1 | 2 |
+| **bare ground, together** | 16 | 0 | 0 | **7** | 9 |
+| other surface, Tuchola | 3 | 0 | 0 | 0 | 3 |
+| other surface, Notecka | 10 | 2 | 0 | 4 | 4 |
+| other surface, Kampinos | 19 | 0 | 2 | 5 | 12 |
+| other surface, Słubice | 0 (9 lines, none drawn) | | | | |
+| **other surface, together** | 32 | 2 | 2 | 9 | 19 |
+
+**Reading.**
+
+- Alleys on bare ground in forest are rare: 16 lines of 1 314 in four powiats, 1.3 km. Whatever the rule does with
+  them, it changes little on a forest map.
+- Of those 16, 7 can be seen, and all 7 are paths under 2.5 m wide: park and cemetery-edge paths of about 2 m (Tuchola, Notecka)
+  and one path under trees at Słubice. None is a vehicle track, none is wide. The other 9 lie under canopy or along
+  fences and plots and show nothing.
+- Nothing here argues for 504. A path under 2.5 m is what 505 draws in the forest rules (a footpath; 506 is the small
+  path, `ścieżka`). The pixel size of the orthophoto (about 0.25 m) cannot tell a footpath from a small path, so the
+  sample cannot say that 506 fits better. The criterion for a change, a majority of the discernible lines that does not
+  fit 505, is not met: no line seen is wider than a footpath.
+- The 32 other-surface alleys show the same: 9 paths, 4 at 2.5 m or more (2 wide, 2 track), 19 not discernible. The two wide ones are a
+  road that the line follows, not an alley.
+- **The rule for `aleja lub pasaż` stays 505; nothing in the adapter changed.** The one-line width rule (`szerokosc` under
+  2.5 m to 506) is not backed by this sample: on bare ground in forest the register width is 1.0, 2.0 or 3.0 m by powiat, and
+  the one powiat with 1.0 m (Notecka) has it on every alley.
+
+**Not proven.** Seven discernible bare-ground lines are a small sample; they stand for the lines that can be seen in an
+orthophoto, not for all 16, and 9 of 16 cannot be classified. One reader, no second opinion. Forest by BDOT10k `las`, whose
+edges are not those of OSM. The middle vertex decides, so a line that only grazes a forest is out and a long line that
+ends in forest may be in. Kampinos has no bare-ground alley in forest at all. The 32 others are a draw of 143, not all of
+them, and Słubice's 9 are not in it. The orthophotos differ by area and season. The register width is not checked
+against the ground. Alleys that lie beside a road (sidewalks) were counted "not discernible" when the line sat on the
+verge, which is a judgement.
+
+**Cost.** About 9.6 MB of member reads for the four powiats (alleys and forest members, central directories included), 48
+WMS tiles of 60 m. The one OSM window that worked was Tuchola (4.6 MB); the other Overpass queries failed with 502 or 504.
 
 ## Addendum 24 November 2026: what BDOT10k says about `Bi` parcels (measured, ADR 0194)
 
