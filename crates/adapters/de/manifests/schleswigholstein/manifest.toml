@@ -102,6 +102,24 @@ fields = { kind = "art_bot", id = "baumnr", species = "art_de", crown = "kronenm
 attribution = "Herausgeber: Stadtverwaltung Norderstedt, dl-de/by-2-0"
 max_bytes = 268435456
 
+# The state forest, the Naturwald and the water protection zones of the environment services (a deegree WFS
+# that answers GML 3.2 only), issue #273.
+[[permits.wfs]]
+key = "umwelt"
+label = { en = "Umweltportal Schleswig-Holstein", de = "Umweltportal Schleswig-Holstein" }
+what = { en = "state forest with its Reviere, Naturwald, water protection zones", de = "Landeswald mit seinen Revieren, Naturwald, Wasserschutzgebiete" }
+credit = "Quellenvermerk: LfU SH; Lizenz: Creative Commons Namensnennung 4.0 International (CC BY 4.0)"
+sections = ["state-forest", "forest-units", "forest-functions", "water-protection"]
+url = "https://umweltgeodienste.schleswig-holstein.de/WFS_UWAT"
+output_format = "application%2Fgml%2Bxml%3B%20version%3D3.2"
+gml = true
+layers = [
+    { key = "landeswald", type_name = "app:shlf_gesamtflaeche", reading = "state-forest", owner = "Bundesland Schleswig-Holstein", prefix = "Schleswig-Holsteinische Landesforsten, Revier ", office = "reviername" },
+    { key = "reviere", type_name = "app:shlf_gesamtflaeche", reading = "unit", administration = "Schleswig-Holsteinische Landesforsten", prefix = "Revier ", office = "reviername" },
+    { key = "naturwald", type_name = "app:shlf_naturwald", reading = "function", function = "natural" },
+    { key = "wasserschutzgebiete", type_name = "app:wsg_zonen", reading = "water", name = "wsg_name", zone = "wsg_zone" },
+]
+
 # The Naturdenkmale and geschützte Landschaftsbestandteile of the INSPIRE service (a deegree WFS that
 # answers GML 3.2 only, CC BY 4.0), issue #273. The Kreise reported few of them.
 [[permits.wfs]]

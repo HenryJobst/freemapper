@@ -77,6 +77,19 @@ fields = { kind = "Lateinischer Name", id = "Objekt ID", crown = "Kronen Durchme
 attribution = "Stadt Frankfurt am Main, Baumkataster, dl-de/by-2-0"
 max_bytes = 67108864
 
+# The drinking water and medicinal spring protection areas of the HLNUG (issue #273).
+[[permits.wfs]]
+key = "wasserschutzgebiete"
+label = { en = "HLNUG", de = "HLNUG" }
+what = { en = "drinking water and medicinal spring protection areas", de = "Trinkwasser- und Heilquellenschutzgebiete" }
+credit = "Lizenz: Creative Commons BY 4.0 (https://creativecommons.org/licenses/by/4.0/deed.de). Quellenvermerk für Daten: „Darstellung auf der Grundlage von Daten des Hessischen Landesamtes für Naturschutz, Umwelt und Geologie (HLNUG)“."
+sections = ["water-protection"]
+url = "https://geodienste-umwelt.hessen.de/arcgis/services/inspire/bewirtschaftungsgebiete/MapServer/WFSServer"
+output_format = "GEOJSON"
+layers = [
+    { key = "wasserschutzgebiete", type_name = "inspire_bewirtschaftungsgebiete:TWS_HQS_ALK", reading = "water", name = "WSG_KURZNAME", zone = "ZONE", citation = "STAATSANZEIGER" },
+]
+
 # The monuments of the Landesamt für Denkmalpflege Hessen (DenkXweb), with the link into the list (issue #273).
 [[permits.wfs]]
 key = "denkmale"

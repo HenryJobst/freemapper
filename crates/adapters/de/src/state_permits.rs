@@ -1,230 +1,45 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! The permit sources of the Saarland and Hesse (ADR 0130), described as tables for
-//! [`wfs_permits`](crate::wfs_permits): GeoJSON WFS of the Geoportal Saarland (CC BY 4.0) and of
-//! the HLNUG (CC BY 4.0). The credit lines are verbatim from the services' capabilities or
-//! their catalogue entries.
+//! The fixtures of the permit sources of the states, read through the tables the manifests
+//! declare (issue #273). Saarland, Hesse and Schleswig-Holstein had their tables in this file
+//! until they moved into their manifests; these tests, which ran against the code tables, now
+//! run against the declared ones and so show that the manifests read the answers alike.
 
-use freemapper_adapter_api::permits::{ForestFunctionKind, PermitSection, PermitSource, Wording};
-
-use crate::wfs_permits::{Reading, source};
-
-pub(crate) const SAARLAND: Wording = Wording {
-    en: "Geoportal Saarland",
-    de: "Geoportal Saarland",
-};
-
-/// The credit of the Geoportal Saarland as its catalogue gives it; the year is that of the
-/// fetch.
-pub(crate) const SAARLAND_CREDIT: &str = "Quellenvermerk: © GDI-SL ({year}); Lizenz: Creative Commons Namensnennung 4.0 International (CC BY 4.0)";
-
-/// The three services of the Saarland.
-pub fn saarland() -> Vec<Box<dyn PermitSource>> {
-    vec![
-        source(
-            "forst",
-            SAARLAND,
-            Wording {
-                en: "forest districts of the SaarForst Landesbetrieb (state forest)",
-                de: "Reviere des SaarForst Landesbetriebs (Staatswald)",
-            },
-            SAARLAND_CREDIT,
-            &["reviere"],
-            &[PermitSection::ForestUnits],
-            "https://geoportal.saarland.de/arcgis/services/Internet/Forstwirtschaft/MapServer/WFSServer",
-            "GEOJSON",
-            &[(
-                "reviere",
-                "Forstwirtschaft:Reviergrenze_Staatswald",
-                Reading::Unit {
-                    administration: "SaarForst Landesbetrieb",
-                    prefix: "Revier ",
-                    office: "NAME",
-                },
-            )],
-        ),
-        source(
-            "schutzgebiete",
-            SAARLAND,
-            Wording {
-                en: "water protection areas, Naturwaldzellen and Urwald",
-                de: "Wasserschutzgebiete, Naturwaldzellen und Urwald",
-            },
-            SAARLAND_CREDIT,
-            &["wasserschutzgebiete", "naturwaldzellen", "urwald"],
-            &[
-                PermitSection::WaterProtection,
-                PermitSection::ForestFunctions,
-            ],
-            "https://geoportal.saarland.de/arcgis/services/Internet/Schutzgebiete_INS/MapServer/WFSServer",
-            "GEOJSON",
-            &[
-                (
-                    "wasserschutzgebiete",
-                    "Schutzgebiete_INS:Wasserschutzgebiet",
-                    Reading::Water {
-                        name: "NAME",
-                        zone: "SCHUTZZONE",
-                        citation: Some("RECHTSGRUNDLAGE"),
-                        planned: None,
-                    },
-                ),
-                (
-                    "naturwaldzellen",
-                    "Schutzgebiete_INS:Naturwaldzellen",
-                    Reading::Function {
-                        kind: ForestFunctionKind::Natural,
-                        name: Some("NWZ"),
-                    },
-                ),
-                (
-                    "urwald",
-                    "Schutzgebiete_INS:Urwald_SL",
-                    Reading::Function {
-                        kind: ForestFunctionKind::Natural,
-                        name: Some("INFO"),
-                    },
-                ),
-            ],
-        ),
-        source(
-            "denkmale",
-            SAARLAND,
-            Wording {
-                en: "listed buildings (Baudenkmale)",
-                de: "Baudenkmale",
-            },
-            SAARLAND_CREDIT,
-            &["baudenkmale"],
-            &[PermitSection::Monuments],
-            "https://geoportal.saarland.de/arcgis/services/Internet/Denkmalschutz/MapServer/WFSServer",
-            "GEOJSON",
-            &[(
-                "baudenkmale",
-                "Denkmalschutz:Baudenkmale",
-                Reading::Monument {
-                    kind: "Baudenkmal",
-                    kind_from: None,
-                    link: Some(("Baud_Land", "https://www.saarland.de/")),
-                },
-            )],
-        ),
-    ]
-}
-
-/// The credit of the HLNUG, verbatim from the capabilities (`Fees`) of its service.
-pub(crate) const HLNUG_CREDIT: &str = "Lizenz: Creative Commons BY 4.0 \
-    (https://creativecommons.org/licenses/by/4.0/deed.de). Quellenvermerk für Daten: \
-    „Darstellung auf der Grundlage von Daten des Hessischen Landesamtes für Naturschutz, Umwelt \
-    und Geologie (HLNUG)“.";
-
-/// The one service of Hesse.
-pub fn hessen() -> Vec<Box<dyn PermitSource>> {
-    vec![source(
-        "wasserschutzgebiete",
-        Wording {
-            en: "HLNUG",
-            de: "HLNUG",
-        },
-        Wording {
-            en: "drinking water and medicinal spring protection areas",
-            de: "Trinkwasser- und Heilquellenschutzgebiete",
-        },
-        HLNUG_CREDIT,
-        &["wasserschutzgebiete"],
-        &[PermitSection::WaterProtection],
-        "https://geodienste-umwelt.hessen.de/arcgis/services/inspire/bewirtschaftungsgebiete/MapServer/WFSServer",
-        "GEOJSON",
-        &[(
-            "wasserschutzgebiete",
-            "inspire_bewirtschaftungsgebiete:TWS_HQS_ALK",
-            Reading::Water {
-                name: "WSG_KURZNAME",
-                zone: "ZONE",
-                citation: Some("STAATSANZEIGER"),
-                planned: None,
-            },
-        )],
-    )]
-}
-
-/// The credit of the environment services of Schleswig-Holstein, as the Umweltportal names it
-/// for the state forest; the service itself gives no conditions (`Fees` NONE).
-const SH_CREDIT: &str = "Quellenvermerk: LfU SH; Lizenz: Creative Commons Namensnennung 4.0 \
-    International (CC BY 4.0)";
-
-/// The administration of the state forest of Schleswig-Holstein.
-const SHLF: &str = "Schleswig-Holsteinische Landesforsten";
-
-/// The one service of Schleswig-Holstein (ADR 0137): a deegree WFS that answers GML 3.2 only,
-/// with the state forest and its Reviere, the Naturwald and the water protection zones.
-pub fn schleswig_holstein() -> Vec<Box<dyn PermitSource>> {
-    vec![crate::wfs_permits::gml_source(
-        "umwelt",
-        Wording {
-            en: "Umweltportal Schleswig-Holstein",
-            de: "Umweltportal Schleswig-Holstein",
-        },
-        Wording {
-            en: "state forest with its Reviere, Naturwald, water protection zones",
-            de: "Landeswald mit seinen Revieren, Naturwald, Wasserschutzgebiete",
-        },
-        SH_CREDIT,
-        &["landeswald", "reviere", "naturwald", "wasserschutzgebiete"],
-        &[
-            PermitSection::StateForest,
-            PermitSection::ForestUnits,
-            PermitSection::ForestFunctions,
-            PermitSection::WaterProtection,
-        ],
-        "https://umweltgeodienste.schleswig-holstein.de/WFS_UWAT",
-        "application%2Fgml%2Bxml%3B%20version%3D3.2",
-        &[
-            (
-                "landeswald",
-                "app:shlf_gesamtflaeche",
-                Reading::StateForest {
-                    owner: "Bundesland Schleswig-Holstein",
-                    prefix: "Schleswig-Holsteinische Landesforsten, Revier ",
-                    office: "reviername",
-                },
-            ),
-            (
-                "reviere",
-                "app:shlf_gesamtflaeche",
-                Reading::Unit {
-                    administration: SHLF,
-                    prefix: "Revier ",
-                    office: "reviername",
-                },
-            ),
-            (
-                "naturwald",
-                "app:shlf_naturwald",
-                Reading::Function {
-                    kind: ForestFunctionKind::Natural,
-                    name: None,
-                },
-            ),
-            (
-                "wasserschutzgebiete",
-                "app:wsg_zonen",
-                Reading::Water {
-                    name: "wsg_name",
-                    zone: "wsg_zone",
-                    citation: None,
-                    planned: None,
-                },
-            ),
-        ],
-    )]
-}
-
-#[cfg(test)]
 mod tests {
-    use super::*;
-    use freemapper_adapter_api::permits::FindingKind;
+    use std::path::Path;
+
+    use freemapper_adapter_api::permits::{FindingKind, ForestFunctionKind, PermitSource};
     use serde_json::Value;
+
+    use crate::wfs_permits::declared_source;
+
+    /// The sources the manifest of the adapter `id` declares, in its order.
+    fn declared(id: &str, manifest: &str) -> Vec<Box<dyn PermitSource>> {
+        freemapper_manifest::parse(manifest, Path::new(id))
+            .unwrap()
+            .permits
+            .iter()
+            .map(declared_source)
+            .collect()
+    }
+
+    fn saarland() -> Vec<Box<dyn PermitSource>> {
+        declared(
+            "saarland",
+            include_str!("../manifests/saarland/manifest.toml"),
+        )
+    }
+
+    fn hessen() -> Vec<Box<dyn PermitSource>> {
+        declared("hessen", include_str!("../manifests/hessen/manifest.toml"))
+    }
+
+    fn schleswig_holstein() -> Vec<Box<dyn PermitSource>> {
+        declared(
+            "schleswigholstein",
+            include_str!("../manifests/schleswigholstein/manifest.toml"),
+        )
+    }
 
     macro_rules! fixture {
         ($name:literal) => {

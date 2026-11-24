@@ -55,6 +55,46 @@ layers = ["dlm-fahrweg", "dlm-weg"]
 max_count = 20000
 max_bytes = 67108864
 
+# The three services of the Geoportal Saarland that had a table in the code (issue #273): the Reviere of the
+# SaarForst, water protection areas with Naturwaldzellen and Urwald, and the Baudenkmale.
+[[permits.wfs]]
+key = "forst"
+label = { en = "Geoportal Saarland", de = "Geoportal Saarland" }
+what = { en = "forest districts of the SaarForst Landesbetrieb (state forest)", de = "Reviere des SaarForst Landesbetriebs (Staatswald)" }
+credit = "Quellenvermerk: © GDI-SL ({year}); Lizenz: Creative Commons Namensnennung 4.0 International (CC BY 4.0)"
+sections = ["forest-units"]
+url = "https://geoportal.saarland.de/arcgis/services/Internet/Forstwirtschaft/MapServer/WFSServer"
+output_format = "GEOJSON"
+layers = [
+    { key = "reviere", type_name = "Forstwirtschaft:Reviergrenze_Staatswald", reading = "unit", administration = "SaarForst Landesbetrieb", prefix = "Revier ", office = "NAME" },
+]
+
+[[permits.wfs]]
+key = "schutzgebiete"
+label = { en = "Geoportal Saarland", de = "Geoportal Saarland" }
+what = { en = "water protection areas, Naturwaldzellen and Urwald", de = "Wasserschutzgebiete, Naturwaldzellen und Urwald" }
+credit = "Quellenvermerk: © GDI-SL ({year}); Lizenz: Creative Commons Namensnennung 4.0 International (CC BY 4.0)"
+sections = ["water-protection", "forest-functions"]
+url = "https://geoportal.saarland.de/arcgis/services/Internet/Schutzgebiete_INS/MapServer/WFSServer"
+output_format = "GEOJSON"
+layers = [
+    { key = "wasserschutzgebiete", type_name = "Schutzgebiete_INS:Wasserschutzgebiet", reading = "water", name = "NAME", zone = "SCHUTZZONE", citation = "RECHTSGRUNDLAGE" },
+    { key = "naturwaldzellen", type_name = "Schutzgebiete_INS:Naturwaldzellen", reading = "function", function = "natural", name = "NWZ" },
+    { key = "urwald", type_name = "Schutzgebiete_INS:Urwald_SL", reading = "function", function = "natural", name = "INFO" },
+]
+
+[[permits.wfs]]
+key = "denkmale"
+label = { en = "Geoportal Saarland", de = "Geoportal Saarland" }
+what = { en = "listed buildings (Baudenkmale)", de = "Baudenkmale" }
+credit = "Quellenvermerk: © GDI-SL ({year}); Lizenz: Creative Commons Namensnennung 4.0 International (CC BY 4.0)"
+sections = ["monuments"]
+url = "https://geoportal.saarland.de/arcgis/services/Internet/Denkmalschutz/MapServer/WFSServer"
+output_format = "GEOJSON"
+layers = [
+    { key = "baudenkmale", type_name = "Denkmalschutz:Baudenkmale", reading = "monument", monument = "Baudenkmal", link_attribute = "Baud_Land", link_prefix = "https://www.saarland.de/" },
+]
+
 # The protected objects of the Geoportal Saarland (issue #273). The geschützte Landschaftsbestandteile
 # stay out: one ordinance among them was found invalid, and the table does not mark which.
 [[permits.wfs]]

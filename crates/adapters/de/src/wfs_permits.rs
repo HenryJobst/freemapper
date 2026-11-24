@@ -362,7 +362,7 @@ fn reading(declared: &DeclaredReading) -> Reading {
 }
 
 /// The source of a declared table.
-fn declared_source(declared: &DeclaredWfs) -> Box<dyn PermitSource> {
+pub(crate) fn declared_source(declared: &DeclaredWfs) -> Box<dyn PermitSource> {
     let keys: &'static [&'static str] = kept_all(
         declared
             .layers
@@ -920,7 +920,7 @@ mod tests {
         let declared: Vec<Box<dyn PermitSource>> = manifest
             .permits
             .iter()
-            .filter(|w| !is_monuments(w))
+            .filter(|w| is_objects(w))
             .map(declared_source)
             .collect();
         let keys: Vec<(&str, &[&str])> = declared
@@ -989,7 +989,7 @@ mod tests {
         let declared: Vec<Box<dyn PermitSource>> = manifest
             .permits
             .iter()
-            .filter(|w| !is_monuments(w))
+            .filter(|w| is_objects(w))
             .map(declared_source)
             .collect();
         let keys: Vec<(&str, &[&str])> = declared
@@ -1042,7 +1042,7 @@ mod tests {
         let declared: Vec<Box<dyn PermitSource>> = manifest
             .permits
             .iter()
-            .filter(|w| !is_monuments(w))
+            .filter(|w| is_objects(w))
             .map(declared_source)
             .collect();
         let keys: Vec<(&str, &[&str])> = declared
@@ -1105,7 +1105,7 @@ mod tests {
         let declared: Vec<Box<dyn PermitSource>> = manifest
             .permits
             .iter()
-            .filter(|w| !is_monuments(w))
+            .filter(|w| is_objects(w))
             .map(declared_source)
             .collect();
         assert_eq!(declared.len(), 1);
@@ -1146,7 +1146,7 @@ mod tests {
         let declared: Vec<Box<dyn PermitSource>> = manifest
             .permits
             .iter()
-            .filter(|w| !is_monuments(w))
+            .filter(|w| is_objects(w))
             .map(declared_source)
             .collect();
         assert_eq!(declared.len(), 1);
@@ -1182,7 +1182,7 @@ mod tests {
         let declared: Vec<Box<dyn PermitSource>> = manifest
             .permits
             .iter()
-            .filter(|w| !is_monuments(w))
+            .filter(|w| is_objects(w))
             .map(declared_source)
             .collect();
         assert_eq!(declared.len(), 1);
@@ -1231,8 +1231,9 @@ mod tests {
         const SERVICE: &str = "https://service.gdi-sh.de/SH_INSPIREDOWNLOAD_AI_PS";
         let text = include_str!("../manifests/schleswigholstein/manifest.toml");
         let manifest = freemapper_manifest::parse(text, Path::new("schleswigholstein")).unwrap();
-        assert_eq!(manifest.permits.len(), 1);
-        let source = declared_source(&manifest.permits[0]);
+        let objects: Vec<_> = manifest.permits.iter().filter(|w| is_objects(w)).collect();
+        assert_eq!(objects.len(), 1);
+        let source = declared_source(objects[0]);
         let base = format!(
             "{SERVICE}?service=WFS&version=2.0.0&request=GetFeature\
              &outputFormat=application%2Fgml%2Bxml%3B%20version%3D3.2\
@@ -1310,7 +1311,7 @@ mod tests {
         let declared: Vec<Box<dyn PermitSource>> = manifest
             .permits
             .iter()
-            .filter(|w| !is_monuments(w))
+            .filter(|w| is_objects(w))
             .map(declared_source)
             .collect();
         let keys: Vec<&str> = declared.iter().map(|source| source.info().key).collect();
@@ -1355,7 +1356,7 @@ mod tests {
         let declared: Vec<Box<dyn PermitSource>> = manifest
             .permits
             .iter()
-            .filter(|w| !is_monuments(w))
+            .filter(|w| is_objects(w))
             .map(declared_source)
             .collect();
         let keys: Vec<(&str, &[&str])> = declared
@@ -1406,7 +1407,7 @@ mod tests {
         let declared: Vec<Box<dyn PermitSource>> = manifest
             .permits
             .iter()
-            .filter(|w| !is_monuments(w))
+            .filter(|w| is_objects(w))
             .map(declared_source)
             .collect();
         assert_eq!(declared.len(), 1);
@@ -1450,7 +1451,7 @@ mod tests {
         let declared: Vec<Box<dyn PermitSource>> = manifest
             .permits
             .iter()
-            .filter(|w| !is_monuments(w))
+            .filter(|w| is_objects(w))
             .map(declared_source)
             .collect();
         assert_eq!(declared.len(), 1);
@@ -1504,7 +1505,7 @@ mod tests {
         let declared: Vec<Box<dyn PermitSource>> = manifest
             .permits
             .iter()
-            .filter(|w| !is_monuments(w))
+            .filter(|w| is_objects(w))
             .map(declared_source)
             .collect();
         assert_eq!(declared.len(), 2);
@@ -1560,6 +1561,10 @@ mod tests {
                 "{url}"
             );
         }
+    }
+
+    fn is_objects(declared: &DeclaredWfs) -> bool {
+        declared.sections.contains(&PermitSection::ProtectedObjects)
     }
 
     fn is_monuments(declared: &DeclaredWfs) -> bool {
