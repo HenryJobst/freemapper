@@ -338,11 +338,14 @@ pub(crate) fn geometry(feature: &Feature, crs: Crs) -> Option<Value> {
 /// `mt`, `mz` residential, `a` and `u` accommodation and trade, `d` communication and stations,
 /// `o`, `e` culture and schools, `f` sport, `r` places of worship, `x` listed structures. No
 /// answer of the service held one yet; they are mapped to the same names as the coarse letters.
-/// Some municipalities send the kind in words: `budynekMieszkalny` is residential and
+/// The service of Poznań (powiat 3064) sends the class names of the KŚT in words, cut off at 20
+/// characters (`budynki handlowo-usł`), see [`kind_of_words`]. Some municipalities send the kind
+/// in other words: `budynekMieszkalny` is residential and
 /// `budynekNiemieszkalny` non-residential without saying what for. A kind the table does not know
 /// keeps its text, so the data stays readable.
 pub fn building_function(kind: &str) -> String {
-    match kind.trim() {
+    let kind = kind.trim();
+    match kind_of_words(kind).unwrap_or(kind) {
         "m" | "mj" | "md" | "mt" | "mz" => "Wohngebäude",
         "g" => "Gebäude für Wirtschaft und Gewerbe",
         "p" => "Industriegebäude",
@@ -358,6 +361,30 @@ pub fn building_function(kind: &str) -> String {
         other => other,
     }
     .to_string()
+}
+
+/// The letter of a building kind that the service sends as the name of its KŚT class, cut off at
+/// 20 characters (Poznań, 24 November 2026: 1 000 of its buildings). The names are those of the
+/// ten groups of the classification (`kodKst` 101 to 110, the letters of the table in
+/// `docs/regions/poland-reference.md`); the complete name starts with the cut text too, so it reads
+/// the same. `None` for anything else.
+fn kind_of_words(kind: &str) -> Option<&'static str> {
+    const WORDS: [(&str, &str); 10] = [
+        ("budynki mieszkalne", "m"),
+        ("budynki biurowe", "b"),
+        ("budynki handlowo-usł", "h"),
+        ("budynki oświaty, nau", "k"),
+        ("budynki produkcyjne,", "g"),
+        ("budynki przemysłowe", "p"),
+        ("budynki szpitali i i", "z"),
+        ("budynki transportu i", "t"),
+        ("pozostałe budynki ni", "i"),
+        ("zbiorniki, silosy i ", "s"),
+    ];
+    WORDS
+        .iter()
+        .find(|(words, _)| kind.starts_with(words.trim_end()))
+        .map(|(_, letter)| *letter)
 }
 
 /// The land use of one register class of a parcel, as `(nutzart, bez)` in the LGB spellings the
@@ -799,6 +826,48 @@ mod tests {
         for (kind, name) in table {
             assert_eq!(building_function(kind), name, "{kind}");
         }
+    }
+
+    /// The ten kinds Poznań sends in words (cut at 20 characters), 1 000 buildings on
+    /// 24 November 2026: each gives the name of its letter, also with the full name and with
+    /// spaces around; one character fewer or another word does not.
+    #[test]
+    fn the_kinds_poznan_sends_in_words_have_names() {
+        let table = [
+            ("budynki mieszkalne", "m"),
+            ("budynki biurowe", "b"),
+            ("budynki handlowo-usł", "h"),
+            ("budynki oświaty, nau", "k"),
+            ("budynki produkcyjne,", "g"),
+            ("budynki przemysłowe", "p"),
+            ("budynki szpitali i i", "z"),
+            ("budynki transportu i", "t"),
+            ("pozostałe budynki ni", "i"),
+            ("zbiorniki, silosy i ", "s"),
+        ];
+        for (words, letter) in table {
+            assert_eq!(
+                building_function(words),
+                building_function(letter),
+                "{words}"
+            );
+            assert_ne!(building_function(words), words, "{words}");
+            let full = format!(" {}xyz ", words.trim_end());
+            assert_eq!(
+                building_function(&full),
+                building_function(letter),
+                "{full}"
+            );
+        }
+        // The last name loses its space at the end (a service that trims) and still reads.
+        assert_eq!(
+            building_function("zbiorniki, silosy i"),
+            "Behälter, Silo und Speichergebäude"
+        );
+        // Cut one character too early, or the wrong word: the text stays.
+        assert_eq!(building_function("budynki mieszkaln"), "budynki mieszkaln");
+        assert_eq!(building_function("budynki sportowe"), "budynki sportowe");
+        assert_eq!(building_function("zbiorniki, silosy"), "zbiorniki, silosy");
     }
 
     /// Ten buildings of the live service, one per letter that occurred in 2 000 buildings of
