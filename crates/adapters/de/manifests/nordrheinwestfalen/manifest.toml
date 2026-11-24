@@ -112,6 +112,20 @@ fields = { kind = "art_botani", id = "id", date = "edatum", species = "art_deuts
 attribution = "Stadt Dortmund, Baumkataster, dl-de/zero-2-0"
 max_bytes = 268435456
 
+# The Naturwaldzellen and Wildnisentwicklungsgebiete of LINFOS (issue #273).
+[[permits.wfs]]
+key = "linfos"
+label = { en = "LINFOS (Land NRW)", de = "LINFOS (Land NRW)" }
+what = { en = "Naturwaldzellen and wilderness development areas", de = "Naturwaldzellen und Wildnisentwicklungsgebiete" }
+credit = "Open Data - Dieses Angebot vom Landesamt für Natur, Umwelt und Verbraucherschutz Nordrhein-Westfalen ist lizensiert unter der Datenlizenz Deutschland Namensnennung 2.0 (https://www.govdata.de/dl-de/by-2-0). Datensätze unter dieser Lizenz müssen bei Weiterverwendung mit dem Quellenverweis „Land NRW“ versehen werden."
+sections = ["forest-functions"]
+url = "https://www.wfs.nrw.de/umwelt/linfos"
+output_format = "GEOJSON"
+layers = [
+    { key = "naturwaldzellen", type_name = "wfs_linfos:nwz_polygon", reading = "function", function = "natural", name = "objektbezeichnung" },
+    { key = "wildnis", type_name = "wfs_linfos:weg_polygon", reading = "function", function = "natural", name = "objektbezeichnung" },
+]
+
 # The monuments of the state's WFS, GML 3.2 in its CRS, each of the kind its attribute `kategorie` names (issue #273).
 [[permits.wfs]]
 key = "denkmale"
@@ -142,6 +156,45 @@ output_format = "GEOJSON"
 layers = [
     { key = "flaechen", type_name = "wfs_linfos:gbt_polygon", reading = "object", object = "biotope" },
     { key = "punkte", type_name = "wfs_linfos:gbt_point", reading = "object", object = "biotope" },
+]
+
+# The shapefiles of the open data portal of NRW (issue #273): each zip holds one for the whole state, in EPSG:25832.
+# An office whose name holds "forstamt" keeps its name, "Arnsberger Wald" is the Lehr- und Versuchsforstamt, any other
+# name is a Regionalforstamt. The forester of a district, named in every row, is never kept.
+[[permits.shapefile]]
+key = "forstbetriebsbezirke"
+label = { en = "Wald und Holz NRW", de = "Wald und Holz NRW" }
+what = { en = "forest districts (Forstbetriebsbezirke) with their Regionalforstamt", de = "Forstbetriebsbezirke mit ihrem Regionalforstamt" }
+credit = "Landesbetrieb Wald und Holz Nordrhein-Westfalen, Datenlizenz Deutschland – Namensnennung – Version 2.0 (https://www.govdata.de/dl-de/by-2-0)"
+sections = ["forest-units"]
+url = "https://www.opengeodata.nrw.de/produkte/umwelt_klima/wald_forst/wald/forstbetriebsbezirke_nrw_EPSG25832_Shape.zip"
+crs = 25832
+layers = [
+    { key = "forstbetriebsbezirke", reading = "unit", administration = "Landesbetrieb Wald und Holz NRW", prefix = "Regionalforstamt ", office = "rfa", unit_attribute = "fbb", unit_prefix = "Forstbetriebsbezirk ", office_unless = "forstamt", office_exceptions = [{ name = "Arnsberger Wald", prefix = "Lehr- und Versuchsforstamt " }] },
+]
+
+[[permits.shapefile]]
+key = "staatswald"
+label = { en = "Wald und Holz NRW", de = "Wald und Holz NRW" }
+what = { en = "state forest (Landeseigener Forstbetrieb)", de = "Staatswald (Landeseigener Forstbetrieb)" }
+credit = "Landesbetrieb Wald und Holz Nordrhein-Westfalen, Datenlizenz Deutschland – Namensnennung – Version 2.0 (https://www.govdata.de/dl-de/by-2-0)"
+sections = ["state-forest"]
+url = "https://www.opengeodata.nrw.de/produkte/umwelt_klima/wald_forst/wald/landeseigener_forstbetrieb_staatswald_EPSG25832_Shape.zip"
+crs = 25832
+layers = [
+    { key = "staatswald", reading = "state-forest", owner = "Bundesland Nordrhein-Westfalen", prefix = "Regionalforstamt ", office = "forstamt", office_unless = "forstamt", office_exceptions = [{ name = "Arnsberger Wald", prefix = "Lehr- und Versuchsforstamt " }] },
+]
+
+[[permits.shapefile]]
+key = "wasserschutzgebiete"
+label = { en = "Land NRW", de = "Land NRW" }
+what = { en = "water protection areas (set and planned)", de = "Wasserschutzgebiete (festgesetzt und geplant)" }
+credit = "Land NRW, Datenlizenz Deutschland – Zero – Version 2.0 (https://www.govdata.de/dl-de/zero-2-0)"
+sections = ["water-protection"]
+url = "https://www.opengeodata.nrw.de/produkte/umwelt_klima/wasser/trinkwasser/wasserschutzgebiete/Wasserschutzgebiete-NRW_EPSG25832_Shape.zip"
+crs = 25832
+layers = [
+    { key = "wasserschutzgebiete", reading = "water", name = "name", zone = "wsg_zone", planned_attribute = "areastatus", planned_value = "P" },
 ]
 
 [preview]

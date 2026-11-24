@@ -24,6 +24,30 @@ use crate::berlin_permits::geometry;
 use crate::crs::{Crs, LatLon, ProjectedPoint};
 use crate::fetch::{FetchError, Fetcher};
 
+/// How the name of a forest office becomes the name the notes give it, where the prefix alone is
+/// not enough: a name that holds `unless` (in any case) stays as it is, and a name of
+/// `exceptions` gets that prefix instead.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct OfficeRules {
+    pub unless: Option<&'static str>,
+    pub exceptions: &'static [(&'static str, &'static str)],
+}
+
+/// The name of the forest office `raw` as the notes give it: with the `prefix` and, where the
+/// name is all in capitals, in the case of a name, unless `rules` say otherwise.
+fn office_name(raw: &str, prefix: &str, rules: OfficeRules) -> String {
+    if rules
+        .unless
+        .is_some_and(|unless| raw.to_lowercase().contains(&unless.to_lowercase()))
+    {
+        return raw.to_string();
+    }
+    if let Some((_, special)) = rules.exceptions.iter().find(|(name, _)| *name == raw) {
+        return format!("{special}{raw}");
+    }
+    format!("{prefix}{}", name_case(raw))
+}
+
 /// How the features of a layer become findings, with the attributes they read.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Reading {
@@ -57,6 +81,7 @@ pub enum Reading {
         office: &'static str,
         /// The attribute and the prefix of a smaller unit within the office (a Revier).
         unit: Option<(&'static str, &'static str)>,
+        rules: OfficeRules,
     },
     /// A district of a city state, named by the attribute.
     District { name: &'static str },
@@ -86,6 +111,7 @@ pub enum Reading {
         owner: &'static str,
         prefix: &'static str,
         office: &'static str,
+        rules: OfficeRules,
     },
     /// A protected object of nature conservation law of `kind` (ADR 0146): its name (or species,
     /// or type of biotope) and its legal act from the attributes the layer names. With `only`,
@@ -359,22 +385,35 @@ fn percent_encoded(text: &str) -> String {
         .collect()
 }
 
-fn kept(text: &str) -> &'static str {
+pub(crate) fn kept(text: &str) -> &'static str {
     Box::leak(text.to_string().into_boxed_str())
 }
 
-fn kept_all<T>(items: Vec<T>) -> &'static [T] {
+pub(crate) fn kept_all<T>(items: Vec<T>) -> &'static [T] {
     Box::leak(items.into_boxed_slice())
 }
 
-fn wording(declared: &freemapper_adapter_api::permits::DeclaredWording) -> Wording {
+pub(crate) fn wording(declared: &freemapper_adapter_api::permits::DeclaredWording) -> Wording {
     Wording {
         en: kept(&declared.en),
         de: kept(&declared.de),
     }
 }
 
-fn reading(declared: &DeclaredReading) -> Reading {
+fn office_rules(declared: &freemapper_adapter_api::permits::DeclaredOfficeRules) -> OfficeRules {
+    OfficeRules {
+        unless: declared.unless.as_deref().map(kept),
+        exceptions: kept_all(
+            declared
+                .exceptions
+                .iter()
+                .map(|(name, prefix)| (kept(name), kept(prefix)))
+                .collect(),
+        ),
+    }
+}
+
+pub(crate) fn reading(declared: &DeclaredReading) -> Reading {
     let pair = |(a, b): &(String, String)| (kept(a), kept(b));
     match declared {
         DeclaredReading::Water {
@@ -404,12 +443,14 @@ fn reading(declared: &DeclaredReading) -> Reading {
             prefix,
             office,
             unit,
+            rules,
         } => Reading::Unit {
             administration: kept(administration),
             administration_from: administration_from.as_deref().map(kept),
             prefix: kept(prefix),
             office: kept(office),
             unit: unit.as_ref().map(pair),
+            rules: office_rules(rules),
         },
         DeclaredReading::District { name } => Reading::District { name: kept(name) },
         DeclaredReading::GreenSpace {
@@ -439,10 +480,12 @@ fn reading(declared: &DeclaredReading) -> Reading {
             owner,
             prefix,
             office,
+            rules,
         } => Reading::StateForest {
             owner: kept(owner),
             prefix: kept(prefix),
             office: kept(office),
+            rules: office_rules(rules),
         },
         DeclaredReading::Object {
             kind,
@@ -476,6 +519,9 @@ fn reading(declared: &DeclaredReading) -> Reading {
 
 /// The source of a declared table.
 pub(crate) fn declared_source(declared: &DeclaredWfs) -> Box<dyn PermitSource> {
+    if declared.shapefile {
+        return crate::shape_permits::declared_shape_source(declared);
+    }
     let keys: &'static [&'static str] = kept_all(
         declared
             .layers
@@ -755,12 +801,13 @@ pub(crate) fn finding(reading: Reading, feature: &Value) -> Option<PermitFinding
             prefix,
             office,
             unit,
+            rules,
         } => FindingKind::ForestUnit {
             administration: match administration_from {
                 Some(attribute) => format!("{administration}{}", text(feature, attribute)?),
                 None => administration.to_string(),
             },
-            office: format!("{prefix}{}", name_case(&text(feature, office)?)),
+            office: office_name(&text(feature, office)?, prefix, rules),
             unit: unit.and_then(|(attribute, prefix)| {
                 text(feature, attribute).map(|name| format!("{prefix}{name}"))
             }),
@@ -800,9 +847,10 @@ pub(crate) fn finding(reading: Reading, feature: &Value) -> Option<PermitFinding
             owner,
             prefix,
             office,
+            rules,
         } => FindingKind::StateForest {
             owner: owner.to_string(),
-            office: text(feature, office).map(|o| format!("{prefix}{}", name_case(&o))),
+            office: text(feature, office).map(|o| office_name(&o, prefix, rules)),
         },
         Reading::Object {
             kind,

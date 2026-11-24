@@ -252,17 +252,29 @@ which says how its features become findings and which further keys it takes:
 |---|---|---|
 | `water` | `name`, `zone` (both required), `citation`, `planned_attribute` with `planned_value` and `planned_label`, `authority`, `name_form` | A water protection area or zone; where the layer has planned zones, the attribute and the value that mark one (the zone then says `planned_label` in brackets, `geplant` by default). `authority` is the attribute of the authority in charge. `name_form = "register"` reads the name as a register writes it: without quotes and the number at its end, in the case of a name. |
 | `function` | `function` (required: `recreation`, `protected`, `natural`, `closed`), `name` | Forest with a function or a protection. |
-| `unit` | `administration`, `prefix`, `office` (all required), `administration_attribute`, `unit_attribute` with `unit_prefix` | A unit of a forest administration; the office is `prefix` and the attribute `office`. With `administration_attribute` the administration is `administration` followed by the text of that attribute (`Bezirksamt ` and the Bezirk). With `unit_attribute` and `unit_prefix` the finding also names a smaller unit within the office (`Revier ` and its name). |
+| `unit` | `administration`, `prefix`, `office` (all required), `administration_attribute`, `unit_attribute` with `unit_prefix` | A unit of a forest administration; the office is `prefix` and the attribute `office`. With `administration_attribute` the administration is `administration` followed by the text of that attribute (`Bezirksamt ` and the Bezirk). With `unit_attribute` and `unit_prefix` the finding also names a smaller unit within the office (`Revier ` and its name). `office_unless` and `office_exceptions` (1 to 4 pairs of `name` and `prefix`) say how an office name becomes the name of the notes: a name that holds `office_unless` (in any case) stays as it is, a name of the exceptions gets that prefix instead of `prefix`. |
 | `district` | `name` (required) | A district of a city state, named by the attribute. |
 | `green-space` | `name` (required), `fallback`, `district_attribute` with `districts` (1 to 16 names), `dedication`, `name_form` | A public green space: its name, or where that is blank the attribute `fallback`. `district_attribute` holds the number of its district (from 1) in the list `districts`, or, without the list, the name of the district. `dedication` is the attribute that says whether it is dedicated for public use. `name_form = "park"` takes the part of the name before a comma (the park a part belongs to). |
 | `playground` | none | A public playground; the notes count them. |
 | `owner` | `owner_attribute` (required), `owners` (required, 1 to 8 names) | A parcel of a public owner: the attribute names the owner, and only an owner of the list comes with its name; the notes leave out the name of any other. |
-| `state-forest` | `owner`, `prefix`, `office` (all required) | Forest of the state and the office that looks after it. |
+| `state-forest` | `owner`, `prefix`, `office` (all required), `office_unless`, `office_exceptions` | Forest of the state and the office that looks after it; the office name follows the same rules as for a `unit`. |
 | `object` | `object` (required: the kind of protected object, such as `natural-monument`, `protected-landscape-part`, `biotope`), `name`, `citation`, `only_attribute` with `only_values` (1 to 8), `point_names` (1 to 4 attributes) | A protected object of nature conservation law; with `only`, a feature counts only when the attribute holds one of the values. A point (a tree, a boulder) takes its name from the first of `point_names` that has a value; an area takes `name`. |
 | `monument` | `monument` (required: the kind), `kind_from`, `link_attribute` with `link_prefix` | A listed monument; the link counts when the attribute starts with `link_prefix`. |
 
 A key of another reading is `manifest.unknown-key`; a key a reading needs and the layer lacks is
 `manifest.missing-key`. A program without the reader of these tables answers `manifest.backend-missing`.
+
+## `[[permits.shapefile]]`
+
+A source of the permit notes that is one shapefile in a zip for the whole state. It has the keys of a
+`[[permits.wfs]]` source, with these differences: `url` is the address of the zip (https, a host of
+`[net] hosts`, no query), `crs` is the CRS of its positions (25832 or 25833), and it has no `output_format`,
+`gml`, `native_crs` or `offices`. `layers` holds exactly one layer, with `key` and `reading` as above but without
+`type_name`; the program reads the `.shp` and `.dbf` of the zip, keeps the records whose box meets the map area and
+of every record only the attributes the reading names. A zip is kept in the download cache and downloaded again
+only when the server has a newer one (at most 50 MB). Both tables together hold at most 12 sources; the
+sources of `[[permits.wfs]]` come first in the notes, then those of `[[permits.shapefile]]`, each in the order of the
+manifest. `adapters probe` asks the zip with a HEAD.
 
 ## `[preview]`
 

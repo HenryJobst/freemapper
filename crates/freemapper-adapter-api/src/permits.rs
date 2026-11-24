@@ -376,9 +376,13 @@ pub struct DeclaredWfs {
     /// [`PermitSourceInfo::gaps`].
     pub gaps: Option<DeclaredWording>,
     pub sections: Vec<PermitSection>,
-    /// The address of the service.
+    /// The address of the service, or, for a shapefile, of the zip that holds it.
     pub url: String,
+    /// The `outputFormat` for GeoJSON or GML; empty for a shapefile.
     pub output_format: String,
+    /// The source is one shapefile in a zip (`[[permits.shapefile]]`, issue #273): `url` is the
+    /// zip, `native_crs` the CRS of its positions, and it has one layer without a feature type.
+    pub shapefile: bool,
     /// The service answers GML 3.2 only (ADR 0137).
     pub gml: bool,
     /// The EPSG number of the CRS the service is asked and answers in, where it is not WGS 84
@@ -441,6 +445,8 @@ pub enum DeclaredReading {
         office: String,
         /// The attribute and the prefix of a smaller unit within the office (a Revier).
         unit: Option<(String, String)>,
+        /// What an office name gets as its prefix.
+        rules: DeclaredOfficeRules,
     },
     /// A district of a city state, named by an attribute.
     District { name: String },
@@ -467,6 +473,8 @@ pub enum DeclaredReading {
         owner: String,
         prefix: String,
         office: String,
+        /// What an office name gets as its prefix.
+        rules: DeclaredOfficeRules,
     },
     /// A protected object of nature conservation law (ADR 0146).
     Object {
@@ -486,6 +494,16 @@ pub enum DeclaredReading {
         /// The attribute of the link and the start it must have.
         link: Option<(String, String)>,
     },
+}
+
+/// How the name of a forest office becomes the name the notes give it, where `prefix` alone is
+/// not enough: a name that already holds `unless` (in any case) stays as it is, and a name of
+/// `exceptions` gets that prefix instead of `prefix`.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct DeclaredOfficeRules {
+    pub unless: Option<String>,
+    /// Pairs of a name and the prefix it gets.
+    pub exceptions: Vec<(String, String)>,
 }
 
 /// Makes the sources a manifest declares. The adapter crate that reads the permit services

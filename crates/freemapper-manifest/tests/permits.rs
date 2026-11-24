@@ -510,6 +510,7 @@ fn districts_green_spaces_and_a_unit_named_by_its_feature_are_declared() {
             prefix: "Revier ".into(),
             office: "REVIER".into(),
             unit: None,
+            rules: Default::default(),
         }
     );
     // A source without `offices` names none.
@@ -623,6 +624,7 @@ fn a_unit_within_an_office_a_water_authority_and_a_note_are_declared() {
             prefix: "Amt ".into(),
             office: "AMT".into(),
             unit: Some(("REVIER".into(), "Revier ".into())),
+            rules: Default::default(),
         }
     );
     assert_eq!(
@@ -859,4 +861,247 @@ fn the_keys_of_the_berlin_readings_are_checked() {
         )
         .is_ok()
     );
+}
+
+const SHAPE_HEAD: &str = "[[permits.shapefile]]\nkey = \"wsg\"\n\
+    label = { en = \"Land\", de = \"Land\" }\n\
+    what = { en = \"water protection areas\", de = \"Wasserschutzgebiete\" }\n\
+    credit = \"Datenlizenz Deutschland Zero\"\n\
+    sections = [\"water-protection\"]\n\
+    url = \"https://geo.example.org/files/wsg.zip\"\n\
+    crs = 25833\n";
+
+const SHAPE_LAYER: &str =
+    "layers = [{ key = \"w\", reading = \"water\", name = \"NAME\", zone = \"ZONE\" }]\n";
+
+#[test]
+fn a_shapefile_source_is_declared_with_its_zip_and_crs() {
+    let table = format!("{SHAPE_HEAD}note = \"A note\"\n{SHAPE_LAYER}");
+    let manifest = parse(&with(&table), Path::new("sample")).unwrap();
+    let source = &manifest.permits[0];
+    assert!(source.shapefile);
+    assert_eq!(source.url, "https://geo.example.org/files/wsg.zip");
+    assert_eq!(source.native_crs, Some(25833));
+    assert_eq!(source.output_format, "");
+    assert!(!source.gml && source.offices.is_none());
+    assert_eq!(source.note.as_deref(), Some("A note"));
+    assert_eq!(source.layers.len(), 1);
+    assert_eq!(source.layers[0].key, "w");
+    assert_eq!(source.layers[0].type_name, "");
+    assert!(matches!(
+        source.layers[0].reading,
+        DeclaredReading::Water { .. }
+    ));
+    // A service is no shapefile.
+    let wfs = parse(
+        &with(&format!(
+            "{HEAD}layers = [{{ key = \"a\", type_name = \"x:a\", reading = \"district\", name = \"N\" }}]\n"
+        )),
+        Path::new("sample"),
+    )
+    .unwrap();
+    assert!(!wfs.permits[0].shapefile);
+    // The services come first in the order of the manifest, then the shapefiles.
+    let both = format!(
+        "{SHAPE_HEAD}{SHAPE_LAYER}\n{HEAD}layers = [{{ key = \"a\", type_name = \"x:a\", reading = \"district\", name = \"N\" }}]\n"
+    );
+    let keys: Vec<String> = parse(&with(&both), Path::new("sample"))
+        .unwrap()
+        .permits
+        .into_iter()
+        .map(|source| source.key)
+        .collect();
+    assert_eq!(keys, ["natur", "wsg"]);
+}
+
+#[test]
+fn what_is_wrong_with_a_shapefile_source_is_named() {
+    // The keys of a service are no keys of a shapefile source.
+    for (extra, key) in [
+        ("output_format = \"GEOJSON\"\n", "output_format"),
+        ("gml = true\n", "gml"),
+        ("native_crs = 25832\n", "native_crs"),
+        ("offices = \"berlin\"\n", "offices"),
+    ] {
+        assert_eq!(
+            refused(&format!("{SHAPE_HEAD}{extra}{SHAPE_LAYER}")),
+            [("manifest.unknown-key", key.to_string())],
+            "{key}"
+        );
+    }
+    // It needs its CRS, which must be one of a map.
+    assert_eq!(
+        refused(&format!(
+            "{}{SHAPE_LAYER}",
+            SHAPE_HEAD.replace("crs = 25833\n", "")
+        )),
+        [("manifest.missing-key", "crs".to_string())]
+    );
+    assert_eq!(
+        refused(&format!(
+            "{}{SHAPE_LAYER}",
+            SHAPE_HEAD.replace("25833", "4326")
+        )),
+        [("manifest.crs", "permits.shapefile.crs".to_string())]
+    );
+    // Exactly one layer, without a feature type.
+    let layer = "{ key = \"w\", reading = \"water\", name = \"N\", zone = \"Z\" }";
+    for layers in [
+        "layers = []\n".to_string(),
+        format!("layers = [{layer}, {}]\n", layer.replace("\"w\"", "\"v\"")),
+    ] {
+        assert_eq!(
+            refused(&format!("{SHAPE_HEAD}{layers}")),
+            [("manifest.value", "permits.shapefile.layers".to_string())],
+            "{layers}"
+        );
+    }
+    assert_eq!(
+        refused(&format!(
+            "{SHAPE_HEAD}layers = [{{ key = \"w\", type_name = \"x:w\", reading = \"water\", name = \"N\", zone = \"Z\" }}]\n"
+        )),
+        [("manifest.unknown-key", "type_name".to_string())]
+    );
+    // A zip is asked as it is: no query.
+    assert_eq!(
+        refused(&format!(
+            "{}{SHAPE_LAYER}",
+            SHAPE_HEAD.replace("wsg.zip", "wsg.zip?a=b")
+        )),
+        [("policy.url", "permits.shapefile.url".to_string())]
+    );
+    // The host must be one of the manifest.
+    assert_eq!(
+        refused(&format!(
+            "{}{SHAPE_LAYER}",
+            SHAPE_HEAD.replace("geo.example.org", "other.example.org")
+        )),
+        [(
+            "policy.host-not-declared",
+            "permits.shapefile.url".to_string()
+        )]
+    );
+    // A service needs its feature types and its format, and has no `crs`.
+    assert_eq!(
+        refused(&format!(
+            "{HEAD}layers = [{{ key = \"a\", reading = \"district\", name = \"N\" }}]\n"
+        )),
+        [("manifest.missing-key", "type_name".to_string())]
+    );
+    assert_eq!(
+        refused(&format!(
+            "{}layers = [{{ key = \"a\", type_name = \"x:a\", reading = \"district\", name = \"N\" }}]\n",
+            HEAD.replace(
+                "output_format = \"application/geo%2Bjson\"\n",
+                "crs = 25832\n"
+            )
+        )),
+        [
+            ("manifest.unknown-key", "crs".to_string()),
+            ("manifest.missing-key", "output_format".to_string())
+        ]
+    );
+    // The two tables share the keys of their sources and the limit of twelve.
+    assert_eq!(
+        refused(&format!(
+            "{SHAPE_HEAD}{SHAPE_LAYER}\n{}layers = [{{ key = \"a\", type_name = \"x:a\", reading = \"district\", name = \"N\" }}]\n",
+            HEAD.replace("\"natur\"", "\"wsg\"")
+        )),
+        [("manifest.value", "permits.shapefile.key".to_string())]
+    );
+    let sources = |wfs: usize, shapes: usize| {
+        let mut all: Vec<String> = (0..wfs)
+            .map(|n| {
+                format!(
+                    "{}layers = [{{ key = \"a\", type_name = \"x:a\", reading = \"district\", name = \"N\" }}]\n",
+                    HEAD.replace("\"natur\"", &format!("\"s{n}\""))
+                )
+            })
+            .collect();
+        all.extend((0..shapes).map(|n| {
+            format!(
+                "{}{SHAPE_LAYER}",
+                SHAPE_HEAD.replace("\"wsg\"", &format!("\"z{n}\""))
+            )
+        }));
+        all.join("\n")
+    };
+    assert!(parse(&with(&sources(8, 4)), Path::new("sample")).is_ok());
+    assert_eq!(
+        refused(&sources(8, 5)),
+        [("manifest.value", "permits.wfs".to_string())]
+    );
+}
+
+#[test]
+fn the_names_of_forest_offices_follow_the_rules_a_layer_declares() {
+    let layer = |extra: &str| {
+        format!(
+            "{HEAD}layers = [{{ key = \"a\", type_name = \"x:a\", reading = \"unit\", administration = \"F\", prefix = \"P \", office = \"O\"{extra} }}]\n"
+        )
+    };
+    let manifest = parse(
+        &with(&layer(
+            ", office_unless = \"amt\", office_exceptions = [{ name = \"Wald\", prefix = \"Lehr \" }, { name = \"Forst\", prefix = \"Alt \" }]",
+        )),
+        Path::new("sample"),
+    )
+    .unwrap();
+    let DeclaredReading::Unit { rules, .. } = &manifest.permits[0].layers[0].reading else {
+        panic!()
+    };
+    assert_eq!(rules.unless.as_deref(), Some("amt"));
+    assert_eq!(
+        rules.exceptions,
+        [
+            ("Wald".to_string(), "Lehr ".to_string()),
+            ("Forst".to_string(), "Alt ".to_string())
+        ]
+    );
+    let plain = parse(&with(&layer("")), Path::new("sample")).unwrap();
+    let DeclaredReading::Unit { rules, .. } = &plain.permits[0].layers[0].reading else {
+        panic!()
+    };
+    assert_eq!(rules.unless, None);
+    assert!(rules.exceptions.is_empty());
+    // The state forest takes them too.
+    let forest = parse(
+        &with(&format!(
+            "{HEAD}layers = [{{ key = \"a\", type_name = \"x:a\", reading = \"state-forest\", owner = \"O\", prefix = \"P \", office = \"A\", office_unless = \"amt\" }}]\n"
+        )),
+        Path::new("sample"),
+    )
+    .unwrap();
+    assert!(matches!(
+        &forest.permits[0].layers[0].reading,
+        DeclaredReading::StateForest { rules, .. } if rules.unless.as_deref() == Some("amt")
+    ));
+    // Between one and four exceptions.
+    assert_eq!(
+        refused(&layer(", office_exceptions = []")),
+        [("manifest.value", "office_exceptions".to_string())]
+    );
+    let five: Vec<String> = (0..5)
+        .map(|n| format!("{{ name = \"N{n}\", prefix = \"P\" }}"))
+        .collect();
+    assert_eq!(
+        refused(&layer(&format!(
+            ", office_exceptions = [{}]",
+            five.join(", ")
+        ))),
+        [("manifest.value", "office_exceptions".to_string())]
+    );
+    // Other readings have no office.
+    for key in [
+        "office_unless = \"x\"",
+        "office_exceptions = [{ name = \"N\", prefix = \"P\" }]",
+    ] {
+        assert!(
+            refused(&format!(
+                "{HEAD}layers = [{{ key = \"a\", type_name = \"x:a\", reading = \"district\", name = \"N\", {key} }}]\n"
+            ))
+            .contains(&("manifest.unknown-key", key.split(' ').next().unwrap().to_string())),
+            "{key}"
+        );
+    }
 }

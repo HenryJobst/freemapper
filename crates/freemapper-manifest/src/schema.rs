@@ -227,6 +227,9 @@ pub(crate) struct RawTreeFields {
 pub(crate) struct RawPermits {
     #[serde(default)]
     pub wfs: Vec<RawPermitWfs>,
+    /// `[[permits.shapefile]]`: the same keys, but a zip instead of a service.
+    #[serde(default)]
+    pub shapefile: Vec<RawPermitWfs>,
 }
 
 /// `[[permits.wfs]]`: a WFS service read by a table of its layers.
@@ -240,7 +243,9 @@ pub(crate) struct RawPermitWfs {
     pub gaps: Option<RawWording>,
     pub sections: Vec<Text>,
     pub url: Text,
-    pub output_format: Text,
+    pub output_format: Option<Text>,
+    /// A shapefile's CRS.
+    pub crs: Option<Spanned<i64>>,
     pub gml: Option<Spanned<bool>>,
     pub native_crs: Option<Spanned<i64>>,
     pub offices: Option<Text>,
@@ -260,7 +265,7 @@ pub(crate) struct RawWording {
 #[serde(deny_unknown_fields)]
 pub(crate) struct RawPermitLayer {
     pub key: Text,
-    pub type_name: Text,
+    pub type_name: Option<Text>,
     pub reading: Text,
     pub name: Option<Text>,
     pub zone: Option<Text>,
@@ -292,6 +297,16 @@ pub(crate) struct RawPermitLayer {
     pub owner_attribute: Option<Text>,
     pub owners: Option<Vec<Text>>,
     pub point_names: Option<Vec<Text>>,
+    pub office_unless: Option<Text>,
+    pub office_exceptions: Option<Vec<RawOfficeException>>,
+}
+
+/// A name of a forest office and the prefix it gets instead of the usual one.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct RawOfficeException {
+    pub name: Text,
+    pub prefix: Text,
 }
 
 #[derive(Debug, Deserialize)]

@@ -14,16 +14,14 @@
 use std::io::Read as _;
 use std::path::Path;
 
-use freemapper_adapter_api::permits::{
-    PermitFinding, PermitSection, PermitSource, PermitSourceInfo, Wording,
-};
+use freemapper_adapter_api::permits::{DeclaredWfs, PermitFinding, PermitSource, PermitSourceInfo};
 use freemapper_sources::shapefile::{ShapeRecord, polygons_in};
 use geo_types::Rect;
 use serde_json::Value;
 
 use crate::crs::{BoundingBox, Crs, LatLon, ProjectedPoint};
 use crate::fetch::{CacheDir, FetchError, Fetcher, get_limited_with_retries, write_cache_file};
-use crate::wfs_permits::{Reading, finding, stored};
+use crate::wfs_permits::{Reading, finding, kept, kept_all, reading, stored, wording};
 
 /// The largest zip read; the largest one used is NRW's water protection areas (15 MB).
 const MAX_ZIP: u64 = 50 * 1024 * 1024;
@@ -276,36 +274,30 @@ pub struct ShapeTableSource {
     reading: Reading,
 }
 
-/// A source of the zip at `url` (one shapefile in `crs`), its one layer `layer`.
-#[allow(clippy::too_many_arguments)]
-pub fn source(
-    key: &'static str,
-    label: Wording,
-    what: Wording,
-    credit: &'static str,
-    layer: &'static [&'static str],
-    sections: &'static [PermitSection],
-    url: &'static str,
-    crs: Crs,
-    reading: Reading,
-) -> Box<dyn PermitSource> {
-    debug_assert_eq!(layer.len(), 1);
+/// The source a manifest declares as `[[permits.shapefile]]` (issue #273): the zip, its CRS and
+/// its one layer with the reading it names. The validator holds a declaration to one layer and
+/// to a CRS of Germany, so a declaration that does not is a mistake of the program.
+pub(crate) fn declared_shape_source(declared: &DeclaredWfs) -> Box<dyn PermitSource> {
+    let layer = &declared.layers[0];
     Box::new(ShapeTableSource {
         info: PermitSourceInfo {
-            key,
-            label,
-            what,
-            credit,
-            note: None,
+            key: kept(&declared.key),
+            label: wording(&declared.label),
+            what: wording(&declared.what),
+            credit: kept(&declared.credit),
+            note: declared.note.as_deref().map(kept),
             sampled: false,
-            gaps: None,
-            layers: layer,
-            sections,
+            gaps: declared.gaps.as_ref().map(wording),
+            layers: kept_all(vec![kept(&layer.key)]),
+            sections: kept_all(declared.sections.clone()),
             offices: None,
         },
-        url,
-        crs,
-        reading,
+        url: kept(&declared.url),
+        crs: declared
+            .native_crs
+            .and_then(Crs::from_epsg)
+            .unwrap_or(Crs::Utm32),
+        reading: reading(&layer.reading),
     })
 }
 
@@ -390,6 +382,17 @@ mod tests {
         ]
     }
 
+    /// The source `key` of the manifest `text` of the adapter `id`.
+    fn declared(id: &str, text: &str, key: &str) -> Box<dyn PermitSource> {
+        freemapper_manifest::parse(text, std::path::Path::new(id))
+            .unwrap()
+            .permits
+            .iter()
+            .find(|w| w.key == key)
+            .map(crate::wfs_permits::declared_source)
+            .unwrap()
+    }
+
     /// The box around 1 km of `crs` at `(e, n)` in WGS 84.
     fn around(crs: Crs, e: f64, n: f64) -> Rect<f64> {
         let corner = |e, n| {
@@ -431,10 +434,11 @@ mod tests {
             (&near, &[square(390_000.0, 5_800_000.0)]),
             (&far, &[square(450_000.0, 5_900_000.0)]),
         ]);
-        let source = crate::lfb_permits::sources()
-            .into_iter()
-            .find(|s| s.info().key == "wasserschutzgebiete")
-            .unwrap();
+        let source = declared(
+            "brandenburg",
+            include_str!("../manifests/brandenburg/manifest.toml"),
+            "wasserschutzgebiete",
+        );
         let features = fetch(
             source.as_ref(),
             "https://data.geobasis-bb.de/geofachdaten/Wasser/Gewaesserbewirtschaftung/wsg.zip",
@@ -480,10 +484,11 @@ mod tests {
         let utf8 = "D\u{fc}sterm\u{fc}hle".as_bytes().to_vec();
         let latin1: Vec<u8> = "D\u{fc}sterm\u{fc}hle".chars().map(|c| c as u8).collect();
         zip = rezip_replacing(&zip, &utf8, &latin1);
-        let source = crate::wuh_permits::sources()
-            .into_iter()
-            .find(|s| s.info().key == "wasserschutzgebiete")
-            .unwrap();
+        let source = declared(
+            "nordrheinwestfalen",
+            include_str!("../manifests/nordrheinwestfalen/manifest.toml"),
+            "wasserschutzgebiete",
+        );
         let features = fetch(
             source.as_ref(),
             "https://www.opengeodata.nrw.de/produkte/umwelt_klima/wasser/trinkwasser/wasserschutzgebiete/Wasserschutzgebiete-NRW_EPSG25832_Shape.zip",
@@ -545,10 +550,11 @@ mod tests {
             "https://data.geobasis-bb.de/geofachdaten/Wasser/Gewaesserbewirtschaftung/wsg.zip";
         let zone = [("KLARNAME", "Beispielhausen"), ("SCHUTZZONE", "Zone III")];
         let zip = zip_of(&[(&zone, &[square(390_000.0, 5_800_000.0)])]);
-        let source = crate::lfb_permits::sources()
-            .into_iter()
-            .find(|s| s.info().key == "wasserschutzgebiete")
-            .unwrap();
+        let source = declared(
+            "brandenburg",
+            include_str!("../manifests/brandenburg/manifest.toml"),
+            "wasserschutzgebiete",
+        );
         let root = tempfile::tempdir().unwrap();
         let cache = CacheDir::new(root.path().to_path_buf());
         let part = root.path().join("x.part");
