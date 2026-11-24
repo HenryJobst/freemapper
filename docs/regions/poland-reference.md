@@ -432,3 +432,29 @@ about 2.1 MB for the whole map instead of the 53.9 MB archive.
 
 **Not measured:** other powiats; the share of the BDOT10k length that OpenStreetMap lacks.
 
+## Addendum 24 November 2026: what BDOT10k says about `Bi` parcels (measured, ADR 0194)
+
+Archives of 0805 (słubicki, 22 January 2026, 53.9 MB) and 3064 (Poznań, 36.5 MB), unpacked in the scratch folder;
+the live EGiB parcels (`ms:dzialki`, 1000 per page) of a 3 km box at the Słubice cemeteries (1919 parcels) and a 5 km
+box at Poznań (23 191 parcels, `Bi` 3585, `B` 11 251). Every BDOT10k polygon was sampled on a grid of at most 8 steps
+and the EGiB class under each sample counted.
+
+- **`OT_PTZB_A`** (2465 objects at 0805, 5217 at 3064): `rodzaj` jednorodzinna, wielorodzinna, przemysłowo-składowa,
+  handlowo-usługowa, pozostała zabudowa; `charakter` gęsta, luźna, zwarta. On the register: `handlowo-usługowa` on `Bi`
+  687, `B` 449, `dr` 243, `Bp` 222 samples; `pozostała zabudowa` on `Bi` 1188, `B` 481, `dr` 371, `Bp` 154;
+  `jednorodzinna` on `B` 1344 and `Bi` 233. It does not split `Bi`.
+- **`OT_KUOS_A`** (28 at 0805, 279 at 3064): `rodzaj` szkoła lub zespół szkół 19 and 152, przedszkole 7 and 76, szkoła
+  wyższa 1 and 39, ośrodek naukowo-badawczy 1 and 12. On `Bi`: Słubice 157 of 223 samples, Poznań `szkoła` 1623 of 1987.
+- **`OT_KUOZ_A`** (4 and 32): zespół szpitalny lub sanatoryjny, zakład opieki socjalnej lub dom dziecka, żłobek; on
+  `Bi` (Poznań hospitals 376 of 402).
+- **`OT_KUHU_A`** (3 and 8): trade and services, **no `rodzaj`**; 20 samples at Słubice, mostly `B`/`Bi`.
+- **`OT_KUSC_A`** (41 and 82): `cmentarz komunalny` 23 and 4, `cmentarz wyznaniowy` 12 and 19, `cmentarz wojenny` 3 and 1,
+  `zespół sakralny lub klasztorny` 3 and 58. Poznań `cmentarz komunalny`: `Bi` 47, `Bz` 13, `dr` 2 samples; Słubice
+  `cmentarz komunalny`: `Bi` 17, `Bz` 25; `cmentarz wyznaniowy`: `Lz` 18, `B` 12 (Słubice), `B,Bz` 13 (Poznań).
+  Church grounds lie on `Bi` (Poznań 517 of 660 samples) and are no cemetery.
+- **Sizes.** Member `OT_KUSC_A.xml`: 52 094 B unpacked and 7 648 B packed at 0805, 127 063 B and 23 230 B at 3064. The
+  directory of an archive: 7 753 B for 75 members. Per map (index 1.5 KB, directory, one member): about 17 KB at
+  Słubice and 32 KB at Poznań, instead of the whole archive.
+- **Use.** The cemeteries (not church grounds) on parcels without a land use of EGiB become `Friedhof`; everything else
+  of `Bi` stays unmapped (ADR 0194).
+- **Not measured:** other powiats.

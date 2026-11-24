@@ -19,6 +19,7 @@ use freemapper_adapter_api::env::AdapterEnv;
 use freemapper_adapter_api::error::{AdapterError, Remedy};
 use freemapper_adapter_api::estimate::{EstimateArea, EstimateEnv};
 use freemapper_adapter_api::extras::ExtraSet;
+use freemapper_adapter_api::fetch::FetchMode;
 use freemapper_adapter_api::info::{
     Country, Coverage, Declared, Names, OsmExtractInfo, PreviewInfo, RegionInfo,
 };
@@ -219,7 +220,7 @@ impl Polska {
         });
         Self {
             declared: Declared {
-                revision: 11,
+                revision: 12,
                 hosts: HOSTS.iter().map(ToString::to_string).collect(),
                 last_verified: chrono::NaiveDate::from_ymd_opt(2026, 11, 24),
             },
@@ -362,6 +363,46 @@ impl PolskaCadastre {
         features.map(|f| (f, bbox))
     }
 
+    /// The parcels of EGiB that give a land use, as polygons (`x` east, `y` north).
+    fn covered(features: &[egib::Feature]) -> Vec<geo_types::Polygon<f64>> {
+        features
+            .iter()
+            .filter(|f| egib::parcel_land_use(&f.kind).is_some())
+            .flat_map(|f| f.polygons.iter().filter_map(|p| bdot10k::to_polygon(p)))
+            .collect()
+    }
+
+    /// Adds the cemeteries of BDOT10k that lie on parcels EGiB gives no land use (`Bi` other
+    /// built-up land, which holds schools, offices, shops and cemeteries alike, ADR 0192), as
+    /// `Friedhof`. Offline nothing is asked; a failure is a warning and the land use stays that of
+    /// EGiB (ADR 0194).
+    fn add_cemeteries(
+        env: &mut AdapterEnv<'_>,
+        fetcher: &PolicyFetcher<'_>,
+        features: &[egib::Feature],
+        bbox: &BoundingBox,
+        crs: Crs,
+        part: &mut AlkisPart,
+    ) {
+        if env.mode == FetchMode::Offline {
+            return;
+        }
+        match bdot10k::cemeteries(fetcher, bbox) {
+            Ok(filled) => {
+                let extra = bdot10k::land_use(&filled.objects, crs, &Self::covered(features));
+                if !extra.features.is_empty() {
+                    (env.progress)(bdot10k::filled_note(
+                        Gap::Cemeteries,
+                        extra.features.len(),
+                        &filled.powiats,
+                    ));
+                    part.features.extend(extra.features);
+                }
+            }
+            Err(e) => (env.progress)(bdot10k::failed_note(Gap::Cemeteries, e)),
+        }
+    }
+
     /// What BDOT10k holds for `gap`, with the notes that tell the person. `None` when it holds
     /// nothing (or the run is offline); the failure of BDOT10k is a warning and no error,
     /// because the map without it is what it was before.
@@ -438,7 +479,9 @@ impl AlkisSource for PolskaCadastre {
         let (features, bbox, failure) = match first {
             Ok((features, bbox)) => {
                 if !bdot10k::land_use_is_thin(&features, &bbox) {
-                    return Ok(egib::land_use(&features, area.crs));
+                    let mut part = egib::land_use(&features, area.crs);
+                    Self::add_cemeteries(env, &fetcher, &features, &bbox, area.crs, &mut part);
+                    return Ok(part);
                 }
                 (features, bbox, None)
             }
@@ -454,11 +497,7 @@ impl AlkisSource for PolskaCadastre {
         let Some(filled) = Self::bdot(env, &fetcher, &bbox, Gap::LandUse) else {
             return failure.map_or(Ok(own), |error| Err(AdapterError::Fetch(error)));
         };
-        let covered: Vec<_> = features
-            .iter()
-            .filter(|f| egib::parcel_land_use(&f.kind).is_some())
-            .flat_map(|f| f.polygons.iter().filter_map(|p| bdot10k::to_polygon(p)))
-            .collect();
+        let covered = Self::covered(&features);
         let mut part = own;
         let extra = bdot10k::land_use(&filled.objects, area.crs, &covered);
         (env.progress)(match failure {

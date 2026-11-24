@@ -198,7 +198,7 @@ fn the_adapter_declares_itself_and_owns_a_policy_of_the_hosts_of_gugik() {
     let registry = polska();
     let adapter = registry.adapters().next().unwrap();
     let declared = adapter.declared().expect("the adapter declares itself");
-    assert_eq!(declared.revision, 11);
+    assert_eq!(declared.revision, 12);
     assert!(declared.last_verified.is_some());
     let hosts = [
         "mapy.geoportal.gov.pl",

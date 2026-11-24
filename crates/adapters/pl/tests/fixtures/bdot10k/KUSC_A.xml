@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gml:FeatureCollection xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:ot="urn:gugik:specyfikacje:gmlas:bazaDanychObiektowTopograficznych10k:2.0" gml:id="GUGiK_OT_KUSC_A" xsi:schemaLocation="urn:gugik:specyfikacje:gmlas:bazaDanychObiektowTopograficznych10k:2.0 ../XSD/BDOT10k_BDOO.xsd">
+	<gml:featureMember>
+		<ot:OT_KUSC_A gml:id="PL.PZGiK.333.BDOT10k_bb839851-9196-47f0-91d4-2ac27fe16b0e_2023-12-31T120000">
+			<ot:lokalnyId>bb839851-9196-47f0-91d4-2ac27fe16b0e</ot:lokalnyId>
+			<ot:przestrzenNazw>PL.PZGiK.333.BDOT10k</ot:przestrzenNazw>
+			<ot:wersja>2023-12-31T12:00:00</ot:wersja>
+			<ot:poczatekWersjiObiektu>2023-12-31T12:00:00</ot:poczatekWersjiObiektu>
+			<ot:oznaczenieZmiany>GI-TOPO.600.116.2023</ot:oznaczenieZmiany>
+			<ot:zrodloDanychGeometrycznych>ortofotomapa</ot:zrodloDanychGeometrycznych>
+			<ot:kodKarto10k>0010_345_1</ot:kodKarto10k>
+			<ot:rodzaj>cmentarz komunalny</ot:rodzaj>
+			<ot:geometria>
+				<gml:Polygon gml:id="id-b8ec2583-e428-45b7-8bef-8ee1867c45f5-0" srsName="EPSG:2180" srsDimension="2">
+					<gml:exterior>
+						<gml:LinearRing>
+							<gml:posList>197900.43 507700.25 197888.17 507769.53 197897.56 507772.20 197924.80 507777.36 197953.75 507782.87 197969.58 507715.53 197943.61 507709.79 197930.99 507707.00 197900.43 507700.25</gml:posList>
+						</gml:LinearRing>
+					</gml:exterior>
+				</gml:Polygon>
+			</ot:geometria>
+		</ot:OT_KUSC_A>
+	</gml:featureMember>
+	<gml:featureMember>
+		<ot:OT_KUSC_A gml:id="PL.PZGiK.333.BDOT10k_f8ecb362-2ddc-4e41-941b-4681cb356e3e_2024-10-21T000000">
+			<ot:lokalnyId>f8ecb362-2ddc-4e41-941b-4681cb356e3e</ot:lokalnyId>
+			<ot:przestrzenNazw>PL.PZGiK.333.BDOT10k</ot:przestrzenNazw>
+			<ot:wersja>2024-10-21T00:00:00</ot:wersja>
+			<ot:poczatekWersjiObiektu>2024-10-21T00:00:00</ot:poczatekWersjiObiektu>
+			<ot:oznaczenieZmiany>DN.I.273.1.2024.5</ot:oznaczenieZmiany>
+			<ot:zrodloDanychGeometrycznych>ortofotomapa</ot:zrodloDanychGeometrycznych>
+			<ot:nazwa>Kościół Rzymskokatolicki (parafialny) pw. NMP Królowej Polski</ot:nazwa>
+			<ot:rodzaj>zespół sakralny lub klasztorny</ot:rodzaj>
+			<ot:geometria>
+				<gml:Polygon gml:id="id-be261e95-ca7e-494b-a3a9-9080f9ca727a-0" srsName="EPSG:2180" srsDimension="2">
+					<gml:exterior>
+						<gml:LinearRing>
+							<gml:posList>197780.00 507560.00 197733.78 507570.90 197691.49 507582.67 197662.06 507583.11 197660.43 507594.91 197657.09 507597.63 197653.32 507625.02 197664.91 507625.97 197670.99 507628.31 197711.16 507637.86 197717.54 507639.38 197741.51 507645.07 197803.03 507630.22 197783.66 507569.29 197780.00 507560.00</gml:posList>
+						</gml:LinearRing>
+					</gml:exterior>
+				</gml:Polygon>
+			</ot:geometria>
+		</ot:OT_KUSC_A>
+	</gml:featureMember>
+</gml:FeatureCollection>

@@ -37,6 +37,7 @@ use freemapper_adapter_api::note;
 use freemapper_adapter_api::note::{Arg, Note};
 use freemapper_adapter_api::policy::host_of;
 use freemapper_georef::crs::{BoundingBox, Crs};
+use freemapper_sources::zip_range::{find_member, read_member_up_to, read_members};
 use geo::{Contains, InteriorPoint};
 use geo_types::{Coord, LineString, Polygon};
 use quick_xml::events::Event;
@@ -78,11 +79,19 @@ pub const LAND_USE_CLASSES: [&str; 10] = [
     "KUSK_A",
 ];
 
+/// The class read for [`Gap::Cemeteries`].
+pub const CEMETERY_CLASSES: [&str; 1] = ["KUSC_A"];
+
+/// What a cemetery file may hold unpacked. The largest measured is 127 KB (Poznań, 82 objects).
+const CEMETERY_MEMBER_BYTES: u64 = 64 << 20;
+
 /// What EGiB left empty.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Gap {
     Buildings,
     LandUse,
+    /// Not a gap: the cemeteries that lie on parcels EGiB gives no land use (ADR 0194).
+    Cemeteries,
 }
 
 impl Gap {
@@ -90,6 +99,7 @@ impl Gap {
         match self {
             Gap::Buildings => &BUILDING_CLASSES,
             Gap::LandUse => &LAND_USE_CLASSES,
+            Gap::Cemeteries => &CEMETERY_CLASSES,
         }
     }
 
@@ -103,6 +113,10 @@ impl Gap {
             Gap::LandUse => Arg::Words {
                 en: "land use".into(),
                 de: "Landnutzung".into(),
+            },
+            Gap::Cemeteries => Arg::Words {
+                en: "cemeteries".into(),
+                de: "Friedhöfe".into(),
             },
         }
     }
@@ -782,6 +796,38 @@ fn fill_capped(
             let _ = std::fs::remove_file(&path);
         })?;
         filled.objects.extend(read);
+        filled.powiats.push(package.name.clone());
+    }
+    Ok(filled)
+}
+
+/// The cemeteries and church grounds of BDOT10k in `bbox` (EPSG:2180), read as one member of
+/// each powiat archive by byte ranges (ADR 0017), about 30 KB for a map, not the whole archive
+/// that [`fill`] downloads. For the parcels of the class `Bi` that EGiB gives no land use
+/// (ADR 0194).
+pub fn cemeteries(fetcher: &dyn Fetcher, bbox: &BoundingBox) -> Result<Filled, AdapterError> {
+    let url = index_url(bbox);
+    let packages = get_with_retries(fetcher, &url, |body| read_index(body, &url))?;
+    if packages.len() > MAX_PACKAGES {
+        return Err(AdapterError::Fetch(http_error(
+            &url,
+            format!("the box touches {} powiats", packages.len()),
+        )));
+    }
+    let suffix = "__ot_kusc_a.xml";
+    let mut filled = Filled::default();
+    for package in &packages {
+        let members = read_members(fetcher, &package.url)?;
+        // A class without an object is a file of 454 bytes, which an archive may also leave out.
+        if let Some(member) = find_member(&members, |name| name.to_lowercase().ends_with(suffix)) {
+            let bytes = read_member_up_to(fetcher, &package.url, member, CEMETERY_MEMBER_BYTES)?;
+            filled.objects.extend(read_class(
+                BufReader::new(bytes.as_slice()),
+                "KUSC_A",
+                bbox,
+                &package.url,
+            )?);
+        }
         filled.powiats.push(package.name.clone());
     }
     Ok(filled)
@@ -1910,5 +1956,118 @@ mod tests {
         assert!(failed.to_string().contains("land use"), "{failed}");
         let instead = instead_note(Gap::Buildings, FetchError::NotFound("u".into()), &[]);
         assert!(instead.is_warning());
+    }
+
+    // The cemeteries (ADR 0194).
+
+    const KUSC: &str = include_str!("../tests/fixtures/bdot10k/KUSC_A.xml");
+    const KUSC_FILE: &str = "PL.PZGiK.333.0805/BDOT10k/PL.PZGiK.333.0805__OT_KUSC_A.xml";
+
+    fn cemetery_fetcher(members: &[(&str, &str)]) -> MapFetcher {
+        let fetcher = MapFetcher::default();
+        fetcher.insert_prefix(URL, INDEX.as_bytes().to_vec());
+        fetcher.insert(ARCHIVE_URL, zip_of(members));
+        fetcher
+    }
+
+    #[test]
+    fn the_cemetery_file_of_each_powiat_is_read_as_one_member() {
+        let fetcher = cemetery_fetcher(&[
+            (
+                "PL.PZGiK.333.0805/BDOT10k/PL.PZGiK.333.0805__OT_BUBD_A.xml",
+                "not read",
+            ),
+            (KUSC_FILE, KUSC),
+        ]);
+        let filled = cemeteries(&fetcher, &slubice()).unwrap();
+        let kinds: Vec<&str> = filled.objects.iter().map(|o| o.field("rodzaj")).collect();
+        assert_eq!(
+            kinds,
+            ["cmentarz komunalny", "zespół sakralny lub klasztorny"]
+        );
+        assert!(filled.objects.iter().all(|o| o.class == "KUSC_A"));
+        assert_eq!(filled.powiats, ["powiat słubicki"]);
+    }
+
+    #[test]
+    fn a_cemetery_beside_the_box_is_left_out() {
+        let fetcher = cemetery_fetcher(&[(KUSC_FILE, KUSC)]);
+        let elsewhere = BoundingBox {
+            min_e: 190_000.0,
+            min_n: 500_000.0,
+            max_e: 190_100.0,
+            max_n: 500_100.0,
+        };
+        let filled = cemeteries(&fetcher, &elsewhere).unwrap();
+        assert!(filled.objects.is_empty());
+        assert_eq!(filled.powiats, ["powiat słubicki"]);
+    }
+
+    #[test]
+    fn an_archive_without_the_cemetery_file_gives_no_object_and_no_error() {
+        let fetcher = cemetery_fetcher(&[(
+            "PL.PZGiK.333.0805/BDOT10k/PL.PZGiK.333.0805__OT_BUBD_A.xml",
+            "not read",
+        )]);
+        let filled = cemeteries(&fetcher, &slubice()).unwrap();
+        assert!(filled.objects.is_empty());
+        assert_eq!(filled.powiats, ["powiat słubicki"]);
+    }
+
+    #[test]
+    fn the_cemetery_file_is_found_whatever_the_case_of_its_name() {
+        let fetcher = cemetery_fetcher(&[(
+            "PL.PZGiK.333.0805/BDOT10k/pl.pzgik.333.0805__ot_kusc_a.xml",
+            KUSC,
+        )]);
+        assert_eq!(cemeteries(&fetcher, &slubice()).unwrap().objects.len(), 2);
+    }
+
+    #[test]
+    fn a_member_with_a_name_that_only_contains_the_class_is_not_the_cemetery_file() {
+        let fetcher = cemetery_fetcher(&[(
+            "PL.PZGiK.333.0805/BDOT10k/PL.PZGiK.333.0805__OT_KUSC_A.xml.bak",
+            KUSC,
+        )]);
+        assert!(cemeteries(&fetcher, &slubice()).unwrap().objects.is_empty());
+    }
+
+    #[test]
+    fn a_broken_cemetery_file_is_an_error_and_so_is_a_down_index() {
+        let fetcher = cemetery_fetcher(&[(KUSC_FILE, "<no-xml")]);
+        assert!(cemeteries(&fetcher, &slubice()).is_err());
+        let fetcher = cemetery_fetcher(&[(KUSC_FILE, KUSC)]);
+        fetcher.failing.borrow_mut().push(index_url(&slubice()));
+        let error = cemeteries(&fetcher, &slubice()).unwrap_err();
+        assert!(error.to_string().contains("503"), "{error}");
+    }
+
+    #[test]
+    fn the_cemeteries_of_the_most_powiats_are_read_and_of_more_are_refused() {
+        let one = entry("0805", ARCHIVE_URL, "2024-04-04 00:00:00");
+        let member =
+            &one[one.find("<wfs:member>").unwrap()..one.find("</wfs:FeatureCollection>").unwrap()];
+        let index = |count: usize| {
+            format!(
+                "<wfs:FeatureCollection xmlns:ms=\"m\" xmlns:wfs=\"w\">{}</wfs:FeatureCollection>",
+                member.repeat(count)
+            )
+        };
+        let fetcher = cemetery_fetcher(&[(KUSC_FILE, KUSC)]);
+        fetcher.insert_prefix(URL, index(MAX_PACKAGES).into_bytes());
+        assert_eq!(
+            cemeteries(&fetcher, &slubice()).unwrap().powiats.len(),
+            MAX_PACKAGES
+        );
+        fetcher.insert_prefix(URL, index(MAX_PACKAGES + 1).into_bytes());
+        let error = cemeteries(&fetcher, &slubice()).unwrap_err();
+        assert!(error.to_string().contains("touches 7 powiats"), "{error}");
+    }
+
+    #[test]
+    fn the_cemetery_gap_has_its_class_and_its_words() {
+        assert_eq!(Gap::Cemeteries.classes(), ["KUSC_A"]);
+        let note = filled_note(Gap::Cemeteries, 2, &["p".to_string()]).to_string();
+        assert!(note.contains("2 BDOT10k cemeteries filled in"), "{note}");
     }
 }
