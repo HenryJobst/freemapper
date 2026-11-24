@@ -565,6 +565,16 @@ fn the_keys_of_the_new_readings_are_checked() {
         )
         .is_ok()
     );
+    // Either half of the district pair is a key a district does not have.
+    for half in ["districts = [\"A\"]", "district_attribute = \"NR\""] {
+        assert_eq!(
+            refused(&layer(&format!(
+                "reading = \"district\", name = \"N\", {half}"
+            ))),
+            [("manifest.unknown-key", "district_attribute".to_string())],
+            "{half}"
+        );
+    }
     // The attribute of an administration belongs to the unit only.
     assert_eq!(
         refused(&layer(
