@@ -571,18 +571,10 @@ impl StateAdapter {
             State::Brandenburg => crate::lfb_permits::sources(),
             // The protected objects of Hamburg are declared in its manifest (issue #273).
             State::Hamburg => crate::lgv_permits::sources(),
-            // The protected objects of Saarland are declared in its manifest (issue #273).
-            State::Saarland => crate::state_permits::saarland(),
-            // The protected biotopes of Hesse are declared in its manifest (issue #273).
-            State::Hessen => crate::state_permits::hessen(),
-            // The protected objects of Schleswig-Holstein are declared in its manifest (issue #273).
-            State::SchleswigHolstein => [
-                crate::state_permits::schleswig_holstein(),
-                vec![crate::ldsh_permits::source()],
-            ]
-            .into_iter()
-            .flatten()
-            .collect(),
+            // The sources of Saarland, Hesse and Schleswig-Holstein that had tables in the code are
+            // declared in their manifests (issue #273).
+            State::Saarland | State::Hessen => Vec::new(),
+            State::SchleswigHolstein => vec![crate::ldsh_permits::source()],
             // The protected biotopes of North Rhine-Westphalia are declared in its manifest (issue #273).
             State::NordrheinWestfalen => crate::wuh_permits::sources(),
             // The Naturdenkmale of Baden-Württemberg are declared in its manifest (issue #273).
@@ -948,7 +940,7 @@ mod tests {
                     "https://geodienste.denkx.de/geoserver/denkx/wfs",
                 ),
                 "schleswigholstein" => (
-                    &["umwelt", "denkmale", "naturschutz"],
+                    &["denkmale", "umwelt", "naturschutz"],
                     crate::ldsh_permits::URL,
                 ),
                 "badenwuerttemberg" => (

@@ -43,7 +43,8 @@ pub mod natur_permits;
 pub mod nrw_3dm;
 pub mod sbs_permits;
 pub mod shape_permits;
-pub mod state_permits;
+#[cfg(test)]
+mod state_permits;
 pub mod states;
 pub mod tile_fetch;
 pub mod wfs_permits;
