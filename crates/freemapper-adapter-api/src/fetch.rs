@@ -310,10 +310,18 @@ pub fn pause_after(patience: Patience, attempt: u32, error: &FetchError) -> Dura
 
 /// Waits for `pause`. The `testing` feature does not sleep, so that runs of tests of other crates stay fast; the
 /// tests of this crate note the pause in [`SLEPT`] instead of sleeping.
-#[cfg(not(test))]
 fn wait(pause: Duration) {
-    if !cfg!(feature = "testing") {
-        std::thread::sleep(pause);
+    #[cfg(not(test))]
+    let sleep: fn(Duration) = std::thread::sleep;
+    #[cfg(test)]
+    let sleep: fn(Duration) = |pause| SLEPT.with(|slept| slept.borrow_mut().push(pause));
+    nap(pause, cfg!(all(feature = "testing", not(test))), sleep);
+}
+
+/// Calls `sleep` with `pause` unless `skip`.
+fn nap(pause: Duration, skip: bool, sleep: impl FnOnce(Duration)) {
+    if !skip {
+        sleep(pause);
     }
 }
 
@@ -321,11 +329,6 @@ fn wait(pause: Duration) {
 thread_local! {
     /// The pauses [`wait`] was asked for on this thread.
     static SLEPT: std::cell::RefCell<Vec<Duration>> = const { std::cell::RefCell::new(Vec::new()) };
-}
-
-#[cfg(test)]
-fn wait(pause: Duration) {
-    SLEPT.with(|slept| slept.borrow_mut().push(pause));
 }
 
 /// Downloads `url` and reads it with `check`, up to [`ATTEMPTS`] times: server errors, resets
@@ -699,6 +702,25 @@ mod retry_tests {
             assert_eq!(fetcher.calls.get(), calls, "attempts {attempts}");
             assert_eq!(slept().len() as u32, calls - 1, "attempts {attempts}");
         }
+    }
+
+    #[test]
+    fn a_pause_is_slept_unless_skipped() {
+        let asked = RefCell::new(Vec::new());
+        nap(Duration::from_secs(3), false, |p| {
+            asked.borrow_mut().push(p)
+        });
+        assert_eq!(*asked.borrow(), vec![Duration::from_secs(3)]);
+        asked.borrow_mut().clear();
+        nap(Duration::from_secs(3), true, |p| asked.borrow_mut().push(p));
+        assert!(asked.borrow().is_empty());
+    }
+
+    #[test]
+    fn wait_notes_its_pause() {
+        slept();
+        wait(Duration::from_secs(4));
+        assert_eq!(slept(), vec![Duration::from_secs(4)]);
     }
 
     #[test]
