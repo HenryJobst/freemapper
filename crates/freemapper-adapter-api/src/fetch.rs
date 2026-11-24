@@ -311,7 +311,11 @@ pub fn pause_after(patience: Patience, attempt: u32, error: &FetchError) -> Dura
 /// Waits for `pause`. The `testing` feature does not sleep, so that runs of tests of other crates stay fast; the
 /// tests of this crate note the pause in [`SLEPT`] instead of sleeping.
 fn wait(pause: Duration) {
-    nap(pause, cfg!(all(feature = "testing", not(test))), sleep_for);
+    #[cfg(not(test))]
+    let sleep: fn(Duration) = std::thread::sleep;
+    #[cfg(test)]
+    let sleep: fn(Duration) = |pause| SLEPT.with(|slept| slept.borrow_mut().push(pause));
+    nap(pause, cfg!(all(feature = "testing", not(test))), sleep);
 }
 
 /// Calls `sleep` with `pause` unless `skip`.
@@ -321,20 +325,10 @@ fn nap(pause: Duration, skip: bool, sleep: impl FnOnce(Duration)) {
     }
 }
 
-#[cfg(not(test))]
-fn sleep_for(pause: Duration) {
-    std::thread::sleep(pause);
-}
-
 #[cfg(test)]
 thread_local! {
     /// The pauses [`wait`] was asked for on this thread.
     static SLEPT: std::cell::RefCell<Vec<Duration>> = const { std::cell::RefCell::new(Vec::new()) };
-}
-
-#[cfg(test)]
-fn sleep_for(pause: Duration) {
-    SLEPT.with(|slept| slept.borrow_mut().push(pause));
 }
 
 /// Downloads `url` and reads it with `check`, up to [`ATTEMPTS`] times: server errors, resets
