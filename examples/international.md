@@ -10,7 +10,7 @@ Gelände, Luftbild, Gebäude und Landnutzung kommen von GUGiK (Kataster EGiB), W
 
 | Vorschau | Kartenart | Gebiet | Kartenobjekte | Kandidaten | Symbole |
 |---|---|---|---:|---:|---:|
-| <a href="polska-slubice-sprint/preview.webp"><img src="polska-slubice-sprint/preview-thumb.webp" width="220" alt="" loading="lazy"></a><br><a href="polska-slubice-sprint/polska-slubice-sprint-training.pdf">PDF</a> · <a href="polska-slubice-sprint/polska-slubice-sprint-candidates.pdf">Prüfausdruck</a> | Sprint 1:4000 | [Innenstadt Słubice](polska-slubice-sprint/): Stadtkern an der deutschen Grenze, 1 × 1 km: Wohnblöcke und Straßenraster, Seen im Süden | 2599 | 2033 | 38 |
+| <a href="polska-slubice-sprint/preview.webp"><img src="polska-slubice-sprint/preview-thumb.webp" width="220" alt="" loading="lazy"></a><br><a href="polska-slubice-sprint/polska-slubice-sprint-training.pdf">PDF</a> · <a href="polska-slubice-sprint/polska-slubice-sprint-candidates.pdf">Prüfausdruck</a> | Sprint 1:4000 | [Innenstadt Słubice](polska-slubice-sprint/): Stadtkern an der deutschen Grenze, 1 × 1 km: Wohnblöcke und Straßenraster, Seen im Süden | 2599 | 2039 | 38 |
 | <a href="polska-szczeliniec-forest/preview.webp"><img src="polska-szczeliniec-forest/preview-thumb.webp" width="220" alt="" loading="lazy"></a><br><a href="polska-szczeliniec-forest/polska-szczeliniec-forest-training.pdf">PDF</a> · <a href="polska-szczeliniec-forest/polska-szczeliniec-forest-candidates.pdf">Prüfausdruck</a> | Wald 1:10 000 | [Szczeliniec Wielki, Góry Stołowe](polska-szczeliniec-forest/): Tafelberg mit Felswänden, steilen Hängen, Bächen und vielen Wanderwegen, 1,3 × 0,9 km | 575 | 1143 | 28 |
 
 Erstellt mit freemapper – https://github.com/HenryJobst/freemapper
