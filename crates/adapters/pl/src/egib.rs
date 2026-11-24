@@ -339,7 +339,7 @@ pub(crate) fn geometry(feature: &Feature, crs: Crs) -> Option<Value> {
 /// `o`, `e` culture and schools, `f` sport, `r` places of worship, `x` listed structures. No
 /// answer of the service held one yet; they are mapped to the same names as the coarse letters.
 /// The service of Poznań (powiat 3064) sends the class names of the KŚT in words, cut off at 20
-/// characters (`budynki handlowo-usł`), see [`kind_of_words`]. Some municipalities send the kind
+/// characters (`budynki handlowo-usł`), see `kind_of_words`. Some municipalities send the kind
 /// in other words: `budynekMieszkalny` is residential and
 /// `budynekNiemieszkalny` non-residential without saying what for. A kind the table does not know
 /// keeps its text, so the data stays readable.
