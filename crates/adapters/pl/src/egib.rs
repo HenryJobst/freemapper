@@ -364,7 +364,7 @@ pub fn building_function(kind: &str) -> String {
 /// map reads. Only what is clear: a class the table does not know, or one that does not say what
 /// lies on the ground, gives `None`.
 ///
-/// The classes are those of the ordinance on the register (§ 8 and § 68, checked against the live
+/// The classes are those of the ordinance on the register (§ 9 ust. 3 and the annex, checked against the live
 /// service on 22 November 2026). A farmland, pasture, meadow, forest or wood class carries its
 /// soil class after the letters (`RIVa`, `PsVI`, `ŁV`, `LsIV`, `LzV`), which does not matter here.
 /// A class can also carry a prefix and a slash for land of a second kind on that soil: `Br/RV`
@@ -373,9 +373,11 @@ pub fn building_function(kind: &str) -> String {
 ///
 /// `Ls` forest, `Lz` and `Lzr` trees and shrubs, `Ł` meadow, `Ps` pasture, `R` arable, `S`
 /// orchard, `Wp` running and `Ws` and `Wsr` standing water, `dr` road, `Tk` railway, `B`
-/// residential and `Ba` industrial land, `Bz` recreation (no `bez`, so the map ignores it until a
-/// park is known). Left out: `Bi` other built-up land (schools, offices, trade), `Bp` urban land
-/// not built on, `Ti` other transport land, `Tp` land for roads that are to be built, `K` mining
+/// residential and `Ba` industrial land, `Bz` recreation land (`bez` `Erholungsfläche`: the
+/// ordinance lumps parks, playgrounds, sports grounds, zoos, unkept green and allotments in it, so
+/// the map takes it as a lawn candidate only). Left out: `Bi` other built-up land (any building
+/// that is not a home or industrial, with its yard, and active cemeteries: no single land use of
+/// the map fits it), `Bp` urban land not built on or being built on, `Ti` other transport land, `Tp` land for roads that are to be built, `K` mining
 /// land, `N` waste land, `W` ditches (too narrow), `Wm` sea, `Tr` and unknown classes.
 pub fn land_use_of_class(class: &str) -> Option<(&'static str, Option<&'static str>)> {
     let class = class.trim();
@@ -393,7 +395,10 @@ pub fn land_use_of_class(class: &str) -> Option<(&'static str, Option<&'static s
         ("", "Tk") => Some(("Bahnverkehr", None)),
         ("", "B") => Some(("Wohnbaufläche", None)),
         ("", "Ba") => Some(("Industrie- und Gewerbefläche", None)),
-        ("", "Bz") => Some(("Sport-, Freizeit- und Erholungsfläche", None)),
+        ("", "Bz") => Some((
+            "Sport-, Freizeit- und Erholungsfläche",
+            Some("Erholungsfläche"),
+        )),
         _ => None,
     }
 }
@@ -837,7 +842,13 @@ mod tests {
             ("Tk", Some(("Bahnverkehr", None))),
             ("B", Some(("Wohnbaufläche", None))),
             ("Ba", Some(("Industrie- und Gewerbefläche", None))),
-            ("Bz", Some(("Sport-, Freizeit- und Erholungsfläche", None))),
+            (
+                "Bz",
+                Some((
+                    "Sport-, Freizeit- und Erholungsfläche",
+                    Some("Erholungsfläche"),
+                )),
+            ),
             ("Bi", None),
             ("Bp", None),
             ("Ti", None),
@@ -865,6 +876,15 @@ mod tests {
             .iter()
             .map(|f| (f.kind.as_str(), parcel_land_use(&f.kind).map(|u| u.0)))
             .collect();
+        // The recreation land of the service is a lawn candidate of unknown kind (`Bz`).
+        let bz = page.features.iter().find(|f| f.kind == "Bz").unwrap();
+        assert_eq!(
+            parcel_land_use(&bz.kind),
+            Some((
+                "Sport-, Freizeit- und Erholungsfläche",
+                Some("Erholungsfläche")
+            ))
+        );
         let expected = [
             ("B", Some("Wohnbaufläche")),
             ("Ba", Some("Industrie- und Gewerbefläche")),
@@ -901,6 +921,21 @@ mod tests {
         assert_eq!(parcel_land_use("Ls,B"), None);
         assert_eq!(parcel_land_use("B,Ls"), None);
         assert_eq!(parcel_land_use("B,Bp"), None);
+        // `Bi` and `Bz` are parcels of their own: one that mixes with another class has no use,
+        // two of the same class keep it.
+        assert_eq!(parcel_land_use("Bi,Bz"), None);
+        assert_eq!(parcel_land_use("Bz,Bi"), None);
+        assert_eq!(parcel_land_use("Bz,Lz"), None);
+        assert_eq!(parcel_land_use("Bi"), None);
+        assert_eq!(parcel_land_use("Bi,Bi"), None);
+        assert_eq!(parcel_land_use("Bz,Bz"), land_use_of_class("Bz"));
+        assert_eq!(
+            parcel_land_use("Bz,N"),
+            Some((
+                "Sport-, Freizeit- und Erholungsfläche",
+                Some("Erholungsfläche")
+            ))
+        );
         // A ditch or waste land beside one use does not make a second.
         assert_eq!(
             parcel_land_use("ŁV,N,W"),
@@ -934,6 +969,19 @@ mod tests {
         };
         let part = land_use(&[meadow], Crs::Utm33);
         assert_eq!(part.features[0]["properties"]["bez"], "Grünland");
+        // Recreation land (`Bz`) goes out with its `bez`, other built-up land (`Bi`) not at all.
+        let of_class = |kind: &str| Feature {
+            id: "D8".into(),
+            kind: kind.into(),
+            polygons: page.features[0].polygons.clone(),
+        };
+        let part = land_use(&[of_class("Bz"), of_class("Bi")], Crs::Utm33);
+        assert_eq!(part.features.len(), 1);
+        assert_eq!(
+            part.features[0]["properties"]["nutzart"],
+            "Sport-, Freizeit- und Erholungsfläche"
+        );
+        assert_eq!(part.features[0]["properties"]["bez"], "Erholungsfläche");
     }
 
     #[test]
