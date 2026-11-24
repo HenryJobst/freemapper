@@ -55,6 +55,23 @@ schema = "shape"
 max_count = 100000
 max_bytes = 268435456
 
+# The monuments of the GDKE through the geoportal's proxy, GeoJSON in its CRS (with a box in WGS 84 it finds nothing) (issue #273).
+[[permits.wfs]]
+key = "denkmale"
+label = { en = "Generaldirektion Kulturelles Erbe", de = "Generaldirektion Kulturelles Erbe" }
+what = { en = "Einzeldenkmäler, Denkmalzonen, bauliche Gesamtanlagen", de = "Einzeldenkmäler, Denkmalzonen, bauliche Gesamtanlagen" }
+credit = "Datenlizenz Deutschland – Namensnennung – Version 2.0 (dl-de/by-2-0); Quellenvermerk: GDKE RLP"
+sections = ["monuments"]
+url = "https://www.geoportal.rlp.de/owsproxy/00000000000000000000000000000000/a2e0fb04feed3a72cf42d53cf6e2165e"
+output_format = "application/json"
+native_crs = 25832
+layers = [
+    { key = "punkte", type_name = "gdke:edm_punkte", reading = "monument", monument = "Einzeldenkmal" },
+    { key = "flaechen", type_name = "gdke:edm_flaechen", reading = "monument", monument = "Einzeldenkmal" },
+    { key = "denkmalzonen", type_name = "gdke:denkmalzonen", reading = "monument", monument = "Denkmalzone" },
+    { key = "gesamtanlagen", type_name = "gdke:bga", reading = "monument", monument = "Bauliche Gesamtanlage" },
+]
+
 # The Naturdenkmale and geschützte Landschaftsbestandteile of the LfU's nature conservation service
 # (one WFS per topic, ODbL), issue #273. Its biotope mapping holds the unprotected biotopes too and
 # stays out.

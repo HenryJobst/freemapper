@@ -77,6 +77,21 @@ fields = { kind = "Lateinischer Name", id = "Objekt ID", crown = "Kronen Durchme
 attribution = "Stadt Frankfurt am Main, Baumkataster, dl-de/by-2-0"
 max_bytes = 67108864
 
+# The monuments of the Landesamt für Denkmalpflege Hessen (DenkXweb), with the link into the list (issue #273).
+[[permits.wfs]]
+key = "denkmale"
+label = { en = "Landesamt für Denkmalpflege Hessen", de = "Landesamt für Denkmalpflege Hessen" }
+what = { en = "Kulturdenkmäler, Gesamtanlagen, archaeological monuments (DenkXweb)", de = "Kulturdenkmäler, Gesamtanlagen, Bodendenkmäler (DenkXweb)" }
+credit = "Datenlizenz Deutschland – Namensnennung – Version 2.0 (dl-de/by-2-0); Quellenvermerk: Landesamt für Denkmalpflege Hessen (LfDH)"
+sections = ["monuments"]
+url = "https://geodienste.denkx.de/geoserver/denkx/wfs"
+output_format = "application/json"
+layers = [
+    { key = "kulturdenkmale", type_name = "denkx:baudenkmal", reading = "monument", monument = "Kulturdenkmal", link_attribute = "publicationSource", link_prefix = "http://denkxweb.denkmalpflege-hessen.de/" },
+    { key = "gesamtanlagen", type_name = "denkx:flaechendenkmal", reading = "monument", monument = "Gesamtanlage", link_attribute = "publicationSource", link_prefix = "http://denkxweb.denkmalpflege-hessen.de/" },
+    { key = "bodendenkmale", type_name = "denkx:archaeologischesDenkmal", reading = "monument", monument = "Bodendenkmal", link_attribute = "publicationSource", link_prefix = "http://denkxweb.denkmalpflege-hessen.de/" },
+]
+
 # The protected biotopes of the old Hessian biotope mapping (1992 to 2006, INSPIRE), issue #273.
 [[permits.wfs]]
 key = "biotope"

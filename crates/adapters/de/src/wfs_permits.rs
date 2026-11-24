@@ -896,6 +896,10 @@ mod tests {
     impl Fetcher for Recorder {
         fn get(&self, url: &str) -> Result<Vec<u8>, FetchError> {
             self.0.borrow_mut().push(url.to_string());
+            if url.contains("gml%2Bxml") {
+                // A GML 3.2 service answers an empty collection.
+                return Ok(br#"<?xml version="1.0"?><wfs:FeatureCollection xmlns:wfs="http://www.opengis.net/wfs/2.0" numberMatched="0" numberReturned="0"/>"#.to_vec());
+            }
             Ok(
                 br#"{"type":"FeatureCollection","features":[{"type":"Feature",
                 "geometry":{"type":"Point","coordinates":[9.95,53.55]},
@@ -913,8 +917,12 @@ mod tests {
     fn the_declared_sources_of_hamburg_ask_and_keep_what_the_table_did() {
         let text = include_str!("../manifests/hamburg/manifest.toml");
         let manifest = freemapper_manifest::parse(text, Path::new("hamburg")).unwrap();
-        let declared: Vec<Box<dyn PermitSource>> =
-            manifest.permits.iter().map(declared_source).collect();
+        let declared: Vec<Box<dyn PermitSource>> = manifest
+            .permits
+            .iter()
+            .filter(|w| !is_monuments(w))
+            .map(declared_source)
+            .collect();
         let keys: Vec<(&str, &[&str])> = declared
             .iter()
             .map(|source| (source.info().key, source.info().layers))
@@ -978,8 +986,12 @@ mod tests {
     fn the_declared_sources_of_saarland_ask_and_keep_what_the_table_did() {
         let text = include_str!("../manifests/saarland/manifest.toml");
         let manifest = freemapper_manifest::parse(text, Path::new("saarland")).unwrap();
-        let declared: Vec<Box<dyn PermitSource>> =
-            manifest.permits.iter().map(declared_source).collect();
+        let declared: Vec<Box<dyn PermitSource>> = manifest
+            .permits
+            .iter()
+            .filter(|w| !is_monuments(w))
+            .map(declared_source)
+            .collect();
         let keys: Vec<(&str, &[&str])> = declared
             .iter()
             .map(|source| (source.info().key, source.info().layers))
@@ -1027,8 +1039,12 @@ mod tests {
     fn the_declared_sources_of_brandenburg_ask_and_keep_what_the_table_did() {
         let text = include_str!("../manifests/brandenburg/manifest.toml");
         let manifest = freemapper_manifest::parse(text, Path::new("brandenburg")).unwrap();
-        let declared: Vec<Box<dyn PermitSource>> =
-            manifest.permits.iter().map(declared_source).collect();
+        let declared: Vec<Box<dyn PermitSource>> = manifest
+            .permits
+            .iter()
+            .filter(|w| !is_monuments(w))
+            .map(declared_source)
+            .collect();
         let keys: Vec<(&str, &[&str])> = declared
             .iter()
             .map(|source| (source.info().key, source.info().layers))
@@ -1086,8 +1102,12 @@ mod tests {
     fn the_declared_source_of_berlin_asks_and_keeps_what_the_table_did() {
         let text = include_str!("../manifests/berlin/manifest.toml");
         let manifest = freemapper_manifest::parse(text, Path::new("berlin")).unwrap();
-        let declared: Vec<Box<dyn PermitSource>> =
-            manifest.permits.iter().map(declared_source).collect();
+        let declared: Vec<Box<dyn PermitSource>> = manifest
+            .permits
+            .iter()
+            .filter(|w| !is_monuments(w))
+            .map(declared_source)
+            .collect();
         assert_eq!(declared.len(), 1);
         let info = declared[0].info();
         assert_eq!(
@@ -1123,8 +1143,12 @@ mod tests {
     fn the_declared_source_of_hessen_asks_and_keeps_what_the_table_did() {
         let text = include_str!("../manifests/hessen/manifest.toml");
         let manifest = freemapper_manifest::parse(text, Path::new("hessen")).unwrap();
-        let declared: Vec<Box<dyn PermitSource>> =
-            manifest.permits.iter().map(declared_source).collect();
+        let declared: Vec<Box<dyn PermitSource>> = manifest
+            .permits
+            .iter()
+            .filter(|w| !is_monuments(w))
+            .map(declared_source)
+            .collect();
         assert_eq!(declared.len(), 1);
         let info = declared[0].info();
         assert_eq!((info.key, info.layers), ("biotope", &["biotope"][..]));
@@ -1155,8 +1179,12 @@ mod tests {
     fn the_declared_source_of_nordrhein_westfalen_asks_and_keeps_what_the_table_did() {
         let text = include_str!("../manifests/nordrheinwestfalen/manifest.toml");
         let manifest = freemapper_manifest::parse(text, Path::new("nordrheinwestfalen")).unwrap();
-        let declared: Vec<Box<dyn PermitSource>> =
-            manifest.permits.iter().map(declared_source).collect();
+        let declared: Vec<Box<dyn PermitSource>> = manifest
+            .permits
+            .iter()
+            .filter(|w| !is_monuments(w))
+            .map(declared_source)
+            .collect();
         assert_eq!(declared.len(), 1);
         let info = declared[0].info();
         assert_eq!(
@@ -1279,8 +1307,12 @@ mod tests {
     fn the_declared_sources_of_baden_wuerttemberg_ask_and_keep_what_the_table_did() {
         let text = include_str!("../manifests/badenwuerttemberg/manifest.toml");
         let manifest = freemapper_manifest::parse(text, Path::new("badenwuerttemberg")).unwrap();
-        let declared: Vec<Box<dyn PermitSource>> =
-            manifest.permits.iter().map(declared_source).collect();
+        let declared: Vec<Box<dyn PermitSource>> = manifest
+            .permits
+            .iter()
+            .filter(|w| !is_monuments(w))
+            .map(declared_source)
+            .collect();
         let keys: Vec<&str> = declared.iter().map(|source| source.info().key).collect();
         assert_eq!(keys, ["naturdenkmale", "flaechennaturdenkmale"]);
         for source in &declared {
@@ -1320,8 +1352,12 @@ mod tests {
     fn the_declared_sources_of_rheinland_pfalz_ask_and_keep_what_the_table_did() {
         let text = include_str!("../manifests/rheinlandpfalz/manifest.toml");
         let manifest = freemapper_manifest::parse(text, Path::new("rheinlandpfalz")).unwrap();
-        let declared: Vec<Box<dyn PermitSource>> =
-            manifest.permits.iter().map(declared_source).collect();
+        let declared: Vec<Box<dyn PermitSource>> = manifest
+            .permits
+            .iter()
+            .filter(|w| !is_monuments(w))
+            .map(declared_source)
+            .collect();
         let keys: Vec<(&str, &[&str])> = declared
             .iter()
             .map(|source| (source.info().key, source.info().layers))
@@ -1367,8 +1403,12 @@ mod tests {
     fn the_declared_source_of_sachsen_anhalt_asks_and_keeps_what_the_table_did() {
         let text = include_str!("../manifests/saxonyanhalt/manifest.toml");
         let manifest = freemapper_manifest::parse(text, Path::new("saxonyanhalt")).unwrap();
-        let declared: Vec<Box<dyn PermitSource>> =
-            manifest.permits.iter().map(declared_source).collect();
+        let declared: Vec<Box<dyn PermitSource>> = manifest
+            .permits
+            .iter()
+            .filter(|w| !is_monuments(w))
+            .map(declared_source)
+            .collect();
         assert_eq!(declared.len(), 1);
         let info = declared[0].info();
         assert_eq!(
@@ -1407,8 +1447,12 @@ mod tests {
     fn the_declared_source_of_bayern_asks_and_keeps_what_the_table_did() {
         let text = include_str!("../manifests/bayern/manifest.toml");
         let manifest = freemapper_manifest::parse(text, Path::new("bayern")).unwrap();
-        let declared: Vec<Box<dyn PermitSource>> =
-            manifest.permits.iter().map(declared_source).collect();
+        let declared: Vec<Box<dyn PermitSource>> = manifest
+            .permits
+            .iter()
+            .filter(|w| !is_monuments(w))
+            .map(declared_source)
+            .collect();
         assert_eq!(declared.len(), 1);
         let info = declared[0].info();
         assert_eq!(
@@ -1457,8 +1501,12 @@ mod tests {
     fn the_declared_sources_of_sachsen_ask_and_keep_what_the_table_did() {
         let text = include_str!("../manifests/saxony/manifest.toml");
         let manifest = freemapper_manifest::parse(text, Path::new("saxony")).unwrap();
-        let declared: Vec<Box<dyn PermitSource>> =
-            manifest.permits.iter().map(declared_source).collect();
+        let declared: Vec<Box<dyn PermitSource>> = manifest
+            .permits
+            .iter()
+            .filter(|w| !is_monuments(w))
+            .map(declared_source)
+            .collect();
         assert_eq!(declared.len(), 2);
         let (monuments, biotopes) = (declared[0].info(), declared[1].info());
         assert_eq!(
@@ -1512,5 +1560,209 @@ mod tests {
                 "{url}"
             );
         }
+    }
+
+    fn is_monuments(declared: &DeclaredWfs) -> bool {
+        declared.sections.contains(&PermitSection::Monuments)
+    }
+
+    /// The monuments of the seven states that had a table in the code until they moved into
+    /// their manifests (issue #273) give the requests, the notes of gaps and the findings the
+    /// tables gave: every layer is asked with its feature type, and the link of a monument and
+    /// the kind named by an attribute are read.
+    #[test]
+    fn the_declared_monuments_ask_and_keep_what_the_tables_did() {
+        type Expected<'a> = (&'a str, &'a str, &'a [(&'a str, &'a str)]);
+        let cases: [(&str, &str, &[Expected]); 7] = [
+            (
+                "hessen",
+                include_str!("../manifests/hessen/manifest.toml"),
+                &[(
+                    "denkmale",
+                    "https://geodienste.denkx.de/geoserver/denkx/wfs",
+                    &[
+                        ("kulturdenkmale", "denkx:baudenkmal"),
+                        ("gesamtanlagen", "denkx:flaechendenkmal"),
+                        ("bodendenkmale", "denkx:archaeologischesDenkmal"),
+                    ],
+                )],
+            ),
+            (
+                "badenwuerttemberg",
+                include_str!("../manifests/badenwuerttemberg/manifest.toml"),
+                &[
+                    (
+                        "denkmale",
+                        "https://owsproxy.lgl-bw.de/owsproxy/wfs/WFS_LAD_Kulturdenkmale_Bau_Kunstdenkmalpflege",
+                        &[
+                            ("kulturdenkmale", "v_bau_kunstdenkmalpflege_kulturdenkmale"),
+                            ("gesamtanlagen", "v_bau_kunstdenkmalpflege_gesamtanlagen"),
+                        ],
+                    ),
+                    (
+                        "archaeologie",
+                        "https://owsproxy.lgl-bw.de/owsproxy/wfs/WFS_LAD_Archaeologische_Kulturdenkmale_BW",
+                        &[
+                            ("kulturdenkmale", "v_archaeologie_kulturdenkmale"),
+                            (
+                                "grabungsschutzgebiete",
+                                "v_archaeologie_grabungsschutzgebiete",
+                            ),
+                        ],
+                    ),
+                ],
+            ),
+            (
+                "bremen",
+                include_str!("../manifests/bremen/manifest.toml"),
+                &[(
+                    "denkmale",
+                    "https://geodienste.bremen.de/wfs_kulturdenkmale",
+                    &[
+                        ("einzeldenkmale", "app:einzeldenkmale"),
+                        ("ensembles", "app:ensembles"),
+                    ],
+                )],
+            ),
+            (
+                "saxony",
+                include_str!("../manifests/saxony/manifest.toml"),
+                &[(
+                    "denkmale",
+                    "https://cardomap3.idu.de/lfds/public/ogc.ashx?PKGID=5",
+                    &[("flaechen", "cls:L1"), ("punkte", "cls:L3")],
+                )],
+            ),
+            (
+                "brandenburg",
+                include_str!("../manifests/brandenburg/manifest.toml"),
+                &[
+                    (
+                        "baudenkmale",
+                        "https://gis-bldam-brandenburg.de/ows/baudenkmale",
+                        &[
+                            ("punkte", "ms:Baudenkmal-Punkt"),
+                            ("flaechen", "ms:Baudenkmal-Polygon"),
+                            ("gartendenkmale", "ms:Baudenkmal-Gartendenkmal"),
+                            ("denkmalbereiche", "ms:Denkmal-mit-Flaechencharakter"),
+                        ],
+                    ),
+                    (
+                        "bodendenkmale",
+                        "https://gis-bldam-brandenburg.de/ows/bodendenkmale",
+                        &[("flaechen", "ms:Bodendenkmal-Flaechen")],
+                    ),
+                ],
+            ),
+            (
+                "rheinlandpfalz",
+                include_str!("../manifests/rheinlandpfalz/manifest.toml"),
+                &[(
+                    "denkmale",
+                    "https://www.geoportal.rlp.de/owsproxy/00000000000000000000000000000000/a2e0fb04feed3a72cf42d53cf6e2165e",
+                    &[
+                        ("punkte", "gdke:edm_punkte"),
+                        ("flaechen", "gdke:edm_flaechen"),
+                        ("denkmalzonen", "gdke:denkmalzonen"),
+                        ("gesamtanlagen", "gdke:bga"),
+                    ],
+                )],
+            ),
+            (
+                "nordrheinwestfalen",
+                include_str!("../manifests/nordrheinwestfalen/manifest.toml"),
+                &[(
+                    "denkmale",
+                    "https://www.wfs.nrw.de/wfs/denkmal",
+                    &[
+                        ("punkte", "denkmal:denkmal_punkte"),
+                        ("flaechen", "denkmal:denkmal_flaechen"),
+                    ],
+                )],
+            ),
+        ];
+        let bbox = Rect::new(Coord { x: 13.7, y: 51.0 }, Coord { x: 13.8, y: 51.1 });
+        let feature = serde_json::json!({"type":"Feature","geometry":{"type":"Point","coordinates":[9.95,53.55]},"properties":{
+            "kategorie":"Bodendenkmal","publicationSource":"http://denkxweb.denkmalpflege-hessen.de/x",
+            "link":"https://denkmalpflege.bremen.de/y","bezeichnung":"B","name":"N"}});
+        for (id, text, expected) in cases {
+            let manifest = freemapper_manifest::parse(text, Path::new(id)).unwrap();
+            let declared: Vec<Box<dyn PermitSource>> = manifest
+                .permits
+                .iter()
+                .filter(|w| is_monuments(w))
+                .map(declared_source)
+                .collect();
+            assert_eq!(declared.len(), expected.len(), "{id}");
+            for (source, (key, base, layers)) in declared.iter().zip(expected) {
+                assert_eq!(source.info().key, *key, "{id}");
+                assert_eq!(source.info().sections, [PermitSection::Monuments], "{id}");
+                assert_eq!(
+                    source.info().layers,
+                    layers.iter().map(|(layer, _)| *layer).collect::<Vec<_>>(),
+                    "{id}"
+                );
+                let dir = tempfile::tempdir().unwrap();
+                let asked = Recorder::default();
+                source
+                    .fetch(&asked, &bbox, &dir.path().join("part"))
+                    .unwrap();
+                let urls = asked.0.into_inner();
+                assert_eq!(urls.len(), layers.len(), "{id}");
+                for (url, (_, type_name)) in urls.iter().zip(*layers) {
+                    assert!(url.starts_with(base) && url.contains(type_name), "{url}");
+                }
+                for (layer, _) in *layers {
+                    let found = format!(
+                        "{:?}",
+                        source.findings(layer, std::slice::from_ref(&feature))
+                    );
+                    assert!(!found.contains("must not be kept"), "{id} {layer}");
+                    match (id, *key) {
+                        ("hessen", _) => assert!(found.contains("denkxweb"), "{found}"),
+                        ("bremen", _) => {
+                            assert!(found.contains("denkmalpflege.bremen.de/y"), "{found}")
+                        }
+                        ("nordrheinwestfalen", _) => {
+                            assert!(found.contains("Bodendenkmal"), "{found}")
+                        }
+                        _ => {}
+                    }
+                }
+            }
+        }
+        let brandenburg = freemapper_manifest::parse(
+            include_str!("../manifests/brandenburg/manifest.toml"),
+            Path::new("brandenburg"),
+        )
+        .unwrap();
+        let first = brandenburg
+            .permits
+            .iter()
+            .find(|w| w.key == "baudenkmale")
+            .unwrap();
+        assert!(
+            declared_source(first)
+                .info()
+                .gaps
+                .unwrap()
+                .de
+                .contains("Potsdam")
+        );
+        assert!(first.gml && first.native_crs == Some(25832));
+        let nrw = freemapper_manifest::parse(
+            include_str!("../manifests/nordrheinwestfalen/manifest.toml"),
+            Path::new("nordrheinwestfalen"),
+        )
+        .unwrap();
+        let nrw_monuments = nrw.permits.iter().find(|w| w.key == "denkmale").unwrap();
+        assert!(
+            declared_source(nrw_monuments)
+                .info()
+                .gaps
+                .unwrap()
+                .de
+                .contains("Gemeinde")
+        );
     }
 }

@@ -123,14 +123,18 @@ pub fn builtin_targets() -> (Vec<Target>, Vec<String>) {
     targets(freemapper_adapters_de::states::manifest_texts())
 }
 
-/// Every `https://` string in `value`; a template with `{…}` is no address to ask.
+/// Every `https://` string in `value`; a template with `{…}` is no address to ask, nor is a
+/// `link_prefix`, which only starts the links of the notes and is never fetched.
 fn collect_urls(value: &toml::Value, urls: &mut Vec<String>) {
     match value {
         toml::Value::String(s) if s.starts_with("https://") && !s.contains(['{', '}']) => {
             urls.push(s.clone());
         }
         toml::Value::Array(items) => items.iter().for_each(|v| collect_urls(v, urls)),
-        toml::Value::Table(table) => table.values().for_each(|v| collect_urls(v, urls)),
+        toml::Value::Table(table) => table
+            .iter()
+            .filter(|(key, _)| key.as_str() != "link_prefix")
+            .for_each(|(_, v)| collect_urls(v, urls)),
         _ => {}
     }
 }
@@ -446,5 +450,22 @@ endpoints = ["https://b.example.org/t", "https://a.example.org/items"]
             );
         }
         assert!(targets.iter().all(|t| hosts.contains(&host_of(&t.url))));
+    }
+
+    /// The start of the links of a monument is no service: it is not asked, and its host need
+    /// not be in the hosts of the adapter.
+    #[test]
+    fn a_link_prefix_is_no_address_to_ask() {
+        let table: toml::Value = toml::from_str(
+            r#"
+            [[permits.wfs]]
+            url = "https://wfs.example.org/service"
+            layers = [{ key = "a", link_prefix = "https://list.example.org/" }]
+            "#,
+        )
+        .unwrap();
+        let mut urls = Vec::new();
+        collect_urls(&table, &mut urls);
+        assert_eq!(urls, ["https://wfs.example.org/service"]);
     }
 }

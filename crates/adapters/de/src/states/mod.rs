@@ -562,30 +562,19 @@ impl StateAdapter {
             _ => Vec::new(),
         };
         // The BfG's protection areas where the state's own services give none (ADR 0142), the
-        // monuments of the state offices where they are open (ADR 0144).
+        // monuments of the state offices where they are open (ADR 0144); the monuments of the
+        // seven states that have them are declared in their manifests (issue #273).
         let permits: Vec<Box<dyn PermitSource>> = match state {
             // The protected biotopes of Berlin are declared in its manifest (issue #273).
             State::Berlin => crate::berlin_permits::sources(),
             // The protected objects of Brandenburg are declared in its manifest (issue #273).
-            State::Brandenburg => [
-                crate::lfb_permits::sources(),
-                crate::denkmal_permits::brandenburg(),
-            ]
-            .into_iter()
-            .flatten()
-            .collect(),
+            State::Brandenburg => crate::lfb_permits::sources(),
             // The protected objects of Hamburg are declared in its manifest (issue #273).
             State::Hamburg => crate::lgv_permits::sources(),
             // The protected objects of Saarland are declared in its manifest (issue #273).
             State::Saarland => crate::state_permits::saarland(),
             // The protected biotopes of Hesse are declared in its manifest (issue #273).
-            State::Hessen => [
-                crate::state_permits::hessen(),
-                vec![crate::denkmal_permits::hessen()],
-            ]
-            .into_iter()
-            .flatten()
-            .collect(),
+            State::Hessen => crate::state_permits::hessen(),
             // The protected objects of Schleswig-Holstein are declared in its manifest (issue #273).
             State::SchleswigHolstein => [
                 crate::state_permits::schleswig_holstein(),
@@ -595,42 +584,21 @@ impl StateAdapter {
             .flatten()
             .collect(),
             // The protected biotopes of North Rhine-Westphalia are declared in its manifest (issue #273).
-            State::NordrheinWestfalen => [
-                crate::wuh_permits::sources(),
-                vec![crate::denkmal_permits::nordrhein_westfalen()],
-            ]
-            .into_iter()
-            .flatten()
-            .collect(),
+            State::NordrheinWestfalen => crate::wuh_permits::sources(),
             // The Naturdenkmale of Baden-Württemberg are declared in its manifest (issue #273).
-            State::BadenWuerttemberg => [
-                vec![crate::lubw_permits::source()],
-                crate::denkmal_permits::baden_wuerttemberg(),
-            ]
-            .into_iter()
-            .flatten()
-            .collect(),
+            State::BadenWuerttemberg => vec![crate::lubw_permits::source()],
             State::Saxony => [
                 crate::sbs_permits::sources(),
-                vec![
-                    crate::bfg_permits::source(),
-                    crate::denkmal_permits::sachsen(),
-                ],
+                vec![crate::bfg_permits::source()],
                 // The Flächennaturdenkmale and biotopes of the LfULG are declared in its
                 // manifest (issue #273).
             ]
             .into_iter()
             .flatten()
             .collect(),
-            State::Bremen => vec![
-                crate::bfg_permits::source(),
-                crate::denkmal_permits::bremen(),
-            ],
+            State::Bremen => vec![crate::bfg_permits::source()],
             // The Naturdenkmale of Rhineland-Palatinate are declared in its manifest (issue #273).
-            State::RheinlandPfalz => vec![
-                crate::bfg_permits::source(),
-                crate::denkmal_permits::rheinland_pfalz(),
-            ],
+            State::RheinlandPfalz => vec![crate::bfg_permits::source()],
             // The Naturdenkmale of Saxony-Anhalt are declared in its manifest (issue #273).
             State::SaxonyAnhalt => vec![crate::bfg_permits::source()],
             // The Naturdenkmale of the LfU are declared in its manifest (issue #273).
