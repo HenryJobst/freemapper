@@ -81,6 +81,37 @@ fields = { kind = "GATTUNG", id = "BAUMNUMMER", species = "GA_LANG", crown = "KR
 attribution = "Quelle: © GeoDaten-KVA / Stadt Frankfurt (Oder), dl-de/by-2-0"
 max_bytes = 268435456
 
+# The Reviere and the forest functions of the Landesbetrieb Forst Brandenburg (issue #273). The Reviere come as GML 3.2
+# (the service refuses GeoJSON), the forest functions as GeoJSON.
+[[permits.wfs]]
+key = "reviere"
+label = { en = "Landesbetrieb Forst Brandenburg", de = "Landesbetrieb Forst Brandenburg" }
+what = { en = "forest districts (Reviere) with their Oberförsterei", de = "Forstreviere mit ihrer Oberförsterei" }
+credit = "Landesbetrieb Forst Brandenburg, Datenlizenz Deutschland – Namensnennung – Version 2.0 (https://www.govdata.de/dl-de/by-2-0)"
+sections = ["forest-units"]
+url = "https://www.brandenburg-forst.de/geoserver/IFUEK/ows"
+output_format = "gml32"
+gml = true
+layers = [
+    { key = "reviere", type_name = "IFUEK:AM.ForestManagementArea", reading = "unit", administration = "Landesbetrieb Forst Brandenburg", prefix = "Oberförsterei ", office = "foa_name", unit_attribute = "rev_name", unit_prefix = "Revier " },
+]
+
+[[permits.wfs]]
+key = "waldfunktionen"
+label = { en = "Landesbetrieb Forst Brandenburg", de = "Landesbetrieb Forst Brandenburg" }
+what = { en = "forest functions (Naturwald, Totalreservat, closed areas, Erholungswald)", de = "Waldfunktionen (Naturwald, Totalreservat, nicht betretbare Flächen, Erholungswald)" }
+credit = "Landesbetrieb Forst Brandenburg, Datenlizenz Deutschland – Namensnennung – Version 2.0 (https://www.govdata.de/dl-de/by-2-0)"
+sections = ["forest-functions"]
+url = "https://www.brandenburg-forst.de/geoserver/IWFK/ows"
+output_format = "application/json"
+layers = [
+    { key = "naturwald", type_name = "IWFK:wfk_nwr", reading = "function", function = "natural", name = "name" },
+    { key = "totalreservat", type_name = "IWFK:lfu_trv", reading = "function", function = "natural", name = "sg_name" },
+    { key = "nicht-betretbar", type_name = "IWFK:wfk_nbt", reading = "function", function = "closed", name = "rechtsgrund" },
+    { key = "erholungswald", type_name = "IWFK:wfk_ewf", reading = "function", function = "recreation", name = "name" },
+    { key = "erholungswald-rechtlich", type_name = "IWFK:wfk_ewr", reading = "function", function = "recreation", name = "name" },
+]
+
 # The Baudenkmale and the Bodendenkmale of the BLDAM, GML 3.2, asked in its CRS (a box in WGS 84 finds nothing there) (issue #273).
 [[permits.wfs]]
 key = "baudenkmale"

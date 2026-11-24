@@ -33,7 +33,8 @@ pub mod lgv;
 pub mod lgv_fk;
 #[cfg(test)]
 mod lgv_permits;
-pub mod lubw_permits;
+#[cfg(test)]
+mod lubw_permits;
 pub mod lvermgeo;
 pub mod lvermgeo_rp;
 pub mod lvermgeo_rp_las;

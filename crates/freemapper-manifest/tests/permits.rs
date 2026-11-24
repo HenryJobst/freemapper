@@ -74,6 +74,9 @@ fn every_reading_is_declared_and_read() {
             zone: "ZONE".into(),
             citation: Some("VO".into()),
             planned: Some(("STATUS".into(), "geplant".into())),
+            planned_label: None,
+            authority: None,
+            register_names: false,
         }
     );
     assert_eq!(
@@ -501,6 +504,7 @@ fn districts_green_spaces_and_a_unit_named_by_its_feature_are_declared() {
             administration_from: Some("BEZIRK".into()),
             prefix: "Revier ".into(),
             office: "REVIER".into(),
+            unit: None,
         }
     );
     // A source without `offices` names none.
@@ -591,5 +595,131 @@ fn the_keys_of_the_new_readings_are_checked() {
             "{HEAD}offices = \"bremen\"\nlayers = [{{ key = \"a\", type_name = \"x:a\", reading = \"district\", name = \"N\" }}]\n"
         )),
         [("manifest.value", "permits.wfs.offices".to_string())]
+    );
+}
+
+#[test]
+fn a_unit_within_an_office_a_water_authority_and_a_note_are_declared() {
+    let table = format!(
+        "{HEAD}note = \"What the data are worth\"\nlayers = [\n\
+         {{ key = \"u\", type_name = \"x:u\", reading = \"unit\", administration = \"Forst\", prefix = \"Amt \", office = \"AMT\", unit_attribute = \"REVIER\", unit_prefix = \"Revier \" }},\n\
+         {{ key = \"w\", type_name = \"x:w\", reading = \"water\", name = \"N\", zone = \"Z\", planned_attribute = \"S\", planned_value = \"vorläufig\", planned_label = \"vorläufig angeordnet\", authority = \"DST\", name_form = \"register\" }},\n\
+         {{ key = \"v\", type_name = \"x:v\", reading = \"water\", name = \"N\", zone = \"Z\" }},\n\
+         ]\n"
+    );
+    let manifest = parse(&with(&table), Path::new("sample")).unwrap();
+    let source = &manifest.permits[0];
+    assert_eq!(source.note.as_deref(), Some("What the data are worth"));
+    assert_eq!(
+        source.layers[0].reading,
+        DeclaredReading::Unit {
+            administration: "Forst".into(),
+            administration_from: None,
+            prefix: "Amt ".into(),
+            office: "AMT".into(),
+            unit: Some(("REVIER".into(), "Revier ".into())),
+        }
+    );
+    assert_eq!(
+        source.layers[1].reading,
+        DeclaredReading::Water {
+            name: "N".into(),
+            zone: "Z".into(),
+            citation: None,
+            planned: Some(("S".into(), "vorläufig".into())),
+            planned_label: Some("vorläufig angeordnet".into()),
+            authority: Some("DST".into()),
+            register_names: true,
+        }
+    );
+    assert_eq!(
+        source.layers[2].reading,
+        DeclaredReading::Water {
+            name: "N".into(),
+            zone: "Z".into(),
+            citation: None,
+            planned: None,
+            planned_label: None,
+            authority: None,
+            register_names: false,
+        }
+    );
+    // Without a note the source has none.
+    let plain = parse(
+        &with(&format!(
+            "{HEAD}layers = [{{ key = \"a\", type_name = \"x:a\", reading = \"district\", name = \"N\" }}]\n"
+        )),
+        Path::new("sample"),
+    )
+    .unwrap();
+    assert_eq!(plain.permits[0].note, None);
+}
+
+#[test]
+fn the_keys_of_the_unit_and_water_extras_are_checked() {
+    let layer =
+        |extra: &str| format!("{HEAD}layers = [{{ key = \"a\", type_name = \"x:a\", {extra} }}]\n");
+    let unit = "reading = \"unit\", administration = \"F\", prefix = \"P\", office = \"O\"";
+    // Either half of the unit pair is refused alone.
+    for half in ["unit_attribute = \"R\"", "unit_prefix = \"Revier \""] {
+        assert_eq!(
+            refused(&layer(&format!("{unit}, {half}"))),
+            [("manifest.missing-key", "unit_attribute".to_string())],
+            "{half}"
+        );
+    }
+    // The pair of a unit is a pair for a reading without it too, whichever half is given.
+    for half in ["unit_attribute = \"R\"", "unit_prefix = \"R \""] {
+        assert!(
+            refused(&layer(&format!(
+                "reading = \"state-forest\", owner = \"O\", prefix = \"P\", office = \"A\", {half}"
+            )))
+            .contains(&("manifest.unknown-key", "unit_attribute".to_string())),
+            "{half}"
+        );
+    }
+    // A state forest has no unit within it, nor a water zone.
+    assert_eq!(
+        refused(&layer(
+            "reading = \"state-forest\", owner = \"O\", prefix = \"P\", office = \"A\", unit_attribute = \"R\", unit_prefix = \"R \""
+        )),
+        [("manifest.unknown-key", "unit_attribute".to_string())]
+    );
+    for key in [
+        "authority = \"A\"",
+        "planned_label = \"x\"",
+        "name_form = \"register\"",
+    ] {
+        assert_eq!(
+            refused(&layer(&format!(
+                "reading = \"function\", function = \"natural\", {key}"
+            ))),
+            [(
+                "manifest.unknown-key",
+                key.split(' ').next().unwrap().to_string()
+            )],
+            "{key}"
+        );
+    }
+    // A label for the planned zones needs the pair that marks them; the only name form is `register`.
+    assert_eq!(
+        refused(&layer(
+            "reading = \"water\", name = \"N\", zone = \"Z\", planned_label = \"x\""
+        )),
+        [("manifest.missing-key", "planned_attribute".to_string())]
+    );
+    assert_eq!(
+        refused(&layer(
+            "reading = \"water\", name = \"N\", zone = \"Z\", name_form = \"capitals\""
+        )),
+        [("manifest.value", "permits.wfs.layers.name_form".to_string())]
+    );
+    // The note is text of at most 400 characters.
+    let long = "x".repeat(401);
+    assert_eq!(
+        refused(&format!(
+            "{HEAD}note = \"{long}\"\nlayers = [{{ key = \"a\", type_name = \"x:a\", reading = \"district\", name = \"N\" }}]\n"
+        )),
+        [("manifest.value", "permits.wfs.note".to_string())]
     );
 }
