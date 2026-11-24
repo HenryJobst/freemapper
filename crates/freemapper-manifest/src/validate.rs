@@ -176,6 +176,8 @@ enum PermitKind {
     Wfs,
     /// `[[permits.shapefile]]`.
     Shapefile,
+    /// `[[permits.geojson]]`.
+    GeoJson,
     /// `[[permits.getfeatureinfo]]`.
     Points,
 }
@@ -185,6 +187,7 @@ impl PermitKind {
         match self {
             PermitKind::Wfs => "permits.wfs",
             PermitKind::Shapefile => "permits.shapefile",
+            PermitKind::GeoJson => "permits.geojson",
             PermitKind::Points => "permits.getfeatureinfo",
         }
     }
@@ -193,6 +196,7 @@ impl PermitKind {
         match self {
             PermitKind::Wfs => "WFS source",
             PermitKind::Shapefile => "shapefile source",
+            PermitKind::GeoJson => "GeoJSON source",
             PermitKind::Points => "source asked at points",
         }
     }
@@ -648,6 +652,7 @@ impl Check<'_> {
         let permits = self.permit_sources(
             &raw.permits.wfs,
             &raw.permits.shapefile,
+            &raw.permits.geojson,
             &raw.permits.getfeatureinfo,
         );
         let preview = match &raw.preview {
@@ -2097,15 +2102,17 @@ impl Check<'_> {
         fine.then_some(cadastres)
     }
 
-    /// `[[permits.wfs]]`, `[[permits.shapefile]]` and `[[permits.getfeatureinfo]]`: the sources
-    /// of the permit notes (issue #273). A shapefile source has the keys of a WFS one, but `url`
-    /// is a zip, `crs` the CRS of its positions and its one layer has no feature type; it has no
-    /// `output_format`, `gml`, `native_crs` or `offices`. A source asked at points has no `url`
+    /// `[[permits.wfs]]`, `[[permits.shapefile]]`, `[[permits.geojson]]` and
+    /// `[[permits.getfeatureinfo]]`: the sources of the permit notes (issue #273). A shapefile
+    /// source has the keys of a WFS one, but `url` is a zip, `crs` the CRS of its positions and
+    /// its one layer has no feature type; it has no `output_format`, `gml`, `native_crs` or
+    /// `offices`. A GeoJSON source is the same with one GeoJSON file as `url`. A source asked at points has no `url`
     /// either: every layer names its WMS (`url`, `wms_layers`, `one`) and has no feature type.
     fn permit_sources(
         &mut self,
         wfs: &[RawPermitWfs],
         shapefiles: &[RawPermitWfs],
+        geojson: &[RawPermitWfs],
         points: &[RawPermitWfs],
     ) -> Option<Vec<DeclaredWfs>> {
         let mut fine = true;
@@ -2117,6 +2124,7 @@ impl Check<'_> {
                     .iter()
                     .map(|source| (source, PermitKind::Shapefile)),
             )
+            .chain(geojson.iter().map(|source| (source, PermitKind::GeoJson)))
             .chain(points.iter().map(|source| (source, PermitKind::Points)))
             .collect();
         if all.len() > 12 {
@@ -2131,6 +2139,9 @@ impl Check<'_> {
         let mut sources: Vec<DeclaredWfs> = Vec::new();
         for (source, kind) in all {
             let shapefile = kind == PermitKind::Shapefile;
+            let geojson = kind == PermitKind::GeoJson;
+            // A file of the whole state: one layer, a CRS of its own, no service keys.
+            let single = shapefile || geojson;
             let points = kind == PermitKind::Points;
             let table = kind.table();
             let key = self.matching(
@@ -2164,7 +2175,7 @@ impl Check<'_> {
                 400,
             );
             let url = match (&source.url, points) {
-                (Some(url), false) => self.url_with(url, &format!("{table}.url"), !shapefile),
+                (Some(url), false) => self.url_with(url, &format!("{table}.url"), !single),
                 (None, false) => {
                     self.fail(
                         "manifest.missing-key",
@@ -2185,7 +2196,7 @@ impl Check<'_> {
                     None
                 }
             };
-            let (output_format, native_crs, offices, gml) = if shapefile || points {
+            let (output_format, native_crs, offices, gml) = if single || points {
                 let foreign = [
                     ("output_format", source.output_format.is_some()),
                     ("gml", source.gml.is_some()),
@@ -2215,14 +2226,14 @@ impl Check<'_> {
                 } else {
                     let crs = match &source.crs {
                         Some(crs) => self
-                            .crs(crs, "permits.shapefile.crs")
+                            .crs(crs, &format!("{table}.crs"))
                             .map(|crs| Some(crs.epsg())),
                         None => {
                             self.fail(
                                 "manifest.missing-key",
                                 &source.key.span(),
                                 "crs",
-                                "a shapefile source needs `crs`",
+                                format!("a {} needs `crs`", kind.noun()),
                             );
                             None
                         }
@@ -2297,14 +2308,14 @@ impl Check<'_> {
                 });
             }
             let mut layers = Some(Vec::new());
-            let allowed = if shapefile { 1..=1 } else { 1..=8 };
+            let allowed = if single { 1..=1 } else { 1..=8 };
             if !allowed.contains(&source.layers.len()) {
                 self.fail(
                     "manifest.value",
                     &source.key.span(),
                     &format!("{table}.layers"),
-                    if shapefile {
-                        "a shapefile source has exactly one layer"
+                    if single {
+                        "a source that is one file has exactly one layer"
                     } else {
                         "a permit source has 1 to 8 layers"
                     },
@@ -2369,6 +2380,7 @@ impl Check<'_> {
                     url,
                     output_format,
                     shapefile,
+                    geojson,
                     getfeatureinfo: points,
                     gml,
                     native_crs,
@@ -2691,7 +2703,6 @@ impl Check<'_> {
     }
 
     fn permit_layer(&mut self, layer: &RawPermitLayer, kind: PermitKind) -> Option<DeclaredLayer> {
-        let shapefile = kind == PermitKind::Shapefile;
         let points = kind == PermitKind::Points;
         let key = self.matching(
             &layer.key,
@@ -2700,7 +2711,7 @@ impl Check<'_> {
             |text| is_slug(text, 40),
             "the key of a layer: lower-case letters, digits and hyphens",
         );
-        let type_name = match (&layer.type_name, shapefile || points) {
+        let type_name = match (&layer.type_name, kind != PermitKind::Wfs) {
             (Some(name), false) => self.matching(
                 name,
                 "permits.wfs.layers.type_name",

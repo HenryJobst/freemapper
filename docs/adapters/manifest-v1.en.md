@@ -277,6 +277,17 @@ only when the server has a newer one (at most 50 MB). Both tables together hold 
 sources of `[[permits.wfs]]` come first in the notes, then those of `[[permits.shapefile]]`, each in the order of the
 manifest. `adapters probe` asks the zip with a HEAD.
 
+## `[[permits.geojson]]`
+
+A source of the permit notes that is one GeoJSON file for the whole state. It has the keys of a `[[permits.shapefile]]`
+source: `url` is the address of the file (https, a host of `[net] hosts`, no query), `crs` the CRS of its positions
+(25832 or 25833), `layers` holds exactly one layer without `type_name`; there is no `output_format`, `gml`,
+`native_crs` or `offices`. The program reads the file as a `FeatureCollection`, keeps the features whose box meets the
+map area and of every one only the attributes the reading names. The file is kept in the download cache and downloaded
+again only when the server has a newer one (at most 150 MB); an answer that is no `FeatureCollection` does not replace
+it. The notes list the sources of `[[permits.wfs]]` first, then those of `[[permits.shapefile]]` and
+`[[permits.geojson]]`.
+
 ## `[[permits.getfeatureinfo]]`
 
 A source of the permit notes that is a WMS asked at points: its GetFeatureInfo names what lies at a point, without
@@ -287,8 +298,8 @@ of the WMS, separated by commas, asked at once) and `one` (default `false`; `tru
 such as the Reviere of a state: a point then keeps its first feature only, because near a border a server answers for
 both sides); it has no `type_name`. The program lays a grid of at most 25 cells over the map area, no side shorter
 than 50 m, asks at the centre of each cell and stores each answer with its cell as its area. The notes call the
-shares estimates (ADR 0139). The tables of all three kinds hold at most 12 sources together; the notes list the
-sources of `[[permits.wfs]]` first, then those of `[[permits.shapefile]]` and `[[permits.getfeatureinfo]]`, each
+shares estimates (ADR 0139). The tables of all four kinds hold at most 12 sources together; the notes list the
+sources of `[[permits.wfs]]` first, then those of `[[permits.shapefile]]`, `[[permits.geojson]]` and `[[permits.getfeatureinfo]]`, each
 in the order of the manifest.
 
 ## `[preview]`

@@ -575,7 +575,8 @@ impl StateAdapter {
             // The sources of Saarland, Hesse and Schleswig-Holstein that had tables in the code are
             // declared in their manifests (issue #273).
             State::Saarland | State::Hessen => Vec::new(),
-            State::SchleswigHolstein => vec![crate::ldsh_permits::source()],
+            // Its monuments are a GeoJSON file, declared in its manifest too (issue #273).
+            State::SchleswigHolstein => Vec::new(),
             // The protected biotopes of North Rhine-Westphalia are declared in its manifest (issue #273).
             State::NordrheinWestfalen => Vec::new(),
             // The sources of Baden-Württemberg are declared in its manifest (issue #273).
@@ -935,8 +936,8 @@ mod tests {
                     "https://geodienste.denkx.de/geoserver/denkx/wfs",
                 ),
                 "schleswigholstein" => (
-                    &["denkmale", "umwelt", "naturschutz"],
-                    crate::ldsh_permits::URL,
+                    &["umwelt", "naturschutz", "denkmale"],
+                    "https://opendata.schleswig-holstein.de/collection/geodaten-denkmalliste-sh/aktuell.geojson",
                 ),
                 "badenwuerttemberg" => (
                     &[

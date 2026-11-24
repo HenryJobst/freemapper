@@ -284,6 +284,17 @@ wird nur neu geladen, wenn der Server eine neuere hat (höchstens 50 MB). Beide 
 12 Quellen; die Quellen von `[[permits.wfs]]` kommen in den Hinweisen zuerst, dann die von `[[permits.shapefile]]`,
 je in der Reihenfolge des Manifests. `adapters probe` fragt die Zip-Datei mit einem HEAD an.
 
+## `[[permits.geojson]]`
+
+Eine Quelle der Genehmigungshinweise, die eine GeoJSON-Datei für das ganze Bundesland ist. Sie hat die Schlüssel einer
+`[[permits.shapefile]]`-Quelle: `url` ist die Adresse der Datei (https, ein Host aus `[net] hosts`, keine Abfrage),
+`crs` das KBS ihrer Positionen (25832 oder 25833), `layers` hat genau eine Schicht ohne `type_name`; `output_format`,
+`gml`, `native_crs` und `offices` gibt es nicht. Das Programm liest die Datei als `FeatureCollection`, behält die
+Objekte, deren Rechteck das Kartengebiet trifft, und von jedem nur die Attribute, die die Leseart nennt. Die Datei liegt
+im Download-Cache und wird nur neu geladen, wenn der Server eine neuere hat (höchstens 150 MB); eine Antwort, die keine
+`FeatureCollection` ist, ersetzt sie nicht. Die Hinweise führen die Quellen von `[[permits.wfs]]` zuerst, dann die von
+`[[permits.shapefile]]` und `[[permits.geojson]]`.
+
 ## `[[permits.getfeatureinfo]]`
 
 Eine Quelle der Genehmigungshinweise, die ein WMS ist, den das Programm an Punkten fragt: Seine GetFeatureInfo nennt,
@@ -295,9 +306,9 @@ angefragt) und `one` (Standard `false`; `true`, wo die Schichten sich nicht übe
 Bundeslandes: Ein Punkt behält dann nur sein erstes Objekt, weil ein Server nahe einer Grenze für beide Seiten
 antwortet); ein `type_name` hat sie nicht. Das Programm legt ein Raster aus höchstens 25 Zellen über das Kartengebiet,
 keine Seite kürzer als 50 m, fragt in der Mitte jeder Zelle an und speichert jede Antwort mit ihrer Zelle als Fläche.
-Die Hinweise nennen die Anteile Schätzungen (ADR 0139). Die Tabellen aller drei Arten halten zusammen höchstens
-12 Quellen; die Hinweise führen die Quellen von `[[permits.wfs]]` zuerst, dann die von `[[permits.shapefile]]` und
-`[[permits.getfeatureinfo]]`, je in der Reihenfolge des Manifests.
+Die Hinweise nennen die Anteile Schätzungen (ADR 0139). Die Tabellen aller vier Arten halten zusammen höchstens
+12 Quellen; die Hinweise führen die Quellen von `[[permits.wfs]]` zuerst, dann die von `[[permits.shapefile]]`,
+`[[permits.geojson]]` und `[[permits.getfeatureinfo]]`, je in der Reihenfolge des Manifests.
 
 ## `[preview]`
 
