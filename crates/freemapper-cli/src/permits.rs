@@ -499,10 +499,18 @@ fn gmina_list(lang: &Lang, args: &mut Vec<(String, String)>) -> Option<i64> {
         })
         .collect();
     let count = names.len() as i64;
-    args.retain(|(k, _)| !["gmina", "shares", "count"].contains(&k.as_str()));
-    args.push(("gmina".into(), list.join(", ")));
-    args.push(("count".into(), count.to_string()));
+    set_arg(args, "gmina", list.join(", "));
+    set_arg(args, "count", count.to_string());
     Some(count)
+}
+
+/// Sets the arg `name` in place, or appends it where it is missing, so a name never occurs twice.
+/// The other args stay as they are.
+fn set_arg(args: &mut Vec<(String, String)>, name: &str, value: String) {
+    match args.iter_mut().find(|(k, _)| k == name) {
+        Some((_, v)) => *v = value,
+        None => args.push((name.into(), value)),
+    }
 }
 
 fn sources_table(lang: &Lang, notes: &PermitNotes) -> String {
