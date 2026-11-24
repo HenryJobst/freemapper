@@ -237,4 +237,5 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0189](0189-permit-sources-as-manifest-data.md) | Permit sources as manifest data | Accepted | 2026-11-23 |
 | [0190](0190-poland-archaeological-register-in-the-permit-notes.md) | The register of archaeological monuments of the NID in the Polish permit notes | Accepted, extends ADR 0184 | 2026-11-23 |
 | [0191](0191-poland-monuments-of-history-in-the-permit-notes.md) | The Pomniki historii in the Polish permit notes | Accepted, extends ADR 0190 | 2026-11-23 |
+| [0193](0193-poland-every-gmina-in-the-permit-hints.md) | Every gmina of the map area in the Polish permit hints | Accepted, extends ADR 0183 | 2026-11-24 |
 | [0192](0192-poland-recreation-land-bz-and-other-built-up-bi.md) | Recreation land (`Bz`) and other built-up land (`Bi`) in the Polish land use | Accepted, extends ADR 0171 | 2026-11-24 |

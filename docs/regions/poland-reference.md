@@ -136,6 +136,12 @@ article numbers and what could not be verified is in
   gmina roads, prezydent miasta in cities with powiat rights (art. 10 ust. 5 and 6).
 - Land of the gmina: the wójt manages municipal property and represents the gmina (art. 30 ust. 2 pkt 3
   and art. 31, Act on Gmina Self-Government, Dz. U. 2026 poz. 662).
+- Several gminas (ADR 0193, probed 24 November 2026 on `mapy.geoportal.gov.pl` only): the layer
+  `A03_Granice_gmin` returns every gmina that meets the box: two at Kościan (`3011032`, `3011011`),
+  six west of Kraków (Kraków, Wieliczka, Zielonki, Liszki, Zabierzów, Wielka Wieś). The three hints name
+  all of them, no cap, by share descending then by name, each with its share, and say that the head
+  of each gmina manages its roads and land; a gmina below 0.5 % is left out when another is more than
+  an edge. The plural texts exist in all 21 catalogs.
 - Not verified: who the supervisor of a natural monument is in a given resolution; which land is
   municipal; the articles for Natura 2000 and the parks; the Prawo o zgromadzeniach.
 

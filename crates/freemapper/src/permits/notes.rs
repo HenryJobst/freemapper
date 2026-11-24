@@ -24,7 +24,8 @@ use crate::area::MapArea;
 use crate::crs::{Crs, LatLon};
 use crate::permits::osm::{OsmFinding, OsmFindingKind, RoadClass};
 use crate::permits::regional::{
-    DistrictOffices, ForestFunctionKind, HintFacts, RegionalInput, RegionalNotes, assemble_regional,
+    DistrictOffices, ForestFunctionKind, HintFacts, Municipality, RegionalInput, RegionalNotes,
+    assemble_regional,
 };
 use crate::project::MapKind;
 use freemapper_adapter_api::permits::inner_zone;
@@ -105,14 +106,16 @@ pub mod hint_key {
     /// Arg `office`: `known` when a [`FOREST_OFFICE`] hint is there, else `unknown`. For a map
     /// area with forest in Poland (ADR 0175), in place of [`FOREST_OWNER`].
     pub const FOREST_OWNER_PL: &str = "permits-hint-forest-owner-pl";
-    /// Arg `gmina` (the municipalities of the map joined with ", "; missing when none is known):
+    /// Args (ADR 0193), missing when no municipality is known: `gmina` (the municipalities of the
+    /// map by share, all of them, joined with ", "), `shares` (their shares in percent, one
+    /// decimal, joined with ",") and `count` (how many municipalities the map has). Of these hints:
     /// a natural monument, an ecological site, a nature and landscape complex or a documentation
     /// site lies on the map in Poland. The council of the gmina establishes them (ADR 0183).
     pub const GMINA_NATURE_PL: &str = "permits-hint-gmina-nature-pl";
-    /// Arg `gmina`: the road manager and the traffic permit of an event on public roads in
+    /// Args as of [`GMINA_NATURE_PL`]: the road manager and the traffic permit of an event on public roads in
     /// Poland (ADR 0183).
     pub const GMINA_ROADS_PL: &str = "permits-hint-gmina-roads-pl";
-    /// Arg `gmina`: land of the gmina, which the wójt manages (ADR 0183).
+    /// Args as of [`GMINA_NATURE_PL`]: land of the gmina, which the wójt manages (ADR 0183).
     pub const GMINA_LAND_PL: &str = "permits-hint-gmina-land-pl";
     /// No args: monuments of the register lie in the rectangle around the map area in Poland;
     /// the voivodeship conservator decides on work at them (ADR 0184).
@@ -1086,21 +1089,29 @@ fn regional_hints(forest: bool, operated: &[&OsmFinding], regional: &[HintFacts]
     }
     // The municipalities of the map, from the administrative units of the register; where
     // none was read the hint of the nature objects names no gmina and the others stay out.
-    let municipalities = regional
+    let mut seen: Vec<&Municipality> = Vec::new();
+    for m in regional.iter().flat_map(|f| &f.municipalities) {
+        if !seen.iter().any(|s| s.name == m.name) {
+            seen.push(m);
+        }
+    }
+    let names = seen
         .iter()
-        .flat_map(|f| &f.municipalities)
-        .fold(Vec::<&str>::new(), |mut all, name| {
-            if !all.contains(&name.as_str()) {
-                all.push(name);
-            }
-            all
-        })
+        .map(|m| m.name.as_str())
+        .collect::<Vec<_>>()
         .join(", ");
-    let gmina: Vec<(&str, &str)> = if municipalities.is_empty() {
-        Vec::new()
-    } else {
-        vec![("gmina", municipalities.as_str())]
-    };
+    let shares = seen
+        .iter()
+        .map(|m| format!("{:.1}", m.percent))
+        .collect::<Vec<_>>()
+        .join(",");
+    let count = seen.len().to_string();
+    let mut gmina: Vec<(&str, &str)> = Vec::new();
+    if !seen.is_empty() {
+        gmina.push(("gmina", names.as_str()));
+        gmina.push(("shares", shares.as_str()));
+        gmina.push(("count", count.as_str()));
+    }
     if regional.iter().any(|f| f.gmina_nature_forms) {
         hints.push(Hint::new(hint_key::GMINA_NATURE_PL, &gmina));
     }
@@ -3700,7 +3711,11 @@ mod tests {
             ] {
                 assert_eq!(
                     hint(&found, key)[0].args,
-                    args(&[("gmina", "gmina miejska Słubice")]),
+                    args(&[
+                        ("gmina", "gmina miejska Słubice"),
+                        ("shares", "100.0"),
+                        ("count", "1"),
+                    ]),
                     "{kind:?} {key}"
                 );
             }
@@ -3724,7 +3739,11 @@ mod tests {
         );
         assert_eq!(
             hint(&found, hint_key::GMINA_ROADS_PL)[0].args,
-            args(&[("gmina", "gmina A, gmina B")])
+            args(&[
+                ("gmina", "gmina A, gmina B"),
+                ("shares", "70.0,30.0"),
+                ("count", "2"),
+            ])
         );
         // Where every gmina lies only at the edge, they all stay.
         let found = notes(
@@ -3739,8 +3758,70 @@ mod tests {
         );
         assert_eq!(
             hint(&found, hint_key::GMINA_ROADS_PL)[0].args,
-            args(&[("gmina", "gmina D, gmina C")])
+            args(&[
+                ("gmina", "gmina D, gmina C"),
+                ("shares", "0.4,0.2"),
+                ("count", "2"),
+            ])
         );
+    }
+
+    /// Every gmina of the map area is named, none left out and none counted away (ADR 0193):
+    /// 0, 1, 2 and 12 gminas, by share descending, equal shares by name; a gmina named twice by
+    /// two parts of the adapter once.
+    #[test]
+    fn polish_gmina_hints_name_every_gmina_by_share_then_name() {
+        let gmina_args = |units: Vec<PermitFinding>| {
+            let found = notes(
+                MapKind::Sprint,
+                &polish(
+                    vec![],
+                    vec![regional("prg-granice", PermitSection::AdminUnits, units)],
+                ),
+            );
+            hint(&found, hint_key::GMINA_ROADS_PL)
+                .first()
+                .map(|h| h.args.clone())
+        };
+        // None known: no hint, no args.
+        assert_eq!(gmina_args(vec![]), None);
+        // Equal shares: by name, whatever the order of the findings.
+        let halves = gmina_args(vec![
+            municipality("gmina Z", "0001022", square(13.05, 51.9, 13.2, 52.2)),
+            municipality("gmina M", "0001012", square(12.9, 51.9, 13.05, 52.2)),
+        ])
+        .unwrap();
+        assert_eq!(halves["gmina"], "gmina M, gmina Z");
+        assert_eq!(halves["shares"], "50.0,50.0");
+        assert_eq!(halves["count"], "2");
+        // Twelve strips of growing width, the widest named last: they come widest first.
+        let total: f64 = (1..=12).map(f64::from).sum();
+        let mut x = 13.0;
+        let strips: Vec<PermitFinding> = (1..=12)
+            .map(|i| {
+                let width = 0.1 * f64::from(i) / total;
+                let g = square(x, 51.9, x + width, 52.2);
+                x += width;
+                municipality(&format!("gmina {i:02}"), &format!("00010{i:02}"), g)
+            })
+            .collect();
+        let many = gmina_args(strips).unwrap();
+        let expected: Vec<String> = (1..=12).rev().map(|i| format!("gmina {i:02}")).collect();
+        assert_eq!(many["gmina"], expected.join(", "));
+        assert_eq!(many["count"], "12");
+        assert!(!many.contains_key("more"));
+        let shares: Vec<f64> = many["shares"]
+            .split(',')
+            .map(|s| s.parse().unwrap())
+            .collect();
+        assert_eq!(shares.len(), 12);
+        assert!(shares.windows(2).all(|w| w[0] > w[1]), "{shares:?}");
+        assert!(
+            (shares.iter().sum::<f64>() - 100.0).abs() < 0.6,
+            "{shares:?}"
+        );
+        assert_eq!(shares[0], 15.4);
+        assert_eq!(shares[11], 1.3);
     }
 
     /// Only what applies: a national park has no gmina hint, and without the municipalities of

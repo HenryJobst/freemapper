@@ -453,8 +453,56 @@ fn hint_text(lang: &Lang, notes: &PermitNotes, hint: &Hint) -> String {
         args.retain(|(k, _)| k != "percent");
         args.push(("share".into(), share_text(lang, percent.unwrap_or(0.0))));
     }
-    let args: Vec<(&str, FluentValue)> = args.iter().map(|(k, v)| (k.as_str(), arg(v))).collect();
+    let count = if GMINA_HINTS.contains(&hint.key.as_str()) {
+        gmina_list(lang, &mut args)
+    } else {
+        None
+    };
+    let args: Vec<(&str, FluentValue)> = args
+        .iter()
+        .map(|(k, v)| match count {
+            Some(n) if k == "count" => (k.as_str(), FluentValue::from(n)),
+            _ => (k.as_str(), arg(v)),
+        })
+        .collect();
     t(lang, &hint.key, &args)
+}
+
+/// The Polish hints that name the gminas of the map area (ADR 0183, 0193).
+const GMINA_HINTS: [&str; 3] = [
+    hint_key::GMINA_NATURE_PL,
+    hint_key::GMINA_ROADS_PL,
+    hint_key::GMINA_LAND_PL,
+];
+
+/// Writes the list of gminas of a Polish hint into its `gmina` arg: each name with its share
+/// where the notes hold one share per name. Sets `count` to the number of gminas of the map
+/// area (also for notes files from before ADR 0193, which hold the names only) and returns it as a number for the
+/// plural selector; `None` where the hint names no gmina.
+fn gmina_list(lang: &Lang, args: &mut Vec<(String, String)>) -> Option<i64> {
+    let value = |args: &[(String, String)], name: &str| -> Option<String> {
+        args.iter().find(|(k, _)| k == name).map(|(_, v)| v.clone())
+    };
+    let names = value(args, "gmina").filter(|g| g != "none")?;
+    let names: Vec<&str> = names.split(", ").collect();
+    let shares: Vec<f64> = value(args, "shares")
+        .map(|s| s.split(',').filter_map(|p| p.trim().parse().ok()).collect())
+        .unwrap_or_default();
+    let list: Vec<String> = names
+        .iter()
+        .enumerate()
+        .map(|(i, name)| match shares.get(i) {
+            Some(percent) if shares.len() == names.len() => {
+                format!("{name} ({})", share_text(lang, *percent))
+            }
+            _ => (*name).to_string(),
+        })
+        .collect();
+    let count = names.len() as i64;
+    args.retain(|(k, _)| !["gmina", "shares", "count"].contains(&k.as_str()));
+    args.push(("gmina".into(), list.join(", ")));
+    args.push(("count".into(), count.to_string()));
+    Some(count)
 }
 
 fn sources_table(lang: &Lang, notes: &PermitNotes) -> String {
@@ -1971,6 +2019,104 @@ mod tests {
         assert!(text.contains("art. 65 of the Road Traffic Act"), "{text}");
         assert!(
             text.contains("starosta for powiat and gmina roads"),
+            "{text}"
+        );
+    }
+
+    /// Several gminas (ADR 0193): every language has its own plural wording, every gmina is
+    /// named with its share, and a notes file from before the shares (names only) still reads.
+    #[test]
+    fn the_gmina_hints_read_in_the_plural_for_several_gminas_in_every_language() {
+        let mut notes = viktoriapark();
+        notes.admin.clear();
+        notes.regional.clear();
+        notes.sources.retain(|s| s.id == "osm");
+        let one = [("gmina", "gmina A"), ("shares", "100.0"), ("count", "1")];
+        let two = [
+            ("gmina", "gmina A, gmina B"),
+            ("shares", "70.0,0.4"),
+            ("count", "2"),
+        ];
+        let names: Vec<String> = (1..=12).map(|i| format!("gmina {i:02}")).collect();
+        let joined = names.join(", ");
+        let shares = ["8.0"; 12].join(",");
+        let twelve = [
+            ("gmina", joined.as_str()),
+            ("shares", shares.as_str()),
+            ("count", "12"),
+        ];
+        for code in [
+            "en", "de", "pl", "cs", "da", "es", "et", "fi", "fr", "hu", "it", "lt", "lv", "nb",
+            "nl", "pt", "ru", "sk", "sl", "sv", "uk",
+        ] {
+            let lang = TEXTS.parse_lang_arg(code).unwrap();
+            for key in [
+                hint_key::GMINA_NATURE_PL,
+                hint_key::GMINA_ROADS_PL,
+                hint_key::GMINA_LAND_PL,
+            ] {
+                let render = |args: &[(&str, &str)]| hint_text(&lang, &notes, &hint(key, args));
+                let single = render(&one);
+                let several = render(&two);
+                assert_ne!(single, several, "{code} {key}");
+                assert!(single.contains("gmina A"), "{code} {key}");
+                assert!(!single.contains("gmina B"), "{code} {key}");
+                let listed = format!(
+                    "gmina A ({}), gmina B ({})",
+                    share_text(&lang, 70.0),
+                    share_text(&lang, 0.4)
+                );
+                assert!(several.contains(&listed), "{code} {key}\n{several}");
+                for text in [&single, &several] {
+                    assert!(
+                        !text.contains("{ $") && !text.contains("$count"),
+                        "{code} {key}"
+                    );
+                }
+                // Names only, as the notes of before: the singular text, no shares.
+                let old = render(&[("gmina", "gmina A")]);
+                assert!(
+                    old.contains("gmina A") && !old.contains('%'),
+                    "{code} {key}"
+                );
+                let full = format!("gmina A ({})", share_text(&lang, 100.0));
+                assert_eq!(old.replace("gmina A", ""), single.replace(&full, ""));
+                let all = render(&twelve);
+                for name in &names {
+                    assert!(
+                        all.contains(&format!("{name} ({})", share_text(&lang, 8.0))),
+                        "{code} {key} {name}"
+                    );
+                }
+                assert!(all.find("gmina 01").unwrap() < all.find("gmina 12").unwrap());
+            }
+        }
+        let en = Lang::english();
+        // The singular wording needs the number: one gmina reads "the gmina", not "each".
+        notes.hints = vec![hint(hint_key::GMINA_ROADS_PL, &one)];
+        let text = render_markdown(&notes, &en);
+        assert!(
+            text.contains("of the gmina (gmina A (100%)); the manager decides"),
+            "{text}"
+        );
+        // Shares that do not fit the names (a damaged file) are left out, the names stay.
+        let odd = [
+            ("gmina", "gmina A, gmina B"),
+            ("shares", "70.0"),
+            ("count", "2"),
+        ];
+        notes.hints = vec![hint(hint_key::GMINA_ROADS_PL, &odd)];
+        let text = render_markdown(&notes, &en);
+        assert!(
+            text.contains("each of the gminas (gmina A, gmina B)"),
+            "{text}"
+        );
+        notes.hints = vec![hint(hint_key::GMINA_ROADS_PL, &two)];
+        let text = render_markdown(&notes, &en);
+        assert!(
+            text.contains(
+                "of each of the gminas (gmina A (70%), gmina B (< 1%)); each manager decides"
+            ),
             "{text}"
         );
     }

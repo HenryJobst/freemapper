@@ -267,6 +267,14 @@ pub struct RegionalStatus {
     pub status: SourceStatus,
 }
 
+/// A municipality (Polish gmina) of the map for the hints: the name as the register writes it and
+/// the share of the map area in percent, one decimal.
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct Municipality {
+    pub name: String,
+    pub percent: f64,
+}
+
 /// What the hints need of the regional part of one adapter.
 #[derive(Debug, Default)]
 pub(crate) struct HintFacts {
@@ -289,7 +297,7 @@ pub(crate) struct HintFacts {
     pub gmina_nature_forms: bool,
     /// The municipalities (Polish gminas) on the map that are more than an edge, by share,
     /// descending, as the register writes them; all of them when each lies only at the edge.
-    pub municipalities: Vec<String>,
+    pub municipalities: Vec<Municipality>,
     /// The monuments of a register without positions in the rectangle around the map area
     /// (Poland, ADR 0184).
     pub register_monuments: usize,
@@ -682,16 +690,18 @@ fn admin_units(on_map: &[(&Placed<'_>, f64)]) -> Vec<Share<AdminUnitEntry>> {
 
 /// The municipalities of the units: those that are more than an edge, else all of them. The
 /// units come by share, descending.
-fn municipalities<'a>(units: impl Iterator<Item = &'a Share<AdminUnitEntry>>) -> Vec<String> {
+fn municipalities<'a>(units: impl Iterator<Item = &'a Share<AdminUnitEntry>>) -> Vec<Municipality> {
     let all: Vec<&Share<AdminUnitEntry>> = units
         .filter(|s| s.item.level == AdminUnitLevel::Municipality)
         .collect();
-    let more_than_edge: Vec<&&Share<AdminUnitEntry>> = all.iter().filter(|s| !s.at_edge).collect();
-    if more_than_edge.is_empty() {
-        all.iter().map(|s| s.item.name.clone()).collect()
-    } else {
-        more_than_edge.iter().map(|s| s.item.name.clone()).collect()
-    }
+    let any_more_than_edge = all.iter().any(|s| !s.at_edge);
+    all.into_iter()
+        .filter(|s| !any_more_than_edge || !s.at_edge)
+        .map(|s| Municipality {
+            name: s.item.name.clone(),
+            percent: s.percent,
+        })
+        .collect()
 }
 
 fn green_spaces(on_map: &[(&Placed<'_>, f64)]) -> GreenSpaces {

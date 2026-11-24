@@ -1469,7 +1469,7 @@ Fahrbahn entscheidet (Gesetz über die öffentlichen Straßen, Art. 19 und 40). 
 Leiter und vertritt die Gmina (Gemeindeselbstverwaltungsgesetz, Art. 30 und 31); welches Land der Gmina gehört,
 wissen die Hinweise nicht und sagen deshalb „falls“. Die Genehmigung für eine Veranstaltung auf einer Straße erteilt
 der Wójt nicht, und für ein Naturdenkmal nennt das Naturschutzgesetz keine Genehmigung: Der Beschluss entscheidet.
-Massenveranstaltungen und Versammlungen bekommen keinen Gmina-Hinweis. Die Denkmale kommen aus dem Register der
+Liegt das Kartengebiet in mehreren Gminas, nennen die Hinweise jede mit ihrem Flächenanteil und sagen, dass bei jeder der Wójt, Burmistrz oder Stadtpräsident für den Teil in seiner Gmina die Stelle ist. Massenveranstaltungen und Versammlungen bekommen keinen Gmina-Hinweis. Die Denkmale kommen aus dem Register der
 unbeweglichen Denkmale des NID (`usluga.zabytek.gov.pl`, eine Anfrage je Kartengebiet): Die Hinweise zählen die
 Denkmale im Rechteck um das Kartengebiet und nennen die häufigsten Namen mit ihrer Anzahl (höchstens zehn). Das
 Register liefert keine Positionen, deshalb steht dort, dass man auf der Karte nachsehen muss, wo sie liegen. Der

@@ -1408,7 +1408,7 @@ the gmina (wójt, burmistrz, prezydent miasta) manages the gmina roads and decid
 Roads Act, art. 19 and 40). For land that belongs to the gmina the same head manages it and represents the gmina
 (Act on Gmina Self-Government, art. 30 and 31); the notes do not know which land is municipal, so they say "if".
 The wójt does not issue the permit for an event on a road, and the Nature Conservation Act names no permit for an
-event at a natural monument: the resolution decides. Mass events and assemblies get no gmina hint. Monuments come from the register of immovable monuments of the NID
+event at a natural monument: the resolution decides. When the map area lies in several gminas, the hints name every one of them with its share and say that the head of each gmina is the body to ask for the part that lies in it. Mass events and assemblies get no gmina hint. Monuments come from the register of immovable monuments of the NID
 (`usluga.zabytek.gov.pl`, one request per map area): the notes count the monuments in the rectangle around the map
 area and name the most common names with their counts (at most ten). The register gives no positions, so the notes
 say to check on the map where they lie. The hint names the permit of the voivodeship monument conservator for conservation, restoration and building
