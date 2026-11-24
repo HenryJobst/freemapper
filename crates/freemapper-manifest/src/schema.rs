@@ -288,6 +288,10 @@ pub(crate) struct RawPermitLayer {
     pub authority: Option<Text>,
     pub planned_label: Option<Text>,
     pub name_form: Option<Text>,
+    pub dedication: Option<Text>,
+    pub owner_attribute: Option<Text>,
+    pub owners: Option<Vec<Text>>,
+    pub point_names: Option<Vec<Text>>,
 }
 
 #[derive(Debug, Deserialize)]

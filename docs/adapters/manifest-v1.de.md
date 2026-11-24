@@ -246,7 +246,7 @@ Bundesländer ziehen nach und nach hierher um (Issue #273); `adapters probe` fra
 | `url` | URL | ja | Die Adresse des Dienstes, auf einem Host aus `[net] hosts`. Anders als jede andere URL darf sie eine feste Query aus einfachen `name=wert`-Paaren tragen, die den Dienst auf dem Server wählt (`?mapfile=glb`); die Anfragen hängen ihre eigenen Parameter an. |
 | `output_format` | Text | ja | Das `outputFormat`, mit dem der Dienst GeoJSON nennt, URL-kodiert, wie er es braucht (`application/geo%2Bjson`). Mit `gml = true` das für GML 3.2. |
 | `gml` | ja/nein | nein | Der Dienst antwortet nur mit GML 3.2. |
-| `note` | Text | nein | Ein Hinweis des Herausgebers dazu, was die Daten wert sind, wörtlich; höchstens 400 Zeichen. Die Hinweise drucken ihn bei der Quelle. |
+| `note` | Text | nein | Ein Hinweis des Herausgebers dazu, was die Daten wert sind, wörtlich; höchstens 600 Zeichen. Die Hinweise drucken ihn bei der Quelle. |
 | `offices` | Text | nein | `berlin` oder `hamburg`: Die Quelle hält die Bezirke dieses Stadtstaats, und die Hinweise nennen die Ämter seiner Bezirke (eine Quelle mit der Leseart `district`). |
 | `native_crs` | ganze Zahl | nein | 25832 oder 25833: Der Dienst findet nichts mit einem Rechteck in WGS 84 oder antwortet nur in seinem eigenen KBS und wird deshalb darin gefragt. |
 | `layers` | Liste von Tabellen | ja | Die Schichten, unten. |
@@ -260,9 +260,11 @@ Eine Schicht hat `key` (ein Name wie oben, einmalig in ihrer Quelle), `type_name
 | `function` | `function` (Pflicht: `recreation`, `protected`, `natural`, `closed`), `name` | Wald mit einer Funktion oder einem Schutz. |
 | `unit` | `administration`, `prefix`, `office` (alle Pflicht), `administration_attribute`, `unit_attribute` mit `unit_prefix` | Eine Einheit einer Forstverwaltung; das Amt ist `prefix` und das Attribut `office`. Mit `administration_attribute` ist die Verwaltung `administration` und der Text dieses Attributs (`Bezirksamt ` und der Bezirk). Mit `unit_attribute` und `unit_prefix` nennt der Fund auch eine kleinere Einheit im Amt (`Revier ` und sein Name). |
 | `district` | `name` (Pflicht) | Ein Bezirk eines Stadtstaats, benannt durch das Attribut. |
-| `green-space` | `name` (Pflicht), `fallback`, `district_attribute` mit `districts` (1 bis 16 Namen) | Eine öffentliche Grünanlage: ihr Name, oder wo er leer ist das Attribut `fallback`; das Attribut `district_attribute` hält die Nummer ihres Bezirks (ab 1) in der Liste `districts`. |
+| `green-space` | `name` (Pflicht), `fallback`, `district_attribute` mit `districts` (1 bis 16 Namen), `dedication`, `name_form` | Eine öffentliche Grünanlage: ihr Name, oder wo er leer ist das Attribut `fallback`. `district_attribute` hält die Nummer ihres Bezirks (ab 1) in der Liste `districts`, ohne die Liste den Namen des Bezirks. `dedication` ist das Attribut, das sagt, ob sie für die Öffentlichkeit gewidmet ist. `name_form = "park"` nimmt den Teil des Namens vor einem Komma (den Park, zu dem ein Teil gehört). |
+| `playground` | keine | Ein öffentlicher Spielplatz; die Hinweise zählen sie. |
+| `owner` | `owner_attribute` (Pflicht), `owners` (Pflicht, 1 bis 8 Namen) | Ein Flurstück eines öffentlichen Eigentümers: Das Attribut nennt den Eigentümer, und nur ein Eigentümer der Liste kommt mit Namen; den Namen jedes anderen lassen die Hinweise weg. |
 | `state-forest` | `owner`, `prefix`, `office` (alle Pflicht) | Landeswald und das Amt, das ihn betreut. |
-| `object` | `object` (Pflicht: die Art des Schutzobjekts, etwa `natural-monument`, `protected-landscape-part`, `biotope`), `name`, `citation`, `only_attribute` mit `only_values` (1 bis 8) | Ein geschütztes Objekt des Naturschutzrechts; mit `only` zählt ein Objekt nur, wenn das Attribut einen der Werte hat. |
+| `object` | `object` (Pflicht: die Art des Schutzobjekts, etwa `natural-monument`, `protected-landscape-part`, `biotope`), `name`, `citation`, `only_attribute` mit `only_values` (1 bis 8), `point_names` (1 bis 4 Attribute) | Ein geschütztes Objekt des Naturschutzrechts; mit `only` zählt ein Objekt nur, wenn das Attribut einen der Werte hat. Ein Punkt (ein Baum, ein Findling) nimmt seinen Namen aus dem ersten Attribut von `point_names`, das einen Wert hat; eine Fläche nimmt `name`. |
 | `monument` | `monument` (Pflicht: die Art), `kind_from`, `link_attribute` mit `link_prefix` | Ein Denkmal der Liste; der Link zählt, wenn das Attribut mit `link_prefix` beginnt. |
 
 Ein Schlüssel einer anderen Leseart ist `manifest.unknown-key`; ein Schlüssel, den eine Leseart braucht und der

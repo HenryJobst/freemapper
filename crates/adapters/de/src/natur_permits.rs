@@ -71,6 +71,7 @@ const fn object(
         name,
         citation,
         only: None,
+        point_names: &[],
     }
 }
 
