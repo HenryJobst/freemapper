@@ -193,11 +193,13 @@ mod tests {
 
     #[test]
     fn brandenburg_forest_functions() {
-        let sources = crate::lfb_permits::sources();
-        let one = |layer: &str, file: &str| {
-            read(crate::lfb_permits::sources(), "waldfunktionen", layer, file)
+        let brandenburg = || {
+            declared(
+                "brandenburg",
+                include_str!("../manifests/brandenburg/manifest.toml"),
+            )
         };
-        assert_eq!(sources.len(), 3);
+        let one = |layer: &str, file: &str| read(brandenburg(), "waldfunktionen", layer, file);
         assert_eq!(
             one("naturwald", fixture!("brandenburg-naturwald.geojson")),
             ["Fünfeichen", "Dubrow"].map(|n| FindingKind::ForestFunction {

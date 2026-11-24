@@ -64,6 +64,21 @@ backend = "lgl-bw"
 [surface]
 backend = "lgl-bw"
 
+# The water protection zones of the LUBW with the authority in charge (issue #273); the names come as the register
+# writes them (in capitals, in quotes, with a number), and a zone ordered provisionally says so.
+[[permits.wfs]]
+key = "lubw"
+label = { en = "LUBW", de = "LUBW" }
+what = { en = "water protection zones with the authority in charge", de = "Wasserschutzgebietszonen mit der zuständigen Behörde" }
+credit = "Grundlage: Daten aus dem Umweltinformationssystem (UIS) der LUBW Landesanstalt für Umwelt Baden-Württemberg"
+note = "Die Geometrien der Zonen I werden aus Sicherheitserwägungen nicht im Internet veröffentlicht. WSG-Zonen werden nur mit zusammengefassten Zonen I und II zum Herunterladen bereitgestellt."
+sections = ["water-protection"]
+url = "https://rips-gdi.lubw.baden-wuerttemberg.de/arcgis/services/wms/UIS_0100007500200036_AGGR/MapServer/WFSServer"
+output_format = "GEOJSON"
+layers = [
+    { key = "wasserschutzgebiete", type_name = "Wasserschutzgebietszone_M1", reading = "water", name = "WSG", zone = "ZONE", planned_attribute = "STATUS", planned_value = "vorläufig angeordnet", planned_label = "vorläufig angeordnet", authority = "DST", name_form = "register" },
+]
+
 # The two WFS of the Landesamt für Denkmalpflege behind the LGL's proxy; the type names go without their prefix (issue #273).
 [[permits.wfs]]
 key = "denkmale"

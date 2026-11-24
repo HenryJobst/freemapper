@@ -567,7 +567,8 @@ impl StateAdapter {
         let permits: Vec<Box<dyn PermitSource>> = match state {
             // The protected biotopes of Berlin are declared in its manifest (issue #273).
             State::Berlin => crate::berlin_permits::sources(),
-            // The protected objects of Brandenburg are declared in its manifest (issue #273).
+            // The Reviere and the forest functions of Brandenburg are declared in its manifest
+            // (issue #273); its water protection areas are a shapefile.
             State::Brandenburg => crate::lfb_permits::sources(),
             // The sources of Hamburg are declared in its manifest (issue #273).
             State::Hamburg => Vec::new(),
@@ -577,8 +578,8 @@ impl StateAdapter {
             State::SchleswigHolstein => vec![crate::ldsh_permits::source()],
             // The protected biotopes of North Rhine-Westphalia are declared in its manifest (issue #273).
             State::NordrheinWestfalen => crate::wuh_permits::sources(),
-            // The Naturdenkmale of Baden-Württemberg are declared in its manifest (issue #273).
-            State::BadenWuerttemberg => vec![crate::lubw_permits::source()],
+            // The sources of Baden-Württemberg are declared in its manifest (issue #273).
+            State::BadenWuerttemberg => Vec::new(),
             State::Saxony => [
                 crate::sbs_permits::sources(),
                 vec![crate::bfg_permits::source()],
@@ -902,9 +903,9 @@ mod tests {
                 ),
                 "brandenburg" => (
                     &[
+                        "wasserschutzgebiete",
                         "reviere",
                         "waldfunktionen",
-                        "wasserschutzgebiete",
                         "baudenkmale",
                         "bodendenkmale",
                         "naturdenkmale",
@@ -951,7 +952,7 @@ mod tests {
                         "naturdenkmale",
                         "flaechennaturdenkmale",
                     ],
-                    crate::lubw_permits::BASE,
+                    "https://rips-gdi.lubw.baden-wuerttemberg.de/arcgis/services/wms/UIS_0100007500200036_AGGR/MapServer/WFSServer",
                 ),
                 "saxony" => (
                     &[

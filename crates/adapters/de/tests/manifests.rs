@@ -12,9 +12,7 @@ use freemapper_adapters_de::states::alkis::{
     BUILDINGS_ENDPOINT, LAND_USE_ENDPOINT, MV_BUILDINGS_ENDPOINT, MV_LAND_USE_ENDPOINT,
 };
 use freemapper_adapters_de::states::{State, StateAdapter, StateFiles};
-use freemapper_adapters_de::{
-    bfg_permits, geobremen, ldbv, ldbv_las, lgl_bw, lgv, lubw_permits, lvgl, states,
-};
+use freemapper_adapters_de::{bfg_permits, geobremen, ldbv, ldbv_las, lgl_bw, lgv, lvgl, states};
 use freemapper_georef::crs::{BoundingBox, Crs};
 use freemapper_manifest::adapter::{ManifestAdapter, Parse};
 use freemapper_manifest::model::Alkis;
@@ -544,7 +542,7 @@ fn recorded_hosts(state: State) -> Vec<String> {
             lgl_bw::FILES,
             lgl_bw::ALKIS.url.as_ref(),
             // The water protection zones of the permit notes (ADR 0143).
-            lubw_permits::BASE,
+            "https://rips-gdi.lubw.baden-wuerttemberg.de/arcgis/services/wms/UIS_0100007500200036_AGGR/MapServer/WFSServer",
         ],
         // Both ask the BfG for the permit notes (ADR 0142).
         State::Bremen => &[

@@ -2126,6 +2126,12 @@ impl Check<'_> {
                     .map(Some),
                 None => Some(None),
             };
+            let note = match &source.note {
+                Some(value) => self
+                    .text(value, "permits.wfs.note", "manifest.value", 400)
+                    .map(Some),
+                None => Some(None),
+            };
             let mut sections = Some(Vec::new());
             if source.sections.is_empty() {
                 self.fail(
@@ -2183,6 +2189,7 @@ impl Check<'_> {
                 output_format,
                 native_crs,
                 offices,
+                note,
                 sections,
                 layers,
             ) {
@@ -2196,6 +2203,7 @@ impl Check<'_> {
                     Some(output_format),
                     Some(native_crs),
                     Some(offices),
+                    Some(note),
                     Some(sections),
                     Some(layers),
                 ) => sources.push(DeclaredWfs {
@@ -2210,6 +2218,7 @@ impl Check<'_> {
                     gml,
                     native_crs,
                     offices,
+                    note,
                     layers,
                 }),
                 _ => fine = false,
@@ -2286,7 +2295,7 @@ impl Check<'_> {
 
     /// The keys of `layer` that do not belong to its reading, as findings.
     fn foreign(&mut self, layer: &RawPermitLayer, allowed: &[&str]) -> bool {
-        let given: [(&str, bool); 18] = [
+        let given: [(&str, bool); 22] = [
             ("name", layer.name.is_some()),
             ("zone", layer.zone.is_some()),
             ("citation", layer.citation.is_some()),
@@ -2309,6 +2318,13 @@ impl Check<'_> {
                 layer.administration_attribute.is_some(),
             ),
             ("fallback", layer.fallback.is_some()),
+            (
+                "unit_attribute",
+                layer.unit_attribute.is_some() || layer.unit_prefix.is_some(),
+            ),
+            ("authority", layer.authority.is_some()),
+            ("planned_label", layer.planned_label.is_some()),
+            ("name_form", layer.name_form.is_some()),
             (
                 "district_attribute",
                 layer.district_attribute.is_some() || layer.districts.is_some(),
@@ -2362,8 +2378,41 @@ impl Check<'_> {
                         "citation",
                         "planned_attribute",
                         "planned_value",
+                        "planned_label",
+                        "authority",
+                        "name_form",
                     ],
                 );
+                let planned_label = match &layer.planned_label {
+                    Some(_) if layer.planned_attribute.is_none() => {
+                        self.fail(
+                            "manifest.missing-key",
+                            &layer.reading.span(),
+                            "planned_attribute",
+                            "`planned_label` needs `planned_attribute` and `planned_value`",
+                        );
+                        None
+                    }
+                    Some(label) => self
+                        .text(label, &format!("{k}.planned_label"), "manifest.value", 60)
+                        .map(Some),
+                    None => Some(None),
+                };
+                let authority =
+                    self.optional_attribute(layer.authority.as_ref(), &format!("{k}.authority"));
+                let register_names = match &layer.name_form {
+                    None => Some(false),
+                    Some(form) if form.get_ref() == "register" => Some(true),
+                    Some(form) => {
+                        self.fail(
+                            "manifest.value",
+                            &form.span(),
+                            &format!("{k}.name_form"),
+                            "the only form of a name is `register`",
+                        );
+                        None
+                    }
+                };
                 let name = self
                     .needed(layer.name.as_ref(), layer, "name")
                     .and_then(|v| self.attribute(v, &format!("{k}.name")));
@@ -2391,15 +2440,34 @@ impl Check<'_> {
                         None
                     }
                 };
-                match (clean, name, zone, citation, planned) {
-                    (true, Some(name), Some(zone), Some(citation), Some(planned)) => {
-                        Some(DeclaredReading::Water {
-                            name,
-                            zone,
-                            citation,
-                            planned,
-                        })
-                    }
+                match (
+                    clean,
+                    name,
+                    zone,
+                    citation,
+                    planned,
+                    planned_label,
+                    authority,
+                    register_names,
+                ) {
+                    (
+                        true,
+                        Some(name),
+                        Some(zone),
+                        Some(citation),
+                        Some(planned),
+                        Some(planned_label),
+                        Some(authority),
+                        Some(register_names),
+                    ) => Some(DeclaredReading::Water {
+                        name,
+                        zone,
+                        citation,
+                        planned,
+                        planned_label,
+                        authority,
+                        register_names,
+                    }),
                     _ => None,
                 }
             }
@@ -2425,6 +2493,7 @@ impl Check<'_> {
                             "administration_attribute",
                             "prefix",
                             "office",
+                            "unit_attribute",
                         ],
                     )
                 } else {
@@ -2444,22 +2513,44 @@ impl Check<'_> {
                 let office = self
                     .needed(layer.office.as_ref(), layer, "office")
                     .and_then(|v| self.attribute(v, &format!("{k}.office")));
+                let unit = match (&layer.unit_attribute, &layer.unit_prefix) {
+                    (None, None) => Some(None),
+                    (Some(attribute), Some(prefix)) => {
+                        let attribute = self.attribute(attribute, &format!("{k}.unit_attribute"));
+                        let prefix =
+                            self.text(prefix, &format!("{k}.unit_prefix"), "manifest.value", 100);
+                        attribute.zip(prefix).map(Some)
+                    }
+                    _ => {
+                        self.fail(
+                            "manifest.missing-key",
+                            &layer.reading.span(),
+                            "unit_attribute",
+                            "`unit_attribute` and `unit_prefix` come together",
+                        );
+                        None
+                    }
+                };
                 let administration_from = self.optional_attribute(
                     layer.administration_attribute.as_ref(),
                     &format!("{k}.administration_attribute"),
                 );
-                match (clean, label, prefix, office, administration_from) {
-                    (true, Some(label), Some(prefix), Some(office), Some(administration_from))
-                        if reading == "unit" =>
-                    {
-                        Some(DeclaredReading::Unit {
-                            administration: label,
-                            administration_from,
-                            prefix,
-                            office,
-                        })
-                    }
-                    (true, Some(label), Some(prefix), Some(office), _) => {
+                match (clean, label, prefix, office, administration_from, unit) {
+                    (
+                        true,
+                        Some(label),
+                        Some(prefix),
+                        Some(office),
+                        Some(administration_from),
+                        Some(unit),
+                    ) if reading == "unit" => Some(DeclaredReading::Unit {
+                        administration: label,
+                        administration_from,
+                        prefix,
+                        office,
+                        unit,
+                    }),
+                    (true, Some(label), Some(prefix), Some(office), _, _) => {
                         Some(DeclaredReading::StateForest {
                             owner: label,
                             prefix,

@@ -387,6 +387,9 @@ pub struct DeclaredWfs {
     /// The offices of the districts of a city state, for a source of its districts
     /// ([`PermitSourceInfo::offices`]).
     pub offices: Option<DistrictOffices>,
+    /// A note of the publisher on what the data are worth, verbatim; see
+    /// [`PermitSourceInfo::note`].
+    pub note: Option<String>,
     pub layers: Vec<DeclaredLayer>,
 }
 
@@ -416,6 +419,13 @@ pub enum DeclaredReading {
         citation: Option<String>,
         /// The attribute and the value that mark a planned zone.
         planned: Option<(String, String)>,
+        /// What the zone of a planned area says in brackets; `geplant` where it is `None`.
+        planned_label: Option<String>,
+        /// The attribute of the authority in charge.
+        authority: Option<String>,
+        /// The name is one of a register: without quotes and the number at its end, in the
+        /// case of a name.
+        register_names: bool,
     },
     /// Forest with a function or protection.
     Function {
@@ -429,6 +439,8 @@ pub enum DeclaredReading {
         administration_from: Option<String>,
         prefix: String,
         office: String,
+        /// The attribute and the prefix of a smaller unit within the office (a Revier).
+        unit: Option<(String, String)>,
     },
     /// A district of a city state, named by an attribute.
     District { name: String },

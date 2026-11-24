@@ -128,6 +128,9 @@ pub fn sources() -> Vec<Box<dyn PermitSource>> {
                 zone: "wsg_zone",
                 citation: None,
                 planned: Some(("areastatus", "P")),
+                planned_label: "geplant",
+                authority: None,
+                register_names: false,
             },
         ),
     ]

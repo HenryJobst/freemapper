@@ -35,6 +35,12 @@ pub enum Reading {
         zone: &'static str,
         citation: Option<&'static str>,
         planned: Option<(&'static str, &'static str)>,
+        /// What the zone of a planned area says in brackets.
+        planned_label: &'static str,
+        /// The attribute of the authority in charge.
+        authority: Option<&'static str>,
+        /// The name is one of a register, read by [`register_name`].
+        register_names: bool,
     },
     /// Forest with a function or protection, named by an attribute where the layer has one.
     Function {
@@ -49,6 +55,8 @@ pub enum Reading {
         administration_from: Option<&'static str>,
         prefix: &'static str,
         office: &'static str,
+        /// The attribute and the prefix of a smaller unit within the office (a Revier).
+        unit: Option<(&'static str, &'static str)>,
     },
     /// A district of a city state, named by the attribute.
     District { name: &'static str },
@@ -95,19 +103,32 @@ impl Reading {
                 zone,
                 citation,
                 planned,
-            } => [Some(name), Some(zone), citation, planned.map(|(a, _)| a)]
-                .into_iter()
-                .flatten()
-                .collect(),
+                authority,
+                ..
+            } => [
+                Some(name),
+                Some(zone),
+                citation,
+                planned.map(|(a, _)| a),
+                authority,
+            ]
+            .into_iter()
+            .flatten()
+            .collect(),
             Reading::Function { name, .. } => name.into_iter().collect(),
             Reading::Unit {
                 administration_from,
                 office,
+                unit,
                 ..
-            } => [Some(office), administration_from]
-                .into_iter()
-                .flatten()
-                .collect(),
+            } => [
+                Some(office),
+                administration_from,
+                unit.map(|(attribute, _)| attribute),
+            ]
+            .into_iter()
+            .flatten()
+            .collect(),
             Reading::StateForest { office, .. } => vec![office],
             Reading::District { name } => vec![name],
             Reading::GreenSpace {
@@ -338,11 +359,17 @@ fn reading(declared: &DeclaredReading) -> Reading {
             zone,
             citation,
             planned,
+            planned_label,
+            authority,
+            register_names,
         } => Reading::Water {
             name: kept(name),
             zone: kept(zone),
             citation: citation.as_deref().map(kept),
             planned: planned.as_ref().map(pair),
+            planned_label: planned_label.as_deref().map_or("geplant", kept),
+            authority: authority.as_deref().map(kept),
+            register_names: *register_names,
         },
         DeclaredReading::Function { kind, name } => Reading::Function {
             kind: *kind,
@@ -353,11 +380,13 @@ fn reading(declared: &DeclaredReading) -> Reading {
             administration_from,
             prefix,
             office,
+            unit,
         } => Reading::Unit {
             administration: kept(administration),
             administration_from: administration_from.as_deref().map(kept),
             prefix: kept(prefix),
             office: kept(office),
+            unit: unit.as_ref().map(pair),
         },
         DeclaredReading::District { name } => Reading::District { name: kept(name) },
         DeclaredReading::GreenSpace {
@@ -439,7 +468,7 @@ pub(crate) fn declared_source(declared: &DeclaredWfs) -> Box<dyn PermitSource> {
             label: wording(&declared.label),
             what: wording(&declared.what),
             credit: kept(&declared.credit),
-            note: None,
+            note: declared.note.as_deref().map(kept),
             sampled: false,
             gaps: declared.gaps.as_ref().map(wording),
             layers: keys,
@@ -618,6 +647,21 @@ pub(crate) fn name_case(name: &str) -> String {
     out
 }
 
+/// A name of a register as a name: without the quotes, the backslashes and the number at its
+/// end, in the case of a name (`\"MAHDENTAL\" 111032` becomes "Mahdental").
+pub(crate) fn register_name(raw: &str) -> String {
+    let cleaned = raw.replace(['\\', '"'], " ");
+    let mut words: Vec<&str> = cleaned.split_whitespace().collect();
+    if words.len() > 1
+        && words
+            .last()
+            .is_some_and(|w| w.chars().all(|c| c.is_ascii_digit()))
+    {
+        words.pop();
+    }
+    name_case(&words.join(" "))
+}
+
 /// A zone as the hints name it: a bare "I" or "IIIA" becomes "Schutzzone I"; a text that
 /// already says zone stays.
 pub(crate) fn zone_name(zone: &str) -> String {
@@ -639,18 +683,26 @@ pub(crate) fn finding(reading: Reading, feature: &Value) -> Option<PermitFinding
             zone,
             citation,
             planned,
+            planned_label,
+            authority,
+            register_names,
         } => {
             let planned = planned.is_some_and(|(attribute, value)| {
                 text(feature, attribute).as_deref() == Some(value)
             });
             FindingKind::WaterProtection {
-                name: text(feature, name),
+                name: text(feature, name)
+                    .map(|n| if register_names { register_name(&n) } else { n }),
                 zone: text(feature, zone).map(|z| {
                     let z = zone_name(&z);
-                    if planned { format!("{z} (geplant)") } else { z }
+                    if planned {
+                        format!("{z} ({planned_label})")
+                    } else {
+                        z
+                    }
                 }),
                 citation: citation.and_then(|c| text(feature, c)),
-                authority: None,
+                authority: authority.and_then(|a| text(feature, a)),
             }
         }
         Reading::Function { kind, name } => FindingKind::ForestFunction {
@@ -662,13 +714,16 @@ pub(crate) fn finding(reading: Reading, feature: &Value) -> Option<PermitFinding
             administration_from,
             prefix,
             office,
+            unit,
         } => FindingKind::ForestUnit {
             administration: match administration_from {
                 Some(attribute) => format!("{administration}{}", text(feature, attribute)?),
                 None => administration.to_string(),
             },
             office: format!("{prefix}{}", name_case(&text(feature, office)?)),
-            unit: None,
+            unit: unit.and_then(|(attribute, prefix)| {
+                text(feature, attribute).map(|name| format!("{prefix}{name}"))
+            }),
         },
         Reading::District { name } => FindingKind::District {
             name: text(feature, name)?,
@@ -743,6 +798,9 @@ mod tests {
                 zone: "ZONE",
                 citation: Some("VO"),
                 planned: None,
+                planned_label: "geplant",
+                authority: None,
+                register_names: false,
             },
         ),
         (

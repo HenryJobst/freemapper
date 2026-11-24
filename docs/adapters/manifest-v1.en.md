@@ -240,6 +240,7 @@ one by one (issue #273); `adapters probe` asks every `url`.
 | `url` | URL | yes | The address of the service, on a host of `[net] hosts`. Unlike every other URL it may carry a fixed query of plain `name=value` pairs that selects the service on the server (`?mapfile=glb`); the requests append their own parameters. |
 | `output_format` | text | yes | The `outputFormat` the service names for GeoJSON, URL-encoded as it needs it (`application/geo%2Bjson`). With `gml = true` the one for GML 3.2. |
 | `gml` | yes/no | no | The service answers GML 3.2 only. |
+| `note` | text | no | A note of the publisher on what the data are worth, verbatim; at most 400 characters. The notes print it with the source. |
 | `offices` | text | no | `berlin` or `hamburg`: the source holds the districts of that city state and the notes name the offices of its districts (a source with the reading `district`). |
 | `native_crs` | whole number | no | 25832 or 25833: the service finds nothing by a box in WGS 84 or answers only in its own CRS, so it is asked in this one. |
 | `layers` | list of tables | yes | The layers, below. |
@@ -249,9 +250,9 @@ which says how its features become findings and which further keys it takes:
 
 | `reading` | Keys | Meaning |
 |---|---|---|
-| `water` | `name`, `zone` (both required), `citation`, `planned_attribute` with `planned_value` | A water protection area or zone; where the layer has planned zones, the attribute and the value that mark one. |
+| `water` | `name`, `zone` (both required), `citation`, `planned_attribute` with `planned_value` and `planned_label`, `authority`, `name_form` | A water protection area or zone; where the layer has planned zones, the attribute and the value that mark one (the zone then says `planned_label` in brackets, `geplant` by default). `authority` is the attribute of the authority in charge. `name_form = "register"` reads the name as a register writes it: without quotes and the number at its end, in the case of a name. |
 | `function` | `function` (required: `recreation`, `protected`, `natural`, `closed`), `name` | Forest with a function or a protection. |
-| `unit` | `administration`, `prefix`, `office` (all required), `administration_attribute` | A unit of a forest administration; the office is `prefix` and the attribute `office`. With `administration_attribute` the administration is `administration` followed by the text of that attribute (`Bezirksamt ` and the Bezirk). |
+| `unit` | `administration`, `prefix`, `office` (all required), `administration_attribute`, `unit_attribute` with `unit_prefix` | A unit of a forest administration; the office is `prefix` and the attribute `office`. With `administration_attribute` the administration is `administration` followed by the text of that attribute (`Bezirksamt ` and the Bezirk). With `unit_attribute` and `unit_prefix` the finding also names a smaller unit within the office (`Revier ` and its name). |
 | `district` | `name` (required) | A district of a city state, named by the attribute. |
 | `green-space` | `name` (required), `fallback`, `district_attribute` with `districts` (1 to 16 names) | A public green space: its name, or where that is blank the attribute `fallback`; the attribute `district_attribute` holds the number of its district (from 1) in the list `districts`. |
 | `state-forest` | `owner`, `prefix`, `office` (all required) | Forest of the state and the office that looks after it. |

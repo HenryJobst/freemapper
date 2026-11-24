@@ -1,77 +1,19 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! Brandenburg's source of the permit notes (ADR 0124): the Reviere of the Landesbetrieb Forst
-//! Brandenburg (LFB), each with its Oberförsterei, from the INSPIRE WFS of the LFB
-//! (dl-de/by-2-0, "Landesbetrieb Forst Brandenburg").
-//!
-//! The service is a GeoServer WFS 2.0.0 that answers GML 3.2 only (`gml32`; it refuses
-//! `application/json`, and also its own default format). Asked with a WGS 84 box and `srsName`,
-//! it writes the positions latitude first; the parser of the Berlin sources still takes
-//! EPSG:25833, the default CRS of the service. The fetch keeps of every feature only the numbers
-//! and names of the Oberförsterei and the Revier, so nothing else of the answer is stored.
+//! Brandenburg's sources of the permit notes (ADR 0124). The Reviere and the forest functions of
+//! the Landesbetrieb Forst Brandenburg (LFB) are declared in the manifest of the state (issue
+//! #273); what stays here is the shapefile of the water protection areas, a kind of table the
+//! manifest does not describe yet. The tests of the Reviere read the answers of the LFB through
+//! the declared table: the INSPIRE WFS is a GeoServer that answers GML 3.2 only (`gml32`; it
+//! refuses `application/json`) and writes the positions latitude first.
 
-use std::path::Path;
+use freemapper_adapter_api::permits::{PermitSection, PermitSource, Wording};
 
-use freemapper_adapter_api::permits::{
-    FindingKind, ForestFunctionKind, PermitFinding, PermitSection, PermitSource, PermitSourceInfo,
-    Wording,
-};
-use freemapper_sources::geojson_wfs::{GeoJsonWfs, LatLonBox, get_gml_features};
-use geo_types::Rect;
-use serde_json::Value;
+use crate::wfs_permits::Reading;
 
-use crate::berlin_permits::geometry;
-use crate::fetch::{FetchError, Fetcher};
-use crate::wfs_permits::{Layer, Reading};
-
-/// The credit the licence asks for: the Quellenvermerk the LFB gives in its metadata, and the
-/// licence of GovData's entry "Forstreviere im Land Brandenburg".
-pub const CREDIT: &str = "Landesbetrieb Forst Brandenburg, Datenlizenz Deutschland – \
-    Namensnennung – Version 2.0 (https://www.govdata.de/dl-de/by-2-0)";
-
-/// The administration the notes name.
-const LFB: &str = "Landesbetrieb Forst Brandenburg";
-
-const SERVICE: GeoJsonWfs = GeoJsonWfs {
-    base: "https://www.brandenburg-forst.de/geoserver/IFUEK/ows",
-    output_format: "gml32",
-    bbox_crs_suffix: true,
-};
-
-const TYPE_NAME: &str = "IFUEK:AM.ForestManagementArea";
-
-/// The properties a Revier keeps. The others (`adresse`, and whatever the service adds) are
-/// dropped before the features are stored.
-const KEPT: [&str; 4] = ["foa_nr", "foa_name", "rev_nr", "rev_name"];
-
-/// The Reviere of the LFB.
-pub struct LfbReviere {
-    info: PermitSourceInfo,
-}
-
-/// The one source of Brandenburg.
+/// The sources Brandenburg's code brings: the water protection areas.
 pub fn sources() -> Vec<Box<dyn PermitSource>> {
-    vec![
-        Box::new(LfbReviere {
-            info: PermitSourceInfo {
-                key: "reviere",
-                label: Wording { en: LFB, de: LFB },
-                what: Wording {
-                    en: "forest districts (Reviere) with their Oberförsterei",
-                    de: "Forstreviere mit ihrer Oberförsterei",
-                },
-                credit: CREDIT,
-                note: None,
-                sampled: false,
-                gaps: None,
-                layers: &["reviere"],
-                sections: &[PermitSection::ForestUnits],
-                offices: None,
-            },
-        }),
-        waldfunktionen(),
-        wasserschutzgebiete(),
-    ]
+    vec![wasserschutzgebiete()]
 }
 
 /// The water protection areas of the LfU as one shapefile for the state (ADR 0131, about
@@ -98,144 +40,33 @@ fn wasserschutzgebiete() -> Box<dyn PermitSource> {
             zone: "SCHUTZZONE",
             citation: Some("FUNDSTELLE"),
             planned: None,
+            planned_label: "geplant",
+            authority: None,
+            register_names: false,
         },
     )
-}
-
-/// The forest functions of the LFB (ADR 0130), a GeoServer WFS that answers GeoJSON:
-/// Naturwald, Totalreservate, areas closed to the public and Erholungswald (GovData:
-/// dl-de/by-2-0, "Landesbetrieb Forst Brandenburg").
-fn waldfunktionen() -> Box<dyn PermitSource> {
-    crate::wfs_permits::source(
-        "waldfunktionen",
-        Wording { en: LFB, de: LFB },
-        Wording {
-            en: "forest functions (Naturwald, Totalreservat, closed areas, Erholungswald)",
-            de: "Waldfunktionen (Naturwald, Totalreservat, nicht betretbare Flächen, Erholungswald)",
-        },
-        CREDIT,
-        &[
-            "naturwald",
-            "totalreservat",
-            "nicht-betretbar",
-            "erholungswald",
-            "erholungswald-rechtlich",
-        ],
-        &[PermitSection::ForestFunctions],
-        "https://www.brandenburg-forst.de/geoserver/IWFK/ows",
-        "application/json",
-        WALDFUNKTIONEN,
-    )
-}
-
-const fn function(kind: ForestFunctionKind, name: &'static str) -> Reading {
-    Reading::Function {
-        kind,
-        name: Some(name),
-    }
-}
-
-const WALDFUNKTIONEN: &[Layer] = &[
-    (
-        "naturwald",
-        "IWFK:wfk_nwr",
-        function(ForestFunctionKind::Natural, "name"),
-    ),
-    (
-        "totalreservat",
-        "IWFK:lfu_trv",
-        function(ForestFunctionKind::Natural, "sg_name"),
-    ),
-    (
-        "nicht-betretbar",
-        "IWFK:wfk_nbt",
-        function(ForestFunctionKind::Closed, "rechtsgrund"),
-    ),
-    (
-        "erholungswald",
-        "IWFK:wfk_ewf",
-        function(ForestFunctionKind::Recreation, "name"),
-    ),
-    (
-        "erholungswald-rechtlich",
-        "IWFK:wfk_ewr",
-        function(ForestFunctionKind::Recreation, "name"),
-    ),
-];
-
-impl PermitSource for LfbReviere {
-    fn info(&self) -> &PermitSourceInfo {
-        &self.info
-    }
-
-    fn fetch(
-        &self,
-        fetcher: &dyn Fetcher,
-        bbox: &Rect<f64>,
-        part: &Path,
-    ) -> Result<Vec<Vec<Value>>, FetchError> {
-        let bbox = LatLonBox {
-            min_lat: bbox.min().y,
-            min_lon: bbox.min().x,
-            max_lat: bbox.max().y,
-            max_lon: bbox.max().x,
-        };
-        let features = get_gml_features(fetcher, &SERVICE, TYPE_NAME, &bbox, part)?;
-        Ok(vec![features.iter().filter_map(stored).collect()])
-    }
-
-    fn findings(&self, layer: &str, features: &[Value]) -> Vec<PermitFinding> {
-        if layer != "reviere" {
-            return Vec::new();
-        }
-        features.iter().filter_map(finding).collect()
-    }
-}
-
-/// A feature as it is stored: the [`KEPT`] properties and the area as longitude, latitude.
-/// `None` without a usable area.
-fn stored(feature: &Value) -> Option<Value> {
-    let area = geometry(feature)?;
-    let properties: serde_json::Map<String, Value> = KEPT
-        .iter()
-        .filter_map(|key| {
-            Some((
-                key.to_string(),
-                feature.get("properties")?.get(*key)?.clone(),
-            ))
-        })
-        .collect();
-    Some(serde_json::json!({
-        "type": "Feature",
-        "geometry": geojson::Geometry::new(geojson::GeometryValue::from(&area)),
-        "properties": properties,
-    }))
-}
-
-/// A Revier and its Oberförsterei; `None` without the name of the Oberförsterei or without an
-/// area.
-fn finding(feature: &Value) -> Option<PermitFinding> {
-    let geometry =
-        geometry(feature).filter(|g| matches!(g, geo_types::Geometry::MultiPolygon(_)))?;
-    let text = |key: &str| {
-        let text = feature.get("properties")?.get(key)?.as_str()?.trim();
-        (!text.is_empty()).then(|| text.to_string())
-    };
-    Some(PermitFinding {
-        kind: FindingKind::ForestUnit {
-            administration: LFB.to_string(),
-            office: format!("Oberförsterei {}", text("foa_name")?),
-            unit: text("rev_name").map(|name| format!("Revier {name}")),
-        },
-        geometry,
-    })
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use std::path::Path;
+
     use crate::fetch::test_support::MapFetcher;
-    use geo_types::Coord;
+    use crate::wfs_permits::declared_source;
+    use freemapper_adapter_api::permits::{FindingKind, PermitSource};
+    use geo_types::{Coord, Rect};
+    use serde_json::Value;
+
+    /// The sources the manifest of Brandenburg declares; the first is the Reviere.
+    fn sources() -> Vec<Box<dyn PermitSource>> {
+        let text = include_str!("../manifests/brandenburg/manifest.toml");
+        freemapper_manifest::parse(text, Path::new("brandenburg"))
+            .unwrap()
+            .permits
+            .iter()
+            .map(declared_source)
+            .collect()
+    }
 
     const REVIERE: &str =
         include_str!("../../../../tests/fixtures/permits-brandenburg/reviere.gml");
@@ -271,11 +102,7 @@ mod tests {
         assert_eq!(features.len(), 3);
         for feature in &features {
             let keys: Vec<&String> = feature["properties"].as_object().unwrap().keys().collect();
-            assert_eq!(
-                keys,
-                ["foa_name", "foa_nr", "rev_name", "rev_nr"],
-                "{feature}"
-            );
+            assert_eq!(keys, ["foa_name", "rev_name"], "{feature}");
             let first = &feature["geometry"]["coordinates"][0][0][0];
             let (lon, lat) = (first[0].as_f64().unwrap(), first[1].as_f64().unwrap());
             assert!(
@@ -348,7 +175,8 @@ mod tests {
         let http = HttpFetcher::new();
         let fetcher = PolicyFetcher::new(&http, brandenburg.policy().unwrap());
         let part = tempfile::tempdir().unwrap();
-        let source = &brandenburg.permit_sources()[0];
+        let sources = brandenburg.permit_sources();
+        let source = sources.iter().find(|s| s.info().key == "reviere").unwrap();
         let layers = source
             .fetch(&fetcher, &strausberg(), &part.path().join("live.part"))
             .unwrap();

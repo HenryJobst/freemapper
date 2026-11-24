@@ -244,6 +244,7 @@ pub(crate) struct RawPermitWfs {
     pub gml: Option<Spanned<bool>>,
     pub native_crs: Option<Spanned<i64>>,
     pub offices: Option<Text>,
+    pub note: Option<Text>,
     pub layers: Vec<RawPermitLayer>,
 }
 
@@ -282,6 +283,11 @@ pub(crate) struct RawPermitLayer {
     pub fallback: Option<Text>,
     pub district_attribute: Option<Text>,
     pub districts: Option<Vec<Text>>,
+    pub unit_attribute: Option<Text>,
+    pub unit_prefix: Option<Text>,
+    pub authority: Option<Text>,
+    pub planned_label: Option<Text>,
+    pub name_form: Option<Text>,
 }
 
 #[derive(Debug, Deserialize)]
