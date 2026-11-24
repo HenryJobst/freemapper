@@ -190,6 +190,7 @@ mod tests {
             name: Some("name"),
             citation: None,
             only: None,
+            point_names: &[],
         },
     )];
 

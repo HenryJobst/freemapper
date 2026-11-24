@@ -2128,7 +2128,7 @@ impl Check<'_> {
             };
             let note = match &source.note {
                 Some(value) => self
-                    .text(value, "permits.wfs.note", "manifest.value", 400)
+                    .text(value, "permits.wfs.note", "manifest.value", 600)
                     .map(Some),
                 None => Some(None),
             };
@@ -2295,7 +2295,7 @@ impl Check<'_> {
 
     /// The keys of `layer` that do not belong to its reading, as findings.
     fn foreign(&mut self, layer: &RawPermitLayer, allowed: &[&str]) -> bool {
-        let given: [(&str, bool); 22] = [
+        let given: [(&str, bool); 25] = [
             ("name", layer.name.is_some()),
             ("zone", layer.zone.is_some()),
             ("citation", layer.citation.is_some()),
@@ -2325,6 +2325,12 @@ impl Check<'_> {
             ("authority", layer.authority.is_some()),
             ("planned_label", layer.planned_label.is_some()),
             ("name_form", layer.name_form.is_some()),
+            ("dedication", layer.dedication.is_some()),
+            (
+                "owner_attribute",
+                layer.owner_attribute.is_some() || layer.owners.is_some(),
+            ),
+            ("point_names", layer.point_names.is_some()),
             (
                 "district_attribute",
                 layer.district_attribute.is_some() || layer.districts.is_some(),
@@ -2571,7 +2577,31 @@ impl Check<'_> {
                 }
             }
             "green-space" => {
-                let clean = self.foreign(layer, &["name", "fallback", "district_attribute"]);
+                let clean = self.foreign(
+                    layer,
+                    &[
+                        "name",
+                        "fallback",
+                        "district_attribute",
+                        "dedication",
+                        "name_form",
+                    ],
+                );
+                let park_names = match &layer.name_form {
+                    None => Some(false),
+                    Some(form) if form.get_ref() == "park" => Some(true),
+                    Some(form) => {
+                        self.fail(
+                            "manifest.value",
+                            &form.span(),
+                            &format!("{k}.name_form"),
+                            "the only form of a green space's name is `park`",
+                        );
+                        None
+                    }
+                };
+                let dedication =
+                    self.optional_attribute(layer.dedication.as_ref(), &format!("{k}.dedication"));
                 let name = self
                     .needed(layer.name.as_ref(), layer, "name")
                     .and_then(|v| self.attribute(v, &format!("{k}.name")));
@@ -2579,6 +2609,9 @@ impl Check<'_> {
                     self.optional_attribute(layer.fallback.as_ref(), &format!("{k}.fallback"));
                 let district = match (&layer.district_attribute, &layer.districts) {
                     (None, None) => Some(None),
+                    (Some(attribute), None) => self
+                        .attribute(attribute, &format!("{k}.district_attribute"))
+                        .map(|attribute| Some((attribute, Vec::new()))),
                     (Some(attribute), Some(names)) if (1..=16).contains(&names.len()) => {
                         let attribute =
                             self.attribute(attribute, &format!("{k}.district_attribute"));
@@ -2598,24 +2631,98 @@ impl Check<'_> {
                             "manifest.value",
                             &layer.reading.span(),
                             "district_attribute",
-                            "`district_attribute` comes with 1 to 16 `districts`",
+                            "`districts` comes with `district_attribute` and holds 1 to 16 names",
                         );
                         None
                     }
                 };
-                match (clean, name, fallback, district) {
-                    (true, Some(name), Some(fallback), Some(district)) => {
-                        Some(DeclaredReading::GreenSpace {
-                            name,
-                            fallback,
-                            district,
-                        })
+                match (clean, name, fallback, district, dedication, park_names) {
+                    (
+                        true,
+                        Some(name),
+                        Some(fallback),
+                        Some(district),
+                        Some(dedication),
+                        Some(park_names),
+                    ) => Some(DeclaredReading::GreenSpace {
+                        name,
+                        fallback,
+                        district,
+                        dedication,
+                        park_names,
+                    }),
+                    _ => None,
+                }
+            }
+            "playground" => {
+                let clean = self.foreign(layer, &[]);
+                clean.then_some(DeclaredReading::Playground)
+            }
+            "owner" => {
+                let clean = self.foreign(layer, &["owner_attribute"]);
+                let owner = self
+                    .needed(layer.owner_attribute.as_ref(), layer, "owner_attribute")
+                    .and_then(|v| self.attribute(v, &format!("{k}.owner_attribute")));
+                let mut named = Some(Vec::new());
+                match &layer.owners {
+                    Some(names) if (1..=8).contains(&names.len()) => {
+                        for name in names {
+                            let name =
+                                self.text(name, &format!("{k}.owners"), "manifest.value", 100);
+                            named = named.zip(name).map(|(mut all, name)| {
+                                all.push(name);
+                                all
+                            });
+                        }
+                    }
+                    _ => {
+                        self.fail(
+                            "manifest.value",
+                            &layer.reading.span(),
+                            "owners",
+                            "`owners` names 1 to 8 owners",
+                        );
+                        named = None;
+                    }
+                }
+                match (clean, owner, named) {
+                    (true, Some(owner), Some(named)) => {
+                        Some(DeclaredReading::Owner { owner, named })
                     }
                     _ => None,
                 }
             }
             "object" => {
-                let clean = self.foreign(layer, &["object", "name", "citation", "only_attribute"]);
+                let clean = self.foreign(
+                    layer,
+                    &[
+                        "object",
+                        "name",
+                        "citation",
+                        "only_attribute",
+                        "point_names",
+                    ],
+                );
+                let mut point_names = Some(Vec::new());
+                if let Some(names) = &layer.point_names {
+                    if (1..=4).contains(&names.len()) {
+                        for name in names {
+                            let name = self.attribute(name, &format!("{k}.point_names"));
+                            point_names = point_names.zip(name).map(|(mut all, name)| {
+                                all.push(name);
+                                all
+                            });
+                        }
+                    } else {
+                        self.fail(
+                            "manifest.value",
+                            &layer.reading.span(),
+                            "point_names",
+                            "`point_names` names 1 to 4 attributes",
+                        );
+                        point_names = None;
+                    }
+                }
                 let kind = self
                     .needed(layer.object.as_ref(), layer, "object")
                     .and_then(|v| self.kebab::<ProtectedObjectKind>(v, &format!("{k}.object")));
@@ -2651,15 +2758,21 @@ impl Check<'_> {
                         None
                     }
                 };
-                match (clean, kind, name, citation, only) {
-                    (true, Some(kind), Some(name), Some(citation), Some(only)) => {
-                        Some(DeclaredReading::Object {
-                            kind,
-                            name,
-                            citation,
-                            only,
-                        })
-                    }
+                match (clean, kind, name, citation, only, point_names) {
+                    (
+                        true,
+                        Some(kind),
+                        Some(name),
+                        Some(citation),
+                        Some(only),
+                        Some(point_names),
+                    ) => Some(DeclaredReading::Object {
+                        kind,
+                        name,
+                        citation,
+                        only,
+                        point_names,
+                    }),
                     _ => None,
                 }
             }
@@ -2707,7 +2820,7 @@ impl Check<'_> {
                     "permits.wfs.layers.reading",
                     format!(
                         "`{shown}` is no reading; the readings are water, function, unit, \
-                         state-forest, district, green-space, object and monument"
+                         state-forest, district, green-space, playground, owner, object and monument"
                     ),
                 );
                 None

@@ -37,6 +37,99 @@ backend = "lgb"
 [surface]
 backend = "lgb"
 
+# The seven other services of the Geoportal Berlin, which had a table in the code (issue #273), in the order of the
+# sections of the notes. The NSG, LSG, FFH, SPA and Naturpark layers of `schutzgebiete` are left out on purpose: the BfN
+# has them for every state.
+[[permits.wfs]]
+key = "bezirke"
+label = { en = "Geoportal Berlin", de = "Geoportal Berlin" }
+what = { en = "Bezirk borders (ALKIS Berlin)", de = "Bezirksgrenzen (ALKIS Berlin)" }
+credit = "Für die Nutzung der Daten ist die Datenlizenz Deutschland - Zero - Version 2.0 anzuwenden. Die Lizenz ist über https://www.govdata.de/dl-de/zero-2-0 abrufbar."
+sections = ["districts"]
+url = "https://gdi.berlin.de/services/wfs/alkis_bezirke"
+output_format = "application/json"
+offices = "berlin"
+layers = [
+    { key = "bezirksgrenzen", type_name = "alkis_bezirke:bezirksgrenzen", reading = "district", name = "namgem" },
+]
+
+[[permits.wfs]]
+key = "gruenanlagen"
+label = { en = "Geoportal Berlin", de = "Geoportal Berlin" }
+what = { en = "green spaces and public playgrounds", de = "Grünanlagenbestand mit den öffentlichen Spielplätzen" }
+credit = "Für die Nutzung der Daten ist die Datenlizenz Deutschland - Zero - Version 2.0 anzuwenden. Die Lizenz ist über https://www.govdata.de/dl-de/zero-2-0 abrufbar."
+sections = ["green-spaces"]
+url = "https://gdi.berlin.de/services/wfs/gruenanlagen"
+output_format = "application/json"
+layers = [
+    { key = "gruenanlagen", type_name = "gruenanlagen:gruenanlagen", reading = "green-space", name = "namenr", name_form = "park", district_attribute = "bezirkname", dedication = "widmung" },
+    { key = "spielplaetze", type_name = "gruenanlagen:spielplaetze", reading = "playground" },
+]
+
+[[permits.wfs]]
+key = "liegenschaftsplan"
+label = { en = "Geoportal Berlin", de = "Geoportal Berlin" }
+what = { en = "land of the Land Berlin and the Bund (Liegenschaftsplan)", de = "Liegenschaftsplan (Flurstücke des Bundeslandes Berlin und des Bundes)" }
+credit = "Für die Nutzung der Daten ist die Datenlizenz Deutschland - Zero - Version 2.0 anzuwenden. Die Lizenz ist über https://www.govdata.de/dl-de/zero-2-0 abrufbar."
+sections = ["owners"]
+url = "https://gdi.berlin.de/services/wfs/liegenschaftsplan"
+output_format = "application/json"
+layers = [
+    { key = "liegenschaftsplan", type_name = "liegenschaftsplan:liegenschaftsplan", reading = "owner", owner_attribute = "sch", owners = ["Land Berlin", "Bundesrepublik Deutschland"] },
+]
+
+[[permits.wfs]]
+key = "denkmale"
+label = { en = "Geoportal Berlin", de = "Geoportal Berlin" }
+what = { en = "monuments (Denkmalkarte)", de = "Denkmale (Denkmalkarte)" }
+credit = "Für die Nutzung der Daten ist die Datenlizenz Deutschland - Zero - Version 2.0 anzuwenden. Die Lizenz ist über https://www.govdata.de/dl-de/zero-2-0 abrufbar."
+sections = ["monuments"]
+url = "https://gdi.berlin.de/services/wfs/denkmale"
+output_format = "application/json"
+layers = [
+    { key = "denkmale", type_name = "denkmale:denkmale", reading = "monument", monument = "Denkmal", kind_from = "typ", link_attribute = "link", link_prefix = "https://denkmaldatenbank.berlin.de/" },
+]
+
+[[permits.wfs]]
+key = "schutzgebiete"
+label = { en = "Geoportal Berlin", de = "Geoportal Berlin" }
+what = { en = "protected objects under nature conservation law", de = "Schutzobjekte nach Naturschutzrecht" }
+credit = "Für die Nutzung der Daten ist die Datenlizenz Deutschland - Zero - Version 2.0 anzuwenden. Die Lizenz ist über https://www.govdata.de/dl-de/zero-2-0 abrufbar."
+note = "Die amtlichen Karten zur jeweiligen Schutzverordnung können bei der jeweils örtlich zuständigen unteren Behörde für Naturschutz und Landschaftspflege im Bezirksamt oder bei der obersten Behörde für Naturschutz und Landschaftspflege (Senatsverwaltung für Mobilität, Verkehr, Klimaschutz und Umwelt Abt. III) eingesehen werden. Nur diese amtlichen analogen Karten sind rechtsverbindlich, sofern die Karten nicht im Gesetz- und Verordnungsblatt für Berlin mitveröffentlicht wurden."
+sections = ["protected-objects"]
+url = "https://gdi.berlin.de/services/wfs/schutzgebiete"
+output_format = "application/json"
+layers = [
+    { key = "a-nd", type_name = "schutzgebiete:a_nd", reading = "object", object = "natural-monument", name = "gebietsname", citation = "zitat", point_names = ["baum_deutsch", "gestein_art", "nd_art"] },
+    { key = "e-fnd", type_name = "schutzgebiete:e_fnd", reading = "object", object = "natural-monument", name = "gebietsname", citation = "zitat", point_names = ["baum_deutsch", "gestein_art", "nd_art"] },
+    { key = "g-glb", type_name = "schutzgebiete:g_glb", reading = "object", object = "protected-landscape-part", name = "gebietsname", citation = "zitat", point_names = ["baum_deutsch", "gestein_art", "nd_art"] },
+    { key = "f-fspr", type_name = "schutzgebiete:f_fspr", reading = "object", object = "special-rules", name = "gebietsname", citation = "zitat", point_names = ["baum_deutsch", "gestein_art", "nd_art"] },
+]
+
+[[permits.wfs]]
+key = "forstverwalt"
+label = { en = "Geoportal Berlin", de = "Geoportal Berlin" }
+what = { en = "forest administration (Forstämter and Reviere of the Berliner Forsten)", de = "Forstverwaltung (Forstämter und Reviere der Berliner Forsten)" }
+credit = "Für die Nutzung der Daten ist die Datenlizenz Deutschland - Zero - Version 2.0 anzuwenden. Die Lizenz ist über https://www.govdata.de/dl-de/zero-2-0 abrufbar."
+sections = ["forest-units"]
+url = "https://gdi.berlin.de/services/wfs/forstverwalt"
+output_format = "application/json"
+layers = [
+    { key = "forstverwalt", type_name = "forstverwalt:b_forstverwalt", reading = "unit", administration = "Berliner Forsten", prefix = "Forstamt ", office = "foa_name", unit_attribute = "rev_name", unit_prefix = "Revier " },
+]
+
+[[permits.wfs]]
+key = "wsg"
+label = { en = "Geoportal Berlin", de = "Geoportal Berlin" }
+what = { en = "water protection areas", de = "Wasserschutzgebiete" }
+credit = "Für die Nutzung der Daten ist die Datenlizenz Deutschland - Zero - Version 2.0 anzuwenden. Die Lizenz ist über https://www.govdata.de/dl-de/zero-2-0 abrufbar."
+sections = ["water-protection"]
+url = "https://gdi.berlin.de/services/wfs/wsg"
+output_format = "application/json"
+layers = [
+    { key = "wsg", type_name = "wsg:wsg", reading = "water", name = "wasserwerk", zone = "zone", citation = "verordnung" },
+]
+
 # The protected biotopes of the Umweltatlas whose protection is certain (`schutz_ges` 1, not the
 # suspected ones), issue #273.
 [[permits.wfs]]

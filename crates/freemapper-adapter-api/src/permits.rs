@@ -449,8 +449,19 @@ pub enum DeclaredReading {
     GreenSpace {
         name: String,
         fallback: Option<String>,
+        /// The attribute of the district and the names its number goes into; without names the
+        /// attribute holds the name of the district.
         district: Option<(String, Vec<String>)>,
+        /// The attribute that says whether it is dedicated for public use.
+        dedication: Option<String>,
+        /// The name is that of the park, the part before a comma ("Viktoriapark, Rosengarten").
+        park_names: bool,
     },
+    /// A public playground; the notes count them.
+    Playground,
+    /// A parcel of a public owner: the attribute names the owner, and only the owners of the
+    /// list come with their name.
+    Owner { owner: String, named: Vec<String> },
     /// Forest of the state.
     StateForest {
         owner: String,
@@ -464,6 +475,9 @@ pub enum DeclaredReading {
         citation: Option<String>,
         /// The attribute and the values that make a feature count.
         only: Option<(String, Vec<String>)>,
+        /// The attributes a point takes its name from, the first that has a value; an area
+        /// takes `name`.
+        point_names: Vec<String>,
     },
     /// A listed monument.
     Monument {

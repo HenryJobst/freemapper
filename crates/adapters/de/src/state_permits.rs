@@ -275,7 +275,7 @@ mod tests {
     #[test]
     fn berlin_water_zones() {
         let found = read(
-            crate::berlin_permits::sources(),
+            declared("berlin", include_str!("../manifests/berlin/manifest.toml")),
             "wsg",
             "wsg",
             include_str!("../../../../tests/fixtures/permits-berlin/wsg.geojson"),

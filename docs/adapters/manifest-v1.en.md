@@ -240,7 +240,7 @@ one by one (issue #273); `adapters probe` asks every `url`.
 | `url` | URL | yes | The address of the service, on a host of `[net] hosts`. Unlike every other URL it may carry a fixed query of plain `name=value` pairs that selects the service on the server (`?mapfile=glb`); the requests append their own parameters. |
 | `output_format` | text | yes | The `outputFormat` the service names for GeoJSON, URL-encoded as it needs it (`application/geo%2Bjson`). With `gml = true` the one for GML 3.2. |
 | `gml` | yes/no | no | The service answers GML 3.2 only. |
-| `note` | text | no | A note of the publisher on what the data are worth, verbatim; at most 400 characters. The notes print it with the source. |
+| `note` | text | no | A note of the publisher on what the data are worth, verbatim; at most 600 characters. The notes print it with the source. |
 | `offices` | text | no | `berlin` or `hamburg`: the source holds the districts of that city state and the notes name the offices of its districts (a source with the reading `district`). |
 | `native_crs` | whole number | no | 25832 or 25833: the service finds nothing by a box in WGS 84 or answers only in its own CRS, so it is asked in this one. |
 | `layers` | list of tables | yes | The layers, below. |
@@ -254,9 +254,11 @@ which says how its features become findings and which further keys it takes:
 | `function` | `function` (required: `recreation`, `protected`, `natural`, `closed`), `name` | Forest with a function or a protection. |
 | `unit` | `administration`, `prefix`, `office` (all required), `administration_attribute`, `unit_attribute` with `unit_prefix` | A unit of a forest administration; the office is `prefix` and the attribute `office`. With `administration_attribute` the administration is `administration` followed by the text of that attribute (`Bezirksamt ` and the Bezirk). With `unit_attribute` and `unit_prefix` the finding also names a smaller unit within the office (`Revier ` and its name). |
 | `district` | `name` (required) | A district of a city state, named by the attribute. |
-| `green-space` | `name` (required), `fallback`, `district_attribute` with `districts` (1 to 16 names) | A public green space: its name, or where that is blank the attribute `fallback`; the attribute `district_attribute` holds the number of its district (from 1) in the list `districts`. |
+| `green-space` | `name` (required), `fallback`, `district_attribute` with `districts` (1 to 16 names), `dedication`, `name_form` | A public green space: its name, or where that is blank the attribute `fallback`. `district_attribute` holds the number of its district (from 1) in the list `districts`, or, without the list, the name of the district. `dedication` is the attribute that says whether it is dedicated for public use. `name_form = "park"` takes the part of the name before a comma (the park a part belongs to). |
+| `playground` | none | A public playground; the notes count them. |
+| `owner` | `owner_attribute` (required), `owners` (required, 1 to 8 names) | A parcel of a public owner: the attribute names the owner, and only an owner of the list comes with its name; the notes leave out the name of any other. |
 | `state-forest` | `owner`, `prefix`, `office` (all required) | Forest of the state and the office that looks after it. |
-| `object` | `object` (required: the kind of protected object, such as `natural-monument`, `protected-landscape-part`, `biotope`), `name`, `citation`, `only_attribute` with `only_values` (1 to 8) | A protected object of nature conservation law; with `only`, a feature counts only when the attribute holds one of the values. |
+| `object` | `object` (required: the kind of protected object, such as `natural-monument`, `protected-landscape-part`, `biotope`), `name`, `citation`, `only_attribute` with `only_values` (1 to 8), `point_names` (1 to 4 attributes) | A protected object of nature conservation law; with `only`, a feature counts only when the attribute holds one of the values. A point (a tree, a boulder) takes its name from the first of `point_names` that has a value; an area takes `name`. |
 | `monument` | `monument` (required: the kind), `kind_from`, `link_attribute` with `link_prefix` | A listed monument; the link counts when the attribute starts with `link_prefix`. |
 
 A key of another reading is `manifest.unknown-key`; a key a reading needs and the layer lacks is

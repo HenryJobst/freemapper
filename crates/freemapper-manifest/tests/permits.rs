@@ -95,6 +95,7 @@ fn every_reading_is_declared_and_read() {
             name: Some("ART".into()),
             citation: None,
             only: Some(("SCHUTZ".into(), vec!["1".into(), "2".into()])),
+            point_names: Vec::new(),
         }
     );
     assert!(matches!(
@@ -487,6 +488,8 @@ fn districts_green_spaces_and_a_unit_named_by_its_feature_are_declared() {
             name: "NAME".into(),
             fallback: Some("ART".into()),
             district: Some(("NR".into(), vec!["Mitte".into(), "Nord".into()])),
+            dedication: None,
+            park_names: false,
         }
     );
     assert_eq!(
@@ -495,6 +498,8 @@ fn districts_green_spaces_and_a_unit_named_by_its_feature_are_declared() {
             name: "NAME".into(),
             fallback: None,
             district: None,
+            dedication: None,
+            park_names: false,
         }
     );
     assert_eq!(
@@ -714,12 +719,144 @@ fn the_keys_of_the_unit_and_water_extras_are_checked() {
         )),
         [("manifest.value", "permits.wfs.layers.name_form".to_string())]
     );
-    // The note is text of at most 400 characters.
-    let long = "x".repeat(401);
+    // The note is text of at most 600 characters.
+    let long = "x".repeat(601);
     assert_eq!(
         refused(&format!(
             "{HEAD}note = \"{long}\"\nlayers = [{{ key = \"a\", type_name = \"x:a\", reading = \"district\", name = \"N\" }}]\n"
         )),
         [("manifest.value", "permits.wfs.note".to_string())]
+    );
+}
+
+#[test]
+fn playgrounds_owners_and_the_named_parts_of_a_green_space_are_declared() {
+    let table = format!(
+        "{HEAD}layers = [\n\
+         {{ key = \"g\", type_name = \"x:g\", reading = \"green-space\", name = \"NAME\", name_form = \"park\", district_attribute = \"BEZIRK\", dedication = \"WIDMUNG\" }},\n\
+         {{ key = \"p\", type_name = \"x:p\", reading = \"playground\" }},\n\
+         {{ key = \"o\", type_name = \"x:o\", reading = \"owner\", owner_attribute = \"SCH\", owners = [\"Land\", \"Bund\"] }},\n\
+         {{ key = \"n\", type_name = \"x:n\", reading = \"object\", object = \"natural-monument\", name = \"GEBIET\", point_names = [\"BAUM\", \"STEIN\"] }},\n\
+         ]\n"
+    );
+    let manifest = parse(&with(&table), Path::new("sample")).unwrap();
+    let layers = &manifest.permits[0].layers;
+    assert_eq!(
+        layers[0].reading,
+        DeclaredReading::GreenSpace {
+            name: "NAME".into(),
+            fallback: None,
+            // Without a list the attribute holds the name of the district.
+            district: Some(("BEZIRK".into(), Vec::new())),
+            dedication: Some("WIDMUNG".into()),
+            park_names: true,
+        }
+    );
+    assert_eq!(layers[1].reading, DeclaredReading::Playground);
+    assert_eq!(
+        layers[2].reading,
+        DeclaredReading::Owner {
+            owner: "SCH".into(),
+            named: vec!["Land".into(), "Bund".into()]
+        }
+    );
+    assert!(matches!(
+        &layers[3].reading,
+        DeclaredReading::Object { point_names, .. } if point_names == &["BAUM", "STEIN"]
+    ));
+}
+
+#[test]
+fn the_keys_of_the_berlin_readings_are_checked() {
+    let layer =
+        |extra: &str| format!("{HEAD}layers = [{{ key = \"a\", type_name = \"x:a\", {extra} }}]\n");
+    // A playground takes no key.
+    assert_eq!(
+        refused(&layer("reading = \"playground\", name = \"N\"")),
+        [("manifest.unknown-key", "name".to_string())]
+    );
+    // An owner needs its attribute and 1 to 8 owners; both halves belong to it only.
+    assert_eq!(
+        refused(&layer("reading = \"owner\", owners = [\"A\"]")),
+        [("manifest.missing-key", "owner_attribute".to_string())]
+    );
+    assert_eq!(
+        refused(&layer("reading = \"owner\", owner_attribute = \"S\"")),
+        [("manifest.value", "owners".to_string())]
+    );
+    assert_eq!(
+        refused(&layer(
+            "reading = \"owner\", owner_attribute = \"S\", owners = []"
+        )),
+        [("manifest.value", "owners".to_string())]
+    );
+    let nine: Vec<String> = (0..9).map(|n| format!("\"{n}\"")).collect();
+    assert_eq!(
+        refused(&layer(&format!(
+            "reading = \"owner\", owner_attribute = \"S\", owners = [{}]",
+            nine.join(", ")
+        ))),
+        [("manifest.value", "owners".to_string())]
+    );
+    for half in ["owner_attribute = \"S\"", "owners = [\"A\"]"] {
+        assert!(
+            refused(&layer(&format!(
+                "reading = \"district\", name = \"N\", {half}"
+            )))
+            .contains(&("manifest.unknown-key", "owner_attribute".to_string())),
+            "{half}"
+        );
+    }
+    // Point names are for an object, 1 to 4 of them.
+    assert_eq!(
+        refused(&layer(
+            "reading = \"object\", object = \"biotope\", point_names = []"
+        )),
+        [("manifest.value", "point_names".to_string())]
+    );
+    let five: Vec<String> = (0..5).map(|n| format!("\"A{n}\"")).collect();
+    assert_eq!(
+        refused(&layer(&format!(
+            "reading = \"object\", object = \"biotope\", point_names = [{}]",
+            five.join(", ")
+        ))),
+        [("manifest.value", "point_names".to_string())]
+    );
+    assert!(
+        refused(&layer(
+            "reading = \"water\", name = \"N\", zone = \"Z\", point_names = [\"A\"]"
+        ))
+        .contains(&("manifest.unknown-key", "point_names".to_string()))
+    );
+    // A dedication is for a green space; the name form of a green space is `park`.
+    assert!(
+        refused(&layer(
+            "reading = \"district\", name = \"N\", dedication = \"W\""
+        ))
+        .contains(&("manifest.unknown-key", "dedication".to_string()))
+    );
+    assert_eq!(
+        refused(&layer(
+            "reading = \"green-space\", name = \"N\", name_form = \"register\""
+        )),
+        [("manifest.value", "permits.wfs.layers.name_form".to_string())]
+    );
+    // A list of districts needs its attribute.
+    assert_eq!(
+        refused(&layer(
+            "reading = \"green-space\", name = \"N\", districts = [\"A\"]"
+        )),
+        [("manifest.value", "district_attribute".to_string())]
+    );
+    // A note may be up to 600 characters.
+    let long = "x".repeat(600);
+    assert!(
+        parse(
+            &with(&format!(
+                "{HEAD}note = \"{long}\"\nlayers = [{{ key = \"a\", type_name = \"x:a\", reading = \"district\", name = \"N\" }}]\n"
+            )),
+            Path::new("sample")
+        )
+        .is_ok()
     );
 }

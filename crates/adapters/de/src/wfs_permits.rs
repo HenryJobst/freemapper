@@ -65,7 +65,20 @@ pub enum Reading {
     GreenSpace {
         name: &'static str,
         fallback: Option<&'static str>,
+        /// The attribute and the names its number goes into; without names the attribute holds
+        /// the name of the district.
         district: Option<(&'static str, &'static [&'static str])>,
+        dedication: Option<&'static str>,
+        /// The name is that of the park, the part before a comma.
+        park_names: bool,
+    },
+    /// A public playground; the notes count them.
+    Playground,
+    /// A parcel of a public owner named by the attribute; only the owners of the list come
+    /// with their name.
+    Owner {
+        owner: &'static str,
+        named: &'static [&'static str],
     },
     /// Forest of the state: `owner` as the notes name it, and the forest office that looks
     /// after it, `prefix` and the attribute `office`.
@@ -83,6 +96,9 @@ pub enum Reading {
         name: Option<&'static str>,
         citation: Option<&'static str>,
         only: Option<(&'static str, &'static [&'static str])>,
+        /// The attributes a point takes its name from, the first that has a value; an area
+        /// takes `name`.
+        point_names: &'static [&'static str],
     },
     /// A listed monument of `kind`, or of the kind the attribute `kind_from` names where the
     /// layer has one, with a link from the attribute `link` when it starts with `list` (the
@@ -135,22 +151,29 @@ impl Reading {
                 name,
                 fallback,
                 district,
+                dedication,
+                ..
             } => [
                 Some(name),
                 fallback,
                 district.map(|(attribute, _)| attribute),
+                dedication,
             ]
             .into_iter()
             .flatten()
             .collect(),
+            Reading::Playground => Vec::new(),
+            Reading::Owner { owner, .. } => vec![owner],
             Reading::Object {
                 name,
                 citation,
                 only,
+                point_names,
                 ..
             } => [name, citation, only.map(|(attribute, _)| attribute)]
                 .into_iter()
                 .flatten()
+                .chain(point_names.iter().copied())
                 .collect(),
             Reading::Monument {
                 kind_from, link, ..
@@ -393,6 +416,8 @@ fn reading(declared: &DeclaredReading) -> Reading {
             name,
             fallback,
             district,
+            dedication,
+            park_names,
         } => Reading::GreenSpace {
             name: kept(name),
             fallback: fallback.as_deref().map(kept),
@@ -402,6 +427,13 @@ fn reading(declared: &DeclaredReading) -> Reading {
                     kept_all(names.iter().map(|name| kept(name)).collect()),
                 )
             }),
+            dedication: dedication.as_deref().map(kept),
+            park_names: *park_names,
+        },
+        DeclaredReading::Playground => Reading::Playground,
+        DeclaredReading::Owner { owner, named } => Reading::Owner {
+            owner: kept(owner),
+            named: kept_all(named.iter().map(|name| kept(name)).collect()),
         },
         DeclaredReading::StateForest {
             owner,
@@ -417,7 +449,9 @@ fn reading(declared: &DeclaredReading) -> Reading {
             name,
             citation,
             only,
+            point_names,
         } => Reading::Object {
+            point_names: kept_all(point_names.iter().map(|name| kept(name)).collect()),
             kind: *kind,
             name: name.as_deref().map(kept),
             citation: citation.as_deref().map(kept),
@@ -662,6 +696,12 @@ pub(crate) fn register_name(raw: &str) -> String {
     name_case(&words.join(" "))
 }
 
+/// The park a green space belongs to: Berlin names the parts of a park after it, with the part
+/// after a comma ("Viktoriapark, Rosengarten"), and the notes give the park one line.
+pub(crate) fn park_name(name: &str) -> String {
+    name.split(", ").next().unwrap_or(name).trim().to_string()
+}
+
 /// A zone as the hints name it: a bare "I" or "IIIA" becomes "Schutzzone I"; a text that
 /// already says zone stays.
 pub(crate) fn zone_name(zone: &str) -> String {
@@ -732,16 +772,30 @@ pub(crate) fn finding(reading: Reading, feature: &Value) -> Option<PermitFinding
             name,
             fallback,
             district,
+            dedication,
+            park_names,
         } => FindingKind::GreenSpace {
             name: text(feature, name)
                 .or_else(|| fallback.and_then(|f| text(feature, f)))
+                .map(|name| if park_names { park_name(&name) } else { name })
                 .unwrap_or_default(),
             district: district.and_then(|(attribute, names)| {
-                let index: usize = text(feature, attribute)?.parse().ok()?;
+                let value = text(feature, attribute)?;
+                if names.is_empty() {
+                    return Some(value);
+                }
+                let index: usize = value.parse().ok()?;
                 names.get(index.checked_sub(1)?).map(|n| (*n).to_string())
             }),
-            dedication: None,
+            dedication: dedication.and_then(|d| text(feature, d)),
         },
+        Reading::Playground => FindingKind::Playground,
+        Reading::Owner { owner, named } => {
+            let owner = text(feature, owner)?;
+            FindingKind::OwnerShare {
+                owner: named.contains(&owner.as_str()).then_some(owner),
+            }
+        }
         Reading::StateForest {
             owner,
             prefix,
@@ -755,6 +809,7 @@ pub(crate) fn finding(reading: Reading, feature: &Value) -> Option<PermitFinding
             name,
             citation,
             only,
+            point_names,
         } => {
             if let Some((attribute, values)) = only
                 && !text(feature, attribute).is_some_and(|v| values.contains(&v.as_str()))
@@ -763,7 +818,11 @@ pub(crate) fn finding(reading: Reading, feature: &Value) -> Option<PermitFinding
             }
             FindingKind::ProtectedObject {
                 kind,
-                name: name.and_then(|n| text(feature, n)),
+                name: if matches!(geometry, Geometry::MultiPoint(_)) && !point_names.is_empty() {
+                    point_names.iter().find_map(|n| text(feature, n))
+                } else {
+                    name.and_then(|n| text(feature, n))
+                },
                 citation: citation.and_then(|c| text(feature, c)),
             }
         }
@@ -917,6 +976,7 @@ mod tests {
             name: Some("bt_name"),
             citation: None,
             only: Some(("schutz_ges", &["1"])),
+            point_names: &[],
         };
         let feature = |schutz: &str| {
             serde_json::json!({"type": "Feature",
@@ -1244,7 +1304,7 @@ mod tests {
         let declared: Vec<Box<dyn PermitSource>> = manifest
             .permits
             .iter()
-            .filter(|w| is_objects(w))
+            .filter(|w| is_objects(w) && w.key == "biotope")
             .map(declared_source)
             .collect();
         assert_eq!(declared.len(), 1);

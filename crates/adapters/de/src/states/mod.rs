@@ -565,8 +565,8 @@ impl StateAdapter {
         // monuments of the state offices where they are open (ADR 0144); the monuments of the
         // seven states that have them are declared in their manifests (issue #273).
         let permits: Vec<Box<dyn PermitSource>> = match state {
-            // The protected biotopes of Berlin are declared in its manifest (issue #273).
-            State::Berlin => crate::berlin_permits::sources(),
+            // The sources of Berlin are declared in its manifest (issue #273).
+            State::Berlin => Vec::new(),
             // The Reviere and the forest functions of Brandenburg are declared in its manifest
             // (issue #273); its water protection areas are a shapefile.
             State::Brandenburg => crate::lfb_permits::sources(),
