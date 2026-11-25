@@ -1420,7 +1420,9 @@ has the same form and its hint says that archaeological research and searching w
 conservator's permit (art. 36 ust. 1 pkt 5 and 12), that the permit for searches falls away on 1 January 2027 and is
 replaced by the owner's consent plus a notification in the app of the ministry (art. 36b), and that registered
 monuments and their 10 m belt are then closed to such searches (art. 36c). Sites that are only in the
-archaeological record (AZP) and not entered in the register, and the Pomniki historii, are not covered. Only the State Forests
+archaeological record (AZP) and not entered in the register, are not covered. The Pomniki historii (monuments of
+history) come from a third request to the same host; they have true positions, so the section tells monuments inside
+the map area from those only in the rectangle around it and names them (ten at most per list). Only the State Forests
 are in the data; private forest is not, and the notes say that the starosta supervises forest that the State
 Treasury does not own. The German wording of these hints has not been read by a Polish speaker.
 The notes are a hint, not legal advice. `--offline` reads what an earlier run stored, as in Germany.
