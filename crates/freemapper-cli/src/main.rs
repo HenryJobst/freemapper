@@ -366,6 +366,17 @@ enum AdaptersCommand {
         #[arg(long, value_name = "FILE")]
         status: Option<PathBuf>,
     },
+    /// Write the built-in adapter of a state as an adapter folder you can change: its manifest
+    /// and the files the manifest names, in `<dir>/<id>`. The folder must not exist yet or be
+    /// empty. Change the addresses in its `manifest.toml`, check it with `adapters check`, and
+    /// put it into your adapter folder: it then replaces the built-in adapter, with a warning.
+    /// Removing the folder takes the built-in one back.
+    Export {
+        /// The id of the built-in adapter, as `adapters list` shows it.
+        adapter: String,
+        /// The folder in which the folder `<id>` is made.
+        dir: PathBuf,
+    },
     /// Allow a built-in adapter one more host: for a state whose service moved to a server
     /// its adapter does not name yet. The message about the refused address says which host.
     /// The host is checked like a host of a manifest, and freemapper still connects to
@@ -1254,6 +1265,9 @@ fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
                 }
             }
         }
+        Commands::Adapters {
+            command: AdaptersCommand::Export { adapter, dir },
+        } => adapters::export(&adapter, &dir)?,
         Commands::Adapters {
             command: AdaptersCommand::AllowHost { adapter, host },
         } => adapters::change_allowed_host(&adapter, &host, true)?,

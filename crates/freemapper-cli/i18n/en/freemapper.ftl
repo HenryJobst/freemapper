@@ -80,6 +80,10 @@ cli-adapter-from-project = warning: the adapter { $adapter } from the project fo
 cli-adapter-overlaps = warning: the adapter { $adapter } also covers ground of { $others }; its objects go onto maps there
 cli-adapter-dir-relative = warning: FREEMAPPER_ADAPTER_DIR is not an absolute path ({ $path }); it is ignored
 cli-adapters-no-project = warning: { $path } is not a folder; no adapters of a project were read
+cli-adapters-export-unknown = the adapter { $adapter } is not declared by a manifest of this program, so there is nothing to export; `freemapper adapters list` shows the ids
+cli-adapters-export-taken = { $path } exists and is not empty; export into a folder that does not exist yet
+cli-adapters-export-done = Wrote the { $count } files of the adapter { $adapter } to { $path }. Only what its manifest declares is in them; addresses that sit in the program's code are not.
+cli-adapters-export-next = Change the addresses in manifest.toml, check the folder with `freemapper adapters check`, then move it into { $path }: it replaces the built-in adapter from the next start on, with a warning. Deleting the folder takes the built-in one back.
 cli-adapters-overlaps = shares ground with: { $others }
 cli-adapters-line = { $adapter }  { $name }  { $source }  revision { $revision }  checked { $checked }  hosts: { $hosts }
 cli-adapters-source-built-in = built in
@@ -667,6 +671,9 @@ help-adapters-allow-host-host = The host to allow: a DNS name, no address, no po
 help-adapters-disallow-host = Take back a host that allow-host allowed
 help-adapters-disallow-host-adapter = The id of the built-in adapter
 help-adapters-disallow-host-host = The host to take back
+help-adapters-export = Write the built-in adapter of a state as an adapter folder you can change: its manifest and the files the manifest names, in `<dir>/<id>`. The folder must not exist yet or be empty. Change the addresses in its `manifest.toml`, check it with `adapters check`, and put it into your adapter folder: it then replaces the built-in adapter, with a warning. Removing the folder takes the built-in one back
+help-adapters-export-adapter = The id of the built-in adapter, as `adapters list` shows it
+help-adapters-export-dir = The folder in which the folder `<id>` is made
 help-arg-adapters-from-project = Also load the adapters in the folder `adapters` of the project folder. freemapper names each of them with the hosts it asks. Use it for a project you trust: an adapter makes freemapper ask the servers it names
 
 ## The summary of a run, for the MCP server and the area page

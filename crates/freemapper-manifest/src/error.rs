@@ -41,6 +41,7 @@ use std::path::PathBuf;
 /// | `adapter.needs-newer` | the manifest asks for a newer freemapper |
 /// | `adapter.duplicate` | the id is taken; a folder replaces a built-in adapter, once, and no other |
 /// | `adapter.replaces-built-in` | a note: the adapter takes the place of the built-in one with its id |
+/// | `adapter.replacement-outdated` | a note: the built-in adapter it replaces has a higher `revision` |
 /// | `adapter.provider-shared` | services of its own under the provider of another adapter |
 /// | `adapter.rules-not-read` | a `rules.toml`, which this freemapper does not read (the adapter loads) |
 /// | `manifest.file-missing` | a file the manifest names is not there or cannot be read |

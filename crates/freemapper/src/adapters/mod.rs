@@ -36,6 +36,13 @@ pub fn builtin_with_hosts(extra: &ExtraHosts) -> Registry {
     registry
 }
 
+/// The files of the adapter folder for the built-in adapter `id`, as `(name, text)`: what
+/// `adapters export` writes. `None` when the adapter is not declared by a manifest of the
+/// program (Poland's is code).
+pub fn export_files(id: &str) -> Option<Vec<(String, std::borrow::Cow<'static, str>)>> {
+    freemapper_adapters_de::states::export_files(id)
+}
+
 /// A registry with the raster backends of the program and no adapter: what the manifest of an
 /// adapter that is checked on its own may name.
 pub fn backends() -> Registry {

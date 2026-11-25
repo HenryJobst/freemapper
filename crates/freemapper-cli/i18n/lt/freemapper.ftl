@@ -82,6 +82,10 @@ cli-adapter-from-project = įspėjimas: naudojamas projekto aplanko adapteris { 
 cli-adapter-overlaps = įspėjimas: adapteris { $adapter } taip pat apima { $others } teritoriją; jo objektai patenka į ten esančius žemėlapius
 cli-adapter-dir-relative = įspėjimas: FREEMAPPER_ADAPTER_DIR nėra absoliutus kelias ({ $path }); jis ignoruojamas
 cli-adapters-no-project = įspėjimas: { $path } nėra aplankas; projekto adapterių neskaityta
+cli-adapters-export-unknown = adapterio { $adapter } neaprašo jokia šios programos manifesto byla, todėl nėra ko eksportuoti; `freemapper adapters list` parodo identifikatorius
+cli-adapters-export-taken = { $path } egzistuoja ir nėra tuščias; eksportuokite į aplanką, kurio dar nėra
+cli-adapters-export-done = Adapterio { $adapter } { $count } failų įrašyta į { $path }. Juose yra tik tai, ką aprašo manifestas; adresų, esančių programos kode, juose nėra.
+cli-adapters-export-next = Pakeiskite adresus faile manifest.toml, patikrinkite aplanką komanda `freemapper adapters check` ir perkelkite jį į { $path }: nuo kito paleidimo jis pakeičia integruotą adapterį, su įspėjimu. Ištrynus aplanką, integruotas adapteris grįžta.
 cli-adapters-overlaps = dalijasi teritorija su: { $others }
 cli-adapters-line = { $adapter }  { $name }  { $source }  redakcija { $revision }  patikrinta { $checked }  hostai: { $hosts }
 cli-adapters-source-built-in = įtaisytas
@@ -677,6 +681,9 @@ help-adapters-allow-host-host = Leidžiamas hostas: DNS vardas, ne adresas, be p
 help-adapters-disallow-host = Atšaukti hostą, kurį leido allow-host
 help-adapters-disallow-host-adapter = Įtaisyto adapterio id
 help-adapters-disallow-host-host = Atšaukiamas hostas
+help-adapters-export = Įrašo žemės integruotą adapterį kaip adapterio aplanką, kurį galite keisti: jo manifestą ir manifeste nurodytus failus į `<dir>/<id>`. Aplanko dar negali būti arba jis turi būti tuščias. Pakeiskite adresus jo `manifest.toml`, patikrinkite komanda `adapters check` ir įdėkite į savo adapterių aplanką: tada jis pakeičia integruotą adapterį, su įspėjimu. Pašalinus aplanką, integruotas adapteris grįžta
+help-adapters-export-adapter = Integruoto adapterio identifikatorius, kaip jį rodo `adapters list`
+help-adapters-export-dir = Aplankas, kuriame sukuriamas aplankas `<id>`
 help-arg-adapters-from-project = Taip pat įkelti adapterius projekto aplanko aplanke `adapters`. freemapper įvardija kiekvieną iš jų su hostais, į kuriuos jis kreipiasi. Naudokite pasitikimam projektui: adapteris priverčia freemapper kreiptis į jo nurodytus serverius
 
 ## The summary of a run, for the MCP server and the area page

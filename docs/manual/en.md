@@ -1768,6 +1768,47 @@ DNS name; an IP address, `localhost`, a name of the local network, a wildcard or
 allowed host, too, freemapper connects to servers on the internet only. `freemapper adapters list` shows the
 allowed hosts per state, and `freemapper adapters disallow-host hessen new-server.hessen.de` takes one back.
 
+### Correcting an address yourself
+
+`allow-host` only adds a host. When a state moved a service to a new address, you can also change the address
+yourself, without waiting for a release: your own adapter folder with the id of the state takes the place of the
+built-in adapter. You do not write the folder from nothing; `adapters export` writes the built-in one, and you
+change the few places that moved.
+
+1. Export the state. The id is the one `freemapper adapters list` shows:
+   `freemapper adapters export hessen ~/my-adapters`. This writes the folder `~/my-adapters/hessen` with the
+   manifest (`manifest.toml`) and the files it names (the boundary, for some states the boundaries of the OSM
+   extracts). The command never writes into a folder that has files in it. Saxony-Anhalt declares its orthophoto
+   as a service, and an adapter like that needs a provider of its own to load as a replacement: its export names
+   the provider `saxonyanhalt`, and its downloads then go to a cache folder of their own.
+2. Change the address in `manifest.toml`: the `url` of the service that moved and, if the host is new, the host
+   in `[net] hosts`. Raise `revision` if the data a map gets changes. Do not touch what you do not need to.
+3. Check the folder: `freemapper adapters check ~/my-adapters/hessen`. It names the one warning
+   `check.built-in-id` (the id is built in, so the folder will replace it); every other finding is yours to fix.
+   `--live --bbox minLon,minLat,maxLon,maxLat` also asks the services.
+4. Put the folder into your adapter folder (`freemapper adapters list` prints where it is, or set
+   `FREEMAPPER_ADAPTER_DIR` to an absolute path). From the next start the folder replaces the built-in adapter.
+5. See that it took: every start of the program prints the warning `adapter.replaces-built-in`, `freemapper
+   adapters list` shows the state as `from your folder`, and `adapters list --json` has `"replaces_built_in":
+   true`.
+6. To go back, delete the folder. The built-in adapter is there again at the next start.
+
+What the replacement is held to: it asks only the hosts its own manifest names; the hosts you allowed with
+`allow-host` for the built-in adapter do not carry over. Credit and licence are those of the manifest, so keep
+`[credit]` and the licence right when the service changes the licence. A newer freemapper that changes the
+built-in state does not reach a region whose folder replaces it: when the built-in adapter has a higher
+`revision`, `adapters check` (`check.built-in-newer`) and every start (`adapter.replacement-outdated`) say so;
+export again and carry your changes over. A folder in a project (`--adapters-from-project`) never replaces a
+built-in adapter, and the area page and the AI assistant through MCP read only your own folder.
+
+What a folder cannot replace: only what the manifest declares is in the export. Addresses that still sit in the
+code of a state stay as they are: the layers of Berlin that the program fetches by code, the tree cadastres,
+the point clouds and the permit sources that no manifest table describes. Poland's adapter is code and has no
+manifest to export. If the moved service is one of those, report it (chapter 16) and use `allow-host` until the
+next release.
+
+An assistant that moved a service for you proposes the change, shows it and writes it only after you agreed.
+
 ## 14. Working on later
 
 - **Your map is safe:** running `run` again (or "please fetch again") leaves an existing map unchanged.
@@ -1830,7 +1871,7 @@ language. The most important messages, in their English wording:
 | `download of … failed` or `invalid ALKIS data` | A server was unreachable or sent nonsense. | Try again later. Data fetched before is kept. |
 | Area selection: "access blocked" / 403 from OpenStreetMap, or the base map stays grey | The base map comes from `tile.openstreetmap.org`. Its tile policy asks for an identifiable application (`User-Agent`) or a valid `Referer`; the browser sends no `Referer` here. Up to 0.9.1 the browser loaded the tiles itself and got 403. Since 0.9.2 the local server fetches the tiles with `User-Agent: freemapper/<version> (+https://github.com/HenryJobst/freemapper)` and passes them to the browser. | Update freemapper. The computer needs internet access. If the server answers 502, the reason is in the response (for example HTTP 403 or no connection). The state aerial images are not affected. |
 | `… refused the request (HTTP 400)` | A service refuses the request. | Try again. If it persists, report a bug. |
-| `…: freemapper does not send requests to this address: the adapter of … does not name the host …` | For a state freemapper asks only the servers its adapter names. A service moved to another server, redirected there or pointed there in its answer. The message starts with the refused address and ends with the command that allows the host. | If you trust the server (it plainly belongs to the agency of the state): run the command from the message, `freemapper adapters allow-host <adapter> <host>`, repeat the run and report the move (chapter 17). See "When a service moves" in chapter 13. For an adapter of your own, add the host to `[net] hosts` of its manifest. |
+| `…: freemapper does not send requests to this address: the adapter of … does not name the host …` | For a state freemapper asks only the servers its adapter names. A service moved to another server, redirected there or pointed there in its answer. The message starts with the refused address and ends with the command that allows the host. | If you trust the server (it plainly belongs to the agency of the state): run the command from the message, `freemapper adapters allow-host <adapter> <host>`, repeat the run and report the move (chapter 17). See "When a service moves" in chapter 13. If the address itself changed, you can correct it without a release ("Correcting an address yourself", chapter 13). For an adapter of your own, add the host to `[net] hosts` of its manifest. |
 | `…: freemapper does not send requests to this address: …` with another reason | freemapper never connects to an address of this computer or of the local network, follows at most three redirects in a row and no redirect to `http`. | Nothing to allow. For a built-in state, report a bug. |
 | `… ignored the byte range` | The server (height models of Hamburg or Hesse) sends the whole archive instead of the tile; freemapper stops rather than download over 1 GB. | Try again later, otherwise report a bug. |
 | `download of … is larger than … MB; stopped` | A server (the OSM extract, the Downloadportal of Schleswig-Holstein, the full ALKIS or the Potsdam tree cadastre) sends far more than the file can be; freemapper stops and removes the partial download. For the trees it stands in the brackets of `warning: potsdam tree cadastre unavailable`. | Try again later, otherwise report a bug. |

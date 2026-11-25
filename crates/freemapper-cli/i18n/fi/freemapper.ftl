@@ -80,6 +80,10 @@ cli-adapter-from-project = varoitus: projektikansion sovitin { $adapter } on kä
 cli-adapter-overlaps = varoitus: sovitin { $adapter } kattaa myös alueen { $others }; sen kohteet päätyvät siellä oleville kartoille
 cli-adapter-dir-relative = varoitus: FREEMAPPER_ADAPTER_DIR ei ole absoluuttinen polku ({ $path }); se ohitetaan
 cli-adapters-no-project = varoitus: { $path } ei ole kansio; projektin sovittimia ei luettu
+cli-adapters-export-unknown = sovitinta { $adapter } ei kuvaa tämän ohjelman mikään manifesti, joten viemistä ei ole; `freemapper adapters list` näyttää tunnisteet
+cli-adapters-export-taken = { $path } on olemassa eikä ole tyhjä; vie kansioon, jota ei vielä ole
+cli-adapters-export-done = Sovittimen { $adapter } { $count } tiedostoa kirjoitettiin kansioon { $path }. Niissä on vain se, minkä manifesti kuvaa; ohjelman koodissa olevia osoitteita niissä ei ole.
+cli-adapters-export-next = Muuta osoitteet tiedostossa manifest.toml, tarkista kansio komennolla `freemapper adapters check` ja siirrä se kansioon { $path }: seuraavasta käynnistyksestä alkaen se korvaa sisäänrakennetun sovittimen varoituksen kera. Kansion poistaminen palauttaa sisäänrakennetun sovittimen.
 cli-adapters-overlaps = jakaa alueen kanssa: { $others }
 cli-adapters-line = { $adapter }  { $name }  { $source }  versio { $revision }  tarkistettu { $checked }  palvelimet: { $hosts }
 cli-adapters-source-built-in = sisäänrakennettu
@@ -667,6 +671,9 @@ help-adapters-allow-host-host = Sallittava palvelin: DNS-nimi, ei osoite, ei por
 help-adapters-disallow-host = Peru palvelin, jonka allow-host salli
 help-adapters-disallow-host-adapter = Sisäänrakennetun sovittimen tunnus
 help-adapters-disallow-host-host = Peruttava palvelin
+help-adapters-export = Kirjoittaa osavaltion sisäänrakennetun sovittimen muutettavaksi sovitinkansioksi: sen manifesti ja manifestin mainitsemat tiedostot kansioon `<dir>/<id>`. Kansiota ei saa olla vielä olemassa tai sen on oltava tyhjä. Muuta osoitteet sen tiedostossa `manifest.toml`, tarkista se komennolla `adapters check` ja laita se omaan sovitinkansioosi: se korvaa silloin sisäänrakennetun sovittimen varoituksen kera. Kansion poistaminen palauttaa sisäänrakennetun sovittimen
+help-adapters-export-adapter = Sisäänrakennetun sovittimen tunniste sellaisena kuin `adapters list` sen näyttää
+help-adapters-export-dir = Kansio, johon kansio `<id>` luodaan
 help-arg-adapters-from-project = Lataa myös projektikansion kansion `adapters` sovittimet. freemapper nimeää jokaisen niistä palvelimineen, joita se kysyy. Käytä projektille, johon luotat: sovitin saa freemapperin kysymään sen nimeämiä palvelimia
 
 ## The summary of a run, for the MCP server and the area page

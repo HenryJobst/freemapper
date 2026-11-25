@@ -298,6 +298,49 @@ fn folder_adapter_replaces_only_a_builtin_and_only_once() {
     assert_eq!(skipped(&warnings).0, "adapter.duplicate");
 }
 
+/// A replacement that is older than the built-in adapter says so; one at the same revision or
+/// newer does not. The note about the replacement names the credit and what stays in code.
+#[test]
+fn a_replacement_older_than_the_built_in_adapter_says_so() {
+    let dir = tempfile::tempdir().unwrap();
+    let newer = manifest("sample").replace("revision = 1\n", "revision = 3\n");
+    assert_ne!(newer, manifest("sample"));
+    for (revision, outdated) in [(1, true), (2, true), (3, false), (4, false)] {
+        // A replacement that declares services is its own provider.
+        let replacement = manifest("sample")
+            .replace("revision = 1\n", &format!("revision = {revision}\n"))
+            .replace("[adapter]\n", "[adapter]\nprovider = \"sampleown\"\n");
+        write(dir.path(), "sample", &replacement);
+        let mut registry = Registry::new();
+        registry
+            .add(built_in("sample", &newer, &Registry::new()))
+            .unwrap();
+        registry.mark_builtin();
+        let (loaded, warnings) = load_dirs(&mut registry, &user(dir.path()), RUNNING);
+        assert_eq!(loaded.len(), 1, "revision {revision}");
+        let codes: Vec<&str> = warnings[0].findings.iter().map(|f| f.code).collect();
+        if outdated {
+            assert_eq!(
+                codes,
+                ["adapter.replaces-built-in", "adapter.replacement-outdated"],
+                "revision {revision}"
+            );
+            let message = &warnings[0].findings[1].message;
+            assert!(message.contains("revision 3"), "{message}");
+            assert!(message.contains(&format!("at {revision}")), "{message}");
+            assert!(message.contains("adapters export sample"), "{message}");
+        } else {
+            assert_eq!(codes, ["adapter.replaces-built-in"], "revision {revision}");
+        }
+        let note = &warnings[0].findings[0].message;
+        assert!(
+            note.contains("credit") && note.contains("licence"),
+            "{note}"
+        );
+        assert!(note.contains("sit in the program's code"), "{note}");
+    }
+}
+
 #[test]
 fn broken_folder_adapter_is_skipped_with_file_and_line() {
     let dir = tempfile::tempdir().unwrap();

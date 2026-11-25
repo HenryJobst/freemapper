@@ -82,6 +82,10 @@ cli-adapter-from-project = aviso: o adaptador { $adapter } da pasta do projeto e
 cli-adapter-overlaps = aviso: o adaptador { $adapter } cobre também território de { $others }; os seus objetos entram nos mapas aí
 cli-adapter-dir-relative = aviso: FREEMAPPER_ADAPTER_DIR não é um caminho absoluto ({ $path }); é ignorado
 cli-adapters-no-project = aviso: { $path } não é uma pasta; não foram lidos adaptadores de um projeto
+cli-adapters-export-unknown = o adaptador { $adapter } não é descrito por nenhum manifesto deste programa, por isso não há nada a exportar; `freemapper adapters list` mostra os identificadores
+cli-adapters-export-taken = { $path } existe e não está vazia; exporte para uma pasta que ainda não exista
+cli-adapters-export-done = Os { $count } ficheiros do adaptador { $adapter } foram escritos em { $path }. Contêm apenas o que o manifesto descreve; os endereços que estão no código do programa não estão lá.
+cli-adapters-export-next = Altere os endereços em manifest.toml, verifique a pasta com `freemapper adapters check` e mova-a para { $path }: a partir do próximo arranque substitui o adaptador integrado, com um aviso. Se apagar a pasta, o integrado volta.
 cli-adapters-overlaps = partilha território com: { $others }
 cli-adapters-line = { $adapter }  { $name }  { $source }  revisão { $revision }  verificado { $checked }  anfitriões: { $hosts }
 cli-adapters-source-built-in = integrado
@@ -675,6 +679,9 @@ help-adapters-allow-host-host = O anfitrião a permitir: um nome DNS, sem endere
 help-adapters-disallow-host = Retirar um anfitrião que allow-host permitiu
 help-adapters-disallow-host-adapter = O id do adaptador integrado
 help-adapters-disallow-host-host = O anfitrião a retirar
+help-adapters-export = Escreve o adaptador integrado de um estado federado como pasta de adaptador que pode alterar: o seu manifesto e os ficheiros que o manifesto nomeia, em `<dir>/<id>`. A pasta ainda não pode existir ou tem de estar vazia. Altere os endereços no seu `manifest.toml`, verifique-a com `adapters check` e coloque-a na sua pasta de adaptadores: substitui então o adaptador integrado, com um aviso. Se remover a pasta, o integrado volta
+help-adapters-export-adapter = O identificador do adaptador integrado, como `adapters list` o mostra
+help-adapters-export-dir = A pasta em que a pasta `<id>` é criada
 help-arg-adapters-from-project = Carregar também os adaptadores da pasta `adapters` da pasta do projeto. O freemapper nomeia cada um com os anfitriões que consulta. Usa-o para um projeto em que confies: um adaptador faz o freemapper consultar os servidores que ele nomeia
 
 ## The summary of a run, for the MCP server and the area page

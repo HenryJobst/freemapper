@@ -276,13 +276,18 @@ Services move, and flight years change. What an adapter needs over time:
   `revision` when the change alters the data a map gets: another service, another product, another year.
 - For a built-in state, users can help themselves until the next version: the message about the refused
   address names the command `freemapper adapters allow-host <id> <host>`. Ask them to report the move.
-- A moved service of a built-in state that its manifest declares can also be corrected without a release: copy
-  the manifest folder of the state (`crates/adapters/de/manifests/<id>/`) into your adapter folder, change the
-  address and `[net] hosts`, and check it with `adapters check`. A folder in your adapter folder with the id of a
+- A moved service of a built-in state that its manifest declares can also be corrected without a release:
+  `freemapper adapters export <id> <dir>` writes the built-in adapter (manifest and the files it names) as the
+  folder `<dir>/<id>`; change the address and `[net] hosts` in it, check it with `adapters check` (the one
+  warning `check.built-in-id` is expected), and put it into your adapter folder; deleting it takes the built-in
+  adapter back. The steps, the limits and the safety rules are in chapter 13 of the manual ("Correcting an
+  address yourself"). A folder in your adapter folder with the id of a
   built-in state takes its place (once, with the note `adapter.replaces-built-in`; a project folder does not,
   and one that declares services needs a `provider` of its own); `adapters list` shows it as `user` and the JSON
-  says `replaces_built_in`. Addresses that still sit in the code of the state (permit sources, tree cadastres)
-  are not in the manifest and stay as they are.
+  says `replaces_built_in`. Addresses that still sit in the code of the state (tree cadastres, point clouds,
+  the layers Berlin fetches by code) are not in the manifest and stay as they are. When the built-in adapter has
+  a higher `revision` than your folder, `adapters check` (`check.built-in-newer`) and every start
+  (`adapter.replacement-outdated`) say so: export again and carry your changes over.
 - A new key of the format needs a newer freemapper. Set `min_freemapper` to the version that introduced the
   key, so that an older program says "needs a newer freemapper" and not "unknown key".
 

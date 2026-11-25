@@ -299,13 +299,18 @@ Dienste ziehen um, und Flugjahre wechseln. Was ein Adapter über die Zeit brauch
   über die abgelehnte Adresse nennt den Befehl `freemapper adapters allow-host <Kennung> <Host>`. Bitten Sie
   sie, den Umzug zu melden.
 - Einen umgezogenen Dienst eines eingebauten Bundeslands, den sein Manifest nennt, können Sie auch ohne Release
-  korrigieren: Kopieren Sie den Manifestordner des Landes (`crates/adapters/de/manifests/<Kennung>/`) in Ihren
-  Adapterordner, ändern Sie Adresse und `[net] hosts` und prüfen Sie ihn mit `adapters check`. Ein Ordner in
+  korrigieren: `freemapper adapters export <Kennung> <Ordner>` schreibt den eingebauten Adapter (Manifest und die
+  Dateien, die es nennt) als Ordner `<Ordner>/<Kennung>`; ändern Sie darin Adresse und `[net] hosts`, prüfen Sie
+  ihn mit `adapters check` (die eine Warnung `check.built-in-id` ist erwartet) und legen Sie ihn in Ihren
+  Adapterordner; löschen Sie ihn, ist der eingebaute Adapter wieder da. Schritte, Grenzen und Sicherheitsregeln
+  stehen in Kapitel 13 des Handbuchs („Eine Adresse selbst ändern“). Ein Ordner in
   Ihrem Adapterordner mit der Kennung eines eingebauten Landes tritt an dessen Stelle (einmal, mit dem Hinweis
   `adapter.replaces-built-in`; ein Projektordner tut das nicht, und einer, der Dienste erklärt, braucht einen
   eigenen `provider`); `adapters list` zeigt ihn als `user`, das JSON sagt `replaces_built_in`.
-  Adressen, die noch im Code des Landes stehen (Quellen der Genehmigungshinweise, Baumkataster), stehen nicht
-  im Manifest und bleiben, wie sie sind.
+  Adressen, die noch im Code des Landes stehen (Baumkataster, Punktwolken, die Schichten, die Berlin mit Code
+  abruft), stehen nicht im Manifest und bleiben, wie sie sind. Hat der eingebaute Adapter eine höhere
+  `revision` als Ihr Ordner, sagen es `adapters check` (`check.built-in-newer`) und jeder Start
+  (`adapter.replacement-outdated`): exportieren Sie neu und übernehmen Sie Ihre Änderungen.
 - Ein neuer Schlüssel des Formats braucht ein neueres freemapper. Setzen Sie `min_freemapper` auf die
   Version, die den Schlüssel eingeführt hat, damit ein älteres Programm „braucht ein neueres freemapper“ sagt
   und nicht „unbekannter Schlüssel“.

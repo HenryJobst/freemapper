@@ -3,8 +3,9 @@
 //! The region adapters of a run: those built into the program, those of the user's folder and,
 //! when the person asks for them, those of a project (ADR 0082, spec 3.7).
 //!
-//! The registry is assembled once, before anything asks it. An adapter from a folder cannot
-//! replace one the program has; a folder with a defect is left out with a warning. The MCP
+//! The registry is assembled once, before anything asks it. An adapter from the person's folder
+//! replaces a built-in one with its id (ADR 0188), one from a project folder does not; a folder
+//! with a defect is left out with a warning. The MCP
 //! server and the area page never load the adapters of a project: a project that was passed on
 //! must not bring a source along.
 
@@ -280,6 +281,69 @@ pub fn list(json: bool, project: Option<&Path>) {
     for line in list_lines(&assembled, user.dir.as_deref(), &crate::text::lang().code()) {
         println!("{line}");
     }
+}
+
+/// `freemapper adapters export <id> <dir>`: writes the built-in adapter `id` as the folder
+/// `<dir>/<id>`, which loads as an adapter that replaces the built-in one (ADR 0188). It never
+/// overwrites: the folder must not exist or must be empty.
+pub fn export(id: &str, dir: &Path) -> anyhow::Result<()> {
+    let files = freemapper::adapters::export_files(id).ok_or_else(|| {
+        anyhow::anyhow!(text("cli-adapters-export-unknown", &[("adapter", v(id))]))
+    })?;
+    let target = dir.join(id);
+    write_export(&target, &files)?;
+    println!(
+        "{}",
+        text(
+            "cli-adapters-export-done",
+            &[
+                ("adapter", v(id)),
+                ("count", v(files.len())),
+                ("path", v(target.display())),
+            ]
+        )
+    );
+    let user = user_dir();
+    if let Some(user) = user.dir {
+        println!(
+            "{}",
+            text("cli-adapters-export-next", &[("path", v(user.display()))])
+        );
+    }
+    Ok(())
+}
+
+/// Writes `files` into `target`, a folder that does not exist yet or is empty.
+fn write_export(
+    target: &Path,
+    files: &[(String, std::borrow::Cow<'static, str>)],
+) -> anyhow::Result<()> {
+    use std::io::Write as _;
+    let taken = |_| {
+        anyhow::anyhow!(text(
+            "cli-adapters-export-taken",
+            &[("path", v(target.display()))]
+        ))
+    };
+    match std::fs::read_dir(target) {
+        Ok(mut entries) => {
+            if entries.next().is_some() {
+                return Err(taken(()));
+            }
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            std::fs::create_dir_all(target)?;
+        }
+        Err(_) => return Err(taken(())),
+    }
+    for (name, body) in files {
+        let mut file = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(target.join(name))?;
+        file.write_all(body.as_bytes())?;
+    }
+    Ok(())
 }
 
 /// The hosts the person allowed for the adapter `id`.

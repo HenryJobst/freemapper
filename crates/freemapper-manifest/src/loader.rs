@@ -274,7 +274,7 @@ pub fn load_folder(
     entry.overlaps = sharing_ground(registry, adapter.as_ref());
     let mut notes = Vec::new();
     if entry.replaces_built_in {
-        registry
+        let replaced = registry
             .replace(adapter)
             .map_err(|taken| one("adapter.duplicate", taken.to_string()))?;
         notes.push(finding(
@@ -282,11 +282,26 @@ pub fn load_folder(
             &folder.join(MANIFEST_FILE),
             format!(
                 "this adapter replaces the adapter {} that is built into freemapper; only what its \
-                 manifest declares changes, and a newer freemapper that changes the built-in one \
-                 does not reach this region until the folder is removed",
+                 manifest declares changes (addresses that sit in the program's code stay as they \
+                 are), the credit and the licence in the manifest are now yours to keep right, and \
+                 a newer freemapper that changes the built-in one does not reach this region until \
+                 the folder is removed",
                 entry.id
             ),
         ));
+        let built_in = replaced.declared().map_or(0, |declared| declared.revision);
+        if built_in > entry.revision {
+            notes.push(finding(
+                "adapter.replacement-outdated",
+                &folder.join(MANIFEST_FILE),
+                format!(
+                    "the built-in adapter {} is at revision {built_in}, this replacement at {}; \
+                     export the built-in one again (`freemapper adapters export {}`) and carry \
+                     your changes over",
+                    entry.id, entry.revision, entry.id
+                ),
+            ));
+        }
     } else {
         registry
             .add(adapter)

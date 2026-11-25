@@ -116,6 +116,7 @@ freemapper run <dir> --pdf
 | `adapters disallow-host <adapter> <host>` | Takes back a host that `allow-host` allowed. |
 | `adapters probe` | Asks every service the built-in states name once (a HEAD for files, the capabilities for map services, one feature for OGC APIs) and prints for each `ok`, `slow`, `moved` or `error` with the time. `--json` prints `{"results": [{url, host, adapters, status, detail, millis}]}`. Exit code 0 also when a service fails. `--status <file>` reads last night's status (it may be missing) and prints the new one as JSON, with a service down after two bad nights in a row (ADR 0186). It is the nightly check of the project; run it only when the person asks, it makes about 85 requests. |
 | `adapters list` | Lists the region adapters: the built-in states and those of the person's adapter folder, each with its source, revision, last check and the hosts it asks. `--project <dir>` also reads the folder `adapters` of a project. `--json` prints an object with `user_dir`, `adapters` (each with `id`, `names.en`, `names.de`, `provider`, `source`: `built-in`, `user` or `project`, `revision`, `last_verified`, `hosts`, `allowed_hosts`: the hosts the person allowed besides, and `overlaps`: the ids of the adapters on whose ground it lies) and `warnings` (each with `folder`, `skipped` and `findings` with `code`, `file`, `line`, `key`, `message`). |
+| `adapters export <adapter> <dir>` | Writes the built-in adapter of a state as the folder `<dir>/<adapter>` (its `manifest.toml` and the files it names), to change an address that moved. Only after the person agreed; never into a folder that has files in it. See "Correcting an address" below. |
 | `adapters check <dir>` | Checks the folder of one adapter without asking a server: whether it would load, with every finding. Exit code 0: passes, 1: findings, 2: could not run. `--live --bbox` also asks its services; only when the person asks for it. Details below the table. |
 
 Output switches for `run` and `export`: `--ocad`, `--pdf`, `--pdf-candidates` (the check print), `--training`,
@@ -143,6 +144,21 @@ a line; `--contour-interval 5` keeps 5 m. All commands that download take `--cac
 (each with `severity`, `code`, `file`, `line`, `key`, `message`), `live` and `live_warnings`. `--live --bbox
 minLon,minLat,maxLon,maxLat` also fetches for that box from the servers the manifest names; run it only when the
 person asks for it.
+
+Correcting an address that moved, without a release (only after the person agreed, and show them the change
+before you write it): `adapters export <id> <dir>` writes the folder of the built-in state; change the `url`
+of the service that moved in its `manifest.toml` (and the host in `[net] hosts` if it is new); raise `revision`
+only if the data of a map changes; run `adapters check <folder>`: the one warning `check.built-in-id` is
+expected, every other finding is to be fixed; the person puts the folder into their adapter folder
+(`adapters list --json` names it as `user_dir`), and from the next start it replaces the built-in adapter with
+the warning `adapter.replaces-built-in`; `adapters list --json` then says `replaces_built_in: true`. Deleting the
+folder takes the built-in adapter back. The replacement asks only the hosts of its own manifest and keeps its own
+credit and licence, so do not change those without the person's say. Only what a manifest declares can be
+changed: addresses that sit in the code of a state (tree cadastres, point clouds, Berlin's layers fetched by
+code) cannot, and Poland has no manifest (`adapters export polska` says so). When the built-in adapter has a
+higher `revision` than the folder, `adapters check` warns with `check.built-in-newer` and each start with
+`adapter.replacement-outdated`: export again and carry the changes over. A project folder never replaces a
+built-in adapter. Report the move at <https://github.com/HenryJobst/freemapper/issues> as well.
 
 `init`, `fetch`, `derive`, `export` and `run` take `--adapters-from-project`: it also loads the region adapters in
 the folder `adapters` of the project folder, which can make freemapper ask other servers. Pass it only when the
@@ -361,7 +377,9 @@ The cache is shared by all projects: macOS `~/Library/Caches/freemapper`, Linux 
   to restart the assistant) after the command and before you call `start_pipeline` again, or the run fails
   with the same message. The same holds for an area page that is open: it is closed and started again. For an
   adapter of the person's own folder the message names the manifest instead: the
-  host belongs in its `[net] hosts`.
+  host belongs in its `[net] hosts`. When the address itself moved (not only the host), the person can
+  correct it without a release with `adapters export` (see "Correcting an address" above); offer it, do not do
+  it unasked.
 - "freemapper does not send requests to this address" with another reason (an address of this computer or of
   the local network, not https, more than 3 redirects): nothing to allow. Report it if it is a built-in state.
 - "another freemapper run is using this folder" or "a run is already going on": another run holds the project
