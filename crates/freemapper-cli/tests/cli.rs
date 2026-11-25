@@ -2515,6 +2515,17 @@ fn adapters_export_writes_a_folder_that_replaces_the_built_in_adapter() {
     let (code, _, err) = run(&["adapters", "export", "hamburg", root]);
     assert_eq!(code, Some(1));
     assert!(err.contains("exists and is not empty"), "{err}");
+    // A file where the folder should go is no folder to write into either.
+    let file_dir = tempfile::tempdir().unwrap();
+    std::fs::write(file_dir.path().join("hamburg"), "x").unwrap();
+    let (code, _, err) = run(&[
+        "adapters",
+        "export",
+        "hamburg",
+        file_dir.path().to_str().unwrap(),
+    ]);
+    assert_eq!(code, Some(1));
+    assert!(err.contains("exists and is not empty"), "{err}");
     // An empty folder is fine.
     std::fs::create_dir(out_dir.path().join("empty")).unwrap();
     std::fs::create_dir(out_dir.path().join("empty").join("hamburg")).unwrap();

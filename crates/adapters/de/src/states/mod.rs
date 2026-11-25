@@ -430,12 +430,12 @@ pub fn export_files(id: &str) -> Option<Vec<(String, Cow<'static, str>)>> {
         })
         .map(|manifest| manifest.adapter.provider);
     let manifest = match own_provider {
-        Some(provider) if provider != state.id() => Cow::Owned(text.replacen(
+        Some(provider) => Cow::Owned(text.replacen(
             &format!("provider = \"{provider}\""),
             &format!("provider = \"{}\"", state.id()),
             1,
         )),
-        _ => Cow::Borrowed(text),
+        None => Cow::Borrowed(text),
     };
     let mut out = vec![("manifest.toml".to_string(), manifest)];
     for name in names {
@@ -785,6 +785,48 @@ pub(crate) fn all_tree_datasets() -> Vec<TreeDataset> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    /// The export of a state is its manifest and the files the manifest names, nothing else;
+    /// only Saxony-Anhalt, which declares its orthophoto as a service, gets a provider of its
+    /// own, and every export parses and finds its files.
+    #[test]
+    fn the_export_of_a_state_is_its_manifest_and_its_files() {
+        assert!(export_files("polska").is_none());
+        assert!(export_files("").is_none());
+        for state in State::ALL {
+            let files = export_files(state.id()).unwrap();
+            let names: Vec<&str> = files.iter().map(|(name, _)| name.as_str()).collect();
+            let extracts = match state {
+                State::NordrheinWestfalen => 5,
+                State::BadenWuerttemberg => 4,
+                State::Bayern => 7,
+                _ => 0,
+            };
+            assert_eq!(files.len(), 2 + extracts, "{state:?}: {names:?}");
+            assert_eq!(names[0], "manifest.toml");
+            assert_eq!(names[1], "boundary.geojson");
+            assert!(files[1].1.contains("coordinates"), "{state:?}");
+            let manifest = freemapper_manifest::parse(&files[0].1, Path::new(state.id()))
+                .unwrap_or_else(|findings| panic!("{state:?}: {findings:?}"));
+            assert_eq!(manifest.adapter.id, state.id());
+            let built_in = manifest_text(state);
+            if state == State::SaxonyAnhalt {
+                assert_eq!(manifest.adapter.provider, "saxonyanhalt");
+                assert_eq!(
+                    files[0]
+                        .1
+                        .replace("provider = \"saxonyanhalt\"", "provider = \"lvermgeo\""),
+                    built_in
+                );
+            } else {
+                assert_eq!(files[0].1, built_in, "{state:?}");
+            }
+            // Every file the export holds is a file the state reads under that name.
+            for (name, text) in &files[1..] {
+                assert_eq!(&StateFiles(state).read(name).unwrap(), text, "{name}");
+            }
+        }
+    }
+
     #[test]
     fn manifest_texts_are_the_manifests_of_all_states_in_order() {
         let texts = manifest_texts();
