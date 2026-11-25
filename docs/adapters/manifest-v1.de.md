@@ -295,6 +295,16 @@ im Download-Cache und wird nur neu geladen, wenn der Server eine neuere hat (hö
 `FeatureCollection` ist, ersetzt sie nicht. Die Hinweise führen die Quellen von `[[permits.wfs]]` zuerst, dann die von
 `[[permits.shapefile]]` und `[[permits.geojson]]`.
 
+## `[[permits.arcgis]]`
+
+Eine Quelle der Genehmigungshinweise, die ein ArcGIS-REST-Kartendienst ist. Sie hat die Schlüssel einer
+`[[permits.wfs]]`-Quelle, aber `url` ist die Adresse des Kartendienstes (bis `MapServer`, https, ein Host aus
+`[net] hosts`, keine Abfrage), und `output_format`, `gml`, `crs`, `native_crs` und `offices` gibt es nicht. Das
+`type_name` einer Schicht ist ihre Nummer im Kartendienst (ein bis vier Ziffern). Das Programm fragt die `query` jeder
+Schicht mit dem Rechteck des Kartengebiets in WGS 84, Seite für Seite, solange der Dienst weitere meldet, und behält von
+jedem Objekt nur die Attribute, die die Leseart nennt. Ein Dienst hat 1 bis 8 Schichten. Die Hinweise führen die Quellen
+von `[[permits.wfs]]` zuerst, dann die von `[[permits.shapefile]]`, `[[permits.geojson]]` und `[[permits.arcgis]]`.
+
 ## `[[permits.getfeatureinfo]]`
 
 Eine Quelle der Genehmigungshinweise, die ein WMS ist, den das Programm an Punkten fragt: Seine GetFeatureInfo nennt,
@@ -306,9 +316,9 @@ angefragt) und `one` (Standard `false`; `true`, wo die Schichten sich nicht übe
 Bundeslandes: Ein Punkt behält dann nur sein erstes Objekt, weil ein Server nahe einer Grenze für beide Seiten
 antwortet); ein `type_name` hat sie nicht. Das Programm legt ein Raster aus höchstens 25 Zellen über das Kartengebiet,
 keine Seite kürzer als 50 m, fragt in der Mitte jeder Zelle an und speichert jede Antwort mit ihrer Zelle als Fläche.
-Die Hinweise nennen die Anteile Schätzungen (ADR 0139). Die Tabellen aller vier Arten halten zusammen höchstens
+Die Hinweise nennen die Anteile Schätzungen (ADR 0139). Die Tabellen aller fünf Arten halten zusammen höchstens
 12 Quellen; die Hinweise führen die Quellen von `[[permits.wfs]]` zuerst, dann die von `[[permits.shapefile]]`,
-`[[permits.geojson]]` und `[[permits.getfeatureinfo]]`, je in der Reihenfolge des Manifests.
+`[[permits.geojson]]`, `[[permits.arcgis]]` und `[[permits.getfeatureinfo]]`, je in der Reihenfolge des Manifests.
 
 ## `[preview]`
 

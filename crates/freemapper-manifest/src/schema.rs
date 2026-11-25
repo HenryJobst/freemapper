@@ -234,6 +234,9 @@ pub(crate) struct RawPermits {
     /// service.
     #[serde(default)]
     pub geojson: Vec<RawPermitWfs>,
+    /// `[[permits.arcgis]]`: an ArcGIS REST map service; a layer's `type_name` is its number.
+    #[serde(default)]
+    pub arcgis: Vec<RawPermitWfs>,
     /// `[[permits.getfeatureinfo]]`: a WMS asked at points; every layer names its service.
     #[serde(default)]
     pub getfeatureinfo: Vec<RawPermitWfs>,

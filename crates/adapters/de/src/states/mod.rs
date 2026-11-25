@@ -591,10 +591,8 @@ impl StateAdapter {
             State::SaxonyAnhalt => vec![crate::bfg_permits::source()],
             // The Naturdenkmale of the LfU are declared in its manifest (issue #273).
             State::Bayern => vec![crate::bfg_permits::source()],
-            State::Niedersachsen => vec![
-                crate::bfg_permits::source(),
-                crate::natur_permits::niedersachsen(),
-            ],
+            // The Naturdenkmale of the NLWKN are declared in its manifest (issue #273).
+            State::Niedersachsen => vec![crate::bfg_permits::source()],
             State::MecklenburgVorpommern => vec![crate::bfg_permits::source()],
         };
         let mut permits = permits;
@@ -976,7 +974,10 @@ mod tests {
                     &["bfg", "naturschutz"],
                     "https://geoportal.bafg.de/arcgis1/rest/services/INSPIRE/AM/MapServer/1/query",
                 ),
-                "niedersachsen" => (&["bfg", "naturschutz"], crate::natur_permits::NIEDERSACHSEN),
+                "niedersachsen" => (
+                    &["bfg", "naturschutz"],
+                    "https://www.umweltkarten-niedersachsen.de/arcgis/rest/services/Natur_wms/MapServer",
+                ),
                 "mecklenburgvorpommern" => (
                     &["bfg"],
                     "https://geoportal.bafg.de/arcgis1/rest/services/INSPIRE/AM/MapServer/1/query",

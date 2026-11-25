@@ -388,6 +388,10 @@ pub struct DeclaredWfs {
     /// `url` is the file, `native_crs` the CRS of its positions, and it has one layer without a
     /// feature type.
     pub geojson: bool,
+    /// The source is an ArcGIS REST map service (`[[permits.arcgis]]`, issue #273, ADR 0148):
+    /// `url` is the map service, every layer's `type_name` the number of the layer in it, and
+    /// the answers are GeoJSON in WGS 84.
+    pub arcgis: bool,
     /// The source is a WMS asked at points (`[[permits.getfeatureinfo]]`, issue #273, ADR 0139):
     /// every layer has a [`DeclaredQuery`] and no feature type.
     pub getfeatureinfo: bool,

@@ -44,7 +44,8 @@ pub mod lvermgeo_rp_las;
 pub mod lvermgeo_sh;
 pub mod lvgl;
 pub mod lvgl_las;
-pub mod natur_permits;
+#[cfg(test)]
+mod natur_permits;
 pub mod nrw_3dm;
 #[cfg(test)]
 mod sbs_permits;

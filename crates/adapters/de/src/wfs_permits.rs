@@ -586,6 +586,9 @@ pub(crate) fn declared_source(declared: &DeclaredWfs) -> Box<dyn PermitSource> {
     if declared.geojson {
         return crate::geojson_permits::declared_geojson_source(declared);
     }
+    if declared.arcgis {
+        return crate::arcgis_permits::declared_source(declared);
+    }
     if declared.getfeatureinfo {
         return crate::gfi_permits::declared_source(declared);
     }
