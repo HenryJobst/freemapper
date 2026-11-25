@@ -288,6 +288,16 @@ again only when the server has a newer one (at most 150 MB); an answer that is n
 it. The notes list the sources of `[[permits.wfs]]` first, then those of `[[permits.shapefile]]` and
 `[[permits.geojson]]`.
 
+## `[[permits.arcgis]]`
+
+A source of the permit notes that is an ArcGIS REST map service. It has the keys of a `[[permits.wfs]]` source, but
+`url` is the address of the map service (up to `MapServer`, https, a host of `[net] hosts`, no query), and there is no
+`output_format`, `gml`, `crs`, `native_crs` or `offices`. The `type_name` of a layer is the number of the layer in the
+map service (one to four digits). The program asks the `query` of each layer by the box of the map area in WGS 84,
+page by page while the service says more follow, and keeps of every feature only the attributes the reading names.
+A service has 1 to 8 layers. The notes list the sources of `[[permits.wfs]]` first, then those of
+`[[permits.shapefile]]`, `[[permits.geojson]]` and `[[permits.arcgis]]`.
+
 ## `[[permits.getfeatureinfo]]`
 
 A source of the permit notes that is a WMS asked at points: its GetFeatureInfo names what lies at a point, without
@@ -298,8 +308,8 @@ of the WMS, separated by commas, asked at once) and `one` (default `false`; `tru
 such as the Reviere of a state: a point then keeps its first feature only, because near a border a server answers for
 both sides); it has no `type_name`. The program lays a grid of at most 25 cells over the map area, no side shorter
 than 50 m, asks at the centre of each cell and stores each answer with its cell as its area. The notes call the
-shares estimates (ADR 0139). The tables of all four kinds hold at most 12 sources together; the notes list the
-sources of `[[permits.wfs]]` first, then those of `[[permits.shapefile]]`, `[[permits.geojson]]` and `[[permits.getfeatureinfo]]`, each
+shares estimates (ADR 0139). The tables of all five kinds hold at most 12 sources together; the notes list the
+sources of `[[permits.wfs]]` first, then those of `[[permits.shapefile]]`, `[[permits.geojson]]`, `[[permits.arcgis]]` and `[[permits.getfeatureinfo]]`, each
 in the order of the manifest.
 
 ## `[preview]`

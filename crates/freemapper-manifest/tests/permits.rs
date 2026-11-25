@@ -1699,3 +1699,183 @@ fn what_is_wrong_with_a_geojson_source_is_named() {
         [("manifest.value", "permits.wfs".to_string())]
     );
 }
+
+const ARCGIS_HEAD: &str = "[[permits.arcgis]]\nkey = \"natur\"\n\
+    label = { en = \"Office\", de = \"Amt\" }\n\
+    what = { en = \"objects\", de = \"Objekte\" }\n\
+    credit = \"dl-de/by-2-0\"\n\
+    sections = [\"protected-objects\"]\n\
+    url = \"https://geo.example.org/arcgis/rest/services/Natur/MapServer\"\n";
+
+const ARCGIS_LAYER: &str = "layers = [{ key = \"nd\", type_name = \"190\", reading = \"object\", object = \"natural-monument\", name = \"name\" }]\n";
+
+#[test]
+fn an_arcgis_source_is_declared_with_its_service_and_layer_numbers() {
+    let table = format!(
+        "{ARCGIS_HEAD}note = \"A note\"\nlayers = [\n\
+         {{ key = \"nd\", type_name = \"190\", reading = \"object\", object = \"natural-monument\", name = \"name\" }},\n\
+         {{ key = \"glb\", type_name = \"7\", reading = \"object\", object = \"protected-landscape-part\", name = \"name\" }},\n\
+         ]\n"
+    );
+    let manifest = parse(&with(&table), Path::new("sample")).unwrap();
+    let source = &manifest.permits[0];
+    assert!(source.arcgis);
+    assert!(!source.geojson && !source.shapefile && !source.getfeatureinfo);
+    assert_eq!(
+        source.url,
+        "https://geo.example.org/arcgis/rest/services/Natur/MapServer"
+    );
+    assert_eq!(source.native_crs, None);
+    assert_eq!(source.output_format, "");
+    assert!(!source.gml && source.offices.is_none());
+    assert_eq!(source.note.as_deref(), Some("A note"));
+    let numbers: Vec<&str> = source.layers.iter().map(|l| l.type_name.as_str()).collect();
+    assert_eq!(numbers, ["190", "7"]);
+    // A WFS source is no ArcGIS source.
+    let wfs = parse(
+        &with(&format!(
+            "{HEAD}layers = [{{ key = \"a\", type_name = \"x:a\", reading = \"district\", name = \"N\" }}]\n"
+        )),
+        Path::new("sample"),
+    )
+    .unwrap();
+    assert!(!wfs.permits[0].arcgis);
+    // The order: services, shapefiles, files, ArcGIS services.
+    let all = format!(
+        "{ARCGIS_HEAD}{ARCGIS_LAYER}\n{GEOJSON_HEAD}{GEOJSON_LAYER}\n{HEAD}layers = [{{ key = \"a\", type_name = \"x:a\", reading = \"district\", name = \"N\" }}]\n"
+    );
+    let keys: Vec<String> = parse(
+        &with(&all.replace(
+            "key = \"natur\"\nlabel = { en = \"Office\"",
+            "key = \"arc\"\nlabel = { en = \"Office\"",
+        )),
+        Path::new("sample"),
+    )
+    .unwrap()
+    .permits
+    .into_iter()
+    .map(|source| source.key)
+    .collect();
+    assert_eq!(keys, ["natur", "denkmale", "arc"]);
+}
+
+#[test]
+fn what_is_wrong_with_an_arcgis_source_is_named() {
+    for (extra, key) in [
+        ("output_format = \"GEOJSON\"\n", "output_format"),
+        ("gml = true\n", "gml"),
+        ("native_crs = 25832\n", "native_crs"),
+        ("offices = \"berlin\"\n", "offices"),
+        ("crs = 25832\n", "crs"),
+    ] {
+        assert_eq!(
+            refused(&format!("{ARCGIS_HEAD}{extra}{ARCGIS_LAYER}")),
+            [("manifest.unknown-key", key.to_string())],
+            "{key}"
+        );
+    }
+    // It needs its address, and an address without a query.
+    assert_eq!(
+        refused(&format!(
+            "{}{ARCGIS_LAYER}",
+            ARCGIS_HEAD.replace(
+                "url = \"https://geo.example.org/arcgis/rest/services/Natur/MapServer\"\n",
+                ""
+            )
+        )),
+        [("manifest.missing-key", "url".to_string())]
+    );
+    assert!(
+        !refused(&format!(
+            "{}{ARCGIS_LAYER}",
+            ARCGIS_HEAD.replace("MapServer\"", "MapServer?f=json\"")
+        ))
+        .is_empty()
+    );
+    // A layer is a number of up to four digits, and has one.
+    for number in ["", "x", "12345", "1a", "-1", "1.5"] {
+        assert_eq!(
+            refused(&format!(
+                "{ARCGIS_HEAD}{}",
+                ARCGIS_LAYER.replace("\"190\"", &format!("\"{number}\""))
+            )),
+            [(
+                "manifest.value",
+                "permits.arcgis.layers.type_name".to_string()
+            )],
+            "{number:?}"
+        );
+    }
+    for number in ["0", "7", "9999"] {
+        assert!(
+            parse(
+                &with(&format!(
+                    "{ARCGIS_HEAD}{}",
+                    ARCGIS_LAYER.replace("\"190\"", &format!("\"{number}\""))
+                )),
+                Path::new("sample")
+            )
+            .is_ok(),
+            "{number}"
+        );
+    }
+    assert_eq!(
+        refused(&format!(
+            "{ARCGIS_HEAD}{}",
+            ARCGIS_LAYER.replace("type_name = \"190\", ", "")
+        )),
+        [("manifest.missing-key", "type_name".to_string())]
+    );
+    // A service has 1 to 8 layers.
+    let layer = |n: usize| {
+        format!(
+            "{{ key = \"l{n}\", type_name = \"{n}\", reading = \"object\", object = \"natural-monument\", name = \"name\" }}"
+        )
+    };
+    let many = |count: usize| {
+        format!(
+            "layers = [{}]\n",
+            (1..=count).map(layer).collect::<Vec<_>>().join(", ")
+        )
+    };
+    assert_eq!(
+        refused(&format!("{ARCGIS_HEAD}layers = []\n")),
+        [("manifest.value", "permits.arcgis.layers".to_string())]
+    );
+    assert_eq!(
+        refused(&format!("{ARCGIS_HEAD}{}", many(9))),
+        [("manifest.value", "permits.arcgis.layers".to_string())]
+    );
+    assert!(
+        parse(
+            &with(&format!("{ARCGIS_HEAD}{}", many(8))),
+            Path::new("sample")
+        )
+        .is_ok()
+    );
+}
+
+#[test]
+fn the_messages_name_a_map_service_source() {
+    assert_eq!(
+        messages(&format!(
+            "{}{ARCGIS_LAYER}",
+            ARCGIS_HEAD.replace(
+                "url = \"https://geo.example.org/arcgis/rest/services/Natur/MapServer\"\n",
+                ""
+            )
+        )),
+        ["a map service source needs `url`"]
+    );
+    assert_eq!(
+        messages(&format!("{ARCGIS_HEAD}gml = true\n{ARCGIS_LAYER}")),
+        ["a map service source has no key `gml`"]
+    );
+    assert_eq!(
+        messages(&format!(
+            "{ARCGIS_HEAD}{}",
+            ARCGIS_LAYER.replace("type_name = \"190\", ", "")
+        )),
+        ["a layer of a map service source needs `type_name`"]
+    );
+}

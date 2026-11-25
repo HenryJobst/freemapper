@@ -178,6 +178,8 @@ enum PermitKind {
     Shapefile,
     /// `[[permits.geojson]]`.
     GeoJson,
+    /// `[[permits.arcgis]]`.
+    Arcgis,
     /// `[[permits.getfeatureinfo]]`.
     Points,
 }
@@ -188,6 +190,7 @@ impl PermitKind {
             PermitKind::Wfs => "permits.wfs",
             PermitKind::Shapefile => "permits.shapefile",
             PermitKind::GeoJson => "permits.geojson",
+            PermitKind::Arcgis => "permits.arcgis",
             PermitKind::Points => "permits.getfeatureinfo",
         }
     }
@@ -197,6 +200,7 @@ impl PermitKind {
             PermitKind::Wfs => "WFS source",
             PermitKind::Shapefile => "shapefile source",
             PermitKind::GeoJson => "GeoJSON source",
+            PermitKind::Arcgis => "map service source",
             PermitKind::Points => "source asked at points",
         }
     }
@@ -653,6 +657,7 @@ impl Check<'_> {
             &raw.permits.wfs,
             &raw.permits.shapefile,
             &raw.permits.geojson,
+            &raw.permits.arcgis,
             &raw.permits.getfeatureinfo,
         );
         let preview = match &raw.preview {
@@ -2113,6 +2118,7 @@ impl Check<'_> {
         wfs: &[RawPermitWfs],
         shapefiles: &[RawPermitWfs],
         geojson: &[RawPermitWfs],
+        arcgis: &[RawPermitWfs],
         points: &[RawPermitWfs],
     ) -> Option<Vec<DeclaredWfs>> {
         let mut fine = true;
@@ -2125,6 +2131,7 @@ impl Check<'_> {
                     .map(|source| (source, PermitKind::Shapefile)),
             )
             .chain(geojson.iter().map(|source| (source, PermitKind::GeoJson)))
+            .chain(arcgis.iter().map(|source| (source, PermitKind::Arcgis)))
             .chain(points.iter().map(|source| (source, PermitKind::Points)))
             .collect();
         if all.len() > 12 {
@@ -2143,6 +2150,8 @@ impl Check<'_> {
             // A file of the whole state: one layer, a CRS of its own, no service keys.
             let single = shapefile || geojson;
             let points = kind == PermitKind::Points;
+            // A map service that answers in WGS 84: no output format, GML or CRS to name.
+            let rest = kind == PermitKind::Arcgis;
             let table = kind.table();
             let key = self.matching(
                 &source.key,
@@ -2175,7 +2184,7 @@ impl Check<'_> {
                 400,
             );
             let url = match (&source.url, points) {
-                (Some(url), false) => self.url_with(url, &format!("{table}.url"), !single),
+                (Some(url), false) => self.url_with(url, &format!("{table}.url"), !single && !rest),
                 (None, false) => {
                     self.fail(
                         "manifest.missing-key",
@@ -2196,13 +2205,13 @@ impl Check<'_> {
                     None
                 }
             };
-            let (output_format, native_crs, offices, gml) = if single || points {
+            let (output_format, native_crs, offices, gml) = if single || points || rest {
                 let foreign = [
                     ("output_format", source.output_format.is_some()),
                     ("gml", source.gml.is_some()),
                     ("native_crs", source.native_crs.is_some()),
                     ("offices", source.offices.is_some()),
-                    ("crs", points && source.crs.is_some()),
+                    ("crs", (points || rest) && source.crs.is_some()),
                 ];
                 let mut clean = true;
                 for (name, present) in foreign {
@@ -2216,7 +2225,7 @@ impl Check<'_> {
                         clean = false;
                     }
                 }
-                if points {
+                if points || rest {
                     (
                         clean.then(String::new),
                         clean.then_some(None),
@@ -2381,6 +2390,7 @@ impl Check<'_> {
                     output_format,
                     shapefile,
                     geojson,
+                    arcgis: rest,
                     getfeatureinfo: points,
                     gml,
                     native_crs,
@@ -2711,7 +2721,18 @@ impl Check<'_> {
             |text| is_slug(text, 40),
             "the key of a layer: lower-case letters, digits and hyphens",
         );
-        let type_name = match (&layer.type_name, kind != PermitKind::Wfs) {
+        let arcgis = kind == PermitKind::Arcgis;
+        let type_name = match (
+            &layer.type_name,
+            !matches!(kind, PermitKind::Wfs | PermitKind::Arcgis),
+        ) {
+            (Some(name), false) if arcgis => self.matching(
+                name,
+                "permits.arcgis.layers.type_name",
+                "manifest.value",
+                |text| (1..=4).contains(&text.len()) && text.chars().all(|c| c.is_ascii_digit()),
+                "the number of the layer in the map service",
+            ),
             (Some(name), false) => self.matching(
                 name,
                 "permits.wfs.layers.type_name",
@@ -2724,7 +2745,7 @@ impl Check<'_> {
                     "manifest.missing-key",
                     &layer.key.span(),
                     "type_name",
-                    "a layer of a WFS source needs `type_name`",
+                    format!("a layer of a {} needs `type_name`", kind.noun()),
                 );
                 None
             }
