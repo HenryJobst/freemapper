@@ -226,9 +226,9 @@ mod tests {
     }
 
     #[test]
-    fn a_file_of_some_hundred_kilobytes_is_read() {
+    fn a_file_of_some_megabytes_is_read() {
         let mut file: serde_json::Value = serde_json::from_slice(&squares(&[(0.0, 0.0)])).unwrap();
-        file["padding"] = "x".repeat(300_000).into();
+        file["padding"] = "x".repeat(2_000_000).into();
         let fetcher = MapFetcher::default();
         fetcher.insert(URL, serde_json::to_vec(&file).unwrap());
         let part = tempfile::tempdir().unwrap();
