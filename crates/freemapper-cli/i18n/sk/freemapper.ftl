@@ -82,6 +82,10 @@ cli-adapter-from-project = warning: používa sa adaptér { $adapter } z prieči
 cli-adapter-overlaps = warning: adaptér { $adapter } pokrýva aj územie { $others }; jeho objekty sa tam dostanú na mapy
 cli-adapter-dir-relative = warning: FREEMAPPER_ADAPTER_DIR nie je absolútna cesta ({ $path }); ignoruje sa
 cli-adapters-no-project = warning: { $path } nie je priečinok; neboli načítané žiadne adaptéry projektu
+cli-adapters-export-unknown = adaptér { $adapter } nie je opísaný manifestom tohto programu, takže niet čo exportovať; `freemapper adapters list` ukáže identifikátory
+cli-adapters-export-taken = { $path } existuje a nie je prázdny; exportujte do priečinka, ktorý ešte neexistuje
+cli-adapters-export-done = Do { $path } sa zapísalo { $count } súborov adaptéra { $adapter }. Je v nich len to, čo opisuje jeho manifest; adresy zapísané v kóde programu v nich nie sú.
+cli-adapters-export-next = Zmeňte adresy v manifest.toml, skontrolujte priečinok príkazom `freemapper adapters check` a presuňte ho do { $path }: od ďalšieho spustenia nahradí vstavaný adaptér, s varovaním. Zmazaním priečinka sa vstavaný adaptér vráti.
 cli-adapters-overlaps = zdieľa územie s: { $others }
 cli-adapters-line = { $adapter }  { $name }  { $source }  revízia { $revision }  skontrolované { $checked }  hostitelia: { $hosts }
 cli-adapters-source-built-in = vstavaný
@@ -675,6 +679,9 @@ help-adapters-allow-host-host = Hostiteľ na povolenie: názov DNS, nie adresa, 
 help-adapters-disallow-host = Odvolať hostiteľa, ktorého povolil allow-host
 help-adapters-disallow-host-adapter = Id vstavaného adaptéra
 help-adapters-disallow-host-host = Hostiteľ na odvolanie
+help-adapters-export = Zapíše vstavaný adaptér spolkovej krajiny ako priečinok adaptéra, ktorý môžete meniť: jeho manifest a súbory, ktoré manifest uvádza, do `<dir>/<id>`. Priečinok ešte nesmie existovať alebo musí byť prázdny. Zmeňte adresy v jeho `manifest.toml`, skontrolujte ho príkazom `adapters check` a vložte do svojho priečinka adaptérov: nahradí potom vstavaný adaptér, s varovaním. Odstránením priečinka sa vstavaný adaptér vráti
+help-adapters-export-adapter = Identifikátor vstavaného adaptéra, ako ho ukazuje `adapters list`
+help-adapters-export-dir = Priečinok, v ktorom vznikne priečinok `<id>`
 help-arg-adapters-from-project = Načítať aj adaptéry z priečinka `adapters` priečinka projektu. freemapper každý z nich uvedie spolu s hostiteľmi, ktorých sa pýta. Použi to pre projekt, ktorému dôveruješ: adaptér núti freemapper pýtať sa serverov, ktoré uvádza
 
 ## The summary of a run, for the MCP server and the area page

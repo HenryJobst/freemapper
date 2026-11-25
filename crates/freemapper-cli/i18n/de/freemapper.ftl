@@ -80,6 +80,10 @@ cli-adapter-from-project = Warnung: Der Adapter { $adapter } aus dem Projektordn
 cli-adapter-overlaps = Warnung: Der Adapter { $adapter } deckt auch Gebiet von { $others } ab; seine Objekte kommen dort auf die Karten
 cli-adapter-dir-relative = Warnung: FREEMAPPER_ADAPTER_DIR ist kein absoluter Pfad ({ $path }) und wird ignoriert
 cli-adapters-no-project = Warnung: { $path } ist kein Ordner; es wurden keine Adapter eines Projekts gelesen
+cli-adapters-export-unknown = Der Adapter { $adapter } wird von keinem Manifest dieses Programms beschrieben, also gibt es nichts zu exportieren; `freemapper adapters list` zeigt die Kennungen
+cli-adapters-export-taken = { $path } gibt es schon und es ist nicht leer; exportieren Sie in einen Ordner, den es noch nicht gibt
+cli-adapters-export-done = Die { $count } Dateien des Adapters { $adapter } stehen in { $path }. Darin steht nur, was sein Manifest beschreibt; Adressen, die im Code des Programms stehen, fehlen.
+cli-adapters-export-next = Ändern Sie die Adressen in manifest.toml, prüfen Sie den Ordner mit `freemapper adapters check` und legen Sie ihn dann nach { $path }: Er ersetzt den eingebauten Adapter ab dem nächsten Start, mit einer Warnung. Löschen Sie den Ordner, ist der eingebaute wieder da.
 cli-adapters-overlaps = teilt Gebiet mit: { $others }
 cli-adapters-line = { $adapter }  { $name }  { $source }  Revision { $revision }  geprüft { $checked }  Hosts: { $hosts }
 cli-adapters-source-built-in = eingebaut
@@ -667,6 +671,9 @@ help-adapters-allow-host-host = Der freizugebende Host: ein DNS-Name, keine Adre
 help-adapters-disallow-host = Einen Host zurücknehmen, den allow-host freigegeben hat
 help-adapters-disallow-host-adapter = Die Kennung des eingebauten Adapters
 help-adapters-disallow-host-host = Der Host, der zurückgenommen wird
+help-adapters-export = Den eingebauten Adapter eines Bundeslands als Adapterordner schreiben, den Sie ändern können: sein Manifest und die Dateien, die das Manifest nennt, in `<Ordner>/<Kennung>`. Der Ordner darf noch nicht existieren oder muss leer sein. Ändern Sie die Adressen in seiner `manifest.toml`, prüfen Sie ihn mit `adapters check` und legen Sie ihn in Ihren Adapterordner: Er ersetzt dann den eingebauten Adapter, mit einer Warnung. Entfernen Sie den Ordner, ist der eingebaute wieder da
+help-adapters-export-adapter = Die Kennung des eingebauten Adapters, wie `adapters list` sie zeigt
+help-adapters-export-dir = Der Ordner, in dem der Ordner `<Kennung>` angelegt wird
 help-arg-adapters-from-project = Auch die Adapter im Ordner `adapters` des Projektordners laden. freemapper nennt jeden davon mit den Hosts, die er anfragt. Nur für ein Projekt, dem Sie vertrauen: Ein Adapter lässt freemapper die Server anfragen, die er nennt
 
 ## Die Zusammenfassung eines Laufs, für den MCP-Server und die Gebietsseite

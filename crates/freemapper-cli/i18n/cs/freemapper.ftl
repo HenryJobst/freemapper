@@ -84,6 +84,10 @@ cli-adapter-from-project = upozornění: používá se adaptér { $adapter } ze 
 cli-adapter-overlaps = upozornění: adaptér { $adapter } pokrývá také území adaptérů { $others }; jeho objekty se tam dostanou na mapy
 cli-adapter-dir-relative = upozornění: FREEMAPPER_ADAPTER_DIR není absolutní cesta ({ $path }); ignoruje se
 cli-adapters-no-project = upozornění: { $path } není složka; nebyly načteny žádné adaptéry projektu
+cli-adapters-export-unknown = adaptér { $adapter } není popsán manifestem tohoto programu, takže není co exportovat; `freemapper adapters list` ukáže identifikátory
+cli-adapters-export-taken = { $path } existuje a není prázdná; exportujte do složky, která ještě neexistuje
+cli-adapters-export-done = Do { $path } bylo zapsáno { $count } souborů adaptéru { $adapter }. Je v nich jen to, co popisuje jeho manifest; adresy zapsané v kódu programu v nich nejsou.
+cli-adapters-export-next = Změňte adresy v manifest.toml, zkontrolujte složku příkazem `freemapper adapters check` a přesuňte ji do { $path }: od příštího spuštění nahradí vestavěný adaptér, s varováním. Smazáním složky se vestavěný adaptér vrátí.
 cli-adapters-overlaps = sdílí území s: { $others }
 cli-adapters-line = { $adapter }  { $name }  { $source }  revize { $revision }  zkontrolováno { $checked }  hostitelé: { $hosts }
 cli-adapters-source-built-in = vestavěný
@@ -678,6 +682,9 @@ help-adapters-allow-host-host = Hostitel k povolení: název DNS, žádná adres
 help-adapters-disallow-host = Odvolá hostitele, kterého povolil allow-host
 help-adapters-disallow-host-adapter = ID vestavěného adaptéru
 help-adapters-disallow-host-host = Hostitel k odvolání
+help-adapters-export = Zapíše vestavěný adaptér spolkové země jako složku adaptéru, kterou můžete měnit: jeho manifest a soubory, které manifest uvádí, do `<dir>/<id>`. Složka ještě nesmí existovat nebo musí být prázdná. Změňte adresy v jejím `manifest.toml`, zkontrolujte ji příkazem `adapters check` a vložte do své složky adaptérů: nahradí pak vestavěný adaptér, s varováním. Odstraněním složky se vestavěný adaptér vrátí
+help-adapters-export-adapter = Identifikátor vestavěného adaptéru, jak ho ukazuje `adapters list`
+help-adapters-export-dir = Složka, ve které vznikne složka `<id>`
 help-arg-adapters-from-project = Načte také adaptéry ve složce `adapters` složky projektu. freemapper každý z nich jmenuje spolu s hostiteli, na které se dotazuje. Použijte u projektu, kterému důvěřujete: adaptér přiměje freemapper dotazovat se serverů, které uvádí
 
 ## The summary of a run, for the MCP server and the area page

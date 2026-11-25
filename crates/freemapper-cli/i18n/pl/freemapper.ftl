@@ -84,6 +84,10 @@ cli-adapter-from-project = ostrzeżenie: używany jest adapter { $adapter } z fo
 cli-adapter-overlaps = ostrzeżenie: adapter { $adapter } obejmuje też obszar adapterów { $others }; jego obiekty trafiają tam na mapy
 cli-adapter-dir-relative = ostrzeżenie: FREEMAPPER_ADAPTER_DIR nie jest ścieżką bezwzględną ({ $path }); jest ignorowane
 cli-adapters-no-project = ostrzeżenie: { $path } nie jest folderem; nie wczytano adapterów projektu
+cli-adapters-export-unknown = adapter { $adapter } nie jest opisany manifestem tego programu, więc nie ma czego eksportować; `freemapper adapters list` pokazuje identyfikatory
+cli-adapters-export-taken = { $path } istnieje i nie jest pusty; wyeksportuj do folderu, który jeszcze nie istnieje
+cli-adapters-export-done = Zapisano { $count } plików adaptera { $adapter } w { $path }. Są w nich tylko dane opisane manifestem; adresów zapisanych w kodzie programu tam nie ma.
+cli-adapters-export-next = Zmień adresy w manifest.toml, sprawdź folder poleceniem `freemapper adapters check`, a potem przenieś go do { $path }: od następnego uruchomienia zastępuje wbudowany adapter, z ostrzeżeniem. Usunięcie folderu przywraca wbudowany adapter.
 cli-adapters-overlaps = obejmuje wspólny obszar z: { $others }
 cli-adapters-line = { $adapter }  { $name }  { $source }  rewizja { $revision }  sprawdzono { $checked }  hosty: { $hosts }
 cli-adapters-source-built-in = wbudowany
@@ -684,6 +688,9 @@ help-adapters-allow-host-host = Host, na który zezwalasz: nazwa DNS, bez adresu
 help-adapters-disallow-host = Cofnij host, na który zezwoliło allow-host
 help-adapters-disallow-host-adapter = Identyfikator wbudowanego adaptera
 help-adapters-disallow-host-host = Host do cofnięcia
+help-adapters-export = Zapisz wbudowany adapter kraju związkowego jako folder adaptera, który możesz zmienić: jego manifest i pliki wymienione w manifeście, w `<dir>/<id>`. Folder nie może jeszcze istnieć albo musi być pusty. Zmień adresy w jego `manifest.toml`, sprawdź go poleceniem `adapters check` i umieść w swoim folderze adapterów: zastąpi wtedy wbudowany adapter, z ostrzeżeniem. Usunięcie folderu przywraca wbudowany adapter
+help-adapters-export-adapter = Identyfikator wbudowanego adaptera, tak jak pokazuje go `adapters list`
+help-adapters-export-dir = Folder, w którym powstaje folder `<id>`
 help-arg-adapters-from-project = Wczytaj też adaptery z folderu `adapters` w folderze projektu. freemapper wymienia każdy z nich wraz z hostami, do których się zwraca. Używaj dla projektu, któremu ufasz: adapter sprawia, że freemapper odpytuje serwery, które wymienia
 
 ## Podsumowanie uruchomienia, dla serwera MCP i strony obszaru

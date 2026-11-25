@@ -1848,6 +1848,51 @@ Platzhalter oder ein Port werden abgelehnt. Auch für einen freigegebenen Host g
 nur mit Servern im Internet. `freemapper adapters list` zeigt die freigegebenen Hosts je Bundesland, `freemapper
 adapters disallow-host hessen neuer-server.hessen.de` nimmt einen zurück.
 
+### Eine Adresse selbst ändern
+
+`allow-host` fügt nur einen Host hinzu. Ist ein Dienst eines Bundeslands an eine neue Adresse umgezogen, können
+Sie die Adresse auch selbst ändern, ohne auf eine neue Version zu warten: Ein eigener Adapterordner mit der
+Kennung des Bundeslands tritt an die Stelle des eingebauten Adapters. Sie schreiben den Ordner nicht von Grund
+auf; `adapters export` schreibt den eingebauten, und Sie ändern die wenigen Stellen, die umgezogen sind.
+
+1. Exportieren Sie das Bundesland. Die Kennung zeigt `freemapper adapters list`:
+   `freemapper adapters export hessen ~/meine-adapter`. Das schreibt den Ordner `~/meine-adapter/hessen` mit dem
+   Manifest (`manifest.toml`) und den Dateien, die es nennt (die Grenze, bei einigen Bundesländern die Grenzen
+   der OSM-Auszüge). Der Befehl schreibt nie in einen Ordner, in dem Dateien liegen. Sachsen-Anhalt erklärt sein
+   Orthofoto als Dienst, und ein solcher Adapter braucht einen eigenen Anbieter, um als Ersatz zu laden: Sein
+   Export nennt den Anbieter `saxonyanhalt`, und seine Downloads landen dann in einem eigenen Cache-Ordner.
+2. Ändern Sie die Adresse in `manifest.toml`: die `url` des umgezogenen Dienstes und, wenn der Host neu ist, den
+   Host in `[net] hosts`. Erhöhen Sie `revision`, wenn sich die Daten einer Karte ändern. Rühren Sie nichts an,
+   was Sie nicht brauchen.
+3. Prüfen Sie den Ordner: `freemapper adapters check ~/meine-adapter/hessen`. Er nennt die eine Warnung
+   `check.built-in-id` (die Kennung ist eingebaut, der Ordner ersetzt sie also); jeden anderen Befund beheben
+   Sie. Mit `--live --bbox minLon,minLat,maxLon,maxLat` fragt er auch die Dienste an.
+4. Legen Sie den Ordner in Ihren Adapterordner (`freemapper adapters list` nennt, wo er liegt, oder setzen Sie
+   `FREEMAPPER_ADAPTER_DIR` auf einen absoluten Pfad). Ab dem nächsten Start ersetzt der Ordner den eingebauten
+   Adapter.
+5. Sehen Sie nach, dass es gewirkt hat: Jeder Start des Programms gibt die Warnung `adapter.replaces-built-in`
+   aus, `freemapper adapters list` zeigt das Bundesland als `aus Ihrem Ordner`, und `adapters list --json` hat
+   `"replaces_built_in": true`.
+6. Zum Zurückgehen löschen Sie den Ordner. Beim nächsten Start ist der eingebaute Adapter wieder da.
+
+Woran sich der Ersatz hält: Er fragt nur die Hosts an, die sein eigenes Manifest nennt; Hosts, die Sie mit
+`allow-host` für den eingebauten Adapter freigegeben haben, gelten nicht mit. Quellenangabe und Lizenz sind die
+des Manifests; halten Sie `[credit]` und die Lizenz richtig, wenn der Dienst die Lizenz wechselt. Eine neuere
+Version von freemapper, die das eingebaute Bundesland ändert, erreicht kein Gebiet, dessen Ordner es ersetzt:
+Hat der eingebaute Adapter eine höhere `revision`, sagen es `adapters check` (`check.built-in-newer`) und jeder
+Start (`adapter.replacement-outdated`); exportieren Sie dann neu und übernehmen Sie Ihre Änderungen. Ein Ordner
+in einem Projekt (`--adapters-from-project`) ersetzt nie einen eingebauten Adapter, und die Gebietsseite und der
+KI-Assistent über MCP lesen nur Ihren eigenen Ordner.
+
+Was ein Ordner nicht ersetzen kann: Im Export steht nur, was das Manifest beschreibt. Adressen, die noch im Code
+eines Bundeslands stehen, bleiben, wie sie sind: die Schichten Berlins, die das Programm mit Code abruft, die
+Baumkataster, die Punktwolken und die Quellen der Genehmigungshinweise, die keine Manifesttabelle beschreibt. Der
+Adapter Polens ist Code und hat kein Manifest zum Exportieren. Ist der umgezogene Dienst einer davon, melden
+Sie ihn (Kapitel 17) und helfen Sie sich bis zur nächsten Version mit `allow-host`.
+
+Ein Assistent, der für Sie einen Dienst nachgetragen hat, schlägt die Änderung vor, zeigt sie und schreibt sie
+erst, wenn Sie zugestimmt haben.
+
 ## 14. Später weiterarbeiten
 
 - **Ihre Karte ist sicher:** Ein erneutes `run` (oder „bitte neu laden“) ändert eine vorhandene Karte
@@ -1915,7 +1960,7 @@ Sprachen so: Das sind Einzelheiten zu Servern und Dateiformaten. Die wichtigsten
 | `Das Herunterladen von … ist gescheitert` / `ungültige ALKIS-Daten` (englisch: `download of … failed` oder `invalid ALKIS data`) | Ein Server war nicht erreichbar oder hat Unsinn geschickt. | Später erneut versuchen. Bereits geladene Daten bleiben erhalten. |
 | Gebietsauswahl: „access blocked“ / 403 von OpenStreetMap, oder die Hintergrundkarte bleibt grau | Die Hintergrundkarte kommt von `tile.openstreetmap.org`. Dessen Kachelrichtlinie verlangt eine erkennbare Anwendung (`User-Agent`) oder ein gültiges `Referer`; der Browser schickt hier keinen `Referer`. Bis 0.9.1 lud der Browser die Kacheln selbst und bekam deshalb 403. Seit 0.9.2 holt der lokale Server die Kacheln mit `User-Agent: freemapper/<Version> (+https://github.com/HenryJobst/freemapper)` und gibt sie an den Browser weiter. | freemapper aktualisieren. Der Rechner braucht Internet. Antwortet der Server mit 502, steht der Grund in der Antwort (z. B. HTTP 403 oder keine Verbindung). Die Luftbilder der Bundesländer sind nicht betroffen. |
 | `…: Der Server hat die Anfrage abgelehnt (HTTP 400)` (englisch: `… refused the request (HTTP 400)`) | Ein Dienst lehnt die Anfrage ab. | Erneut versuchen. Bleibt es dabei, einen Fehler melden. |
-| `…: freemapper sendet keine Anfragen an diese Adresse: Der Adapter für … nennt den Host … nicht` (englisch: `… freemapper does not send requests to this address: the adapter of … does not name the host …`) | freemapper fragt für ein Bundesland nur die Server an, die dessen Adapter nennt. Ein Dienst ist auf einen anderen Server umgezogen, hat dorthin weitergeleitet oder in seiner Antwort dorthin verwiesen. Die Meldung beginnt mit der abgelehnten Adresse und endet mit dem Kommando, das den Host freigibt. | Wenn Sie dem Server vertrauen (er gehört erkennbar zum Amt des Bundeslands): das Kommando aus der Meldung ausführen, `freemapper adapters allow-host <Adapter> <Host>`, den Lauf wiederholen und den Umzug melden (Kapitel 17). Siehe „Wenn ein Dienst umzieht“ in Kapitel 13. Bei einem eigenen Adapter den Host in `[net] hosts` des Manifests eintragen. |
+| `…: freemapper sendet keine Anfragen an diese Adresse: Der Adapter für … nennt den Host … nicht` (englisch: `… freemapper does not send requests to this address: the adapter of … does not name the host …`) | freemapper fragt für ein Bundesland nur die Server an, die dessen Adapter nennt. Ein Dienst ist auf einen anderen Server umgezogen, hat dorthin weitergeleitet oder in seiner Antwort dorthin verwiesen. Die Meldung beginnt mit der abgelehnten Adresse und endet mit dem Kommando, das den Host freigibt. | Wenn Sie dem Server vertrauen (er gehört erkennbar zum Amt des Bundeslands): das Kommando aus der Meldung ausführen, `freemapper adapters allow-host <Adapter> <Host>`, den Lauf wiederholen und den Umzug melden (Kapitel 17). Siehe „Wenn ein Dienst umzieht“ in Kapitel 13. Hat sich die Adresse selbst geändert, können Sie sie ohne neue Version berichtigen („Eine Adresse selbst ändern“, Kapitel 13). Bei einem eigenen Adapter den Host in `[net] hosts` des Manifests eintragen. |
 | `…: freemapper sendet keine Anfragen an diese Adresse: …` mit einem anderen Grund (englisch: `… freemapper does not send requests to this address: …`) | freemapper verbindet sich nie mit einer Adresse dieses Rechners oder des lokalen Netzes, folgt höchstens drei Weiterleitungen in Folge und keiner Weiterleitung auf `http`. | Nichts freizugeben. Bei einem eingebauten Bundesland einen Fehler melden. |
 | `…: Der Server hat den Bytebereich … nicht beachtet` (englisch: `… ignored the byte range`) | Der Server (Höhenmodelle von Hamburg oder Hessen) schickt das ganze Archiv statt der Kachel; freemapper bricht ab, statt über 1 GB zu laden. | Später erneut versuchen, sonst einen Fehler melden. |
 | `Die Datei von … ist größer als … MB; abgebrochen` (englisch: `download of … is larger than … MB; stopped`) | Ein Server (OSM-Auszug, Downloadportal Schleswig-Holstein, vollständiges ALKIS oder Potsdamer Baumkataster) schickt weit mehr, als die Datei groß sein kann; freemapper bricht ab und löscht den Teil-Download. Bei den Bäumen steht die Meldung in den Klammern von `warning: potsdam tree cadastre unavailable`. | Später erneut versuchen, sonst einen Fehler melden. |

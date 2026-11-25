@@ -80,6 +80,10 @@ cli-adapter-from-project = figyelmeztetés: a projektmappából származó { $ad
 cli-adapter-overlaps = figyelmeztetés: a(z) { $adapter } adapter a(z) { $others } területét is lefedi; az objektumai az ottani térképekre kerülnek
 cli-adapter-dir-relative = figyelmeztetés: a FREEMAPPER_ADAPTER_DIR nem abszolút útvonal ({ $path }); figyelmen kívül hagyjuk
 cli-adapters-no-project = figyelmeztetés: a(z) { $path } nem mappa; projektadaptereket nem olvastunk be
+cli-adapters-export-unknown = a(z) { $adapter } adaptert a program egyetlen jegyzékfájlja sem írja le, ezért nincs mit exportálni; a `freemapper adapters list` megmutatja az azonosítókat
+cli-adapters-export-taken = A(z) { $path } létezik, és nem üres; exportáljon olyan mappába, amely még nem létezik
+cli-adapters-export-done = A(z) { $adapter } adapter { $count } fájlja a(z) { $path } mappába került. Csak az van bennük, amit a jegyzékfájl leír; a program kódjában lévő címek nincsenek benne.
+cli-adapters-export-next = Módosítsa a címeket a manifest.toml fájlban, ellenőrizze a mappát a `freemapper adapters check` paranccsal, majd tegye át ide: { $path }. A következő indítástól kezdve figyelmeztetéssel felváltja a beépített adaptert. A mappa törlése visszahozza a beépítettet.
 cli-adapters-overlaps = közös terület: { $others }
 cli-adapters-line = { $adapter }  { $name }  { $source }  revízió { $revision }  ellenőrizve { $checked }  hosztok: { $hosts }
 cli-adapters-source-built-in = beépített
@@ -667,6 +671,9 @@ help-adapters-allow-host-host = Az engedélyezendő hoszt: DNS-név, nem cím, n
 help-adapters-disallow-host = Egy hoszt visszavonása, amelyet az allow-host engedélyezett
 help-adapters-disallow-host-adapter = A beépített adapter azonosítója
 help-adapters-disallow-host-host = A visszavonandó hoszt
+help-adapters-export = A tartomány beépített adapterét módosítható adaptermappaként írja ki: a jegyzékfájlját és a jegyzékfájl által megnevezett fájlokat a `<dir>/<id>` mappába. A mappa még nem létezhet, vagy üresnek kell lennie. Módosítsa a címeket a `manifest.toml` fájlban, ellenőrizze az `adapters check` paranccsal, és tegye az adaptermappájába: ekkor figyelmeztetéssel felváltja a beépített adaptert. A mappa eltávolítása visszahozza a beépítettet
+help-adapters-export-adapter = A beépített adapter azonosítója, ahogy az `adapters list` mutatja
+help-adapters-export-dir = A mappa, amelyben a `<id>` mappa létrejön
 help-arg-adapters-from-project = A projektmappa `adapters` mappájában lévő adaptereket is betölti. A freemapper mindegyiket megnevezi a kérdezett hosztokkal. Használja megbízható projekthez: egy adapter a freemappert az általa megnevezett szerverek kérdezésére készteti
 
 ## The summary of a run, for the MCP server and the area page

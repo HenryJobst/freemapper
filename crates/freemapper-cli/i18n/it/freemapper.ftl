@@ -82,6 +82,10 @@ cli-adapter-from-project = avviso: viene usato l'adattatore { $adapter } della c
 cli-adapter-overlaps = avviso: l'adattatore { $adapter } copre anche il territorio di { $others }; i suoi oggetti finiscono sulle carte di quella zona
 cli-adapter-dir-relative = avviso: FREEMAPPER_ADAPTER_DIR non è un percorso assoluto ({ $path }); viene ignorata
 cli-adapters-no-project = avviso: { $path } non è una cartella; non sono stati letti adattatori di un progetto
+cli-adapters-export-unknown = l'adattatore { $adapter } non è descritto da nessun manifesto di questo programma, quindi non c'è nulla da esportare; `freemapper adapters list` mostra gli id
+cli-adapters-export-taken = { $path } esiste e non è vuota; esporta in una cartella che non esiste ancora
+cli-adapters-export-done = I { $count } file dell'adattatore { $adapter } sono stati scritti in { $path }. Contengono solo ciò che descrive il suo manifesto; gli indirizzi scritti nel codice del programma non ci sono.
+cli-adapters-export-next = Modifica gli indirizzi in manifest.toml, controlla la cartella con `freemapper adapters check` e spostala in { $path }: dal prossimo avvio sostituisce l'adattatore integrato, con un avviso. Eliminando la cartella torna quello integrato.
 cli-adapters-overlaps = condivide il territorio con: { $others }
 cli-adapters-line = { $adapter }  { $name }  { $source }  revisione { $revision }  verificato { $checked }  host: { $hosts }
 cli-adapters-source-built-in = integrato
@@ -675,6 +679,9 @@ help-adapters-allow-host-host = L'host da consentire: un nome DNS, nessun indiri
 help-adapters-disallow-host = Revoca un host che allow-host aveva consentito
 help-adapters-disallow-host-adapter = L'id dell'adattatore integrato
 help-adapters-disallow-host-host = L'host da revocare
+help-adapters-export = Scrive l'adattatore integrato di un Land come cartella di adattatore che puoi modificare: il suo manifesto e i file che il manifesto nomina, in `<dir>/<id>`. La cartella non deve ancora esistere o deve essere vuota. Modifica gli indirizzi nel suo `manifest.toml`, controllala con `adapters check` e mettila nella tua cartella degli adattatori: sostituisce allora l'adattatore integrato, con un avviso. Eliminando la cartella torna quello integrato
+help-adapters-export-adapter = L'id dell'adattatore integrato, come lo mostra `adapters list`
+help-adapters-export-dir = La cartella in cui viene creata la cartella `<id>`
 help-arg-adapters-from-project = Carica anche gli adattatori nella cartella `adapters` della cartella del progetto. freemapper nomina ciascuno con gli host che interroga. Usalo per un progetto di cui ti fidi: un adattatore fa interrogare a freemapper i server che nomina
 
 ## The summary of a run, for the MCP server and the area page

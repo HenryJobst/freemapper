@@ -84,6 +84,10 @@ cli-adapter-from-project = попередження: використовуєт�
 cli-adapter-overlaps = попередження: адаптер { $adapter } також охоплює територію { $others }; його об'єкти потрапляють на тамтешні карти
 cli-adapter-dir-relative = попередження: FREEMAPPER_ADAPTER_DIR не є абсолютним шляхом ({ $path }); його ігноровано
 cli-adapters-no-project = попередження: { $path } не є папкою; адаптерів проєкту не прочитано
+cli-adapters-export-unknown = адаптер { $adapter } не описаний жодним маніфестом цієї програми, тож експортувати нічого; `freemapper adapters list` показує ідентифікатори
+cli-adapters-export-taken = { $path } існує і не порожня; експортуйте в папку, якої ще немає
+cli-adapters-export-done = { $count } файлів адаптера { $adapter } записано в { $path }. У них лише те, що описує маніфест; адрес із коду програми там немає.
+cli-adapters-export-next = Змініть адреси в manifest.toml, перевірте папку командою `freemapper adapters check` і перенесіть її в { $path }: з наступного запуску вона замінює вбудований адаптер, із попередженням. Якщо видалити папку, вбудований адаптер повернеться.
 cli-adapters-overlaps = перетинається з: { $others }
 cli-adapters-line = { $adapter }  { $name }  { $source }  ревізія { $revision }  перевірено { $checked }  хости: { $hosts }
 cli-adapters-source-built-in = вбудований
@@ -683,6 +687,9 @@ help-adapters-allow-host-host = Хост, який слід дозволити: 
 help-adapters-disallow-host = Скасувати хост, який дозволила allow-host
 help-adapters-disallow-host-adapter = Id вбудованого адаптера
 help-adapters-disallow-host-host = Хост, який слід скасувати
+help-adapters-export = Записує вбудований адаптер федеральної землі як папку адаптера, яку можна змінювати: його маніфест і файли, названі в маніфесті, у `<dir>/<id>`. Папки ще не повинно бути, або вона має бути порожньою. Змініть адреси в її `manifest.toml`, перевірте її командою `adapters check` і покладіть у свою папку адаптерів: тоді вона замінить вбудований адаптер, із попередженням. Якщо прибрати папку, вбудований адаптер повернеться
+help-adapters-export-adapter = Ідентифікатор вбудованого адаптера, як його показує `adapters list`
+help-adapters-export-dir = Папка, в якій створюється папка `<id>`
 help-arg-adapters-from-project = Також завантажити адаптери з папки `adapters` папки проєкту. freemapper називає кожен із них разом із хостами, до яких він звертається. Користуйтеся цим для проєкту, якому довіряєте: адаптер змушує freemapper звертатися до серверів, які він називає
 
 ## The summary of a run, for the MCP server and the area page

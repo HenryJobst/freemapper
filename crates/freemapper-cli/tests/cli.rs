@@ -2421,6 +2421,163 @@ fn adapters_list_shows_built_in_user_and_project_adapters() {
     assert!(err.starts_with("Warnung: Der Adapter in "), "{err}");
 }
 
+/// The ids of the built-in states a manifest declares.
+const STATES: [&str; 15] = [
+    "brandenburg",
+    "berlin",
+    "saxony",
+    "saxonyanhalt",
+    "hamburg",
+    "hessen",
+    "schleswigholstein",
+    "mecklenburgvorpommern",
+    "nordrheinwestfalen",
+    "niedersachsen",
+    "rheinlandpfalz",
+    "saarland",
+    "badenwuerttemberg",
+    "bremen",
+    "bayern",
+];
+
+/// `adapters export` writes the built-in adapter of a state as a folder that passes
+/// `adapters check` and that, in the person's adapter folder, replaces the built-in one.
+#[test]
+fn adapters_export_writes_a_folder_that_replaces_the_built_in_adapter() {
+    let manifests = concat!(env!("CARGO_MANIFEST_DIR"), "/../adapters/de/manifests");
+    let run = |args: &[&str]| {
+        let output = freemapper().args(args).output().unwrap();
+        (
+            output.status.code(),
+            String::from_utf8(output.stdout).unwrap(),
+            String::from_utf8(output.stderr).unwrap(),
+        )
+    };
+    let out_dir = tempfile::tempdir().unwrap();
+    let root = out_dir.path().to_str().unwrap();
+    // Every state: the same files as in the program, and a check with the one warning that
+    // the id is built in.
+    for id in STATES {
+        let (code, out, err) = run(&["adapters", "export", id, root]);
+        assert_eq!(code, Some(0), "{id}: {out}{err}");
+        let folder = out_dir.path().join(id);
+        let source = std::path::Path::new(manifests).join(id);
+        let mut names: Vec<String> = std::fs::read_dir(&folder)
+            .unwrap()
+            .map(|e| e.unwrap().file_name().into_string().unwrap())
+            .collect();
+        names.sort();
+        assert!(names.contains(&"manifest.toml".to_string()), "{id}");
+        // The files are those of the program; only a manifest that declares its orthophoto as
+        // a service gets a provider of its own, which a replacement needs to load.
+        let without_provider = |bytes: Vec<u8>| -> String {
+            String::from_utf8(bytes)
+                .unwrap()
+                .lines()
+                .filter(|line| !line.starts_with("provider = "))
+                .collect::<Vec<_>>()
+                .join("\n")
+        };
+        for name in &names {
+            let (got, want) = (
+                std::fs::read(folder.join(name)).unwrap(),
+                std::fs::read(source.join(name)).unwrap(),
+            );
+            if name == "manifest.toml" {
+                assert_eq!(without_provider(got), without_provider(want), "{id}");
+            } else {
+                assert_eq!(got, want, "{id}/{name}");
+            }
+        }
+        let exported = std::fs::read_to_string(folder.join("manifest.toml")).unwrap();
+        let built_in = std::fs::read_to_string(source.join("manifest.toml")).unwrap();
+        if id == "saxonyanhalt" {
+            assert!(
+                exported.contains("provider = \"saxonyanhalt\""),
+                "{exported}"
+            );
+            assert!(built_in.contains("provider = \"lvermgeo\""));
+        } else {
+            assert_eq!(exported, built_in, "{id}");
+        }
+        let (code, out, err) = run(&["adapters", "check", folder.to_str().unwrap(), "--json"]);
+        assert_eq!(code, Some(0), "{id}: {out}{err}");
+        let json: serde_json::Value = serde_json::from_str(&out).unwrap();
+        let codes: Vec<&str> = json["findings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|f| f["code"].as_str().unwrap())
+            .collect();
+        assert_eq!(codes, ["check.built-in-id"], "{id}: {out}");
+    }
+    // Never over something: the folder exists with files in it.
+    let (code, _, err) = run(&["adapters", "export", "hamburg", root]);
+    assert_eq!(code, Some(1));
+    assert!(err.contains("exists and is not empty"), "{err}");
+    // A file where the folder should go is no folder to write into either.
+    let file_dir = tempfile::tempdir().unwrap();
+    std::fs::write(file_dir.path().join("hamburg"), "x").unwrap();
+    let (code, _, err) = run(&[
+        "adapters",
+        "export",
+        "hamburg",
+        file_dir.path().to_str().unwrap(),
+    ]);
+    assert_eq!(code, Some(1));
+    assert!(err.contains("exists and is not empty"), "{err}");
+    // An empty folder is fine.
+    std::fs::create_dir(out_dir.path().join("empty")).unwrap();
+    std::fs::create_dir(out_dir.path().join("empty").join("hamburg")).unwrap();
+    let (code, out, err) = run(&[
+        "adapters",
+        "export",
+        "hamburg",
+        out_dir.path().join("empty").to_str().unwrap(),
+    ]);
+    assert_eq!(code, Some(0), "{out}{err}");
+    assert!(
+        out.contains("Wrote the 2 files of the adapter hamburg"),
+        "{out}"
+    );
+    // An adapter that code declares has no manifest to export.
+    let (code, _, err) = run(&["adapters", "export", "polska", root]);
+    assert_eq!(code, Some(1));
+    assert!(err.contains("nothing to export"), "{err}");
+    // In the person's adapter folder the exports replace the built-in adapters, each in its
+    // place, with nothing left out.
+    let mine = tempfile::tempdir().unwrap();
+    for id in STATES {
+        let target = mine.path().join(id);
+        std::fs::create_dir(&target).unwrap();
+        for entry in std::fs::read_dir(out_dir.path().join(id)).unwrap() {
+            let entry = entry.unwrap();
+            std::fs::copy(entry.path(), target.join(entry.file_name())).unwrap();
+        }
+    }
+    let output = freemapper()
+        .env("FREEMAPPER_ADAPTER_DIR", mine.path())
+        .args(["adapters", "list", "--json"])
+        .output()
+        .unwrap();
+    let json: serde_json::Value =
+        serde_json::from_str(&String::from_utf8(output.stdout).unwrap()).unwrap();
+    assert_eq!(json["adapters"].as_array().unwrap().len(), 16, "{json}");
+    for id in STATES {
+        let adapter = json["adapters"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|a| a["id"] == id)
+            .unwrap();
+        assert_eq!(adapter["replaces_built_in"], true, "{id}: {json}");
+        assert_eq!(adapter["source"], "user", "{id}");
+    }
+    for warning in json["warnings"].as_array().unwrap() {
+        assert_eq!(warning["skipped"], false, "{warning}");
+    }
+}
+
 /// `adapters check` reads the folder of one adapter: exit code 0 when it would load, 1 with
 /// findings, 2 when the check cannot run. `adapter check` is the same command.
 #[test]

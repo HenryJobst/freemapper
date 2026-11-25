@@ -82,6 +82,10 @@ cli-adapter-from-project = aviso: se usa el adaptador { $adapter } de la carpeta
 cli-adapter-overlaps = aviso: el adaptador { $adapter } cubre también territorio de { $others }; sus objetos van a los mapas de allí
 cli-adapter-dir-relative = aviso: FREEMAPPER_ADAPTER_DIR no es una ruta absoluta ({ $path }); se ignora
 cli-adapters-no-project = aviso: { $path } no es una carpeta; no se leyó ningún adaptador de un proyecto
+cli-adapters-export-unknown = el adaptador { $adapter } no está descrito por ningún manifiesto de este programa, así que no hay nada que exportar; `freemapper adapters list` muestra los identificadores
+cli-adapters-export-taken = { $path } existe y no está vacía; exporte a una carpeta que aún no exista
+cli-adapters-export-done = Se escribieron los { $count } archivos del adaptador { $adapter } en { $path }. Solo contienen lo que describe su manifiesto; las direcciones que están en el código del programa no están.
+cli-adapters-export-next = Cambie las direcciones en manifest.toml, compruebe la carpeta con `freemapper adapters check` y muévala a { $path }: desde el próximo inicio sustituye al adaptador integrado, con una advertencia. Si borra la carpeta, vuelve el integrado.
 cli-adapters-overlaps = comparte territorio con: { $others }
 cli-adapters-line = { $adapter }  { $name }  { $source }  revisión { $revision }  comprobado { $checked }  hosts: { $hosts }
 cli-adapters-source-built-in = integrado
@@ -676,6 +680,9 @@ help-adapters-allow-host-host = El host que se permite: un nombre DNS, sin direc
 help-adapters-disallow-host = Retira un host que allow-host permitió
 help-adapters-disallow-host-adapter = El id del adaptador integrado
 help-adapters-disallow-host-host = El host que se retira
+help-adapters-export = Escribe el adaptador integrado de un estado federado como carpeta de adaptador que puede modificar: su manifiesto y los archivos que el manifiesto nombra, en `<dir>/<id>`. La carpeta aún no debe existir o debe estar vacía. Cambie las direcciones en su `manifest.toml`, compruébela con `adapters check` y póngala en su carpeta de adaptadores: entonces sustituye al adaptador integrado, con una advertencia. Si quita la carpeta, vuelve el integrado
+help-adapters-export-adapter = El identificador del adaptador integrado, como lo muestra `adapters list`
+help-adapters-export-dir = La carpeta en la que se crea la carpeta `<id>`
 help-arg-adapters-from-project = Carga también los adaptadores de la carpeta `adapters` de la carpeta del proyecto. freemapper nombra cada uno con los hosts que consulta. Úsalo en un proyecto de confianza: un adaptador hace que freemapper consulte los servidores que nombra
 
 ## The summary of a run, for the MCP server and the area page

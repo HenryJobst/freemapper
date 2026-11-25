@@ -82,6 +82,10 @@ cli-adapter-from-project = avertissement : l'adaptateur { $adapter } du dossier 
 cli-adapter-overlaps = avertissement : l'adaptateur { $adapter } couvre aussi le territoire de { $others } ; ses objets vont sur les cartes de ces lieux
 cli-adapter-dir-relative = avertissement : FREEMAPPER_ADAPTER_DIR n'est pas un chemin absolu ({ $path }) ; il est ignoré
 cli-adapters-no-project = avertissement : { $path } n'est pas un dossier ; aucun adaptateur de projet n'a été lu
+cli-adapters-export-unknown = l'adaptateur { $adapter } n'est décrit par aucun manifeste de ce programme, il n'y a donc rien à exporter ; `freemapper adapters list` montre les identifiants
+cli-adapters-export-taken = { $path } existe et n'est pas vide ; exportez dans un dossier qui n'existe pas encore
+cli-adapters-export-done = Les { $count } fichiers de l'adaptateur { $adapter } ont été écrits dans { $path }. Ils ne contiennent que ce que décrit son manifeste ; les adresses inscrites dans le code du programme n'y sont pas.
+cli-adapters-export-next = Modifiez les adresses dans manifest.toml, vérifiez le dossier avec `freemapper adapters check`, puis déplacez-le dans { $path } : dès le prochain démarrage, il remplace l'adaptateur intégré, avec un avertissement. Supprimer le dossier rétablit l'adaptateur intégré.
 cli-adapters-overlaps = partage le territoire avec : { $others }
 cli-adapters-line = { $adapter }  { $name }  { $source }  révision { $revision }  vérifié { $checked }  hôtes : { $hosts }
 cli-adapters-source-built-in = intégré
@@ -673,6 +677,9 @@ help-adapters-allow-host-host = L'hôte à autoriser : un nom DNS, pas d'adresse
 help-adapters-disallow-host = Retirer un hôte que allow-host a autorisé
 help-adapters-disallow-host-adapter = L'identifiant de l'adaptateur intégré
 help-adapters-disallow-host-host = L'hôte à retirer
+help-adapters-export = Écrit l'adaptateur intégré d'un Land comme dossier d'adaptateur que vous pouvez modifier : son manifeste et les fichiers que le manifeste nomme, dans `<dir>/<id>`. Le dossier ne doit pas encore exister ou doit être vide. Modifiez les adresses dans son `manifest.toml`, vérifiez-le avec `adapters check` et placez-le dans votre dossier d'adaptateurs : il remplace alors l'adaptateur intégré, avec un avertissement. Supprimer le dossier rétablit l'adaptateur intégré
+help-adapters-export-adapter = L'identifiant de l'adaptateur intégré, tel que le montre `adapters list`
+help-adapters-export-dir = Le dossier dans lequel le dossier `<id>` est créé
 help-arg-adapters-from-project = Charger aussi les adaptateurs du dossier `adapters` du dossier de projet. freemapper nomme chacun avec les hôtes qu'il interroge. À utiliser pour un projet de confiance : un adaptateur fait interroger à freemapper les serveurs qu'il nomme
 
 ## The summary of a run, for the MCP server and the area page

@@ -80,6 +80,10 @@ cli-adapter-from-project = waarschuwing: de adapter { $adapter } uit de projectm
 cli-adapter-overlaps = waarschuwing: de adapter { $adapter } dekt ook het gebied van { $others }; zijn objecten komen daar op kaarten
 cli-adapter-dir-relative = waarschuwing: FREEMAPPER_ADAPTER_DIR is geen absoluut pad ({ $path }); het wordt genegeerd
 cli-adapters-no-project = waarschuwing: { $path } is geen map; er zijn geen adapters van een project gelezen
+cli-adapters-export-unknown = de adapter { $adapter } wordt door geen manifest van dit programma beschreven, dus er valt niets te exporteren; `freemapper adapters list` toont de id's
+cli-adapters-export-taken = { $path } bestaat al en is niet leeg; exporteer naar een map die nog niet bestaat
+cli-adapters-export-done = De { $count } bestanden van de adapter { $adapter } staan in { $path }. Er staat alleen in wat het manifest beschrijft; adressen die in de code van het programma staan, ontbreken.
+cli-adapters-export-next = Pas de adressen aan in manifest.toml, controleer de map met `freemapper adapters check` en verplaats haar dan naar { $path }: vanaf de volgende start vervangt ze de ingebouwde adapter, met een waarschuwing. Verwijder je de map, dan is de ingebouwde weer terug.
 cli-adapters-overlaps = deelt gebied met: { $others }
 cli-adapters-line = { $adapter }  { $name }  { $source }  revisie { $revision }  gecontroleerd { $checked }  hosts: { $hosts }
 cli-adapters-source-built-in = ingebouwd
@@ -667,6 +671,9 @@ help-adapters-allow-host-host = De toe te staan host: een DNS-naam, geen adres, 
 help-adapters-disallow-host = Een host intrekken die allow-host heeft toegestaan
 help-adapters-disallow-host-adapter = De id van de ingebouwde adapter
 help-adapters-disallow-host-host = De in te trekken host
+help-adapters-export = Schrijf de ingebouwde adapter van een deelstaat als adaptermap die je kunt aanpassen: het manifest en de bestanden die het manifest noemt, in `<dir>/<id>`. De map mag nog niet bestaan of moet leeg zijn. Pas de adressen in `manifest.toml` aan, controleer de map met `adapters check` en zet haar in je adaptermap: ze vervangt dan de ingebouwde adapter, met een waarschuwing. Verwijder je de map, dan is de ingebouwde weer terug
+help-adapters-export-adapter = De id van de ingebouwde adapter, zoals `adapters list` hem toont
+help-adapters-export-dir = De map waarin de map `<id>` wordt aangemaakt
 help-arg-adapters-from-project = Laad ook de adapters in de map `adapters` van de projectmap. freemapper noemt elk ervan met de hosts die hij aanspreekt. Gebruik het voor een project dat je vertrouwt: een adapter laat freemapper de servers aanspreken die hij noemt
 
 ## The summary of a run, for the MCP server and the area page

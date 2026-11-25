@@ -375,6 +375,7 @@ draußen, eine Warnung nicht. Die Texte der Befunde sind englisch.
 | `adapter.needs-newer` | Das Manifest verlangt ein neueres freemapper. |
 | `adapter.duplicate` | Die Kennung ist vergeben. Ein Ordner ersetzt einen eingebauten Adapter, einmal, und keinen anderen. |
 | `adapter.replaces-built-in` | Ein Hinweis, der Adapter lädt: Er tritt an die Stelle des eingebauten Adapters mit seiner Kennung. |
+| `adapter.replacement-outdated` | Ein Hinweis, der Adapter lädt: Der eingebaute Adapter, den er ersetzt, hat eine höhere `revision`. |
 | `adapter.provider-shared` | Eigene Dienste unter dem Anbieter eines anderen Adapters. |
 | `boundary.too-large` | Eine Grenzdatei über 2 MiB oder mit mehr als einer Million Stützpunkten. |
 | `boundary.format` | Kein GeoJSON mit einem Polygon-Feature. |
@@ -392,6 +393,7 @@ Warnungen:
 | `check.never-verified` | Das Manifest hat kein `last_verified`. |
 | `check.verified-long-ago` | `last_verified` liegt mehr als zwölf Monate zurück. |
 | `check.built-in-id` | Ein Adapter mit dieser Kennung ist ins Programm eingebaut; aus einem Adapterordner ersetzt dieser ihn. |
+| `check.built-in-newer` | Der eingebaute Adapter mit dieser Kennung hat eine höhere `revision` als der Ordner; `adapters export` schreibt ihn neu. |
 | `check.prefix-shared` | Ein eingebauter Adapter hat dasselbe `object_id_prefix`. |
 | `check.boundary-area` | Die Grenze umschließt weniger als 1 km² oder mehr als 2 000 000 km²: wahrscheinlich die falsche Einheit. |
 | `check.shares-ground` | Der Adapter liegt auf dem Gebiet eines anderen: Beide haben mehr als ein Hundertstel der kleineren Region gemeinsam. Eine Karte dort bekommt die Objekte beider. |

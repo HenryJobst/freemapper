@@ -82,6 +82,10 @@ cli-adapter-from-project = brīdinājums: tiek izmantots projekta mapes adapteri
 cli-adapter-overlaps = brīdinājums: adapteris { $adapter } aptver arī šo teritoriju: { $others }; tā objekti nonāk tur izveidotajās kartēs
 cli-adapter-dir-relative = brīdinājums: FREEMAPPER_ADAPTER_DIR nav absolūts ceļš ({ $path }); tas tiek ignorēts
 cli-adapters-no-project = brīdinājums: { $path } nav mape; projekta adapteri netika lasīti
+cli-adapters-export-unknown = adapteri { $adapter } neapraksta neviens šīs programmas manifests, tāpēc nav ko eksportēt; `freemapper adapters list` parāda identifikatorus
+cli-adapters-export-taken = { $path } pastāv un nav tukša; eksportējiet mapē, kuras vēl nav
+cli-adapters-export-done = Adaptera { $adapter } { $count } faili ierakstīti mapē { $path }. Tajos ir tikai tas, ko apraksta manifests; adrešu, kas ir programmas kodā, tur nav.
+cli-adapters-export-next = Mainiet adreses failā manifest.toml, pārbaudiet mapi ar `freemapper adapters check` un pārvietojiet to uz { $path }: no nākamās palaišanas tā aizstāj iebūvēto adapteri, ar brīdinājumu. Izdzēšot mapi, iebūvētais adapteris atgriežas.
 cli-adapters-overlaps = pārklājas ar: { $others }
 cli-adapters-line = { $adapter }  { $name }  { $source }  revīzija { $revision }  pārbaudīts { $checked }  serveri: { $hosts }
 cli-adapters-source-built-in = iebūvēts
@@ -674,6 +678,9 @@ help-adapters-allow-host-host = Atļaujamais serveris: DNS nosaukums, nevis adre
 help-adapters-disallow-host = Atsaukt serveri, ko allow-host atļāva
 help-adapters-disallow-host-adapter = Iebūvētā adaptera id
 help-adapters-disallow-host-host = Atsaucamais serveris
+help-adapters-export = Ieraksta federālās zemes iebūvēto adapteri kā adaptera mapi, ko varat mainīt: tā manifestu un manifestā minētos failus mapē `<dir>/<id>`. Mapei vēl nedrīkst pastāvēt vai tai jābūt tukšai. Mainiet adreses tās `manifest.toml`, pārbaudiet to ar `adapters check` un ievietojiet savā adapteru mapē: tad tā aizstāj iebūvēto adapteri, ar brīdinājumu. Noņemot mapi, iebūvētais adapteris atgriežas
+help-adapters-export-adapter = Iebūvētā adaptera identifikators, kā to rāda `adapters list`
+help-adapters-export-dir = Mape, kurā tiek izveidota mape `<id>`
 help-arg-adapters-from-project = Ielādēt arī adapterus projekta mapes mapē `adapters`. freemapper nosauc katru no tiem kopā ar serveriem, kuriem tas vaicā. Lietojiet to projektam, kuram uzticaties: adapteris liek freemapper vaicāt serveriem, ko tas nosauc
 
 ## The summary of a run, for the MCP server and the area page

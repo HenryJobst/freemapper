@@ -42,13 +42,19 @@ fn write(dir: &Path, id: &str, manifest: &str, boundary: &str) -> PathBuf {
 
 /// The adapters of the program: one, `sample`, far from the square of the tests.
 fn built_in() -> Registry {
+    built_in_at(1)
+}
+
+/// [`built_in`] with `sample` at `revision`.
+fn built_in_at(revision: u32) -> Registry {
     static FILES: [(&str, &str); 1] = [(
         "boundary.geojson",
         r#"{"type":"Feature","properties":{},"geometry":{"type":"Polygon","coordinates":
         [[[600000,5600000],[610000,5600000],[610000,5610000],[600000,5610000],[600000,5600000]]]}}"#,
     )];
-    let text =
-        manifest("sample").replace("[adapter]\n", "[adapter]\nobject_id_prefix = \"DEXX\"\n");
+    let text = manifest("sample")
+        .replace("[adapter]\n", "[adapter]\nobject_id_prefix = \"DEXX\"\n")
+        .replace("revision = 1\n", &format!("revision = {revision}\n"));
     let manifest = parse(&text, Path::new("sample")).unwrap();
     let mut registry = Registry::new();
     registry
@@ -95,6 +101,39 @@ fn a_fresh_folder_passes_without_a_warning() {
         ..inside
     };
     assert!(!covers(checked.adapter(), &across));
+}
+
+/// The built-in adapter of the program is newer than the folder that replaces it.
+#[test]
+fn a_folder_older_than_the_built_in_adapter_is_told() {
+    let dir = tempfile::tempdir().unwrap();
+    let text = |revision: u32| {
+        manifest("sample")
+            .replace("[adapter]\n", "[adapter]\nlast_verified = \"2026-03-01\"\n")
+            .replace("revision = 1\n", &format!("revision = {revision}\n"))
+    };
+    let codes_at = |folder_revision: u32, built_in_revision: u32| {
+        let folder = write(dir.path(), "sample", &text(folder_revision), SQUARE);
+        check_folder(
+            &folder,
+            Registry::new(),
+            &built_in_at(built_in_revision),
+            RUNNING,
+            today(),
+        )
+        .map(|checked| checked.warnings.iter().map(|w| w.code).collect::<Vec<_>>())
+        .unwrap()
+    };
+    assert_eq!(
+        codes_at(1, 3),
+        ["check.built-in-id", "check.built-in-newer"]
+    );
+    assert_eq!(
+        codes_at(2, 3),
+        ["check.built-in-id", "check.built-in-newer"]
+    );
+    assert_eq!(codes_at(3, 3), ["check.built-in-id"]);
+    assert_eq!(codes_at(4, 3), ["check.built-in-id"]);
 }
 
 /// What the author is told about a folder that loads.

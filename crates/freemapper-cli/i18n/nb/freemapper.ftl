@@ -80,6 +80,10 @@ cli-adapter-from-project = advarsel: adapteren { $adapter } fra prosjektmappen e
 cli-adapter-overlaps = advarsel: adapteren { $adapter } dekker også områder som hører til { $others }; objektene fra den havner på kart der
 cli-adapter-dir-relative = advarsel: FREEMAPPER_ADAPTER_DIR er ikke en absolutt sti ({ $path }); den ignoreres
 cli-adapters-no-project = advarsel: { $path } er ikke en mappe; ingen prosjektadaptere ble lest
+cli-adapters-export-unknown = adapteren { $adapter } er ikke beskrevet av noe manifest i dette programmet, så det er ingenting å eksportere; `freemapper adapters list` viser id-ene
+cli-adapters-export-taken = { $path } finnes og er ikke tom; eksporter til en mappe som ikke finnes ennå
+cli-adapters-export-done = Skrev de { $count } filene til adapteren { $adapter } til { $path }. Der står bare det manifestet beskriver; adresser som står i programmets kode, mangler.
+cli-adapters-export-next = Endre adressene i manifest.toml, kontroller mappen med `freemapper adapters check` og flytt den så til { $path }: Fra neste start erstatter den den innebygde adapteren, med en advarsel. Sletter du mappen, er den innebygde tilbake.
 cli-adapters-overlaps = deler område med: { $others }
 cli-adapters-line = { $adapter }  { $name }  { $source }  revisjon { $revision }  sjekket { $checked }  verter: { $hosts }
 cli-adapters-source-built-in = innebygd
@@ -667,6 +671,9 @@ help-adapters-allow-host-host = Verten som skal tillates: et DNS-navn, ingen adr
 help-adapters-disallow-host = Ta tilbake en vert som allow-host tillot
 help-adapters-disallow-host-adapter = ID-en til den innebygde adapteren
 help-adapters-disallow-host-host = Verten som skal tas tilbake
+help-adapters-export = Skriv den innebygde adapteren til en delstat som en adaptermappe du kan endre: manifestet og filene manifestet nevner, i `<dir>/<id>`. Mappen må ikke finnes ennå eller må være tom. Endre adressene i `manifest.toml`, kontroller den med `adapters check` og legg den i adaptermappen din: Da erstatter den den innebygde adapteren, med en advarsel. Fjerner du mappen, er den innebygde tilbake
+help-adapters-export-adapter = Id-en til den innebygde adapteren, slik `adapters list` viser den
+help-adapters-export-dir = Mappen der mappen `<id>` opprettes
 help-arg-adapters-from-project = Last også adapterne i mappen `adapters` i prosjektmappen. freemapper navngir hver av dem sammen med vertene den spør. Bruk det for et prosjekt du stoler på: en adapter får freemapper til å spørre tjenerne den navngir
 
 ## The summary of a run, for the MCP server and the area page

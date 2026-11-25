@@ -80,6 +80,10 @@ cli-adapter-from-project = hoiatus: projektikaustast pärit adapterit { $adapter
 cli-adapter-overlaps = hoiatus: adapter { $adapter } katab ka alasid, mida katab { $others }; selle objektid satuvad seal kaartidele
 cli-adapter-dir-relative = hoiatus: FREEMAPPER_ADAPTER_DIR ei ole absoluutne tee ({ $path }); seda ignoreeritakse
 cli-adapters-no-project = hoiatus: { $path } ei ole kaust; projekti adaptereid ei loetud
+cli-adapters-export-unknown = adapterit { $adapter } ei kirjelda ükski selle programmi manifest, seega pole midagi eksportida; `freemapper adapters list` näitab tunnuseid
+cli-adapters-export-taken = { $path } on olemas ja ei ole tühi; ekspordi kausta, mida veel ei ole
+cli-adapters-export-done = Adapteri { $adapter } { $count } faili kirjutati kausta { $path }. Neis on ainult see, mida manifest kirjeldab; programmi koodis olevaid aadresse neis ei ole.
+cli-adapters-export-next = Muuda aadresse failis manifest.toml, kontrolli kausta käsuga `freemapper adapters check` ja tõsta see kausta { $path }: järgmisest käivitusest asendab see sisseehitatud adapteri hoiatusega. Kausta kustutamine toob sisseehitatud adapteri tagasi.
 cli-adapters-overlaps = jagab ala adapteritega: { $others }
 cli-adapters-line = { $adapter }  { $name }  { $source }  versioon { $revision }  kontrollitud { $checked }  hostid: { $hosts }
 cli-adapters-source-built-in = sisseehitatud
@@ -667,6 +671,9 @@ help-adapters-allow-host-host = Lubatav host: DNS-nimi, mitte aadress, mitte por
 help-adapters-disallow-host = Võta tagasi host, mille allow-host lubas
 help-adapters-disallow-host-adapter = Sisseehitatud adapteri id
 help-adapters-disallow-host-host = Tagasi võetav host
+help-adapters-export = Kirjutab liidumaa sisseehitatud adapteri muudetava adapterikaustana: selle manifest ja manifesti nimetatud failid kausta `<dir>/<id>`. Kausta ei tohi veel olla või see peab olema tühi. Muuda aadresse selle failis `manifest.toml`, kontrolli seda käsuga `adapters check` ja pane oma adapterikausta: siis asendab see sisseehitatud adapteri hoiatusega. Kausta eemaldamine toob sisseehitatud adapteri tagasi
+help-adapters-export-adapter = Sisseehitatud adapteri tunnus, nagu `adapters list` seda näitab
+help-adapters-export-dir = Kaust, kuhu luuakse kaust `<id>`
 help-arg-adapters-from-project = Laadi ka projektikausta kaustas `adapters` olevad adapterid. freemapper nimetab igaühe koos hostidega, mille poole see pöördub. Kasuta seda usaldatud projekti jaoks: adapter paneb freemapperi küsima servereid, mida see nimetab
 
 ## The summary of a run, for the MCP server and the area page

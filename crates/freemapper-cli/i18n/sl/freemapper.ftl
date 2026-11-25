@@ -84,6 +84,10 @@ cli-adapter-from-project = opozorilo: uporabljen je adapter { $adapter } iz mape
 cli-adapter-overlaps = opozorilo: adapter { $adapter } pokriva tudi območje, ki ga pokrivajo: { $others }; njegovi objekti pridejo na tamkajšnje karte
 cli-adapter-dir-relative = opozorilo: FREEMAPPER_ADAPTER_DIR ni absolutna pot ({ $path }); prezrta
 cli-adapters-no-project = opozorilo: { $path } ni mapa; adapterji projekta niso bili prebrani
+cli-adapters-export-unknown = adapterja { $adapter } ne opisuje noben manifest tega programa, zato ni kaj izvoziti; `freemapper adapters list` prikaže identifikatorje
+cli-adapters-export-taken = { $path } obstaja in ni prazna; izvozite v mapo, ki še ne obstaja
+cli-adapters-export-done = { $count } datotek adapterja { $adapter } je zapisanih v { $path }. V njih je samo to, kar opisuje manifest; naslovov, ki so v kodi programa, ni.
+cli-adapters-export-next = Spremenite naslove v manifest.toml, preverite mapo z `freemapper adapters check` in jo prestavite v { $path }: od naslednjega zagona nadomesti vgrajeni adapter, z opozorilom. Če mapo izbrišete, je vgrajeni adapter spet tam.
 cli-adapters-overlaps = si deli območje z: { $others }
 cli-adapters-line = { $adapter }  { $name }  { $source }  revizija { $revision }  preverjeno { $checked }  gostitelji: { $hosts }
 cli-adapters-source-built-in = vgrajen
@@ -681,6 +685,9 @@ help-adapters-allow-host-host = Gostitelj, ki se dovoli: ime DNS, ne naslov, ne 
 help-adapters-disallow-host = Prekliče gostitelja, ki ga je dovolil allow-host
 help-adapters-disallow-host-adapter = Id vgrajenega adapterja
 help-adapters-disallow-host-host = Gostitelj, ki se prekliče
+help-adapters-export = Zapiše vgrajeni adapter zvezne dežele kot mapo adapterja, ki jo lahko spremenite: njegov manifest in datoteke, ki jih manifest navaja, v `<dir>/<id>`. Mapa še ne sme obstajati ali mora biti prazna. Spremenite naslove v njenem `manifest.toml`, preverite jo z `adapters check` in jo dajte v svojo mapo adapterjev: potem nadomesti vgrajeni adapter, z opozorilom. Če mapo odstranite, je vgrajeni adapter spet tam
+help-adapters-export-adapter = Identifikator vgrajenega adapterja, kot ga prikaže `adapters list`
+help-adapters-export-dir = Mapa, v kateri nastane mapa `<id>`
 help-arg-adapters-from-project = Naloži tudi adapterje v mapi `adapters` mape projekta. freemapper vsakega poimenuje z gostitelji, ki jih sprašuje. Uporabi za projekt, ki mu zaupaš: adapter prisili freemapper, da sprašuje strežnike, ki jih navaja
 
 ## The summary of a run, for the MCP server and the area page
