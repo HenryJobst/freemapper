@@ -1481,8 +1481,10 @@ hat dieselbe Form, und der Hinweis sagt, dass archäologische Forschungen und di
 Genehmigung des Konservators brauchen (Art. 36 Abs. 1 Pkt 5 und 12), dass die Genehmigung für die Suche am 1. Januar 2027
 entfällt und durch die Zustimmung des Eigentümers plus eine Meldung in der App des Ministeriums ersetzt wird (Art. 36b)
 und dass eingetragene Denkmale samt einem Streifen von 10 m dann für solche Suchen gesperrt sind (Art. 36c).
-Fundstellen, die nur in der archäologischen Kartei (AZP) stehen und nicht im Register eingetragen sind, und die
-Pomniki historii sind nicht abgedeckt. In den Daten sind nur die Staatsforsten, kein Privatwald; die Hinweise sagen, dass der
+Fundstellen, die nur in der archäologischen Kartei (AZP) stehen und nicht im Register eingetragen sind, sind nicht abgedeckt.
+Die Pomniki historii (Denkmäler der Geschichte) fragt eine dritte Anfrage an denselben Host ab; sie haben wahre Positionen, deshalb
+unterscheidet der Abschnitt Denkmäler im Kartengebiet von solchen, die nur im Rechteck darum liegen, und nennt die Namen (höchstens zehn je
+Liste). In den Daten sind nur die Staatsforsten, kein Privatwald; die Hinweise sagen, dass der
 Starost Wald beaufsichtigt, der nicht dem Staatsschatz gehört. Die Hinweistexte hat noch kein Polnischsprecher gelesen. Die Hinweise sind
 ein Hinweis, keine Rechtsberatung. `--offline` liest, was ein früherer Lauf gespeichert hat, wie in Deutschland.
 
