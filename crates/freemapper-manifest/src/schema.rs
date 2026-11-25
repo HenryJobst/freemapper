@@ -230,6 +230,10 @@ pub(crate) struct RawPermits {
     /// `[[permits.shapefile]]`: the same keys, but a zip instead of a service.
     #[serde(default)]
     pub shapefile: Vec<RawPermitWfs>,
+    /// `[[permits.geojson]]`: the same keys, but one GeoJSON file for the state instead of a
+    /// service.
+    #[serde(default)]
+    pub geojson: Vec<RawPermitWfs>,
     /// `[[permits.getfeatureinfo]]`: a WMS asked at points; every layer names its service.
     #[serde(default)]
     pub getfeatureinfo: Vec<RawPermitWfs>,

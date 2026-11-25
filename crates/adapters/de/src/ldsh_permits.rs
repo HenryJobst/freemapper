@@ -1,188 +1,35 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! The monuments of Schleswig-Holstein (ADR 0145): the Landesamt für Denkmalpflege publishes its
-//! list of monuments only as one GeoJSON file for the whole state (about 52 MB, EPSG:25832, a new
-//! one each week, CC BY 4.0). The file is kept in the shared download cache as the statewide
-//! files of ADR 0132 are, downloaded again only when the server has a newer one, and cut to the
-//! map box; a monument keeps only its kind (`LayerName`).
+//! list of monuments only as one GeoJSON file for the whole state, now declared in the manifest
+//! of the state as `[[permits.geojson]]` (issue #273). These tests hold the declared table to what
+//! the table in the code gave, and read the file through it.
 //!
 //! The archaeological monuments are not in it: their office allows their publication only with
 //! its written consent. Lübeck keeps its own list.
 
 use std::path::Path;
 
-use freemapper_adapter_api::permits::{
-    PermitFinding, PermitSection, PermitSource, PermitSourceInfo, Wording,
-};
-use geo::BoundingRect as _;
-use geo_types::{Geometry, Rect};
-use serde::Deserialize;
-use serde_json::Value;
-use serde_json::value::RawValue;
+use freemapper_adapter_api::permits::{PermitSection, PermitSource, Wording};
+use geo_types::Rect;
 
 use crate::crs::Crs;
-use crate::fetch::{CacheDir, FetchError, Fetcher, get_limited_with_retries};
-use crate::shape_permits::current_file;
-use crate::wfs_permits::{Reading, finding, in_wgs84, projected_box, stored};
+use crate::fetch::CacheDir;
 
 /// The current file; the server sends it on to the file of the week.
-pub const URL: &str =
+const URL: &str =
     "https://opendata.schleswig-holstein.de/collection/geodaten-denkmalliste-sh/aktuell.geojson";
 
-/// The largest file read; the list of 2026 has 52 MB.
-const MAX_FILE: u64 = 150 * 1024 * 1024;
-
-const READING: Reading = Reading::Monument {
-    kind: "Denkmal",
-    kind_from: Some("LayerName"),
-    link: None,
-};
-
-/// The source of Schleswig-Holstein.
-pub fn source() -> Box<dyn PermitSource> {
-    Box::new(LdshSource {
-        info: PermitSourceInfo {
-            key: "denkmale",
-            label: Wording {
-                en: "Landesamt für Denkmalpflege Schleswig-Holstein",
-                de: "Landesamt für Denkmalpflege Schleswig-Holstein",
-            },
-            what: Wording {
-                en: "list of monuments (one file for the state, kept in the cache)",
-                de: "Denkmalliste (eine Datei für das Bundesland, im Zwischenspeicher)",
-            },
-            credit: "Landesamt für Denkmalpflege Schleswig-Holstein; Lizenz: Creative Commons Namensnennung 4.0 International (CC BY 4.0)",
-            note: None,
-            sampled: false,
-            gaps: Some(Wording {
-                en: "the archaeological monuments are not in it, and the Hansestadt Lübeck keeps its own list",
-                de: "Die Bodendenkmale fehlen darin, und die Hansestadt Lübeck führt ihre Denkmalliste selbst",
-            }),
-            layers: &["denkmale"],
-            sections: &[PermitSection::Monuments],
-            offices: None,
-        },
-    })
-}
-
-struct LdshSource {
-    info: PermitSourceInfo,
-}
-
-impl PermitSource for LdshSource {
-    fn info(&self) -> &PermitSourceInfo {
-        &self.info
-    }
-
-    fn fetch(
-        &self,
-        fetcher: &dyn Fetcher,
-        bbox: &Rect<f64>,
-        part: &Path,
-    ) -> Result<Vec<Vec<Value>>, FetchError> {
-        let features = get_limited_with_retries(fetcher, URL, part, MAX_FILE, |bytes| {
-            monuments_in(bytes, bbox)
-        })?;
-        Ok(vec![features])
-    }
-
-    fn fetch_cached(
-        &self,
-        fetcher: &dyn Fetcher,
-        bbox: &Rect<f64>,
-        part: &Path,
-        cache: &CacheDir,
-    ) -> Result<Vec<Vec<Value>>, FetchError> {
-        let dir = cache.provider_dir("permits");
-        let bytes = current_file(
-            fetcher,
-            URL,
-            part,
-            &dir,
-            "geojson",
-            MAX_FILE,
-            looks_like_geojson,
-        )?;
-        Ok(vec![monuments_in(&bytes, bbox)?])
-    }
-
-    fn findings(&self, _layer: &str, features: &[Value]) -> Vec<PermitFinding> {
-        features
-            .iter()
-            .filter_map(|feature| finding(READING, feature))
-            .collect()
-    }
-}
-
-/// Whether `bytes` look like a GeoJSON FeatureCollection, the check before the file is kept:
-/// an object that names the type (a maintenance page is HTML).
-fn looks_like_geojson(bytes: &[u8]) -> Result<(), String> {
-    let text = bytes.trim_ascii();
-    let named = text
-        .windows(b"FeatureCollection".len())
-        .any(|w| w == b"FeatureCollection");
-    if text.starts_with(b"{") && text.ends_with(b"}") && named {
-        Ok(())
-    } else {
-        Err("the answer is not a GeoJSON FeatureCollection".to_string())
-    }
-}
-
-#[derive(Deserialize)]
-struct Collection<'a> {
-    #[serde(borrow)]
-    features: Vec<Feature<'a>>,
-}
-
-#[derive(Deserialize)]
-struct Feature<'a> {
-    #[serde(default)]
-    properties: serde_json::Map<String, Value>,
-    #[serde(borrow)]
-    geometry: Option<&'a RawValue>,
-}
-
-/// The monuments of the file whose box meets `bbox` (WGS 84, x = longitude), as stored
-/// features in WGS 84 with their kind.
-fn monuments_in(bytes: &[u8], bbox: &Rect<f64>) -> Result<Vec<Value>, FetchError> {
-    let wrong = |message: String| FetchError::Http {
-        url: URL.to_string(),
-        message,
-    };
-    let collection: Collection<'_> = serde_json::from_slice(bytes)
-        .map_err(|e| wrong(format!("the list of monuments is not GeoJSON: {e}")))?;
-    let cut = projected_box(Crs::Utm32, bbox);
-    let mut kept = Vec::new();
-    for feature in collection.features {
-        let Some(raw) = feature.geometry else {
-            continue;
-        };
-        let Ok(geometry) = serde_json::from_str::<geojson::Geometry>(raw.get()) else {
-            continue;
-        };
-        let Ok(shape) = Geometry::<f64>::try_from(geometry) else {
-            continue;
-        };
-        let Some(r) = shape.bounding_rect() else {
-            continue;
-        };
-        if r.max().x < cut.min_x
-            || r.min().x > cut.max_x
-            || r.max().y < cut.min_y
-            || r.min().y > cut.max_y
-        {
-            continue;
-        }
-        let projected = serde_json::json!({
-            "type": "Feature",
-            "geometry": geojson::Geometry::new(geojson::GeometryValue::from(&shape)),
-            "properties": feature.properties,
-        });
-        if let Some(stored) = in_wgs84(&projected, Crs::Utm32).and_then(|f| stored(&f, READING)) {
-            kept.push(stored);
-        }
-    }
-    Ok(kept)
+/// The source of Schleswig-Holstein, as its manifest declares it.
+fn source() -> Box<dyn PermitSource> {
+    let text = include_str!("../manifests/schleswigholstein/manifest.toml");
+    freemapper_manifest::parse(text, Path::new("schleswigholstein"))
+        .unwrap()
+        .permits
+        .iter()
+        .find(|w| w.key == "denkmale")
+        .map(crate::wfs_permits::declared_source)
+        .unwrap()
 }
 
 #[cfg(test)]
@@ -190,7 +37,46 @@ mod tests {
     use super::*;
     use crate::crs::LatLon;
     use crate::fetch::test_support::MapFetcher;
+    use crate::geojson_permits::looks_like_geojson;
     use freemapper_adapter_api::permits::FindingKind;
+
+    /// The table the code had, word for word: the declared source says the same.
+    #[test]
+    fn the_declared_source_is_the_table_the_code_had() {
+        let source = source();
+        let info = source.info();
+        assert_eq!(info.key, "denkmale");
+        assert_eq!(
+            info.label,
+            Wording {
+                en: "Landesamt für Denkmalpflege Schleswig-Holstein",
+                de: "Landesamt für Denkmalpflege Schleswig-Holstein",
+            }
+        );
+        assert_eq!(
+            info.what,
+            Wording {
+                en: "list of monuments (one file for the state, kept in the cache)",
+                de: "Denkmalliste (eine Datei für das Bundesland, im Zwischenspeicher)",
+            }
+        );
+        assert_eq!(
+            info.credit,
+            "Landesamt für Denkmalpflege Schleswig-Holstein; Lizenz: Creative Commons Namensnennung 4.0 International (CC BY 4.0)"
+        );
+        assert_eq!(info.note, None);
+        assert!(!info.sampled);
+        assert_eq!(
+            info.gaps,
+            Some(Wording {
+                en: "the archaeological monuments are not in it, and the Hansestadt Lübeck keeps its own list",
+                de: "Die Bodendenkmale fehlen darin, und die Hansestadt Lübeck führt ihre Denkmalliste selbst",
+            })
+        );
+        assert_eq!(info.layers, ["denkmale"]);
+        assert_eq!(info.sections, [PermitSection::Monuments]);
+        assert!(info.offices.is_none());
+    }
 
     /// A file of three monuments in EPSG:25832: two in Kiel, one far away.
     fn file() -> Vec<u8> {
@@ -256,8 +142,115 @@ mod tests {
     }
 
     #[test]
+    fn the_file_is_read_without_the_cache_and_a_foreign_layer_has_no_findings() {
+        let fetcher = MapFetcher::default();
+        fetcher.insert(URL, file());
+        let part = tempfile::tempdir().unwrap();
+        let bbox = Rect::new(
+            geo_types::Coord { x: 10.13, y: 54.32 },
+            geo_types::Coord { x: 10.15, y: 54.33 },
+        );
+        let source = source();
+        let answers = source
+            .fetch(&fetcher, &bbox, &part.path().join("p.part"))
+            .unwrap();
+        assert_eq!(answers.len(), 1);
+        assert_eq!(answers[0].len(), 2);
+        assert_eq!(source.findings("denkmale", &answers[0]).len(), 2);
+        assert!(source.findings("other", &answers[0]).is_empty());
+    }
+
+    #[test]
+    fn a_file_that_is_no_geojson_is_an_error_with_the_address() {
+        let fetcher = MapFetcher::default();
+        fetcher.insert(
+            URL,
+            br#"{"type": "FeatureCollection", "features": 3}"#.to_vec(),
+        );
+        let part = tempfile::tempdir().unwrap();
+        let bbox = Rect::new(
+            geo_types::Coord { x: 10.13, y: 54.32 },
+            geo_types::Coord { x: 10.15, y: 54.33 },
+        );
+        let error = source()
+            .fetch(&fetcher, &bbox, &part.path().join("p.part"))
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains(URL), "{error}");
+    }
+
+    /// A file of a square of 10 m for each of the given south-west corners in EPSG:25832.
+    fn squares(corners: &[(f64, f64)]) -> Vec<u8> {
+        let features: Vec<_> = corners
+            .iter()
+            .map(|&(e, n)| {
+                serde_json::json!({"type": "Feature", "properties": {"LayerName": "Baudenkmal"},
+                    "geometry": {"type": "Polygon", "coordinates": [[
+                        [e, n], [e + 10.0, n], [e + 10.0, n + 10.0], [e, n + 10.0], [e, n]]]}})
+            })
+            .collect();
+        serde_json::to_vec(&serde_json::json!({"type": "FeatureCollection", "features": features}))
+            .unwrap()
+    }
+
+    #[test]
+    fn a_feature_is_kept_where_its_box_meets_the_map_and_only_there() {
+        let bbox = Rect::new(
+            geo_types::Coord { x: 10.13, y: 54.32 },
+            geo_types::Coord { x: 10.15, y: 54.33 },
+        );
+        let cut = crate::wfs_permits::projected_box(Crs::Utm32, &bbox);
+        let (mid_e, mid_n) = ((cut.min_x + cut.max_x) / 2.0, (cut.min_y + cut.max_y) / 2.0);
+        let run = |corners: &[(f64, f64)]| {
+            let fetcher = MapFetcher::default();
+            fetcher.insert(URL, squares(corners));
+            let part = tempfile::tempdir().unwrap();
+            source()
+                .fetch(&fetcher, &bbox, &part.path().join("p.part"))
+                .unwrap()
+                .remove(0)
+                .len()
+        };
+        // One in the middle is kept.
+        assert_eq!(run(&[(mid_e, mid_n)]), 1);
+        // One beyond each side is left out, though it lies within the other three.
+        assert_eq!(run(&[(cut.min_x - 100.0, mid_n)]), 0, "west");
+        assert_eq!(run(&[(cut.max_x + 100.0, mid_n)]), 0, "east");
+        assert_eq!(run(&[(mid_e, cut.min_y - 100.0)]), 0, "south");
+        assert_eq!(run(&[(mid_e, cut.max_y + 100.0)]), 0, "north");
+        // One that only touches a side meets the box.
+        assert_eq!(run(&[(cut.min_x - 10.0, mid_n)]), 1, "touches the west");
+        assert_eq!(run(&[(cut.max_x, mid_n)]), 1, "touches the east");
+        assert_eq!(run(&[(mid_e, cut.min_y - 10.0)]), 1, "touches the south");
+        assert_eq!(run(&[(mid_e, cut.max_y)]), 1, "touches the north");
+    }
+
+    #[test]
+    fn a_file_of_some_megabytes_is_read() {
+        let mut file: serde_json::Value = serde_json::from_slice(&squares(&[(0.0, 0.0)])).unwrap();
+        file["padding"] = "x".repeat(2_000_000).into();
+        let fetcher = MapFetcher::default();
+        fetcher.insert(URL, serde_json::to_vec(&file).unwrap());
+        let part = tempfile::tempdir().unwrap();
+        let bbox = Rect::new(
+            geo_types::Coord { x: 10.13, y: 54.32 },
+            geo_types::Coord { x: 10.15, y: 54.33 },
+        );
+        assert!(
+            source()
+                .fetch(&fetcher, &bbox, &part.path().join("p.part"))
+                .is_ok()
+        );
+    }
+
+    #[test]
     fn an_answer_that_is_no_geojson_is_not_kept() {
         assert!(looks_like_geojson(b"<html>maintenance</html>").is_err());
         assert!(looks_like_geojson(br#"{"type": "FeatureCollection", "features": []}"#).is_ok());
+        // Each of the three marks alone does not do.
+        assert!(looks_like_geojson(br#"{"type": "Feature""#).is_err());
+        assert!(looks_like_geojson(br#"x "FeatureCollection"}"#).is_err());
+        assert!(looks_like_geojson(br#"{"type": "Other"}"#).is_err());
+        assert!(looks_like_geojson(br#"  {"type": "FeatureCollection"}  "#).is_ok());
     }
 }

@@ -137,6 +137,22 @@ layers = [
     { key = "landschaftsbestandteile", type_name = "app:geschuetzte_Landschaftsbestandteile", reading = "object", object = "protected-landscape-part", name = "text" },
 ]
 
+# The monuments of the Landesamt für Denkmalpflege: one GeoJSON file for the state (about 52 MB, EPSG:25832, a
+# new one each week; the server sends `aktuell.geojson` on to the file of the week), issue #273. The
+# archaeological monuments are not in it.
+[[permits.geojson]]
+key = "denkmale"
+label = { en = "Landesamt für Denkmalpflege Schleswig-Holstein", de = "Landesamt für Denkmalpflege Schleswig-Holstein" }
+what = { en = "list of monuments (one file for the state, kept in the cache)", de = "Denkmalliste (eine Datei für das Bundesland, im Zwischenspeicher)" }
+credit = "Landesamt für Denkmalpflege Schleswig-Holstein; Lizenz: Creative Commons Namensnennung 4.0 International (CC BY 4.0)"
+gaps = { en = "the archaeological monuments are not in it, and the Hansestadt Lübeck keeps its own list", de = "Die Bodendenkmale fehlen darin, und die Hansestadt Lübeck führt ihre Denkmalliste selbst" }
+sections = ["monuments"]
+url = "https://opendata.schleswig-holstein.de/collection/geodaten-denkmalliste-sh/aktuell.geojson"
+crs = 25832
+layers = [
+    { key = "denkmale", reading = "monument", monument = "Denkmal", kind_from = "LayerName" },
+]
+
 [preview]
 wms = "https://dienste.gdi-sh.de/WMS_SH_DOP20col_OpenGBD"
 layer = "sh_dop20_rgb"

@@ -1551,3 +1551,151 @@ fn the_messages_name_the_kind_of_the_source() {
         ["the layer of a source asked at points has no feature type"]
     );
 }
+
+const GEOJSON_HEAD: &str = "[[permits.geojson]]\nkey = \"denkmale\"\n\
+    label = { en = \"Office\", de = \"Amt\" }\n\
+    what = { en = \"monuments\", de = \"Denkmale\" }\n\
+    credit = \"CC BY 4.0\"\n\
+    sections = [\"monuments\"]\n\
+    url = \"https://geo.example.org/files/list.geojson\"\n\
+    crs = 25832\n";
+
+const GEOJSON_LAYER: &str = "layers = [{ key = \"d\", reading = \"monument\", monument = \"Denkmal\", kind_from = \"Art\" }]\n";
+
+#[test]
+fn a_geojson_source_is_declared_with_its_file_and_crs() {
+    let table = format!("{GEOJSON_HEAD}note = \"A note\"\n{GEOJSON_LAYER}");
+    let manifest = parse(&with(&table), Path::new("sample")).unwrap();
+    let source = &manifest.permits[0];
+    assert!(source.geojson);
+    assert!(!source.shapefile && !source.getfeatureinfo);
+    assert_eq!(source.url, "https://geo.example.org/files/list.geojson");
+    assert_eq!(source.native_crs, Some(25832));
+    assert_eq!(source.output_format, "");
+    assert!(!source.gml && source.offices.is_none());
+    assert_eq!(source.note.as_deref(), Some("A note"));
+    assert_eq!(source.layers.len(), 1);
+    assert_eq!(source.layers[0].type_name, "");
+    assert!(matches!(
+        source.layers[0].reading,
+        DeclaredReading::Monument { .. }
+    ));
+    // The other tables are no GeoJSON files.
+    let shape = parse(
+        &with(&format!("{SHAPE_HEAD}{SHAPE_LAYER}")),
+        Path::new("sample"),
+    )
+    .unwrap();
+    assert!(!shape.permits[0].geojson);
+    // The order: services, shapefiles, files.
+    let all = format!(
+        "{GEOJSON_HEAD}{GEOJSON_LAYER}\n{SHAPE_HEAD}{SHAPE_LAYER}\n{HEAD}layers = [{{ key = \"a\", type_name = \"x:a\", reading = \"district\", name = \"N\" }}]\n"
+    );
+    let keys: Vec<String> = parse(&with(&all), Path::new("sample"))
+        .unwrap()
+        .permits
+        .into_iter()
+        .map(|source| source.key)
+        .collect();
+    assert_eq!(keys, ["natur", "wsg", "denkmale"]);
+}
+
+#[test]
+fn what_is_wrong_with_a_geojson_source_is_named() {
+    for (extra, key) in [
+        ("output_format = \"GEOJSON\"\n", "output_format"),
+        ("gml = true\n", "gml"),
+        ("native_crs = 25832\n", "native_crs"),
+        ("offices = \"berlin\"\n", "offices"),
+    ] {
+        assert_eq!(
+            refused(&format!("{GEOJSON_HEAD}{extra}{GEOJSON_LAYER}")),
+            [("manifest.unknown-key", key.to_string())],
+            "{key}"
+        );
+    }
+    // It needs its CRS, which must be one of a map.
+    assert_eq!(
+        refused(&format!(
+            "{}{GEOJSON_LAYER}",
+            GEOJSON_HEAD.replace("crs = 25832\n", "")
+        )),
+        [("manifest.missing-key", "crs".to_string())]
+    );
+    assert_eq!(
+        refused(&format!(
+            "{}{GEOJSON_LAYER}",
+            GEOJSON_HEAD.replace("25832", "4326")
+        )),
+        [("manifest.crs", "permits.geojson.crs".to_string())]
+    );
+    // It needs its address.
+    assert_eq!(
+        refused(&format!(
+            "{}{GEOJSON_LAYER}",
+            GEOJSON_HEAD.replace("url = \"https://geo.example.org/files/list.geojson\"\n", "")
+        )),
+        [("manifest.missing-key", "url".to_string())]
+    );
+    // Exactly one layer, without a feature type.
+    let layer = "{ key = \"d\", reading = \"monument\", monument = \"Denkmal\" }";
+    for layers in [
+        "layers = []\n".to_string(),
+        format!("layers = [{layer}, {}]\n", layer.replace("\"d\"", "\"e\"")),
+    ] {
+        assert_eq!(
+            refused(&format!("{GEOJSON_HEAD}{layers}")),
+            [("manifest.value", "permits.geojson.layers".to_string())],
+            "{layers}"
+        );
+    }
+    assert_eq!(
+        refused(&format!(
+            "{GEOJSON_HEAD}layers = [{{ key = \"d\", type_name = \"x:d\", reading = \"monument\", monument = \"Denkmal\" }}]\n"
+        )),
+        [("manifest.unknown-key", "type_name".to_string())]
+    );
+    // A file is asked as it is: no query.
+    assert_eq!(
+        refused(&format!(
+            "{}{GEOJSON_LAYER}",
+            GEOJSON_HEAD.replace("list.geojson", "list.geojson?a=b")
+        )),
+        [("policy.url", "permits.geojson.url".to_string())]
+    );
+    // The host must be one of the manifest.
+    assert_eq!(
+        refused(&format!(
+            "{}{GEOJSON_LAYER}",
+            GEOJSON_HEAD.replace("geo.example.org", "other.example.org")
+        )),
+        [(
+            "policy.host-not-declared",
+            "permits.geojson.url".to_string()
+        )]
+    );
+    // The keys of the tables are one set, and the sources at most twelve.
+    assert_eq!(
+        refused(&format!(
+            "{GEOJSON_HEAD}{GEOJSON_LAYER}\n{}{SHAPE_LAYER}",
+            SHAPE_HEAD.replace("\"wsg\"", "\"denkmale\"")
+        )),
+        [("manifest.value", "permits.geojson.key".to_string())]
+    );
+    let files = |n: usize| {
+        (0..n)
+            .map(|n| {
+                format!(
+                    "{}{GEOJSON_LAYER}",
+                    GEOJSON_HEAD.replace("\"denkmale\"", &format!("\"f{n}\""))
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
+    };
+    assert!(parse(&with(&files(12)), Path::new("sample")).is_ok());
+    assert_eq!(
+        refused(&files(13)),
+        [("manifest.value", "permits.wfs".to_string())]
+    );
+}

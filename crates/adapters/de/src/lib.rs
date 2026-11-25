@@ -14,6 +14,7 @@ pub mod bfg_permits;
 pub mod boundaries;
 pub mod geobasis_nrw;
 pub mod geobremen;
+pub mod geojson_permits;
 pub mod geosn;
 pub mod gfi_permits;
 pub mod hvbg;
@@ -23,7 +24,8 @@ pub mod ldbv;
 pub mod ldbv_alkis;
 pub mod ldbv_files;
 pub mod ldbv_las;
-pub mod ldsh_permits;
+#[cfg(test)]
+mod ldsh_permits;
 #[cfg(test)]
 mod lfb_permits;
 pub mod lgb;

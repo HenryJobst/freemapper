@@ -384,6 +384,10 @@ pub struct DeclaredWfs {
     /// The source is one shapefile in a zip (`[[permits.shapefile]]`, issue #273): `url` is the
     /// zip, `native_crs` the CRS of its positions, and it has one layer without a feature type.
     pub shapefile: bool,
+    /// The source is one GeoJSON file for the whole state (`[[permits.geojson]]`, issue #273):
+    /// `url` is the file, `native_crs` the CRS of its positions, and it has one layer without a
+    /// feature type.
+    pub geojson: bool,
     /// The source is a WMS asked at points (`[[permits.getfeatureinfo]]`, issue #273, ADR 0139):
     /// every layer has a [`DeclaredQuery`] and no feature type.
     pub getfeatureinfo: bool,
