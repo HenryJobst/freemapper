@@ -242,6 +242,7 @@ impl Polska {
                     en: "Poland".into(),
                     de: "Polen".into(),
                     pl: Some("Polska".into()),
+                    cs: Some("Polsko".into()),
                 },
                 // The zone of a map is chosen by its centre ([`RegionAdapter::crs_for`]).
                 crs: Crs::Utm33,

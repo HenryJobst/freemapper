@@ -192,6 +192,7 @@ mod tests {
                     en: id.to_string(),
                     de: id.to_string(),
                     pl: None,
+                    cs: None,
                 },
                 crs: freemapper_georef::crs::Crs::Utm33,
                 country: crate::info::Country::De,

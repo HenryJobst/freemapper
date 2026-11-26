@@ -16,14 +16,17 @@ pub struct Names {
     pub de: String,
     /// The Polish name; a region without one is named in English in Polish texts.
     pub pl: Option<String>,
+    /// The Czech name; a region without one is named in English in Czech texts.
+    pub cs: Option<String>,
 }
 
 impl Names {
-    /// The name in the language with the code `code` (`de`, `pl`), English when there is none.
+    /// The name in the language with the code `code` (`de`, `pl`, `cs`), English when there is none.
     pub fn in_lang(&self, code: &str) -> &str {
         match code {
             "de" => &self.de,
             "pl" => self.pl.as_deref().unwrap_or(&self.en),
+            "cs" => self.cs.as_deref().unwrap_or(&self.en),
             _ => &self.en,
         }
     }
@@ -111,6 +114,7 @@ pub struct Declared {
 pub enum Country {
     De,
     Pl,
+    Cz,
 }
 
 impl Country {
@@ -119,6 +123,7 @@ impl Country {
         match self {
             Self::De => "de",
             Self::Pl => "pl",
+            Self::Cz => "cz",
         }
     }
 }
@@ -170,6 +175,7 @@ mod tests {
             en: "Poland".into(),
             de: "Polen".into(),
             pl: pl.map(String::from),
+            cs: None,
         }
     }
 
@@ -182,6 +188,13 @@ mod tests {
         assert_eq!(with.in_lang("fr"), "Poland");
         // No Polish name: English, not German.
         assert_eq!(names(None).in_lang("pl"), "Poland");
+        // The Czech name stands apart from the Polish one.
+        let czech = Names {
+            cs: Some("Polsko".into()),
+            ..names(Some("Polska"))
+        };
+        assert_eq!(czech.in_lang("cs"), "Polsko");
+        assert_eq!(names(Some("Polska")).in_lang("cs"), "Poland");
     }
 
     /// The ISO 3166 codes, in lower case, as they name the country in files and messages.
@@ -218,5 +231,6 @@ mod tests {
     fn a_country_has_its_iso_code() {
         assert_eq!(Country::De.code(), "de");
         assert_eq!(Country::Pl.code(), "pl");
+        assert_eq!(Country::Cz.code(), "cz");
     }
 }

@@ -31,6 +31,8 @@ pub fn builtin_with_hosts(extra: &ExtraHosts) -> Registry {
         .expect("the built-in states have distinct ids and backends");
     freemapper_adapters_pl::register_with_hosts(&mut registry, extra)
         .expect("Poland has an id of its own");
+    freemapper_adapters_cz::register_with_hosts(&mut registry, extra)
+        .expect("Czechia has an id of its own");
     // What an adapter from a folder may replace (ADR 0188).
     registry.mark_builtin();
     registry
@@ -267,6 +269,7 @@ pub(crate) mod test_support {
                     en: "Square".to_string(),
                     de: "Quadrat".to_string(),
                     pl: None,
+                    cs: None,
                 },
                 crs: crate::crs::Crs::Utm33,
                 country: freemapper_adapter_api::info::Country::De,
@@ -317,21 +320,29 @@ pub(crate) mod test_support {
 mod tests {
     use super::*;
 
-    /// Every built-in region has the full geodata at present, Poland among them; the list leaves
-    /// out one that has not.
+    /// Every built-in region has the full geodata at present, Czechia and Poland among them; the
+    /// list leaves out one that has not.
     #[test]
     fn region_names_with_geodata_name_the_regions_with_rasters_and_a_cadastre() {
-        for lang in ["de", "en", "pl"] {
+        for lang in ["de", "en", "pl", "cs"] {
             let all = region_names(lang);
             let geodata = region_names_with_geodata(lang);
-            assert_eq!(geodata, all);
+            let czech = match lang {
+                "de" => "Tschechien",
+                "pl" => "Czechy",
+                "cs" => "Česko",
+                _ => "Czechia",
+            };
+            assert_eq!(geodata, all, "{lang}");
+            assert!(geodata.contains(&czech), "{lang}");
             assert!(geodata.contains(&"Brandenburg"));
             let polish = match lang {
                 "de" => "Polen",
                 "pl" => "Polska",
+                "cs" => "Polsko",
                 _ => "Poland",
             };
-            assert!(geodata.contains(&polish));
+            assert!(geodata.contains(&polish), "{lang}");
         }
     }
     #[allow(unused_imports)]
@@ -683,7 +694,7 @@ mod tests {
             "the map area lies outside the supported states (Brandenburg, Berlin, Saxony, \
              Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, Mecklenburg-Vorpommern, \
              North Rhine-Westphalia, Lower Saxony, Rhineland-Palatinate, Saarland, \
-             Baden-Württemberg, Bremen, Bavaria, Poland); freemapper has data sources for those only so far"
+             Baden-Württemberg, Bremen, Bavaria, Poland, Czechia); freemapper has data sources for those only so far"
         );
         assert_eq!(region_names("de")[2], "Sachsen");
     }
@@ -705,11 +716,12 @@ mod tests {
         for adapter in builtin().adapters() {
             let info = adapter.info();
             // Poland has the rasters and the cadastre of GUGiK (ADR 0170, 0171), as every German
-            // state has its own.
-            let country = if info.id.as_str() == "polska" {
-                Country::Pl
-            } else {
-                Country::De
+            // state has its own; Czechia has the rasters and the cadastre (RÚIAN, ZABAGED) of ČÚZK
+            // (ADR 0197).
+            let country = match info.id.as_str() {
+                "polska" => Country::Pl,
+                "cesko" => Country::Cz,
+                _ => Country::De,
             };
             let coverage = Coverage::Full;
             assert_eq!(info.country, country, "{}", info.id);
@@ -717,15 +729,17 @@ mod tests {
         }
         assert_eq!(Country::De.code(), "de");
         assert_eq!(Country::Pl.code(), "pl");
+        assert_eq!(Country::Cz.code(), "cz");
     }
 
     #[test]
-    fn registry_lists_the_fifteen_states_and_poland() {
+    fn registry_lists_the_fifteen_states_poland_and_czechia() {
         let built_in = builtin();
         let ids: Vec<&str> = built_in.adapters().map(|a| a.info().id.as_str()).collect();
         let mut all: Vec<String> = regions::ALL.iter().map(ToString::to_string).collect();
         assert_eq!(all.len(), 15);
         all.push("polska".to_string());
+        all.push("cesko".to_string());
         assert_eq!(ids, all);
         // The eleven that were code first, in the order the region functions always went
         // through them; a state added since comes after them.
@@ -738,11 +752,12 @@ mod tests {
                 "badenwuerttemberg",
                 "bremen",
                 "bayern",
-                "polska"
+                "polska",
+                "cesko"
             ]
         );
         // The registry of the process is the built-in one unless another was installed.
-        assert_eq!(registry().len(), 16);
+        assert_eq!(registry().len(), 17);
     }
 
     /// G1 records what the enums of v0.12.0 answered; the adapters must say the same.

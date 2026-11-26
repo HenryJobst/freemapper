@@ -6,6 +6,10 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ## [Unreleased]
 
+### Added
+
+- Czechia (preview, issue #356): the new adapter `cesko` makes maps anywhere in Czechia, for all map kinds. Terrain model (DMR 5G), surface model (DMP 1G) and orthophoto come from ČÚZK (CC BY 4.0, credit "© ČÚZK (CC BY 4.0)"), asked for in the grid of the map from one host, `ags.cuzk.gov.cz`; contours, hillshade, slope, relief and nDSM follow from them. Buildings come from RÚIAN (the footprints of the register) and land use from ZABAGED (forest, meadows, parks, cemeteries, water and more), asked in the grid of the map as well; permit notes are not available for Czechia yet. The OSM extract of the whole country is about 910 MB. An area that reaches over the border is refused. The region is named `Česko` in Czech texts, and `Names` gets a Czech name beside the Polish one (ADR 0197)
+
 ### Changed
 
 - The addresses of the point clouds (NRW, Rhineland-Palatinate, Brandenburg, Berlin, Saarland, Bavaria) now live in the manifests of the states, in the new table `[point_cloud]` with a `kind`, the folder `url` and, where the state has one, an `index_url` (index, Metalink or currency list). The backends keep the names of the tiles and how they read the answers; their address constants are test tools that hold the manifests to the old values. Nothing changes for maps and cache folders.

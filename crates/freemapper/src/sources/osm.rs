@@ -1309,6 +1309,7 @@ mod tests {
                         en: "Square".to_string(),
                         de: "Quadrat".to_string(),
                         pl: None,
+                        cs: None,
                     },
                     crs: crate::crs::Crs::Utm33,
                     country: freemapper_adapter_api::info::Country::De,

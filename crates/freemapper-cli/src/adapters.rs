@@ -353,12 +353,15 @@ fn allowed_for<'a>(assembled: &'a Assembled, id: &str) -> &'a [String] {
 
 /// The regions of the adapters `ids` by their names, as a person knows them; German with
 /// `german`. An id the registry does not hold stays as it is.
-/// The names of a region for the JSON listings: `pl` appears only when the region has one, so the
+/// The names of a region for the JSON listings: `pl` and `cs` appear only when the region has one, so the
 /// keys that existed before stay as they were.
 pub(crate) fn names_json(names: &freemapper::adapters::Names) -> serde_json::Value {
     let mut json = serde_json::json!({ "en": names.en, "de": names.de });
     if let Some(pl) = &names.pl {
         json["pl"] = serde_json::Value::from(pl.as_str());
+    }
+    if let Some(cs) = &names.cs {
+        json["cs"] = serde_json::Value::from(cs.as_str());
     }
     json
 }
@@ -517,6 +520,7 @@ mod tests {
             en: "Poland".into(),
             de: "Polen".into(),
             pl: None,
+            cs: None,
         };
         assert_eq!(
             names_json(&names),
@@ -687,14 +691,14 @@ land_use_type = "ave:NutzungFlurstueck"
         let adapters = project_dir(project.path());
         write(&adapters, "projectadapter", &manifest("projectadapter"));
         let without = assemble(Some(user.path()), None);
-        assert_eq!(without.registry.len(), 17);
+        assert_eq!(without.registry.len(), 18);
         assert_eq!(
             ids(&without).last().map(String::as_str),
             Some("useradapter")
         );
         assert!(report_lines(&without).is_empty());
         let with = assemble(Some(user.path()), Some(&adapters));
-        assert_eq!(ids(&with)[16..], ["useradapter", "projectadapter"]);
+        assert_eq!(ids(&with)[17..], ["useradapter", "projectadapter"]);
         assert_eq!(
             (
                 source_of(&with, "hamburg"),
@@ -715,7 +719,7 @@ land_use_type = "ave:NutzungFlurstueck"
             ]
         );
         // Neither folder: the fifteen states and Poland.
-        assert_eq!(assemble(None, None).registry.len(), 16);
+        assert_eq!(assemble(None, None).registry.len(), 17);
     }
 
     #[test]
@@ -729,7 +733,7 @@ land_use_type = "ave:NutzungFlurstueck"
         );
         let assembled = assemble(Some(user.path()), None);
         // The state keeps its place and its count: the folder took its place.
-        assert_eq!(assembled.registry.len(), 16);
+        assert_eq!(assembled.registry.len(), 17);
         assert_eq!(
             assembled.registry.get("hamburg").unwrap().info().names.en,
             "Sample hamburg"
@@ -768,7 +772,7 @@ land_use_type = "ave:NutzungFlurstueck"
         let adapters = project_dir(project.path());
         write(&adapters, "hamburg", &manifest("hamburg"));
         let assembled = assemble(Some(user.path()), Some(&adapters));
-        assert_eq!(assembled.registry.len(), 16);
+        assert_eq!(assembled.registry.len(), 17);
         let lines = report_lines(&assembled);
         assert!(
             lines.iter().any(|l| l.contains("[adapter.duplicate]")),
@@ -796,7 +800,7 @@ land_use_type = "ave:NutzungFlurstueck"
         }
         write(&adapters, "fine", &manifest("fine"));
         let assembled = assemble(None, Some(&adapters));
-        assert_eq!(ids(&assembled)[16..], ["fine"]);
+        assert_eq!(ids(&assembled)[17..], ["fine"]);
         let lines = warning_lines(&assembled);
         assert_eq!(lines.len(), 4, "{lines:?}");
         for line in &lines {
@@ -829,7 +833,7 @@ land_use_type = "ave:NutzungFlurstueck"
         write(user.path(), "zweiter", &manifest("zweiter"));
         let assembled = assemble(Some(user.path()), None);
         let lines = list_lines(&assembled, Some(user.path()), "en");
-        assert_eq!(lines.len(), 19);
+        assert_eq!(lines.len(), 20);
         assert!(
             lines[4]
                 .starts_with("hamburg  Hamburg  built in  revision 2  checked 2026-11-15  hosts: "),
@@ -837,51 +841,51 @@ land_use_type = "ave:NutzungFlurstueck"
             lines[4]
         );
         assert_eq!(
-            lines[16],
+            lines[17],
             "useradapter  Sample useradapter  from your folder  revision 3  checked 2026-10-01  hosts: geo.example.org  shares ground with: Brandenburg"
         );
         // An adapter on the ground of another names it.
         assert_eq!(
-            lines[17],
+            lines[18],
             "zweiter  Sample zweiter  from your folder  revision 3  checked 2026-10-01  hosts: geo.example.org  shares ground with: Brandenburg, Sample useradapter"
         );
         assert_eq!(
-            lines[18],
+            lines[19],
             format!("Your adapters are read from {}", user.path().display())
         );
         // The German list has the German names.
         let german = list_lines(&assembled, Some(user.path()), "de");
         assert!(german[2].starts_with("saxony  Sachsen  "), "{}", german[2]);
         assert!(
-            german[16].starts_with("useradapter  Beispiel useradapter  "),
-            "{}",
-            german[16]
-        );
-        assert!(
-            german[17].ends_with(": Brandenburg, Beispiel useradapter"),
+            german[17].starts_with("useradapter  Beispiel useradapter  "),
             "{}",
             german[17]
         );
+        assert!(
+            german[18].ends_with(": Brandenburg, Beispiel useradapter"),
+            "{}",
+            german[18]
+        );
         let json: serde_json::Value =
             serde_json::from_str(&list_json(&assembled, Some(user.path()))).unwrap();
-        assert_eq!(json["adapters"].as_array().unwrap().len(), 18);
+        assert_eq!(json["adapters"].as_array().unwrap().len(), 19);
         assert_eq!(
-            json["adapters"][16]["overlaps"],
+            json["adapters"][17]["overlaps"],
             serde_json::json!(["brandenburg"])
         );
         assert_eq!(
-            json["adapters"][17]["overlaps"],
+            json["adapters"][18]["overlaps"],
             serde_json::json!(["brandenburg", "useradapter"])
         );
         assert_eq!(json["adapters"][0]["overlaps"], serde_json::json!([]));
         assert_eq!(json["adapters"][0]["id"], "brandenburg");
         assert_eq!(json["adapters"][0]["source"], "built-in");
         assert_eq!(json["adapters"][0]["provider"], "lgb");
-        assert_eq!(json["adapters"][16]["source"], "user");
-        assert_eq!(json["adapters"][16]["revision"], 3);
-        assert_eq!(json["adapters"][16]["last_verified"], "2026-10-01");
-        assert_eq!(json["adapters"][16]["hosts"][0], "geo.example.org");
-        assert_eq!(json["adapters"][16]["names"]["de"], "Beispiel useradapter");
+        assert_eq!(json["adapters"][17]["source"], "user");
+        assert_eq!(json["adapters"][17]["revision"], 3);
+        assert_eq!(json["adapters"][17]["last_verified"], "2026-10-01");
+        assert_eq!(json["adapters"][17]["hosts"][0], "geo.example.org");
+        assert_eq!(json["adapters"][17]["names"]["de"], "Beispiel useradapter");
         assert_eq!(json["warnings"].as_array().unwrap().len(), 0);
         assert_eq!(json["user_dir"], user.path().display().to_string());
     }

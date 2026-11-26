@@ -139,6 +139,7 @@ impl StubRegion {
                     en: "Stub".into(),
                     de: "Stub".into(),
                     pl: None,
+                    cs: None,
                 },
                 crs,
                 country: crate::info::Country::De,

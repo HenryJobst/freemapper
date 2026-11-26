@@ -182,6 +182,26 @@
       "version": "0.32.0"
     },
     {
+      "bom-ref": "path+file://./crates/adapters/cz#freemapper-adapters-cz@0.28.0",
+      "description": "The region adapter of Czechia: what freemapper needs to map Czechia",
+      "externalReferences": [
+        {
+          "type": "vcs",
+          "url": "https://github.com/HenryJobst/freemapper"
+        }
+      ],
+      "licenses": [
+        {
+          "expression": "AGPL-3.0-or-later"
+        }
+      ],
+      "name": "freemapper-adapters-cz",
+      "purl": "pkg:cargo/freemapper-adapters-cz@0.28.0?download_url=file://../adapters/cz",
+      "scope": "required",
+      "type": "library",
+      "version": "0.28.0"
+    },
+    {
       "bom-ref": "path+file://./crates/adapters/de#freemapper-adapters-de@0.28.0",
       "description": "The region adapters of the German states: what freemapper needs to map Brandenburg, Berlin, Saxony and the others",
       "externalReferences": [
@@ -10316,6 +10336,19 @@
       "dependsOn": [
         "registry+https://github.com/rust-lang/crates.io-index#chrono@0.4.45",
         "path+file://./crates/freemapper-adapter-api#0.28.0",
+        "git+https://github.com/HenryJobst/freemapper-core?tag=v0.32.0#freemapper-georef@0.32.0",
+        "path+file://./crates/freemapper-sources#0.28.0",
+        "registry+https://github.com/rust-lang/crates.io-index#geo@0.33.1",
+        "registry+https://github.com/rust-lang/crates.io-index#geo-types@0.7.20",
+        "registry+https://github.com/rust-lang/crates.io-index#geojson@1.0.0",
+        "registry+https://github.com/rust-lang/crates.io-index#serde_json@1.0.154"
+      ],
+      "ref": "path+file://./crates/adapters/cz#freemapper-adapters-cz@0.28.0"
+    },
+    {
+      "dependsOn": [
+        "registry+https://github.com/rust-lang/crates.io-index#chrono@0.4.45",
+        "path+file://./crates/freemapper-adapter-api#0.28.0",
         "git+https://github.com/HenryJobst/freemapper-core?tag=v0.32.0#freemapper-contract@0.32.0",
         "git+https://github.com/HenryJobst/freemapper-core?tag=v0.32.0#freemapper-fs@0.32.0",
         "git+https://github.com/HenryJobst/freemapper-core?tag=v0.32.0#freemapper-georef@0.32.0",
@@ -10355,6 +10388,7 @@
         "registry+https://github.com/rust-lang/crates.io-index#contour@0.13.1",
         "registry+https://github.com/rust-lang/crates.io-index#dirs@7.0.0",
         "path+file://./crates/freemapper-adapter-api#0.28.0",
+        "path+file://./crates/adapters/cz#freemapper-adapters-cz@0.28.0",
         "path+file://./crates/adapters/de#freemapper-adapters-de@0.28.0",
         "path+file://./crates/adapters/pl#freemapper-adapters-pl@0.28.0",
         "git+https://github.com/HenryJobst/freemapper-core?tag=v0.32.0#freemapper-contract@0.32.0",

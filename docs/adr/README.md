@@ -237,6 +237,7 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0189](0189-permit-sources-as-manifest-data.md) | Permit sources as manifest data | Accepted | 2026-11-23 |
 | [0190](0190-poland-archaeological-register-in-the-permit-notes.md) | The register of archaeological monuments of the NID in the Polish permit notes | Accepted, extends ADR 0184 | 2026-11-23 |
 | [0191](0191-poland-monuments-of-history-in-the-permit-notes.md) | The Pomniki historii in the Polish permit notes | Accepted, extends ADR 0190 | 2026-11-23 |
+| [0197](0197-czechia-one-national-adapter.md) | Czechia: one national adapter with the rasters and the cadastre of ČÚZK | Accepted, follows ADR 0164 | 2026-11-26 |
 | [0196](0196-export-of-a-built-in-adapter.md) | Export of a built-in adapter and the guide to replacing it | Accepted, extends ADR 0188 and ADR 0189 | 2026-11-25 |
 | [0195](0195-poland-building-kinds-in-words.md) | Building kinds that the Polish register sends in words | Accepted, extends ADR 0171 | 2026-11-24 |
 | [0194](0194-poland-cemeteries-on-bi-parcels-from-bdot10k.md) | Cemeteries on `Bi` parcels from BDOT10k | Accepted, extends ADR 0192 | 2026-11-24 |

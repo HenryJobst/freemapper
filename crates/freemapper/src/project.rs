@@ -1003,12 +1003,13 @@ pub(crate) fn outside_germany(region_bbox: &BoundingBox) -> bool {
 }
 
 /// The name of the cadastre of the region of a map of `region_bbox`: ALKIS for the German
-/// states, EGiB for Poland. The progress lines and warnings of the cadastre downloads name it.
+/// states, EGiB for Poland, RÚIAN for Czechia. The progress lines and warnings of the cadastre
+/// downloads name it.
 pub(crate) fn cadastre_name(region_bbox: &BoundingBox) -> &'static str {
-    if outside_germany(region_bbox) {
-        "EGiB"
-    } else {
-        "ALKIS"
+    match raster_region_in(registry(), region_bbox).map(|adapter| adapter.info().country) {
+        Some(Country::Pl) => "EGiB",
+        Some(Country::Cz) => "RÚIAN",
+        Some(Country::De) | None => "ALKIS",
     }
 }
 
@@ -11881,14 +11882,16 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
         assert!(dir.path().join(BUILDINGS_RELPATH).exists());
     }
 
-    /// The progress lines of the cadastre downloads say ALKIS for a map in Germany and EGiB for
-    /// one in Poland; the same message ids serve both.
+    /// The progress lines of the cadastre downloads say ALKIS for a map in Germany, EGiB for
+    /// one in Poland and RÚIAN for one in Czechia; the same message ids serve both.
     #[test]
     fn the_cadastre_lines_name_the_cadastre_of_the_region() {
         let berlin = lon_lat_box(13.370, 52.510, 13.380, 52.516);
         let lodz = lon_lat_box(19.450, 51.760, 19.460, 51.766);
         assert_eq!(cadastre_name(&berlin), "ALKIS");
         assert_eq!(cadastre_name(&lodz), "EGiB");
+        let prague = lon_lat_box(14.419, 50.086, 14.4245, 50.089);
+        assert_eq!(cadastre_name(&prague), "RÚIAN");
         let line = |bbox: &BoundingBox| {
             note!(
                 "progress-alkis-buildings",

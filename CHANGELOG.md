@@ -6,6 +6,10 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+### Hinzugefügt
+
+- Tschechien (Vorschau, Issue #356): Der neue Adapter `cesko` macht Karten für ganz Tschechien, für alle Kartenarten. Höhenmodell (DMR 5G), Oberflächenmodell (DMP 1G) und Luftbild kommen vom ČÚZK (CC BY 4.0, Quellenangabe „© ČÚZK (CC BY 4.0)“) und werden im Raster der Karte von einem einzigen Host abgefragt, `ags.cuzk.gov.cz`; Höhenlinien, Schummerung, Hangneigung, Relief und nDSM entstehen daraus. Gebäude kommen aus RÚIAN (den Grundrissen des Registers), die Landnutzung aus ZABAGED (Wald, Wiesen, Parks, Friedhöfe, Gewässer und mehr), ebenfalls im Raster der Karte abgefragt; Genehmigungshinweise gibt es für Tschechien noch nicht. Der OSM-Auszug für das ganze Land ist etwa 910 MB groß. Ein Gebiet, das über die Grenze reicht, wird abgelehnt. In tschechischen Texten heißt die Region `Česko`; `Names` bekommt neben dem polnischen einen tschechischen Namen (ADR 0197)
+
 ### Geändert
 
 - Die Adressen der Punktwolken (NRW, Rheinland-Pfalz, Brandenburg, Berlin, Saarland, Bayern) stehen jetzt in den Manifesten der Bundesländer, in der neuen Tabelle `[point_cloud]` mit `kind`, dem Ordner `url` und, wo das Bundesland eine hat, einer `index_url` (Index, Metalink oder Aktualitätenliste). Die Backends behalten die Namen der Kacheln und die Art, die Antworten zu lesen; ihre Adresskonstanten sind Testwerkzeuge, die die Manifeste an die alten Werte halten. Für Karten und Cache-Ordner ändert sich nichts.

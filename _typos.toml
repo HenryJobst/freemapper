@@ -23,6 +23,8 @@ LOD = "LOD"
 tak = "tak"
 TAK = "TAK"
 # German field names and values of the state files and the rulings they quote.
+# `StavebniObjekt`, the building layer of RÚIAN.
+Objekt = "Objekt"
 funktion = "funktion"
 FUNKTION = "FUNKTION"
 Oder = "Oder"
