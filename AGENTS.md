@@ -137,7 +137,10 @@ straight onto the map; default `balanced`: the objects of the cadastre and the r
 <group>=map|candidates|off`, repeatable; the choice is saved in `freemapper.toml`. `init`, `derive` and `run` take
 `--contour-interval <metres>|auto` (saved in `freemapper.toml`; `auto`: the map kind's, a forest map gets 2.5 m in
 flat land and 10 m in steep land); the next derive traces the contours at it. When it picks 10 m, `derive` says so in
-a line; `--contour-interval 5` keeps 5 m. All commands that download take `--cache-dir <folder>`.
+a line; `--contour-interval 5` keeps 5 m. They also take `--steep-slope <degrees>|auto` (saved as `steep_slope_deg` in
+`freemapper.toml`, 15 to 80, default about 27): the slope from which terrain counts as steep when banks and cliffs are
+looked for; in rock towns and gorges, where almost every slope is steep, 55 to 60 finds the walls one by one (manual,
+chapter on forest maps). All commands that download take `--cache-dir <folder>`.
 
 `adapters check <dir>` checks the folder of one adapter and asks no server: exit code 0 when it would load
 (warnings or not), 1 with findings, 2 when the check cannot run. `--json` prints `passed`, `adapter`, `findings`

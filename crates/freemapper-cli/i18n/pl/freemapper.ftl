@@ -260,6 +260,9 @@ page-scale = Skala 1:
 page-map-title = Tytuł
 page-contour-interval = Cięcie warstwic
 page-contour-auto = automatyczne
+page-steep-slope = Próg stromości
+page-steep-slope-auto = automatyczny (27°)
+page-steep-slope-hint = Od tego kąta nachylenia teren uchodzi za stromy przy szukaniu skarp i urwisk. 27° (automatyczny) pasuje do wzgórz, parków i miast. W miastach skalnych, wąwozach i kamieniołomach prawie każdy stok jest stromy, więc skarpy i urwiska zlewają się w jedną plamę i żadna nie zostaje znaleziona; 55° do 65° je rozdziela. Zbyt wysoka wartość zostawia tylko najbardziej strome ściany.
 page-settings-fixed = Projekt już istnieje; rodzaj mapy, skala i tytuł są w freemapper.toml. Cięcie warstwic nadal możesz zmienić.
 page-save = Zapisz
 page-saving = Zapisuję …
@@ -474,6 +477,7 @@ error-project-already-exists = projekt już istnieje: { $path }
 error-project-map-exists = mapa już istnieje (może zawierać twoją pracę); użyj --force, aby ją zastąpić: { $path }
 error-project-invalid-scale = nieprawidłowa skala 1:{ $scale }
 error-project-invalid-contour-interval = nieprawidłowe cięcie warstwic { $interval } m w freemapper.toml; musi być większe niż 0
+error-project-invalid-steep-slope = nieprawidłowy próg stromości { $slope }° w freemapper.toml; musi mieścić się między 15° a 80°
 error-project-scale-not-allowed = skala 1:{ $scale } nie jest dozwolona dla map typu { $kind }; użyj { $allowed }
 error-project-scale-not-allowed-enlarge = skala 1:{ $scale } nie jest dozwolona dla map typu { $kind }; użyj { $allowed }. Rysuj w skali 1:4000, freemapper-print powiększa do 1:3000 przy drukowaniu
 word-kind-schoolyard = dziedziniec szkolny
@@ -804,7 +808,10 @@ mcp-instructions = freemapper tworzy projekty startowe OpenOrienteering Mapper d
 
 cli-contour-interval-saved = Cięcie warstwic zapisane w freemapper.toml: { $interval } m; derive wyznacza warstwice przy tym cięciu
 cli-contour-interval-auto = Cięcie warstwic w freemapper.toml: automatyczne (zależne od rodzaju mapy; mapa leśna ma 2,5 m na terenie płaskim i 10 m na stromym)
+cli-steep-slope-saved = Próg stromości zapisany w freemapper.toml: { $slope }°; derive szuka z nim skarp i urwisk
+cli-steep-slope-auto = Próg stromości w freemapper.toml: domyślny (około 27°)
 help-arg-contour-interval = Cięcie warstwic w metrach, np. `2.5`, albo `auto` dla cięcia właściwego rodzajowi mapy (mapa leśna: 5 m, 2,5 m na terenie płaskim, 10 m na stromym). Zapisane w freemapper.toml; derive wyznacza warstwice przy tym cięciu
+help-arg-steep-slope = Kąt nachylenia w stopniach, od którego teren uchodzi za stromy przy szukaniu skarp i urwisk, np. `55`, albo `auto` dla domyślnych 27°. Podnieś go (55 do 65) w miastach skalnych i wąwozach, gdzie prawie każdy stok jest stromy, a skarpy i urwiska zlewają się w jedną plamę. Zapisywany w freemapper.toml; derive szuka z nim skarp i urwisk
 cli-content-saved = Ustawienie zawartości zapisane w freemapper.toml: { $summary }
 cli-content-invalid = Nie można odczytać ustawienia zawartości: { $detail }
 help-arg-content = Co trafia bezpośrednio na mapę: `safe` zostawia każdy obiekt tam, gdzie umieszcza go budowa mapy, `balanced` (domyślnie) umieszcza na mapie obiekty z katastru i rejestrów, `full` umieszcza na mapie wszystko. Wybór jest zapisywany w freemapper.toml
@@ -812,9 +819,11 @@ help-arg-content-set = Skieruj grupę obiektów do `map`, `candidates` lub `off`
 mcp-param-create-project-content = Co trafia bezpośrednio na mapę: "safe", "balanced" (domyślnie) lub "full". Zapisane w projekcie. balanced umieszcza na mapie obiekty z katastru i rejestrów, full umieszcza na niej wszystko.
 mcp-param-create-project-content-set = Grupy skierowane gdzie indziej, niż mówi profil, jako "group=place", gdzie place to map, candidates lub off, np. "walls=map". Grupy: walls, fences, hedges, slopes, stairs, trees, water-features, monuments, furniture, passages, contours, landforms, vegetation, out-of-bounds, paths, streets.
 mcp-param-create-project-contour-interval = Cięcie warstwic w metrach, np. 2.5; 0 wraca do wyboru automatycznego (zależnego od rodzaju mapy; mapa leśna ma 2,5 m na terenie płaskim i 10 m na stromym). Zapisane w projekcie; następny derive wyznacza warstwice przy tym cięciu.
+mcp-param-create-project-steep-slope = Kąt nachylenia w stopniach, od którego teren uchodzi za stromy przy szukaniu skarp i urwisk, np. 55; 0 wraca do domyślnych 27°. Podnieś go (55 do 65) w miastach skalnych i wąwozach, gdzie prawie każdy stok jest stromy, a skarpy i urwiska zlewają się w jedną plamę. Zapisywany w projekcie; następny derive szuka z nim skarp i urwisk.
 mcp-param-start-pipeline-content = Zmień przed uruchomieniem, co trafia bezpośrednio na mapę: "safe", "balanced" lub "full". Zapisane w projekcie. Domyślnie: ustawienie projektu, a w razie braku balanced.
 mcp-param-start-pipeline-content-set = Grupy skierowane gdzie indziej, niż mówi profil, jako "group=place", gdzie place to map, candidates lub off, np. "fences=candidates". Zapisane w projekcie.
 mcp-param-start-pipeline-contour-interval = Cięcie warstwic w metrach, np. 2.5; 0 wraca do wyboru automatycznego (zależnego od rodzaju mapy; mapa leśna ma 2,5 m na terenie płaskim i 10 m na stromym). Zapisane w projekcie; następny derive wyznacza warstwice przy tym cięciu.
+mcp-param-start-pipeline-steep-slope = Kąt nachylenia w stopniach, od którego teren uchodzi za stromy przy szukaniu skarp i urwisk, np. 55; 0 wraca do domyślnych 27°. Podnieś go (55 do 65) w miastach skalnych i wąwozach, gdzie prawie każdy stok jest stromy, a skarpy i urwiska zlewają się w jedną plamę. Zapisywany w projekcie; następny derive szuka z nim skarp i urwisk.
 mcp-error-content = Nie można odczytać ustawienia zawartości: { $detail }
 
 ## Wskazówki dotyczące zgód (`freemapper permits`, `run --permits`, ADR 0117). Identyfikatory `permits-hint-*`

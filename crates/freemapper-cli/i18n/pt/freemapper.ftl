@@ -254,6 +254,9 @@ page-scale = Escala 1:
 page-map-title = Título
 page-contour-interval = Equidistância das curvas de nível
 page-contour-auto = automática
+page-steep-slope = Limite de declive
+page-steep-slope-auto = automático (27°)
+page-steep-slope-hint = A partir deste ângulo de declive o terreno conta como íngreme ao procurar taludes e rochedos. 27° (automático) serve para colinas, parques e cidades. Em cidades de rocha, desfiladeiros e pedreiras quase todas as encostas são íngremes, pelo que os taludes e rochedos se fundem numa só mancha e nenhum é encontrado; de 55° a 65° separa-os. Um valor demasiado alto mantém apenas as paredes mais íngremes.
 page-settings-fixed = O projeto já existe; o tipo de mapa, a escala e o título estão em freemapper.toml. A equidistância das curvas de nível ainda pode ser alterada.
 page-save = Guardar
 page-saving = A guardar …
@@ -467,6 +470,7 @@ error-project-already-exists = o projeto já existe: { $path }
 error-project-map-exists = o mapa já existe (pode conter o teu trabalho); usa --force para o substituir: { $path }
 error-project-invalid-scale = escala 1:{ $scale } inválida
 error-project-invalid-contour-interval = equidistância das curvas de nível { $interval } m inválida em freemapper.toml; tem de ser maior do que 0
+error-project-invalid-steep-slope = limite de declive { $slope }° inválido em freemapper.toml; tem de estar entre 15° e 80°
 error-project-scale-not-allowed = a escala 1:{ $scale } não é permitida para mapas de { $kind }; usa { $allowed }
 error-project-scale-not-allowed-enlarge = a escala 1:{ $scale } não é permitida para mapas de { $kind }; usa { $allowed }. Desenha a 1:4000, o freemapper-print amplia para 1:3000 ao imprimir
 word-kind-schoolyard = recreio escolar
@@ -795,7 +799,10 @@ mcp-instructions = O freemapper cria projetos iniciais de mapas de orientação 
 
 cli-contour-interval-saved = Equidistância das curvas de nível guardada em freemapper.toml: { $interval } m; derive traça as curvas de nível com ela
 cli-contour-interval-auto = Equidistância das curvas de nível em freemapper.toml: automática (a do tipo de mapa; um mapa de floresta tem 2,5 m em terreno plano e 10 m em terreno íngreme)
+cli-steep-slope-saved = Limite de declive guardado em freemapper.toml: { $slope }°; o derive procura com ele taludes e rochedos
+cli-steep-slope-auto = Limite de declive em freemapper.toml: predefinido (cerca de 27°)
 help-arg-contour-interval = Equidistância das curvas de nível em metros, p. ex. `2.5`, ou `auto` para a do tipo de mapa (um mapa de floresta: 5 m, 2,5 m onde é plano, 10 m onde é íngreme). Guardada em freemapper.toml; derive traça as curvas de nível com ela
+help-arg-steep-slope = Ângulo de declive em graus a partir do qual o terreno conta como íngreme ao procurar taludes e rochedos, p. ex. `55`, ou `auto` para o valor predefinido de 27°. Aumenta-o (55 a 65) em cidades de rocha e desfiladeiros, onde quase todas as encostas são íngremes e os taludes e rochedos se fundem numa só mancha. Guardado em freemapper.toml; o derive procura com ele taludes e rochedos
 cli-content-saved = Definição de conteúdo guardada em freemapper.toml: { $summary }
 cli-content-invalid = Não é possível ler a definição de conteúdo: { $detail }
 help-arg-content = O que vai diretamente para o mapa: `safe` deixa cada objeto onde a construção o põe, `balanced` (predefinição) põe no mapa os objetos do cadastro e dos registos, `full` põe tudo no mapa. A escolha é guardada em freemapper.toml
@@ -803,9 +810,11 @@ help-arg-content-set = Enviar um grupo de objetos para `map`, `candidates` ou `o
 mcp-param-create-project-content = O que vai diretamente para o mapa: "safe", "balanced" (predefinição) ou "full". Guardado no projeto. balanced põe no mapa os objetos do cadastro e dos registos, full põe tudo.
 mcp-param-create-project-content-set = Grupos enviados para outro sítio que não o do perfil, como "group=place" com place map, candidates ou off, p. ex. "walls=map". Grupos: walls, fences, hedges, slopes, stairs, trees, water-features, monuments, furniture, passages, contours, landforms, vegetation, out-of-bounds, paths, streets.
 mcp-param-create-project-contour-interval = Equidistância das curvas de nível em metros, p. ex. 2.5; 0 volta à escolha automática (a do tipo de mapa; um mapa de floresta tem 2,5 m em terreno plano e 10 m em terreno íngreme). Guardada no projeto; o próximo derive traça as curvas de nível com ela.
+mcp-param-create-project-steep-slope = Ângulo de declive em graus a partir do qual o terreno conta como íngreme ao procurar taludes e rochedos, p. ex. 55; 0 volta ao valor predefinido de 27°. Aumenta-o (55 a 65) em cidades de rocha e desfiladeiros, onde quase todas as encostas são íngremes e os taludes e rochedos se fundem numa só mancha. Guardado no projeto; o próximo derive procura com ele taludes e rochedos.
 mcp-param-start-pipeline-content = Alterar o que vai diretamente para o mapa antes da execução: "safe", "balanced" ou "full". Guardado no projeto. Predefinição: a definição do projeto, senão balanced.
 mcp-param-start-pipeline-content-set = Grupos enviados para outro sítio que não o do perfil, como "group=place" com place map, candidates ou off, p. ex. "fences=candidates". Guardado no projeto.
 mcp-param-start-pipeline-contour-interval = Equidistância das curvas de nível em metros, p. ex. 2.5; 0 volta à escolha automática (a do tipo de mapa; um mapa de floresta tem 2,5 m em terreno plano e 10 m em terreno íngreme). Guardada no projeto; o próximo derive traça as curvas de nível com ela.
+mcp-param-start-pipeline-steep-slope = Ângulo de declive em graus a partir do qual o terreno conta como íngreme ao procurar taludes e rochedos, p. ex. 55; 0 volta ao valor predefinido de 27°. Aumenta-o (55 a 65) em cidades de rocha e desfiladeiros, onde quase todas as encostas são íngremes e os taludes e rochedos se fundem numa só mancha. Guardado no projeto; o próximo derive procura com ele taludes e rochedos.
 mcp-error-content = Não é possível ler a definição de conteúdo: { $detail }
 
 ## Permit notes (`freemapper permits`, `run --permits`, ADR 0117). The ids `permits-hint-*`

@@ -5,6 +5,7 @@ buffer_m = 100.0
 crs = 25833
 provider = "cuzk"
 title = "Adršpach"
+steep_slope_deg = 55.0
 tiles = []
 
 [map_area]

@@ -14,7 +14,8 @@ use freemapper::fetch::{Cache, HttpFetcher};
 use freemapper::layers::{LayerRole, estimate_download, list_layers, preview_png};
 use freemapper::places::{find_places, place_area};
 use freemapper::project::{
-    MapKind, ProjectFile, check_contour_interval, init_project, set_content, set_contour_interval,
+    MapKind, ProjectFile, check_contour_interval, check_steep_slope, init_project, set_content,
+    set_contour_interval, set_steep_slope,
 };
 use rmcp::handler::server::tool::ToolCallContext;
 use rmcp::handler::server::{router::tool::ToolRouter, wrapper::Parameters};
@@ -54,6 +55,16 @@ fn save_contour_interval(dir: &std::path::Path, asked: Option<f64>) -> Result<()
     };
     let interval = (asked != 0.0).then_some(asked);
     set_contour_interval(dir, interval).map_err(|e| describe(&e))?;
+    Ok(())
+}
+
+/// Saves the steep slope a call asks for (`0`: the default); nothing without one.
+fn save_steep_slope(dir: &std::path::Path, asked: Option<f64>) -> Result<(), String> {
+    let Some(asked) = asked else {
+        return Ok(());
+    };
+    let slope = (asked != 0.0).then_some(asked);
+    set_steep_slope(dir, slope).map_err(|e| describe(&e))?;
     Ok(())
 }
 
@@ -104,6 +115,11 @@ struct CreateProject {
     /// kind's; a forest map gets 2.5 m in flat land and 10 m in steep land). Saved in the
     /// project; the next derive traces the contours at it.
     contour_interval: Option<f64>,
+    /// Slope angle in degrees from which the terrain counts as steep when earth banks and cliffs
+    /// are looked for, e.g. 55; 0 goes back to the default of 27°. Raise it (55 to 65) in rock
+    /// towns and gorges, where almost every slope is steep and banks and cliffs run together
+    /// into one patch. Saved in the project; the next derive looks for banks and cliffs with it.
+    steep_slope: Option<f64>,
 }
 
 #[derive(Deserialize, rmcp::schemars::JsonSchema)]
@@ -159,6 +175,11 @@ struct StartPipeline {
     /// kind's; a forest map gets 2.5 m in flat land and 10 m in steep land). Saved in the
     /// project; the next derive traces the contours at it.
     contour_interval: Option<f64>,
+    /// Slope angle in degrees from which the terrain counts as steep when earth banks and cliffs
+    /// are looked for, e.g. 55; 0 goes back to the default of 27°. Raise it (55 to 65) in rock
+    /// towns and gorges, where almost every slope is steep and banks and cliffs run together
+    /// into one patch. Saved in the project; the next derive looks for banks and cliffs with it.
+    steep_slope: Option<f64>,
     /// Also write the permit notes (permits.md and permits.json) after the map: administrative
     /// units, protected areas and who runs the land. A failure there is a warning, not a failed
     /// job. Default false.
@@ -536,6 +557,11 @@ impl FreemapperServer {
         {
             return failure(describe(&e));
         }
+        if let Some(slope) = req.steep_slope.filter(|s| *s != 0.0)
+            && let Err(e) = check_steep_slope(slope)
+        {
+            return failure(describe(&e));
+        }
         let today = chrono::Local::now().date_naive();
         match init_project(&dir, &area, kind, req.scale, today, req.title) {
             Ok(project) => {
@@ -545,6 +571,7 @@ impl FreemapperServer {
                     req.content_set.as_deref().unwrap_or_default(),
                 )
                 .and_then(|()| save_contour_interval(&dir, req.contour_interval))
+                .and_then(|()| save_steep_slope(&dir, req.steep_slope))
                 {
                     return failure(e);
                 }
@@ -626,6 +653,7 @@ impl FreemapperServer {
             req.content_set.as_deref().unwrap_or_default(),
         )
         .and_then(|()| save_contour_interval(&dir, req.contour_interval))
+        .and_then(|()| save_steep_slope(&dir, req.steep_slope))
         {
             return failure(e);
         }

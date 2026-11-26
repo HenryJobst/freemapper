@@ -248,6 +248,9 @@ page-scale = Mittakaava 1:
 page-map-title = Otsikko
 page-contour-interval = Korkeuskäyrien väli
 page-contour-auto = automaattinen
+page-steep-slope = Jyrkkyysraja
+page-steep-slope-auto = automaattinen (27°)
+page-steep-slope-hint = Tästä kaltevuuskulmasta alkaen maasto katsotaan jyrkäksi penkereitä ja kallioita etsittäessä. 27° (automaattinen) sopii mäkimaastoon, puistoihin ja kaupunkeihin. Kalliolabyrinteissä, rotkoissa ja louhoksissa lähes jokainen rinne on jyrkkä, joten penkereet ja kalliot sulautuvat yhdeksi laikuksi eikä yhtään löydy; 55° - 65° erottaa ne toisistaan. Liian korkea arvo jättää vain jyrkimmät seinämät.
 page-settings-fixed = Projekti on jo olemassa; karttatyyppi, mittakaava ja otsikko ovat tiedostossa freemapper.toml. Korkeuskäyrien väliä voi yhä muuttaa.
 page-save = Tallenna
 page-saving = Tallennetaan …
@@ -461,6 +464,7 @@ error-project-already-exists = projekti on jo olemassa: { $path }
 error-project-map-exists = kartta on jo olemassa (siinä voi olla työtäsi); korvaa se valitsimella --force: { $path }
 error-project-invalid-scale = virheellinen mittakaava 1:{ $scale }
 error-project-invalid-contour-interval = virheellinen korkeuskäyrien väli { $interval } m tiedostossa freemapper.toml; sen on oltava suurempi kuin 0
+error-project-invalid-steep-slope = virheellinen jyrkkyysraja { $slope }° tiedostossa freemapper.toml; sen on oltava välillä 15° ja 80°
 error-project-scale-not-allowed = mittakaava 1:{ $scale } ei ole sallittu karttatyypille { $kind }; käytä { $allowed }
 error-project-scale-not-allowed-enlarge = mittakaava 1:{ $scale } ei ole sallittu karttatyypille { $kind }; käytä { $allowed }. Piirrä mittakaavassa 1:4000, freemapper-print suurentaa tulostettaessa mittakaavaan 1:3000
 word-kind-schoolyard = koulunpiha
@@ -787,7 +791,10 @@ mcp-instructions = freemapper tekee OpenOrienteering Mapper -aloitusprojekteja s
 
 cli-contour-interval-saved = Korkeuskäyrien väli tallennettu tiedostoon freemapper.toml: { $interval } m; derive jäljittää korkeuskäyrät sillä
 cli-contour-interval-auto = Korkeuskäyrien väli tiedostossa freemapper.toml: automaattinen (karttatyypin oma; metsäkartalla 2,5 m tasaisessa maastossa ja 10 m jyrkässä)
+cli-steep-slope-saved = Jyrkkyysraja tallennettu tiedostoon freemapper.toml: { $slope }°; derive etsii sillä penkereitä ja kallioita
+cli-steep-slope-auto = Jyrkkyysraja tiedostossa freemapper.toml: oletus (noin 27°)
 help-arg-contour-interval = Korkeuskäyrien väli metreinä, esim. `2.5`, tai `auto` karttatyypin omalle (metsäkartta: 5 m, 2,5 m tasaisessa, 10 m jyrkässä). Tallennetaan tiedostoon freemapper.toml; derive jäljittää korkeuskäyrät sillä
+help-arg-steep-slope = Rinteen kaltevuuskulma asteina, josta alkaen maasto katsotaan jyrkäksi penkereitä ja kallioita etsittäessä, esim. `55`, tai `auto` oletukselle 27°. Nosta sitä (55 - 65) kalliolabyrinteissä ja rotkoissa, joissa lähes jokainen rinne on jyrkkä ja penkereet ja kalliot sulautuvat yhdeksi laikuksi. Tallennetaan tiedostoon freemapper.toml; derive etsii sillä penkereitä ja kallioita
 cli-content-saved = Sisältöasetus tallennettu tiedostoon freemapper.toml: { $summary }
 cli-content-invalid = Sisältöasetusta ei voi lukea: { $detail }
 help-arg-content = Mikä tulee suoraan kartalle: `safe` jättää jokaisen kohteen sinne, minne ajo sen sijoittaa, `balanced` (oletus) tuo kiinteistörekisterin ja rekisterien kohteet kartalle, `full` tuo kaiken kartalle. Valinta tallennetaan tiedostoon freemapper.toml
@@ -795,9 +802,11 @@ help-arg-content-set = Lähetä kohderyhmä paikkaan `map`, `candidates` tai `of
 mcp-param-create-project-content = Mikä tulee suoraan kartalle: "safe", "balanced" (oletus) tai "full". Tallennetaan projektiin. balanced tuo kiinteistörekisterin ja rekisterien kohteet kartalle, full tuo kaiken.
 mcp-param-create-project-content-set = Ryhmät, jotka lähetetään muualle kuin profiili sanoo, muodossa "group=place", jossa place on map, candidates tai off, esim. "walls=map". Ryhmät: walls, fences, hedges, slopes, stairs, trees, water-features, monuments, furniture, passages, contours, landforms, vegetation, out-of-bounds, paths, streets.
 mcp-param-create-project-contour-interval = Korkeuskäyrien väli metreinä, esim. 2.5; 0 palaa automaattiseen valintaan (karttatyypin oma; metsäkartalla 2,5 m tasaisessa maastossa ja 10 m jyrkässä). Tallennetaan projektiin; seuraava derive jäljittää korkeuskäyrät sillä.
+mcp-param-create-project-steep-slope = Rinteen kaltevuuskulma asteina, josta alkaen maasto katsotaan jyrkäksi penkereitä ja kallioita etsittäessä, esim. 55; 0 palauttaa oletuksen 27°. Nosta sitä (55 - 65) kalliolabyrinteissä ja rotkoissa, joissa lähes jokainen rinne on jyrkkä ja penkereet ja kalliot sulautuvat yhdeksi laikuksi. Tallennetaan projektiin; seuraava derive etsii sillä penkereitä ja kallioita.
 mcp-param-start-pipeline-content = Muuta ennen ajoa, mikä tulee suoraan kartalle: "safe", "balanced" tai "full". Tallennetaan projektiin. Oletus: projektin asetus, muuten balanced.
 mcp-param-start-pipeline-content-set = Ryhmät, jotka lähetetään muualle kuin profiili sanoo, muodossa "group=place", jossa place on map, candidates tai off, esim. "fences=candidates". Tallennetaan projektiin.
 mcp-param-start-pipeline-contour-interval = Korkeuskäyrien väli metreinä, esim. 2.5; 0 palaa automaattiseen valintaan (karttatyypin oma; metsäkartalla 2,5 m tasaisessa maastossa ja 10 m jyrkässä). Tallennetaan projektiin; seuraava derive jäljittää korkeuskäyrät sillä.
+mcp-param-start-pipeline-steep-slope = Rinteen kaltevuuskulma asteina, josta alkaen maasto katsotaan jyrkäksi penkereitä ja kallioita etsittäessä, esim. 55; 0 palauttaa oletuksen 27°. Nosta sitä (55 - 65) kalliolabyrinteissä ja rotkoissa, joissa lähes jokainen rinne on jyrkkä ja penkereet ja kalliot sulautuvat yhdeksi laikuksi. Tallennetaan projektiin; seuraava derive etsii sillä penkereitä ja kallioita.
 mcp-error-content = Sisältöasetusta ei voi lukea: { $detail }
 
 ## Permit notes (`freemapper permits`, `run --permits`, ADR 0117). The ids `permits-hint-*`

@@ -729,6 +729,31 @@ Mauer herausstellen, eine Felswand als Treppe. Alles aus dem Geländemodell geh�
 kommen sie direkt auf die Karte. `slopes=map` holt nur die Böschungen aus ALKIS und OpenStreetMap, in Bayern
 auch die Wälle, Felsen und Höhleneingänge aus dem Landschaftsmodell.
 
+**Steilheitsschwelle.** Ab welcher Hangneigung ein Stück Gelände als steil gilt, wenn freemapper nach Böschungen und
+Felswänden sucht, ist einstellbar: `--steep-slope <Grad>` bei `init`, `derive` oder `run`, auf der Gebietsseite im Feld
+„Steilheitsschwelle“ oder als `steep_slope_deg = 55` in der `freemapper.toml`; `auto` gibt den Standard zurück (etwa
+27°). Erlaubt sind 15° bis 80°. Eine Karte, die schon gebaut ist, braucht danach `derive` und `export --force`. Die Schwelle
+ändert nur, was aus dem Geländemodell kommt (Böschungen und Felswände der Gruppe `landforms`), nicht die Wände aus
+OpenStreetMap. Sie gilt für Böschungen und Felswände zugleich: Eine Böschung ist weniger steil als eine Wand, deshalb
+verschwinden bei hoher Schwelle die Böschungen (Nikolsdorfer Wände: 16 Böschungen beim Standard, keine bei 55°).
+
+| Wert | Wann | Was passiert |
+|---|---|---|
+| `auto` (27°) | Hügelland, Parks, Städte, normale Wälder | Jeder Streifen, der steiler ist, kann eine Böschung oder Felswand sein. |
+| 40° bis 50° | Steile Täler und Hänge mit vielen Felsbändern (nicht geprüft) | Weniger Böschungen an gewöhnlichen Steilhängen. |
+| 55° bis 60° | Felsenstädte und Schluchten, in denen fast jeder Hang steil ist | Die steilen Stücke trennen sich, und mehr Wände werden einzeln gefunden. |
+| 65° bis 70° | Nur die steilsten Wände | Es bleiben wenige, sehr hohe Wände übrig. |
+
+Warum das nötig ist: Wo fast jeder Hang steil ist, hängen die steilen Zellen zu einer einzigen Fläche zusammen, und eine
+Fläche, die nicht lang und schmal ist, gilt als Hang, nicht als Wand. Gemessen ist das an einem Gebiet, der
+Felsenstadt Adršpach mit dem 2-m-Modell des tschechischen ČÚZK: Beim Standard waren 47 % der Fläche steil und hingen zu 92 %
+zusammen; es blieb 1 Felswand-Kandidat mit 30 m Länge. Bei 50° waren es 6 mit 230 m, bei 55° 11 mit 610 m, bei 60° 11
+mit 470 m, bei 65° 11 mit 430 m und bei 70° 4 mit 170 m. Das ist wenig für ein Gelände aus hunderten einzelner Türme: Die
+Suche findet lange, schmale Wände, keine Türme, die das 2-m-Modell nur als Kuppen zeigt. Die Werte für andere Gebiete sind
+Schätzungen; probieren Sie im Zweifel 55° und sehen Sie sich die Kandidaten im Layer „Gelände“ an. Eine Linie, die bergab
+läuft statt an den Höhenlinien entlang, ist die Mittellinie einer steilen Fläche und keine Wand; freemapper verwirft
+sie bei jeder Schwelle.
+
 ### Vegetation aus Laserpunktwolken
 
 In Brandenburg, Berlin, Nordrhein-Westfalen, Rheinland-Pfalz, im Saarland und in Bayern kann freemapper die

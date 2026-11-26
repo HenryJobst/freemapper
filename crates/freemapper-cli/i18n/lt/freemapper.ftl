@@ -254,6 +254,9 @@ page-scale = Mastelis 1:
 page-map-title = Pavadinimas
 page-contour-interval = Horizontalių intervalas
 page-contour-auto = automatinis
+page-steep-slope = Statumo riba
+page-steep-slope-auto = automatinė (27°)
+page-steep-slope-hint = Nuo šio šlaito kampo reljefas laikomas stačiu ieškant šlaitų ir skardžių. 27° (automatinė) tinka kalvoms, parkams ir miestams. Uolų miestuose, tarpekliuose ir karjeruose beveik kiekvienas šlaitas status, todėl šlaitai ir skardžiai susilieja į vieną dėmę ir nė vienas nerandamas; 55° iki 65° juos atskiria. Per didelė reikšmė palieka tik pačias statžiausias sienas.
 page-settings-fixed = Projektas jau yra; žemėlapio rūšis, mastelis ir pavadinimas yra faile freemapper.toml. Horizontalių intervalą dar galima pakeisti.
 page-save = Išsaugoti
 page-saving = Saugoma …
@@ -467,6 +470,7 @@ error-project-already-exists = projektas jau yra: { $path }
 error-project-map-exists = žemėlapis jau yra (jame gali būti jūsų darbo); naudokite --force, kad jį pakeistumėte: { $path }
 error-project-invalid-scale = netinkamas mastelis 1:{ $scale }
 error-project-invalid-contour-interval = netinkamas horizontalių intervalas { $interval } m faile freemapper.toml; jis turi būti didesnis už 0
+error-project-invalid-steep-slope = netinkamas statumo riba { $slope }° faile freemapper.toml; ji turi būti tarp 15° ir 80°
 error-project-scale-not-allowed = mastelis 1:{ $scale } neleidžiamas { $kind } žemėlapiams; naudokite { $allowed }
 error-project-scale-not-allowed-enlarge = mastelis 1:{ $scale } neleidžiamas { $kind } žemėlapiams; naudokite { $allowed }. Braižykite 1:4000, freemapper-print spausdindamas padidina iki 1:3000
 word-kind-schoolyard = mokyklos kiemo
@@ -805,7 +809,10 @@ mcp-instructions = freemapper kuria OpenOrienteering Mapper pradinius projektus 
 
 cli-contour-interval-saved = Horizontalių intervalas išsaugotas faile freemapper.toml: { $interval } m; derive horizontales braižo pagal jį
 cli-contour-interval-auto = Horizontalių intervalas faile freemapper.toml: automatinis (pagal žemėlapio rūšį; miško žemėlapis lygumoje gauna 2,5 m, stataus reljefo vietoje 10 m)
+cli-steep-slope-saved = Statumo riba išsaugota faile freemapper.toml: { $slope }°; derive pagal ją ieško šlaitų ir skardžių
+cli-steep-slope-auto = Statumo riba faile freemapper.toml: numatytoji (apie 27°)
 help-arg-contour-interval = Horizontalių intervalas metrais, pvz. `2.5`, arba `auto` pagal žemėlapio rūšį (miško žemėlapis: 5 m, 2,5 m kur lyguma, 10 m kur status reljefas). Išsaugomas faile freemapper.toml; derive horizontales braižo pagal jį
+help-arg-steep-slope = Šlaito kampas laipsniais, nuo kurio reljefas laikomas stačiu ieškant šlaitų ir skardžių, pvz. `55`, arba `auto` numatytajai 27° reikšmei. Padidinkite (55 iki 65) uolų miestuose ir tarpekliuose, kur beveik kiekvienas šlaitas status, o šlaitai ir skardžiai susilieja į vieną dėmę. Išsaugoma faile freemapper.toml; derive pagal ją ieško šlaitų ir skardžių
 cli-content-saved = Turinio nustatymas išsaugotas faile freemapper.toml: { $summary }
 cli-content-invalid = Turinio nustatymo perskaityti nepavyksta: { $detail }
 help-arg-content = Kas patenka tiesiai į žemėlapį: `safe` palieka kiekvieną objektą ten, kur jį padeda sudarymas, `balanced` (numatyta) deda kadastro ir registrų objektus į žemėlapį, `full` deda į žemėlapį viską. Pasirinkimas išsaugomas faile freemapper.toml
@@ -813,9 +820,11 @@ help-arg-content-set = Nukreipti objektų grupę į `map`, `candidates` arba `of
 mcp-param-create-project-content = Kas patenka tiesiai į žemėlapį: "safe", "balanced" (numatyta) arba "full". Išsaugoma projekte. balanced deda kadastro ir registrų objektus į žemėlapį, full deda į jį viską.
 mcp-param-create-project-content-set = Grupės, nukreiptos kitur, nei sako profilis, kaip "group=place", kur place yra map, candidates arba off, pvz. "walls=map". Grupės: walls, fences, hedges, slopes, stairs, trees, water-features, monuments, furniture, passages, contours, landforms, vegetation, out-of-bounds, paths, streets.
 mcp-param-create-project-contour-interval = Horizontalių intervalas metrais, pvz. 2.5; 0 grąžina automatinį pasirinkimą (pagal žemėlapio rūšį; miško žemėlapis lygumoje gauna 2,5 m, stataus reljefo vietoje 10 m). Išsaugoma projekte; kitas derive horizontales braižo pagal jį.
+mcp-param-create-project-steep-slope = Šlaito kampas laipsniais, nuo kurio reljefas laikomas stačiu ieškant šlaitų ir skardžių, pvz. 55; 0 grąžina numatytąją 27° reikšmę. Padidinkite (55 iki 65) uolų miestuose ir tarpekliuose, kur beveik kiekvienas šlaitas status, o šlaitai ir skardžiai susilieja į vieną dėmę. Išsaugoma projekte; kitas derive pagal ją ieško šlaitų ir skardžių.
 mcp-param-start-pipeline-content = Pakeisti, kas patenka tiesiai į žemėlapį, prieš paleidimą: "safe", "balanced" arba "full". Išsaugoma projekte. Numatyta: projekto nustatymas, kitaip balanced.
 mcp-param-start-pipeline-content-set = Grupės, nukreiptos kitur, nei sako profilis, kaip "group=place", kur place yra map, candidates arba off, pvz. "fences=candidates". Išsaugoma projekte.
 mcp-param-start-pipeline-contour-interval = Horizontalių intervalas metrais, pvz. 2.5; 0 grąžina automatinį pasirinkimą (pagal žemėlapio rūšį; miško žemėlapis lygumoje gauna 2,5 m, stataus reljefo vietoje 10 m). Išsaugoma projekte; kitas derive horizontales braižo pagal jį.
+mcp-param-start-pipeline-steep-slope = Šlaito kampas laipsniais, nuo kurio reljefas laikomas stačiu ieškant šlaitų ir skardžių, pvz. 55; 0 grąžina numatytąją 27° reikšmę. Padidinkite (55 iki 65) uolų miestuose ir tarpekliuose, kur beveik kiekvienas šlaitas status, o šlaitai ir skardžiai susilieja į vieną dėmę. Išsaugoma projekte; kitas derive pagal ją ieško šlaitų ir skardžių.
 mcp-error-content = Turinio nustatymo perskaityti nepavyksta: { $detail }
 
 ## Permit notes (`freemapper permits`, `run --permits`, ADR 0117). The ids `permits-hint-*`

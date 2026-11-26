@@ -123,6 +123,11 @@ impl Localize for ProjectError {
                 "error-project-invalid-contour-interval",
                 &[("interval", v(interval))],
             ),
+            ProjectError::InvalidSteepSlope(slope) => text(
+                lang,
+                "error-project-invalid-steep-slope",
+                &[("slope", v(slope))],
+            ),
             ProjectError::InvalidScale(scale) => {
                 text(lang, "error-project-invalid-scale", &[("scale", v(scale))])
             }

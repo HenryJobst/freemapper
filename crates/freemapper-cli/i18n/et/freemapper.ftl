@@ -248,6 +248,9 @@ page-scale = Mõõtkava 1:
 page-map-title = Pealkiri
 page-contour-interval = Kõrgusjoonte vahe
 page-contour-auto = automaatne
+page-steep-slope = Järsuse lävi
+page-steep-slope-auto = automaatne (27°)
+page-steep-slope-hint = Sellest nõlvanurgast alates loetakse maastik järsuks nõlvade ja kaljude otsimisel. 27° (automaatne) sobib mägedele, parkidele ja linnadele. Kaljulinnades, kuristikes ja karjäärides on peaaegu iga nõlv järsk, nii et nõlvad ja kaljud sulavad üheks laiguks ning ühtegi ei leita; 55° kuni 65° eraldab need. Liiga kõrge väärtus jätab alles vaid kõige järsemad seinad.
 page-settings-fixed = Projekt on juba olemas; kaarditüüp, mõõtkava ja pealkiri on failis freemapper.toml. Kõrgusjoonte vahet saab siiski muuta.
 page-save = Salvesta
 page-saving = Salvestan …
@@ -461,6 +464,7 @@ error-project-already-exists = projekt on juba olemas: { $path }
 error-project-map-exists = kaart on juba olemas (see võib sisaldada kasutaja tööd); asendamiseks tuleb kasutada --force: { $path }
 error-project-invalid-scale = kehtetu mõõtkava 1:{ $scale }
 error-project-invalid-contour-interval = kehtetu kõrgusjoonte vahe { $interval } m failis freemapper.toml; see peab olema suurem kui 0
+error-project-invalid-steep-slope = kehtetu järsuse lävi { $slope }° failis freemapper.toml; see peab jääma vahemikku 15° kuni 80°
 error-project-scale-not-allowed = mõõtkava 1:{ $scale } pole { $kind }kaartidele lubatud; kasutada tuleb { $allowed }
 error-project-scale-not-allowed-enlarge = mõõtkava 1:{ $scale } pole { $kind }kaartidele lubatud; kasutada tuleb { $allowed }. Joonistada tuleb mõõtkavas 1:4000, freemapper-print suurendab printimisel mõõtkavasse 1:3000
 word-kind-schoolyard = koolihoovi
@@ -787,7 +791,10 @@ mcp-instructions = freemapper teeb OpenOrienteering Mapperi algprojekte orientee
 
 cli-contour-interval-saved = Kõrgusjoonte vahe salvestatud faili freemapper.toml: { $interval } m; derive joonistab kõrgusjooned selle järgi
 cli-contour-interval-auto = Kõrgusjoonte vahe failis freemapper.toml: automaatne (kaarditüübi oma; metsakaardil 2,5 m tasasel maal ja 10 m järsul maal)
+cli-steep-slope-saved = Järsuse lävi salvestatud faili freemapper.toml: { $slope }°; derive otsib sellega nõlvu ja kaljusid
+cli-steep-slope-auto = Järsuse lävi failis freemapper.toml: vaikimisi (umbes 27°)
 help-arg-contour-interval = Kõrgusjoonte vahe meetrites, nt `2.5`, või `auto` kaarditüübi vaikimisi jaoks (metsakaart: 5 m, 2,5 m tasasel maal, 10 m järsul maal). Salvestatud faili freemapper.toml; derive joonistab kõrgusjooned selle järgi
+help-arg-steep-slope = Nõlvanurk kraadides, millest alates maastik loetakse järsuks nõlvade ja kaljude otsimisel, nt `55`, või `auto` vaikeväärtuse 27° jaoks. Tõsta seda (55 kuni 65) kaljulinnades ja kuristikes, kus peaaegu iga nõlv on järsk ning nõlvad ja kaljud sulavad üheks laiguks. Salvestatakse faili freemapper.toml; derive otsib sellega nõlvu ja kaljusid
 cli-content-saved = Sisuseade salvestatud faili freemapper.toml: { $summary }
 cli-content-invalid = Sisuseadet ei saa lugeda: { $detail }
 help-arg-content = Mis läheb otse kaardile: `safe` jätab iga objekti sinna, kuhu koostamine selle paneb, `balanced` (vaikimisi) paneb katastri ja registrite objektid kaardile, `full` paneb kõik kaardile. Valik salvestatakse faili freemapper.toml
@@ -795,9 +802,11 @@ help-arg-content-set = Saada objektirühm kohta `map`, `candidates` või `off`, 
 mcp-param-create-project-content = Mis läheb otse kaardile: "safe", "balanced" (vaikimisi) või "full". Salvestatud projekti. balanced paneb katastri ja registrite objektid kaardile, full paneb kõik kaardile.
 mcp-param-create-project-content-set = Rühmad, mis saadetakse mujale, kui profiil ütleb, kujul "group=place", kus place on map, candidates või off, nt "walls=map". Rühmad: walls, fences, hedges, slopes, stairs, trees, water-features, monuments, furniture, passages, contours, landforms, vegetation, out-of-bounds, paths, streets.
 mcp-param-create-project-contour-interval = Kõrgusjoonte vahe meetrites, nt 2.5; 0 läheb tagasi automaatse valiku juurde (kaarditüübi oma; metsakaardil 2,5 m tasasel maal ja 10 m järsul maal). Salvestatud projekti; järgmine derive joonistab kõrgusjooned selle järgi.
+mcp-param-create-project-steep-slope = Nõlvanurk kraadides, millest alates maastik loetakse järsuks nõlvade ja kaljude otsimisel, nt 55; 0 läheb tagasi vaikeväärtuse 27° juurde. Tõsta seda (55 kuni 65) kaljulinnades ja kuristikes, kus peaaegu iga nõlv on järsk ning nõlvad ja kaljud sulavad üheks laiguks. Salvestatakse projekti; järgmine derive otsib sellega nõlvu ja kaljusid.
 mcp-param-start-pipeline-content = Muuda enne käivitust, mis läheb otse kaardile: "safe", "balanced" või "full". Salvestatud projekti. Vaikimisi: projekti seade, muidu balanced.
 mcp-param-start-pipeline-content-set = Rühmad, mis saadetakse mujale, kui profiil ütleb, kujul "group=place", kus place on map, candidates või off, nt "fences=candidates". Salvestatud projekti.
 mcp-param-start-pipeline-contour-interval = Kõrgusjoonte vahe meetrites, nt 2.5; 0 läheb tagasi automaatse valiku juurde (kaarditüübi oma; metsakaardil 2,5 m tasasel maal ja 10 m järsul maal). Salvestatud projekti; järgmine derive joonistab kõrgusjooned selle järgi.
+mcp-param-start-pipeline-steep-slope = Nõlvanurk kraadides, millest alates maastik loetakse järsuks nõlvade ja kaljude otsimisel, nt 55; 0 läheb tagasi vaikeväärtuse 27° juurde. Tõsta seda (55 kuni 65) kaljulinnades ja kuristikes, kus peaaegu iga nõlv on järsk ning nõlvad ja kaljud sulavad üheks laiguks. Salvestatakse projekti; järgmine derive otsib sellega nõlvu ja kaljusid.
 mcp-error-content = Sisuseadet ei saa lugeda: { $detail }
 
 ## Permit notes (`freemapper permits`, `run --permits`, ADR 0117). The ids `permits-hint-*`

@@ -698,6 +698,30 @@ as banks. Check each one in the terrain. A bank may turn out to be a wall, a cli
 go straight onto the map. `slopes=map` takes only the banks of ALKIS and OpenStreetMap, in Bavaria also the
 earth walls, rocks and cave entrances of the landscape model.
 
+**Steepness threshold.** The slope angle from which a patch of terrain counts as steep when freemapper looks for
+earth banks and cliffs can be set: `--steep-slope <degrees>` on `init`, `derive` or `run`, in the field "Steepness
+threshold" on the area page, or as `steep_slope_deg = 55` in `freemapper.toml`; `auto` gives the default back (about
+27°). 15° to 80° are allowed. A map that is built already needs `derive` and `export --force` afterwards. The threshold
+changes only what comes from the terrain model (the banks and cliffs of the group `landforms`), not the cliffs from
+OpenStreetMap. It holds for banks and cliffs alike: a bank is less steep than a wall, so a high threshold loses the banks
+(Nikolsdorfer Wände: 16 banks at the default, none at 55°).
+
+| Value | When | What happens |
+|---|---|---|
+| `auto` (27°) | Hills, parks, towns, ordinary forests | Every strip steeper than that may be an earth bank or a cliff. |
+| 40° to 50° | Steep valleys and slopes with many rock bands (not tested) | Fewer banks on ordinary steep slopes. |
+| 55° to 60° | Rock towns and gorges where almost every slope is steep | The steep pieces part, and more walls are found one by one. |
+| 65° to 70° | Only the steepest walls | A few very high walls are left. |
+
+Why it is needed: where almost every slope is steep, the steep cells join into one patch, and a patch that is not long
+and narrow counts as a slope, not as a wall. This was measured on one area, the Adršpach rock town, with the 2 m model of
+the Czech ČÚZK: at the default 47 % of the area was steep and 92 % of that hung together; 1 cliff candidate of 30 m
+was left. At 50° there were 6 of 230 m, at 55° 11 of 610 m, at 60° 11 of 470 m, at 65° 11 of 430 m and at 70° 4 of
+170 m. That is little for terrain of hundreds of single towers: the search finds long, narrow walls, not towers, which
+the 2 m model shows only as knolls. The values for other areas are estimates; when in doubt try 55° and look at the
+candidates in the layer "Terrain". A line that runs down the slope instead of along the contours is the centre line
+of a steep patch and no wall; freemapper drops it at every threshold.
+
 ### Vegetation from laser point clouds
 
 In Brandenburg, Berlin, North Rhine-Westphalia, Rhineland-Palatinate, Saarland and Bavaria freemapper can derive
