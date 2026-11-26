@@ -300,6 +300,7 @@ mod tests {
         assert_eq!(cloud.kind, freemapper_manifest::PointCloudKind::ZipArchives);
         assert_eq!(cloud.url, BASE);
         assert_eq!(cloud.index_url, None);
+        assert_eq!(backend().archive_url("Mitte"), format!("{BASE}/Mitte.zip"));
     }
 
     fn registry() -> Registry {

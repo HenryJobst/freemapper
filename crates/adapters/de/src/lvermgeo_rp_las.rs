@@ -360,6 +360,14 @@ mod tests {
         assert_eq!(cloud.kind, freemapper_manifest::PointCloudKind::Meta4);
         assert_eq!(cloud.url, BASE);
         assert_eq!(cloud.index_url.as_deref(), Some(META4_URL));
+        assert_eq!(
+            backend().tile_url(TILE),
+            format!("{BASE}/las/lpolpg_32_448_5538_1_rp.laz")
+        );
+        assert_eq!(
+            backend().metadata_url(TILE),
+            format!("{BASE}/metadata/lpolpg_32_448_5538_1_rp_meta.xml")
+        );
     }
 
     fn registry() -> Registry {

@@ -243,6 +243,7 @@ mod tests {
         assert_eq!(cloud.kind, freemapper_manifest::PointCloudKind::LazTiles);
         assert_eq!(cloud.url, TILES);
         assert_eq!(cloud.index_url, None);
+        assert_eq!(backend().tile_url(TILE), format!("{TILES}/655_5479.laz"));
     }
 
     /// The tile of the Schmausenbuck, and its neighbour to the east.

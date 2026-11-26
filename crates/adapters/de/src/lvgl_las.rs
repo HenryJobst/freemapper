@@ -33,7 +33,9 @@ use crate::las_files::{
     cached_las, check_las_file, fallback, las_path, not_published,
     parse_utm32_tile_name as parse_tile_name, utm32_tile_name as tile_name,
 };
-use crate::lvgl::{DISTRICTS, SHARE};
+use crate::lvgl::DISTRICTS;
+#[cfg(any(test, feature = "testing"))]
+use crate::lvgl::SHARE;
 use crate::note::note;
 use crate::sources::zip_range::{Member, find_member, read_members, stream_member};
 use crate::tiles::{TileId, tiles_covering_grid};
@@ -301,6 +303,13 @@ mod tests {
         assert_eq!(cloud.kind, freemapper_manifest::PointCloudKind::ZipArchives);
         assert_eq!(cloud.url, folder_url());
         assert_eq!(cloud.index_url, None);
+        assert_eq!(
+            backend().archive_url("SLS"),
+            format!(
+                "{}/LIDAR_laz_SLS_EPSG-25832_Entstehung-2025.zip",
+                folder_url()
+            )
+        );
     }
 
     fn registry() -> Registry {

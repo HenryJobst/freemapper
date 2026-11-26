@@ -313,6 +313,7 @@ mod tests {
         assert_eq!(cloud.kind, freemapper_manifest::PointCloudKind::IndexJson);
         assert_eq!(cloud.url, BASE);
         assert_eq!(cloud.index_url.as_deref(), Some(INDEX_URL));
+        assert_eq!(backend().tile_url(NAME), format!("{BASE}/{NAME}"));
         assert_eq!(backend().tile_url(NAME), tile_url(NAME));
     }
 

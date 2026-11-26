@@ -325,6 +325,10 @@ mod tests {
         assert_eq!(cloud.kind, freemapper_manifest::PointCloudKind::CurrencyCsv);
         assert_eq!(cloud.url, ALS_URL);
         assert_eq!(cloud.index_url.as_deref(), Some(ALS_CURRENCY_CSV));
+        assert_eq!(
+            backend().als_tile_url(TileId::parse("33421-5821").unwrap()),
+            format!("{ALS_URL}/als_33421-5821.zip")
+        );
     }
 
     fn registry() -> Registry {
