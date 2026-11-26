@@ -150,14 +150,13 @@ pub(crate) fn estimate_area(
     }
     // A region without a cadastre has none to download.
     if !crate::project::no_cadastre(bbox) {
-        // ALKIS is the cadastre of the German states; Poland's is EGiB.
-        let what = if crate::project::outside_germany(bbox) {
-            "EGiB buildings and land use"
-        } else {
-            "ALKIS buildings and land use"
-        };
+        // ALKIS is the cadastre of the German states; Poland's is EGiB, Czechia's RÚIAN.
+        let what = format!(
+            "{} buildings and land use",
+            crate::project::cadastre_name(bbox)
+        );
         items.push(EstimateItem {
-            what: what.to_string(),
+            what,
             megabytes: ALKIS_MB,
             cached: alkis_cached,
             part: Part::MapData,

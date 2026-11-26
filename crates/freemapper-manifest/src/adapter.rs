@@ -345,6 +345,7 @@ pub fn info_of(manifest: &Manifest) -> RegionInfo {
             en: adapter.names.en.clone(),
             de: adapter.names.de.clone(),
             pl: None,
+            cs: None,
         },
         crs: adapter.crs,
         country: freemapper_adapter_api::info::Country::De,

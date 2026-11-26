@@ -223,7 +223,8 @@ fn adapters_endpoint_lists_the_states_with_previews() {
             "badenwuerttemberg",
             "bremen",
             "bayern",
-            "polska"
+            "polska",
+            "cesko"
         ]
     );
     assert_eq!(

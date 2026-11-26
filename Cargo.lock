@@ -746,6 +746,7 @@ dependencies = [
  "dirs",
  "freemapper",
  "freemapper-adapter-api",
+ "freemapper-adapters-cz",
  "freemapper-adapters-de",
  "freemapper-adapters-pl",
  "freemapper-contract",
@@ -793,6 +794,22 @@ dependencies = [
  "serde_json",
  "tempfile",
  "thiserror 2.0.21",
+]
+
+[[package]]
+name = "freemapper-adapters-cz"
+version = "0.28.0"
+dependencies = [
+ "chrono",
+ "freemapper-adapter-api",
+ "freemapper-georef",
+ "freemapper-sources",
+ "geo",
+ "geo-types",
+ "geojson",
+ "image",
+ "serde_json",
+ "tempfile",
 ]
 
 [[package]]

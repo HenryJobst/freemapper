@@ -617,6 +617,7 @@ mod tests {
                     en: "Bare".into(),
                     de: "Kahl".into(),
                     pl: None,
+                    cs: None,
                 },
                 crs: Crs::Utm33,
                 country: crate::info::Country::De,
