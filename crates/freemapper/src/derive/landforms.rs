@@ -1184,6 +1184,59 @@ mod tests {
         ));
     }
 
+    /// A wall that runs east to west at n = 30, and a second at n = 10: the window around a sample
+    /// is five cells wide in both directions, and the samples move along the line in both axes.
+    #[test]
+    fn an_east_west_wall_is_found_only_near_the_line() {
+        let wall = |at: f64| move |n: f64| ((n - at) / 2.0).clamp(0.0, 1.0);
+        let terrain = dtm(60, |_, n| 40.0 - 4.0 * wall(29.0)(n) - 4.0 * wall(9.0)(n));
+        let (gradients, steep) = gradients_and_steep(&terrain);
+        let grid = terrain.grid;
+        // Crossing the wall at n = 30: down the slope. The samples run from n = 10 to n = 50.
+        assert!(runs_down_the_slope(
+            &[(45.0, 12.0), (45.0, 50.0)],
+            &gradients,
+            &steep,
+            &grid
+        ));
+        // Along the wall.
+        assert!(!runs_down_the_slope(
+            &[(10.0, 30.0), (50.0, 30.0)],
+            &gradients,
+            &steep,
+            &grid
+        ));
+        // Beside the wall, farther than the window reaches, south of it and north of it: no sample
+        // has a steep cell around it, so no verdict. The wall at n = 10 lies far to the south.
+        assert!(!runs_down_the_slope(
+            &[(45.0, 37.0), (45.0, 39.0)],
+            &gradients,
+            &steep,
+            &grid
+        ));
+        assert!(!runs_down_the_slope(
+            &[(45.0, 22.0), (45.0, 24.0)],
+            &gradients,
+            &steep,
+            &grid
+        ));
+        // The same beside a wall that runs north to south.
+        let north_south = dtm(60, step(4.0));
+        let (gradients, steep) = gradients_and_steep(&north_south);
+        assert!(!runs_down_the_slope(
+            &[(10.0, 30.0), (20.0, 30.0)],
+            &gradients,
+            &steep,
+            &north_south.grid
+        ));
+        assert!(!runs_down_the_slope(
+            &[(40.0, 30.0), (50.0, 30.0)],
+            &gradients,
+            &steep,
+            &north_south.grid
+        ));
+    }
+
     /// A line along the last row of the raster is sampled without reading beyond it.
     #[test]
     fn a_line_at_the_edge_of_the_raster_is_judged() {
