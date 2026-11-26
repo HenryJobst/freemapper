@@ -929,6 +929,107 @@ mod tests {
         assert_eq!((&size.url, &size.layer), (&base.url, &base.layer));
     }
 
+    /// A project folder with its raster records, for the backends to fetch into.
+    struct BareProject {
+        dir: std::path::PathBuf,
+        tiles: Vec<freemapper_adapter_api::records::TileRecord>,
+        ndsm_tiles: Vec<freemapper_adapter_api::records::NdsmRecord>,
+        orthophoto: Option<freemapper_adapter_api::records::WmsRecord>,
+        terrain: Option<freemapper_adapter_api::records::WcsRecord>,
+        surface: Option<freemapper_adapter_api::records::WcsRecord>,
+    }
+
+    impl freemapper_adapter_api::project::RasterProject for BareProject {
+        fn records(&mut self) -> freemapper_adapter_api::project::RasterRecords<'_> {
+            freemapper_adapter_api::project::RasterRecords {
+                tiles: &mut self.tiles,
+                ndsm_tiles: &mut self.ndsm_tiles,
+                orthophoto: &mut self.orthophoto,
+                terrain: &mut self.terrain,
+                surface: &mut self.surface,
+            }
+        }
+
+        fn save(&mut self) -> Result<(), freemapper_adapter_api::error::AdapterError> {
+            Ok(())
+        }
+
+        fn dir(&self) -> &Path {
+            &self.dir
+        }
+
+        fn region_bbox(&self) -> BoundingBox {
+            BoundingBox {
+                min_e: 500_000.0,
+                min_n: 5_500_000.0,
+                max_e: 500_100.0,
+                max_n: 5_500_100.0,
+            }
+        }
+
+        fn crs(&self) -> Crs {
+            Crs::Utm32
+        }
+    }
+
+    /// A backend that takes addresses asks the server when it fetches, and asks the WMS its
+    /// config names instead of the one of the built-in manifest.
+    #[test]
+    fn an_addressed_backend_fetches_from_the_wms_its_config_states() {
+        use crate::fetch::test_support::MapFetcher;
+        use freemapper_adapter_api::env::AdapterEnv;
+        use freemapper_adapter_api::fetch::FetchMode;
+        use freemapper_adapter_api::project::RasterProject as _;
+        let mut registry = Registry::new();
+        register_backends(&mut registry).unwrap();
+        for agency in AGENCIES {
+            let Some((state, _)) = rasters::addressed(agency) else {
+                continue;
+            };
+            let name = backend_name(agency).unwrap();
+            let builtin = builtin_raster_config(state).url.unwrap();
+            let config = RasterConfig {
+                url: Some("https://wms.example.org/dop".to_string()),
+                ..RasterConfig::default()
+            };
+            let backend = registry
+                .build_backend(name, &config)
+                .unwrap_or_else(|| panic!("{name}"))
+                .unwrap_or_else(|e| panic!("{name}: {e}"));
+            let scratch = tempfile::tempdir().unwrap();
+            let cache = crate::fetch::Cache::new(scratch.path().join("cache"));
+            let fetcher = MapFetcher::default();
+            let mut project = BareProject {
+                dir: scratch.path().join("project"),
+                tiles: Vec::new(),
+                ndsm_tiles: Vec::new(),
+                orthophoto: None,
+                terrain: None,
+                surface: None,
+            };
+            std::fs::create_dir_all(&project.dir).unwrap();
+            let mut notes = Vec::new();
+            let mut env = AdapterEnv {
+                fetcher: &fetcher,
+                regions: &registry,
+                cache: &cache,
+                mode: FetchMode::Online,
+                today: "2026-11-13".parse().unwrap(),
+                skip_surface: false,
+                progress: &mut |n| notes.push(n.to_string()),
+            };
+            // The server serves nothing, so the fetch may fail; what it asked is the point.
+            let bbox = project.region_bbox();
+            let _ = backend.fetch(&mut env, &mut project, &bbox);
+            let log = fetcher.log.borrow();
+            assert!(!log.is_empty(), "{name} asked nothing");
+            assert!(
+                !log.iter().any(|url| url.starts_with(&builtin)),
+                "{name} asked the WMS of the built-in manifest: {log:?}"
+            );
+        }
+    }
+
     /// A state whose manifest names no addressed backend has no addresses to fall back on, and
     /// an agency that keeps its addresses in code makes no backend from a WMS.
     #[test]

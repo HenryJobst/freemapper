@@ -101,7 +101,7 @@ impl Registry {
         name: &str,
         backend: Arc<dyn RasterBackend>,
     ) -> Result<(), DuplicateBackend> {
-        if self.backends.contains_key(name) {
+        if self.backends.contains_key(name) || self.factories.contains_key(name) {
             return Err(DuplicateBackend(name.to_string()));
         }
         self.backends.insert(name.to_string(), backend);
@@ -196,6 +196,83 @@ mod tests {
     /// asks it.
     fn failing(message: &'static str) -> RasterFactory {
         Arc::new(move |_| Err(message.to_string()))
+    }
+
+    /// A backend that fetches nothing, for the registry to hold.
+    struct Stub(crate::rasters::ProviderInfo);
+
+    impl RasterBackend for Stub {
+        fn provider(&self) -> &crate::rasters::ProviderInfo {
+            &self.0
+        }
+
+        fn fetch(
+            &self,
+            _env: &mut crate::env::AdapterEnv<'_>,
+            _project: &mut dyn crate::project::RasterProject,
+            _bbox: &freemapper_georef::crs::BoundingBox,
+        ) -> Result<(), crate::error::AdapterError> {
+            Ok(())
+        }
+    }
+
+    fn stub(id: &'static str) -> Arc<dyn RasterBackend> {
+        Arc::new(Stub(crate::rasters::ProviderInfo {
+            id: AdapterId::built_in(id),
+            cache_dir: None,
+            terrain_source: String::new(),
+            kind: crate::rasters::RasterKind::PerArea,
+        }))
+    }
+
+    #[test]
+    fn a_factory_that_builds_gives_its_backend_by_name_and_by_config() {
+        let mut registry = Registry::new();
+        registry
+            .add_raster_factory("zeta", Arc::new(|_| Ok(stub("made"))))
+            .unwrap();
+        registry.add_backend("plain", stub("plain")).unwrap();
+        assert_eq!(
+            registry.backend("zeta").unwrap().provider().id.as_str(),
+            "made"
+        );
+        assert_eq!(
+            registry
+                .build_backend("zeta", &RasterConfig::default())
+                .unwrap()
+                .ok()
+                .unwrap()
+                .provider()
+                .id
+                .as_str(),
+            "made"
+        );
+        // A backend without a factory answers every config with itself.
+        let config = RasterConfig {
+            max_px: Some(300),
+            ..RasterConfig::default()
+        };
+        assert_eq!(
+            registry
+                .build_backend("plain", &config)
+                .unwrap()
+                .ok()
+                .unwrap()
+                .provider()
+                .id
+                .as_str(),
+            "plain"
+        );
+        assert!(!registry.takes_addresses("plain"));
+        // A name is taken once, whichever way it came in.
+        assert_eq!(
+            registry.add_raster_factory("plain", Arc::new(|_| Ok(stub("x")))),
+            Err(DuplicateBackend("plain".to_string()))
+        );
+        assert_eq!(
+            registry.add_backend("zeta", stub("again")),
+            Err(DuplicateBackend("zeta".to_string()))
+        );
     }
 
     #[test]

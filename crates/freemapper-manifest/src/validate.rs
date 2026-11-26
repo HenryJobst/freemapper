@@ -1426,12 +1426,11 @@ impl Check<'_> {
                 if !takes {
                     absent.extend(["url", "layer", "max_px"]);
                 }
-                let mut fine = self.absent_of_raster(raw, table, "a backend", &absent);
+                let fine = self.absent_of_raster(raw, table, "a backend", &absent);
                 let mut config = RasterConfig::default();
                 if takes {
                     if let Some(url) = raw.url.as_ref() {
                         config.url = self.url(url, "orthophoto.url");
-                        fine &= config.url.is_some();
                     }
                     if let Some(layer) = raw.layer.as_ref() {
                         config.layer = self.matching(
@@ -1441,13 +1440,11 @@ impl Check<'_> {
                             is_layer,
                             "the name of a layer: letters, digits and `_.:-`",
                         );
-                        fine &= config.layer.is_some();
                     }
                     if let Some(value) = raw.max_px.as_ref() {
                         config.max_px = self
                             .integer(value, "orthophoto.max_px", 256, 10_000)
                             .and_then(|value| u32::try_from(value).ok());
-                        fine &= config.max_px.is_some();
                     }
                 }
                 return fine.then_some(Orthophoto::Backend { name, config });
