@@ -6,74 +6,48 @@
 //! ALKIS: its full ALKIS is read as one. Bavaria has no service at all: its buildings and its
 //! land use are read out of files.
 
-use std::borrow::Cow;
-
 use freemapper_adapter_api::alkis::{AlkisPart, AlkisSource, FetchArea};
 use freemapper_adapter_api::env::AdapterEnv;
 use freemapper_adapter_api::error::AdapterError;
-use freemapper_sources::alkis_source::{Normaliser, OgcApiAlkis, WfsAlkis};
 
 use crate::crs::Crs;
+#[cfg(test)]
+use crate::lgv;
+#[cfg(test)]
 use crate::sources::alkis_wfs;
 use crate::states::State;
-use crate::{berlin, geobremen, ldbv_alkis, lgl_bw, lgv};
+use crate::{berlin, geobremen, ldbv_alkis, lgl_bw};
 
+#[cfg(any(test, feature = "testing"))]
 /// LGB's OGC API, buildings and structures (`gebaeude_bauwerk`).
 pub const BUILDINGS_ENDPOINT: &str =
     "https://ogc-api.geobasis-bb.de/alkis-vereinfacht/v1/collections/gebaeude_bauwerk/items";
+#[cfg(any(test, feature = "testing"))]
 /// LAiV M-V's OGC API (the same LGB schema and spellings, EPSG:25833).
 pub const MV_BUILDINGS_ENDPOINT: &str =
     "https://www.geodaten-mv.de/api/geobasis/alkis-vereinf/v1/collections/gebaeude_bauwerk/items";
+#[cfg(any(test, feature = "testing"))]
 pub const MV_LAND_USE_ENDPOINT: &str =
     "https://www.geodaten-mv.de/api/geobasis/alkis-vereinf/v1/collections/nutzung_flurstueck/items";
+#[cfg(any(test, feature = "testing"))]
 /// Land use per parcel part (`nutzung_flurstueck`).
 pub const LAND_USE_ENDPOINT: &str =
     "https://ogc-api.geobasis-bb.de/alkis-vereinfacht/v1/collections/nutzung_flurstueck/items";
 
-/// The ALKIS service of `state`.
-pub fn source(state: State) -> Box<dyn AlkisSource> {
-    let wfs =
-        |service: alkis_wfs::WfsService| -> Box<dyn AlkisSource> { Box::new(WfsAlkis { service }) };
+/// The ALKIS service of `state` that code reads: Berlin, Baden-Württemberg, Bremen and Bavaria.
+/// Every other state declares its service in its manifest (`[alkis]`, issue #273).
+pub fn source(state: State) -> Option<Box<dyn AlkisSource>> {
     match state {
-        // LGB's OGC API (dl-de/by-2-0), which sets the schema and the spellings of all others.
-        State::Brandenburg => Box::new(OgcApiAlkis {
-            buildings: Cow::Borrowed(BUILDINGS_ENDPOINT),
-            land_use: Cow::Borrowed(LAND_USE_ENDPOINT),
-            crs: Crs::Utm33,
-            fallback: None,
-            normalise: Normaliser::Lgb,
-        }),
-        State::Berlin => Box::new(BerlinAlkis),
-        State::Saxony => wfs(alkis_wfs::GEOSN),
-        State::SaxonyAnhalt => wfs(alkis_wfs::LVERMGEO),
-        State::Hamburg => Box::new(OgcApiAlkis {
-            buildings: Cow::Borrowed(lgv::BUILDINGS_ENDPOINT),
-            land_use: Cow::Borrowed(lgv::LAND_USE_ENDPOINT),
-            crs: alkis_wfs::LGV.crs,
-            fallback: Some(alkis_wfs::LGV),
-            normalise: Normaliser::HamburgAscii,
-        }),
-        State::Hessen => wfs(alkis_wfs::HVBG),
-        State::SchleswigHolstein => wfs(alkis_wfs::LVERMGEO_SH),
-        State::MecklenburgVorpommern => Box::new(OgcApiAlkis {
-            buildings: Cow::Borrowed(MV_BUILDINGS_ENDPOINT),
-            land_use: Cow::Borrowed(MV_LAND_USE_ENDPOINT),
-            crs: alkis_wfs::LAIV_MV.crs,
-            fallback: Some(alkis_wfs::LAIV_MV),
-            normalise: Normaliser::Lgb,
-        }),
-        State::NordrheinWestfalen => wfs(alkis_wfs::GEOBASIS_NRW),
-        State::Niedersachsen => wfs(alkis_wfs::LGLN),
-        State::RheinlandPfalz => wfs(alkis_wfs::LVERMGEO_RP),
-        State::Saarland => wfs(crate::lvgl::ALKIS),
+        State::Berlin => Some(Box::new(BerlinAlkis)),
         // The views of the LGL are not the simplified schema; the source turns them into it.
-        State::BadenWuerttemberg => Box::new(lgl_bw::LglBwAlkis),
+        State::BadenWuerttemberg => Some(Box::new(lgl_bw::LglBwAlkis)),
         // The state serves the full ALKIS only; the source turns it into the simplified schema.
-        State::Bremen => Box::new(geobremen::alkis()),
+        State::Bremen => Some(Box::new(geobremen::alkis())),
         // The state has no service for its cadastre; the source reads the files it publishes.
-        State::Bayern => Box::new(ldbv_alkis::LdbvAlkis {
+        State::Bayern => Some(Box::new(ldbv_alkis::LdbvAlkis {
             kreise: ldbv_alkis::built_in_kreise(),
-        }),
+        })),
+        _ => None,
     }
 }
 
@@ -164,10 +138,11 @@ mod tests {
         let scratch = tempfile::tempdir().unwrap();
         let cache = CacheDir::new(scratch.path().join("cache"));
         let mut registry = freemapper_adapter_api::registry::Registry::new();
-        for adapter in crate::states::adapters() {
-            registry.add(adapter).unwrap();
+        let adapters = crate::states::adapters();
+        for adapter in &adapters {
+            registry.add(adapter.clone()).unwrap();
         }
-        for state in State::ALL {
+        for (state, adapter) in State::ALL.into_iter().zip(&adapters) {
             // Bavaria has no service: it asks whether its files changed before it fetches
             // them, and a file that is not there is no error for the buildings. Its own tests
             // show the addresses (`ldbv_alkis`).
@@ -175,7 +150,8 @@ mod tests {
                 continue;
             }
             let (buildings, land_use, crs) = expected(state);
-            let source = source(state);
+            // The service of the adapter: the manifest's, or the code's where it declares none.
+            let source = adapter.alkis().expect("every state has an ALKIS source");
             // Nothing answers: the first request shows where the source asks.
             let first_request = |land: bool| {
                 let fetcher = MapFetcher::default();

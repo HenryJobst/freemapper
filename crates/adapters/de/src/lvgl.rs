@@ -25,6 +25,7 @@ use crate::crs::{BoundingBox, Crs};
 use crate::fetch::{CacheDir, FetchError, FetchMode, Fetcher, write_cache_file};
 use crate::note::{Arg, Note, note};
 use crate::raster::{GridSpec, Raster};
+#[cfg(any(test, feature = "testing"))]
 use crate::sources::alkis_wfs::WfsService;
 use crate::sources::float_tiff::{decode_float_tiff, write_float_raster};
 use crate::sources::region::{SAARLAND, tile_centre_in};
@@ -52,6 +53,7 @@ pub const FLIGHT_LABEL: DateLabel = DateLabel {
     shown: "date of the update",
 };
 
+#[cfg(any(test, feature = "testing"))]
 /// The simplified ALKIS of the state: the WFS of the geoportal in front of an ArcGIS server,
 /// which writes the attribute names in upper case and refuses `SORTBY`.
 pub const ALKIS: WfsService = WfsService {

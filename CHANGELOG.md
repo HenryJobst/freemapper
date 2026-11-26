@@ -6,6 +6,14 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ## [Unveröffentlicht]
 
+### Geändert
+
+- Die Adressen der ALKIS-Dienste (Gebäude und Nutzung, NAS-Brandenburg) stehen nur noch in den Manifesten der Länder; die Tabellen im Code sind reine Testwerkzeuge, ein Test hält jedes Manifest an sie (Issue #273). Der eingebaute Weg im Code bleibt für Berlin, Baden-Württemberg, Bremen und Bayern, die keinen vereinfachten Dienst haben. Karten und Hinweise bleiben gleich.
+
+### Behoben
+
+- Der Quellennachweis der Baumkataster nennt jetzt jede Stadt, deren Bäume auf der Karte stehen, nicht nur Potsdam: Leipzig, Frankfurt (Oder), Frankfurt am Main, Lübeck, Köln, Dortmund und die übrigen Kataster tragen Lizenzen (dl-de/by-2-0), die eine Nennung verlangen. Die Zeile kommt aus dem Manifest der Stadt; die feste Potsdam-Tabelle im Code (`trees::POTSDAM`) ist ein reines Testwerkzeug geworden (Issue #273).
+
 ## [0.28.0] - 2026-11-25
 
 ### Hinzugefügt
