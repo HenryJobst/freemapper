@@ -28,7 +28,6 @@ use freemapper_adapter_api::records::EstimateItem;
 use freemapper_adapter_api::registry::{DuplicateBackend, Registry};
 use freemapper_manifest::adapter::{AdapterFiles, ManifestAdapter, Parse};
 use freemapper_manifest::guard::GuardedAlkis;
-use freemapper_sources::trees::POTSDAM;
 use geo_types::MultiPolygon;
 
 use crate::boundaries::{StateOutline, boundary_text, outline};
@@ -775,11 +774,6 @@ pub fn adapters() -> Vec<Arc<dyn RegionAdapter>> {
         .into_iter()
         .map(|state| Arc::new(StateAdapter::new(state, &backends)) as Arc<dyn RegionAdapter>)
         .collect()
-}
-
-/// The tree cadastres of all states, in the order of the states.
-pub(crate) fn all_tree_datasets() -> Vec<TreeDataset> {
-    vec![POTSDAM]
 }
 
 #[cfg(test)]
