@@ -563,6 +563,34 @@ pub struct StateAdapter {
     /// The sources of the permit notes the state brings (Berlin's Geoportal, ADR 0120; the
     /// forest administrations of Brandenburg and North Rhine-Westphalia, ADR 0124).
     permits: Vec<Box<dyn PermitSource>>,
+    /// The point-cloud backend of the state, made of the addresses of its `[point_cloud]`.
+    point_cloud: Option<Box<dyn PointCloudBackend>>,
+}
+
+/// The `[point_cloud]` of the manifest of `state`, parsed again: for the tests of the backends,
+/// which are held to the addresses the manifest declares.
+#[cfg(test)]
+pub(crate) fn point_cloud_of(state: State) -> Option<freemapper_manifest::PointCloud> {
+    freemapper_manifest::parse(manifest_text(state), Path::new(state.id()))
+        .expect("the built-in manifests are valid")
+        .point_cloud
+}
+
+/// The point-cloud backend of `state` for the addresses in `cloud`: the code that reads what the
+/// state publishes, kept in the adapter, and where it reads it, taken from the manifest.
+fn point_cloud_backend(
+    state: State,
+    cloud: &freemapper_manifest::PointCloud,
+) -> Option<Box<dyn PointCloudBackend>> {
+    Some(match state {
+        State::NordrheinWestfalen => Box::new(crate::nrw_3dm::Nrw3dmBackend::new(cloud)),
+        State::RheinlandPfalz => Box::new(crate::lvermgeo_rp_las::RpLasBackend::new(cloud)),
+        State::Berlin => Box::new(crate::berlin_als::BerlinAlsBackend::new(cloud)),
+        State::Saarland => Box::new(crate::lvgl_las::LvglLasBackend::new(cloud)),
+        State::Bayern => Box::new(crate::ldbv_las::LdbvLasBackend::new(cloud)),
+        State::Brandenburg => Box::new(crate::lgb_als::LgbAlsBackend::new(cloud)),
+        _ => return None,
+    })
 }
 
 impl StateAdapter {
@@ -650,7 +678,13 @@ impl StateAdapter {
         };
         let mut permits = permits;
         permits.extend(declared_permits);
+        let point_cloud = manifest
+            .manifest()
+            .point_cloud
+            .as_ref()
+            .and_then(|cloud| point_cloud_backend(state, cloud));
         Self {
+            point_cloud,
             state,
             alkis,
             extras,
@@ -736,14 +770,7 @@ impl RegionAdapter for StateAdapter {
     }
 
     fn point_cloud(&self) -> Option<&dyn PointCloudBackend> {
-        match self.state {
-            State::NordrheinWestfalen => Some(crate::nrw_3dm::backend()),
-            State::RheinlandPfalz => Some(crate::lvermgeo_rp_las::backend()),
-            State::Berlin => Some(crate::berlin_als::backend()),
-            State::Saarland => Some(crate::lvgl_las::backend()),
-            State::Bayern => Some(crate::ldbv_las::backend()),
-            state => crate::lgb_als::point_cloud(state),
-        }
+        self.point_cloud.as_deref()
     }
 }
 
@@ -781,6 +808,35 @@ pub fn adapters() -> Vec<Arc<dyn RegionAdapter>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Each state with point clouds reads its own backend, made of the table of its manifest;
+    /// the others have none and no table.
+    #[test]
+    fn a_state_reads_the_point_cloud_backend_of_its_table() {
+        let mut backends = Registry::new();
+        register_backends(&mut backends).unwrap();
+        for state in State::ALL {
+            let source = StateAdapter::new(state, &backends)
+                .point_cloud()
+                .map(|backend| backend.info().source.clone());
+            let expected = match state {
+                State::Brandenburg => Some("lgb-als"),
+                State::Berlin => Some("berlin-als"),
+                State::NordrheinWestfalen => Some("geobasisnrw-3dm"),
+                State::RheinlandPfalz => Some("lvermgeorp-las"),
+                State::Saarland => Some("lvgl-las"),
+                State::Bayern => Some("ldbv-las"),
+                _ => None,
+            };
+            assert_eq!(source.as_deref(), expected, "{state:?}");
+            assert_eq!(
+                point_cloud_of(state).is_some(),
+                expected.is_some(),
+                "{state:?}"
+            );
+        }
+    }
+
     /// The export of a state is its manifest and the files the manifest names, nothing else;
     /// only Saxony-Anhalt, which declares its orthophoto as a service, gets a provider of its
     /// own, and every export parses and finds its files.

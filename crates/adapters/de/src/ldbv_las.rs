@@ -12,7 +12,6 @@
 //! what it leaves out everywhere.
 
 use std::path::{Path, PathBuf};
-use std::sync::LazyLock;
 
 use chrono::NaiveDate;
 use freemapper_adapter_api::cache::{CacheDir, STALE_PART_AGE};
@@ -23,6 +22,7 @@ use freemapper_adapter_api::pointcloud::{
     PointCloudBackend, PointCloudInfo, PointCloudRecord, PointCloudTile,
 };
 use freemapper_adapter_api::records::{AdapterId, EstimateItem, Part, Store};
+use freemapper_manifest::PointCloud;
 
 use crate::boundaries::{BAYERN, tile_centre_in};
 use crate::crs::BoundingBox;
@@ -37,6 +37,9 @@ use crate::tiles::{TileId, tiles_covering_grid};
 
 /// The folder of the tiles. They lie on a third host of the agency; the server of the other
 /// tiles (`download1.bayernwolke.de`) does not have them.
+/// The manifest of the state holds it (issue #273), here it is what the manifest is held to in
+/// tests.
+#[cfg(any(test, feature = "testing"))]
 pub const TILES: &str = "https://geodaten.bayern.de/odd_data/laser";
 /// The folder of the point clouds below the LDBV folder of the cache.
 const DIR: &str = "las";
@@ -53,25 +56,18 @@ fn stem(tile: TileId) -> String {
     format!("{}_{}", tile.east_km, tile.north_km)
 }
 
-/// URL of the point cloud of `tile`.
-pub fn tile_url(tile: TileId) -> String {
-    format!("{TILES}/{}.{EXT}", stem(tile))
-}
-
-/// The point-cloud backend of Bavaria.
-pub fn backend() -> &'static dyn PointCloudBackend {
-    static LDBV: LazyLock<LdbvLasBackend> = LazyLock::new(LdbvLasBackend::new);
-    &*LDBV
-}
-
 /// The laser point clouds of the LDBV, kept in the cache as the server gives them.
 pub struct LdbvLasBackend {
     info: PointCloudInfo,
+    /// The folder of the tiles, from `[point_cloud] url`.
+    base: String,
 }
 
 impl LdbvLasBackend {
-    pub fn new() -> Self {
+    /// The backend that reads the addresses of `cloud`, the `[point_cloud]` of the manifest.
+    pub fn new(cloud: &PointCloud) -> Self {
         Self {
+            base: cloud.url.clone(),
             info: PointCloudInfo {
                 id: AdapterId::built_in(crate::ldbv::PROVIDER),
                 cache_dir: crate::ldbv::PROVIDER.to_string(),
@@ -86,11 +82,10 @@ impl LdbvLasBackend {
     fn dir(&self, cache: &CacheDir) -> PathBuf {
         cache.provider_dir(&self.info.cache_dir).join(DIR)
     }
-}
 
-impl Default for LdbvLasBackend {
-    fn default() -> Self {
-        Self::new()
+    /// URL of the point cloud of `tile`.
+    fn tile_url(&self, tile: TileId) -> String {
+        format!("{}/{}.{EXT}", self.base, stem(tile))
     }
 }
 
@@ -122,7 +117,7 @@ impl PointCloudBackend for LdbvLasBackend {
         let mut checks = Checks::default();
         let mut fetched = Vec::new();
         for tile in tiles_covering_grid(bbox, self.info.grid_km) {
-            let (name, stem, url) = (tile_name(tile), stem(tile), tile_url(tile));
+            let (name, stem, url) = (tile_name(tile), stem(tile), self.tile_url(tile));
             let file = Published {
                 dir: &dir,
                 stem: &stem,
@@ -229,6 +224,27 @@ mod tests {
     use crate::fetch::test_support::MapFetcher;
     use crate::las_files::testing::{gps_noon, laz_created, laz_with_times};
 
+    /// The backend of the manifest of Bavaria.
+    fn backend() -> LdbvLasBackend {
+        LdbvLasBackend::new(
+            &crate::states::point_cloud_of(crate::states::State::Bayern)
+                .expect("the manifest has a [point_cloud]"),
+        )
+    }
+
+    fn tile_url(tile: TileId) -> String {
+        backend().tile_url(tile)
+    }
+
+    /// The manifest holds the folder the backend used to carry.
+    #[test]
+    fn the_manifest_holds_the_addresses() {
+        let cloud = crate::states::point_cloud_of(crate::states::State::Bayern).unwrap();
+        assert_eq!(cloud.kind, freemapper_manifest::PointCloudKind::LazTiles);
+        assert_eq!(cloud.url, TILES);
+        assert_eq!(cloud.index_url, None);
+    }
+
     /// The tile of the Schmausenbuck, and its neighbour to the east.
     const TILE: TileId = TileId {
         east_km: 655,
@@ -305,7 +321,7 @@ mod tests {
             skip_surface: false,
             progress: &mut |n| notes.push(n.to_string()),
         };
-        let tiles = LdbvLasBackend::new().fetch(&mut env, bbox).unwrap();
+        let tiles = backend().fetch(&mut env, bbox).unwrap();
         (tiles, notes)
     }
 
@@ -333,7 +349,7 @@ mod tests {
             tile_url(TILE),
             "https://geodaten.bayern.de/odd_data/laser/655_5479.laz"
         );
-        let info = LdbvLasBackend::new().info;
+        let info = backend().info;
         assert_eq!(
             (info.source.as_str(), info.epsg, info.grid_km),
             ("ldbv-las", 25832, 1)
@@ -617,7 +633,7 @@ mod tests {
     fn the_recorded_tile_is_found_after_a_newer_copy_came() {
         let (_dir, cache) = cache();
         let fetcher = MapFetcher::default();
-        let backend = LdbvLasBackend::new();
+        let backend = backend();
         serve(&fetcher, TILE, laz("2021-12-20", true), Some("2023-03-10"));
         let (tiles, _) = fetch(&fetcher, &cache, FetchMode::Online, &inside(TILE));
         let record = tiles[0].record.clone();
@@ -644,7 +660,7 @@ mod tests {
             map_bbox: BOTH,
             today: day("2026-11-14"),
         };
-        let items = LdbvLasBackend::new().estimate(&area, &EstimateEnv { cache: &cache });
+        let items = backend().estimate(&area, &EstimateEnv { cache: &cache });
         let seen: Vec<_> = items
             .iter()
             .map(|i| (i.what.as_str(), i.megabytes, i.cached, i.part, i.store))

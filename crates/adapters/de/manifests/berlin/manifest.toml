@@ -145,6 +145,12 @@ layers = [
     { key = "punkte", type_name = "ua_biotoptypen_2024:ba_gesetzschutz_p", reading = "object", object = "biotope", name = "bt_name", only_attribute = "schutz_ges", only_values = ["1"] },
 ]
 
+# The point clouds the vegetation candidates are read from (issue #273): the backend of the state keeps the names of the
+# tiles and how it reads the answers, the manifest holds where.
+[point_cloud]
+kind = "zip-archives"
+url = "https://gdi.berlin.de/data/a_als/atom"
+
 [preview]
 wms = "https://isk.geobasis-bb.de/mapproxy/dop20c/service/wms"
 layer = "bebb_dop20c"

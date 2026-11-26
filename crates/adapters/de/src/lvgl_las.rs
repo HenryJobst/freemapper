@@ -15,7 +15,6 @@
 //! across a forest does not count as tall vegetation.
 
 use std::path::{Path, PathBuf};
-use std::sync::LazyLock;
 
 use chrono::NaiveDate;
 use freemapper_adapter_api::cache::{CacheDir, STALE_PART_AGE};
@@ -26,6 +25,7 @@ use freemapper_adapter_api::pointcloud::{
     PointCloudBackend, PointCloudInfo, PointCloudRecord, PointCloudTile,
 };
 use freemapper_adapter_api::records::{AdapterId, EstimateItem, Part, Store};
+use freemapper_manifest::PointCloud;
 
 use crate::crs::BoundingBox;
 use crate::fetch::{FetchError, FetchMode};
@@ -40,7 +40,9 @@ use crate::tiles::{TileId, tiles_covering_grid};
 
 /// The class that looks like wire, read from a pattern and not from a document (see above).
 const LEFT_OUT: [u8; 1] = [14];
-/// The folder of the share that holds the archives.
+/// The folder of the share that holds the archives; the manifest of the state holds its address
+/// (issue #273), here it is what the manifest is held to in tests.
+#[cfg(any(test, feature = "testing"))]
 const FOLDER: &str = "OD_LIDAR_Punktwolke_2025_laz_LK";
 /// The folder of the point clouds below the folder of the LVGL in the cache, by survey.
 const DIR: &str = "las-2025";
@@ -48,16 +50,9 @@ const DIR: &str = "las-2025";
 pub const MB_PER_TILE: f64 = 40.0;
 
 /// URL of the folder of the archives.
+#[cfg(any(test, feature = "testing"))]
 pub fn folder_url() -> String {
     format!("{SHARE}/{FOLDER}")
-}
-
-/// URL of the archive of `district` (one of [`DISTRICTS`]).
-pub fn archive_url(district: &str) -> String {
-    format!(
-        "{}/LIDAR_laz_{district}_EPSG-25832_Entstehung-2025.zip",
-        folder_url()
-    )
 }
 
 /// The name of the LAZ file of `tile` in an archive, lower-cased as [`find_member`] compares.
@@ -68,20 +63,18 @@ fn member_name(tile: TileId) -> String {
     )
 }
 
-/// The point-cloud backend of Saarland.
-pub fn backend() -> &'static dyn PointCloudBackend {
-    static SAARLAND: LazyLock<LvglLasBackend> = LazyLock::new(LvglLasBackend::new);
-    &*SAARLAND
-}
-
 /// The laser points of the LVGL, kept in the cache as LAZ.
 pub struct LvglLasBackend {
     info: PointCloudInfo,
+    /// The folder of the archives, from `[point_cloud] url`.
+    folder: String,
 }
 
 impl LvglLasBackend {
-    pub fn new() -> Self {
+    /// The backend that reads the addresses of `cloud`, the `[point_cloud]` of the manifest.
+    pub fn new(cloud: &PointCloud) -> Self {
         Self {
+            folder: cloud.url.clone(),
             info: PointCloudInfo {
                 id: AdapterId::built_in("lvgl"),
                 cache_dir: "lvgl".to_string(),
@@ -96,11 +89,13 @@ impl LvglLasBackend {
     fn dir(&self, cache: &CacheDir) -> PathBuf {
         cache.provider_dir(&self.info.cache_dir).join(DIR)
     }
-}
 
-impl Default for LvglLasBackend {
-    fn default() -> Self {
-        Self::new()
+    /// URL of the archive of `district` (one of [`DISTRICTS`]).
+    fn archive_url(&self, district: &str) -> String {
+        format!(
+            "{}/LIDAR_laz_{district}_EPSG-25832_Entstehung-2025.zip",
+            self.folder
+        )
     }
 }
 
@@ -141,7 +136,7 @@ impl PointCloudBackend for LvglLasBackend {
             let found = |(published, path): (NaiveDate, PathBuf)| PointCloudTile {
                 record: PointCloudRecord {
                     tile: name.clone(),
-                    url: folder_url(),
+                    url: self.folder.clone(),
                     published: Some(published),
                 },
                 path,
@@ -164,7 +159,7 @@ impl PointCloudBackend for LvglLasBackend {
             let mut holder = None;
             let mut unread = None;
             for (index, district) in DISTRICTS.iter().enumerate() {
-                let url = archive_url(district);
+                let url = self.archive_url(district);
                 let known = &mut archives[index];
                 if known.members.is_none() {
                     known.members = Some(match read_members(env.fetcher, &url) {
@@ -193,7 +188,7 @@ impl PointCloudBackend for LvglLasBackend {
                 }
                 continue;
             };
-            let url = archive_url(DISTRICTS[index]);
+            let url = self.archive_url(DISTRICTS[index]);
             let known = &mut archives[index];
             let changed = match &known.changed {
                 Some(Ok(changed)) => Ok(*changed),
@@ -286,6 +281,27 @@ mod tests {
         max_e: 337_400.0,
         max_n: 5_464_400.0,
     };
+
+    /// The backend of the manifest of Saarland.
+    fn backend() -> LvglLasBackend {
+        LvglLasBackend::new(
+            &crate::states::point_cloud_of(crate::states::State::Saarland)
+                .expect("the manifest has a [point_cloud]"),
+        )
+    }
+
+    fn archive_url(district: &str) -> String {
+        backend().archive_url(district)
+    }
+
+    /// The manifest holds the folder the backend used to carry.
+    #[test]
+    fn the_manifest_holds_the_addresses() {
+        let cloud = crate::states::point_cloud_of(crate::states::State::Saarland).unwrap();
+        assert_eq!(cloud.kind, freemapper_manifest::PointCloudKind::ZipArchives);
+        assert_eq!(cloud.url, folder_url());
+        assert_eq!(cloud.index_url, None);
+    }
 
     fn registry() -> Registry {
         let mut registry = Registry::new();
@@ -381,7 +397,7 @@ mod tests {
             skip_surface: false,
             progress: &mut |n| notes.push(n.to_string()),
         };
-        let tiles = LvglLasBackend::new().fetch(&mut env, &BBOX)?;
+        let tiles = backend().fetch(&mut env, &BBOX)?;
         Ok((tiles, notes))
     }
 
@@ -397,7 +413,7 @@ mod tests {
 
     #[test]
     fn the_class_that_looks_like_wire_is_left_out() {
-        let info = LvglLasBackend::new().info;
+        let info = backend().info;
         assert_eq!(info.left_out, [14]);
         assert_eq!(
             (info.source.as_str(), info.epsg, info.grid_km),
@@ -449,7 +465,7 @@ mod tests {
             );
         }
         assert_eq!(
-            LvglLasBackend::new().cached(&cache, &tiles[0].record),
+            backend().cached(&cache, &tiles[0].record),
             Some(tiles[0].path.clone())
         );
         // The second fetch asks nothing: the survey is in the cache folder's name.
@@ -565,7 +581,7 @@ mod tests {
             },
             today: "2026-11-12".parse().unwrap(),
         };
-        let items = LvglLasBackend::new().estimate(&area, &EstimateEnv { cache: &cache });
+        let items = backend().estimate(&area, &EstimateEnv { cache: &cache });
         let what: Vec<(&str, f64)> = items
             .iter()
             .map(|i| (i.what.as_str(), i.megabytes))
