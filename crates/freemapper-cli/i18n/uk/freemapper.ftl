@@ -260,6 +260,9 @@ page-scale = Масштаб 1:
 page-map-title = Назва
 page-contour-interval = Висота перерізу
 page-contour-auto = автоматично
+page-steep-slope = Поріг крутизни
+page-steep-slope-auto = автоматично (27°)
+page-steep-slope-hint = Починаючи з цього кута схилу місцевість вважається крутою під час пошуку укосів та обривів. 27° (автоматично) підходить для пагорбів, парків і міст. У скельних містах, ущелинах і кар'єрах крутим є майже кожен схил, тому укоси й обриви зливаються в одну пляму й жодного не знаходять; 55° до 65° їх розділяє. Занадто високе значення залишає лише найкрутіші стіни.
 page-settings-fixed = Проєкт уже існує; вид карти, масштаб і назва містяться у freemapper.toml. Висоту перерізу ще можна змінити.
 page-save = Зберегти
 page-saving = Збереження …
@@ -473,6 +476,7 @@ error-project-already-exists = проєкт уже існує: { $path }
 error-project-map-exists = карта вже існує (там може бути ваша робота); щоб замінити її, використайте --force: { $path }
 error-project-invalid-scale = недійсний масштаб 1:{ $scale }
 error-project-invalid-contour-interval = недійсна висота перерізу { $interval } м у freemapper.toml; вона має бути більшою за 0
+error-project-invalid-steep-slope = недійсний поріг крутизни { $slope }° у freemapper.toml; він має лежати між 15° і 80°
 error-project-scale-not-allowed = масштаб 1:{ $scale } не дозволено для карт виду { $kind }; використайте { $allowed }
 error-project-scale-not-allowed-enlarge = масштаб 1:{ $scale } не дозволено для карт виду { $kind }; використайте { $allowed }. Малюйте в масштабі 1:4000, freemapper-print збільшує до 1:3000 під час друку
 word-kind-schoolyard = шкільне подвір'я
@@ -803,7 +807,10 @@ mcp-instructions = freemapper створює стартові проєкти Ope
 
 cli-contour-interval-saved = Висоту перерізу збережено у freemapper.toml: { $interval } м; derive веде горизонталі з нею
 cli-contour-interval-auto = Висота перерізу у freemapper.toml: автоматично (за видом карти; лісова карта отримує 2,5 м на рівнині та 10 м на крутому рельєфі)
+cli-steep-slope-saved = Поріг крутизни збережено у freemapper.toml: { $slope }°; derive шукає за ним укоси та обриви
+cli-steep-slope-auto = Поріг крутизни у freemapper.toml: типовий (близько 27°)
 help-arg-contour-interval = Висота перерізу в метрах, напр. `2.5`, або `auto` для вибору за видом карти (лісова карта: 5 м, 2,5 м на рівнині, 10 м на крутому рельєфі). Зберігається у freemapper.toml; derive веде горизонталі з нею
+help-arg-steep-slope = Кут схилу в градусах, починаючи з якого місцевість вважається крутою під час пошуку укосів та обривів, напр. `55`, або `auto` для типових 27°. Підвищ його (55 до 65) у скельних містах і ущелинах, де майже кожен схил крутий, а укоси й обриви зливаються в одну пляму. Зберігається у freemapper.toml; derive шукає за ним укоси та обриви
 cli-content-saved = Налаштування вмісту збережено у freemapper.toml: { $summary }
 cli-content-invalid = Не вдається прочитати налаштування вмісту: { $detail }
 help-arg-content = Що потрапляє прямо на карту: `safe` лишає кожен об'єкт там, куди його ставить побудова, `balanced` (типово) ставить на карту об'єкти кадастру та реєстрів, `full` ставить на карту все. Вибір зберігається у freemapper.toml
@@ -811,9 +818,11 @@ help-arg-content-set = Спрямувати групу об'єктів на `map
 mcp-param-create-project-content = Що потрапляє прямо на карту: "safe", "balanced" (типово) або "full". Зберігається в проєкті. balanced ставить на карту об'єкти кадастру та реєстрів, full ставить на неї все.
 mcp-param-create-project-content-set = Групи, спрямовані не туди, куди каже профіль, як "group=place", де place це map, candidates або off, напр. "walls=map". Групи: walls, fences, hedges, slopes, stairs, trees, water-features, monuments, furniture, passages, contours, landforms, vegetation, out-of-bounds, paths, streets.
 mcp-param-create-project-contour-interval = Висота перерізу в метрах, напр. 2.5; 0 повертає до автоматичного вибору (за видом карти; лісова карта отримує 2,5 м на рівнині та 10 м на крутому рельєфі). Зберігається в проєкті; наступний derive веде горизонталі з нею.
+mcp-param-create-project-steep-slope = Кут схилу в градусах, починаючи з якого місцевість вважається крутою під час пошуку укосів та обривів, напр. 55; 0 повертає типові 27°. Підвищ його (55 до 65) у скельних містах і ущелинах, де майже кожен схил крутий, а укоси й обриви зливаються в одну пляму. Зберігається в проєкті; наступний derive шукає за ним укоси та обриви.
 mcp-param-start-pipeline-content = Змінити перед запуском, що потрапляє прямо на карту: "safe", "balanced" або "full". Зберігається в проєкті. Типово: налаштування проєкту, інакше balanced.
 mcp-param-start-pipeline-content-set = Групи, спрямовані не туди, куди каже профіль, як "group=place", де place це map, candidates або off, напр. "fences=candidates". Зберігається в проєкті.
 mcp-param-start-pipeline-contour-interval = Висота перерізу в метрах, напр. 2.5; 0 повертає до автоматичного вибору (за видом карти; лісова карта отримує 2,5 м на рівнині та 10 м на крутому рельєфі). Зберігається в проєкті; наступний derive веде горизонталі з нею.
+mcp-param-start-pipeline-steep-slope = Кут схилу в градусах, починаючи з якого місцевість вважається крутою під час пошуку укосів та обривів, напр. 55; 0 повертає типові 27°. Підвищ його (55 до 65) у скельних містах і ущелинах, де майже кожен схил крутий, а укоси й обриви зливаються в одну пляму. Зберігається в проєкті; наступний derive шукає за ним укоси та обриви.
 mcp-error-content = Не вдається прочитати налаштування вмісту: { $detail }
 
 ## Permit notes (`freemapper permits`, `run --permits`, ADR 0117). The ids `permits-hint-*`

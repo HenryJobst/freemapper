@@ -248,6 +248,9 @@ page-scale = Skala 1:
 page-map-title = Titel
 page-contour-interval = Ekvidistans
 page-contour-auto = automatisk
+page-steep-slope = Branthetsgräns
+page-steep-slope-auto = automatisk (27°)
+page-steep-slope-hint = Från denna lutningsvinkel räknas terrängen som brant när slänter och klippor eftersöks. 27° (automatisk) passar för kullar, parker och städer. I klipplabyrinter, raviner och stenbrott är nästan varje sluttning brant, så slänter och klippor flyter ihop till en fläck och ingen hittas; 55° till 65° skiljer dem åt. Ett för högt värde behåller bara de brantaste väggarna.
 page-settings-fixed = Projektet finns redan; kartsort, skala och titel står i freemapper.toml. Ekvidistansen går fortfarande att ändra.
 page-save = Spara
 page-saving = Sparar …
@@ -461,6 +464,7 @@ error-project-already-exists = projektet finns redan: { $path }
 error-project-map-exists = kartan finns redan (den kan innehålla ditt arbete); använd --force för att ersätta den: { $path }
 error-project-invalid-scale = ogiltig skala 1:{ $scale }
 error-project-invalid-contour-interval = ogiltig ekvidistans { $interval } m i freemapper.toml; den måste vara större än 0
+error-project-invalid-steep-slope = ogiltig branthetsgräns { $slope }° i freemapper.toml; den måste ligga mellan 15° och 80°
 error-project-scale-not-allowed = skala 1:{ $scale } är inte tillåten för { $kind }; använd { $allowed }
 error-project-scale-not-allowed-enlarge = skala 1:{ $scale } är inte tillåten för { $kind }; använd { $allowed }. Rita i 1:4000, freemapper-print förstorar till 1:3000 vid utskrift
 word-kind-schoolyard = skolgårdskartor
@@ -787,7 +791,10 @@ mcp-instructions = freemapper gör OpenOrienteering Mapper-startprojekt för ori
 
 cli-contour-interval-saved = Ekvidistansen sparad i freemapper.toml: { $interval } m; derive drar höjdkurvorna med den
 cli-contour-interval-auto = Ekvidistans i freemapper.toml: automatisk (kartsortens; en skogskarta får 2,5 m i flack mark och 10 m i brant mark)
+cli-steep-slope-saved = Branthetsgräns sparad i freemapper.toml: { $slope }°; derive letar efter slänter och klippor med den
+cli-steep-slope-auto = Branthetsgräns i freemapper.toml: standard (cirka 27°)
 help-arg-contour-interval = Ekvidistans i meter, t.ex. `2.5`, eller `auto` för kartsortens (en skogskarta: 5 m, 2,5 m där det är flackt, 10 m där det är brant). Sparas i freemapper.toml; derive drar höjdkurvorna med den
+help-arg-steep-slope = Lutningsvinkel i grader från vilken terrängen räknas som brant när slänter och klippor eftersöks, t.ex. `55`, eller `auto` för standarden 27°. Höj den (55 till 65) i klipplabyrinter och raviner, där nästan varje sluttning är brant och slänter och klippor flyter ihop till en fläck. Sparas i freemapper.toml; derive letar efter slänter och klippor med den
 cli-content-saved = Innehållsinställningen sparad i freemapper.toml: { $summary }
 cli-content-invalid = Kan inte läsa innehållsinställningen: { $detail }
 help-arg-content = Vad som hamnar direkt på kartan: `safe` låter varje objekt stanna där bygget lägger det, `balanced` (standard) lägger objekten ur katastret och registren på kartan, `full` lägger allt på kartan. Valet sparas i freemapper.toml
@@ -795,9 +802,11 @@ help-arg-content-set = Skicka en grupp objekt till `map`, `candidates` eller `of
 mcp-param-create-project-content = Vad som hamnar direkt på kartan: "safe", "balanced" (standard) eller "full". Sparas i projektet. balanced lägger objekten ur katastret och registren på kartan, full lägger allt på den.
 mcp-param-create-project-content-set = Grupper som skickas någon annanstans än profilen säger, som "group=place" med place map, candidates eller off, t.ex. "walls=map". Grupper: walls, fences, hedges, slopes, stairs, trees, water-features, monuments, furniture, passages, contours, landforms, vegetation, out-of-bounds, paths, streets.
 mcp-param-create-project-contour-interval = Ekvidistans i meter, t.ex. 2.5; 0 går tillbaka till det automatiska valet (kartsortens; en skogskarta får 2,5 m i flack mark och 10 m i brant mark). Sparas i projektet; nästa derive drar höjdkurvorna med den.
+mcp-param-create-project-steep-slope = Lutningsvinkel i grader från vilken terrängen räknas som brant när slänter och klippor eftersöks, t.ex. 55; 0 går tillbaka till standarden 27°. Höj den (55 till 65) i klipplabyrinter och raviner, där nästan varje sluttning är brant och slänter och klippor flyter ihop till en fläck. Sparas i projektet; nästa derive letar efter slänter och klippor med den.
 mcp-param-start-pipeline-content = Ändra vad som hamnar direkt på kartan före körningen: "safe", "balanced" eller "full". Sparas i projektet. Standard: projektets inställning, annars balanced.
 mcp-param-start-pipeline-content-set = Grupper som skickas någon annanstans än profilen säger, som "group=place" med place map, candidates eller off, t.ex. "fences=candidates". Sparas i projektet.
 mcp-param-start-pipeline-contour-interval = Ekvidistans i meter, t.ex. 2.5; 0 går tillbaka till det automatiska valet (kartsortens; en skogskarta får 2,5 m i flack mark och 10 m i brant mark). Sparas i projektet; nästa derive drar höjdkurvorna med den.
+mcp-param-start-pipeline-steep-slope = Lutningsvinkel i grader från vilken terrängen räknas som brant när slänter och klippor eftersöks, t.ex. 55; 0 går tillbaka till standarden 27°. Höj den (55 till 65) i klipplabyrinter och raviner, där nästan varje sluttning är brant och slänter och klippor flyter ihop till en fläck. Sparas i projektet; nästa derive letar efter slänter och klippor med den.
 mcp-error-content = Kan inte läsa innehållsinställningen: { $detail }
 
 ## Permit notes (`freemapper permits`, `run --permits`, ADR 0117). The ids `permits-hint-*`

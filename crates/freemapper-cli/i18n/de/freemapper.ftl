@@ -248,6 +248,9 @@ page-scale = Maßstab 1:
 page-map-title = Titel
 page-contour-interval = Äquidistanz
 page-contour-auto = automatisch
+page-steep-slope = Steilheitsschwelle
+page-steep-slope-auto = automatisch (27°)
+page-steep-slope-hint = Ab diesem Neigungswinkel gilt das Gelände beim Suchen von Böschungen und Felswänden als steil. 27° (automatisch) passt für Hügelland, Parks und Städte. In Felsenstädten, Schluchten und Steinbrüchen ist fast jeder Hang steil, sodass Böschungen und Felswände zu einer Fläche verschmelzen und keine gefunden wird; 55° bis 65° trennt sie. Ein zu hoher Wert lässt nur die steilsten Wände übrig.
 page-settings-fixed = Das Projekt gibt es schon; Kartenart, Maßstab und Titel stehen in freemapper.toml. Die Äquidistanz lässt sich weiter ändern.
 page-save = Speichern
 page-saving = Speichere …
@@ -461,6 +464,7 @@ error-project-already-exists = Das Projekt gibt es schon: { $path }
 error-project-map-exists = Die Karte gibt es schon (sie kann Ihre Arbeit enthalten); --force ersetzt sie: { $path }
 error-project-invalid-scale = ungültiger Maßstab 1:{ $scale }
 error-project-invalid-contour-interval = ungültige Äquidistanz { $interval } m in freemapper.toml; sie muss größer als 0 sein
+error-project-invalid-steep-slope = ungültige Steilheitsschwelle { $slope }° in freemapper.toml; sie muss zwischen 15° und 80° liegen
 error-project-scale-not-allowed = Der Maßstab 1:{ $scale } ist für { $kind } nicht erlaubt; nehmen Sie { $allowed }
 error-project-scale-not-allowed-enlarge = Der Maßstab 1:{ $scale } ist für { $kind } nicht erlaubt; nehmen Sie { $allowed }. Zeichnen Sie in 1:4000, freemapper-print vergrößert beim Drucken auf 1:3000
 word-kind-schoolyard = Schulhofkarten
@@ -804,7 +808,10 @@ mcp-param-start-pipeline-training-views = Mit training: zusätzlich die Training
 
 cli-contour-interval-saved = Äquidistanz in freemapper.toml gespeichert: { $interval } m; derive rechnet die Höhenlinien damit
 cli-contour-interval-auto = Äquidistanz in freemapper.toml: automatisch (die der Kartenart; eine Waldkarte bekommt in flachem Gelände 2,5 m, in steilem 10 m)
+cli-steep-slope-saved = Steilheitsschwelle in freemapper.toml gespeichert: { $slope }°; derive sucht damit Böschungen und Felswände
+cli-steep-slope-auto = Steilheitsschwelle in freemapper.toml: Standard (etwa 27°)
 help-arg-contour-interval = Äquidistanz in Metern, z. B. `2.5`, oder `auto` für die der Kartenart (Waldkarte: 5 m, in flachem Gelände 2,5 m, in steilem 10 m). Wird in der freemapper.toml gespeichert; derive rechnet die Höhenlinien damit
+help-arg-steep-slope = Hangneigung in Grad, ab der das Gelände beim Suchen von Böschungen und Felswänden als steil gilt, z. B. `55`, oder `auto` für den Standard von 27°. In Felsenstädten und Schluchten, wo fast jeder Hang steil ist und Böschungen und Felswände zu einer Fläche verschmelzen, sollte sie höher liegen (55 bis 65). Wird in freemapper.toml gespeichert; derive sucht damit Böschungen und Felswände
 cli-content-saved = Inhaltseinstellung in freemapper.toml gespeichert: { $summary }
 cli-content-invalid = Die Inhaltseinstellung ist nicht lesbar: { $detail }
 help-arg-content = Was direkt auf die Karte kommt: `safe` lässt jedes Objekt dort, wo die Erzeugung es hinlegt, `balanced` (Standard) legt die Objekte des Katasters und der Register auf die Karte, `full` legt alles auf die Karte. Die Wahl wird in freemapper.toml gespeichert
@@ -812,9 +819,11 @@ help-arg-content-set = Eine Objektgruppe nach `map`, `candidates` oder `off` sch
 mcp-param-create-project-content = Was direkt auf die Karte kommt: "safe", "balanced" (Standard) oder "full". Wird im Projekt gespeichert. balanced legt die Objekte des Katasters und der Register auf die Karte, full legt alles darauf.
 mcp-param-create-project-content-set = Gruppen, die anders als das Profil behandelt werden, als "gruppe=ort" mit dem Ort map, candidates oder off, z. B. "walls=map". Gruppen: walls, fences, hedges, slopes, stairs, trees, water-features, monuments, furniture, passages, contours, landforms, vegetation, out-of-bounds, paths, streets.
 mcp-param-create-project-contour-interval = Äquidistanz in Metern, z. B. 2.5; 0 stellt die automatische Wahl wieder her (die der Kartenart; eine Waldkarte bekommt in flachem Gelände 2,5 m, in steilem 10 m). Wird im Projekt gespeichert; das nächste derive rechnet die Höhenlinien damit.
+mcp-param-create-project-steep-slope = Hangneigung in Grad, ab der das Gelände beim Suchen von Böschungen und Felswänden als steil gilt, z. B. 55; 0 setzt auf den Standard von 27° zurück. In Felsenstädten und Schluchten, wo fast jeder Hang steil ist und Böschungen und Felswände zu einer Fläche verschmelzen, sollte sie höher liegen (55 bis 65). Wird im Projekt gespeichert; das nächste derive sucht damit Böschungen und Felswände.
 mcp-param-start-pipeline-content = Vor dem Lauf ändern, was direkt auf die Karte kommt: "safe", "balanced" oder "full". Wird im Projekt gespeichert. Standard: die Einstellung des Projekts, sonst balanced.
 mcp-param-start-pipeline-content-set = Gruppen, die anders als das Profil behandelt werden, als "gruppe=ort" mit dem Ort map, candidates oder off, z. B. "fences=candidates". Wird im Projekt gespeichert.
 mcp-param-start-pipeline-contour-interval = Äquidistanz in Metern, z. B. 2.5; 0 stellt die automatische Wahl wieder her (die der Kartenart; eine Waldkarte bekommt in flachem Gelände 2,5 m, in steilem 10 m). Wird im Projekt gespeichert; das nächste derive rechnet die Höhenlinien damit.
+mcp-param-start-pipeline-steep-slope = Hangneigung in Grad, ab der das Gelände beim Suchen von Böschungen und Felswänden als steil gilt, z. B. 55; 0 setzt auf den Standard von 27° zurück. In Felsenstädten und Schluchten, wo fast jeder Hang steil ist und Böschungen und Felswände zu einer Fläche verschmelzen, sollte sie höher liegen (55 bis 65). Wird im Projekt gespeichert; das nächste derive sucht damit Böschungen und Felswände.
 mcp-error-content = Die Inhaltseinstellung ist nicht lesbar: { $detail }
 
 ## Genehmigungshinweise (`freemapper permits`, `run --permits`, ADR 0117). Die Kennungen

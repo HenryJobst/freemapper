@@ -29,7 +29,8 @@ use crate::derive::contours::{
     gaussian_smooth, generalize, terrain_inside,
 };
 use crate::derive::landforms::{
-    height_jumps, knolls_and_depressions, landforms_from_geojson, landforms_to_geojson,
+    STEEP_SLOPE_RANGE_DEG, height_jumps, knolls_and_depressions, landforms_from_geojson,
+    landforms_to_geojson, steep_gradient,
 };
 use crate::derive::ndsm::{fill_from_dsm, rasterize, tree_cover, write_ndsm_png};
 use crate::derive::orthophoto::{build_orthophoto, build_orthophoto_from_image};
@@ -91,6 +92,8 @@ pub enum ProjectError {
     InvalidScale(u32),
     #[error("invalid contour interval {0} m; it must be more than 0")]
     InvalidContourInterval(f64),
+    #[error("invalid steepness threshold {0}°; it must lie between 15° and 80°")]
+    InvalidSteepSlope(f64),
     #[error("scale 1:{scale} is not allowed for {kind} maps; use {allowed}{hint}")]
     ScaleNotAllowed {
         kind: &'static str,
@@ -370,6 +373,11 @@ pub struct ProjectFile {
     /// relief (`derive::contours::contour_interval_for`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub contour_interval_m: Option<f64>,
+    /// Slope angle in degrees from which a patch of the terrain counts as steep when `derive`
+    /// looks for earth banks and cliffs; without it the default of about 27° holds
+    /// (`derive::landforms::steep_gradient`, ADR 0198).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub steep_slope_deg: Option<f64>,
     /// Tiles used by the last `fetch`.
     #[serde(default)]
     pub tiles: Vec<TileRecord>,
@@ -523,6 +531,9 @@ impl ProjectFile {
             toml::from_str(&text).map_err(|e| ProjectError::Toml(e.to_string()))?;
         if let Some(interval) = project.contour_interval_m {
             check_contour_interval(interval)?;
+        }
+        if let Some(slope) = project.steep_slope_deg {
+            check_steep_slope(slope)?;
         }
         project.check_adapters()?;
         project.drop_unknown_names(progress);
@@ -783,6 +794,7 @@ pub fn init_project_with_content(
         map_area: area.to_geojson_value(),
         title: title.as_deref().and_then(clean_title),
         contour_interval_m: None,
+        steep_slope_deg: None,
         contours: None,
         tiles: Vec::new(),
         buildings: None,
@@ -975,6 +987,42 @@ pub fn set_contour_interval(
     check_folders(dir, &WRITTEN_FOLDERS)?;
     if project.contour_interval_m != interval_m {
         project.contour_interval_m = interval_m;
+        project.save(dir)?;
+    }
+    Ok(project)
+}
+
+/// Refuses a steep slope outside [`STEEP_SLOPE_RANGE_DEG`].
+pub fn check_steep_slope(slope_deg: f64) -> Result<(), ProjectError> {
+    if STEEP_SLOPE_RANGE_DEG.contains(&slope_deg) {
+        Ok(())
+    } else {
+        Err(ProjectError::InvalidSteepSlope(slope_deg))
+    }
+}
+
+/// A steep slope as a person writes it: `auto` (the default, `None`) or degrees with a dot or a
+/// comma, such as `55`.
+pub fn parse_steep_slope(text: &str) -> Result<Option<f64>, ProjectError> {
+    let text = text.trim();
+    if text.eq_ignore_ascii_case("auto") {
+        return Ok(None);
+    }
+    let slope: f64 = text.replace(',', ".").parse().unwrap_or(f64::NAN);
+    check_steep_slope(slope)?;
+    Ok(Some(slope))
+}
+
+/// Sets the steep slope of the project in `dir`; `None` gives back the default. The next
+/// `derive` looks for banks and cliffs with it.
+pub fn set_steep_slope(dir: &Path, slope_deg: Option<f64>) -> Result<ProjectFile, ProjectError> {
+    if let Some(slope) = slope_deg {
+        check_steep_slope(slope)?;
+    }
+    let mut project = ProjectFile::load(dir)?;
+    check_folders(dir, &WRITTEN_FOLDERS)?;
+    if project.steep_slope_deg != slope_deg {
+        project.steep_slope_deg = slope_deg;
         project.save(dir)?;
     }
     Ok(project)
@@ -2426,7 +2474,12 @@ pub fn derive_project_cancellable(
     stop_if(cancelled)?;
     let min_height_m = project.map_kind.landform_min_height_m();
     let mut landforms = knolls_and_depressions(&dtm, scale, min_height_m);
-    landforms.extend(height_jumps(&dtm, scale, min_height_m));
+    landforms.extend(height_jumps(
+        &dtm,
+        scale,
+        min_height_m,
+        steep_gradient(project.steep_slope_deg),
+    ));
     let landforms_path = dir.join(LANDFORMS_RELPATH);
     write_inside(
         dir,
@@ -2966,6 +3019,7 @@ pub mod golden {
             provider: None,
             title: None,
             contour_interval_m: None,
+            steep_slope_deg: None,
             contours: None,
             tiles: Vec::new(),
             buildings: None,
@@ -5368,6 +5422,7 @@ mod tests {
             provider: Some(providers::LGB),
             title: Some("Clara-Zetkin-Schule".to_string()),
             contour_interval_m: None,
+            steep_slope_deg: None,
             contours: None,
             tiles: vec![TileRecord {
                 product: Product::Dtm,
@@ -13179,6 +13234,64 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
                 );
             std::fs::write(dir.path().join(PROJECT_FILE_NAME), text).unwrap();
         }
+    }
+
+    #[test]
+    fn the_steepness_threshold_is_read_checked_and_set() {
+        assert_eq!(parse_steep_slope("auto").unwrap(), None);
+        assert_eq!(parse_steep_slope(" 55,5 ").unwrap(), Some(55.5));
+        assert_eq!(parse_steep_slope("60").unwrap(), Some(60.0));
+        for bad in ["0", "14.9", "80.1", "-5", "steep", "nan", ""] {
+            assert!(parse_steep_slope(bad).is_err(), "{bad}");
+        }
+        assert!(check_steep_slope(15.0).is_ok() && check_steep_slope(80.0).is_ok());
+        let dir = tempfile::tempdir().unwrap();
+        school_project(dir.path());
+        let project = set_steep_slope(dir.path(), Some(55.0)).unwrap();
+        assert_eq!(project.steep_slope_deg, Some(55.0));
+        assert_eq!(
+            ProjectFile::load(dir.path()).unwrap().steep_slope_deg,
+            Some(55.0)
+        );
+        assert!(matches!(
+            set_steep_slope(dir.path(), Some(5.0)),
+            Err(ProjectError::InvalidSteepSlope(_))
+        ));
+        // A bad value in the file is refused on load.
+        let file = dir.path().join(PROJECT_FILE_NAME);
+        let text = std::fs::read_to_string(&file).unwrap();
+        std::fs::write(
+            &file,
+            text.replace("steep_slope_deg = 55.0", "steep_slope_deg = 5.0"),
+        )
+        .unwrap();
+        assert!(matches!(
+            ProjectFile::load(dir.path()).unwrap_err(),
+            ProjectError::InvalidSteepSlope(_)
+        ));
+        std::fs::write(&file, text).unwrap();
+        set_steep_slope(dir.path(), None).unwrap();
+        assert_eq!(ProjectFile::load(dir.path()).unwrap().steep_slope_deg, None);
+        assert!(
+            !std::fs::read_to_string(&file)
+                .unwrap()
+                .contains("steep_slope_deg")
+        );
+    }
+
+    #[test]
+    fn the_steepness_threshold_counts_for_the_fingerprint() {
+        let dir = tempfile::tempdir().unwrap();
+        school_project(dir.path());
+        let project = ProjectFile::load(dir.path()).unwrap();
+        let steeper = ProjectFile {
+            steep_slope_deg: Some(55.0),
+            ..project.clone()
+        };
+        assert_ne!(
+            project_fingerprint(&project).unwrap(),
+            project_fingerprint(&steeper).unwrap()
+        );
     }
 
     /// Lines without a stored interval were traced at the kind's: the margin names that, also

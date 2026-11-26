@@ -248,6 +248,9 @@ page-scale = Målestok 1:
 page-map-title = Titel
 page-contour-interval = Ækvidistance
 page-contour-auto = automatisk
+page-steep-slope = Stejlhedsgrænse
+page-steep-slope-auto = automatisk (27°)
+page-steep-slope-hint = Fra denne hældningsvinkel regnes terrænet som stejlt, når der ledes efter skrænter og klipper. 27° (automatisk) passer til bakker, parker og byer. I klippelabyrinter, kløfter og brud er næsten alle skråninger stejle, så skrænter og klipper flyder sammen til én plet, og ingen bliver fundet; 55° til 65° adskiller dem. En for høj værdi beholder kun de stejleste vægge.
 page-settings-fixed = Projektet findes allerede; korttype, målestok og titel står i freemapper.toml. Ækvidistancen kan stadig ændres.
 page-save = Gem
 page-saving = Gemmer …
@@ -461,6 +464,7 @@ error-project-already-exists = projektet findes allerede: { $path }
 error-project-map-exists = kortet findes allerede (det kan indeholde dit arbejde); brug --force for at erstatte det: { $path }
 error-project-invalid-scale = ugyldig målestok 1:{ $scale }
 error-project-invalid-contour-interval = ugyldig ækvidistance { $interval } m i freemapper.toml; den skal være større end 0
+error-project-invalid-steep-slope = ugyldig stejlhedsgrænse { $slope }° i freemapper.toml; den skal ligge mellem 15° og 80°
 error-project-scale-not-allowed = målestok 1:{ $scale } er ikke tilladt for kort af typen { $kind }; brug { $allowed }
 error-project-scale-not-allowed-enlarge = målestok 1:{ $scale } er ikke tilladt for kort af typen { $kind }; brug { $allowed }. Tegn i 1:4000, freemapper-print forstørrer til 1:3000 ved udskrivning
 word-kind-schoolyard = skolegård
@@ -787,7 +791,10 @@ mcp-instructions = freemapper laver OpenOrienteering Mapper-startprojekter til o
 
 cli-contour-interval-saved = Ækvidistance gemt i freemapper.toml: { $interval } m; derive tegner højdekurverne med den
 cli-contour-interval-auto = Ækvidistance i freemapper.toml: automatisk (korttypens; et skovkort får 2,5 m i fladt land og 10 m i stejlt land)
+cli-steep-slope-saved = Stejlhedsgrænse gemt i freemapper.toml: { $slope }°; derive leder efter skrænter og klipper med den
+cli-steep-slope-auto = Stejlhedsgrænse i freemapper.toml: standard (ca. 27°)
 help-arg-contour-interval = Ækvidistance i meter, fx `2.5`, eller `auto` for korttypens (et skovkort: 5 m, 2,5 m hvor det er fladt, 10 m hvor det er stejlt). Gemmes i freemapper.toml; derive tegner højdekurverne med den
+help-arg-steep-slope = Hældningsvinkel i grader, fra hvilken terrænet regnes som stejlt, når der ledes efter skrænter og klipper, fx `55`, eller `auto` for standarden på 27°. Hæv den (55 til 65) i klippelabyrinter og kløfter, hvor næsten alle skråninger er stejle, og skrænter og klipper flyder sammen til én plet. Gemmes i freemapper.toml; derive leder efter skrænter og klipper med den
 cli-content-saved = Indholdsindstilling gemt i freemapper.toml: { $summary }
 cli-content-invalid = Kan ikke læse indholdsindstillingen: { $detail }
 help-arg-content = Hvad kommer direkte på kortet: `safe` lader hvert objekt blive, hvor opbygningen placerer det, `balanced` (standard) lægger matriklens og registrenes objekter på kortet, `full` lægger alt på kortet. Valget gemmes i freemapper.toml
@@ -795,9 +802,11 @@ help-arg-content-set = Send en gruppe objekter til `map`, `candidates` eller `of
 mcp-param-create-project-content = Hvad kommer direkte på kortet: "safe", "balanced" (standard) eller "full". Gemmes i projektet. balanced lægger matriklens og registrenes objekter på kortet, full lægger alt på det.
 mcp-param-create-project-content-set = Grupper sendt et andet sted hen, end profilen siger, som "group=place" med place map, candidates eller off, fx "walls=map". Grupper: walls, fences, hedges, slopes, stairs, trees, water-features, monuments, furniture, passages, contours, landforms, vegetation, out-of-bounds, paths, streets.
 mcp-param-create-project-contour-interval = Ækvidistance i meter, fx 2.5; 0 går tilbage til det automatiske valg (korttypens; et skovkort får 2,5 m i fladt land og 10 m i stejlt land). Gemmes i projektet; næste derive tegner højdekurverne med den.
+mcp-param-create-project-steep-slope = Hældningsvinkel i grader, fra hvilken terrænet regnes som stejlt, når der ledes efter skrænter og klipper, fx 55; 0 går tilbage til standarden på 27°. Hæv den (55 til 65) i klippelabyrinter og kløfter, hvor næsten alle skråninger er stejle, og skrænter og klipper flyder sammen til én plet. Gemmes i projektet; næste derive leder efter skrænter og klipper med den.
 mcp-param-start-pipeline-content = Ændr, hvad der kommer direkte på kortet, før kørslen: "safe", "balanced" eller "full". Gemmes i projektet. Standard: projektets indstilling, ellers balanced.
 mcp-param-start-pipeline-content-set = Grupper sendt et andet sted hen, end profilen siger, som "group=place" med place map, candidates eller off, fx "fences=candidates". Gemmes i projektet.
 mcp-param-start-pipeline-contour-interval = Ækvidistance i meter, fx 2.5; 0 går tilbage til det automatiske valg (korttypens; et skovkort får 2,5 m i fladt land og 10 m i stejlt land). Gemmes i projektet; næste derive tegner højdekurverne med den.
+mcp-param-start-pipeline-steep-slope = Hældningsvinkel i grader, fra hvilken terrænet regnes som stejlt, når der ledes efter skrænter og klipper, fx 55; 0 går tilbage til standarden på 27°. Hæv den (55 til 65) i klippelabyrinter og kløfter, hvor næsten alle skråninger er stejle, og skrænter og klipper flyder sammen til én plet. Gemmes i projektet; næste derive leder efter skrænter og klipper med den.
 mcp-error-content = Kan ikke læse indholdsindstillingen: { $detail }
 
 ## Permit notes (`freemapper permits`, `run --permits`, ADR 0117). The ids `permits-hint-*`

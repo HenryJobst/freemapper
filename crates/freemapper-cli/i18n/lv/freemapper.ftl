@@ -254,6 +254,9 @@ page-scale = Mērogs 1:
 page-map-title = Nosaukums
 page-contour-interval = Horizontāļu intervāls
 page-contour-auto = automātiski
+page-steep-slope = Stāvuma slieksnis
+page-steep-slope-auto = automātisks (27°)
+page-steep-slope-hint = No šī nogāzes leņķa reljefs tiek uzskatīts par stāvu, meklējot nogāzes un klintis. 27° (automātisks) der pauguriem, parkiem un pilsētām. Klinšu pilsētās, aizās un karjeros gandrīz katra nogāze ir stāva, tāpēc nogāzes un klintis saplūst vienā plankumā un neviena netiek atrasta; 55° līdz 65° tās atdala. Pārāk liela vērtība atstāj tikai visstāvākās sienas.
 page-settings-fixed = Projekts jau pastāv; kartes veids, mērogs un nosaukums ir failā freemapper.toml. Horizontāļu intervālu joprojām var mainīt.
 page-save = Saglabāt
 page-saving = Saglabā …
@@ -468,6 +471,7 @@ error-project-already-exists = projekts jau pastāv: { $path }
 error-project-map-exists = karte jau pastāv (tajā var būt jūsu darbs); lai to aizstātu, lietojiet --force: { $path }
 error-project-invalid-scale = nederīgs mērogs 1:{ $scale }
 error-project-invalid-contour-interval = nederīgs horizontāļu intervāls { $interval } m failā freemapper.toml; tam jābūt lielākam par 0
+error-project-invalid-steep-slope = nederīgs stāvuma slieksnis { $slope }° failā freemapper.toml; tam jābūt starp 15° un 80°
 error-project-scale-not-allowed = mērogs 1:{ $scale } nav atļauts { $kind } kartēm; lietojiet { $allowed }
 error-project-scale-not-allowed-enlarge = mērogs 1:{ $scale } nav atļauts { $kind } kartēm; lietojiet { $allowed }. Zīmējiet pie 1:4000, freemapper-print drukājot palielina līdz 1:3000
 word-kind-schoolyard = skolas pagalma
@@ -794,7 +798,10 @@ mcp-instructions = freemapper veido OpenOrienteering Mapper sākuma projektus or
 
 cli-contour-interval-saved = Horizontāļu intervāls saglabāts failā freemapper.toml: { $interval } m; derive velk horizontāles ar to
 cli-contour-interval-auto = Horizontāļu intervāls failā freemapper.toml: automātisks (kartes veida noklusējums; meža karte iegūst 2,5 m līdzenumā un 10 m stāvā apvidū)
+cli-steep-slope-saved = Stāvuma slieksnis saglabāts failā freemapper.toml: { $slope }°; derive ar to meklē nogāzes un klintis
+cli-steep-slope-auto = Stāvuma slieksnis failā freemapper.toml: noklusējums (apmēram 27°)
 help-arg-contour-interval = Horizontāļu intervāls metros, piem., `2.5`, vai `auto` kartes veida noklusējumam (meža karte: 5 m, 2,5 m, kur līdzens, 10 m, kur stāvs). Saglabāts failā freemapper.toml; derive velk horizontāles ar to
+help-arg-steep-slope = Nogāzes leņķis grādos, no kura reljefs tiek uzskatīts par stāvu, meklējot nogāzes un klintis, piem., `55`, vai `auto` noklusējuma 27° vērtībai. Palieliniet to (55 līdz 65) klinšu pilsētās un aizās, kur gandrīz katra nogāze ir stāva un nogāzes ar klintīm saplūst vienā plankumā. Tiek saglabāts failā freemapper.toml; derive ar to meklē nogāzes un klintis
 cli-content-saved = Satura iestatījums saglabāts failā freemapper.toml: { $summary }
 cli-content-invalid = Nevar nolasīt satura iestatījumu: { $detail }
 help-arg-content = Kas nonāk tieši kartē: `safe` atstāj katru objektu tur, kur to ieliek kartes veidošana, `balanced` (noklusējums) ieliek kartē kadastra un reģistru objektus, `full` ieliek kartē visu. Izvēle tiek saglabāta failā freemapper.toml
@@ -802,9 +809,11 @@ help-arg-content-set = Nosūtīt objektu grupu uz `map`, `candidates` vai `off`,
 mcp-param-create-project-content = Kas nonāk tieši kartē: "safe", "balanced" (noklusējums) vai "full". Saglabāts projektā. balanced ieliek kartē kadastra un reģistru objektus, full ieliek kartē visu.
 mcp-param-create-project-content-set = Grupas, kas nosūtītas citur, nekā norāda profils, kā "group=place", kur place ir map, candidates vai off, piem., "walls=map". Grupas: walls, fences, hedges, slopes, stairs, trees, water-features, monuments, furniture, passages, contours, landforms, vegetation, out-of-bounds, paths, streets.
 mcp-param-create-project-contour-interval = Horizontāļu intervāls metros, piem., 2.5; 0 atgriež automātisko izvēli (kartes veida noklusējums; meža karte iegūst 2,5 m līdzenumā un 10 m stāvā apvidū). Saglabāts projektā; nākamais derive velk horizontāles ar to.
+mcp-param-create-project-steep-slope = Nogāzes leņķis grādos, no kura reljefs tiek uzskatīts par stāvu, meklējot nogāzes un klintis, piem., 55; 0 atgriež noklusējuma 27° vērtību. Palieliniet to (55 līdz 65) klinšu pilsētās un aizās, kur gandrīz katra nogāze ir stāva un nogāzes ar klintīm saplūst vienā plankumā. Tiek saglabāts projektā; nākamais derive ar to meklē nogāzes un klintis.
 mcp-param-start-pipeline-content = Mainīt pirms palaišanas, kas nonāk tieši kartē: "safe", "balanced" vai "full". Saglabāts projektā. Noklusējums: projekta iestatījums, citādi balanced.
 mcp-param-start-pipeline-content-set = Grupas, kas nosūtītas citur, nekā norāda profils, kā "group=place", kur place ir map, candidates vai off, piem., "fences=candidates". Saglabāts projektā.
 mcp-param-start-pipeline-contour-interval = Horizontāļu intervāls metros, piem., 2.5; 0 atgriež automātisko izvēli (kartes veida noklusējums; meža karte iegūst 2,5 m līdzenumā un 10 m stāvā apvidū). Saglabāts projektā; nākamais derive velk horizontāles ar to.
+mcp-param-start-pipeline-steep-slope = Nogāzes leņķis grādos, no kura reljefs tiek uzskatīts par stāvu, meklējot nogāzes un klintis, piem., 55; 0 atgriež noklusējuma 27° vērtību. Palieliniet to (55 līdz 65) klinšu pilsētās un aizās, kur gandrīz katra nogāze ir stāva un nogāzes ar klintīm saplūst vienā plankumā. Tiek saglabāts projektā; nākamais derive ar to meklē nogāzes un klintis.
 mcp-error-content = Nevar nolasīt satura iestatījumu: { $detail }
 
 ## Permit notes (`freemapper permits`, `run --permits`, ADR 0117). The ids `permits-hint-*`

@@ -459,6 +459,31 @@ fn the_page_sets_and_clears_the_contour_interval() {
 }
 
 #[test]
+fn the_page_sets_and_clears_the_steepness_threshold() {
+    let (_dir, _cache, project, selector) = page_on_a_project();
+    assert_eq!(selector.project()["steep_slope_deg"], Value::Null);
+    let save = |slope: Value| {
+        let seen = selector.project()["revision"].as_str().unwrap().to_owned();
+        selector.post_with_revision(
+            "api/save",
+            json!({ "area": school_area(), "steep_slope_deg": slope }),
+            Some(&seen),
+        )
+    };
+    let (status, saved) = save(json!(55.0));
+    assert_eq!(status, 200, "{saved}");
+    let text = std::fs::read_to_string(project.join("freemapper.toml")).unwrap();
+    assert!(text.contains("steep_slope_deg = 55.0"), "{text}");
+    assert_eq!(selector.project()["steep_slope_deg"], 55.0);
+    let (status, _) = save(json!(5));
+    assert_eq!(status, 400);
+    let (status, saved) = save(Value::Null);
+    assert_eq!(status, 200, "{saved}");
+    let text = std::fs::read_to_string(project.join("freemapper.toml")).unwrap();
+    assert!(!text.contains("steep_slope_deg"), "{text}");
+}
+
+#[test]
 fn save_with_a_stale_revision_is_refused_and_writes_nothing() {
     let (_dir, _cache, project, selector) = page_on_a_project();
     let file = project.join("freemapper.toml");

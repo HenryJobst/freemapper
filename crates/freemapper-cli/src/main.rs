@@ -36,8 +36,8 @@ use freemapper::project::{
     MapKind, MapOutcome, OcadOutcome, PdfSources, ProjectFile, TrainingOutcome, derive_project,
     export_candidates_pdf_from, export_map_preview_or_warn, export_ocad_from, export_pdf_from,
     export_starter_project_from, export_training_from, export_training_views, fetch_project,
-    init_project, map_path, parse_contour_interval, set_content, set_contour_interval,
-    starter_documents,
+    init_project, map_path, parse_contour_interval, parse_steep_slope, set_content,
+    set_contour_interval, set_steep_slope, starter_documents,
 };
 
 use text::{n, text, v};
@@ -730,13 +730,19 @@ struct ContourArgs {
     /// the contours at it
     #[arg(long = "contour-interval", value_name = "METRES")]
     contour_interval: Option<String>,
+    /// Slope angle in degrees from which the terrain counts as steep when earth banks and cliffs
+    /// are looked for, e.g. `55`, or `auto` for the default of 27°. Raise it (55 to 65) in rock
+    /// towns and gorges, where almost every slope is steep and banks and cliffs run together
+    /// into one patch. Saved in freemapper.toml; derive looks for banks and cliffs with it
+    #[arg(long = "steep-slope", value_name = "DEGREES")]
+    steep_slope: Option<String>,
 }
 
 impl ContourArgs {
     /// Saves the interval asked for in the project of `dir`; nothing when none was asked.
     fn save(&self, dir: &std::path::Path) -> anyhow::Result<()> {
         let Some(asked) = &self.contour_interval else {
-            return Ok(());
+            return self.save_steep_slope(dir);
         };
         let interval = parse_contour_interval(asked)?;
         set_contour_interval(dir, interval)?;
@@ -746,6 +752,20 @@ impl ContourArgs {
                 text("cli-contour-interval-saved", &[("interval", v(interval))])
             ),
             None => println!("{}", text("cli-contour-interval-auto", &[])),
+        }
+        self.save_steep_slope(dir)
+    }
+
+    /// Saves the steep slope asked for; nothing when none was asked.
+    fn save_steep_slope(&self, dir: &std::path::Path) -> anyhow::Result<()> {
+        let Some(asked) = &self.steep_slope else {
+            return Ok(());
+        };
+        let slope = parse_steep_slope(asked)?;
+        set_steep_slope(dir, slope)?;
+        match slope {
+            Some(slope) => println!("{}", text("cli-steep-slope-saved", &[("slope", v(slope))])),
+            None => println!("{}", text("cli-steep-slope-auto", &[])),
         }
         Ok(())
     }
@@ -961,6 +981,9 @@ fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
             // A bad interval is refused before the folder is made.
             if let Some(asked) = &contours.contour_interval {
                 parse_contour_interval(asked)?;
+            }
+            if let Some(asked) = &contours.steep_slope {
+                parse_steep_slope(asked)?;
             }
             let today = chrono::Local::now().date_naive();
             let project = init_project(&dir, &area, kind.into(), scale, today, title)?;
