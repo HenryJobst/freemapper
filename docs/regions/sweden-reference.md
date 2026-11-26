@@ -155,6 +155,11 @@ braucht trotzdem die Rechtsprüfung.
   anderen Weg nennt (Anfrage vom 2026-11-23, Antwort offen). Ein Beschluss kann nach § 37 Verwaltungsgesetz
   widerrufen werden, wenn Angaben falsch oder irreführend sind, und kann Bedingungen für die Weiterverwendung
   enthalten. Das trifft nicht nur freemapper, sondern jede Person, die später über freemapper bestellt.
+  Der Support antwortete am 2026-11-26 [doc, Support], bei einem **Organisationskonto** könne man im Antrag
+  markieren, dass die Organisation die Antragstellerin ist, und müsse sich dann nicht als Privatperson eintragen.
+  Er fragte, welche Kontoart vorliegt und ob eine Privatperson oder eine Organisation beantragt. Für eine
+  Privatperson außerhalb Schwedens nannte er keinen Weg. Die Rückfrage ist beantwortet (Privatkonto, Privatperson,
+  ohne Personnummer), die Antwort darauf steht aus.
 
 **Folge für einen Adapter.** Ein schwedischer Adapter bräuchte eine Zugangsberechtigung, die eine Person für ihr
 eigenes Konto beschafft, aufbewahrt außerhalb des Projektordners und niemals in `freemapper.toml`,
@@ -736,6 +741,11 @@ Offene Fragen, bevor A beginnt:
 
 ## 10. Nicht geprüft
 
+* Welche Zugangsdaten `dl1.lantmateriet.se` bei Basic-Authentifizierung annimmt. Am 2026-11-23 und danach lieferte
+  `dl1` auf eine Höhenkachel mit dem Geotorget-Benutzernamen (E-Mail-Adresse) und dem Passwort weiter `401` mit
+  `Basic realm="Authorization Server"`, obwohl Laserdata Skog, Markhöjdmodell Nedladdning und Marktäcke bestellt, die
+  Lieferung „Erfolgreich“ und die Berechtigungen im Konto sichtbar waren [live]. Offen ist, ob dafür ein eigenes
+  Konto für Programme (*systemkonto*) oder ein anderes Passwort nötig ist; Frage an den Support gestellt.
 * Die Token-Anfrage mit echten Client-Zugangsdaten: Endpunkt, Form und Lebensdauer stehen in der
   Portal-Dokumentation (§4), ein Aufruf mit gültigen Daten ist aber nicht geprüft. Für das Privatkonto, das
   hier vorliegt, entfällt der Token-Weg ohnehin (§4.3); offen ist der Aufruf von `dl1` mit Basic-Authentifizierung
@@ -762,8 +772,8 @@ Offene Fragen, bevor A beginnt:
   selbst tragen keinen Lizenztext [doc].
 * Ob die Ortofoto-COGs als Demo vorliegen — die Demodata-Seite listet nur die digitalen Flugbilder [live];
   damit bleibt ihre Kompression ungeprüft (PackBits? JPEG? deflate?).
-* Ob eine Person ohne schwedische Personnummer Produkte mit Rechtsprüfung beantragen kann und wie (Anfrage an den
-  Support vom 2026-11-23, Antwort offen). Davon hängen Byggnad und Ortofoto für alle Nutzer außerhalb Schwedens ab.
+* Ob eine Privatperson ohne schwedische Personnummer Produkte mit Rechtsprüfung beantragen kann und wie. Der Support
+  nennt nur den Weg über ein Organisationskonto (2026-11-26), eine Antwort auf die Rückfrage steht aus. Davon hängen Byggnad und Ortofoto für alle Nutzer außerhalb Schwedens ab.
 * Was die kostenpflichtigen Produkte kosten; die Übersicht nennt nur „Avgift“, keine Preise [live]. Der Support
   sagt, dass der Preis erst im Bestellvorgang des Geotorget erscheint, je Nutzungskategorie und mit Mehrwertsteuer
   (§2). Das Ythöjdmodell gibt es mit und ohne Farbe zu verschiedenen Preisen.
