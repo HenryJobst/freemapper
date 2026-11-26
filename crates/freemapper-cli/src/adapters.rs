@@ -691,7 +691,7 @@ land_use_type = "ave:NutzungFlurstueck"
         let adapters = project_dir(project.path());
         write(&adapters, "projectadapter", &manifest("projectadapter"));
         let without = assemble(Some(user.path()), None);
-        assert_eq!(without.registry.len(), 17);
+        assert_eq!(without.registry.len(), 18);
         assert_eq!(
             ids(&without).last().map(String::as_str),
             Some("useradapter")
@@ -800,7 +800,7 @@ land_use_type = "ave:NutzungFlurstueck"
         }
         write(&adapters, "fine", &manifest("fine"));
         let assembled = assemble(None, Some(&adapters));
-        assert_eq!(ids(&assembled)[16..], ["fine"]);
+        assert_eq!(ids(&assembled)[17..], ["fine"]);
         let lines = warning_lines(&assembled);
         assert_eq!(lines.len(), 4, "{lines:?}");
         for line in &lines {
@@ -833,7 +833,7 @@ land_use_type = "ave:NutzungFlurstueck"
         write(user.path(), "zweiter", &manifest("zweiter"));
         let assembled = assemble(Some(user.path()), None);
         let lines = list_lines(&assembled, Some(user.path()), "en");
-        assert_eq!(lines.len(), 19);
+        assert_eq!(lines.len(), 20);
         assert!(
             lines[4]
                 .starts_with("hamburg  Hamburg  built in  revision 2  checked 2026-11-15  hosts: "),
@@ -841,16 +841,16 @@ land_use_type = "ave:NutzungFlurstueck"
             lines[4]
         );
         assert_eq!(
-            lines[16],
+            lines[17],
             "useradapter  Sample useradapter  from your folder  revision 3  checked 2026-10-01  hosts: geo.example.org  shares ground with: Brandenburg"
         );
         // An adapter on the ground of another names it.
         assert_eq!(
-            lines[17],
+            lines[18],
             "zweiter  Sample zweiter  from your folder  revision 3  checked 2026-10-01  hosts: geo.example.org  shares ground with: Brandenburg, Sample useradapter"
         );
         assert_eq!(
-            lines[18],
+            lines[19],
             format!("Your adapters are read from {}", user.path().display())
         );
         // The German list has the German names.
@@ -862,19 +862,19 @@ land_use_type = "ave:NutzungFlurstueck"
             german[17]
         );
         assert!(
-            german[17].ends_with(": Brandenburg, Beispiel useradapter"),
+            german[18].ends_with(": Brandenburg, Beispiel useradapter"),
             "{}",
-            german[17]
+            german[18]
         );
         let json: serde_json::Value =
             serde_json::from_str(&list_json(&assembled, Some(user.path()))).unwrap();
-        assert_eq!(json["adapters"].as_array().unwrap().len(), 18);
+        assert_eq!(json["adapters"].as_array().unwrap().len(), 19);
         assert_eq!(
             json["adapters"][17]["overlaps"],
             serde_json::json!(["brandenburg"])
         );
         assert_eq!(
-            json["adapters"][17]["overlaps"],
+            json["adapters"][18]["overlaps"],
             serde_json::json!(["brandenburg", "useradapter"])
         );
         assert_eq!(json["adapters"][0]["overlaps"], serde_json::json!([]));

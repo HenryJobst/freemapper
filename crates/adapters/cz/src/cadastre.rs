@@ -33,7 +33,7 @@ const PAGE: usize = 1000;
 const MAX_PAGES: usize = 500;
 
 /// One land use layer of ZABAGED: its number, `nutzart` and `bez` in the words of the engine.
-/// Water has two layers' worth of kinds and is chosen by the attribute `stojvoda` ([`water`]).
+/// Water has two layers' worth of kinds and is chosen by the attribute `stojvoda` (see `water`).
 pub struct LandUseLayer {
     pub layer: u32,
     pub name: &'static str,

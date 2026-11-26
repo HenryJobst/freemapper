@@ -246,7 +246,7 @@ fn adapters_endpoint_lists_the_states_with_previews() {
         }
     }
     assert_eq!(adapters[0]["preview"], adapters[1]["preview"]);
-    assert_eq!(services.len(), 15);
+    assert_eq!(services.len(), 16);
     assert_eq!(adapters[4]["preview"]["params"], json!({ "time": "2026" }));
     assert!(
         adapters[10]["preview"]["attribution"]
@@ -254,7 +254,7 @@ fn adapters_endpoint_lists_the_states_with_previews() {
             .unwrap()
             .contains("LVermGeoRP{year},")
     );
-    // The policy names the hosts of those fifteen services, in that order, and no other.
+    // The policy names the hosts of those sixteen services, in that order, and no other.
     let response = selector.agent.get(&selector.url).call().unwrap();
     let policy = response
         .headers()
@@ -273,7 +273,7 @@ fn adapters_endpoint_lists_the_states_with_previews() {
          https://opendata.lgln.niedersachsen.de https://geo4.service24.rlp.de \
          https://geoportal.saarland.de https://owsproxy.lgl-bw.de \
          https://geodienste.bremen.de https://geoservices.bayern.de \
-         https://mapy.geoportal.gov.pl; \
+         https://mapy.geoportal.gov.pl https://ags.cuzk.gov.cz; \
          frame-ancestors 'none'"
     );
     for service in services {
