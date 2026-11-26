@@ -2,7 +2,7 @@
 
 //! Landform candidates from the landforms of `derive` (ADR 0104).
 
-use geo::{Contains as _, Distance as _, InterpolateLine as _, Length as _};
+use geo::{Contains as _, Distance as _, InterpolateLine as _, Length as _, MapCoords as _};
 use geo_types::{MultiPolygon, Polygon};
 
 use crate::build::content::LANDFORM_KEY;
@@ -21,6 +21,14 @@ const LANDFORM_CODES: [(LandformKind, &str); 5] = [
     (LandformKind::Bank, "104"),
     (LandformKind::Cliff, "201"),
 ];
+/// A knoll on bare rock is a rock tower or a block, not a knoll of the ground: a boulder (204) from 1 m
+/// on, a large boulder (205) from 2 m on (ISOM 2017-2). Bare rock is the symbol 214 of the
+/// objects drawn so far, which OpenStreetMap gives as `natural=bare_rock` (ADR 0199).
+const BARE_ROCK_CODE: &str = "214";
+const BOULDER_CODE: &str = "204";
+const LARGE_BOULDER_CODE: &str = "205";
+const BOULDER_MIN_HEIGHT_M: f64 = 1.0;
+const LARGE_BOULDER_MIN_HEIGHT_M: f64 = 2.0;
 /// Lines already drawn that a bank or cliff from the terrain would only repeat: earth banks and
 /// walls, cliffs, walls and fences.
 const DRAWN_JUMP_CODES: [&str; 9] = [
@@ -105,6 +113,26 @@ pub fn landform_objects(
                 .into()
         })
         .collect();
+    // The bare rock drawn so far, in projected metres.
+    let rock: Vec<Polygon<f64>> = symbol_set
+        .id_for_code(BARE_ROCK_CODE)
+        .map(|id| {
+            drawn
+                .iter()
+                .filter(|o| o.symbol_id == id)
+                .filter_map(|o| crate::build::geometry::object_polygon(o))
+                .map(|polygon| {
+                    polygon.map_coords(|c| {
+                        let p = georef.map_to_projected(MapCoord::new(c.x as i32, c.y as i32));
+                        geo_types::Coord {
+                            x: p.easting,
+                            y: p.northing,
+                        }
+                    })
+                })
+                .collect()
+        })
+        .unwrap_or_default();
     let near_building = |p: &geo_types::Point<f64>| {
         footprints
             .iter()
@@ -169,6 +197,22 @@ pub fn landform_objects(
         {
             code = RETAINING_WALL_CODE;
         }
+        // A knoll on bare rock is a block or a tower of rock.
+        if matches!(landform, LandformKind::Knoll | LandformKind::ElongatedKnoll)
+            && form.height_m >= BOULDER_MIN_HEIGHT_M
+            && rock
+                .iter()
+                .any(|r| r.contains(&geo_types::Point::from(form.points[0])))
+        {
+            let boulder = if form.height_m >= LARGE_BOULDER_MIN_HEIGHT_M {
+                LARGE_BOULDER_CODE
+            } else {
+                BOULDER_CODE
+            };
+            if symbol_set.id_for_code(boulder).is_some() {
+                code = boulder;
+            }
+        }
         let Some(symbol_id) = symbol_set.id_for_code(code) else {
             continue;
         };
@@ -218,7 +262,7 @@ pub fn landform_objects(
                 northing: n + r.sin(),
             })?;
             // Symbol 110 is long along its own y axis, so it turns a quarter less than its axis.
-            let rotation_rad = if form.kind == LandformKind::ElongatedKnoll {
+            let rotation_rad = if form.kind == LandformKind::ElongatedKnoll && code == "110" {
                 f64::from(coords[0].y - ahead.y).atan2(f64::from(ahead.x - coords[0].x))
                     - std::f64::consts::FRAC_PI_2
             } else {
