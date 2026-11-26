@@ -114,6 +114,12 @@ layers = [
     { key = "landschaftsbestandteile-flaechen", type_name = "natur_wfsschutzgebiete:landschaftsbestandteil_flaechig", reading = "object", object = "protected-landscape-part", name = "name" },
 ]
 
+# The point clouds the vegetation candidates are read from (issue #273): the backend of the state keeps the names of the
+# tiles and how it reads the answers, the manifest holds where.
+[point_cloud]
+kind = "laz-tiles"
+url = "https://geodaten.bayern.de/odd_data/laser"
+
 [preview]
 wms = "https://geoservices.bayern.de/od/wms/dop/v1/dop20"
 layer = "by_dop20c"

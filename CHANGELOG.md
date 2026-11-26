@@ -12,6 +12,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Geändert
 
+- Die Adressen der Punktwolken (NRW, Rheinland-Pfalz, Brandenburg, Berlin, Saarland, Bayern) stehen jetzt in den Manifesten der Bundesländer, in der neuen Tabelle `[point_cloud]` mit `kind`, dem Ordner `url` und, wo das Bundesland eine hat, einer `index_url` (Index, Metalink oder Aktualitätenliste). Die Backends behalten die Namen der Kacheln und die Art, die Antworten zu lesen; ihre Adresskonstanten sind Testwerkzeuge, die die Manifeste an die alten Werte halten. Für Karten und Cache-Ordner ändert sich nichts.
 - Die Adressen der ALKIS-Dienste (Gebäude und Nutzung, NAS-Brandenburg) stehen nur noch in den Manifesten der Länder; die Tabellen im Code sind reine Testwerkzeuge, ein Test hält jedes Manifest an sie (Issue #273). Der eingebaute Weg im Code bleibt für Berlin, Baden-Württemberg, Bremen und Bayern, die keinen vereinfachten Dienst haben. Karten und Hinweise bleiben gleich.
 
 ### Behoben

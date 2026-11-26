@@ -187,6 +187,13 @@ layers = [
     { key = "wasserschutzgebiete", reading = "water", name = "KLARNAME", zone = "SCHUTZZONE", citation = "FUNDSTELLE" },
 ]
 
+# The point clouds the vegetation candidates are read from (issue #273): the backend of the state keeps the names of the
+# tiles and how it reads the answers, the manifest holds where.
+[point_cloud]
+kind = "currency-csv"
+url = "https://data.geobasis-bb.de/geobasis/daten/als/laz"
+index_url = "https://data.geobasis-bb.de/geobasis/information/aktualitaeten/bb_laserscandaten_aktualitaet.csv"
+
 [preview]
 wms = "https://isk.geobasis-bb.de/mapproxy/dop20c/service/wms"
 layer = "bebb_dop20c"

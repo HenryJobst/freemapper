@@ -312,6 +312,18 @@ shares estimates (ADR 0139). The tables of all five kinds hold at most 12 source
 sources of `[[permits.wfs]]` first, then those of `[[permits.shapefile]]`, `[[permits.geojson]]`, `[[permits.arcgis]]` and `[[permits.getfeatureinfo]]`, each
 in the order of the manifest.
 
+## `[point_cloud]`
+
+Where the LAZ tiles of the vegetation candidates come from. Optional; only the built-in adapters use it. The backend of
+the state keeps the names of the tiles and how it reads the answers, the manifest holds where (ADR 0189, addendum). A
+folder adapter that replaces a built-in state keeps no vegetation from point clouds, because its backend is code.
+
+| Key | Type | Required | Meaning and limits |
+|---|---|---|---|
+| `kind` | text | yes | `laz-tiles` (tiles named by grid position in one folder), `index-json` (the folder lists its tiles in a JSON index), `meta4` (a Metalink lists the tiles), `currency-csv` (a CSV lists the survey dates) or `zip-archives` (archives that each hold many tiles). |
+| `url` | URL | yes | The folder of the tiles or archives, without a trailing slash. https, a host of `[net] hosts`, no query. |
+| `index_url` | URL | for `index-json`, `meta4`, `currency-csv` | The index file; the other kinds refuse it. |
+
 ## `[preview]`
 
 The aerial photo on the map of the area page. Optional.
