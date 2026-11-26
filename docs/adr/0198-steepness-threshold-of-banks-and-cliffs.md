@@ -23,7 +23,7 @@ hardly any black cliff.
   changed with the relief would change the golden maps of every state. The manual and the area page say which values suit
   which terrain; the table of the manual rests on the Adršpach measurement and marks what is an estimate.
 - A line that runs down the slope instead of along the contours is dropped at every threshold
-  (`runs_down_the_slope`): sampled every 2 m, the mean cosine to the fall line (the mean direction of the steep cells
+  (`runs_down_the_slope`): sampled every metre, the mean cosine to the fall line (the mean direction of the steep cells
   in 5 × 5 cells around the point) must be at most 0.57 (55°). Without it a third to a half of the length of the cliffs
   at 55° to 60° lay across the contours (measured: 17 of 34 lines under 60° to the fall line, 52 % of the length); the
   centre line of a wide steep patch follows its longest axis, not the wall.

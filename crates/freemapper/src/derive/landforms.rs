@@ -420,10 +420,10 @@ pub fn height_jumps(
     jumps
 }
 
-/// Whether the line `points` runs more down the slope than along the contours: sampled every
-/// two metres, the length-weighted mean of the cosine between the line and the fall line of the
-/// terrain around that point (the mean direction of the 5 × 5 cells there, `steep` ones only)
-/// exceeds [`MAX_FALL_LINE_COS`]. The mean direction keeps the ragged cells of a real bank from
+/// Whether the line `points` runs more down the slope than along the contours: sampled about every
+/// metre, the length-weighted mean of the cosine between the line and the fall line of the
+/// terrain around that point (the mean direction of the 5 × 5 cells there, `steep` ones only;
+/// samples without a steep cell around do not count) exceeds [`MAX_FALL_LINE_COS`]. The mean direction keeps the ragged cells of a real bank from
 /// deciding.
 fn runs_down_the_slope(
     points: &[(f64, f64)],
@@ -431,20 +431,18 @@ fn runs_down_the_slope(
     steep: &[bool],
     grid: &GridSpec,
 ) -> bool {
-    const SAMPLE_M: f64 = 2.0;
     const REACH: i64 = 2;
     let (w, h) = (grid.width as i64, grid.height as i64);
-    let (mut along, mut total) = (0.0, 0.0);
+    let (mut along, mut samples) = (0.0, 0.0);
     for pair in points.windows(2) {
         let (dx, dy) = (pair[1].0 - pair[0].0, pair[1].1 - pair[0].1);
         let length = dx.hypot(dy);
         if length == 0.0 {
             continue;
         }
-        let steps = (length / SAMPLE_M).ceil().max(1.0) as usize;
-        let piece = length / steps as f64;
-        for i in 0..steps {
-            let t = (i as f64 + 0.5) / steps as f64;
+        let steps = length.ceil().max(1.0) as usize;
+        for i in 0..=steps {
+            let t = i as f64 / steps as f64;
             let (px, py) = (pair[0].0 + dx * t, pair[0].1 + dy * t);
             let x = ((px - grid.west) / grid.pixel_size).floor() as i64;
             let y = ((grid.north - py) / grid.pixel_size).floor() as i64;
@@ -455,19 +453,19 @@ fn runs_down_the_slope(
                     let Some((ge, gn)) = gradients[cell].filter(|_| steep[cell]) else {
                         continue;
                     };
-                    let length = ge.hypot(gn);
-                    mean = (mean.0 + ge / length, mean.1 + gn / length);
+                    let norm = ge.hypot(gn);
+                    mean = (mean.0 + ge / norm, mean.1 + gn / norm);
                 }
             }
             let norm = mean.0.hypot(mean.1);
             if norm == 0.0 {
                 continue;
             }
-            along += piece * (dx * mean.0 + dy * mean.1).abs() / (length * norm);
-            total += piece;
+            along += (dx * mean.0 + dy * mean.1).abs() / (length * norm);
+            samples += 1.0;
         }
     }
-    total > 0.0 && along / total > MAX_FALL_LINE_COS
+    along > MAX_FALL_LINE_COS * samples
 }
 
 /// The 8-connected steep cells around `start`, marking them seen.
@@ -1090,6 +1088,99 @@ mod tests {
             &gradients,
             &steep,
             &terrain.grid
+        ));
+    }
+
+    /// The direction of a line against the slope counts in both axes: a diagonal wall, lines along
+    /// it, along the slope and across, and one that is mostly along the north-south wall.
+    #[test]
+    fn the_direction_of_a_line_counts_in_both_axes() {
+        // A step of 4 m along the line e + n = 60: the fall line runs to the north-east.
+        let diagonal = dtm(60, |e, n| {
+            40.0 - 4.0 * (((e + n) - 60.0) / 2.0).clamp(0.0, 1.0)
+        });
+        let (gradients, steep) = gradients_and_steep(&diagonal);
+        let grid = diagonal.grid;
+        let down = [(20.0, 20.0), (40.0, 40.0)];
+        let along = [(20.0, 40.0), (40.0, 20.0)];
+        let east = [(10.0, 30.0), (50.0, 30.0)];
+        assert!(runs_down_the_slope(&down, &gradients, &steep, &grid));
+        assert!(!runs_down_the_slope(&along, &gradients, &steep, &grid));
+        // 45° to the fall line: the cosine of 0.7 is above the limit.
+        assert!(runs_down_the_slope(&east, &gradients, &steep, &grid));
+        // A wall at e = 30 and a line leaning four metres east over forty north: along the wall.
+        let wall = dtm(60, step(4.0));
+        let (gradients, steep) = gradients_and_steep(&wall);
+        let leaning = [(28.0, 10.0), (32.0, 50.0)];
+        assert!(!runs_down_the_slope(
+            &leaning, &gradients, &steep, &wall.grid
+        ));
+    }
+
+    /// A line over ground without a steep cell, or off the raster, is no line down the slope.
+    #[test]
+    fn a_line_without_slope_under_it_is_judged_a_wall_candidate() {
+        let flat = dtm(60, |_, _| 40.0);
+        let (gradients, steep) = gradients_and_steep(&flat);
+        assert!(!runs_down_the_slope(
+            &[(10.0, 10.0), (50.0, 10.0)],
+            &gradients,
+            &steep,
+            &flat.grid
+        ));
+        let wall = dtm(60, step(4.0));
+        let (gradients, steep) = gradients_and_steep(&wall);
+        let off = [(-100.0, -100.0), (-50.0, -100.0)];
+        assert!(!runs_down_the_slope(&off, &gradients, &steep, &wall.grid));
+    }
+
+    /// The grid of the terrain is not the unit grid of the other tests: shifted, not square, 2 m
+    /// cells. A step of 8 m at e = 160 runs north to south.
+    #[test]
+    fn a_shifted_grid_with_two_metre_cells_is_read_at_the_right_places() {
+        let grid = GridSpec {
+            west: 100.0,
+            north: 300.0,
+            pixel_size: 2.0,
+            width: 40,
+            height: 30,
+        };
+        let mut terrain = Raster::filled(grid, 0.0f32);
+        for y in 0..grid.height {
+            for x in 0..grid.width {
+                let e = grid.west + (f64::from(x) + 0.5) * grid.pixel_size;
+                terrain.set(
+                    x,
+                    y,
+                    (40.0 - 8.0 * ((e - 158.0) / 4.0).clamp(0.0, 1.0)) as f32,
+                );
+            }
+        }
+        let (gradients, steep) = gradients_and_steep(&terrain);
+        let across = [(140.0, 270.0), (176.0, 270.0)];
+        let along = [(160.0, 250.0), (160.0, 290.0)];
+        assert!(runs_down_the_slope(&across, &gradients, &steep, &grid));
+        assert!(!runs_down_the_slope(&along, &gradients, &steep, &grid));
+        // Just east of the wall: the window of 5 cells still reaches it.
+        assert!(runs_down_the_slope(
+            &[(164.0, 270.0), (170.0, 270.0)],
+            &gradients,
+            &steep,
+            &grid
+        ));
+        // Just west of it as well.
+        assert!(runs_down_the_slope(
+            &[(150.0, 270.0), (156.0, 270.0)],
+            &gradients,
+            &steep,
+            &grid
+        ));
+        // The south-east corner, where the window reaches past both edges.
+        assert!(!runs_down_the_slope(
+            &[(177.0, 241.0), (178.0, 243.0)],
+            &gradients,
+            &steep,
+            &grid
         ));
     }
 
