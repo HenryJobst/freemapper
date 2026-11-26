@@ -1047,28 +1047,70 @@ mod tests {
         assert!(raised.iter().all(|j| j.kind == LandformKind::Cliff));
     }
 
-    /// A line that runs down the slope is the centre line of a steep patch, no wall.
-    #[test]
-    fn a_line_down_the_fall_line_is_no_wall_and_one_along_the_contours_is() {
-        let terrain = dtm(60, step(4.0));
-        let grid = terrain.grid;
-        let (w, h) = (grid.width as usize, grid.height as usize);
+    /// The gradients of `terrain` and which cells are steep, as `height_jumps` takes them.
+    fn gradients_and_steep(terrain: &Raster<f32>) -> (Vec<Option<(f64, f64)>>, Vec<bool>) {
+        let (w, h) = (terrain.grid.width as usize, terrain.grid.height as usize);
         let gradients: Vec<Option<(f64, f64)>> = (0..h)
             .flat_map(|y| (0..w).map(move |x| (x, y)))
             .map(|(x, y)| {
                 (x > 0 && y > 0 && x + 1 < w && y + 1 < h)
-                    .then(|| gradient(&terrain, x as u32, y as u32))
+                    .then(|| gradient(terrain, x as u32, y as u32))
                     .flatten()
             })
             .collect();
-        let steep: Vec<bool> = gradients
+        let steep = gradients
             .iter()
             .map(|g| g.is_some_and(|(de, dn)| de.hypot(dn) >= STEEP_GRADIENT))
             .collect();
+        (gradients, steep)
+    }
+
+    /// A line that runs down the slope is the centre line of a steep patch, no wall.
+    #[test]
+    fn a_line_down_the_fall_line_is_no_wall_and_one_along_the_contours_is() {
+        let terrain = dtm(60, step(4.0));
+        let (gradients, steep) = gradients_and_steep(&terrain);
+        let grid = terrain.grid;
         // The step runs north to south at e = 30.
         let along = [(30.0, 10.0), (30.0, 50.0)];
         let across = [(20.0, 30.0), (40.0, 30.0)];
         assert!(!runs_down_the_slope(&along, &gradients, &steep, &grid));
         assert!(runs_down_the_slope(&across, &gradients, &steep, &grid));
+    }
+
+    /// The samples cover the whole line, not only its first half: the step lies at the far end of
+    /// the line.
+    #[test]
+    fn the_whole_line_is_sampled() {
+        let terrain = dtm(60, |e, _| 40.0 - 4.0 * ((e - 44.0) / 2.0).clamp(0.0, 1.0));
+        let (gradients, steep) = gradients_and_steep(&terrain);
+        let across = [(10.0, 30.0), (50.0, 30.0)];
+        assert!(runs_down_the_slope(
+            &across,
+            &gradients,
+            &steep,
+            &terrain.grid
+        ));
+    }
+
+    /// A line along the last row of the raster is sampled without reading beyond it.
+    #[test]
+    fn a_line_at_the_edge_of_the_raster_is_judged() {
+        let terrain = dtm(60, step(4.0));
+        let (gradients, steep) = gradients_and_steep(&terrain);
+        let at_the_south_edge = [(30.0, 1.0), (30.0, 4.0)];
+        assert!(!runs_down_the_slope(
+            &at_the_south_edge,
+            &gradients,
+            &steep,
+            &terrain.grid
+        ));
+        let at_the_east_edge = [(59.0, 20.0), (59.0, 40.0)];
+        assert!(!runs_down_the_slope(
+            &at_the_east_edge,
+            &gradients,
+            &steep,
+            &terrain.grid
+        ));
     }
 }
