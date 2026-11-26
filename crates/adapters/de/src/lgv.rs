@@ -246,9 +246,11 @@ pub fn fetch_model(
     Ok(missing)
 }
 
+#[cfg(any(test, feature = "testing"))]
 /// The ALKIS-vereinfacht OGC API collections (LGB-like JSON, `next` links, EPSG:25832).
 pub const BUILDINGS_ENDPOINT: &str =
     "https://api.hamburg.de/datasets/v1/alkis_vereinfacht/collections/GebaeudeBauwerk/items";
+#[cfg(any(test, feature = "testing"))]
 pub const LAND_USE_ENDPOINT: &str =
     "https://api.hamburg.de/datasets/v1/alkis_vereinfacht/collections/NutzungFlurstueck/items";
 

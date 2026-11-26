@@ -802,6 +802,7 @@ dependencies = [
  "chrono",
  "freemapper",
  "freemapper-adapter-api",
+ "freemapper-adapters-de",
  "freemapper-contract",
  "freemapper-fs",
  "freemapper-georef",

@@ -597,12 +597,14 @@ impl StateAdapter {
             .policy()
             .expect("the manifest was just bound to its hosts")
             .clone();
-        let alkis = manifest.alkis().is_none().then(|| {
-            Box::new(GuardedAlkis {
-                inner: alkis::source(state),
+        let alkis = match manifest.alkis() {
+            Some(_) => None,
+            None => Some(Box::new(GuardedAlkis {
+                inner: alkis::source(state)
+                    .unwrap_or_else(|| panic!("{}: no [alkis] and no code source", state.id())),
                 policy: Arc::new(policy),
-            }) as Box<dyn AlkisSource>
-        });
+            }) as Box<dyn AlkisSource>),
+        };
         let extras: Vec<Box<dyn ExtraSet>> = match state {
             State::Berlin => vec![Box::new(crate::berlin::Registers)],
             State::Hamburg => vec![Box::new(crate::lgv_fk::Feinkartierung)],

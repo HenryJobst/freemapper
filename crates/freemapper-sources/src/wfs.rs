@@ -30,6 +30,7 @@ pub struct WfsService {
     pub sorted: bool,
 }
 
+#[cfg(any(test, feature = "testing"))]
 /// GeoSN, Saxony (EPSG:25833; land use per parcel part).
 pub const GEOSN: WfsService = WfsService {
     name: Cow::Borrowed("GeoSN ALKIS"),
@@ -41,6 +42,7 @@ pub const GEOSN: WfsService = WfsService {
     sorted: true,
 };
 
+#[cfg(any(test, feature = "testing"))]
 /// LVermGeo, Saxony-Anhalt (EPSG:25832; land use objects, not split by parcel).
 pub const LVERMGEO: WfsService = WfsService {
     name: Cow::Borrowed("LVermGeo ALKIS"),
@@ -54,6 +56,7 @@ pub const LVERMGEO: WfsService = WfsService {
     sorted: true,
 };
 
+#[cfg(any(test, feature = "testing"))]
 /// HVBG, Hesse (EPSG:25832; land use per parcel part). `ave:Nutzung` carries no `nutzart` in
 /// Hesse, so the parcel-part type is used.
 pub const HVBG: WfsService = WfsService {
@@ -66,6 +69,7 @@ pub const HVBG: WfsService = WfsService {
     sorted: true,
 };
 
+#[cfg(any(test, feature = "testing"))]
 /// Geobasis NRW, Nordrhein-Westfalen (EPSG:25832; land use per parcel part). Same schema and
 /// LGB spellings as Hesse, but with detailed `funktion` values. Errors come as a bare HTTP 400.
 pub const GEOBASIS_NRW: WfsService = WfsService {
@@ -78,6 +82,7 @@ pub const GEOBASIS_NRW: WfsService = WfsService {
     sorted: true,
 };
 
+#[cfg(any(test, feature = "testing"))]
 /// LGLN, Niedersachsen (EPSG:25832; land use per parcel part). Same schema and LGB spellings as
 /// Hesse; underground garages are `Gebäude` with `rellage` "Unter der Erdoberfläche". The service
 /// cuts an answer without `COUNT` silently at 10000 and refuses more than 10000.
@@ -91,6 +96,7 @@ pub const LGLN: WfsService = WfsService {
     sorted: true,
 };
 
+#[cfg(any(test, feature = "testing"))]
 /// LVermGeo RP, Rheinland-Pfalz (EPSG:25832; MapServer). Land use is `ave:Nutzung` (per object, with
 /// `nutzart` and `bez`; there is no `NutzungFlurstueck`), and `aktualit` sits inside a
 /// `gml:timePosition`. Names of several objects are joined with `;` and kept as they are.
@@ -104,6 +110,7 @@ pub const LVERMGEO_RP: WfsService = WfsService {
     sorted: true,
 };
 
+#[cfg(any(test, feature = "testing"))]
 /// LVermGeo SH, Schleswig-Holstein (EPSG:25832; land use per parcel part). The VwG service
 /// (named for its administrative-boundary theme) serves every type with normal queries; the
 /// advertised `WFS_SH_ALKIS_vereinf_OpenGBD` refuses them (stored queries only).
@@ -117,6 +124,7 @@ pub const LVERMGEO_SH: WfsService = WfsService {
     sorted: true,
 };
 
+#[cfg(any(test, feature = "testing"))]
 /// LGV, Hamburg (EPSG:25832): the classic WFS beside the OGC API, with the same data. Used when
 /// the OGC API fails; its land use keeps squares without `bez` as they are (the OGC API path
 /// has no `square_bez` either), so `square_bez` is `None`.
@@ -130,6 +138,7 @@ pub const LGV: WfsService = WfsService {
     sorted: true,
 };
 
+#[cfg(any(test, feature = "testing"))]
 /// LAiV M-V, Mecklenburg-Vorpommern (EPSG:25833; land use per parcel part): the classic WFS beside
 /// the OGC API, with the same data and the LGB spellings. Used when the OGC API fails. Only
 /// 25833 is accepted (25832 gives HTTP 400).
