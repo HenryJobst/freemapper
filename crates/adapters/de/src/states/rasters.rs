@@ -27,7 +27,6 @@ use crate::states::{Agency, State};
 pub fn backend(agency: Agency) -> Option<Box<dyn RasterBackend>> {
     Some(match agency {
         Agency::Lgb => Box::new(LgbBackend::new()),
-        Agency::LvermGeo => return None,
         Agency::Lgv => Box::new(LgvBackend::new()),
         Agency::LaivMv => Box::new(LaivMvBackend::new()),
         Agency::GeoBremen => Box::new(GeoBremenBackend::new()),

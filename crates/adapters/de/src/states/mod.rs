@@ -885,6 +885,14 @@ mod tests {
         // The other agencies keep their addresses in the code.
         for agency in [Agency::Lgb, Agency::Lgv, Agency::LaivMv, Agency::GeoBremen] {
             assert!(rasters::addressed(agency).is_none(), "{agency:?}");
+            assert!(rasters::backend(agency).is_some(), "{agency:?}");
+        }
+        // LVermGeo declares its rasters as services in its manifest, and the addressed
+        // agencies are made by their factories: neither has a backend of its own here.
+        for agency in AGENCIES {
+            let own = rasters::backend(agency).is_none();
+            let by_factory = rasters::addressed(agency).is_some();
+            assert_eq!(own, agency == Agency::LvermGeo || by_factory, "{agency:?}");
         }
     }
 
