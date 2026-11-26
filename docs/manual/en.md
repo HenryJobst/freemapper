@@ -703,7 +703,8 @@ earth banks and cliffs can be set: `--steep-slope <degrees>` on `init`, `derive`
 threshold" on the area page, or as `steep_slope_deg = 55` in `freemapper.toml`; `auto` gives the default back (about
 27°). 15° to 80° are allowed. A map that is built already needs `derive` and `export --force` afterwards. The threshold
 changes only what comes from the terrain model (the banks and cliffs of the group `landforms`), not the cliffs from
-OpenStreetMap.
+OpenStreetMap. It holds for banks and cliffs alike: a bank is less steep than a wall, so a high threshold loses the banks
+(Nikolsdorfer Wände: 16 banks at the default, none at 55°).
 
 | Value | When | What happens |
 |---|---|---|

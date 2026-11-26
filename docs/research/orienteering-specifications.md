@@ -24,6 +24,8 @@ result, the wording not seen: treat every statement as unverified).
 | Scale and contour interval (Orienteering Portugal) | n/a | <https://orienteering.natourtrail.pt/maps/scale-and-contour-interval/> | reported: foot orienteering 5 m and 2.5 m only |
 | O-Map wiki, contour lines (glossary) and symbol pages | current | <https://omapwiki.orienteering.sport/glossary/contour-lines/> | reported (HTTP 403) |
 
+A map of the Nikolsdorfer Wände (Saxonia Festival, middle distance of 2026-09-13, 1:10 000, contour interval 5 m, surveyed 2024 to 2026): <https://livelox.blob.core.windows.net/map-images/240886/thumbnails/1024/457b98e0dfef4d3a819e1797827f8851> (reported by the user and viewed on 2026-11-26; not stored in the repository, the map forbids reproduction without consultation). It shows a rock field drawn as very many small black symbols and 5 m contours. A freemapper map of the same area was built on 2026-11-26 for the comparison (not kept).
+
 Topographic maps, for comparison only (no orienteering rule): swisstopo contour lines
 (<https://www.swisstopo.admin.ch/en/contour-lines>, 10 m at 1:10 000, 20 m in the Alps at 1:25 000), the
 traditional maps of the German Alpine Club (<https://www.alpenverein.de/verband/huetten-und-wege/kartographie/traditionelle-alpenvereinskarten>, 20 m).

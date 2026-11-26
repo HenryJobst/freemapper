@@ -33,8 +33,10 @@ hardly any black cliff.
 ## Consequences
 
 - The default threshold is unchanged. The direction check holds for every terrain, also at the default: it removes
-  lines that ran across the contours and so were no walls. The golden tests and the old test cases (steps, an L and a U)
-  pass unchanged; an example of a state rebuilt later may lose such a line.
+  lines that ran across the contours and so were no walls. The golden maps of Berlin, Brandenburg, Hesse and
+  Saxony-Anhalt changed in `data/landforms.geojson` and in what depends on it (the terrain candidates, the check
+  print, the OCAD file of that layer, in Hesse also the training map); they were blessed (`Golden-Bless:`). The old test cases
+  (steps, an L and a U) pass unchanged. An example of a state rebuilt later may lose such a line as well.
 - Measured on Adršpach after the direction check: default 1 cliff (30 m), 50° 6 (230 m), 55° 11 (610 m), 60° 11 (470 m),
   65° 11 (430 m), 70° 4 (170 m). The check took the candidates at 55° to 60° from about 30 to 11. A single-point
   measurement against the raw gradient still calls half of the remaining length "across the contours"; it is noisy in
@@ -42,6 +44,10 @@ hardly any black cliff.
 - The hillshade of Adršpach shows hundreds of single rock towers, not a network of walls. The search for long narrow
   strips cannot draw towers; it finds a handful of walls where a mapper would draw a cliff ring round every tower
   or use rock pillars (203, 204). The candidates are hints to check. Drawing towers is a separate decision.
+- The threshold holds for banks and cliffs alike. On the Nikolsdorfer Wände (Saxony, DGM1 of 1 m) the default finds 4 cliffs
+  (159 m) and 16 banks (850 m), 55° finds 9 cliffs (377 m) and no bank. A person who raises it for the cliffs of a rock
+  town loses the banks of the ordinary slopes there. Most cliffs of that map come from OpenStreetMap (540 objects), not
+  from the terrain; on Adršpach OSM has 3. How good a rock map looks depends on the OSM data first.
 - Contours still run together in such land. The ISOM 2017-2 asks for 0.15 mm between lines of one colour and for contours
   that interplay with cliff symbols; freemapper only chooses a wider interval (ADR 0125). Thinning the contours is a
   separate decision. The norms and what was read of them: `docs/research/orienteering-specifications.md`.

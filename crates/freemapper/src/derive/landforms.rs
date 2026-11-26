@@ -34,7 +34,7 @@ const ELONGATED_ASPECT: f64 = 1.5;
 /// Gradient from which a cell is steep (about 27°): DGM1 at 1 m blurs a bank over 2 to 3 cells,
 /// so a 45° bank of 1.5 m comes out at about 30°.
 const STEEP_GRADIENT: f64 = 0.5;
-/// The default of [`STEEP_GRADIENT`] as a slope angle, for the texts (26.6°).
+/// The default gradient of 0.5 as a slope angle, for the texts (26.6°).
 pub const DEFAULT_STEEP_SLOPE_DEG: f64 = 26.57;
 /// The steep slope a person may set (ADR 0198): below it banks run together with every gentle
 /// slope, above it nothing is left.

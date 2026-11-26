@@ -734,7 +734,8 @@ Felswänden sucht, ist einstellbar: `--steep-slope <Grad>` bei `init`, `derive` 
 „Steilheitsschwelle“ oder als `steep_slope_deg = 55` in der `freemapper.toml`; `auto` gibt den Standard zurück (etwa
 27°). Erlaubt sind 15° bis 80°. Eine Karte, die schon gebaut ist, braucht danach `derive` und `export --force`. Die Schwelle
 ändert nur, was aus dem Geländemodell kommt (Böschungen und Felswände der Gruppe `landforms`), nicht die Wände aus
-OpenStreetMap.
+OpenStreetMap. Sie gilt für Böschungen und Felswände zugleich: Eine Böschung ist weniger steil als eine Wand, deshalb
+verschwinden bei hoher Schwelle die Böschungen (Nikolsdorfer Wände: 16 Böschungen beim Standard, keine bei 55°).
 
 | Wert | Wann | Was passiert |
 |---|---|---|
