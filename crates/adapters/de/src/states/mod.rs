@@ -28,7 +28,6 @@ use freemapper_adapter_api::records::EstimateItem;
 use freemapper_adapter_api::registry::{DuplicateBackend, Registry};
 use freemapper_manifest::adapter::{AdapterFiles, ManifestAdapter, Parse};
 use freemapper_manifest::guard::GuardedAlkis;
-use freemapper_sources::trees::POTSDAM;
 use geo_types::MultiPolygon;
 
 use crate::boundaries::{StateOutline, boundary_text, outline};
@@ -598,12 +597,14 @@ impl StateAdapter {
             .policy()
             .expect("the manifest was just bound to its hosts")
             .clone();
-        let alkis = manifest.alkis().is_none().then(|| {
-            Box::new(GuardedAlkis {
-                inner: alkis::source(state),
+        let alkis = match manifest.alkis() {
+            Some(_) => None,
+            None => Some(Box::new(GuardedAlkis {
+                inner: alkis::source(state)
+                    .unwrap_or_else(|| panic!("{}: no [alkis] and no code source", state.id())),
                 policy: Arc::new(policy),
-            }) as Box<dyn AlkisSource>
-        });
+            }) as Box<dyn AlkisSource>),
+        };
         let extras: Vec<Box<dyn ExtraSet>> = match state {
             State::Berlin => vec![Box::new(crate::berlin::Registers)],
             State::Hamburg => vec![Box::new(crate::lgv_fk::Feinkartierung)],
@@ -775,11 +776,6 @@ pub fn adapters() -> Vec<Arc<dyn RegionAdapter>> {
         .into_iter()
         .map(|state| Arc::new(StateAdapter::new(state, &backends)) as Arc<dyn RegionAdapter>)
         .collect()
-}
-
-/// The tree cadastres of all states, in the order of the states.
-pub(crate) fn all_tree_datasets() -> Vec<TreeDataset> {
-    vec![POTSDAM]
 }
 
 #[cfg(test)]

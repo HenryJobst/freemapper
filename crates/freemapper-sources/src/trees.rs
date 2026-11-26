@@ -6,18 +6,21 @@
 //! One row per city (the adapter of its state names it): where the points come from ([`TreeFormat`], the
 //! endpoints), the field names, the kinds that are no tree (stumps), the licence line and the
 //! envelope that decides whether a map area needs the dataset. Potsdam is the first row
-//! ([`POTSDAM`], an OpenDataSoft GeoJSON export); the WFS, OGC API and CSV formats of the other
+//! (`potsdam`, an OpenDataSoft GeoJSON export); the WFS, OGC API and CSV formats of the other
 //! cities (Leipzig, Dresden, Hamburg, Frankfurt, Kiel, Lübeck, Rostock, Köln, Dortmund, Münster)
 //! come with the row that first needs them. Every format normalises to the same stored feature:
 //! a point in the map's CRS with the `tree_*` properties of [`parse_trees`].
 
+#[cfg(any(test, feature = "testing"))]
 use std::borrow::Cow;
 use std::collections::HashSet;
 
 use chrono::NaiveDate;
 use serde_json::{Map, Value, json};
 
-use crate::crs::{BoundingBox, Crs, LatLon, ProjectedPoint};
+#[cfg(any(test, feature = "testing"))]
+use crate::crs::BoundingBox;
+use crate::crs::{Crs, LatLon, ProjectedPoint};
 use crate::fetch::{FetchError, Fetcher, get_limited_with_retries};
 use crate::nas::PartFile;
 use crate::ogc_api::{AlkisError, FetchArea, invalid};
@@ -25,8 +28,10 @@ pub use freemapper_adapter_api::extras::{TreeDataset, TreeFields, TreeFormat};
 use freemapper_adapter_api::records::AdapterId;
 
 /// 256 MB, as for the NAS answers: the whole Potsdam envelope (283 772 points) is about 110 MB.
+#[cfg(any(test, feature = "testing"))]
 const MAX_ANSWER_BYTES: u64 = 256 << 20;
 
+#[cfg(any(test, feature = "testing"))]
 /// Potsdam, "Bäume der Stadtkarte" (`opendata.potsdam.de`, dl-de/zero-2-0): 283 772 points in
 /// three datasets, no crown diameter. The envelope is the data extent (E 359 000–375 000,
 /// N 5 801 000–5 820 000, EPSG:25833) rounded outward.

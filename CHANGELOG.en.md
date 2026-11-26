@@ -10,6 +10,14 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 - Czechia (preview, issue #356): the new adapter `cesko` makes maps anywhere in Czechia, for all map kinds. Terrain model (DMR 5G), surface model (DMP 1G) and orthophoto come from ČÚZK (CC BY 4.0, credit "© ČÚZK (CC BY 4.0)"), asked for in the grid of the map from one host, `ags.cuzk.gov.cz`; contours, hillshade, slope, relief and nDSM follow from them. Buildings come from RÚIAN (the footprints of the register) and land use from ZABAGED (forest, meadows, parks, cemeteries, water and more), asked in the grid of the map as well; permit notes are not available for Czechia yet. The OSM extract of the whole country is about 910 MB. An area that reaches over the border is refused. The region is named `Česko` in Czech texts, and `Names` gets a Czech name beside the Polish one (ADR 0197)
 
+### Changed
+
+- The addresses of the ALKIS services (buildings and land use, NAS Brandenburg) now live only in the states' manifests; the tables in the code are test tools only, and a test holds each manifest to them (issue #273). The code path stays for Berlin, Baden-Württemberg, Bremen and Bavaria, which have no simplified service. Maps and notes stay the same.
+
+### Fixed
+
+- The credit of the city tree cadastres now names every city whose trees are on the map, not only Potsdam: Leipzig, Frankfurt (Oder), Frankfurt am Main, Lübeck, Cologne, Dortmund and the other cadastres carry licences (dl-de/by-2-0) that ask for a credit. The line comes from the city's manifest; the fixed Potsdam table in the code (`trees::POTSDAM`) is now a test tool only (issue #273).
+
 ## [0.28.0] - 2026-11-25
 
 ### Added

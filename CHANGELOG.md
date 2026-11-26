@@ -10,6 +10,14 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 - Tschechien (Vorschau, Issue #356): Der neue Adapter `cesko` macht Karten für ganz Tschechien, für alle Kartenarten. Höhenmodell (DMR 5G), Oberflächenmodell (DMP 1G) und Luftbild kommen vom ČÚZK (CC BY 4.0, Quellenangabe „© ČÚZK (CC BY 4.0)“) und werden im Raster der Karte von einem einzigen Host abgefragt, `ags.cuzk.gov.cz`; Höhenlinien, Schummerung, Hangneigung, Relief und nDSM entstehen daraus. Gebäude kommen aus RÚIAN (den Grundrissen des Registers), die Landnutzung aus ZABAGED (Wald, Wiesen, Parks, Friedhöfe, Gewässer und mehr), ebenfalls im Raster der Karte abgefragt; Genehmigungshinweise gibt es für Tschechien noch nicht. Der OSM-Auszug für das ganze Land ist etwa 910 MB groß. Ein Gebiet, das über die Grenze reicht, wird abgelehnt. In tschechischen Texten heißt die Region `Česko`; `Names` bekommt neben dem polnischen einen tschechischen Namen (ADR 0197)
 
+### Geändert
+
+- Die Adressen der ALKIS-Dienste (Gebäude und Nutzung, NAS-Brandenburg) stehen nur noch in den Manifesten der Länder; die Tabellen im Code sind reine Testwerkzeuge, ein Test hält jedes Manifest an sie (Issue #273). Der eingebaute Weg im Code bleibt für Berlin, Baden-Württemberg, Bremen und Bayern, die keinen vereinfachten Dienst haben. Karten und Hinweise bleiben gleich.
+
+### Behoben
+
+- Der Quellennachweis der Baumkataster nennt jetzt jede Stadt, deren Bäume auf der Karte stehen, nicht nur Potsdam: Leipzig, Frankfurt (Oder), Frankfurt am Main, Lübeck, Köln, Dortmund und die übrigen Kataster tragen Lizenzen (dl-de/by-2-0), die eine Nennung verlangen. Die Zeile kommt aus dem Manifest der Stadt; die feste Potsdam-Tabelle im Code (`trees::POTSDAM`) ist ein reines Testwerkzeug geworden (Issue #273).
+
 ## [0.28.0] - 2026-11-25
 
 ### Hinzugefügt
