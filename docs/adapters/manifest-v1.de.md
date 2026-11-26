@@ -320,6 +320,19 @@ Die Hinweise nennen die Anteile Schätzungen (ADR 0139). Die Tabellen aller fün
 12 Quellen; die Hinweise führen die Quellen von `[[permits.wfs]]` zuerst, dann die von `[[permits.shapefile]]`,
 `[[permits.geojson]]`, `[[permits.arcgis]]` und `[[permits.getfeatureinfo]]`, je in der Reihenfolge des Manifests.
 
+## `[point_cloud]`
+
+Woher die LAZ-Kacheln der Vegetationskandidaten kommen. Optional; nur die eingebauten Adapter nutzen sie. Das Backend des
+Bundeslandes behält die Namen der Kacheln und die Art, die Antworten zu lesen; das Manifest nennt, wo (ADR 0189,
+Nachtrag). Ein Ordner-Adapter, der ein eingebautes Bundesland ersetzt, behält keine Vegetation aus Punktwolken, weil
+dafür Code nötig ist.
+
+| Schlüssel | Typ | Pflicht | Bedeutung und Grenzen |
+|---|---|---|---|
+| `kind` | Text | ja | `laz-tiles` (Kacheln nach Rasterposition in einem Ordner), `index-json` (der Ordner listet seine Kacheln in einem JSON-Index), `meta4` (ein Metalink listet die Kacheln), `currency-csv` (eine CSV nennt die Befliegungsdaten) oder `zip-archives` (Archive, die je viele Kacheln halten). |
+| `url` | URL | ja | Der Ordner der Kacheln oder Archive, ohne Schrägstrich am Ende. https, ein Host aus `[net] hosts`, keine Abfrage. |
+| `index_url` | URL | bei `index-json`, `meta4`, `currency-csv` | Die Indexdatei; die anderen Arten lehnen sie ab. |
+
 ## `[preview]`
 
 Das Luftbild auf der Karte der Gebietsseite. Die Tabelle kann fehlen.

@@ -28,6 +28,7 @@ pub(crate) struct Raw {
     pub orthophoto: Option<RawRaster>,
     pub terrain: Option<RawRaster>,
     pub surface: Option<RawRaster>,
+    pub point_cloud: Option<RawPointCloud>,
     #[serde(default)]
     pub extra: RawExtra,
     #[serde(default)]
@@ -151,6 +152,15 @@ pub(crate) struct RawRaster {
     pub max_m: Option<Spanned<f64>>,
     pub date: Option<Spanned<RawDate>>,
     pub source_label: Option<Text>,
+}
+
+/// `[point_cloud]`: where the LAZ tiles of the vegetation come from.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct RawPointCloud {
+    pub kind: Text,
+    pub url: Text,
+    pub index_url: Option<Text>,
 }
 
 /// `date` of a raster table: the keys of all date kinds.

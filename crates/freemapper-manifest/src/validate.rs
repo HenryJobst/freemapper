@@ -25,13 +25,13 @@ use toml::Spanned;
 use crate::error::ManifestError;
 use crate::model::{
     Adapter, Alkis, Attribution, Boundary, BoundaryCrs, DateFormat, DateSource, Estimate,
-    HeightModel, Licence, Manifest, Names, Nas, Normalise, Orthophoto, OsmExtract, Preview,
-    TreeFields, Trees, Version, Wfs,
+    HeightModel, Licence, Manifest, Names, Nas, Normalise, Orthophoto, OsmExtract, PointCloud,
+    PointCloudKind, Preview, TreeFields, Trees, Version, Wfs,
 };
 use crate::schema::{
     Params, Raw, RawAdapter, RawAlkis, RawAttribution, RawBoundary, RawCode, RawDate, RawEstimate,
-    RawExtract, RawNas, RawPermitLayer, RawPermitWfs, RawPreview, RawRaster, RawTrees, RawWording,
-    Text,
+    RawExtract, RawNas, RawPermitLayer, RawPermitWfs, RawPointCloud, RawPreview, RawRaster,
+    RawTrees, RawWording, Text,
 };
 use crate::{FORMAT, MANIFEST_FILE, MAX_MANIFEST_BYTES, MAX_URLS};
 
@@ -651,6 +651,10 @@ impl Check<'_> {
                 .map(Some),
             None => Some(None),
         };
+        let point_cloud = match &raw.point_cloud {
+            Some(table) => self.point_cloud(table).map(Some),
+            None => Some(None),
+        };
         let nas = self.nas_services(&raw.extra.nas, crs);
         let trees = self.tree_cadastres(&raw.extra.trees, crs);
         let permits = self.permit_sources(
@@ -686,6 +690,7 @@ impl Check<'_> {
             orthophoto: orthophoto?,
             terrain: terrain?,
             surface: surface?,
+            point_cloud: point_cloud?,
             nas: nas?,
             trees: trees?,
             permits: permits?,
@@ -3331,6 +3336,75 @@ impl Check<'_> {
             type_name: type_name?,
             query: query?,
             reading: reading?,
+        })
+    }
+
+    /// `[point_cloud]`: a kind, the folder of the tiles and, for the kinds that read one, the
+    /// index file. Both addresses lie on declared hosts and carry no query.
+    fn point_cloud(&mut self, raw: &RawPointCloud) -> Option<PointCloud> {
+        let kind = PointCloudKind::ALL
+            .into_iter()
+            .find(|kind| kind.name() == raw.kind.get_ref());
+        if kind.is_none() {
+            self.fail(
+                "manifest.value",
+                &raw.kind.span(),
+                "point_cloud.kind",
+                format!(
+                    "`{}` is not one of {}",
+                    raw.kind
+                        .get_ref()
+                        .chars()
+                        .filter(|c| !c.is_control())
+                        .take(40)
+                        .collect::<String>(),
+                    PointCloudKind::ALL
+                        .map(|kind| format!("`{}`", kind.name()))
+                        .join(", ")
+                ),
+            );
+        }
+        let url = self.url(&raw.url, "point_cloud.url");
+        if let Some(url) = &url
+            && url.ends_with('/')
+        {
+            self.fail(
+                "manifest.value",
+                &raw.url.span(),
+                "point_cloud.url",
+                "the folder has no trailing slash".to_string(),
+            );
+            return None;
+        }
+        let index_url = match (kind, raw.index_url.as_ref()) {
+            (Some(kind), Some(index)) if kind.has_index() => {
+                self.url(index, "point_cloud.index_url").map(Some)
+            }
+            (Some(kind), None) if kind.has_index() => {
+                self.fail(
+                    "manifest.missing-key",
+                    &raw.kind.span(),
+                    "point_cloud.index_url",
+                    format!("`{}` needs this key", kind.name()),
+                );
+                None
+            }
+            (Some(kind), Some(index)) => {
+                self.fail(
+                    "manifest.unknown-key",
+                    &index.span(),
+                    "point_cloud.index_url",
+                    format!("not a key of `{}`", kind.name()),
+                );
+                None
+            }
+            (_, None) => Some(None),
+            (None, Some(_)) => None,
+        };
+        Some(PointCloud {
+            kind: kind?,
+            url: url?,
+            index_url: index_url?,
         })
     }
 
