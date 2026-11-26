@@ -23,9 +23,9 @@ use freemapper_adapter_api::info::{Declared, RegionInfo};
 use freemapper_adapter_api::permits::PermitSource;
 use freemapper_adapter_api::pointcloud::PointCloudBackend;
 use freemapper_adapter_api::policy::UrlPolicy;
-use freemapper_adapter_api::rasters::RasterBackend;
+use freemapper_adapter_api::rasters::{RasterBackend, RasterConfig};
 use freemapper_adapter_api::records::EstimateItem;
-use freemapper_adapter_api::registry::{DuplicateBackend, Registry};
+use freemapper_adapter_api::registry::{DuplicateBackend, RasterFactory, Registry};
 use freemapper_manifest::adapter::{AdapterFiles, ManifestAdapter, Parse};
 use freemapper_manifest::guard::GuardedAlkis;
 use geo_types::MultiPolygon;
@@ -490,7 +490,11 @@ const AGENCIES: [Agency; 14] = [
 pub fn register_backends(registry: &mut Registry) -> Result<(), DuplicateBackend> {
     registry.set_permit_factory(Arc::new(crate::wfs_permits::TableFactory));
     for agency in AGENCIES {
-        if let (Some(name), Some(backend)) = (backend_name(agency), rasters::backend(agency)) {
+        if let (Some(name), Some((state, crs))) = (backend_name(agency), rasters::addressed(agency))
+        {
+            registry.add_raster_factory(name, raster_factory(agency, state, crs))?;
+        } else if let (Some(name), Some(backend)) = (backend_name(agency), rasters::backend(agency))
+        {
             let backend = Estimating {
                 inner: backend,
                 agency,
@@ -499,6 +503,51 @@ pub fn register_backends(registry: &mut Registry) -> Result<(), DuplicateBackend
         }
     }
     Ok(())
+}
+
+/// The `[orthophoto]` of the built-in manifest of `state`: the addresses a manifest of a folder
+/// that replaces the state falls back on where it states none.
+pub fn builtin_raster_config(state: State) -> RasterConfig {
+    match freemapper_manifest::parse(manifest_text(state), Path::new(state.id()))
+        .expect("the built-in manifests are valid")
+        .orthophoto
+    {
+        Some(freemapper_manifest::model::Orthophoto::Backend { config, .. }) => config,
+        _ => RasterConfig::default(),
+    }
+}
+
+/// The WMS of the orthophoto of `state` in the CRS `crs`: the addresses `config` states, and for
+/// the keys it leaves out those of the built-in manifest of the state.
+fn wms_of(
+    config: &RasterConfig,
+    state: State,
+    crs: Crs,
+) -> Result<freemapper_sources::wms::WmsService, String> {
+    let merged = config.or(&builtin_raster_config(state));
+    let (Some(url), Some(layer), Some(max_px)) = (merged.url, merged.layer, merged.max_px) else {
+        return Err(format!(
+            "the built-in manifest of {} lacks the `url`, `layer` or `max_px` of its orthophoto",
+            state.id()
+        ));
+    };
+    Ok(freemapper_sources::wms::WmsService {
+        url: Cow::Owned(url),
+        layer: Cow::Owned(layer),
+        crs,
+        extra: Cow::Borrowed(""),
+        max_px,
+    })
+}
+
+/// What makes the raster backend of `agency` from the addresses of an `[orthophoto]`.
+fn raster_factory(agency: Agency, state: State, crs: Crs) -> RasterFactory {
+    Arc::new(move |config: &RasterConfig| {
+        let wms = wms_of(config, state, crs)?;
+        let inner = rasters::backend_with_wms(agency, wms)
+            .ok_or_else(|| format!("{agency:?} takes no addresses"))?;
+        Ok(Arc::new(Estimating { inner, agency }) as Arc<dyn RasterBackend>)
+    })
 }
 
 /// A built-in raster backend that also answers the download estimate, with the raster items
@@ -808,6 +857,142 @@ pub fn adapters() -> Vec<Arc<dyn RegionAdapter>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// What the manifest of each state with an addressed orthophoto says is what the code
+    /// held before the addresses moved there (issue #273): the same WMS, layer, size and CRS.
+    #[test]
+    fn the_orthophoto_wms_of_each_manifest_is_the_one_the_code_held() {
+        let held: [(Agency, &freemapper_sources::wms::WmsService); 9] = [
+            (Agency::GeoSn, &crate::geosn::WMS),
+            (Agency::Hvbg, &crate::hvbg::WMS),
+            (Agency::LvermGeoSh, &crate::lvermgeo_sh::WMS),
+            (Agency::GeobasisNrw, &crate::geobasis_nrw::WMS),
+            (Agency::Lgln, &crate::lgln::WMS),
+            (Agency::LvermGeoRp, &crate::lvermgeo_rp::WMS),
+            (Agency::Lvgl, &crate::lvgl::WMS),
+            (Agency::LglBw, &crate::lgl_bw::WMS),
+            (Agency::Ldbv, &crate::ldbv::WMS),
+        ];
+        for (agency, code) in held {
+            let (state, crs) = rasters::addressed(agency).expect("an addressed agency");
+            let wms = wms_of(&RasterConfig::default(), state, crs).unwrap();
+            assert_eq!(wms.url, code.url, "{agency:?}");
+            assert_eq!(wms.layer, code.layer, "{agency:?}");
+            assert_eq!(wms.crs, code.crs, "{agency:?}");
+            assert_eq!(wms.extra, code.extra, "{agency:?}");
+            assert_eq!(wms.max_px, code.max_px, "{agency:?}");
+        }
+        // The other agencies keep their addresses in the code.
+        for agency in [Agency::Lgb, Agency::Lgv, Agency::LaivMv, Agency::GeoBremen] {
+            assert!(rasters::addressed(agency).is_none(), "{agency:?}");
+        }
+    }
+
+    /// A folder that replaces a state states the keys it changes; the others come from the
+    /// built-in manifest, key by key.
+    #[test]
+    fn a_config_overrides_key_by_key_and_the_rest_is_the_built_in_one() {
+        let (state, crs) = (State::Saxony, Crs::Utm33);
+        let base = wms_of(&RasterConfig::default(), state, crs).unwrap();
+        let url = wms_of(
+            &RasterConfig {
+                url: Some("https://example.org/wms".to_string()),
+                ..RasterConfig::default()
+            },
+            state,
+            crs,
+        )
+        .unwrap();
+        assert_eq!(url.url, "https://example.org/wms");
+        assert_eq!((&url.layer, url.max_px), (&base.layer, base.max_px));
+        let layer = wms_of(
+            &RasterConfig {
+                layer: Some("other".to_string()),
+                ..RasterConfig::default()
+            },
+            state,
+            crs,
+        )
+        .unwrap();
+        assert_eq!(layer.layer, "other");
+        assert_eq!((&layer.url, layer.max_px), (&base.url, base.max_px));
+        let size = wms_of(
+            &RasterConfig {
+                max_px: Some(1234),
+                ..RasterConfig::default()
+            },
+            state,
+            crs,
+        )
+        .unwrap();
+        assert_eq!(size.max_px, 1234);
+        assert_eq!((&size.url, &size.layer), (&base.url, &base.layer));
+    }
+
+    /// A state whose manifest names no addressed backend has no addresses to fall back on, and
+    /// an agency that keeps its addresses in code makes no backend from a WMS.
+    #[test]
+    fn without_addresses_there_is_no_wms_and_no_backend() {
+        let none = wms_of(&RasterConfig::default(), State::Hamburg, Crs::Utm32).unwrap_err();
+        assert!(none.contains("hamburg"), "{none}");
+        assert_eq!(
+            builtin_raster_config(State::Hamburg),
+            RasterConfig::default()
+        );
+        assert_ne!(
+            builtin_raster_config(State::Saxony),
+            RasterConfig::default()
+        );
+        let wms = wms_of(
+            &RasterConfig {
+                url: Some("https://example.org/wms".to_string()),
+                layer: Some("l".to_string()),
+                max_px: Some(500),
+            },
+            State::Hamburg,
+            Crs::Utm32,
+        )
+        .unwrap();
+        assert_eq!(
+            (wms.url.as_ref(), wms.layer.as_ref(), wms.max_px),
+            ("https://example.org/wms", "l", 500)
+        );
+        assert!(rasters::backend_with_wms(Agency::Lgb, wms.clone()).is_none());
+        let built = raster_factory(Agency::Lgb, State::Hamburg, Crs::Utm32)(&RasterConfig {
+            url: Some("https://example.org/wms".to_string()),
+            layer: Some("l".to_string()),
+            max_px: Some(500),
+        });
+        assert!(
+            built
+                .err()
+                .expect("an error")
+                .contains("takes no addresses")
+        );
+    }
+
+    /// The backends that take addresses keep their provider and cache folder, which the cache
+    /// of every person already holds.
+    #[test]
+    fn an_addressed_backend_keeps_its_provider_and_its_cache_folder() {
+        let mut registry = Registry::new();
+        register_backends(&mut registry).unwrap();
+        for (name, id, cache) in [
+            ("geosn", "geosn", Some("geosn")),
+            ("hvbg", "hvbg", Some("hvbg")),
+            ("lvermgeo-sh", "lvermgeosh", Some("lvermgeo_sh")),
+            ("geobasis-nrw", "geobasisnrw", Some("geobasis_nrw")),
+            ("lgln", "lgln", None),
+            ("lvermgeo-rp", "lvermgeorp", Some("lvermgeo_rp")),
+            ("lvgl", "lvgl", Some("lvgl")),
+            ("lgl-bw", "lglbw", Some("lglbw")),
+            ("ldbv", "ldbv", Some("ldbv")),
+        ] {
+            let backend = registry.backend(name).expect("a backend of that name");
+            assert_eq!(backend.provider().id.as_str(), id, "{name}");
+            assert_eq!(backend.provider().cache_dir.as_deref(), cache, "{name}");
+        }
+    }
 
     /// Each state with point clouds reads its own backend, made of the table of its manifest;
     /// the others have none and no table.

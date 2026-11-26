@@ -18,10 +18,13 @@ use freemapper_sources::raster_fetch::{
 };
 use freemapper_sources::wms::OrthophotoSource;
 
+#[cfg(any(test, feature = "testing"))]
 use std::borrow::Cow;
 use std::path::{Path, PathBuf};
 
-use crate::crs::{BoundingBox, Crs};
+use crate::crs::BoundingBox;
+#[cfg(any(test, feature = "testing"))]
+use crate::crs::Crs;
 use crate::fetch::{CacheDir, FetchError, FetchMode, Fetcher, write_cache_file};
 use crate::note::{Arg, Note, note};
 use crate::raster::{GridSpec, Raster};
@@ -37,6 +40,7 @@ use crate::tiles::{TileId, tiles_covering};
 
 /// The orthophoto WMS of the newest flight (2025), free to use by its capabilities and
 /// dl-de/by-2-0 by the catalogue.
+#[cfg(any(test, feature = "testing"))]
 pub const WMS: WmsService = WmsService {
     url: Cow::Borrowed("https://geoportal.saarland.de/freewms/dop2025"),
     layer: Cow::Borrowed("sl_dop20_rgb"),
@@ -75,7 +79,7 @@ pub const DISTRICTS: [&str; 6] = ["MZG", "NK", "SB", "SLS", "SPK", "WND"];
 
 /// The date (`DD.MM.YYYY`) of the orthophoto block at the centre of `bbox` (EPSG:25832), by a
 /// GetFeatureInfo on the metadata layer; `None` when the answer has none.
-pub fn flight_date(fetcher: &dyn Fetcher, bbox: &BoundingBox) -> Option<String> {
+pub fn flight_date(fetcher: &dyn Fetcher, wms: &WmsService, bbox: &BoundingBox) -> Option<String> {
     let (e, n) = (
         ((bbox.min_e + bbox.max_e) / 2.0).round(),
         ((bbox.min_n + bbox.max_n) / 2.0).round(),
@@ -84,7 +88,7 @@ pub fn flight_date(fetcher: &dyn Fetcher, bbox: &BoundingBox) -> Option<String> 
         "{}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo&LAYERS={WMS_INFO_LAYER}\
          &QUERY_LAYERS={WMS_INFO_LAYER}&STYLES=&CRS=EPSG:25832&BBOX={},{},{},{}\
          &WIDTH=101&HEIGHT=101&I=50&J=50&INFO_FORMAT=text/html",
-        WMS.url,
+        wms.url,
         e - 50.0,
         n - 50.0,
         e + 50.0,
@@ -401,11 +405,15 @@ const PROVIDER: &str = "lvgl";
 /// The rasters of the LVGL (Saarland): requested for the area and stored in the project folder.
 pub struct LvglBackend {
     info: ProviderInfo,
+    /// The orthophoto WMS, as the manifest says it.
+    wms: WmsService,
 }
 
 impl LvglBackend {
-    pub fn new() -> Self {
+    /// The backend that asks `wms` for the orthophoto.
+    pub fn with_wms(wms: WmsService) -> Self {
         Self {
+            wms,
             info: ProviderInfo {
                 id: AdapterId::built_in(PROVIDER),
                 cache_dir: Some(PROVIDER.to_string()),
@@ -416,6 +424,15 @@ impl LvglBackend {
     }
 }
 
+#[cfg(any(test, feature = "testing"))]
+impl LvglBackend {
+    /// The backend with the WMS the manifest of the state declares.
+    pub fn new() -> Self {
+        Self::with_wms(WMS)
+    }
+}
+
+#[cfg(any(test, feature = "testing"))]
 impl Default for LvglBackend {
     fn default() -> Self {
         Self::new()
@@ -433,7 +450,7 @@ impl RasterBackend for LvglBackend {
         project: &mut dyn RasterProject,
         bbox: &BoundingBox,
     ) -> Result<(), AdapterError> {
-        fetch_rasters(env, project, bbox)
+        fetch_rasters(env, project, bbox, &self.wms)
     }
 }
 
@@ -444,6 +461,7 @@ fn fetch_rasters(
     env: &mut AdapterEnv<'_>,
     project: &mut dyn RasterProject,
     bbox: &BoundingBox,
+    wms: &WmsService,
 ) -> Result<(), AdapterError> {
     let (fetcher, mode, skip_surface) = (env.fetcher, env.mode, env.skip_surface);
     let cache = env.cache;
@@ -451,13 +469,13 @@ fn fetch_rasters(
     project.records().tiles.clear();
     project.records().ndsm_tiles.clear();
     warn_beyond_state(env, project, PROVIDER, "LVGL");
-    let flight = || flight_date(fetcher, bbox);
+    let flight = || flight_date(fetcher, wms, bbox);
     fetch_wms_orthophoto(
         env,
         project,
         bbox,
         (
-            &OrthophotoSource::Wms(WMS),
+            &OrthophotoSource::Wms(wms.clone()),
             "LVGL",
             &flight,
             // The date of the block's update, taken as the flight date: the record says so.
@@ -1031,7 +1049,7 @@ mod tests {
         let fetcher = MapFetcher::default();
         fetcher.insert_prefix(&WMS.url, recorded.as_bytes().to_vec());
         assert_eq!(
-            flight_date(&fetcher, &saarbruecken()).as_deref(),
+            flight_date(&fetcher, &WMS, &saarbruecken()).as_deref(),
             Some("10.05.2025")
         );
         assert_eq!(
@@ -1131,7 +1149,7 @@ mod tests {
                 skip_surface: false,
                 progress: &mut |n| notes.push(n.to_string()),
             };
-            fetch_rasters(&mut env, &mut project, &bbox).unwrap();
+            fetch_rasters(&mut env, &mut project, &bbox, &WMS).unwrap();
             let unavailable = format!("warning: {} unavailable", Model::Dom1.label());
             let warning = notes
                 .iter()

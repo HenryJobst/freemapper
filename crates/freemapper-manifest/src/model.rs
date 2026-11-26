@@ -275,8 +275,11 @@ pub enum Orthophoto {
         max_px: u32,
         date: DateSource,
     },
-    /// Code of an adapter crate, by name.
-    Backend { name: String },
+    /// Code of an adapter crate, by name, with the addresses the table states for it.
+    Backend {
+        name: String,
+        config: freemapper_adapter_api::rasters::RasterConfig,
+    },
 }
 
 /// `[terrain]` and `[surface]`.

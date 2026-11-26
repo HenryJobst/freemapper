@@ -194,32 +194,40 @@ impl ManifestAdapter {
         };
         let rasters: Option<Arc<dyn RasterBackend>> = match &manifest.orthophoto {
             None => None,
-            Some(Orthophoto::Backend { name }) => match backends.backend(name) {
-                Some(backend) if backend.provider().id.as_str() == manifest.adapter.provider => {
-                    Some(backend)
-                }
-                Some(backend) => {
-                    let message = format!(
-                        "the backend `{name}` fetches for the provider `{}`, the manifest says `{}`",
-                        backend.provider().id,
-                        manifest.adapter.provider
-                    );
-                    findings.push(finding("manifest.value", "adapter.provider", message));
-                    None
-                }
-                None => {
-                    let message = format!(
-                        "this freemapper has no raster backend `{name}`; a backend is code of an \
+            Some(Orthophoto::Backend { name, config }) => {
+                match backends.build_backend(name, config) {
+                    Some(Err(message)) => {
+                        findings.push(finding("manifest.value", "orthophoto", message));
+                        None
+                    }
+                    Some(Ok(backend))
+                        if backend.provider().id.as_str() == manifest.adapter.provider =>
+                    {
+                        Some(backend)
+                    }
+                    Some(Ok(backend)) => {
+                        let message = format!(
+                            "the backend `{name}` fetches for the provider `{}`, the manifest says `{}`",
+                            backend.provider().id,
+                            manifest.adapter.provider
+                        );
+                        findings.push(finding("manifest.value", "adapter.provider", message));
+                        None
+                    }
+                    None => {
+                        let message = format!(
+                            "this freemapper has no raster backend `{name}`; a backend is code of an \
                          adapter crate, which a build of freemapper includes by a Cargo feature"
-                    );
-                    findings.push(finding(
-                        "manifest.backend-missing",
-                        "orthophoto.backend",
-                        message,
-                    ));
-                    None
+                        );
+                        findings.push(finding(
+                            "manifest.backend-missing",
+                            "orthophoto.backend",
+                            message,
+                        ));
+                        None
+                    }
                 }
-            },
+            }
             Some(_) => DeclaredRasters::new(&manifest)
                 .map(|declared| Arc::new(declared) as Arc<dyn RasterBackend>),
         };

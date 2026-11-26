@@ -33,6 +33,7 @@ use crate::sources::wms::WmsService;
 /// The orthophoto WMS: the newest DOP20 (the same pixels as the tiles). MaxWidth/MaxHeight is
 /// 15000, but MapServer answers only once the whole image is ready, so the pieces stay at 4000 px
 /// (≈9 s each). An oversize request is an HTTP 200 XML exception. Bremen is left white.
+#[cfg(any(test, feature = "testing"))]
 pub const WMS: WmsService = WmsService {
     url: Cow::Borrowed("https://opendata.lgln.niedersachsen.de/doorman/noauth/dop_wms"),
     layer: Cow::Borrowed("ni_dop20"),
@@ -234,11 +235,15 @@ const PROVIDER: &str = "lgln";
 /// The rasters of LGLN (Lower Saxony): requested for the area and stored in the project folder.
 pub struct LglnBackend {
     info: ProviderInfo,
+    /// The orthophoto WMS, as the manifest says it.
+    wms: WmsService,
 }
 
 impl LglnBackend {
-    pub fn new() -> Self {
+    /// The backend that asks `wms` for the orthophoto.
+    pub fn with_wms(wms: WmsService) -> Self {
         Self {
+            wms,
             info: ProviderInfo {
                 id: AdapterId::built_in(PROVIDER),
                 cache_dir: None,
@@ -249,6 +254,15 @@ impl LglnBackend {
     }
 }
 
+#[cfg(any(test, feature = "testing"))]
+impl LglnBackend {
+    /// The backend with the WMS the manifest of the state declares.
+    pub fn new() -> Self {
+        Self::with_wms(WMS)
+    }
+}
+
+#[cfg(any(test, feature = "testing"))]
 impl Default for LglnBackend {
     fn default() -> Self {
         Self::new()
@@ -266,7 +280,7 @@ impl RasterBackend for LglnBackend {
         project: &mut dyn RasterProject,
         bbox: &BoundingBox,
     ) -> Result<(), AdapterError> {
-        fetch_rasters(env, project, bbox)
+        fetch_rasters(env, project, bbox, &self.wms)
     }
 }
 
@@ -277,6 +291,7 @@ fn fetch_rasters(
     env: &mut AdapterEnv<'_>,
     project: &mut dyn RasterProject,
     bbox: &BoundingBox,
+    wms: &WmsService,
 ) -> Result<(), AdapterError> {
     let (fetcher, mode) = (env.fetcher, env.mode);
     let dir = &project.dir().to_path_buf();
@@ -301,7 +316,7 @@ fn fetch_rasters(
         env,
         project,
         bbox,
-        (&OrthophotoSource::Wms(WMS), "LGLN", &flight, None),
+        (&OrthophotoSource::Wms(wms.clone()), "LGLN", &flight, None),
     )?;
     // Without a fresh date a recent stored orthophoto is kept with its own (see
     // `fetch_wms_orthophoto`); the warning says which of the two happened.

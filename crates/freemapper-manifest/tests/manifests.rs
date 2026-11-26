@@ -88,7 +88,8 @@ fn valid_manifests_parse() {
     assert_eq!(
         hamburg.orthophoto,
         Some(Orthophoto::Backend {
-            name: "lgv".to_string()
+            name: "lgv".to_string(),
+            config: freemapper_adapter_api::rasters::RasterConfig::default(),
         })
     );
     assert_eq!(hamburg.adapter.agency, "Hamburg");

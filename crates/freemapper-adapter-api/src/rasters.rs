@@ -39,6 +39,35 @@ pub struct ProviderInfo {
     pub kind: RasterKind,
 }
 
+/// What `[orthophoto]` of a manifest says besides the name of its backend: where the backend
+/// asks for the orthophoto (issue #273). A key the manifest leaves out is `None`, and the
+/// backend then takes the one of the built-in manifest of its state.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct RasterConfig {
+    /// The WMS address, without a query.
+    pub url: Option<String>,
+    /// The layer of the orthophoto.
+    pub layer: Option<String>,
+    /// The largest side of one request in pixels.
+    pub max_px: Option<u32>,
+}
+
+impl RasterConfig {
+    /// Whether the manifest said none of the keys.
+    pub fn is_empty(&self) -> bool {
+        self == &Self::default()
+    }
+
+    /// This config, with the keys it leaves out taken from `fallback`.
+    pub fn or(&self, fallback: &Self) -> Self {
+        Self {
+            url: self.url.clone().or_else(|| fallback.url.clone()),
+            layer: self.layer.clone().or_else(|| fallback.layer.clone()),
+            max_px: self.max_px.or(fallback.max_px),
+        }
+    }
+}
+
 /// The area `derive` builds the templates for.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct RasterArea {
@@ -155,5 +184,46 @@ pub trait RasterBackend: Send + Sync {
         _area: &RasterArea,
     ) -> DeriveInputs {
         DeriveInputs::stored()
+    }
+}
+
+#[cfg(test)]
+mod config_tests {
+    use super::RasterConfig;
+
+    fn config(url: Option<&str>, layer: Option<&str>, max_px: Option<u32>) -> RasterConfig {
+        RasterConfig {
+            url: url.map(str::to_string),
+            layer: layer.map(str::to_string),
+            max_px,
+        }
+    }
+
+    #[test]
+    fn a_config_with_no_key_is_empty_and_one_key_is_not() {
+        assert!(RasterConfig::default().is_empty());
+        assert!(!config(Some("https://a"), None, None).is_empty());
+        assert!(!config(None, Some("l"), None).is_empty());
+        assert!(!config(None, None, Some(1)).is_empty());
+    }
+
+    #[test]
+    fn a_key_of_the_config_wins_and_a_missing_one_comes_from_the_fallback() {
+        let fallback = config(Some("https://fallback"), Some("fl"), Some(100));
+        let own = config(Some("https://own"), Some("ol"), Some(200));
+        assert_eq!(own.or(&fallback), own);
+        assert_eq!(RasterConfig::default().or(&fallback), fallback);
+        assert_eq!(
+            config(Some("https://own"), None, None).or(&fallback),
+            config(Some("https://own"), Some("fl"), Some(100))
+        );
+        assert_eq!(
+            config(None, Some("ol"), None).or(&fallback),
+            config(Some("https://fallback"), Some("ol"), Some(100))
+        );
+        assert_eq!(
+            config(None, None, Some(200)).or(&fallback),
+            config(Some("https://fallback"), Some("fl"), Some(200))
+        );
     }
 }

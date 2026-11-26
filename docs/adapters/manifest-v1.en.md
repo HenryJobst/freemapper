@@ -133,6 +133,18 @@ A table that names a backend has one key:
 |---|---|---|
 | `backend` | text | The name of a raster backend built into freemapper: 2 to 32 lower-case letters, digits and hyphens. A name the program does not have is `manifest.backend-missing`. `kind = "backend"` may stand beside it; any other key may not. |
 
+`[orthophoto]` of nine backends (`geosn`, `hvbg`, `lvermgeo-rp`, `lgl-bw`, `lvermgeo-sh`, `lvgl`, `geobasis-nrw`,
+`ldbv`, `lgln`) states where the backend asks for the orthophoto, with the same keys as a WMS (issue #273). Each key
+is optional; one left out is the one of the built-in manifest of the state, so a folder that replaces a state
+(ADR 0188) states only what moved. The code keeps the CRS, the name of the info layer and the way the answers are read.
+`[terrain]` and `[surface]` take none of these keys, and a backend not on this list takes none in any table.
+
+| Key | Type | Meaning and limits |
+|---|---|---|
+| `url` | text | The WMS address, https on a host of `[net] hosts`, without a query. |
+| `layer` | text | The layer of the orthophoto: 1 to 100 letters, digits and `_.:-`. |
+| `max_px` | integer | The largest side of one request in pixels, 256 to 10000. |
+
 `[orthophoto]` as a service:
 
 | Key | Type | `wms` | `wcs` | Meaning and limits |

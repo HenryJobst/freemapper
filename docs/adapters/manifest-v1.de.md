@@ -137,6 +137,19 @@ Eine Tabelle, die ein Backend nennt, hat einen Schlüssel:
 |---|---|---|
 | `backend` | Text | Der Name eines Rasterbackends, das in freemapper eingebaut ist: 2 bis 32 Kleinbuchstaben, Ziffern und Bindestriche. Ein Name, den das Programm nicht hat, ist `manifest.backend-missing`. `kind = "backend"` darf daneben stehen, kein anderer Schlüssel. |
 
+`[orthophoto]` von neun Backends (`geosn`, `hvbg`, `lvermgeo-rp`, `lgl-bw`, `lvermgeo-sh`, `lvgl`, `geobasis-nrw`,
+`ldbv`, `lgln`) nennt, wo das Backend das Orthofoto abfragt, mit denselben Schlüsseln wie ein WMS (Issue #273). Jeder
+Schlüssel ist optional; was fehlt, nimmt das Backend aus dem eingebauten Manifest des Bundeslands, ein Ordner, der ein
+Bundesland ersetzt (ADR 0188), nennt also nur, was umgezogen ist. Das Koordinatensystem, den Namen der Info-Ebene und
+das Lesen der Antworten behält der Code. `[terrain]` und `[surface]` nehmen keinen dieser Schlüssel, und ein Backend
+außerhalb dieser Liste nimmt in keiner Tabelle einen.
+
+| Schlüssel | Typ | Bedeutung und Grenzen |
+|---|---|---|
+| `url` | Text | Die WMS-Adresse, https auf einem Host aus `[net] hosts`, ohne Query. |
+| `layer` | Text | Die Ebene des Orthofotos: 1 bis 100 Buchstaben, Ziffern und `_.:-`. |
+| `max_px` | Ganzzahl | Die längste Seite einer Anfrage in Pixeln, 256 bis 10000. |
+
 `[orthophoto]` als Dienst:
 
 | Schlüssel | Typ | `wms` | `wcs` | Bedeutung und Grenzen |

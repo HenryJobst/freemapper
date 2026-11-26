@@ -18,6 +18,7 @@ use freemapper_adapter_api::permits::{
     PermitSection, ProtectedObjectKind,
 };
 use freemapper_adapter_api::policy;
+use freemapper_adapter_api::rasters::RasterConfig;
 use freemapper_georef::crs::Crs;
 use freemapper_sources::nas::NAS_LAYERS;
 use toml::Spanned;
@@ -141,6 +142,20 @@ fn is_slug(text: &str, max: usize) -> bool {
             .iter()
             .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || *b == b'-')
 }
+
+/// The raster backends whose `[orthophoto]` may state the address of the WMS they ask (issue
+/// #273): `url`, `layer` and `max_px`. The code of the backend keeps everything else.
+pub const TAKES_ADDRESSES: [&str; 9] = [
+    "geosn",
+    "hvbg",
+    "lvermgeo-rp",
+    "lgl-bw",
+    "lvermgeo-sh",
+    "lvgl",
+    "geobasis-nrw",
+    "ldbv",
+    "lgln",
+];
 
 /// The name of a layer or a coverage of a service.
 fn is_layer(text: &str) -> bool {
@@ -725,7 +740,7 @@ impl Check<'_> {
             HeightModel::Wcs { .. } => None,
         };
         let first = match orthophoto {
-            Orthophoto::Backend { name } => Some(name.clone()),
+            Orthophoto::Backend { name, .. } => Some(name.clone()),
             Orthophoto::Wms { .. } | Orthophoto::Wcs { .. } => None,
         };
         let others = [Some(terrain), surface].into_iter().flatten().map(of_model);
@@ -1396,26 +1411,46 @@ impl Check<'_> {
         )? {
             Ok(kind) => kind,
             Err(name) => {
-                let fine = self.absent_of_raster(
-                    raw,
-                    table,
-                    "a backend",
-                    &[
-                        "label",
-                        "url",
-                        "layer",
-                        "coverage",
-                        "crs",
-                        "params",
-                        "max_px",
-                        "multipart",
-                        "envelope",
-                        "max_m",
-                        "date",
-                        "source_label",
-                    ],
-                );
-                return fine.then_some(Orthophoto::Backend { name });
+                let takes = TAKES_ADDRESSES.contains(&name.as_str());
+                let mut absent = vec![
+                    "label",
+                    "coverage",
+                    "crs",
+                    "params",
+                    "multipart",
+                    "envelope",
+                    "max_m",
+                    "date",
+                    "source_label",
+                ];
+                if !takes {
+                    absent.extend(["url", "layer", "max_px"]);
+                }
+                let mut fine = self.absent_of_raster(raw, table, "a backend", &absent);
+                let mut config = RasterConfig::default();
+                if takes {
+                    if let Some(url) = raw.url.as_ref() {
+                        config.url = self.url(url, "orthophoto.url");
+                        fine &= config.url.is_some();
+                    }
+                    if let Some(layer) = raw.layer.as_ref() {
+                        config.layer = self.matching(
+                            layer,
+                            "orthophoto.layer",
+                            "manifest.value",
+                            is_layer,
+                            "the name of a layer: letters, digits and `_.:-`",
+                        );
+                        fine &= config.layer.is_some();
+                    }
+                    if let Some(value) = raw.max_px.as_ref() {
+                        config.max_px = self
+                            .integer(value, "orthophoto.max_px", 256, 10_000)
+                            .and_then(|value| u32::try_from(value).ok());
+                        fine &= config.max_px.is_some();
+                    }
+                }
+                return fine.then_some(Orthophoto::Backend { name, config });
             }
         };
         let at = kind.span();

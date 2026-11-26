@@ -40,6 +40,9 @@ square_bez = "ohne Unterart (Niedersachsen)"
 
 [orthophoto]
 backend = "lgln"
+url = "https://opendata.lgln.niedersachsen.de/doorman/noauth/dop_wms"
+layer = "ni_dop20"
+max_px = 4000
 
 [terrain]
 backend = "lgln"

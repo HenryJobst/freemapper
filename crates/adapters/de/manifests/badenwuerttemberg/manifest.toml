@@ -57,6 +57,9 @@ note = "Lizenz dl-de/by-2-0 (Datenlizenz Deutschland – Namensnennung – Versi
 
 [orthophoto]
 backend = "lgl-bw"
+url = "https://owsproxy.lgl-bw.de/owsproxy/ows/WMS_LGL-BW_ATKIS_DOP_20_C"
+layer = "IMAGES_DOP_20_RGB"
+max_px = 4000
 
 [terrain]
 backend = "lgl-bw"
