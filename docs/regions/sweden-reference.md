@@ -773,7 +773,8 @@ Offene Fragen, bevor A beginnt:
 * Ob die Ortofoto-COGs als Demo vorliegen — die Demodata-Seite listet nur die digitalen Flugbilder [live];
   damit bleibt ihre Kompression ungeprüft (PackBits? JPEG? deflate?).
 * Ob eine Privatperson ohne schwedische Personnummer Produkte mit Rechtsprüfung beantragen kann und wie. Der Support
-  nennt nur den Weg über ein Organisationskonto (2026-11-26), eine Antwort auf die Rückfrage steht aus. Davon hängen Byggnad und Ortofoto für alle Nutzer außerhalb Schwedens ab.
+  nennt nur den Weg über ein Organisationskonto (2026-11-26), eine Antwort auf die Rückfrage steht aus.
+  Davon hängen Byggnad und Ortofoto für alle Nutzer außerhalb Schwedens ab.
 * Was die kostenpflichtigen Produkte kosten; die Übersicht nennt nur „Avgift“, keine Preise [live]. Der Support
   sagt, dass der Preis erst im Bestellvorgang des Geotorget erscheint, je Nutzungskategorie und mit Mehrwertsteuer
   (§2). Das Ythöjdmodell gibt es mit und ohne Farbe zu verschiedenen Preisen.
