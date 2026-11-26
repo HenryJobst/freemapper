@@ -99,6 +99,13 @@ layers = [
     { key = "landschaftsbestandteile", type_name = "ms:glb", reading = "object", object = "protected-landscape-part", name = "bezeichnung", citation = "rvolink" },
 ]
 
+# The point clouds the vegetation candidates are read from (issue #273): the backend of the state keeps the names of the
+# tiles and how it reads the answers, the manifest holds where.
+[point_cloud]
+kind = "meta4"
+url = "https://geobasis-rlp.de/data/las/current"
+index_url = "https://geobasis-rlp.de/data/las/current/meta4/las_las_07.meta4"
+
 [preview]
 wms = "https://geo4.service24.rlp.de/wms/rp_dop20.fcgi"
 layer = "rp_dop20"

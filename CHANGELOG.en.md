@@ -8,6 +8,7 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ### Changed
 
+- The addresses of the point clouds (NRW, Rhineland-Palatinate, Brandenburg, Berlin, Saarland, Bavaria) now live in the manifests of the states, in the new table `[point_cloud]` with a `kind`, the folder `url` and, where the state has one, an `index_url` (index, Metalink or currency list). The backends keep the names of the tiles and how they read the answers; their address constants are test tools that hold the manifests to the old values. Nothing changes for maps and cache folders.
 - The addresses of the ALKIS services (buildings and land use, NAS Brandenburg) now live only in the states' manifests; the tables in the code are test tools only, and a test holds each manifest to them (issue #273). The code path stays for Berlin, Baden-Württemberg, Bremen and Bavaria, which have no simplified service. Maps and notes stay the same.
 
 ### Fixed

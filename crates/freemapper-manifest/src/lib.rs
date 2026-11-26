@@ -29,7 +29,7 @@ mod schema;
 mod validate;
 
 pub use error::ManifestError;
-pub use model::Manifest;
+pub use model::{Manifest, PointCloud, PointCloudKind};
 pub use validate::MAX_ANSWER_BYTES;
 
 /// The name of the manifest file in the folder of an adapter.

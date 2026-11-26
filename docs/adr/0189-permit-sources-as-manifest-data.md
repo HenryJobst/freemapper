@@ -22,3 +22,7 @@ A built-in state takes the sources of its manifest after those its code brings. 
 - The notes read the same. The order of the sources of a state is that of the code, then that of the manifest.
 - A manifest that declares a source needs freemapper 0.28.0 or later; `min_freemapper` says so.
 - The 64-URL limit of a manifest may need to grow when large states move their tables.
+
+## Addendum: the addresses of the point clouds (issue #273, stage 2)
+
+The point clouds of Brandenburg, Berlin, North Rhine-Westphalia, Rhineland-Palatinate, Saarland and Bavaria have their addresses in the manifest, in the table `[point_cloud]`: a `kind` (`laz-tiles`, `index-json`, `meta4`, `currency-csv`, `zip-archives`), the folder `url` and, for the three kinds that read an index, an `index_url`. The backend keeps what is code: the names of the tiles, the table of archives, the classes left out, the megabytes per tile and how it reads the index. A table that names more would only move code into data that no one could change without the code. The built-in adapter makes its backend from the table when it is made; the constants of the backends are test tools (`feature = "testing"`) that hold each manifest to the old addresses. A folder adapter that replaces a built-in state keeps no point cloud, since its backend is code and the manifest of a folder names none.

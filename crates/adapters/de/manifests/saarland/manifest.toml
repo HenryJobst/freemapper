@@ -130,6 +130,12 @@ backend = "lvgl"
 [surface]
 backend = "lvgl"
 
+# The point clouds the vegetation candidates are read from (issue #273): the backend of the state keeps the names of the
+# tiles and how it reads the answers, the manifest holds where.
+[point_cloud]
+kind = "zip-archives"
+url = "https://www.shop.lvgl.saarland.de/cloud/public.php/dav/files/NK8ndP55qAqGEZD/OD_LIDAR_Punktwolke_2025_laz_LK"
+
 [preview]
 wms = "https://geoportal.saarland.de/freewms/dop2025"
 layer = "sl_dop20_rgb"

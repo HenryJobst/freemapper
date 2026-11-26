@@ -197,6 +197,13 @@ layers = [
     { key = "wasserschutzgebiete", reading = "water", name = "name", zone = "wsg_zone", planned_attribute = "areastatus", planned_value = "P" },
 ]
 
+# The point clouds the vegetation candidates are read from (issue #273): the backend of the state keeps the names of the
+# tiles and how it reads the answers, the manifest holds where.
+[point_cloud]
+kind = "index-json"
+url = "https://www.opengeodata.nrw.de/produkte/geobasis/hm/3dm_l_las/3dm_l_las"
+index_url = "https://www.opengeodata.nrw.de/produkte/geobasis/hm/3dm_l_las/3dm_l_las/index.json"
+
 [preview]
 wms = "https://www.wms.nrw.de/geobasis/wms_nw_dop"
 layer = "nw_dop_rgb"

@@ -20,6 +20,8 @@ pub struct Manifest {
     pub orthophoto: Option<Orthophoto>,
     pub terrain: Option<HeightModel>,
     pub surface: Option<HeightModel>,
+    /// `[point_cloud]`: the addresses the point-cloud backend of the state reads.
+    pub point_cloud: Option<PointCloud>,
     /// `[[extra.nas]]`.
     pub nas: Vec<Nas>,
     /// `[[extra.trees]]`.
@@ -351,6 +353,59 @@ pub struct TreeFields {
     pub species: Option<String>,
     pub crown: Option<String>,
     pub gone: Option<String>,
+}
+
+/// How a point-cloud backend finds its tiles (`[point_cloud] kind`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PointCloudKind {
+    /// Tiles named by their grid position in one folder; no index.
+    LazTiles,
+    /// The folder lists its tiles in a JSON index (`index_url`).
+    IndexJson,
+    /// The tiles come from a Metalink file (`index_url`).
+    Meta4,
+    /// Tiles in a folder, their survey dates in a CSV file (`index_url`).
+    CurrencyCsv,
+    /// Zip archives that each hold many tiles; the folder holds the archives.
+    ZipArchives,
+}
+
+impl PointCloudKind {
+    /// The value in the manifest.
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::LazTiles => "laz-tiles",
+            Self::IndexJson => "index-json",
+            Self::Meta4 => "meta4",
+            Self::CurrencyCsv => "currency-csv",
+            Self::ZipArchives => "zip-archives",
+        }
+    }
+
+    /// Whether the kind reads an index file besides the tiles.
+    pub fn has_index(self) -> bool {
+        matches!(self, Self::IndexJson | Self::Meta4 | Self::CurrencyCsv)
+    }
+
+    /// Every kind.
+    pub const ALL: [Self; 5] = [
+        Self::LazTiles,
+        Self::IndexJson,
+        Self::Meta4,
+        Self::CurrencyCsv,
+        Self::ZipArchives,
+    ];
+}
+
+/// `[point_cloud]`: the addresses of a point-cloud backend. The backend keeps the names of the
+/// tiles and how it reads the answers; the manifest holds where.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PointCloud {
+    pub kind: PointCloudKind,
+    /// The folder of the tiles (or archives), without a trailing slash.
+    pub url: String,
+    /// The index file of the kinds that read one.
+    pub index_url: Option<String>,
 }
 
 /// `[preview]`: the aerial photo for the map of the area page.

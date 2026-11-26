@@ -1751,7 +1751,7 @@ pub(crate) mod test_support {
     /// 2024-06-12: dense bushes about 1.6 m above the terrain of [`serve_synthetic_tile`] on
     /// [`SCHOOL_THICKET`], ground returns on [`SCHOOL_LAWN`].
     pub fn serve_synthetic_point_cloud(fetcher: &MapFetcher, tile: TileId) {
-        use freemapper_adapters_de::lgb_als::{ALS_CURRENCY_CSV, als_tile_url};
+        use freemapper_adapters_de::lgb_als::{ALS_CURRENCY_CSV, ALS_URL};
         use las::point::Classification;
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("als.laz");
@@ -1803,7 +1803,10 @@ pub(crate) mod test_support {
         zip.start_file(format!("als_{}.laz", tile.name()), options)
             .unwrap();
         zip.write_all(&std::fs::read(&path).unwrap()).unwrap();
-        fetcher.insert(&als_tile_url(tile), zip.finish().unwrap().into_inner());
+        fetcher.insert(
+            &format!("{ALS_URL}/als_{}.zip", tile.name()),
+            zip.finish().unwrap().into_inner(),
+        );
         let mut csv =
             "sheetnr;sheetname;creationdate;revisiondate;publicationdate;processstepdate\n"
                 .to_string();
