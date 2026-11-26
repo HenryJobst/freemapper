@@ -683,6 +683,12 @@ From the terrain model come further candidates the contours miss:
   (0.5 m on schoolyard maps), narrower than 5 mm on paper and at least 10 m, that rises clearly from its
   foot. An elongated knoll is turned along its length.
 - **Small depressions** (111): the same, as a hollow.
+- **Boulders** (204) and **large boulders** (205): a knoll that lies on a bare-rock area (OpenStreetMap
+  `natural=bare_rock`, symbol 214) is a rock tower or a block, not a knoll of the ground. From 1 m high freemapper
+  draws it as a boulder (204), from 2 m as a large boulder (205), without rotation. The height is cut off at 6 m.
+  The terrain of a rock town such as Adršpach (520 of 522 knolls on rock, most above 4 m) becomes a field of black
+  dots, as real maps show it. A rock area that OpenStreetMap lacks keeps its brown knolls. The rock pillar in plan
+  shape (206) is not built by freemapper.
 - **Earth banks** (104) and, from 3 m high, **impassable cliffs** (201): a narrow, steep strip that takes
   most of its height difference within a few metres. A plain slope does not count. The ticks point down.
 
