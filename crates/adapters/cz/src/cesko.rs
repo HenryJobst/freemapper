@@ -275,6 +275,8 @@ mod tests {
     use super::*;
     use chrono::NaiveDate;
     use freemapper_adapter_api::cache::CacheDir;
+    use freemapper_adapter_api::credit::AlkisUse;
+    use freemapper_adapter_api::records::WcsRecord;
     use geo::Contains;
     use geo_types::Point;
 
@@ -369,5 +371,73 @@ mod tests {
             &EstimateEnv { cache: &cache },
         );
         assert_eq!(items.len(), 3, "{items:?}");
+    }
+
+    fn record_day() -> NaiveDate {
+        NaiveDate::from_ymd_opt(2026, 11, 26).unwrap()
+    }
+
+    fn credit_of(used: &UsedSources<'_>) -> Vec<CreditLine> {
+        Cesko::new(&[]).attribution(used)
+    }
+
+    #[test]
+    fn the_credit_comes_with_the_rasters_or_the_cadastre_of_cuzk_alone() {
+        let terrain = WcsRecord {
+            fetched: record_day(),
+            bbox: [0.0; 4],
+            date: None,
+        };
+        let cuzk = || Some(AdapterId::built_in(PROVIDER));
+        let credited = vec![CreditLine::new(CREDIT)];
+        // Rasters of ČÚZK that the project holds.
+        let with_rasters = UsedSources {
+            raster_provider: cuzk(),
+            terrain: Some(&terrain),
+            ..UsedSources::default()
+        };
+        assert_eq!(credit_of(&with_rasters), credited);
+        // The provider alone, with nothing stored from it.
+        let nothing_stored = UsedSources {
+            raster_provider: cuzk(),
+            ..UsedSources::default()
+        };
+        assert!(credit_of(&nothing_stored).is_empty());
+        // Rasters stored, but of another provider.
+        let foreign = UsedSources {
+            raster_provider: Some(AdapterId::built_in("gugik")),
+            terrain: Some(&terrain),
+            ..UsedSources::default()
+        };
+        assert!(credit_of(&foreign).is_empty());
+        // The cadastre of the region without rasters of ČÚZK.
+        let cadastre = UsedSources {
+            alkis: vec![AlkisUse {
+                regions: vec![AdapterId::built_in(CESKO)],
+                fetched: record_day(),
+            }],
+            ..UsedSources::default()
+        };
+        assert_eq!(credit_of(&cadastre), credited);
+        assert!(credit_of(&UsedSources::default()).is_empty());
+    }
+
+    #[test]
+    fn the_adapter_offers_its_cadastre_and_its_rasters() {
+        let cesko = Cesko::new(&[]);
+        assert!(cesko.alkis().is_some());
+        assert!(cesko.rasters().is_some());
+    }
+
+    #[test]
+    fn the_adapter_is_added_to_a_registry_once() {
+        let mut registry = Registry::new();
+        register(&mut registry).unwrap();
+        assert!(registry.get(CESKO).is_some());
+        assert!(register(&mut registry).is_err());
+        let mut wider = Registry::new();
+        let extra = BTreeMap::from([(CESKO.to_string(), vec!["atom.cuzk.gov.cz".to_string()])]);
+        register_with_hosts(&mut wider, &extra).unwrap();
+        assert!(wider.get(CESKO).is_some());
     }
 }

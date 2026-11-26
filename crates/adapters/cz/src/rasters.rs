@@ -352,6 +352,7 @@ impl RasterBackend for CuzkRasters {
 mod tests {
     use super::*;
     use chrono::NaiveDate;
+    use freemapper_adapter_api::adapter::RegionAdapter;
     use freemapper_adapter_api::cache::CacheDir;
     use freemapper_adapter_api::project::RasterRecords;
     use freemapper_adapter_api::records::{NdsmRecord, TileRecord, WcsRecord, WmsRecord};
@@ -628,8 +629,8 @@ mod tests {
         assert!((ortho.megabytes - ORTHOPHOTO_MB_PER_KM2).abs() < 1e-9);
     }
 
-    #[test]
-    fn a_fetch_without_a_flight_date_from_the_service_stores_all_three_rasters() {
+    /// A fetch of `side` metres through `backend`; the files and records it stored.
+    fn fetched_through(backend: &dyn RasterBackend) {
         // The WMS answer: a 2000 px JPEG piece for a 400 m area.
         let side = 40.0;
         let fetcher = served(side, 187.5, 200.0);
@@ -666,13 +667,72 @@ mod tests {
             surface: None,
             side,
         };
-        CuzkRasters::new()
-            .fetch(&mut env, &mut project, &area(side))
-            .unwrap();
+        backend.fetch(&mut env, &mut project, &area(side)).unwrap();
         for file in ["dgm1.tif", "dgm1.tfw", "dom1.tif", "orthophoto-wms.jpg"] {
             assert!(dir.join("data").join(file).exists(), "{file}");
         }
         assert!(project.terrain.is_some() && project.surface.is_some());
         assert!(project.orthophoto.is_some());
+    }
+    #[test]
+    fn a_fetch_without_a_flight_date_from_the_service_stores_all_three_rasters() {
+        fetched_through(&CuzkRasters::new());
+    }
+
+    /// The adapter's guarded rasters pass the fetch on to the backend.
+    #[test]
+    fn the_guarded_rasters_of_the_adapter_store_all_three_rasters_too() {
+        let cesko = crate::cesko::Cesko::new(&[]);
+        fetched_through(cesko.rasters().unwrap());
+    }
+
+    #[test]
+    fn the_upsample_of_a_slope_is_exact_between_the_cell_centres() {
+        // z = 10 * column + 100 * row on 2 m cells; a linear surface is reproduced by bilinear
+        // interpolation, whatever the origin of the grids.
+        let coarse_grid = GridSpec {
+            west: 100.0,
+            north: 206.0,
+            pixel_size: 2.0,
+            width: 3,
+            height: 3,
+        };
+        let mut coarse = Raster::filled(coarse_grid, 0.0f32);
+        for y in 0..3 {
+            for x in 0..3 {
+                coarse.set(x, y, 10.0 * x as f32 + 100.0 * y as f32);
+            }
+        }
+        // Pixel centres at 101.25 ..= 104.75 m east and 204.75 ..= 201.25 m north.
+        let fine_grid = GridSpec {
+            west: 101.0,
+            north: 205.0,
+            pixel_size: 0.5,
+            width: 8,
+            height: 8,
+        };
+        let fine = upsample(&coarse, fine_grid);
+        for y in 0..8u32 {
+            for x in 0..8u32 {
+                let east = 101.0 + (f64::from(x) + 0.5) * 0.5;
+                let north = 205.0 - (f64::from(y) + 0.5) * 0.5;
+                let column = (east - 100.0) / 2.0 - 0.5;
+                let row = (206.0 - north) / 2.0 - 0.5;
+                let expected = (10.0 * column + 100.0 * row) as f32;
+                assert!(
+                    (fine.get(x, y) - expected).abs() < 1e-3,
+                    "({x}, {y}): {} against {expected}",
+                    fine.get(x, y)
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn the_models_are_named_for_the_log_and_the_record() {
+        assert_eq!(Model::Dmr5g.label(), "terrain model (ČÚZK DMR 5G)");
+        assert_eq!(Model::Dmp1g.label(), "surface model (ČÚZK DMP 1G)");
+        assert_eq!(Model::Dmr5g.source(), "ČÚZK DMR 5G");
+        assert_eq!(Model::Dmp1g.source(), "ČÚZK DMP 1G");
     }
 }
