@@ -493,13 +493,6 @@ pub fn register_backends(registry: &mut Registry) -> Result<(), DuplicateBackend
         if let (Some(name), Some((state, crs))) = (backend_name(agency), rasters::addressed(agency))
         {
             registry.add_raster_factory(name, raster_factory(agency, state, crs))?;
-        } else if let (Some(name), Some(backend)) = (backend_name(agency), rasters::backend(agency))
-        {
-            let backend = Estimating {
-                inner: backend,
-                agency,
-            };
-            registry.add_backend(name, Arc::new(backend))?;
         }
     }
     Ok(())
@@ -890,15 +883,14 @@ mod tests {
             }
             assert_eq!(wms.max_px, code.max_px, "{agency:?}");
         }
-        // The other agencies keep their addresses in the code.
-        assert!(rasters::addressed(Agency::Lgb).is_none());
-        assert!(rasters::backend(Agency::Lgb).is_some());
-        // LVermGeo declares its rasters as services in its manifest, and the addressed
-        // agencies are made by their factories: neither has a backend of its own here.
+        // LVermGeo declares its rasters as services in its manifest; every other agency is
+        // made by its factory.
         for agency in AGENCIES {
-            let own = rasters::backend(agency).is_none();
-            let by_factory = rasters::addressed(agency).is_some();
-            assert_eq!(own, agency == Agency::LvermGeo || by_factory, "{agency:?}");
+            assert_eq!(
+                rasters::addressed(agency).is_some(),
+                agency != Agency::LvermGeo,
+                "{agency:?}"
+            );
         }
     }
 
@@ -950,6 +942,20 @@ mod tests {
                 ("dom-wcs", &crate::lgln::DOM1_WCS.url),
             ])
         );
+        // The folders of LGB, which the constants of `lgb.rs` held; Berlin asks the same.
+        for state in [State::Brandenburg, State::Berlin] {
+            assert_eq!(
+                endpoints(state),
+                named(&[
+                    ("data", "https://data.geobasis-bb.de/geobasis/daten"),
+                    (
+                        "currency",
+                        "https://data.geobasis-bb.de/geobasis/information/aktualitaeten"
+                    ),
+                ]),
+                "{state:?}"
+            );
+        }
     }
 
     /// A folder that replaces a state states the keys it changes; the others come from the
@@ -1101,10 +1107,9 @@ mod tests {
     fn without_addresses_there_is_no_wms_and_no_backend() {
         let none = wms_of(&RasterConfig::default(), State::Brandenburg, Crs::Utm32).unwrap_err();
         assert!(none.contains("brandenburg"), "{none}");
-        assert_eq!(
-            builtin_raster_config(State::Brandenburg),
-            RasterConfig::default()
-        );
+        // Brandenburg states the folders of LGB's tiles, but no WMS.
+        let brandenburg = builtin_raster_config(State::Brandenburg);
+        assert!(brandenburg.url.is_none() && !brandenburg.endpoints.is_empty());
         assert_ne!(
             builtin_raster_config(State::Saxony),
             RasterConfig::default()
@@ -1125,11 +1130,11 @@ mod tests {
             ("https://example.org/wms", "l", 500)
         );
         assert!(
-            rasters::backend_with_wms(Agency::Lgb, wms.clone(), &RasterConfig::default())
+            rasters::backend_with_wms(Agency::LvermGeo, wms.clone(), &RasterConfig::default())
                 .unwrap()
                 .is_none()
         );
-        let built = raster_factory(Agency::Lgb, State::Brandenburg, Crs::Utm32)(&RasterConfig {
+        let built = raster_factory(Agency::LvermGeo, State::Brandenburg, Crs::Utm32)(&RasterConfig {
             url: Some("https://example.org/wms".to_string()),
             layer: Some("l".to_string()),
             max_px: Some(500),
@@ -1162,6 +1167,7 @@ mod tests {
             ("lgv", "lgv", Some("lgv")),
             ("laiv-mv", "laivmv", Some("laiv_mv")),
             ("geobremen", "geobremen", Some("geobremen")),
+            ("lgb", "lgb", Some("lgb")),
         ] {
             let backend = registry.backend(name).expect("a backend of that name");
             assert_eq!(backend.provider().id.as_str(), id, "{name}");

@@ -11,7 +11,8 @@ use freemapper_adapter_api::env::AdapterEnv;
 use freemapper_adapter_api::error::{AdapterError, tile_names};
 use freemapper_adapter_api::project::RasterProject;
 use freemapper_adapter_api::rasters::{
-    DeriveEnv, DeriveInputs, ProviderInfo, RasterArea, RasterBackend, RasterKind, StoredRasters,
+    DeriveEnv, DeriveInputs, ProviderInfo, RasterArea, RasterBackend, RasterConfig, RasterKind,
+    StoredRasters,
 };
 use freemapper_adapter_api::records::{AdapterId, NdsmRecord, TileRecord};
 use freemapper_sources::raster_fetch::{drop_wms_orthophoto, raster_tiles, say_kept_surface_tiles};
@@ -19,22 +20,92 @@ use freemapper_sources::raster_fetch::{drop_wms_orthophoto, raster_tiles, say_ke
 use crate::crs::BoundingBox;
 use crate::note::{Arg, note};
 use crate::tile_fetch::{
-    TilePaths as _, TileProducts, fetch_ndsm_tiles, fetch_tiles, fetch_tiles_each, tile_inputs,
+    TilePaths as _, TileProducts, fetch_ndsm_tiles_at, fetch_tiles_at, fetch_tiles_each_at,
+    tile_inputs,
 };
 use crate::tiles::TileId;
 
-const DATA_URL: &str = "https://data.geobasis-bb.de/geobasis/daten";
-const DOP_CURRENCY_CSV: &str =
-    "https://data.geobasis-bb.de/geobasis/information/aktualitaeten/bb_dop_aktualitaet.csv";
-const DGM_CURRENCY_CSV: &str =
-    "https://data.geobasis-bb.de/geobasis/information/aktualitaeten/bb_dgm_aktualitaet.csv";
 /// GeoSN GeoCloud link shares (Nextcloud); the tokens change now and then (§2.1 of the Saxony
 /// reference), so the tile index is asked first.
 const GEOSN_SHARES: &str = "https://geocloud.landesvermessung.sachsen.de/public.php/dav/files";
 const GEOSN_DGM1_SHARE: &str = "JCcXyifaNdLDnxZ";
 const GEOSN_DOM1_SHARE: &str = "S6wwnFwX7882sZm";
-const BDOM_CURRENCY_CSV: &str =
-    "https://data.geobasis-bb.de/geobasis/information/aktualitaeten/bb_bdom_aktualitaet.csv";
+
+/// The two folders LGB serves its tiles and their currency lists from (issue #273): where the
+/// `[orthophoto]` of Brandenburg and Berlin says they are. The code keeps the names of the files
+/// below them.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Addresses {
+    /// The folder of the tile archives and the nDOM point clouds.
+    pub data: String,
+    /// The folder of the currency lists (CSV).
+    pub currency: String,
+}
+
+impl Addresses {
+    /// The addresses `config` states.
+    pub fn of(config: &RasterConfig) -> Result<Self, String> {
+        Ok(Self {
+            data: config.require("lgb", "data")?,
+            currency: config.require("lgb", "currency")?,
+        })
+    }
+
+    /// The addresses the manifest of Brandenburg declares.
+    pub fn builtin() -> Self {
+        static BUILTIN: std::sync::OnceLock<Addresses> = std::sync::OnceLock::new();
+        BUILTIN
+            .get_or_init(|| {
+                Self::of(&crate::states::builtin_raster_config(
+                    crate::states::State::Brandenburg,
+                ))
+                .expect("the built-in manifest of Brandenburg names the addresses of LGB")
+            })
+            .clone()
+    }
+
+    /// Download URL of a tile of an LGB `product`.
+    fn tile_url(&self, product: Product, t: TileId) -> String {
+        let (folder, format) = match product {
+            Product::Orthophoto => ("dop", "rgb_jpg"),
+            Product::Dtm => ("dgm", "tif"),
+            _ => ("bdom", "tif"),
+        };
+        format!("{}/{folder}/{format}/{}.zip", self.data, stem(product, t))
+    }
+
+    /// The currency CSV of an LGB `product`.
+    fn currency_csv_url(&self, product: Product) -> String {
+        let file = match product {
+            Product::Orthophoto => "bb_dop_aktualitaet.csv",
+            Product::Dtm => "bb_dgm_aktualitaet.csv",
+            _ => "bb_bdom_aktualitaet.csv",
+        };
+        format!("{}/{file}", self.currency)
+    }
+
+    /// URL of the nDSM point cloud of `t` (LAS 1.2, compressed; no zip, no currency CSV).
+    pub fn ndsm_tile_url(&self, t: TileId) -> String {
+        format!("{}/ndom/NDOM_{}_LAS12.laz", self.data, t.name())
+    }
+
+    /// The download URL of a tile of `product`: the one of the folder `self` names for an LGB
+    /// product, the fallback of the GeoSN share for a Saxon one.
+    pub fn tile_url_of(&self, product: Product, t: TileId) -> String {
+        match product.provider() {
+            TileProvider::Lgb => self.tile_url(product, t),
+            TileProvider::GeoSn => product.tile_url(t),
+        }
+    }
+
+    /// The URL of the currency list of `product`: a CSV of LGB, the index of GeoSN.
+    pub fn currency_url_of(&self, product: Product) -> String {
+        match product.provider() {
+            TileProvider::Lgb => self.currency_csv_url(product),
+            TileProvider::GeoSn => product.currency_csv_url().to_string(),
+        }
+    }
+}
 
 /// The provider of a tile product.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -74,7 +145,8 @@ pub trait ProductTiles: Copy {
     fn tile_url(self, t: TileId) -> String;
 
     /// The LGB currency CSV; GeoSN products take their currency from the tile index instead.
-    fn currency_csv_url(self) -> &'static str;
+    /// An LGB product answers with the address of the built-in manifest.
+    fn currency_csv_url(self) -> String;
 
     /// Name of the raster file inside the tile archive.
     fn raster_member(self, t: TileId) -> String;
@@ -106,9 +178,7 @@ impl ProductTiles for Product {
 
     fn tile_url(self, t: TileId) -> String {
         match self {
-            Self::Orthophoto => format!("{DATA_URL}/dop/rgb_jpg/{}.zip", stem(self, t)),
-            Self::Dtm => format!("{DATA_URL}/dgm/tif/{}.zip", stem(self, t)),
-            Self::ImageDsm => format!("{DATA_URL}/bdom/tif/{}.zip", stem(self, t)),
+            Self::Orthophoto | Self::Dtm | Self::ImageDsm => Addresses::builtin().tile_url(self, t),
             Self::SaxonyDtm => format!(
                 "{GEOSN_SHARES}/{GEOSN_DGM1_SHARE}/{}_tiff.zip",
                 stem(self, t)
@@ -120,12 +190,12 @@ impl ProductTiles for Product {
         }
     }
 
-    fn currency_csv_url(self) -> &'static str {
+    fn currency_csv_url(self) -> String {
         match self {
-            Self::Orthophoto => DOP_CURRENCY_CSV,
-            Self::Dtm => DGM_CURRENCY_CSV,
-            Self::ImageDsm => BDOM_CURRENCY_CSV,
-            Self::SaxonyDtm | Self::SaxonyDsm => crate::sources::geosn::INDEX_URL,
+            Self::Orthophoto | Self::Dtm | Self::ImageDsm => {
+                Addresses::builtin().currency_csv_url(self)
+            }
+            Self::SaxonyDtm | Self::SaxonyDsm => crate::sources::geosn::INDEX_URL.to_string(),
         }
     }
 
@@ -236,9 +306,10 @@ pub fn parse_currency_csv(text: &str) -> Result<HashMap<TileId, TileCurrency>, C
     Ok(table)
 }
 
-/// URL of the nDSM point cloud of `t` (LAS 1.2, compressed; no zip, no currency CSV).
+/// URL of the nDSM point cloud of `t` in the built-in folder (LAS 1.2, compressed; no zip, no
+/// currency CSV).
 pub fn ndsm_tile_url(t: TileId) -> String {
-    format!("{DATA_URL}/ndom/NDOM_{}_LAS12.laz", t.name())
+    Addresses::builtin().ndsm_tile_url(t)
 }
 
 /// Attribution line required by dl-de/by-2-0.
@@ -259,11 +330,15 @@ pub const PRODUCTS: [Product; 2] = [Product::Orthophoto, Product::Dtm];
 /// The rasters of LGB (Brandenburg and Berlin): tiles of 1 km, kept in the cache.
 pub struct LgbBackend {
     info: ProviderInfo,
+    /// The folders of the tiles, as the manifest says them.
+    addresses: Addresses,
 }
 
 impl LgbBackend {
-    pub fn new() -> Self {
+    /// The backend that asks the folders at `addresses`.
+    pub fn with_addresses(addresses: Addresses) -> Self {
         Self {
+            addresses,
             info: ProviderInfo {
                 id: AdapterId::built_in(TileProvider::Lgb.id()),
                 cache_dir: Some(TileProvider::Lgb.id().to_string()),
@@ -276,6 +351,15 @@ impl LgbBackend {
     }
 }
 
+#[cfg(any(test, feature = "testing"))]
+impl LgbBackend {
+    /// The backend with the addresses the manifest of Brandenburg declares.
+    pub fn new() -> Self {
+        Self::with_addresses(Addresses::builtin())
+    }
+}
+
+#[cfg(any(test, feature = "testing"))]
 impl Default for LgbBackend {
     fn default() -> Self {
         Self::new()
@@ -293,7 +377,7 @@ impl RasterBackend for LgbBackend {
         project: &mut dyn RasterProject,
         bbox: &BoundingBox,
     ) -> Result<(), AdapterError> {
-        fetch_rasters(env, project, bbox)
+        fetch_rasters(env, project, bbox, &self.addresses)
     }
 
     fn derive_inputs(
@@ -319,6 +403,7 @@ fn fetch_rasters(
     env: &mut AdapterEnv<'_>,
     project: &mut dyn RasterProject,
     bbox: &BoundingBox,
+    addresses: &Addresses,
 ) -> Result<(), AdapterError> {
     let (fetcher, mode, skip_surface) = (env.fetcher, env.mode, env.skip_surface);
     let cache = env.cache;
@@ -328,7 +413,7 @@ fn fetch_rasters(
     let old_ndsm: Vec<NdsmRecord> = project.records().ndsm_tiles.clone();
     let mut records = Vec::new();
     for product in PRODUCTS {
-        for fetched in fetch_tiles(fetcher, cache, product, &tiles, mode, env.progress)? {
+        for fetched in fetch_tiles_at(addresses, fetcher, cache, product, &tiles, mode, env.progress)? {
             let record = TileRecord {
                 product,
                 tile: fetched.tile.name(),
@@ -388,7 +473,7 @@ fn fetch_rasters(
         project.save()?;
         return Ok(());
     }
-    let ndsm_tiles: Vec<NdsmRecord> = fetch_ndsm_tiles(fetcher, cache, &tiles, mode, env.progress)?
+    let ndsm_tiles: Vec<NdsmRecord> = fetch_ndsm_tiles_at(addresses, fetcher, cache, &tiles, mode, env.progress)?
         .into_iter()
         .map(|t| NdsmRecord {
             tile: t.tile.name(),
@@ -419,7 +504,8 @@ fn fetch_rasters(
         .collect();
     *project.records().ndsm_tiles = ndsm_tiles;
     if !without_ndsm.is_empty() {
-        match fetch_tiles_each(
+        match fetch_tiles_each_at(
+            addresses,
             fetcher,
             cache,
             Product::ImageDsm,
@@ -486,6 +572,80 @@ mod tests {
 
     fn date(s: &str) -> NaiveDate {
         s.parse().unwrap()
+    }
+
+    fn moved() -> Addresses {
+        Addresses {
+            data: "https://tiles.example.org/data".to_string(),
+            currency: "https://tiles.example.org/lists".to_string(),
+        }
+    }
+
+    #[test]
+    fn the_addresses_come_from_the_manifest_and_default_to_the_built_in_ones() {
+        assert_eq!(
+            Addresses::builtin(),
+            Addresses {
+                data: "https://data.geobasis-bb.de/geobasis/daten".to_string(),
+                currency: "https://data.geobasis-bb.de/geobasis/information/aktualitaeten"
+                    .to_string(),
+            }
+        );
+        let mut config = RasterConfig::default();
+        for missing in ["data", "currency"] {
+            config.endpoints = ["data", "currency"]
+                .iter()
+                .filter(|n| **n != missing)
+                .map(|n| (n.to_string(), format!("https://{n}.example.org")))
+                .collect();
+            let err = Addresses::of(&config).unwrap_err();
+            assert!(err.contains(&format!("`{missing}`")), "{err}");
+        }
+    }
+
+    #[test]
+    fn every_url_is_built_below_the_folders_of_the_manifest() {
+        let a = moved();
+        let tile = |product| a.tile_url_of(product, TILE);
+        assert_eq!(
+            tile(Product::Orthophoto),
+            "https://tiles.example.org/data/dop/rgb_jpg/dop_33421-5821.zip"
+        );
+        assert_eq!(
+            tile(Product::Dtm),
+            "https://tiles.example.org/data/dgm/tif/dgm_33421-5821.zip"
+        );
+        assert_eq!(
+            tile(Product::ImageDsm),
+            "https://tiles.example.org/data/bdom/tif/bdom_33421-5821.zip"
+        );
+        assert_eq!(
+            a.currency_url_of(Product::Orthophoto),
+            "https://tiles.example.org/lists/bb_dop_aktualitaet.csv"
+        );
+        assert_eq!(
+            a.currency_url_of(Product::Dtm),
+            "https://tiles.example.org/lists/bb_dgm_aktualitaet.csv"
+        );
+        assert_eq!(
+            a.currency_url_of(Product::ImageDsm),
+            "https://tiles.example.org/lists/bb_bdom_aktualitaet.csv"
+        );
+        assert_eq!(
+            a.ndsm_tile_url(TILE),
+            "https://tiles.example.org/data/ndom/NDOM_33421-5821_LAS12.laz"
+        );
+    }
+
+    /// Saxony's products have nothing to do with the folders of LGB.
+    #[test]
+    fn the_saxon_products_ignore_the_folders_of_lgb() {
+        let a = moved();
+        for product in [Product::SaxonyDtm, Product::SaxonyDsm] {
+            assert_eq!(a.tile_url_of(product, TILE), product.tile_url(TILE));
+            assert_eq!(a.currency_url_of(product), product.currency_csv_url());
+            assert!(!a.tile_url_of(product, TILE).contains("example.org"));
+        }
     }
 
     #[test]
