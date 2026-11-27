@@ -11,15 +11,15 @@
 <p align="center"><b>The layers of the same map</b>: the seven candidate layers on top, the templates behind the map below. A click shows a layer at full size, like the map above.</p>
 
 <table align="center"><tr>
-<td align="center"><a href="examples/berlin-viktoriapark/layers/candidates-terrain.webp"><img src="examples/berlin-viktoriapark/layers/candidates-terrain-thumb.webp" width="113" height="113" alt="Terrain" loading="lazy"></a><br><sub>Terrain</sub></td>
-<td align="center"><a href="examples/berlin-viktoriapark/layers/candidates-water.webp"><img src="examples/berlin-viktoriapark/layers/candidates-water-thumb.webp" width="113" height="113" alt="Water" loading="lazy"></a><br><sub>Water (empty here)</sub></td>
-<td align="center"><a href="examples/berlin-viktoriapark/layers/candidates-vegetation.webp"><img src="examples/berlin-viktoriapark/layers/candidates-vegetation-thumb.webp" width="113" height="113" alt="Vegetation" loading="lazy"></a><br><sub>Vegetation</sub></td>
-<td align="center"><a href="examples/berlin-viktoriapark/layers/candidates-paths.webp"><img src="examples/berlin-viktoriapark/layers/candidates-paths-thumb.webp" width="113" height="113" alt="Paths" loading="lazy"></a><br><sub>Paths</sub></td>
-<td align="center"><a href="examples/berlin-viktoriapark/layers/candidates-barriers.webp"><img src="examples/berlin-viktoriapark/layers/candidates-barriers-thumb.webp" width="113" height="113" alt="Barriers" loading="lazy"></a><br><sub>Barriers</sub></td>
-<td align="center"><a href="examples/berlin-viktoriapark/layers/candidates-features.webp"><img src="examples/berlin-viktoriapark/layers/candidates-features-thumb.webp" width="113" height="113" alt="Features" loading="lazy"></a><br><sub>Features</sub></td>
-<td align="center"><a href="examples/berlin-viktoriapark/layers/candidates-out-of-bounds.webp"><img src="examples/berlin-viktoriapark/layers/candidates-out-of-bounds-thumb.webp" width="113" height="113" alt="Out_of_bounds" loading="lazy"></a><br><sub>Out_of_bounds</sub></td>
+<td align="center"><a href="examples/berlin-viktoriapark/layers/candidates-terrain.webp"><img src="examples/berlin-viktoriapark/layers/candidates-terrain-thumb.webp" width="151" height="151" alt="Terrain" loading="lazy"></a><br><sub>Terrain</sub></td>
+<td align="center"><a href="examples/berlin-viktoriapark/layers/candidates-water.webp"><img src="examples/berlin-viktoriapark/layers/candidates-water-thumb.webp" width="151" height="151" alt="Water" loading="lazy"></a><br><sub>Water (empty here)</sub></td>
+<td align="center"><a href="examples/berlin-viktoriapark/layers/candidates-vegetation.webp"><img src="examples/berlin-viktoriapark/layers/candidates-vegetation-thumb.webp" width="151" height="151" alt="Vegetation" loading="lazy"></a><br><sub>Vegetation</sub></td>
+<td align="center"><a href="examples/berlin-viktoriapark/layers/candidates-paths.webp"><img src="examples/berlin-viktoriapark/layers/candidates-paths-thumb.webp" width="151" height="151" alt="Paths" loading="lazy"></a><br><sub>Paths</sub></td>
+<td align="center"><a href="examples/berlin-viktoriapark/layers/candidates-barriers.webp"><img src="examples/berlin-viktoriapark/layers/candidates-barriers-thumb.webp" width="151" height="151" alt="Barriers" loading="lazy"></a><br><sub>Barriers</sub></td>
+<td align="center"><a href="examples/berlin-viktoriapark/layers/candidates-features.webp"><img src="examples/berlin-viktoriapark/layers/candidates-features-thumb.webp" width="151" height="151" alt="Features" loading="lazy"></a><br><sub>Features</sub></td>
+<td align="center"><a href="examples/berlin-viktoriapark/layers/candidates-out-of-bounds.webp"><img src="examples/berlin-viktoriapark/layers/candidates-out-of-bounds-thumb.webp" width="151" height="151" alt="Out_of_bounds" loading="lazy"></a><br><sub>Out_of_bounds</sub></td>
 </tr><tr>
-<td align="center"><a href="examples/berlin-viktoriapark/layers/orthophoto.webp"><img src="examples/berlin-viktoriapark/layers/orthophoto-thumb.webp" width="113" height="113" alt="Orthophoto hillshade:Hillshade slope:Slope relief:Local relief ndsm:nDSM k5:K5 (Berlin)" loading="lazy"></a><br><sub>Orthophoto hillshade:Hillshade slope:Slope relief:Local relief ndsm:nDSM k5:K5 (Berlin)</sub></td>
+<td align="center"><a href="examples/berlin-viktoriapark/layers/orthophoto.webp"><img src="examples/berlin-viktoriapark/layers/orthophoto-thumb.webp" width="151" height="151" alt="Orthophoto hillshade:Hillshade slope:Slope relief:Local relief ndsm:nDSM k5:K5 (Berlin)" loading="lazy"></a><br><sub>Orthophoto hillshade:Hillshade slope:Slope relief:Local relief ndsm:nDSM k5:K5 (Berlin)</sub></td>
 </tr></table>
 
 freemapper turns official geodata (terrain model, nDSM, orthophoto, ALKIS cadastre) and OpenStreetMap

@@ -8,7 +8,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Geändert
 
-- README und Website zeigen die Ebenen der Beispielkarte Viktoriapark: die sieben Kandidaten-Layer und die Vorlagen (Orthofoto, Schummerung, Hangneigung, lokales Relief, nDOM, K5) als 3-cm-Vorschau, ein Klick zeigt die Ebene in voller Größe. Die Bilder liegen unter `examples/berlin-viktoriapark/layers/` und entstehen mit `scripts/layer-previews.sh`.
+- README und Website zeigen die Ebenen der Beispielkarte Viktoriapark: die sieben Kandidaten-Layer und die Vorlagen (Orthofoto, Schummerung, Hangneigung, lokales Relief, nDOM, K5) als 4-cm-Vorschau, ein Klick zeigt die Ebene in voller Größe. Die Bilder liegen unter `examples/berlin-viktoriapark/layers/` und entstehen mit `scripts/layer-previews.sh`.
 
 - Ein Zaun an einer Straße, die als Fläche gezeichnet ist (Kataster, 501.5), hat seine Zacken jetzt auf der Seite, die von der Straße wegzeigt; bisher behielt er die Seite seiner Quelle, wenn keine Straßenlinie neben ihm lag (ADR 0158). Auf der Trainingskarte entfallen einzelne Bäume (417, 418) in einer Waldfläche (405), denn der weiße Wald ist die Bäume; auf offenem Gelände bleiben sie. Karte und Trainingskarte ändern sich nach `export --force`.
 - Hamburg: Ein Poller, eine Bank oder eine Leuchte der Feinkartierung ersetzt den OpenStreetMap-Punkt am selben Ort, wie es die Berliner Befahrung schon tut (ADR 0149): bis 2 m bei Pollern und Bänken, bis 5 m bei Leuchten. Der OSM-Punkt steht dann in `freemapper:also`, und auf der Sprintkarte gibt es an dieser Stelle einen Postenstandort weniger. Der Satz der Feinkartierung behält dafür die Art des Postenstandorts (`hamburg:control`) am Kandidaten. Bestehende Karten ändern sich nach `export --force`.

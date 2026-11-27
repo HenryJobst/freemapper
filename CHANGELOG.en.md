@@ -8,7 +8,7 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ### Changed
 
-- The README and the website show the layers of the Viktoriapark example map: the seven candidate layers and the templates (orthophoto, hillshade, slope, local relief, nDSM, K5) as 3 cm previews, a click shows the layer at full size. The images are in `examples/berlin-viktoriapark/layers/` and come from `scripts/layer-previews.sh`.
+- The README and the website show the layers of the Viktoriapark example map: the seven candidate layers and the templates (orthophoto, hillshade, slope, local relief, nDSM, K5) as 4 cm previews, a click shows the layer at full size. The images are in `examples/berlin-viktoriapark/layers/` and come from `scripts/layer-previews.sh`.
 
 - A fence along a street drawn as an area (cadastre, 501.5) now has its ticks on the side that points away from the street; before, it kept the side of its source when no road line lay beside it (ADR 0158). The training map drops single trees (417, 418) in a forest area (405), because the white forest is the trees; on open land they stay. The map and the training map change after `export --force`.
 - Hamburg: a bollard, bench or lamp of the Feinkartierung replaces the OpenStreetMap point at the same place, as Berlin's survey already does (ADR 0149): up to 2 m for bollards and benches, up to 5 m for lamps. The OSM point is then named in `freemapper:also`, and a sprint map has one control site fewer there. For that the set of the Feinkartierung keeps the kind of control site (`hamburg:control`) on the candidate. Existing maps change after `export --force`.
