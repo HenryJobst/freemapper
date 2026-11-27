@@ -201,7 +201,7 @@ pub fn fetch_model(
     )
 }
 
-/// [`fetch_model`] for the archive at `url`, which the cache keeps under its own release.
+/// `fetch_model` for the archive at `url`, which the cache keeps under its own release.
 pub fn fetch_model_from(
     fetcher: &dyn Fetcher,
     cache: &CacheDir,

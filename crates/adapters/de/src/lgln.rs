@@ -270,7 +270,7 @@ pub fn fetch_model(
     fetch_model_at(fetcher, mode, (&addresses, model), bbox, (root, out))
 }
 
-/// [`fetch_model`] with the services at `addresses`.
+/// `fetch_model` with the services at `addresses`.
 pub fn fetch_model_at(
     fetcher: &dyn Fetcher,
     mode: FetchMode,

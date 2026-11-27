@@ -1510,15 +1510,14 @@ impl Check<'_> {
                             .and_then(|value| u32::try_from(value).ok());
                     }
                 }
-                // A backend that asks no endpoint has had its `endpoints` refused above.
-                let endpoints = if names.is_empty() {
-                    Some(std::collections::BTreeMap::new())
-                } else {
-                    self.endpoints(raw.endpoints.as_ref(), "orthophoto", names)
-                };
-                config.endpoints = endpoints.clone().unwrap_or_default();
-                return (fine && endpoints.is_some())
-                    .then_some(Orthophoto::Backend { name, config });
+                // A backend that asks no endpoint has had its `endpoints` refused above; a name
+                // refused here is a finding, which fails the manifest.
+                if !names.is_empty() {
+                    config.endpoints = self
+                        .endpoints(raw.endpoints.as_ref(), "orthophoto", names)
+                        .unwrap_or_default();
+                }
+                return fine.then_some(Orthophoto::Backend { name, config });
             }
         };
         let at = kind.span();
@@ -1528,10 +1527,16 @@ impl Check<'_> {
             raw,
             table,
             kind,
-            &["multipart", "envelope", "max_m", "source_label"],
+            &[
+                "multipart",
+                "envelope",
+                "max_m",
+                "source_label",
+                "endpoints",
+            ],
         );
         let other = if wms { "coverage" } else { "layer" };
-        fine &= self.absent_of_raster(raw, table, kind, &[other, "endpoints"]);
+        fine &= self.absent_of_raster(raw, table, kind, &[other]);
         if !wms {
             fine &= self.absent_of_raster(raw, table, kind, &["params"]);
         }

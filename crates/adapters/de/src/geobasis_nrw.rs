@@ -428,7 +428,7 @@ pub fn fetch_model(
     fetch_model_in(HM, (fetcher, cache, mode), model, bbox, (root, out))
 }
 
-/// [`fetch_model`] for the files below `hm`.
+/// `fetch_model` for the files below `hm`.
 pub fn fetch_model_in(
     hm: &str,
     (fetcher, cache, mode): (&dyn Fetcher, &CacheDir, FetchMode),

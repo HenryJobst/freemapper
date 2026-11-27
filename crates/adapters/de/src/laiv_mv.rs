@@ -377,7 +377,7 @@ pub fn flight_date(fetcher: &dyn Fetcher, bbox: &BoundingBox) -> Option<String> 
     flight_date_at(fetcher, OVERVIEW, bbox)
 }
 
-/// [`flight_date`] with the tile index at `overview`.
+/// `flight_date` with the tile index at `overview`.
 pub fn flight_date_at(fetcher: &dyn Fetcher, overview: &str, bbox: &BoundingBox) -> Option<String> {
     let (e, n) = (
         (bbox.min_e + bbox.max_e) / 2.0,
@@ -454,7 +454,7 @@ pub fn fetch_model(
     )
 }
 
-/// [`fetch_model`] with the services at `addresses`.
+/// `fetch_model` with the services at `addresses`.
 pub fn fetch_model_at(
     addresses: &Addresses,
     (fetcher, cache, mode): (&dyn Fetcher, &CacheDir, FetchMode),
