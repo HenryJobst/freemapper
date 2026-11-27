@@ -341,16 +341,20 @@ on the area, or in the middle of the map if there is no area yet. Drag it with t
 or the orientation, it changes with them. The frame is the whole sheet, without margins: A4 portrait at 1:15000
 covers 3150 × 4455 m, A6 landscape at 1:4000 covers 592 × 420 m.
 
-A frame changes nothing on the map or in the project; it helps you choose the area and the scale. Leave some room
+A frame does not change the map area, the scale or any map object. It helps you choose the area and the scale.
+Leave some room
 around what you need, because the printed map is a little smaller than the sheet.
 
 - *Keep frame* puts the frame in the list below, with a *Delete* button for each. The page draws kept frames with a
   thinner line. A new project saves them with *Save*; in an existing project the page saves every change at
   once. freemapper stores them in `freemapper.toml` under `paper_frames`.
-- The next run (or `freemapper export`) writes the kept frames to `templates/paper-frame.omap`: one closed
-  line per frame, in a colour of its own, named for example "A4 portrait". A newly written map lists this
-  template after the candidate layers, hidden like them. In OpenOrienteering Mapper you switch on `paper-frame`
-  in the list of templates (menu *Templates*).
+- The next `freemapper run` writes the kept frames to `templates/paper-frame.omap`: one closed line per frame,
+  in a colour of its own. Each line carries the tag `freemapper:name`, for example "A4 portrait", which
+  OpenOrienteering Mapper shows among the object's tags. A newly written map lists this template after the
+  candidate layers, hidden like them. In OpenOrienteering Mapper you switch on `paper-frame` in the list of
+  templates (menu *Templates*).
+- `freemapper export` writes the file too. Over an existing map it does so only with an output switch such as
+  `--pdf`; without one it stops with "map already exists". With `--force` it replaces the map.
 - A run that keeps an existing map does not edit it. It writes the file and says so in one line.
   Then open the file yourself with *Templates › Open template…*, or replace the map with `--force` (the old one stays
   as `.omap.bak`).

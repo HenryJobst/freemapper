@@ -353,17 +353,21 @@ dieses Blatts erscheint auf dem Gebiet, oder in der Mitte der Karte, solange es 
 mit der Maus. Ändern Sie Maßstab oder Ausrichtung, ändert es sich mit. Der Rahmen ist das ganze Blatt, ohne Ränder:
 A4 hoch deckt bei 1:15000 3150 × 4455 m ab, A6 quer bei 1:4000 592 × 420 m.
 
-Ein Rahmen ändert nichts an der Karte oder am Projekt; er hilft Ihnen, Gebiet und Maßstab zu wählen. Lassen Sie
+Ein Rahmen ändert weder das Gebiet noch den Maßstab noch ein Objekt der Karte. Er hilft Ihnen, Gebiet und Maßstab
+zu wählen. Lassen Sie
 um das, was Sie brauchen, etwas Luft, denn die gedruckte Karte ist etwas kleiner als das Blatt.
 
 - *Rahmen übernehmen* setzt den Rahmen in die Liste darunter, jeden mit einem Knopf *Löschen*. Übernommene Rahmen
   zeichnet die Seite mit dünnerer Linie. Ein neues Projekt speichert sie mit *Speichern*; in einem bestehenden
   Projekt speichert die Seite jede Änderung sofort. Sie stehen in `freemapper.toml` unter `paper_frames`.
-- Der nächste Lauf (oder `freemapper export`) schreibt die übernommenen Rahmen in
-  `templates/paper-frame.omap`: eine geschlossene Linie je Rahmen, in einer eigenen Farbe, benannt zum Beispiel
-  „A4 portrait“. Eine neu geschriebene Karte nennt diese Vorlage nach den Kandidaten-Layern, wie diese
-  ausgeblendet. In OpenOrienteering Mapper blenden Sie `paper-frame` in der Liste der Vorlagen ein (Menü
-  *Vorlagen*).
+- Der nächste `freemapper run` schreibt die übernommenen Rahmen in `templates/paper-frame.omap`: eine
+  geschlossene Linie je Rahmen, in einer eigenen Farbe. Jede Linie trägt das Tag `freemapper:name`, zum Beispiel
+  „A4 portrait“; OpenOrienteering Mapper zeigt es bei den Tags des Objekts. Eine neu geschriebene Karte nennt
+  diese Vorlage nach den Kandidaten-Layern, wie diese ausgeblendet. In OpenOrienteering Mapper blenden Sie
+  `paper-frame` in der Liste der Vorlagen ein (Menü *Vorlagen*).
+- `freemapper export` schreibt die Datei ebenso. Über einer vorhandenen Karte tut es das nur mit einem
+  Ausgabeschalter wie `--pdf`; ohne einen bricht es mit „Die Karte gibt es schon“ ab. Mit `--force` ersetzt es
+  die Karte.
 - Behält der Lauf eine vorhandene Karte, bearbeitet er sie nicht. Er schreibt die Datei und sagt das in einer
   Zeile. Öffnen Sie die Datei dann selbst mit *Vorlagen › Vorlage öffnen …*, oder ersetzen Sie
   die Karte mit `--force` (die alte bleibt als `.omap.bak` erhalten).
