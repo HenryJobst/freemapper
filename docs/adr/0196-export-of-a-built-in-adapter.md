@@ -46,3 +46,21 @@ entries about the message of a refused host (manual and `AGENTS.md`) point to it
 - A replacement does not follow the program's updates for its state. The revision comparison is the only prompt; a
   replacement that stays for years is the person's to keep alive.
 - The export has no `--force`. A person who wants it again deletes or renames the folder.
+
+## Addendum: `freemapper sources` (issue #273, stage 3)
+
+The export and the edit by hand are the long way. `freemapper sources` is the short one, and the one an agent can
+script. `sources list` and `sources get` read the addresses of the manifest in force for an adapter (the folder of
+the person when it loaded, else the built-in manifest); an address is a string value that starts with `https://`
+or an entry of `[net] hosts`, named by its path in the file (`permits.wfs[0].url`). `sources set <adapter> <path>
+<url>` replaces that one value in the text of `manifest.toml` and leaves every other byte, comments included. It
+writes only into the person's own adapter folder (ADR 0188), makes the folder from the built-in manifest as the
+export does when it is not there, and runs the full manifest check on the result before it writes: a change that
+would not load writes nothing. A new address on a host the manifest does not declare is refused; `--add-host`
+declares it and the command says so, so that no change frees a host unnoticed. Credit and licence are not touched
+and not checked beyond the manifest check; the command says they stay the person's to keep right. `sources diff`
+compares the addresses of the folder with the built-in manifest, `sources check` is `adapters check` on the folder
+of that id, and `sources schema` prints the keys that hold an address, as a JSON Schema with `--json`.
+
+Not in this stage: `sources reset` (deleting the folder does it, and the manual says so) and the signed list of
+corrections (stage 4).

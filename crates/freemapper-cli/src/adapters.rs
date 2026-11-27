@@ -314,7 +314,7 @@ pub fn export(id: &str, dir: &Path) -> anyhow::Result<()> {
 }
 
 /// Writes `files` into `target`, a folder that does not exist yet or is empty.
-fn write_export(
+pub(crate) fn write_export(
     target: &Path,
     files: &[(String, std::borrow::Cow<'static, str>)],
 ) -> anyhow::Result<()> {

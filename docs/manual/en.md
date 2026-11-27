@@ -1854,6 +1854,19 @@ yourself, without waiting for a release: your own adapter folder with the id of 
 built-in adapter. You do not write the folder from nothing; `adapters export` writes the built-in one, and you
 change the few places that moved.
 
+The short way is `freemapper sources`: `sources list hessen` shows the addresses of the state, each with its path
+in the manifest (`alkis.url`, `permits.wfs[0].url`, `net.hosts[1]`) and whether the manifest in force is the built-in
+one or yours. `freemapper sources set hessen alkis.url https://new.example.org/wfs` changes one address in your own
+adapter folder. If the folder is not there yet it is made from the built-in manifest first, the way `adapters
+export` does it. The whole manifest is checked before anything is written; a change that would not pass is
+refused and nothing is written. An address on a host the manifest does not declare is refused too, unless you pass
+`--add-host`, which adds the host to `[net] hosts` and says so. `sources diff hessen` shows what your folder changes
+against the built-in manifest, `sources check hessen` is `adapters check` on your folder, `sources get hessen
+alkis.url` prints one address for a script, and `sources schema` lists the keys of a manifest that hold an address
+(`--json`: as a JSON Schema). The command writes only into your own adapter folder, never into a project folder.
+Credit and licence stay as the manifest states them; keep them right if the service changed hands. Restart the
+MCP server or the area page afterwards. The steps below are the same by hand.
+
 1. Export the state. The id is the one `freemapper adapters list` shows:
    `freemapper adapters export hessen ~/my-adapters`. This writes the folder `~/my-adapters/hessen` with the
    manifest (`manifest.toml`) and the files it names (the boundary, for some states the boundaries of the OSM

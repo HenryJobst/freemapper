@@ -250,6 +250,10 @@ mod tests {
             ("others", v("berlin")),
             ("capability", v("rasters")),
             ("host", v("cdn.example.net")),
+            (
+                "findings",
+                v("manifest.toml:3: adapter.id: not a name [manifest.id]"),
+            ),
             ("file", v("/config/freemapper/allowed-hosts.toml")),
             ("from", v("")),
             ("adapters", v("brandenburg, berlin")),
@@ -408,6 +412,7 @@ mod tests {
             include_str!("update/background.rs"),
             include_str!("update/command.rs"),
             include_str!("update/source.rs"),
+            include_str!("sources.rs"),
         ] {
             for id in freemapper_text::ids_in_source(source, &PREFIXES) {
                 assert!(english.contains(&id), "{id} is used but not in the catalog");
@@ -436,6 +441,7 @@ mod tests {
             include_str!("update/background.rs"),
             include_str!("update/command.rs"),
             include_str!("update/source.rs"),
+            include_str!("sources.rs"),
         ]
         .iter()
         .flat_map(|source| freemapper_text::ids_in_source(source, &PREFIXES))

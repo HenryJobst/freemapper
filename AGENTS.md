@@ -117,6 +117,12 @@ freemapper run <dir> --pdf
 | `adapters probe` | Asks every service the built-in states name once (a HEAD for files, the capabilities for map services, one feature for OGC APIs) and prints for each `ok`, `slow`, `moved` or `error` with the time. `--json` prints `{"results": [{url, host, adapters, status, detail, millis}]}`. Exit code 0 also when a service fails. `--status <file>` reads last night's status (it may be missing) and prints the new one as JSON, with a service down after two bad nights in a row (ADR 0186). It is the nightly check of the project; run it only when the person asks, it makes about 85 requests. |
 | `adapters list` | Lists the region adapters: the built-in states and those of the person's adapter folder, each with its source, revision, last check and the hosts it asks. `--project <dir>` also reads the folder `adapters` of a project. `--json` prints an object with `user_dir`, `adapters` (each with `id`, `names.en`, `names.de`, `provider`, `source`: `built-in`, `user` or `project`, `revision`, `last_verified`, `hosts`, `allowed_hosts`: the hosts the person allowed besides, and `overlaps`: the ids of the adapters on whose ground it lies) and `warnings` (each with `folder`, `skipped` and `findings` with `code`, `file`, `line`, `key`, `message`). |
 | `adapters export <adapter> <dir>` | Writes the built-in adapter of a state as the folder `<dir>/<adapter>` (its `manifest.toml` and the files it names), to change an address that moved. Only after the person agreed; never into a folder that has files in it. See "Correcting an address" below. |
+| `sources list [<adapter>]` | Lists the addresses of the manifests: adapter, path (`alkis.url`, `permits.wfs[0].url`, `orthophoto.endpoints.hm`, `net.hosts[1]`), address and where the manifest in force comes from (`built-in` or `user`). `--json` prints an array of `{adapter, path, url, source}`. Reads only. |
+| `sources get <adapter> <path>` | Prints one address and nothing else; exit code 1 for an unknown adapter or path. |
+| `sources set <adapter> <path> <url> [--add-host]` | Corrects one address in the person's own adapter folder (made from the built-in manifest when it is not there yet), after the whole manifest passed its check; nothing is written otherwise. An address on a host the manifest does not declare is refused unless `--add-host` adds the host. Only after the person agreed; show them the change first. See "Correcting an address" below. |
+| `sources diff <adapter>` | Shows the addresses the person's folder changes against the built-in manifest. |
+| `sources check <adapter> [--live --bbox …] [--json]` | `adapters check` on the person's folder of that adapter; same exit codes. |
+| `sources schema [--json]` | The keys of a manifest that hold an address; with `--json` a JSON Schema. |
 | `adapters check <dir>` | Checks the folder of one adapter without asking a server: whether it would load, with every finding. Exit code 0: passes, 1: findings, 2: could not run. `--live --bbox` also asks its services; only when the person asks for it. Details below the table. |
 
 Output switches for `run` and `export`: `--ocad`, `--pdf`, `--pdf-candidates` (the check print), `--training`,
@@ -151,7 +157,9 @@ minLon,minLat,maxLon,maxLat` also fetches for that box from the servers the mani
 person asks for it.
 
 Correcting an address that moved, without a release (only after the person agreed, and show them the change
-before you write it): `adapters export <id> <dir>` writes the folder of the built-in state; change the `url`
+before you write it): the short way is `sources list <id>` to find the path, then `sources set <id> <path> <url>`
+(add `--add-host` when the host is new, and say so to the person); it makes the folder, checks the manifest and
+writes nothing that would not pass; then `sources diff <id>` and `adapters check <folder>`. The long way: `adapters export <id> <dir>` writes the folder of the built-in state; change the `url`
 of the service that moved in its `manifest.toml` (and the host in `[net] hosts` if it is new); raise `revision`
 only if the data of a map changes; run `adapters check <folder>`: the one warning `check.built-in-id` is
 expected, every other finding is to be fixed; the person puts the folder into their adapter folder

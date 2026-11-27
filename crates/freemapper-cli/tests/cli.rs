@@ -3080,3 +3080,112 @@ fn a_project_adapter_with_a_hostile_host_list_is_left_out() {
         assert!(!stderr.contains("panicked"), "{host}: {stderr}");
     }
 }
+
+/// `sources` reads the addresses of the manifests, corrects one in the person's own adapter
+/// folder after the whole manifest passed its check, and refuses what would not pass.
+#[test]
+fn sources_lists_reads_and_corrects_addresses() {
+    let mine = tempfile::tempdir().unwrap();
+    let run = |args: &[&str]| {
+        let output = freemapper()
+            .env("FREEMAPPER_ADAPTER_DIR", mine.path())
+            .args(args)
+            .output()
+            .unwrap();
+        (
+            output.status.code(),
+            String::from_utf8(output.stdout).unwrap(),
+            String::from_utf8(output.stderr).unwrap(),
+        )
+    };
+    // The list of one adapter: built in, with paths.
+    let (code, out, err) = run(&["sources", "list", "hamburg", "--json"]);
+    assert_eq!(code, Some(0), "{out}{err}");
+    let rows: serde_json::Value = serde_json::from_str(&out).unwrap();
+    let rows = rows.as_array().unwrap();
+    assert!(rows.len() > 10, "{out}");
+    assert!(
+        rows.iter()
+            .all(|r| r["adapter"] == "hamburg" && r["source"] == "built-in")
+    );
+    let first = rows.iter().find(|r| r["path"] == "orthophoto.url").unwrap();
+    let old = first["url"].as_str().unwrap().to_string();
+    // `get` prints the address and nothing else.
+    let (code, out, _) = run(&["sources", "get", "hamburg", "orthophoto.url"]);
+    assert_eq!(code, Some(0));
+    assert_eq!(out, format!("{old}\n"));
+    // Unknown adapter, unknown path, an adapter that code declares.
+    let (code, _, err) = run(&["sources", "get", "nowhere", "orthophoto.url"]);
+    assert_eq!(code, Some(1));
+    assert!(err.contains("nowhere"), "{err}");
+    let (code, _, err) = run(&["sources", "get", "hamburg", "orthophoto.nothing"]);
+    assert_eq!(code, Some(1));
+    assert!(err.contains("orthophoto.nothing"), "{err}");
+    let (code, _, err) = run(&["sources", "list", "polska"]);
+    assert_eq!(code, Some(1));
+    assert!(err.contains("no manifest"), "{err}");
+    // Nothing to compare before a folder exists.
+    let (code, _, err) = run(&["sources", "diff", "hamburg"]);
+    assert_eq!(code, Some(1));
+    assert!(err.contains("no folder"), "{err}");
+    // A new host is refused without --add-host, and nothing is written.
+    let moved = "https://moved.example.org/wfs";
+    let (code, _, err) = run(&["sources", "set", "hamburg", "orthophoto.url", moved]);
+    assert_eq!(code, Some(1));
+    assert!(err.contains("moved.example.org"), "{err}");
+    assert!(!mine.path().join("hamburg").exists());
+    // With it the folder is made, the host declared and the address changed.
+    let (code, out, err) = run(&[
+        "sources",
+        "set",
+        "hamburg",
+        "orthophoto.url",
+        moved,
+        "--add-host",
+    ]);
+    assert_eq!(code, Some(0), "{out}{err}");
+    assert!(out.contains("Made the folder"), "{out}");
+    assert!(out.contains("Declared the host moved.example.org"), "{out}");
+    let manifest = std::fs::read_to_string(mine.path().join("hamburg/manifest.toml")).unwrap();
+    assert!(
+        manifest.contains(&format!("url = \"{moved}\"")),
+        "{manifest}"
+    );
+    assert!(manifest.contains("\"moved.example.org\""), "{manifest}");
+    // The list now shows the folder as the source, and the diff the two changes.
+    let (code, out, _) = run(&["sources", "get", "hamburg", "orthophoto.url"]);
+    assert_eq!(code, Some(0));
+    assert_eq!(out, format!("{moved}\n"));
+    let (code, out, _) = run(&["sources", "list", "hamburg"]);
+    assert_eq!(code, Some(0));
+    assert!(
+        out.lines()
+            .any(|l| l.contains("orthophoto.url") && l.ends_with("user")),
+        "{out}"
+    );
+    let (code, out, _) = run(&["sources", "diff", "hamburg"]);
+    assert_eq!(code, Some(0));
+    assert!(out.contains("~ orthophoto.url"), "{out}");
+    assert!(out.contains("+ net.hosts["), "{out}");
+    // The check passes with the one warning that the id is built in.
+    let (code, out, err) = run(&["sources", "check", "hamburg", "--json"]);
+    assert_eq!(code, Some(0), "{out}{err}");
+    // A second change keeps the folder and does not make it again.
+    let (code, out, err) = run(&["sources", "set", "hamburg", "orthophoto.url", &old]);
+    assert_eq!(code, Some(0), "{out}{err}");
+    assert!(!out.contains("Made the folder"), "{out}");
+    // The schema is a JSON Schema of the address keys.
+    let (code, out, _) = run(&["sources", "schema", "--json"]);
+    assert_eq!(code, Some(0));
+    let schema: serde_json::Value = serde_json::from_str(&out).unwrap();
+    assert_eq!(
+        schema["properties"]["alkis"]["properties"]["url"]["$ref"],
+        "#/$defs/url"
+    );
+    let (code, out, _) = run(&["sources", "schema"]);
+    assert_eq!(code, Some(0));
+    assert!(out.lines().any(|l| l == "orthophoto.url"), "{out}");
+    // `sources check` of an adapter without a folder cannot run.
+    let (code, _, _) = run(&["sources", "check", "bayern"]);
+    assert_eq!(code, Some(2));
+}
