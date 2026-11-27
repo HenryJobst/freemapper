@@ -413,7 +413,15 @@ fn fetch_rasters(
     let old_ndsm: Vec<NdsmRecord> = project.records().ndsm_tiles.clone();
     let mut records = Vec::new();
     for product in PRODUCTS {
-        for fetched in fetch_tiles_at(addresses, fetcher, cache, product, &tiles, mode, env.progress)? {
+        for fetched in fetch_tiles_at(
+            addresses,
+            fetcher,
+            cache,
+            product,
+            &tiles,
+            mode,
+            env.progress,
+        )? {
             let record = TileRecord {
                 product,
                 tile: fetched.tile.name(),
@@ -473,14 +481,15 @@ fn fetch_rasters(
         project.save()?;
         return Ok(());
     }
-    let ndsm_tiles: Vec<NdsmRecord> = fetch_ndsm_tiles_at(addresses, fetcher, cache, &tiles, mode, env.progress)?
-        .into_iter()
-        .map(|t| NdsmRecord {
-            tile: t.tile.name(),
-            url: t.url,
-            published: t.published,
-        })
-        .collect();
+    let ndsm_tiles: Vec<NdsmRecord> =
+        fetch_ndsm_tiles_at(addresses, fetcher, cache, &tiles, mode, env.progress)?
+            .into_iter()
+            .map(|t| NdsmRecord {
+                tile: t.tile.name(),
+                url: t.url,
+                published: t.published,
+            })
+            .collect();
     for record in &ndsm_tiles {
         let previous = old_ndsm.iter().find(|p| p.tile == record.tile);
         if let Some(previous) = previous.filter(|p| p.published != record.published)

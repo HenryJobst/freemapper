@@ -1134,12 +1134,13 @@ mod tests {
                 .unwrap()
                 .is_none()
         );
-        let built = raster_factory(Agency::LvermGeo, State::Brandenburg, Crs::Utm32)(&RasterConfig {
-            url: Some("https://example.org/wms".to_string()),
-            layer: Some("l".to_string()),
-            max_px: Some(500),
-            ..RasterConfig::default()
-        });
+        let built =
+            raster_factory(Agency::LvermGeo, State::Brandenburg, Crs::Utm32)(&RasterConfig {
+                url: Some("https://example.org/wms".to_string()),
+                layer: Some("l".to_string()),
+                max_px: Some(500),
+                ..RasterConfig::default()
+            });
         assert!(
             built
                 .err()
