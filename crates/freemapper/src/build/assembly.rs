@@ -2180,6 +2180,60 @@ mod tests {
         assert_eq!(rotation("3.5"), Some(0.0));
     }
 
+    /// A rock face is the black area 206; a bank along it is the edge of the area and goes, a
+    /// bank elsewhere stays (ADR 0200).
+    #[test]
+    fn a_rock_face_is_an_area_and_swallows_the_bank_along_it() {
+        let f = fixture(MapKind::Forest);
+        let face = Landform {
+            kind: LandformKind::RockFace,
+            points: [
+                (0.0, 0.0),
+                (30.0, 0.0),
+                (30.0, 20.0),
+                (0.0, 20.0),
+                (0.0, 0.0),
+            ]
+            .iter()
+            .map(|&p| projected(&f, p))
+            .collect(),
+            rotation_deg: 0.0,
+            height_m: 0.0,
+        };
+        let bank = |from: (f64, f64), to: (f64, f64)| Landform {
+            kind: LandformKind::Bank,
+            points: vec![projected(&f, from), projected(&f, to)],
+            rotation_deg: 0.0,
+            height_m: 2.0,
+        };
+        let placed = placed_safe(
+            &f,
+            Stored {
+                landforms: Some(Landforms {
+                    forms: vec![
+                        face,
+                        bank((2.0, 1.0), (28.0, 1.0)),
+                        bank((0.0, 60.0), (30.0, 60.0)),
+                    ],
+                    source: "lgb-dgm1".to_string(),
+                    currency: None,
+                }),
+                ..Stored::default()
+            },
+        );
+        let of = |code: &str| -> Vec<&MapObject> {
+            placed
+                .candidates
+                .iter()
+                .filter(|o| o.symbol_id == f.id(code))
+                .collect()
+        };
+        assert_eq!(of("206").len(), 1);
+        // The ring of an area: four corners and the first again, flagged.
+        assert_eq!(of("206")[0].coords.len(), 5);
+        assert_eq!(of("104").len(), 1);
+    }
+
     /// Boulders closer than their symbols allow (0.55 mm centre to centre, 8.25 m at 1:15 000) are
     /// a boulder cluster (207) from three in a chain on; two stay single (ADR 0199).
     #[test]
