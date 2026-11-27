@@ -1,4 +1,4 @@
-# 0203. A GeoPackage reader without SQLite
+# 0204. A GeoPackage reader without SQLite
 
 Date: 2026-11-27
 Status: Accepted

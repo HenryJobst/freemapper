@@ -1,4 +1,4 @@
-# 0201. A map without an orthophoto
+# 0202. A map without an orthophoto
 
 Date: 2026-11-27
 Status: Accepted
@@ -8,7 +8,7 @@ Status: Accepted
 `derive` wrote the orthophoto template first and stopped with an error when the backend of the region gave no
 orthophoto input. Every region until now has one. Sweden has none that freemapper can read: no WMS serves the
 Lantmäteriet orthophoto, and the download is a 0.6 GB COG per 2.5 km square in 8 bits with four bands
-(`docs/regions/sweden-reference.md`, §8.3). The first stage of the Swedish adapter (ADR 0202) works with the terrain
+(`docs/regions/sweden-reference.md`, §8.3). The first stage of the Swedish adapter (ADR 0203) works with the terrain
 model, the laser data and the land cover, and its owner's application for the orthophoto is still open. Without a
 change no Swedish map could be derived.
 
