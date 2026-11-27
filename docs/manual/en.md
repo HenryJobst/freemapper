@@ -1812,9 +1812,11 @@ corner at Harburg, and the LVermGeo RP height models reach across the Rhine at M
 ### Sweden
 
 Sweden is a preview for forest maps and for maps that need no orthophoto: terrain model (contours, hillshade, slope,
-relief), laser point clouds for the vegetation and the land cover come from Lantmäteriet (CC BY 4.0, credit
-"© Lantmäteriet (CC BY 4.0)"); paths and buildings come from OpenStreetMap. There is **no orthophoto** (the map has no
-orthophoto template and `derive` says so) and no register buildings yet, and no permit notes.
+relief), laser point clouds for the vegetation and the land cover come from Lantmäteriet (terrain model and land
+cover under CC BY 4.0; the catalogue gives the laser data the licence "other", whose terms are in Geotorget; credit
+"© Lantmäteriet"); the paths come from OpenStreetMap. There is **no orthophoto** (the map has no orthophoto template
+and `derive` says so), **no buildings** (the register Byggnad is not part of this stage, and OpenStreetMap buildings are
+not drawn), and no permit notes. That is why this stage suits forest maps.
 
 The downloads of Lantmäteriet need a private account at Geotorget (`geotorget.lantmateriet.se`) that has ordered three
 free products: **Markhöjdmodell Nedladdning**, **Laserdata Skog** and **Marktäcke**. freemapper reads the account
@@ -1828,8 +1830,10 @@ freemapper run <dir>
 
 Without them a fetch in Sweden stops before it asks the network and names both variables and the three products. The
 terrain model is read by range from the 10 km tiles, so a map costs a few MB; a laser point cloud tile is about 80 MB
-(2.5 km square) and is kept in the cache. Lantmäteriet does not publish its download limits: a refused download
-(HTTP 429) is asked again, and an account without an order gets an error that names the product. The land cover
+(2.5 km square) and is kept in the cache. Lantmäteriet does not publish its download limits. A download it refuses
+with HTTP 429 ends the run with a message about the limit of the account; start it again later, what is downloaded stays
+in the cache. An account without an order gets an error that names the product. If the catalogue has no terrain tile
+for a part of the area, a warning gives the share that is missing, and there are no contours there. The land cover
 (`Marktäcke`) is drawn as forest, built-up land, water and squares; its class "open land" says too little about what
 grows there and is left out. An area must lie wholly in Sweden.
 

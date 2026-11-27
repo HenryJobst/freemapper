@@ -61,7 +61,7 @@ the mapper has to judge. Drawing and field checking stay in OOM or OCAD.
 |---|---|---|
 | Germany | complete | 15 of 16 states, Thuringia is missing ([table](#regions)) |
 | Poland | usable | sprint and forest maps for all of Poland: terrain model, orthophoto, buildings and land use from GUGiK (cadastre EGiB), permit notes; [examples](examples/international.en.md) |
-| Sweden | preview | forest maps and maps without an orthophoto for all of Sweden: terrain model and laser point clouds from Lantmäteriet (free Geotorget account, no orthophoto yet); paths and buildings from OpenStreetMap |
+| Sweden | preview | forest maps and maps without an orthophoto for all of Sweden: terrain model and laser point clouds from Lantmäteriet (free Geotorget account, no orthophoto yet); paths from OpenStreetMap, no buildings yet |
 | Czechia | preview | maps for all of Czechia: terrain model, surface model, orthophoto, buildings (RÚIAN) and land use (ZABAGED) from ČÚZK; permit notes (protected areas, administrative units, monuments); [examples](examples/international.en.md) |
 
 More countries are planned; the list and progress are in [issue 227](https://github.com/HenryJobst/freemapper/issues/227).

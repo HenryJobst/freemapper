@@ -63,7 +63,7 @@ in OOM oder OCAD.
 |---|---|---|
 | Deutschland | fertig | 15 von 16 Bundesländern, Thüringen fehlt noch ([Tabelle](#regionen)) |
 | Polen | nutzbar | Sprint- und Waldkarten für ganz Polen: Höhenmodell, Luftbild, Gebäude und Landnutzung von GUGiK (Kataster EGiB), Genehmigungshinweise; [Beispiele](examples/international.md) |
-| Schweden | Vorschau | Waldkarten und Karten ohne Luftbild für ganz Schweden: Höhenmodell und Laserpunktwolken der Lantmäteriet (kostenloses Geotorget-Konto, noch kein Luftbild); Wege und Gebäude aus OpenStreetMap |
+| Schweden | Vorschau | Waldkarten und Karten ohne Luftbild für ganz Schweden: Höhenmodell und Laserpunktwolken der Lantmäteriet (kostenloses Geotorget-Konto, noch kein Luftbild); Wege aus OpenStreetMap, noch keine Gebäude |
 | Tschechien | Vorschau | Karten für ganz Tschechien: Höhenmodell, Oberflächenmodell, Luftbild, Gebäude (RÚIAN) und Landnutzung (ZABAGED) vom ČÚZK; Genehmigungshinweise (Schutzgebiete, Verwaltungseinheiten, Denkmäler); [Beispiele](examples/international.md) |
 
 Weitere Länder sind geplant; Liste und Fortschritt stehen in [Issue 227](https://github.com/HenryJobst/freemapper/issues/227).

@@ -29,8 +29,9 @@ label = "Sweden"
 
 [attribution]
 licence = "cc-by-4.0"
-text = "© Lantmäteriet (CC BY 4.0)"
+text = "© Lantmäteriet (CC BY 4.0; laser data: terms of Geotorget)"
 short = "© Lantmäteriet"
+note = "Terrain model and land cover: CC BY 4.0. The STAC catalogue gives the laser data (Laserdata Skog) the licence \"other\"; its terms are in Geotorget."
 
 # The land cover of Marktäcke, one GeoPackage per municipality.
 [alkis]

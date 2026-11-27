@@ -315,7 +315,7 @@ mod tests {
         let lines = adapter.attribution(&used);
         assert_eq!(lines.len(), 1);
         assert!(
-            format!("{lines:?}").contains("© Lantmäteriet (CC BY 4.0)"),
+            format!("{lines:?}").contains("laser data: terms of Geotorget"),
             "{lines:?}"
         );
     }

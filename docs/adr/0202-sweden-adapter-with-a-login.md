@@ -26,7 +26,8 @@ numbers as EPSG:25833, so nothing is transformed.
   first request and names both variables and the three products. **Only the adapters built into the program may
   declare `[auth]`**: an adapter from a folder that did could send the password to a host it names.
 - The land cover becomes the land use of the map through a table of classes (`rules/marktacke.toml`); "open land" and
-  unknown classes are left out and named in a progress line. Buildings come from OpenStreetMap; Byggnad and the
+  unknown classes are left out and named in a progress line. The first stage draws no buildings (OpenStreetMap buildings need
+  a rule in the engine that no region has asked for yet); Byggnad and the
   orthophoto wait for the owner's application (no orthophoto: ADR 0201).
 - The point-cloud grid is 2.5 km. `PointCloudInfo::grid_km` is read by no engine code, so the backend names its tiles
   from the catalogue and sets the field to 3; no API and no German adapter changes.
@@ -36,8 +37,9 @@ numbers as EPSG:25833, so nothing is transformed.
 
 ## Consequences
 
-- Download limits are unpublished; a refusal is asked again by the retry policy and an account without an order gets
-  an error that names the product (English text).
+- Download limits are unpublished. The range reads of the terrain model use the retry policy; the file downloads (laser
+  data, land cover) are not asked again. A 429 ends them with a sentence about the account limit and stops the laser
+  tiles after the first refusal; an account without an order gets an error that names the product (English text).
 - A GeoPackage of a very large municipality is read whole into memory (cap 1 GiB).
 - No Lantmäteriet data is in the repository; tests use synthetic tiles, files and answers.
 

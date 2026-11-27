@@ -2,8 +2,7 @@
 
 //! The land cover of Lantmäteriet (Marktäcke): one GeoPackage per municipality in a zip file,
 //! found through the STAC API of the vector products. The classes of the table `mark` become the
-//! land use classes (`nutzart`) the map already draws; buildings come from OpenStreetMap, so this
-//! source has none.
+//! land use classes (`nutzart`) the map already draws; it has no buildings.
 
 use std::collections::{BTreeMap, HashSet};
 use std::io::Read as _;
@@ -38,6 +37,17 @@ const MAX_GPKG_BYTES: u64 = 1 << 30;
 
 /// The classes of the land cover and the land use class each stands for.
 const RULES: &str = include_str!("../rules/marktacke.toml");
+
+/// The classes that are left out on purpose and not named: they say nothing a land use class can.
+fn ignored() -> HashSet<String> {
+    let table: toml::Table = RULES.parse().expect("the rules are TOML");
+    table["ignored"]
+        .as_array()
+        .expect("the rules have a list `ignored`")
+        .iter()
+        .map(|name| name.as_str().expect("a class is text").to_string())
+        .collect()
+}
 
 /// `objekttyp` to `nutzart`, from [`RULES`].
 fn classes() -> BTreeMap<String, String> {
@@ -215,6 +225,7 @@ fn read(
         message,
     };
     let package = GeoPackage::open(bytes).map_err(corrupt)?;
+    let ignored = ignored();
     let columns = package.columns(TABLE).map_err(corrupt)?;
     let at = |name: &str| columns.iter().position(|c| c == name);
     let (Some(id), Some(class), Some(geom)) = (at("objektidentitet"), at("objekttyp"), at("geom"))
@@ -231,7 +242,9 @@ fn read(
                 return Ok(());
             };
             let Some(nutzart) = classes.get(class) else {
-                unknown.insert(class.clone());
+                if !ignored.contains(class) {
+                    unknown.insert(class.clone());
+                }
                 return Ok(());
             };
             let Some(found) = geometry(blob)? else {
@@ -504,10 +517,11 @@ mod tests {
         let part = result.unwrap();
         assert!(by_oid(&part, "id-open").is_none());
         assert!(by_oid(&part, "id-unknown-1").is_none() && by_oid(&part, "id-unknown-2").is_none());
-        // `Öppen mark` and `Okänd typ` once each, though `Okänd typ` has two polygons.
+        // `Öppen mark` is left out on purpose and says nothing; `Okänd typ` is named once,
+        // though it has two polygons.
         assert_eq!(
             lines.iter().filter(|id| *id == "warning-error").count(),
-            2,
+            1,
             "{lines:?}"
         );
     }

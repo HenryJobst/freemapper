@@ -87,8 +87,8 @@ pending and their format is unmeasured.
    `AlkisSource` as land use features. A table maps `objekttyp` to the existing `nutzart` classes (forest,
    open land, water, built-up, square); a class without a clear counterpart stays a candidate, not a map object. The
    plan lists the 8 classes seen in Kommun 0183 and the ones the product documentation adds.
-6. **Buildings.** From OSM only in this stage; `no_buildings_warning` stays unset, because OSM buildings are the
-   normal source here.
+6. **Buildings.** None in this stage (ruled after the final review: the engine draws register buildings only, and
+   an OSM building rule is a change to the core that needs a golden check). `no_buildings_warning` stays unset.
 7. **A map without an orthophoto.** `derive` today stops with an error when the orthophoto input fails
    (`project.rs`, `inputs.orthophoto?`). This stage needs it to continue: no orthophoto template, a warning, and
    everything else as usual. This is a rule for every region, so it gets an ADR, and German regions keep
@@ -96,7 +96,7 @@ pending and their format is unmeasured.
 8. **Boundary and registration.** `boundary.geojson` cut once from Lantmäteriet's municipality/county/country
    boundaries (a derived vector of an open product, simplified, in EPSG:25833), stored in the adapter crate like the
    Czech one. The region is registered built-in.
-9. **Credit and notes.** Credit line “© Lantmäteriet (CC BY 4.0)” per product used. `permits.md` for a Swedish map
+9. **Credit and notes.** Credit line “© Lantmäteriet” with the licence per product (CC BY 4.0 for terrain and land cover; the laser data carry `other` in the catalogue, terms in Geotorget). `permits.md` for a Swedish map
    says only what the sources support: protected areas of Naturvårdsverket are out of this stage, so the notes state
    that none were checked.
 10. **Docs.** ADR for the GeoPackage reader, ADR for the map without orthophoto, ADR for the Sweden adapter; manual
