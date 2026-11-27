@@ -9,6 +9,7 @@ use std::collections::{BTreeMap, HashSet};
 use std::io::Read as _;
 use std::path::{Path, PathBuf};
 
+use crate::account;
 use freemapper_adapter_api::alkis::{AlkisPart, AlkisSource, FetchArea};
 use freemapper_adapter_api::env::AdapterEnv;
 use freemapper_adapter_api::error::{AdapterError, FetchError};
@@ -143,20 +144,7 @@ fn zips(
                 });
             if let Err(error) = result {
                 let _ = std::fs::remove_file(&part);
-                return Err(match error {
-                    FetchError::Refused {
-                        status: status @ (401 | 403),
-                        ..
-                    } => FetchError::Http {
-                        url: asset.href.clone(),
-                        message: format!(
-                            "http status: {status}; the account may not download this: order \"{ORDER}\" in \
-                             Geotorget and check the user name and password in the environment variables"
-                        ),
-                    },
-                    other => other,
-                }
-                .into());
+                return Err(account::refusal(&asset.href, ORDER, error).into());
             }
         }
         found.push(path);

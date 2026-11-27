@@ -7,6 +7,7 @@ note-warning = opozorilo: { $text }
 warning-other-zone = območje karte leži v coni UTM { $zone } (EPSG:{ $epsg }); freemapper znova prenese vse v tej coni
 warning-other-state = območje karte zdaj leži v podatkih druge zvezne dežele; freemapper znova prenese vse
 warning-no-orthophoto = za to regijo ni ortofota; zemljevid nima predloge z ortofotom
+warning-terrain-area-uncovered = { $model } nima ploščice za { $percent } % območja zemljevida; tam manjka teren, zato ni plastnic, senčenja ali naklona
 warning-beyond-coverage = del območja karte leži zunaj podprtih zveznih dežel. Leži v tujini, na morju ali v zvezni deželi, ki je freemapper še ne podpira, na primer v Turingiji. Dežele tam nimajo podatkov, zato je ortofoto lahko bel, ALKIS pa ne da stavb ali rabe tal
 # A warning whose text is an error.
 warning-error = { $error }

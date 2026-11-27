@@ -7,6 +7,7 @@ note-warning = figyelmeztetés: { $text }
 warning-other-zone = a térképterület a { $zone } UTM-zónában fekszik (EPSG:{ $epsg }); a freemapper ebben a zónában mindent újra letölt
 warning-other-state = a térképterület most egy másik tartomány adataihoz tartozik; a freemapper mindent újra letölt
 warning-no-orthophoto = ehhez a régióhoz nincs ortofotó; a térképnek nincs ortofotó-sablonja
+warning-terrain-area-uncovered = A(z) { $model } a térképterület { $percent } %-ához nem tartalmaz csempét; ott hiányzik a domborzat, így nincsenek szintvonalak, domborzatárnyékolás és lejtés
 warning-beyond-coverage = a térképterület egy része a támogatott tartományokon kívül esik. Külföldön, a tengeren vagy olyan tartományban van, amelyet a freemapper még nem támogat, például Türingiában. Ott a tartományoknak nincs adatuk, ezért az ortofotó lehet fehér, az ALKIS pedig nem ad épületeket és földhasználatot
 # A warning whose text is an error.
 warning-error = { $error }

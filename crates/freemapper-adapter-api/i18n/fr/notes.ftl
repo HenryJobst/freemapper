@@ -7,6 +7,7 @@ note-warning = avertissement : { $text }
 warning-other-zone = la zone de la carte se trouve dans le fuseau UTM { $zone } (EPSG:{ $epsg }) ; freemapper télécharge tout à nouveau dans ce fuseau
 warning-other-state = la zone de la carte se trouve maintenant dans les données d'un autre Land ; freemapper télécharge tout à nouveau
 warning-no-orthophoto = cette région n'a pas d'orthophoto ; la carte n'a pas de fond d'orthophoto
+warning-terrain-area-uncovered = { $model } n’a pas de dalle pour { $percent } % de la zone de la carte ; le terrain y manque, donc il n’y a ni courbes de niveau, ni ombrage, ni pente
 warning-beyond-coverage = une partie de la zone de la carte se trouve hors des Länder pris en charge. Elle se trouve à l'étranger, en mer ou dans un Land que freemapper ne prend pas encore en charge, comme la Thuringe. Les Länder n'ont pas de données là-bas ; l'orthophotographie peut donc être blanche, et ALKIS ne donne ni bâtiments ni occupation du sol
 # A warning whose text is an error.
 warning-error = { $error }

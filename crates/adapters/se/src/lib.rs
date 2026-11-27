@@ -8,6 +8,7 @@
 //!
 //! Terms follow `docs/glossary.md`.
 
+mod account;
 pub mod copc;
 pub mod marktacke;
 pub mod stac_terrain;

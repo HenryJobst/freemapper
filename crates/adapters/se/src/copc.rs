@@ -20,10 +20,14 @@ use freemapper_adapter_api::records::{AdapterId, EstimateItem, Part, Store};
 use freemapper_georef::crs::BoundingBox;
 use freemapper_sources::stac;
 
+use crate::account;
 use crate::stac_terrain::{PROVIDER, degrees};
 
 /// The collection of the laser data in the height catalogue.
 const COLLECTION: &str = "dsm-skoglig-copc";
+
+/// The product to order in Geotorget for these files.
+const ORDER: &str = "Laserdata Skog";
 
 /// The folder of the tiles below the cache folder of the provider.
 const DIR: &str = "copc";
@@ -132,11 +136,19 @@ impl PointCloudBackend for CopcBackend {
                 Ok(()) => fetched.push(PointCloudTile { record, path }),
                 Err(FetchError::Cancelled) => return Err(FetchError::Cancelled.into()),
                 // The vegetation is only a candidate: a tile that fails is left out.
-                Err(e) => (env.progress)(freemapper_adapter_api::note!(
-                    "warning-point-cloud-unavailable-skipped",
-                    tile = id,
-                    reason = Arg::error(e)
-                )),
+                Err(e) => {
+                    let e = account::refusal(&asset.href, ORDER, e);
+                    // The next tile would be refused the same way: no order, or the cap.
+                    let stop = account::is_cap(&e) || account::is_not_ordered(&e);
+                    (env.progress)(freemapper_adapter_api::note!(
+                        "warning-point-cloud-unavailable-skipped",
+                        tile = id,
+                        reason = Arg::error(e)
+                    ));
+                    if stop {
+                        break;
+                    }
+                }
             }
         }
         if !online {
@@ -415,6 +427,119 @@ mod tests {
             "{lines:?}"
         );
         assert!(backend().cached(&cache, &record_of_the_tile()).is_none());
+    }
+
+    /// A download host that answers every tile with `status`, as it does for an account without
+    /// the order (401) or one over its limit (429), the way a plain download reports it.
+    struct Answering<'a> {
+        inner: &'a MapFetcher,
+        status: u16,
+    }
+
+    impl freemapper_adapter_api::fetch::Fetcher for Answering<'_> {
+        fn get(&self, url: &str) -> Result<Vec<u8>, FetchError> {
+            self.inner.get(url)
+        }
+
+        fn get_range(
+            &self,
+            url: &str,
+            range: freemapper_adapter_api::fetch::ByteRange,
+        ) -> Result<Vec<u8>, FetchError> {
+            self.inner.get_range(url, range)
+        }
+
+        fn download_to(
+            &self,
+            url: &str,
+            path: &std::path::Path,
+            max_bytes: u64,
+            progress: &mut dyn FnMut(freemapper_adapter_api::note::Note),
+        ) -> Result<(), FetchError> {
+            if url.ends_with(".laz") {
+                self.inner.log.borrow_mut().push(url.to_string());
+                return Err(FetchError::Http {
+                    url: url.to_string(),
+                    message: format!("http status: {}", self.status),
+                });
+            }
+            self.inner.download_to(url, path, max_bytes, progress)
+        }
+    }
+
+    /// The catalogue answer with two tiles side by side.
+    fn two_tiles() -> MapFetcher {
+        let fetcher = served();
+        let second = TILE.replace("61775_3850", "61775_3852");
+        let body = String::from_utf8(answer()).unwrap();
+        let item = body
+            .split_once("\"features\":[")
+            .and_then(|(_, rest)| rest.split_once("],\"links\""))
+            .unwrap()
+            .0
+            .replace(TILE, &second)
+            .replace("25a005-61775_3850_25", "25a005-61775_3852_25");
+        let both = body.replacen("],\"links\"", &format!(",{item}],\"links\""), 1);
+        fetcher.insert_prefix(
+            &format!("{STAC}/search?collections=dsm-skoglig-copc"),
+            both.into_bytes(),
+        );
+        fetcher
+    }
+
+    fn fetch_answering(status: u16) -> (Vec<String>, usize) {
+        let inner = two_tiles();
+        let scratch = tempfile::tempdir().unwrap();
+        let cache = CacheDir::new(scratch.path().join("cache"));
+        let fetcher = Answering {
+            inner: &inner,
+            status,
+        };
+        let regions = Registry::new();
+        let mut lines = Vec::new();
+        let result = {
+            let mut progress = |note: freemapper_adapter_api::note::Note| {
+                if note.id() == "warning-point-cloud-unavailable-skipped" {
+                    for part in ["Laserdata Skog", "download limit"] {
+                        if note.contains(part) {
+                            lines.push(part.to_string());
+                        }
+                    }
+                }
+            };
+            let mut env = AdapterEnv {
+                fetcher: &fetcher,
+                regions: &regions,
+                cache: &cache,
+                mode: FetchMode::Online,
+                today: NaiveDate::from_ymd_opt(2026, 11, 27).unwrap(),
+                skip_surface: false,
+                progress: &mut progress,
+            };
+            backend().fetch(&mut env, &area())
+        };
+        assert!(result.unwrap().is_empty());
+        let asked = inner
+            .log
+            .borrow()
+            .iter()
+            .filter(|u| u.ends_with(".laz"))
+            .count();
+        (lines, asked)
+    }
+
+    #[test]
+    fn a_refused_tile_names_the_order_and_stops_the_asking() {
+        let (lines, asked) = fetch_answering(401);
+        assert_eq!(asked, 1, "the second tile would be refused the same way");
+        assert!(lines.iter().any(|l| l == "Laserdata Skog"), "{lines:?}");
+    }
+
+    #[test]
+    fn the_download_limit_is_named_and_stops_the_asking() {
+        let (lines, asked) = fetch_answering(429);
+        assert_eq!(asked, 1);
+        assert!(lines.iter().any(|l| l == "download limit"), "{lines:?}");
     }
 
     fn record_of_the_tile() -> freemapper_adapter_api::pointcloud::PointCloudRecord {

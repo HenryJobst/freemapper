@@ -7,6 +7,7 @@
 
 use std::path::Path;
 
+use crate::account;
 use freemapper_adapter_api::env::AdapterEnv;
 use freemapper_adapter_api::error::{AdapterError, FetchError};
 use freemapper_adapter_api::estimate::{EstimateArea, EstimateEnv};
@@ -85,21 +86,35 @@ pub(crate) fn degrees(bbox: &BoundingBox) -> Option<[f64; 4]> {
     out
 }
 
-/// What a refused download means here: the account has not ordered the product.
+/// What a refused request means here: the account has not ordered the product, or it has
+/// reached its limit.
 fn refusal(url: &str, error: FetchError) -> FetchError {
-    match error {
-        FetchError::Refused {
-            status: status @ (401 | 403),
-            ..
-        } => FetchError::Http {
-            url: url.to_string(),
-            message: format!(
-                "http status: {status}; the account may not download this: order \"{ORDER}\" in \
-                 Geotorget and check the user name and password in the environment variables"
-            ),
-        },
-        other => other,
+    account::refusal(url, ORDER, error)
+}
+
+/// The share of `bbox`, in whole percent rounded up, that no box of `covered` reaches: a tile the
+/// catalogue does not list (the coast, a tile not yet published). Sampled every 10 m.
+fn uncovered_percent(bbox: &BoundingBox, covered: &[BoundingBox]) -> u32 {
+    const STEP: f64 = 10.0;
+    let (mut total, mut missing) = (0_u64, 0_u64);
+    let mut n = bbox.max_n - STEP / 2.0;
+    while n > bbox.min_n {
+        let mut e = bbox.min_e + STEP / 2.0;
+        while e < bbox.max_e {
+            total += 1;
+            let inside =
+                |b: &BoundingBox| b.min_e <= e && e < b.max_e && b.min_n <= n && n < b.max_n;
+            if !covered.iter().any(inside) {
+                missing += 1;
+            }
+            e += STEP;
+        }
+        n -= STEP;
     }
+    if total == 0 {
+        return 0;
+    }
+    (missing * 100).div_ceil(total) as u32
 }
 
 /// The blocks of `layout` that lie under `bbox`.
@@ -150,6 +165,7 @@ fn fetch_model(
     let mut terrain = Raster::filled(GridSpec::covering(bbox, 1.0), f32::NAN);
     let mut date = None;
     let mut used = 0;
+    let mut covered: Vec<BoundingBox> = Vec::new();
     for item in &items {
         let Some(asset) = item.assets.get("data") else {
             continue;
@@ -209,6 +225,7 @@ fn fetch_model(
             }
         }
         used += 1;
+        covered.push(grid.bounds());
         // The date of the tile that holds the middle of the area.
         let (mid_e, mid_n) = (
             (bbox.min_e + bbox.max_e) / 2.0,
@@ -229,6 +246,14 @@ fn fetch_model(
             url: stac_hojd.to_string(),
             message: "no terrain model tile covers the map area; the terrain model of Lantmäteriet covers Sweden only".to_string(),
         });
+    }
+    let missing = uncovered_percent(bbox, &covered);
+    if missing > 0 {
+        progress(freemapper_adapter_api::note!(
+            "warning-terrain-area-uncovered",
+            model = freemapper_adapter_api::note::model(PROVIDER),
+            percent = missing.to_string()
+        ));
     }
     write_float_raster(&terrain, dir, out, TERRAIN_RELPATH)?;
     Ok(HeightModel {
@@ -596,6 +621,29 @@ mod tests {
             [389_900.0, 6_175_900.0, 390_100.0, 6_176_000.0]
         );
         assert!(project.surface.is_none() && project.orthophoto.is_none());
+    }
+
+    #[test]
+    fn a_part_of_the_area_no_tile_covers_is_reported_with_its_share() {
+        let fetcher = served(&both()[..1]);
+        let scratch = tempfile::tempdir().unwrap();
+        let (result, lines, _) = run(&fetcher, scratch.path(), FetchMode::Online);
+        result.unwrap();
+        assert!(
+            lines.contains(&"warning-terrain-area-uncovered".to_string()),
+            "{lines:?}"
+        );
+    }
+
+    #[test]
+    fn an_area_every_tile_covers_has_no_such_warning() {
+        let fetcher = served(&both());
+        let scratch = tempfile::tempdir().unwrap();
+        let (_, lines, _) = run(&fetcher, scratch.path(), FetchMode::Online);
+        assert!(
+            !lines.contains(&"warning-terrain-area-uncovered".to_string()),
+            "{lines:?}"
+        );
     }
 
     #[test]
