@@ -67,7 +67,7 @@ impl LantmaterietBackend {
 }
 
 /// The corners of `bbox` (EPSG:25833) as a box in degrees: west, south, east, north.
-fn degrees(bbox: &BoundingBox) -> Option<[f64; 4]> {
+pub(crate) fn degrees(bbox: &BoundingBox) -> Option<[f64; 4]> {
     let mut out: Option<[f64; 4]> = None;
     for (easting, northing) in [
         (bbox.min_e, bbox.min_n),

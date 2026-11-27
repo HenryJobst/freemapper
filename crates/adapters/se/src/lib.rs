@@ -8,4 +8,5 @@
 //!
 //! Terms follow `docs/glossary.md`.
 
+pub mod copc;
 pub mod stac_terrain;
