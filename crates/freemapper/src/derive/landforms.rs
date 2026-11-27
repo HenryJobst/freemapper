@@ -1161,6 +1161,28 @@ mod tests {
         assert!((area - 28.0 * 6.0).abs() < 60.0, "{area}");
     }
 
+    /// A wall is a face when it is as wide as the norm wants for the scale: the same strip is one at
+    /// 1:10 000 (2.5 m) and none at 1:20 000 (5 m).
+    #[test]
+    fn a_strip_must_be_as_wide_as_the_norm_wants() {
+        let rise = 75f64.to_radians().tan();
+        let terrain = dtm(80, |e, n| {
+            if (15.0..65.0).contains(&e) && (30.0..33.0).contains(&n) {
+                rise * (n - 30.0)
+            } else {
+                0.0
+            }
+        });
+        let faces = rock_faces(&terrain, forest(), 70.0);
+        let area: f64 = faces
+            .iter()
+            .map(|f| geo_types::Polygon::new(f.points.clone().into(), vec![]).unsigned_area())
+            .sum();
+        assert_eq!(faces.len(), 1);
+        let coarse = SymbolScale::new(MapKind::Forest, 20_000);
+        assert!(rock_faces(&terrain, coarse, 70.0).is_empty());
+    }
+
     #[test]
     fn a_face_at_the_edge_of_the_raster_is_left_out() {
         let terrain = dtm(30, |e, n| {
