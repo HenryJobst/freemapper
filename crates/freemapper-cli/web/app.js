@@ -668,9 +668,18 @@ function startFrameDrag(event) {
   event.preventDefault();
   event.stopPropagation();
   map.dragging.disable();
+  // The frame keeps the pointer, so the drag ends also when the button is let go outside the window.
+  const target = event.currentTarget;
+  try {
+    target.setPointerCapture(event.pointerId);
+  } catch (e) {
+    // Without the capture the document handlers below still end the drag inside the window.
+  }
   frameDrag = {
     pointer: map.mouseEventToLayerPoint(event),
     centre: map.latLngToLayerPoint(frameCentre),
+    target,
+    pointerId: event.pointerId,
   };
   document.addEventListener("pointermove", moveFrame);
   document.addEventListener("pointerup", endFrameDrag);
@@ -689,6 +698,9 @@ function endFrameDrag() {
   document.removeEventListener("pointermove", moveFrame);
   document.removeEventListener("pointerup", endFrameDrag);
   document.removeEventListener("pointercancel", endFrameDrag);
+  if (frameDrag && frameDrag.target.hasPointerCapture && frameDrag.target.hasPointerCapture(frameDrag.pointerId)) {
+    frameDrag.target.releasePointerCapture(frameDrag.pointerId);
+  }
   frameDrag = null;
   map.dragging.enable();
 }
@@ -917,7 +929,8 @@ async function saveArea(explicit = false, framesOnly = false) {
     );
     $("has-map").hidden = !answer.has_map;
     project = await api("api/project");
-    showSettings();
+    // A frames-only save wrote nothing else: the settings keep the choices not saved yet.
+    if (!framesOnly) showSettings();
     if (answer.revision !== project.revision) {
       // Another window or program wrote the file between this save and the reload.
       showConflict(t("page-save-stale"));

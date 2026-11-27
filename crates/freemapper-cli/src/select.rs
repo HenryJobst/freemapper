@@ -844,7 +844,9 @@ fn saved_json(
         "zone_changed": zone_changed,
         // Another provider serves the new area: its data is fetched again as well.
         "provider_changed": provider_changed,
-        // The frames were written; they reach the map with the next export.
+        // The frames were written to freemapper.toml. The next export writes them as the
+        // template templates/paper-frame.omap; a newly written map lists it, a kept map is
+        // not changed.
         "paper_frames_saved": paper_frames_saved,
         "dir": dir,
         "has_map": map_path(dir).exists(),
