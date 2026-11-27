@@ -670,9 +670,9 @@ für die **Gebäude** und das `breakgeometry`-Asset nötig, samt Zip drumherum.
 Datei von 634 880 Byte) [live]: `application_id` 1196444487 („GPKG“), `user_version` 10400, drei Feature-Tabellen
 `mark` (Polygon, 168 Zeilen), `markkantlinje` (Linie) und `sankmark` (Polygon), alle in EPSG:3006 mit Geometriespalte
 `geom`. `mark` trägt `objektidentitet`, `objekttypnr`, `objekttyp` und weitere Attribute; die Klassen sind
-`Barr- och blandskog` (74), `Öppen mark` (44), `Hög bebyggelse` (17), `Industri- und handelsbebyggelse` (12),
+`Barr- och blandskog` (74), `Öppen mark` (44), `Hög bebyggelse` (17), `Industri- och handelsbebyggelse` (12),
 `Låg bebyggelse` (11), `Sjö` (6), `Torg` (2) und `Vattendragsyta` (1). Das GeoPackage-Geometrieheader-Flagbyte ist
-`0`: **Big-Endian, ohne Hüllkörper**; ein Leser darf also nicht von Little-Endian ausgehen. Gebäude und die übrigen
+`0`: **Big-Endian, ohne Hüllkörper**; ein Leser darf nicht von Little-Endian ausgehen. Gebäude und die übrigen
 Vektoren sind nicht geladen, ihr Aufbau ist ungeprüft.
 
 ### 8.3 Ein COG-Leser für das Orthofoto
