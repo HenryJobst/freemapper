@@ -62,6 +62,15 @@ traditional maps of the German Alpine Club (<https://www.alpenverein.de/verband/
 - The rule for contours that merge in steep land is not found in the edition read. The 0.15 mm gap between
   line symbols of one colour and the contour width of 0.14 mm give a centre spacing of at least 0.29 mm.
 
+## Result: no thinning of contours (2026-11-27)
+
+freemapper does not drop single contours where they lie closer than 0.29 mm. ISOM 2.10 allows one interval per map, so a
+line left out in steep land would be a second interval. The norm-conform ways are the two the program has: the
+interval of 10 m on steep forest maps (ADR 0125, `contour_interval_for`) and black rock face areas (206, ADR 0200)
+where the contours stop. Checked on Adršpach (1:10 000): at 10 m the contours come closer than 0.29 mm from about
+74° on, and everything from 70° is a black face. A person who forces `--contour-interval 5` gets crowded contours
+on 6.5 % of the area (60° to 70°), which is their choice, not a fault.
+
 ## To compare with the implementation
 
 | Rule | Where it lives |

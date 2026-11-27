@@ -38,8 +38,9 @@ Contours are cut out where they run through a rock face (206 is one of `CONTOUR_
 `build/line_cuts.rs`), as at small knolls and stairs; pieces shorter than 1 mm on paper are dropped. On Adršpach the
 contour objects of the base map grow from 280 to 666 (the lines are cut into pieces) while the drawing hardly
 changes, because the black area covered them; the brown lines no longer run into the black, as the norm wants
-(contours and cliffs interplay, no brown line over black). Not built: thinning of crowded contours (ISOM gap of
-0.15 mm between lines of one colour).
+(contours and cliffs interplay, no brown line over black). Thinning of crowded contours is not built on purpose: the norm allows one interval per map, and with the
+interval of 10 m on steep forest maps (ADR 0125) the contours come closer than the minimum gap of 0.29 mm only from
+about 74° on, which the faces cover from 70° (see `docs/research/orienteering-specifications.md`).
 
 ## Consequences
 

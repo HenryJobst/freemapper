@@ -8,6 +8,7 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ### Added
 
+- Result on thinning crowded contours recorded (reference list, ADR 0200): freemapper does not drop single contours, because the norm wants one interval per map. The 10 m interval on steep forest maps and the black rock face areas solve the problem.
 - Contours stop at rock face areas (ADR 0200): where a contour runs through a black area (206) it is cut there, as it already was at small knolls and stairs. The Adršpach example is rebuilt.
 - The example `cesko-adrspach-forest` is rebuilt: the training map now shows the rock face areas (206) between the boulders, and the terrain candidate layer has 312 more candidates.
 - Face threshold for rock face areas (ADR 0200): `--face-slope <degrees>|auto` on `init`, `derive` and `run`, `face_slope` in the MCP tools `create_project` and `start_pipeline`, the field "Face threshold" on the area page and `face_slope_deg` in `freemapper.toml`. The default stays 70°, 55° to 85° are allowed. On Adršpach 65° makes 8.4 % of the ground black, 70° 5.2 % and 75° 2.5 %.
