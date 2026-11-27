@@ -1621,6 +1621,38 @@ mod tests {
     }
 
     #[test]
+    fn a_contour_stops_at_a_rock_face() {
+        // A rock face among the candidates (206) and a contour across it and one beside it.
+        let f = fixture(MapKind::Forest);
+        let mut face = square(&f, "206", (-30.0, -30.0), 60.0);
+        face.tags.push((
+            crate::build::content::LANDFORM_KEY.to_string(),
+            "rock-face".to_string(),
+        ));
+        let placed = placed_with(
+            &f,
+            vec![
+                path(&f, "101", &[(-200.0, 0.0), (200.0, 0.0)]),
+                path(&f, "101", &[(-200.0, 100.0), (200.0, 100.0)]),
+            ],
+            vec![face],
+            &[
+                (Group::Contours, Place::Map),
+                (Group::Landforms, Place::Candidates),
+            ],
+        );
+        let contours = of_symbol(&placed.map, f.id("101"));
+        let on = |n: f64| {
+            contours
+                .iter()
+                .filter(|o| o.coords[0].y == f.at((0.0, n)).y)
+                .count()
+        };
+        // The one through the face is in two pieces, the other stays whole.
+        assert_eq!((on(0.0), on(100.0)), (2, 1), "{contours:?}");
+    }
+
+    #[test]
     fn a_contour_crosses_an_earth_wall_on_a_forest_map() {
         // ISOM 2017-2: contours cross the earth wall (105), and it is no small earth wall.
         let f = fixture(MapKind::Forest);

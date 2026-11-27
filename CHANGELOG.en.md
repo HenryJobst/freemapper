@@ -8,6 +8,7 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ### Added
 
+- Contours stop at rock face areas (ADR 0200): where a contour runs through a black area (206) it is cut there, as it already was at small knolls and stairs. The Adršpach example is rebuilt.
 - The example `cesko-adrspach-forest` is rebuilt: the training map now shows the rock face areas (206) between the boulders, and the terrain candidate layer has 312 more candidates.
 - Face threshold for rock face areas (ADR 0200): `--face-slope <degrees>|auto` on `init`, `derive` and `run`, `face_slope` in the MCP tools `create_project` and `start_pipeline`, the field "Face threshold" on the area page and `face_slope_deg` in `freemapper.toml`. The default stays 70°, 55° to 85° are allowed. On Adršpach 65° makes 8.4 % of the ground black, 70° 5.2 % and 75° 2.5 %.
 - Rock face areas (ADR 0200): a connected patch of the terrain model at least 70° steep is offered as a black area in plan shape (206) when it reaches the norm's minimum sizes (0.3 mm², 0.25 mm wide). Banks and cliffs that run along such an area are dropped. Adršpach gets 310 areas.

@@ -3,9 +3,10 @@
 //! Lines cut where other symbols need the room.
 //!
 //! The contours run through all symbols, paving, paths and buildings too (ISSprOM 2019-2, 101).
-//! They are cut out only where they touch a small landform or a stairway: a small earth wall
-//! (105), a small knoll (109), a small elongated knoll (110), a small depression (111), a pit or
-//! hole (112), a prominent landform feature (115) and a stairway (532), as drawn on the map and
+//! They are cut out only where they touch a small landform, a rock face or a stairway: a small
+//! earth wall (105), a small knoll (109), a small elongated knoll (110), a small depression (111),
+//! a pit or hole (112), a prominent landform feature (115), a gigantic boulder, rock pillar or
+//! massive cliff in plan shape (206, ADR 0200) and a stairway (532), as drawn on the map and
 //! among the candidates ([`contour_cut_outs`]). ISOM 2017-2 breaks them at 109 and 110 and lets
 //! them cross its earth wall (105): on a forest map 105 is not cut out.
 //!
@@ -36,8 +37,9 @@ pub const NORTH_LINE_CODES: [&str; 1] = ["601"];
 pub const MIN_PIECE_MM: PaperMm = PaperMm(1.0);
 /// The small landforms the contours are cut out at (ISSprOM 2019-2, 101): small earth wall,
 /// small knoll, small elongated knoll, small depression, pit or hole, prominent landform
-/// feature. The stairways come by `stair_footprints`.
-pub const CONTOUR_CUT_OUT_CODES: [&str; 6] = ["105", "109", "110", "111", "112", "115"];
+/// feature, and the rock in plan shape (206: a contour does not run through black rock). The
+/// stairways come by `stair_footprints`.
+pub const CONTOUR_CUT_OUT_CODES: [&str; 7] = ["105", "109", "110", "111", "112", "115", "206"];
 /// The earth wall of ISOM 2017-2, which the contours cross (ISOM 2017-2, 2.11.3 Graphical minimum
 /// dimensions, "Minimum gaps": "Crossings, such as Contours (101) and Earth walls (105, 106)"):
 /// on a forest map it is no small earth wall and is not cut out.
