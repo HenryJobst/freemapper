@@ -145,6 +145,7 @@ map.attributionControl.addAttribution(
 
 const tileLayer = L.layerGroup().addTo(map);
 const areaLayer = L.layerGroup().addTo(map);
+const frameLayer = L.layerGroup().addTo(map);
 const drawLayer = L.layerGroup().addTo(map);
 
 // --- State -----------------------------------------------------------------------------------
@@ -215,6 +216,8 @@ function updateControls() {
   $("contour").disabled = busy;
   $("steep").disabled = busy;
   $("face").disabled = busy;
+  $("paper-keep").disabled = busy || !$("paper-format").value;
+  for (const button of $("paper-frames").querySelectorAll("button")) button.disabled = busy;
   for (const control of $("content-section").querySelectorAll("input, select")) {
     control.disabled = busy;
   }
@@ -455,6 +458,8 @@ function setMode(next) {
   if (mode) map.doubleClickZoom.disable();
   else map.doubleClickZoom.enable();
   showHint();
+  // While a drawing tool is on, the paper frame lets every click through to the map.
+  showFrames();
 }
 
 /** The hint under the drawing buttons, for the current mode in the page language. */
@@ -562,6 +567,183 @@ $("clear").addEventListener("click", () => {
   notifyRun();
 });
 
+// --- Paper frames ----------------------------------------------------------------------------
+
+/** The kept paper frames, `[{ format, orientation, lon, lat }]`, as the save takes them. */
+let paperFrames = [];
+// The kept frames as last loaded or saved: tells whether the person changed them since.
+let loadedFrames = [];
+/** The centre (`L.LatLng`) of the frame being placed; null while no format is chosen. */
+let frameCentre = null;
+/** The frame being placed, on the map while a format is chosen. */
+let framePolygon = null;
+/** The drag of that frame: the pointer and the frame centre where it began, in layer pixels. */
+let frameDrag = null;
+// Saves of the kept frames run one after the other: each needs the revision the one before left.
+let framesSaving = Promise.resolve();
+
+const FRAME_NAMES = {
+  landscape: "page-paper-name-landscape",
+  portrait: "page-paper-name-portrait",
+};
+const PLACED_FRAME = { color: "#7a3ec8", weight: 3, fillOpacity: 0.06, className: "paper-frame" };
+const KEPT_FRAME = { color: "#9a8ab4", weight: 1.5, fill: false, interactive: false };
+const EARTH_RADIUS_M = 6378137;
+
+/**
+ * The corners `[[lat, lon] ×4]` (south-west, south-east, north-east, north-west) of a north-up
+ * rectangle of `widthM` × `heightM` on the ground around `lat`/`lon`, on the page's web-mercator
+ * map. That map stretches distances by 1/cos(lat), so the ground size is divided by cos(lat).
+ * Only for the screen: the export computes the exact frame in the map's own CRS.
+ */
+function frameCorners(lat, lon, widthM, heightM) {
+  const rad = Math.PI / 180;
+  const x = EARTH_RADIUS_M * lon * rad;
+  const y = EARTH_RADIUS_M * Math.log(Math.tan(Math.PI / 4 + (lat * rad) / 2));
+  const dx = widthM / 2 / Math.cos(lat * rad);
+  const dy = heightM / 2 / Math.cos(lat * rad);
+  const corner = (px, py) => [
+    (2 * Math.atan(Math.exp(py / EARTH_RADIUS_M)) - Math.PI / 2) / rad,
+    px / EARTH_RADIUS_M / rad,
+  ];
+  return [corner(x - dx, y - dy), corner(x + dx, y - dy), corner(x + dx, y + dy), corner(x - dx, y + dy)];
+}
+
+/** The corners of `frame` at the scale chosen on the page; null for a format the server lacks. */
+function cornersOf(frame) {
+  const paper = ((project && project.paper_formats) || []).find((p) => p.name === frame.format);
+  const scale = Number($("scale").value);
+  if (!paper || !scale) return null;
+  const [width, height] = frame.orientation === "landscape"
+    ? [paper.height_mm, paper.width_mm]
+    : [paper.width_mm, paper.height_mm];
+  return frameCorners(frame.lat, frame.lon, (width * scale) / 1000, (height * scale) / 1000);
+}
+
+/** The frame being placed as the save takes it, or null while no format is chosen. */
+function placedFrame() {
+  const format = $("paper-format").value;
+  if (!format || !frameCentre) return null;
+  const orientation = $("paper-orientation").value;
+  return { format, orientation, lon: frameCentre.lng, lat: frameCentre.lat };
+}
+
+/** The frames that `project` holds, as the page keeps them. */
+function framesOf(project) {
+  const stored = (project && Array.isArray(project.paper_frames)) ? project.paper_frames : [];
+  return stored.map(({ format, orientation, lon, lat }) => ({ format, orientation, lon, lat }));
+}
+
+/** The frames in a fixed form, to compare two lists. */
+function framesKey(frames) {
+  return JSON.stringify(frames.map((f) => [f.format, f.orientation, f.lon, f.lat]));
+}
+
+/**
+ * Draws the kept frames and, with a format chosen, the frame being placed: at first on the area,
+ * else on the middle of the map. Nothing is drawn without either.
+ */
+function showFrames() {
+  frameLayer.clearLayers();
+  framePolygon = null;
+  for (const frame of paperFrames) {
+    const corners = cornersOf(frame);
+    if (corners) L.polygon(corners, KEPT_FRAME).addTo(frameLayer);
+  }
+  if (!$("paper-format").value) return;
+  const fresh = !frameCentre;
+  if (fresh) frameCentre = area ? L.geoJSON(area).getBounds().getCenter() : map.getCenter();
+  const corners = cornersOf(placedFrame());
+  if (!corners) return;
+  framePolygon = L.polygon(corners, { ...PLACED_FRAME, interactive: !mode }).addTo(frameLayer);
+  if (!mode) framePolygon.getElement().addEventListener("pointerdown", startFrameDrag);
+  // A new frame larger than the view would take every drag: zoom out until there is room around it.
+  const bounds = framePolygon.getBounds();
+  if (fresh && !map.getBounds().contains(bounds)) map.fitBounds(bounds, { padding: [40, 40] });
+}
+
+// The drag goes without a plugin: the map stops panning while the frame moves with the pointer.
+function startFrameDrag(event) {
+  if (mode || !event.isPrimary || event.button !== 0) return;
+  event.preventDefault();
+  event.stopPropagation();
+  map.dragging.disable();
+  frameDrag = {
+    pointer: map.mouseEventToLayerPoint(event),
+    centre: map.latLngToLayerPoint(frameCentre),
+  };
+  document.addEventListener("pointermove", moveFrame);
+  document.addEventListener("pointerup", endFrameDrag);
+  document.addEventListener("pointercancel", endFrameDrag);
+}
+
+function moveFrame(event) {
+  if (!frameDrag || !framePolygon) return;
+  const moved = map.mouseEventToLayerPoint(event).subtract(frameDrag.pointer);
+  frameCentre = map.layerPointToLatLng(frameDrag.centre.add(moved));
+  const corners = cornersOf(placedFrame());
+  if (corners) framePolygon.setLatLngs(corners);
+}
+
+function endFrameDrag() {
+  document.removeEventListener("pointermove", moveFrame);
+  document.removeEventListener("pointerup", endFrameDrag);
+  document.removeEventListener("pointercancel", endFrameDrag);
+  frameDrag = null;
+  map.dragging.enable();
+}
+
+/** The list of the kept frames, each with its name and a delete button. */
+function showFrameList() {
+  $("paper-frames").replaceChildren(
+    ...paperFrames.map((frame, index) => {
+      const li = document.createElement("li");
+      const name = document.createElement("span");
+      name.textContent = t(FRAME_NAMES[frame.orientation], { format: frame.format });
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.textContent = t("page-paper-delete");
+      remove.disabled = busy;
+      remove.addEventListener("click", () => {
+        paperFrames.splice(index, 1);
+        framesChanged();
+      });
+      li.append(name, remove);
+      return li;
+    }),
+  );
+}
+
+/** The kept frames changed: an existing project saves them at once and alone, a new one with its area. */
+function framesChanged() {
+  showFrames();
+  showFrameList();
+  if (project && project.exists) framesSaving = framesSaving.then(() => saveArea(false, true));
+}
+
+/** Fills the format list from the server's table (`paper_formats`), with "none" first. */
+function fillPaperFormats() {
+  const formats = (project && project.paper_formats) || [];
+  $("paper-format").replaceChildren(
+    new Option(t("page-paper-none"), ""),
+    ...formats.map((paper) => new Option(paper.name, paper.name)),
+  );
+}
+
+$("paper-format").addEventListener("change", () => {
+  if (!$("paper-format").value) frameCentre = null;
+  showFrames();
+  updateControls();
+});
+$("paper-orientation").addEventListener("change", showFrames);
+$("scale").addEventListener("change", showFrames);
+$("paper-keep").addEventListener("click", () => {
+  const frame = placedFrame();
+  if (!frame || busy) return;
+  paperFrames.push(frame);
+  framesChanged();
+});
+
 // --- Settings, save, done --------------------------------------------------------------------
 
 // Fills the scale list for `kind` from the server's table (`allowed_scales`, ADR 0085) and selects
@@ -643,6 +825,7 @@ $("face").addEventListener("change", () => {
 
 $("kind").addEventListener("change", () => {
   fillScales($("kind").value);
+  showFrames();
   // The buffer depends on the map kind.
   updatePreview();
   notifyRun();
@@ -672,44 +855,63 @@ function showConflict(text) {
     // "Save" will write.
     $("content-section").open = true;
   }
+  // The kept frames likewise: the file's, unless a change of the person's here is not saved yet.
+  if (framesKey(paperFrames) === framesKey(loadedFrames)) {
+    paperFrames = framesOf(project);
+    loadedFrames = framesOf(project);
+    showFrames();
+    showFrameList();
+  }
 }
 
 /**
  * Saves the area (and, for a new project, kind, scale and title); true when it worked. `explicit`
- * is a click on "Save", the only save that clears a conflict.
+ * is a click on "Save", the only save that clears a conflict. `framesOnly` saves the kept paper
+ * frames of an existing project alone: area and settings stay as the file has them.
  */
-async function saveArea(explicit = false) {
-  if (!area || busy) return false;
+async function saveArea(explicit = false, framesOnly = false) {
+  if (busy || (!framesOnly && !area)) return false;
   setMessage(t("page-saving"));
   clearBanner();
   $("save").disabled = true;
   try {
-    const body = { area: areaInput || area, source_id: sourceId };
-    // Only a choice that differs from the file; without one the stored settings stay as they are.
-    if (contentKey(content) !== contentKey(contentOf(project))) body.content = contentBody(content);
-    if (contourInterval !== (project.contour_interval_m ?? null)) body.contour_interval_m = contourInterval;
-    if (steepSlope !== (project.steep_slope_deg ?? null)) body.steep_slope_deg = steepSlope;
-    if (faceSlope !== (project.face_slope_deg ?? null)) body.face_slope_deg = faceSlope;
-    if (!project.exists) {
-      body.kind = $("kind").value;
-      body.scale = Number($("scale").value) || undefined;
-      body.title = $("title").value.trim() || undefined;
+    const body = framesOnly ? {} : { area: areaInput || area, source_id: sourceId };
+    if (!framesOnly) {
+      // Only a choice that differs from the file; without one the stored settings stay as they are.
+      if (contentKey(content) !== contentKey(contentOf(project))) body.content = contentBody(content);
+      if (contourInterval !== (project.contour_interval_m ?? null)) body.contour_interval_m = contourInterval;
+      if (steepSlope !== (project.steep_slope_deg ?? null)) body.steep_slope_deg = steepSlope;
+      if (faceSlope !== (project.face_slope_deg ?? null)) body.face_slope_deg = faceSlope;
+      if (!project.exists) {
+        body.kind = $("kind").value;
+        body.scale = Number($("scale").value) || undefined;
+        body.title = $("title").value.trim() || undefined;
+      }
+    }
+    // The kept frames go with a save when they differ from the file (a new project: with its area).
+    if (framesOnly || framesKey(paperFrames) !== framesKey(framesOf(project))) {
+      body.paper_frames = paperFrames.map((frame) => ({ ...frame }));
     }
     // The revision of freemapper.toml as this page read it; none before the file exists.
     const answer = await api("api/save", body, project.revision);
     savedHere = true;
-    savedSignature = signature();
-    loadedContent = contentOf({ content_options: project.content_options, content: contentBody(content) });
-    project.contour_interval_m = contourInterval;
-    project.steep_slope_deg = steepSlope;
-    project.face_slope_deg = faceSlope;
+    loadedFrames = body.paper_frames || framesOf(project);
+    if (!framesOnly) {
+      savedSignature = signature();
+      loadedContent = contentOf({ content_options: project.content_options, content: contentBody(content) });
+      project.contour_interval_m = contourInterval;
+      project.steep_slope_deg = steepSlope;
+      project.face_slope_deg = faceSlope;
+    }
     setMessage(
       t(
-        answer.zone_changed
-          ? "page-zone-changed"
-          : answer.provider_changed
-            ? "page-provider-changed"
-            : "page-saved",
+        framesOnly
+          ? "page-paper-saved"
+          : answer.zone_changed
+            ? "page-zone-changed"
+            : answer.provider_changed
+              ? "page-provider-changed"
+              : "page-saved",
       ),
       "ok",
     );
@@ -990,6 +1192,10 @@ async function start() {
     $("folder").textContent = project.dir;
     showUpdateNotice();
     showSettings();
+    fillPaperFormats();
+    paperFrames = framesOf(project);
+    loadedFrames = framesOf(project);
+    showFrameList();
     buildContent(project.content_options);
     content = contentOf(project);
     loadedContent = contentOf(project);
@@ -999,6 +1205,8 @@ async function start() {
       await chooseArea(project.area, project.source_id, null, true);
       savedSignature = signature();
     }
+    // After the area: a kept frame is drawn where it lies, and the map is already there.
+    showFrames();
     if (window.freemapperRun) window.freemapperRun.init(project);
     if (listed.problem) {
       setMessage(t("page-adapters-failed", { detail: listed.problem }), "error");

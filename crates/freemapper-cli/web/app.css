@@ -165,6 +165,32 @@ footer a {
   display: none;
 }
 
+/* --- Paper frames ------------------------------------------------------------------------------- */
+
+#paper-keep {
+  margin: 2px 0;
+}
+
+#paper-frames {
+  list-style: none;
+  padding: 0;
+  margin: 4px 0;
+}
+
+#paper-frames li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 2px 0;
+}
+
+/* The frame being placed takes the pointer for its drag, by mouse and by touch. */
+.leaflet-pane path.paper-frame {
+  cursor: move;
+  touch-action: none;
+}
+
 /* --- Map -------------------------------------------------------------------------------------- */
 
 /* Tile names sit on the map, which stays light in both schemes. */
