@@ -316,3 +316,5 @@ error-layer-not-made = { $layer } še ni izdelan; zaženi { $step ->
 warning-ocad-no-background = { $error }; karta OCAD iz tega ne dobi ozadja
 warning-map-preview-failed = karta je zapisana, njen predogled pa manjka: { $error }
 warning-training-no-tree-cover = vadbena karta ohrani odprte površine parkov cele: pokritost z drevesi (data/tree-cover.tif) manjka; znova zaženi `freemapper derive`
+warning-ocad-no-paper-frames = začetni projekt OCAD še nima papirnih okvirjev; so v templates/paper-frame.omap, predlogi za OOM
+warning-paper-frames-left-out = papirni okvirji, izpuščeni iz templates/paper-frame.omap: { $count }; za karto OOM ležijo predaleč od karte; na strani območja jih povleci bližje območju karte

@@ -317,3 +317,5 @@ error-layer-not-made = { $layer } ještě nevzniklo; spusťte { $step ->
 warning-ocad-no-background = { $error }; mapa OCAD z toho nedostane žádné pozadí
 warning-map-preview-failed = mapa je zapsána, ale chybí její náhled: { $error }
 warning-training-no-tree-cover = tréninková mapa zachovává otevřenou krajinu parků vcelku: chybí pokryv stromů (data/tree-cover.tif); spusťte `freemapper derive` znovu
+warning-ocad-no-paper-frames = výchozí projekt OCAD zatím nemá papírové rámy; jsou v templates/paper-frame.omap, podkladu pro OOM
+warning-paper-frames-left-out = papírové rámy vynechané v templates/paper-frame.omap: { $count }; pro mapu OOM leží příliš daleko od mapy; přesuňte je na stránce území blíže k mapovému území

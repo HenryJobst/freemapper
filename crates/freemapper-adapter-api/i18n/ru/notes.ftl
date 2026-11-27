@@ -324,3 +324,5 @@ error-layer-not-made = { $layer } ещё не создан; выполни { $st
 warning-ocad-no-background = { $error }; карта OCAD не получает из этого фона
 warning-map-preview-failed = карта записана, но её предпросмотра нет: { $error }
 warning-training-no-tree-cover = тренировочная карта оставляет открытые участки парков целыми: отсутствует покрытие деревьями (data/tree-cover.tif); выполни `freemapper derive` снова
+warning-ocad-no-paper-frames = у стартового проекта OCAD пока нет бумажных рамок; они в templates/paper-frame.omap, подложке для OOM
+warning-paper-frames-left-out = пропущено бумажных рамок в templates/paper-frame.omap: { $count }; для карты OOM они лежат слишком далеко от карты; перетащи их на странице области ближе к области карты

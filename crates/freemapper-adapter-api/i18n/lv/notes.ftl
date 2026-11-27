@@ -314,3 +314,5 @@ error-layer-not-made = { $layer } vēl nav izveidots; palaidiet { $step ->
 warning-ocad-no-background = { $error }; OCAD karte no tā nesaņem fonu
 warning-map-preview-failed = karte ir ierakstīta, bet tās priekšskatījuma nav: { $error }
 warning-training-no-tree-cover = treniņu karte patur parku atklātās zemes veselas: trūkst koku seguma (data/tree-cover.tif); vēlreiz palaidiet `freemapper derive`
+warning-ocad-no-paper-frames = OCAD sākumprojektam vēl nav papīra rāmju; tie ir OOM veidnē templates/paper-frame.omap
+warning-paper-frames-left-out = no templates/paper-frame.omap izlaisti papīra rāmji: { $count }; OOM kartei tie atrodas pārāk tālu no kartes; apgabala lapā pavelciet tos tuvāk kartes apgabalam

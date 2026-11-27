@@ -390,3 +390,5 @@ error-layer-not-made = { $layer } dar nesukurtas; paleiskite { $step ->
 warning-ocad-no-background = { $error }; OCAD žemėlapis iš to fono negauna
 warning-map-preview-failed = žemėlapis įrašytas, bet jo peržiūros nėra: { $error }
 warning-training-no-tree-cover = treniruočių žemėlapis parkų atviras vietas palieka sveikas: trūksta medžių dangos (data/tree-cover.tif); dar kartą paleiskite `freemapper derive`
+warning-ocad-no-paper-frames = OCAD pradinis projektas dar neturi popieriaus rėmelių; jie yra OOM šablone templates/paper-frame.omap
+warning-paper-frames-left-out = iš templates/paper-frame.omap praleisti popieriaus rėmeliai: { $count }; OOM žemėlapiui jie yra per toli nuo žemėlapio; ploto puslapyje patraukite juos arčiau žemėlapio ploto
