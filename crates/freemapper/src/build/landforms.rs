@@ -27,6 +27,11 @@ const LANDFORM_CODES: [(LandformKind, &str); 5] = [
 const BARE_ROCK_CODE: &str = "214";
 const BOULDER_CODE: &str = "204";
 const LARGE_BOULDER_CODE: &str = "205";
+/// Boulders closer than their symbols allow (0.4 mm wide and 0.15 mm between symbols, centre to
+/// centre) cannot be drawn singly: three or more in a chain are a boulder cluster (207).
+const BOULDER_CLUSTER_CODE: &str = "207";
+const BOULDER_GAP_MM: f64 = 0.55;
+const BOULDER_CLUSTER_MIN: usize = 3;
 const BOULDER_MIN_HEIGHT_M: f64 = 1.0;
 const LARGE_BOULDER_MIN_HEIGHT_M: f64 = 2.0;
 /// Lines already drawn that a bank or cliff from the terrain would only repeat: earth banks and
@@ -183,6 +188,8 @@ pub fn landform_objects(
         })
     };
     let mut objects = Vec::new();
+    // The boulders of bare rock, as (point, height, object): they may become clusters.
+    let mut boulders: Vec<((f64, f64), f64, MapObject)> = Vec::new();
     for form in forms {
         let landform = form.kind;
         let Some(mut code) = LANDFORM_CODES
@@ -283,12 +290,98 @@ pub fn landform_objects(
         if let Some(currency) = currency {
             tags.push(("freemapper:currency".to_string(), currency.clone()));
         }
-        objects.push(MapObject {
+        let object = MapObject {
             symbol_id,
             kind,
             coords,
             tags,
+        };
+        if code == BOULDER_CODE || code == LARGE_BOULDER_CODE {
+            boulders.push((form.points[0], form.height_m, object));
+        } else {
+            objects.push(object);
+        }
+    }
+    objects.extend(boulders_and_clusters(
+        boulders,
+        georef,
+        symbol_set,
+        source,
+        currency.as_deref(),
+    )?);
+    Ok(objects)
+}
+
+/// The boulders as they are, except that boulders closer together than their symbols allow
+/// ([`BOULDER_GAP_MM`] on paper), three or more in a chain, become one boulder cluster (207) at
+/// their centre, as high as the highest of them. Without the symbol they stay single.
+fn boulders_and_clusters(
+    boulders: Vec<((f64, f64), f64, MapObject)>,
+    georef: &Georeferencing,
+    symbol_set: &SymbolSet,
+    source: &str,
+    currency: Option<&str>,
+) -> Result<Vec<MapObject>, GeorefError> {
+    let Some(cluster_id) = symbol_set.id_for_code(BOULDER_CLUSTER_CODE) else {
+        return Ok(boulders.into_iter().map(|(_, _, o)| o).collect());
+    };
+    let gap_m = BOULDER_GAP_MM * georef.metres_per_map_mm();
+    // The chains of boulders: each boulder joins the group of every one within `gap_m`.
+    let mut group: Vec<usize> = (0..boulders.len()).collect();
+    for i in 0..boulders.len() {
+        for j in 0..i {
+            let ((e1, n1), (e2, n2)) = (boulders[i].0, boulders[j].0);
+            if (e1 - e2).hypot(n1 - n2) <= gap_m {
+                let (from, to) = (group[i], group[j]);
+                for g in group.iter_mut().filter(|g| **g == from) {
+                    *g = to;
+                }
+            }
+        }
+    }
+    let mut out = Vec::new();
+    let mut done = vec![false; boulders.len()];
+    for first in 0..boulders.len() {
+        if done[first] {
+            continue;
+        }
+        let members: Vec<usize> = (first..boulders.len())
+            .filter(|&k| group[k] == group[first])
+            .collect();
+        for &k in &members {
+            done[k] = true;
+        }
+        if members.len() < BOULDER_CLUSTER_MIN {
+            out.extend(members.iter().map(|&k| boulders[k].2.clone()));
+            continue;
+        }
+        let count = members.len() as f64;
+        let (e, n) = members.iter().fold((0.0, 0.0), |(e, n), &k| {
+            (e + boulders[k].0.0 / count, n + boulders[k].0.1 / count)
+        });
+        let height = members.iter().map(|&k| boulders[k].1).fold(0.0, f64::max);
+        let at = georef.projected_to_map(ProjectedPoint {
+            easting: e,
+            northing: n,
+        })?;
+        let mut tags = vec![
+            ("freemapper:source".to_string(), source.to_string()),
+            ("freemapper:height".to_string(), format!("{height:.1}")),
+            (
+                LANDFORM_KEY.to_string(),
+                LandformKind::Knoll.name().to_string(),
+            ),
+            ("freemapper:boulders".to_string(), members.len().to_string()),
+        ];
+        if let Some(currency) = currency {
+            tags.push(("freemapper:currency".to_string(), currency.to_string()));
+        }
+        out.push(MapObject {
+            symbol_id: cluster_id,
+            kind: MapObjectKind::Point { rotation_rad: 0.0 },
+            coords: vec![MapCoord::new(at.x, at.y)],
+            tags,
         });
     }
-    Ok(objects)
+    Ok(out)
 }

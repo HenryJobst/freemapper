@@ -30,3 +30,23 @@ shape; bare rock (214) is for "a runnable area of rock" and is grey. Counted on 
   training map. The golden maps of the four states do not change (they have no bare rock).
 - A tower of 2 m is not a large boulder in the strict sense of the norm (more than 2 m); the model of 1 to 2 m is
   rough. The candidates are to be checked in the terrain.
+
+## Addendum 2026-11-27: boulder clusters (207)
+
+Boulders closer together than their symbols allow cannot be drawn singly: 0.4 mm for the boulder (0.6 mm for the large one)
+and 0.15 mm between symbols of one colour (ISOM 2017-2, gap rule) make 0.55 mm from centre to centre. Three or more
+boulders in a chain of that distance or less become one boulder cluster (207) at their centre, as high as the highest of
+them, tagged `freemapper:boulders` with their number (`build/landforms.rs`, `boulders_and_clusters`). One or two stay
+single. The distance is taken on paper, so it is 8.25 m at 1:15 000 and 5.5 m at 1:10 000. Without the symbol 207 in the
+set the boulders stay single. ISOM asks for boulders higher than 1 m in a cluster; every boulder here is.
+
+Two real maps of the area gave the reason: the Nikolsdorfer Wände of the Saxonia Festival 2026 and the Adršpach map of 2014
+draw a rock field as black dots and short black strokes, with small triangles where boulders stand too close. A map of
+Adršpach of 2009 (ISSprOM, 1:5000, 5 m contours) draws the rock town as large black plan-shape areas instead (206); that
+is the next step and not built here.
+
+Measured effect: none at 1:10 000, little at 1:15 000. The knoll finder keeps its points at least 5.4 m apart (Adršpach: nearest
+neighbour 5.4 m at the least, 18 m median; Nikolsdorf 6.4 m and 17 m), so no pair is closer than the 5.5 m of 1:10 000; at
+1:15 000 (8.25 m) 2 to 4 % of the points have a neighbour that close, and three in a chain are rarer. The clusters wait for data
+that separates single towers more densely, such as a point cloud. Kept because the rule is the norm's and cheap.
+

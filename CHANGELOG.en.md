@@ -8,6 +8,7 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ### Added
 
+- Boulder clusters (ADR 0199): when three or more boulders on a rock area stand so close that their symbols would leave less than the minimum gap of 0.15 mm (0.55 mm centre to centre), they are merged into one boulder cluster (207) at their centre.
 - Boulders on rock areas (ADR 0199): a knoll of 1 m or more that lies in an OpenStreetMap rock area (`natural=bare_rock`) is offered as a boulder (204) and, from 2 m, as a large boulder (205) instead of a brown knoll. A rock town such as Adršpach becomes a field of black dots, as real maps show it.
 - Steepness threshold for earth banks and cliffs (ADR 0198): `--steep-slope <degrees>|auto` on `init`, `derive` and `run`, `steep_slope` in the MCP tools `create_project` and `start_pipeline`, the field "Steepness threshold" on the area page and `steep_slope_deg` in `freemapper.toml`. In rock towns and gorges almost all steep cells join into one patch, and `derive` found hardly any cliffs there (Adršpach: 1 candidate, 11 at 55°). The manual says which values suit which terrain. The default value stays the same.
 - Reference list of the specifications for drawing orienteering maps (`docs/research/orienteering-specifications.md`): ISOM 2017-2 (January 2019 edition) quoted on contours, minimum gaps and cliffs, plus the other sources named, with how far each was read and where in the code it is to be compared.

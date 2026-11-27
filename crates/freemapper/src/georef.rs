@@ -117,7 +117,7 @@ impl Georeferencing {
     }
 
     /// Metres in the projected CRS per millimetre on the map.
-    fn metres_per_map_mm(&self) -> f64 {
+    pub(crate) fn metres_per_map_mm(&self) -> f64 {
         self.grid_scale_factor * f64::from(self.scale_denominator) / 1000.0
     }
 

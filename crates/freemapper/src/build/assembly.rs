@@ -2115,14 +2115,14 @@ mod tests {
             height_m,
         };
         let forms = vec![
-            form(LandformKind::Knoll, (10.0, 10.0), 0.8),
-            form(LandformKind::Knoll, (12.0, 12.0), 1.0),
-            form(LandformKind::Knoll, (15.0, 15.0), 1.4),
-            form(LandformKind::Knoll, (18.0, 18.0), 2.0),
-            form(LandformKind::Knoll, (20.0, 20.0), 2.5),
+            form(LandformKind::Knoll, (5.0, 5.0), 0.8),
+            form(LandformKind::Knoll, (15.0, 5.0), 1.0),
+            form(LandformKind::Knoll, (25.0, 5.0), 1.4),
+            form(LandformKind::Knoll, (35.0, 5.0), 2.0),
+            form(LandformKind::Knoll, (5.0, 15.0), 2.5),
             Landform {
                 rotation_deg: 40.0,
-                ..form(LandformKind::ElongatedKnoll, (25.0, 25.0), 3.5)
+                ..form(LandformKind::ElongatedKnoll, (15.0, 15.0), 3.5)
             },
             Landform {
                 rotation_deg: 40.0,
@@ -2178,5 +2178,176 @@ mod tests {
         };
         assert_ne!(rotation("1.5"), Some(0.0));
         assert_eq!(rotation("3.5"), Some(0.0));
+    }
+
+    /// Boulders closer than their symbols allow (0.55 mm centre to centre, 8.25 m at 1:15 000) are
+    /// a boulder cluster (207) from three in a chain on; two stay single (ADR 0199).
+    #[test]
+    fn boulders_too_close_for_their_symbols_are_a_cluster() {
+        let f = fixture(MapKind::Forest);
+        let rock = osm_feature(
+            "way/1",
+            &[("natural", "bare_rock")],
+            OsmGeometry::Area(vec![crate::sources::osm::OsmPolygon {
+                outer: [
+                    (0.0, 0.0),
+                    (60.0, 0.0),
+                    (60.0, 60.0),
+                    (0.0, 60.0),
+                    (0.0, 0.0),
+                ]
+                .iter()
+                .map(|&p| lat_lon(&f, p))
+                .collect(),
+                holes: Vec::new(),
+            }]),
+        );
+        let boulder = |at: (f64, f64), height_m| Landform {
+            kind: LandformKind::Knoll,
+            points: vec![projected(&f, at)],
+            rotation_deg: 0.0,
+            height_m,
+        };
+        let forms = vec![
+            // Three 4 m apart: one cluster as high as the highest.
+            boulder((5.0, 5.0), 1.2),
+            boulder((9.0, 5.0), 2.5),
+            boulder((13.0, 5.0), 1.4),
+            // Two 4 m apart: both stay.
+            boulder((40.0, 5.0), 1.5),
+            boulder((44.0, 5.0), 1.6),
+            // A chain of four, 7 m apart: the ends are 21 m apart and still one cluster.
+            boulder((5.0, 25.0), 3.1),
+            boulder((19.0, 25.0), 3.3),
+            boulder((12.0, 25.0), 3.2),
+            boulder((26.0, 25.0), 3.4),
+            // Alone, far from the others.
+            boulder((5.0, 50.0), 1.9),
+        ];
+        let placed = placed_safe(
+            &f,
+            Stored {
+                osm: osm_extract(vec![rock]),
+                landforms: Some(Landforms {
+                    forms,
+                    source: "lgb-dgm1".to_string(),
+                    currency: None,
+                }),
+                ..Stored::default()
+            },
+        );
+        let mut found: Vec<(&str, u32)> = placed
+            .candidates
+            .iter()
+            .filter_map(|o| {
+                let height = o.tags.iter().find(|(k, _)| k == "freemapper:height")?;
+                Some((height.1.as_str(), o.symbol_id))
+            })
+            .collect();
+        found.sort();
+        let expected = vec![
+            ("1.5", f.id("204")),
+            ("1.6", f.id("204")),
+            ("1.9", f.id("204")),
+            ("2.5", f.id("207")),
+            ("3.4", f.id("207")),
+        ];
+        assert_eq!(found, expected);
+        let counts: Vec<&str> = placed
+            .candidates
+            .iter()
+            .filter_map(|o| {
+                o.tags
+                    .iter()
+                    .find(|(k, _)| k == "freemapper:boulders")
+                    .map(|(_, v)| v.as_str())
+            })
+            .collect();
+        assert_eq!(counts.len(), 2);
+        assert!(counts.contains(&"3") && counts.contains(&"4"), "{counts:?}");
+        // A cluster stands in the middle of its boulders.
+        let centre = |height: &str| {
+            let object = placed
+                .candidates
+                .iter()
+                .find(|o| {
+                    o.tags
+                        .contains(&("freemapper:height".to_string(), height.to_string()))
+                        && o.symbol_id == f.id("207")
+                })
+                .unwrap();
+            object.coords[0]
+        };
+        for (height, at) in [("2.5", (9.0, 5.0)), ("3.4", (15.5, 25.0))] {
+            let (e, n) = projected(&f, at);
+            let expected = f
+                .georef
+                .projected_to_map(crate::crs::ProjectedPoint {
+                    easting: e,
+                    northing: n,
+                })
+                .unwrap();
+            let got = centre(height);
+            assert!(
+                (got.x - expected.x).abs() <= 2 && (got.y - expected.y).abs() <= 2,
+                "{height}: {got:?} against {expected:?}"
+            );
+        }
+    }
+
+    /// Exactly the width of two symbols apart counts as too close: three boulders 0.55 mm on
+    /// paper from each other make a cluster.
+    #[test]
+    fn boulders_exactly_one_gap_apart_are_a_cluster() {
+        let mut f = fixture(MapKind::Forest);
+        f.georef.grid_scale_factor = 1.0;
+        let gap = 0.55 * f.georef.metres_per_map_mm();
+        assert_eq!(gap * 4.0, (gap * 4.0).round(), "an exact gap: {gap}");
+        let (east, north) = projected(&f, (5.0, 5.0));
+        let (east, north) = (east.floor(), north.floor());
+        let rock = osm_feature(
+            "way/1",
+            &[("natural", "bare_rock")],
+            OsmGeometry::Area(vec![crate::sources::osm::OsmPolygon {
+                outer: [
+                    (0.0, 0.0),
+                    (60.0, 0.0),
+                    (60.0, 60.0),
+                    (0.0, 60.0),
+                    (0.0, 0.0),
+                ]
+                .iter()
+                .map(|&p| lat_lon(&f, p))
+                .collect(),
+                holes: Vec::new(),
+            }]),
+        );
+        let forms = (0..3)
+            .map(|k| Landform {
+                kind: LandformKind::Knoll,
+                points: vec![(east + gap * f64::from(k), north)],
+                rotation_deg: 0.0,
+                height_m: 2.5,
+            })
+            .collect();
+        let placed = placed_safe(
+            &f,
+            Stored {
+                osm: osm_extract(vec![rock]),
+                landforms: Some(Landforms {
+                    forms,
+                    source: "lgb-dgm1".to_string(),
+                    currency: None,
+                }),
+                ..Stored::default()
+            },
+        );
+        let found: Vec<u32> = placed
+            .candidates
+            .iter()
+            .filter(|o| o.tags.iter().any(|(k, _)| k == "freemapper:height"))
+            .map(|o| o.symbol_id)
+            .collect();
+        assert_eq!(found, [f.id("207")]);
     }
 }

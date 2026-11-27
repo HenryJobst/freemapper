@@ -8,6 +8,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Hinzugefügt
 
+- Blockhaufen (ADR 0199): Stehen drei oder mehr Blöcke auf einer Felsfläche so dicht, dass ihre Symbole die Mindestlücke von 0,15 mm unterschreiten (0,55 mm von Mitte zu Mitte), werden sie zu einem Blockhaufen (207) in ihrer Mitte zusammengefasst.
 - Blöcke auf Felsflächen (ADR 0199): Eine Kuppe von mindestens 1 m, die in einer Felsfläche von OpenStreetMap liegt (`natural=bare_rock`), wird als Block (204) und ab 2 m als großer Block (205) angeboten statt als braune Kuppe. Eine Felsenstadt wie Adršpach wird so zum Feld aus schwarzen Punkten, wie echte Karten es zeigen.
 - Steilheitsschwelle für Böschungen und Felswände (ADR 0198): `--steep-slope <Grad>|auto` bei `init`, `derive` und `run`, `steep_slope` in den MCP-Werkzeugen `create_project` und `start_pipeline`, das Feld „Steilheitsschwelle“ auf der Gebietsseite und `steep_slope_deg` in der `freemapper.toml`. In Felsenstädten und Schluchten hängen fast alle steilen Zellen zu einer Fläche zusammen, und `derive` fand dort kaum Felswände (Adršpach: 1 Kandidat, mit 55° 11). Das Handbuch nennt, welche Werte zu welchem Gelände passen. Der Standardwert bleibt gleich.
 - Referenzliste der Normen zur Darstellung von OL-Karten (`docs/research/orienteering-specifications.md`): ISOM 2017-2 (Fassung Januar 2019) im Wortlaut zu Höhenlinien, Mindestabständen und Felswänden, dazu die weiteren genannten Quellen mit Lesestand und der Stelle im Code, gegen die sie verglichen werden.
