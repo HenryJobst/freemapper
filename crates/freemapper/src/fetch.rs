@@ -1006,7 +1006,7 @@ pub(crate) mod test_support {
             (Product::Dtm, dtm_tiff(100, 100, &heights)),
         ] {
             fetcher.insert(
-                product.currency_csv_url(),
+                &product.currency_csv_url(),
                 currency_csv(&[(tile, published)]),
             );
             fetcher.insert(
@@ -1062,7 +1062,7 @@ pub(crate) mod test_support {
         let heights: Vec<f32> = (0..100 * 100).map(|i| (i % 100) as f32 + 12.0).collect();
         let product = Product::ImageDsm;
         fetcher.insert(
-            product.currency_csv_url(),
+            &product.currency_csv_url(),
             currency_csv(&[(tile, published)]),
         );
         fetcher.insert(
@@ -2008,7 +2008,7 @@ mod tests {
 
     fn serve(fetcher: &MapFetcher, published: &str) {
         fetcher.insert(
-            PRODUCT.currency_csv_url(),
+            &PRODUCT.currency_csv_url(),
             currency_csv(&[(TILE, published)]),
         );
         fetcher.insert(
@@ -2358,7 +2358,7 @@ mod tests {
         let fetcher = MapFetcher::default();
         serve(&fetcher, "2026-01-26");
         fetcher.insert(
-            PRODUCT.currency_csv_url(),
+            &PRODUCT.currency_csv_url(),
             currency_csv(&[(TILE, "2026-01-26"), (EAST, "2026-01-26")]),
         );
         fetcher.failing.borrow_mut().push(PRODUCT.tile_url(EAST));
@@ -2754,7 +2754,7 @@ mod tests {
         fetch(&fetcher, &cache, &[TILE], FetchMode::Online).unwrap();
 
         fetcher.insert(
-            PRODUCT.currency_csv_url(),
+            &PRODUCT.currency_csv_url(),
             b"<html>captive portal</html>".to_vec(),
         );
         let err = fetch(&fetcher, &cache, &[TILE], FetchMode::Online).unwrap_err();
@@ -3297,7 +3297,7 @@ mod tests {
     #[ignore = "network"]
     fn live_school_tile_currency() {
         let text = HttpFetcher::new()
-            .get(Product::Orthophoto.currency_csv_url())
+            .get(&Product::Orthophoto.currency_csv_url())
             .unwrap();
         let table = parse_currency_csv(&String::from_utf8(text).unwrap()).unwrap();
         assert!(table.contains_key(&TILE));

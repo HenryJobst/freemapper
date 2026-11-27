@@ -37,6 +37,12 @@ land_use = "https://ogc-api.geobasis-bb.de/alkis-vereinfacht/v1/collections/nutz
 [orthophoto]
 backend = "lgb"
 
+# Where LGB serves its tiles (the archives of the orthophoto, the DGM and the bDOM, and the nDOM point clouds) and the lists
+# of their currency (issue #273); the backend keeps the names of the files below them.
+[orthophoto.endpoints]
+data = "https://data.geobasis-bb.de/geobasis/daten"
+currency = "https://data.geobasis-bb.de/geobasis/information/aktualitaeten"
+
 [terrain]
 backend = "lgb"
 

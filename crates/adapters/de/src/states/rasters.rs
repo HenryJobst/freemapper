@@ -8,7 +8,7 @@ use crate::geosn::GeosnBackend;
 use crate::hvbg::HvbgBackend;
 use crate::laiv_mv::{self, LaivMvBackend};
 use crate::ldbv::LdbvBackend;
-use crate::lgb::LgbBackend;
+use crate::lgb::{self, LgbBackend};
 use crate::lgl_bw::LglBwBackend;
 use crate::lgln::{self, LglnBackend};
 use crate::lgv::{self, LgvBackend};
@@ -21,16 +21,6 @@ use freemapper_sources::wms::WmsService;
 use crate::crs::Crs;
 use crate::states::{Agency, State};
 
-/// The raster backend of `agency` that keeps its addresses in the code; `None` for LVermGeo,
-/// whose rasters the manifest of Saxony-Anhalt declares as services, and for the agencies
-/// whose `[orthophoto]` states the WMS they ask ([`addressed`], [`backend_with_wms`]).
-pub fn backend(agency: Agency) -> Option<Box<dyn RasterBackend>> {
-    Some(match agency {
-        Agency::Lgb => Box::new(LgbBackend::new()),
-        _ => return None,
-    })
-}
-
 /// The state whose manifest holds the addresses of `agency`, and the CRS of its WMS, for the
 /// agencies whose `[orthophoto]` says where the WMS is (issue #273); `None` for the others.
 pub fn addressed(agency: Agency) -> Option<(State, Crs)> {
@@ -42,6 +32,7 @@ pub fn addressed(agency: Agency) -> Option<(State, Crs)> {
         Agency::Lgln => (State::Niedersachsen, Crs::Utm32),
         Agency::LvermGeoRp => (State::RheinlandPfalz, Crs::Utm32),
         Agency::Lvgl => (State::Saarland, Crs::Utm32),
+        Agency::Lgb => (State::Brandenburg, Crs::Utm33),
         Agency::Lgv => (State::Hamburg, Crs::Utm32),
         Agency::LaivMv => (State::MecklenburgVorpommern, Crs::Utm33),
         Agency::GeoBremen => (State::Bremen, Crs::Utm32),
@@ -53,9 +44,10 @@ pub fn addressed(agency: Agency) -> Option<(State, Crs)> {
 
 /// Whether the `[orthophoto]` of `agency` states a WMS (`url`, `layer`, `max_px`): not that of
 /// the LAiV M-V, whose orthophoto comes from a WCS the `endpoints` name, nor that of GeoBremen,
-/// whose WMS layers change with every flight.
+/// whose WMS layers change with every flight, nor that of LGB, whose orthophoto comes as tiles
+/// from the folders the `endpoints` name.
 pub fn takes_wms(agency: Agency) -> bool {
-    !matches!(agency, Agency::LaivMv | Agency::GeoBremen)
+    !matches!(agency, Agency::LaivMv | Agency::GeoBremen | Agency::Lgb)
 }
 
 /// The backend of an [`addressed`] agency that [`takes_wms`] no WMS, made of the addresses
@@ -71,6 +63,7 @@ pub fn backend_without_wms(
         Agency::GeoBremen => Box::new(GeoBremenBackend::with_addresses(geobremen::Addresses::of(
             config,
         )?)),
+        Agency::Lgb => Box::new(LgbBackend::with_addresses(lgb::Addresses::of(config)?)),
         _ => return Ok(None),
     }))
 }
