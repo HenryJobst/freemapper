@@ -63,6 +63,7 @@ Orienteering Maps 2019 (IOF).
 | Zählkurve | index contour | Hervorgehobene Höhenlinie, jede fünfte (ISSprOM 102). | `IndexContour` |
 | Formlinie | form line | Zwischenhöhenlinie für Geländeformen (ISSprOM 103). | `FormLine` |
 | Äquidistanz | contour interval | Höhenabstand benachbarter Höhenlinien in Metern (Sprint: 2 m). | `contour_interval_m` |
+| Steilheitsschwelle | steepness threshold | Hangneigung in Grad, ab der ein Stück Gelände beim Suchen von Böschungen und Felswänden als steil gilt (Standard etwa 27°, einstellbar 15° bis 80°). | `steep_slope_deg` |
 | Kleine Kuppe | small knoll | Kleiner, deutlicher Hügel, den die Höhenlinien nicht zeigen (ISSprOM 109); längliche Kuppe 110. Kandidat aus dem DGM: ein kleiner geschlossener Ring feiner Höhenlinien um einen Gipfel. | `LandformKind::Knoll`, `LandformKind::ElongatedKnoll` |
 | Kleine Senke | small depression | Kleine, flache Vertiefung (ISSprOM 111). Kandidat aus dem DGM wie die Kuppe, auf dem umgekehrten Gelände. | `LandformKind::Depression` |
 | Erdböschung | earth bank | Steiler Geländeabsatz (ISSprOM 104); ab 3 m Höhe aus dem DGM als nicht begehbare Felswand (201) vorgeschlagen. | `LandformKind::Bank`, `LandformKind::Cliff` |

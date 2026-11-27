@@ -1189,6 +1189,48 @@ fn init_saves_the_contour_interval_and_refuses_a_bad_one() {
     assert!(!bad.exists(), "a refused interval creates no project");
 }
 
+#[test]
+fn init_saves_the_steepness_threshold_and_refuses_a_bad_one() {
+    let dir = tempfile::tempdir().unwrap();
+    let project = dir.path().join("forest");
+    let output = freemapper()
+        .args(["init", project.to_str().unwrap(), "--geojson", FIXTURE])
+        .args(["--kind", "forest", "--steep-slope", "55,5", "--lang", "en"])
+        .output()
+        .unwrap();
+    assert!(output.status.success(), "{output:?}");
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(
+        stdout.contains("Steepness threshold saved in freemapper.toml: 55.5°"),
+        "{stdout}"
+    );
+    let written = std::fs::read_to_string(project.join("freemapper.toml")).unwrap();
+    assert!(written.contains("steep_slope_deg = 55.5"), "{written}");
+    // `auto` gives the default back.
+    let output = freemapper()
+        .args(["derive", project.to_str().unwrap(), "--steep-slope", "auto"])
+        .args(["--lang", "en"])
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(
+        stdout.contains("Steepness threshold in freemapper.toml: default"),
+        "{stdout}"
+    );
+    let written = std::fs::read_to_string(project.join("freemapper.toml")).unwrap();
+    assert!(!written.contains("steep_slope_deg"), "{written}");
+    let bad = dir.path().join("bad");
+    let output = freemapper()
+        .args(["init", bad.to_str().unwrap(), "--geojson", FIXTURE])
+        .args(["--kind", "forest", "--steep-slope", "5", "--lang", "en"])
+        .output()
+        .unwrap();
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(!output.status.success());
+    assert!(stderr.contains("invalid steepness threshold"), "{stderr}");
+    assert!(!bad.exists(), "a refused threshold creates no project");
+}
+
 /// A lock file as another freemapper process would have left it.
 fn write_lock(project: &std::path::Path, who: &str) -> std::path::PathBuf {
     let started = std::time::SystemTime::now()

@@ -52,6 +52,6 @@ Waldkarten (ISOM 2017-2) im Maßstab 1:10 000 für ein schnelles Training im Wal
 
 - [Hintergrund](hintergrund.md): wie die Beispiele erzeugt wurden, was die Zahlen bedeuten, Dateien eines Beispiels, Auswahl der Gebiete und Lizenzen
 - [Gegenüberstellung](vergleich.md): dasselbe Gebiet in den drei Inhaltsprofilen
-- [Außerhalb Deutschlands](international.md): eine Sprint- und eine Waldkarte in Polen
+- [Außerhalb Deutschlands](international.md): eine Sprint- und eine Waldkarte in Polen und Tschechien
 
 Erstellt mit freemapper – https://github.com/HenryJobst/freemapper

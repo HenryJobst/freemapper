@@ -61,7 +61,7 @@ Auf Wunsch erzeugt freemapper zusätzlich die **druckfertige Karte als PDF**, ei
     wenn schon ein älterer OSM-Auszug da ist, auch dessen Aktualisierung. Für jeden ausgelassenen Teil
     warnt es. Kartendaten, Geländemodell und Luftbild braucht jede Karte. Passen sie nicht, bricht
     freemapper ab, bevor es etwas lädt.
-- Ein Gebiet in **Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg, Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern, Nordrhein-Westfalen, Niedersachsen, Rheinland-Pfalz, dem Saarland, Baden-Württemberg, Bremen oder Bayern**. Thüringen fehlt noch. Polen ist nutzbar: Die Karte dort kombiniert OpenStreetMap mit dem Kataster EGiB, Orthofoto und Gelände von GUGiK, und das Gebiet muss ganz in Polen liegen. Gebäude und Landnutzung kommen in Polen aus dem Kataster EGiB; wo er nichts liefert (Gemeinden ohne Katasterdienst, Städte mit leeren Nutzungsklassen), füllt BDOT10k auf, wofür das GML-Archiv des Powiats (7 bis 89 MB) in den Cache geladen wird. Eine Waldkarte in Polen übernimmt außerdem die Straßen und Wege aus BDOT10k als Kandidaten, wo OpenStreetMap im Umkreis von 10 m keinen hat; dafür liest freemapper nur zwei Dateien des Archivs (etwa 2 MB).
+- Ein Gebiet in **Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg, Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern, Nordrhein-Westfalen, Niedersachsen, Rheinland-Pfalz, dem Saarland, Baden-Württemberg, Bremen oder Bayern**. Thüringen fehlt noch. Polen ist nutzbar: Die Karte dort kombiniert OpenStreetMap mit dem Kataster EGiB, Orthofoto und Gelände von GUGiK, und das Gebiet muss ganz in Polen liegen. Gebäude und Landnutzung kommen in Polen aus dem Kataster EGiB; wo er nichts liefert (Gemeinden ohne Katasterdienst, Städte mit leeren Nutzungsklassen), füllt BDOT10k auf, wofür das GML-Archiv des Powiats (7 bis 89 MB) in den Cache geladen wird. Eine Waldkarte in Polen übernimmt außerdem die Straßen und Wege aus BDOT10k als Kandidaten, wo OpenStreetMap im Umkreis von 10 m keinen hat; dafür liest freemapper nur zwei Dateien des Archivs (etwa 2 MB). Tschechien ist als Vorschau nutzbar: Die Karte dort kombiniert OpenStreetMap mit Gelände-, Oberflächenmodell und Luftbild des ČÚZK, den Gebäuden aus dem Register RÚIAN und der Landnutzung aus ZABAGED; das Gebiet muss ganz in Tschechien liegen, und der OSM-Auszug des ganzen Landes (etwa 910 MB) wird einmal geladen. Alle Dienste sind offen unter CC BY 4.0 und brauchen keinen Schlüssel. Die Höhenlinien schlängeln sich in dicht bebauten Altstädten, weil das Geländemodell dort ein interpolierter Erdboden ist; die Parzellen des RÚIAN sind seit Dezember 2021 veraltet und werden nicht verwendet. Hinweise zu Genehmigungen gibt es dort noch nicht.
 - Optional einen KI-Assistenten, z. B. Claude. Dann müssen Sie keine Befehle tippen.
 
 ## 3. Installation
@@ -712,6 +712,12 @@ Aus dem Geländemodell kommen weitere Kandidaten, die die Höhenlinien nicht zei
   (auf Schulhofkarten 0,5 m), schmaler als 5 mm auf dem Papier und mindestens 10 m, der sich deutlich aus
   seinem Fuß hebt. Eine längliche Kuppe ist in ihre Längsrichtung gedreht.
 - **Kleine Senken** (111): dasselbe als Mulde.
+- **Blöcke** (204) und **große Blöcke** (205): Eine Kuppe, die auf einer Felsfläche liegt (OpenStreetMap
+  `natural=bare_rock`, Symbol 214), ist ein Felsturm oder ein Block, keine Kuppe des Bodens. Ab 1 m Höhe zeichnet
+  freemapper sie als Block (204), ab 2 m als großen Block (205), ohne Drehung. Die Höhe wird bei 6 m abgeschnitten.
+  Das Gelände einer Felsenstadt wie Adršpach (520 von 522 Kuppen im Fels, die meisten über 4 m) wird so zu einem
+  Feld aus schwarzen Punkten, wie echte Karten es zeigen. Eine Felsfläche, die OpenStreetMap nicht hat, bleibt
+  bei braunen Kuppen. Die Felsnadel in Grundrissform (206) baut freemapper nicht.
 - **Erdböschungen** (104) und ab 3 m Höhe **nicht begehbare Felswände** (201): ein schmaler, steiler
   Streifen, der den größten Teil seines Höhenunterschieds auf wenigen Metern abbaut. Ein gleichmäßiger Hang
   zählt nicht. Die Striche zeigen bergab.
@@ -728,6 +734,31 @@ Mauer herausstellen, eine Felswand als Treppe. Alles aus dem Geländemodell geh�
 (siehe unten), auch Böschungen, Felswände und Stützmauern: Mit `full` oder `--content-set landforms=map`
 kommen sie direkt auf die Karte. `slopes=map` holt nur die Böschungen aus ALKIS und OpenStreetMap, in Bayern
 auch die Wälle, Felsen und Höhleneingänge aus dem Landschaftsmodell.
+
+**Steilheitsschwelle.** Ab welcher Hangneigung ein Stück Gelände als steil gilt, wenn freemapper nach Böschungen und
+Felswänden sucht, ist einstellbar: `--steep-slope <Grad>` bei `init`, `derive` oder `run`, auf der Gebietsseite im Feld
+„Steilheitsschwelle“ oder als `steep_slope_deg = 55` in der `freemapper.toml`; `auto` gibt den Standard zurück (etwa
+27°). Erlaubt sind 15° bis 80°. Eine Karte, die schon gebaut ist, braucht danach `derive` und `export --force`. Die Schwelle
+ändert nur, was aus dem Geländemodell kommt (Böschungen und Felswände der Gruppe `landforms`), nicht die Wände aus
+OpenStreetMap. Sie gilt für Böschungen und Felswände zugleich: Eine Böschung ist weniger steil als eine Wand, deshalb
+verschwinden bei hoher Schwelle die Böschungen (Nikolsdorfer Wände: 16 Böschungen beim Standard, keine bei 55°).
+
+| Wert | Wann | Was passiert |
+|---|---|---|
+| `auto` (27°) | Hügelland, Parks, Städte, normale Wälder | Jeder Streifen, der steiler ist, kann eine Böschung oder Felswand sein. |
+| 40° bis 50° | Steile Täler und Hänge mit vielen Felsbändern (nicht geprüft) | Weniger Böschungen an gewöhnlichen Steilhängen. |
+| 55° bis 60° | Felsenstädte und Schluchten, in denen fast jeder Hang steil ist | Die steilen Stücke trennen sich, und mehr Wände werden einzeln gefunden. |
+| 65° bis 70° | Nur die steilsten Wände | Es bleiben wenige, sehr hohe Wände übrig. |
+
+Warum das nötig ist: Wo fast jeder Hang steil ist, hängen die steilen Zellen zu einer einzigen Fläche zusammen, und eine
+Fläche, die nicht lang und schmal ist, gilt als Hang, nicht als Wand. Gemessen ist das an einem Gebiet, der
+Felsenstadt Adršpach mit dem 2-m-Modell des tschechischen ČÚZK: Beim Standard waren 47 % der Fläche steil und hingen zu 92 %
+zusammen; es blieb 1 Felswand-Kandidat mit 30 m Länge. Bei 50° waren es 6 mit 230 m, bei 55° 11 mit 610 m, bei 60° 11
+mit 470 m, bei 65° 11 mit 430 m und bei 70° 4 mit 170 m. Das ist wenig für ein Gelände aus hunderten einzelner Türme: Die
+Suche findet lange, schmale Wände, keine Türme, die das 2-m-Modell nur als Kuppen zeigt. Die Werte für andere Gebiete sind
+Schätzungen; probieren Sie im Zweifel 55° und sehen Sie sich die Kandidaten im Layer „Gelände“ an. Eine Linie, die bergab
+läuft statt an den Höhenlinien entlang, ist die Mittellinie einer steilen Fläche und keine Wand; freemapper verwirft
+sie bei jeder Schwelle.
 
 ### Vegetation aus Laserpunktwolken
 

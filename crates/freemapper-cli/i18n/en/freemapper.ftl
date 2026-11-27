@@ -248,6 +248,9 @@ page-scale = Scale 1:
 page-map-title = Title
 page-contour-interval = Contour interval
 page-contour-auto = automatic
+page-steep-slope = Steepness threshold
+page-steep-slope-auto = automatic (27°)
+page-steep-slope-hint = From this slope angle the terrain counts as steep when earth banks and cliffs are looked for. 27° (automatic) suits hills, parks and towns. In rock towns, gorges and quarries nearly every slope is steep, so banks and cliffs run together into one patch and none is found; 55° to 65° separates them. Too high a value keeps only the steepest walls.
 page-settings-fixed = The project exists already; map kind, scale and title are in freemapper.toml. The contour interval can still be changed.
 page-save = Save
 page-saving = Saving …
@@ -461,6 +464,7 @@ error-project-already-exists = project already exists: { $path }
 error-project-map-exists = map already exists (it may contain your work); use --force to replace it: { $path }
 error-project-invalid-scale = invalid scale 1:{ $scale }
 error-project-invalid-contour-interval = invalid contour interval { $interval } m in freemapper.toml; it must be more than 0
+error-project-invalid-steep-slope = invalid steepness threshold { $slope }° in freemapper.toml; it must lie between 15° and 80°
 error-project-scale-not-allowed = scale 1:{ $scale } is not allowed for { $kind } maps; use { $allowed }
 error-project-scale-not-allowed-enlarge = scale 1:{ $scale } is not allowed for { $kind } maps; use { $allowed }. Draw at 1:4000, freemapper-print enlarges to 1:3000 when printing
 word-kind-schoolyard = schoolyard
@@ -787,7 +791,10 @@ mcp-instructions = freemapper makes OpenOrienteering Mapper starter projects for
 
 cli-contour-interval-saved = Contour interval saved in freemapper.toml: { $interval } m; derive traces the contours at it
 cli-contour-interval-auto = Contour interval in freemapper.toml: automatic (the map kind's; a forest map gets 2.5 m in flat land and 10 m in steep land)
+cli-steep-slope-saved = Steepness threshold saved in freemapper.toml: { $slope }°; derive looks for earth banks and cliffs with it
+cli-steep-slope-auto = Steepness threshold in freemapper.toml: default (about 27°)
 help-arg-contour-interval = Contour interval in metres, e.g. `2.5`, or `auto` for the map kind's (a forest map: 5 m, 2.5 m where it is flat, 10 m where it is steep). Saved in freemapper.toml; derive traces the contours at it
+help-arg-steep-slope = Slope angle in degrees from which the terrain counts as steep when earth banks and cliffs are looked for, e.g. `55`, or `auto` for the default of 27°. Raise it (55 to 65) in rock towns and gorges, where almost every slope is steep and banks and cliffs run together into one patch. Saved in freemapper.toml; derive looks for banks and cliffs with it
 cli-content-saved = Content setting saved in freemapper.toml: { $summary }
 cli-content-invalid = Cannot read the content setting: { $detail }
 help-arg-content = What goes straight onto the map: `safe` leaves every object where the build puts it, `balanced` (default) puts the objects of the cadastre and the registers on the map, `full` puts everything on the map. The choice is saved in freemapper.toml
@@ -795,9 +802,11 @@ help-arg-content-set = Send a group of objects to `map`, `candidates` or `off`, 
 mcp-param-create-project-content = What goes straight onto the map: "safe", "balanced" (default) or "full". Saved in the project. balanced puts the objects of the cadastre and the registers on the map, full puts everything on it.
 mcp-param-create-project-content-set = Groups sent somewhere else than the profile says, as "group=place" with place map, candidates or off, e.g. "walls=map". Groups: walls, fences, hedges, slopes, stairs, trees, water-features, monuments, furniture, passages, contours, landforms, vegetation, out-of-bounds, paths, streets.
 mcp-param-create-project-contour-interval = Contour interval in metres, e.g. 2.5; 0 goes back to the automatic choice (the map kind's; a forest map gets 2.5 m in flat land and 10 m in steep land). Saved in the project; the next derive traces the contours at it.
+mcp-param-create-project-steep-slope = Slope angle in degrees from which the terrain counts as steep when earth banks and cliffs are looked for, e.g. 55; 0 goes back to the default of 27°. Raise it (55 to 65) in rock towns and gorges, where almost every slope is steep and banks and cliffs run together into one patch. Saved in the project; the next derive looks for banks and cliffs with it.
 mcp-param-start-pipeline-content = Change what goes straight onto the map before the run: "safe", "balanced" or "full". Saved in the project. Default: the project's setting, else balanced.
 mcp-param-start-pipeline-content-set = Groups sent somewhere else than the profile says, as "group=place" with place map, candidates or off, e.g. "fences=candidates". Saved in the project.
 mcp-param-start-pipeline-contour-interval = Contour interval in metres, e.g. 2.5; 0 goes back to the automatic choice (the map kind's; a forest map gets 2.5 m in flat land and 10 m in steep land). Saved in the project; the next derive traces the contours at it.
+mcp-param-start-pipeline-steep-slope = Slope angle in degrees from which the terrain counts as steep when earth banks and cliffs are looked for, e.g. 55; 0 goes back to the default of 27°. Raise it (55 to 65) in rock towns and gorges, where almost every slope is steep and banks and cliffs run together into one patch. Saved in the project; the next derive looks for banks and cliffs with it.
 mcp-error-content = Cannot read the content setting: { $detail }
 
 ## Permit notes (`freemapper permits`, `run --permits`, ADR 0117). The ids `permits-hint-*`

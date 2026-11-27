@@ -486,4 +486,39 @@ mod tests {
         assert!(error.contains("more than"), "{error}");
         assert_eq!(fetcher.log.borrow().len(), MAX_PAGES);
     }
+
+    #[test]
+    fn every_code_of_the_use_gets_its_german_function_word() {
+        let named = [
+            (1, "Industriegebäude"),
+            (2, "Wohngebäude"),
+            (3, "Wohngebäude"),
+            (4, "Gebäude für Wirtschaft und Gewerbe"),
+            (5, "Gebäude für öffentliche Zwecke"),
+            (6, "Wohngebäude"),
+            (7, "Wohngebäude"),
+            (8, "Wohngebäude"),
+            (9, "Gebäude zur Freizeitgestaltung"),
+            (10, "Handels- und Dienstleistungsgebäude"),
+            (11, "Handels- und Dienstleistungsgebäude"),
+            (12, "Industriegebäude"),
+            (13, "Gebäude für Wirtschaft und Gewerbe"),
+            (14, "Bürogebäude"),
+            (15, "Gebäude für öffentliche Zwecke"),
+            (16, "Gebäude für Versorgung"),
+            (17, "Gebäude für Verkehr und Nachrichtenwesen"),
+            (18, "Garage"),
+            (19, "Sonstiges Gebäude"),
+            (20, "Sonstiges Gebäude"),
+            (21, "Treibhaus, Gewächshaus"),
+            (30, "Sonstiges Gebäude"),
+            (99, "Sonstiges Gebäude"),
+        ];
+        for (code, word) in named {
+            assert_eq!(building_function(code), Some(word), "code {code}");
+        }
+        for code in 22..=29 {
+            assert_eq!(building_function(code), None, "code {code}");
+        }
+    }
 }

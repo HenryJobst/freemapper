@@ -248,6 +248,9 @@ page-scale = Méretarány 1:
 page-map-title = Cím
 page-contour-interval = Szintvonalköz
 page-contour-auto = automatikus
+page-steep-slope = Meredekségi küszöb
+page-steep-slope-auto = automatikus (27°)
+page-steep-slope-hint = Ettől a lejtőszögtől számít a terep meredeknek a rézsűk és sziklafalak keresésekor. A 27° (automatikus) dombvidékre, parkokra és városokra való. Sziklavárosokban, szurdokokban és kőbányákban szinte minden lejtő meredek, ezért a rézsűk és a sziklafalak egyetlen foltba olvadnak, és egyik sem található meg; az 55° és 65° közötti érték szétválasztja őket. Túl magas érték csak a legmeredekebb falakat hagyja meg.
 page-settings-fixed = A projekt már létezik; a térképfajta, a méretarány és a cím a freemapper.toml fájlban van. A szintvonalköz még módosítható.
 page-save = Mentés
 page-saving = Mentés …
@@ -461,6 +464,7 @@ error-project-already-exists = a projekt már létezik: { $path }
 error-project-map-exists = a térkép már létezik (tartalmazhatja a munkáját); a lecseréléséhez használja a --force kapcsolót: { $path }
 error-project-invalid-scale = érvénytelen méretarány: 1:{ $scale }
 error-project-invalid-contour-interval = érvénytelen szintvonalköz ({ $interval } m) a freemapper.toml fájlban; 0-nál nagyobbnak kell lennie
+error-project-invalid-steep-slope = érvénytelen meredekségi küszöb ({ $slope }°) a freemapper.toml fájlban; 15° és 80° között kell lennie
 error-project-scale-not-allowed = az 1:{ $scale } méretarány nem engedélyezett { $kind } térképekhez; használja ezt: { $allowed }
 error-project-scale-not-allowed-enlarge = az 1:{ $scale } méretarány nem engedélyezett { $kind } térképekhez; használja ezt: { $allowed }. Rajzoljon 1:4000-ben, a freemapper-print nyomtatáskor 1:3000-re nagyít
 word-kind-schoolyard = iskolaudvari
@@ -787,7 +791,10 @@ mcp-instructions = A freemapper OpenOrienteering Mapper kezdőprojekteket kész�
 
 cli-contour-interval-saved = A szintvonalköz elmentve a freemapper.toml fájlban: { $interval } m; a derive ennél vezeti le a szintvonalakat
 cli-contour-interval-auto = A szintvonalköz a freemapper.toml fájlban: automatikus (a térképfajtáé; az erdei térkép síkvidéken 2,5 m-t, meredek vidéken 10 m-t kap)
+cli-steep-slope-saved = A meredekségi küszöb elmentve a freemapper.toml fájlba: { $slope }°; a derive ezzel keresi a rézsűket és a sziklafalakat
+cli-steep-slope-auto = Meredekségi küszöb a freemapper.toml fájlban: alapértelmezett (kb. 27°)
 help-arg-contour-interval = A szintvonalköz méterben, pl. `2.5`, vagy `auto` a térképfajta értékéhez (erdei térkép: 5 m, ahol sík, 2,5 m, ahol meredek, 10 m). A freemapper.toml fájlban mentődik; a derive ennél vezeti le a szintvonalakat
+help-arg-steep-slope = A lejtőszög fokban, amelytől a terep meredeknek számít a rézsűk és sziklafalak keresésekor, pl. `55`, vagy `auto` az alapértelmezett 27°-hoz. Emelje (55 és 65 közé) sziklavárosokban és szurdokokban, ahol szinte minden lejtő meredek, és a rézsűk meg a sziklafalak egyetlen foltba olvadnak. A freemapper.toml fájlba kerül; a derive ezzel keresi a rézsűket és a sziklafalakat
 cli-content-saved = A tartalombeállítás elmentve a freemapper.toml fájlban: { $summary }
 cli-content-invalid = A tartalombeállítás nem olvasható: { $detail }
 help-arg-content = Mi kerül közvetlenül a térképre: a `safe` minden objektumot ott hagy, ahová a feldolgozás teszi, a `balanced` (alapértelmezett) a kataszter és a nyilvántartások objektumait a térképre teszi, a `full` mindent a térképre tesz. A választás a freemapper.toml fájlban mentődik
@@ -795,9 +802,11 @@ help-arg-content-set = Objektumcsoport küldése a `map`, `candidates` vagy `off
 mcp-param-create-project-content = Mi kerül közvetlenül a térképre: "safe", "balanced" (alapértelmezett) vagy "full". A projektben mentődik. A balanced a kataszter és a nyilvántartások objektumait a térképre teszi, a full mindent.
 mcp-param-create-project-content-set = A profil szerintitől eltérő helyre küldött csoportok, "group=place" alakban, ahol a place map, candidates vagy off, pl. "walls=map". Csoportok: walls, fences, hedges, slopes, stairs, trees, water-features, monuments, furniture, passages, contours, landforms, vegetation, out-of-bounds, paths, streets.
 mcp-param-create-project-contour-interval = A szintvonalköz méterben, pl. 2.5; a 0 visszatér az automatikus választáshoz (a térképfajtáé; az erdei térkép síkvidéken 2,5 m-t, meredek vidéken 10 m-t kap). A projektben mentődik; a következő derive ennél vezeti le a szintvonalakat.
+mcp-param-create-project-steep-slope = A lejtőszög fokban, amelytől a terep meredeknek számít a rézsűk és sziklafalak keresésekor, pl. 55; a 0 visszaállítja az alapértelmezett 27°-ot. Emelje (55 és 65 közé) sziklavárosokban és szurdokokban, ahol szinte minden lejtő meredek, és a rézsűk meg a sziklafalak egyetlen foltba olvadnak. A projektben tárolódik; a következő derive ezzel keresi a rézsűket és a sziklafalakat.
 mcp-param-start-pipeline-content = A futás előtt módosítja, mi kerül közvetlenül a térképre: "safe", "balanced" vagy "full". A projektben mentődik. Alapértelmezés: a projekt beállítása, egyébként balanced.
 mcp-param-start-pipeline-content-set = A profil szerintitől eltérő helyre küldött csoportok, "group=place" alakban, ahol a place map, candidates vagy off, pl. "fences=candidates". A projektben mentődik.
 mcp-param-start-pipeline-contour-interval = A szintvonalköz méterben, pl. 2.5; a 0 visszatér az automatikus választáshoz (a térképfajtáé; az erdei térkép síkvidéken 2,5 m-t, meredek vidéken 10 m-t kap). A projektben mentődik; a következő derive ennél vezeti le a szintvonalakat.
+mcp-param-start-pipeline-steep-slope = A lejtőszög fokban, amelytől a terep meredeknek számít a rézsűk és sziklafalak keresésekor, pl. 55; a 0 visszaállítja az alapértelmezett 27°-ot. Emelje (55 és 65 közé) sziklavárosokban és szurdokokban, ahol szinte minden lejtő meredek, és a rézsűk meg a sziklafalak egyetlen foltba olvadnak. A projektben tárolódik; a következő derive ezzel keresi a rézsűket és a sziklafalakat.
 mcp-error-content = A tartalombeállítás nem olvasható: { $detail }
 
 ## Permit notes (`freemapper permits`, `run --permits`, ADR 0117). The ids `permits-hint-*`

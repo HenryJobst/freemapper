@@ -258,6 +258,9 @@ page-scale = Měřítko 1:
 page-map-title = Název
 page-contour-interval = Interval vrstevnic
 page-contour-auto = automaticky
+page-steep-slope = Práh strmosti
+page-steep-slope-auto = automaticky (27°)
+page-steep-slope-hint = Od tohoto úhlu svahu platí terén za strmý při hledání zemních stupňů a skalních stěn. 27° (automaticky) se hodí pro pahorkatiny, parky a města. Ve skalních městech, soutěskách a lomech je strmý téměř každý svah, takže stupně a stěny splynou v jednu skvrnu a žádná se nenajde; 55° až 65° je oddělí. Příliš vysoká hodnota nechá jen nejstrmější stěny.
 page-settings-fixed = Projekt už existuje; typ mapy, měřítko a název jsou ve freemapper.toml. Interval vrstevnic lze stále změnit.
 page-save = Uložit
 page-saving = Ukládám …
@@ -472,6 +475,7 @@ error-project-already-exists = projekt už existuje: { $path }
 error-project-map-exists = mapa už existuje (může obsahovat vaši práci); k nahrazení použijte --force: { $path }
 error-project-invalid-scale = neplatné měřítko 1:{ $scale }
 error-project-invalid-contour-interval = neplatný interval vrstevnic { $interval } m ve freemapper.toml; musí být větší než 0
+error-project-invalid-steep-slope = neplatný práh strmosti { $slope }° ve freemapper.toml; musí ležet mezi 15° a 80°
 error-project-scale-not-allowed = měřítko 1:{ $scale } není povoleno pro mapy typu { $kind }; použijte { $allowed }
 error-project-scale-not-allowed-enlarge = měřítko 1:{ $scale } není povoleno pro mapy typu { $kind }; použijte { $allowed }. Kreslete v 1:4000, freemapper-print při tisku zvětší na 1:3000
 word-kind-schoolyard = školní dvůr
@@ -798,7 +802,10 @@ mcp-instructions = freemapper vytváří startovní projekty OpenOrienteering Ma
 
 cli-contour-interval-saved = Interval vrstevnic uložen ve freemapper.toml: { $interval } m; derive vede vrstevnice podle něj
 cli-contour-interval-auto = Interval vrstevnic ve freemapper.toml: automaticky (podle typu mapy; lesní mapa má 2,5 m v rovině a 10 m ve strmém terénu)
+cli-steep-slope-saved = Práh strmosti uložen ve freemapper.toml: { $slope }°; derive podle něj hledá zemní stupně a skalní stěny
+cli-steep-slope-auto = Práh strmosti ve freemapper.toml: výchozí (asi 27°)
 help-arg-contour-interval = Interval vrstevnic v metrech, např. `2.5`, nebo `auto` pro výchozí podle typu mapy (lesní mapa: 5 m, 2,5 m v rovině, 10 m ve strmém terénu). Uloženo ve freemapper.toml; derive vede vrstevnice podle něj
+help-arg-steep-slope = Úhel svahu ve stupních, od něhož terén platí za strmý při hledání zemních stupňů a skalních stěn, např. `55`, nebo `auto` pro výchozích 27°. Ve skalních městech a soutěskách, kde je strmý skoro každý svah a stupně a stěny splývají v jednu skvrnu, ho zvyšte (55 až 65). Uloženo ve freemapper.toml; derive podle něj hledá stupně a stěny
 cli-content-saved = Nastavení obsahu uloženo ve freemapper.toml: { $summary }
 cli-content-invalid = Nastavení obsahu nelze přečíst: { $detail }
 help-arg-content = Co jde přímo na mapu: `safe` ponechá každý objekt tam, kam ho sestavení umístí, `balanced` (výchozí) dá na mapu objekty katastru a rejstříků, `full` dá na mapu všechno. Volba se ukládá do freemapper.toml
@@ -806,9 +813,11 @@ help-arg-content-set = Pošle skupinu objektů do `map`, `candidates` nebo `off`
 mcp-param-create-project-content = Co jde přímo na mapu: "safe", "balanced" (výchozí) nebo "full". Uloženo v projektu. balanced dá na mapu objekty katastru a rejstříků, full dá na mapu všechno.
 mcp-param-create-project-content-set = Skupiny poslané jinam, než říká profil, jako "group=place" s place map, candidates nebo off, např. "walls=map". Skupiny: walls, fences, hedges, slopes, stairs, trees, water-features, monuments, furniture, passages, contours, landforms, vegetation, out-of-bounds, paths, streets.
 mcp-param-create-project-contour-interval = Interval vrstevnic v metrech, např. 2.5; 0 se vrátí k automatické volbě (podle typu mapy; lesní mapa má 2,5 m v rovině a 10 m ve strmém terénu). Uloženo v projektu; příští derive vede vrstevnice podle něj.
+mcp-param-create-project-steep-slope = Úhel svahu ve stupních, od něhož terén platí za strmý při hledání zemních stupňů a skalních stěn, např. 55; 0 vrátí výchozích 27°. Ve skalních městech a soutěskách, kde je strmý skoro každý svah a stupně a stěny splývají v jednu skvrnu, ho zvyšte (55 až 65). Uloženo v projektu; další derive podle něj hledá stupně a stěny.
 mcp-param-start-pipeline-content = Před během změní, co jde přímo na mapu: "safe", "balanced" nebo "full". Uloženo v projektu. Výchozí: nastavení projektu, jinak balanced.
 mcp-param-start-pipeline-content-set = Skupiny poslané jinam, než říká profil, jako "group=place" s place map, candidates nebo off, např. "fences=candidates". Uloženo v projektu.
 mcp-param-start-pipeline-contour-interval = Interval vrstevnic v metrech, např. 2.5; 0 se vrátí k automatické volbě (podle typu mapy; lesní mapa má 2,5 m v rovině a 10 m ve strmém terénu). Uloženo v projektu; příští derive vede vrstevnice podle něj.
+mcp-param-start-pipeline-steep-slope = Úhel svahu ve stupních, od něhož terén platí za strmý při hledání zemních stupňů a skalních stěn, např. 55; 0 vrátí výchozích 27°. Ve skalních městech a soutěskách, kde je strmý skoro každý svah a stupně a stěny splývají v jednu skvrnu, ho zvyšte (55 až 65). Uloženo v projektu; další derive podle něj hledá stupně a stěny.
 mcp-error-content = Nastavení obsahu nelze přečíst: { $detail }
 
 ## Permit notes (`freemapper permits`, `run --permits`, ADR 0117). The ids `permits-hint-*`

@@ -260,6 +260,9 @@ page-scale = Merilo 1:
 page-map-title = Naslov
 page-contour-interval = Ekvidistanca plastnic
 page-contour-auto = samodejno
+page-steep-slope = Prag strmosti
+page-steep-slope-auto = samodejno (27°)
+page-steep-slope-hint = Od tega naklona pobočja naprej se teren pri iskanju brežin in prepadov šteje za strmega. 27° (samodejno) ustreza gričevju, parkom in mestom. V skalnih mestih, soteskah in kamnolomih je strmo skoraj vsako pobočje, zato se brežine in prepadi zlijejo v eno liso in nobena ni najdena; 55° do 65° jih loči. Previsoka vrednost ohrani le najstrmejše stene.
 page-settings-fixed = Projekt že obstaja; vrsta karte, merilo in naslov so v freemapper.toml. Ekvidistanco plastnic je še vedno mogoče spremeniti.
 page-save = Shrani
 page-saving = Shranjujem …
@@ -473,6 +476,7 @@ error-project-already-exists = projekt že obstaja: { $path }
 error-project-map-exists = karta že obstaja (morda vsebuje tvoje delo); za zamenjavo uporabi --force: { $path }
 error-project-invalid-scale = neveljavno merilo 1:{ $scale }
 error-project-invalid-contour-interval = neveljavna ekvidistanca plastnic { $interval } m v freemapper.toml; biti mora več kot 0
+error-project-invalid-steep-slope = neveljaven prag strmosti { $slope }° v freemapper.toml; biti mora med 15° in 80°
 error-project-scale-not-allowed = merilo 1:{ $scale } ni dovoljeno za karte vrste { $kind }; uporabi { $allowed }
 error-project-scale-not-allowed-enlarge = merilo 1:{ $scale } ni dovoljeno za karte vrste { $kind }; uporabi { $allowed }. Riši v 1:4000, freemapper-print pri tisku poveča na 1:3000
 word-kind-schoolyard = šolsko dvorišče
@@ -801,7 +805,10 @@ mcp-instructions = freemapper izdeluje začetne projekte OpenOrienteering Mapper
 
 cli-contour-interval-saved = Ekvidistanca plastnic shranjena v freemapper.toml: { $interval } m; derive izriše plastnice z njo
 cli-contour-interval-auto = Ekvidistanca plastnic v freemapper.toml: samodejno (po vrsti karte; gozdna karta dobi 2,5 m v ravnini in 10 m v strmem svetu)
+cli-steep-slope-saved = Prag strmosti shranjen v freemapper.toml: { $slope }°; derive z njim išče brežine in prepade
+cli-steep-slope-auto = Prag strmosti v freemapper.toml: privzeto (približno 27°)
 help-arg-contour-interval = Ekvidistanca plastnic v metrih, npr. `2.5`, ali `auto` za tisto, ki velja za vrsto karte (gozdna karta: 5 m, 2,5 m kjer je ravno, 10 m kjer je strmo). Shranjeno v freemapper.toml; derive izriše plastnice z njo
+help-arg-steep-slope = Naklon pobočja v stopinjah, od katerega se teren pri iskanju brežin in prepadov šteje za strmega, npr. `55`, ali `auto` za privzetih 27°. Zvišaj ga (55 do 65) v skalnih mestih in soteskah, kjer je strmo skoraj vsako pobočje, brežine in prepadi pa se zlijejo v eno liso. Shrani se v freemapper.toml; derive z njim išče brežine in prepade
 cli-content-saved = Nastavitev vsebine shranjena v freemapper.toml: { $summary }
 cli-content-invalid = Nastavitve vsebine ni mogoče prebrati: { $detail }
 help-arg-content = Kaj pride neposredno na karto: `safe` pusti vsak objekt tam, kamor ga postavi izgradnja, `balanced` (privzeto) da na karto objekte katastra in registrov, `full` da na karto vse. Izbira se shrani v freemapper.toml
@@ -809,9 +816,11 @@ help-arg-content-set = Pošlje skupino objektov na `map`, `candidates` ali `off`
 mcp-param-create-project-content = Kaj pride neposredno na karto: "safe", "balanced" (privzeto) ali "full". Shranjeno v projektu. balanced da na karto objekte katastra in registrov, full da na karto vse.
 mcp-param-create-project-content-set = Skupine, poslane drugam, kot določa profil, kot "group=place" s place map, candidates ali off, npr. "walls=map". Skupine: walls, fences, hedges, slopes, stairs, trees, water-features, monuments, furniture, passages, contours, landforms, vegetation, out-of-bounds, paths, streets.
 mcp-param-create-project-contour-interval = Ekvidistanca plastnic v metrih, npr. 2.5; 0 se vrne k samodejni izbiri (po vrsti karte; gozdna karta dobi 2,5 m v ravnini in 10 m v strmem svetu). Shranjeno v projektu; naslednji derive izriše plastnice z njo.
+mcp-param-create-project-steep-slope = Naklon pobočja v stopinjah, od katerega se teren pri iskanju brežin in prepadov šteje za strmega, npr. 55; 0 vrne privzetih 27°. Zvišaj ga (55 do 65) v skalnih mestih in soteskah, kjer je strmo skoraj vsako pobočje, brežine in prepadi pa se zlijejo v eno liso. Shrani se v projekt; naslednji derive z njim išče brežine in prepade.
 mcp-param-start-pipeline-content = Pred zagonom spremeni, kaj pride neposredno na karto: "safe", "balanced" ali "full". Shranjeno v projektu. Privzeto: nastavitev projekta, sicer balanced.
 mcp-param-start-pipeline-content-set = Skupine, poslane drugam, kot določa profil, kot "group=place" s place map, candidates ali off, npr. "fences=candidates". Shranjeno v projektu.
 mcp-param-start-pipeline-contour-interval = Ekvidistanca plastnic v metrih, npr. 2.5; 0 se vrne k samodejni izbiri (po vrsti karte; gozdna karta dobi 2,5 m v ravnini in 10 m v strmem svetu). Shranjeno v projektu; naslednji derive izriše plastnice z njo.
+mcp-param-start-pipeline-steep-slope = Naklon pobočja v stopinjah, od katerega se teren pri iskanju brežin in prepadov šteje za strmega, npr. 55; 0 vrne privzetih 27°. Zvišaj ga (55 do 65) v skalnih mestih in soteskah, kjer je strmo skoraj vsako pobočje, brežine in prepadi pa se zlijejo v eno liso. Shrani se v projekt; naslednji derive z njim išče brežine in prepade.
 mcp-error-content = Nastavitve vsebine ni mogoče prebrati: { $detail }
 
 ## Permit notes (`freemapper permits`, `run --permits`, ADR 0117). The ids `permits-hint-*`

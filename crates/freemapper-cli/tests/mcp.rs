@@ -243,6 +243,28 @@ fn mcp_creates_a_forest_project_with_a_contour_interval() {
 }
 
 #[test]
+fn mcp_creates_a_forest_project_with_a_steepness_threshold() {
+    let cache = tempfile::tempdir().unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let project = dir.path().join("forest");
+    let mut session = Session::start(cache.path());
+    let (error, text) = session.call(
+        "create_project",
+        json!({ "dir": project, "geojson": FIXTURE, "kind": "forest", "steep_slope": 55.0 }),
+    );
+    assert!(!error, "{text}");
+    let written = std::fs::read_to_string(project.join("freemapper.toml")).unwrap();
+    assert!(written.contains("steep_slope_deg = 55.0"), "{written}");
+    let other = dir.path().join("bad");
+    let (error, text) = session.call(
+        "create_project",
+        json!({ "dir": other, "geojson": FIXTURE, "kind": "forest", "steep_slope": 5.0 }),
+    );
+    assert!(error, "{text}");
+    assert!(!other.exists(), "a refused threshold creates no project");
+}
+
+#[test]
 fn mcp_creates_a_project_and_lists_layers() {
     let cache = tempfile::tempdir().unwrap();
     let dir = tempfile::tempdir().unwrap();

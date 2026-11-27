@@ -2085,4 +2085,98 @@ mod tests {
             ]
         );
     }
+
+    /// A knoll on bare rock is a boulder (204) from 1 m, a large boulder (205) from 2 m; a lower one,
+    /// and a knoll off the rock, stay knolls (ADR 0199).
+    #[test]
+    fn a_knoll_on_bare_rock_is_a_boulder() {
+        let f = fixture(MapKind::Forest);
+        let rock = osm_feature(
+            "way/1",
+            &[("natural", "bare_rock")],
+            OsmGeometry::Area(vec![crate::sources::osm::OsmPolygon {
+                outer: [
+                    (0.0, 0.0),
+                    (40.0, 0.0),
+                    (40.0, 40.0),
+                    (0.0, 40.0),
+                    (0.0, 0.0),
+                ]
+                .iter()
+                .map(|&p| lat_lon(&f, p))
+                .collect(),
+                holes: Vec::new(),
+            }]),
+        );
+        let form = |kind, at: (f64, f64), height_m| Landform {
+            kind,
+            points: vec![projected(&f, at)],
+            rotation_deg: 0.0,
+            height_m,
+        };
+        let forms = vec![
+            form(LandformKind::Knoll, (10.0, 10.0), 0.8),
+            form(LandformKind::Knoll, (12.0, 12.0), 1.0),
+            form(LandformKind::Knoll, (15.0, 15.0), 1.4),
+            form(LandformKind::Knoll, (18.0, 18.0), 2.0),
+            form(LandformKind::Knoll, (20.0, 20.0), 2.5),
+            Landform {
+                rotation_deg: 40.0,
+                ..form(LandformKind::ElongatedKnoll, (25.0, 25.0), 3.5)
+            },
+            Landform {
+                rotation_deg: 40.0,
+                ..form(LandformKind::ElongatedKnoll, (80.0, 20.0), 1.5)
+            },
+            form(LandformKind::Knoll, (80.0, 10.0), 3.0),
+            form(LandformKind::Depression, (30.0, 30.0), 3.0),
+        ];
+        let placed = placed_safe(
+            &f,
+            Stored {
+                osm: osm_extract(vec![rock]),
+                landforms: Some(Landforms {
+                    forms,
+                    source: "lgb-dgm1".to_string(),
+                    currency: None,
+                }),
+                ..Stored::default()
+            },
+        );
+        let mut found: Vec<(&str, u32)> = placed
+            .candidates
+            .iter()
+            .filter_map(|o| {
+                let height = o.tags.iter().find(|(k, _)| k == "freemapper:height")?;
+                Some((height.1.as_str(), o.symbol_id))
+            })
+            .collect();
+        found.sort();
+        let expected = vec![
+            ("0.8", f.id("109")),
+            ("1.0", f.id("204")),
+            ("1.4", f.id("204")),
+            ("1.5", f.id("110")),
+            ("2.0", f.id("205")),
+            ("2.5", f.id("205")),
+            ("3.0", f.id("109")),
+            ("3.0", f.id("111")),
+            ("3.5", f.id("205")),
+        ];
+        assert_eq!(found, expected);
+        // The elongated knoll off the rock is turned, the block on it is not.
+        let rotation = |height: &str| {
+            placed.candidates.iter().find_map(|o| {
+                let tagged = o
+                    .tags
+                    .contains(&("freemapper:height".to_string(), height.to_string()));
+                match o.kind {
+                    MapObjectKind::Point { rotation_rad } if tagged => Some(rotation_rad),
+                    _ => None,
+                }
+            })
+        };
+        assert_ne!(rotation("1.5"), Some(0.0));
+        assert_eq!(rotation("3.5"), Some(0.0));
+    }
 }
