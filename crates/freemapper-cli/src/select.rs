@@ -29,11 +29,13 @@ use freemapper::area::MapArea;
 use freemapper::build::content::{ContentSettings, Group, Place, Profile};
 use freemapper::fetch::{Cache, HttpFetcher};
 use freemapper::layers::{AreaPreview, preview_area};
+use freemapper::paper::{Orientation, PaperFormat, size_mm};
 use freemapper::places::{find_places, lookup_url, place_area};
 use freemapper::project::{
-    MAX_AREA_SIDE_M, MapKind, ProjectFile, check_contour_interval, check_face_slope,
-    check_steep_slope, init_project_with_content, map_path, set_contour_interval, set_face_slope,
-    set_map_area_with_content, set_steep_slope,
+    MAX_AREA_SIDE_M, MapKind, PaperFrame, ProjectFile, check_contour_interval, check_face_slope,
+    check_paper_frames, check_steep_slope, init_project_with_content, map_path,
+    set_contour_interval, set_face_slope, set_map_area_with_content, set_paper_frames,
+    set_steep_slope,
 };
 pub use freemapper_web::open_browser;
 use freemapper_web::{LocalServer, ServeOptions, embedded};
@@ -436,6 +438,39 @@ pub(crate) fn content_of(
     }
 }
 
+/// The paper formats the page offers, smallest first, with their portrait sizes. They come from
+/// the library, so that the frames on the page and in the export cannot differ.
+fn paper_formats_json() -> Value {
+    PaperFormat::ALL
+        .into_iter()
+        .map(|format| {
+            let (width_mm, height_mm) = size_mm(format, Orientation::Portrait);
+            json!({ "name": format.name(), "width_mm": width_mm, "height_mm": height_mm })
+        })
+        .collect()
+}
+
+/// The `paper_frames` of a save: none when the page sends none (the stored frames stay), the
+/// list otherwise (`[]` removes them all). A list with an entry that is not a frame object of a
+/// known format and orientation and a centre in EPSG:4326 is refused with a sentence in `lang`.
+fn paper_frames_of(body: &Value, lang: &Lang) -> Result<Option<Vec<PaperFrame>>, String> {
+    let value = match body.get("paper_frames") {
+        None | Some(Value::Null) => return Ok(None),
+        Some(value) => value,
+    };
+    let refusal = || TEXTS.text(lang, "cli-save-bad-paper-frames", &[]);
+    // Serde also reads a struct from an array of its fields; the page sends objects only.
+    let objects = value
+        .as_array()
+        .is_some_and(|entries| entries.iter().all(Value::is_object));
+    if !objects {
+        return Err(refusal());
+    }
+    let frames: Vec<PaperFrame> = serde_json::from_value(value.clone()).map_err(|_| refusal())?;
+    check_paper_frames(&frames).map_err(|_| refusal())?;
+    Ok(Some(frames))
+}
+
 /// The revision of `freemapper.toml` in `dir` (core ADR 0030), or `None` while there is none.
 fn project_revision(dir: &Path) -> Option<String> {
     std::fs::read(dir.join("freemapper.toml"))
@@ -468,6 +503,7 @@ async fn project(State(state): State<Arc<AppState>>, headers: HeaderMap) -> Resp
             "contour_interval_m": project.contour_interval_m,
             "steep_slope_deg": project.steep_slope_deg,
             "face_slope_deg": project.face_slope_deg,
+            "paper_frames": project.paper_frames,
         }),
         None => json!({
             "exists": false,
@@ -485,8 +521,10 @@ async fn project(State(state): State<Arc<AppState>>, headers: HeaderMap) -> Resp
             "contour_interval_m": null,
             "steep_slope_deg": null,
             "face_slope_deg": null,
+            "paper_frames": [],
         }),
     };
+    answer["paper_formats"] = paper_formats_json();
     answer["content_options"] = content_options_json();
     answer["run_defaults"] = run_defaults_json(&state.defaults.run);
     answer["allowed_scales"] = MapKind::ALL
@@ -678,6 +716,22 @@ async fn save(
         {
             return Err(SaveError::Stale(current));
         }
+        let frames = paper_frames_of(&body, &lang).map_err(SaveError::Refused)?;
+        let created = !dir.join("freemapper.toml").exists();
+        // Frames without an area: only the frames change; area, kind, scale, title, content
+        // and the terrain settings stay as they are. They need a project to belong to.
+        let has_area = !matches!(body.get("area"), None | Some(Value::Null));
+        if !has_area && let Some(frames) = &frames {
+            if created {
+                return Err(SaveError::Refused(TEXTS.text(
+                    &lang,
+                    "cli-save-paper-frames-no-project",
+                    &[],
+                )));
+            }
+            set_paper_frames(dir, frames).map_err(|e| message(&e, &lang))?;
+            return Ok(saved_json(dir, false, false, false, true));
+        }
         let content =
             content_of(&body, &lang, "cli-save-bad-content").map_err(SaveError::Refused)?;
         // `contour_interval_m`: absent keeps the setting, null goes back to the automatic choice.
@@ -711,7 +765,6 @@ async fn save(
             }
         };
         let area = area_of(&body, &lang)?;
-        let created = !dir.join("freemapper.toml").exists();
         let mut zone_changed = false;
         let mut provider_changed = false;
         if created {
@@ -750,19 +803,16 @@ async fn save(
         if let Some(slope) = face {
             set_face_slope(dir, slope).map_err(|e| message(&e, &lang))?;
         }
-        Ok(json!({
-            "saved": true,
-            "created": created,
-            // The new area lies in another UTM zone: what was fetched for the old one is dropped.
-            "zone_changed": zone_changed,
-            // Another provider serves the new area: its data is fetched again as well.
-            "provider_changed": provider_changed,
-            "dir": dir,
-            "has_map": map_path(dir).exists(),
-            // The page compares it with the revision it reads next: another one means that
-            // another window or program wrote the file in between.
-            "revision": project_revision(dir),
-        }))
+        if let Some(frames) = &frames {
+            set_paper_frames(dir, frames).map_err(|e| message(&e, &lang))?;
+        }
+        Ok(saved_json(
+            dir,
+            created,
+            zone_changed,
+            provider_changed,
+            frames.is_some(),
+        ))
     })
     .await;
     match saved {
@@ -777,6 +827,31 @@ async fn save(
         Ok(Err(SaveError::Other(e))) => bad_request(e),
         Err(e) => internal_error(&lang, e),
     }
+}
+
+/// The answer to a save that went through.
+fn saved_json(
+    dir: &Path,
+    created: bool,
+    zone_changed: bool,
+    provider_changed: bool,
+    paper_frames_saved: bool,
+) -> Value {
+    json!({
+        "saved": true,
+        "created": created,
+        // The new area lies in another UTM zone: what was fetched for the old one is dropped.
+        "zone_changed": zone_changed,
+        // Another provider serves the new area: its data is fetched again as well.
+        "provider_changed": provider_changed,
+        // The frames were written; they reach the map with the next export.
+        "paper_frames_saved": paper_frames_saved,
+        "dir": dir,
+        "has_map": map_path(dir).exists(),
+        // The page compares it with the revision it reads next: another one means that
+        // another window or program wrote the file in between.
+        "revision": project_revision(dir),
+    })
 }
 
 /// Why a save did not happen.

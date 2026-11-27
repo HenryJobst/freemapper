@@ -1057,6 +1057,19 @@ pub fn set_steep_slope(dir: &Path, slope_deg: Option<f64>) -> Result<ProjectFile
 
 /// Sets the paper frames of the project in `dir`; an empty list removes the key.
 pub fn set_paper_frames(dir: &Path, frames: &[PaperFrame]) -> Result<ProjectFile, ProjectError> {
+    check_paper_frames(frames)?;
+    let mut project = ProjectFile::load(dir)?;
+    check_folders(dir, &WRITTEN_FOLDERS)?;
+    if project.paper_frames != frames {
+        project.paper_frames = frames.to_vec();
+        project.save(dir)?;
+    }
+    Ok(project)
+}
+
+/// Checks that every frame centre is a finite point in EPSG:4326, as [`set_paper_frames`] does
+/// before it writes.
+pub fn check_paper_frames(frames: &[PaperFrame]) -> Result<(), ProjectError> {
     for f in frames {
         let ok = f.lon.is_finite()
             && f.lat.is_finite()
@@ -1069,13 +1082,7 @@ pub fn set_paper_frames(dir: &Path, frames: &[PaperFrame]) -> Result<ProjectFile
             });
         }
     }
-    let mut project = ProjectFile::load(dir)?;
-    check_folders(dir, &WRITTEN_FOLDERS)?;
-    if project.paper_frames != frames {
-        project.paper_frames = frames.to_vec();
-        project.save(dir)?;
-    }
-    Ok(project)
+    Ok(())
 }
 
 /// Refuses a face slope outside [`FACE_SLOPE_RANGE_DEG`].
