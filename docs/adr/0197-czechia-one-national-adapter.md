@@ -30,8 +30,8 @@ Poland (ADR 0164) is the model: one national adapter. Czechia gets the rasters a
   29 of the way of use). The land use is the polygon layers of ZABAGED (forest and scrub, grassland, arable land,
   gardens, vineyards, hops, maintained green, cemeteries, marsh, peat, quarries, industrial sites, water). Both are
   asked as GeoJSON in the CRS of the map, 1000 objects a page. The way of use and the kinds become the German words of
-  the ALKIS schema that the engine reads. A pond and a river are told apart by `stojvoda`. The permit notes are not
-  available for Czechia yet; the engine says so as it does for Poland before its permit stage. The progress lines name
+  the ALKIS schema that the engine reads. A pond and a river are told apart by `stojvoda`. The permit notes were not
+  available for Czechia at first (they came with [ADR 0201](0201-czechia-permit-notes.md)); the engine said so as it does for Poland before its permit stage. The progress lines name
   the cadastre RÚIAN.
 - One zone serves the country: every map is drawn in EPSG:25833, also in the east of Moravia, which lies up to a degree
   past the zone border (scale error under 0.1 %).

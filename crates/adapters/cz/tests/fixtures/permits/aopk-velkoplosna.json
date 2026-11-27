@@ -1,0 +1,39 @@
+{
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       16.031532,
+       50.463059
+      ],
+      [
+       16.444717,
+       50.463059
+      ],
+      [
+       16.444717,
+       50.671663
+      ],
+      [
+       16.031532,
+       50.671663
+      ],
+      [
+       16.031532,
+       50.463059
+      ]
+     ]
+    ]
+   },
+   "properties": {
+    "KAT": "CHKO",
+    "NAZEV": "Broumovsko"
+   }
+  }
+ ]
+}

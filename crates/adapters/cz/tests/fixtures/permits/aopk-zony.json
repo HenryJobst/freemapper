@@ -1,0 +1,75 @@
+{
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       16.082484,
+       50.464522
+      ],
+      [
+       16.433635,
+       50.464522
+      ],
+      [
+       16.433635,
+       50.667045
+      ],
+      [
+       16.082484,
+       50.667045
+      ],
+      [
+       16.082484,
+       50.464522
+      ]
+     ]
+    ]
+   },
+   "properties": {
+    "KAT": "CHKO",
+    "NAZEV": "Broumovsko",
+    "ZONA": "I"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       16.031532,
+       50.463059
+      ],
+      [
+       16.438514,
+       50.463059
+      ],
+      [
+       16.438514,
+       50.664995
+      ],
+      [
+       16.031532,
+       50.664995
+      ],
+      [
+       16.031532,
+       50.463059
+      ]
+     ]
+    ]
+   },
+   "properties": {
+    "KAT": "CHKO",
+    "NAZEV": "Broumovsko",
+    "ZONA": "III"
+   }
+  }
+ ]
+}

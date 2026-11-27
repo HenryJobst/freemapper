@@ -56,9 +56,7 @@ Hosts to name: `ags.cuzk.gov.cz`, `atom.cuzk.gov.cz`, `services.cuzk.gov.cz`, `d
   relief and the vegetation density; both are reachable.
 - RÚIAN parcels have been outdated since 10 December 2021 (no transfer from the cadastre, ČÚZK notice).
   Use RÚIAN for buildings and administrative units, not for parcels.
-- Not yet checked: the Czech forest-owner and protection authorities for the permit notes, the flight years of the orthophoto.
-  years of the orthophoto, the Czech forest-owner and protection authorities for the permit notes, the
-  CZ border outline.
+- Not yet checked: the flight years of the orthophoto. The permit sources are in the section "Permits probed" below.
 
 ## Built in stage 1 (ADR 0197)
 
@@ -68,5 +66,32 @@ Hosts to name: `ags.cuzk.gov.cz`, `atom.cuzk.gov.cz`, `services.cuzk.gov.cz`, `d
   gardens), 136 (vineyards), 137 (hops), 134 (maintained green), 116 (cemeteries), 131 (marsh), 18 (peat), 118 (quarries),
   114 (industrial sites) and 132 (water, `stojvoda` `A` standing, `N` flowing).
 - Query: `MapServer/<layer>/query` with `f=geojson`, `inSR=outSR=25833`, `orderByFields=OBJECTID`, 1000 objects a page.
-- Still open: the permit notes (authorities, protected areas, forest owners, monuments), the flight year of the orthophoto
+- Still open: the flight year of the orthophoto
   (the service names none), contours that wander in small loops under dense buildings (DMR 5G is interpolated bare earth).
+
+## Permits probed (27 November 2026, ADR 0201)
+
+All over https, no login, with the fixed research User-Agent. Query as in the cadastre: `MapServer/<layer>/query`
+with the box in WGS 84 (`inSR=4326`, `outSR=4326`), `f=geojson`, `maxAllowableOffset=0.00005` for polygons.
+A wrong attribute in `outFields` gives `{"error":{"code":400,"message":"Failed to execute query."}}` with status 200.
+
+| Source | Service | Layers read | Licence |
+|---|---|---|---|
+| AOPK ČR, protected areas | `https://gis.nature.cz/arcgis/rest/services/UzemniOchrana/ChranUzemi/MapServer` (max 1000 records) | 0 small areas (`KAT` NPR, NPP, PR, PP), 1 their protective zones, 2 zones of NP and CHKO (`ZONA`), 3 large areas (`KAT` NP, CHKO, OP) | metadata of the INSPIRE edition: CC BY 4.0; `copyrightText` "© AOPK ČR" |
+| AOPK ČR, Natura 2000 | `…/UzemniOchrana/Natura2000/MapServer` | 1 EVL, 0 PO (`SITECODE`, `NAZEV`) | as above |
+| AOPK ČR, memorial trees | `…/PamatneStromy/PamatneStromy/MapServer` | 1 trees (points, `NAZEV`, `DRUH`), 3 groups without positions (polygons) | as above |
+| RÚIAN, units | `https://ags.cuzk.gov.cz/arcgis/rest/services/RUIAN/MapServer` (max 1 000 000) | 12 obec (`okres`, `pou`), 13 POU (`orp`), 14 ORP (`vusc`, only for the capital), 15 okres (`vusc`), 17 kraj | CC BY 4.0 |
+| NPÚ, monuments | `https://geoportal.npu.cz/arcgis/rest/services/INSPIRE/ProtectedSites/MapServer` (max 2000) | 0 protected sites: `SD_DESIGNATION` `monument`, `settlement`, `cultural` | metadata record: CC BY-SA 4.0 |
+
+- Adršpach box 16.10 to 16.14 E, 50.60 to 50.63 N: layer 0 gives the NPR "Adršpašsko-teplické skály" (KOD 2401) and the
+  PR "Křížová cesta"; layer 3 the CHKO "Broumovsko"; layer 2 its zones I to IV; Natura 2000 the EVL "Adršpašsko-teplické
+  skály" and "Metuje a Dřevíč" and the PO "Broumovsko". RÚIAN: the obec Adršpach (okres Náchod, 3605, kraj 86), POU 2283,
+  ORP Broumov (1031). The NPÚ gives 381 sites in a box of about 1.5 km by 1 km in Prague's old town.
+- The capital: obec Praha (554782) has `okres` empty; its ORP (19) carries `vusc` 19.
+- ÚHÚL (`geoportal.uhul.cz`, `www.uhul.cz`, forest management plans): the first answers with a certificate for another host
+  name, the second with a chain that does not verify. Not usable by a client that checks certificates.
+- The old NPÚ host `gis.npu.cz` does not resolve; the geoportal is `geoportal.npu.cz`. The richer ÚAP service
+  (`Tematicke/CP_UAP_PVO`, with register numbers and links) has no licence in its metadata and is not used.
+- Law quoted in the hints (read on `zakonyprolidi.cz`): 114/1992 Sb. § 16 odst. 1 písm. q, § 29 písm. d, § 37 odst. 3
+  písm. d, § 75 odst. 1; 20/1987 Sb. § 14 odst. 1 and 2; 289/1995 Sb. § 20 odst. 5; 13/1997 Sb. § 25 odst. 1 and 6 písm. d,
+  § 40 odst. 4 and 5.

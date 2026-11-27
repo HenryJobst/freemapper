@@ -6,7 +6,8 @@
 //! extract. Both are embedded as GeoJSON in WGS 84 and projected to EPSG:25833 once on first use.
 //! It gives the rasters of ČÚZK (terrain model, surface model and orthophoto,
 //! [`crate::rasters::CuzkRasters`]) and the cadastre ([`crate::cadastre`]: the buildings of RÚIAN and
-//! the land use of ZABAGED). The adapter asks the host of the ČÚZK services and no other ([`HOSTS`]).
+//! the land use of ZABAGED), and the sources of the permit notes ([`crate::permits`], ADR 0201).
+//! The adapter asks the host of the ČÚZK services and those of the AOPK and the NPÚ ([`HOSTS`]).
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -20,6 +21,7 @@ use freemapper_adapter_api::estimate::{EstimateArea, EstimateEnv};
 use freemapper_adapter_api::info::{
     Country, Coverage, Declared, Names, OsmExtractInfo, PreviewInfo, RegionInfo,
 };
+use freemapper_adapter_api::permits::PermitSource;
 use freemapper_adapter_api::policy::{Owner, PolicyFetcher, UrlPolicy};
 use freemapper_adapter_api::project::RasterProject;
 use freemapper_adapter_api::rasters::{
@@ -32,6 +34,7 @@ use geo::MapCoords;
 use geo_types::MultiPolygon;
 
 use crate::cadastre::CzCadastre;
+use crate::permits::{AOPK_HOST, NPU_HOST};
 use crate::rasters::{CuzkRasters, HOST, PROVIDER};
 
 /// The id of the adapter.
@@ -44,7 +47,7 @@ pub const CREDIT: &str = "© ČÚZK (CC BY 4.0)";
 /// The hosts the adapter asks besides what a person allowed: the image services, the orthophoto
 /// and the vector services of ČÚZK. The OSM extract comes through the core
 /// hosts, and the area page asks the WMS of the same host itself, in the browser.
-pub const HOSTS: [&str; 1] = [HOST];
+pub const HOSTS: [&str; 3] = [HOST, AOPK_HOST, NPU_HOST];
 
 /// The state border of Czechia (OSM relation 51684), WGS 84.
 const CZECHIA_BOUNDARY: &str = include_str!("../data/czechia.geojson");
@@ -81,6 +84,7 @@ pub struct Cesko {
     policy: UrlPolicy,
     rasters: GuardedRasters,
     cadastre: CzCadastre,
+    permits: Vec<Box<dyn PermitSource>>,
     boundary: MultiPolygon<f64>,
     extract: MultiPolygon<f64>,
 }
@@ -91,7 +95,7 @@ impl Cesko {
     /// from the engine, which asks Geofabrik itself.
     pub fn new(allowed: &[String]) -> Self {
         let id = AdapterId::built_in(CESKO);
-        let mut policy = UrlPolicy::new(HOSTS).expect("the host of ČÚZK is a DNS name");
+        let mut policy = UrlPolicy::new(HOSTS).expect("the hosts are DNS names");
         for host in allowed {
             if let Ok(wider) = policy.clone().with_hosts([host.as_str()]) {
                 policy = wider;
@@ -104,7 +108,7 @@ impl Cesko {
         });
         Self {
             declared: Declared {
-                revision: 1,
+                revision: 2,
                 hosts: HOSTS.iter().map(ToString::to_string).collect(),
                 last_verified: chrono::NaiveDate::from_ymd_opt(2026, 11, 26),
             },
@@ -150,6 +154,7 @@ impl Cesko {
                     agency: "ČÚZK".into(),
                 }),
             },
+            permits: crate::permits::sources(),
             boundary: project(CZECHIA_BOUNDARY),
             extract: project(EXTRACT_BOUNDARY),
         }
@@ -193,6 +198,12 @@ impl RegionAdapter for Cesko {
     /// The buildings of RÚIAN and the land use of ZABAGED ([`crate::cadastre`]).
     fn alkis(&self) -> Option<&dyn AlkisSource> {
         Some(&self.cadastre)
+    }
+
+    /// The protected areas of the AOPK, the administrative units of RÚIAN and the monuments of
+    /// the NPÚ (ADR 0201).
+    fn permit_sources(&self) -> &[Box<dyn PermitSource>] {
+        &self.permits
     }
 
     fn rasters(&self) -> Option<&dyn RasterBackend> {
@@ -331,9 +342,33 @@ mod tests {
     }
 
     #[test]
-    fn the_adapter_asks_the_host_of_cuzk_and_those_a_person_allowed() {
+    fn the_adapter_asks_the_hosts_of_cuzk_aopk_and_npu_and_those_a_person_allowed() {
         let plain = Cesko::new(&[]);
-        assert_eq!(plain.declared().unwrap().hosts, [HOST]);
+        assert_eq!(
+            plain.declared().unwrap().hosts,
+            ["ags.cuzk.gov.cz", "gis.nature.cz", "geoportal.npu.cz"]
+        );
+        assert_eq!(plain.declared().unwrap().revision, 2);
+        for url in [
+            "https://gis.nature.cz/arcgis/rest/services",
+            "https://geoportal.npu.cz/arcgis/rest/services",
+        ] {
+            assert!(plain.policy().unwrap().check_url(url).is_ok(), "{url}");
+        }
+        assert!(
+            plain
+                .policy()
+                .unwrap()
+                .check_url("https://example.org/x")
+                .is_err()
+        );
+        // The adapter brings the three sources of the permit notes.
+        let keys: Vec<_> = plain
+            .permit_sources()
+            .iter()
+            .map(|s| s.info().key)
+            .collect();
+        assert_eq!(keys, ["aopk", "ruian-hranice", "npu-pamatky"]);
         let wider = Cesko::new(&["atom.cuzk.gov.cz".to_string()]);
         let policy = wider.policy().unwrap();
         assert!(policy.check_url("https://atom.cuzk.gov.cz/x").is_ok());

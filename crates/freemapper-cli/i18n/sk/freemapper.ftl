@@ -981,6 +981,17 @@ permits-object-kind = { $kind ->
         [landscape-complex] Prírodný a krajinný celok (zespół przyrodniczo-krajobrazowy)
         [documentation-site] Dokumentačná lokalita (stanowisko dokumentacyjne)
         [natural-monument-pl] Prírodná pamiatka (pomnik przyrody)
+        [national-park-cz] Národný park (národní park, NP)
+        [protected-landscape-area-cz] Chránená krajinná oblasť (chráněná krajinná oblast, CHKO)
+        [national-nature-reserve] Národná prírodná rezervácia (národní přírodní rezervace, NPR)
+        [national-nature-monument] Národná prírodná pamiatka (národní přírodní památka, NPP)
+        [nature-reserve-cz] Prírodná rezervácia (přírodní rezervace, PR)
+        [nature-monument-cz] Prírodná pamiatka (přírodní památka, PP)
+        [protective-zone-cz] Ochranné pásmo (ochranné pásmo)
+        [nature-zone-cz] Zóna ochrany prírody (zóna ochrany přírody)
+        [natura2000-habitats-cz] Lokalita Natura 2000 pre biotopy (evropsky významná lokalita, EVL)
+        [natura2000-birds-cz] Lokalita Natura 2000 pre vtáky (ptačí oblast, PO)
+        [memorial-tree] Pamätný strom (památný strom)
        *[special-rules] Oblasť so zvláštnymi pravidlami
     }
 permits-object-count = { $count } objektov
@@ -1045,6 +1056,7 @@ permits-register-history-in-area = Pamätníky dejín v oblasti mapy: { $count }
 permits-register-history-nearby = Ďalšie pamätníky dejín v obdĺžniku okolo oblasti mapy, ale nie v oblasti mapy: { $count }.
 permits-register-history-left = Ďalších { $count } je tu len započítaných, bez názvov.
 permits-admin-unit-code = { $name } (TERYT { $code })
+permits-admin-unit-code-ruian = { $name } (RÚIAN { $code })
 permits-none-state-forest = Podľa { $source } v oblasti mapy neleží žiadny štátny les.
 permits-forest-units-reach = Lesný úrad je príslušný za les vo svojej oblasti. Jeho oblasť môže zahŕňať aj mestá a polia.
 permits-state-forest-office = príslušný: { $office }
@@ -1078,6 +1090,16 @@ permits-hint-gmina-land-pl = Ak pozemok v oblasti mapy patrí gmine, napríklad 
         [one] úrad gminy ({ $gmina }).
        *[other] úrady gmín ({ $gmina }).
     } Tieto poznámky neukazujú, komu pozemok patrí.
+permits-hint-protected-areas-cz = V oblasti mapy ležia chránené územia alebo objekty ochrany prírody. Podľa zákona o ochrane prírody a krajiny (zákon č. 114/1992 Sb.) sú v národnom parku zakázané organizované športové, turistické a iné verejné podujatia mimo miest, ktoré vyhradil orgán ochrany prírody (§ 16 odst. 1 písm. q), a v ochrannom pásme národného parku si hromadné podujatia tohto druhu mimo týchto miest a mimo zastavaných území vyžadujú súhlas orgánu (§ 37 odst. 3 písm. d). V národnej prírodnej rezervácii je zakázané vstupovať a vychádzať mimo ciest vyznačených so súhlasom orgánu (§ 29 písm. d). Orgánmi ochrany prírody sú okrem iných správa národného parku, Agentúra ochrany prírody (AOPK ČR), krajský úrad (krajský úřad) a úrad obce s rozšírenou pôsobnosťou (§ 75 odst. 1). Iné chránené územia a objekty majú vlastné ochranné podmienky. Ak tam plánujete podujatie, požiadajte orgán včas.
+permits-hint-monuments-cz = V oblasti mapy ležia kultúrne pamiatky alebo pamiatkové územia štátneho zoznamu. Podľa zákona o štátnej pamiatkovej starostlivosti (zákon č. 20/1987 Sb., § 14 odst. 1 a 2) musí vlastník pamiatky vopred požiadať o rozhodnutie alebo záväzné stanovisko pred údržbou, opravou, rekonštrukciou alebo inou úpravou pamiatky alebo jej okolia. To isté platí pre vlastníka nehnuteľnosti v pamiatkovej rezervácii, pamiatkovej zóne alebo v ochrannom pásme pamiatky pri stavbe, zmene stavby, terénnych prácach, zariadení alebo tabuli, odstránení stavby, ošetrení stromov alebo udržiavacích prácach. Rozhoduje úrad obce s rozšírenou pôsobnosťou{ $orp ->
+        [none] {""}
+       *[other] {" "}({ $orp})
+    }, pri národnej kultúrnej pamiatke krajský úrad. Zákon neuvádza prechádzku, beh ani kontrolu ako takú; opýtajte sa tohto úradu, ak sa podujatie dotýka pamiatky alebo na nej umiestňuje zariadenia alebo tabule.
+permits-hint-forest-owner-cz = Hromadné športové, kultúrne alebo iné spoločenské podujatie na pozemku určenom na plnenie funkcií lesa sa smie konať len s písomným súhlasom vlastníka lesa, v ktorom sa koná (zákon o lesoch, zákon č. 289/1995 Sb., § 20 odst. 5). Organizátor musí podujatie tiež písomne oznámiť úradu obce s rozšírenou pôsobnosťou{ $orp ->
+        [none] {""}
+       *[other] {" "}({ $orp})
+    }, alebo krajskému úradu, ak podujatie presahuje obvod takej obce, najneskôr 30 dní pred podujatím. Oznámenie uvádza dátum a miesto, ako je podujatie zabezpečené, očakávaný počet účastníkov a písomné súhlasy vlastníkov (ten istý paragraf). Tieto poznámky neukazujú, komu les patrí; opýtajte sa vlastníkov lesa včas.
+permits-hint-roads-cz = Podujatie, ktoré využíva cestu inak ako obvykle, napríklad športové, kultúrne alebo podobné podujatie, ktoré by mohlo ohroziť bezpečnosť alebo plynulosť cestnej premávky, potrebuje povolenie príslušného cestného správneho úradu. Vydáva sa s predchádzajúcim súhlasom vlastníka cesty a, ak môže byť dotknutá bezpečnosť alebo plynulosť premávky, Polície Českej republiky (zákon o cestách, zákon č. 13/1997 Sb., § 25 odst. 1 a odst. 6 písm. d). Úradom je obecný úrad pre miestne cesty alebo úrad obce s rozšírenou pôsobnosťou tam, kde rozhoduje, a úrad obce s rozšírenou pôsobnosťou pre cesty druhej a tretej triedy (§ 40 odst. 4 a 5). Obce v oblasti mapy: { $gmina }. Tieto poznámky neukazujú triedu ciest.
 permits-section-water-protection = Ochranné pásma vôd ({ $source })
 permits-section-forest-functions = Funkcie lesa a ochranný les ({ $source })
 permits-none-water-protection = Podľa { $source } v oblasti mapy neleží žiadne ochranné pásmo vôd.

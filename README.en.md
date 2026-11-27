@@ -6,7 +6,7 @@
 <!-- badges:start -->
 [![Version](https://img.shields.io/github/v/release/HenryJobst/freemapper?label=version)](https://github.com/HenryJobst/freemapper/releases/latest) [![Downloads](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/HenryJobst/freemapper/badges/downloads.en.json)](https://github.com/HenryJobst/freemapper/releases/latest) [![Commits](https://img.shields.io/github/commit-activity/t/HenryJobst/freemapper?label=Commits)](https://github.com/HenryJobst/freemapper/commits/main) [![CI](https://img.shields.io/github/actions/workflow/status/HenryJobst/freemapper/ci.yml?branch=main&label=CI)](https://github.com/HenryJobst/freemapper/actions/workflows/ci.yml)
 
-[![Tests](https://img.shields.io/badge/Tests-3400%2B-blue)](docs/tests.json) [![Test budget](https://img.shields.io/badge/Test_budget-15_min-blue)](docs/tests.json) [![Line coverage](https://img.shields.io/badge/Coverage-96.3%25-brightgreen)](docs/coverage.json) [![Hygiene](https://img.shields.io/badge/Hygiene-19-brightgreen)](scripts/check.sh)
+[![Tests](https://img.shields.io/badge/Tests-3500%2B-blue)](docs/tests.json) [![Test budget](https://img.shields.io/badge/Test_budget-15_min-blue)](docs/tests.json) [![Line coverage](https://img.shields.io/badge/Coverage-96.3%25-brightgreen)](docs/coverage.json) [![Hygiene](https://img.shields.io/badge/Hygiene-19-brightgreen)](scripts/check.sh)
 
 [![MSRV](https://img.shields.io/badge/MSRV-1.88-blue)](Cargo.toml) [![ADRs](https://img.shields.io/badge/ADRs-200%2B-blue)](docs/adr/README.md) [![License](https://img.shields.io/badge/License-AGPL--3.0--or--later-blue)](LICENSE)
 <!-- badges:end -->
@@ -45,7 +45,7 @@ the mapper has to judge. Drawing and field checking stay in OOM or OCAD.
 |---|---|---|
 | Germany | complete | 15 of 16 states, Thuringia is missing ([table](#regions)) |
 | Poland | usable | sprint and forest maps for all of Poland: terrain model, orthophoto, buildings and land use from GUGiK (cadastre EGiB), permit notes; [examples](examples/international.en.md) |
-| Czechia | preview | maps for all of Czechia: terrain model, surface model, orthophoto, buildings (RÚIAN) and land use (ZABAGED) from ČÚZK; permit notes follow; [examples](examples/international.en.md) |
+| Czechia | preview | maps for all of Czechia: terrain model, surface model, orthophoto, buildings (RÚIAN) and land use (ZABAGED) from ČÚZK; permit notes (protected areas, administrative units, monuments); [examples](examples/international.en.md) |
 
 More countries are planned; the list and progress are in [issue 227](https://github.com/HenryJobst/freemapper/issues/227).
 
@@ -97,7 +97,7 @@ further states,
 first Saxony (water axes, hedges and tree rows from the Basis-DLM, the trees of Leipzig and Dresden), then
 Saxony-Anhalt and Hamburg. Later come gym maps for indoor orienteering, and the last English remains in the German program texts (`--lang de`).
 Thuringia, the last state still missing, follows once its height-data server is
-back. Poland is usable: terrain model, aerial photo, buildings and land use from GUGiK, the cadastre EGiB, permit notes and examples (ADR 0164, 0170, 0171, 0175); Czechia is a preview with the terrain, orthophoto, building and land use data of ČÚZK (ADR 0197); the other neighbouring countries come later. The program texts exist in German, English and Polish and in 18 more languages, drafted by machine and not read by native speakers; corrections are welcome as an issue or a pull request (manual, chapter 15). Design:
+back. Poland is usable: terrain model, aerial photo, buildings and land use from GUGiK, the cadastre EGiB, permit notes and examples (ADR 0164, 0170, 0171, 0175); Czechia is a preview with the terrain, orthophoto, building and land use data of ČÚZK and with permit notes (ADR 0197, 0201); the other neighbouring countries come later. The program texts exist in German, English and Polish and in 18 more languages, drafted by machine and not read by native speakers; corrections are welcome as an issue or a pull request (manual, chapter 15). Design:
 [`docs/superpowers/specs/2026-11-07-freemapper-design.md`](https://github.com/HenryJobst/freemapper/blob/main/docs/superpowers/specs/2026-11-07-freemapper-design.md).
 
 On request freemapper writes permit notes next to the map, into the file `permits.md` (`freemapper permits`, `run --permits`, on the area page or through the AI assistant). For the map area it names the state, Kreis, Amt and Gemeinde from the BKG's VG250, the protected areas of the BfN and operators from OpenStreetMap, each with its share, source and data date, and says whom one usually asks. It is a hint, not legal advice. The details are in the [user manual, chapter 12](docs/manual/en.md#12-permit-notes). In Berlin the Bezirk, green spaces, land of the state and the Bund, monuments and natural monuments come from the Geoportal Berlin as well. In Hamburg the Bezirk, green spaces, monuments, the Stadtwald and water protection areas come from the Geoportal Hamburg. In Brandenburg, Berlin, Hamburg, North Rhine-Westphalia, Saarland, Saxony and Schleswig-Holstein the notes also name the forest office. They name water protection areas in every state, monuments in eleven, natural monuments and protected biotopes in thirteen, forest functions in several.

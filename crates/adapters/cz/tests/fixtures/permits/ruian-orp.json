@@ -1,0 +1,16 @@
+{
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "type": "Feature",
+   "geometry": null,
+   "properties": {
+    "kod": 1031,
+    "nazev": "Broumov",
+    "vusc": null,
+    "nespravny": null,
+    "platido": null
+   }
+  }
+ ]
+}

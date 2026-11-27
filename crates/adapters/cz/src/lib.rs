@@ -8,6 +8,7 @@
 
 pub mod cadastre;
 pub mod cesko;
+pub mod permits;
 pub mod rasters;
 
 pub use cesko::{register, register_with_hosts};

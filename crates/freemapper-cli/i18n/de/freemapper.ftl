@@ -990,6 +990,17 @@ permits-object-kind = { $kind ->
         [landscape-complex] Natur- und Landschaftskomplex (zespół przyrodniczo-krajobrazowy)
         [documentation-site] Dokumentationsstätte (stanowisko dokumentacyjne)
         [natural-monument-pl] Naturdenkmal (pomnik przyrody)
+        [national-park-cz] Nationalpark (národní park, NP)
+        [protected-landscape-area-cz] Landschaftsschutzgebiet (chráněná krajinná oblast, CHKO)
+        [national-nature-reserve] Nationales Naturreservat (národní přírodní rezervace, NPR)
+        [national-nature-monument] Nationales Naturdenkmal (národní přírodní památka, NPP)
+        [nature-reserve-cz] Naturreservat (přírodní rezervace, PR)
+        [nature-monument-cz] Naturdenkmal (přírodní památka, PP)
+        [protective-zone-cz] Schutzzone (ochranné pásmo)
+        [nature-zone-cz] Zone des Naturschutzes (zóna ochrany přírody)
+        [natura2000-habitats-cz] Natura-2000-Gebiet für Lebensräume (evropsky významná lokalita, EVL)
+        [natura2000-birds-cz] Natura-2000-Gebiet für Vögel (ptačí oblast, PO)
+        [memorial-tree] Geschützter Baum (památný strom)
        *[special-rules] Fläche mit besonderer Regelung
     }
 permits-object-count = { $count } Objekte
@@ -1054,6 +1065,7 @@ permits-register-history-in-area = Denkmäler der Geschichte im Kartengebiet: { 
 permits-register-history-nearby = Weitere Denkmäler der Geschichte im Rechteck um das Kartengebiet, aber nicht im Kartengebiet: { $count }.
 permits-register-history-left = { $count } weitere werden hier nur gezählt, ohne Namen.
 permits-admin-unit-code = { $name } (TERYT { $code })
+permits-admin-unit-code-ruian = { $name } (RÚIAN { $code })
 permits-none-state-forest = Laut { $source } liegt im Kartengebiet kein Staatswald.
 permits-forest-units-reach = Die Forstdienststelle ist für den Wald in ihrem Bereich zuständig. Ihr Bereich kann auch Siedlungen und Felder umfassen.
 permits-state-forest-office = zuständig: { $office }
@@ -1087,6 +1099,16 @@ permits-hint-gmina-land-pl = Gehört Land im Kartengebiet der Gemeinde, zum Beis
         [one] beim Amt der Gemeinde ({ $gmina }) ein
        *[other] bei den Ämtern der Gemeinden ({ $gmina }) ein
     }, bevor Sie es nutzen. Diese Hinweise zeigen nicht, wem das Land gehört.
+permits-hint-protected-areas-cz = Im Kartengebiet liegen Schutzgebiete oder Schutzobjekte des Naturschutzes. Nach dem Gesetz über Natur- und Landschaftsschutz (Gesetz Nr. 114/1992 Sb.) sind in einem Nationalpark organisierte sportliche, touristische und andere öffentliche Veranstaltungen außerhalb der von der Naturschutzbehörde bestimmten Orte verboten (§ 16 Abs. 1 Buchst. q), und in der Schutzzone eines Nationalparks brauchen solche Massenveranstaltungen außerhalb dieser Orte und außerhalb der bebauten Gebiete die Zustimmung der Behörde (§ 37 Abs. 3 Buchst. d). In einem nationalen Naturreservat ist es verboten, außerhalb der mit Zustimmung der Behörde markierten Wege zu gehen oder zu fahren (§ 29 Buchst. d). Naturschutzbehörden sind unter anderem die Verwaltung eines Nationalparks, die Agentur für Natur- und Landschaftsschutz (AOPK ČR), das Kreisamt (krajský úřad) und das Amt einer Gemeinde mit erweiterter Zuständigkeit (§ 75 Abs. 1). Andere Schutzgebiete und Schutzobjekte haben eigene Schutzbedingungen. Fragen Sie früh bei der Behörde nach, wenn Sie dort eine Veranstaltung planen.
+permits-hint-monuments-cz = Im Kartengebiet liegen Kulturdenkmale oder Denkmalgebiete der staatlichen Liste. Nach dem Gesetz über die staatliche Denkmalpflege (Gesetz Nr. 20/1987 Sb., § 14 Abs. 1 und 2) muss der Eigentümer eines Denkmals vor Instandhaltung, Reparatur, Umbau oder einer anderen Änderung des Denkmals oder seiner Umgebung vorab eine Entscheidung oder eine verbindliche Stellungnahme einholen. Dasselbe gilt für den Eigentümer eines Grundstücks in einem Denkmalreservat, einer Denkmalzone oder der Schutzzone eines Denkmals bei einem Bau, einer Änderung eines Baus, Geländearbeiten, einer Anlage oder einem Schild, dem Abbruch eines Bauwerks, der Behandlung von Gehölzen oder Unterhaltungsarbeiten. Entscheiden kann das Amt der Gemeinde mit erweiterter Zuständigkeit{ $orp ->
+        [none] {""}
+       *[other] {" "}({ $orp})
+    }, bei einem nationalen Kulturdenkmal das Kreisamt. Einen Spaziergang, einen Lauf oder einen Posten als solchen nennt das Gesetz nicht; fragen Sie dieses Amt, wenn eine Veranstaltung ein Denkmal berührt oder Anlagen oder Schilder daran anbringt.
+permits-hint-forest-owner-cz = Eine gesellschaftliche Massenveranstaltung, etwa eine sportliche oder kulturelle, auf Flächen mit Waldfunktion darf nur mit schriftlicher Zustimmung des Eigentümers des Waldes stattfinden, in dem sie abgehalten wird (Waldgesetz, Gesetz Nr. 289/1995 Sb., § 20 Abs. 5). Der Veranstalter muss sie außerdem spätestens 30 Tage vorher schriftlich dem Amt der Gemeinde mit erweiterter Zuständigkeit{ $orp ->
+        [none] {""}
+       *[other] {" "}({ $orp})
+    } anzeigen, oder dem Kreisamt, wenn die Veranstaltung über den Bezirk einer solchen Gemeinde hinausreicht. Die Anzeige nennt Datum und Ort, die Besetzung der Veranstaltung, die erwartete Teilnehmerzahl und die schriftlichen Zustimmungen der Eigentümer (derselbe Absatz). Diese Hinweise zeigen nicht, wem der Wald gehört; fragen Sie die Waldbesitzer früh.
+permits-hint-roads-cz = Eine Veranstaltung, die eine Straße anders als üblich nutzt, etwa eine sportliche, kulturelle oder ähnliche Veranstaltung, die die Sicherheit oder Flüssigkeit des Straßenverkehrs gefährden könnte, braucht die Erlaubnis des zuständigen Straßenverwaltungsamts. Sie wird mit vorheriger Zustimmung des Straßeneigentümers erteilt und, wo Sicherheit oder Flüssigkeit des Verkehrs betroffen sein können, der Polizei der Tschechischen Republik (Straßengesetz, Gesetz Nr. 13/1997 Sb., § 25 Abs. 1 und Abs. 6 Buchst. d). Das Amt ist bei örtlichen Straßen das Gemeindeamt oder, wo es entscheidet, das Amt der Gemeinde mit erweiterter Zuständigkeit, bei Straßen zweiter und dritter Klasse das Amt der Gemeinde mit erweiterter Zuständigkeit (§ 40 Abs. 4 und 5). Gemeinden im Kartengebiet: { $gmina }. Diese Hinweise zeigen nicht, welcher Klasse die Straßen angehören.
 permits-section-water-protection = Wasserschutzgebiete ({ $source })
 permits-section-forest-functions = Waldfunktionen und Schutzwald ({ $source })
 permits-none-water-protection = Laut { $source } liegt im Kartengebiet kein Wasserschutzgebiet.

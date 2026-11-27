@@ -991,6 +991,17 @@ permits-object-kind = { $kind ->
         [landscape-complex] Gamtos ir kraštovaizdžio kompleksas (zespół przyrodniczo-krajobrazowy)
         [documentation-site] Dokumentavimo vieta (stanowisko dokumentacyjne)
         [natural-monument-pl] Gamtos paminklas (pomnik przyrody)
+        [national-park-cz] Nacionalinis parkas (národní park, NP)
+        [protected-landscape-area-cz] Saugomo kraštovaizdžio teritorija (chráněná krajinná oblast, CHKO)
+        [national-nature-reserve] Nacionalinis gamtos rezervatas (národní přírodní rezervace, NPR)
+        [national-nature-monument] Nacionalinis gamtos paminklas (národní přírodní památka, NPP)
+        [nature-reserve-cz] Gamtos rezervatas (přírodní rezervace, PR)
+        [nature-monument-cz] Gamtos paminklas (přírodní památka, PP)
+        [protective-zone-cz] Apsaugos zona (ochranné pásmo)
+        [nature-zone-cz] Gamtos apsaugos zona (zóna ochrany přírody)
+        [natura2000-habitats-cz] Natura 2000 buveinių teritorija (evropsky významná lokalita, EVL)
+        [natura2000-birds-cz] Natura 2000 paukščių teritorija (ptačí oblast, PO)
+        [memorial-tree] Memorialinis medis (památný strom)
        *[special-rules] Plotas su ypatingomis taisyklėmis
     }
 permits-object-count = objektų: { $count }
@@ -1055,6 +1066,7 @@ permits-register-history-in-area = Istorijos paminklai žemėlapio plote: { $cou
 permits-register-history-nearby = Daugiau istorijos paminklų stačiakampyje aplink žemėlapio plotą, bet ne žemėlapio plote: { $count }.
 permits-register-history-left = Dar { $count } čia tik suskaičiuoti, be pavadinimų.
 permits-admin-unit-code = { $name } (TERYT { $code })
+permits-admin-unit-code-ruian = { $name } (RÚIAN { $code })
 permits-none-state-forest = Pagal { $source } žemėlapio plote federalinės žemės miško nėra.
 permits-forest-units-reach = Miškų tarnyba atsako už savo ploto mišką. Jos plotas gali apimti ir miestus bei laukus.
 permits-state-forest-office = atsakinga: { $office }
@@ -1088,6 +1100,16 @@ permits-hint-gmina-land-pl = Jei žemėlapio teritorijos žemė priklauso gminai
         [one] gminos ({ $gmina }) įstaigoje
        *[other] gminų ({ $gmina }) įstaigose
     }. Šios pastabos nerodo, kam žemė priklauso.
+permits-hint-protected-areas-cz = Žemėlapio teritorijoje yra saugomų teritorijų arba gamtos apsaugos objektų. Pagal Gamtos ir kraštovaizdžio apsaugos įstatymą (Įstatymas Nr. 114/1992 Sb.) nacionaliniame parke draudžiami organizuoti sporto, turizmo ir kiti viešieji renginiai už vietų, kurias gamtos apsaugos institucija tam skyrė (§ 16 odst. 1 písm. q), o nacionalinio parko apsaugos zonoje tokiems masiniams renginiams už tų vietų ir už užstatytų teritorijų reikia institucijos sutikimo (§ 37 odst. 3 písm. d). Nacionaliniame gamtos rezervate draudžiama įeiti ar važiuoti už takų, pažymėtų institucijos sutikimu (§ 29 písm. d). Gamtos apsaugos institucijos yra, be kita ko, nacionalinio parko administracija, Gamtos apsaugos agentūra (AOPK ČR), regiono biuras (krajský úřad) ir išplėstinių įgaliojimų savivaldybės biuras (§ 75 odst. 1). Kitos saugomos teritorijos ir objektai turi savo apsaugos sąlygas. Jei planuojate ten renginį, kreipkitės į instituciją anksti.
+permits-hint-monuments-cz = Žemėlapio teritorijoje yra valstybės sąraše įrašytų kultūros paminklų arba paminklinių teritorijų. Pagal Valstybinės paveldosaugos įstatymą (Įstatymas Nr. 20/1987 Sb., § 14 odst. 1 ir 2) paminklo savininkas prieš prižiūrėdamas, taisydamas, rekonstruodamas ar kitaip keisdamas paminklą ar jo aplinką privalo iš anksto prašyti sprendimo arba privalomos išvados. Tas pats taikoma nuosavybės savininkui paminklų rezervate, paminklų zonoje ar paminklo apsaugos zonoje dėl pastato, pastato pakeitimo, žemės darbų, įrenginio ar ženklo, statinio pašalinimo, medžių priežiūros ar priežiūros darbų. Sprendžia išplėstinių įgaliojimų savivaldybės biuras{ $orp ->
+        [none] {""}
+       *[other] {" "}({ $orp})
+    }, dėl nacionalinio kultūros paminklo regiono biuras. Įstatyme nėra paminėtas joks pasivaikščiojimas, bėgimas ar kontrolinis punktas kaip toks; kreipkitės į tą biurą, kai renginys liečia paminklą arba prie jo statomi įrenginiai ar ženklai.
+permits-hint-forest-owner-cz = Masinis sporto, kultūros ar kitoks visuomeninis renginys žemėje, skirtoje miško funkcijoms, gali vykti tik gavus miško, kuriame jis vyksta, savininko rašytinį sutikimą (Miškų įstatymas, Įstatymas Nr. 289/1995 Sb., § 20 odst. 5). Organizatorius taip pat privalo raštu pranešti apie renginį išplėstinių įgaliojimų savivaldybės biurui{ $orp ->
+        [none] {""}
+       *[other] {" "}({ $orp})
+    }, arba regiono biurui, jei renginys išeina už tokios savivaldybės apskrities ribų, ne vėliau kaip likus 30 dienų iki renginio. Pranešime nurodoma data ir vieta, kaip organizuojamas aptarnavimas, numatomas dalyvių skaičius ir rašytiniai savininkų sutikimai (ta pati dalis). Šios pastabos nerodo, kam priklauso miškas; anksti kreipkitės į miško savininkus.
+permits-hint-roads-cz = Renginiui, kuriame kelias naudojamas ne įprastu būdu, pavyzdžiui, sporto, kultūros ar panašiam renginiui, galinčiam kelti pavojų kelių eismo saugumui ar srautui, reikia kompetentingos kelių administravimo institucijos leidimo. Jis išduodamas iš anksto gavus kelio savininko ir, jei gali būti paveiktas eismo saugumas ar srautas, Čekijos Respublikos policijos sutikimą (Kelių įstatymas, Įstatymas Nr. 13/1997 Sb., § 25 odst. 1 ir odst. 6 písm. d). Institucija yra savivaldybės biuras vietiniams keliams arba išplėstinių įgaliojimų savivaldybės biuras, kai jis sprendžia, o antros ir trečios klasės keliams išplėstinių įgaliojimų savivaldybės biuras (§ 40 odst. 4 ir 5). Savivaldybės žemėlapio teritorijoje: { $gmina }. Šios pastabos nerodo kelių klasės.
 permits-section-water-protection = Vandens apsaugos zonos ({ $source })
 permits-section-forest-functions = Miško funkcijos ir apsauginis miškas ({ $source })
 permits-none-water-protection = Pagal { $source } žemėlapio plote vandens apsaugos zonų nėra.

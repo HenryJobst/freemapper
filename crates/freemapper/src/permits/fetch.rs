@@ -2431,3 +2431,213 @@ mod poland {
         assert!(notes.regional[0].protected_objects.is_some());
     }
 }
+
+/// The permit notes of a map area in Czechia (ADR 0201): the AOPK, RÚIAN and the NPÚ answer, the
+/// German national sources are not asked, and the notes carry the Czech hints.
+#[cfg(test)]
+mod czechia {
+    use super::*;
+    use crate::fetch::test_support::MapFetcher;
+    use crate::permits::notes::hint_key;
+    use crate::permits::store::write_permit_notes;
+    use crate::project::{MapKind, init_project};
+    use freemapper_adapter_api::permits::ProtectedObjectKind;
+    use tempfile::TempDir;
+
+    const FIXTURES: &str = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../adapters/cz/tests/fixtures/permits/"
+    );
+
+    /// A map area of about 2.9 km × 3.3 km at Adršpach: min lon, min lat, max lon, max lat.
+    const AREA: [f64; 4] = [16.10, 50.60, 16.14, 50.63];
+
+    fn project() -> (TempDir, ProjectFile) {
+        let dir = tempfile::tempdir().unwrap();
+        let [w, s, e, n] = AREA;
+        let geojson = format!(
+            r#"{{"type":"Polygon","coordinates":[[[{w},{s}],[{e},{s}],[{e},{n}],[{w},{n}],[{w},{s}]]]}}"#
+        );
+        let area = MapArea::from_geojson(&geojson).unwrap();
+        let project = init_project(
+            dir.path(),
+            &area,
+            MapKind::Forest,
+            None,
+            "2026-11-27".parse().unwrap(),
+            None,
+        )
+        .unwrap();
+        (dir, project)
+    }
+
+    fn fixture(name: &str) -> Vec<u8> {
+        std::fs::read(format!("{FIXTURES}{name}")).unwrap()
+    }
+
+    /// The fixture that answers the request `url`, by the service and the layer it names.
+    fn answer(url: &str) -> Vec<u8> {
+        let layer = |service: &str, n: u32| url.contains(&format!("{service}/MapServer/{n}/query"));
+        let table = [
+            ("ChranUzemi", 0, "aopk-maloplosna.json"),
+            ("ChranUzemi", 1, "aopk-ochranna-pasma.json"),
+            ("ChranUzemi", 2, "aopk-zony.json"),
+            ("ChranUzemi", 3, "aopk-velkoplosna.json"),
+            ("Natura2000", 0, "aopk-natura-po.json"),
+            ("Natura2000", 1, "aopk-natura-evl.json"),
+            ("PamatneStromy", 1, "aopk-pamatne-stromy.json"),
+            ("PamatneStromy", 3, "aopk-pamatne-stromy-skupiny.json"),
+            ("RUIAN", 12, "ruian-obce.json"),
+            ("RUIAN", 13, "ruian-pou.json"),
+            ("RUIAN", 14, "ruian-orp.json"),
+            ("RUIAN", 15, "ruian-okres.json"),
+            ("RUIAN", 17, "ruian-kraj.json"),
+            ("ProtectedSites", 0, "npu-adrspach.json"),
+        ];
+        let (_, _, name) = table
+            .iter()
+            .find(|(service, n, _)| layer(service, *n))
+            .unwrap_or_else(|| panic!("{url}"));
+        fixture(name)
+    }
+
+    /// Serves the three sources as they ask for it, learned from a probe.
+    fn serve(fetcher: &MapFetcher) {
+        let probe = MapFetcher::default();
+        probe.insert_prefix("https://ags.cuzk.gov.cz/", fixture("ruian-obce.json"));
+        probe.insert_prefix(
+            "https://gis.nature.cz/",
+            br#"{"type":"FeatureCollection","features":[]}"#.to_vec(),
+        );
+        probe.insert_prefix(
+            "https://geoportal.npu.cz/",
+            br#"{"type":"FeatureCollection","features":[]}"#.to_vec(),
+        );
+        let registry = crate::adapters::registry();
+        let cesko = registry.get("cesko").unwrap();
+        let rect = geo_types::Rect::new(
+            geo_types::coord! { x: AREA[0], y: AREA[1] },
+            geo_types::coord! { x: AREA[2], y: AREA[3] },
+        );
+        let scratch = tempfile::tempdir().unwrap();
+        let part = scratch.path().join("probe.part");
+        for source in cesko.permit_sources() {
+            let _ = source.fetch(&probe, &rect, &part);
+        }
+        for url in probe.log.borrow().iter() {
+            fetcher.insert(url, answer(url));
+        }
+    }
+
+    fn fetch(
+        project: &ProjectFile,
+        dir: &Path,
+        fetcher: &dyn Fetcher,
+        offline: bool,
+    ) -> Result<Inputs, PermitsError> {
+        let root = tempfile::tempdir().unwrap();
+        let cache = Cache::new(root.path().to_path_buf());
+        fetch_inputs(project, dir, fetcher, &cache, offline, &mut |_: Note| {})
+    }
+
+    #[test]
+    fn a_czech_map_area_is_asked_without_vg250_and_the_bfn_and_gets_the_czech_hints() {
+        let (dir, project) = project();
+        let fetcher = MapFetcher::default();
+        serve(&fetcher);
+        let online = fetch(&project, dir.path(), &fetcher, false).unwrap();
+        assert!(!online.national);
+        assert_eq!(online.admin, SourceInput::NotRead);
+        let asked = fetcher.log.borrow().clone();
+        assert!(!asked.is_empty());
+        assert!(
+            asked.iter().all(|u| u.starts_with("https://gis.nature.cz/")
+                || u.starts_with("https://ags.cuzk.gov.cz/")
+                || u.starts_with("https://geoportal.npu.cz/")),
+            "{asked:?}"
+        );
+        assert_eq!(
+            online
+                .regional
+                .iter()
+                .map(|r| (r.adapter.as_str(), r.source.key.as_str()))
+                .collect::<Vec<_>>(),
+            [
+                ("cesko", "aopk"),
+                ("cesko", "ruian-hranice"),
+                ("cesko", "npu-pamatky")
+            ]
+        );
+        assert!(
+            online
+                .regional
+                .iter()
+                .all(|r| r.source.country.as_deref() == Some("cz"))
+        );
+        let today = "2026-11-27".parse().unwrap();
+        let notes = write_permit_notes(dir.path(), &project, &online, today).unwrap();
+        assert_eq!(notes.sources.len(), 1);
+        let part = &notes.regional[0];
+        assert_eq!(part.adapter, "cesko");
+        let units: Vec<_> = part
+            .admin_units
+            .as_ref()
+            .unwrap()
+            .iter()
+            .map(|u| u.item.name.as_str())
+            .collect();
+        assert_eq!(
+            units,
+            [
+                "Královéhradecký kraj",
+                "okres Náchod",
+                "ORP Broumov",
+                "obec Adršpach"
+            ]
+        );
+        assert_eq!(part.monuments.as_ref().unwrap().total, 5);
+        let kinds: Vec<_> = part
+            .protected_objects
+            .as_ref()
+            .unwrap()
+            .iter()
+            .map(|o| o.kind)
+            .collect();
+        assert_eq!(
+            kinds,
+            [
+                ProtectedObjectKind::ProtectedLandscapeAreaCz,
+                ProtectedObjectKind::NationalNatureReserve,
+                ProtectedObjectKind::ProtectiveZoneCz,
+                ProtectedObjectKind::NatureZoneCz,
+                ProtectedObjectKind::NatureZoneCz,
+                ProtectedObjectKind::Natura2000HabitatsCz,
+                ProtectedObjectKind::Natura2000BirdsCz,
+            ]
+        );
+        let keys: Vec<&str> = notes.hints.iter().map(|h| h.key.as_str()).collect();
+        assert_eq!(
+            keys,
+            [
+                hint_key::PROTECTED_AREAS_CZ,
+                hint_key::MONUMENTS_CZ,
+                hint_key::FOREST_OWNER_CZ,
+                hint_key::ROADS_CZ,
+            ]
+        );
+        assert_eq!(notes.hints[2].args["orp"], "ORP Broumov");
+        let stored = std::fs::read_to_string(dir.path().join("permits.json")).unwrap();
+        assert!(
+            !stored.contains("vg250") && !stored.contains("bfn"),
+            "{stored}"
+        );
+        assert!(stored.contains(r#""country": "cz""#), "{stored}");
+
+        // Offline, the stored inputs give the same notes, with the same Czech hints.
+        let offline = fetch(&project, dir.path(), &MapFetcher::default(), true).unwrap();
+        assert!(!offline.national);
+        assert_eq!(offline.regional, online.regional);
+        let again = write_permit_notes(dir.path(), &project, &offline, today).unwrap();
+        assert_eq!(again, notes);
+    }
+}

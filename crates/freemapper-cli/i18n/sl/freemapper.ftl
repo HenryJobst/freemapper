@@ -987,6 +987,17 @@ permits-object-kind = { $kind ->
         [landscape-complex] Naravni in krajinski kompleks (zespół przyrodniczo-krajobrazowy)
         [documentation-site] Dokumentacijsko najdišče (stanowisko dokumentacyjne)
         [natural-monument-pl] Naravni spomenik (pomnik przyrody)
+        [national-park-cz] Narodni park (národní park, NP)
+        [protected-landscape-area-cz] Zavarovano krajinsko območje (chráněná krajinná oblast, CHKO)
+        [national-nature-reserve] Državni naravni rezervat (národní přírodní rezervace, NPR)
+        [national-nature-monument] Državni naravni spomenik (národní přírodní památka, NPP)
+        [nature-reserve-cz] Naravni rezervat (přírodní rezervace, PR)
+        [nature-monument-cz] Naravni spomenik (přírodní památka, PP)
+        [protective-zone-cz] Varstveni pas (ochranné pásmo)
+        [nature-zone-cz] Cona varstva narave (zóna ochrany přírody)
+        [natura2000-habitats-cz] Območje Natura 2000 za habitate (evropsky významná lokalita, EVL)
+        [natura2000-birds-cz] Območje Natura 2000 za ptice (ptačí oblast, PO)
+        [memorial-tree] Spomeniško drevo (památný strom)
        *[special-rules] Območje s posebnimi pravili
     }
 permits-object-count = objektov: { $count }
@@ -1051,6 +1062,7 @@ permits-register-history-in-area = Spomeniki zgodovine na območju zemljevida: {
 permits-register-history-nearby = Nadaljnji spomeniki zgodovine v pravokotniku okoli območja zemljevida, vendar ne na območju zemljevida: { $count }.
 permits-register-history-left = Še { $count } jih je tu samo preštetih, brez imen.
 permits-admin-unit-code = { $name } (TERYT { $code })
+permits-admin-unit-code-ruian = { $name } (RÚIAN { $code })
 permits-none-state-forest = Po { $source } na območju karte ni državnega gozda.
 permits-forest-units-reach = Gozdarski urad je pristojen za gozd na svojem območju. Njegovo območje lahko zajema tudi mesta in polja.
 permits-state-forest-office = pristojen: { $office }
@@ -1084,6 +1096,16 @@ permits-hint-gmina-land-pl = Če zemljišče na območju zemljevida pripada gmin
         [one] urad gmine ({ $gmina }).
        *[other] urade gmin ({ $gmina }).
     } Ti zapiski ne kažejo, čigavo je zemljišče.
+permits-hint-protected-areas-cz = Na območju zemljevida so zavarovana območja ali objekti varstva narave. Po zakonu o varstvu narave in krajine (zakon št. 114/1992 Sb.) so v narodnem parku prepovedane organizirane športne, turistične in druge javne prireditve zunaj krajev, ki jih je določil organ za varstvo narave (§ 16 odst. 1 písm. q), v varstvenem pasu narodnega parka pa takšne množične prireditve zunaj teh krajev in zunaj pozidanih območij zahtevajo soglasje organa (§ 37 odst. 3 písm. d). V državnem naravnem rezervatu je prepovedano vstopati ali voziti zunaj poti, označenih s soglasjem organa (§ 29 písm. d). Organi za varstvo narave so med drugim uprava narodnega parka, Agencija za varstvo narave (AOPK ČR), regionalni urad (krajský úřad) in urad občine z razširjenimi pristojnostmi (§ 75 odst. 1). Druga zavarovana območja in objekti imajo lastne varstvene pogoje. Če tam načrtujete prireditev, se pravočasno obrnite na organ.
+permits-hint-monuments-cz = Na območju zemljevida so kulturni spomeniki ali spomeniška območja z državnega seznama. Po zakonu o državnem varstvu spomenikov (zakon št. 20/1987 Sb., § 14 odst. 1 in 2) mora lastnik spomenika pred vzdrževanjem, popravilom, rekonstrukcijo ali drugim posegom v spomenik ali njegovo okolico vnaprej zaprositi za odločbo ali zavezujoče mnenje. Enako velja za lastnika nepremičnine v spomeniškem rezervatu, spomeniški coni ali varstvenem pasu spomenika pri gradnji, spremembi stavbe, zemeljskih delih, napravi ali tabli, odstranitvi objekta, oskrbi dreves ali vzdrževalnih delih. Odloča urad občine z razširjenimi pristojnostmi{ $orp ->
+        [none] {""}
+       *[other] {" "}({ $orp})
+    }, pri državnem kulturnem spomeniku regionalni urad. Zakon sprehoda, teka ali kontrolne točke kot takih ne omenja; vprašajte ta urad, če se prireditev dotika spomenika ali če na njem postavlja naprave ali table.
+permits-hint-forest-owner-cz = Množično športno, kulturno ali drugo družbeno prireditev na zemljišču, namenjenem funkcijam gozda, je dovoljeno izvesti le s pisnim soglasjem lastnika gozda, v katerem poteka (zakon o gozdovih, zakon št. 289/1995 Sb., § 20 odst. 5). Organizator mora prireditev tudi pisno prijaviti uradu občine z razširjenimi pristojnostmi{ $orp ->
+        [none] {""}
+       *[other] {" "}({ $orp})
+    }, ali regionalnemu uradu, če prireditev sega čez območje take občine, najpozneje 30 dni pred prireditvijo. Prijava navaja datum in kraj, kako je prireditev zagotovljena, pričakovano število udeležencev in pisna soglasja lastnikov (isti odstavek). Ti zapiski ne kažejo, kdo je lastnik gozda; lastnike gozda vprašajte pravočasno.
+permits-hint-roads-cz = Prireditev, ki cesto uporablja drugače kot običajno, na primer športna, kulturna ali podobna prireditev, ki bi lahko ogrozila varnost ali pretočnost cestnega prometa, potrebuje dovoljenje pristojnega urada za ceste. Izda se z vnaprejšnjim soglasjem lastnika ceste in, kjer bi bila lahko prizadeta varnost ali pretočnost prometa, Policije Češke republike (zakon o cestah, zakon št. 13/1997 Sb., § 25 odst. 1 in odst. 6 písm. d). Urad je občinski urad za lokalne ceste ali urad občine z razširjenimi pristojnostmi, kjer ta odloča, za ceste druge in tretje kategorije pa urad občine z razširjenimi pristojnostmi (§ 40 odst. 4 in 5). Občine na območju zemljevida: { $gmina }. Ti zapiski ne kažejo kategorije cest.
 permits-section-water-protection = Vodovarstvena območja ({ $source })
 permits-section-forest-functions = Gozdne funkcije in varovalni gozd ({ $source })
 permits-none-water-protection = Po { $source } na območju karte ni vodovarstvenega območja.

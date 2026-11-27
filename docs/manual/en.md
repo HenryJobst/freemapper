@@ -58,7 +58,7 @@ On request freemapper also writes the **print-ready map as a PDF**, a **check pr
     OSM extract is cached, the update of that extract. It warns for each part it leaves out. Every map
     needs the map data, the terrain model and the orthophoto. If those do not fit, freemapper stops
     before it downloads anything.
-- An area in **Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony, Rhineland-Palatinate, Saarland, Baden-Württemberg, Bremen or Bavaria**. Thuringia is still missing. Poland is usable: the map there combines OpenStreetMap with the cadastre EGiB, orthophoto and terrain from GUGiK, and the area must lie wholly in Poland. In Poland, buildings and land use come from the cadastre EGiB; where it gives nothing (municipalities without a cadastre service, cities with empty land use classes), BDOT10k fills in, for which the GML archive of the powiat (7 to 89 MB) is downloaded into the cache. A forest map in Poland also takes the roads and paths of BDOT10k as candidates, where OpenStreetMap has none within 10 m; for them freemapper reads only two files of the archive (about 2 MB). Czechia is usable as a preview: the map there combines OpenStreetMap with the terrain model, surface model and orthophoto of ČÚZK, the buildings of the register RÚIAN and the land use of ZABAGED; the area must lie entirely in Czechia, and the OSM extract of the whole country (about 910 MB) is downloaded once. All services are open under CC BY 4.0 and need no key. Contour lines wander in dense old towns because the terrain model there is interpolated bare earth; the RÚIAN parcels are outdated since December 2021 and are not used. There are no permit notes there yet.
+- An area in **Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony, Rhineland-Palatinate, Saarland, Baden-Württemberg, Bremen or Bavaria**. Thuringia is still missing. Poland is usable: the map there combines OpenStreetMap with the cadastre EGiB, orthophoto and terrain from GUGiK, and the area must lie wholly in Poland. In Poland, buildings and land use come from the cadastre EGiB; where it gives nothing (municipalities without a cadastre service, cities with empty land use classes), BDOT10k fills in, for which the GML archive of the powiat (7 to 89 MB) is downloaded into the cache. A forest map in Poland also takes the roads and paths of BDOT10k as candidates, where OpenStreetMap has none within 10 m; for them freemapper reads only two files of the archive (about 2 MB). Czechia is usable as a preview: the map there combines OpenStreetMap with the terrain model, surface model and orthophoto of ČÚZK, the buildings of the register RÚIAN and the land use of ZABAGED; the area must lie entirely in Czechia, and the OSM extract of the whole country (about 910 MB) is downloaded once. All services are open under CC BY 4.0 and need no key. Contour lines wander in dense old towns because the terrain model there is interpolated bare earth; the RÚIAN parcels are outdated since December 2021 and are not used. The permit notes come from the AOPK, RÚIAN and the NPÚ (ADR 0201).
 - Optionally an AI assistant such as Claude, so you do not have to type commands.
 
 ## 3. Installation
@@ -1476,6 +1476,33 @@ the map area from those only in the rectangle around it and names them (ten at m
 are in the data; private forest is not, and the notes say that the starosta supervises forest that the State
 Treasury does not own. The German wording of these hints has not been read by a Polish speaker.
 The notes are a hint, not legal advice. `--offline` reads what an earlier run stored, as in Germany.
+
+### Permit notes in Czechia
+
+For a map area in Czechia the notes come from Czech services, not from the BfN and the BKG (ADR 0201). The
+Nature Conservation Agency (AOPK ČR, `gis.nature.cz`) gives the protected areas and objects: national parks (NP),
+protected landscape areas (CHKO), their zones of nature protection, national nature reserves and monuments
+(NPR, NPP), nature reserves and natural monuments (PR, PP) with their protective zones, the Natura 2000 sites for
+habitats (EVL) and for birds (PO) and the memorial trees. RÚIAN of the ČÚZK (`ags.cuzk.gov.cz`) gives the
+administrative units: the section "Administrative units" names the region (kraj), the district (okres), the
+municipality with extended powers (obec s rozšířenou působností, ORP) and the municipality (obec) the map area
+lies in, each with its RÚIAN code and its share, so a map area on a border lists every unit it touches. The
+National Heritage Institute (NPÚ, `geoportal.npu.cz`) gives the cultural monuments and monument areas of the state
+list with their positions; the notes count them by kind. Where a hint rests on a law, it names the provision:
+in a national park organised events are banned outside the places the nature conservation authority has set aside
+(Act 114/1992 Sb., § 16 odst. 1 písm. q), in its protective zone mass events need the authority's consent (§ 37
+odst. 3 písm. d), and in a national nature reserve entering outside the marked paths is banned (§ 29 písm. d). A
+mass sports, cultural or other social event in the forest needs the written consent of the forest owner and a
+written notice to the office of the ORP at least 30 days ahead (Act 289/1995 Sb., § 20 odst. 5); work on a
+monument or on a property in a monument reservation, zone or protective zone needs a decision or binding opinion of
+the ORP office, for a national monument of the regional office (Act 20/1987 Sb., § 14 odst. 1 and 2); an event
+that uses a road in a special way needs the permit of the road administration office (Act 13/1997 Sb., § 25 odst. 1
+and 6 písm. d, § 40). The notes name the ORP and the municipalities of the map area for these. They say that
+the Acts name no run or control as such where that is so. The forest owners are not in the data (the services of
+the Forest Management Institute ÚHÚL answer with a faulty certificate), so the notes ask you to find them. The natural
+parks (přírodní parky) and the protective zones of monuments are not covered. The Czech wording of the hints has
+not been read by a Czech speaker. The notes are a hint, not legal advice. `--offline` reads what an earlier run
+stored, as in Germany.
 
 ## 13. Regions and border areas
 

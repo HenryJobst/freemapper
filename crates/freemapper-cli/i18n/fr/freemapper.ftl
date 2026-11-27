@@ -979,6 +979,17 @@ permits-object-kind = { $kind ->
         [landscape-complex] Ensemble naturel et paysager (zespół przyrodniczo-krajobrazowy)
         [documentation-site] Site de documentation (stanowisko dokumentacyjne)
         [natural-monument-pl] Monument naturel (pomnik przyrody)
+        [national-park-cz] Parc national (národní park, NP)
+        [protected-landscape-area-cz] Zone de paysage protégé (chráněná krajinná oblast, CHKO)
+        [national-nature-reserve] Réserve naturelle nationale (národní přírodní rezervace, NPR)
+        [national-nature-monument] Monument naturel national (národní přírodní památka, NPP)
+        [nature-reserve-cz] Réserve naturelle (přírodní rezervace, PR)
+        [nature-monument-cz] Monument naturel (přírodní památka, PP)
+        [protective-zone-cz] Zone de protection (ochranné pásmo)
+        [nature-zone-cz] Zone de protection de la nature (zóna ochrany přírody)
+        [natura2000-habitats-cz] Site Natura 2000 pour les habitats (evropsky významná lokalita, EVL)
+        [natura2000-birds-cz] Site Natura 2000 pour les oiseaux (ptačí oblast, PO)
+        [memorial-tree] Arbre remarquable (památný strom)
        *[special-rules] Zone à règles particulières
     }
 permits-object-count = { $count } objets
@@ -1043,6 +1054,7 @@ permits-register-history-in-area = Monuments de l'histoire dans la zone de la ca
 permits-register-history-nearby = Autres monuments de l'histoire dans le rectangle autour de la zone de la carte, mais pas dans la zone de la carte : { $count }.
 permits-register-history-left = { $count } autres sont seulement comptés ici, sans leur nom.
 permits-admin-unit-code = { $name } (TERYT { $code })
+permits-admin-unit-code-ruian = { $name } (RÚIAN { $code })
 permits-none-state-forest = Selon { $source }, aucune forêt domaniale du Land ne se trouve dans la zone de la carte.
 permits-forest-units-reach = Un office forestier est compétent pour la forêt de son ressort. Son ressort peut aussi englober des villes et des champs.
 permits-state-forest-office = compétent : { $office }
@@ -1076,6 +1088,16 @@ permits-hint-gmina-land-pl = Si un terrain de la zone de la carte appartient à 
         [one] du bureau de la gmina ({ $gmina }) avant
        *[other] des bureaux des gminas ({ $gmina }) avant
     } de l'utiliser. Ces notes n'indiquent pas à qui appartient le terrain.
+permits-hint-protected-areas-cz = Des zones protégées ou des objets de protection de la nature se trouvent dans la zone de la carte. Selon la loi sur la protection de la nature et du paysage (loi n° 114/1992 Sb.), les manifestations sportives, touristiques et autres manifestations publiques organisées dans un parc national sont interdites en dehors des lieux que l'autorité de protection de la nature a désignés (§ 16 odst. 1 písm. q), et dans la zone de protection d'un parc national, ces manifestations de masse en dehors de ces lieux et en dehors des zones bâties exigent le consentement de l'autorité (§ 37 odst. 3 písm. d). Dans une réserve naturelle nationale, il est interdit d'entrer ou de circuler en dehors des chemins balisés avec le consentement de l'autorité (§ 29 písm. d). Les autorités de protection de la nature sont, entre autres, l'administration d'un parc national, l'Agence de protection de la nature et du paysage (AOPK ČR), le bureau régional (krajský úřad) et le bureau d'une commune à compétences élargies (§ 75 odst. 1). Les autres zones et objets protégés ont leurs propres conditions de protection. Interrogez tôt l'autorité si vous prévoyez une manifestation à cet endroit.
+permits-hint-monuments-cz = Des monuments culturels ou des zones monumentales de la liste de l'État se trouvent dans la zone de la carte. Selon la loi sur la protection du patrimoine de l'État (loi n° 20/1987 Sb., § 14 odst. 1 et 2), le propriétaire d'un monument doit demander au préalable une décision ou un avis contraignant avant l'entretien, la réparation, la reconstruction ou une autre modification du monument ou de ses abords. Il en va de même pour le propriétaire d'un bien situé dans une réserve monumentale, une zone monumentale ou la zone de protection d'un monument pour une construction, une modification d'une construction, des travaux de terrain, un dispositif ou un panneau, la démolition d'un ouvrage, le traitement d'arbres ou des travaux d'entretien. Le bureau de la commune à compétences élargies décide{ $orp ->
+        [none] {""}
+       *[other] {" "}({ $orp})
+    }, pour un monument culturel national le bureau régional. La loi ne nomme ni promenade, ni course, ni poste de contrôle en tant que tels ; demandez à ce bureau si une manifestation touche un monument ou y place des dispositifs ou des panneaux.
+permits-hint-forest-owner-cz = Une manifestation sociale de masse, par exemple sportive ou culturelle, sur des terrains destinés aux fonctions forestières ne peut avoir lieu qu'avec le consentement écrit du propriétaire de la forêt où elle se déroule (loi sur les forêts, loi n° 289/1995 Sb., § 20 odst. 5). L'organisateur doit en outre la déclarer par écrit au bureau de la commune à compétences élargies{ $orp ->
+        [none] {""}
+       *[other] {" "}({ $orp})
+    }, ou au bureau régional si la manifestation dépasse le ressort d'une telle commune, au plus tard 30 jours avant la manifestation. La déclaration indique la date et le lieu, la façon dont la manifestation est encadrée, le nombre prévu de participants et les consentements écrits des propriétaires (même paragraphe). Ces notes n'indiquent pas à qui appartient la forêt ; interrogez tôt les propriétaires forestiers.
+permits-hint-roads-cz = Une manifestation qui utilise une route autrement que d'habitude, par exemple une manifestation sportive, culturelle ou similaire qui pourrait compromettre la sécurité ou la fluidité de la circulation, nécessite l'autorisation du bureau compétent de l'administration routière. Elle est délivrée avec le consentement préalable du propriétaire de la route et, là où la sécurité ou la fluidité de la circulation peut être affectée, de la Police de la République tchèque (loi sur les routes, loi n° 13/1997 Sb., § 25 odst. 1 et odst. 6 písm. d). Le bureau est la mairie pour les routes locales, ou le bureau de la commune à compétences élargies là où il décide, et le bureau de la commune à compétences élargies pour les routes de deuxième et de troisième classe (§ 40 odst. 4 et 5). Communes dans la zone de la carte : { $gmina }. Ces notes n'indiquent pas la classe des routes.
 permits-section-water-protection = Zones de protection des eaux ({ $source })
 permits-section-forest-functions = Fonctions de la forêt et forêt protégée ({ $source })
 permits-none-water-protection = Selon { $source }, aucune zone de protection des eaux ne se trouve dans la zone de la carte.

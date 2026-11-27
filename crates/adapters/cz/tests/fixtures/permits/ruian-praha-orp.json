@@ -1,0 +1,16 @@
+{
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "type": "Feature",
+   "geometry": null,
+   "properties": {
+    "kod": 19,
+    "nazev": "Hlavní město Praha",
+    "vusc": 19,
+    "nespravny": null,
+    "platido": null
+   }
+  }
+ ]
+}

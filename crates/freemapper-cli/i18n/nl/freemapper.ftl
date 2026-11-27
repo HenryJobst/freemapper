@@ -973,6 +973,17 @@ permits-object-kind = { $kind ->
         [landscape-complex] Natuur- en landschapscomplex (zespół przyrodniczo-krajobrazowy)
         [documentation-site] Documentatiesite (stanowisko dokumentacyjne)
         [natural-monument-pl] Natuurmonument (pomnik przyrody)
+        [national-park-cz] Nationaal park (národní park, NP)
+        [protected-landscape-area-cz] Beschermd landschapsgebied (chráněná krajinná oblast, CHKO)
+        [national-nature-reserve] Nationaal natuurreservaat (národní přírodní rezervace, NPR)
+        [national-nature-monument] Nationaal natuurmonument (národní přírodní památka, NPP)
+        [nature-reserve-cz] Natuurreservaat (přírodní rezervace, PR)
+        [nature-monument-cz] Natuurmonument (přírodní památka, PP)
+        [protective-zone-cz] Beschermingszone (ochranné pásmo)
+        [nature-zone-cz] Zone voor natuurbescherming (zóna ochrany přírody)
+        [natura2000-habitats-cz] Natura 2000-gebied voor habitats (evropsky významná lokalita, EVL)
+        [natura2000-birds-cz] Natura 2000-gebied voor vogels (ptačí oblast, PO)
+        [memorial-tree] Gedenkboom (památný strom)
        *[special-rules] Gebied met bijzondere regels
     }
 permits-object-count = { $count } objecten
@@ -1037,6 +1048,7 @@ permits-register-history-in-area = Monumenten van de geschiedenis in het kaartge
 permits-register-history-nearby = Verdere monumenten van de geschiedenis in de rechthoek rond het kaartgebied, maar niet in het kaartgebied: { $count }.
 permits-register-history-left = Nog { $count } worden hier alleen geteld, zonder namen.
 permits-admin-unit-code = { $name } (TERYT { $code })
+permits-admin-unit-code-ruian = { $name } (RÚIAN { $code })
 permits-none-state-forest = Volgens { $source } ligt er geen staatsbos in het kaartgebied.
 permits-forest-units-reach = Een bosbeheerkantoor is verantwoordelijk voor het bos in zijn gebied. Zijn gebied kan ook steden en akkers omvatten.
 permits-state-forest-office = verantwoordelijk: { $office }
@@ -1070,6 +1082,16 @@ permits-hint-gmina-land-pl = Als grond in het kaartgebied van de gmina is, bijvo
         [one] het kantoor van de gmina ({ $gmina }) om
        *[other] de kantoren van de gmina's ({ $gmina }) om
     } toestemming voordat u de grond gebruikt. Deze notities tonen niet wie de eigenaar van de grond is.
+permits-hint-protected-areas-cz = In het kaartgebied liggen beschermde gebieden of objecten voor natuurbescherming. Volgens de Wet op de natuur- en landschapsbescherming (Wet nr. 114/1992 Sb.) zijn georganiseerde sport-, toeristische en andere openbare evenementen in een nationaal park verboden buiten de plaatsen die de natuurbeschermingsinstantie daarvoor heeft aangewezen (§ 16 odst. 1 písm. q), en in de beschermingszone van een nationaal park hebben massale evenementen van dit soort buiten die plaatsen en buiten bebouwde gebieden de toestemming van de instantie nodig (§ 37 odst. 3 písm. d). In een nationaal natuurreservaat is het verboden om buiten de paden te lopen of te rijden die met toestemming van de instantie zijn gemarkeerd (§ 29 písm. d). Natuurbeschermingsinstanties zijn onder meer het bestuur van een nationaal park, het Agentschap voor natuurbescherming (AOPK ČR), het regionale kantoor (krajský úřad) en het kantoor van de gemeente met uitgebreide bevoegdheden (§ 75 odst. 1). Andere beschermde gebieden en objecten hebben eigen beschermingsvoorwaarden. Vraag de instantie vroeg als u daar een evenement plant.
+permits-hint-monuments-cz = In het kaartgebied liggen cultuurmonumenten of monumentengebieden van de staatslijst. Volgens de Wet op de staatszorg voor erfgoed (Wet nr. 20/1987 Sb., § 14 odst. 1 en 2) moet de eigenaar van een monument vooraf om een besluit of een bindend advies vragen voor onderhoud, herstel, verbouwing of andere wijziging van het monument of zijn omgeving. Hetzelfde geldt voor de eigenaar van een pand in een monumentenreservaat, een monumentenzone of de beschermingszone van een monument voor een bouwwerk, een wijziging van een bouwwerk, grondwerk, een voorziening of een bord, het verwijderen van een constructie, boomverzorging of onderhoudswerk. Het kantoor van de gemeente met uitgebreide bevoegdheden beslist{ $orp ->
+        [none] {""}
+       *[other] {" "}({ $orp})
+    }, bij een nationaal cultuurmonument het regionale kantoor. De wet noemt geen wandeling, loop of controlepost als zodanig; vraag dat kantoor als een evenement een monument raakt of er voorzieningen of borden bij plaatst.
+permits-hint-forest-owner-cz = Een massaal sport-, cultureel of ander maatschappelijk evenement op grond die voor bosfuncties is bestemd, mag alleen worden gehouden met schriftelijke toestemming van de eigenaar van het bos waarin het plaatsvindt (Boswet, Wet nr. 289/1995 Sb., § 20 odst. 5). De organisator moet het evenement bovendien schriftelijk melden bij het kantoor van de gemeente met uitgebreide bevoegdheden{ $orp ->
+        [none] {""}
+       *[other] {" "}({ $orp})
+    }, of bij het regionale kantoor als het evenement buiten het district van zo'n gemeente reikt, uiterlijk 30 dagen voor het evenement. De melding vermeldt datum en plaats, hoe het evenement wordt bemand, het verwachte aantal deelnemers en de schriftelijke toestemmingen van de eigenaren (zelfde paragraaf). Deze notities tonen niet wie het bos bezit; vraag de boseigenaren vroeg.
+permits-hint-roads-cz = Een evenement dat een weg anders gebruikt dan gebruikelijk, bijvoorbeeld een sport-, cultureel of vergelijkbaar evenement dat de veiligheid of doorstroming van het wegverkeer kan in gevaar brengen, heeft een vergunning nodig van het bevoegde wegbeheerkantoor. Die wordt verleend met voorafgaande toestemming van de eigenaar van de weg en, waar de veiligheid of doorstroming van het verkeer kan worden geraakt, van de Politie van de Tsjechische Republiek (Wegenwet, Wet nr. 13/1997 Sb., § 25 odst. 1 en odst. 6 písm. d). Het kantoor is het gemeentekantoor voor lokale wegen, of het kantoor van de gemeente met uitgebreide bevoegdheden waar dat beslist, en het kantoor van de gemeente met uitgebreide bevoegdheden voor wegen van de tweede en derde klasse (§ 40 odst. 4 en 5). Gemeenten in het kaartgebied: { $gmina }. Deze notities tonen de klasse van de wegen niet.
 permits-section-water-protection = Waterbeschermingsgebieden ({ $source })
 permits-section-forest-functions = Bosfuncties en beschermd bos ({ $source })
 permits-none-water-protection = Volgens { $source } ligt er geen waterbeschermingsgebied in het kaartgebied.

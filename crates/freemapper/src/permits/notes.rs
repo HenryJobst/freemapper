@@ -24,8 +24,8 @@ use crate::area::MapArea;
 use crate::crs::{Crs, LatLon};
 use crate::permits::osm::{OsmFinding, OsmFindingKind, RoadClass};
 use crate::permits::regional::{
-    DistrictOffices, ForestFunctionKind, HintFacts, Municipality, RegionalInput, RegionalNotes,
-    assemble_regional,
+    CZECH, DistrictOffices, ForestFunctionKind, HintFacts, Municipality, RegionalInput,
+    RegionalNotes, assemble_regional,
 };
 use crate::project::MapKind;
 use freemapper_adapter_api::permits::inner_zone;
@@ -127,6 +127,18 @@ pub mod hint_key {
     /// of the register or a cultural park, and the voivodeship conservator decides on work at
     /// it (ADR 0191).
     pub const HISTORY_REGISTER_PL: &str = "permits-hint-history-register-pl";
+    /// No args: protected areas or objects of the AOPK lie on the map in Czechia (ADR 0201).
+    pub const PROTECTED_AREAS_CZ: &str = "permits-hint-protected-areas-cz";
+    /// Arg `orp` (the districts of the municipalities with extended powers on the map, joined
+    /// with ", "), missing when none is known: cultural monuments or monument areas lie on the
+    /// map in Czechia (ADR 0201).
+    pub const MONUMENTS_CZ: &str = "permits-hint-monuments-cz";
+    /// Arg `orp` as of [`MONUMENTS_CZ`]: for a map area with forest in Czechia (ADR 0201), in
+    /// place of [`FOREST_OWNER`].
+    pub const FOREST_OWNER_CZ: &str = "permits-hint-forest-owner-cz";
+    /// Args as of [`GMINA_NATURE_PL`] (`gmina`, `shares`, `count`; here the municipalities,
+    /// obce): the road authority and the permit for a special use of a road in Czechia (ADR 0201).
+    pub const ROADS_CZ: &str = "permits-hint-roads-cz";
 }
 
 /// The credit line of the OSM data, as on the map.
@@ -1083,6 +1095,9 @@ fn once(hints: Vec<Hint>) -> Vec<Hint> {
 /// area with forest, and the operators OSM names. Nothing here assumes a Kreis, a Gemeinde or
 /// the German law of forest and land registers.
 fn regional_hints(forest: bool, operated: &[&OsmFinding], regional: &[HintFacts]) -> Vec<Hint> {
+    if regional.iter().any(|f| f.country.as_deref() == Some(CZECH)) {
+        return czech_hints(forest, operated, regional);
+    }
     let mut hints = Vec::new();
     if regional.iter().any(|f| f.nature_objects) {
         hints.push(Hint::new(hint_key::PROTECTED_AREAS_PL, &[]));
@@ -1165,6 +1180,77 @@ fn regional_hints(forest: bool, operated: &[&OsmFinding], regional: &[HintFacts]
     if !gmina.is_empty() {
         hints.push(Hint::new(hint_key::GMINA_ROADS_PL, &gmina));
         hints.push(Hint::new(hint_key::GMINA_LAND_PL, &gmina));
+    }
+    once(hints)
+}
+
+/// The hints of a map area in Czechia (ADR 0201): the protected areas of the AOPK, the monuments
+/// of the NPÚ, the forest and the municipalities of the map. Each law the texts quote is named in
+/// the texts themselves.
+fn czech_hints(forest: bool, operated: &[&OsmFinding], regional: &[HintFacts]) -> Vec<Hint> {
+    let mut hints = Vec::new();
+    // The districts of the municipalities with extended powers, by share, each once.
+    let mut orp: Vec<&str> = Vec::new();
+    for name in regional.iter().flat_map(|f| &f.authority_districts) {
+        if !orp.contains(&name.as_str()) {
+            orp.push(name);
+        }
+    }
+    let orp = orp.join(", ");
+    let orp_args: Vec<(&str, &str)> = if orp.is_empty() {
+        Vec::new()
+    } else {
+        vec![("orp", orp.as_str())]
+    };
+    if regional.iter().any(|f| f.nature_objects) {
+        hints.push(Hint::new(hint_key::PROTECTED_AREAS_CZ, &[]));
+    }
+    if regional.iter().any(|f| f.monuments > 0) {
+        hints.push(Hint::new(hint_key::MONUMENTS_CZ, &orp_args));
+    }
+    if forest {
+        hints.push(Hint::new(hint_key::FOREST_OWNER_CZ, &orp_args));
+    }
+    for operator in runners(operated, &["leisure=park", "leisure=garden"]) {
+        hints.push(Hint::new(
+            hint_key::PARK_OPERATOR,
+            &[("operator", operator)],
+        ));
+    }
+    let schools = [
+        "amenity=school",
+        "amenity=kindergarten",
+        "amenity=college",
+        "amenity=university",
+    ];
+    for operator in runners(operated, &schools) {
+        hints.push(Hint::new(
+            hint_key::SCHOOL_OPERATOR,
+            &[("operator", operator)],
+        ));
+    }
+    let mut seen: Vec<&Municipality> = Vec::new();
+    for m in regional.iter().flat_map(|f| &f.municipalities) {
+        if !seen.iter().any(|s| s.name == m.name) {
+            seen.push(m);
+        }
+    }
+    if !seen.is_empty() {
+        let names = seen
+            .iter()
+            .map(|m| m.name.as_str())
+            .collect::<Vec<_>>()
+            .join(", ");
+        let shares = seen
+            .iter()
+            .map(|m| format!("{:.1}", m.percent))
+            .collect::<Vec<_>>()
+            .join(",");
+        let count = seen.len().to_string();
+        hints.push(Hint::new(
+            hint_key::ROADS_CZ,
+            &[("gmina", &names), ("shares", &shares), ("count", &count)],
+        ));
     }
     once(hints)
 }
@@ -2189,6 +2275,7 @@ mod tests {
             gaps: None,
             sections: vec![section],
             offices: None,
+            country: None,
         }
     }
 
@@ -4169,5 +4256,238 @@ mod tests {
         let found = history_notes(vec![history_part("a", Some("A"), inside())]);
         let json = serde_json::to_string(&found).unwrap();
         assert_eq!(serde_json::from_str::<PermitNotes>(&json).unwrap(), found);
+    }
+
+    // Notes of a map area in Czechia (ADR 0201).
+
+    fn czech_input(
+        key: &str,
+        section: PermitSection,
+        findings: Vec<PermitFinding>,
+    ) -> RegionalInput {
+        RegionalInput {
+            adapter: "cesko".into(),
+            source: RegionalSource {
+                country: Some("cz".into()),
+                ..regional_source(key, section)
+            },
+            findings: read(findings),
+        }
+    }
+
+    fn czech(osm: Vec<OsmFinding>, regional: Vec<RegionalInput>) -> Inputs {
+        polish(osm, regional)
+    }
+
+    fn czech_unit(
+        level: freemapper_adapter_api::permits::AdminUnitLevel,
+        name: &str,
+        code: &str,
+        g: MultiPolygon<f64>,
+    ) -> PermitFinding {
+        area(
+            FindingKind::AdminUnit {
+                level,
+                name: name.into(),
+                code: code.into(),
+            },
+            g,
+        )
+    }
+
+    fn czech_units(parts: &[(&str, f64)]) -> RegionalInput {
+        use freemapper_adapter_api::permits::AdminUnitLevel;
+        // The map is 13.0-13.1 E, 52.0-52.1 N: a strip of `width` degrees of longitude from its
+        // west edge is the share `width` / 0.1 of it.
+        let mut at = 13.0;
+        let mut units = Vec::new();
+        for (name, width) in parts {
+            let g = || square(at, 52.0, at + width, 52.1);
+            units.push(czech_unit(
+                AdminUnitLevel::AuthorityDistrict,
+                &format!("ORP {name}"),
+                "1031",
+                g(),
+            ));
+            units.push(czech_unit(
+                AdminUnitLevel::Municipality,
+                &format!("obec {name}"),
+                "547786",
+                g(),
+            ));
+            at += width;
+        }
+        czech_input("ruian-hranice", PermitSection::AdminUnits, units)
+    }
+
+    fn czech_object(kind: ProtectedObjectKind) -> RegionalInput {
+        czech_input(
+            "aopk",
+            PermitSection::ProtectedObjects,
+            vec![polish_object(
+                kind,
+                "Broumovsko",
+                square(13.0, 52.0, 13.1, 52.1),
+            )],
+        )
+    }
+
+    fn czech_monuments(count: usize) -> RegionalInput {
+        let monument = || {
+            area(
+                FindingKind::Monument {
+                    kind: "kulturní památka".into(),
+                    link: None,
+                },
+                square(13.01, 52.01, 13.02, 52.02),
+            )
+        };
+        czech_input(
+            "npu-pamatky",
+            PermitSection::Monuments,
+            (0..count).map(|_| monument()).collect(),
+        )
+    }
+
+    /// A forest map in Czechia gets the Czech hints with the districts and municipalities of the
+    /// map, and none of the Polish or German ones.
+    #[test]
+    fn a_czech_map_area_gets_the_czech_hints_with_its_units() {
+        let found = notes(
+            MapKind::Forest,
+            &czech(
+                vec![],
+                vec![
+                    czech_object(ProtectedObjectKind::NationalNatureReserve),
+                    czech_monuments(2),
+                    czech_units(&[("Broumov", 0.07), ("Náchod", 0.03)]),
+                ],
+            ),
+        );
+        assert_eq!(
+            keys(&found),
+            [
+                hint_key::PROTECTED_AREAS_CZ,
+                hint_key::MONUMENTS_CZ,
+                hint_key::FOREST_OWNER_CZ,
+                hint_key::ROADS_CZ,
+            ]
+        );
+        let orp = args(&[("orp", "ORP Broumov, ORP Náchod")]);
+        assert_eq!(hint(&found, hint_key::MONUMENTS_CZ)[0].args, orp);
+        assert_eq!(hint(&found, hint_key::FOREST_OWNER_CZ)[0].args, orp);
+        let roads = &hint(&found, hint_key::ROADS_CZ)[0].args;
+        assert_eq!(roads["gmina"], "obec Broumov, obec Náchod");
+        assert_eq!(roads["shares"], "70.0,30.0");
+        assert_eq!(roads["count"], "2");
+        assert!(!found.hints.iter().any(|h| h.key.ends_with("-pl")));
+    }
+
+    /// The unit that only touches the edge of the map is left out of the districts of the hints
+    /// when another one is more than an edge.
+    #[test]
+    fn a_district_at_the_edge_of_the_map_is_not_named_beside_a_larger_one() {
+        let found = notes(
+            MapKind::Forest,
+            &czech(
+                vec![],
+                vec![czech_units(&[("Broumov", 0.0995), ("Náchod", 0.0005)])],
+            ),
+        );
+        assert_eq!(
+            hint(&found, hint_key::FOREST_OWNER_CZ)[0].args,
+            args(&[("orp", "ORP Broumov")])
+        );
+        // A district alone at the edge is named: it is all there is.
+        let found = notes(
+            MapKind::Forest,
+            &czech(vec![], vec![czech_units(&[("Náchod", 0.0004)])]),
+        );
+        assert_eq!(
+            hint(&found, hint_key::FOREST_OWNER_CZ)[0].args,
+            args(&[("orp", "ORP Náchod")])
+        );
+    }
+
+    /// Without the administrative units the hints name no district and no municipality, and the
+    /// hint on roads stays out; no object and no monument, no hint on them.
+    #[test]
+    fn a_czech_map_area_without_findings_gets_only_what_applies() {
+        let found = notes(MapKind::Forest, &czech(vec![], vec![czech_monuments(0)]));
+        assert_eq!(keys(&found), [hint_key::FOREST_OWNER_CZ]);
+        assert!(hint(&found, hint_key::FOREST_OWNER_CZ)[0].args.is_empty());
+        // A town without forest: OSM read, no forest object on the map.
+        let found = notes(MapKind::Sprint, &czech(vec![], vec![czech_monuments(0)]));
+        assert!(found.hints.is_empty(), "{:?}", keys(&found));
+        let found = notes(MapKind::Sprint, &czech(vec![], vec![czech_monuments(1)]));
+        assert_eq!(keys(&found), [hint_key::MONUMENTS_CZ]);
+        assert!(hint(&found, hint_key::MONUMENTS_CZ)[0].args.is_empty());
+    }
+
+    /// Every protected kind of Czechia brings the hint on protected areas; the kinds of Poland
+    /// do not bring the Czech one.
+    #[test]
+    fn every_czech_kind_brings_the_hint_on_protected_areas() {
+        for kind in [
+            ProtectedObjectKind::NationalParkCz,
+            ProtectedObjectKind::ProtectedLandscapeAreaCz,
+            ProtectedObjectKind::NationalNatureReserve,
+            ProtectedObjectKind::NationalNatureMonument,
+            ProtectedObjectKind::NatureReserveCz,
+            ProtectedObjectKind::NatureMonumentCz,
+            ProtectedObjectKind::ProtectiveZoneCz,
+            ProtectedObjectKind::NatureZoneCz,
+            ProtectedObjectKind::Natura2000HabitatsCz,
+            ProtectedObjectKind::Natura2000BirdsCz,
+            ProtectedObjectKind::MemorialTree,
+        ] {
+            let found = notes(MapKind::Sprint, &czech(vec![], vec![czech_object(kind)]));
+            assert_eq!(keys(&found), [hint_key::PROTECTED_AREAS_CZ], "{kind:?}");
+        }
+        let found = notes(
+            MapKind::Sprint,
+            &czech(
+                vec![],
+                vec![regional(
+                    "gdos",
+                    PermitSection::ProtectedObjects,
+                    vec![polish_object(
+                        ProtectedObjectKind::NationalPark,
+                        "Kampinoski",
+                        square(13.0, 52.0, 13.1, 52.1),
+                    )],
+                )],
+            ),
+        );
+        assert_eq!(keys(&found), [hint_key::PROTECTED_AREAS_PL]);
+    }
+
+    /// The operators OSM names for a park or a school come with the Czech hints too.
+    #[test]
+    fn a_czech_map_area_names_the_operators_of_osm() {
+        let operated = |id: &str, object: &str, operator: &str| {
+            let mut f = finding(
+                OsmFindingKind::Operated,
+                id,
+                object,
+                square(13.0, 52.0, 13.1, 52.1),
+            );
+            f.operator = Some(operator.into());
+            f
+        };
+        let found = notes(
+            MapKind::Sprint,
+            &czech(
+                vec![
+                    operated("way/1", "leisure=park", "Město Náchod"),
+                    operated("way/2", "amenity=school", "Základní škola"),
+                ],
+                vec![],
+            ),
+        );
+        assert_eq!(
+            keys(&found),
+            [hint_key::PARK_OPERATOR, hint_key::SCHOOL_OPERATOR]
+        );
     }
 }

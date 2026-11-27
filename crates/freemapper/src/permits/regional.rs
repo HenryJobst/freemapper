@@ -55,6 +55,9 @@ pub struct RegionalSource {
     /// Whose offices the hints of the districts of the source name (ADR 0129).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub offices: Option<DistrictOffices>,
+    /// The country whose hints the source asks for, as its ISO code in lower case (ADR 0201).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub country: Option<String>,
 }
 
 impl From<&PermitSourceInfo> for RegionalSource {
@@ -73,6 +76,7 @@ impl From<&PermitSourceInfo> for RegionalSource {
             gaps: info.gaps.map(words),
             sections: info.sections.to_vec(),
             offices: info.offices,
+            country: None,
         }
     }
 }
@@ -275,9 +279,19 @@ pub(crate) struct Municipality {
     pub percent: f64,
 }
 
+/// The country code of the sources whose notes get the Czech hints (ADR 0201); the notes of the
+/// other regions without the German national sources get the Polish ones.
+pub(crate) const CZECH: &str = "cz";
+
 /// What the hints need of the regional part of one adapter.
 #[derive(Debug, Default)]
 pub(crate) struct HintFacts {
+    /// The country the sources of the adapter ask the hints of, by its code.
+    pub country: Option<String>,
+    /// The districts of the municipalities with extended powers (Czech ORP) on the map that are
+    /// more than an edge, by share, descending, as the register writes them; all of them when
+    /// each lies only at the edge (ADR 0201).
+    pub authority_districts: Vec<String>,
     /// The districts on the map that are more than an edge, by share, descending.
     pub districts: Vec<String>,
     /// The districts that hold a monument on the map: for each monument those that are more
@@ -521,6 +535,8 @@ fn one_adapter(
         read(PermitSection::HistoryRegister).then(|| count_history(plane, &placed));
 
     let facts = HintFacts {
+        country: inputs.iter().find_map(|i| i.source.country.clone()),
+        authority_districts: authority_districts(admin_units.iter().flatten()),
         districts: districts
             .iter()
             .flatten()
@@ -701,6 +717,19 @@ fn municipalities<'a>(units: impl Iterator<Item = &'a Share<AdminUnitEntry>>) ->
             name: s.item.name.clone(),
             percent: s.percent,
         })
+        .collect()
+}
+
+/// The districts of the municipalities with extended powers of the units: those that are more
+/// than an edge, else all of them. The units come by share, descending.
+fn authority_districts<'a>(units: impl Iterator<Item = &'a Share<AdminUnitEntry>>) -> Vec<String> {
+    let all: Vec<&Share<AdminUnitEntry>> = units
+        .filter(|s| s.item.level == AdminUnitLevel::AuthorityDistrict)
+        .collect();
+    let any_more_than_edge = all.iter().any(|s| !s.at_edge);
+    all.into_iter()
+        .filter(|s| !any_more_than_edge || !s.at_edge)
+        .map(|s| s.item.name.clone())
         .collect()
 }
 

@@ -973,6 +973,17 @@ permits-object-kind = { $kind ->
         [landscape-complex] Natur- och landskapskomplex (zespół przyrodniczo-krajobrazowy)
         [documentation-site] Dokumentationsplats (stanowisko dokumentacyjne)
         [natural-monument-pl] Naturminne (pomnik przyrody)
+        [national-park-cz] Nationalpark (národní park, NP)
+        [protected-landscape-area-cz] Skyddat landskapsområde (chráněná krajinná oblast, CHKO)
+        [national-nature-reserve] Nationellt naturreservat (národní přírodní rezervace, NPR)
+        [national-nature-monument] Nationellt naturminne (národní přírodní památka, NPP)
+        [nature-reserve-cz] Naturreservat (přírodní rezervace, PR)
+        [nature-monument-cz] Naturminne (přírodní památka, PP)
+        [protective-zone-cz] Skyddszon (ochranné pásmo)
+        [nature-zone-cz] Zon för naturskydd (zóna ochrany přírody)
+        [natura2000-habitats-cz] Natura 2000-område för livsmiljöer (evropsky významná lokalita, EVL)
+        [natura2000-birds-cz] Natura 2000-område för fåglar (ptačí oblast, PO)
+        [memorial-tree] Minnesträd (památný strom)
        *[special-rules] Område med särskilda regler
     }
 permits-object-count = { $count } objekt
@@ -1037,6 +1048,7 @@ permits-register-history-in-area = Historiens minnesmärken i kartområdet: { $c
 permits-register-history-nearby = Fler historiens minnesmärken i rektangeln runt kartområdet, men inte i kartområdet: { $count }.
 permits-register-history-left = { $count } till räknas här bara, utan namn.
 permits-admin-unit-code = { $name } (TERYT { $code })
+permits-admin-unit-code-ruian = { $name } (RÚIAN { $code })
 permits-none-state-forest = Enligt { $source } ligger ingen delstatsskog i kartområdet.
 permits-forest-units-reach = En skogsmyndighet ansvarar för skogen inom sitt område. Dess område kan också omfatta städer och åkermark.
 permits-state-forest-office = ansvarig: { $office }
@@ -1070,6 +1082,16 @@ permits-hint-gmina-land-pl = Om mark i kartområdet tillhör gminan, till exempe
         [one] kontoret i gminan ({ $gmina }) om samtycke
        *[other] kontoren i gminorna ({ $gmina }) om samtycke
     } innan du använder den. Dessa anteckningar visar inte vem som äger marken.
+permits-hint-protected-areas-cz = Skyddade områden eller föremål för naturvård ligger i kartområdet. Enligt lagen om natur- och landskapsskydd (lag nr 114/1992 Sb.) är organiserade idrotts-, turist- och andra offentliga evenemang i en nationalpark förbjudna utanför de platser som naturvårdsmyndigheten har anvisat (§ 16 odst. 1 písm. q), och i en nationalparks skyddszon kräver massevenemang av detta slag utanför dessa platser och utanför bebyggda områden myndighetens samtycke (§ 37 odst. 3 písm. d). I ett nationellt naturreservat är det förbjudet att gå eller köra utanför de stigar som markerats med myndighetens samtycke (§ 29 písm. d). Naturvårdsmyndigheter är bland andra nationalparkens förvaltning, naturvårdsverket (AOPK ČR), regionkontoret (krajský úřad) och kontoret för en kommun med utökade befogenheter (§ 75 odst. 1). Andra skyddade områden och föremål har egna skyddsvillkor. Fråga myndigheten i god tid om du planerar ett evenemang där.
+permits-hint-monuments-cz = Kulturminnen eller kulturminnesområden i den statliga förteckningen ligger i kartområdet. Enligt lagen om statlig kulturminnesvård (lag nr 20/1987 Sb., § 14 odst. 1 och 2) måste ägaren till ett kulturminne i förväg begära ett beslut eller ett bindande yttrande före underhåll, reparation, ombyggnad eller annan ändring av kulturminnet eller dess omgivning. Detsamma gäller ägaren till en fastighet i ett minnesreservat, en minneszon eller ett kulturminnes skyddszon för en byggnad, ändring av en byggnad, markarbeten, en anordning eller en skylt, rivning av en anläggning, skötsel av träd eller underhållsarbeten. Kontoret för kommunen med utökade befogenheter beslutar{ $orp ->
+        [none] {""}
+       *[other] {" "}({ $orp})
+    }, för ett nationellt kulturminne regionkontoret. Lagen nämner inte en promenad, ett lopp eller en kontroll som sådana; fråga det kontoret om ett evenemang berör ett kulturminne eller sätter upp anordningar eller skyltar på det.
+permits-hint-forest-owner-cz = Ett stort idrotts-, kultur- eller annat samhällsevenemang på mark som är avsedd för skogens funktioner får hållas bara med skriftligt samtycke från ägaren till skogen där det äger rum (skogslagen, lag nr 289/1995 Sb., § 20 odst. 5). Arrangören måste dessutom skriftligen anmäla evenemanget till kontoret för kommunen med utökade befogenheter{ $orp ->
+        [none] {""}
+       *[other] {" "}({ $orp})
+    }, eller till regionkontoret om evenemanget sträcker sig utanför en sådan kommuns distrikt, senast 30 dagar före evenemanget. Anmälan anger datum och plats, hur evenemanget bemannas, det förväntade antalet deltagare och ägarnas skriftliga samtycken (samma paragraf). Dessa anteckningar visar inte vem som äger skogen; fråga skogsägarna i god tid.
+permits-hint-roads-cz = Ett evenemang som använder en väg på annat sätt än vanligt, till exempel ett idrotts-, kultur- eller liknande evenemang som kan äventyra trafiksäkerheten eller trafikflödet, kräver tillstånd av den behöriga vägmyndigheten. Det ges med förhandssamtycke från vägens ägare och, där trafiksäkerheten eller trafikflödet kan påverkas, från Tjeckiens polis (vägagen, lag nr 13/1997 Sb., § 25 odst. 1 och odst. 6 písm. d). Myndigheten är kommunkontoret för lokala vägar, eller kontoret för kommunen med utökade befogenheter där det beslutar, och kontoret för kommunen med utökade befogenheter för vägar av andra och tredje klass (§ 40 odst. 4 och 5). Kommuner i kartområdet: { $gmina }. Dessa anteckningar visar inte vägarnas klass.
 permits-section-water-protection = Vattenskyddsområden ({ $source })
 permits-section-forest-functions = Skogsfunktioner och skyddsskog ({ $source })
 permits-none-water-protection = Enligt { $source } ligger inget vattenskyddsområde i kartområdet.
