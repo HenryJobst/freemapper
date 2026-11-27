@@ -27,6 +27,7 @@ pub mod raster;
 pub mod raster_fetch;
 pub mod replay;
 pub mod shapefile;
+pub mod stac;
 #[cfg(any(test, feature = "testing"))]
 pub mod testing;
 pub mod tiff_range;
