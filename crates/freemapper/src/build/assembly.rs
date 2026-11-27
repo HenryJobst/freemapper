@@ -2200,11 +2200,11 @@ mod tests {
             rotation_deg: 0.0,
             height_m: 0.0,
         };
-        let bank = |from: (f64, f64), to: (f64, f64)| Landform {
+        let bank = |from: (f64, f64), to: (f64, f64), height_m| Landform {
             kind: LandformKind::Bank,
             points: vec![projected(&f, from), projected(&f, to)],
             rotation_deg: 0.0,
-            height_m: 2.0,
+            height_m,
         };
         let placed = placed_safe(
             &f,
@@ -2212,8 +2212,8 @@ mod tests {
                 landforms: Some(Landforms {
                     forms: vec![
                         face,
-                        bank((2.0, 1.0), (28.0, 1.0)),
-                        bank((0.0, 60.0), (30.0, 60.0)),
+                        bank((2.0, 1.0), (28.0, 1.0), 2.0),
+                        bank((0.0, 60.0), (30.0, 60.0), 3.0),
                     ],
                     source: "lgb-dgm1".to_string(),
                     currency: None,
@@ -2231,7 +2231,14 @@ mod tests {
         assert_eq!(of("206").len(), 1);
         // The ring of an area: four corners and the first again, flagged.
         assert_eq!(of("206")[0].coords.len(), 5);
-        assert_eq!(of("104").len(), 1);
+        // The bank along the face goes, the one 40 m away stays.
+        let banks = of("104");
+        assert_eq!(banks.len(), 1);
+        assert!(
+            banks[0]
+                .tags
+                .contains(&("freemapper:height".to_string(), "3.0".to_string()))
+        );
     }
 
     /// Boulders closer than their symbols allow (0.55 mm centre to centre, 8.25 m at 1:15 000) are

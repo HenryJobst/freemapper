@@ -1174,10 +1174,6 @@ mod tests {
             }
         });
         let faces = rock_faces(&terrain, forest(), 70.0);
-        let area: f64 = faces
-            .iter()
-            .map(|f| geo_types::Polygon::new(f.points.clone().into(), vec![]).unsigned_area())
-            .sum();
         assert_eq!(faces.len(), 1);
         let coarse = SymbolScale::new(MapKind::Forest, 20_000);
         assert!(rock_faces(&terrain, coarse, 70.0).is_empty());
