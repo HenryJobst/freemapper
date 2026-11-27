@@ -14,6 +14,8 @@ use crate::space::{DiskSpace, SystemDiskSpace};
 
 // The fetcher, its errors and the tile types live in `freemapper-adapter-api` (ADR 0082); the
 // old paths stay.
+use freemapper_adapter_api::auth::{AuthSpec, credentials};
+use freemapper_adapter_api::error::AdapterError;
 /// What a fetch error names beside the address: the product of a missing tile, and the
 /// currency table that could not be read.
 pub use freemapper_adapter_api::error::CurrencyCsvError;
@@ -517,6 +519,34 @@ struct Built {
 /// An answer of the HTTP client.
 type Response = ureq::http::Response<ureq::Body>;
 
+/// The value of the environment variable `name` of this process. The one place that reads it.
+pub fn process_env(name: &str) -> Option<String> {
+    std::env::var(name).ok()
+}
+
+/// A fetcher for the downloads of a project: the credentials of the built-in adapters whose
+/// variables are set go to their hosts.
+pub fn project_fetcher() -> HttpFetcher {
+    HttpFetcher::new().with_credentials_of(
+        crate::adapters::registry()
+            .adapters()
+            .filter_map(|adapter| adapter.auth()),
+        &process_env,
+    )
+}
+
+/// An error that names the variables when one of `specs` has no credentials in `env`: the map
+/// area lies in a region whose data need a login, and nothing is requested without one.
+pub fn ensure_credentials<'a>(
+    specs: impl Iterator<Item = &'a AuthSpec>,
+    env: &dyn Fn(&str) -> Option<String>,
+) -> Result<(), AdapterError> {
+    for spec in specs {
+        credentials(spec, env)?;
+    }
+    Ok(())
+}
+
 /// How [`HttpFetcher::open`] makes a request: with the agent, the address and the
 /// `Authorization` header value for its host, if it has one.
 type Send<'a> = dyn Fn(&ureq::Agent, &str, Option<&str>) -> Result<Response, ureq::Error> + 'a;
@@ -540,6 +570,22 @@ impl HttpFetcher {
         let token = base64::engine::general_purpose::STANDARD.encode(format!("{user}:{password}"));
         self.credentials
             .push((host.to_ascii_lowercase(), format!("Basic {token}")));
+        self
+    }
+
+    /// This fetcher with the credentials of every spec whose variables `env` has: each goes to
+    /// the host its spec names. A spec without them adds none; [`ensure_credentials`] says so
+    /// when a map needs them.
+    pub fn with_credentials_of<'a>(
+        mut self,
+        specs: impl Iterator<Item = &'a AuthSpec>,
+        env: &dyn Fn(&str) -> Option<String>,
+    ) -> Self {
+        for spec in specs {
+            if let Ok(found) = credentials(spec, env) {
+                self = self.with_basic_auth(&spec.host, &found.user, found.password.expose());
+            }
+        }
         self
     }
 
@@ -4150,6 +4196,52 @@ mod tests {
                 .to_string(),
             "2026-11-11"
         );
+    }
+
+    /// The credentials of the adapters that declare a login come from the environment, one host
+    /// each; an adapter whose variables are not set adds none, and a message never holds them.
+    #[test]
+    fn credentials_of_the_specs_reach_their_hosts_and_are_not_printed() {
+        use freemapper_adapter_api::auth::AuthSpec;
+        let spec = |host: &str, user: &str, password: &str| AuthSpec {
+            name: "Sweden".to_string(),
+            host: host.to_string(),
+            user_env: user.to_string(),
+            password_env: password.to_string(),
+            products: vec!["Product A".to_string()],
+        };
+        let specs = [
+            spec(
+                "dl.example.org",
+                "FREEMAPPER_A_USER",
+                "FREEMAPPER_A_PASSWORD",
+            ),
+            spec(
+                "other.example.org",
+                "FREEMAPPER_B_USER",
+                "FREEMAPPER_B_PASSWORD",
+            ),
+        ];
+        let env = |name: &str| match name {
+            "FREEMAPPER_A_USER" => Some("user".to_string()),
+            "FREEMAPPER_A_PASSWORD" => Some("secret".to_string()),
+            _ => None,
+        };
+        let fetcher = HttpFetcher::new().with_credentials_of(specs.iter(), &env);
+        // base64("user:secret")
+        assert_eq!(
+            fetcher.authorization("https://dl.example.org/x"),
+            Some("Basic dXNlcjpzZWNyZXQ=")
+        );
+        assert_eq!(fetcher.authorization("https://other.example.org/x"), None);
+        assert_eq!(
+            fetcher.authorization("https://elsewhere.example.org/x"),
+            None
+        );
+        let missing = ensure_credentials(specs[1..].iter(), &env).unwrap_err();
+        assert!(missing.to_string().contains("FREEMAPPER_B_PASSWORD"));
+        assert!(!missing.to_string().contains("secret"));
+        assert!(ensure_credentials(specs[..1].iter(), &env).is_ok());
     }
 
     /// Lantmäteriet's download host wants Basic authentication (private accounts): every way to

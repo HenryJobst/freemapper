@@ -506,6 +506,7 @@ error-project-tiles-outdated = el área del mapa necesita las teselas { $tiles }
 error-project-buildings-not-fetched = no hay edificios de ALKIS guardados para esta área del mapa; ejecuta primero `freemapper fetch` con conexión
 error-project-orthophoto-not-fetched = no hay ortofoto guardada para esta área del mapa; ejecuta primero `freemapper fetch` con conexión
 error-project-terrain-not-fetched = no hay modelo del terreno guardado para esta área del mapa; ejecuta primero `freemapper fetch` con conexión
+error-project-credentials-missing = los datos de { $name } requieren iniciar sesión: defina las variables de entorno { $user_env } (el nombre de usuario) y { $password_env } (la contraseña); la cuenta debe haber pedido: { $products }
 error-project-candidates-outdated = los candidatos de OSM guardados no cubren el área del mapa; ejecuta `freemapper fetch`
 error-project-stored = { $path }: { $message }; ejecuta `freemapper fetch` otra vez
 error-project-area-too-large = el área del mapa más el margen mide { $width } × { $height } m, más de { $limit } m por lado; reduce el área del mapa o buffer_m en freemapper.toml

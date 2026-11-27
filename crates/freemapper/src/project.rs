@@ -152,6 +152,16 @@ pub enum ProjectError {
     OrthophotoNotFetched,
     #[error("no terrain model stored for this map area; run `freemapper fetch` online first")]
     TerrainNotFetched,
+    #[error(
+        "the data of {name} need a login: set the environment variables {user_env} (the user name) and {password_env} (the password); the account must have ordered: {}",
+        .products.join(", ")
+    )]
+    CredentialsMissing {
+        name: String,
+        user_env: String,
+        password_env: String,
+        products: Vec<String>,
+    },
     #[error("the stored OSM candidates do not cover the map area; run `freemapper fetch`")]
     CandidatesOutdated,
     #[error("{}: {message}; run `freemapper fetch` again", path.display())]
@@ -1286,6 +1296,17 @@ impl From<AdapterError> for ProjectError {
             AdapterError::ProjectFile(message) => ProjectError::Toml(message),
             AdapterError::OrthophotoNotFetched => ProjectError::OrthophotoNotFetched,
             AdapterError::TerrainNotFetched => ProjectError::TerrainNotFetched,
+            AdapterError::CredentialsMissing {
+                name,
+                user_env,
+                password_env,
+                products,
+            } => ProjectError::CredentialsMissing {
+                name,
+                user_env,
+                password_env,
+                products,
+            },
             // The engine's own error, as it was; an error of another kind keeps its words.
             AdapterError::Engine(e) => match e.downcast::<ProjectError>() {
                 Ok(own) => *own,
@@ -1400,6 +1421,17 @@ fn fetch_project_parts(
             },
         );
         if !osm_only(&region_bbox) {
+            // A region whose data need a login says so before anything is requested; offline
+            // the cache is read and no login is needed.
+            if mode != FetchMode::Offline
+                && let Some(spec) =
+                    raster_region_in(registry(), &region_bbox).and_then(|adapter| adapter.auth())
+            {
+                crate::fetch::ensure_credentials(
+                    std::iter::once(spec),
+                    &crate::fetch::process_env,
+                )?;
+            }
             raster_backend(&region_bbox)?.fetch(env, p, &bbox)?;
         }
     }
@@ -3278,7 +3310,10 @@ mod tests {
             &mut |_| {},
         )
         .unwrap_err();
-        assert!(matches!(error, ProjectError::OrthophotoNotFetched), "{error}");
+        assert!(
+            matches!(error, ProjectError::OrthophotoNotFetched),
+            "{error}"
+        );
     }
 
     /// [`extras::fetch_key_into`] for Berlin's set.

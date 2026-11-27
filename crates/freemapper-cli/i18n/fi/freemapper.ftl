@@ -499,6 +499,7 @@ error-project-tiles-outdated = kartta-alue tarvitsee ruudut { $tiles }, joita ei
 error-project-buildings-not-fetched = tälle kartta-alueelle ei ole tallennettu ALKIS-rakennuksia; aja ensin `freemapper fetch` verkossa
 error-project-orthophoto-not-fetched = tälle kartta-alueelle ei ole tallennettu ortokuvaa; aja ensin `freemapper fetch` verkossa
 error-project-terrain-not-fetched = tälle kartta-alueelle ei ole tallennettu maastomallia; aja ensin `freemapper fetch` verkossa
+error-project-credentials-missing = { $name } aineisto vaatii kirjautumisen: aseta ympäristömuuttujat { $user_env } (käyttäjätunnus) ja { $password_env } (salasana); tilillä on oltava tilattuna: { $products }
 error-project-candidates-outdated = tallennetut OSM-ehdokkaat eivät kata kartta-aluetta; aja `freemapper fetch`
 error-project-stored = { $path }: { $message }; aja `freemapper fetch` uudelleen
 error-project-area-too-large = kartta-alue puskureineen on { $width } × { $height } m, yli { $limit } m sivua kohden; pienennä kartta-aluetta tai arvoa buffer_m tiedostossa freemapper.toml

@@ -537,3 +537,29 @@ fn a_terrain_alone_gives_the_adapter_the_backend_with_its_endpoints() {
         Some("https://geodienste.hamburg.de/dgm1")
     );
 }
+
+#[test]
+fn the_auth_table_gives_the_adapter_its_auth_spec() {
+    let text = format!(
+        "{}\n[auth]\nhost = \"geodienste.hamburg.de\"\nuser_env = \"FREEMAPPER_HH_USER\"\n\
+         password_env = \"FREEMAPPER_HH_PASSWORD\"\nproducts = [\"Product A\"]\n",
+        repo("crates/freemapper-manifest/tests/valid/hamburg.toml")
+    );
+    let manifest = parse(&text, Path::new("hamburg")).unwrap();
+    let adapter =
+        ManifestAdapter::new(manifest, &hamburg_files(), Parse::Now, &backends()).unwrap();
+    let spec = adapter.auth().expect("the spec");
+    assert_eq!(spec.name, "Hamburg");
+    assert_eq!(spec.host, "geodienste.hamburg.de");
+    assert_eq!(spec.user_env, "FREEMAPPER_HH_USER");
+    assert_eq!(spec.password_env, "FREEMAPPER_HH_PASSWORD");
+    assert_eq!(spec.products, ["Product A"]);
+}
+
+#[test]
+fn a_manifest_without_the_table_has_no_auth_spec() {
+    let manifest = manifest("hamburg");
+    let adapter =
+        ManifestAdapter::new(manifest, &hamburg_files(), Parse::Now, &backends()).unwrap();
+    assert!(adapter.auth().is_none());
+}

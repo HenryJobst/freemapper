@@ -69,7 +69,7 @@ impl PipelineRunner for RealRunner {
             dir,
             options,
             cache,
-            &freemapper::fetch::HttpFetcher::new(),
+            &freemapper::fetch::project_fetcher(),
             control,
             progress,
         )

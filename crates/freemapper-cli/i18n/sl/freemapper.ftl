@@ -511,6 +511,7 @@ error-project-tiles-outdated = območje karte potrebuje ploščice { $tiles }, k
 error-project-buildings-not-fetched = za to območje karte ni shranjenih stavb iz ALKIS; najprej zaženi `freemapper fetch` z omrežjem
 error-project-orthophoto-not-fetched = za to območje karte ni shranjenega ortofota; najprej zaženi `freemapper fetch` z omrežjem
 error-project-terrain-not-fetched = za to območje karte ni shranjenega modela reliefa; najprej zaženi `freemapper fetch` z omrežjem
+error-project-credentials-missing = podatki za { $name } zahtevajo prijavo: nastavite okoljski spremenljivki { $user_env } (uporabniško ime) in { $password_env } (geslo); račun mora imeti naročeno: { $products }
 error-project-candidates-outdated = shranjeni kandidati OSM ne pokrivajo območja karte; zaženi `freemapper fetch`
 error-project-stored = { $path }: { $message }; znova zaženi `freemapper fetch`
 error-project-area-too-large = območje karte z robom meri { $width } × { $height } m, kar je več kot { $limit } m na stran; zmanjšaj območje karte ali buffer_m v freemapper.toml

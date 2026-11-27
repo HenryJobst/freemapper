@@ -162,6 +162,17 @@ pub enum AdapterError {
     OrthophotoNotFetched,
     #[error("no terrain model stored for this map area; run `freemapper fetch` online first")]
     TerrainNotFetched,
+    /// The region wants a login and the environment variables that hold it are not set.
+    #[error(
+        "the data of {name} need a login: set the environment variables {user_env} (the user name) and {password_env} (the password); the account must have ordered: {}",
+        .products.join(", ")
+    )]
+    CredentialsMissing {
+        name: String,
+        user_env: String,
+        password_env: String,
+        products: Vec<String>,
+    },
     /// An error of the engine that passes through the fetch as it is (the checkpoint failed in
     /// a way the variants above do not name). The engine takes its own error out again.
     #[error("{0}")]

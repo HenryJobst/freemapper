@@ -499,6 +499,7 @@ error-project-tiles-outdated = a térképterülethez olyan csempék kellenek ({ 
 error-project-buildings-not-fetched = ehhez a térképterülethez nincs eltárolt ALKIS-épület; előbb futtassa a `freemapper fetch` parancsot online
 error-project-orthophoto-not-fetched = ehhez a térképterülethez nincs eltárolt ortofotó; előbb futtassa a `freemapper fetch` parancsot online
 error-project-terrain-not-fetched = ehhez a térképterülethez nincs eltárolt terepmodell; előbb futtassa a `freemapper fetch` parancsot online
+error-project-credentials-missing = { $name } adataihoz bejelentkezés kell: állítsa be a { $user_env } (felhasználónév) és { $password_env } (jelszó) környezeti változót; a fióknak meg kell rendelnie: { $products }
 error-project-candidates-outdated = a tárolt OSM-jelöltek nem fedik le a térképterületet; futtassa a `freemapper fetch` parancsot
 error-project-stored = { $path }: { $message }; futtassa újra a `freemapper fetch` parancsot
 error-project-area-too-large = a térképterület és a ráhagyás { $width } × { $height } m, oldalanként több, mint { $limit } m; csökkentse a térképterületet vagy a buffer_m értékét a freemapper.toml fájlban

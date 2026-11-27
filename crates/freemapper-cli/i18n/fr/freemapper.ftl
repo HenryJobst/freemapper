@@ -505,6 +505,7 @@ error-project-tiles-outdated = la zone de la carte a besoin des tuiles { $tiles 
 error-project-buildings-not-fetched = aucun bâtiment ALKIS enregistré pour cette zone de carte ; lancez d'abord `freemapper fetch` en ligne
 error-project-orthophoto-not-fetched = aucune orthophotographie enregistrée pour cette zone de carte ; lancez d'abord `freemapper fetch` en ligne
 error-project-terrain-not-fetched = aucun modèle de terrain enregistré pour cette zone de carte ; lancez d'abord `freemapper fetch` en ligne
+error-project-credentials-missing = les données de { $name } demandent une connexion : définissez les variables d'environnement { $user_env } (le nom d'utilisateur) et { $password_env } (le mot de passe) ; le compte doit avoir commandé : { $products }
 error-project-candidates-outdated = les candidats OSM enregistrés ne couvrent pas la zone de la carte ; lancez `freemapper fetch`
 error-project-stored = { $path } : { $message } ; relancez `freemapper fetch`
 error-project-area-too-large = la zone de la carte plus la marge fait { $width } × { $height } m, plus de { $limit } m par côté ; réduisez la zone de la carte ou buffer_m dans freemapper.toml

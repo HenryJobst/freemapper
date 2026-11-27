@@ -505,6 +505,7 @@ error-project-tiles-outdated = oblasť mapy potrebuje dlaždice { $tiles }, ktor
 error-project-buildings-not-fetched = pre túto oblasť mapy nie sú uložené budovy z ALKIS; najprv spusti `freemapper fetch` online
 error-project-orthophoto-not-fetched = pre túto oblasť mapy nie je uložené ortofoto; najprv spusti `freemapper fetch` online
 error-project-terrain-not-fetched = pre túto oblasť mapy nie je uložený model terénu; najprv spusti `freemapper fetch` online
+error-project-credentials-missing = údaje pre { $name } vyžadujú prihlásenie: nastavte premenné prostredia { $user_env } (používateľské meno) a { $password_env } (heslo); účet musí mať objednané: { $products }
 error-project-candidates-outdated = uložení kandidáti z OSM nepokrývajú oblasť mapy; spusti `freemapper fetch`
 error-project-stored = { $path }: { $message }; spusti `freemapper fetch` znova
 error-project-area-too-large = oblasť mapy spolu s okrajom má { $width } × { $height } m, viac než { $limit } m na stranu; zmenši oblasť mapy alebo buffer_m vo freemapper.toml

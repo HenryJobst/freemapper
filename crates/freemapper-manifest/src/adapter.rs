@@ -12,6 +12,7 @@ use std::sync::{Arc, OnceLock};
 
 use freemapper_adapter_api::adapter::RegionAdapter;
 use freemapper_adapter_api::alkis::AlkisSource;
+use freemapper_adapter_api::auth::AuthSpec;
 use freemapper_adapter_api::credit::{CreditLine, UsedSources};
 use freemapper_adapter_api::error::Remedy;
 use freemapper_adapter_api::estimate::{EstimateArea, EstimateEnv};
@@ -119,6 +120,8 @@ pub struct ManifestAdapter {
     /// The permit sources of `[[permits.wfs]]`, made by the factory of the registry.
     permits: Vec<Box<dyn PermitSource>>,
     declared: Declared,
+    /// `[auth]`, as the adapter answers it.
+    auth: Option<AuthSpec>,
     /// The hosts the requests are held to, for an adapter from a folder.
     policy: Option<Arc<UrlPolicy>>,
 }
@@ -278,6 +281,13 @@ impl ManifestAdapter {
                 .map(|trees| crate::extras::tree_dataset(trees, &info.id))
                 .collect(),
             permits,
+            auth: manifest.auth.as_ref().map(|auth| AuthSpec {
+                name: manifest.adapter.names.en.clone(),
+                host: auth.host.clone(),
+                user_env: auth.user_env.clone(),
+                password_env: auth.password_env.clone(),
+                products: auth.products.clone(),
+            }),
             declared: Declared {
                 revision: manifest.adapter.revision,
                 hosts: manifest.hosts.clone(),
@@ -403,6 +413,10 @@ impl RegionAdapter for ManifestAdapter {
 
     fn policy(&self) -> Option<&UrlPolicy> {
         self.policy.as_deref()
+    }
+
+    fn auth(&self) -> Option<&AuthSpec> {
+        self.auth.as_ref()
     }
 
     fn boundary(&self) -> &MultiPolygon<f64> {
