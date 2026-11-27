@@ -36,8 +36,8 @@ too little"), not a layout.
 - Source code and technical docs in English, user texts in German and English via the existing text tables
   (`--lang`); glossary terms (`docs/glossary.md`); an ADR (next free number at implementation time, the numbers
   race with other sessions) and changelog entries in `CHANGELOG.md` and `CHANGELOG.en.md`.
-- The existing map file may hold the user's work: a run never replaces it. A frame added later has to reach an
-  existing map the way `MapWrite::Keep` already refreshes the candidate template references.
+- The existing map file may hold the user's work: a run never replaces it and never edits it. (Corrected after
+  reading the code: `MapWrite::Keep` only refreshes the old candidates *file*, never the map's template list.)
 - Texts for the manual, README and release notes go through the unslop and humanizer skills.
 
 ## Approaches considered
@@ -85,9 +85,10 @@ map area plus the frame's own half-size is not required: a frame may reach beyon
   line symbol of its own, name "A4 portrait" (language of the program) as object text or tag, so OOM shows which is which.
   Template maps share the map's georeferencing, so the rectangle is computed in the map's CRS from the centre.
 - The base map lists the template after the candidate layers, hidden, at 70 % opacity, as the candidate layers
-  (ADR 0156). With frames stored and a kept map, the template reference is added on the next `export` or `run`
-  without replacing the map (same path as the refresh of the candidate references; the run says so in one line).
-  With no frames stored a stale reference from earlier frames is removed the same way.
+  (ADR 0156). A newly written map (first export, or `--force`) names the template only when frames are stored. A kept
+  map is not edited: the file is written, and the run says in one line that the user opens it in OOM
+  (menu Templates, open template map). A kept map that names a template whose file was removed shows OOM's
+  missing-template mark until the user drops it there.
 - The layer appears in MCP `list_layers` as `paper-frame` (additive). No new MCP tool and no new CLI switch in this
   step; frames are set on the area page only.
 - A change of the frames needs `export` only, no `fetch` and no `derive`: they must not enter the fingerprint of the
@@ -127,7 +128,7 @@ details to the print side; this is the proposal for that session.
 - README: only if a feature list there names the area page's controls (re-check before push, per the README rule).
 - ADR, changelog entries (DE and EN), glossary entry for "paper frame" / "Papierrahmen".
 - Tests: format table and ground size (unit); `paper_frames` round trip in `freemapper.toml`, rejection of an unknown
-  format; the template file with N frames and with none; the reference added to and removed from a kept map; the save
+  format; the template file with N frames and with none; a kept map left byte-for-byte unchanged while the file is written; the save
   body of the area page; `list_layers` entry. Page script: no browser test exists, so the drag/format logic is kept thin
   and the metric part stays in Rust.
 - Work as one PR on GitHub, merge on green CI (all three systems only if code differing per system is touched).
@@ -141,9 +142,8 @@ details to the print side; this is the proposal for that session.
   that factor and draws an axis-aligned rectangle. The grid convergence (a degree or two) is ignored on screen. The
   stored frame and the export are exact in the map CRS, so a small rotation against the screen rectangle is
   expected and harmless for judging scale.
-- Template references: the new reference goes after the candidate layers, hidden, 70 % opacity. A kept map that
-  already has the reference keeps its state (visible or not, opacity). The refresh code is generalised from the
-  candidate layers, not copied.
+- Template references: the new reference goes after the candidate layers, hidden, 70 % opacity. A kept map is not edited
+  (see Export), so its template state stays as the user set it.
 - Contract order: core first (reserved words `paper-frame`, `freemapper:paper`, `freemapper:orientation` as plain,
   not localised strings such as `A4` and `portrait`, plus the fixture), then the pin move in this repo, as the
   contract rule says. The localised name is object text only and carries no meaning.
