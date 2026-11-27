@@ -224,7 +224,8 @@ fn adapters_endpoint_lists_the_states_with_previews() {
             "bremen",
             "bayern",
             "polska",
-            "cesko"
+            "cesko",
+            "sweden"
         ]
     );
     assert_eq!(
@@ -235,6 +236,11 @@ fn adapters_endpoint_lists_the_states_with_previews() {
     let mut services = Vec::new();
     for adapter in adapters {
         let preview = &adapter["preview"];
+        // Sweden has no orthophoto in its first stage, so the page shows no aerial photo there.
+        if adapter["id"] == "sweden" {
+            assert!(preview.is_null(), "{preview}");
+            continue;
+        }
         let wms = preview["wms"].as_str().unwrap();
         assert!(wms.starts_with("https://") && !wms.contains('?'), "{wms}");
         for key in ["layer", "format", "attribution", "agency"] {
