@@ -1569,6 +1569,32 @@ mod tests {
         );
     }
 
+    /// The daily update check follows the commands that use the network anyway, not the ones
+    /// that read or write the adapter settings.
+    #[test]
+    fn the_daily_update_check_follows_the_network_commands() {
+        let check = |args: &[&str]| {
+            Cli::try_parse_from(args.iter().copied())
+                .unwrap()
+                .command
+                .update_check()
+        };
+        assert!(check(&["freemapper", "find", "x"]).is_some());
+        assert!(check(&["freemapper", "fetch", "/tmp/p"]).is_some());
+        assert_eq!(
+            check(&["freemapper", "fetch", "/tmp/p", "--offline"]).map(|(_, offline)| offline),
+            Some(true)
+        );
+        for args in [
+            &["freemapper", "sources", "list"][..],
+            &["freemapper", "sources", "get", "a", "b"],
+            &["freemapper", "adapters", "list"],
+            &["freemapper", "derive", "/tmp/p"],
+        ] {
+            assert!(check(args).is_none(), "{args:?}");
+        }
+    }
+
     #[test]
     fn adapters_list_takes_json_and_a_project() {
         let cli = Cli::try_parse_from(["freemapper", "adapters", "list"]).unwrap();
