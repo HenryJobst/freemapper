@@ -118,6 +118,19 @@ pub fn tiled_float_tiff(
     predictor: u16,
     metadata: Option<&str>,
 ) -> Vec<u8> {
+    tiled_float_tiff_with(grid, values, block, predictor, metadata, 5)
+}
+
+/// [`tiled_float_tiff`] with the compression of the blocks: 5 LZW or 8 Deflate (zlib, as
+/// Lantmäteriet writes its terrain model).
+pub fn tiled_float_tiff_with(
+    grid: &crate::raster::GridSpec,
+    values: &[f32],
+    block: u32,
+    predictor: u16,
+    metadata: Option<&str>,
+    compression: u16,
+) -> Vec<u8> {
     assert_eq!(values.len(), (grid.width * grid.height) as usize);
     let (across, down) = (grid.width.div_ceil(block), grid.height.div_ceil(block));
     let mut file = b"II*\0\0\0\0\0".to_vec();
@@ -156,9 +169,13 @@ pub fn tiled_float_tiff(
                     other => panic!("predictor {other}"),
                 }
             }
-            let compressed = weezl::encode::Encoder::with_tiff_size_switch(weezl::BitOrder::Msb, 8)
-                .encode(&raw)
-                .unwrap();
+            let compressed = match compression {
+                5 => weezl::encode::Encoder::with_tiff_size_switch(weezl::BitOrder::Msb, 8)
+                    .encode(&raw)
+                    .unwrap(),
+                8 => miniz_oxide::deflate::compress_to_vec_zlib(&raw, 6),
+                other => panic!("compression {other}"),
+            };
             offsets.push(file.len() as u32);
             counts.push(compressed.len() as u32);
             file.extend(compressed);
@@ -180,7 +197,7 @@ pub fn tiled_float_tiff(
         (256, 4, 1, Value::Inline(grid.width)),
         (257, 4, 1, Value::Inline(grid.height)),
         (258, 3, 1, Value::Inline(32)),
-        (259, 3, 1, Value::Inline(5)),
+        (259, 3, 1, Value::Inline(u32::from(compression))),
         (262, 3, 1, Value::Inline(1)),
         (277, 3, 1, Value::Inline(1)),
         (284, 3, 1, Value::Inline(1)),
