@@ -7,7 +7,7 @@
 use freemapper_adapter_api::env::AdapterEnv;
 use freemapper_adapter_api::error::AdapterError;
 use freemapper_adapter_api::project::RasterProject;
-use freemapper_adapter_api::rasters::{ProviderInfo, RasterBackend, RasterKind};
+use freemapper_adapter_api::rasters::{ProviderInfo, RasterBackend, RasterConfig, RasterKind};
 use freemapper_adapter_api::records::{AdapterId, WcsRecord, stored_bbox};
 use freemapper_sources::raster_fetch::{
     SURFACE_RELPATH, TERRAIN_RELPATH, fetch_wms_orthophoto, keep_stored_surface, keep_surface,
@@ -18,7 +18,9 @@ use freemapper_sources::wms::OrthophotoSource;
 use std::borrow::Cow;
 use std::path::{Path, PathBuf};
 
-use crate::crs::{BoundingBox, Crs};
+use crate::crs::BoundingBox;
+#[cfg(any(test, feature = "testing"))]
+use crate::crs::Crs;
 use crate::fetch::{CacheDir, FetchError, FetchMode, Fetcher, write_cache_file};
 use crate::note::{Arg, Note, note};
 use crate::raster::{GridSpec, Raster};
@@ -30,24 +32,35 @@ use crate::sources::zip_range::{
 };
 use crate::tiles::{TileId, tiles_covering};
 
-/// The orthophoto WMS: the leaf-off True-DOP time series, pinned to the open 2026 vintage (a
-/// missing `TIME` would follow the newest, and 2023 is a closed-licence satellite image).
+/// What the WMS request adds to the address of the manifest: the leaf-off True-DOP time series
+/// is pinned to the open 2026 vintage (a missing `TIME` would follow the newest, and 2023 is a
+/// closed-licence satellite image).
+const WMS_EXTRA: &str = "&TIME=2026";
+/// The orthophoto WMS, as the manifest of Hamburg declares it (`[orthophoto]`, issue #273); the
+/// tests are held to these values.
+#[cfg(any(test, feature = "testing"))]
 pub const WMS: WmsService = WmsService {
     url: Cow::Borrowed("https://geodienste.hamburg.de/wms_dop_zeitreihe_unbelaubt"),
     layer: Cow::Borrowed("dop_zeitreihe_unbelaubt"),
     crs: Crs::Utm32,
-    extra: Cow::Borrowed("&TIME=2026"),
+    extra: Cow::Borrowed(WMS_EXTRA),
     max_px: 4000,
 };
-/// The flight dates of the DOP tiles, per vintage.
+/// The flight dates of the DOP tiles, per vintage, as the manifest of Hamburg declares them.
+#[cfg(any(test, feature = "testing"))]
 pub const METADATA_URL: &str = "https://www.daten-hamburg.de/opendata/fernerkundung_luftbilder/dop_unbelaubt/DOP_unbelaubt_AdV-Metadaten_Hamburg.zip";
 const VINTAGE: &str = "2026";
 
 /// The flight date (`DD.MM.YYYY`) of the orthophoto tile at the centre of `bbox`
-/// (EPSG:25832); `None` when the metadata does not tell it.
-pub fn flight_date(fetcher: &dyn Fetcher, bbox: &BoundingBox) -> Option<String> {
+/// (EPSG:25832), from the metadata archive at `metadata_url`; `None` when the metadata does not
+/// tell it.
+pub fn flight_date(
+    fetcher: &dyn Fetcher,
+    metadata_url: &str,
+    bbox: &BoundingBox,
+) -> Option<String> {
     use std::io::Read as _;
-    let bytes = crate::fetch::get_with_retries(fetcher, METADATA_URL, |b| Ok(b.to_vec())).ok()?;
+    let bytes = crate::fetch::get_with_retries(fetcher, metadata_url, |b| Ok(b.to_vec())).ok()?;
     let mut archive = zip::ZipArchive::new(std::io::Cursor::new(bytes)).ok()?;
     let wanted = format!("AdV-Metadaten_DOP_{VINTAGE}_unbelaubt_hh.csv");
     let index = (0..archive.len()).find(|&i| {
@@ -84,6 +97,9 @@ pub enum Model {
 }
 
 impl Model {
+    /// The archive the manifest of Hamburg declares (`dgm1` and `bdom` of its `endpoints`). The
+    /// backend reads the address from its config; this one names the release folder the
+    /// download estimate looks into.
     pub fn archive_url(self) -> &'static str {
         match self {
             Self::Dgm1 => {
@@ -98,8 +114,7 @@ impl Model {
     /// The archive's file stem; the cache keeps each release apart, so a newer archive is
     /// never mixed with tiles of an older one.
     pub fn release(self) -> &'static str {
-        let file = self.archive_url().rsplit('/').next().unwrap_or_default();
-        file.strip_suffix(".zip").unwrap_or(file)
+        release_of(self.archive_url())
     }
 
     /// When the release was surveyed, as recorded in the project.
@@ -147,6 +162,12 @@ impl Model {
     }
 }
 
+/// The release folder of the archive at `url`: its file stem.
+fn release_of(url: &str) -> &str {
+    let file = url.rsplit('/').next().unwrap_or_default();
+    file.strip_suffix(".zip").unwrap_or(file)
+}
+
 /// `tile 32_566_5937` or `tiles 32_566_5937, 32_567_5937`, as LGV names its 1 km tiles.
 pub fn tile_names(tiles: &[TileId]) -> String {
     let noun = if tiles.len() == 1 { "tile" } else { "tiles" };
@@ -159,6 +180,7 @@ pub(crate) use freemapper_sources::height_model::names;
 /// cached, mosaicked into a Float32 GeoTIFF `out` with its world file. Tiles outside Hamburg
 /// are missing from the archive and stay empty; returned are the missing tiles inside Hamburg.
 /// No tile at all is an error (the archive was renamed or restructured).
+#[cfg(any(test, feature = "testing"))]
 pub fn fetch_model(
     fetcher: &dyn Fetcher,
     cache: &CacheDir,
@@ -168,15 +190,35 @@ pub fn fetch_model(
     root: &Path,
     out: &Path,
 ) -> Result<Vec<TileId>, FetchError> {
+    fetch_model_from(
+        fetcher,
+        cache,
+        mode,
+        (model, model.archive_url()),
+        bbox,
+        root,
+        out,
+    )
+}
+
+/// [`fetch_model`] for the archive at `url`, which the cache keeps under its own release.
+pub fn fetch_model_from(
+    fetcher: &dyn Fetcher,
+    cache: &CacheDir,
+    mode: FetchMode,
+    (model, url): (Model, &str),
+    bbox: &BoundingBox,
+    root: &Path,
+    out: &Path,
+) -> Result<Vec<TileId>, FetchError> {
     let grid = GridSpec::covering(bbox, 1.0);
     let mut raster = Raster::filled(grid, f32::NAN);
     let dir = cache
         .provider_dir("lgv")
         .join(model.cache_name())
-        .join(model.release());
+        .join(release_of(url));
     // The member count (u16, little-endian), then the central directory.
     let directory_file = dir.join("directory.bin");
-    let url = model.archive_url();
     let offline_hint = |what: &str| {
         refused(
             url,
@@ -260,11 +302,52 @@ const PROVIDER: &str = "lgv";
 /// The rasters of LGV (Hamburg): requested for the area and stored in the project folder.
 pub struct LgvBackend {
     info: ProviderInfo,
+    /// The orthophoto WMS and the addresses of the metadata and of the two archives, as the
+    /// manifest says them.
+    wms: WmsService,
+    addresses: Addresses,
+}
+
+/// The addresses of the files LGV serves besides the WMS.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Addresses {
+    /// The flight dates of the orthophoto tiles.
+    pub metadata: String,
+    /// The DGM1 archive.
+    pub dgm1: String,
+    /// The bDOM archive.
+    pub bdom: String,
+}
+
+impl Addresses {
+    /// The addresses `config` states.
+    pub fn of(config: &RasterConfig) -> Result<Self, String> {
+        Ok(Self {
+            metadata: config.require("lgv", "metadata")?,
+            dgm1: config.require("lgv", "dgm1")?,
+            bdom: config.require("lgv", "bdom")?,
+        })
+    }
+
+    fn of_model(&self, model: Model) -> &str {
+        match model {
+            Model::Dgm1 => &self.dgm1,
+            Model::Bdom => &self.bdom,
+        }
+    }
 }
 
 impl LgvBackend {
-    pub fn new() -> Self {
+    /// The backend that asks `wms` for the orthophoto (the vintage is added here) and the
+    /// archives at `addresses`.
+    pub fn with_addresses(wms: WmsService, addresses: Addresses) -> Self {
+        let wms = WmsService {
+            extra: Cow::Borrowed(WMS_EXTRA),
+            ..wms
+        };
         Self {
+            wms,
+            addresses,
             info: ProviderInfo {
                 id: AdapterId::built_in(PROVIDER),
                 cache_dir: Some("lgv".to_string()),
@@ -275,6 +358,22 @@ impl LgvBackend {
     }
 }
 
+#[cfg(any(test, feature = "testing"))]
+impl LgvBackend {
+    /// The backend with the addresses the manifest of Hamburg declares.
+    pub fn new() -> Self {
+        Self::with_addresses(
+            WMS,
+            Addresses {
+                metadata: METADATA_URL.to_string(),
+                dgm1: Model::Dgm1.archive_url().to_string(),
+                bdom: Model::Bdom.archive_url().to_string(),
+            },
+        )
+    }
+}
+
+#[cfg(any(test, feature = "testing"))]
 impl Default for LgvBackend {
     fn default() -> Self {
         Self::new()
@@ -292,7 +391,7 @@ impl RasterBackend for LgvBackend {
         project: &mut dyn RasterProject,
         bbox: &BoundingBox,
     ) -> Result<(), AdapterError> {
-        fetch_rasters(env, project, bbox)
+        fetch_rasters(env, project, bbox, (&self.wms, &self.addresses))
     }
 }
 
@@ -303,6 +402,7 @@ fn fetch_rasters(
     env: &mut AdapterEnv<'_>,
     project: &mut dyn RasterProject,
     bbox: &BoundingBox,
+    (wms, addresses): (&WmsService, &Addresses),
 ) -> Result<(), AdapterError> {
     let (fetcher, mode, skip_surface) = (env.fetcher, env.mode, env.skip_surface);
     let cache = env.cache;
@@ -310,12 +410,12 @@ fn fetch_rasters(
     project.records().tiles.clear();
     project.records().ndsm_tiles.clear();
     warn_beyond_state(env, project, PROVIDER, "LGV");
-    let flight = || flight_date(fetcher, bbox);
+    let flight = || flight_date(fetcher, &addresses.metadata, bbox);
     fetch_wms_orthophoto(
         env,
         project,
         bbox,
-        (&OrthophotoSource::Wms(WMS), "LGV", &flight, None),
+        (&OrthophotoSource::Wms(wms.clone()), "LGV", &flight, None),
     )?;
     // Offline the tiles come from the cache: they were fetched when the record says.
     let record = |model: Model, old: &Option<WcsRecord>| WcsRecord {
@@ -341,11 +441,11 @@ fn fetch_rasters(
         "progress-model-read",
         model = crate::note::model(Model::Dgm1.label())
     ));
-    let missing = fetch_model(
+    let missing = fetch_model_from(
         fetcher,
         cache,
         mode,
-        Model::Dgm1,
+        (Model::Dgm1, addresses.of_model(Model::Dgm1)),
         bbox,
         dir,
         &dir.join(TERRAIN_RELPATH),
@@ -362,11 +462,11 @@ fn fetch_rasters(
         "progress-model-read",
         model = crate::note::model(Model::Bdom.label())
     ));
-    match fetch_model(
+    match fetch_model_from(
         fetcher,
         cache,
         mode,
-        Model::Bdom,
+        (Model::Bdom, addresses.of_model(Model::Bdom)),
         bbox,
         dir,
         &dir.join(SURFACE_RELPATH),
@@ -850,7 +950,7 @@ mod tests {
             max_n: 5_937_950.0,
         };
         assert_eq!(
-            flight_date(&fetcher, &school).as_deref(),
+            flight_date(&fetcher, METADATA_URL, &school).as_deref(),
             Some("19.03.2026")
         );
         let elsewhere = BoundingBox {
@@ -859,6 +959,108 @@ mod tests {
             max_e: 500_100.0,
             max_n: 5_900_100.0,
         };
-        assert_eq!(flight_date(&fetcher, &elsewhere), None);
+        assert_eq!(flight_date(&fetcher, METADATA_URL, &elsewhere), None);
+    }
+
+    /// The backend asks the addresses its config names: the archive and its cache folder, the
+    /// metadata, and the WMS with the vintage the code pins.
+    #[test]
+    fn the_backend_asks_the_addresses_it_is_given() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(dir.path().join("cache"));
+        let zip = archive(&[(
+            "d/s32_565/dgm1_32_565_5937_1_hh_2022.tif",
+            tile(565, 5937, 6.0),
+            true,
+        )]);
+        let custom = "https://archive.example.org/files/dgm1_new_2030.zip";
+        let fetcher = MapFetcher::default();
+        fetcher.insert(custom, zip);
+        let bbox = BoundingBox {
+            min_e: 565_100.0,
+            min_n: 5_937_500.0,
+            max_e: 565_200.0,
+            max_n: 5_937_600.0,
+        };
+        let out = dir.path().join("dgm1.tif");
+        fetch_model_from(
+            &fetcher,
+            &cache,
+            FetchMode::Online,
+            (Model::Dgm1, custom),
+            &bbox,
+            out.parent().unwrap(),
+            &out,
+        )
+        .unwrap();
+        assert!(
+            cache
+                .provider_dir("lgv")
+                .join("dgm1")
+                .join("dgm1_new_2030")
+                .join("dgm1_32_565_5937_.tif")
+                .exists()
+        );
+        assert!(fetcher.log.borrow().iter().all(|url| url == custom));
+
+        let metadata = "https://meta.example.org/dop.zip";
+        let csv = "Kachelname;Aktualitaet\ndop20rgbi_32_565_5937_1_hh_2026.tif;18.03.2026;0\n";
+        let meta = MapFetcher::default();
+        meta.insert(
+            metadata,
+            archive(&[(
+                "AdV-Metadaten_DOP_2026_unbelaubt_hh.csv",
+                csv.as_bytes().to_vec(),
+                true,
+            )]),
+        );
+        let school = BoundingBox {
+            min_e: 564_950.0,
+            min_n: 5_937_650.0,
+            max_e: 565_050.0,
+            max_n: 5_937_750.0,
+        };
+        assert_eq!(
+            flight_date(&meta, metadata, &school).as_deref(),
+            Some("18.03.2026")
+        );
+        assert_eq!(meta.log.borrow().as_slice(), [metadata]);
+    }
+
+    #[test]
+    fn the_config_must_name_all_three_addresses_and_the_vintage_stays_in_the_code() {
+        let config = |names: &[&str]| RasterConfig {
+            endpoints: names
+                .iter()
+                .map(|n| (n.to_string(), format!("https://{n}.example.org/f.zip")))
+                .collect(),
+            ..RasterConfig::default()
+        };
+        for missing in ["metadata", "dgm1", "bdom"] {
+            let names: Vec<&str> = ["metadata", "dgm1", "bdom"]
+                .into_iter()
+                .filter(|n| *n != missing)
+                .collect();
+            let err = Addresses::of(&config(&names)).unwrap_err();
+            assert!(err.contains(missing), "{err}");
+        }
+        let all = Addresses::of(&config(&["metadata", "dgm1", "bdom"])).unwrap();
+        assert_eq!(all.metadata, "https://metadata.example.org/f.zip");
+        assert_eq!(all.of_model(Model::Dgm1), "https://dgm1.example.org/f.zip");
+        assert_eq!(all.of_model(Model::Bdom), "https://bdom.example.org/f.zip");
+        let backend = LgvBackend::with_addresses(
+            WmsService {
+                url: Cow::Borrowed("https://wms.example.org/dop"),
+                layer: Cow::Borrowed("l"),
+                crs: Crs::Utm32,
+                extra: Cow::Borrowed(""),
+                max_px: 1000,
+            },
+            all,
+        );
+        assert_eq!(backend.wms.extra, "&TIME=2026");
+        assert_eq!(backend.wms.url, "https://wms.example.org/dop");
+        assert_eq!(release_of("https://h.example.org/a/b/file_1.zip"), "file_1");
+        assert_eq!(release_of("https://h.example.org/noext"), "noext");
     }
 }

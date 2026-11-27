@@ -36,6 +36,10 @@ note = "Lizenz CC BY 4.0 (Namensnennung 4.0 International): https://creativecomm
 [orthophoto]
 backend = "geobremen"
 
+[orthophoto.endpoints]
+wms = "https://geodienste.bremen.de/wms_dop_lb"
+files = "https://gdi2.geo.bremen.de/inspire/download"
+
 [terrain]
 backend = "geobremen"
 

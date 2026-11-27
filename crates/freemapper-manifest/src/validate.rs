@@ -145,7 +145,7 @@ fn is_slug(text: &str, max: usize) -> bool {
 
 /// The raster backends whose `[orthophoto]` may state the address of the WMS they ask (issue
 /// #273): `url`, `layer` and `max_px`. The code of the backend keeps everything else.
-pub const TAKES_ADDRESSES: [&str; 9] = [
+pub const TAKES_ADDRESSES: [&str; 10] = [
     "geosn",
     "hvbg",
     "lvermgeo-rp",
@@ -155,7 +155,30 @@ pub const TAKES_ADDRESSES: [&str; 9] = [
     "geobasis-nrw",
     "ldbv",
     "lgln",
+    "lgv",
 ];
+
+/// The raster backends whose `[orthophoto]` states more addresses (`endpoints`), with the names
+/// each asks for (issue #273). The code of the backend keeps what it does with them.
+pub const TAKES_ENDPOINTS: [(&str, &[&str]); 5] = [
+    ("lgv", &["metadata", "dgm1", "bdom"]),
+    ("geobasis-nrw", &["hm"]),
+    (
+        "lgln",
+        &["dop-stac", "dgm-stac", "dom-stac", "dgm-wcs", "dom-wcs"],
+    ),
+    ("laiv-mv", &["overview", "dop-wcs", "dgm-wcs", "dom-wcs"]),
+    ("geobremen", &["wms", "files"]),
+];
+
+/// The names of the addresses the raster backend `backend` asks; none for a backend not in
+/// [`TAKES_ENDPOINTS`].
+fn endpoint_names(backend: &str) -> &'static [&'static str] {
+    TAKES_ENDPOINTS
+        .iter()
+        .find(|(name, _)| *name == backend)
+        .map_or(&[], |(_, names)| *names)
+}
 
 /// The name of a layer or a coverage of a service.
 fn is_layer(text: &str) -> bool {
@@ -549,6 +572,41 @@ impl Check<'_> {
                 None
             }
         }
+    }
+
+    /// The addresses `[orthophoto]` of a backend states besides the WMS (issue #273), by the names
+    /// the backend gives them: each a https address on a host of `[net] hosts`, without a query.
+    fn endpoints(
+        &mut self,
+        value: Option<&Spanned<Params>>,
+        table: &str,
+        names: &[&str],
+    ) -> Option<std::collections::BTreeMap<String, String>> {
+        let mut found = std::collections::BTreeMap::new();
+        let Some(table_value) = value else {
+            return Some(found);
+        };
+        let mut fine = true;
+        for (name, url) in table_value.get_ref() {
+            let key = format!("{table}.endpoints.{name}");
+            if !names.contains(&name.as_str()) {
+                self.fail(
+                    "manifest.unknown-key",
+                    &url.span(),
+                    &key,
+                    format!(
+                        "not an address of this backend; it asks {}",
+                        names.join(", ")
+                    ),
+                );
+                fine = false;
+            } else if let Some(url) = self.url(url, &key) {
+                found.insert(name.clone(), url);
+            } else {
+                fine = false;
+            }
+        }
+        fine.then_some(found)
     }
 
     /// More parameters of a request, by name. The readers encode the values.
@@ -1382,6 +1440,7 @@ impl Check<'_> {
                 "coverage" => self.absent(raw.coverage.as_ref(), &full, kind),
                 "crs" => self.absent(raw.crs.as_ref(), &full, kind),
                 "params" => self.absent(raw.params.as_ref(), &full, kind),
+                "endpoints" => self.absent(raw.endpoints.as_ref(), &full, kind),
                 "max_px" => self.absent(raw.max_px.as_ref(), &full, kind),
                 "multipart" => self.absent(raw.multipart.as_ref(), &full, kind),
                 "envelope" => self.absent(raw.envelope.as_ref(), &full, kind),
@@ -1426,6 +1485,10 @@ impl Check<'_> {
                 if !takes {
                     absent.extend(["url", "layer", "max_px"]);
                 }
+                let names = endpoint_names(&name);
+                if names.is_empty() {
+                    absent.push("endpoints");
+                }
                 let fine = self.absent_of_raster(raw, table, "a backend", &absent);
                 let mut config = RasterConfig::default();
                 if takes {
@@ -1447,7 +1510,15 @@ impl Check<'_> {
                             .and_then(|value| u32::try_from(value).ok());
                     }
                 }
-                return fine.then_some(Orthophoto::Backend { name, config });
+                // A backend that asks no endpoint has had its `endpoints` refused above.
+                let endpoints = if names.is_empty() {
+                    Some(std::collections::BTreeMap::new())
+                } else {
+                    self.endpoints(raw.endpoints.as_ref(), "orthophoto", names)
+                };
+                config.endpoints = endpoints.clone().unwrap_or_default();
+                return (fine && endpoints.is_some())
+                    .then_some(Orthophoto::Backend { name, config });
             }
         };
         let at = kind.span();
@@ -1460,7 +1531,7 @@ impl Check<'_> {
             &["multipart", "envelope", "max_m", "source_label"],
         );
         let other = if wms { "coverage" } else { "layer" };
-        fine &= self.absent_of_raster(raw, table, kind, &[other]);
+        fine &= self.absent_of_raster(raw, table, kind, &[other, "endpoints"]);
         if !wms {
             fine &= self.absent_of_raster(raw, table, kind, &["params"]);
         }
@@ -1545,6 +1616,7 @@ impl Check<'_> {
                         "coverage",
                         "crs",
                         "params",
+                        "endpoints",
                         "max_px",
                         "multipart",
                         "envelope",
@@ -1558,7 +1630,8 @@ impl Check<'_> {
         };
         let at = kind.span();
         let kind = "kind `wcs` of a height model";
-        let mut fine = self.absent_of_raster(raw, table, kind, &["layer", "crs", "max_px"]);
+        let mut fine =
+            self.absent_of_raster(raw, table, kind, &["layer", "crs", "max_px", "endpoints"]);
         if table != "terrain" {
             fine &= self.absent_of_raster(raw, table, "this table", &["source_label"]);
         }

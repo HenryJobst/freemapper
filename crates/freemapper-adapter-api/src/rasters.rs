@@ -3,6 +3,7 @@
 //! The raster sources of a region: orthophoto, terrain model and surface model. A backend
 //! fetches them and tells `derive` where to read them.
 
+use std::collections::BTreeMap;
 use std::path::PathBuf;
 
 use freemapper_georef::crs::BoundingBox;
@@ -50,6 +51,9 @@ pub struct RasterConfig {
     pub layer: Option<String>,
     /// The largest side of one request in pixels.
     pub max_px: Option<u32>,
+    /// The other addresses the backend asks, by the name the backend gives each (`metadata`,
+    /// `dgm1`, …), without a query. A name the manifest leaves out is the built-in one.
+    pub endpoints: BTreeMap<String, String>,
 }
 
 impl RasterConfig {
@@ -64,7 +68,25 @@ impl RasterConfig {
             url: self.url.clone().or_else(|| fallback.url.clone()),
             layer: self.layer.clone().or_else(|| fallback.layer.clone()),
             max_px: self.max_px.or(fallback.max_px),
+            endpoints: fallback
+                .endpoints
+                .iter()
+                .chain(&self.endpoints)
+                .map(|(name, url)| (name.clone(), url.clone()))
+                .collect(),
         }
+    }
+
+    /// The address named `name`, if the config holds it.
+    pub fn endpoint(&self, name: &str) -> Option<&str> {
+        self.endpoints.get(name).map(String::as_str)
+    }
+
+    /// The address named `name` of the backend `backend`, or the error that says it is missing.
+    pub fn require(&self, backend: &str, name: &str) -> Result<String, String> {
+        self.endpoint(name)
+            .map(str::to_string)
+            .ok_or_else(|| format!("the endpoint `{name}` of the backend `{backend}` is missing"))
     }
 }
 
@@ -190,12 +212,14 @@ pub trait RasterBackend: Send + Sync {
 #[cfg(test)]
 mod config_tests {
     use super::RasterConfig;
+    use std::collections::BTreeMap;
 
     fn config(url: Option<&str>, layer: Option<&str>, max_px: Option<u32>) -> RasterConfig {
         RasterConfig {
             url: url.map(str::to_string),
             layer: layer.map(str::to_string),
             max_px,
+            endpoints: BTreeMap::new(),
         }
     }
 
@@ -224,6 +248,29 @@ mod config_tests {
         assert_eq!(
             config(None, None, Some(200)).or(&fallback),
             config(Some("https://fallback"), Some("fl"), Some(200))
+        );
+    }
+
+    #[test]
+    fn an_endpoint_makes_a_config_non_empty_and_wins_per_name() {
+        let named = |pairs: &[(&str, &str)]| RasterConfig {
+            endpoints: pairs
+                .iter()
+                .map(|(n, u)| (n.to_string(), u.to_string()))
+                .collect(),
+            ..RasterConfig::default()
+        };
+        assert!(!named(&[("a", "https://a")]).is_empty());
+        let fallback = named(&[("a", "https://fa"), ("b", "https://fb")]);
+        let merged = named(&[("b", "https://ob")]).or(&fallback);
+        assert_eq!(merged.endpoint("a"), Some("https://fa"));
+        assert_eq!(merged.endpoint("b"), Some("https://ob"));
+        assert_eq!(merged.endpoint("c"), None);
+        assert_eq!(merged.require("b1", "a").unwrap(), "https://fa");
+        let missing = merged.require("b1", "c").unwrap_err();
+        assert!(
+            missing.contains("`c`") && missing.contains("`b1`"),
+            "{missing}"
         );
     }
 }

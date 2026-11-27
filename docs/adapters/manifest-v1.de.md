@@ -137,8 +137,8 @@ Eine Tabelle, die ein Backend nennt, hat einen Schlüssel:
 |---|---|---|
 | `backend` | Text | Der Name eines Rasterbackends, das in freemapper eingebaut ist: 2 bis 32 Kleinbuchstaben, Ziffern und Bindestriche. Ein Name, den das Programm nicht hat, ist `manifest.backend-missing`. `kind = "backend"` darf daneben stehen, kein anderer Schlüssel. |
 
-`[orthophoto]` von neun Backends (`geosn`, `hvbg`, `lvermgeo-rp`, `lgl-bw`, `lvermgeo-sh`, `lvgl`, `geobasis-nrw`,
-`ldbv`, `lgln`) nennt, wo das Backend das Orthofoto abfragt, mit denselben Schlüsseln wie ein WMS (Issue #273). Jeder
+`[orthophoto]` von zehn Backends (`geosn`, `hvbg`, `lvermgeo-rp`, `lgl-bw`, `lvermgeo-sh`, `lvgl`, `geobasis-nrw`,
+`ldbv`, `lgln`, `lgv`) nennt, wo das Backend das Orthofoto abfragt, mit denselben Schlüsseln wie ein WMS (Issue #273). Jeder
 Schlüssel ist optional; was fehlt, nimmt das Backend aus dem eingebauten Manifest des Bundeslands, ein Ordner, der ein
 Bundesland ersetzt (ADR 0188), nennt also nur, was umgezogen ist. Das Koordinatensystem, den Namen der Info-Ebene und
 das Lesen der Antworten behält der Code. `[terrain]` und `[surface]` nehmen keinen dieser Schlüssel, und ein Backend
@@ -149,6 +149,23 @@ außerhalb dieser Liste nimmt in keiner Tabelle einen.
 | `url` | Text | Die WMS-Adresse, https auf einem Host aus `[net] hosts`, ohne Query. |
 | `layer` | Text | Die Ebene des Orthofotos: 1 bis 100 Buchstaben, Ziffern und `_.:-`. |
 | `max_px` | Ganzzahl | Die längste Seite einer Anfrage in Pixeln, 256 bis 10000. |
+
+Fünf Backends nennen weitere Adressen in `endpoints`, einer Tabelle aus Namen und Adressen (`[orthophoto.endpoints]`
+oder eine Inline-Tabelle), jede eine https-Adresse auf einem Host aus `[net] hosts`, ohne Query (Issue #273). Ein Name,
+den das Backend nicht abfragt, ist `manifest.unknown-key`; was fehlt, nimmt das Backend aus dem eingebauten Manifest.
+Der Code behält, was er mit den Dateien tut: die Kachellisten, die Coverages und Ausdehnungen der Dienste sowie die
+Namen der Ebenen und Jahre.
+
+| Backend | Namen | Adresse von |
+|---|---|---|
+| `lgv` (Hamburg) | `metadata`, `dgm1`, `bdom` | den Befliegungsdaten des Orthofotos, dem DGM1-Archiv, dem bDOM-Archiv |
+| `geobasis-nrw` | `hm` | dem Ordner der Höhenmodell-Dateien |
+| `lgln` (Niedersachsen) | `dop-stac`, `dgm-stac`, `dom-stac`, `dgm-wcs`, `dom-wcs` | den STAC-Schnittstellen und den WCS der Höhenmodelle |
+| `laiv-mv` | `overview`, `dop-wcs`, `dgm-wcs`, `dom-wcs` | dem Kachelindex des Downloadportals und den drei WCS |
+| `geobremen` | `wms`, `files` | dem WMS der Orthofotos (die Ebenen kommen aus seinen Capabilities) und dem Dateiserver |
+
+Der Cache-Ordner der Hamburger Archive folgt dem Dateinamen der Adresse: Ein Archiv unter neuer Adresse bekommt einen
+eigenen Ordner; die Download-Schätzung schaut weiter in den der eingebauten Adresse.
 
 `[orthophoto]` als Dienst:
 

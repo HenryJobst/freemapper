@@ -146,6 +146,7 @@ pub(crate) struct RawRaster {
     pub coverage: Option<Text>,
     pub crs: Option<Spanned<i64>>,
     pub params: Option<Spanned<Params>>,
+    pub endpoints: Option<Spanned<Params>>,
     pub max_px: Option<Spanned<i64>>,
     pub multipart: Option<Spanned<bool>>,
     pub envelope: Option<Spanned<Vec<f64>>>,

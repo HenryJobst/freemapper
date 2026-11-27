@@ -11,7 +11,7 @@ use freemapper_adapter_api::env::AdapterEnv;
 use freemapper_adapter_api::error::AdapterError;
 use freemapper_adapter_api::extras::{NasModel, NasSchema, NasService};
 use freemapper_adapter_api::project::RasterProject;
-use freemapper_adapter_api::rasters::{ProviderInfo, RasterBackend, RasterKind};
+use freemapper_adapter_api::rasters::{ProviderInfo, RasterBackend, RasterConfig, RasterKind};
 use freemapper_adapter_api::records::AdapterId;
 use freemapper_sources::aaa::AaaAlkis;
 use freemapper_sources::raster_fetch::{
@@ -35,7 +35,9 @@ use crate::tiles::{TileId, tiles_covering};
 use crate::xyz_archive::{kept_directory, xyz_tile};
 
 /// The WMS with the orthophotos of every flight since 1951, one layer per flight and city
-/// (`dop10_2025_HB`, `dop10_2025_BHV`), cut at the city borders.
+/// (`dop10_2025_HB`, `dop10_2025_BHV`), cut at the city borders; `wms` of the `endpoints` of the
+/// manifest of Bremen, which the tests are held to.
+#[cfg(any(test, feature = "testing"))]
 pub const ORTHOPHOTOS: &str = "https://geodienste.bremen.de/wms_dop_lb";
 
 /// The layers of the newest flights when the adapter was written, and their year: asked for
@@ -76,7 +78,9 @@ pub fn alkis() -> AaaAlkis {
     }
 }
 
-/// The file server of the open data.
+/// The file server of the open data: `files` of the `endpoints` of the manifest of Bremen, which
+/// the tests are held to.
+#[cfg(any(test, feature = "testing"))]
 pub const FILES: &str = "https://gdi2.geo.bremen.de/inspire/download";
 
 /// The provider id of the adapter, and the name of its folder in the cache.
@@ -95,14 +99,48 @@ pub const FLIGHT_LABEL: DateLabel = DateLabel {
     shown: "year of the flight",
 };
 
-/// The WMS asked for `layers`.
-pub fn wms(layers: &str) -> WmsService {
+/// The WMS at `url`, asked for `layers`.
+pub fn wms_at(url: &str, layers: &str) -> WmsService {
     WmsService {
-        url: Cow::Borrowed(ORTHOPHOTOS),
+        url: Cow::Owned(url.to_string()),
         layer: Cow::Owned(layers.to_string()),
         crs: Crs::Utm32,
         extra: Cow::Borrowed(""),
         max_px: 4000,
+    }
+}
+
+/// The WMS of the manifest, asked for `layers`.
+#[cfg(any(test, feature = "testing"))]
+pub fn wms(layers: &str) -> WmsService {
+    wms_at(ORTHOPHOTOS, layers)
+}
+
+/// The addresses of the two services of GeoBremen.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Addresses {
+    /// The WMS of the orthophotos.
+    pub wms: String,
+    /// The file server of the height models.
+    pub files: String,
+}
+
+impl Addresses {
+    /// The addresses `config` states.
+    pub fn of(config: &RasterConfig) -> Result<Self, String> {
+        Ok(Self {
+            wms: config.require("geobremen", "wms")?,
+            files: config.require("geobremen", "files")?,
+        })
+    }
+
+    /// The addresses the manifest of Bremen declares.
+    #[cfg(any(test, feature = "testing"))]
+    pub fn builtin() -> Self {
+        Self {
+            wms: ORTHOPHOTOS.to_string(),
+            files: FILES.to_string(),
+        }
     }
 }
 
@@ -183,8 +221,8 @@ pub fn newest_layers(text: &str) -> Option<(String, [u16; 2])> {
 
 /// The layers of the newest flights and their years, from the capabilities of the WMS; the
 /// known ones when the service does not answer or names none.
-fn flights(fetcher: &dyn Fetcher) -> (String, [u16; 2]) {
-    let url = format!("{ORTHOPHOTOS}?SERVICE=WMS&REQUEST=GetCapabilities");
+fn flights(fetcher: &dyn Fetcher, wms: &str) -> (String, [u16; 2]) {
+    let url = format!("{wms}?SERVICE=WMS&REQUEST=GetCapabilities");
     crate::fetch::get_with_retries(fetcher, &url, |bytes| Ok(bytes.to_vec()))
         .ok()
         .and_then(|bytes| newest_layers(&String::from_utf8_lossy(&bytes)))
@@ -221,14 +259,20 @@ impl Model {
 
     /// The archive with the tiles of `city`. Its name carries the year of the scan: a new scan
     /// gets a new address, and this one then answers "not found".
-    pub fn archive_url(self, city: City) -> String {
+    pub fn archive_url_in(self, files: &str, city: City) -> String {
         format!(
-            "{FILES}/{}/data/Gitternetz_{}_{}_{}_ASCII_XYZ.zip",
+            "{files}/{}/data/Gitternetz_{}_{}_{}_ASCII_XYZ.zip",
             self.folder(),
             self.prefix().to_uppercase(),
             city.scan_year(),
             city.code()
         )
+    }
+
+    /// [`Self::archive_url_in`] on the file server of the manifest.
+    #[cfg(any(test, feature = "testing"))]
+    pub fn archive_url(self, city: City) -> String {
+        self.archive_url_in(FILES, city)
     }
 
     pub fn label(self) -> &'static str {
@@ -338,7 +382,7 @@ fn parse_xyz(bytes: &[u8], tile: TileId) -> Result<Raster<f32>, String> {
 
 /// The members of the archive of `model` for `city`, with the directory kept in the cache.
 fn directory(
-    fetcher: &dyn Fetcher,
+    (fetcher, files): (&dyn Fetcher, &str),
     cache: &CacheDir,
     mode: FetchMode,
     model: Model,
@@ -347,7 +391,7 @@ fn directory(
     let file = model
         .cache_folder(cache)
         .join(format!("directory-{}.bin", city.code().to_lowercase()));
-    kept_directory(fetcher, mode, &model.archive_url(city), &file)
+    kept_directory(fetcher, mode, &model.archive_url_in(files, city), &file)
 }
 
 /// The 1 km tiles of `model` over `bbox` (EPSG:25832) on its 1 m grid, read out of the
@@ -355,6 +399,7 @@ fn directory(
 /// state that the archive of their city lacks, and the year of the scan at the centre of the
 /// area. A tile outside the state is in no archive and stays empty. No tile at all is an
 /// error, and so is an archive that cannot be read.
+#[cfg(test)]
 fn mosaic(
     fetcher: &dyn Fetcher,
     cache: &CacheDir,
@@ -362,7 +407,18 @@ fn mosaic(
     model: Model,
     bbox: &BoundingBox,
 ) -> Result<(Raster<f32>, HeightModel), FetchError> {
-    let folder = format!("{FILES}/{}/data", model.folder());
+    mosaic_in((fetcher, FILES), cache, mode, model, bbox)
+}
+
+/// [`mosaic`] with the archives on the file server `files`.
+fn mosaic_in(
+    (fetcher, files): (&dyn Fetcher, &str),
+    cache: &CacheDir,
+    mode: FetchMode,
+    model: Model,
+    bbox: &BoundingBox,
+) -> Result<(Raster<f32>, HeightModel), FetchError> {
+    let folder = format!("{files}/{}/data", model.folder());
     let mut raster = Raster::filled(GridSpec::covering(bbox, 1.0), f32::NAN);
     let mut found = HeightModel::default();
     let mut archives: [Option<Vec<Member>>; 2] = [None, None];
@@ -371,7 +427,7 @@ fn mosaic(
         let city = City::of(tile);
         let members = match &mut archives[city as usize] {
             Some(members) => members,
-            unread => unread.insert(directory(fetcher, cache, mode, model, city)?),
+            unread => unread.insert(directory((fetcher, files), cache, mode, model, city)?),
         };
         let Some(member) = model.member_of(members, tile) else {
             if tile_centre_in(tile, BREMEN) {
@@ -384,7 +440,7 @@ fn mosaic(
             model.cache_name(tile),
             member.crc
         ));
-        let url = model.archive_url(city);
+        let url = model.archive_url_in(files, city);
         let part = xyz_tile(fetcher, mode, (&url, member), &file, tile, parse_xyz)?;
         raster
             .paste_with(&part.grid, |x, y| part.get(x, y))
@@ -413,11 +469,15 @@ fn mosaic(
 /// The rasters of GeoBremen: requested for the area and stored in the project folder.
 pub struct GeoBremenBackend {
     info: ProviderInfo,
+    /// The services, as the manifest says them.
+    addresses: Addresses,
 }
 
 impl GeoBremenBackend {
-    pub fn new() -> Self {
+    /// The backend that asks the services at `addresses`.
+    pub fn with_addresses(addresses: Addresses) -> Self {
         Self {
+            addresses,
             info: ProviderInfo {
                 id: AdapterId::built_in(PROVIDER),
                 cache_dir: Some(PROVIDER.to_string()),
@@ -428,6 +488,15 @@ impl GeoBremenBackend {
     }
 }
 
+#[cfg(any(test, feature = "testing"))]
+impl GeoBremenBackend {
+    /// The backend with the addresses the manifest of Bremen declares.
+    pub fn new() -> Self {
+        Self::with_addresses(Addresses::builtin())
+    }
+}
+
+#[cfg(any(test, feature = "testing"))]
 impl Default for GeoBremenBackend {
     fn default() -> Self {
         Self::new()
@@ -445,7 +514,7 @@ impl RasterBackend for GeoBremenBackend {
         project: &mut dyn RasterProject,
         bbox: &BoundingBox,
     ) -> Result<(), AdapterError> {
-        fetch_rasters(env, project, bbox)
+        fetch_rasters(env, project, bbox, &self.addresses)
     }
 }
 
@@ -465,6 +534,7 @@ fn fetch_rasters(
     env: &mut AdapterEnv<'_>,
     project: &mut dyn RasterProject,
     bbox: &BoundingBox,
+    addresses: &Addresses,
 ) -> Result<(), AdapterError> {
     let (fetcher, mode, cache) = (env.fetcher, env.mode, env.cache);
     let root = project.dir().to_path_buf();
@@ -474,7 +544,7 @@ fn fetch_rasters(
     let city = City::of(centre_tile(bbox));
     // Offline the stored image is used, and no layer is asked for.
     let (layers, years) = match mode {
-        FetchMode::Online => flights(fetcher),
+        FetchMode::Online => flights(fetcher, &addresses.wms),
         FetchMode::Offline => (KNOWN_LAYERS.to_string(), [KNOWN_YEAR; 2]),
     };
     let flight = || Some(years[city as usize].to_string());
@@ -483,7 +553,7 @@ fn fetch_rasters(
         project,
         bbox,
         (
-            &OrthophotoSource::Wms(wms(&layers)),
+            &OrthophotoSource::Wms(wms_at(&addresses.wms, &layers)),
             AGENCY,
             &flight,
             Some(&FLIGHT_LABEL),
@@ -497,12 +567,13 @@ fn fetch_rasters(
         (Model::Dgm1.label(), Model::Dom1.label()),
         &mut |surface, out, progress| {
             let model = if surface { Model::Dom1 } else { Model::Dgm1 };
-            let (raster, mut found) = mosaic(fetcher, cache, mode, model, bbox)?;
+            let (raster, mut found) =
+                mosaic_in((fetcher, &addresses.files), cache, mode, model, bbox)?;
             write_float_raster(
                 &raster,
                 &root,
                 out,
-                &format!("{FILES}/{}/data", model.folder()),
+                &format!("{}/{}/data", addresses.files, model.folder()),
             )?;
             // Told here, with the state as it is written: the shared warning makes a key of
             // the name, which the catalogs do not have.
@@ -1068,7 +1139,7 @@ mod tests {
             skip_surface: false,
             progress: &mut |n| notes.push(n.to_string()),
         };
-        fetch_rasters(&mut env, &mut project, bbox).unwrap();
+        fetch_rasters(&mut env, &mut project, bbox, &Addresses::builtin()).unwrap();
         (project, notes)
     }
 
@@ -1201,5 +1272,86 @@ mod tests {
         assert_eq!(source.service.region.as_str(), "bremen");
         assert_eq!(source.square_bez.as_deref(), Some("ohne Unterart (Bremen)"));
         assert_eq!(source.cache_dir, "geobremen");
+    }
+
+    /// The archives are read from the file server the backend is given, and the capabilities
+    /// from the WMS it is given.
+    #[test]
+    fn the_services_are_asked_at_the_addresses_the_backend_is_given() {
+        let files = "https://files.example.org/inspire";
+        assert_eq!(
+            Model::Dgm1.archive_url_in(files, City::Bremen),
+            format!(
+                "https://files.example.org/inspire/DGM/data/Gitternetz_DGM1_{}_{}_ASCII_XYZ.zip",
+                City::Bremen.scan_year(),
+                City::Bremen.code()
+            )
+        );
+        let dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(dir.path().join("cache"));
+        let fetcher = MapFetcher::default();
+        let members = [(
+            member_name(Model::Dgm1, City::Bremen, 487, 5881),
+            xyz(Spelling::WholeMetres, 487, 5881, 10, 3.0),
+        )];
+        let members: Vec<(&str, Vec<u8>, bool)> = members
+            .iter()
+            .map(|(name, bytes)| (name.as_str(), bytes.clone(), true))
+            .collect();
+        fetcher.insert(
+            &Model::Dgm1.archive_url_in(files, City::Bremen),
+            archive(&members),
+        );
+        let (raster, _) = mosaic_in(
+            (&fetcher, files),
+            &cache,
+            FetchMode::Online,
+            Model::Dgm1,
+            &bremen(),
+        )
+        .unwrap();
+        assert!(raster.get(0, 0).is_finite());
+        assert!(
+            fetcher
+                .log
+                .borrow()
+                .iter()
+                .all(|url| url.starts_with(files)),
+            "{:?}",
+            fetcher.log.borrow()
+        );
+        let wms = MapFetcher::default();
+        wms.insert_prefix(
+            "https://wms.example.org/dop?",
+            CAPABILITIES.as_bytes().to_vec(),
+        );
+        let (layers, years) = flights(&wms, "https://wms.example.org/dop");
+        // Not the known layers: the capabilities of the given WMS were read.
+        assert_eq!(layers, "dop10_2025_HB,dop10_2023_BHV");
+        assert_eq!(years, [2025, 2023]);
+        assert_eq!(
+            wms.log.borrow().as_slice(),
+            ["https://wms.example.org/dop?SERVICE=WMS&REQUEST=GetCapabilities"]
+        );
+        assert_eq!(
+            wms_at("https://wms.example.org/dop", "l").url,
+            "https://wms.example.org/dop"
+        );
+    }
+
+    #[test]
+    fn the_config_must_name_both_addresses() {
+        for missing in ["wms", "files"] {
+            let config = RasterConfig {
+                endpoints: ["wms", "files"]
+                    .iter()
+                    .filter(|n| **n != missing)
+                    .map(|n| (n.to_string(), format!("https://{n}.example.org")))
+                    .collect(),
+                ..RasterConfig::default()
+            };
+            let err = Addresses::of(&config).unwrap_err();
+            assert!(err.contains(&format!("`{missing}`")), "{err}");
+        }
     }
 }

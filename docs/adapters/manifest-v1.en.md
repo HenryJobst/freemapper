@@ -133,8 +133,8 @@ A table that names a backend has one key:
 |---|---|---|
 | `backend` | text | The name of a raster backend built into freemapper: 2 to 32 lower-case letters, digits and hyphens. A name the program does not have is `manifest.backend-missing`. `kind = "backend"` may stand beside it; any other key may not. |
 
-`[orthophoto]` of nine backends (`geosn`, `hvbg`, `lvermgeo-rp`, `lgl-bw`, `lvermgeo-sh`, `lvgl`, `geobasis-nrw`,
-`ldbv`, `lgln`) states where the backend asks for the orthophoto, with the same keys as a WMS (issue #273). Each key
+`[orthophoto]` of ten backends (`geosn`, `hvbg`, `lvermgeo-rp`, `lgl-bw`, `lvermgeo-sh`, `lvgl`, `geobasis-nrw`,
+`ldbv`, `lgln`, `lgv`) states where the backend asks for the orthophoto, with the same keys as a WMS (issue #273). Each key
 is optional; one left out is the one of the built-in manifest of the state, so a folder that replaces a state
 (ADR 0188) states only what moved. The code keeps the CRS, the name of the info layer and the way the answers are read.
 `[terrain]` and `[surface]` take none of these keys, and a backend not on this list takes none in any table.
@@ -144,6 +144,22 @@ is optional; one left out is the one of the built-in manifest of the state, so a
 | `url` | text | The WMS address, https on a host of `[net] hosts`, without a query. |
 | `layer` | text | The layer of the orthophoto: 1 to 100 letters, digits and `_.:-`. |
 | `max_px` | integer | The largest side of one request in pixels, 256 to 10000. |
+
+Five backends state more addresses in `endpoints`, a table of names and addresses (`[orthophoto.endpoints]` or an
+inline table), each a https address on a host of `[net] hosts`, without a query (issue #273). A name the backend does
+not ask is `manifest.unknown-key`; a name left out is the one of the built-in manifest. The code keeps what it does
+with the files: the tile lists, the coverages and extents of the services, and the names of the layers and years.
+
+| Backend | Names | Address of |
+|---|---|---|
+| `lgv` (Hamburg) | `metadata`, `dgm1`, `bdom` | the flight dates of the orthophoto, the DGM1 archive, the bDOM archive |
+| `geobasis-nrw` | `hm` | the folder of the height model files |
+| `lgln` (Lower Saxony) | `dop-stac`, `dgm-stac`, `dom-stac`, `dgm-wcs`, `dom-wcs` | the STAC APIs and the WCS of the height models |
+| `laiv-mv` | `overview`, `dop-wcs`, `dgm-wcs`, `dom-wcs` | the tile index of the Downloadportal and the three WCS |
+| `geobremen` | `wms`, `files` | the WMS of the orthophotos (its layers come from its capabilities) and the file server |
+
+The cache folder of Hamburg's archives follows the file name of the address, so an archive at a new address gets its
+own folder; the download estimate still looks in the one of the built-in address.
 
 `[orthophoto]` as a service:
 

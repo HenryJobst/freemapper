@@ -44,6 +44,13 @@ url = "https://opendata.lgln.niedersachsen.de/doorman/noauth/dop_wms"
 layer = "ni_dop20"
 max_px = 4000
 
+[orthophoto.endpoints]
+dop-stac = "https://dop.stac.lgln.niedersachsen.de"
+dgm-stac = "https://dgm.stac.lgln.niedersachsen.de"
+dom-stac = "https://dom.stac.lgln.niedersachsen.de"
+dgm-wcs = "https://opendata.geoservices.lgln.niedersachsen.de/dgm_wcs"
+dom-wcs = "https://opendata.geoservices.lgln.niedersachsen.de/dom_wcs"
+
 [terrain]
 backend = "lgln"
 
