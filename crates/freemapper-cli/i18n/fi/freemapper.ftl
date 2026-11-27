@@ -973,6 +973,17 @@ permits-object-kind = { $kind ->
         [landscape-complex] Luonto- ja maisemakokonaisuus (zespół przyrodniczo-krajobrazowy)
         [documentation-site] Dokumentointikohde (stanowisko dokumentacyjne)
         [natural-monument-pl] Luonnonmuistomerkki (pomnik przyrody)
+        [national-park-cz] Kansallispuisto (národní park, NP)
+        [protected-landscape-area-cz] Suojeltu maisema-alue (chráněná krajinná oblast, CHKO)
+        [national-nature-reserve] Kansallinen luonnonsuojelualue (národní přírodní rezervace, NPR)
+        [national-nature-monument] Kansallinen luonnonmuistomerkki (národní přírodní památka, NPP)
+        [nature-reserve-cz] Luonnonsuojelualue (přírodní rezervace, PR)
+        [nature-monument-cz] Luonnonmuistomerkki (přírodní památka, PP)
+        [protective-zone-cz] Suojavyöhyke (ochranné pásmo)
+        [nature-zone-cz] Luonnonsuojelun vyöhyke (zóna ochrany přírody)
+        [natura2000-habitats-cz] Natura 2000 -alue elinympäristöille (evropsky významná lokalita, EVL)
+        [natura2000-birds-cz] Natura 2000 -alue linnuille (ptačí oblast, PO)
+        [memorial-tree] Muistopuu (památný strom)
        *[special-rules] Alue erityissäännöin
     }
 permits-object-count = { $count } kohdetta
@@ -1037,6 +1048,7 @@ permits-register-history-in-area = Historian muistomerkit karttaalueella: { $cou
 permits-register-history-nearby = Lisää historian muistomerkkejä karttaalueen ympärillä olevassa suorakulmiossa, mutta ei karttaalueella: { $count }.
 permits-register-history-left = { $count } muuta on tässä vain laskettu, ilman nimiä.
 permits-admin-unit-code = { $name } (TERYT { $code })
+permits-admin-unit-code-ruian = { $name } (RÚIAN { $code })
 permits-none-state-forest = Lähteen { $source } mukaan kartta-alueella ei ole valtion metsää.
 permits-forest-units-reach = Metsätoimisto vastaa alueensa metsästä. Sen alue voi kattaa myös kaupunkeja ja peltoja.
 permits-state-forest-office = vastuussa: { $office }
@@ -1070,6 +1082,16 @@ permits-hint-gmina-land-pl = Jos karttaalueen maa kuuluu gminalle, esimerkiksi k
         [one] gminan ({ $gmina }) virastolta
        *[other] gminojen ({ $gmina }) virastoilta
     } ennen käyttöä. Nämä huomautukset eivät näytä, kuka maan omistaa.
+permits-hint-protected-areas-cz = Karttaalueella on suojelualueita tai luonnonsuojelun kohteita. Luonnon- ja maisemansuojelulain (laki nro 114/1992 Sb.) mukaan järjestetyt urheilu-, matkailu- ja muut yleisötapahtumat kansallispuistossa on kielletty muualla kuin luonnonsuojeluviranomaisen osoittamissa paikoissa (§ 16 odst. 1 písm. q), ja kansallispuiston suojavyöhykkeellä tällaiset massatapahtumat näiden paikkojen ja rakennettujen alueiden ulkopuolella vaativat viranomaisen suostumuksen (§ 37 odst. 3 písm. d). Kansallisella luonnonsuojelualueella on kielletty astua tai ajaa viranomaisen suostumuksella merkittyjen polkujen ulkopuolelle (§ 29 písm. d). Luonnonsuojeluviranomaisia ovat muun muassa kansallispuiston hallinto, luonnonsuojeluvirasto (AOPK ČR), alueellinen virasto (krajský úřad) ja laajennetun toimivallan kunnan virasto (§ 75 odst. 1). Muilla suojelualueilla ja suojelukohteilla on omat suojeluehtonsa. Kysy viranomaiselta ajoissa, kun suunnittelet tapahtumaa siellä.
+permits-hint-monuments-cz = Karttaalueella on valtion luettelon kulttuurimuistomerkkejä tai muistomerkkialueita. Valtion muistomerkkien hoidon lain (laki nro 20/1987 Sb., § 14 odst. 1 ja 2) mukaan muistomerkin omistajan on haettava etukäteen päätös tai sitova lausunto ennen muistomerkin tai sen ympäristön kunnossapitoa, korjausta, perusparannusta tai muuta muutosta. Sama koskee muistomerkkisuojelualueella, muistomerkkivyöhykkeellä tai muistomerkin suojavyöhykkeellä olevan kiinteistön omistajaa rakentamisessa, rakennuksen muutoksessa, maastotöissä, laitteessa tai kyltissä, rakennelman purkamisessa, puiden käsittelyssä tai ylläpitotöissä. Päätöksen tekee laajennetun toimivallan kunnan virasto{ $orp ->
+        [none] {""}
+       *[other] {" "}({ $orp})
+    }, kansallisen kulttuurimuistomerkin osalta alueellinen virasto. Laki ei mainitse kävelyä, juoksua tai rastia sellaisenaan; kysy siltä virastolta, jos tapahtuma koskee muistomerkkiä tai asettaa siihen laitteita tai kylttejä.
+permits-hint-forest-owner-cz = Metsätoimintoihin tarkoitetulla maalla saa järjestää yhteiskunnallisen massatapahtuman, esimerkiksi urheilu- tai kulttuuritapahtuman, vain sen metsän omistajan kirjallisella suostumuksella, jossa tapahtuma pidetään (metsälaki, laki nro 289/1995 Sb., § 20 odst. 5). Järjestäjän on lisäksi ilmoitettava siitä kirjallisesti laajennetun toimivallan kunnan virastolle{ $orp ->
+        [none] {""}
+       *[other] {" "}({ $orp})
+    }, tai alueelliselle virastolle, jos tapahtuma ulottuu tällaisen kunnan alueen ulkopuolelle, viimeistään 30 päivää ennen tapahtumaa. Ilmoituksessa ilmoitetaan päivämäärä ja paikka, tapahtuman henkilöstö, odotettu osallistujamäärä ja omistajien kirjalliset suostumukset (sama kohta). Nämä huomautukset eivät näytä, kuka metsän omistaa; kysy metsänomistajilta ajoissa.
+permits-hint-roads-cz = Tapahtuma, joka käyttää tietä tavallisesta poikkeavalla tavalla, esimerkiksi urheilu-, kulttuuri- tai muu vastaava tapahtuma, joka voi vaarantaa liikenneturvallisuuden tai liikenteen sujuvuuden, tarvitsee toimivaltaisen tienpitoviranomaisen luvan. Se myönnetään tien omistajan ennakkosuostumuksella ja, jos liikenneturvallisuus tai liikenteen sujuvuus voi vaarantua, Tšekin tasavallan poliisin suostumuksella (tielaki, laki nro 13/1997 Sb., § 25 odst. 1 ja odst. 6 písm. d). Viranomainen on paikallisteiden osalta kunnanvirasto tai laajennetun toimivallan kunnan virasto, kun se päättää, ja toisen ja kolmannen luokan teiden osalta laajennetun toimivallan kunnan virasto (§ 40 odst. 4 ja 5). Kunnat karttaalueella: { $gmina }. Nämä huomautukset eivät näytä teiden luokkaa.
 permits-section-water-protection = Vedensuojelualueet ({ $source })
 permits-section-forest-functions = Metsän toiminnot ja suojametsä ({ $source })
 permits-none-water-protection = Lähteen { $source } mukaan kartta-alueella ei ole vedensuojelualuetta.

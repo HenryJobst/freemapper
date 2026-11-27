@@ -1,0 +1,43 @@
+{
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       14.224445,
+       49.9419
+      ],
+      [
+       14.706788,
+       49.9419
+      ],
+      [
+       14.706788,
+       50.17743
+      ],
+      [
+       14.224445,
+       50.17743
+      ],
+      [
+       14.224445,
+       49.9419
+      ]
+     ]
+    ]
+   },
+   "properties": {
+    "kod": 554782,
+    "nazev": "Praha",
+    "okres": null,
+    "pou": 19,
+    "nespravny": null,
+    "platido": null
+   }
+  }
+ ]
+}

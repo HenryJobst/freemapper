@@ -973,6 +973,17 @@ permits-object-kind = { $kind ->
         [landscape-complex] Természeti és táji együttes (zespół przyrodniczo-krajobrazowy)
         [documentation-site] Dokumentációs lelőhely (stanowisko dokumentacyjne)
         [natural-monument-pl] Természeti emlék (pomnik przyrody)
+        [national-park-cz] Nemzeti park (národní park, NP)
+        [protected-landscape-area-cz] Védett tájterület (chráněná krajinná oblast, CHKO)
+        [national-nature-reserve] Nemzeti természetvédelmi terület (národní přírodní rezervace, NPR)
+        [national-nature-monument] Nemzeti természeti emlék (národní přírodní památka, NPP)
+        [nature-reserve-cz] Természetvédelmi terület (přírodní rezervace, PR)
+        [nature-monument-cz] Természeti emlék (přírodní památka, PP)
+        [protective-zone-cz] Védőövezet (ochranné pásmo)
+        [nature-zone-cz] Természetvédelmi övezet (zóna ochrany přírody)
+        [natura2000-habitats-cz] Natura 2000 terület élőhelyekre (evropsky významná lokalita, EVL)
+        [natura2000-birds-cz] Natura 2000 terület madarakra (ptačí oblast, PO)
+        [memorial-tree] Emlékfa (památný strom)
        *[special-rules] Különleges szabályokkal bíró terület
     }
 permits-object-count = { $count } objektum
@@ -1037,6 +1048,7 @@ permits-register-history-in-area = A történelem emlékei a térképterületen:
 permits-register-history-nearby = További történelmi emlékek a térképterület körüli téglalapban, de nem a térképterületen: { $count }.
 permits-register-history-left = További { $count } itt csak meg van számolva, név nélkül.
 permits-admin-unit-code = { $name } (TERYT { $code })
+permits-admin-unit-code-ruian = { $name } (RÚIAN { $code })
 permits-none-state-forest = A(z) { $source } szerint nincs tartományi erdő a térképterületen.
 permits-forest-units-reach = Az erdészeti hivatal a saját területén lévő erdőért felel. A területe városokat és mezőket is magában foglalhat.
 permits-state-forest-office = illetékes: { $office }
@@ -1070,6 +1082,16 @@ permits-hint-gmina-land-pl = Ha a térképterület földje a gminához tartozik,
         [one] a gmina ({ $gmina }) hivatalának hozzájárulását
        *[other] a gminák ({ $gmina }) hivatalainak hozzájárulását
     }. Ezek a megjegyzések nem mutatják, kié a föld.
+permits-hint-protected-areas-cz = A térképterületen védett területek vagy természetvédelmi objektumok találhatók. A természet- és tájvédelmi törvény (114/1992. sz. törvény, Sb.) szerint nemzeti parkban a szervezett sport-, turisztikai és egyéb nyilvános rendezvények tilosak azokon a helyeken kívül, amelyeket a természetvédelmi hatóság kijelölt (§ 16 odst. 1 písm. q), a nemzeti park védőövezetében pedig az ilyen tömegrendezvényekhez ezeken a helyeken és a beépített területeken kívül a hatóság hozzájárulása kell (§ 37 odst. 3 písm. d). Nemzeti természetvédelmi területen tilos a hatóság hozzájárulásával jelölt utakon kívülre lépni vagy hajtani (§ 29 písm. d). Természetvédelmi hatóság többek között a nemzeti park igazgatósága, a Természet- és Tájvédelmi Ügynökség (AOPK ČR), a regionális hivatal (krajský úřad) és a kibővített hatáskörű község hivatala (§ 75 odst. 1). A többi védett területnek és objektumnak saját védelmi feltételei vannak. Kérdezze meg korán a hatóságot, ha ott rendezvényt tervez.
+permits-hint-monuments-cz = A térképterületen az állami jegyzék kulturális műemlékei vagy műemléki területei találhatók. Az állami műemlékvédelmi törvény (20/1987. sz. törvény, Sb., § 14 odst. 1 és 2) szerint a műemlék tulajdonosának a műemlék vagy környezete karbantartása, javítása, átépítése vagy más módosítása előtt előzetesen határozatot vagy kötelező szakvéleményt kell kérnie. Ugyanez vonatkozik a műemléki rezervátumban, műemléki övezetben vagy a műemlék védőövezetében lévő ingatlan tulajdonosára építkezés, építmény módosítása, terepmunka, berendezés vagy tábla, építmény bontása, fák kezelése vagy karbantartási munkák esetén. A kibővített hatáskörű község hivatala dönt{ $orp ->
+        [none] {""}
+       *[other] {" "}({ $orp})
+    }, nemzeti kulturális műemlék esetén a regionális hivatal. A törvény a sétát, a futást és az ellenőrzőpontot mint olyat nem említi; kérdezze meg ezt a hivatalt, ha egy rendezvény műemléket érint, vagy ahhoz berendezéseket vagy táblákat helyez ki.
+permits-hint-forest-owner-cz = Erdészeti funkciójú földterületen társadalmi tömegrendezvényt, például sport- vagy kulturális rendezvényt, csak annak az erdőnek a tulajdonosa írásbeli hozzájárulásával lehet tartani, amelyben megtartják (erdőtörvény, 289/1995. sz. törvény, Sb., § 20 odst. 5). A szervezőnek ezenkívül legkésőbb 30 nappal a rendezvény előtt írásban be kell jelentenie azt a kibővített hatáskörű község hivatalának{ $orp ->
+        [none] {""}
+       *[other] {" "}({ $orp})
+    }, vagy a regionális hivatalnak, ha a rendezvény túlnyúlik egy ilyen község területén. A bejelentés tartalmazza a dátumot és a helyszínt, a rendezvény személyi ellátását, a várható résztvevők számát és a tulajdonosok írásbeli hozzájárulását (ugyanaz a bekezdés). Ezek a jegyzetek nem mutatják, kié az erdő; kérdezze meg korán az erdőtulajdonosokat.
+permits-hint-roads-cz = Az az esemény, amely egy utat a szokásostól eltérő módon használ, például sport-, kulturális vagy hasonló rendezvény, amely veszélyeztetheti a közlekedés biztonságát vagy folyamatosságát, az illetékes közútkezelő hivatal engedélyét igényli. Ezt az út tulajdonosának előzetes hozzájárulásával adják ki, és ahol a közlekedés biztonsága vagy folyamatossága érintett lehet, a Cseh Köztársaság rendőrségének hozzájárulásával is (közúti törvény, 13/1997. sz. törvény, Sb., § 25 odst. 1 és odst. 6 písm. d). A hivatal helyi utak esetén a községi hivatal, vagy ahol az dönt, a kibővített hatáskörű község hivatala, másod- és harmadosztályú utak esetén a kibővített hatáskörű község hivatala (§ 40 odst. 4 és 5). Községek a térképterületen: { $gmina }. Ezek a jegyzetek nem mutatják az utak osztályát.
 permits-section-water-protection = Vízvédelmi területek ({ $source })
 permits-section-forest-functions = Erdőfunkciók és védett erdő ({ $source })
 permits-none-water-protection = A(z) { $source } szerint nincs vízvédelmi terület a térképterületen.

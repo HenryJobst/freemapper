@@ -50,6 +50,14 @@ pub trait PermitSource: Send + Sync {
         self.fetch(fetcher, bbox, part)
     }
 
+    /// The country whose law the hints of this source's notes quote (ADR 0201), or `None` for the
+    /// general hints of a region without the German national sources. Only a source that fills
+    /// sections the hints of a country read (protected objects, administrative units,
+    /// monuments) needs to say it.
+    fn country(&self) -> Option<crate::info::Country> {
+        None
+    }
+
     /// The findings of the stored features of the layer `layer` (a key of
     /// [`PermitSourceInfo::layers`]), geometries in WGS 84 with x = longitude. A feature that
     /// says nothing usable is left out.
@@ -264,8 +272,12 @@ pub enum FindingKind {
 pub enum AdminUnitLevel {
     /// The first level below the state (Polish województwo).
     Region,
-    /// The second level (Polish powiat).
+    /// The second level (Polish powiat, Czech okres).
     County,
+    /// The district of a municipality with extended powers (Czech obec s rozšířenou působností,
+    /// ORP), between the county and the municipality (ADR 0201). Its office is the heritage
+    /// and forest authority of the municipalities in its district.
+    AuthorityDistrict,
     /// The municipality (Polish gmina).
     Municipality,
 }
@@ -307,6 +319,29 @@ pub enum ProtectedObjectKind {
     /// A Polish natural monument (pomnik przyrody): a tree, a boulder or a small area. Not
     /// [`Self::NaturalMonument`], whose notes name the German term and law.
     NaturalMonumentPl,
+    /// A Czech national park (národní park, NP; ADR 0201).
+    NationalParkCz,
+    /// A Czech protected landscape area (chráněná krajinná oblast, CHKO).
+    ProtectedLandscapeAreaCz,
+    /// A Czech national nature reserve (národní přírodní rezervace, NPR).
+    NationalNatureReserve,
+    /// A Czech national natural monument (národní přírodní památka, NPP).
+    NationalNatureMonument,
+    /// A Czech nature reserve (přírodní rezervace, PR).
+    NatureReserveCz,
+    /// A Czech natural monument (přírodní památka, PP).
+    NatureMonumentCz,
+    /// The protective zone (ochranné pásmo) of a Czech reserve or natural monument.
+    ProtectiveZoneCz,
+    /// A zone of nature protection of a Czech national park or protected landscape area
+    /// (zóna ochrany přírody); its name carries the zone.
+    NatureZoneCz,
+    /// A Czech Natura 2000 site for habitats (evropsky významná lokalita, EVL).
+    Natura2000HabitatsCz,
+    /// A Czech Natura 2000 site for birds (ptačí oblast, PO).
+    Natura2000BirdsCz,
+    /// A Czech memorial tree (památný strom), a single tree or a group.
+    MemorialTree,
 }
 
 /// The functions and protections of forest the notes know.
@@ -346,7 +381,7 @@ pub fn inner_zone(zone: &str) -> Option<bool> {
 
 impl ProtectedObjectKind {
     /// Whether the lower nature conservation authority looks after the object itself. Every
-    /// Polish kind counts: the notes name the park administration and the regional
+    /// Polish and Czech kind counts: the notes name the park administration and the regional
     /// directorate for them (ADR 0175).
     pub fn needs_nature_authority(self) -> bool {
         !matches!(self, ProtectedObjectKind::SpecialRules)
@@ -677,6 +712,51 @@ mod tests {
         ] {
             assert!(kind.needs_nature_authority(), "{kind:?}");
         }
+    }
+
+    #[test]
+    fn every_czech_kind_names_the_nature_authority() {
+        for kind in [
+            ProtectedObjectKind::NationalParkCz,
+            ProtectedObjectKind::ProtectedLandscapeAreaCz,
+            ProtectedObjectKind::NationalNatureReserve,
+            ProtectedObjectKind::NationalNatureMonument,
+            ProtectedObjectKind::NatureReserveCz,
+            ProtectedObjectKind::NatureMonumentCz,
+            ProtectedObjectKind::ProtectiveZoneCz,
+            ProtectedObjectKind::NatureZoneCz,
+            ProtectedObjectKind::Natura2000HabitatsCz,
+            ProtectedObjectKind::Natura2000BirdsCz,
+            ProtectedObjectKind::MemorialTree,
+        ] {
+            assert!(kind.needs_nature_authority(), "{kind:?}");
+        }
+    }
+
+    #[test]
+    fn the_levels_of_administrative_unit_run_top_down() {
+        use AdminUnitLevel::*;
+        assert!(Region < County && County < AuthorityDistrict && AuthorityDistrict < Municipality);
+        let name = |level| serde_json::to_value(level).unwrap();
+        assert_eq!(name(AuthorityDistrict), "authority-district");
+    }
+
+    #[test]
+    fn the_names_of_the_czech_kinds_in_permits_json_are_kebab_case() {
+        let name = |kind| serde_json::to_value(kind).unwrap();
+        assert_eq!(
+            name(ProtectedObjectKind::NationalParkCz),
+            "national-park-cz"
+        );
+        assert_eq!(
+            name(ProtectedObjectKind::NationalNatureReserve),
+            "national-nature-reserve"
+        );
+        assert_eq!(name(ProtectedObjectKind::MemorialTree), "memorial-tree");
+        assert_eq!(
+            name(ProtectedObjectKind::Natura2000BirdsCz),
+            "natura2000-birds-cz"
+        );
     }
 
     #[test]

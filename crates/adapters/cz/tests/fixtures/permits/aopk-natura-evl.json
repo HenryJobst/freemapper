@@ -1,0 +1,39 @@
+{
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       16.090153,
+       50.569314
+      ],
+      [
+       16.163996,
+       50.569314
+      ],
+      [
+       16.163996,
+       50.619434
+      ],
+      [
+       16.090153,
+       50.619434
+      ],
+      [
+       16.090153,
+       50.569314
+      ]
+     ]
+    ]
+   },
+   "properties": {
+    "NAZEV": "Adršpašsko-teplické skály",
+    "SITECODE": "CZ0520519"
+   }
+  }
+ ]
+}

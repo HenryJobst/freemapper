@@ -552,7 +552,10 @@ pub(crate) fn load_inputs_as(
         })?;
         regional.push(RegionalInput {
             adapter: stored.adapter.clone(),
-            source: RegionalSource::from(info),
+            source: RegionalSource {
+                country: source.country().map(|c| c.code().to_string()),
+                ..RegionalSource::from(info)
+            },
             findings,
         });
     }

@@ -980,6 +980,17 @@ permits-object-kind = { $kind ->
         [landscape-complex] Dabas un ainavu komplekss (zespół przyrodniczo-krajobrazowy)
         [documentation-site] Dokumentācijas vieta (stanowisko dokumentacyjne)
         [natural-monument-pl] Dabas piemineklis (pomnik przyrody)
+        [national-park-cz] Nacionālais parks (národní park, NP)
+        [protected-landscape-area-cz] Aizsargājamā ainavu apvidus (chráněná krajinná oblast, CHKO)
+        [national-nature-reserve] Nacionālais dabas rezervāts (národní přírodní rezervace, NPR)
+        [national-nature-monument] Nacionālais dabas piemineklis (národní přírodní památka, NPP)
+        [nature-reserve-cz] Dabas rezervāts (přírodní rezervace, PR)
+        [nature-monument-cz] Dabas piemineklis (přírodní památka, PP)
+        [protective-zone-cz] Aizsargjosla (ochranné pásmo)
+        [nature-zone-cz] Dabas aizsardzības zona (zóna ochrany přírody)
+        [natura2000-habitats-cz] Natura 2000 biotopu teritorija (evropsky významná lokalita, EVL)
+        [natura2000-birds-cz] Natura 2000 putnu teritorija (ptačí oblast, PO)
+        [memorial-tree] Piemiņas koks (památný strom)
        *[special-rules] Teritorija ar īpašiem noteikumiem
     }
 permits-object-count = objekti: { $count }
@@ -1044,6 +1055,7 @@ permits-register-history-in-area = Vēstures pieminekļi kartes apgabalā: { $co
 permits-register-history-nearby = Vēl vēstures pieminekļi taisnstūrī ap kartes apgabalu, bet ne kartes apgabalā: { $count }.
 permits-register-history-left = Vēl { $count } šeit tikai saskaitīti, bez nosaukumiem.
 permits-admin-unit-code = { $name } (TERYT { $code })
+permits-admin-unit-code-ruian = { $name } (RÚIAN { $code })
 permits-none-state-forest = Pēc { $source } datiem kartes apgabalā nav valsts meža.
 permits-forest-units-reach = Mežniecība atbild par mežu savā teritorijā. Tās teritorija var ietvert arī pilsētas un laukus.
 permits-state-forest-office = atbildīga: { $office }
@@ -1077,6 +1089,16 @@ permits-hint-gmina-land-pl = Ja kartes teritorijas zeme pieder gminai, piemēram
         [one] gminas ({ $gmina }) iestādē.
        *[other] gminu ({ $gmina }) iestādēs.
     } Šīs piezīmes nerāda, kam zeme pieder.
+permits-hint-protected-areas-cz = Kartes teritorijā atrodas aizsargājamas teritorijas vai dabas aizsardzības objekti. Saskaņā ar Dabas un ainavu aizsardzības likumu (likums Nr. 114/1992 Sb.) nacionālajā parkā ir aizliegti organizēti sporta, tūrisma un citi publiski pasākumi ārpus vietām, ko dabas aizsardzības iestāde tam atvēlējusi (§ 16 odst. 1 písm. q), un nacionālā parka aizsargjoslā šādiem masu pasākumiem ārpus šīm vietām un ārpus apbūvētām teritorijām vajadzīga iestādes piekrišana (§ 37 odst. 3 písm. d). Nacionālajā dabas rezervātā ir aizliegts ieiet vai iebraukt ārpus takām, kas marķētas ar iestādes piekrišanu (§ 29 písm. d). Dabas aizsardzības iestādes ir, cita starpā, nacionālā parka pārvalde, Dabas aizsardzības aģentūra (AOPK ČR), reģiona birojs (krajský úřad) un paplašināto pilnvaru pašvaldības birojs (§ 75 odst. 1). Citām aizsargājamām teritorijām un objektiem ir savi aizsardzības noteikumi. Ja plānojat pasākumu tur, vērsieties pie iestādes savlaicīgi.
+permits-hint-monuments-cz = Kartes teritorijā atrodas valsts sarakstā iekļauti kultūras pieminekļi vai pieminekļu teritorijas. Saskaņā ar Valsts mantojuma aizsardzības likumu (likums Nr. 20/1987 Sb., § 14 odst. 1 un 2) pieminekļa īpašniekam pirms pieminekļa vai tā apkārtnes uzturēšanas, remonta, rekonstrukcijas vai citas pārveides iepriekš jāpieprasa lēmums vai saistošs atzinums. Tas pats attiecas uz īpašuma īpašnieku pieminekļu rezervātā, pieminekļu zonā vai pieminekļa aizsargjoslā attiecībā uz būvi, būves pārveidi, zemes darbiem, ierīci vai zīmi, būves nojaukšanu, koku kopšanu vai uzturēšanas darbiem. Lemj paplašināto pilnvaru pašvaldības birojs{ $orp ->
+        [none] {""}
+       *[other] {" "}({ $orp})
+    }, par valsts nozīmes kultūras pieminekli reģiona birojs. Likumā kā tādi nav minēti nedz pastaiga, nedz skrējiens, nedz kontrolpunkts; vaicājiet šim birojam, ja pasākums skar pieminekli vai pie tā tiek novietotas ierīces vai zīmes.
+permits-hint-forest-owner-cz = Masu sporta, kultūras vai cits sabiedrisks pasākums zemē, kas paredzēta meža funkcijām, drīkst notikt tikai ar tā meža īpašnieka rakstisku piekrišanu, kurā tas notiek (Meža likums, likums Nr. 289/1995 Sb., § 20 odst. 5). Organizatoram arī rakstiski jāpaziņo par pasākumu paplašināto pilnvaru pašvaldības birojam{ $orp ->
+        [none] {""}
+       *[other] {" "}({ $orp})
+    }, vai reģiona birojam, ja pasākums sniedzas ārpus šādas pašvaldības apgabala, vēlākais 30 dienas pirms pasākuma. Paziņojumā norāda datumu un vietu, kā pasākums tiek nodrošināts, paredzamo dalībnieku skaitu un īpašnieku rakstiskās piekrišanas (tā pati daļa). Šīs piezīmes nerāda, kam pieder mežs; savlaicīgi vērsieties pie meža īpašniekiem.
+permits-hint-roads-cz = Pasākumam, kas izmanto ceļu citādi nekā ierasts, piemēram, sporta, kultūras vai līdzīgam pasākumam, kas varētu apdraudēt ceļu satiksmes drošību vai plūsmu, vajadzīga kompetentās ceļu administrācijas iestādes atļauja. To izsniedz ar ceļa īpašnieka un, ja var tikt ietekmēta satiksmes drošība vai plūsma, Čehijas Republikas policijas iepriekšēju piekrišanu (Ceļu likums, likums Nr. 13/1997 Sb., § 25 odst. 1 un odst. 6 písm. d). Iestāde ir pašvaldības birojs vietējiem ceļiem vai paplašināto pilnvaru pašvaldības birojs, kur tas lemj, bet otrās un trešās klases ceļiem paplašināto pilnvaru pašvaldības birojs (§ 40 odst. 4 un 5). Pašvaldības kartes teritorijā: { $gmina }. Šīs piezīmes nerāda ceļu klasi.
 permits-section-water-protection = Ūdens aizsardzības zonas ({ $source })
 permits-section-forest-functions = Meža funkcijas un aizsargājamais mežs ({ $source })
 permits-none-water-protection = Pēc { $source } datiem kartes apgabalā nav ūdens aizsardzības zonu.

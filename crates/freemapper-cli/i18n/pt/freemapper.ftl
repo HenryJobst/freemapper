@@ -981,6 +981,17 @@ permits-object-kind = { $kind ->
         [landscape-complex] Complexo natural e paisagístico (zespół przyrodniczo-krajobrazowy)
         [documentation-site] Sítio de documentação (stanowisko dokumentacyjne)
         [natural-monument-pl] Monumento natural (pomnik przyrody)
+        [national-park-cz] Parque nacional (národní park, NP)
+        [protected-landscape-area-cz] Área de paisagem protegida (chráněná krajinná oblast, CHKO)
+        [national-nature-reserve] Reserva natural nacional (národní přírodní rezervace, NPR)
+        [national-nature-monument] Monumento natural nacional (národní přírodní památka, NPP)
+        [nature-reserve-cz] Reserva natural (přírodní rezervace, PR)
+        [nature-monument-cz] Monumento natural (přírodní památka, PP)
+        [protective-zone-cz] Zona de proteção (ochranné pásmo)
+        [nature-zone-cz] Zona de proteção da natureza (zóna ochrany přírody)
+        [natura2000-habitats-cz] Sítio Natura 2000 para habitats (evropsky významná lokalita, EVL)
+        [natura2000-birds-cz] Sítio Natura 2000 para aves (ptačí oblast, PO)
+        [memorial-tree] Árvore notável (památný strom)
        *[special-rules] Área com regras especiais
     }
 permits-object-count = { $count } objetos
@@ -1045,6 +1056,7 @@ permits-register-history-in-area = Monumentos da história na área do mapa: { $
 permits-register-history-nearby = Outros monumentos da história no retângulo em torno da área do mapa, mas não na área do mapa: { $count }.
 permits-register-history-left = Mais { $count } são apenas contados aqui, sem os nomes.
 permits-admin-unit-code = { $name } (TERYT { $code })
+permits-admin-unit-code-ruian = { $name } (RÚIAN { $code })
 permits-none-state-forest = Segundo { $source }, nenhuma floresta do estado federado fica na área do mapa.
 permits-forest-units-reach = Um serviço florestal é competente para a floresta da sua área. A sua área pode abranger também cidades e campos.
 permits-state-forest-office = competente: { $office }
@@ -1078,6 +1090,16 @@ permits-hint-gmina-land-pl = Se um terreno da área do mapa pertence à gmina, p
         [one] ao serviço da gmina ({ $gmina }) antes
        *[other] aos serviços das gminas ({ $gmina }) antes
     } de o usar. Estas notas não mostram a quem pertence o terreno.
+permits-hint-protected-areas-cz = Há áreas protegidas ou objetos de conservação da natureza na área do mapa. Segundo a lei de proteção da natureza e da paisagem (lei n.º 114/1992 Sb.), num parque nacional são proibidos eventos desportivos, turísticos e outros eventos públicos organizados fora dos locais que a autoridade de conservação da natureza reservou (§ 16 odst. 1 písm. q), e na zona de proteção de um parque nacional os eventos de massas deste tipo fora desses locais e fora das áreas construídas precisam do consentimento da autoridade (§ 37 odst. 3 písm. d). Numa reserva natural nacional é proibido entrar ou circular fora dos caminhos marcados com o consentimento da autoridade (§ 29 písm. d). São autoridades de conservação da natureza, entre outras, a administração de um parque nacional, a Agência de Conservação da Natureza (AOPK ČR), o gabinete regional (krajský úřad) e o gabinete de um município com competências alargadas (§ 75 odst. 1). Outras áreas e objetos protegidos têm condições de proteção próprias. Consulte a autoridade com antecedência se planeia um evento aí.
+permits-hint-monuments-cz = Há monumentos culturais ou zonas de monumentos da lista estatal na área do mapa. Segundo a lei de preservação do património do Estado (lei n.º 20/1987 Sb., § 14 odst. 1 e 2), o proprietário de um monumento tem de pedir antecipadamente uma decisão ou um parecer vinculativo antes de trabalhos de manutenção, reparação, reconstrução ou outra alteração do monumento ou da sua envolvente. O mesmo vale para o proprietário de um imóvel numa reserva de monumentos, numa zona de monumentos ou na zona de proteção de um monumento, para uma construção, a alteração de uma construção, trabalhos no terreno, um dispositivo ou um painel, a remoção de uma estrutura, o tratamento de árvores ou trabalhos de manutenção. Decide o gabinete do município com competências alargadas{ $orp ->
+        [none] {""}
+       *[other] {" "}({ $orp})
+    }, e, no caso de um monumento cultural nacional, o gabinete regional. A lei não nomeia uma caminhada, uma corrida ou um controlo como tais; pergunte a esse gabinete se um evento toca um monumento ou coloca nele dispositivos ou painéis.
+permits-hint-forest-owner-cz = Um evento desportivo, cultural ou social de massas em terreno destinado às funções da floresta só pode realizar-se com o consentimento escrito do proprietário da floresta em que decorre (lei das florestas, lei n.º 289/1995 Sb., § 20 odst. 5). O organizador tem também de comunicar o evento por escrito ao gabinete do município com competências alargadas{ $orp ->
+        [none] {""}
+       *[other] {" "}({ $orp})
+    }, ou ao gabinete regional se o evento ultrapassar o território de um desses municípios, o mais tardar 30 dias antes do evento. A comunicação indica a data e o local, como o evento é assegurado, o número esperado de participantes e os consentimentos escritos dos proprietários (mesmo parágrafo). Estas notas não indicam quem é o proprietário da floresta; pergunte cedo aos proprietários florestais.
+permits-hint-roads-cz = Um evento que usa uma estrada de forma diferente da habitual, por exemplo um evento desportivo, cultural ou semelhante que possa pôr em perigo a segurança ou a fluidez do trânsito, precisa de licença do gabinete competente da administração rodoviária. É emitida com o consentimento prévio do proprietário da estrada e, quando a segurança ou a fluidez do trânsito puderem ser afetadas, da Polícia da República Checa (lei das estradas, lei n.º 13/1997 Sb., § 25 odst. 1 e odst. 6 písm. d). O gabinete é a câmara municipal para as estradas locais, ou o gabinete do município com competências alargadas onde este decide, e o gabinete do município com competências alargadas para as estradas de segunda e terceira classe (§ 40 odst. 4 e 5). Municípios na área do mapa: { $gmina }. Estas notas não indicam a classe das estradas.
 permits-section-water-protection = Áreas de proteção da água ({ $source })
 permits-section-forest-functions = Funções da floresta e floresta protegida ({ $source })
 permits-none-water-protection = Segundo { $source }, nenhuma área de proteção da água fica na área do mapa.

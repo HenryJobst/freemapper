@@ -995,6 +995,17 @@ permits-object-kind = { $kind ->
         [landscape-complex] Zespół przyrodniczo-krajobrazowy
         [documentation-site] Stanowisko dokumentacyjne
         [natural-monument-pl] Pomnik przyrody
+        [national-park-cz] Park narodowy (národní park, NP)
+        [protected-landscape-area-cz] Chroniony obszar krajobrazowy (chráněná krajinná oblast, CHKO)
+        [national-nature-reserve] Narodowy rezerwat przyrody (národní přírodní rezervace, NPR)
+        [national-nature-monument] Narodowy pomnik przyrody (národní přírodní památka, NPP)
+        [nature-reserve-cz] Rezerwat przyrody (přírodní rezervace, PR)
+        [nature-monument-cz] Pomnik przyrody (přírodní památka, PP)
+        [protective-zone-cz] Strefa ochronna (ochranné pásmo)
+        [nature-zone-cz] Strefa ochrony przyrody (zóna ochrany přírody)
+        [natura2000-habitats-cz] Obszar Natura 2000 dla siedlisk (evropsky významná lokalita, EVL)
+        [natura2000-birds-cz] Obszar Natura 2000 dla ptaków (ptačí oblast, PO)
+        [memorial-tree] Drzewo pamiątkowe (památný strom)
        *[special-rules] Obszar ze szczególnymi zasadami
     }
 permits-object-count = { $count ->
@@ -1064,6 +1075,7 @@ permits-register-history-in-area = Pomniki historii w obszarze mapy: { $count }.
 permits-register-history-nearby = Dalsze pomniki historii w prostokącie wokół obszaru mapy, ale nie w obszarze mapy: { $count }.
 permits-register-history-left = Kolejnych { $count } jest tu tylko policzonych, bez nazw.
 permits-admin-unit-code = { $name } (TERYT { $code })
+permits-admin-unit-code-ruian = { $name } (RÚIAN { $code })
 permits-none-state-forest = Według { $source } w obszarze mapy nie leży żaden las państwowy kraju związkowego.
 permits-forest-units-reach = Urząd leśny odpowiada za las na swoim obszarze. Jego obszar może obejmować także miasta i pola.
 permits-state-forest-office = właściwy: { $office }
@@ -1097,6 +1109,16 @@ permits-hint-gmina-land-pl = Jeśli grunt w obszarze mapy należy do gminy, na p
         [one] w urzędzie gminy ({ $gmina }), zanim
        *[other] w urzędach gmin ({ $gmina }), zanim
     } z niego skorzystasz. Te wskazówki nie pokazują, do kogo należy grunt.
+permits-hint-protected-areas-cz = W obszarze mapy leżą obszary lub obiekty chronione ze względu na ochronę przyrody. Według ustawy o ochronie przyrody i krajobrazu (ustawa nr 114/1992 Sb.) w parku narodowym zakazane są zorganizowane imprezy sportowe, turystyczne i inne publiczne poza miejscami wyznaczonymi przez organ ochrony przyrody (§ 16 odst. 1 písm. q), a w strefie ochronnej parku narodowego masowe imprezy tego rodzaju poza tymi miejscami i poza terenami zabudowanymi wymagają zgody organu (§ 37 odst. 3 písm. d). W narodowym rezerwacie przyrody zabronione jest wchodzenie lub wjeżdżanie poza ścieżki oznaczone za zgodą organu (§ 29 písm. d). Organami ochrony przyrody są między innymi zarząd parku narodowego, Agencja Ochrony Przyrody (AOPK ČR), urząd regionalny (krajský úřad) i urząd gminy z rozszerzonymi uprawnieniami (§ 75 odst. 1). Inne obszary i obiekty chronione mają własne warunki ochrony. Zapytaj organ odpowiednio wcześnie, jeśli planujesz tam imprezę.
+permits-hint-monuments-cz = W obszarze mapy leżą zabytki kultury lub obszary zabytkowe z listy państwowej. Według ustawy o państwowej opiece nad dziedzictwem (ustawa nr 20/1987 Sb., § 14 odst. 1 i 2) właściciel zabytku musi z wyprzedzeniem wystąpić o decyzję lub wiążącą opinię przed konserwacją, naprawą, przebudową lub inną zmianą zabytku albo jego otoczenia. To samo dotyczy właściciela nieruchomości w rezerwacie zabytkowym, w strefie zabytkowej lub w strefie ochronnej zabytku w przypadku budowli, zmiany budowli, robót ziemnych, urządzenia lub znaku, usunięcia konstrukcji, pielęgnacji drzew lub prac konserwacyjnych. Decyduje urząd gminy z rozszerzonymi uprawnieniami{ $orp ->
+        [none] {""}
+       *[other] {" "}({ $orp})
+    }, w przypadku narodowego zabytku kultury urząd regionalny. Ustawa nie wymienia jako takich marszu, biegu ani punktu kontrolnego; zapytaj ten urząd, gdy impreza dotyka zabytku lub ustawia przy nim urządzenia lub znaki.
+permits-hint-forest-owner-cz = Masowa impreza sportowa, kulturalna lub inna społeczna na gruncie przeznaczonym na funkcje leśne może się odbyć tylko za pisemną zgodą właściciela lasu, w którym się odbywa (ustawa o lasach, ustawa nr 289/1995 Sb., § 20 odst. 5). Organizator musi ponadto pisemnie zgłosić imprezę do urzędu gminy z rozszerzonymi uprawnieniami{ $orp ->
+        [none] {""}
+       *[other] {" "}({ $orp})
+    }, albo do urzędu regionalnego, jeśli impreza wykracza poza okręg takiej gminy, najpóźniej 30 dni przed imprezą. Zgłoszenie podaje datę i miejsce, sposób obsady imprezy, spodziewaną liczbę uczestników i pisemne zgody właścicieli (ten sam paragraf). Te wskazówki nie pokazują, do kogo należy las; zapytaj właścicieli lasu odpowiednio wcześnie.
+permits-hint-roads-cz = Impreza, która korzysta z drogi w sposób inny niż zwykły, na przykład impreza sportowa, kulturalna lub podobna, która mogłaby zagrozić bezpieczeństwu lub płynności ruchu drogowego, wymaga zezwolenia właściwego urzędu drogowego. Wydaje się je za uprzednią zgodą właściciela drogi i, gdy może to wpłynąć na bezpieczeństwo lub płynność ruchu, Policji Republiki Czeskiej (ustawa o drogach, ustawa nr 13/1997 Sb., § 25 odst. 1 i odst. 6 písm. d). Urzędem jest urząd gminy dla dróg lokalnych albo urząd gminy z rozszerzonymi uprawnieniami, gdzie ten decyduje, a dla dróg drugiej i trzeciej klasy urząd gminy z rozszerzonymi uprawnieniami (§ 40 odst. 4 i 5). Gminy w obszarze mapy: { $gmina }. Te wskazówki nie pokazują klasy dróg.
 permits-section-water-protection = Strefy ochrony wód ({ $source })
 permits-section-forest-functions = Funkcje lasu i lasy ochronne ({ $source })
 permits-none-water-protection = Według { $source } w obszarze mapy nie leży żadna strefa ochrony wód.

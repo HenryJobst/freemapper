@@ -973,6 +973,17 @@ permits-object-kind = { $kind ->
         [landscape-complex] Nature and landscape complex (zespół przyrodniczo-krajobrazowy)
         [documentation-site] Documentation site (stanowisko dokumentacyjne)
         [natural-monument-pl] Natural monument (pomnik przyrody)
+        [national-park-cz] National park (národní park, NP)
+        [protected-landscape-area-cz] Protected landscape area (chráněná krajinná oblast, CHKO)
+        [national-nature-reserve] National nature reserve (národní přírodní rezervace, NPR)
+        [national-nature-monument] National natural monument (národní přírodní památka, NPP)
+        [nature-reserve-cz] Nature reserve (přírodní rezervace, PR)
+        [nature-monument-cz] Natural monument (přírodní památka, PP)
+        [protective-zone-cz] Protective zone (ochranné pásmo)
+        [nature-zone-cz] Zone of nature protection (zóna ochrany přírody)
+        [natura2000-habitats-cz] Natura 2000 site for habitats (evropsky významná lokalita, EVL)
+        [natura2000-birds-cz] Natura 2000 site for birds (ptačí oblast, PO)
+        [memorial-tree] Memorial tree (památný strom)
        *[special-rules] Area with special rules
     }
 permits-object-count = { $count } objects
@@ -1037,6 +1048,7 @@ permits-register-history-in-area = Monuments of history in the map area: { $coun
 permits-register-history-nearby = Further monuments of history in the rectangle around the map area, but not in the map area: { $count }.
 permits-register-history-left = { $count } more are only counted here, without their names.
 permits-admin-unit-code = { $name } (TERYT { $code })
+permits-admin-unit-code-ruian = { $name } (RÚIAN { $code })
 permits-none-state-forest = According to { $source }, no state forest lies in the map area.
 permits-forest-units-reach = A forest office is in charge of the forest in its area. Its area can take in towns and fields as well.
 permits-state-forest-office = in charge: { $office }
@@ -1070,6 +1082,16 @@ permits-hint-gmina-land-pl = If land in the map area belongs to the gmina, for e
         [one] the office of the gmina ({ $gmina }) for consent
        *[other] the offices of the gminas ({ $gmina }) for consent
     } before you use it. These notes do not show who owns the land.
+permits-hint-protected-areas-cz = Protected areas or objects of nature conservation lie in the map area. Under the Act on Nature and Landscape Protection (Act No. 114/1992 Sb.), organised sports, tourist and other public events in a national park are banned outside the places the nature conservation authority has set aside (§ 16 odst. 1 písm. q), and in the protective zone of a national park mass events of this kind outside those places and outside built-up areas need the authority's consent (§ 37 odst. 3 písm. d). In a national nature reserve it is banned to enter or drive outside the paths marked with the authority's consent (§ 29 písm. d). The nature conservation authorities are, among others, the administration of a national park, the Nature Conservation Agency (AOPK ČR), the regional office (krajský úřad) and the office of a municipality with extended powers (§ 75 odst. 1). Other protected areas and objects have conditions of protection of their own. Ask the authority early when you plan an event there.
+permits-hint-monuments-cz = Cultural monuments or monument areas of the state list lie in the map area. Under the Act on State Heritage Care (Act No. 20/1987 Sb., § 14 odst. 1 and 2), the owner of a monument must ask in advance for a decision or a binding opinion before upkeep, repair, reconstruction or another alteration of the monument or its surroundings. The same holds for the owner of a property in a monument reservation, a monument zone or the protective zone of a monument for a building, a change of a building, terrain works, a device or a sign, the removal of a structure, the treatment of trees or maintenance work. The office of the municipality with extended powers decides{ $orp ->
+        [none] {""}
+       *[other] {" "}({ $orp})
+    }, for a national cultural monument the regional office. The Act names no walk, run or control as such; ask that office when an event touches a monument or puts devices or signs at it.
+permits-hint-forest-owner-cz = A mass sports, cultural or other social event on land meant for forest functions may be held only with the written consent of the owner of the forest in which it takes place (Act on Forests, Act No. 289/1995 Sb., § 20 odst. 5). The organiser must also notify the event in writing to the office of the municipality with extended powers{ $orp ->
+        [none] {""}
+       *[other] {" "}({ $orp})
+    }, or to the regional office if the event reaches beyond the district of such a municipality, at the latest 30 days before the event. The notice states date and place, how the event is staffed, the expected number of participants and the written consents of the owners (same paragraph). These notes do not show who owns the forest; ask the forest owners early.
+permits-hint-roads-cz = An event that uses a road in a way other than usual, for example a sports, cultural or similar event that could endanger the safety or the flow of road traffic, needs the permit of the competent road administration office. It is issued with the prior consent of the owner of the road and, where the safety or flow of traffic may be affected, of the Police of the Czech Republic (Act on Roads, Act No. 13/1997 Sb., § 25 odst. 1 and odst. 6 písm. d). The office is the municipal office for local roads, or the office of the municipality with extended powers where it decides, and the office of the municipality with extended powers for roads of the second and third class (§ 40 odst. 4 and 5). Municipalities in the map area: { $gmina }. These notes do not show the class of the roads.
 permits-section-water-protection = Water protection areas ({ $source })
 permits-section-forest-functions = Forest functions and protected forest ({ $source })
 permits-none-water-protection = According to { $source }, no water protection area lies in the map area.

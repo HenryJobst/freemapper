@@ -439,6 +439,11 @@ fn hint_text(lang: &Lang, notes: &PermitNotes, hint: &Hint) -> String {
     {
         args.push(("office".into(), "unknown".into()));
     }
+    if (hint.key == hint_key::FOREST_OWNER_CZ || hint.key == hint_key::MONUMENTS_CZ)
+        && !has(&args, "orp")
+    {
+        args.push(("orp".into(), "none".into()));
+    }
     if hint.key == hint_key::GMINA_NATURE_PL && !has(&args, "gmina") {
         args.push(("gmina".into(), "none".into()));
     }
@@ -468,11 +473,13 @@ fn hint_text(lang: &Lang, notes: &PermitNotes, hint: &Hint) -> String {
     t(lang, &hint.key, &args)
 }
 
-/// The Polish hints that name the gminas of the map area (ADR 0183, 0193).
-const GMINA_HINTS: [&str; 3] = [
+/// The hints that name the municipalities of the map area: the Polish gminas (ADR 0183, 0193)
+/// and the Czech obce (ADR 0201).
+const GMINA_HINTS: [&str; 4] = [
     hint_key::GMINA_NATURE_PL,
     hint_key::GMINA_ROADS_PL,
     hint_key::GMINA_LAND_PL,
+    hint_key::ROADS_CZ,
 ];
 
 /// Writes the list of gminas of a Polish hint into its `gmina` arg: each name with its share
@@ -712,11 +719,17 @@ fn green_space_line(lang: &Lang, s: &Share<GreenSpaceEntry>) -> String {
 }
 
 /// "województwo lubuskie (TERYT 08): 100 %" (ADR 0181).
-fn admin_unit_line(lang: &Lang, s: &Share<AdminUnitEntry>) -> String {
+fn admin_unit_line(lang: &Lang, adapter: &str, s: &Share<AdminUnitEntry>) -> String {
     let u = &s.item;
+    // The code is that of RÚIAN in Czechia (ADR 0201), else the Polish TERYT.
+    let code_text = if adapter == "cesko" {
+        "permits-admin-unit-code-ruian"
+    } else {
+        "permits-admin-unit-code"
+    };
     let name = t(
         lang,
-        "permits-admin-unit-code",
+        code_text,
         &[("name", arg(md(&u.name))), ("code", arg(md(&u.code)))],
     );
     format!(
@@ -967,7 +980,12 @@ fn regional_blocks(lang: &Lang, part: &RegionalNotes) -> Vec<String> {
         if units.is_empty() {
             blocks.push(none(PermitSection::AdminUnits, "permits-none-admin-units"));
         } else {
-            blocks.extend(with_edge(lang, units, |s| admin_unit_line(lang, s), None));
+            blocks.extend(with_edge(
+                lang,
+                units,
+                |s| admin_unit_line(lang, &part.adapter, s),
+                None,
+            ));
         }
     }
     if let Some(districts) = &part.districts {
@@ -1456,6 +1474,10 @@ fn used_ids() -> Vec<String> {
             hint_key::MONUMENT_REGISTER_PL,
             hint_key::ARCHAEOLOGY_REGISTER_PL,
             hint_key::HISTORY_REGISTER_PL,
+            hint_key::PROTECTED_AREAS_CZ,
+            hint_key::MONUMENTS_CZ,
+            hint_key::FOREST_OWNER_CZ,
+            hint_key::ROADS_CZ,
         ]
         .map(String::from),
     );
@@ -1704,6 +1726,7 @@ mod tests {
                 gaps: None,
                 sections: Vec::new(),
                 offices: None,
+                country: None,
             },
             status: SourceStatus {
                 id: key.into(),
@@ -2029,6 +2052,146 @@ mod tests {
             text.contains("starosta for powiat and gmina roads"),
             "{text}"
         );
+    }
+
+    const ALL_LANGUAGES: [&str; 21] = [
+        "en", "de", "pl", "cs", "da", "es", "et", "fi", "fr", "hu", "it", "lt", "lv", "nb", "nl",
+        "pt", "ru", "sk", "sl", "sv", "uk",
+    ];
+
+    /// The Czech hints quote their law in every language, fill the districts and the
+    /// municipalities and read on without the districts (ADR 0201).
+    #[test]
+    fn the_czech_hints_quote_their_law_and_name_the_districts_in_every_language() {
+        let mut notes = viktoriapark();
+        notes.admin.clear();
+        notes.regional.clear();
+        notes.sources.retain(|s| s.id == "osm");
+        let orp = [("orp", "ORP Broumov, ORP Náchod")];
+        let roads = [
+            ("gmina", "obec Adršpach, obec Teplice nad Metují"),
+            ("shares", "70.0,30.0"),
+            ("count", "2"),
+        ];
+        type Case<'a> = (&'a str, &'a [(&'a str, &'a str)], &'a str);
+        let cases: [Case; 4] = [
+            (hint_key::PROTECTED_AREAS_CZ, &[], "114/1992"),
+            (hint_key::MONUMENTS_CZ, &orp, "20/1987"),
+            (hint_key::FOREST_OWNER_CZ, &orp, "289/1995"),
+            (hint_key::ROADS_CZ, &roads, "13/1997"),
+        ];
+        for code in ALL_LANGUAGES {
+            let lang = TEXTS.parse_lang_arg(code).unwrap();
+            for (key, args, law) in cases {
+                notes.hints = vec![hint(key, args)];
+                let text = render_markdown(&notes, &lang);
+                assert!(text.contains(law), "{code} {key}\n{text}");
+                assert!(
+                    !text.contains("{ $") && !text.contains('$'),
+                    "{code} {key}\n{text}"
+                );
+                assert!(text.contains("§"), "{code} {key}\n{text}");
+            }
+            // The districts are named where the hint has them, and the hint reads on without.
+            for key in [hint_key::MONUMENTS_CZ, hint_key::FOREST_OWNER_CZ] {
+                notes.hints = vec![hint(key, &orp)];
+                let with = render_markdown(&notes, &lang);
+                assert!(
+                    with.contains("ORP Broumov, ORP Náchod"),
+                    "{code} {key}\n{with}"
+                );
+                notes.hints = vec![hint(key, &[])];
+                let without = render_markdown(&notes, &lang);
+                assert!(!without.contains("ORP"), "{code} {key}\n{without}");
+                assert!(!without.contains("none"), "{code} {key}\n{without}");
+                assert_ne!(with, without, "{code} {key}");
+            }
+            // Both municipalities come with their share.
+            notes.hints = vec![hint(hint_key::ROADS_CZ, &roads)];
+            let text = render_markdown(&notes, &lang);
+            let first = format!("obec Adršpach ({})", share_text(&lang, 70.0));
+            let second = format!("obec Teplice nad Metují ({})", share_text(&lang, 30.0));
+            assert!(
+                text.contains(&first) && text.contains(&second),
+                "{code}\n{text}"
+            );
+        }
+        notes.hints = vec![hint(hint_key::FOREST_OWNER_CZ, &orp)];
+        let text = render_markdown(&notes, &Lang::english());
+        assert!(text.contains("§ 20 odst. 5"), "{text}");
+        assert!(text.contains("30 days"), "{text}");
+    }
+
+    /// Each kind of protected object of Czechia has a label of its own in every language, with
+    /// the Czech term; none falls through to the label of an area with special rules.
+    #[test]
+    fn every_czech_kind_has_a_label_in_every_language() {
+        let terms = [
+            (ProtectedObjectKind::NationalParkCz, "národní park"),
+            (
+                ProtectedObjectKind::ProtectedLandscapeAreaCz,
+                "chráněná krajinná oblast",
+            ),
+            (
+                ProtectedObjectKind::NationalNatureReserve,
+                "národní přírodní rezervace",
+            ),
+            (
+                ProtectedObjectKind::NationalNatureMonument,
+                "národní přírodní památka",
+            ),
+            (ProtectedObjectKind::NatureReserveCz, "přírodní rezervace"),
+            (ProtectedObjectKind::NatureMonumentCz, "přírodní památka"),
+            (ProtectedObjectKind::ProtectiveZoneCz, "ochranné pásmo"),
+            (ProtectedObjectKind::NatureZoneCz, "zóna ochrany přírody"),
+            (
+                ProtectedObjectKind::Natura2000HabitatsCz,
+                "evropsky významná lokalita",
+            ),
+            (ProtectedObjectKind::Natura2000BirdsCz, "ptačí oblast"),
+            (ProtectedObjectKind::MemorialTree, "památný strom"),
+        ];
+        for code in ALL_LANGUAGES {
+            let lang = TEXTS.parse_lang_arg(code).unwrap();
+            let fallback = object_kind(&lang, ProtectedObjectKind::SpecialRules);
+            let mut seen = vec![fallback.clone()];
+            for (kind, term) in terms {
+                let label = object_kind(&lang, kind);
+                // Czech writes its own term without a bracket, so the term is only in the
+                // other languages' labels.
+                if code != "cs" {
+                    assert!(
+                        label.to_lowercase().contains(term),
+                        "{code} {kind:?}: {label}"
+                    );
+                }
+                assert!(!seen.contains(&label), "{code} {kind:?}: {label}");
+                seen.push(label);
+            }
+        }
+    }
+
+    /// The code of an administrative unit is that of RÚIAN in Czechia and the TERYT elsewhere.
+    #[test]
+    fn the_code_of_an_administrative_unit_names_its_register() {
+        let unit = share(
+            AdminUnitEntry {
+                level: freemapper::permits::regional::AdminUnitLevel::Municipality,
+                name: "obec Adršpach".into(),
+                code: "547786".into(),
+            },
+            100.0,
+        );
+        for code in ALL_LANGUAGES {
+            let lang = TEXTS.parse_lang_arg(code).unwrap();
+            let czech = admin_unit_line(&lang, "cesko", &unit);
+            assert!(
+                czech.contains("obec Adršpach (RÚIAN 547786)"),
+                "{code}: {czech}"
+            );
+            let polish = admin_unit_line(&lang, "polska", &unit);
+            assert!(polish.contains("(TERYT 547786)"), "{code}: {polish}");
+        }
     }
 
     /// Several gminas (ADR 0193): every language has its own plural wording, every gmina is

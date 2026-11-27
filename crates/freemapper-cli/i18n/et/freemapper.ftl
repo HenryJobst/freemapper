@@ -973,6 +973,17 @@ permits-object-kind = { $kind ->
         [landscape-complex] Loodus- ja maastikukompleks (zespół przyrodniczo-krajobrazowy)
         [documentation-site] Dokumentatsioonikoht (stanowisko dokumentacyjne)
         [natural-monument-pl] Loodusmälestis (pomnik przyrody)
+        [national-park-cz] Rahvuspark (národní park, NP)
+        [protected-landscape-area-cz] Maastikukaitseala (chráněná krajinná oblast, CHKO)
+        [national-nature-reserve] Riiklik looduskaitseala (národní přírodní rezervace, NPR)
+        [national-nature-monument] Riiklik loodusmälestis (národní přírodní památka, NPP)
+        [nature-reserve-cz] Looduskaitseala (přírodní rezervace, PR)
+        [nature-monument-cz] Loodusmälestis (přírodní památka, PP)
+        [protective-zone-cz] Kaitsevöönd (ochranné pásmo)
+        [nature-zone-cz] Looduskaitsevöönd (zóna ochrany přírody)
+        [natura2000-habitats-cz] Natura 2000 ala elupaikadele (evropsky významná lokalita, EVL)
+        [natura2000-birds-cz] Natura 2000 ala lindudele (ptačí oblast, PO)
+        [memorial-tree] Mälestispuu (památný strom)
        *[special-rules] Erireeglitega ala
     }
 permits-object-count = { $count } objekti
@@ -1037,6 +1048,7 @@ permits-register-history-in-area = Ajaloo mälestised kaardialal: { $count }.
 permits-register-history-nearby = Veel ajaloo mälestisi kaardiala ümbruse ristkülikus, kuid mitte kaardialal: { $count }.
 permits-register-history-left = Veel { $count } on siin ainult loetud, ilma nimedeta.
 permits-admin-unit-code = { $name } (TERYT { $code })
+permits-admin-unit-code-ruian = { $name } (RÚIAN { $code })
 permits-none-state-forest = { $source } järgi ei asu kaardialal riigimetsa.
 permits-forest-units-reach = Metsaamet vastutab oma piirkonna metsa eest. Selle piirkond võib hõlmata ka linnu ja põlde.
 permits-state-forest-office = vastutaja: { $office }
@@ -1070,6 +1082,16 @@ permits-hint-gmina-land-pl = Kui kaardiala maa kuulub gminale, näiteks linnapar
         [one] gmina ({ $gmina }) ametilt
        *[other] gminade ({ $gmina }) ametitelt
     }. Need märkused ei näita, kellele maa kuulub.
+permits-hint-protected-areas-cz = Kaardialal asuvad kaitsealad või looduskaitse objektid. Loodus- ja maastikukaitse seaduse (seadus nr 114/1992 Sb.) järgi on rahvuspargis korraldatud spordi-, turismi- ja muud avalikud üritused keelatud väljaspool kohti, mille looduskaitseasutus on määranud (§ 16 odst. 1 písm. q), ja rahvuspargi kaitsevööndis vajavad sellised massiüritused väljaspool neid kohti ja väljaspool hoonestatud alasid asutuse nõusolekut (§ 37 odst. 3 písm. d). Riiklikus looduskaitsealas on keelatud siseneda ja sõita väljaspool radu, mis on märgistatud asutuse nõusolekul (§ 29 písm. d). Looduskaitseasutused on muu hulgas rahvuspargi haldus, looduskaitseagentuur (AOPK ČR), piirkonnaamet (krajský úřad) ja laiendatud pädevusega valla amet (§ 75 odst. 1). Teistel kaitsealadel ja kaitse-objektidel on oma kaitsetingimused. Küsige asutuselt varakult, kui plaanite seal üritust.
+permits-hint-monuments-cz = Kaardialal asuvad riikliku nimekirja kultuurimälestised või mälestisalad. Riikliku muinsuskaitse seaduse (seadus nr 20/1987 Sb., § 14 odst. 1 ja 2) järgi peab mälestise omanik enne mälestise või selle ümbruse korrashoidu, remonti, ümberehitust või muud muutmist taotlema ette otsust või siduvat arvamust. Sama kehtib mälestisereservaadis, mälestisevööndis või mälestise kaitsevööndis asuva kinnisasja omaniku kohta ehituse, ehitise muutmise, maastikutööde, seadme või sildi, rajatise lammutamise, puude käsitlemise või hooldustööde puhul. Otsustab laiendatud pädevusega valla amet{ $orp ->
+        [none] {""}
+       *[other] {" "}({ $orp})
+    }, riikliku kultuurimälestise puhul piirkonnaamet. Seadus ei nimeta jalutuskäiku, jooksu ega kontrollpunkti kui sellist; küsige sellelt ametilt, kui üritus puudutab mälestist või paigaldab sellele seadmeid või silte.
+permits-hint-forest-owner-cz = Metsafunktsiooniga maal võib ühiskondliku massiürituse, näiteks spordi- või kultuuriürituse, korraldada ainult selle metsa omaniku kirjalikul nõusolekul, kus üritus toimub (metsaseadus, seadus nr 289/1995 Sb., § 20 odst. 5). Korraldaja peab sellest lisaks kirjalikult teatama laiendatud pädevusega valla ametile{ $orp ->
+        [none] {""}
+       *[other] {" "}({ $orp})
+    }, või piirkonnaametile, kui üritus ulatub sellise valla piirkonnast kaugemale, hiljemalt 30 päeva enne üritust. Teatises on kuupäev ja koht, üritusele töötajate määramine, osalejate eeldatav arv ja omanike kirjalikud nõusolekud (sama lõige). Need märkused ei näita, kes metsa omab; küsige metsaomanikelt varakult.
+permits-hint-roads-cz = Üritus, mis kasutab teed tavapärasest erinevalt, näiteks spordi-, kultuuri- või muu sarnane üritus, mis võib ohustada liiklusohutust või liiklussujuvust, vajab pädeva teehaldusameti luba. See antakse tee omaniku eelneval nõusolekul ja kui liiklusohutus või liiklussujuvus võib olla mõjutatud, ka Tšehhi Vabariigi politsei nõusolekul (teeseadus, seadus nr 13/1997 Sb., § 25 odst. 1 ja odst. 6 písm. d). Amet on kohalike teede puhul vallaamet või laiendatud pädevusega valla amet, kus see otsustab, ning teise ja kolmanda klassi teede puhul laiendatud pädevusega valla amet (§ 40 odst. 4 ja 5). Vallad kaardialal: { $gmina }. Need märkused ei näita teede klassi.
 permits-section-water-protection = Veekaitsealad ({ $source })
 permits-section-forest-functions = Metsafunktsioonid ja kaitsemets ({ $source })
 permits-none-water-protection = { $source } järgi ei asu kaardialal veekaitseala.

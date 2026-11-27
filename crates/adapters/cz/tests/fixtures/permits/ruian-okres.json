@@ -1,0 +1,16 @@
+{
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "type": "Feature",
+   "geometry": null,
+   "properties": {
+    "kod": 3605,
+    "nazev": "Náchod",
+    "vusc": 86,
+    "nespravny": null,
+    "platido": null
+   }
+  }
+ ]
+}

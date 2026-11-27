@@ -342,6 +342,7 @@ mod tests {
             ("amt", v("Amt Märkische Schweiz")),
             ("gemeinde", v("Buckow")),
             ("gmina", v("gmina miejska Słubice")),
+            ("orp", v("ORP Broumov")),
             ("text", v("Alte Eichen")),
             ("district", v("Friedrichshain-Kreuzberg")),
             ("owner", v("Land Berlin")),

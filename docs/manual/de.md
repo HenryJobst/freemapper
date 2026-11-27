@@ -61,7 +61,7 @@ Auf Wunsch erzeugt freemapper zusätzlich die **druckfertige Karte als PDF**, ei
     wenn schon ein älterer OSM-Auszug da ist, auch dessen Aktualisierung. Für jeden ausgelassenen Teil
     warnt es. Kartendaten, Geländemodell und Luftbild braucht jede Karte. Passen sie nicht, bricht
     freemapper ab, bevor es etwas lädt.
-- Ein Gebiet in **Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg, Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern, Nordrhein-Westfalen, Niedersachsen, Rheinland-Pfalz, dem Saarland, Baden-Württemberg, Bremen oder Bayern**. Thüringen fehlt noch. Polen ist nutzbar: Die Karte dort kombiniert OpenStreetMap mit dem Kataster EGiB, Orthofoto und Gelände von GUGiK, und das Gebiet muss ganz in Polen liegen. Gebäude und Landnutzung kommen in Polen aus dem Kataster EGiB; wo er nichts liefert (Gemeinden ohne Katasterdienst, Städte mit leeren Nutzungsklassen), füllt BDOT10k auf, wofür das GML-Archiv des Powiats (7 bis 89 MB) in den Cache geladen wird. Eine Waldkarte in Polen übernimmt außerdem die Straßen und Wege aus BDOT10k als Kandidaten, wo OpenStreetMap im Umkreis von 10 m keinen hat; dafür liest freemapper nur zwei Dateien des Archivs (etwa 2 MB). Tschechien ist als Vorschau nutzbar: Die Karte dort kombiniert OpenStreetMap mit Gelände-, Oberflächenmodell und Luftbild des ČÚZK, den Gebäuden aus dem Register RÚIAN und der Landnutzung aus ZABAGED; das Gebiet muss ganz in Tschechien liegen, und der OSM-Auszug des ganzen Landes (etwa 910 MB) wird einmal geladen. Alle Dienste sind offen unter CC BY 4.0 und brauchen keinen Schlüssel. Die Höhenlinien schlängeln sich in dicht bebauten Altstädten, weil das Geländemodell dort ein interpolierter Erdboden ist; die Parzellen des RÚIAN sind seit Dezember 2021 veraltet und werden nicht verwendet. Hinweise zu Genehmigungen gibt es dort noch nicht.
+- Ein Gebiet in **Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg, Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern, Nordrhein-Westfalen, Niedersachsen, Rheinland-Pfalz, dem Saarland, Baden-Württemberg, Bremen oder Bayern**. Thüringen fehlt noch. Polen ist nutzbar: Die Karte dort kombiniert OpenStreetMap mit dem Kataster EGiB, Orthofoto und Gelände von GUGiK, und das Gebiet muss ganz in Polen liegen. Gebäude und Landnutzung kommen in Polen aus dem Kataster EGiB; wo er nichts liefert (Gemeinden ohne Katasterdienst, Städte mit leeren Nutzungsklassen), füllt BDOT10k auf, wofür das GML-Archiv des Powiats (7 bis 89 MB) in den Cache geladen wird. Eine Waldkarte in Polen übernimmt außerdem die Straßen und Wege aus BDOT10k als Kandidaten, wo OpenStreetMap im Umkreis von 10 m keinen hat; dafür liest freemapper nur zwei Dateien des Archivs (etwa 2 MB). Tschechien ist als Vorschau nutzbar: Die Karte dort kombiniert OpenStreetMap mit Gelände-, Oberflächenmodell und Luftbild des ČÚZK, den Gebäuden aus dem Register RÚIAN und der Landnutzung aus ZABAGED; das Gebiet muss ganz in Tschechien liegen, und der OSM-Auszug des ganzen Landes (etwa 910 MB) wird einmal geladen. Alle Dienste sind offen unter CC BY 4.0 und brauchen keinen Schlüssel. Die Höhenlinien schlängeln sich in dicht bebauten Altstädten, weil das Geländemodell dort ein interpolierter Erdboden ist; die Parzellen des RÚIAN sind seit Dezember 2021 veraltet und werden nicht verwendet. Die Hinweise zu Genehmigungen kommen von AOPK, RÚIAN und NPÚ (ADR 0201).
 - Optional einen KI-Assistenten, z. B. Claude. Dann müssen Sie keine Befehle tippen.
 
 ## 3. Installation
@@ -1540,6 +1540,36 @@ unterscheidet der Abschnitt Denkmäler im Kartengebiet von solchen, die nur im R
 Liste). In den Daten sind nur die Staatsforsten, kein Privatwald; die Hinweise sagen, dass der
 Starost Wald beaufsichtigt, der nicht dem Staatsschatz gehört. Die Hinweistexte hat noch kein Polnischsprecher gelesen. Die Hinweise sind
 ein Hinweis, keine Rechtsberatung. `--offline` liest, was ein früherer Lauf gespeichert hat, wie in Deutschland.
+
+### Hinweise zu Genehmigungen in Tschechien
+
+Für ein Kartengebiet in Tschechien stammen die Hinweise aus tschechischen Diensten, nicht von BfN und BKG
+(ADR 0201). Die Agentur für Natur- und Landschaftsschutz (AOPK ČR, `gis.nature.cz`) liefert die Schutzgebiete und
+Schutzobjekte: Nationalparks (NP), Landschaftsschutzgebiete (CHKO) mit ihren Schutzzonen, nationale
+Naturreservate und Naturdenkmale (NPR, NPP), Naturreservate und Naturdenkmale (PR, PP) mit ihren Schutzzonen, die
+Natura-2000-Gebiete für Lebensräume (EVL) und für Vögel (PO) und die geschützten Bäume. RÚIAN des ČÚZK
+(`ags.cuzk.gov.cz`) liefert die Verwaltungseinheiten: Der Abschnitt „Verwaltungseinheiten“ nennt die Region
+(kraj), den Bezirk (okres), die Gemeinde mit erweiterter Zuständigkeit (obec s rozšířenou působností, ORP) und
+die Gemeinde (obec), in denen das Kartengebiet liegt, jeweils mit RÚIAN-Code und Anteil; ein Kartengebiet an einer
+Grenze führt jede Einheit auf, die es berührt. Das Nationale Denkmalinstitut (NPÚ, `geoportal.npu.cz`) liefert die
+Kulturdenkmale und Denkmalgebiete der staatlichen Liste mit ihren Positionen; die Hinweise zählen sie nach Art.
+Wo ein Hinweis auf einem Gesetz beruht, nennt er die Vorschrift: In einem Nationalpark sind organisierte
+Veranstaltungen außerhalb der von der Naturschutzbehörde bestimmten Orte verboten (Gesetz 114/1992 Sb., § 16
+Abs. 1 Buchst. q), in dessen Schutzzone brauchen Massenveranstaltungen die Zustimmung der Behörde (§ 37 Abs. 3
+Buchst. d), und in einem nationalen Naturreservat ist das Betreten außerhalb der markierten Wege verboten (§ 29
+Buchst. d). Eine gesellschaftliche Massenveranstaltung im Wald, etwa eine sportliche oder kulturelle, braucht die
+schriftliche Zustimmung des Waldeigentümers und eine schriftliche Anzeige beim Amt der ORP mindestens 30 Tage
+vorher (Gesetz 289/1995 Sb., § 20 Abs. 5). Arbeiten an einem Denkmal oder an einem Grundstück in einem
+Denkmalreservat, einer Denkmalzone oder einer Schutzzone brauchen eine Entscheidung oder verbindliche Stellungnahme
+des Amts der ORP, bei einem nationalen Denkmal des Kreisamts (Gesetz 20/1987 Sb., § 14 Abs. 1 und 2). Eine
+Veranstaltung, die eine Straße besonders nutzt, braucht die Erlaubnis des Straßenverwaltungsamts (Gesetz 13/1997
+Sb., § 25 Abs. 1 und 6 Buchst. d, § 40). Die Hinweise nennen dafür die ORP und die Gemeinden des Kartengebiets.
+Sie sagen, dass die Gesetze einen Lauf oder einen Posten als solchen nicht nennen, wo das so ist. Die Waldeigentümer
+stehen nicht in den Daten (die Dienste des Forstinstituts ÚHÚL antworten mit einem fehlerhaften Zertifikat);
+die Hinweise bitten daher, sie zu ermitteln. Die Naturparks (přírodní parky) und die Schutzzonen der Denkmale
+sind nicht abgedeckt. Der tschechische Wortlaut der Hinweise wurde von keinem Tschechisch-Sprecher gelesen. Die
+Hinweise sind ein Anhaltspunkt, keine Rechtsberatung. `--offline` liest, was ein früherer Lauf gespeichert hat,
+wie in Deutschland.
 
 ## 13. Regionen und Grenzgebiete
 

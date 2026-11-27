@@ -1,0 +1,71 @@
+{
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       17.93429,
+       49.899322
+      ],
+      [
+       17.937978,
+       49.899322
+      ],
+      [
+       17.937978,
+       49.901523
+      ],
+      [
+       17.93429,
+       49.901523
+      ],
+      [
+       17.93429,
+       49.899322
+      ]
+     ]
+    ]
+   },
+   "properties": {
+    "NAZEV": "Břízy tmavé u Raduňských rybníků"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       17.292502,
+       49.077488
+      ],
+      [
+       17.29268,
+       49.077488
+      ],
+      [
+       17.29268,
+       49.077583
+      ],
+      [
+       17.292502,
+       49.077583
+      ],
+      [
+       17.292502,
+       49.077488
+      ]
+     ]
+    ]
+   },
+   "properties": {
+    "NAZEV": "Duby pod táborem"
+   }
+  }
+ ]
+}

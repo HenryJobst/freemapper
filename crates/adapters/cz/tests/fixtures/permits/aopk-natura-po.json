@@ -1,0 +1,39 @@
+{
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       16.090342,
+       50.479235
+      ],
+      [
+       16.367993,
+       50.479235
+      ],
+      [
+       16.367993,
+       50.628847
+      ],
+      [
+       16.090342,
+       50.628847
+      ],
+      [
+       16.090342,
+       50.479235
+      ]
+     ]
+    ]
+   },
+   "properties": {
+    "NAZEV": "Broumovsko",
+    "SITECODE": "CZ0521014"
+   }
+  }
+ ]
+}

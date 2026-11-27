@@ -1,0 +1,43 @@
+{
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       16.055484,
+       50.591738
+      ],
+      [
+       16.149645,
+       50.591738
+      ],
+      [
+       16.149645,
+       50.647595
+      ],
+      [
+       16.055484,
+       50.647595
+      ],
+      [
+       16.055484,
+       50.591738
+      ]
+     ]
+    ]
+   },
+   "properties": {
+    "kod": 547786,
+    "nazev": "Adršpach",
+    "okres": 3605,
+    "pou": 2283,
+    "nespravny": null,
+    "platido": null
+   }
+  }
+ ]
+}
