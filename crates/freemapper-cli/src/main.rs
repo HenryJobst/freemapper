@@ -19,6 +19,7 @@ mod select;
 mod select_page;
 mod select_preview;
 mod select_run;
+mod sources;
 mod text;
 mod tiles;
 mod update;
@@ -294,6 +295,12 @@ enum Commands {
         #[command(subcommand)]
         command: AdaptersCommand,
     },
+    /// Read and correct the addresses of the data sources without a new release. A correction
+    /// goes into your own adapter folder and replaces the built-in address.
+    Sources {
+        #[command(subcommand)]
+        command: SourcesCommand,
+    },
     /// Install a newer freemapper from the GitHub releases, after asking. A build from source says
     /// how to update it instead.
     Update {
@@ -313,6 +320,74 @@ enum Commands {
         /// in every build, because it only writes the setting.
         #[arg(long, value_enum, conflicts_with_all = ["check", "yes", "version", "rollback"])]
         mode: Option<UpdateMode>,
+    },
+}
+
+#[derive(Subcommand)]
+enum SourcesCommand {
+    /// List the addresses of the manifests with their paths and where each manifest comes from.
+    /// With an adapter id only that adapter's.
+    List {
+        /// The id of the adapter, as `adapters list` shows it.
+        adapter: Option<String>,
+        /// Print the list as JSON.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Print one address and nothing else. Exit code 1 when the adapter or the path is unknown.
+    Get {
+        /// The id of the adapter, as `adapters list` shows it.
+        adapter: String,
+        /// The path of the address, as `sources list` shows it.
+        path: String,
+    },
+    /// Correct one address in your own adapter folder, after the whole manifest passed its check.
+    /// An address on a host the manifest does not declare is refused unless you pass --add-host.
+    Set {
+        /// The id of the adapter, as `adapters list` shows it.
+        adapter: String,
+        /// The path of the address, as `sources list` shows it.
+        path: String,
+        /// The new address: https, no query.
+        url: String,
+        /// Also add the host of the new address to the hosts the manifest declares.
+        #[arg(long)]
+        add_host: bool,
+    },
+    /// Show what your adapter folder changes against the built-in manifest.
+    Diff {
+        /// The id of the adapter, as `adapters list` shows it.
+        adapter: String,
+    },
+    /// Check the folder of your adapter of that id as `adapters check` does. Exit code 0: it
+    /// passes; 1: it has findings; 2: the check could not run.
+    Check {
+        /// The id of the adapter, as `adapters list` shows it.
+        adapter: String,
+        /// Also ask the services of the adapter for the box --bbox names and say what each delivers. The
+        /// requests stay on the hosts the manifest declares.
+        #[arg(long, requires = "bbox")]
+        live: bool,
+        /// The box of the live check in degrees, as minLon,minLat,maxLon,maxLat. It lies inside the boundary
+        /// of the adapter; 150 m by 150 m is enough.
+        #[arg(
+            long,
+            value_name = "BOX",
+            requires = "live",
+            allow_hyphen_values = true
+        )]
+        bbox: Option<adapter_check::LiveBox>,
+        /// Print the result as JSON.
+        #[arg(long)]
+        json: bool,
+        #[command(flatten)]
+        cache: CacheArgs,
+    },
+    /// Print the keys of a manifest that hold an address, with --json as a JSON Schema.
+    Schema {
+        /// Print the result as JSON.
+        #[arg(long)]
+        json: bool,
     },
 }
 
@@ -516,6 +591,7 @@ impl Commands {
             | Commands::Derive { .. }
             | Commands::Mcp { .. }
             | Commands::Adapters { .. }
+            | Commands::Sources { .. }
             | Commands::Update { .. } => None,
         }
     }
@@ -985,7 +1061,7 @@ fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
     let mut adapter_lines = Vec::new();
     if !matches!(
         cli.command,
-        Commands::Adapters { .. } | Commands::Update { .. }
+        Commands::Adapters { .. } | Commands::Sources { .. } | Commands::Update { .. }
     ) {
         // The MCP server and the area page read the person's settings and never write them.
         let may_write = !matches!(cli.command, Commands::Mcp { .. } | Commands::Select { .. });
@@ -1317,6 +1393,27 @@ fn run(cli: Cli) -> anyhow::Result<std::process::ExitCode> {
                 }
             }
         }
+        Commands::Sources { command } => match command {
+            SourcesCommand::List { adapter, json } => sources::list(adapter.as_deref(), json)?,
+            SourcesCommand::Get { adapter, path } => sources::get(&adapter, &path)?,
+            SourcesCommand::Set {
+                adapter,
+                path,
+                url,
+                add_host,
+            } => sources::set(&adapter, &path, &url, add_host)?,
+            SourcesCommand::Diff { adapter } => sources::diff(&adapter)?,
+            SourcesCommand::Check {
+                adapter,
+                live,
+                bbox,
+                json,
+                cache,
+            } => {
+                return sources::check(&adapter, bbox.filter(|_| live), json, || cache.cache());
+            }
+            SourcesCommand::Schema { json } => sources::schema(json)?,
+        },
         Commands::Adapters {
             command: AdaptersCommand::Export { adapter, dir },
         } => adapters::export(&adapter, &dir)?,
