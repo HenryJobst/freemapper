@@ -81,8 +81,10 @@ pub fn cached_tiles(cache: &CacheDir, model: Model, tiles: &[TileId]) -> HashSet
         .collect()
 }
 
-/// The height model files; the product folder appears twice in the path.
-const HM: &str = "https://www.opengeodata.nrw.de/produkte/geobasis/hm";
+/// The height model files, as the manifest of North Rhine-Westphalia declares them (`hm` of its
+/// `endpoints`); the product folder appears twice in the path below it.
+#[cfg(any(test, feature = "testing"))]
+pub const HM: &str = "https://www.opengeodata.nrw.de/produkte/geobasis/hm";
 
 /// The height models of Geobasis NRW.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -108,16 +110,28 @@ impl Model {
     }
 }
 
-/// The tile list of `model`: a zip with one CSV.
-pub fn meta_url(model: Model) -> String {
+/// The tile list of `model` below `hm`: a zip with one CSV.
+pub fn meta_url_in(hm: &str, model: Model) -> String {
     let slug = model.slug();
-    format!("{HM}/{slug}_tiff/{slug}_tiff/{slug}_meta.zip")
+    format!("{hm}/{slug}_tiff/{slug}_tiff/{slug}_meta.zip")
 }
 
-/// The GeoTIFF `name` (from the tile list, without extension) of `model`.
-pub fn tile_url(model: Model, name: &str) -> String {
+/// The GeoTIFF `name` (from the tile list, without extension) of `model` below `hm`.
+pub fn tile_url_in(hm: &str, model: Model, name: &str) -> String {
     let slug = model.slug();
-    format!("{HM}/{slug}_tiff/{slug}_tiff/{name}.tif")
+    format!("{hm}/{slug}_tiff/{slug}_tiff/{name}.tif")
+}
+
+/// [`meta_url_in`] below [`HM`].
+#[cfg(any(test, feature = "testing"))]
+pub fn meta_url(model: Model) -> String {
+    meta_url_in(HM, model)
+}
+
+/// [`tile_url_in`] below [`HM`].
+#[cfg(any(test, feature = "testing"))]
+pub fn tile_url(model: Model, name: &str) -> String {
+    tile_url_in(HM, model, name)
 }
 
 /// One row of the tile list.
@@ -295,12 +309,12 @@ fn kept_meta(dir: &Path, model: Model) -> Option<Meta> {
 /// fails, the newest kept one.
 fn meta_list(
     fetcher: &dyn Fetcher,
-    dir: &Path,
-    mode: FetchMode,
+    hm: &str,
+    (dir, mode): (&Path, FetchMode),
     model: Model,
     warnings: &mut Vec<Note>,
 ) -> Result<Meta, FetchError> {
-    let url = meta_url(model);
+    let url = meta_url_in(hm, model);
     if mode == FetchMode::Offline {
         return kept_meta(dir, model).ok_or_else(|| FetchError::Http {
             url,
@@ -401,6 +415,7 @@ fn clear_markers(dir: &Path, model: Model) {
 /// runs). Tiles are cached under their name. A tile the list names but the server lacks (404),
 /// and a tile inside North Rhine-Westphalia that the list does not name, are returned as
 /// missing; the date is the centre tile's. No tile at all is an error.
+#[cfg(any(test, feature = "testing"))]
 pub fn fetch_model(
     fetcher: &dyn Fetcher,
     cache: &CacheDir,
@@ -410,9 +425,20 @@ pub fn fetch_model(
     root: &Path,
     out: &Path,
 ) -> Result<HeightModel, FetchError> {
+    fetch_model_in(HM, (fetcher, cache, mode), model, bbox, (root, out))
+}
+
+/// `fetch_model` for the files below `hm`.
+pub fn fetch_model_in(
+    hm: &str,
+    (fetcher, cache, mode): (&dyn Fetcher, &CacheDir, FetchMode),
+    model: Model,
+    bbox: &BoundingBox,
+    (root, out): (&Path, &Path),
+) -> Result<HeightModel, FetchError> {
     let dir = cache.provider_dir("geobasis_nrw");
     let mut warnings = Vec::new();
-    let meta = meta_list(fetcher, &dir, mode, model, &mut warnings)?;
+    let meta = meta_list(fetcher, hm, (&dir, mode), model, &mut warnings)?;
     warnings.extend(meta.warnings.iter().cloned());
     let mut area = AreaTiles::default();
     for tile in tiles_covering(bbox) {
@@ -424,12 +450,12 @@ pub fn fetch_model(
             None => {}
         }
     }
-    let list_url = meta_url(model);
+    let list_url = meta_url_in(hm, model);
     let store = TileStore {
         label: model.label(),
         list_url: &list_url,
-        source: HM,
-        url: &|name| tile_url(model, name),
+        source: hm,
+        url: &|name| tile_url_in(hm, model, name),
         cache_path: &|name| cache_path(&dir, model, name),
         marker_path: &|name| marker_path(&dir, model, name),
         // A new release of the list clears the notes.
@@ -466,13 +492,16 @@ pub struct GeobasisNrwBackend {
     info: ProviderInfo,
     /// The orthophoto WMS, as the manifest says it.
     wms: WmsService,
+    /// The folder of the height model files, as the manifest says it.
+    hm: String,
 }
 
 impl GeobasisNrwBackend {
-    /// The backend that asks `wms` for the orthophoto.
-    pub fn with_wms(wms: WmsService) -> Self {
+    /// The backend that asks `wms` for the orthophoto and the files below `hm`.
+    pub fn with_addresses(wms: WmsService, hm: String) -> Self {
         Self {
             wms,
+            hm,
             info: ProviderInfo {
                 id: AdapterId::built_in(PROVIDER),
                 cache_dir: Some("geobasis_nrw".to_string()),
@@ -487,7 +516,7 @@ impl GeobasisNrwBackend {
 impl GeobasisNrwBackend {
     /// The backend with the WMS the manifest of the state declares.
     pub fn new() -> Self {
-        Self::with_wms(WMS)
+        Self::with_addresses(WMS, HM.to_string())
     }
 }
 
@@ -509,7 +538,7 @@ impl RasterBackend for GeobasisNrwBackend {
         project: &mut dyn RasterProject,
         bbox: &BoundingBox,
     ) -> Result<(), AdapterError> {
-        fetch_rasters(env, project, bbox, &self.wms)
+        fetch_rasters(env, project, bbox, (&self.wms, &self.hm))
     }
 }
 
@@ -519,7 +548,7 @@ fn fetch_rasters(
     env: &mut AdapterEnv<'_>,
     project: &mut dyn RasterProject,
     bbox: &BoundingBox,
-    wms: &WmsService,
+    (wms, hm): (&WmsService, &str),
 ) -> Result<(), AdapterError> {
     let (fetcher, mode) = (env.fetcher, env.mode);
     let cache = env.cache;
@@ -547,7 +576,7 @@ fn fetch_rasters(
         (Model::Dgm1.label(), Model::Dom1.label()),
         &mut |surface, out, _| {
             let model = if surface { Model::Dom1 } else { Model::Dgm1 };
-            fetch_model(fetcher, cache, mode, model, bbox, dir, out)
+            fetch_model_in(hm, (fetcher, cache, mode), model, bbox, (dir, out))
         },
         &mut |_, found, _, progress| {
             for warning in &found.warnings {
@@ -1168,5 +1197,65 @@ mod tests {
             );
             assert!(finite.len() > 39_000);
         }
+    }
+
+    /// Every file comes from the folder the backend is given, and none from the built-in one.
+    #[test]
+    fn the_files_come_from_the_folder_the_backend_is_given() {
+        let hm = "https://files.example.org/nrw/hm";
+        assert_eq!(
+            meta_url_in(hm, Model::Dgm1),
+            "https://files.example.org/nrw/hm/dgm1_tiff/dgm1_tiff/dgm1_meta.zip"
+        );
+        assert_eq!(
+            tile_url_in(hm, Model::Dom1, "dom1_32_354_5642_1_nw_2022"),
+            "https://files.example.org/nrw/hm/dom1_tiff/dom1_tiff/dom1_32_354_5642_1_nw_2022.tif"
+        );
+        let fetcher = MapFetcher::default();
+        let rows: Vec<(String, &str)> = [WEST, EAST]
+            .iter()
+            .map(|t| {
+                (
+                    format!("dgm1_32_{}_5642_1_nw_2022", t.east_km),
+                    "2022-02-12",
+                )
+            })
+            .collect();
+        fetcher.insert(
+            &meta_url_in(hm, Model::Dgm1),
+            nrw_meta_zip("dgm1_nw.csv", "2026-10-26", &rows),
+        );
+        for tile in [WEST, EAST] {
+            let grid = GridSpec {
+                west: f64::from(tile.east_km) * 1000.0,
+                north: f64::from(tile.north_km + 1) * 1000.0,
+                pixel_size: 1.0,
+                width: 1000,
+                height: 1000,
+            };
+            fetcher.insert(
+                &tile_url_in(
+                    hm,
+                    Model::Dgm1,
+                    &format!("dgm1_32_{}_5642_1_nw_2022", tile.east_km),
+                ),
+                crate::fetch::test_support::geotiff(&grid, &vec![7.0; 1000 * 1000]),
+            );
+        }
+        let cache_dir = tempfile::tempdir().unwrap();
+        let cache = Cache::new(cache_dir.path().to_path_buf());
+        let out = tempfile::tempdir().unwrap();
+        let tif = out.path().join("dgm1.tif");
+        fetch_model_in(
+            hm,
+            (&fetcher, &cache, FetchMode::Online),
+            Model::Dgm1,
+            &BBOX,
+            (out.path(), &tif),
+        )
+        .unwrap();
+        let log = fetcher.log.borrow();
+        assert_eq!(log.len(), 3, "{log:?}");
+        assert!(log.iter().all(|url| url.starts_with(hm)), "{log:?}");
     }
 }

@@ -44,6 +44,12 @@ land_use_type = "ave:NutzungFlurstueck"
 [orthophoto]
 backend = "laiv-mv"
 
+[orthophoto.endpoints]
+overview = "https://laiv.geodaten-mv.de/afgvk/_apps/dladownload/_ajax/overview.php"
+dop-wcs = "https://www.geodaten-mv.de/dienste/inspire_oi_dop_wcs"
+dgm-wcs = "https://www.geodaten-mv.de/dienste/dgm_wcs"
+dom-wcs = "https://www.geodaten-mv.de/dienste/dom_wcs"
+
 [terrain]
 backend = "laiv-mv"
 

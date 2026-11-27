@@ -43,6 +43,14 @@ land_use_type = "ave:NutzungFlurstueck"
 
 [orthophoto]
 backend = "lgv"
+url = "https://geodienste.hamburg.de/wms_dop_zeitreihe_unbelaubt"
+layer = "dop_zeitreihe_unbelaubt"
+max_px = 4000
+
+[orthophoto.endpoints]
+metadata = "https://www.daten-hamburg.de/opendata/fernerkundung_luftbilder/dop_unbelaubt/DOP_unbelaubt_AdV-Metadaten_Hamburg.zip"
+dgm1 = "https://archiv.transparenz.hamburg.de/hmbtgarchive/HMDK/dgm1_hh_2022-04-30_258334_snap_1.zip"
+bdom = "https://www.daten-hamburg.de/opendata/Digitales_Hoehenmodell_bDOM/dom1_hh_2022-11-21.zip"
 
 [terrain]
 backend = "lgv"

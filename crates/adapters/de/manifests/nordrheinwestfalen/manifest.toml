@@ -73,6 +73,9 @@ url = "https://www.wms.nrw.de/geobasis/wms_nw_dop"
 layer = "nw_dop_rgb"
 max_px = 4000
 
+[orthophoto.endpoints]
+hm = "https://www.opengeodata.nrw.de/produkte/geobasis/hm"
+
 [terrain]
 backend = "geobasis-nrw"
 

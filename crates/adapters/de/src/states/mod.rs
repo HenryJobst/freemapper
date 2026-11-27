@@ -543,9 +543,13 @@ fn wms_of(
 /// What makes the raster backend of `agency` from the addresses of an `[orthophoto]`.
 fn raster_factory(agency: Agency, state: State, crs: Crs) -> RasterFactory {
     Arc::new(move |config: &RasterConfig| {
-        let wms = wms_of(config, state, crs)?;
-        let inner = rasters::backend_with_wms(agency, wms)
-            .ok_or_else(|| format!("{agency:?} takes no addresses"))?;
+        let merged = config.or(&builtin_raster_config(state));
+        let inner = if rasters::takes_wms(agency) {
+            rasters::backend_with_wms(agency, wms_of(config, state, crs)?, &merged)?
+        } else {
+            rasters::backend_without_wms(agency, &merged)?
+        }
+        .ok_or_else(|| format!("{agency:?} takes no addresses"))?;
         Ok(Arc::new(Estimating { inner, agency }) as Arc<dyn RasterBackend>)
     })
 }
@@ -862,7 +866,7 @@ mod tests {
     /// held before the addresses moved there (issue #273): the same WMS, layer, size and CRS.
     #[test]
     fn the_orthophoto_wms_of_each_manifest_is_the_one_the_code_held() {
-        let held: [(Agency, &freemapper_sources::wms::WmsService); 9] = [
+        let held: [(Agency, &freemapper_sources::wms::WmsService); 10] = [
             (Agency::GeoSn, &crate::geosn::WMS),
             (Agency::Hvbg, &crate::hvbg::WMS),
             (Agency::LvermGeoSh, &crate::lvermgeo_sh::WMS),
@@ -872,6 +876,7 @@ mod tests {
             (Agency::Lvgl, &crate::lvgl::WMS),
             (Agency::LglBw, &crate::lgl_bw::WMS),
             (Agency::Ldbv, &crate::ldbv::WMS),
+            (Agency::Lgv, &crate::lgv::WMS),
         ];
         for (agency, code) in held {
             let (state, crs) = rasters::addressed(agency).expect("an addressed agency");
@@ -879,14 +884,15 @@ mod tests {
             assert_eq!(wms.url, code.url, "{agency:?}");
             assert_eq!(wms.layer, code.layer, "{agency:?}");
             assert_eq!(wms.crs, code.crs, "{agency:?}");
-            assert_eq!(wms.extra, code.extra, "{agency:?}");
+            // What the request adds is the code of the backend (the vintage of Hamburg).
+            if agency != Agency::Lgv {
+                assert_eq!(wms.extra, code.extra, "{agency:?}");
+            }
             assert_eq!(wms.max_px, code.max_px, "{agency:?}");
         }
         // The other agencies keep their addresses in the code.
-        for agency in [Agency::Lgb, Agency::Lgv, Agency::LaivMv, Agency::GeoBremen] {
-            assert!(rasters::addressed(agency).is_none(), "{agency:?}");
-            assert!(rasters::backend(agency).is_some(), "{agency:?}");
-        }
+        assert!(rasters::addressed(Agency::Lgb).is_none());
+        assert!(rasters::backend(Agency::Lgb).is_some());
         // LVermGeo declares its rasters as services in its manifest, and the addressed
         // agencies are made by their factories: neither has a backend of its own here.
         for agency in AGENCIES {
@@ -894,6 +900,56 @@ mod tests {
             let by_factory = rasters::addressed(agency).is_some();
             assert_eq!(own, agency == Agency::LvermGeo || by_factory, "{agency:?}");
         }
+    }
+
+    /// What the manifests say besides the WMS is what the code held: the addresses of the files.
+    #[test]
+    fn the_endpoints_of_each_manifest_are_the_ones_the_code_held() {
+        let endpoints = |state| builtin_raster_config(state).endpoints;
+        let named = |pairs: &[(&str, &str)]| {
+            pairs
+                .iter()
+                .map(|(name, url)| (name.to_string(), url.to_string()))
+                .collect::<std::collections::BTreeMap<_, _>>()
+        };
+        assert_eq!(
+            endpoints(State::Hamburg),
+            named(&[
+                ("metadata", crate::lgv::METADATA_URL),
+                ("dgm1", crate::lgv::Model::Dgm1.archive_url()),
+                ("bdom", crate::lgv::Model::Bdom.archive_url()),
+            ])
+        );
+        assert_eq!(
+            endpoints(State::NordrheinWestfalen),
+            named(&[("hm", crate::geobasis_nrw::HM)])
+        );
+        assert_eq!(
+            endpoints(State::Bremen),
+            named(&[
+                ("wms", crate::geobremen::ORTHOPHOTOS),
+                ("files", crate::geobremen::FILES),
+            ])
+        );
+        assert_eq!(
+            endpoints(State::MecklenburgVorpommern),
+            named(&[
+                ("overview", crate::laiv_mv::OVERVIEW),
+                ("dop-wcs", &crate::laiv_mv::DOP.url),
+                ("dgm-wcs", &crate::laiv_mv::Model::Dgm1.wcs().url),
+                ("dom-wcs", &crate::laiv_mv::Model::Dom1.wcs().url),
+            ])
+        );
+        assert_eq!(
+            endpoints(State::Niedersachsen),
+            named(&[
+                ("dop-stac", crate::lgln::DOP_STAC),
+                ("dgm-stac", crate::lgln::DGM_STAC),
+                ("dom-stac", crate::lgln::DOM_STAC),
+                ("dgm-wcs", &crate::lgln::DGM1_WCS.url),
+                ("dom-wcs", &crate::lgln::DOM1_WCS.url),
+            ])
+        );
     }
 
     /// A folder that replaces a state states the keys it changes; the others come from the
@@ -995,9 +1051,10 @@ mod tests {
                 continue;
             };
             let name = backend_name(agency).unwrap();
-            let builtin = builtin_raster_config(state).url.unwrap();
+            // A backend with a WMS asks the one its config names instead of the built-in one.
+            let builtin = builtin_raster_config(state).url.unwrap_or_default();
             let config = RasterConfig {
-                url: Some("https://wms.example.org/dop".to_string()),
+                url: rasters::takes_wms(agency).then(|| "https://wms.example.org/dop".to_string()),
                 ..RasterConfig::default()
             };
             let backend = registry
@@ -1032,7 +1089,7 @@ mod tests {
             let log = fetcher.log.borrow();
             assert!(!log.is_empty(), "{name} asked nothing");
             assert!(
-                !log.iter().any(|url| url.starts_with(&builtin)),
+                builtin.is_empty() || !log.iter().any(|url| url.starts_with(&builtin)),
                 "{name} asked the WMS of the built-in manifest: {log:?}"
             );
         }
@@ -1042,10 +1099,10 @@ mod tests {
     /// an agency that keeps its addresses in code makes no backend from a WMS.
     #[test]
     fn without_addresses_there_is_no_wms_and_no_backend() {
-        let none = wms_of(&RasterConfig::default(), State::Hamburg, Crs::Utm32).unwrap_err();
-        assert!(none.contains("hamburg"), "{none}");
+        let none = wms_of(&RasterConfig::default(), State::Brandenburg, Crs::Utm32).unwrap_err();
+        assert!(none.contains("brandenburg"), "{none}");
         assert_eq!(
-            builtin_raster_config(State::Hamburg),
+            builtin_raster_config(State::Brandenburg),
             RasterConfig::default()
         );
         assert_ne!(
@@ -1057,8 +1114,9 @@ mod tests {
                 url: Some("https://example.org/wms".to_string()),
                 layer: Some("l".to_string()),
                 max_px: Some(500),
+                ..RasterConfig::default()
             },
-            State::Hamburg,
+            State::Brandenburg,
             Crs::Utm32,
         )
         .unwrap();
@@ -1066,11 +1124,16 @@ mod tests {
             (wms.url.as_ref(), wms.layer.as_ref(), wms.max_px),
             ("https://example.org/wms", "l", 500)
         );
-        assert!(rasters::backend_with_wms(Agency::Lgb, wms.clone()).is_none());
-        let built = raster_factory(Agency::Lgb, State::Hamburg, Crs::Utm32)(&RasterConfig {
+        assert!(
+            rasters::backend_with_wms(Agency::Lgb, wms.clone(), &RasterConfig::default())
+                .unwrap()
+                .is_none()
+        );
+        let built = raster_factory(Agency::Lgb, State::Brandenburg, Crs::Utm32)(&RasterConfig {
             url: Some("https://example.org/wms".to_string()),
             layer: Some("l".to_string()),
             max_px: Some(500),
+            ..RasterConfig::default()
         });
         assert!(
             built
@@ -1096,6 +1159,9 @@ mod tests {
             ("lvgl", "lvgl", Some("lvgl")),
             ("lgl-bw", "lglbw", Some("lglbw")),
             ("ldbv", "ldbv", Some("ldbv")),
+            ("lgv", "lgv", Some("lgv")),
+            ("laiv-mv", "laivmv", Some("laiv_mv")),
+            ("geobremen", "geobremen", Some("geobremen")),
         ] {
             let backend = registry.backend(name).expect("a backend of that name");
             assert_eq!(backend.provider().id.as_str(), id, "{name}");
