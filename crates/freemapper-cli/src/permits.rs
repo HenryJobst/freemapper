@@ -2104,6 +2104,11 @@ mod tests {
                 let without = render_markdown(&notes, &lang);
                 assert!(!without.contains("ORP"), "{code} {key}\n{without}");
                 assert!(!without.contains("none"), "{code} {key}\n{without}");
+                // No placeholder is left over where the districts are missing.
+                assert!(
+                    !without.contains('$') && !without.contains("()"),
+                    "{code} {key}\n{without}"
+                );
                 assert_ne!(with, without, "{code} {key}");
             }
             // Both municipalities come with their share.
