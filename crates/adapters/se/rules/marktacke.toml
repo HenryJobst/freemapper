@@ -1,0 +1,12 @@
+# The classes of the land cover of Lantmäteriet (`objekttyp` of the table `mark`) as the LGB
+# `nutzart` they stand for. A class that is not here is left out of the map and named once in a
+# progress line: `Öppen mark` (open land) holds fields, meadows, clearings and bare rock alike, so
+# it says nothing a land use class can say; the terrain and the point cloud show what grows there.
+[classes]
+"Barr- och blandskog" = "Wald"
+"Låg bebyggelse" = "Wohnbaufläche"
+"Hög bebyggelse" = "Fläche gemischter Nutzung"
+"Industri- och handelsbebyggelse" = "Industrie- und Gewerbefläche"
+"Sjö" = "Stehendes Gewässer"
+"Vattendragsyta" = "Fließgewässer"
+"Torg" = "Platz"

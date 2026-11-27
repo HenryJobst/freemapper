@@ -875,6 +875,7 @@ dependencies = [
  "serde_json",
  "tempfile",
  "tiff",
+ "toml",
  "zip",
 ]
 

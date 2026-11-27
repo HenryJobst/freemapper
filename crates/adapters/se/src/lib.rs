@@ -9,4 +9,5 @@
 //! Terms follow `docs/glossary.md`.
 
 pub mod copc;
+pub mod marktacke;
 pub mod stac_terrain;
