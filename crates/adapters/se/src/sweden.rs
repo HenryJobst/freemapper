@@ -226,7 +226,10 @@ mod tests {
         let adapter = adapter(&registry);
         assert_eq!(adapter.info().id.as_str(), SWEDEN);
         assert_eq!(adapter.info().crs, Crs::Utm33);
-        assert_eq!(adapter.info().country, freemapper_adapter_api::info::Country::Se);
+        assert_eq!(
+            adapter.info().country,
+            freemapper_adapter_api::info::Country::Se
+        );
         let declared = adapter.declared().expect("a manifest adapter");
         assert_eq!(
             declared.hosts,
