@@ -435,7 +435,10 @@ APIs als JSON [live] — brauchbar, um die Liste zu prüfen, ohne die Seite zu l
 `fastighetsindelning` und `hydrografi`; **Gebäude fehlen**. Antworten sind `application/geo+json`, die
 Operationen nehmen `bbox`, `limit`, `offset` und einen CQL2-Filter [live]. Die Collection-Metadaten antworten
 ohne Zugangsdaten (`/marktacke/collections` → `200`), die `items` nicht (`401`, „Missing Credentials“, die
-Meldung nennt `Authorization : Bearer …`) [live]. Das OpenAPI-Dokument führt zwei Sicherheitsschemata,
+Meldung nennt `Authorization : Bearer …`) [live]. Mit den Basic-Zugangsdaten eines Privatkontos antwortet sie am
+2026-11-27 mit **`403`** [live]: Das Konto wird erkannt, hat aber kein Abonnement auf diese Schnittstelle, und das
+API-Portal, in dem man es anlegt, bleibt Privatkonten verschlossen (§2). Marktäcke ist für ein Privatkonto also nur
+als Zip von `dl1` zu holen, nicht als GeoJSON. Das OpenAPI-Dokument führt zwei Sicherheitsschemata,
 `default` und `basic_auth` [live]; Basic statt Bearer wäre für den Fetcher der kleinere Eingriff, weil ein
 Header genügt.
 
@@ -663,6 +666,15 @@ GeoJSON-FeatureCollections samt Paging — er fragt WFS 2.0 mit `typeNames`/`cou
 OAPIF-Geschwister braucht Pfad-Collections und `limit`/`offset`, aber keinen SQLite-Stack. GeoPackage bleibt
 für die **Gebäude** und das `breakgeometry`-Asset nötig, samt Zip drumherum.
 
+**Der echte Aufbau eines GeoPackage** (Marktäcke, Kommun 0183, 2026-11-27, ganz geladen: Zip 188 192 Byte, darin eine
+Datei von 634 880 Byte) [live]: `application_id` 1196444487 („GPKG“), `user_version` 10400, drei Feature-Tabellen
+`mark` (Polygon, 168 Zeilen), `markkantlinje` (Linie) und `sankmark` (Polygon), alle in EPSG:3006 mit Geometriespalte
+`geom`. `mark` trägt `objektidentitet`, `objekttypnr`, `objekttyp` und weitere Attribute; die Klassen sind
+`Barr- och blandskog` (74), `Öppen mark` (44), `Hög bebyggelse` (17), `Industri- und handelsbebyggelse` (12),
+`Låg bebyggelse` (11), `Sjö` (6), `Torg` (2) und `Vattendragsyta` (1). Das GeoPackage-Geometrieheader-Flagbyte ist
+`0`: **Big-Endian, ohne Hüllkörper**; ein Leser darf also nicht von Little-Endian ausgehen. Gebäude und die übrigen
+Vektoren sind nicht geladen, ihr Aufbau ist ungeprüft.
+
 ### 8.3 Ein COG-Leser für das Orthofoto
 
 `tiff_range` (`crates/freemapper-sources/src/tiff_range.rs`, ADR 0141) liest **einen Float32-Sample, LZW
@@ -837,6 +849,8 @@ curl -sL https://www.lantmateriet.se/sv/geodata/vara-produkter/produktsupport/ti
 # Mit Anmeldung, 2026-11-27 (Basic, Zugangsdaten nur aus der Umgebung, nicht abgebildet)
 … -r 0-65535 https://dl1.lantmateriet.se/hojd/data/grid/mhm/61_3/m617_38.tif   # 206, 298 640 561 B, TIFF-Tags §8.4
 … -r 0-8191  https://dl1.lantmateriet.se/hojd/data/pointcloud/sls/21d010/y21d010-66550_4250_25.copc.laz   # 206, §3.1
+… https://dl1.lantmateriet.se/mark/marktacke/marktacke_kn0183.zip   # 200, 188 192 B, GeoPackage-Aufbau §8.2
+… https://api.lantmateriet.se/ogc-features/v1/marktacke/collections/markytor/items   # 403 mit Basic
 … zehn gleichzeitige Voll-Downloads der DTM-Kachel, nach 3 s abgebrochen         # alle 200, kein 429 (§10)
 
 # Authentifizierung
