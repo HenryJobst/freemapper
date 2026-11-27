@@ -14,6 +14,7 @@ pub mod citygml;
 pub mod dates;
 pub mod float_tiff;
 pub mod geojson_wfs;
+pub mod gpkg;
 pub mod height_model;
 pub mod layer_file;
 pub mod metalink;
