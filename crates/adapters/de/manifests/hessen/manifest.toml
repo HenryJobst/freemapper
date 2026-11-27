@@ -39,6 +39,9 @@ square_bez = "ohne Unterart (Hessen)"
 
 [orthophoto]
 backend = "hvbg"
+url = "https://www.gds-srv.hessen.de/cgi-bin/lika-services/ogc-free-images.ows"
+layer = "he_dop20_rgb"
+max_px = 3000
 
 [terrain]
 backend = "hvbg"

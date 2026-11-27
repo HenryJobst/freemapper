@@ -69,6 +69,9 @@ square_bez = "ohne Unterart (Nordrhein-Westfalen)"
 
 [orthophoto]
 backend = "geobasis-nrw"
+url = "https://www.wms.nrw.de/geobasis/wms_nw_dop"
+layer = "nw_dop_rgb"
+max_px = 4000
 
 [terrain]
 backend = "geobasis-nrw"

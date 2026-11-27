@@ -40,6 +40,9 @@ square_bez = "ohne Unterart (Schleswig-Holstein)"
 
 [orthophoto]
 backend = "lvermgeo-sh"
+url = "https://dienste.gdi-sh.de/WMS_SH_DOP20col_OpenGBD"
+layer = "sh_dop20_rgb"
+max_px = 4000
 
 [terrain]
 backend = "lvermgeo-sh"

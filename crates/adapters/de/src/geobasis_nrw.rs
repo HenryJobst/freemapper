@@ -18,6 +18,7 @@ use freemapper_sources::raster_fetch::{
 use freemapper_sources::wms::OrthophotoSource;
 
 use crate::note::{Arg, Note, note};
+#[cfg(any(test, feature = "testing"))]
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::io::Read;
@@ -25,7 +26,9 @@ use std::path::{Path, PathBuf};
 
 use chrono::NaiveDate;
 
-use crate::crs::{BoundingBox, Crs};
+use crate::crs::BoundingBox;
+#[cfg(any(test, feature = "testing"))]
+use crate::crs::Crs;
 use crate::fetch::{CacheDir, FetchError, FetchMode, Fetcher, get_with_retries, write_cache_file};
 use crate::sources::height_model::{
     AreaTiles, HeightModel, TileStore, centre_date, centre_tile, mosaic_tiles, short_name,
@@ -37,6 +40,7 @@ use crate::tiles::{TileId, tiles_covering};
 
 /// The orthophoto WMS (the tiles are JPEG 2000 only). MaxWidth/MaxHeight is 5000; a larger request
 /// is an HTTP 200 XML exception.
+#[cfg(any(test, feature = "testing"))]
 pub const WMS: WmsService = WmsService {
     url: Cow::Borrowed("https://www.wms.nrw.de/geobasis/wms_nw_dop"),
     layer: Cow::Borrowed("nw_dop_rgb"),
@@ -49,11 +53,11 @@ const WMS_INFO_LAYER: &str = "nw_dop_utm_info";
 
 /// The flight date (`DD.MM.YYYY`) of the orthophoto at the centre of `bbox` (EPSG:25832), by a
 /// GetFeatureInfo on the metadata layer; `None` outside the coverage or when the answer has none.
-pub fn flight_date(fetcher: &dyn Fetcher, bbox: &BoundingBox) -> Option<String> {
+pub fn flight_date(fetcher: &dyn Fetcher, wms: &WmsService, bbox: &BoundingBox) -> Option<String> {
     freemapper_sources::dates::feature_info_date(
         fetcher,
-        (&WMS.url, WMS_INFO_LAYER, "Bildflugdatum"),
-        WMS.crs,
+        (&wms.url, WMS_INFO_LAYER, "Bildflugdatum"),
+        wms.crs,
         bbox,
     )
 }
@@ -460,11 +464,15 @@ const PROVIDER: &str = "geobasisnrw";
 /// The rasters of Geobasis NRW (North Rhine-Westphalia): requested for the area and stored in the project folder.
 pub struct GeobasisNrwBackend {
     info: ProviderInfo,
+    /// The orthophoto WMS, as the manifest says it.
+    wms: WmsService,
 }
 
 impl GeobasisNrwBackend {
-    pub fn new() -> Self {
+    /// The backend that asks `wms` for the orthophoto.
+    pub fn with_wms(wms: WmsService) -> Self {
         Self {
+            wms,
             info: ProviderInfo {
                 id: AdapterId::built_in(PROVIDER),
                 cache_dir: Some("geobasis_nrw".to_string()),
@@ -475,6 +483,15 @@ impl GeobasisNrwBackend {
     }
 }
 
+#[cfg(any(test, feature = "testing"))]
+impl GeobasisNrwBackend {
+    /// The backend with the WMS the manifest of the state declares.
+    pub fn new() -> Self {
+        Self::with_wms(WMS)
+    }
+}
+
+#[cfg(any(test, feature = "testing"))]
 impl Default for GeobasisNrwBackend {
     fn default() -> Self {
         Self::new()
@@ -492,7 +509,7 @@ impl RasterBackend for GeobasisNrwBackend {
         project: &mut dyn RasterProject,
         bbox: &BoundingBox,
     ) -> Result<(), AdapterError> {
-        fetch_rasters(env, project, bbox)
+        fetch_rasters(env, project, bbox, &self.wms)
     }
 }
 
@@ -502,6 +519,7 @@ fn fetch_rasters(
     env: &mut AdapterEnv<'_>,
     project: &mut dyn RasterProject,
     bbox: &BoundingBox,
+    wms: &WmsService,
 ) -> Result<(), AdapterError> {
     let (fetcher, mode) = (env.fetcher, env.mode);
     let cache = env.cache;
@@ -509,12 +527,17 @@ fn fetch_rasters(
     project.records().tiles.clear();
     project.records().ndsm_tiles.clear();
     warn_beyond_state(env, project, PROVIDER, "Geobasis NRW");
-    let flight = || flight_date(fetcher, bbox);
+    let flight = || flight_date(fetcher, wms, bbox);
     fetch_wms_orthophoto(
         env,
         project,
         bbox,
-        (&OrthophotoSource::Wms(WMS), "Geobasis NRW", &flight, None),
+        (
+            &OrthophotoSource::Wms(wms.clone()),
+            "Geobasis NRW",
+            &flight,
+            None,
+        ),
     )?;
     fetch_area_heights(
         env,
@@ -658,7 +681,10 @@ mod tests {
             ),
             test_support::NRW_FLIGHT_INFO.as_bytes().to_vec(),
         );
-        assert_eq!(flight_date(&fetcher, &BBOX).as_deref(), Some("11.05.2025"));
+        assert_eq!(
+            flight_date(&fetcher, &WMS, &BBOX).as_deref(),
+            Some("11.05.2025")
+        );
         let url = fetcher.log.borrow()[0].clone();
         for part in [
             "LAYERS=nw_dop_utm_info",
@@ -683,10 +709,10 @@ mod tests {
         ] {
             let fetcher = MapFetcher::default();
             fetcher.insert_prefix(&WMS.url, answer.as_bytes().to_vec());
-            assert_eq!(flight_date(&fetcher, &BBOX), None, "{answer}");
+            assert_eq!(flight_date(&fetcher, &WMS, &BBOX), None, "{answer}");
         }
         // No answer at all.
-        assert_eq!(flight_date(&MapFetcher::default(), &BBOX), None);
+        assert_eq!(flight_date(&MapFetcher::default(), &WMS, &BBOX), None);
     }
 
     #[test]

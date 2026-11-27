@@ -39,6 +39,7 @@ use crate::xyz_archive::{kept_directory, not_cached, xyz_tile};
 
 /// The orthophoto WMS (20 cm, cut at the state border). Its capabilities promise 15 000 px;
 /// from 6 144 px on it answers a white image with status 200, so the pieces stay at 4 000.
+#[cfg(any(test, feature = "testing"))]
 pub const WMS: WmsService = WmsService {
     url: Cow::Borrowed("https://owsproxy.lgl-bw.de/owsproxy/ows/WMS_LGL-BW_ATKIS_DOP_20_C"),
     layer: Cow::Borrowed("IMAGES_DOP_20_RGB"),
@@ -555,11 +556,15 @@ impl AlkisSource for LglBwAlkis {
 /// folder.
 pub struct LglBwBackend {
     info: ProviderInfo,
+    /// The orthophoto WMS, as the manifest says it.
+    wms: WmsService,
 }
 
 impl LglBwBackend {
-    pub fn new() -> Self {
+    /// The backend that asks `wms` for the orthophoto.
+    pub fn with_wms(wms: WmsService) -> Self {
         Self {
+            wms,
             info: ProviderInfo {
                 id: AdapterId::built_in(PROVIDER),
                 cache_dir: Some(PROVIDER.to_string()),
@@ -570,6 +575,15 @@ impl LglBwBackend {
     }
 }
 
+#[cfg(any(test, feature = "testing"))]
+impl LglBwBackend {
+    /// The backend with the WMS the manifest of the state declares.
+    pub fn new() -> Self {
+        Self::with_wms(WMS)
+    }
+}
+
+#[cfg(any(test, feature = "testing"))]
 impl Default for LglBwBackend {
     fn default() -> Self {
         Self::new()
@@ -587,7 +601,7 @@ impl RasterBackend for LglBwBackend {
         project: &mut dyn RasterProject,
         bbox: &BoundingBox,
     ) -> Result<(), AdapterError> {
-        fetch_rasters(env, project, bbox)
+        fetch_rasters(env, project, bbox, &self.wms)
     }
 }
 
@@ -600,6 +614,7 @@ fn fetch_rasters(
     env: &mut AdapterEnv<'_>,
     project: &mut dyn RasterProject,
     bbox: &BoundingBox,
+    wms: &WmsService,
 ) -> Result<(), AdapterError> {
     let (fetcher, mode, cache) = (env.fetcher, env.mode, env.cache);
     let root = project.dir().to_path_buf();
@@ -611,7 +626,7 @@ fn fetch_rasters(
         env,
         project,
         bbox,
-        (&OrthophotoSource::Wms(WMS), "LGL", &flight, None),
+        (&OrthophotoSource::Wms(wms.clone()), "LGL", &flight, None),
     )?;
     let mut ground: Option<Raster<f32>> = None;
     fetch_area_heights(
@@ -1396,7 +1411,7 @@ mod tests {
             skip_surface: false,
             progress: &mut |n| notes.push(n.to_string()),
         };
-        fetch_rasters(&mut env, &mut project, &bbox).unwrap();
+        fetch_rasters(&mut env, &mut project, &bbox, &WMS).unwrap();
         let terrain = read(&project.dir.join(TERRAIN_RELPATH));
         let surface = read(&project.dir.join(SURFACE_RELPATH));
         assert_eq!(terrain.get(0, 5), 309.0);
@@ -1457,7 +1472,7 @@ mod tests {
             skip_surface: false,
             progress: &mut |n| notes.push(n.to_string()),
         };
-        fetch_rasters(&mut env, &mut project, &bbox).unwrap();
+        fetch_rasters(&mut env, &mut project, &bbox, &WMS).unwrap();
         let warning = notes
             .iter()
             .find(|n| n.starts_with("warning: surface model (LGL nDOM1) unavailable"))

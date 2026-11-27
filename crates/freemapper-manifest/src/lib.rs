@@ -30,7 +30,7 @@ mod validate;
 
 pub use error::ManifestError;
 pub use model::{Manifest, PointCloud, PointCloudKind};
-pub use validate::MAX_ANSWER_BYTES;
+pub use validate::{MAX_ANSWER_BYTES, TAKES_ADDRESSES};
 
 /// The name of the manifest file in the folder of an adapter.
 pub const MANIFEST_FILE: &str = "manifest.toml";

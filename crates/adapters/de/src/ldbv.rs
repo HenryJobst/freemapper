@@ -8,6 +8,7 @@
 //! their addresses follow from the map area. A cached tile carries the day the server last
 //! changed it ([`crate::ldbv_files`]).
 
+#[cfg(any(test, feature = "testing"))]
 use std::borrow::Cow;
 use std::path::{Path, PathBuf};
 
@@ -21,7 +22,9 @@ use freemapper_sources::raster_fetch::{
 };
 use freemapper_sources::wms::OrthophotoSource;
 
-use crate::crs::{BoundingBox, Crs};
+use crate::crs::BoundingBox;
+#[cfg(any(test, feature = "testing"))]
+use crate::crs::Crs;
 use crate::fetch::{CacheDir, FetchError, FetchMode, Fetcher, one_line, write_cache_file};
 use crate::ldbv_files::{Checks, Current, Published, cached, current, drop_older, missing_note};
 use crate::note::{Note, note};
@@ -39,6 +42,7 @@ use crate::sources::wms::WmsService;
 use crate::tiles::{TileId, tiles_covering};
 
 /// The orthophoto WMS (DOP20). MaxWidth and MaxHeight of the service are 6500.
+#[cfg(any(test, feature = "testing"))]
 pub const WMS: WmsService = WmsService {
     url: Cow::Borrowed("https://geoservices.bayern.de/od/wms/dop/v1/dop20"),
     layer: Cow::Borrowed("by_dop20c"),
@@ -71,11 +75,11 @@ pub(crate) const DOM20_BLOCK_PX: u32 = 256;
 /// The flight date (`DD.MM.YYYY`) of the orthophoto at the centre of `bbox` (EPSG:25832), by a
 /// GetFeatureInfo on the layer of the flights; `None` outside the coverage or when the answer
 /// has none.
-pub fn flight_date(fetcher: &dyn Fetcher, bbox: &BoundingBox) -> Option<String> {
+pub fn flight_date(fetcher: &dyn Fetcher, wms: &WmsService, bbox: &BoundingBox) -> Option<String> {
     freemapper_sources::dates::feature_info_date(
         fetcher,
-        (&WMS.url, WMS_INFO_LAYER, WMS_DATE_FIELD),
-        WMS.crs,
+        (&wms.url, WMS_INFO_LAYER, WMS_DATE_FIELD),
+        wms.crs,
         bbox,
     )
 }
@@ -513,11 +517,15 @@ pub fn fetch_model(
 /// stored in the project folder.
 pub struct LdbvBackend {
     info: ProviderInfo,
+    /// The orthophoto WMS, as the manifest says it.
+    wms: WmsService,
 }
 
 impl LdbvBackend {
-    pub fn new() -> Self {
+    /// The backend that asks `wms` for the orthophoto.
+    pub fn with_wms(wms: WmsService) -> Self {
         Self {
+            wms,
             info: ProviderInfo {
                 id: AdapterId::built_in(PROVIDER),
                 cache_dir: Some(CACHE_DIR.to_string()),
@@ -528,6 +536,15 @@ impl LdbvBackend {
     }
 }
 
+#[cfg(any(test, feature = "testing"))]
+impl LdbvBackend {
+    /// The backend with the WMS the manifest of the state declares.
+    pub fn new() -> Self {
+        Self::with_wms(WMS)
+    }
+}
+
+#[cfg(any(test, feature = "testing"))]
 impl Default for LdbvBackend {
     fn default() -> Self {
         Self::new()
@@ -545,7 +562,7 @@ impl RasterBackend for LdbvBackend {
         project: &mut dyn RasterProject,
         bbox: &BoundingBox,
     ) -> Result<(), AdapterError> {
-        fetch_rasters(env, project, bbox)
+        fetch_rasters(env, project, bbox, &self.wms)
     }
 }
 
@@ -555,6 +572,7 @@ fn fetch_rasters(
     env: &mut AdapterEnv<'_>,
     project: &mut dyn RasterProject,
     bbox: &BoundingBox,
+    wms: &WmsService,
 ) -> Result<(), AdapterError> {
     let (fetcher, mode) = (env.fetcher, env.mode);
     let cache = env.cache;
@@ -562,12 +580,12 @@ fn fetch_rasters(
     project.records().tiles.clear();
     project.records().ndsm_tiles.clear();
     warn_beyond_state(env, project, PROVIDER, "LDBV");
-    let flight = || flight_date(fetcher, bbox);
+    let flight = || flight_date(fetcher, wms, bbox);
     fetch_wms_orthophoto(
         env,
         project,
         bbox,
-        (&OrthophotoSource::Wms(WMS), "LDBV", &flight, None),
+        (&OrthophotoSource::Wms(wms.clone()), "LDBV", &flight, None),
     )?;
     fetch_area_heights(
         env,
@@ -788,7 +806,10 @@ mod tests {
     fn the_flight_date_is_the_ua_field() {
         let fetcher = MapFetcher::default();
         fetcher.insert_prefix(FLIGHT_INFO_PREFIX, FLIGHT_INFO.as_bytes().to_vec());
-        assert_eq!(flight_date(&fetcher, &BBOX).as_deref(), Some("11.05.2025"));
+        assert_eq!(
+            flight_date(&fetcher, &WMS, &BBOX).as_deref(),
+            Some("11.05.2025")
+        );
         let url = fetcher.log.borrow()[0].clone();
         for part in [
             "LAYERS=by_dop20_info",
@@ -806,7 +827,7 @@ mod tests {
         ] {
             let fetcher = MapFetcher::default();
             fetcher.insert_prefix(&WMS.url, answer.as_bytes().to_vec());
-            assert_eq!(flight_date(&fetcher, &BBOX), None, "{answer}");
+            assert_eq!(flight_date(&fetcher, &WMS, &BBOX), None, "{answer}");
         }
     }
 

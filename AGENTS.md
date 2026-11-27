@@ -157,8 +157,11 @@ expected, every other finding is to be fixed; the person puts the folder into th
 the warning `adapter.replaces-built-in`; `adapters list --json` then says `replaces_built_in: true`. Deleting the
 folder takes the built-in adapter back. The replacement asks only the hosts of its own manifest and keeps its own
 credit and licence, so do not change those without the person's say. Only what a manifest declares can be
-changed: addresses that sit in the code of a state (tree cadastres, point clouds, Berlin's layers fetched by
-code) cannot, and Poland has no manifest (`adapters export polska` says so). When the built-in adapter has a
+changed: addresses that sit in the code of a state (the tile and download addresses of the rasters, the
+orthophoto of Brandenburg, Berlin, Hamburg, Mecklenburg-Vorpommern and Bremen, Berlin's layers fetched by code)
+cannot; the orthophoto WMS of nine states can (`[orthophoto]` with `url`, `layer`, `max_px`: Saxony, Hesse,
+Rhineland-Palatinate, Baden-Württemberg, Schleswig-Holstein, Saarland, North Rhine-Westphalia, Bavaria, Lower
+Saxony). A key such a table leaves out stays that of the built-in manifest. Poland has no manifest (`adapters export polska` says so). When the built-in adapter has a
 higher `revision` than the folder, `adapters check` warns with `check.built-in-newer` and each start with
 `adapter.replacement-outdated`: export again and carry the changes over. A project folder never replaces a
 built-in adapter. Report the move at <https://github.com/HenryJobst/freemapper/issues> as well.

@@ -40,6 +40,9 @@ square_bez = "ohne Unterart (Rheinland-Pfalz)"
 
 [orthophoto]
 backend = "lvermgeo-rp"
+url = "https://geo4.service24.rlp.de/wms/rp_dop20.fcgi"
+layer = "rp_dop20"
+max_px = 4000
 
 [terrain]
 backend = "lvermgeo-rp"

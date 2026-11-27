@@ -83,6 +83,9 @@ note = "Lizenz CC BY 4.0 (Namensnennung 4.0 International): https://creativecomm
 
 [orthophoto]
 backend = "ldbv"
+url = "https://geoservices.bayern.de/od/wms/dop/v1/dop20"
+layer = "by_dop20c"
+max_px = 6000
 
 [terrain]
 backend = "ldbv"

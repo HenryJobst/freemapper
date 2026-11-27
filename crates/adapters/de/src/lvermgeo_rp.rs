@@ -20,6 +20,7 @@ use freemapper_sources::raster_fetch::{
 use freemapper_sources::wms::OrthophotoSource;
 
 use crate::note::{Arg, Note, note};
+#[cfg(any(test, feature = "testing"))]
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
@@ -27,7 +28,9 @@ use std::time::Duration;
 
 use chrono::{Datelike, NaiveDate};
 
-use crate::crs::{BoundingBox, Crs};
+use crate::crs::BoundingBox;
+#[cfg(any(test, feature = "testing"))]
+use crate::crs::Crs;
 use crate::fetch::{
     CacheDir, FetchError, FetchMode, Fetcher, get_limited_with_retries, get_with_retries, one_line,
     write_cache_file,
@@ -43,6 +46,7 @@ use crate::tiles::{TileId, tiles_covering};
 /// The orthophoto WMS (the tiles are lossless JPEG 2000 of 105-155 MB). It allows 10000 px a
 /// side, and a larger request is an HTTP 200 XML exception. It is white outside the state, also
 /// where the DGM1 and DOM1 tiles reach across the border.
+#[cfg(any(test, feature = "testing"))]
 pub const WMS: WmsService = WmsService {
     url: Cow::Borrowed("https://geo4.service24.rlp.de/wms/rp_dop20.fcgi"),
     layer: Cow::Borrowed("rp_dop20"),
@@ -63,7 +67,7 @@ pub const FLIGHT_LABEL: DateLabel = DateLabel {
 /// The flight date (`DD.MM.YYYY`) of the orthophoto at the centre of `bbox` (EPSG:25832): the
 /// `erstellung` of its block, by a GetFeatureInfo on the metadata layer; `None` outside the
 /// state or when the answer has none.
-pub fn flight_date(fetcher: &dyn Fetcher, bbox: &BoundingBox) -> Option<String> {
+pub fn flight_date(fetcher: &dyn Fetcher, wms: &WmsService, bbox: &BoundingBox) -> Option<String> {
     let (e, n) = (
         (bbox.min_e + bbox.max_e) / 2.0,
         (bbox.min_n + bbox.max_n) / 2.0,
@@ -72,8 +76,8 @@ pub fn flight_date(fetcher: &dyn Fetcher, bbox: &BoundingBox) -> Option<String> 
         "{}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo&LAYERS={WMS_INFO_LAYER}\
          &QUERY_LAYERS={WMS_INFO_LAYER}&STYLES=&CRS=EPSG:{}&BBOX={},{},{},{}\
          &WIDTH=100&HEIGHT=100&I=50&J=50&INFO_FORMAT=text/plain",
-        WMS.url,
-        WMS.crs.epsg(),
+        wms.url,
+        wms.crs.epsg(),
         crate::sources::wms::mm(e - 100.0),
         crate::sources::wms::mm(n - 100.0),
         crate::sources::wms::mm(e + 100.0),
@@ -785,11 +789,15 @@ const PROVIDER: &str = "lvermgeorp";
 /// The rasters of LVermGeo RP (Rhineland-Palatinate): requested for the area and stored in the project folder.
 pub struct LvermgeoRpBackend {
     info: ProviderInfo,
+    /// The orthophoto WMS, as the manifest says it.
+    wms: WmsService,
 }
 
 impl LvermgeoRpBackend {
-    pub fn new() -> Self {
+    /// The backend that asks `wms` for the orthophoto.
+    pub fn with_wms(wms: WmsService) -> Self {
         Self {
+            wms,
             info: ProviderInfo {
                 id: AdapterId::built_in(PROVIDER),
                 cache_dir: Some("lvermgeo_rp".to_string()),
@@ -800,6 +808,15 @@ impl LvermgeoRpBackend {
     }
 }
 
+#[cfg(any(test, feature = "testing"))]
+impl LvermgeoRpBackend {
+    /// The backend with the WMS the manifest of the state declares.
+    pub fn new() -> Self {
+        Self::with_wms(WMS)
+    }
+}
+
+#[cfg(any(test, feature = "testing"))]
 impl Default for LvermgeoRpBackend {
     fn default() -> Self {
         Self::new()
@@ -817,7 +834,7 @@ impl RasterBackend for LvermgeoRpBackend {
         project: &mut dyn RasterProject,
         bbox: &BoundingBox,
     ) -> Result<(), AdapterError> {
-        fetch_rasters(env, project, bbox)
+        fetch_rasters(env, project, bbox, &self.wms)
     }
 }
 
@@ -828,6 +845,7 @@ fn fetch_rasters(
     env: &mut AdapterEnv<'_>,
     project: &mut dyn RasterProject,
     bbox: &BoundingBox,
+    wms: &WmsService,
 ) -> Result<(), AdapterError> {
     let (fetcher, mode) = (env.fetcher, env.mode);
     let cache = env.cache;
@@ -836,13 +854,13 @@ fn fetch_rasters(
     project.records().ndsm_tiles.clear();
     // The WMS is white beyond the state border, while the tiles reach across it.
     warn_beyond_state(env, project, PROVIDER, "LVermGeo RP");
-    let flight = || flight_date(fetcher, bbox);
+    let flight = || flight_date(fetcher, wms, bbox);
     fetch_wms_orthophoto(
         env,
         project,
         bbox,
         (
-            &OrthophotoSource::Wms(WMS),
+            &OrthophotoSource::Wms(wms.clone()),
             "LVermGeo RP",
             &flight,
             // The block's creation date, taken as the flight date: the record and the log say so.
@@ -1861,7 +1879,10 @@ mod tests {
             ),
             test_support::RP_FLIGHT_INFO.as_bytes().to_vec(),
         );
-        assert_eq!(flight_date(&fetcher, &BBOX).as_deref(), Some("25.08.2025"));
+        assert_eq!(
+            flight_date(&fetcher, &WMS, &BBOX).as_deref(),
+            Some("25.08.2025")
+        );
         let log = fetcher.log.borrow();
         assert_eq!(log.len(), 1, "{log:?}");
         for part in [
@@ -1892,10 +1913,10 @@ mod tests {
         ] {
             let fetcher = MapFetcher::default();
             fetcher.insert_prefix(&WMS.url, answer.as_bytes().to_vec());
-            assert_eq!(flight_date(&fetcher, &BBOX), None, "{answer}");
+            assert_eq!(flight_date(&fetcher, &WMS, &BBOX), None, "{answer}");
         }
         // No answer at all.
-        assert_eq!(flight_date(&MapFetcher::default(), &BBOX), None);
+        assert_eq!(flight_date(&MapFetcher::default(), &WMS, &BBOX), None);
     }
 
     /// Needs the network: the Görres-Gymnasium, Koblenz, tile 400/5579, 200 m box.

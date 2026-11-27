@@ -123,6 +123,9 @@ layers = [
 
 [orthophoto]
 backend = "lvgl"
+url = "https://geoportal.saarland.de/freewms/dop2025"
+layer = "sl_dop20_rgb"
+max_px = 4000
 
 [terrain]
 backend = "lvgl"
