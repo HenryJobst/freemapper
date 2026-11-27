@@ -12,7 +12,10 @@ use std::process::Command;
 
 use freemapper::area::MapArea;
 use freemapper::fetch::{ByteRange, Cache, FetchError, FetchMode, Fetcher};
-use freemapper::project::{MapKind, ProjectFile, derive_project, fetch_project, init_project};
+use freemapper::project::{
+    MapKind, ProjectFile, derive_project, export_starter_project_from, fetch_project, init_project,
+    starter_documents,
+};
 use freemapper_sources::raster::GridSpec;
 use freemapper_sources::testing::tiled_float_tiff_with;
 
@@ -181,6 +184,20 @@ fn a_swedish_map_is_made_from_synthetic_lantmateriet_data() {
     assert!(
         lines.iter().any(|l| l.contains("has no orthophoto")),
         "{lines:?}"
+    );
+    // The map is written without an orthophoto template.
+    let documents = starter_documents(&project).unwrap();
+    export_starter_project_from(&project, &documents, true).unwrap();
+    let omap = std::fs::read_dir(&project)
+        .unwrap()
+        .flatten()
+        .map(|e| e.path())
+        .find(|p| p.extension().is_some_and(|e| e == "omap"))
+        .expect("a map was written");
+    let text = std::fs::read_to_string(omap).unwrap();
+    assert!(
+        !text.contains("orthophoto.jpg"),
+        "the map names no orthophoto"
     );
     // The land cover came from the zip: the forest polygon is stored with its LGB class.
     let mut files = Vec::new();
