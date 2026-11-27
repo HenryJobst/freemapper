@@ -860,6 +860,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "freemapper-adapters-se"
+version = "0.28.0"
+dependencies = [
+ "chrono",
+ "freemapper-adapter-api",
+ "freemapper-georef",
+ "freemapper-manifest",
+ "freemapper-sources",
+ "geo",
+ "geo-types",
+ "geojson",
+ "las",
+ "serde_json",
+ "tempfile",
+ "tiff",
+ "zip",
+]
+
+[[package]]
 name = "freemapper-cli"
 version = "0.28.0"
 dependencies = [

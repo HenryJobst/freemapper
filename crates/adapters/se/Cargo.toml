@@ -1,0 +1,30 @@
+[package]
+name = "freemapper-adapters-se"
+description = "The region adapter of Sweden: what freemapper needs to map Sweden"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+chrono.workspace = true
+freemapper-adapter-api.workspace = true
+freemapper-georef.workspace = true
+freemapper-manifest.workspace = true
+freemapper-sources.workspace = true
+geo.workspace = true
+geo-types.workspace = true
+geojson.workspace = true
+las.workspace = true
+serde_json.workspace = true
+zip.workspace = true
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+freemapper-adapter-api = { workspace = true, features = ["testing"] }
+freemapper-sources = { workspace = true, features = ["testing"] }
+tempfile.workspace = true
+tiff.workspace = true
