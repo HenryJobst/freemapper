@@ -689,6 +689,9 @@ From the terrain model come further candidates the contours miss:
   The terrain of a rock town such as Adršpach (520 of 522 knolls on rock, most above 4 m) becomes a field of black
   dots, as real maps show it. A rock area that OpenStreetMap lacks keeps its brown knolls. The rock pillar in plan
   shape (206) is not built by freemapper.
+  When three or more boulders stand so close that their symbols would leave less than the minimum gap of 0.15 mm
+  (0.55 mm centre to centre, 5.5 m at 1:10 000), they are merged into one boulder cluster (207) at their centre. With today's terrain model this hardly ever
+  happens: the knolls stand at least 5.4 m apart.
 - **Earth banks** (104) and, from 3 m high, **impassable cliffs** (201): a narrow, steep strip that takes
   most of its height difference within a few metres. A plain slope does not count. The ticks point down.
 

@@ -718,6 +718,9 @@ Aus dem Geländemodell kommen weitere Kandidaten, die die Höhenlinien nicht zei
   Das Gelände einer Felsenstadt wie Adršpach (520 von 522 Kuppen im Fels, die meisten über 4 m) wird so zu einem
   Feld aus schwarzen Punkten, wie echte Karten es zeigen. Eine Felsfläche, die OpenStreetMap nicht hat, bleibt
   bei braunen Kuppen. Die Felsnadel in Grundrissform (206) baut freemapper nicht.
+  Stehen drei oder mehr Blöcke so dicht, dass ihre Symbole die Mindestlücke von 0,15 mm unterschreiten (0,55 mm von
+  Mitte zu Mitte, bei 1:10 000 also 5,5 m), werden sie zu einem Blockhaufen (207) in ihrer Mitte zusammengefasst. Mit dem Geländemodell von heute passiert das
+  fast nie: Die Kuppen stehen mindestens 5,4 m auseinander.
 - **Erdböschungen** (104) und ab 3 m Höhe **nicht begehbare Felswände** (201): ein schmaler, steiler
   Streifen, der den größten Teil seines Höhenunterschieds auf wenigen Metern abbaut. Ein gleichmäßiger Hang
   zählt nicht. Die Striche zeigen bergab.

@@ -26,6 +26,8 @@ result, the wording not seen: treat every statement as unverified).
 
 A map of the Nikolsdorfer Wände (Saxonia Festival, middle distance of 2026-09-13, 1:10 000, contour interval 5 m, surveyed 2024 to 2026): <https://livelox.blob.core.windows.net/map-images/240886/thumbnails/1024/457b98e0dfef4d3a819e1797827f8851> (reported by the user and viewed on 2026-11-26; not stored in the repository, the map forbids reproduction without consultation). It shows a rock field drawn as very many small black symbols and 5 m contours. A freemapper map of the same area was built on 2026-11-26 for the comparison (not kept).
 
+Czech map archive, for comparison with the Adršpach example (viewed 2026-11-26/27, not stored; the archive warns against use for events without the publisher's permission): the map `Adršpašské skalní město` of 2009 (<https://mapy.ceskyorientak.cz/map/adrspasske-skalni-mesto-2009>: ISSprOM, 1:5000, contour interval 5 m, KOB Dobruška, drawn by Tomáš Leštínský, 1.01 km², OCAD 7) draws the rock town as large black plan-shape areas with white lanes; a foot-orienteering map of the same rocks of 2014 (shared by the user) draws a field of black dots and strokes with 5 m contours.
+
 Topographic maps, for comparison only (no orienteering rule): swisstopo contour lines
 (<https://www.swisstopo.admin.ch/en/contour-lines>, 10 m at 1:10 000, 20 m in the Alps at 1:25 000), the
 traditional maps of the German Alpine Club (<https://www.alpenverein.de/verband/huetten-und-wege/kartographie/traditionelle-alpenvereinskarten>, 20 m).
