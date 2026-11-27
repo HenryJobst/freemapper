@@ -579,6 +579,187 @@ mod tests {
         north_km: 5821,
     };
 
+    /// A project folder with its raster records.
+    struct TestProject {
+        dir: PathBuf,
+        region: BoundingBox,
+        tiles: Vec<TileRecord>,
+        ndsm_tiles: Vec<NdsmRecord>,
+        orthophoto: Option<freemapper_adapter_api::records::WmsRecord>,
+        terrain: Option<freemapper_adapter_api::records::WcsRecord>,
+        surface: Option<freemapper_adapter_api::records::WcsRecord>,
+    }
+
+    impl RasterProject for TestProject {
+        fn records(&mut self) -> freemapper_adapter_api::project::RasterRecords<'_> {
+            freemapper_adapter_api::project::RasterRecords {
+                tiles: &mut self.tiles,
+                ndsm_tiles: &mut self.ndsm_tiles,
+                orthophoto: &mut self.orthophoto,
+                terrain: &mut self.terrain,
+                surface: &mut self.surface,
+            }
+        }
+
+        fn save(&mut self) -> Result<(), AdapterError> {
+            Ok(())
+        }
+
+        fn dir(&self) -> &std::path::Path {
+            &self.dir
+        }
+
+        fn region_bbox(&self) -> BoundingBox {
+            self.region
+        }
+
+        fn crs(&self) -> crate::crs::Crs {
+            crate::crs::Crs::Utm33
+        }
+    }
+
+    /// The currency list and the archive of `product` for `tile` at the folders of `a`.
+    fn serve_tile(
+        fetcher: &crate::fetch::test_support::MapFetcher,
+        a: &Addresses,
+        product: Product,
+        tile: TileId,
+    ) {
+        use std::io::Write as _;
+        let csv = format!(
+            "\u{feff}sheetnr;sheetname;creationdate;revisiondate;publicationdate\n{};;2018-11-27;;2026-01-26;\n",
+            tile.name()
+        );
+        let mut zip = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
+        let options = zip::write::SimpleFileOptions::default();
+        zip.start_file(product.raster_member(tile), options)
+            .unwrap();
+        zip.write_all(b"raster").unwrap();
+        zip.start_file(product.world_file_member(tile), options)
+            .unwrap();
+        zip.write_all(b"1\n0\n0\n-1\n0.5\n0.5\n").unwrap();
+        fetcher.insert(&a.currency_url_of(product), csv.into_bytes());
+        fetcher.insert(
+            &a.tile_url_of(product, tile),
+            zip.finish().unwrap().into_inner(),
+        );
+    }
+
+    fn laz_bytes() -> Vec<u8> {
+        let mut writer = las::Writer::new(
+            std::io::Cursor::new(Vec::new()),
+            las::Builder::from((1, 2)).into_header().unwrap(),
+        )
+        .unwrap();
+        for i in 0..5 {
+            writer
+                .write_point(las::Point {
+                    x: f64::from(i),
+                    y: 1.0,
+                    z: 2.0,
+                    ..Default::default()
+                })
+                .unwrap();
+        }
+        writer.into_inner().unwrap().into_inner()
+    }
+
+    /// What the backend asking the folders of `a` stored and said for the middle of `tile`.
+    fn fetched(
+        fetcher: &crate::fetch::test_support::MapFetcher,
+        a: &Addresses,
+        tile: TileId,
+    ) -> (TestProject, Vec<String>) {
+        let dir = tempfile::tempdir().unwrap();
+        let bbox = BoundingBox {
+            min_e: f64::from(tile.east_km) * 1000.0 + 400.0,
+            min_n: f64::from(tile.north_km) * 1000.0 + 400.0,
+            max_e: f64::from(tile.east_km) * 1000.0 + 600.0,
+            max_n: f64::from(tile.north_km) * 1000.0 + 600.0,
+        };
+        let cache = crate::fetch::Cache::new(dir.path().join("cache"));
+        std::fs::create_dir_all(dir.path().join("project")).unwrap();
+        let mut project = TestProject {
+            dir: dir.path().join("project"),
+            region: bbox,
+            tiles: Vec::new(),
+            ndsm_tiles: Vec::new(),
+            orthophoto: None,
+            terrain: None,
+            surface: None,
+        };
+        let mut registry = freemapper_adapter_api::registry::Registry::new();
+        crate::states::register(&mut registry).unwrap();
+        let mut notes = Vec::new();
+        let mut env = AdapterEnv {
+            fetcher,
+            regions: &registry,
+            cache: &cache,
+            mode: crate::fetch::FetchMode::Online,
+            today: "2026-11-13".parse().unwrap(),
+            skip_surface: false,
+            progress: &mut |n| notes.push(n.to_string()),
+        };
+        LgbBackend::with_addresses(a.clone())
+            .fetch(&mut env, &mut project, &bbox)
+            .unwrap();
+        (project, notes)
+    }
+
+    /// Where a point cloud is published the bDOM is not asked, and every address is the one
+    /// of the manifest: the fetcher holds nothing at the built-in addresses.
+    #[test]
+    fn a_tile_with_a_point_cloud_asks_no_bdom_and_every_folder_is_the_manifests() {
+        let a = moved();
+        let fetcher = crate::fetch::test_support::MapFetcher::default();
+        serve_tile(&fetcher, &a, Product::Orthophoto, TILE);
+        serve_tile(&fetcher, &a, Product::Dtm, TILE);
+        let cloud = a.ndsm_tile_url(TILE);
+        fetcher.insert(&cloud, laz_bytes());
+        fetcher.set_modified(&cloud, date("2025-03-04"));
+        let (project, notes) = fetched(&fetcher, &a, TILE);
+        let urls: Vec<&str> = project.tiles.iter().map(|r| r.url.as_str()).collect();
+        assert_eq!(
+            urls,
+            [
+                "https://tiles.example.org/data/dop/rgb_jpg/dop_33421-5821.zip",
+                "https://tiles.example.org/data/dgm/tif/dgm_33421-5821.zip"
+            ]
+        );
+        assert_eq!(project.ndsm_tiles.len(), 1);
+        assert_eq!(project.ndsm_tiles[0].url, cloud);
+        assert!(
+            !notes.iter().any(|n| n.to_lowercase().contains("bdom")),
+            "{notes:?}"
+        );
+    }
+
+    /// Where no point cloud is published (Berlin), the bDOM comes from the folders of the manifest.
+    #[test]
+    fn a_tile_without_a_point_cloud_takes_the_bdom_from_the_manifests_folders() {
+        let a = moved();
+        let berlin = TileId {
+            east_km: 392,
+            north_km: 5820,
+        };
+        let fetcher = crate::fetch::test_support::MapFetcher::default();
+        for product in [Product::Orthophoto, Product::Dtm, Product::ImageDsm] {
+            serve_tile(&fetcher, &a, product, berlin);
+        }
+        let (project, _) = fetched(&fetcher, &a, berlin);
+        assert!(project.ndsm_tiles.is_empty());
+        let bdom: Vec<&str> = project
+            .tiles
+            .iter()
+            .filter(|r| r.product == Product::ImageDsm)
+            .map(|r| r.url.as_str())
+            .collect();
+        assert_eq!(
+            bdom,
+            ["https://tiles.example.org/data/bdom/tif/bdom_33392-5820.zip"]
+        );
+    }
+
     fn date(s: &str) -> NaiveDate {
         s.parse().unwrap()
     }
