@@ -1,5 +1,6 @@
 //! Paper formats (ISO 216) and the ground size a sheet covers at a map scale.
 
+use freemapper_contract::tags::{ORIENTATION_LANDSCAPE, ORIENTATION_PORTRAIT};
 use serde::{Deserialize, Serialize};
 
 /// A paper format of the A series.
@@ -42,15 +43,15 @@ pub enum Orientation {
 impl Orientation {
     pub fn name(self) -> &'static str {
         match self {
-            Self::Landscape => "landscape",
-            Self::Portrait => "portrait",
+            Self::Landscape => ORIENTATION_LANDSCAPE,
+            Self::Portrait => ORIENTATION_PORTRAIT,
         }
     }
 
     pub fn from_name(name: &str) -> Option<Self> {
         match name {
-            "landscape" => Some(Self::Landscape),
-            "portrait" => Some(Self::Portrait),
+            ORIENTATION_LANDSCAPE => Some(Self::Landscape),
+            ORIENTATION_PORTRAIT => Some(Self::Portrait),
             _ => None,
         }
     }
@@ -114,6 +115,14 @@ mod tests {
         for o in [Orientation::Landscape, Orientation::Portrait] {
             assert_eq!(Orientation::from_name(o.name()), Some(o));
         }
+    }
+
+    #[test]
+    fn the_names_are_the_reserved_words_of_the_contract() {
+        let papers: Vec<_> = PaperFormat::ALL.iter().map(|f| f.name()).collect();
+        assert_eq!(papers, freemapper_contract::tags::PAPERS);
+        let orientations = [Orientation::Landscape, Orientation::Portrait].map(Orientation::name);
+        assert_eq!(orientations, freemapper_contract::tags::ORIENTATIONS);
     }
 
     #[test]

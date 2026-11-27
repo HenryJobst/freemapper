@@ -7794,6 +7794,52 @@ coordinates = [[[13.0, 52.0], [13.1, 52.0], [13.1, 52.1], [13.0, 52.0]]]
     }
 
     #[test]
+    fn the_written_paper_frame_template_passes_the_contract() {
+        use crate::paper::{Orientation, PaperFormat};
+        let dir = tempfile::tempdir().unwrap();
+        school_project(dir.path());
+        let centre = ProjectFile::load(dir.path())
+            .unwrap()
+            .area()
+            .unwrap()
+            .centroid();
+        // As in the contract's fixture `paper-frames`: an A4 portrait and an A5 landscape frame.
+        let frames = [
+            frame(
+                PaperFormat::A4,
+                Orientation::Portrait,
+                centre.lon,
+                centre.lat,
+            ),
+            frame(
+                PaperFormat::A5,
+                Orientation::Landscape,
+                centre.lon + 0.001,
+                centre.lat,
+            ),
+        ];
+        set_paper_frames(dir.path(), &frames).unwrap();
+        let map = export_starter_project(dir.path(), false).unwrap();
+        let map_xml = std::fs::read_to_string(&map).unwrap();
+        let sidecar = std::fs::read_to_string(dir.path().join(PROJECT_FILE_NAME)).unwrap();
+        let frames_xml =
+            std::fs::read_to_string(dir.path().join(freemapper_contract::tags::PAPER_FRAME_FILE))
+                .unwrap();
+        let violations = freemapper_contract::check_paper_frames(&frames_xml, &map_xml).unwrap();
+        assert!(violations.is_empty(), "{violations:#?}");
+        let violations = freemapper_contract::check(&map_xml, &sidecar).unwrap();
+        assert!(violations.is_empty(), "{violations:#?}");
+        // The template passes for no map: the rule NoPaperFrameInMap catches it.
+        let as_map = freemapper_contract::check(&frames_xml, &sidecar).unwrap();
+        assert!(
+            as_map
+                .iter()
+                .any(|v| v.rule == freemapper_contract::Rule::NoPaperFrameInMap),
+            "{as_map:#?}"
+        );
+    }
+
+    #[test]
     fn export_without_frames_writes_no_template_and_the_map_names_none() {
         let dir = tempfile::tempdir().unwrap();
         school_project(dir.path());

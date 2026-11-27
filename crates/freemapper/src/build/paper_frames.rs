@@ -14,13 +14,9 @@ use crate::omap::{MapDocument, MapObject, MapObjectKind, MapPart, closed_ring};
 use crate::paper::ground_size_m;
 use crate::project::PaperFrame;
 
-// Tag keys and values of the frame objects, plain words a reader takes as they are (suite
-// contract, `docs/superpowers/specs/2026-11-27-paper-frames-design.md`). A later step takes them
-// from `freemapper-contract`.
-const SOURCE_KEY: &str = "freemapper:source";
-const PAPER_FRAME_SOURCE: &str = "paper-frame";
-const PAPER_KEY: &str = "freemapper:paper";
-const ORIENTATION_KEY: &str = "freemapper:orientation";
+// Tag keys and values of the frame objects: reserved words of the suite contract (core ADR 0046),
+// plain words a reader takes as they are.
+use freemapper_contract::tags::{ORIENTATION_KEY, PAPER_KEY, SOURCE_KEY, SOURCE_PAPER_FRAME};
 /// The name OOM shows in the tag list, so that the frames can be told apart. It means nothing
 /// to a reader.
 const NAME_KEY: &str = "freemapper:name";
@@ -88,7 +84,7 @@ fn frame_object(
         kind: MapObjectKind::Path,
         coords: closed_ring(&[(x0, y0), (x1, y0), (x1, y1), (x0, y1)]),
         tags: vec![
-            (SOURCE_KEY.to_string(), PAPER_FRAME_SOURCE.to_string()),
+            (SOURCE_KEY.to_string(), SOURCE_PAPER_FRAME.to_string()),
             (PAPER_KEY.to_string(), paper.to_string()),
             (ORIENTATION_KEY.to_string(), orientation.to_string()),
             (NAME_KEY.to_string(), format!("{paper} {orientation}")),

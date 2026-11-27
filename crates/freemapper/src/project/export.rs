@@ -1851,7 +1851,7 @@ pub(crate) const OLD_CANDIDATES_RELPATH: &str = "templates/candidates.omap";
 
 /// The template map of the paper frames of the area page: freemapper's own output, rewritten by
 /// every export and removed when no frames are stored.
-pub const PAPER_FRAME_RELPATH: &str = "templates/paper-frame.omap";
+pub const PAPER_FRAME_RELPATH: &str = freemapper_contract::tags::PAPER_FRAME_FILE;
 
 /// The opacity of a candidate layer when it is switched on.
 pub(crate) const CANDIDATE_LAYER_OPACITY: f32 = 0.7;
