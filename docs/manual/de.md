@@ -61,7 +61,7 @@ Auf Wunsch erzeugt freemapper zusätzlich die **druckfertige Karte als PDF**, ei
     wenn schon ein älterer OSM-Auszug da ist, auch dessen Aktualisierung. Für jeden ausgelassenen Teil
     warnt es. Kartendaten, Geländemodell und Luftbild braucht jede Karte. Passen sie nicht, bricht
     freemapper ab, bevor es etwas lädt.
-- Ein Gebiet in **Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg, Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern, Nordrhein-Westfalen, Niedersachsen, Rheinland-Pfalz, dem Saarland, Baden-Württemberg, Bremen oder Bayern**. Thüringen fehlt noch. Polen ist nutzbar: Die Karte dort kombiniert OpenStreetMap mit dem Kataster EGiB, Orthofoto und Gelände von GUGiK, und das Gebiet muss ganz in Polen liegen. Gebäude und Landnutzung kommen in Polen aus dem Kataster EGiB; wo er nichts liefert (Gemeinden ohne Katasterdienst, Städte mit leeren Nutzungsklassen), füllt BDOT10k auf, wofür das GML-Archiv des Powiats (7 bis 89 MB) in den Cache geladen wird. Eine Waldkarte in Polen übernimmt außerdem die Straßen und Wege aus BDOT10k als Kandidaten, wo OpenStreetMap im Umkreis von 10 m keinen hat; dafür liest freemapper nur zwei Dateien des Archivs (etwa 2 MB). Tschechien ist als Vorschau nutzbar: Die Karte dort kombiniert OpenStreetMap mit Gelände-, Oberflächenmodell und Luftbild des ČÚZK, den Gebäuden aus dem Register RÚIAN und der Landnutzung aus ZABAGED; das Gebiet muss ganz in Tschechien liegen, und der OSM-Auszug des ganzen Landes (etwa 910 MB) wird einmal geladen. Alle Dienste sind offen unter CC BY 4.0 und brauchen keinen Schlüssel. Die Höhenlinien schlängeln sich in dicht bebauten Altstädten, weil das Geländemodell dort ein interpolierter Erdboden ist; die Parzellen des RÚIAN sind seit Dezember 2021 veraltet und werden nicht verwendet. Die Hinweise zu Genehmigungen kommen von AOPK, RÚIAN und NPÚ (ADR 0201).
+- Ein Gebiet in **Brandenburg, Berlin, Sachsen, Sachsen-Anhalt, Hamburg, Hessen, Schleswig-Holstein, Mecklenburg-Vorpommern, Nordrhein-Westfalen, Niedersachsen, Rheinland-Pfalz, dem Saarland, Baden-Württemberg, Bremen oder Bayern**. Thüringen fehlt noch. Schweden ist eine Vorschau: Geländemodell und Laserpunktwolken der Lantmäteriet, kein Luftbild, mit einem kostenlosen Geotorget-Konto ([Schweden](#schweden)). Polen ist nutzbar: Die Karte dort kombiniert OpenStreetMap mit dem Kataster EGiB, Orthofoto und Gelände von GUGiK, und das Gebiet muss ganz in Polen liegen. Gebäude und Landnutzung kommen in Polen aus dem Kataster EGiB; wo er nichts liefert (Gemeinden ohne Katasterdienst, Städte mit leeren Nutzungsklassen), füllt BDOT10k auf, wofür das GML-Archiv des Powiats (7 bis 89 MB) in den Cache geladen wird. Eine Waldkarte in Polen übernimmt außerdem die Straßen und Wege aus BDOT10k als Kandidaten, wo OpenStreetMap im Umkreis von 10 m keinen hat; dafür liest freemapper nur zwei Dateien des Archivs (etwa 2 MB). Tschechien ist als Vorschau nutzbar: Die Karte dort kombiniert OpenStreetMap mit Gelände-, Oberflächenmodell und Luftbild des ČÚZK, den Gebäuden aus dem Register RÚIAN und der Landnutzung aus ZABAGED; das Gebiet muss ganz in Tschechien liegen, und der OSM-Auszug des ganzen Landes (etwa 910 MB) wird einmal geladen. Alle Dienste sind offen unter CC BY 4.0 und brauchen keinen Schlüssel. Die Höhenlinien schlängeln sich in dicht bebauten Altstädten, weil das Geländemodell dort ein interpolierter Erdboden ist; die Parzellen des RÚIAN sind seit Dezember 2021 veraltet und werden nicht verwendet. Die Hinweise zu Genehmigungen kommen von AOPK, RÚIAN und NPÚ (ADR 0201).
 - Optional einen KI-Assistenten, z. B. Claude. Dann müssen Sie keine Befehle tippen.
 
 ## 3. Installation
@@ -1891,6 +1891,32 @@ Luftbild und Gelände kommen aus dem Bundesland, in dem die Mitte des Kartengebi
 weit über die Grenze, bleiben die Vorlagen jenseits davon leer, soweit Luftbild und Höhenmodelle dieses
 Bundeslandes dort enden. Manche Dienste reichen weiter: Luftbild und Höhenmodelle des LGLN decken auch die
 Hamburger Ecke bei Harburg ab, und die Höhenmodelle des LVermGeo RP reichen bei Mainz über den Rhein. freemapper meldet, wenn ein Gebiet über eine Grenze reicht.
+
+### Schweden
+
+Schweden ist eine Vorschau für Waldkarten und für Karten, die kein Luftbild brauchen: Geländemodell (Höhenlinien,
+Schummerung, Neigung, Relief), Laserpunktwolken für die Vegetation und die Bodenbedeckung kommen von der Lantmäteriet
+(CC BY 4.0, Quellenangabe "© Lantmäteriet (CC BY 4.0)"); Wege und Gebäude kommen aus OpenStreetMap. Es gibt **kein
+Luftbild** (die Karte hat keine Luftbild-Vorlage, und `derive` sagt es), noch keine Gebäude aus dem Register und keine
+Genehmigungshinweise.
+
+Die Downloads der Lantmäteriet brauchen ein privates Konto bei Geotorget (`geotorget.lantmateriet.se`), das drei
+kostenlose Produkte bestellt hat: **Markhöjdmodell Nedladdning**, **Laserdata Skog** und **Marktäcke**. freemapper liest
+das Konto aus zwei Umgebungsvariablen und von nirgendwo sonst; es schreibt es in keine Datei und keine Meldung:
+
+```sh
+export FREEMAPPER_LM_USER='die E-Mail-Adresse des Geotorget-Kontos'
+export FREEMAPPER_LM_PASSWORD='das Passwort'
+freemapper run <dir>
+```
+
+Ohne sie bricht ein Abruf in Schweden ab, bevor er das Netz fragt, und nennt beide Variablen und die drei Produkte. Das
+Geländemodell wird per Bereichsabruf aus den 10-km-Kacheln gelesen, eine Karte kostet also wenige MB; eine Kachel der
+Laserpunktwolke hat rund 80 MB (2,5 km Kantenlänge) und bleibt im Zwischenspeicher. Die Lantmäteriet veröffentlicht ihre
+Download-Grenzen nicht: Ein abgelehnter Download (HTTP 429) wird wiederholt, und ein Konto ohne Bestellung bekommt einen
+Fehler, der das Produkt nennt. Die Bodenbedeckung (`Marktäcke`) wird als Wald, Bebauung, Wasser und Platz gezeichnet;
+die Klasse „offene Fläche“ sagt zu wenig darüber, was dort wächst, und bleibt weg. Das Gebiet muss ganz in Schweden
+liegen.
 
 ### Eigene Adapter
 

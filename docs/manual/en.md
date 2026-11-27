@@ -58,7 +58,7 @@ On request freemapper also writes the **print-ready map as a PDF**, a **check pr
     OSM extract is cached, the update of that extract. It warns for each part it leaves out. Every map
     needs the map data, the terrain model and the orthophoto. If those do not fit, freemapper stops
     before it downloads anything.
-- An area in **Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony, Rhineland-Palatinate, Saarland, Baden-Württemberg, Bremen or Bavaria**. Thuringia is still missing. Poland is usable: the map there combines OpenStreetMap with the cadastre EGiB, orthophoto and terrain from GUGiK, and the area must lie wholly in Poland. In Poland, buildings and land use come from the cadastre EGiB; where it gives nothing (municipalities without a cadastre service, cities with empty land use classes), BDOT10k fills in, for which the GML archive of the powiat (7 to 89 MB) is downloaded into the cache. A forest map in Poland also takes the roads and paths of BDOT10k as candidates, where OpenStreetMap has none within 10 m; for them freemapper reads only two files of the archive (about 2 MB). Czechia is usable as a preview: the map there combines OpenStreetMap with the terrain model, surface model and orthophoto of ČÚZK, the buildings of the register RÚIAN and the land use of ZABAGED; the area must lie entirely in Czechia, and the OSM extract of the whole country (about 910 MB) is downloaded once. All services are open under CC BY 4.0 and need no key. Contour lines wander in dense old towns because the terrain model there is interpolated bare earth; the RÚIAN parcels are outdated since December 2021 and are not used. The permit notes come from the AOPK, RÚIAN and the NPÚ (ADR 0201).
+- An area in **Brandenburg, Berlin, Saxony, Saxony-Anhalt, Hamburg, Hesse, Schleswig-Holstein, Mecklenburg-Vorpommern, North Rhine-Westphalia, Lower Saxony, Rhineland-Palatinate, Saarland, Baden-Württemberg, Bremen or Bavaria**. Thuringia is still missing. Sweden is a preview: terrain model and laser point clouds from Lantmäteriet, no orthophoto, with a free Geotorget account ([Sweden](#sweden)). Poland is usable: the map there combines OpenStreetMap with the cadastre EGiB, orthophoto and terrain from GUGiK, and the area must lie wholly in Poland. In Poland, buildings and land use come from the cadastre EGiB; where it gives nothing (municipalities without a cadastre service, cities with empty land use classes), BDOT10k fills in, for which the GML archive of the powiat (7 to 89 MB) is downloaded into the cache. A forest map in Poland also takes the roads and paths of BDOT10k as candidates, where OpenStreetMap has none within 10 m; for them freemapper reads only two files of the archive (about 2 MB). Czechia is usable as a preview: the map there combines OpenStreetMap with the terrain model, surface model and orthophoto of ČÚZK, the buildings of the register RÚIAN and the land use of ZABAGED; the area must lie entirely in Czechia, and the OSM extract of the whole country (about 910 MB) is downloaded once. All services are open under CC BY 4.0 and need no key. Contour lines wander in dense old towns because the terrain model there is interpolated bare earth; the RÚIAN parcels are outdated since December 2021 and are not used. The permit notes come from the AOPK, RÚIAN and the NPÚ (ADR 0201).
 - Optionally an AI assistant such as Claude, so you do not have to type commands.
 
 ## 3. Installation
@@ -1808,6 +1808,30 @@ orthophoto and terrain come from the state holding the centre of the map area. I
 across the border, the templates on the other side stay empty where that state's orthophoto and height
 models end. Some services reach further: the LGLN orthophoto and height models also cover the Hamburg
 corner at Harburg, and the LVermGeo RP height models reach across the Rhine at Mainz. freemapper tells you when an area crosses a border.
+
+### Sweden
+
+Sweden is a preview for forest maps and for maps that need no orthophoto: terrain model (contours, hillshade, slope,
+relief), laser point clouds for the vegetation and the land cover come from Lantmäteriet (CC BY 4.0, credit
+"© Lantmäteriet (CC BY 4.0)"); paths and buildings come from OpenStreetMap. There is **no orthophoto** (the map has no
+orthophoto template and `derive` says so) and no register buildings yet, and no permit notes.
+
+The downloads of Lantmäteriet need a private account at Geotorget (`geotorget.lantmateriet.se`) that has ordered three
+free products: **Markhöjdmodell Nedladdning**, **Laserdata Skog** and **Marktäcke**. freemapper reads the account
+from two environment variables and from nowhere else; it writes them into no file and no message:
+
+```sh
+export FREEMAPPER_LM_USER='the e-mail address of the Geotorget account'
+export FREEMAPPER_LM_PASSWORD='the password'
+freemapper run <dir>
+```
+
+Without them a fetch in Sweden stops before it asks the network and names both variables and the three products. The
+terrain model is read by range from the 10 km tiles, so a map costs a few MB; a laser point cloud tile is about 80 MB
+(2.5 km square) and is kept in the cache. Lantmäteriet does not publish its download limits: a refused download
+(HTTP 429) is asked again, and an account without an order gets an error that names the product. The land cover
+(`Marktäcke`) is drawn as forest, built-up land, water and squares; its class "open land" says too little about what
+grows there and is left out. An area must lie wholly in Sweden.
 
 ### Adapters of your own
 
