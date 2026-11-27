@@ -672,9 +672,10 @@ pub fn rock_faces(dtm: &Raster<f32>, scale: SymbolScale, face_slope_deg: f64) ->
     }
     faces
         .into_iter()
-        .filter(|(polygon, _)| is_face(polygon, &slope, face_slope_deg))
         .filter_map(|(polygon, ring)| {
-            let area = polygon.unsigned_area();
+            // The rings of the contours run with the steeper ground on the left, so the area of a
+            // face is positive and that of a hollow inside one negative.
+            let area = polygon.signed_area();
             let perimeter = geo::Euclidean.length(&ring);
             // The width of a strip is twice its area over its perimeter.
             let wide_enough = 2.0 * area >= min_width_m * perimeter;
@@ -690,45 +691,6 @@ pub fn rock_faces(dtm: &Raster<f32>, scale: SymbolScale, face_slope_deg: f64) ->
         })
         .filter(|f| f.points.len() >= 4)
         .collect()
-}
-
-/// Whether `polygon`, a contour ring of `slope` at `face_slope_deg`, encloses steeper ground (a
-/// face) and not a hollow of less steep ground: the slope a little inside the ring, at a point
-/// of every segment, is the face slope or more in most places.
-fn is_face(polygon: &geo_types::Polygon<f64>, slope: &Raster<f32>, face_slope_deg: f64) -> bool {
-    let grid = slope.grid;
-    let depth = 0.75 * grid.pixel_size;
-    let at = |(e, n): (f64, f64)| {
-        let x = ((e - grid.west) / grid.pixel_size).floor();
-        let y = ((grid.north - n) / grid.pixel_size).floor();
-        let inside =
-            x >= 0.0 && y >= 0.0 && x < f64::from(grid.width) && y < f64::from(grid.height);
-        inside.then(|| f64::from(slope.get(x as u32, y as u32)))
-    };
-    let (mut steep, mut total) = (0u32, 0u32);
-    for segment in polygon.exterior().lines() {
-        let (dx, dy) = (segment.dx(), segment.dy());
-        let length = dx.hypot(dy);
-        if length == 0.0 {
-            continue;
-        }
-        let middle = (
-            (segment.start.x + segment.end.x) / 2.0,
-            (segment.start.y + segment.end.y) / 2.0,
-        );
-        let normal = (-dy / length * depth, dx / length * depth);
-        let inward = [
-            (middle.0 + normal.0, middle.1 + normal.1),
-            (middle.0 - normal.0, middle.1 - normal.1),
-        ]
-        .into_iter()
-        .find(|p| polygon.contains(&geo_types::Point::new(p.0, p.1)));
-        if let Some(value) = inward.and_then(at).filter(|v| !v.is_nan()) {
-            total += 1;
-            steep += u32::from(value >= face_slope_deg);
-        }
-    }
-    total > 0 && 2 * steep > total
 }
 
 /// The landforms as GeoJSON in the map's CRS, with `kind`, `height` and `rotation` properties.
@@ -1174,6 +1136,29 @@ mod tests {
         assert_eq!(faces.len(), 1, "{faces:?}");
         let area = geo_types::Polygon::new(faces[0].points.clone().into(), vec![]).unsigned_area();
         assert!(area > std::f64::consts::PI * 14.0 * 14.0, "{area}");
+    }
+
+    /// A long diagonal wall is one face of its own size.
+    #[test]
+    fn a_long_diagonal_wall_is_a_face() {
+        let rise = 75f64.to_radians().tan();
+        let terrain = dtm(80, |e, n| {
+            let along = (e + n) / 2f64.sqrt() - 56.0;
+            let across = (e - n).abs() / 2f64.sqrt();
+            if across < 14.0 && (0.0..6.0).contains(&along) {
+                rise * along
+            } else {
+                0.0
+            }
+        });
+        let faces = rock_faces(&terrain, forest(), 70.0);
+        assert!(!faces.is_empty());
+        let area: f64 = faces
+            .iter()
+            .map(|f| geo_types::Polygon::new(f.points.clone().into(), vec![]).unsigned_area())
+            .sum();
+        // The strip is 28 m long and 6 m wide.
+        assert!((area - 28.0 * 6.0).abs() < 60.0, "{area}");
     }
 
     #[test]

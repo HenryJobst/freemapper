@@ -15,8 +15,8 @@ terrain model of Adršpach (1.6 km², 2026-11-27): ground at least 70° steep is
 ## Decision
 
 - `derive::landforms::rock_faces` traces the contour of the slope raster at 70° (`DEFAULT_FACE_SLOPE_DEG`). A closed
-  ring is a face when the slope just inside it (0.75 pixel, at the middle of each segment) is the limit or more in most
-  places; a ring around less steep ground is a hollow and is dropped, so a hollow inside a face is filled.
+  ring is a face when its area is positive: the contour rings run with the steeper ground on the left, so a ring around
+  less steep ground (a hollow inside a face) has a negative area and is dropped, which fills the hollow.
 - A face needs at least 0.3 mm² and a width of 0.25 mm on the map (twice the area over the perimeter), then it is
   simplified by 0.5 m. A ring cut by the raster border or by cells without data is not closed and is left out.
 - The landform kind `rock-face` is an area (`LandformKind::is_area`, a GeoJSON polygon of its outer ring). `build`
