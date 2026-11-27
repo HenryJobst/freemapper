@@ -95,6 +95,7 @@ fn valid_manifests_parse() {
     assert_eq!(hamburg.adapter.agency, "Hamburg");
     let backend = HeightModel::Backend {
         name: "lgv".to_string(),
+        config: freemapper_adapter_api::rasters::RasterConfig::default(),
     };
     assert_eq!(hamburg.terrain.as_ref(), Some(&backend));
     assert_eq!(hamburg.surface.as_ref(), Some(&backend));

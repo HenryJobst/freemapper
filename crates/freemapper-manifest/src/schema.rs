@@ -34,8 +34,19 @@ pub(crate) struct Raw {
     #[serde(default)]
     pub permits: RawPermits,
     pub preview: Option<RawPreview>,
+    pub auth: Option<RawAuth>,
     #[serde(default)]
     pub estimate: RawEstimate,
+}
+
+/// `[auth]`: where Basic credentials go and where they come from.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct RawAuth {
+    pub host: Text,
+    pub user_env: Text,
+    pub password_env: Text,
+    pub products: Vec<Text>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -120,6 +131,8 @@ pub(crate) struct RawAlkis {
     pub land_use: Option<Text>,
     pub normalise: Option<Text>,
     pub fallback: Option<RawFallback>,
+    pub stac: Option<Text>,
+    pub collection: Option<Text>,
 }
 
 /// `[alkis.fallback]`: a WFS.

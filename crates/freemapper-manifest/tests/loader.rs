@@ -683,3 +683,22 @@ fn links_are_not_followed() {
     assert!(loaded.is_empty());
     assert_eq!(skipped(&warnings).0, "adapter.folder");
 }
+
+/// `[auth]` sends a password to a host a manifest names; a folder is untrusted, so only the
+/// adapters built into the program may declare it.
+#[test]
+fn a_folder_adapter_may_not_declare_auth() {
+    let dir = tempfile::tempdir().unwrap();
+    let text = format!(
+        "{}\n[auth]\nhost = \"geo.example.org\"\nuser_env = \"FREEMAPPER_X_USER\"\n\
+         password_env = \"FREEMAPPER_X_PASSWORD\"\nproducts = [\"A\"]\n",
+        manifest("credentials")
+    );
+    write(dir.path(), "credentials", &text);
+    let mut registry = Registry::new();
+    let (loaded, warnings) = load_dirs(&mut registry, &user(dir.path()), RUNNING);
+    assert!(loaded.is_empty(), "{loaded:?}");
+    let (code, warning) = skipped(&warnings);
+    assert_eq!(code, "manifest.auth-builtin-only");
+    assert_eq!(warning.findings[0].key, "auth");
+}

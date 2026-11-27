@@ -192,45 +192,56 @@ impl ManifestAdapter {
             key: key.to_string(),
             message,
         };
-        let rasters: Option<Arc<dyn RasterBackend>> = match &manifest.orthophoto {
-            None => None,
-            Some(Orthophoto::Backend { name, config }) => {
-                match backends.build_backend(name, config) {
-                    Some(Err(message)) => {
-                        findings.push(finding("manifest.value", "orthophoto", message));
-                        None
-                    }
-                    Some(Ok(backend))
-                        if backend.provider().id.as_str() == manifest.adapter.provider =>
-                    {
-                        Some(backend)
-                    }
-                    Some(Ok(backend)) => {
-                        let message = format!(
-                            "the backend `{name}` fetches for the provider `{}`, the manifest says `{}`",
-                            backend.provider().id,
-                            manifest.adapter.provider
-                        );
-                        findings.push(finding("manifest.value", "adapter.provider", message));
-                        None
-                    }
-                    None => {
-                        let message = format!(
-                            "this freemapper has no raster backend `{name}`; a backend is code of an \
+        // The backend a raster table names: from `[orthophoto]`, or from `[terrain]` alone.
+        let mut backend_of = |name: &str,
+                              config: &freemapper_adapter_api::rasters::RasterConfig,
+                              key: &str|
+         -> Option<Arc<dyn RasterBackend>> {
+            match backends.build_backend(name, config) {
+                Some(Err(message)) => {
+                    findings.push(finding("manifest.value", key, message));
+                    None
+                }
+                Some(Ok(backend))
+                    if backend.provider().id.as_str() == manifest.adapter.provider =>
+                {
+                    Some(backend)
+                }
+                Some(Ok(backend)) => {
+                    let message = format!(
+                        "the backend `{name}` fetches for the provider `{}`, the manifest says `{}`",
+                        backend.provider().id,
+                        manifest.adapter.provider
+                    );
+                    findings.push(finding("manifest.value", "adapter.provider", message));
+                    None
+                }
+                None => {
+                    let message = format!(
+                        "this freemapper has no raster backend `{name}`; a backend is code of an \
                          adapter crate, which a build of freemapper includes by a Cargo feature"
-                        );
-                        findings.push(finding(
-                            "manifest.backend-missing",
-                            "orthophoto.backend",
-                            message,
-                        ));
-                        None
-                    }
+                    );
+                    findings.push(finding(
+                        "manifest.backend-missing",
+                        &format!("{key}.backend"),
+                        message,
+                    ));
+                    None
                 }
             }
-            Some(_) => DeclaredRasters::new(&manifest)
-                .map(|declared| Arc::new(declared) as Arc<dyn RasterBackend>),
         };
+        let rasters: Option<Arc<dyn RasterBackend>> =
+            match (&manifest.orthophoto, &manifest.terrain) {
+                (None, Some(crate::model::HeightModel::Backend { name, config })) => {
+                    backend_of(name, config, "terrain")
+                }
+                (None, _) => None,
+                (Some(Orthophoto::Backend { name, config }), _) => {
+                    backend_of(name, config, "orthophoto")
+                }
+                (Some(_), _) => DeclaredRasters::new(&manifest)
+                    .map(|declared| Arc::new(declared) as Arc<dyn RasterBackend>),
+            };
         let mut permits: Vec<Box<dyn PermitSource>> = Vec::new();
         if !manifest.permits.is_empty() {
             match backends.permit_factory() {
@@ -254,7 +265,7 @@ impl ManifestAdapter {
         };
         let info = info_of(&manifest);
         Ok(Self {
-            alkis: manifest.alkis.as_ref().map(crate::alkis::alkis_source),
+            alkis: manifest.alkis.as_ref().and_then(crate::alkis::alkis_source),
             rasters,
             nas: manifest
                 .nas

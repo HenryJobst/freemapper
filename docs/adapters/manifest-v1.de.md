@@ -119,6 +119,10 @@ kann fehlen, aber ein Adapter hat `[alkis]`, `[orthophoto]` oder beide.
 | `land_use` | URL | – | ja | Der Items-Endpunkt der Nutzungs-Collection. |
 | `normalise` | Text | – | nein | `lgb` (Vorgabe): Der Dienst schreibt die Klassennamen wie die LGB. `hamburg-ascii`: Er schreibt sie in ASCII (`Wohnbauflaeche`). |
 
+`stac-gpkg` (nur Bodenbedeckung, keine Gebäude): `kind`, `stac` (die STAC-API, https, ein Host aus `[net] hosts`,
+keine Abfrage, kein Schrägstrich am Ende) und `collection` (die Sammlung mit einem GeoPackage je Gemeinde: 1 bis 64
+Buchstaben, Ziffern, `_` und `-`), sonst kein Schlüssel. Den Code, der die Dateien liest, bringt der Adapter mit.
+
 `[alkis.fallback]`, nur bei `ogc-api-features`: ein WFS, der gefragt wird, wenn die API ausfällt, im
 Koordinatensystem der API. Schlüssel: `url`, `buildings_type`, `land_use_type` (Pflicht), `name`, `square_bez`
 und `kind`, die nur `wfs` sein kann.
@@ -128,8 +132,11 @@ Der Leser nimmt die Attributnamen des Schemas in Kleinbuchstaben (`oid`, `gebnut
 
 ## `[orthophoto]`, `[terrain]`, `[surface]`
 
-Die Raster. Entweder keine der drei Tabellen oder `[orthophoto]` und `[terrain]`, mit oder ohne `[surface]`.
-Die Tabellen sind alle Dienste, oder sie nennen alle dasselbe Backend.
+Die Raster. Entweder keine der drei Tabellen oder `[orthophoto]` und `[terrain]`, mit oder ohne `[surface]`, oder
+`[terrain]` allein (eine Region mit Höhenmodell und ohne Orthofoto: Die Karte hat dann keine Orthofoto-Vorlage, und
+`derive` warnt). Die Tabellen sind alle Dienste, oder sie nennen alle dasselbe Backend. Ein `[terrain]` ohne
+`[orthophoto]`, das ein Backend nennt, gibt dessen `endpoints` selbst an, wie es `[orthophoto]` tut; neben einem
+`[orthophoto]` nimmt es keine.
 
 Eine Tabelle, die ein Backend nennt, hat einen Schlüssel:
 
@@ -164,6 +171,7 @@ Namen der Ebenen und Jahre.
 | `laiv-mv` | `overview`, `dop-wcs`, `dgm-wcs`, `dom-wcs` | dem Kachelindex des Downloadportals und den drei WCS |
 | `geobremen` | `wms`, `files` | dem WMS der Orthofotos (die Ebenen kommen aus seinen Capabilities) und dem Dateiserver |
 | `lgb` (Brandenburg, Berlin) | `data`, `currency` | dem Ordner der Kachelarchive (Orthofoto, DGM, bDOM) und der nDOM-Punktwolken und dem Ordner der Aktualitätslisten (CSV) |
+| `lantmateriet` (Schweden, in `[terrain]`) | `stac-hojd`, `stac-vektor` | den STAC-APIs der Höhenprodukte und der Vektorprodukte |
 
 Der Cache-Ordner der Hamburger Archive folgt dem Dateinamen der Adresse: Ein Archiv unter neuer Adresse bekommt einen
 eigenen Ordner; die Download-Schätzung schaut weiter in den der eingebauten Adresse.
@@ -360,9 +368,22 @@ dafür Code nötig ist.
 
 | Schlüssel | Typ | Pflicht | Bedeutung und Grenzen |
 |---|---|---|---|
-| `kind` | Text | ja | `laz-tiles` (Kacheln nach Rasterposition in einem Ordner), `index-json` (der Ordner listet seine Kacheln in einem JSON-Index), `meta4` (ein Metalink listet die Kacheln), `currency-csv` (eine CSV nennt die Befliegungsdaten) oder `zip-archives` (Archive, die je viele Kacheln halten). |
+| `kind` | Text | ja | `laz-tiles` (Kacheln nach Rasterposition in einem Ordner), `index-json` (der Ordner listet seine Kacheln in einem JSON-Index), `meta4` (ein Metalink listet die Kacheln), `currency-csv` (eine CSV nennt die Befliegungsdaten) `zip-archives` (Archive, die je viele Kacheln halten) oder `stac-copc` (COPC-Dateien, die eine STAC-API listet; `url` ist die API, kein Index). |
 | `url` | URL | ja | Der Ordner der Kacheln oder Archive, ohne Schrägstrich am Ende. https, ein Host aus `[net] hosts`, keine Abfrage. |
 | `index_url` | URL | bei `index-json`, `meta4`, `currency-csv` | Die Indexdatei; die anderen Arten lehnen sie ab. |
+
+## `[auth]`
+
+HTTP-Basic-Zugangsdaten für einen Host, gelesen aus zwei Umgebungsvariablen. Optional; **nur die in freemapper
+eingebauten Adapter dürfen sie angeben**: Ein Ordner-Adapter mit dieser Tabelle wird ausgelassen
+(`manifest.auth-builtin-only`), weil die Tabelle ein Passwort an einen Host schicken würde, den der Ordner nennt.
+
+| Schlüssel | Typ | Pflicht | Bedeutung und Grenzen |
+|---|---|---|---|
+| `host` | Text | ja | Der eine Host, der den Kopf `Authorization` bekommt, einer aus `[net] hosts` (sonst `manifest.auth-host`). Kein anderer Host bekommt ihn, auch nicht über eine Weiterleitung. |
+| `user_env` | Text | ja | Die Variable mit dem Benutzernamen: `FREEMAPPER_` und 1 bis 40 Großbuchstaben, Ziffern oder `_`. |
+| `password_env` | Text | ja | Die Variable mit dem Passwort, wie `user_env`. |
+| `products` | Liste von Texten | ja | 1 bis 6 Namen dessen, was man bestellt, um ein Konto zu bekommen, das funktioniert, je höchstens 80 Zeichen; die Meldung nennt sie, wenn eine Variable fehlt. |
 
 ## `[preview]`
 
@@ -401,6 +422,8 @@ draußen, eine Warnung nicht. Die Texte der Befunde sind englisch.
 | `manifest.crs` | Ein Koordinatensystem, das der Schlüssel nicht erlaubt. |
 | `manifest.names` | Ein leerer oder zu langer Name. |
 | `manifest.value` | Ein Wert außerhalb seines Bereichs oder Musters. |
+| `manifest.auth-host` | Der Host von `[auth]` steht nicht in `[net] hosts`. |
+| `manifest.auth-builtin-only` | Ein Ordner-Adapter gibt `[auth]` an. |
 | `manifest.file-name` | Ein Dateiname, der kein einfacher Name im Ordner ist. |
 | `manifest.geofabrik` | Kein Pfad eines Auszugs auf dem Geofabrik-Server. |
 | `manifest.osm` | Die Auszüge passen nicht zusammen. |

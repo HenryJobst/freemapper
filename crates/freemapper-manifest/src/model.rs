@@ -29,7 +29,23 @@ pub struct Manifest {
     /// `[[permits.wfs]]`: the sources of the permit notes.
     pub permits: Vec<freemapper_adapter_api::permits::DeclaredWfs>,
     pub preview: Option<Preview>,
+    /// `[auth]`: the host that takes credentials and where they come from. Built-in adapters
+    /// only; a folder adapter with this table is left out.
+    pub auth: Option<Auth>,
     pub estimate: Estimate,
+}
+
+/// `[auth]`: HTTP Basic credentials for one host, read from two environment variables.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Auth {
+    /// The one host that gets the `Authorization` header; one of `[net] hosts`.
+    pub host: String,
+    /// The variable of the user name, `FREEMAPPER_` and up to 40 capitals, digits or `_`.
+    pub user_env: String,
+    /// The variable of the password, as the user name's.
+    pub password_env: String,
+    /// What a person orders to get an account that works, for the message when it is missing.
+    pub products: Vec<String>,
 }
 
 /// A version `x.y.z` of freemapper.
@@ -221,6 +237,14 @@ pub enum Alkis {
         /// The WFS asked when the API fails, in the CRS of the API.
         fallback: Option<Wfs>,
     },
+    /// Land cover as a GeoPackage file per municipality that a STAC API lists. No ALKIS
+    /// buildings; the code of the adapter crate reads the files.
+    StacGpkg {
+        /// The STAC API, without a trailing slash.
+        stac: String,
+        /// The collection that holds the land cover.
+        collection: String,
+    },
 }
 
 /// How the date of a raster is found.
@@ -304,8 +328,12 @@ pub enum HeightModel {
         /// `[terrain]` only: the name of the model in `freemapper:source` of the contours.
         source_label: Option<String>,
     },
-    /// Code of an adapter crate, by name.
-    Backend { name: String },
+    /// Code of an adapter crate, by name, with the endpoints a `[terrain]` states for it when
+    /// the manifest has no `[orthophoto]` (its backend then reads them from here).
+    Backend {
+        name: String,
+        config: freemapper_adapter_api::rasters::RasterConfig,
+    },
 }
 
 /// One `[[extra.nas]]`: a WFS with the full ALKIS (NAS).
@@ -371,6 +399,8 @@ pub enum PointCloudKind {
     CurrencyCsv,
     /// Zip archives that each hold many tiles; the folder holds the archives.
     ZipArchives,
+    /// The tiles are COPC files a STAC API lists; `url` is the API (no index).
+    StacCopc,
 }
 
 impl PointCloudKind {
@@ -382,6 +412,7 @@ impl PointCloudKind {
             Self::Meta4 => "meta4",
             Self::CurrencyCsv => "currency-csv",
             Self::ZipArchives => "zip-archives",
+            Self::StacCopc => "stac-copc",
         }
     }
 
@@ -391,12 +422,13 @@ impl PointCloudKind {
     }
 
     /// Every kind.
-    pub const ALL: [Self; 5] = [
+    pub const ALL: [Self; 6] = [
         Self::LazTiles,
         Self::IndexJson,
         Self::Meta4,
         Self::CurrencyCsv,
         Self::ZipArchives,
+        Self::StacCopc,
     ];
 }
 

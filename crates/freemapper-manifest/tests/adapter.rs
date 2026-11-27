@@ -491,3 +491,49 @@ fn credit_text_substitutes_year_once() {
         )]
     );
 }
+
+/// Hamburg's manifest with `[terrain]` only: a backend that states its endpoints there.
+fn terrain_only() -> freemapper_manifest::Manifest {
+    let text = repo("crates/freemapper-manifest/tests/valid/hamburg.toml");
+    let cut = text.find("[orthophoto]").unwrap();
+    let preview = text.find("[preview]").unwrap();
+    let text = format!(
+        "{}[terrain]\nbackend = \"lgv\"\nendpoints = {{ dgm1 = \"https://geodienste.hamburg.de/dgm1\" }}\n\n{}",
+        &text[..cut],
+        &text[preview..]
+    );
+    parse(&text, Path::new("hamburg")).unwrap_or_else(|findings| panic!("{findings:?}"))
+}
+
+#[test]
+fn a_terrain_alone_gives_the_adapter_the_backend_with_its_endpoints() {
+    use freemapper_adapter_api::rasters::RasterConfig;
+    use std::sync::{Arc, Mutex};
+    let seen: Arc<Mutex<Option<RasterConfig>>> = Arc::default();
+    let mut registry = freemapper_adapter_api::registry::Registry::new();
+    let info = freemapper_adapter_api::rasters::ProviderInfo {
+        id: "lgv".parse().unwrap(),
+        cache_dir: None,
+        terrain_source: "lgv-dgm1".to_string(),
+        kind: freemapper_adapter_api::rasters::RasterKind::PerArea,
+    };
+    let record = seen.clone();
+    registry
+        .add_raster_factory(
+            "lgv",
+            Arc::new(move |config: &RasterConfig| {
+                *record.lock().unwrap() = Some(config.clone());
+                Ok(Arc::new(Named(info.clone()))
+                    as Arc<dyn freemapper_adapter_api::rasters::RasterBackend>)
+            }),
+        )
+        .unwrap();
+    let adapter =
+        ManifestAdapter::new(terrain_only(), &hamburg_files(), Parse::Now, &registry).unwrap();
+    assert!(adapter.rasters().is_some());
+    let config = seen.lock().unwrap().clone().expect("the factory was asked");
+    assert_eq!(
+        config.endpoint("dgm1"),
+        Some("https://geodienste.hamburg.de/dgm1")
+    );
+}
