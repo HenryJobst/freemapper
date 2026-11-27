@@ -192,6 +192,12 @@ gedacht, der Asset-Host nicht.
 | `dsm-cog` | Ythöjdmodell | `other` | 2,5-km-Kacheln, 0,25 m |
 | `dsm-skoglig-copc` | Laserdata Skog | `other` | 2,5-km-COPC-Kacheln |
 
+**Der echte COPC-Kopf** (2026-11-27, Kachel `sls/21d010/y21d010-66550_4250_25.copc.laz`, 8 KiB per Range) [live]:
+LAS 1.4, Punktformat 6, LAZ-komprimiert (LASzip-VLR), Satzlänge 30, **14 535 361 Punkte**, Dateigröße 81 313 610
+Byte, Maßstab 0,01 m, Ausdehnung X 425 000 bis 427 500, Y 6 655 000 bis 6 657 500, Z 122,6 bis 307,9 m. Das
+`copc`-VLR nennt die Wurzel-Hierarchie bei Byte 81 269 546 (44 064 Byte): am Dateiende, also per Range-Aufruf
+erreichbar. Die Kachel ist 2,5 km groß, das Projektions-VLR trägt die Koordinatensystemangabe.
+
 ### 3.2 Vektor
 
 | Sammlung | Titel | Lizenz | Granularität |
@@ -373,8 +379,12 @@ unter `/collections` weiter mit `200` ohne Anmeldung, und `dl1.lantmateriet.se` 
 
 Der Support nennt für ein Privatkonto Basic-Authentifizierung mit Benutzername und Passwort statt des
 Token-Ablaufs [doc, Support]. Dazu passt die Antwort von `dl1`, die einen `Basic`-Bereich meldet (§4, erste Zeile)
-[live]. Der Ablauf mit Token (oben) gilt für Konten, die das API-Portal benutzen können. Ein Aufruf mit echten
-Zugangsdaten ist nicht geprüft (§10). Für einen Adapter heißt das: ein `Authorization: Basic`-Header genügt,
+[live]. Der Ablauf mit Token (oben) gilt für Konten, die das API-Portal benutzen können. **Bestätigt am
+2026-11-27** [live]: `GET` auf `dl1` mit `Authorization: Basic` aus Geotorget-E-Mail-Adresse und -Passwort liefert
+`206 Partial Content` auf einen Range-Aufruf, `accept-ranges: bytes`; die Berechtigung kommt mit der Bestellung des
+Produkts (Lieferstatus „Erfolgreich“). Ein erstes `401` trotz gültiger Berechtigung verschwand erst, nachdem das
+Geotorget-Passwort neu gesetzt worden war; das alte Passwort wurde von `dl1` abgelehnt, im Geotorget selbst aber
+angenommen. Die Ursache ist nicht geklärt (der Support bestätigte dieselben Zugangsdaten für beide). Für einen Adapter heißt das: ein `Authorization: Basic`-Header genügt,
 kein Token-Provider mit Ablauf und Erneuerung; die Zugangsdaten selbst bleiben aber ebenso außerhalb des
 Projektordners (§8.1).
 
@@ -665,9 +675,17 @@ ist die einzige Alternative.
 
 ### 8.4 Deflate und PackBits im Rasterleser
 
-Die COGs von DTM und DSM sind in Produktion **deflate** (Kompression 8) und 512 × 512 gekachelt [live]; das
+Die COGs von DTM und DSM sind in Produktion **deflate** (Kompression 8) und 512 × 512 gekachelt [live]. Der echte
+Kopf der DTM-Kachel `m617_38.tif` (2026-11-27, per Range, 256 KiB) [live]: 10 000 × 10 000, Float32
+(`SampleFormat` 3, 32 Bit, ein Sample), Kompression 8 mit **Prädiktor 3** (Gleitkomma-Prädiktor), Kacheln 512 × 512,
+Nodata −9999, Pixelgröße 1 m, Ursprung 380 000 / 6 180 000, 400 Kacheln im Hauptbild und **fünf Übersichtsbilder**
+(5000, 2500, 1250, 625 und 313 Pixel), Dateigröße 298 640 561 Byte. Die Kacheln im Hauptbild sind rund 0,56 MB
+groß. Alle IFDs liegen im ersten Block (192 bis 1434 Byte), die Pixeldaten dahinter, die Übersichten vor dem
+Hauptbild; ein Range-Leser kommt also mit einem Aufruf an den Kopf. Das Demomodell aus §7.7 ist dagegen LZW (Kopf
+unverändert); das
 Demomodell aus §7.7 ist dagegen LZW und damit heute schon lesbar. `tiff_range` verlangt
-Kompression **5** und lehnt `8` rundheraus ab. Mit NMD (§7.2) kommt eine dritte Kompression hinzu: **PackBits**
+Kompression **5** und lehnt `8` rundheraus ab; den Prädiktor 3 kann er schon (LZW, Prädiktor 1–3), neu wäre nur der
+Deflate-Dekoder. Mit NMD (§7.2) kommt eine dritte Kompression hinzu: **PackBits**
 (32773), dazu 16-Bit-Ganzzahlen statt Float32. Das ist die kleinste der Lücken: zwei weitere Dekoder neben
 `decode_lzw_block`, dazu je eine Testdatei. Damit wird der DTM per Range lesbar wie ein deutsches DOM1 — die
 10-km-Kachel kostet dann nur die Blöcke, die die Kartenfläche braucht — und NMD lesbar ohne den 2,7-GB-Umweg.
@@ -741,11 +759,13 @@ Offene Fragen, bevor A beginnt:
 
 ## 10. Nicht geprüft
 
-* Welche Zugangsdaten `dl1.lantmateriet.se` bei Basic-Authentifizierung annimmt. Am 2026-11-23 und danach lieferte
+* [Geklärt am 2026-11-27, §4.3] Welche Zugangsdaten `dl1.lantmateriet.se` bei Basic-Authentifizierung annimmt. Am
+  2026-11-23 und danach lieferte
   `dl1` auf eine Höhenkachel mit dem Geotorget-Benutzernamen (E-Mail-Adresse) und dem Passwort weiter `401` mit
   `Basic realm="Authorization Server"`, obwohl Laserdata Skog, Markhöjdmodell Nedladdning und Marktäcke bestellt, die
-  Lieferung „Erfolgreich“ und die Berechtigungen im Konto sichtbar waren [live]. Offen ist, ob dafür ein eigenes
-  Konto für Programme (*systemkonto*) oder ein anderes Passwort nötig ist; Frage an den Support gestellt.
+  Lieferung „Erfolgreich“ und die Berechtigungen im Konto sichtbar waren [live]. Der Support bestätigte
+  dieselbe E-Mail-Adresse und dasselbe Passwort, ein Systemkonto ist nicht nötig. Erst ein neu gesetztes Passwort
+  wurde angenommen.
 * Die Token-Anfrage mit echten Client-Zugangsdaten: Endpunkt, Form und Lebensdauer stehen in der
   Portal-Dokumentation (§4), ein Aufruf mit gültigen Daten ist aber nicht geprüft. Für das Privatkonto, das
   hier vorliegt, entfällt der Token-Weg ohnehin (§4.3); offen ist der Aufruf von `dl1` mit Basic-Authentifizierung
@@ -759,6 +779,11 @@ Offene Fragen, bevor A beginnt:
   passt zu „wenige Kacheln zur Zeit“, ohne dass eine Zahl feststeht. Ein Adapter, der Kacheln nacheinander
   holt, bliebe möglicherweise darunter.
   Gilt sie auch für die API, kann kein Adapter eine Karte unbeaufsichtigt laden.
+  Gemessen am 2026-11-27 [live]: Fünf nacheinander und zwei gleichzeitig abgerufene Range-Aufrufe auf verschiedene
+  Höhenkacheln lieferten alle `206`. **Zehn gleichzeitig gestartete Voll-Downloads** derselben DTM-Kachel (je 3 s
+  lang, 1,6 bis 4 MB gelesen, dann abgebrochen) lieferten alle `200`, ohne `429` und ohne `403`; danach ging ein
+  weiterer Range-Aufruf durch. Eine Grenze unter zehn gleichzeitigen Downloads gibt es für diese Kachel also nicht.
+  Ein vollständiger Download wurde nicht gemacht (298 MB), eine Tageskontingentgrenze bleibt ungeprüft.
 * Ob die `other`-Lizenz von `dsm-cog`, `dsm-skoglig-copc` und `orto-dsm-cog` abgeleitete Produkte in einer
   veröffentlichten Karte erlaubt. Die Sammlung sagt nur `other`; die Bedingungen liegen hinter Geotorget.
 * Ob die Orthofoto-COGs intern JPEG- oder deflate-komprimiert sind — das `info`-Asset einer Orthofoto-Kachel
@@ -807,6 +832,11 @@ curl -s -o /dev/null -w '%{http_code}' https://api.lantmateriet.se/stac-hojd/v1/
 curl -s -o /dev/null -w '%{http_code}' https://api.lantmateriet.se/stac-bild/v1/collections   # 200
 curl -s -o /dev/null -D - https://dl1.lantmateriet.se/hojd/data/grid/mhm/61_3/m617_38.tif     # 401, Basic realm
 curl -sL https://www.lantmateriet.se/sv/geodata/vara-produkter/produktsupport/tillganglighet-geodatatjanster/   # Grenzen §4.1
+
+# Mit Anmeldung, 2026-11-27 (Basic, Zugangsdaten nur aus der Umgebung, nicht abgebildet)
+… -r 0-65535 https://dl1.lantmateriet.se/hojd/data/grid/mhm/61_3/m617_38.tif   # 206, 298 640 561 B, TIFF-Tags §8.4
+… -r 0-8191  https://dl1.lantmateriet.se/hojd/data/pointcloud/sls/21d010/y21d010-66550_4250_25.copc.laz   # 206, §3.1
+… zehn gleichzeitige Voll-Downloads der DTM-Kachel, nach 3 s abgebrochen         # alle 200, kein 429 (§10)
 
 # Authentifizierung
 curl -s -o /dev/null -D - https://dl1.lantmateriet.se/hojd/data/grid/mhm/61_3/m617_38.tif   # 401
