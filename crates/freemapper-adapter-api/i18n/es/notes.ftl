@@ -6,6 +6,7 @@ note-warning = aviso: { $text }
 
 warning-other-zone = el área del mapa está en la zona UTM { $zone } (EPSG:{ $epsg }); freemapper vuelve a descargar todo en esa zona
 warning-other-state = el área del mapa está ahora en los datos de otro estado federado; freemapper vuelve a descargar todo
+warning-no-orthophoto = esta región no tiene ortofoto; el mapa no tiene plantilla de ortofoto
 warning-beyond-coverage = una parte del área del mapa queda fuera de los estados federados admitidos. Está en el extranjero, en el mar o en un estado que freemapper aún no admite, como Turingia. Los estados no tienen datos allí, así que la ortofoto puede salir en blanco y ALKIS no da edificios ni usos del suelo
 # A warning whose text is an error.
 warning-error = { $error }

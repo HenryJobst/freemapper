@@ -6,6 +6,7 @@ note-warning = hoiatus: { $text }
 
 warning-other-zone = kaardiala asub UTM-tsoonis { $zone } (EPSG:{ $epsg }); freemapper laadib kõik selles tsoonis uuesti alla
 warning-other-state = kaardiala asub nüüd teise liidumaa andmetes; freemapper laadib kõik uuesti alla
+warning-no-orthophoto = sellel piirkonnal pole ortofotot; kaardil pole ortofoto mallikihti
 warning-beyond-coverage = osa kaardialast jääb toetatud liidumaadest välja. See asub välismaal, merel või liidumaal, mida freemapper veel ei toeta, näiteks Tüüringis. Liidumaadel pole seal andmeid, seetõttu võib ortofoto olla valge ning ALKIS ei anna hooneid ega maakasutust
 # A warning whose text is an error.
 warning-error = { $error }

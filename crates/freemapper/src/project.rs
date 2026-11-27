@@ -2386,6 +2386,38 @@ fn stored_land_use(dir: &Path, project: &ProjectFile) -> Result<Vec<LandUse>, Pr
     })
 }
 
+/// Writes the orthophoto template `orthophoto` from `input`. `Ok(false)`: the region has none, so
+/// nothing was written and the map has no orthophoto template (a warning says so). An input that
+/// is an error fails the derive, as it did before a region could have none.
+fn derive_orthophoto(
+    input: Result<OrthophotoInput, AdapterError>,
+    record: Option<&WmsRecord>,
+    bbox: &BoundingBox,
+    dir: &Path,
+    orthophoto: &Path,
+    progress: &mut dyn FnMut(Note),
+) -> Result<bool, ProjectError> {
+    let input = input?;
+    if !matches!(input, OrthophotoInput::Absent) {
+        progress(note!("progress-writing", path = ORTHOPHOTO_RELPATH));
+    }
+    match input {
+        OrthophotoInput::Tiles(tiles) => build_orthophoto(&tiles, bbox, dir, orthophoto)?,
+        OrthophotoInput::Image => {
+            let wms = dir.join(WMS_ORTHOPHOTO_RELPATH);
+            if !wms.exists() || !record.is_some_and(|r| r.covers(bbox)) {
+                return Err(ProjectError::OrthophotoNotFetched);
+            }
+            build_orthophoto_from_image(&wms, bbox, dir, orthophoto)?;
+        }
+        OrthophotoInput::Absent => {
+            progress(note!("warning-no-orthophoto"));
+            return Ok(false);
+        }
+    }
+    Ok(true)
+}
+
 /// Writes orthophoto, hillshade and slope templates from the fetched tiles and returns the
 /// image paths.
 pub fn derive_project(
@@ -2437,21 +2469,18 @@ pub fn derive_project_cancellable(
 
     crate::fsutil::remove_stale_parts_inside(dir, &dir.join("templates"), STALE_TEMPLATE_PART_AGE);
     let orthophoto = dir.join(ORTHOPHOTO_RELPATH);
-    progress(note!("progress-writing", path = ORTHOPHOTO_RELPATH));
     stop_if(cancelled)?;
-    match inputs.orthophoto? {
-        OrthophotoInput::Tiles(tiles) => build_orthophoto(&tiles, &bbox, dir, &orthophoto)?,
-        OrthophotoInput::Image => {
-            let wms = dir.join(WMS_ORTHOPHOTO_RELPATH);
-            if !wms.exists() || !project.orthophoto.as_ref().is_some_and(|r| r.covers(&bbox)) {
-                return Err(ProjectError::OrthophotoNotFetched);
-            }
-            build_orthophoto_from_image(&wms, &bbox, dir, &orthophoto)?;
-        }
-    }
+    let has_orthophoto = derive_orthophoto(
+        inputs.orthophoto,
+        project.orthophoto.as_ref(),
+        &bbox,
+        dir,
+        &orthophoto,
+        progress,
+    )?;
     // Where the orthophoto shows rock, for the cliffs of a forest or sprint map (ADR 0126).
     let rock_seen_path = dir.join(ROCK_SEEN_RELPATH);
-    if matches!(project.map_kind, MapKind::Forest | MapKind::Sprint) {
+    if has_orthophoto && matches!(project.map_kind, MapKind::Forest | MapKind::Sprint) {
         progress(note!("progress-writing", path = ROCK_SEEN_RELPATH));
         let world = std::fs::read_to_string(orthophoto.with_extension("jgw"))
             .map_err(|e| ProjectError::Io(orthophoto.with_extension("jgw"), e))?;
@@ -2623,7 +2652,10 @@ pub fn derive_project_cancellable(
         Some(vegetation_path)
     };
 
-    let mut written = vec![orthophoto, hillshade_path, slope_path, relief_path];
+    let mut written = vec![hillshade_path, slope_path, relief_path];
+    if has_orthophoto {
+        written.insert(0, orthophoto);
+    }
     if project.buildings.as_ref().is_some_and(|b| b.count == 0) {
         // A region whose buildings come from a service of their own says so when the area lies
         // on its ground and none is stored.
@@ -3203,6 +3235,51 @@ mod tests {
 
     use super::*;
     use freemapper_adapters_de::berlin;
+
+    #[test]
+    fn a_region_without_an_orthophoto_writes_none_and_warns() {
+        let dir = tempfile::tempdir().unwrap();
+        let bbox = BoundingBox {
+            min_e: 400_000.0,
+            min_n: 6_600_000.0,
+            max_e: 401_000.0,
+            max_n: 6_601_000.0,
+        };
+        let mut lines = Vec::new();
+        let written = derive_orthophoto(
+            Ok(OrthophotoInput::Absent),
+            None,
+            &bbox,
+            dir.path(),
+            &dir.path().join(ORTHOPHOTO_RELPATH),
+            &mut |note| lines.push(note.id().to_string()),
+        )
+        .unwrap();
+        assert!(!written);
+        assert!(!dir.path().join(ORTHOPHOTO_RELPATH).exists());
+        assert_eq!(lines, ["warning-no-orthophoto"]);
+    }
+
+    #[test]
+    fn a_failing_orthophoto_input_still_fails_the_derive() {
+        let dir = tempfile::tempdir().unwrap();
+        let bbox = BoundingBox {
+            min_e: 400_000.0,
+            min_n: 6_600_000.0,
+            max_e: 401_000.0,
+            max_n: 6_601_000.0,
+        };
+        let error = derive_orthophoto(
+            Err(AdapterError::OrthophotoNotFetched),
+            None,
+            &bbox,
+            dir.path(),
+            &dir.path().join(ORTHOPHOTO_RELPATH),
+            &mut |_| {},
+        )
+        .unwrap_err();
+        assert!(matches!(error, ProjectError::OrthophotoNotFetched), "{error}");
+    }
 
     /// [`extras::fetch_key_into`] for Berlin's set.
     #[allow(clippy::too_many_arguments)]

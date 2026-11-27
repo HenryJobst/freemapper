@@ -6,6 +6,7 @@ note-warning = upozornění: { $text }
 
 warning-other-zone = území mapy leží v zóně UTM { $zone } (EPSG:{ $epsg }); freemapper v této zóně stáhne vše znovu
 warning-other-state = území mapy nyní leží v datech jiné spolkové země; freemapper stáhne vše znovu
+warning-no-orthophoto = pro tuto oblast neexistuje ortofoto; mapa nemá šablonu s ortofotem
 warning-beyond-coverage = část území mapy leží mimo podporované spolkové země. Leží v zahraničí, na moři nebo ve spolkové zemi, kterou freemapper zatím nepodporuje, například v Durynsku. Spolkové země tam nemají data, takže ortofoto může být bílé a ALKIS nedodá budovy ani využití pozemků
 # A warning whose text is an error.
 warning-error = { $error }

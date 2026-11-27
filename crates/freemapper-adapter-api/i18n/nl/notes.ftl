@@ -6,6 +6,7 @@ note-warning = waarschuwing: { $text }
 
 warning-other-zone = het kaartgebied ligt in UTM-zone { $zone } (EPSG:{ $epsg }); freemapper haalt alles opnieuw op in die zone
 warning-other-state = het kaartgebied ligt nu in de gegevens van een andere deelstaat; freemapper haalt alles opnieuw op
+warning-no-orthophoto = voor deze regio bestaat geen orthofoto; de kaart heeft geen orthofotosjabloon
 warning-beyond-coverage = een deel van het kaartgebied ligt buiten de ondersteunde deelstaten. Het ligt in het buitenland, op zee of in een deelstaat die freemapper nog niet ondersteunt, zoals Thüringen. De deelstaten hebben daar geen gegevens, dus de orthofoto kan wit zijn en ALKIS levert geen gebouwen of grondgebruik
 # A warning whose text is an error.
 warning-error = { $error }

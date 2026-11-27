@@ -239,6 +239,7 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0191](0191-poland-monuments-of-history-in-the-permit-notes.md) | The Pomniki historii in the Polish permit notes | Accepted, extends ADR 0190 | 2026-11-23 |
 | [0202](0202-paper-frames.md) | Paper frames on the area page and as a template map | Accepted | 2026-11-27 |
 | [0201](0201-czechia-permit-notes.md) | Permit notes in Czechia | Accepted, extends ADR 0175 and ADR 0197 | 2026-11-27 |
+| [0201](0201-map-without-orthophoto.md) | A map without an orthophoto | Accepted | 2026-11-27 |
 | [0200](0200-rock-faces-in-plan-shape.md) | Steep patches are rock faces in plan shape | Accepted, extends ADR 0198 and ADR 0199 | 2026-11-27 |
 | [0199](0199-knolls-on-bare-rock-are-boulders.md) | A knoll on bare rock is a boulder | Accepted, extends ADR 0104 and ADR 0198 | 2026-11-26 |
 | [0198](0198-steepness-threshold-of-banks-and-cliffs.md) | The steepness threshold of banks and cliffs is a setting | Accepted, extends ADR 0134 | 2026-11-26 |
