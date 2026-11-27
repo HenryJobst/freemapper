@@ -288,6 +288,12 @@ Services move, and flight years change. What an adapter needs over time:
   the layers Berlin fetches by code) are not in the manifest and stay as they are. When the built-in adapter has
   a higher `revision` than your folder, `adapters check` (`check.built-in-newer`) and every start
   (`adapter.replacement-outdated`) say so: export again and carry your changes over.
+- The short way for a built-in state: `freemapper sources list <id>` shows its addresses with their paths,
+  `freemapper sources set <id> <path> <url>` corrects one in your own adapter folder (it makes the folder from the
+  built-in manifest when it is not there yet, and it writes nothing unless the whole manifest passes its check),
+  `--add-host` adds the host of the new address to `[net] hosts`, `freemapper sources diff <id>` shows what differs
+  from the built-in manifest and `freemapper sources schema` lists the keys that hold an address. A host that the
+  manifest does not declare is never added unnoticed.
 - A new key of the format needs a newer freemapper. Set `min_freemapper` to the version that introduced the
   key, so that an older program says "needs a newer freemapper" and not "unknown key".
 

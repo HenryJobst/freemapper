@@ -8,6 +8,8 @@ All notable changes to freemapper are listed here, newest first. The format foll
 
 ### Added
 
+- `freemapper sources` (issue #273, stage 3): `sources list [<adapter>]` and `sources get <adapter> <path>` show the addresses the manifests declare, each with its path (`alkis.url`, `permits.wfs[0].url`, `net.hosts[1]`); `sources set <adapter> <path> <url>` corrects one in your own adapter folder, made from the built-in manifest when it is not there yet. The whole manifest is checked before anything is written, and an address on a host the manifest does not declare is refused unless `--add-host` adds the host. `sources diff` shows what your folder changes, `sources check` is `adapters check` on it, and `sources schema` lists the keys that hold an address (`--json`: a JSON Schema). `--json` is there for agents. Manual chapter 13, `docs/adapters/en.md` chapter 10 and `AGENTS.md` describe it.
+
 - Result on thinning crowded contours recorded (reference list, ADR 0200): freemapper does not drop single contours, because the norm wants one interval per map. The 10 m interval on steep forest maps and the black rock face areas solve the problem.
 - Contours stop at rock face areas (ADR 0200): where a contour runs through a black area (206) it is cut there, as it already was at small knolls and stairs. The Adršpach example is rebuilt.
 - The example `cesko-adrspach-forest` is rebuilt: the training map now shows the rock face areas (206) between the boulders, and the terrain candidate layer has 312 more candidates.

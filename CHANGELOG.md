@@ -8,6 +8,8 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Hinzugefügt
 
+- `freemapper sources` (Issue #273, Stufe 3): `sources list [<Adapter>]` und `sources get <Adapter> <Pfad>` zeigen die Adressen, die die Manifeste nennen, jede mit ihrem Pfad (`alkis.url`, `permits.wfs[0].url`, `net.hosts[1]`); `sources set <Adapter> <Pfad> <URL>` korrigiert eine in Ihrem eigenen Adapterordner, der aus dem eingebauten Manifest angelegt wird, wenn es ihn noch nicht gibt. Das ganze Manifest wird geprüft, bevor etwas geschrieben wird, und eine Adresse auf einem Host, den das Manifest nicht erklärt, wird abgelehnt, außer `--add-host` fügt den Host hinzu. `sources diff` zeigt, was Ihr Ordner ändert, `sources check` ist `adapters check` darauf, und `sources schema` listet die Schlüssel, die eine Adresse enthalten (`--json`: ein JSON-Schema). `--json` gibt es für Agenten. Kapitel 13 des Handbuchs, Kapitel 10 von `docs/adapters/en.md` und `AGENTS.md` beschreiben es.
+
 - Ergebnis zum Ausdünnen eng liegender Höhenlinien festgehalten (Referenzliste, ADR 0200): freemapper lässt keine einzelnen Höhenlinien weg, weil die Norm einen Abstand je Karte verlangt. Der Abstand von 10 m in steilem Wald und die schwarzen Wandflächen lösen das Problem.
 - Höhenlinien enden an Felswandflächen (ADR 0200): Wo eine Höhenlinie durch eine schwarze Fläche (206) läuft, wird sie dort geschnitten, wie schon an kleinen Kuppen und Treppen. Das Adršpach-Beispiel ist neu gebaut.
 - Das Beispiel `cesko-adrspach-forest` ist neu gebaut: Die Trainingskarte zeigt jetzt die Felswandflächen (206) zwischen den Blöcken, die Prüfebene „Gelände“ hat 312 Kandidaten mehr.

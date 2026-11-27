@@ -1910,6 +1910,20 @@ Sie die Adresse auch selbst ändern, ohne auf eine neue Version zu warten: Ein e
 Kennung des Bundeslands tritt an die Stelle des eingebauten Adapters. Sie schreiben den Ordner nicht von Grund
 auf; `adapters export` schreibt den eingebauten, und Sie ändern die wenigen Stellen, die umgezogen sind.
 
+Der kurze Weg ist `freemapper sources`: `sources list hessen` zeigt die Adressen des Bundeslands, jede mit ihrem
+Pfad im Manifest (`alkis.url`, `permits.wfs[0].url`, `net.hosts[1]`) und mit der Angabe, ob das gültige Manifest
+das eingebaute oder Ihres ist. `freemapper sources set hessen alkis.url https://neu.example.org/wfs` ändert eine
+Adresse in Ihrem eigenen Adapterordner. Gibt es den Ordner noch nicht, wird er zuerst aus dem eingebauten Manifest
+angelegt, so wie `adapters export` es tut. Das ganze Manifest wird geprüft, bevor etwas geschrieben wird; eine
+Änderung, die nicht bestünde, wird abgelehnt und nichts geschrieben. Auch eine Adresse auf einem Host, den das
+Manifest nicht erklärt, wird abgelehnt, außer Sie geben `--add-host` an: Dann kommt der Host in `[net] hosts`, und
+der Befehl sagt es. `sources diff hessen` zeigt, was Ihr Ordner gegenüber dem eingebauten Manifest ändert,
+`sources check hessen` ist `adapters check` auf Ihrem Ordner, `sources get hessen alkis.url` gibt eine Adresse für
+ein Skript aus, und `sources schema` listet die Schlüssel eines Manifests, die eine Adresse enthalten (`--json`:
+als JSON-Schema). Der Befehl schreibt nur in Ihren eigenen Adapterordner, nie in einen Projektordner. Quellenangabe
+und Lizenz bleiben, wie das Manifest sie nennt; halten Sie sie richtig, wenn der Dienst den Betreiber gewechselt
+hat. Starten Sie danach den MCP-Server oder die Gebietsseite neu. Die folgenden Schritte sind dasselbe von Hand.
+
 1. Exportieren Sie das Bundesland. Die Kennung zeigt `freemapper adapters list`:
    `freemapper adapters export hessen ~/meine-adapter`. Das schreibt den Ordner `~/meine-adapter/hessen` mit dem
    Manifest (`manifest.toml`) und den Dateien, die es nennt (die Grenze, bei einigen Bundesländern die Grenzen
