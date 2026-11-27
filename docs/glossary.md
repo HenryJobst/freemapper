@@ -66,6 +66,7 @@ Orienteering Maps 2019 (IOF).
 | Steilheitsschwelle | steepness threshold | Hangneigung in Grad, ab der ein Stück Gelände beim Suchen von Böschungen und Felswänden als steil gilt (Standard etwa 27°, einstellbar 15° bis 80°). | `steep_slope_deg` |
 | Kleine Kuppe | small knoll | Kleiner, deutlicher Hügel, den die Höhenlinien nicht zeigen (ISSprOM 109); längliche Kuppe 110. Kandidat aus dem DGM: ein kleiner geschlossener Ring feiner Höhenlinien um einen Gipfel. | `LandformKind::Knoll`, `LandformKind::ElongatedKnoll` |
 | Kleine Senke | small depression | Kleine, flache Vertiefung (ISSprOM 111). Kandidat aus dem DGM wie die Kuppe, auf dem umgekehrten Gelände. | `LandformKind::Depression` |
+| Wandschwelle | face threshold | Hangneigung in Grad, ab der ein Stück Gelände eine Felswandfläche (206) ist (Standard 70°, einstellbar 55° bis 85°, ADR 0200). | `face_slope_deg` |
 | Erdböschung | earth bank | Steiler Geländeabsatz (ISSprOM 104); ab 3 m Höhe aus dem DGM als nicht begehbare Felswand (201) vorgeschlagen. | `LandformKind::Bank`, `LandformKind::Cliff` |
 | Geländeform-Kandidat | landform candidate | Kuppe, Senke, Böschung oder Felswand, die `derive` aus dem DGM findet; nur im Kandidaten-Layer Gelände. | `Landform`, `data/landforms.geojson` |
 | Höhensprung | height jump | Schmaler, langer, steiler Streifen im DGM, der den größten Teil seines Höhenunterschieds auf wenigen Metern abbaut; Grundlage der Böschungs- und Felswand-Kandidaten. | `height_jumps` |

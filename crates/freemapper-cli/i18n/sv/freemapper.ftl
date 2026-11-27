@@ -251,6 +251,9 @@ page-contour-auto = automatisk
 page-steep-slope = Branthetsgräns
 page-steep-slope-auto = automatisk (27°)
 page-steep-slope-hint = Från denna lutningsvinkel räknas terrängen som brant när slänter och klippor eftersöks. 27° (automatisk) passar för kullar, parker och städer. I klipplabyrinter, raviner och stenbrott är nästan varje sluttning brant, så slänter och klippor flyter ihop till en fläck och ingen hittas; 55° till 65° skiljer dem åt. Ett för högt värde behåller bara de brantaste väggarna.
+page-face-slope = Väggräns
+page-face-slope-auto = automatisk (70°)
+page-face-slope-hint = Från denna lutningsvinkel ritas terrängen som en svart klippväggsyta. 70° (automatisk) passar för klipplabyrinter som Adršpach (5,2 % av ytan). 65° ger fler och större svarta ytor, även på branta sluttningar (8,4 %). 75° lämnar bara riktiga väggar, med fransiga kanter (2,5 %). Ett för högt värde lämnar knappt några ytor.
 page-settings-fixed = Projektet finns redan; kartsort, skala och titel står i freemapper.toml. Ekvidistansen går fortfarande att ändra.
 page-save = Spara
 page-saving = Sparar …
@@ -465,6 +468,7 @@ error-project-map-exists = kartan finns redan (den kan innehålla ditt arbete); 
 error-project-invalid-scale = ogiltig skala 1:{ $scale }
 error-project-invalid-contour-interval = ogiltig ekvidistans { $interval } m i freemapper.toml; den måste vara större än 0
 error-project-invalid-steep-slope = ogiltig branthetsgräns { $slope }° i freemapper.toml; den måste ligga mellan 15° och 80°
+error-project-invalid-face-slope = ogiltig väggräns { $slope }° i freemapper.toml; den måste ligga mellan 55° och 85°
 error-project-scale-not-allowed = skala 1:{ $scale } är inte tillåten för { $kind }; använd { $allowed }
 error-project-scale-not-allowed-enlarge = skala 1:{ $scale } är inte tillåten för { $kind }; använd { $allowed }. Rita i 1:4000, freemapper-print förstorar till 1:3000 vid utskrift
 word-kind-schoolyard = skolgårdskartor
@@ -793,8 +797,11 @@ cli-contour-interval-saved = Ekvidistansen sparad i freemapper.toml: { $interval
 cli-contour-interval-auto = Ekvidistans i freemapper.toml: automatisk (kartsortens; en skogskarta får 2,5 m i flack mark och 10 m i brant mark)
 cli-steep-slope-saved = Branthetsgräns sparad i freemapper.toml: { $slope }°; derive letar efter slänter och klippor med den
 cli-steep-slope-auto = Branthetsgräns i freemapper.toml: standard (cirka 27°)
+cli-face-slope-saved = Väggräns sparad i freemapper.toml: { $slope }°; derive letar efter klippväggsytor med den
+cli-face-slope-auto = Väggräns i freemapper.toml: standard (70°)
 help-arg-contour-interval = Ekvidistans i meter, t.ex. `2.5`, eller `auto` för kartsortens (en skogskarta: 5 m, 2,5 m där det är flackt, 10 m där det är brant). Sparas i freemapper.toml; derive drar höjdkurvorna med den
 help-arg-steep-slope = Lutningsvinkel i grader från vilken terrängen räknas som brant när slänter och klippor eftersöks, t.ex. `55`, eller `auto` för standarden 27°. Höj den (55 till 65) i klipplabyrinter och raviner, där nästan varje sluttning är brant och slänter och klippor flyter ihop till en fläck. Sparas i freemapper.toml; derive letar efter slänter och klippor med den
+help-arg-face-slope = Lutningsvinkel i grader från vilken terrängen är en klippvägg (svart yta, symbol 206), t.ex. `75`, eller `auto` för standarden 70°. 65 ger fler och större ytor, även på branta sluttningar; 75 lämnar bara riktiga väggar. Sparas i freemapper.toml; derive letar efter klippväggar med den
 cli-content-saved = Innehållsinställningen sparad i freemapper.toml: { $summary }
 cli-content-invalid = Kan inte läsa innehållsinställningen: { $detail }
 help-arg-content = Vad som hamnar direkt på kartan: `safe` låter varje objekt stanna där bygget lägger det, `balanced` (standard) lägger objekten ur katastret och registren på kartan, `full` lägger allt på kartan. Valet sparas i freemapper.toml
@@ -803,10 +810,12 @@ mcp-param-create-project-content = Vad som hamnar direkt på kartan: "safe", "ba
 mcp-param-create-project-content-set = Grupper som skickas någon annanstans än profilen säger, som "group=place" med place map, candidates eller off, t.ex. "walls=map". Grupper: walls, fences, hedges, slopes, stairs, trees, water-features, monuments, furniture, passages, contours, landforms, vegetation, out-of-bounds, paths, streets.
 mcp-param-create-project-contour-interval = Ekvidistans i meter, t.ex. 2.5; 0 går tillbaka till det automatiska valet (kartsortens; en skogskarta får 2,5 m i flack mark och 10 m i brant mark). Sparas i projektet; nästa derive drar höjdkurvorna med den.
 mcp-param-create-project-steep-slope = Lutningsvinkel i grader från vilken terrängen räknas som brant när slänter och klippor eftersöks, t.ex. 55; 0 går tillbaka till standarden 27°. Höj den (55 till 65) i klipplabyrinter och raviner, där nästan varje sluttning är brant och slänter och klippor flyter ihop till en fläck. Sparas i projektet; nästa derive letar efter slänter och klippor med den.
+mcp-param-create-project-face-slope = Lutningsvinkel i grader från vilken terrängen är en klippvägg (svart yta, symbol 206), t.ex. 75; 0 går tillbaka till standarden 70°. 65 ger fler och större ytor, även på branta sluttningar; 75 lämnar bara riktiga väggar. Sparas i projektet; nästa derive letar efter klippväggar med den.
 mcp-param-start-pipeline-content = Ändra vad som hamnar direkt på kartan före körningen: "safe", "balanced" eller "full". Sparas i projektet. Standard: projektets inställning, annars balanced.
 mcp-param-start-pipeline-content-set = Grupper som skickas någon annanstans än profilen säger, som "group=place" med place map, candidates eller off, t.ex. "fences=candidates". Sparas i projektet.
 mcp-param-start-pipeline-contour-interval = Ekvidistans i meter, t.ex. 2.5; 0 går tillbaka till det automatiska valet (kartsortens; en skogskarta får 2,5 m i flack mark och 10 m i brant mark). Sparas i projektet; nästa derive drar höjdkurvorna med den.
 mcp-param-start-pipeline-steep-slope = Lutningsvinkel i grader från vilken terrängen räknas som brant när slänter och klippor eftersöks, t.ex. 55; 0 går tillbaka till standarden 27°. Höj den (55 till 65) i klipplabyrinter och raviner, där nästan varje sluttning är brant och slänter och klippor flyter ihop till en fläck. Sparas i projektet; nästa derive letar efter slänter och klippor med den.
+mcp-param-start-pipeline-face-slope = Lutningsvinkel i grader från vilken terrängen är en klippvägg (svart yta, symbol 206), t.ex. 75; 0 går tillbaka till standarden 70°. 65 ger fler och större ytor, även på branta sluttningar; 75 lämnar bara riktiga väggar. Sparas i projektet; nästa derive letar efter klippväggar med den.
 mcp-error-content = Kan inte läsa innehållsinställningen: { $detail }
 
 ## Permit notes (`freemapper permits`, `run --permits`, ADR 0117). The ids `permits-hint-*`

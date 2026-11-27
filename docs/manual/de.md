@@ -725,8 +725,21 @@ Aus dem Geländemodell kommen weitere Kandidaten, die die Höhenlinien nicht zei
   Das ist die Darstellung einer Felsenstadt in Sprintkarten wie der von Adršpach 2009. Eine Wandfläche, die über den
   Rand des Geländemodells hinausreicht, fehlt, eine Lücke in ihrem Inneren (Spalte, ebener Absatz) wird gefüllt.
   Eine Böschung oder Felswand, die an einer Wandfläche entlangläuft, entfällt, denn die Fläche zeigt sie schon.
-  Die Fläche ist ein Kandidat der Ebene „Gelände“. Der Grenzwinkel von 70° ist fest eingebaut. Auf Adršpach ergibt
-  er 310 Flächen. Bei 65° wären es mehr und größere, bei 75° nur echte Wände mit lückigen Rändern.
+  Die Fläche ist ein Kandidat der Ebene „Gelände“. Der Grenzwinkel (die Wandschwelle) ist einstellbar: `--face-slope <Grad>` bei
+  `init`, `derive` oder `run`, auf der Gebietsseite im Feld „Wandschwelle“ oder als `face_slope_deg = 75` in der
+  `freemapper.toml`; `auto` gibt den Standard von 70° zurück, erlaubt sind 55° bis 85°. Eine Karte, die schon gebaut
+  ist, braucht danach `derive` und `export --force`. Auf Adršpach ergibt der Standard 310 Flächen.
+
+  | Wert | Wann | Was passiert |
+  |---|---|---|
+  | 65° | Felsenstädte mit abgeschrägten Wänden, wenn die Standardflächen zu klein wirken | Mehr und größere Flächen (Adršpach: 8,4 % der Fläche), auch steile Hänge werden schwarz. |
+  | `auto` (70°) | Felsenstädte wie Adršpach, Steinbrüche, Felsabbrüche | Standard (Adršpach: 5,2 % der Fläche). |
+  | 75° | Nur echte Wände | Weniger Flächen (Adršpach: 2,5 %) mit lückigen Rändern. |
+  | über 80° | (nicht sinnvoll) | Kaum noch Flächen. |
+
+  Wo kaum Fels liegt (Mittelgebirge, Parks), ändert die Schwelle wenig: Es gibt dort ohnehin kaum Flächen. Gemessen
+  ist das nur auf Adršpach, die Werte für andere Gebiete sind Schätzungen; sehen Sie sich im Zweifel die Kandidaten
+  im Layer „Gelände“ an.
 - **Erdböschungen** (104) und ab 3 m Höhe **nicht begehbare Felswände** (201): ein schmaler, steiler
   Streifen, der den größten Teil seines Höhenunterschieds auf wenigen Metern abbaut. Ein gleichmäßiger Hang
   zählt nicht. Die Striche zeigen bergab.

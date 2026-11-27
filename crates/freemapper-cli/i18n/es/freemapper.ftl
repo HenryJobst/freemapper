@@ -257,6 +257,9 @@ page-contour-auto = automática
 page-steep-slope = Umbral de pendiente
 page-steep-slope-auto = automático (27°)
 page-steep-slope-hint = A partir de este ángulo de pendiente el terreno se considera escarpado al buscar taludes y cortados. 27° (automático) sirve para colinas, parques y ciudades. En ciudades de roca, desfiladeros y canteras casi todas las laderas son escarpadas, así que los taludes y cortados se funden en una sola mancha y no se encuentra ninguno; de 55° a 65° los separa. Un valor demasiado alto conserva solo las paredes más escarpadas.
+page-face-slope = Umbral de pared
+page-face-slope-auto = automático (70°)
+page-face-slope-hint = A partir de este ángulo de pendiente el terreno se dibuja como una superficie negra de pared rocosa. 70° (automático) sirve para ciudades de roca como Adršpach (5,2 % de la superficie). 65° da más superficies negras y más grandes, también en laderas empinadas (8,4 %). 75° deja solo paredes reales, con bordes irregulares (2,5 %). Un valor demasiado alto casi no deja superficies.
 page-settings-fixed = El proyecto ya existe; el tipo de mapa, la escala y el título están en freemapper.toml. La equidistancia de las curvas de nivel aún se puede cambiar.
 page-save = Guardar
 page-saving = Guardando …
@@ -472,6 +475,7 @@ error-project-map-exists = el mapa ya existe (puede contener tu trabajo); usa --
 error-project-invalid-scale = escala no válida 1:{ $scale }
 error-project-invalid-contour-interval = equidistancia de curvas de nivel no válida { $interval } m en freemapper.toml; debe ser mayor que 0
 error-project-invalid-steep-slope = umbral de pendiente { $slope }° no válido en freemapper.toml; debe estar entre 15° y 80°
+error-project-invalid-face-slope = umbral de pared { $slope }° no válido en freemapper.toml; debe estar entre 55° y 85°
 error-project-scale-not-allowed = la escala 1:{ $scale } no está permitida para mapas de { $kind }; usa { $allowed }
 error-project-scale-not-allowed-enlarge = la escala 1:{ $scale } no está permitida para mapas de { $kind }; usa { $allowed }. Dibuja a 1:4000, freemapper-print amplía a 1:3000 al imprimir
 word-kind-schoolyard = patio escolar
@@ -803,8 +807,11 @@ cli-contour-interval-saved = Equidistancia de las curvas de nivel guardada en fr
 cli-contour-interval-auto = Equidistancia de las curvas de nivel en freemapper.toml: automática (la del tipo de mapa; un mapa de bosque recibe 2,5 m en terreno llano y 10 m en terreno empinado)
 cli-steep-slope-saved = Umbral de pendiente guardado en freemapper.toml: { $slope }°; derive busca con él taludes y cortados
 cli-steep-slope-auto = Umbral de pendiente en freemapper.toml: predeterminado (unos 27°)
+cli-face-slope-saved = Umbral de pared guardado en freemapper.toml: { $slope }°; derive busca con él superficies de pared rocosa
+cli-face-slope-auto = Umbral de pared en freemapper.toml: predeterminado (70°)
 help-arg-contour-interval = Equidistancia de las curvas de nivel en metros, p. ej. `2.5`, o `auto` para la del tipo de mapa (un mapa de bosque: 5 m, 2,5 m donde es llano, 10 m donde es empinado). Se guarda en freemapper.toml; derive traza las curvas de nivel con ella
 help-arg-steep-slope = Ángulo de pendiente en grados a partir del cual el terreno se considera escarpado al buscar taludes y cortados, p. ej. `55`, o `auto` para el valor predeterminado de 27°. Súbelo (55 a 65) en ciudades de roca y desfiladeros, donde casi todas las laderas son escarpadas y los taludes y cortados se funden en una sola mancha. Se guarda en freemapper.toml; derive busca con él taludes y cortados
+help-arg-face-slope = Ángulo de pendiente en grados a partir del cual el terreno es una pared rocosa (superficie negra, símbolo 206), p. ej. `75`, o `auto` para el valor predeterminado de 70°. 65 da más superficies y más grandes, también en laderas empinadas; 75 deja solo paredes reales. Se guarda en freemapper.toml; derive busca con él paredes rocosas
 cli-content-saved = Ajuste de contenido guardado en freemapper.toml: { $summary }
 cli-content-invalid = No se puede leer el ajuste de contenido: { $detail }
 help-arg-content = Qué va directamente al mapa: `safe` deja cada objeto donde lo pone la generación, `balanced` (predeterminado) pone en el mapa los objetos del catastro y de los registros, `full` pone todo en el mapa. La elección se guarda en freemapper.toml
@@ -813,10 +820,12 @@ mcp-param-create-project-content = Qué va directamente al mapa: "safe", "balanc
 mcp-param-create-project-content-set = Grupos enviados a un sitio distinto del que indica el perfil, como "group=place" con place map, candidates u off, p. ej. "walls=map". Grupos: walls, fences, hedges, slopes, stairs, trees, water-features, monuments, furniture, passages, contours, landforms, vegetation, out-of-bounds, paths, streets.
 mcp-param-create-project-contour-interval = Equidistancia de las curvas de nivel en metros, p. ej. 2.5; 0 vuelve a la elección automática (la del tipo de mapa; un mapa de bosque recibe 2,5 m en terreno llano y 10 m en terreno empinado). Se guarda en el proyecto; el próximo derive traza las curvas de nivel con ella.
 mcp-param-create-project-steep-slope = Ángulo de pendiente en grados a partir del cual el terreno se considera escarpado al buscar taludes y cortados, p. ej. 55; 0 vuelve al valor predeterminado de 27°. Súbelo (55 a 65) en ciudades de roca y desfiladeros, donde casi todas las laderas son escarpadas y los taludes y cortados se funden en una sola mancha. Se guarda en el proyecto; el siguiente derive busca con él taludes y cortados.
+mcp-param-create-project-face-slope = Ángulo de pendiente en grados a partir del cual el terreno es una pared rocosa (superficie negra, símbolo 206), p. ej. 75; 0 vuelve al valor predeterminado de 70°. 65 da más superficies y más grandes, también en laderas empinadas; 75 deja solo paredes reales. Se guarda en el proyecto; el próximo derive busca con él paredes rocosas.
 mcp-param-start-pipeline-content = Cambia qué va directamente al mapa antes de la ejecución: "safe", "balanced" o "full". Se guarda en el proyecto. Por defecto: el ajuste del proyecto y, si no, balanced.
 mcp-param-start-pipeline-content-set = Grupos enviados a un sitio distinto del que indica el perfil, como "group=place" con place map, candidates u off, p. ej. "fences=candidates". Se guarda en el proyecto.
 mcp-param-start-pipeline-contour-interval = Equidistancia de las curvas de nivel en metros, p. ej. 2.5; 0 vuelve a la elección automática (la del tipo de mapa; un mapa de bosque recibe 2,5 m en terreno llano y 10 m en terreno empinado). Se guarda en el proyecto; el próximo derive traza las curvas de nivel con ella.
 mcp-param-start-pipeline-steep-slope = Ángulo de pendiente en grados a partir del cual el terreno se considera escarpado al buscar taludes y cortados, p. ej. 55; 0 vuelve al valor predeterminado de 27°. Súbelo (55 a 65) en ciudades de roca y desfiladeros, donde casi todas las laderas son escarpadas y los taludes y cortados se funden en una sola mancha. Se guarda en el proyecto; el siguiente derive busca con él taludes y cortados.
+mcp-param-start-pipeline-face-slope = Ángulo de pendiente en grados a partir del cual el terreno es una pared rocosa (superficie negra, símbolo 206), p. ej. 75; 0 vuelve al valor predeterminado de 70°. 65 da más superficies y más grandes, también en laderas empinadas; 75 deja solo paredes reales. Se guarda en el proyecto; el próximo derive busca con él paredes rocosas.
 mcp-error-content = No se puede leer el ajuste de contenido: { $detail }
 
 ## Permit notes (`freemapper permits`, `run --permits`, ADR 0117). The ids `permits-hint-*`

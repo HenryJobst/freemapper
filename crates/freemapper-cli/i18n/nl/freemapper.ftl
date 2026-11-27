@@ -251,6 +251,9 @@ page-contour-auto = automatisch
 page-steep-slope = Steilheidsdrempel
 page-steep-slope-auto = automatisch (27°)
 page-steep-slope-hint = Vanaf deze hellingshoek geldt het terrein als steil bij het zoeken naar taluds en rotswanden. 27° (automatisch) past bij heuvels, parken en steden. In rotssteden, kloven en steengroeven is bijna elke helling steil, zodat taluds en rotswanden samenvloeien tot één vlek en er geen wordt gevonden; 55° tot 65° scheidt ze. Een te hoge waarde laat alleen de steilste wanden over.
+page-face-slope = Wanddrempel
+page-face-slope-auto = automatisch (70°)
+page-face-slope-hint = Vanaf deze hellingshoek wordt het terrein getekend als een zwart rotswandvlak. 70° (automatisch) past bij rotssteden zoals Adršpach (5,2 % van het oppervlak). 65° geeft meer en grotere zwarte vlakken, ook op steile hellingen (8,4 %). 75° houdt alleen echte wanden over, met rafelige randen (2,5 %). Een te hoge waarde laat bijna geen vlakken over.
 page-settings-fixed = Het project bestaat al; kaarttype, schaal en titel staan in freemapper.toml. Het hoogtelijninterval kun je nog wel wijzigen.
 page-save = Opslaan
 page-saving = Opslaan …
@@ -465,6 +468,7 @@ error-project-map-exists = kaart bestaat al (ze kan jouw werk bevatten); gebruik
 error-project-invalid-scale = ongeldige schaal 1:{ $scale }
 error-project-invalid-contour-interval = ongeldig hoogtelijninterval { $interval } m in freemapper.toml; het moet groter zijn dan 0
 error-project-invalid-steep-slope = ongeldige steilheidsdrempel { $slope }° in freemapper.toml; die moet tussen 15° en 80° liggen
+error-project-invalid-face-slope = ongeldige wanddrempel { $slope }° in freemapper.toml; die moet tussen 55° en 85° liggen
 error-project-scale-not-allowed = schaal 1:{ $scale } is niet toegestaan voor { $kind }kaarten; gebruik { $allowed }
 error-project-scale-not-allowed-enlarge = schaal 1:{ $scale } is niet toegestaan voor { $kind }kaarten; gebruik { $allowed }. Teken op 1:4000, freemapper-print vergroot bij het afdrukken naar 1:3000
 word-kind-schoolyard = schoolplein
@@ -793,8 +797,11 @@ cli-contour-interval-saved = Hoogtelijninterval opgeslagen in freemapper.toml: {
 cli-contour-interval-auto = Hoogtelijninterval in freemapper.toml: automatisch (dat van het kaarttype; een boskaart krijgt 2,5 m in vlak land en 10 m in steil land)
 cli-steep-slope-saved = Steilheidsdrempel opgeslagen in freemapper.toml: { $slope }°; derive zoekt er taluds en rotswanden mee
 cli-steep-slope-auto = Steilheidsdrempel in freemapper.toml: standaard (ongeveer 27°)
+cli-face-slope-saved = Wanddrempel opgeslagen in freemapper.toml: { $slope }°; derive zoekt er rotswandvlakken mee
+cli-face-slope-auto = Wanddrempel in freemapper.toml: standaard (70°)
 help-arg-contour-interval = Hoogtelijninterval in meters, bijv. `2.5`, of `auto` voor dat van het kaarttype (een boskaart: 5 m, 2,5 m waar het vlak is, 10 m waar het steil is). Opgeslagen in freemapper.toml; derive trekt de hoogtelijnen daarmee
 help-arg-steep-slope = Hellingshoek in graden vanaf welke het terrein als steil geldt bij het zoeken naar taluds en rotswanden, bijv. `55`, of `auto` voor de standaard van 27°. Verhoog hem (55 tot 65) in rotssteden en kloven, waar bijna elke helling steil is en taluds en rotswanden samenvloeien tot één vlek. Opgeslagen in freemapper.toml; derive zoekt er taluds en rotswanden mee
+help-arg-face-slope = Hellingshoek in graden vanaf waar het terrein een rotswand is (zwart vlak, symbool 206), bijv. `75`, of `auto` voor de standaard van 70°. 65 geeft meer en grotere vlakken, ook op steile hellingen; 75 houdt alleen echte wanden over. Opgeslagen in freemapper.toml; derive zoekt er rotswanden mee
 cli-content-saved = Inhoudsinstelling opgeslagen in freemapper.toml: { $summary }
 cli-content-invalid = Kan de inhoudsinstelling niet lezen: { $detail }
 help-arg-content = Wat direct op de kaart komt: `safe` laat elk object waar de build het zet, `balanced` (standaard) zet de objecten van het kadaster en de registers op de kaart, `full` zet alles op de kaart. De keuze wordt opgeslagen in freemapper.toml
@@ -803,10 +810,12 @@ mcp-param-create-project-content = Wat direct op de kaart komt: "safe", "balance
 mcp-param-create-project-content-set = Groepen die ergens anders heen gaan dan het profiel zegt, als "group=place" met place map, candidates of off, bijv. "walls=map". Groepen: walls, fences, hedges, slopes, stairs, trees, water-features, monuments, furniture, passages, contours, landforms, vegetation, out-of-bounds, paths, streets.
 mcp-param-create-project-contour-interval = Hoogtelijninterval in meters, bijv. 2.5; 0 gaat terug naar de automatische keuze (die van het kaarttype; een boskaart krijgt 2,5 m in vlak land en 10 m in steil land). Opgeslagen in het project; de volgende derive trekt de hoogtelijnen daarmee.
 mcp-param-create-project-steep-slope = Hellingshoek in graden vanaf welke het terrein als steil geldt bij het zoeken naar taluds en rotswanden, bijv. 55; 0 gaat terug naar de standaard van 27°. Verhoog hem (55 tot 65) in rotssteden en kloven, waar bijna elke helling steil is en taluds en rotswanden samenvloeien tot één vlek. Opgeslagen in het project; de volgende derive zoekt er taluds en rotswanden mee.
+mcp-param-create-project-face-slope = Hellingshoek in graden vanaf waar het terrein een rotswand is (zwart vlak, symbool 206), bijv. 75; 0 gaat terug naar de standaard van 70°. 65 geeft meer en grotere vlakken, ook op steile hellingen; 75 houdt alleen echte wanden over. Opgeslagen in het project; de volgende derive zoekt er rotswanden mee.
 mcp-param-start-pipeline-content = Wijzig voor de run wat direct op de kaart komt: "safe", "balanced" of "full". Opgeslagen in het project. Standaard: de instelling van het project, anders balanced.
 mcp-param-start-pipeline-content-set = Groepen die ergens anders heen gaan dan het profiel zegt, als "group=place" met place map, candidates of off, bijv. "fences=candidates". Opgeslagen in het project.
 mcp-param-start-pipeline-contour-interval = Hoogtelijninterval in meters, bijv. 2.5; 0 gaat terug naar de automatische keuze (die van het kaarttype; een boskaart krijgt 2,5 m in vlak land en 10 m in steil land). Opgeslagen in het project; de volgende derive trekt de hoogtelijnen daarmee.
 mcp-param-start-pipeline-steep-slope = Hellingshoek in graden vanaf welke het terrein als steil geldt bij het zoeken naar taluds en rotswanden, bijv. 55; 0 gaat terug naar de standaard van 27°. Verhoog hem (55 tot 65) in rotssteden en kloven, waar bijna elke helling steil is en taluds en rotswanden samenvloeien tot één vlek. Opgeslagen in het project; de volgende derive zoekt er taluds en rotswanden mee.
+mcp-param-start-pipeline-face-slope = Hellingshoek in graden vanaf waar het terrein een rotswand is (zwart vlak, symbool 206), bijv. 75; 0 gaat terug naar de standaard van 70°. 65 geeft meer en grotere vlakken, ook op steile hellingen; 75 houdt alleen echte wanden over. Opgeslagen in het project; de volgende derive zoekt er rotswanden mee.
 mcp-error-content = Kan de inhoudsinstelling niet lezen: { $detail }
 
 ## Permit notes (`freemapper permits`, `run --permits`, ADR 0117). The ids `permits-hint-*`

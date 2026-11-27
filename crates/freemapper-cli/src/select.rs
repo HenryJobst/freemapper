@@ -31,9 +31,9 @@ use freemapper::fetch::{Cache, HttpFetcher};
 use freemapper::layers::{AreaPreview, preview_area};
 use freemapper::places::{find_places, lookup_url, place_area};
 use freemapper::project::{
-    MAX_AREA_SIDE_M, MapKind, ProjectFile, check_contour_interval, check_steep_slope,
-    init_project_with_content, map_path, set_contour_interval, set_map_area_with_content,
-    set_steep_slope,
+    MAX_AREA_SIDE_M, MapKind, ProjectFile, check_contour_interval, check_face_slope,
+    check_steep_slope, init_project_with_content, map_path, set_contour_interval, set_face_slope,
+    set_map_area_with_content, set_steep_slope,
 };
 pub use freemapper_web::open_browser;
 use freemapper_web::{LocalServer, ServeOptions, embedded};
@@ -467,6 +467,7 @@ async fn project(State(state): State<Arc<AppState>>, headers: HeaderMap) -> Resp
             "content": content_json(project.content.as_ref()),
             "contour_interval_m": project.contour_interval_m,
             "steep_slope_deg": project.steep_slope_deg,
+            "face_slope_deg": project.face_slope_deg,
         }),
         None => json!({
             "exists": false,
@@ -483,6 +484,7 @@ async fn project(State(state): State<Arc<AppState>>, headers: HeaderMap) -> Resp
             "content": null,
             "contour_interval_m": null,
             "steep_slope_deg": null,
+            "face_slope_deg": null,
         }),
     };
     answer["content_options"] = content_options_json();
@@ -698,6 +700,16 @@ async fn save(
                 Some(Some(slope))
             }
         };
+        // `face_slope_deg`: the same.
+        let face = match body.get("face_slope_deg") {
+            None => None,
+            Some(Value::Null) => Some(None),
+            Some(value) => {
+                let slope = value.as_f64().unwrap_or(f64::NAN);
+                check_face_slope(slope).map_err(|e| message(&e, &lang))?;
+                Some(Some(slope))
+            }
+        };
         let area = area_of(&body, &lang)?;
         let created = !dir.join("freemapper.toml").exists();
         let mut zone_changed = false;
@@ -734,6 +746,9 @@ async fn save(
         }
         if let Some(slope) = steep {
             set_steep_slope(dir, slope).map_err(|e| message(&e, &lang))?;
+        }
+        if let Some(slope) = face {
+            set_face_slope(dir, slope).map_err(|e| message(&e, &lang))?;
         }
         Ok(json!({
             "saved": true,

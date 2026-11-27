@@ -694,8 +694,21 @@ From the terrain model come further candidates the contours miss:
   least 0.3 mm² and 0.25 mm wide (the minimum sizes of 206). Sprint maps of a rock town, such as the Adršpach map of 2009,
   draw it this way. A face that reaches past the edge of the terrain model is missing, and a gap inside one (a crack,
   a level ledge) is filled. A bank or cliff that runs along a face is dropped, because the area shows it already. The
-  area is a candidate of the terrain layer. The limit of 70° is built in. On Adršpach it gives 310 areas. At 65° there
-  would be more and larger ones, at 75° only real walls with ragged edges.
+  area is a candidate of the terrain layer. The limit (the face threshold) can be set: `--face-slope <degrees>` on
+  `init`, `derive` or `run`, in the field "Face threshold" on the area page, or as `face_slope_deg = 75` in
+  `freemapper.toml`; `auto` gives the default of 70° back, 55° to 85° are allowed. A map that is built already needs
+  `derive` and `export --force` afterwards. On Adršpach the default gives 310 areas.
+
+  | Value | When | What happens |
+  |---|---|---|
+  | 65° | Rock towns with sloping walls, when the default areas look too small | More and larger areas (Adršpach: 8.4 % of the ground), steep slopes turn black too. |
+  | `auto` (70°) | Rock towns such as Adršpach, quarries, rock drops | The default (Adršpach: 5.2 % of the ground). |
+  | 75° | Only real walls | Fewer areas (Adršpach: 2.5 %) with ragged edges. |
+  | above 80° | (not useful) | Hardly any areas are left. |
+
+  Where there is hardly any rock (low mountains, parks), the threshold changes little: there are few areas anyway.
+  This was measured on Adršpach only, the values for other areas are estimates; when in doubt look at the candidates
+  in the layer "Terrain".
 - **Earth banks** (104) and, from 3 m high, **impassable cliffs** (201): a narrow, steep strip that takes
   most of its height difference within a few metres. A plain slope does not count. The ticks point down.
 

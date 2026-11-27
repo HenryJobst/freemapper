@@ -8,6 +8,7 @@ Hier stehen alle wichtigen Änderungen an freemapper, die neueste zuerst. Das Fo
 
 ### Hinzugefügt
 
+- Wandschwelle für Felswandflächen (ADR 0200): `--face-slope <Grad>|auto` bei `init`, `derive` und `run`, `face_slope` in den MCP-Werkzeugen `create_project` und `start_pipeline`, das Feld „Wandschwelle“ auf der Gebietsseite und `face_slope_deg` in der `freemapper.toml`. Der Standard bleibt 70°, erlaubt sind 55° bis 85°. Auf Adršpach sind 65° 8,4 % der Fläche schwarz, 70° 5,2 % und 75° 2,5 %.
 - Felswandflächen (ADR 0200): Ein zusammenhängender Fleck des Geländemodells, der mindestens 70° steil ist, wird als schwarze Fläche in Grundrissform (206) angeboten, wenn er die Mindestmaße der Norm erreicht (0,3 mm², 0,25 mm breit). Böschungen und Felswände, die an so einer Fläche entlanglaufen, entfallen. Adršpach bekommt 310 Flächen.
 - Blockhaufen (ADR 0199): Stehen drei oder mehr Blöcke auf einer Felsfläche so dicht, dass ihre Symbole die Mindestlücke von 0,15 mm unterschreiten (0,55 mm von Mitte zu Mitte), werden sie zu einem Blockhaufen (207) in ihrer Mitte zusammengefasst.
 - Blöcke auf Felsflächen (ADR 0199): Eine Kuppe von mindestens 1 m, die in einer Felsfläche von OpenStreetMap liegt (`natural=bare_rock`), wird als Block (204) und ab 2 m als großer Block (205) angeboten statt als braune Kuppe. Eine Felsenstadt wie Adršpach wird so zum Feld aus schwarzen Punkten, wie echte Karten es zeigen.

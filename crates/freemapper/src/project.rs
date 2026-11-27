@@ -29,8 +29,9 @@ use crate::derive::contours::{
     gaussian_smooth, generalize, terrain_inside,
 };
 use crate::derive::landforms::{
-    DEFAULT_FACE_SLOPE_DEG, STEEP_SLOPE_RANGE_DEG, height_jumps, knolls_and_depressions,
-    landforms_from_geojson, landforms_to_geojson, rock_faces, steep_gradient,
+    DEFAULT_FACE_SLOPE_DEG, FACE_SLOPE_RANGE_DEG, STEEP_SLOPE_RANGE_DEG, height_jumps,
+    knolls_and_depressions, landforms_from_geojson, landforms_to_geojson, rock_faces,
+    steep_gradient,
 };
 use crate::derive::ndsm::{fill_from_dsm, rasterize, tree_cover, write_ndsm_png};
 use crate::derive::orthophoto::{build_orthophoto, build_orthophoto_from_image};
@@ -94,6 +95,8 @@ pub enum ProjectError {
     InvalidContourInterval(f64),
     #[error("invalid steepness threshold {0}°; it must lie between 15° and 80°")]
     InvalidSteepSlope(f64),
+    #[error("invalid face threshold {0}°; it must lie between 55° and 85°")]
+    InvalidFaceSlope(f64),
     #[error("scale 1:{scale} is not allowed for {kind} maps; use {allowed}{hint}")]
     ScaleNotAllowed {
         kind: &'static str,
@@ -378,6 +381,11 @@ pub struct ProjectFile {
     /// (`derive::landforms::steep_gradient`, ADR 0198).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub steep_slope_deg: Option<f64>,
+    /// Slope angle in degrees from which the ground is a rock face (symbol 206) when `derive`
+    /// looks for faces; without it the default of 70° holds
+    /// (`derive::landforms::DEFAULT_FACE_SLOPE_DEG`, ADR 0200).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub face_slope_deg: Option<f64>,
     /// Tiles used by the last `fetch`.
     #[serde(default)]
     pub tiles: Vec<TileRecord>,
@@ -534,6 +542,9 @@ impl ProjectFile {
         }
         if let Some(slope) = project.steep_slope_deg {
             check_steep_slope(slope)?;
+        }
+        if let Some(slope) = project.face_slope_deg {
+            check_face_slope(slope)?;
         }
         project.check_adapters()?;
         project.drop_unknown_names(progress);
@@ -795,6 +806,7 @@ pub fn init_project_with_content(
         title: title.as_deref().and_then(clean_title),
         contour_interval_m: None,
         steep_slope_deg: None,
+        face_slope_deg: None,
         contours: None,
         tiles: Vec::new(),
         buildings: None,
@@ -1023,6 +1035,42 @@ pub fn set_steep_slope(dir: &Path, slope_deg: Option<f64>) -> Result<ProjectFile
     check_folders(dir, &WRITTEN_FOLDERS)?;
     if project.steep_slope_deg != slope_deg {
         project.steep_slope_deg = slope_deg;
+        project.save(dir)?;
+    }
+    Ok(project)
+}
+
+/// Refuses a face slope outside [`FACE_SLOPE_RANGE_DEG`].
+pub fn check_face_slope(slope_deg: f64) -> Result<(), ProjectError> {
+    if FACE_SLOPE_RANGE_DEG.contains(&slope_deg) {
+        Ok(())
+    } else {
+        Err(ProjectError::InvalidFaceSlope(slope_deg))
+    }
+}
+
+/// A face slope as a person writes it: `auto` (the default, `None`) or degrees with a dot or a
+/// comma, such as `75`.
+pub fn parse_face_slope(text: &str) -> Result<Option<f64>, ProjectError> {
+    let text = text.trim();
+    if text.eq_ignore_ascii_case("auto") {
+        return Ok(None);
+    }
+    let slope: f64 = text.replace(',', ".").parse().unwrap_or(f64::NAN);
+    check_face_slope(slope)?;
+    Ok(Some(slope))
+}
+
+/// Sets the face slope of the project in `dir`; `None` gives back the default. The next
+/// `derive` looks for rock faces with it.
+pub fn set_face_slope(dir: &Path, slope_deg: Option<f64>) -> Result<ProjectFile, ProjectError> {
+    if let Some(slope) = slope_deg {
+        check_face_slope(slope)?;
+    }
+    let mut project = ProjectFile::load(dir)?;
+    check_folders(dir, &WRITTEN_FOLDERS)?;
+    if project.face_slope_deg != slope_deg {
+        project.face_slope_deg = slope_deg;
         project.save(dir)?;
     }
     Ok(project)
@@ -2480,7 +2528,11 @@ pub fn derive_project_cancellable(
         min_height_m,
         steep_gradient(project.steep_slope_deg),
     ));
-    landforms.extend(rock_faces(&dtm, scale, DEFAULT_FACE_SLOPE_DEG));
+    landforms.extend(rock_faces(
+        &dtm,
+        scale,
+        project.face_slope_deg.unwrap_or(DEFAULT_FACE_SLOPE_DEG),
+    ));
     let landforms_path = dir.join(LANDFORMS_RELPATH);
     write_inside(
         dir,
@@ -3021,6 +3073,7 @@ pub mod golden {
             title: None,
             contour_interval_m: None,
             steep_slope_deg: None,
+            face_slope_deg: None,
             contours: None,
             tiles: Vec::new(),
             buildings: None,
@@ -5424,6 +5477,7 @@ mod tests {
             title: Some("Clara-Zetkin-Schule".to_string()),
             contour_interval_m: None,
             steep_slope_deg: None,
+            face_slope_deg: None,
             contours: None,
             tiles: vec![TileRecord {
                 product: Product::Dtm,
@@ -13277,6 +13331,72 @@ msWMSLoadGetMapParams(): WMS server error. Image size out of range, WIDTH and HE
             !std::fs::read_to_string(&file)
                 .unwrap()
                 .contains("steep_slope_deg")
+        );
+    }
+
+    #[test]
+    fn the_face_threshold_is_read_checked_and_set() {
+        assert_eq!(parse_face_slope("auto").unwrap(), None);
+        assert_eq!(parse_face_slope(" AUTO ").unwrap(), None);
+        assert_eq!(parse_face_slope(" 72,5 ").unwrap(), Some(72.5));
+        assert_eq!(parse_face_slope("75").unwrap(), Some(75.0));
+        for bad in ["0", "54.9", "85.1", "-5", "steep", "nan", ""] {
+            assert!(parse_face_slope(bad).is_err(), "{bad}");
+        }
+        assert_eq!(parse_face_slope("55").unwrap(), Some(55.0));
+        assert_eq!(parse_face_slope("85").unwrap(), Some(85.0));
+        assert!(check_face_slope(55.0).is_ok() && check_face_slope(85.0).is_ok());
+        assert!(check_face_slope(54.99).is_err() && check_face_slope(85.01).is_err());
+        let dir = tempfile::tempdir().unwrap();
+        school_project(dir.path());
+        let project = set_face_slope(dir.path(), Some(75.0)).unwrap();
+        assert_eq!(project.face_slope_deg, Some(75.0));
+        assert_eq!(
+            ProjectFile::load(dir.path()).unwrap().face_slope_deg,
+            Some(75.0)
+        );
+        assert!(matches!(
+            set_face_slope(dir.path(), Some(5.0)),
+            Err(ProjectError::InvalidFaceSlope(_))
+        ));
+        assert!(matches!(
+            set_face_slope(dir.path(), Some(90.0)),
+            Err(ProjectError::InvalidFaceSlope(_))
+        ));
+        // A bad value in the file is refused on load.
+        let file = dir.path().join(PROJECT_FILE_NAME);
+        let text = std::fs::read_to_string(&file).unwrap();
+        std::fs::write(
+            &file,
+            text.replace("face_slope_deg = 75.0", "face_slope_deg = 5.0"),
+        )
+        .unwrap();
+        assert!(matches!(
+            ProjectFile::load(dir.path()).unwrap_err(),
+            ProjectError::InvalidFaceSlope(_)
+        ));
+        std::fs::write(&file, text).unwrap();
+        set_face_slope(dir.path(), None).unwrap();
+        assert_eq!(ProjectFile::load(dir.path()).unwrap().face_slope_deg, None);
+        assert!(
+            !std::fs::read_to_string(&file)
+                .unwrap()
+                .contains("face_slope_deg")
+        );
+    }
+
+    #[test]
+    fn the_face_threshold_counts_for_the_fingerprint() {
+        let dir = tempfile::tempdir().unwrap();
+        school_project(dir.path());
+        let project = ProjectFile::load(dir.path()).unwrap();
+        let other = ProjectFile {
+            face_slope_deg: Some(75.0),
+            ..project.clone()
+        };
+        assert_ne!(
+            project_fingerprint(&project).unwrap(),
+            project_fingerprint(&other).unwrap()
         );
     }
 

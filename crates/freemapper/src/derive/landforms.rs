@@ -637,6 +637,9 @@ fn centre_line(cells: &[usize], grid: &GridSpec, min_length_m: f64) -> Option<Ve
 
 /// The default slope from which the ground is a rock face (degrees).
 pub const DEFAULT_FACE_SLOPE_DEG: f64 = 70.0;
+/// The face slope a person may set (ADR 0200): below 55° the faces swallow ordinary steep
+/// slopes, above 85° hardly any ground is left.
+pub const FACE_SLOPE_RANGE_DEG: std::ops::RangeInclusive<f64> = 55.0..=85.0;
 /// ISOM 2017-2, 206: the minimum area (mm² on the map) and the minimum width (mm).
 const MIN_FACE_MM2: f64 = 0.3;
 const MIN_FACE_WIDTH_MM: f64 = 0.25;

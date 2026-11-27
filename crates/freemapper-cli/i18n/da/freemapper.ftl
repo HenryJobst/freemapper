@@ -251,6 +251,9 @@ page-contour-auto = automatisk
 page-steep-slope = Stejlhedsgrænse
 page-steep-slope-auto = automatisk (27°)
 page-steep-slope-hint = Fra denne hældningsvinkel regnes terrænet som stejlt, når der ledes efter skrænter og klipper. 27° (automatisk) passer til bakker, parker og byer. I klippelabyrinter, kløfter og brud er næsten alle skråninger stejle, så skrænter og klipper flyder sammen til én plet, og ingen bliver fundet; 55° til 65° adskiller dem. En for høj værdi beholder kun de stejleste vægge.
+page-face-slope = Vægtærskel
+page-face-slope-auto = automatisk (70°)
+page-face-slope-hint = Fra denne hældningsvinkel tegnes terrænet som en sort klippevægsflade. 70° (automatisk) passer til klippelabyrinter som Adršpach (5,2 % af arealet). 65° giver flere og større sorte flader, også på stejle skråninger (8,4 %). 75° bevarer kun rigtige vægge, med flossede kanter (2,5 %). En for høj værdi levner næsten ingen flader.
 page-settings-fixed = Projektet findes allerede; korttype, målestok og titel står i freemapper.toml. Ækvidistancen kan stadig ændres.
 page-save = Gem
 page-saving = Gemmer …
@@ -465,6 +468,7 @@ error-project-map-exists = kortet findes allerede (det kan indeholde dit arbejde
 error-project-invalid-scale = ugyldig målestok 1:{ $scale }
 error-project-invalid-contour-interval = ugyldig ækvidistance { $interval } m i freemapper.toml; den skal være større end 0
 error-project-invalid-steep-slope = ugyldig stejlhedsgrænse { $slope }° i freemapper.toml; den skal ligge mellem 15° og 80°
+error-project-invalid-face-slope = ugyldig vægtærskel { $slope }° i freemapper.toml; den skal ligge mellem 55° og 85°
 error-project-scale-not-allowed = målestok 1:{ $scale } er ikke tilladt for kort af typen { $kind }; brug { $allowed }
 error-project-scale-not-allowed-enlarge = målestok 1:{ $scale } er ikke tilladt for kort af typen { $kind }; brug { $allowed }. Tegn i 1:4000, freemapper-print forstørrer til 1:3000 ved udskrivning
 word-kind-schoolyard = skolegård
@@ -793,8 +797,11 @@ cli-contour-interval-saved = Ækvidistance gemt i freemapper.toml: { $interval }
 cli-contour-interval-auto = Ækvidistance i freemapper.toml: automatisk (korttypens; et skovkort får 2,5 m i fladt land og 10 m i stejlt land)
 cli-steep-slope-saved = Stejlhedsgrænse gemt i freemapper.toml: { $slope }°; derive leder efter skrænter og klipper med den
 cli-steep-slope-auto = Stejlhedsgrænse i freemapper.toml: standard (ca. 27°)
+cli-face-slope-saved = Vægtærskel gemt i freemapper.toml: { $slope }°; derive leder efter klippevægsflader med den
+cli-face-slope-auto = Vægtærskel i freemapper.toml: standard (70°)
 help-arg-contour-interval = Ækvidistance i meter, fx `2.5`, eller `auto` for korttypens (et skovkort: 5 m, 2,5 m hvor det er fladt, 10 m hvor det er stejlt). Gemmes i freemapper.toml; derive tegner højdekurverne med den
 help-arg-steep-slope = Hældningsvinkel i grader, fra hvilken terrænet regnes som stejlt, når der ledes efter skrænter og klipper, fx `55`, eller `auto` for standarden på 27°. Hæv den (55 til 65) i klippelabyrinter og kløfter, hvor næsten alle skråninger er stejle, og skrænter og klipper flyder sammen til én plet. Gemmes i freemapper.toml; derive leder efter skrænter og klipper med den
+help-arg-face-slope = Hældningsvinkel i grader, hvorfra terrænet er en klippevæg (sort flade, symbol 206), f.eks. `75`, eller `auto` for standarden på 70°. 65 giver flere og større flader, også på stejle skråninger; 75 bevarer kun rigtige vægge. Gemmes i freemapper.toml; derive leder efter klippevægge med den
 cli-content-saved = Indholdsindstilling gemt i freemapper.toml: { $summary }
 cli-content-invalid = Kan ikke læse indholdsindstillingen: { $detail }
 help-arg-content = Hvad kommer direkte på kortet: `safe` lader hvert objekt blive, hvor opbygningen placerer det, `balanced` (standard) lægger matriklens og registrenes objekter på kortet, `full` lægger alt på kortet. Valget gemmes i freemapper.toml
@@ -803,10 +810,12 @@ mcp-param-create-project-content = Hvad kommer direkte på kortet: "safe", "bala
 mcp-param-create-project-content-set = Grupper sendt et andet sted hen, end profilen siger, som "group=place" med place map, candidates eller off, fx "walls=map". Grupper: walls, fences, hedges, slopes, stairs, trees, water-features, monuments, furniture, passages, contours, landforms, vegetation, out-of-bounds, paths, streets.
 mcp-param-create-project-contour-interval = Ækvidistance i meter, fx 2.5; 0 går tilbage til det automatiske valg (korttypens; et skovkort får 2,5 m i fladt land og 10 m i stejlt land). Gemmes i projektet; næste derive tegner højdekurverne med den.
 mcp-param-create-project-steep-slope = Hældningsvinkel i grader, fra hvilken terrænet regnes som stejlt, når der ledes efter skrænter og klipper, fx 55; 0 går tilbage til standarden på 27°. Hæv den (55 til 65) i klippelabyrinter og kløfter, hvor næsten alle skråninger er stejle, og skrænter og klipper flyder sammen til én plet. Gemmes i projektet; næste derive leder efter skrænter og klipper med den.
+mcp-param-create-project-face-slope = Hældningsvinkel i grader, hvorfra terrænet er en klippevæg (sort flade, symbol 206), f.eks. 75; 0 vender tilbage til standarden på 70°. 65 giver flere og større flader, også på stejle skråninger; 75 bevarer kun rigtige vægge. Gemmes i projektet; næste derive leder efter klippevægge med den.
 mcp-param-start-pipeline-content = Ændr, hvad der kommer direkte på kortet, før kørslen: "safe", "balanced" eller "full". Gemmes i projektet. Standard: projektets indstilling, ellers balanced.
 mcp-param-start-pipeline-content-set = Grupper sendt et andet sted hen, end profilen siger, som "group=place" med place map, candidates eller off, fx "fences=candidates". Gemmes i projektet.
 mcp-param-start-pipeline-contour-interval = Ækvidistance i meter, fx 2.5; 0 går tilbage til det automatiske valg (korttypens; et skovkort får 2,5 m i fladt land og 10 m i stejlt land). Gemmes i projektet; næste derive tegner højdekurverne med den.
 mcp-param-start-pipeline-steep-slope = Hældningsvinkel i grader, fra hvilken terrænet regnes som stejlt, når der ledes efter skrænter og klipper, fx 55; 0 går tilbage til standarden på 27°. Hæv den (55 til 65) i klippelabyrinter og kløfter, hvor næsten alle skråninger er stejle, og skrænter og klipper flyder sammen til én plet. Gemmes i projektet; næste derive leder efter skrænter og klipper med den.
+mcp-param-start-pipeline-face-slope = Hældningsvinkel i grader, hvorfra terrænet er en klippevæg (sort flade, symbol 206), f.eks. 75; 0 vender tilbage til standarden på 70°. 65 giver flere og større flader, også på stejle skråninger; 75 bevarer kun rigtige vægge. Gemmes i projektet; næste derive leder efter klippevægge med den.
 mcp-error-content = Kan ikke læse indholdsindstillingen: { $detail }
 
 ## Permit notes (`freemapper permits`, `run --permits`, ADR 0117). The ids `permits-hint-*`
