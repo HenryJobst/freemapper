@@ -11,3 +11,6 @@
 pub mod copc;
 pub mod marktacke;
 pub mod stac_terrain;
+pub mod sweden;
+
+pub use sweden::{SWEDEN, register, register_with_hosts};

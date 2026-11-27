@@ -1154,12 +1154,14 @@ pub(crate) fn outside_germany(region_bbox: &BoundingBox) -> bool {
 }
 
 /// The name of the cadastre of the region of a map of `region_bbox`: ALKIS for the German
-/// states, EGiB for Poland, RÚIAN for Czechia. The progress lines and warnings of the cadastre
+/// states, EGiB for Poland, RÚIAN for Czechia, Lantmäteriet for Sweden. The progress lines and warnings of the cadastre
 /// downloads name it.
 pub(crate) fn cadastre_name(region_bbox: &BoundingBox) -> &'static str {
     match raster_region_in(registry(), region_bbox).map(|adapter| adapter.info().country) {
         Some(Country::Pl) => "EGiB",
         Some(Country::Cz) => "RÚIAN",
+        // Its land cover; it has no buildings (they come from OpenStreetMap).
+        Some(Country::Se) => "Lantmäteriet",
         Some(Country::De) | None => "ALKIS",
     }
 }

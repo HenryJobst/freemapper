@@ -750,6 +750,7 @@ dependencies = [
  "freemapper-adapters-cz",
  "freemapper-adapters-de",
  "freemapper-adapters-pl",
+ "freemapper-adapters-se",
  "freemapper-contract",
  "freemapper-fs",
  "freemapper-georef",
