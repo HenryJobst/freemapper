@@ -1,0 +1,34 @@
+# 0200. Steep patches are rock faces in plan shape
+
+Date: 2026-11-27
+Status: Accepted, extends ADR 0198 and ADR 0199
+
+## Context
+
+Real maps of rock towns (the Adršpach sprint map of 2009, the Nikolsdorfer Wände) draw the rock faces as large black
+areas in plan shape. ISOM 2017-2, 206: "A gigantic boulder, rock pillar or massive cliff shall be represented in plan
+shape", minimum width 0.25 mm, minimum area 0.3 mm², black. freemapper drew only lines (201) and, after ADR 0199, boulders;
+the plan shape existed for OpenStreetMap cliffs (`build/cliffs.rs`) but never from the terrain. Measured on the 1 m
+terrain model of Adršpach (1.6 km², 2026-11-27): ground at least 70° steep is 5.2 % of the area, in about 500 patches of
+25 m² or more; at 65° it is 8.4 %, at 75° 2.5 %, and the largest patch grows from 2 000 m² (70°) to 9 000 m² (65°).
+
+## Decision
+
+- `derive::landforms::rock_faces` traces the contour of the slope raster at 70° (`DEFAULT_FACE_SLOPE_DEG`). A closed
+  ring is a face when its area is positive: the contour rings run with the steeper ground on the left, so a ring around
+  less steep ground (a hollow inside a face) has a negative area and is dropped, which fills the hollow.
+- A face needs at least 0.3 mm² and a width of 0.25 mm on the map (twice the area over the perimeter), then it is
+  simplified by 0.5 m. A ring cut by the raster border or by cells without data is not closed and is left out.
+- The landform kind `rock-face` is an area (`LandformKind::is_area`, a GeoJSON polygon of its outer ring). `build`
+  draws it as 206, tagged like the other landforms: a candidate of the terrain layer in the group `landforms`.
+- A bank or cliff that runs mostly within 2 m of a face is dropped (`in_a_face`): the area shows it already.
+- The limit is a constant for now. Not built: the setting in `freemapper.toml`, the CLI and the area page (as the
+  steepness threshold of ADR 0198 has), contours broken at the black area (ISOM 0.15 mm gap), and white lanes through
+  a face.
+
+## Consequences
+
+- Adršpach: 310 faces; the training map shows black wall areas between the boulders, close to the real maps.
+- A steep embankment of a quarry or a road cutting is a face too; the candidate has to be checked like every other one.
+- The 1 m raster cannot show a wall narrower than about 2.5 m, so a narrow crack or a thin wall stays a line (201) or is
+  lost.

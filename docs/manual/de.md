@@ -717,10 +717,16 @@ Aus dem Geländemodell kommen weitere Kandidaten, die die Höhenlinien nicht zei
   freemapper sie als Block (204), ab 2 m als großen Block (205), ohne Drehung. Die Höhe wird bei 6 m abgeschnitten.
   Das Gelände einer Felsenstadt wie Adršpach (520 von 522 Kuppen im Fels, die meisten über 4 m) wird so zu einem
   Feld aus schwarzen Punkten, wie echte Karten es zeigen. Eine Felsfläche, die OpenStreetMap nicht hat, bleibt
-  bei braunen Kuppen. Die Felsnadel in Grundrissform (206) baut freemapper nicht.
-  Stehen drei oder mehr Blöcke so dicht, dass ihre Symbole die Mindestlücke von 0,15 mm unterschreiten (0,55 mm von
+  bei braunen Kuppen.   Stehen drei oder mehr Blöcke so dicht, dass ihre Symbole die Mindestlücke von 0,15 mm unterschreiten (0,55 mm von
   Mitte zu Mitte, bei 1:10 000 also 5,5 m), werden sie zu einem Blockhaufen (207) in ihrer Mitte zusammengefasst. Mit dem Geländemodell von heute passiert das
   fast nie: Die Kuppen stehen mindestens 5,4 m auseinander.
+- **Felswandflächen** (206): Ein zusammenhängender Fleck, der mindestens 70° steil ist, zeichnet freemapper als
+  schwarze Fläche in Grundrissform, wenn er mindestens 0,3 mm² groß und 0,25 mm breit ist (Mindestmaße von 206).
+  Das ist die Darstellung einer Felsenstadt in Sprintkarten wie der von Adršpach 2009. Eine Wandfläche, die über den
+  Rand des Geländemodells hinausreicht, fehlt, eine Lücke in ihrem Inneren (Spalte, ebener Absatz) wird gefüllt.
+  Eine Böschung oder Felswand, die an einer Wandfläche entlangläuft, entfällt, denn die Fläche zeigt sie schon.
+  Die Fläche ist ein Kandidat der Ebene „Gelände“. Der Grenzwinkel von 70° ist fest eingebaut. Auf Adršpach ergibt
+  er 310 Flächen. Bei 65° wären es mehr und größere, bei 75° nur echte Wände mit lückigen Rändern.
 - **Erdböschungen** (104) und ab 3 m Höhe **nicht begehbare Felswände** (201): ein schmaler, steiler
   Streifen, der den größten Teil seines Höhenunterschieds auf wenigen Metern abbaut. Ein gleichmäßiger Hang
   zählt nicht. Die Striche zeigen bergab.

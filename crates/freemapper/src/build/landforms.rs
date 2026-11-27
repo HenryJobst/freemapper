@@ -10,16 +10,17 @@ use crate::crs::ProjectedPoint;
 use crate::derive::landforms::{Landform, LandformKind};
 use crate::georef::{GeorefError, Georeferencing};
 use crate::omap::coord::MapCoord;
-use crate::omap::{MapObject, MapObjectKind, SymbolSet};
+use crate::omap::{MapObject, MapObjectKind, SymbolSet, closed_ring};
 use crate::sources::alkis::LandUse;
 
 /// ISSprOM symbols of the landform candidates (`derive/landforms.rs`).
-const LANDFORM_CODES: [(LandformKind, &str); 5] = [
+const LANDFORM_CODES: [(LandformKind, &str); 6] = [
     (LandformKind::Knoll, "109"),
     (LandformKind::ElongatedKnoll, "110"),
     (LandformKind::Depression, "111"),
     (LandformKind::Bank, "104"),
     (LandformKind::Cliff, "201"),
+    (LandformKind::RockFace, "206"),
 ];
 /// A knoll on bare rock is a rock tower or a block, not a knoll of the ground: a boulder (204) from 1 m
 /// on, a large boulder (205) from 2 m on (ISOM 2017-2). Bare rock is the symbol 214 of the
@@ -187,6 +188,19 @@ pub fn landform_objects(
                     .any(|f| geo::Euclidean.distance(p, f) <= CLIFF_BUILDING_M)
         })
     };
+    // The rock faces: a bank or cliff that runs along them is the edge of the black area.
+    let faces: Vec<Polygon<f64>> = forms
+        .iter()
+        .filter(|f| f.kind.is_area())
+        .map(|f| Polygon::new(f.points.clone().into(), vec![]))
+        .collect();
+    let in_a_face = |line: &geo_types::LineString<f64>| {
+        mostly(line, &|p| {
+            faces
+                .iter()
+                .any(|f| geo::Euclidean.distance(p, f) <= LANDFORM_CLEARANCE_M)
+        })
+    };
     let mut objects = Vec::new();
     // The boulders of bare rock, as (point, height, object): they may become clusters.
     let mut boulders: Vec<((f64, f64), f64, MapObject)> = Vec::new();
@@ -225,6 +239,8 @@ pub fn landform_objects(
         };
         let geometry: geo_types::Geometry<f64> = if form.kind.is_point() {
             geo_types::Point::from(form.points[0]).into()
+        } else if form.kind.is_area() {
+            geo_types::Polygon::new(form.points.clone().into(), vec![]).into()
         } else {
             geo_types::LineString::from(form.points.clone()).into()
         };
@@ -245,7 +261,7 @@ pub fn landform_objects(
             {
                 continue;
             }
-            geo_types::Geometry::LineString(l) if repeats(l) => continue,
+            geo_types::Geometry::LineString(l) if repeats(l) || in_a_face(l) => continue,
             _ => {}
         }
         let coords: Vec<MapCoord> = form
@@ -260,6 +276,12 @@ pub fn landform_objects(
                     .map(|c| MapCoord::new(c.x, c.y))
             })
             .collect::<Result<_, _>>()?;
+        let coords = if form.kind.is_area() {
+            let ring: Vec<(i32, i32)> = coords.iter().map(|c| (c.x, c.y)).collect();
+            closed_ring(&ring)
+        } else {
+            coords
+        };
         let kind = if form.kind.is_point() {
             // The rotation on paper: the direction of the knoll, turned by the grivation.
             let (e, n) = form.points[0];

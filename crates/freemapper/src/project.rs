@@ -29,8 +29,8 @@ use crate::derive::contours::{
     gaussian_smooth, generalize, terrain_inside,
 };
 use crate::derive::landforms::{
-    STEEP_SLOPE_RANGE_DEG, height_jumps, knolls_and_depressions, landforms_from_geojson,
-    landforms_to_geojson, steep_gradient,
+    DEFAULT_FACE_SLOPE_DEG, STEEP_SLOPE_RANGE_DEG, height_jumps, knolls_and_depressions,
+    landforms_from_geojson, landforms_to_geojson, rock_faces, steep_gradient,
 };
 use crate::derive::ndsm::{fill_from_dsm, rasterize, tree_cover, write_ndsm_png};
 use crate::derive::orthophoto::{build_orthophoto, build_orthophoto_from_image};
@@ -2480,6 +2480,7 @@ pub fn derive_project_cancellable(
         min_height_m,
         steep_gradient(project.steep_slope_deg),
     ));
+    landforms.extend(rock_faces(&dtm, scale, DEFAULT_FACE_SLOPE_DEG));
     let landforms_path = dir.join(LANDFORMS_RELPATH);
     write_inside(
         dir,

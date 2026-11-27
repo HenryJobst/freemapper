@@ -7,11 +7,11 @@
 //! a top, cliffs as height jumps) and omapmaker (drop measured across the steep part, the low
 //! side decides the ticks); the code is our own. Everything here is a candidate (spec §4.5).
 
-use geo::{Area as _, Contains as _, Simplify as _};
+use geo::{Area as _, Contains as _, Length as _, Simplify as _};
 
 use super::contours::{contour_lines, gaussian_smooth};
 use super::terrain::gradient;
-use crate::measure::{SymbolMm, SymbolScale};
+use crate::measure::{PaperMm2, SymbolMm, SymbolScale, metres_per_mm};
 use crate::raster::{GridSpec, Raster};
 
 /// Smoothing before knolls and depressions are looked for: DGM1 noise makes false tops.
@@ -79,6 +79,9 @@ pub enum LandformKind {
     Depression,
     Bank,
     Cliff,
+    /// A rock face seen from above: the plan shape of a gigantic boulder, a rock pillar or a
+    /// massive cliff (ISOM 206), an area.
+    RockFace,
 }
 
 impl LandformKind {
@@ -90,6 +93,7 @@ impl LandformKind {
             Self::Depression => "depression",
             Self::Bank => "bank",
             Self::Cliff => "cliff",
+            Self::RockFace => "rock-face",
         }
     }
 
@@ -100,6 +104,7 @@ impl LandformKind {
             Self::Depression,
             Self::Bank,
             Self::Cliff,
+            Self::RockFace,
         ]
         .into_iter()
         .find(|k| k.name() == name)
@@ -109,10 +114,15 @@ impl LandformKind {
     pub fn is_point(self) -> bool {
         matches!(self, Self::Knoll | Self::ElongatedKnoll | Self::Depression)
     }
+
+    /// An area symbol, whose points are a closed ring.
+    pub fn is_area(self) -> bool {
+        self == Self::RockFace
+    }
 }
 
 /// One landform candidate in the map's CRS. A point kind has one point, a line kind runs with
-/// its lower side on the right.
+/// its lower side on the right, an area kind is a closed ring.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Landform {
     pub kind: LandformKind,
@@ -625,6 +635,64 @@ fn centre_line(cells: &[usize], grid: &GridSpec, min_length_m: f64) -> Option<Ve
     (line.0.len() >= 2).then(|| line.0.iter().map(|c| (c.x, c.y)).collect())
 }
 
+/// The default slope from which the ground is a rock face (degrees).
+pub const DEFAULT_FACE_SLOPE_DEG: f64 = 70.0;
+/// ISOM 2017-2, 206: the minimum area (mm² on the map) and the minimum width (mm).
+const MIN_FACE_MM2: f64 = 0.3;
+const MIN_FACE_WIDTH_MM: f64 = 0.25;
+const FACE_SIMPLIFY_M: f64 = 0.5;
+
+/// The rock faces: patches of the DTM at least `face_slope_deg` steep, traced as rings at the
+/// slope contour, at least 0.3 mm² and 0.25 mm wide on the map (ISOM 206). A patch that lies
+/// partly off the raster or beside cells without data is left out, and a ring inside a patch (a
+/// hollow in a wall) is filled.
+pub fn rock_faces(dtm: &Raster<f32>, scale: SymbolScale, face_slope_deg: f64) -> Vec<Landform> {
+    let grid = dtm.grid;
+    let (w, h) = (grid.width as usize, grid.height as usize);
+    let mut slope = Raster::filled(grid, f32::NAN);
+    for y in 1..h.saturating_sub(1) {
+        for x in 1..w.saturating_sub(1) {
+            if let Some((de, dn)) = gradient(dtm, x as u32, y as u32) {
+                slope.set(x as u32, y as u32, de.hypot(dn).atan().to_degrees() as f32);
+            }
+        }
+    }
+    let denominator = scale.scale_denominator();
+    let min_area_m2 = PaperMm2(MIN_FACE_MM2).square_metres(denominator);
+    let min_width_m = metres_per_mm(denominator) * MIN_FACE_WIDTH_MM;
+    // The contour rings of `slope` at the face slope; the multiples of it below are no rings of
+    // a face.
+    let mut faces = Vec::new();
+    for line in contour_lines(&slope, face_slope_deg) {
+        if line.height != face_slope_deg || line.points.first() != line.points.last() {
+            continue;
+        }
+        let ring = geo_types::LineString::from(line.points);
+        faces.push((geo_types::Polygon::new(ring.clone(), vec![]), ring));
+    }
+    faces
+        .into_iter()
+        .filter_map(|(polygon, ring)| {
+            // The rings of the contours run with the steeper ground on the left, so the area of a
+            // face is positive and that of a hollow inside one negative.
+            let area = polygon.signed_area();
+            let perimeter = geo::Euclidean.length(&ring);
+            // The width of a strip is twice its area over its perimeter.
+            let wide_enough = 2.0 * area >= min_width_m * perimeter;
+            (area >= min_area_m2 && wide_enough).then(|| {
+                let ring = ring.simplify(FACE_SIMPLIFY_M);
+                Landform {
+                    kind: LandformKind::RockFace,
+                    points: ring.0.iter().map(|c| (c.x, c.y)).collect(),
+                    rotation_deg: 0.0,
+                    height_m: 0.0,
+                }
+            })
+        })
+        .filter(|f| f.points.len() >= 4)
+        .collect()
+}
+
 /// The landforms as GeoJSON in the map's CRS, with `kind`, `height` and `rotation` properties.
 pub fn landforms_to_geojson(forms: &[Landform]) -> String {
     let features: Vec<serde_json::Value> = forms
@@ -632,6 +700,11 @@ pub fn landforms_to_geojson(forms: &[Landform]) -> String {
         .map(|f| {
             let geometry = if f.kind.is_point() {
                 serde_json::json!({ "type": "Point", "coordinates": [f.points[0].0, f.points[0].1] })
+            } else if f.kind.is_area() {
+                serde_json::json!({
+                    "type": "Polygon",
+                    "coordinates": [f.points.iter().map(|(e, n)| [*e, *n]).collect::<Vec<_>>()]
+                })
             } else {
                 serde_json::json!({
                     "type": "LineString",
@@ -673,6 +746,12 @@ pub fn landforms_from_geojson(text: &str) -> Result<Vec<Landform>, LandformError
                     .ok_or_else(|| LandformError(format!("feature without {key}")))
             };
             let coordinates = &f["geometry"]["coordinates"];
+            // An area is a polygon: its outer ring.
+            let coordinates = if kind.is_area() {
+                &coordinates[0]
+            } else {
+                coordinates
+            };
             let pair = |c: &serde_json::Value| Some((c.get(0)?.as_f64()?, c.get(1)?.as_f64()?));
             let points = if kind.is_point() {
                 pair(coordinates).map(|p| vec![p])
@@ -680,7 +759,7 @@ pub fn landforms_from_geojson(text: &str) -> Result<Vec<Landform>, LandformError
                 coordinates
                     .as_array()
                     .and_then(|cs| cs.iter().map(pair).collect::<Option<Vec<_>>>())
-                    .filter(|ps| ps.len() >= 2)
+                    .filter(|ps| ps.len() >= if kind.is_area() { 4 } else { 2 })
             }
             .ok_or_else(|| LandformError("invalid coordinates".to_string()))?;
             Ok(Landform {
@@ -1006,6 +1085,120 @@ mod tests {
             forms
         );
         assert!(landforms_from_geojson(r#"{"features":[{"properties":{"kind":"x"}}]}"#).is_err());
+    }
+
+    fn forest() -> SymbolScale {
+        SymbolScale::new(MapKind::Forest, 10_000)
+    }
+
+    /// A DTM of 80 × 80 m with 1 m pixels, centred at (40, 40): a crater whose wall between the
+    /// radii `inner` and `outer` is `slope_deg` steep, flat inside and out.
+    fn crater(inner: f64, outer: f64, slope_deg: f64) -> Raster<f32> {
+        let rise = slope_deg.to_radians().tan();
+        dtm(80, |e, n| {
+            let r = (e - 40.0).hypot(n - 40.0);
+            rise * (r.clamp(inner, outer) - inner)
+        })
+    }
+
+    #[test]
+    fn a_steep_wall_is_a_rock_face_from_the_face_slope_on() {
+        let terrain = crater(0.0, 15.0, 75.0);
+        let faces = rock_faces(&terrain, forest(), 70.0);
+        assert_eq!(faces.len(), 1, "{faces:?}");
+        let face = &faces[0];
+        assert_eq!(face.kind, LandformKind::RockFace);
+        assert_eq!(face.points.first(), face.points.last());
+        let area = geo_types::Polygon::new(face.points.clone().into(), vec![]).unsigned_area();
+        assert!(
+            (area - std::f64::consts::PI * 15.0 * 15.0).abs() < 80.0,
+            "{area}"
+        );
+        assert!(rock_faces(&terrain, forest(), 80.0).is_empty());
+        assert!(rock_faces(&crater(0.0, 15.0, 65.0), forest(), 70.0).is_empty());
+    }
+
+    #[test]
+    fn a_face_below_the_minimum_area_or_width_is_left_out() {
+        // 0.3 mm² at 1:10 000 are 30 m²: a disc of 3 m radius has 28, one of 5 m has 79.
+        assert!(rock_faces(&crater(0.0, 3.0, 75.0), forest(), 70.0).is_empty());
+        assert_eq!(rock_faces(&crater(0.0, 5.0, 75.0), forest(), 70.0).len(), 1);
+        // The same disc is big enough on a sprint map at 1:4000 (4.8 m²).
+        assert_eq!(rock_faces(&crater(0.0, 3.0, 75.0), sprint(), 70.0).len(), 1);
+        // A ring 1.5 m wide is under 0.25 mm (2.5 m) wide, however long.
+        assert!(rock_faces(&crater(18.0, 19.5, 75.0), forest(), 70.0).is_empty());
+    }
+
+    #[test]
+    fn a_hollow_inside_a_rock_face_is_filled() {
+        let terrain = crater(5.0, 15.0, 75.0);
+        let faces = rock_faces(&terrain, forest(), 70.0);
+        assert_eq!(faces.len(), 1, "{faces:?}");
+        let area = geo_types::Polygon::new(faces[0].points.clone().into(), vec![]).unsigned_area();
+        assert!(area > std::f64::consts::PI * 14.0 * 14.0, "{area}");
+    }
+
+    /// A long diagonal wall is one face of its own size.
+    #[test]
+    fn a_long_diagonal_wall_is_a_face() {
+        let rise = 75f64.to_radians().tan();
+        let terrain = dtm(80, |e, n| {
+            let along = (e + n) / 2f64.sqrt() - 56.0;
+            let across = (e - n).abs() / 2f64.sqrt();
+            if across < 14.0 && (0.0..6.0).contains(&along) {
+                rise * along
+            } else {
+                0.0
+            }
+        });
+        let faces = rock_faces(&terrain, forest(), 70.0);
+        assert!(!faces.is_empty());
+        let area: f64 = faces
+            .iter()
+            .map(|f| geo_types::Polygon::new(f.points.clone().into(), vec![]).unsigned_area())
+            .sum();
+        // The strip is 28 m long and 6 m wide.
+        assert!((area - 28.0 * 6.0).abs() < 60.0, "{area}");
+    }
+
+    /// A wall is a face when it is as wide as the norm wants for the scale: the same strip is one at
+    /// 1:10 000 (2.5 m) and none at 1:20 000 (5 m).
+    #[test]
+    fn a_strip_must_be_as_wide_as_the_norm_wants() {
+        let rise = 75f64.to_radians().tan();
+        let terrain = dtm(80, |e, n| {
+            if (15.0..65.0).contains(&e) && (30.0..33.0).contains(&n) {
+                rise * (n - 30.0)
+            } else {
+                0.0
+            }
+        });
+        let faces = rock_faces(&terrain, forest(), 70.0);
+        assert_eq!(faces.len(), 1);
+        let coarse = SymbolScale::new(MapKind::Forest, 20_000);
+        assert!(rock_faces(&terrain, coarse, 70.0).is_empty());
+    }
+
+    #[test]
+    fn a_face_at_the_edge_of_the_raster_is_left_out() {
+        let terrain = dtm(30, |e, n| {
+            3.7 * (30.0 - (e - 30.0).hypot(n - 30.0)).max(0.0)
+        });
+        assert!(rock_faces(&terrain, forest(), 70.0).is_empty());
+    }
+
+    #[test]
+    fn geojson_round_trip_of_an_area() {
+        let forms = vec![Landform {
+            kind: LandformKind::RockFace,
+            points: vec![(0.0, 0.0), (8.0, 0.0), (8.0, 6.0), (0.0, 0.0)],
+            rotation_deg: 0.0,
+            height_m: 0.0,
+        }];
+        assert_eq!(
+            landforms_from_geojson(&landforms_to_geojson(&forms)).unwrap(),
+            forms
+        );
     }
 
     #[test]

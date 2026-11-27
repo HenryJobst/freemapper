@@ -687,11 +687,15 @@ From the terrain model come further candidates the contours miss:
   `natural=bare_rock`, symbol 214) is a rock tower or a block, not a knoll of the ground. From 1 m high freemapper
   draws it as a boulder (204), from 2 m as a large boulder (205), without rotation. The height is cut off at 6 m.
   The terrain of a rock town such as Adršpach (520 of 522 knolls on rock, most above 4 m) becomes a field of black
-  dots, as real maps show it. A rock area that OpenStreetMap lacks keeps its brown knolls. The rock pillar in plan
-  shape (206) is not built by freemapper.
-  When three or more boulders stand so close that their symbols would leave less than the minimum gap of 0.15 mm
+  dots, as real maps show it. A rock area that OpenStreetMap lacks keeps its brown knolls.   When three or more boulders stand so close that their symbols would leave less than the minimum gap of 0.15 mm
   (0.55 mm centre to centre, 5.5 m at 1:10 000), they are merged into one boulder cluster (207) at their centre. With today's terrain model this hardly ever
   happens: the knolls stand at least 5.4 m apart.
+- **Rock face areas** (206): a connected patch at least 70° steep is drawn as a black area in plan shape when it is at
+  least 0.3 mm² and 0.25 mm wide (the minimum sizes of 206). Sprint maps of a rock town, such as the Adršpach map of 2009,
+  draw it this way. A face that reaches past the edge of the terrain model is missing, and a gap inside one (a crack,
+  a level ledge) is filled. A bank or cliff that runs along a face is dropped, because the area shows it already. The
+  area is a candidate of the terrain layer. The limit of 70° is built in. On Adršpach it gives 310 areas. At 65° there
+  would be more and larger ones, at 75° only real walls with ragged edges.
 - **Earth banks** (104) and, from 3 m high, **impassable cliffs** (201): a narrow, steep strip that takes
   most of its height difference within a few metres. A plain slope does not count. The ticks point down.
 

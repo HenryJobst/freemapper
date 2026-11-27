@@ -237,6 +237,7 @@ Keep an ADR between 10 and 30 lines. Write it in English, like all technical doc
 | [0189](0189-permit-sources-as-manifest-data.md) | Permit sources as manifest data | Accepted | 2026-11-23 |
 | [0190](0190-poland-archaeological-register-in-the-permit-notes.md) | The register of archaeological monuments of the NID in the Polish permit notes | Accepted, extends ADR 0184 | 2026-11-23 |
 | [0191](0191-poland-monuments-of-history-in-the-permit-notes.md) | The Pomniki historii in the Polish permit notes | Accepted, extends ADR 0190 | 2026-11-23 |
+| [0200](0200-rock-faces-in-plan-shape.md) | Steep patches are rock faces in plan shape | Accepted, extends ADR 0198 and ADR 0199 | 2026-11-27 |
 | [0199](0199-knolls-on-bare-rock-are-boulders.md) | A knoll on bare rock is a boulder | Accepted, extends ADR 0104 and ADR 0198 | 2026-11-26 |
 | [0198](0198-steepness-threshold-of-banks-and-cliffs.md) | The steepness threshold of banks and cliffs is a setting | Accepted, extends ADR 0134 | 2026-11-26 |
 | [0197](0197-czechia-one-national-adapter.md) | Czechia: one national adapter with the rasters and the cadastre of ČÚZK | Accepted, follows ADR 0164 | 2026-11-26 |

@@ -70,6 +70,7 @@ traditional maps of the German Alpine Club (<https://www.alpenverein.de/verband/
 | Smallest bend 0.25 mm, mouth of a re-entrant 0.5 mm, small details removed | `derive/contours.rs` (`generalize`, `MIN_LENGTH_MM`, `MIN_RING_AREA_MM2`) |
 | Minimum gap 0.15 mm between lines of one colour, 0.25 mm between impassable cliffs | `build/line_cuts.rs`, `build/cliffs.rs`, ADR 0063, 0066, 0068 |
 | Contours and cliffs overlap and interplay | `build/cliffs.rs`, `build/training/` |
+| Gigantic boulder, rock pillar, massive cliff in plan shape (206): 0.3 mm², 0.25 mm wide | `derive/landforms.rs` (`rock_faces`), ADR 0200 |
 | Knoll, depression and elongated knoll minimum sizes | `derive/landforms.rs`, `build/landforms.rs` |
 | Index contour every fifth contour | `build/contours.rs`, ADR 0116 |
 | Form lines used sparingly | not drawn by freemapper |
