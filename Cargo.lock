@@ -741,6 +741,7 @@ dependencies = [
 name = "freemapper"
 version = "0.28.0"
 dependencies = [
+ "base64",
  "chrono",
  "contour",
  "dirs",
